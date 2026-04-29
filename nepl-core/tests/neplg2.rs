@@ -370,18 +370,21 @@ fn must_hmk <(Result<HashMap<ModKey,i32,ModHasher>, Diag>)*>HashMap<ModKey,i32,M
 fn main <()*>i32> ():
     let hms <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hms <HashMap<str,i32,DefaultHash32>> must_hms insert hms "key" 7;
-    let a <i32> match get hms "key":
+    let a <i32> match get &hms "key":
         Option::Some v:
             v
         Option::None:
             0
+    free hms;
     let hmk <HashMap<ModKey,i32,ModHasher>> must_hmk new ModHasher;
     let hmk <HashMap<ModKey,i32,ModHasher>> must_hmk insert hmk (ModKey 10) 3;
-    match get hmk (ModKey 10):
+    let b <i32> match get &hmk (ModKey 10):
         Option::Some v:
-            add a v
+            v
         Option::None:
-            a
+            0
+    free hmk;
+    add a b
 "#;
     let loaded = load_inline_with_stdlib(src);
     let ll = nepl_core::codegen_llvm::emit_ll_from_module_for_target_with_source_map(
@@ -1887,11 +1890,13 @@ fn must_hmp <(Result<HashMap<Point,i32,DefaultHash32>, Diag>)*>HashMap<Point,i32
 fn main <()*>i32> ():
     let map0 <HashMap<Point,i32,DefaultHash32>> must_hmp new DefaultHash32;
     let map1 <HashMap<Point,i32,DefaultHash32>> must_hmp insert map0 (Point 10 20) 99;
-    match get map1 (Point 10 20):
+    let got <i32> match get &map1 (Point 10 20):
         Option::Some n:
             n
         Option::None:
             0
+    free map1;
+    got
 "#;
     assert_eq!(run_main_wasi_i32(src), 99);
 }

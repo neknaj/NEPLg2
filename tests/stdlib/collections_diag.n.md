@@ -27,7 +27,8 @@ fn main <()*>i32> ():
     let hm0 <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
     let hm1 <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm0 1 10;
     match remove hm1 99:
-        Result::Ok _h:
+        Result::Ok h:
+            free h;
             set checks checks_push checks Result<(),str>::Err "expected KeyNotFound";
         Result::Err d:
             set checks checks_push checks check_str_eq "KeyNotFound" diag_std_error_kind_str d;
@@ -59,7 +60,8 @@ fn main <()*>i32> ():
     let hs0 <HashSet<i32,DefaultHash32>> unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
     let hs1 <HashSet<i32,DefaultHash32>> unwrap_ok<HashSet<i32,DefaultHash32>, Diag> insert hs0 1;
     match remove hs1 99:
-        Result::Ok _h:
+        Result::Ok h:
+            free h;
             set checks checks_push checks Result<(),str>::Err "expected KeyNotFound";
         Result::Err d:
             set checks checks_push checks check_str_eq "KeyNotFound" diag_std_error_kind_str d;

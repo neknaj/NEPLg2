@@ -18,21 +18,28 @@ neplg2:test
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/hash" as *
-#import "std/test" as *
+#import "core/test" as *
+
+fn hashmap_insert_range <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>HashMap<i32,i32,DefaultHash32>> (hm, i, end):
+    if:
+        ge i end
+        then:
+            hm
+        else:
+            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm i mul i 10
+            hashmap_insert_range next add i 1 end
 
 fn main <()*>i32> ():
-    let mut hm <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
-    let mut i <i32> 0;
-    while lt i 40:
-        do:
-            set hm unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm i mul i 10;
-            set i add i 1;
-    match get hm 39:
+    let hm0 <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
+    let hm <HashMap<i32,i32,DefaultHash32>> hashmap_insert_range hm0 0 40;
+    let ok <i32> match get &hm 39:
         Option::Some v:
             assert_eq_i32 390 v;
             0
         Option::None:
             1
+    free hm;
+    ok
 ```
 
 ## hashset_grows_past_initial_capacity
@@ -78,21 +85,28 @@ neplg2:test
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/hash" as *
-#import "std/test" as *
+#import "core/test" as *
+
+fn hashmap_insert_many <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>HashMap<i32,i32,DefaultHash32>> (hm, i, end):
+    if:
+        ge i end
+        then:
+            hm
+        else:
+            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm i add i 1
+            hashmap_insert_many next add i 1 end
 
 fn main <()*>i32> ():
-    let mut hm <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> with_capacity DefaultHash32 32;
-    let mut i <i32> 0;
-    while lt i 160:
-        do:
-            set hm unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm i add i 1;
-            set i add i 1;
-    match get hm 159:
+    let hm0 <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> with_capacity DefaultHash32 32;
+    let hm <HashMap<i32,i32,DefaultHash32>> hashmap_insert_many hm0 0 160;
+    let ok <i32> match get &hm 159:
         Option::Some v:
             assert_eq_i32 160 v;
             0
         Option::None:
             1
+    free hm;
+    ok
 ```
 
 ## hashset_many_inserts_for_runtime_observation
@@ -137,37 +151,50 @@ neplg2:test
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/hash" as *
-#import "std/test" as *
+#import "core/test" as *
+
+fn hashmap_tombstone_insert_range <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>HashMap<i32,i32,DefaultHash32>> (hm, i, end):
+    if:
+        ge i end
+        then:
+            hm
+        else:
+            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm i add i 100
+            hashmap_tombstone_insert_range next add i 1 end
+
+fn hashmap_tombstone_remove_range <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>HashMap<i32,i32,DefaultHash32>> (hm, i, end):
+    if:
+        ge i end
+        then:
+            hm
+        else:
+            let next <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> remove hm i
+            hashmap_tombstone_remove_range next add i 1 end
 
 fn hashmap_after_tombstones <()*>HashMap<i32,i32,DefaultHash32>> ():
-    let mut hm <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> with_capacity DefaultHash32 8;
-    let mut i <i32> 0;
-    while lt i 6:
-        do:
-            set hm unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm i add i 100;
-            set i add i 1;
-    let mut r <i32> 0;
-    while lt r 5:
-        do:
-            set hm unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> remove hm r;
-            set r add r 1;
-    set hm unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm 100 1000;
-    hm
+    let hm0 <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> with_capacity DefaultHash32 8;
+    let hm1 <HashMap<i32,i32,DefaultHash32>> hashmap_tombstone_insert_range hm0 0 6;
+    let hm2 <HashMap<i32,i32,DefaultHash32>> hashmap_tombstone_remove_range hm1 0 5;
+    unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> insert hm2 100 1000
 
 fn main <()*>i32> ():
     let hm5 <HashMap<i32,i32,DefaultHash32>> hashmap_after_tombstones;
-    match get hm5 5:
+    let ok <i32> match get &hm5 5:
         Option::Some v5:
             assert_eq_i32 105 v5;
             let hm100 <HashMap<i32,i32,DefaultHash32>> hashmap_after_tombstones;
-            match get hm100 100:
+            let ok100 <i32> match get &hm100 100:
                 Option::Some v100:
                     assert_eq_i32 1000 v100;
                     0
                 Option::None:
                     1
+            free hm100;
+            ok100
         Option::None:
             2
+    free hm5;
+    ok
 ```
 
 ## hashset_rehashes_tombstones

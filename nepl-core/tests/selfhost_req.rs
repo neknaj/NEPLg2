@@ -147,11 +147,13 @@ fn main <()*>i32> ():
     let map1 <HashMap<str,i32,DefaultHash32>> must_hms insert map0 "foo" 10;
     let map <HashMap<str,i32,DefaultHash32>> must_hms insert map1 "bar" 20;
     
-    match get map "foo":
+    let got <i32> match get &map "foo":
         Option::Some v:
             v
         Option::None:
             1
+    free map;
+    got
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 10);
@@ -240,11 +242,13 @@ fn must_hmp <(Result<HashMap<Point,str,DefaultHash32>, Diag>)*>HashMap<Point,str
 fn main <()*>i32> ():
     let map0 <HashMap<Point,str,DefaultHash32>> must_hmp new DefaultHash32;
     let map1 <HashMap<Point,str,DefaultHash32>> must_hmp insert map0 (Point 10 20) "Start";
-    match get map1 (Point 10 20):
+    let got <i32> match get &map1 (Point 10 20):
         Option::Some name:
             len name
         Option::None:
             0
+    free map1;
+    got
 "#;
     let v = run_main_wasi_i32(src);
     assert_eq!(v, 5);

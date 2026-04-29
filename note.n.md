@@ -1,3 +1,44 @@
+# 2026-04-30 メモ (ISS-20260429T120339805Z HashMap owner contract)
+
+- [同期]:
+  - 作業開始時に `origin/main` を fetch し、`1bff364` の Resource owner checker 修正を fast-forward で取り込んだ。
+  - 現在の作業 branch は `stdlib/hashmap-owner-contract`。
+- [原因]:
+  - 旧 `HashMap` は raw header pointer と raw entries pointer を `i32` layout で保持し、bucket state も `0/1/2` sentinel だった。
+  - Resource IR が raw owner を厳密に追跡するようになったことで、read API に渡したあと caller が所有者を閉じない fixture と、raw header/entries を stdlib 側で直接管理する設計が owner obligation として表面化した。
+  - `tests/stdlib/hash_collection_rehash.n.md` では、direct assertion に `std/test::assert_eq_i32` を使って `TestAssertion` を捨てており、これは core bug ではなく test API の誤用だった。
+- [修正]:
+  - `HashMapBucketState` と `HashMapInsertSlotState` を追加し、bucket state を enum + `match` で扱うようにした。
+  - backing storage を `HashMapStorage<K,V>` にまとめ、`Vec<HashMapBucketState>` / `Vec<Option<K>>` / `Vec<Option<V>>` で全 slot を初期化済み owner として管理するようにした。
+  - `get` / `contains` / `len` は `&HashMap` を取る read API にし、観測後に caller が `free` する契約へ統一した。
+  - HashMap 関連の Rust tests と `.n.md` fixtures を `&map` read + `free` へ更新した。
+  - HashMap rehash doctest は helper-return の自然な形を維持し、direct assertion import を `core/test` に修正した。
+- [issue]:
+  - `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` を fixed/resolved に更新した。
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` に HashMap 部分完了と HashSet 等の残件を追記した。
+  - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に `std/test` assertion discard subcase を追記した。
+  - `ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF` を追加し、`Diag` が `Copy` なのに `str` owner field を持つ設計問題を切り出した。
+  - 一度追加した `ISS-20260429T185230794Z-RESOURCE-OWNER-CHECKER-LOSES-NESTED--28A8E792` は、再調査で core bug ではないと分かったため `wontfix/resolved` に更新した。
+- [検証]:
+  - `trunk build`: pass
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture`: 99 passed
+  - `cargo test -p nepl-core --test overload -- --nocapture`: 8 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 40 passed
+  - `cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 llvm_hashmap_string_key_preserves_explicit_hasher_type_args -- --nocapture`: pass
+  - `node nodesrc/tests.js -i stdlib/tests/hashmap.n.md -i stdlib/tests/hashmap_str.n.md --no-tree -o tmp/hashmap-stdlib-final2.json -j 1 --dist web/dist`: 3 passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 1 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 3 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 5 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/collections_diag.n.md -n 1 --dist web/dist`: fail。`Diag.message` owner leak のため新 issue へ分離。
+  - `node nodesrc/tests.js -i tests/stdlib/hash_collection_rehash.n.md --no-tree -o tmp/hash-collection-rehash-final.json -j 1 --dist web/dist`: 3 passed / 3 failed。失敗は HashSet owner contract 残件。
+  - `cargo test -p nepl-core --test selfhost_req -- --nocapture`: 3 passed / 3 failed。失敗は bytebuf/string/file IO owner 残件で、HashMap 系 2 件は pass。
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+  - `cargo fmt --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T174311311Z aggregate raw cell owner root)
 
 - [同期]:

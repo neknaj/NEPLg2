@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T18:36:19.684Z",
+  "generated_at": "2026-04-29T19:10:02.819Z",
   "counts": {
-    "total": 396,
+    "total": 398,
     "open": 14,
-    "resolved": 382,
+    "resolved": 384,
     "by_area": {
       "core": {
-        "total": 184,
+        "total": 185,
         "open": 5,
-        "resolved": 179
+        "resolved": 180
       },
       "stdlib": {
-        "total": 119,
+        "total": 120,
         "open": 7,
-        "resolved": 112
+        "resolved": 113
       },
       "TEST": {
         "total": 6,
@@ -200,21 +200,6 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
-      "id": "ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB",
-      "title": "Fallible owning collection updates lose input owners on allocation failure",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "stdlib/alloc/collections/list.nepl, stdlib/alloc/collections/hashmap.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB.md"
-    },
-    {
       "id": "ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749",
       "title": "collection storage states use numeric/null sentinels instead of enum owner state",
       "area": "stdlib",
@@ -223,11 +208,26 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-04-29",
+      "updated": "2026-04-30",
       "target": "stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl, stdlib/alloc/collections/**",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
+    },
+    {
+      "id": "ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF",
+      "title": "Diag is Copy while carrying owned string fields and lacks a consumption contract",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/diag/error.nepl, tests/stdlib/collections_diag.n.md, stdlib/alloc/collections/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -238,7 +238,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-04-29",
+      "updated": "2026-04-30",
       "target": "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl",
       "legacy_id": "",
       "source": "",
@@ -2885,6 +2885,21 @@
       "file": "items/ISS-20260429T174311311Z-RESOURCE-OWNER-CHECKER-LOSES-AGGREGA-8E245CC4.md"
     },
     {
+      "id": "ISS-20260429T185230794Z-RESOURCE-OWNER-CHECKER-LOSES-NESTED--28A8E792",
+      "title": "Resource owner checker loses nested collection storage owner from aggregate helper returns",
+      "area": "core",
+      "status": "wontfix",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource, tests/stdlib/hash_collection_rehash.n.md, stdlib/alloc/collections/hashmap.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T185230794Z-RESOURCE-OWNER-CHECKER-LOSES-NESTED--28A8E792.md"
+    },
+    {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
       "title": "getting_started tutorial needs full rewrite for current NEPLg2",
       "area": "doc",
@@ -4038,6 +4053,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T115652973Z-STDIO-READ-HELPERS-TRIGGER-RAWMEMORY-52A45658.md"
+    },
+    {
+      "id": "ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB",
+      "title": "Fallible owning collection updates lose input owners on allocation failure",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/list.nepl, stdlib/alloc/collections/hashmap.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB.md"
     },
     {
       "id": "ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131",

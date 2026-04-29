@@ -185,6 +185,7 @@ fn grouped_constructor_argument_can_flow_into_generic_new_call() {
 
 fn main <()*>i32> ():
     let hm <HashMap<i32, i32, DefaultHash32>> unwrap_ok new DefaultHash32
+    free hm
     0
 "#;
     typecheck_src_with_target(src, CompileTarget::Wasm);
@@ -205,11 +206,13 @@ fn more_specific_get_overload_beats_generic_catchall() {
 
 fn main <()*>i32> ():
     let hm <HashMap<i32, i32, DefaultHash32>> unwrap_ok new DefaultHash32
-    match get hm 10:
+    let got <i32> match get &hm 10:
         Option::Some v:
             v
         Option::None:
             0
+    free hm
+    got
 "#;
     typecheck_src_with_target(src, CompileTarget::Wasm);
 }
@@ -235,12 +238,14 @@ fn must_hm <(Result<HashMap<i32, i32, DefaultHash32>, Diag>)*>HashMap<i32, i32, 
 
 fn main <()*>i32> ():
     let hm <HashMap<i32, i32, DefaultHash32>> must_hm new DefaultHash32
-    let got <Option<i32>> get hm 10
-    match got:
+    let got <Option<i32>> get &hm 10
+    let out <i32> match got:
         Option::Some v:
             v
         Option::None:
             0
+    free hm
+    out
 "#;
     typecheck_src_with_target(src, CompileTarget::Wasm);
 }

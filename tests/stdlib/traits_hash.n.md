@@ -208,27 +208,30 @@ fn main <()*>i32> ():
     let mut checks checks_new;
     let hm <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
     let hm <HashMap<i32,i32,DefaultHash32>> must_hm insert hm 10 99;
-    match get hm 10:
+    match get &hm 10:
         Option::Some v:
             set checks checks_push checks check_eq_i32 99 v
         Option::None:
             set checks checks_push checks Result<(),str>::Err "hashmap get did not return inserted value";
+    free hm;
 
     let hms <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hms <HashMap<str,i32,DefaultHash32>> must_hms insert hms "key" 7;
-    match get hms "key":
+    match get &hms "key":
         Option::Some v:
             set checks checks_push checks check_eq_i32 7 v
         Option::None:
             set checks checks_push checks Result<(),str>::Err "string hashmap get did not return inserted value";
+    free hms;
 
     let hmk <HashMap<ModKey,i32,ModHasher>> must_hmk new ModHasher;
     let hmk <HashMap<ModKey,i32,ModHasher>> must_hmk insert hmk (ModKey 10) 3;
-    match get hmk (ModKey 10):
+    match get &hmk (ModKey 10):
         Option::Some v:
             set checks checks_push checks check_eq_i32 3 v
         Option::None:
             set checks checks_push checks Result<(),str>::Err "custom key hashmap get did not return inserted value";
+    free hmk;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

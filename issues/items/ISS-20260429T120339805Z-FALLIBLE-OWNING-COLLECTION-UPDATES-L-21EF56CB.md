@@ -2,12 +2,12 @@
 id: ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB
 title: "Fallible owning collection updates lose input owners on allocation failure"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
-updated: 2026-04-29
+updated: 2026-04-30
 target: "stdlib/alloc/collections/list.nepl, stdlib/alloc/collections/hashmap.nepl"
 ---
 
@@ -78,3 +78,27 @@ Run focused List/HashMap neplg2 tests and Resource IR owner regressions after th
 `insert...` の `hdr.StorageOffset(8).Deref` owner may leak は、core Resource owner checker が raw address alias graph と owner table を別々に merge し、さらに projected alias copy 時に基底 pointer alias を落としていた問題だった。`ISS-20260429T174311311Z-RESOURCE-OWNER-CHECKER-LOSES-AGGREGA-8E245CC4` で修正済み。
 
 この修正後、`cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture` は `insert...` 内部では失敗しなくなり、残件は `main` 側の `map1` header / entries owner leak に絞られた。これは HashMap を `get` / `contains` / `len` などの read API に渡した後、所有者を返すのか明示的に `free` するのかが fixture/API 契約として閉じていない問題として扱う。
+
+## 2026-04-30 修正完了
+
+HashMap の残件を、raw header / raw entries を直接所有する旧設計から、typed owner を持つ storage 設計へ移行して解消した。
+
+修正内容:
+
+- `HashMapBucketState` / `HashMapInsertSlotState` を導入し、bucket state を 0/1/2 の numeric sentinel ではなく enum + `match` で扱うようにした。
+- backing storage を raw header + raw entries から `HashMapStorage<K,V>` に変更し、`states: Vec<HashMapBucketState>`、`keys: Vec<Option<K>>`、`values: Vec<Option<V>>` の owner を明示的に保持するようにした。
+- `new` / `with_capacity` / `insert` / `remove` / `rehash` は全 slot を初期化済み Option / enum として扱い、確保失敗 path では確保済み Vec を free してから `Err(Diag)` を返す。
+- `get` / `contains` / `len` は `&HashMap` を受け取る read API にし、caller が所有者を保持したまま read 後に `free` できる契約へ統一した。
+- HashMap 系の Rust tests と `.n.md` fixtures は read API に `&map` を渡し、観測後に `free` するように更新した。
+
+検証:
+
+- `cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 llvm_hashmap_string_key_preserves_explicit_hasher_type_args -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 -- --nocapture`: pass
+- `cargo test -p nepl-core --test overload -- --nocapture`: pass
+- `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 1 --dist web/dist`: pass
+- `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 3 --dist web/dist`: pass
+- `node nodesrc/run_doctest.js -i tests/stdlib/hash_collection_rehash.n.md -n 5 --dist web/dist`: pass
+
+残る HashSet / Queue / RingBuffer などの collection owner 問題は、この issue ではなく既存の collection state / raw-memory-backed API issue で扱う。
