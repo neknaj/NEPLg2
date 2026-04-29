@@ -76,7 +76,7 @@ fn llvm_codegen_error(
     code: DiagnosticCode,
 ) -> LlvmCodegenError {
     LlvmCodegenError::CodegenDiagnostic {
-        diagnostic: Diagnostic::error(message.into(), span).with_code(code),
+        diagnostic: Diagnostic::error_with_code(code, message, span),
     }
 }
 

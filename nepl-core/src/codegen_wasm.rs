@@ -52,7 +52,7 @@ pub struct CodegenResult {
 type LowerResult<T> = Result<T, Diagnostic>;
 
 fn codegen_error(message: impl Into<String>, span: Span, code: DiagnosticCode) -> Diagnostic {
-    Diagnostic::error(message.into(), span).with_code(code)
+    Diagnostic::error_with_code(code, message, span)
 }
 
 #[derive(Debug, Clone)]

@@ -24953,3 +24953,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の lexer 代表移行を進めた。
+
+# 2026-04-29 メモ (ISS-20260429T040748194Z backend diagnostic code-first)
+
+- [原因]:
+  - `codegen_wasm.rs` / `codegen_llvm.rs` の backend diagnostic helper が `Diagnostic::error(...).with_code(...)` で code を後付けしていた。
+  - backend は helper 経由で `DiagnosticCode::Backend(...)` を集約しているため、この helper が後付けのままだと WASM / LLVM backend boundary 全体で Stage D1 の code-first 方針が徹底されない。
+- [修正]:
+  - WASM / LLVM の backend diagnostic helper を `Diagnostic::error_with_code(...)` に移行した。
+  - backend diagnostic の個別 call site は引き続き enum code を helper に渡し、`Diagnostic` value の生成時点で code を確定する。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "\\.with_code" nepl-core/src/codegen_wasm.rs nepl-core/src/codegen_llvm.rs`: no matches
+  - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の backend boundary 移行を進めた。

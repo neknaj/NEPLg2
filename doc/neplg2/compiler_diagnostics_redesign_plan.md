@@ -160,6 +160,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: Resource IR gate の lowering / raw ownership / borrow conflict / raw identity escape 変換を code-first constructor へ移行した。動的な詳細文は現時点では message に残し、次の D1 follow-up で note/help へ段階的に分離する。
 - 2026-04-29: `compiler.rs` に残っていた unresolved trait call、lowered entry 解決、target directive の compiler boundary 診断を code-first constructor へ移行した。これにより `compiler.rs` 内の active diagnostic construction は `Diagnostic::error(...).with_code(...)` を使わず、enum code を生成時点で渡す形に揃った。
 - 2026-04-29: `lexer.rs` に module-local な `lexer_error` / `parser_error` helper を導入し、lexer 内の active diagnostic construction を code-first constructor へ移行した。indent / raw block / directive / string / char / unknown token 診断は、後付け `.with_code(...)` ではなく生成時点で `LexerDiagnosticCode` または `ParserDiagnosticCode` を確定する。
+- 2026-04-29: `codegen_wasm.rs` / `codegen_llvm.rs` の backend diagnostic helper を code-first constructor へ移行した。backend は個別 call site で `Diagnostic` を直接組み立てず helper へ `BackendDiagnosticCode` を渡す構造なので、この boundary で code を生成時点に固定する。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

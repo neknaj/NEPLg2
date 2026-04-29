@@ -129,13 +129,30 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
 
+## 2026-04-29 Stage D1 backend boundary follow-up 追記
+
+`codegen_wasm.rs` / `codegen_llvm.rs` の backend diagnostic helper が `Diagnostic::error(...).with_code(...)` を使っており、backend diagnostic は helper 境界で code を後付けする構造だった。
+
+今回の対応で、WASM / LLVM の共通 diagnostic helper を `Diagnostic::error_with_code(...)` へ移行した。backend の各 call site は引き続き `DiagnosticCode::Backend(...)` を helper に渡すが、`Diagnostic` value は生成時点で enum code を持つ。
+
+これにより backend boundary の active diagnostic construction から `.with_code(...)` は消えた。parser/typecheck などの大量の直接構築はこの issue の後続 D1 として維持する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code" nepl-core/src/codegen_wasm.rs nepl-core/src/codegen_llvm.rs`: no matches
+- `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
+
 ## 2026-04-29 Stage D1 lexer boundary follow-up 追記
 
 `compiler.rs` の D1 移行後も、lexer は `Diagnostic::error(...).with_code(...)` を多数使っており、indent、raw block、directive、string/char literal、unknown token の各診断で code と message が後付け結合のままだった。
 
 今回の対応で `nepl-core/src/lexer.rs` に `lexer_error` / `parser_error` helper を導入し、lexer 内の active diagnostic construction を `Diagnostic::error_with_code(...)` 経由に統一した。`#extern` の構文診断だけは lexer 入口で発生するが、意味分類は既存通り `ParserDiagnosticCode::ExternSignatureInvalid` に固定する。
 
-これにより `lexer.rs` から `.with_code(...)` は消え、Stage D1 の「生成時点で enum code を確定する」方針が compiler boundary だけでなく lexer boundary にも適用された。parser/typecheck/backend の残件はこの issue の後続 D1 として維持する。
+これにより `lexer.rs` から `.with_code(...)` は消え、Stage D1 の「生成時点で enum code を確定する」方針が compiler boundary だけでなく lexer boundary にも適用された。parser/typecheck の残件はこの issue の後続 D1 として維持する。
 
 検証:
 
