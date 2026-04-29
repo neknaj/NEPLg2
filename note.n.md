@@ -1,3 +1,25 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z compiler boundary code-first diagnostics)
+
+- [同期]:
+  - `91c3845` まで反映した `main` を `origin/main` と同期し、`work/compiler-diagnostic-code-first-followup` branch で作業した。
+- [原因]:
+  - Stage D1 で `DiagnosticSpec` / code-first builder は導入済みだったが、`nepl-core/src/compiler.rs` には unresolved trait call、lowered entry 解決、target directive 診断で `Diagnostic::error(...).with_code(...)` が残っていた。
+  - この形は diagnostic code と message の組み合わせを生成後に後付けするため、enum registry 導入後も compiler boundary の診断構築が統一されない。
+- [修正]:
+  - `BackendDiagnosticCode::TraitCallUnresolved`、`ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous`、`LoaderDiagnosticCode::TargetMultipleDirective`、`LoaderDiagnosticCode::TargetUnknown` を code-first constructor で渡すようにした。
+  - `compiler.rs` から `.with_code(...)` をなくし、Resource IR gate 以外の compiler pipeline boundary も Stage D1 方針へ揃えた。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` と対象 issue に進捗を追記した。
+- [検証]:
+  - `rg -n "\\.with_code" nepl-core/src/compiler.rs`: no matches
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core compiler::tests:: -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 診断設計の進捗は `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 follow-up として扱う。
+
 # 2026-04-29 メモ (ISS-20260425T000000Z-RV-STDLIB-009 selfhost CLI args emit split)
 
 - [同期]:

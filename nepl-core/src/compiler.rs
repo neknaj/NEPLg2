@@ -8,8 +8,9 @@ use crate::ast;
 use crate::codegen_wasm;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{
-    DiagnosticCode, ResourceBorrowDiagnosticCode, ResourceDiagnosticCode,
-    ResourceLowerDiagnosticCode, ResourceRawDiagnosticCode,
+    BackendDiagnosticCode, DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode,
+    ResourceBorrowDiagnosticCode, ResourceDiagnosticCode, ResourceLowerDiagnosticCode,
+    ResourceRawDiagnosticCode,
 };
 use crate::error::CoreError;
 use crate::lexer;
@@ -986,16 +987,14 @@ pub fn prepare_module_for_codegen_with_source_map(
         monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, tc.module);
     if !unresolved_trait_calls.is_empty() {
         diagnostics.extend(unresolved_trait_calls.into_iter().map(|call| {
-            Diagnostic::error(
+            Diagnostic::error_with_code(
+                DiagnosticCode::Backend(BackendDiagnosticCode::TraitCallUnresolved),
                 format!(
                     "unresolved trait call remained after monomorphize: {}",
                     call.description
                 ),
                 call.span,
             )
-            .with_code(DiagnosticCode::Backend(
-                crate::diagnostic_codes::BackendDiagnosticCode::TraitCallUnresolved,
-            ))
         }));
         return Err(CoreError::from_diagnostics(diagnostics));
     }
@@ -1086,17 +1085,17 @@ fn resolve_hir_entry_name(
     if sample.is_empty() {
         sample.push(String::from("<none>"));
     }
-    Err(CoreError::from_diagnostics(vec![Diagnostic::error(
-        format!(
-            "entry function '{}' was not found in lowered module (available: {})",
-            entry,
-            sample.join(", ")
+    Err(CoreError::from_diagnostics(vec![
+        Diagnostic::error_with_code(
+            DiagnosticCode::Resolve(ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous),
+            format!(
+                "entry function '{}' was not found in lowered module (available: {})",
+                entry,
+                sample.join(", ")
+            ),
+            find_entry_directive_span(module, entry).unwrap_or_else(Span::dummy),
         ),
-        find_entry_directive_span(module, entry).unwrap_or_else(Span::dummy),
-    )
-    .with_code(DiagnosticCode::Resolve(
-        crate::diagnostic_codes::ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous,
-    ))]))
+    ]))
 }
 
 fn find_entry_directive_span(module: &ast::Module, entry: &str) -> Option<Span> {
@@ -1521,21 +1520,22 @@ fn resolve_target(
             if let Some(t) = parsed {
                 if let Some((_, prev_span)) = found {
                     diags.push(
-                        Diagnostic::error("multiple #target directives are not allowed", *span)
-                            .with_code(DiagnosticCode::Loader(crate::diagnostic_codes::LoaderDiagnosticCode::TargetMultipleDirective))
-                            .with_secondary_label(prev_span, Some("previous #target here".into())),
+                        Diagnostic::error_with_code(
+                            DiagnosticCode::Loader(LoaderDiagnosticCode::TargetMultipleDirective),
+                            "multiple #target directives are not allowed",
+                            *span,
+                        )
+                        .with_secondary_label(prev_span, Some("previous #target here".into())),
                     );
                 } else {
                     found = Some((t, *span));
                 }
             } else {
-                diags.push(
-                    Diagnostic::error("unknown target in #target", *span).with_code(
-                        DiagnosticCode::Loader(
-                            crate::diagnostic_codes::LoaderDiagnosticCode::TargetUnknown,
-                        ),
-                    ),
-                );
+                diags.push(Diagnostic::error_with_code(
+                    DiagnosticCode::Loader(LoaderDiagnosticCode::TargetUnknown),
+                    "unknown target in #target",
+                    *span,
+                ));
             }
         }
     }
@@ -1549,24 +1549,24 @@ fn resolve_target(
                 if let Some(t) = parsed {
                     if let Some((_, prev_span)) = found {
                         diags.push(
-                            Diagnostic::error("multiple #target directives are not allowed", *span)
-                                .with_code(DiagnosticCode::Loader(crate::diagnostic_codes::LoaderDiagnosticCode::TargetMultipleDirective))
-                                .with_secondary_label(
-                                    prev_span,
-                                    Some("previous #target here".into()),
+                            Diagnostic::error_with_code(
+                                DiagnosticCode::Loader(
+                                    LoaderDiagnosticCode::TargetMultipleDirective,
                                 ),
+                                "multiple #target directives are not allowed",
+                                *span,
+                            )
+                            .with_secondary_label(prev_span, Some("previous #target here".into())),
                         );
                     } else {
                         found = Some((t, *span));
                     }
                 } else {
-                    diags.push(
-                        Diagnostic::error("unknown target in #target", *span).with_code(
-                            DiagnosticCode::Loader(
-                                crate::diagnostic_codes::LoaderDiagnosticCode::TargetUnknown,
-                            ),
-                        ),
-                    );
+                    diags.push(Diagnostic::error_with_code(
+                        DiagnosticCode::Loader(LoaderDiagnosticCode::TargetUnknown),
+                        "unknown target in #target",
+                        *span,
+                    ));
                 }
             }
         }

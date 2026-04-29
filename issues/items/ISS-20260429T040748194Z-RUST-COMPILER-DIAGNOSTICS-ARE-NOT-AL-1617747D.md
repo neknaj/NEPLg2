@@ -111,3 +111,20 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `cargo test -p nepl-core diagnostic -- --nocapture`
 - `cargo check -p nepl-core -p nepl-cli -p nepl-language -p nepl-lsp --tests`
 - `trunk build`
+
+## 2026-04-29 Stage D1 compiler boundary follow-up 追記
+
+`compiler.rs` の Resource IR gate は code-first constructor へ移行済みだったが、同じ compiler pipeline 内の unresolved trait call、lowered entry 解決、target directive 診断には `Diagnostic::error(...).with_code(...)` が残っていた。
+
+今回の対応で、これらを `Diagnostic::error_with_code(...)` へ移行した。`BackendDiagnosticCode::TraitCallUnresolved`、`ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous`、`LoaderDiagnosticCode::TargetMultipleDirective`、`LoaderDiagnosticCode::TargetUnknown` を import し、診断生成時点で enum code が確定する形にした。secondary label は diagnostic value の構築後に付与するが、primary code は builder で必ず渡す。
+
+これにより `nepl-core/src/compiler.rs` から `.with_code(...)` は消え、Resource IR gate 以外の compiler boundary も Stage D1 の code-first 方針に揃った。lexer/parser/typecheck など他 module の残件はこの issue の後続 D1 として維持する。
+
+検証:
+
+- `rg -n "\\.with_code" nepl-core/src/compiler.rs`: no matches
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core compiler::tests:: -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
