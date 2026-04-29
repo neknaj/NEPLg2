@@ -6,7 +6,6 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::ast::{Effect, Ident, Literal, PrefixExpr, PrefixItem, Symbol};
-use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{EffectDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
@@ -126,8 +125,11 @@ impl<'a> BlockChecker<'a> {
                             let v = match parse_i32_literal(text) {
                                 Some(v) => v,
                                 None => {
-                                    self.diagnostics
-                                        .push(Diagnostic::error("invalid integer literal", *span));
+                                    self.diagnostics.push(type_error(
+                                        TypeDiagnosticCode::LiteralIntInvalid,
+                                        "invalid integer literal",
+                                        *span,
+                                    ));
                                     0
                                 }
                             };
@@ -142,7 +144,8 @@ impl<'a> BlockChecker<'a> {
                             let value = if *c <= i32::MAX as u32 {
                                 *c as i32
                             } else {
-                                self.diagnostics.push(Diagnostic::error(
+                                self.diagnostics.push(type_error(
+                                    TypeDiagnosticCode::LiteralCharOutOfRange,
                                     "char literal is outside current i32-backed codegen range",
                                     *span,
                                 ));

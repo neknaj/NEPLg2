@@ -499,3 +499,19 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `trunk build`: pass
 - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 22 --dist web/dist`: pass。`type.pipe.invalid` が出ることを確認した。
 - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 25 --dist web/dist`: pass。`type.pipe.invalid` が出ることを確認した。
+
+## 2026-04-29 Stage D1 prefix literal boundary follow-up 追記
+
+`typecheck/prefix_check.rs` には invalid integer literal と char literal range violation の診断が code なしの `Diagnostic::error(...)` として残っていた。また、`parse_i32_literal` は `i128` から `i32` へ `as` cast しており、巨大な整数 literal が wrap して通る根本バグがあった。
+
+今回の対応で `TypeDiagnosticCode::LiteralIntInvalid` と `TypeDiagnosticCode::LiteralCharOutOfRange` を追加し、literal boundary を `type_error(...)` 経由へ移行した。`parse_i32_literal` は `i32::try_from(...)` による範囲検査へ変更し、overflow literal をエラーにする。Rust regression では source 経由の巨大 integer literal と、AST 直接構築の char 範囲外を enum code で確認する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 invalid_integer_literal_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 invalid_ast_char_literal_has_type_code -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/literal_diagnostics.n.md -n 1 --dist web/dist`: pass。`type.literal.int_invalid` が出ることを確認した。

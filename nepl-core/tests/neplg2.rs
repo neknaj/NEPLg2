@@ -2,7 +2,7 @@ use nepl_core::diagnostic_codes::{DiagnosticCode, ResolveDiagnosticCode, TypeDia
 use nepl_core::error::CoreError;
 use nepl_core::loader::Loader;
 use nepl_core::span::FileId;
-use nepl_core::{compile_wasm, BuildProfile, CompileOptions, CompileTarget};
+use nepl_core::{check_module, compile_wasm, BuildProfile, CompileOptions, CompileTarget};
 mod harness;
 use harness::{compile_src_with_options, run_main_i32, run_main_wasi_i32};
 
@@ -548,6 +548,81 @@ fn main <()->()> ():
     #intrinsic "callsite_span" <> ()
 "#;
     compile_err_has_type_code(src, TypeDiagnosticCode::IntrinsicTypeArgArityMismatch);
+}
+
+#[test]
+fn invalid_integer_literal_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    999999999999999999999999999999
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::LiteralIntInvalid);
+}
+
+#[test]
+fn invalid_ast_char_literal_has_type_code() {
+    let span = nepl_core::span::Span::dummy();
+    let main = nepl_core::ast::Ident {
+        name: "main".to_string(),
+        span,
+    };
+    let module = nepl_core::ast::Module {
+        doc: None,
+        indent_width: 4,
+        directives: vec![nepl_core::ast::Directive::Entry { name: main.clone() }],
+        root: nepl_core::ast::Block {
+            span,
+            items: vec![nepl_core::ast::Stmt::FnDef(nepl_core::ast::FnDef {
+                doc: None,
+                vis: nepl_core::ast::Visibility::Private,
+                name: main,
+                no_shadow: false,
+                type_params: Vec::new(),
+                signature: nepl_core::ast::TypeExpr::Function {
+                    params: Vec::new(),
+                    result: Box::new(nepl_core::ast::TypeExpr::Char),
+                    effect: nepl_core::ast::Effect::Pure,
+                },
+                params: Vec::new(),
+                body: nepl_core::ast::FnBody::Parsed(nepl_core::ast::Block {
+                    span,
+                    items: vec![nepl_core::ast::Stmt::Expr(nepl_core::ast::PrefixExpr {
+                        items: vec![nepl_core::ast::PrefixItem::Literal(
+                            nepl_core::ast::Literal::Char(i32::MAX as u32 + 1),
+                            span,
+                        )],
+                        trailing_semis: 0,
+                        trailing_semi_span: None,
+                        span,
+                    })],
+                }),
+            })],
+        },
+    };
+    let result = check_module(
+        module,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("invalid char literal should fail")
+    else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags.iter().any(|diag| diag.code
+            == Some(DiagnosticCode::Type(
+                TypeDiagnosticCode::LiteralCharOutOfRange
+            ))),
+        "missing char literal diagnostic: {:?}",
+        diags
+    );
 }
 
 #[test]

@@ -26,7 +26,7 @@ pub(super) fn parse_i32_literal(text: &str) -> Option<i32> {
     }
     let unsigned = i128::from_str_radix(digits, radix).ok()?;
     let signed = if neg { -unsigned } else { unsigned };
-    Some(signed as i32)
+    i32::try_from(signed).ok()
 }
 
 pub(super) fn gate_allows(

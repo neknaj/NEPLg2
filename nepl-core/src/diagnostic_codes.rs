@@ -72,6 +72,8 @@ pub enum TypeDiagnosticCode {
     MutationImmutable,
     FieldInvalidAccess,
     IntrinsicUnknown,
+    LiteralIntInvalid,
+    LiteralCharOutOfRange,
     PipeInvalid,
     StackExtraValues,
     FunctionValueCapturingUnsupported,
@@ -253,6 +255,8 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::MutationImmutable),
     DiagnosticCode::Type(TypeDiagnosticCode::FieldInvalidAccess),
     DiagnosticCode::Type(TypeDiagnosticCode::IntrinsicUnknown),
+    DiagnosticCode::Type(TypeDiagnosticCode::LiteralIntInvalid),
+    DiagnosticCode::Type(TypeDiagnosticCode::LiteralCharOutOfRange),
     DiagnosticCode::Type(TypeDiagnosticCode::PipeInvalid),
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowNoShadowViolation),
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowNoShadowConflict),
@@ -609,6 +613,8 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::MutationImmutable => "type.mutation.immutable",
             TypeDiagnosticCode::FieldInvalidAccess => "type.field.invalid_access",
             TypeDiagnosticCode::IntrinsicUnknown => "type.intrinsic.unknown",
+            TypeDiagnosticCode::LiteralIntInvalid => "type.literal.int_invalid",
+            TypeDiagnosticCode::LiteralCharOutOfRange => "type.literal.char_out_of_range",
             TypeDiagnosticCode::PipeInvalid => "type.pipe.invalid",
             TypeDiagnosticCode::StackExtraValues => "type.stack.extra_values",
             TypeDiagnosticCode::FunctionValueCapturingUnsupported => {
@@ -702,6 +708,10 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::MutationImmutable => "immutable mutation",
             TypeDiagnosticCode::FieldInvalidAccess => "cannot access field on this type",
             TypeDiagnosticCode::IntrinsicUnknown => "unknown intrinsic",
+            TypeDiagnosticCode::LiteralIntInvalid => "invalid integer literal",
+            TypeDiagnosticCode::LiteralCharOutOfRange => {
+                "char literal is outside current i32-backed codegen range"
+            }
             TypeDiagnosticCode::PipeInvalid => "pipe usage error",
             TypeDiagnosticCode::StackExtraValues => "expression left extra values on the stack",
             TypeDiagnosticCode::FunctionValueCapturingUnsupported => {

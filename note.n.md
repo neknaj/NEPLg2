@@ -25459,3 +25459,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host CLI args の分割は `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として扱う。この issue は他の巨大 stdlib file が残るため open のまま。
+
+# 2026-04-29 メモ (ISS-20260429T040748194Z prefix literal diagnostic code-first)
+
+- [原因]:
+  - `typecheck/prefix_check.rs` の invalid integer literal と char literal range violation が code なしの `Diagnostic::error(...)` のままだった。
+  - `parse_i32_literal` が `i128` から `i32` へ `as` cast しており、巨大な integer literal が wrap して通る根本バグがあった。
+- [修正]:
+  - `TypeDiagnosticCode::LiteralIntInvalid` と `TypeDiagnosticCode::LiteralCharOutOfRange` を追加した。
+  - literal boundary を `type_error(...)` helper 経由へ移行した。
+  - `parse_i32_literal` を `i32::try_from(...)` による範囲検査へ変更した。
+  - source 経由の巨大 integer literal と、AST 直接構築の char 範囲外の enum code regression を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 invalid_integer_literal_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 invalid_ast_char_literal_has_type_code -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/literal_diagnostics.n.md -n 1 --dist web/dist`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix literal boundary 移行を進めた。
