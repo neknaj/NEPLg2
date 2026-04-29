@@ -11,6 +11,7 @@ ret: 1
 
 #import "alloc/collections/ringbuffer" as *
 #import "alloc/diag/error" as *
+#import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -43,7 +44,27 @@ fn main <()*>i32> ():
             eq v 10
         Option::None:
             false
-    if and ok0 and ok1 ok2 1 0
+    let rb3 <RingBuffer<i32>>:
+        unwrap_ok<RingBuffer<i32>, Diag> new<i32>
+        |> push<i32> 30
+        |> unwrap_ok<RingBuffer<i32>, Diag>
+        |> push<i32> 40
+        |> unwrap_ok<RingBuffer<i32>, Diag>
+    let p0 <RingBufferPop<i32>> pop_front<i32> rb3
+    let ok3 <bool> match *field::get_ref &p0 "item":
+        Option::Some v:
+            eq v 30
+        Option::None:
+            false
+    let rb4 <RingBuffer<i32>> field::get p0 "buffer"
+    let ok4 <bool>:
+        match peek_ref<i32> &rb4:
+            Option::Some v:
+                and eq len_ref<i32> &rb4 1 eq v 40
+            Option::None:
+                false
+    free<i32> rb4;
+    if and and ok0 ok1 and ok2 and ok3 ok4 1 0
 ```
 
 ## ringbuffer_pop_empty

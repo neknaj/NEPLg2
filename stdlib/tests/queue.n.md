@@ -11,6 +11,7 @@ ret: 1
 
 #import "alloc/collections/queue" as *
 #import "alloc/diag/error" as *
+#import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -43,7 +44,27 @@ fn main <()*>i32> ():
             eq v 5
         Option::None:
             false
-    if and ok0 and ok1 ok2 1 0
+    let q3 <Queue<i32>>:
+        unwrap_ok<Queue<i32>, Diag> new<i32>
+        |> push<i32> 7
+        |> unwrap_ok<Queue<i32>, Diag>
+        |> push<i32> 8
+        |> unwrap_ok<Queue<i32>, Diag>
+    let p0 <QueuePop<i32>> pop_front<i32> q3
+    let ok3 <bool> match *field::get_ref &p0 "item":
+        Option::Some v:
+            eq v 7
+        Option::None:
+            false
+    let q4 <Queue<i32>> field::get p0 "queue"
+    let ok4 <bool>:
+        match peek_ref<i32> &q4:
+            Option::Some v:
+                and eq len_ref<i32> &q4 1 eq v 8
+            Option::None:
+                false
+    free<i32> q4;
+    if and and ok0 ok1 and ok2 and ok3 ok4 1 0
 ```
 
 ## queue_pop_empty

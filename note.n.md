@@ -1,3 +1,31 @@
+# 2026-04-30 メモ (ISS-20260429T155343006Z Queue/RingBuffer typed storage)
+
+- [同期]:
+  - `main` の `c2a38e8` から `stdlib/queue-ringbuffer-owner-state` branch を作成して作業した。
+- [原因]:
+  - Queue / RingBuffer は `[len, cap, head, data_ptr]` raw header と未初期化 element buffer を持ち、`pop` の型検査時に live slot であることを Resource IR が構造的に確認できなかった。
+  - by-value `pop` / `peek` / `len` も owner を返さず、raw storage owner の lifecycle が API 上で曖昧だった。
+- [修正]:
+  - Queue / RingBuffer を `len/cap/head/items` の struct field と `Vec<Option<T>>` storage に再実装した。
+  - slot state は `Some(value)` / `None` の enum で表し、grow / clear / pop_front は `match` と typed replacement で処理するようにした。
+  - payload は現行 stdlib の drop traversal 未整備に合わせて `.T: Copy` に限定した。
+  - `QueuePop<T>` / `RingBufferPop<T>` と `pop_front` を追加し、更新後 owner と取り出した `Option<T>` を同時に返せるようにした。
+  - terminal `pop` / `peek` / `len` / `cap` / `is_empty` は by-value で owner を消費し、内部 storage を閉じる。owner を残す読み取りは `*_ref` API を使う。
+  - Queue / RingBuffer の source policy を typed storage 契約へ更新し、raw header / raw element storage へ戻らないことを固定した。
+- [issue]:
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` に Queue / RingBuffer 部分進捗を追記した。issue 全体は Deque / Vec / Stack / BinaryHeap などが残るため open のまま。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i tests/stdlib/collections_diag.n.md -n 3 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/collections_diag.n.md -n 4 --dist web/dist`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/collections-diag-queue-ringbuffer-typed-storage.json -j 1 --dist web/dist`: 4 passed
+  - `node nodesrc/tests.js -i stdlib/tests/queue.n.md -i stdlib/tests/ringbuffer.n.md --no-tree -o tmp/queue-ringbuffer-pop-front-regression.json -j 1 --dist web/dist`: 4 passed
+  - `node nodesrc/tests.js -i tests/stdlib/queue_collections.n.md -i tests/stdlib/ringbuffer_collections.n.md --no-tree -o tmp/queue-ringbuffer-pop-front-tests.json -j 1 --dist web/dist`: 4 passed
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-queue-ringbuffer-typed-storage.json -j 1 --dist web/dist`: 5 passed / 3 failed。Queue/RingBuffer focused doctest は pass。失敗は Stack / BTreeMap / BTreeSet の既存 raw owner state 残件。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T190939510Z Diag owner contract)
 
 - [同期]:

@@ -1,228 +1,141 @@
 //: # queue
-//: ringbuffer layout を[使/つか]った FIFO queue
+//: `Vec<Option<T>>` backed FIFO queue
 //:
 //: ### [目的/もくてき]
 //: - [末尾/まつび]へ[追加/ついか]し、[先頭/せんとう]から[取/と]り[出/だ]す queue API を[提供/ていきょう]します。
-//: - ringbuffer と[同/おな]じ header / data layout を[利用/りよう]しつつ、queue [向/む]けの[名前/なまえ]で[公開/こうかい]します。
+//: - raw header / raw element buffer ではなく、初期化済み `Vec<Option<T>>` で slot state を[表/あらわ]します。
 //:
 //: ### [実装/じっそう]
-//: - [内部/ないぶ]には ringbuffer と[同/おな]じ `[len, cap, head, data_ptr]` header を[保持/ほじ]します。
+//: - `len` / `cap` / `head` と `items` を struct field として[保持/ほじ]します。
+//: - `items` は `cap` [個/こ]の `Option<T>` で、live slot は `Some(value)`、inactive slot は `None` です。
+//: - grow 時は[論理順/ろんりじゅん]に新しい `Vec<Option<T>>` へ[写/うつ]し、旧 `Vec` owner を[解放/かいほう]します。
 //:
 //: ### [注意/ちゅうい]
-//: - `push` は[更新後/こうしんご]の `Queue<.T>` を `Result` で[返/かえ]すため、pipe [記法/きほう]では `|> push ... |> uwok` の[形/かたち]で[受/う]け[直/なお]します。
-//: - `pop` / `peek` は[空/から] queue を[失敗/しっぱい]ではなく `Option::None` として[返/かえ]します。
-//: - `len_ref` / `is_empty_ref` / `peek_ref` は `&Queue<.T>` を[受/う]け、owner を[移動/いどう]せずに[観測/かんそく]します。
+//: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には queue payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
+//: - `len` / `is_empty` / `peek` / `pop` は `Queue` を[値/あたい]で[消費/しょうひ]し、内部 storage を[閉/と]じます。owner を[残/のこ]したまま[観測/かんそく]する場合は `len_ref` / `is_empty_ref` / `peek_ref` を[使/つか]います。
 //: - `free` [後/ご]の[再利用/さいりよう]は[禁止/きんし]です。
 //:
 //: ### [計算量/けいさんりょう]
-//: - `len` / `is_empty` / `peek` / `pop` は O(1) です。
-//: - `push` は[償却/しょうきゃく] O(1)、[拡張/かくちょう][発生時/はっせいじ]の[最悪/さいあく][時間/じかん][計算量/けいさんりょう]は O(n) です。
+//: - `len_ref` / `is_empty_ref` / `peek_ref` / `pop` は O(1) です。
+//: - `push` は[償却/しょうきゃく] O(1)、grow 時は O(n) です。
 
 #indent 4
 
-#import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "core/field" as *
+#import "core/field" as field
 #import "core/traits/copy" as *
 #import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
 
 //: ## Queue
-//: ringbuffer layout を[所有/しょゆう]する queue handle
+//: FIFO queue の owner
 //:
 //: ### [目的/もくてき]
-//: - queue API の[内部状態/ないぶじょうたい]を 1 [値/あたい]にまとめ、push / pop [後/ご]も[同/おな]じ[型/かた]で[受/う]け[渡/わた]しできるようにします。
+//: - queue state と backing storage owner を 1 [値/あたい]として[移動/いどう]します。
 //:
-//: ### [注意/ちゅうい]
-//: - `hdr` は ringbuffer と[同/おな]じ 16 byte header の[所有権/しょゆうけん]を[持/も]ちます。
-//: - `Queue<.T>` は `Copy` / `Clone` [前提/ぜんてい]ではありません。
+//: ### [不変条件/ふへんじょうけん]
+//: - `0 <= len <= cap`
+//: - `0 <= head < cap`
+//: - `items.len == cap`
 struct Queue<.T>:
-    hdr <MemPtr<u8>>
+    len <i32>
+    cap <i32>
+    head <i32>
+    items <Vec<Option<.T>>>
 
-fn queue_header_len_ptr <(MemPtr<u8>)->MemPtr<i32>> (hdr):
-    mem_ptr_wrap mem_ptr_addr hdr
-
-fn queue_header_cap_ptr <(MemPtr<u8>)->MemPtr<i32>> (hdr):
-    mem_ptr_wrap add mem_ptr_addr hdr 4
-
-fn queue_header_head_ptr <(MemPtr<u8>)->MemPtr<i32>> (hdr):
-    mem_ptr_wrap add mem_ptr_addr hdr 8
-
-fn queue_header_data_ptr_ptr <(MemPtr<u8>)->MemPtr<i32>> (hdr):
-    mem_ptr_wrap add mem_ptr_addr hdr 12
-
-fn queue_len_from_hdr <(MemPtr<u8>)->i32> (hdr):
-    match load_i32 queue_header_len_ptr hdr:
-        Option::Some v:
-            v
-        Option::None:
-            0
-
-fn queue_cap_from_hdr <(MemPtr<u8>)->i32> (hdr):
-    match load_i32 queue_header_cap_ptr hdr:
-        Option::Some v:
-            v
-        Option::None:
-            0
-
-fn queue_head_from_hdr <(MemPtr<u8>)->i32> (hdr):
-    match load_i32 queue_header_head_ptr hdr:
-        Option::Some v:
-            v
-        Option::None:
-            0
-
-fn queue_data_from_hdr <.T> <(MemPtr<u8>)->MemPtr<.T>> (hdr):
-    match load_i32 queue_header_data_ptr_ptr hdr:
-        Option::Some raw:
-            mem_ptr_wrap raw
-        Option::None:
-            mem_ptr_wrap 0
-
-fn queue_hdr_from_ref <.T> <(&Queue<.T>)->MemPtr<u8>> (q):
-    *get_ref q "hdr"
-
-//: queue_store_header_i32: queue が[所有/しょゆう]する header field へ i32 を[書/か]き[込/こ]む
+//: ## QueuePop
+//: `pop_front` の[結果/けっか]
 //:
-//: [目的/もくてき]:
-//: - `Queue` の header は constructor が[確保/かくほ]して所有する 16 byte [領域/りょういき]です。
-//: - 内部[不変条件/ふへんじょうけん]が[成/な]り[立/た]つ header 更新では raw store を[使/つか]い、checked store の `Result` を unsafe helper で trap にしません。
-fn queue_store_header_i32 <(MemPtr<i32>,i32)->()> (p, v):
-    store_i32 mem_ptr_addr p v
+//: ### [目的/もくてき]
+//: - [更新後/こうしんご]の queue owner と[取/と]り[出/だ]した[値/あたい]を[同時/どうじ]に[返/かえ]します。
+struct QueuePop<.T>:
+    queue <Queue<.T>>
+    item <Option<.T>>
+
+fn queue_normalize_capacity <(i32)->i32> (cap):
+    if lt cap 1 1 cap
+
+fn queue_tail_index <(i32,i32,i32)->i32> (head, len, cap):
+    rem_u add head len cap
+
+fn queue_next_index <(i32,i32)->i32> (idx, cap):
+    rem_u add idx 1 cap
+
+//: queue_item_at: slot の `Option<T>` を[読/よ]み[出/だ]す
+fn queue_item_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (items, idx):
+    match vec::get_ref<Option<.T>> items idx:
+        Option::Some item:
+            item
+        Option::None:
+            none<.T>
+
+//: queue_store_slot: slot state を[更新/こうしん]する
+fn queue_store_slot <.T: Copy> <(&Vec<Option<.T>>,i32,Option<.T>)*>()> (items, idx, item):
+    vec::replace_ref<Option<.T>> items idx item
+
+fn queue_alloc_slots <.T: Copy> <(i32)*>Result<Vec<Option<.T>>, Diag>> (cap):
+    match vec::filled<Option<.T>> cap none<.T>:
+        Result::Ok items:
+            ok<Vec<Option<.T>>, Diag> items
+        Result::Err _e:
+            diag_err<Vec<Option<.T>>> diag_out_of_memory
+
+fn queue_clear_slots_loop <.T: Copy> <(&Vec<Option<.T>>,i32,i32)*>()> (items, cap, i):
+    if:
+        lt i cap
+        then:
+            queue_store_slot<.T> items i none<.T>
+            queue_clear_slots_loop<.T> items cap add i 1
+        else:
+            ()
+
+fn queue_copy_live_slots <.T: Copy> <(&Vec<Option<.T>>,&Vec<Option<.T>>,i32,i32,i32)*>()> (src, dst, cap, head, len):
+    let mut i <i32> 0
+    while lt i len:
+        do:
+            let src_idx <i32> rem_u add head i cap
+            match queue_item_at<.T> src src_idx:
+                Option::Some item:
+                    queue_store_slot<.T> dst i some<.T> item
+                Option::None:
+                    ()
+            set i add i 1
 
 //: ## new
 //: [空/から]の queue を[作/つく]る
-//:
-//: ### [目的/もくてき]
-//: - [既定/きてい][容量/ようりょう]の[空/から] `Queue<.T>` を[作成/さくせい]します。
-//:
-//: ### [実装/じっそう]
-//: - [既定/きてい][容量/ようりょう] 8 の queue header / data [領域/りょういき]を[内部/ないぶ]で[組/く]み[立/た]てます。
-//:
-//: ### [注意/ちゅうい]
-//: - [確保/かくほ][失敗/しっぱい]は `Result::Err Diag` として[返/かえ]ります。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/queue" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q <Queue<i32>> unwrap_ok<Queue<i32>, Diag> new<i32>;
-//:     if eq len q 0 1 0
-//: ```
-fn new <.T> <()*>Result<Queue<.T>, Diag>> ():
+fn new <.T: Copy> <()*>Result<Queue<.T>, Diag>> ():
     with_capacity<.T> 8
 
 //: ## with_capacity
 //: [初期/しょき][容量/ようりょう]を[指定/してい]して queue を[作/つく]る
-//:
-//: ### [目的/もくてき]
-//: - [少/すく]なくとも `cap` [個/こ]を[保持/ほじ]できる queue を[作成/さくせい]します。
-//:
-//: ### [実装/じっそう]
-//: - 16 byte の ringbuffer ヘッダと `cap * size_of<.T>` byte の[要素/ようそ][領域/りょういき]を[確保/かくほ]します。
-//: - [内部/ないぶ]の ringbuffer [状態/じょうたい]を `[len, cap, head, data_ptr]` で[初期化/しょきか]して queue に[包/つつ]みます。
-//:
-//: ### [注意/ちゅうい]
-//: - [実際/じっさい]の[容量/ようりょう]は ringbuffer [側/がわ]の[切/き]り[上/あ]げ[規則/きそく]に[従/したが]います。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/queue" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q <Queue<i32>> unwrap_ok<Queue<i32>, Diag> with_capacity<i32> 16;
-//:     if eq len q 0 1 0
-//: ```
-fn with_capacity <.T> <(i32)*>Result<Queue<.T>, Diag>> (cap):
-    let cap0 <i32> if lt cap 1 1 cap
-    match alloc_ptr<u8> 16:
-        Result::Err _e:
-            diag_err<Queue<.T>> diag_out_of_memory
-        Result::Ok header:
-            match alloc_ptr<.T> mul cap0 size_of<.T>:
-                Result::Err _e:
-                    dealloc_raw mem_ptr_addr header 16
-                    diag_err<Queue<.T>> diag_out_of_memory
-                Result::Ok data:
-                    queue_store_header_i32 queue_header_len_ptr header 0
-                    queue_store_header_i32 queue_header_cap_ptr header cap0
-                    queue_store_header_i32 queue_header_head_ptr header 0
-                    queue_store_header_i32 queue_header_data_ptr_ptr header mem_ptr_addr data
-                    ok<Queue<.T>, Diag> Queue header
+fn with_capacity <.T: Copy> <(i32)*>Result<Queue<.T>, Diag>> (cap):
+    let cap0 <i32> queue_normalize_capacity cap
+    match queue_alloc_slots<.T> cap0:
+        Result::Err d:
+            err<Queue<.T>, Diag> d
+        Result::Ok items:
+            ok<Queue<.T>, Diag> Queue<.T> 0 cap0 0 items
 
 //: ## len
-//: [要素数/ようそすう]を[返/かえ]す
-//:
-//: ### [目的/もくてき]
-//: - [現在/げんざい] queue に[入/はい]っている[要素数/ようそすう]を[返/かえ]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/queue" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q <Queue<i32>>:
-//:         unwrap_ok<Queue<i32>, Diag> new<i32>
-//:         |> push 4 |> uwok
-//:         |> push 8 |> uwok
-//:     if eq len q 2 1 0
-//: ```
+//: queue を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
 fn len <.T> <(Queue<.T>)->i32> (q):
-    queue_len_from_hdr get q "hdr"
+    let n <i32> *field::get_ref &q "len"
+    free<.T> q
+    n
 
 //: ## len_ref
 //: `Queue` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
-//:
-//: ### [目的/もくてき]
-//: - `&Queue<.T>` から length を[読/よ]み、呼び出し後も同じ owner を `peek_ref` / `clear` / `free` に[使/つか]えるようにします。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
 fn len_ref <.T> <(&Queue<.T>)->i32> (q):
-    queue_len_from_hdr queue_hdr_from_ref<.T> q
+    *field::get_ref q "len"
 
 //: ## is_empty
-//: [空/から]かどうかを[調/しら]べる
-//:
-//: ### [目的/もくてき]
-//: - queue が[空/から]なら `true`、1 [要素/ようそ]でもあれば `false` を[返/かえ]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/queue" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q <Queue<i32>> unwrap_ok<Queue<i32>, Diag> new<i32>;
-//:     if is_empty q 1 0
-//: ```
+//: queue を[消費/しょうひ]して[空/から]かどうかを[返/かえ]す
 fn is_empty <.T> <(Queue<.T>)->bool> (q):
-    eq len<.T> q 0
+    let ok <bool> is_empty_ref<.T> &q
+    free<.T> q
+    ok
 
 //: ## is_empty_ref
 //: `Queue` を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
@@ -231,242 +144,86 @@ fn is_empty_ref <.T> <(&Queue<.T>)->bool> (q):
 
 //: ## push
 //: [末尾/まつび]へ[追加/ついか]する
-//:
-//: ### [目的/もくてき]
-//: - `item` を queue の[末尾/まつび]へ[追加/ついか]し、[更新後/こうしんご]の `Queue<.T>` を[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - [空/あ]きがあれば `tail = (head + len) mod cap` へ[直接/ちょくせつ][書/か]き[込/こ]みます。
-//: - [満杯/まんぱい]なら 2 [倍/ばい]へ[拡張/かくちょう]し、[論理順/ろんりじゅん]どおりに[並/なら]べ[替/か]えてから[追加/ついか]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [更新後/こうしんご]の queue を[受/う]け[取/と]る API なので、`set` または pipe で[束縛/そくばく]し[直/なお]してください。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [償却/しょうきゃく] O(1)、[拡張/かくちょう][発生時/はっせいじ]の[最悪/さいあく][時間/じかん][計算量/けいさんりょう]は O(n) です。
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/queue" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q <Queue<i32>>:
-//:         unwrap_ok<Queue<i32>, Diag> new<i32>
-//:         |> push 10 |> uwok
-//:         |> push 20 |> uwok
-//:     if eq len q 2 1 0
-//: ```
-fn push <.T> <(Queue<.T>, .T)*>Result<Queue<.T>, Diag>> (q, item):
-    let hdr <MemPtr<u8>> get q "hdr"
-    let len0 <i32> queue_len_from_hdr hdr
-    let cap0 <i32> queue_cap_from_hdr hdr
-    let head0 <i32> queue_head_from_hdr hdr
-    let data0 <MemPtr<.T>> queue_data_from_hdr<.T> hdr
+fn push <.T: Copy> <(Queue<.T>,.T)*>Result<Queue<.T>, Diag>> (q, item):
+    let len0 <i32> *field::get_ref &q "len"
+    let cap0 <i32> *field::get_ref &q "cap"
+    let head0 <i32> *field::get_ref &q "head"
+    let items <Vec<Option<.T>>> field::get q "items"
     if:
         eq len0 cap0
         then:
             let new_cap <i32> mul cap0 2
-            match alloc_ptr<.T> mul new_cap size_of<.T>:
-                Result::Err _e:
-                    diag_err<Queue<.T>> diag_out_of_memory
-                Result::Ok new_data:
-                    let mut i <i32> 0
-                    while lt i len0:
-                        do:
-                            let src_idx <i32> mod_s add head0 i cap0
-                            let src_off <i32> mul src_idx size_of<.T>
-                            let dst_off <i32> mul i size_of<.T>
-                            store<.T> add mem_ptr_addr new_data dst_off load<.T> add mem_ptr_addr data0 src_off
-                            set i add i 1
-                    dealloc_raw mem_ptr_addr data0 mul cap0 size_of<.T>
-                    queue_store_header_i32 queue_header_cap_ptr hdr new_cap
-                    queue_store_header_i32 queue_header_head_ptr hdr 0
-                    queue_store_header_i32 queue_header_data_ptr_ptr hdr mem_ptr_addr new_data
-                    let tail_off <i32> mul len0 size_of<.T>
-                    store<.T> add mem_ptr_addr new_data tail_off item
-                    queue_store_header_i32 queue_header_len_ptr hdr add len0 1
-                    ok<Queue<.T>, Diag> q
+            match queue_alloc_slots<.T> new_cap:
+                Result::Err d:
+                    vec::free<Option<.T>> items
+                    err<Queue<.T>, Diag> d
+                Result::Ok new_items:
+                    queue_copy_live_slots<.T> &items &new_items cap0 head0 len0
+                    queue_store_slot<.T> &new_items len0 some<.T> item
+                    vec::free<Option<.T>> items
+                    ok<Queue<.T>, Diag> Queue<.T> add len0 1 new_cap 0 new_items
         else:
-            let tail_idx <i32> mod_s add head0 len0 cap0
-            let tail_off <i32> mul tail_idx size_of<.T>
-            store<.T> add mem_ptr_addr data0 tail_off item
-            queue_store_header_i32 queue_header_len_ptr hdr add len0 1
-            ok<Queue<.T>, Diag> q
+            let tail <i32> queue_tail_index head0 len0 cap0
+            queue_store_slot<.T> &items tail some<.T> item
+            ok<Queue<.T>, Diag> Queue<.T> add len0 1 cap0 head0 items
+
+//: ## pop_front
+//: [先頭/せんとう]を[取/と]り[出/だ]し、[更新後/こうしんご]の queue と[値/あたい]を[返/かえ]す
+fn pop_front <.T: Copy> <(Queue<.T>)*>QueuePop<.T>> (q):
+    let len0 <i32> *field::get_ref &q "len"
+    let cap0 <i32> *field::get_ref &q "cap"
+    let head0 <i32> *field::get_ref &q "head"
+    let items <Vec<Option<.T>>> field::get q "items"
+    if:
+        eq len0 0
+        then:
+            let next_q <Queue<.T>> Queue<.T> 0 cap0 head0 items
+            QueuePop<.T> next_q none<.T>
+        else:
+            let item <Option<.T>> queue_item_at<.T> &items head0
+            queue_store_slot<.T> &items head0 none<.T>
+            let next_len <i32> sub len0 1
+            let next_head <i32> queue_next_index head0 cap0
+            let next_q <Queue<.T>> Queue<.T> next_len cap0 next_head items
+            QueuePop<.T> next_q item
 
 //: ## pop
-//: [先頭/せんとう]から[取/と]り[出/だ]す
-//:
-//: ### [目的/もくてき]
-//: - [先頭/せんとう][要素/ようそ]を[取/と]り[出/だ]し、[空/から]なら `Option::None` を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [取/と]り[出/だ]し[成功時/せいこうじ]は queue [内部/ないぶ]の[先頭位置/せんとういち]が 1 [要素分/ようそぶん][進/すす]みます。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/queue" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/option" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q <Queue<i32>>:
-//:         unwrap_ok<Queue<i32>, Diag> new<i32>
-//:         |> push 10 |> uwok
-//:     match pop q:
-//:         Option::Some v:
-//:             if eq v 10 1 0
-//:         Option::None:
-//:             0
-//: ```
-fn pop <.T> <(Queue<.T>)*>Option<.T>> (q):
-    let hdr <MemPtr<u8>> get q "hdr"
-    let len0 <i32> queue_len_from_hdr hdr
-    if:
-        eq len0 0
-        then:
-            none<.T>
-        else:
-            let cap0 <i32> queue_cap_from_hdr hdr
-            let head0 <i32> queue_head_from_hdr hdr
-            let data0 <MemPtr<.T>> queue_data_from_hdr<.T> hdr
-            let off <i32> mul head0 size_of<.T>
-            let item0 <.T> load<.T> add mem_ptr_addr data0 off
-            queue_store_header_i32 queue_header_head_ptr hdr mod_s add head0 1 cap0
-            queue_store_header_i32 queue_header_len_ptr hdr sub len0 1
-            some<.T> item0
+//: queue を[消費/しょうひ]して[先頭/せんとう]の[値/あたい]だけを[返/かえ]す
+fn pop <.T: Copy> <(Queue<.T>)*>Option<.T>> (q):
+    let p <QueuePop<.T>> pop_front<.T> q
+    let item <Option<.T>> *field::get_ref &p "item"
+    free<.T> field::get p "queue"
+    item
 
 //: ## peek
-//: [先頭/せんとう]を[参照/さんしょう]する
-//:
-//: ### [目的/もくてき]
-//: - [先頭/せんとう][要素/ようそ]を[消費/しょうひ]せずに[見/み]たいときに[使/つか]います。
-//:
-//: ### [注意/ちゅうい]
-//: - [空/から]なら `Option::None` です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/queue" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/option" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q <Queue<i32>>:
-//:         unwrap_ok<Queue<i32>, Diag> new<i32>
-//:         |> push 10 |> uwok
-//:     match peek q:
-//:         Option::Some v:
-//:             if eq v 10 1 0
-//:         Option::None:
-//:             0
-//: ```
-fn peek <.T> <(Queue<.T>)->Option<.T>> (q):
-    let hdr <MemPtr<u8>> get q "hdr"
-    let len0 <i32> queue_len_from_hdr hdr
-    if:
-        eq len0 0
-        then:
-            none<.T>
-        else:
-            let head0 <i32> queue_head_from_hdr hdr
-            let data0 <MemPtr<.T>> queue_data_from_hdr<.T> hdr
-            let off <i32> mul head0 size_of<.T>
-            some<.T> load<.T> add mem_ptr_addr data0 off
+//: queue を[消費/しょうひ]して[先頭/せんとう]を[読/よ]む
+fn peek <.T: Copy> <(Queue<.T>)->Option<.T>> (q):
+    let item <Option<.T>> peek_ref<.T> &q
+    free<.T> q
+    item
 
 //: ## peek_ref
 //: `Queue` を[移動/いどう]せずに[先頭/せんとう]を[読/よ]む
-//:
-//: ### [目的/もくてき]
-//: - `&Queue<.T>` から[先頭/せんとう][要素/ようそ]を `Option` で[返/かえ]します。
-//: - owner を[消費/しょうひ]しないため、観測後に同じ queue を `clear` / `free` できます。
-//:
-//: ### [注意/ちゅうい]
-//: - 値を owner から複製して返すため `.T: Copy` に[限定/げんてい]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
 fn peek_ref <.T: Copy> <(&Queue<.T>)->Option<.T>> (q):
-    let hdr <MemPtr<u8>> queue_hdr_from_ref<.T> q
-    let len0 <i32> queue_len_from_hdr hdr
+    let len0 <i32> *field::get_ref q "len"
     if:
         eq len0 0
         then:
             none<.T>
         else:
-            let head0 <i32> queue_head_from_hdr hdr
-            let data0 <MemPtr<.T>> queue_data_from_hdr<.T> hdr
-            let off <i32> mul head0 size_of<.T>
-            some<.T> load<.T> add mem_ptr_addr data0 off
+            let head0 <i32> *field::get_ref q "head"
+            let items <&Vec<Option<.T>>> field::get_ref q "items"
+            queue_item_at<.T> items head0
 
 //: ## clear
 //: [内容/ないよう]を[空/から]にする
-//:
-//: ### [目的/もくてき]
-//: - [確保済/かくほず]み[容量/ようりょう]は[維持/いじ]したまま、[要素/ようそ]だけを[空/から]に[戻/もど]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/queue" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q0 <Queue<i32>>:
-//:         unwrap_ok<Queue<i32>, Diag> new<i32>
-//:         |> push 10 |> uwok
-//:     let q <Queue<i32>> clear q0;
-//:     if is_empty q 1 0
-//: ```
-fn clear <.T> <(Queue<.T>)*>Queue<.T>> (q):
-    let hdr <MemPtr<u8>> get q "hdr"
-    queue_store_header_i32 queue_header_len_ptr hdr 0
-    queue_store_header_i32 queue_header_head_ptr hdr 0
-    q
+fn clear <.T: Copy> <(Queue<.T>)*>Queue<.T>> (q):
+    let cap0 <i32> *field::get_ref &q "cap"
+    let items <Vec<Option<.T>>> field::get q "items"
+    queue_clear_slots_loop<.T> &items cap0 0
+    Queue<.T> 0 cap0 0 items
 
 //: ## free
-//: [内部/ないぶ]メモリを[解放/かいほう]する
-//:
-//: ### [目的/もくてき]
-//: - queue が[保持/ほじ]する header と[要素/ようそ][領域/りょういき]を[解放/かいほう]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `free` [後/ご]の queue を[再利用/さいりよう]してはいけません。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/queue" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q <Queue<i32>> unwrap_ok<Queue<i32>, Diag> new<i32>;
-//:     free q;
-//:     0
-//: ```
-fn free <.T> <(Queue<.T>)*>()> (q):
-    let hdr <MemPtr<u8>> get q "hdr"
-    let cap0 <i32> queue_cap_from_hdr hdr
-    let data0 <MemPtr<.T>> queue_data_from_hdr<.T> hdr
-    dealloc_raw mem_ptr_addr data0 mul cap0 size_of<.T>
-    dealloc_raw mem_ptr_addr hdr 16
+//: queue が[所有/しょゆう]する backing storage を[解放/かいほう]する
+fn free <.T> <(Queue<.T>)->()> (q):
+    vec::free<Option<.T>> field::get q "items"

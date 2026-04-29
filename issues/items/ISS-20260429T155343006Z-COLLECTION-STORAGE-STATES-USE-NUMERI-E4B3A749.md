@@ -140,3 +140,31 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 - `node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 6 --dist web/dist`: passed
 - `node nodesrc/run_doctest.js -i tests/stdlib/traits_hash.n.md -n 6 --dist web/dist`: passed
 - `node nodesrc/issues.js check`: passed
+
+## 2026-04-30 Queue / RingBuffer 部分進捗
+
+`stdlib/alloc/collections/queue.nepl` と `stdlib/alloc/collections/ringbuffer.nepl` は、旧 `[len, cap, head, data_ptr]` raw header と未初期化 element buffer を廃止し、typed `Vec<Option<T>>` storage へ移行した。
+
+進捗:
+
+- Queue / RingBuffer 本体は `len/cap/head/items` を直接持ち、`items` は `Vec<Option<T>>` として全 slot を初期化する。
+- live slot は `Some(value)`、inactive slot は `None` で表すため、先頭取得・grow・clear が raw memory cell の初期化状態に依存しない。
+- payload は現行 stdlib の drop traversal 未整備に合わせて `.T: Copy` に限定した。非 Copy payload は collection-wide drop 設計で扱う。
+- `pop_front` は `QueuePop<T>` / `RingBufferPop<T>` として更新後 owner と `Option<T>` を同時に返し、取り出した slot を `None` に戻す。
+- terminal `pop` / `peek` / `len` / `cap` / `is_empty` は by-value で owner を消費し、内部 storage を閉じる。owner を残す読み取りは `*_ref` API を使う。
+- `nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js` を更新し、Queue / RingBuffer が raw header / raw element storage へ戻らないことを source policy で固定した。
+
+検証:
+
+- `node nodesrc/run_doctest.js -i tests/stdlib/collections_diag.n.md -n 3 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/collections_diag.n.md -n 4 --dist web/dist`: passed
+- `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/collections-diag-queue-ringbuffer-typed-storage.json -j 1 --dist web/dist`: total=4, passed=4
+- `node nodesrc/tests.js -i stdlib/tests/queue.n.md -i stdlib/tests/ringbuffer.n.md --no-tree -o tmp/queue-ringbuffer-pop-front-regression.json -j 1 --dist web/dist`: total=4, passed=4
+- `node nodesrc/tests.js -i tests/stdlib/queue_collections.n.md -i tests/stdlib/ringbuffer_collections.n.md --no-tree -o tmp/queue-ringbuffer-pop-front-tests.json -j 1 --dist web/dist`: total=4, passed=4
+- `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js`: passed
+
+残件:
+
+- `Deque` / `Vec` / `Stack` / `BinaryHeap` などの raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
+- `tests/stdlib/pipe_collections.n.md` 全体では Stack / BTreeMap / BTreeSet の既存 raw owner state 残件が残る。Queue / RingBuffer の focused doctest は passed。
