@@ -262,7 +262,8 @@ fn main <()*>i32> ():
         |> must_hs
         |> insert 8
         |> must_hs
-    set checks checks_push checks check_eq_i32 2 len hs0;
+    set checks checks_push checks check_eq_i32 2 len &hs0;
+    free hs0;
     let hs1 <HashSet<i32,DefaultHash32>>:
         new_hs
         |> must_hs
@@ -270,7 +271,8 @@ fn main <()*>i32> ():
         |> must_hs
         |> insert 8
         |> must_hs
-    set checks checks_push checks check contains hs1 8;
+    set checks checks_push checks check contains &hs1 8;
+    free hs1;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

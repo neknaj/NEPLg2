@@ -66,7 +66,9 @@ fn main <()*>i32> ():
         do:
             set hs unwrap_ok<HashSet<i32,DefaultHash32>, Diag> insert hs i;
             set i add i 1;
-    if contains hs 39 0 1
+    let ok <i32> if contains &hs 39 0 1;
+    free hs;
+    ok
 ```
 
 ## hashmap_many_inserts_for_runtime_observation
@@ -132,7 +134,9 @@ fn main <()*>i32> ():
         do:
             set hs unwrap_ok<HashSet<i32,DefaultHash32>, Diag> insert hs i;
             set i add i 1;
-    if contains hs 159 0 1
+    let ok <i32> if contains &hs 159 0 1;
+    free hs;
+    ok
 ```
 
 ## hashmap_rehashes_tombstones
@@ -232,5 +236,8 @@ fn hashset_after_tombstones <()*>HashSet<i32,DefaultHash32>> ():
 fn main <()*>i32> ():
     let hs5 <HashSet<i32,DefaultHash32>> hashset_after_tombstones;
     let hs100 <HashSet<i32,DefaultHash32>> hashset_after_tombstones;
-    if and (contains hs5 5) (contains hs100 100) 0 1
+    let ok <i32> if and (contains &hs5 5) (contains &hs100 100) 0 1;
+    free hs5;
+    free hs100;
+    ok
 ```

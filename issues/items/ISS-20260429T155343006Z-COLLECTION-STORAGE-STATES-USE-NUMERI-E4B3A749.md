@@ -57,7 +57,24 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 - HashMap の raw header pointer と entries pointer は public storage から消えた。
 - `cargo test -p nepl-core --test neplg2 -- --nocapture` と HashMap focused `.n.md` は通過した。
 
-残件:
+この時点の残件:
 
 - `stdlib/alloc/collections/hashset.nepl` はまだ 0/1/2 status と raw header/entries layout を持つ。
 - Vec / Stack / BinaryHeap などの null/raw owner sentinel 設計は別途段階的に typed owner state へ移す必要がある。
+
+## 2026-04-30 HashSet 部分進捗
+
+`stdlib/alloc/collections/hashset.nepl` も旧 raw header + `0/1/2` status layout を廃止し、`HashSetBucketState` enum と `HashSetStorage<T>` へ移行した。
+
+進捗:
+
+- HashSet bucket state は `Empty` / `Full` / `Tombstone` の enum になり、探索・挿入・rehash の分岐は `match` で網羅的に扱う。
+- key payload は `Vec<Option<T>>` で初期化済み状態を表す。
+- HashSet の raw header pointer と entries pointer は public storage から消えた。
+- `contains` / `len` は `&HashSet` を受け取る read API に揃え、fixture は観測後に `free` するよう更新した。
+- `stdlib/tests/hashset.n.md` / `stdlib/tests/hashset_str.n.md`、`tests/stdlib/hash_collection_rehash.n.md`、`tests/stdlib/traits_hash.n.md` の HashSet focused tests は通過した。
+
+残件:
+
+- Vec / Stack / BinaryHeap などの null/raw owner sentinel 設計は別途段階的に typed owner state へ移す必要がある。
+- `tests/stdlib/collections_diag.n.md` の HashMap/HashSet missing-key diagnostic fixture は `Diag.message` owner contract 問題で失敗する。これは `ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF` へ分離済み。

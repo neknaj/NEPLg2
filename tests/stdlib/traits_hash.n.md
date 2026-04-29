@@ -309,11 +309,13 @@ fn main <()*>i32> ():
 
     let hs <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;
     let hs <HashSet<i32,DefaultHash32>> must_hs insert hs 42;
-    set checks checks_push checks check contains hs 42;
+    set checks checks_push checks check contains &hs 42;
+    free hs;
 
     let hsk <HashSet<ModKey,ModHasher>> must_hsk new ModHasher;
     let hsk <HashSet<ModKey,ModHasher>> must_hsk insert hsk (ModKey 21);
-    set checks checks_push checks check contains hsk (ModKey 21);
+    set checks checks_push checks check contains &hsk (ModKey 21);
+    free hsk;
 
     let shown checks_print_report checks;
     checks_exit_code shown

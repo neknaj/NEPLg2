@@ -1,3 +1,26 @@
+# 2026-04-30 メモ (ISS-20260429T155343006Z HashSet enum storage)
+
+- [同期]:
+  - `main` を `origin/main` へ push 済みの `b49d933` から `stdlib/hashset-owner-contract` branch を作って作業した。
+- [原因]:
+  - `HashSet` は HashMap と同じく raw header + raw entries layout を持ち、bucket state を `0/1/2` の numeric sentinel で管理していた。
+  - `contains` / `len` が by-value API だったため、fixture 側で観測後の owner を閉じられず、strict Resource IR で owner leak になっていた。
+- [修正]:
+  - `HashSetBucketState` / `HashSetInsertSlotState` を追加し、bucket state を enum + `match` で扱うようにした。
+  - backing storage を `HashSetStorage<T>` にまとめ、`Vec<HashSetBucketState>` / `Vec<Option<T>>` で全 slot を初期化済み owner として管理するようにした。
+  - `contains` / `len` は `&HashSet` を取る read API にし、観測後に caller が `free` する契約へ統一した。
+  - HashSet 関連の `.n.md` fixtures を `&set` read + `free` へ更新した。
+- [issue]:
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` に HashSet 部分完了を追記した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/hashset-stdlib-first.json -j 1 --dist web/dist`: 4 passed
+  - `node nodesrc/tests.js -i tests/stdlib/hash_collection_rehash.n.md --no-tree -o tmp/hash-collection-rehash-hashset-final.json -j 1 --dist web/dist`: 6 passed
+  - `node nodesrc/tests.js -i tests/stdlib/traits_hash.n.md --no-tree -o tmp/traits-hash-hashset-final.json -j 1 --dist web/dist`: 6 passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 6 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/collections_diag.n.md -n 2 --dist web/dist`: fail。`Diag.message` owner leak のため既存の新規 issue へ分離済み。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T120339805Z HashMap owner contract)
 
 - [同期]:
