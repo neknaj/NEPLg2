@@ -242,6 +242,29 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
 
+## 2026-04-29 Stage D1 move / borrow context diagnostics follow-up 追記
+
+`passes/move_check/context_state.rs` には variable state と field move state を根拠にした move / borrow diagnostics が多数残っており、`Diagnostic::error(...).with_code(...)` で `ResourceMoveDiagnosticCode` / `ResourceBorrowDiagnosticCode` を後付けしていた。ここは move/borrow/lifetime 相当の静的検査の中核なので、message ではなく enum code を生成時点で確定する必要がある。
+
+今回の対応で module-local `resource_move_error(...)` / `resource_borrow_error(...)` helper を追加し、use moved / use possibly moved / drop moved / drop possibly moved / return escape / move from shared / unique use / assign during borrow / drop during borrow / borrow moved / unique during shared / borrow during unique を `Diagnostic::error_with_code(...)` 経由へ移行した。Rust regression は代表的な move / borrow diagnostics で message ではなく `DiagnosticCode::Resource(...)` を直接検査する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core --test move_check move_use_after_move -- --nocapture`: pass
+- `cargo test -p nepl-core --test move_check move_in_branch -- --nocapture`: pass
+- `cargo test -p nepl-core --test move_check move_live_reference_blocks_move -- --nocapture`: pass
+- `cargo test -p nepl-core --test move_check -- --nocapture`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `rg -n "Diagnostic::error|\\.with_code" nepl-core/src/passes/move_check/context_state.rs`: helper 内の `Diagnostic::error_with_code` 以外に no matches
+- `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 2 --dist web/dist`: pass。`resource.move.use_moved` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 8 --dist web/dist`: pass。`resource.borrow.move_from_shared` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 34 --dist web/dist`: pass。field projection 経由でも `resource.borrow.move_from_shared` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
+
 ## 2026-04-29 Stage D1 parser direct diagnostics follow-up 追記
 
 前回の parser recovery boundary 移行後、`parser.rs` には layout block、type expression、identifier、mlstr、extern signature など 42 箇所の直接 `.with_code(...)` が残っていた。

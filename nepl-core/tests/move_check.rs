@@ -1,6 +1,7 @@
 use nepl_core::diagnostic::Diagnostic;
 use nepl_core::diagnostic_codes::{
-    DiagnosticCode, ResourceDiagnosticCode, ResourceRawDiagnosticCode,
+    DiagnosticCode, ResourceBorrowDiagnosticCode, ResourceDiagnosticCode,
+    ResourceMoveDiagnosticCode, ResourceRawDiagnosticCode,
 };
 use nepl_core::loader::Loader;
 use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
@@ -50,6 +51,17 @@ fn is_raw_ownership_violation(diag: &Diagnostic) -> bool {
         )))
 }
 
+fn is_move_diag(diag: &Diagnostic, code: ResourceMoveDiagnosticCode) -> bool {
+    diag.code == Some(DiagnosticCode::Resource(ResourceDiagnosticCode::Move(code)))
+}
+
+fn is_borrow_diag(diag: &Diagnostic, code: ResourceBorrowDiagnosticCode) -> bool {
+    diag.code
+        == Some(DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
+            code,
+        )))
+}
+
 #[test]
 fn move_simple_ok() {
     let source = r#"
@@ -85,7 +97,7 @@ fn main <()*>()>():
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs
         .iter()
-        .any(|d| d.message.contains("use of moved value")));
+        .any(|d| is_move_diag(d, ResourceMoveDiagnosticCode::UseMoved)));
 }
 
 #[test]
@@ -109,7 +121,9 @@ fn main <()*>()>():
     let z <Wrapper> x; // error: potentially moved
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("potentially moved")));
+    assert!(errs
+        .iter()
+        .any(|d| is_move_diag(d, ResourceMoveDiagnosticCode::UsePossiblyMoved)));
 }
 
 #[test]
@@ -200,9 +214,9 @@ fn main <()*>()>():
     let z <&Wrapper> r;
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d
-        .message
-        .contains("cannot move out of shared borrowed value")));
+    assert!(errs
+        .iter()
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::MoveFromShared)));
 }
 
 #[test]

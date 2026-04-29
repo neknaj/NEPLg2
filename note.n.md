@@ -1,3 +1,33 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z move/borrow context diagnostic code-first)
+
+- [同期]:
+  - `803c64a` まで反映した `main` を `origin/main` と同期し、`work/move-check-context-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `passes/move_check/context_state.rs` に variable state と field move state を根拠にした move / borrow diagnostics の `Diagnostic::error(...).with_code(...)` が残っていた。
+  - ここは move/borrow/lifetime 相当の静的検査の中核なので、message ではなく `ResourceMoveDiagnosticCode` / `ResourceBorrowDiagnosticCode` を生成時点で確定する必要がある。
+- [修正]:
+  - module-local `resource_move_error(...)` / `resource_borrow_error(...)` helper を追加した。
+  - use moved / use possibly moved / drop moved / drop possibly moved / return escape / move from shared / unique use / assign during borrow / drop during borrow / borrow moved / unique during shared / borrow during unique を `Diagnostic::error_with_code(...)` 経由へ移行した。
+  - Rust regression は代表的な move / borrow diagnostics で message ではなく `DiagnosticCode::Resource(...)` を直接検査するように強化した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test move_check move_use_after_move -- --nocapture`: pass
+  - `cargo test -p nepl-core --test move_check move_in_branch -- --nocapture`: pass
+  - `cargo test -p nepl-core --test move_check move_live_reference_blocks_move -- --nocapture`: pass
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `rg -n "Diagnostic::error|\\.with_code" nepl-core/src/passes/move_check/context_state.rs`: helper 内の `Diagnostic::error_with_code` 以外に no matches
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 2 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 8 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_check.n.md -n 34 --dist web/dist`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の move / borrow context diagnostics 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z raw move check diagnostic code-first)
 
 - [同期]:
