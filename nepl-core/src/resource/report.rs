@@ -162,6 +162,8 @@ pub enum ResourceOwnerOperation {
     ReturnValue,
     Dealloc,
     ReallocInput,
+    RawMemoryLoadCell,
+    RawMemoryStoreValue,
     CallArgument,
     BranchValue,
     MatchValue,

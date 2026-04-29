@@ -135,6 +135,7 @@ fn resource_ops_coverage(
             ResourceOp::Branch {
                 output,
                 condition,
+                condition_fact: _,
                 then_ops,
                 then_value,
                 else_ops,

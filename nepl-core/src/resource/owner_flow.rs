@@ -13,7 +13,7 @@ use super::place_utils::{
 };
 use super::report::{ResourceOwnerDiagnostic, ResourceOwnerOperation};
 use super::storage_origin::StorageOriginTable;
-use super::summary::{OwnerProjectionReturnSummary, OwnerReturnSummary};
+use super::summary::{OwnerProjectionReturnSummary, OwnerProjectionSource, OwnerReturnSummary};
 
 impl ResourceOwnerCheckEngine<'_> {
     pub(super) fn construct_owner_fields(
@@ -37,6 +37,9 @@ impl ResourceOwnerCheckEngine<'_> {
                 ResourceOwnerOperation::ConstructInput,
                 span,
             );
+            if matches!(kind, AggregateKind::Enum { .. }) && owners.state(&field).is_none() {
+                owners.set_state(&field, OwnerState::NoFreeObligation);
+            }
         }
     }
 
@@ -183,6 +186,26 @@ impl ResourceOwnerCheckEngine<'_> {
                 break;
             }
         }
+        for source in &summary.parameter_sources {
+            if transferred {
+                break;
+            }
+            let Some(source_place) = owner_projection_source_place(args, source) else {
+                continue;
+            };
+            if self.has_transferable_owner(owners, raw_aliases, &source_place) {
+                self.transfer_owner(
+                    owners,
+                    raw_aliases,
+                    storage_origins,
+                    &source_place,
+                    output,
+                    ResourceOwnerOperation::ReturnValue,
+                    span,
+                );
+                transferred = true;
+            }
+        }
         if summary.returns_fresh_owner && !transferred {
             owners.allocate(output);
             raw_aliases.mark(output);
@@ -199,6 +222,12 @@ impl ResourceOwnerCheckEngine<'_> {
                 projection,
                 span,
             );
+        }
+        for marker in &summary.projection_markers {
+            let marker_place = place_with_suffix(output, &marker.suffix, marker.ty);
+            if owners.state(&marker_place).is_none() {
+                owners.set_state(&marker_place, OwnerState::NoFreeObligation);
+            }
         }
         self.consume_owner_summary_parameters(
             owners,
@@ -221,6 +250,12 @@ impl ResourceOwnerCheckEngine<'_> {
         span: Span,
     ) {
         let mut transferred = false;
+        if owners.state(output).is_none() {
+            owners.set_state(output, OwnerState::NoFreeObligation);
+        }
+        if self.has_transferable_owner(owners, raw_aliases, output) {
+            return;
+        }
         for arg in summary
             .parameter_indices
             .iter()
@@ -238,6 +273,26 @@ impl ResourceOwnerCheckEngine<'_> {
                 );
                 transferred = true;
                 break;
+            }
+        }
+        for source in &summary.parameter_sources {
+            if transferred {
+                break;
+            }
+            let Some(source_place) = owner_projection_source_place(args, source) else {
+                continue;
+            };
+            if self.has_transferable_owner(owners, raw_aliases, &source_place) {
+                self.transfer_owner(
+                    owners,
+                    raw_aliases,
+                    storage_origins,
+                    &source_place,
+                    output,
+                    ResourceOwnerOperation::ReturnValue,
+                    span,
+                );
+                transferred = true;
             }
         }
         if summary.returns_fresh_owner && !transferred {
@@ -262,6 +317,18 @@ impl ResourceOwnerCheckEngine<'_> {
             .filter_map(|index| args.get(*index))
         {
             self.consume_call_argument_owner(owners, raw_aliases, storage_origins, arg, span);
+        }
+        for source in &summary.consumed_parameter_sources {
+            let Some(source_place) = owner_projection_source_place(args, source) else {
+                continue;
+            };
+            self.consume_call_argument_owner(
+                owners,
+                raw_aliases,
+                storage_origins,
+                &source_place,
+                span,
+            );
         }
     }
 
@@ -387,7 +454,11 @@ impl ResourceOwnerCheckEngine<'_> {
                 OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed => {
                     self.push_unavailable(operation, &entry.place, entry.state, span);
                 }
-                OwnerState::NoFreeObligation => {}
+                OwnerState::NoFreeObligation => {
+                    if should_track(&target_place) {
+                        owners.set_state(&target_place, OwnerState::NoFreeObligation);
+                    }
+                }
             }
         }
     }
@@ -525,6 +596,11 @@ impl ResourceOwnerCheckEngine<'_> {
     }
 }
 
+fn owner_projection_source_place(args: &[Place], source: &OwnerProjectionSource) -> Option<Place> {
+    let arg = args.get(source.parameter_index)?;
+    Some(place_with_suffix(arg, &source.suffix, source.ty))
+}
+
 pub(super) fn resolve_owner_alias_place(
     owners: &OwnerTable,
     raw_aliases: &RawCellAddressAliases,
@@ -544,6 +620,21 @@ pub(super) fn resolve_owner_alias_place(
             | Some(OwnerState::Freed)
             | Some(OwnerState::MaybeFreed) => return alias,
             Some(OwnerState::NoFreeObligation) | None => {}
+        }
+        if owners.has_tracked_state_under(&alias) {
+            return alias;
+        }
+    }
+    for alias in raw_aliases.prefix_aliases_for(place) {
+        match owners.state(&alias) {
+            Some(OwnerState::Live { .. })
+            | Some(OwnerState::Moved)
+            | Some(OwnerState::Freed)
+            | Some(OwnerState::MaybeFreed) => return alias,
+            Some(OwnerState::NoFreeObligation) | None => {}
+        }
+        if owners.has_tracked_state_under(&alias) {
+            return alias;
         }
     }
     place.clone()

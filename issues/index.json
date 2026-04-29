@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T12:21:29.482Z",
+  "generated_at": "2026-04-29T12:30:53.390Z",
   "counts": {
-    "total": 368,
-    "open": 13,
+    "total": 370,
+    "open": 15,
     "resolved": 355,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 168
       },
       "stdlib": {
-        "total": 105,
-        "open": 6,
+        "total": 107,
+        "open": 8,
         "resolved": 99
       },
       "TEST": {
@@ -200,6 +200,21 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
+      "id": "ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB",
+      "title": "Fallible owning collection updates lose input owners on allocation failure",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/collections/list.nepl, stdlib/alloc/collections/hashmap.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB.md"
+    },
+    {
       "id": "ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131",
       "title": "streamio scanner raw byte loads fail RawMemoryLoadCell gate",
       "area": "stdlib",
@@ -213,6 +228,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131.md"
+    },
+    {
+      "id": "ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE",
+      "title": "String concat_result leaks output region owner under Resource IR",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/string.nepl, stdlib/core/mem",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",

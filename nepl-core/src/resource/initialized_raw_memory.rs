@@ -1,4 +1,5 @@
 use crate::span::Span;
+use crate::types::TypeKind;
 
 use super::cell_state::CellTable;
 use super::initialized::ResourceCheckEngine;
@@ -41,10 +42,11 @@ impl ResourceCheckEngine<'_> {
                     span,
                 );
                 let cell = raw_memory_cell_place(&address, output.ty);
-                let cell_available = raw_aliases
+                let loaded_from_untracked_external = raw_aliases
                     .aliases_for(&address)
                     .iter()
-                    .any(|alias| cells.raw_cell_is_untracked_external(alias))
+                    .any(|alias| cells.raw_cell_is_untracked_external(alias));
+                let cell_available = loaded_from_untracked_external
                     || self.ensure_available(
                         cells,
                         &cell,
@@ -56,7 +58,16 @@ impl ResourceCheckEngine<'_> {
                         cells.set_state(&cell, CellState::Moved);
                     }
                     cells.mark_initialized(output);
-                    raw_aliases.clear(output);
+                    if raw_cell_value_is_known_raw_address(raw_aliases, &cell) {
+                        raw_aliases.copy_alias_or_seed(&cell, output);
+                    } else if loaded_from_untracked_external
+                        && self.output_can_hold_raw_address(output.ty)
+                    {
+                        cells.mark_external_raw_storage_root(output);
+                        raw_aliases.mark(output);
+                    } else {
+                        raw_aliases.clear(output);
+                    }
                 }
             }
             RawMemoryOp::Store => {
@@ -93,8 +104,14 @@ impl ResourceCheckEngine<'_> {
                 if address_available && cell_available && value_available {
                     if let Some(value) = args.get(1) {
                         let cell = raw_memory_cell_place(&address, value.ty);
+                        let value_is_known_raw_address =
+                            raw_cell_value_is_known_raw_address(raw_aliases, value);
                         cells.clear_raw_cells_under(&address);
                         cells.mark_initialized(&cell);
+                        raw_aliases.clear(&cell);
+                        if value_is_known_raw_address {
+                            raw_aliases.copy_alias_or_seed(value, &cell);
+                        }
                     }
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
@@ -245,4 +262,12 @@ impl ResourceCheckEngine<'_> {
             }
         }
     }
+
+    fn output_can_hold_raw_address(&self, ty: crate::types::TypeId) -> bool {
+        matches!(self.types.get_ref(self.types.resolve_id(ty)), TypeKind::I32)
+    }
+}
+
+fn raw_cell_value_is_known_raw_address(raw_aliases: &RawCellAddressAliases, place: &Place) -> bool {
+    raw_aliases.contains_exact(place) || raw_aliases.aliases_for(place).len() > 1
 }

@@ -18,7 +18,7 @@ use super::model::{
     CellState, CellStateEntry, EffectOp, Place, ResourceBlock, ResourceCallTarget,
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
-use super::place_utils::should_track;
+use super::place_utils::{match_bind_payload_place, should_track};
 use super::report::{
     ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
     ResourceFunctionCheck,
@@ -31,7 +31,7 @@ pub fn check_resource_initialized_moves(
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceCheckDeferred::default();
-    let raw_alias_summaries = compute_raw_cell_address_return_summaries(module);
+    let raw_alias_summaries = compute_raw_cell_address_return_summaries(module, types);
 
     for function in &module.functions {
         let mut engine = ResourceCheckEngine {
@@ -294,6 +294,7 @@ impl ResourceCheckEngine<'_> {
                 else_ops,
                 else_value,
                 span,
+                condition_fact: _,
             } => {
                 let condition_available = self.consume_by_value(
                     cells,
@@ -421,7 +422,17 @@ impl ResourceCheckEngine<'_> {
                     let mut arm_function_aliases = function_aliases.clone();
                     if let Some(bind_local) = &arm.bind_local {
                         arm_cells.mark_initialized(bind_local);
-                        arm_aliases.clear(bind_local);
+                        if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
+                            self.copy_raw_alias_and_rekey_cells(
+                                &mut arm_cells,
+                                &mut arm_aliases,
+                                &source,
+                                bind_local,
+                            );
+                            arm_function_aliases.copy_alias(&source, bind_local);
+                        } else {
+                            arm_aliases.clear(bind_local);
+                        }
                     }
                     self.check_ops(
                         &mut arm_cells,
@@ -476,6 +487,7 @@ impl ResourceCheckEngine<'_> {
             target,
             args,
             self.raw_alias_summaries,
+            self.types,
         )
     }
 
@@ -494,6 +506,7 @@ impl ResourceCheckEngine<'_> {
             callee,
             args,
             self.raw_alias_summaries,
+            self.types,
         )
     }
 
