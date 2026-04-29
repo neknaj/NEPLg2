@@ -493,21 +493,88 @@ fn resource_borrow_diagnostic_to_error(
     match diagnostic {
         crate::resource::ResourceBorrowDiagnostic::BorrowConflict {
             function,
-            operation: crate::resource::ResourceBorrowOperation::ReturnValue,
+            operation,
             place,
             active,
             span,
         } => Some(
             Diagnostic::error(
-                format!(
-                    "resource ir borrow lifetime violation in function '{}': returning {:?} escapes active borrow {:?}",
-                    function, place, active
-                ),
+                resource_borrow_conflict_message(function, *operation, place, active),
                 *span,
             )
-            .with_id(DiagnosticId::TypeBorrowEscapesScope),
+            .with_id(resource_borrow_conflict_diagnostic_id(*operation, active)),
         ),
-        _ => None,
+    }
+}
+
+fn resource_borrow_conflict_message(
+    function: &str,
+    operation: crate::resource::ResourceBorrowOperation,
+    place: &crate::resource::Place,
+    active: &crate::resource::BorrowState,
+) -> String {
+    match operation {
+        crate::resource::ResourceBorrowOperation::ReturnValue => format!(
+            "resource ir borrow lifetime violation in function '{}': returning {:?} escapes active borrow {:?}",
+            function, place, active
+        ),
+        _ => format!(
+            "resource ir borrow conflict in function '{}': {:?} on {:?} conflicts with active borrow {:?}",
+            function, operation, place, active
+        ),
+    }
+}
+
+fn resource_borrow_conflict_diagnostic_id(
+    operation: crate::resource::ResourceBorrowOperation,
+    active: &crate::resource::BorrowState,
+) -> DiagnosticId {
+    match operation {
+        crate::resource::ResourceBorrowOperation::ReturnValue => {
+            DiagnosticId::TypeBorrowEscapesScope
+        }
+        crate::resource::ResourceBorrowOperation::SharedBorrow => {
+            DiagnosticId::TypeBorrowUniquelyBorrowedValue
+        }
+        crate::resource::ResourceBorrowOperation::UniqueBorrow => match active {
+            crate::resource::BorrowState::Shared { .. } => {
+                DiagnosticId::TypeUniqueBorrowSharedBorrowedValue
+            }
+            crate::resource::BorrowState::Unique { .. }
+            | crate::resource::BorrowState::Unborrowed
+            | crate::resource::BorrowState::Released => {
+                DiagnosticId::TypeBorrowUniquelyBorrowedValue
+            }
+        },
+        crate::resource::ResourceBorrowOperation::Read => {
+            DiagnosticId::TypeUseUniquelyBorrowedValue
+        }
+        crate::resource::ResourceBorrowOperation::Move => match active {
+            crate::resource::BorrowState::Shared { .. } => {
+                DiagnosticId::TypeMoveFromSharedBorrowedValue
+            }
+            crate::resource::BorrowState::Unique { .. }
+            | crate::resource::BorrowState::Unborrowed
+            | crate::resource::BorrowState::Released => DiagnosticId::TypeUseUniquelyBorrowedValue,
+        },
+        crate::resource::ResourceBorrowOperation::Assign => match active {
+            crate::resource::BorrowState::Shared { .. } => {
+                DiagnosticId::TypeAssignSharedBorrowedValue
+            }
+            crate::resource::BorrowState::Unique { .. }
+            | crate::resource::BorrowState::Unborrowed
+            | crate::resource::BorrowState::Released => {
+                DiagnosticId::TypeAssignUniquelyBorrowedValue
+            }
+        },
+        crate::resource::ResourceBorrowOperation::Drop => match active {
+            crate::resource::BorrowState::Shared { .. } => {
+                DiagnosticId::TypeDropSharedBorrowedValue
+            }
+            crate::resource::BorrowState::Unique { .. }
+            | crate::resource::BorrowState::Unborrowed
+            | crate::resource::BorrowState::Released => DiagnosticId::TypeDropUniquelyBorrowedValue,
+        },
     }
 }
 
@@ -656,20 +723,61 @@ mod tests {
     }
 
     #[test]
-    fn resource_borrow_gate_keeps_non_return_conflicts_shadow_only() {
+    fn resource_borrow_gate_maps_non_return_conflicts_to_existing_borrow_ids() {
         let types = crate::types::TypeCtx::new();
         let place = Place::temporary(ResourceId(0), types.i32());
-        let diagnostic = ResourceBorrowDiagnostic::BorrowConflict {
-            function: String::from("main"),
-            operation: ResourceBorrowOperation::UniqueBorrow,
-            place: place.clone(),
-            active: BorrowState::Unique {
-                source: Box::new(place),
-            },
-            span: Span::dummy(),
-        };
+        for (operation, active, expected) in [
+            (
+                ResourceBorrowOperation::Read,
+                BorrowState::Unique {
+                    source: Box::new(place.clone()),
+                },
+                DiagnosticId::TypeUseUniquelyBorrowedValue,
+            ),
+            (
+                ResourceBorrowOperation::Move,
+                BorrowState::Shared { count: 1 },
+                DiagnosticId::TypeMoveFromSharedBorrowedValue,
+            ),
+            (
+                ResourceBorrowOperation::Assign,
+                BorrowState::Shared { count: 1 },
+                DiagnosticId::TypeAssignSharedBorrowedValue,
+            ),
+            (
+                ResourceBorrowOperation::Drop,
+                BorrowState::Unique {
+                    source: Box::new(place.clone()),
+                },
+                DiagnosticId::TypeDropUniquelyBorrowedValue,
+            ),
+            (
+                ResourceBorrowOperation::SharedBorrow,
+                BorrowState::Unique {
+                    source: Box::new(place.clone()),
+                },
+                DiagnosticId::TypeBorrowUniquelyBorrowedValue,
+            ),
+            (
+                ResourceBorrowOperation::UniqueBorrow,
+                BorrowState::Shared { count: 1 },
+                DiagnosticId::TypeUniqueBorrowSharedBorrowedValue,
+            ),
+        ] {
+            let diagnostic = ResourceBorrowDiagnostic::BorrowConflict {
+                function: String::from("main"),
+                operation,
+                place: place.clone(),
+                active,
+                span: Span::dummy(),
+            };
 
-        assert!(resource_borrow_diagnostic_to_error(&diagnostic).is_none());
+            let error = resource_borrow_diagnostic_to_error(&diagnostic)
+                .expect("borrow conflict should become a compiler error");
+
+            assert_eq!(error.id, Some(expected));
+            assert!(error.message.contains("resource ir borrow conflict"));
+        }
     }
 }
 

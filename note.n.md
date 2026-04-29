@@ -24648,3 +24648,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR lowering 入力として、raw address alias / `MemPtr` non-owning pointer semantics の責務境界を明確化した。
+
+# 2026-04-29 メモ (ISS-20260429T034515729Z Resource borrow conflict gate)
+
+- [原因]:
+  - `ResourceBorrowCheckEngine` は `Read` / `Move` / `Assign` / `Drop` / `SharedBorrow` / `UniqueBorrow` の conflict を検出していたが、compiler gate は `ReturnValue` だけを D3099 に昇格していた。
+  - Stage 4 の borrow/lifetime check を Resource IR 上で authoritative にするには、通常の read / mutation / borrow 作成 conflict を shadow-only に残せない。
+- [修正]:
+  - `resource_borrow_diagnostic_to_error` を全 `BorrowConflict` 対応にした。
+  - return escape は D3099 のまま維持し、非 return conflict は既存 `move_check` と同じ D3051-D3062 系の診断 ID に写像した。
+  - compiler gate unit test を更新し、非 return borrow conflict が compiler error になることを固定した。
+- [検証]:
+  - `rustfmt --check nepl-core\src\compiler.rs`: pass
+  - `cargo test -p nepl-core compiler::tests::resource_borrow_gate -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_borrow_check -- --nocapture`: 12 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\agent1-resource-borrow-conflict-gate-move-check.json -j 1`: total=52 passed=52
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\agent1-resource-borrow-conflict-gate-move-effect.json -j 1`: total=110 passed=110
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の borrow/lifetime check authoritative 化を一段進めた。

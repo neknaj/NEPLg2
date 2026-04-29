@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T03:45:15.737Z",
+  "generated_at": "2026-04-29T03:53:32.007Z",
   "counts": {
-    "total": 352,
+    "total": 353,
     "open": 9,
-    "resolved": 343,
+    "resolved": 344,
     "by_area": {
       "core": {
-        "total": 167,
+        "total": 168,
         "open": 3,
-        "resolved": 164
+        "resolved": 165
       },
       "stdlib": {
         "total": 102,
@@ -2598,6 +2598,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T033205536Z-RESOURCE-IR-LOWERING-RAW-ADDRESS-ALI-24A36D2A.md"
+    },
+    {
+      "id": "ISS-20260429T034515729Z-RESOURCE-BORROW-NON-RETURN-CONFLICTS-12A5A5E4",
+      "title": "Resource borrow non-return conflicts remain shadow-only",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/compiler.rs, nepl-core/src/resource/borrow_check.rs, tests/compiler/move_check.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T034515729Z-RESOURCE-BORROW-NON-RETURN-CONFLICTS-12A5A5E4.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
