@@ -759,3 +759,21 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `trunk build`: pass
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 wasm shared diagnostic follow-up 追記
+
+`wasm_shared.rs` の raw wasm body precheck には raw line parse error の `Diagnostic::error(...).with_code(...)` が残っていた。raw wasm line parse error は backend wasm precheck の責務なので、`WasmDiagnosticCode::RawLineParseError` を生成時点で確定する必要がある。
+
+今回の対応で module-local `wasm_error(...)` helper を追加し、raw wasm line parse error を `Diagnostic::error_with_code(...)` 経由へ移行した。web/doctest 側の `backend.wasm.raw_line_parse_error` regression で外部 stable string code も確認する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "Diagnostic::error\(|\.with_code\(" nepl-core/src/wasm_shared.rs`: no matches
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/codegen_diagnostics.n.md -n 3 --dist web/dist`: pass。`backend.wasm.raw_line_parse_error` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/raw_body_precheck.n.md -n 4 --dist web/dist`: pass。`backend.wasm.raw_line_parse_error` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

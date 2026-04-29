@@ -1,3 +1,26 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z wasm shared diagnostic code-first)
+
+- [同期]:
+  - `38efce6` まで反映した `main` を `origin/main` と同期し、`work/wasm-shared-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `wasm_shared.rs` の raw wasm body precheck に `Diagnostic::error(...).with_code(...)` が残っていた。
+  - raw wasm line parse error は backend wasm precheck の責務なので、`WasmDiagnosticCode::RawLineParseError` を生成時点で確定する必要がある。
+- [修正]:
+  - module-local `wasm_error(...)` helper を追加し、raw wasm line parse error を `Diagnostic::error_with_code(...)` へ移行した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "Diagnostic::error\(|\.with_code\(" nepl-core/src/wasm_shared.rs`: no matches
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/codegen_diagnostics.n.md -n 3 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/raw_body_precheck.n.md -n 4 --dist web/dist`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の wasm raw body diagnostics 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z resolve diagnostic code-first)
 
 - [同期]:

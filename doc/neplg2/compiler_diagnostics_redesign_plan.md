@@ -193,6 +193,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `passes/codegen_precheck.rs` の wasm / llvm precheck diagnostics を code-first helper へ移行した。wasm backend precheck は `WasmDiagnosticCode`、LLVM precheck の型境界は `TypeDiagnosticCode` を生成時点で確定する。`IndirectSignatureMissing` は現行の signature set 生成では到達しにくいことが判明したため、別 issue で signature source 分離または variant 整理を追跡する。
 - 2026-04-29: `target_precheck.rs` / `target_gate.rs` の raw body target、target directive、conditional gate diagnostics を code-first helper へ移行した。`#target` の fallback 走査では「有効 target が見つかったか」と「target directive を見たか」を分離し、unknown target を module directives と root items の両方で重複診断しないようにした。
 - 2026-04-29: `resolve.rs` の open import ambiguity diagnostic を code-first constructor へ移行した。host-side module graph の visible map construction でも `ResolveDiagnosticCode::ImportAmbiguous` を生成時点で確定する。
+- 2026-04-29: `wasm_shared.rs` の raw wasm line parse diagnostic を code-first helper へ移行した。raw wasm body precheck は `WasmDiagnosticCode::RawLineParseError` を生成時点で確定する。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

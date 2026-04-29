@@ -7,10 +7,22 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{BackendDiagnosticCode, DiagnosticCode, WasmDiagnosticCode};
 use crate::hir::{FuncRef, HirBody, HirExpr, HirExprKind, HirFunction, HirModule, HirParam};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 use wasm_encoder::{Instruction, MemArg, ValType};
+
+fn wasm_error(
+    code: WasmDiagnosticCode,
+    message: impl Into<String>,
+    span: crate::span::Span,
+) -> Diagnostic {
+    Diagnostic::error_with_code(
+        DiagnosticCode::Backend(BackendDiagnosticCode::Wasm(code)),
+        message,
+        span,
+    )
+}
 
 fn valtype(kind: &TypeKind) -> Option<ValType> {
     match kind {
@@ -829,13 +841,11 @@ pub(crate) fn precheck_raw_wasm_body(_ctx: &TypeCtx, func: &HirFunction) -> Vec<
         for line in &wb.lines {
             let parsed = parse_wasm_line_with_lookup(line, |name| param_map.get(name).copied());
             if let Err(msg) = parsed {
-                out.push(
-                    Diagnostic::error(msg, func.span).with_code(DiagnosticCode::Backend(
-                        crate::diagnostic_codes::BackendDiagnosticCode::Wasm(
-                            crate::diagnostic_codes::WasmDiagnosticCode::RawLineParseError,
-                        ),
-                    )),
-                );
+                out.push(wasm_error(
+                    WasmDiagnosticCode::RawLineParseError,
+                    msg,
+                    func.span,
+                ));
             }
         }
     }
