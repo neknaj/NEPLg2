@@ -24341,3 +24341,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_plan.md` の S6 に沿い、file_io / artifact writer の前段として VFS driver 境界を追加した。
+
+# 2026-04-29 メモ (ISS-20260429T012328323Z storage origin for owner gate)
+
+- [同期]:
+  - `main` は `origin/main` と同期済みで、`work/resource-storage-origin` branch を作成して作業した。
+- [原因]:
+  - Resource owner gate は `Live` / `Moved` / `Freed` の owner obligation を検出できるが、固定 raw address や legacy unmanaged address と `alloc_raw` 由来の owned storage を区別できなかった。
+  - そのため `NoFreeObligation` を全部 D3100 にすると unmanaged raw address の移行 fixture が壊れ、逆に shadow-only にすると owned storage の stale alias dealloc を見逃す構造だった。
+- [修正]:
+  - `ResourceState` に `StorageOriginEntry` / `StorageOrigin` を追加し、owner state と別に owned / unmanaged / internal の由来を持てるモデルにした。
+  - owner checker に `StorageOriginTable` を追加し、`alloc_raw` / fresh owner summary で owned origin を発行し、`Read` / `RawAddressAlias` では free obligation を移動せず non-owning alias として origin だけを伝搬するようにした。
+  - `dealloc` / `realloc` は owner state がない場合でも、対象 place または raw alias が owned origin を持つ場合だけ `NoFreeObligation` を診断するようにした。
+  - compiler owner gate では `NoFreeObligation` を D3100 に戻し、origin がない unmanaged raw address は owner diagnostic 自体を出さない境界にした。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check -- --nocapture`: 18 passed
+  - `cargo test -p nepl-core compiler::tests::resource_owner_gate -- --nocapture`: 3 passed
+  - `rustfmt --check nepl-core\src\compiler.rs nepl-core\src\resource\model.rs nepl-core\src\resource\mod.rs nepl-core\src\resource\owner_check.rs nepl-core\src\resource\storage_origin.rs nepl-core\src\resource\summary.rs nepl-core\tests\resource_ir.rs`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\agent1-resource-storage-origin-move-effect.json -j 1`: total=110 passed=110
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\agent1-resource-storage-origin-move-check.json -j 1`: total=52 passed=52
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の `MemPtr = non-owning pointer` と `Storage/OwnedRegion = free obligation owner` の分離に沿い、free obligation owner と raw pointer alias の責務を Resource IR owner gate 側で分離した。

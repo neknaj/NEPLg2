@@ -15,6 +15,7 @@ use super::owner_check::{resolve_owner_alias_place, ResourceOwnerCheckEngine};
 use super::owner_state::OwnerTable;
 use super::place_utils::{place_suffix_after_prefix, push_unique_usize};
 use super::report::{ResourceBorrowCheckDeferred, ResourceOwnerCheckDeferred};
+use super::storage_origin::StorageOriginTable;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct BorrowTokenReturnSummary {
@@ -130,10 +131,12 @@ fn function_owner_return_summary(
     };
     let mut owners = OwnerTable::default();
     let mut raw_aliases = RawCellAddressAliases::default();
+    let mut storage_origins = StorageOriginTable::default();
     let mut parameter_storages = Vec::new();
     for param in &function.params {
         owners.allocate(&param.place);
         raw_aliases.mark(&param.place);
+        storage_origins.mark_owned(&param.place);
         if let Some(OwnerState::Live { storage }) = owners.state(&param.place) {
             parameter_storages.push(storage);
         }
@@ -148,6 +151,7 @@ fn function_owner_return_summary(
             &mut owners,
             &mut function_aliases,
             &mut raw_aliases,
+            &mut storage_origins,
             &block.ops,
         );
         if let ResourceTerminator::Return {

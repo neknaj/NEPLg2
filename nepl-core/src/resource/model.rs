@@ -303,6 +303,7 @@ pub struct PointerProvenance {
 pub struct ResourceState {
     pub cells: Vec<CellStateEntry>,
     pub owners: Vec<OwnerStateEntry>,
+    pub storage_origins: Vec<StorageOriginEntry>,
     pub borrows: Vec<BorrowStateEntry>,
 }
 
@@ -325,6 +326,19 @@ pub enum CellState {
 pub struct OwnerStateEntry {
     pub place: Place,
     pub state: OwnerState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StorageOriginEntry {
+    pub place: Place,
+    pub origin: StorageOrigin,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StorageOrigin {
+    Owned,
+    Unmanaged,
+    Internal,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -387,6 +401,7 @@ impl Default for ResourceState {
         Self {
             cells: Vec::new(),
             owners: Vec::new(),
+            storage_origins: Vec::new(),
             borrows: Vec::new(),
         }
     }

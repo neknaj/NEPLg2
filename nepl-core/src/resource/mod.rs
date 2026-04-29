@@ -28,6 +28,7 @@ mod owner_state;
 mod place_utils;
 mod report;
 mod shadow;
+mod storage_origin;
 mod summary;
 mod type_pattern;
 
@@ -49,6 +50,7 @@ pub use model::{
     RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceExprKind,
     ResourceFunction, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern,
     ResourceModule, ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId,
+    StorageOrigin, StorageOriginEntry,
 };
 pub use owner_check::check_resource_owner_obligations;
 pub use report::{

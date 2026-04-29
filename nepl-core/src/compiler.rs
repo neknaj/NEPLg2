@@ -423,10 +423,6 @@ fn resource_owner_diagnostic_to_error(
 ) -> Option<Diagnostic> {
     match diagnostic {
         crate::resource::ResourceOwnerDiagnostic::OwnerUnavailable {
-            state: crate::resource::OwnerState::NoFreeObligation,
-            ..
-        } => None,
-        crate::resource::ResourceOwnerDiagnostic::OwnerUnavailable {
             function,
             operation,
             place,
@@ -615,7 +611,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_owner_gate_keeps_no_free_obligation_shadow_only() {
+    fn resource_owner_gate_maps_no_free_obligation_to_d3100() {
         let types = crate::types::TypeCtx::new();
         let place = Place::temporary(ResourceId(0), types.i32());
         let diagnostic = ResourceOwnerDiagnostic::OwnerUnavailable {
@@ -626,7 +622,16 @@ mod tests {
             span: Span::dummy(),
         };
 
-        assert!(resource_owner_diagnostic_to_error(&diagnostic).is_none());
+        let error = resource_owner_diagnostic_to_error(&diagnostic)
+            .expect("owned-storage no-free diagnostic should become a compiler error");
+
+        assert_eq!(
+            error.id,
+            Some(DiagnosticId::TypeRawMemoryOwnershipViolation)
+        );
+        assert!(error
+            .message
+            .contains("resource ir owner obligation violation"));
     }
 
     #[test]

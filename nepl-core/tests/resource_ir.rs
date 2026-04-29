@@ -4139,6 +4139,79 @@ fn resource_ir_owner_check_allows_raw_pointer_read_before_dealloc() {
 }
 
 #[test]
+fn resource_ir_owner_check_allows_unmanaged_fixed_address_dealloc_without_owner() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let unmanaged = Place::local("raw_address".to_string(), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![ResourceOp::RawMemory {
+            operation: RawMemoryOp::Dealloc,
+            output: Place::temporary(ResourceId(0), unit_ty),
+            args: vec![unmanaged],
+            span,
+        }],
+    );
+
+    let report = check_resource_owner_obligations(&resource);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
+fn resource_ir_owner_check_reports_stale_owned_alias_dealloc_after_free() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let p = Place::local("p".to_string(), i32_ty);
+    let alias = Place::temporary(ResourceId(0), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: p.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Read {
+                source: p.clone(),
+                output: alias.clone(),
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(1), unit_ty),
+                args: vec![p],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(2), unit_ty),
+                args: vec![alias.clone()],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_owner_obligations(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceOwnerDiagnostic::OwnerUnavailable {
+            function,
+            operation: ResourceOwnerOperation::Dealloc,
+            place,
+            state: OwnerState::NoFreeObligation,
+            ..
+        } if function == "main" && place == &alias
+    )));
+}
+
+#[test]
 fn resource_ir_owner_check_reports_assign_over_live_owner_leak() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();
