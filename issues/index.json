@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T17:09:33.448Z",
+  "generated_at": "2026-04-29T17:12:25.999Z",
   "counts": {
-    "total": 390,
+    "total": 391,
     "open": 14,
-    "resolved": 376,
+    "resolved": 377,
     "by_area": {
       "core": {
-        "total": 180,
+        "total": 181,
         "open": 5,
-        "resolved": 175
+        "resolved": 176
       },
       "stdlib": {
         "total": 117,
@@ -2823,6 +2823,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T165748888Z-RESOURCE-IR-BORROW-CHECKER-RELEASES--5C0A5FEF.md"
+    },
+    {
+      "id": "ISS-20260429T170036695Z-RESOURCE-OWNER-SUMMARY-KEEPS-OWNED-E-BFDE4F98",
+      "title": "Resource owner summary keeps owned enum payloads from non-returning match arms",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T170036695Z-RESOURCE-OWNER-SUMMARY-KEEPS-OWNED-E-BFDE4F98.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

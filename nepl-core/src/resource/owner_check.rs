@@ -537,9 +537,23 @@ impl ResourceOwnerCheckEngine<'_> {
                     let mut arm_raw_aliases = raw_aliases.clone();
                     let mut arm_storage_origins = storage_origins.clone();
                     if let Some(selected_variant) = match_arm_variant_payload_name(arm) {
-                        for inactive_payload in
-                            arm_owners.sibling_enum_payload_places(scrutinee, selected_variant)
-                        {
+                        let mut inactive_payloads =
+                            arm_owners.sibling_enum_payload_places(scrutinee, selected_variant);
+                        let resolved_scrutinee = super::owner_alias::resolve_owner_alias_place(
+                            &arm_owners,
+                            &arm_raw_aliases,
+                            scrutinee,
+                        );
+                        if resolved_scrutinee != *scrutinee {
+                            for inactive_payload in arm_owners
+                                .sibling_enum_payload_places(&resolved_scrutinee, selected_variant)
+                            {
+                                if !inactive_payloads.contains(&inactive_payload) {
+                                    inactive_payloads.push(inactive_payload);
+                                }
+                            }
+                        }
+                        for inactive_payload in inactive_payloads {
                             arm_owners.set_state(&inactive_payload, OwnerState::NoFreeObligation);
                             arm_raw_aliases.clear(&inactive_payload);
                             arm_storage_origins.clear(&inactive_payload);

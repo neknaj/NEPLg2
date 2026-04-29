@@ -86,3 +86,14 @@ generic aggregate subcase の後に残っていた Resource IR 側の誤検出�
 残件:
 
 - `list_get_out_of_bounds_err` と HashMap 系の残りは、Resource IR が raw cell owner を追跡できるようになったことで表面化した stdlib の fallible owning collection contract 問題として `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` に分離した。
+
+## 2026-04-30 non-returning Result payload owner subcase 追記
+
+現行 main で `cargo test -p nepl-core --test neplg2 -- --nocapture` を再確認したところ、99 件中 96 passed / 3 failed だった。generic aggregate 系は通過済みで、残りは `list_get_out_of_bounds_err`、`hashmap_custom_struct_key_roundtrips_value`、`llvm_hashmap_string_key_preserves_explicit_hasher_type_args` だった。
+
+このうち `list_get_out_of_bounds_err` は stdlib List の failure rollback ではなく、`unwrap_ok` / `uwok` の `Err => unreachable` 経路で `Result::Err Diag` payload owner が caller 側に残る Resource owner summary の問題だった。`ISS-20260429T170036695Z-RESOURCE-OWNER-SUMMARY-KEEPS-OWNED-E-BFDE4F98` として分離し、match scrutinee alias 元の inactive enum payload 無効化と、`NoFreeObligation` parameter leaf の consumed summary 記録を修正した。
+
+検証:
+
+- `cargo test -p nepl-core --test neplg2 list_get_out_of_bounds_err -- --nocapture`: pass
+- HashMap 2 件は header / entries owner leak として引き続き失敗し、`ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` の残件として扱う。

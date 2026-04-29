@@ -216,7 +216,14 @@ fn consumed_owner_parameters(
                     push_unique_owner_projection_source(&mut sources, source);
                 }
             }
-            Some(OwnerState::Live { .. } | OwnerState::NoFreeObligation) | None => {}
+            Some(OwnerState::NoFreeObligation) => {
+                if source.suffix.is_empty() {
+                    push_unique_usize(&mut indices, source.parameter_index);
+                } else {
+                    push_unique_owner_projection_source(&mut sources, source);
+                }
+            }
+            Some(OwnerState::Live { .. }) | None => {}
         }
     }
     (indices, sources)

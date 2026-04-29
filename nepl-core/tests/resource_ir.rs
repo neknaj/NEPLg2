@@ -6076,6 +6076,82 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/result" as *
+
+struct Boxed:
+    ptr <i32>
+
+struct OwnedErr:
+    ptr <i32>
+
+fn make_result <(bool)*>Result<Boxed, OwnedErr>> (ok_flag):
+    if:
+        cond:
+            ok_flag
+        then:
+            let p <i32> alloc_raw 4
+            if:
+                cond:
+                    eq p 0
+                then:
+                    #intrinsic "unreachable" <> ()
+                else:
+                    ok<Boxed, OwnedErr> Boxed p
+        else:
+            let e <i32> alloc_raw 4
+            if:
+                cond:
+                    eq e 0
+                then:
+                    #intrinsic "unreachable" <> ()
+                else:
+                    err<Boxed, OwnedErr> OwnedErr e
+
+fn unwrap_box <(Result<Boxed, OwnedErr>)*>Boxed> (r):
+    match r:
+        Result::Ok box:
+            box
+        Result::Err _e:
+            #intrinsic "unreachable" <> ()
+
+fn main <()*>()> ():
+    let box <Boxed> unwrap_box make_result true;
+    dealloc_raw field::get box "ptr" 4
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("make_result__")
+                || function.starts_with("unwrap_box__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "unwrap-style non-returning Err arm must consume the owned Err payload at call boundary: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_preserves_alloc_ptr_raw_owner_return() {
     let source = r#"
 #entry main

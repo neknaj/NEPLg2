@@ -26807,3 +26807,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Stage 4 の borrow/resource summary 周辺の正確性を改善し、drop overwrite の false positive を解消した。
+
+# 2026-04-30 メモ (ISS-20260429T170036695Z Resource owner non-returning enum payload)
+
+- [同期]:
+  - `main` の `10bea5d` から `work/resource-owner-noreturn-payload-consume` branch で継続した。
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture` は 99 件中 96 passed / 3 failed で、generic aggregate は通過済み、List と HashMap の owner gate 失敗だけが残っていた。
+- [原因]:
+  - `list_get_out_of_bounds_err` の失敗は List 自体の rollback ではなく、`unwrap_ok` / `uwok` が `Result<T,E>` を by-value で消費する境界の owner summary 不備だった。
+  - `Err => unreachable` のような non-returning match arm では、戻る path に含まれない `Err` payload owner を caller 側でも消費済みとして扱う必要がある。
+  - しかし Resource IR owner checker は match scrutinee が parameter read alias の場合、inactive enum payload の `NoFreeObligation` を alias 元 parameter place に反映できていなかった。
+  - さらに owner return summary は `NoFreeObligation` になった parameter owner leaf を consumed source として記録していなかったため、caller 側の `Result::Err Diag` payload owner が残っていた。
+- [修正]:
+  - `ResourceOp::Match` で inactive enum payload を無効化するとき、scrutinee 自身だけでなく owner alias 解決後の scrutinee place の sibling payload も `NoFreeObligation` にするようにした。
+  - owner return summary 生成で、returned source ではない parameter owner leaf が `NoFreeObligation` の場合も consumed parameter source として記録するようにした。
+  - owned `Err` payload を持つ `Result<Boxed, OwnedErr>` と `Err => unreachable` の Resource IR regression を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 list_get_out_of_bounds_err -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/resource-owner-noreturn-move-effect.json -j 1 --dist web/dist`: `total=110`, `passed=110`
+  - HashMap focused 2 件は header / entries owner leak として継続失敗し、`ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` の残件として更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 4 の owner summary / enum payload alias 境界を改善し、Resource IR gate を弱めずに List 側 false positive を解消した。

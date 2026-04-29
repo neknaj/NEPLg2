@@ -44,3 +44,9 @@ Redesign fallible owning collection APIs so failure paths either preserve and re
 ## 検証
 
 Run focused List/HashMap neplg2 tests and Resource IR owner regressions after the stdlib ownership contract is fixed.
+
+## 2026-04-30 状況更新
+
+`list_get_out_of_bounds_err` の失敗は、List の allocation failure rollback ではなく、`unwrap_ok` / `uwok` の `Err => unreachable` 経路で owned `Result::Err` payload が caller に残る Resource owner summary 問題だった。これは `ISS-20260429T170036695Z-RESOURCE-OWNER-SUMMARY-KEEPS-OWNED-E-BFDE4F98` として core 側で修正済みで、`cargo test -p nepl-core --test neplg2 list_get_out_of_bounds_err -- --nocapture` は pass する。
+
+この issue の残件は HashMap 側に集中している。`hashmap_rehash_to` の `hdr + 8` entries owner、`insert` の local `entries` owner、main の `map1` / `hms` / `hmk` header と entries owner leak は引き続き再現する。次の修正では HashMap grow / rehash / insert / free の owner contract を、Resource IR owner gate を弱めずに整理する。
