@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T14:26:22.798Z",
+  "generated_at": "2026-04-29T14:32:55.771Z",
   "counts": {
-    "total": 376,
-    "open": 16,
+    "total": 377,
+    "open": 17,
     "resolved": 360,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 169
       },
       "stdlib": {
-        "total": 111,
-        "open": 8,
+        "total": 112,
+        "open": 9,
         "resolved": 103
       },
       "TEST": {
@@ -243,6 +243,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D.md"
+    },
+    {
+      "id": "ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB",
+      "title": "ByteBuilder and StringBuilder Result owner paths leak under Resource IR",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/io.nepl, stdlib/alloc/string.nepl, tests/stdlib/byte_builder.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",

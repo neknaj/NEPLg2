@@ -1,3 +1,17 @@
+# 2026-04-29 メモ (ISS-20260429T142213822Z builder owner boundary issue 登録)
+
+- [同期]:
+  - `ISS-20260429T125126519Z` の修正コミット後、同じ branch 上で新規 issue だけを別コミットとして登録した。
+- [発見内容]:
+  - ByteBuf owner boundary 修正後も `tests/stdlib/byte_builder.n.md` は `byte_builder_with_capacity` の `Result::Ok(ByteBuilder)` owner obligation violation で失敗する。
+  - `tests/stdlib/fs.n.md` / `tests/stdlib/text_utf8.n.md` の広い検証でも `sb_build_result` / `string_builder_with_capacity_result` の owner leak が残る。
+  - `ByteBuilder` / `StringBuilder` は空 sentinel と owning pointer を同じ裸 `MemPtr` field に混在させており、ByteBuf と同じ根を持つ ResourceIR 不一致として扱う必要がある。
+- [対応]:
+  - `ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB` を追加した。
+  - 今回の ByteBuf fix に混ぜず、builder contract の再設計 issue として切り分けた。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T125126519Z io ByteBuf owner boundary)
 
 - [同期]:
