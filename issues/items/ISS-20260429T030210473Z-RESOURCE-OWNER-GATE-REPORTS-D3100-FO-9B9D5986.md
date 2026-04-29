@@ -2,8 +2,8 @@
 id: ISS-20260429T030210473Z-RESOURCE-OWNER-GATE-REPORTS-D3100-FO-9B9D5986
 title: "Resource owner gate reports D3100 for stdlib byte scanner helper doctest temporaries"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
@@ -39,6 +39,11 @@ New stdlib scanner helpers cannot be behaviorally verified inside NEPL doctests;
 
 Trace Resource IR owner obligations for pure i32/bool return temporaries and borrowed str results in nested conditionals without weakening D3100 for real owner leaks. Add the byte scanner doctest as a regression when fixed.
 
+## 対応
+
+remote main の Resource owner summary 修正により、copy-like return temporary と consumed owner parameter の扱いが改善された。`str_find_byte_range` / `str_line_end` / `str_next_line_pos` / `str_trim_suffix_cr` / ASCII byte classification の semantic sample は D3100 なしで compile/run できるようになったため、skip を外して通常 doctest に戻した。
+
 ## 検証
 
-node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n <byte-scanner-helper-doctest>; node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/stdlib-byte-scanner-string-fixed.json -j 1
+- `trunk build`: passed
+- `node nodesrc/tests.js -i stdlib\alloc\string.nepl --no-tree -o tmp\stdlib-byte-scanner-string-unskip.json -j 1`: total=8 passed=8

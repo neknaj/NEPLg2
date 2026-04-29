@@ -119,6 +119,9 @@
 - [次の方針]:
   - D3100 を弱めず、静的検査側が pure scalar/string temporary の owner flow を正しく扱えるようになった後で semantic doctest を通常実行に戻す。
   - 今回の stdlib refactor では helper API と call site 置換、構造 regression を先に固定する。
+- [解消]:
+  - remote main の Resource owner summary 修正を取り込んだ後、`stdlib/alloc/string.nepl` の byte scanner semantic sample が D3100 なしで通るようになった。
+  - skip を外して通常 doctest に戻し、`node nodesrc/tests.js -i stdlib\alloc\string.nepl --no-tree -o tmp\stdlib-byte-scanner-string-unskip.json -j 1` で 8/8 pass を確認した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 

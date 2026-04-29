@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T03:44:07.111Z",
+  "generated_at": "2026-04-29T03:44:35.741Z",
   "counts": {
     "total": 352,
-    "open": 11,
-    "resolved": 341,
+    "open": 10,
+    "resolved": 342,
     "by_area": {
       "core": {
         "total": 167,
-        "open": 5,
-        "resolved": 162
+        "open": 4,
+        "resolved": 163
       },
       "stdlib": {
         "total": 102,
@@ -93,21 +93,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260429T030210473Z-RESOURCE-OWNER-GATE-REPORTS-D3100-FO-9B9D5986",
-      "title": "Resource owner gate reports D3100 for stdlib byte scanner helper doctest temporaries",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nepl-core/src/resource, stdlib/alloc/string.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T030210473Z-RESOURCE-OWNER-GATE-REPORTS-D3100-FO-9B9D5986.md"
     },
     {
       "id": "ISS-20260429T030655089Z-RESOURCE-OWNER-GATE-REGRESSES-NM-DIR-98E651E0",
@@ -2568,6 +2553,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T024412130Z-RESOURCE-OWNER-GATE-REPORTS-D3100-IN-7A19FECC.md"
+    },
+    {
+      "id": "ISS-20260429T030210473Z-RESOURCE-OWNER-GATE-REPORTS-D3100-FO-9B9D5986",
+      "title": "Resource owner gate reports D3100 for stdlib byte scanner helper doctest temporaries",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource, stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T030210473Z-RESOURCE-OWNER-GATE-REPORTS-D3100-FO-9B9D5986.md"
     },
     {
       "id": "ISS-20260429T031855408Z-RESOURCE-IR-COVERAGE-COMPARISON-CONC-E23BB5D9",

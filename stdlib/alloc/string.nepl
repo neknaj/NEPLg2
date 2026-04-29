@@ -1375,9 +1375,8 @@ fn str_word_end_inline_space_range <(str,i32,i32)->i32> (s, start, end):
 
 //: [検証/けんしょう]:
 //: - 下の sample は helper の期待挙動をまとめた semantic regression です。
-//: - 現在は `ISS-20260429T030210473Z-RESOURCE-OWNER-GATE-REPORTS-D3100-FO-9B9D5986` により D3100 になるため skip し、構造 regression で API 利用を固定します。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
 //: ret: 0
 //: ```neplg2
 //:| #entry main
