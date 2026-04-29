@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T03:41:55.505Z",
+  "generated_at": "2026-04-29T03:43:39.527Z",
   "counts": {
-    "total": 350,
-    "open": 10,
+    "total": 351,
+    "open": 11,
     "resolved": 340,
     "by_area": {
       "core": {
-        "total": 165,
-        "open": 3,
+        "total": 166,
+        "open": 4,
         "resolved": 162
       },
       "stdlib": {
@@ -93,6 +93,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260429T030210473Z-RESOURCE-OWNER-GATE-REPORTS-D3100-FO-9B9D5986",
+      "title": "Resource owner gate reports D3100 for stdlib byte scanner helper doctest temporaries",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource, stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T030210473Z-RESOURCE-OWNER-GATE-REPORTS-D3100-FO-9B9D5986.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",

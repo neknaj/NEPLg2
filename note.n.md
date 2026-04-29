@@ -99,6 +99,19 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-04-29 メモ (ISS-20260429T030210473Z byte scanner helper doctest D3100)
+
+- [発見]:
+  - `str_find_byte_range`、`str_line_end`、`str_next_line_pos`、`str_trim_suffix_cr`、ASCII byte classification の追加 doctest が `main__unit__i32__imp` の temporary owner obligation leak として D3100 になった。
+  - helper は Copy scalar offset と borrowed `str` view を扱うだけで、`nodesrc/test_stdlib_byte_scanner_helpers_boundary.js` による構造確認は通る。
+- [issue]:
+  - `ISS-20260429T030210473Z-RESOURCE-OWNER-GATE-REPORTS-D3100-FO-9B9D5986` を追加した。
+- [次の方針]:
+  - D3100 を弱めず、静的検査側が pure scalar/string temporary の owner flow を正しく扱えるようになった後で semantic doctest を通常実行に戻す。
+  - 今回の stdlib refactor では helper API と call site 置換、構造 regression を先に固定する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T004144320Z Resource owner pointer read separation)
 
 - [同期]:
