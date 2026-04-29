@@ -29,6 +29,7 @@
 #indent 4
 
 #import "alloc/string" as *
+#import "alloc/string/scanner" as scanner
 #import "core/math" as *
 #import "core/option" as *
 
@@ -65,7 +66,7 @@ impl Copy for Document:
 //: [計算量/けいさんりょう]:
 //: - O(line_length)
 fn nm_read_line <(str,i32)->str> (s, pos):
-    str_trim_suffix_cr str_slice s pos str_line_end s pos
+    str_trim_suffix_cr str_slice s pos scanner::str_line_end s pos
 
 //: nm_heading_level: ATX heading の level を判定する
 //:
@@ -348,11 +349,11 @@ fn nm_inline_to_json <(str)->str> (s):
                         else:
                             set i add i 1
                 '[':
-                    let close <i32> str_find_byte_range s add i 1 n ']';
+                    let close <i32> scanner::str_find_byte_range s add i 1 n ']';
                     let slash <i32>:
                         if:
                             ge close 0
-                            then str_find_byte_range s add i 1 close '/'
+                            then scanner::str_find_byte_range s add i 1 close '/'
                             else -1
                     let mut next_is_paren <bool> false;
                     if:
@@ -386,7 +387,7 @@ fn nm_inline_to_json <(str)->str> (s):
                         else:
                             set i add i 1
                 '{':
-                    let close <i32> str_find_byte_range s add i 1 n '}';
+                    let close <i32> scanner::str_find_byte_range s add i 1 n '}';
                     let first_slash <i32>:
                         if:
                             ge close 0
@@ -552,10 +553,10 @@ pub fn document_to_json <(Document)->str> (doc):
 
     while lt pos n:
         do:
-            let line_end <i32> str_line_end src pos;
+            let line_end <i32> scanner::str_line_end src pos;
             let raw <str> str_trim_suffix_cr str_slice src pos line_end;
             let t <str> str_trim raw;
-            set pos str_next_line_pos src line_end;
+            set pos scanner::str_next_line_pos src line_end;
             if:
                 eq len t 0
                 then:
@@ -632,10 +633,10 @@ pub fn document_to_json <(Document)->str> (doc):
                                             let mut done <bool> false;
                                             while and lt pos n not done:
                                                 do:
-                                                    let cend <i32> str_line_end src pos;
+                                                    let cend <i32> scanner::str_line_end src pos;
                                                     let craw <str> str_trim_suffix_cr str_slice src pos cend;
                                                     let ct <str> str_trim craw;
-                                                    set pos str_next_line_pos src cend;
+                                                    set pos scanner::str_next_line_pos src cend;
                                                     if:
                                                         is_fence_start ct
                                                         then set done true
@@ -729,7 +730,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                     let mut done <bool> false;
                                                     while and lt pos n not done:
                                                         do:
-                                                            let pend <i32> str_line_end src pos;
+                                                            let pend <i32> scanner::str_line_end src pos;
                                                             let praw <str> str_trim_suffix_cr str_slice src pos pend;
                                                             let pt <str> str_trim praw;
                                                             if:
@@ -738,7 +739,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                                 else:
                                                                     set para_sb sb_append para_sb "\n";
                                                                     set para_sb sb_append para_sb praw;
-                                                                    set pos str_next_line_pos src pend
+                                                                    set pos scanner::str_next_line_pos src pend
                                                     if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
                                                     match current_level:
                                                         0:
