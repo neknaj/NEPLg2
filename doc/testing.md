@@ -87,6 +87,7 @@ node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js
 node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js
 node nodesrc/test_selfhost_cli_args_types_split.js
+node nodesrc/test_selfhost_string_helpers_boundary.js
 node nodesrc/test_selfhost_cli_driver_boundary.js
 node nodesrc/test_selfhost_cli_file_io_boundary.js
 node nodesrc/test_selfhost_cli_reporter_boundary.js

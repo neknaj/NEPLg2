@@ -14,6 +14,28 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-04-29 メモ (ISS-20260429T021745990Z string offset prefix helpers)
+
+- [同期]:
+  - `origin/main` の `2e26330 issues: track selfhost resource owner obligation leak` まで取り込んだ。
+- [発見]:
+  - `stdlib/neplg2/core/syntax/lexer.nepl` の `lex_starts_with_indent_directive` は `#indent` の 7 byte を `ok_hash` / `ok_i` / `ok_n2` などの中間変数で手書き比較していた。
+  - 同じ lexer の directive word / `#if[target=` / `#if[profile=` 判定は、public call site から `string::str_eq_at source pat start <magic length> 0` を直接呼び、内部 loop index まで漏れていた。
+  - `stdlib/neplg2/core/module/import_spec.nepl` も `as` keyword の 2 byte を手で読んでいた。
+- [設計]:
+  - `alloc/string` に `str_starts_with_at(s, start, prefix)` を追加する。これは `start` の負値・範囲外・残り byte 不足を false にし、正常範囲だけ `str_eq_at` へ委譲する zero-allocation API とする。
+  - scanner 側は literal 長や loop index を渡さず、境界判定や directive boundary だけを module 固有ロジックとして残す。
+- [修正]:
+  - `str_starts_with_at` と doctest を追加した。
+  - self-host lexer の `#indent` / directive word / `#if[...]` prefix 判定を `str_starts_with_at` に置き換えた。
+  - import spec parser の `as` 判定を `str_starts_with_at` に置き換えた。
+  - `nodesrc/test_selfhost_string_helpers_boundary.js` を追加し、`#indent` 手書き比較と lexer からの direct `string::str_eq_at` 呼び出しが戻らないようにした。
+- [残件]:
+  - nm parser/html_gen と self-host scanner には `line_end` / `find_byte` / `skip_space` / ASCII 分類 helper の重複が残るため、別 issue に切り分ける。
+  - `tests/stdlib/neplg2_lexer.n.md` と `tests/stdlib/neplg2_import_spec.n.md` は Resource IR owner obligation leak の D3100 で止まる。prefix helper の構造 regression と `alloc/string` doctest は pass。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T004144320Z Resource owner pointer read separation)
 
 - [同期]:

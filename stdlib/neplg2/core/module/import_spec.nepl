@@ -148,20 +148,17 @@ fn selfhost_import_word_end <(str,i32,i32)->i32> (s, n, idx):
 //: selfhost_import_has_as_keyword: 指定位置に `as` keyword があるか[返/かえ]す
 fn selfhost_import_has_as_keyword <(str,i32,i32)->bool> (s, n, idx):
     if:
-        lt n add idx 2
+        not string::str_starts_with_at s idx "as"
         then:
             false
         else:
-            let a <i32> string::string_byte_at_unchecked s idx
-            let s_ch <i32> string::string_byte_at_unchecked s add idx 1
             let after <i32> add idx 2
-            let after_ok <bool> if:
+            if:
                 ge after n
                 then:
                     true
                 else:
                     selfhost_import_is_space string::string_byte_at_unchecked s after
-            and eq a 'a' and eq s_ch 's' after_ok
 
 //: selfhost_import_parse_alias: `as` 後の alias を[読/よ]む
 fn selfhost_import_parse_alias <(SelfhostSourceSpan,str,str,i32,i32)*>Result<SelfhostImportSpec, SelfhostDiagnostic>> (span, lexeme, path, n, alias_start):

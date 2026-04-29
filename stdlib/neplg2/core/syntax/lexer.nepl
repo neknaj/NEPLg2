@@ -410,19 +410,9 @@ fn lex_directive_boundary <(str,i32,i32)->bool> (source, n, idx):
 
 //: lex_starts_with_indent_directive: line content が `#indent` で[始/はじ]まるか[返/かえ]す
 fn lex_starts_with_indent_directive <(str,i32,i32)->bool> (source, n, start):
-    if:
-        lt n add start 7
-        then:
-            false
-        else:
-            let ok_hash <bool> eq string::string_byte_at_unchecked source start '#'
-            let ok_i <bool> eq string::string_byte_at_unchecked source add start 1 'i'
-            let ok_n <bool> eq string::string_byte_at_unchecked source add start 2 'n'
-            let ok_d <bool> eq string::string_byte_at_unchecked source add start 3 'd'
-            let ok_e <bool> eq string::string_byte_at_unchecked source add start 4 'e'
-            let ok_n2 <bool> eq string::string_byte_at_unchecked source add start 5 'n'
-            let ok_t <bool> eq string::string_byte_at_unchecked source add start 6 't'
-            and ok_hash and ok_i and ok_n and ok_d and ok_e and ok_n2 and ok_t lex_directive_boundary source n add start 7
+    let directive <str> "#indent"
+    let directive_len <i32> string::len directive
+    and string::str_starts_with_at source start directive lex_directive_boundary source n add start directive_len
 
 //: lex_skip_horizontal: 同じ行の horizontal whitespace を[読/よ]み[飛/と]ばす
 fn lex_skip_horizontal <(str,i32,i32)->i32> (source, n, idx):
@@ -507,12 +497,7 @@ fn lex_indent_aligned <(i32,i32)->bool> (indent_width, indent_unit):
 //: lex_directive_word_at: 指定位置から directive word が始まり、後続が directive 境界か[返/かえ]す
 fn lex_directive_word_at <(str,i32,i32,str)->bool> (source, n, start, word):
     let word_len <i32> string::len word
-    if:
-        lt n add start word_len
-        then:
-            false
-        else:
-            and string::str_eq_at source word start word_len 0 lex_directive_boundary source n add start word_len
+    and string::str_starts_with_at source start word lex_directive_boundary source n add start word_len
 
 //: lex_directive_arg_start: directive 名の後ろの argument 開始 offset を[返/かえ]す
 fn lex_directive_arg_start <(str,i32,i32,i32)->i32> (source, n, start, name_len):
@@ -604,34 +589,14 @@ fn lex_directive_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, s
                                                                                                             lex_token_slice TokenKind::DirNoPrelude source file_id start line_end
                                                                                                         else:
                                                                                                             if:
-                                                                                                                ge n add start 11
+                                                                                                                string::str_starts_with_at source start "#if[target="
                                                                                                                 then:
-                                                                                                                    if:
-                                                                                                                        string::str_eq_at source "#if[target=" start 11 0
-                                                                                                                        then:
-                                                                                                                            lex_token_slice TokenKind::DirIfTarget source file_id start lex_hash_bracket_end source n start
-                                                                                                                        else:
-                                                                                                                            if:
-                                                                                                                                ge n add start 12
-                                                                                                                                then:
-                                                                                                                                    if:
-                                                                                                                                        string::str_eq_at source "#if[profile=" start 12 0
-                                                                                                                                        then:
-                                                                                                                                            lex_token_slice TokenKind::DirIfProfile source file_id start lex_hash_bracket_end source n start
-                                                                                                                                        else:
-                                                                                                                                            lex_token_slice TokenKind::Unknown source file_id start add start 1
-                                                                                                                                else:
-                                                                                                                                    lex_token_slice TokenKind::Unknown source file_id start add start 1
+                                                                                                                    lex_token_slice TokenKind::DirIfTarget source file_id start lex_hash_bracket_end source n start
                                                                                                                 else:
                                                                                                                     if:
-                                                                                                                        ge n add start 12
+                                                                                                                        string::str_starts_with_at source start "#if[profile="
                                                                                                                         then:
-                                                                                                                            if:
-                                                                                                                                string::str_eq_at source "#if[profile=" start 12 0
-                                                                                                                                then:
-                                                                                                                                    lex_token_slice TokenKind::DirIfProfile source file_id start lex_hash_bracket_end source n start
-                                                                                                                                else:
-                                                                                                                                    lex_token_slice TokenKind::Unknown source file_id start add start 1
+                                                                                                                            lex_token_slice TokenKind::DirIfProfile source file_id start lex_hash_bracket_end source n start
                                                                                                                         else:
                                                                                                                             lex_token_slice TokenKind::Unknown source file_id start add start 1
 

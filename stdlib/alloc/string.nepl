@@ -1119,6 +1119,60 @@ fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
                 then str_eq_at s pat start n <i32> add i 1
                 else false
 
+//: str_starts_with_at: 指定 byte 位置から prefix が始まるか判定する
+//:
+//: [目的/もくてき]:
+//: - scanner や parser が `s[start..]` の先頭を literal prefix と比較するときの安全な入口です。
+//: - 呼び出し側に `prefix` の長さや内部 loop index を渡させず、範囲確認をこの関数に閉じ込めます。
+//:
+//: [実装/じっそう]:
+//: - `start` が負、または `s` の末尾を越える場合は `false` を返します。
+//: - `prefix` が残り byte 数より長い場合は `false`、それ以外は `str_eq_at` で byte 比較します。
+//:
+//: [注意/ちゅうい]:
+//: - 比較は UTF-8 文字単位ではなく byte 列単位です。
+//: - `prefix` が空文字列なら、`0 <= start <= len(s)` のとき `true` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(len(prefix))
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/string" as *
+//: fn main <()*>i32> ():
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert str_starts_with_at "abc" 0 "ab"
+//:         |> checks_push assert str_starts_with_at "abc" 1 "bc"
+//:         |> checks_push assert str_starts_with_at "abc" 3 ""
+//:         |> checks_push assert not str_starts_with_at "abc" -1 "a"
+//:         |> checks_push assert not str_starts_with_at "abc" 2 "bc"
+//:         |> checks_push assert not str_starts_with_at "abc" 4 ""
+//:     checks_exit_code checks
+//: ```
+fn str_starts_with_at <(str,i32,str)->bool> (s, start, prefix):
+    let ls <i32> len s;
+    let lp <i32> len prefix;
+    if:
+        lt start 0
+        then:
+            false
+        else:
+            if:
+                gt start ls
+                then:
+                    false
+                else:
+                    if:
+                        lt sub ls start lp
+                        then:
+                            false
+                        else:
+                            str_eq_at s prefix start lp 0
+
 //: str_ends_with: 末尾 byte 列が suffix と一致するか判定する
 //:
 //: [目的/もくてき]:
