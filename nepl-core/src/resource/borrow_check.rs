@@ -8,7 +8,7 @@ use crate::span::Span;
 use super::borrow_state::BorrowTable;
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
-    BorrowKind, BorrowState, BorrowStateEntry, Place, ResourceBlock, ResourceCallTarget,
+    BorrowKind, BorrowState, BorrowStateEntry, Place, PlaceRoot, ResourceBlock, ResourceCallTarget,
     ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::report::{
@@ -223,7 +223,7 @@ impl ResourceBorrowCheckEngine<'_> {
                 ..
             } => {
                 self.propagate_call_return_token(borrows, output, target, args);
-                self.release_call_argument_tokens(borrows, args);
+                self.release_call_temporary_argument_tokens(borrows, output, args);
             }
             ResourceOp::IndirectCall {
                 output,
@@ -238,7 +238,7 @@ impl ResourceBorrowCheckEngine<'_> {
                     callee,
                     args,
                 );
-                self.release_call_argument_tokens(borrows, args);
+                self.release_call_temporary_argument_tokens(borrows, output, args);
             }
             ResourceOp::Expr { .. }
             | ResourceOp::CallEffect { .. }
@@ -370,8 +370,16 @@ impl ResourceBorrowCheckEngine<'_> {
         }
     }
 
-    fn release_call_argument_tokens(&self, borrows: &mut BorrowTable, args: &[Place]) {
-        for arg in args {
+    fn release_call_temporary_argument_tokens(
+        &self,
+        borrows: &mut BorrowTable,
+        output: &Place,
+        args: &[Place],
+    ) {
+        for arg in args
+            .iter()
+            .filter(|arg| *arg != output && matches!(arg.root, PlaceRoot::Temporary(_)))
+        {
             borrows.release_token(arg);
         }
     }
