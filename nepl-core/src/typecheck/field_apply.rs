@@ -8,7 +8,6 @@ use crate::hir::{HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::TypeKind;
 
-use super::hir_finalize::{add_i32_offset_expr, raw_aggregate_load_addr_expr};
 use super::{BlockChecker, FieldAccessorKind, FieldIdx, StackEntry};
 
 pub(super) enum FieldAccessorApplyResult {
@@ -63,36 +62,14 @@ impl<'a> BlockChecker<'a> {
             return FieldAccessorApplyResult::NotHandled;
         };
         if field_accessor == FieldAccessorKind::Get && args.len() == 2 {
-            if raw_aggregate_load_addr_expr(&obj, &self.ctx).is_some() {
-                return FieldAccessorApplyResult::Handled(Some(StackEntry {
-                    ty: f_ty,
-                    expr: HirExpr {
-                        ty: f_ty,
-                        kind: HirExprKind::Intrinsic {
-                            name: "get_field".to_string(),
-                            type_args: Vec::new(),
-                            args: vec![obj, idx.clone()],
-                        },
-                        span,
-                    },
-                    type_args: Vec::new(),
-                    assign: None,
-                    auto_call: true,
-                }));
-            }
-            let addr_expr = if let Some(raw_addr) = raw_aggregate_load_addr_expr(&obj, &self.ctx) {
-                add_i32_offset_expr(raw_addr, offset, idx.span, span, self.ctx.i32())
-            } else {
-                add_i32_offset_expr(obj, offset, idx.span, span, self.ctx.i32())
-            };
             return FieldAccessorApplyResult::Handled(Some(StackEntry {
                 ty: f_ty,
                 expr: HirExpr {
                     ty: f_ty,
                     kind: HirExprKind::Intrinsic {
-                        name: "load".to_string(),
-                        type_args: vec![f_ty],
-                        args: vec![addr_expr],
+                        name: "get_field".to_string(),
+                        type_args: Vec::new(),
+                        args: vec![obj, idx.clone()],
                     },
                     span,
                 },

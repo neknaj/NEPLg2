@@ -531,6 +531,7 @@ impl<'m> MoveCheckContext<'m> {
         if let Some(stack) = self.field_move_stacks.get_mut(path.owner.as_str()) {
             if let Some(slot) = stack.last_mut() {
                 slot.insert(FieldMove {
+                    field_index: path.field_index,
                     offset: path.offset,
                     ty: path.field_ty,
                 });
@@ -543,10 +544,9 @@ impl<'m> MoveCheckContext<'m> {
             .get(path.owner.as_str())
             .and_then(|stack| stack.last())
             .map(|moves| {
-                moves.contains(&FieldMove {
-                    offset: path.offset,
-                    ty: path.field_ty,
-                })
+                moves
+                    .iter()
+                    .any(|field_move| field_moves_overlap(field_move, path))
             })
             .unwrap_or(false)
     }
@@ -1109,4 +1109,14 @@ impl<'m> MoveCheckContext<'m> {
             }
         }
     }
+}
+
+fn field_moves_overlap(field_move: &FieldMove, path: &FieldMovePath) -> bool {
+    if let (Some(left), Some(right)) = (field_move.field_index, path.field_index) {
+        return left == right;
+    }
+    if field_move.ty != path.field_ty || field_move.offset != path.offset {
+        return false;
+    }
+    true
 }

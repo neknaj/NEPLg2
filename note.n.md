@@ -1,3 +1,28 @@
+# 2026-04-29 メモ (ISS-20260428T233410073Z generic aggregate field move identity)
+
+- [同期]:
+  - `origin/main` の `21770a2 fix(core): preserve external vec backing raw cells` まで取り込んだ `work/generic-aggregate-field-move` branch で作業した。
+- [原因]:
+  - `field::get` / intrinsic `get_field` が型検査中に `load(add(...))` へ早期 lowering され、move_check まで field selector が届いていなかった。
+  - partial field move の identity は offset と TypeId に依存していたため、generic 実体化後に同一 offset/type と見える field move を disjoint field と区別できず、`SelfhostOutcome<DropCounter,str>` の `result` / `diagnostics` move が D3053 になっていた。
+- [修正]:
+  - `field_apply` / `prefix_check` で `get_field(base, selector)` を HIR に保持し、selector identity を静的検査へ渡すようにした。
+  - move_check の `FieldMovePath` / `FieldMove` に `field_index` を追加し、selector から index を一意に取得できる場合は index を field move identity として使うようにした。
+  - raw address 由来で index が一意に復元できない経路は offset/type fallback を残し、同一 field の二重 move、partial move 後の owner use、borrow 中 move の拒否は維持した。
+  - `nepl-core/tests/move_check.rs` に generic non-Copy struct の disjoint field move positive regression と同一 field 二重 move negative regression を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test move_check move_generic_ -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 55 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\agent1-generic-aggregate-field-move-compiler-move-check.json -j 1`: total=52 passed=52
+  - `node nodesrc\tests.js -i tests\stdlib\neplg2_diag_outcome.n.md --no-tree -o tmp\agent1-generic-aggregate-field-move-outcome-2.json -j 1`: total=3 passed=3
+  - `rustfmt --check nepl-core\src\passes\move_check\state.rs nepl-core\src\passes\move_check\context_state.rs nepl-core\src\passes\move_check\alias.rs nepl-core\src\passes\move_check\provenance.rs nepl-core\src\passes\move_check\visitor.rs nepl-core\src\typecheck\field_apply.rs nepl-core\src\typecheck\prefix_check.rs nepl-core\src\typecheck\hir_finalize.rs nepl-core\tests\move_check.rs`: pass
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T234300146Z self-host CLI args type split)
 
 - [同期]:

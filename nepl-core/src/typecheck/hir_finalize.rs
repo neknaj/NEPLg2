@@ -1,11 +1,7 @@
-use alloc::string::ToString;
-use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::hir::{FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction};
-use crate::layout::is_aggregate_storage_type;
-use crate::span::Span;
-use crate::types::{TypeCtx, TypeId};
+use crate::types::TypeCtx;
 
 pub(super) fn resolve_type_ids_in_function(ctx: &TypeCtx, function: &mut HirFunction) {
     function.func_ty = ctx.resolve_id(function.func_ty);
@@ -133,55 +129,5 @@ pub(super) fn resolve_type_ids_in_expr(ctx: &TypeCtx, expr: &mut HirExpr) {
             | HirExprKind::LiteralStr(_)
             | HirExprKind::Drop { .. } => {}
         }
-    }
-}
-
-pub(super) fn is_raw_memory_load_name(name: &str) -> bool {
-    name == "load" || name.starts_with("load_")
-}
-
-pub(super) fn raw_aggregate_load_addr_expr(expr: &HirExpr, ctx: &TypeCtx) -> Option<HirExpr> {
-    if !is_aggregate_storage_type(ctx, expr.ty) {
-        return None;
-    }
-    match &expr.kind {
-        HirExprKind::Call { callee, args } if args.len() == 1 => match callee {
-            FuncRef::User(name, _, _) | FuncRef::Builtin(name) if is_raw_memory_load_name(name) => {
-                Some(args[0].clone())
-            }
-            _ => None,
-        },
-        HirExprKind::Intrinsic { name, args, .. } if name == "load" && args.len() == 1 => {
-            Some(args[0].clone())
-        }
-        _ => None,
-    }
-}
-
-pub(super) fn add_i32_offset_expr(
-    base: HirExpr,
-    offset: usize,
-    offset_span: Span,
-    span: Span,
-    i32_ty: TypeId,
-) -> HirExpr {
-    if offset == 0 {
-        return base;
-    }
-    HirExpr {
-        ty: i32_ty,
-        kind: HirExprKind::Intrinsic {
-            name: "add".to_string(),
-            type_args: vec![i32_ty],
-            args: vec![
-                base,
-                HirExpr {
-                    ty: i32_ty,
-                    kind: HirExprKind::LiteralI32(offset as i32),
-                    span: offset_span,
-                },
-            ],
-        },
-        span,
     }
 }

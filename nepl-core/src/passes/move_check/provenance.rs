@@ -9,8 +9,9 @@ use super::raw_place::{
 };
 use super::state::FieldMovePath;
 use super::{
-    aggregate_field_layout_from_selector, aggregate_field_raw_aliases_from_value,
-    field_get_projection, function_call_raw_alias_summary, MoveCheckContext,
+    aggregate_field_index_layout_from_selector, aggregate_field_layout_from_selector,
+    aggregate_field_raw_aliases_from_value, field_get_projection, function_call_raw_alias_summary,
+    MoveCheckContext,
 };
 
 pub(super) struct RawAggregateFieldProjection<'a> {
@@ -25,28 +26,18 @@ pub(super) fn field_move_path_from_addr(
     field_ty: TypeId,
     tctx: &crate::types::TypeCtx,
 ) -> Option<FieldMovePath> {
-    fn base_owner(expr: &HirExpr) -> Option<(&str, TypeId, usize)> {
-        match &expr.kind {
-            HirExprKind::Var(name) => Some((name.as_str(), expr.ty, 0)),
-            HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
-                let (owner, owner_ty, base_offset) = base_owner(&args[0])?;
-                let offset = match &args[1].kind {
-                    HirExprKind::LiteralI32(value) if *value >= 0 => *value as usize,
-                    _ => return None,
-                };
-                Some((owner, owner_ty, base_offset + offset))
-            }
-            _ => None,
-        }
-    }
-
     let (owner, owner_ty, offset) = base_owner(addr)?;
-    let is_declared_field = aggregate_fields_with_offsets(tctx, owner_ty)
+    let matches = aggregate_fields_with_offsets(tctx, owner_ty)
         .into_iter()
-        .any(|field| field.offset == offset && tctx.same_type(field.ty, field_ty));
-    if is_declared_field {
+        .enumerate()
+        .filter_map(|(index, field)| {
+            (field.offset == offset && tctx.same_type(field.ty, field_ty)).then_some(index)
+        })
+        .collect::<alloc::vec::Vec<_>>();
+    if !matches.is_empty() {
         Some(FieldMovePath {
             owner: owner.to_string(),
+            field_index: (matches.len() == 1).then_some(matches[0]),
             offset,
             field_ty,
         })
@@ -64,6 +55,44 @@ pub(super) fn field_reference_path_from_addr(
         _ => return None,
     };
     field_move_path_from_addr(addr, field_ty, tctx)
+}
+
+pub(super) fn field_move_path_from_selector(
+    owner_expr: &HirExpr,
+    selector: &HirExpr,
+    result_ty: TypeId,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<FieldMovePath> {
+    let (owner, owner_ty, base_offset) = base_owner(owner_expr)?;
+    let (field_index, field_offset, field_ty) =
+        aggregate_field_index_layout_from_selector(owner_ty, selector, ctx, tctx)?;
+    let field_ty = if tctx.same_type(field_ty, result_ty) {
+        field_ty
+    } else {
+        result_ty
+    };
+    Some(FieldMovePath {
+        owner: owner.to_string(),
+        field_index: Some(field_index),
+        offset: base_offset + field_offset,
+        field_ty,
+    })
+}
+
+fn base_owner(expr: &HirExpr) -> Option<(&str, TypeId, usize)> {
+    match &expr.kind {
+        HirExprKind::Var(name) => Some((name.as_str(), expr.ty, 0)),
+        HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
+            let (owner, owner_ty, base_offset) = base_owner(&args[0])?;
+            let offset = match &args[1].kind {
+                HirExprKind::LiteralI32(value) if *value >= 0 => *value as usize,
+                _ => return None,
+            };
+            Some((owner, owner_ty, base_offset + offset))
+        }
+        _ => None,
+    }
 }
 
 fn raw_aggregate_load_addr<'a>(

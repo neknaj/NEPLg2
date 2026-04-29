@@ -1212,6 +1212,16 @@ pub(super) fn aggregate_field_layout_from_selector(
     ctx: &MoveCheckContext,
     tctx: &crate::types::TypeCtx,
 ) -> Option<(usize, TypeId)> {
+    aggregate_field_index_layout_from_selector(owner_ty, selector, ctx, tctx)
+        .map(|(_index, offset, ty)| (offset, ty))
+}
+
+pub(super) fn aggregate_field_index_layout_from_selector(
+    owner_ty: TypeId,
+    selector: &HirExpr,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<(usize, usize, TypeId)> {
     let index = match &selector.kind {
         HirExprKind::LiteralI32(value) if *value >= 0 => Some(*value as usize),
         HirExprKind::LiteralStr(id) => {
@@ -1222,7 +1232,7 @@ pub(super) fn aggregate_field_layout_from_selector(
     }?;
     aggregate_fields_with_offsets(tctx, owner_ty)
         .get(index)
-        .map(|field| (field.offset, field.ty))
+        .map(|field| (index, field.offset, field.ty))
 }
 
 pub(super) fn field_get_projection<'a>(

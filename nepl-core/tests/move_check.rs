@@ -860,6 +860,63 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn move_generic_distinct_owned_struct_fields_once_ok() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/field" as field
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct Holder<.T, .E>:
+    first <.T>
+    second <.E>
+
+fn split <.T, .E> <(Holder<.T, .E>)*>()> (h):
+    let first <.T> field::get h "first"
+    let second <.E> field::get h "second"
+    ()
+
+fn main <()*>()> ():
+    let h <Holder<Wrapper, Wrapper>> Holder<Wrapper, Wrapper> (Wrapper::Val 1) (Wrapper::Val 2)
+    split<Wrapper, Wrapper> h
+"#;
+    compile_move_test(source).expect("generic distinct non-Copy fields should move once each");
+}
+
+#[test]
+fn move_generic_same_owned_struct_field_twice_rejected() {
+    let source = r#"
+#target wasi
+#indent 4
+#import "core/field" as field
+#import "core/mem" as *
+
+enum Wrapper:
+    Val <i32>
+
+struct Holder<.T, .E>:
+    first <.T>
+    second <.E>
+
+fn split <.T, .E> <(Holder<.T, .E>)*>()> (h):
+    let first <.T> field::get h "first"
+    let again <.T> field::get h "first"
+    ()
+
+fn main <()*>()> ():
+    let h <Holder<Wrapper, Wrapper>> Holder<Wrapper, Wrapper> (Wrapper::Val 1) (Wrapper::Val 2)
+    split<Wrapper, Wrapper> h
+"#;
+    let errs = compile_move_test(source).unwrap_err();
+    assert!(errs
+        .iter()
+        .any(|d| d.message.contains("use of moved field")));
+}
+
+#[test]
 fn move_owner_after_partial_field_move_rejected() {
     let source = r#"
 #target wasi

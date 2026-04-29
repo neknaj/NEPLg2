@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T00:22:56.703Z",
+  "generated_at": "2026-04-29T00:27:42.141Z",
   "counts": {
     "total": 335,
-    "open": 11,
-    "resolved": 324,
+    "open": 10,
+    "resolved": 325,
     "by_area": {
       "core": {
         "total": 155,
-        "open": 4,
-        "resolved": 151
+        "open": 3,
+        "resolved": 152
       },
       "selfhost": {
         "total": 43,
@@ -93,21 +93,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260428T233410073Z-GENERIC-OWNED-AGGREGATE-FIELD-MOVES--0A6FA87B",
-      "title": "generic owned aggregate field moves still reject SelfhostOutcome direct Result cleanup",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-28",
-      "updated": "2026-04-28",
-      "target": "nepl-core/src/passes/move_check.rs, stdlib/neplg2/core/infra/outcome.nepl, tests/stdlib/neplg2_diag_outcome.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T233410073Z-GENERIC-OWNED-AGGREGATE-FIELD-MOVES--0A6FA87B.md"
     },
     {
       "id": "ISS-20260429T002234025Z-SELF-HOST-CLI-LACKS-DRIVER-BOUNDARY--8BEB31A0",
@@ -2433,6 +2418,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T223953830Z-VEC-ELEMENT-LOADS-LOSE-BACKING-STORA-E811458B.md"
+    },
+    {
+      "id": "ISS-20260428T233410073Z-GENERIC-OWNED-AGGREGATE-FIELD-MOVES--0A6FA87B",
+      "title": "generic owned aggregate field moves still reject SelfhostOutcome direct Result cleanup",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-28",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/typecheck/field_apply.rs, nepl-core/src/typecheck/prefix_check.rs, nepl-core/src/passes/move_check, nepl-core/tests/move_check.rs, tests/stdlib/neplg2_diag_outcome.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T233410073Z-GENERIC-OWNED-AGGREGATE-FIELD-MOVES--0A6FA87B.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

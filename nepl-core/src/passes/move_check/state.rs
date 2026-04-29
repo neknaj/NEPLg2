@@ -35,6 +35,7 @@ pub(super) struct ExprBorrow {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct FieldMove {
+    pub(super) field_index: Option<usize>,
     pub(super) offset: usize,
     pub(super) ty: TypeId,
 }
@@ -42,6 +43,7 @@ pub(super) struct FieldMove {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct FieldMovePath {
     pub(super) owner: String,
+    pub(super) field_index: Option<usize>,
     pub(super) offset: usize,
     pub(super) field_ty: TypeId,
 }

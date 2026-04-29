@@ -13,11 +13,12 @@ use super::branch_merge::{
     changed_state_names, merge_continuing_branch_states, snapshot_top_state, BranchStateSnapshot,
 };
 use super::provenance::{
-    field_move_path_from_addr, field_reference_path_from_addr, i32_const_from_value,
-    raw_addr_alias_from_value, raw_aggregate_field_projection_from_get_call,
-    raw_aggregate_field_projection_from_get_field, raw_bulk_copy_size_arg_bytes,
-    raw_byte_write_size_arg_bytes, raw_dealloc_place_key, raw_dealloc_size_arg_bytes,
-    raw_memory_place_key, raw_store_write_size_bytes, RawAggregateFieldProjection,
+    field_move_path_from_addr, field_move_path_from_selector, field_reference_path_from_addr,
+    i32_const_from_value, is_field_get_name, raw_addr_alias_from_value,
+    raw_aggregate_field_projection_from_get_call, raw_aggregate_field_projection_from_get_field,
+    raw_bulk_copy_size_arg_bytes, raw_byte_write_size_arg_bytes, raw_dealloc_place_key,
+    raw_dealloc_size_arg_bytes, raw_memory_place_key, raw_store_write_size_bytes,
+    RawAggregateFieldProjection,
 };
 use super::raw_memory::{raw_memory_call_kind, RawMemoryCallKind};
 use super::state::{BorrowBinding, BorrowKind, ExprBorrow, VarState};
@@ -365,7 +366,7 @@ fn can_visit_expr_iteratively(
                 }
                 match callee {
                     FuncRef::Builtin(name) | FuncRef::User(name, _, _)
-                        if name == "get" || name == "if" || name == "while" =>
+                        if is_field_get_name(name) || name == "if" || name == "while" =>
                     {
                         return false;
                     }
@@ -439,7 +440,7 @@ fn can_visit_expr_iteratively(
                 }
             }
             HirExprKind::Intrinsic { name, args, .. } => {
-                if name == "load" || name == "store" {
+                if matches!(name.as_str(), "get_field" | "load" | "store") {
                     return false;
                 }
                 for arg in args.iter().rev() {
@@ -766,7 +767,7 @@ fn visit_expr_with_escape(
                 return visit_raw_aggregate_field_projection(projection, expr, ctx, tctx);
             }
             match callee {
-                FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "get" => {
+                FuncRef::Builtin(name) | FuncRef::User(name, _, _) if is_field_get_name(name) => {
                     let result_borrows = if type_contains_reference(tctx, expr.ty) {
                         args.first()
                             .map(|base| {
@@ -782,7 +783,10 @@ fn visit_expr_with_escape(
                     if let Some(base) = args.get(0) {
                         if tctx.is_copy(expr.ty) {
                             visit_temporary_borrow(base, ctx, BorrowKind::Shared);
-                        } else if !visit_field_move_source(base, expr.ty, ctx, tctx) {
+                        } else if !args.get(1).is_some_and(|selector| {
+                            visit_field_get_move_source(base, selector, expr.ty, ctx, tctx)
+                        }) && !visit_field_move_source(base, expr.ty, ctx, tctx)
+                        {
                             visit_expr(base, ctx, tctx);
                         }
                     }
@@ -1218,9 +1222,30 @@ fn visit_expr_with_escape(
                 {
                     visit_raw_aggregate_field_projection(projection, expr, ctx, tctx)
                 } else {
-                    let mut result_borrows = Vec::new();
-                    for arg in args {
-                        result_borrows.extend(visit_expr(arg, ctx, tctx));
+                    let result_borrows = if type_contains_reference(tctx, expr.ty) {
+                        args.first()
+                            .map(|base| {
+                                borrow_bindings_from_place(base, ctx)
+                                    .into_iter()
+                                    .map(ExprBorrow::needs_retain)
+                                    .collect()
+                            })
+                            .unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    };
+                    if let Some(base) = args.get(0) {
+                        if tctx.is_copy(expr.ty) {
+                            visit_temporary_borrow(base, ctx, BorrowKind::Shared);
+                        } else if !args.get(1).is_some_and(|selector| {
+                            visit_field_get_move_source(base, selector, expr.ty, ctx, tctx)
+                        }) && !visit_field_move_source(base, expr.ty, ctx, tctx)
+                        {
+                            visit_expr(base, ctx, tctx);
+                        }
+                    }
+                    for arg in args.iter().skip(1) {
+                        visit_expr(arg, ctx, tctx);
                     }
                     if type_contains_reference(tctx, expr.ty) {
                         if let Some(depth) = escape_depth {
@@ -1319,5 +1344,20 @@ fn visit_field_move_source(
             visit_field_move_source(&args[0], field_ty, ctx, tctx)
         }
         _ => false,
+    }
+}
+
+fn visit_field_get_move_source(
+    owner: &HirExpr,
+    selector: &HirExpr,
+    field_ty: TypeId,
+    ctx: &mut MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> bool {
+    if let Some(path) = field_move_path_from_selector(owner, selector, field_ty, ctx, tctx) {
+        ctx.check_field_move(&path, owner.span);
+        true
+    } else {
+        false
     }
 }
