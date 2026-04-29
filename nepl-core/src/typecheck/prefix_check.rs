@@ -7,13 +7,13 @@ use alloc::vec::Vec;
 
 use crate::ast::{Effect, Ident, Literal, PrefixExpr, PrefixItem, Symbol};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
+use crate::diagnostic_codes::{DiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::types::{TypeId, TypeKind};
 
 use super::binding_rules::{emit_shadow_warning, shadow_blocked_by_nonshadow};
-use super::diagnostics::type_error;
+use super::diagnostics::{resolve_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::{parse_i32_literal, parse_variant_name};
 use super::type_expr::type_from_expr;
@@ -781,10 +781,11 @@ impl<'a> BlockChecker<'a> {
                                 {
                                     if let Some(trait_info) = self.traits.get(trait_name) {
                                         if !type_args.is_empty() {
-                                            self.diagnostics.push(Diagnostic::error(
+                                            self.diagnostics.push(type_error(
+                                                TypeDiagnosticCode::TraitMethodTypeArgsUnsupported,
                                                 "type arguments are not supported for trait methods yet",
                                                 id.span,
-                                            ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitMethodTypeArgsUnsupported)));
+                                            ));
                                             return None;
                                         }
                                         if let Some(sig) = trait_info.methods.get(method_name) {
@@ -826,29 +827,29 @@ impl<'a> BlockChecker<'a> {
                                             });
                                             last_expr = Some(stack.last().unwrap().expr.clone());
                                         } else {
-                                            self.diagnostics.push(
-                                                Diagnostic::error(
-                                                    format!(
-                                                        "unknown method '{}' for trait '{}'",
-                                                        method_name, trait_name
-                                                    ),
-                                                    id.span,
-                                                )
-                                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitMethodNotFound)),
-                                            );
+                                            self.diagnostics.push(type_error(
+                                                TypeDiagnosticCode::TraitMethodNotFound,
+                                                format!(
+                                                    "unknown method '{}' for trait '{}'",
+                                                    method_name, trait_name
+                                                ),
+                                                id.span,
+                                            ));
                                             return None;
                                         }
                                     } else {
-                                        self.diagnostics.push(
-                                            Diagnostic::error("undefined identifier", id.span)
-                                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::IdentifierUndefined)),
-                                        );
+                                        self.diagnostics.push(resolve_error(
+                                            ResolveDiagnosticCode::IdentifierUndefined,
+                                            "undefined identifier",
+                                            id.span,
+                                        ));
                                     }
                                 } else {
-                                    self.diagnostics.push(
-                                        Diagnostic::error("undefined identifier", id.span)
-                                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::IdentifierUndefined)),
-                                    );
+                                    self.diagnostics.push(resolve_error(
+                                        ResolveDiagnosticCode::IdentifierUndefined,
+                                        "undefined identifier",
+                                        id.span,
+                                    ));
                                 }
                             }
                         }

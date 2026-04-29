@@ -1,4 +1,4 @@
-use nepl_core::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
+use nepl_core::diagnostic_codes::{DiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use nepl_core::error::CoreError;
 use nepl_core::loader::Loader;
 use nepl_core::span::FileId;
@@ -50,6 +50,29 @@ fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
             .iter()
             .any(|diag| diag.code == Some(DiagnosticCode::Type(code))),
         "missing type diagnostic {:?}: {:?}",
+        code,
+        diags
+    );
+}
+
+fn compile_err_has_resolve_code(src: &str, code: ResolveDiagnosticCode) {
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags
+            .iter()
+            .any(|diag| diag.code == Some(DiagnosticCode::Resolve(code))),
+        "missing resolve diagnostic {:?}: {:?}",
         code,
         diags
     );
@@ -943,26 +966,20 @@ fn missing_entry_function_has_resolve_code() {
 fn main <()->i32> ():
     0
 "#;
-    let result = compile_wasm(
-        FileId(0),
-        src,
-        CompileOptions {
-            target: Some(CompileTarget::Wasm),
-            verbose: false,
-            profile: None,
-        },
-    );
-    let CoreError::Diagnostics(diags) = result.expect_err("missing entry should fail") else {
-        panic!("expected diagnostics");
-    };
-    assert!(
-        diags.iter().any(|diag| diag.code
-            == Some(DiagnosticCode::Resolve(
-                nepl_core::diagnostic_codes::ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous
-            ))),
-        "missing entry resolve diagnostic code: {:?}",
-        diags
-    );
+    compile_err_has_resolve_code(src, ResolveDiagnosticCode::EntryFunctionMissingOrAmbiguous);
+}
+
+#[test]
+fn undefined_identifier_has_resolve_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    missing_value
+"#;
+    compile_err_has_resolve_code(src, ResolveDiagnosticCode::IdentifierUndefined);
 }
 
 #[test]
@@ -1650,6 +1667,38 @@ fn main <()->i32> ():
     Show::show 1 2
 "#;
     compile_err(src);
+}
+
+#[test]
+fn trait_method_type_args_unsupported_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+
+trait Show:
+    fn show <(Self)->i32> (x):
+        0
+
+fn main <()->i32> ():
+    Show::show<i32> 1
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitMethodTypeArgsUnsupported);
+}
+
+#[test]
+fn trait_method_not_found_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+
+trait Show:
+    fn show <(Self)->i32> (x):
+        0
+
+fn main <()->i32> ():
+    Show::missing 1
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitMethodNotFound);
 }
 
 #[test]

@@ -25339,3 +25339,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix function value/reference boundary 移行を進めた。
+
+# 2026-04-29 メモ (ISS-20260429T040748194Z prefix trait method/identifier diagnostic code-first)
+
+- [原因]:
+  - `typecheck/prefix_check.rs` の trait method type args、unknown trait method、undefined identifier 診断に `Diagnostic::error(...).with_code(...)` が残っていた。
+  - `Trait::method` の型診断と通常 identifier の resolve 診断は分類が異なるため、prefix expression の名前解決境界で enum code を生成時点に確定させる必要がある。
+- [修正]:
+  - `TraitMethodTypeArgsUnsupported` と `TraitMethodNotFound` を `type_error(...)` helper 経由へ移行した。
+  - `IdentifierUndefined` を `resolve_error(...)` helper 経由へ移行した。
+  - `nepl-core/tests/neplg2.rs` に resolve diagnostic helper を追加し、undefined identifier / trait method diagnostics の enum code regression を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test neplg2 missing_entry_function_has_resolve_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 undefined_identifier_has_resolve_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 trait_method_type_args_unsupported_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 trait_method_not_found_has_type_code -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 39 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 40 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/compile_fail_diag_location.n.md -n 1 --dist web/dist`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix trait method / identifier resolve boundary 移行を進めた。

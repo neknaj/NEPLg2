@@ -427,3 +427,22 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `node nodesrc/run_doctest.js -i tests/compiler/functions.n.md -n 20 --dist web/dist`: pass。`type.variable.type_args_not_allowed` が出ることを確認した。
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 prefix trait method / identifier resolve boundary follow-up 追記
+
+`typecheck/prefix_check.rs` には trait method type args、unknown trait method、undefined identifier の診断で `Diagnostic::error(...).with_code(...)` が残っていた。prefix expression の名前解決境界は、`Trait::method` の型診断と通常 identifier の resolve 診断を分けるため、diagnostic code を後付けにしない。
+
+今回の対応で `TraitMethodTypeArgsUnsupported` と `TraitMethodNotFound` を `type_error(...)` 経由へ、`IdentifierUndefined` を `resolve_error(...)` 経由へ移行した。Rust 回帰テストでは type / resolve の enum code を直接確認する helper を整理し、既存 doctest では stable string `diag_code` を確認する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core --test neplg2 missing_entry_function_has_resolve_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 undefined_identifier_has_resolve_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 trait_method_type_args_unsupported_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 trait_method_not_found_has_type_code -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 39 --dist web/dist`: pass。`type.trait_method.type_args_unsupported` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 40 --dist web/dist`: pass。`type.trait_method.not_found` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/compile_fail_diag_location.n.md -n 1 --dist web/dist`: pass。`resolve.identifier.undefined` が出ることを確認した。
