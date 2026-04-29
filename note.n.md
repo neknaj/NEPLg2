@@ -105,7 +105,7 @@
   - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: pass
   - `node nodesrc/tests.js -i stdlib\alloc\string.nepl --no-tree -o tmp\stdlib-byte-scanner-string-final2.json -j 1`: total=8 passed=8
   - `node nodesrc/issues.js check`: pass
-  - `tests/stdlib/neplg2_import_spec.n.md` は既知 D3100、`tests/stdlib/nm.n.md` は `ISS-20260429T030655089Z-RESOURCE-OWNER-GATE-REGRESSES-NM-DIR-98E651E0` の D3100 で止まる。
+  - remote main の Resource owner summary 修正後、`tests/stdlib/nm.n.md` は D3100 なしで 5/5 pass する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
@@ -136,6 +136,9 @@
 - [次の方針]:
   - D3100 を弱めず、StringBuilder/direct serializer temporary の owner flow を Resource IR 側で追えるようにする。
   - 今回の byte scanner helper refactor は構造 regression と `alloc/string` focused test で検証し、nm behavioral fixture はこの issue の解消後に再確認する。
+- [解消]:
+  - remote main の Resource owner summary 修正を取り込んだ後、`document_to_json` と `nm_inline_to_html` の D3100 は再現しなくなった。
+  - `node nodesrc/tests.js -i tests\stdlib\nm.n.md --no-tree -o tmp\byte-scanner-nm-rebased.json -j 1` で 5/5 pass を確認した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 

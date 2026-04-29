@@ -2,8 +2,8 @@
 id: ISS-20260429T030655089Z-RESOURCE-OWNER-GATE-REGRESSES-NM-DIR-98E651E0
 title: "Resource owner gate regresses nm direct serializer fixtures with D3100"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
@@ -39,6 +39,11 @@ NM parser/html_gen refactors cannot be behaviorally verified, and documentation/
 
 Trace Resource IR owner flow for StringBuilder/direct serializer temporaries in document_to_json and nm_inline_to_html without weakening D3100. Reopen behavioral nm fixtures once owner flow is corrected.
 
+## 対応
+
+remote main の Resource owner summary 修正を取り込んだ後、`document_to_json` と `nm_inline_to_html` の D3100 は再現しなくなった。nm direct serializer fixtures は compile phase を通過し、5/5 pass したため、この issue を verified として閉じる。
+
 ## 検証
 
-node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-resource-owner-fixed.json -j 1; node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/html_gen.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-resource-owner-suite-fixed.json -j 1
+- `trunk build`: passed
+- `node nodesrc/tests.js -i tests\stdlib\nm.n.md --no-tree -o tmp\byte-scanner-nm-rebased.json -j 1`: total=5 passed=5

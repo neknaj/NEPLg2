@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T03:44:35.741Z",
+  "generated_at": "2026-04-29T03:44:51.276Z",
   "counts": {
     "total": 352,
-    "open": 10,
-    "resolved": 342,
+    "open": 9,
+    "resolved": 343,
     "by_area": {
       "core": {
         "total": 167,
-        "open": 4,
-        "resolved": 163
+        "open": 3,
+        "resolved": 164
       },
       "stdlib": {
         "total": 102,
@@ -93,21 +93,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260429T030655089Z-RESOURCE-OWNER-GATE-REGRESSES-NM-DIR-98E651E0",
-      "title": "Resource owner gate regresses nm direct serializer fixtures with D3100",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nepl-core/src/resource, stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl, tests/stdlib/nm.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T030655089Z-RESOURCE-OWNER-GATE-REGRESSES-NM-DIR-98E651E0.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2568,6 +2553,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T030210473Z-RESOURCE-OWNER-GATE-REPORTS-D3100-FO-9B9D5986.md"
+    },
+    {
+      "id": "ISS-20260429T030655089Z-RESOURCE-OWNER-GATE-REGRESSES-NM-DIR-98E651E0",
+      "title": "Resource owner gate regresses nm direct serializer fixtures with D3100",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource, stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl, tests/stdlib/nm.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T030655089Z-RESOURCE-OWNER-GATE-REGRESSES-NM-DIR-98E651E0.md"
     },
     {
       "id": "ISS-20260429T031855408Z-RESOURCE-IR-COVERAGE-COMPARISON-CONC-E23BB5D9",
