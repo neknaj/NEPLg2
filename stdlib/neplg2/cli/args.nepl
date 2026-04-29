@@ -7,8 +7,8 @@
 #import "core/mem" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "alloc/hash/hash32" as *
 #import "neplg2/core/options" as *
+#import "./args/classify" as *
 pub #import "./args/types" as *
 
 //: # args
@@ -18,6 +18,7 @@ pub #import "./args/types" as *
 //: - raw argv provider と pure option parser を分離し、self-host CLI parity test の入口にします。
 //: - `--target` / `--emit` / `--stdlib-root` / `-o` / `-i` / input path を、filesystem や stdio に依存せず解釈します。
 //: - `std/env/cliarg` は argv の取得だけを担い、このモジュールは渡された `Vec<str>` を読むだけにします。
+//: - argv token / option value の分類は `args/classify` に分離し、この module は parser state machine と option 組み立てに集中します。
 //:
 //: [注意/ちゅうい]:
 //: - `selfhost_cli_parse_args` は argv[0] を含まない引数列を、`selfhost_cli_parse_argv` は argv[0] を含む raw argv を受け取ります。
@@ -65,27 +66,6 @@ fn selfhost_cli_emit_set_add <(SelfhostCliEmitSet,SelfhostCliEmit)->SelfhostCliE
             selfhost_cli_emit_set_new get emit_set "wasm" get emit_set "wat" get emit_set "wat_min" get emit_set "llvm" true
         SelfhostCliEmit::All:
             selfhost_cli_emit_set_all
-
-//: ## SelfhostCliArgKind
-//: argv token の分類です。
-//:
-//: [目的/もくてき]:
-//: - string token を一度 enum に分類し、parser 本体を `match` で読める形にします。
-enum SelfhostCliArgKind:
-    Check
-    Run
-    AttachSource
-    Lib
-    Verbose
-    Target
-    Emit
-    StdlibRoot
-    Output
-    Input
-    Profile
-    Separator
-    Positional
-    UnknownOption
 
 //: selfhost_cli_options_new: parser state から options を組み立てる
 //:
@@ -218,147 +198,6 @@ fn selfhost_cli_arg_at <(i32,i32,i32)->Option<str>> (data, count, idx):
                 else:
                     some<str> load<str> add data mul idx size_of<str>
 
-//: selfhost_cli_string_match_key: 有限の CLI 文字列集合を match 用の key にする
-//:
-//: [目的/もくてき]:
-//: - NEPLg2 の `match` は現時点で `str` pattern を直接扱わないため、option/value 文字列を i32 key に正規化します。
-//: - 呼び出し側は key の arm で候補を選んだあと、必ず `str_eq` で実文字列を検証してから分類します。
-//:
-//: [注意/ちゅうい]:
-//: - hash 値は CLI の外部仕様ではありません。衝突した場合は equality check で fallback します。
-//: - `and 2147483647` により match arm に書ける非負の scalar key へ落とします。
-fn selfhost_cli_string_match_key <(str)->i32> (value):
-    and hash32 value 2147483647
-
-//: selfhost_cli_arg_kind_fallback: 既知 option 以外の argv token を分類する
-//:
-//: [目的/もくてき]:
-//: - hash dispatch で既知 option に当たらなかった場合、`-` prefix の有無だけで unknown option と positional input を分けます。
-fn selfhost_cli_arg_kind_fallback <(str)->SelfhostCliArgKind> (arg):
-    match str_starts_with arg "-":
-        true:
-            SelfhostCliArgKind::UnknownOption
-        false:
-            SelfhostCliArgKind::Positional
-
-//: selfhost_cli_arg_kind_if_eq: hash arm の候補を実文字列で検証する
-//:
-//: [目的/もくてき]:
-//: - hash key の衝突で別文字列が同じ arm に入っても、`str_eq` が一致した場合だけ既知 option として扱います。
-fn selfhost_cli_arg_kind_if_eq <(str,str,SelfhostCliArgKind)->SelfhostCliArgKind> (arg, expected, kind):
-    match str_eq arg expected:
-        true:
-            kind
-        false:
-            selfhost_cli_arg_kind_fallback arg
-
-//: selfhost_cli_arg_kind: argv token を分類する
-//:
-//: [目的/もくてき]:
-//: - option token の文字列比較をこの関数へ閉じ込め、parser 本体は enum `match` で分岐します。
-//:
-//: [実装/じっそう]:
-//: - 既知 option 文字列を hash key へ正規化し、scalar `match` で option kind に変換します。
-//: - 各 arm は `str_eq` で実文字列を検証し、hash 衝突時は fallback に戻します。
-//: - `-` で始まる未定義 token は `UnknownOption`、それ以外は positional input として扱います。
-fn selfhost_cli_arg_kind <(str)->SelfhostCliArgKind> (arg):
-    match selfhost_cli_string_match_key arg:
-        1105069866:
-            selfhost_cli_arg_kind_if_eq arg "--check" SelfhostCliArgKind::Check
-        236190827:
-            selfhost_cli_arg_kind_if_eq arg "--run" SelfhostCliArgKind::Run
-        1825648204:
-            selfhost_cli_arg_kind_if_eq arg "--attach-source" SelfhostCliArgKind::AttachSource
-        1059669684:
-            selfhost_cli_arg_kind_if_eq arg "--lib" SelfhostCliArgKind::Lib
-        829133248:
-            selfhost_cli_arg_kind_if_eq arg "--verbose" SelfhostCliArgKind::Verbose
-        1018434800:
-            selfhost_cli_arg_kind_if_eq arg "-v" SelfhostCliArgKind::Verbose
-        1600605192:
-            selfhost_cli_arg_kind_if_eq arg "--target" SelfhostCliArgKind::Target
-        559754234:
-            selfhost_cli_arg_kind_if_eq arg "--emit" SelfhostCliArgKind::Emit
-        1262805978:
-            selfhost_cli_arg_kind_if_eq arg "--stdlib-root" SelfhostCliArgKind::StdlibRoot
-        1216879227:
-            selfhost_cli_arg_kind_if_eq arg "--output" SelfhostCliArgKind::Output
-        1726806915:
-            selfhost_cli_arg_kind_if_eq arg "-o" SelfhostCliArgKind::Output
-        296239959:
-            selfhost_cli_arg_kind_if_eq arg "--input" SelfhostCliArgKind::Input
-        390736299:
-            selfhost_cli_arg_kind_if_eq arg "-i" SelfhostCliArgKind::Input
-        163286432:
-            selfhost_cli_arg_kind_if_eq arg "--profile" SelfhostCliArgKind::Profile
-        1353831004:
-            selfhost_cli_arg_kind_if_eq arg "--" SelfhostCliArgKind::Separator
-        _:
-            selfhost_cli_arg_kind_fallback arg
-
-//: selfhost_cli_parse_target_if_eq: target hash arm の候補を実文字列で検証する
-fn selfhost_cli_parse_target_if_eq <(str,str,SelfhostCliTarget)->Result<SelfhostCliTarget,SelfhostCliErrorKind>> (value, expected, target):
-    match str_eq value expected:
-        true:
-            ok<SelfhostCliTarget,SelfhostCliErrorKind> target
-        false:
-            err<SelfhostCliTarget,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidTarget
-
-//: selfhost_cli_parse_target_value: `--target` の値を enum へ変換する
-//:
-//: [目的/もくてき]:
-//: - CLI 表面の alias を内部 target enum へ正規化します。
-//: - 有限の value 集合を scalar `match` で表し、alias の追加/削除を arm 単位でレビューできるようにします。
-//:
-//: [注意/ちゅうい]:
-//: - `core` は `wasm`、`std` は `wasi` として扱います。
-pub fn selfhost_cli_parse_target_value <(str)->Result<SelfhostCliTarget,SelfhostCliErrorKind>> (value):
-    match selfhost_cli_string_match_key value:
-        1210069335:
-            selfhost_cli_parse_target_if_eq value "wasm" SelfhostCliTarget::Wasm
-        495192238:
-            selfhost_cli_parse_target_if_eq value "core" SelfhostCliTarget::Wasm
-        53171433:
-            selfhost_cli_parse_target_if_eq value "wasi" SelfhostCliTarget::Wasi
-        1580422520:
-            selfhost_cli_parse_target_if_eq value "std" SelfhostCliTarget::Wasi
-        37322532:
-            selfhost_cli_parse_target_if_eq value "wasix" SelfhostCliTarget::Wasix
-        343592226:
-            selfhost_cli_parse_target_if_eq value "llvm" SelfhostCliTarget::Llvm
-        _:
-            err<SelfhostCliTarget,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidTarget
-
-//: selfhost_cli_parse_emit_if_eq: emit hash arm の候補を実文字列で検証する
-fn selfhost_cli_parse_emit_if_eq <(str,str,SelfhostCliEmit)->Result<SelfhostCliEmit,SelfhostCliErrorKind>> (value, expected, emit):
-    match str_eq value expected:
-        true:
-            ok<SelfhostCliEmit,SelfhostCliErrorKind> emit
-        false:
-            err<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
-
-//: selfhost_cli_parse_emit_value: `--emit` の値を enum へ変換する
-//:
-//: [目的/もくてき]:
-//: - artifact writer が扱う出力種別を enum へ閉じ込めます。
-//: - 出力種別の有限集合を `match` arm として固定し、nested `if` の順序依存を避けます。
-pub fn selfhost_cli_parse_emit_value <(str)->Result<SelfhostCliEmit,SelfhostCliErrorKind>> (value):
-    match selfhost_cli_string_match_key value:
-        1210069335:
-            selfhost_cli_parse_emit_if_eq value "wasm" SelfhostCliEmit::Wasm
-        139754043:
-            selfhost_cli_parse_emit_if_eq value "wat" SelfhostCliEmit::Wat
-        149843404:
-            selfhost_cli_parse_emit_if_eq value "wat-min" SelfhostCliEmit::WatMin
-        343592226:
-            selfhost_cli_parse_emit_if_eq value "llvm" SelfhostCliEmit::Llvm
-        1495051790:
-            selfhost_cli_parse_emit_if_eq value "llvm-min" SelfhostCliEmit::LlvmMin
-        688645933:
-            selfhost_cli_parse_emit_if_eq value "all" SelfhostCliEmit::All
-        _:
-            err<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
-
 //: selfhost_cli_parse_emit_part: 1 要素の emit を set に追加する
 //:
 //: [目的/もくてき]:
@@ -426,24 +265,6 @@ pub fn selfhost_cli_parse_emit_set_value <(str)->Result<SelfhostCliEmitSet,Selfh
                     err<SelfhostCliEmitSet,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
                 else:
                     ok<SelfhostCliEmitSet,SelfhostCliErrorKind> emit_set
-
-//: selfhost_cli_parse_profile_if_eq: profile hash arm の候補を実文字列で検証する
-fn selfhost_cli_parse_profile_if_eq <(str,str,SelfhostCliProfile)->Result<SelfhostCliProfile,SelfhostCliErrorKind>> (value, expected, profile):
-    match str_eq value expected:
-        true:
-            ok<SelfhostCliProfile,SelfhostCliErrorKind> profile
-        false:
-            err<SelfhostCliProfile,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidProfile
-
-//: selfhost_cli_parse_profile_value: `--profile` の値を enum へ変換する
-pub fn selfhost_cli_parse_profile_value <(str)->Result<SelfhostCliProfile,SelfhostCliErrorKind>> (value):
-    match selfhost_cli_string_match_key value:
-        97528863:
-            selfhost_cli_parse_profile_if_eq value "debug" SelfhostCliProfile::Debug
-        322158401:
-            selfhost_cli_parse_profile_if_eq value "release" SelfhostCliProfile::Release
-        _:
-            err<SelfhostCliProfile,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidProfile
 
 //: selfhost_cli_next_value: 値を必要とする option の次 token を読む
 //:

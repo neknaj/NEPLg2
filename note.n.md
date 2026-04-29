@@ -57,6 +57,29 @@
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D0 の active code path 移行漏れ解消として扱う。
 
+# 2026-04-29 メモ (ISS-20260425T000000Z-RV-STDLIB-009 selfhost CLI args classifier split)
+
+- [同期]:
+  - 作業開始前に `main` が `origin/main` と一致していることを確認し、`stdlib/cli-args-classify-split` branch で作業した。
+- [原因]:
+  - `stdlib/neplg2/cli/args.nepl` は public option 型の分離後も、argv token classifier、hash dispatch、`--target` / `--emit` / `--profile` value parser、parser state machine を同じ file に残していた。
+  - 巨大 file 分割 issue の観点では、parser state と文字列分類の責務境界が曖昧で、self-host CLI の option 追加時に `args.nepl` が再肥大化する構造だった。
+- [修正]:
+  - `stdlib/neplg2/cli/args/classify.nepl` を追加し、`SelfhostCliArgKind`、`selfhost_cli_string_match_key`、argv token classifier、target / emit / profile value parser を移した。
+  - `args.nepl` は `args/classify` を import して parser state machine から利用し、hash32 依存と classifier 実装を持たない形にした。
+  - `args/types.nepl` と `stdlib/neplg2/README.md` の責務説明を更新し、source policy tests を classifier split 後の配置に合わせた。
+- [検証]:
+  - `node nodesrc/test_selfhost_cli_args_types_split.js`
+  - `node nodesrc/test_stdlib_match_decision_trees.js`
+  - `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args/classify.nepl --no-tree -o tmp/cli-args-classify-direct.json -j 1`
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args.nepl --no-tree -o tmp/cli-args-classify-facade.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/cli-args-classify-parser.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/cli-args-classify-driver.json -j 1`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host CLI stdlib の分割は `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として扱う。この issue は他の巨大 stdlib file が残るため open のまま。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z diagnostic raw identity escape)
 
 - [同期]:

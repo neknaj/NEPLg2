@@ -11,7 +11,7 @@
 //: - `neplg2/cli/args` は compatibility facade としてこの module を再 export します。
 //:
 //: [注意/ちゅうい]:
-//: - parser 固有の分類 enum や string matching helper は `neplg2/cli/args` 側に残します。
+//: - parser 固有の分類 enum や string matching helper は `neplg2/cli/args/classify` に分離します。
 //: - ここに置く型は filesystem / stdio に依存しない pure value です。
 //:
 //: neplg2:test

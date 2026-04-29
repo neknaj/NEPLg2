@@ -169,7 +169,7 @@ assertScalarKeyMatch({
 });
 
 assertScalarKeyMatch({
-    file: 'stdlib/neplg2/cli/args.nepl',
+    file: 'stdlib/neplg2/cli/args/classify.nepl',
     name: 'selfhost_cli_arg_kind',
     scrutinee: /\bmatch\s+selfhost_cli_string_match_key\s+arg:/,
     literals: [
@@ -180,21 +180,21 @@ assertScalarKeyMatch({
 });
 
 assertScalarKeyMatch({
-    file: 'stdlib/neplg2/cli/args.nepl',
+    file: 'stdlib/neplg2/cli/args/classify.nepl',
     name: 'selfhost_cli_parse_target_value',
     scrutinee: /\bmatch\s+selfhost_cli_string_match_key\s+value:/,
     literals: [1210069335, 495192238, 53171433, 1580422520, 37322532, 343592226],
 });
 
 assertScalarKeyMatch({
-    file: 'stdlib/neplg2/cli/args.nepl',
+    file: 'stdlib/neplg2/cli/args/classify.nepl',
     name: 'selfhost_cli_parse_emit_value',
     scrutinee: /\bmatch\s+selfhost_cli_string_match_key\s+value:/,
     literals: [1210069335, 139754043, 149843404, 343592226, 1495051790, 688645933],
 });
 
 assertScalarKeyMatch({
-    file: 'stdlib/neplg2/cli/args.nepl',
+    file: 'stdlib/neplg2/cli/args/classify.nepl',
     name: 'selfhost_cli_parse_profile_value',
     scrutinee: /\bmatch\s+selfhost_cli_string_match_key\s+value:/,
     literals: [97528863, 322158401],
