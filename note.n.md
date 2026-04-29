@@ -25385,3 +25385,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix declaration / mutation boundary 移行を進めた。
+
+# 2026-04-29 メモ (ISS-20260429T040748194Z prefix intrinsic/effect diagnostic code-first)
+
+- [原因]:
+  - `typecheck/prefix_check.rs` の intrinsic boundary に、impure intrinsic in pure context、unknown intrinsic、intrinsic arity/type mismatch、field/ref intrinsic、set_field mismatch の後付け `.with_code(...)` が残っていた。
+  - intrinsic boundary は effect safety と type safety の両方に関わるため、`EffectDiagnosticCode` と `TypeDiagnosticCode` を helper で明確に分ける必要がある。
+- [修正]:
+  - `PureCallsImpure` を `effect_error(...)` helper 経由へ移行した。
+  - `IntrinsicTypeArgArityMismatch`、`IntrinsicUnknown`、`FieldInvalidAccess`、`AssignmentMismatch`、`IntrinsicArgArityMismatch`、`IntrinsicArgTypeMismatch` を `type_error(...)` helper 経由へ移行した。
+  - `nepl-core/tests/neplg2.rs` に unknown intrinsic、intrinsic argument mismatch、callsite_span type arg arity の enum code regression を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test neplg2 unknown_intrinsic_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 intrinsic_arg_type_mismatch_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 callsite_span_type_arg_arity_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test effects pure_raw_load_intrinsic_is_rejected_outside_core_mem -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/codegen_diagnostics.n.md -n 1 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/codegen_diagnostics.n.md -n 2 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/intrinsic.n.md -n 7 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 15 --dist web/dist`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix intrinsic / effect boundary 移行を進めた。

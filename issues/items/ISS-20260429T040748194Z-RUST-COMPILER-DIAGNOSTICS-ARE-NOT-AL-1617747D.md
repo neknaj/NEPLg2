@@ -463,3 +463,23 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `trunk build`: pass
 - `node nodesrc/run_doctest.js -i tests/compiler/shadowing.n.md -n 18 --dist web/dist`: pass。`resolve.shadow.no_shadow_violation` が出ることを確認した。
 - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 92 --dist web/dist`: pass。`type.variable.undefined` が出ることを確認した。
+
+## 2026-04-29 Stage D1 prefix intrinsic / effect boundary follow-up 追記
+
+`typecheck/prefix_check.rs` には impure intrinsic in pure context、unknown intrinsic、intrinsic arity/type mismatch、field/ref intrinsic、set_field mismatch の診断で `Diagnostic::error(...).with_code(...)` が残っていた。intrinsic boundary は effect safety と type safety の両方に関わるため、`EffectDiagnosticCode` と `TypeDiagnosticCode` を helper で明確に分ける。
+
+今回の対応で `PureCallsImpure` を `effect_error(...)` 経由へ、`IntrinsicTypeArgArityMismatch`、`IntrinsicUnknown`、`FieldInvalidAccess`、`AssignmentMismatch`、`IntrinsicArgArityMismatch`、`IntrinsicArgTypeMismatch` を `type_error(...)` 経由へ移行した。Rust 回帰テストでは unknown intrinsic、intrinsic argument mismatch、callsite_span type arg arity を enum code で確認し、raw load intrinsic の effect code path も確認した。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core --test neplg2 unknown_intrinsic_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 intrinsic_arg_type_mismatch_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 callsite_span_type_arg_arity_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test effects pure_raw_load_intrinsic_is_rejected_outside_core_mem -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/codegen_diagnostics.n.md -n 1 --dist web/dist`: pass。`type.intrinsic.unknown` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/codegen_diagnostics.n.md -n 2 --dist web/dist`: pass。`type.field.invalid_access` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/intrinsic.n.md -n 7 --dist web/dist`: pass。`type.intrinsic.arg_type_mismatch` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 15 --dist web/dist`: pass。`effect.pure.calls_impure` が出ることを確認した。

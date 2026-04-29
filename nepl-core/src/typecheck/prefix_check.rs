@@ -7,13 +7,15 @@ use alloc::vec::Vec;
 
 use crate::ast::{Effect, Ident, Literal, PrefixExpr, PrefixItem, Symbol};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::{DiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
+use crate::diagnostic_codes::{
+    DiagnosticCode, EffectDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode,
+};
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::types::{TypeId, TypeKind};
 
 use super::binding_rules::{emit_shadow_warning, shadow_blocked_by_nonshadow};
-use super::diagnostics::{resolve_error, type_error};
+use super::diagnostics::{effect_error, resolve_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::{parse_i32_literal, parse_variant_name};
 use super::type_expr::type_from_expr;
@@ -1077,12 +1079,11 @@ impl<'a> BlockChecker<'a> {
                         && matches!(intrin_effect, Effect::Impure)
                         && !self.raw_memory_intrinsic_allowed(&intrin.name, *sp)
                     {
-                        self.diagnostics.push(
-                            Diagnostic::error("pure context cannot call impure function", *sp)
-                                .with_code(DiagnosticCode::Effect(
-                                    crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
-                                )),
-                        );
+                        self.diagnostics.push(effect_error(
+                            EffectDiagnosticCode::PureCallsImpure,
+                            "pure context cannot call impure function",
+                            *sp,
+                        ));
                         return None;
                     }
 
@@ -1115,10 +1116,11 @@ impl<'a> BlockChecker<'a> {
                         if type_args.len() == 1 {
                             type_args[0]
                         } else {
-                            self.diagnostics.push(
-                                Diagnostic::error("callsite_span expects 1 type arg", *sp)
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicTypeArgArityMismatch)),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::IntrinsicTypeArgArityMismatch,
+                                "callsite_span expects 1 type arg",
+                                *sp,
+                            ));
                             self.ctx.unit()
                         }
                     } else if intrin.name == "set_field" {
@@ -1175,13 +1177,11 @@ impl<'a> BlockChecker<'a> {
                     } else if intrin.name == "set_field" {
                         self.ctx.unit()
                     } else {
-                        self.diagnostics.push(
-                            Diagnostic::error("unknown intrinsic", *sp).with_code(
-                                DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicUnknown,
-                                ),
-                            ),
-                        );
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::IntrinsicUnknown,
+                            "unknown intrinsic",
+                            *sp,
+                        ));
                         self.ctx.unit()
                     };
 
@@ -1231,13 +1231,11 @@ impl<'a> BlockChecker<'a> {
                         let base_ty = match self.ctx.get(resolved_obj_ty) {
                             TypeKind::Reference(inner, _) => inner,
                             _ => {
-                                self.diagnostics.push(
-                                    Diagnostic::error(
-                                        "get_field_ref expects a reference to a composite value",
-                                        obj.span,
-                                    )
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FieldInvalidAccess)),
-                                );
+                                self.diagnostics.push(type_error(
+                                    TypeDiagnosticCode::FieldInvalidAccess,
+                                    "get_field_ref expects a reference to a composite value",
+                                    obj.span,
+                                ));
                                 self.ctx.never()
                             }
                         };
@@ -1308,17 +1306,15 @@ impl<'a> BlockChecker<'a> {
                         if let Some((f_ty, offset)) = res {
                             // Unify value type with field type
                             if let Err(_) = self.ctx.unify(val.ty, f_ty) {
-                                self.diagnostics.push(
-                                    Diagnostic::error(
-                                        format!(
-                                            "type mismatch in set_field: expected {}, found {}",
-                                            self.ctx.type_to_string(f_ty),
-                                            self.ctx.type_to_string(val.ty)
-                                        ),
-                                        *sp,
-                                    )
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::AssignmentMismatch)),
-                                );
+                                self.diagnostics.push(type_error(
+                                    TypeDiagnosticCode::AssignmentMismatch,
+                                    format!(
+                                        "type mismatch in set_field: expected {}, found {}",
+                                        self.ctx.type_to_string(f_ty),
+                                        self.ctx.type_to_string(val.ty)
+                                    ),
+                                    *sp,
+                                ));
                             }
 
                             // Lower to store(add(obj, offset), val)
@@ -1371,55 +1367,53 @@ impl<'a> BlockChecker<'a> {
                         || intrin.name == "i32_to_char"
                     {
                         if args.len() != 1 {
-                            self.diagnostics.push(
-                                Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
+                                "intrinsic expects 1 argument",
+                                *sp,
+                            ));
                         } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.i32()) {
-                            self.diagnostics.push(
-                                Diagnostic::error(
-                                    "intrinsic argument type mismatch (expected i32)",
-                                    *sp,
-                                )
-                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                                "intrinsic argument type mismatch (expected i32)",
+                                *sp,
+                            ));
                         }
                     } else if intrin.name == "char_to_i32" {
                         if args.len() != 1 {
-                            self.diagnostics.push(
-                                Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
+                                "intrinsic expects 1 argument",
+                                *sp,
+                            ));
                         } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.char()) {
-                            self.diagnostics.push(
-                                Diagnostic::error(
-                                    "intrinsic argument type mismatch (expected char)",
-                                    *sp,
-                                )
-                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                                "intrinsic argument type mismatch (expected char)",
+                                *sp,
+                            ));
                         }
                     } else if intrin.name == "f32_to_i32" || intrin.name == "reinterpret_f32_i32" {
                         if args.len() != 1 {
-                            self.diagnostics.push(
-                                Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
+                                "intrinsic expects 1 argument",
+                                *sp,
+                            ));
                         } else if let Err(_) = self.ctx.unify(args[0].ty, self.ctx.f32()) {
-                            self.diagnostics.push(
-                                Diagnostic::error(
-                                    "intrinsic argument type mismatch (expected f32)",
-                                    *sp,
-                                )
-                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                                "intrinsic argument type mismatch (expected f32)",
+                                *sp,
+                            ));
                         }
                     } else if intrin.name == "u8_to_i32" || intrin.name == "u32_to_i32" {
                         if args.len() != 1 {
-                            self.diagnostics.push(
-                                Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
+                                "intrinsic expects 1 argument",
+                                *sp,
+                            ));
                         } else {
                             let expected = if intrin.name == "u8_to_i32" {
                                 self.ctx.u8()
@@ -1432,24 +1426,23 @@ impl<'a> BlockChecker<'a> {
                                 })
                             };
                             if let Err(_) = self.ctx.unify(args[0].ty, expected) {
-                                self.diagnostics.push(
-                                    Diagnostic::error(
-                                        format!(
-                                            "intrinsic argument type mismatch (expected {})",
-                                            self.ctx.type_to_string(expected)
-                                        ),
-                                        *sp,
-                                    )
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
-                                );
+                                self.diagnostics.push(type_error(
+                                    TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                                    format!(
+                                        "intrinsic argument type mismatch (expected {})",
+                                        self.ctx.type_to_string(expected)
+                                    ),
+                                    *sp,
+                                ));
                             }
                         }
                     } else if intrin.name == "i64_to_u64" || intrin.name == "u64_to_i64" {
                         if args.len() != 1 {
-                            self.diagnostics.push(
-                                Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
+                                "intrinsic expects 1 argument",
+                                *sp,
+                            ));
                         } else {
                             let expected = if intrin.name == "i64_to_u64" {
                                 self.ctx.lookup_named("i64").unwrap_or_else(|| {
@@ -1467,25 +1460,24 @@ impl<'a> BlockChecker<'a> {
                                 })
                             };
                             if let Err(_) = self.ctx.unify(args[0].ty, expected) {
-                                self.diagnostics.push(
-                                    Diagnostic::error(
-                                        format!(
-                                            "intrinsic argument type mismatch (expected {})",
-                                            self.ctx.type_to_string(expected)
-                                        ),
-                                        *sp,
-                                    )
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
-                                );
+                                self.diagnostics.push(type_error(
+                                    TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                                    format!(
+                                        "intrinsic argument type mismatch (expected {})",
+                                        self.ctx.type_to_string(expected)
+                                    ),
+                                    *sp,
+                                ));
                             }
                         }
                     } else if intrin.name == "str_addr" || intrin.name == "str_from_addr_unchecked"
                     {
                         if args.len() != 1 {
-                            self.diagnostics.push(
-                                Diagnostic::error("intrinsic expects 1 argument", *sp)
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgArityMismatch)),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::IntrinsicArgArityMismatch,
+                                "intrinsic expects 1 argument",
+                                *sp,
+                            ));
                         } else {
                             let expected = if intrin.name == "str_addr" {
                                 self.ctx.str()
@@ -1493,16 +1485,14 @@ impl<'a> BlockChecker<'a> {
                                 self.ctx.i32()
                             };
                             if let Err(_) = self.ctx.unify(args[0].ty, expected) {
-                                self.diagnostics.push(
-                                    Diagnostic::error(
-                                        format!(
-                                            "intrinsic argument type mismatch (expected {})",
-                                            self.ctx.type_to_string(expected)
-                                        ),
-                                        *sp,
-                                    )
-                                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::IntrinsicArgTypeMismatch)),
-                                );
+                                self.diagnostics.push(type_error(
+                                    TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                                    format!(
+                                        "intrinsic argument type mismatch (expected {})",
+                                        self.ctx.type_to_string(expected)
+                                    ),
+                                    *sp,
+                                ));
                             }
                         }
                     }

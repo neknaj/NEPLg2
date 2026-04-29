@@ -512,6 +512,45 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn unknown_intrinsic_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->()> ():
+    #intrinsic "rv_core_007_unknown" <> ()
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::IntrinsicUnknown);
+}
+
+#[test]
+fn intrinsic_arg_type_mismatch_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->f32> ():
+    #intrinsic "i32_to_f32" <> (true)
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::IntrinsicArgTypeMismatch);
+}
+
+#[test]
+fn callsite_span_type_arg_arity_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->()> ():
+    #intrinsic "callsite_span" <> ()
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::IntrinsicTypeArgArityMismatch);
+}
+
+#[test]
 fn pure_cannot_call_impure() {
     let src = r#"
 #entry main
