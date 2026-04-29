@@ -1,3 +1,23 @@
+# 2026-04-29 メモ (ISS-20260429T131646897Z ByteBuf empty/non-empty invariant)
+
+- [同期]:
+  - `origin/main` の ResourceIR 分割と fs raw pointer 境界修正を merge した後、remote main で追加されていた ByteBuf empty/non-empty invariant issue を確認した。
+- [原因]:
+  - 旧 `ByteBuf` は空 buffer と所有領域あり buffer をどちらも裸 `MemPtr<u8>` field で表していた。
+  - `len == 0` なら owner なし、`len > 0` なら owner ありという不変条件が型に現れず、ResourceIR は `MaybeFreed` 合流に頼る必要があった。
+- [修正]:
+  - 既に実装した `ByteBuf.ptr <Option<MemPtr<u8>>>` 化により、空は `None`、所有領域は `Some(ptr)` として表現するようにした。
+  - `fs_finish_read_buffer` / `std/stdio` / `std/text` / `std/streamio` / doctest も helper 経由へ更新し、direct constructor/read を避けた。
+  - `resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view` fixture も新しい `io_bytebuf_from_owned_ptr` 境界に合わせた。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/bytebuf-result-owner-after-test-cleanup.json -j 1 --dist web/dist`: total=6 passed=6
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-after-read-helper-cleanup.json -j 1 --dist web/dist`: total=14 passed=14
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view -- --nocapture`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T142213822Z builder owner boundary issue 登録)
 
 - [同期]:
