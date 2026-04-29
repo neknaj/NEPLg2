@@ -1,3 +1,28 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z assignment code-first diagnostics)
+
+- [同期]:
+  - `6f7e7ed` まで反映した `main` を `origin/main` と同期し、`work/typecheck-assignment-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/assignment_apply.rs` には `let` / `set` / deref boundary の診断で `Diagnostic::error(...).with_code(...)` が残っていた。
+  - assignment boundary は型不一致、未定義 set、不変変数 mutation、非 reference deref を分類するため、diagnostic code を後付けせず生成時点で `TypeDiagnosticCode` を確定する必要がある。
+- [修正]:
+  - `AssignmentArityMismatch`、`DerefInvalid`、`AssignmentMismatch`、`VariableUndefined`、`MutationImmutable`、`AssignmentUndefinedVariable` を `type_error(...)` helper 経由へ移行した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/assignment_apply.rs`: no matches
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 set_type_mismatch_is_error -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture`: failed 52/60。失敗は assignment diagnostic ではなく Resource IR owner obligation leak / RawMemoryLoadCell Uninit で、`ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B` として分離した。
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md -i tests/compiler/move_effect.n.md -i tests/compiler/neplg2.n.md --no-tree -o tmp/agent1-assignment-diagnostics-after-trunk.json -j 1`: failed 206/207。失敗は `tests/compiler/neplg2.n.md::doctest#33` の `List` RawMemoryLoadCell Uninit で、`ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B` に含めて追跡する。
+  - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 3 --dist web/dist`: pass。`type.assignment.mismatch` が出ることを確認した。
+  - `cargo check -p nepl-core --tests`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の assignment boundary follow-up として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z ascription code-first diagnostics)
 
 - [同期]:

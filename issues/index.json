@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T06:47:24.845Z",
+  "generated_at": "2026-04-29T07:14:52.818Z",
   "counts": {
-    "total": 358,
-    "open": 11,
+    "total": 359,
+    "open": 12,
     "resolved": 347,
     "by_area": {
       "core": {
-        "total": 171,
-        "open": 4,
+        "total": 172,
+        "open": 5,
         "resolved": 167
       },
       "stdlib": {
@@ -108,6 +108,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B",
+      "title": "Resource IR gate regresses neplg2 generic aggregate and collection integration tests",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource, nepl-core/tests/neplg2.rs, stdlib/alloc/collections",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
