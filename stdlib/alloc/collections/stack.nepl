@@ -5,12 +5,13 @@
 //: - parser や探索処理で使いやすい軽量なスタック実装を提供します。
 //:
 //: [実装/じっそう]:
-//: - スタック本体は `Vec<.T>` で表し、内部でヘッダ `[len, cap, data_ptr]` を保持します。
-//: - 容量不足時は 2 倍拡張して `realloc` します。
+//: - `Stack<.T>` はヘッダ領域とデータ領域の owner を field として保持します。
+//: - ヘッダには実行時メタデータ `[len, cap, data_ptr]` を置き、`data` field は ResourceIR がデータ領域の解放責任を追跡できるようにします。
+//: - 容量不足時は 2 倍拡張して `realloc_ptr` します。
 //:
 //: [注意/ちゅうい]:
 //: - `push` / `clear` は更新後の `Stack<.T>` を返します。
-//: - `push_ref` は `&Stack<.T>` を受け取り、Copy 要素だけを所有権を移動せずに追加します。
+//: - `push_ref` は `&Stack<.T>` を受け取り、Copy 要素だけを所有権を移動せずに追加します。借用 API のため容量拡張は行いません。
 //: - `pop` は所有権を消費して `Option<.T>` を返します。
 //: - `pop_ref` は `&Stack<.T>` を受け取り、Copy 要素だけを取り出します。
 //: - `peek` は値のみを返します。
@@ -112,8 +113,21 @@
 #import "core/traits/copy" as *
 #import "alloc/diag/error" as *
 
+//: Stack: ヘッダ領域とデータ領域を所有する LIFO ハンドル
+//:
+//: ### [目的/もくてき]
+//: - length / capacity / data address を置くヘッダ領域と、要素を格納するデータ領域をひとつの collection owner として扱います。
+//:
+//: ### [実装/じっそう]
+//: - `hdr` は 12 byte のヘッダ `[len:i32, cap:i32, data_ptr:i32]` を指します。
+//: - `data` は要素領域の typed pointer owner です。ヘッダにも raw address を複写しますが、解放責任はこの field が保持します。
+//:
+//: ### [注意/ちゅうい]
+//: - `Stack<.T>` は shallow copy できません。値を move したら、元の値は再利用してはいけません。
+//: - 不要になったら `free` に渡して、`hdr` と `data` の両方を解放します。
 struct Stack<.T>:
     hdr <MemPtr<u8>>
+    data <MemPtr<.T>>
 
 //: stack_header_len_ptr: ヘッダの length [欄/らん]を[指/さ]す
 //:
@@ -218,11 +232,11 @@ fn stack_data_ptr <.T> <(Stack<.T>)->MemPtr<.T>> (stk):
 //:
 //: ### [実装/じっそう]
 //: - 12 byte のヘッダ[領域/りょういき]と、[既定/きてい][容量/ようりょう]ぶんの[要素/ようそ][領域/りょういき]を[別々/べつべつ]に[確保/かくほ]します。
-//: - ヘッダには `[len, cap, data_ptr]` を[保存/ほぞん]し、`Stack<.T>` はそのヘッダ[先頭/せんとう]を[保持/ほじ]します。
+//: - ヘッダには `[len, cap, data_ptr]` を[保存/ほぞん]し、`Stack<.T>` はヘッダ owner とデータ owner の[両方/りょうほう]を field に[保持/ほじ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [失敗/しっぱい]すると `Result::Err Diag` を[返/かえ]します。
-//: - [返/かえ]る `Stack<.T>` は[内部/ないぶ]ヘッダの[所有権/しょゆうけん]を[持/も]つので、[不要/ふよう]になったら `free` で[解放/かいほう]します。
+//: - [返/かえ]る `Stack<.T>` は[内部/ないぶ]ヘッダとデータ[領域/りょういき]の[所有権/しょゆうけん]を[持/も]つので、[不要/ふよう]になったら `free` で[解放/かいほう]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1)、[追加/ついか]の[空間/くうかん][計算量/けいさんりょう]も O(1) です。
@@ -252,13 +266,12 @@ fn new <.T> <()*>Result<Stack<.T>, Diag>> ():
                     dealloc_raw mem_ptr_addr header 12
                     diag_err<Stack<.T>> diag_out_of_memory "new(data)"
                 Result::Ok data:
-                    let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr header
-                    let cap_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr header 4
-                    let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr header 8
-                    store_i32 mem_ptr_addr len_ptr 0
-                    store_i32 mem_ptr_addr cap_ptr cap
-                    store_i32 mem_ptr_addr data_ptr_ptr mem_ptr_addr data
-                    ok<Stack<.T>, Diag> Stack header
+                    let header_addr <i32> mem_ptr_addr header
+                    let data_addr <i32> *field::get_ref &data "raw"
+                    store_i32 header_addr 0
+                    store_i32 add header_addr 4 cap
+                    store_i32 add header_addr 8 data_addr
+                    Result::Ok<Stack<.T>, Diag> Stack<.T> header data
 
 //: push: 末尾に要素を積む
 //:
@@ -272,6 +285,7 @@ fn new <.T> <()*>Result<Stack<.T>, Diag>> ():
 //: ### [注意/ちゅうい]
 //: - [更新後/こうしんご]の `Stack<.T>` を[返/かえ]すので、[呼/よ]び[出/だ]し[側/がわ]で[束縛/そくばく]し[直/なお]す[必要/ひつよう]があります。
 //: - [拡張/かくちょう]が[発生/はっせい]した[場合/ばあい]、[内部/ないぶ]データ[領域/りょういき]の[番地/ばんち]は[変/か]わりえます。
+//: - `Err` の場合は入力 `Stack<.T>` を返せないため、消費した内部[領域/りょういき]を[解放/かいほう]してから失敗を返します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [償却/しょうきゃく][時間/じかん][計算量/けいさんりょう]は O(1)、[拡張/かくちょう][発生時/はっせいじ]の[最悪/さいあく][時間/じかん][計算量/けいさんりょう]は O(n) です。
@@ -295,31 +309,33 @@ fn new <.T> <()*>Result<Stack<.T>, Diag>> ():
 //: ```
 fn push <.T> <(Stack<.T>,.T)*>Result<Stack<.T>, Diag>> (stk, item):
     let hdr <MemPtr<u8>> field::get stk "hdr"
-    let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
-    let cap_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 4
-    let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
-    let len <i32> load_i32 mem_ptr_addr len_ptr
-    let cap <i32> load_i32 mem_ptr_addr cap_ptr
-    let data <MemPtr<.T>> mem_ptr_wrap load_i32 mem_ptr_addr data_ptr_ptr
+    let data <MemPtr<.T>> field::get stk "data"
+    let hdr_addr <i32> mem_ptr_addr hdr
+    let data_addr <i32> *field::get_ref &data "raw"
+    let len <i32> load_i32 hdr_addr
+    let cap <i32> load_i32 add hdr_addr 4
     if:
         eq len cap
         then:
             let new_cap <i32> mul cap 2
             match realloc_ptr<.T> data mul cap size_of<.T> mul new_cap size_of<.T>:
                 Result::Err _e:
+                    dealloc_raw data_addr mul cap size_of<.T>
+                    dealloc_raw hdr_addr 12
                     diag_err<Stack<.T>> diag_out_of_memory "push(realloc_raw)"
                 Result::Ok new_data:
-                    store_i32 mem_ptr_addr cap_ptr new_cap
-                    store_i32 mem_ptr_addr data_ptr_ptr mem_ptr_addr new_data
+                    let new_data_addr <i32> *field::get_ref &new_data "raw"
+                    store_i32 add hdr_addr 4 new_cap
+                    store_i32 add hdr_addr 8 new_data_addr
                     let off <i32> mul len size_of<.T>
-                    store<.T> add mem_ptr_addr new_data off item
-                    store_i32 mem_ptr_addr len_ptr add len 1
-                    ok<Stack<.T>, Diag> Stack hdr
+                    store<.T> add new_data_addr off item
+                    store_i32 hdr_addr add len 1
+                    Result::Ok<Stack<.T>, Diag> Stack<.T> hdr new_data
         else:
             let off <i32> mul len size_of<.T>
-            store<.T> add mem_ptr_addr data off item
-            store_i32 mem_ptr_addr len_ptr add len 1
-            ok<Stack<.T>, Diag> Stack hdr
+            store<.T> add data_addr off item
+            store_i32 hdr_addr add len 1
+            Result::Ok<Stack<.T>, Diag> Stack<.T> hdr data
 
 //: push_ref: 借用した stack に Copy 要素を追加する
 //:
@@ -328,15 +344,16 @@ fn push <.T> <(Stack<.T>,.T)*>Result<Stack<.T>, Diag>> (stk, item):
 //: - 追加に成功した場合は `Result::Ok ()` を返し、容量拡張に失敗した場合は `Diag` を含む `Err` を返します。
 //:
 //: [実装/じっそう]:
-//: - borrowed stack から header を読み、length / capacity / data pointer を既存の `push` と同じ layout で更新します。
-//: - 容量が不足する場合は data buffer を 2 倍に `realloc_ptr` し、成功後に header を差し替えます。
+//: - borrowed stack から header と data pointer を読み、容量に余裕がある場合だけ length と末尾要素を更新します。
+//: - 容量が不足する場合は、借用中に owner field を差し替えられないため `Err` を返します。
 //:
 //: [注意/ちゅうい]:
 //: - `.T: Copy` に限定しています。失敗時に item の所有権回収を必要としない値だけを対象にするためです。
 //: - `push` と違い stack handle を返しません。呼び出し側は元の handle をそのまま `free` や `pop_ref` に使えます。
+//: - 自動拡張が必要な場合は、owner を消費して更新後の `Stack<.T>` を返す `push` を使います。
 //:
 //: [計算量/けいさんりょう]:
-//: - 通常は O(1)、容量拡張が発生した場合は O(n) です。
+//: - O(1)
 //:
 //: neplg2:test
 //: ```neplg2
@@ -370,26 +387,15 @@ fn push <.T> <(Stack<.T>,.T)*>Result<Stack<.T>, Diag>> (stk, item):
 //: ```
 fn push_ref <.T: Copy> <(&Stack<.T>,.T)*>Result<(), Diag>> (stk, item):
     let hdr <MemPtr<u8>> *field::get_ref stk "hdr"
+    let data <MemPtr<.T>> *field::get_ref stk "data"
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
     let cap_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 4
-    let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
     let len <i32> load_i32 mem_ptr_addr len_ptr
     let cap <i32> load_i32 mem_ptr_addr cap_ptr
-    let data <MemPtr<.T>> mem_ptr_wrap load_i32 mem_ptr_addr data_ptr_ptr
     if:
         eq len cap
         then:
-            let new_cap <i32> mul cap 2
-            match realloc_ptr<.T> data mul cap size_of<.T> mul new_cap size_of<.T>:
-                Result::Err _e:
-                    Result<(), Diag>::Err diag_out_of_memory "push_ref(realloc_raw)"
-                Result::Ok new_data:
-                    store_i32 mem_ptr_addr cap_ptr new_cap
-                    store_i32 mem_ptr_addr data_ptr_ptr mem_ptr_addr new_data
-                    let off <i32> mul len size_of<.T>
-                    store<.T> add mem_ptr_addr new_data off item
-                    store_i32 mem_ptr_addr len_ptr add len 1
-                    Result<(), Diag>::Ok ()
+            Result<(), Diag>::Err diag_out_of_memory "push_ref(capacity)"
         else:
             let off <i32> mul len size_of<.T>
             store<.T> add mem_ptr_addr data off item
@@ -779,9 +785,10 @@ fn is_empty_ref <.T> <(&Stack<.T>)->bool> (stk):
 //: ```
 fn clear <.T> <(Stack<.T>)->Stack<.T>> (stk):
     let hdr <MemPtr<u8>> field::get stk "hdr"
+    let data <MemPtr<.T>> field::get stk "data"
     let len_ptr <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr hdr
     store_i32 mem_ptr_addr len_ptr 0
-    Stack hdr
+    Stack<.T> hdr data
 
 //: free: メモリを解放する
 //:
@@ -815,10 +822,9 @@ fn clear <.T> <(Stack<.T>)->Stack<.T>> (stk):
 //: ```
 fn free <.T> <(Stack<.T>)*>()> (stk):
     let hdr <MemPtr<u8>> field::get stk "hdr"
+    let data <MemPtr<.T>> field::get stk "data"
     let cap_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 4
-    let data_ptr_ptr <MemPtr<i32>> mem_ptr_wrap add mem_ptr_addr hdr 8
     let cap <i32> load_i32 mem_ptr_addr cap_ptr
-    let data <MemPtr<.T>> mem_ptr_wrap load_i32 mem_ptr_addr data_ptr_ptr
     dealloc_raw mem_ptr_addr data mul cap size_of<.T>
     dealloc_raw mem_ptr_addr hdr 12
 

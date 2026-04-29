@@ -216,7 +216,7 @@ fn main <()->i32> ():
         eq size_of<Vec<i32>> 12
         then:
             if:
-                eq size_of<Stack<i32>> 4
+                eq size_of<Stack<i32>> 8
                 then:
                     if:
                         gt size_of<HashMap<i32>> 0

@@ -26917,3 +26917,33 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner summary / enum payload alias 境界を改善し、Resource IR gate を弱めずに List 側 false positive を解消した。
+
+# 2026-04-30 メモ (ISS-20260429T173910888Z Stack owner contract)
+
+- [同期]:
+  - `main` の `e09d6da` から `stdlib/stack-owner-contract` branch で継続した。
+  - `tests/compiler/overload.n.md` では Stack::new / push / free 周辺の ResourceIR owner failure が残っていた。
+- [原因]:
+  - 旧 `Stack<.T>` は `hdr` だけを field に持ち、data buffer owner は header 内の raw address として保存していた。
+  - そのため `free` が header から `MemPtr<.T>` を再構築しても ResourceIR には data owner として見えず、`NoFreeObligation` になっていた。
+  - `Stack::new` / `push` は header offset 用の一時 `MemPtr` local を作っており、owner ではない派生 pointer と owner transfer の境界が混ざっていた。
+- [修正]:
+  - `Stack<.T>` を `hdr <MemPtr<u8>>` と `data <MemPtr<.T>>` の 2 owner field にした。
+  - header は runtime metadata `[len, cap, data_ptr]` として維持し、`data` field は静的検査が解放責任を追える owner として保持する。
+  - `new` / `push` / `clear` は `data` owner を返却 Stack へ一度だけ移し、`free` は `data` と `hdr` の両方を解放する。
+  - `push` の realloc 失敗 path は、入力 Stack を消費済みとして `data` と `hdr` を解放してから `Err` を返す。
+  - `push_ref` は借用中に `data` owner field を差し替えられないため、容量不足時は再確保せず `Err` を返す仕様にした。
+  - Stack source policy に owner field / `new` / `push` / failure cleanup の回帰検査を追加した。
+  - Stack / Vec を使う overload fixture は `len_ref` で観測してから `free` するようにし、`sizeof(Stack<i32>)` の期待値を 8 に更新した。
+- [検証]:
+  - `trunk build`: passed
+  - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i tests/compiler/sizeof.n.md --no-tree -o tmp/stack-owner-contract-sizeof-after.json -j 1 --dist web/dist`: `total=9`, `passed=9`
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/stack-owner-contract-overload-final.json -j 1 --dist web/dist`: `total=45`, `passed=44`, `failed=1`
+  - `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/compiler-after-stack-owner-contract-final.json -j 4 --dist web/dist`: `total=649`, `passed=648`, `failed=1`
+  - 残り 1 件は `overload.n.md::doctest#10` の tuple field owner obligation で、Stack owner contract 由来の failure は解消した。
+- [issue]:
+  - `ISS-20260429T173910888Z-STACK-RAW-HEADER-INITIALIZATION-LEAK-3EDC7712` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib collection の owner を ResourceIR が追跡できる構造体 field として明示し、self-host に必要なメモリ安全契約を強めた。
