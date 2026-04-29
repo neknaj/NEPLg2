@@ -4,12 +4,12 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
 use super::binding_rules::function_user_param_specificity;
+use super::diagnostics::type_error;
 use super::env::{Binding, BindingKind};
 use super::signature::{function_signature_string, type_contains_unbound_var};
 use super::traits::insert_substitution_mapping;
@@ -270,21 +270,17 @@ impl<'a> BlockChecker<'a> {
                 );
             }
             if mismatch_count {
-                self.diagnostics.push(
-                    Diagnostic::error("type arguments do not match any overload", span).with_code(
-                        DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::OverloadTypeArgsMismatch,
-                        ),
-                    ),
-                );
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::OverloadTypeArgsMismatch,
+                    "type arguments do not match any overload",
+                    span,
+                ));
             } else {
-                self.diagnostics.push(
-                    Diagnostic::error("no matching overload found", span).with_code(
-                        DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::OverloadNoMatch,
-                        ),
-                    ),
-                );
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::OverloadNoMatch,
+                    "no matching overload found",
+                    span,
+                ));
             }
             return None;
         }
@@ -366,12 +362,11 @@ impl<'a> BlockChecker<'a> {
             candidates = narrowed;
         }
         if candidates.len() > 1 {
-            self.diagnostics
-                .push(Diagnostic::error("ambiguous overload", span).with_code(
-                    DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::OverloadAmbiguous,
-                    ),
-                ));
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::OverloadAmbiguous,
+                "ambiguous overload",
+                span,
+            ));
             return None;
         }
 

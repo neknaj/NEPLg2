@@ -1003,6 +1003,39 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn overload_no_match_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+
+fn id <(i32)->i32> (x):
+    x
+
+fn id <(f32)->f32> (x):
+    x
+
+fn main <()->i32> ():
+    id true
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::OverloadNoMatch);
+}
+
+#[test]
+fn overload_type_args_mismatch_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+
+fn id <.T> <(.T)->.T> (x):
+    x
+
+fn main <()->i32> ():
+    id<i32, i32> 1
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::OverloadTypeArgsMismatch);
+}
+
+#[test]
 fn overloads_ambiguous_return_type_is_error() {
     let src = r#"
 #entry main
@@ -1018,7 +1051,7 @@ fn main <()->i32> ():
     let y foo 1;
     0
 "#;
-    compile_err(src);
+    compile_err_has_type_code(src, TypeDiagnosticCode::OverloadAmbiguous);
 }
 
 #[test]

@@ -355,3 +355,21 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 45 --dist web/dist`: pass。`type.trait_bound.unknown` が出ることを確認した。
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 overload selection boundary follow-up 追記
+
+`typecheck/overload_selection.rs` には explicit type argument mismatch、no matching overload、ambiguous overload の診断で `Diagnostic::error(...).with_code(...)` が残っていた。overload selection は型推論後に候補を分類する境界なので、診断 code を後付けにしない。
+
+今回の対応で `OverloadTypeArgsMismatch`、`OverloadNoMatch`、`OverloadAmbiguous` を `type_error(...)` helper 経由へ移行した。Rust 回帰テストでは no match / type args mismatch / ambiguous overload がそれぞれ `DiagnosticCode::Type(...)` の enum code を返すことを確認する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/overload_selection.rs`: no matches
+- `cargo test -p nepl-core --test neplg2 overload -- --nocapture`: pass
+- `cargo test -p nepl-core --test overload -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 39 --dist web/dist`: pass。`type.overload.ambiguous` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
