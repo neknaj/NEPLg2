@@ -20,6 +20,10 @@ const forbidden = [
     /\buwok\b/,
     /\buwerr\b/,
     /#intrinsic\s+"unreachable"/,
+    /\btest_print_fail\b/,
+    /\btest_checked\b/,
+    /\bnoshadow\s+test_fail\b/,
+    /\bprintln_color\b/,
 ];
 
 for (const pattern of forbidden) {
@@ -40,11 +44,18 @@ for (const pattern of obsoleteVecAccumulator) {
     assert.doesNotMatch(code, pattern, 'std/test must not reintroduce the raw Vec<Result<(),str>> accumulator');
 }
 
-assert.match(code, /struct\s+Checks:[\s\S]*count\s+<i32>[\s\S]*failed\s+<bool>[\s\S]*summary\s+<str>[\s\S]*human\s+<str>/, 'std/test must keep the value-based Checks accumulator fields');
-assert.match(code, /impl\s+Copy\s+for\s+Checks:[\s\S]*fn\s+copy_mark\s+<\(Checks\)->Checks>\s+\(checks\):[\s\S]*checks/, 'Checks must remain Copy so aggregation does not require raw backing storage');
-assert.match(code, /fn\s+checks_empty\s+<\(\)->Checks>\s+\(\):\s+Checks\s+0\s+false\s+"\["\s+""/, 'checks_empty must create the allocation-free accumulator sentinel');
-assert.match(code, /fn\s+checks_single_error\s+<\(str\)\*>Checks>\s+\(msg\):\s+checks_push\s+checks_empty\s+Result<\(\),str>::Err\s+msg/, 'checks_single_error must build a single failure without Vec allocation');
-assert.match(code, /fn\s+checks_push\s+<\(Checks,Result<\(\),str>\)\*>Checks>\s+\(checks,\s*r\):[\s\S]*let\s+count\s+<i32>\s+checks\.count[\s\S]*let\s+failed1\s+<bool>\s+match\s+r:[\s\S]*Result::Err\s+e:[\s\S]*true[\s\S]*Checks\s+add\s+count\s+1\s+failed1\s+summary1\s+human1/, 'checks_push must update the value accumulator directly');
-assert.match(code, /fn\s+finish_checks\s+<\(Checks\)\*>Result<\(\),str>>\s+\(checks\):[\s\S]*let\s+summary\s+<str>\s+checks_summary_text\s+checks[\s\S]*let\s+failed\s+<bool>\s+checks\.failed[\s\S]*Result<\(\),str>::Err\s+summary[\s\S]*Result<\(\),str>::Ok\s+\(\)/, 'finish_checks must decide from the accumulated value state');
+assert.doesNotMatch(code, /struct\s+Checks:/, 'std/test must not keep the old Checks type as the primary report model');
+assert.match(code, /enum\s+AssertionStatus:[\s\S]*Passed[\s\S]*Failed/, 'std/test must model assertion status as an enum');
+assert.match(code, /enum\s+AssertionKind:[\s\S]*Bool[\s\S]*EqI32[\s\S]*NeBool[\s\S]*StrEq[\s\S]*OkI32[\s\S]*ErrI32[\s\S]*Manual/, 'std/test must model assertion kind as an enum');
+assert.match(code, /struct\s+TestAssertion:[\s\S]*kind\s+<AssertionKind>[\s\S]*status\s+<AssertionStatus>[\s\S]*label\s+<str>[\s\S]*expected\s+<str>[\s\S]*actual\s+<str>[\s\S]*message\s+<str>/, 'std/test must keep structured assertion fields');
+assert.match(code, /struct\s+TestReport:[\s\S]*name\s+<str>[\s\S]*count\s+<i32>[\s\S]*failed_count\s+<i32>[\s\S]*lines\s+<str>/, 'std/test must keep a structured TestReport accumulator');
+assert.match(code, /impl\s+Copy\s+for\s+TestAssertion:[\s\S]*fn\s+copy_mark\s+<\(TestAssertion\)->TestAssertion>/, 'TestAssertion must remain Copy for value aggregation');
+assert.match(code, /impl\s+Copy\s+for\s+TestReport:[\s\S]*fn\s+copy_mark\s+<\(TestReport\)->TestReport>/, 'TestReport must remain Copy for value aggregation');
+assert.match(code, /fn\s+noshadow\s+assert_eq_i32\s+<\(str,i32,i32\)->TestAssertion>/, 'assert_eq_i32 must return a structured TestAssertion with a label');
+assert.match(code, /fn\s+test_report_push\s+<\(TestReport,TestAssertion\)\*>TestReport>[\s\S]*match\s+assertion\.status:[\s\S]*AssertionStatus::Failed:[\s\S]*add\s+report\.failed_count\s+1/, 'test_report_push must update failed_count from AssertionStatus');
+assert.match(code, /fn\s+test_report_render\s+<\(TestReport\)->str>[\s\S]*json::json_quote_string\s+report\.name[\s\S]*concat\s+h5\s+report\.lines/, 'test_report_render must render the canonical stdout report without printing');
+assert.match(code, /fn\s+test_report_print_stdout\s+<\(TestReport\)\*>TestReport>[\s\S]*print\s+test_report_render\s+report/, 'only the explicit report printer should emit stdout');
+assert.match(code, /fn\s+test_report_exit_code\s+<\(TestReport\)->i32>[\s\S]*test_report_has_failure\s+report[\s\S]*then:[\s\S]*1[\s\S]*else:[\s\S]*0/, 'test_report_exit_code must convert failed_count to 0/1');
+assert.match(code, /fn\s+checks_push\s+<\(TestReport,Result<\(\),str>\)\*>TestReport>/, 'Result-based migration input must be converted through TestReport rather than raw Vec storage');
 
 console.log('stdlib std/test unsafe unwrap regression passed');

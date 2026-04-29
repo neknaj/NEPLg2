@@ -22,7 +22,7 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
 
-fn check_token <(Checks, &Vec<SelfhostToken>, i32, str, str)*>Checks> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
     let lexeme <str> field::get token "lexeme"
@@ -76,7 +76,7 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
 
-fn check_token <(Checks, &Vec<SelfhostToken>, i32, str, str)*>Checks> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
     let lexeme <str> field::get token "lexeme"
@@ -177,7 +177,7 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
 
-fn check_token <(Checks, &Vec<SelfhostToken>, i32, str, str)*>Checks> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
     let lexeme <str> field::get token "lexeme"
@@ -457,7 +457,7 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
 
-fn check_token <(Checks, &Vec<SelfhostToken>, i32, str, str)*>Checks> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
     let lexeme <str> field::get token "lexeme"
@@ -521,7 +521,7 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
 
-fn check_token <(Checks, &Vec<SelfhostToken>, i32, str, str)*>Checks> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
     let lexeme <str> field::get token "lexeme"
@@ -569,7 +569,7 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
 
-fn check_token <(Checks, &Vec<SelfhostToken>, i32, str, str)*>Checks> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
     let lexeme <str> field::get token "lexeme"

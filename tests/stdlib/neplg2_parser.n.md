@@ -19,7 +19,7 @@ ret: 0
 fn item_at <(&SelfhostModuleAst,i32)->SelfhostModuleItem> (ast, idx):
     unwrap<SelfhostModuleItem> selfhost_module_ast_get ast idx
 
-fn check_item <(Checks, &SelfhostModuleAst, i32, str, str)*>Checks> (checks, ast, idx, expected_kind, expected_lexeme):
+fn check_item <(TestReport, &SelfhostModuleAst, i32, str, str)*>TestReport> (checks, ast, idx, expected_kind, expected_lexeme):
     let item <SelfhostModuleItem> item_at ast idx
     let kind_name <str> selfhost_module_item_kind_name item.kind
     let lexeme <str> item.lexeme

@@ -26003,3 +26003,39 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `.n.md` 共通 test manifest の runtime expectation に `exit_code:` を追加した。
+
+# 2026-04-29 メモ (ISS-20260429T102809685Z std/test structured report API)
+
+- [同期/別agent確認]:
+  - `origin/main` の `eefd0a9` まで同期した `main` から `stdlib/assert-report-api` branch を作成した。
+  - 作業前に `git log --oneline --decorate -12 --all --date-order` と `note.n.md` 直近追記を確認した。
+  - 直近の別 agent 作業は Rust 側 diagnostic code-first、ResourceIR gate 回帰追従、selfhost diagnostic enum、selfhost CLI args 分割が中心で、今回の `stdlib/std/test.nepl` とは直接の編集衝突はないと判断した。
+- [原因]:
+  - `std/test` は `assert_*` が失敗時に stdout を出しつつ `Result<(),str>` を返す構造だったため、assertion 評価、report rendering、exit code 変換の責務が混在していた。
+  - failure detail が文字列化済みの `Result<(),str>` に寄っており、assertion kind/status を enum と match で静的に扱う境界がなかった。
+- [修正]:
+  - `AssertionStatus` / `AssertionKind` enum を追加し、assertion status/kind を bool や自由文字列ではなく enum で保持するようにした。
+  - `TestAssertion` と `TestReport` を追加し、assertion value、report accumulator、stdout rendering、exit code conversion を分離した。
+  - `assert_*` は stdout を出さず `TestAssertion` を返すようにした。
+  - `test_report_print_stdout` だけが canonical report を stdout へ出し、`test_report_exit_code` だけが failed count から 0/1 を返すようにした。
+  - 既存 doctest の段階移行用に `checks_*` は同じ `TestReport` へ委譲する入口として残した。旧 `Vec<Result<(),str>>` accumulator や `assert_*` の stdout 副作用は戻していない。
+  - `tests/stdlib/std_test_collect.n.md` を canonical `test_report_*` + `stdout:` + `exit_code:` fixture へ更新した。
+  - `nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js` を新しい structured report 境界の source policy に更新した。
+  - `tests/stdlib/*` / `stdlib/tests/hash.n.md` の `Checks` 型注釈を `TestReport` へ追従した。
+- [検証]:
+  - `node nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js`
+  - `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --no-tree -o tmp/std-test-collect-new-api-prebuild.json -j 1 --dist web/dist`: `total=3`, `passed=3`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/std-test-core-result-compat.json -j 1 --dist web/dist`: `total=7`, `passed=7`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/tests/result.n.md --no-tree -o tmp/std-test-result-nmd-compat.json -j 1 --dist web/dist`: `total=1`, `passed=1`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/traits_serde.n.md --no-tree -o tmp/std-test-traits-serde-compat.json -j 1 --dist web/dist`: `total=2`, `passed=2`, `failed=0`
+  - `trunk build`
+  - `node nodesrc/cli.js -i doc/neplg2/nmd_assert_output_plan.md -o html=tmp/nmd-assert-output-plan-html`
+  - `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --no-tree -o tmp/std-test-collect-new-api-after-build.json -j 1 --dist web/dist`: `total=3`, `passed=3`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/std-test-core-result-after-build.json -j 1 --dist web/dist`: `total=7`, `passed=7`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/traits_serde.n.md --no-tree -o tmp/std-test-traits-serde-after-build.json -j 1 --dist web/dist`: `total=2`, `passed=2`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/std-test-neplg2-parser-varfix.json -j 1 --dist web/dist`: `total=1`, `passed=1`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/tests/hash.n.md --no-tree -o tmp/std-test-hash-varfix.json -j 1 --dist web/dist`: `total=1`, `passed=1`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `.n.md` assertion suite が使う stdlib report API を structured assertion model へ進めた。
+  - 既存 assertion suite の全面移行と report 省略 lint は `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` で継続する。

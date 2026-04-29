@@ -4,96 +4,156 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "alloc/string" as *
+#import "alloc/encoding/json" as json
 #if[target=std]
 #import "std/stdio" as *
 
-//: ## Checks
-//: [複数/ふくすう]の[検査/けんさ][結果/けっか]を[逐次/ちくじ][集約/しゅうやく]する[値/あたい]
-//:
-//: ### [目的/もくてき]
-//: - `checks_push` のたびに summary、失敗有無、人間向け一覧を更新し、最後に raw memory を走査しなくても結果を出せるようにします。
-//: - 旧 `Vec<Result<(),str>>` 実装のように非 Copy payload を積んで後から `load<Result<(),str>>` する設計を避けます。
-//:
-//: ### [実装/じっそう]
-//: - `summary` は末尾の `]` をまだ付けていない `[ok,err ...` 形式を保持します。
-//: - `human` は `[0] ok\n` のような人間向け行を連結して保持します。
-//:
-//: ### [注意/ちゅうい]
-//: - `str` は Copy な immutable value として扱われるため、この struct 自体も Copy です。
-//: - 大量の検査では文字列連結により O(n^2) になりえます。これは test helper 用の単純さを優先した設計です。
-struct Checks:
-    count <i32>
-    failed <bool>
-    summary <str>
-    human <str>
-
-impl Clone for Checks:
-    fn clone <(&Checks)->Checks> (checks):
-        *checks
-
-impl Copy for Checks:
-    fn copy_mark <(Checks)->Checks> (checks):
-        checks
-
-//: ## checks_empty
-//: [集約/しゅうやく][検査/けんさ]の[空/から] sentinel を[作/つく]る
-//:
-//: ### [目的/もくてき]
-//: - allocation に依存せず、空の `Checks` を返します。
-//:
-//: ### [実装/じっそう]
-//: - summary は `[`、human は空文字列から開始します。
-fn checks_empty <()->Checks> ():
-    Checks 0 false "[" ""
-
-//: ## checks_single_error
-//: [単一/たんいつ]の[失敗/しっぱい]だけを[持/も]つ[検査/けんさ][列/れつ]を[作/つく]る
-//:
-//: ### [目的/もくてき]
-//: - 初期化に失敗した場合など、単一の `Err msg` だけを持つ `Checks` を返します。
-fn checks_single_error <(str)*>Checks> (msg):
-    checks_push checks_empty Result<(),str>::Err msg
-
 //: # test
-//: [標準/ひょうじゅん]ライブラリ[用/よう]の[簡易/かんい]テスト[支援/しえん]
+//: [標準/ひょうじゅん]ライブラリ[用/よう]の[構造化/こうぞうか]テスト[支援/しえん]
 //:
-//: ### [目的/もくてき]
-//: - stdlib と tutorials で共通に使う `assert_*` / `check_*` / `finish_checks` を提供し、[失敗/しっぱい]を trap ではなく `Result<(),str>` として[表現/ひょうげん]します。
-//: - [単発/たんぱつ]の[検査/けんさ]と、[複数/ふくすう][検査/けんさ]を[継続/けいぞく][実行/じっこう]する collectable な[検査/けんさ]の[両方/りょうほう]を[同/おな]じモジュールで[扱/あつか]います。
+//: [目的/もくてき]:
+//: - assertion の[評価/ひょうか]、report [集約/しゅうやく]、stdout [表示/ひょうじ]、exit code [変換/へんかん]を[別/べつ]の API に[分/わ]けます。
+//: - assertion [結果/けっか]は `AssertionStatus` / `AssertionKind` / `TestAssertion` として[保持/ほじ]し、分岐は `match` による enum [網羅/もうら]で[扱/あつか]います。
+//: - `.n.md` では stdout report と `exit_code:` を[両方/りょうほう]固定できるようにします。
 //:
-//: ### [実装/じっそう]
-//: - [単発/たんぱつ]の `assert_*` は[対応/たいおう]する `check_*` の[結果/けっか]を[受/う]け、`Err` のときだけ `FAIL:` [形式/けいしき]の[表示/ひょうじ]を[行/おこな]ったうえで `Result::Err` を[返/かえ]します。
-//: - [集約/しゅうやく][検査/けんさ]は `Checks` を[保持/ほじ]し、`finish_checks` は[表示/ひょうじ]せずに `Result<(),str>` へ[畳/たた]みます。
-//: - [表示/ひょうじ]が[必要/ひつよう]な test case は `checks_print_machine` / `checks_print_human` を[明示的/めいじてき]に[呼/よ]びます。
-//:
-//: ### [注意/ちゅうい]
-//: - [失敗/しっぱい]の[最終/さいしゅう][判定/はんてい]は `result_exit_code` や `checks_exit_code` のような helper で i32 に[落/お]とし、runner [側/がわ]で[比較/ひかく]する[前提/ぜんてい]です。
-//: - [表示/ひょうじ]は `#target std` のときだけ[行/おこな]います。`std` 以外の target では `Result` だけが[返/かえ]ります。
-//: - reboot [後/ご]は「[明示的/めいじてき]に print する」[方針/ほうしん]とし、`checks_exit_code` は stdout を[汚/よご]しません。
-//: - doctest は[使/つか]い[方/かた]の[保証/ほしょう]が目的であり、境界条件や回帰確認は `tests/stdlib/*` 側で行います。
-//:
-//: ### [計算量/けいさんりょう]
-//: - `assert_*` と `check_*` の単体判定は O(1) か、比較対象の長さに応じた O(n) です。
-//: - 集約 API は summary [文字列/もじれつ][構築/こうちく]を[含/ふく]むため、`finish_checks` [全体/ぜんたい]では O(n^2) になりえます。
+//: [注意/ちゅうい]:
+//: - `assert_*` は stdout を[出/だ]しません。表示は `test_report_print_stdout` だけが[担当/たんとう]します。
+//: - `test_report_exit_code` は stdout を[出/だ]さず、失敗件数から 0/1 を[返/かえ]します。
+//: - 既存 doctest の段階移行用に `checks_*` という短い入口も同じ `TestReport` へ委譲します。旧 `Result<(),str>` accumulator へ戻すものではありません。
+//: - report は test helper 用なので、[集約/しゅうやく]時に安定文字列を[蓄積/ちくせき]します。大量 case では O(n^2) の文字列連結になります。
 
-//: ## test_str_eq
-//: [文字列/もじれつ]が[等/ひと]しいか[判定/はんてい]する
+//: AssertionStatus: assertion の[成否/せいひ]
 //:
-//: ### [目的/もくてき]
-//: - a と b の内容が同じなら true を返します。
+//: [目的/もくてき]:
+//: - 成功/失敗を bool や文字列ではなく enum として[保持/ほじ]します。
+enum AssertionStatus:
+    Passed
+    Failed
+
+impl Clone for AssertionStatus:
+    fn clone <(&AssertionStatus)->AssertionStatus> (status):
+        *status
+
+impl Copy for AssertionStatus:
+    fn copy_mark <(AssertionStatus)->AssertionStatus> (status):
+        status
+
+//: AssertionKind: assertion の[種類/しゅるい]
 //:
-//: ### [実装/じっそう]
-//: - 長さ一致を確認し、バイト単位で比較します。
+//: [目的/もくてき]:
+//: - bool、i32 等値、文字列等値などの[種類/しゅるい]を enum で[表/あらわ]し、renderer の分岐を `match` に[閉/と]じます。
+enum AssertionKind:
+    Bool
+    EqI32
+    NeBool
+    StrEq
+    OkI32
+    ErrI32
+    Manual
+
+impl Clone for AssertionKind:
+    fn clone <(&AssertionKind)->AssertionKind> (kind):
+        *kind
+
+impl Copy for AssertionKind:
+    fn copy_mark <(AssertionKind)->AssertionKind> (kind):
+        kind
+
+//: TestAssertion: [単一/たんいつ] assertion の[構造化/こうぞうか][結果/けっか]
 //:
-//: ### [注意/ちゅうい]
-//: - UTF-8 のバイト列として比較します。
+//: [目的/もくてき]:
+//: - kind、status、label、expected、actual、message を[分離/ぶんり]して[保持/ほじ]します。
+//: - stdout 用の整形は renderer に[任/まか]せ、この値を[作/つく]る関数は print しません。
+struct TestAssertion:
+    kind <AssertionKind>
+    status <AssertionStatus>
+    label <str>
+    expected <str>
+    actual <str>
+    message <str>
+
+impl Clone for TestAssertion:
+    fn clone <(&TestAssertion)->TestAssertion> (a):
+        *a
+
+impl Copy for TestAssertion:
+    fn copy_mark <(TestAssertion)->TestAssertion> (a):
+        a
+
+//: TestReport: assertion の[集約/しゅうやく] report
 //:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n)
-//: - [空間/くうかん]: O(n)（再帰呼び出しぶん）
+//: [目的/もくてき]:
+//: - assertion を push [順/じゅん]に deterministic な report [文字列/もじれつ]へ[追加/ついか]します。
+//: - exit code 判定に必要な failed_count を[明示/めいじ]して[持/も]ちます。
+//:
+//: [実装/じっそう]:
+//: - `lines` は新しい canonical stdout report 用の本文です。
+//: - `legacy_summary` / `legacy_human` は、移行中の既存 doctest が使う `checks_print_report` の安定出力を同じ構造化 assertion から生成するための文字列です。
+struct TestReport:
+    name <str>
+    count <i32>
+    failed_count <i32>
+    lines <str>
+    legacy_summary <str>
+    legacy_human <str>
+
+impl Clone for TestReport:
+    fn clone <(&TestReport)->TestReport> (report):
+        *report
+
+impl Copy for TestReport:
+    fn copy_mark <(TestReport)->TestReport> (report):
+        report
+
+//: assertion_status_name: status を stable な[名前/なまえ]へ[変換/へんかん]する
+fn assertion_status_name <(AssertionStatus)->str> (status):
+    match status:
+        AssertionStatus::Passed:
+            "ok"
+        AssertionStatus::Failed:
+            "fail"
+
+//: assertion_kind_name: kind を stable な[名前/なまえ]へ[変換/へんかん]する
+fn assertion_kind_name <(AssertionKind)->str> (kind):
+    match kind:
+        AssertionKind::Bool:
+            "bool"
+        AssertionKind::EqI32:
+            "eq_i32"
+        AssertionKind::NeBool:
+            "ne_bool"
+        AssertionKind::StrEq:
+            "str_eq"
+        AssertionKind::OkI32:
+            "ok_i32"
+        AssertionKind::ErrI32:
+            "err_i32"
+        AssertionKind::Manual:
+            "manual"
+
+//: test_assertion_passed: [成功/せいこう] assertion を[作/つく]る
+fn test_assertion_passed <(AssertionKind,str,str,str)->TestAssertion> (kind, label, expected, actual):
+    TestAssertion kind AssertionStatus::Passed label expected actual ""
+
+//: test_assertion_failed: [失敗/しっぱい] assertion を[作/つく]る
+fn test_assertion_failed <(AssertionKind,str,str,str,str)->TestAssertion> (kind, label, expected, actual, message):
+    TestAssertion kind AssertionStatus::Failed label expected actual message
+
+//: test_assertion_ok: [手動/しゅどう]の[成功/せいこう] assertion を[作/つく]る
+fn test_assertion_ok <(str)->TestAssertion> (label):
+    test_assertion_passed AssertionKind::Manual label "ok" "ok"
+
+//: test_assertion_fail: [手動/しゅどう]の[失敗/しっぱい] assertion を[作/つく]る
+fn test_assertion_fail <(str,str)->TestAssertion> (label, message):
+    test_assertion_failed AssertionKind::Manual label "ok" "fail" message
+
+//: test_str_eq: [文字列/もじれつ]が[等/ひと]しいか[判定/はんてい]する
+//:
+//: [実装/じっそう]:
+//: - 長さ一致を確認し、byte [単位/たんい]で[比較/ひかく]します。
 fn test_str_eq <(str,str)->bool> (a,b):
-    let la <i32> len a;
-    let lb <i32> len b;
+    let la <i32> len a
+    let lb <i32> len b
     if:
         eq la lb
         then:
@@ -101,214 +161,133 @@ fn test_str_eq <(str,str)->bool> (a,b):
         else:
             false
 
-//: ## test_str_eq_loop
-//: [文字列/もじれつ][比較/ひかく]の[内部/ないぶ]ループ
-//:
-//: ### [目的/もくてき]
-//: - i を進めながら各バイトを比較します。
-//:
-//: ### [実装/じっそう]
-//: - 一致なら再帰、差異があれば false を返します。
-//:
-//: ### [注意/ちゅうい]
-//: - 呼び出し側で長さ一致を確認している前提です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n)
-//: - [空間/くうかん]: O(n)（再帰呼び出しぶん）
-fn test_str_eq_loop <(str,str,i32,i32)->bool> (a,b,len,i):
+fn test_str_eq_loop <(str,str,i32,i32)->bool> (a,b,total,i):
     if:
-        eq i len
+        eq i total
         then:
             true
         else:
-            let ba <i32> string_byte_at_unchecked a i;
-            let bb <i32> string_byte_at_unchecked b i;
+            let ba <i32> string_byte_at_unchecked a i
+            let bb <i32> string_byte_at_unchecked b i
             if:
                 eq ba bb
-                then test_str_eq_loop a b len add i 1
-                else false
+                then:
+                    test_str_eq_loop a b total add i 1
+                else:
+                    false
 
-//: ## test_print_fail
-//: [失敗/しっぱい]メッセージを[表示/ひょうじ]する
-//:
-//: ### [目的/もくてき]
-//: - msg を赤色で標準出力へ表示します。
-//:
-//: ### [実装/じっそう]
-//: - ANSI 赤色コードで色付けして出力します。
-//:
-//: ### [注意/ちゅうい]
-//: - `#target std` の[表示/ひょうじ] helper です。
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n)
-//: - [空間/くうかん]: O(n)
-#if[target=std]
-#if[target=std]
-fn test_print_fail <(str)*>()> (msg):
-    let m0 <str> concat "FAIL: " msg;
-    println_color ansi_red m0
+//: assert: bool 条件を[構造化/こうぞうか] assertion にする
+fn noshadow assert <(str,bool)->TestAssertion> (label, okv):
+    if:
+        okv
+        then:
+            test_assertion_passed AssertionKind::Bool label "true" "true"
+        else:
+            test_assertion_failed AssertionKind::Bool label "true" "false" "check failed"
 
-//: ## test_checked
-//: [成功/せいこう]ログを[表示/ひょうじ]する
-//:
-//: ### [目的/もくてき]
-//: - "Checked " [付/つ]きの[成功/せいこう]ログを[色付/いろづ]きで[表示/ひょうじ]し、`Result::Ok ()` を[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - 文字列を連結し、ansi_green で出力します。
-//:
-//: ### [注意/ちゅうい]
-//: - `#target std` の[表示/ひょうじ] helper です。
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n)
-//: - [空間/くうかん]: O(n)
-#if[target=std]
-#if[target=std]
-fn test_checked <(str)*>Result<(),str>> (msg):
-    print_color ansi_green "Checked ";
-    println msg;
-    Result<(),str>::Ok ()
+fn noshadow assert <(bool)->TestAssertion> (okv):
+    assert "assert" okv
 
-//: ## test_fail
-//: [失敗/しっぱい]メッセージを[出/だ]して `Result::Err` を[返/かえ]す
-//:
-//: ### [目的/もくてき]
-//: - msg を `FAIL:` [形式/けいしき]で[表示/ひょうじ]し、[安全/あんぜん]に `Result::Err` として[失敗/しっぱい]を[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - `#target std` では `test_print_fail` を[呼/よ]び、そのあと `Result::Err msg` を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - この helper [自体/じたい]は trap しません。[最終/さいしゅう][判定/はんてい]は[呼/よ]び[出/だ]し[側/がわ]が[行/おこな]います。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n)
-//: - [空間/くうかん]: O(n)
-fn noshadow test_fail <(str)*>Result<(),str>> (msg):
-    #if[target=std]
-    test_print_fail msg;
-    Result<(),str>::Err msg
+//: assert_eq_i32: i32 の[等値/とうち] assertion を[作/つく]る
+fn noshadow assert_eq_i32 <(str,i32,i32)->TestAssertion> (label, expected, actual):
+    let se <str> from_i32 expected
+    let sa <str> from_i32 actual
+    if:
+        eq expected actual
+        then:
+            test_assertion_passed AssertionKind::EqI32 label se sa
+        else:
+            let m0 <str> concat "assert_eq_i32 failed: expected=" se
+            let m1 <str> concat m0 " actual="
+            let m2 <str> concat m1 sa
+            test_assertion_failed AssertionKind::EqI32 label se sa m2
 
-//: ## checks_new
-//: [集約/しゅうやく][検査/けんさ]の[空/から]状態を[作/つく]る
-//:
-//: ### [目的/もくてき]
-//: - `finish_checks` に渡す `Checks` を空の状態で作ります。
-//: - `push` の型引数を毎回書かずに collectable な検査列を組み立てる入口として使います。
-//:
-//: ### [実装/じっそう]
-//: - allocation せずに空の summary と human report を持つ値を返します。
-//:
-//: ### [注意/ちゅうい]
-//: - 返り値は `Result<(),str>` 専用です。
-//: - 以後の追加は `checks_push` を使うと型引数を書かずに済みます。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let checks checks_new;
-//:     checks_exit_code checks
-//: ```
-fn checks_new <()*>Checks> ():
-    checks_empty
+fn noshadow assert_eq_i32 <(i32,i32)->TestAssertion> (expected, actual):
+    assert_eq_i32 "assert_eq_i32" expected actual
 
-//: ## checks_push
-//: [集約/しゅうやく][検査/けんさ]に 1 [件/けん][追加/ついか]する
-//:
-//: ### [目的/もくてき]
-//: - `Result<(),str>` を `Checks` に追加し、pipe で連結しやすい形を提供します。
-//:
-//: ### [実装/じっそう]
-//: - 追加時点で machine summary と human report の文字列へ反映します。
-//: - 後段で `Vec` backing store を raw scan しないため、非 Copy payload の再読みに依存しません。
-//:
-//: ### [注意/ちゅうい]
-//: - 検査そのものは `check_*` 側で評価済みであり、この関数は格納しかしません。
-//: - 返り値は更新済みの `Checks` なので、`|> checks_push ... |> checks_push ...` と連結できます。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n)（文字列連結ぶん）
-//: - [空間/くうかん]: O(n)
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push check true
-//:         |> checks_push check true
-//:     checks_exit_code checks
-//: ```
-fn checks_push <(Checks,Result<(),str>)*>Checks> (checks, r):
-    let count <i32> checks.count;
-    let status <str> check_status_str r;
-    let sep <str> if eq count 0 "" ",";
-    let summary0 <str> concat checks.summary sep;
-    let summary1 <str> concat summary0 status;
-    let si <str> from_i32 count;
-    let prefix0 <str> concat "[" si;
-    let prefix1 <str> concat prefix0 "] ";
-    let line0 <str> concat prefix1 status;
-    let line1 <str> concat line0 "\n";
-    let human1 <str> concat checks.human line1;
-    let failed1 <bool> match r:
+//: assert_ne_bool: bool が[等/ひと]しくないことを[検査/けんさ]する
+fn assert_ne_bool <(str,bool,bool)->TestAssertion> (label, a, b):
+    let sa <str> from_bool a
+    let sb <str> from_bool b
+    let actual0 <str> concat sa " vs "
+    let actual <str> concat actual0 sb
+    if:
+        a
+        then:
+            if:
+                b
+                then:
+                    let m0 <str> concat "assert_ne failed: a=" sa
+                    let m1 <str> concat m0 " b="
+                    let m2 <str> concat m1 sb
+                    test_assertion_failed AssertionKind::NeBool label "different" actual m2
+                else:
+                    test_assertion_passed AssertionKind::NeBool label "different" actual
+        else:
+            if:
+                b
+                then:
+                    test_assertion_passed AssertionKind::NeBool label "different" actual
+                else:
+                    let m0 <str> concat "assert_ne failed: a=" sa
+                    let m1 <str> concat m0 " b="
+                    let m2 <str> concat m1 sb
+                    test_assertion_failed AssertionKind::NeBool label "different" actual m2
+
+fn noshadow assert_ne <(str,bool,bool)->TestAssertion> (label, a, b):
+    assert_ne_bool label a b
+
+fn noshadow assert_ne <(bool,bool)->TestAssertion> (a, b):
+    assert_ne_bool "assert_ne" a b
+
+//: assert_str_eq: str の[等値/とうち] assertion を[作/つく]る
+fn noshadow assert_str_eq <(str,str,str)->TestAssertion> (label, expected, actual):
+    if:
+        test_str_eq expected actual
+        then:
+            test_assertion_passed AssertionKind::StrEq label expected actual
+        else:
+            let m0 <str> concat "assert_str_eq failed: expected=\"" expected
+            let m1 <str> concat m0 "\" actual=\""
+            let m2 <str> concat m1 actual
+            let m3 <str> concat m2 "\""
+            test_assertion_failed AssertionKind::StrEq label expected actual m3
+
+fn noshadow assert_str_eq <(str,str)->TestAssertion> (expected, actual):
+    assert_str_eq "assert_str_eq" expected actual
+
+//: assert_ok_i32: `Result<i32,i32>` が Ok であることを[検査/けんさ]する
+fn noshadow assert_ok_i32 <(str,Result<i32,i32>)->TestAssertion> (label, r):
+    match r:
         Result::Ok v:
-            checks.failed
+            test_assertion_passed AssertionKind::OkI32 label "Ok" from_i32 v
         Result::Err e:
-            true
-    Checks add count 1 failed1 summary1 human1
+            let se <str> from_i32 e
+            let actual <str> concat "Err " se
+            let msg <str> concat "assert_ok_i32 failed: Err=" se
+            test_assertion_failed AssertionKind::OkI32 label "Ok" actual msg
 
-//: ## check
-//: [条件/じょうけん]を `Result<(),str>` として[返/かえ]す
+fn noshadow assert_ok_i32 <(Result<i32,i32>)->TestAssertion> (r):
+    assert_ok_i32 "assert_ok_i32" r
+
+//: assert_err_i32: `Result<i32,i32>` が Err であることを[検査/けんさ]する
+fn noshadow assert_err_i32 <(str,Result<i32,i32>)->TestAssertion> (label, r):
+    match r:
+        Result::Ok v:
+            let sv <str> from_i32 v
+            let actual <str> concat "Ok " sv
+            let msg <str> concat "assert_err_i32 failed: Ok=" sv
+            test_assertion_failed AssertionKind::ErrI32 label "Err" actual msg
+        Result::Err e:
+            test_assertion_passed AssertionKind::ErrI32 label "Err" from_i32 e
+
+fn noshadow assert_err_i32 <(Result<i32,i32>)->TestAssertion> (r):
+    assert_err_i32 "assert_err_i32" r
+
+//: check: bool 条件を quiet な Result にする
 //:
-//: ### [目的/もくてき]
-//: - `assert` と同じ条件判定を行い、その場で停止せず `Result<(),str>` として返します。
-//: - 複数の検査を `Checks` に集約して最後にまとめて判定したいときに使います。
-//:
-//: ### [実装/じっそう]
-//: - `ok` が true なら `Ok(())`、false なら固定メッセージ付きの `Err` を返します。
-//:
-//: ### [注意/ちゅうい]
-//: - 失敗時に詳細な説明が必要なら、この関数ではなく `check_eq_i32` や `check_str_eq` のような専用版を使ってください。
-//: - この関数自体は何も表示しません。表示と最終失敗判定は `finish_checks` が担当します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push check true
-//:         |> checks_push check true
-//:     checks_exit_code checks
-//: ```
+//: [注意/ちゅうい]:
+//: - 移行中の helper 用です。新しい canonical report では `assert` が返す `TestAssertion` を[優先/ゆうせん]します。
 fn check <(bool)->Result<(),str>> (okv):
     if:
         okv
@@ -317,390 +296,204 @@ fn check <(bool)->Result<(),str>> (okv):
         else:
             Result<(),str>::Err "check failed"
 
-//: ## check_eq_i32
-//: i32 の[等値/とうち][検査/けんさ]を `Result<(),str>` として[返/かえ]す
-//:
-//: ### [目的/もくてき]
-//: - `expected` と `actual` の比較結果を即時停止ではなく値として返します。
-//:
-//: ### [実装/じっそう]
-//: - 等しければ `Ok(())`、異なれば `expected` と `actual` を文字列化したメッセージ付き `Err` を返します。
-//:
-//: ### [注意/ちゅうい]
-//: - `assert_eq_i32` はこの関数の結果を受けてただちに失敗終了する薄いラッパです。
-//: - 失敗を複数件まとめたいときはこの関数を `Checks` に積んでください。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push check_eq_i32 10 add 4 6
-//:         |> checks_push check_eq_i32 3 sub 8 5
-//:     checks_exit_code checks
-//: ```
 fn check_eq_i32 <(i32,i32)->Result<(),str>> (expected, actual):
-    if:
-        eq expected actual
-        then:
+    let a <TestAssertion> assert_eq_i32 expected actual
+    match a.status:
+        AssertionStatus::Passed:
             Result<(),str>::Ok ()
-        else:
-            let se <str> from_i32 expected
-            let sa <str> from_i32 actual
-            let m0 <str> concat "assert_eq_i32 failed: expected=" se
-            let m1 <str> concat m0 " actual="
-            let m2 <str> concat m1 sa
-            Result<(),str>::Err m2
+        AssertionStatus::Failed:
+            Result<(),str>::Err a.message
 
-//: ## check_ne
-//: bool が[等/ひと]しくないことを `Result<(),str>` として[返/かえ]す
-//:
-//: ### [目的/もくてき]
-//: - `a` と `b` が同じなら詳細メッセージ付き `Err`、違えば `Ok(())` を返します。
-//:
-//: ### [実装/じっそう]
-//: - bool の組み合わせを分岐し、一致時だけ値を文字列化して失敗メッセージを組み立てます。
-//:
-//: ### [注意/ちゅうい]
-//: - bool 専用です。
-//: - true/false のどちらで一致したかを失敗メッセージに含めます。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
 fn check_ne <(bool,bool)->Result<(),str>> (a, b):
-    if:
-        a
-        then:
-            if:
-                b
-                then:
-                    let sa <str> from_bool a
-                    let sb <str> from_bool b
-                    let m0 <str> concat "assert_ne failed: a=" sa
-                    let m1 <str> concat m0 " b="
-                    let m2 <str> concat m1 sb
-                    Result<(),str>::Err m2
-                else:
-                    Result<(),str>::Ok ()
-        else:
-            if:
-                b
-                then:
-                    Result<(),str>::Ok ()
-                else:
-                    let sa <str> from_bool a
-                    let sb <str> from_bool b
-                    let m0 <str> concat "assert_ne failed: a=" sa
-                    let m1 <str> concat m0 " b="
-                    let m2 <str> concat m1 sb
-                    Result<(),str>::Err m2
+    let assertion <TestAssertion> assert_ne a b
+    match assertion.status:
+        AssertionStatus::Passed:
+            Result<(),str>::Ok ()
+        AssertionStatus::Failed:
+            Result<(),str>::Err assertion.message
 
-//: ## check_str_eq
-//: [文字列/もじれつ]の[等値/とうち][検査/けんさ]を `Result<(),str>` として[返/かえ]す
-//:
-//: ### [目的/もくてき]
-//: - 文字列比較の結果を、直ちに停止せずに後段へ渡せる形で返します。
-//:
-//: ### [実装/じっそう]
-//: - `test_str_eq` で UTF-8 バイト列を比較し、不一致時だけ詳細メッセージを組み立てます。
-//:
-//: ### [注意/ちゅうい]
-//: - 比較単位は Unicode の文字数ではなく UTF-8 のバイト列です。
-//: - 長い文字列では、失敗メッセージ自体の生成にも連結コストがかかります。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n)
-//: - [空間/くうかん]: O(n)（失敗時メッセージ生成ぶん）
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push check_str_eq "hello" concat "he" "llo"
-//:     checks_exit_code checks
-//: ```
 fn check_str_eq <(str,str)->Result<(),str>> (expected, actual):
-    if:
-        test_str_eq expected actual
-        then:
+    let a <TestAssertion> assert_str_eq expected actual
+    match a.status:
+        AssertionStatus::Passed:
             Result<(),str>::Ok ()
-        else:
-            let m0 <str> concat "assert_str_eq failed: expected=\"" expected
-            let m1 <str> concat m0 "\" actual=\""
-            let m2 <str> concat m1 actual
-            let m3 <str> concat m2 "\""
-            Result<(),str>::Err m3
+        AssertionStatus::Failed:
+            Result<(),str>::Err a.message
 
-//: ## check_ok_i32
-//: `Result<i32,i32>` が `Ok` であることを[値/あたい]として[返/かえ]す
-//:
-//: ### [目的/もくてき]
-//: - `Result::Ok` を期待する検査を集約可能な `Result<(),str>` に変換します。
-//:
-//: ### [実装/じっそう]
-//: - `match` で `Ok/Err` を分け、`Err` の場合だけ失敗メッセージを返します。
-//:
-//: ### [注意/ちゅうい]
-//: - `Result<i32,i32>` 専用です。
-//: - `Ok` の中身は返さず、成功・失敗だけを返します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
 fn check_ok_i32 <(Result<i32,i32>)->Result<(),str>> (r):
-    match r:
-        Result::Ok v:
+    let a <TestAssertion> assert_ok_i32 r
+    match a.status:
+        AssertionStatus::Passed:
             Result<(),str>::Ok ()
-        Result::Err e:
-            let se <str> from_i32 e
-            let m0 <str> concat "assert_ok_i32 failed: Err=" se
-            Result<(),str>::Err m0
+        AssertionStatus::Failed:
+            Result<(),str>::Err a.message
 
-//: ## check_err_i32
-//: `Result<i32,i32>` が `Err` であることを[値/あたい]として[返/かえ]す
-//:
-//: ### [目的/もくてき]
-//: - `Result::Err` を期待する検査を集約可能な `Result<(),str>` に変換します。
-//:
-//: ### [実装/じっそう]
-//: - `match` で `Ok/Err` を分け、`Ok` の場合だけ失敗メッセージを返します。
-//:
-//: ### [注意/ちゅうい]
-//: - `Result<i32,i32>` 専用です。
-//: - `Err` の中身は返さず、成功・失敗だけを返します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
 fn check_err_i32 <(Result<i32,i32>)->Result<(),str>> (r):
-    match r:
-        Result::Ok v:
-            let sv <str> from_i32 v
-            let m0 <str> concat "assert_err_i32 failed: Ok=" sv
-            Result<(),str>::Err m0
-        Result::Err e:
+    let a <TestAssertion> assert_err_i32 r
+    match a.status:
+        AssertionStatus::Passed:
             Result<(),str>::Ok ()
+        AssertionStatus::Failed:
+            Result<(),str>::Err a.message
 
-//: ## check_status_str
-//: [機械/きかい][向/む]け summary [用/よう]の[状態/じょうたい][文字列/もじれつ]を[返/かえ]す
-//:
-//: ### [目的/もくてき]
-//: - `Result<(),str>` を `ok` / `err <msg>` の[安定/あんてい]した summary [片/へん]へ[変換/へんかん]し、machine [側/がわ]でも[追跡/ついせき]しやすくします。
-//:
-//: ### [実装/じっそう]
-//: - `Ok` は `ok` を[返/かえ]し、`Err msg` は `err ` と msg を[連結/れんけつ]して[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `checks_summary` の[内部/ないぶ] helper です。
-//: - msg をそのまま summary に[含/ふく]めるため、[非常/ひじょう]に[長/なが]い[失敗/しっぱい][文/ぶん]は summary [行/ぎょう]も[長/なが]くなります。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
-fn check_status_str <(Result<(),str>)->str> (r):
+//: test_report_new: [空/から] report を[作/つく]る
+fn test_report_new <(str)->TestReport> (name):
+    TestReport name 0 0 "" "[" ""
+
+fn test_report_default <()->TestReport> ():
+    test_report_new "checks"
+
+fn test_assertion_from_result <(str,Result<(),str>)->TestAssertion> (label, r):
     match r:
         Result::Ok v:
-            "ok"
+            test_assertion_ok label
         Result::Err e:
-            concat "err " e
+            test_assertion_fail label e
 
-//: ## checks_has_err
-//: [集約/しゅうやく][済/ず]み[検査列/けんされつ]に `Err` が[含/ふく]まれるか[判定/はんてい]する
-//:
-//: ### [目的/もくてき]
-//: - [最終/さいしゅう][失敗/しっぱい][判定/はんてい]の[前/まえ]に、[少/すく]なくとも 1 [件/けん]の[失敗/しっぱい]があるかを[調/しら]べます。
-//:
-//: ### [実装/じっそう]
-//: - `checks_push` が更新した失敗 flag をそのまま返します。
-//:
-//: ### [注意/ちゅうい]
-//: - [失敗/しっぱい]の[詳細/しょうさい]は[返/かえ]しません。[詳細/しょうさい][表示/ひょうじ]には `finish_checks` を[使/つか]ってください。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
-fn checks_has_err <(Checks)->bool> (checks):
-    checks.failed
+fn test_report_legacy_status <(TestAssertion)->str> (a):
+    match a.status:
+        AssertionStatus::Passed:
+            "ok"
+        AssertionStatus::Failed:
+            concat "err " a.message
 
-//: ## checks_summary_text
-//: `Checks` の machine summary を[閉/と]じる
-//:
-//: ### [目的/もくてき]
-//: - `checks_push` が保持している途中 summary に `]` を付けて、外部へ返せる形にします。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n)
-//: - [空間/くうかん]: O(n)
-fn checks_summary_text <(Checks)->str> (checks):
-    concat checks.summary "]"
+fn test_report_assertion_line <(i32,TestAssertion)->str> (idx, a):
+    let idx_text <str> from_i32 idx
+    let status_text <str> assertion_status_name a.status
+    let kind_text <str> assertion_kind_name a.kind
+    let label_text <str> json::json_quote_string a.label
+    let expected_text <str> json::json_quote_string a.expected
+    let actual_text <str> json::json_quote_string a.actual
+    let message_text <str> json::json_quote_string a.message
+    let l0 <str> concat "assertion index=" idx_text
+    let l1 <str> concat l0 " status="
+    let l2 <str> concat l1 status_text
+    let l3 <str> concat l2 " kind="
+    let l4 <str> concat l3 kind_text
+    let l5 <str> concat l4 " label="
+    let l6 <str> concat l5 label_text
+    let l7 <str> concat l6 " expected="
+    let l8 <str> concat l7 expected_text
+    let l9 <str> concat l8 " actual="
+    let l10 <str> concat l9 actual_text
+    let l11 <str> concat l10 " message="
+    let l12 <str> concat l11 message_text
+    concat l12 "\n"
 
-//: ## checks_summary
-//: [集約/しゅうやく][済/ず]み[検査列/けんされつ]を `[ok,err <msg>,...]` [形式/けいしき]へ[整形/せいけい]する
-//:
-//: ### [目的/もくてき]
-//: - [複数/ふくすう]の[検査/けんさ][結果/けっか]を[安定/あんてい]した 1 [行/ぎょう]の[文字列表現/もじれつひょうげん]へ[畳/たた]み、runner や log [側/がわ]で[扱/あつか]いやすくします。
-//:
-//: ### [実装/じっそう]
-//: - 追加時点で保持していた summary を閉じて返します。
-//:
-//: ### [注意/ちゅうい]
-//: - これは machine / log [向/む]けの[安定/あんてい][表現/ひょうげん]です。[人間/にんげん][向/む]けの[色付/いろづ]き[表示/ひょうじ]は `checks_print_human` を[使/つか]います。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n^2)（[文字列/もじれつ][連結/れんけつ]を[繰/く]り[返/かえ]すため）
-//: - [空間/くうかん]: O(n)
-fn checks_summary <(Checks)->str> (checks):
-    checks_summary_text checks
+//: test_report_push: report に assertion を[追加/ついか]する
+fn test_report_push <(TestReport,TestAssertion)*>TestReport> (report, assertion):
+    let count0 <i32> report.count
+    let failed1 <i32> match assertion.status:
+        AssertionStatus::Passed:
+            report.failed_count
+        AssertionStatus::Failed:
+            add report.failed_count 1
+    let line <str> test_report_assertion_line count0 assertion
+    let lines1 <str> concat report.lines line
+    let legacy_status <str> test_report_legacy_status assertion
+    let sep <str> if eq count0 0 "" ","
+    let legacy_summary0 <str> concat report.legacy_summary sep
+    let legacy_summary1 <str> concat legacy_summary0 legacy_status
+    let idx_text <str> from_i32 count0
+    let human0 <str> concat "[" idx_text
+    let human1 <str> concat human0 "] "
+    let human2 <str> concat human1 legacy_status
+    let human3 <str> concat human2 "\n"
+    let legacy_human1 <str> concat report.legacy_human human3
+    TestReport report.name add count0 1 failed1 lines1 legacy_summary1 legacy_human1
 
-//: ## checks_print_human
-//: `Checks` を[人間/にんげん][向/む]けに[表示/ひょうじ]する
+fn test_report_push <(TestReport,Result<(),str>)*>TestReport> (report, r):
+    test_report_push report test_assertion_from_result "result" r
+
+//: test_report_render: report を canonical stdout [文字列/もじれつ]へ[整形/せいけい]する
+fn test_report_render <(TestReport)->str> (report):
+    let name_text <str> json::json_quote_string report.name
+    let count_text <str> from_i32 report.count
+    let failed_text <str> from_i32 report.failed_count
+    let h0 <str> concat "test_report name=" name_text
+    let h1 <str> concat h0 " count="
+    let h2 <str> concat h1 count_text
+    let h3 <str> concat h2 " failed="
+    let h4 <str> concat h3 failed_text
+    let h5 <str> concat h4 "\n"
+    concat h5 report.lines
+
+//: test_report_print_stdout: report を stdout に[表示/ひょうじ]する
 //:
-//: ### [目的/もくてき]
-//: - `[index] ok / err <msg>` の[形/かたち]で[全件/ぜんけん][表示/ひょうじ]し、[人間/にんげん]が[成功/せいこう]と[失敗/しっぱい]を[即座/そくざ]に[読/よ]めるようにします。
-//: - [表示/ひょうじ][後/ご]も[同/おな]じ `Checks` を[返/かえ]し、その[後/あと]の `checks_exit_code` や[追加/ついか] helper と[合成/ごうせい]できるようにします。
-//:
-//: ### [実装/じっそう]
-//: - `checks_push` が構築済みの human report を 1 回だけ出力します。
-//:
-//: ### [注意/ちゅうい]
-//: - `#target std` [専用/せんよう]です。
-//: - machine [向/む]けの[安定/あんてい][表現/ひょうげん]が[必要/ひつよう]なら `checks_summary` を[使/つか]います。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n)
-//: - [空間/くうかん]: O(1)
+//: [注意/ちゅうい]:
+//: - stdout を[出/だ]す canonical API はこの関数だけです。
 #if[target=std]
-fn checks_print_human <(Checks)*>Checks> (checks):
-    print checks.human;
-    checks
+fn test_report_print_stdout <(TestReport)*>TestReport> (report):
+    print test_report_render report
+    report
 
-//: ## checks_print_machine
-//: `Checks` を machine [向/む]け summary として[表示/ひょうじ]する
-//:
-//: ### [目的/もくてき]
-//: - test case [側/がわ]で summary だけを stdout へ[明示的/めいじてき]に[出/だ]したいときに[使/つか]います。
-//: - [表示/ひょうじ][後/ご]も[同/おな]じ `Checks` を[返/かえ]し、その[後/あと]の[処理/しょり]へ[繋/つな]げられるようにします。
-//:
-//: ### [実装/じっそう]
-//: - `checks_push` が構築済みの summary と失敗 flag を使って表示します。
-//: - [最後/さいご]に[元/もと]の `Checks` をそのまま[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `finish_checks` や `checks_exit_code` は[自動/じどう]で[表示/ひょうじ]しません。stdout が[必要/ひつよう]な test case ではこの helper を[明示的/めいじてき]に[呼/よ]んでください。
-//: - `#target std` [専用/せんよう]です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n)
-//: - [空間/くうかん]: O(n)
-#if[target=std]
-fn checks_print_machine <(Checks)*>Checks> (checks):
-    let summary <str> checks_summary_text checks;
+fn test_report_has_failure <(TestReport)->bool> (report):
+    gt report.failed_count 0
+
+//: test_report_exit_code: report を 0/1 の[終了/しゅうりょう] code へ[変換/へんかん]する
+fn test_report_exit_code <(TestReport)->i32> (report):
     if:
-        checks.failed
+        test_report_has_failure report
         then:
-            test_print_fail summary
+            1
         else:
-            test_checked summary;
-    checks
+            0
 
-//: ## checks_print_report
-//: test [終了時/しゅうりょうじ]に summary と human [向/む]け[一覧/いちらん]を[まとめて/まとめて][表示/ひょうじ]する
-//:
-//: ### [目的/もくてき]
-//: - `checks_push` [中/ちゅう]には[何/なに]も print せず、test [本体/ほんたい]の[末尾/まつび]で 1 [回/かい]だけ[明示的/めいじてき]に[結果/けっか]を[出/だ]したい[場合/ばあい]の[標準/ひょうじゅん] helper を[提供/ていきょう]します。
-//:
-//: ### [実装/じっそう]
-//: - `checks_print_machine` の[後/あと]に `checks_print_human` を[呼/よ]び、[同/おな]じ `Checks` を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `checks_exit_code` とは[別/べつ]です。stdout が[必要/ひつよう]な test case だけ、`return` [直前/ちょくぜん]でこの helper を[呼/よ]んでください。
-//: - `#target std` [専用/せんよう]です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - `checks_print_machine` と `checks_print_human` の[合計/ごうけい]に[準/じゅん]じます。
+fn test_report_legacy_summary_text <(TestReport)->str> (report):
+    concat report.legacy_summary "]"
+
+//: checks_new: `TestReport` の[短/みじか]い[作成/さくせい]入口
+fn checks_new <()*>TestReport> ():
+    test_report_default
+
+fn checks_empty <()->TestReport> ():
+    test_report_default
+
+fn checks_single_error <(str)*>TestReport> (msg):
+    test_report_push test_report_default test_assertion_fail "result" msg
+
+fn checks_push <(TestReport,TestAssertion)*>TestReport> (report, assertion):
+    test_report_push report assertion
+
+fn checks_push <(TestReport,Result<(),str>)*>TestReport> (report, r):
+    test_report_push report r
+
+fn checks_has_err <(TestReport)->bool> (report):
+    test_report_has_failure report
+
+fn checks_summary <(TestReport)->str> (report):
+    test_report_legacy_summary_text report
+
 #if[target=std]
-fn checks_print_report <(Checks)*>Checks> (checks):
-    checks
+fn checks_print_machine <(TestReport)*>TestReport> (report):
+    let summary <str> test_report_legacy_summary_text report
+    if:
+        test_report_has_failure report
+        then:
+            println concat "FAIL: " summary
+        else:
+            println concat "Checked " summary
+    report
+
+#if[target=std]
+fn checks_print_human <(TestReport)*>TestReport> (report):
+    print report.legacy_human
+    report
+
+#if[target=std]
+fn checks_print_report <(TestReport)*>TestReport> (report):
+    report
     |> checks_print_machine
     |> checks_print_human
 
-//: ## finish_checks
-//: [複数/ふくすう][検査/けんさ]をまとめて `Result<(),str>` に[畳/たた]む
-//:
-//: ### [目的/もくてき]
-//: - `Checks` として[集約/しゅうやく]した[検査/けんさ]を[最後/さいご]にまとめて[評価/ひょうか]します。
-//: - [途中/とちゅう]の[検査/けんさ]は[継続/けいぞく]しつつ、[最後/さいご]に[表示/ひょうじ]なしで[成功/せいこう] / [失敗/しっぱい]を[値/あたい]として[得/え]られます。
-//:
-//: ### [実装/じっそう]
-//: - `checks_push` が更新した summary と失敗 flag をそのまま使います。
-//: - [失敗/しっぱい]が 1 [件/けん]でもあれば `Result::Err summary`、なければ `Result::Ok ()` を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [想定/そうてい][用途/ようと]は `checks_new |> checks_push check_* ...` のような[段階的/だんかいてき][収集/しゅうしゅう]です。
-//: - stdout へ[出/だ]したい[場合/ばあい]は `checks_print_report` などを test case [側/がわ]で[明示的/めいじてき]に[呼/よ]んでください。
-//: - runner [連携/れんけい]で[終了/しゅうりょう] code が[必要/ひつよう]な[場合/ばあい]は `checks_exit_code` を[使/つか]います。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n^2)（summary [文字列/もじれつ][構築/こうちく]を[含/ふく]む）
-//: - [空間/くうかん]: O(n)
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push check_eq_i32 3 add 1 2
-//:         |> checks_push check_str_eq "ok" "ok"
-//:         |> checks_push check_ok_i32 Result::Ok 7
-//:     checks_exit_code checks
-//: ```
-fn finish_checks <(Checks)*>Result<(),str>> (checks):
-    let summary <str> checks_summary_text checks;
-    let failed <bool> checks.failed;
+fn finish_checks <(TestReport)*>Result<(),str>> (report):
     if:
-        failed
+        test_report_has_failure report
         then:
-            Result<(),str>::Err summary
+            Result<(),str>::Err test_report_legacy_summary_text report
         else:
             Result<(),str>::Ok ()
 
-//: ## result_exit_code
-//: `Result<(),str>` を i32 の[終了/しゅうりょう] code へ[変換/へんかん]する
-//:
-//: ### [目的/もくてき]
-//: - [安全/あんぜん]な `Result<(),str>` [表現/ひょうげん]を、runner が[比較/ひかく]できる i32 に[落/お]とします。
-//:
-//: ### [実装/じっそう]
-//: - `Ok` なら 0、`Err` なら 1 を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [詳細/しょうさい]な[失敗/しっぱい][内容/ないよう]の[表示/ひょうじ]は `test_fail` や `checks_print_*` helper が[担当/たんとう]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
 fn result_exit_code <(Result<(),str>)->i32> (r):
     match r:
         Result::Ok v:
@@ -708,237 +501,12 @@ fn result_exit_code <(Result<(),str>)->i32> (r):
         Result::Err e:
             1
 
-//: ## checks_exit_code
-//: [集約/しゅうやく][検査/けんさ]を i32 の[終了/しゅうりょう] code へ[変換/へんかん]する
-//:
-//: ### [目的/もくてき]
-//: - `finish_checks` の[結果/けっか]をそのまま `main` の[返/かえ]り[値/あたい]へ[繋/つな]げられるようにします。
-//:
-//: ### [実装/じっそう]
-//: - `finish_checks` を[呼/よ]んでから `result_exit_code` へ[渡/わた]します。
-//:
-//: ### [注意/ちゅうい]
-//: - stdout を[伴/ともな]う[表示/ひょうじ]は[行/おこな]いません。必要なら test case [側/がわ]で `checks_print_machine` / `checks_print_human` を[呼/よ]んでください。
-//:
-//: ### [計算量/けいさんりょう]
-//: - `finish_checks` に[準/じゅん]じます。
-fn checks_exit_code <(Checks)*>i32> (checks):
-    result_exit_code finish_checks checks
+fn test_assertion_exit_code <(TestAssertion)->i32> (assertion):
+    match assertion.status:
+        AssertionStatus::Passed:
+            0
+        AssertionStatus::Failed:
+            1
 
-//: ## assert
-//: [条件/じょうけん]が false のとき[失敗/しっぱい]する
-//:
-//: ### [目的/もくてき]
-//: - ok が false なら `FAIL:` [表示/ひょうじ]つきの `Result::Err` を[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - if で分岐し、false なら test_fail を呼びます。
-//:
-//: ### [注意/ちゅうい]
-//: - ok は bool である必要があります。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert true
-//:         |> checks_push assert eq 3 add 1 2
-//:     checks_exit_code checks
-//: ```
-fn noshadow assert <(bool)*>Result<(),str>> (ok):
-    match check ok:
-        Result::Ok v:
-            Result<(),str>::Ok ()
-        Result::Err msg:
-            test_fail msg
-
-//: ## assert_eq_i32
-//: i32 の[等値/とうち]を[検証/けんしょう]する
-//:
-//: ### [目的/もくてき]
-//: - expected と actual が等しいことを保証します。
-//:
-//: ### [実装/じっそう]
-//: - eq の結果が false なら詳細メッセージを作って test_fail します。
-//:
-//: ### [注意/ちゅうい]
-//: - i32 専用です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert_eq_i32 6 add 1 5
-//:         |> checks_push assert_eq_i32 3 sub 10 7
-//:     checks_exit_code checks
-//: ```
-fn noshadow assert_eq_i32 <(i32,i32)*>Result<(),str>> (expected, actual):
-    match check_eq_i32 expected actual:
-        Result::Ok v:
-            Result<(),str>::Ok ()
-        Result::Err msg:
-            test_fail msg
-
-//: ## assert_ne
-//: bool が[等/ひと]しくないことを[検証/けんしょう]する
-//:
-//: ### [目的/もくてき]
-//: - a と b が同じなら詳細メッセージを作って test_fail します。
-//:
-//: ### [実装/じっそう]
-//: - a の値で分岐し、b との一致を確認します。
-//:
-//: ### [注意/ちゅうい]
-//: - bool 専用です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert_ne true false
-//:         |> checks_push assert_ne false true
-//:     checks_exit_code checks
-//: ```
-fn noshadow assert_ne <(bool,bool)*>Result<(),str>> (a, b):
-    match check_ne a b:
-        Result::Ok v:
-            Result<(),str>::Ok ()
-        Result::Err msg:
-            test_fail msg
-
-//: ## assert_str_eq
-//: [文字列/もじれつ]が[等/ひと]しいことを[検証/けんしょう]する
-//:
-//: ### [目的/もくてき]
-//: - expected と actual が同じであることを保証します。
-//:
-//: ### [実装/じっそう]
-//: - test_str_eq で比較し、false なら詳細メッセージを作って test_fail します。
-//:
-//: ### [注意/ちゅうい]
-//: - UTF-8 のバイト列として比較します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(n)
-//: - [空間/くうかん]: O(n)
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//:| #import "alloc/string" as *
-//: fn main <()*>i32> ():
-//:     let checks:
-//:         checks_new
-//:         |> checks_push assert_str_eq "prefix-suffix" concat "prefix-" "suffix"
-//:         |> checks_push assert_str_eq "true" from_bool true
-//:     checks_exit_code checks
-//: ```
-fn noshadow assert_str_eq <(str,str)*>Result<(),str>> (expected, actual):
-    match check_str_eq expected actual:
-        Result::Ok v:
-            Result<(),str>::Ok ()
-        Result::Err msg:
-            test_fail msg
-
-//: ## assert_ok_i32
-//: `Result` が `Ok` であることを[検証/けんしょう]する
-//:
-//: ### [目的/もくてき]
-//: - Result::Ok を受け付け、Err なら詳細メッセージを作って test_fail します。
-//:
-//: ### [実装/じっそう]
-//: - match で Ok/Err を分岐します。
-//:
-//: ### [注意/ちゅうい]
-//: - Result<i32,i32> 専用です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     result_exit_code assert_ok_i32 Result<i32,i32>::Ok 42
-//: ```
-fn noshadow assert_ok_i32 <(Result<i32,i32>)*>Result<(),str>> (r):
-    match check_ok_i32 r:
-        Result::Ok v:
-            Result<(),str>::Ok ()
-        Result::Err msg:
-            test_fail msg
-
-//: ## assert_err_i32
-//: `Result` が `Err` であることを[検証/けんしょう]する
-//:
-//: ### [目的/もくてき]
-//: - Result::Err を受け付け、Ok なら詳細メッセージを作って test_fail します。
-//:
-//: ### [実装/じっそう]
-//: - match で Ok/Err を分岐します。
-//:
-//: ### [注意/ちゅうい]
-//: - Result<i32,i32> 専用です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん]: O(1)
-//: - [空間/くうかん]: O(1)
-//:
-//: ### [使い方/つかいかた]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "std/test" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     result_exit_code assert_err_i32 Result<i32,i32>::Err 7
-//: ```
-fn noshadow assert_err_i32 <(Result<i32,i32>)*>Result<(),str>> (r):
-    match check_err_i32 r:
-        Result::Ok v:
-            Result<(),str>::Ok ()
-        Result::Err msg:
-            test_fail msg
+fn checks_exit_code <(TestReport)*>i32> (report):
+    test_report_exit_code report

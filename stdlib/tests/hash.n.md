@@ -264,7 +264,7 @@ fn sha256_expected_byte <(i32,i32)->i32> (kind, idx):
         _:
             #intrinsic "unreachable" <> ()
 
-fn sha256_check_digest_loop <(&Vec<i32>,i32,i32,Checks)*>Checks> (digest, kind, idx, checks):
+fn sha256_check_digest_loop <(&Vec<i32>,i32,i32,TestReport)*>TestReport> (digest, kind, idx, checks):
     if:
         ge idx 32
         then:
@@ -278,7 +278,7 @@ fn sha256_check_digest_loop <(&Vec<i32>,i32,i32,Checks)*>Checks> (digest, kind, 
                     let next_checks checks_push checks check_eq_i32 sha256_expected_byte kind idx actual
                     sha256_check_digest_loop digest kind add idx 1 next_checks
 
-fn sha256_check_result <(Result<Vec<i32>, StdErrorKind>,i32,Checks)*>Checks> (digest_result, kind, checks):
+fn sha256_check_result <(Result<Vec<i32>, StdErrorKind>,i32,TestReport)*>TestReport> (digest_result, kind, checks):
     match digest_result:
         Result::Err _e:
             checks_push checks Result<(),str>::Err "sha256 digest returned error"

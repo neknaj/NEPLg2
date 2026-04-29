@@ -1,18 +1,18 @@
-# std/test の集約 API
+# std/test の構造化 report API
 
 ## std_test_collect_success_summary
 
 [目的/もくてき]:
-- `std/test` の collectable な `check_*` を `Checks` へ積み、すべて成功した場合に summary だけが表示されることを確認します。
+- `std/test` の `TestAssertion` を `TestReport` へ積み、stdout report と exit code が分離していることを確認します。
 
 [何/なに]を[確/たし]かめるか:
-- `|> push check_* ...` の形で複数検査を収集できること。
-- test case [側/がわ]で `checks_print_report` を[返/かえ]す[直前/ちょくぜん]に[明示的/めいじてき]に[呼/よ]ぶと、summary と human [向/む]け[一覧/いちらん]が stdout に[出/で]ること。
-- `checks_exit_code` が 0 を返すこと。
+- `assert_*` は stdout を出さず、`TestAssertion` を返すこと。
+- `test_report_print_stdout` が canonical report を 1 回だけ stdout に出すこと。
+- `test_report_exit_code` が report の failed count だけから 0 を返すこと。
 
-neplg2:test[stdio, normalize_newlines, strip_ansi]
-ret: 0
-stdout: "Checked [ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n"
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"std_test_collect_success_summary\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"addition\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"concat\" expected=\"ab\" actual=\"ab\" message=\"\"\nassertion index=2 status=ok kind=ok_i32 label=\"result ok\" expected=\"Ok\" actual=\"7\" message=\"\"\nassertion index=3 status=ok kind=err_i32 label=\"result err\" expected=\"Err\" actual=\"5\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -23,69 +23,53 @@ stdout: "Checked [ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n"
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let checks:
-        checks_new
-        |> checks_push check_eq_i32 3 add 1 2
-        |> checks_push check_str_eq "ab" concat "a" "b"
-        |> checks_push check_ok_i32 Result<i32,i32>::Ok 7
-        |> checks_push check_err_i32 Result<i32,i32>::Err 5
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let report:
+        test_report_new "std_test_collect_success_summary"
+        |> test_report_push assert_eq_i32 "addition" 3 add 1 2
+        |> test_report_push assert_str_eq "concat" "ab" concat "a" "b"
+        |> test_report_push assert_ok_i32 "result ok" Result<i32,i32>::Ok 7
+        |> test_report_push assert_err_i32 "result err" Result<i32,i32>::Err 5
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
-## std_test_collect_survives_free_list_reuse
+## std_test_collect_continues_after_string_allocation
 
-neplg2:test[stdio, normalize_newlines, strip_ansi]
-ret: 0
-stdout: "Checked [ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n"
+[目的/もくてき]:
+- 途中で文字列生成を挟んでも、report が保持済みの assertion 行と failed count から安定して出力されることを確認します。
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"std_test_collect_continues_after_string_allocation\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"initial\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"concat after allocation\" expected=\"prefix-suffix\" actual=\"prefix-suffix\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"after concat\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
 #target std
 
-#import "alloc/collections/hashset" as *
-#import "alloc/diag/error" as *
-#import "alloc/hash/hash32" as *
-#import "core/math" as *
-#import "core/result" as *
-#import "core/traits/hash" as *
 #import "std/test" as *
 
-fn must_hs <(Result<HashSet<i32,DefaultHash32>, Diag>)*>HashSet<i32,DefaultHash32>> (r):
-    match r:
-        Result::Ok hs:
-            hs
-        Result::Err _d:
-            #intrinsic "unreachable" <> ()
-
 fn main <()*>i32> ():
-    let mut checks checks_new;
-    set checks checks_push checks check true;
-    let hs0 <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;
-    let hs1 <HashSet<i32,DefaultHash32>> must_hs insert hs0 42;
-    set checks checks_push checks check contains hs1 42;
-    let hsf0 <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;
-    let hsf1 <HashSet<i32,DefaultHash32>> must_hs insert hsf0 42;
-    let hsf2 <HashSet<i32,DefaultHash32>> must_hs remove hsf1 42;
-    free hsf2;
-    set checks checks_push checks check true;
-    let shown checks_print_report checks;
-    checks_exit_code shown
+    let mut report test_report_new "std_test_collect_continues_after_string_allocation"
+    set report test_report_push report assert "initial" true
+    let text <str> concat "prefix-" "suffix"
+    set report test_report_push report assert_str_eq "concat after allocation" "prefix-suffix" text
+    set report test_report_push report assert "after concat" true
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## std_test_collect_failure_summary_and_details
 
 [目的/もくてき]:
-- 途中に失敗が含まれても後続の `check_*` が継続実行され、最後にまとめて失敗報告されることを確認します。
+- 失敗が含まれても後続 assertion が継続実行され、stdout に kind、label、expected、actual、message が残ることを確認します。
 
 [何/なに]を[確/たし]かめるか:
-- test case [側/がわ]で `checks_print_report` を[返/かえ]す[直前/ちょくぜん]に[呼/よ]ぶと `[ok,err <msg>,...]` 形式の summary と human [向/む]け[一覧/いちらん]が stdout に[出/で]ること。
-- human [向/む]け表示で、すべての要素が `[index] ok / err <msg>` として並ぶこと。
-- 1 件でも `Err` があれば、`checks_exit_code` が 1 を返すこと。
+- `test_report_print_stdout` が失敗詳細を stdout に出すこと。
+- `test_report_exit_code` が failed count から 1 を返すこと。
 
-neplg2:test[stdio, normalize_newlines, strip_ansi]
-ret: 1
-stdout: "FAIL: [ok,err assert_eq_i32 failed: expected=2 actual=3,ok,err assert_str_eq failed: expected=\"left\" actual=\"right\"]\n[0] ok\n[1] err assert_eq_i32 failed: expected=2 actual=3\n[2] ok\n[3] err assert_str_eq failed: expected=\"left\" actual=\"right\"\n"
+neplg2:test[stdio, normalize_newlines]
+exit_code: 1
+stdout: "test_report name=\"std_test_collect_failure_summary_and_details\" count=4 failed=2\nassertion index=0 status=ok kind=eq_i32 label=\"addition\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=fail kind=eq_i32 label=\"mismatch\" expected=\"2\" actual=\"3\" message=\"assert_eq_i32 failed: expected=2 actual=3\"\nassertion index=2 status=ok kind=err_i32 label=\"result err\" expected=\"Err\" actual=\"5\" message=\"\"\nassertion index=3 status=fail kind=bool label=\"forced false\" expected=\"true\" actual=\"false\" message=\"check failed\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -96,12 +80,12 @@ stdout: "FAIL: [ok,err assert_eq_i32 failed: expected=2 actual=3,ok,err assert_s
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let checks:
-        checks_new
-        |> checks_push check_eq_i32 3 add 1 2
-        |> checks_push check_eq_i32 2 3
-        |> checks_push check_err_i32 Result<i32,i32>::Err 5
-        |> checks_push check_str_eq "left" "right"
-    let shown checks_print_report checks
-    checks_exit_code shown
+    let report:
+        test_report_new "std_test_collect_failure_summary_and_details"
+        |> test_report_push assert_eq_i32 "addition" 3 add 1 2
+        |> test_report_push assert_eq_i32 "mismatch" 2 3
+        |> test_report_push assert_err_i32 "result err" Result<i32,i32>::Err 5
+        |> test_report_push assert "forced false" false
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T11:06:48.957Z",
+  "generated_at": "2026-04-29T11:30:15.736Z",
   "counts": {
     "total": 366,
-    "open": 15,
-    "resolved": 351,
+    "open": 14,
+    "resolved": 352,
     "by_area": {
       "core": {
         "total": 173,
         "open": 6,
         "resolved": 167
-      },
-      "STDLIB-TEST": {
-        "total": 1,
-        "open": 1,
-        "resolved": 0
       },
       "stdlib": {
         "total": 103,
@@ -52,6 +47,11 @@
         "resolved": 6
       },
       "SELFHOST-DIAG": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
+      },
+      "STDLIB-TEST": {
         "total": 1,
         "open": 0,
         "resolved": 1
@@ -138,21 +138,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B.md"
-    },
-    {
-      "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",
-      "title": "stdlib assert API mixes assertion, reporting, and exit-code responsibilities",
-      "area": "STDLIB-TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "stdlib/std/test.nepl, stdlib/core/test.nepl, tests/stdlib/std_test_collect.n.md, doc/neplg2/nmd_assert_output_plan.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3258,6 +3243,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T005246036Z-SELF-HOST-CLI-LACKS-FILESYSTEM-FILE--1B6C9F63.md"
+    },
+    {
+      "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",
+      "title": "stdlib assert API mixes assertion, reporting, and exit-code responsibilities",
+      "area": "STDLIB-TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/test.nepl, stdlib/core/test.nepl, tests/stdlib/std_test_collect.n.md, doc/neplg2/nmd_assert_output_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

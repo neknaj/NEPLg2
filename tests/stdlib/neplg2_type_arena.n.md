@@ -15,7 +15,7 @@ ret: 0
 #import "neplg2/core/ty/ty" as *
 #import "std/test" as *
 
-fn check_kind <(Checks,Option<SelfhostTypeKind>,SelfhostTypeKind)*>Checks> (checks, actual, expected):
+fn check_kind <(TestReport,Option<SelfhostTypeKind>,SelfhostTypeKind)*>TestReport> (checks, actual, expected):
     match actual:
         Option::Some kind:
             checks_push checks check selfhost_type_kind_eq kind expected
@@ -97,14 +97,14 @@ ret: 0
 #import "neplg2/core/ty/ty" as *
 #import "std/test" as *
 
-fn check_type_id <(Checks,Option<SelfhostTypeId>,SelfhostTypeId)*>Checks> (checks, actual, expected):
+fn check_type_id <(TestReport,Option<SelfhostTypeId>,SelfhostTypeId)*>TestReport> (checks, actual, expected):
     match actual:
         Option::Some type_id:
             checks_push checks check selfhost_type_id_eq type_id expected
         Option::None:
             checks_push checks Result<(),str>::Err "type id was absent"
 
-fn check_i32_option <(Checks,Option<i32>,i32)*>Checks> (checks, actual, expected):
+fn check_i32_option <(TestReport,Option<i32>,i32)*>TestReport> (checks, actual, expected):
     match actual:
         Option::Some value:
             checks_push checks check_eq_i32 expected value

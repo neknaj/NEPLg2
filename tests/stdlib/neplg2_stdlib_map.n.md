@@ -16,7 +16,7 @@ ret: 0
 #import "neplg2/core/module/stdlib_map" as *
 #import "std/test" as *
 
-fn check_path_result <(Checks,Result<SelfhostResolvedModulePath,SelfhostDiagnostic>,str,bool)*>Checks> (checks, result, expected, expect_stdlib):
+fn check_path_result <(TestReport,Result<SelfhostResolvedModulePath,SelfhostDiagnostic>,str,bool)*>TestReport> (checks, result, expected, expect_stdlib):
     match result:
         Result::Ok resolved:
             let checks1 checks_push checks check_str_eq expected resolved.path

@@ -81,7 +81,7 @@ ret: 0
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
 
-fn check_missing_note <(Checks, Option<str>)*>Checks> (checks, note):
+fn check_missing_note <(TestReport, Option<str>)*>TestReport> (checks, note):
     match note:
         Option::Some text:
             checks_push checks check_str_eq "missing.nepl" text

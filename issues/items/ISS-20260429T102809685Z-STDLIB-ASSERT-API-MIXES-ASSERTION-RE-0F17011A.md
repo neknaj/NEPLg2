@@ -2,8 +2,8 @@
 id: ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A
 title: "stdlib assert API mixes assertion, reporting, and exit-code responsibilities"
 area: STDLIB-TEST
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-29
@@ -58,3 +58,36 @@ target: "stdlib/std/test.nepl, stdlib/core/test.nepl, tests/stdlib/std_test_coll
 - `tests/stdlib/std_test_collect.n.md` を新 API の canonical fixture に更新し、成功/失敗 report の stdout と exit code を固定する。
 - `std/test` の failure report で assertion kind、label、expected、actual が欠落しないことを `.n.md` で確認する。
 - `std/test` を import する doctest が report helper を通さず exit code だけ返す場合に、runner/lint で検出できることを確認する。
+
+## 2026-04-29 解決メモ
+
+`stdlib/std/test.nepl` を、構造化 assertion と report renderer を中心にした API へ再構成した。
+
+実装内容:
+
+- `AssertionStatus` / `AssertionKind` enum を追加し、status/kind を bool や自由文字列ではなく match で分岐できる値にした。
+- `TestAssertion` struct を追加し、kind、status、label、expected、actual、message を分離して保持するようにした。
+- `TestReport` struct を追加し、count、failed_count、canonical stdout lines を持つ value accumulator にした。
+- `assert_*` は stdout を出さず `TestAssertion` を返す pure API にした。
+- `test_report_push` は `AssertionStatus` を match し、failed_count と report lines を更新するようにした。
+- `test_report_print_stdout` だけが canonical report を stdout へ出し、`test_report_exit_code` だけが 0/1 へ変換するように分離した。
+- 既存 doctest の段階移行用に `checks_*` は同じ `TestReport` へ委譲する入口として残した。旧 `Vec<Result<(),str>>` accumulator や `assert_*` の stdout 副作用は戻していない。
+- `tests/stdlib/std_test_collect.n.md` を canonical fixture として更新し、stdout report と `exit_code:` を固定した。
+- `nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js` を新しい enum/struct/report 境界の source policy に更新した。
+
+この修正で `std/test` 側の assertion/report/exit-code の責務混在は解消した。既存 assertion suite を全面的に canonical `test_report_*` + stdout expectation + `exit_code:` へ移行する作業は `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` で継続する。
+
+### 2026-04-29 検証
+
+- `node nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js`: passed
+- `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --no-tree -o tmp/std-test-collect-new-api-prebuild.json -j 1 --dist web/dist`: total=3 passed=3 failed=0
+- `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/std-test-core-result-compat.json -j 1 --dist web/dist`: total=7 passed=7 failed=0
+- `node nodesrc/tests.js -i stdlib/tests/result.n.md --no-tree -o tmp/std-test-result-nmd-compat.json -j 1 --dist web/dist`: total=1 passed=1 failed=0
+- `node nodesrc/tests.js -i tests/stdlib/traits_serde.n.md --no-tree -o tmp/std-test-traits-serde-compat.json -j 1 --dist web/dist`: total=2 passed=2 failed=0
+- `trunk build`: passed
+- `node nodesrc/cli.js -i doc/neplg2/nmd_assert_output_plan.md -o html=tmp/nmd-assert-output-plan-html`: generated 1 html file
+- `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --no-tree -o tmp/std-test-collect-new-api-after-build.json -j 1 --dist web/dist`: total=3 passed=3 failed=0
+- `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/std-test-core-result-after-build.json -j 1 --dist web/dist`: total=7 passed=7 failed=0
+- `node nodesrc/tests.js -i tests/stdlib/traits_serde.n.md --no-tree -o tmp/std-test-traits-serde-after-build.json -j 1 --dist web/dist`: total=2 passed=2 failed=0
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/std-test-neplg2-parser-varfix.json -j 1 --dist web/dist`: total=1 passed=1 failed=0
+- `node nodesrc/tests.js -i stdlib/tests/hash.n.md --no-tree -o tmp/std-test-hash-varfix.json -j 1 --dist web/dist`: total=1 passed=1 failed=0
