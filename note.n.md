@@ -1,3 +1,26 @@
+# 2026-04-30 メモ (ISS-20260429T040748194Z diagnostic web boundary)
+
+- [同期]:
+  - `main` の `bbaf2a5c` から `work/diagnostic-code-first-web-boundary` branch を作成して作業した。
+  - 作業開始前に `git pull --ff-only origin main` で remote main が最新であることを確認した。
+- [原因]:
+  - `Diagnostic::with_code` API 削除後も、workspace 外 manifest の `nepl-web` に `Diagnostic::error(...).with_code(...)` が残っていた。
+  - `nepl-web` は wasm analysis API の境界なので、ここに後付け code が残ると browser / nodesrc 側の diagnostic contract が code-first 方針から外れる。
+- [修正]:
+  - `nepl-web/src/lib.rs` に `loader_error(...)` helper を追加し、target directive と loader failure diagnostics を `Diagnostic::error_with_code(DiagnosticCode::Loader(...))` へ移行した。
+  - target name parsing を `parse_target_name(...)` に寄せ、module directive と root item directive の分類を同じ enum helper 経由にした。
+  - `nodesrc/test_diagnostic_code_first_boundary.js` を追加し、`nepl-core` / `nepl-language` / `nepl-lsp` / `nepl-web` に `.with_code(...)` と `Diagnostic::with_code` API が戻らないことを CI source policy で固定した。
+- [issue]:
+  - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` に Stage D1 web boundary follow-up を追記した。
+  - issue は D3/D5 の表示 contract / self-host parity 残件を含む親 issue として open のまま維持する。
+- [検証]:
+  - `cargo check --manifest-path nepl-web/Cargo.toml`: passed
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+  - `rg -n '\.with_code\(|fn\s+with_code\b' nepl-core nepl-language nepl-lsp nepl-web -g '*.rs'`: no matches
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 診断 redesign Stage D1 の code-first 方針を web analysis boundary まで徹底する修正である。
+
 # 2026-04-30 メモ (ISS-20260429T040748194Z diagnostic code-first API)
 
 - [同期]:

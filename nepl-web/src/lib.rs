@@ -7,7 +7,7 @@ use nepl_core::ast::{
 };
 use nepl_core::compiler::compile_module_with_source_map;
 use nepl_core::diagnostic::{Diagnostic, Severity};
-use nepl_core::diagnostic_codes::DiagnosticCode;
+use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
 use nepl_core::error::CoreError;
 use nepl_core::hir::{HirBlock, HirExpr, HirExprKind, HirLine};
 use nepl_core::lexer::{lex, Token, TokenKind};
@@ -1871,27 +1871,26 @@ fn resolve_target_for_analysis(module: &nepl_core::ast::Module) -> (CompileTarge
 
     for d in &module.directives {
         if let Directive::Target { target, span } = d {
-            let parsed = match target.as_str() {
-                "wasm" | "core" => Some(CompileTarget::Wasm),
-                "wasi" | "std" => Some(CompileTarget::Wasi),
-                "llvm" => Some(CompileTarget::Llvm),
-                _ => None,
-            };
+            let parsed = parse_target_name(target);
             if let Some(t) = parsed {
                 if let Some((_, prev_span)) = found {
                     diags.push(
-                        Diagnostic::error("multiple #target directives are not allowed", *span)
-                            .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::TargetMultipleDirective))
-                            .with_secondary_label(prev_span, Some("previous #target here".into())),
+                        loader_error(
+                            LoaderDiagnosticCode::TargetMultipleDirective,
+                            "multiple #target directives are not allowed",
+                            *span,
+                        )
+                        .with_secondary_label(prev_span, Some("previous #target here".into())),
                     );
                 } else {
                     found = Some((t, *span));
                 }
             } else {
-                diags.push(
-                    Diagnostic::error("unknown target in #target", *span)
-                        .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::TargetUnknown)),
-                );
+                diags.push(loader_error(
+                    LoaderDiagnosticCode::TargetUnknown,
+                    "unknown target in #target",
+                    *span,
+                ));
             }
         }
     }
@@ -1899,36 +1898,45 @@ fn resolve_target_for_analysis(module: &nepl_core::ast::Module) -> (CompileTarge
     if found.is_none() {
         for it in &module.root.items {
             if let Stmt::Directive(Directive::Target { target, span }) = it {
-                let parsed = match target.as_str() {
-                    "wasm" | "core" => Some(CompileTarget::Wasm),
-                    "wasi" | "std" => Some(CompileTarget::Wasi),
-                    "llvm" => Some(CompileTarget::Llvm),
-                    _ => None,
-                };
+                let parsed = parse_target_name(target);
                 if let Some(t) = parsed {
                     if let Some((_, prev_span)) = found {
                         diags.push(
-                            Diagnostic::error("multiple #target directives are not allowed", *span)
-                                .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::TargetMultipleDirective))
-                                .with_secondary_label(
-                                    prev_span,
-                                    Some("previous #target here".into()),
-                                ),
+                            loader_error(
+                                LoaderDiagnosticCode::TargetMultipleDirective,
+                                "multiple #target directives are not allowed",
+                                *span,
+                            )
+                            .with_secondary_label(prev_span, Some("previous #target here".into())),
                         );
                     } else {
                         found = Some((t, *span));
                     }
                 } else {
-                    diags.push(
-                        Diagnostic::error("unknown target in #target", *span)
-                            .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::TargetUnknown)),
-                    );
+                    diags.push(loader_error(
+                        LoaderDiagnosticCode::TargetUnknown,
+                        "unknown target in #target",
+                        *span,
+                    ));
                 }
             }
         }
     }
 
     (found.map(|(t, _)| t).unwrap_or(CompileTarget::Wasm), diags)
+}
+
+fn parse_target_name(target: &str) -> Option<CompileTarget> {
+    match target {
+        "wasm" | "core" => Some(CompileTarget::Wasm),
+        "wasi" | "std" => Some(CompileTarget::Wasi),
+        "llvm" => Some(CompileTarget::Llvm),
+        _ => None,
+    }
+}
+
+fn loader_error(code: LoaderDiagnosticCode, message: impl Into<String>, span: Span) -> Diagnostic {
+    Diagnostic::error_with_code(DiagnosticCode::Loader(code), message, span)
 }
 
 /// 入力ソースを字句解析し、token 列と診断を JSON で返します。
@@ -2173,10 +2181,11 @@ pub fn analyze_name_resolution_with_vfs(
         }
         Err(e) => {
             let mut ds = Vec::new();
-            ds.push(
-                Diagnostic::error(format!("loader error: {}", e), Span::dummy())
-                    .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::SourceFailure)),
-            );
+            ds.push(loader_error(
+                LoaderDiagnosticCode::SourceFailure,
+                format!("loader error: {}", e),
+                Span::dummy(),
+            ));
             let _ = Reflect::set(&out, &JsValue::from_str("ok"), &JsValue::from_bool(false));
             let _ = Reflect::set(
                 &out,
@@ -2568,10 +2577,11 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
         Ok(v) => v,
         Err(e) => {
             let mut ds = all_diags;
-            ds.push(
-                Diagnostic::error(format!("loader error: {}", e), Span::dummy())
-                    .with_code(DiagnosticCode::Loader(nepl_core::diagnostic_codes::LoaderDiagnosticCode::SourceFailure)),
-            );
+            ds.push(loader_error(
+                LoaderDiagnosticCode::SourceFailure,
+                format!("loader error: {}", e),
+                Span::dummy(),
+            ));
             let diagnostics = diagnostics_to_js(source, &ds);
             let _ = Reflect::set(&out, &JsValue::from_str("diagnostics"), &diagnostics);
             let _ = Reflect::set(&out, &JsValue::from_str("ok"), &JsValue::from_bool(false));

@@ -837,3 +837,17 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `cargo test -p nepl-core diagnostic -- --nocapture`
 - `cargo check -p nepl-core -p nepl-language -p nepl-lsp --tests`
 - `rg -n 'fn with_code|\.with_code\(' nepl-core nepl-language nepl-lsp -g '*.rs'`: no matches
+
+## 2026-04-30 Stage D1 web boundary follow-up 追記
+
+前回の `Diagnostic::with_code` API 削除後、`nepl-web` の wasm analysis boundary にも target directive と loader failure diagnostics の後付け `.with_code(...)` が残っていることを確認した。`nepl-web` は workspace 外の独立 manifest なので、`nepl-core` / `nepl-language` / `nepl-lsp` の check だけではこの漏れを捕捉できない。
+
+今回の対応で `nepl-web/src/lib.rs` に `loader_error(...)` helper を追加し、`LoaderDiagnosticCode` を `Diagnostic::error_with_code(DiagnosticCode::Loader(...))` へ渡す code-first 経路へ移行した。target name parsing も `parse_target_name(...)` に寄せ、module directive と root item directive が同じ enum path を使うようにした。
+
+再発防止として `nodesrc/test_diagnostic_code_first_boundary.js` を追加し、CI の Source policy regressions に接続した。この policy は `nepl-core` / `nepl-language` / `nepl-lsp` / `nepl-web` に `.with_code(...)` が戻らないこと、`Diagnostic::with_code` API が存在しないこと、`nepl-web` loader diagnostic が `LoaderDiagnosticCode` helper 経由で作られることを確認する。
+
+検証:
+
+- `cargo check --manifest-path nepl-web/Cargo.toml`
+- `node nodesrc/test_diagnostic_code_first_boundary.js`
+- `rg -n '\.with_code\(|fn\s+with_code\b' nepl-core nepl-language nepl-lsp nepl-web -g '*.rs'`: no matches

@@ -199,6 +199,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `wasm_shared.rs` の raw wasm line parse diagnostic を code-first helper へ移行した。raw wasm body precheck は `WasmDiagnosticCode::RawLineParseError` を生成時点で確定する。
 - 2026-04-29: `compiler.rs` の LLVM target が wasm artifact pipeline に渡った場合の境界診断と、生成済み wasm validation failure を code-first constructor へ移行した。validation offset から推定する function body 位置は別 warning ではなく `backend.wasm.validation_failed` diagnostic の note として保持する。併せて typecheck の shadow warning / same-signature callable shadow warning を `ResolveDiagnosticCode` へ分類し、active compiler pass call site からコード無し `Diagnostic::error(...)` / `Diagnostic::warning(...)` / 後付け `.with_code(...)` を除去した。
 - 2026-04-30: `nepl-language` の editor / LSP 解析境界に残っていた target directive diagnostic を code-first constructor へ移行し、`Diagnostic::with_code` API 自体を削除した。これ以降、後付け diagnostic code は Rust の型検査で使えない。code を持つ diagnostic は `error_with_code` / `warning_with_code` または category helper で生成時点に分類を確定する。
+- 2026-04-30: `nepl-web` の wasm analysis 境界に残っていた target directive / loader failure diagnostic も code-first helper へ移行した。`nodesrc/test_diagnostic_code_first_boundary.js` を CI source policy に追加し、`nepl-core` / `nepl-language` / `nepl-lsp` / `nepl-web` に `.with_code(...)` や `Diagnostic::with_code` API が戻らないことを軽量に検査する。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

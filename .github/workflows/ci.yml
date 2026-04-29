@@ -78,6 +78,7 @@ jobs:
                   node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js
                   node nodesrc/test_static_check_boundary_responsibility.js
                   node nodesrc/test_resource_checker_responsibility.js
+                  node nodesrc/test_diagnostic_code_first_boundary.js
                   node nodesrc/test_doctest_diag_code_metadata.js
                   node nodesrc/test_doctest_exit_code_metadata.js
                   node nodesrc/test_llvm_runner_return_value.js
