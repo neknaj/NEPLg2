@@ -1,13 +1,15 @@
 use alloc::string::String;
 
-use crate::runtime_helpers::helper_base_name;
 use crate::span::Span;
 
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{AggregateKind, OwnerState, Place, ResourceCallTarget};
+use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_raw_address::{raw_address_return_ownership, RawAddressReturnOwnership};
 use super::owner_state::OwnerTable;
+use super::owner_transfer::transfer_owner_state;
 use super::place_utils::{
     construct_aggregate_field_place, place_with_suffix, places_overlap, replace_place_prefix,
     should_track,
@@ -57,8 +59,9 @@ impl ResourceOwnerCheckEngine<'_> {
         let ResourceCallTarget::User { name, .. } = target else {
             return;
         };
-        if call_returns_non_owning_raw_address_view(name) {
-            return;
+        match raw_address_return_ownership(name) {
+            Some(RawAddressReturnOwnership::NonOwningAddressView) => return,
+            None => {}
         }
         let Some(summary) = self
             .summaries
@@ -610,83 +613,4 @@ impl ResourceOwnerCheckEngine<'_> {
 fn owner_projection_source_place(args: &[Place], source: &OwnerProjectionSource) -> Option<Place> {
     let arg = args.get(source.parameter_index)?;
     Some(place_with_suffix(arg, &source.suffix, source.ty))
-}
-
-fn transfer_owner_state(
-    owners: &mut OwnerTable,
-    raw_aliases: &mut RawCellAddressAliases,
-    storage_origins: &mut StorageOriginTable,
-    resolved_source: &Place,
-    source: &Place,
-    target: &Place,
-    state: OwnerState,
-) {
-    owners.set_state(resolved_source, OwnerState::Moved);
-    if should_track(target) {
-        owners.set_state(target, state);
-        storage_origins.move_origin(resolved_source, target);
-        raw_aliases.clear(source);
-        raw_aliases.clear(resolved_source);
-        raw_aliases.mark(target);
-    } else {
-        storage_origins.clear(resolved_source);
-    }
-}
-
-fn call_returns_non_owning_raw_address_view(name: &str) -> bool {
-    matches!(
-        raw_address_ownership_kind(name),
-        Some(RawAddressOwnershipKind::NonOwningAddressView)
-    )
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RawAddressOwnershipKind {
-    NonOwningAddressView,
-}
-
-fn raw_address_ownership_kind(name: &str) -> Option<RawAddressOwnershipKind> {
-    match helper_base_name(name) {
-        "mem_ptr_addr" => Some(RawAddressOwnershipKind::NonOwningAddressView),
-        _ => None,
-    }
-}
-
-pub(super) fn resolve_owner_alias_place(
-    owners: &OwnerTable,
-    raw_aliases: &RawCellAddressAliases,
-    place: &Place,
-) -> Place {
-    match owners.state(place) {
-        Some(OwnerState::Live { .. })
-        | Some(OwnerState::Moved)
-        | Some(OwnerState::Freed)
-        | Some(OwnerState::MaybeFreed { .. }) => return place.clone(),
-        Some(OwnerState::NoFreeObligation) | None => {}
-    }
-    for alias in raw_aliases.aliases_for(place) {
-        match owners.state(&alias) {
-            Some(OwnerState::Live { .. })
-            | Some(OwnerState::Moved)
-            | Some(OwnerState::Freed)
-            | Some(OwnerState::MaybeFreed { .. }) => return alias,
-            Some(OwnerState::NoFreeObligation) | None => {}
-        }
-        if owners.has_tracked_state_under(&alias) {
-            return alias;
-        }
-    }
-    for alias in raw_aliases.prefix_aliases_for(place) {
-        match owners.state(&alias) {
-            Some(OwnerState::Live { .. })
-            | Some(OwnerState::Moved)
-            | Some(OwnerState::Freed)
-            | Some(OwnerState::MaybeFreed { .. }) => return alias,
-            Some(OwnerState::NoFreeObligation) | None => {}
-        }
-        if owners.has_tracked_state_under(&alias) {
-            return alias;
-        }
-    }
-    place.clone()
 }

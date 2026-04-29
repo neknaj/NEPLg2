@@ -193,7 +193,7 @@ impl ResourceOwnerCheckEngine<'_> {
         place: &Place,
     ) {
         let resolved_place =
-            super::owner_flow::resolve_owner_alias_place(owners, raw_aliases, place);
+            super::owner_alias::resolve_owner_alias_place(owners, raw_aliases, place);
         let descendants = owners.descendant_entries(&resolved_place);
         owners.set_state(&resolved_place, OwnerState::NoFreeObligation);
         storage_origins.clear(&resolved_place);

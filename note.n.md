@@ -26309,3 +26309,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - StreamWriter は raw mutable header ではなく、所有権が field として静的検査に見える owning struct として扱う設計に改めた。
+
+# 2026-04-29 メモ (ISS-20260429T135959086Z Resource owner flow responsibility split)
+
+- [同期]:
+  - `origin/main` 同期後に `work/resource-owner-flow-responsibility-split` branch で対応した。
+- [原因]:
+  - `owner_flow.rs` に owner alias 解決、raw address の所有権分類、owner state transfer が同居し、Source policy の 620 行上限を超えていた。
+  - `owner_flow.rs` の分割後、同じ責務過大として `summary.rs` が検出され、summary data model と borrow/owner summary 計算、owner leaf projection 展開が 1 ファイルへ集中していることが分かった。
+- [修正]:
+  - `owner_alias.rs` に owner alias 解決を分離した。
+  - `owner_raw_address.rs` に raw address return の ownership kind 分類を分離し、owner_flow 側も enum を直接 `match` して分岐する形にした。
+  - `owner_transfer.rs` に owner state transfer を分離した。
+  - `borrow_summary.rs` に borrow token return summary の固定点計算を分離した。
+  - `owner_summary.rs` に owner return summary の固定点計算を分離した。
+  - `owner_summary_leaf.rs` に aggregate/enum/apply を含む owner leaf projection 展開を分離した。
+  - `summary.rs` は共有 summary data model と computation entry point の re-export のみに縮小した。
+  - `nodesrc/test_resource_checker_responsibility.js` に新モジュールの存在検査と行数上限を追加し、再集中を検出できるようにした。
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: `31 passed`
+  - `cargo check -p nepl-core --tests`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 plan の Stage 4/Resource IR 責務分離を進め、owner 検査の flow/summary 補助責務を監査可能な粒度へ分けた。
