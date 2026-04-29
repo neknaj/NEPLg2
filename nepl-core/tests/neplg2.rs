@@ -55,6 +55,25 @@ fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
     );
 }
 
+fn compile_err_type_code_count(src: &str, code: TypeDiagnosticCode) -> usize {
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
+        panic!("expected diagnostics");
+    };
+    diags
+        .iter()
+        .filter(|diag| diag.code == Some(DiagnosticCode::Type(code)))
+        .count()
+}
+
 fn compile_err_has_resolve_code(src: &str, code: ResolveDiagnosticCode) {
     let result = compile_wasm(
         FileId(0),
@@ -2032,6 +2051,252 @@ fn main <()->i32> ():
     assert_eq!(diag.primary.span.file_id, FileId(0));
     assert_eq!(diag.primary.span.start, target_start);
     assert_eq!(diag.primary.span.end, target_end);
+}
+
+#[test]
+fn inherent_impl_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+impl i32:
+    fn id <(i32)->i32> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    assert_eq!(
+        compile_err_type_code_count(src, TypeDiagnosticCode::ImplInherentUnsupported),
+        1
+    );
+}
+
+#[test]
+fn impl_unknown_trait_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+impl Missing for i32:
+    fn f <(i32)->i32> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    assert_eq!(
+        compile_err_type_code_count(src, TypeDiagnosticCode::TraitUnknown),
+        1
+    );
+}
+
+#[test]
+fn impl_trait_type_arg_count_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+trait Boxy<.T>:
+    fn get <(Self)->.T> (x):
+        unreachable
+
+impl Boxy<i32, i32> for i32:
+    fn get <(i32)->i32> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    assert_eq!(
+        compile_err_type_code_count(src, TypeDiagnosticCode::TraitTypeParamsUnsupported),
+        1
+    );
+}
+
+#[test]
+fn copy_impl_target_not_copy_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait Copyish:
+    #capability copy
+    fn copy_mark <(Self)->Self> (x):
+        x
+
+impl Copyish for &mut i32:
+    fn copy_mark <(&mut i32)->&mut i32> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::CopyImplTargetNotCopy);
+}
+
+#[test]
+fn duplicate_impl_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+trait Show:
+    fn show <(Self)->i32> (x):
+        x
+
+impl Show for i32:
+    fn show <(i32)->i32> (x):
+        x
+
+impl Show for i32:
+    fn show <(i32)->i32> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::ImplDuplicateForTraitTarget);
+}
+
+#[test]
+fn copy_impl_requires_clone_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait Copyish:
+    #capability copy
+    fn copy_mark <(Self)->Self> (x):
+        x
+
+impl Copyish for i32:
+    fn copy_mark <(i32)->i32> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::CopyImplRequiresClone);
+}
+
+#[test]
+fn impl_duplicate_method_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+trait Show:
+    fn show <(Self)->i32> (x):
+        x
+
+impl Show for i32:
+    fn show <(i32)->i32> (x):
+        x
+    fn show <(i32)->i32> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::ImplDuplicateMethod);
+}
+
+#[test]
+fn impl_method_type_params_have_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+trait Show:
+    fn show <(Self)->i32> (x):
+        x
+
+impl Show for i32:
+    fn show <.T> <(i32)->i32> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitMethodTypeParamsUnsupported);
+}
+
+#[test]
+fn impl_method_not_in_trait_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+trait Show:
+    fn show <(Self)->i32> (x):
+        x
+
+impl Show for i32:
+    fn show <(i32)->i32> (x):
+        x
+    fn extra <(i32)->i32> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::ImplMethodNotInTrait);
+}
+
+#[test]
+fn impl_method_signature_mismatch_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+trait Show:
+    fn show <(Self)->i32> (x):
+        x
+
+impl Show for i32:
+    fn show <(i32)->i64> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::ImplMethodSignatureMismatch);
+}
+
+#[test]
+fn impl_missing_trait_method_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+trait Pair:
+    fn a <(Self)->i32> (x):
+        x
+    fn b <(Self)->i32> (x):
+        x
+
+impl Pair for i32:
+    fn a <(i32)->i32> (x):
+        x
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::ImplMissingTraitMethod);
 }
 
 #[test]

@@ -1,3 +1,26 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z driver impl diagnostic code-first)
+
+- [同期]:
+  - `510a16b` まで反映した `main` を `origin/main` と同期し、`work/typecheck-driver-impl-collection-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/driver.rs` の impl collection / impl validation 境界に `Diagnostic::error(...).with_code(...)` が残っていた。
+  - collection 前段で structural に拒否した inherent impl / unknown trait / trait type argument count mismatch を validation 後段でも再診断しており、同一原因の重複診断が出ていた。
+- [修正]:
+  - impl collection の inherent impl、unknown trait、trait type argument count mismatch、generic target、copy target、duplicate impl、copy requires clone を `type_error(...)` helper 経由へ移行した。
+  - 前段で拒否した impl を `rejected_impl_spans` に記録し、後段 validation が同じ impl を再診断しないようにした。
+  - impl validation 後段の duplicate method、impl method type params、method not in trait、signature mismatch、missing trait method も `type_error(...)` helper 経由へ移行した。
+  - Rust regression と `tests/compiler/driver_impl_diagnostics.n.md` を追加し、重複していた診断は `TypeDiagnosticCode` の出現回数も固定した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core impl_ -- --nocapture`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 1..9 --dist web/dist`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の driver impl collection / validation boundary 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z driver trait diagnostic code-first)
 
 - [同期]:

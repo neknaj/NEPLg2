@@ -92,6 +92,10 @@ pub struct TypeCheckResult {
     pub types: TypeCtx,
 }
 
+fn span_key(span: Span) -> (u32, u32, u32) {
+    (span.file_id.0, span.start, span.end)
+}
+
 pub fn typecheck(
     module: &crate::ast::Module,
     target: CompileTarget,
@@ -112,7 +116,7 @@ pub fn typecheck(
     let mut impls: Vec<ImplInfo> = Vec::new();
     let mut rejected_copy_targets: Vec<TypeId> = Vec::new();
     let mut pending_copy_clone_checks: Vec<(TypeId, Span)> = Vec::new();
-    let mut duplicate_impl_spans: BTreeSet<(u32, u32, u32)> = BTreeSet::new();
+    let mut rejected_impl_spans: BTreeSet<(u32, u32, u32)> = BTreeSet::new();
     let import_resolution = ImportResolution::from_module(module, source_map);
 
     let mut entry: Option<(String, Span)> = None;
@@ -136,7 +140,7 @@ pub fn typecheck(
             Directive::Prelude { span, .. } => *span,
             Directive::NoPrelude { span } => *span,
         };
-        let key = (sp.file_id.0, sp.start, sp.end);
+        let key = span_key(sp);
         if !seen_directive_spans.insert(key) {
             return;
         }
@@ -588,26 +592,24 @@ pub fn typecheck(
         }
         if let Stmt::Impl(i) = item {
             if i.trait_ref.is_none() {
-                diagnostics.push(
-                    Diagnostic::error("inherent impl is not supported yet", i.span).with_code(
-                        DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::ImplInherentUnsupported,
-                        ),
-                    ),
-                );
+                diagnostics.push(type_error(
+                    TypeDiagnosticCode::ImplInherentUnsupported,
+                    "inherent impl is not supported yet",
+                    i.span,
+                ));
+                rejected_impl_spans.insert(span_key(i.span));
                 continue;
             }
             let trait_name = i.trait_ref.as_ref().map(|tr| tr.name.name.clone());
             let mut trait_self_ty = None;
             if let Some(tn) = &trait_name {
                 if !traits.contains_key(tn) {
-                    diagnostics.push(
-                        Diagnostic::error(format!("unknown trait '{}'", tn), i.span).with_code(
-                            DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::TraitUnknown,
-                            ),
-                        ),
-                    );
+                    diagnostics.push(type_error(
+                        TypeDiagnosticCode::TraitUnknown,
+                        format!("unknown trait '{}'", tn),
+                        i.span,
+                    ));
+                    rejected_impl_spans.insert(span_key(i.span));
                     continue;
                 }
                 trait_self_ty = traits.get(tn).map(|info| info.self_ty);
@@ -624,20 +626,17 @@ pub fn typecheck(
             let applied_trait_name = if let Some(trait_ref) = &i.trait_ref {
                 let trait_info = traits.get(&trait_ref.name.name).unwrap();
                 if trait_info.type_params.len() != trait_ref.args.len() {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            format!(
-                                "trait '{}' expects {} type arguments, found {}",
-                                trait_ref.name.name,
-                                trait_info.type_params.len(),
-                                trait_ref.args.len()
-                            ),
-                            trait_ref.name.span,
-                        )
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::TraitTypeParamsUnsupported,
-                        )),
-                    );
+                    diagnostics.push(type_error(
+                        TypeDiagnosticCode::TraitTypeParamsUnsupported,
+                        format!(
+                            "trait '{}' expects {} type arguments, found {}",
+                            trait_ref.name.name,
+                            trait_info.type_params.len(),
+                            trait_ref.args.len()
+                        ),
+                        trait_ref.name.span,
+                    ));
+                    rejected_impl_spans.insert(span_key(i.span));
                     continue;
                 }
                 let trait_args: Vec<TypeId> = trait_ref
@@ -656,26 +655,23 @@ pub fn typecheck(
                 && !trait_semantics.has_clone_capability(trait_self_ty)
                 && !trait_semantics.has_drop_capability(trait_self_ty)
             {
-                diagnostics.push(
-                    Diagnostic::error("impl target type must be concrete", i.target_ty.span())
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::ImplTargetNotConcrete,
-                        )),
-                );
+                diagnostics.push(type_error(
+                    TypeDiagnosticCode::ImplTargetNotConcrete,
+                    "impl target type must be concrete",
+                    i.target_ty.span(),
+                ));
+                rejected_impl_spans.insert(span_key(i.span));
                 continue;
             }
             if trait_semantics.has_copy_capability(trait_self_ty) {
                 if !ctx.is_copy_impl_eligible(target_ty) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "copy impl target type is not copyable",
-                            i.target_ty.span(),
-                        )
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::CopyImplTargetNotCopy,
-                        )),
-                    );
+                    diagnostics.push(type_error(
+                        TypeDiagnosticCode::CopyImplTargetNotCopy,
+                        "copy impl target type is not copyable",
+                        i.target_ty.span(),
+                    ));
                     push_unique_type(&ctx, &mut rejected_copy_targets, target_ty);
+                    rejected_impl_spans.insert(span_key(i.span));
                     continue;
                 }
                 pending_copy_clone_checks.push((target_ty, i.span));
@@ -686,13 +682,12 @@ pub fn typecheck(
                     && (ctx.type_pattern_matches(imp.target_ty, target_ty)
                         || ctx.type_pattern_matches(target_ty, imp.target_ty))
             }) {
-                diagnostics.push(
-                    Diagnostic::error("duplicate impl for same trait and target type", i.span)
-                        .with_code(DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::ImplDuplicateForTraitTarget,
-                    )),
-                );
-                duplicate_impl_spans.insert((i.span.file_id.0, i.span.start, i.span.end));
+                diagnostics.push(type_error(
+                    TypeDiagnosticCode::ImplDuplicateForTraitTarget,
+                    "duplicate impl for same trait and target type",
+                    i.span,
+                ));
+                rejected_impl_spans.insert(span_key(i.span));
                 continue;
             }
 
@@ -720,16 +715,13 @@ pub fn typecheck(
                     || ctx.type_pattern_matches(target_ty, imp.target_ty))
         });
         if !has_clone_impl {
-            diagnostics.push(
-                Diagnostic::error(
-                    "copy impl requires clone impl for the same target type",
-                    span,
-                )
-                .with_code(DiagnosticCode::Type(
-                    crate::diagnostic_codes::TypeDiagnosticCode::CopyImplRequiresClone,
-                )),
-            );
+            diagnostics.push(type_error(
+                TypeDiagnosticCode::CopyImplRequiresClone,
+                "copy impl requires clone impl for the same target type",
+                span,
+            ));
             push_unique_type(&ctx, &mut rejected_copy_targets, target_ty);
+            rejected_impl_spans.insert(span_key(span));
         }
     }
     impls.retain(|imp| {
@@ -1366,19 +1358,18 @@ pub fn typecheck(
             continue;
         }
         if let Stmt::Impl(i) = item {
-            let impl_key = (i.span.file_id.0, i.span.start, i.span.end);
-            if duplicate_impl_spans.contains(&impl_key) {
+            let impl_key = span_key(i.span);
+            if rejected_impl_spans.contains(&impl_key) {
                 continue;
             }
             let trait_ref = match &i.trait_ref {
                 Some(tr) => tr,
                 None => {
-                    diagnostics.push(
-                        Diagnostic::error("inherent impl is not supported yet", i.span)
-                            .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::ImplInherentUnsupported,
-                        )),
-                    );
+                    diagnostics.push(type_error(
+                        TypeDiagnosticCode::ImplInherentUnsupported,
+                        "inherent impl is not supported yet",
+                        i.span,
+                    ));
                     continue;
                 }
             };
@@ -1386,12 +1377,11 @@ pub fn typecheck(
             let trait_info = match traits.get(&trait_name) {
                 Some(info) => info,
                 None => {
-                    diagnostics.push(
-                        Diagnostic::error(format!("unknown trait '{}'", trait_name), i.span)
-                            .with_code(DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::TraitUnknown,
-                            )),
-                    );
+                    diagnostics.push(type_error(
+                        TypeDiagnosticCode::TraitUnknown,
+                        format!("unknown trait '{}'", trait_name),
+                        i.span,
+                    ));
                     continue;
                 }
             };
@@ -1406,20 +1396,16 @@ pub fn typecheck(
             );
             let target_ty = type_from_expr(&mut ctx, &mut f_labels, &i.target_ty);
             if trait_info.type_params.len() != trait_ref.args.len() {
-                diagnostics.push(
-                    Diagnostic::error(
-                        format!(
-                            "trait '{}' expects {} type arguments, found {}",
-                            trait_name,
-                            trait_info.type_params.len(),
-                            trait_ref.args.len()
-                        ),
-                        trait_ref.name.span,
-                    )
-                    .with_code(DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::TraitTypeParamsUnsupported,
-                    )),
-                );
+                diagnostics.push(type_error(
+                    TypeDiagnosticCode::TraitTypeParamsUnsupported,
+                    format!(
+                        "trait '{}' expects {} type arguments, found {}",
+                        trait_name,
+                        trait_info.type_params.len(),
+                        trait_ref.args.len()
+                    ),
+                    trait_ref.name.span,
+                ));
                 continue;
             }
             let trait_args: Vec<TypeId> = trait_ref
@@ -1433,12 +1419,11 @@ pub fn typecheck(
                 && !trait_semantics.has_clone_capability(Some(trait_info.self_ty))
                 && !trait_semantics.has_drop_capability(Some(trait_info.self_ty))
             {
-                diagnostics.push(
-                    Diagnostic::error("impl target type must be concrete", i.target_ty.span())
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::ImplTargetNotConcrete,
-                        )),
-                );
+                diagnostics.push(type_error(
+                    TypeDiagnosticCode::ImplTargetNotConcrete,
+                    "impl target type must be concrete",
+                    i.target_ty.span(),
+                ));
                 continue;
             }
             if trait_semantics.has_copy_capability(Some(trait_info.self_ty)) {
@@ -1452,40 +1437,32 @@ pub fn typecheck(
             let mut seen_methods = BTreeSet::new();
             for m in &i.methods {
                 if !seen_methods.insert(m.name.name.clone()) {
-                    diagnostics.push(
-                        Diagnostic::error("duplicate method in impl", m.name.span).with_code(
-                            DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::ImplDuplicateMethod,
-                            ),
-                        ),
-                    );
+                    diagnostics.push(type_error(
+                        TypeDiagnosticCode::ImplDuplicateMethod,
+                        "duplicate method in impl",
+                        m.name.span,
+                    ));
                     continue;
                 }
                 if !m.type_params.is_empty() {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "impl methods cannot have type parameters yet",
-                            m.name.span,
-                        )
-                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitMethodTypeParamsUnsupported)),
-                    );
+                    diagnostics.push(type_error(
+                        TypeDiagnosticCode::TraitMethodTypeParamsUnsupported,
+                        "impl methods cannot have type parameters yet",
+                        m.name.span,
+                    ));
                     continue;
                 }
                 let trait_sig = match trait_info.methods.get(&m.name.name) {
                     Some(sig) => *sig,
                     None => {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                format!(
-                                    "method '{}' not found in trait '{}'",
-                                    m.name.name, trait_name
-                                ),
-                                m.name.span,
-                            )
-                            .with_code(DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::ImplMethodNotInTrait,
-                            )),
-                        );
+                        diagnostics.push(type_error(
+                            TypeDiagnosticCode::ImplMethodNotInTrait,
+                            format!(
+                                "method '{}' not found in trait '{}'",
+                                m.name.name, trait_name
+                            ),
+                            m.name.span,
+                        ));
                         continue;
                     }
                 };
@@ -1500,13 +1477,11 @@ pub fn typecheck(
                 let expected_sig = ctx.substitute(trait_sig, &mapping);
                 let actual_sig = type_from_expr(&mut ctx, &mut f_labels, &m.signature);
                 if !ctx.same_type(expected_sig, actual_sig) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            "impl method signature does not match trait",
-                            m.name.span,
-                        )
-                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::ImplMethodSignatureMismatch)),
-                    );
+                    diagnostics.push(type_error(
+                        TypeDiagnosticCode::ImplMethodSignatureMismatch,
+                        "impl method signature does not match trait",
+                        m.name.span,
+                    ));
                     continue;
                 }
                 let checked_sig = match ctx.get(expected_sig) {
@@ -1561,18 +1536,14 @@ pub fn typecheck(
 
             for trait_method in trait_info.methods.keys() {
                 if !seen_methods.contains(trait_method) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            format!(
-                                "missing method '{}' for trait '{}'",
-                                trait_method, trait_name
-                            ),
-                            i.span,
-                        )
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::ImplMissingTraitMethod,
-                        )),
-                    );
+                    diagnostics.push(type_error(
+                        TypeDiagnosticCode::ImplMissingTraitMethod,
+                        format!(
+                            "missing method '{}' for trait '{}'",
+                            trait_method, trait_name
+                        ),
+                        i.span,
+                    ));
                 }
             }
 

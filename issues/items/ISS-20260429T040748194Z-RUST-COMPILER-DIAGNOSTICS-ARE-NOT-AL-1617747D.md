@@ -173,6 +173,31 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
 
+## 2026-04-29 Stage D1 driver impl collection / validation boundary follow-up 追記
+
+`typecheck/driver.rs` には impl collection と impl validation の境界に `Diagnostic::error(...).with_code(...)` が残っていた。さらに collection 前段で structural に拒否した inherent impl / unknown trait / trait type argument count mismatch を validation 後段でも再診断しており、stable code regression があっても同一原因の重複診断を見逃す状態だった。
+
+今回の対応で impl collection の inherent impl、unknown trait、trait type argument count mismatch、generic target、copy target、duplicate impl、copy requires clone を `type_error(...)` helper 経由へ移行した。前段で拒否した impl は `rejected_impl_spans` に記録し、validation 後段は同じ impl を再診断しない。validation 後段の duplicate method、impl method type params、method not in trait、signature mismatch、missing trait method も `type_error(...)` helper 経由に揃えた。
+
+回帰として、重複していた inherent impl / unknown trait / trait type argument count mismatch は Rust test で `TypeDiagnosticCode` の出現回数を 1 件に固定した。impl method validation 系の stable code は Rust test と `tests/compiler/driver_impl_diagnostics.n.md` の doctest で固定する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core impl_ -- --nocapture`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 1 --dist web/dist`: pass。`type.impl.inherent_unsupported` が 1 件だけ出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 2 --dist web/dist`: pass。`type.impl.duplicate_method` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 3 --dist web/dist`: pass。`type.trait_method.type_params_unsupported` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 4 --dist web/dist`: pass。`type.impl.method_not_in_trait` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 5 --dist web/dist`: pass。`type.impl.method_signature_mismatch` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 6 --dist web/dist`: pass。`type.impl.missing_trait_method` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 7 --dist web/dist`: pass。`type.trait.unknown` が 1 件だけ出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 8 --dist web/dist`: pass。`type.trait.type_params_unsupported` が 1 件だけ出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 9 --dist web/dist`: pass。`type.impl.duplicate_for_trait_target` が出ることを確認した。
+
 ## 2026-04-29 Stage D1 parser direct diagnostics follow-up 追記
 
 前回の parser recovery boundary 移行後、`parser.rs` には layout block、type expression、identifier、mlstr、extern signature など 42 箇所の直接 `.with_code(...)` が残っていた。
