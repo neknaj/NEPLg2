@@ -36,6 +36,19 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-04-29 メモ (ISS-20260429T024412130Z self-host scanner D3100)
+
+- [発見]:
+  - `str_starts_with_at` 導入後の確認で、`tests/stdlib/neplg2_lexer.n.md` は 13 件すべて `lex_all_loop` の `D3100 resource ir owner obligation may leak` で compile failure になった。
+  - `tests/stdlib/neplg2_import_spec.n.md` は 3 件すべて `hash32(str)` / `main` temporary の D3100 で compile failure になった。
+  - 同じ checkout で `nodesrc/test_selfhost_string_helpers_boundary.js` と `stdlib/alloc/string.nepl` doctest は通るため、string prefix helper の実装ではなく Resource owner gate が self-host scanner fixture を覆っている問題として切り分ける。
+- [issue]:
+  - `ISS-20260429T024412130Z-RESOURCE-OWNER-GATE-REPORTS-D3100-IN-7A19FECC` を追加した。
+- [次の方針]:
+  - 静的検査大規模修正は別 agent が進めているため、こちらでは D3100 を弱めない。再現条件を issue に固定し、stdlib scanner helper の設計へ進む。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T004144320Z Resource owner pointer read separation)
 
 - [同期]:
