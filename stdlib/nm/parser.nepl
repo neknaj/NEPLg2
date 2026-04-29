@@ -57,52 +57,6 @@ impl Copy for Document:
     fn copy_mark <(Document)->Document> (doc):
         doc
 
-//: nm_line_end: 1 行の終端 byte index を探す
-//:
-//: [目的/もくてき]:
-//: - `start` から次の LF 直前、または入力末尾までを 1 行として扱います。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(line_length)
-fn nm_line_end <(str,i32)->i32> (s, start):
-    let n <i32> len s;
-    let mut i <i32> start;
-    let mut done <bool> false;
-    while and lt i n not done:
-        do:
-            if:
-                eq string_byte_at_unchecked s i '\n'
-                then set done true
-                else set i add i 1
-    i
-
-//: nm_next_line_pos: 行終端から次行の開始位置を得る
-//:
-//: [目的/もくてき]:
-//: - `nm_line_end` が返した index から、次に読む byte index を計算します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn nm_next_line_pos <(str,i32)->i32> (s, line_end):
-    if:
-        lt line_end len s
-        then add line_end 1
-        else len s
-
-//: trim_cr: CRLF 入力の CR を 1 byte だけ取り除く
-//:
-//: [目的/もくてき]:
-//: - Windows style の `\r\n` 行末を parser 内部で `\n` と同じ扱いにします。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn trim_cr <(str)->str> (s):
-    let n <i32> len s;
-    if:
-        and gt n 0 eq string_byte_at_unchecked s sub n 1 '\r'
-        then str_slice s 0 sub n 1
-        else s
-
 //: nm_read_line: 入力から 1 行を切り出す
 //:
 //: [目的/もくてき]:
@@ -111,7 +65,7 @@ fn trim_cr <(str)->str> (s):
 //: [計算量/けいさんりょう]:
 //: - O(line_length)
 fn nm_read_line <(str,i32)->str> (s, pos):
-    trim_cr str_slice s pos nm_line_end s pos
+    str_trim_suffix_cr str_slice s pos str_line_end s pos
 
 //: nm_heading_level: ATX heading の level を判定する
 //:
@@ -308,24 +262,6 @@ fn nm_find_math_end <(str,i32,i32)->i32> (s, start, delim):
                             set j add j 1
     found
 
-//: nm_find_byte: 指定 byte の位置を探す
-//:
-//: [目的/もくてき]:
-//: - `start <= i < end` の範囲で最初に `target` が現れる位置を返します。見つからなければ -1 です。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(end - start)
-fn nm_find_byte <(str,i32,i32,i32)->i32> (s, start, end, target):
-    let mut i <i32> start;
-    let mut found <i32> -1;
-    while and lt i end lt found 0:
-        do:
-            if:
-                eq string_byte_at_unchecked s i target
-                then set found i
-                else set i add i 1
-    found
-
 //: nm_find_gloss_slash: gloss body の top-level slash を探す
 //:
 //: [目的/もくてき]:
@@ -412,11 +348,11 @@ fn nm_inline_to_json <(str)->str> (s):
                         else:
                             set i add i 1
                 '[':
-                    let close <i32> nm_find_byte s add i 1 n ']';
+                    let close <i32> str_find_byte_range s add i 1 n ']';
                     let slash <i32>:
                         if:
                             ge close 0
-                            then nm_find_byte s add i 1 close '/'
+                            then str_find_byte_range s add i 1 close '/'
                             else -1
                     let mut next_is_paren <bool> false;
                     if:
@@ -450,7 +386,7 @@ fn nm_inline_to_json <(str)->str> (s):
                         else:
                             set i add i 1
                 '{':
-                    let close <i32> nm_find_byte s add i 1 n '}';
+                    let close <i32> str_find_byte_range s add i 1 n '}';
                     let first_slash <i32>:
                         if:
                             ge close 0
@@ -616,10 +552,10 @@ pub fn document_to_json <(Document)->str> (doc):
 
     while lt pos n:
         do:
-            let line_end <i32> nm_line_end src pos;
-            let raw <str> trim_cr str_slice src pos line_end;
+            let line_end <i32> str_line_end src pos;
+            let raw <str> str_trim_suffix_cr str_slice src pos line_end;
             let t <str> str_trim raw;
-            set pos nm_next_line_pos src line_end;
+            set pos str_next_line_pos src line_end;
             if:
                 eq len t 0
                 then:
@@ -696,10 +632,10 @@ pub fn document_to_json <(Document)->str> (doc):
                                             let mut done <bool> false;
                                             while and lt pos n not done:
                                                 do:
-                                                    let cend <i32> nm_line_end src pos;
-                                                    let craw <str> trim_cr str_slice src pos cend;
+                                                    let cend <i32> str_line_end src pos;
+                                                    let craw <str> str_trim_suffix_cr str_slice src pos cend;
                                                     let ct <str> str_trim craw;
-                                                    set pos nm_next_line_pos src cend;
+                                                    set pos str_next_line_pos src cend;
                                                     if:
                                                         is_fence_start ct
                                                         then set done true
@@ -793,8 +729,8 @@ pub fn document_to_json <(Document)->str> (doc):
                                                     let mut done <bool> false;
                                                     while and lt pos n not done:
                                                         do:
-                                                            let pend <i32> nm_line_end src pos;
-                                                            let praw <str> trim_cr str_slice src pos pend;
+                                                            let pend <i32> str_line_end src pos;
+                                                            let praw <str> str_trim_suffix_cr str_slice src pos pend;
                                                             let pt <str> str_trim praw;
                                                             if:
                                                                 nm_is_block_boundary pt
@@ -802,7 +738,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                                 else:
                                                                     set para_sb sb_append para_sb "\n";
                                                                     set para_sb sb_append para_sb praw;
-                                                                    set pos nm_next_line_pos src pend
+                                                                    set pos str_next_line_pos src pend
                                                     if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
                                                     match current_level:
                                                         0:

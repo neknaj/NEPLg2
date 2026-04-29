@@ -96,6 +96,16 @@
 - [設計方針]:
   - 先に `str_starts_with_at` を入れたため、次は `find_byte_range`、`line_end` / `next_line_pos`、ASCII classification、prefix consume helper を小さな stdlib scanner layer として設計する。
   - nm と self-host scanner の置換は D3100 の blocker を見ながら進め、表面的な local helper 削除だけにしない。
+- [修正]:
+  - `alloc/string.nepl` に `str_find_byte_range`、`str_line_end`、`str_next_line_pos`、`str_trim_suffix_cr`、`str_skip_inline_space_range`、`str_word_end_inline_space_range`、ASCII byte classification helpers を追加した。
+  - `stdlib/neplg2/core/module/import_spec.nepl` は `selfhost_import_find_byte` / `selfhost_import_is_space` / `selfhost_import_skip_space` / `selfhost_import_word_end` を削除し、`alloc/string` の helper に置き換えた。
+  - `stdlib/nm/parser.nepl` と `stdlib/nm/html_gen.nepl` は `nm_line_end` / `nm_next_line_pos` / `trim_cr` / `nm_find_byte` 依存をやめ、共通 helper を使うようにした。
+  - `nodesrc/test_stdlib_byte_scanner_helpers_boundary.js` を追加し、local scanner helper の再導入を検出する。
+- [検証]:
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: pass
+  - `node nodesrc/tests.js -i stdlib\alloc\string.nepl --no-tree -o tmp\stdlib-byte-scanner-string-final2.json -j 1`: total=8 passed=8
+  - `node nodesrc/issues.js check`: pass
+  - `tests/stdlib/neplg2_import_spec.n.md` は既知 D3100、`tests/stdlib/nm.n.md` は `ISS-20260429T030655089Z-RESOURCE-OWNER-GATE-REGRESSES-NM-DIR-98E651E0` の D3100 で止まる。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 

@@ -224,11 +224,11 @@ fn nm_inline_to_html <(str)->str> (s):
                         else:
                             set i add i 1
                 '[':
-                    let close <i32> nm_find_byte s add i 1 n ']';
+                    let close <i32> str_find_byte_range s add i 1 n ']';
                     let slash <i32>:
                         if:
                             ge close 0
-                            then nm_find_byte s add i 1 close '/'
+                            then str_find_byte_range s add i 1 close '/'
                             else -1
                     let mut next_is_paren <bool> false;
                     if:
@@ -255,7 +255,7 @@ fn nm_inline_to_html <(str)->str> (s):
                         else:
                             set i add i 1
                 '{':
-                    let close <i32> nm_find_byte s add i 1 n '}';
+                    let close <i32> str_find_byte_range s add i 1 n '}';
                     let first_slash <i32>:
                         if:
                             ge close 0
@@ -338,10 +338,10 @@ fn nm_render_source_html <(str)->str> (src):
 
     while lt pos n:
         do:
-            let line_end <i32> nm_line_end src pos;
-            let raw <str> trim_cr str_slice src pos line_end;
+            let line_end <i32> str_line_end src pos;
+            let raw <str> str_trim_suffix_cr str_slice src pos line_end;
             let t <str> str_trim raw;
-            set pos nm_next_line_pos src line_end;
+            set pos str_next_line_pos src line_end;
             if:
                 eq len t 0
                 then:
@@ -402,10 +402,10 @@ fn nm_render_source_html <(str)->str> (src):
                                             let mut done <bool> false;
                                             while and lt pos n not done:
                                                 do:
-                                                    let cend <i32> nm_line_end src pos;
-                                                    let craw <str> trim_cr str_slice src pos cend;
+                                                    let cend <i32> str_line_end src pos;
+                                                    let craw <str> str_trim_suffix_cr str_slice src pos cend;
                                                     let ct <str> str_trim craw;
-                                                    set pos nm_next_line_pos src cend;
+                                                    set pos str_next_line_pos src cend;
                                                     if:
                                                         is_fence_start ct
                                                         then set done true
@@ -472,8 +472,8 @@ fn nm_render_source_html <(str)->str> (src):
                                                     let mut done <bool> false;
                                                     while and lt pos n not done:
                                                         do:
-                                                            let pend <i32> nm_line_end src pos;
-                                                            let praw <str> trim_cr str_slice src pos pend;
+                                                            let pend <i32> str_line_end src pos;
+                                                            let praw <str> str_trim_suffix_cr str_slice src pos pend;
                                                             let pt <str> str_trim praw;
                                                             if:
                                                                 nm_is_block_boundary pt
@@ -481,7 +481,7 @@ fn nm_render_source_html <(str)->str> (src):
                                                                 else:
                                                                     set para_sb sb_append para_sb "\n";
                                                                     set para_sb sb_append para_sb praw;
-                                                                    set pos nm_next_line_pos src pend
+                                                                    set pos str_next_line_pos src pend
                                                     set sb sb_append sb "<p>";
                                                     set sb sb_append sb nm_inline_to_html sb_build para_sb;
                                                     set sb sb_append sb "</p>"

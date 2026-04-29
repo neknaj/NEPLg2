@@ -88,63 +88,6 @@ fn selfhost_import_diag <(SelfhostSourceSpan,str,str,str)->SelfhostDiagnostic> (
     let diag <SelfhostDiagnostic> selfhost_diag_error code message
     selfhost_diag_with_primary_label diag selfhost_diag_label_new span label
 
-//: selfhost_import_find_byte: 指定 byte を[探/さが]し、なければ -1 を[返/かえ]す
-fn selfhost_import_find_byte <(str,i32,i32,i32)->i32> (s, n, idx, needle):
-    if:
-        ge idx n
-        then:
-            -1
-        else:
-            let ch <i32> string::string_byte_at_unchecked s idx
-            if:
-                eq ch needle
-                then:
-                    idx
-                else:
-                    selfhost_import_find_byte s n add idx 1 needle
-
-//: selfhost_import_is_space: directive 内の ASCII whitespace か[返/かえ]す
-fn selfhost_import_is_space <(i32)->bool> (ch):
-    match ch:
-        ' ':
-            true
-        '\t':
-            true
-        '\r':
-            true
-        _:
-            false
-
-//: selfhost_import_skip_space: whitespace を[読/よ]み[飛/と]ばす
-fn selfhost_import_skip_space <(str,i32,i32)->i32> (s, n, idx):
-    if:
-        ge idx n
-        then:
-            idx
-        else:
-            let ch <i32> string::string_byte_at_unchecked s idx
-            if:
-                selfhost_import_is_space ch
-                then:
-                    selfhost_import_skip_space s n add idx 1
-                else:
-                    idx
-
-//: selfhost_import_word_end: whitespace までの alias 終端を[返/かえ]す
-fn selfhost_import_word_end <(str,i32,i32)->i32> (s, n, idx):
-    if:
-        ge idx n
-        then:
-            idx
-        else:
-            let ch <i32> string::string_byte_at_unchecked s idx
-            if:
-                selfhost_import_is_space ch
-                then:
-                    idx
-                else:
-                    selfhost_import_word_end s n add idx 1
-
 //: selfhost_import_has_as_keyword: 指定位置に `as` keyword があるか[返/かえ]す
 fn selfhost_import_has_as_keyword <(str,i32,i32)->bool> (s, n, idx):
     if:
@@ -158,18 +101,18 @@ fn selfhost_import_has_as_keyword <(str,i32,i32)->bool> (s, n, idx):
                 then:
                     true
                 else:
-                    selfhost_import_is_space string::string_byte_at_unchecked s after
+                    string::str_byte_is_ascii_inline_space string::string_byte_at_unchecked s after
 
 //: selfhost_import_parse_alias: `as` 後の alias を[読/よ]む
 fn selfhost_import_parse_alias <(SelfhostSourceSpan,str,str,i32,i32)*>Result<SelfhostImportSpec, SelfhostDiagnostic>> (span, lexeme, path, n, alias_start):
-    let start <i32> selfhost_import_skip_space lexeme n alias_start
+    let start <i32> string::str_skip_inline_space_range lexeme alias_start n
     if:
         ge start n
         then:
             Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span "selfhost.import.alias.expected" "import directive requires an alias after as" "expected import alias here"
         else:
-            let alias_end <i32> selfhost_import_word_end lexeme n start
-            let trailing <i32> selfhost_import_skip_space lexeme n alias_end
+            let alias_end <i32> string::str_word_end_inline_space_range lexeme start n
+            let trailing <i32> string::str_skip_inline_space_range lexeme alias_end n
             if:
                 lt trailing n
                 then:
@@ -186,26 +129,26 @@ fn selfhost_import_parse_alias <(SelfhostSourceSpan,str,str,i32,i32)*>Result<Sel
 
 //: selfhost_import_parse_after_path: path literal の後ろから `as alias` を[読/よ]む
 fn selfhost_import_parse_after_path <(SelfhostSourceSpan,str,i32,i32)*>Result<SelfhostImportSpec, SelfhostDiagnostic>> (span, lexeme, n, path_end):
-    let as_idx <i32> selfhost_import_skip_space lexeme n add path_end 1
+    let as_idx <i32> string::str_skip_inline_space_range lexeme add path_end 1 n
     if:
         not selfhost_import_has_as_keyword lexeme n as_idx
         then:
             Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span "selfhost.import.as.expected" "import directive requires `as` after path" "expected `as` here"
         else:
-            let path_start <i32> selfhost_import_find_byte lexeme n 0 '"'
+            let path_start <i32> string::str_find_byte_range lexeme 0 n '"'
             let path <str> string::str_slice lexeme add path_start 1 path_end
             selfhost_import_parse_alias span lexeme path n add as_idx 2
 
 //: selfhost_import_spec_parse_lexeme: import directive lexeme を typed spec へ[変換/へんかん]する
 fn selfhost_import_spec_parse_lexeme <(SelfhostSourceSpan,str)*>Result<SelfhostImportSpec, SelfhostDiagnostic>> (span, lexeme):
     let n <i32> string::len lexeme
-    let path_start <i32> selfhost_import_find_byte lexeme n 0 '"'
+    let path_start <i32> string::str_find_byte_range lexeme 0 n '"'
     if:
         lt path_start 0
         then:
             Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span "selfhost.import.path_quote.expected" "import directive requires a quoted path" "expected opening quote"
         else:
-            let path_end <i32> selfhost_import_find_byte lexeme n add path_start 1 '"'
+            let path_end <i32> string::str_find_byte_range lexeme add path_start 1 n '"'
             if:
                 lt path_end 0
                 then:
