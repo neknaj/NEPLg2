@@ -221,19 +221,25 @@ impl ResourceBorrowCheckEngine<'_> {
                 target,
                 args,
                 ..
-            } => self.propagate_call_return_token(borrows, output, target, args),
+            } => {
+                self.propagate_call_return_token(borrows, output, target, args);
+                self.release_call_argument_tokens(borrows, args);
+            }
             ResourceOp::IndirectCall {
                 output,
                 callee,
                 args,
                 ..
-            } => self.propagate_indirect_call_return_token(
-                borrows,
-                function_aliases,
-                output,
-                callee,
-                args,
-            ),
+            } => {
+                self.propagate_indirect_call_return_token(
+                    borrows,
+                    function_aliases,
+                    output,
+                    callee,
+                    args,
+                );
+                self.release_call_argument_tokens(borrows, args);
+            }
             ResourceOp::Expr { .. }
             | ResourceOp::CallEffect { .. }
             | ResourceOp::RawMemory { .. }
@@ -361,6 +367,12 @@ impl ResourceBorrowCheckEngine<'_> {
             if borrows.copy_or_move_token(arg, output) {
                 return;
             }
+        }
+    }
+
+    fn release_call_argument_tokens(&self, borrows: &mut BorrowTable, args: &[Place]) {
+        for arg in args {
+            borrows.release_token(arg);
         }
     }
 
