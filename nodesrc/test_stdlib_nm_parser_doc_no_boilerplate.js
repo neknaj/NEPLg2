@@ -21,7 +21,8 @@ for (const [label, phrase] of forbiddenPhrases) {
 
 const requiredPhrases = [
     ['Document source-view contract', 'Document: NM document \u306e source view'],
-    ['line scanner contract', 'nm_line_end: 1 \u884c\u306e\u7d42\u7aef byte index \u3092\u63a2\u3059'],
+    ['line reader contract', 'nm_read_line: \u5165\u529b\u304b\u3089 1 \u884c\u3092\u5207\u308a\u51fa\u3059'],
+    ['scanner delegation contract', '\u884c\u672b\u63a2\u7d22\u306f `scanner::str_line_end` \u306b\u59d4\u8b72'],
     ['heading level contract', 'nm_heading_level: ATX heading \u306e level \u3092\u5224\u5b9a\u3059\u308b'],
     ['block boundary contract', 'nm_is_block_boundary: paragraph \u3092\u6b62\u3081\u308b\u884c\u304b\u5224\u5b9a\u3059\u308b'],
     ['JSON escape contract', 'json_escape: JSON \u6587\u5b57\u5217\u7528\u306b byte \u3092 escape \u3059\u308b'],

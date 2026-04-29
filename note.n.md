@@ -1,3 +1,21 @@
+# 2026-04-29 メモ (ISS-20260429T053406066Z nm/parser doc policy scanner contract)
+
+- [同期]:
+  - `be38998` まで反映した `main` から `work/nm-parser-doc-policy-scanner-contract` branch を作成して作業した。
+- [原因]:
+  - GitHub Actions run `25092323380` は bootstrap build 後の Source policy regressions で失敗した。
+  - 失敗点は `nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js` の `stdlib/nm/parser.nepl must document line scanner contract`。
+  - 直近の byte scanner helper 分離で local `nm_line_end` / `nm_next_line_pos` は削除され、`alloc/string/scanner` の `str_line_end` / `str_next_line_pos` へ責務が移っていたが、doc policy は削除済み helper 名をまだ要求していた。
+- [修正]:
+  - `stdlib/nm/parser.nepl` の `nm_read_line` コメントに、行末探索は `scanner::str_line_end` へ委譲し、NM parser 側は CRLF 正規化だけを担当することを明記した。
+  - `nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js` は、削除済み `nm_line_end` ではなく `nm_read_line` wrapper と `scanner::str_line_end` delegation contract を検査するようにした。
+  - `ISS-20260429T053406066Z-NM-PARSER-DOC-POLICY-STILL-REQUIRES--F7604AA4` を追加し、この commit 内で fixed とした。
+- [検証]:
+  - `node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js`: pass
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z diagnostic code-first builder)
 
 - [同期]:

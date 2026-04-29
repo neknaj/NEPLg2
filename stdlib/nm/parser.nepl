@@ -63,6 +63,9 @@ impl Copy for Document:
 //: [目的/もくてき]:
 //: - byte index `pos` から LF までを切り出し、末尾 CR を取り除きます。
 //:
+//: [実装/じっそう]:
+//: - 行末探索は `scanner::str_line_end` に委譲し、この wrapper は NM parser の CRLF 正規化だけを担当します。
+//:
 //: [計算量/けいさんりょう]:
 //: - O(line_length)
 fn nm_read_line <(str,i32)->str> (s, pos):

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T05:31:51.271Z",
+  "generated_at": "2026-04-29T05:35:39.203Z",
   "counts": {
-    "total": 355,
+    "total": 356,
     "open": 10,
-    "resolved": 345,
+    "resolved": 346,
     "by_area": {
       "core": {
         "total": 170,
@@ -37,9 +37,9 @@
         "resolved": 13
       },
       "nodesrc": {
-        "total": 5,
+        "total": 6,
         "open": 0,
-        "resolved": 5
+        "resolved": 6
       },
       "compiler": {
         "total": 1,
@@ -2778,6 +2778,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T020221893Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-0A2C73C7.md"
+    },
+    {
+      "id": "ISS-20260429T053406066Z-NM-PARSER-DOC-POLICY-STILL-REQUIRES--F7604AA4",
+      "title": "nm parser doc policy still requires removed local line scanner helper",
+      "area": "nodesrc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js, stdlib/nm/parser.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T053406066Z-NM-PARSER-DOC-POLICY-STILL-REQUIRES--F7604AA4.md"
     },
     {
       "id": "ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C",
