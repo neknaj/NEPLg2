@@ -181,6 +181,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `typecheck/prefix_check.rs` の impure intrinsic in pure context、unknown intrinsic、intrinsic arity/type mismatch、field/ref intrinsic、set_field mismatch 診断を `effect_error(...)` / `type_error(...)` 経由へ移行した。prefix intrinsic boundary では生成時点で effect/type の分類が確定する。
 - 2026-04-29: `typecheck/prefix_check.rs` の pipe pending、source missing、target mismatch、target missing、unreduced left-hand side 診断を `type_error(...)` 経由へ移行した。pipe boundary では生成時点で `TypeDiagnosticCode::PipeInvalid` が確定する。
 - 2026-04-29: `typecheck/prefix_check.rs` の integer literal parse failure と char literal i32-backed range violation に `LiteralIntInvalid` / `LiteralCharOutOfRange` を追加し、`type_error(...)` 経由へ移行した。同時に `parse_i32_literal` の overflow cast を範囲検査へ修正した。
+- 2026-04-29: `typecheck/block_check.rs` の block-local no-shadow、nested generic function、nested function signature、raw block placement、block stack invariant 診断を `resolve_error(...)` / `type_error(...)` 経由へ移行した。code-less だった raw block placement と block stack invariant には専用 `TypeDiagnosticCode` を追加した。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

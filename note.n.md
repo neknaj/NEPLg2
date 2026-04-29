@@ -1,3 +1,32 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z block scope/raw diagnostic code-first)
+
+- [同期]:
+  - `e0a5050` まで反映した `main` を `origin/main` と同期し、`work/typecheck-block-scope-raw-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/block_check.rs` には block-local no-shadow、nested generic function unsupported、nested function signature mismatch、raw block placement、block stack invariant の診断で `Diagnostic::error(...)` / `.with_code(...)` が残っていた。
+  - raw block placement と block stack invariant は code-less 診断であり、raw backend block の不正配置や block stack 不整合を stable enum code で監視できなかった。
+- [修正]:
+  - no-shadow 系を `resolve_error(...)` helper 経由へ移行した。
+  - nested function / raw block / block stack 系を `type_error(...)` helper 経由へ移行した。
+  - `TypeDiagnosticCode::NestedGenericFunctionUnsupported`、`RawBlockInvalidPlacement`、`BlockStackInconsistent` を追加した。
+  - nested generic function と nested raw block の enum code regression を追加した。
+  - web/CLI 経路用に `tests/compiler/block_diagnostics.n.md` を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 nested_generic_function_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 nested_raw_block_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 let_noshadow_shadow_has_resolve_code -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/block_diagnostics.n.md -n 1 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/block_diagnostics.n.md -n 2 --dist web/dist`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の block scope / raw placement boundary 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z block stack code-first diagnostics)
 
 - [同期]:

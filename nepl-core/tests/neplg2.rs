@@ -626,6 +626,37 @@ fn invalid_ast_char_literal_has_type_code() {
 }
 
 #[test]
+fn nested_generic_function_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    fn id <.T> <(.T)->.T> (x):
+        x
+    id<i32> 1
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::NestedGenericFunctionUnsupported);
+}
+
+#[test]
+fn nested_raw_block_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    block:
+        #wasm:
+            i32.const 1
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::RawBlockInvalidPlacement);
+}
+
+#[test]
 fn pure_cannot_call_impure() {
     let src = r#"
 #entry main

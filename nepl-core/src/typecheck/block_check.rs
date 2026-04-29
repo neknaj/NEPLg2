@@ -3,8 +3,7 @@ use alloc::format;
 use alloc::vec::Vec;
 
 use crate::ast::{Block, PrefixExpr, PrefixItem, Stmt, Symbol};
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
+use crate::diagnostic_codes::{ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::hir::{HirBlock, HirExpr, HirExprKind, HirLine};
 use crate::resolve::DefId;
 use crate::types::{TypeId, TypeKind};
@@ -13,7 +12,7 @@ use super::binding_rules::{
     detect_field_accessor_fn, emit_shadow_warning, find_visible_nonshadow_same_signature_func,
     find_visible_same_signature_func, is_callable_binding, shadow_blocked_by_nonshadow,
 };
-use super::diagnostics::type_error;
+use super::diagnostics::{resolve_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::gate_allows;
 use super::traits::{format_trait_ref_name, TraitBoundRef};
@@ -78,31 +77,30 @@ impl<'a> BlockChecker<'a> {
                 })) = items.first()
                 {
                     if let Some(blocked) = shadow_blocked_by_nonshadow(self.env, &name.name) {
+                        self.diagnostics.push(resolve_error(
+                            ResolveDiagnosticCode::ShadowNoShadowViolation,
+                            format!("cannot shadow non-shadowable symbol '{}'", name.name),
+                            name.span,
+                        ));
                         self.diagnostics.push(
-                            Diagnostic::error(
-                                format!("cannot shadow non-shadowable symbol '{}'", name.name),
-                                name.span,
+                            resolve_error(
+                                ResolveDiagnosticCode::ShadowNoShadowViolation,
+                                "non-shadowable declaration is here",
+                                blocked.span,
                             )
-                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
-                        );
-                        self.diagnostics.push(
-                            Diagnostic::error("non-shadowable declaration is here", blocked.span)
-                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
-                                .with_secondary_label(name.span, Some("shadow attempt".into())),
+                            .with_secondary_label(name.span, Some("shadow attempt".into())),
                         );
                         continue;
                     }
                     if *no_shadow && self.env.lookup_any(&name.name).is_some() {
-                        self.diagnostics.push(
-                            Diagnostic::error(
-                                format!(
-                                    "noshadow declaration '{}' conflicts with existing symbol",
-                                    name.name
-                                ),
-                                name.span,
-                            )
-                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowConflict)),
-                        );
+                        self.diagnostics.push(resolve_error(
+                            ResolveDiagnosticCode::ShadowNoShadowConflict,
+                            format!(
+                                "noshadow declaration '{}' conflicts with existing symbol",
+                                name.name
+                            ),
+                            name.span,
+                        ));
                         continue;
                     }
                     let ty = self.ctx.fresh_var(None);
@@ -128,7 +126,8 @@ impl<'a> BlockChecker<'a> {
                 // function alias is handled at top-level
             } else if let Stmt::FnDef(f) = stmt {
                 if !f.type_params.is_empty() {
-                    self.diagnostics.push(Diagnostic::error(
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::NestedGenericFunctionUnsupported,
                         "nested generic functions are not supported yet",
                         f.name.span,
                     ));
@@ -155,21 +154,21 @@ impl<'a> BlockChecker<'a> {
                                 self.ctx,
                             ) {
                                 self.diagnostics.push(
-                                    Diagnostic::error(
+                                    resolve_error(
+                                        ResolveDiagnosticCode::ShadowNoShadowViolation,
                                         format!(
                                             "cannot shadow non-shadowable function '{}' with same signature",
                                             f.name.name
                                         ),
                                         f.name.span,
-                                    )
-                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
+                                    ),
                                 );
                                 self.diagnostics.push(
-                                    Diagnostic::error(
+                                    resolve_error(
+                                        ResolveDiagnosticCode::ShadowNoShadowViolation,
                                         "non-shadowable function declaration is here",
                                         conflict.span,
                                     )
-                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                                     .with_secondary_label(
                                         f.name.span,
                                         Some("shadow attempt".into()),
@@ -179,22 +178,17 @@ impl<'a> BlockChecker<'a> {
                             }
                             // 関数同名はオーバーロードとして扱う（異なるシグネチャは許可）。
                         } else {
+                            self.diagnostics.push(resolve_error(
+                                ResolveDiagnosticCode::ShadowNoShadowViolation,
+                                format!("cannot shadow non-shadowable symbol '{}'", f.name.name),
+                                f.name.span,
+                            ));
                             self.diagnostics.push(
-                                Diagnostic::error(
-                                    format!(
-                                        "cannot shadow non-shadowable symbol '{}'",
-                                        f.name.name
-                                    ),
-                                    f.name.span,
-                                )
-                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
-                            );
-                            self.diagnostics.push(
-                                Diagnostic::error(
+                                resolve_error(
+                                    ResolveDiagnosticCode::ShadowNoShadowViolation,
                                     "non-shadowable declaration is here",
                                     blocked.span,
                                 )
-                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                                 .with_secondary_label(f.name.span, Some("shadow attempt".into())),
                             );
                             continue;
@@ -216,16 +210,14 @@ impl<'a> BlockChecker<'a> {
                             )
                             .is_some())
                     {
-                        self.diagnostics.push(
-                            Diagnostic::error(
-                                format!(
-                                    "noshadow declaration '{}' conflicts with existing symbol",
-                                    f.name.name
-                                ),
-                                f.name.span,
-                            )
-                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowConflict)),
-                        );
+                        self.diagnostics.push(resolve_error(
+                            ResolveDiagnosticCode::ShadowNoShadowConflict,
+                            format!(
+                                "noshadow declaration '{}' conflicts with existing symbol",
+                                f.name.name
+                            ),
+                            f.name.span,
+                        ));
                         continue;
                     }
                     if !captures.is_empty() {
@@ -401,7 +393,8 @@ impl<'a> BlockChecker<'a> {
                             );
                         }
                     } else {
-                        self.diagnostics.push(Diagnostic::error(
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::FunctionSignatureNotFunction,
                             "function signature must be a function type",
                             f.name.span,
                         ));
@@ -491,13 +484,15 @@ impl<'a> BlockChecker<'a> {
                 Stmt::StructDef(_) => {}
                 Stmt::EnumDef(_) => {}
                 Stmt::Wasm(_) => {
-                    self.diagnostics.push(Diagnostic::error(
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::RawBlockInvalidPlacement,
                         "wasm block is only allowed as a function body",
                         block.span,
                     ));
                 }
                 Stmt::LlvmIr(_) => {
-                    self.diagnostics.push(Diagnostic::error(
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::RawBlockInvalidPlacement,
                         "llvm ir block is only allowed as a function body",
                         block.span,
                     ));
@@ -527,7 +522,8 @@ impl<'a> BlockChecker<'a> {
                 // Pop and ignore the extra value(s).
                 stack.pop();
             }
-            self.diagnostics.push(Diagnostic::error(
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::StackExtraValues,
                 "block left extra values on the stack",
                 block.span,
             ));
@@ -542,7 +538,8 @@ impl<'a> BlockChecker<'a> {
             }
         } else {
             // Fewer than expected: this is a hard error.
-            self.diagnostics.push(Diagnostic::error(
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::BlockStackInconsistent,
                 "block leaves inconsistent stack state",
                 block.span,
             ));

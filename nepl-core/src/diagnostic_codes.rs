@@ -76,6 +76,9 @@ pub enum TypeDiagnosticCode {
     LiteralCharOutOfRange,
     PipeInvalid,
     StackExtraValues,
+    BlockStackInconsistent,
+    NestedGenericFunctionUnsupported,
+    RawBlockInvalidPlacement,
     FunctionValueCapturingUnsupported,
     IndirectCallRequiresFunctionValue,
     CallCaptureArityMismatch,
@@ -258,9 +261,12 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::LiteralIntInvalid),
     DiagnosticCode::Type(TypeDiagnosticCode::LiteralCharOutOfRange),
     DiagnosticCode::Type(TypeDiagnosticCode::PipeInvalid),
+    DiagnosticCode::Type(TypeDiagnosticCode::StackExtraValues),
+    DiagnosticCode::Type(TypeDiagnosticCode::BlockStackInconsistent),
+    DiagnosticCode::Type(TypeDiagnosticCode::NestedGenericFunctionUnsupported),
+    DiagnosticCode::Type(TypeDiagnosticCode::RawBlockInvalidPlacement),
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowNoShadowViolation),
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowNoShadowConflict),
-    DiagnosticCode::Type(TypeDiagnosticCode::StackExtraValues),
     DiagnosticCode::Type(TypeDiagnosticCode::FunctionValueCapturingUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::IndirectCallRequiresFunctionValue),
     DiagnosticCode::Type(TypeDiagnosticCode::VariableNotCallable),
@@ -617,6 +623,11 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::LiteralCharOutOfRange => "type.literal.char_out_of_range",
             TypeDiagnosticCode::PipeInvalid => "type.pipe.invalid",
             TypeDiagnosticCode::StackExtraValues => "type.stack.extra_values",
+            TypeDiagnosticCode::BlockStackInconsistent => "type.block.stack_inconsistent",
+            TypeDiagnosticCode::NestedGenericFunctionUnsupported => {
+                "type.nested_function.generic_unsupported"
+            }
+            TypeDiagnosticCode::RawBlockInvalidPlacement => "type.raw_block.invalid_placement",
             TypeDiagnosticCode::FunctionValueCapturingUnsupported => {
                 "type.function_value.capturing_unsupported"
             }
@@ -714,6 +725,13 @@ impl TypeDiagnosticCode {
             }
             TypeDiagnosticCode::PipeInvalid => "pipe usage error",
             TypeDiagnosticCode::StackExtraValues => "expression left extra values on the stack",
+            TypeDiagnosticCode::BlockStackInconsistent => "block leaves inconsistent stack state",
+            TypeDiagnosticCode::NestedGenericFunctionUnsupported => {
+                "nested generic functions are not supported yet"
+            }
+            TypeDiagnosticCode::RawBlockInvalidPlacement => {
+                "raw backend block is only allowed as a function body"
+            }
             TypeDiagnosticCode::FunctionValueCapturingUnsupported => {
                 "capturing function cannot be used as a function value yet"
             }

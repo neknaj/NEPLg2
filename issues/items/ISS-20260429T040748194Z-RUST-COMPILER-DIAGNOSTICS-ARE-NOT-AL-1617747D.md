@@ -515,3 +515,23 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `cargo check -p nepl-core --tests`: pass
 - `trunk build`: pass
 - `node nodesrc/run_doctest.js -i tests/compiler/literal_diagnostics.n.md -n 1 --dist web/dist`: pass。`type.literal.int_invalid` が出ることを確認した。
+
+## 2026-04-29 Stage D1 block scope / raw placement boundary follow-up 追記
+
+`typecheck/block_check.rs` には block-local no-shadow、nested generic function unsupported、nested function signature mismatch、raw block placement、block stack invariant の診断で `Diagnostic::error(...)` / `.with_code(...)` が残っていた。特に raw block placement と block stack invariant は code-less 診断であり、raw backend block を関数 body 以外に置いた場合や block stack の不整合を stable enum code で監視できなかった。
+
+今回の対応で no-shadow 系を `resolve_error(...)`、nested function / raw block / block stack 系を `type_error(...)` helper 経由へ移行した。`TypeDiagnosticCode::NestedGenericFunctionUnsupported`、`RawBlockInvalidPlacement`、`BlockStackInconsistent` を追加し、既存の block stack extra values は `StackExtraValues` に接続した。Rust regression では nested generic function と nested raw block が enum code を返すことを固定する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 nested_generic_function_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 nested_raw_block_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 let_noshadow_shadow_has_resolve_code -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/block_diagnostics.n.md -n 1 --dist web/dist`: pass。`type.nested_function.generic_unsupported` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/block_diagnostics.n.md -n 2 --dist web/dist`: pass。`type.raw_block.invalid_placement` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
