@@ -198,6 +198,33 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 8 --dist web/dist`: pass。`type.trait.type_params_unsupported` が 1 件だけ出ることを確認した。
 - `node nodesrc/run_doctest.js -i tests/compiler/driver_impl_diagnostics.n.md -n 9 --dist web/dist`: pass。`type.impl.duplicate_for_trait_target` が出ることを確認した。
 
+## 2026-04-29 Stage D1 driver function / alias hoist boundary follow-up 追記
+
+`typecheck/driver.rs` の function hoist、function alias hoist、function body checking の overload 照合、function type parameter bound には `Diagnostic::error(...).with_code(...)` が残っていた。ここは name resolution と type checking が混在する境界なので、message 文字列ではなく `ResolveDiagnosticCode` と `TypeDiagnosticCode` を生成時点で選ぶ必要がある。
+
+今回の対応で function item name conflict、overload ambiguity、no-shadow violation / conflict、function signature not function、alias item name conflict、alias target not found、function signature overload not found、function type parameter bound mismatch を `resolve_error(...)` / `type_error(...)` helper 経由へ移行した。`typecheck/driver.rs` から `Diagnostic::error(...).with_code(...)` と `DiagnosticCode` import は消えている。
+
+回帰として、function alias target missing、function alias name conflict、function vs enum name conflict を Rust test で stable resolve code に固定した。既存の function signature、overload ambiguity、no-shadow、trait bound type argument count regression もこの境界の確認に使う。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "Diagnostic::error|\\.with_code|\\bDiagnosticCode\\b" nepl-core/src/typecheck/driver.rs`: no matches
+- `cargo test -p nepl-core --test neplg2 function_alias -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 name_conflict_enum_fn_has_resolve_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test functions function_signature_not_function_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 overloads_ambiguous_return_type_is_error -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 trait_bound_type_arg_count_mismatch_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 let_noshadow_shadow_has_resolve_code -- --nocapture`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/functions.n.md -n 7 --dist web/dist`: pass。`resolve.alias.target_not_found` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/shadowing.n.md -n 20 --dist web/dist`: pass。`resolve.shadow.no_shadow_violation` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
+- `cargo test -p nepl-core --test neplg2 -- --nocapture`: failed 89/97。失敗 8 件は `ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B` の Resource IR raw ownership / owner obligation leak 既知件で、今回の diagnostic construction 変更とは別件。
+
 ## 2026-04-29 Stage D1 parser direct diagnostics follow-up 追記
 
 前回の parser recovery boundary 移行後、`parser.rs` には layout block、type expression、identifier、mlstr、extern signature など 42 箇所の直接 `.with_code(...)` が残っていた。

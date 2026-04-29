@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use crate::ast::*;
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::{DiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
+use crate::diagnostic_codes::{ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::hir::*;
 use crate::resolve::{DefId, ImportResolution};
 use crate::source_map::SourceMap;
@@ -816,21 +816,19 @@ pub fn typecheck(
             } = ctx.get(ty)
             {
                 if env.lookup_value(&f.name.name).is_some() {
-                    diagnostics.push(
-                        Diagnostic::error("name already used by another item", f.name.span)
-                            .with_code(DiagnosticCode::Resolve(
-                                crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
-                            )),
-                    );
+                    diagnostics.push(resolve_error(
+                        ResolveDiagnosticCode::ItemNameConflict,
+                        "name already used by another item",
+                        f.name.span,
+                    ));
                     continue;
                 }
                 if enums.contains_key(&f.name.name) || structs.contains_key(&f.name.name) {
-                    diagnostics.push(
-                        Diagnostic::error("name already used by another item", f.name.span)
-                            .with_code(DiagnosticCode::Resolve(
-                                crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
-                            )),
-                    );
+                    diagnostics.push(resolve_error(
+                        ResolveDiagnosticCode::ItemNameConflict,
+                        "name already used by another item",
+                        f.name.span,
+                    ));
                     continue;
                 }
                 if crate::log::is_verbose() {
@@ -857,14 +855,15 @@ pub fn typecheck(
                     find_invalid_same_file_overload(&env, &f.name.name, f.params.len(), f.name.span)
                 {
                     diagnostics.push(
-                        Diagnostic::error("ambiguous overload", f.name.span)
-                            .with_code(DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::OverloadAmbiguous,
-                            ))
-                            .with_secondary_label(
-                                prev.span,
-                                Some("conflicting overload is defined here".into()),
-                            ),
+                        type_error(
+                            TypeDiagnosticCode::OverloadAmbiguous,
+                            "ambiguous overload",
+                            f.name.span,
+                        )
+                        .with_secondary_label(
+                            prev.span,
+                            Some("conflicting overload is defined here".into()),
+                        ),
                     );
                     continue;
                 }
@@ -879,38 +878,39 @@ pub fn typecheck(
                             &ctx,
                         ) {
                             diagnostics.push(
-                                Diagnostic::error(
+                                resolve_error(
+                                    ResolveDiagnosticCode::ShadowNoShadowViolation,
                                     format!(
                                         "cannot shadow non-shadowable function '{}' with same signature",
                                         f.name.name
                                     ),
                                     f.name.span,
-                                )
-                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
+                                ),
                             );
                             diagnostics.push(
-                                Diagnostic::error(
+                                resolve_error(
+                                    ResolveDiagnosticCode::ShadowNoShadowViolation,
                                     "non-shadowable function declaration is here",
                                     conflict.span,
                                 )
-                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                                 .with_secondary_label(f.name.span, Some("shadow attempt".into())),
                             );
                             continue;
                         }
                         // 関数同名はオーバーロードとして扱う（異なるシグネチャは許可）。
                     } else {
+                        diagnostics.push(resolve_error(
+                            ResolveDiagnosticCode::ShadowNoShadowViolation,
+                            format!("cannot shadow non-shadowable symbol '{}'", f.name.name),
+                            f.name.span,
+                        ));
                         diagnostics.push(
-                            Diagnostic::error(
-                                format!("cannot shadow non-shadowable symbol '{}'", f.name.name),
-                                f.name.span,
+                            resolve_error(
+                                ResolveDiagnosticCode::ShadowNoShadowViolation,
+                                "non-shadowable declaration is here",
+                                blocked.span,
                             )
-                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
-                        );
-                        diagnostics.push(
-                            Diagnostic::error("non-shadowable declaration is here", blocked.span)
-                                .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
-                                .with_secondary_label(f.name.span, Some("shadow attempt".into())),
+                            .with_secondary_label(f.name.span, Some("shadow attempt".into())),
                         );
                         continue;
                     }
@@ -930,18 +930,14 @@ pub fn typecheck(
                         )
                         .is_some())
                 {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            format!(
-                                "noshadow declaration '{}' conflicts with existing symbol",
-                                f.name.name
-                            ),
-                            f.name.span,
-                        )
-                        .with_code(DiagnosticCode::Resolve(
-                            crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowConflict,
-                        )),
-                    );
+                    diagnostics.push(resolve_error(
+                        ResolveDiagnosticCode::ShadowNoShadowConflict,
+                        format!(
+                            "noshadow declaration '{}' conflicts with existing symbol",
+                            f.name.name
+                        ),
+                        f.name.span,
+                    ));
                     continue;
                 }
                 env.remove_duplicate_func_in_file(&f.name.name, ty, f.name.span, &ctx);
@@ -977,36 +973,31 @@ pub fn typecheck(
                     },
                 });
             } else {
-                diagnostics.push(
-                    Diagnostic::error("function signature must be a function type", f.name.span)
-                        .with_code(DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::FunctionSignatureNotFunction,
-                    )),
-                );
+                diagnostics.push(type_error(
+                    TypeDiagnosticCode::FunctionSignatureNotFunction,
+                    "function signature must be a function type",
+                    f.name.span,
+                ));
             }
         }
     }
 
     for alias in &fn_aliases {
         if enums.contains_key(&alias.name.name) || structs.contains_key(&alias.name.name) {
-            diagnostics.push(
-                Diagnostic::error("name already used by another item", alias.name.span).with_code(
-                    DiagnosticCode::Resolve(
-                        crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
-                    ),
-                ),
-            );
+            diagnostics.push(resolve_error(
+                ResolveDiagnosticCode::ItemNameConflict,
+                "name already used by another item",
+                alias.name.span,
+            ));
             continue;
         }
         let targets = env.lookup_all_callables(&alias.target.name);
         if targets.is_empty() {
-            diagnostics.push(
-                Diagnostic::error("alias target not found", alias.target.span).with_code(
-                    DiagnosticCode::Resolve(
-                        crate::diagnostic_codes::ResolveDiagnosticCode::AliasTargetNotFound,
-                    ),
-                ),
-            );
+            diagnostics.push(resolve_error(
+                ResolveDiagnosticCode::AliasTargetNotFound,
+                "alias target not found",
+                alias.target.span,
+            ));
             continue;
         }
         let mut target_infos = Vec::new();
@@ -1063,12 +1054,11 @@ pub fn typecheck(
                 );
             }
             if env.lookup_value(&alias.name.name).is_some() {
-                diagnostics.push(
-                    Diagnostic::error("name already used by another item", alias.name.span)
-                        .with_code(DiagnosticCode::Resolve(
-                            crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
-                        )),
-                );
+                diagnostics.push(resolve_error(
+                    ResolveDiagnosticCode::ItemNameConflict,
+                    "name already used by another item",
+                    alias.name.span,
+                ));
                 break;
             }
             if let Some(blocked) = shadow_blocked_by_nonshadow(&env, &alias.name.name) {
@@ -1082,40 +1072,39 @@ pub fn typecheck(
                         &ctx,
                     ) {
                         diagnostics.push(
-                            Diagnostic::error(
+                            resolve_error(
+                                ResolveDiagnosticCode::ShadowNoShadowViolation,
                                 format!(
                                     "cannot shadow non-shadowable function alias '{}' with same signature",
                                     alias.name.name
                                 ),
                                 alias.name.span,
-                            )
-                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
+                            ),
                         );
                         diagnostics.push(
-                            Diagnostic::error(
+                            resolve_error(
+                                ResolveDiagnosticCode::ShadowNoShadowViolation,
                                 "non-shadowable function declaration is here",
                                 conflict.span,
                             )
-                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                             .with_secondary_label(alias.name.span, Some("shadow attempt".into())),
                         );
                         break;
                     }
                     // 関数同名はオーバーロードとして扱う（異なるシグネチャは許可）。
                 } else {
+                    diagnostics.push(resolve_error(
+                        ResolveDiagnosticCode::ShadowNoShadowViolation,
+                        format!("cannot shadow non-shadowable symbol '{}'", alias.name.name),
+                        alias.name.span,
+                    ));
                     diagnostics.push(
-                        Diagnostic::error(
-                            format!("cannot shadow non-shadowable symbol '{}'", alias.name.name),
-                            alias.name.span,
+                        resolve_error(
+                            ResolveDiagnosticCode::ShadowNoShadowViolation,
+                            "non-shadowable declaration is here",
+                            blocked.span,
                         )
-                        .with_code(DiagnosticCode::Resolve(
-                            crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation,
-                        )),
-                    );
-                    diagnostics.push(
-                        Diagnostic::error("non-shadowable declaration is here", blocked.span)
-                            .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
-                            .with_secondary_label(alias.name.span, Some("shadow attempt".into())),
+                        .with_secondary_label(alias.name.span, Some("shadow attempt".into())),
                     );
                     break;
                 }
@@ -1135,18 +1124,14 @@ pub fn typecheck(
                     )
                     .is_some())
             {
-                diagnostics.push(
-                    Diagnostic::error(
-                        format!(
-                            "noshadow declaration '{}' conflicts with existing symbol",
-                            alias.name.name
-                        ),
-                        alias.name.span,
-                    )
-                    .with_code(DiagnosticCode::Resolve(
-                        crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowConflict,
-                    )),
-                );
+                diagnostics.push(resolve_error(
+                    ResolveDiagnosticCode::ShadowNoShadowConflict,
+                    format!(
+                        "noshadow declaration '{}' conflicts with existing symbol",
+                        alias.name.name
+                    ),
+                    alias.name.span,
+                ));
                 break;
             }
             env.remove_duplicate_func_in_file(&alias.name.name, ty, alias.name.span, &ctx);
@@ -1231,15 +1216,11 @@ pub fn typecheck(
                         match matched {
                             Some(ty) => ty,
                             None => {
-                                diagnostics.push(
-                                    Diagnostic::error(
-                                        "function signature does not match any overload",
-                                        f.name.span,
-                                    )
-                                    .with_code(DiagnosticCode::Type(
-                                        crate::diagnostic_codes::TypeDiagnosticCode::FunctionSignatureOverloadNotFound,
-                                    )),
-                                );
+                                diagnostics.push(type_error(
+                                    TypeDiagnosticCode::FunctionSignatureOverloadNotFound,
+                                    "function signature does not match any overload",
+                                    f.name.span,
+                                ));
                                 continue;
                             }
                         }
@@ -1255,18 +1236,16 @@ pub fn typecheck(
                         for b in &p_node.bounds {
                             if let Some(info) = traits.get(&b.name.name) {
                                 if info.type_params.len() != b.args.len() {
-                                    diagnostics.push(
-                                        Diagnostic::error(
-                                            format!(
-                                                "trait bound '{}' expects {} type arguments, found {}",
-                                                b.name.name,
-                                                info.type_params.len(),
-                                                b.args.len()
-                                            ),
-                                            b.name.span,
-                                        )
-                                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::TraitTypeParamsUnsupported)),
-                                    );
+                                    diagnostics.push(type_error(
+                                        TypeDiagnosticCode::TraitTypeParamsUnsupported,
+                                        format!(
+                                            "trait bound '{}' expects {} type arguments, found {}",
+                                            b.name.name,
+                                            info.type_params.len(),
+                                            b.args.len()
+                                        ),
+                                        b.name.span,
+                                    ));
                                     continue;
                                 }
                                 let arg_tys: Vec<TypeId> = b

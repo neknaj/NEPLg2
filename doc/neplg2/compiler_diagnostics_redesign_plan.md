@@ -185,6 +185,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `typecheck/driver.rs` の extern directive と enum/struct declaration 境界を `type_error(...)` / `resolve_error(...)` 経由へ移行した。重複 enum/struct 宣言を無診断で skip していた conflict 分岐も修正し、`ItemNameConflict` を出すようにした。
 - 2026-04-29: `typecheck/driver.rs` の trait declaration 境界に残っていた unknown capability と trait method type parameters 診断を `type_error(...)` 経由へ移行した。trait safety の capability/associated method shape は生成時点で `TypeDiagnosticCode` を確定する。
 - 2026-04-29: `typecheck/driver.rs` の impl collection / impl validation 境界を `type_error(...)` 経由へ移行した。前段で拒否した impl を `rejected_impl_spans` として保持し、後段 validation が同じ impl を再診断しないようにしたため、inherent impl / unknown trait / trait type argument count mismatch の重複診断も解消された。impl method shape / signature / missing method 診断も生成時点で `TypeDiagnosticCode` を確定する。
+- 2026-04-29: `typecheck/driver.rs` の function / alias hoist 境界を `type_error(...)` / `resolve_error(...)` 経由へ移行した。function signature、overload ambiguity、alias target、item conflict、no-shadow conflict / violation、function type parameter bound mismatch は生成時点で `TypeDiagnosticCode` または `ResolveDiagnosticCode` を確定する。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

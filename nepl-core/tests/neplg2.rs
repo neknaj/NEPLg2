@@ -1184,7 +1184,7 @@ fn main <()->()> ():
 }
 
 #[test]
-fn name_conflict_enum_fn_is_error() {
+fn name_conflict_enum_fn_has_resolve_code() {
     let src = r#"
 #entry main
 #indent 4
@@ -1198,7 +1198,43 @@ fn Foo <()->i32> ():
 fn main <()->i32> ():
     Foo
 "#;
-    compile_err(src);
+    compile_err_has_resolve_code(src, ResolveDiagnosticCode::ItemNameConflict);
+}
+
+#[test]
+fn function_alias_target_not_found_has_resolve_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn plus missing;
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_resolve_code(src, ResolveDiagnosticCode::AliasTargetNotFound);
+}
+
+#[test]
+fn function_alias_name_conflict_enum_has_resolve_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+enum Plus:
+    Value
+
+fn add <(i32, i32)->i32> (a, _b):
+    a
+
+fn Plus add;
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_resolve_code(src, ResolveDiagnosticCode::ItemNameConflict);
 }
 
 #[test]

@@ -1,3 +1,36 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z driver function/alias diagnostic code-first)
+
+- [同期]:
+  - `af48256` まで反映した `main` を `origin/main` と同期し、`work/typecheck-driver-function-alias-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/driver.rs` の function hoist、function alias hoist、function body checking の overload 照合、function type parameter bound に `Diagnostic::error(...).with_code(...)` が残っていた。
+  - function / alias hoist は name resolution と type checking の境界なので、message 文字列ではなく enum code を生成時点で確定する必要がある。
+- [修正]:
+  - function item name conflict、overload ambiguity、no-shadow violation / conflict、function signature not function を `resolve_error(...)` / `type_error(...)` helper 経由へ移行した。
+  - alias item name conflict、alias target not found、alias no-shadow violation / conflict を `resolve_error(...)` helper 経由へ移行した。
+  - function signature overload not found と function type parameter bound mismatch を `type_error(...)` helper 経由へ移行した。
+  - function alias target missing、function alias name conflict、function vs enum name conflict の Rust regression を追加・強化した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "Diagnostic::error|\\.with_code|\\bDiagnosticCode\\b" nepl-core/src/typecheck/driver.rs`: no matches
+  - `cargo test -p nepl-core --test neplg2 function_alias -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 name_conflict_enum_fn_has_resolve_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test functions function_signature_not_function_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 overloads_ambiguous_return_type_is_error -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 trait_bound_type_arg_count_mismatch_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 let_noshadow_shadow_has_resolve_code -- --nocapture`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/functions.n.md -n 7 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/shadowing.n.md -n 20 --dist web/dist`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+  - `cargo test -p nepl-core --test neplg2 -- --nocapture`: failed 89/97。失敗 8 件は `ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B` の Resource IR raw ownership / owner obligation leak 既知件。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の driver function / alias hoist boundary 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z driver impl diagnostic code-first)
 
 - [同期]:
