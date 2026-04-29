@@ -366,7 +366,13 @@ fn outcome_err <.T, .E> <(.E)->Outcome<.T, .E>> (e):
 
 //: outcome_with_diags: [診断/しんだん][群/ぐん]を[付与/ふよ]する
 fn outcome_with_diags <.T, .E> <(Outcome<.T, .E>,Diags)->Outcome<.T, .E>> (o, ds):
-    Outcome field::get o "result" some<Diags> ds
+    let result <Result<.T, .E>> field::get o "result"
+    match field::get o "diags":
+        Option::Some old_ds:
+            diags_free old_ds
+        Option::None:
+            ()
+    Outcome result some<Diags> ds
 
 //: result_to_outcome: `Result` を[診断/しんだん]なし `Outcome` に[昇格/しょうかく]する
 fn result_to_outcome <.T, .E> <(Result<.T, .E>)->Outcome<.T, .E>> (r):
@@ -499,7 +505,7 @@ fn result_like_is_err <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
 //: ```
 //:
 //: [実装/じっそう]:
-//: - struct field `result` をそのまま[返/かえ]します。
+//: - struct field `result` を[返/かえ]し、返さない `diags` axis は `diags_free` で[閉/と]じます。
 //:
 //: [注意/ちゅうい]:
 //: - `diags` は[返/かえ]さないので、[診断/しんだん][群/ぐん]も[見/み]たい[場合/ばあい]は `outcome_diags_or_empty` を[併用/へいよう]します。
@@ -508,7 +514,13 @@ fn result_like_is_err <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
 //: - [時間/じかん]: O(1)
 //: - [空間/くうかん]: O(1)
 fn outcome_result <.T, .E> <(Outcome<.T, .E>)->Result<.T, .E>> (o):
-    field::get o "result"
+    let result <Result<.T, .E>> field::get o "result"
+    match field::get o "diags":
+        Option::Some ds:
+            diags_free ds
+        Option::None:
+            ()
+    result
 
 //: outcome_result: `Outcome` [参照/さんしょう]から Copy [可能/かのう]な `Result` を[読/よ]み[出/だ]す
 fn outcome_result <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->Result<.T, .E>> (o):

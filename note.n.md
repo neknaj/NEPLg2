@@ -27153,3 +27153,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正 Stage 4 の stdlib storage owner visibility を強め、self-host に raw numeric bucket discipline を持ち込まない方向へ進めた。
+
+# 2026-04-30 メモ (ISS-20260429T202444922Z Outcome Diags free contract)
+
+- [同期]:
+  - remote main の `bd7d163` まで取り込み、`work/outcome-diags-free-contract` branch で継続した。
+  - remote main には別 agent の `c2a38e8` による Diag owner-neutral 化と、`bd7d163` による Queue/RingBuffer owner-safe 化が入っていた。
+  - そのため、local の `work/diag-owned-contract` で作成した `diag_release` 方式は push 対象から外し、remote main の owner-neutral 設計を基準にした。
+- [原因]:
+  - `Diag` payload は owner-neutral に整理されたが、`Diags` 自体は `Vec<Diag>` backing storage owner を持つ。
+  - `outcome_with_diags` は既存 `Outcome` が `Some old_ds` を持つ場合でも、old_ds を `diags_free` せず新しい `Diags` に置き換えていた。
+  - `outcome_result` は by-value で `Outcome` を消費して `result` だけを返すため、返さない `diags` axis の owner を閉じる契約がなかった。
+- [修正]:
+  - `outcome_with_diags` は古い `Diags` を `diags_free` で閉じてから新しい `Diags` を保持するようにした。
+  - `outcome_result` は `diags` が `Some` の場合に `diags_free` で閉じてから `result` を返すようにした。
+  - `stdlib/tests/error.n.md` に、diagnostics 置換後に by-value `outcome_result` で result 軸だけを取り出す regression を追加した。
+- [検証]:
+  - `git diff --check`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/tests/error.n.md -n 2 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/error.n.md -i stdlib/tests/diag.n.md --no-tree -o tmp/outcome-diags-free-contract.json -j 1 --dist web/dist`: `total=5`, `passed=5`
+- [issue]:
+  - `ISS-20260429T202444922Z-OUTCOME-BY-VALUE-RESULT-ACCESS-DROPS-6B1AF839` を追加し、verified/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の owner contract について、Diag payload だけでなく Outcome が持つ Diags storage owner の終端境界を補強した。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T20:00:45.306Z",
+  "generated_at": "2026-04-29T20:26:48.965Z",
   "counts": {
-    "total": 398,
+    "total": 399,
     "open": 13,
-    "resolved": 385,
+    "resolved": 386,
     "by_area": {
       "core": {
         "total": 185,
@@ -12,9 +12,9 @@
         "resolved": 180
       },
       "stdlib": {
-        "total": 120,
+        "total": 121,
         "open": 6,
-        "resolved": 114
+        "resolved": 115
       },
       "TEST": {
         "total": 6,
@@ -4263,6 +4263,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T190939510Z-DIAG-IS-COPY-WHILE-CARRYING-OWNED-ST-F1284BFF.md"
+    },
+    {
+      "id": "ISS-20260429T202444922Z-OUTCOME-BY-VALUE-RESULT-ACCESS-DROPS-6B1AF839",
+      "title": "Outcome by-value result access drops Diags owner contract",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/diag/error.nepl, stdlib/tests/error.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T202444922Z-OUTCOME-BY-VALUE-RESULT-ACCESS-DROPS-6B1AF839.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

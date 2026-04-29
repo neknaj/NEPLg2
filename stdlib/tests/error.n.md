@@ -144,6 +144,14 @@ fn main <()*>i32> ():
     let ok2 <Outcome<i32, StdErrorKind>> outcome_with_diags outcome_ok<i32, StdErrorKind> 42 diags_one diag_warn "careful";
     set checks checks_push checks check not outcome_has_errors ok2;
 
+    let replace0 <Outcome<i32, StdErrorKind>> outcome_with_diags outcome_ok<i32, StdErrorKind> 7 diags_one diag_warn "old";
+    let replace1 <Outcome<i32, StdErrorKind>> outcome_with_diags replace0 diags_one diag_warn "new";
+    match outcome_result replace1:
+        Result::Ok v:
+            set checks checks_push checks check_eq_i32 7 v;
+        Result::Err _kind:
+            set checks checks_push checks Result<(),str>::Err "expected replaced outcome ok";
+
     let err0 <Outcome<i32, StdErrorKind>> outcome_err<i32, StdErrorKind> StdErrorKind::IoError;
     match outcome_result &err0:
         Result::Ok _v:
