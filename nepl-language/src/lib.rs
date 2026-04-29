@@ -11,7 +11,7 @@ use nepl_core::ast::{
 };
 use nepl_core::compiler::BuildProfile;
 use nepl_core::diagnostic::{Diagnostic, Severity};
-use nepl_core::diagnostic_ids::DiagnosticId;
+use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
 use nepl_core::hir::{HirBlock, HirExpr, HirExprKind, HirLine, HirModule};
 use nepl_core::lexer::{lex, Token, TokenKind};
 use nepl_core::loader::{LoadResult, Loader, LoaderError, SourceMap};
@@ -40,7 +40,6 @@ pub struct TextRange {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EditorDiagnostic {
     pub severity: Severity,
-    pub id: Option<u32>,
     pub code: Option<&'static str>,
     pub message: String,
     pub range: TextRange,
@@ -839,8 +838,7 @@ fn diagnostics_to_editor(
         .iter()
         .map(|diagnostic| EditorDiagnostic {
             severity: diagnostic.severity,
-            id: diagnostic.id.map(DiagnosticId::as_u32),
-            code: diagnostic.code,
+            code: diagnostic.code.map(DiagnosticCode::as_str),
             message: diagnostic.message.clone(),
             range: range_from_span(source, source_map, diagnostic.primary.span),
         })
@@ -1546,7 +1544,9 @@ fn resolve_target_for_analysis(module: &Module) -> (CompileTarget, Vec<Diagnosti
                 if let Some((_, prev_span)) = found {
                     diagnostics.push(
                         Diagnostic::error("multiple #target directives are not allowed", *span)
-                            .with_id(DiagnosticId::MultipleTargetDirective)
+                            .with_code(DiagnosticCode::Loader(
+                                LoaderDiagnosticCode::TargetMultipleDirective,
+                            ))
                             .with_secondary_label(prev_span, Some("previous #target here".into())),
                     );
                 } else {
@@ -1555,7 +1555,7 @@ fn resolve_target_for_analysis(module: &Module) -> (CompileTarget, Vec<Diagnosti
             } else {
                 diagnostics.push(
                     Diagnostic::error("unknown target in #target", *span)
-                        .with_id(DiagnosticId::UnknownTargetDirective),
+                        .with_code(DiagnosticCode::Loader(LoaderDiagnosticCode::TargetUnknown)),
                 );
             }
         }
@@ -1569,7 +1569,9 @@ fn resolve_target_for_analysis(module: &Module) -> (CompileTarget, Vec<Diagnosti
                     if let Some((_, prev_span)) = found {
                         diagnostics.push(
                             Diagnostic::error("multiple #target directives are not allowed", *span)
-                                .with_id(DiagnosticId::MultipleTargetDirective)
+                                .with_code(DiagnosticCode::Loader(
+                                    LoaderDiagnosticCode::TargetMultipleDirective,
+                                ))
                                 .with_secondary_label(
                                     prev_span,
                                     Some("previous #target here".into()),
@@ -1581,7 +1583,7 @@ fn resolve_target_for_analysis(module: &Module) -> (CompileTarget, Vec<Diagnosti
                 } else {
                     diagnostics.push(
                         Diagnostic::error("unknown target in #target", *span)
-                            .with_id(DiagnosticId::UnknownTargetDirective),
+                            .with_code(DiagnosticCode::Loader(LoaderDiagnosticCode::TargetUnknown)),
                     );
                 }
             }

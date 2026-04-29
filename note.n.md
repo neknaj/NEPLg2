@@ -1,3 +1,23 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z nepl-language/LSP diagnostic code migration)
+
+- [同期]:
+  - `323ab96` を含む `origin/main` と同期した後、`work/nepl-language-diagnostic-code-migration` branch で作業した。
+- [原因]:
+  - GitHub Actions run `25091893184` の bootstrap build が `nepl-language/src/lib.rs` の旧 `nepl_core::diagnostic_ids::DiagnosticId` import、`Diagnostic.id`、`Diagnostic::with_id` で失敗していた。
+  - これは Stage D0 の active code path 移行漏れであり、旧数値 ID 互換 layer を戻すと診断 enum 化の方針に反する。
+- [修正]:
+  - `EditorDiagnostic` から数値 `id` field を削除し、`code` は `DiagnosticCode::as_str()` 由来の stable string だけを保持するようにした。
+  - `nepl-lsp` の publishDiagnostics も `diagnostic.code` をそのまま LSP `code` に出すようにした。
+  - editor-side target directive diagnostic は `LoaderDiagnosticCode` の enum variant で作るようにした。
+- [検証]:
+  - `cargo build`
+  - `cargo check -p nepl-language -p nepl-lsp`
+  - `cargo test -p nepl-language -- --nocapture`
+  - `cargo test -p nepl-lsp -- --nocapture`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D0 の active code path 移行漏れ解消として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z diagnostic raw identity escape)
 
 - [同期]:

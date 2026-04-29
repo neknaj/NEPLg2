@@ -82,3 +82,16 @@ Resource IR の `RawAddressEscapeFromInternalAlloc` が ordinary な `effect.pur
 - `cargo check -p nepl-core --tests`
 - `trunk build`
 - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-resource-raw-identity-code-move-effect.json -j 1`
+
+## 2026-04-29 Stage D0 nepl-language/LSP 追記
+
+GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/lib.rs` が削除済みの `nepl_core::diagnostic_ids::DiagnosticId`、`Diagnostic.id`、`Diagnostic::with_id` を参照していることが判明した。これは Stage D0 の active code path 移行漏れであり、後方互換 layer を戻さずに修正する。
+
+`EditorDiagnostic` から数値 `id` field を削除し、`Diagnostic.code.map(DiagnosticCode::as_str)` で stable string code を渡すようにした。`nepl-lsp` の `textDocument/publishDiagnostics` も `code` に数値 ID ではなく同じ stable string code を出す。target directive 用の editor-side diagnostic は `LoaderDiagnosticCode` の enum variant で構築する。
+
+検証:
+
+- `cargo build`
+- `cargo check -p nepl-language -p nepl-lsp`
+- `cargo test -p nepl-language -- --nocapture`
+- `cargo test -p nepl-lsp -- --nocapture`

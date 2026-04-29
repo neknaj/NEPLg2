@@ -140,6 +140,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 進捗:
 
 - 2026-04-29: Stage D0 の実装で active code path から数値 ID field、`diagnostic_ids.rs`、`with_id`、旧 `diag_id` metadata を削除した。以後の残作業は D1 以降の builder / note / typed Resource IR mapping として扱う。
+- 2026-04-29: CI build で残っていた `nepl-language` / `nepl-lsp` の旧 `DiagnosticId` 参照を削除した。editor/LSP diagnostic は数値 `id` を持たず、`DiagnosticCode::as_str()` 由来の stable string `code` だけを外部へ渡す。
 
 ### Stage D1: Diagnostic builder の導入
 

@@ -507,7 +507,7 @@ fn editor_diagnostic_to_lsp(diagnostic: &EditorDiagnostic) -> Value {
             nepl_core::diagnostic::Severity::Error => 1,
             nepl_core::diagnostic::Severity::Warning => 2,
         },
-        "code": diagnostic.id,
+        "code": diagnostic.code,
         "source": "nepl-lsp",
         "message": diagnostic.message
     })
