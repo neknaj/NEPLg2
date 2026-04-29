@@ -11,6 +11,7 @@
 
 #import "alloc/collections/vec" as *
 #import "alloc/io" as *
+#import "alloc/string" as string
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/cast" as *
@@ -766,10 +767,10 @@ fn noshadow println <(str)*>()> (s):
 //: - v を 10 進文字列にして出力します。
 //:
 //: 実装(アルゴリズム):
-//: - from_i32 相当の手順で文字列を生成し、print します。
+//: - 整数の文字列化は `alloc/string::from_i32` に委譲し、stdio は出力だけを担当します。
 //:
 //: 注意(重要):
-//: - 負数は未対応のため "0" を出力します（暫定動作）。
+//: - 文字列化に必要な allocation に失敗した場合は `from_i32` の fallback に従います。
 //:
 //: 計算量:
 //: - O(d)
@@ -794,70 +795,7 @@ fn noshadow println <(str)*>()> (s):
 //:     print_i32 42;
 //: ```
 fn noshadow print_i32 <(i32)*>()> (v):
-    let s <str> :
-        if:
-            eq v 0
-            then:
-                match std_alloc 5:
-                    Result::Err _:
-                        ""
-                    Result::Ok out0:
-                        store_i32 out0 1;
-                        store_u8 add out0 4 '0';
-                        string_from_addr_unchecked out0
-            else:
-                let is_neg <bool> lt v 0;
-                let mut n <i32>:
-                    if:
-                        is_neg
-                        then:
-                            sub 0 v
-                        else:
-                            v
-                
-                match std_alloc 16:
-                    Result::Err _:
-                        ""
-                    Result::Ok scratch:
-                        let mut idx <i32> 0;
-
-                        while lt 0 n:
-                            do:
-                                let rem <i32> rem_u n 10;
-                                store_u8 add scratch idx add '0' rem;
-                                set idx add idx 1;
-                                set n div_u n 10;
-
-                        if:
-                            is_neg
-                            then:
-                                store_u8 add scratch idx '-'; // '-' sign
-                                set idx add idx 1;
-                            else:
-                                ();
-
-                        match std_alloc add 4 idx:
-                            Result::Err _:
-                                std_free scratch 16;
-                                ""
-                            Result::Ok out:
-                                store_i32 out idx;
-
-                                let mut i <i32> 0;
-                                while lt i idx:
-                                    do:
-                                        let i1 <i32> add i 1;
-                                        let rev <i32> sub idx i1;
-                                        let bptr <i32> add scratch rev;
-                                        let b <i32> load_u8 bptr;
-                                        let out_base <i32> add out 4;
-                                        let outp <i32> add out_base i;
-                                        store_u8 outp b;
-                                        set i add i 1;
-
-                                std_free scratch 16;
-                                string_from_addr_unchecked out
-    print s;
+    print string::from_i32 v;
     ()
 
 //: println_i32: i32 を改行付きで出力

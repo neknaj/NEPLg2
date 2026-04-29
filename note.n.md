@@ -26062,3 +26062,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - wasm backend diagnostic enum の到達性を、実在 signature source と call-site requirement の分離で修正した。
+
+# 2026-04-29 メモ (ISS-20260429T064519915Z stdio print_i32 raw cell)
+
+- [同期]:
+  - `origin/main` の `5fe767e` まで同期した `main` から `stdlib/stdio-print-i32-string-boundary` branch を作成した。
+- [原因]:
+  - `stdlib/std/stdio.nepl` の `print_i32` は、stdio 内で `std_alloc` scratch buffer、手動 digit reverse、`string_from_addr_unchecked` を使って整数文字列化を再実装していた。
+  - stdlib には既に `alloc/string::from_i32` があり、stdio が raw-memory formatter を重複して持つ必要はない。この重複実装により `print_i32__i32__unit__imp` が RawMemoryLoadCell ownership violation を起こしていた。
+- [修正]:
+  - `alloc/string` を `string` alias で import し、`print_i32` を `print string::from_i32 v` へ変更した。
+  - `print_i32` 内の `std_alloc` / `std_free` / `store_u8` / `load_u8` / `string_from_addr_unchecked` scratch path を削除した。
+  - `nodesrc/test_stdlib_stdio_print_i32_boundary.js` を追加し、`print_i32` が `alloc/string::from_i32` に委譲し、local raw-memory scratch formatter を戻さないことを固定した。
+  - CI Source policy regressions に同 script を追加した。
+- [追加 issue]:
+  - `stdlib/std/stdio.nepl` 全体 doctest では `std_load_i32_at` と `read_line` の別 RawMemoryLoadCell ownership violation が残ったため、`ISS-20260429T115652973Z-STDIO-READ-HELPERS-TRIGGER-RAWMEMORY-52A45658` として分離した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`: passed
+  - `cargo test -p nepl-core --test functions function_purity_check_impure_calls_pure -- --nocapture`: 1 passed
+  - `cargo test -p nepl-core --test effects --test functions --test overload -- --nocapture`: effects 21 passed / functions 19 passed / overload 8 passed
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md --no-tree -o tmp/stdio-print-i32-functions-nmd.json -j 1 --dist web/dist`: `total=24`, `passed=24`, `failed=0`
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-print-i32-boundary.json -j 1 --dist web/dist`: `total=28`, `passed=26`, `failed=2`。残り 2 件は新規 issue に分離。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdio の整数出力は独自 raw-memory formatter ではなく `alloc/string` の標準文字列化 API を使う形へ整理した。

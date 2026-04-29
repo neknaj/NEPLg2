@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T11:49:18.681Z",
+  "generated_at": "2026-04-29T11:58:12.633Z",
   "counts": {
-    "total": 366,
+    "total": 367,
     "open": 13,
-    "resolved": 353,
+    "resolved": 354,
     "by_area": {
       "core": {
         "total": 173,
@@ -12,9 +12,9 @@
         "resolved": 168
       },
       "stdlib": {
-        "total": 103,
+        "total": 104,
         "open": 6,
-        "resolved": 97
+        "resolved": 98
       },
       "TEST": {
         "total": 4,
@@ -200,8 +200,8 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
-      "id": "ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7",
-      "title": "stdio print_i32 triggers RawMemoryLoadCell ownership violation in functions integration test",
+      "id": "ISS-20260429T115652973Z-STDIO-READ-HELPERS-TRIGGER-RAWMEMORY-52A45658",
+      "title": "stdio read helpers trigger RawMemoryLoadCell ownership violations",
       "area": "stdlib",
       "status": "open",
       "resolved": false,
@@ -209,10 +209,10 @@
       "type": "bug",
       "created": "2026-04-29",
       "updated": "2026-04-29",
-      "target": "stdlib/std/stdio.nepl, nepl-core/tests/functions.rs",
+      "target": "stdlib/std/stdio.nepl",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7.md"
+      "file": "items/ISS-20260429T115652973Z-STDIO-READ-HELPERS-TRIGGER-RAWMEMORY-52A45658.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -3828,6 +3828,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T021745990Z-STDLIB-LACKS-ERGONOMIC-STRING-OFFSET-6CD44AAB.md"
+    },
+    {
+      "id": "ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7",
+      "title": "stdio print_i32 triggers RawMemoryLoadCell ownership violation in functions integration test",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/stdio.nepl, nepl-core/tests/functions.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
