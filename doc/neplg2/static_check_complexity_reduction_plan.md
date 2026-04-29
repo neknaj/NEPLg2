@@ -323,6 +323,20 @@ self-host 実装側の禁止事項:
 - raw-backed implementation を internal module に閉じた wrapper として使う。
 - Resource IR 導入前の暫定 compiler regression を維持するための保守的 `resource.raw.ownership_violation`。
 
+## 2026-04-30 設計確認
+
+[静的検査設計確認 2026-04-30](./static_check_design_verification_20260430.md) で、現行 Rust 実装、self-host 計画、stdlib memory model の整合を再確認した。
+
+判定は次の通り。
+
+- Resource IR の data model、coverage gate、CellState / OwnerState / BorrowState gate、enum-first diagnostic の方向性は妥当である。
+- ただし、現行 pipeline は `passes::insert_drops` を Resource IR check より前に HIR 上で実行し、旧 `passes::move_check::run` を先に authoritative として通した後に Resource IR gate を追加する構造である。これは移行途中の防壁であり、最終設計ではない。
+- `ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` は compiler diagnostic では `resource.raw.ownership_violation` に潰れている。D2 の途中状態としては許容するが、完了条件にはできない。`resource.cell.*` と `resource.owner.*` を第一級 diagnostic category にする。
+- `UnsafeMemoryInPureFunction` は stdlib raw-memory-backed API 移行のため shadow-only に残っている。最終的には public pure surface から unsafe memory を構成できないよう gate 化する。
+- self-host の S1/S2 は進められるが、S3 以降の typecheck / Resource IR / diagnostic aggregation では raw header collection や `MemPtr` owner discipline を中核に持ち込まない。
+
+したがって、この計画の完了条件は変更しない。旧 checker の special-case を増やして現状維持するのではなく、drop elaboration、owner/cell diagnostic、stdlib collection owner state を Resource IR / enum / match の設計へ移す。
+
 ## 完了条件
 
 この計画は次を満たした時点で完了とする。

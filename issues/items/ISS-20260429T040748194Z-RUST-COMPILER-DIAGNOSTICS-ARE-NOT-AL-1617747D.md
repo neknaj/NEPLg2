@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-04-29
+updated: 2026-04-30
 target: "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md"
 ---
 
@@ -78,10 +78,25 @@ Resource IR の `RawAddressEscapeFromInternalAlloc` が ordinary な `effect.pur
 検証:
 
 - `cargo test -p nepl-core diagnostic_codes -- --nocapture`
+
 - `cargo test -p nepl-core compiler::tests::resource_effect_gate -- --nocapture`
 - `cargo check -p nepl-core --tests`
 - `trunk build`
 - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-resource-raw-identity-code-move-effect.json -j 1`
+
+## 2026-04-30 静的検査設計確認追記
+
+`doc/neplg2/static_check_design_verification_20260430.md` で Resource IR diagnostic mapping を再確認した。
+
+現状の `DiagnosticCode` enum 化と `resource.raw.identity_escape` の分離は正しい方向である。しかし、`ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` は compiler boundary で `ResourceRawDiagnosticCode::OwnershipViolation` へ写像されている。これは旧 D3100 相当の粗い bucket を enum 化しただけであり、Resource IR diagnostic の意味分類を完全には保持していない。
+
+D2 の残件として、次を明確にする。
+
+- `ResourceDiagnosticCode::Cell(...)` と `ResourceDiagnosticCode::Owner(...)` を追加する。
+- `resource.cell.*` は uninit / moved / dropped / possibly moved を区別する。
+- `resource.owner.*` は no-free-obligation / leak / maybe-leak / double-free を区別する。
+- `resource.raw.*` は raw identity escape、unsafe memory boundary、pointer provenance そのものの問題に限定する。
+- Rust と self-host の diagnostic taxonomy は、S3 以降で同じ stable string contract へ揃える。
 
 ## 2026-04-29 Stage D0 nepl-language/LSP 追記
 

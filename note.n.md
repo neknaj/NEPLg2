@@ -1,3 +1,22 @@
+# 2026-04-30 メモ (静的検査設計確認)
+
+- [同期]:
+  - `main` を `origin/main` と同期し、`docs/static-check-design-verification` branch で静的検査設計の再確認を行った。
+- [確認]:
+  - `doc/neplg2/static_check_complexity_reduction_plan.md`、`compiler_diagnostics_redesign_plan.md`、`self_host_plan.md`、`stdlib_collection_mem_string_static_safety_design.md` と、`nepl-core/src/resource/**`、`compiler.rs`、`diagnostic_codes.rs`、stdlib mem/string/io/collections/selfhost diag を確認した。
+  - Resource IR の data model、lowering coverage gate、CellState / OwnerState / BorrowState gate、enum-first diagnostic の方向性は妥当。
+  - ただし `insert_drops` は Resource IR check 前に HIR 上で動き、旧 `move_check` が先に authoritative として走るため、現状は最終設計ではなく移行途中。
+  - cell / owner diagnostics が `resource.raw.ownership_violation` に潰れており、`resource.cell.*` / `resource.owner.*` への分離が D2 の残件。
+  - `UnsafeMemoryInPureFunction` は stdlib 移行都合で shadow-only のため、最終的には public pure surface から unsafe memory を構成できない gate にする必要がある。
+- [doc]:
+  - `doc/neplg2/static_check_design_verification_20260430.md` を追加し、現状、設計判定、最終 pass 順序、diagnostic taxonomy、memory model、self-host 開始可否、既存 issue 対応を整理した。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/compiler_diagnostics_redesign_plan.md` に 2026-04-30 の確認結果を追記した。
+- [issue]:
+  - 新規 root issue は追加しない。確認した残件は `RV-CORE-009`、raw memory boundary、MemPtr/RegionToken 分離、diagnostic redesign、stdlib collection storage state の既存 P1 issue で追跡できる。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` と `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` に設計確認追記を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (stdlib collection/mem/string と静的検査の安全設計)
 
 - [同期]:

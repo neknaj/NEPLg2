@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T15:53:51.821Z",
+  "generated_at": "2026-04-29T16:03:41.702Z",
   "counts": {
     "total": 384,
     "open": 15,
@@ -73,7 +73,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-25",
-      "updated": "2026-04-29",
+      "updated": "2026-04-30",
       "target": "nepl-core/src/resource, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs",
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
@@ -118,7 +118,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-04-29",
+      "updated": "2026-04-30",
       "target": "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md",
       "legacy_id": "",
       "source": "",
