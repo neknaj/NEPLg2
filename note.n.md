@@ -1,3 +1,34 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z target precheck diagnostic code-first)
+
+- [同期]:
+  - `9024a6e` まで反映した `main` を `origin/main` と同期し、`work/target-precheck-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `target_precheck.rs` / `target_gate.rs` に raw body target、target directive、conditional gate diagnostics の `Diagnostic::error(...).with_code(...)` が残っていた。
+  - `#target` fallback 走査は「有効 target が見つかったか」で判定していたため、unknown target directive が module directives と root items の両方で重複診断されていた。
+- [修正]:
+  - `target_precheck.rs` に `effect_error(...)` / `loader_error(...)` helper を追加し、raw body multiple active / target mismatch と target directive diagnostics を code-first constructor へ移行した。
+  - `target_gate.rs` の invalid conditional gate diagnostic を `Diagnostic::error_with_code(...)` へ移行した。
+  - `compiler.rs` と `target_precheck.rs` の fallback 条件を `found valid target` ではなく `saw target directive` に変更し、unknown target の重複診断を解消した。
+  - Rust regression は duplicate / unknown target directive の loader enum code を直接検査し、unknown target は 1 件だけ出ることを固定した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "Diagnostic::error\(|\.with_code\(" nepl-core/src/target_precheck.rs nepl-core/src/target_gate.rs`: no matches
+  - `cargo test -p nepl-core --test neplg2 invalid_iftarget -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 invalid_ifprofile -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 target_directive -- --nocapture`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/raw_body_precheck.n.md -n 1 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/raw_body_precheck.n.md -n 3 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 36 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 37 --dist web/dist`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の target/gate diagnostics 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z codegen precheck diagnostic code-first)
 
 - [同期]:

@@ -715,3 +715,30 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `node nodesrc/run_doctest.js -i tests/compiler/codegen_diagnostics.n.md -n 3 --dist web/dist`: pass。`backend.wasm.raw_line_parse_error` が出ることを確認した。
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 target precheck / gate diagnostics follow-up 追記
+
+`target_precheck.rs` / `target_gate.rs` には raw body target、target directive、conditional gate diagnostics の `Diagnostic::error(...).with_code(...)` が残っていた。target boundary は loader / effect diagnostics が混ざるため、helper を分けて生成時点で `LoaderDiagnosticCode` または `EffectDiagnosticCode` を確定する必要がある。
+
+今回の対応で `target_precheck.rs` に `effect_error(...)` / `loader_error(...)` helper を追加し、raw body multiple active / target mismatch と target directive diagnostics を `Diagnostic::error_with_code(...)` 経由へ移行した。`target_gate.rs` の invalid conditional gate diagnostic も code-first constructor へ移行した。
+
+検証中に `#target wasi2` が `loader.target.unknown` を 2 件出すことを確認した。原因は `resolve_target` と `precheck_module_target_directives` が「有効 target が見つかったか」を fallback 走査の条件にしており、unknown target directive を見ても fallback root item 走査を再実行していたためだった。`found valid target` と `saw target directive` を分離し、unknown target は 1 件だけ診断するようにした。
+
+回帰として duplicate / unknown target directive の Rust test を loader enum code 直接検査へ強化し、unknown target の code count を 1 件に固定した。web/doctest でも target directive と raw body target/effect diagnostics の stable string code を確認する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "Diagnostic::error\(|\.with_code\(" nepl-core/src/target_precheck.rs nepl-core/src/target_gate.rs`: no matches
+- `cargo test -p nepl-core --test neplg2 invalid_iftarget -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 invalid_ifprofile -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 target_directive -- --nocapture`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/raw_body_precheck.n.md -n 1 --dist web/dist`: pass。`effect.raw_body.target_mismatch` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/raw_body_precheck.n.md -n 3 --dist web/dist`: pass。`effect.raw_body.multiple_active` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 36 --dist web/dist`: pass。`loader.target.multiple_directive` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 37 --dist web/dist`: pass。`loader.target.unknown` が 1 件だけ出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

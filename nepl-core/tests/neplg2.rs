@@ -1,4 +1,6 @@
-use nepl_core::diagnostic_codes::{DiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
+use nepl_core::diagnostic_codes::{
+    DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode,
+};
 use nepl_core::error::CoreError;
 use nepl_core::loader::Loader;
 use nepl_core::span::FileId;
@@ -95,6 +97,44 @@ fn compile_err_has_resolve_code(src: &str, code: ResolveDiagnosticCode) {
         code,
         diags
     );
+}
+
+fn compile_err_has_loader_code_with_options(
+    src: &str,
+    options: CompileOptions,
+    code: LoaderDiagnosticCode,
+) {
+    let diags = compile_loader_diagnostics_with_options(src, options);
+    assert!(
+        diags
+            .iter()
+            .any(|diag| diag.code == Some(DiagnosticCode::Loader(code))),
+        "missing loader diagnostic {:?}: {:?}",
+        code,
+        diags
+    );
+}
+
+fn compile_loader_diagnostics_with_options(
+    src: &str,
+    options: CompileOptions,
+) -> Vec<nepl_core::diagnostic::Diagnostic> {
+    let result = compile_wasm(FileId(0), src, options);
+    let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
+        panic!("expected diagnostics");
+    };
+    diags
+}
+
+fn compile_err_loader_code_count_with_options(
+    src: &str,
+    options: CompileOptions,
+    code: LoaderDiagnosticCode,
+) -> usize {
+    compile_loader_diagnostics_with_options(src, options)
+        .iter()
+        .filter(|diag| diag.code == Some(DiagnosticCode::Loader(code)))
+        .count()
 }
 
 fn compile_ok_target(src: &str, target: CompileTarget) {
@@ -1351,16 +1391,46 @@ fn duplicate_target_directive_is_error() {
 fn main <()->i32> ():
     0
 "#;
-    let result = compile_wasm(
-        FileId(0),
+    compile_err_has_loader_code_with_options(
         src,
         CompileOptions {
             target: None,
             verbose: false,
             profile: None,
         },
+        LoaderDiagnosticCode::TargetMultipleDirective,
     );
-    assert!(result.is_err(), "expected error, got {:?}", result);
+}
+
+#[test]
+fn unknown_target_directive_has_loader_code() {
+    let src = r#"
+#target wasi2
+#entry main
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_loader_code_with_options(
+        src,
+        CompileOptions {
+            target: None,
+            verbose: false,
+            profile: None,
+        },
+        LoaderDiagnosticCode::TargetUnknown,
+    );
+    assert_eq!(
+        compile_err_loader_code_count_with_options(
+            src,
+            CompileOptions {
+                target: None,
+                verbose: false,
+                profile: None,
+            },
+            LoaderDiagnosticCode::TargetUnknown,
+        ),
+        1
+    );
 }
 
 #[test]

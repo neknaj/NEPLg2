@@ -1513,9 +1513,11 @@ fn resolve_target(
 ) -> Result<CompileTarget, CoreError> {
     let mut found: Option<(CompileTarget, Span)> = None;
     let mut diags = Vec::new();
+    let mut saw_target_directive = false;
     // First, check explicit module-level directives parsed into module.directives
     for d in &module.directives {
         if let ast::Directive::Target { target, span } = d {
+            saw_target_directive = true;
             let parsed = parse_target_name(target.as_str());
             if let Some(t) = parsed {
                 if let Some((_, prev_span)) = found {
@@ -1542,7 +1544,7 @@ fn resolve_target(
 
     // Fallback: some parsers/merging steps may leave a file-scoped #target as a top-level
     // statement rather than in module.directives; inspect root items as a safeguard.
-    if found.is_none() {
+    if !saw_target_directive {
         for it in &module.root.items {
             if let ast::Stmt::Directive(ast::Directive::Target { target, span }) = it {
                 let parsed = parse_target_name(target.as_str());

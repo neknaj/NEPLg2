@@ -191,6 +191,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `passes/move_check/context_state.rs` の move / borrow diagnostics を code-first helper へ移行した。use/drop/possibly moved/loop escape と shared/unique borrow conflict/borrow escape は、生成時点で `ResourceMoveDiagnosticCode` または `ResourceBorrowDiagnosticCode` を確定する。
 - 2026-04-29: `passes/move_check/visitor.rs` の deref borrow violation と loop body merge diagnostics を code-first helper へ移行した。non-Copy deref は `ResourceBorrowDiagnosticCode::MoveFromShared`、while body で発生する possibly moved state は `ResourceMoveDiagnosticCode::LoopPossiblyMoved` を生成時点で確定し、2 系統の while lowering 経路は同じ helper で診断する。
 - 2026-04-29: `passes/codegen_precheck.rs` の wasm / llvm precheck diagnostics を code-first helper へ移行した。wasm backend precheck は `WasmDiagnosticCode`、LLVM precheck の型境界は `TypeDiagnosticCode` を生成時点で確定する。`IndirectSignatureMissing` は現行の signature set 生成では到達しにくいことが判明したため、別 issue で signature source 分離または variant 整理を追跡する。
+- 2026-04-29: `target_precheck.rs` / `target_gate.rs` の raw body target、target directive、conditional gate diagnostics を code-first helper へ移行した。`#target` の fallback 走査では「有効 target が見つかったか」と「target directive を見たか」を分離し、unknown target を module directives と root items の両方で重複診断しないようにした。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

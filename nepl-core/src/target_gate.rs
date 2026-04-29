@@ -15,7 +15,7 @@ use crate::ast::{
 };
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
 use crate::span::Span;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -245,10 +245,10 @@ fn push_invalid_gate_diagnostic(
 }
 
 fn invalid_conditional_gate_diagnostic(span: Span) -> Diagnostic {
-    Diagnostic::error("invalid conditional compilation gate", span).with_code(
-        DiagnosticCode::Loader(
-            crate::diagnostic_codes::LoaderDiagnosticCode::ConditionalGateInvalid,
-        ),
+    Diagnostic::error_with_code(
+        DiagnosticCode::Loader(LoaderDiagnosticCode::ConditionalGateInvalid),
+        "invalid conditional compilation gate",
+        span,
     )
 }
 
