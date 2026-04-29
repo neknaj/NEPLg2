@@ -37,7 +37,31 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - test runner / doctest authoring policy の補強であり、compiler の静的検査は弱めていない。
+# 2026-04-30 メモ (ISS-20260425T000000Z-RV-CORE-016 Resource IR lowering deep call tree)
 
+- [同期]:
+  - `fix/resource-ir-lowering-deep-call-tree` branch で作業し、開始時に `git pull --rebase --autostash origin main` が `Already up to date` であることを確認した。
+  - commit 前の再同期で remote main の `cddf69e7` を取り込んだ。`issues/index.*` は再生成し、`note.n.md` は別 agent の std/test assertion report policy 記録と本作業記録を両方残して conflict を解消した。
+- [原因]:
+  - `run_move_check` が Resource IR gate を含むようになった後、deep prefix call chain の `prepare_codegen` / `compile_wasm` regression が再び native stack overflow した。
+  - 今回の再帰起点は旧 `move_check` ではなく、`nepl-core/src/resource/lower.rs` の `lower_expr_skeleton` が direct call argument を再帰的に lowering していたことだった。
+- [修正]:
+  - literal / unit / local read / function value / direct call だけで構成される単純 direct call tree を explicit stack の post-order lowering へ切り替えた。
+  - direct call の ResourceOp 生成を `push_direct_call_skeleton` に集約し、通常経路と iterative 経路で effect、call op、core mem wrapper semantics、raw address return semantics、raw memory operation を共有するようにした。
+  - `get` / `get_field` は field projection 専用 lowering が必要なため fast path から除外した。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-CORE-016-69B16F10` に Resource IR lowering 追加後の再発対応を追記した。
+  - 検証中に `nepl-core/tests/kp.rs` の `Resource(Cell(Uninit))` 失敗を見つけ、`ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA` として分離した。
+- [検証]:
+  - `rustfmt --check nepl-core/src/resource/lower.rs`: pass
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `cargo test -p nepl-core --test check_pipeline -- --nocapture`: 7 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 124 passed
+  - `cargo test -p nepl-core --test effects -- --nocapture`: 21 passed
+  - `cargo test -p nepl-core --test kp -- --nocapture`: failed。14 件中 9 passed / 5 failed。全て `Resource(Cell(Uninit))` 系で、新規 issue に分離済み。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - NEPLg2 の前置記法により深い prefix expression が自然に生じるため、compiler pipeline はこの入力形を native stack に依存せず扱う必要がある。
 # 2026-04-30 メモ (ISS-20260429T230100004Z getting_started generics Copy boundary)
 
 - [同期]:

@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T23:38:50.193Z",
+  "generated_at": "2026-04-29T23:49:32.059Z",
   "counts": {
-    "total": 412,
-    "open": 13,
+    "total": 413,
+    "open": 14,
     "resolved": 399,
     "by_area": {
       "core": {
-        "total": 189,
-        "open": 5,
+        "total": 190,
+        "open": 6,
         "resolved": 184
       },
       "stdlib": {
@@ -143,6 +143,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939.md"
+    },
+    {
+      "id": "ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA",
+      "title": "kp raw memory tests fail Resource IR initialized checks",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/tests/kp.rs, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -873,8 +888,8 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-25",
-      "updated": "2026-04-28",
-      "target": "nepl-core/src/passes/drop_insertion.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/monomorphize.rs, nepl-core/src/passes/codegen_precheck.rs, nepl-core/src/wasm_shared.rs, nepl-core/src/codegen_wasm.rs",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/passes/drop_insertion.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/monomorphize.rs, nepl-core/src/passes/codegen_precheck.rs, nepl-core/src/wasm_shared.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/resource/lower.rs",
       "legacy_id": "RV-CORE-016",
       "source": "doc/review20260425/core.md#rv-core-016",
       "file": "items/ISS-20260425T000000Z-RV-CORE-016-69B16F10.md"
