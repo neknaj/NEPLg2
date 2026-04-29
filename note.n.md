@@ -1,3 +1,27 @@
+# 2026-04-29 メモ (ISS-20260425T000000Z-RV-STDLIB-009 selfhost CLI args emit split)
+
+- [同期]:
+  - `main` が `origin/main` と一致していることを確認し、`stdlib/cli-args-emit-split` branch で作業した。
+- [原因]:
+  - `stdlib/neplg2/cli/args.nepl` は classifier 分離後も、parser state machine と emit artifact set の合成、`--emit` comma parser、emit 判定 helper を同じ file に残していた。
+  - emit set は parser loop の状態値ではあるが、artifact set の合成規則と value list parsing は parser の index 走査とは別責務であり、このままでは `args.nepl` が option 追加ごとに再肥大化する構造だった。
+- [修正]:
+  - `stdlib/neplg2/cli/args/emit.nepl` を追加し、emit set default、comma 区切り parser、emit set predicate を移した。
+  - `args.nepl` は `args/emit` を `pub #import` で再 export し、既存 `neplg2/cli/args` facade 経由の tests / driver 利用を保った。
+  - `nodesrc/test_selfhost_cli_args_types_split.js` を更新し、emit helper が `args.nepl` に戻らないことを固定した。
+  - `stdlib/neplg2/README.md` と `args/types.nepl` の責務説明を更新した。
+- [検証]:
+  - `node nodesrc/test_selfhost_cli_args_types_split.js`
+  - `node nodesrc/test_stdlib_match_decision_trees.js`
+  - `node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args/emit.nepl --no-tree -o tmp/cli-args-emit-direct.json -j 1`
+  - `node nodesrc/tests.js -i stdlib/neplg2/cli/args.nepl --no-tree -o tmp/cli-args-emit-facade.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/cli-args-emit-parser.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/cli-args-emit-driver.json -j 1`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host CLI stdlib の分割は `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として扱う。この issue は他の巨大 stdlib file が残るため open のまま。
+
 # 2026-04-29 メモ (ISS-20260429T053406066Z nm/parser doc policy scanner contract)
 
 - [同期]:
