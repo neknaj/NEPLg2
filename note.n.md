@@ -26741,6 +26741,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner/resource summary 周辺の正確性を改善し、`std/test` 側の一時回避を撤去した。
 
+# 2026-04-30 メモ (ISS-20260429T165748888Z ResourceIR call local borrow token scope)
+
+- [同期]:
+  - `main` を `origin/main` の `10bea5d` まで同期し、`resource/call-borrow-token-local-scope` branch で作業した。
+- [原因]:
+  - remote main の drop overwrite 修正では、`ResourceOp::Call` / `ResourceOp::IndirectCall` が return-token propagation 後に全 call 引数の borrow token を解放していた。
+  - 現在の lowering は call 引数を temporary に materialize するため drop overwrite は直るが、Resource IR model と checker API は `Local` place を call 引数に持てる。
+  - `Local` borrow token を直接渡す Resource IR で全引数を解放すると、local reference が生存しているのに source borrow が消え、後続の `Assign` conflict を見逃す。
+- [修正]:
+  - call 後に解放する borrow token を `PlaceRoot::Temporary` の引数 place に限定した。
+  - return-token propagation は先に行うため、返り値へ移った token は output 側で生存し続ける。
+  - `Local` borrow token を直接 call 引数に渡した場合、call 後の `Assign` conflict が残る Resource IR 回帰テストを追加した。
+- [検証]:
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_borrow_check -- --nocapture`: 16 passed
+  - `cargo test -p nepl-core --test drop_overwrite -- --nocapture`: 1 passed
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md --no-tree -o tmp/drop-overwrite-borrow-local-scope.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/compiler-after-call-borrow-local-scope.json -j 4 --dist web/dist`: total=649, passed=636, failed=13。残りは既存の ResourceIR owner obligation 系。
+- [issue]:
+  - `ISS-20260429T165748888Z-RESOURCE-IR-BORROW-CHECKER-RELEASES--5C0A5FEF` を追加し、fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T162608098Z Resource IR borrow call argument release)
 
 - [同期]:

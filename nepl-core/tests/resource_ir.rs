@@ -6809,6 +6809,94 @@ fn resource_ir_borrow_check_releases_non_returned_call_argument_borrow_token() {
 }
 
 #[test]
+fn resource_ir_borrow_check_keeps_local_call_argument_borrow_token_live() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let helper_param = Place::local("token".to_string(), i32_ty);
+    let x = Place::local("x".to_string(), i32_ty);
+    let local_ref = Place::local("r".to_string(), i32_ty);
+    let call_out = Place::temporary(ResourceId(0), unit_ty);
+    let replacement = Place::temporary(ResourceId(1), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "observe".to_string(),
+                params: vec![ResourceLocal {
+                    name: "token".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: helper_param,
+                }],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::Borrow {
+                            source: x.clone(),
+                            output: local_ref.clone(),
+                            kind: BorrowKind::Shared,
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: call_out,
+                            target: ResourceCallTarget::User {
+                                name: "observe".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![local_ref],
+                            effect: EffectOp::UserCall {
+                                name: "observe".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                        ResourceOp::Assign {
+                            target: x,
+                            value: replacement,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_borrow_lifetimes(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceBorrowDiagnostic::BorrowConflict {
+            function,
+            operation: ResourceBorrowOperation::Assign,
+            active: BorrowState::Shared { count: 1 },
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
 fn resource_ir_borrow_check_keeps_returned_call_argument_borrow_token_live() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();
