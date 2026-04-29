@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T05:51:33.422Z",
+  "generated_at": "2026-04-29T05:53:55.985Z",
   "counts": {
-    "total": 356,
+    "total": 357,
     "open": 10,
-    "resolved": 346,
+    "resolved": 347,
     "by_area": {
       "core": {
-        "total": 170,
+        "total": 171,
         "open": 4,
-        "resolved": 166
+        "resolved": 167
       },
       "stdlib": {
         "total": 102,
@@ -2628,6 +2628,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T034515729Z-RESOURCE-BORROW-NON-RETURN-CONFLICTS-12A5A5E4.md"
+    },
+    {
+      "id": "ISS-20260429T054411082Z-RESOURCE-EFFECT-CHECKER-KEEPS-RAW-ID-F3C413F2",
+      "title": "Resource effect checker keeps raw identity payload after destructive overwrite",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/effect_check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T054411082Z-RESOURCE-EFFECT-CHECKER-KEEPS-RAW-ID-F3C413F2.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

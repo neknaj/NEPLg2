@@ -526,13 +526,19 @@ impl ResourceEffectBoundaryEngine<'_> {
                 if let (Some(dst), Some(src)) = (args.first(), args.get(1)) {
                     if raw_memory_identities.contains(pointer_aliases, src) {
                         raw_memory_identities.mark(pointer_aliases, dst);
+                    } else {
+                        raw_memory_identities.clear(pointer_aliases, dst);
                     }
+                }
+            }
+            RawMemoryOp::Fill => {
+                if let Some(ptr) = args.first() {
+                    raw_memory_identities.clear(pointer_aliases, ptr);
                 }
             }
             RawMemoryOp::Alloc
             | RawMemoryOp::MemorySize
             | RawMemoryOp::MemoryGrow
-            | RawMemoryOp::Fill
             | RawMemoryOp::Other { .. } => {}
         }
     }

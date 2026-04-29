@@ -802,6 +802,147 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_raw_slot() {
     )));
 }
 
+fn raw_identity_payload_escape_after_destructive_overwrite(overwrite: RawMemoryOp) -> bool {
+    let unit_ty = TypeId(0);
+    let i32_ty = TypeId(1);
+    let span = Span::dummy();
+    let identity_size = Place::temporary(ResourceId(0), i32_ty);
+    let identity = Place::temporary(ResourceId(1), i32_ty);
+    let slot_size = Place::temporary(ResourceId(2), i32_ty);
+    let slot = Place::temporary(ResourceId(3), i32_ty);
+    let clean_size = Place::temporary(ResourceId(4), i32_ty);
+    let clean_source = Place::temporary(ResourceId(5), i32_ty);
+    let len = Place::temporary(ResourceId(6), i32_ty);
+    let fill_value = Place::temporary(ResourceId(7), i32_ty);
+    let store_unit = Place::temporary(ResourceId(8), unit_ty);
+    let overwrite_unit = Place::temporary(ResourceId(9), unit_ty);
+    let loaded = Place::temporary(ResourceId(10), i32_ty);
+    let overwrite_args = match overwrite {
+        RawMemoryOp::Fill => vec![slot.clone(), len.clone(), fill_value.clone()],
+        RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => {
+            vec![slot.clone(), clean_source.clone(), len.clone()]
+        }
+        _ => panic!("unsupported destructive overwrite operation"),
+    };
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: identity_size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: identity.clone(),
+                        args: vec![identity_size],
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: slot_size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: slot.clone(),
+                        args: vec![slot_size],
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: clean_size.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: clean_source,
+                        args: vec![clean_size],
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: len,
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: fill_value,
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Store,
+                        output: store_unit,
+                        args: vec![slot.clone(), identity],
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: overwrite,
+                        output: overwrite_unit,
+                        args: overwrite_args,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: loaded.clone(),
+                        args: vec![slot],
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(loaded),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    report.diagnostics.iter().any(|diagnostic| {
+        matches!(
+            diagnostic,
+            ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc { .. }
+        )
+    })
+}
+
+#[test]
+fn resource_ir_effect_check_clears_raw_identity_payload_on_fill() {
+    assert!(!raw_identity_payload_escape_after_destructive_overwrite(
+        RawMemoryOp::Fill
+    ));
+}
+
+#[test]
+fn resource_ir_effect_check_clears_raw_identity_payload_on_bulk_copy() {
+    assert!(!raw_identity_payload_escape_after_destructive_overwrite(
+        RawMemoryOp::BulkCopy
+    ));
+}
+
+#[test]
+fn resource_ir_effect_check_clears_raw_identity_payload_on_bulk_move() {
+    assert!(!raw_identity_payload_escape_after_destructive_overwrite(
+        RawMemoryOp::BulkMove
+    ));
+}
+
 #[test]
 fn resource_ir_effect_check_preserves_raw_slot_pointer_alias_stored_in_aggregate_field() {
     let mut types = TypeCtx::new();

@@ -340,3 +340,11 @@ raw slot payload identity は pointer alias group で key 化しているため�
 `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 として、Resource IR CellState の destructive raw storage diagnostics を compiler pipeline の D3100 gate に接続した。`store` / `dealloc` / `realloc` / `fill` / bulk copy/move が live non-Copy raw cell を上書き・解放・byte move する場合は、Resource IR 側の state からも error 化される。
 
 一方、`RawMemoryLoadCell` の authoritative 化はまだ保留した。helper-returned raw slot、`MemPtr` wrapper、field projection 経由の raw load では Resource IR CellState の raw pointer summary が不足し、full gate では false D3100 が出る。残件は `ISS-20260428T170745661Z-RESOURCE-IR-RAWMEMORYLOADCELL-GATE-N-1CBE1D0E` に分離した。
+
+## 2026-04-29 Stage 5 destructive overwrite identity clear 追記
+
+`ISS-20260429T054411082Z-RESOURCE-EFFECT-CHECKER-KEEPS-RAW-ID-F3C413F2` として、Resource effect checker の raw memory identity payload が destructive overwrite 後も残る問題を分離し、修正した。
+
+Stage 5 の raw identity escape 判定では、pointer value 自体の raw identity と raw memory slot に格納された identity payload を分ける必要がある。`Store` は通常値を書いた場合に payload を clear していたが、`BulkCopy` / `BulkMove` の non-identity source と `Fill` は destination の stale payload を消していなかった。
+
+今回の修正で、bulk copy/move は source payload の有無に応じて destination を mark または clear し、fill は destination payload を常に clear する。これにより、内部 allocation identity を含んでいた raw slot が後続の destructive overwrite で通常 bytes に置き換わった場合、後続 load/return を誤って `RawAddressEscapeFromInternalAlloc` と扱わなくなる。

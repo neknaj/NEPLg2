@@ -22,6 +22,28 @@
   - `plan.md` 自体は変更していない。
   - self-host CLI stdlib の分割は `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として扱う。この issue は他の巨大 stdlib file が残るため open のまま。
 
+# 2026-04-29 メモ (ISS-20260429T054411082Z Resource effect raw identity overwrite clear)
+
+- [同期]:
+  - `main` を `origin/main` と同期した後、`work/resource-effect-identity-overwrite-clear` branch を作成して作業した。
+- [原因]:
+  - Resource effect checker の `RawMemoryIdentityTable` は raw memory slot に格納された internal allocation identity payload を追跡するが、destructive overwrite の扱いが operation ごとに揃っていなかった。
+  - `Store` は通常値を書いた場合に destination payload を clear していた一方、`BulkCopy` / `BulkMove` は source が identity payload を持つ場合だけ mark し、source が通常 bytes の場合に destination の stale payload を消していなかった。
+  - `Fill` も destination bytes を破壊的に上書きするにもかかわらず payload state を更新していなかった。
+- [修正]:
+  - `BulkCopy` / `BulkMove` は source payload がある場合に destination へ伝播し、ない場合は destination を clear するようにした。
+  - `Fill` は destination の raw identity payload を常に clear するようにした。
+  - Resource IR 単体テストで fill / bulk copy / bulk move の 3 経路を固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_clears_raw_identity_payload -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 の raw identity escape diagnostics の補強として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T053406066Z nm/parser doc policy scanner contract)
 
 - [同期]:
