@@ -33,14 +33,14 @@ assert.match(code, /fn\s+read\s+<\(StreamScanner\)\*>f64>\s+\(sc\):[\s\S]*scan_f
 
 assert.match(
     code,
-    /fn\s+stream_scanner_load_header_result\s+<\(MemPtr<u8>,StreamScannerHeaderField\)->Result<i32,str>>\s+\(header,\s*field\):[\s\S]*match\s+load_i32\s+p:[\s\S]*Option::None:[\s\S]*Result<i32,str>::Err\s+"streamio\.stream_scanner_load_header failed"/,
-    'stream scanner header loads must return Result instead of trapping',
+    /fn\s+stream_scanner_load_header_result\s+<\(MemPtr<u8>,StreamScannerHeaderField\)->Result<i32,str>>\s+\(header,\s*field\):[\s\S]*le\s+raw\s+0[\s\S]*Result<i32,str>::Err\s+"streamio\.stream_scanner_load_header failed"[\s\S]*Result<i32,str>::Ok\s+load_i32\s+add\s+raw\s+stream_scanner_header_off\s+field/,
+    'stream scanner header loads must return Result through the scanner header boundary instead of trapping',
 );
 
 assert.match(
     code,
-    /fn\s+stream_scanner_store_header_result\s+<\(MemPtr<u8>,StreamScannerHeaderField,i32\)->Result<\(\),str>>\s+\(header,\s*field,\s*v\):[\s\S]*match\s+store_i32\s+p\s+v:[\s\S]*Result::Err\s+_e:[\s\S]*Result<\(\),str>::Err\s+"streamio\.stream_scanner_store_header failed"/,
-    'stream scanner header stores must return Result instead of trapping',
+    /fn\s+stream_scanner_store_header_result\s+<\(MemPtr<u8>,StreamScannerHeaderField,i32\)->Result<\(\),str>>\s+\(header,\s*field,\s*v\):[\s\S]*le\s+raw\s+0[\s\S]*Result<\(\),str>::Err\s+"streamio\.stream_scanner_store_header failed"[\s\S]*store_i32\s+add\s+raw\s+stream_scanner_header_off\s+field\s+v[\s\S]*Result<\(\),str>::Ok\s+\(\)/,
+    'stream scanner header stores must return Result through the scanner header boundary instead of trapping',
 );
 
 assert.match(
@@ -51,20 +51,20 @@ assert.match(
 
 assert.match(
     code,
-    /fn\s+push_u8_impl\s+<\(StreamWriter,i32\)\*>StreamWriter>\s+\(w,\s*b\):[\s\S]*match\s+store_u8\s+mem_ptr_add\s+buf\s+write_len\s+b:[\s\S]*Result::Ok\s+_:[\s\S]*stream_writer_store_header\s+w_mem\s+StreamWriterHeaderField::WriteLen\s+add\s+write_len\s+1[\s\S]*Result::Err\s+_e:[\s\S]*\(\)[\s\S]*w1/,
+    /fn\s+push_u8_impl\s+<\(StreamWriter,i32\)\*>StreamWriter>\s+\(w,\s*b\):[\s\S]*match\s+store_u8\s+mem_ptr_add\s+\*get_ref\s+&w1\s+"buf"\s+write_len\s+b:[\s\S]*Result::Ok\s+_:[\s\S]*StreamWriter\s+get\s+w1\s+"buf"\s+cap\s+add\s+write_len\s+1\s+target\s+@stream_writer_noncopy_marker[\s\S]*Result::Err\s+_e:[\s\S]*w1/,
     'push_u8_impl must only advance WriteLen after the byte store succeeds',
 );
 
 assert.match(
     code,
-    /fn\s+append_str_impl\s+<\(StreamWriter,str\)\*>StreamWriter>\s+\(w,\s*s\):[\s\S]*while\s+and\s+eq\s+done\s+0\s+lt\s+i\s+n:[\s\S]*match\s+load_u8\s+mem_ptr_add\s+src\s+i:[\s\S]*Option::Some\s+ch:[\s\S]*set\s+ww\s+push_u8_impl\s+ww\s+ch/,
-    'append_str_impl must stream through checked byte loads and push_u8_impl',
+    /fn\s+append_str_impl\s+<\(StreamWriter,str\)\*>StreamWriter>\s+\(w,\s*s\):[\s\S]*while\s+lt\s+i\s+n:[\s\S]*string_byte_at_unchecked\s+s\s+i[\s\S]*set\s+ww\s+push_u8_impl\s+ww\s+ch/,
+    'append_str_impl must stream through the alloc/string byte boundary and push_u8_impl',
 );
 
 assert.match(
     code,
-    /fn\s+append_bytebuf_impl\s+<\(StreamWriter,ByteBuf\)\*>StreamWriter>\s+\(w,\s*bytes\):[\s\S]*while\s+and\s+eq\s+done\s+0\s+lt\s+i\s+n:[\s\S]*match\s+load_u8\s+mem_ptr_add\s+src\s+i:[\s\S]*Option::Some\s+ch:[\s\S]*set\s+ww\s+push_u8_impl\s+ww\s+ch[\s\S]*io_bytebuf_free\s+bytes/,
-    'append_bytebuf_impl must stream through checked byte loads, preserve ownership cleanup, and avoid unsafe unwrap',
+    /fn\s+append_bytebuf_impl\s+<\(StreamWriter,ByteBuf\)\*>StreamWriter>\s+\(w,\s*bytes\):[\s\S]*while\s+and\s+eq\s+done\s+0\s+lt\s+i\s+n:[\s\S]*match\s+stream_writer_bytebuf_byte_at\s+&bytes\s+i:[\s\S]*Option::Some\s+ch:[\s\S]*set\s+ww\s+push_u8_impl\s+ww\s+ch[\s\S]*io_bytebuf_free\s+bytes/,
+    'append_bytebuf_impl must stream through the borrowed ByteBuf byte boundary, preserve ownership cleanup, and avoid unsafe unwrap',
 );
 
 assert.doesNotMatch(code, /store_u8\s+mem_ptr_add\s+buf\s+off/, 'numeric writer helpers must not bypass push_u8_impl with direct buffer stores');

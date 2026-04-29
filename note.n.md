@@ -26334,3 +26334,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正 plan の Stage 4/Resource IR 責務分離を進め、owner 検査の flow/summary 補助責務を監査可能な粒度へ分けた。
+
+# 2026-04-29 メモ (ISS-20260427T044701965Z streamio source policy alignment)
+
+- [同期]:
+  - `origin/main` の `7bebfd9` まで同期した `main` から `work/streamio-header-checked-memory-regression` branch を作成した。
+- [原因]:
+  - GitHub Actions の Source policy regressions は `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` で停止していた。
+  - test は `stream_scanner_load_header_result` に `match load_i32 p` を要求していたが、現在の scanner 境界では Resource IR のために unproven typed header pointer load を再導入せず、scanner header boundary 内で raw header address を扱う設計に変わっている。
+  - test は StreamWriter raw header 設計の `StreamWriterHeaderField::WriteLen` 更新も要求していたが、現在の StreamWriter は `buf/cap/write_len/target` field を持つ owning struct へ再設計済みである。
+  - test は append 側の直接 raw byte load も要求していたが、現在は `alloc/string` の byte boundary と borrowed ByteBuf helper に責務を移している。
+- [修正]:
+  - `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を現在の scanner/header boundary と StreamWriter owning struct 設計に合わせて更新した。
+  - unsafe unwrap / `#intrinsic "unreachable"` の禁止は維持し、`streamio_scanner_boundary` / `streamio_writer_boundary` と矛盾しない source policy に整理した。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+- [追加で確認した残件]:
+  - source policy 一式を進めると、次に `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` が `RegionToken` ptr の direct `get` を検出する。これは既存 `ISS-20260428T224138753Z-STRING-CONSTRUCTORS-REUSE-REGIONTOKE-91ED01B9` の再発または未完了として別 commit で扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 実装ではなく、静的検査と stdlib memory-safety 境界を監視する source policy の古い前提を現在の設計へ合わせた。

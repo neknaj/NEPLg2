@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T14:12:54.187Z",
+  "generated_at": "2026-04-29T14:23:37.636Z",
   "counts": {
     "total": 378,
     "open": 15,
@@ -5383,7 +5383,7 @@
       "priority": "P2",
       "type": "bug",
       "created": "2026-04-27",
-      "updated": "2026-04-27",
+      "updated": "2026-04-29",
       "target": "stdlib/std/streamio.nepl, tests/stdlib/streamio.n.md, nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js",
       "legacy_id": "",
       "source": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

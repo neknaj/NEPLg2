@@ -7,7 +7,7 @@ resolved: true
 priority: P2
 type: bug
 created: 2026-04-27
-updated: 2026-04-27
+updated: 2026-04-29
 target: "stdlib/std/streamio.nepl, tests/stdlib/streamio.n.md, nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js"
 source: ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB
 ---
@@ -55,3 +55,19 @@ checked memory helper は match で受け、内部 Result 版 helperに集約す
 - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-checked-memory-focused.json -j 1`: 13/13 passed
 - `node nodesrc/tests.js -i tests/stdlib --no-tree -o tmp/tests-stdlib-streamio-checked-memory.json -j 4`: 305/305 passed
 - `node nodesrc/tests.js -i stdlib --no-tree -o tmp/stdlib-streamio-checked-memory.json -j 4`: 418/418 passed
+
+## 2026-04-29 Source policy alignment
+
+StreamScanner の Resource IR 境界修正と StreamWriter の owning struct 化の後、`nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` が古い実装形を要求したまま残り、GitHub Actions の Source policy regressions が失敗した。
+
+- `stream_scanner_load_header_result` について、古い test は `match load_i32 p` を要求していたが、現在の scanner boundary は `RegionToken` pointer 経由の unproven typed load を再導入しないため、raw scanner header boundary 内で `raw <= 0` を `Result::Err` に丸める設計にしている。
+- `push_u8_impl` について、古い test は `StreamWriterHeaderField::WriteLen` へ header store する旧設計を要求していたが、現在の StreamWriter は `buf/cap/write_len/target` を struct field として保持する設計に移行済みである。
+- `append_str_impl` / `append_bytebuf_impl` について、古い test は直接 `load_u8 mem_ptr_add ...` を要求していたが、現在は `alloc/string` の byte boundary と borrowed ByteBuf helper へ責務を分離している。
+
+修正では `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を現在の設計へ合わせた。unsafe unwrap / unreachable の禁止は維持し、scanner/header boundary、StreamWriter owning struct、borrowed ByteBuf byte helper を弱めない形で source policy を更新した。
+
+追加検証:
+
+- `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+- `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
