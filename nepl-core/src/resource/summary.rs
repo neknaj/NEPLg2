@@ -35,6 +35,7 @@ pub(super) struct OwnerReturnSummary {
     pub(super) consumed_parameter_indices: Vec<usize>,
     pub(super) consumed_parameter_sources: Vec<OwnerProjectionSource>,
     pub(super) returns_fresh_owner: bool,
+    pub(super) returns_maybe_owner: bool,
     pub(super) projection_returns: Vec<OwnerProjectionReturnSummary>,
     pub(super) projection_markers: Vec<OwnerProjectionMarker>,
 }
@@ -59,6 +60,7 @@ pub(super) struct OwnerProjectionReturnSummary {
     pub(super) parameter_indices: Vec<usize>,
     pub(super) parameter_sources: Vec<OwnerProjectionSource>,
     pub(super) returns_fresh_owner: bool,
+    pub(super) returns_maybe_owner: bool,
 }
 
 pub(super) fn compute_borrow_token_return_summaries(
@@ -130,6 +132,7 @@ pub(super) fn compute_owner_return_summaries(
         for function in &module.functions {
             let summary = function_owner_return_summary(function, types, &summaries);
             if summary.returns_fresh_owner
+                || summary.returns_maybe_owner
                 || !summary.parameter_indices.is_empty()
                 || !summary.parameter_sources.is_empty()
                 || !summary.consumed_parameter_indices.is_empty()
@@ -186,6 +189,7 @@ fn function_owner_return_summary(
     let mut parameter_indices = Vec::new();
     let mut parameter_sources = Vec::new();
     let mut returns_fresh_owner = false;
+    let mut returns_maybe_owner = false;
     let mut projection_returns = Vec::new();
     let mut projection_markers = Vec::new();
     let mut returned_sources = Vec::new();
@@ -218,7 +222,20 @@ fn function_owner_return_summary(
                         returns_fresh_owner = true;
                     }
                 }
-                Some(OwnerState::MaybeFreed) => {}
+                Some(OwnerState::MaybeFreed { storage }) => {
+                    if let Some(source) = storage.and_then(|storage| {
+                        owner_source_for_storage(storage, &parameter_storage_sources)
+                    }) {
+                        record_root_owner_return(
+                            &mut parameter_indices,
+                            &mut parameter_sources,
+                            &mut returned_sources,
+                            source,
+                        );
+                    } else {
+                        returns_maybe_owner = true;
+                    }
+                }
                 Some(OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed)
                 | None => {}
             }
@@ -242,7 +259,25 @@ fn function_owner_return_summary(
                                 entry.place.ty,
                             );
                         }
-                        OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed => {}
+                        OwnerState::MaybeFreed { storage } => {
+                            if let Some(storage) = storage {
+                                record_projection_owner_return(
+                                    &mut projection_returns,
+                                    suffix,
+                                    entry.place.ty,
+                                    storage,
+                                    &parameter_storage_sources,
+                                    &mut returned_sources,
+                                );
+                            } else {
+                                record_projection_maybe_owner_return(
+                                    &mut projection_returns,
+                                    suffix,
+                                    entry.place.ty,
+                                );
+                            }
+                        }
+                        OwnerState::Moved | OwnerState::Freed => {}
                     }
                 }
             }
@@ -258,6 +293,7 @@ fn function_owner_return_summary(
         consumed_parameter_indices,
         consumed_parameter_sources,
         returns_fresh_owner,
+        returns_maybe_owner,
         projection_returns,
         projection_markers,
     }
@@ -276,7 +312,7 @@ fn consumed_owner_parameters(
             continue;
         }
         match owners.state(&entry.place) {
-            Some(OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed) => {
+            Some(OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed { .. }) => {
                 if source.suffix.is_empty() {
                     push_unique_usize(&mut indices, source.parameter_index);
                 } else {
@@ -307,6 +343,7 @@ fn record_projection_owner_return(
                 parameter_indices: Vec::new(),
                 parameter_sources: Vec::new(),
                 returns_fresh_owner: false,
+                returns_maybe_owner: false,
             });
             projection_returns.len() - 1
         });
@@ -319,6 +356,28 @@ fn record_projection_owner_return(
     } else {
         projection_returns[entry_index].returns_fresh_owner = true;
     }
+}
+
+fn record_projection_maybe_owner_return(
+    projection_returns: &mut Vec<OwnerProjectionReturnSummary>,
+    suffix: Vec<PlaceProjection>,
+    ty: TypeId,
+) {
+    let entry_index = projection_returns
+        .iter()
+        .position(|entry| entry.suffix == suffix && entry.ty == ty)
+        .unwrap_or_else(|| {
+            projection_returns.push(OwnerProjectionReturnSummary {
+                suffix: suffix.clone(),
+                ty,
+                parameter_indices: Vec::new(),
+                parameter_sources: Vec::new(),
+                returns_fresh_owner: false,
+                returns_maybe_owner: false,
+            });
+            projection_returns.len() - 1
+        });
+    projection_returns[entry_index].returns_maybe_owner = true;
 }
 
 fn record_projection_marker(

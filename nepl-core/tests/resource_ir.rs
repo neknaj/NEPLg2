@@ -5927,6 +5927,108 @@ fn main <()* >str> ():
 }
 
 #[test]
+fn resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/diag/error" as *
+#import "alloc/io" as *
+#import "alloc/string" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn make_nonempty <()* >Result<ByteBuf, StdErrorKind>> ():
+    match alloc_ptr<u8> 3:
+        Result::Ok out:
+            let out_raw <i32> mem_ptr_addr out
+            let data <MemPtr<u8>> string_data_ptr "abc"
+            let data_raw <i32> mem_ptr_addr data
+            mem_copy out_raw data_raw 3
+            Result<ByteBuf, StdErrorKind>::Ok ByteBuf out 3
+        Result::Err _e:
+            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+
+fn main <()* >()> ():
+    match make_nonempty ():
+        Result::Ok bytes:
+            io_bytebuf_free bytes
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("make_nonempty__")
+                || function.starts_with("io_bytebuf_free__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "binding mem_ptr_addr output for a copy must not move the allocation owner before constructing ByteBuf: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_reports_leaked_conditional_owner_return() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn maybe_alloc <(bool)->i32> (flag):
+    if flag:
+        alloc_raw 4
+    else:
+        0
+
+fn main <()->()> ():
+    let _p <i32> maybe_alloc true
+    ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        !report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::DeclareInitializer,
+                ..
+            }
+        )),
+        "moving a conditional owner into a local must preserve the maybe obligation instead of reporting it as unavailable: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. }
+                if function.starts_with("main__")
+        )),
+        "a conditional owner returned from a callee must remain an obligation in the caller: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_moves_stored_tail_owner_under_new_raw_node() {
     let source = r#"
 #entry main
@@ -6940,7 +7042,7 @@ fn resource_ir_owner_merge_rejects_dealloc_after_conditional_dealloc() {
         ResourceOwnerDiagnostic::OwnerUnavailable {
             function,
             operation: ResourceOwnerOperation::Dealloc,
-            state: OwnerState::MaybeFreed,
+            state: OwnerState::MaybeFreed { .. },
             ..
         } if function == "main"
     )));

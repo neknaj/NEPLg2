@@ -52,7 +52,7 @@ impl OwnerTable {
             .filter(|entry| {
                 matches!(
                     entry.state,
-                    OwnerState::Live { .. } | OwnerState::MaybeFreed
+                    OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }
                 )
             })
             .cloned()
@@ -67,7 +67,7 @@ impl OwnerTable {
                     || place_suffix_after_prefix(&entry.place, prefix).is_some())
                     && matches!(
                         entry.state,
-                        OwnerState::Live { .. } | OwnerState::MaybeFreed
+                        OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }
                     )
             })
             .cloned()
@@ -107,12 +107,17 @@ impl OwnerTable {
     }
 
     pub(super) fn has_transferable_owner(&self, place: &Place) -> bool {
-        self.state(place)
-            .is_some_and(|state| matches!(state, OwnerState::Live { .. }))
-            || self
-                .descendant_entries(place)
-                .iter()
-                .any(|entry| matches!(entry.state, OwnerState::Live { .. }))
+        self.state(place).is_some_and(|state| {
+            matches!(
+                state,
+                OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }
+            )
+        }) || self.descendant_entries(place).iter().any(|entry| {
+            matches!(
+                entry.state,
+                OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }
+            )
+        })
     }
 
     pub(super) fn has_tracked_state_under(&self, place: &Place) -> bool {
@@ -214,11 +219,64 @@ fn merge_owner_states(left: OwnerState, right: OwnerState) -> OwnerState {
         | (OwnerState::Moved, OwnerState::NoFreeObligation)
         | (OwnerState::Moved, OwnerState::Freed)
         | (OwnerState::Freed, OwnerState::Moved) => OwnerState::NoFreeObligation,
+        (OwnerState::Live { storage }, OwnerState::NoFreeObligation)
+        | (OwnerState::NoFreeObligation, OwnerState::Live { storage })
+        | (OwnerState::Live { storage }, OwnerState::Moved)
+        | (OwnerState::Moved, OwnerState::Live { storage })
+        | (OwnerState::Live { storage }, OwnerState::Freed)
+        | (OwnerState::Freed, OwnerState::Live { storage }) => OwnerState::MaybeFreed {
+            storage: Some(storage),
+        },
+        (
+            OwnerState::MaybeFreed {
+                storage: left_storage,
+            },
+            OwnerState::MaybeFreed {
+                storage: right_storage,
+            },
+        ) => OwnerState::MaybeFreed {
+            storage: merge_maybe_storage(left_storage, right_storage),
+        },
+        (
+            OwnerState::MaybeFreed {
+                storage: maybe_storage,
+            },
+            OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed,
+        )
+        | (
+            OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed,
+            OwnerState::MaybeFreed {
+                storage: maybe_storage,
+            },
+        ) => OwnerState::MaybeFreed {
+            storage: maybe_storage,
+        },
+        (
+            OwnerState::MaybeFreed {
+                storage: maybe_storage,
+            },
+            OwnerState::Live { storage },
+        )
+        | (
+            OwnerState::Live { storage },
+            OwnerState::MaybeFreed {
+                storage: maybe_storage,
+            },
+        ) => OwnerState::MaybeFreed {
+            storage: merge_maybe_storage(maybe_storage, Some(storage)),
+        },
         (OwnerState::NoFreeObligation, OwnerState::NoFreeObligation) => {
             OwnerState::NoFreeObligation
         }
         (OwnerState::Moved, OwnerState::Moved) => OwnerState::Moved,
         (OwnerState::Freed, OwnerState::Freed) => OwnerState::Freed,
-        _ => OwnerState::MaybeFreed,
+        _ => OwnerState::MaybeFreed { storage: None },
+    }
+}
+
+fn merge_maybe_storage(left: Option<StorageId>, right: Option<StorageId>) -> Option<StorageId> {
+    match (left, right) {
+        (Some(left), Some(right)) if left == right => Some(left),
+        _ => None,
     }
 }

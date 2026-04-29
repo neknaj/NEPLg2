@@ -26066,6 +26066,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `.n.md` assertion suite が使う stdlib report API を structured assertion model へ進めた。
   - 既存 assertion suite の全面移行と report 省略 lint は `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` で継続する。
 
+# 2026-04-29 メモ (ISS-20260429T125126519Z io_bytebuf_from_str_result owner transfer)
+
+- [同期]:
+  - `origin/main` の `e5552ff` まで同期した main から `work/io-bytebuf-from-str-owner` branch を作成した。
+- [原因]:
+  - `io_bytebuf_from_str_result` の非空 branch では `alloc_ptr<u8>` で得た `MemPtr` owner を `ByteBuf.ptr` へ移す必要がある。
+  - しかし Resource IR owner checker は `mem_ptr_addr out` の戻り値を owning raw value と同じように扱い、`let out_raw = mem_ptr_addr out` の時点で `out.raw` の free obligation を `out_raw` へ move していた。
+  - その後の `ByteBuf out byte_len` は `out.raw` が `Moved` になった状態で評価され、`ConstructInput` が失敗していた。
+  - 空/非空 branch の合流で発生する `MaybeFreed` owner は、return summary と caller 側 move に伝播させないと検査が抜ける。一方で `MaybeFreed` は dealloc 可能とみなしてはいけないため、move 可能な条件付き owner state として扱う必要があった。
+- [修正]:
+  - `mem_ptr_addr` を非所有 raw address view として分類し、call return summary による owner transfer 対象から外した。
+  - 直接 owner を持たず raw alias だけを持つ `i32` initializer は、`let`/assign で owner を move せず alias と storage origin だけを引き継ぐようにした。
+  - `OwnerState::MaybeFreed` に storage provenance を持たせ、function summary で conditional owner を caller へ伝播できるようにした。
+  - `MaybeFreed` は declaration / assignment / branch value / call argument / return value では move 可能、release/dealloc では引き続き unavailable として扱うようにした。
+  - owner flow の raw address ownership 判定は `RawAddressOwnershipKind` enum に閉じ、追加時に match の網羅性が効く形へ寄せた。
+  - ByteBuf の空/非空 owner invariant を構造的に表す残件を `ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2` として分離した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 31 passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/io.nepl --no-tree -o tmp/alloc-io-bytebuf-owner-after.json -j 1 --dist web/dist`: `total=1`, `passed=1`, `failed=0`
+  - remote main の StreamWriter 修正取り込み後、`node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/alloc-io-bytebuf-streamio-after-rebase.json -j 1 --dist web/dist`: `total=14`, `passed=7`, `failed=7`。失敗は std/test assertion result 未集約、stdio/fs ByteBuf conditional owner、fs raw load であり、`mem_ptr_addr` による `ConstructInput out Moved` ではない。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の Resource owner check で、非所有 pointer view と free obligation owner の分離を進めた。
+  - ByteBuf API の構造化は Stage 6 の stdlib memory API migration として残した。
+
 # 2026-04-29 メモ (ISS-20260429T125051782Z string_from_mem owner contract)
 
 - [同期]:
