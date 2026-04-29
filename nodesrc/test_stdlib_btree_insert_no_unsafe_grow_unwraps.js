@@ -26,6 +26,14 @@ function functionBlock(file, name) {
         .join('\n');
 }
 
+function sourceWithoutComments(file) {
+    const src = fs.readFileSync(path.join(repoRoot, file), 'utf8');
+    return src
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*\/\//.test(line))
+        .join('\n');
+}
+
 const forbidden = [
     /\bunwrap\b/,
     /\bunwrap_ok\b/,
@@ -55,5 +63,36 @@ assert.match(btreeSetInsert, /match\s+btreeset_grow<\.T>\s+set0:/, 'BTreeSet.ins
 assert.match(btreeSetInsert, /Result::Err\s+d:/, 'BTreeSet.insert must keep an Err arm');
 assert.match(btreeSetInsert, /err<BTreeSet<\.T>,\s*Diag>\s+d/, 'BTreeSet.insert must return grow Err');
 assertNoUnsafeUnwraps('stdlib/alloc/collections/btreeset.nepl', ['insert', 'btreeset_insert_ready']);
+
+const btreeMapSource = sourceWithoutComments('stdlib/alloc/collections/btreemap.nepl');
+assert.match(btreeMapSource, /struct BTreeMapStorage<\.K,\.V>:/, 'BTreeMap must keep typed storage wrapper');
+assert.match(btreeMapSource, /keys\s+<Vec<Option<\.K>>>/, 'BTreeMap keys must use Vec<Option<K>> storage');
+assert.match(btreeMapSource, /values\s+<Vec<Option<\.V>>>/, 'BTreeMap values must use Vec<Option<V>> storage');
+assert.match(btreeMapSource, /match\s+btreemap_key_at<\.K>/, 'BTreeMap must branch on Option key slots');
+
+const btreeSetSource = sourceWithoutComments('stdlib/alloc/collections/btreeset.nepl');
+assert.match(btreeSetSource, /struct BTreeSetStorage<\.T>:/, 'BTreeSet must keep typed storage wrapper');
+assert.match(btreeSetSource, /keys\s+<Vec<Option<\.T>>>/, 'BTreeSet keys must use Vec<Option<T>> storage');
+assert.match(btreeSetSource, /match\s+btreeset_key_at<\.T>/, 'BTreeSet must branch on Option key slots');
+
+const rawStoragePatterns = [
+    /\bMemPtr\b/,
+    /\balloc_raw\b/,
+    /\bdealloc_raw\b/,
+    /\balloc_ptr\b/,
+    /\brealloc_ptr\b/,
+    /\bload_i32\b/,
+    /\bstore_i32\b/,
+    /\bmem_ptr_addr\b/,
+    /\bhdr\s+<i32>/,
+    /\bkeys_ptr\b/,
+    /\bvalues_ptr\b/,
+];
+
+for (const [name, src] of [['BTreeMap', btreeMapSource], ['BTreeSet', btreeSetSource]]) {
+    for (const pattern of rawStoragePatterns) {
+        assert.doesNotMatch(src, pattern, `${name} must not return to raw header or raw pointer storage: ${pattern}`);
+    }
+}
 
 console.log('btree insert grow unsafe unwrap regression passed');

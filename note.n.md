@@ -1,3 +1,35 @@
+# 2026-04-30 メモ (ISS-20260429T155343006Z BTreeMap/BTreeSet typed storage)
+
+- [同期]:
+  - `main` の `c31384d` から `stdlib/btree-owner-state` branch を作成して作業した。
+  - commit 前に remote main の `ed38583` (Deque typed storage) を取り込み、issue 進捗の競合は Deque / BTreeMap / BTreeSet 両方の進捗を残して解決した。
+- [原因]:
+  - BTreeMap / BTreeSet は raw header に `len/cap/data_ptr` を詰め、key/value storage の初期化状態を raw pointer と live length の慣習だけで管理していた。
+  - `tests/stdlib/pipe_collections.n.md` の BTreeMap / BTreeSet doctest で、Resource IR が raw memory cell owner state を構造的に追跡できず失敗していた。
+  - header を薄く包むだけでは static check が効かないため、slot state を型で表す必要があった。
+- [修正]:
+  - `BTreeMapStorage<K,V>` / `BTreeSetStorage<T>` を追加し、raw header / raw pointer storage を廃止した。
+  - backing storage は `Vec<Option<K>>` / `Vec<Option<V>>` / `Vec<Option<T>>` とし、live slot を `Some`、inactive slot を `None` で表すようにした。
+  - lower_bound / insert shift / remove shift / clear は `match` で slot state を扱う helper へ整理した。
+  - payload は現行 stdlib の drop traversal 未整備に合わせて Copy に限定した。
+  - `len_ref` / `contains_ref` / `get_ref` を追加し、owner-preserving read と terminal by-value read を分離した。
+  - by-value `len` / `contains` / `get` は観測後に storage を `free` して owner を閉じる。
+  - BTree source policy を更新し、`MemPtr` / `alloc_raw` / `dealloc_raw` / `load_i32` / `store_i32` / raw header へ戻らないことを固定した。
+- [新規issue]:
+  - `nodesrc/tests.js` を複数プロセスで同時実行した場合に partial JSON のまま exit 1 になる harness 問題を確認したため、`ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7` を追加した。
+  - この新規 issue について Discord に直接報告済み。
+- [issue]:
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` に BTreeMap / BTreeSet 部分進捗を追記した。issue 全体は Deque / Vec / BinaryHeap などが残るため open のまま。
+- [検証]:
+  - `node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl --no-tree -o tmp/btreemap-typed-storage-docs.json -j 1 --dist web/dist`: 8 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreeset.nepl --no-tree -o tmp/btreeset-typed-storage-docs.json -j 1 --dist web/dist`: 7 passed
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md --no-tree -o tmp/btreemap-typed-storage-tests.json -j 1 --dist web/dist`: 5 passed
+  - `node nodesrc/tests.js -i stdlib/tests/btreeset.n.md --no-tree -o tmp/btreeset-typed-storage-tests.json -j 1 --dist web/dist`: 5 passed
+  - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-btree-typed-storage.json -j 1 --dist web/dist`: 8 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T155343006Z Stack typed storage)
 
 - [同期]:

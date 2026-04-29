@@ -216,6 +216,33 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- `BTreeMap` / `BTreeSet` の raw storage owner state が `tests/stdlib/pipe_collections.n.md` で残る。
+- `BTreeMap` / `BTreeSet` の raw storage owner state は後続の BTreeMap / BTreeSet 部分進捗で typed storage へ移行済み。
 - `Vec` / `BinaryHeap` などの raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
 - Deque は Copy payload 前提であり、非 Copy payload の drop traversal は collection-wide drop 設計で扱う。
+
+## 2026-04-30 BTreeMap / BTreeSet 部分進捗
+
+`stdlib/alloc/collections/btreemap.nepl` と `stdlib/alloc/collections/btreeset.nepl` は、旧 raw header + raw key/value pointer layout を廃止し、typed `Vec<Option<T>>` storage へ移行した。
+
+進捗:
+
+- `BTreeMapStorage<K,V>` / `BTreeSetStorage<T>` を追加し、backing storage owner を struct field として保持するようにした。
+- live slot は `Some(value)`、inactive slot は `None` で表し、lower_bound / insert shift / remove shift / clear は `match` で slot state を扱う。
+- payload は現行 stdlib の drop traversal 未整備に合わせて `.K: Copy`, `.V: Copy`, `.T: Copy` に限定した。
+- `len_ref` / `contains_ref` / `get_ref` を追加し、owner を残す読み取りと terminal by-value 読み取りを分離した。
+- by-value `len` / `contains` / `get` は観測後に storage を `free` して owner を閉じる。
+- `nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js` を更新し、BTreeMap / BTreeSet が raw header / raw pointer storage へ戻らないことを source policy で固定した。
+
+検証:
+
+- `node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js`: passed
+- `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl --no-tree -o tmp/btreemap-typed-storage-docs.json -j 1 --dist web/dist`: total=8, passed=8
+- `node nodesrc/tests.js -i stdlib/alloc/collections/btreeset.nepl --no-tree -o tmp/btreeset-typed-storage-docs.json -j 1 --dist web/dist`: total=7, passed=7
+- `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md --no-tree -o tmp/btreemap-typed-storage-tests.json -j 1 --dist web/dist`: total=5, passed=5
+- `node nodesrc/tests.js -i stdlib/tests/btreeset.n.md --no-tree -o tmp/btreeset-typed-storage-tests.json -j 1 --dist web/dist`: total=5, passed=5
+- `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-btree-typed-storage.json -j 1 --dist web/dist`: total=8, passed=8
+
+残件:
+
+- `Vec` / `BinaryHeap` などの raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
+- `tests.js` を複数プロセスで同時実行したとき、partial JSON のまま終了する harness 問題を `ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7` として分離した。

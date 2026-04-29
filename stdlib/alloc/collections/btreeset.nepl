@@ -8,81 +8,179 @@
 //:
 //: ### [実装/じっそう]
 //: - [名前/なまえ]は `BTreeSet` ですが、[実体/じったい]は[整列済/せいれつず]み key [配列/はいれつ]です。
+//: - backing storage は `Vec<Option<T>>` で[保持/ほじ]し、live slot は `Some`、inactive slot は `None` で[表/あらわ]します。
 //: - [検索/けんさく]は lower_bound、[挿入/そうにゅう] / [削除/さくじょ]は shift で[実装/じっそう]します。
 //: - `sorted_array_set_*` alias は[同/おな]じ[実装/じっそう]を[指/さ]し、B-tree [相当/そうとう]の[更新/こうしん][性能/せいのう]を[期待/きたい]しない[用途/ようと]であることを[呼/よ]び[出/だ]し[名/めい]に[残/のこ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [本物/ほんもの]の B-tree ではありません。
 //: - 大きな mutable set、visited set、module traversal set には[使/つか]わないでください。更新が[多/おお]い[集合/しゅうごう]は `HashSet` を[使/つか]い、安定順の[出力/しゅつりょく]が[必要/ひつよう]な[段階/だんかい]だけ key を[整列/せいれつ]する[構造/こうぞう]を[選/えら]びます。
-//: - 小さな[集合/しゅうごう]、構築後に[検索/けんさく]中心になる[順序付き/じゅんじょつき] set、または最終出力の安定順を[保/たも]つ[用途/ようと]に[限定/げんてい]してください。
+//: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には set payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
+//: - `len` / `contains` は set を[値/あたい]で[消費/しょうひ]し、内部 storage を[閉/と]じます。owner を[残/のこ]す[読/よ]み[取/と]りは `len_ref` / `contains_ref` を[使/つか]います。
 //: - `Ord` impl が[全順序/ぜんじゅんじょ]を[満/み]たすことを[前提/ぜんてい]にします。
 //:
 //: ### [計算量/けいさんりょう]
-//: - `contains` は O(log n)、`insert` / `remove` は O(n) です。
+//: - `contains_ref` は O(log n)、`insert` / `remove` は O(n) です。
 
 #indent 4
 
-#import "core/mem" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
 #import "core/traits/ord" as *
+#import "core/traits/copy" as *
 #import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+
+//: ## BTreeSetStorage
+//: [順序付き/じゅんじょつき] set の backing storage
+//:
+//: ### [不変条件/ふへんじょうけん]
+//: - `keys.len == cap`
+//: - `0 <= i < len` の slot は `Some`
+//: - `len <= i < cap` の slot は `None`
+struct BTreeSetStorage<.T>:
+    keys <Vec<Option<.T>>>
 
 //: ## BTreeSet
 //: [順序付き/じゅんじょつき] key [配列/はいれつ]の[本体/ほんたい]
 //:
 //: ### [目的/もくてき]
-//: - key [配列/はいれつ]と[長/なが]さ header を 1 [値/あたい]として[所有/しょゆう]します。
+//: - key [配列/はいれつ]と[長/なが]さを 1 [値/あたい]として[所有/しょゆう]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [本物/ほんもの]の B-tree node [分割/ぶんかつ]は[持/も]たず、lower_bound と shift による[単純/たんじゅん][実装/じっそう]です。
 struct BTreeSet<.T>:
-    hdr <i32>
+    len <i32>
+    cap <i32>
+    storage <BTreeSetStorage<.T>>
 
-fn btreeset_keys_ptr <(i32)->i32> (hdr):
-    load_i32 add hdr 8
+fn btreeset_storage_keys <.T> <(&BTreeSetStorage<.T>)->&Vec<Option<.T>>> (storage):
+    field::get_ref storage "keys"
 
 fn btreeset_key_eq <.T: Ord> <(.T,.T)->bool> (a, b):
     and not ord_lt a b not ord_lt b a
 
-fn btreeset_lower_bound <.T: Ord> <(i32,.T,i32,i32)->i32> (keys, key, low, high):
+fn btreeset_key_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (keys, idx):
+    match vec::get_ref<Option<.T>> keys idx:
+        Option::Some key_opt:
+            key_opt
+        Option::None:
+            none<.T>
+
+fn btreeset_store_key <.T: Copy> <(&Vec<Option<.T>>,i32,Option<.T>)*>()> (keys, idx, key):
+    vec::replace_ref<Option<.T>> keys idx key
+
+fn btreeset_key_slot <.T: Copy> <(&BTreeSetStorage<.T>,i32)->Option<.T>> (storage, idx):
+    btreeset_key_at<.T> btreeset_storage_keys<.T> storage idx
+
+fn btreeset_store_key_slot <.T: Copy> <(&BTreeSetStorage<.T>,i32,Option<.T>)*>()> (storage, idx, key):
+    btreeset_store_key<.T> btreeset_storage_keys<.T> storage idx key
+
+fn btreeset_lower_bound <.T: Ord&Copy> <(&Vec<Option<.T>>,.T,i32,i32)->i32> (keys, key, low, high):
     if:
         lt low high
         then:
             let mid <i32> div_s add low high 2
-            let saved <.T> load<.T> add keys mul mid size_of<.T>
-            if:
-                ord_lt saved key
-                then btreeset_lower_bound<.T> keys key add mid 1 high
-                else btreeset_lower_bound<.T> keys key low mid
+            match btreeset_key_at<.T> keys mid:
+                Option::Some saved:
+                    if:
+                        ord_lt saved key
+                        then btreeset_lower_bound<.T> keys key add mid 1 high
+                        else btreeset_lower_bound<.T> keys key low mid
+                Option::None:
+                    mid
         else low
 
-fn btreeset_is_at <.T: Ord> <(i32,i32,i32,.T)->bool> (keys, len0, idx, key):
+fn btreeset_is_at <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32,.T)->bool> (keys, len0, idx, key):
     if:
         lt idx len0
-        then btreeset_key_eq<.T> load<.T> add keys mul idx size_of<.T> key
+        then:
+            match btreeset_key_at<.T> keys idx:
+                Option::Some saved:
+                    btreeset_key_eq<.T> saved key
+                Option::None:
+                    false
         else false
 
-fn btreeset_grow <.T> <(BTreeSet<.T>)*>Result<BTreeSet<.T>, Diag>> (set0):
-    let hdr <i32> field::get set0 "hdr"
-    let len0 <i32> load_i32 hdr
-    let cap0 <i32> load_i32 add hdr 4
-    let keys0 <i32> btreeset_keys_ptr hdr
-    let cap1 <i32> mul cap0 2
-    let keys1 <i32> alloc_raw mul cap1 size_of<.T>
+fn btreeset_lower_bound_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,.T,i32,i32)->i32> (storage, key, low, high):
+    btreeset_lower_bound<.T> btreeset_storage_keys<.T> storage key low high
+
+fn btreeset_is_at_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,i32,i32,.T)->bool> (storage, len0, idx, key):
+    btreeset_is_at<.T> btreeset_storage_keys<.T> storage len0 idx key
+
+fn btreeset_free_storage <.T> <(BTreeSetStorage<.T>)->()> (storage):
+    let keys <Vec<Option<.T>>> field::get storage "keys"
+    vec::free<Option<.T>> keys
+
+fn btreeset_alloc_storage <.T: Copy> <(i32)*>Result<BTreeSetStorage<.T>, Diag>> (cap):
+    match vec::filled<Option<.T>> cap none<.T>:
+        Result::Err _e:
+            diag_err<BTreeSetStorage<.T>> diag_out_of_memory
+        Result::Ok keys:
+            ok<BTreeSetStorage<.T>, Diag> BTreeSetStorage<.T> keys
+
+fn btreeset_copy_live_slots <.T: Copy> <(&BTreeSetStorage<.T>,&BTreeSetStorage<.T>,i32)*>()> (src, dst, len0):
+    let src_keys <&Vec<Option<.T>>> btreeset_storage_keys<.T> src
+    let dst_keys <&Vec<Option<.T>>> btreeset_storage_keys<.T> dst
+    let mut i <i32> 0
+    while lt i len0:
+        do:
+            match btreeset_key_at<.T> src_keys i:
+                Option::Some key:
+                    btreeset_store_key<.T> dst_keys i some<.T> key
+                Option::None:
+                    ()
+            set i add i 1
+
+fn btreeset_clear_slots <.T: Copy> <(&BTreeSetStorage<.T>,i32,i32)*>()> (storage, end, i):
     if:
-        eq keys1 0
-        then diag_err<BTreeSet<.T>> diag_out_of_memory
+        lt i end
+        then:
+            btreeset_store_key<.T> btreeset_storage_keys<.T> storage i none<.T>
+            btreeset_clear_slots<.T> storage end add i 1
         else:
-            let mut i <i32> 0
-            while lt i len0:
-                do:
-                    store<.T> add keys1 mul i size_of<.T> load<.T> add keys0 mul i size_of<.T>
-                    set i add i 1
-            dealloc_raw keys0 mul cap0 size_of<.T>
-            store_i32 add hdr 4 cap1
-            store_i32 add hdr 8 keys1
-            ok<BTreeSet<.T>, Diag> set0
+            ()
+
+fn btreeset_shift_right <.T: Copy> <(&BTreeSetStorage<.T>,i32,i32)*>()> (storage, idx, len0):
+    let mut i <i32> len0
+    while gt i idx:
+        do:
+            let from <i32> sub i 1
+            match btreeset_key_slot<.T> storage from:
+                Option::Some saved_key:
+                    btreeset_store_key_slot<.T> storage i some<.T> saved_key
+                Option::None:
+                    btreeset_store_key_slot<.T> storage i none<.T>
+            set i from
+
+fn btreeset_shift_left_after_remove <.T: Copy> <(&BTreeSetStorage<.T>,i32,i32)*>()> (storage, idx, len0):
+    let last <i32> sub len0 1
+    let mut i <i32> idx
+    while lt i last:
+        do:
+            let nxt <i32> add i 1
+            match btreeset_key_slot<.T> storage nxt:
+                Option::Some saved_key:
+                    btreeset_store_key_slot<.T> storage i some<.T> saved_key
+                Option::None:
+                    btreeset_store_key_slot<.T> storage i none<.T>
+            set i nxt
+    btreeset_store_key_slot<.T> storage last none<.T>
+
+fn btreeset_grow <.T: Copy> <(BTreeSet<.T>)*>Result<BTreeSet<.T>, Diag>> (set0):
+    let len0 <i32> *field::get_ref &set0 "len"
+    let cap0 <i32> *field::get_ref &set0 "cap"
+    let storage <BTreeSetStorage<.T>> field::get set0 "storage"
+    let cap1 <i32> mul cap0 2
+    match btreeset_alloc_storage<.T> cap1:
+        Result::Err d:
+            btreeset_free_storage<.T> storage
+            err<BTreeSet<.T>, Diag> d
+        Result::Ok next_storage:
+            btreeset_copy_live_slots<.T> &storage &next_storage len0
+            btreeset_free_storage<.T> storage
+            ok<BTreeSet<.T>, Diag> BTreeSet<.T> len0 cap1 next_storage
 
 //: ## new
 //: [空/から]の `BTreeSet<.T>` を[作/つく]る
@@ -98,27 +196,16 @@ fn btreeset_grow <.T> <(BTreeSet<.T>)*>Result<BTreeSet<.T>, Diag>> (set0):
 //:     let s <BTreeSet<i32>> unwrap_ok<BTreeSet<i32>, Diag> new<i32>;
 //:     if eq len s 0 1 0
 //: ```
-fn new <.T> <()*>Result<BTreeSet<.T>, Diag>> ():
+fn new <.T: Copy> <()*>Result<BTreeSet<.T>, Diag>> ():
     let cap <i32> 8
-    let keys <i32> alloc_raw mul cap size_of<.T>
-    if:
-        eq keys 0
-        then diag_err<BTreeSet<.T>> diag_out_of_memory
-        else:
-            let hdr <i32> alloc_raw 12
-            if:
-                eq hdr 0
-                then:
-                    dealloc_raw keys mul cap size_of<.T>
-                    diag_err<BTreeSet<.T>> diag_out_of_memory
-                else:
-                    store_i32 hdr 0
-                    store_i32 add hdr 4 cap
-                    store_i32 add hdr 8 keys
-                    ok<BTreeSet<.T>, Diag> BTreeSet hdr
+    match btreeset_alloc_storage<.T> cap:
+        Result::Err d:
+            err<BTreeSet<.T>, Diag> d
+        Result::Ok storage:
+            ok<BTreeSet<.T>, Diag> BTreeSet<.T> 0 cap storage
 
 //: ## len
-//: [要素数/ようそすう]を[返/かえ]す
+//: set を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
 //:
 //: neplg2:test
 //: ```neplg2
@@ -135,10 +222,17 @@ fn new <.T> <()*>Result<BTreeSet<.T>, Diag>> ():
 //:     if eq len s 2 1 0
 //: ```
 fn len <.T> <(BTreeSet<.T>)->i32> (set0):
-    load_i32 field::get set0 "hdr"
+    let n <i32> len_ref<.T> &set0
+    free<.T> set0
+    n
+
+//: ## len_ref
+//: set を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
+fn len_ref <.T> <(&BTreeSet<.T>)->i32> (set0):
+    *field::get_ref set0 "len"
 
 //: ## contains
-//: key の[存在/そんざい]を[確/たし]かめる
+//: set を[消費/しょうひ]して key の[存在/そんざい]を[確/たし]かめる
 //:
 //: neplg2:test
 //: ```neplg2
@@ -153,10 +247,17 @@ fn len <.T> <(BTreeSet<.T>)->i32> (set0):
 //:         |> insert 7 |> uwok
 //:     if contains s 7 1 0
 //: ```
-fn contains <.T: Ord> <(BTreeSet<.T>,.T)->bool> (set0, key):
-    let hdr <i32> field::get set0 "hdr"
-    let len0 <i32> load_i32 hdr
-    let keys <i32> btreeset_keys_ptr hdr
+fn contains <.T: Ord&Copy> <(BTreeSet<.T>,.T)->bool> (set0, key):
+    let ok <bool> contains_ref<.T> &set0 key
+    free<.T> set0
+    ok
+
+//: ## contains_ref
+//: set を[移動/いどう]せずに key の[存在/そんざい]を[確/たし]かめる
+fn contains_ref <.T: Ord&Copy> <(&BTreeSet<.T>,.T)->bool> (set0, key):
+    let len0 <i32> *field::get_ref set0 "len"
+    let storage <&BTreeSetStorage<.T>> field::get_ref set0 "storage"
+    let keys <&Vec<Option<.T>>> btreeset_storage_keys<.T> storage
     let idx <i32> btreeset_lower_bound<.T> keys key 0 len0
     btreeset_is_at<.T> keys len0 idx key
 
@@ -169,24 +270,18 @@ fn contains <.T: Ord> <(BTreeSet<.T>,.T)->bool> (set0, key):
 //:
 //: ### [計算量/けいさんりょう]
 //: - lower_bound は O(log n)、新規[挿入/そうにゅう]時の shift は O(n) です。
-fn btreeset_insert_ready <.T: Ord> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set1, key):
-    let hdr <i32> field::get set1 "hdr"
-    let len0 <i32> load_i32 hdr
-    let keys <i32> btreeset_keys_ptr hdr
-    let idx <i32> btreeset_lower_bound<.T> keys key 0 len0
+fn btreeset_insert_ready <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set1, key):
+    let len0 <i32> *field::get_ref &set1 "len"
+    let cap0 <i32> *field::get_ref &set1 "cap"
+    let storage <BTreeSetStorage<.T>> field::get set1 "storage"
+    let idx <i32> btreeset_lower_bound_storage<.T> &storage key 0 len0
     if:
-        btreeset_is_at<.T> keys len0 idx key
-        then ok<BTreeSet<.T>, Diag> set1
+        btreeset_is_at_storage<.T> &storage len0 idx key
+        then ok<BTreeSet<.T>, Diag> BTreeSet<.T> len0 cap0 storage
         else:
-            let mut i <i32> len0
-            while gt i idx:
-                do:
-                    let from <i32> sub i 1
-                    store<.T> add keys mul i size_of<.T> load<.T> add keys mul from size_of<.T>
-                    set i from
-            store<.T> add keys mul idx size_of<.T> key
-            store_i32 hdr add len0 1
-            ok<BTreeSet<.T>, Diag> set1
+            btreeset_shift_right<.T> &storage idx len0
+            btreeset_store_key_slot<.T> &storage idx some<.T> key
+            ok<BTreeSet<.T>, Diag> BTreeSet<.T> add len0 1 cap0 storage
 
 //: ## insert
 //: key を[集合/しゅうごう]へ[挿入/そうにゅう]する
@@ -215,10 +310,9 @@ fn btreeset_insert_ready <.T: Ord> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag
 //:         |> insert 3 |> uwok
 //:     if eq len s 2 1 0
 //: ```
-fn insert <.T: Ord> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set0, key):
-    let hdr0 <i32> field::get set0 "hdr"
-    let len_init <i32> load_i32 hdr0
-    let cap_init <i32> load_i32 add hdr0 4
+fn insert <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set0, key):
+    let len_init <i32> *field::get_ref &set0 "len"
+    let cap_init <i32> *field::get_ref &set0 "cap"
     if:
         eq len_init cap_init
         then:
@@ -246,23 +340,18 @@ fn insert <.T: Ord> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set0, key):
 //:         |> remove 7
 //:     if eq len s 0 1 0
 //: ```
-fn remove <.T: Ord> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set0, key):
-    let hdr <i32> field::get set0 "hdr"
-    let len0 <i32> load_i32 hdr
-    let keys <i32> btreeset_keys_ptr hdr
-    let idx <i32> btreeset_lower_bound<.T> keys key 0 len0
+fn remove <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set0, key):
+    let len0 <i32> *field::get_ref &set0 "len"
+    let cap0 <i32> *field::get_ref &set0 "cap"
+    let storage <BTreeSetStorage<.T>> field::get set0 "storage"
+    let idx <i32> btreeset_lower_bound_storage<.T> &storage key 0 len0
     if:
-        not btreeset_is_at<.T> keys len0 idx key
-        then set0
+        not btreeset_is_at_storage<.T> &storage len0 idx key
+        then BTreeSet<.T> len0 cap0 storage
         else:
-            let mut i <i32> idx
-            while lt i sub len0 1:
-                do:
-                    let nxt <i32> add i 1
-                    store<.T> add keys mul i size_of<.T> load<.T> add keys mul nxt size_of<.T>
-                    set i nxt
-            store_i32 hdr sub len0 1
-            set0
+            let last <i32> sub len0 1
+            btreeset_shift_left_after_remove<.T> &storage idx len0
+            BTreeSet<.T> last cap0 storage
 
 //: ## clear
 //: [全要素/ぜんようそ]を[削除/さくじょ]する
@@ -281,13 +370,15 @@ fn remove <.T: Ord> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set0, key):
 //:         |> clear
 //:     if eq len s 0 1 0
 //: ```
-fn clear <.T> <(BTreeSet<.T>)*>BTreeSet<.T>> (set0):
-    let hdr <i32> field::get set0 "hdr"
-    store_i32 hdr 0
-    set0
+fn clear <.T: Copy> <(BTreeSet<.T>)*>BTreeSet<.T>> (set0):
+    let len0 <i32> *field::get_ref &set0 "len"
+    let cap0 <i32> *field::get_ref &set0 "cap"
+    let storage <BTreeSetStorage<.T>> field::get set0 "storage"
+    btreeset_clear_slots<.T> &storage len0 0
+    BTreeSet<.T> 0 cap0 storage
 
 //: ## free
-//: [内部/ないぶ]メモリを[解放/かいほう]する
+//: [内部/ないぶ] storage を[解放/かいほう]する
 //:
 //: neplg2:test
 //: ```neplg2
@@ -301,11 +392,9 @@ fn clear <.T> <(BTreeSet<.T>)*>BTreeSet<.T>> (set0):
 //:     free s;
 //:     0
 //: ```
-fn free <.T> <(BTreeSet<.T>)*>()> (set0):
-    let hdr <i32> field::get set0 "hdr"
-    let cap <i32> load_i32 add hdr 4
-    dealloc_raw btreeset_keys_ptr hdr mul cap size_of<.T>
-    dealloc_raw hdr 12
+fn free <.T> <(BTreeSet<.T>)->()> (set0):
+    let storage <BTreeSetStorage<.T>> field::get set0 "storage"
+    btreeset_free_storage<.T> storage
 
 //: ## sorted_array_set_new
 //: sorted-array set として `new` を[呼/よ]ぶ[別名/べつめい]
@@ -349,7 +438,7 @@ fn sorted_array_set_len len;
 //: sorted-array set として `clear` を[呼/よ]ぶ[別名/べつめい]
 //:
 //: ### [計算量/けいさんりょう]
-//: - `clear` と[同/おな]じ O(1) です。
+//: - `clear` と[同/おな]じ O(n) です。
 fn sorted_array_set_clear clear;
 
 //: ## sorted_array_set_free
