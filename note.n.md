@@ -26499,3 +26499,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 実装ではなく、NM JSON serializer の責務分割に source policy を追従させた。
+
+# 2026-04-29 メモ (ISS-20260429T151946482Z ByteBuf to str free boundary)
+
+- [同期]:
+  - `main` の `f7d4506` から `work/bytebuf-to-str-free-boundary` branch を作成した。
+  - 直前の source policy 修正後、次の局所失敗として `nodesrc/test_stdlib_bytebuf_utf8_boundary.js` の invalid UTF-8 消費境界を確認した。
+- [原因]:
+  - `io_bytebuf_to_str_result` は `ByteBuf.ptr` を `match get buf "ptr"` で取り出し、invalid UTF-8 / string allocation failure / 成功時に raw `data` を `dealloc_ptr<u8>` で直接解放していた。
+  - `ByteBuf` は `Option<MemPtr<u8>>` によって空 buffer と所有 storage を構造的に分けたため、変換関数側も `io_bytebuf_free` を唯一の owner 消費境界として使う必要がある。
+- [修正]:
+  - `io_bytebuf_to_str_result` は `io_bytebuf_len_ref &buf` と `io_bytebuf_ptr_ref &buf` で検証用 view を取得し、元の `ByteBuf` owner は戻る直前に `io_bytebuf_free buf` で消費するようにした。
+  - invalid UTF-8、`string_from_mem_unchecked_result` 失敗、成功時のすべてで raw pointer 直接 free をやめた。
+  - 不正な `Option::None`/nonzero length と無効 pointer branch でも、戻る前に `io_bytebuf_free` 境界を通すようにした。
+- [検証]:
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: passed
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/io.nepl --no-tree -o tmp/alloc-io-bytebuf-free-boundary.json -j 1 --dist web/dist`: `total=1`, `passed=1`
+  - `node nodesrc/tests.js -i tests/stdlib/bytebuf_result.n.md --no-tree -o tmp/bytebuf-result-free-boundary.json -j 1 --dist web/dist`: `total=6`, `passed=6`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 6 の stdlib memory API 責務分離として、ByteBuf storage の解放責務を `io_bytebuf_free` に集約した。

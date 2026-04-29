@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T15:09:23.691Z",
+  "generated_at": "2026-04-29T15:20:35.427Z",
   "counts": {
-    "total": 381,
+    "total": 382,
     "open": 15,
-    "resolved": 366,
+    "resolved": 367,
     "by_area": {
       "core": {
         "total": 177,
@@ -12,9 +12,9 @@
         "resolved": 172
       },
       "stdlib": {
-        "total": 113,
+        "total": 114,
         "open": 7,
-        "resolved": 106
+        "resolved": 107
       },
       "TEST": {
         "total": 4,
@@ -4053,6 +4053,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T143605389Z-STD-CLIARG-WASI-OUT-POINTER-READS-FA-B9DCD161.md"
+    },
+    {
+      "id": "ISS-20260429T151946482Z-IO-BYTEBUF-TO-STR-RESULT-BYPASSES-BY-2A21E174",
+      "title": "io_bytebuf_to_str_result bypasses ByteBuf free boundary on conversion failures",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/io.nepl, nodesrc/test_stdlib_bytebuf_utf8_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T151946482Z-IO-BYTEBUF-TO-STR-RESULT-BYPASSES-BY-2A21E174.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

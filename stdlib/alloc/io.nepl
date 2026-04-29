@@ -229,6 +229,7 @@ fn io_bytebuf_from_str <(str)->ByteBuf> (text):
 //:
 //: [実装/じっそう]:
 //: - `string_utf8_validate_mem` で UTF-8 として妥当か確認し、成功時だけ `string_from_mem_unchecked_result` で文字列領域を確保して複製します。
+//: - 検証と複製に使う pointer は借用 view から得て、入力 `ByteBuf` の所有権は最後に `io_bytebuf_free` で一度だけ消費します。
 //: - 成功時も失敗時も入力 `ByteBuf` はこの関数が解放します。
 //:
 //: [注意/ちゅうい]:
@@ -238,42 +239,35 @@ fn io_bytebuf_from_str <(str)->ByteBuf> (text):
 //: [計算量/けいさんりょう]:
 //: - 入力長 n に対して O(n) です。
 fn io_bytebuf_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
-    let byte_len <i32> get buf "len"
-    match get buf "ptr":
+    let byte_len <i32> io_bytebuf_len_ref &buf
+    match io_bytebuf_ptr_ref &buf:
         Option::None:
             if:
                 eq byte_len 0
                 then:
                     Result<str, StdErrorKind>::Ok ""
                 else:
+                    io_bytebuf_free buf
                     Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
         Option::Some data:
             if:
                 le mem_ptr_addr data 0
                 then:
+                    io_bytebuf_free buf
                     Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
                 else:
                     match string_utf8_validate_mem data byte_len:
                         Result::Err _e:
-                            match dealloc_ptr<u8> data io_bytebuf_storage_size byte_len:
-                                Result::Ok _:
-                                    Result<str, StdErrorKind>::Err StdErrorKind::InvalidUtf8
-                                Result::Err _free:
-                                    Result<str, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                            io_bytebuf_free buf
+                            Result<str, StdErrorKind>::Err StdErrorKind::InvalidUtf8
                         Result::Ok _:
                             match string_from_mem_unchecked_result data byte_len:
                                 Result::Err _e:
-                                    match dealloc_ptr<u8> data io_bytebuf_storage_size byte_len:
-                                        Result::Ok _:
-                                            Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
-                                        Result::Err _free:
-                                            Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                    io_bytebuf_free buf
+                                    Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
                                 Result::Ok text:
-                                    match dealloc_ptr<u8> data io_bytebuf_storage_size byte_len:
-                                        Result::Ok _:
-                                            Result<str, StdErrorKind>::Ok text
-                                        Result::Err _free:
-                                            Result<str, StdErrorKind>::Ok text
+                                    io_bytebuf_free buf
+                                    Result<str, StdErrorKind>::Ok text
 
 //: io_bytebuf_to_str: `ByteBuf` を `str` へ変換する互換 facade
 //:
