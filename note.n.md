@@ -1,3 +1,26 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z trait bound collection code-first diagnostics)
+
+- [同期]:
+  - `7e6e55f` を `main` / `origin/main` へ push した後、`work/typecheck-traits-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/traits.rs` には type parameter の trait bound 収集中に、trait bound arity mismatch と unknown trait bound の診断で `Diagnostic::error(...).with_code(...)` が残っていた。
+  - trait bound collection は generic type safety の前提なので、diagnostic code を後付けせず生成時点で `TypeDiagnosticCode` を確定する必要がある。
+- [修正]:
+  - `TraitTypeParamsUnsupported` と `TraitBoundUnknown` を `type_error(...)` helper 経由へ移行した。
+  - Rust 回帰テストで unknown trait bound と trait bound type argument count mismatch の enum code を確認するようにした。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/traits.rs`: no matches
+  - `cargo test -p nepl-core --test neplg2 trait_bound_ -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 45 --dist web/dist`: pass。`type.trait_bound.unknown` が出ることを確認した。
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の trait bound collection follow-up として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z function checker code-first diagnostics)
 
 - [同期]:

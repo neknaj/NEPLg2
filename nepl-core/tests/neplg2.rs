@@ -1,4 +1,4 @@
-use nepl_core::diagnostic_codes::DiagnosticCode;
+use nepl_core::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
 use nepl_core::error::CoreError;
 use nepl_core::loader::Loader;
 use nepl_core::span::FileId;
@@ -30,6 +30,29 @@ fn compile_err(src: &str) {
         },
     );
     assert!(result.is_err(), "expected error, got {:?}", result);
+}
+
+fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags
+            .iter()
+            .any(|diag| diag.code == Some(DiagnosticCode::Type(code))),
+        "missing type diagnostic {:?}: {:?}",
+        code,
+        diags
+    );
 }
 
 fn compile_ok_target(src: &str, target: CompileTarget) {
@@ -1612,7 +1635,26 @@ fn call_show <.T: Missing> <(.T)->i32> (x):
 fn main <()->i32> ():
     0
 "#;
-    compile_err(src);
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitBoundUnknown);
+}
+
+#[test]
+fn trait_bound_type_arg_count_mismatch_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+
+trait Boxy<.T>:
+    fn get <(Self)->.T> (x):
+        unreachable
+
+fn use_boxy <.T: Boxy<i32, i32>> <(.T)->i32> (_x):
+    0
+
+fn main <()->i32> ():
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitTypeParamsUnsupported);
 }
 
 #[test]

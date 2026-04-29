@@ -5,10 +5,11 @@ use alloc::vec::Vec;
 
 use crate::ast::TypeParam;
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
+use super::diagnostics::type_error;
 use super::type_expr::{type_from_expr, LabelEnv};
 
 #[derive(Debug, Clone)]
@@ -137,20 +138,16 @@ pub(super) fn collect_type_params(
         for b in &p.bounds {
             if let Some(info) = traits.get(&b.name.name) {
                 if info.type_params.len() != b.args.len() {
-                    diags.push(
-                        Diagnostic::error(
-                            format!(
-                                "trait bound '{}' expects {} type arguments, found {}",
-                                b.name.name,
-                                info.type_params.len(),
-                                b.args.len()
-                            ),
-                            b.name.span,
-                        )
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::TraitTypeParamsUnsupported,
-                        )),
-                    );
+                    diags.push(type_error(
+                        TypeDiagnosticCode::TraitTypeParamsUnsupported,
+                        format!(
+                            "trait bound '{}' expects {} type arguments, found {}",
+                            b.name.name,
+                            info.type_params.len(),
+                            b.args.len()
+                        ),
+                        b.name.span,
+                    ));
                     continue;
                 }
                 let arg_tys: Vec<TypeId> = b
@@ -172,15 +169,11 @@ pub(super) fn collect_type_params(
                     }
                 }
             } else {
-                diags.push(
-                    Diagnostic::error(
-                        format!("unknown trait bound '{}'", b.name.name),
-                        p.name.span,
-                    )
-                    .with_code(DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::TraitBoundUnknown,
-                    )),
-                );
+                diags.push(type_error(
+                    TypeDiagnosticCode::TraitBoundUnknown,
+                    format!("unknown trait bound '{}'", b.name.name),
+                    p.name.span,
+                ));
             }
         }
         ctx.set_var_capabilities(id, copy_cap, clone_cap, drop_cap);

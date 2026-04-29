@@ -338,3 +338,20 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 43 --dist web/dist`: pass。`type.trait_bound.unsatisfied` が出ることを確認した。
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 trait bound collection follow-up 追記
+
+`typecheck/traits.rs` には type parameter の trait bound 収集中に、trait bound arity mismatch と unknown trait bound の診断を `Diagnostic::error(...).with_code(...)` で後付けする処理が残っていた。trait bound は generic type safety の前提なので、収集段階で `TypeDiagnosticCode` を確定する。
+
+今回の対応で `TraitTypeParamsUnsupported` と `TraitBoundUnknown` を `type_error(...)` helper 経由へ移行した。Rust 回帰テストでは unknown trait bound と trait bound type argument count mismatch の enum code を確認する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/traits.rs`: no matches
+- `cargo test -p nepl-core --test neplg2 trait_bound_ -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 45 --dist web/dist`: pass。`type.trait_bound.unknown` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
