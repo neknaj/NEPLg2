@@ -1,3 +1,26 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z typecheck call boundary code-first diagnostics)
+
+- [同期]:
+  - `7091c73` まで反映した `main` を `origin/main` と同期し、`work/typecheck-call-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - call application 周辺には `Diagnostic::error(...).with_code(...)` が複数 module に残り、type/effect code が生成後に後付けされていた。
+  - `selected_call_apply.rs` の capture arity invariant は message だけで発行され、enum registry による分類を持っていなかった。
+- [修正]:
+  - `typecheck/diagnostics.rs` を追加し、typecheck 内部で `TypeDiagnosticCode` / `EffectDiagnosticCode` を `Diagnostic::error_with_code(...)` へ渡す helper を共有化した。
+  - function call、selected callable、trait method call、indirect call、constructor、field accessor、field access、selected trait bound の診断生成を code-first helper 経由へ移行した。
+  - capture arity invariant に `TypeDiagnosticCode::CallCaptureArityMismatch` / `type.call.capture_arity_mismatch` を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "\\.with_code|Diagnostic::error\\(" ...typecheck call boundary files...`: no matches
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo test -p nepl-core --test effects --test functions --test overload -- --nocapture`: `effects` pass、`overload` pass、`functions` は stdio `print_i32__i32__unit__imp` の RawMemoryLoadCell ownership violation で別件 failure
+  - `cargo check -p nepl-core --tests`: pass
+- [追加issue]:
+  - stdio `print_i32` の RawMemoryLoadCell `MaybeMoved` failure は `ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7` として起票した。stdlib 修正は別作業に回し、この commit では RawMemoryLoadCell を弱めない。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の typecheck call boundary follow-up として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z effect checker code-first diagnostics)
 
 - [同期]:

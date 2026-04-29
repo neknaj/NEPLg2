@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T06:04:34.699Z",
+  "generated_at": "2026-04-29T06:47:24.845Z",
   "counts": {
-    "total": 357,
-    "open": 10,
+    "total": 358,
+    "open": 11,
     "resolved": 347,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 167
       },
       "stdlib": {
-        "total": 102,
-        "open": 5,
+        "total": 103,
+        "open": 6,
         "resolved": 97
       },
       "selfhost": {
@@ -168,6 +168,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7",
+      "title": "stdio print_i32 triggers RawMemoryLoadCell ownership violation in functions integration test",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/stdio.nepl, nepl-core/tests/functions.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

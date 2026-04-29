@@ -2,12 +2,12 @@ use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::TypeKind;
 
+use super::diagnostics::type_error;
 use super::{BlockChecker, FieldAccessorKind, FieldIdx, StackEntry};
 
 pub(super) enum FieldAccessorApplyResult {
@@ -43,15 +43,11 @@ impl<'a> BlockChecker<'a> {
             match self.ctx.get(resolved_obj_ty) {
                 TypeKind::Reference(inner, _) => inner,
                 _ => {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "get_ref expects a reference to a composite value",
-                            obj.span,
-                        )
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::FieldInvalidAccess,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::FieldInvalidAccess,
+                        "get_ref expects a reference to a composite value",
+                        obj.span,
+                    ));
                     self.ctx.never()
                 }
             }

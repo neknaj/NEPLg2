@@ -3,12 +3,12 @@ use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
+use super::diagnostics::type_error;
 use super::syntax_helpers::parse_variant_name;
 use super::{BlockChecker, StackEntry};
 
@@ -104,23 +104,19 @@ impl<'a> BlockChecker<'a> {
             );
         }
         if c_params.len() == 1 && args.len() != 1 {
-            self.diagnostics.push(
-                Diagnostic::error("constructor expects one argument", span).with_code(
-                    DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::ArgumentArityMismatch,
-                    ),
-                ),
-            );
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::ArgumentArityMismatch,
+                "constructor expects one argument",
+                span,
+            ));
             return Some(None);
         }
         if c_params.is_empty() && !args.is_empty() {
-            self.diagnostics.push(
-                Diagnostic::error("constructor takes no arguments", span).with_code(
-                    DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::ArgumentArityMismatch,
-                    ),
-                ),
-            );
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::ArgumentArityMismatch,
+                "constructor takes no arguments",
+                span,
+            ));
             return Some(None);
         }
         let payload_expr = if c_params.len() == 1 {
@@ -167,13 +163,11 @@ impl<'a> BlockChecker<'a> {
         let fields = info.fields.clone();
         let field_names = info.field_names.clone();
         if args.len() != c_params.len() {
-            self.diagnostics.push(
-                Diagnostic::error("struct constructor arity mismatch", span).with_code(
-                    DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::ArgumentArityMismatch,
-                    ),
-                ),
-            );
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::ArgumentArityMismatch,
+                "struct constructor arity mismatch",
+                span,
+            ));
             return Some(None);
         }
         let is_tag_unit_struct = fields.len() == 1

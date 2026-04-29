@@ -2,8 +2,7 @@ use alloc::format;
 use alloc::string::String;
 
 use crate::ast::{Block, Effect, Stmt};
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::{DiagnosticCode, EffectDiagnosticCode};
+use crate::diagnostic_codes::EffectDiagnosticCode;
 use crate::effects::{
     intrinsic_effect, intrinsic_is_raw_memory_effect, raw_body_direct_callees,
     raw_body_memory_operations, raw_callee_is_raw_memory_effect,
@@ -11,13 +10,10 @@ use crate::effects::{
 use crate::hir::HirBody;
 use crate::span::Span;
 
+use super::diagnostics::effect_error;
 use super::env::BindingKind;
 use super::syntax_helpers::gate_allows;
 use super::BlockChecker;
-
-fn effect_error(code: EffectDiagnosticCode, message: impl Into<String>, span: Span) -> Diagnostic {
-    Diagnostic::error_with_code(DiagnosticCode::Effect(code), message, span)
-}
 
 impl<'a> BlockChecker<'a> {
     pub(super) fn validate_raw_body_effect(&mut self, body: &HirBody, span: Span) -> bool {

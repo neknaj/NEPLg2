@@ -164,6 +164,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `parser.rs` の shared `error_with_code` / `push_error_with_code` と、再帰上限、no-progress recovery、raw block、intrinsic、tuple、match scrutinee の parser recovery boundary を code-first constructor へ移行した。この時点では layout/type expression/extern signature 系の直接 `.with_code(...)` が残っていたため、後続 D1 で同じ方針に揃える対象として切り出した。
 - 2026-04-29: `parser.rs` に残っていた layout、type expression、identifier、mlstr、extern signature 診断を code-first constructor へ移行し、parser module 内の `.with_code(...)` を 0 件にした。
 - 2026-04-29: `typecheck/effect_check.rs` の pure context / raw body effect 診断を code-first constructor へ移行し、未コード化だった raw body 多重有効化診断も `EffectDiagnosticCode::RawBodyMultipleActive` へ接続した。これにより effect checker boundary では `.with_code(...)` とコード無し raw-body effect error が残らない。
+- 2026-04-29: `typecheck/diagnostics.rs` を追加し、typecheck 内部で `TypeDiagnosticCode` / `EffectDiagnosticCode` を code-first constructor へ渡す helper を共有化した。call application、selected callable、trait method call、indirect call、constructor、field accessor、field access、selected trait bound の boundary を移行し、コード無しだった capture arity invariant も `TypeDiagnosticCode::CallCaptureArityMismatch` へ接続した。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

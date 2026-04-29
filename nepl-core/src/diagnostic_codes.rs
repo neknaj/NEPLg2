@@ -76,6 +76,7 @@ pub enum TypeDiagnosticCode {
     StackExtraValues,
     FunctionValueCapturingUnsupported,
     IndirectCallRequiresFunctionValue,
+    CallCaptureArityMismatch,
     VariableNotCallable,
     OverloadTypeArgsMismatch,
     ArgumentMismatch,
@@ -616,6 +617,7 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::IndirectCallRequiresFunctionValue => {
                 "type.indirect_call.requires_function_value"
             }
+            TypeDiagnosticCode::CallCaptureArityMismatch => "type.call.capture_arity_mismatch",
             TypeDiagnosticCode::VariableNotCallable => "type.call.variable_not_callable",
             TypeDiagnosticCode::OverloadTypeArgsMismatch => "type.overload.type_args_mismatch",
             TypeDiagnosticCode::ArgumentMismatch => "type.argument.mismatch",
@@ -707,6 +709,9 @@ impl TypeDiagnosticCode {
             }
             TypeDiagnosticCode::IndirectCallRequiresFunctionValue => {
                 "indirect call requires a function value"
+            }
+            TypeDiagnosticCode::CallCaptureArityMismatch => {
+                "internal error: capture arity mismatch"
             }
             TypeDiagnosticCode::VariableNotCallable => "variable is not callable",
             TypeDiagnosticCode::OverloadTypeArgsMismatch => {

@@ -1,11 +1,11 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::types::{TypeId, TypeKind};
 
+use super::diagnostics::type_error;
 use super::env::BindingKind;
 use super::{BlockChecker, StackEntry};
 
@@ -22,13 +22,11 @@ pub(super) fn apply_indirect_function_call(
                 |b| matches!(&b.kind, BindingKind::Func { captures, .. } if !captures.is_empty()),
             );
             if has_capture {
-                checker.diagnostics.push(
-                    Diagnostic::error(
-                        "capturing function cannot be used as a function value yet",
-                        func.expr.span,
-                    )
-                    .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionValueCapturingUnsupported)),
-                );
+                checker.diagnostics.push(type_error(
+                    TypeDiagnosticCode::FunctionValueCapturingUnsupported,
+                    "capturing function cannot be used as a function value yet",
+                    func.expr.span,
+                ));
                 false
             } else {
                 true
@@ -44,13 +42,11 @@ pub(super) fn apply_indirect_function_call(
                     .iter()
                     .any(|b| matches!(&b.kind, BindingKind::Func { captures, .. } if !captures.is_empty()));
                 if has_capture {
-                    checker.diagnostics.push(
-                        Diagnostic::error(
-                            "capturing function cannot be passed as a function value yet",
-                            func.expr.span,
-                        )
-                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionValueCapturingUnsupported)),
-                    );
+                    checker.diagnostics.push(type_error(
+                        TypeDiagnosticCode::FunctionValueCapturingUnsupported,
+                        "capturing function cannot be passed as a function value yet",
+                        func.expr.span,
+                    ));
                     false
                 } else {
                     true
@@ -60,13 +56,11 @@ pub(super) fn apply_indirect_function_call(
         _ => matches!(checker.ctx.get(func.ty), TypeKind::Function { .. }),
     };
     if !allow_indirect {
-        checker.diagnostics.push(
-            Diagnostic::error("indirect call requires a function value", func.expr.span).with_code(
-                DiagnosticCode::Type(
-                    crate::diagnostic_codes::TypeDiagnosticCode::IndirectCallRequiresFunctionValue,
-                ),
-            ),
-        );
+        checker.diagnostics.push(type_error(
+            TypeDiagnosticCode::IndirectCallRequiresFunctionValue,
+            "indirect call requires a function value",
+            func.expr.span,
+        ));
         return None;
     }
 

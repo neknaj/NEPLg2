@@ -212,3 +212,19 @@ parser には layout block、type expression、extern signature など 42 箇所
 - `cargo check -p nepl-core --tests`: pass
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 typecheck call boundary follow-up 追記
+
+typecheck の call application 周辺には、`function_apply.rs` / `selected_call_apply.rs` / `trait_call_apply.rs` / `indirect_apply.rs` / `constructor_apply.rs` / `field_apply.rs` / `field_access.rs` / `trait_bound_apply.rs` に直接 `Diagnostic::error(...).with_code(...)` が残っていた。さらに `selected_call_apply.rs` の capture arity invariant は message だけの診断であり、enum registry による分類を持たなかった。
+
+今回の対応で `typecheck/diagnostics.rs` を追加し、typecheck 内部から `TypeDiagnosticCode` / `EffectDiagnosticCode` を code-first constructor へ渡す `type_error(...)` / `effect_error(...)` helper を共有化した。call application、selected callable、trait method call、indirect call、constructor、field accessor、field access、selected trait bound の boundary は、この helper 経由で診断生成時点に enum code を確定する。
+
+コード無しだった capture arity invariant は `TypeDiagnosticCode::CallCaptureArityMismatch` / `type.call.capture_arity_mismatch` として registry に追加した。これにより、call boundary では overload/argument/effect/trait-bound/field-access の分類が後付けにならず、internal invariant diagnostic も stable code を持つ。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/function_apply.rs nepl-core/src/typecheck/selected_call_apply.rs nepl-core/src/typecheck/trait_call_apply.rs nepl-core/src/typecheck/indirect_apply.rs nepl-core/src/typecheck/constructor_apply.rs nepl-core/src/typecheck/field_apply.rs nepl-core/src/typecheck/field_access.rs nepl-core/src/typecheck/trait_bound_apply.rs nepl-core/src/typecheck/effect_check.rs`: no matches
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo test -p nepl-core --test effects --test functions --test overload -- --nocapture`: `effects` pass, `overload` pass, `functions` は `print_i32__i32__unit__imp` の RawMemoryLoadCell ownership violation で別件 failure。`ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7` として起票した。
+- `cargo check -p nepl-core --tests`: pass

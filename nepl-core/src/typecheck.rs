@@ -12,6 +12,7 @@ mod call_resolution;
 mod constructor_apply;
 mod context;
 mod control_apply;
+mod diagnostics;
 mod driver;
 mod driver_entry;
 mod effect_check;

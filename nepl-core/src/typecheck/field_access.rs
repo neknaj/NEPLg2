@@ -3,12 +3,12 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::layout::composite_field_offset_bytes;
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
+use super::diagnostics::type_error;
 use super::{BlockChecker, FieldIdx};
 
 impl<'a> BlockChecker<'a> {
@@ -35,13 +35,11 @@ impl<'a> BlockChecker<'a> {
             message: String,
         ) -> Option<(TypeId, usize)> {
             if emit_diagnostics {
-                checker
-                    .diagnostics
-                    .push(
-                        Diagnostic::error(message, span).with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::FieldInvalidAccess,
-                        )),
-                    );
+                checker.diagnostics.push(type_error(
+                    TypeDiagnosticCode::FieldInvalidAccess,
+                    message,
+                    span,
+                ));
             }
             None
         }

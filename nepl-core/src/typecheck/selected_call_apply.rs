@@ -3,13 +3,13 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{EffectDiagnosticCode, TypeDiagnosticCode};
 use crate::hir::{FuncRef, HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
 use super::constructor_apply::ConstructorApplyResult;
+use super::diagnostics::{effect_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::field_apply::FieldAccessorApplyResult;
 use super::signature::type_contains_unbound_var;
@@ -66,13 +66,11 @@ impl<'a> BlockChecker<'a> {
                 return None;
             };
             if type_params.len() != explicit_type_args.len() {
-                self.diagnostics.push(
-                    Diagnostic::error("type arguments do not match overload", span).with_code(
-                        DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::OverloadTypeArgsMismatch,
-                        ),
-                    ),
-                );
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::OverloadTypeArgsMismatch,
+                    "type arguments do not match overload",
+                    span,
+                ));
                 return None;
             }
             let mut mapping = BTreeMap::new();
@@ -108,7 +106,8 @@ impl<'a> BlockChecker<'a> {
             _ => Vec::new(),
         };
         if c_params.len() < captures.len() {
-            self.diagnostics.push(Diagnostic::error(
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::CallCaptureArityMismatch,
                 "internal error: capture arity mismatch",
                 span,
             ));
@@ -116,11 +115,11 @@ impl<'a> BlockChecker<'a> {
         }
         let user_params = &c_params[captures.len()..];
         if user_params.len() != args.len() {
-            self.diagnostics.push(
-                Diagnostic::error("argument count mismatch", span).with_code(DiagnosticCode::Type(
-                    crate::diagnostic_codes::TypeDiagnosticCode::ArgumentArityMismatch,
-                )),
-            );
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::ArgumentArityMismatch,
+                "argument count mismatch",
+                span,
+            ));
             return None;
         }
         for (arg, param_ty) in args.iter_mut().zip(user_params.iter()) {
@@ -131,35 +130,29 @@ impl<'a> BlockChecker<'a> {
                     continue;
                 }
                 Some(Err(())) => {
-                    self.diagnostics.push(
-                        Diagnostic::error("argument type mismatch", arg.expr.span).with_code(
-                            DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::ArgumentMismatch,
-                            ),
-                        ),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::ArgumentMismatch,
+                        "argument type mismatch",
+                        arg.expr.span,
+                    ));
                     continue;
                 }
                 None => {}
             }
             if self.ctx.unify(arg.ty, *param_ty).is_err() {
-                self.diagnostics.push(
-                    Diagnostic::error("argument type mismatch", arg.expr.span).with_code(
-                        DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::ArgumentMismatch,
-                        ),
-                    ),
-                );
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::ArgumentMismatch,
+                    "argument type mismatch",
+                    arg.expr.span,
+                ));
             }
         }
         if matches!(self.current_effect, Effect::Pure) && matches!(c_effect, Effect::Impure) {
-            self.diagnostics.push(
-                Diagnostic::error("pure context cannot call impure function", span).with_code(
-                    DiagnosticCode::Effect(
-                        crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
-                    ),
-                ),
-            );
+            self.diagnostics.push(effect_error(
+                EffectDiagnosticCode::PureCallsImpure,
+                "pure context cannot call impure function",
+                span,
+            ));
             return None;
         }
 
@@ -290,12 +283,11 @@ impl<'a> BlockChecker<'a> {
                             }
                         }
                         if ambiguous {
-                            self.diagnostics.push(
-                                Diagnostic::error("ambiguous overload", arg_expr.span)
-                                    .with_code(DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::OverloadAmbiguous,
-                                )),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::OverloadAmbiguous,
+                                "ambiguous overload",
+                                arg_expr.span,
+                            ));
                             return None;
                         }
                         if let Some(symbol) = matched_symbol {

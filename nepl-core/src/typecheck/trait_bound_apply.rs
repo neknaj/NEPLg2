@@ -2,11 +2,11 @@ use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::vec::Vec;
 
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::span::Span;
 use crate::types::TypeId;
 
+use super::diagnostics::type_error;
 use super::traits::{format_trait_ref_name, infer_instantiated_type_arg, TraitBoundRef};
 use super::BlockChecker;
 
@@ -92,18 +92,14 @@ impl<'a> BlockChecker<'a> {
                     continue;
                 }
                 if self.is_concrete_type(inferred_arg) {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            format!(
-                                "type does not satisfy trait bound '{}'",
-                                substituted_bound.name
-                            ),
-                            span,
-                        )
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::TraitBoundUnsatisfied,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::TraitBoundUnsatisfied,
+                        format!(
+                            "type does not satisfy trait bound '{}'",
+                            substituted_bound.name
+                        ),
+                        span,
+                    ));
                 } else {
                     self.pending_trait_bound_checks
                         .push((substituted_bound, inferred_arg, span));

@@ -1,12 +1,12 @@
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{EffectDiagnosticCode, TypeDiagnosticCode};
 use crate::hir::HirExprKind;
 use crate::types::{TypeId, TypeKind};
 
 use super::control_apply::SpecialApplyResult;
+use super::diagnostics::{effect_error, type_error};
 use super::indirect_apply::apply_indirect_function_call;
 use super::trait_call_apply::TraitMethodApplyResult;
 use super::{BlockChecker, StackEntry};
@@ -40,12 +40,11 @@ impl<'a> BlockChecker<'a> {
         }
 
         if matches!(self.current_effect, Effect::Pure) && matches!(effect, Effect::Impure) {
-            self.diagnostics.push(
-                Diagnostic::error("pure context cannot call impure function", func.expr.span)
-                    .with_code(DiagnosticCode::Effect(
-                        crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
-                    )),
-            );
+            self.diagnostics.push(effect_error(
+                EffectDiagnosticCode::PureCallsImpure,
+                "pure context cannot call impure function",
+                func.expr.span,
+            ));
             return None;
         }
 
@@ -120,13 +119,11 @@ impl<'a> BlockChecker<'a> {
                 }
             } else if self.env.lookup_value(name).is_some() {
                 if !matches!(self.ctx.get(func.ty), TypeKind::Function { .. }) {
-                    self.diagnostics.push(
-                        Diagnostic::error("variable is not callable", func.expr.span).with_code(
-                            DiagnosticCode::Type(
-                                crate::diagnostic_codes::TypeDiagnosticCode::VariableNotCallable,
-                            ),
-                        ),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::VariableNotCallable,
+                        "variable is not callable",
+                        func.expr.span,
+                    ));
                     return None;
                 }
             }
