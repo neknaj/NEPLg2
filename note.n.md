@@ -24247,3 +24247,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/self_host_plan.md` の S6 に沿い、driver 実装前に diagnostic reporter の stdout/stderr 境界を追加した。
+
+# 2026-04-29 メモ (ISS-20260429T002234025Z self-host CLI driver boundary)
+
+- [同期]:
+  - `main` は `origin/main` の `a986327 issues: track selfhost cli driver boundary` まで同期済みで、`selfhost/s6-cli-driver-vfs` branch を作成して作業した。
+  - merge 前に remote main の `b7bed09 fix(core): preserve generic field move identity` を取り込み、branch を rebase して `trunk build` から再検証した。
+- [原因]:
+  - S6 では `cli/driver.nepl` が compile result、exit code、artifact write を統合するが、現行 CLI には parsed options、core pipeline、reporter をつなぐ orchestration 境界がなかった。
+  - `cli/file_io.nepl` が未実装でも、VFS を受け取る driver 境界なら filesystem 依存を入れずに root load / diagnostics / exit code を先に固定できる。
+- [修正]:
+  - `stdlib/neplg2/cli/driver.nepl` を追加し、`SelfhostCliOptions` から `SelfhostCompileRequest` を作る `selfhost_cli_driver_request_from_options` を実装した。
+  - `selfhost_cli_driver_compile_vfs` で VFS と parsed options を受け取り、missing input、loader diagnostic、root load success を `SelfhostCliDriverResult` へ正規化した。
+  - driver result は diagnostics buffer を所有するため、`selfhost_cli_driver_result_free` を追加した。
+  - human / JSON output は driver から reporter 境界へ委譲し、driver は `std/fs` / `std/stdio` を直接 import しない。
+  - `tests/stdlib/selfhost_cli_driver.n.md` と `nodesrc/test_selfhost_cli_driver_boundary.js` を追加した。
+- [検証]:
+  - `trunk build`: pass
+  - `node nodesrc\test_selfhost_cli_driver_boundary.js`: pass
+  - `node nodesrc\tests.js -i stdlib\neplg2\cli\driver.nepl --no-tree -o tmp\selfhost-cli-driver-rebased-module.json -j 1`: total=1 passed=1
+  - `node nodesrc\tests.js -i tests\stdlib\selfhost_cli_driver.n.md --no-tree -o tmp\selfhost-cli-driver-rebased-fixture.json -j 1`: total=3 passed=3
+  - `node nodesrc\tests.js -i stdlib\neplg2\cli\args.nepl -i stdlib\neplg2\cli\args\types.nepl -i stdlib\neplg2\cli\reporter.nepl -i stdlib\neplg2\cli\driver.nepl -i tests\stdlib\selfhost_cliarg_parser.n.md -i tests\stdlib\selfhost_cli_reporter.n.md -i tests\stdlib\selfhost_cli_driver.n.md --no-tree -o tmp\selfhost-cli-driver-rebased-focused.json -j 2`: total=24 passed=24
+  - `node nodesrc\tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-cli-driver-rebased-neplg2.json -j 2`: total=35 passed=35
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/self_host_plan.md` の S6 に沿い、file_io / artifact writer の前段として VFS driver 境界を追加した。

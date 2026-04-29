@@ -1,25 +1,25 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T00:27:42.141Z",
+  "generated_at": "2026-04-29T00:38:41.035Z",
   "counts": {
     "total": 335,
-    "open": 10,
-    "resolved": 325,
+    "open": 9,
+    "resolved": 326,
     "by_area": {
       "core": {
         "total": 155,
         "open": 3,
         "resolved": 152
       },
-      "selfhost": {
-        "total": 43,
-        "open": 2,
-        "resolved": 41
-      },
       "stdlib": {
         "total": 100,
         "open": 5,
         "resolved": 95
+      },
+      "selfhost": {
+        "total": 43,
+        "open": 1,
+        "resolved": 42
       },
       "cli": {
         "total": 19,
@@ -93,21 +93,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260429T002234025Z-SELF-HOST-CLI-LACKS-DRIVER-BOUNDARY--8BEB31A0",
-      "title": "self-host CLI lacks driver boundary from parsed options to pipeline",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "stdlib/neplg2/cli/driver.nepl, stdlib/neplg2/cli/args.nepl, stdlib/neplg2/cli/reporter.nepl, tests/stdlib/selfhost_cli_driver.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T002234025Z-SELF-HOST-CLI-LACKS-DRIVER-BOUNDARY--8BEB31A0.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2868,6 +2853,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T235630333Z-SELF-HOST-CLI-LACKS-DIAGNOSTIC-REPOR-DF540D85.md"
+    },
+    {
+      "id": "ISS-20260429T002234025Z-SELF-HOST-CLI-LACKS-DRIVER-BOUNDARY--8BEB31A0",
+      "title": "self-host CLI lacks driver boundary from parsed options to pipeline",
+      "area": "selfhost",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/neplg2/cli/driver.nepl, stdlib/neplg2/cli/args.nepl, stdlib/neplg2/cli/reporter.nepl, tests/stdlib/selfhost_cli_driver.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T002234025Z-SELF-HOST-CLI-LACKS-DRIVER-BOUNDARY--8BEB31A0.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-005-EB6FBD85",

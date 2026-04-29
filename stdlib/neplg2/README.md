@@ -29,7 +29,7 @@ S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベー�
 
 ## S6 CLI Boundary
 
-`cli/args/types.nepl` は CLI driver / reporter / parser が共有する `SelfhostCliTarget`、`SelfhostCliEmitSet`、`SelfhostCliOptions` などの public option 型を提供します。`cli/args.nepl` は既存 import path の compatibility facade と pure argv parser を兼ね、`args/types` を `pub #import` で再 export します。`cli/reporter.nepl` は core diagnostic を human stderr text と compact JSON に変換し、Result 付き stdio API で stdout/stderr を分離します。filesystem と artifact 書き出しは後続の `cli/file_io.nepl`、`cli/driver.nepl` に分けます。
+`cli/args/types.nepl` は CLI driver / reporter / parser が共有する `SelfhostCliTarget`、`SelfhostCliEmitSet`、`SelfhostCliOptions` などの public option 型を提供します。`cli/args.nepl` は既存 import path の compatibility facade と pure argv parser を兼ね、`args/types` を `pub #import` で再 export します。`cli/reporter.nepl` は core diagnostic を human stderr text と compact JSON に変換し、Result 付き stdio API で stdout/stderr を分離します。`cli/driver.nepl` は VFS と parsed options を受け取り、core pipeline の root load result を exit code と diagnostics に正規化します。filesystem と artifact 書き出しは後続の `cli/file_io.nepl` と driver の artifact slice に分けます。
 
 ## 検証
 

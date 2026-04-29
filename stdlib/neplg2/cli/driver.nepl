@@ -1,0 +1,166 @@
+#indent 4
+
+//: # driver
+//: NEPLg2.0 self-host CLI の compile driver 境界です。
+//:
+//: [目的/もくてき]:
+//: - parsed CLI options、core pipeline、diagnostic reporter の接続を 1 箇所に集約します。
+//: - filesystem から source を読む処理は `cli/file_io.nepl` に残し、この module は VFS を受け取って core pipeline を呼びます。
+//: - 成功 / 失敗を exit code と diagnostic collection にまとめ、`cli/reporter.nepl` へ渡せる結果型にします。
+//:
+//: [実装/じっそう]:
+//: - `SelfhostCliOptions.input` を root path とし、`selfhost_cli_options_to_compile_options` で core options へ変換します。
+//: - input が無い場合は CLI usage diagnostic、VFS に source が無い場合は loader diagnostic を返します。
+//: - root load が成功した時点で loaded AST を解放し、現段階では exit code 0 / empty diagnostics を返します。
+//:
+//: [注意/ちゅうい]:
+//: - artifact write、`--run`、`--lib`、複数 emit の具体的な file naming は後続の driver slice で追加します。
+//: - この module は `std/fs` / `std/stdio` を直接 import しません。I/O は file_io / reporter 境界に分けます。
+//:
+//: [計算量/けいさんりょう]:
+//: - driver 自体は O(1) で、支配的な計算量は VFS lookup と parser/pipeline の O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/result" as *
+//:| #import "neplg2/cli/args" as *
+//:| #import "neplg2/cli/driver" as *
+//:| #import "neplg2/core/infra/diag" as *
+//:| #import "neplg2/core/module/loader" as *
+//: fn main <()*>i32> ():
+//:     let args <Vec<str>>:
+//:         unwrap_ok v::new<str>
+//:         |> v::push<str> "-i" |> uwok
+//:         |> v::push<str> "main.nepl" |> uwok
+//:     match selfhost_cli_parse_args &args:
+//:         Result::Err _e:
+//:             1
+//:         Result::Ok options:
+//:             match selfhost_vfs_new:
+//:                 Result::Err _e:
+//:                     2
+//:                 Result::Ok vfs0:
+//:                     match selfhost_vfs_add vfs0 "main.nepl" "fn main <()->i32> ():\n    0\n":
+//:                         Result::Err _e:
+//:                             3
+//:                         Result::Ok vfs1:
+//:                             match selfhost_cli_driver_compile_vfs &vfs1 options:
+//:                                 Result::Err _e:
+//:                                     selfhost_vfs_free vfs1
+//:                                     4
+//:                                 Result::Ok result:
+//:                                     let exit_code <i32> selfhost_cli_driver_result_exit_code &result
+//:                                     let diagnostics <&SelfhostDiagnostics> selfhost_cli_driver_result_diagnostics &result
+//:                                     let diag_len <i32> selfhost_diagnostics_len diagnostics
+//:                                     selfhost_cli_driver_result_free result
+//:                                     selfhost_vfs_free vfs1
+//:                                     if and eq exit_code 0 eq diag_len 0 0 5
+//: ```
+
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/cli/args" as *
+#import "neplg2/cli/reporter" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/module/loader" as *
+#import "neplg2/core/options" as *
+#import "neplg2/core/pipeline" as *
+
+//: SelfhostCliDriverResult: CLI driver が返す exit code と diagnostics
+//:
+//: [目的/もくてき]:
+//: - driver が pipeline の成否を CLI の判定単位へ正規化した値です。
+//: - diagnostics buffer を所有するため、使用後は `selfhost_cli_driver_result_free` を呼びます。
+pub struct SelfhostCliDriverResult:
+    exit_code <i32>
+    diagnostics <SelfhostDiagnostics>
+
+//: selfhost_cli_driver_result_new: driver result を[作/つく]る
+fn selfhost_cli_driver_result_new <(i32,SelfhostDiagnostics)->SelfhostCliDriverResult> (exit_code, diagnostics):
+    SelfhostCliDriverResult exit_code diagnostics
+
+//: selfhost_cli_driver_result_exit_code: driver result の exit code を[返/かえ]す
+pub fn selfhost_cli_driver_result_exit_code <(&SelfhostCliDriverResult)->i32> (result):
+    *field::get_ref result "exit_code"
+
+//: selfhost_cli_driver_result_diagnostics: driver result の diagnostics を[参照/さんしょう]する
+pub fn selfhost_cli_driver_result_diagnostics <(&SelfhostCliDriverResult)->&SelfhostDiagnostics> (result):
+    field::get_ref result "diagnostics"
+
+//: selfhost_cli_driver_result_free: driver result が所有する diagnostics buffer を[解放/かいほう]する
+pub fn selfhost_cli_driver_result_free <(SelfhostCliDriverResult)*>()> (result):
+    selfhost_diagnostics_free field::get result "diagnostics"
+
+//: selfhost_cli_driver_missing_input_diag: 入力 path 不足の diagnostic を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - parser は「引数列として正しいが input が無い」状態を許すため、driver が compile 実行時の usage error として診断化します。
+fn selfhost_cli_driver_missing_input_diag <()->SelfhostDiagnostic> ():
+    let diag <SelfhostDiagnostic> selfhost_diag_error "selfhost.cli.missing_input" "input source file is required"
+    selfhost_diag_with_note diag "pass -i/--input or a positional input path"
+
+//: selfhost_cli_driver_request_from_options: CLI options から core compile request を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - CLI の parsed option record を core pipeline が受け取る `SelfhostCompileRequest` へ変換します。
+//: - input path が無い場合は core pipeline を呼ばず、CLI diagnostic を返します。
+pub fn selfhost_cli_driver_request_from_options <(SelfhostCliOptions)->Result<SelfhostCompileRequest, SelfhostDiagnostic>> (options):
+    let input_ref <&Option<str>> field::get_ref &options "input"
+    match *input_ref:
+        Option::Some input:
+            let compile_options <SelfhostCompileOptions> selfhost_cli_options_to_compile_options options
+            Result<SelfhostCompileRequest, SelfhostDiagnostic>::Ok selfhost_compile_request_new input compile_options
+        Option::None:
+            Result<SelfhostCompileRequest, SelfhostDiagnostic>::Err selfhost_cli_driver_missing_input_diag
+
+//: selfhost_cli_driver_error_result: diagnostic 1 件から失敗 result を[作/つく]る
+fn selfhost_cli_driver_error_result <(SelfhostDiagnostic)*>Result<SelfhostCliDriverResult, StdErrorKind>> (diag):
+    match selfhost_diagnostics_one diag:
+        Result::Err e:
+            Result<SelfhostCliDriverResult, StdErrorKind>::Err e
+        Result::Ok diagnostics:
+            Result<SelfhostCliDriverResult, StdErrorKind>::Ok selfhost_cli_driver_result_new 1 diagnostics
+
+//: selfhost_cli_driver_success_result: 成功 result を[作/つく]る
+fn selfhost_cli_driver_success_result <()*>Result<SelfhostCliDriverResult, StdErrorKind>> ():
+    match selfhost_diagnostics_new:
+        Result::Err e:
+            Result<SelfhostCliDriverResult, StdErrorKind>::Err e
+        Result::Ok diagnostics:
+            Result<SelfhostCliDriverResult, StdErrorKind>::Ok selfhost_cli_driver_result_new 0 diagnostics
+
+//: selfhost_cli_driver_compile_vfs: VFS と parsed options から compile driver を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - file I/O なしで CLI driver の compile 境界を検証できる入口です。
+//: - input path、core options、pipeline load、diagnostics、exit code をここで結合します。
+//:
+//: [注意/ちゅうい]:
+//: - 現段階では root module load までを成功条件とします。checker / backend / artifact write は後続 issue で同じ result 型へ接続します。
+pub fn selfhost_cli_driver_compile_vfs <(&SelfhostVirtualFileSystem,SelfhostCliOptions)*>Result<SelfhostCliDriverResult, StdErrorKind>> (vfs, options):
+    match selfhost_cli_driver_request_from_options options:
+        Result::Err diag:
+            selfhost_cli_driver_error_result diag
+        Result::Ok request:
+            match selfhost_pipeline_load_root vfs request:
+                Result::Err diag:
+                    selfhost_cli_driver_error_result diag
+                Result::Ok loaded:
+                    selfhost_pipeline_loaded_root_free loaded
+                    selfhost_cli_driver_success_result
+
+//: selfhost_cli_driver_write_human_stderr: driver diagnostics を human stderr へ[書/か]く
+pub fn selfhost_cli_driver_write_human_stderr <(&SelfhostCliDriverResult)*>Result<(), StdErrorKind>> (result):
+    selfhost_cli_write_human_diagnostics_stderr selfhost_cli_driver_result_diagnostics result
+
+//: selfhost_cli_driver_write_json_stdout: driver diagnostics を JSON stdout へ[書/か]く
+pub fn selfhost_cli_driver_write_json_stdout <(&SelfhostCliDriverResult)*>Result<(), StdErrorKind>> (result):
+    selfhost_cli_write_json_diagnostics_stdout selfhost_cli_driver_result_diagnostics result
+
+//: selfhost_cli_driver_stage0: driver 境界の smoke API
+pub fn selfhost_cli_driver_stage0 <()->i32> ():
+    0
