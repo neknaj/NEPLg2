@@ -1,3 +1,31 @@
+# 2026-04-30 メモ (ISS-20260429T173344520Z raw address load non-owning view)
+
+- [同期]:
+  - `3bcf1be` を push / pull 後、`main` から `work/hashmap-insert-owner-contract` branch を作って作業した。
+- [原因]:
+  - `HashMap insert` は `hashmap_prepare_insert` の戻り値 `ready` から `load_i32 add hdr 8` で backing entries address を読み、probe / slot write に使う。
+  - この `i32` は backing storage owner そのものではなく non-owning address view だが、Resource owner checker は raw cell load を owner transfer として扱っていたため、local `entries` に owner が移り、関数末尾で leak と診断していた。
+  - `dealloc_raw entries` や return のような所有権消費操作では alias 解決で元の raw cell owner を消費すればよく、load 時点で owner を移す必要はない。
+- [修正]:
+  - raw memory load の出力型が `i32` で、load 元 raw cell が raw address value として alias tracking されている場合は、owner transfer ではなく non-owning alias view として扱うようにした。
+  - focused regression `resource_ir_owner_check_keeps_raw_address_load_as_nonowning_view` を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_raw_address_load_as_nonowning_view -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 38 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_stored_tail_owner_under_new_raw_node -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_returns_aggregate_with_raw_cell_owner_stored_through_field_alias -- --nocapture`: pass
+  - `cargo fmt --check`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/resource-owner-raw-load-view-move-effect.json -j 1 --dist web/dist`: total=110, passed=110
+  - `node nodesrc/issues.js check`: pass
+  - `cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture`: まだ fail だが、local `entries` leak は消えた。残りは `insert... hdr.StorageOffset(8).Deref` と caller-side unfreed HashMap owner。
+  - `cargo test -p nepl-core --test neplg2 llvm_hashmap_string_key_preserves_explicit_hasher_type_args -- --nocapture`: 同じ残件で fail。
+- [issue]:
+  - `ISS-20260429T173344520Z-RESOURCE-OWNER-CHECKER-MOVES-RAW-ADD-D665B59D` を fixed/resolved に更新した。
+  - `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` に HashMap 残件の再切り分けを追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T172032098Z raw cell owner alias root)
 
 - [同期]:

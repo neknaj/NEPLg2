@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T17:33:08.780Z",
+  "generated_at": "2026-04-29T17:41:36.765Z",
   "counts": {
-    "total": 393,
+    "total": 394,
     "open": 14,
-    "resolved": 379,
+    "resolved": 380,
     "by_area": {
       "core": {
-        "total": 182,
+        "total": 183,
         "open": 5,
-        "resolved": 177
+        "resolved": 178
       },
       "stdlib": {
         "total": 118,
@@ -2853,6 +2853,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T172032098Z-RESOURCE-OWNER-CHECKER-LEAVES-RAW-CE-8EA40ADE.md"
+    },
+    {
+      "id": "ISS-20260429T173344520Z-RESOURCE-OWNER-CHECKER-MOVES-RAW-ADD-D665B59D",
+      "title": "Resource owner checker moves raw address owner on non-owning raw cell load",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T173344520Z-RESOURCE-OWNER-CHECKER-MOVES-RAW-ADD-D665B59D.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

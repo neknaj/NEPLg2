@@ -61,3 +61,14 @@ Run focused List/HashMap neplg2 tests and Resource IR owner regressions after th
 - `main` 側の `map1` / `hms` / `hmk` header と entries owner leak。
 
 特に caller-side leak は、HashMap を作成して `get` / `len` / `contains` で参照した後に `free` しない fixture/API 契約の問題であり、次の修正では `HashMap` の read API と test fixture の ownership contract を整理する。
+
+## 2026-04-30 状況更新 3
+
+`insert...` の local `entries` owner may leak は、`load_i32 add hdr 8` が backing entries の所有権移動として扱われていた core Resource owner checker 問題だった。`ISS-20260429T173344520Z-RESOURCE-OWNER-CHECKER-MOVES-RAW-ADD-D665B59D` で修正済み。
+
+この修正後、HashMap focused tests の残件は以下に更新された。
+
+- `insert...` の `hdr.StorageOffset(8).Deref` owner may leak。
+- caller 側の `map1` / `hms` / `hmk` header と entries owner leak。
+
+次は `insert` 内で helper call / loop / raw slot address 計算を通った後も、entries owner cell が `ready.field0 + 8` 配下に残るべきか、あるいは stdlib API が明示的な borrow/view helper を必要とするかを切り分ける。

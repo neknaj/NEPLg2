@@ -2,7 +2,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use crate::types::{TypeCtx, TypeKind};
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias::RawCellAddressAliases;
@@ -226,6 +226,18 @@ impl ResourceOwnerCheckEngine<'_> {
             .any(|alias| alias != source)
     }
 
+    fn raw_memory_load_is_non_owning_raw_address_view(
+        &self,
+        raw_aliases: &RawCellAddressAliases,
+        cell: &Place,
+        output_ty: TypeId,
+    ) -> bool {
+        matches!(
+            self.types.get_ref(self.types.resolve_id(output_ty)),
+            TypeKind::I32
+        ) && (raw_aliases.contains_exact(cell) || raw_aliases.aliases_for(cell).len() > 1)
+    }
+
     fn check_op(
         &mut self,
         owners: &mut OwnerTable,
@@ -355,15 +367,24 @@ impl ResourceOwnerCheckEngine<'_> {
                     if let Some(address) = args.first() {
                         let address = raw_aliases.canonicalize_owner_cell_address(address);
                         let cell = raw_memory_cell_place(&address, output.ty);
-                        self.transfer_owner(
-                            owners,
+                        if self.raw_memory_load_is_non_owning_raw_address_view(
                             raw_aliases,
-                            storage_origins,
                             &cell,
-                            output,
-                            ResourceOwnerOperation::RawMemoryLoadCell,
-                            *span,
-                        );
+                            output.ty,
+                        ) {
+                            raw_aliases.copy_alias_or_seed(&cell, output);
+                            storage_origins.copy_origin(&cell, output);
+                        } else {
+                            self.transfer_owner(
+                                owners,
+                                raw_aliases,
+                                storage_origins,
+                                &cell,
+                                output,
+                                ResourceOwnerOperation::RawMemoryLoadCell,
+                                *span,
+                            );
+                        }
                     }
                 }
                 RawMemoryOp::Store => {
