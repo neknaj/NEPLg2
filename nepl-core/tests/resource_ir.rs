@@ -4090,6 +4090,55 @@ fn resource_ir_owner_check_accepts_deallocated_alloc() {
 }
 
 #[test]
+fn resource_ir_owner_check_allows_raw_pointer_read_before_dealloc() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let p = Place::local("p".to_string(), i32_ty);
+    let load_address = Place::temporary(ResourceId(0), i32_ty);
+    let loaded = Place::temporary(ResourceId(1), i32_ty);
+    let dealloc_address = Place::temporary(ResourceId(2), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: p.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Read {
+                source: p.clone(),
+                output: load_address.clone(),
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded,
+                args: vec![load_address],
+                span,
+            },
+            ResourceOp::Read {
+                source: p,
+                output: dealloc_address.clone(),
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(3), unit_ty),
+                args: vec![dealloc_address],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_owner_obligations(&resource);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_owner_check_reports_assign_over_live_owner_leak() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();
@@ -4259,9 +4308,9 @@ fn resource_ir_owner_check_reports_double_dealloc() {
         diagnostic,
         ResourceOwnerDiagnostic::OwnerUnavailable {
             function,
-            operation: ResourceOwnerOperation::Read,
+            operation: ResourceOwnerOperation::Dealloc,
             place,
-            state: OwnerState::Moved,
+            state: OwnerState::Freed,
             ..
         } if function == "main" && matches!(&place.root, PlaceRoot::Local(name) if name == "p")
     )));

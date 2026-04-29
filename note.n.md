@@ -1,3 +1,29 @@
+# 2026-04-29 メモ (ISS-20260429T004144320Z Resource owner pointer read separation)
+
+- [同期]:
+  - `origin/main` の `7cf0d32 fix(core): gate resource borrow return escapes` まで取り込み、`work/resource-owner-pointer-read-separation` branch で作業した。
+- [原因]:
+  - Resource owner checker が `ResourceOp::Read` を free obligation transfer として扱っていたため、raw pointer / `MemPtr` の通常 read/copy が owner move になっていた。
+  - その結果、`load_i32 p` 後の `dealloc_raw p` のような正しい raw storage use が `Moved` / `NoFreeObligation` になり、owner gate を authoritative 化できなかった。
+- [修正]:
+  - owner checker に raw address alias propagation を導入し、`Read` は non-owning alias、`DeclareLocal` / `Assign` / `Move` / `Construct` / `Return` / `Dealloc` / `Realloc` は alias から実 owner place を解決する consuming operation として扱うようにした。
+  - function owner return summary も alias 解決を使うようにし、helper / callback return 経由の owner obligation transfer を維持した。
+  - compiler pipeline に Resource owner gate を追加し、owner leak / double-free / moved-owner use を D3100 に接続した。
+  - D3025 raw identity escape を owner leak が先取りしないよう、effect boundary gate を owner gate より先に実行する順序へ変更した。
+- [追加 issue]:
+  - 固定 raw address など unmanaged storage の origin を Resource IR が持たない問題を `ISS-20260429T012328323Z-RESOURCE-IR-LACKS-STORAGE-ORIGIN-FOR-549F82A4` として追加した。
+  - `NoFreeObligation` を恒久的に shadow-only にするのは負債になるため、次段で owned storage と unmanaged/internal storage の origin を分ける。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check -- --nocapture`: 16 passed
+  - `cargo test -p nepl-core compiler::tests::resource_owner_gate -- --nocapture`: 3 passed
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\agent1-resource-owner-pointer-read-move-effect-2.json -j 1`: total=110 passed=110
+  - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\agent1-resource-owner-pointer-read-move-check.json -j 1`: total=52 passed=52
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の owner token / free obligation 移行に沿って、`MemPtr` copy と owner transfer の責務を分離した。
+
 # 2026-04-29 メモ (ISS-20260429T005246036Z self-host CLI file_io boundary)
 
 - [同期]:

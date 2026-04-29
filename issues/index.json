@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T00:59:42.476Z",
+  "generated_at": "2026-04-29T01:26:08.171Z",
   "counts": {
-    "total": 339,
+    "total": 340,
     "open": 11,
-    "resolved": 328,
+    "resolved": 329,
     "by_area": {
       "core": {
-        "total": 158,
+        "total": 159,
         "open": 4,
-        "resolved": 154
+        "resolved": 155
       },
       "selfhost": {
         "total": 44,
@@ -95,19 +95,19 @@
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
     },
     {
-      "id": "ISS-20260429T004144320Z-RESOURCE-OWNER-GATE-TREATS-RAW-POINT-216A5E25",
-      "title": "Resource owner gate treats raw pointer reads as owner transfers",
+      "id": "ISS-20260429T012328323Z-RESOURCE-IR-LACKS-STORAGE-ORIGIN-FOR-549F82A4",
+      "title": "Resource IR lacks storage origin for unmanaged raw addresses",
       "area": "core",
       "status": "open",
       "resolved": false,
       "priority": "P1",
-      "type": "bug",
+      "type": "architecture",
       "created": "2026-04-29",
       "updated": "2026-04-29",
-      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/compiler.rs, tests/compiler/move_effect.n.md",
+      "target": "nepl-core/src/resource/model.rs, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/lower.rs, stdlib/core/mem.nepl",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260429T004144320Z-RESOURCE-OWNER-GATE-TREATS-RAW-POINT-216A5E25.md"
+      "file": "items/ISS-20260429T012328323Z-RESOURCE-IR-LACKS-STORAGE-ORIGIN-FOR-549F82A4.md"
     },
     {
       "id": "ISS-20260429T005246036Z-SELF-HOST-CLI-LACKS-FILESYSTEM-FILE--1B6C9F63",
@@ -2448,6 +2448,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T233410073Z-GENERIC-OWNED-AGGREGATE-FIELD-MOVES--0A6FA87B.md"
+    },
+    {
+      "id": "ISS-20260429T004144320Z-RESOURCE-OWNER-GATE-TREATS-RAW-POINT-216A5E25",
+      "title": "Resource owner gate treats raw pointer reads as owner transfers",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/compiler.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T004144320Z-RESOURCE-OWNER-GATE-TREATS-RAW-POINT-216A5E25.md"
     },
     {
       "id": "ISS-20260429T004211995Z-RESOURCE-BORROW-RETURN-ESCAPE-GATE-R-298B4E8A",

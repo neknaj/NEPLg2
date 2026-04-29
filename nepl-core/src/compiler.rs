@@ -259,7 +259,9 @@ fn run_move_check(
     let borrow_lifetimes = crate::resource::check_resource_borrow_lifetimes(&resource);
     run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)?;
     let effect_boundaries = crate::resource::check_resource_effect_boundaries(&resource);
-    run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)
+    run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)?;
+    let owner_obligations = crate::resource::check_resource_owner_obligations(&resource);
+    run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)
 }
 
 fn run_resource_lowering_coverage_gate(
@@ -382,6 +384,96 @@ fn resource_check_operation_is_raw_memory_cell(
     )
 }
 
+fn run_resource_owner_obligation_gate(
+    report: &crate::resource::ResourceOwnerCheckReport,
+    diagnostics: &mut Vec<Diagnostic>,
+    source_map: Option<&SourceMap>,
+) -> Result<(), CoreError> {
+    let mut owner_errors = Vec::new();
+    for diagnostic in &report.diagnostics {
+        if resource_owner_diagnostic_span(diagnostic)
+            .and_then(|span| source_map.map(|map| map.raw_memory_boundary_allowed(span.file_id)))
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        if let Some(error) = resource_owner_diagnostic_to_error(diagnostic) {
+            owner_errors.push(error);
+        }
+    }
+    if owner_errors.is_empty() {
+        return Ok(());
+    }
+    diagnostics.extend(owner_errors);
+    Err(CoreError::from_diagnostics(diagnostics.clone()))
+}
+
+fn resource_owner_diagnostic_span(
+    diagnostic: &crate::resource::ResourceOwnerDiagnostic,
+) -> Option<Span> {
+    match diagnostic {
+        crate::resource::ResourceOwnerDiagnostic::OwnerUnavailable { span, .. }
+        | crate::resource::ResourceOwnerDiagnostic::OwnerLeaked { span, .. }
+        | crate::resource::ResourceOwnerDiagnostic::OwnerMaybeLeaked { span, .. } => Some(*span),
+    }
+}
+
+fn resource_owner_diagnostic_to_error(
+    diagnostic: &crate::resource::ResourceOwnerDiagnostic,
+) -> Option<Diagnostic> {
+    match diagnostic {
+        crate::resource::ResourceOwnerDiagnostic::OwnerUnavailable {
+            state: crate::resource::OwnerState::NoFreeObligation,
+            ..
+        } => None,
+        crate::resource::ResourceOwnerDiagnostic::OwnerUnavailable {
+            function,
+            operation,
+            place,
+            state,
+            span,
+        } => Some(
+            Diagnostic::error(
+                format!(
+                "resource ir owner obligation violation in function '{}': {:?} on {:?} found {:?}",
+                function, operation, place, state
+            ),
+                *span,
+            )
+            .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+        ),
+        crate::resource::ResourceOwnerDiagnostic::OwnerLeaked {
+            function,
+            place,
+            storage,
+            span,
+        } => Some(
+            Diagnostic::error(
+                format!(
+                    "resource ir owner obligation leak in function '{}': {:?} still owns {:?}",
+                    function, place, storage
+                ),
+                *span,
+            )
+            .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+        ),
+        crate::resource::ResourceOwnerDiagnostic::OwnerMaybeLeaked {
+            function,
+            place,
+            span,
+        } => Some(
+            Diagnostic::error(
+                format!(
+                    "resource ir owner obligation may leak in function '{}': {:?}",
+                    function, place
+                ),
+                *span,
+            )
+            .with_id(DiagnosticId::TypeRawMemoryOwnershipViolation),
+        ),
+    }
+}
+
 fn run_resource_borrow_lifetime_gate(
     report: &crate::resource::ResourceBorrowCheckReport,
     diagnostics: &mut Vec<Diagnostic>,
@@ -427,8 +519,9 @@ fn resource_borrow_diagnostic_to_error(
 mod tests {
     use super::*;
     use crate::resource::{
-        BorrowState, CellState, Place, ResourceBorrowDiagnostic, ResourceBorrowOperation,
-        ResourceCheckDiagnostic, ResourceCheckOperation, ResourceId,
+        BorrowState, CellState, OwnerState, Place, ResourceBorrowDiagnostic,
+        ResourceBorrowOperation, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceId,
+        ResourceOwnerDiagnostic, ResourceOwnerOperation, StorageId,
     };
     use alloc::boxed::Box;
 
@@ -474,6 +567,66 @@ mod tests {
         };
 
         assert!(resource_raw_cell_diagnostic_to_error(&diagnostic).is_none());
+    }
+
+    #[test]
+    fn resource_owner_gate_maps_owner_diagnostics_to_d3100() {
+        let types = crate::types::TypeCtx::new();
+        let place = Place::temporary(ResourceId(0), types.i32());
+        let diagnostic = ResourceOwnerDiagnostic::OwnerUnavailable {
+            function: String::from("main"),
+            operation: ResourceOwnerOperation::Dealloc,
+            place,
+            state: OwnerState::Freed,
+            span: Span::dummy(),
+        };
+
+        let error = resource_owner_diagnostic_to_error(&diagnostic)
+            .expect("owner unavailable diagnostic should become a compiler error");
+
+        assert_eq!(
+            error.id,
+            Some(DiagnosticId::TypeRawMemoryOwnershipViolation)
+        );
+        assert!(error
+            .message
+            .contains("resource ir owner obligation violation"));
+    }
+
+    #[test]
+    fn resource_owner_gate_maps_leaks_to_d3100() {
+        let types = crate::types::TypeCtx::new();
+        let place = Place::temporary(ResourceId(0), types.i32());
+        let diagnostic = ResourceOwnerDiagnostic::OwnerLeaked {
+            function: String::from("main"),
+            place,
+            storage: StorageId(0),
+            span: Span::dummy(),
+        };
+
+        let error = resource_owner_diagnostic_to_error(&diagnostic)
+            .expect("owner leak diagnostic should become a compiler error");
+
+        assert_eq!(
+            error.id,
+            Some(DiagnosticId::TypeRawMemoryOwnershipViolation)
+        );
+        assert!(error.message.contains("resource ir owner obligation leak"));
+    }
+
+    #[test]
+    fn resource_owner_gate_keeps_no_free_obligation_shadow_only() {
+        let types = crate::types::TypeCtx::new();
+        let place = Place::temporary(ResourceId(0), types.i32());
+        let diagnostic = ResourceOwnerDiagnostic::OwnerUnavailable {
+            function: String::from("main"),
+            operation: ResourceOwnerOperation::Dealloc,
+            place,
+            state: OwnerState::NoFreeObligation,
+            span: Span::dummy(),
+        };
+
+        assert!(resource_owner_diagnostic_to_error(&diagnostic).is_none());
     }
 
     #[test]

@@ -2,8 +2,8 @@
 id: ISS-20260429T004144320Z-RESOURCE-OWNER-GATE-TREATS-RAW-POINT-216A5E25
 title: "Resource owner gate treats raw pointer reads as owner transfers"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
@@ -44,7 +44,21 @@ Separate non-owning raw pointer alias reads from storage-owner transfer. Reads/c
 
 Temporarily enable the Resource owner gate and run trunk build, tests/compiler/move_effect.n.md, tests/compiler/move_check.n.md, and resource_ir owner tests. The D3025 raw identity escape cases must remain D3025, and owner leak/double-free cases must become D3100 without false positives.
 
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check -- --nocapture`: 16 passed
+- `cargo test -p nepl-core compiler::tests::resource_owner_gate -- --nocapture`: 3 passed
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\agent1-resource-owner-pointer-read-move-effect-2.json -j 1`: total=110, passed=110, failed=0
+- `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\agent1-resource-owner-pointer-read-move-check.json -j 1`: total=52, passed=52, failed=0
+
+## 対応結果
+
+Resource owner checker で `ResourceOp::Read` を free obligation transfer ではなく raw pointer alias propagation として扱うようにした。owner を消費する `DeclareLocal` / `Assign` / `Move` / `Construct` / `Return` / `Dealloc` / `Realloc` は alias から実 owner place を解決し、その place の free obligation を 1 回だけ移動または解放する。
+
+compiler pipeline では Resource owner gate を D3100 に接続した。ただし D3025 raw identity escape を owner leak が先取りしないよう、effect boundary gate を owner gate より先に実行する。固定 raw address など storage origin を持たない unmanaged address の `NoFreeObligation` は、`ISS-20260429T012328323Z-RESOURCE-IR-LACKS-STORAGE-ORIGIN-FOR-549F82A4` に分離し、owned storage と unmanaged storage の分類を追加するまで shadow-only にする。
+
 ## 関連
 
 - 親 issue: `ISS-20260425T000000Z-RV-CORE-009-58589A3F`
+- 後続 issue: `ISS-20260429T012328323Z-RESOURCE-IR-LACKS-STORAGE-ORIGIN-FOR-549F82A4`
 - 関連計画: [NEPLg2 静的検査の複雑化解消計画 Stage 4](../../doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-%E3%81%B8%E3%81%AE%E7%A7%BB%E8%A1%8C)

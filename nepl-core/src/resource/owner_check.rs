@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 use crate::span::Span;
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
     AggregateKind, OwnerState, OwnerStateEntry, Place, RawMemoryOp, ResourceBlock,
     ResourceCallTarget, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
@@ -64,8 +65,9 @@ impl ResourceOwnerCheckEngine<'_> {
     fn check_function(&mut self, function: &ResourceFunction) -> Vec<OwnerStateEntry> {
         let mut owners = OwnerTable::default();
         let mut function_aliases = FunctionAliasTable::default();
+        let mut raw_aliases = RawCellAddressAliases::default();
         for block in &function.blocks {
-            self.check_block(&mut owners, &mut function_aliases, block);
+            self.check_block(&mut owners, &mut function_aliases, &mut raw_aliases, block);
         }
         self.push_live_owner_diagnostics(&owners, function.span);
         owners.into_entries()
@@ -75,13 +77,20 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         function_aliases: &mut FunctionAliasTable,
+        raw_aliases: &mut RawCellAddressAliases,
         block: &ResourceBlock,
     ) {
-        self.check_ops(owners, function_aliases, &block.ops);
+        self.check_ops(owners, function_aliases, raw_aliases, &block.ops);
         match &block.terminator {
             ResourceTerminator::Return { value, span } => {
                 if let Some(value) = value {
-                    self.move_owner_out(owners, value, ResourceOwnerOperation::ReturnValue, *span);
+                    self.move_owner_out(
+                        owners,
+                        raw_aliases,
+                        value,
+                        ResourceOwnerOperation::ReturnValue,
+                        *span,
+                    );
                 }
             }
             ResourceTerminator::Unreachable { .. } | ResourceTerminator::RawBody { .. } => {}
@@ -92,10 +101,11 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         function_aliases: &mut FunctionAliasTable,
+        raw_aliases: &mut RawCellAddressAliases,
         ops: &[ResourceOp],
     ) {
         for op in ops {
-            self.check_op(owners, function_aliases, op);
+            self.check_op(owners, function_aliases, raw_aliases, op);
         }
     }
 
@@ -103,6 +113,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         function_aliases: &mut FunctionAliasTable,
+        raw_aliases: &mut RawCellAddressAliases,
         op: &ResourceOp,
     ) {
         match op {
@@ -115,6 +126,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 if let Some(initializer) = initializer {
                     self.transfer_owner(
                         owners,
+                        raw_aliases,
                         initializer,
                         place,
                         ResourceOwnerOperation::DeclareInitializer,
@@ -126,9 +138,9 @@ impl ResourceOwnerCheckEngine<'_> {
             ResourceOp::Read {
                 source,
                 output,
-                span,
+                span: _,
             } => {
-                self.transfer_owner(owners, source, output, ResourceOwnerOperation::Read, *span);
+                raw_aliases.copy_alias_or_seed(source, output);
                 function_aliases.copy_alias(source, output);
             }
             ResourceOp::Assign {
@@ -139,6 +151,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 self.report_overwritten_owners(owners, target, value, *span);
                 self.transfer_owner(
                     owners,
+                    raw_aliases,
                     value,
                     target,
                     ResourceOwnerOperation::AssignValue,
@@ -151,7 +164,14 @@ impl ResourceOwnerCheckEngine<'_> {
                 output,
                 span,
             } => {
-                self.transfer_owner(owners, source, output, ResourceOwnerOperation::Move, *span);
+                self.transfer_owner(
+                    owners,
+                    raw_aliases,
+                    source,
+                    output,
+                    ResourceOwnerOperation::Move,
+                    *span,
+                );
                 function_aliases.copy_alias(source, output);
             }
             ResourceOp::RawMemory {
@@ -162,21 +182,30 @@ impl ResourceOwnerCheckEngine<'_> {
             } => match operation {
                 RawMemoryOp::Alloc => {
                     owners.allocate(output);
+                    raw_aliases.mark(output);
                 }
                 RawMemoryOp::Dealloc => {
                     if let Some(ptr) = args.first() {
-                        self.release_owner(owners, ptr, ResourceOwnerOperation::Dealloc, *span);
+                        self.release_owner(
+                            owners,
+                            raw_aliases,
+                            ptr,
+                            ResourceOwnerOperation::Dealloc,
+                            *span,
+                        );
                     }
                 }
                 RawMemoryOp::Realloc => {
                     if let Some(ptr) = args.first() {
                         if self.release_owner(
                             owners,
+                            raw_aliases,
                             ptr,
                             ResourceOwnerOperation::ReallocInput,
                             *span,
                         ) {
                             owners.allocate(output);
+                            raw_aliases.mark(output);
                         }
                     }
                 }
@@ -202,10 +231,23 @@ impl ResourceOwnerCheckEngine<'_> {
                 let mut else_owners = owners.clone();
                 let mut then_function_aliases = function_aliases.clone();
                 let mut else_function_aliases = function_aliases.clone();
-                self.check_ops(&mut then_owners, &mut then_function_aliases, then_ops);
-                self.check_ops(&mut else_owners, &mut else_function_aliases, else_ops);
+                let mut then_raw_aliases = raw_aliases.clone();
+                let mut else_raw_aliases = raw_aliases.clone();
+                self.check_ops(
+                    &mut then_owners,
+                    &mut then_function_aliases,
+                    &mut then_raw_aliases,
+                    then_ops,
+                );
+                self.check_ops(
+                    &mut else_owners,
+                    &mut else_function_aliases,
+                    &mut else_raw_aliases,
+                    else_ops,
+                );
                 self.transfer_owner(
                     &mut then_owners,
+                    &mut then_raw_aliases,
                     then_value,
                     output,
                     ResourceOwnerOperation::BranchValue,
@@ -213,6 +255,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 );
                 self.transfer_owner(
                     &mut else_owners,
+                    &mut else_raw_aliases,
                     else_value,
                     output,
                     ResourceOwnerOperation::BranchValue,
@@ -223,6 +266,8 @@ impl ResourceOwnerCheckEngine<'_> {
                     then_function_aliases,
                     else_function_aliases,
                 ]);
+                *raw_aliases =
+                    RawCellAddressAliases::merge_paths(&[then_raw_aliases, else_raw_aliases]);
             }
             ResourceOp::Loop {
                 condition_ops,
@@ -231,31 +276,49 @@ impl ResourceOwnerCheckEngine<'_> {
             } => {
                 let mut condition_owners = owners.clone();
                 let mut condition_function_aliases = function_aliases.clone();
+                let mut condition_raw_aliases = raw_aliases.clone();
                 self.check_ops(
                     &mut condition_owners,
                     &mut condition_function_aliases,
+                    &mut condition_raw_aliases,
                     condition_ops,
                 );
                 let mut body_owners = condition_owners.clone();
                 let mut body_function_aliases = condition_function_aliases.clone();
-                self.check_ops(&mut body_owners, &mut body_function_aliases, body_ops);
+                let mut body_raw_aliases = condition_raw_aliases.clone();
+                self.check_ops(
+                    &mut body_owners,
+                    &mut body_function_aliases,
+                    &mut body_raw_aliases,
+                    body_ops,
+                );
                 *owners = OwnerTable::merge_paths(&[condition_owners, body_owners]);
                 *function_aliases = FunctionAliasTable::merge_paths(&[
                     condition_function_aliases,
                     body_function_aliases,
                 ]);
+                *raw_aliases =
+                    RawCellAddressAliases::merge_paths(&[condition_raw_aliases, body_raw_aliases]);
             }
             ResourceOp::Match {
                 output, arms, span, ..
             } => {
                 let mut arm_paths = Vec::new();
                 let mut function_alias_paths = Vec::new();
+                let mut raw_alias_paths = Vec::new();
                 for arm in arms {
                     let mut arm_owners = owners.clone();
                     let mut arm_function_aliases = function_aliases.clone();
-                    self.check_ops(&mut arm_owners, &mut arm_function_aliases, &arm.ops);
+                    let mut arm_raw_aliases = raw_aliases.clone();
+                    self.check_ops(
+                        &mut arm_owners,
+                        &mut arm_function_aliases,
+                        &mut arm_raw_aliases,
+                        &arm.ops,
+                    );
                     self.transfer_owner(
                         &mut arm_owners,
+                        &mut arm_raw_aliases,
                         &arm.value,
                         output,
                         ResourceOwnerOperation::MatchValue,
@@ -263,10 +326,12 @@ impl ResourceOwnerCheckEngine<'_> {
                     );
                     arm_paths.push(arm_owners);
                     function_alias_paths.push(arm_function_aliases);
+                    raw_alias_paths.push(arm_raw_aliases);
                 }
                 if !arm_paths.is_empty() {
                     *owners = OwnerTable::merge_paths(&arm_paths);
                     *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
+                    *raw_aliases = RawCellAddressAliases::merge_paths(&raw_alias_paths);
                 }
             }
             ResourceOp::FunctionValue { output, name, .. } => {
@@ -278,7 +343,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 args,
                 span,
                 ..
-            } => self.apply_call_return_owner(owners, output, target, args, *span),
+            } => self.apply_call_return_owner(owners, raw_aliases, output, target, args, *span),
             ResourceOp::IndirectCall {
                 output,
                 callee,
@@ -288,6 +353,7 @@ impl ResourceOwnerCheckEngine<'_> {
             } => self.apply_indirect_call_return_owner(
                 owners,
                 function_aliases,
+                raw_aliases,
                 output,
                 callee,
                 args,
@@ -299,20 +365,23 @@ impl ResourceOwnerCheckEngine<'_> {
                 inputs,
                 span,
             } => {
-                self.construct_owner_fields(owners, output, kind, inputs, *span);
+                self.construct_owner_fields(owners, raw_aliases, output, kind, inputs, *span);
                 construct_function_alias_fields(function_aliases, output, kind, inputs);
+            }
+            ResourceOp::RawAddressAlias { source, target, .. } => {
+                raw_aliases.copy_alias_or_seed(source, target);
             }
             ResourceOp::Expr { .. }
             | ResourceOp::Borrow { .. }
             | ResourceOp::Drop { .. }
-            | ResourceOp::CallEffect { .. }
-            | ResourceOp::RawAddressAlias { .. } => {}
+            | ResourceOp::CallEffect { .. } => {}
         }
     }
 
     fn construct_owner_fields(
         &mut self,
         owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
         output: &Place,
         kind: &AggregateKind,
         inputs: &[Place],
@@ -322,6 +391,7 @@ impl ResourceOwnerCheckEngine<'_> {
             let field = construct_aggregate_field_place(output, kind, index, input);
             self.transfer_owner(
                 owners,
+                raw_aliases,
                 input,
                 &field,
                 ResourceOwnerOperation::ConstructInput,
@@ -333,6 +403,7 @@ impl ResourceOwnerCheckEngine<'_> {
     fn apply_call_return_owner(
         &mut self,
         owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
         output: &Place,
         target: &ResourceCallTarget,
         args: &[Place],
@@ -348,13 +419,14 @@ impl ResourceOwnerCheckEngine<'_> {
         else {
             return;
         };
-        self.apply_owner_return_summary(owners, output, args, summary, span);
+        self.apply_owner_return_summary(owners, raw_aliases, output, args, summary, span);
     }
 
     fn apply_indirect_call_return_owner(
         &mut self,
         owners: &mut OwnerTable,
         function_aliases: &FunctionAliasTable,
+        raw_aliases: &mut RawCellAddressAliases,
         output: &Place,
         callee: &Place,
         args: &[Place],
@@ -362,7 +434,7 @@ impl ResourceOwnerCheckEngine<'_> {
     ) {
         let functions = function_aliases.functions(callee);
         if functions.is_empty() {
-            self.apply_unknown_indirect_call_return_owner(owners, output, args, span);
+            self.apply_unknown_indirect_call_return_owner(owners, raw_aliases, output, args, span);
             return;
         }
         for function in functions {
@@ -371,8 +443,8 @@ impl ResourceOwnerCheckEngine<'_> {
                 .iter()
                 .find(|summary| summary.function == function.as_str())
             {
-                self.apply_owner_return_summary(owners, output, args, summary, span);
-                if owners.has_transferable_owner(output) {
+                self.apply_owner_return_summary(owners, raw_aliases, output, args, summary, span);
+                if self.has_transferable_owner(owners, raw_aliases, output) {
                     return;
                 }
             }
@@ -382,14 +454,16 @@ impl ResourceOwnerCheckEngine<'_> {
     fn apply_unknown_indirect_call_return_owner(
         &mut self,
         owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
         output: &Place,
         args: &[Place],
         span: Span,
     ) {
         for arg in args.iter().filter(|arg| arg.ty == output.ty) {
-            if owners.has_transferable_owner(arg) {
+            if self.has_transferable_owner(owners, raw_aliases, arg) {
                 self.transfer_owner(
                     owners,
+                    raw_aliases,
                     arg,
                     output,
                     ResourceOwnerOperation::ReturnValue,
@@ -403,6 +477,7 @@ impl ResourceOwnerCheckEngine<'_> {
     fn apply_owner_return_summary(
         &mut self,
         owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
         output: &Place,
         args: &[Place],
         summary: &OwnerReturnSummary,
@@ -414,9 +489,10 @@ impl ResourceOwnerCheckEngine<'_> {
             .iter()
             .filter_map(|index| args.get(*index))
         {
-            if owners.has_transferable_owner(arg) {
+            if self.has_transferable_owner(owners, raw_aliases, arg) {
                 self.transfer_owner(
                     owners,
+                    raw_aliases,
                     arg,
                     output,
                     ResourceOwnerOperation::ReturnValue,
@@ -428,11 +504,13 @@ impl ResourceOwnerCheckEngine<'_> {
         }
         if summary.returns_fresh_owner && !transferred {
             owners.allocate(output);
+            raw_aliases.mark(output);
         }
         for projection in &summary.projection_returns {
             let output_projection = place_with_suffix(output, &projection.suffix, projection.ty);
             self.apply_owner_projection_return_summary(
                 owners,
+                raw_aliases,
                 &output_projection,
                 args,
                 projection,
@@ -444,6 +522,7 @@ impl ResourceOwnerCheckEngine<'_> {
     fn apply_owner_projection_return_summary(
         &mut self,
         owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
         output: &Place,
         args: &[Place],
         summary: &OwnerProjectionReturnSummary,
@@ -455,9 +534,10 @@ impl ResourceOwnerCheckEngine<'_> {
             .iter()
             .filter_map(|index| args.get(*index))
         {
-            if owners.has_transferable_owner(arg) {
+            if self.has_transferable_owner(owners, raw_aliases, arg) {
                 self.transfer_owner(
                     owners,
+                    raw_aliases,
                     arg,
                     output,
                     ResourceOwnerOperation::ReturnValue,
@@ -469,7 +549,18 @@ impl ResourceOwnerCheckEngine<'_> {
         }
         if summary.returns_fresh_owner && !transferred {
             owners.allocate(output);
+            raw_aliases.mark(output);
         }
+    }
+
+    fn has_transferable_owner(
+        &self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        place: &Place,
+    ) -> bool {
+        let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
+        owners.has_transferable_owner(&resolved_place)
     }
 
     fn report_overwritten_owners(
@@ -509,6 +600,7 @@ impl ResourceOwnerCheckEngine<'_> {
     fn transfer_owner(
         &mut self,
         owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
         source: &Place,
         target: &Place,
         operation: ResourceOwnerOperation,
@@ -517,22 +609,29 @@ impl ResourceOwnerCheckEngine<'_> {
         if source == target || !should_track(source) {
             return;
         }
-        let descendants = owners.descendant_entries(source);
-        match owners.state(source) {
+        let resolved_source = resolve_owner_alias_place(owners, raw_aliases, source);
+        let descendants = owners.descendant_entries(&resolved_source);
+        match owners.state(&resolved_source) {
             Some(OwnerState::Live { storage }) => {
-                owners.set_state(source, OwnerState::Moved);
+                owners.set_state(&resolved_source, OwnerState::Moved);
                 if should_track(target) {
                     owners.set_state(target, OwnerState::Live { storage });
+                    raw_aliases.clear(source);
+                    raw_aliases.clear(&resolved_source);
+                    raw_aliases.mark(target);
                 }
             }
             Some(OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed) => {
-                let state = owners.state(source).unwrap_or(OwnerState::NoFreeObligation);
-                self.push_unavailable(operation, source, state, span);
+                let state = owners
+                    .state(&resolved_source)
+                    .unwrap_or(OwnerState::NoFreeObligation);
+                self.push_unavailable(operation, &resolved_source, state, span);
             }
             Some(OwnerState::NoFreeObligation) | None => {}
         }
         for entry in descendants {
-            let Some(target_place) = replace_place_prefix(&entry.place, source, target) else {
+            let Some(target_place) = replace_place_prefix(&entry.place, &resolved_source, target)
+            else {
                 continue;
             };
             match entry.state {
@@ -540,6 +639,8 @@ impl ResourceOwnerCheckEngine<'_> {
                     owners.set_state(&entry.place, OwnerState::Moved);
                     if should_track(&target_place) {
                         owners.set_state(&target_place, OwnerState::Live { storage });
+                        raw_aliases.clear(&entry.place);
+                        raw_aliases.mark(&target_place);
                     }
                 }
                 OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed => {
@@ -553,6 +654,7 @@ impl ResourceOwnerCheckEngine<'_> {
     fn move_owner_out(
         &mut self,
         owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
         place: &Place,
         operation: ResourceOwnerOperation,
         span: Span,
@@ -560,14 +662,19 @@ impl ResourceOwnerCheckEngine<'_> {
         if !should_track(place) {
             return;
         }
-        let descendants = owners.descendant_entries(place);
-        match owners.state(place) {
+        let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
+        let descendants = owners.descendant_entries(&resolved_place);
+        match owners.state(&resolved_place) {
             Some(OwnerState::Live { .. }) => {
-                owners.set_state(place, OwnerState::Moved);
+                owners.set_state(&resolved_place, OwnerState::Moved);
+                raw_aliases.clear(place);
+                raw_aliases.clear(&resolved_place);
             }
             Some(OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed) => {
-                let state = owners.state(place).unwrap_or(OwnerState::NoFreeObligation);
-                self.push_unavailable(operation, place, state, span);
+                let state = owners
+                    .state(&resolved_place)
+                    .unwrap_or(OwnerState::NoFreeObligation);
+                self.push_unavailable(operation, &resolved_place, state, span);
             }
             Some(OwnerState::NoFreeObligation) | None => {}
         }
@@ -575,6 +682,7 @@ impl ResourceOwnerCheckEngine<'_> {
             match entry.state {
                 OwnerState::Live { .. } => {
                     owners.set_state(&entry.place, OwnerState::Moved);
+                    raw_aliases.clear(&entry.place);
                 }
                 OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed => {
                     self.push_unavailable(operation, &entry.place, entry.state, span);
@@ -587,6 +695,7 @@ impl ResourceOwnerCheckEngine<'_> {
     fn release_owner(
         &mut self,
         owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
         place: &Place,
         operation: ResourceOwnerOperation,
         span: Span,
@@ -594,13 +703,16 @@ impl ResourceOwnerCheckEngine<'_> {
         if !should_track(place) {
             return false;
         }
-        match owners.state(place) {
+        let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
+        match owners.state(&resolved_place) {
             Some(OwnerState::Live { .. }) => {
-                owners.set_state(place, OwnerState::Freed);
+                owners.set_state(&resolved_place, OwnerState::Freed);
+                raw_aliases.clear(place);
+                raw_aliases.clear(&resolved_place);
                 true
             }
             Some(state) => {
-                self.push_unavailable(operation, place, state, span);
+                self.push_unavailable(operation, &resolved_place, state, span);
                 false
             }
             None => {
@@ -650,6 +762,30 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             });
     }
+}
+
+pub(super) fn resolve_owner_alias_place(
+    owners: &OwnerTable,
+    raw_aliases: &RawCellAddressAliases,
+    place: &Place,
+) -> Place {
+    match owners.state(place) {
+        Some(OwnerState::Live { .. })
+        | Some(OwnerState::Moved)
+        | Some(OwnerState::Freed)
+        | Some(OwnerState::MaybeFreed) => return place.clone(),
+        Some(OwnerState::NoFreeObligation) | None => {}
+    }
+    for alias in raw_aliases.aliases_for(place) {
+        match owners.state(&alias) {
+            Some(OwnerState::Live { .. })
+            | Some(OwnerState::Moved)
+            | Some(OwnerState::Freed)
+            | Some(OwnerState::MaybeFreed) => return alias,
+            Some(OwnerState::NoFreeObligation) | None => {}
+        }
+    }
+    place.clone()
 }
 
 fn merge_owner_deferred(

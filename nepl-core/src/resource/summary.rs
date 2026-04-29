@@ -6,11 +6,12 @@ use crate::types::TypeId;
 use super::borrow_check::ResourceBorrowCheckEngine;
 use super::borrow_state::BorrowTable;
 use super::function_alias::FunctionAliasTable;
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
     OwnerState, Place, PlaceProjection, ResourceFunction, ResourceModule, ResourceTerminator,
     StorageId,
 };
-use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_check::{resolve_owner_alias_place, ResourceOwnerCheckEngine};
 use super::owner_state::OwnerTable;
 use super::place_utils::{place_suffix_after_prefix, push_unique_usize};
 use super::report::{ResourceBorrowCheckDeferred, ResourceOwnerCheckDeferred};
@@ -128,9 +129,11 @@ fn function_owner_return_summary(
         deferred: ResourceOwnerCheckDeferred::default(),
     };
     let mut owners = OwnerTable::default();
+    let mut raw_aliases = RawCellAddressAliases::default();
     let mut parameter_storages = Vec::new();
     for param in &function.params {
         owners.allocate(&param.place);
+        raw_aliases.mark(&param.place);
         if let Some(OwnerState::Live { storage }) = owners.state(&param.place) {
             parameter_storages.push(storage);
         }
@@ -141,12 +144,18 @@ fn function_owner_return_summary(
     let mut projection_returns = Vec::new();
     let mut function_aliases = FunctionAliasTable::default();
     for block in &function.blocks {
-        engine.check_ops(&mut owners, &mut function_aliases, &block.ops);
+        engine.check_ops(
+            &mut owners,
+            &mut function_aliases,
+            &mut raw_aliases,
+            &block.ops,
+        );
         if let ResourceTerminator::Return {
             value: Some(value), ..
         } = &block.terminator
         {
-            match owners.state(value) {
+            let resolved_value = resolve_owner_alias_place(&owners, &raw_aliases, value);
+            match owners.state(&resolved_value) {
                 Some(OwnerState::Live { storage }) => {
                     if let Some(index) = parameter_storages
                         .iter()
@@ -163,9 +172,9 @@ fn function_owner_return_summary(
                 Some(OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed)
                 | None => {}
             }
-            for entry in owners.descendant_entries(value) {
+            for entry in owners.descendant_entries(&resolved_value) {
                 if let OwnerState::Live { storage } = entry.state {
-                    if let Some(suffix) = place_suffix_after_prefix(&entry.place, value) {
+                    if let Some(suffix) = place_suffix_after_prefix(&entry.place, &resolved_value) {
                         record_projection_owner_return(
                             &mut projection_returns,
                             suffix,
