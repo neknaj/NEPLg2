@@ -1,3 +1,35 @@
+# 2026-04-30 メモ (ISS-20260429T133518746Z MemPtr explicit Clone monomorphize)
+
+- [同期]:
+  - `main` を `origin/main` と同期し、`compiler/memptr-explicit-clone` branch で作業した。
+- [原因]:
+  - typecheck は `impl<.T> Clone for MemPtr<.T>` を `type_pattern_matches(impl.target, candidate)` で扱っていた。
+  - 一方 monomorphize の trait impl lookup は `same_type` 寄りで、`MemPtr<.T>` impl target と `MemPtr<u8>` self type を同じ impl として照合できなかった。
+  - さらに explicit trait call の解決後に使う impl method の型引数が trait argument だけから渡されており、`.T` が target type 側だけに現れる generic impl を正しく具体化する経路が不足していた。
+- [修正]:
+  - `nepl-core/src/monomorphize.rs` の impl index を entry 化し、resolved impl method と具体化型引数をまとめて返すようにした。
+  - impl target は pattern、call self type は actual として照合し、`MemPtr<u8>` から impl type parameter `.T = u8` を推論するようにした。
+  - trait argument 側だけに型引数が現れる既存 generic impl も壊さないよう、target type と trait args の両方から impl type args を推論する形にした。
+  - `tests/compiler/reference_codegen.n.md` に `Clone::clone &MemPtr<u8>` の backend 回帰テストを追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --no-tree -o tmp/memptr-explicit-clone-before.json -j 1 --dist web/dist`: 追加 fixture が `backend.codegen.trait_call_unresolved` で失敗することを確認。
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --no-tree -o tmp/memptr-explicit-clone-after.json -j 1 --dist web/dist`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/compiler/generic_impl_trait_args.n.md --no-tree -o tmp/memptr-explicit-clone-generic-impl.json -j 1 --dist web/dist`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/compiler/prelude_copy.n.md --no-tree -o tmp/memptr-explicit-clone-prelude-copy.json -j 1 --dist web/dist`: total=4, passed=4
+  - `node nodesrc/tests.js -i tests/stdlib/traits_text.n.md --no-tree -o tmp/memptr-explicit-clone-traits-text.json -j 1 --dist web/dist`: total=3, passed=1, failed=2。失敗は既存の `std/test` ResourceIR owner obligation (`checks` field leak) で、この trait impl 解決とは別件。
+  - `node nodesrc/tests.js -i tests/compiler --no-tree -o tmp/memptr-explicit-clone-compiler.json -j 4 --dist web/dist`: total=649, passed=626, failed=23。追加した `reference_codegen` は通過。失敗は `resource.raw.ownership_violation` / `resource.borrow.assign_during_shared` / `resolve.item.name_conflict` / `shadowing` compile_fail mismatch で、MemPtr explicit Clone の unresolved trait call とは別経路。
+  - `node nodesrc/tests.js -i tests/compiler/generics.n.md --no-tree -o tmp/memptr-explicit-clone-generics.json -j 1 --dist web/dist`: total=24, passed=16, failed=8。`resolve.item.name_conflict` の既存/別件 regression として扱う。
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md --no-tree -o tmp/memptr-explicit-clone-drop-overwrite.json -j 1 --dist web/dist`: total=1, failed=1。`resource.borrow.assign_during_shared` の別件 regression として扱う。
+  - `cargo fmt --check`: pass
+  - `git diff --check`: pass
+  - `node nodesrc/issues.js check`: pass
+- [issue]:
+  - `ISS-20260429T133518746Z-EXPLICIT-CLONE-CLONE-ON-MEMPTR-REMAI-8C62ED37` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (静的検査設計確認)
 
 - [同期]:

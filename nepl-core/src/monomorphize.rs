@@ -47,30 +47,26 @@ fn monomorphize_internal(
     module: HirModule,
     assert_trait_calls: bool,
 ) -> (HirModule, Vec<UnresolvedTraitCall>) {
-    let mut impl_map: BTreeMap<(String, String, TypeId), String> = BTreeMap::new();
-    let mut impl_method_index: BTreeMap<(String, String), Vec<(TypeId, String)>> = BTreeMap::new();
-    let mut impl_entries: Vec<(String, Vec<TypeId>, String, TypeId, String)> = Vec::new();
+    let mut impl_map: BTreeMap<(String, String, TypeId), usize> = BTreeMap::new();
+    let mut impl_method_index: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
+    let mut impl_entries: Vec<TraitImplEntry> = Vec::new();
     let mut impl_entry_index: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
     for imp in &module.impls {
         let ty = ctx.resolve_id(imp.target_ty);
         for m in &imp.methods {
-            impl_map.insert(
-                (imp.trait_name.clone(), m.name.clone(), ty),
-                m.func.name.clone(),
-            );
+            let entry_index = impl_entries.len();
+            impl_entries.push(TraitImplEntry {
+                trait_args: imp.trait_args.clone(),
+                type_args: imp.type_args.clone(),
+                target_ty: ty,
+                func_name: m.func.name.clone(),
+            });
+            impl_map.insert((imp.trait_name.clone(), m.name.clone(), ty), entry_index);
             impl_method_index
                 .entry((imp.trait_name.clone(), m.name.clone()))
                 .or_default()
-                .push((ty, m.func.name.clone()));
+                .push(entry_index);
             if let Some(base) = &imp.trait_base_name {
-                let entry_index = impl_entries.len();
-                impl_entries.push((
-                    base.clone(),
-                    imp.trait_args.clone(),
-                    m.name.clone(),
-                    ty,
-                    m.func.name.clone(),
-                ));
                 impl_entry_index
                     .entry((base.clone(), m.name.clone()))
                     .or_default()
@@ -182,11 +178,26 @@ struct Monomorphizer<'a> {
     specialized: BTreeMap<String, HirFunction>,
     worklist: Vec<(String, Vec<TypeId>)>,
     queued: BTreeSet<String>,
-    impl_map: BTreeMap<(String, String, TypeId), String>,
-    impl_method_index: BTreeMap<(String, String), Vec<(TypeId, String)>>,
-    impl_entries: Vec<(String, Vec<TypeId>, String, TypeId, String)>,
+    impl_map: BTreeMap<(String, String, TypeId), usize>,
+    impl_method_index: BTreeMap<(String, String), Vec<usize>>,
+    impl_entries: Vec<TraitImplEntry>,
     impl_entry_index: BTreeMap<(String, String), Vec<usize>>,
-    trait_lookup_cache: BTreeMap<(String, String, Vec<TypeId>, TypeId), Option<String>>,
+    trait_lookup_cache:
+        BTreeMap<(String, String, Vec<TypeId>, TypeId), Option<TraitImplResolution>>,
+}
+
+#[derive(Clone)]
+struct TraitImplEntry {
+    trait_args: Vec<TypeId>,
+    type_args: Vec<TypeId>,
+    target_ty: TypeId,
+    func_name: String,
+}
+
+#[derive(Clone)]
+struct TraitImplResolution {
+    func_name: String,
+    type_args: Vec<TypeId>,
 }
 
 impl<'a> Monomorphizer<'a> {
@@ -409,14 +420,17 @@ impl<'a> Monomorphizer<'a> {
                             _ => resolved,
                         };
                         *self_ty = dispatch_self_ty;
-                        if let Some(name) = self.resolve_trait_impl_name(
+                        if let Some(resolution) = self.resolve_trait_impl_name(
                             trait_name.as_str(),
                             trait_args,
                             method.as_str(),
                             dispatch_self_ty,
                         ) {
                             *callee = FuncRef::User(
-                                self.request_instantiation(name, trait_args.clone()),
+                                self.request_instantiation(
+                                    resolution.func_name,
+                                    resolution.type_args,
+                                ),
                                 Vec::new(),
                                 None,
                             );
@@ -494,7 +508,7 @@ impl<'a> Monomorphizer<'a> {
         trait_args: &[TypeId],
         method: &str,
         resolved_self_ty: TypeId,
-    ) -> Option<String> {
+    ) -> Option<TraitImplResolution> {
         let resolved_trait_args = trait_args
             .iter()
             .map(|arg| self.ctx.resolve_id(*arg))
@@ -514,46 +528,34 @@ impl<'a> Monomorphizer<'a> {
             String::from(method),
             resolved_self_ty,
         );
-        if let Some(name) = self.impl_map.get(&key) {
-            let found = Some(name.clone());
+        if let Some(entry_index) = self.impl_map.get(&key).copied() {
+            let found =
+                self.resolve_trait_impl_entry(entry_index, &resolved_trait_args, resolved_self_ty);
             self.trait_lookup_cache.insert(cache_key, found.clone());
             return found;
         }
         let method_key = (String::from(trait_name), String::from(method));
-        if let Some(candidates) = self.impl_method_index.get(&method_key) {
-            for (target_ty, func_name) in candidates {
-                if self.ctx.same_type(resolved_self_ty, *target_ty) {
-                    let found = Some(func_name.clone());
+        if let Some(candidates) = self.impl_method_index.get(&method_key).cloned() {
+            for entry_index in candidates {
+                if let Some(found_resolution) = self.resolve_trait_impl_entry(
+                    entry_index,
+                    &resolved_trait_args,
+                    resolved_self_ty,
+                ) {
+                    let found = Some(found_resolution);
                     self.trait_lookup_cache.insert(cache_key, found.clone());
                     return found;
                 }
             }
         }
-        if let Some(candidate_indexes) = self.impl_entry_index.get(&method_key) {
+        if let Some(candidate_indexes) = self.impl_entry_index.get(&method_key).cloned() {
             for entry_index in candidate_indexes {
-                let Some((_, impl_trait_args, _, target_ty, func_name)) =
-                    self.impl_entries.get(*entry_index)
-                else {
-                    continue;
-                };
-                if !self.ctx.same_type(resolved_self_ty, *target_ty) {
-                    continue;
-                }
-                if impl_trait_args.len() != resolved_trait_args.len() {
-                    continue;
-                }
-                let mut matched = true;
-                for (impl_arg, call_arg) in impl_trait_args.iter().zip(resolved_trait_args.iter()) {
-                    let impl_arg = self.ctx.resolve_id(*impl_arg);
-                    if !self.ctx.type_pattern_matches(impl_arg, *call_arg)
-                        && !self.ctx.type_pattern_matches(*call_arg, impl_arg)
-                    {
-                        matched = false;
-                        break;
-                    }
-                }
-                if matched {
-                    let found = Some(func_name.clone());
+                if let Some(found_resolution) = self.resolve_trait_impl_entry(
+                    entry_index,
+                    &resolved_trait_args,
+                    resolved_self_ty,
+                ) {
+                    let found = Some(found_resolution);
                     self.trait_lookup_cache.insert(cache_key, found.clone());
                     return found;
                 }
@@ -561,6 +563,236 @@ impl<'a> Monomorphizer<'a> {
         }
         self.trait_lookup_cache.insert(cache_key, None);
         None
+    }
+
+    fn resolve_trait_impl_entry(
+        &mut self,
+        entry_index: usize,
+        resolved_trait_args: &[TypeId],
+        resolved_self_ty: TypeId,
+    ) -> Option<TraitImplResolution> {
+        let entry = self.impl_entries.get(entry_index)?.clone();
+        if entry.trait_args.len() != resolved_trait_args.len() {
+            return None;
+        }
+        if !self
+            .ctx
+            .type_pattern_matches(entry.target_ty, resolved_self_ty)
+        {
+            return None;
+        }
+        for (impl_arg, call_arg) in entry.trait_args.iter().zip(resolved_trait_args.iter()) {
+            let impl_arg = self.ctx.resolve_id(*impl_arg);
+            if !self.ctx.type_pattern_matches(impl_arg, *call_arg) {
+                return None;
+            }
+        }
+        let type_args = self.infer_impl_type_args(
+            &entry.type_args,
+            entry.target_ty,
+            resolved_self_ty,
+            &entry.trait_args,
+            resolved_trait_args,
+        )?;
+        Some(TraitImplResolution {
+            func_name: entry.func_name,
+            type_args,
+        })
+    }
+
+    fn infer_impl_type_args(
+        &self,
+        impl_type_args: &[TypeId],
+        impl_target_ty: TypeId,
+        resolved_self_ty: TypeId,
+        impl_trait_args: &[TypeId],
+        resolved_trait_args: &[TypeId],
+    ) -> Option<Vec<TypeId>> {
+        let mut out = Vec::new();
+        for type_arg in impl_type_args {
+            let resolved_type_arg = self.ctx.resolve_id(*type_arg);
+            let label = match self.ctx.get(resolved_type_arg) {
+                TypeKind::Var(v) => v.label,
+                _ => None,
+            };
+            let mut found = None;
+            if !self.merge_inferred_impl_type_arg(
+                &mut found,
+                self.infer_impl_type_arg_from_pair(
+                    impl_target_ty,
+                    resolved_self_ty,
+                    resolved_type_arg,
+                    label.as_deref(),
+                ),
+            ) {
+                return None;
+            }
+            for (impl_arg, call_arg) in impl_trait_args.iter().zip(resolved_trait_args.iter()) {
+                if !self.merge_inferred_impl_type_arg(
+                    &mut found,
+                    self.infer_impl_type_arg_from_pair(
+                        *impl_arg,
+                        *call_arg,
+                        resolved_type_arg,
+                        label.as_deref(),
+                    ),
+                ) {
+                    return None;
+                }
+            }
+            let concrete = self.ctx.resolve_id(found.unwrap_or(resolved_type_arg));
+            if self.type_has_unbound_var(concrete) {
+                return None;
+            }
+            out.push(concrete);
+        }
+        Some(out)
+    }
+
+    fn merge_inferred_impl_type_arg(
+        &self,
+        current: &mut Option<TypeId>,
+        candidate: Option<TypeId>,
+    ) -> bool {
+        let Some(candidate) = candidate.map(|ty| self.ctx.resolve_id(ty)) else {
+            return true;
+        };
+        match current {
+            None => {
+                *current = Some(candidate);
+                true
+            }
+            Some(prev) if self.ctx.same_type(*prev, candidate) => true,
+            Some(_) => false,
+        }
+    }
+
+    fn infer_impl_type_arg_from_pair(
+        &self,
+        original: TypeId,
+        instantiated: TypeId,
+        target_type_arg: TypeId,
+        target_label: Option<&str>,
+    ) -> Option<TypeId> {
+        let original = self.ctx.resolve_id(original);
+        let instantiated = self.ctx.resolve_id(instantiated);
+        if original == self.ctx.resolve_id(target_type_arg) {
+            return Some(instantiated);
+        }
+        let original_has_target_label = match self.ctx.get(original) {
+            TypeKind::Var(v) => target_label
+                .map(|label| v.label.as_deref() == Some(label))
+                .unwrap_or(false),
+            _ => false,
+        };
+        if original_has_target_label {
+            return Some(instantiated);
+        }
+
+        match (self.ctx.get(original), self.ctx.get(instantiated)) {
+            (
+                TypeKind::Function {
+                    params: params_a,
+                    result: result_a,
+                    ..
+                },
+                TypeKind::Function {
+                    params: params_b,
+                    result: result_b,
+                    ..
+                },
+            ) if params_a.len() == params_b.len() => {
+                let mut found = None;
+                for (param_a, param_b) in params_a.iter().zip(params_b.iter()) {
+                    if !self.merge_inferred_impl_type_arg(
+                        &mut found,
+                        self.infer_impl_type_arg_from_pair(
+                            *param_a,
+                            *param_b,
+                            target_type_arg,
+                            target_label,
+                        ),
+                    ) {
+                        return None;
+                    }
+                }
+                if !self.merge_inferred_impl_type_arg(
+                    &mut found,
+                    self.infer_impl_type_arg_from_pair(
+                        result_a,
+                        result_b,
+                        target_type_arg,
+                        target_label,
+                    ),
+                ) {
+                    return None;
+                }
+                found
+            }
+            (
+                TypeKind::Enum {
+                    type_params: args_a,
+                    ..
+                },
+                TypeKind::Enum {
+                    type_params: args_b,
+                    ..
+                },
+            )
+            | (
+                TypeKind::Struct {
+                    type_params: args_a,
+                    ..
+                },
+                TypeKind::Struct {
+                    type_params: args_b,
+                    ..
+                },
+            )
+            | (TypeKind::Apply { args: args_a, .. }, TypeKind::Apply { args: args_b, .. })
+                if args_a.len() == args_b.len() =>
+            {
+                let mut found = None;
+                for (arg_a, arg_b) in args_a.iter().zip(args_b.iter()) {
+                    if !self.merge_inferred_impl_type_arg(
+                        &mut found,
+                        self.infer_impl_type_arg_from_pair(
+                            *arg_a,
+                            *arg_b,
+                            target_type_arg,
+                            target_label,
+                        ),
+                    ) {
+                        return None;
+                    }
+                }
+                found
+            }
+            (TypeKind::Tuple { items: items_a }, TypeKind::Tuple { items: items_b })
+                if items_a.len() == items_b.len() =>
+            {
+                let mut found = None;
+                for (item_a, item_b) in items_a.iter().zip(items_b.iter()) {
+                    if !self.merge_inferred_impl_type_arg(
+                        &mut found,
+                        self.infer_impl_type_arg_from_pair(
+                            *item_a,
+                            *item_b,
+                            target_type_arg,
+                            target_label,
+                        ),
+                    ) {
+                        return None;
+                    }
+                }
+                found
+            }
+            (TypeKind::Box(inner_a), TypeKind::Box(inner_b))
+            | (TypeKind::Reference(inner_a, _), TypeKind::Reference(inner_b, _)) => {
+                self.infer_impl_type_arg_from_pair(inner_a, inner_b, target_type_arg, target_label)
+            }
+            _ => None,
+        }
     }
 
     fn request_instantiation(&mut self, name: String, args: Vec<TypeId>) -> String {
@@ -964,13 +1196,14 @@ impl<'a> Monomorphizer<'a> {
                             _ => resolved,
                         };
                         *self_ty = dispatch_self_ty;
-                        if let Some(func_name) = self.resolve_trait_impl_name(
+                        if let Some(resolution) = self.resolve_trait_impl_name(
                             trait_name.as_str(),
                             trait_args,
                             method.as_str(),
                             dispatch_self_ty,
                         ) {
-                            let inst = self.request_instantiation(func_name, trait_args.clone());
+                            let inst = self
+                                .request_instantiation(resolution.func_name, resolution.type_args);
                             *callee = FuncRef::User(inst, Vec::new(), None);
                         }
                     }
