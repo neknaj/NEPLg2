@@ -137,6 +137,8 @@ fn main <()->i32> ():
     let p1 <i32> alloc_raw 16;
     let kept <bool> eq load_i32 p0 123;
     let moved <bool> gt p1 p0;
+    dealloc_raw p0 16;
+    dealloc_raw p1 16;
     if and kept moved 0 1
 ```
 
