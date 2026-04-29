@@ -1,3 +1,32 @@
+# 2026-04-30 メモ (ISS-20260429T172032098Z raw cell owner alias root)
+
+- [同期]:
+  - `origin/main` と同期済みの `work/hashmap-owner-contract` branch で作業した。
+- [原因]:
+  - `HashMap` rehash の `store_i32 add hdr 8 new_entries` は、`hdr` が `field::get hm "hdr"` 由来の raw address alias であるため、本来は `hm.field0 + 8` の raw cell owner として扱う必要があった。
+  - 通常の function owner check では parameter owner が seed されないため、`let hdr = field::get box "hdr"` の declare 時に「owner を持つ alias がある場合」だけを条件にすると raw address alias が `hdr` local へ引き継がれなかった。
+  - raw memory store/load も通常の raw address canonical を使っており、aggregate field alias ではなく local raw address alias 側へ owner cell を結び付けやすかった。
+- [修正]:
+  - raw memory load/store の owner cell address には `canonicalize_owner_cell_address` を使い、struct/tuple/enum projection を含む aggregate field alias を local raw address alias より優先するようにした。
+  - 非 owning i32 raw address view の宣言/代入では、既存 alias group がある場合に owner の有無だけに依存せず alias を引き継ぐようにした。
+  - `resource_ir_owner_check_returns_aggregate_with_raw_cell_owner_stored_through_field_alias` を追加し、aggregate field alias 経由で raw cell owner を格納して aggregate を返すケースを固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_returns_aggregate_with_raw_cell_owner_stored_through_field_alias -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 37 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_stored_tail_owner_under_new_raw_node -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_raw_address_stored_in_aggregate_field -- --nocapture`: pass
+  - `cargo fmt --check`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/resource-owner-alias-root-move-effect.json -j 1 --dist web/dist`: total=110, passed=110
+  - `node nodesrc/issues.js check`: pass
+  - `cargo test -p nepl-core --test neplg2 hashmap_custom_struct_key_roundtrips_value -- --nocapture`: まだ fail だが、`hashmap_rehash_to... hdr.StorageOffset(8).Deref` leak は消えた。残りは `insert... entries` と caller-side unfreed HashMap owner。
+  - `cargo test -p nepl-core --test neplg2 llvm_hashmap_string_key_preserves_explicit_hasher_type_args -- --nocapture`: まだ fail。残りは同じ HashMap insert/read/free 契約問題。
+- [issue]:
+  - `ISS-20260429T172032098Z-RESOURCE-OWNER-CHECKER-LEAVES-RAW-CE-8EA40ADE` を fixed/resolved に更新した。
+  - `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` に HashMap 残件の再切り分けを追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T162554932Z generics/shadowing fixture cleanup)
 
 - [同期]:

@@ -6487,6 +6487,87 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_returns_aggregate_with_raw_cell_owner_stored_through_field_alias() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct HeaderBox:
+    hdr <i32>
+
+fn make_box <()*>HeaderBox> ():
+    let hdr <i32> alloc_raw 16
+    if:
+        cond:
+            eq hdr 0
+        then:
+            #intrinsic "unreachable" <> ()
+        else:
+            let entries <i32> alloc_raw 8
+            if:
+                cond:
+                    eq entries 0
+                then:
+                    dealloc_raw hdr 16
+                    #intrinsic "unreachable" <> ()
+                else:
+                    store_i32 add hdr 8 entries
+                    HeaderBox hdr
+
+fn replace_entries <(HeaderBox)*>HeaderBox> (box):
+    let hdr <i32> field::get box "hdr"
+    let old_entries <i32> load_i32 add hdr 8
+    let new_entries <i32> alloc_raw 8
+    if:
+        cond:
+            eq new_entries 0
+        then:
+            dealloc_raw old_entries 8
+            dealloc_raw hdr 16
+            #intrinsic "unreachable" <> ()
+        else:
+            dealloc_raw old_entries 8
+            store_i32 add hdr 8 new_entries
+            box
+
+fn main <()*>()> ():
+    let box0 <HeaderBox> make_box
+    let box1 <HeaderBox> replace_entries box0
+    let hdr <i32> field::get box1 "hdr"
+    let entries <i32> load_i32 add hdr 8
+    dealloc_raw entries 8
+    dealloc_raw hdr 16
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("make_box__")
+                || function.starts_with("replace_entries__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "raw cell owner stored through an aggregate field alias must be returned with the aggregate owner: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_consumes_only_used_aggregate_owner_projection() {
     let source = r#"
 #entry main

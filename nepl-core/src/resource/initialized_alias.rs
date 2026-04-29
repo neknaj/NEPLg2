@@ -50,6 +50,13 @@ impl RawCellAddressAliases {
         place.clone()
     }
 
+    pub(super) fn canonicalize_owner_cell_address(&self, place: &Place) -> Place {
+        self.aliases_for(place)
+            .into_iter()
+            .min_by_key(owner_cell_alias_rank)
+            .unwrap_or_else(|| place.clone())
+    }
+
     pub(super) fn contains_exact(&self, place: &Place) -> bool {
         self.groups
             .iter()
@@ -298,6 +305,35 @@ fn canonical_place_projection_rank(place: &Place) -> u8 {
         0
     } else {
         1
+    }
+}
+
+fn owner_cell_alias_rank(place: &Place) -> (u8, u8, usize) {
+    (
+        owner_cell_projection_rank(place),
+        canonical_place_rank(place),
+        place.projections.len(),
+    )
+}
+
+fn owner_cell_projection_rank(place: &Place) -> u8 {
+    if place.projections.iter().any(|projection| {
+        matches!(
+            projection,
+            super::model::PlaceProjection::Field { .. }
+                | super::model::PlaceProjection::TupleField { .. }
+                | super::model::PlaceProjection::EnumPayload { .. }
+        )
+    }) {
+        0
+    } else if place
+        .projections
+        .iter()
+        .any(|projection| matches!(projection, super::model::PlaceProjection::StorageOffset(_)))
+    {
+        1
+    } else {
+        2
     }
 }
 

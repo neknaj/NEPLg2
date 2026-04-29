@@ -223,7 +223,7 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_aliases
             .aliases_for(source)
             .iter()
-            .any(|alias| alias != source && owners.has_transferable_owner(alias))
+            .any(|alias| alias != source)
     }
 
     fn check_op(
@@ -353,7 +353,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 }
                 RawMemoryOp::Load => {
                     if let Some(address) = args.first() {
-                        let address = raw_aliases.canonicalize(address);
+                        let address = raw_aliases.canonicalize_owner_cell_address(address);
                         let cell = raw_memory_cell_place(&address, output.ty);
                         self.transfer_owner(
                             owners,
@@ -368,7 +368,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 }
                 RawMemoryOp::Store => {
                     if let [address, value, ..] = args.as_slice() {
-                        let address = raw_aliases.canonicalize(address);
+                        let address = raw_aliases.canonicalize_owner_cell_address(address);
                         let cell = raw_memory_cell_place(&address, value.ty);
                         self.report_overwritten_owners(
                             owners,

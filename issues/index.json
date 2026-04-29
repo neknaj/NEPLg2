@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T17:12:25.999Z",
+  "generated_at": "2026-04-29T17:30:06.652Z",
   "counts": {
-    "total": 391,
+    "total": 392,
     "open": 14,
-    "resolved": 377,
+    "resolved": 378,
     "by_area": {
       "core": {
-        "total": 181,
+        "total": 182,
         "open": 5,
-        "resolved": 176
+        "resolved": 177
       },
       "stdlib": {
         "total": 117,
@@ -2838,6 +2838,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T170036695Z-RESOURCE-OWNER-SUMMARY-KEEPS-OWNED-E-BFDE4F98.md"
+    },
+    {
+      "id": "ISS-20260429T172032098Z-RESOURCE-OWNER-CHECKER-LEAVES-RAW-CE-8EA40ADE",
+      "title": "Resource owner checker leaves raw cell owner under local address alias",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T172032098Z-RESOURCE-OWNER-CHECKER-LEAVES-RAW-CE-8EA40ADE.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

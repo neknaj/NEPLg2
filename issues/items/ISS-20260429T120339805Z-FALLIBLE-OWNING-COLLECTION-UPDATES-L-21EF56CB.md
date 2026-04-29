@@ -50,3 +50,14 @@ Run focused List/HashMap neplg2 tests and Resource IR owner regressions after th
 `list_get_out_of_bounds_err` の失敗は、List の allocation failure rollback ではなく、`unwrap_ok` / `uwok` の `Err => unreachable` 経路で owned `Result::Err` payload が caller に残る Resource owner summary 問題だった。これは `ISS-20260429T170036695Z-RESOURCE-OWNER-SUMMARY-KEEPS-OWNED-E-BFDE4F98` として core 側で修正済みで、`cargo test -p nepl-core --test neplg2 list_get_out_of_bounds_err -- --nocapture` は pass する。
 
 この issue の残件は HashMap 側に集中している。`hashmap_rehash_to` の `hdr + 8` entries owner、`insert` の local `entries` owner、main の `map1` / `hms` / `hmk` header と entries owner leak は引き続き再現する。次の修正では HashMap grow / rehash / insert / free の owner contract を、Resource IR owner gate を弱めずに整理する。
+
+## 2026-04-30 状況更新 2
+
+`hashmap_rehash_to` の `hdr + 8` entries owner leak は、stdlib の rollback 契約ではなく core Resource owner checker の raw address alias 継承漏れだった。`ISS-20260429T172032098Z-RESOURCE-OWNER-CHECKER-LEAVES-RAW-CE-8EA40ADE` で修正済み。
+
+この issue の残件は以下に絞られた。
+
+- `insert...` の local `entries` owner may leak。
+- `main` 側の `map1` / `hms` / `hmk` header と entries owner leak。
+
+特に caller-side leak は、HashMap を作成して `get` / `len` / `contains` で参照した後に `free` しない fixture/API 契約の問題であり、次の修正では `HashMap` の read API と test fixture の ownership contract を整理する。
