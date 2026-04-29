@@ -112,6 +112,20 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-04-29 メモ (ISS-20260429T030655089Z nm direct serializer D3100)
+
+- [発見]:
+  - byte scanner helper 置換後の確認で `tests/stdlib/nm.n.md` は 5 件すべて compile phase D3100 になった。
+  - top issue は `document_to_json` の owner obligation leak と `nm_inline_to_html` の `MaybeFreed`。
+  - nm direct serializer は過去に `ISS-20260428T003718356Z-NM-PARSER-AND-HTML-GEN-RAW-MEMORY-DE-99175378` で 10/10 passed まで進んでいたため、現在の Resource owner gate 残件または回帰として切り分ける。
+- [issue]:
+  - `ISS-20260429T030655089Z-RESOURCE-OWNER-GATE-REGRESSES-NM-DIR-98E651E0` を追加した。
+- [次の方針]:
+  - D3100 を弱めず、StringBuilder/direct serializer temporary の owner flow を Resource IR 側で追えるようにする。
+  - 今回の byte scanner helper refactor は構造 regression と `alloc/string` focused test で検証し、nm behavioral fixture はこの issue の解消後に再確認する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T004144320Z Resource owner pointer read separation)
 
 - [同期]:
