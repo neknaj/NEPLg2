@@ -38,7 +38,8 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(combined, pattern, 'nm inline serializers must not use unsafe unwraps or non-Copy Vec-backed inline AST');
 }
 
-assert.match(parser, /fn\s+nm_inline_to_json\s+<\(str\)->str>\s+\(s\):[\s\S]*match\s+ch:/, 'JSON inline serializer must dispatch marker bytes with match');
+assert.match(parser, /fn\s+nm_inline_to_json_into\s+<\(StringBuilder,str\)->StringBuilder>\s+\(out,\s*s\):[\s\S]*match\s+ch:/, 'JSON inline serializer must dispatch marker bytes with match');
+assert.match(parser, /fn\s+nm_inline_to_json\s+<\(str\)->str>\s+\(s\):[\s\S]*sb_build\s+nm_inline_to_json_into\s+string_builder_new\s+s/, 'JSON inline wrapper must delegate through the builder serializer');
 assert.match(html, /fn\s+nm_inline_to_html\s+<\(str\)->str>\s+\(s\):[\s\S]*match\s+ch:/, 'HTML inline serializer must dispatch marker bytes with match');
 assert.match(parser, /fn\s+nm_find_gloss_slash\s+<\(str,i32,i32\)->i32>/, 'gloss slash scanning must stay string-backed');
 assert.match(parser, /fn\s+nm_find_math_end\s+<\(str,i32,i32\)->i32>/, 'math delimiter scanning must stay string-backed');

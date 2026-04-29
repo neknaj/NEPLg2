@@ -26539,3 +26539,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - StreamScanner の header 設計は維持しつつ、ByteBuf failure cleanup の責務を `io_bytebuf_free` に集約した。
+
+# 2026-04-29 メモ (ISS-20260429T144908106Z nm inline JSON source policy follow-up)
+
+- [同期]:
+  - `main` の `0677b17` から `work/nm-inline-json-source-policy` branch を作成した。
+  - source policy 一覧を再実行し、`nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js` が旧 `nm_inline_to_json` 本体の `match ch` を要求して停止することを確認した。
+- [原因]:
+  - 前回の NM JSON 修正で、inline JSON の実処理は `nm_inline_to_json_into` に移り、公開 `nm_inline_to_json` は `sb_build` する wrapper になった。
+  - 旧 source policy は public wrapper に marker byte dispatch が残る設計を前提にしていたため、現在の builder serializer 分割を regression と誤判定していた。
+- [修正]:
+  - `nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js` の JSON inline serializer 検査を `nm_inline_to_json_into` の `match ch` に移した。
+  - `nm_inline_to_json` wrapper が `sb_build nm_inline_to_json_into string_builder_new s` へ委譲することも同じ policy で固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - NM JSON serializer の中間 `str` 削減設計に source policy を追従させた。
