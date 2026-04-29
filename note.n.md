@@ -1,3 +1,19 @@
+# 2026-04-29 メモ (ISS-20260429T005246036Z self-host CLI file_io boundary)
+
+- [同期]:
+  - `origin/main` の `43fd31f selfhost(cli): add vfs driver boundary` まで取り込み、`issue/selfhost-cli-file-io-boundary` branch で開始した。
+- [発見]:
+  - `doc/neplg2/self_host_plan.md` の S6 は `cli/file_io.nepl` を input file / artifact output の橋渡し層として定義している。
+  - 現状の `stdlib/neplg2/cli/driver.nepl` は VFS を受け取って core pipeline へ渡せるが、実 filesystem から root source を読み、VFS に詰める CLI module がない。
+  - このまま `main.nepl` や `driver.nepl` に `std/fs` 呼び出しを足すと、core-facing driver の fs 非依存境界が崩れる。
+- [issue]:
+  - 具体修正単位として `ISS-20260429T005246036Z-SELF-HOST-CLI-LACKS-FILESYSTEM-FILE--1B6C9F63` を追加した。
+- [次の方針]:
+  - `cli/file_io.nepl` に `std/fs` 依存を閉じ込め、root source を `SelfhostVirtualFileSystem` に登録する helper と text/binary artifact write helper を追加する。
+  - `driver.nepl` は VFS-facing のまま維持し、source policy test で `std/fs` import が file_io 以外へ漏れないことを固定する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260428T233410073Z generic aggregate field move identity)
 
 - [同期]:

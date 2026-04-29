@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T00:38:41.035Z",
+  "generated_at": "2026-04-29T00:53:31.116Z",
   "counts": {
-    "total": 335,
-    "open": 9,
+    "total": 336,
+    "open": 10,
     "resolved": 326,
     "by_area": {
       "core": {
@@ -11,15 +11,15 @@
         "open": 3,
         "resolved": 152
       },
+      "selfhost": {
+        "total": 44,
+        "open": 2,
+        "resolved": 42
+      },
       "stdlib": {
         "total": 100,
         "open": 5,
         "resolved": 95
-      },
-      "selfhost": {
-        "total": 43,
-        "open": 1,
-        "resolved": 42
       },
       "cli": {
         "total": 19,
@@ -93,6 +93,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260429T005246036Z-SELF-HOST-CLI-LACKS-FILESYSTEM-FILE--1B6C9F63",
+      "title": "self-host CLI lacks filesystem file_io boundary",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/neplg2/cli/file_io.nepl, stdlib/neplg2/cli/driver.nepl, tests/stdlib/selfhost_cli_file_io.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T005246036Z-SELF-HOST-CLI-LACKS-FILESYSTEM-FILE--1B6C9F63.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
