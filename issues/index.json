@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T12:55:02.031Z",
+  "generated_at": "2026-04-29T13:01:24.271Z",
   "counts": {
     "total": 375,
-    "open": 18,
-    "resolved": 357,
+    "open": 17,
+    "resolved": 358,
     "by_area": {
       "core": {
         "total": 174,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 111,
-        "open": 11,
-        "resolved": 100
+        "open": 10,
+        "resolved": 101
       },
       "TEST": {
         "total": 4,
@@ -258,21 +258,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D.md"
-    },
-    {
-      "id": "ISS-20260429T125051782Z-STRING-FROM-MEM-UNCHECKED-RESULT-LEA-DEC43497",
-      "title": "string_from_mem_unchecked_result leaks output region owner under Resource IR",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "stdlib/alloc/string.nepl, tests/stdlib/stdin.n.md, tests/stdlib/streamio.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T125051782Z-STRING-FROM-MEM-UNCHECKED-RESULT-LEA-DEC43497.md"
     },
     {
       "id": "ISS-20260429T125126519Z-IO-BYTEBUF-FROM-STR-RESULT-LOSES-BYT-C0364ECE",
@@ -3963,6 +3948,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131.md"
+    },
+    {
+      "id": "ISS-20260429T125051782Z-STRING-FROM-MEM-UNCHECKED-RESULT-LEA-DEC43497",
+      "title": "string_from_mem_unchecked_result leaks output region owner under Resource IR",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/string.nepl, nepl-core/tests/resource_ir.rs, tests/stdlib/stdin.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T125051782Z-STRING-FROM-MEM-UNCHECKED-RESULT-LEA-DEC43497.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

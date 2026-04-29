@@ -26066,6 +26066,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `.n.md` assertion suite が使う stdlib report API を structured assertion model へ進めた。
   - 既存 assertion suite の全面移行と report 省略 lint は `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` で継続する。
 
+# 2026-04-29 メモ (ISS-20260429T125051782Z string_from_mem owner contract)
+
+- [同期]:
+  - `origin/main` の `e2251d2` から `work/string-from-mem-owner-regression` branch を作成した。
+- [原因]:
+  - `string_from_mem_unchecked_result` は `string_alloc_region` で確保した領域に byte copy した後、以前は `string_finish_base` を直接呼んでいたため、`RegionToken` の owner が返却 `str` へ移る境界が Resource IR に見えなかった。
+  - `ISS-20260429T122447197Z` の修正で `str_from_addr_unchecked` alias と `string_finish(RegionToken, len)` 境界が整備され、この constructor も owner-safe path へ移行済みだった。
+- [修正]:
+  - `string_from_mem_unchecked_result` 専用の Resource IR owner 回帰テストを追加した。
+  - issue を fixed に更新し、stdin focused run の通過と streamio 側の残件分離を記録した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_from_mem_unchecked_result_transfer -- --nocapture`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/string-from-mem-stdin-before.json -j 1 --dist web/dist`: `total=5`, `passed=5`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/string-from-mem-streamio-before.json -j 1 --dist web/dist`: `StreamWriter` raw buffer load の既存 issue で失敗。`string_from_mem_unchecked_result` leak ではない。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の Resource owner check について、文字列 byte copy constructor の回帰を追加した。
+
 # 2026-04-29 メモ (ISS-20260429T122447197Z string concat_result owner contract)
 
 - [同期]:

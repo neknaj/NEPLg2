@@ -5885,6 +5885,48 @@ fn main <()* >str> ():
 }
 
 #[test]
+fn resource_ir_owner_check_accepts_string_from_mem_unchecked_result_transfer() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn main <()* >str> ():
+    let src <str> "abc"
+    match string_from_mem_unchecked_result string_data_ptr src len src:
+        Result::Ok copied:
+            copied
+        Result::Err e:
+            e
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("string_from_mem_unchecked_result__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "string_from_mem_unchecked_result must move the output RegionToken owner into the returned Result::Ok str: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_moves_stored_tail_owner_under_new_raw_node() {
     let source = r#"
 #entry main
