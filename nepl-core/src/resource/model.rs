@@ -364,7 +364,7 @@ pub enum OwnerState {
     Live { storage: StorageId },
     Moved,
     Freed,
-    MaybeFreed,
+    MaybeFreed { storage: Option<StorageId> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

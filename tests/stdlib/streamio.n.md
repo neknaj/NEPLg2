@@ -53,12 +53,12 @@ neplg2:test
 
 #import "std/streamio" as *
 #import "std/test" as *
+#import "alloc/string" as *
 
 fn main <()*>i32> ():
     let bytes0 <ByteBuf> stream_bytes_from_str "A\x00B\n"
     let text <str> stream_bytes_to_str bytes0
-    assert_str_eq "A\x00B\n" text
-    0
+    if str_eq text "A\x00B\n" 0 1
 ```
 
 
@@ -121,9 +121,11 @@ stdout: "line1\nline2"
 #import "std/iotarget" as *
 #import "core/result" as *
 
+fn read_stdin_bytes <()*>Result<ByteBuf, StdErrorKind>> ():
+    read StdinStream ()
+
 fn main <()*>i32> ():
-    let bytes0 <Result<ByteBuf, StdErrorKind>> read StdinStream ()
-    match bytes0:
+    match read_stdin_bytes:
         Result::Ok bytes:
             match write StdoutStream () bytes:
                 Result::Ok out:
@@ -152,9 +154,11 @@ stdout: "text via read"
 #import "std/iotarget" as *
 #import "core/result" as *
 
+fn read_stdin_text <()*>Result<str, StdErrorKind>> ():
+    read StdinStream ()
+
 fn main <()*>i32> ():
-    let text0 <Result<str, StdErrorKind>> read StdinStream ()
-    match text0:
+    match read_stdin_text:
         Result::Ok text:
             match write StdoutStream () text:
                 Result::Ok out:

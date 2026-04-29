@@ -58,3 +58,20 @@ String 側では `RegionToken` の `ptr` projection を owned `get` ではなく
 - `node nodesrc/tests.js -i stdlib\neplg2\core\ty\ty.nepl -i stdlib\neplg2\core\builtins\prelude.nepl --no-tree -o tmp\string-regiontoken-ref-ty-prelude.json -j 1`: total=2, passed=2
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Source policy alignment after string owner boundary
+
+`ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE` の対応で、`string_finish` は `RegionToken<u8>` を値で消費し、その owner を `str` へ移す最終境界になった。これにより、通常の RegionToken projection は `get_ref` を使う一方で、`string_finish` だけは `get region "ptr"` を使うことが正しい設計になっている。
+
+`nodesrc/test_stdlib_string_no_unsafe_unwraps.js` は古い「すべての RegionToken ptr direct get を禁止する」規則を保持していたため、現在の正しい `string_finish` ownership boundary を Source policy regression として誤検出していた。
+
+修正では source policy を次の境界へ更新した。
+
+- `string_finish` では `get region "ptr"` による RegionToken 消費を要求し、`string_finish_base` へ委譲することを確認する。
+- `string_finish` 以外では `get region "ptr"` / `get out_region "ptr"` の再導入を引き続き禁止する。
+- `string_region_data_ptr` は引き続き `&RegionToken<u8>` から投影し、RegionToken projection helper の by-value 呼び出しを禁止する。
+
+追加検証:
+
+- `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_from_mem_unchecked_result_transfer -- --nocapture`: passed

@@ -193,7 +193,7 @@ impl ResourceOwnerCheckEngine<'_> {
         place: &Place,
     ) {
         let resolved_place =
-            super::owner_flow::resolve_owner_alias_place(owners, raw_aliases, place);
+            super::owner_alias::resolve_owner_alias_place(owners, raw_aliases, place);
         let descendants = owners.descendant_entries(&resolved_place);
         owners.set_state(&resolved_place, OwnerState::NoFreeObligation);
         storage_origins.clear(&resolved_place);
@@ -204,6 +204,26 @@ impl ResourceOwnerCheckEngine<'_> {
             storage_origins.clear(&entry.place);
             raw_aliases.clear(&entry.place);
         }
+    }
+
+    fn initializer_is_non_owning_raw_alias_view(
+        &self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        source: &Place,
+        target: &Place,
+    ) -> bool {
+        if self.types.resolve_id(source.ty) != self.types.i32()
+            || self.types.resolve_id(target.ty) != self.types.i32()
+            || owners.has_transferable_owner(source)
+            || owners.has_tracked_state_under(source)
+        {
+            return false;
+        }
+        raw_aliases
+            .aliases_for(source)
+            .iter()
+            .any(|alias| alias != source && owners.has_transferable_owner(alias))
     }
 
     fn check_op(
@@ -222,15 +242,25 @@ impl ResourceOwnerCheckEngine<'_> {
                 ..
             } => {
                 if let Some(initializer) = initializer {
-                    self.transfer_owner(
+                    if self.initializer_is_non_owning_raw_alias_view(
                         owners,
                         raw_aliases,
-                        storage_origins,
                         initializer,
                         place,
-                        ResourceOwnerOperation::DeclareInitializer,
-                        *span,
-                    );
+                    ) {
+                        raw_aliases.copy_alias_or_seed(initializer, place);
+                        storage_origins.copy_origin(initializer, place);
+                    } else {
+                        self.transfer_owner(
+                            owners,
+                            raw_aliases,
+                            storage_origins,
+                            initializer,
+                            place,
+                            ResourceOwnerOperation::DeclareInitializer,
+                            *span,
+                        );
+                    }
                     function_aliases.copy_alias(initializer, place);
                 }
             }
@@ -249,15 +279,21 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             } => {
                 self.report_overwritten_owners(owners, storage_origins, target, value, *span);
-                self.transfer_owner(
-                    owners,
-                    raw_aliases,
-                    storage_origins,
-                    value,
-                    target,
-                    ResourceOwnerOperation::AssignValue,
-                    *span,
-                );
+                if self.initializer_is_non_owning_raw_alias_view(owners, raw_aliases, value, target)
+                {
+                    raw_aliases.copy_alias_or_seed(value, target);
+                    storage_origins.copy_origin(value, target);
+                } else {
+                    self.transfer_owner(
+                        owners,
+                        raw_aliases,
+                        storage_origins,
+                        value,
+                        target,
+                        ResourceOwnerOperation::AssignValue,
+                        *span,
+                    );
+                }
                 function_aliases.copy_alias(value, target);
             }
             ResourceOp::Move {

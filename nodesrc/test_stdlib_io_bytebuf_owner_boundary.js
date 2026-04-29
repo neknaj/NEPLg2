@@ -100,17 +100,20 @@ assert.doesNotMatch(
 const fsReadMatch = fsSrc.match(/fn\s+fs_read_fd_bytes\b([\s\S]*?)\n\/\/: fs_std_error_to_errno\b/);
 assert.ok(fsReadMatch, 'fs_read_fd_bytes body must be found');
 const fsRead = fsReadMatch[1];
+const fsFinishMatch = fsSrc.match(/fn\s+fs_finish_read_buffer\b([\s\S]*?)\n\/\/: fs:/);
+assert.ok(fsFinishMatch, 'fs_finish_read_buffer body must be found');
+const fsFinish = fsFinishMatch[1];
 
 assert.match(
     fsRead,
-    /\beq\s+read_len\s+0[\s\S]*?\bResult<ByteBuf,i32>::Ok\s+io_bytebuf_empty\b/,
-    'fs_read_fd_bytes must return an empty ByteBuf without transferring the scratch owner on zero-byte reads',
+    /\bfs_finish_read_buffer\s+buf\s+cap\s+read_len\b/,
+    'fs_read_fd_bytes must finish through the ByteBuf ownership-normalizing helper',
 );
 
 assert.match(
-    fsRead,
-    /\bor\s+or\s+eq\s+alloc_failed\s+1\s+ne\s+err\s+0\s+eq\s+read_len\s+0\b/,
-    'fs_read_fd_bytes must deallocate the scratch buffer on zero-byte successful reads',
+    fsFinish,
+    /\beq\s+data_len\s+0[\s\S]*?\bdealloc_ptr<u8>\s+buf\s+cap[\s\S]*?\bResult<ByteBuf,i32>::Ok\s+io_bytebuf_empty\b/,
+    'fs_finish_read_buffer must deallocate scratch storage before returning an empty ByteBuf',
 );
 
 console.log('alloc/io ByteBuf owner boundary regression passed');

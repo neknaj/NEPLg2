@@ -60,8 +60,11 @@ assertMissing('check.rs');
 for (const moduleName of [
     'initialized.rs',
     'borrow_check.rs',
+    'borrow_summary.rs',
     'owner_check.rs',
     'owner_flow.rs',
+    'owner_summary.rs',
+    'owner_summary_leaf.rs',
     'summary.rs',
     'effect.rs',
     'effect_check.rs',
@@ -84,8 +87,11 @@ for (const moduleName of [
 for (const moduleDecl of [
     'mod initialized;',
     'mod borrow_check;',
+    'mod borrow_summary;',
     'mod owner_check;',
     'mod owner_flow;',
+    'mod owner_summary;',
+    'mod owner_summary_leaf;',
     'mod summary;',
     'mod effect;',
     'mod effect_check;',
@@ -109,7 +115,9 @@ assertNotContains(mod, 'mod check;', 'resource/mod.rs');
 
 const initialized = readResource('initialized.rs');
 const borrowCheck = readResource('borrow_check.rs');
+const borrowSummary = readResource('borrow_summary.rs');
 const ownerCheck = readResource('owner_check.rs');
+const ownerSummary = readResource('owner_summary.rs');
 const summary = readResource('summary.rs');
 const effect = readResource('effect.rs');
 const effectCheck = readResource('effect_check.rs');
@@ -147,16 +155,16 @@ assertContains(
 );
 assertNotContains(lower, 'struct RawAddressSource', 'lower.rs');
 assertUsesResourceModuleSymbol(
-    summary,
+    borrowSummary,
     'borrow_check',
     'ResourceBorrowCheckEngine',
-    'summary.rs',
+    'borrow_summary.rs',
 );
 assertUsesResourceModuleSymbol(
-    summary,
+    ownerSummary,
     'owner_check',
     'ResourceOwnerCheckEngine',
-    'summary.rs',
+    'owner_summary.rs',
 );
 assertUsesResourceModuleSymbol(
     effectSummary,
@@ -169,8 +177,11 @@ const maxLines = new Map([
     ['effect.rs', 160],
     ['initialized.rs', 750],
     ['borrow_check.rs', 550],
+    ['borrow_summary.rs', 120],
     ['owner_check.rs', 800],
     ['owner_flow.rs', 620],
+    ['owner_summary.rs', 380],
+    ['owner_summary_leaf.rs', 260],
     ['effect_check.rs', 700],
     ['summary.rs', 300],
     ['effect_summary.rs', 250],

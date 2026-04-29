@@ -26106,6 +26106,78 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `.n.md` assertion suite が使う stdlib report API を structured assertion model へ進めた。
   - 既存 assertion suite の全面移行と report 省略 lint は `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` で継続する。
 
+# 2026-04-29 メモ (ISS-20260429T125010191Z fs WASI out pointer boundary)
+
+- [同期]:
+  - `origin/main` の `3e21dc5` まで同期した main から `work/fs-wasi-out-pointer-boundary` branch を作成した。
+- [原因]:
+  - `fs_open_with_flags` は fd out scratch を `MemPtr<i32>` に変換してから `load_i32 fd_out` で読み戻しており、Resource IR が同じ raw scratch cell の初期化を関数境界/typed pointer conversion 越しに証明できなかった。
+  - `fs_read_fd_bytes` の nread scratch と `fs_write_fd_bytes` の nwritten scratch も同じ out pointer pattern を持っていた。
+  - `fs_read_fd_bytes` は短い read / EOF でも capacity 65536 の buffer を `ByteBuf len=read_len` として返しており、ByteBuf の exact-size owner invariant から外れていた。
+- [修正]:
+  - `fs_open_with_flags` は fd out scratch を raw address local で初期化/読み戻しする形へ変更した。
+  - `fs_fd_read_into_result` と `fs_fd_write_from_result` を追加し、WASI iovec と nread/nwritten の scratch 初期化・読み戻しを operation-specific helper 内に閉じ込めた。
+  - `fs_finish_read_buffer` を追加し、empty read は buffer を解放して `io_bytebuf_empty`、short read は exact-size shrink、full read はそのまま owner transfer する形へ整理した。
+  - `fs_i32_ptr` は typed out-pointer helper として不要になったため削除した。
+- [追加 issue]:
+  - `node nodesrc/test_resource_checker_responsibility.js` が `owner_flow.rs has 693 lines; responsibility split limit is 620` で失敗するため、`ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E` を追加した。これは本修正とは別 issue として扱う。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-raw-outparam-after.json -j 1 --dist web/dist`: `total=7`, `passed=7`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/stdin-after-fs-raw-outparam.json -j 1 --dist web/dist`: `total=5`, `passed=5`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-after-fs-raw-outparam.json -j 1 --dist web/dist`: `total=14`, `passed=11`, `failed=3`。残りは assertion/ByteBuf conversion path の owner leak であり、fs raw out pointer ではない。
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: failed。新規 issue に分離。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4/6 として、fs の raw out pointer を checker-visible boundary へ閉じ、ByteBuf read result を exact-size owner invariant に寄せた。
+
+# 2026-04-29 メモ (ISS-20260429T124935636Z stdio read buffer owner boundary)
+
+- [同期]:
+  - `origin/main` の `c621a7f` まで同期した main から `work/stdio-read-buffer-owner-boundary` branch を作成した。
+- [確認]:
+  - `stdio_finish_read_buffer` の `BranchValue ... MaybeFreed` は、Resource IR owner state が `MaybeFreed` を movable conditional owner として扱う修正により解消済みだった。
+  - `stdlib/std/stdio.nepl` の focused doctest は全件通過した。
+  - `tests/stdlib/stdin.n.md` の残り 1 件は `fs_open_with_flags` の `RawMemoryLoadCell ... found Uninit` であり、stdio read buffer owner leak ではない。
+- [修正]:
+  - issue を fixed に更新し、解消根拠と残件の分離先を記録した。
+  - stdlib 実装は変更していない。`stdio_finish_read_buffer` の invalid/empty/error path が buffer を解放し、success path が exact-size `ByteBuf` へ owner を渡す設計は現状で Resource IR に通る。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-owner-before.json -j 1 --dist web/dist`: `total=28`, `passed=28`, `failed=0`
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/stdin-before-stdio-owner.json -j 1 --dist web/dist`: `total=5`, `passed=4`, `failed=1`。残りは `ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D`。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の Resource owner check 修正により、本 issue の false positive は解消済みであることを確認した。
+
+# 2026-04-29 メモ (ISS-20260429T125126519Z io_bytebuf_from_str_result owner transfer)
+
+- [同期]:
+  - `origin/main` の `e5552ff` まで同期した main から `work/io-bytebuf-from-str-owner` branch を作成した。
+- [原因]:
+  - `io_bytebuf_from_str_result` の非空 branch では `alloc_ptr<u8>` で得た `MemPtr` owner を `ByteBuf.ptr` へ移す必要がある。
+  - しかし Resource IR owner checker は `mem_ptr_addr out` の戻り値を owning raw value と同じように扱い、`let out_raw = mem_ptr_addr out` の時点で `out.raw` の free obligation を `out_raw` へ move していた。
+  - その後の `ByteBuf out byte_len` は `out.raw` が `Moved` になった状態で評価され、`ConstructInput` が失敗していた。
+  - 空/非空 branch の合流で発生する `MaybeFreed` owner は、return summary と caller 側 move に伝播させないと検査が抜ける。一方で `MaybeFreed` は dealloc 可能とみなしてはいけないため、move 可能な条件付き owner state として扱う必要があった。
+- [修正]:
+  - `mem_ptr_addr` を非所有 raw address view として分類し、call return summary による owner transfer 対象から外した。
+  - 直接 owner を持たず raw alias だけを持つ `i32` initializer は、`let`/assign で owner を move せず alias と storage origin だけを引き継ぐようにした。
+  - `OwnerState::MaybeFreed` に storage provenance を持たせ、function summary で conditional owner を caller へ伝播できるようにした。
+  - `MaybeFreed` は declaration / assignment / branch value / call argument / return value では move 可能、release/dealloc では引き続き unavailable として扱うようにした。
+  - owner flow の raw address ownership 判定は `RawAddressOwnershipKind` enum に閉じ、追加時に match の網羅性が効く形へ寄せた。
+  - ByteBuf の空/非空 owner invariant を構造的に表す残件を `ISS-20260429T131646897Z-BYTEBUF-EMPTY-NON-EMPTY-CONDITIONAL--34FBA0C2` として分離した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 31 passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/io.nepl --no-tree -o tmp/alloc-io-bytebuf-owner-after.json -j 1 --dist web/dist`: `total=1`, `passed=1`, `failed=0`
+  - remote main の StreamWriter 修正取り込み後、`node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/alloc-io-bytebuf-streamio-after-rebase.json -j 1 --dist web/dist`: `total=14`, `passed=7`, `failed=7`。失敗は std/test assertion result 未集約、stdio/fs ByteBuf conditional owner、fs raw load であり、`mem_ptr_addr` による `ConstructInput out Moved` ではない。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の Resource owner check で、非所有 pointer view と free obligation owner の分離を進めた。
+  - ByteBuf API の構造化は Stage 6 の stdlib memory API migration として残した。
+
 # 2026-04-29 メモ (ISS-20260429T125051782Z string_from_mem owner contract)
 
 - [同期]:
@@ -26277,3 +26349,70 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - StreamWriter は raw mutable header ではなく、所有権が field として静的検査に見える owning struct として扱う設計に改めた。
+
+# 2026-04-29 メモ (ISS-20260429T135959086Z Resource owner flow responsibility split)
+
+- [同期]:
+  - `origin/main` 同期後に `work/resource-owner-flow-responsibility-split` branch で対応した。
+- [原因]:
+  - `owner_flow.rs` に owner alias 解決、raw address の所有権分類、owner state transfer が同居し、Source policy の 620 行上限を超えていた。
+  - `owner_flow.rs` の分割後、同じ責務過大として `summary.rs` が検出され、summary data model と borrow/owner summary 計算、owner leaf projection 展開が 1 ファイルへ集中していることが分かった。
+- [修正]:
+  - `owner_alias.rs` に owner alias 解決を分離した。
+  - `owner_raw_address.rs` に raw address return の ownership kind 分類を分離し、owner_flow 側も enum を直接 `match` して分岐する形にした。
+  - `owner_transfer.rs` に owner state transfer を分離した。
+  - `borrow_summary.rs` に borrow token return summary の固定点計算を分離した。
+  - `owner_summary.rs` に owner return summary の固定点計算を分離した。
+  - `owner_summary_leaf.rs` に aggregate/enum/apply を含む owner leaf projection 展開を分離した。
+  - `summary.rs` は共有 summary data model と computation entry point の re-export のみに縮小した。
+  - `nodesrc/test_resource_checker_responsibility.js` に新モジュールの存在検査と行数上限を追加し、再集中を検出できるようにした。
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: `31 passed`
+  - `cargo check -p nepl-core --tests`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 plan の Stage 4/Resource IR 責務分離を進め、owner 検査の flow/summary 補助責務を監査可能な粒度へ分けた。
+
+# 2026-04-29 メモ (ISS-20260427T044701965Z streamio source policy alignment)
+
+- [同期]:
+  - `origin/main` の `7bebfd9` まで同期した `main` から `work/streamio-header-checked-memory-regression` branch を作成した。
+- [原因]:
+  - GitHub Actions の Source policy regressions は `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` で停止していた。
+  - test は `stream_scanner_load_header_result` に `match load_i32 p` を要求していたが、現在の scanner 境界では Resource IR のために unproven typed header pointer load を再導入せず、scanner header boundary 内で raw header address を扱う設計に変わっている。
+  - test は StreamWriter raw header 設計の `StreamWriterHeaderField::WriteLen` 更新も要求していたが、現在の StreamWriter は `buf/cap/write_len/target` field を持つ owning struct へ再設計済みである。
+  - test は append 側の直接 raw byte load も要求していたが、現在は `alloc/string` の byte boundary と borrowed ByteBuf helper に責務を移している。
+- [修正]:
+  - `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を現在の scanner/header boundary と StreamWriter owning struct 設計に合わせて更新した。
+  - unsafe unwrap / `#intrinsic "unreachable"` の禁止は維持し、`streamio_scanner_boundary` / `streamio_writer_boundary` と矛盾しない source policy に整理した。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+- [追加で確認した残件]:
+  - source policy 一式を進めると、次に `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` が `RegionToken` ptr の direct `get` を検出する。これは既存 `ISS-20260428T224138753Z-STRING-CONSTRUCTORS-REUSE-REGIONTOKE-91ED01B9` の再発または未完了として別 commit で扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 実装ではなく、静的検査と stdlib memory-safety 境界を監視する source policy の古い前提を現在の設計へ合わせた。
+
+# 2026-04-29 メモ (ISS-20260428T224138753Z string_finish source policy alignment)
+
+- [同期]:
+  - `origin/main` の `7e38f0c` まで同期した `main` から `work/string-finish-policy-alignment` branch を作成した。
+- [原因]:
+  - Source policy 一式で `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` が `string_finish` の `get region "ptr"` を検出して失敗した。
+  - 旧 policy は「RegionToken ptr direct get はすべて禁止」としていたが、現在の設計では `string_finish` が `RegionToken<u8>` を値で消費し、その owner を `str` に移す最終境界である。
+  - 通常の pointer projection は引き続き `get_ref` が正しいが、`string_finish` だけは `RegionToken` の free obligation を返却 `str` へ移すため direct `get` が正しい。
+- [修正]:
+  - `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` を更新し、`string_finish` では `get region "ptr"` と `string_finish_base base byte_len` を要求するようにした。
+  - `string_finish` 以外では `get region "ptr"` / `get out_region "ptr"` の再導入を禁止し続けるよう、対象範囲を分けた。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_from_mem_unchecked_result_transfer -- --nocapture`: passed
+- [追加で確認した残件]:
+  - `cargo test -p nepl-core --test neplg2 list_get_out_of_bounds_err -- --nocapture` は現在の main の別 owner leak で失敗した。失敗は `main__unit__i32__imp` の `Err` payload owner obligation leak で、今回の source policy 更新では stdlib/compiler 実装を変更していないため別 issue で扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - RegionToken projection と string owner transfer の source policy を、現在の Resource IR owner model に合わせた。

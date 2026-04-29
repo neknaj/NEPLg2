@@ -5,8 +5,11 @@ use crate::span::Span;
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{AggregateKind, OwnerState, Place, ResourceCallTarget};
+use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_raw_address::{raw_address_return_ownership, RawAddressReturnOwnership};
 use super::owner_state::OwnerTable;
+use super::owner_transfer::transfer_owner_state;
 use super::place_utils::{
     construct_aggregate_field_place, place_with_suffix, places_overlap, replace_place_prefix,
     should_track,
@@ -56,6 +59,10 @@ impl ResourceOwnerCheckEngine<'_> {
         let ResourceCallTarget::User { name, .. } = target else {
             return;
         };
+        match raw_address_return_ownership(name) {
+            Some(RawAddressReturnOwnership::NonOwningAddressView) => return,
+            None => {}
+        }
         let Some(summary) = self
             .summaries
             .iter()
@@ -206,7 +213,11 @@ impl ResourceOwnerCheckEngine<'_> {
                 transferred = true;
             }
         }
-        if summary.returns_fresh_owner && !transferred {
+        if summary.returns_maybe_owner && !transferred {
+            owners.set_state(output, OwnerState::MaybeFreed { storage: None });
+            raw_aliases.mark(output);
+            storage_origins.mark_owned(output);
+        } else if summary.returns_fresh_owner && !transferred {
             owners.allocate(output);
             raw_aliases.mark(output);
             storage_origins.mark_owned(output);
@@ -295,7 +306,11 @@ impl ResourceOwnerCheckEngine<'_> {
                 transferred = true;
             }
         }
-        if summary.returns_fresh_owner && !transferred {
+        if summary.returns_maybe_owner && !transferred {
+            owners.set_state(output, OwnerState::MaybeFreed { storage: None });
+            raw_aliases.mark(output);
+            storage_origins.mark_owned(output);
+        } else if summary.returns_fresh_owner && !transferred {
             owners.allocate(output);
             raw_aliases.mark(output);
             storage_origins.mark_owned(output);
@@ -383,7 +398,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         span,
                     });
                 }
-                OwnerState::MaybeFreed => {
+                OwnerState::MaybeFreed { .. } => {
                     self.diagnostics
                         .push(ResourceOwnerDiagnostic::OwnerMaybeLeaked {
                             function: String::from(self.function),
@@ -414,19 +429,18 @@ impl ResourceOwnerCheckEngine<'_> {
         let resolved_source = resolve_owner_alias_place(owners, raw_aliases, source);
         let descendants = owners.descendant_entries(&resolved_source);
         match owners.state(&resolved_source) {
-            Some(OwnerState::Live { storage }) => {
-                owners.set_state(&resolved_source, OwnerState::Moved);
-                if should_track(target) {
-                    owners.set_state(target, OwnerState::Live { storage });
-                    storage_origins.move_origin(&resolved_source, target);
-                    raw_aliases.clear(source);
-                    raw_aliases.clear(&resolved_source);
-                    raw_aliases.mark(target);
-                } else {
-                    storage_origins.clear(&resolved_source);
-                }
+            Some(state @ OwnerState::Live { .. }) | Some(state @ OwnerState::MaybeFreed { .. }) => {
+                transfer_owner_state(
+                    owners,
+                    raw_aliases,
+                    storage_origins,
+                    &resolved_source,
+                    source,
+                    target,
+                    state,
+                );
             }
-            Some(OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed) => {
+            Some(OwnerState::Moved | OwnerState::Freed) => {
                 let state = owners
                     .state(&resolved_source)
                     .unwrap_or(OwnerState::NoFreeObligation);
@@ -440,18 +454,18 @@ impl ResourceOwnerCheckEngine<'_> {
                 continue;
             };
             match entry.state {
-                OwnerState::Live { storage } => {
-                    owners.set_state(&entry.place, OwnerState::Moved);
-                    if should_track(&target_place) {
-                        owners.set_state(&target_place, OwnerState::Live { storage });
-                        storage_origins.move_origin(&entry.place, &target_place);
-                        raw_aliases.clear(&entry.place);
-                        raw_aliases.mark(&target_place);
-                    } else {
-                        storage_origins.clear(&entry.place);
-                    }
+                state @ OwnerState::Live { .. } | state @ OwnerState::MaybeFreed { .. } => {
+                    transfer_owner_state(
+                        owners,
+                        raw_aliases,
+                        storage_origins,
+                        &entry.place,
+                        &entry.place,
+                        &target_place,
+                        state,
+                    );
                 }
-                OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed => {
+                OwnerState::Moved | OwnerState::Freed => {
                     self.push_unavailable(operation, &entry.place, entry.state, span);
                 }
                 OwnerState::NoFreeObligation => {
@@ -478,13 +492,13 @@ impl ResourceOwnerCheckEngine<'_> {
         let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
         let descendants = owners.descendant_entries(&resolved_place);
         match owners.state(&resolved_place) {
-            Some(OwnerState::Live { .. }) => {
+            Some(OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }) => {
                 owners.set_state(&resolved_place, OwnerState::Moved);
                 storage_origins.clear(&resolved_place);
                 raw_aliases.clear(place);
                 raw_aliases.clear(&resolved_place);
             }
-            Some(OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed) => {
+            Some(OwnerState::Moved | OwnerState::Freed) => {
                 let state = owners
                     .state(&resolved_place)
                     .unwrap_or(OwnerState::NoFreeObligation);
@@ -494,12 +508,12 @@ impl ResourceOwnerCheckEngine<'_> {
         }
         for entry in descendants {
             match entry.state {
-                OwnerState::Live { .. } => {
+                OwnerState::Live { .. } | OwnerState::MaybeFreed { .. } => {
                     owners.set_state(&entry.place, OwnerState::Moved);
                     storage_origins.clear(&entry.place);
                     raw_aliases.clear(&entry.place);
                 }
-                OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed => {
+                OwnerState::Moved | OwnerState::Freed => {
                     self.push_unavailable(operation, &entry.place, entry.state, span);
                 }
                 OwnerState::NoFreeObligation => {}
@@ -565,7 +579,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         span,
                     });
                 }
-                OwnerState::MaybeFreed => {
+                OwnerState::MaybeFreed { .. } => {
                     self.diagnostics
                         .push(ResourceOwnerDiagnostic::OwnerMaybeLeaked {
                             function: String::from(self.function),
@@ -599,43 +613,4 @@ impl ResourceOwnerCheckEngine<'_> {
 fn owner_projection_source_place(args: &[Place], source: &OwnerProjectionSource) -> Option<Place> {
     let arg = args.get(source.parameter_index)?;
     Some(place_with_suffix(arg, &source.suffix, source.ty))
-}
-
-pub(super) fn resolve_owner_alias_place(
-    owners: &OwnerTable,
-    raw_aliases: &RawCellAddressAliases,
-    place: &Place,
-) -> Place {
-    match owners.state(place) {
-        Some(OwnerState::Live { .. })
-        | Some(OwnerState::Moved)
-        | Some(OwnerState::Freed)
-        | Some(OwnerState::MaybeFreed) => return place.clone(),
-        Some(OwnerState::NoFreeObligation) | None => {}
-    }
-    for alias in raw_aliases.aliases_for(place) {
-        match owners.state(&alias) {
-            Some(OwnerState::Live { .. })
-            | Some(OwnerState::Moved)
-            | Some(OwnerState::Freed)
-            | Some(OwnerState::MaybeFreed) => return alias,
-            Some(OwnerState::NoFreeObligation) | None => {}
-        }
-        if owners.has_tracked_state_under(&alias) {
-            return alias;
-        }
-    }
-    for alias in raw_aliases.prefix_aliases_for(place) {
-        match owners.state(&alias) {
-            Some(OwnerState::Live { .. })
-            | Some(OwnerState::Moved)
-            | Some(OwnerState::Freed)
-            | Some(OwnerState::MaybeFreed) => return alias,
-            Some(OwnerState::NoFreeObligation) | None => {}
-        }
-        if owners.has_tracked_state_under(&alias) {
-            return alias;
-        }
-    }
-    place.clone()
 }
