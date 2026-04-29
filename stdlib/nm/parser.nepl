@@ -257,14 +257,20 @@ fn json_escape_into <(StringBuilder,str)->StringBuilder> (sb, s):
 //: - 一時 `str` を作らず、source builder の byte 列を escape して destination builder へ追加します。
 //:
 //: [実装/じっそう]:
-//: - source builder の buffer を走査し、追加後に source builder を解放します。
+//: - source builder の `Option<MemPtr<u8>>` storage を borrow して走査し、追加後に source builder を解放します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
 fn json_escape_builder_into <(StringBuilder,StringBuilder)->StringBuilder> (sb, src):
-    let out <StringBuilder> json_escape_mem_into sb get src "data" get src "len";
-    string_builder_free src;
-    out
+    let byte_len <i32> get src "len";
+    match *get_ref &src "data":
+        Option::Some data:
+            let out <StringBuilder> json_escape_mem_into sb data byte_len;
+            string_builder_free src;
+            out
+        Option::None:
+            string_builder_free src;
+            sb
 
 //: json_escape: JSON 文字列用に byte を escape する
 //:

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T22:39:42.726Z",
+  "generated_at": "2026-04-29T22:48:40.929Z",
   "counts": {
-    "total": 405,
+    "total": 406,
     "open": 12,
-    "resolved": 393,
+    "resolved": 394,
     "by_area": {
       "core": {
         "total": 186,
@@ -12,9 +12,9 @@
         "resolved": 182
       },
       "stdlib": {
-        "total": 124,
+        "total": 125,
         "open": 6,
-        "resolved": 118
+        "resolved": 119
       },
       "TEST": {
         "total": 6,
@@ -4343,6 +4343,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T211515214Z-LIST-MAP-AND-FILTER-RAW-NODE-TRAVERS-C52D497C.md"
+    },
+    {
+      "id": "ISS-20260429T224043452Z-NM-JSON-BUILDER-READS-STRINGBUILDER--6E7E4AE5",
+      "title": "nm JSON builder reads StringBuilder data as raw MemPtr after storage became Option",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "stdlib/nm/parser.nepl, examples/nm.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T224043452Z-NM-JSON-BUILDER-READS-STRINGBUILDER--6E7E4AE5.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

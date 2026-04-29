@@ -1,3 +1,27 @@
+# 2026-04-30 メモ (ISS-20260429T224043452Z nm JSON builder Option storage)
+
+- [同期]:
+  - `main` の `81903639` から `work/ci-doctest-nm-tutorial-style-fixes` branch を作成して作業した。
+  - `gh run list` / `gh api repos/neknaj/NEPLg2/actions/jobs/73679186469/logs` で GitHub Actions run `25137357734` の `nm-compile` 失敗を確認した。
+- [原因]:
+  - `stdlib/nm/parser.nepl::json_escape_builder_into` が、旧 `StringBuilder.data <MemPtr<u8>>` 時代のまま `get src "data"` を `json_escape_mem_into` に渡していた。
+  - 現在の `StringBuilder.data` は `Option<MemPtr<u8>>` であり、storage owner boundary は `get_ref` で借用して `Some` / `None` を分岐する必要がある。
+- [修正]:
+  - `json_escape_builder_into` で `*get_ref &src "data"` を match し、`Option::Some data` のときだけ source bytes を escape するようにした。
+  - source builder は成功/空 storage の両方で `string_builder_free src` により消費し、旧 raw field access を残さないようにした。
+- [issue]:
+  - `ISS-20260429T224043452Z-NM-JSON-BUILDER-READS-STRINGBUILDER--6E7E4AE5` を追加し、対応後に fixed/resolved にした。
+- [検証]:
+  - `cargo run -p nepl-cli -- --target wasi --profile debug --input examples/nm.nepl --output target/agent1-ci-nm`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl --no-tree -o tmp/agent1-nm-parser-option-storage.json -j 1 --dist web/dist`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/agent1-tests-stdlib-nm-option-storage.json -j 1 --dist web/dist`: total=5, passed=5
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `StringBuilder` の owner boundary を stdlib/nm の JSON writer へ反映する修正であり、static checker を弱めていない。
+
 # 2026-04-30 メモ (ISS-20260429T040748194Z diagnostic editor payload)
 
 - [同期]:
