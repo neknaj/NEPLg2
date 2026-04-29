@@ -410,10 +410,12 @@ fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
                 then:
                     match alloc_ptr<u8> 12:
                         Result::Err _e:
+                            io_bytebuf_free bytes
                             Result<StreamScanner,str>::Err "streamio.scanner header alloc failed"
                         Result::Ok header:
                             match stream_scanner_store_header_result header StreamScannerHeaderField::BufPtr 0:
                                 Result::Err _e:
+                                    io_bytebuf_free bytes
                                     match dealloc_ptr<u8> header 12:
                                         Result::Ok _:
                                             ()
@@ -423,6 +425,7 @@ fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
                                 Result::Ok _:
                                     match stream_scanner_store_header_result header StreamScannerHeaderField::Len 0:
                                         Result::Err _e:
+                                            io_bytebuf_free bytes
                                             match dealloc_ptr<u8> header 12:
                                                 Result::Ok _:
                                                     ()
@@ -432,6 +435,7 @@ fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
                                         Result::Ok _:
                                             match stream_scanner_store_header_result header StreamScannerHeaderField::Pos 0:
                                                 Result::Err _e:
+                                                    io_bytebuf_free bytes
                                                     match dealloc_ptr<u8> header 12:
                                                         Result::Ok _:
                                                             ()
@@ -441,24 +445,17 @@ fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
                                                 Result::Ok _:
                                                     Result<StreamScanner,str>::Ok stream_scanner_wrap header
                 else:
+                    io_bytebuf_free bytes
                     Result<StreamScanner,str>::Err "streamio.scanner invalid byte buffer"
         Option::Some buf:
             match alloc_ptr<u8> 12:
                 Result::Err _e:
-                    match dealloc_ptr<u8> buf io_bytebuf_storage_size len:
-                        Result::Ok _:
-                            ()
-                        Result::Err _free:
-                            ()
+                    io_bytebuf_free bytes
                     Result<StreamScanner,str>::Err "streamio.scanner header alloc failed"
                 Result::Ok header:
                     match stream_scanner_store_header_result header StreamScannerHeaderField::BufPtr mem_ptr_addr buf:
                         Result::Err _e:
-                            match dealloc_ptr<u8> buf io_bytebuf_storage_size len:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _free:
-                                    ()
+                            io_bytebuf_free bytes
                             match dealloc_ptr<u8> header 12:
                                 Result::Ok _:
                                     ()
@@ -468,11 +465,7 @@ fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
                         Result::Ok _:
                             match stream_scanner_store_header_result header StreamScannerHeaderField::Len len:
                                 Result::Err _e:
-                                    match dealloc_ptr<u8> buf io_bytebuf_storage_size len:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _free:
-                                            ()
+                                    io_bytebuf_free bytes
                                     match dealloc_ptr<u8> header 12:
                                         Result::Ok _:
                                             ()
@@ -482,11 +475,7 @@ fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
                                 Result::Ok _:
                                     match stream_scanner_store_header_result header StreamScannerHeaderField::Pos 0:
                                         Result::Err _e:
-                                            match dealloc_ptr<u8> buf io_bytebuf_storage_size len:
-                                                Result::Ok _:
-                                                    ()
-                                                Result::Err _free:
-                                                    ()
+                                            io_bytebuf_free bytes
                                             match dealloc_ptr<u8> header 12:
                                                 Result::Ok _:
                                                     ()

@@ -26520,3 +26520,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Stage 6 の stdlib memory API 責務分離として、ByteBuf storage の解放責務を `io_bytebuf_free` に集約した。
+
+# 2026-04-29 メモ (ISS-20260429T152700553Z scanner_from_bytes ByteBuf free boundary)
+
+- [同期]:
+  - `main` の `b5cef7b` から `work/streamio-scanner-bytebuf-free-boundary` branch を作成した。
+  - CI source policy 相当の一覧をローカルで先頭から確認し、次の停止箇所が `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` の `scanner_from_bytes` cleanup policy であることを確認した。
+- [原因]:
+  - `scanner_from_bytes` は `ByteBuf.ptr` を取り出した後、scanner header allocation / header field 初期化失敗時に raw `buf` を `dealloc_ptr<u8>` で直接解放していた。
+  - `ByteBuf` は `io_bytebuf_free` に owner 消費境界を集約する設計へ移行済みなので、StreamScanner の failure cleanup が raw pointer に戻ると Stage 6 の stdlib memory API 責務分離と矛盾する。
+- [修正]:
+  - header allocation failure、`BufPtr` / `Len` / `Pos` store failure、invalid `ptr=None && len!=0` branch で `io_bytebuf_free bytes` を呼ぶようにした。
+  - `Option::Some buf` branch の failure cleanup から `dealloc_ptr<u8> buf ...` を削除し、ByteBuf storage の解放責務を `alloc/io` に戻した。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-scanner-bytebuf-free-boundary.json -j 1 --dist web/dist`: `total=14`, `passed=14`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - StreamScanner の header 設計は維持しつつ、ByteBuf failure cleanup の責務を `io_bytebuf_free` に集約した。

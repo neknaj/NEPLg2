@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T15:20:35.427Z",
+  "generated_at": "2026-04-29T15:27:44.895Z",
   "counts": {
-    "total": 382,
+    "total": 383,
     "open": 15,
-    "resolved": 367,
+    "resolved": 368,
     "by_area": {
       "core": {
         "total": 177,
@@ -12,9 +12,9 @@
         "resolved": 172
       },
       "stdlib": {
-        "total": 114,
+        "total": 115,
         "open": 7,
-        "resolved": 107
+        "resolved": 108
       },
       "TEST": {
         "total": 4,
@@ -4068,6 +4068,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T151946482Z-IO-BYTEBUF-TO-STR-RESULT-BYPASSES-BY-2A21E174.md"
+    },
+    {
+      "id": "ISS-20260429T152700553Z-SCANNER-FROM-BYTES-BYPASSES-BYTEBUF--F57931B8",
+      "title": "scanner_from_bytes bypasses ByteBuf free boundary on header initialization failures",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/streamio.nepl, nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T152700553Z-SCANNER-FROM-BYTES-BYPASSES-BYTEBUF--F57931B8.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
