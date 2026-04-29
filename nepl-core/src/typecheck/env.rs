@@ -9,7 +9,7 @@ use crate::resolve::DefId;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId};
 
-use super::signature::same_function_signature;
+use super::signature::{mangle_function_symbol_for_def, same_function_signature};
 use super::{FieldAccessorKind, TraitBoundRef};
 // ---------------------------------------------------------------------
 // Environment
@@ -91,21 +91,52 @@ impl Env {
         }
     }
 
-    pub(super) fn remove_duplicate_func(
+    pub(super) fn remove_duplicate_func_in_file(
         &mut self,
         name: &str,
         ty: TypeId,
-        defining_file_id: u32,
+        span: Span,
         ctx: &TypeCtx,
     ) {
         if let Some(scope) = self.scopes.first_mut() {
             scope.callables.retain(|b| {
-                if b.name != name || !b.kind.is_callable() {
+                if b.name != name || b.span.file_id != span.file_id || !b.kind.is_callable() {
                     return true;
                 }
-                b.span.file_id.0 != defining_file_id || !same_function_signature(ctx, b.ty, ty)
+                !same_function_signature(ctx, b.ty, ty)
             });
         }
+    }
+
+    pub(super) fn qualify_same_signature_func_symbols(
+        &mut self,
+        name: &str,
+        ty: TypeId,
+        ctx: &TypeCtx,
+    ) -> bool {
+        let Some(scope) = self.scopes.first_mut() else {
+            return false;
+        };
+        let mut found = false;
+        for binding in scope.callables.iter_mut().filter(|b| {
+            b.name == name && b.kind.is_callable() && same_function_signature(ctx, b.ty, ty)
+        }) {
+            found = true;
+            if let BindingKind::Func {
+                symbol, builtin, ..
+            } = &mut binding.kind
+            {
+                if builtin.is_none() {
+                    *symbol = mangle_function_symbol_for_def(
+                        &binding.name,
+                        binding.ty,
+                        ctx,
+                        binding.span,
+                    );
+                }
+            }
+        }
+        found
     }
 
     pub(super) fn insert_local(&mut self, binding: Binding) -> Result<(), ()> {
@@ -227,6 +258,20 @@ impl Env {
         items
     }
 
+    pub(super) fn lookup_callable_defined_at(&self, name: &str, span: Span) -> Option<&Binding> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(binding) = scope
+                .callables
+                .iter()
+                .rev()
+                .find(|b| b.name == name && b.defined && b.span == span)
+            {
+                return Some(binding);
+            }
+        }
+        None
+    }
+
     pub(super) fn update_local_function_binding(
         &mut self,
         _ctx: &TypeCtx,
@@ -258,8 +303,16 @@ impl Env {
         &self,
         name: &str,
         ty: TypeId,
+        span: Span,
         ctx: &TypeCtx,
     ) -> Option<String> {
+        if let Some(binding) = self.lookup_callable_defined_at(name, span) {
+            if same_function_signature(ctx, binding.ty, ty) {
+                if let BindingKind::Func { symbol, .. } = &binding.kind {
+                    return Some(symbol.clone());
+                }
+            }
+        }
         for binding in self.lookup_all_callables(name) {
             if let BindingKind::Func { symbol, .. } = &binding.kind {
                 if same_function_signature(ctx, binding.ty, ty) {

@@ -14,16 +14,18 @@ use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
 
 use super::binding_rules::{
-    detect_field_accessor_fn, find_invalid_same_file_overload, find_nonshadow_same_signature_func,
-    find_same_signature_func, is_callable_binding, shadow_blocked_by_nonshadow,
+    detect_field_accessor_fn, find_invalid_same_file_overload, find_same_signature_func_in_file,
+    find_visible_nonshadow_same_signature_func, find_visible_same_signature_func,
+    is_callable_binding, shadow_blocked_by_nonshadow,
 };
 use super::check_function;
 use super::driver_entry::resolve_entry_function;
 use super::env::{Binding, BindingKind, Env};
 use super::model::{EnumInfo, StructInfo};
 use super::signature::{
-    contains_same_type, function_signature_string, mangle_function_symbol, mangle_impl_method,
-    push_unique_type, same_function_signature, type_contains_unbound_var,
+    contains_same_type, function_signature_string, mangle_function_symbol,
+    mangle_function_symbol_for_def, mangle_impl_method, push_unique_type, same_function_signature,
+    type_contains_unbound_var,
 };
 use super::syntax_helpers::gate_allows;
 use super::traits::{
@@ -864,7 +866,9 @@ pub fn typecheck(
                 if crate::log::is_verbose() {
                     driver_log!("typecheck: registering global func {}", f.name.name);
                 }
-                if let Some(prev) = find_same_signature_func(&env, &f.name.name, ty, &ctx) {
+                if let Some(prev) =
+                    find_same_signature_func_in_file(&env, &f.name.name, ty, f.name.span, &ctx)
+                {
                     diagnostics.push(
                         Diagnostic::warning(
                             format!(
@@ -896,9 +900,14 @@ pub fn typecheck(
                 }
                 if let Some(blocked) = shadow_blocked_by_nonshadow(&env, &f.name.name) {
                     if is_callable_binding(blocked) {
-                        if let Some(conflict) =
-                            find_nonshadow_same_signature_func(&env, &f.name.name, ty, &ctx)
-                        {
+                        if let Some(conflict) = find_visible_nonshadow_same_signature_func(
+                            &env,
+                            &import_resolution,
+                            &f.name.name,
+                            ty,
+                            f.name.span,
+                            &ctx,
+                        ) {
                             diagnostics.push(
                                 Diagnostic::error(
                                     format!(
@@ -941,7 +950,15 @@ pub fn typecheck(
                         .lookup_all_any_defined(&f.name.name)
                         .iter()
                         .any(|b| !is_callable_binding(b))
-                        || find_same_signature_func(&env, &f.name.name, ty, &ctx).is_some())
+                        || find_visible_same_signature_func(
+                            &env,
+                            &import_resolution,
+                            &f.name.name,
+                            ty,
+                            f.name.span,
+                            &ctx,
+                        )
+                        .is_some())
                 {
                     diagnostics.push(
                         Diagnostic::error(
@@ -957,8 +974,14 @@ pub fn typecheck(
                     );
                     continue;
                 }
-                env.remove_duplicate_func(&f.name.name, ty, f.name.span.file_id.0, &ctx);
-                let symbol = mangle_function_symbol(&f.name.name, ty, &ctx);
+                env.remove_duplicate_func_in_file(&f.name.name, ty, f.name.span, &ctx);
+                let has_cross_file_duplicate =
+                    env.qualify_same_signature_func_symbols(&f.name.name, ty, &ctx);
+                let symbol = if has_cross_file_duplicate {
+                    mangle_function_symbol_for_def(&f.name.name, ty, &ctx, f.name.span)
+                } else {
+                    mangle_function_symbol(&f.name.name, ty, &ctx)
+                };
                 if crate::log::is_verbose() && f.name.name == "new" {
                     driver_log!(
                         "typecheck: registering global func new sig={}",
@@ -1052,7 +1075,9 @@ pub fn typecheck(
             ));
         }
         for (ty, symbol, effect, arity, builtin, field_accessor, bounds, captures) in target_infos {
-            if let Some(prev) = find_same_signature_func(&env, &alias.name.name, ty, &ctx) {
+            if let Some(prev) =
+                find_same_signature_func_in_file(&env, &alias.name.name, ty, alias.name.span, &ctx)
+            {
                 diagnostics.push(
                     Diagnostic::warning(
                         format!(
@@ -1078,9 +1103,14 @@ pub fn typecheck(
             }
             if let Some(blocked) = shadow_blocked_by_nonshadow(&env, &alias.name.name) {
                 if is_callable_binding(blocked) {
-                    if let Some(conflict) =
-                        find_nonshadow_same_signature_func(&env, &alias.name.name, ty, &ctx)
-                    {
+                    if let Some(conflict) = find_visible_nonshadow_same_signature_func(
+                        &env,
+                        &import_resolution,
+                        &alias.name.name,
+                        ty,
+                        alias.name.span,
+                        &ctx,
+                    ) {
                         diagnostics.push(
                             Diagnostic::error(
                                 format!(
@@ -1125,7 +1155,15 @@ pub fn typecheck(
                     .lookup_all_any_defined(&alias.name.name)
                     .iter()
                     .any(|b| !is_callable_binding(b))
-                    || find_same_signature_func(&env, &alias.name.name, ty, &ctx).is_some())
+                    || find_visible_same_signature_func(
+                        &env,
+                        &import_resolution,
+                        &alias.name.name,
+                        ty,
+                        alias.name.span,
+                        &ctx,
+                    )
+                    .is_some())
             {
                 diagnostics.push(
                     Diagnostic::error(
@@ -1141,7 +1179,7 @@ pub fn typecheck(
                 );
                 break;
             }
-            env.remove_duplicate_func(&alias.name.name, ty, alias.name.span.file_id.0, &ctx);
+            env.remove_duplicate_func_in_file(&alias.name.name, ty, alias.name.span, &ctx);
             env.insert_global(Binding {
                 name: alias.name.name.clone(),
                 ty,
@@ -1179,55 +1217,61 @@ pub fn typecheck(
         }
         if let Stmt::FnDef(f) = item {
             let f_ty = {
-                let mut funcs: Vec<&Binding> = env.lookup_all_callables(&f.name.name);
-                if funcs.is_empty() {
-                    // The function was not hoisted (due to a prior error such as
-                    // duplicate name). Skip type-checking its body to avoid panics.
-                    continue;
-                }
-                if funcs.len() == 1 {
-                    funcs[0].ty
+                if let Some(binding) = env.lookup_callable_defined_at(&f.name.name, f.name.span) {
+                    binding.ty
                 } else {
-                    let mut tmp_labels = LabelEnv::new();
-                    let mut sig_type_params = Vec::new();
-                    for tp in &f.type_params {
-                        let tv = ctx.fresh_var(Some(tp.name.name.clone()));
-                        tmp_labels.insert(tp.name.name.clone(), tv);
-                        sig_type_params.push(tv);
+                    let mut funcs: Vec<&Binding> = env.lookup_all_callables(&f.name.name);
+                    if funcs.is_empty() {
+                        // The function was not hoisted (due to a prior error such as
+                        // duplicate name). Skip type-checking its body to avoid panics.
+                        continue;
                     }
-                    let sig_ty = match f.signature.as_unspanned() {
-                        TypeExpr::Function {
-                            params,
-                            result,
-                            effect,
-                        } => {
-                            let mut sig_params = Vec::new();
-                            for p in params {
-                                sig_params.push(type_from_expr(&mut ctx, &mut tmp_labels, p));
+                    if funcs.len() == 1 {
+                        funcs[0].ty
+                    } else {
+                        let mut tmp_labels = LabelEnv::new();
+                        let mut sig_type_params = Vec::new();
+                        for tp in &f.type_params {
+                            let tv = ctx.fresh_var(Some(tp.name.name.clone()));
+                            tmp_labels.insert(tp.name.name.clone(), tv);
+                            sig_type_params.push(tv);
+                        }
+                        let sig_ty = match f.signature.as_unspanned() {
+                            TypeExpr::Function {
+                                params,
+                                result,
+                                effect,
+                            } => {
+                                let mut sig_params = Vec::new();
+                                for p in params {
+                                    sig_params.push(type_from_expr(&mut ctx, &mut tmp_labels, p));
+                                }
+                                let sig_result = type_from_expr(&mut ctx, &mut tmp_labels, result);
+                                ctx.function(sig_type_params, sig_params, sig_result, *effect)
                             }
-                            let sig_result = type_from_expr(&mut ctx, &mut tmp_labels, result);
-                            ctx.function(sig_type_params, sig_params, sig_result, *effect)
+                            _ => type_from_expr(&mut ctx, &mut tmp_labels, &f.signature),
+                        };
+                        let mut matched: Option<TypeId> = None;
+                        for binding in funcs.drain(..) {
+                            if same_function_signature(&ctx, binding.ty, sig_ty) {
+                                matched = Some(binding.ty);
+                                break;
+                            }
                         }
-                        _ => type_from_expr(&mut ctx, &mut tmp_labels, &f.signature),
-                    };
-                    let mut matched: Option<TypeId> = None;
-                    for binding in funcs.drain(..) {
-                        if same_function_signature(&ctx, binding.ty, sig_ty) {
-                            matched = Some(binding.ty);
-                            break;
-                        }
-                    }
-                    match matched {
-                        Some(ty) => ty,
-                        None => {
-                            diagnostics.push(
-                                Diagnostic::error(
-                                    "function signature does not match any overload",
-                                    f.name.span,
-                                )
-                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionSignatureOverloadNotFound)),
-                            );
-                            continue;
+                        match matched {
+                            Some(ty) => ty,
+                            None => {
+                                diagnostics.push(
+                                    Diagnostic::error(
+                                        "function signature does not match any overload",
+                                        f.name.span,
+                                    )
+                                    .with_code(DiagnosticCode::Type(
+                                        crate::diagnostic_codes::TypeDiagnosticCode::FunctionSignatureOverloadNotFound,
+                                    )),
+                                );
+                                continue;
+                            }
                         }
                     }
                 }

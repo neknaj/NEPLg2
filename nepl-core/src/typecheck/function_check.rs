@@ -260,7 +260,7 @@ pub(super) fn check_function(
 
     ctx.restore_type_var_bindings(&type_param_snapshot);
     let out_name = env
-        .lookup_func_symbol(&f.name.name, func_ty, ctx)
+        .lookup_func_symbol(&f.name.name, func_ty, f.name.span, ctx)
         .unwrap_or_else(|| {
             if type_contains_unbound_var(ctx, func_ty) {
                 f.name.name.clone()

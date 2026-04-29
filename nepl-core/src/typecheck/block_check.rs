@@ -10,8 +10,8 @@ use crate::resolve::DefId;
 use crate::types::{TypeId, TypeKind};
 
 use super::binding_rules::{
-    detect_field_accessor_fn, emit_shadow_warning, find_nonshadow_same_signature_func,
-    find_same_signature_func, is_callable_binding, shadow_blocked_by_nonshadow,
+    detect_field_accessor_fn, emit_shadow_warning, find_visible_nonshadow_same_signature_func,
+    find_visible_same_signature_func, is_callable_binding, shadow_blocked_by_nonshadow,
 };
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::gate_allows;
@@ -145,10 +145,12 @@ impl<'a> BlockChecker<'a> {
                 {
                     if let Some(blocked) = shadow_blocked_by_nonshadow(self.env, &f.name.name) {
                         if is_callable_binding(blocked) {
-                            if let Some(conflict) = find_nonshadow_same_signature_func(
+                            if let Some(conflict) = find_visible_nonshadow_same_signature_func(
                                 self.env,
+                                self.import_resolution,
                                 &f.name.name,
                                 ty,
+                                f.name.span,
                                 self.ctx,
                             ) {
                                 self.diagnostics.push(
@@ -203,8 +205,15 @@ impl<'a> BlockChecker<'a> {
                             .lookup_all_any_defined(&f.name.name)
                             .iter()
                             .any(|b| !is_callable_binding(b))
-                            || find_same_signature_func(self.env, &f.name.name, ty, self.ctx)
-                                .is_some())
+                            || find_visible_same_signature_func(
+                                self.env,
+                                self.import_resolution,
+                                &f.name.name,
+                                ty,
+                                f.name.span,
+                                self.ctx,
+                            )
+                            .is_some())
                     {
                         self.diagnostics.push(
                             Diagnostic::error(

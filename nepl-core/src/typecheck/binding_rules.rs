@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 
 use crate::ast::{FnBody, FnDef, PrefixItem, Stmt};
 use crate::diagnostic::Diagnostic;
+use crate::resolve::ImportResolution;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
@@ -73,29 +74,49 @@ pub(super) fn is_callable_binding(binding: &Binding) -> bool {
     matches!(binding.kind, BindingKind::Func { .. })
 }
 
-pub(super) fn find_same_signature_func<'a>(
+pub(super) fn find_same_signature_func_in_file<'a>(
     env: &'a Env,
     name: &str,
     ty: TypeId,
+    span: Span,
     ctx: &TypeCtx,
 ) -> Option<&'a Binding> {
     env.lookup_all_callables(name).into_iter().find(|b| {
-        matches!(b.kind, BindingKind::Func { .. }) && same_function_signature(ctx, b.ty, ty)
-    })
-}
-
-pub(super) fn find_nonshadow_same_signature_func<'a>(
-    env: &'a Env,
-    name: &str,
-    ty: TypeId,
-    ctx: &TypeCtx,
-) -> Option<&'a Binding> {
-    env.lookup_all_callables(name).into_iter().find(|b| {
-        b.no_shadow
-            && b.defined
+        b.span.file_id == span.file_id
             && matches!(b.kind, BindingKind::Func { .. })
             && same_function_signature(ctx, b.ty, ty)
     })
+}
+
+pub(super) fn find_visible_same_signature_func<'a>(
+    env: &'a Env,
+    import_resolution: &ImportResolution,
+    name: &str,
+    ty: TypeId,
+    span: Span,
+    ctx: &TypeCtx,
+) -> Option<&'a Binding> {
+    env.lookup_all_callables(name).into_iter().find(|b| {
+        import_resolution.binding_is_visible_unqualified(
+            span.file_id.0,
+            name,
+            b.span.file_id.0,
+            &b.name,
+        ) && matches!(b.kind, BindingKind::Func { .. })
+            && same_function_signature(ctx, b.ty, ty)
+    })
+}
+
+pub(super) fn find_visible_nonshadow_same_signature_func<'a>(
+    env: &'a Env,
+    import_resolution: &ImportResolution,
+    name: &str,
+    ty: TypeId,
+    span: Span,
+    ctx: &TypeCtx,
+) -> Option<&'a Binding> {
+    find_visible_same_signature_func(env, import_resolution, name, ty, span, ctx)
+        .filter(|b| b.no_shadow && b.defined)
 }
 
 pub(super) fn find_invalid_same_file_overload<'a>(
