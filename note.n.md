@@ -24972,3 +24972,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の backend boundary 移行を進めた。
+
+# 2026-04-29 メモ (ISS-20260429T040748194Z parser recovery diagnostic code-first)
+
+- [原因]:
+  - `parser.rs` の shared `error_with_code` helper は名前上 code-aware だが、内部では `Diagnostic::error(...).with_code(...)` による後付け code 付与だった。
+  - 再帰上限、no-progress recovery、raw block、intrinsic、tuple、match scrutinee の回復境界にも直接 `.with_code(...)` が残っており、parser の重要な失敗経路が Stage D1 の code-first 方針から外れていた。
+- [修正]:
+  - shared `error_with_code` / `push_error_with_code` を `Diagnostic::error_with_code(...)` に接続した。
+  - parser recovery boundary の代表診断を `push_error_with_code(...)` 経由に移し、生成時点で `ParserDiagnosticCode` が確定するようにした。
+  - parser 内には layout / type expression / extern signature など 42 箇所の直接 `.with_code(...)` が残るため、後続 D1 で継続対応する。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core parser -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の parser recovery boundary 移行を進めた。

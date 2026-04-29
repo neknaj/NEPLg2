@@ -129,6 +129,22 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
 
+## 2026-04-29 Stage D1 parser recovery boundary follow-up 追記
+
+`parser.rs` の shared `error_with_code` / `push_error_with_code` は名前上 code-aware だったが、内部実装は `Diagnostic::error(...).with_code(...)` で code を後付けしていた。また parser の再帰上限、no-progress recovery、raw block、intrinsic、tuple、match scrutinee の回復境界にも直接 `.with_code(...)` が残っていた。
+
+今回の対応で shared helper を `Diagnostic::error_with_code(...)` へ移行し、上記の parser recovery boundary を `push_error_with_code(...)` 経由に統一した。これにより、parser の回復診断は生成時点で `ParserDiagnosticCode` が確定する。
+
+parser には layout block、type expression、extern signature など 42 箇所の直接 `.with_code(...)` が残っている。これはこの issue の後続 D1 として残し、次の parser commit で module 内の残件を継続して削る。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core parser -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
+
 ## 2026-04-29 Stage D1 backend boundary follow-up 追記
 
 `codegen_wasm.rs` / `codegen_llvm.rs` の backend diagnostic helper が `Diagnostic::error(...).with_code(...)` を使っており、backend diagnostic は helper 境界で code を後付けする構造だった。

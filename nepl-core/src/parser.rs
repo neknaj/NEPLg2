@@ -9,7 +9,7 @@ use alloc::vec::Vec;
 
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{DiagnosticCode, ParserDiagnosticCode};
 use crate::lexer::{LexResult, Token, TokenKind};
 use crate::span::{FileId, Span};
 
@@ -70,7 +70,7 @@ impl Parser {
         message: impl Into<String>,
         span: Span,
     ) -> Diagnostic {
-        Diagnostic::error(message, span).with_code(code)
+        Diagnostic::error_with_code(code, message, span)
     }
 
     fn push_error_with_code(
@@ -98,18 +98,14 @@ impl Parser {
     /// 再帰的な文解析の深さを制限して、暴走を必ず停止させる。
     fn enter_parse_context(&mut self, kind: &str, span: Span) -> bool {
         if self.depth >= MAX_PARSE_RECURSION_DEPTH {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    alloc::format!(
-                        "parser recursion limit exceeded while parsing {} (limit={})",
-                        kind,
-                        MAX_PARSE_RECURSION_DEPTH
-                    ),
-                    span,
-                )
-                .with_code(DiagnosticCode::Parser(
-                    crate::diagnostic_codes::ParserDiagnosticCode::TokenUnexpected,
-                )),
+            self.push_error_with_code(
+                DiagnosticCode::Parser(ParserDiagnosticCode::TokenUnexpected),
+                alloc::format!(
+                    "parser recursion limit exceeded while parsing {} (limit={})",
+                    kind,
+                    MAX_PARSE_RECURSION_DEPTH
+                ),
+                span,
             );
             return false;
         }
@@ -301,14 +297,10 @@ impl Parser {
                 no_progress_steps += 1;
                 if no_progress_steps >= MAX_NO_PROGRESS_STEPS {
                     let sp = self.peek_span().unwrap_or(start_span);
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "parser made no progress while parsing block; recovering",
-                            sp,
-                        )
-                        .with_code(DiagnosticCode::Parser(
-                            crate::diagnostic_codes::ParserDiagnosticCode::TokenUnexpected,
-                        )),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::TokenUnexpected),
+                        "parser made no progress while parsing block; recovering",
+                        sp,
                     );
                     if self.is_eof() {
                         break;
@@ -1146,12 +1138,10 @@ impl Parser {
                 }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics.push(
-                        Diagnostic::error("expected wasm text line", span).with_code(
-                            DiagnosticCode::Parser(
-                                crate::diagnostic_codes::ParserDiagnosticCode::TokenExpected,
-                            ),
-                        ),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::TokenExpected),
+                        "expected wasm text line",
+                        span,
                     );
                     self.next();
                 }
@@ -1188,12 +1178,10 @@ impl Parser {
                 }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics.push(
-                        Diagnostic::error("expected llvm ir text line", span).with_code(
-                            DiagnosticCode::Parser(
-                                crate::diagnostic_codes::ParserDiagnosticCode::TokenExpected,
-                            ),
-                        ),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::TokenExpected),
+                        "expected llvm ir text line",
+                        span,
                     );
                     self.next();
                 }
@@ -1300,12 +1288,10 @@ impl Parser {
             let trait_ref = match Self::type_expr_to_trait_ref(first_ty, kw_span) {
                 Some(tr) => Some(tr),
                 _ => {
-                    self.diagnostics.push(
-                        Diagnostic::error("expected trait name before 'for'", kw_span).with_code(
-                            DiagnosticCode::Parser(
-                                crate::diagnostic_codes::ParserDiagnosticCode::IdentifierExpected,
-                            ),
-                        ),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::IdentifierExpected),
+                        "expected trait name before 'for'",
+                        kw_span,
                     );
                     None
                 }
@@ -1357,14 +1343,10 @@ impl Parser {
                 no_progress_steps += 1;
                 if no_progress_steps >= MAX_NO_PROGRESS_STEPS {
                     let sp = self.peek_span().unwrap_or(start_span);
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "parser made no progress while parsing expression; recovering",
-                            sp,
-                        )
-                        .with_code(DiagnosticCode::Parser(
-                            crate::diagnostic_codes::ParserDiagnosticCode::TokenUnexpected,
-                        )),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::TokenUnexpected),
+                        "parser made no progress while parsing expression; recovering",
+                        sp,
                     );
                     if self.is_eof() {
                         break;
@@ -1645,9 +1627,10 @@ impl Parser {
                         }
                         _ => {
                             let sp = self.peek_span().unwrap_or(kw_span);
-                            self.diagnostics.push(
-                                Diagnostic::error("expected string literal for intrinsic name", sp)
-                                    .with_code(DiagnosticCode::Parser(crate::diagnostic_codes::ParserDiagnosticCode::TokenExpected)),
+                            self.push_error_with_code(
+                                DiagnosticCode::Parser(ParserDiagnosticCode::TokenExpected),
+                                "expected string literal for intrinsic name",
+                                sp,
                             );
                             return None;
                         }
@@ -1672,11 +1655,10 @@ impl Parser {
                         self.next().unwrap().span
                     } else {
                         let sp = self.peek_span().unwrap_or(kw_span);
-                        self.diagnostics.push(
-                            Diagnostic::error("expected '(' after intrinsic name/res", sp)
-                                .with_code(DiagnosticCode::Parser(
-                                    crate::diagnostic_codes::ParserDiagnosticCode::TokenExpected,
-                                )),
+                        self.push_error_with_code(
+                            DiagnosticCode::Parser(ParserDiagnosticCode::TokenExpected),
+                            "expected '(' after intrinsic name/res",
+                            sp,
                         );
                         return None;
                     };
@@ -1726,12 +1708,10 @@ impl Parser {
                             self.parse_block_after_colon()?
                         } else {
                             let err_span = self.peek_span().unwrap_or(span);
-                            self.diagnostics.push(
-                                Diagnostic::error(
-                                    "block: requires newline after ':' (only whitespace/comment is allowed)",
-                                    err_span,
-                                )
-                                .with_code(DiagnosticCode::Parser(crate::diagnostic_codes::ParserDiagnosticCode::TokenExpected)),
+                            self.push_error_with_code(
+                                DiagnosticCode::Parser(ParserDiagnosticCode::TokenExpected),
+                                "block: requires newline after ':' (only whitespace/comment is allowed)",
+                                err_span,
                             );
                             self.parse_single_line_block(err_span)?
                         };
@@ -1798,12 +1778,10 @@ impl Parser {
                 }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics.push(
-                        Diagnostic::error("unexpected token in expression", span).with_code(
-                            DiagnosticCode::Parser(
-                                crate::diagnostic_codes::ParserDiagnosticCode::TokenUnexpected,
-                            ),
-                        ),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::TokenUnexpected),
+                        "unexpected token in expression",
+                        span,
                     );
                     self.next();
                 }
@@ -1846,14 +1824,10 @@ impl Parser {
                 saw_comma = true;
                 if self.check(&TokenKind::RParen) {
                     let sp = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "trailing comma is not allowed in parenthesized expression",
-                            sp,
-                        )
-                        .with_code(DiagnosticCode::Parser(
-                            crate::diagnostic_codes::ParserDiagnosticCode::TokenUnexpected,
-                        )),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::TokenUnexpected),
+                        "trailing comma is not allowed in parenthesized expression",
+                        sp,
                     );
                     let rp = self.next().unwrap().span;
                     let span = lp_span.join(rp).unwrap_or(lp_span);
@@ -1865,12 +1839,10 @@ impl Parser {
                 self.peek_span().unwrap_or(lp_span)
             } else {
                 let sp = self.peek_span().unwrap_or_else(Span::dummy);
-                self.diagnostics.push(
-                    Diagnostic::error("expected ')' after parenthesized expression", sp).with_code(
-                        DiagnosticCode::Parser(
-                            crate::diagnostic_codes::ParserDiagnosticCode::TokenExpected,
-                        ),
-                    ),
+                self.push_error_with_code(
+                    DiagnosticCode::Parser(ParserDiagnosticCode::TokenExpected),
+                    "expected ')' after parenthesized expression",
+                    sp,
                 );
                 sp
             };
@@ -1889,14 +1861,10 @@ impl Parser {
 
         let (elems, paren_span, saw_comma) = self.parse_tuple_items(lp)?;
         if saw_comma {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    "legacy tuple literal '(...)' is removed; use 'Tuple:'",
-                    paren_span,
-                )
-                .with_code(DiagnosticCode::Parser(
-                    crate::diagnostic_codes::ParserDiagnosticCode::TokenUnexpected,
-                )),
+            self.push_error_with_code(
+                DiagnosticCode::Parser(ParserDiagnosticCode::TokenUnexpected),
+                "legacy tuple literal '(...)' is removed; use 'Tuple:'",
+                paren_span,
             );
             return Some(Vec::new());
         }
@@ -1926,14 +1894,10 @@ impl Parser {
                 no_progress_steps += 1;
                 if no_progress_steps >= MAX_NO_PROGRESS_STEPS {
                     let sp = self.peek_span().unwrap_or(start_span);
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "parser made no progress while parsing tuple expression; recovering",
-                            sp,
-                        )
-                        .with_code(DiagnosticCode::Parser(
-                            crate::diagnostic_codes::ParserDiagnosticCode::TokenUnexpected,
-                        )),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::TokenUnexpected),
+                        "parser made no progress while parsing tuple expression; recovering",
+                        sp,
                     );
                     if self.is_eof() {
                         break;
@@ -2197,12 +2161,10 @@ impl Parser {
                             self.parse_block_after_colon()?
                         } else {
                             let err_span = self.peek_span().unwrap_or(span);
-                            self.diagnostics.push(
-                                Diagnostic::error(
-                                    "block: requires newline after ':' (only whitespace/comment is allowed)",
-                                    err_span,
-                                )
-                                .with_code(DiagnosticCode::Parser(crate::diagnostic_codes::ParserDiagnosticCode::TokenExpected)),
+                            self.push_error_with_code(
+                                DiagnosticCode::Parser(ParserDiagnosticCode::TokenExpected),
+                                "block: requires newline after ':' (only whitespace/comment is allowed)",
+                                err_span,
                             );
                             self.parse_single_line_block(err_span)?
                         };
@@ -2236,12 +2198,10 @@ impl Parser {
                 }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics.push(
-                        Diagnostic::error("unexpected token in expression", span).with_code(
-                            DiagnosticCode::Parser(
-                                crate::diagnostic_codes::ParserDiagnosticCode::TokenUnexpected,
-                            ),
-                        ),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::TokenUnexpected),
+                        "unexpected token in expression",
+                        span,
                     );
                     self.next();
                 }
@@ -2279,12 +2239,11 @@ impl Parser {
             self.next().unwrap().span
         } else {
             let sp = self.peek_span().unwrap_or_else(Span::dummy);
-            self.diagnostics
-                .push(Diagnostic::error("expected ':' after match", sp).with_code(
-                    DiagnosticCode::Parser(
-                        crate::diagnostic_codes::ParserDiagnosticCode::TokenExpected,
-                    ),
-                ));
+            self.push_error_with_code(
+                DiagnosticCode::Parser(ParserDiagnosticCode::TokenExpected),
+                "expected ':' after match",
+                sp,
+            );
             Span::dummy()
         };
         let arms = self.parse_match_arms()?;
@@ -2308,14 +2267,10 @@ impl Parser {
                 no_progress_steps += 1;
                 if no_progress_steps >= MAX_NO_PROGRESS_STEPS {
                     let sp = self.peek_span().unwrap_or(start_span);
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "parser made no progress while parsing match scrutinee; recovering",
-                            sp,
-                        )
-                        .with_code(DiagnosticCode::Parser(
-                            crate::diagnostic_codes::ParserDiagnosticCode::TokenUnexpected,
-                        )),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::TokenUnexpected),
+                        "parser made no progress while parsing match scrutinee; recovering",
+                        sp,
                     );
                     if self.is_eof() {
                         break;
@@ -2338,12 +2293,10 @@ impl Parser {
                 TokenKind::Colon => break,
                 TokenKind::Semicolon => {
                     let sp = self.next().unwrap().span;
-                    self.diagnostics.push(
-                        Diagnostic::error("';' must appear at end of a line", sp).with_code(
-                            DiagnosticCode::Parser(
-                                crate::diagnostic_codes::ParserDiagnosticCode::TokenUnexpected,
-                            ),
-                        ),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::TokenUnexpected),
+                        "';' must appear at end of a line",
+                        sp,
                     );
                     // recovery: skip until colon or end of line
                     while !self.is_end(&TokenEnd::Line) {
@@ -2450,12 +2403,10 @@ impl Parser {
                 }
                 _ => {
                     let span = self.peek_span().unwrap_or_else(Span::dummy);
-                    self.diagnostics.push(
-                        Diagnostic::error("unexpected token in expression", span).with_code(
-                            DiagnosticCode::Parser(
-                                crate::diagnostic_codes::ParserDiagnosticCode::TokenUnexpected,
-                            ),
-                        ),
+                    self.push_error_with_code(
+                        DiagnosticCode::Parser(ParserDiagnosticCode::TokenUnexpected),
+                        "unexpected token in expression",
+                        span,
                     );
                     self.next();
                 }
