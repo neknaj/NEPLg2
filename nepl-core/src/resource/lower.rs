@@ -246,6 +246,11 @@ fn lower_expr_skeleton(
     ctx: &mut LoweringContext,
     env: &LoweringEnvironment,
 ) -> Place {
+    if matches!(expr.kind, HirExprKind::Call { .. }) {
+        if let Some(output) = try_lower_simple_direct_call_tree(expr, ops, ctx, env) {
+            return output;
+        }
+    }
     match &expr.kind {
         HirExprKind::LiteralI32(_)
         | HirExprKind::LiteralF32(_)
@@ -302,69 +307,7 @@ fn lower_expr_skeleton(
                 return output;
             }
             let arg_places = lower_args_skeleton(args, ops, ctx, env);
-            let effect = call_effect_skeleton(callee, env);
-            ops.push(ResourceOp::CallEffect {
-                effect: effect.clone(),
-                span: expr.span,
-            });
-            let output = ctx.temporary(expr.ty);
-            ops.push(ResourceOp::Call {
-                output: output.clone(),
-                target: lower_call_target(callee),
-                args: arg_places.clone(),
-                effect: effect.clone(),
-                span: expr.span,
-            });
-            push_core_mem_wrapper_semantics(
-                callee,
-                args,
-                &arg_places,
-                &output,
-                ops,
-                env,
-                expr.span,
-            );
-            push_user_raw_address_return_semantics(
-                callee,
-                args,
-                &arg_places,
-                &output,
-                ops,
-                env,
-                expr.span,
-            );
-            if let Some(name) = func_ref_base_name(callee) {
-                push_named_raw_address_semantics(
-                    name,
-                    args,
-                    &arg_places,
-                    &output,
-                    ops,
-                    env,
-                    expr.span,
-                );
-            }
-            if let Some(operation) = raw_memory_op_from_callee(callee) {
-                ops.push(ResourceOp::RawMemory {
-                    operation,
-                    output: output.clone(),
-                    args: arg_places,
-                    span: expr.span,
-                });
-                ops.push(ResourceOp::Expr {
-                    kind: ResourceExprKind::Call,
-                    output: output.clone(),
-                    ty: expr.ty,
-                    span: expr.span,
-                });
-            }
-            ops.push(ResourceOp::Expr {
-                kind: ResourceExprKind::Call,
-                output: output.clone(),
-                ty: expr.ty,
-                span: expr.span,
-            });
-            output
+            push_direct_call_skeleton(expr, callee, args, arg_places, ops, ctx, env)
         }
         HirExprKind::CallIndirect {
             callee,
@@ -736,6 +679,143 @@ fn lower_args_skeleton(
     args.iter()
         .map(|arg| lower_expr_skeleton(arg, ops, ctx, env))
         .collect()
+}
+
+fn try_lower_simple_direct_call_tree(
+    expr: &HirExpr,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    if !is_simple_direct_call_tree(expr) {
+        return None;
+    }
+
+    enum Frame<'a> {
+        Expr(&'a HirExpr),
+        Call {
+            expr: &'a HirExpr,
+            callee: &'a FuncRef,
+            args: &'a [HirExpr],
+        },
+    }
+
+    let mut frames = alloc::vec![Frame::Expr(expr)];
+    let mut values = Vec::new();
+    while let Some(frame) = frames.pop() {
+        match frame {
+            Frame::Expr(expr) => match &expr.kind {
+                HirExprKind::LiteralI32(_)
+                | HirExprKind::LiteralF32(_)
+                | HirExprKind::LiteralBool(_)
+                | HirExprKind::LiteralStr(_)
+                | HirExprKind::Unit
+                | HirExprKind::Var(_)
+                | HirExprKind::FnValue(_) => {
+                    values.push(lower_expr_skeleton(expr, ops, ctx, env));
+                }
+                HirExprKind::Call { callee, args } => {
+                    frames.push(Frame::Call { expr, callee, args });
+                    for arg in args.iter().rev() {
+                        frames.push(Frame::Expr(arg));
+                    }
+                }
+                _ => return None,
+            },
+            Frame::Call { expr, callee, args } => {
+                let start = values.len().checked_sub(args.len())?;
+                let arg_places = values.split_off(start);
+                values.push(push_direct_call_skeleton(
+                    expr, callee, args, arg_places, ops, ctx, env,
+                ));
+            }
+        }
+    }
+
+    if values.len() == 1 {
+        values.pop()
+    } else {
+        None
+    }
+}
+
+fn is_simple_direct_call_tree(expr: &HirExpr) -> bool {
+    let mut stack = alloc::vec![expr];
+    while let Some(expr) = stack.pop() {
+        match &expr.kind {
+            HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Unit
+            | HirExprKind::Var(_)
+            | HirExprKind::FnValue(_) => {}
+            HirExprKind::Call { callee, args } => {
+                if direct_call_needs_recursive_lowering(&callee) {
+                    return false;
+                }
+                for arg in args {
+                    stack.push(arg);
+                }
+            }
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn direct_call_needs_recursive_lowering(callee: &FuncRef) -> bool {
+    matches!(func_ref_base_name(callee), Some("get") | Some("get_field"))
+}
+
+fn push_direct_call_skeleton(
+    expr: &HirExpr,
+    callee: &FuncRef,
+    args: &[HirExpr],
+    arg_places: Vec<Place>,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Place {
+    let effect = call_effect_skeleton(callee, env);
+    ops.push(ResourceOp::CallEffect {
+        effect: effect.clone(),
+        span: expr.span,
+    });
+    let output = ctx.temporary(expr.ty);
+    ops.push(ResourceOp::Call {
+        output: output.clone(),
+        target: lower_call_target(callee),
+        args: arg_places.clone(),
+        effect: effect.clone(),
+        span: expr.span,
+    });
+    push_core_mem_wrapper_semantics(callee, args, &arg_places, &output, ops, env, expr.span);
+    push_user_raw_address_return_semantics(callee, args, &arg_places, &output, ops, env, expr.span);
+    if let Some(name) = func_ref_base_name(callee) {
+        push_named_raw_address_semantics(name, args, &arg_places, &output, ops, env, expr.span);
+    }
+    if let Some(operation) = raw_memory_op_from_callee(callee) {
+        ops.push(ResourceOp::RawMemory {
+            operation,
+            output: output.clone(),
+            args: arg_places,
+            span: expr.span,
+        });
+        ops.push(ResourceOp::Expr {
+            kind: ResourceExprKind::Call,
+            output: output.clone(),
+            ty: expr.ty,
+            span: expr.span,
+        });
+    }
+    ops.push(ResourceOp::Expr {
+        kind: ResourceExprKind::Call,
+        output: output.clone(),
+        ty: expr.ty,
+        span: expr.span,
+    });
+    output
 }
 
 fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {
