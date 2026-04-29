@@ -1,3 +1,19 @@
+# 2026-04-30 メモ (compiler gate 別件 regression issue 登録)
+
+- [同期]:
+  - `ISS-20260429T133518746Z` の main merge 後、`issues/compiler-gate-regressions` branch で別件 regression を issue 化した。
+- [発見内容]:
+  - `tests/stdlib/traits_text.n.md` は remote main の `std/test` 修正取り込み後に total=3, passed=3 へ回復した。
+  - `tests/compiler/generics.n.md` は current main でも total=24, passed=16, failed=8 で、失敗は `resolve.item.name_conflict`。
+  - `tests/compiler/drop_overwrite.n.md` は current main でも total=1, failed=1 で、失敗は `resource.borrow.assign_during_shared`。
+  - `tests/compiler` 全体で見えた `shadowing.n.md::doctest#22` の compile_fail mismatch も resolver/name-scope 系の別件として扱う。
+- [対応]:
+  - `ISS-20260429T162554932Z-RESOLVER-NAME-CONFLICT-REGRESSES-GEN-CC8CE1E8` を追加した。
+  - `ISS-20260429T162608098Z-RESOURCE-IR-BORROW-CHECKER-REJECTS-D-C55584FC` を追加した。
+  - どちらも MemPtr explicit Clone の unresolved trait call とは別経路のため、今回の fix commit には混ぜず issue 登録として切り分けた。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-30 メモ (ISS-20260429T133518746Z MemPtr explicit Clone monomorphize)
 
 - [同期]:

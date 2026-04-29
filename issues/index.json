@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T16:23:39.947Z",
+  "generated_at": "2026-04-29T16:26:22.686Z",
   "counts": {
-    "total": 386,
-    "open": 15,
+    "total": 388,
+    "open": 17,
     "resolved": 371,
     "by_area": {
       "core": {
-        "total": 178,
-        "open": 6,
+        "total": 180,
+        "open": 8,
         "resolved": 172
       },
       "stdlib": {
@@ -153,6 +153,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T160211035Z-RESOURCE-OWNER-ASSIGN-MISSES-SELF-UP-01475305.md"
+    },
+    {
+      "id": "ISS-20260429T162554932Z-RESOLVER-NAME-CONFLICT-REGRESSES-GEN-CC8CE1E8",
+      "title": "Resolver name conflict regresses generics doctests",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resolve, tests/compiler/generics.n.md, tests/compiler/shadowing.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T162554932Z-RESOLVER-NAME-CONFLICT-REGRESSES-GEN-CC8CE1E8.md"
+    },
+    {
+      "id": "ISS-20260429T162608098Z-RESOURCE-IR-BORROW-CHECKER-REJECTS-D-C55584FC",
+      "title": "Resource IR borrow checker rejects drop overwrite fixture",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource, tests/compiler/drop_overwrite.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T162608098Z-RESOURCE-IR-BORROW-CHECKER-REJECTS-D-C55584FC.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
