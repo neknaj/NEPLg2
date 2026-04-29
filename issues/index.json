@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T12:30:53.390Z",
+  "generated_at": "2026-04-29T12:40:01.000Z",
   "counts": {
-    "total": 370,
+    "total": 371,
     "open": 15,
-    "resolved": 355,
+    "resolved": 356,
     "by_area": {
       "core": {
         "total": 173,
@@ -12,9 +12,9 @@
         "resolved": 168
       },
       "stdlib": {
-        "total": 107,
+        "total": 108,
         "open": 8,
-        "resolved": 99
+        "resolved": 100
       },
       "TEST": {
         "total": 4,
@@ -215,21 +215,6 @@
       "file": "items/ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB.md"
     },
     {
-      "id": "ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131",
-      "title": "streamio scanner raw byte loads fail RawMemoryLoadCell gate",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "stdlib/std/streamio.nepl, tests/stdlib/stdin.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131.md"
-    },
-    {
       "id": "ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE",
       "title": "String concat_result leaks output region owner under Resource IR",
       "area": "stdlib",
@@ -243,6 +228,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE.md"
+    },
+    {
+      "id": "ISS-20260429T123427866Z-STREAMIO-WRITER-RAW-BUFFER-LOADS-FAI-77152BD3",
+      "title": "streamio writer raw buffer loads fail RawMemoryLoadCell gate",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/streamio.nepl, tests/stdlib/streamio.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T123427866Z-STREAMIO-WRITER-RAW-BUFFER-LOADS-FAI-77152BD3.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -3888,6 +3888,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T115652973Z-STDIO-READ-HELPERS-TRIGGER-RAWMEMORY-52A45658.md"
+    },
+    {
+      "id": "ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131",
+      "title": "streamio scanner raw byte loads fail RawMemoryLoadCell gate",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/streamio.nepl, tests/stdlib/stdin.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T121949904Z-STREAMIO-SCANNER-RAW-BYTE-LOADS-FAIL-B5BB4131.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
