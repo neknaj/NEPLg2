@@ -998,7 +998,170 @@ fn wasi_import_rejected_on_wasm_target() {
 fn main <()->()> ():
     ()
 "#;
-    compile_err_target(src, CompileTarget::Wasm);
+    compile_err_has_type_code(src, TypeDiagnosticCode::ExternWasiTargetMismatch);
+}
+
+#[test]
+fn extern_signature_not_function_has_type_code() {
+    let entry_span = nepl_core::span::Span {
+        file_id: FileId(0),
+        start: 0,
+        end: 1,
+    };
+    let extern_span = nepl_core::span::Span {
+        file_id: FileId(0),
+        start: 2,
+        end: 3,
+    };
+    let main = nepl_core::ast::Ident {
+        name: "main".to_string(),
+        span: entry_span,
+    };
+    let bad = nepl_core::ast::Ident {
+        name: "bad".to_string(),
+        span: extern_span,
+    };
+    let module = nepl_core::ast::Module {
+        doc: None,
+        indent_width: 4,
+        directives: vec![
+            nepl_core::ast::Directive::Entry { name: main.clone() },
+            nepl_core::ast::Directive::Extern {
+                module: "env".to_string(),
+                name: "bad".to_string(),
+                func: bad,
+                signature: nepl_core::ast::TypeExpr::I32.with_span(extern_span),
+                span: extern_span,
+            },
+        ],
+        root: nepl_core::ast::Block {
+            span: entry_span,
+            items: vec![nepl_core::ast::Stmt::FnDef(nepl_core::ast::FnDef {
+                doc: None,
+                vis: nepl_core::ast::Visibility::Private,
+                name: main,
+                no_shadow: false,
+                type_params: Vec::new(),
+                signature: nepl_core::ast::TypeExpr::Function {
+                    params: Vec::new(),
+                    result: Box::new(nepl_core::ast::TypeExpr::Unit),
+                    effect: nepl_core::ast::Effect::Pure,
+                },
+                params: Vec::new(),
+                body: nepl_core::ast::FnBody::Parsed(nepl_core::ast::Block {
+                    span: entry_span,
+                    items: vec![nepl_core::ast::Stmt::Expr(nepl_core::ast::PrefixExpr {
+                        items: vec![nepl_core::ast::PrefixItem::Literal(
+                            nepl_core::ast::Literal::Unit,
+                            entry_span,
+                        )],
+                        trailing_semis: 0,
+                        trailing_semi_span: None,
+                        span: entry_span,
+                    })],
+                }),
+            })],
+        },
+    };
+    let result = check_module(
+        module,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) =
+        result.expect_err("non-function extern signature should fail")
+    else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags.iter().any(|diag| diag.code
+            == Some(DiagnosticCode::Type(
+                TypeDiagnosticCode::ExternSignatureNotFunction
+            ))),
+        "missing extern signature diagnostic: {:?}",
+        diags
+    );
+}
+
+#[test]
+fn enum_type_param_bounds_have_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+trait Marker:
+    fn mark <(Self)->i32> (_self):
+        0
+
+enum Box<.T: Marker>:
+    Item <.T>
+
+fn main <()->()> ():
+    ()
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::EnumTypeParamBoundsUnsupported);
+}
+
+#[test]
+fn struct_type_param_bounds_have_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+trait Marker:
+    fn mark <(Self)->i32> (_self):
+        0
+
+struct Box<.T: Marker>:
+    value <.T>
+
+fn main <()->()> ():
+    ()
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::StructTypeParamBoundsUnsupported);
+}
+
+#[test]
+fn duplicate_enum_name_has_resolve_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+enum Foo:
+    A
+
+enum Foo:
+    B
+
+fn main <()->()> ():
+    ()
+"#;
+    compile_err_has_resolve_code(src, ResolveDiagnosticCode::ItemNameConflict);
+}
+
+#[test]
+fn duplicate_struct_name_has_resolve_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+struct Foo:
+    value <i32>
+
+struct Foo:
+    other <i32>
+
+fn main <()->()> ():
+    ()
+"#;
+    compile_err_has_resolve_code(src, ResolveDiagnosticCode::ItemNameConflict);
 }
 
 #[test]

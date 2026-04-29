@@ -129,6 +129,31 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
 
+## 2026-04-29 Stage D1 driver extern / declaration boundary follow-up 追記
+
+`typecheck/driver.rs` には extern directive と enum/struct declaration 境界で `Diagnostic::error(...).with_code(...)` が残っていた。また enum/struct の重複名検出は、先に `continue` する分岐があるため duplicate enum / duplicate struct を無診断で捨てる経路があった。
+
+今回の対応で extern WASI target mismatch / extern signature mismatch / enum type parameter bounds / struct type parameter bounds を `type_error(...)` helper 経由へ移行し、enum/struct item name conflict を `resolve_error(...)` helper 経由へ移行した。重複 enum/struct は無診断 skip ではなく `ResolveDiagnosticCode::ItemNameConflict` を出す。source から到達できる declaration diagnostics は `tests/compiler/driver_declaration_diagnostics.n.md` でも固定する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 wasi_import_rejected_on_wasm_target -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 extern_signature_not_function_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 enum_type_param_bounds_have_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 struct_type_param_bounds_have_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 duplicate_enum_name_has_resolve_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 duplicate_struct_name_has_resolve_code -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_declaration_diagnostics.n.md -n 1 --dist web/dist`: pass。`type.enum.type_param_bounds_unsupported` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_declaration_diagnostics.n.md -n 2 --dist web/dist`: pass。`type.struct.type_param_bounds_unsupported` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_declaration_diagnostics.n.md -n 3 --dist web/dist`: pass。`resolve.item.name_conflict` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/driver_declaration_diagnostics.n.md -n 4 --dist web/dist`: pass。`resolve.item.name_conflict` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
+
 ## 2026-04-29 Stage D1 parser direct diagnostics follow-up 追記
 
 前回の parser recovery boundary 移行後、`parser.rs` には layout block、type expression、identifier、mlstr、extern signature など 42 箇所の直接 `.with_code(...)` が残っていた。

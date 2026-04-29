@@ -1,3 +1,36 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z driver extern/declaration diagnostic code-first)
+
+- [同期]:
+  - `d412229` まで反映した `main` を `origin/main` と同期し、`work/typecheck-driver-declaration-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/driver.rs` の extern directive と enum/struct declaration 境界に `Diagnostic::error(...).with_code(...)` が残っていた。
+  - enum/struct の重複名検出は、先に `continue` する分岐があるため duplicate enum / duplicate struct を無診断で捨てる経路があった。
+- [修正]:
+  - extern WASI target mismatch / extern signature mismatch / enum type parameter bounds / struct type parameter bounds を `type_error(...)` helper 経由へ移行した。
+  - enum/struct item name conflict を `resolve_error(...)` helper 経由へ移行した。
+  - duplicate enum / duplicate struct を無診断 skip せず、`ResolveDiagnosticCode::ItemNameConflict` を出すようにした。
+  - Rust regression と `tests/compiler/driver_declaration_diagnostics.n.md` を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 wasi_import_rejected_on_wasm_target -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 extern_signature_not_function_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 enum_type_param_bounds_have_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 struct_type_param_bounds_have_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 duplicate_enum_name_has_resolve_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 duplicate_struct_name_has_resolve_code -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/driver_declaration_diagnostics.n.md -n 1 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/driver_declaration_diagnostics.n.md -n 2 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/driver_declaration_diagnostics.n.md -n 3 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/driver_declaration_diagnostics.n.md -n 4 --dist web/dist`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の driver extern / declaration boundary 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z block scope/raw diagnostic code-first)
 
 - [同期]:

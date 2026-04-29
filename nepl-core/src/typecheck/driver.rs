@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use crate::ast::*;
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{DiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::hir::*;
 use crate::resolve::{DefId, ImportResolution};
 use crate::source_map::SourceMap;
@@ -19,6 +19,7 @@ use super::binding_rules::{
     is_callable_binding, shadow_blocked_by_nonshadow,
 };
 use super::check_function;
+use super::diagnostics::{resolve_error, type_error};
 use super::driver_entry::resolve_entry_function;
 use super::env::{Binding, BindingKind, Env};
 use super::model::{EnumInfo, StructInfo};
@@ -152,12 +153,11 @@ pub fn typecheck(
             if matches!(target, CompileTarget::Wasm | CompileTarget::Llvm)
                 && m == "wasi_snapshot_preview1"
             {
-                diagnostics.push(
-                    Diagnostic::error("WASI import is only allowed for #target wasi", *span)
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::ExternWasiTargetMismatch,
-                        )),
-                );
+                diagnostics.push(type_error(
+                    TypeDiagnosticCode::ExternWasiTargetMismatch,
+                    "WASI import is only allowed for #target wasi",
+                    *span,
+                ));
                 return;
             }
             let ty = type_from_expr(&mut ctx, &mut label_env, signature);
@@ -196,13 +196,11 @@ pub fn typecheck(
                     span: *span,
                 });
             } else {
-                diagnostics.push(
-                    Diagnostic::error("extern signature must be a function type", *span).with_code(
-                        DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::ExternSignatureNotFunction,
-                        ),
-                    ),
-                );
+                diagnostics.push(type_error(
+                    TypeDiagnosticCode::ExternSignatureNotFunction,
+                    "extern signature must be a function type",
+                    *span,
+                ));
             }
         }
     };
@@ -253,30 +251,23 @@ pub fn typecheck(
         match item {
             Stmt::EnumDef(e) => {
                 if enums.contains_key(&e.name.name)
+                    || structs.contains_key(&e.name.name)
                     || env.lookup_any_defined(&e.name.name).is_some()
                 {
-                    continue;
-                }
-                if env.lookup_any_defined(&e.name.name).is_some()
-                    || structs.contains_key(&e.name.name)
-                {
-                    diagnostics.push(
-                        Diagnostic::error("name already used by another item", e.name.span)
-                            .with_code(DiagnosticCode::Resolve(
-                                crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
-                            )),
-                    );
+                    diagnostics.push(resolve_error(
+                        ResolveDiagnosticCode::ItemNameConflict,
+                        "name already used by another item",
+                        e.name.span,
+                    ));
                     continue;
                 }
                 for p in &e.type_params {
                     if !p.bounds.is_empty() {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                "enum type parameter bounds are not supported yet",
-                                p.name.span,
-                            )
-                            .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::EnumTypeParamBoundsUnsupported)),
-                        );
+                        diagnostics.push(type_error(
+                            TypeDiagnosticCode::EnumTypeParamBoundsUnsupported,
+                            "enum type parameter bounds are not supported yet",
+                            p.name.span,
+                        ));
                     }
                 }
                 let mut e_labels = LabelEnv::new();
@@ -372,30 +363,23 @@ pub fn typecheck(
             }
             Stmt::StructDef(s) => {
                 if structs.contains_key(&s.name.name)
+                    || enums.contains_key(&s.name.name)
                     || env.lookup_any_defined(&s.name.name).is_some()
                 {
-                    continue;
-                }
-                if env.lookup_any_defined(&s.name.name).is_some()
-                    || enums.contains_key(&s.name.name)
-                {
-                    diagnostics.push(
-                        Diagnostic::error("name already used by another item", s.name.span)
-                            .with_code(DiagnosticCode::Resolve(
-                                crate::diagnostic_codes::ResolveDiagnosticCode::ItemNameConflict,
-                            )),
-                    );
+                    diagnostics.push(resolve_error(
+                        ResolveDiagnosticCode::ItemNameConflict,
+                        "name already used by another item",
+                        s.name.span,
+                    ));
                     continue;
                 }
                 for p in &s.type_params {
                     if !p.bounds.is_empty() {
-                        diagnostics.push(
-                            Diagnostic::error(
-                                "struct type parameter bounds are not supported yet",
-                                p.name.span,
-                            )
-                            .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::StructTypeParamBoundsUnsupported)),
-                        );
+                        diagnostics.push(type_error(
+                            TypeDiagnosticCode::StructTypeParamBoundsUnsupported,
+                            "struct type parameter bounds are not supported yet",
+                            p.name.span,
+                        ));
                     }
                 }
                 let mut s_labels = LabelEnv::new();
