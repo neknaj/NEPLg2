@@ -2,8 +2,8 @@
 id: ISS-20260429T005246036Z-SELF-HOST-CLI-LACKS-FILESYSTEM-FILE--1B6C9F63
 title: "self-host CLI lacks filesystem file_io boundary"
 area: selfhost
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-29
@@ -39,6 +39,18 @@ Self-host CLI integration would either duplicate std/fs calls in main/driver or 
 
 Add cli/file_io.nepl as the CLI filesystem bridge. Keep core and driver VFS-facing, expose Result-returning helpers for reading a root source into SelfhostVirtualFileSystem and for writing text/binary artifacts, and add source policy plus focused doctests.
 
+## 対応
+
+`stdlib/neplg2/cli/file_io.nepl` を追加し、`std/fs` 依存を CLI filesystem bridge に閉じ込めた。root source は `fs_read_to_string_checked` で UTF-8 検証してから `SelfhostVirtualFileSystem` に登録し、read failure / VFS allocation failure / artifact write failure は `SelfhostDiagnostic` として返す。
+
+text artifact は `fs_write_to_string`、binary artifact は `fs_write_to_bytes` に委譲し、driver と core pipeline は VFS-facing のまま維持した。`nodesrc/test_selfhost_cli_file_io_boundary.js` で `std/fs` import が `cli/file_io.nepl` 以外の `stdlib/neplg2` module に漏れないことを固定した。
+
 ## 検証
 
 Add focused file_io doctests/fixtures for source file read into VFS, read error mapping, text artifact write, and source policy that confines std/fs imports to cli/file_io.
+
+- `node nodesrc/test_selfhost_cli_file_io_boundary.js`: passed
+- `trunk build`: passed after rebasing onto `d764be7`
+- `node nodesrc/tests.js -i stdlib\neplg2\cli\file_io.nepl --no-tree -o tmp\selfhost-cli-file-io-module-rebased.json -j 1`: total=1 passed=1
+- `node nodesrc/tests.js -i tests\stdlib\selfhost_cli_file_io.n.md --no-tree -o tmp\selfhost-cli-file-io-fixture-rebased.json -j 1`: total=4 passed=4
+- `node nodesrc/tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-cli-file-io-neplg2-rebased.json -j 2`: remote `d764be7` の Resource IR owner obligation leak により file_io 以外で failed。`hash32(str)` / `StringBuilder` の別 issue として分離する。

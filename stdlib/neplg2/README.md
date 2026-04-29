@@ -29,7 +29,7 @@ S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベー�
 
 ## S6 CLI Boundary
 
-`cli/args/types.nepl` は CLI driver / reporter / parser が共有する `SelfhostCliTarget`、`SelfhostCliEmitSet`、`SelfhostCliOptions` などの public option 型を提供します。`cli/args.nepl` は既存 import path の compatibility facade と pure argv parser を兼ね、`args/types` を `pub #import` で再 export します。`cli/reporter.nepl` は core diagnostic を human stderr text と compact JSON に変換し、Result 付き stdio API で stdout/stderr を分離します。`cli/driver.nepl` は VFS と parsed options を受け取り、core pipeline の root load result を exit code と diagnostics に正規化します。filesystem と artifact 書き出しは後続の `cli/file_io.nepl` と driver の artifact slice に分けます。
+`cli/args/types.nepl` は CLI driver / reporter / parser が共有する `SelfhostCliTarget`、`SelfhostCliEmitSet`、`SelfhostCliOptions` などの public option 型を提供します。`cli/args.nepl` は既存 import path の compatibility facade と pure argv parser を兼ね、`args/types` を `pub #import` で再 export します。`cli/reporter.nepl` は core diagnostic を human stderr text と compact JSON に変換し、Result 付き stdio API で stdout/stderr を分離します。`cli/driver.nepl` は VFS と parsed options を受け取り、core pipeline の root load result を exit code と diagnostics に正規化します。`cli/file_io.nepl` は `std/fs` 依存を閉じ込め、root source の checked read から VFS への登録と text / binary artifact write を担当します。driver の artifact slice では、この file_io boundary を呼び出すだけにします。
 
 ## 検証
 
@@ -42,4 +42,5 @@ node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/
 node nodesrc/tests.js -i tests/stdlib/neplg2_stdlib_map.n.md --no-tree -o tmp/neplg2-stdlib-map-focused.json -j 1
 node nodesrc/tests.js -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg2-type-arena-focused.json -j 1
 node nodesrc/tests.js -i tests/stdlib/neplg2_mono.n.md --no-tree -o tmp/neplg2-mono-focused.json -j 1
+node nodesrc/tests.js -i tests/stdlib/selfhost_cli_file_io.n.md --no-tree -o tmp/selfhost-cli-file-io-focused.json -j 1
 ```

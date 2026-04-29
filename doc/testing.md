@@ -88,6 +88,7 @@ node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js
 node nodesrc/test_selfhost_cli_args_no_owner_field_reads.js
 node nodesrc/test_selfhost_cli_args_types_split.js
 node nodesrc/test_selfhost_cli_driver_boundary.js
+node nodesrc/test_selfhost_cli_file_io_boundary.js
 node nodesrc/test_selfhost_cli_reporter_boundary.js
 node nodesrc/test_selfhost_outcome_no_raw_result_cell.js
 node nodesrc/test_llvm_runner_return_value.js

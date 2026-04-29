@@ -1,0 +1,142 @@
+#indent 4
+
+//: # file_io
+//: NEPLg2.0 self-host CLI の filesystem bridge です。
+//:
+//: [目的/もくてき]:
+//: - 実 filesystem から root source を読み、core [層/そう]が[扱/あつか]う `SelfhostVirtualFileSystem` へ[変換/へんかん]します。
+//: - text / binary artifact の書き出しを `std/fs` に委譲し、driver と core pipeline を filesystem 非依存のまま保ちます。
+//: - filesystem error は `SelfhostDiagnostic` に変換し、reporter / driver と同じ diagnostic 経路で[扱/あつか]えるようにします。
+//:
+//: [実装/じっそう]:
+//: - source 読み込みには `fs_read_to_string_checked` を使い、invalid UTF-8 を errno 付き diagnostic として返します。
+//: - root source は input path と同じ logical path で VFS に 1 件登録します。import closure の実 filesystem discovery は後続 issue で追加します。
+//: - artifact 書き込みは `fs_write_to_string` / `fs_write_to_bytes` に直接委譲し、失敗時は path と errno を note に残します。
+//:
+//: [注意/ちゅうい]:
+//: - この module は CLI 層の I/O 境界です。`core/` と `cli/driver.nepl` は `std/fs` を import しません。
+//: - `selfhost_cli_file_io_write_binary_artifact` は `ByteBuf` の所有権を消費します。成功時も失敗時も `std/fs` 側で buffer は解放されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - root source 読み込みは file byte 数 n に対して O(n) です。
+//: - artifact 書き込みは出力 byte 数 n に対して O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/cli/file_io" as *
+//:| #import "neplg2/core/module/loader" as *
+//:| #import "std/fs" as *
+//: fn main <()*>i32> ():
+//:     let path <str> "tmp/selfhost_file_io_module_doc.nepl"
+//:     match fs_write_to_string path "fn main <()->i32> ():\n    0\n":
+//:         Result::Err _e:
+//:             1
+//:         Result::Ok _:
+//:             match selfhost_cli_file_io_read_root_vfs path:
+//:                 Result::Err _diag:
+//:                     2
+//:                 Result::Ok vfs:
+//:                     let n <i32> selfhost_vfs_len &vfs
+//:                     selfhost_vfs_free vfs
+//:                     if eq n 1 0 3
+//: ```
+
+#import "alloc/io" as *
+#import "alloc/string" as *
+#import "core/result" as *
+#import "neplg2/core/infra/diag" as *
+#import "neplg2/core/module/loader" as *
+#import "std/fs" as *
+
+//: selfhost_cli_file_io_errno_note: path と errno を diagnostic note にする
+//:
+//: [目的/もくてき]:
+//: - filesystem error の最小情報として、対象 path と host API から返された errno を安定した文字列にまとめます。
+fn selfhost_cli_file_io_errno_note <(str,i32)->str> (path, errno):
+    let mut sb <StringBuilder> string_builder_new
+    set sb sb_append sb path
+    set sb sb_append sb " (errno "
+    set sb sb_append_i32 sb errno
+    set sb sb_append sb ")"
+    sb_build sb
+
+//: selfhost_cli_file_io_std_error_note: path と StdErrorKind を diagnostic note にする
+fn selfhost_cli_file_io_std_error_note <(str,StdErrorKind)->str> (path, kind):
+    let mut sb <StringBuilder> string_builder_new
+    set sb sb_append sb path
+    set sb sb_append sb " ("
+    set sb sb_append sb std_error_kind_str kind
+    set sb sb_append sb ")"
+    sb_build sb
+
+//: selfhost_cli_file_io_read_failed_diag: source read 失敗 diagnostic を作る
+fn selfhost_cli_file_io_read_failed_diag <(str,i32)->SelfhostDiagnostic> (path, errno):
+    let diag <SelfhostDiagnostic> selfhost_diag_error "selfhost.cli.file_io.read_failed" "failed to read source file"
+    selfhost_diag_with_note diag selfhost_cli_file_io_errno_note path errno
+
+//: selfhost_cli_file_io_write_failed_diag: artifact write 失敗 diagnostic を作る
+fn selfhost_cli_file_io_write_failed_diag <(str,i32)->SelfhostDiagnostic> (path, errno):
+    let diag <SelfhostDiagnostic> selfhost_diag_error "selfhost.cli.file_io.write_failed" "failed to write artifact"
+    selfhost_diag_with_note diag selfhost_cli_file_io_errno_note path errno
+
+//: selfhost_cli_file_io_vfs_failed_diag: VFS 構築失敗 diagnostic を作る
+fn selfhost_cli_file_io_vfs_failed_diag <(str,StdErrorKind)->SelfhostDiagnostic> (path, kind):
+    let diag <SelfhostDiagnostic> selfhost_diag_error "selfhost.cli.file_io.vfs_failed" "failed to build source VFS"
+    selfhost_diag_with_note diag selfhost_cli_file_io_std_error_note path kind
+
+//: selfhost_cli_file_io_read_root_vfs: root source file を VFS に読み込む
+//:
+//: [目的/もくてき]:
+//: - CLI の input path を読み込み、core loader が使う VFS entry として登録します。
+//: - driver はこの VFS を受け取るだけにし、filesystem 依存を持たないままにします。
+//:
+//: [注意/ちゅうい]:
+//: - 成功時の戻り値は VFS buffer を所有するため、呼び出し側は `selfhost_vfs_free` で解放します。
+//: - 現段階では root file 1 件だけを登録します。import graph に必要な追加 file の discovery は `stdlib_map` と合わせて後続で拡張します。
+pub fn selfhost_cli_file_io_read_root_vfs <(str)*>Result<SelfhostVirtualFileSystem, SelfhostDiagnostic>> (path):
+    match fs_read_to_string_checked path:
+        Result::Err errno:
+            Result<SelfhostVirtualFileSystem, SelfhostDiagnostic>::Err selfhost_cli_file_io_read_failed_diag path errno
+        Result::Ok source:
+            match selfhost_vfs_new:
+                Result::Err e:
+                    Result<SelfhostVirtualFileSystem, SelfhostDiagnostic>::Err selfhost_cli_file_io_vfs_failed_diag path e
+                Result::Ok vfs0:
+                    match selfhost_vfs_add vfs0 path source:
+                        Result::Err e:
+                            Result<SelfhostVirtualFileSystem, SelfhostDiagnostic>::Err selfhost_cli_file_io_vfs_failed_diag path e
+                        Result::Ok vfs1:
+                            Result<SelfhostVirtualFileSystem, SelfhostDiagnostic>::Ok vfs1
+
+//: selfhost_cli_file_io_write_text_artifact: text artifact を file に書き出す
+//:
+//: [目的/もくてき]:
+//: - JSON、WAT、LLVM IR などの text artifact を create/truncate で保存します。
+//: - file write error は diagnostic として返し、stdout/stderr reporter と同じ経路で表示できるようにします。
+pub fn selfhost_cli_file_io_write_text_artifact <(str,str)*>Result<(), SelfhostDiagnostic>> (path, text):
+    match fs_write_to_string path text:
+        Result::Ok _:
+            Result<(), SelfhostDiagnostic>::Ok ()
+        Result::Err errno:
+            Result<(), SelfhostDiagnostic>::Err selfhost_cli_file_io_write_failed_diag path errno
+
+//: selfhost_cli_file_io_write_binary_artifact: binary artifact を file に書き出す
+//:
+//: [目的/もくてき]:
+//: - `.wasm` のように NUL byte を含む artifact を、text 変換せず `ByteBuf` として保存します。
+//:
+//: [注意/ちゅうい]:
+//: - `bytes` はこの関数が所有権を受け取り、成功 / 失敗にかかわらず `std/fs` の write API が解放します。
+pub fn selfhost_cli_file_io_write_binary_artifact <(str,ByteBuf)*>Result<(), SelfhostDiagnostic>> (path, bytes):
+    match fs_write_to_bytes path bytes:
+        Result::Ok _:
+            Result<(), SelfhostDiagnostic>::Ok ()
+        Result::Err errno:
+            Result<(), SelfhostDiagnostic>::Err selfhost_cli_file_io_write_failed_diag path errno
+
+//: selfhost_cli_file_io_stage0: file_io 境界の smoke API
+pub fn selfhost_cli_file_io_stage0 <()->i32> ():
+    0

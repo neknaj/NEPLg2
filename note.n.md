@@ -37,6 +37,16 @@
 - [次の方針]:
   - `cli/file_io.nepl` に `std/fs` 依存を閉じ込め、root source を `SelfhostVirtualFileSystem` に登録する helper と text/binary artifact write helper を追加する。
   - `driver.nepl` は VFS-facing のまま維持し、source policy test で `std/fs` import が file_io 以外へ漏れないことを固定する。
+- [修正]:
+  - `stdlib/neplg2/cli/file_io.nepl` を追加し、`fs_read_to_string_checked` で root source を読み込んで `SelfhostVirtualFileSystem` に登録する API を実装した。
+  - text artifact は `fs_write_to_string`、binary artifact は `fs_write_to_bytes` に委譲し、失敗時は `SelfhostDiagnostic` で path と errno を返す形にした。
+  - `nodesrc/test_selfhost_cli_file_io_boundary.js` を追加し、`std/fs` import が `cli/file_io.nepl` 以外の `stdlib/neplg2` module に漏れないことを固定した。
+- [検証]:
+  - `node nodesrc/test_selfhost_cli_file_io_boundary.js`: pass
+  - `trunk build`: pass（remote `d764be7` 取り込み後）
+  - `node nodesrc/tests.js -i stdlib\neplg2\cli\file_io.nepl --no-tree -o tmp\selfhost-cli-file-io-module-rebased.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i tests\stdlib\selfhost_cli_file_io.n.md --no-tree -o tmp\selfhost-cli-file-io-fixture-rebased.json -j 1`: total=4 passed=4
+  - `node nodesrc/tests.js -i stdlib\neplg2 --no-tree -o tmp\selfhost-cli-file-io-neplg2-rebased.json -j 2`: total=36 passed=19 failed=17。失敗は `hash32(str)` と `StringBuilder` の Resource IR owner obligation leak で、file_io 境界とは別の静的検査回帰として切り出す。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
