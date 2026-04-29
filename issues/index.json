@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T22:32:46.051Z",
+  "generated_at": "2026-04-29T22:39:42.726Z",
   "counts": {
-    "total": 404,
+    "total": 405,
     "open": 12,
-    "resolved": 392,
+    "resolved": 393,
     "by_area": {
       "core": {
-        "total": 185,
+        "total": 186,
         "open": 4,
-        "resolved": 181
+        "resolved": 182
       },
       "stdlib": {
         "total": 124,
@@ -2888,6 +2888,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T185230794Z-RESOURCE-OWNER-CHECKER-LOSES-NESTED--28A8E792.md"
+    },
+    {
+      "id": "ISS-20260429T223654297Z-RESOURCE-IR-NON-COPY-REGRESSION-TEST-8F153A57",
+      "title": "Resource IR non-Copy regression tests use skeleton lowering with mismatched TypeCtx",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/tests/resource_ir.rs, nodesrc/test_resource_ir_test_harness_policy.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T223654297Z-RESOURCE-IR-NON-COPY-REGRESSION-TEST-8F153A57.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

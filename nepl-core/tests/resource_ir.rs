@@ -2863,7 +2863,7 @@ fn resource_ir_check_reports_non_copy_use_after_move() {
     let span = Span::dummy();
     let module = non_copy_read_module(unit_ty, owned_ty, span, false);
 
-    let resource = lower_hir_module_skeleton(&module);
+    let resource = lower_hir_module(&module, &types);
     let report = check_resource_initialized_moves(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
@@ -2884,7 +2884,7 @@ fn resource_ir_check_reports_read_after_drop() {
     let span = Span::dummy();
     let module = non_copy_read_module(unit_ty, owned_ty, span, true);
 
-    let resource = lower_hir_module_skeleton(&module);
+    let resource = lower_hir_module(&module, &types);
     let report = check_resource_initialized_moves(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,

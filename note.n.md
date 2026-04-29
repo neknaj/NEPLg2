@@ -27563,3 +27563,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host / stdlib 本体ではなく、複数 agent が使う doctest harness の出力信頼性を改善した。
+
+# 2026-04-30 メモ (ISS-20260429T223654297Z Resource IR non-Copy regression TypeCtx)
+
+- [同期]:
+  - main の `cf4f5dd` から `fix/resource-ir-non-copy-test-typectx` branch を作成して継続した。
+  - commit 前に remote main の `8190363` へ rebase し、editor diagnostic code 追従の別 agent 変更を取り込んだ。
+  - 静的検証の focused test として `cargo test -p nepl-core --test resource_ir -- --nocapture` を実行し、2 件の panic regression を確認した。
+- [原因]:
+  - `resource_ir_check_reports_non_copy_use_after_move` と `resource_ir_check_reports_read_after_drop` は custom non-Copy `Owned` 型を `TypeCtx` に登録していた。
+  - しかし lowering は `lower_hir_module_skeleton` を使っており、この関数は fresh `TypeCtx::new()` を内部で作る。
+  - HIR には custom `TypeId(8)` が残るため、fresh arena では `aggregate_construct_field_offsets` が範囲外 access になり、Resource IR diagnostic を確認する前に panic していた。
+- [修正]:
+  - custom non-Copy 型を使う 2 test は、同じ `TypeCtx` で `lower_hir_module(&module, &types)` に通すようにした。
+  - `nodesrc/test_resource_ir_test_harness_policy.js` を追加し、対象 test が skeleton lowering に戻らないことを source policy で固定した。
+  - 親 issue `ISS-20260425T000000Z-RV-CORE-009-58589A3F` に、静的検証回帰監視の修正として追記した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_check_reports -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: `124 passed`
+  - `cargo test -p nepl-core --test effects -- --nocapture`: `21 passed`
+  - `node nodesrc/test_resource_ir_test_harness_policy.js`: passed
+  - `rustfmt --check nepl-core/tests/resource_ir.rs`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260429T223654297Z-RESOURCE-IR-NON-COPY-REGRESSION-TEST-8F153A57` を追加し、verified/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Resource IR の non-Copy regression が panic ではなく typed diagnostic を検証する状態へ戻した。
