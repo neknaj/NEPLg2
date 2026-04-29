@@ -1,3 +1,27 @@
+# 2026-04-30 メモ (ISS-20260429T040748194Z diagnostic editor payload)
+
+- [同期]:
+  - `main` の `bb749ff7` から `work/diagnostic-d3-editor-code-contract` branch を作成して作業した。
+  - commit/push 前に `origin/main` が `cf4f5dd1` まで進んでいたため、branch を最新 `origin/main` へ rebase した。
+- [原因]:
+  - `nepl-web` の wasm analysis object は `code` / `code_message` を出していたが、playground editor の `EditorUpdatePayload` は diagnostic code を保持していなかった。
+  - browser/editor 境界で stable diagnostic code が落ちると、Stage D3 の「人間向け表示と機械判定を同じ diagnostic value から生成する」方針が成立しない。
+- [修正]:
+  - `web/src/editor-core/language-analysis.ts` の `AnalysisDiagnostic` / `EditorDiagnostic` に `code` / `codeMessage` を追加し、analysis snapshot から editor payload へ保持するようにした。
+  - `nodesrc/test_editor_diagnostic_code_contract.js` を追加し、payload 構築時と text change remap 後の両方で stable code が保持されることを固定した。
+  - 既存 playground editor fixture は code-less diagnostic を `code: null` / `codeMessage: null` として明示する形に更新した。
+- [issue]:
+  - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` に Stage D3 editor diagnostic code contract の対応結果を追記した。
+  - issue は CLI/JSON 表示整理と self-host parity 残件を含む親 issue として open のまま維持する。
+- [検証]:
+  - `npx tsc -p web/tsconfig.json`: passed
+  - `node nodesrc/test_editor_diagnostic_code_contract.js`: passed
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+  - `node nodesrc/cli.js -i tests/playground_editor -o json=tmp/agent1-editor-diagnostic-code-contract-playground.json --playground-editor-tests`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 診断 redesign Stage D3 の web/editor 表示 contract を、stable code を落とさない形に補強する修正である。
+
 # 2026-04-30 メモ (ISS-20260429T040748194Z diagnostic web boundary)
 
 - [同期]:

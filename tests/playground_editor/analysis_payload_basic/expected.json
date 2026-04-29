@@ -44,6 +44,8 @@
           {
             "startIndex": 19,
             "endIndex": 20,
+            "code": null,
+            "codeMessage": null,
             "message": "unused variable x",
             "severity": "warning"
           }

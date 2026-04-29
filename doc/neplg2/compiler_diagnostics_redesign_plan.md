@@ -242,6 +242,10 @@ D2 の完了条件は次の通り。
 - web diagnostic object は `code` と `code_message` を出す。
 - JSON diagnostic output は enum 由来の stable string code を primary key にする。
 
+進捗:
+
+- 2026-04-30: `nepl-web` の wasm analysis object は `code` / `code_message` を出していたが、playground editor の `EditorUpdatePayload` が `code` を落としていたため、`web/src/editor-core/language-analysis.ts` の `EditorDiagnostic` に `code` / `codeMessage` を追加した。analysis snapshot から editor payload、差分 remap 後の payload まで stable code を保持する。`nodesrc/test_editor_diagnostic_code_contract.js` を CI source policy に追加し、web 側表示 contract が code を失わないことを固定する。
+
 ### Stage D4: test migration
 
 目的: regression が粗い bucket ではなく、意味的な diagnostic code を固定する。

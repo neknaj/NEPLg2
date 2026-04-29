@@ -10,6 +10,8 @@ export type AnalysisSpan = {
 export type AnalysisDiagnostic = {
     span?: AnalysisSpan;
     severity?: string;
+    code?: string | null;
+    code_message?: string | null;
     message?: string;
     stage?: string;
 };
@@ -89,6 +91,8 @@ export type EditorToken = {
 export type EditorDiagnostic = {
     startIndex: number;
     endIndex: number;
+    code: string | null;
+    codeMessage: string | null;
     message: string;
     severity: 'error' | 'warning';
 };
@@ -192,6 +196,10 @@ type PreparedLanguageAnalysis = {
 
 function analysisArray<T>(value: T[] | null | undefined): T[] {
     return Array.isArray(value) ? value : [];
+}
+
+function optionalString(value: unknown): string | null {
+    return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 function buildOffsetMaps(text: string): OffsetMaps {
@@ -610,6 +618,8 @@ function collectDiagnostics(prepared: PreparedLanguageAnalysis): EditorDiagnosti
             output.push({
                 startIndex: span ? span.startIndex : 0,
                 endIndex: span ? span.endIndex : 0,
+                code: optionalString(item?.code),
+                codeMessage: optionalString(item?.code_message),
                 message: String(item?.message ?? 'diagnostic'),
                 severity: normalizeSeverity(item?.severity),
             });

@@ -851,3 +851,18 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `cargo check --manifest-path nepl-web/Cargo.toml`
 - `node nodesrc/test_diagnostic_code_first_boundary.js`
 - `rg -n '\.with_code\(|fn\s+with_code\b' nepl-core nepl-language nepl-lsp nepl-web -g '*.rs'`: no matches
+
+## 2026-04-30 Stage D3 editor diagnostic code contract 追記
+
+`nepl-web` の wasm analysis object は `code` / `code_message` を出していたが、playground editor の `EditorUpdatePayload` は `message` と `severity` だけを保持していた。これにより、browser/editor 境界では stable diagnostic code が失われ、人間向け表示と機械判定を同じ diagnostic value から生成する Stage D3 の方針に反していた。
+
+今回の対応で `web/src/editor-core/language-analysis.ts` の `AnalysisDiagnostic` / `EditorDiagnostic` に diagnostic code contract を追加し、analysis snapshot から editor payload へ `code` / `codeMessage` を保持するようにした。差分更新時の `remapEditorUpdatePayloadForTextChange(...)` は object spread によって diagnostic payload を保持するため、remap 後も code が落ちないことを回帰テストで固定した。
+
+再発防止として `nodesrc/test_editor_diagnostic_code_contract.js` を追加し、CI source policy に接続した。既存の playground editor fixture も code-less diagnostic を `code: null` / `codeMessage: null` として明示する形に更新した。
+
+検証:
+
+- `npx tsc -p web/tsconfig.json`
+- `node nodesrc/test_editor_diagnostic_code_contract.js`
+- `node nodesrc/test_diagnostic_code_first_boundary.js`
+- `node nodesrc/cli.js -i tests/playground_editor -o json=tmp/agent1-editor-diagnostic-code-contract-playground.json --playground-editor-tests`
