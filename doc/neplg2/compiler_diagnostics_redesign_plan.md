@@ -173,6 +173,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `typecheck/function_check.rs` の function signature、parameter count、return type、pending trait bound 診断を `type_error(...)` 経由へ移行した。function checking boundary では生成時点で `TypeDiagnosticCode` が確定する。
 - 2026-04-29: `typecheck/traits.rs` の trait bound arity / unknown trait bound 診断を `type_error(...)` 経由へ移行した。trait bound collection boundary では生成時点で `TypeDiagnosticCode` が確定する。
 - 2026-04-29: `typecheck/overload_selection.rs` の explicit type arg mismatch、no matching overload、ambiguous overload 診断を `type_error(...)` 経由へ移行した。overload selection boundary では生成時点で `TypeDiagnosticCode` が確定する。
+- 2026-04-29: `typecheck/call_reduction.rs` の call reduction defensive diagnostics を `type_error(...)` 経由へ移行した。call reduction 内部不変条件の破綻を報告する場合も生成時点で `TypeDiagnosticCode::CallReductionLimitExceeded` が確定する。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

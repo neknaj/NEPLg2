@@ -373,3 +373,21 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 39 --dist web/dist`: pass。`type.overload.ambiguous` が出ることを確認した。
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 call reduction boundary follow-up 追記
+
+`typecheck/call_reduction.rs` には call reduction の内部防衛診断で `Diagnostic::error(...).with_code(...)` が残っていた。これは通常の user-facing overload mismatch ではなく、call reduction が非関数を reduction 対象にした場合や進捗不能 loop を検出した場合の invariant diagnostic だが、同じく diagnostic code を後付けにしない。
+
+今回の対応で `CallReductionLimitExceeded` を `type_error(...)` helper 経由へ移行した。直接発火させる fixture は内部 invariant 破綻を作る必要があるため追加せず、call reduction を通る overload / grouped call / function diagnostic regression で挙動維持を確認した。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/call_reduction.rs`: no matches
+- `cargo test -p nepl-core --test neplg2 overload -- --nocapture`: pass
+- `cargo test -p nepl-core --test overload -- --nocapture`: pass
+- `cargo test -p nepl-core --test functions has_type_code -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 39 --dist web/dist`: pass。call reduction を含む overload diagnostic path が維持されることを確認した。
+- `git diff --check`: pass

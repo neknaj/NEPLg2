@@ -5,12 +5,12 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::ast::{Ident, MatchPattern};
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
+use super::diagnostics::type_error;
 use super::env::BindingKind;
 use super::{BlockChecker, FieldIdx, StackEntry};
 
@@ -202,15 +202,11 @@ impl<'a> BlockChecker<'a> {
                     ..
                 } => (params, result, effect),
                 _ => {
-                    self.diagnostics.push(
-                        Diagnostic::error(
-                            "call reduction found non-function after instantiation",
-                            stack[func_pos].expr.span,
-                        )
-                        .with_code(DiagnosticCode::Type(
-                            crate::diagnostic_codes::TypeDiagnosticCode::CallReductionLimitExceeded,
-                        )),
-                    );
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::CallReductionLimitExceeded,
+                        "call reduction found non-function after instantiation",
+                        stack[func_pos].expr.span,
+                    ));
                     break;
                 }
             };
@@ -324,10 +320,11 @@ impl<'a> BlockChecker<'a> {
                             .get(func_pos)
                             .map(|entry| entry.expr.span)
                             .unwrap_or_else(Span::dummy);
-                        self.diagnostics.push(
-                            Diagnostic::error("call reduction made no progress", span)
-                                .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::CallReductionLimitExceeded)),
-                        );
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::CallReductionLimitExceeded,
+                            "call reduction made no progress",
+                            span,
+                        ));
                         break;
                     }
                 } else {

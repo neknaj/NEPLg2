@@ -1,3 +1,26 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z call reduction code-first diagnostics)
+
+- [同期]:
+  - `5c109d0` を `main` / `origin/main` へ push した後、`work/typecheck-call-reduction-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/call_reduction.rs` には call reduction の内部防衛診断で `Diagnostic::error(...).with_code(...)` が残っていた。
+  - 通常の user-facing overload mismatch ではないが、内部不変条件の破綻を報告する場合も diagnostic code を後付けせず `TypeDiagnosticCode` を生成時点で確定する必要がある。
+- [修正]:
+  - 非関数 reduction 対象と no-progress 検出の `CallReductionLimitExceeded` を `type_error(...)` helper 経由へ移行した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/call_reduction.rs`: no matches
+  - `cargo test -p nepl-core --test neplg2 overload -- --nocapture`: pass
+  - `cargo test -p nepl-core --test overload -- --nocapture`: pass
+  - `cargo test -p nepl-core --test functions has_type_code -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/neplg2.n.md -n 39 --dist web/dist`: pass。call reduction を含む overload diagnostic path が維持されることを確認した。
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の call reduction boundary follow-up として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z overload selection code-first diagnostics)
 
 - [同期]:
