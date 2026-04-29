@@ -26,7 +26,7 @@ fn main <()->i32> ():
 ## pure から alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -43,7 +43,7 @@ fn main <()->i32> ():
 ## pure から alloc_raw の raw address を struct に包んで返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -65,7 +65,7 @@ fn main <()->i32> ():
 ## pure helper 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -86,7 +86,7 @@ fn main <()->i32> ():
 ## function value 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -108,7 +108,7 @@ fn main <()->i32> ():
 ## higher-order helper 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -132,7 +132,7 @@ fn main <()->i32> ():
 ## raw slot 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -152,7 +152,7 @@ fn main <()->i32> ():
 ## realloc 後の raw slot 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -173,7 +173,7 @@ fn main <()->i32> ():
 ## mem_copy 後の raw slot 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -195,7 +195,7 @@ fn main <()->i32> ():
 ## parameter raw slot 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -215,7 +215,7 @@ fn main <()->i32> ():
 ## copied parameter raw slot 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -236,7 +236,7 @@ fn main <()->i32> ():
 ## helper に渡した raw identity も parameter raw slot 経由で返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -256,7 +256,7 @@ fn main <()->i32> ():
 ## helper から返った raw slot pointer 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4
@@ -280,7 +280,7 @@ fn main <()->i32> ():
 ## function value から返った raw slot pointer 経由でも alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
-diag_code: effect.pure.calls_impure
+diag_code: resource.raw.identity_escape
 ```neplg2
 #entry main
 #indent 4

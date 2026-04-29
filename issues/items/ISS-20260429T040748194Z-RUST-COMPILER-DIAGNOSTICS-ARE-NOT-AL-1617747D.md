@@ -68,3 +68,17 @@ enum 化により、`#indent xx` が parser の generic token error として分
 - `node nodesrc/issues.js check`
 
 この issue はまだ open のままとする。Stage D1 以降で builder、note/help、Resource IR typed mapping、self-host parity を続けて追跡する。
+
+## 2026-04-29 Stage D2 raw identity escape code 追記
+
+Resource IR の `RawAddressEscapeFromInternalAlloc` が ordinary な `effect.pure.calls_impure` に潰れていたため、`ResourceRawDiagnosticCode::IdentityEscape` を追加し、compiler gate では `resource.raw.identity_escape` として出すようにした。
+
+これにより、pure context で impure I/O を呼ぶ診断と、internal allocation の raw address identity が public surface へ漏れる診断が enum 上でも doctest 上でも分離された。`UnsafeMemoryInPureFunction` は stdlib raw-memory-backed API 移行中のため、今回も explicit match で shadow-only に残している。
+
+検証:
+
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`
+- `cargo test -p nepl-core compiler::tests::resource_effect_gate -- --nocapture`
+- `cargo check -p nepl-core --tests`
+- `trunk build`
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-resource-raw-identity-code-move-effect.json -j 1`

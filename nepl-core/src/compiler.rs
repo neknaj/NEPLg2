@@ -633,13 +633,14 @@ mod tests {
     use super::*;
     use crate::resource::{
         BorrowState, CellState, OwnerState, Place, ResourceBorrowDiagnostic,
-        ResourceBorrowOperation, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceId,
-        ResourceOwnerDiagnostic, ResourceOwnerOperation, StorageId,
+        ResourceBorrowOperation, ResourceCheckDiagnostic, ResourceCheckOperation,
+        ResourceEffectBoundaryDiagnostic, ResourceId, ResourceOwnerDiagnostic,
+        ResourceOwnerOperation, StorageId,
     };
     use alloc::boxed::Box;
 
     #[test]
-    fn resource_raw_cell_gate_maps_raw_cell_diagnostic_to_d3100() {
+    fn resource_raw_cell_gate_maps_raw_cell_diagnostic_to_raw_ownership_code() {
         let types = crate::types::TypeCtx::new();
         for operation in [
             ResourceCheckOperation::RawMemoryLoadCell,
@@ -687,7 +688,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_owner_gate_maps_owner_diagnostics_to_d3100() {
+    fn resource_owner_gate_maps_owner_diagnostics_to_raw_ownership_code() {
         let types = crate::types::TypeCtx::new();
         let place = Place::temporary(ResourceId(0), types.i32());
         let diagnostic = ResourceOwnerDiagnostic::OwnerUnavailable {
@@ -715,7 +716,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_owner_gate_maps_leaks_to_d3100() {
+    fn resource_owner_gate_maps_leaks_to_raw_ownership_code() {
         let types = crate::types::TypeCtx::new();
         let place = Place::temporary(ResourceId(0), types.i32());
         let diagnostic = ResourceOwnerDiagnostic::OwnerLeaked {
@@ -740,7 +741,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_owner_gate_maps_no_free_obligation_to_d3100() {
+    fn resource_owner_gate_maps_no_free_obligation_to_raw_ownership_code() {
         let types = crate::types::TypeCtx::new();
         let place = Place::temporary(ResourceId(0), types.i32());
         let diagnostic = ResourceOwnerDiagnostic::OwnerUnavailable {
@@ -768,7 +769,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_borrow_gate_maps_return_escape_to_d3099() {
+    fn resource_borrow_gate_maps_return_escape_to_borrow_return_code() {
         let types = crate::types::TypeCtx::new();
         let place = Place::temporary(ResourceId(0), types.i32());
         let diagnostic = ResourceBorrowDiagnostic::BorrowConflict {
@@ -796,7 +797,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_borrow_gate_maps_non_return_conflicts_to_existing_borrow_ids() {
+    fn resource_borrow_gate_maps_non_return_conflicts_to_borrow_codes() {
         let types = crate::types::TypeCtx::new();
         let place = Place::temporary(ResourceId(0), types.i32());
         for (operation, active, expected) in [
@@ -864,6 +865,41 @@ mod tests {
             assert!(error.message.contains("resource ir borrow conflict"));
         }
     }
+
+    #[test]
+    fn resource_effect_gate_maps_raw_identity_escape_to_resource_raw_code() {
+        let types = crate::types::TypeCtx::new();
+        let place = Place::temporary(ResourceId(0), types.i32());
+        let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function: String::from("leak_raw"),
+            place,
+            span: Span::dummy(),
+        };
+
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic)
+            .expect("raw identity escape should become a compiler error");
+
+        assert_eq!(
+            error.code,
+            Some(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                    crate::diagnostic_codes::ResourceRawDiagnosticCode::IdentityEscape,
+                )
+            ))
+        );
+        assert!(error.message.contains("returns raw address identity"));
+    }
+
+    #[test]
+    fn resource_effect_gate_keeps_unsafe_memory_shadow_only() {
+        let diagnostic = ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
+            function: String::from("store_raw"),
+            operation: String::from("store"),
+            span: Span::dummy(),
+        };
+
+        assert!(resource_effect_boundary_diagnostic_to_error(&diagnostic).is_none());
+    }
 }
 
 fn run_resource_effect_boundary_gate(
@@ -873,26 +909,16 @@ fn run_resource_effect_boundary_gate(
 ) -> Result<(), CoreError> {
     let mut effect_errors = Vec::new();
     for diagnostic in &report.diagnostics {
-        if let crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
-            function, span, ..
-        } = diagnostic
-        {
+        if let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) {
             if source_map
                 .map(|map| map.raw_memory_boundary_allowed(span.file_id))
                 .unwrap_or(false)
             {
                 continue;
             }
-            effect_errors.push(
-                Diagnostic::error(
-                    format!(
-                        "pure function '{}' returns raw address identity from internal allocation",
-                        function
-                    ),
-                    *span,
-                )
-                .with_code(DiagnosticCode::Effect(crate::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure)),
-            );
+        }
+        if let Some(error) = resource_effect_boundary_diagnostic_to_error(diagnostic) {
+            effect_errors.push(error);
         }
     }
     if effect_errors.is_empty() {
@@ -900,6 +926,49 @@ fn run_resource_effect_boundary_gate(
     }
     diagnostics.extend(effect_errors);
     Err(CoreError::from_diagnostics(diagnostics.clone()))
+}
+
+fn resource_effect_boundary_diagnostic_span(
+    diagnostic: &crate::resource::ResourceEffectBoundaryDiagnostic,
+) -> Option<Span> {
+    match diagnostic {
+        crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
+            span,
+            ..
+        }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            span,
+            ..
+        } => Some(*span),
+    }
+}
+
+fn resource_effect_boundary_diagnostic_to_error(
+    diagnostic: &crate::resource::ResourceEffectBoundaryDiagnostic,
+) -> Option<Diagnostic> {
+    match diagnostic {
+        crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
+            ..
+        } => None,
+        crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function,
+            span,
+            ..
+        } => Some(
+            Diagnostic::error(
+                format!(
+                    "pure function '{}' returns raw address identity from internal allocation",
+                    function
+                ),
+                *span,
+            )
+            .with_code(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                    crate::diagnostic_codes::ResourceRawDiagnosticCode::IdentityEscape,
+                ),
+            )),
+        ),
+    }
 }
 
 fn run_resource_shadow_check(hir_module: &crate::hir::HirModule, types: &crate::types::TypeCtx) {

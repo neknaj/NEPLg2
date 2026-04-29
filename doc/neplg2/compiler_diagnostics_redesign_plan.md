@@ -163,6 +163,11 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - raw identity escape と ordinary impure call を分ける。
 - borrow lifetime escape と active borrow conflict を分ける。
 
+進捗:
+
+- 2026-04-29: `ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc` を `Effect(PureCallsImpure)` から分離し、`Resource(Raw(IdentityEscape))` / `resource.raw.identity_escape` として compiler diagnostic へ写像するようにした。raw identity escape の compile_fail regression は `effect.pure.calls_impure` ではなく `resource.raw.identity_escape` を期待する。
+- `UnsafeMemoryInPureFunction` は現行 stdlib の raw-memory-backed API 移行と衝突するため、これまで通り shadow-only に残す。ordinary impure call や raw body I/O は `effect.pure.calls_impure` のまま維持する。
+
 ### Stage D3: CLI / JSON / web 表示の整理
 
 目的: 人間向け表示と機械判定を同じ diagnostic value から安定生成する。

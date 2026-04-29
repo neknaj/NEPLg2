@@ -1,3 +1,24 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z diagnostic raw identity escape)
+
+- [同期]:
+  - `main` を `origin/main` と fast-forward 同期した後、`work/resource-diagnostics-d1-builders` branch で作業した。
+- [原因]:
+  - `ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc` が `effect.pure.calls_impure` に写像されており、ordinary impure call と raw identity escape の意味分類が compiler diagnostic で失われていた。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D2 は raw identity escape と ordinary impure call の分離を要求しているため、この状態は Resource IR diagnostic typed mapping の残件だった。
+- [修正]:
+  - `ResourceRawDiagnosticCode::IdentityEscape` を追加し、stable code を `resource.raw.identity_escape` にした。
+  - Resource effect boundary gate で raw identity escape を `Resource(Raw(IdentityEscape))` へ写像する helper を追加し、`UnsafeMemoryInPureFunction` は explicit match で shadow-only とした。
+  - `tests/compiler/move_effect.n.md` の internal allocation raw identity escape 回帰を `resource.raw.identity_escape` に移行した。ordinary impure call と raw body I/O は `effect.pure.calls_impure` のまま残した。
+- [検証]:
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`
+  - `cargo test -p nepl-core compiler::tests::resource_effect_gate -- --nocapture`
+  - `cargo check -p nepl-core --tests`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-resource-raw-identity-code-move-effect.json -j 1`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D2 の typed Resource IR mapping の一部として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T041244376Z facade alias-qualified lookup)
 
 - [同期]:

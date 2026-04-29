@@ -169,6 +169,7 @@ pub enum ResourceBorrowDiagnosticCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourceRawDiagnosticCode {
     OwnershipViolation,
+    IdentityEscape,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -362,6 +363,9 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
         ResourceRawDiagnosticCode::OwnershipViolation,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
+        ResourceRawDiagnosticCode::IdentityEscape,
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Lower(
         ResourceLowerDiagnosticCode::Incomplete,
@@ -920,12 +924,16 @@ impl ResourceRawDiagnosticCode {
     const fn as_str(self) -> &'static str {
         match self {
             ResourceRawDiagnosticCode::OwnershipViolation => "resource.raw.ownership_violation",
+            ResourceRawDiagnosticCode::IdentityEscape => "resource.raw.identity_escape",
         }
     }
 
     const fn message(self) -> &'static str {
         match self {
             ResourceRawDiagnosticCode::OwnershipViolation => "raw memory place ownership violation",
+            ResourceRawDiagnosticCode::IdentityEscape => {
+                "raw address identity escapes the pure surface"
+            }
         }
     }
 }
