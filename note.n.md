@@ -26376,3 +26376,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - RegionToken projection と string owner transfer の source policy を、現在の Resource IR owner model に合わせた。
+
+# 2026-04-29 メモ (ISS-20260429T143605389Z cliarg out pointer boundary)
+
+- [同期]:
+  - `origin/main` の `cbdaf2c` まで同期した `main` から `work/cliarg-out-pointer-boundary` branch を作成し、`std/env/cliarg` の out pointer 問題として issue を作成した。
+- [原因]:
+  - `examples/nm.nepl` の `nm-compile` は `cliarg_count` / `cliarg_get` の `load_i32 argc_ptr`、`load_i32 buf_ptr`、`load_i32 arg_slot` で `RawMemoryLoadCell ... found Uninit` を報告していた。
+  - `cli_i32_ptr` が `region_ptr_at` で `MemPtr<i32>` を作り、WASI `args_sizes_get` / `args_get` が書いた scratch を別境界で読み戻していたため、Resource IR が初期化済み cell を追跡できなかった。
+  - `cstr_to_str` は string layout を手組みし、失敗 path の dealloc と成功 path の `str` owner transfer が `alloc/string` の境界に乗っていなかった。
+- [修正]:
+  - `CliArgSizes` / `cli_args_sizes_result` を追加し、`args_sizes_get` の scratch 初期化、呼び出し、raw readback を同一関数に閉じ込めた。
+  - `cli_i32_ptr` を削除し、`MemPtr<i32>` out-pointer projection を跨いで読む設計を廃止した。
+  - `cliarg_get` は argv pointer array と argv byte buffer を事前初期化し、`arg_slot_raw` を明示的に初期化してから `args_get` 後に同じ raw address で読み戻す。
+  - `cstr_to_str` は `string_from_mem_unchecked_result` へ委譲し、string allocation と owner transfer を `alloc/string` へ集約した。
+  - `nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js` に out-pointer 境界と cstr_to_str 委譲の回帰検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/env/cliarg.nepl --no-tree -o tmp/cliarg-out-pointer-boundary-docs-2.json -j 1 --dist web/dist`: `total=5`, `passed=5`
+  - `cargo run -p nepl-cli -- --target wasi --profile debug --input examples/nm.nepl --output target/ci-nm`: cliarg の RawMemoryLoadCell failure は解消。残りは `stdlib/nm/parser.nepl::document_to_json` と `stdlib/alloc/string.nepl::sb_build_result` の owner leak。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib の CLI argv 境界を、Resource IR の initialized-cell / owner 境界に見える形へ寄せた。
