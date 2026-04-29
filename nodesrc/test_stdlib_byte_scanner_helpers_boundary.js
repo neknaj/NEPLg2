@@ -11,15 +11,33 @@ function read(rel) {
 }
 
 const stringSrc = read('stdlib/alloc/string.nepl');
+const scannerSrc = read('stdlib/alloc/string/scanner.nepl');
 const importSpecSrc = read('stdlib/neplg2/core/module/import_spec.nepl');
 const nmParserSrc = read('stdlib/nm/parser.nepl');
 const nmHtmlSrc = read('stdlib/nm/html_gen.nepl');
+
+assert.doesNotMatch(
+    stringSrc,
+    /#import\s+"alloc\/string\/scanner"\s+as\s+scanner/,
+    'alloc/string.nepl must not hide scanner helpers behind a facade import',
+);
+
+for (const [name, src] of [
+    ['import_spec', importSpecSrc],
+    ['nm parser', nmParserSrc],
+    ['nm html_gen', nmHtmlSrc],
+]) {
+    assert.match(
+        src,
+        /#import\s+"alloc\/string\/scanner"\s+as\s+scanner/,
+        `${name} must import the scanner module directly`,
+    );
+}
 
 for (const fnName of [
     'str_find_byte_range',
     'str_line_end',
     'str_next_line_pos',
-    'str_trim_suffix_cr',
     'str_skip_inline_space_range',
     'str_word_end_inline_space_range',
     'str_byte_is_ascii_digit',
@@ -27,8 +45,11 @@ for (const fnName of [
     'str_byte_is_ascii_hex_digit',
     'str_byte_is_ascii_inline_space',
 ]) {
-    assert.match(stringSrc, new RegExp(`\\bfn\\s+${fnName}\\b`), `alloc/string.nepl must expose ${fnName}`);
+    assert.match(scannerSrc, new RegExp(`\\bpub\\s+fn\\s+${fnName}\\b`), `alloc/string/scanner.nepl must expose ${fnName}`);
+    assert.doesNotMatch(stringSrc, new RegExp(`\\bfn\\s+${fnName}\\b`), `alloc/string.nepl must not keep scanner facade ${fnName}`);
 }
+
+assert.match(stringSrc, /\bfn\s+str_trim_suffix_cr\b/, 'alloc/string.nepl must keep the slice-backed CR trimming helper');
 
 for (const localName of [
     'selfhost_import_find_byte',
@@ -40,10 +61,10 @@ for (const localName of [
 }
 
 for (const symbol of [
-    'string::str_find_byte_range',
-    'string::str_skip_inline_space_range',
-    'string::str_word_end_inline_space_range',
-    'string::str_byte_is_ascii_inline_space',
+    'scanner::str_find_byte_range',
+    'scanner::str_skip_inline_space_range',
+    'scanner::str_word_end_inline_space_range',
+    'scanner::str_byte_is_ascii_inline_space',
 ]) {
     assert.match(importSpecSrc, new RegExp(symbol.replaceAll(':', '\\:')), `import_spec must call ${symbol}`);
 }
@@ -59,13 +80,19 @@ for (const localName of [
 }
 
 for (const symbol of [
-    'str_line_end',
-    'str_next_line_pos',
     'str_trim_suffix_cr',
-    'str_find_byte_range',
 ]) {
     assert.match(nmParserSrc, new RegExp(`\\b${symbol}\\b`), `nm parser must call ${symbol}`);
     assert.match(nmHtmlSrc, new RegExp(`\\b${symbol}\\b`), `nm html_gen must call ${symbol}`);
+}
+
+for (const symbol of [
+    'scanner::str_line_end',
+    'scanner::str_next_line_pos',
+    'scanner::str_find_byte_range',
+]) {
+    assert.match(nmParserSrc, new RegExp(symbol.replaceAll(':', '\\:')), `nm parser must call ${symbol}`);
+    assert.match(nmHtmlSrc, new RegExp(symbol.replaceAll(':', '\\:')), `nm html_gen must call ${symbol}`);
 }
 
 console.log('stdlib byte scanner helper boundary regression passed');

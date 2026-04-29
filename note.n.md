@@ -21,6 +21,30 @@
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` の Stage D0 として扱う。
 
+# 2026-04-29 メモ (ISS-20260425T000000Z-RV-STDLIB-009 string scanner split)
+
+- [同期]:
+  - 作業開始前に `origin/main` を取得し、`git merge --ff-only --autostash origin/main` で remote main の更新を取り込んだ。
+- [設計]:
+  - 巨大 `alloc/string.nepl` の分割は、後方互換の wrapper facade を残さず、責務ごとの module を明示 import する方式で進める。
+  - 直近で追加した parser 向け byte scanner helper は UTF-8 slice / builder / numeric parse と責務が異なるため、`alloc/string/scanner` に分離するのが自然と判断した。
+- [修正]:
+  - `stdlib/alloc/string/scanner.nepl` を追加し、ASCII byte 分類、byte range find、line end / next line、inline space scan の loop 実装を `str_*` entry として移した。
+  - `stdlib/alloc/string.nepl` から scanner helper wrapper を削除し、`stdlib/neplg2/core/module/import_spec.nepl`、`stdlib/nm/parser.nepl`、`stdlib/nm/html_gen.nepl` が `alloc/string/scanner` を直接 import するようにした。
+  - 同名 wrapper から `scanner::str_*` を呼ぶと resolver が D3001 にするため、compiler 側の問題を `ISS-20260429T041244376Z-FACADE-MODULE-CANNOT-DISAMBIGUATE-SA-7F898FA5` として追加し、Discord へ報告した。今回の stdlib 分割はその問題を workaround として設計へ埋め込まず、facade 自体をなくした。
+  - `str_trim_suffix_cr` は `str_slice` に依存するため、scanner module へ循環 import を作らず `alloc/string.nepl` 側の string helper として残した。
+  - `nodesrc/test_stdlib_byte_scanner_helpers_boundary.js` を更新し、scanner 実装が `alloc/string.nepl` に戻らないことと、利用側が scanner module を明示 import することを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: pass
+  - `node nodesrc/tests.js -i stdlib\alloc\string\scanner.nepl --no-tree -o tmp\string-scanner-module-direct.json -j 1`: total=1 passed=1
+  - `node nodesrc/tests.js -i stdlib\alloc\string.nepl --no-tree -o tmp\string-scanner-module-string.json -j 1`: total=8 passed=8
+  - `node nodesrc/tests.js -i tests\stdlib\neplg2_import_spec.n.md --no-tree -o tmp\string-scanner-module-import-spec.json -j 1`: total=3 passed=3
+  - `node nodesrc/tests.js -i tests\stdlib\nm.n.md --no-tree -o tmp\string-scanner-module-nm.json -j 1`: total=5 passed=5
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` はまだ open。`alloc/string` の UTF-8 / builder / numeric parse/format / split、`core/math`、`std/streamio`、`std/fs`、`stdio`、`nm/parser` の分割が残る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T021254285Z Resource owner summary false owner propagation)
 
 - [同期]:

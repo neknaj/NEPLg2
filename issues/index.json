@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T04:51:35.366Z",
+  "generated_at": "2026-04-29T04:56:19.761Z",
   "counts": {
-    "total": 354,
-    "open": 10,
+    "total": 355,
+    "open": 11,
     "resolved": 344,
     "by_area": {
       "core": {
-        "total": 169,
-        "open": 4,
+        "total": 170,
+        "open": 5,
         "resolved": 165
       },
       "stdlib": {
@@ -170,6 +170,21 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
+      "id": "ISS-20260429T041244376Z-FACADE-MODULE-CANNOT-DISAMBIGUATE-SA-7F898FA5",
+      "title": "facade module cannot disambiguate same-name imported implementation with alias-qualified call",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resolve.rs, nepl-core/src/module_graph.rs, stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T041244376Z-FACADE-MODULE-CANNOT-DISAMBIGUATE-SA-7F898FA5.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
       "title": "NEPLg2 self-host compiler が部分実装に留まっている",
       "area": "selfhost",
@@ -193,7 +208,7 @@
       "priority": "P2",
       "type": "architecture",
       "created": "2026-04-25",
-      "updated": "2026-04-28",
+      "updated": "2026-04-29",
       "target": "stdlib/core/math.nepl, stdlib/alloc/string.nepl, stdlib/alloc/collections/vec.nepl, stdlib/std/streamio.nepl, stdlib/std/stdio.nepl, stdlib/std/fs.nepl, stdlib/nm/parser.nepl, stdlib/core/mem.nepl, stdlib/neplg2/cli/args.nepl",
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
