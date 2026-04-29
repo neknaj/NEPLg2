@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T02:44:42.412Z",
+  "generated_at": "2026-04-29T02:46:54.514Z",
   "counts": {
-    "total": 347,
-    "open": 11,
+    "total": 348,
+    "open": 12,
     "resolved": 336,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 158
       },
       "stdlib": {
-        "total": 101,
-        "open": 5,
+        "total": 102,
+        "open": 6,
         "resolved": 96
       },
       "selfhost": {
@@ -213,6 +213,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260429T024625042Z-STDLIB-LACKS-REUSABLE-BYTE-SCANNER-A-3453D5E0",
+      "title": "stdlib lacks reusable byte scanner and ASCII classification helpers",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/string.nepl, stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/module/import_spec.nepl, stdlib/nm/parser.nepl, stdlib/nm/html_gen.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T024625042Z-STDLIB-LACKS-REUSABLE-BYTE-SCANNER-A-3453D5E0.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",

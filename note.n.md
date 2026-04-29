@@ -49,6 +49,20 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-04-29 メモ (ISS-20260429T024625042Z byte scanner helper audit)
+
+- [洗い出し]:
+  - self-host lexer は digit / alpha / identifier / horizontal whitespace / line end を local helper として持つ。
+  - import_spec は find byte / ASCII space / skip space / word end を local helper として持つ。
+  - nm parser と html_gen は line end / find byte / inline marker scan をそれぞれ実装しており、同じ NM domain 内でも byte scan helper が再利用されていない。
+- [issue]:
+  - `ISS-20260429T024625042Z-STDLIB-LACKS-REUSABLE-BYTE-SCANNER-A-3453D5E0` を追加した。
+- [設計方針]:
+  - 先に `str_starts_with_at` を入れたため、次は `find_byte_range`、`line_end` / `next_line_pos`、ASCII classification、prefix consume helper を小さな stdlib scanner layer として設計する。
+  - nm と self-host scanner の置換は D3100 の blocker を見ながら進め、表面的な local helper 削除だけにしない。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-04-29 メモ (ISS-20260429T004144320Z Resource owner pointer read separation)
 
 - [同期]:
