@@ -49,11 +49,11 @@ fn generics_enum_option_and_match() {
 #target wasm
 #import "core/mem" as *
 
-enum Option<.T>:
+enum TestOption<.T>:
     None
     Some <.T>
 
-fn is_some <.T> <(Option<.T>)->bool> (o):
+fn is_some <.T> <(TestOption<.T>)->bool> (o):
     match o:
         Some v:
             true
@@ -61,9 +61,9 @@ fn is_some <.T> <(Option<.T>)->bool> (o):
             false
 
 fn main <()->i32> ():
-    let a <Option<i32>> Option::Some 5
-    let b <Option<bool>> Option::None
-    let _nested <Option<Option<i32>>> Option::Some Option::Some 1
+    let a <TestOption<i32>> TestOption::Some 5
+    let b <TestOption<bool>> TestOption::None
+    let _nested <TestOption<TestOption<i32>>> TestOption::Some TestOption::Some 1
     let x <bool> is_some a
     let y <bool> is_some b
     <i32> if:
@@ -132,7 +132,7 @@ fn generics_enum_param_requires_dot() {
 #indent 4
 #target wasm
 
-enum Option<T>:
+enum TestOption<T>:
     None
     Some <T>
 
@@ -170,11 +170,11 @@ fn generics_enum_payload_arithmetic() {
 #import "core/mem" as *
 #import "core/math" as *
 
-enum Option<.T>:
+enum TestOption<.T>:
     None
     Some <.T>
 
-fn bump <(Option<i32>)->i32> (o):
+fn bump <(TestOption<i32>)->i32> (o):
     match o:
         Some v:
             add v 1
@@ -182,7 +182,7 @@ fn bump <(Option<i32>)->i32> (o):
             0
 
 fn main <()->i32> ():
-    bump Option::Some 9
+    bump TestOption::Some 9
 "#;
 
     let v = run_main_i32(src);
@@ -221,11 +221,11 @@ fn generics_enum_none_typed_by_ascription() {
 #target wasm
 #import "core/mem" as *
 
-enum Option<.T>:
+enum TestOption<.T>:
     None
     Some <.T>
 
-fn is_none <(Option<i32>)->bool> (o):
+fn is_none <(TestOption<i32>)->bool> (o):
     match o:
         None:
             true
@@ -233,7 +233,7 @@ fn is_none <(Option<i32>)->bool> (o):
             false
 
 fn main <()->i32> ():
-    let n <Option<i32>> Option::None
+    let n <TestOption<i32>> TestOption::None
     if is_none n 1 0
 "#;
 
@@ -249,15 +249,15 @@ fn generics_make_none_from_context() {
 #target wasm
 #import "core/mem" as *
 
-enum Option<.T>:
+enum TestOption<.T>:
     None
     Some <.T>
 
-fn make_none <.T> <()->Option<.T>> ():
-    Option::None
+fn make_none <.T> <()->TestOption<.T>> ():
+    TestOption::None
 
 fn main <()->i32> ():
-    let x <Option<i32>> make_none
+    let x <TestOption<i32>> make_none
     match x:
         None:
             1
@@ -319,11 +319,11 @@ fn generics_option_none_inferred_by_param() {
 #target wasm
 #import "core/mem" as *
 
-enum Option<.T>:
+enum TestOption<.T>:
     None
     Some <.T>
 
-fn is_none_i32 <(Option<i32>)->bool> (o):
+fn is_none_i32 <(TestOption<i32>)->bool> (o):
     match o:
         None:
             true
@@ -331,7 +331,7 @@ fn is_none_i32 <(Option<i32>)->bool> (o):
             false
 
 fn main <()->i32> ():
-    if is_none_i32 Option::None 1 0
+    if is_none_i32 TestOption::None 1 0
 "#;
 
     let v = run_main_i32(src);
@@ -400,16 +400,16 @@ fn generics_make_some_wrapper() {
 #import "core/mem" as *
 #import "core/math" as *
 
-enum Option<.T>:
+enum TestOption<.T>:
     None
     Some <.T>
 
-fn make_some <.T> <(.T)->Option<.T>> (v):
-    Option::Some v
+fn make_some <.T> <(.T)->TestOption<.T>> (v):
+    TestOption::Some v
 
 fn main <()->i32> ():
-    let a <Option<i32>> make_some 3
-    let b <Option<bool>> make_some true
+    let a <TestOption<i32>> make_some 3
+    let b <TestOption<bool>> make_some true
     let x <i32> match a:
         Some v:
             v
@@ -435,11 +435,11 @@ fn generics_nested_option_match() {
 #target wasm
 #import "core/mem" as *
 
-enum Option<.T>:
+enum TestOption<.T>:
     None
     Some <.T>
 
-fn unwrap_nested <.T> <(Option<Option<.T>>,.T)->.T> (oo, default):
+fn unwrap_nested <.T> <(TestOption<TestOption<.T>>,.T)->.T> (oo, default):
     match oo:
         Some inner:
             match inner:
@@ -451,7 +451,7 @@ fn unwrap_nested <.T> <(Option<Option<.T>>,.T)->.T> (oo, default):
             default
 
 fn main <()->i32> ():
-    unwrap_nested Option::Some Option::Some 9 0
+    unwrap_nested TestOption::Some TestOption::Some 9 0
 "#;
 
     let v = run_main_i32(src);
@@ -500,12 +500,12 @@ fn generics_nested_apply_in_payload() {
 #target wasm
 #import "core/mem" as *
 
-enum Option<.T>:
+enum TestOption<.T>:
     None
     Some <.T>
 
 enum Wrap<.T>:
-    Wrap <Option<.T>>
+    Wrap <TestOption<.T>>
 
 fn unwrap <(Wrap<i32>)->i32> (w):
     match w:
@@ -517,7 +517,7 @@ fn unwrap <(Wrap<i32>)->i32> (w):
                     0
 
 fn main <()->i32> ():
-    unwrap Wrap::Wrap Option::Some 12
+    unwrap Wrap::Wrap TestOption::Some 12
 "#;
 
     let v = run_main_i32(src);
@@ -531,12 +531,12 @@ fn generics_ascription_mismatch_is_error() {
 #indent 4
 #target wasm
 
-enum Option<.T>:
+enum TestOption<.T>:
     None
     Some <.T>
 
 fn main <()->i32> ():
-    let x <Option<i32>> Option::Some true
+    let x <TestOption<i32>> TestOption::Some true
     0
 "#;
 
@@ -586,15 +586,15 @@ fn generics_nested_apply_payload_mismatch_is_error() {
 #indent 4
 #target wasm
 
-enum Option<.T>:
+enum TestOption<.T>:
     None
     Some <.T>
 
 enum Wrap<.T>:
-    Wrap <Option<.T>>
+    Wrap <TestOption<.T>>
 
 fn main <()->i32> ():
-    let w <Wrap<i32>> Wrap::Wrap Option::Some true
+    let w <Wrap<i32>> Wrap::Wrap TestOption::Some true
     0
 "#;
 
@@ -608,12 +608,12 @@ fn generics_wrong_arg_count_is_error() {
 #indent 4
 #target wasm
 
-enum Option<.T>:
+enum TestOption<.T>:
     None
     Some <.T>
 
 fn main <()->i32> ():
-    let x <Option<i32,bool>> Option::None
+    let x <TestOption<i32,bool>> TestOption::None
     0
 "#;
 

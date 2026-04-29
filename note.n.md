@@ -27683,3 +27683,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 型安全・メモリ安全の必達方針に合わせ、partial move 後の残存 owner field が自動解放されるよう drop insertion の field projection semantics を修正した。
+
+# 2026-04-30 メモ (ISS-20260429T233013677Z generics test Option name conflict)
+
+- [同期]:
+  - Resource IR deep call tree lowering 修正の全体検証で、`cargo test -p nepl-core --tests -- --nocapture` が `generics` まで進んだ後に 8 件の `Resolve(ItemNameConflict)` で失敗した。
+  - Resource IR lowering 差分を stash した状態でも `cargo test -p nepl-core --test generics generics_enum_option_and_match -- --nocapture` が同じ失敗になったため、独立した test fixture 回帰として切り分けた。
+- [原因]:
+  - 複数の generics integration tests が `#import "core/mem" as *` の後に local `enum Option<.T>` を定義していた。
+  - 現在の `core/mem` は public API で `Option` を使うため `core/option` を読み込む。
+  - test fixture の local `Option` が stdlib `Option` と同じ item 名になり、compiler generics の検証前に resolver の name conflict で失敗していた。
+- [修正]:
+  - local generic enum fixture 名を `Option` から `TestOption` へ変更した。
+  - `TestOption::Some` / `TestOption::None` と `TestOption<T>` に型参照を揃えた。
+  - variant `Some` / `None` の bare match は維持し、scrutinee 型文脈の generic enum variant 解決を引き続き検証する。
+- [検証]:
+  - `cargo test -p nepl-core --test generics generics_enum_option_and_match -- --nocapture`: reproduced before fix
+  - `cargo test -p nepl-core --test generics -- --nocapture`: `24 passed`
+  - `rustfmt --check nepl-core/tests/generics.rs`: passed
+  - `git diff --check -- nepl-core/tests/generics.rs`: passed
+- [issue]:
+  - `ISS-20260429T233013677Z-GENERICS-TESTS-REDEFINE-STDLIB-OPTIO-95B1BFDB` を追加し、verified/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib の基本型名と衝突しない fixture 名に変更し、generic enum の検証意図を維持した。

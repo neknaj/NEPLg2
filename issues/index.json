@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T23:18:50.871Z",
+  "generated_at": "2026-04-29T23:34:28.289Z",
   "counts": {
-    "total": 409,
+    "total": 410,
     "open": 12,
-    "resolved": 397,
+    "resolved": 398,
     "by_area": {
       "core": {
-        "total": 187,
+        "total": 188,
         "open": 4,
-        "resolved": 183
+        "resolved": 184
       },
       "stdlib": {
         "total": 126,
@@ -4943,6 +4943,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T100747827Z-WASM-INDIRECT-SIGNATURE-MISSING-DIAG-DBB86ABB.md"
+    },
+    {
+      "id": "ISS-20260429T233013677Z-GENERICS-TESTS-REDEFINE-STDLIB-OPTIO-95B1BFDB",
+      "title": "generics tests redefine stdlib Option after importing core mem",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/tests/generics.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T233013677Z-GENERICS-TESTS-REDEFINE-STDLIB-OPTIO-95B1BFDB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",
