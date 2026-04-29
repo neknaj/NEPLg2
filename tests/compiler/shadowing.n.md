@@ -402,10 +402,9 @@ diag_code: resolve.shadow.no_shadow_violation
 #indent 4
 #target std
 #import "std/test" as *
-#import "core/result" as *
 
-fn assert_eq_i32 <(i32,i32)*>Result<(),str>> (_a, _b):
-    Result::Ok ()
+fn assert_eq_i32 <(i32,i32)->TestAssertion> (_a, _b):
+    test_assertion_ok "override"
 
 fn main <()*>()> ():
     ()

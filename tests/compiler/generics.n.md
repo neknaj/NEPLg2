@@ -10,7 +10,8 @@ ret: 8
 #entry main
 #indent 4
 #target core
-#import "core/math" as *
+#no_prelude
+#import "core/math" as m
 
 fn id <.T> <(.T)->.T> (x):
     x
@@ -19,7 +20,7 @@ fn main <()->i32> ():
     let a <i32> id 7
     let b <bool> id true
     if b:
-        add a 1
+        m::add a 1
         else:
             a
 ```
@@ -33,7 +34,7 @@ ret: 20
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
+#no_prelude
 
 enum Option<.T>:
     None
@@ -70,8 +71,8 @@ ret: 30
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
-#import "core/math" as *
+#no_prelude
+#import "core/math" as m
 
 struct Pair<.A,.B>:
     first <.A>
@@ -86,7 +87,7 @@ fn take_ba <(Pair<bool,i32>)->i32> (p):
 fn main <()->i32> ():
     let p1 <Pair<i32,bool>> Pair 1 true
     let p2 <Pair<bool,i32>> Pair false 2
-    add take_ab p1 take_ba p2
+    m::add take_ab p1 take_ba p2
 ```
 
 ## generics_param_requires_dot
@@ -97,6 +98,7 @@ neplg2:test[compile_fail]
 #entry main
 #indent 4
 #target core
+#no_prelude
 
 fn id <T> <(T)->T> (x):
     x
@@ -113,6 +115,7 @@ neplg2:test[compile_fail]
 #entry main
 #indent 4
 #target core
+#no_prelude
 
 enum Option<T>:
     None
@@ -130,6 +133,7 @@ neplg2:test[compile_fail]
 #entry main
 #indent 4
 #target core
+#no_prelude
 
 struct Pair<T,U>:
     a <T>
@@ -148,22 +152,22 @@ ret: 10
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
-#import "core/math" as *
+#no_prelude
+#import "core/math" as m
 
-enum Option<.T>:
+enum LocalOption<.T>:
     None
     Some <.T>
 
-fn bump <(Option<i32>)->i32> (o):
+fn bump <(LocalOption<i32>)->i32> (o):
     match o:
         Some v:
-            add v 1
+            m::add v 1
         None:
             0
 
 fn main <()->i32> ():
-    bump Option::Some 9
+    bump LocalOption::Some 9
 ```
 
 ## generics_multi_type_params_function
@@ -175,7 +179,8 @@ ret: 3
 #entry main
 #indent 4
 #target core
-#import "core/math" as *
+#no_prelude
+#import "core/math" as m
 
 fn first <.A,.B> <(.A,.B)->.A> (a,b):
     a
@@ -184,7 +189,7 @@ fn main <()->i32> ():
     let x <i32> first 3 true
     let y <bool> first false 7
     if y:
-        add x 1
+        m::add x 1
         else:
             x
 ```
@@ -198,7 +203,7 @@ ret: 1
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
+#no_prelude
 
 enum Option<.T>:
     None
@@ -225,7 +230,7 @@ ret: 1
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
+#no_prelude
 
 enum Option<.T>:
     None
@@ -252,6 +257,7 @@ ret: 9
 #entry main
 #indent 4
 #target core
+#no_prelude
 
 fn id <.T> <(.T)->.T> (x):
     x
@@ -273,14 +279,15 @@ ret: 7
 #entry main
 #indent 4
 #target core
-#import "core/math" as *
+#no_prelude
+#import "core/math" as m
 
 fn id <.T> <(.T)->.T> (x):
     x
 
 fn main <()->i32> ():
     let a <i32> 5 |> id
-    add a 2
+    m::add a 2
 ```
 
 ## generics_option_none_inferred_by_param
@@ -292,7 +299,7 @@ ret: 1
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
+#no_prelude
 
 enum Option<.T>:
     None
@@ -318,7 +325,7 @@ ret: 5
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
+#no_prelude
 
 struct Pair<.A,.B>:
     first <.A>
@@ -340,8 +347,8 @@ ret: 30
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
-#import "core/math" as *
+#no_prelude
+#import "core/math" as m
 
 struct Pair<.A,.B>:
     first <.A>
@@ -359,7 +366,7 @@ fn take_ba <(Pair<str,i32>)->i32> (p):
 fn main <()->i32> ():
     let p1 <Pair<i32,str>> Pair 1 "a"
     let p2 <Pair<str,i32>> Pair "b" 2
-    add take_ab p1 take_ba p2
+    m::add take_ab p1 take_ba p2
 ```
 
 ## generics_make_some_wrapper
@@ -371,19 +378,19 @@ ret: 4
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
-#import "core/math" as *
+#no_prelude
+#import "core/math" as m
 
-enum Option<.T>:
+enum LocalOption<.T>:
     None
     Some <.T>
 
-fn make_some <.T> <(.T)->Option<.T>> (v):
-    Option::Some v
+fn make_some <.T> <(.T)->LocalOption<.T>> (v):
+    LocalOption::Some v
 
 fn main <()->i32> ():
-    let a <Option<i32>> make_some 3
-    let b <Option<bool>> make_some true
+    let a <LocalOption<i32>> make_some 3
+    let b <LocalOption<bool>> make_some true
     let x <i32> match a:
         Some v:
             v
@@ -394,7 +401,7 @@ fn main <()->i32> ():
             if flag 1 0
         None:
             0
-    add x y
+    m::add x y
 ```
 
 ## generics_nested_option_match
@@ -406,7 +413,7 @@ ret: 9
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
+#no_prelude
 
 enum Option<.T>:
     None
@@ -438,7 +445,7 @@ ret: 7
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
+#no_prelude
 
 enum Either<.A,.B>:
     Left <.A>
@@ -471,7 +478,7 @@ ret: 12
 #entry main
 #indent 4
 #target core
-#import "core/mem" as *
+#no_prelude
 
 enum Option<.T>:
     None
@@ -501,6 +508,7 @@ neplg2:test[compile_fail]
 #entry main
 #indent 4
 #target core
+#no_prelude
 
 enum Option<.T>:
     None
@@ -519,6 +527,7 @@ neplg2:test[compile_fail]
 #entry main
 #indent 4
 #target core
+#no_prelude
 
 fn same <.T> <(.T,.T)->i32> (a,b):
     0
@@ -535,6 +544,7 @@ neplg2:test[compile_fail]
 #entry main
 #indent 4
 #target core
+#no_prelude
 
 enum Either<.A,.B>:
     Left <.A>
@@ -553,6 +563,7 @@ neplg2:test[compile_fail]
 #entry main
 #indent 4
 #target core
+#no_prelude
 
 enum Option<.T>:
     None
@@ -574,6 +585,7 @@ neplg2:test[compile_fail]
 #entry main
 #indent 4
 #target core
+#no_prelude
 
 enum Option<.T>:
     None
