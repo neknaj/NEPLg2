@@ -8,10 +8,10 @@
 //: ### [実装/じっそう]
 //: - ノードは `[value:.T][next:i32]` レイアウトでヒープ[確保/かくほ]します。
 //: - [空/から]リストは `ptr = 0` で[表現/ひょうげん]し、`new` はこの[空/から]リストを `Result::Ok` で[返/かえ]します。
-//: - `reverse` は[元/もと]のノードを[再利用/さいりよう]せず、新しいノード[列/れつ]を[逆順/ぎゃくじゅん]に[積/つ]み[直/なお]します。
+//: - `reverse` は[元/もと]のノードを[再利用/さいりよう]し、next pointer を[反転/はんてん]して owner を[移動/いどう]します。
 //:
 //: ### [注意/ちゅうい]
-//: - `cons` / `push` / `reverse` は[内部/ないぶ]でノード[確保/かくほ]を[行/おこな]うため、`Result<..., Diag>` を[返/かえ]します。
+//: - `cons` / `push` / `map` / `filter` は[内部/ないぶ]でノード[確保/かくほ]を[行/おこな]うため、`Result<..., Diag>` を[返/かえ]します。
 //: - `get` は[範囲外/はんいがい]や[負/ふ] index で `Option::None` を[返/かえ]します。
 //: - `free` は[循環/じゅんかん]リストを[想定/そうてい]していません。
 //:
@@ -91,7 +91,7 @@
 //:         |> push<str> "c" |> uwok
 //:         |> push<str> "b" |> uwok
 //:         |> push<str> "a" |> uwok
-//:     let ra <List<str>> uwok reverse<str> src0;
+//:     let ra <List<str>> reverse<str> src0;
 //:     let ok0 match head<str> ra:
 //:         Option::Some x:
 //:             if str_eq x "c" 1 0
@@ -102,7 +102,7 @@
 //:         |> push<str> "c" |> uwok
 //:         |> push<str> "b" |> uwok
 //:         |> push<str> "a" |> uwok
-//:     let rb <List<str>> uwok reverse<str> src1;
+//:     let rb <List<str>> reverse<str> src1;
 //:     let ok1 match get<str> rb 2:
 //:         Option::Some x:
 //:             if str_eq x "a" 1 0
@@ -113,7 +113,7 @@
 //:         |> push<str> "c" |> uwok
 //:         |> push<str> "b" |> uwok
 //:         |> push<str> "a" |> uwok
-//:     let rc <List<str>> uwok reverse<str> src2;
+//:     let rc <List<str>> reverse<str> src2;
 //:     let ok2 if is_none<str> get<str> rc 3 1 0;
 //:     let s01 <i32> add ok0 ok1;
 //:     add s01 ok2
@@ -511,18 +511,18 @@ fn free <.T> <(List<.T>)->()> (lst):
                 next
 
 //: ## reverse
-//: [逆順/ぎゃくじゅん]の[新/あたら]しいリストを[作/つく]る
+//: リストを[消費/しょうひ]し、ノードを[再利用/さいりよう]して[逆順/ぎゃくじゅん]にする
 //:
 //: ### [目的/もくてき]
-//: - [元/もと]の[順序/じゅんじょ]を[逆/さか]さまにした[新/あたら]しいリストを[返/かえ]します。
+//: - [元/もと]の[順序/じゅんじょ]を[逆/さか]さまにしたリストを[返/かえ]します。
 //:
 //: ### [実装/じっそう]
-//: - [先頭/せんとう]から[走査/そうさ]しながら、`list_alloc_node` で[新/あたら]しい[先頭/せんとう]へ[積/つ]み[直/なお]します。
-//: - [途中/とちゅう]でノード[確保/かくほ]が[失敗/しっぱい]した[場合/ばあい]は、それまでに[作/つく]った[部分/ぶぶん]リストを `free` してから `Err` を[返/かえ]します。
+//: - [先頭/せんとう]から[走査/そうさ]しながら、各 node の next pointer を[前/まえ]の node へ[付/つ]け[替/か]えます。
+//: - 新しい node は[確保/かくほ]せず、入力 `List` が[所有/しょゆう]していた node owner を[結果/けっか]の `List` へ[移/うつ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - [元/もと]のノードは[再利用/さいりよう]せず、[新/あたら]しいノード[列/れつ]を[確保/かくほ]します。
-//: - [途中/とちゅう]の[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は `Result::Err Diag` を[返/かえ]します。
+//: - `reverse` は入力 list を[消費/しょうひ]します。呼び出し後に[元/もと]の list owner は[使/つか]えません。
+//: - node [確保/かくほ]を[行/おこな]わないため、allocation failure は[発生/はっせい]しません。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -544,31 +544,23 @@ fn free <.T> <(List<.T>)->()> (lst):
 //:         |> push<i32> 3 |> uwok
 //:         |> push<i32> 2 |> uwok
 //:         |> push<i32> 1 |> uwok
-//:     let r <List<i32>> uwok reverse<i32> l3;
+//:     let r <List<i32>> reverse<i32> l3;
 //:     match head<i32> r:
 //:         Option::Some x:
 //:             if eq x 3 0 1
 //:         Option::None:
 //:             1
 //: ```
-fn reverse <.T> <(List<.T>)*>Result<List<.T>, Diag>> (lst):
-    let mut new_head <i32> 0
+fn reverse <.T> <(List<.T>)*>List<.T>> (lst):
+    let mut prev <i32> 0
     let mut cur <i32> field::get lst "ptr"
-    let mut done <bool> false
-    let mut result <Result<List<.T>, Diag>> ok<List<.T>, Diag> List 0
-    while and ne cur 0 not done:
+    while ne cur 0:
         do:
-            let value <.T> load<.T> cur
             let next_ptr <i32> load_i32 add cur size_of<.T>
-            match list_alloc_node<.T> value new_head:
-                Result::Ok node:
-                    set new_head node
-                    set cur next_ptr
-                Result::Err e:
-                    free<.T> List new_head
-                    set result err<List<.T>, Diag> e
-                    set done true
-    if done result ok<List<.T>, Diag> List new_head
+            store_i32 add cur size_of<.T> prev
+            set prev cur
+            set cur next_ptr
+    List prev
 
 fn list_map_impl <.T,.U> <(i32, (.T)->.U)*>Result<List<.U>, Diag>> (lst_ptr, f):
     if:

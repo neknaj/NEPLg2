@@ -87,7 +87,7 @@ fn main <()*>i32> ():
             set checks checks_push checks Result<(),str>::Err "tail returned None";
 
     let l3r0 <List<i32>> mk;
-    let l_rev <List<i32>> uwok reverse<i32> l3r0;
+    let l_rev <List<i32>> reverse<i32> l3r0;
     match get<i32> l_rev 0:
         Option::Some x:
             set checks checks_push checks check_eq_i32 10 x
@@ -95,7 +95,7 @@ fn main <()*>i32> ():
             set checks checks_push checks Result<(),str>::Err "get reverse 0 returned None";
 
     let l3r1 <List<i32>> mk;
-    let l_rev2 <List<i32>> uwok reverse<i32> l3r1;
+    let l_rev2 <List<i32>> reverse<i32> l3r1;
     match get<i32> l_rev2 2:
         Option::Some x:
             set checks checks_push checks check_eq_i32 30 x

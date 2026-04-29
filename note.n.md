@@ -27268,3 +27268,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正 Stage 4 の stdlib storage owner visibility を進め、Deque を Queue / RingBuffer と同じ typed slot-state model に揃えた。
+
+# 2026-04-30 メモ (ISS-20260429T204604331Z List reverse owner relink)
+
+- [同期]:
+  - `main` の `ed38583` から `work/list-node-allocation-context` branch を作成して継続した。
+  - main CI は `nodesrc/test_stdlib_list_no_unsafe_unwraps.js` の `reverse` source policy で失敗していた。
+- [原因]:
+  - 旧 source policy は `reverse` が `list_alloc_node` で新しい node chain を確保することを要求していた。
+  - しかし ResourceIR は、旧 `reverse` が入力 `List` の raw node owner を閉じず、payload を `load<T>` で新規 node へコピーしていることを検出した。
+  - これは source list leak であり、非 Copy payload では所有権複製になるため、policy 側が不適切だった。
+- [修正]:
+  - `reverse` を allocation-copy から既存 node の next pointer を反転する relink 実装へ変更した。
+  - `reverse` は node allocation を行わないため、戻り値を `Result<List<T>, Diag>` から `List<T>` に変更した。
+  - source policy は `reverse` が `list_alloc_node` / `load<T> cur` / `Result::Err` を含まないこと、既存 node を `store_i32` で relink することを検査するように更新した。
+  - `stdlib/tests/list.n.md` と `tests/stdlib/list_collections.n.md` は `reverse` の直接 `List` 返却に合わせて更新した。
+- [検証]:
+  - `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/tests/list.n.md -n 1 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/list_collections.n.md -n 1 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/list_collections.n.md -n 2 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/list.nepl -n 2 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/list.nepl -n 11 --dist web/dist`: passed
+- [既知の残件]:
+  - `stdlib/tests/list.n.md::doctest#2` と `tests/stdlib/list_collections.n.md::doctest#3` は map/filter raw-node traversal で timeout するため、`ISS-20260429T211515214Z-LIST-MAP-AND-FILTER-RAW-NODE-TRAVERS-C52D497C` として分離した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の memory safety 方針に合わせ、List reverse を raw owner を複製しない消費型操作へ修正した。

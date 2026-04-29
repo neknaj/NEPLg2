@@ -1,13 +1,12 @@
 # tests/list_collections.n.md
 
-## list_reverse_result_preserves_order
+## list_reverse_preserves_order
 
 [目的/もくてき]:
-- `reverse` が `Result` として[成功/せいこう]を[返/かえ]し、[逆順/ぎゃくじゅん]の[新/あたら]しい list を[作/つく]ることを[確認/かくにん]します。
+- `reverse` が入力 list の node owner を[再利用/さいりよう]し、[逆順/ぎゃくじゅん] list を[返/かえ]すことを[確認/かくにん]します。
 
 [何/なに]を[確/たし]かめるか:
 - `reverse`
-- `Result::Ok`
 - [逆順/ぎゃくじゅん] list の `get`
 
 neplg2:test
@@ -28,36 +27,30 @@ fn main <()*>i32> ():
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
-    let first_ok <bool> match reverse<i32> src_first:
-        Result::Err _e:
+    let first_rev <List<i32>> reverse<i32> src_first;
+    let first_ok <bool> match get<i32> first_rev 0:
+        Option::Some x:
+            eq x 3
+        Option::None:
             false
-        Result::Ok rev:
-            match get<i32> rev 0:
-                Option::Some x:
-                    eq x 3
-                Option::None:
-                    false
     let src_last <List<i32>>:
         unwrap_ok<List<i32>, Diag> new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
-    let last_ok <bool> match reverse<i32> src_last:
-        Result::Err _e:
+    let last_rev <List<i32>> reverse<i32> src_last;
+    let last_ok <bool> match get<i32> last_rev 2:
+        Option::Some x:
+            eq x 1
+        Option::None:
             false
-        Result::Ok rev:
-            match get<i32> rev 2:
-                Option::Some x:
-                    eq x 1
-                Option::None:
-                    false
     if and first_ok last_ok 1 0
 ```
 
-## list_reverse_empty_result_is_ok
+## list_reverse_empty_is_empty
 
 [目的/もくてき]:
-- [空/から] list の `reverse` が[確保/かくほ]なしで `Ok` を[返/かえ]し、[空/から] list を[保/たも]つことを[確認/かくにん]します。
+- [空/から] list の `reverse` が[確保/かくほ]なしで[空/から] list を[保/たも]つことを[確認/かくにん]します。
 
 [何/なに]を[確/たし]かめるか:
 - `reverse`
@@ -77,12 +70,9 @@ ret: 1
 
 fn main <()*>i32> ():
     let empty <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-    match reverse<i32> empty:
-        Result::Err _e:
-            0
-        Result::Ok rev:
-            let ok <bool> is_empty<i32> rev
-            if ok 1 0
+    let rev <List<i32>> reverse<i32> empty;
+    let ok <bool> is_empty<i32> rev
+    if ok 1 0
 ```
 
 ## list_map_filter_return_result

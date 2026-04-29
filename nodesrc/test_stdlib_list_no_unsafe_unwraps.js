@@ -30,13 +30,15 @@ const reverseMatch = code.match(/fn\s+reverse\s+<\.T>[\s\S]*?(?=\nfn\s+list_map_
 assert(reverseMatch, 'List.reverse implementation must be present');
 const reverseCode = reverseMatch[0];
 
-assert.match(reverseCode, /let\s+mut\s+new_head\s+<i32>\s+0/, 'reverse must track the partial result by raw head pointer until ownership is returned');
-assert.match(reverseCode, /match\s+list_alloc_node<\.T>\s+value\s+new_head\s+"list_reverse\(node\)"/, 'reverse must allocate nodes through the checked node allocator');
-assert.match(reverseCode, /Result::Err\s+e:[\s\S]*free<\.T>\s+List\s+new_head[\s\S]*set\s+result\s+err<List<\.T>,\s*Diag>\s+e/, 'reverse must free the partial reversed list before returning allocation failure');
-assert.match(reverseCode, /if\s+done\s+result\s+ok<List<\.T>,\s*Diag>\s+List\s+new_head/, 'reverse must return the accumulated Result without unsafe unwraps');
+assert.match(reverseCode, /fn\s+reverse\s+<\.T>\s+<\(List<\.T>\)\*>List<\.T>>/, 'reverse must be an infallible owner-moving operation');
+assert.match(reverseCode, /let\s+mut\s+prev\s+<i32>\s+0[\s\S]*let\s+mut\s+cur\s+<i32>\s+field::get\s+lst\s+"ptr"/, 'reverse must consume the input owner pointer');
+assert.match(reverseCode, /let\s+next_ptr\s+<i32>\s+load_i32\s+add\s+cur\s+size_of<\.T>[\s\S]*store_i32\s+add\s+cur\s+size_of<\.T>\s+prev[\s\S]*set\s+prev\s+cur[\s\S]*set\s+cur\s+next_ptr/, 'reverse must relink existing nodes instead of copying payloads');
+assert.match(reverseCode, /List\s+prev/, 'reverse must return the relinked owner');
+assert.doesNotMatch(reverseCode, /list_alloc_node|load<\.T>\s+cur|Result::Err|diag_err/, 'reverse must not allocate, duplicate payloads, or expose an allocation failure path');
 
-assert.match(code, /fn\s+cons\s+<\.T>[\s\S]*match\s+list_alloc_node<\.T>\s+head\s+tail_ptr\s+"list_cons\(node\)"/, 'cons must share the checked node allocator');
-assert.match(code, /fn\s+list_map_impl\s+<\.T,\.U>[\s\S]*match\s+list_alloc_node<\.U>\s+mapped_head\s+mapped_tail_ptr\s+"list_map\(node\)"[\s\S]*Result::Err\s+e:[\s\S]*free<\.U>\s+mapped_tail[\s\S]*err<List<\.U>,\s*Diag>\s+e/, 'list_map_impl must free the partial mapped tail if final node allocation fails');
-assert.match(code, /fn\s+list_filter_impl\s+<\.T>[\s\S]*match\s+list_alloc_node<\.T>\s+load<\.T>\s+lst_ptr\s+filtered_tail_ptr\s+"list_filter\(node\)"[\s\S]*Result::Err\s+e:[\s\S]*free<\.T>\s+filtered_tail[\s\S]*err<List<\.T>,\s*Diag>\s+e/, 'list_filter_impl must free the partial filtered tail if final node allocation fails');
+assert.match(code, /fn\s+list_alloc_node\s+<\.T>\s+<\(\.T,i32\)\*>Result<i32,\s*Diag>>/, 'list_alloc_node must keep the checked node allocation boundary centralized');
+assert.match(code, /fn\s+cons\s+<\.T>[\s\S]*match\s+list_alloc_node<\.T>\s+head\s+tail_ptr/, 'cons must share the checked node allocator');
+assert.match(code, /fn\s+list_map_impl\s+<\.T,\.U>[\s\S]*match\s+list_alloc_node<\.U>\s+mapped_head\s+mapped_tail_ptr[\s\S]*Result::Err\s+e:[\s\S]*free<\.U>\s+mapped_tail[\s\S]*err<List<\.U>,\s*Diag>\s+e/, 'list_map_impl must free the partial mapped tail if final node allocation fails');
+assert.match(code, /fn\s+list_filter_impl\s+<\.T>[\s\S]*match\s+list_alloc_node<\.T>\s+load<\.T>\s+lst_ptr\s+filtered_tail_ptr[\s\S]*Result::Err\s+e:[\s\S]*free<\.T>\s+filtered_tail[\s\S]*err<List<\.T>,\s*Diag>\s+e/, 'list_filter_impl must free the partial filtered tail if final node allocation fails');
 
 console.log('list unsafe unwrap regression passed');

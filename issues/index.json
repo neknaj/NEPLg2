@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T21:04:44.618Z",
+  "generated_at": "2026-04-29T21:19:00.019Z",
   "counts": {
-    "total": 401,
-    "open": 14,
-    "resolved": 387,
+    "total": 403,
+    "open": 15,
+    "resolved": 388,
     "by_area": {
       "core": {
         "total": 185,
@@ -12,9 +12,9 @@
         "resolved": 180
       },
       "stdlib": {
-        "total": 122,
-        "open": 6,
-        "resolved": 116
+        "total": 124,
+        "open": 7,
+        "resolved": 117
       },
       "TEST": {
         "total": 6,
@@ -218,6 +218,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
+    },
+    {
+      "id": "ISS-20260429T211515214Z-LIST-MAP-AND-FILTER-RAW-NODE-TRAVERS-C52D497C",
+      "title": "List map and filter raw-node traversal stalls ResourceIR verification",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/collections/list.nepl, stdlib/tests/list.n.md, tests/stdlib/list_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T211515214Z-LIST-MAP-AND-FILTER-RAW-NODE-TRAVERS-C52D497C.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -4313,6 +4328,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T203138138Z-DEQUE-STILL-USES-RAW-HEADER-AND-RAW--5E76074E.md"
+    },
+    {
+      "id": "ISS-20260429T204604331Z-LIST-NODE-ALLOCATOR-CALL-SITES-OMIT--57F7856C",
+      "title": "List reverse source policy still required allocation-copy reverse",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/list.nepl, nodesrc/test_stdlib_list_no_unsafe_unwraps.js, stdlib/tests/list.n.md, tests/stdlib/list_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T204604331Z-LIST-NODE-ALLOCATOR-CALL-SITES-OMIT--57F7856C.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
