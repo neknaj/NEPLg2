@@ -1,3 +1,27 @@
+# 2026-04-30 メモ (ISS-20260429T040748194Z diagnostic code-first API)
+
+- [同期]:
+  - `main` の `4bf1ac33` から `work/diagnostic-code-first-language-target` branch を作成して作業した。
+  - 作業開始前に `git pull --ff-only origin main` で remote main が最新であることを確認した。
+- [原因]:
+  - Rust core の active pass call site からは後付け `.with_code(...)` が除去済みだったが、`nepl-language` の editor / LSP 解析境界に target directive 診断の後付け分類が残っていた。
+  - `Diagnostic::with_code` API 自体も公開されたままだったため、設計上は code-first 方針を Rust の型検査で強制できていなかった。
+- [修正]:
+  - `nepl-language` の target directive 診断を `loader_error(...)` helper 経由の `Diagnostic::error_with_code(...)` に移行した。
+  - `Diagnostic::with_code` API を削除し、診断 code は生成時点で `DiagnosticCode` enum を渡す構造に統一した。
+  - `nepl-language` の unit test で `loader.target.unknown` と `loader.target.multiple_directive` が editor diagnostic code として保持されることを固定した。
+- [issue]:
+  - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` に Stage D1 public with_code removal の対応結果を追記した。
+  - issue は D3/D5 の表示 contract / self-host parity 残件を含む親 issue として open のまま維持する。
+- [検証]:
+  - `cargo test -p nepl-language target_directive_diagnostics_keep_loader_codes -- --nocapture`: passed
+  - `cargo test -p nepl-core diagnostic -- --nocapture`: passed
+  - `cargo check -p nepl-core -p nepl-language -p nepl-lsp --tests`: passed
+  - `rg -n 'fn with_code|\.with_code\(' nepl-core nepl-language nepl-lsp -g '*.rs'`: no matches
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 診断 redesign Stage D1 の code-first 方針を強制する API 整理であり、静的検査の分類を enum-first に保つための基盤修正である。
+
 # 2026-04-30 メモ (ISS-20260429T071452715Z Resource IR neplg2 gate)
 
 - [同期]:

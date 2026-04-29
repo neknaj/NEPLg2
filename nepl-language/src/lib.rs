@@ -1547,20 +1547,22 @@ fn resolve_target_for_analysis(module: &Module) -> (CompileTarget, Vec<Diagnosti
             if let Some(target) = parsed {
                 if let Some((_, prev_span)) = found {
                     diagnostics.push(
-                        Diagnostic::error("multiple #target directives are not allowed", *span)
-                            .with_code(DiagnosticCode::Loader(
-                                LoaderDiagnosticCode::TargetMultipleDirective,
-                            ))
-                            .with_secondary_label(prev_span, Some("previous #target here".into())),
+                        loader_error(
+                            LoaderDiagnosticCode::TargetMultipleDirective,
+                            "multiple #target directives are not allowed",
+                            *span,
+                        )
+                        .with_secondary_label(prev_span, Some("previous #target here".into())),
                     );
                 } else {
                     found = Some((target, *span));
                 }
             } else {
-                diagnostics.push(
-                    Diagnostic::error("unknown target in #target", *span)
-                        .with_code(DiagnosticCode::Loader(LoaderDiagnosticCode::TargetUnknown)),
-                );
+                diagnostics.push(loader_error(
+                    LoaderDiagnosticCode::TargetUnknown,
+                    "unknown target in #target",
+                    *span,
+                ));
             }
         }
     }
@@ -1572,23 +1574,22 @@ fn resolve_target_for_analysis(module: &Module) -> (CompileTarget, Vec<Diagnosti
                 if let Some(target) = parsed {
                     if let Some((_, prev_span)) = found {
                         diagnostics.push(
-                            Diagnostic::error("multiple #target directives are not allowed", *span)
-                                .with_code(DiagnosticCode::Loader(
-                                    LoaderDiagnosticCode::TargetMultipleDirective,
-                                ))
-                                .with_secondary_label(
-                                    prev_span,
-                                    Some("previous #target here".into()),
-                                ),
+                            loader_error(
+                                LoaderDiagnosticCode::TargetMultipleDirective,
+                                "multiple #target directives are not allowed",
+                                *span,
+                            )
+                            .with_secondary_label(prev_span, Some("previous #target here".into())),
                         );
                     } else {
                         found = Some((target, *span));
                     }
                 } else {
-                    diagnostics.push(
-                        Diagnostic::error("unknown target in #target", *span)
-                            .with_code(DiagnosticCode::Loader(LoaderDiagnosticCode::TargetUnknown)),
-                    );
+                    diagnostics.push(loader_error(
+                        LoaderDiagnosticCode::TargetUnknown,
+                        "unknown target in #target",
+                        *span,
+                    ));
                 }
             }
         }
@@ -1600,6 +1601,10 @@ fn resolve_target_for_analysis(module: &Module) -> (CompileTarget, Vec<Diagnosti
             .unwrap_or(CompileTarget::Wasm),
         diagnostics,
     )
+}
+
+fn loader_error(code: LoaderDiagnosticCode, message: impl Into<String>, span: Span) -> Diagnostic {
+    Diagnostic::error_with_code(DiagnosticCode::Loader(code), message, span)
 }
 
 fn parse_target_name(target: &str) -> Option<CompileTarget> {
@@ -1692,5 +1697,31 @@ fn main <()->i32> ():
             .expect("resolved definition");
         assert_eq!(resolved.doc.as_deref(), Some("from dep"));
         assert!(resolved.range.path.is_some());
+    }
+
+    #[test]
+    fn target_directive_diagnostics_keep_loader_codes() {
+        let unknown =
+            analyze_semantics("#target nope\n#no_prelude\nfn main <()->i32> ():\n    0\n");
+        assert!(
+            unknown
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == Some("loader.target.unknown")),
+            "{:?}",
+            unknown.diagnostics
+        );
+
+        let duplicate = analyze_semantics(
+            "#target wasm\n#target wasi\n#no_prelude\nfn main <()->i32> ():\n    0\n",
+        );
+        assert!(
+            duplicate
+                .diagnostics
+                .iter()
+                .any(|diagnostic| { diagnostic.code == Some("loader.target.multiple_directive") }),
+            "{:?}",
+            duplicate.diagnostics
+        );
     }
 }

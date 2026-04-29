@@ -822,3 +822,18 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `trunk build`: pass
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-30 Stage D1 public with_code removal 追記
+
+`nepl-language` の editor / LSP 解析境界に、target directive 診断を `Diagnostic::error(...).with_code(...)` で後付け分類する経路が残っていた。Rust core から後付け `.with_code(...)` を除去しても、公開 `Diagnostic::with_code` API が残る限り、同じ設計負債を他 crate が再導入できる。
+
+今回の対応で `nepl-language` の target directive 診断を `loader_error(...)` helper 経由の `Diagnostic::error_with_code(...)` に移行した。さらに `Diagnostic::with_code` API 自体を削除し、後付け code 方式へ戻すと Rust の型検査で失敗する構造にした。
+
+回帰として、`nepl-language` の semantics analysis で `loader.target.unknown` と `loader.target.multiple_directive` が editor diagnostic code として保持されることを固定した。あわせて `rg` で `fn with_code` / `.with_code(` が `nepl-core` / `nepl-language` / `nepl-lsp` に残らないことを確認した。
+
+検証:
+
+- `cargo test -p nepl-language target_directive_diagnostics_keep_loader_codes -- --nocapture`
+- `cargo test -p nepl-core diagnostic -- --nocapture`
+- `cargo check -p nepl-core -p nepl-language -p nepl-lsp --tests`
+- `rg -n 'fn with_code|\.with_code\(' nepl-core nepl-language nepl-lsp -g '*.rs'`: no matches

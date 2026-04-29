@@ -136,12 +136,6 @@ impl Diagnostic {
         DiagnosticSpec::warning(code).build_with_message(message, primary_span)
     }
 
-    /// Attach a compiler-owned diagnostic code to this diagnostic.
-    pub fn with_code(mut self, code: DiagnosticCode) -> Diagnostic {
-        self.code = Some(code);
-        self
-    }
-
     /// Add a secondary label with its own span and optional message.
     pub fn with_secondary_label(
         mut self,
