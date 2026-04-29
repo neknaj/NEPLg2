@@ -49,12 +49,11 @@ stdout: "test_report name=\"std_test_collect_continues_after_string_allocation\"
 #import "std/test" as *
 
 fn main <()*>i32> ():
+    let mut report test_report_new "std_test_collect_continues_after_string_allocation"
+    set report test_report_push report assert "initial" true
     let text <str> concat "prefix-" "suffix"
-    let report:
-        test_report_new "std_test_collect_continues_after_string_allocation"
-        |> test_report_push assert "initial" true
-        |> test_report_push assert_str_eq "concat after allocation" "prefix-suffix" text
-        |> test_report_push assert "after concat" true
+    set report test_report_push report assert_str_eq "concat after allocation" "prefix-suffix" text
+    set report test_report_push report assert "after concat" true
     let shown test_report_print_stdout report
     test_report_exit_code shown
 ```

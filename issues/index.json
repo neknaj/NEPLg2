@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T16:42:23.327Z",
+  "generated_at": "2026-04-29T16:44:25.599Z",
   "counts": {
     "total": 388,
-    "open": 16,
-    "resolved": 372,
+    "open": 15,
+    "resolved": 373,
     "by_area": {
       "core": {
         "total": 179,
-        "open": 7,
-        "resolved": 172
+        "open": 6,
+        "resolved": 173
       },
       "stdlib": {
         "total": 117,
@@ -138,21 +138,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B.md"
-    },
-    {
-      "id": "ISS-20260429T160211035Z-RESOURCE-OWNER-ASSIGN-MISSES-SELF-UP-01475305",
-      "title": "Resource owner assign misses self-update aggregate projection returns",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_flow.rs, tests/compiler/move_check.n.md, tests/stdlib/std_test_collect.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T160211035Z-RESOURCE-OWNER-ASSIGN-MISSES-SELF-UP-01475305.md"
     },
     {
       "id": "ISS-20260429T162608098Z-RESOURCE-IR-BORROW-CHECKER-REJECTS-D-C55584FC",
@@ -2808,6 +2793,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T144908106Z-NM-JSON-STRING-BUILDER-TEMPORARIES-L-6EA83723.md"
+    },
+    {
+      "id": "ISS-20260429T160211035Z-RESOURCE-OWNER-ASSIGN-MISSES-SELF-UP-01475305",
+      "title": "Resource owner assign misses self-update aggregate projection returns",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/owner_alias.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/std_test_collect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T160211035Z-RESOURCE-OWNER-ASSIGN-MISSES-SELF-UP-01475305.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

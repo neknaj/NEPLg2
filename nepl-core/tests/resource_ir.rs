@@ -27,13 +27,20 @@ fn stdlib_root() -> PathBuf {
 }
 
 fn typecheck_resource_source(source: &str) -> (HirModule, TypeCtx) {
+    typecheck_resource_source_with_target(source, CompileTarget::Wasm)
+}
+
+fn typecheck_resource_source_with_target(
+    source: &str,
+    target: CompileTarget,
+) -> (HirModule, TypeCtx) {
     let mut loader = Loader::new(stdlib_root());
     let loaded = loader
         .load_inline(PathBuf::from("resource_ir_test.nepl"), source.to_string())
         .expect("load source with stdlib");
     let checked = nepl_core::typecheck::typecheck(
         &loaded.module,
-        CompileTarget::Wasm,
+        target,
         BuildProfile::Debug,
         Some(&loaded.source_map),
     );
@@ -5719,6 +5726,245 @@ fn resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_hel
 
     let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
+fn resource_ir_owner_check_reinitializes_self_update_aggregate_return() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct Boxed:
+    ptr <i32>
+
+fn id_box <(Boxed)->Boxed> (box):
+    box
+
+fn main <()*>()> ():
+    let mut box Boxed alloc_raw 4
+    set box id_box box
+    dealloc_raw field::get box "ptr" 4
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("id_box__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "self-update aggregate assignment must transfer returned owner projections back into the target: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_reinitializes_self_update_fresh_projection_return() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct Boxed:
+    ptr <i32>
+
+fn replace_box <(Boxed)*>Boxed> (box):
+    dealloc_raw field::get box "ptr" 4
+    Boxed alloc_raw 4
+
+fn main <()*>()> ():
+    let mut box Boxed alloc_raw 4
+    set box replace_box box
+    dealloc_raw field::get box "ptr" 4
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("replace_box__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "self-update assignment must accept a consumed old projection replaced by a fresh returned projection: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_reinitializes_self_update_report_projection_returns() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "alloc/string" as *
+#import "std/test" as *
+
+fn main <()* >i32> ():
+    let mut report test_report_new "probe"
+    set report test_report_push report assert "initial" true
+    let text <str> concat "prefix-" "suffix"
+    set report test_report_push report assert_str_eq "concat after allocation" "prefix-suffix" text
+    set report test_report_push report assert "after concat" true
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("test_report_push__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "std/test report self-update must move returned projection owners back into the assigned local: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_reinitializes_self_update_multi_str_projection_return() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "alloc/string" as *
+#import "core/field" as field
+
+struct Triple:
+    first <str>
+    second <str>
+    third <str>
+
+fn consume_str <(str)->()> (s):
+    len s
+    ()
+
+fn push_triple <(Triple)->Triple> (t):
+    let first0 <str> field::get t "first"
+    let second0 <str> field::get t "second"
+    let third0 <str> field::get t "third"
+    let second1 <str> concat second0 "x"
+    let third1 <str> concat third0 "y"
+    Triple first0 second1 third1
+
+fn main <()*>()> ():
+    let mut t Triple "a" "b" "c"
+    set t push_triple t
+    consume_str field::get t "first"
+    consume_str field::get t "second"
+    consume_str field::get t "third"
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("push_triple__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "self-update assignment must transfer all returned str projections: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_reinitializes_self_update_str_concat_projection() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "alloc/string" as *
+#import "core/field" as field
+
+struct Holder:
+    text <str>
+
+fn consume_str <(str)->()> (s):
+    len s
+    ()
+
+fn holder_push <(Holder)->Holder> (h):
+    let text0 <str> field::get h "text"
+    let text1 <str> concat text0 "x"
+    Holder text1
+
+fn main <()*>()> ():
+    let mut h Holder "a"
+    set h holder_push h
+    consume_str field::get h "text"
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("holder_push__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "self-update assignment must transfer str concat projection returns: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
 }
 
 #[test]

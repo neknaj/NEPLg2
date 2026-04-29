@@ -26715,3 +26715,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Stage 4/6 の方針に沿って、report helper の表示観測と owner 消費を分離した。
+
+# 2026-04-30 メモ (ISS-20260429T160211035Z Resource owner self-update aggregate projection)
+
+- [同期]:
+  - `main` の `b2652d2` から `work/resource-owner-self-update-assign` branch で継続した。
+  - `std/test` report の mutable self-update 形で、`test_report_push` 後の `report.lines` / `legacy_*` が `Moved` のまま残ることを Resource IR owner check で再現した。
+- [原因]:
+  - 問題の中心は assign 処理そのものではなく、`raw_address_alias` / local read alias が owning aggregate root に残り続けることだった。
+  - `test_report_print_stdout report` の call output には projection owner summary が適用されているにもかかわらず、`resolve_owner_alias_place` が output 自身の tracked descendants より古い `report` root alias を優先し、moved 済みの `report.field3..5` へ逆解決していた。
+  - このため、returned projection owner は temporary 側に存在するのに、declare/assign 時に古い local 側を見て `OwnerUnavailable` と temporary leak を同時に出していた。
+- [修正]:
+  - `resolve_owner_alias_place` で、対象 place 自身に tracked descendant owner state がある場合は、その place を canonical として優先するようにした。
+  - call return output の projection owner state が適用済みなら、古い raw/root alias ではなく output 側の state を使って owner transfer する。
+  - `tests/stdlib/std_test_collect.n.md` の文字列 allocation 継続 regression を、pipeline 回避形から本来の `let mut report` + `set report test_report_push report ...` 形へ戻した。
+  - self-update aggregate / fresh projection / std report / multi str projection / single str projection の Resource IR owner regression を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reinitializes_self_update_report_projection_returns -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reinitializes_self_update -- --nocapture`: `5 passed`
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --no-tree -o tmp/std-test-self-update-owner-alias-fixed.json -j 1 --dist web/dist`: `total=3`, `passed=3`
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 4 の owner/resource summary 周辺の正確性を改善し、`std/test` 側の一時回避を撤去した。
