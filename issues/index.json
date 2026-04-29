@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T12:49:40.692Z",
+  "generated_at": "2026-04-29T12:50:18.648Z",
   "counts": {
-    "total": 372,
-    "open": 16,
+    "total": 373,
+    "open": 17,
     "resolved": 356,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 168
       },
       "stdlib": {
-        "total": 109,
-        "open": 9,
+        "total": 110,
+        "open": 10,
         "resolved": 100
       },
       "TEST": {
@@ -258,6 +258,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T124935636Z-STDIO-READ-BUFFER-FINISH-LEAKS-BYTEB-84BA0440.md"
+    },
+    {
+      "id": "ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D",
+      "title": "std fs WASI out pointer reads fail RawMemoryLoadCell gate",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/std/fs.nepl, tests/stdlib/stdin.n.md, tests/stdlib/streamio.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T125010191Z-STD-FS-WASI-OUT-POINTER-READS-FAIL-R-7FEF289D.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
