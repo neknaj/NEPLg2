@@ -39,6 +39,21 @@ function assertNotContains(text, needle, source) {
     assert(!text.includes(needle), `${source} must not contain ${needle}`);
 }
 
+function escapeRegExp(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertUsesResourceModuleSymbol(text, moduleName, symbolName, source) {
+    const directImport = `super::${moduleName}::${symbolName}`;
+    const groupedImport = new RegExp(
+        `super::${escapeRegExp(moduleName)}::\\{[^}]*\\b${escapeRegExp(symbolName)}\\b[^}]*\\}`,
+    );
+    assert(
+        text.includes(directImport) || groupedImport.test(text),
+        `${source} must import ${symbolName} from super::${moduleName}`,
+    );
+}
+
 const mod = assertFile('mod.rs');
 assertMissing('check.rs');
 
@@ -95,9 +110,24 @@ assertContains(effectCheck, 'struct ResourceEffectBoundaryEngine', 'effect_check
 
 assertNotContains(effect, 'struct ResourceEffectBoundaryEngine', 'effect.rs');
 assertContains(effect, 'pub fn check_resource_effect_boundaries', 'effect.rs');
-assertContains(summary, 'super::borrow_check::ResourceBorrowCheckEngine', 'summary.rs');
-assertContains(summary, 'super::owner_check::ResourceOwnerCheckEngine', 'summary.rs');
-assertContains(effectSummary, 'super::effect_check::ResourceEffectBoundaryEngine', 'effect_summary.rs');
+assertUsesResourceModuleSymbol(
+    summary,
+    'borrow_check',
+    'ResourceBorrowCheckEngine',
+    'summary.rs',
+);
+assertUsesResourceModuleSymbol(
+    summary,
+    'owner_check',
+    'ResourceOwnerCheckEngine',
+    'summary.rs',
+);
+assertUsesResourceModuleSymbol(
+    effectSummary,
+    'effect_check',
+    'ResourceEffectBoundaryEngine',
+    'effect_summary.rs',
+);
 
 const maxLines = new Map([
     ['effect.rs', 160],

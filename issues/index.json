@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T02:00:03.318Z",
+  "generated_at": "2026-04-29T02:04:17.533Z",
   "counts": {
-    "total": 342,
-    "open": 10,
-    "resolved": 332,
+    "total": 344,
+    "open": 11,
+    "resolved": 333,
     "by_area": {
       "core": {
-        "total": 160,
-        "open": 3,
+        "total": 161,
+        "open": 4,
         "resolved": 157
       },
       "selfhost": {
@@ -37,9 +37,9 @@
         "resolved": 13
       },
       "nodesrc": {
-        "total": 4,
+        "total": 5,
         "open": 0,
-        "resolved": 4
+        "resolved": 5
       },
       "compiler": {
         "total": 1,
@@ -93,6 +93,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E",
+      "title": "resource owner checker exceeds responsibility split limit",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_raw_memory.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E.md"
     },
     {
       "id": "ISS-20260429T005246036Z-SELF-HOST-CLI-LACKS-FILESYSTEM-FILE--1B6C9F63",
@@ -2643,6 +2658,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T014659694Z-STD-TEST-SOURCE-POLICY-STILL-REQUIRE-2D5EEDED.md"
+    },
+    {
+      "id": "ISS-20260429T020221893Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-0A2C73C7",
+      "title": "resource checker responsibility policy rejects grouped owner imports",
+      "area": "nodesrc",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/summary.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T020221893Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-0A2C73C7.md"
     },
     {
       "id": "ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C",

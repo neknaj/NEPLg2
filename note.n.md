@@ -24403,3 +24403,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 1 の module 境界維持として、HIR 直走査層の raw memory 引数解析を provenance 復元から分離した。
+
+# 2026-04-29 メモ (ISS-20260429T020221893Z resource checker policy grouped imports)
+
+- [原因]:
+  - `nodesrc/test_resource_checker_responsibility.js` は `summary.rs` が `super::owner_check::ResourceOwnerCheckEngine` を含むことだけを literal 文字列で検査していた。
+  - 実際の `summary.rs` は `use super::owner_check::{resolve_owner_alias_place, ResourceOwnerCheckEngine};` として grouped import しており、compiler 上の依存は存在するのに Source policy が import style だけで失敗していた。
+- [修正]:
+  - policy に `assertUsesResourceModuleSymbol` を追加し、direct import と grouped import の両方を Resource checker dependency として認識するようにした。
+  - borrow / owner / effect boundary engine の dependency assertion をこの helper に置き換えた。
+  - grouped import 誤検出の解消後、同 policy は別件として `owner_check.rs` 930 行 / 上限 800 行を検出したため、`ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E` を追加した。
+- [検証]:
+  - `node nodesrc\test_resource_checker_responsibility.js`: grouped import 誤検出は解消。別件の `owner_check.rs has 930 lines; responsibility split limit is 800` で停止。
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource checker 分割を守る policy が、import style ではなく実際の checker dependency を見るようになった。
