@@ -225,6 +225,23 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 - `git diff --check`: pass
 - `cargo test -p nepl-core --test neplg2 -- --nocapture`: failed 89/97。失敗 8 件は `ISS-20260429T071452715Z-RESOURCE-IR-GATE-REGRESSES-NEPLG2-GE-E2DCC26B` の Resource IR raw ownership / owner obligation leak 既知件で、今回の diagnostic construction 変更とは別件。
 
+## 2026-04-29 Stage D1 raw move check diagnostics follow-up 追記
+
+`passes/move_check/raw_state.rs` には raw memory ownership violation を報告する箇所が 7 箇所あり、すべて `Diagnostic::error(...).with_code(...)` で `resource.raw.ownership_violation` を後付けしていた。raw memory ownership はメモリ安全に直結するため、message 文字列ではなく `ResourceRawDiagnosticCode::OwnershipViolation` を生成時点で確定する必要がある。
+
+今回の対応で module-local `raw_ownership_error(...)` helper を追加し、non-Copy raw load / store / dealloc / realloc / byte write / bulk copy source / bulk copy destination の violation を `Diagnostic::error_with_code(...)` 経由へ移行した。Rust regression は message 部分ではなく `DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(ResourceRawDiagnosticCode::OwnershipViolation))` を直接検査する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core --test move_check move_raw_aggregate_non_copy_field_move_blocks_whole_load -- --nocapture`: pass
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 17 --dist web/dist`: pass。`resource.raw.ownership_violation` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass
+
 ## 2026-04-29 Stage D1 parser direct diagnostics follow-up 追記
 
 前回の parser recovery boundary 移行後、`parser.rs` には layout block、type expression、identifier、mlstr、extern signature など 42 箇所の直接 `.with_code(...)` が残っていた。

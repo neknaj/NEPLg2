@@ -1,3 +1,27 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z raw move check diagnostic code-first)
+
+- [同期]:
+  - `5f158d7` まで反映した `main` を `origin/main` と同期し、`work/move-check-raw-state-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `passes/move_check/raw_state.rs` には raw memory ownership violation の `Diagnostic::error(...).with_code(...)` が 7 箇所残っていた。
+  - raw memory ownership はメモリ安全に直結するため、message 文字列ではなく `ResourceRawDiagnosticCode::OwnershipViolation` を生成時点で確定する必要がある。
+- [修正]:
+  - module-local `raw_ownership_error(...)` helper を追加した。
+  - non-Copy raw load / store / dealloc / realloc / byte write / bulk copy source / bulk copy destination の violation を `Diagnostic::error_with_code(...)` 経由へ移行した。
+  - Rust regression は message 部分ではなく `DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(ResourceRawDiagnosticCode::OwnershipViolation))` を直接検査するように強化した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test move_check move_raw_aggregate_non_copy_field_move_blocks_whole_load -- --nocapture`: pass
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 17 --dist web/dist`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の raw move check diagnostics 移行を進める。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z driver function/alias diagnostic code-first)
 
 - [同期]:

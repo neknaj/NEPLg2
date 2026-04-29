@@ -2,13 +2,24 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{DiagnosticCode, ResourceDiagnosticCode, ResourceRawDiagnosticCode};
 use crate::span::Span;
 
 use super::raw_place::{
     parse_raw_memory_place_key, raw_place_ranges_overlap, RawPlaceInfo, RawPlaceState,
 };
 use super::MoveCheckContext;
+
+fn raw_ownership_error(message: impl Into<String>, span: Span) -> Diagnostic {
+    Diagnostic::error_with_code(
+        DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
+            ResourceRawDiagnosticCode::OwnershipViolation,
+        )),
+        message,
+        span,
+    )
+}
+
 impl<'m> MoveCheckContext<'m> {
     pub(super) fn check_raw_non_copy_load(&mut self, place: &str, size: usize, span: Span) {
         let overlapping = self.overlapping_raw_places(place, size);
@@ -18,17 +29,10 @@ impl<'m> MoveCheckContext<'m> {
                 RawPlaceState::Moved | RawPlaceState::PossiblyMoved
             )
         }) {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    alloc::format!("use of moved raw memory place: `{}`", place),
-                    span,
-                )
-                .with_code(DiagnosticCode::Resource(
-                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
-                    ),
-                )),
-            );
+            self.diagnostics.push(raw_ownership_error(
+                alloc::format!("use of moved raw memory place: `{}`", place),
+                span,
+            ));
             return;
         }
         let partial_load = overlapping
@@ -65,20 +69,13 @@ impl<'m> MoveCheckContext<'m> {
                 )
             })
         {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    alloc::format!(
-                        "overwrite of raw memory place containing non-Copy value: `{}`",
-                        place
-                    ),
-                    span,
-                )
-                .with_code(DiagnosticCode::Resource(
-                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
-                    ),
-                )),
-            );
+            self.diagnostics.push(raw_ownership_error(
+                alloc::format!(
+                    "overwrite of raw memory place containing non-Copy value: `{}`",
+                    place
+                ),
+                span,
+            ));
             return;
         }
         self.raw_place_states.insert(
@@ -106,20 +103,13 @@ impl<'m> MoveCheckContext<'m> {
                 )
             })
         {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    alloc::format!(
-                        "deallocating raw memory place containing non-Copy value: `{}`",
-                        live_place
-                    ),
-                    span,
-                )
-                .with_code(DiagnosticCode::Resource(
-                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
-                    ),
-                )),
-            );
+            self.diagnostics.push(raw_ownership_error(
+                alloc::format!(
+                    "deallocating raw memory place containing non-Copy value: `{}`",
+                    live_place
+                ),
+                span,
+            ));
         }
     }
 
@@ -139,20 +129,13 @@ impl<'m> MoveCheckContext<'m> {
                 )
             })
         {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    alloc::format!(
-                        "reallocating raw memory place containing non-Copy value: `{}`",
-                        live_place
-                    ),
-                    span,
-                )
-                .with_code(DiagnosticCode::Resource(
-                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
-                    ),
-                )),
-            );
+            self.diagnostics.push(raw_ownership_error(
+                alloc::format!(
+                    "reallocating raw memory place containing non-Copy value: `{}`",
+                    live_place
+                ),
+                span,
+            ));
         }
     }
 
@@ -172,20 +155,13 @@ impl<'m> MoveCheckContext<'m> {
                 )
             })
         {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    alloc::format!(
-                        "overwriting raw memory place containing non-Copy value: `{}`",
-                        live_place
-                    ),
-                    span,
-                )
-                .with_code(DiagnosticCode::Resource(
-                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
-                    ),
-                )),
-            );
+            self.diagnostics.push(raw_ownership_error(
+                alloc::format!(
+                    "overwriting raw memory place containing non-Copy value: `{}`",
+                    live_place
+                ),
+                span,
+            ));
         }
     }
 
@@ -206,20 +182,13 @@ impl<'m> MoveCheckContext<'m> {
                 )
             })
         {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    alloc::format!(
-                        "copying raw memory place containing non-Copy value: `{}`",
-                        live_place
-                    ),
-                    span,
-                )
-                .with_code(DiagnosticCode::Resource(
-                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
-                    ),
-                )),
-            );
+            self.diagnostics.push(raw_ownership_error(
+                alloc::format!(
+                    "copying raw memory place containing non-Copy value: `{}`",
+                    live_place
+                ),
+                span,
+            ));
             return;
         }
 
@@ -233,20 +202,13 @@ impl<'m> MoveCheckContext<'m> {
                 )
             })
         {
-            self.diagnostics.push(
-                Diagnostic::error(
-                    alloc::format!(
-                        "overwriting raw memory place containing non-Copy value: `{}`",
-                        live_place
-                    ),
-                    span,
-                )
-                .with_code(DiagnosticCode::Resource(
-                    crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                        crate::diagnostic_codes::ResourceRawDiagnosticCode::OwnershipViolation,
-                    ),
-                )),
-            );
+            self.diagnostics.push(raw_ownership_error(
+                alloc::format!(
+                    "overwriting raw memory place containing non-Copy value: `{}`",
+                    live_place
+                ),
+                span,
+            ));
         }
     }
 

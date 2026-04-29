@@ -1,4 +1,7 @@
 use nepl_core::diagnostic::Diagnostic;
+use nepl_core::diagnostic_codes::{
+    DiagnosticCode, ResourceDiagnosticCode, ResourceRawDiagnosticCode,
+};
 use nepl_core::loader::Loader;
 use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
 use std::path::PathBuf;
@@ -38,6 +41,13 @@ fn stdlib_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("stdlib")
+}
+
+fn is_raw_ownership_violation(diag: &Diagnostic) -> bool {
+    diag.code
+        == Some(DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
+            ResourceRawDiagnosticCode::OwnershipViolation,
+        )))
 }
 
 #[test]
@@ -1002,11 +1012,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| {
-        d.message.contains("use of moved raw memory place")
-            || d.message
-                .contains("resource ir raw memory cell ownership violation")
-    }));
+    assert!(errs.iter().any(is_raw_ownership_violation));
 }
 
 #[test]
