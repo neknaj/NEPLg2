@@ -27615,3 +27615,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Resource IR の non-Copy regression が panic ではなく typed diagnostic を検証する状態へ戻した。
+
+# 2026-04-30 メモ (ISS-20260429T230251210Z stdlib HashMap doc comment test)
+
+- [同期]:
+  - Resource IR deep call tree lowering 修正の検証中に `cargo test -p nepl-core --tests -- --nocapture` を実行し、`doc_comments` の独立した失敗を確認した。
+  - remote main を `bd14e84` まで fast-forward した後も、`cargo test -p nepl-core --test doc_comments stdlib_hashmap_struct_has_doc_comment -- --nocapture` で同じ失敗が再現した。
+- [原因]:
+  - `HashMap` 構造体 doc は現行 stdlib で `hash map [本体/ほんたい]` と説明されている。
+  - regression test は古い `hash table の[本体/ほんたい]` という文言を直接要求しており、doc attachment ではなく stdlib コメント表現の差分で失敗していた。
+- [修正]:
+  - test 名を `stdlib_hashmap_struct_doc_is_attached_to_hashmap_struct` に変更し、意図を doc attachment の確認として明確にした。
+  - assertion は `## HashMap` heading、要素数・tombstone・storage・hasher という構造体責務、module doc `# hashmap` の混入なしを確認する形にした。
+- [検証]:
+  - `cargo test -p nepl-core --test doc_comments stdlib_hashmap_struct_has_doc_comment -- --nocapture`: reproduced before fix
+  - `cargo test -p nepl-core --test doc_comments -- --nocapture`: `3 passed`
+  - `rustfmt --check nepl-core/tests/doc_comments.rs`: passed
+- [issue]:
+  - `ISS-20260429T230251210Z-STDLIB-HASHMAP-DOC-COMMENT-REGRESSIO-E0EBED5E` を追加し、verified/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib doc の妥当な更新を parser regression と誤判定しないよう、test の不変条件を修正した。

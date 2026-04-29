@@ -44,7 +44,7 @@ fn answer <()->i32> ():
 }
 
 #[test]
-fn stdlib_hashmap_struct_has_doc_comment() {
+fn stdlib_hashmap_struct_doc_is_attached_to_hashmap_struct() {
     let mut loader = Loader::new(stdlib_root());
     let path =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../stdlib/alloc/collections/hashmap.nepl");
@@ -62,8 +62,12 @@ fn stdlib_hashmap_struct_has_doc_comment() {
         .expect("HashMap struct");
 
     let doc = hashmap.doc.as_deref().expect("HashMap doc");
-    assert!(doc.contains("## HashMap"));
-    assert!(doc.contains("hash table の[本体/ほんたい]"));
+    assert!(doc.lines().any(|line| line == "## HashMap"));
+    assert!(doc.contains("[要素数/ようそすう]"));
+    assert!(doc.contains("tombstone 数"));
+    assert!(doc.contains("storage"));
+    assert!(doc.contains("hasher"));
+    assert!(!doc.contains("# hashmap"));
 }
 
 #[test]
