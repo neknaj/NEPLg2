@@ -11,7 +11,8 @@ use super::model::{
     OwnerState, Place, PlaceProjection, ResourceFunction, ResourceModule, ResourceTerminator,
     StorageId,
 };
-use super::owner_check::{resolve_owner_alias_place, ResourceOwnerCheckEngine};
+use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_flow::resolve_owner_alias_place;
 use super::owner_state::OwnerTable;
 use super::place_utils::{place_suffix_after_prefix, push_unique_usize};
 use super::report::{ResourceBorrowCheckDeferred, ResourceOwnerCheckDeferred};

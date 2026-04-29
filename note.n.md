@@ -24446,3 +24446,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource checker 分割を守る policy が、import style ではなく実際の checker dependency を見るようになった。
+
+# 2026-04-29 メモ (ISS-20260429T020330179Z resource owner flow split)
+
+- [原因]:
+  - grouped import policy 修正後、`nodesrc/test_resource_checker_responsibility.js` が `owner_check.rs` 930 行 / 上限 800 行を検出した。
+  - `owner_check.rs` は ResourceOp traversal だけでなく、owner transfer、function return summary application、overwrite leak diagnostic、raw alias / storage-origin からの owner 解決、dealloc/realloc release まで同じ impl に抱えていた。
+- [修正]:
+  - `nepl-core/src/resource/owner_flow.rs` を追加し、owner state mutation と owner diagnostic emission の helper を `ResourceOwnerCheckEngine` の別 module impl として分離した。
+  - `owner_check.rs` は function/block/op traversal と state table orchestration に集中させ、`summary.rs` の alias resolution import は `owner_flow` へ向けた。
+  - Source policy に `owner_flow.rs` の存在と 620 行上限を追加した。
+- [検証]:
+  - `rustfmt --check nepl-core\src\resource\mod.rs nepl-core\src\resource\owner_check.rs nepl-core\src\resource\owner_flow.rs nepl-core\src\resource\summary.rs`: pass
+  - `node nodesrc\test_resource_checker_responsibility.js`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check -- --nocapture`: 18 passed
+  - `cargo test -p nepl-core compiler::tests::resource_owner_gate -- --nocapture`: 3 passed
+  - `trunk build`: pass
+  - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\agent1-owner-flow-split-move-effect.json -j 1`: total=110 passed=110
+  - `node nodesrc\issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource owner checker 分割として、検査 traversal と owner state mutation / storage origin flow を分離した。

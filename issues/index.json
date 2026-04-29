@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T02:13:57.844Z",
+  "generated_at": "2026-04-29T02:15:54.744Z",
   "counts": {
     "total": 345,
-    "open": 11,
-    "resolved": 334,
+    "open": 10,
+    "resolved": 335,
     "by_area": {
       "core": {
         "total": 162,
-        "open": 5,
-        "resolved": 157
+        "open": 4,
+        "resolved": 158
       },
       "stdlib": {
         "total": 100,
@@ -93,21 +93,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E",
-      "title": "resource owner checker exceeds responsibility split limit",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_raw_memory.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E.md"
     },
     {
       "id": "ISS-20260429T021254285Z-RESOURCE-OWNER-GATE-LEAKS-OBLIGATION-8F3BD354",
@@ -2523,6 +2508,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T015312801Z-MOVE-CHECK-PROVENANCE-MODULE-EXCEEDS-6F5A378F.md"
+    },
+    {
+      "id": "ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E",
+      "title": "resource owner checker exceeds responsibility split limit",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/summary.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
