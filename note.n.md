@@ -1,3 +1,25 @@
+# 2026-04-29 メモ (ISS-20260429T040748194Z control checker code-first diagnostics)
+
+- [同期]:
+  - `cdf5e2d` まで反映した `main` を `origin/main` と同期し、`work/typecheck-control-diagnostic-code-first` branch で作業した。
+- [原因]:
+  - `typecheck/control_apply.rs` には `if` / `while` の arity、condition、body type 診断で `Diagnostic::error(...).with_code(...)` が残っていた。
+  - control special function は型安全の基本 boundary なので、診断 code を後付けせず生成時点で `TypeDiagnosticCode` を確定する必要がある。
+- [修正]:
+  - `IfArityMismatch`、`IfConditionMismatch`、`WhileArityMismatch`、`WhileConditionMismatch`、`WhileBodyMismatch` を `type_error(...)` helper 経由へ移行した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/control_apply.rs`: no matches
+  - `cargo test -p nepl-core --test if -- --nocapture`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/if.n.md --no-tree -o tmp/agent1-control-diagnostics-after-trunk.json -j 1`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の control checker boundary follow-up として扱う。
+
 # 2026-04-29 メモ (ISS-20260429T040748194Z match checker code-first diagnostics)
 
 - [同期]:

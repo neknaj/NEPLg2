@@ -166,6 +166,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `typecheck/effect_check.rs` の pure context / raw body effect 診断を code-first constructor へ移行し、未コード化だった raw body 多重有効化診断も `EffectDiagnosticCode::RawBodyMultipleActive` へ接続した。これにより effect checker boundary では `.with_code(...)` とコード無し raw-body effect error が残らない。
 - 2026-04-29: `typecheck/diagnostics.rs` を追加し、typecheck 内部で `TypeDiagnosticCode` / `EffectDiagnosticCode` を code-first constructor へ渡す helper を共有化した。call application、selected callable、trait method call、indirect call、constructor、field accessor、field access、selected trait bound の boundary を移行し、コード無しだった capture arity invariant も `TypeDiagnosticCode::CallCaptureArityMismatch` へ接続した。
 - 2026-04-29: `typecheck/match_check.rs` の enum / scalar match 診断を `type_error(...)` 経由へ移行した。scrutinee type、wildcard order、duplicate arm、non-exhaustive、payload binding、unsupported literal pattern、arm result mismatch は生成時点で `TypeDiagnosticCode` が確定する。
+- 2026-04-29: `typecheck/control_apply.rs` の `if` / `while` arity、condition、body type 診断を `type_error(...)` 経由へ移行した。control special function boundary では診断生成時点で `TypeDiagnosticCode` が確定する。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

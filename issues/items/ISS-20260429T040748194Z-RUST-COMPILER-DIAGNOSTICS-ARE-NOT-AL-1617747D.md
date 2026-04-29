@@ -247,3 +247,20 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `cargo check -p nepl-core --tests`: pass
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 control checker boundary follow-up 追記
+
+`typecheck/control_apply.rs` には `if` / `while` の special function boundary で `Diagnostic::error(...).with_code(...)` が残っていた。control boundary は条件型、body 型、arity を確定する型安全の基本経路なので、診断 code を後付けにしない。
+
+今回の対応で `if` arity / condition mismatch、`while` arity / condition mismatch / body mismatch を `type_error(...)` helper 経由へ移行した。これにより `control_apply.rs` から直接 `.with_code(...)` と `Diagnostic::error(...)` は消えた。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `rg -n "\\.with_code|Diagnostic::error\\(" nepl-core/src/typecheck/control_apply.rs`: no matches
+- `cargo test -p nepl-core --test if -- --nocapture`: pass
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/compiler/if.n.md --no-tree -o tmp/agent1-control-diagnostics-after-trunk.json -j 1`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

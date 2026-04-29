@@ -1,10 +1,10 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind};
 
+use super::diagnostics::type_error;
 use super::{BlockChecker, StackEntry};
 
 pub(super) enum SpecialApplyResult {
@@ -27,23 +27,19 @@ impl<'a> BlockChecker<'a> {
 
     fn apply_if_function(&mut self, func: &StackEntry, args: &[StackEntry]) -> SpecialApplyResult {
         if args.len() != 3 {
-            self.diagnostics.push(
-                Diagnostic::error("if expects three arguments", func.expr.span).with_code(
-                    DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::IfArityMismatch,
-                    ),
-                ),
-            );
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IfArityMismatch,
+                "if expects three arguments",
+                func.expr.span,
+            ));
             return SpecialApplyResult::Handled(None);
         }
         if self.ctx.unify(args[0].ty, self.ctx.bool()).is_err() {
-            self.diagnostics.push(
-                Diagnostic::error("if condition must be bool", args[0].expr.span).with_code(
-                    DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::IfConditionMismatch,
-                    ),
-                ),
-            );
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IfConditionMismatch,
+                "if condition must be bool",
+                args[0].expr.span,
+            ));
         }
         let branch_ty = self.ctx.unify(args[1].ty, args[2].ty).unwrap_or(args[1].ty);
         SpecialApplyResult::Handled(Some(StackEntry {
@@ -69,32 +65,26 @@ impl<'a> BlockChecker<'a> {
         args: &[StackEntry],
     ) -> SpecialApplyResult {
         if args.len() != 2 {
-            self.diagnostics.push(
-                Diagnostic::error("while expects two arguments", func.expr.span).with_code(
-                    DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::WhileArityMismatch,
-                    ),
-                ),
-            );
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::WhileArityMismatch,
+                "while expects two arguments",
+                func.expr.span,
+            ));
             return SpecialApplyResult::Handled(None);
         }
         if self.ctx.unify(args[0].ty, self.ctx.bool()).is_err() {
-            self.diagnostics.push(
-                Diagnostic::error("while condition must be bool", args[0].expr.span).with_code(
-                    DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::WhileConditionMismatch,
-                    ),
-                ),
-            );
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::WhileConditionMismatch,
+                "while condition must be bool",
+                args[0].expr.span,
+            ));
         }
         if self.ctx.unify(args[1].ty, self.ctx.unit()).is_err() {
-            self.diagnostics.push(
-                Diagnostic::error("while body must be unit", args[1].expr.span).with_code(
-                    DiagnosticCode::Type(
-                        crate::diagnostic_codes::TypeDiagnosticCode::WhileBodyMismatch,
-                    ),
-                ),
-            );
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::WhileBodyMismatch,
+                "while body must be unit",
+                args[1].expr.span,
+            ));
         }
         SpecialApplyResult::Handled(Some(StackEntry {
             ty: self.ctx.unit(),
