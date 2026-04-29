@@ -12,6 +12,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/stdlib_map" as *
 #import "std/test" as *
 
@@ -54,6 +55,7 @@ ret: 0
 #import "core/result" as *
 #import "neplg2/core/module/graph" as *
 #import "neplg2/core/module/loader" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/stdlib_map" as *
 #import "std/test" as *
 
@@ -126,6 +128,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/stdlib_map" as *
 #import "std/test" as *
 
@@ -138,7 +141,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let checks1 checks_push checks0 check_str_eq "selfhost.module_path.escape_root" diag.code
+            let checks1 checks_push checks0 check_str_eq "resolve.import_path.escape_root" selfhost_diag_code_name diag.code
             let shown checks_print_report checks1
             checks_exit_code shown
 ```

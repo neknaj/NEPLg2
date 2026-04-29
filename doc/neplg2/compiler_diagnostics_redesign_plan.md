@@ -236,6 +236,10 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - self-host reporter JSON と Rust CLI JSON を比較できる形にする。
 - parser / resolver / checker の diagnostic code parity tests を追加する。
 
+進捗:
+
+- 2026-04-29: self-host 側に `SelfhostDiagnosticCode` 階層 enum を導入し、`SelfhostDiagnostic.code` を自由文字列から typed code へ移行した。stable string は `selfhost_diag_code_name` の match 変換だけで生成し、reporter / JSON はその表示値を使う。lexer、parser、loader、module graph、module path、CLI driver/file_io の既存 diagnostic 生成箇所は typed constructor へ移行済み。parser / resolver / checker の Rust parity をさらに詰める作業は、各 stage 実装時の diagnostic variant 追加と parity fixture で継続する。
+
 ## 静的検査大規模修正との関係
 
 この再設計は `static_check_complexity_reduction_plan.md` の Stage 4/5 を止めるものではない。むしろ、Stage 4/5 の Resource IR gate を、意味分類を失わない enum diagnostic に接続するための前提である。

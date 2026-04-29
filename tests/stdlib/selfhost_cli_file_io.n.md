@@ -53,7 +53,7 @@ fn main <()*>i32> ():
         Result::Err diag:
             let checks:
                 checks_new
-                |> checks_push assert_str_eq "selfhost.cli.file_io.read_failed" field::get diag "code"
+                |> checks_push assert_str_eq "loader.source.read_failed" selfhost_diag_code_name field::get diag "code"
                 |> checks_push assert_str_eq "failed to read source file" field::get diag "message"
             checks_exit_code checks
 ```

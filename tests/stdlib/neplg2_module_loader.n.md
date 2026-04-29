@@ -100,7 +100,7 @@ fn main <()*>i32> ():
                     let shown checks_print_report checks1
                     checks_exit_code shown
                 Result::Err diag:
-                    let checks1 checks_push checks0 check_str_eq "selfhost.loader.file_not_found" diag.code
+                    let checks1 checks_push checks0 check_str_eq "loader.source.file_not_found" selfhost_diag_code_name diag.code
                     let checks2 check_missing_note checks1 diag.note
                     selfhost_vfs_free vfs
                     let shown checks_print_report checks2

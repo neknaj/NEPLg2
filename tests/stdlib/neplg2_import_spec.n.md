@@ -12,6 +12,7 @@ ret: 0
 #import "alloc/collections/vec" as v
 #import "core/option" as *
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/import_spec" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/parser/module_parser" as *
@@ -65,6 +66,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/import_spec" as *
 #import "std/test" as *
 
@@ -77,7 +79,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let checks1 checks_push checks0 check_str_eq "selfhost.import.path_quote.expected" diag.code
+            let checks1 checks_push checks0 check_str_eq "parser.import.path_quote_expected" selfhost_diag_code_name diag.code
             let checks2 checks_push checks1 check_str_eq "import directive requires a quoted path" diag.message
             let shown checks_print_report checks2
             checks_exit_code shown
@@ -95,6 +97,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/import_spec" as *
 #import "std/test" as *
 
@@ -107,7 +110,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let checks1 checks_push checks0 check_str_eq "selfhost.import.trailing_text" diag.code
+            let checks1 checks_push checks0 check_str_eq "parser.import.trailing_text" selfhost_diag_code_name diag.code
             let checks2 checks_push checks1 check_str_eq "import directive has trailing text after alias" diag.message
             let shown checks_print_report checks2
             checks_exit_code shown

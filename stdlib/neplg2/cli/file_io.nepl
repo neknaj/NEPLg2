@@ -74,17 +74,17 @@ fn selfhost_cli_file_io_std_error_note <(str,StdErrorKind)->str> (path, kind):
 
 //: selfhost_cli_file_io_read_failed_diag: source read 失敗 diagnostic を作る
 fn selfhost_cli_file_io_read_failed_diag <(str,i32)->SelfhostDiagnostic> (path, errno):
-    let diag <SelfhostDiagnostic> selfhost_diag_error "selfhost.cli.file_io.read_failed" "failed to read source file"
+    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Loader SelfhostLoaderDiagnosticCode::SourceReadFailed "failed to read source file"
     selfhost_diag_with_note diag selfhost_cli_file_io_errno_note path errno
 
 //: selfhost_cli_file_io_write_failed_diag: artifact write 失敗 diagnostic を作る
 fn selfhost_cli_file_io_write_failed_diag <(str,i32)->SelfhostDiagnostic> (path, errno):
-    let diag <SelfhostDiagnostic> selfhost_diag_error "selfhost.cli.file_io.write_failed" "failed to write artifact"
+    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Loader SelfhostLoaderDiagnosticCode::ArtifactWriteFailed "failed to write artifact"
     selfhost_diag_with_note diag selfhost_cli_file_io_errno_note path errno
 
 //: selfhost_cli_file_io_vfs_failed_diag: VFS 構築失敗 diagnostic を作る
 fn selfhost_cli_file_io_vfs_failed_diag <(str,StdErrorKind)->SelfhostDiagnostic> (path, kind):
-    let diag <SelfhostDiagnostic> selfhost_diag_error "selfhost.cli.file_io.vfs_failed" "failed to build source VFS"
+    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Loader SelfhostLoaderDiagnosticCode::VfsBuildFailed "failed to build source VFS"
     selfhost_diag_with_note diag selfhost_cli_file_io_std_error_note path kind
 
 //: selfhost_cli_file_io_read_root_vfs: root source file を VFS に読み込む

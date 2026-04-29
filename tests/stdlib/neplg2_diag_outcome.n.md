@@ -20,11 +20,11 @@ fn main <()*>i32> ():
     let mut checks checks_new
     let span <SelfhostSourceSpan> source_span_new 4 10 14
     let label <SelfhostDiagnosticLabel> selfhost_diag_label_new span "identifier"
-    let diag0 <SelfhostDiagnostic> selfhost_diag_error "parse.expected_identifier" "expected identifier"
+    let diag0 <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::ImportAliasExpected "expected identifier"
     let diag1 <SelfhostDiagnostic> selfhost_diag_with_primary_label diag0 label
     let diag2 <SelfhostDiagnostic> selfhost_diag_with_note diag1 "while parsing import"
     set checks checks_push checks check_str_eq "error" selfhost_diag_severity_name field::get diag2 "severity"
-    set checks checks_push checks check_str_eq "parse.expected_identifier" field::get diag2 "code"
+    set checks checks_push checks check_str_eq "parser.import.alias_expected" selfhost_diag_code_name field::get diag2 "code"
     match field::get diag2 "primary_label":
         Option::Some got:
             let got_span <SelfhostSourceSpan> field::get got "span"
@@ -40,7 +40,7 @@ fn main <()*>i32> ():
 
     match selfhost_diagnostics_one diag2:
         Result::Ok ds0:
-            let warn <SelfhostDiagnostic> selfhost_diag_warning "parse.recovery" "recovered"
+            let warn <SelfhostDiagnostic> selfhost_diag_warning SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::RawBlockExpectedIndent "recovered"
             match selfhost_diagnostics_push ds0 warn:
                 Result::Ok ds1:
                     set checks checks_push checks check_eq_i32 2 selfhost_diagnostics_len &ds1
@@ -81,7 +81,7 @@ fn main <()*>i32> ():
         Result::Ok ok0:
             set checks checks_push checks check_eq_i32 0 selfhost_outcome_diagnostics_len<i32,str> &ok0
             set checks checks_push checks check not selfhost_outcome_has_errors<i32,str> &ok0
-            let warn <SelfhostDiagnostic> selfhost_diag_warning "parse.recovery" "recovered"
+            let warn <SelfhostDiagnostic> selfhost_diag_warning SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::RawBlockExpectedIndent "recovered"
             match selfhost_outcome_push_diagnostic<i32,str> ok0 warn @selfhost_outcome_ignore_i32 @selfhost_outcome_ignore_str:
                 Result::Ok ok1:
                     set checks checks_push checks check_eq_i32 1 selfhost_outcome_diagnostics_len<i32,str> &ok1
@@ -98,7 +98,7 @@ fn main <()*>i32> ():
 
     match selfhost_outcome_err<i32,str> "bad":
         Result::Ok err0:
-            let diag <SelfhostDiagnostic> selfhost_diag_error "type.mismatch" "type mismatch"
+            let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "type mismatch"
             match selfhost_outcome_push_diagnostic<i32,str> err0 diag @selfhost_outcome_ignore_i32 @selfhost_outcome_ignore_str:
                 Result::Ok err1:
                     set checks checks_push checks check_eq_i32 1 selfhost_outcome_diagnostics_len<i32,str> &err1

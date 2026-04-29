@@ -28,28 +28,13 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/syntax/token" as *
 
-//: LexErrorCode: lexer が[返/かえ]す error [分類/ぶんるい]
-enum LexErrorCode:
-    UnexpectedChar
-    UnterminatedChar
-    UnterminatedString
-    InvalidIndentation
-    OutOfMemory
-
-impl Clone for LexErrorCode:
-    fn clone <(&LexErrorCode)->LexErrorCode> (self):
-        *self
-
-impl Copy for LexErrorCode:
-    fn copy_mark <(LexErrorCode)->LexErrorCode> (self):
-        self
-
 //: LexDiagnostic: lexer error を[構造化/こうぞうか]して[返/かえ]す値
 struct LexDiagnostic:
-    code <LexErrorCode>
+    code <SelfhostLexerDiagnosticCode>
     span <SelfhostSourceSpan>
     message <str>
 
@@ -62,22 +47,8 @@ impl Copy for LexDiagnostic:
         self
 
 //: lex_diag_new: lexer diagnostic を[構築/こうちく]する
-fn lex_diag_new <(LexErrorCode,SelfhostSourceSpan,str)->LexDiagnostic> (code, span, message):
+fn lex_diag_new <(SelfhostLexerDiagnosticCode,SelfhostSourceSpan,str)->LexDiagnostic> (code, span, message):
     LexDiagnostic code span message
-
-//: lex_error_code_name: error code の[安定/あんてい]した[名前/なまえ]を[返/かえ]す
-fn lex_error_code_name <(LexErrorCode)->str> (code):
-    match code:
-        LexErrorCode::UnexpectedChar:
-            "lex.unexpected_char"
-        LexErrorCode::UnterminatedChar:
-            "lex.unterminated_char"
-        LexErrorCode::UnterminatedString:
-            "lex.unterminated_string"
-        LexErrorCode::InvalidIndentation:
-            "lex.invalid_indentation"
-        LexErrorCode::OutOfMemory:
-            "lex.out_of_memory"
 
 //: lex_is_digit: ASCII digit か[返/かえ]す
 fn lex_is_digit <(i32)->bool> (ch):
@@ -470,13 +441,13 @@ fn lex_stack_top_result <(&Vec<i32>,i32,i32)->Result<i32,LexDiagnostic>> (stack,
     if:
         le stack_len 0
         then:
-            Result<i32,LexDiagnostic>::Err lex_diag_new LexErrorCode::InvalidIndentation source_span_empty file_id offset "lexer indent stack is empty"
+            Result<i32,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset "lexer indent stack is empty"
         else:
             match get_ref<i32> stack sub stack_len 1:
                 Option::Some top:
                     Result<i32,LexDiagnostic>::Ok top
                 Option::None:
-                    Result<i32,LexDiagnostic>::Err lex_diag_new LexErrorCode::InvalidIndentation source_span_empty file_id offset "lexer indent stack top is unavailable"
+                    Result<i32,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset "lexer indent stack top is unavailable"
 
 //: lex_stack_drop_top: indent stack の末尾 level を[捨/す]てた Vec を[返/かえ]す
 fn lex_stack_drop_top <(Vec<i32>)->Vec<i32>> (stack):
@@ -935,145 +906,145 @@ fn lex_error_for_token <(SelfhostToken)->LexDiagnostic> (token):
     let span <SelfhostSourceSpan> field::get token "span"
     match field::get token "kind":
         TokenKind::Indent:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Dedent:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Newline:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Eof:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Colon:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Semicolon:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Pipe:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::LParen:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::RParen:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Comma:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::LAngle:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::RAngle:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Arrow:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::PathSep:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::At:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Dot:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Ampersand:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Star:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Minus:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Equals:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Ident:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::IntLiteral:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::FloatLiteral:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::BoolLiteral:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::CharLiteral:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::StringLiteral:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::UnitLiteral:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwFn:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwLet:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwMut:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwNoShadow:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwSet:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwIf:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwWhile:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwCond:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwThen:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwElse:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwDo:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwStruct:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwEnum:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwMatch:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwTrait:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwImpl:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwFor:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwPub:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwBlock:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwTuple:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::KwMlstr:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirEntry:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirTarget:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirImport:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirUse:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirIfTarget:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirIfProfile:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirCapability:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirWasm:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirLlvmIr:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirIndentWidth:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirInclude:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirExtern:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirIntrinsic:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirPrelude:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DirNoPrelude:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::WasmText:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::LlvmIrText:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::MlstrLine:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::DocComment:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::UnterminatedChar:
-            lex_diag_new LexErrorCode::UnterminatedChar span "unterminated char literal"
+            lex_diag_new SelfhostLexerDiagnosticCode::CharInvalid span "unterminated char literal"
         TokenKind::UnterminatedString:
-            lex_diag_new LexErrorCode::UnterminatedString span "unterminated string literal"
+            lex_diag_new SelfhostLexerDiagnosticCode::StringUnterminated span "unterminated string literal"
         TokenKind::Unknown:
-            lex_diag_new LexErrorCode::UnexpectedChar span "unexpected character"
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
 
 //: lex_push: token を token buffer へ[追加/ついか]する
 fn lex_push <(Vec<SelfhostToken>,SelfhostToken)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, token):
@@ -1082,7 +1053,7 @@ fn lex_push <(Vec<SelfhostToken>,SelfhostToken)*>Result<Vec<SelfhostToken>,LexDi
             Result<Vec<SelfhostToken>,LexDiagnostic>::Ok out
         Result::Err _e:
             let span <SelfhostSourceSpan> field::get token "span"
-            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new LexErrorCode::OutOfMemory span "lexer token buffer allocation failed"
+            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer token buffer allocation failed"
 
 //: lex_push_structural: `Indent` / `Dedent` / EOF などの structural token を[追加/ついか]する
 fn lex_push_structural <(Vec<SelfhostToken>,TokenKind,i32,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, kind, file_id, offset):
@@ -1092,7 +1063,7 @@ fn lex_push_structural <(Vec<SelfhostToken>,TokenKind,i32,i32)*>Result<Vec<Selfh
 fn lex_fail_indent <(Vec<SelfhostToken>,Vec<i32>,i32,i32,str)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, stack, file_id, offset, message):
     free<SelfhostToken> tokens
     free<i32> stack
-    Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new LexErrorCode::InvalidIndentation source_span_empty file_id offset message
+    Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset message
 
 //: lex_token_pending_raw_mode: raw block を開始する directive なら mode を[返/かえ]す
 fn lex_token_pending_raw_mode <(SelfhostToken)->i32> (token):
@@ -1201,7 +1172,7 @@ fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,i32,i32)
                                                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
                                         Result::Err _e:
                                             free<SelfhostToken> tokens
-                                            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new LexErrorCode::OutOfMemory source_span_empty file_id idx "lexer indent stack allocation failed"
+                                            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory source_span_empty file_id idx "lexer indent stack allocation failed"
                         else:
                             if:
                                 gt raw_mode 0
@@ -1229,7 +1200,7 @@ fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,i32,i32)
                                                                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
                                                         Result::Err _e:
                                                             free<SelfhostToken> tokens
-                                                            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new LexErrorCode::OutOfMemory source_span_empty file_id idx "lexer indent stack allocation failed"
+                                                            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory source_span_empty file_id idx "lexer indent stack allocation failed"
                                                 else:
                                                     lex_fail_indent tokens stack file_id idx "indentation is not aligned to #indent width"
                                         else:
@@ -1305,14 +1276,14 @@ fn lex_all_with_file_id <(str,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (s
                         Result::Err _e:
                             free<SelfhostToken> tokens
                             let span <SelfhostSourceSpan> source_span_empty file_id 0
-                            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new LexErrorCode::OutOfMemory span "lexer indent stack allocation failed"
+                            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer indent stack allocation failed"
                 Result::Err _e:
                     free<SelfhostToken> tokens
                     let span <SelfhostSourceSpan> source_span_empty file_id 0
-                    Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new LexErrorCode::OutOfMemory span "lexer indent stack allocation failed"
+                    Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer indent stack allocation failed"
         Result::Err _e:
             let span <SelfhostSourceSpan> source_span_empty file_id 0
-            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new LexErrorCode::OutOfMemory span "lexer token buffer allocation failed"
+            Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer token buffer allocation failed"
 
 //: lex_all: source text 全体を token stream へ[変換/へんかん]する
 //:

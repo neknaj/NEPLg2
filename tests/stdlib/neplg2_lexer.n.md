@@ -14,6 +14,7 @@ ret: 0
 #import "core/field" as field
 #import "core/option" as *
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -67,6 +68,7 @@ ret: 0
 #import "core/field" as field
 #import "core/option" as *
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -120,6 +122,7 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -166,6 +169,7 @@ ret: 0
 #import "core/field" as field
 #import "core/option" as *
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -215,6 +219,7 @@ ret: 0
 #import "core/field" as field
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -228,11 +233,11 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let code_name <str> lex_error_code_name field::get diag "code"
+            let code_name <str> selfhost_lexer_diag_code_name field::get diag "code"
             let span <SelfhostSourceSpan> field::get diag "span"
             let checks1:
                 checks0
-                |> checks_push check_str_eq "lex.invalid_indentation" code_name
+                |> checks_push check_str_eq "lexer.indent.level_mismatch" code_name
                 |> checks_push check_eq_i32 9 field::get span "start"
                 |> checks_push check_eq_i32 9 field::get span "end"
             let shown checks_print_report checks1
@@ -252,6 +257,7 @@ ret: 0
 #import "core/field" as field
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -265,11 +271,11 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let code_name <str> lex_error_code_name field::get diag "code"
+            let code_name <str> selfhost_lexer_diag_code_name field::get diag "code"
             let span <SelfhostSourceSpan> field::get diag "span"
             let checks1:
                 checks0
-                |> checks_push check_str_eq "lex.invalid_indentation" code_name
+                |> checks_push check_str_eq "lexer.indent.level_mismatch" code_name
                 |> checks_push check_eq_i32 3 field::get span "start"
                 |> checks_push check_eq_i32 3 field::get span "end"
             let shown checks_print_report checks1
@@ -289,6 +295,7 @@ ret: 0
 #import "alloc/string" as string
 #import "core/field" as field
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -302,11 +309,11 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let code_name <str> lex_error_code_name field::get diag "code"
+            let code_name <str> selfhost_lexer_diag_code_name field::get diag "code"
             let span <SelfhostSourceSpan> field::get diag "span"
             let checks1:
                 checks0
-                |> checks_push check_str_eq "lex.unexpected_char" code_name
+                |> checks_push check_str_eq "lexer.token.unknown" code_name
                 |> checks_push check_eq_i32 18 field::get span "start"
                 |> checks_push check_eq_i32 19 field::get span "end"
             let shown checks_print_report checks1
@@ -326,6 +333,7 @@ ret: 0
 #import "alloc/string" as string
 #import "core/field" as field
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -339,11 +347,11 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let code_name <str> lex_error_code_name field::get diag "code"
+            let code_name <str> selfhost_lexer_diag_code_name field::get diag "code"
             let span <SelfhostSourceSpan> field::get diag "span"
             let checks1:
                 checks0
-                |> checks_push check_str_eq "lex.unterminated_string" code_name
+                |> checks_push check_str_eq "lexer.string.unterminated" code_name
                 |> checks_push check_eq_i32 0 field::get span "start"
                 |> checks_push check_eq_i32 4 field::get span "end"
             let shown checks_print_report checks1
@@ -362,6 +370,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/field" as field
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -403,6 +412,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/field" as field
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -416,11 +426,11 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let code_name <str> lex_error_code_name field::get diag "code"
+            let code_name <str> selfhost_lexer_diag_code_name field::get diag "code"
             let span <SelfhostSourceSpan> field::get diag "span"
             let checks1:
                 checks0
-                |> checks_push check_str_eq "lex.unterminated_char" code_name
+                |> checks_push check_str_eq "lexer.char.invalid" code_name
                 |> checks_push check_eq_i32 0 field::get span "start"
                 |> checks_push check_eq_i32 4 field::get span "end"
             let shown checks_print_report checks1
@@ -439,6 +449,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/field" as field
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -502,6 +513,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/field" as field
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
@@ -549,6 +561,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/field" as field
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *

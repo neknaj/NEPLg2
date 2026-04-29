@@ -12,6 +12,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/graph" as *
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
@@ -84,6 +85,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/graph" as *
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
@@ -110,7 +112,7 @@ fn main <()*>i32> ():
                             let shown checks_print_report checks1
                             checks_exit_code shown
                         Result::Err diag:
-                            let checks1 checks_push checks0 check_str_eq "selfhost.module_graph.missing_module" diag.code
+                            let checks1 checks_push checks0 check_str_eq "resolve.import_graph.missing_module" selfhost_diag_code_name diag.code
                             let checks2 check_note checks1 diag.note
                             selfhost_vfs_free vfs1
                             let shown checks_print_report checks2
@@ -137,6 +139,7 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/graph" as *
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
@@ -166,7 +169,7 @@ fn main <()*>i32> ():
                                     let shown checks_print_report checks1
                                     checks_exit_code shown
                                 Result::Err diag:
-                                    let checks1 checks_push checks0 check_str_eq "selfhost.module_graph.cycle" diag.code
+                                    let checks1 checks_push checks0 check_str_eq "resolve.import_graph.cycle" selfhost_diag_code_name diag.code
                                     let checks2 check_note checks1 diag.note
                                     selfhost_vfs_free vfs2
                                     let shown checks_print_report checks2

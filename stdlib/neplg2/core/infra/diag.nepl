@@ -5,10 +5,11 @@
 //:
 //: [目的/もくてき]:
 //: - lexer / parser / module loading / typecheck / backend が[共通/きょうつう]して[返/かえ]す diagnostic の[形/かたち]を[定義/ていぎ]します。
-//: - source span、code、message、primary label、note を[値/あたい]として[保持/ほじ]し、表示処理は CLI / reporter [層/そう]へ[分離/ぶんり]します。
+//: - source span、typed code、message、primary label、note を[値/あたい]として[保持/ほじ]し、表示処理は CLI / reporter [層/そう]へ[分離/ぶんり]します。
 //:
 //: [実装/じっそう]:
 //: - `SelfhostDiagnostic` は Copy [値/あたい]だけを[保持/ほじ]し、collection から安全に[読/よ]み[出/だ]せるようにします。
+//: - diagnostic code は[内部/ないぶ]では enum として[保持/ほじ]し、stable string は reporter の[表示/ひょうじ]境界でだけ `selfhost_diag_code_name` により[生成/せいせい]します。
 //: - `SelfhostDiagnostics` は `Vec<SelfhostDiagnostic>` を[所有/しょゆう]し、push の allocation failure を `Result::Err StdErrorKind::OutOfMemory` で[返/かえ]します。
 //:
 //: [注意/ちゅうい]:
@@ -26,7 +27,7 @@
 //:| #import "core/result" as *
 //:| #import "neplg2/core/infra/diag" as *
 //: fn main <()*>i32> ():
-//:     let d <SelfhostDiagnostic> selfhost_diag_error "demo.error" "message"
+//:     let d <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "message"
 //:     match selfhost_diagnostics_one d:
 //:         Result::Ok ds:
 //:             let n <i32> selfhost_diagnostics_len &ds
@@ -58,6 +59,110 @@ impl Copy for SelfhostDiagSeverity:
     fn copy_mark <(SelfhostDiagSeverity)->SelfhostDiagSeverity> (self):
         self
 
+//: SelfhostDiagnosticCode: self-host compiler diagnostic の[内部/ないぶ][識別子/しきべつし]
+//:
+//: [目的/もくてき]:
+//: - Rust compiler diagnostic redesign と[同/おな]じく、内部では[数値/すうち]や[自由/じゆう]文字列ではなく[階層/かいそう] enum を[保持/ほじ]します。
+//: - stable string は `selfhost_diag_code_name` の exhaustive match でだけ[作/つく]り、JSON / human reporter がそれを[使/つか]います。
+enum SelfhostDiagnosticCode:
+    Loader <SelfhostLoaderDiagnosticCode>
+    Lexer <SelfhostLexerDiagnosticCode>
+    Parser <SelfhostParserDiagnosticCode>
+    Resolve <SelfhostResolveDiagnosticCode>
+    Cli <SelfhostCliDiagnosticCode>
+
+impl Clone for SelfhostDiagnosticCode:
+    fn clone <(&SelfhostDiagnosticCode)->SelfhostDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostDiagnosticCode:
+    fn copy_mark <(SelfhostDiagnosticCode)->SelfhostDiagnosticCode> (self):
+        self
+
+//: SelfhostLoaderDiagnosticCode: source loading / artifact I/O diagnostic の[分類/ぶんるい]
+enum SelfhostLoaderDiagnosticCode:
+    FileNotFound
+    SourceReadFailed
+    ArtifactWriteFailed
+    VfsBuildFailed
+
+impl Clone for SelfhostLoaderDiagnosticCode:
+    fn clone <(&SelfhostLoaderDiagnosticCode)->SelfhostLoaderDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostLoaderDiagnosticCode:
+    fn copy_mark <(SelfhostLoaderDiagnosticCode)->SelfhostLoaderDiagnosticCode> (self):
+        self
+
+//: SelfhostLexerDiagnosticCode: self-host lexer diagnostic の[分類/ぶんるい]
+enum SelfhostLexerDiagnosticCode:
+    TokenUnknown
+    CharInvalid
+    StringUnterminated
+    IndentLevelMismatch
+    OutOfMemory
+
+impl Clone for SelfhostLexerDiagnosticCode:
+    fn clone <(&SelfhostLexerDiagnosticCode)->SelfhostLexerDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostLexerDiagnosticCode:
+    fn copy_mark <(SelfhostLexerDiagnosticCode)->SelfhostLexerDiagnosticCode> (self):
+        self
+
+//: SelfhostParserDiagnosticCode: self-host parser / directive parser diagnostic の[分類/ぶんるい]
+enum SelfhostParserDiagnosticCode:
+    RawBlockExpectedIndent
+    RawTextOutsideBlock
+    TokenIndex
+    OutOfMemory
+    ImportAliasExpected
+    ImportTrailingText
+    ImportAsExpected
+    ImportPathQuoteExpected
+    ImportPathQuoteUnclosed
+    ImportPathEmpty
+    ImportItemKind
+    ImportAstIndex
+
+impl Clone for SelfhostParserDiagnosticCode:
+    fn clone <(&SelfhostParserDiagnosticCode)->SelfhostParserDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostParserDiagnosticCode:
+    fn copy_mark <(SelfhostParserDiagnosticCode)->SelfhostParserDiagnosticCode> (self):
+        self
+
+//: SelfhostResolveDiagnosticCode: import path / module graph resolve diagnostic の[分類/ぶんるい]
+enum SelfhostResolveDiagnosticCode:
+    ModulePathOutOfMemory
+    ModulePathInvalidImport
+    ModulePathEscapeRoot
+    ModuleGraphOutOfMemory
+    ModuleGraphMissingModule
+    ModuleGraphCycle
+    ModuleGraphInternal
+
+impl Clone for SelfhostResolveDiagnosticCode:
+    fn clone <(&SelfhostResolveDiagnosticCode)->SelfhostResolveDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostResolveDiagnosticCode:
+    fn copy_mark <(SelfhostResolveDiagnosticCode)->SelfhostResolveDiagnosticCode> (self):
+        self
+
+//: SelfhostCliDiagnosticCode: CLI option / usage diagnostic の[分類/ぶんるい]
+enum SelfhostCliDiagnosticCode:
+    MissingInput
+
+impl Clone for SelfhostCliDiagnosticCode:
+    fn clone <(&SelfhostCliDiagnosticCode)->SelfhostCliDiagnosticCode> (self):
+        *self
+
+impl Copy for SelfhostCliDiagnosticCode:
+    fn copy_mark <(SelfhostCliDiagnosticCode)->SelfhostCliDiagnosticCode> (self):
+        self
+
 //: SelfhostDiagnosticLabel: primary label の span と[説明/せつめい]
 struct SelfhostDiagnosticLabel:
     span <SelfhostSourceSpan>
@@ -74,7 +179,7 @@ impl Copy for SelfhostDiagnosticLabel:
 //: SelfhostDiagnostic: compiler stage を[横断/おうだん]して[運/はこ]ぶ diagnostic
 struct SelfhostDiagnostic:
     severity <SelfhostDiagSeverity>
-    code <str>
+    code <SelfhostDiagnosticCode>
     message <str>
     primary_label <Option<SelfhostDiagnosticLabel>>
     note <Option<str>>
@@ -101,24 +206,120 @@ fn selfhost_diag_severity_name <(SelfhostDiagSeverity)->str> (severity):
         SelfhostDiagSeverity::Error:
             "error"
 
+//: selfhost_loader_diag_code_name: loader diagnostic code の stable string を[返/かえ]す
+fn selfhost_loader_diag_code_name <(SelfhostLoaderDiagnosticCode)->str> (code):
+    match code:
+        SelfhostLoaderDiagnosticCode::FileNotFound:
+            "loader.source.file_not_found"
+        SelfhostLoaderDiagnosticCode::SourceReadFailed:
+            "loader.source.read_failed"
+        SelfhostLoaderDiagnosticCode::ArtifactWriteFailed:
+            "loader.artifact.write_failed"
+        SelfhostLoaderDiagnosticCode::VfsBuildFailed:
+            "loader.vfs.build_failed"
+
+//: selfhost_lexer_diag_code_name: lexer diagnostic code の stable string を[返/かえ]す
+fn selfhost_lexer_diag_code_name <(SelfhostLexerDiagnosticCode)->str> (code):
+    match code:
+        SelfhostLexerDiagnosticCode::TokenUnknown:
+            "lexer.token.unknown"
+        SelfhostLexerDiagnosticCode::CharInvalid:
+            "lexer.char.invalid"
+        SelfhostLexerDiagnosticCode::StringUnterminated:
+            "lexer.string.unterminated"
+        SelfhostLexerDiagnosticCode::IndentLevelMismatch:
+            "lexer.indent.level_mismatch"
+        SelfhostLexerDiagnosticCode::OutOfMemory:
+            "lexer.out_of_memory"
+
+//: selfhost_parser_diag_code_name: parser diagnostic code の stable string を[返/かえ]す
+fn selfhost_parser_diag_code_name <(SelfhostParserDiagnosticCode)->str> (code):
+    match code:
+        SelfhostParserDiagnosticCode::RawBlockExpectedIndent:
+            "parser.raw_block.expected_indent"
+        SelfhostParserDiagnosticCode::RawTextOutsideBlock:
+            "parser.raw_text.outside_block"
+        SelfhostParserDiagnosticCode::TokenIndex:
+            "parser.token.index_unavailable"
+        SelfhostParserDiagnosticCode::OutOfMemory:
+            "parser.out_of_memory"
+        SelfhostParserDiagnosticCode::ImportAliasExpected:
+            "parser.import.alias_expected"
+        SelfhostParserDiagnosticCode::ImportTrailingText:
+            "parser.import.trailing_text"
+        SelfhostParserDiagnosticCode::ImportAsExpected:
+            "parser.import.as_expected"
+        SelfhostParserDiagnosticCode::ImportPathQuoteExpected:
+            "parser.import.path_quote_expected"
+        SelfhostParserDiagnosticCode::ImportPathQuoteUnclosed:
+            "parser.import.path_quote_unclosed"
+        SelfhostParserDiagnosticCode::ImportPathEmpty:
+            "parser.import.path_empty"
+        SelfhostParserDiagnosticCode::ImportItemKind:
+            "parser.import.item_kind"
+        SelfhostParserDiagnosticCode::ImportAstIndex:
+            "parser.import.ast_index"
+
+//: selfhost_resolve_diag_code_name: resolve diagnostic code の stable string を[返/かえ]す
+fn selfhost_resolve_diag_code_name <(SelfhostResolveDiagnosticCode)->str> (code):
+    match code:
+        SelfhostResolveDiagnosticCode::ModulePathOutOfMemory:
+            "resolve.import_path.out_of_memory"
+        SelfhostResolveDiagnosticCode::ModulePathInvalidImport:
+            "resolve.import_path.invalid"
+        SelfhostResolveDiagnosticCode::ModulePathEscapeRoot:
+            "resolve.import_path.escape_root"
+        SelfhostResolveDiagnosticCode::ModuleGraphOutOfMemory:
+            "resolve.import_graph.out_of_memory"
+        SelfhostResolveDiagnosticCode::ModuleGraphMissingModule:
+            "resolve.import_graph.missing_module"
+        SelfhostResolveDiagnosticCode::ModuleGraphCycle:
+            "resolve.import_graph.cycle"
+        SelfhostResolveDiagnosticCode::ModuleGraphInternal:
+            "resolve.import_graph.internal"
+
+//: selfhost_cli_diag_code_name: CLI diagnostic code の stable string を[返/かえ]す
+fn selfhost_cli_diag_code_name <(SelfhostCliDiagnosticCode)->str> (code):
+    match code:
+        SelfhostCliDiagnosticCode::MissingInput:
+            "cli.input.missing"
+
+//: selfhost_diag_code_name: diagnostic code の stable string を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 内部 enum を CLI / JSON / doctest 用の[安定/あんてい]した文字列へ変換します。
+//: - ここでは wildcard arm を使わず、category と下位 code の match 網羅性を[効/き]かせます。
+fn selfhost_diag_code_name <(SelfhostDiagnosticCode)->str> (code):
+    match code:
+        SelfhostDiagnosticCode::Loader loader_code:
+            selfhost_loader_diag_code_name loader_code
+        SelfhostDiagnosticCode::Lexer lexer_code:
+            selfhost_lexer_diag_code_name lexer_code
+        SelfhostDiagnosticCode::Parser parser_code:
+            selfhost_parser_diag_code_name parser_code
+        SelfhostDiagnosticCode::Resolve resolve_code:
+            selfhost_resolve_diag_code_name resolve_code
+        SelfhostDiagnosticCode::Cli cli_code:
+            selfhost_cli_diag_code_name cli_code
+
 //: selfhost_diag_label_new: primary label [値/あたい]を[作/つく]る
 fn selfhost_diag_label_new <(SelfhostSourceSpan,str)->SelfhostDiagnosticLabel> (span, message):
     SelfhostDiagnosticLabel span message
 
 //: selfhost_diag_new: diagnostic [値/あたい]を[作/つく]る
-fn selfhost_diag_new <(SelfhostDiagSeverity,str,str)->SelfhostDiagnostic> (severity, code, message):
+fn selfhost_diag_new <(SelfhostDiagSeverity,SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (severity, code, message):
     SelfhostDiagnostic severity code message none<SelfhostDiagnosticLabel> none<str>
 
 //: selfhost_diag_info: info diagnostic を[作/つく]る
-fn selfhost_diag_info <(str,str)->SelfhostDiagnostic> (code, message):
+fn selfhost_diag_info <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
     selfhost_diag_new SelfhostDiagSeverity::Info code message
 
 //: selfhost_diag_warning: warning diagnostic を[作/つく]る
-fn selfhost_diag_warning <(str,str)->SelfhostDiagnostic> (code, message):
+fn selfhost_diag_warning <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
     selfhost_diag_new SelfhostDiagSeverity::Warning code message
 
 //: selfhost_diag_error: error diagnostic を[作/つく]る
-fn selfhost_diag_error <(str,str)->SelfhostDiagnostic> (code, message):
+fn selfhost_diag_error <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
     selfhost_diag_new SelfhostDiagSeverity::Error code message
 
 //: selfhost_diag_with_primary_label: diagnostic に primary label を[付/つ]ける
@@ -202,7 +403,7 @@ fn selfhost_diagnostics_free <(SelfhostDiagnostics)->()> (diagnostics):
 
 //: selfhost_diag_stage0: diagnostic [基盤/きばん]の smoke API
 fn selfhost_diag_stage0 <()*>i32> ():
-    let diag <SelfhostDiagnostic> selfhost_diag_warning "stage0.warning" "warning"
+    let diag <SelfhostDiagnostic> selfhost_diag_warning SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "warning"
     match selfhost_diagnostics_one diag:
         Result::Ok ds:
             let has_errors <bool> selfhost_diagnostics_has_errors &ds

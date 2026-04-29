@@ -178,26 +178,26 @@ fn selfhost_module_graph_has_path <(&SelfhostModuleGraph,str)->bool> (graph, pat
             false
 
 //: selfhost_module_graph_diag: graph diagnostic を[作/つく]る
-fn selfhost_module_graph_diag <(SelfhostSourceSpan,str,str,str,str)->SelfhostDiagnostic> (span, code, message, label, note):
-    let diag <SelfhostDiagnostic> selfhost_diag_error code message
+fn selfhost_module_graph_diag <(SelfhostSourceSpan,SelfhostResolveDiagnosticCode,str,str,str)->SelfhostDiagnostic> (span, code, message, label, note):
+    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Resolve code message
     let labeled <SelfhostDiagnostic> selfhost_diag_with_primary_label diag selfhost_diag_label_new span label
     selfhost_diag_with_note labeled note
 
 //: selfhost_module_graph_oom_diag: graph allocation failure diagnostic を[作/つく]る
 fn selfhost_module_graph_oom_diag <(SelfhostSourceSpan)->SelfhostDiagnostic> (span):
-    selfhost_module_graph_diag span "selfhost.module_graph.oom" "module graph allocation failed" "allocation failed while building import graph" ""
+    selfhost_module_graph_diag span SelfhostResolveDiagnosticCode::ModuleGraphOutOfMemory "module graph allocation failed" "allocation failed while building import graph" ""
 
 //: selfhost_module_graph_missing_diag: import 先が VFS に無いことを[報告/ほうこく]する
 fn selfhost_module_graph_missing_diag <(SelfhostSourceSpan,str)->SelfhostDiagnostic> (span, path):
-    selfhost_module_graph_diag span "selfhost.module_graph.missing_module" "imported module is not registered in self-host VFS" "missing module imported here" path
+    selfhost_module_graph_diag span SelfhostResolveDiagnosticCode::ModuleGraphMissingModule "imported module is not registered in self-host VFS" "missing module imported here" path
 
 //: selfhost_module_graph_cycle_diag: import cycle を[報告/ほうこく]する
 fn selfhost_module_graph_cycle_diag <(SelfhostSourceSpan,str)->SelfhostDiagnostic> (span, path):
-    selfhost_module_graph_diag span "selfhost.module_graph.cycle" "import cycle detected while building self-host module graph" "cycle reaches an active module here" path
+    selfhost_module_graph_diag span SelfhostResolveDiagnosticCode::ModuleGraphCycle "import cycle detected while building self-host module graph" "cycle reaches an active module here" path
 
 //: selfhost_module_graph_internal_diag: graph 内部不整合 diagnostic を[作/つく]る
 fn selfhost_module_graph_internal_diag <(SelfhostSourceSpan,str)->SelfhostDiagnostic> (span, note):
-    selfhost_module_graph_diag span "selfhost.module_graph.internal" "module graph internal invariant failed" "module graph invariant failed here" note
+    selfhost_module_graph_diag span SelfhostResolveDiagnosticCode::ModuleGraphInternal "module graph internal invariant failed" "module graph invariant failed here" note
 
 //: selfhost_module_graph_push_node: node を graph に[追加/ついか]する
 fn selfhost_module_graph_push_node <(SelfhostModuleGraph,SelfhostModuleGraphNode,SelfhostSourceSpan)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (graph, node, span):

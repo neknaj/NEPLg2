@@ -114,22 +114,22 @@ fn selfhost_resolved_module_path_is_stdlib <(SelfhostResolvedModulePath)->bool> 
             true
 
 //: selfhost_module_path_diag: path mapping diagnostic を[作/つく]る
-fn selfhost_module_path_diag <(SelfhostSourceSpan,str,str,str,str)->SelfhostDiagnostic> (span, code, message, label, note):
-    let diag <SelfhostDiagnostic> selfhost_diag_error code message
+fn selfhost_module_path_diag <(SelfhostSourceSpan,SelfhostResolveDiagnosticCode,str,str,str)->SelfhostDiagnostic> (span, code, message, label, note):
+    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Resolve code message
     let labeled <SelfhostDiagnostic> selfhost_diag_with_primary_label diag selfhost_diag_label_new span label
     selfhost_diag_with_note labeled note
 
 //: selfhost_module_path_oom_diag: path 文字列確保失敗 diagnostic を[作/つく]る
 fn selfhost_module_path_oom_diag <(SelfhostSourceSpan)->SelfhostDiagnostic> (span):
-    selfhost_module_path_diag span "selfhost.module_path.oom" "module path allocation failed" "allocation failed while resolving import path" ""
+    selfhost_module_path_diag span SelfhostResolveDiagnosticCode::ModulePathOutOfMemory "module path allocation failed" "allocation failed while resolving import path" ""
 
 //: selfhost_module_path_invalid_diag: import path の形式不正 diagnostic を[作/つく]る
 fn selfhost_module_path_invalid_diag <(SelfhostSourceSpan,str)->SelfhostDiagnostic> (span, spec):
-    selfhost_module_path_diag span "selfhost.module_path.invalid_import" "import path is not a valid module path" "invalid import path" spec
+    selfhost_module_path_diag span SelfhostResolveDiagnosticCode::ModulePathInvalidImport "import path is not a valid module path" "invalid import path" spec
 
 //: selfhost_module_path_escape_diag: `..` が logical root を越えた diagnostic を[作/つく]る
 fn selfhost_module_path_escape_diag <(SelfhostSourceSpan,str)->SelfhostDiagnostic> (span, spec):
-    selfhost_module_path_diag span "selfhost.module_path.escape_root" "relative import escapes its logical module root" "relative import escapes module root" spec
+    selfhost_module_path_diag span SelfhostResolveDiagnosticCode::ModulePathEscapeRoot "relative import escapes its logical module root" "relative import escapes module root" spec
 
 //: selfhost_module_path_join: root と path segment を `/` で[結合/けつごう]する
 fn selfhost_module_path_join <(SelfhostSourceSpan,str,str)*>Result<str, SelfhostDiagnostic>> (span, left, right):

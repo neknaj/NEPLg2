@@ -25706,3 +25706,41 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix literal boundary 移行を進めた。
+
+# 2026-04-29 メモ (ISS-20260429T083822053Z self-host diagnostic code enum parity)
+
+- [同期]:
+  - `460b4c3` まで反映した `main` へ rebase し、`selfhost/diagnostic-code-enum` branch で作業した。
+- [調査]:
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D5 は Rust core と self-host compiler が同じ diagnostic contract を使うことを要求している。
+  - `SelfhostDiagnostic.code` は `str` で、parser / loader / import / module graph / CLI が自由文字列 code を直接渡していた。
+  - lexer は `LexErrorCode` enum を持っていたが、parser diagnostic へ渡す時点で文字列化しており、self-host diagnostic value には typed code が残っていなかった。
+  - 調査報告書本文は Discord に直接送信済み。
+- [修正]:
+  - `SelfhostDiagnosticCode` を `Loader` / `Lexer` / `Parser` / `Resolve` / `Cli` の階層 enum として追加し、`SelfhostDiagnostic.code` を typed code に変更した。
+  - stable string は `selfhost_diag_code_name` と各 category の `*_diag_code_name` の match 変換だけで生成するようにし、reporter の human / JSON output は必ずこの変換を通す。
+  - `selfhost_diag_error` / `selfhost_diag_warning` / `selfhost_diag_info` は `SelfhostDiagnosticCode` を受け取る API に変更し、既存 self-host call site から自由文字列 code を削除した。
+  - lexer の独自 `LexErrorCode` を廃止し、共有 `SelfhostLexerDiagnosticCode` を直接返すようにした。
+  - `nodesrc/test_selfhost_diag_code_enum.js` を追加し、`SelfhostDiagnostic.code <str>`、文字列 code constructor、lexer 側の早期文字列化、reporter の code 直接出力が戻らないことを固定した。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D5 と `stdlib/neplg2/README.md` に self-host typed diagnostic code 境界を追記した。
+- [検証]:
+  - `node nodesrc/test_selfhost_diag_code_enum.js`
+  - `trunk build`
+  - `node nodesrc/test_selfhost_cli_reporter_boundary.js`
+  - `node nodesrc/test_selfhost_cli_driver_boundary.js`
+  - `node nodesrc/test_selfhost_cli_file_io_boundary.js`
+  - `node nodesrc/test_selfhost_lexer_rust_parity.js`
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/infra/diag.nepl --no-tree -o tmp/selfhost-diag-code-enum-rebased6-diag.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/selfhost-diag-code-enum-rebased6-outcome.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_reporter.n.md --no-tree -o tmp/selfhost-diag-code-enum-rebased6-reporter.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/selfhost-diag-code-enum-rebased-import-spec.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/selfhost-diag-code-enum-rebased-loader.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/selfhost-diag-code-enum-rebased-graph.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_stdlib_map.n.md --no-tree -o tmp/selfhost-diag-code-enum-rebased-stdlib-map.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/selfhost-diag-code-enum-rebased-lexer.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/selfhost-diag-code-enum-rebased-cli-driver.json -j 1`
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_file_io.n.md --no-tree -o tmp/selfhost-diag-code-enum-rebased-file-io.json -j 1`
+  - `node nodesrc/tests.js -i stdlib/neplg2 --no-tree -o tmp/selfhost-diag-code-enum-rebased6-neplg2.json -j 2`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host diagnostic code は Rust diagnostic redesign Stage D5 の前提に合わせた。parser / resolver / checker 本体の parity diagnostic 追加は各 stage の実装 issue で継続する。

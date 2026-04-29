@@ -85,8 +85,8 @@ fn selfhost_module_item_kind_is_import_directive <(SelfhostModuleItemKind)->bool
             false
 
 //: selfhost_import_diag: import directive diagnostic を[作/つく]る
-fn selfhost_import_diag <(SelfhostSourceSpan,str,str,str)->SelfhostDiagnostic> (span, code, message, label):
-    let diag <SelfhostDiagnostic> selfhost_diag_error code message
+fn selfhost_import_diag <(SelfhostSourceSpan,SelfhostParserDiagnosticCode,str,str)->SelfhostDiagnostic> (span, code, message, label):
+    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Parser code message
     selfhost_diag_with_primary_label diag selfhost_diag_label_new span label
 
 //: selfhost_import_has_as_keyword: 指定位置に `as` keyword があるか[返/かえ]す
@@ -110,20 +110,20 @@ fn selfhost_import_parse_alias <(SelfhostSourceSpan,str,str,i32,i32)*>Result<Sel
     if:
         ge start n
         then:
-            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span "selfhost.import.alias.expected" "import directive requires an alias after as" "expected import alias here"
+            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportAliasExpected "import directive requires an alias after as" "expected import alias here"
         else:
             let alias_end <i32> scanner::str_word_end_inline_space_range lexeme start n
             let trailing <i32> scanner::str_skip_inline_space_range lexeme alias_end n
             if:
                 lt trailing n
                 then:
-                    Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span "selfhost.import.trailing_text" "import directive has trailing text after alias" "remove trailing text"
+                    Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportTrailingText "import directive has trailing text after alias" "remove trailing text"
                 else:
                     let alias <str> string::str_slice lexeme start alias_end
                     if:
                         eq string::len alias 0
                         then:
-                            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span "selfhost.import.alias.expected" "import directive requires an alias after as" "expected import alias here"
+                            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportAliasExpected "import directive requires an alias after as" "expected import alias here"
                         else:
                             let is_wildcard <bool> string::str_eq alias "*"
                             Result<SelfhostImportSpec, SelfhostDiagnostic>::Ok selfhost_import_spec_new span path alias is_wildcard
@@ -134,7 +134,7 @@ fn selfhost_import_parse_after_path <(SelfhostSourceSpan,str,i32,i32)*>Result<Se
     if:
         not selfhost_import_has_as_keyword lexeme n as_idx
         then:
-            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span "selfhost.import.as.expected" "import directive requires `as` after path" "expected `as` here"
+            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportAsExpected "import directive requires `as` after path" "expected `as` here"
         else:
             let path_start <i32> scanner::str_find_byte_range lexeme 0 n '"'
             let path <str> string::str_slice lexeme add path_start 1 path_end
@@ -147,18 +147,18 @@ fn selfhost_import_spec_parse_lexeme <(SelfhostSourceSpan,str)*>Result<SelfhostI
     if:
         lt path_start 0
         then:
-            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span "selfhost.import.path_quote.expected" "import directive requires a quoted path" "expected opening quote"
+            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportPathQuoteExpected "import directive requires a quoted path" "expected opening quote"
         else:
             let path_end <i32> scanner::str_find_byte_range lexeme add path_start 1 n '"'
             if:
                 lt path_end 0
                 then:
-                    Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span "selfhost.import.path_quote.unclosed" "import path quote is not closed" "expected closing quote"
+                    Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportPathQuoteUnclosed "import path quote is not closed" "expected closing quote"
                 else:
                     if:
                         eq path_end add path_start 1
                         then:
-                            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span "selfhost.import.path.empty" "import path must not be empty" "empty import path"
+                            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportPathEmpty "import path must not be empty" "empty import path"
                         else:
                             selfhost_import_parse_after_path span lexeme n path_end
 
@@ -169,7 +169,7 @@ fn selfhost_import_spec_parse_item <(SelfhostModuleItem)*>Result<SelfhostImportS
         then:
             selfhost_import_spec_parse_lexeme item.span item.lexeme
         else:
-            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag item.span "selfhost.import.item_kind" "module item is not an import directive" "expected import directive"
+            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag item.span SelfhostParserDiagnosticCode::ImportItemKind "module item is not an import directive" "expected import directive"
 
 //: selfhost_import_specs_loop: ModuleAst から import spec を[集/あつ]める
 fn selfhost_import_specs_loop <(&SelfhostModuleAst,i32,i32,Vec<SelfhostImportSpec>)*>Result<Vec<SelfhostImportSpec>, SelfhostDiagnostic>> (ast, n, idx, out):
@@ -189,7 +189,7 @@ fn selfhost_import_specs_loop <(&SelfhostModuleAst,i32,i32,Vec<SelfhostImportSpe
                                         Result::Ok next_out:
                                             selfhost_import_specs_loop ast n add idx 1 next_out
                                         Result::Err _e:
-                                            Result<Vec<SelfhostImportSpec>, SelfhostDiagnostic>::Err selfhost_import_diag item.span "selfhost.import.oom" "import spec buffer allocation failed" "allocation failed"
+                                            Result<Vec<SelfhostImportSpec>, SelfhostDiagnostic>::Err selfhost_import_diag item.span SelfhostParserDiagnosticCode::OutOfMemory "import spec buffer allocation failed" "allocation failed"
                                 Result::Err diag:
                                     v::free<SelfhostImportSpec> out
                                     Result<Vec<SelfhostImportSpec>, SelfhostDiagnostic>::Err diag
@@ -197,7 +197,7 @@ fn selfhost_import_specs_loop <(&SelfhostModuleAst,i32,i32,Vec<SelfhostImportSpe
                             selfhost_import_specs_loop ast n add idx 1 out
                 Option::None:
                     v::free<SelfhostImportSpec> out
-                    Result<Vec<SelfhostImportSpec>, SelfhostDiagnostic>::Err selfhost_import_diag source_span_empty 0 0 "selfhost.import.ast_index" "module AST item index was unavailable" "missing module item"
+                    Result<Vec<SelfhostImportSpec>, SelfhostDiagnostic>::Err selfhost_import_diag source_span_empty 0 0 SelfhostParserDiagnosticCode::ImportAstIndex "module AST item index was unavailable" "missing module item"
 
 //: selfhost_module_import_specs: ModuleAst の import directive を typed spec として[集/あつ]める
 //:
@@ -208,4 +208,4 @@ fn selfhost_module_import_specs <(&SelfhostModuleAst)*>Result<Vec<SelfhostImport
         Result::Ok out:
             selfhost_import_specs_loop ast selfhost_module_ast_len ast 0 out
         Result::Err _e:
-            Result<Vec<SelfhostImportSpec>, SelfhostDiagnostic>::Err selfhost_import_diag source_span_empty 0 0 "selfhost.import.oom" "import spec buffer allocation failed" "allocation failed"
+            Result<Vec<SelfhostImportSpec>, SelfhostDiagnostic>::Err selfhost_import_diag source_span_empty 0 0 SelfhostParserDiagnosticCode::OutOfMemory "import spec buffer allocation failed" "allocation failed"

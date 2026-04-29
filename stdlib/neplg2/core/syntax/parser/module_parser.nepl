@@ -93,32 +93,32 @@ fn selfhost_parser_depth_dec <(i32)->i32> (depth):
             0
 
 //: selfhost_parser_diag_at: token span に primary label を持つ error diagnostic を[作/つく]る
-fn selfhost_parser_diag_at <(&SelfhostToken,str,str,str)->SelfhostDiagnostic> (token, code, message, label):
+fn selfhost_parser_diag_at <(&SelfhostToken,SelfhostParserDiagnosticCode,str,str)->SelfhostDiagnostic> (token, code, message, label):
     let span <SelfhostSourceSpan> *field::get_ref token "span"
-    let diag <SelfhostDiagnostic> selfhost_diag_error code message
+    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Parser code message
     selfhost_diag_with_primary_label diag selfhost_diag_label_new span label
 
 //: selfhost_parser_oom_diag: parser 内部 allocation failure を diagnostic にする
 fn selfhost_parser_oom_diag <()->SelfhostDiagnostic> ():
-    selfhost_diag_error "selfhost.parser.oom" "self-host module parser ran out of memory"
+    selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::OutOfMemory "self-host module parser ran out of memory"
 
 //: selfhost_parser_diag_from_lex: lexer diagnostic を parser の共通 diagnostic に写す
 fn selfhost_parser_diag_from_lex <(LexDiagnostic)->SelfhostDiagnostic> (lex_diag):
     let span <SelfhostSourceSpan> lex_diag.span
     let message <str> lex_diag.message
-    let code <str> lex_error_code_name lex_diag.code
+    let code <SelfhostDiagnosticCode> SelfhostDiagnosticCode::Lexer lex_diag.code
     let diag <SelfhostDiagnostic> selfhost_diag_error code message
     selfhost_diag_with_primary_label diag selfhost_diag_label_new span message
 
 //: selfhost_parser_pending_error: raw directive 後に raw block indent が無いことを報告する
 fn selfhost_parser_pending_error <(&SelfhostToken,SelfhostModuleAst)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (token, ast):
-    let diag <SelfhostDiagnostic> selfhost_parser_diag_at token "selfhost.parser.raw_block.expected_indent" "raw backend directive must be followed by an indented raw block" "expected raw block indentation here"
+    let diag <SelfhostDiagnostic> selfhost_parser_diag_at token SelfhostParserDiagnosticCode::RawBlockExpectedIndent "raw backend directive must be followed by an indented raw block" "expected raw block indentation here"
     selfhost_module_ast_free ast
     Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
 
 //: selfhost_parser_raw_text_error: raw text token の出現位置が不正なことを報告する
 fn selfhost_parser_raw_text_error <(&SelfhostToken,SelfhostModuleAst)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (token, ast):
-    let diag <SelfhostDiagnostic> selfhost_parser_diag_at token "selfhost.parser.raw_text.outside_block" "raw backend text appeared outside its matching raw block" "raw text must be inside #wasm: or #llvmir:"
+    let diag <SelfhostDiagnostic> selfhost_parser_diag_at token SelfhostParserDiagnosticCode::RawTextOutsideBlock "raw backend text appeared outside its matching raw block" "raw text must be inside #wasm: or #llvmir:"
     selfhost_module_ast_free ast
     Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
 
@@ -340,7 +340,7 @@ fn selfhost_parse_module_loop <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRa
                         _:
                             selfhost_parse_regular_token tokens n idx depth mode ast token kind
                 Option::None:
-                    let diag <SelfhostDiagnostic> selfhost_diag_error "selfhost.parser.token_index" "self-host module parser could not read token"
+                    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "self-host module parser could not read token"
                     selfhost_module_ast_free ast
                     Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
 

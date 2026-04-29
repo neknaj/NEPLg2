@@ -100,7 +100,7 @@ pub fn selfhost_cli_driver_result_free <(SelfhostCliDriverResult)*>()> (result):
 //: [目的/もくてき]:
 //: - parser は「引数列として正しいが input が無い」状態を許すため、driver が compile 実行時の usage error として診断化します。
 fn selfhost_cli_driver_missing_input_diag <()->SelfhostDiagnostic> ():
-    let diag <SelfhostDiagnostic> selfhost_diag_error "selfhost.cli.missing_input" "input source file is required"
+    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "input source file is required"
     selfhost_diag_with_note diag "pass -i/--input or a positional input path"
 
 //: selfhost_cli_driver_request_from_options: CLI options から core compile request を[作/つく]る

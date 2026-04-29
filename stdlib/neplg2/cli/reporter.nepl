@@ -32,15 +32,15 @@
 //: fn main <()*>i32> ():
 //:     let span <SelfhostSourceSpan> source_span_new 2 4 8
 //:     let label <SelfhostDiagnosticLabel> selfhost_diag_label_new span "near `let`"
-//:     let diag0 <SelfhostDiagnostic> selfhost_diag_error "demo.error" "bad input"
+//:     let diag0 <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "bad input"
 //:     let diag1 <SelfhostDiagnostic> selfhost_diag_with_primary_label diag0 label
 //:     let diag2 <SelfhostDiagnostic> selfhost_diag_with_note diag1 "try another expression"
 //:     let human <str> selfhost_cli_render_diagnostic_human diag2
 //:     let json <str> selfhost_cli_render_diagnostic_json diag2
 //:     let checks:
 //:         checks_new
-//:         |> checks_push assert_str_eq "error[demo.error]: bad input\n  --> file 2:4..8\n  = label: near `let`\n  = note: try another expression\n" human
-//:         |> checks_push assert_str_eq "{\"severity\":\"error\",\"code\":\"demo.error\",\"message\":\"bad input\",\"primary_label\":{\"file_id\":2,\"start\":4,\"end\":8,\"message\":\"near `let`\"},\"note\":\"try another expression\"}" json
+//:         |> checks_push assert_str_eq "error[parser.token.index_unavailable]: bad input\n  --> file 2:4..8\n  = label: near `let`\n  = note: try another expression\n" human
+//:         |> checks_push assert_str_eq "{\"severity\":\"error\",\"code\":\"parser.token.index_unavailable\",\"message\":\"bad input\",\"primary_label\":{\"file_id\":2,\"start\":4,\"end\":8,\"message\":\"near `let`\"},\"note\":\"try another expression\"}" json
 //:     checks_exit_code checks
 //: ```
 
@@ -93,7 +93,7 @@ pub fn selfhost_cli_render_diagnostic_human <(SelfhostDiagnostic)->str> (diag):
     let mut sb <StringBuilder> string_builder_new
     set sb sb_append sb selfhost_diag_severity_name field::get diag "severity"
     set sb sb_append sb "["
-    set sb sb_append sb field::get diag "code"
+    set sb sb_append sb selfhost_diag_code_name field::get diag "code"
     set sb sb_append sb "]: "
     set sb sb_append sb field::get diag "message"
     set sb sb_append sb "\n"
@@ -150,7 +150,7 @@ pub fn selfhost_cli_render_diagnostic_json <(SelfhostDiagnostic)->str> (diag):
     set sb sb_append sb "{\"severity\":"
     set sb sb_append sb json_quote_string selfhost_diag_severity_name field::get diag "severity"
     set sb sb_append sb ",\"code\":"
-    set sb sb_append sb json_quote_string field::get diag "code"
+    set sb sb_append sb json_quote_string selfhost_diag_code_name field::get diag "code"
     set sb sb_append sb ",\"message\":"
     set sb sb_append sb json_quote_string field::get diag "message"
     set sb sb_append sb ","
@@ -224,6 +224,6 @@ pub fn selfhost_cli_write_json_diagnostics_stdout <(&SelfhostDiagnostics)*>Resul
 
 //: selfhost_cli_reporter_stage0: reporter 境界の smoke API
 pub fn selfhost_cli_reporter_stage0 <()*>i32> ():
-    let diag <SelfhostDiagnostic> selfhost_diag_warning "stage0.warning" "reporter"
+    let diag <SelfhostDiagnostic> selfhost_diag_warning SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "reporter"
     let rendered <str> selfhost_cli_render_diagnostic_json diag
-    if str_eq rendered "{\"severity\":\"warning\",\"code\":\"stage0.warning\",\"message\":\"reporter\",\"primary_label\":null,\"note\":null}" 0 1
+    if str_eq rendered "{\"severity\":\"warning\",\"code\":\"cli.input.missing\",\"message\":\"reporter\",\"primary_label\":null,\"note\":null}" 0 1

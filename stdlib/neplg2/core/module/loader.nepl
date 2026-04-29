@@ -138,7 +138,7 @@ fn selfhost_vfs_free <(SelfhostVirtualFileSystem)*>()> (vfs):
 
 //: selfhost_loader_file_not_found_diag: VFS lookup 失敗 diagnostic を[作/つく]る
 fn selfhost_loader_file_not_found_diag <(str)->SelfhostDiagnostic> (path):
-    let diag <SelfhostDiagnostic> selfhost_diag_error "selfhost.loader.file_not_found" "source file is not registered in self-host VFS"
+    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Loader SelfhostLoaderDiagnosticCode::FileNotFound "source file is not registered in self-host VFS"
     selfhost_diag_with_note diag path
 
 //: selfhost_load_module: VFS の path を parse 済み module として[読/よ]む

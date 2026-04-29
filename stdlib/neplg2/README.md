@@ -13,7 +13,7 @@
 
 Stage 0 では各 pipeline stage の所有境界だけを固定し、各ファイルに実行可能な最小 doctest を置きます。実処理の移植は `selfhost/s0-infra-span-diag` 以降の issue で、依存順を崩さず追加します。
 
-S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベースの `SelfhostSourceSpan` を持ち、`core/infra/text.nepl` は `SelfhostSourceText`、line start table、byte offset から line / column への変換を提供します。`core/infra/diag.nepl` と `core/infra/outcome.nepl` は、parser / resolver / checker / backend が共有する diagnostic value と diagnostic-carrying Result を提供します。`core/syntax/token.nepl` は `TokenKind` / `SelfhostToken` を定義します。`core/syntax/lexer.nepl` は whitespace、comment、identifier、integer literal、string literal、主要 punctuation、`#indent`、offside `Indent` / `Dedent`、EOF、lexical diagnostic を扱う byte lexer です。Rust lexer JSON との full parity harness は `ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B` で進めます。
+S1 の最初の基盤として、`core/infra/span.nepl` は byte offset ベースの `SelfhostSourceSpan` を持ち、`core/infra/text.nepl` は `SelfhostSourceText`、line start table、byte offset から line / column への変換を提供します。`core/infra/diag.nepl` と `core/infra/outcome.nepl` は、parser / resolver / checker / backend が共有する diagnostic value と diagnostic-carrying Result を提供します。diagnostic code は内部では `SelfhostDiagnosticCode` 階層 enum として保持し、human / JSON 用の stable string は reporter 境界の `selfhost_diag_code_name` でだけ生成します。`core/syntax/token.nepl` は `TokenKind` / `SelfhostToken` を定義します。`core/syntax/lexer.nepl` は whitespace、comment、identifier、integer literal、string literal、主要 punctuation、`#indent`、offside `Indent` / `Dedent`、EOF、lexical diagnostic を扱う byte lexer です。Rust lexer JSON との full parity harness は `ISS-20260428T084929443Z-SELF-HOST-LEXER-NEEDS-FULL-RUST-TOKE-E365D38B` で進めます。
 
 ## S2 Module Layer
 

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T08:33:23.541Z",
+  "generated_at": "2026-04-29T10:09:14.522Z",
   "counts": {
-    "total": 359,
+    "total": 360,
     "open": 12,
-    "resolved": 347,
+    "resolved": 348,
     "by_area": {
       "core": {
         "total": 172,
@@ -40,6 +40,11 @@
         "total": 6,
         "open": 0,
         "resolved": 6
+      },
+      "SELFHOST-DIAG": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "compiler": {
         "total": 1,
@@ -2838,6 +2843,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T053406066Z-NM-PARSER-DOC-POLICY-STILL-REQUIRES--F7604AA4.md"
+    },
+    {
+      "id": "ISS-20260429T083822053Z-SELF-HOST-DIAGNOSTICS-USE-STRING-COD-1040C21E",
+      "title": "self-host diagnostics use string codes instead of enum parity contract",
+      "area": "SELFHOST-DIAG",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/neplg2/core/infra/diag.nepl, stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/module, stdlib/neplg2/cli/reporter.nepl, tests/stdlib/selfhost_cli_reporter.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T083822053Z-SELF-HOST-DIAGNOSTICS-USE-STRING-COD-1040C21E.md"
     },
     {
       "id": "ISS-20260426T010000Z-SELFHOST-SOURCE-TREE-A1E5F24C",
