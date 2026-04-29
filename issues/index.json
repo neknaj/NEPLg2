@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T20:26:48.965Z",
+  "generated_at": "2026-04-29T20:40:15.935Z",
   "counts": {
-    "total": 399,
+    "total": 400,
     "open": 13,
-    "resolved": 386,
+    "resolved": 387,
     "by_area": {
       "core": {
         "total": 185,
@@ -12,9 +12,9 @@
         "resolved": 180
       },
       "stdlib": {
-        "total": 121,
+        "total": 122,
         "open": 6,
-        "resolved": 115
+        "resolved": 116
       },
       "TEST": {
         "total": 6,
@@ -4278,6 +4278,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T202444922Z-OUTCOME-BY-VALUE-RESULT-ACCESS-DROPS-6B1AF839.md"
+    },
+    {
+      "id": "ISS-20260429T203138138Z-DEQUE-STILL-USES-RAW-HEADER-AND-RAW--5E76074E",
+      "title": "Deque still uses raw header and raw element storage",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/deque.nepl, nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js, stdlib/tests/deque.n.md, tests/stdlib/deque_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T203138138Z-DEQUE-STILL-USES-RAW-HEADER-AND-RAW--5E76074E.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

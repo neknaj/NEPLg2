@@ -45,7 +45,13 @@ assert.match(queue, /fn\s+free\s+<\.T>\s+<\(Queue<\.T>\)->\(\)>[\s\S]*vec::free<
 assert.doesNotMatch(queue, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b/, 'Queue must not reintroduce raw header or raw element storage');
 
 const deque = implementationCode('stdlib/alloc/collections/deque.nepl');
-assert.match(deque, /dealloc_raw\s+mem_ptr_addr/, 'Deque must use raw deallocation for its current owned circular-buffer storage until it is migrated');
-assert.match(deque, /fn deque_store_header_i32 /, 'Deque must keep owned header writes explicit');
+assert.match(deque, /struct\s+Deque<\.T>:[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*head\s+<i32>[\s\S]*items\s+<Vec<Option<\.T>>>/, 'Deque must keep typed Vec<Option<T>> storage in its public owner struct');
+assert.match(deque, /fn\s+deque_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32\)->Option<\.T>>/, 'Deque must read initialized slot state through Option<T>');
+assert.match(deque, /fn\s+deque_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>\(\)>[\s\S]*vec::replace_ref<Option<\.T>>/, 'Deque must update slot state through Vec<Option<T>> replacement');
+assert.match(deque, /fn\s+deque_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'Deque allocation must initialize every slot as None');
+assert.match(deque, /fn\s+push_front\s+<\.T:\s*Copy>[\s\S]*deque_prev_index[\s\S]*deque_store_slot<\.T>\s+&items\s+head1\s+some<\.T>\s+item/, 'Deque push_front must write a typed Some slot at the new head');
+assert.match(deque, /fn\s+push_back\s+<\.T:\s*Copy>[\s\S]*deque_tail_index[\s\S]*deque_store_slot<\.T>\s+&items\s+tail\s+some<\.T>\s+item/, 'Deque push_back must write a typed Some slot at the tail');
+assert.match(deque, /fn\s+free\s+<\.T>\s+<\(Deque<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+dq\s+"items"/, 'Deque.free must close the Vec<Option<T>> owner');
+assert.doesNotMatch(deque, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b/, 'Deque must not reintroduce raw header or raw element storage');
 
 console.log('queue/deque unsafe unwrap regression passed');

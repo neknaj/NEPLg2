@@ -27204,3 +27204,35 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正 Stage 4 の owner contract について、Diag payload だけでなく Outcome が持つ Diags storage owner の終端境界を補強した。
+
+# 2026-04-30 メモ (ISS-20260429T203138138Z Deque typed storage)
+
+- [同期]:
+  - remote main の `b7bb6af` から `work/deque-typed-storage` branch を作成して継続した。
+  - commit 後に remote main の `c31384d` へ rebase し、Stack typed storage 化の親 issue / note 更新を保持して統合した。
+  - Queue / RingBuffer は typed `Vec<Option<T>>` storage へ移行済みだったが、Deque は raw header / raw element storage を保持していた。
+- [原因]:
+  - `Deque<T>` が `hdr <MemPtr<u8>>` だけを所有し、`len/cap/head/data_ptr` を raw 16 byte header に保存していた。
+  - element storage が `alloc_ptr<T>` の raw buffer で、live slot / inactive slot の状態は `len` と `head` の計算に埋め込まれていた。
+  - `load<T>` / `store<T>` / `dealloc_raw` / `mem_ptr_addr` を直接使っており、Resource IR が slot の初期化状態と storage owner を型で追跡できなかった。
+- [修正]:
+  - `Deque<.T>` を `len/cap/head/items <Vec<Option<.T>>>` の owner struct に変更した。
+  - live slot は `Some(value)`、inactive slot は `None` として表し、capacity 確保時に全 slot を `None` で初期化するようにした。
+  - grow / push / pop / peek / clear は `Vec<Option<T>>` の `get_ref` / `replace_ref` 経由で slot state を扱うようにした。
+  - 現行 stdlib の collection-wide drop traversal 未整備に合わせ、public path は `.T: Copy` に限定した。非 Copy payload は別途 collection drop 設計で扱う。
+  - `nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js` を更新し、Deque に raw header / raw element storage が戻らないよう source policy を固定した。
+  - `tests/stdlib/deque_collections.n.md` は borrowed observation 後に `free` して owner を閉じる fixture に更新した。
+- [検証]:
+  - `git diff --check`: passed
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/tests/deque.n.md -n 1 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/deque_collections.n.md -n 1 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/deque.n.md -i tests/stdlib/deque_collections.n.md --no-tree -o tmp/deque-typed-storage-focused.json -j 1 --dist web/dist`: `total=4`, `passed=4`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/deque.nepl --no-tree -o tmp/deque-typed-storage-docs.json -j 1 --dist web/dist`: `total=2`, `passed=2`
+  - `node nodesrc/issues.js check`: passed
+- [issue]:
+  - `ISS-20260429T203138138Z-DEQUE-STILL-USES-RAW-HEADER-AND-RAW--5E76074E` を追加し、verified/resolved に更新した。
+  - 親 issue `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` は Deque 部分進捗を追記し、Stack 修正後の残件を BTreeMap / BTreeSet / Vec / BinaryHeap に整理した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の stdlib storage owner visibility を進め、Deque を Queue / RingBuffer と同じ typed slot-state model に揃えた。

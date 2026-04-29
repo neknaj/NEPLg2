@@ -166,7 +166,7 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- `Deque` / `Vec` / `Stack` / `BinaryHeap` などの raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
+- `Vec` / `Stack` / `BinaryHeap` などの raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
 - `tests/stdlib/pipe_collections.n.md` 全体では Stack / BTreeMap / BTreeSet の既存 raw owner state 残件が残る。Queue / RingBuffer の focused doctest は passed。
 
 ## 2026-04-30 Stack 部分進捗
@@ -195,3 +195,27 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 - `BTreeMap` / `BTreeSet` の raw storage owner state が `tests/stdlib/pipe_collections.n.md` で残る。
 - `Deque` / `Vec` / `BinaryHeap` などの raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
+
+## 2026-04-30 Deque 部分進捗
+
+`stdlib/alloc/collections/deque.nepl` は旧 `[len, cap, head, data_ptr]` raw header と raw element buffer を廃止し、typed `Vec<Option<T>>` storage へ移行した。
+
+進捗:
+
+- Deque 本体は `len/cap/head/items` を直接持ち、`items` は `Vec<Option<T>>` として全 slot を初期化する。
+- live slot は `Some(value)`、inactive slot は `None` で表すため、front/back 取得・grow・clear が raw memory cell の初期化状態に依存しない。
+- payload は現行 stdlib の drop traversal 未整備に合わせて `.T: Copy` に限定した。非 Copy payload は collection-wide drop 設計で扱う。
+- terminal `pop_front` / `pop_back` / `peek_front` / `peek_back` / `len` / `cap` / `is_empty` は by-value で owner を消費し、内部 storage を閉じる。owner を残す読み取りは `*_ref` API を使う。
+- `nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js` を更新し、Deque が raw header / raw element storage へ戻らないことを source policy で固定した。
+
+検証:
+
+- `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
+- `node nodesrc/tests.js -i stdlib/tests/deque.n.md -i tests/stdlib/deque_collections.n.md --no-tree -o tmp/deque-typed-storage-focused.json -j 1 --dist web/dist`: `total=4`, `passed=4`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/deque.nepl --no-tree -o tmp/deque-typed-storage-docs.json -j 1 --dist web/dist`: `total=2`, `passed=2`
+
+残件:
+
+- `BTreeMap` / `BTreeSet` の raw storage owner state が `tests/stdlib/pipe_collections.n.md` で残る。
+- `Vec` / `BinaryHeap` などの raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
+- Deque は Copy payload 前提であり、非 Copy payload の drop traversal は collection-wide drop 設計で扱う。

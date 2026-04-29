@@ -43,7 +43,9 @@ fn main <()*>i32> ():
             eq v 9
         Option::None:
             false
-    if and ok0 and ok1 ok2 1 0
+    let result <i32> if and ok0 and ok1 ok2 1 0
+    free<i32> dq0
+    result
 ```
 
 ## deque_grow_clear_and_free
