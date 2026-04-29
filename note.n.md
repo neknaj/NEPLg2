@@ -25363,3 +25363,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix trait method / identifier resolve boundary 移行を進めた。
+
+# 2026-04-29 メモ (ISS-20260429T040748194Z prefix declaration/mutation diagnostic code-first)
+
+- [原因]:
+  - `typecheck/prefix_check.rs` の no-shadow violation / conflict、immutable mutation、undefined set target 診断に `Diagnostic::error(...).with_code(...)` が残っていた。
+  - declaration / mutation boundary は resolve error と type error が混在するため、helper を分けて生成時点で分類を確定させる必要がある。
+- [修正]:
+  - `ShadowNoShadowViolation` と `ShadowNoShadowConflict` を `resolve_error(...)` helper 経由へ移行した。
+  - `MutationImmutable` と `VariableUndefined` を `type_error(...)` helper 経由へ移行した。
+  - `nepl-core/tests/neplg2.rs` に immutable set、undefined set、no-shadow violation の enum code regression を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test neplg2 set_immutable_variable_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 set_undefined_variable_has_type_code -- --nocapture`: pass
+  - `cargo test -p nepl-core --test neplg2 let_noshadow_shadow_has_resolve_code -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/shadowing.n.md -n 18 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 92 --dist web/dist`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix declaration / mutation boundary 移行を進めた。

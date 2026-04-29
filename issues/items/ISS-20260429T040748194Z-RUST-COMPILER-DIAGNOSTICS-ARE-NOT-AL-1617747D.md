@@ -446,3 +446,20 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 39 --dist web/dist`: pass。`type.trait_method.type_args_unsupported` が出ることを確認した。
 - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 40 --dist web/dist`: pass。`type.trait_method.not_found` が出ることを確認した。
 - `node nodesrc/run_doctest.js -i tests/compiler/compile_fail_diag_location.n.md -n 1 --dist web/dist`: pass。`resolve.identifier.undefined` が出ることを確認した。
+
+## 2026-04-29 Stage D1 prefix declaration / mutation boundary follow-up 追記
+
+`typecheck/prefix_check.rs` には no-shadow violation / conflict、immutable mutation、undefined set target の診断で `Diagnostic::error(...).with_code(...)` が残っていた。declaration / mutation boundary では resolve error と type error の分類が混ざりやすいため、helper を分けて code を生成時点に確定する。
+
+今回の対応で `ShadowNoShadowViolation` と `ShadowNoShadowConflict` を `resolve_error(...)` 経由へ、`MutationImmutable` と `VariableUndefined` を `type_error(...)` 経由へ移行した。Rust 回帰テストでは immutable set、undefined set、no-shadow violation の enum code を直接確認する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core --test neplg2 set_immutable_variable_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 set_undefined_variable_has_type_code -- --nocapture`: pass
+- `cargo test -p nepl-core --test neplg2 let_noshadow_shadow_has_resolve_code -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/shadowing.n.md -n 18 --dist web/dist`: pass。`resolve.shadow.no_shadow_violation` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 92 --dist web/dist`: pass。`type.variable.undefined` が出ることを確認した。

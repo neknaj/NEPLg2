@@ -470,6 +470,48 @@ fn main <() -> ()> ():
 }
 
 #[test]
+fn set_immutable_variable_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->()> ():
+    let x <i32> 0;
+    set x 1;
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::MutationImmutable);
+}
+
+#[test]
+fn set_undefined_variable_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->()> ():
+    set x 1;
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::VariableUndefined);
+}
+
+#[test]
+fn let_noshadow_shadow_has_resolve_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    let noshadow x <i32> 1;
+    let x <i32> 2;
+    x
+"#;
+    compile_err_has_resolve_code(src, ResolveDiagnosticCode::ShadowNoShadowViolation);
+}
+
+#[test]
 fn pure_cannot_call_impure() {
     let src = r#"
 #entry main

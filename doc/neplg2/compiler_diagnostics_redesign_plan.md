@@ -177,6 +177,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `typecheck/block_check.rs` の block stack extra values と nested function trait-bound arity 診断を `type_error(...)` 経由へ移行した。block stack / nested bound boundary では生成時点で `TypeDiagnosticCode` が確定する。
 - 2026-04-29: `typecheck/prefix_check.rs` の function value capture、`@` function reference、variable type argument、expected function value overload ambiguity 診断を `type_error(...)` 経由へ移行した。prefix expression の関数値選択境界では生成時点で `TypeDiagnosticCode` が確定する。
 - 2026-04-29: `typecheck/prefix_check.rs` の trait method type args、unknown trait method、undefined identifier 診断を `type_error(...)` / `resolve_error(...)` 経由へ移行した。prefix expression の trait method / identifier resolution boundary では生成時点で `TypeDiagnosticCode` または `ResolveDiagnosticCode` が確定する。
+- 2026-04-29: `typecheck/prefix_check.rs` の no-shadow violation / conflict、immutable mutation、undefined set target 診断を `resolve_error(...)` / `type_error(...)` 経由へ移行した。prefix expression の declaration / mutation boundary では生成時点で resolve/type の分類が確定する。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

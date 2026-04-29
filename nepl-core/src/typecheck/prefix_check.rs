@@ -863,23 +863,18 @@ impl<'a> BlockChecker<'a> {
                         // (shadowing outer bindings) rather than reusing an outer binding.
                         let ty = if let Some(b) = self.env.lookup_current_value(&name.name) {
                             if b.no_shadow && b.span != name.span {
+                                self.diagnostics.push(resolve_error(
+                                    ResolveDiagnosticCode::ShadowNoShadowViolation,
+                                    format!("cannot shadow non-shadowable symbol '{}'", name.name),
+                                    name.span,
+                                ));
                                 self.diagnostics.push(
-                                    Diagnostic::error(
-                                        format!(
-                                            "cannot shadow non-shadowable symbol '{}'",
-                                            name.name
-                                        ),
-                                        name.span,
+                                    resolve_error(
+                                        ResolveDiagnosticCode::ShadowNoShadowViolation,
+                                        "non-shadowable declaration is here",
+                                        b.span,
                                     )
-                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
-                                );
-                                self.diagnostics.push(
-                                    Diagnostic::error("non-shadowable declaration is here", b.span)
-                                        .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
-                                        .with_secondary_label(
-                                            name.span,
-                                            Some("shadow attempt".into()),
-                                        ),
+                                    .with_secondary_label(name.span, Some("shadow attempt".into())),
                                 );
                                 return None;
                             }
@@ -887,37 +882,30 @@ impl<'a> BlockChecker<'a> {
                         } else {
                             if let Some(blocked) = shadow_blocked_by_nonshadow(self.env, &name.name)
                             {
+                                self.diagnostics.push(resolve_error(
+                                    ResolveDiagnosticCode::ShadowNoShadowViolation,
+                                    format!("cannot shadow non-shadowable symbol '{}'", name.name),
+                                    name.span,
+                                ));
                                 self.diagnostics.push(
-                                    Diagnostic::error(
-                                        format!(
-                                            "cannot shadow non-shadowable symbol '{}'",
-                                            name.name
-                                        ),
-                                        name.span,
-                                    )
-                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation)),
-                                );
-                                self.diagnostics.push(
-                                    Diagnostic::error(
+                                    resolve_error(
+                                        ResolveDiagnosticCode::ShadowNoShadowViolation,
                                         "non-shadowable declaration is here",
                                         blocked.span,
                                     )
-                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowViolation))
                                     .with_secondary_label(name.span, Some("shadow attempt".into())),
                                 );
                                 return None;
                             }
                             if *no_shadow && self.env.lookup_any(&name.name).is_some() {
-                                self.diagnostics.push(
-                                    Diagnostic::error(
-                                        format!(
+                                self.diagnostics.push(resolve_error(
+                                    ResolveDiagnosticCode::ShadowNoShadowConflict,
+                                    format!(
                                         "noshadow declaration '{}' conflicts with existing symbol",
                                         name.name
                                     ),
-                                        name.span,
-                                    )
-                                    .with_code(DiagnosticCode::Resolve(crate::diagnostic_codes::ResolveDiagnosticCode::ShadowNoShadowConflict)),
-                                );
+                                    name.span,
+                                ));
                                 return None;
                             }
                             let t = self.ctx.fresh_var(None);
@@ -962,10 +950,11 @@ impl<'a> BlockChecker<'a> {
                             self.env.lookup_value_with_scope(&name.name)
                         {
                             if !binding.mutable {
-                                self.diagnostics.push(
-                                    Diagnostic::error("cannot set immutable variable", name.span)
-                                        .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::MutationImmutable)),
-                                );
+                                self.diagnostics.push(type_error(
+                                    TypeDiagnosticCode::MutationImmutable,
+                                    "cannot set immutable variable",
+                                    name.span,
+                                ));
                             }
                             let effect = if scope_index == 0 {
                                 Effect::Impure
@@ -992,12 +981,11 @@ impl<'a> BlockChecker<'a> {
                             // defer applying ascription until the expression is complete
                             last_expr = Some(stack.last().unwrap().expr.clone());
                         } else {
-                            self.diagnostics.push(
-                                Diagnostic::error("undefined variable", name.span)
-                                    .with_code(DiagnosticCode::Type(
-                                    crate::diagnostic_codes::TypeDiagnosticCode::VariableUndefined,
-                                )),
-                            );
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::VariableUndefined,
+                                "undefined variable",
+                                name.span,
+                            ));
                         }
                     }
                     Symbol::AddrOf { span, mutable } => {
