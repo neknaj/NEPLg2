@@ -140,6 +140,13 @@ owner token の duplicate / copy / forged token を compile_fail にする。`Me
 ## 関連ドキュメント
 
 - [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md)
+- [NEPLg2 compiler diagnostic redesign plan](../../doc/neplg2/compiler_diagnostics_redesign_plan.md)
+
+## 2026-04-29 diagnostic 再設計追記
+
+`MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` へ分ける方針では、diagnostic も pointer provenance、owner obligation、cell state を分離して表す必要がある。
+
+現行の `D3100` bucket だけでは、MemPtr の pointer alias 問題、owner token の leak/double-free、initialized cell の moved/uninit/drop state を区別しにくい。今後は [compiler diagnostic redesign plan](../../doc/neplg2/compiler_diagnostics_redesign_plan.md) に沿って、Resource IR diagnostic kind と stable string code を対応させる。
 
 ## 2026-04-28 issue 整理
 

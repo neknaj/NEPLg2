@@ -192,6 +192,13 @@ raw identity が観測可能な public raw memory operation を pure function �
 ## 関連ドキュメント
 
 - [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md)
+- [NEPLg2 compiler diagnostic redesign plan](../../doc/neplg2/compiler_diagnostics_redesign_plan.md)
+
+## 2026-04-29 diagnostic 再設計追記
+
+raw memory effect / ownership boundary では、pure context からの impure call、internal allocation identity escape、unsafe memory operation、owner/cell state violation が現在 `D3025` / `D3100` に寄りやすい。
+
+今後は raw memory の検査自体を弱めず、diagnostic は `effect.*`、`resource.raw.*`、`resource.cell.*`、`resource.owner.*` の stable code へ分ける。legacy `diag_id` は既存回帰互換として残すが、原因追跡は [compiler diagnostic redesign plan](../../doc/neplg2/compiler_diagnostics_redesign_plan.md) の code taxonomy に合わせる。
 
 ## 2026-04-28 issue 整理
 

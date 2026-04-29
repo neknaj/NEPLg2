@@ -15,6 +15,7 @@ NEPLg2 の Rust compiler は、型検査、effect 判定、move/borrow/lifetime�
 - [ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04](../../issues/items/ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04.md): raw memory operation の effect / ownership 境界。
 - [ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF](../../issues/items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md): `MemPtr` / `RegionToken` の provenance / owner model。
 - [ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84](../../issues/items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md): stdlib raw-memory-backed API の段階移行。
+- [ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D](../../issues/items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md): Resource IR / self-host model に合わせた compiler diagnostic 再設計。
 
 ## 現状の問題
 
@@ -193,6 +194,7 @@ commit 単位:
 - `BorrowState` による shared / unique / lifetime end 検査を実装する。
 - branch / loop merge を Resource IR state merge に統一する。
 - old `move_check` は比較用に残し、差分がある場合は issue 化する。
+- Resource IR diagnostic を legacy `D3100` bucket へ押し込むだけでなく、[compiler diagnostic 再設計計画](./compiler_diagnostics_redesign_plan.md)に従って cell / owner / borrow / lowering の stable code を保持する。
 
 commit 単位:
 
@@ -212,6 +214,7 @@ commit 単位:
 - raw memory primitive は compiler-owned boundary では `InternalAlloc` / `UnsafeMemory` として扱う。
 - public pure API から raw identity が漏れた場合は fold 不可として D3025 系 diagnostic にする。
 - user source から raw address escape を構成できる経路を compile_fail にする。
+- raw identity escape と ordinary impure call を同じ `D3025` 表示だけに依存させず、[compiler diagnostic 再設計計画](./compiler_diagnostics_redesign_plan.md)の `resource.raw.*` / `effect.*` code へ分ける。
 
 commit 単位:
 

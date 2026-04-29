@@ -24669,3 +24669,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の borrow/lifetime check authoritative 化を一段進めた。
+# 2026-04-29 memo (compiler diagnostics redesign)
+
+- [sync]:
+  - `origin/main` at `fb9db3f fix(core): gate resource borrow conflicts` is current.
+  - Created `work/compiler-diagnostics-redesign` from main after discarding the abandoned local Resource cell D3102 scratch index.
+- [finding]:
+  - Rust core diagnostics still use hand-maintained numeric `DiagnosticId` as the main contract.
+  - Resource IR gates currently compress several different meanings into legacy buckets such as `D3025`, `D3100`, and `D3101`.
+  - self-host diagnostics already use stable string `code`, primary label, and note, so Rust core and self-host are diverging.
+- [action]:
+  - Added `doc/neplg2/compiler_diagnostics_redesign_plan.md`.
+  - Added `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` as the parent issue for this redesign.
+  - Linked the plan from the static check plan and related Resource IR / raw memory / MemPtr issues.
+- [plan.md difference]:
+  - `plan.md` was not modified.

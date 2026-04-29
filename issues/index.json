@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T03:53:32.007Z",
+  "generated_at": "2026-04-29T04:10:17.454Z",
   "counts": {
-    "total": 353,
-    "open": 9,
+    "total": 354,
+    "open": 10,
     "resolved": 344,
     "by_area": {
       "core": {
-        "total": 168,
-        "open": 3,
+        "total": 169,
+        "open": 4,
         "resolved": 165
       },
       "stdlib": {
@@ -93,6 +93,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
+    },
+    {
+      "id": "ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D",
+      "title": "Rust compiler diagnostics are not aligned with Resource IR and self-host model",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_ids.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
