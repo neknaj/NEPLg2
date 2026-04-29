@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T10:51:24.108Z",
+  "generated_at": "2026-04-29T12:27:03.454Z",
   "counts": {
-    "total": 365,
-    "open": 15,
+    "total": 367,
+    "open": 17,
     "resolved": 350,
     "by_area": {
       "core": {
@@ -17,8 +17,8 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 103,
-        "open": 6,
+        "total": 105,
+        "open": 8,
         "resolved": 97
       },
       "TEST": {
@@ -228,6 +228,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T064519915Z-STDIO-PRINT-I32-TRIGGERS-RAWMEMORYLO-B90E5FA7.md"
+    },
+    {
+      "id": "ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB",
+      "title": "Fallible owning collection updates lose input owners on allocation failure",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/collections/list.nepl, stdlib/alloc/collections/hashmap.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB.md"
+    },
+    {
+      "id": "ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE",
+      "title": "String concat_result leaks output region owner under Resource IR",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-29",
+      "target": "stdlib/alloc/string.nepl, stdlib/core/mem",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",

@@ -6,7 +6,8 @@ use core::fmt::Write;
 
 use super::model::{
     AggregateKind, EffectOp, Place, PlaceProjection, PlaceRoot, RawBodyKind, RawMemoryOp,
-    ResourceCallTarget, ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
+    ResourceCallTarget, ResourceConditionFact, ResourceMatchPattern, ResourceModule, ResourceOp,
+    ResourceTerminator,
 };
 
 impl ResourceModule {
@@ -282,6 +283,7 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
         ResourceOp::Branch {
             output,
             condition,
+            condition_fact,
             then_ops,
             then_value,
             else_ops,
@@ -290,9 +292,10 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
         } => {
             let _ = writeln!(
                 out,
-                "branch {} cond={} span={}:{}-{}",
+                "branch {} cond={} fact={} span={}:{}-{}",
                 dump_place(output),
                 dump_place(condition),
+                dump_condition_fact(condition_fact),
                 span.file_id.0,
                 span.start,
                 span.end
@@ -411,6 +414,24 @@ fn dump_raw_body_kind(kind: RawBodyKind) -> &'static str {
     }
 }
 
+fn dump_condition_fact(fact: &Option<ResourceConditionFact>) -> String {
+    match fact {
+        Some(ResourceConditionFact::EqZero { place }) => {
+            format!("eq_zero({})", dump_place(place))
+        }
+        Some(ResourceConditionFact::NeZero { place }) => {
+            format!("ne_zero({})", dump_place(place))
+        }
+        Some(ResourceConditionFact::Positive { place }) => {
+            format!("positive({})", dump_place(place))
+        }
+        Some(ResourceConditionFact::NonPositive { place }) => {
+            format!("non_positive({})", dump_place(place))
+        }
+        None => String::from("<none>"),
+    }
+}
+
 fn dump_place(place: &Place) -> String {
     let mut out = match &place.root {
         PlaceRoot::Local(name) => format!("%{}:t{}", name, place.ty.0),
@@ -481,8 +502,8 @@ fn dump_effect(effect: &EffectOp) -> String {
 fn dump_construct_kind(kind: &AggregateKind) -> String {
     match kind {
         AggregateKind::Enum { name, variant } => format!("enum({}::{})", name, variant),
-        AggregateKind::Struct { name } => format!("struct({})", name),
-        AggregateKind::Tuple => String::from("tuple"),
+        AggregateKind::Struct { name, .. } => format!("struct({})", name),
+        AggregateKind::Tuple { .. } => String::from("tuple"),
     }
 }
 

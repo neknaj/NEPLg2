@@ -1,8 +1,11 @@
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
-use super::model::{AggregateKind, Place, PlaceProjection, PlaceRoot};
+use super::model::{
+    AggregateKind, Place, PlaceProjection, PlaceRoot, ResourceMatchArm, ResourceMatchPattern,
+};
 
 pub(super) fn should_track(place: &Place) -> bool {
     !matches!(place.root, PlaceRoot::Unknown)
@@ -20,16 +23,16 @@ pub(super) fn construct_aggregate_field_place(
 ) -> Place {
     let mut place = output.clone();
     match kind {
-        AggregateKind::Struct { .. } => {
+        AggregateKind::Struct { field_offsets, .. } => {
             place.projections.push(PlaceProjection::Field {
                 index,
-                offset_bytes: 0,
+                offset_bytes: field_offsets[index],
             });
         }
-        AggregateKind::Tuple => {
+        AggregateKind::Tuple { field_offsets } => {
             place.projections.push(PlaceProjection::TupleField {
                 index,
-                offset_bytes: 0,
+                offset_bytes: field_offsets[index],
             });
         }
         AggregateKind::Enum { variant, .. } => {
@@ -80,6 +83,27 @@ pub(super) fn place_with_suffix(base: &Place, suffix: &[PlaceProjection], ty: Ty
     out.projections.extend_from_slice(suffix);
     out.ty = ty;
     out
+}
+
+pub(super) fn match_bind_payload_place(
+    scrutinee: &Place,
+    arm: &ResourceMatchArm,
+    bind_local: &Place,
+) -> Option<Place> {
+    let variant = match_arm_variant_payload_name(arm)?;
+    Some(scrutinee.clone().with_projection(
+        PlaceProjection::EnumPayload {
+            variant: String::from(variant),
+        },
+        bind_local.ty,
+    ))
+}
+
+pub(super) fn match_arm_variant_payload_name(arm: &ResourceMatchArm) -> Option<&str> {
+    let ResourceMatchPattern::Variant(variant) = &arm.pattern else {
+        return None;
+    };
+    Some(variant.rsplit("::").next().unwrap_or(variant))
 }
 
 pub(super) fn push_unique_place(places: &mut Vec<Place>, place: &Place) {

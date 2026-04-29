@@ -149,6 +149,7 @@ pub enum ResourceOp {
     Branch {
         output: Place,
         condition: Place,
+        condition_fact: Option<ResourceConditionFact>,
         then_ops: Vec<ResourceOp>,
         then_value: Place,
         else_ops: Vec<ResourceOp>,
@@ -223,9 +224,17 @@ pub enum ResourceCallTarget {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AggregateKind {
-    Enum { name: String, variant: String },
-    Struct { name: String },
-    Tuple,
+    Enum {
+        name: String,
+        variant: String,
+    },
+    Struct {
+        name: String,
+        field_offsets: Vec<usize>,
+    },
+    Tuple {
+        field_offsets: Vec<usize>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -243,6 +252,14 @@ pub enum ResourceMatchPattern {
     IntLiteral(i32),
     BoolLiteral(bool),
     Wildcard,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResourceConditionFact {
+    EqZero { place: Place },
+    NeZero { place: Place },
+    Positive { place: Place },
+    NonPositive { place: Place },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

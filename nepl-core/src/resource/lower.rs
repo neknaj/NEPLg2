@@ -25,9 +25,9 @@ use super::lower_raw_memory::{
 };
 use super::model::{
     AggregateKind, BorrowKind, EffectOp, Place, PlaceProjection, RawBodyKind, RawMemoryOp,
-    ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceExprKind, ResourceFunction,
-    ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp,
-    ResourceTerminator,
+    ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceConditionFact, ResourceExprKind,
+    ResourceFunction, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern,
+    ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::raw_memory_cell_place;
 use super::type_pattern::field_type_matches_result;
@@ -404,6 +404,7 @@ fn lower_expr_skeleton(
             then_branch,
             else_branch,
         } => {
+            let condition_fact = resource_condition_fact(cond, ctx);
             let condition = lower_expr_skeleton(cond, ops, ctx, env);
             let branch_locals = ctx.snapshot_locals();
             let mut then_ops = Vec::new();
@@ -416,6 +417,7 @@ fn lower_expr_skeleton(
             ops.push(ResourceOp::Branch {
                 output: output.clone(),
                 condition,
+                condition_fact,
                 then_ops,
                 then_value,
                 else_ops,
@@ -504,7 +506,10 @@ fn lower_expr_skeleton(
                 .collect();
             push_construct(
                 ops,
-                AggregateKind::Struct { name: name.clone() },
+                AggregateKind::Struct {
+                    name: name.clone(),
+                    field_offsets: aggregate_construct_field_offsets(env.types, expr.ty),
+                },
                 inputs,
                 expr,
                 ctx,
@@ -515,7 +520,15 @@ fn lower_expr_skeleton(
                 .iter()
                 .map(|item| lower_expr_skeleton(item, ops, ctx, env))
                 .collect();
-            push_construct(ops, AggregateKind::Tuple, inputs, expr, ctx)
+            push_construct(
+                ops,
+                AggregateKind::Tuple {
+                    field_offsets: aggregate_construct_field_offsets(env.types, expr.ty),
+                },
+                inputs,
+                expr,
+                ctx,
+            )
         }
         HirExprKind::Block(block) => lower_block_skeleton(block, ops, ctx, env),
         HirExprKind::Let {
@@ -900,6 +913,88 @@ fn func_ref_base_name(callee: &FuncRef) -> Option<&str> {
     match callee {
         FuncRef::Builtin(name) | FuncRef::User(name, _, _) => Some(helper_base_name(name)),
         FuncRef::Trait { .. } => None,
+    }
+}
+
+fn aggregate_construct_field_offsets(types: &TypeCtx, ty: TypeId) -> Vec<usize> {
+    aggregate_fields_with_offsets(types, ty)
+        .into_iter()
+        .map(|field| field.offset)
+        .collect()
+}
+
+fn resource_condition_fact(cond: &HirExpr, ctx: &LoweringContext) -> Option<ResourceConditionFact> {
+    let cond = condition_value_expr(cond)?;
+    let HirExprKind::Call { callee, args } = &cond.kind else {
+        return None;
+    };
+    let comparison = func_ref_base_name(callee)?;
+    let [left, right] = args.as_slice() else {
+        return None;
+    };
+    match comparison {
+        "eq" => zero_comparison_fact(left, right, ctx, |place| ResourceConditionFact::EqZero {
+            place,
+        }),
+        "ne" => zero_comparison_fact(left, right, ctx, |place| ResourceConditionFact::NeZero {
+            place,
+        }),
+        "lt" if literal_i32_is_zero(left) => {
+            condition_place(right, ctx).map(|place| ResourceConditionFact::Positive { place })
+        }
+        "lt" if literal_i32_is_one(right) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::NonPositive { place })
+        }
+        "le" if literal_i32_is_zero(right) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::NonPositive { place })
+        }
+        "gt" if literal_i32_is_zero(right) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::Positive { place })
+        }
+        "ge" if literal_i32_is_one(right) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::Positive { place })
+        }
+        _ => None,
+    }
+}
+
+fn zero_comparison_fact(
+    left: &HirExpr,
+    right: &HirExpr,
+    ctx: &LoweringContext,
+    fact: fn(Place) -> ResourceConditionFact,
+) -> Option<ResourceConditionFact> {
+    if literal_i32_is_zero(left) {
+        condition_place(right, ctx).map(fact)
+    } else if literal_i32_is_zero(right) {
+        condition_place(left, ctx).map(fact)
+    } else {
+        None
+    }
+}
+
+fn condition_place(expr: &HirExpr, ctx: &LoweringContext) -> Option<Place> {
+    let place = place_from_expr_skeleton(expr, ctx);
+    (!matches!(place.root, super::model::PlaceRoot::Unknown)).then_some(place)
+}
+
+fn literal_i32_is_zero(expr: &HirExpr) -> bool {
+    matches!(expr.kind, HirExprKind::LiteralI32(0))
+}
+
+fn literal_i32_is_one(expr: &HirExpr) -> bool {
+    matches!(expr.kind, HirExprKind::LiteralI32(1))
+}
+
+fn condition_value_expr(expr: &HirExpr) -> Option<&HirExpr> {
+    match &expr.kind {
+        HirExprKind::Block(block) => block
+            .lines
+            .iter()
+            .rev()
+            .find(|line| !line.drop_result)
+            .and_then(|line| condition_value_expr(&line.expr)),
+        _ => Some(expr),
     }
 }
 

@@ -265,7 +265,7 @@ fn run_move_check(
     run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)?;
     let effect_boundaries = crate::resource::check_resource_effect_boundaries(&resource);
     run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)?;
-    let owner_obligations = crate::resource::check_resource_owner_obligations(&resource);
+    let owner_obligations = crate::resource::check_resource_owner_obligations(&resource, types);
     run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)
 }
 

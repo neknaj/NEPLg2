@@ -2,10 +2,20 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
+use crate::types::TypeId;
+
 use super::model::{Place, PlaceRoot};
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, replace_place_prefix,
 };
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ProjectedRawCellAddressAlias {
+    pub(super) left_projection: Vec<super::model::PlaceProjection>,
+    pub(super) left_ty: TypeId,
+    pub(super) right_projection: Vec<super::model::PlaceProjection>,
+    pub(super) right_ty: TypeId,
+}
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct RawCellAddressAliases {
@@ -27,16 +37,6 @@ impl RawCellAddressAliases {
         for group in groups {
             self.union_group(&group);
         }
-    }
-
-    pub(super) fn aliases(&self, left: &Place, right: &Place) -> bool {
-        self.alias_groups_for(left)
-            .iter()
-            .any(|group| group.iter().any(|place| place == right))
-            || self
-                .alias_groups_for(right)
-                .iter()
-                .any(|group| group.iter().any(|place| place == left))
     }
 
     pub(super) fn canonicalize(&self, place: &Place) -> Place {
@@ -65,6 +65,62 @@ impl RawCellAddressAliases {
         }
         if out.is_empty() {
             push_unique_place(&mut out, place);
+        }
+        out
+    }
+
+    pub(super) fn prefix_aliases_for(&self, place: &Place) -> Vec<Place> {
+        let mut out = Vec::new();
+        for group in &self.groups {
+            for group_place in group {
+                let Some(suffix) = place_suffix_after_prefix(group_place, place) else {
+                    continue;
+                };
+                for alias in group {
+                    if let Some(prefix) = place_without_suffix(alias, &suffix, place.ty) {
+                        push_unique_place(&mut out, &prefix);
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    pub(super) fn projected_aliases_between(
+        &self,
+        left_base: &Place,
+        right_base: &Place,
+    ) -> Vec<ProjectedRawCellAddressAlias> {
+        let mut out = Vec::new();
+        for group in &self.groups {
+            let left_places = group
+                .iter()
+                .filter_map(|place| {
+                    place_suffix_after_prefix(place, left_base).map(|suffix| (suffix, place.ty))
+                })
+                .collect::<Vec<_>>();
+            if left_places.is_empty() {
+                continue;
+            }
+            let right_places = group
+                .iter()
+                .filter_map(|place| {
+                    place_suffix_after_prefix(place, right_base).map(|suffix| (suffix, place.ty))
+                })
+                .collect::<Vec<_>>();
+            for (left_projection, left_ty) in &left_places {
+                for (right_projection, right_ty) in &right_places {
+                    push_unique_projected_alias(
+                        &mut out,
+                        ProjectedRawCellAddressAlias {
+                            left_projection: left_projection.clone(),
+                            left_ty: *left_ty,
+                            right_projection: right_projection.clone(),
+                            right_ty: *right_ty,
+                        },
+                    );
+                }
+            }
         }
         out
     }
@@ -188,6 +244,33 @@ impl RawCellAddressAliases {
 
 fn groups_overlap(left: &[Place], right: &[Place]) -> bool {
     left.iter().any(|place| right.contains(place))
+}
+
+fn push_unique_projected_alias(
+    aliases: &mut Vec<ProjectedRawCellAddressAlias>,
+    alias: ProjectedRawCellAddressAlias,
+) {
+    if !aliases.iter().any(|existing| existing == &alias) {
+        aliases.push(alias);
+    }
+}
+
+fn place_without_suffix(
+    place: &Place,
+    suffix: &[super::model::PlaceProjection],
+    ty: TypeId,
+) -> Option<Place> {
+    if suffix.len() > place.projections.len() {
+        return None;
+    }
+    let prefix_len = place.projections.len() - suffix.len();
+    if place.projections[prefix_len..] != *suffix {
+        return None;
+    }
+    let mut out = place.clone();
+    out.projections.truncate(prefix_len);
+    out.ty = ty;
+    Some(out)
 }
 
 fn prefer_stable_canonical(group: &mut Vec<Place>) {

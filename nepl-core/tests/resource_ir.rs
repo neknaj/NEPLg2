@@ -245,7 +245,7 @@ fn resource_ir_lowering_preserves_aggregate_and_branch_structure() {
     assert!(ops.iter().any(|op| matches!(
         op,
         ResourceOp::Construct {
-            kind: AggregateKind::Tuple,
+            kind: AggregateKind::Tuple { .. },
             inputs,
             ..
         } if inputs.len() == 2
@@ -258,7 +258,7 @@ fn resource_ir_lowering_preserves_aggregate_and_branch_structure() {
             ..
         } if then_ops.iter().any(|nested| matches!(nested, ResourceOp::Read { .. }))
             && else_ops.iter().any(|nested| matches!(nested, ResourceOp::Construct {
-                kind: AggregateKind::Tuple,
+                kind: AggregateKind::Tuple { .. },
                 ..
             }))
     )));
@@ -999,6 +999,7 @@ fn resource_ir_effect_check_preserves_raw_slot_pointer_alias_stored_in_aggregate
                         output: wrapper,
                         kind: AggregateKind::Struct {
                             name: "PtrBox".to_string(),
+                            field_offsets: vec![0],
                         },
                         inputs: vec![slot.clone()],
                         span,
@@ -1112,6 +1113,7 @@ fn resource_ir_effect_check_preserves_raw_slot_pointer_alias_fields_across_aggre
                         output: wrapper.clone(),
                         kind: AggregateKind::Struct {
                             name: "PtrBox".to_string(),
+                            field_offsets: vec![0],
                         },
                         inputs: vec![slot.clone()],
                         span,
@@ -1505,6 +1507,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_wrapped_in_struct() {
                         output: boxed.clone(),
                         kind: AggregateKind::Struct {
                             name: "RawBox".to_string(),
+                            field_offsets: vec![0],
                         },
                         inputs: vec![raw],
                         span,
@@ -1584,6 +1587,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_read_from_constructed_aggre
                         output: boxed,
                         kind: AggregateKind::Struct {
                             name: "RawBox".to_string(),
+                            field_offsets: vec![0],
                         },
                         inputs: vec![raw],
                         span,
@@ -1669,6 +1673,7 @@ fn resource_ir_effect_check_preserves_raw_identity_fields_across_aggregate_copy(
                         output: boxed.clone(),
                         kind: AggregateKind::Struct {
                             name: "RawBox".to_string(),
+                            field_offsets: vec![0],
                         },
                         inputs: vec![raw],
                         span,
@@ -1983,6 +1988,7 @@ fn resource_ir_effect_check_uses_known_function_alias_stored_in_aggregate_field(
                             output: wrapper,
                             kind: AggregateKind::Struct {
                                 name: "CallbackBox".to_string(),
+                                field_offsets: vec![0],
                             },
                             inputs: vec![function_value],
                             span,
@@ -3568,6 +3574,7 @@ fn resource_ir_cell_check_preserves_raw_address_stored_in_aggregate_field() {
                 output: wrapper.clone(),
                 kind: AggregateKind::Struct {
                     name: "PtrBox".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![ptr.clone()],
                 span,
@@ -3633,6 +3640,7 @@ fn resource_ir_cell_check_raw_memory_call_does_not_consume_store_value_twice() {
                 output: value.clone(),
                 kind: AggregateKind::Struct {
                     name: "Owned".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![],
                 span,
@@ -4042,6 +4050,7 @@ fn resource_ir_cell_check_allows_field_read_from_constructed_aggregate() {
                 output: owned.clone(),
                 kind: AggregateKind::Struct {
                     name: "Owned".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![],
                 span,
@@ -4050,6 +4059,7 @@ fn resource_ir_cell_check_allows_field_read_from_constructed_aggregate() {
                 output: wrapper,
                 kind: AggregateKind::Struct {
                     name: "Wrapper".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![owned],
                 span,
@@ -4104,6 +4114,7 @@ fn resource_ir_cell_check_reports_return_after_field_move() {
                         output: owned.clone(),
                         kind: AggregateKind::Struct {
                             name: "Owned".to_string(),
+                            field_offsets: vec![0],
                         },
                         inputs: vec![],
                         span,
@@ -4112,6 +4123,7 @@ fn resource_ir_cell_check_reports_return_after_field_move() {
                         output: wrapper.clone(),
                         kind: AggregateKind::Struct {
                             name: "Wrapper".to_string(),
+                            field_offsets: vec![0],
                         },
                         inputs: vec![owned],
                         span,
@@ -4181,6 +4193,7 @@ fn resource_ir_cell_check_reports_field_read_after_aggregate_move() {
                 output: owned.clone(),
                 kind: AggregateKind::Struct {
                     name: "Owned".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![],
                 span,
@@ -4189,6 +4202,7 @@ fn resource_ir_cell_check_reports_field_read_after_aggregate_move() {
                 output: wrapper.clone(),
                 kind: AggregateKind::Struct {
                     name: "Wrapper".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![owned],
                 span,
@@ -4226,7 +4240,7 @@ fn resource_ir_owner_check_accepts_deallocated_alloc() {
     let module = raw_owner_module(types.unit(), types.i32(), span, 1);
 
     let resource = lower_hir_module_skeleton(&module);
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -4275,7 +4289,7 @@ fn resource_ir_owner_check_allows_raw_pointer_read_before_dealloc() {
         ],
     );
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -4297,7 +4311,7 @@ fn resource_ir_owner_check_allows_unmanaged_fixed_address_dealloc_without_owner(
         }],
     );
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -4339,7 +4353,7 @@ fn resource_ir_owner_check_reports_stale_owned_alias_dealloc_after_free() {
         ],
     );
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerUnavailable {
@@ -4397,7 +4411,7 @@ fn resource_ir_owner_check_reports_assign_over_live_owner_leak() {
         ],
     );
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerLeaked {
@@ -4449,6 +4463,7 @@ fn resource_ir_owner_check_reports_assign_over_aggregate_field_owner_leak() {
                 output: wrapper.clone(),
                 kind: AggregateKind::Struct {
                     name: "Wrapper".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![old_ptr],
                 span,
@@ -4463,6 +4478,7 @@ fn resource_ir_owner_check_reports_assign_over_aggregate_field_owner_leak() {
                 output: replacement.clone(),
                 kind: AggregateKind::Struct {
                     name: "Wrapper".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![new_ptr],
                 span,
@@ -4481,7 +4497,7 @@ fn resource_ir_owner_check_reports_assign_over_aggregate_field_owner_leak() {
         ],
     );
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerLeaked {
@@ -4499,7 +4515,7 @@ fn resource_ir_owner_check_reports_leaked_alloc() {
     let module = raw_owner_module(types.unit(), types.i32(), span, 0);
 
     let resource = lower_hir_module_skeleton(&module);
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerLeaked {
@@ -4517,7 +4533,7 @@ fn resource_ir_owner_check_reports_double_dealloc() {
     let module = raw_owner_module(types.unit(), types.i32(), span, 2);
 
     let resource = lower_hir_module_skeleton(&module);
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerUnavailable {
@@ -4593,7 +4609,7 @@ fn resource_ir_owner_check_reports_helper_alloc_return_leak() {
         string_literals: vec![],
     };
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerLeaked {
@@ -4682,7 +4698,7 @@ fn resource_ir_owner_check_transfers_owner_returned_by_helper() {
         string_literals: vec![],
     };
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -4717,6 +4733,7 @@ fn resource_ir_owner_check_does_not_freshen_recursive_copy_summary() {
                     ops: vec![ResourceOp::Branch {
                         output: branch_output.clone(),
                         condition,
+                        condition_fact: None,
                         then_ops: vec![],
                         then_value: helper_param.clone(),
                         else_ops: vec![ResourceOp::Call {
@@ -4774,7 +4791,7 @@ fn resource_ir_owner_check_does_not_freshen_recursive_copy_summary() {
         string_literals: vec![],
     };
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -4852,7 +4869,7 @@ fn resource_ir_owner_check_consumes_non_returned_owner_call_argument() {
         string_literals: vec![],
     };
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -4936,7 +4953,7 @@ fn resource_ir_owner_check_lets_direct_raw_memory_op_consume_argument() {
         string_literals: vec![],
     };
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -5014,7 +5031,7 @@ fn resource_ir_owner_check_reports_function_value_alloc_return_leak() {
         string_literals: vec![],
     };
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerLeaked {
@@ -5099,6 +5116,7 @@ fn resource_ir_owner_check_reports_function_value_stored_in_aggregate_field_allo
                             output: wrapper,
                             kind: AggregateKind::Struct {
                                 name: "CallbackBox".to_string(),
+                                field_offsets: vec![0],
                             },
                             inputs: vec![function_value],
                             span,
@@ -5126,7 +5144,7 @@ fn resource_ir_owner_check_reports_function_value_stored_in_aggregate_field_allo
         string_literals: vec![],
     };
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerLeaked {
@@ -5224,7 +5242,7 @@ fn resource_ir_owner_check_transfers_owner_returned_by_function_value() {
         string_literals: vec![],
     };
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -5267,7 +5285,7 @@ fn resource_ir_owner_check_transfers_owner_returned_by_unknown_callback() {
         ],
     );
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -5303,6 +5321,7 @@ fn resource_ir_owner_check_moves_owner_into_constructed_aggregate() {
                 output: wrapper,
                 kind: AggregateKind::Struct {
                     name: "Wrapper".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![p.clone()],
                 span,
@@ -5316,7 +5335,7 @@ fn resource_ir_owner_check_moves_owner_into_constructed_aggregate() {
         ],
     );
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerUnavailable {
@@ -5376,6 +5395,7 @@ fn resource_ir_owner_check_moves_aggregate_owner_projection() {
                 output: wrapper.clone(),
                 kind: AggregateKind::Struct {
                     name: "Wrapper".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![p],
                 span,
@@ -5400,7 +5420,7 @@ fn resource_ir_owner_check_moves_aggregate_owner_projection() {
         ],
     );
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerUnavailable {
@@ -5460,6 +5480,7 @@ fn resource_ir_owner_check_reports_aggregate_owner_return_leak_in_caller() {
                             output: helper_wrapper.clone(),
                             kind: AggregateKind::Struct {
                                 name: "Wrapper".to_string(),
+                                field_offsets: vec![0],
                             },
                             inputs: vec![helper_ptr],
                             span,
@@ -5504,7 +5525,7 @@ fn resource_ir_owner_check_reports_aggregate_owner_return_leak_in_caller() {
         string_literals: vec![],
     };
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerLeaked {
@@ -5585,6 +5606,7 @@ fn resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_hel
                             output: wrapper.clone(),
                             kind: AggregateKind::Struct {
                                 name: "Wrapper".to_string(),
+                                field_offsets: vec![0],
                             },
                             inputs: vec![p],
                             span,
@@ -5619,8 +5641,271 @@ fn resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_hel
         string_literals: vec![],
     };
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
+fn resource_ir_owner_check_refines_zero_alloc_result_branch() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+fn alloc_result <()*>Result<i32, str>> ():
+    let p <i32> alloc_raw 4
+    if:
+        eq p 0
+        then:
+            err<i32, str> "oom"
+        else:
+            ok<i32, str> p
+
+fn main <()*>()> ():
+    match alloc_result:
+        Result::Ok p:
+            dealloc_raw p 4
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("alloc_result__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "zero alloc failure branch must not leak the nonzero owner: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/result" as *
+
+struct Boxed:
+    ptr <i32>
+
+fn make_box <()*>Result<Boxed, str>> ():
+    let p <i32> alloc_raw 4
+    if:
+        eq p 0
+        then:
+            err<Boxed, str> "oom"
+        else:
+            ok<Boxed, str> Boxed p
+
+fn unwrap_box <(Result<Boxed, str>)*>Boxed> (r):
+    match r:
+        Result::Ok box:
+            box
+        Result::Err _e:
+            #intrinsic "unreachable" <> ()
+
+fn main <()*>()> ():
+    let box <Boxed> unwrap_box make_box;
+    dealloc_raw field::get box "ptr" 4
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("make_box__")
+                || function.starts_with("unwrap_box__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Result::Ok field owner must move through match bind and call return summary: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_preserves_alloc_ptr_raw_owner_return() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+fn alloc_addr <()*>Result<i32, str>> ():
+    match alloc_ptr<u8> 8:
+        Result::Err _e:
+            err<i32, str> "oom"
+        Result::Ok node_ptr:
+            ok<i32, str> mem_ptr_addr node_ptr
+
+fn main <()*>()> ():
+    match alloc_addr:
+        Result::Ok p:
+            dealloc_raw p 8
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("alloc_addr__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "alloc_ptr MemPtr owner must transfer through mem_ptr_addr into Result::Ok raw address: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_moves_stored_tail_owner_under_new_raw_node() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/result" as *
+
+struct List:
+    ptr <i32>
+
+fn cons <(List)*>Result<List, str>> (tail):
+    let tail_ptr <i32> field::get tail "ptr"
+    let node <i32> alloc_raw 8
+    if:
+        lt 0 node
+        then:
+            store_i32 add node 4 tail_ptr
+            ok<List, str> List node
+        else:
+            err<List, str> "oom"
+
+fn main <()*>()> ():
+    let tail_ptr <i32> alloc_raw 4
+    let tail <List> List tail_ptr
+    match cons tail:
+        Result::Ok ready:
+            let raw <i32> field::get ready "ptr"
+            let next <i32> load_i32 add raw 4
+            dealloc_raw next 4
+            dealloc_raw raw 8
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("cons__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "owner stored into a raw node field must move under the new raw storage owner: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_consumes_only_used_aggregate_owner_projection() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct Pair:
+    left <i32>
+    right <i32>
+
+fn consume_left_return_right <(Pair)*>i32> (pair):
+    dealloc_raw field::get pair "left" 4
+    field::get pair "right"
+
+fn main <()*>()> ():
+    let left <i32> alloc_raw 4
+    let right <i32> alloc_raw 4
+    let pair <Pair> Pair left right
+    let retained <i32> consume_left_return_right pair
+    dealloc_raw retained 4
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("consume_left_return_right__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "aggregate call summary must consume only the owner projection not returned to the caller: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
 }
 
 #[test]
@@ -6344,6 +6629,7 @@ fn resource_ir_cell_merge_reports_moved_on_one_branch() {
                 output: init.clone(),
                 kind: AggregateKind::Struct {
                     name: "Owned".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![],
                 span,
@@ -6363,6 +6649,7 @@ fn resource_ir_cell_merge_reports_moved_on_one_branch() {
             ResourceOp::Branch {
                 output: branch_output,
                 condition: cond,
+                condition_fact: None,
                 then_ops: vec![
                     ResourceOp::Read {
                         source: x.clone(),
@@ -6427,6 +6714,7 @@ fn resource_ir_cell_merge_reports_moved_after_loop_body() {
                 output: init.clone(),
                 kind: AggregateKind::Struct {
                     name: "Owned".to_string(),
+                    field_offsets: vec![0],
                 },
                 inputs: vec![],
                 span,
@@ -6499,6 +6787,7 @@ fn resource_ir_owner_merge_rejects_dealloc_after_conditional_dealloc() {
             ResourceOp::Branch {
                 output: branch_output,
                 condition: cond,
+                condition_fact: None,
                 then_ops: vec![ResourceOp::RawMemory {
                     operation: RawMemoryOp::Dealloc,
                     output: Place::temporary(ResourceId(5), unit_ty),
@@ -6519,7 +6808,7 @@ fn resource_ir_owner_merge_rejects_dealloc_after_conditional_dealloc() {
         ],
     );
 
-    let report = check_resource_owner_obligations(&resource);
+    let report = check_resource_owner_obligations(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceOwnerDiagnostic::OwnerUnavailable {
@@ -6553,6 +6842,7 @@ fn resource_ir_borrow_merge_rejects_mutation_after_branch_borrow() {
             ResourceOp::Branch {
                 output: branch_output,
                 condition: cond,
+                condition_fact: None,
                 then_ops: vec![ResourceOp::Borrow {
                     source: x.clone(),
                     output: shared,
@@ -6899,6 +7189,98 @@ fn main <()->i32> ():
         read_check_diagnostics.is_empty(),
         "direct raw address arithmetic must preserve the external storage root: {:#?}\nresource:\n{}",
         read_check_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_preserves_external_raw_address_field_load() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct List<.T>:
+    ptr <i32>
+
+fn read_head <.T> <(List<.T>)->.T> (lst):
+    let lst_ptr <i32> field::get lst "ptr"
+    load<.T> lst_ptr
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let read_head_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "read_head" || function.starts_with("read_head__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        read_head_diagnostics.is_empty(),
+        "raw address field read from an external aggregate must alias initialized backing storage: {:#?}\nresource:\n{}",
+        read_head_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_preserves_result_payload_raw_address_field() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/result" as *
+
+struct Boxed:
+    ptr <i32>
+
+fn pass <(Boxed)->Result<Boxed, str>> (box):
+    ok<Boxed, str> box
+
+fn read_after_result <(Boxed)->i32> (box):
+    match pass box:
+        Result::Ok ready:
+            let ptr <i32> field::get ready "ptr"
+            load_i32 ptr
+        Result::Err _e:
+            0
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "read_after_result" || function.starts_with("read_after_result__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Result::Ok payload bind must preserve raw address field aliases: {:#?}\nresource:\n{}",
+        diagnostics,
         resource.dump_text()
     );
 }

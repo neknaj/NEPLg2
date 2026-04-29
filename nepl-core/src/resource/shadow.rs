@@ -17,7 +17,7 @@ pub fn check_hir_resource_safety_shadow(
     ResourceSafetyShadowReport {
         lowering_coverage: compare_hir_resource_lowering_typed(module, &resource, types),
         initialized_moves: check_resource_initialized_moves(&resource, types),
-        owner_obligations: check_resource_owner_obligations(&resource),
+        owner_obligations: check_resource_owner_obligations(&resource, types),
         borrow_lifetimes: check_resource_borrow_lifetimes(&resource),
         effect_boundaries: check_resource_effect_boundaries(&resource),
     }

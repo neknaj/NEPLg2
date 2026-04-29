@@ -60,3 +60,29 @@ cargo test -p nepl-core --test neplg2 generic_intrinsic_store_load_struct_preser
 - `cargo test -p nepl-core --test neplg2 generic_ -- --nocapture`: 8 passed
 
 collection 系の `List` / `HashMap` `RawMemoryLoadCell ... found Uninit` はこの test helper leak とは別の stdlib raw-memory-backed collection / Resource IR lowering 問題として残る。stdlib 側修正は別作業方針のため、この commit では generic aggregate subcase のみを整理する。
+
+## 2026-04-29 Resource IR projection/raw owner subcase 追記
+
+関連計画: `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 Resource check。
+
+generic aggregate subcase の後に残っていた Resource IR 側の誤検出を再調査し、所有者 summary と raw alias が root だけを前提にしていたことを確認した。
+
+修正した根本原因:
+
+- owner return summary を `TypeCtx` ベースにし、struct / tuple / enum / Apply の所有者 leaf projection を構造的に列挙するようにした。
+- `Result::Ok(Boxed).ptr` のような parameter projection 由来の返却と、返却されず消費された projection を区別した。これにより aggregate の一部だけを消費した関数が caller 側で aggregate 全体を消費する誤りを防ぐ。
+- aggregate construct の Resource IR が struct / tuple field offset を 0 固定で作っていたため、field access 側の正しい offset と所有者 place が一致していなかった。`AggregateKind` に field offset を持たせ、construct / alias / owner / initialized / effect 系で同じ projection を使うようにした。
+- match bind は enum payload の親 place を move するが、raw alias は payload 内 field leaf だけを持つことがある。leaf alias から親 prefix alias を復元して、payload 全体の move が field owner を正しく移動できるようにした。
+- `alloc_raw` の zero / non-zero 分岐について、`eq/ne/lt/le/gt/ge` から `EqZero` / `NeZero` / `Positive` / `NonPositive` の enum fact を Lowering で作り、到達不能な owner obligation を分岐ごとに落とすようにした。
+- raw memory `store` / `load` で owner を raw cell へ移動し、cell から戻すようにした。collection node に格納した tail owner を後で load/free できる focused regression を追加した。
+
+検証:
+
+- `cargo check -p nepl-core --tests`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 26 passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_ -- --nocapture`: 12 passed
+- `cargo test -p nepl-core --test neplg2 generic_ -- --nocapture`: 8 passed
+
+残件:
+
+- `list_get_out_of_bounds_err` と HashMap 系の残りは、Resource IR が raw cell owner を追跡できるようになったことで表面化した stdlib の fallible owning collection contract 問題として `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` に分離した。

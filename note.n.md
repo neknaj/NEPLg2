@@ -1,3 +1,29 @@
+# 2026-04-29 メモ (ISS-20260429T071452715Z Resource IR projection owner/raw alias)
+
+- [同期]:
+  - `work/resource-ir-collection-field-raw-root` branch で Stage 4 Resource check の続行作業を行った。
+- [原因]:
+  - owner return summary が root owner を中心にしており、`Result::Ok(Boxed).ptr` や aggregate field owner の返却/消費を projection 単位で表せなかった。
+  - Resource IR の aggregate construct が struct / tuple field offset を 0 固定で作り、field access 側の正しい offset と所有者 place が一致していなかった。
+  - match bind は enum payload の親 place を move するが、raw alias は payload 内 field leaf のみを持つ場合があり、親 prefix alias を復元できなかった。
+  - raw memory store/load が owner を raw cell へ移動しなかったため、collection node に格納された owner の寿命を検査できなかった。
+- [修正]:
+  - owner summary を `TypeCtx` ベースの structural leaf projection summary に変更し、返却 projection と消費 projection を別々に管理した。
+  - `AggregateKind` に field offset を保持させ、construct / function alias / initialized alias / owner / effect identity が同じ projection を共有するようにした。
+  - raw alias から prefix alias を復元する経路を追加し、enum payload bind の親 move が field owner を正しく移動するようにした。
+  - branch condition fact を enum 化し、zero / positive / non-positive 分岐で非所有 raw address owner を落とすようにした。
+  - raw memory store/load で owner を cell へ移動し、load で output に戻すようにした。
+  - List/HashMap の再確認中に先に表面化した `concat_result` の output region owner leak を `ISS-20260429T122447197Z-STRING-CONCAT-RESULT-LEAKS-OUTPUT-RE-3AA183DE` として追加した。
+  - List/HashMap 固有の残りは stdlib の fallible owning collection contract 問題として `ISS-20260429T120339805Z-FALLIBLE-OWNING-COLLECTION-UPDATES-L-21EF56CB` を追加した。
+- [検証]:
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 26 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_ -- --nocapture`: 12 passed
+  - `cargo test -p nepl-core --test neplg2 generic_ -- --nocapture`: 8 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 Resource check の Resource IR false positive を整理し、stdlib collection の API 契約問題を別 issue に分離した。
+
 # 2026-04-29 メモ (ISS-20260429T071452715Z generic aggregate owner obligation)
 
 - [同期]:
