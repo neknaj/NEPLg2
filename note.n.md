@@ -25316,3 +25316,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の parser direct diagnostics 移行を完了させた。
+
+# 2026-04-29 メモ (ISS-20260429T040748194Z prefix function value/reference diagnostic code-first)
+
+- [原因]:
+  - `typecheck/prefix_check.rs` の関数値選択経路に、function value capture、`@` function reference、variable type argument、expected function value overload ambiguity の `Diagnostic::error(...).with_code(...)` が残っていた。
+  - prefix expression は、関数を値として扱えるか、変数を callable として参照していないか、型引数を渡せる対象かを決める境界なので、diagnostic code を後付けにしない。
+- [修正]:
+  - 対象診断を `type_error(TypeDiagnosticCode::...)` helper 経由へ移行した。
+  - Rust regression で `FunctionValueCapturingUnsupported`、`FunctionRefRequiresCallable`、`VariableTypeArgsNotAllowed` の enum code を直接確認するようにした。
+  - `tests/compiler/functions.n.md` に function value capture、function ref requires callable、variable type args not allowed の stable `diag_code` regression を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test functions has_type_code -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `trunk build`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/functions.n.md -n 18 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/functions.n.md -n 19 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/compiler/functions.n.md -n 20 --dist web/dist`: pass
+  - `node nodesrc/issues.js check`: pass
+  - `git diff --check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 の prefix function value/reference boundary 移行を進めた。

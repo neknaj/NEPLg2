@@ -201,6 +201,53 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn function_value_capture_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn main <()->i32> ():
+    let y <i32> 10;
+    fn add_y <(i32)->i32> (x):
+        add x y
+    let f @add_y;
+    f 5
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::FunctionValueCapturingUnsupported);
+}
+
+#[test]
+fn function_ref_requires_callable_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    let x <i32> 1;
+    let f @x;
+    0
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::FunctionRefRequiresCallable);
+}
+
+#[test]
+fn variable_type_args_not_allowed_has_type_code() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <()->i32> ():
+    let x <i32> 1;
+    x<i32>
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::VariableTypeArgsNotAllowed);
+}
+
+#[test]
 fn function_literal() {
     let src = r#"
 #entry main

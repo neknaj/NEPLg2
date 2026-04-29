@@ -409,3 +409,21 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 - `node nodesrc/run_doctest.js -i tests/compiler/block_semicolon_return.n.md -n 5 --dist web/dist`: pass。`type.stack.extra_values` が出ることを確認した。
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-04-29 Stage D1 prefix function value/reference boundary follow-up 追記
+
+`typecheck/prefix_check.rs` には function value capture、`@` function reference、variable type argument、expected function value overload ambiguity の診断で `Diagnostic::error(...).with_code(...)` が残っていた。prefix expression の関数値選択は、関数を値として扱えるか、変数を callable として参照していないか、型引数を渡せる対象かを決める型安全境界なので、diagnostic code を後付けにしない。
+
+今回の対応で `FunctionValueCapturingUnsupported`、`FunctionRefRequiresCallable`、`VariableTypeArgsNotAllowed`、`OverloadAmbiguous` を `type_error(...)` helper 経由へ移行した。Rust 回帰テストでは enum code を直接確認し、Markdown doctest では stable string `diag_code` を固定した。`prefix_check.rs` には trait method、resolve、shadow、intrinsic、pipe などの直接診断がまだ残るため、別 boundary として継続する。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core --test functions has_type_code -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `trunk build`: pass
+- `node nodesrc/run_doctest.js -i tests/compiler/functions.n.md -n 18 --dist web/dist`: pass。`type.function_value.capturing_unsupported` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/functions.n.md -n 19 --dist web/dist`: pass。`type.function_ref.requires_callable` が出ることを確認した。
+- `node nodesrc/run_doctest.js -i tests/compiler/functions.n.md -n 20 --dist web/dist`: pass。`type.variable.type_args_not_allowed` が出ることを確認した。
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

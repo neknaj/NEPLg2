@@ -7,12 +7,13 @@ use alloc::vec::Vec;
 
 use crate::ast::{Effect, Ident, Literal, PrefixExpr, PrefixItem, Symbol};
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic_codes::DiagnosticCode;
+use crate::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::types::{TypeId, TypeKind};
 
 use super::binding_rules::{emit_shadow_warning, shadow_blocked_by_nonshadow};
+use super::diagnostics::type_error;
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::{parse_i32_literal, parse_variant_name};
 use super::type_expr::type_from_expr;
@@ -290,18 +291,20 @@ impl<'a> BlockChecker<'a> {
                                     match &binding.kind {
                                         BindingKind::Func { captures, .. } => {
                                             if !captures.is_empty() {
-                                                self.diagnostics.push(Diagnostic::error(
+                                                self.diagnostics.push(type_error(
+                                                    TypeDiagnosticCode::FunctionValueCapturingUnsupported,
                                                     "capturing function cannot be used as a function value yet",
                                                     id.span,
-                                                ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionValueCapturingUnsupported)));
+                                                ));
                                                 return None;
                                             }
                                         }
                                         _ => {
-                                            self.diagnostics.push(Diagnostic::error(
+                                            self.diagnostics.push(type_error(
+                                                TypeDiagnosticCode::FunctionRefRequiresCallable,
                                                 "only callable symbols can be referenced with '@'",
                                                 id.span,
-                                            ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionRefRequiresCallable)));
+                                            ));
                                             return None;
                                         }
                                     }
@@ -338,15 +341,11 @@ impl<'a> BlockChecker<'a> {
                                     }
                                     _ => {
                                         if !type_args.is_empty() {
-                                            self.diagnostics.push(
-                                                Diagnostic::error(
-                                                    "type arguments are not allowed for variables",
-                                                    id.span,
-                                                )
-                                                .with_code(
-                                                    DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::VariableTypeArgsNotAllowed),
-                                                ),
-                                            );
+                                            self.diagnostics.push(type_error(
+                                                TypeDiagnosticCode::VariableTypeArgsNotAllowed,
+                                                "type arguments are not allowed for variables",
+                                                id.span,
+                                            ));
                                         }
                                         Vec::new()
                                     }
@@ -447,13 +446,11 @@ impl<'a> BlockChecker<'a> {
                                             ));
                                         }
                                     } else if !type_args.is_empty() {
-                                        self.diagnostics.push(
-                                            Diagnostic::error(
-                                                "type arguments are not allowed for variables",
-                                                id.span,
-                                            )
-                                            .with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::VariableTypeArgsNotAllowed)),
-                                        );
+                                        self.diagnostics.push(type_error(
+                                            TypeDiagnosticCode::VariableTypeArgsNotAllowed,
+                                            "type arguments are not allowed for variables",
+                                            id.span,
+                                        ));
                                     }
                                     let ty = binding.ty;
                                     let hir_kind = match &binding.kind {
@@ -552,22 +549,19 @@ impl<'a> BlockChecker<'a> {
                                         .find(|b| matches!(b.kind, BindingKind::Var))
                                     {
                                         if *forced_value {
-                                            self.diagnostics.push(Diagnostic::error(
-                                            "only callable symbols can be referenced with '@'",
-                                            id.span,
-                                        ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionRefRequiresCallable)));
+                                            self.diagnostics.push(type_error(
+                                                TypeDiagnosticCode::FunctionRefRequiresCallable,
+                                                "only callable symbols can be referenced with '@'",
+                                                id.span,
+                                            ));
                                             return None;
                                         }
                                         if !type_args.is_empty() {
-                                            self.diagnostics.push(
-                                                Diagnostic::error(
-                                                    "type arguments are not allowed for variables",
-                                                    id.span,
-                                                )
-                                                .with_code(
-                                                    DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::VariableTypeArgsNotAllowed),
-                                                ),
-                                            );
+                                            self.diagnostics.push(type_error(
+                                                TypeDiagnosticCode::VariableTypeArgsNotAllowed,
+                                                "type arguments are not allowed for variables",
+                                                id.span,
+                                            ));
                                         }
                                         let ty = binding.ty;
                                         stack.push(StackEntry {
@@ -645,10 +639,11 @@ impl<'a> BlockChecker<'a> {
                                                         } = &binding.kind
                                                         {
                                                             if !captures.is_empty() {
-                                                                self.diagnostics.push(Diagnostic::error(
-                                                            "capturing function cannot be used as a function value yet",
-                                                            id.span,
-                                                        ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionValueCapturingUnsupported)));
+                                                                self.diagnostics.push(type_error(
+                                                                    TypeDiagnosticCode::FunctionValueCapturingUnsupported,
+                                                                    "capturing function cannot be used as a function value yet",
+                                                                    id.span,
+                                                                ));
                                                                 return None;
                                                             }
                                                         }
@@ -687,15 +682,11 @@ impl<'a> BlockChecker<'a> {
                                                         Some(stack.last().unwrap().expr.clone());
                                                     continue;
                                                 } else if arity_candidates.len() > 1 {
-                                                    self.diagnostics.push(
-                                                        Diagnostic::error(
-                                                            "ambiguous overload",
-                                                            id.span,
-                                                        )
-                                                        .with_code(
-                                                            DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::OverloadAmbiguous),
-                                                        ),
-                                                    );
+                                                    self.diagnostics.push(type_error(
+                                                        TypeDiagnosticCode::OverloadAmbiguous,
+                                                        "ambiguous overload",
+                                                        id.span,
+                                                    ));
                                                     return None;
                                                 }
                                             }
@@ -732,10 +723,11 @@ impl<'a> BlockChecker<'a> {
                                         )
                                     });
                                         if *forced_value && has_captures {
-                                            self.diagnostics.push(Diagnostic::error(
-                                            "capturing function cannot be used as a function value yet",
-                                            id.span,
-                                        ).with_code(DiagnosticCode::Type(crate::diagnostic_codes::TypeDiagnosticCode::FunctionValueCapturingUnsupported)));
+                                            self.diagnostics.push(type_error(
+                                                TypeDiagnosticCode::FunctionValueCapturingUnsupported,
+                                                "capturing function cannot be used as a function value yet",
+                                                id.span,
+                                            ));
                                             return None;
                                         }
                                         let mut explicit_args = Vec::new();

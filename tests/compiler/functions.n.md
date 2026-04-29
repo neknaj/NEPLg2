@@ -358,6 +358,7 @@ fn main <()->i32> ():
 ## function_value_capture_not_supported_yet
 
 neplg2:test[compile_fail]
+diag_code: type.function_value.capturing_unsupported
 ```neplg2
 
 #entry main
@@ -371,6 +372,37 @@ fn main <()->i32> ():
         add x y
     let f @add_y;
     f 5
+```
+
+## function_ref_requires_callable_reports_diag_code
+
+neplg2:test[compile_fail]
+diag_code: type.function_ref.requires_callable
+```neplg2
+
+#entry main
+#indent 4
+#target core
+
+fn main <()->i32> ():
+    let x <i32> 1;
+    let f @x;
+    0
+```
+
+## variable_type_args_not_allowed_reports_diag_code
+
+neplg2:test[compile_fail]
+diag_code: type.variable.type_args_not_allowed
+```neplg2
+
+#entry main
+#indent 4
+#target core
+
+fn main <()->i32> ():
+    let x <i32> 1;
+    x<i32>
 ```
 
 ## function_value_capture_not_supported_without_at
