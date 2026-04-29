@@ -27405,3 +27405,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正 Stage 4 の ResourceIR owner checker を、flow / return summary application / summary record の分離境界へ戻した。
+
+# 2026-04-30 メモ (ISS-20260429T211515214Z List map/filter owner flow)
+
+- [同期]:
+  - main の `44801df` から `stdlib/list-map-filter-owner-flow` branch を作成して継続した。
+  - commit 前に remote main の `4bf1ac3` へ rebase し、`dbb9e13` / `2a6215f` / `4bf1ac3` の別 agent 変更を取り込んだ。
+  - pre-change では `stdlib/tests/list.n.md::doctest#2` と `tests/stdlib/list_collections.n.md::doctest#3` が ResourceIR verification で timeout していた。
+- [原因]:
+  - 旧 `list_map_impl` / `list_filter_impl` は `i32` raw node pointer を再帰でたどり、tail を先に構築してから head node を raw allocation で積み戻していた。
+  - 入力 `List` owner の消費、部分結果 owner、allocation failure 時の解放責務が型構造として表れず、ResourceIR が raw-node ownership path を検査しきれなかった。
+  - loop 化だけでは `failed` flag と accumulator owner state の相関が静的検査に伝わらず、`acc` の maybe leak として検出された。
+- [修正]:
+  - `map` / `filter` を、入力 `List` owner を消費しながら前方走査する実装へ変更した。
+  - 結果は `List` owner accumulator へ先頭追加し、走査完了後に `reverse` して元順序へ戻す。
+  - `list_cons_owned` を追加し、accumulator tail を消費して node を追加し、allocation failure 時は tail owner を関数内で閉じる契約にした。
+  - ResourceIR が bool correlation に依存しなくても通るよう、失敗側でも `free acc` を明示した。実行時 failure path では `acc` を空 List に戻しているため no-op。
+  - 現行 List は payload drop traversal をまだ持たないため、`map` / `filter` は `.T: Copy` / `.U: Copy` に限定した。
+  - `nodesrc/test_stdlib_list_no_unsafe_unwraps.js` に、raw recursive rebuild / raw accumulator pointer へ戻らない source policy を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/list.n.md --no-tree -o tmp/list-functional-after-owned-acc.json -j 1 --dist web/dist`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/list_collections.n.md --no-tree -o tmp/list-collections-after-owned-acc.json -j 1 --dist web/dist`: `total=3`, `passed=3`
+  - rebase 後に `node nodesrc/tests.js -i stdlib/tests/list.n.md --no-tree -o tmp/list-functional-after-rebase.json -j 1 --dist web/dist`: `total=2`, `passed=2`
+  - rebase 後に `node nodesrc/tests.js -i tests/stdlib/list_collections.n.md --no-tree -o tmp/list-collections-after-rebase.json -j 1 --dist web/dist`: `total=3`, `passed=3`
+- [issue]:
+  - `ISS-20260429T211515214Z-LIST-MAP-AND-FILTER-RAW-NODE-TRAVERS-C52D497C` を verified/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の stdlib owner visibility に合わせ、List functional helpers を raw node traversal から owner flow が見える構造へ変更した。

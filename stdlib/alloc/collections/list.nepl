@@ -231,6 +231,31 @@ fn cons <.T> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
         Result::Err e:
             err<List<.T>, Diag> e
 
+//: ## list_cons_owned
+//: [既存/きそん]の tail owner を[消費/しょうひ]して[先頭/せんとう]へ node を[追加/ついか]する[内部/ないぶ][関数/かんすう]
+//:
+//: ### [目的/もくてき]
+//: - `map` / `filter` の accumulator [構築/こうちく]で、tail の[所有権/しょゆうけん]を[明示/めいじ]して[先頭/せんとう][追加/ついか]します。
+//:
+//: ### [実装/じっそう]
+//: - node [確保/かくほ]に[成功/せいこう]したら、tail の raw pointer を next に[保持/ほじ]する `List` を[返/かえ]します。
+//: - node [確保/かくほ]に[失敗/しっぱい]したら、[受/う]け[取/と]った tail owner を[解放/かいほう]してから `Diag` を[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [公開/こうかい] API の `cons` と[違/ちが]い、失敗時に tail を[消費/しょうひ]します。
+//: - [呼/よ]び[出/だ]し[側/がわ]は `Result::Err` [後/ご]に tail を[再利用/さいりよう]してはいけません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+fn list_cons_owned <.T> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
+    let tail_ptr <i32> field::get tail "ptr"
+    match list_alloc_node<.T> head tail_ptr:
+        Result::Ok node:
+            ok<List<.T>, Diag> List node
+        Result::Err e:
+            free<.T> tail
+            err<List<.T>, Diag> e
+
 //: ## push
 //: pipe [向/む]けに[先頭/せんとう][追加/ついか]する
 //:
@@ -562,52 +587,75 @@ fn reverse <.T> <(List<.T>)*>List<.T>> (lst):
             set cur next_ptr
     List prev
 
-fn list_map_impl <.T,.U> <(i32, (.T)->.U)*>Result<List<.U>, Diag>> (lst_ptr, f):
+fn list_map_impl <.T: Copy,.U: Copy> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, f):
+    let node_size <i32> add size_of<.T> 4
+    let mut cur <i32> field::get lst "ptr"
+    let mut acc <List<.U>> List<.U> 0
+    let mut failed <bool> false
+    while and ne cur 0 not failed:
+        do:
+            let next_ptr <i32> load_i32 add cur size_of<.T>
+            let mapped_head <.U> f load<.T> cur
+            match list_cons_owned<.U> mapped_head acc:
+                Result::Ok next_acc:
+                    dealloc_raw cur node_size
+                    set acc next_acc
+                    set cur next_ptr
+                Result::Err _e:
+                    dealloc_raw cur node_size
+                    free<.T> List<.T> next_ptr
+                    set acc List<.U> 0
+                    set failed true
+                    set cur 0
     if:
         cond:
-            eq lst_ptr 0
+            failed
         then:
-            ok<List<.U>, Diag> List 0
+            free<.U> acc
+            diag_err<List<.U>> diag_out_of_memory
         else:
-            let next_ptr <i32> load_i32 add lst_ptr size_of<.T>
-            match list_map_impl<.T,.U> next_ptr f:
-                Result::Ok mapped_tail:
-                    let mapped_head <.U> f load<.T> lst_ptr
-                    let mapped_tail_ptr <i32> field::get mapped_tail "ptr"
-                    match list_alloc_node<.U> mapped_head mapped_tail_ptr:
-                        Result::Ok node:
-                            ok<List<.U>, Diag> List node
-                        Result::Err e:
-                            free<.U> mapped_tail
-                            err<List<.U>, Diag> e
-                Result::Err e:
-                    err<List<.U>, Diag> e
+            let out <List<.U>> reverse<.U> acc
+            set acc List<.U> 0
+            ok<List<.U>, Diag> out
 
-fn list_filter_impl <.T> <(i32, (.T)->bool)*>Result<List<.T>, Diag>> (lst_ptr, p):
+fn list_filter_impl <.T: Copy> <(List<.T>, (.T)->bool)*>Result<List<.T>, Diag>> (lst, p):
+    let node_size <i32> add size_of<.T> 4
+    let mut cur <i32> field::get lst "ptr"
+    let mut acc <List<.T>> List<.T> 0
+    let mut failed <bool> false
+    while and ne cur 0 not failed:
+        do:
+            let next_ptr <i32> load_i32 add cur size_of<.T>
+            let value <.T> load<.T> cur
+            let keep <bool> p value
+            if:
+                cond:
+                    keep
+                then:
+                    match list_cons_owned<.T> value acc:
+                        Result::Ok next_acc:
+                            dealloc_raw cur node_size
+                            set acc next_acc
+                            set cur next_ptr
+                        Result::Err _e:
+                            dealloc_raw cur node_size
+                            free<.T> List<.T> next_ptr
+                            set acc List<.T> 0
+                            set failed true
+                            set cur 0
+                else:
+                    dealloc_raw cur node_size
+                    set cur next_ptr
     if:
         cond:
-            eq lst_ptr 0
+            failed
         then:
-            ok<List<.T>, Diag> List 0
+            free<.T> acc
+            diag_err<List<.T>> diag_out_of_memory
         else:
-            let next_ptr <i32> load_i32 add lst_ptr size_of<.T>
-            match list_filter_impl<.T> next_ptr p:
-                Result::Ok filtered_tail:
-                    if:
-                        cond:
-                            p load<.T> lst_ptr
-                        then:
-                            let filtered_tail_ptr <i32> field::get filtered_tail "ptr"
-                            match list_alloc_node<.T> load<.T> lst_ptr filtered_tail_ptr:
-                                Result::Ok node:
-                                    ok<List<.T>, Diag> List node
-                                Result::Err e:
-                                    free<.T> filtered_tail
-                                    err<List<.T>, Diag> e
-                        else:
-                            ok<List<.T>, Diag> filtered_tail
-                Result::Err e:
-                    err<List<.T>, Diag> e
+            let out <List<.T>> reverse<.T> acc
+            set acc List<.T> 0
+            ok<List<.T>, Diag> out
 
 fn list_fold_impl <.T,.U> <(i32, .U, (.U,.T)->.U)->.U> (lst_ptr, acc, f):
     if:
@@ -687,11 +735,13 @@ fn list_all_impl <.T> <(i32, (.T)->bool)->bool> (lst_ptr, p):
 //: - [元/もと]の[順序/じゅんじょ]を[保/たも]ったまま、[新/あたら]しい `List<.U>` を[作成/さくせい]します。
 //:
 //: ### [実装/じっそう]
-//: - [末尾/まつび]まで[再帰的/さいきてき]に `map` してから `list_alloc_node` で[先頭側/せんとうがわ]へ[積/つ]み[戻/もど]し、[元/もと]の[順序/じゅんじょ]を[維持/いじ]します。
-//: - 先に[作/つく]った tail に head を[追加/ついか]できなかった[場合/ばあい]は、tail を `free` してから `Err` を[返/かえ]します。
+//: - 入力 node を[先頭/せんとう]から[消費/しょうひ]し、変換後の値を accumulator の[先頭/せんとう]へ[追加/ついか]します。
+//: - 走査後に accumulator を `reverse` して[元/もと]の[順序/じゅんじょ]へ[戻/もど]します。
+//: - node [確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は、入力の残りと accumulator を `free` してから `Err` を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [各要素/かくようそ]ごとに[新/あら]しいノードを[確保/かくほ]するため `Result<List<.U>, Diag>` を[返/かえ]します。
+//: - `.T` / `.U` は `Copy` を[要求/ようきゅう]します。現行 List は payload drop traversal をまだ[持/も]たないため、非 Copy payload は[扱/あつか]いません。
 //: - `f` は `(.T)->.U` の[純粋/じゅんすい][関数/かんすう]です。
 //:
 //: ### [計算量/けいさんりょう]
@@ -724,8 +774,8 @@ fn list_all_impl <.T> <(i32, (.T)->bool)->bool> (lst_ptr, p):
 //:         Option::None:
 //:             1
 //: ```
-fn map <.T,.U> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, f):
-    list_map_impl<.T,.U> field::get lst "ptr" f
+fn map <.T: Copy,.U: Copy> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, f):
+    list_map_impl<.T,.U> lst f
 
 //: ## filter
 //: [条件/じょうけん]を[満/み]たす[要素/ようそ]だけを[残/のこ]す
@@ -734,11 +784,13 @@ fn map <.T,.U> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, f):
 //: - `xs |> filter p` の[形/かたち]で、[条件/じょうけん] `p` を[満/み]たす[要素/ようそ]だけを[残/のこ]した[新/あたら]しいリストを[返/かえ]します。
 //:
 //: ### [実装/じっそう]
-//: - [末尾側/まつびがわ]を[先/さき]に[再帰/さいき]して[絞/しぼ]り[込/こ]み、その[結果/けっか]に[対/たい]して[現在/げんざい]ノードを[残/のこ]すかどうかを[判定/はんてい]します。
-//: - 先に[作/つく]った tail に head を[追加/ついか]できなかった[場合/ばあい]は、tail を `free` してから `Err` を[返/かえ]します。
+//: - 入力 node を[先頭/せんとう]から[消費/しょうひ]し、条件を[満/み]たす値だけを accumulator の[先頭/せんとう]へ[追加/ついか]します。
+//: - 走査後に accumulator を `reverse` して[元/もと]の[順序/じゅんじょ]へ[戻/もど]します。
+//: - node [確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は、入力の残りと accumulator を `free` してから `Err` を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [残/のこ]す[要素/ようそ]だけを[新規/しんき][確保/かくほ]するため `Result<List<.T>, Diag>` を[返/かえ]します。
+//: - `.T` は `Copy` を[要求/ようきゅう]します。現行 List は payload drop traversal をまだ[持/も]たないため、非 Copy payload は[扱/あつか]いません。
 //: - `p` は `(.T)->bool` の[純粋/じゅんすい][関数/かんすう]です。
 //:
 //: ### [計算量/けいさんりょう]
@@ -768,8 +820,8 @@ fn map <.T,.U> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, f):
 //:     let ys <List<i32>> uwok filter<i32> xs is_even;
 //:     if eq len<i32> ys 2 0 1
 //: ```
-fn filter <.T> <(List<.T>, (.T)->bool)*>Result<List<.T>, Diag>> (lst, p):
-    list_filter_impl<.T> field::get lst "ptr" p
+fn filter <.T: Copy> <(List<.T>, (.T)->bool)*>Result<List<.T>, Diag>> (lst, p):
+    list_filter_impl<.T> lst p
 
 //: ## fold
 //: [左/ひだり]から[順/じゅん]に[畳/たた]み[込/こ]む
