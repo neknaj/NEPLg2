@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T16:17:34.365Z",
+  "generated_at": "2026-04-30T16:31:27.571Z",
   "counts": {
     "total": 484,
-    "open": 15,
-    "resolved": 469,
+    "open": 14,
+    "resolved": 470,
     "by_area": {
       "core": {
         "total": 212,
-        "open": 6,
-        "resolved": 206
+        "open": 5,
+        "resolved": 207
       },
       "CORE": {
         "total": 1,
@@ -168,21 +168,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C.md"
-    },
-    {
-      "id": "ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8",
-      "title": "Resource owner variant path builder exceeds responsibility split policy",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource/owner_summary_variant_paths.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3273,6 +3258,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/compiler_diagnostics_redesign_plan.md#stage-d0-数値-id-の削除と-enum-registry-導入",
       "file": "items/ISS-20260430T123723307Z-ACTIVE-DOCTESTS-CAN-REINTRODUCE-NUME-1BA2AEA3.md"
+    },
+    {
+      "id": "ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8",
+      "title": "Resource owner variant path builder exceeds responsibility split policy",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-05-01",
+      "target": "nepl-core/src/resource/owner_summary_variant_paths.rs, nepl-core/src/resource/owner_summary_variant_conditions.rs, nepl-core/src/resource/owner_summary_variant_construct.rs, nepl-core/src/resource/owner_summary_variant_entry.rs, nepl-core/src/resource/owner_summary_variant_unique.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8.md"
     },
     {
       "id": "ISS-20260430T143236266Z-RESOURCE-IR-TYPED-RAW-STORE-LOAD-LOS-711B058B",

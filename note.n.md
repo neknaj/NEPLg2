@@ -1,3 +1,27 @@
+# 2026-05-01 メモ (ISS-20260430T135243330Z owner summary variant path split)
+
+- [原因]:
+  - `owner_summary_variant_paths.rs` は nested return path traversal、match arm entry state application、constructed variant reconstruction、condition refinement、unique list helper を同じ file に抱えて681行まで肥大化していた。
+  - Stage 4 Resource IR owner summary の中でも variant path enumeration と condition propagation は別責務であり、self-host 側へ写す静的検査設計としても分割境界が必要だった。
+- [修正]:
+  - `owner_summary_variant_paths.rs` を path orchestration に戻した。
+  - match arm entry 処理を `owner_summary_variant_entry.rs`、constructed variant 復元を `owner_summary_variant_construct.rs`、condition refinement を `owner_summary_variant_conditions.rs`、重複排除 helper を `owner_summary_variant_unique.rs` へ分離した。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module の存在確認と行数上限を追加した。
+- [検証]:
+  - `cargo fmt --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_safe_realloc_variant_return_preserves_err_owner -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm -- --nocapture`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: variant path split 自体は通過。別件として `owner_check.rs has 906 lines; responsibility split limit is 800` が warning。
+  - `node nodesrc/test_resource_checker_responsibility.js`: 同じ別件で停止。
+- [issue]:
+  - `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8` を fixed/resolved に更新した。
+  - `owner_check.rs` の再肥大化は過去の `ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E` 系の再発として、次のissue対応で分離する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査の正確性は変えず、Resource IR owner summary の責務境界だけを切り直した。
+
 # 2026-05-01 メモ (ISS-20260430T154415527Z overload fixture Vec observer)
 
 - [原因]:
