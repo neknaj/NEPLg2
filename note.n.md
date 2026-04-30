@@ -30,6 +30,23 @@
   - `plan.md` 自体は変更していない。
   - `plan.md` の単純な前方処理方針だけでは現行の所有権・borrow・drop・raw memory safety を扱い切れないため、Resource IR を selfhost でも正規設計にする必要があると整理した。
 
+# 2026-04-30 メモ (ISS-20260430T135243330Z owner variant path builder split)
+
+- [発見]:
+  - Rust compiler review 中に `node nodesrc/test_resource_checker_responsibility.js` を実行し、`owner_summary_variant_paths.rs` が 637 行で policy 上限 380 行を超えていることを確認した。
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture` は 150 passed で Resource IR regression 本体は通るが、責務分割 policy は赤い。
+- [issue]:
+  - `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8` を追加した。
+  - 追加時点で Discord に報告した。
+- [方針]:
+  - `owner_summary_variant_paths.rs` は orchestration に縮め、path collection、condition refinement、reserved effect handling、path application へ分割する。
+  - 今回の総レビューには、source policy failure として現状を記録する。
+- [検証]:
+  - `node nodesrc/issues.js index`: total=459 open=14 resolved=445
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Resource IR の責務分割は selfhost static checker の設計前提であり、巨大 checker を再生成しないための継続課題として扱う。
+
 # 2026-04-30 メモ (ISS-20260430T083411167Z owner variant value conditions)
 
 - [同期]:

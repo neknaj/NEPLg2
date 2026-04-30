@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T09:07:22.556Z",
+  "generated_at": "2026-04-30T13:53:08.675Z",
   "counts": {
-    "total": 458,
-    "open": 13,
+    "total": 459,
+    "open": 14,
     "resolved": 445,
     "by_area": {
       "core": {
-        "total": 204,
-        "open": 5,
+        "total": 205,
+        "open": 6,
         "resolved": 199
       },
       "stdlib": {
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8",
+      "title": "Resource owner variant path builder exceeds responsibility split policy",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/owner_summary_variant_paths.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
