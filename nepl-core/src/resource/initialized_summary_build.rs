@@ -40,6 +40,7 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
                 || !summary.param_cells.is_empty()
                 || !summary.variant_param_cells.is_empty()
                 || !summary.variant_required_param_cells.is_empty()
+                || !summary.variant_conditions.is_empty()
             {
                 next.push(summary);
             }
@@ -81,6 +82,7 @@ fn function_raw_cell_initialization_summary(
         param_cells: Vec::new(),
         variant_param_cells: Vec::new(),
         variant_required_param_cells: Vec::new(),
+        variant_conditions: Vec::new(),
     };
     let mut guaranteed_return_cells = None;
     let mut guaranteed_param_cells = None;
@@ -121,6 +123,7 @@ fn function_raw_cell_initialization_summary(
             collect_variant_param_initialized_raw_cells_from_return(
                 &mut out.variant_param_cells,
                 &mut out.variant_required_param_cells,
+                &mut out.variant_conditions,
                 function,
                 types,
                 raw_alias_summaries,

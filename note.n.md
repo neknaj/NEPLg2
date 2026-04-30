@@ -28813,3 +28813,33 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正計画 Stage 5 の effect model について、間接呼び出しを Unknown ではなく型付き effect として扱う方向に進めた。
+
+# 2026-04-30 note (ISS-20260430T060600668Z MemPtr load variant refinement)
+
+- [同期]:
+  - `main` の `7d991efe` から branch `work/memptr-load-variant-refinement` を継続して対応した。
+- [原因]:
+  - checked MemPtr load の summary は `Option::Some` arm で raw memory cell が初期化済みであることを要求していたが、returned variant と wrapper guard の条件 fact を結び付けていなかった。
+  - そのため `mem_ptr_wrap 0` のように `Option::Some` が静的に到達不能な場合でも、syntactic な `Some` arm に requirement を適用して false positive を出していた。
+  - requirement を単に弱めると未知 MemPtr からの `Some` path で未初期化 read を見逃すため、variant 到達可能性を条件付きに refine する必要があった。
+- [修正]:
+  - Resource IR の `LiteralI32` を保持し、initialized checker の raw alias state に straight-line の i32 value fact を追加した。
+  - 関数 summary に `variant_conditions` を追加し、branch condition fact と returned variant を対応付けるようにした。
+  - 呼び出し側で実引数の raw address alias と known i32 fact を照合し、条件を満たさない variant を unreachable として記録するようにした。
+  - `check_match` は unreachable variant arm を initialized-cell check から除外し、unknown value や path merge 後は value fact を捨てて保守的に従来の requirement を残すようにした。
+  - `mem_ptr_wrap 0 -> load_i32 -> Option::None` が false positive を出さないことと、unknown/allocated MemPtr の `Option::Some` path では未初期化 cell 診断が残ることを Resource IR 回帰テストに追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: `149 passed`
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-memptr-variant-refinement.json -j 1 --dist web/dist`: `12 total / 8 passed / 4 failed`
+  - `memory_safety.n.md` の残り 4 件は `resource.owner.maybe_leak` の既存残件で、今回の initialized-cell variant refinement とは別issueとして継続する。
+  - `node nodesrc/issues.js check`: passed (`files=457`)
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260430T060600668Z-CHECKED-MEMPTR-LOAD-VARIANT-REQUIREM-1A1ADF53` を fixed/resolved に更新した。
+  - issue index を再生成した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画 Stage 4 の initialized/moved state について、checked MemPtr wrapper の value-refined variant reachability を追加した。

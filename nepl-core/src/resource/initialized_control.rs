@@ -221,6 +221,9 @@ impl ResourceCheckEngine<'_> {
             let mut arm_function_aliases = function_aliases.clone();
             let mut arm_pending_reallocs = pending_reallocs.clone();
             let mut arm_variant_initializations = variant_initializations.clone();
+            if !arm_variant_initializations.match_arm_reachable(scrutinee, &arm.pattern) {
+                continue;
+            }
             if let Some(bind_local) = &arm.bind_local {
                 arm_cells.mark_initialized(bind_local);
                 if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
@@ -280,6 +283,9 @@ impl ResourceCheckEngine<'_> {
             variant_initialization_paths.push(arm_variant_initializations);
         }
 
+        if arm_paths.is_empty() {
+            arms_available = false;
+        }
         if !arm_paths.is_empty() {
             *cells = CellTable::merge_paths(&arm_paths);
             *raw_aliases = RawCellAddressAliases::merge_paths(&alias_paths);

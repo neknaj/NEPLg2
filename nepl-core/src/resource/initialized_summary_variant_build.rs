@@ -11,21 +11,24 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummary;
 use super::initialized_summary::{
-    RawCellInitializationFunctionSummary, RawCellInitializationVariantParamCell,
-    RawCellInitializationVariantParamRequirement,
+    RawCellInitializationFunctionSummary, RawCellInitializationVariantCondition,
+    RawCellInitializationVariantParamCell, RawCellInitializationVariantParamRequirement,
+    RawCellValueCondition,
 };
 use super::initialized_summary_build::collect_param_initialized_raw_cells;
 use super::initialized_variant::{normalize_variant_name, PendingVariantRawCellInitializations};
 use super::model::{
-    AggregateKind, Place, RawMemoryOp, ResourceFunction, ResourceLocal, ResourceOp,
+    AggregateKind, Place, RawMemoryOp, ResourceConditionFact, ResourceFunction, ResourceLocal,
+    ResourceOp,
 };
-use super::place_utils::raw_memory_cell_place;
+use super::place_utils::{place_suffix_after_prefix, raw_memory_cell_place};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
 
 pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     out: &mut Vec<RawCellInitializationVariantParamCell>,
     requirement_out: &mut Vec<RawCellInitializationVariantParamRequirement>,
+    condition_out: &mut Vec<RawCellInitializationVariantCondition>,
     function: &ResourceFunction,
     types: &TypeCtx,
     raw_alias_summaries: &[RawCellAddressReturnSummary],
@@ -54,6 +57,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     for (index, op) in ops.iter().enumerate() {
         if let ResourceOp::Branch {
             output,
+            condition_fact,
             then_ops,
             then_value,
             else_ops,
@@ -65,6 +69,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
                 collect_branch_variant_param_initialized_raw_cells(
                     out,
                     requirement_out,
+                    condition_out,
                     &engine,
                     &cells,
                     &raw_aliases,
@@ -72,12 +77,15 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
                     &pending_reallocs,
                     &variant_initializations,
                     &function.params,
+                    condition_fact.as_ref(),
+                    true,
                     then_ops,
                     then_value,
                 );
                 collect_branch_variant_param_initialized_raw_cells(
                     out,
                     requirement_out,
+                    condition_out,
                     &engine,
                     &cells,
                     &raw_aliases,
@@ -85,6 +93,8 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
                     &pending_reallocs,
                     &variant_initializations,
                     &function.params,
+                    condition_fact.as_ref(),
+                    false,
                     else_ops,
                     else_value,
                 );
@@ -104,6 +114,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
 fn collect_branch_variant_param_initialized_raw_cells(
     out: &mut Vec<RawCellInitializationVariantParamCell>,
     requirement_out: &mut Vec<RawCellInitializationVariantParamRequirement>,
+    condition_out: &mut Vec<RawCellInitializationVariantCondition>,
     engine: &ResourceCheckEngine<'_>,
     cells: &CellTable,
     raw_aliases: &RawCellAddressAliases,
@@ -111,6 +122,8 @@ fn collect_branch_variant_param_initialized_raw_cells(
     pending_reallocs: &PendingRawReallocs,
     variant_initializations: &PendingVariantRawCellInitializations,
     params: &[ResourceLocal],
+    condition_fact: Option<&ResourceConditionFact>,
+    truthy_path: bool,
     path_ops: &[ResourceOp],
     path_value: &Place,
 ) {
@@ -130,6 +143,14 @@ fn collect_branch_variant_param_initialized_raw_cells(
     let mut path_function_aliases = function_aliases.clone();
     let mut path_pending_reallocs = pending_reallocs.clone();
     let mut path_variant_initializations = variant_initializations.clone();
+    collect_variant_param_condition(
+        condition_out,
+        &variant,
+        condition_fact,
+        truthy_path,
+        &path_aliases,
+        params,
+    );
     path_engine.check_ops(
         &mut path_cells,
         &mut path_aliases,
@@ -160,6 +181,62 @@ fn collect_branch_variant_param_initialized_raw_cells(
         &path_aliases,
         params,
     );
+}
+
+fn collect_variant_param_condition(
+    out: &mut Vec<RawCellInitializationVariantCondition>,
+    variant: &str,
+    condition_fact: Option<&ResourceConditionFact>,
+    truthy_path: bool,
+    raw_aliases: &RawCellAddressAliases,
+    params: &[ResourceLocal],
+) {
+    let Some((place, condition)) = variant_value_condition(condition_fact, truthy_path) else {
+        return;
+    };
+    for condition_alias in raw_aliases.aliases_for(place) {
+        for (param_index, param) in params.iter().enumerate() {
+            for param_alias in raw_aliases.aliases_for(&param.place) {
+                let Some(suffix) = place_suffix_after_prefix(&condition_alias, &param_alias) else {
+                    continue;
+                };
+                push_unique_variant_condition(
+                    out,
+                    RawCellInitializationVariantCondition {
+                        variant: normalize_variant_name(variant),
+                        param_index,
+                        suffix,
+                        ty: condition_alias.ty,
+                        condition,
+                    },
+                );
+            }
+        }
+    }
+}
+
+fn variant_value_condition(
+    condition_fact: Option<&ResourceConditionFact>,
+    truthy_path: bool,
+) -> Option<(&Place, RawCellValueCondition)> {
+    match (condition_fact?, truthy_path) {
+        (ResourceConditionFact::EqZero { place }, true)
+        | (ResourceConditionFact::NeZero { place }, false) => {
+            Some((place, RawCellValueCondition::EqZero))
+        }
+        (ResourceConditionFact::EqZero { place }, false)
+        | (ResourceConditionFact::NeZero { place }, true) => {
+            Some((place, RawCellValueCondition::NeZero))
+        }
+        (ResourceConditionFact::Positive { place }, true)
+        | (ResourceConditionFact::NonPositive { place }, false) => {
+            Some((place, RawCellValueCondition::Positive))
+        }
+        (ResourceConditionFact::Positive { place }, false)
+        | (ResourceConditionFact::NonPositive { place }, true) => {
+            Some((place, RawCellValueCondition::NonPositive))
+        }
+    }
 }
 
 fn construct_variant_for_value(ops: &[ResourceOp], value: &Place) -> Option<String> {
@@ -237,5 +314,14 @@ fn push_unique_variant_param_requirement(
 ) {
     if !cells.iter().any(|existing| existing == &cell) {
         cells.push(cell);
+    }
+}
+
+fn push_unique_variant_condition(
+    conditions: &mut Vec<RawCellInitializationVariantCondition>,
+    condition: RawCellInitializationVariantCondition,
+) {
+    if !conditions.iter().any(|existing| existing == &condition) {
+        conditions.push(condition);
     }
 }

@@ -250,8 +250,10 @@ fn lower_expr_skeleton(
         }
     }
     match &expr.kind {
-        HirExprKind::LiteralI32(_)
-        | HirExprKind::LiteralF32(_)
+        HirExprKind::LiteralI32(value) => {
+            push_expr(ops, ResourceExprKind::LiteralI32(*value), expr, ctx)
+        }
+        HirExprKind::LiteralF32(_)
         | HirExprKind::LiteralBool(_)
         | HirExprKind::LiteralStr(_)
         | HirExprKind::Unit => push_expr(ops, ResourceExprKind::Literal, expr, ctx),

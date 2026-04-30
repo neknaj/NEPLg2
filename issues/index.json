@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T08:11:04.355Z",
+  "generated_at": "2026-04-30T08:29:19.568Z",
   "counts": {
     "total": 457,
-    "open": 14,
-    "resolved": 443,
+    "open": 13,
+    "resolved": 444,
     "by_area": {
       "core": {
         "total": 203,
-        "open": 6,
-        "resolved": 197
+        "open": 5,
+        "resolved": 198
       },
       "stdlib": {
         "total": 148,
@@ -253,21 +253,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
-    },
-    {
-      "id": "ISS-20260430T060600668Z-CHECKED-MEMPTR-LOAD-VARIANT-REQUIREM-1A1ADF53",
-      "title": "Checked MemPtr load variant requirements lack impossible-branch refinement",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "bug",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource/initialized_variant.rs, nepl-core/src/resource/initialized_control.rs, stdlib/core/mem.nepl, tests/stdlib/memory_safety.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T060600668Z-CHECKED-MEMPTR-LOAD-VARIANT-REQUIREM-1A1ADF53.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -5608,6 +5593,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD.md"
+    },
+    {
+      "id": "ISS-20260430T060600668Z-CHECKED-MEMPTR-LOAD-VARIANT-REQUIREM-1A1ADF53",
+      "title": "Checked MemPtr load variant requirements lack impossible-branch refinement",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/initialized_variant.rs, nepl-core/src/resource/initialized_control.rs, stdlib/core/mem.nepl, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T060600668Z-CHECKED-MEMPTR-LOAD-VARIANT-REQUIREM-1A1ADF53.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

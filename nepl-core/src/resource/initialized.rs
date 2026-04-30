@@ -519,6 +519,10 @@ impl ResourceCheckEngine<'_> {
         output: &Place,
     ) {
         match kind {
+            ResourceExprKind::LiteralI32(value) => {
+                cells.mark_initialized(output);
+                raw_aliases.set_i32_value(output, value);
+            }
             ResourceExprKind::Literal
             | ResourceExprKind::Block
             | ResourceExprKind::Let
@@ -536,7 +540,8 @@ impl ResourceCheckEngine<'_> {
             | ResourceExprKind::Construct
             | ResourceExprKind::Borrow => {}
         }
-        if !expr_kind_preserves_raw_alias(kind)
+        if !matches!(kind, ResourceExprKind::LiteralI32(_))
+            && !expr_kind_preserves_raw_alias(kind)
             && !(matches!(kind, ResourceExprKind::Deref)
                 && type_preserves_raw_address_alias(self.types, output.ty))
         {

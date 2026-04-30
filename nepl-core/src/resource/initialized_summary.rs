@@ -14,6 +14,7 @@ pub(super) struct RawCellInitializationFunctionSummary {
     pub(super) param_cells: Vec<RawCellInitializationParamCell>,
     pub(super) variant_param_cells: Vec<RawCellInitializationVariantParamCell>,
     pub(super) variant_required_param_cells: Vec<RawCellInitializationVariantParamRequirement>,
+    pub(super) variant_conditions: Vec<RawCellInitializationVariantCondition>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,4 +47,32 @@ pub(super) struct RawCellInitializationVariantParamRequirement {
     pub(super) param_index: usize,
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct RawCellInitializationVariantCondition {
+    pub(super) variant: String,
+    pub(super) param_index: usize,
+    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) ty: TypeId,
+    pub(super) condition: RawCellValueCondition,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum RawCellValueCondition {
+    EqZero,
+    NeZero,
+    Positive,
+    NonPositive,
+}
+
+impl RawCellValueCondition {
+    pub(super) fn holds(self, value: i32) -> bool {
+        match self {
+            RawCellValueCondition::EqZero => value == 0,
+            RawCellValueCondition::NeZero => value != 0,
+            RawCellValueCondition::Positive => value > 0,
+            RawCellValueCondition::NonPositive => value <= 0,
+        }
+    }
 }
