@@ -340,7 +340,7 @@ fn nm_render_source_html <(str)->str> (src):
     while lt pos n:
         do:
             let line_end <i32> scanner::str_line_end src pos;
-            let raw <str> str_trim_suffix_cr str_slice src pos line_end;
+            let raw <str> str_slice_trim_suffix_cr src pos line_end;
             let t <str> str_trim raw;
             set pos scanner::str_next_line_pos src line_end;
             if:
@@ -404,7 +404,7 @@ fn nm_render_source_html <(str)->str> (src):
                                             while and lt pos n not done:
                                                 do:
                                                     let cend <i32> scanner::str_line_end src pos;
-                                                    let craw <str> str_trim_suffix_cr str_slice src pos cend;
+                                                    let craw <str> str_slice_trim_suffix_cr src pos cend;
                                                     let ct <str> str_trim craw;
                                                     set pos scanner::str_next_line_pos src cend;
                                                     if:
@@ -474,7 +474,7 @@ fn nm_render_source_html <(str)->str> (src):
                                                     while and lt pos n not done:
                                                         do:
                                                             let pend <i32> scanner::str_line_end src pos;
-                                                            let praw <str> str_trim_suffix_cr str_slice src pos pend;
+                                                            let praw <str> str_slice_trim_suffix_cr src pos pend;
                                                             let pt <str> str_trim praw;
                                                             if:
                                                                 nm_is_block_boundary pt

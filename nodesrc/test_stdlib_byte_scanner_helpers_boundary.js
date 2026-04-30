@@ -49,7 +49,8 @@ for (const fnName of [
     assert.doesNotMatch(stringSrc, new RegExp(`\\bfn\\s+${fnName}\\b`), `alloc/string.nepl must not keep scanner facade ${fnName}`);
 }
 
-assert.match(stringSrc, /\bfn\s+str_trim_suffix_cr\b/, 'alloc/string.nepl must keep the slice-backed CR trimming helper');
+assert.match(stringSrc, /\bfn\s+str_trim_suffix_cr\b/, 'alloc/string.nepl must keep the whole-string CR trimming helper');
+assert.match(stringSrc, /\bfn\s+str_slice_trim_suffix_cr\b/, 'alloc/string.nepl must keep the slice-backed CR trimming helper');
 
 for (const localName of [
     'selfhost_import_find_byte',
@@ -80,7 +81,7 @@ for (const localName of [
 }
 
 for (const symbol of [
-    'str_trim_suffix_cr',
+    'str_slice_trim_suffix_cr',
 ]) {
     assert.match(nmParserSrc, new RegExp(`\\b${symbol}\\b`), `nm parser must call ${symbol}`);
     assert.match(nmHtmlSrc, new RegExp(`\\b${symbol}\\b`), `nm html_gen must call ${symbol}`);
