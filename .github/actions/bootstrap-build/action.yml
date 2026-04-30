@@ -97,11 +97,11 @@ runs:
       shell: bash
       run: sed -i 's/npm.cmd/npm/g' Trunk.toml
 
-    - name: Populate examples for trunk asset copy
+    - name: Prepare generated web directories for Trunk
       shell: bash
       run: |
         set -euo pipefail
-        mkdir -p web/examples
+        mkdir -p web/dist_ts web/examples
         cp examples/*.nepl web/examples/
 
     - name: Cargo build

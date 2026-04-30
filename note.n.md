@@ -27951,3 +27951,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.md delta]:
   - `plan.md` was not changed.
   - This fix strengthens Resource IR memory-safety verification rather than relaxing diagnostics.
+
+# 2026-04-30 note (ISS-20260430T024657454Z CI bootstrap generated web directories)
+
+- [sync]:
+  - `git pull --ff-only origin main` で remote main の `8d5dd965` を取り込んだ。
+  - GitHub Actions run `25144577903` は `build / Shared bootstrap build` で失敗し、latest main の final deploy は artifact 不在で失敗していた。
+- [cause]:
+  - `Trunk.toml` は `[watch].ignore` で `web/dist_ts` を参照している。
+  - `web/dist_ts` は TypeScript build の `outDir` であり git 管理外なので、clean checkout には存在しない。
+  - Trunk は pre_build hook 実行前に ignored path を canonicalize することがあり、`web/dist_ts` がないと bootstrap build が止まる。
+- [fix]:
+  - `.github/actions/bootstrap-build/action.yml` の web asset 準備 step で `web/dist_ts` と `web/examples` を明示的に作成するようにした。
+  - 生成 JS は引き続き commit せず、`npm --prefix web run build:ts` による生成契約は維持した。
+- [verification]:
+  - `web/dist_ts` と `web/examples` を削除した状態から bootstrap build の該当手順をローカルで確認した。
+  - `trunk build --release --public-url "/NEPLg2/"`: passed
+  - `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorials-stdout-after-main.json -j 4`: `24 passed`
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-after-main.json -j 4`: `12 passed`
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+  - push 後に GitHub Actions の build artifact upload と Pages final deployment を確認する。
+- [plan.md delta]:
+  - `plan.md` は変更していない。
+  - CI bootstrap の生成物前提を明確化しただけで、compiler / stdlib の静的検査仕様は変更していない。
