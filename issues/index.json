@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:14.220Z",
+  "generated_at": "2026-04-30T14:41:15.567Z",
   "counts": {
-    "total": 471,
+    "total": 472,
     "open": 16,
-    "resolved": 455,
+    "resolved": 456,
     "by_area": {
       "core": {
         "total": 208,
@@ -22,9 +22,9 @@
         "resolved": 143
       },
       "TEST": {
-        "total": 11,
+        "total": 12,
         "open": 1,
-        "resolved": 10
+        "resolved": 11
       },
       "cli": {
         "total": 19,
@@ -5248,6 +5248,21 @@
       "legacy_id": "",
       "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
       "file": "items/ISS-20260430T125624124Z-STDLIB-MATH-DOCTEST-KEEPS-RET-METADA-35B82C86.md"
+    },
+    {
+      "id": "ISS-20260430T125946580Z-STDLIB-CAST-DOCTEST-KEEPS-RET-METADA-B6A0E1B5",
+      "title": "stdlib cast doctest keeps ret metadata despite stdout report",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/tests/cast.n.md",
+      "legacy_id": "",
+      "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "file": "items/ISS-20260430T125946580Z-STDLIB-CAST-DOCTEST-KEEPS-RET-METADA-B6A0E1B5.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

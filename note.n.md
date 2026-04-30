@@ -29164,3 +29164,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `.n.md` assertion suite は stdout report + `exit_code:` で検証する方針に沿って、stdlib math fixtureを移行した。
+
+# 2026-04-30 note (ISS-20260430T125946580Z stdlib cast report metadata)
+
+- [同期]:
+  - `585ed365` の stdlib math report commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `stdlib/tests/cast.n.md` は既に `checks_print_report checks` を呼んでいたが、metadata は `ret: 0` のままで stdout expectation がなかった。
+  - そのため process exit contract が `ret:` に残り、assertion report format の変化もfixtureで比較できなかった。
+- [修正]:
+  - `ret: 0` を `exit_code: 0` に変更した。
+  - stdoutに11件の `ok` reportを固定した。
+  - `ISS-20260430T125946580Z-STDLIB-CAST-DOCTEST-KEEPS-RET-METADA-B6A0E1B5` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/cast.n.md --no-tree -o tmp/stdlib-cast-report-agent1.json -j 1 --dist web/dist`: `1 total / 1 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `.n.md` assertion suite は stdout report + `exit_code:` で検証する方針に沿って、stdlib cast fixtureを移行した。
