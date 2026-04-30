@@ -73,6 +73,7 @@ const checks = [
     "nodesrc/test_selfhost_diag_code_enum.js",
     "nodesrc/test_selfhost_source_text_no_recursive_line_map.js",
     "nodesrc/test_selfhost_string_helpers_boundary.js",
+    "nodesrc/test_selfhost_parser_tokenkind_match.js",
     "nodesrc/test_stdlib_byte_scanner_helpers_boundary.js",
     "nodesrc/test_stdlib_nm_no_raw_aggregate_detours.js",
     "nodesrc/test_diagnostic_code_first_boundary.js",

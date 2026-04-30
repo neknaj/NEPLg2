@@ -37,8 +37,6 @@
 //: ```
 
 #import "alloc/collections/vec" as v
-#import "alloc/hash/hash32" as *
-#import "alloc/string" as string
 #import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
@@ -69,6 +67,30 @@ impl Copy for SelfhostParserRawMode:
     fn copy_mark <(SelfhostParserRawMode)->SelfhostParserRawMode> (self):
         self
 
+//: SelfhostParserTokenAction: parser loop が token に対して行う処理
+//:
+//: [目的/もくてき]:
+//: - `TokenKind` の分類を文字列や hash ではなく enum の `match` で固定します。
+//: - loop 本体はこの action を処理し、TokenKind 追加時の網羅性検査は分類 helper に集約します。
+enum SelfhostParserTokenAction:
+    End
+    Skip
+    Indent
+    Dedent
+    WasmText
+    LlvmIrText
+    DirWasm
+    DirLlvmIr
+    Regular
+
+impl Clone for SelfhostParserTokenAction:
+    fn clone <(&SelfhostParserTokenAction)->SelfhostParserTokenAction> (self):
+        *self
+
+impl Copy for SelfhostParserTokenAction:
+    fn copy_mark <(SelfhostParserTokenAction)->SelfhostParserTokenAction> (self):
+        self
+
 //: selfhost_parser_raw_mode_is_pending: raw block indent 待ちか[返/かえ]す
 fn selfhost_parser_raw_mode_is_pending <(SelfhostParserRawMode)->bool> (mode):
     match mode:
@@ -91,6 +113,150 @@ fn selfhost_parser_depth_dec <(i32)->i32> (depth):
             sub depth 1
         else:
             0
+
+//: selfhost_parser_token_action: token kind から parser loop action を[選/えら]ぶ
+fn selfhost_parser_token_action <(TokenKind)->SelfhostParserTokenAction> (kind):
+    match kind:
+        TokenKind::Indent:
+            SelfhostParserTokenAction::Indent
+        TokenKind::Dedent:
+            SelfhostParserTokenAction::Dedent
+        TokenKind::Newline:
+            SelfhostParserTokenAction::Skip
+        TokenKind::Eof:
+            SelfhostParserTokenAction::End
+        TokenKind::Colon:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Semicolon:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Pipe:
+            SelfhostParserTokenAction::Regular
+        TokenKind::LParen:
+            SelfhostParserTokenAction::Regular
+        TokenKind::RParen:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Comma:
+            SelfhostParserTokenAction::Regular
+        TokenKind::LAngle:
+            SelfhostParserTokenAction::Regular
+        TokenKind::RAngle:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Arrow:
+            SelfhostParserTokenAction::Regular
+        TokenKind::PathSep:
+            SelfhostParserTokenAction::Regular
+        TokenKind::At:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Dot:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Ampersand:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Star:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Minus:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Equals:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Ident:
+            SelfhostParserTokenAction::Regular
+        TokenKind::IntLiteral:
+            SelfhostParserTokenAction::Regular
+        TokenKind::FloatLiteral:
+            SelfhostParserTokenAction::Regular
+        TokenKind::BoolLiteral:
+            SelfhostParserTokenAction::Regular
+        TokenKind::CharLiteral:
+            SelfhostParserTokenAction::Regular
+        TokenKind::StringLiteral:
+            SelfhostParserTokenAction::Regular
+        TokenKind::UnitLiteral:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwFn:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwLet:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwMut:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwNoShadow:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwSet:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwIf:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwWhile:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwCond:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwThen:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwElse:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwDo:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwStruct:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwEnum:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwMatch:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwTrait:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwImpl:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwFor:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwPub:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwBlock:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwTuple:
+            SelfhostParserTokenAction::Regular
+        TokenKind::KwMlstr:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirEntry:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirTarget:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirImport:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirUse:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirIfTarget:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirIfProfile:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirCapability:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirWasm:
+            SelfhostParserTokenAction::DirWasm
+        TokenKind::DirLlvmIr:
+            SelfhostParserTokenAction::DirLlvmIr
+        TokenKind::DirIndentWidth:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirInclude:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirExtern:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirIntrinsic:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirPrelude:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DirNoPrelude:
+            SelfhostParserTokenAction::Regular
+        TokenKind::WasmText:
+            SelfhostParserTokenAction::WasmText
+        TokenKind::LlvmIrText:
+            SelfhostParserTokenAction::LlvmIrText
+        TokenKind::MlstrLine:
+            SelfhostParserTokenAction::Regular
+        TokenKind::DocComment:
+            SelfhostParserTokenAction::Regular
+        TokenKind::UnterminatedChar:
+            SelfhostParserTokenAction::Regular
+        TokenKind::UnterminatedString:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Unknown:
+            SelfhostParserTokenAction::Regular
 
 //: selfhost_parser_diag_at: token span に primary label を持つ error diagnostic を[作/つく]る
 fn selfhost_parser_diag_at <(&SelfhostToken,SelfhostParserDiagnosticCode,str,str)->SelfhostDiagnostic> (token, code, message, label):
@@ -122,83 +288,162 @@ fn selfhost_parser_raw_text_error <(&SelfhostToken,SelfhostModuleAst)*>Result<Se
     selfhost_module_ast_free ast
     Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
 
-//: selfhost_parser_string_match_key: 有限の token kind 名集合を match 用 key にする
-fn selfhost_parser_string_match_key <(str)->i32> (value):
-    and hash32 value 2147483647
-
-//: selfhost_parser_item_kind_if_eq: hash arm の候補を実文字列で検証する
-fn selfhost_parser_item_kind_if_eq <(str,str,SelfhostModuleItemKind)->Option<SelfhostModuleItemKind>> (name, expected, item_kind):
+//: selfhost_parser_decl_item_kind: top-level 宣言 token だけを module item にする
+fn selfhost_parser_decl_item_kind <(SelfhostModuleItemKind,i32)->Option<SelfhostModuleItemKind>> (item_kind, depth):
     if:
-        string::str_eq name expected
+        eq depth 0
         then:
             some<SelfhostModuleItemKind> item_kind
         else:
             none<SelfhostModuleItemKind>
 
-//: selfhost_parser_decl_item_kind_if_eq: top-level 宣言 token を実文字列で検証する
-fn selfhost_parser_decl_item_kind_if_eq <(str,str,SelfhostModuleItemKind,i32)->Option<SelfhostModuleItemKind>> (name, expected, item_kind, depth):
-    if:
-        eq depth 0
-        then:
-            selfhost_parser_item_kind_if_eq name expected item_kind
-        else:
-            none<SelfhostModuleItemKind>
-
-//: selfhost_parser_item_kind_from_name: token kind 名を module item kind へ写す
+//: selfhost_parser_item_kind_from_token: token kind を module item kind へ写す
 //:
 //: [目的/もくてき]:
 //: - parser の入口で保持すべき token だけを `SelfhostModuleItemKind` に変換します。
 //: - 宣言 keyword は通常 block depth 0 のものだけを module 宣言として扱います。
-fn selfhost_parser_item_kind_from_name <(str,i32)->Option<SelfhostModuleItemKind>> (name, depth):
-    match selfhost_parser_string_match_key name:
-        2045702209:
-            selfhost_parser_item_kind_if_eq name "DocComment" SelfhostModuleItemKind::DocComment
-        1674402666:
-            selfhost_parser_item_kind_if_eq name "MlstrLine" SelfhostModuleItemKind::MlstrLine
-        279355747:
-            selfhost_parser_item_kind_if_eq name "DirEntry" SelfhostModuleItemKind::EntryDirective
-        963569064:
-            selfhost_parser_item_kind_if_eq name "DirTarget" SelfhostModuleItemKind::TargetDirective
-        1865317015:
-            selfhost_parser_item_kind_if_eq name "DirImport" SelfhostModuleItemKind::ImportDirective
-        38698144:
-            selfhost_parser_item_kind_if_eq name "DirUse" SelfhostModuleItemKind::UseDirective
-        665562352:
-            selfhost_parser_item_kind_if_eq name "DirIfTarget" SelfhostModuleItemKind::IfTargetDirective
-        1515634655:
-            selfhost_parser_item_kind_if_eq name "DirIfProfile" SelfhostModuleItemKind::IfProfileDirective
-        431733289:
-            selfhost_parser_item_kind_if_eq name "DirCapability" SelfhostModuleItemKind::CapabilityDirective
-        135595626:
-            selfhost_parser_item_kind_if_eq name "DirPrelude" SelfhostModuleItemKind::PreludeDirective
-        1618029181:
-            selfhost_parser_item_kind_if_eq name "DirNoPrelude" SelfhostModuleItemKind::NoPreludeDirective
-        101855325:
-            selfhost_parser_item_kind_if_eq name "DirIntrinsic" SelfhostModuleItemKind::IntrinsicDirective
-        577144765:
-            selfhost_parser_decl_item_kind_if_eq name "KwFn" SelfhostModuleItemKind::FunctionDecl depth
-        1828037288:
-            selfhost_parser_decl_item_kind_if_eq name "KwStruct" SelfhostModuleItemKind::StructDecl depth
-        189544508:
-            selfhost_parser_decl_item_kind_if_eq name "KwEnum" SelfhostModuleItemKind::EnumDecl depth
-        1578727952:
-            selfhost_parser_decl_item_kind_if_eq name "KwTrait" SelfhostModuleItemKind::TraitDecl depth
-        23258634:
-            selfhost_parser_decl_item_kind_if_eq name "KwImpl" SelfhostModuleItemKind::ImplDecl depth
-        205424351:
-            selfhost_parser_item_kind_if_eq name "DirWasm" SelfhostModuleItemKind::WasmBlock
-        91639139:
-            selfhost_parser_item_kind_if_eq name "DirLlvmIr" SelfhostModuleItemKind::LlvmIrBlock
-        1829007411:
-            selfhost_parser_item_kind_if_eq name "WasmText" SelfhostModuleItemKind::WasmText
-        757645299:
-            selfhost_parser_item_kind_if_eq name "LlvmIrText" SelfhostModuleItemKind::LlvmIrText
-        _:
-            none<SelfhostModuleItemKind>
-
-//: selfhost_parser_item_kind_from_token: token kind を module item kind へ写す
 fn selfhost_parser_item_kind_from_token <(TokenKind,i32)->Option<SelfhostModuleItemKind>> (kind, depth):
-    selfhost_parser_item_kind_from_name token_kind_name kind depth
+    match kind:
+        TokenKind::Indent:
+            none<SelfhostModuleItemKind>
+        TokenKind::Dedent:
+            none<SelfhostModuleItemKind>
+        TokenKind::Newline:
+            none<SelfhostModuleItemKind>
+        TokenKind::Eof:
+            none<SelfhostModuleItemKind>
+        TokenKind::Colon:
+            none<SelfhostModuleItemKind>
+        TokenKind::Semicolon:
+            none<SelfhostModuleItemKind>
+        TokenKind::Pipe:
+            none<SelfhostModuleItemKind>
+        TokenKind::LParen:
+            none<SelfhostModuleItemKind>
+        TokenKind::RParen:
+            none<SelfhostModuleItemKind>
+        TokenKind::Comma:
+            none<SelfhostModuleItemKind>
+        TokenKind::LAngle:
+            none<SelfhostModuleItemKind>
+        TokenKind::RAngle:
+            none<SelfhostModuleItemKind>
+        TokenKind::Arrow:
+            none<SelfhostModuleItemKind>
+        TokenKind::PathSep:
+            none<SelfhostModuleItemKind>
+        TokenKind::At:
+            none<SelfhostModuleItemKind>
+        TokenKind::Dot:
+            none<SelfhostModuleItemKind>
+        TokenKind::Ampersand:
+            none<SelfhostModuleItemKind>
+        TokenKind::Star:
+            none<SelfhostModuleItemKind>
+        TokenKind::Minus:
+            none<SelfhostModuleItemKind>
+        TokenKind::Equals:
+            none<SelfhostModuleItemKind>
+        TokenKind::Ident:
+            none<SelfhostModuleItemKind>
+        TokenKind::IntLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::FloatLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::BoolLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::CharLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::StringLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::UnitLiteral:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwFn:
+            selfhost_parser_decl_item_kind SelfhostModuleItemKind::FunctionDecl depth
+        TokenKind::KwLet:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwMut:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwNoShadow:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwSet:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwIf:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwWhile:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwCond:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwThen:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwElse:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwDo:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwStruct:
+            selfhost_parser_decl_item_kind SelfhostModuleItemKind::StructDecl depth
+        TokenKind::KwEnum:
+            selfhost_parser_decl_item_kind SelfhostModuleItemKind::EnumDecl depth
+        TokenKind::KwMatch:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwTrait:
+            selfhost_parser_decl_item_kind SelfhostModuleItemKind::TraitDecl depth
+        TokenKind::KwImpl:
+            selfhost_parser_decl_item_kind SelfhostModuleItemKind::ImplDecl depth
+        TokenKind::KwFor:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwPub:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwBlock:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwTuple:
+            none<SelfhostModuleItemKind>
+        TokenKind::KwMlstr:
+            none<SelfhostModuleItemKind>
+        TokenKind::DirEntry:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::EntryDirective
+        TokenKind::DirTarget:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::TargetDirective
+        TokenKind::DirImport:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::ImportDirective
+        TokenKind::DirUse:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::UseDirective
+        TokenKind::DirIfTarget:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::IfTargetDirective
+        TokenKind::DirIfProfile:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::IfProfileDirective
+        TokenKind::DirCapability:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::CapabilityDirective
+        TokenKind::DirWasm:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::WasmBlock
+        TokenKind::DirLlvmIr:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::LlvmIrBlock
+        TokenKind::DirIndentWidth:
+            none<SelfhostModuleItemKind>
+        TokenKind::DirInclude:
+            none<SelfhostModuleItemKind>
+        TokenKind::DirExtern:
+            none<SelfhostModuleItemKind>
+        TokenKind::DirIntrinsic:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::IntrinsicDirective
+        TokenKind::DirPrelude:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::PreludeDirective
+        TokenKind::DirNoPrelude:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::NoPreludeDirective
+        TokenKind::WasmText:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::WasmText
+        TokenKind::LlvmIrText:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::LlvmIrText
+        TokenKind::MlstrLine:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::MlstrLine
+        TokenKind::DocComment:
+            some<SelfhostModuleItemKind> SelfhostModuleItemKind::DocComment
+        TokenKind::UnterminatedChar:
+            none<SelfhostModuleItemKind>
+        TokenKind::UnterminatedString:
+            none<SelfhostModuleItemKind>
+        TokenKind::Unknown:
+            none<SelfhostModuleItemKind>
 
 //: selfhost_parser_push_item: token を module item として AST に[追加/ついか]する
 fn selfhost_parser_push_item <(SelfhostModuleAst,SelfhostToken,SelfhostModuleItemKind)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (ast, token, item_kind):
@@ -314,30 +559,29 @@ fn selfhost_parse_module_loop <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRa
             match v::get<SelfhostToken> tokens idx:
                 Option::Some token:
                     let kind <TokenKind> token.kind
-                    let kind_name <str> token_kind_name kind
-                    match selfhost_parser_string_match_key kind_name:
-                        749955964:
+                    match selfhost_parser_token_action kind:
+                        SelfhostParserTokenAction::End:
                             if:
                                 selfhost_parser_raw_mode_is_pending mode
                                 then:
                                     selfhost_parser_pending_error &token ast
                                 else:
                                     Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok ast
-                        105265799:
+                        SelfhostParserTokenAction::Skip:
                             selfhost_parse_module_loop tokens n add idx 1 depth mode ast
-                        566098053:
+                        SelfhostParserTokenAction::Indent:
                             selfhost_parse_indent tokens n idx depth mode ast
-                        1825646227:
+                        SelfhostParserTokenAction::Dedent:
                             selfhost_parse_dedent tokens n idx depth mode ast token
-                        1829007411:
+                        SelfhostParserTokenAction::WasmText:
                             selfhost_parse_raw_wasm_text tokens n idx depth mode ast token
-                        757645299:
+                        SelfhostParserTokenAction::LlvmIrText:
                             selfhost_parse_raw_llvmir_text tokens n idx depth mode ast token
-                        205424351:
+                        SelfhostParserTokenAction::DirWasm:
                             selfhost_parse_dir_wasm tokens n idx depth mode ast token
-                        91639139:
+                        SelfhostParserTokenAction::DirLlvmIr:
                             selfhost_parse_dir_llvmir tokens n idx depth mode ast token
-                        _:
+                        SelfhostParserTokenAction::Regular:
                             selfhost_parse_regular_token tokens n idx depth mode ast token kind
                 Option::None:
                     let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "self-host module parser could not read token"

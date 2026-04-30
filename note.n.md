@@ -28837,6 +28837,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - Vec prefix/drop の回帰テストを `.n.md` stdout report 方針へ戻し、内部 helper の設計も再帰回避へ修正した。
 
+# 2026-04-30 note (ISS-20260430T141517141Z selfhost parser TokenKind match)
+
+- [同期]:
+  - `main` を `c6db4213` まで pull 済みの状態から、branch `fix/selfhost-tokenkind-match` で対応した。
+- [原因]:
+  - `stdlib/neplg2/core/syntax/parser/module_parser.nepl` は `TokenKind` を `token_kind_name` の文字列へ変換し、`hash32` の数値 arm で module item / parser loop action を分類していた。
+  - この構造では token kind の追加・削除時に enum の網羅性検査が効かず、文字列・数値 hash 定数が parser の grammar boundary に漏れていた。
+- [修正]:
+  - `selfhost_parser_item_kind_from_token` を `TokenKind` 直接 `match` に変更し、全 variant を明示 arm で扱うようにした。
+  - parser loop の特殊処理を `SelfhostParserTokenAction` enum と `selfhost_parser_token_action` に分離し、loop 本体は action enum を wildcard なしで `match` する構造にした。
+  - parser classification から `token_kind_name`、`hash32`、数値 hash arm、文字列検証 helper を削除した。
+  - `nodesrc/test_selfhost_parser_tokenkind_match.js` を追加し、hash/string dispatch の再導入と wildcard arm を検出する source policy にした。
+- [検証]:
+  - `node nodesrc/test_selfhost_parser_tokenkind_match.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規 selfhost parser policy は passed。既存の `owner_summary_variant_paths.rs` 行数制限は既存 open issue 側の warn。
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/selfhost-parser-tokenkind-match.json -j 1`: 既知の wasm timeout 2 件。
+  - `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/selfhost-parser-tokenkind-match-long-timeout.json -j 1`: 180 秒でも timeout。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - selfhost S1 parser の有限状態分類を enum/match に寄せ、静的検査が効く構造へ進めた。
+
 # 2026-04-30 note (ISS-20260430T063111361Z variant-gated owner returns)
 
 - [同期]:

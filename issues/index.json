@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:15:17.249Z",
+  "generated_at": "2026-04-30T14:49:36.145Z",
   "counts": {
     "total": 461,
-    "open": 16,
-    "resolved": 445,
+    "open": 15,
+    "resolved": 446,
     "by_area": {
       "core": {
         "total": 205,
         "open": 6,
         "resolved": 199
-      },
-      "selfhost": {
-        "total": 45,
-        "open": 2,
-        "resolved": 43
       },
       "stdlib": {
         "total": 149,
@@ -25,6 +20,11 @@
         "total": 7,
         "open": 1,
         "resolved": 6
+      },
+      "selfhost": {
+        "total": 45,
+        "open": 1,
+        "resolved": 44
       },
       "cli": {
         "total": 19,
@@ -163,21 +163,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8.md"
-    },
-    {
-      "id": "ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B",
-      "title": "self-host parser classifies TokenKind through strings and hash keys instead of exhaustive enum match",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/syntax/token.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3808,6 +3793,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T005246036Z-SELF-HOST-CLI-LACKS-FILESYSTEM-FILE--1B6C9F63.md"
+    },
+    {
+      "id": "ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B",
+      "title": "self-host parser classifies TokenKind through strings and hash keys instead of exhaustive enum match",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/syntax/token.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",
