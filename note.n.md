@@ -29255,3 +29255,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `.n.md` assertion suite は stdout report + `exit_code:` で検証する方針に沿って、stdlib string fixtureを移行した。
+
+# 2026-04-30 note (ISS-20260430T134239951Z string char report/owner effect)
+
+- [同期]:
+  - `36fcbb9d` の stdlib string report commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `tests/stdlib/string_char.n.md` は `std/test` の assertion suite を使っていたが、`checks_print_report` を呼ばず `ret: 0` だけで成功を表していた。
+  - 先頭2件は同じ `str` local を by-value char observer API へ繰り返し渡していたため、現行 Resource IR の unresolved fallible owner effect により `resource.owner.reserved` で compile fail していた。
+  - timeout 調査では compile-only が doctest duration とほぼ一致し、生成 wasm の実行時間や UTF-8 algorithm ではなく stdlib 込み compile が支配的だった。
+  - 3件構成の builder case は serial で約56秒、parallel compiler load で60秒 timeout に届いたため、fixture 粒度として不安定だった。
+  - `str` の Copy view contract と Resource IR の dynamic string owner model の不一致は、この issue で reserved-owner gate を弱めず、`ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C` として切り出した。
+- [修正]:
+  - 4件の doctest を `exit_code: 0` + stdout assertion report へ移行した。
+  - by-value observer call は fixture 内で fresh literal を渡し、現在の owner model に沿って未解決 Result による予約状態を跨がない形にした。
+  - builder coverage は string builder と byte builder に分割し、並列 runner でも per-case 60秒 timeout に届かない形にした。
+  - `ISS-20260430T134239951Z-STRING-CHAR-DOCTESTS-REUSE-MOVED-STR-200F01C2` を fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/tests-stdlib-string-char-agent1-j4.json -j 4 --dist web/dist`: `4 total / 4 passed`
+  - `rg -n '^ret: 0|checks_exit_code checks|let s <str>' tests/stdlib/string_char.n.md`: no matches
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3/6 に沿い、`str` view と storage owner の分離は別 issue で追跡する。

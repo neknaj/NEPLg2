@@ -1,15 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:21.165Z",
+  "generated_at": "2026-04-30T14:41:22.608Z",
   "counts": {
-    "total": 476,
-    "open": 16,
-    "resolved": 460,
+    "total": 478,
+    "open": 17,
+    "resolved": 461,
     "by_area": {
       "core": {
         "total": 208,
         "open": 6,
         "resolved": 202
+      },
+      "CORE": {
+        "total": 1,
+        "open": 1,
+        "resolved": 0
       },
       "selfhost": {
         "total": 45,
@@ -22,9 +27,9 @@
         "resolved": 143
       },
       "TEST": {
-        "total": 16,
+        "total": 17,
         "open": 1,
-        "resolved": 15
+        "resolved": 16
       },
       "cli": {
         "total": 19,
@@ -148,6 +153,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C",
+      "title": "str Copy view contract conflicts with Resource IR owner obligations",
+      "area": "CORE",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/string.nepl, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C.md"
     },
     {
       "id": "ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8",
@@ -5323,6 +5343,21 @@
       "legacy_id": "",
       "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
       "file": "items/ISS-20260430T133512620Z-STDLIB-STRING-DOCTESTS-KEEP-OLD-STD--4220AD4F.md"
+    },
+    {
+      "id": "ISS-20260430T134239951Z-STRING-CHAR-DOCTESTS-REUSE-MOVED-STR-200F01C2",
+      "title": "string char doctests reuse unresolved str owner effects and hide reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "tests/stdlib/string_char.n.md",
+      "legacy_id": "",
+      "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "file": "items/ISS-20260430T134239951Z-STRING-CHAR-DOCTESTS-REUSE-MOVED-STR-200F01C2.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

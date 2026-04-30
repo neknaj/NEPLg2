@@ -188,3 +188,17 @@ main case は既存の8件 assertion reportを stdout として固定し、free 
 検証:
 
 - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/stdlib-string-report-agent1.json -j 1 --dist web/dist`: total=9, passed=9
+
+## 2026-04-30 string char report migration and owner-model split note
+
+`ISS-20260430T134239951Z-STRING-CHAR-DOCTESTS-REUSE-MOVED-STR-200F01C2` で、`tests/stdlib/string_char.n.md` の4件を stdout assertion report + `exit_code: 0` へ移行した。
+
+調査時点で先頭2件は同じ `str` local を by-value char observer API に繰り返し渡しており、現行 Resource IR の unresolved fallible owner effect により `resource.owner.reserved` で compile fail していた。fixture は各 assertion に fresh literal を渡す形にして、現在の owner gate を弱めずに回帰テストを通した。
+
+timeout 調査では compile-only 計測が runtime 付き duration とほぼ一致し、原因は生成 wasm の実行や UTF-8 algorithm ではなく、stdlib 込み compile だった。builder case は並列 compiler load で60秒 case timeout に届いたため、string builder と byte builder の2件へ分割した。
+
+一方で、`str` は stdlib 上 Copy な非所有 view と説明されているため、この owner model との不一致は `ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C` として切り出した。
+
+検証:
+
+- `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/tests-stdlib-string-char-agent1-j4.json -j 4 --dist web/dist`: total=4, passed=4

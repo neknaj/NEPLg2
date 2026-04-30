@@ -5,7 +5,17 @@
 ## string_char_count_access_and_slice
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
 ```neplg2
 #entry main
 #target std
@@ -31,24 +41,33 @@ fn expect_str_ok <(str,Result<str,str>,str)*>Result<(),str>> (label, got, expect
             check_str_eq expected text
 
 fn main <()*>i32> ():
-    let s <str> "Aあ💯"
     let checks:
         checks_new
-        |> checks_push assert_eq_i32 8 str_byte_len s
-        |> checks_push assert_eq_i32 3 str_char_count s
-        |> checks_push expect_char "char 0" str_char_at_result s 0 'A'
-        |> checks_push expect_char "char 1" str_char_at_result s 1 0x3042
-        |> checks_push expect_char "char 2" str_char_at_result s 2 0x1F4AF
-        |> checks_push expect_str_ok "slice 1..3" str_slice_chars_result s 1 3 "あ💯"
-        |> checks_push assert is_err<char,str> str_char_at_result s 3
-        |> checks_push assert is_err<str,str> str_slice_chars_result s 2 1
-    checks_exit_code checks
+        |> checks_push assert_eq_i32 8 str_byte_len "Aあ💯"
+        |> checks_push assert_eq_i32 3 str_char_count "Aあ💯"
+        |> checks_push expect_char "char 0" str_char_at_result "Aあ💯" 0 'A'
+        |> checks_push expect_char "char 1" str_char_at_result "Aあ💯" 1 0x3042
+        |> checks_push expect_char "char 2" str_char_at_result "Aあ💯" 2 0x1F4AF
+        |> checks_push expect_str_ok "slice 1..3" str_slice_chars_result "Aあ💯" 1 3 "あ💯"
+        |> checks_push assert is_err<char,str> str_char_at_result "Aあ💯" 3
+        |> checks_push assert is_err<str,str> str_slice_chars_result "Aあ💯" 2 1
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
 
 ## string_next_char_and_contains
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
 ```neplg2
 #entry main
 #target std
@@ -75,30 +94,61 @@ fn expect_next <(str,Result<CharUtf8Step,str>,i32,i32)*>Result<(),str>> (label, 
                     check_eq_i32 expected_next next
 
 fn main <()*>i32> ():
-    let s <str> "Aあ"
     let checks:
         checks_new
-        |> checks_push expect_next "next A" str_next_char_result s 0 'A' 1
-        |> checks_push expect_next "next hira" str_next_char_result s 1 0x3042 4
-        |> checks_push assert is_err<CharUtf8Step,str> str_next_char_result s 2
-        |> checks_push assert str_starts_with_char s 'A'
-        |> checks_push assert not str_starts_with_char s 'あ'
-        |> checks_push assert str_contains_char s 'あ'
-        |> checks_push assert not str_contains_char s 'Z'
-    checks_exit_code checks
+        |> checks_push expect_next "next A" str_next_char_result "Aあ" 0 'A' 1
+        |> checks_push expect_next "next hira" str_next_char_result "Aあ" 1 0x3042 4
+        |> checks_push assert is_err<CharUtf8Step,str> str_next_char_result "Aあ" 2
+        |> checks_push assert str_starts_with_char "Aあ" 'A'
+        |> checks_push assert not str_starts_with_char "Aあ" 'あ'
+        |> checks_push assert str_contains_char "Aあ" 'あ'
+        |> checks_push assert not str_contains_char "Aあ" 'Z'
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
 
-## string_and_byte_builders_append_char
+## string_builder_append_char
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/string" as *
+#import "std/test" as *
+
+fn main <()*>i32> ():
+    let text <str>:
+        string_builder_new
+        |> sb_append_char 'A'
+        |> sb_append_char 'あ'
+        |> sb_append_ascii '!'
+        |> sb_build
+    let checks:
+        checks_new
+        |> checks_push assert_str_eq "Aあ!" text
+    let shown checks_print_report checks;
+    checks_exit_code shown
+```
+
+## byte_builder_append_char
+
+neplg2:test
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #target std
 #indent 4
 
 #import "alloc/io" as *
-#import "alloc/string" as *
 #import "core/result" as *
 #import "std/test" as *
 
@@ -126,12 +176,6 @@ fn byte_builder_text <()*>Result<str,str>> ():
                                             Result<str,str>::Ok text
 
 fn main <()*>i32> ():
-    let text <str>:
-        string_builder_new
-        |> sb_append_char 'A'
-        |> sb_append_char 'あ'
-        |> sb_append_ascii '!'
-        |> sb_build
     let bytes_check <Result<(),str>> match byte_builder_text:
         Result::Err e:
             Result<(),str>::Err e
@@ -139,7 +183,7 @@ fn main <()*>i32> ():
             check_str_eq "Aあ" out
     let checks:
         checks_new
-        |> checks_push assert_str_eq "Aあ!" text
         |> checks_push bytes_check
-    checks_exit_code checks
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
