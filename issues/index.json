@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T06:25:09.270Z",
+  "generated_at": "2026-04-30T06:32:27.952Z",
   "counts": {
-    "total": 449,
+    "total": 450,
     "open": 15,
-    "resolved": 434,
+    "resolved": 435,
     "by_area": {
       "core": {
         "total": 200,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "ci": {
-        "total": 2,
+        "total": 3,
         "open": 0,
-        "resolved": 2
+        "resolved": 3
       },
       "doc": {
         "total": 1,
@@ -5018,6 +5018,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62.md"
+    },
+    {
+      "id": "ISS-20260430T062912063Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-CC55287A",
+      "title": "Resource checker responsibility policy misses initialized summary variant builder",
+      "area": "ci",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/initialized_summary_variant_build.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T062912063Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-CC55287A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",

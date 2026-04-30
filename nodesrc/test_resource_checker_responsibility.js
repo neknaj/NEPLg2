@@ -88,6 +88,7 @@ for (const moduleName of [
     'initialized_summary.rs',
     'initialized_summary_apply.rs',
     'initialized_summary_build.rs',
+    'initialized_summary_variant_build.rs',
 ]) {
     assertFile(moduleName);
 }
@@ -123,6 +124,7 @@ for (const moduleDecl of [
     'mod initialized_summary;',
     'mod initialized_summary_apply;',
     'mod initialized_summary_build;',
+    'mod initialized_summary_variant_build;',
 ]) {
     assertContains(mod, moduleDecl, 'resource/mod.rs');
 }
@@ -225,6 +227,7 @@ const maxLines = new Map([
     ['initialized_summary.rs', 80],
     ['initialized_summary_apply.rs', 160],
     ['initialized_summary_build.rs', 260],
+    ['initialized_summary_variant_build.rs', 260],
 ]);
 
 for (const [name, limit] of maxLines) {
