@@ -17,7 +17,7 @@
 //: - `new` / `replace` / `add` は `Result` を[返/かえ]します。
 //: - [範囲外/はんいがい] index の `replace` / `add` は `Result::Err SegmentTreeUpdateError` で元の owner と[診断/しんだん]を[返/かえ]します。
 //: - `sum_range` は `[l, r)` を[返/かえ]し、[不正/ふせい] range は owner を[借用/しゃくよう]したまま `Result::Err Diag` を[返/かえ]します。
-//: - query だけの[処理/しょり]では `len &st` / `sum_range &st l r` のように borrow し、[最後/さいご]に `free st` で owner を[閉/と]じます。
+//: - [読/よ]み[取/と]りだけの[処理/しょり]では `len &st` / `sum_range &st l r` のように borrow し、[最後/さいご]に `free st` で owner を[閉/と]じます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - `len` は O(1)。
@@ -128,6 +128,10 @@ fn new <(i32)*>Result<SegmentTree, Diag>> (n):
 
 //: ## len
 //: [保持/ほじ]している[長/なが]さを[返/かえ]す
+//:
+//: ### [仕様/しよう]
+//: - `SegmentTree` owner は[消費/しょうひ]しません。
+//: - caller は `len` [後/ご]も同じ `SegmentTree` を[使/つか]い、不要になったら `free` できます。
 fn len <(&SegmentTree)->i32> (st):
     *field::get_ref st "n"
 

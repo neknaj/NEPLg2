@@ -7,9 +7,11 @@
 
 [何/なに]を[確/たし]かめるか:
 - `new`
+- `len`
 - `replace`
 - `add`
 - `sum_range`
+- `free`
 
 neplg2:test
 ret: 1

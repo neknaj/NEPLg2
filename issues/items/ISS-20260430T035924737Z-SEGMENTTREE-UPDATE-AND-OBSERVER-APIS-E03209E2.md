@@ -46,12 +46,13 @@ Run SegmentTree stdlib tests, collection tests, doctests, source policy, issues 
 
 確認済み:
 
-- `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/segment-tree-owner-contract-stdlib-after-sync.json -j 1` (`total=2`, `passed=2`, `failed=0`)
-- `node nodesrc/tests.js -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-owner-contract-collections-after-sync.json -j 1` (`total=3`, `passed=3`, `failed=0`)
-- `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-owner-contract-doctests-after-sync.json -j 1` (`total=5`, `passed=5`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/segment-tree-owner-contract-stdlib-after-60af681c.json -j 1` (`total=2`, `passed=2`, `failed=0`)
+- `node nodesrc/tests.js -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-owner-contract-collections-after-60af681c.json -j 1` (`total=3`, `passed=3`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-owner-contract-doctests-after-60af681c.json -j 1` (`total=5`, `passed=5`, `failed=0`)
 - `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_segment_tree_borrowed_observers.js`: passed
 - `node nodesrc/run_source_policy_regressions.js`: passed
-- `node nodesrc/issues.js check`: passed (`files=435`)
+- `node nodesrc/issues.js check`: passed (`files=436`)
 - `git diff --check`: passed
 
 ## 修正内容

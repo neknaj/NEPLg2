@@ -28305,6 +28305,7 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [同期]:
   - 作業中に `origin/main` が `0a7ec4f0` まで進んだため、local changes を stash し、`git merge --ff-only origin/main` で同期してから再適用した。
   - `0a7ec4f0 fix(stdlib): return adjacency owner on update errors` を取り込み、AdjacencyMatrix の owner-carrying update error contract と source policy が main に入っていることを確認した。
+  - branch push 後に `origin/main` が `60af681c fix(stdlib): borrow segment tree observers` まで進んだため、observer/free contract の変更を取り込み、update error owner contract と統合した。
   - 作業 branch は `fix/segment-tree-owner-contract-20260430`。
 - [原因]:
   - `SegmentTree.len` が read-only API なのに `SegmentTree` を値で受け取り、長さ確認だけで tree storage owner を消費していた。
@@ -28320,12 +28321,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [追加 issue]:
   - `ISS-20260430T035924737Z-SEGMENTTREE-UPDATE-AND-OBSERVER-APIS-E03209E2` を追加し、この作業で fixed/resolved にした。
 - [検証]:
-  - `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/segment-tree-owner-contract-stdlib-after-sync.json -j 1`: `total=2`, `passed=2`
-  - `node nodesrc/tests.js -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-owner-contract-collections-after-sync.json -j 1`: `total=3`, `passed=3`
-  - `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-owner-contract-doctests-after-sync.json -j 1`: `total=5`, `passed=5`
+  - `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/segment-tree-owner-contract-stdlib-after-60af681c.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-owner-contract-collections-after-60af681c.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-owner-contract-doctests-after-60af681c.json -j 1`: `total=5`, `passed=5`
   - `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_borrowed_observers.js`: passed
   - `node nodesrc/run_source_policy_regressions.js`: passed
-  - `node nodesrc/issues.js check`: passed (`files=435`)
+  - `node nodesrc/issues.js check`: passed (`files=436`)
   - `git diff --check`: passed
 - [issue]:
   - `ISS-20260430T035924737Z-SEGMENTTREE-UPDATE-AND-OBSERVER-APIS-E03209E2` を fixed/resolved に更新した。
@@ -28333,3 +28335,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - SegmentTree の read/update/query/free contract を ResourceIR の owner checking に乗る形へ修正した。
+
+# 2026-04-30 note (ISS-20260430T040405803Z SegmentTree borrowed len/free owner contract)
+
+- [同期]:
+  - `main` が `0a7ec4f0` で remote main と一致していることを確認してから、作業 branch `work/segment-tree-borrowed-len` を作成した。
+- [原因]:
+  - `SegmentTree.len` が read-only observer なのに `SegmentTree` を値で受け取り、長さ確認だけで `data` owner を持つ tree を消費していた。
+  - `len_ref` が重複 observer surface として残っており、正しい API を1つに絞れていなかった。
+  - doctest / `.n.md` tests は query 後に owner を明示的に `free` しておらず、所有権 contract の回帰を検出しにくかった。
+  - `free` を追加したところ、`SegmentTree.free` が `field::get_ref` で `data` を借用読み取りしてから `dealloc_raw` していたため、Resource IR が owner obligation の解放を証明できないことも確認した。
+- [修正]:
+  - `len` を `&SegmentTree` receiver に変更し、`len_ref` を削除した。
+  - `free` は `field::get st "data"` で owner field を消費してから `dealloc_raw` するように変更した。
+  - SegmentTree doctest / stdlib test / collection test を、`len &st` / `sum_range &st` のあと同じ owner を `free` する形へ更新した。
+  - `nodesrc/test_stdlib_segment_tree_borrowed_observers.js` を追加し、`nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js` に `free` の owner field consumption 検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_segment_tree_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-borrowed-len-doctests.json -j 1`: `total=5`, `passed=5`
+  - `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/segment-tree-borrowed-len-stdlib-tests.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-borrowed-len-collections-tests.json -j 1`: `total=2`, `passed=2`
+- [issue]:
+  - `ISS-20260430T040405803Z-SEGMENTTREE-LEN-OBSERVER-CONSUMES-OW-89E37D46` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - SegmentTree の observer/free contract を Resource IR の owner state 追跡に乗る形へ修正した。
