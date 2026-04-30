@@ -5,6 +5,7 @@
 //:
 //: ### [目的/もくてき]
 //: - `SparseSet` を[提供/ていきょう]し、`new` / `len` / `universe_len` / `contains` / `insert` / `remove` / `clear` / `free` の bare API で integer set を[扱/あつか]えるようにします。
+//: - `len` / `universe_len` / `contains` は `&SparseSet` を[受/う]け[取/と]り、dense/sparse storage owner を[移動/いどう]せずに[観察/かんさつ]します。
 //: - `[0, n)` の[範囲/はんい]に[収/おさ]まる整数に[対/たい]して、membership と insert / remove を O(1) で[行/おこな]える set を `alloc/collections` に[揃/そろ]えます。
 //:
 //: ### [実装/じっそう]
@@ -16,6 +17,8 @@
 //: - [扱/あつか]える key は `[0, universe_len)` に[限/かぎ]られます。
 //: - `universe_len = 0` は[空/から] domain として[有効/ゆうこう]で、dense/sparse [配列/はいれつ]は[確保/かくほ]しません。
 //: - `clear` は `len = 0` に[戻/もど]すだけで、`sparse` [配列/はいれつ]の[過去値/かこち]は[消/け]しません。membership [判定/はんてい]は `len` と `dense` の[両方/りょうほう]で[検証/けんしょう]するため[安全/あんぜん]です。
+//: - query だけの[処理/しょり]では `contains &s value` のように borrow し、[最後/さいご]に `free s` で owner を[閉/と]じます。
+//: - `insert` / `remove` の[範囲外/はんいがい] `Err` は入力 owner を[消費/しょうひ]し、dense/sparse storage を[解放/かいほう]してから `Diag` を[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - `len` / `universe_len` / `contains` は O(1) です。
@@ -29,16 +32,19 @@
 #import "alloc/diag/error" as *
 
 //: ## SparseSet
-//: header が dense/sparse [配列/はいれつ]を[指/さ]す integer set
+//: dense/sparse [配列/はいれつ]を[所有/しょゆう]する integer set
 //:
 //: ### [目的/もくてき]
-//: - header pointer 1 [本/ほん]だけを[所有/しょゆう]し、dense/sparse [配列/はいれつ]と active [要素数/ようそすう]を[受/う]け[渡/わた]ししやすくします。
+//: - domain [長/なが]さ、active [要素数/ようそすう]、dense/sparse [配列/はいれつ] owner を 1 [値/あたい]として[受/う]け[渡/わた]しします。
 //:
 //: ### [注意/ちゅうい]
-//: - header には `[n, len0, dense_ptr, sparse_ptr]` を i32 で[格納/かくのう]します。
-//: - [不要/ふよう]になったら `free` で header / dense / sparse をまとめて[解放/かいほう]します。
+//: - `n = 0` のとき dense/sparse は `mem_ptr_wrap 0` で、`free` は内部配列を[解放/かいほう]しません。
+//: - [不要/ふよう]になったら `free` で dense / sparse owner を[閉/と]じます。
 struct SparseSet:
-    hdr <i32>
+    n <i32>
+    len0 <i32>
+    dense <MemPtr<i32>>
+    sparse <MemPtr<i32>>
 
 fn sparse_set_diag_len <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "invalid sparse set length"
@@ -62,6 +68,15 @@ fn sparse_set_load_owned <(MemPtr<i32>,i32)->i32> (base, idx):
 fn sparse_set_store_owned <(MemPtr<i32>,i32,i32)->()> (base, idx, value):
     store_i32 mem_ptr_addr sparse_set_slot_ptr base idx value
 
+fn sparse_set_free_arrays <(i32,MemPtr<i32>,MemPtr<i32>)->()> (n, dense, sparse):
+    if:
+        lt 0 n
+        then:
+            dealloc_raw mem_ptr_addr dense mul n 4
+            dealloc_raw mem_ptr_addr sparse mul n 4
+        else:
+            ()
+
 fn sparse_set_contains_raw <(i32,MemPtr<i32>,MemPtr<i32>,i32,i32)->bool> (n, dense, sparse, len0, value):
     if:
         not sparse_set_valid_index value n
@@ -72,61 +87,6 @@ fn sparse_set_contains_raw <(i32,MemPtr<i32>,MemPtr<i32>,i32,i32)->bool> (n, den
                 and le 0 idx lt idx len0
                 then eq sparse_set_load_owned dense idx value
                 else false
-
-fn sparse_set_hdr_n_ptr <(i32)->MemPtr<i32>> (hdr):
-    mem_ptr_wrap hdr
-
-fn sparse_set_hdr_len0_ptr <(i32)->MemPtr<i32>> (hdr):
-    mem_ptr_wrap add hdr 4
-
-fn sparse_set_hdr_dense_ptr_ptr <(i32)->MemPtr<i32>> (hdr):
-    mem_ptr_wrap add hdr 8
-
-fn sparse_set_hdr_sparse_ptr_ptr <(i32)->MemPtr<i32>> (hdr):
-    mem_ptr_wrap add hdr 12
-
-fn sparse_set_hdr_n <(i32)->i32> (hdr):
-    match load_i32 sparse_set_hdr_n_ptr hdr:
-        Option::Some v:
-            v
-        Option::None:
-            0
-
-fn sparse_set_hdr_len0 <(i32)->i32> (hdr):
-    match load_i32 sparse_set_hdr_len0_ptr hdr:
-        Option::Some v:
-            v
-        Option::None:
-            0
-
-fn sparse_set_hdr_dense <(i32)->MemPtr<i32>> (hdr):
-    match load_i32 sparse_set_hdr_dense_ptr_ptr hdr:
-        Option::Some raw:
-            mem_ptr_wrap raw
-        Option::None:
-            mem_ptr_wrap 0
-
-fn sparse_set_hdr_sparse <(i32)->MemPtr<i32>> (hdr):
-    match load_i32 sparse_set_hdr_sparse_ptr_ptr hdr:
-        Option::Some raw:
-            mem_ptr_wrap raw
-        Option::None:
-            mem_ptr_wrap 0
-
-fn sparse_set_hdr_store_i32 <(MemPtr<i32>,i32)->()> (ptr, value):
-    store_i32 mem_ptr_addr ptr value
-
-fn sparse_set_hdr_set_n <(i32,i32)->()> (hdr, n):
-    sparse_set_hdr_store_i32 sparse_set_hdr_n_ptr hdr n
-
-fn sparse_set_hdr_set_len0 <(i32,i32)->()> (hdr, len0):
-    sparse_set_hdr_store_i32 sparse_set_hdr_len0_ptr hdr len0
-
-fn sparse_set_hdr_set_dense <(i32,MemPtr<i32>)->()> (hdr, dense):
-    sparse_set_hdr_store_i32 sparse_set_hdr_dense_ptr_ptr hdr mem_ptr_addr dense
-
-fn sparse_set_hdr_set_sparse <(i32,MemPtr<i32>)->()> (hdr, sparse):
-    sparse_set_hdr_store_i32 sparse_set_hdr_sparse_ptr_ptr hdr mem_ptr_addr sparse
 
 //: ## new
 //: domain `[0, n)` の[空/から] set を[作/つく]る
@@ -140,54 +100,41 @@ fn sparse_set_hdr_set_sparse <(i32,MemPtr<i32>)->()> (hdr, sparse):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let s <SparseSet> unwrap_ok<SparseSet, Diag> new 8;
-//:     if eq len s 0 1 0
+//:     let ok <bool> eq len &s 0;
+//:     free s
+//:     if ok 1 0
 //: ```
 fn new <(i32)*>Result<SparseSet, Diag>> (n):
     if:
         lt n 0
         then diag_err<SparseSet> sparse_set_diag_len
         else:
-            match alloc_ptr<u8> 16:
-                Result::Err _e:
-                    diag_err<SparseSet> diag_out_of_memory
-                Result::Ok hdr:
-                    let hdr_raw <i32> mem_ptr_addr hdr
-                    if:
-                        eq n 0
-                        then:
-                            sparse_set_hdr_set_n hdr_raw 0
-                            sparse_set_hdr_set_len0 hdr_raw 0
-                            sparse_set_hdr_set_dense hdr_raw mem_ptr_wrap 0
-                            sparse_set_hdr_set_sparse hdr_raw mem_ptr_wrap 0
-                            ok<SparseSet, Diag> SparseSet hdr_raw
-                        else:
+            if:
+                eq n 0
+                then:
+                    ok<SparseSet, Diag> SparseSet 0 0 mem_ptr_wrap 0 mem_ptr_wrap 0
+                else:
+                    match alloc_ptr<i32> mul n 4:
+                        Result::Err _e:
+                            diag_err<SparseSet> diag_out_of_memory
+                        Result::Ok dense:
                             match alloc_ptr<i32> mul n 4:
                                 Result::Err _e:
-                                    dealloc_raw mem_ptr_addr hdr 16
+                                    dealloc_raw mem_ptr_addr dense mul n 4
                                     diag_err<SparseSet> diag_out_of_memory
-                                Result::Ok dense:
-                                    match alloc_ptr<i32> mul n 4:
-                                        Result::Err _e:
-                                            dealloc_raw mem_ptr_addr dense mul n 4
-                                            dealloc_raw mem_ptr_addr hdr 16
-                                            diag_err<SparseSet> diag_out_of_memory
-                                        Result::Ok sparse:
-                                            let mut i <i32> 0
-                                            while lt i n:
-                                                do:
-                                                    sparse_set_store_owned dense i 0
-                                                    sparse_set_store_owned sparse i 0
-                                                    set i add i 1
-                                            sparse_set_hdr_set_n hdr_raw n
-                                            sparse_set_hdr_set_len0 hdr_raw 0
-                                            sparse_set_hdr_set_dense hdr_raw dense
-                                            sparse_set_hdr_set_sparse hdr_raw sparse
-                                            ok<SparseSet, Diag> SparseSet hdr_raw
+                                Result::Ok sparse:
+                                    let mut i <i32> 0
+                                    while lt i n:
+                                        do:
+                                            sparse_set_store_owned dense i 0
+                                            sparse_set_store_owned sparse i 0
+                                            set i add i 1
+                                    ok<SparseSet, Diag> SparseSet n 0 dense sparse
 
 //: ## len
 //: [現/げん]在[入/はい]っている[要素数/ようそすう]を[返/かえ]す
-fn len <(SparseSet)->i32> (s):
-    sparse_set_hdr_len0 field::get s "hdr"
+fn len <(&SparseSet)->i32> (s):
+    *field::get_ref s "len0"
 
 //: ## universe_len
 //: [扱/あつか]える整数 domain の[長/なが]さを[返/かえ]す
@@ -201,10 +148,12 @@ fn len <(SparseSet)->i32> (s):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let s <SparseSet> unwrap_ok<SparseSet, Diag> new 8;
-//:     if eq universe_len s 8 1 0
+//:     let ok <bool> eq universe_len &s 8;
+//:     free s
+//:     if ok 1 0
 //: ```
-fn universe_len <(SparseSet)->i32> (s):
-    sparse_set_hdr_n field::get s "hdr"
+fn universe_len <(&SparseSet)->i32> (s):
+    *field::get_ref s "n"
 
 //: ## contains
 //: value が[含/ふく]まれているかを[返/かえ]す
@@ -220,15 +169,15 @@ fn universe_len <(SparseSet)->i32> (s):
 //:     let s <SparseSet>:
 //:         unwrap_ok<SparseSet, Diag> new 8
 //:         |> insert 3 |> uwok
-//:     let ok <bool> unwrap_ok<bool, Diag> contains s 3;
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &s 3;
+//:     free s
 //:     if ok 1 0
 //: ```
-fn contains <(SparseSet,i32)*>Result<bool, Diag>> (s, value):
-    let hdr <i32> field::get s "hdr"
-    let n <i32> sparse_set_hdr_n hdr
-    let len0 <i32> sparse_set_hdr_len0 hdr
-    let dense <MemPtr<i32>> sparse_set_hdr_dense hdr
-    let sparse <MemPtr<i32>> sparse_set_hdr_sparse hdr
+fn contains <(&SparseSet,i32)*>Result<bool, Diag>> (s, value):
+    let n <i32> *field::get_ref s "n"
+    let len0 <i32> *field::get_ref s "len0"
+    let dense <MemPtr<i32>> *field::get_ref s "dense"
+    let sparse <MemPtr<i32>> *field::get_ref s "sparse"
     if:
         sparse_set_valid_index value n
         then:
@@ -252,29 +201,30 @@ fn contains <(SparseSet,i32)*>Result<bool, Diag>> (s, value):
 //:         unwrap_ok<SparseSet, Diag> new 8
 //:         |> insert 3 |> uwok
 //:         |> insert 5 |> uwok
-//:     if eq len s 2 1 0
+//:     let ok <bool> eq len &s 2;
+//:     free s
+//:     if ok 1 0
 //: ```
 fn insert <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
-    let hdr <i32> field::get s "hdr"
-    let n <i32> sparse_set_hdr_n hdr
-    let len0 <i32> sparse_set_hdr_len0 hdr
-    let dense <MemPtr<i32>> sparse_set_hdr_dense hdr
-    let sparse <MemPtr<i32>> sparse_set_hdr_sparse hdr
+    let n <i32> field::get s "n"
+    let len0 <i32> field::get s "len0"
+    let dense <MemPtr<i32>> field::get s "dense"
+    let sparse <MemPtr<i32>> field::get s "sparse"
     if:
         not sparse_set_valid_index value n
         then:
             let d <Diag> sparse_set_diag_index
+            sparse_set_free_arrays n dense sparse
             err<SparseSet, Diag> d
         else:
             if:
                 sparse_set_contains_raw n dense sparse len0 value
                 then:
-                    ok<SparseSet, Diag> s
+                    ok<SparseSet, Diag> SparseSet n len0 dense sparse
                 else:
                     sparse_set_store_owned dense len0 value
                     sparse_set_store_owned sparse value len0
-                    sparse_set_hdr_set_len0 hdr add len0 1
-                    ok<SparseSet, Diag> s
+                    ok<SparseSet, Diag> SparseSet n add len0 1 dense sparse
 
 //: ## remove
 //: value を 1 [個/こ][削除/さくじょ]する
@@ -292,32 +242,33 @@ fn insert <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
 //:         |> insert 3 |> uwok
 //:         |> insert 5 |> uwok
 //:         |> remove 3 |> uwok
-//:     if eq len s 1 1 0
+//:     let ok <bool> eq len &s 1;
+//:     free s
+//:     if ok 1 0
 //: ```
 fn remove <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
-    let hdr <i32> field::get s "hdr"
-    let n <i32> sparse_set_hdr_n hdr
-    let len0 <i32> sparse_set_hdr_len0 hdr
-    let dense <MemPtr<i32>> sparse_set_hdr_dense hdr
-    let sparse <MemPtr<i32>> sparse_set_hdr_sparse hdr
+    let n <i32> field::get s "n"
+    let len0 <i32> field::get s "len0"
+    let dense <MemPtr<i32>> field::get s "dense"
+    let sparse <MemPtr<i32>> field::get s "sparse"
     if:
         not sparse_set_valid_index value n
         then:
             let d <Diag> sparse_set_diag_index
+            sparse_set_free_arrays n dense sparse
             err<SparseSet, Diag> d
         else:
             if:
                 not sparse_set_contains_raw n dense sparse len0 value
                 then:
-                    ok<SparseSet, Diag> s
+                    ok<SparseSet, Diag> SparseSet n len0 dense sparse
                 else:
                     let idx <i32> sparse_set_load_owned sparse value
                     let last_idx <i32> sub len0 1
                     let last_value <i32> sparse_set_load_owned dense last_idx
                     sparse_set_store_owned dense idx last_value
                     sparse_set_store_owned sparse last_value idx
-                    sparse_set_hdr_set_len0 hdr last_idx
-                    ok<SparseSet, Diag> s
+                    ok<SparseSet, Diag> SparseSet n last_idx dense sparse
 
 //: ## clear
 //: [全/すべ]ての[要素/ようそ]を[削除/さくじょ]する
@@ -334,18 +285,21 @@ fn remove <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
 //:         unwrap_ok<SparseSet, Diag> new 8
 //:         |> insert 3 |> uwok
 //:         |> clear
-//:     if eq len s 0 1 0
+//:     let ok <bool> eq len &s 0;
+//:     free s
+//:     if ok 1 0
 //: ```
 fn clear <(SparseSet)->SparseSet> (s):
-    let hdr <i32> field::get s "hdr"
-    sparse_set_hdr_set_len0 hdr 0
-    s
+    let n <i32> field::get s "n"
+    let dense <MemPtr<i32>> field::get s "dense"
+    let sparse <MemPtr<i32>> field::get s "sparse"
+    SparseSet n 0 dense sparse
 
 //: ## free
 //: dense/sparse [配列/はいれつ]を[解放/かいほう]する
 //:
 //: ### [実装/じっそう]
-//: - header は 16 byte、dense/sparse はそれぞれ `n * 4` byte を `new` が[確保/かくほ]し、`SparseSet` が[所有/しょゆう]します。
+//: - dense/sparse はそれぞれ `n * 4` byte を `new` が[確保/かくほ]し、`SparseSet` が[所有/しょゆう]します。
 //: - owner invariant に[基/もと]づき、内部 cleanup は `dealloc_raw` で[行/おこな]います。
 //:
 //: ### [注意/ちゅうい]
@@ -364,10 +318,7 @@ fn clear <(SparseSet)->SparseSet> (s):
 //:     0
 //: ```
 fn free <(SparseSet)->()> (s):
-    let hdr <i32> field::get s "hdr"
-    let n <i32> sparse_set_hdr_n hdr
-    let dense <MemPtr<i32>> sparse_set_hdr_dense hdr
-    let sparse <MemPtr<i32>> sparse_set_hdr_sparse hdr
-    dealloc_raw mem_ptr_addr dense mul n 4
-    dealloc_raw mem_ptr_addr sparse mul n 4
-    dealloc_raw hdr 16
+    let n <i32> field::get s "n"
+    let dense <MemPtr<i32>> field::get s "dense"
+    let sparse <MemPtr<i32>> field::get s "sparse"
+    sparse_set_free_arrays n dense sparse

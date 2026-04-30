@@ -46,6 +46,7 @@ const checks = [
     "nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_list_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js",
+    "nodesrc/test_stdlib_sparse_set_borrowed_observers.js",
     "nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_stack_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_hashmap_storage_contract.js",

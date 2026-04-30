@@ -28162,3 +28162,35 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Fenwick query API を借用 contract に揃え、self-host collection 利用で owner leak workaround が不要になる方向へ修正した。
+
+# 2026-04-30 note (ISS-20260430T024900212Z SparseSet borrowed observers)
+
+- [同期]:
+  - 作業 branch は `fix/sparse-set-borrowed-observers-20260430`。
+  - `origin/main` が `37391faa` まで進んでいたため、SparseSet 差分を退避して branch を fast-forward し、ResourceIR unit helper summary 修正を取り込んだ。
+  - issue index は SparseSet 側の解決済み issue と remote 側の解決済み issue を含めて再生成した。
+- [原因]:
+  - `SparseSet.len` / `universe_len` / `contains` が read-only API なのに `SparseSet` を値で受け取り、membership や長さ確認だけで dense/sparse owner を消費していた。
+  - borrowed observer test で同じ owner を `free` しようとしたところ、旧 `hdr <i32>` raw header layout では dense/sparse pointer を ResourceIR が field owner として追跡できず、`free` 自体が静的検査に乗らないことも確認した。
+  - `insert` / `remove` の範囲外 Err path も consumed owner を返さず cleanup しない同根の contract 問題を持っていた。
+- [修正]:
+  - `SparseSet` を `hdr <i32>` raw header から `n/len0/dense/sparse` typed fields へ移行した。
+  - `len` / `universe_len` / `contains` を `&SparseSet` receiver に変更した。
+  - `insert` / `remove` / `clear` は fields を値で取り出して更新後 owner に移す形にし、範囲外 Err path は `sparse_set_free_arrays` で dense/sparse storage を解放してから `Err(Diag)` を返すようにした。
+  - stdlib / collection tests を、同じ SparseSet に複数回 borrowed observer を呼んだ後 `free` する形へ更新した。
+  - `nodesrc/test_stdlib_sparse_set_borrowed_observers.js` を追加し、`nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js` は raw header 回帰を拒否する contract に更新した。
+- [追加 issue]:
+  - 調査中に `ISS-20260430T032616012Z-SPARSESET-MUTATING-ERROR-PATHS-CONSU-2CA06D59` を追加した。typed storage への修正で同 issue も fixed/resolved にした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/sparse_set.n.md --no-tree -o tmp/sparse-set-stdlib-borrowed-observers.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/sparse_set_collections.n.md --no-tree -o tmp/sparse-set-collections-borrowed-observers.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/sparse_set.nepl --no-tree -o tmp/sparse-set-doctest-borrowed-observers.json -j 1`: `total=7`, `passed=7`
+  - `node nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_sparse_set_borrowed_observers.js`: passed
+- [issue]:
+  - `ISS-20260430T024900212Z-SPARSESET-READ-ONLY-APIS-CONSUME-OWN-E281EAC2` を fixed/resolved に更新した。
+  - `ISS-20260430T032616012Z-SPARSESET-MUTATING-ERROR-PATHS-CONSU-2CA06D59` を fixed/resolved に更新した。
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` に SparseSet 部分進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - SparseSet の read/update/free contract を ResourceIR の field owner 追跡に乗る形へ修正した。

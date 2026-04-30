@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T03:32:05.239Z",
+  "generated_at": "2026-04-30T03:40:12.915Z",
   "counts": {
-    "total": 431,
-    "open": 17,
-    "resolved": 414,
+    "total": 432,
+    "open": 16,
+    "resolved": 416,
     "by_area": {
       "core": {
         "total": 195,
@@ -12,9 +12,9 @@
         "resolved": 190
       },
       "stdlib": {
-        "total": 134,
-        "open": 9,
-        "resolved": 125
+        "total": 135,
+        "open": 8,
+        "resolved": 127
       },
       "TEST": {
         "total": 7,
@@ -233,21 +233,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T023401649Z-SELFHOST-REQ-FAILS-STRICT-OWNER-GATE-F0FF69D6.md"
-    },
-    {
-      "id": "ISS-20260430T024900212Z-SPARSESET-READ-ONLY-APIS-CONSUME-OWN-E281EAC2",
-      "title": "SparseSet read-only APIs consume owners by value instead of borrowing",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "stdlib/alloc/collections/sparse_set.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T024900212Z-SPARSESET-READ-ONLY-APIS-CONSUME-OWN-E281EAC2.md"
     },
     {
       "id": "ISS-20260430T031656331Z-FENWICK-ADD-ERROR-PATH-CONSUMES-OWNE-10D232BB",
@@ -4673,6 +4658,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T024859462Z-FENWICK-SUM-OBSERVER-APIS-CONSUME-OW-2BB59F00.md"
+    },
+    {
+      "id": "ISS-20260430T024900212Z-SPARSESET-READ-ONLY-APIS-CONSUME-OWN-E281EAC2",
+      "title": "SparseSet read-only APIs consume owners by value instead of borrowing",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/sparse_set.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T024900212Z-SPARSESET-READ-ONLY-APIS-CONSUME-OWN-E281EAC2.md"
+    },
+    {
+      "id": "ISS-20260430T032616012Z-SPARSESET-MUTATING-ERROR-PATHS-CONSU-2CA06D59",
+      "title": "SparseSet mutating error paths consume owner without cleanup or return",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/sparse_set.nepl, stdlib/tests/sparse_set.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T032616012Z-SPARSESET-MUTATING-ERROR-PATHS-CONSU-2CA06D59.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

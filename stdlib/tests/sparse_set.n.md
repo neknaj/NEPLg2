@@ -14,28 +14,18 @@ ret: 1
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let s0 <SparseSet>:
+    let s <SparseSet>:
         unwrap_ok<SparseSet, Diag> new 10
         |> insert 2 |> uwok
         |> insert 4 |> uwok
         |> insert 7 |> uwok
         |> remove 4 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> contains s0 2;
-    let s1 <SparseSet>:
-        unwrap_ok<SparseSet, Diag> new 10
-        |> insert 2 |> uwok
-        |> insert 4 |> uwok
-        |> insert 7 |> uwok
-        |> remove 4 |> uwok
-    let ok1 <bool> not unwrap_ok<bool, Diag> contains s1 4;
-    let s2 <SparseSet>:
-        unwrap_ok<SparseSet, Diag> new 10
-        |> insert 2 |> uwok
-        |> insert 4 |> uwok
-        |> insert 7 |> uwok
-        |> remove 4 |> uwok
-    let ok2 <bool> eq len s2 2;
-    if and ok0 and ok1 ok2 1 0
+    let ok0 <bool> unwrap_ok<bool, Diag> contains &s 2;
+    let ok1 <bool> not unwrap_ok<bool, Diag> contains &s 4;
+    let ok2 <bool> eq len &s 2;
+    let ok3 <bool> eq universe_len &s 10;
+    free s
+    if and and ok0 ok1 and ok2 ok3 1 0
 ```
 
 ## sparse_set_invalid_index
@@ -53,10 +43,14 @@ ret: 1
 
 fn main <()*>i32> ():
     let s0 <SparseSet> unwrap_ok<SparseSet, Diag> new 6;
-    let r0 <Result<bool, Diag>> contains s0 8;
+    let r0 <Result<bool, Diag>> contains &s0 8;
     let s1 <SparseSet> unwrap_ok<SparseSet, Diag> new 6;
     let r1 <Result<SparseSet, Diag>> insert s1 8;
+    let s2 <SparseSet> unwrap_ok<SparseSet, Diag> new 6;
+    let r2 <Result<SparseSet, Diag>> remove s2 8;
     let ok0 <bool> is_err<bool, Diag> r0;
     let ok1 <bool> is_err<SparseSet, Diag> r1;
-    if and ok0 ok1 1 0
+    let ok2 <bool> is_err<SparseSet, Diag> r2;
+    free s0
+    if and ok0 and ok1 ok2 1 0
 ```

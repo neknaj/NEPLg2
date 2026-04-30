@@ -289,3 +289,28 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 - `core/mem` と string / byte builder は過渡的に改善しているが、`MemPtr` が owner と view を兼ねる設計を最終形としては採用しない。
 
 この issue の残件は `Vec` / raw byte or numeric collection / List node storage の owner state を、`OwnedBuffer<T>` / `OwnedBytes` / `StorageState<T>` / enum + `match` へ移すことに絞る。
+
+## 2026-04-30 SparseSet 部分進捗
+
+`stdlib/alloc/collections/sparse_set.nepl` は旧 `hdr <i32>` raw header と header 内 raw dense/sparse address layout を廃止し、`n/len0/dense/sparse` typed fields へ移行した。
+
+進捗:
+
+- `SparseSet` 本体は `n`, `len0`, `dense`, `sparse` を直接持ち、dense/sparse owner を ResourceIR が field owner として追跡できる形にした。
+- `len` / `universe_len` / `contains` は `&SparseSet` を受け取る read API に揃え、読み取りで storage owner を移動しない。
+- `insert` / `remove` / `clear` は consumed owner の fields を値で取り出し、成功時は新しい `SparseSet` へ owner を移す。
+- `insert` / `remove` の範囲外 Err path は consumed owner の dense/sparse storage を `sparse_set_free_arrays` で解放してから `Err(Diag)` を返す。
+- `nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_sparse_set_borrowed_observers.js` で raw header 回帰と by-value observer 回帰を防止する。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/tests/sparse_set.n.md --no-tree -o tmp/sparse-set-stdlib-borrowed-observers.json -j 1`: total=2, passed=2
+- `node nodesrc/tests.js -i tests/stdlib/sparse_set_collections.n.md --no-tree -o tmp/sparse-set-collections-borrowed-observers.json -j 1`: total=3, passed=3
+- `node nodesrc/tests.js -i stdlib/alloc/collections/sparse_set.nepl --no-tree -o tmp/sparse-set-doctest-borrowed-observers.json -j 1`: total=7, passed=7
+- `node nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_sparse_set_borrowed_observers.js`: passed
+
+残件:
+
+- `SparseSet` の dense/sparse payload は引き続き raw `MemPtr<i32>` array であり、最終的な `OwnedBuffer<i32>` / typed buffer state 設計へ移す余地がある。
+- `Vec` / raw byte collection / List node storage の owner state は引き続き残る。

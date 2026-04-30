@@ -10,7 +10,10 @@
 - `insert`
 - `remove`
 - `contains`
+- `len`
+- `universe_len`
 - `clear`
+- `free`
 
 neplg2:test
 ret: 1
@@ -30,16 +33,14 @@ fn main <()*>i32> ():
         |> insert 5 |> uwok
         |> insert 9 |> uwok
         |> remove 5 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> contains s0 9;
-    let s1 <SparseSet>:
-        unwrap_ok<SparseSet, Diag> new 12
-        |> insert 1 |> uwok
-        |> insert 5 |> uwok
-        |> insert 9 |> uwok
-        |> remove 5 |> uwok
-        |> clear
-    let ok1 <bool> eq len s1 0;
-    if and ok0 ok1 1 0
+    let ok0 <bool> unwrap_ok<bool, Diag> contains &s0 9;
+    let ok1 <bool> not unwrap_ok<bool, Diag> contains &s0 5;
+    let ok2 <bool> eq len &s0 2;
+    let ok3 <bool> eq universe_len &s0 12;
+    let s1 <SparseSet> clear s0;
+    let ok4 <bool> eq len &s1 0;
+    free s1
+    if and and ok0 ok1 and ok2 and ok3 ok4 1 0
 ```
 
 ## sparse_set_clear_free_reallocates
@@ -77,7 +78,8 @@ fn main <()*>i32> ():
     let s0 <SparseSet>:
         unwrap_ok<SparseSet, Diag> new 12
         |> insert 7 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> contains s0 7;
+    let ok0 <bool> unwrap_ok<bool, Diag> contains &s0 7;
+    free s0
     if ok0 1 0
 ```
 
@@ -109,12 +111,16 @@ fn main <()*>i32> ():
         Result::Err _e:
             false
         Result::Ok s:
-            eq universe_len s 0
+            let ok <bool> eq universe_len &s 0;
+            free s
+            ok
     let contains_err_ok <bool> match new 0:
         Result::Err _e:
             false
         Result::Ok s:
-            match contains s 0:
+            let r <Result<bool, Diag>> contains &s 0;
+            free s
+            match r:
                 Result::Ok _v:
                     false
                 Result::Err _e:
@@ -131,7 +137,9 @@ fn main <()*>i32> ():
                 Result::Err _e:
                     false
                 Result::Ok s1:
-                    match contains s1 1:
+                    let r <Result<bool, Diag>> contains &s1 1;
+                    free s1
+                    match r:
                         Result::Ok v:
                             v
                         Result::Err _e:
