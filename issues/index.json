@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T02:53:19.670Z",
+  "generated_at": "2026-04-30T03:00:46.916Z",
   "counts": {
     "total": 430,
-    "open": 22,
-    "resolved": 408,
+    "open": 21,
+    "resolved": 409,
     "by_area": {
       "core": {
         "total": 195,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 133,
-        "open": 12,
-        "resolved": 121
+        "open": 11,
+        "resolved": 122
       },
       "TEST": {
         "total": 7,
@@ -248,21 +248,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T023401649Z-SELFHOST-REQ-FAILS-STRICT-OWNER-GATE-F0FF69D6.md"
-    },
-    {
-      "id": "ISS-20260430T024858473Z-ADJACENCYMATRIX-READ-ONLY-APIS-CONSU-2B467DE0",
-      "title": "AdjacencyMatrix read-only APIs consume owners by value instead of borrowing",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "stdlib/alloc/collections/adjacency_matrix.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T024858473Z-ADJACENCYMATRIX-READ-ONLY-APIS-CONSU-2B467DE0.md"
     },
     {
       "id": "ISS-20260430T024858788Z-BLOOMFILTER-READ-ONLY-APIS-CONSUME-O-B8202860",
@@ -4673,6 +4658,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T022009877Z-BITSET-READ-ONLY-APIS-CONSUME-OWNERS-103D989F.md"
+    },
+    {
+      "id": "ISS-20260430T024858473Z-ADJACENCYMATRIX-READ-ONLY-APIS-CONSU-2B467DE0",
+      "title": "AdjacencyMatrix read-only APIs consume owners by value instead of borrowing",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/adjacency_matrix.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T024858473Z-ADJACENCYMATRIX-READ-ONLY-APIS-CONSU-2B467DE0.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

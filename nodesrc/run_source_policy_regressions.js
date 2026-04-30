@@ -35,6 +35,7 @@ const checks = [
     "nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_bitset_borrowed_observers.js",
     "nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js",
+    "nodesrc/test_stdlib_adjacency_matrix_borrowed_observers.js",
     "nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js",

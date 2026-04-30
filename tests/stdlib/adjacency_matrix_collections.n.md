@@ -8,7 +8,9 @@
 - `insert`
 - `remove`
 - `contains`
+- `len`
 - `clear`
+- `free`
 
 neplg2:test
 ret: 1
@@ -28,22 +30,19 @@ fn main <()*>i32> ():
         |> insert 3 5 |> uwok
         |> insert 5 1 |> uwok
         |> remove 3 5 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> contains g0 1 3;
-    let g1 <AdjacencyMatrix>:
-        unwrap_ok<AdjacencyMatrix, Diag> new 6
-        |> insert 1 3 |> uwok
-        |> insert 3 5 |> uwok
-        |> insert 5 1 |> uwok
-        |> remove 3 5 |> uwok
-    let ok1 <bool> not unwrap_ok<bool, Diag> contains g1 3 5;
+    let ok0 <bool> unwrap_ok<bool, Diag> contains &g0 1 3;
+    let ok1 <bool> not unwrap_ok<bool, Diag> contains &g0 3 5;
+    let ok2 <bool> eq len &g0 6;
+    free g0
     let g2 <AdjacencyMatrix>:
         unwrap_ok<AdjacencyMatrix, Diag> new 6
         |> insert 1 3 |> uwok
         |> insert 3 5 |> uwok
         |> insert 5 1 |> uwok
         |> clear
-    let ok2 <bool> not unwrap_ok<bool, Diag> contains g2 5 1;
-    if and ok0 and ok1 ok2 1 0
+    let ok3 <bool> not unwrap_ok<bool, Diag> contains &g2 5 1;
+    free g2
+    if and ok0 and ok1 and ok2 ok3 1 0
 ```
 
 ## adjacency_matrix_free_releases_owned_storage

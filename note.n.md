@@ -28006,3 +28006,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host に必要な collection observer API を、型/メモリ安全の静的検査が効く借用 contract へ近づけた。
+
+# 2026-04-30 note (ISS-20260430T024858473Z AdjacencyMatrix borrowed observers)
+
+- [同期]:
+  - `main` で `git pull --ff-only origin main` を実行し、remote main が最新であることを確認した。
+  - 作業 branch は `fix/adjacency-matrix-borrowed-observers-20260430`。
+- [原因]:
+  - `AdjacencyMatrix.len` / `AdjacencyMatrix.contains` は読み取り専用 API なのに `AdjacencyMatrix` を値で受け取り、matrix storage owner を観察時に消費していた。
+  - 既存 tests は observer ごとに `AdjacencyMatrix` を作り直しており、同じ owner を観察後に `free` できる contract を検証していなかった。
+- [修正]:
+  - `AdjacencyMatrix.len` と `AdjacencyMatrix.contains` を `&AdjacencyMatrix` receiver に変更した。
+  - doctest / `.n.md` tests を、同じ matrix に複数回 borrowed observer を呼んだ後で `free` する形へ整理した。
+  - `nodesrc/test_stdlib_adjacency_matrix_borrowed_observers.js` を追加し、by-value observer signature と by-value test usage の再発を source policy で検出するようにした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/adjacency_matrix.n.md --no-tree -o tmp/adjacency-stdlib-borrowed-observers.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/adjacency_matrix_collections.n.md --no-tree -o tmp/adjacency-collections-borrowed-observers.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl --no-tree -o tmp/adjacency-doctest-borrowed-observers.json -j 1`: `total=6`, `passed=6`
+  - `node nodesrc/test_stdlib_adjacency_matrix_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/issues.js check`: passed
+- [issue]:
+  - `ISS-20260430T024858473Z-ADJACENCYMATRIX-READ-ONLY-APIS-CONSU-2B467DE0` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - BitSet と同じ owner-consuming observer root cause を AdjacencyMatrix でも借用 contract へ修正した。
