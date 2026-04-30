@@ -981,8 +981,9 @@ fn lower_field_get_call_source(
         return None;
     }
     let owner = args.first()?;
-    let field_name = literal_field_name(env, args.get(1)?)?;
-    let projection = aggregate_field_projection_by_name(env.types, owner.ty, field_name, field_ty)?;
+    let selector = literal_field_selector(env, args.get(1)?)?;
+    let projection =
+        aggregate_field_projection_by_selector(env.types, owner.ty, selector, field_ty)?;
     if let Some(source) =
         lower_raw_aggregate_field_source(owner, projection.clone(), field_ty, ops, ctx, env)
     {
@@ -1008,8 +1009,8 @@ fn lower_get_field_intrinsic_source(
     }
     let owner = args.first()?;
     let projection =
-        if let Some(field_name) = args.get(1).and_then(|arg| literal_field_name(env, arg)) {
-            aggregate_field_projection_by_name(env.types, owner.ty, field_name, field_ty)?
+        if let Some(selector) = args.get(1).and_then(|arg| literal_field_selector(env, arg)) {
+            aggregate_field_projection_by_selector(env.types, owner.ty, selector, field_ty)?
         } else if is_named_struct_type(env.types, owner.ty, "RegionToken")
             && is_named_struct_type(env.types, field_ty, "MemPtr")
         {
@@ -1044,10 +1045,11 @@ fn lower_get_field_ref_intrinsic_source(
         return None;
     }
     let owner_ref = args.first()?;
-    let field_name = literal_field_name(env, args.get(1)?)?;
+    let selector = literal_field_selector(env, args.get(1)?)?;
     let owner_ty = reference_inner_type(env.types, owner_ref.ty)?;
     let field_ty = reference_inner_type(env.types, ref_ty)?;
-    let projection = aggregate_field_projection_by_name(env.types, owner_ty, field_name, field_ty)?;
+    let projection =
+        aggregate_field_projection_by_selector(env.types, owner_ty, selector, field_ty)?;
     let mut base = place_from_expr_skeleton(owner_ref, ctx);
     if matches!(&base.root, super::model::PlaceRoot::Unknown) {
         base = lower_expr_skeleton(owner_ref, ops, ctx, env);
@@ -1178,10 +1180,24 @@ fn condition_value_expr(expr: &HirExpr) -> Option<&HirExpr> {
     }
 }
 
-fn literal_field_name<'a>(env: &'a LoweringEnvironment, expr: &HirExpr) -> Option<&'a str> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FieldSelector<'a> {
+    Name(&'a str),
+    Index(usize),
+}
+
+fn literal_field_selector<'a>(
+    env: &'a LoweringEnvironment,
+    expr: &HirExpr,
+) -> Option<FieldSelector<'a>> {
     match &expr.kind {
-        HirExprKind::LiteralStr(index) => {
-            env.string_literals.get(*index as usize).map(String::as_str)
+        HirExprKind::LiteralStr(index) => env
+            .string_literals
+            .get(*index as usize)
+            .map(String::as_str)
+            .map(FieldSelector::Name),
+        HirExprKind::LiteralI32(index) if *index >= 0 => {
+            Some(FieldSelector::Index(*index as usize))
         }
         _ => None,
     }
@@ -1264,19 +1280,25 @@ fn aggregate_field_projection(
     })
 }
 
-fn aggregate_field_projection_by_name(
+fn aggregate_field_projection_by_selector(
     types: &TypeCtx,
     owner_ty: TypeId,
-    field_name: &str,
+    selector: FieldSelector<'_>,
     field_ty: TypeId,
 ) -> Option<PlaceProjection> {
     let kind = aggregate_projection_kind(types, owner_ty)?;
     let fields = aggregate_fields_with_offsets(types, owner_ty);
     let index = match kind {
-        AggregateProjectionKind::Struct => aggregate_struct_field_names(types, owner_ty)?
-            .iter()
-            .position(|name| name == field_name)?,
-        AggregateProjectionKind::Tuple => field_name.parse::<usize>().ok()?,
+        AggregateProjectionKind::Struct => match selector {
+            FieldSelector::Name(field_name) => aggregate_struct_field_names(types, owner_ty)?
+                .iter()
+                .position(|name| name == field_name)?,
+            FieldSelector::Index(_) => return None,
+        },
+        AggregateProjectionKind::Tuple => match selector {
+            FieldSelector::Name(field_name) => field_name.parse::<usize>().ok()?,
+            FieldSelector::Index(index) => index,
+        },
     };
     let field = fields.get(index)?;
     if !field_type_matches_result(types, field.ty, field_ty) {

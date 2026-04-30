@@ -2475,6 +2475,73 @@ fn resource_ir_lowering_treats_compiler_field_load_as_field_read() {
 }
 
 #[test]
+fn resource_ir_lowering_projects_tuple_get_numeric_selector() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let tuple_ty = types.tuple(vec![i32_ty, i32_ty]);
+    let func_ty = types.function(vec![], vec![tuple_ty], i32_ty, Effect::Pure);
+    let span = Span::dummy();
+    let tuple_param = HirParam {
+        name: "parts".to_string(),
+        ty: tuple_ty,
+        mutable: false,
+    };
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty,
+            params: vec![tuple_param],
+            result: i32_ty,
+            effect: Effect::Pure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![HirLine {
+                    expr: HirExpr {
+                        ty: i32_ty,
+                        kind: HirExprKind::Call {
+                            callee: FuncRef::User("get".to_string(), vec![], None),
+                            args: vec![
+                                HirExpr {
+                                    ty: tuple_ty,
+                                    kind: HirExprKind::Var("parts".to_string()),
+                                    span,
+                                },
+                                HirExpr {
+                                    ty: i32_ty,
+                                    kind: HirExprKind::LiteralI32(1),
+                                    span,
+                                },
+                            ],
+                        },
+                        span,
+                    },
+                    drop_result: false,
+                }],
+                ty: i32_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module(&module, &types);
+    let ops = &resource.functions[0].blocks[0].ops;
+
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::Read { source, .. }
+            if matches!(&source.root, PlaceRoot::Local(name) if name == "parts")
+                && source.projections == [PlaceProjection::TupleField { index: 1, offset_bytes: 4 }]
+    )));
+    assert!(!ops.iter().any(|op| matches!(op, ResourceOp::Call { .. })));
+}
+
+#[test]
 fn resource_ir_lowering_projects_raw_aggregate_field_without_whole_load() {
     let mut types = TypeCtx::new();
     let i32_ty = types.i32();
@@ -6993,6 +7060,133 @@ fn resource_ir_owner_check_moves_aggregate_owner_projection() {
             ..
         } if function == "main" && place == &old_field
     )));
+}
+
+#[test]
+fn resource_ir_owner_check_read_moves_tuple_field_owner_projection() {
+    let mut types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let boxed_ty = types.register_named(
+        "Boxed".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Boxed".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["ptr".to_string()],
+        },
+    );
+    let pair_ty = types.tuple(vec![boxed_ty, boxed_ty]);
+    let span = Span::dummy();
+    let left_ptr = Place::temporary(ResourceId(0), i32_ty);
+    let right_ptr = Place::temporary(ResourceId(1), i32_ty);
+    let left_box = Place::temporary(ResourceId(2), boxed_ty);
+    let right_box = Place::temporary(ResourceId(3), boxed_ty);
+    let pair = Place::local("pair".to_string(), pair_ty);
+    let pair_left = pair.clone().with_projection(
+        PlaceProjection::TupleField {
+            index: 0,
+            offset_bytes: 0,
+        },
+        boxed_ty,
+    );
+    let pair_right = pair.clone().with_projection(
+        PlaceProjection::TupleField {
+            index: 1,
+            offset_bytes: 4,
+        },
+        boxed_ty,
+    );
+    let extracted_left = Place::temporary(ResourceId(4), boxed_ty);
+    let extracted_right = Place::temporary(ResourceId(5), boxed_ty);
+    let extracted_left_ptr = extracted_left.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let extracted_right_ptr = extracted_right.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: left_ptr.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: right_ptr.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Construct {
+                output: left_box.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Boxed".to_string(),
+                    field_offsets: vec![0],
+                },
+                inputs: vec![left_ptr],
+                span,
+            },
+            ResourceOp::Construct {
+                output: right_box.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Boxed".to_string(),
+                    field_offsets: vec![0],
+                },
+                inputs: vec![right_ptr],
+                span,
+            },
+            ResourceOp::Construct {
+                output: pair,
+                kind: AggregateKind::Tuple {
+                    field_offsets: vec![0, 4],
+                },
+                inputs: vec![left_box, right_box],
+                span,
+            },
+            ResourceOp::Read {
+                source: pair_left,
+                output: extracted_left,
+                span,
+            },
+            ResourceOp::Read {
+                source: pair_right,
+                output: extracted_right,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(6), unit_ty),
+                args: vec![extracted_left_ptr],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(7), unit_ty),
+                args: vec![extracted_right_ptr],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert_eq!(
+        report.diagnostics,
+        vec![],
+        "tuple field reads must transfer nested owners to the extracted value"
+    );
 }
 
 #[test]

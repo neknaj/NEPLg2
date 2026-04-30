@@ -1,3 +1,26 @@
+# 2026-05-01 メモ (ISS-20260430T154405890Z tuple field owner projection read)
+
+- [原因]:
+  - `get parts 0` / `get parts 1` の selector が数値 literal の場合、Resource IR lowering は tuple field projection として直接復元せず、stdlib `get` の call summary 経路に落としていた。
+  - `ResourceOp::Read` は initialized checker では non-Copy read を move として扱う一方、owner checker では raw alias / storage origin の copy だけを行っており、tuple field から取り出した `Vec` の nested owner obligation が元 tuple 側に残っていた。
+- [修正]:
+  - field selector を `Name` / `Index` の enum で表し、struct は name のみ、tuple は string index と numeric index を match で分岐するようにした。
+  - `ResourceOp::Read` で non-Copy source に tracked owner state がある場合は owner transfer を実行し、copy raw pointer read と non-owning raw-address view は alias / marker copy に分離した。
+  - `resource_ir_lowering_projects_tuple_get_numeric_selector` と `resource_ir_owner_check_read_moves_tuple_field_owner_projection` を追加した。
+- [検証]:
+  - `cargo fmt --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core resource_ir_lowering_projects_tuple_get_numeric_selector`: passed
+  - `cargo test -p nepl-core resource_ir_owner_check_read_moves_tuple_field_owner_projection`: passed
+  - `trunk build`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 10 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-tuple-owner-agent1.json -j 1 --dist web/dist`: total=45, passed=44, failed=1。残る failure は既存の `ISS-20260430T154415527Z-TYPED-BLOCK-CONTEXT-LOSES-VEC-LEN-RE-46F57311`。
+- [issue]:
+  - `ISS-20260430T154405890Z-RESOURCE-IR-TUPLE-OWNER-PROJECTIONS--CCF76754` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査の正確性を優先し、owner leak 診断を緩めずに Resource IR lowering と owner transfer の責務を揃えた。
+
 # 2026-04-30 メモ (ISS-20260430T144921657Z Result::Ok owner summary alias protection)
 
 - [原因]:

@@ -295,7 +295,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 output,
                 span,
             } => {
-                variant_owner_effects.reject_reserved_source_use(
+                let source_is_reserved = variant_owner_effects.reject_reserved_source_use(
                     self,
                     owners,
                     raw_aliases,
@@ -303,8 +303,35 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::Read,
                     *span,
                 );
-                raw_aliases.copy_alias_or_seed(source, output);
-                storage_origins.copy_origin(source, output);
+                if !source_is_reserved {
+                    if self.initializer_is_non_owning_raw_alias_view(
+                        owners,
+                        raw_aliases,
+                        raw_views,
+                        true,
+                        source,
+                        output,
+                    ) {
+                        self.copy_non_owning_owner_markers(owners, source, output);
+                        raw_aliases.copy_alias_or_seed(source, output);
+                        storage_origins.copy_origin(source, output);
+                    } else if !self.types.is_copy(source.ty)
+                        && owners.has_tracked_state_under(source)
+                    {
+                        self.transfer_owner(
+                            owners,
+                            raw_aliases,
+                            storage_origins,
+                            source,
+                            output,
+                            ResourceOwnerOperation::Read,
+                            *span,
+                        );
+                    } else {
+                        raw_aliases.copy_alias_or_seed(source, output);
+                        storage_origins.copy_origin(source, output);
+                    }
+                }
                 function_aliases.copy_alias(source, output);
                 raw_views.copy(source, output);
                 pending_reallocs.copy_result(source, output);

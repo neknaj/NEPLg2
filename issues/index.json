@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T15:52:09.786Z",
+  "generated_at": "2026-04-30T16:08:30.121Z",
   "counts": {
     "total": 484,
-    "open": 17,
-    "resolved": 467,
+    "open": 16,
+    "resolved": 468,
     "by_area": {
       "core": {
         "total": 212,
-        "open": 8,
-        "resolved": 204
+        "open": 7,
+        "resolved": 205
       },
       "CORE": {
         "total": 1,
@@ -183,21 +183,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8.md"
-    },
-    {
-      "id": "ISS-20260430T154405890Z-RESOURCE-IR-TUPLE-OWNER-PROJECTIONS--CCF76754",
-      "title": "Resource IR tuple owner projections leak after aggregate field extraction",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource, tests/compiler/overload.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T154405890Z-RESOURCE-IR-TUPLE-OWNER-PROJECTIONS--CCF76754.md"
     },
     {
       "id": "ISS-20260430T154415527Z-TYPED-BLOCK-CONTEXT-LOSES-VEC-LEN-RE-46F57311",
@@ -3333,6 +3318,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T144921657Z-RESOURCE-IR-OWNER-SUMMARY-LEAVES-MOV-67611338.md"
+    },
+    {
+      "id": "ISS-20260430T154405890Z-RESOURCE-IR-TUPLE-OWNER-PROJECTIONS--CCF76754",
+      "title": "Resource IR tuple owner projections leak after aggregate field extraction",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-05-01",
+      "target": "nepl-core/src/resource, tests/compiler/overload.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T154405890Z-RESOURCE-IR-TUPLE-OWNER-PROJECTIONS--CCF76754.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
