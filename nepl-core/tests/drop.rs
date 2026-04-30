@@ -1,4 +1,5 @@
 use nepl_core::diagnostic::Diagnostic;
+use nepl_core::diagnostic_codes::{DiagnosticCode, EffectDiagnosticCode};
 use nepl_core::loader::Loader;
 use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
 use std::path::PathBuf;
@@ -84,12 +85,45 @@ impl Drop for Guard:
     fn drop <(&Guard)*>()> (self):
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let g <Guard> Guard 1;
     0
 "#;
     let artifact = compile_drop_test(source).expect("drop trait should compile");
     assert!(!artifact.is_empty(), "generated wasm should not be empty");
+}
+
+#[test]
+fn pure_function_with_impure_auto_drop_is_rejected() {
+    let source = r#"
+#target wasm
+#indent 4
+#entry main
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        ()
+
+fn main <()->i32> ():
+    let g <Guard> Guard 1;
+    0
+"#;
+    let diagnostics =
+        compile_drop_test(source).expect_err("pure function must not auto-call impure Drop");
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.code
+                == Some(DiagnosticCode::Effect(
+                    EffectDiagnosticCode::PureCallsImpure,
+                ))
+        }),
+        "expected effect.pure.calls_impure, got {diagnostics:?}"
+    );
 }
 
 #[test]
@@ -110,7 +144,7 @@ impl Drop for Guard:
         tick 7;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let g <Guard> Guard 0;
     0
 "#;
@@ -195,7 +229,7 @@ impl Drop for Guard:
         tick 21;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v <MaybeGuard> MaybeGuard::Some (Guard 0);
     0
 "#;
@@ -224,7 +258,7 @@ impl Drop for Guard:
         tick 22;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v <MaybeGuard> MaybeGuard::None;
     0
 "#;
@@ -256,7 +290,7 @@ impl Drop for Guard:
         tick 25;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let h <Holder> Holder (MaybeGuard::Some (Guard 0));
     0
 "#;
@@ -283,7 +317,7 @@ impl Drop for Guard:
         tick 23;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let r <Result<Guard, str>> Result::Ok (Guard 0);
     0
 "#;
@@ -312,7 +346,7 @@ impl Drop for Guard:
         tick 24;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let v <MaybeGuard> MaybeGuard::Some (Guard 0);
     let kept <Guard> match v:
         MaybeGuard::Some g:
@@ -356,7 +390,7 @@ impl Drop for InnerBGuard:
         tick 3;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let outer <OuterGuard> OuterGuard 0;
     let _ <i32> if true:
         then:
@@ -390,7 +424,7 @@ impl Drop for Guard:
         tick 7;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let plain <PlainBox> PlainBox (Guard 0);
     0
 "#;
@@ -431,7 +465,7 @@ impl Drop for Pair:
         tick 9;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <Pair> Pair (GuardA 0) (GuardB 0);
     let left <GuardA> field::get p "left";
     0
@@ -461,7 +495,7 @@ impl Drop for Guard:
         tick 3;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let boxed <Boxed> Boxed 7 (Guard 0);
     let count <i32> field::get boxed "count";
     count
@@ -494,7 +528,7 @@ impl Drop for FalseGuard:
         tick 20;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let flag <bool> true;
     let _ <i32> if flag:
         then:
@@ -533,7 +567,7 @@ impl Drop for InnerGuard:
         tick 2;
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let g <OuterGuard> OuterGuard 0;
     let _ <i32> if true:
         then:
@@ -595,7 +629,7 @@ impl Drop for Guard:
     fn drop <(&Guard)*>()> (self):
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let g <Guard> Guard 9;
     0
 "#;

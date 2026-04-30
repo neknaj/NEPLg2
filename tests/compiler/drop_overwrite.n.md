@@ -24,7 +24,7 @@ impl Drop for Guard:
     fn drop <(&Guard)*>()> (self):
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let mut g <Guard> Guard 0;
     set g Guard 1;
     0

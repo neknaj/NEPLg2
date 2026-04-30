@@ -29277,3 +29277,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 3/6 に沿い、`str` view と storage owner の分離は別 issue で追跡する。
+
+# 2026-04-30 note (ISS-20260430T141611950Z drop fixture effect annotations)
+
+- [同期]:
+  - `b8a46243` の string char report commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `tests/compiler` の現行確認で、Drop関連5件が `effect.pure.calls_impure` により compile fail していた。
+  - Rust integration test `nepl-core/tests/drop.rs` でも同じ原因で14件失敗していた。
+  - `Drop::drop` は `(&Self)* -> ()` のimpure methodであり、scope endのauto dropは実際のimpure callとして扱うべきである。
+  - compiler側でauto drop effectを隠すと、destructor内の外部I/Oをpure関数から観測できるため、静的検査の正確性を壊す。
+- [修正]:
+  - Drop実行を期待するpositive fixtureのentry pointを `fn main <()*>i32>` へ更新した。
+  - pure関数がimpure auto dropを実行しようとする場合は `effect.pure.calls_impure` で拒否されるcompile_fail回帰を `.n.md` とRust integration testの両方に追加した。
+  - `ISS-20260430T141611950Z-DROP-REGRESSION-FIXTURES-USE-PURE-EN-D9FD2B4F` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test drop -- --nocapture`: `18 passed`
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md -i tests/compiler/drop_overwrite.n.md --no-tree -o tmp/drop-effect-fixtures-agent1.json -j 1 --dist web/dist`: `6 total / 6 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` のStage 4/5方針に沿い、drop obligationとeffect boundaryを分離せず隠すのではなく、auto drop callのeffectを静的検査へ残す。

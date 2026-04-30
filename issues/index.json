@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:22.608Z",
+  "generated_at": "2026-04-30T14:41:24.314Z",
   "counts": {
-    "total": 478,
+    "total": 479,
     "open": 17,
-    "resolved": 461,
+    "resolved": 462,
     "by_area": {
       "core": {
         "total": 208,
@@ -27,9 +27,9 @@
         "resolved": 143
       },
       "TEST": {
-        "total": 17,
+        "total": 18,
         "open": 1,
-        "resolved": 16
+        "resolved": 17
       },
       "cli": {
         "total": 19,
@@ -5358,6 +5358,21 @@
       "legacy_id": "",
       "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
       "file": "items/ISS-20260430T134239951Z-STRING-CHAR-DOCTESTS-REUSE-MOVED-STR-200F01C2.md"
+    },
+    {
+      "id": "ISS-20260430T141611950Z-DROP-REGRESSION-FIXTURES-USE-PURE-EN-D9FD2B4F",
+      "title": "Drop regression fixtures use pure entry points despite impure destructors",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "tests/compiler/drop.n.md, tests/compiler/drop_overwrite.n.md, nepl-core/tests/drop.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T141611950Z-DROP-REGRESSION-FIXTURES-USE-PURE-EN-D9FD2B4F.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

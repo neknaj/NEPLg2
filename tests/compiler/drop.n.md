@@ -25,6 +25,33 @@ impl Drop for Guard:
     fn drop <(&Guard)*>()> (self):
         ()
 
+fn main <()*>i32> ():
+    let g <Guard> Guard 0;
+    0
+```
+
+## drop_impure_destructor_keeps_pure_main_rejected
+
+[目的/もくてき]:
+- `Drop::drop` は impure effect を持つため、pure `main` の scope end で自動実行される場合は拒否されることを確認します。
+- auto drop の effect を隠して pure 関数を通す退行を防ぎます。
+
+neplg2:test[compile_fail]
+diag_code: effect.pure.calls_impure
+```neplg2
+#target wasm
+#entry main
+#indent 4
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    dummy <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (self):
+        ()
+
 fn main <()->i32> ():
     let g <Guard> Guard 0;
     0
@@ -57,7 +84,7 @@ impl Drop for InnerGuard:
     fn drop <(&InnerGuard)*>()> (self):
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let outer <OuterGuard> OuterGuard 0;
     let _ <i32> if true:
         then:
@@ -96,7 +123,7 @@ impl Drop for FalseGuard:
     fn drop <(&FalseGuard)*>()> (self):
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let flag <bool> true;
     let _ <i32> if flag:
         then:
@@ -136,7 +163,7 @@ impl Drop for GuardB:
     fn drop <(&GuardB)*>()> (self):
         ()
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let a <GuardA> GuardA 0;
     let b <GuardB> GuardB 0;
     0
