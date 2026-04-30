@@ -889,3 +889,13 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 
 - `node nodesrc/test_doctest_diag_code_metadata.js`
 - active doctest source の旧数値 diagnostic metadata scan: no matches
+
+## 2026-04-30 diagnostic location fixture target 修正追記
+
+`ISS-20260430T124138800Z-ENTRY-MISSING-DIAGNOSTIC-SPAN-FIXTUR-9A3F17F7` として、`tests/compiler/compile_fail_diag_location.n.md::doctest#4` が generic web doctest runner で LLVM CLI-only target に先に捕まる問題を分離し、修正した。
+
+この fixture の目的は `#entry main` の missing entry diagnostic が dummy span ではなく directive identifier span を指すことの確認であり、LLVM target 自体の検証ではない。`#target llvm` のままだと `backend.codegen.target_requires_cli` が先に出るため、`#target wasm` へ変更して `resolve.entry_function.missing_or_ambiguous` と `diag_span: 2:8` を正しく検証する形にした。
+
+検証:
+
+- `node nodesrc/run_doctest.js -i tests/compiler/compile_fail_diag_location.n.md -n 4 --dist web/dist`

@@ -29075,3 +29075,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - compiler diagnostic redesign plan Stage D0 の「数値 ID を active doctest contract へ残さない」条件を source policy として固定した。
+
+# 2026-04-30 note (ISS-20260430T124138800Z entry missing diagnostic span fixture target)
+
+- [同期]:
+  - `aa054d7c` の diagnostic numeric ID policy commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `tests/compiler/compile_fail_diag_location.n.md::doctest#4` は entry directive の resolver diagnostic と span を確認する fixture だが、source に `#target llvm` を使っていた。
+  - web/wasm doctest runner では LLVM target が CLI-only として先に `backend.codegen.target_requires_cli` になり、期待している `resolve.entry_function.missing_or_ambiguous` へ到達できなかった。
+  - この suite は LLVM backend smoke ではなく generic diagnostic location suite なので、target-specific failure を混ぜるべきではない。
+- [修正]:
+  - 該当 fixture の target を `#target wasm` に変更し、resolver の entry missing diagnostic と `#entry main` の span をそのまま検証できる形にした。
+  - `ISS-20260430T124138800Z-ENTRY-MISSING-DIAGNOSTIC-SPAN-FIXTUR-9A3F17F7` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i tests/compiler/compile_fail_diag_location.n.md -n 4 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/compiler/compile_fail_diag_location.n.md --no-tree -o tmp/compile-fail-diag-location-agent1.json -j 1 --dist web/dist`: `4 total / 4 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - compiler diagnostic location の regression を target-specific backend error に遮られない形へ整理した。

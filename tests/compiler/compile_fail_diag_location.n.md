@@ -46,7 +46,7 @@ neplg2:test[compile_fail]
 diag_code: resolve.entry_function.missing_or_ambiguous
 diag_span: 2:8
 ```neplg2
-#target llvm
+#target wasm
 #entry main
 fn boot <()->i32> ():
     0

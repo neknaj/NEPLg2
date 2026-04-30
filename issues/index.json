@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:07.105Z",
+  "generated_at": "2026-04-30T14:41:08.423Z",
   "counts": {
-    "total": 466,
+    "total": 467,
     "open": 16,
-    "resolved": 450,
+    "resolved": 451,
     "by_area": {
       "core": {
         "total": 208,
@@ -22,9 +22,9 @@
         "resolved": 143
       },
       "TEST": {
-        "total": 7,
+        "total": 8,
         "open": 1,
-        "resolved": 6
+        "resolved": 7
       },
       "cli": {
         "total": 19,
@@ -5188,6 +5188,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T231611047Z-STD-TEST-ASSERTION-DISCARD-SOURCE-PO-B9226736.md"
+    },
+    {
+      "id": "ISS-20260430T124138800Z-ENTRY-MISSING-DIAGNOSTIC-SPAN-FIXTUR-9A3F17F7",
+      "title": "entry-missing diagnostic span fixture uses LLVM target under wasm runner",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "tests/compiler/compile_fail_diag_location.n.md",
+      "legacy_id": "",
+      "source": "issues/items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md",
+      "file": "items/ISS-20260430T124138800Z-ENTRY-MISSING-DIAGNOSTIC-SPAN-FIXTUR-9A3F17F7.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",
