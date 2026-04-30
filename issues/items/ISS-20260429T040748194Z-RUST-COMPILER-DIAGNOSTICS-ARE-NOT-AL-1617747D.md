@@ -876,3 +876,16 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 検証:
 
 - `node nodesrc/test_diagnostic_code_first_boundary.js`
+
+## 2026-04-30 Stage D0 active doctest numeric ID policy 追記
+
+`ISS-20260430T123723307Z-ACTIVE-DOCTESTS-CAN-REINTRODUCE-NUME-1BA2AEA3` として、active doctest source が旧数値 diagnostic ID を再導入できる監視漏れを分離し、修正した。
+
+`nodesrc/test_doctest_diag_code_metadata.js` は parser が `diag_ids` を出さないことは確認していたが、repository の active `.n.md` / `.nepl` source に `diag_id:` や numeric `diag_code:` が戻らないことまでは検査していなかった。今回の対応で `tests` / `tutorials` / `stdlib` / `examples` を scan し、旧 `diag_id:` / `diag_ids:` と、数値または `Dxxxx` 形式の `diag_code:` / `diag_codes:` を禁止する source policy にした。
+
+あわせて `tests/compiler/compile_fail_diag_location.n.md` の active prose に残っていた `diag_code: 3092` を stable string code `resolve.entry_function.missing_or_ambiguous` の説明へ直した。これにより Stage D0 の「数値 ID は active doctest contract に残さない」条件を regression として固定した。
+
+検証:
+
+- `node nodesrc/test_doctest_diag_code_metadata.js`
+- active doctest source の旧数値 diagnostic metadata scan: no matches

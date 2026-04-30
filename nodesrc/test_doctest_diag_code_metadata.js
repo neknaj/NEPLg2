@@ -7,6 +7,31 @@ const { spawnSync } = require('node:child_process');
 const { parseNmdText, parseNeplText } = require('./parser');
 
 const repoRoot = path.resolve(__dirname, '..');
+const activeRoots = ['tests', 'tutorials', 'stdlib', 'examples'];
+
+function walkActiveDocs(dir, out = []) {
+    if (!fs.existsSync(dir)) {
+        return out;
+    }
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+            walkActiveDocs(full, out);
+        } else if (entry.name.endsWith('.n.md') || entry.name.endsWith('.nepl')) {
+            out.push(full);
+        }
+    }
+    return out;
+}
+
+function findLegacyDiagnosticMetadata(text) {
+    const legacyIdMetadata = /\bdiag_ids?\s*:/;
+    const numericDiagCode = /\bdiag_codes?\s*:\s*(?:\[\s*)?(?:"?D?\d{3,4}"?|\d{3,4})\b/i;
+    return text
+        .split(/\r?\n/)
+        .map((line, index) => ({ line, lineNumber: index + 1 }))
+        .filter(({ line }) => legacyIdMetadata.test(line) || numericDiagCode.test(line));
+}
 
 const nmdSource = `# doctest diag metadata
 
@@ -60,6 +85,42 @@ const neplDocSource = `//: neplg2:test[compile_fail]
     ]);
     assert.equal(Object.prototype.hasOwnProperty.call(dt, 'diag_ids'), false);
 }
+
+{
+    const good = `neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+diag_codes: ["type.return.mismatch", "parser.token.expected"]
+\`\`\`neplg2
+\`\`\`
+`;
+    const bad = `neplg2:test[compile_fail]
+diag_id: 3092
+diag_code: 3092
+diag_codes: ["D3004"]
+\`\`\`neplg2
+\`\`\`
+`;
+    assert.deepEqual(findLegacyDiagnosticMetadata(good), []);
+    assert.deepEqual(findLegacyDiagnosticMetadata(bad).map((hit) => hit.lineNumber), [2, 3, 4]);
+}
+
+const legacyViolations = [];
+for (const root of activeRoots) {
+    for (const file of walkActiveDocs(path.join(repoRoot, root))) {
+        const text = fs.readFileSync(file, 'utf8');
+        for (const hit of findLegacyDiagnosticMetadata(text)) {
+            legacyViolations.push(
+                `${path.relative(repoRoot, file)}:${hit.lineNumber}: ${hit.line.trim()}`,
+            );
+        }
+    }
+}
+
+assert.deepEqual(
+    legacyViolations,
+    [],
+    `active doctests must use stable string diag_code values, not legacy numeric diagnostic IDs:\n${legacyViolations.join('\n')}`,
+);
 
 const distDir = path.join(repoRoot, 'web', 'dist');
 if (fs.existsSync(distDir)) {

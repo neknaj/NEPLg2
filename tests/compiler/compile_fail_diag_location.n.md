@@ -39,7 +39,7 @@ fn main <()->i32> ():
 - `#entry` が[存在/そんざい]しない[関数/かんすう]を[指/さ]すとき、dummy span ではなく `#entry` の[名前/なまえ][位置/いち]に[診断/しんだん]が[付/つ]くことを[確認/かくにん]します。
 
 [確/たし]かめること:
-- `TypeEntryFunctionMissingOrAmbiguous` が `diag_code: 3092` で[返/かえ]ること。
+- `resolve.entry_function.missing_or_ambiguous` が `diag_code` として[返/かえ]ること。
 - [位置/いち]が `main` の[識別子/しきべつし]を[指/さ]すこと。
 
 neplg2:test[compile_fail]

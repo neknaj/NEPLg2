@@ -29056,3 +29056,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - self-host と Rust runner の doctest contract を揃えるため、tutorial では stdout report + `exit_code:` の形式を優先する。
+
+# 2026-04-30 note (ISS-20260430T123723307Z active doctest numeric diagnostic ID policy)
+
+- [同期]:
+  - `b0cba0f7` の tutorial `exit_code:` migration commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - diagnostic redesign では active code path と doctest metadata から旧数値 ID を消し、`DiagnosticCode` enum から得る stable string code を外部契約にする方針である。
+  - `nodesrc/test_doctest_diag_code_metadata.js` は parser が `diag_ids` を出さないことを確認していたが、active `.n.md` / `.nepl` source に `diag_id:` や numeric `diag_code:` が戻ることを scan していなかった。
+  - 実際に `tests/compiler/compile_fail_diag_location.n.md` の説明文へ `diag_code: 3092` が残っており、active test document で旧ID表記が再導入されても policy が検出できていなかった。
+- [修正]:
+  - `nodesrc/test_doctest_diag_code_metadata.js` に active doctest source scan を追加し、`tests` / `tutorials` / `stdlib` / `examples` 配下の `.n.md` と `.nepl` doc-comment doctest で `diag_id:` / `diag_ids:` と numeric / `Dxxxx` の `diag_code:` / `diag_codes:` を禁止した。
+  - `tests/compiler/compile_fail_diag_location.n.md` の説明を `resolve.entry_function.missing_or_ambiguous` の stable code 表記へ更新した。
+  - `ISS-20260430T123723307Z-ACTIVE-DOCTESTS-CAN-REINTRODUCE-NUME-1BA2AEA3` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/test_doctest_diag_code_metadata.js`: passed
+  - active doctest source の旧数値 diagnostic metadata scan: no matches
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - compiler diagnostic redesign plan Stage D0 の「数値 ID を active doctest contract へ残さない」条件を source policy として固定した。

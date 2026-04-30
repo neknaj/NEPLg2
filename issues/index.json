@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:05.818Z",
+  "generated_at": "2026-04-30T14:41:07.105Z",
   "counts": {
-    "total": 465,
+    "total": 466,
     "open": 16,
-    "resolved": 449,
+    "resolved": 450,
     "by_area": {
       "core": {
-        "total": 207,
+        "total": 208,
         "open": 6,
-        "resolved": 201
+        "resolved": 202
       },
       "selfhost": {
         "total": 45,
@@ -3268,6 +3268,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T115402753Z-RESOURCE-OWNER-CHECKER-TREATS-OWNING-F2AED5A6.md"
+    },
+    {
+      "id": "ISS-20260430T123723307Z-ACTIVE-DOCTESTS-CAN-REINTRODUCE-NUME-1BA2AEA3",
+      "title": "active doctests can reintroduce numeric diagnostic IDs",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nodesrc/test_doctest_diag_code_metadata.js, tests/compiler/compile_fail_diag_location.n.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/compiler_diagnostics_redesign_plan.md#stage-d0-数値-id-の削除と-enum-registry-導入",
+      "file": "items/ISS-20260430T123723307Z-ACTIVE-DOCTESTS-CAN-REINTRODUCE-NUME-1BA2AEA3.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
