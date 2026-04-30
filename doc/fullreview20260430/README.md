@@ -24,8 +24,15 @@
 ## 成果物
 
 - [index.md](./index.md): レビュー目次、作業手順、作成予定ファイル
-
-以後の各章レビューは、`index.md` の章立てに従って階層化して追加する。
+- [project/](./project/): project 進捗、Actions 状況、risk map
+- [rust-compiler/](./rust-compiler/): Rust compiler pipeline review
+- [stdlib/](./stdlib/): stdlib module review
+- [selfhost/](./selfhost/): selfhost compiler S0-S7 review
+- [tools/](./tools/): CLI、nodesrc、language/LSP、web review
+- [quality/](./quality/): tests、tutorial、examples review
+- [crosscutting/](./crosscutting/): 静的安全性、stdlib readiness、diagnostics/tests/docs の横断 review
+- [summary/](./summary/): 重要 findings と selfhost readiness 最終判定
+- [meta/review-validity.md](./meta/review-validity.md): review 内容自体の再レビュー
 
 ## commit 追跡ルール
 
