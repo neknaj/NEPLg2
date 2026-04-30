@@ -327,6 +327,8 @@ self-host 実装側の禁止事項:
 
 [静的検査設計確認 2026-04-30](./static_check_design_verification_20260430.md) で、現行 Rust 実装、self-host 計画、stdlib memory model の整合を再確認した。
 
+[静的検査 soundness review 2026-04-30](./static_check_soundness_review_20260430.md) では、pass 順序、現在の authority、Resource IR gate の hard-error 範囲、旧 HIR checker / shadow-only behavior に残る未完了点を追加で確認した。
+
 判定は次の通り。
 
 - Resource IR の data model、coverage gate、CellState / OwnerState / BorrowState gate、enum-first diagnostic の方向性は妥当である。

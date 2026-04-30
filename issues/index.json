@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T06:35:24.431Z",
+  "generated_at": "2026-04-30T06:51:01.132Z",
   "counts": {
-    "total": 451,
-    "open": 15,
-    "resolved": 436,
+    "total": 455,
+    "open": 16,
+    "resolved": 439,
     "by_area": {
       "core": {
-        "total": 200,
-        "open": 7,
+        "total": 201,
+        "open": 8,
         "resolved": 193
       },
       "stdlib": {
-        "total": 147,
+        "total": 148,
         "open": 6,
-        "resolved": 141
+        "resolved": 142
       },
       "TEST": {
         "total": 7,
@@ -32,14 +32,19 @@
         "resolved": 19
       },
       "ci": {
-        "total": 3,
+        "total": 4,
         "open": 0,
-        "resolved": 3
+        "resolved": 4
       },
       "doc": {
         "total": 1,
         "open": 0,
         "resolved": 1
+      },
+      "docs": {
+        "total": 2,
+        "open": 0,
+        "resolved": 2
       },
       "examples": {
         "total": 15,
@@ -75,11 +80,6 @@
         "total": 2,
         "open": 0,
         "resolved": 2
-      },
-      "docs": {
-        "total": 1,
-        "open": 0,
-        "resolved": 1
       },
       "tutorials": {
         "total": 1,
@@ -163,6 +163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T060552075Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-5C2C877E.md"
+    },
+    {
+      "id": "ISS-20260430T064827021Z-RESOURCE-IR-INDIRECT-CALLS-KEEP-UNKN-E9B29774",
+      "title": "Resource IR indirect calls keep unknown effect instead of typed effect summary",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/lower.rs, nepl-core/src/resource/effect_check.rs, nepl-core/src/hir.rs, nepl-core/src/typecheck/indirect_apply.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T064827021Z-RESOURCE-IR-INDIRECT-CALLS-KEEP-UNKN-E9B29774.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -673,6 +688,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T024657454Z-CI-BOOTSTRAP-REFERENCES-GENERATED-WE-8DD8B54B.md"
+    },
+    {
+      "id": "ISS-20260430T064057030Z-STATIC-CHECK-SOURCE-POLICY-RUNNER-MI-812E7A30",
+      "title": "Static-check source policy runner misses Resource IR and self-host safety policies",
+      "area": "ci",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nodesrc/run_source_policy_regressions.js, nodesrc/test_resource_ir_test_harness_policy.js, nodesrc/test_selfhost_*",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T064057030Z-STATIC-CHECK-SOURCE-POLICY-RUNNER-MI-812E7A30.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-002-D74F45E6",
@@ -3148,6 +3178,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2.md"
+    },
+    {
+      "id": "ISS-20260430T064747382Z-STATIC-CHECK-DESIGN-NEEDS-PASS-BY-PA-4ADB193A",
+      "title": "Static check design needs pass-by-pass soundness review",
+      "area": "docs",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "doc/neplg2/static_check_soundness_review_20260430.md, doc/neplg2/static_check_complexity_reduction_plan.md, doc/neplg2/static_check_design_verification_20260430.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T064747382Z-STATIC-CHECK-DESIGN-NEEDS-PASS-BY-PA-4ADB193A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",
@@ -6688,6 +6733,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T055147958Z-VEC-TAKE-DROP-BOUNDARY-HELPER-RECURSIO-9980E506.md"
+    },
+    {
+      "id": "ISS-20260430T064223548Z-NM-BYTE-SCANNER-POLICY-STILL-EXPECTS-18CC8784",
+      "title": "NM byte scanner policy still expects older CR trimming pattern",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/nm/html_gen.nepl, nodesrc/test_stdlib_byte_scanner_helpers_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T064223548Z-NM-BYTE-SCANNER-POLICY-STILL-EXPECTS-18CC8784.md"
     },
     {
       "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",

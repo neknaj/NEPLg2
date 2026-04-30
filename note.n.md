@@ -1,3 +1,26 @@
+# 2026-04-30 メモ (静的検査 soundness review)
+
+- [同期]:
+  - `docs/static-check-soundness-review-20260430` branch で、remote main が `40a476b1` と一致していることを確認してから作業した。
+- [確認]:
+  - `typecheck -> old move_check -> Resource IR gates -> HIR drop insertion` の順で現行 compiler が動くことを再確認した。
+  - `match` は enum/bool/scalar で型ごとに検査され、enum/bool の網羅性と wildcard-last は typecheck で検査されている。
+  - Resource IR lowering coverage は missing function / count mismatch / unknown place を hard error にしている。
+  - Resource IR cell gate は raw-memory cell operation を hard error にするが、通常 read/move/drop/call argument などの cell violation はまだ old move checker の防壁に依存している。
+  - `UnsafeMemoryInPureFunction` は Resource IR report では作られるが compiler error へ写像されず shadow-only のままである。
+  - `HirExprKind::CallIndirect` は Resource IR では `EffectOp::Unknown` に落ちるため、final authority としては typed effect summary へ移す必要がある。
+- [issue]:
+  - `ISS-20260430T064057030Z-STATIC-CHECK-SOURCE-POLICY-RUNNER-MI-812E7A30`: static-check/self-host safety source policy を aggregate runner に追加した。
+  - `ISS-20260430T064223548Z-NM-BYTE-SCANNER-POLICY-STILL-EXPECTS-18CC8784`: NM byte scanner policy と html_gen の CR trim helper を `str_slice_trim_suffix_cr` に揃えた。
+  - `ISS-20260430T064827021Z-RESOURCE-IR-INDIRECT-CALLS-KEEP-UNKN-E9B29774`: Resource IR indirect call effect が `Unknown` に落ちる設計 gap を追加した。
+  - `ISS-20260430T064747382Z-STATIC-CHECK-DESIGN-NEEDS-PASS-BY-PA-4ADB193A`: pass-by-pass soundness review doc を追加する。
+- [修正]:
+  - `doc/neplg2/static_check_soundness_review_20260430.md` を追加し、各 pass の authority と final-design blocker を整理した。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/static_check_design_verification_20260430.md` から soundness review へリンクした。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host S3 以降では旧 HIR checker の special-case ではなく、Resource IR / enum / exhaustive match / typed diagnostic を前提にする方針を再確認した。
+
 # 2026-04-30 メモ (静的検査設計の追加精査)
 
 - [同期]:

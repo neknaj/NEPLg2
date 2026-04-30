@@ -177,3 +177,5 @@ S1/S2 の lexer / parser / module loader は開始可能である。ただし、
 NEPLg2 の静的検査設計は、Resource IR と enum-first diagnostic へ向かう方針として妥当である。しかし、現在の実装はまだ移行途中であり、最終設計として承認できる状態ではない。
 
 短期の方針は、既存 Resource IR gate を弱めず、`resource.cell.*` / `resource.owner.*` の分離を raw bucket へ戻さず、旧 checker と stdlib の曖昧な所有権表現を増やさないこと。中期の必須作業は、drop elaboration と owner/cell state authority を Resource IR の第一級設計へ移し、stdlib collection / mem / string を owner token と enum state に揃えることである。
+
+pass 順序と authority の詳細な再確認は [静的検査 soundness review 2026-04-30](./static_check_soundness_review_20260430.md) にまとめる。
