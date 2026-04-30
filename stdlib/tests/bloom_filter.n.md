@@ -16,18 +16,14 @@ ret: 1
 #import "core/result" as *
 
 fn main <()*>i32> ():
-    let bf0 <BloomFilter<i32, DefaultHash32>>:
+    let bf <BloomFilter<i32, DefaultHash32>>:
         unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
         |> insert 4
         |> insert 9
         |> insert 15
-    let ok0 <bool> contains bf0 9;
-    let bf1 <BloomFilter<i32, DefaultHash32>>:
-        unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
-        |> insert 4
-        |> insert 9
-        |> insert 15
-    let ok1 <bool> eq len bf1 64;
+    let ok0 <bool> contains &bf 9;
+    let ok1 <bool> eq len &bf 64;
+    free bf
     if and ok0 ok1 1 0
 ```
 
@@ -51,7 +47,8 @@ fn main <()*>i32> ():
         unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
         |> insert 7
     let bf1 <BloomFilter<i32, DefaultHash32>> clear bf0;
-    let seen <bool> contains<i32, DefaultHash32> bf1 7;
+    let seen <bool> contains<i32, DefaultHash32> &bf1 7;
+    free bf1
     let ok0 <bool> if seen false true;
     let bad <Result<BloomFilter<i32, DefaultHash32>, Diag>> new DefaultHash32 0;
     let ok1 <bool> is_err<BloomFilter<i32, DefaultHash32>, Diag> bad;

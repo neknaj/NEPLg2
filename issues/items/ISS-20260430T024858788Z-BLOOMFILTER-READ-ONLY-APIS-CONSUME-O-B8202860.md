@@ -2,8 +2,8 @@
 id: ISS-20260430T024858788Z-BLOOMFILTER-READ-ONLY-APIS-CONSUME-O-B8202860
 title: "BloomFilter read-only APIs consume owners by value instead of borrowing"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-30
@@ -41,3 +41,18 @@ Change BloomFilter observer APIs to take &BloomFilter, copy only Copy fields fro
 ## 検証
 
 Add tests that insert values, query len/contains through &BloomFilter, query more than once, then free the same owner cleanly.
+
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/tests/bloom_filter.n.md --no-tree -o tmp/bloom-stdlib-borrowed-observers.json -j 1` (`total=2`, `passed=2`, `failed=0`)
+- `node nodesrc/tests.js -i tests/stdlib/bloom_filter_collections.n.md --no-tree -o tmp/bloom-collections-borrowed-observers.json -j 1` (`total=2`, `passed=2`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib/alloc/collections/bloom_filter.nepl --no-tree -o tmp/bloom-doctest-borrowed-observers.json -j 1` (`total=6`, `passed=6`, `failed=0`)
+- `node nodesrc/test_stdlib_bloom_filter_borrowed_observers.js`: passed
+- `node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js`: passed
+- `node nodesrc/issues.js check`: passed
+
+## 修正内容
+
+- `BloomFilter.len` と `BloomFilter.contains` を `&BloomFilter<.T,.H>` receiver に変更し、読み取りで owner を移動しない公開 API にした。
+- BloomFilter doctest / `.n.md` tests を、borrowed observer の後で同じ owner を `free` する形に直した。
+- `nodesrc/test_stdlib_bloom_filter_borrowed_observers.js` を追加し、by-value observer signature と by-value test usage が戻らないよう source policy に登録した。

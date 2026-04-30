@@ -28031,3 +28031,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - BitSet と同じ owner-consuming observer root cause を AdjacencyMatrix でも借用 contract へ修正した。
+
+# 2026-04-30 note (ISS-20260430T024858788Z BloomFilter borrowed observers)
+
+- [同期]:
+  - `main` で `git pull --ff-only origin main` を実行し、remote main が最新であることを確認した。
+  - 作業 branch は `fix/bloom-filter-borrowed-observers-20260430`。
+- [原因]:
+  - `BloomFilter.len` / `BloomFilter.contains` は読み取り専用 API なのに `BloomFilter<.T,.H>` を値で受け取り、bit array owner を観察時に消費していた。
+  - generic hasher は Copy bound で読めるため、observer が owner を受け取る必要はなかった。
+- [修正]:
+  - `BloomFilter.len` と `BloomFilter.contains` を `&BloomFilter<.T,.H>` receiver に変更した。
+  - doctest / `.n.md` tests を、borrowed observer 後に同じ BloomFilter owner を `free` する形へ整理した。
+  - `nodesrc/test_stdlib_bloom_filter_borrowed_observers.js` を追加し、by-value observer signature と by-value test usage の再発を source policy で検出するようにした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/bloom_filter.n.md --no-tree -o tmp/bloom-stdlib-borrowed-observers.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/bloom_filter_collections.n.md --no-tree -o tmp/bloom-collections-borrowed-observers.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bloom_filter.nepl --no-tree -o tmp/bloom-doctest-borrowed-observers.json -j 1`: `total=6`, `passed=6`
+  - `node nodesrc/test_stdlib_bloom_filter_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/issues.js check`: passed
+- [issue]:
+  - `ISS-20260430T024858788Z-BLOOMFILTER-READ-ONLY-APIS-CONSUME-O-B8202860` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - BloomFilter observer を借用 contract に揃え、self-host collection 利用で owner leak workaround が不要になる方向へ修正した。

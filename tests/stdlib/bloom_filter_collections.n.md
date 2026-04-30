@@ -9,7 +9,9 @@
 - `new`
 - `insert`
 - `contains`
+- `len`
 - `clear`
+- `free`
 
 neplg2:test
 ret: 1
@@ -30,15 +32,18 @@ fn main <()*>i32> ():
         |> insert 3
         |> insert 8
         |> insert 21
-    let ok0 <bool> contains bf0 8;
+    let ok0 <bool> contains &bf0 8;
+    let ok1 <bool> eq len &bf0 128;
+    free bf0
     let bf1 <BloomFilter<i32, DefaultHash32>>:
         unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
         |> insert 3
         |> insert 8
         |> insert 21
         |> clear
-    let ok1 <bool> not contains bf1 8;
-    if and ok0 ok1 1 0
+    let ok2 <bool> not contains &bf1 8;
+    free bf1
+    if and ok0 and ok1 ok2 1 0
 ```
 
 ## bloom_filter_free_releases_owned_storage
