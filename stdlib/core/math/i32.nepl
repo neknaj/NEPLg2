@@ -1,0 +1,931 @@
+//: # math/i32
+//: i32 の算術・bitwise・比較演算を提供する core math submodule
+//:
+//: [目的/もくてき]:
+//: - `core/math` の i32 基本演算群を型別 module として分離し、巨大 facade の責務を減らします。
+//: - 既存利用者は `core/math` facade から同じ overload を利用でき、i32 専用の利用者はこの module を直接 import できます。
+//:
+//: [注意/ちゅうい]:
+//: - 演算は wasm i32 の wrap / signed / unsigned 規則に従います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/i32" as *
+//: fn main <()->i32> ():
+//:     let a <i32> add 40 2;
+//:     let b <i32> sub a 5;
+//:     let c <i32> and b 7;
+//:     if eq c 5 0 1
+//: ```
+
+#indent 4
+
+//: add: i32 の加算（mod 2^32）
+//:
+//: [目的/もくてき]:
+//: - 2つの i32 を加算し、Wasm の i32 加算規則で結果を返します。
+//:
+//: [実装/じっそう]:
+//: - `target=wasm` では `i32.add` を直接実行します。
+//: - `target=llvm` では LLVM IR の `add i32` に分岐します。
+//:
+//: [注意/ちゅうい]:
+//: - オーバーフロー時は 2^32 でラップします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 42 add 40 2;
+//:     assert_eq_i32 0 add -1 1;
+//: ```
+fn add <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.add
+    #if[target=llvm]
+    #llvmir:
+        define i32 @add(i32 %a, i32 %b) {
+        entry:
+            %0 = add i32 %a, %b
+            ret i32 %0
+        }
+
+//: sub: i32 の減算（mod 2^32）
+//:
+//: [目的/もくてき]:
+//: - 2つの i32 の差を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.sub`、llvm は `sub i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 符号付き/符号なしを問わず、ビット列として同じ減算を行います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 5 sub 9 4;
+//:     assert_eq_i32 -5 sub 4 9;
+//: ```
+fn sub <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.sub
+    #if[target=llvm]
+    #llvmir:
+        define i32 @sub(i32 %a, i32 %b) {
+        entry:
+            %0 = sub i32 %a, %b
+            ret i32 %0
+        }
+
+//: mul: i32 の乗算（mod 2^32）
+//:
+//: [目的/もくてき]:
+//: - 2つの i32 の積を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.mul`、llvm は `mul i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 積が 32-bit 範囲を超える場合は下位 32-bit が残ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 42 mul 6 7;
+//:     assert_eq_i32 0 mul 0 12345;
+//: ```
+fn mul <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.mul
+    #if[target=llvm]
+    #llvmir:
+        define i32 @mul(i32 %a, i32 %b) {
+        entry:
+            %0 = mul i32 %a, %b
+            ret i32 %0
+        }
+
+//: div_s: i32 の符号付き除算
+//:
+//: [目的/もくてき]:
+//: - 符号付き整数として割り算を行います。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.div_s`、llvm は `sdiv i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 0 除算は未定義動作ではなくランタイム trap になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 -3 div_s -9 3;
+//:     assert_eq_i32 -3 div_s 10 -3;
+//: ```
+fn div_s <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.div_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @div_s(i32 %a, i32 %b) {
+        entry:
+            %0 = sdiv i32 %a, %b
+            ret i32 %0
+        }
+
+//: div_u: i32 の符号なし除算
+//:
+//: [目的/もくてき]:
+//: - 符号なし整数として割り算を行います。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.div_u`、llvm は `udiv i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 引数が負に見える値でも、ビット列を符号なしとみなして計算します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 3 div_u 11 3;
+//:     assert_eq_i32 2147483647 div_u -1 2;
+//: ```
+fn div_u <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.div_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @div_u(i32 %a, i32 %b) {
+        entry:
+            %0 = udiv i32 %a, %b
+            ret i32 %0
+        }
+
+//: rem_s: i32 の符号付き剰余
+//:
+//: [目的/もくてき]:
+//: - 符号付き除算の余りを計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.rem_s`、llvm は `srem i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 符号付き剰余の符号規則は Wasm/LLVM の仕様に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 1 rem_s 10 3;
+//:     assert_eq_i32 -1 rem_s -10 3;
+//: ```
+fn rem_s <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.rem_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @rem_s(i32 %a, i32 %b) {
+        entry:
+            %0 = srem i32 %a, %b
+            ret i32 %0
+        }
+
+//: mod_s: i32 の符号付き剰余（`rem_s` の別名）
+fn mod_s <(i32,i32)->i32> (a,b):
+    rem_s a b
+
+//: rem_u: i32 の符号なし剰余
+//:
+//: [目的/もくてき]:
+//: - 符号なし除算の余りを計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.rem_u`、llvm は `urem i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 結果は常に 0 以上で、除数未満になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 2 rem_u 11 3;
+//:     assert_eq_i32 5 rem_u -1 10;
+//: ```
+fn rem_u <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.rem_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @rem_u(i32 %a, i32 %b) {
+        entry:
+            %0 = urem i32 %a, %b
+            ret i32 %0
+        }
+
+//: and: i32 のビット AND
+//:
+//: [目的/もくてき]:
+//: - i32 と i32 の各ビットに対して AND を取り、両方が 1 のビットだけを残します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.and`、llvm は `and i32` を使って同じ結果を返します。
+//:
+//: [注意/ちゅうい]:
+//: - ビット演算なので符号は区別しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 2 and 6 3;
+//:     assert_eq_i32 7 or 6 3;
+//:     assert_eq_i32 5 xor 6 3;
+//:     assert_eq_i32 8 shl 1 3;
+//:     assert_eq_i32 -2 shr_s -8 2;
+//:     assert_eq_i32 1073741822 shr_u -8 2;
+//:     assert_eq_i32 2 rotl 1 1;
+//:     assert_eq_i32 1 rotr 2 1;
+//: ```
+fn and <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.and
+    #if[target=llvm]
+    #llvmir:
+        define i32 @and(i32 %a, i32 %b) {
+        entry:
+            %0 = and i32 %a, %b
+            ret i32 %0
+        }
+
+//: or: i32 のビット OR
+//:
+//: [目的/もくてき]:
+//: - i32 と i32 の各ビットに対して OR を取り、どちらかが 1 のビットを立てます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.or`、llvm は `or i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - ビット演算なので符号は区別しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn or <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.or
+    #if[target=llvm]
+    #llvmir:
+        define i32 @or(i32 %a, i32 %b) {
+        entry:
+            %0 = or i32 %a, %b
+            ret i32 %0
+        }
+
+//: xor: i32 のビット XOR
+//:
+//: [目的/もくてき]:
+//: - i32 と i32 の各ビットに対して XOR を取り、異なるビットだけを 1 にします。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.xor`、llvm は `xor i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - ビット演算なので符号は区別しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn xor <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.xor
+    #if[target=llvm]
+    #llvmir:
+        define i32 @xor(i32 %a, i32 %b) {
+        entry:
+            %0 = xor i32 %a, %b
+            ret i32 %0
+        }
+
+//: shl: i32 の左シフト
+//:
+//: [目的/もくてき]:
+//: - `a` のビット列を `b` だけ左にずらします。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.shl`、llvm は `shl i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - シフト量は実行系の規則に従って下位ビットが使われます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shl <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.shl
+    #if[target=llvm]
+    #llvmir:
+        define i32 @shl(i32 %a, i32 %b) {
+        entry:
+            %0 = shl i32 %a, %b
+            ret i32 %0
+        }
+
+//: shr_s: i32 の算術右シフト
+//:
+//: [目的/もくてき]:
+//: - 符号を保ちながら `a` を右シフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.shr_s`、llvm は `ashr i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 負数のときは符号拡張されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shr_s <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.shr_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @shr_s(i32 %a, i32 %b) {
+        entry:
+            %0 = ashr i32 %a, %b
+            ret i32 %0
+        }
+
+//: shr_u: i32 の論理右シフト
+//:
+//: [目的/もくてき]:
+//: - 上位を 0 で埋めながら `a` を右シフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.shr_u`、llvm は `lshr i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 符号なし値として扱いたいときに使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shr_u <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.shr_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @shr_u(i32 %a, i32 %b) {
+        entry:
+            %0 = lshr i32 %a, %b
+            ret i32 %0
+        }
+
+//: rotl: i32 の左ローテート
+//:
+//: [目的/もくてき]:
+//: - i32 のビット列を左方向に循環回転します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.rotl`、llvm は `llvm.fshl.i32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - ローテートはシフトと異なり、あふれたビットが反対側に戻ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn rotl <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.rotl
+    #if[target=llvm]
+    #llvmir:
+        declare i32 @llvm.fshl.i32(i32, i32, i32)
+        define i32 @rotl(i32 %a, i32 %b) {
+        entry:
+            %0 = call i32 @llvm.fshl.i32(i32 %a, i32 %a, i32 %b)
+            ret i32 %0
+        }
+
+//: rotr: i32 の右ローテート
+//:
+//: [目的/もくてき]:
+//: - i32 のビット列を右方向に循環回転します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.rotr`、llvm は `llvm.fshr.i32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - ローテートはシフトと異なり、あふれたビットが反対側に戻ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn rotr <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.rotr
+    #if[target=llvm]
+    #llvmir:
+        declare i32 @llvm.fshr.i32(i32, i32, i32)
+        define i32 @rotr(i32 %a, i32 %b) {
+        entry:
+            %0 = call i32 @llvm.fshr.i32(i32 %a, i32 %a, i32 %b)
+            ret i32 %0
+        }
+
+//: clz: 先頭ゼロビット数を数える
+//:
+//: [目的/もくてき]:
+//: - i32 の上位側に連続する 0 ビット数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.clz`、llvm は `llvm.ctlz.i32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 入力が 0 の場合も実行系の規約に沿って定義されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 31 clz 1;
+//:     assert_eq_i32 3 ctz 8;
+//:     assert_eq_i32 4 popcnt 15;
+//: ```
+fn clz <(i32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.clz
+    #if[target=llvm]
+    #llvmir:
+        declare i32 @llvm.ctlz.i32(i32, i1)
+        define i32 @clz(i32 %a) {
+        entry:
+            %0 = call i32 @llvm.ctlz.i32(i32 %a, i1 0)
+            ret i32 %0
+        }
+
+//: ctz: 末尾ゼロビット数を数える
+//:
+//: [目的/もくてき]:
+//: - i32 の下位側に連続する 0 ビット数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.ctz`、llvm は `llvm.cttz.i32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 入力が 0 の場合も実行系の規約に沿って定義されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ctz <(i32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.ctz
+    #if[target=llvm]
+    #llvmir:
+        declare i32 @llvm.cttz.i32(i32, i1)
+        define i32 @ctz(i32 %a) {
+        entry:
+            %0 = call i32 @llvm.cttz.i32(i32 %a, i1 0)
+            ret i32 %0
+        }
+
+//: popcnt: 1 ビットの個数を数える
+//:
+//: [目的/もくてき]:
+//: - i32 のビット列に含まれる 1 の個数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.popcnt`、llvm は `llvm.ctpop.i32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 値の符号には依存しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn popcnt <(i32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.popcnt
+    #if[target=llvm]
+    #llvmir:
+        declare i32 @llvm.ctpop.i32(i32)
+        define i32 @popcnt(i32 %a) {
+        entry:
+            %0 = call i32 @llvm.ctpop.i32(i32 %a)
+            ret i32 %0
+        }
+
+//: eq: i32 の等値比較
+//:
+//: [目的/もくてき]:
+//: - 2つの i32 が等しいとき true、異なるとき false を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.eq`、llvm は `icmp eq` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert eq 7 7;
+//:     assert ne 7 8;
+//:     assert lt -1 0;
+//:     assert lt_u 0 -1;
+//:     assert le 7 7;
+//:     assert le_u 7 8;
+//:     assert gt 9 3;
+//:     assert gt_u -1 0;
+//:     assert ge 9 9;
+//:     assert ge_u -1 -1;
+//: ```
+fn eq <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.eq
+    #if[target=llvm]
+    #llvmir:
+        define i32 @eq(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp eq i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ne: i32 の非等値比較
+//:
+//: [目的/もくてき]:
+//: - 2つの i32 が異なるとき true を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.ne`、llvm は `icmp ne` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ne <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.ne
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ne(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ne i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: lt: i32 の符号付き小なり比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号付き整数として比較し、`a < b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.lt_s`、llvm は `icmp slt` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn lt <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.lt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @lt(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp slt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: lt_u: i32 の符号なし小なり比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号なし整数として比較し、`a < b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.lt_u`、llvm は `icmp ult` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn lt_u <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.lt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @lt_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ult i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: le: i32 の符号付き以下比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号付き整数として比較し、`a <= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.le_s`、llvm は `icmp sle` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn le <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.le_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @le(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sle i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: le_u: i32 の符号なし以下比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号なし整数として比較し、`a <= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.le_u`、llvm は `icmp ule` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn le_u <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.le_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @le_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ule i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: gt: i32 の符号付き大なり比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号付き整数として比較し、`a > b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.gt_s`、llvm は `icmp sgt` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn gt <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.gt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @gt(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sgt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: gt_u: i32 の符号なし大なり比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号なし整数として比較し、`a > b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.gt_u`、llvm は `icmp ugt` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn gt_u <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.gt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @gt_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ugt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ge: i32 の符号付き以上比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号付き整数として比較し、`a >= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.ge_s`、llvm は `icmp sge` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ge <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.ge_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ge(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sge i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ge_u: i32 の符号なし以上比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号なし整数として比較し、`a >= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.ge_u`、llvm は `icmp uge` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ge_u <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.ge_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ge_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp uge i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }

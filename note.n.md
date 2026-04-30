@@ -29024,6 +29024,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner token / free obligation summary を、未精査 Result の path-dependent reservation まで含めて扱う形に進めた。
 
+# 2026-04-30 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math i32 split)
+
+- [同期]:
+  - `main` の `f52f305b` から branch `refactor/math-i32-module-split` を作成した。
+  - remote main は同じ `f52f305b` のままで、他agentの Resource IR branch は main 未反映のため触らない。
+- [原因]:
+  - `core/math` には bool split 後も i32 の算術・bitwise・比較演算が 900 行規模で残っていた。
+  - i32 演算群は自己完結しており、`core/math` facade が再 export すれば既存 overload 利用と残り i128 helper からの参照を保てる。
+- [修正]:
+  - i32 算術・bitwise・rotate/count・signed/unsigned comparison を `stdlib/core/math/i32.nepl` へ移した。
+  - `stdlib/core/math.nepl` は `pub #import "./math/i32" as *` で i32 API を再 export する facade にした。
+  - `core/math/i32` direct import doctest を追加し、i32 module 単体で加減算・bitwise・比較を確認する。
+  - `nodesrc/test_stdlib_math_module_split.js` を拡張し、i32 実装が `core/math.nepl` に戻らないことを source policy で固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/i32.nepl --no-tree -o tmp/math-i32-module-direct.json -j 1`: `11 total / 11 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math.nepl --no-tree -o tmp/math-facade-after-i32-split.json -j 1`: `15 total / 15 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/numerics.n.md -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-suite-after-i32-split.json -j 1`: `17 total / 17 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 拡張後の math split policy は passed。既存の `owner_summary_variant_paths.rs` responsibility split warning は継続。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` に core/math i32 split の進捗を追記した。
+  - issue はまだ open。`core/math` には i64/f32/f64/変換/i128 が残り、他の巨大 stdlib file も未分割。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - selfhost が頻繁に使う i32 primitive math を専用 module へ分け、巨大 facade の型検査負荷と責務集中を下げた。
+
 # 2026-04-30 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math bool split)
 
 - [同期]:
