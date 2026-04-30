@@ -39,6 +39,7 @@
 #import "core/math" as *
 #import "core/result" as *
 #import "core/option" as *
+#import "core/field" as field
 #import "std/stdio" as *
 #import "alloc/string" as s
 #import "alloc/diag/error" as *
@@ -101,59 +102,81 @@ fn compile_jumps <(str)*>Result<Vec<i32>,str>> (code):
                     v::free<i32> jump_table;
                     err<Vec<i32>, str> "out of memory"
                 Result::Ok stk0:
-                    let mut stk <Stack<i32>> stk0
+                    let mut stack_state <Result<Stack<i32>,str>> ok<Stack<i32>,str> stk0
                     let mut pc <i32> 0;
                     let mut error <bool> false;
                     let mut error_msg <str> "";
 
                     while and lt pc code_len not error:
                         do:
-                            let ch <i32> match s::byte_at code pc:
-                                Option::Some b:
-                                    b
-                                Option::None:
-                                    0
-                            if:
-                                eq ch 91 // '['
-                                then:
-                                    match stk::push_ref<i32> &stk pc:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _:
-                                            set error true;
-                                            set error_msg "out of memory"
-                                else:
+                            match stack_state:
+                                Result::Ok stk:
+                                    let ch <i32> match s::byte_at code pc:
+                                        Option::Some b:
+                                            b
+                                        Option::None:
+                                            0
                                     if:
-                                        eq ch 93 // ']'
+                                        eq ch 91 // '['
                                         then:
-                                            let pop_res <Option<i32>> stk::pop_ref<i32> &stk
-                                            match pop_res:
-                                                Option::Some start_pc:
-                                                    v::replace_ref<i32> &jump_table start_pc pc;
-                                                    v::replace_ref<i32> &jump_table pc start_pc
-                                                Option::None:
+                                            match stk::push<i32> stk pc:
+                                                Result::Ok next_stack:
+                                                    set stack_state ok<Stack<i32>,str> next_stack
+                                                Result::Err _:
                                                     set error true;
-                                                    set error_msg "unmatched ']'"
+                                                    set error_msg "out of memory";
+                                                    set stack_state err<Stack<i32>,str> "out of memory"
                                         else:
-                                            ();
+                                            if:
+                                                eq ch 93 // ']'
+                                                then:
+                                                    let popped <StackPop<i32>> stk::pop_top<i32> stk
+                                                    let start_opt <Option<i32>> *field::get_ref &popped "item"
+                                                    let next_stack <Stack<i32>> field::get popped "stack"
+                                                    match start_opt:
+                                                        Option::Some start_pc:
+                                                            v::replace_ref<i32> &jump_table start_pc pc;
+                                                            v::replace_ref<i32> &jump_table pc start_pc;
+                                                            set stack_state ok<Stack<i32>,str> next_stack
+                                                        Option::None:
+                                                            set error true;
+                                                            set error_msg "unmatched ']'";
+                                                            stk::free<i32> next_stack;
+                                                            set stack_state err<Stack<i32>,str> "unmatched ']'"
+                                                else:
+                                                    set stack_state ok<Stack<i32>,str> stk
+                                Result::Err msg:
+                                    set error true;
+                                    set error_msg msg;
+                                    set stack_state err<Stack<i32>,str> msg
                             set pc add pc 1;
-
-                    let empty <bool> stk::is_empty_ref<i32> &stk
-                    stk::free<i32> stk;
 
                     if:
                         error
                         then:
+                            match stack_state:
+                                Result::Ok stk:
+                                    stk::free<i32> stk
+                                Result::Err msg:
+                                    s::len msg;
+                                    ()
                             v::free<i32> jump_table;
                             err<Vec<i32>, str> error_msg
                         else:
-                            if:
-                                not empty
-                                then:
+                            match stack_state:
+                                Result::Ok stk:
+                                    let empty <bool> stk::is_empty_ref<i32> &stk
+                                    stk::free<i32> stk;
+                                    if:
+                                        not empty
+                                        then:
+                                            v::free<i32> jump_table;
+                                            err<Vec<i32>, str> "unmatched '['"
+                                        else:
+                                            ok<Vec<i32>, str> jump_table
+                                Result::Err msg:
                                     v::free<i32> jump_table;
-                                    err<Vec<i32>, str> "unmatched '['"
-                                else:
-                                    ok<Vec<i32>, str> jump_table
+                                    err<Vec<i32>, str> msg
 
 //: current_cell: テープの現在セルを読む
 //:

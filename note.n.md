@@ -1,3 +1,26 @@
+# 2026-04-30 メモ (ISS-20260430T021530702Z examples Stack owner API 追従)
+
+- [同期]:
+  - `main` の `73a25f3e` から `work/examples-stack-owner-contract` branch を作成して作業した。
+- [原因]:
+  - `stdlib/alloc/collections/stack.nepl` は owner-safe redesign により、borrow-mutating な `push_ref` / `pop_ref` を廃止し、`push` / `pop_top` で更新後 owner を返す設計になっている。
+  - `examples/bf.nepl`, `examples/rpn.nepl`, `examples/rpn_legacy.nepl` は旧 API の呼び出しを残していたため、examples doctest が名前解決で失敗していた。
+  - RPN examples は `str_split` 経由でも Resource IR owner leak に当たるため、token 配列を作らず `str_slice_result` で space 区切り token を逐次処理する形へ整理した。
+- [修正]:
+  - `rpn.nepl` / `rpn_legacy.nepl` の stack 更新を `Result<Stack<i32>, str>` state で保持し、`push` 成功時は次 owner、`pop_top` は `StackPop.item` と `StackPop.stack` を取り出して処理する形にした。
+  - RPN の tokenization は `str_split` / `Vec<str>` を使わず、入力を走査しながら `str_slice_result` で token を渡す形に変更した。
+  - `bf.nepl` の bracket stack を `Result<Stack<i32>, str>` state にし、`[` は `push`、`]` は `pop_top` で更新後 owner を必ず受け取り直すようにした。
+- [issue]:
+  - `ISS-20260430T021530702Z-EXAMPLES-STILL-CALL-REMOVED-STACK-PU-BC1D5D63` を追加し、fixed/resolved にした。
+- [検証]:
+  - `node nodesrc/tests.js -i examples/rpn_legacy.nepl --no-tree -o tmp/rpn-legacy-stack-owner-tests.json -j 2`: `total=1`, `passed=1`, `failed=0`
+  - `node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/rpn-stack-owner-tests.json -j 2`: `total=2`, `passed=2`, `failed=0`
+  - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/bf-stack-owner-tests.json -j 2`: `total=2`, `passed=2`, `failed=0`
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-stack-owner-tests.json -j 4`: `total=12`, `passed=12`, `failed=0`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - examples は現行 Stack API と Resource IR owner check に合わせた書き方へ更新した。
+
 # 2026-04-30 メモ (ISS-20260430T020255446Z getting_started tutorial stdout report)
 
 - [同期]:

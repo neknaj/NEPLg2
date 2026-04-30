@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T02:12:10.680Z",
+  "generated_at": "2026-04-30T02:28:02.075Z",
   "counts": {
-    "total": 420,
+    "total": 421,
     "open": 16,
-    "resolved": 404,
+    "resolved": 405,
     "by_area": {
       "core": {
         "total": 195,
@@ -42,9 +42,9 @@
         "resolved": 1
       },
       "examples": {
-        "total": 14,
+        "total": 15,
         "open": 0,
-        "resolved": 14
+        "resolved": 15
       },
       "nodesrc": {
         "total": 6,
@@ -3168,6 +3168,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T230100004Z-GETTING-STARTED-GENERICS-TUTORIAL-US-614E80C3.md"
+    },
+    {
+      "id": "ISS-20260430T021530702Z-EXAMPLES-STILL-CALL-REMOVED-STACK-PU-BC1D5D63",
+      "title": "examples still call removed Stack push_ref and pop_ref APIs",
+      "area": "examples",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "examples/bf.nepl, examples/rpn.nepl, examples/rpn_legacy.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T021530702Z-EXAMPLES-STILL-CALL-REMOVED-STACK-PU-BC1D5D63.md"
     },
     {
       "id": "ISS-20260428T121641554Z-NODESRC-TESTS-DEFAULT-CASE-TIMEOUT-I-089ABC53",

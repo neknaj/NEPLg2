@@ -15,8 +15,8 @@
 //: - `rpn.nepl` より表示を控えめにし、tokenize / stack / result 表示の最小構成を読みやすく保ちます。
 //:
 //: [実装/じっそう]:
-//: - 入力行は `str_trim` と `str_split` でトークン化します。
-//: - 計算スタックは `Stack<i32>` を使い、取り出しは `pop_ref` で stack handle の所有権を保ちます。
+//: - 入力行は space 区切りで走査し、token ごとに `str_slice_result` で取り出します。
+//: - 計算スタックは `Stack<i32>` を使い、`push` / `pop_top` の更新後 owner を受け取り直します。
 //: - 数値解析は `to_i32` に委譲し、文字列や stack の内部 layout は直接読みません。
 //:
 //: [注意/ちゅうい]:
@@ -29,10 +29,10 @@
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as field
 #import "std/stdio" as *
 #import "alloc/string" as s
 #import "alloc/collections/stack" as stk
-#import "alloc/collections/vec" as v
 #import "alloc/diag/error" as *
 
 //: print_error: エラーメッセージを赤色で表示する
@@ -72,31 +72,37 @@ fn print_result <(i32)*>()> (val):
 //: push_or_report: stack への追加失敗を REPL のエラー表示に変換する
 //:
 //: [目的/もくてき]:
-//: - 計算途中の `push_ref` 失敗を panic にせず、利用者へ `out of memory` として表示します。
-//: - `Stack<i32>` の所有権は呼び出し側に残るため、失敗後も `free` できます。
-fn push_or_report <(&Stack<i32>,i32)*>bool> (stack, val):
-    match stk::push_ref<i32> stack val:
-        Result::Ok _:
-            true
+//: - 計算途中の `push` 失敗を panic にせず、利用者へ `out of memory` として表示します。
+//: - `push` は Stack owner を消費して更新後 owner を返すため、成功時だけ次の owner を返します。
+fn push_or_report <(Stack<i32>,i32)*>Result<Stack<i32>,str>> (stack, val):
+    match stk::push<i32> stack val:
+        Result::Ok next_stack:
+            ok<Stack<i32>,str> next_stack
         Result::Err _:
             print_error "out of memory";
-            false
+            err<Stack<i32>,str> "out of memory"
 
 //: apply_op: stack 上の 2 値へ二項演算を適用する
 //:
 //: [目的/もくてき]:
 //: - `+` `-` `*` を適用し、結果を同じ stack に積み直します。
 //: - stack が不足する場合はエラーを表示し、stack をそのまま返します。
-fn apply_op <(Stack<i32>,str)*>Stack<i32>> (stack, token):
+fn apply_op <(Stack<i32>,str)*>Result<Stack<i32>,str>> (stack, token):
     if:
         lt stk::len_ref<i32> &stack 2
         then:
             print_error "stack underflow";
-            stack
+            ok<Stack<i32>,str> stack
         else:
-            match stk::pop_ref<i32> &stack:
+            let popped_b <StackPop<i32>> stk::pop_top<i32> stack
+            let b_opt <Option<i32>> *field::get_ref &popped_b "item"
+            let stack_b <Stack<i32>> field::get popped_b "stack"
+            match b_opt:
                 Option::Some b:
-                    match stk::pop_ref<i32> &stack:
+                    let popped_a <StackPop<i32>> stk::pop_top<i32> stack_b
+                    let a_opt <Option<i32>> *field::get_ref &popped_a "item"
+                    let stack_a <Stack<i32>> field::get popped_a "stack"
+                    match a_opt:
                         Option::Some a:
                             let res <i32>:
                                 if:
@@ -107,25 +113,24 @@ fn apply_op <(Stack<i32>,str)*>Stack<i32>> (stack, token):
                                             s::str_eq token "-"
                                             then sub a b
                                             else mul a b
-                            push_or_report &stack res;
-                            stack
+                            push_or_report stack_a res
                         Option::None:
                             print_error "stack underflow";
-                            stack
+                            ok<Stack<i32>,str> stack_a
                 Option::None:
                     print_error "stack underflow";
-                    stack
+                    ok<Stack<i32>,str> stack_b
 
 //: process_token: 1 token を数値または演算子として処理する
 //:
 //: [目的/もくてき]:
 //: - 数値 token は stack に積み、演算子 token は `apply_op` へ渡します。
 //: - 空 token や解析不能 token は、REPL 全体を落とさず値として処理します。
-fn process_token <(Stack<i32>,str)*>Stack<i32>> (stack, token):
+fn process_token <(Stack<i32>,str)*>Result<Stack<i32>,str>> (stack, token):
     if:
         s::str_eq token ""
         then:
-            stack
+            ok<Stack<i32>,str> stack
         else:
             let is_op <bool> or or s::str_eq token "+" s::str_eq token "-" s::str_eq token "*";
             if:
@@ -135,57 +140,94 @@ fn process_token <(Stack<i32>,str)*>Stack<i32>> (stack, token):
                 else:
                     match s::to_i32 token:
                         Result::Ok val:
-                            push_or_report &stack val;
-                            stack
+                            push_or_report stack val
                         Result::Err _:
                             print_error "unknown token";
-                            stack
+                            ok<Stack<i32>,str> stack
+
+fn process_token_state <(Result<Stack<i32>,str>,str)*>Result<Stack<i32>,str>> (state, token):
+    match state:
+        Result::Ok stack:
+            process_token stack token
+        Result::Err msg:
+            err<Stack<i32>,str> msg
+
+fn token_error_state <(Result<Stack<i32>,str>,str)*>Result<Stack<i32>,str>> (state, msg):
+    match state:
+        Result::Ok stack:
+            stk::free<i32> stack;
+            err<Stack<i32>,str> msg
+        Result::Err old_msg:
+            err<Stack<i32>,str> old_msg
 
 //: eval_line: 1 行の RPN 式を評価する
 //:
 //: [目的/もくてき]:
 //: - スペース区切りの RPN 式を評価し、結果または stack 個数エラーを表示します。
-//: - `Vec<str>` と `Stack<i32>` は処理後に明示的に `free` します。
+//: - token 配列を作らず、処理中の `Stack<i32>` owner だけを明示的に受け渡します。
 fn eval_line <(str)*>()> (line):
     let trimmed <str> s::str_trim line;
-    let tokens <Vec<str>> s::str_split trimmed " ";
-    let n <i32> v::len_ref<str> &tokens;
+    let n <i32> s::len trimmed;
 
     match stk::new<i32>:
         Result::Ok stack0:
-            let mut stack <Stack<i32>> stack0;
+            let mut stack_state <Result<Stack<i32>,str>> ok<Stack<i32>,str> stack0;
+            let mut start <i32> 0;
             let mut i <i32> 0;
-            while lt i n:
+            while le i n:
                 do:
-                    match v::get_ref<str> &tokens i:
-                        Option::Some tok:
-                            set stack process_token stack tok;
-                        Option::None:
+                    let is_end <bool> eq i n
+                    let is_sep <bool> if:
+                        is_end
+                        then:
+                            true
+                        else:
+                            match s::byte_at trimmed i:
+                                Option::Some b:
+                                    eq b 32
+                                Option::None:
+                                    true
+                    if:
+                        is_sep
+                        then:
+                            match s::str_slice_result trimmed start i:
+                                Result::Ok tok:
+                                    set stack_state process_token_state stack_state tok
+                                Result::Err msg:
+                                    set stack_state token_error_state stack_state msg
+                            set start add i 1
+                        else:
                             ()
                     set i add i 1;
 
-            let sp <i32> stk::len_ref<i32> &stack;
-            if:
-                eq sp 1
-                then:
-                    match stk::pop_ref<i32> &stack:
-                        Option::Some val:
-                            print_result val;
-                        Option::None:
-                            ()
-                else:
+            match stack_state:
+                Result::Ok stack:
+                    let sp <i32> stk::len_ref<i32> &stack;
                     if:
-                        eq sp 0
+                        eq sp 1
                         then:
-                            ()
+                            let popped <StackPop<i32>> stk::pop_top<i32> stack
+                            let val_opt <Option<i32>> *field::get_ref &popped "item"
+                            let next_stack <Stack<i32>> field::get popped "stack"
+                            match val_opt:
+                                Option::Some val:
+                                    print_result val
+                                Option::None:
+                                    ()
+                            stk::free<i32> next_stack
                         else:
-                            print_error s::concat3 "stack has " s::from_i32 sp " values";
-
-            stk::free<i32> stack;
-            v::free<str> tokens;
+                            if:
+                                eq sp 0
+                                then:
+                                    stk::free<i32> stack
+                                else:
+                                    print_error s::concat3 "stack has " s::from_i32 sp " values";
+                                    stk::free<i32> stack
+                Result::Err msg:
+                    s::len msg;
+                    ()
         Result::Err _:
             print_error "out of memory";
-            v::free<str> tokens;
 
 //: main: RPN REPL のエントリーポイント
 //:
