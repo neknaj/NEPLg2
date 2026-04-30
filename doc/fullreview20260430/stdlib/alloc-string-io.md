@@ -33,4 +33,4 @@
 
 ## selfhost への示唆
 
-selfhost S1/S2 では string prefix/search/slice と builders は使ってよい。ただし、numeric formatting や `str_split_result` のように owned `Vec<str>` を作る API は strict owner gate で不安定なため、lexer/parser では `str_find` と byte/char scanner を優先する。
+selfhost S1/S2 では string prefix/search/slice と builders は使ってよい。owned `Vec<str>` を作る split API は廃止し、`str_split_next` のような allocation-free scanner、`str_find`、byte/char scanner を優先する。

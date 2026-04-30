@@ -706,39 +706,121 @@ fn fs_string_from_bytes <(i32,i32)->Result<str,i32>> (src, byte_len):
 fn fs_dir_name_is_dot <(str)->bool> (name):
     or str_eq name "." str_eq name ".."
 
-//: fs_normalize_build: 正規化済み component stack を `/` 区切り path へ戻す
+//: fs_normalize_range_push: component range を stack に積む
 //:
 //: 目的:
-//: - `fs_normalize_relative` の内部 stack から、WASI runtime へ渡す guest path を作ります。
+//: - path component の `[start,end)` byte range を Copy な `i32` pair として stack に積みます。
 //:
 //: 実装(アルゴリズム):
-//: - component を順に StringBuilder へ追加し、component 間にだけ `/` を入れます。
+//: - `Vec<i32>` に start/end を順に push します。
 //:
 //: 注意(重要):
-//: - 空 stack は current preopen root を表す `"."` として返します。
+//: - 失敗時は `v::push` が入力 stack owner を消費するため、呼び出し側は sentinel に差し替えます。
 //:
 //: 計算量:
-//: - component の総 byte 数 n に対して O(n)
-fn fs_normalize_build <(i32,i32)->str> (data, n):
+//: - ならし O(1)
+fn fs_normalize_range_push <(Vec<i32>,i32,i32)->Result<Vec<i32>,i32>> (stack, start, end):
+    match v::push<i32> stack start:
+        Result::Err _e:
+            Result<Vec<i32>,i32>::Err 12
+        Result::Ok with_start:
+            match v::push<i32> with_start end:
+                Result::Err _e:
+                    Result<Vec<i32>,i32>::Err 12
+                Result::Ok with_end:
+                    Result<Vec<i32>,i32>::Ok with_end
+
+//: fs_normalize_range_pop: component range を stack から 1 件捨てる
+//:
+//: 目的:
+//: - `..` component を処理するため、直前の start/end pair を stack から取り除きます。
+//:
+//: 実装(アルゴリズム):
+//: - `Vec<i32>` は `[start0,end0,start1,end1,...]` なので、末尾を 2 回 `pop` します。
+//:
+//: 注意(重要):
+//: - 呼び出し側は stack に少なくとも 1 component、つまり 2 要素あることを確認してから呼びます。
+//:
+//: 計算量:
+//: - O(1)
+fn fs_normalize_range_pop <(Vec<i32>)->Vec<i32>> (stack):
+    let popped_end v::pop<i32> stack
+    let without_end <Vec<i32>> get popped_end "vec"
+    let popped_start v::pop<i32> without_end
+    get popped_start "vec"
+
+//: fs_normalize_build_ranges: range stack から正規 path 文字列を組み立てる
+//:
+//: 目的:
+//: - 正規化済み component range stack を `/` で連結し、空なら `"."` を返します。
+//:
+//: 実装(アルゴリズム):
+//: - `StringBuilder` に元 path の byte 範囲を `sb_append_slice_result` で直接 copy します。
+//: - component 間には `/` を挟みます。
+//:
+//: 注意(重要):
+//: - stack は `[start,end]` pair の偶数長であることを前提にします。
+//: - owned `Vec<str>` や一時 substring を作らないため、collection element owner cleanup に依存しません。
+//:
+//: 計算量:
+//: - 出力 byte 数 n に対して O(n)
+fn fs_normalize_build_ranges <(str,&Vec<i32>)->Result<str,i32>> (path, stack):
+    let stack_len <i32> v::len<i32> stack
     if:
-        eq n 0
+        eq stack_len 0
         then:
-            "."
+            Result<str,i32>::Ok "."
         else:
-            let mut sb <StringBuilder> string_builder_new
-            let mut i <i32> 0
-            while lt i n:
-                do:
+            match string_builder_new_result:
+                Result::Err _e:
+                    Result<str,i32>::Err 12
+                Result::Ok sb0:
+                    let mut sb <StringBuilder> sb0
+                    let mut i <i32> 0
+                    let mut part_index <i32> 0
+                    let mut ok <i32> 1
+                    while and eq ok 1 lt i stack_len:
+                        do:
+                            let start_opt <Option<i32>> v::get<i32> stack i
+                            let end_opt <Option<i32>> v::get<i32> stack add i 1
+                            match start_opt:
+                                Option::None:
+                                    set ok 0
+                                Option::Some part_start:
+                                    match end_opt:
+                                        Option::None:
+                                            set ok 0
+                                        Option::Some part_end:
+                                            let sep_added <Result<StringBuilder,str>> if:
+                                                gt part_index 0
+                                                then:
+                                                    sb_append_result sb "/"
+                                                else:
+                                                    Result<StringBuilder,str>::Ok sb
+                                            match sep_added:
+                                                Result::Err _e:
+                                                    set sb string_builder_empty
+                                                    set ok 0
+                                                Result::Ok with_sep:
+                                                    match sb_append_slice_result with_sep path part_start part_end:
+                                                        Result::Err _e:
+                                                            set sb string_builder_empty
+                                                            set ok 0
+                                                        Result::Ok next_sb:
+                                                            set sb next_sb
+                                                            set part_index add part_index 1
+                            set i add i 2
                     if:
-                        gt i 0
+                        eq ok 1
                         then:
-                            set sb sb_append sb "/"
+                            match sb_build_result sb:
+                                Result::Ok out:
+                                    Result<str,i32>::Ok out
+                                Result::Err _e:
+                                    Result<str,i32>::Err 12
                         else:
-                            ()
-                    let part <str> load<str> add data mul i size_of<str>
-                    set sb sb_append sb part
-                    set i add i 1
-            sb_build sb
+                            string_builder_free sb
+                            Result<str,i32>::Err 12
 
 //: fs_normalize_relative: `/` 区切りの相対 path を preopen root 内の正規形へ畳む
 //:
@@ -768,58 +850,54 @@ fn fs_normalize_relative <(str)->Result<str,i32>> (path):
                 then:
                     Result<str,i32>::Err fs_errno_notcapable
                 else:
-                    match str_split_result path "/":
+                    match v::with_capacity<i32> path_len:
                         Result::Err _e:
                             Result<str,i32>::Err 12
-                        Result::Ok parts:
-                            let parts_len <i32> get parts "len"
-                            match v::with_capacity<str> parts_len:
-                                Result::Err _e:
-                                    v::free<str> parts
-                                    Result<str,i32>::Err 12
-                                Result::Ok stack0:
-                                    let mut stack <Vec<str>> stack0
-                                    let parts_data <i32> mem_ptr_addr get parts "data"
-                                    let mut i <i32> 0
-                                    let mut err <i32> 0
-                                    while and eq err 0 lt i parts_len:
-                                        do:
-                                            let part <str> load<str> add parts_data mul i size_of<str>
+                        Result::Ok stack0:
+                            let mut stack <Vec<i32>> stack0
+                            let mut cursor <i32> 0
+                            let mut done <i32> 0
+                            let mut err <i32> 0
+                            while and eq err 0 eq done 0:
+                                do:
+                                    let step <StrSplitStep> str_split_next path "/" cursor
+                                    match get step "kind":
+                                        StrSplitStepKind::Done:
+                                            set done 1
+                                        StrSplitStepKind::Part:
+                                            let part_start <i32> get step "start"
+                                            let part_end <i32> get step "end"
                                             if:
-                                                or str_eq part "" str_eq part "."
+                                                or eq part_start part_end str_range_eq path part_start part_end "."
                                                 then:
                                                     ()
                                                 else:
                                                     if:
-                                                        str_eq part ".."
+                                                        str_range_eq path part_start part_end ".."
                                                         then:
-                                                            let stack_len <i32> get stack "len"
+                                                            let stack_len <i32> v::len<i32> &stack
                                                             if:
                                                                 eq stack_len 0
                                                                 then:
                                                                     set err fs_errno_notcapable
                                                                 else:
-                                                                    let popped v::pop<str> stack
-                                                                    set stack get popped "vec"
+                                                                    set stack fs_normalize_range_pop stack
                                                         else:
-                                                            match v::push<str> stack part:
+                                                            match fs_normalize_range_push stack part_start part_end:
                                                                 Result::Ok next_stack:
                                                                     set stack next_stack
-                                                                Result::Err _e:
-                                                                    set stack v::Vec<str> 0 0 mem_ptr_wrap 0
-                                                                    set err 12
-                                            set i add i 1
-                                    let result <Result<str,i32>> if:
-                                        eq err 0
-                                        then:
-                                            let stack_len <i32> get stack "len"
-                                            let stack_data <i32> mem_ptr_addr get stack "data"
-                                            Result<str,i32>::Ok fs_normalize_build stack_data stack_len
-                                        else:
-                                            Result<str,i32>::Err err
-                                    v::free<str> parts
-                                    v::free<str> stack
-                                    result
+                                                                Result::Err e:
+                                                                    set stack v::Vec<i32> 0 0 mem_ptr_wrap 0
+                                                                    set err e
+                                            set cursor get step "next"
+                            let result <Result<str,i32>> if:
+                                eq err 0
+                                then:
+                                    fs_normalize_build_ranges path &stack
+                                else:
+                                    Result<str,i32>::Err err
+                            v::free<i32> stack
+                            result
 
 //: fs_path_filetype: path の WASI filetype を取得する
 //:

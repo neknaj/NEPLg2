@@ -28984,6 +28984,39 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner token / free obligation summary を、未精査 Result の path-dependent reservation まで含めて扱う形に進めた。
 
+# 2026-04-30 note (ISS-20260430T151549577Z str_split owned Vec storage fixed)
+
+- [同期]:
+  - branch `fix/str-split-owned-vec-storage` は `origin/main` の `1284ba0f` から開始し、作業中に `git fetch origin` で `origin/main` が同一コミットのままであることを確認した。
+- [原因]:
+  - `str_split_result` は owned substring を `str_slice_result` で作り、`store<str>` で `Vec<str>` の raw storage へ直接置いていた。
+  - `Vec<str>` 側には要素ごとの owner transfer / cleanup 契約がまだなく、Resource IR からは戻り値・エラー時解放のどちらも安全に証明できなかった。
+  - `Vec<i32>` の range vector を返す案も、返却 `Vec` owner summary の未整備に依存するため、今回の根本解決としては採用しなかった。
+- [修正]:
+  - `str_split_result` / `str_split` を削除し、`StrSplitStepKind` enum と `StrSplitStep` を返す `str_split_next` へ置き換えた。
+  - `str_split_next` は allocation-free scanner として byte range と次 cursor だけを返し、呼び出し側は `match` で `Part` / `Done` を網羅する。
+  - `str_range_eq` と `sb_append_slice_result` を追加し、range 比較と builder 追加を owned substring なしで行えるようにした。
+  - `fs_normalize_relative` は `Vec<i32>` の start/end pair stack と `sb_append_slice_result` で path を再構築し、`Vec<str>` split を使わない設計にした。
+  - playground runtime と source policy を更新し、owned `Vec<str>` split API や allocation-bearing split range vector の再導入を拒否するようにした。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/str-split-next-string-nepl-current.json -j 1`: `10 total / 10 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/str-split-next-fs-nepl-after-cleanup.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/tests.js -i stdlib/tests/hashmap.n.md -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/str-split-next-hash-nmd-current.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/str-split-next-string-nmd-current.json -j 1`: `9 total / 7 passed / 2 failed`
+    - 追加・更新した split doctest は passed。
+    - 残る 2 件は既存の `std/test` assertion 戻り値不一致と `string_from_utf8_mem_result` の raw owner obligation であり、本 issue の `str_split_result` owner violation ではない。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規 string/fs policy は passed。既存の `owner_summary_variant_paths.rs` responsibility split warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260430T151549577Z-STR-SPLIT-RESULT-STORES-OWNED-STR-IN-B3A69EAB` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - selfhost で必要な string split は、所有 collection に未設計の cleanup を押し込むのではなく、enum scanner と range helper で Resource IR が検査できる所有境界へ寄せた。
+
 # 2026-04-30 note (ISS-20260430T151549577Z str_split_result raw Vec ownership)
 
 - [発見]:
