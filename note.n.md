@@ -15,6 +15,21 @@
   - `plan.md` 自体は変更していない。
   - 今回は実装ではなく、現行 `main` の進捗確認と設計レビューを doc として作成する。
 
+# 2026-04-30 メモ (進捗確認及び総レビュー: project / method)
+
+- [同期]:
+  - `git fetch origin main` を実行し、remote main が `f108cebd` のまま更新されていないことを確認した。
+- [作成]:
+  - `doc/fullreview20260430/meta/review-method.md`: レビュー方法、判断基準、確認コマンド、報告方針を記録した。
+  - `doc/fullreview20260430/project/progress.md`: repository 状況、open issue、直近 main の Resource IR 進捗、selfhost 開始可否の前提を整理した。
+  - `doc/fullreview20260430/project/risk-map.md`: Resource IR final authority、`MemPtr` / `RegionToken`、collection Drop、`.n.md` stdout report のリスクを整理した。
+- [検証]:
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `plan.md` の単純な前方処理方針だけでは現行の所有権・borrow・drop・raw memory safety を扱い切れないため、Resource IR を selfhost でも正規設計にする必要があると整理した。
+
 # 2026-04-30 メモ (ISS-20260430T083411167Z owner variant value conditions)
 
 - [同期]:
