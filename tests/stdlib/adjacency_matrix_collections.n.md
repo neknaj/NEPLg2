@@ -77,3 +77,51 @@ fn main <()*>i32> ():
     free g1
     1
 ```
+
+## adjacency_matrix_update_error_recovers_owner
+
+[目的/もくてき]:
+- `insert` / `remove` の[範囲外/はんいがい] error が `AdjacencyMatrix` owner を[失/うしな]わず、caller が[回収/かいしゅう]して `free` できることを[確認/かくにん]します。
+
+[何/なに]を[確/たし]かめるか:
+- `insert`
+- `remove`
+- `adjacency_matrix_update_error_owner`
+- `free`
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/adjacency_matrix" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let g0 <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 6;
+    let ok0 <bool>:
+        match insert g0 6 0:
+            Result::Ok next:
+                free next
+                false
+            Result::Err e:
+                let recovered <AdjacencyMatrix> adjacency_matrix_update_error_owner e
+                let ok <bool> eq len &recovered 6
+                free recovered
+                ok
+    let g1 <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 6;
+    let ok1 <bool>:
+        match remove g1 2 9:
+            Result::Ok next:
+                free next
+                false
+            Result::Err e:
+                let recovered <AdjacencyMatrix> adjacency_matrix_update_error_owner e
+                let ok <bool> eq len &recovered 6
+                free recovered
+                ok
+    if and ok0 ok1 1 0
+```

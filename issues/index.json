@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T03:54:16.504Z",
+  "generated_at": "2026-04-30T03:57:57.923Z",
   "counts": {
-    "total": 433,
+    "total": 434,
     "open": 14,
-    "resolved": 419,
+    "resolved": 420,
     "by_area": {
       "core": {
         "total": 195,
@@ -12,9 +12,9 @@
         "resolved": 190
       },
       "stdlib": {
-        "total": 136,
+        "total": 137,
         "open": 7,
-        "resolved": 129
+        "resolved": 130
       },
       "TEST": {
         "total": 7,
@@ -4688,6 +4688,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T034929316Z-BITSET-MUTATING-ERROR-PATHS-CONSUME--2C953144.md"
+    },
+    {
+      "id": "ISS-20260430T035443712Z-ADJACENCYMATRIX-MUTATING-ERROR-PATHS-3FC34ED3",
+      "title": "AdjacencyMatrix mutating error paths consume owner without cleanup or return",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/adjacency_matrix.nepl, stdlib/tests/adjacency_matrix.n.md, tests/stdlib/adjacency_matrix_collections.n.md, nodesrc/test_stdlib_adjacency_matrix_update_error_owner.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T035443712Z-ADJACENCYMATRIX-MUTATING-ERROR-PATHS-3FC34ED3.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

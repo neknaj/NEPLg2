@@ -49,3 +49,42 @@ fn main <()*>i32> ():
     free g0
     if ok0 1 0
 ```
+
+## adjacency_matrix_update_error_returns_owner
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/adjacency_matrix" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let g0 <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 5;
+    let ok0 <bool>:
+        match insert g0 5 1:
+            Result::Ok next:
+                free next
+                false
+            Result::Err e:
+                let recovered <AdjacencyMatrix> adjacency_matrix_update_error_owner e
+                let ok <bool> eq len &recovered 5
+                free recovered
+                ok
+    let g1 <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 5;
+    let ok1 <bool>:
+        match remove g1 0 7:
+            Result::Ok next:
+                free next
+                false
+            Result::Err e:
+                let recovered <AdjacencyMatrix> adjacency_matrix_update_error_owner e
+                let ok <bool> eq len &recovered 5
+                free recovered
+                ok
+    if and ok0 ok1 1 0
+```

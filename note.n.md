@@ -28084,6 +28084,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - BitSet と同じ owner-consuming observer root cause を AdjacencyMatrix でも借用 contract へ修正した。
 
+# 2026-04-30 note (ISS-20260430T035443712Z AdjacencyMatrix update error owner recovery)
+
+- [同期]:
+  - 作業 branch は `work/adjacency-update-error-owner`。
+  - 前 issue の commit `a05726cd` を push / pull 済みの `main` から branch を作成した。
+  - commit 前に `origin/main` が `a74c83b8 fix(nodesrc): build web dist before diagnostic contract` へ進んだため、差分を stash して branch を fast-forward し、issue index を再生成して統合した。
+- [原因]:
+  - `AdjacencyMatrix.insert` / `AdjacencyMatrix.remove` は `AdjacencyMatrix` owner を値で受け取るのに、範囲外 vertex の `Err(Diag)` path で元の owner を返さず、`bits` storage も解放していなかった。
+  - `contains` / `len` は既に borrowed observer へ移行済みだったため、残っていた問題は mutating API の失敗時 owner contract だった。
+- [修正]:
+  - `AdjacencyMatrixUpdateError` を追加し、`owner <AdjacencyMatrix>` と `diag <Diag>` を分離して保持する error payload にした。
+  - `insert` / `remove` の戻り値を `Result<AdjacencyMatrix, AdjacencyMatrixUpdateError>` に変更し、範囲外 branch で元の `g` と `Diag` を `Err` に入れて返すようにした。
+  - `adjacency_matrix_update_error_diag` / `adjacency_matrix_update_error_owner` を追加し、診断の borrowed read と owner 回収を明示的な API にした。
+  - `.n.md` tests に、Err 後の owner 回収と `free` を確認する回帰テストを追加した。
+  - `nodesrc/test_stdlib_adjacency_matrix_update_error_owner.js` を source policy に登録し、`Result<AdjacencyMatrix, Diag>` へ戻る再発を検出するようにした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl --no-tree -o tmp/adjacency-update-error-owner-doctests-after-pull.json -j 1`: `total=6`, `passed=6`
+  - `node nodesrc/tests.js -i stdlib/tests/adjacency_matrix.n.md --no-tree -o tmp/adjacency-update-error-owner-stdlib-tests-after-pull.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i tests/stdlib/adjacency_matrix_collections.n.md --no-tree -o tmp/adjacency-update-error-owner-collections-tests-after-pull.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/test_stdlib_adjacency_matrix_update_error_owner.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `node nodesrc/issues.js check`: passed
+- [issue]:
+  - `ISS-20260430T035443712Z-ADJACENCYMATRIX-MUTATING-ERROR-PATHS-3FC34ED3` を作成し、fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - AdjacencyMatrix update API の失敗 contract を所有権安全にし、invalid graph update 後の cleanup workaround が不要になる方向へ修正した。
+
 # 2026-04-30 note (ISS-20260430T034929316Z BitSet update error owner recovery)
 
 - [同期]:
