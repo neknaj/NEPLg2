@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T04:33:38.881Z",
+  "generated_at": "2026-04-30T04:37:11.098Z",
   "counts": {
-    "total": 439,
+    "total": 440,
     "open": 14,
-    "resolved": 425,
+    "resolved": 426,
     "by_area": {
       "core": {
         "total": 195,
@@ -12,9 +12,9 @@
         "resolved": 190
       },
       "stdlib": {
-        "total": 142,
+        "total": 143,
         "open": 7,
-        "resolved": 135
+        "resolved": 136
       },
       "TEST": {
         "total": 7,
@@ -4763,6 +4763,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T042326094Z-DISJOINTSET-UNION-ERROR-PATH-DESTROY-BF72D38B.md"
+    },
+    {
+      "id": "ISS-20260430T042346891Z-VEC-WITH-CAPACITY-ACCEPTS-NEGATIVE-C-9EF67482",
+      "title": "Vec.with_capacity accepts negative capacity and can pass negative allocation size",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/vec.nepl, tests/stdlib/vec_collections.n.md, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T042346891Z-VEC-WITH-CAPACITY-ACCEPTS-NEGATIVE-C-9EF67482.md"
     },
     {
       "id": "ISS-20260430T043023595Z-RINGBUFFER-READ-ONLY-OBSERVERS-CONSU-9A590BA3",

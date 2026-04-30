@@ -49,12 +49,14 @@ function between(code, start, end) {
 }
 
 const pushSection = between(vecCode, 'fn push ', 'fn get ');
+const withCapacitySection = between(vecCode, 'fn with_capacity ', 'fn filled ');
 const popSection = between(vecCode, 'fn pop ', 'fn clear ');
 const clearSection = between(vecCode, 'fn clear ', 'fn vec_read_at ');
 const mapSection = between(vecCode, 'fn map ', 'fn filter ');
 const freeSection = vecCode.slice(vecCode.indexOf('fn free '));
 
 assert.doesNotMatch(vecCode, /\bfield::get\s+\w+\s+"(?:len|cap)"/, 'Vec implementation must read Copy len/cap header fields through field::get_ref so owner-consuming helpers do not move them');
+assert.match(withCapacitySection, /if:\s+lt\s+cap\s+0\s+then:\s+Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::InvalidOperation[\s\S]*eq\s+cap\s+0[\s\S]*alloc_ptr<\.T>\s+mul\s+cap\s+size_of<\.T>/, 'Vec.with_capacity must reject negative capacity before calling the allocator');
 assert.match(pushSection, /let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.push must explicitly move the data owner from the consumed input Vec');
 assert.match(popSection, /let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.pop must explicitly move the data owner into the returned Vec');
 assert.match(clearSection, /let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.clear must explicitly move the data owner into the returned Vec');

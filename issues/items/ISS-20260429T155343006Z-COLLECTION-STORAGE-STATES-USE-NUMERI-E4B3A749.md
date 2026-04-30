@@ -218,6 +218,29 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 - `BTreeMap` / `BTreeSet` の raw storage owner state は後続の BTreeMap / BTreeSet 部分進捗で typed storage へ移行済み。
 - `Vec` / `BinaryHeap` などの raw owner sentinel 設計は引き続き typed owner state へ移す必要がある。
+
+## 2026-04-30 Vec negative capacity guard 部分進捗
+
+`stdlib/alloc/collections/vec.nepl` は raw `MemPtr<T>` storage をまだ持つが、public capacity API の境界で負 capacity が allocator に到達しないようにした。
+
+進捗:
+
+- `with_capacity` は `cap < 0` を allocation 前に `StdErrorKind::InvalidOperation` として拒否する。
+- `cap = 0` は従来どおり empty Vec を返し、`cap > 0` のみ allocator へ進む。
+- `tests/stdlib/vec_collections.n.md` に negative capacity regression を追加した。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` で negative capacity guard を source policy として固定した。
+
+検証:
+
+- `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-negative-capacity-main-merge.json -j 1 --dist web/dist`: total=3, passed=3
+- `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+- `node nodesrc/run_source_policy_regressions.js`: passed
+- `node nodesrc/issues.js check`: passed (`files=440`)
+- `git diff --check`: passed
+
+残件:
+
+- `Vec` 本体の `MemPtr<T>` / `mem_ptr_wrap 0` storage design は未解決であり、最終的には typed owner state へ移す必要がある。
 - Deque は Copy payload 前提であり、非 Copy payload の drop traversal は collection-wide drop 設計で扱う。
 
 ## 2026-04-30 BTreeMap / BTreeSet 部分進捗
