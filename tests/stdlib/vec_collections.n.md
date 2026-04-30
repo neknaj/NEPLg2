@@ -102,3 +102,34 @@ fn main <()*>i32> ():
     free<i32> next;
     if and first_ok and last_ok next_ok 1 0
 ```
+
+## vec_negative_capacity_rejected
+
+[目的/もくてき]:
+- `with_capacity` が[負/ふ]の capacity を allocator に[渡/わた]さず、typed error として[拒否/きょひ]することを[確認/かくにん]します。
+
+[何/なに]を[確/たし]かめるか:
+- `with_capacity`
+- `StdErrorKind::InvalidOperation`
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let neg <i32> sub 0 1
+    match with_capacity<i32> neg:
+        Result::Ok v:
+            free<i32> v
+            0
+        Result::Err e:
+            let name <str> std_error_kind_str e
+            if str_eq name "InvalidOperation" 1 0
+```

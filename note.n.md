@@ -28376,3 +28376,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - DisjointSet の observer/free contract を Resource IR の owner state 追跡に乗る形へ修正した。
+# 2026-04-30 note (ISS-20260430T042346891Z Vec negative capacity guard)
+
+- [同期]:
+  - 作業開始前に `origin/main` を `b26568dc fix(stdlib): borrow disjoint set observers` まで fast-forward した。
+  - 作業 branch は `fix/vec-negative-capacity-20260430`。
+- [原因]:
+  - `Vec.with_capacity` は `cap == 0` だけを特別扱いし、`cap < 0` を `alloc_ptr<.T> mul cap size_of<.T>` に渡し得た。
+  - public capacity API が非負 storage bound を保証しないと、self-host/ResourceIR の memory safety reasoning が allocator の負 size 挙動に依存してしまう。
+- [修正]:
+  - `cap < 0` を allocation 前に `StdErrorKind::InvalidOperation` として拒否する guard を追加した。
+  - `cap = 0` と `cap > 0` の既存 semantics は維持した。
+  - `tests/stdlib/vec_collections.n.md` に negative capacity regression を追加した。
+  - `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に source policy を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-negative-capacity-collections.json -j 1 --dist web/dist`: `total=3`, `passed=3`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/vec-negative-capacity-stdlib.json -j 1 --dist web/dist`: existing ResourceIR owner leak / timeout failures remain
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-negative-capacity-doctests.json -j 1 --dist web/dist`: existing Vec doctest ResourceIR owner failures remain
+- [issue]:
+  - `ISS-20260430T042346891Z-VEC-WITH-CAPACITY-ACCEPTS-NEGATIVE-C-9EF67482` を fixed/resolved に更新した。
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` に Vec negative capacity guard 部分進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Vec の最終 typed owner storage 化は未実施で、今回は allocator 境界へ負 size を渡さない public API guard を先に固定した。

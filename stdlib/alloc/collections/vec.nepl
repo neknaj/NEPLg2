@@ -198,6 +198,7 @@ fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
 //:
 //: ### [注意/ちゅうい]
 //: - `cap = 0` でも[動作/どうさ]します。
+//: - `cap < 0` は[不正/ふせい]な[容量/ようりょう]として `StdErrorKind::InvalidOperation` を[返/かえ]します。
 //: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]は `Result::Err StdErrorKind::OutOfMemory` を[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
@@ -216,15 +217,20 @@ fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
 //: ```
 fn with_capacity <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (cap):
     if:
-        eq cap 0
+        lt cap 0
         then:
-            Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 0 mem_ptr_wrap 0
+            Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::InvalidOperation
         else:
-            match alloc_ptr<.T> mul cap size_of<.T>:
-                Result::Ok data:
-                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 cap data
-                Result::Err _e:
-                    Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
+            if:
+                eq cap 0
+                then:
+                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 0 mem_ptr_wrap 0
+                else:
+                    match alloc_ptr<.T> mul cap size_of<.T>:
+                        Result::Ok data:
+                            Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 cap data
+                        Result::Err _e:
+                            Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
 
 //: ## filled
 //: [同/おな]じ Copy [値/あたい]で[満/み]たした `Vec<.T>` を[作/つく]る
