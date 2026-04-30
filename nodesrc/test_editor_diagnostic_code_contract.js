@@ -4,10 +4,27 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const { pathToFileURL } = require('url');
 
 async function main() {
   const repo = path.resolve(__dirname, '..');
+  const build = process.platform === 'win32'
+    ? spawnSync('cmd.exe', ['/d', '/s', '/c', 'npm --prefix web run build:ts'], {
+        cwd: repo,
+        stdio: 'inherit',
+      })
+    : spawnSync('npm', ['--prefix', 'web', 'run', 'build:ts'], {
+        cwd: repo,
+        stdio: 'inherit',
+      });
+  if (build.error) {
+    throw build.error;
+  }
+  if (build.status !== 0) {
+    throw new Error(`npm --prefix web run build:ts failed with status ${build.status}`);
+  }
+
   const bridgePath = path.join(repo, 'web', 'dist_ts', 'editor-core', 'language-analysis.js');
   if (!fs.existsSync(bridgePath)) {
     throw new Error(`language analysis bridge not found: ${bridgePath}\nrun 'npm --prefix web run build:ts' first.`);

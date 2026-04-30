@@ -28250,3 +28250,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - SparseSet の read/update/free contract を ResourceIR の field owner 追跡に乗る形へ修正した。
+
+# 2026-04-30 note (ISS-20260430T025134838Z editor diagnostic code contract)
+
+- [同期]:
+  - 作業 branch は `fix/web-dist-diagnostic-codes-20260430`。
+  - `origin/main` が `a05726cd` まで進んでいたため、web diagnostic contract 差分を退避して branch を fast-forward し、BitSet update error owner 修正を取り込んだ。
+  - issue index は web 側の解決済み issue と remote 側の追加 issue を含めて再生成した。
+- [原因]:
+  - `web/src/editor-core/language-analysis.ts` には diagnostic `code` / `code_message` の mapping があるが、`web/dist_ts` は git 管理外の生成物で、ローカルに stale artifact があると `nodesrc/test_editor_diagnostic_code_contract.js` が古い JS を import して失敗していた。
+  - clean な source policy としては、test 前に TypeScript source から dist_ts を更新する責務を test または runner が持つ必要がある。
+- [修正]:
+  - `nodesrc/test_editor_diagnostic_code_contract.js` が `web/dist_ts/editor-core/language-analysis.js` を import する前に `npm --prefix web run build:ts` を実行するようにした。
+  - Windows では `cmd.exe /d /s /c` 経由、その他では `npm` を直接起動し、build failure を contract test failure として扱う。
+- [検証]:
+  - `node nodesrc/test_editor_diagnostic_code_contract.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+- [issue]:
+  - `ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - diagnostic stable code の source policy が stale generated artifact に依存しないようにした。

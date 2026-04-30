@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T03:52:19.843Z",
+  "generated_at": "2026-04-30T03:54:16.504Z",
   "counts": {
     "total": 433,
-    "open": 15,
-    "resolved": 418,
+    "open": 14,
+    "resolved": 419,
     "by_area": {
       "core": {
         "total": 195,
@@ -20,11 +20,6 @@
         "total": 7,
         "open": 1,
         "resolved": 6
-      },
-      "web": {
-        "total": 1,
-        "open": 1,
-        "resolved": 0
       },
       "selfhost": {
         "total": 44,
@@ -70,6 +65,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "web": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "compiler": {
         "total": 2,
@@ -248,21 +248,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",
-      "title": "web dist_ts language-analysis drops diagnostic stable codes",
-      "area": "web",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "web/src/editor-core/language-analysis.ts, web/dist_ts/editor-core/language-analysis.js, nodesrc/test_editor_diagnostic_code_contract.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -4808,6 +4793,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T231611047Z-STD-TEST-ASSERTION-DISCARD-SOURCE-PO-B9226736.md"
+    },
+    {
+      "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",
+      "title": "web dist_ts language-analysis drops diagnostic stable codes",
+      "area": "web",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "web/src/editor-core/language-analysis.ts, web/dist_ts/editor-core/language-analysis.js, nodesrc/test_editor_diagnostic_code_contract.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-006-F45CD50E",
