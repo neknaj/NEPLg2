@@ -14,9 +14,8 @@ use super::initialized_alias_flow::{
     compute_raw_cell_address_return_summaries, construct_raw_cell_address_alias_fields,
     expr_kind_preserves_raw_alias, RawCellAddressReturnSummary,
 };
-use super::initialized_return::{
-    compute_raw_cell_initialization_return_summaries, RawCellInitializationReturnSummary,
-};
+use super::initialized_summary::RawCellInitializationFunctionSummary;
+use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
 use super::model::{
     CellState, CellStateEntry, EffectOp, Place, ResourceBlock, ResourceCallTarget,
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
@@ -37,7 +36,7 @@ pub fn check_resource_initialized_moves(
     let mut deferred = ResourceCheckDeferred::default();
     let raw_alias_summaries = compute_raw_cell_address_return_summaries(module, types);
     let raw_init_summaries =
-        compute_raw_cell_initialization_return_summaries(module, types, &raw_alias_summaries);
+        compute_raw_cell_initialization_function_summaries(module, types, &raw_alias_summaries);
 
     for function in &module.functions {
         let mut engine = ResourceCheckEngine {
@@ -69,7 +68,7 @@ pub(super) struct ResourceCheckEngine<'a> {
     pub(super) function: &'a str,
     pub(super) types: &'a TypeCtx,
     pub(super) raw_alias_summaries: &'a [RawCellAddressReturnSummary],
-    pub(super) raw_init_summaries: &'a [RawCellInitializationReturnSummary],
+    pub(super) raw_init_summaries: &'a [RawCellInitializationFunctionSummary],
     pub(super) diagnostics: Vec<ResourceCheckDiagnostic>,
     pub(super) deferred: ResourceCheckDeferred,
 }
@@ -294,11 +293,12 @@ impl ResourceCheckEngine<'_> {
                     if !self.apply_call_return_raw_alias(raw_aliases, output, target, args) {
                         raw_aliases.clear(output);
                     }
-                    self.apply_call_return_raw_cell_initialization(
+                    self.apply_call_raw_cell_initialization_summary(
                         cells,
                         raw_aliases,
                         output,
                         target,
+                        args,
                     );
                     pending_reallocs.clear_result(output);
                 }
@@ -329,12 +329,13 @@ impl ResourceCheckEngine<'_> {
                     ) {
                         raw_aliases.clear(output);
                     }
-                    self.apply_indirect_call_return_raw_cell_initialization(
+                    self.apply_indirect_call_raw_cell_initialization_summary(
                         cells,
                         raw_aliases,
                         output,
                         function_aliases,
                         callee,
+                        args,
                     );
                     pending_reallocs.clear_result(output);
                 }

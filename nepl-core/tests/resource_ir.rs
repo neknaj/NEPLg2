@@ -3664,6 +3664,258 @@ fn resource_ir_cell_check_preserves_initialized_raw_cells_returned_by_branch_hel
 }
 
 #[test]
+fn resource_ir_cell_check_summarizes_unit_helper_argument_raw_cell_initialization() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let helper_param = Place::local("p".to_string(), i32_ty);
+    let value = Place::temporary(ResourceId(0), i32_ty);
+    let store_out = Place::temporary(ResourceId(1), unit_ty);
+    let caller_buf = Place::temporary(ResourceId(2), i32_ty);
+    let call_output = Place::temporary(ResourceId(3), unit_ty);
+    let loaded = Place::temporary(ResourceId(4), i32_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "fill_slot".to_string(),
+                params: vec![ResourceLocal {
+                    name: "p".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: helper_param.clone(),
+                }],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::Literal,
+                            output: value.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Store,
+                            output: store_out,
+                            args: vec![helper_param, value],
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
+                            output: caller_buf.clone(),
+                            args: vec![],
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: call_output,
+                            target: ResourceCallTarget::User {
+                                name: "fill_slot".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![caller_buf.clone()],
+                            effect: EffectOp::UserCall {
+                                name: "fill_slot".to_string(),
+                                effect: Effect::Impure,
+                            },
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Load,
+                            output: loaded,
+                            args: vec![caller_buf],
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "unit helper argument raw cell initialization should reach caller: {:#?}\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_keeps_conditional_unit_helper_argument_init_conservative() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    types.register_copy_impl_target(types.bool());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let span = Span::dummy();
+    let helper_param = Place::local("p".to_string(), i32_ty);
+    let condition = Place::temporary(ResourceId(0), bool_ty);
+    let then_value = Place::temporary(ResourceId(1), i32_ty);
+    let then_store = Place::temporary(ResourceId(2), unit_ty);
+    let then_unit = Place::temporary(ResourceId(3), unit_ty);
+    let else_unit = Place::temporary(ResourceId(4), unit_ty);
+    let branch_output = Place::temporary(ResourceId(5), unit_ty);
+    let caller_buf = Place::temporary(ResourceId(6), i32_ty);
+    let call_output = Place::temporary(ResourceId(7), unit_ty);
+    let loaded = Place::temporary(ResourceId(8), i32_ty);
+    let expected_cell = caller_buf
+        .clone()
+        .with_projection(PlaceProjection::Deref, i32_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "maybe_fill_slot".to_string(),
+                params: vec![ResourceLocal {
+                    name: "p".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: helper_param.clone(),
+                }],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: ResourceExprKind::Literal,
+                            output: condition.clone(),
+                            ty: bool_ty,
+                            span,
+                        },
+                        ResourceOp::Branch {
+                            output: branch_output,
+                            condition,
+                            condition_fact: None,
+                            then_ops: vec![
+                                ResourceOp::Expr {
+                                    kind: ResourceExprKind::Literal,
+                                    output: then_value.clone(),
+                                    ty: i32_ty,
+                                    span,
+                                },
+                                ResourceOp::RawMemory {
+                                    operation: RawMemoryOp::Store,
+                                    output: then_store,
+                                    args: vec![helper_param, then_value],
+                                    span,
+                                },
+                                ResourceOp::Expr {
+                                    kind: ResourceExprKind::Literal,
+                                    output: then_unit.clone(),
+                                    ty: unit_ty,
+                                    span,
+                                },
+                            ],
+                            then_value: then_unit,
+                            else_ops: vec![ResourceOp::Expr {
+                                kind: ResourceExprKind::Literal,
+                                output: else_unit.clone(),
+                                ty: unit_ty,
+                                span,
+                            }],
+                            else_value: else_unit,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
+                            output: caller_buf.clone(),
+                            args: vec![],
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: call_output,
+                            target: ResourceCallTarget::User {
+                                name: "maybe_fill_slot".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![caller_buf.clone()],
+                            effect: EffectOp::UserCall {
+                                name: "maybe_fill_slot".to_string(),
+                                effect: Effect::Impure,
+                            },
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Load,
+                            output: loaded,
+                            args: vec![caller_buf],
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                function,
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                place,
+                state: CellState::Uninit,
+                ..
+            } if function == "main" && place == &expected_cell
+        )),
+        "conditional unit helper argument initialization must not be summarized unconditionally: {:#?}\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_rekeys_raw_cells_after_loading_raw_address_cell() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

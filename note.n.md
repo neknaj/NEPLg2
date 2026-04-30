@@ -1,3 +1,29 @@
+# 2026-04-30 メモ (ISS-20260430T012746721Z unit helper initialized summary)
+
+- [同期]:
+  - `work/resource-unit-helper-init-summary` branch で、`e277cadb` の external IO write buffer check 修正後の main から継続して作業した。
+- [原因]:
+  - initialized raw cell summary が戻り値配下の raw cells だけを表す `RawCellInitializationReturnSummary` になっており、`fn fill_slot(p): store p ...; return unit` のような in-place helper の caller-visible side effect を表現できなかった。
+  - param を summary 計算時に外部 raw storage root として扱うと、未追跡 external cell を無条件 initialized とみなしてしまい、片側 branch だけの初期化を安全に要約できない。
+  - 今回の param side effect 追加により旧 `initialized_return.rs` は data model / summary build / call-site apply が同居して責務分割 limit を超えた。
+- [修正]:
+  - return-only summary を廃止し、`RawCellInitializationFunctionSummary` で return cells と param cells を別々に持つ構造へ変更した。
+  - summary build では全 return path に共通する initialized raw cell だけを intersection で残し、条件付き初期化を caller へ無条件反映しないようにした。
+  - call-site apply では direct call / known indirect call の引数へ param summary を写し、unit 戻り値 helper の in-place 初期化を caller の CellState に反映するようにした。
+  - `initialized_summary.rs` / `initialized_summary_build.rs` / `initialized_summary_apply.rs` へ分割し、古い return-only module 名を削除した。
+- [issue]:
+  - `ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD` を fixed/resolved にした。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_summarizes_unit_helper_argument_raw_cell_initialization -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_conditional_unit_helper_argument_init_conservative -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: `139 passed`
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の function resource summary 方針に沿って、initialized cell state の関数境界伝播を return-only から function effect へ進めた。
+
 # 2026-04-30 メモ (ISS-20260430T021530702Z examples Stack owner API 追従)
 
 - [同期]:

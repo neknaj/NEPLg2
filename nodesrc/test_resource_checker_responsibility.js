@@ -85,7 +85,9 @@ for (const moduleName of [
     'initialized_external_io.rs',
     'initialized_raw_memory.rs',
     'initialized_rekey.rs',
-    'initialized_return.rs',
+    'initialized_summary.rs',
+    'initialized_summary_apply.rs',
+    'initialized_summary_build.rs',
 ]) {
     assertFile(moduleName);
 }
@@ -118,7 +120,9 @@ for (const moduleDecl of [
     'mod initialized_external_io;',
     'mod initialized_raw_memory;',
     'mod initialized_rekey;',
-    'mod initialized_return;',
+    'mod initialized_summary;',
+    'mod initialized_summary_apply;',
+    'mod initialized_summary_build;',
 ]) {
     assertContains(mod, moduleDecl, 'resource/mod.rs');
 }
@@ -218,7 +222,9 @@ const maxLines = new Map([
     ['initialized_external_io.rs', 140],
     ['initialized_raw_memory.rs', 300],
     ['initialized_rekey.rs', 160],
-    ['initialized_return.rs', 260],
+    ['initialized_summary.rs', 80],
+    ['initialized_summary_apply.rs', 160],
+    ['initialized_summary_build.rs', 260],
 ]);
 
 for (const [name, limit] of maxLines) {

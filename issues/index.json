@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T03:20:05.087Z",
+  "generated_at": "2026-04-30T03:32:05.239Z",
   "counts": {
     "total": 431,
-    "open": 18,
-    "resolved": 413,
+    "open": 17,
+    "resolved": 414,
     "by_area": {
       "core": {
         "total": 195,
-        "open": 6,
-        "resolved": 189
+        "open": 5,
+        "resolved": 190
       },
       "stdlib": {
         "total": 134,
@@ -308,21 +308,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
-    },
-    {
-      "id": "ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD",
-      "title": "Resource IR initialized summaries skip unit-returning in-place helper effects",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource/initialized_return.rs, nepl-core/src/resource/initialized.rs",
-      "legacy_id": "",
-      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
-      "file": "items/ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -5273,6 +5258,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T233013677Z-GENERICS-TESTS-REDEFINE-STDLIB-OPTIO-95B1BFDB.md"
+    },
+    {
+      "id": "ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD",
+      "title": "Resource IR initialized summaries skip unit-returning in-place helper effects",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/initialized_summary*.rs, nepl-core/src/resource/initialized.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",
