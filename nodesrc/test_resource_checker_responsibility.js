@@ -65,6 +65,7 @@ for (const moduleName of [
     'owner_flow.rs',
     'owner_raw_view.rs',
     'owner_summary.rs',
+    'owner_summary_variant_build.rs',
     'owner_summary_leaf.rs',
     'owner_summary_record.rs',
     'owner_return.rs',
@@ -88,6 +89,7 @@ for (const moduleName of [
     'initialized_summary.rs',
     'initialized_summary_apply.rs',
     'initialized_summary_build.rs',
+    'initialized_summary_variant_build.rs',
 ]) {
     assertFile(moduleName);
 }
@@ -100,6 +102,7 @@ for (const moduleDecl of [
     'mod owner_flow;',
     'mod owner_raw_view;',
     'mod owner_summary;',
+    'mod owner_summary_variant_build;',
     'mod owner_summary_leaf;',
     'mod owner_summary_record;',
     'mod owner_return;',
@@ -123,6 +126,7 @@ for (const moduleDecl of [
     'mod initialized_summary;',
     'mod initialized_summary_apply;',
     'mod initialized_summary_build;',
+    'mod initialized_summary_variant_build;',
 ]) {
     assertContains(mod, moduleDecl, 'resource/mod.rs');
 }
@@ -205,6 +209,7 @@ const maxLines = new Map([
     ['owner_flow.rs', 620],
     ['owner_raw_view.rs', 180],
     ['owner_summary.rs', 380],
+    ['owner_summary_variant_build.rs', 360],
     ['owner_summary_leaf.rs', 260],
     ['owner_summary_record.rs', 260],
     ['owner_return.rs', 400],
@@ -225,6 +230,7 @@ const maxLines = new Map([
     ['initialized_summary.rs', 80],
     ['initialized_summary_apply.rs', 160],
     ['initialized_summary_build.rs', 260],
+    ['initialized_summary_variant_build.rs', 260],
 ]);
 
 for (const [name, limit] of maxLines) {

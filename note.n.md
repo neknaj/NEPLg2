@@ -1,3 +1,27 @@
+# 2026-04-30 メモ (静的検査設計の追加精査)
+
+- [同期]:
+  - `docs/static-check-design-review-20260430` branch で remote main が `c6b03868` と一致していることを確認してから作業した。
+- [確認]:
+  - 現行 Rust compiler の `ResourceDiagnosticCode` は `Move` / `Borrow` / `Cell` / `Owner` / `Raw` / `Lower` に分離済みである。
+  - `resource_cell_diagnostic_code` と `resource_owner_state_diagnostic_code` は `CellState` / `OwnerState` を `resource.cell.*` / `resource.owner.*` へ明示的に写像しており、旧 raw ownership bucket へ潰していない。
+  - 一方で、`passes::move_check::run` は Resource IR gate より前に authoritative として走り、`passes::insert_drops` も Resource IR checked state ではなく HIR 上で動くため、最終設計としてはまだ未完である。
+  - `UnsafeMemoryInPureFunction` は stdlib raw-memory-backed API 移行中の shadow-only gate として残っており、最終的には public pure surface から unsafe memory を構成できないようにする必要がある。
+- [修正]:
+  - `doc/neplg2/static_check_design_verification_20260430.md` の古い diagnostic taxonomy 記述を、現行実装に合わせて修正した。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` に追加精査結果と source policy 更新ルールを追記した。
+  - `initialized_summary_variant_build.rs` が Resource checker responsibility policy から漏れていたため、`ISS-20260430T062912063Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-CC55287A` で監視対象へ追加した。
+- [issue]:
+  - obsolete な doc 記述は `ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958` で追跡する。
+- [検証]:
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査設計は Resource IR / enum / match / compiler-issued owner token へ寄せる方針を維持し、既に完了した Cell/Owner diagnostic 分離と未完の Resource IR authority 化を区別した。
+
 # 2026-04-30 メモ (ISS-20260430T062125921Z Resource initialized summary builder split)
 
 - [同期]:
@@ -39,6 +63,7 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - selfhost parser 実装で頻出する delimiter 検索の標準 API を追加し、strict owner gate を回帰テストとして使える状態に戻した。
+
 # 2026-04-30 メモ (ISS-20260430T060552075Z Result::Ok-gated owner consumption)
 
 - [同期]:
@@ -63,6 +88,7 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR summary / owner state propagation 方針に沿って、Result variant による owner 消費の分岐精度を上げた。
+
 # 2026-04-30 メモ (ISS-20260430T053723149Z move_effect realloc fixture)
 
 - [同期]:
