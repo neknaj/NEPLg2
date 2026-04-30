@@ -52,3 +52,42 @@ fn main <()*>i32> ():
     free bs1
     if and ok0 ok1 1 0
 ```
+
+## bitset_update_error_returns_owner
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/bitset" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let bs0 <BitSet> unwrap_ok<BitSet, Diag> new 12;
+    let ok0 <bool>:
+        match insert bs0 99:
+            Result::Ok next:
+                free next
+                false
+            Result::Err e:
+                let recovered <BitSet> bitset_update_error_owner e
+                let ok <bool> eq len &recovered 12
+                free recovered
+                ok
+    let bs1 <BitSet> unwrap_ok<BitSet, Diag> new 12;
+    let ok1 <bool>:
+        match remove bs1 sub 0 1:
+            Result::Ok next:
+                free next
+                false
+            Result::Err e:
+                let recovered <BitSet> bitset_update_error_owner e
+                let ok <bool> eq len &recovered 12
+                free recovered
+                ok
+    if and ok0 ok1 1 0
+```

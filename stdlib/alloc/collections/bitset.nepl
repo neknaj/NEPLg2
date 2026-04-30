@@ -15,7 +15,8 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [有効/ゆうこう] index [範囲/はんい]は `[0, len)` です。
-//: - `insert` / `remove` / `contains` は[範囲外/はんいがい] index に[対/たい]して `Result::Err Diag` を[返/かえ]します。
+//: - `contains` は[範囲外/はんいがい] index に[対/たい]して owner を[動/うご]かさず `Result::Err Diag` を[返/かえ]します。
+//: - `insert` / `remove` は[範囲外/はんいがい] index に[対/たい]して `Result::Err BitSetUpdateError` で元の owner と[診断/しんだん]を[返/かえ]します。
 //: - `len` は set bit [数/すう]ではなく、[保持/ほじ]できる bit [長/ちょう]を[返/かえ]します。
 //: - [読/よ]み[取/と]りだけの[処理/しょり]では `len &bs` / `contains &bs idx` のように borrow して、[最後/さいご]に `free bs` で owner を[閉/と]じます。
 //:
@@ -41,6 +42,28 @@ struct BitSet:
     nbits <i32>
     nbytes <i32>
     bits <MemPtr<u8>>
+
+//: ## BitSetUpdateError
+//: `insert` / `remove` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
+//:
+//: ### [目的/もくてき]
+//: - `insert` / `remove` は[更新/こうしん] API なので `BitSet` owner を[受/う]け[取/と]ります。
+//: - [範囲外/はんいがい] index では bit storage を[変更/へんこう]せず、caller が cleanup できるように元の `BitSet` owner を `owner` に[戻/もど]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `Result::Err` を[受/う]け[取/と]った caller は `bitset_update_error_owner` で owner を[回収/かいしゅう]し、[不要/ふよう]なら `free` します。
+//: - `diag` は `Diag` の Copy [値/あたい]で、`bitset_update_error_diag` から owner を[動/うご]かさず[確認/かくにん]できます。
+struct BitSetUpdateError:
+    owner <BitSet>
+    diag <Diag>
+
+//: bitset_update_error_diag: update [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
+fn bitset_update_error_diag <(&BitSetUpdateError)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: bitset_update_error_owner: update [失敗/しっぱい]で[戻/もど]された `BitSet` owner を[取/と]り[出/だ]す
+fn bitset_update_error_owner <(BitSetUpdateError)->BitSet> (e):
+    field::get e "owner"
 
 fn bitset_invalid_len_diag <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "invalid bitset length"
@@ -150,12 +173,12 @@ fn contains <(&BitSet,i32)*>Result<bool, Diag>> (bs, idx):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 16;
-//:     let bs1 <BitSet> unwrap_ok<BitSet, Diag> insert bs 3;
+//:     let bs1 <BitSet> unwrap_ok<BitSet, BitSetUpdateError> insert bs 3;
 //:     let ok <bool> unwrap_ok<bool, Diag> contains &bs1 3;
 //:     free bs1
 //:     if ok 1 0
 //: ```
-fn insert <(BitSet,i32)*>Result<BitSet, Diag>> (bs, idx):
+fn insert <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
     let nbits <i32> field::get bs "nbits"
     if:
         bitset_valid_index idx nbits
@@ -165,9 +188,11 @@ fn insert <(BitSet,i32)*>Result<BitSet, Diag>> (bs, idx):
             let mask <i32> bitset_mask idx
             let cur <i32> load_u8 mem_ptr_addr ptr
             store_u8 mem_ptr_addr ptr or cur mask
-            ok<BitSet, Diag> bs
+            ok<BitSet, BitSetUpdateError> bs
         else:
-            diag_err<BitSet> bitset_index_diag
+            let d <Diag> bitset_index_diag
+            let e <BitSetUpdateError> BitSetUpdateError bs d
+            err<BitSet, BitSetUpdateError> e
 
 //: ## remove
 //: bit を 0 に[戻/もど]す
@@ -188,7 +213,7 @@ fn insert <(BitSet,i32)*>Result<BitSet, Diag>> (bs, idx):
 //:     free bs
 //:     if not ok 1 0
 //: ```
-fn remove <(BitSet,i32)*>Result<BitSet, Diag>> (bs, idx):
+fn remove <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
     let nbits <i32> field::get bs "nbits"
     if:
         bitset_valid_index idx nbits
@@ -198,9 +223,11 @@ fn remove <(BitSet,i32)*>Result<BitSet, Diag>> (bs, idx):
             let mask <i32> bitset_mask idx
             let cur <i32> load_u8 mem_ptr_addr ptr
             store_u8 mem_ptr_addr ptr and cur xor mask 255
-            ok<BitSet, Diag> bs
+            ok<BitSet, BitSetUpdateError> bs
         else:
-            diag_err<BitSet> bitset_index_diag
+            let d <Diag> bitset_index_diag
+            let e <BitSetUpdateError> BitSetUpdateError bs d
+            err<BitSet, BitSetUpdateError> e
 
 //: ## clear
 //: [全/すべ]ての bit を 0 に[戻/もど]す

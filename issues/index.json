@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T03:44:52.745Z",
+  "generated_at": "2026-04-30T03:52:19.843Z",
   "counts": {
-    "total": 432,
+    "total": 433,
     "open": 15,
-    "resolved": 417,
+    "resolved": 418,
     "by_area": {
       "core": {
         "total": 195,
@@ -12,9 +12,9 @@
         "resolved": 190
       },
       "stdlib": {
-        "total": 135,
+        "total": 136,
         "open": 7,
-        "resolved": 128
+        "resolved": 129
       },
       "TEST": {
         "total": 7,
@@ -4688,6 +4688,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T032616012Z-SPARSESET-MUTATING-ERROR-PATHS-CONSU-2CA06D59.md"
+    },
+    {
+      "id": "ISS-20260430T034929316Z-BITSET-MUTATING-ERROR-PATHS-CONSUME--2C953144",
+      "title": "BitSet mutating error paths consume owner without cleanup or return",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/bitset.nepl, stdlib/tests/bitset.n.md, tests/stdlib/bitset_collections.n.md, nodesrc/test_stdlib_bitset_update_error_owner.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T034929316Z-BITSET-MUTATING-ERROR-PATHS-CONSUME--2C953144.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

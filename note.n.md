@@ -28084,6 +28084,33 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - BitSet と同じ owner-consuming observer root cause を AdjacencyMatrix でも借用 contract へ修正した。
 
+# 2026-04-30 note (ISS-20260430T034929316Z BitSet update error owner recovery)
+
+- [同期]:
+  - 作業 branch は `work/bitset-update-error-owner`。
+  - 前 issue の commit `c14b98a0` を push / pull 済みの `main` から branch を作成した。
+- [原因]:
+  - `BitSet.insert` / `BitSet.remove` は `BitSet` owner を値で受け取るのに、範囲外 index の `Err(Diag)` path で元の owner を返さず、`bits` storage も解放していなかった。
+  - `contains` / `len` は既に borrowed observer へ移行済みだったため、残っていた問題は mutating API の失敗時 owner contract だった。
+- [修正]:
+  - `BitSetUpdateError` を追加し、`owner <BitSet>` と `diag <Diag>` を分離して保持する error payload にした。
+  - `insert` / `remove` の戻り値を `Result<BitSet, BitSetUpdateError>` に変更し、範囲外 branch で元の `bs` と `Diag` を `Err` に入れて返すようにした。
+  - `bitset_update_error_diag` / `bitset_update_error_owner` を追加し、診断の borrowed read と owner 回収を明示的な API にした。
+  - `.n.md` tests に、Err 後の owner 回収と `free` を確認する回帰テストを追加した。
+  - `nodesrc/test_stdlib_bitset_update_error_owner.js` を source policy に登録し、`Result<BitSet, Diag>` へ戻る再発を検出するようにした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl --no-tree -o tmp/bitset-update-error-owner-doctests.json -j 1`: `total=7`, `passed=7`
+  - `node nodesrc/tests.js -i stdlib/tests/bitset.n.md --no-tree -o tmp/bitset-update-error-owner-stdlib-tests.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i tests/stdlib/bitset_collections.n.md --no-tree -o tmp/bitset-update-error-owner-collections-tests.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/test_stdlib_bitset_update_error_owner.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `node nodesrc/issues.js check`: passed
+- [issue]:
+  - `ISS-20260430T034929316Z-BITSET-MUTATING-ERROR-PATHS-CONSUME--2C953144` を作成し、fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - BitSet update API の失敗 contract を所有権安全にし、invalid update 後の cleanup workaround が不要になる方向へ修正した。
+
 # 2026-04-30 note (ISS-20260430T031656331Z Fenwick add error owner recovery)
 
 - [同期]:

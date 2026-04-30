@@ -74,3 +74,51 @@ fn main <()*>i32> ():
     free bs1
     1
 ```
+
+## bitset_update_error_recovers_owner
+
+[目的/もくてき]:
+- `insert` / `remove` の[範囲外/はんいがい] error が `BitSet` owner を[失/うしな]わず、caller が[回収/かいしゅう]して `free` できることを[確認/かくにん]します。
+
+[何/なに]を[確/たし]かめるか:
+- `insert`
+- `remove`
+- `bitset_update_error_owner`
+- `free`
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/bitset" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let bs0 <BitSet> unwrap_ok<BitSet, Diag> new 20;
+    let ok0 <bool>:
+        match insert bs0 20:
+            Result::Ok next:
+                free next
+                false
+            Result::Err e:
+                let recovered <BitSet> bitset_update_error_owner e
+                let ok <bool> eq len &recovered 20
+                free recovered
+                ok
+    let bs1 <BitSet> unwrap_ok<BitSet, Diag> new 20;
+    let ok1 <bool>:
+        match remove bs1 sub 0 3:
+            Result::Ok next:
+                free next
+                false
+            Result::Err e:
+                let recovered <BitSet> bitset_update_error_owner e
+                let ok <bool> eq len &recovered 20
+                free recovered
+                ok
+    if and ok0 ok1 1 0
+```

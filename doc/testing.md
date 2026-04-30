@@ -89,6 +89,7 @@ node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js
+node nodesrc/test_stdlib_bitset_update_error_owner.js
 node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js
