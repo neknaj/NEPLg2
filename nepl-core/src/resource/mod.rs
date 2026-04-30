@@ -31,6 +31,7 @@ mod initialized_rekey;
 mod initialized_summary;
 mod initialized_summary_apply;
 mod initialized_summary_build;
+mod initialized_summary_variant_build;
 mod initialized_variant;
 mod lower;
 mod lower_raw_address;

@@ -1,3 +1,24 @@
+# 2026-04-30 メモ (ISS-20260430T062125921Z Resource initialized summary builder split)
+
+- [同期]:
+  - `fix/selfhost-req-strict-owner-gate-20260430` branch で `92a77c44` の remote main を取り込んだ後、source policy 回帰として発見した。
+- [原因]:
+  - remote main の Resource IR 変更で `initialized_summary_build.rs` が 450 行になり、`nodesrc/test_resource_checker_responsibility.js` の `initialized_summary_build.rs <= 260` 制限を超えていた。
+  - fixed-point summary assembly、unconditional return/param fact、variant-gated Result/Option fact、raw load requirement、unique helper が 1 ファイルに同居していた。
+- [修正]:
+  - `ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C` を追加し、追加時点で Discord に報告した。
+  - variant-gated initialized summary 構築を `nepl-core/src/resource/initialized_summary_variant_build.rs` へ分離した。
+  - `initialized_summary_build.rs` は固定点計算と unconditional fact collection に絞り、`resource/mod.rs` に新 module を追加した。
+  - issue を verified/resolved に更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 141 passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `node nodesrc/issues.js check`: `files=449`, passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Resource IR の static check 実装を、責務分割 policy が監視できる module 境界へ戻した。
+
 # 2026-04-30 メモ (ISS-20260430T023401649Z selfhost_req strict owner gate)
 
 - [同期]:

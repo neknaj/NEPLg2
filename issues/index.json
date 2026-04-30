@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T06:16:33.839Z",
+  "generated_at": "2026-04-30T06:25:09.270Z",
   "counts": {
-    "total": 448,
+    "total": 449,
     "open": 15,
-    "resolved": 433,
+    "resolved": 434,
     "by_area": {
       "core": {
-        "total": 199,
+        "total": 200,
         "open": 7,
-        "resolved": 192
+        "resolved": 193
       },
       "stdlib": {
         "total": 147,
@@ -3113,6 +3113,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T054603567Z-RESOURCE-IR-SKIPS-RESULT-OK-GATED-PA-C2B25804.md"
+    },
+    {
+      "id": "ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C",
+      "title": "Resource initialized summary builder exceeds responsibility split limit",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/initialized_summary_build.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
