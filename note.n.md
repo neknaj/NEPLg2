@@ -28107,3 +28107,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - CountingBloomFilter observer を借用 contract に揃え、self-host collection 利用で owner leak workaround が不要になる方向へ修正した。
+
+# 2026-04-30 note (ISS-20260430T024859462Z Fenwick borrowed queries)
+
+- [同期]:
+  - 作業 branch は `fix/fenwick-borrowed-queries-20260430`。
+  - `origin/main` が `e277cadb` まで進んでいたため、Fenwick 差分を退避して branch を fast-forward し、ResourceIR の external IO write buffer 検証修正を取り込んだ。
+  - issue index は追加 issue と remote 側の解決済み issue を含めて再生成した。
+- [原因]:
+  - `Fenwick.len` / `Fenwick.sum_prefix` / `Fenwick.sum_range` は query API なのに `Fenwick` を値で受け取り、internal `bit` owner を観察時に消費していた。
+  - 未使用 private check helpers も同じ by-value read pattern を残していた。
+- [修正]:
+  - `Fenwick.len` / `sum_prefix` / `sum_range` を `&Fenwick` receiver に変更した。
+  - 未使用の `fenwick_check_index` / `fenwick_check_prefix` / `fenwick_check_range` を削除した。
+  - doctest / `.n.md` tests を、同じ Fenwick tree に複数回 borrowed query を呼んだ後で `free` する形へ整理した。
+  - `nodesrc/test_stdlib_fenwick_borrowed_queries.js` を追加し、by-value query signature と by-value test usage の再発を source policy で検出するようにした。
+- [追加 issue]:
+  - `Fenwick.add` の範囲外 Err path が入力 owner を返さず cleanup もしない別問題を `ISS-20260430T031656331Z-FENWICK-ADD-ERROR-PATH-CONSUMES-OWNE-10D232BB` として追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/fenwick.n.md --no-tree -o tmp/fenwick-stdlib-borrowed-queries.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/fenwick_collections.n.md --no-tree -o tmp/fenwick-collections-borrowed-queries.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl --no-tree -o tmp/fenwick-doctest-borrowed-queries.json -j 1`: `total=5`, `passed=5`
+  - `node nodesrc/test_stdlib_fenwick_borrowed_queries.js`: passed
+  - `node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/issues.js check`: passed
+- [issue]:
+  - `ISS-20260430T024859462Z-FENWICK-SUM-OBSERVER-APIS-CONSUME-OW-2BB59F00` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Fenwick query API を借用 contract に揃え、self-host collection 利用で owner leak workaround が不要になる方向へ修正した。

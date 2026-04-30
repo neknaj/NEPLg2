@@ -3,6 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - `new` / `add` / `sum_prefix` / `sum_range` / `len` / `free` を bare 名で[提供/ていきょう]し、[点更新/てんこうしん]と prefix/range sum を `O(log n)` で[扱/あつか]えるようにします。
+//: - `len` / `sum_prefix` / `sum_range` は `&Fenwick` を[受/う]け[取/と]り、internal tree owner を[移動/いどう]せずに[観察/かんさつ]します。
 //: - `kpfenwick` の[競技/きょうぎ][向/む]け実装を `alloc/collections` へ[昇格/しょうかく]し、[一般用途/いっぱんようと]の collection として[再利用/さいりよう]できるようにします。
 //:
 //: ### [実装/じっそう]
@@ -13,6 +14,7 @@
 //: - `new` と `add` は `Result` を[返/かえ]します。
 //: - `sum_prefix` は `[0, r)`、`sum_range` は `[l, r)` を[返/かえ]します。
 //: - [範囲外/はんいがい] index や[不正/ふせい] range は `Result::Err Diag` です。
+//: - query だけの[処理/しょり]では `len &fw` / `sum_range &fw l r` のように borrow して、[最後/さいご]に `free fw` で owner を[閉/と]じます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - `len` は O(1)。
@@ -45,27 +47,6 @@ fn fenwick_diag_index <()*>Diag> ():
 
 fn fenwick_diag_range <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "fenwick range out of bounds"
-
-fn fenwick_check_index <(str,Fenwick,i32)*>Result<(), Diag>> (op, fw, idx):
-    let n <i32> field::get fw "n"
-    if:
-        and le 0 idx lt idx n
-        then ok<(), Diag> ()
-        else diag_err<()> fenwick_diag_index
-
-fn fenwick_check_prefix <(str,Fenwick,i32)*>Result<(), Diag>> (op, fw, r):
-    let n <i32> field::get fw "n"
-    if:
-        and le 0 r le r n
-        then ok<(), Diag> ()
-        else diag_err<()> fenwick_diag_index
-
-fn fenwick_check_range <(str,Fenwick,i32,i32)*>Result<(), Diag>> (op, fw, l, r):
-    let n <i32> field::get fw "n"
-    if:
-        and and le 0 l le l r le r n
-        then ok<(), Diag> ()
-        else diag_err<()> fenwick_diag_range
 
 fn fenwick_ptr_at <(MemPtr<i32>,i32)->MemPtr<i32>> (bit, idx):
     mem_ptr_wrap add mem_ptr_addr bit mul idx 4
@@ -107,7 +88,9 @@ fn fenwick_sum_prefix_raw <(MemPtr<i32>,i32)->i32> (bit, r):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let fw <Fenwick> unwrap_ok<Fenwick, Diag> new 5;
-//:     if eq len fw 5 1 0
+//:     let ok <bool> eq len &fw 5;
+//:     free fw
+//:     if ok 1 0
 //: ```
 fn new <(i32)*>Result<Fenwick, Diag>> (n):
     let bit_len <i32> add n 1
@@ -125,8 +108,8 @@ fn new <(i32)*>Result<Fenwick, Diag>> (n):
 
 //: ## len
 //: [保持/ほじ]している[長/なが]さを[返/かえ]す
-fn len <(Fenwick)->i32> (fw):
-    field::get fw "n"
+fn len <(&Fenwick)->i32> (fw):
+    *field::get_ref fw "n"
 
 //: ## add
 //: `idx` に `delta` を[加算/かさん]する
@@ -149,7 +132,8 @@ fn len <(Fenwick)->i32> (fw):
 //:         unwrap_ok<Fenwick, Diag> new 4
 //:         |> add 0 2 |> uwok
 //:         |> add 3 5 |> uwok
-//:     let total <i32> unwrap_ok<i32, Diag> sum_range fw 0 4;
+//:     let total <i32> unwrap_ok<i32, Diag> sum_range &fw 0 4;
+//:     free fw
 //:     if eq total 7 1 0
 //: ```
 fn add <(Fenwick,i32,i32)*>Result<Fenwick, Diag>> (fw, idx, delta):
@@ -194,12 +178,13 @@ fn add <(Fenwick,i32,i32)*>Result<Fenwick, Diag>> (fw, idx, delta):
 //:         |> add 0 1 |> uwok
 //:         |> add 1 2 |> uwok
 //:         |> add 2 3 |> uwok
-//:     let total <i32> unwrap_ok<i32, Diag> sum_prefix fw 3;
+//:     let total <i32> unwrap_ok<i32, Diag> sum_prefix &fw 3;
+//:     free fw
 //:     if eq total 6 1 0
 //: ```
-fn sum_prefix <(Fenwick,i32)*>Result<i32, Diag>> (fw, r):
-    let n <i32> field::get fw "n"
-    let bit <MemPtr<i32>> field::get fw "bit"
+fn sum_prefix <(&Fenwick,i32)*>Result<i32, Diag>> (fw, r):
+    let n <i32> *field::get_ref fw "n"
+    let bit <MemPtr<i32>> *field::get_ref fw "bit"
     if:
         and le 0 r le r n
         then:
@@ -229,12 +214,13 @@ fn sum_prefix <(Fenwick,i32)*>Result<i32, Diag>> (fw, r):
 //:         |> add 1 2 |> uwok
 //:         |> add 2 3 |> uwok
 //:         |> add 3 4 |> uwok
-//:     let total <i32> unwrap_ok<i32, Diag> sum_range fw 1 4;
+//:     let total <i32> unwrap_ok<i32, Diag> sum_range &fw 1 4;
+//:     free fw
 //:     if eq total 9 1 0
 //: ```
-fn sum_range <(Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
-    let n <i32> field::get fw "n"
-    let bit <MemPtr<i32>> field::get fw "bit"
+fn sum_range <(&Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
+    let n <i32> *field::get_ref fw "n"
+    let bit <MemPtr<i32>> *field::get_ref fw "bit"
     if:
         and and le 0 l le l r le r n
         then:
