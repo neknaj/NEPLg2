@@ -29198,3 +29198,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `.n.md` assertion suite は stdout report + `exit_code:` で検証する方針に沿って、stdlib list fixtureを移行した。
+
+# 2026-04-30 note (ISS-20260430T131836940Z stdlib vec report/runtime)
+
+- [同期]:
+  - `f904f081` の stdlib list report commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `stdlib/tests/vec.n.md` は `std/test` の report を出していたが、metadata は `ret: 0` のままで stdout expectation がなかった。
+  - さらに既存の分割後も `vec_functional_helpers` が約127秒、`vec_partition_helpers` が約68秒かかり、aggregate runner の 60秒 per-case budget を超えていた。
+  - これは単なる metadata 移行ではなく、fixture 粒度が大きすぎてCI信号として不安定になる根本問題だった。
+- [修正]:
+  - `vec_main` / get-replace / map-filter / fold-reduce / find-predicate / partition-even / partition-rest / prefix / drop-while / count の10件へ分割した。
+  - すべての doctest を `exit_code: 0` + stdout assertion report へ移行した。
+  - `ISS-20260430T131836940Z-STDLIB-VEC-DOCTESTS-STILL-EXCEED-RUN-44D56F6B` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/stdlib-vec-report-agent1.json -j 1 --dist web/dist`: `10 total / 10 passed`
+  - 各 doctest duration は 22.9秒から34.0秒で、60秒制限内に収まった。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `.n.md` assertion suite の stdout report + `exit_code:` 方針に加え、runner budget を超えない focused fixture 粒度へ調整した。

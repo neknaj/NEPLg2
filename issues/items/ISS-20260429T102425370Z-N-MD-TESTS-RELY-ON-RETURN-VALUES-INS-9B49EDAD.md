@@ -158,3 +158,13 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 検証:
 
 - `node nodesrc/tests.js -i stdlib/tests/list.n.md --no-tree -o tmp/stdlib-list-report-agent1.json -j 1 --dist web/dist`: total=2, passed=2
+
+## 2026-04-30 stdlib vec report and runtime migration
+
+`ISS-20260430T131836940Z-STDLIB-VEC-DOCTESTS-STILL-EXCEED-RUN-44D56F6B` で、`stdlib/tests/vec.n.md` の大きい `std/test` doctest を10件の focused doctest へ分割し、各 case を stdout assertion report + `exit_code: 0` へ移行した。
+
+この fixture は以前の分割後も `doctest#2` が約127秒、`doctest#3` が約68秒かかり、aggregate runner の 60秒 per-case budget を超えていた。今回の対応で全 case を 22.9秒から34.0秒に収め、`ret:` と `checks_exit_code checks` の残存をなくした。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/stdlib-vec-report-agent1.json -j 1 --dist web/dist`: total=10, passed=10

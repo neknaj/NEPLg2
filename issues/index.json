@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:16.996Z",
+  "generated_at": "2026-04-30T14:41:18.279Z",
   "counts": {
-    "total": 473,
+    "total": 474,
     "open": 16,
-    "resolved": 457,
+    "resolved": 458,
     "by_area": {
       "core": {
         "total": 208,
@@ -22,9 +22,9 @@
         "resolved": 143
       },
       "TEST": {
-        "total": 13,
+        "total": 14,
         "open": 1,
-        "resolved": 12
+        "resolved": 13
       },
       "cli": {
         "total": 19,
@@ -5278,6 +5278,21 @@
       "legacy_id": "",
       "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
       "file": "items/ISS-20260430T130514815Z-STDLIB-LIST-DOCTESTS-KEEP-RET-METADA-7DD9F2F5.md"
+    },
+    {
+      "id": "ISS-20260430T131836940Z-STDLIB-VEC-DOCTESTS-STILL-EXCEED-RUN-44D56F6B",
+      "title": "stdlib vec doctests still exceed runner budget and keep ret metadata",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/tests/vec.n.md",
+      "legacy_id": "",
+      "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "file": "items/ISS-20260430T131836940Z-STDLIB-VEC-DOCTESTS-STILL-EXCEED-RUN-44D56F6B.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

@@ -3,7 +3,13 @@
 ## vec_main
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 
 #entry main
@@ -11,8 +17,6 @@ ret: 0
 #target std
 
 #import "alloc/collections/vec" as *
-#import "core/cast" as *
-#import "core/option" as *
 #import "std/test" as *
 
 fn main <()*>i32> ():
@@ -37,6 +41,39 @@ fn main <()*>i32> ():
         |> push<i32> 30
         |> unwrap_ok
     set checks checks_push checks check_eq_i32 3 len<i32> &v6;
+
+    free<i32> v0_empty;
+    free<i32> v0_ptr;
+    free<i32> v2;
+    free<i32> v6;
+    let shown checks_print_report checks;
+    checks_exit_code shown
+```
+
+## vec_get_replace
+
+neplg2:test
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+```neplg2
+
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/cast" as *
+#import "core/option" as *
+#import "std/test" as *
+
+fn main <()*>i32> ():
+    let mut checks checks_new;
 
     let g2:
         unwrap_ok new<i32>
@@ -93,10 +130,6 @@ fn main <()*>i32> ():
         Option::None:
             set checks checks_push checks Result<(),str>::Err "get<u8> returned None";
 
-    free<i32> v0_empty;
-    free<i32> v0_ptr;
-    free<i32> v2;
-    free<i32> v6;
     free<i32> g2;
     free<i32> s2;
     free<i32> s2_ref;
@@ -107,10 +140,15 @@ fn main <()*>i32> ():
     checks_exit_code shown
 ```
 
-## vec_functional_helpers
+## vec_map_filter_helpers
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 
 #entry main
@@ -127,15 +165,6 @@ fn inc <(i32)->i32> (x):
 
 fn is_even <(i32)->bool> (x):
     eq rem_s x 2 0
-
-fn add_acc <(i32,i32)->i32> (acc, x):
-    add acc x
-
-fn gt_two <(i32)->bool> (x):
-    gt x 2
-
-fn lt_four <(i32)->bool> (x):
-    lt x 4
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -173,6 +202,38 @@ fn main <()*>i32> ():
         Option::None:
             set checks checks_push checks Result<(),str>::Err "vec filter returned None";
 
+    free<i32> mapped;
+    free<i32> filtered_len;
+    free<i32> filtered_get;
+    let shown checks_print_report checks;
+    checks_exit_code shown
+```
+
+## vec_fold_reduce_helpers
+
+neplg2:test
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+```neplg2
+
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "std/test" as *
+
+fn add_acc <(i32,i32)->i32> (acc, x):
+    add acc x
+
+fn main <()*>i32> ():
+    let mut checks checks_new;
+
     let folded_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -192,6 +253,41 @@ fn main <()*>i32> ():
             set checks checks_push checks check_eq_i32 10 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "vec reduce returned None";
+
+    free<i32> folded_src;
+    free<i32> reduced_src;
+    let shown checks_print_report checks;
+    checks_exit_code shown
+```
+
+## vec_find_predicate_helpers
+
+neplg2:test
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+```neplg2
+
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "std/test" as *
+
+fn gt_two <(i32)->bool> (x):
+    gt x 2
+
+fn is_even <(i32)->bool> (x):
+    eq rem_s x 2 0
+
+fn main <()*>i32> ():
+    let mut checks checks_new;
 
     let find_src <Vec<i32>>:
         unwrap_ok new<i32>
@@ -218,11 +314,6 @@ fn main <()*>i32> ():
         |> push 6 |> uwok
     set checks checks_push checks check all<i32> &all_src is_even;
 
-    free<i32> mapped;
-    free<i32> filtered_len;
-    free<i32> filtered_get;
-    free<i32> folded_src;
-    free<i32> reduced_src;
     free<i32> find_src;
     free<i32> any_src;
     free<i32> all_src;
@@ -230,10 +321,14 @@ fn main <()*>i32> ():
     checks_exit_code shown
 ```
 
-## vec_partition_helpers
+## vec_partition_even_helpers
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
 ```neplg2
 
 #entry main
@@ -275,6 +370,40 @@ fn main <()*>i32> ():
             set checks checks_push checks check_eq_i32 4 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "vec partition evens returned None";
+
+    free<i32> evens_len;
+    free<i32> rest_len;
+    free<i32> evens_get;
+    free<i32> rest_get;
+    let shown checks_print_report checks;
+    checks_exit_code shown
+```
+
+## vec_partition_rest_helpers
+
+neplg2:test
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+```neplg2
+
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "std/test" as *
+
+fn is_even <(i32)->bool> (x):
+    eq rem_s x 2 0
+
+fn main <()*>i32> ():
+    let mut checks checks_new;
+
     let partition_odds_len_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -300,10 +429,6 @@ fn main <()*>i32> ():
         Option::None:
             set checks checks_push checks Result<(),str>::Err "vec partition odds returned None";
 
-    free<i32> evens_len;
-    free<i32> rest_len;
-    free<i32> evens_get;
-    free<i32> rest_get;
     free<i32> evens_len_drop;
     free<i32> odds_len;
     free<i32> evens_get_drop;
@@ -315,7 +440,10 @@ fn main <()*>i32> ():
 ## vec_prefix_helpers
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 
 #entry main
@@ -324,7 +452,6 @@ ret: 0
 
 #import "alloc/collections/vec" as *
 #import "core/math" as *
-#import "core/option" as *
 #import "std/test" as *
 
 fn lt_four <(i32)->bool> (x):
@@ -351,7 +478,10 @@ fn main <()*>i32> ():
 ## vec_drop_while_helper
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 
 #entry main
@@ -391,7 +521,10 @@ fn main <()*>i32> ():
 ## vec_count_helper
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 
 #entry main
@@ -400,6 +533,7 @@ ret: 0
 
 #import "alloc/collections/vec" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn is_even <(i32)->bool> (x):
     eq rem_s x 2 0
@@ -414,5 +548,7 @@ fn main <()*>i32> ():
         |> push 5 |> uwok
     let ok <bool> eq count<i32> &count_src is_even 2;
     free<i32> count_src;
-    if ok 0 1
+    let checks checks_push checks_new check ok;
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
