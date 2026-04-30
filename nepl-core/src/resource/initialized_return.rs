@@ -15,6 +15,7 @@ use super::model::{
     ResourceTerminator,
 };
 use super::place_utils::place_with_suffix;
+use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,6 +75,7 @@ fn function_raw_cell_initialization_return_summary(
     let mut cells = CellTable::default();
     let mut raw_aliases = RawCellAddressAliases::default();
     let mut function_aliases = FunctionAliasTable::default();
+    let mut pending_reallocs = PendingRawReallocs::default();
     for param in &function.params {
         cells.mark_initialized(&param.place);
         cells.mark_external_raw_storage_root(&param.place);
@@ -89,6 +91,7 @@ fn function_raw_cell_initialization_return_summary(
             &mut cells,
             &mut raw_aliases,
             &mut function_aliases,
+            &mut pending_reallocs,
             &block.ops,
         );
         if let ResourceTerminator::Return {

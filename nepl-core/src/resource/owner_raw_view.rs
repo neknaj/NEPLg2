@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use crate::types::{TypeId, TypeKind};
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{OwnerState, Place, PlaceProjection};
+use super::model::{OwnerState, Place};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_state::OwnerTable;
 
@@ -83,11 +83,4 @@ impl ResourceOwnerCheckEngine<'_> {
                 .iter()
                 .any(|alias| alias != value)
     }
-}
-
-pub(super) fn raw_address_alias_is_non_owning_view(source: &Place) -> bool {
-    source
-        .projections
-        .iter()
-        .any(|projection| matches!(projection, PlaceProjection::StorageOffset(_)))
 }

@@ -6482,6 +6482,58 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_refines_realloc_result_branches() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn checked_realloc_load <()->i32> ():
+    let p <i32> alloc_raw 4
+    store_i32 p 123
+    let grown <i32> realloc_raw p 4 8
+    if:
+        lt 0 grown
+        then:
+            let v <i32> load_i32 grown
+            dealloc_raw grown 8
+            v
+        else:
+            let v <i32> load_i32 p
+            dealloc_raw p 4
+            v
+
+fn main <()->i32> ():
+    checked_realloc_load
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("checked_realloc_load__")
+                || function.starts_with("main__")
+                || function == "main"
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "realloc success must move the owner to the new address and failure must keep the old owner: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind() {
     let source = r#"
 #entry main
@@ -7099,6 +7151,11 @@ fn main <()*>()> ():
         diagnostics.is_empty(),
         "loading a raw address from an owned raw cell for probing must keep ownership with the aggregate: {:#?}\nresource:\n{}",
         diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.dump_text().contains("raw_address_view"),
+        "address arithmetic used for probing must lower to an explicit non-owning raw address view:\n{}",
         resource.dump_text()
     );
 }
@@ -8676,15 +8733,23 @@ fn resource_ir_cell_check_realloc_transfers_copy_raw_cells() {
 #target core
 #import "core/mem" as *
 
-fn leak_via_realloc_slot <()->i32> ():
-    let p <i32> alloc_raw 4
+fn checked_realloc_slot <()->i32> ():
     let slot <i32> alloc_raw 4
-    store_i32 slot p
+    store_i32 slot 99
     let grown <i32> realloc_raw slot 4 8
-    load_i32 grown
+    if:
+        lt 0 grown
+        then:
+            let v <i32> load_i32 grown
+            dealloc_raw grown 8
+            v
+        else:
+            let v <i32> load_i32 slot
+            dealloc_raw slot 4
+            v
 
 fn main <()->i32> ():
-    leak_via_realloc_slot
+    checked_realloc_slot
 "#;
 
     let (module, types) = typecheck_resource_source(source);
@@ -8697,14 +8762,15 @@ fn main <()->i32> ():
             matches!(
                 diagnostic,
                 ResourceCheckDiagnostic::CellUnavailable { function, .. }
-                    if function.starts_with("leak_via_realloc_slot__")
+                    if function.starts_with("checked_realloc_slot__")
             )
         })
         .collect::<Vec<_>>();
     assert!(
         realloc_diagnostics.is_empty(),
-        "realloc must transfer initialized Copy raw cells: {:#?}",
-        realloc_diagnostics
+        "checked realloc success must transfer initialized Copy raw cells and failure must keep the old cells: {:#?}\nresource:\n{}",
+        realloc_diagnostics,
+        resource.dump_text()
     );
 }
 
@@ -9444,6 +9510,7 @@ fn main <()->i32> ():
     store<LocalToken> slot_ptr<LocalToken,i32> p 0 LocalToken @token_id
     store_i32 add p size_of<LocalToken> 123
     let a <LocalToken> load<LocalToken> p
+    dealloc_raw p 16
     0
 "#;
 
@@ -9465,6 +9532,11 @@ fn main <()->i32> ():
         main_diagnostics.is_empty(),
         "literal zero raw address helper offset must alias the base address: {:#?}\nresource:\n{}",
         main_diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.dump_text().contains("raw_address_view"),
+        "explicit arithmetic helper offsets, including literal zero, must be represented as raw address views:\n{}",
         resource.dump_text()
     );
 }

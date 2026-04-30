@@ -21,7 +21,8 @@ use super::model::{
     CellState, CellStateEntry, EffectOp, Place, ResourceBlock, ResourceCallTarget,
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
-use super::place_utils::{match_bind_payload_place, should_track};
+use super::place_utils::should_track;
+use super::raw_realloc::PendingRawReallocs;
 use super::report::{
     ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
     ResourceFunctionCheck,
@@ -78,13 +79,20 @@ impl ResourceCheckEngine<'_> {
         let mut cells = CellTable::default();
         let mut raw_aliases = RawCellAddressAliases::default();
         let mut function_aliases = FunctionAliasTable::default();
+        let mut pending_reallocs = PendingRawReallocs::default();
         for param in &function.params {
             cells.mark_initialized(&param.place);
             cells.mark_external_raw_storage_root(&param.place);
             raw_aliases.mark(&param.place);
         }
         for block in &function.blocks {
-            self.check_block(&mut cells, &mut raw_aliases, &mut function_aliases, block);
+            self.check_block(
+                &mut cells,
+                &mut raw_aliases,
+                &mut function_aliases,
+                &mut pending_reallocs,
+                block,
+            );
         }
         cells.into_entries()
     }
@@ -94,9 +102,16 @@ impl ResourceCheckEngine<'_> {
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
+        pending_reallocs: &mut PendingRawReallocs,
         block: &ResourceBlock,
     ) {
-        self.check_ops(cells, raw_aliases, function_aliases, &block.ops);
+        self.check_ops(
+            cells,
+            raw_aliases,
+            function_aliases,
+            pending_reallocs,
+            &block.ops,
+        );
         match &block.terminator {
             ResourceTerminator::Return { value, span } => {
                 if let Some(value) = value {
@@ -112,10 +127,11 @@ impl ResourceCheckEngine<'_> {
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
+        pending_reallocs: &mut PendingRawReallocs,
         ops: &[ResourceOp],
     ) {
         for op in ops {
-            self.check_op(cells, raw_aliases, function_aliases, op);
+            self.check_op(cells, raw_aliases, function_aliases, pending_reallocs, op);
         }
     }
 
@@ -124,6 +140,7 @@ impl ResourceCheckEngine<'_> {
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
+        pending_reallocs: &mut PendingRawReallocs,
         op: &ResourceOp,
     ) {
         match op {
@@ -154,13 +171,16 @@ impl ResourceCheckEngine<'_> {
                             place,
                         );
                         function_aliases.copy_alias(initializer, place);
+                        pending_reallocs.copy_result(initializer, place);
                     } else {
                         cells.set_state(place, CellState::Uninit);
                         raw_aliases.clear(place);
+                        pending_reallocs.clear_result(place);
                     }
                 } else {
                     cells.set_state(place, CellState::Uninit);
                     raw_aliases.clear(place);
+                    pending_reallocs.clear_result(place);
                 }
             }
             ResourceOp::Read {
@@ -172,6 +192,7 @@ impl ResourceCheckEngine<'_> {
                     cells.mark_initialized(output);
                     self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
                     function_aliases.copy_alias(source, output);
+                    pending_reallocs.copy_result(source, output);
                 }
             }
             ResourceOp::Assign {
@@ -188,8 +209,10 @@ impl ResourceCheckEngine<'_> {
                         target,
                     );
                     function_aliases.copy_alias(value, target);
+                    pending_reallocs.copy_result(value, target);
                 } else {
                     raw_aliases.clear(target);
+                    pending_reallocs.clear_result(target);
                 }
             }
             ResourceOp::Borrow {
@@ -201,6 +224,7 @@ impl ResourceCheckEngine<'_> {
                 if self.ensure_available(cells, source, ResourceCheckOperation::Borrow, *span) {
                     cells.mark_initialized(output);
                     self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
+                    pending_reallocs.clear_result(output);
                 }
             }
             ResourceOp::Move {
@@ -218,12 +242,14 @@ impl ResourceCheckEngine<'_> {
                         output,
                     );
                     function_aliases.copy_alias(source, output);
+                    pending_reallocs.copy_result(source, output);
                 }
             }
             ResourceOp::Drop { place, span } => {
                 if self.ensure_available(cells, place, ResourceCheckOperation::Drop, *span) {
                     cells.set_state(place, CellState::Dropped);
                     raw_aliases.clear(place);
+                    pending_reallocs.clear_result(place);
                 }
             }
             ResourceOp::CallEffect { .. } => {}
@@ -231,6 +257,7 @@ impl ResourceCheckEngine<'_> {
                 cells.mark_initialized(output);
                 raw_aliases.clear(output);
                 function_aliases.set_alias(output, name.clone());
+                pending_reallocs.clear_result(output);
             }
             ResourceOp::Call {
                 output,
@@ -244,6 +271,7 @@ impl ResourceCheckEngine<'_> {
                     effect,
                     EffectOp::InternalAlloc | EffectOp::UnsafeMemory { .. }
                 ) {
+                    pending_reallocs.clear_result(output);
                     return;
                 }
                 let args_available =
@@ -260,6 +288,7 @@ impl ResourceCheckEngine<'_> {
                         output,
                         target,
                     );
+                    pending_reallocs.clear_result(output);
                 }
             }
             ResourceOp::IndirectCall {
@@ -295,6 +324,7 @@ impl ResourceCheckEngine<'_> {
                         function_aliases,
                         callee,
                     );
+                    pending_reallocs.clear_result(output);
                 }
             }
             ResourceOp::RawMemory {
@@ -302,9 +332,22 @@ impl ResourceCheckEngine<'_> {
                 output,
                 args,
                 span,
-            } => self.check_raw_memory(cells, raw_aliases, operation, output, args, *span),
+            } => self.check_raw_memory(
+                cells,
+                raw_aliases,
+                pending_reallocs,
+                operation,
+                output,
+                args,
+                *span,
+            ),
             ResourceOp::RawAddressAlias { source, target, .. } => {
                 self.copy_raw_address_alias_and_rekey_cells(cells, raw_aliases, source, target);
+                pending_reallocs.copy_result(source, target);
+            }
+            ResourceOp::RawAddressView { source, target, .. } => {
+                self.copy_raw_address_alias_and_rekey_cells(cells, raw_aliases, source, target);
+                pending_reallocs.clear_result(target);
             }
             ResourceOp::Construct {
                 output,
@@ -320,83 +363,33 @@ impl ResourceCheckEngine<'_> {
                     raw_aliases.clear(output);
                     construct_raw_cell_address_alias_fields(raw_aliases, output, kind, inputs);
                     construct_function_alias_fields(function_aliases, output, kind, inputs);
+                    pending_reallocs.clear_result(output);
                 }
             }
             ResourceOp::Branch {
                 output,
                 condition,
+                condition_fact,
                 then_ops,
                 then_value,
                 else_ops,
                 else_value,
                 span,
-                condition_fact: _,
             } => {
-                let condition_available = self.consume_by_value(
+                self.check_branch(
                     cells,
+                    raw_aliases,
+                    function_aliases,
+                    pending_reallocs,
+                    output,
                     condition,
-                    ResourceCheckOperation::BranchCondition,
-                    *span,
-                );
-                let mut then_cells = cells.clone();
-                let mut else_cells = cells.clone();
-                let mut then_aliases = raw_aliases.clone();
-                let mut else_aliases = raw_aliases.clone();
-                let mut then_function_aliases = function_aliases.clone();
-                let mut else_function_aliases = function_aliases.clone();
-                self.check_ops(
-                    &mut then_cells,
-                    &mut then_aliases,
-                    &mut then_function_aliases,
+                    condition_fact.as_ref(),
                     then_ops,
-                );
-                self.check_ops(
-                    &mut else_cells,
-                    &mut else_aliases,
-                    &mut else_function_aliases,
-                    else_ops,
-                );
-                let then_available = self.consume_by_value(
-                    &mut then_cells,
                     then_value,
-                    ResourceCheckOperation::BranchValue,
-                    *span,
-                );
-                let else_available = self.consume_by_value(
-                    &mut else_cells,
+                    else_ops,
                     else_value,
-                    ResourceCheckOperation::BranchValue,
                     *span,
                 );
-                if then_available {
-                    self.copy_raw_alias_and_rekey_cells_preferring_target(
-                        &mut then_cells,
-                        &mut then_aliases,
-                        then_value,
-                        output,
-                    );
-                    then_function_aliases.copy_alias(then_value, output);
-                }
-                if else_available {
-                    self.copy_raw_alias_and_rekey_cells_preferring_target(
-                        &mut else_cells,
-                        &mut else_aliases,
-                        else_value,
-                        output,
-                    );
-                    else_function_aliases.copy_alias(else_value, output);
-                }
-                *cells = CellTable::merge_paths(&[then_cells, else_cells]);
-                *raw_aliases = RawCellAddressAliases::merge_paths(&[then_aliases, else_aliases]);
-                *function_aliases = FunctionAliasTable::merge_paths(&[
-                    then_function_aliases,
-                    else_function_aliases,
-                ]);
-                if condition_available && then_available && else_available {
-                    cells.set_state(output, CellState::Initialized(output.ty));
-                } else {
-                    raw_aliases.clear(output);
-                }
             }
             ResourceOp::Loop {
                 condition_ops,
@@ -404,37 +397,16 @@ impl ResourceCheckEngine<'_> {
                 body_ops,
                 span,
             } => {
-                let mut condition_cells = cells.clone();
-                let mut condition_aliases = raw_aliases.clone();
-                let mut condition_function_aliases = function_aliases.clone();
-                self.check_ops(
-                    &mut condition_cells,
-                    &mut condition_aliases,
-                    &mut condition_function_aliases,
+                self.check_loop(
+                    cells,
+                    raw_aliases,
+                    function_aliases,
+                    pending_reallocs,
                     condition_ops,
-                );
-                self.consume_by_value(
-                    &mut condition_cells,
                     condition,
-                    ResourceCheckOperation::LoopCondition,
+                    body_ops,
                     *span,
                 );
-                let mut body_cells = condition_cells.clone();
-                let mut body_aliases = condition_aliases.clone();
-                let mut body_function_aliases = condition_function_aliases.clone();
-                self.check_ops(
-                    &mut body_cells,
-                    &mut body_aliases,
-                    &mut body_function_aliases,
-                    body_ops,
-                );
-                *cells = CellTable::merge_paths(&[condition_cells, body_cells]);
-                *raw_aliases =
-                    RawCellAddressAliases::merge_paths(&[condition_aliases, body_aliases]);
-                *function_aliases = FunctionAliasTable::merge_paths(&[
-                    condition_function_aliases,
-                    body_function_aliases,
-                ]);
             }
             ResourceOp::Match {
                 output,
@@ -442,70 +414,16 @@ impl ResourceCheckEngine<'_> {
                 arms,
                 span,
             } => {
-                let scrutinee_available = self.consume_by_value(
+                self.check_match(
                     cells,
+                    raw_aliases,
+                    function_aliases,
+                    pending_reallocs,
+                    output,
                     scrutinee,
-                    ResourceCheckOperation::MatchScrutinee,
+                    arms,
                     *span,
                 );
-                let mut arms_available = true;
-                let mut arm_paths = Vec::new();
-                let mut alias_paths = Vec::new();
-                let mut function_alias_paths = Vec::new();
-                for arm in arms {
-                    let mut arm_cells = cells.clone();
-                    let mut arm_aliases = raw_aliases.clone();
-                    let mut arm_function_aliases = function_aliases.clone();
-                    if let Some(bind_local) = &arm.bind_local {
-                        arm_cells.mark_initialized(bind_local);
-                        if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
-                            self.copy_raw_alias_and_rekey_cells(
-                                &mut arm_cells,
-                                &mut arm_aliases,
-                                &source,
-                                bind_local,
-                            );
-                            arm_function_aliases.copy_alias(&source, bind_local);
-                        } else {
-                            arm_aliases.clear(bind_local);
-                        }
-                    }
-                    self.check_ops(
-                        &mut arm_cells,
-                        &mut arm_aliases,
-                        &mut arm_function_aliases,
-                        &arm.ops,
-                    );
-                    let arm_available = self.consume_by_value(
-                        &mut arm_cells,
-                        &arm.value,
-                        ResourceCheckOperation::MatchValue,
-                        arm.span,
-                    );
-                    arms_available &= arm_available;
-                    if arm_available {
-                        self.copy_raw_alias_and_rekey_cells_preferring_target(
-                            &mut arm_cells,
-                            &mut arm_aliases,
-                            &arm.value,
-                            output,
-                        );
-                        arm_function_aliases.copy_alias(&arm.value, output);
-                    }
-                    arm_paths.push(arm_cells);
-                    alias_paths.push(arm_aliases);
-                    function_alias_paths.push(arm_function_aliases);
-                }
-                if !arm_paths.is_empty() {
-                    *cells = CellTable::merge_paths(&arm_paths);
-                    *raw_aliases = RawCellAddressAliases::merge_paths(&alias_paths);
-                    *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
-                }
-                if scrutinee_available && arms_available {
-                    cells.set_state(output, CellState::Initialized(output.ty));
-                } else {
-                    raw_aliases.clear(output);
-                }
             }
         }
     }

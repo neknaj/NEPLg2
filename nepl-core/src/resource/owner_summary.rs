@@ -16,6 +16,7 @@ use super::owner_summary_record::{
     OwnerParameterStorageSource,
 };
 use super::place_utils::{place_suffix_after_prefix, push_unique_usize};
+use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{OwnerProjectionSource, OwnerReturnSummary};
@@ -93,6 +94,7 @@ fn function_owner_return_summary(
     let mut projection_markers = Vec::new();
     let mut returned_sources = Vec::new();
     let mut function_aliases = FunctionAliasTable::default();
+    let mut pending_reallocs = PendingRawReallocs::default();
     for block in &function.blocks {
         engine.check_ops(
             &mut owners,
@@ -100,6 +102,7 @@ fn function_owner_return_summary(
             &mut raw_aliases,
             &mut raw_views,
             &mut storage_origins,
+            &mut pending_reallocs,
             &block.ops,
         );
         if let ResourceTerminator::Return {

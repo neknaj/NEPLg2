@@ -2,19 +2,18 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use crate::types::{TypeCtx, TypeKind};
+use crate::types::TypeCtx;
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
-    EffectOp, OwnerState, OwnerStateEntry, Place, RawMemoryOp, ResourceBlock,
-    ResourceConditionFact, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
+    EffectOp, OwnerState, OwnerStateEntry, Place, RawMemoryOp, ResourceBlock, ResourceFunction,
+    ResourceModule, ResourceOp, ResourceTerminator,
 };
-use super::owner_raw_view::{raw_address_alias_is_non_owning_view, RawAddressViewTable};
+use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
-use super::place_utils::{
-    match_arm_variant_payload_name, match_bind_payload_place, raw_memory_cell_place,
-};
+use super::place_utils::raw_memory_cell_place;
+use super::raw_realloc::PendingRawReallocs;
 use super::report::{
     ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerDiagnostic,
     ResourceOwnerFunctionCheck, ResourceOwnerOperation,
@@ -71,6 +70,7 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut raw_aliases = RawCellAddressAliases::default();
         let mut raw_views = RawAddressViewTable::default();
         let mut storage_origins = StorageOriginTable::default();
+        let mut pending_reallocs = PendingRawReallocs::default();
         for block in &function.blocks {
             self.check_block(
                 &mut owners,
@@ -78,6 +78,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 &mut raw_aliases,
                 &mut raw_views,
                 &mut storage_origins,
+                &mut pending_reallocs,
                 block,
             );
         }
@@ -92,6 +93,7 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
+        pending_reallocs: &mut PendingRawReallocs,
         block: &ResourceBlock,
     ) {
         self.check_ops(
@@ -100,6 +102,7 @@ impl ResourceOwnerCheckEngine<'_> {
             raw_aliases,
             raw_views,
             storage_origins,
+            pending_reallocs,
             &block.ops,
         );
         match &block.terminator {
@@ -126,6 +129,7 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
+        pending_reallocs: &mut PendingRawReallocs,
         ops: &[ResourceOp],
     ) {
         for op in ops {
@@ -135,87 +139,9 @@ impl ResourceOwnerCheckEngine<'_> {
                 raw_aliases,
                 raw_views,
                 storage_origins,
+                pending_reallocs,
                 op,
             );
-        }
-    }
-
-    fn place_is_never(&self, place: &Place) -> bool {
-        matches!(
-            self.types.get_ref(self.types.resolve_id(place.ty)),
-            TypeKind::Never
-        )
-    }
-
-    fn apply_branch_condition_fact(
-        &mut self,
-        owners: &mut OwnerTable,
-        raw_aliases: &mut RawCellAddressAliases,
-        storage_origins: &mut StorageOriginTable,
-        fact: Option<&ResourceConditionFact>,
-        truthy_path: bool,
-    ) {
-        let Some(fact) = fact else {
-            return;
-        };
-        match fact {
-            ResourceConditionFact::EqZero { place } if truthy_path => {
-                self.discard_non_owned_raw_address_owner(
-                    owners,
-                    raw_aliases,
-                    storage_origins,
-                    place,
-                );
-            }
-            ResourceConditionFact::NeZero { place } if !truthy_path => {
-                self.discard_non_owned_raw_address_owner(
-                    owners,
-                    raw_aliases,
-                    storage_origins,
-                    place,
-                );
-            }
-            ResourceConditionFact::Positive { place } if !truthy_path => {
-                self.discard_non_owned_raw_address_owner(
-                    owners,
-                    raw_aliases,
-                    storage_origins,
-                    place,
-                );
-            }
-            ResourceConditionFact::NonPositive { place } if truthy_path => {
-                self.discard_non_owned_raw_address_owner(
-                    owners,
-                    raw_aliases,
-                    storage_origins,
-                    place,
-                );
-            }
-            ResourceConditionFact::EqZero { .. }
-            | ResourceConditionFact::NeZero { .. }
-            | ResourceConditionFact::Positive { .. }
-            | ResourceConditionFact::NonPositive { .. } => {}
-        }
-    }
-
-    fn discard_non_owned_raw_address_owner(
-        &mut self,
-        owners: &mut OwnerTable,
-        raw_aliases: &mut RawCellAddressAliases,
-        storage_origins: &mut StorageOriginTable,
-        place: &Place,
-    ) {
-        let resolved_place =
-            super::owner_alias::resolve_owner_alias_place(owners, raw_aliases, place);
-        let descendants = owners.descendant_entries(&resolved_place);
-        owners.set_state(&resolved_place, OwnerState::NoFreeObligation);
-        storage_origins.clear(&resolved_place);
-        raw_aliases.clear(place);
-        raw_aliases.clear(&resolved_place);
-        for entry in descendants {
-            owners.set_state(&entry.place, OwnerState::NoFreeObligation);
-            storage_origins.clear(&entry.place);
-            raw_aliases.clear(&entry.place);
         }
     }
 
@@ -246,6 +172,7 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
+        pending_reallocs: &mut PendingRawReallocs,
         op: &ResourceOp,
     ) {
         match op {
@@ -277,6 +204,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     }
                     function_aliases.copy_alias(initializer, place);
                     raw_views.copy(initializer, place);
+                    pending_reallocs.copy_result(initializer, place);
                 }
             }
             ResourceOp::Read {
@@ -288,6 +216,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 storage_origins.copy_origin(source, output);
                 function_aliases.copy_alias(source, output);
                 raw_views.copy(source, output);
+                pending_reallocs.copy_result(source, output);
             }
             ResourceOp::Assign {
                 target,
@@ -312,6 +241,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 }
                 function_aliases.copy_alias(value, target);
                 raw_views.copy(value, target);
+                pending_reallocs.copy_result(value, target);
             }
             ResourceOp::Move {
                 source,
@@ -330,6 +260,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 function_aliases.copy_alias(source, output);
                 raw_views.copy(source, output);
                 raw_views.clear(source);
+                pending_reallocs.copy_result(source, output);
             }
             ResourceOp::RawMemory {
                 operation,
@@ -338,12 +269,14 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             } => match operation {
                 RawMemoryOp::Alloc => {
+                    pending_reallocs.clear_result(output);
                     owners.allocate(output);
                     raw_aliases.mark(output);
                     raw_views.clear(output);
                     storage_origins.mark_owned(output);
                 }
                 RawMemoryOp::Dealloc => {
+                    pending_reallocs.clear_result(output);
                     if let Some(ptr) = args.first() {
                         self.release_owner(
                             owners,
@@ -356,8 +289,9 @@ impl ResourceOwnerCheckEngine<'_> {
                     }
                 }
                 RawMemoryOp::Realloc => {
+                    pending_reallocs.clear_result(output);
                     if let Some(ptr) = args.first() {
-                        if self.release_owner(
+                        if self.ensure_owner_available(
                             owners,
                             raw_aliases,
                             storage_origins,
@@ -365,14 +299,15 @@ impl ResourceOwnerCheckEngine<'_> {
                             ResourceOwnerOperation::ReallocInput,
                             *span,
                         ) {
-                            owners.allocate(output);
+                            owners.set_state(output, OwnerState::MaybeFreed { storage: None });
                             raw_aliases.mark(output);
                             raw_views.clear(output);
-                            storage_origins.mark_owned(output);
+                            pending_reallocs.mark(ptr, output);
                         }
                     }
                 }
                 RawMemoryOp::Load => {
+                    pending_reallocs.clear_result(output);
                     if let Some(address) = args.first() {
                         let address = raw_aliases.canonicalize_owner_cell_address(address);
                         let cell = raw_memory_cell_place(&address, output.ty);
@@ -400,6 +335,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     }
                 }
                 RawMemoryOp::Store => {
+                    pending_reallocs.clear_result(output);
                     if let [address, value, ..] = args.as_slice() {
                         let address = raw_aliases.canonicalize_owner_cell_address(address);
                         let cell = raw_memory_cell_place(&address, value.ty);
@@ -436,7 +372,9 @@ impl ResourceOwnerCheckEngine<'_> {
                 | RawMemoryOp::MemorySize
                 | RawMemoryOp::MemoryGrow
                 | RawMemoryOp::Fill
-                | RawMemoryOp::Other { .. } => {}
+                | RawMemoryOp::Other { .. } => {
+                    pending_reallocs.clear_result(output);
+                }
             },
             ResourceOp::Branch {
                 output,
@@ -448,141 +386,37 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
                 ..
             } => {
-                let mut then_owners = owners.clone();
-                let mut else_owners = owners.clone();
-                let mut then_function_aliases = function_aliases.clone();
-                let mut else_function_aliases = function_aliases.clone();
-                let mut then_raw_aliases = raw_aliases.clone();
-                let mut else_raw_aliases = raw_aliases.clone();
-                let mut then_raw_views = raw_views.clone();
-                let mut else_raw_views = raw_views.clone();
-                let mut then_storage_origins = storage_origins.clone();
-                let mut else_storage_origins = storage_origins.clone();
-                self.apply_branch_condition_fact(
-                    &mut then_owners,
-                    &mut then_raw_aliases,
-                    &mut then_storage_origins,
+                self.check_branch(
+                    owners,
+                    function_aliases,
+                    raw_aliases,
+                    raw_views,
+                    storage_origins,
+                    pending_reallocs,
+                    output,
                     condition_fact.as_ref(),
-                    true,
-                );
-                self.apply_branch_condition_fact(
-                    &mut else_owners,
-                    &mut else_raw_aliases,
-                    &mut else_storage_origins,
-                    condition_fact.as_ref(),
-                    false,
-                );
-                self.check_ops(
-                    &mut then_owners,
-                    &mut then_function_aliases,
-                    &mut then_raw_aliases,
-                    &mut then_raw_views,
-                    &mut then_storage_origins,
                     then_ops,
-                );
-                self.check_ops(
-                    &mut else_owners,
-                    &mut else_function_aliases,
-                    &mut else_raw_aliases,
-                    &mut else_raw_views,
-                    &mut else_storage_origins,
+                    then_value,
                     else_ops,
+                    else_value,
+                    *span,
                 );
-                let mut owner_paths = Vec::new();
-                let mut function_alias_paths = Vec::new();
-                let mut raw_alias_paths = Vec::new();
-                let mut raw_view_paths = Vec::new();
-                let mut storage_origin_paths = Vec::new();
-                if !self.place_is_never(then_value) {
-                    self.transfer_owner(
-                        &mut then_owners,
-                        &mut then_raw_aliases,
-                        &mut then_storage_origins,
-                        then_value,
-                        output,
-                        ResourceOwnerOperation::BranchValue,
-                        *span,
-                    );
-                    owner_paths.push(then_owners);
-                    function_alias_paths.push(then_function_aliases);
-                    raw_alias_paths.push(then_raw_aliases);
-                    raw_view_paths.push(then_raw_views);
-                    storage_origin_paths.push(then_storage_origins);
-                }
-                if !self.place_is_never(else_value) {
-                    self.transfer_owner(
-                        &mut else_owners,
-                        &mut else_raw_aliases,
-                        &mut else_storage_origins,
-                        else_value,
-                        output,
-                        ResourceOwnerOperation::BranchValue,
-                        *span,
-                    );
-                    owner_paths.push(else_owners);
-                    function_alias_paths.push(else_function_aliases);
-                    raw_alias_paths.push(else_raw_aliases);
-                    raw_view_paths.push(else_raw_views);
-                    storage_origin_paths.push(else_storage_origins);
-                }
-                if !owner_paths.is_empty() {
-                    let merged_raw_aliases = RawCellAddressAliases::merge_paths(&raw_alias_paths);
-                    *owners =
-                        OwnerTable::merge_paths_with_raw_aliases(&owner_paths, &merged_raw_aliases);
-                    *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
-                    *raw_aliases = merged_raw_aliases;
-                    *raw_views = RawAddressViewTable::merge_paths(&raw_view_paths);
-                    *storage_origins = StorageOriginTable::merge_paths(&storage_origin_paths);
-                }
             }
             ResourceOp::Loop {
                 condition_ops,
                 body_ops,
                 ..
             } => {
-                let mut condition_owners = owners.clone();
-                let mut condition_function_aliases = function_aliases.clone();
-                let mut condition_raw_aliases = raw_aliases.clone();
-                let mut condition_raw_views = raw_views.clone();
-                let mut condition_storage_origins = storage_origins.clone();
-                self.check_ops(
-                    &mut condition_owners,
-                    &mut condition_function_aliases,
-                    &mut condition_raw_aliases,
-                    &mut condition_raw_views,
-                    &mut condition_storage_origins,
+                self.check_loop(
+                    owners,
+                    function_aliases,
+                    raw_aliases,
+                    raw_views,
+                    storage_origins,
+                    pending_reallocs,
                     condition_ops,
-                );
-                let mut body_owners = condition_owners.clone();
-                let mut body_function_aliases = condition_function_aliases.clone();
-                let mut body_raw_aliases = condition_raw_aliases.clone();
-                let mut body_raw_views = condition_raw_views.clone();
-                let mut body_storage_origins = condition_storage_origins.clone();
-                self.check_ops(
-                    &mut body_owners,
-                    &mut body_function_aliases,
-                    &mut body_raw_aliases,
-                    &mut body_raw_views,
-                    &mut body_storage_origins,
                     body_ops,
                 );
-                let merged_raw_aliases =
-                    RawCellAddressAliases::merge_paths(&[condition_raw_aliases, body_raw_aliases]);
-                *owners = OwnerTable::merge_paths_with_raw_aliases(
-                    &[condition_owners, body_owners],
-                    &merged_raw_aliases,
-                );
-                *function_aliases = FunctionAliasTable::merge_paths(&[
-                    condition_function_aliases,
-                    body_function_aliases,
-                ]);
-                *raw_aliases = merged_raw_aliases;
-                *raw_views =
-                    RawAddressViewTable::merge_paths(&[condition_raw_views, body_raw_views]);
-                *storage_origins = StorageOriginTable::merge_paths(&[
-                    condition_storage_origins,
-                    body_storage_origins,
-                ]);
             }
             ResourceOp::Match {
                 output,
@@ -590,98 +424,23 @@ impl ResourceOwnerCheckEngine<'_> {
                 arms,
                 span,
             } => {
-                let mut arm_paths = Vec::new();
-                let mut function_alias_paths = Vec::new();
-                let mut raw_alias_paths = Vec::new();
-                let mut raw_view_paths = Vec::new();
-                let mut storage_origin_paths = Vec::new();
-                for arm in arms {
-                    let mut arm_owners = owners.clone();
-                    let mut arm_function_aliases = function_aliases.clone();
-                    let mut arm_raw_aliases = raw_aliases.clone();
-                    let mut arm_raw_views = raw_views.clone();
-                    let mut arm_storage_origins = storage_origins.clone();
-                    if let Some(selected_variant) = match_arm_variant_payload_name(arm) {
-                        let mut inactive_payloads =
-                            arm_owners.sibling_enum_payload_places(scrutinee, selected_variant);
-                        let resolved_scrutinee = super::owner_alias::resolve_owner_alias_place(
-                            &arm_owners,
-                            &arm_raw_aliases,
-                            scrutinee,
-                        );
-                        if resolved_scrutinee != *scrutinee {
-                            for inactive_payload in arm_owners
-                                .sibling_enum_payload_places(&resolved_scrutinee, selected_variant)
-                            {
-                                if !inactive_payloads.contains(&inactive_payload) {
-                                    inactive_payloads.push(inactive_payload);
-                                }
-                            }
-                        }
-                        for inactive_payload in inactive_payloads {
-                            arm_owners.set_state(&inactive_payload, OwnerState::NoFreeObligation);
-                            arm_raw_aliases.clear(&inactive_payload);
-                            arm_raw_views.clear(&inactive_payload);
-                            arm_storage_origins.clear(&inactive_payload);
-                        }
-                    }
-                    if let Some(bind_local) = &arm.bind_local {
-                        if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
-                            self.transfer_owner(
-                                &mut arm_owners,
-                                &mut arm_raw_aliases,
-                                &mut arm_storage_origins,
-                                &source,
-                                bind_local,
-                                ResourceOwnerOperation::MatchValue,
-                                *span,
-                            );
-                            arm_function_aliases.copy_alias(&source, bind_local);
-                            arm_raw_views.copy(&source, bind_local);
-                        } else {
-                            arm_raw_aliases.clear(bind_local);
-                            arm_raw_views.clear(bind_local);
-                            arm_storage_origins.clear(bind_local);
-                        }
-                    }
-                    self.check_ops(
-                        &mut arm_owners,
-                        &mut arm_function_aliases,
-                        &mut arm_raw_aliases,
-                        &mut arm_raw_views,
-                        &mut arm_storage_origins,
-                        &arm.ops,
-                    );
-                    if !self.place_is_never(&arm.value) {
-                        self.transfer_owner(
-                            &mut arm_owners,
-                            &mut arm_raw_aliases,
-                            &mut arm_storage_origins,
-                            &arm.value,
-                            output,
-                            ResourceOwnerOperation::MatchValue,
-                            *span,
-                        );
-                        arm_paths.push(arm_owners);
-                        function_alias_paths.push(arm_function_aliases);
-                        raw_alias_paths.push(arm_raw_aliases);
-                        raw_view_paths.push(arm_raw_views);
-                        storage_origin_paths.push(arm_storage_origins);
-                    }
-                }
-                if !arm_paths.is_empty() {
-                    let merged_raw_aliases = RawCellAddressAliases::merge_paths(&raw_alias_paths);
-                    *owners =
-                        OwnerTable::merge_paths_with_raw_aliases(&arm_paths, &merged_raw_aliases);
-                    *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
-                    *raw_aliases = merged_raw_aliases;
-                    *raw_views = RawAddressViewTable::merge_paths(&raw_view_paths);
-                    *storage_origins = StorageOriginTable::merge_paths(&storage_origin_paths);
-                }
+                self.check_match(
+                    owners,
+                    function_aliases,
+                    raw_aliases,
+                    raw_views,
+                    storage_origins,
+                    pending_reallocs,
+                    output,
+                    scrutinee,
+                    arms,
+                    *span,
+                );
             }
             ResourceOp::FunctionValue { output, name, .. } => {
                 function_aliases.set_alias(output, name.clone());
                 raw_views.clear(output);
+                pending_reallocs.clear_result(output);
             }
             ResourceOp::Call {
                 output,
@@ -693,6 +452,7 @@ impl ResourceOwnerCheckEngine<'_> {
             } => {
                 if !direct_raw_memory_effect(effect) {
                     raw_views.clear(output);
+                    pending_reallocs.clear_result(output);
                     self.apply_call_return_owner(
                         owners,
                         raw_aliases,
@@ -712,6 +472,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 ..
             } => {
                 raw_views.clear(output);
+                pending_reallocs.clear_result(output);
                 self.apply_indirect_call_return_owner(
                     owners,
                     function_aliases,
@@ -740,20 +501,24 @@ impl ResourceOwnerCheckEngine<'_> {
                 );
                 construct_function_alias_fields(function_aliases, output, kind, inputs);
                 raw_views.clear(output);
+                pending_reallocs.clear_result(output);
             }
             ResourceOp::RawAddressAlias { source, target, .. } => {
                 raw_aliases.copy_alias_or_seed(source, target);
                 storage_origins.copy_origin(source, target);
-                if raw_address_alias_is_non_owning_view(source) {
-                    raw_views.mark(target);
-                } else {
-                    raw_views.copy(source, target);
-                }
+                raw_views.copy(source, target);
+                pending_reallocs.copy_result(source, target);
             }
-            ResourceOp::Expr { .. }
-            | ResourceOp::Borrow { .. }
-            | ResourceOp::Drop { .. }
-            | ResourceOp::CallEffect { .. } => {}
+            ResourceOp::RawAddressView { source, target, .. } => {
+                raw_aliases.copy_alias_or_seed(source, target);
+                storage_origins.copy_origin(source, target);
+                raw_views.mark(target);
+                pending_reallocs.clear_result(target);
+            }
+            ResourceOp::Borrow { output, .. } => {
+                pending_reallocs.clear_result(output);
+            }
+            ResourceOp::Expr { .. } | ResourceOp::Drop { .. } | ResourceOp::CallEffect { .. } => {}
         }
     }
 }

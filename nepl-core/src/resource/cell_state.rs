@@ -4,7 +4,8 @@ use crate::types::{TypeCtx, TypeId};
 
 use super::model::{CellState, CellStateEntry, Place, PlaceProjection};
 use super::place_utils::{
-    place_suffix_after_prefix, place_with_suffix, push_unique_place, should_track,
+    place_suffix_after_prefix, place_with_suffix, push_unique_place, raw_memory_cell_place,
+    should_track,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -62,6 +63,13 @@ impl CellTable {
     pub(super) fn mark_initialized(&mut self, place: &Place) {
         self.set_state(place, CellState::Initialized(place.ty));
         self.clear_descendants(place);
+    }
+
+    pub(super) fn mark_raw_cell_moved(&mut self, address: &Place, ty: TypeId) {
+        self.cells
+            .retain(|entry| !raw_cell_belongs_to_address_cell(&entry.place, address));
+        let cell = raw_memory_cell_place(address, ty);
+        self.set_state(&cell, CellState::Moved);
     }
 
     pub(super) fn set_state(&mut self, place: &Place, state: CellState) {
@@ -317,6 +325,12 @@ pub(super) fn raw_cell_suffix_after_address(
     } else {
         None
     }
+}
+
+fn raw_cell_belongs_to_address_cell(cell: &Place, address: &Place) -> bool {
+    raw_cell_suffix_after_address(cell, address)
+        .and_then(|suffix| suffix.first().cloned())
+        .is_some_and(|projection| matches!(projection, PlaceProjection::Deref))
 }
 
 fn raw_addresses_overlap(left: &Place, right: &Place) -> bool {

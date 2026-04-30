@@ -4,8 +4,9 @@ use crate::types::{TypeId, TypeKind};
 use super::cell_state::CellTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{CellState, Place, PlaceProjection, RawMemoryOp, ResourceOffset};
+use super::model::{Place, PlaceProjection, RawMemoryOp, ResourceOffset};
 use super::place_utils::raw_memory_cell_place;
+use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckOperation;
 
 impl ResourceCheckEngine<'_> {
@@ -13,6 +14,7 @@ impl ResourceCheckEngine<'_> {
         &mut self,
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
+        pending_reallocs: &mut PendingRawReallocs,
         operation: &RawMemoryOp,
         output: &Place,
         args: &[Place],
@@ -20,6 +22,7 @@ impl ResourceCheckEngine<'_> {
     ) {
         match operation {
             RawMemoryOp::Alloc => {
+                pending_reallocs.clear_result(output);
                 let args_available =
                     self.ensure_args(cells, args, ResourceCheckOperation::RawMemoryArgument, span);
                 if args_available {
@@ -29,6 +32,7 @@ impl ResourceCheckEngine<'_> {
                 }
             }
             RawMemoryOp::Load => {
+                pending_reallocs.clear_result(output);
                 let Some(address) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
@@ -55,7 +59,7 @@ impl ResourceCheckEngine<'_> {
                     );
                 if address_available && cell_available {
                     if !self.types.is_copy(output.ty) {
-                        cells.set_state(&cell, CellState::Moved);
+                        cells.mark_raw_cell_moved(&address, output.ty);
                     }
                     cells.mark_initialized(output);
                     if raw_cell_value_is_known_raw_address(raw_aliases, &cell) {
@@ -76,6 +80,7 @@ impl ResourceCheckEngine<'_> {
                 }
             }
             RawMemoryOp::Store => {
+                pending_reallocs.clear_result(output);
                 let Some(address) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
@@ -123,6 +128,7 @@ impl ResourceCheckEngine<'_> {
                 }
             }
             RawMemoryOp::Dealloc => {
+                pending_reallocs.clear_result(output);
                 let Some(address) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
@@ -149,13 +155,13 @@ impl ResourceCheckEngine<'_> {
                 }
             }
             RawMemoryOp::Realloc => {
+                pending_reallocs.clear_result(output);
                 let Some(address) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                     return;
                 };
                 let address = raw_aliases.canonicalize(address);
-                let source_owned = cells.owns_raw_storage_under(&address);
                 let address_available = self.ensure_available(
                     cells,
                     &address,
@@ -169,20 +175,13 @@ impl ResourceCheckEngine<'_> {
                     span,
                 );
                 if address_available && cells_released {
-                    let relocated =
-                        cells.copy_initialized_copy_raw_cells(&address, output, self.types);
-                    cells.clear_raw_cells_under(&address);
-                    cells.release_owned_raw_storage_under(&address);
                     cells.mark_initialized(output);
-                    if source_owned {
-                        cells.mark_owned_raw_storage_root(output);
-                    }
-                    cells.extend_entries(relocated);
-                    raw_aliases.clear(&address);
                     raw_aliases.mark(output);
+                    pending_reallocs.mark(&address, output);
                 }
             }
             RawMemoryOp::Fill => {
+                pending_reallocs.clear_result(output);
                 let Some(address) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
@@ -212,6 +211,7 @@ impl ResourceCheckEngine<'_> {
                 }
             }
             RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => {
+                pending_reallocs.clear_result(output);
                 let Some(destination) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
@@ -262,6 +262,7 @@ impl ResourceCheckEngine<'_> {
                 }
             }
             _ => {
+                pending_reallocs.clear_result(output);
                 let args_available =
                     self.ensure_args(cells, args, ResourceCheckOperation::RawMemoryArgument, span);
                 if args_available {

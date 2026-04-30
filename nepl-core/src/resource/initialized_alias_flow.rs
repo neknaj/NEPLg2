@@ -163,7 +163,8 @@ fn propagate_raw_address_alias_op(
             | RawMemoryOp::Fill
             | RawMemoryOp::Other { .. } => {}
         },
-        ResourceOp::RawAddressAlias { source, target, .. } => {
+        ResourceOp::RawAddressAlias { source, target, .. }
+        | ResourceOp::RawAddressView { source, target, .. } => {
             raw_aliases.copy_alias_or_seed(source, target);
         }
         ResourceOp::Construct {

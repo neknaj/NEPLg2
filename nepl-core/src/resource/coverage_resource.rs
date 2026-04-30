@@ -419,6 +419,28 @@ fn resource_ops_coverage(
                     diagnostics,
                 );
             }
+            ResourceOp::RawAddressView {
+                source,
+                target,
+                span,
+            } => {
+                resource_place_coverage(
+                    function,
+                    "raw_address_view.source",
+                    source,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
+                resource_place_coverage(
+                    function,
+                    "raw_address_view.target",
+                    target,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
+            }
             ResourceOp::CallEffect { .. } => {}
         }
     }

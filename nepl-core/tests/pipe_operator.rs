@@ -375,13 +375,16 @@ fn pipe_complete_overloaded_source_call_into_target() {
 #target wasm
 #import "alloc/collections/bitset" as *
 #import "alloc/diag/error" as *
+#import "core/field" as field
 #import "core/result" as *
 
 fn main <()*>i32> ():
     let bs <BitSet>:
         new 32
         |> unwrap_ok<BitSet, Diag>
-    len bs
+    let n <i32> *field::get_ref &bs "nbits"
+    free bs
+    n
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 32);

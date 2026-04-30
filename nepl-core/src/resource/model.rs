@@ -140,6 +140,11 @@ pub enum ResourceOp {
         target: Place,
         span: Span,
     },
+    RawAddressView {
+        source: Place,
+        target: Place,
+        span: Span,
+    },
     Construct {
         output: Place,
         kind: AggregateKind,

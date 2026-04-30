@@ -10,6 +10,7 @@ use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::lower::LoweringEnvironment;
+use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, RawAddressSource};
 use super::lower_raw_memory::raw_memory_op_from_name;
 use super::model::{Place, PlaceProjection, RawMemoryOp, ResourceOffset, ResourceOp};
 
@@ -48,6 +49,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 return;
             };
             let mut raw = mem_ptr_raw_field_place(ptr, env.types.i32());
+            let is_view = true;
             match hir_args.get(1).and_then(non_negative_i32_literal_bytes) {
                 Some(0) => {}
                 Some(bytes) => {
@@ -63,11 +65,13 @@ pub(super) fn push_core_mem_wrapper_semantics(
                     );
                 }
             }
-            ops.push(ResourceOp::RawAddressAlias {
-                source: raw,
-                target: mem_ptr_raw_field_place(output, env.types.i32()),
+            push_raw_address_op(
+                raw,
+                mem_ptr_raw_field_place(output, env.types.i32()),
+                is_view,
+                ops,
                 span,
-            });
+            );
         }
         Some("region_new") => {
             let Some(ptr) = arg_places.first() else {
@@ -109,11 +113,14 @@ pub(super) fn push_user_raw_address_return_semantics(
     else {
         return;
     };
-    ops.push(ResourceOp::RawAddressAlias {
-        source: source.place(env.types.i32()),
-        target: raw_address_alias_target(output, env),
+    let source = source.into_place_and_view(env.types.i32());
+    push_raw_address_op(
+        source.place,
+        raw_address_alias_target(output, env),
+        source.is_view,
+        ops,
         span,
-    });
+    );
 }
 
 pub(super) fn push_named_raw_address_semantics(
@@ -129,84 +136,14 @@ pub(super) fn push_named_raw_address_semantics(
     else {
         return;
     };
-    ops.push(ResourceOp::RawAddressAlias {
-        source: source.place(env.types.i32()),
-        target: raw_address_alias_target(output, env),
+    let source = source.into_place_and_view(env.types.i32());
+    push_raw_address_op(
+        source.place,
+        raw_address_alias_target(output, env),
+        source.is_view,
+        ops,
         span,
-    });
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct RawAddressSource {
-    base: Place,
-    offset: RawAddressOffset,
-    explicit_offset: bool,
-}
-
-impl RawAddressSource {
-    fn place(self, raw_ty: TypeId) -> Place {
-        match self.offset {
-            RawAddressOffset::Known(0) if !self.explicit_offset => self.base,
-            RawAddressOffset::Known(0) => self.base.with_projection(
-                PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(0) }),
-                raw_ty,
-            ),
-            RawAddressOffset::Known(bytes) if bytes > 0 => match usize::try_from(bytes) {
-                Ok(bytes) => self.base.with_projection(
-                    PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(bytes) }),
-                    raw_ty,
-                ),
-                Err(_) => self.base.with_projection(
-                    PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
-                    raw_ty,
-                ),
-            },
-            RawAddressOffset::Known(_) | RawAddressOffset::Unknown => self.base.with_projection(
-                PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
-                raw_ty,
-            ),
-        }
-    }
-
-    fn with_added_offset(mut self, offset: Option<i64>) -> Self {
-        self.offset = self.offset.add(offset);
-        self.explicit_offset = true;
-        self
-    }
-
-    fn with_subtracted_offset(mut self, offset: Option<i64>) -> Self {
-        self.offset = self.offset.sub(offset);
-        self.explicit_offset = true;
-        self
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RawAddressOffset {
-    Known(i64),
-    Unknown,
-}
-
-impl RawAddressOffset {
-    fn add(self, rhs: Option<i64>) -> Self {
-        match (self, rhs) {
-            (RawAddressOffset::Known(lhs), Some(rhs)) => lhs
-                .checked_add(rhs)
-                .map(RawAddressOffset::Known)
-                .unwrap_or(RawAddressOffset::Unknown),
-            _ => RawAddressOffset::Unknown,
-        }
-    }
-
-    fn sub(self, rhs: Option<i64>) -> Self {
-        match (self, rhs) {
-            (RawAddressOffset::Known(lhs), Some(rhs)) => lhs
-                .checked_sub(rhs)
-                .map(RawAddressOffset::Known)
-                .unwrap_or(RawAddressOffset::Unknown),
-            _ => RawAddressOffset::Unknown,
-        }
-    }
+    );
 }
 
 fn function_return_expr(function: &HirFunction) -> Option<&HirExpr> {

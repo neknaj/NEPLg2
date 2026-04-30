@@ -272,6 +272,34 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
+    pub(super) fn ensure_owner_available(
+        &mut self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        storage_origins: &StorageOriginTable,
+        place: &Place,
+        operation: ResourceOwnerOperation,
+        span: Span,
+    ) -> bool {
+        if !should_track(place) {
+            return false;
+        }
+        let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
+        match owners.state(&resolved_place) {
+            Some(OwnerState::Live { .. }) => true,
+            Some(state) => {
+                self.push_unavailable(operation, &resolved_place, state, span);
+                false
+            }
+            None => {
+                if self.storage_origin_expects_owned(storage_origins, raw_aliases, place) {
+                    self.push_unavailable(operation, place, OwnerState::NoFreeObligation, span);
+                }
+                false
+            }
+        }
+    }
+
     fn storage_origin_expects_owned(
         &self,
         storage_origins: &StorageOriginTable,

@@ -45,6 +45,7 @@ fn recursive_struct_enum_instantiation() {
     let source = r#"
 #target wasi
 #indent 4
+#import "core/field" as field
 #import "core/result" as *
 #import "alloc/collections/vec" as *
 
@@ -57,7 +58,10 @@ fn main <()*>()>():
     let v <Vec<B>> unwrap_ok new<B>;
     let a <A> A v;
     let b <B> B::A a;
-    ()
+    match b:
+        B::A a1:
+            let v1 <Vec<B>> field::get a1 "b";
+            free<B> v1
 "#;
     compile_recursive_test(source).expect("should succeed");
 }

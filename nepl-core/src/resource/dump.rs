@@ -263,6 +263,21 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
                 span.end
             );
         }
+        ResourceOp::RawAddressView {
+            source,
+            target,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "raw_address_view {} -> {} span={}:{}-{}",
+                dump_place(source),
+                dump_place(target),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
         ResourceOp::Construct {
             output,
             kind,

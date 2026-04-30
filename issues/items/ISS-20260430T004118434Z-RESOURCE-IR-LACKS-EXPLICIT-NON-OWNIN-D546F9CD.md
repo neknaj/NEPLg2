@@ -2,8 +2,8 @@
 id: ISS-20260430T004118434Z-RESOURCE-IR-LACKS-EXPLICIT-NON-OWNIN-D546F9CD
 title: "Resource IR lacks explicit non-owning raw address view and fallible realloc state"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-30
@@ -43,3 +43,11 @@ Add an explicit Resource IR concept for raw address view/provenance separate fro
 ## 検証
 
 Add Resource IR tests for iovec non-owning views, owning raw address stores into returned headers, and realloc failure branches preserving the old buffer owner without leaks or double frees.
+
+## 2026-04-30 解決
+
+Resource IR に `RawAddressView` を追加し、所有 raw address alias と非所有 raw address view を IR 上で分離した。`mem_ptr_add` や明示的な address arithmetic は、offset が 0 でも `RawAddressView` として lowered されるため、owner checker は storage offset projection の形から view を推測しない。`RawAddressAlias` は所有権 alias のコピー、`RawAddressView` は非所有 view marker の付与として扱う。
+
+`realloc_raw` は実行直後に旧 owner を消費しない。Resource owner / CellState checker に pending realloc state を追加し、`eq p 0`、`ne p 0`、`lt 0 p`、`le p 0` などから得られる `ResourceConditionFact` で分岐を精緻化する。成功 branch では旧 owner と initialized Copy raw cells を新 address へ移し、失敗 branch では旧 owner と旧 raw cells を維持して result address を非所有として扱う。
+
+回帰テストとして、非所有 raw address view の dump と KP iovec fixture、literal zero offset helper、zero alloc branch refinement、realloc 成功/失敗 branch の owner/cell refinement を追加・更新した。
