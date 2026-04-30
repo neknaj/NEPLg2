@@ -505,6 +505,7 @@ fn resource_owner_state_diagnostic_code(state: &crate::resource::OwnerState) -> 
             ResourceOwnerDiagnosticCode::NoFreeObligation
         }
         crate::resource::OwnerState::Live { .. } => ResourceOwnerDiagnosticCode::Unavailable,
+        crate::resource::OwnerState::Reserved { .. } => ResourceOwnerDiagnosticCode::Reserved,
         crate::resource::OwnerState::Moved => ResourceOwnerDiagnosticCode::UseAfterMove,
         crate::resource::OwnerState::Freed => ResourceOwnerDiagnosticCode::DoubleFree,
         crate::resource::OwnerState::MaybeFreed { .. } => ResourceOwnerDiagnosticCode::MaybeFreed,
@@ -754,6 +755,34 @@ mod tests {
             Some(DiagnosticCode::Resource(
                 crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
                     crate::diagnostic_codes::ResourceOwnerDiagnosticCode::NoFreeObligation,
+                )
+            ))
+        );
+        assert!(error
+            .message
+            .contains("resource ir owner obligation violation"));
+    }
+
+    #[test]
+    fn resource_owner_gate_maps_reserved_owner_to_reserved_code() {
+        let types = crate::types::TypeCtx::new();
+        let place = Place::temporary(ResourceId(0), types.i32());
+        let diagnostic = ResourceOwnerDiagnostic::OwnerUnavailable {
+            function: String::from("main"),
+            operation: ResourceOwnerOperation::CallArgument,
+            place,
+            state: OwnerState::Reserved { storage: None },
+            span: Span::dummy(),
+        };
+
+        let error = resource_owner_diagnostic_to_error(&diagnostic)
+            .expect("reserved owner diagnostic should become a compiler error");
+
+        assert_eq!(
+            error.code,
+            Some(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
+                    crate::diagnostic_codes::ResourceOwnerDiagnosticCode::Reserved,
                 )
             ))
         );

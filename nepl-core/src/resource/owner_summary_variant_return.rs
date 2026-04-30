@@ -43,6 +43,7 @@ pub(super) fn returned_owner_returns_for_value(
             }
         }
         Some(OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed)
+        | Some(OwnerState::Reserved { .. })
         | Some(OwnerState::MaybeFreed { storage: None })
         | None => {}
     }

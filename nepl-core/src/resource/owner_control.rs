@@ -97,17 +97,26 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut pending_realloc_paths = Vec::new();
         let mut variant_owner_effect_paths = Vec::new();
         if !self.place_is_never(then_value) {
-            self.transfer_owner(
-                &mut then_owners,
-                &mut then_raw_aliases,
-                &mut then_storage_origins,
+            if !then_variant_owner_effects.reject_reserved_source_use(
+                self,
+                &then_owners,
+                &then_raw_aliases,
                 then_value,
-                output,
                 ResourceOwnerOperation::BranchValue,
                 span,
-            );
-            then_pending_reallocs.copy_result(then_value, output);
-            then_variant_owner_effects.copy_result(then_value, output);
+            ) {
+                self.transfer_owner(
+                    &mut then_owners,
+                    &mut then_raw_aliases,
+                    &mut then_storage_origins,
+                    then_value,
+                    output,
+                    ResourceOwnerOperation::BranchValue,
+                    span,
+                );
+                then_pending_reallocs.copy_result(then_value, output);
+                then_variant_owner_effects.copy_result(then_value, output);
+            }
             owner_paths.push(then_owners);
             function_alias_paths.push(then_function_aliases);
             raw_alias_paths.push(then_raw_aliases);
@@ -117,17 +126,26 @@ impl ResourceOwnerCheckEngine<'_> {
             variant_owner_effect_paths.push(then_variant_owner_effects);
         }
         if !self.place_is_never(else_value) {
-            self.transfer_owner(
-                &mut else_owners,
-                &mut else_raw_aliases,
-                &mut else_storage_origins,
+            if !else_variant_owner_effects.reject_reserved_source_use(
+                self,
+                &else_owners,
+                &else_raw_aliases,
                 else_value,
-                output,
                 ResourceOwnerOperation::BranchValue,
                 span,
-            );
-            else_pending_reallocs.copy_result(else_value, output);
-            else_variant_owner_effects.copy_result(else_value, output);
+            ) {
+                self.transfer_owner(
+                    &mut else_owners,
+                    &mut else_raw_aliases,
+                    &mut else_storage_origins,
+                    else_value,
+                    output,
+                    ResourceOwnerOperation::BranchValue,
+                    span,
+                );
+                else_pending_reallocs.copy_result(else_value, output);
+                else_variant_owner_effects.copy_result(else_value, output);
+            }
             owner_paths.push(else_owners);
             function_alias_paths.push(else_function_aliases);
             raw_alias_paths.push(else_raw_aliases);
@@ -283,15 +301,24 @@ impl ResourceOwnerCheckEngine<'_> {
             );
             if let Some(bind_local) = &arm.bind_local {
                 if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
-                    self.transfer_owner(
-                        &mut arm_owners,
-                        &mut arm_raw_aliases,
-                        &mut arm_storage_origins,
+                    if !arm_variant_owner_effects.reject_reserved_source_use(
+                        self,
+                        &arm_owners,
+                        &arm_raw_aliases,
                         &source,
-                        bind_local,
                         ResourceOwnerOperation::MatchValue,
                         span,
-                    );
+                    ) {
+                        self.transfer_owner(
+                            &mut arm_owners,
+                            &mut arm_raw_aliases,
+                            &mut arm_storage_origins,
+                            &source,
+                            bind_local,
+                            ResourceOwnerOperation::MatchValue,
+                            span,
+                        );
+                    }
                     arm_function_aliases.copy_alias(&source, bind_local);
                     arm_raw_views.copy(&source, bind_local);
                     arm_pending_reallocs.copy_result(&source, bind_local);
@@ -325,17 +352,26 @@ impl ResourceOwnerCheckEngine<'_> {
                 &arm.ops,
             );
             if !self.place_is_never(&arm.value) {
-                self.transfer_owner(
-                    &mut arm_owners,
-                    &mut arm_raw_aliases,
-                    &mut arm_storage_origins,
+                if !arm_variant_owner_effects.reject_reserved_source_use(
+                    self,
+                    &arm_owners,
+                    &arm_raw_aliases,
                     &arm.value,
-                    output,
                     ResourceOwnerOperation::MatchValue,
                     span,
-                );
-                arm_pending_reallocs.copy_result(&arm.value, output);
-                arm_variant_owner_effects.copy_result(&arm.value, output);
+                ) {
+                    self.transfer_owner(
+                        &mut arm_owners,
+                        &mut arm_raw_aliases,
+                        &mut arm_storage_origins,
+                        &arm.value,
+                        output,
+                        ResourceOwnerOperation::MatchValue,
+                        span,
+                    );
+                    arm_pending_reallocs.copy_result(&arm.value, output);
+                    arm_variant_owner_effects.copy_result(&arm.value, output);
+                }
                 arm_paths.push(arm_owners);
                 function_alias_paths.push(arm_function_aliases);
                 raw_alias_paths.push(arm_raw_aliases);

@@ -28755,3 +28755,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner token / free obligation summary を、variant 確定後の transfer として扱う方向に進めた。
+
+# 2026-04-30 note (ISS-20260430T070449791Z fallible owner effect reservations)
+
+- [同期]:
+  - `main` を `80ebb992` まで push/pull 済みの状態から、branch `work/fallible-owner-effect-reservations` で対応した。
+- [原因]:
+  - `PendingVariantOwnerEffects` は `Result::Ok` などの variant が選ばれた後に owner consumption / owner return を適用していたが、Result が match/refine される前の元 owner を予約していなかった。
+  - そのため `dealloc_ptr p` / `realloc_ptr p` の結果を保持したまま `p` を再度 `dealloc_raw` するようなコードで、実際には Ok path が owner を消費し得るにもかかわらず、直接利用の時点では拒否できていなかった。
+- [修正]:
+  - `OwnerState::Reserved` と `resource.owner.reserved` を追加し、未精査の fallible owner effect によって一時的に使えない owner を enum 状態として診断できるようにした。
+  - `PendingVariantOwnerEffects` が pending consumption / pending return の source と overlap する owner use を検出し、read / move / assign / return / call argument / raw memory operation / branch value / match value を拒否するようにした。
+  - `match` arm で Result variant が確定したら pending effect を解決し、Result の read temporary や local copy に残った同一 source の予約も消すようにした。
+  - dealloc_ptr と realloc_ptr の未精査 Result の元 MemPtr を再利用する ResourceIR 回帰テストを追加した。
+- [検証]:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core resource_owner_gate_maps_reserved_owner_to_reserved_code -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_mem_ptr_use_before_realloc_result_refinement -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: `145 passed`
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-owner-reservation.json -j 1 --dist web/dist`: `110 total / 110 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-owner-reservation.json -j 1 --dist web/dist`: `12 total / 7 passed / 5 failed`
+- [issue]:
+  - `ISS-20260430T070449791Z-FALLIBLE-OWNER-EFFECTS-DO-NOT-RESERV-32CC9198` を fixed/resolved に更新した。
+  - `memory_safety.n.md` の残り 5 件は本修正で増減していない既存残件として継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 4 の owner token / free obligation summary を、未精査 Result の path-dependent reservation まで含めて扱う形に進めた。

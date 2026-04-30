@@ -7,11 +7,12 @@ use crate::span::Span;
 use crate::types::TypeId;
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{Place, ResourceMatchPattern};
+use super::model::{OwnerState, Place, ResourceMatchPattern, StorageId};
+use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
-use super::place_utils::place_with_suffix;
+use super::place_utils::{place_with_suffix, places_overlap};
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 use super::summary::OwnerReturnSummary;
@@ -43,6 +44,23 @@ pub(super) struct PendingVariantOwnerEffects {
 }
 
 impl PendingVariantOwnerEffects {
+    pub(super) fn reject_reserved_source_use(
+        &self,
+        engine: &mut ResourceOwnerCheckEngine<'_>,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        place: &Place,
+        operation: ResourceOwnerOperation,
+        span: Span,
+    ) -> bool {
+        let Some(source) = self.reserved_source_for(owners, raw_aliases, place) else {
+            return false;
+        };
+        let state = reserved_owner_state(owners, &source);
+        engine.push_unavailable(operation, &source, state, span);
+        true
+    }
+
     pub(super) fn record_call(
         &mut self,
         raw_aliases: &RawCellAddressAliases,
@@ -126,7 +144,7 @@ impl PendingVariantOwnerEffects {
     }
 
     pub(super) fn apply_match_arm(
-        &self,
+        &mut self,
         engine: &mut ResourceOwnerCheckEngine<'_>,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
@@ -155,6 +173,7 @@ impl PendingVariantOwnerEffects {
             );
             raw_views.clear(&place);
         }
+        self.resolve_result(scrutinee);
     }
 
     pub(super) fn copy_result(&mut self, source: &Place, target: &Place) {
@@ -201,6 +220,67 @@ impl PendingVariantOwnerEffects {
         self.returns.retain(|entry| entry.result != *result);
     }
 
+    fn resolve_result(&mut self, result: &Place) {
+        let mut resolved_sources = Vec::new();
+        for entry in self
+            .consumptions
+            .iter()
+            .filter(|entry| entry.result == *result)
+        {
+            push_unique_source(
+                &mut resolved_sources,
+                entry.arg.clone(),
+                entry.suffix.clone(),
+                entry.ty,
+            );
+        }
+        for entry in self.returns.iter().filter(|entry| entry.result == *result) {
+            push_unique_source(
+                &mut resolved_sources,
+                entry.arg.clone(),
+                entry.source_suffix.clone(),
+                entry.source_ty,
+            );
+        }
+        self.consumptions.retain(|entry| {
+            entry.result != *result
+                && !source_list_contains(&resolved_sources, &entry.arg, &entry.suffix, entry.ty)
+        });
+        self.returns.retain(|entry| {
+            entry.result != *result
+                && !source_list_contains(
+                    &resolved_sources,
+                    &entry.arg,
+                    &entry.source_suffix,
+                    entry.source_ty,
+                )
+        });
+    }
+
+    fn reserved_source_for(
+        &self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        place: &Place,
+    ) -> Option<Place> {
+        let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
+        for entry in &self.consumptions {
+            let source = pending_consumption_source(entry, raw_aliases);
+            let resolved_source = resolve_owner_alias_place(owners, raw_aliases, &source);
+            if places_overlap(&resolved_place, &resolved_source) {
+                return Some(resolved_source);
+            }
+        }
+        for entry in &self.returns {
+            let source = pending_return_source(entry, raw_aliases);
+            let resolved_source = resolve_owner_alias_place(owners, raw_aliases, &source);
+            if places_overlap(&resolved_place, &resolved_source) {
+                return Some(resolved_source);
+            }
+        }
+        None
+    }
+
     pub(super) fn merge_paths(paths: &[PendingVariantOwnerEffects]) -> Self {
         let Some(first) = paths.first() else {
             return Self::default();
@@ -240,6 +320,68 @@ impl PendingVariantOwnerEffects {
         }
         self.returns.push(entry);
     }
+}
+
+fn pending_consumption_source(
+    entry: &PendingVariantOwnerConsumption,
+    raw_aliases: &RawCellAddressAliases,
+) -> Place {
+    let arg = raw_aliases.canonicalize(&entry.arg);
+    place_with_suffix(&arg, &entry.suffix, entry.ty)
+}
+
+fn pending_return_source(
+    entry: &PendingVariantOwnerReturn,
+    raw_aliases: &RawCellAddressAliases,
+) -> Place {
+    let arg = raw_aliases.canonicalize(&entry.arg);
+    place_with_suffix(&arg, &entry.source_suffix, entry.source_ty)
+}
+
+fn reserved_owner_state(owners: &OwnerTable, source: &Place) -> OwnerState {
+    let storage = match owners.state(source) {
+        Some(OwnerState::Live { storage }) => Some(storage),
+        Some(OwnerState::MaybeFreed { storage } | OwnerState::Reserved { storage }) => storage,
+        Some(OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed) | None => {
+            first_storage_under(owners, source)
+        }
+    };
+    OwnerState::Reserved { storage }
+}
+
+fn first_storage_under(owners: &OwnerTable, source: &Place) -> Option<StorageId> {
+    owners
+        .live_entries_under(source)
+        .into_iter()
+        .find_map(|entry| match entry.state {
+            OwnerState::Live { storage } => Some(storage),
+            OwnerState::MaybeFreed { storage } | OwnerState::Reserved { storage } => storage,
+            OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed => None,
+        })
+}
+
+fn push_unique_source(
+    out: &mut Vec<(Place, Vec<super::model::PlaceProjection>, TypeId)>,
+    arg: Place,
+    suffix: Vec<super::model::PlaceProjection>,
+    ty: TypeId,
+) {
+    if !source_list_contains(out, &arg, &suffix, ty) {
+        out.push((arg, suffix, ty));
+    }
+}
+
+fn source_list_contains(
+    sources: &[(Place, Vec<super::model::PlaceProjection>, TypeId)],
+    arg: &Place,
+    suffix: &[super::model::PlaceProjection],
+    ty: TypeId,
+) -> bool {
+    sources
+        .iter()
+        .any(|(existing_arg, existing_suffix, existing_ty)| {
+            existing_arg == arg && existing_suffix == suffix && *existing_ty == ty
+        })
 }
 
 fn normalize_variant_name(variant: &str) -> String {

@@ -69,7 +69,11 @@ fn retire_transferred_aliases(
             continue;
         }
         match owners.state(&alias) {
-            Some(OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }) => {
+            Some(
+                OwnerState::Live { .. }
+                | OwnerState::Reserved { .. }
+                | OwnerState::MaybeFreed { .. },
+            ) => {
                 owners.set_state(&alias, OwnerState::Moved);
                 storage_origins.clear(&alias);
             }

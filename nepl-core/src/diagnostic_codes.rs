@@ -188,6 +188,7 @@ pub enum ResourceCellDiagnosticCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourceOwnerDiagnosticCode {
     NoFreeObligation,
+    Reserved,
     UseAfterMove,
     DoubleFree,
     MaybeFreed,
@@ -1057,6 +1058,7 @@ impl ResourceOwnerDiagnosticCode {
     const fn as_str(self) -> &'static str {
         match self {
             ResourceOwnerDiagnosticCode::NoFreeObligation => "resource.owner.no_free_obligation",
+            ResourceOwnerDiagnosticCode::Reserved => "resource.owner.reserved",
             ResourceOwnerDiagnosticCode::UseAfterMove => "resource.owner.use_after_move",
             ResourceOwnerDiagnosticCode::DoubleFree => "resource.owner.double_free",
             ResourceOwnerDiagnosticCode::MaybeFreed => "resource.owner.maybe_freed",
@@ -1069,6 +1071,9 @@ impl ResourceOwnerDiagnosticCode {
     const fn message(self) -> &'static str {
         match self {
             ResourceOwnerDiagnosticCode::NoFreeObligation => "storage has no free obligation",
+            ResourceOwnerDiagnosticCode::Reserved => {
+                "owner obligation is reserved by an unresolved fallible result"
+            }
             ResourceOwnerDiagnosticCode::UseAfterMove => "owner obligation was already moved",
             ResourceOwnerDiagnosticCode::DoubleFree => "owner obligation was already freed",
             ResourceOwnerDiagnosticCode::MaybeFreed => "owner obligation may already be freed",

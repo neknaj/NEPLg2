@@ -367,6 +367,7 @@ pub enum StorageOrigin {
 pub enum OwnerState {
     NoFreeObligation,
     Live { storage: StorageId },
+    Reserved { storage: Option<StorageId> },
     Moved,
     Freed,
     MaybeFreed { storage: Option<StorageId> },

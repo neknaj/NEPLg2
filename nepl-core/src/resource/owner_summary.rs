@@ -161,7 +161,12 @@ fn function_owner_return_summary(
                         returns_maybe_owner = true;
                     }
                 }
-                Some(OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed)
+                Some(
+                    OwnerState::NoFreeObligation
+                    | OwnerState::Reserved { .. }
+                    | OwnerState::Moved
+                    | OwnerState::Freed,
+                )
                 | None => {}
             }
             for entry in owners.descendant_entries(&resolved_value) {
@@ -202,7 +207,7 @@ fn function_owner_return_summary(
                                 );
                             }
                         }
-                        OwnerState::Moved | OwnerState::Freed => {}
+                        OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed => {}
                     }
                 }
             }
@@ -244,7 +249,7 @@ fn function_owner_return_summary(
                             );
                         }
                     }
-                    OwnerState::Moved | OwnerState::Freed => {}
+                    OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed => {}
                 }
             }
         }
@@ -297,7 +302,12 @@ pub(super) fn consumed_owner_parameters(
                     push_unique_owner_projection_source(&mut sources, source);
                 }
             }
-            Some(OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }) | None => {}
+            Some(
+                OwnerState::Live { .. }
+                | OwnerState::Reserved { .. }
+                | OwnerState::MaybeFreed { .. },
+            )
+            | None => {}
         }
     }
     (indices, sources)

@@ -57,7 +57,9 @@ impl OwnerTable {
             .filter(|entry| {
                 matches!(
                     entry.state,
-                    OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }
+                    OwnerState::Live { .. }
+                        | OwnerState::Reserved { .. }
+                        | OwnerState::MaybeFreed { .. }
                 )
             })
             .cloned()
@@ -72,7 +74,9 @@ impl OwnerTable {
                     || place_suffix_after_prefix(&entry.place, prefix).is_some())
                     && matches!(
                         entry.state,
-                        OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }
+                        OwnerState::Live { .. }
+                            | OwnerState::Reserved { .. }
+                            | OwnerState::MaybeFreed { .. }
                     )
             })
             .cloned()
@@ -246,6 +250,19 @@ fn merge_owner_states(left: OwnerState, right: OwnerState) -> OwnerState {
         return left;
     }
     match (left, right) {
+        (
+            OwnerState::Reserved {
+                storage: left_storage,
+            },
+            OwnerState::Reserved {
+                storage: right_storage,
+            },
+        ) => OwnerState::Reserved {
+            storage: merge_maybe_storage(left_storage, right_storage),
+        },
+        (OwnerState::Reserved { storage }, _) | (_, OwnerState::Reserved { storage }) => {
+            OwnerState::Reserved { storage }
+        }
         (
             OwnerState::Live {
                 storage: left_storage,

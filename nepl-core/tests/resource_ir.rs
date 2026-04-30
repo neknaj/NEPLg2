@@ -4100,6 +4100,116 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>()> ():
+    match alloc_ptr<i32> 4:
+        Result::Err _e:
+            ()
+        Result::Ok p:
+            let r <Result<(),str>> dealloc_ptr p 4
+            dealloc_raw mem_ptr_addr p 4
+            match r:
+                Result::Ok _:
+                    ()
+                Result::Err _drop:
+                    ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::Dealloc,
+                state: OwnerState::Reserved { .. },
+                ..
+            }
+        )),
+        "dealloc_ptr result must reserve p until Result is matched: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_rejects_mem_ptr_use_before_realloc_result_refinement() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>()> ():
+    match alloc_ptr<i32> 4:
+        Result::Err _e:
+            ()
+        Result::Ok p:
+            let r <Result<MemPtr<i32>,str>> realloc_ptr<i32> p 4 8
+            dealloc_raw mem_ptr_addr p 4
+            match r:
+                Result::Ok q:
+                    match dealloc_ptr q 8:
+                        Result::Ok _:
+                            ()
+                        Result::Err _drop:
+                            dealloc_raw mem_ptr_addr q 8
+                Result::Err _grow:
+                    ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::Dealloc,
+                state: OwnerState::Reserved { .. },
+                ..
+            }
+        )),
+        "realloc_ptr result must reserve p until Result is matched: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_rekeys_raw_cells_after_loading_raw_address_cell() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

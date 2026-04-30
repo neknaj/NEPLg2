@@ -71,6 +71,14 @@ impl ResourceOwnerCheckEngine<'_> {
                             span,
                         });
                 }
+                OwnerState::Reserved { .. } => {
+                    self.diagnostics
+                        .push(ResourceOwnerDiagnostic::OwnerMaybeLeaked {
+                            function: String::from(self.function),
+                            place: entry.place.clone(),
+                            span,
+                        });
+                }
                 OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed => {}
             }
             owners.set_state(&entry.place, OwnerState::Moved);
@@ -107,7 +115,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     state,
                 );
             }
-            Some(OwnerState::Moved | OwnerState::Freed) => {
+            Some(OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed) => {
                 let state = owners
                     .state(&resolved_source)
                     .unwrap_or(OwnerState::NoFreeObligation);
@@ -132,7 +140,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         state,
                     );
                 }
-                OwnerState::Moved | OwnerState::Freed => {
+                OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed => {
                     self.push_unavailable(operation, &entry.place, entry.state, span);
                 }
                 OwnerState::NoFreeObligation => {
@@ -156,7 +164,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         state,
                     );
                 }
-                OwnerState::Moved | OwnerState::Freed => {
+                OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed => {
                     self.push_unavailable(
                         operation,
                         &aliased.entry.place,
@@ -195,7 +203,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 raw_aliases.clear(place);
                 raw_aliases.clear(&resolved_place);
             }
-            Some(OwnerState::Moved | OwnerState::Freed) => {
+            Some(OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed) => {
                 let state = owners
                     .state(&resolved_place)
                     .unwrap_or(OwnerState::NoFreeObligation);
@@ -209,7 +217,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     move_owner_state_out(owners, raw_aliases, storage_origins, &entry.place);
                     raw_aliases.clear(&entry.place);
                 }
-                OwnerState::Moved | OwnerState::Freed => {
+                OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed => {
                     self.push_unavailable(operation, &entry.place, entry.state, span);
                 }
                 OwnerState::NoFreeObligation => {}
@@ -226,7 +234,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     );
                     raw_aliases.clear(&aliased.entry.place);
                 }
-                OwnerState::Moved | OwnerState::Freed => {
+                OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed => {
                     self.push_unavailable(
                         operation,
                         &aliased.entry.place,
@@ -332,12 +340,20 @@ impl ResourceOwnerCheckEngine<'_> {
                             span,
                         });
                 }
+                OwnerState::Reserved { .. } => {
+                    self.diagnostics
+                        .push(ResourceOwnerDiagnostic::OwnerMaybeLeaked {
+                            function: String::from(self.function),
+                            place: entry.place,
+                            span,
+                        });
+                }
                 OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed => {}
             }
         }
     }
 
-    fn push_unavailable(
+    pub(super) fn push_unavailable(
         &mut self,
         operation: ResourceOwnerOperation,
         place: &Place,

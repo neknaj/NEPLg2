@@ -17,6 +17,7 @@ pub(super) fn resolve_owner_alias_place(
 ) -> Place {
     match owners.state(place) {
         Some(OwnerState::Live { .. })
+        | Some(OwnerState::Reserved { .. })
         | Some(OwnerState::Moved)
         | Some(OwnerState::Freed)
         | Some(OwnerState::MaybeFreed { .. }) => return place.clone(),
@@ -30,6 +31,7 @@ pub(super) fn resolve_owner_alias_place(
     for alias in raw_aliases.aliases_for(place) {
         match owners.state(&alias) {
             Some(OwnerState::Live { .. })
+            | Some(OwnerState::Reserved { .. })
             | Some(OwnerState::Moved)
             | Some(OwnerState::Freed)
             | Some(OwnerState::MaybeFreed { .. }) => return alias,
@@ -42,6 +44,7 @@ pub(super) fn resolve_owner_alias_place(
     for alias in raw_aliases.prefix_aliases_for(place) {
         match owners.state(&alias) {
             Some(OwnerState::Live { .. })
+            | Some(OwnerState::Reserved { .. })
             | Some(OwnerState::Moved)
             | Some(OwnerState::Freed)
             | Some(OwnerState::MaybeFreed { .. }) => return alias,
@@ -61,7 +64,10 @@ pub(super) fn aliased_owner_descendant_entries(
 ) -> Vec<AliasedOwnerDescendant> {
     let mut out = Vec::new();
     for entry in owners.entries() {
-        if matches!(entry.state, OwnerState::Moved | OwnerState::Freed) {
+        if matches!(
+            entry.state,
+            OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed
+        ) {
             continue;
         }
         if !place_has_raw_cell_projection(&entry.place) {

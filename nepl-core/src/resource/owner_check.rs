@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
+use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
@@ -113,14 +114,23 @@ impl ResourceOwnerCheckEngine<'_> {
         match &block.terminator {
             ResourceTerminator::Return { value, span } => {
                 if let Some(value) = value {
-                    self.move_owner_out(
+                    if !variant_owner_effects.reject_reserved_source_use(
+                        self,
                         owners,
                         raw_aliases,
-                        storage_origins,
                         value,
                         ResourceOwnerOperation::ReturnValue,
                         *span,
-                    );
+                    ) {
+                        self.move_owner_out(
+                            owners,
+                            raw_aliases,
+                            storage_origins,
+                            value,
+                            ResourceOwnerOperation::ReturnValue,
+                            *span,
+                        );
+                    }
                 }
             }
             ResourceTerminator::Unreachable { .. } | ResourceTerminator::RawBody { .. } => {}
@@ -172,6 +182,28 @@ impl ResourceOwnerCheckEngine<'_> {
             .any(|alias| alias != source)
     }
 
+    fn reject_reserved_call_arguments(
+        &mut self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        variant_owner_effects: &PendingVariantOwnerEffects,
+        args: &[Place],
+        span: Span,
+    ) -> bool {
+        let mut rejected = false;
+        for arg in args {
+            rejected |= variant_owner_effects.reject_reserved_source_use(
+                self,
+                owners,
+                raw_aliases,
+                arg,
+                ResourceOwnerOperation::CallArgument,
+                span,
+            );
+        }
+        rejected
+    }
+
     fn check_op(
         &mut self,
         owners: &mut OwnerTable,
@@ -191,7 +223,18 @@ impl ResourceOwnerCheckEngine<'_> {
                 ..
             } => {
                 if let Some(initializer) = initializer {
-                    if self.initializer_is_non_owning_raw_alias_view(
+                    if variant_owner_effects.reject_reserved_source_use(
+                        self,
+                        owners,
+                        raw_aliases,
+                        initializer,
+                        ResourceOwnerOperation::DeclareInitializer,
+                        *span,
+                    ) {
+                        raw_aliases.clear(place);
+                        raw_views.clear(place);
+                        storage_origins.clear(place);
+                    } else if self.initializer_is_non_owning_raw_alias_view(
                         owners,
                         raw_aliases,
                         initializer,
@@ -221,8 +264,16 @@ impl ResourceOwnerCheckEngine<'_> {
             ResourceOp::Read {
                 source,
                 output,
-                span: _,
+                span,
             } => {
+                variant_owner_effects.reject_reserved_source_use(
+                    self,
+                    owners,
+                    raw_aliases,
+                    source,
+                    ResourceOwnerOperation::Read,
+                    *span,
+                );
                 raw_aliases.copy_alias_or_seed(source, output);
                 storage_origins.copy_origin(source, output);
                 function_aliases.copy_alias(source, output);
@@ -236,8 +287,23 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             } => {
                 self.report_overwritten_owners(owners, storage_origins, target, value, *span);
-                if self.initializer_is_non_owning_raw_alias_view(owners, raw_aliases, value, target)
-                {
+                if variant_owner_effects.reject_reserved_source_use(
+                    self,
+                    owners,
+                    raw_aliases,
+                    value,
+                    ResourceOwnerOperation::AssignValue,
+                    *span,
+                ) {
+                    raw_aliases.clear(target);
+                    raw_views.clear(target);
+                    storage_origins.clear(target);
+                } else if self.initializer_is_non_owning_raw_alias_view(
+                    owners,
+                    raw_aliases,
+                    value,
+                    target,
+                ) {
                     raw_aliases.copy_alias_or_seed(value, target);
                     storage_origins.copy_origin(value, target);
                 } else {
@@ -261,15 +327,24 @@ impl ResourceOwnerCheckEngine<'_> {
                 output,
                 span,
             } => {
-                self.transfer_owner(
+                if !variant_owner_effects.reject_reserved_source_use(
+                    self,
                     owners,
                     raw_aliases,
-                    storage_origins,
                     source,
-                    output,
                     ResourceOwnerOperation::Move,
                     *span,
-                );
+                ) {
+                    self.transfer_owner(
+                        owners,
+                        raw_aliases,
+                        storage_origins,
+                        source,
+                        output,
+                        ResourceOwnerOperation::Move,
+                        *span,
+                    );
+                }
                 function_aliases.copy_alias(source, output);
                 raw_views.copy(source, output);
                 raw_views.clear(source);
@@ -294,21 +369,37 @@ impl ResourceOwnerCheckEngine<'_> {
                     pending_reallocs.clear_result(output);
                     variant_owner_effects.clear_result(output);
                     if let Some(ptr) = args.first() {
-                        self.release_owner(
+                        if !variant_owner_effects.reject_reserved_source_use(
+                            self,
                             owners,
                             raw_aliases,
-                            storage_origins,
                             ptr,
                             ResourceOwnerOperation::Dealloc,
                             *span,
-                        );
+                        ) {
+                            self.release_owner(
+                                owners,
+                                raw_aliases,
+                                storage_origins,
+                                ptr,
+                                ResourceOwnerOperation::Dealloc,
+                                *span,
+                            );
+                        }
                     }
                 }
                 RawMemoryOp::Realloc => {
                     pending_reallocs.clear_result(output);
                     variant_owner_effects.clear_result(output);
                     if let Some(ptr) = args.first() {
-                        if self.ensure_owner_available(
+                        if !variant_owner_effects.reject_reserved_source_use(
+                            self,
+                            owners,
+                            raw_aliases,
+                            ptr,
+                            ResourceOwnerOperation::ReallocInput,
+                            *span,
+                        ) && self.ensure_owner_available(
                             owners,
                             raw_aliases,
                             storage_origins,
@@ -327,6 +418,14 @@ impl ResourceOwnerCheckEngine<'_> {
                     pending_reallocs.clear_result(output);
                     variant_owner_effects.clear_result(output);
                     if let Some(address) = args.first() {
+                        variant_owner_effects.reject_reserved_source_use(
+                            self,
+                            owners,
+                            raw_aliases,
+                            address,
+                            ResourceOwnerOperation::RawMemoryLoadCell,
+                            *span,
+                        );
                         let address = raw_aliases.canonicalize_owner_cell_address(address);
                         let cell = raw_memory_cell_place(&address, output.ty);
                         if self.raw_memory_load_is_non_owning_raw_address_view(
@@ -356,6 +455,14 @@ impl ResourceOwnerCheckEngine<'_> {
                     pending_reallocs.clear_result(output);
                     variant_owner_effects.clear_result(output);
                     if let [address, value, ..] = args.as_slice() {
+                        variant_owner_effects.reject_reserved_source_use(
+                            self,
+                            owners,
+                            raw_aliases,
+                            address,
+                            ResourceOwnerOperation::CallArgument,
+                            *span,
+                        );
                         let address = raw_aliases.canonicalize_owner_cell_address(address);
                         let cell = raw_memory_cell_place(&address, value.ty);
                         self.report_overwritten_owners(
@@ -365,15 +472,25 @@ impl ResourceOwnerCheckEngine<'_> {
                             value,
                             *span,
                         );
-                        if self.raw_store_value_is_non_owning_raw_address_view(
+                        let value_reserved = variant_owner_effects.reject_reserved_source_use(
+                            self,
                             owners,
                             raw_aliases,
-                            raw_views,
                             value,
-                        ) {
+                            ResourceOwnerOperation::RawMemoryStoreValue,
+                            *span,
+                        );
+                        if !value_reserved
+                            && self.raw_store_value_is_non_owning_raw_address_view(
+                                owners,
+                                raw_aliases,
+                                raw_views,
+                                value,
+                            )
+                        {
                             raw_aliases.copy_alias_or_seed(value, &cell);
                             storage_origins.copy_origin(value, &cell);
-                        } else {
+                        } else if !value_reserved {
                             self.transfer_owner(
                                 owners,
                                 raw_aliases,
@@ -480,17 +597,25 @@ impl ResourceOwnerCheckEngine<'_> {
                     raw_views.clear(output);
                     pending_reallocs.clear_result(output);
                     variant_owner_effects.clear_result(output);
-                    self.apply_call_return_owner(
+                    if !self.reject_reserved_call_arguments(
                         owners,
                         raw_aliases,
-                        storage_origins,
                         variant_owner_effects,
-                        output,
-                        target,
                         args,
-                        !checked_mem_ptr_wrapper,
                         *span,
-                    );
+                    ) {
+                        self.apply_call_return_owner(
+                            owners,
+                            raw_aliases,
+                            storage_origins,
+                            variant_owner_effects,
+                            output,
+                            target,
+                            args,
+                            !checked_mem_ptr_wrapper,
+                            *span,
+                        );
+                    }
                 }
             }
             ResourceOp::IndirectCall {
@@ -503,17 +628,25 @@ impl ResourceOwnerCheckEngine<'_> {
                 raw_views.clear(output);
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);
-                self.apply_indirect_call_return_owner(
+                if !self.reject_reserved_call_arguments(
                     owners,
-                    function_aliases,
                     raw_aliases,
-                    storage_origins,
                     variant_owner_effects,
-                    output,
-                    callee,
                     args,
                     *span,
-                );
+                ) {
+                    self.apply_indirect_call_return_owner(
+                        owners,
+                        function_aliases,
+                        raw_aliases,
+                        storage_origins,
+                        variant_owner_effects,
+                        output,
+                        callee,
+                        args,
+                        *span,
+                    );
+                }
             }
             ResourceOp::Construct {
                 output,
@@ -521,15 +654,23 @@ impl ResourceOwnerCheckEngine<'_> {
                 inputs,
                 span,
             } => {
-                self.construct_owner_fields(
+                if !self.reject_reserved_call_arguments(
                     owners,
                     raw_aliases,
-                    storage_origins,
-                    output,
-                    kind,
+                    variant_owner_effects,
                     inputs,
                     *span,
-                );
+                ) {
+                    self.construct_owner_fields(
+                        owners,
+                        raw_aliases,
+                        storage_origins,
+                        output,
+                        kind,
+                        inputs,
+                        *span,
+                    );
+                }
                 construct_function_alias_fields(function_aliases, output, kind, inputs);
                 raw_views.clear(output);
                 pending_reallocs.clear_result(output);
