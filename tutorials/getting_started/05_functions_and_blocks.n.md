@@ -3,7 +3,7 @@
 関数本体の最後の式が戻り値になります。途中の式を文として終わらせるときは `;` を置きます。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok]
     ##: [0] ok

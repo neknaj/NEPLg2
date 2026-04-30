@@ -3,7 +3,7 @@
 設定値の検証は、失敗理由を `Result` の `Err` に入れて返します。呼び出し側は最初に validation を通し、以後は検証済みの値だけを使います。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok]
     ##: [0] ok

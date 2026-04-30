@@ -29035,3 +29035,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正計画 Stage 4 の owner summary と stdlib boundary の整合性として、checked Result を握りつぶして owner obligation を曖昧化しない方針を stdio helper に反映した。
+
+# 2026-04-30 note (ISS-20260430T123220209Z tutorial exit_code metadata)
+
+- [同期]:
+  - `ced1c4f5` の stdio owner summary commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `tutorials/getting_started` の assertion-style doctest は `checks_print_report` による stdout report を既に持っていたが、metadata は `ret: 0` のままだった。
+  - `.n.md` の `ret:` は言語レベルの戻り値検証に残し、runner / self-host CLI の終了可否は `exit_code:` へ分ける方針なので、tutorial が古い代用を残していると読者向け fixture と runner contract がずれる。
+- [修正]:
+  - `tutorials/getting_started/02_test_harness.n.md` から `24_project_byte_output.n.md` まで、stdout report を持つ 22 件の `ret: 0` を `exit_code: 0` に置き換えた。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に tutorial migration の進捗を追記した。
+  - 子 issue `ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `rg -n "^ret:" tutorials/getting_started`: no matches
+  - `rg -n "^exit_code:" tutorials/getting_started`: 22 matches
+  - `node nodesrc/tests.js -i tutorials/getting_started/02_test_harness.n.md --no-tree -o tmp/tutorial-02-exit-code-agent1.json -j 1 --dist web/dist`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tutorials/getting_started/03_values_and_types.n.md -i tutorials/getting_started/13_vec_basics.n.md -i tutorials/getting_started/24_project_byte_output.n.md --no-tree -o tmp/tutorial-representative-exit-code-agent1.json -j 1 --dist web/dist`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorial-getting-started-exit-code-agent1.json -j 1 --dist web/dist`: 180 秒で timeout。全体 24 件は local 限定検証として重いため、代表実行と metadata scan を採用した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host と Rust runner の doctest contract を揃えるため、tutorial では stdout report + `exit_code:` の形式を優先する。

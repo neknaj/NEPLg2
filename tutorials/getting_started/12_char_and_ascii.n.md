@@ -3,7 +3,7 @@
 `char` は Unicode scalar value です。ASCII 判定や UTF-8 encode の補助は `core/char` にあります。`str` の byte index と `char` の値は分けて考えます。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok,ok,ok,ok,ok]
     ##: [0] ok

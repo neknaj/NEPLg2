@@ -3,7 +3,7 @@
 `Option<T>` は「値がある / ない」を型で表します。`None` の可能性がある値は `match` してから使います。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok,ok]
     ##: [0] ok

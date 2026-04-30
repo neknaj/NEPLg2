@@ -3,7 +3,7 @@
 collection から値を読むときは、「owner を消費する操作」と「借用して Copy 値だけ読む操作」を分けます。`get` は `&Vec<T>` を受け取り、`.T: Copy` の要素だけを返します。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok,ok]
     ##: [0] ok

@@ -91,3 +91,9 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 policy 追加時に見つかった既存の direct discard は、該当 stdlib doc-comment doctest 側も `checks_push` / `checks_exit_code` へ移行した。
 
 この issue 全体の残件は、既存 assertion suite の `ret:` 代用を stdout report + `exit_code:` へ段階的に移行すること、および report 省略のより広い lint / runner policy を整備することである。
+
+## 2026-04-30 getting_started tutorial exit_code migration
+
+`ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F` で、`tutorials/getting_started` の assertion-style doctest metadata を `ret: 0` から `exit_code: 0` へ移行した。
+
+各 tutorial は既に `checks_print_report` で stdout に検査結果を出していたため、今回の変更は `ret:` を runner success value として使う曖昧さを取り除くものに限定した。`rg -n "^ret:" tutorials/getting_started` で残存なし、代表 tutorial doctest 4 件で `exit_code` metadata が runner に解釈されることを確認した。

@@ -3,7 +3,7 @@
 NEPLg2 の関数呼び出しは前置です。`add 1 2` は「`add` に `1` と `2` を渡す」式です。処理を左から右へ読ませたいときだけ pipe を使います。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok]
     ##: [0] ok

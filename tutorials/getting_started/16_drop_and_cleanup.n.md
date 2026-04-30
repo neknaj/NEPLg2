@@ -3,7 +3,7 @@
 現在の stdlib では、所有権を持つ collection や buffer は明示的に解放する API を持っています。将来の Drop elaboration と Resource IR では、compiler が安全な解放経路を広げていく計画です。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok]
     ##: [0] ok

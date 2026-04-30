@@ -3,7 +3,7 @@
 `Vec<T>` は所有権を持つ growable collection です。作成や追加は失敗しうるため、`Result` を `match` して扱います。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok]
     ##: [0] ok

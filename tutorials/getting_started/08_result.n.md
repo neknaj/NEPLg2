@@ -3,7 +3,7 @@
 `Result<T,E>` は「成功値 / 失敗理由」を型で表します。失敗しうる関数は `Result` を返し、呼び出し側が `match` で成功と失敗を分けます。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok]
     ##: [0] ok

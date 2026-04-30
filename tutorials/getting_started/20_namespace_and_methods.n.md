@@ -3,7 +3,7 @@
 enum constructor、trait method、module alias は `::` で呼び出します。どの名前空間の関数を使っているかを明示できます。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok]
     ##: [0] ok

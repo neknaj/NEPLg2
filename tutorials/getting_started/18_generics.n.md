@@ -3,7 +3,7 @@
 型パラメータは `<.T>` のように書きます。`Option<.T>` や `Result<.T,.E>` のような標準型も generic な型です。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok,ok]
     ##: [0] ok

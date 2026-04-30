@@ -3,7 +3,7 @@
 `str` は UTF-8 text です。`len` や `str_byte_len` は byte 数を返し、`str_char_count` は Unicode scalar value としての `char` 数を数えます。
 
 neplg2:test
-ret: 0
+exit_code: 0
 stdout: mlstr:
     ##: Checked [ok,ok,ok,ok]
     ##: [0] ok

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:40:51.638Z",
+  "generated_at": "2026-04-30T14:41:05.818Z",
   "counts": {
-    "total": 464,
+    "total": 465,
     "open": 16,
-    "resolved": 448,
+    "resolved": 449,
     "by_area": {
       "core": {
         "total": 207,
@@ -71,6 +71,11 @@
         "open": 0,
         "resolved": 2
       },
+      "tutorials": {
+        "total": 2,
+        "open": 0,
+        "resolved": 2
+      },
       "web": {
         "total": 1,
         "open": 0,
@@ -80,11 +85,6 @@
         "total": 2,
         "open": 0,
         "resolved": 2
-      },
-      "tutorials": {
-        "total": 1,
-        "open": 0,
-        "resolved": 1
       }
     }
   },
@@ -5173,6 +5173,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T231611047Z-STD-TEST-ASSERTION-DISCARD-SOURCE-PO-B9226736.md"
+    },
+    {
+      "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",
+      "title": "getting started tutorials use ret for assertion exit code",
+      "area": "tutorials",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "tutorials/getting_started/*.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",
