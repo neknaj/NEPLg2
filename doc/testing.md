@@ -98,6 +98,7 @@ node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_fenwick_add_error_owner.js
 node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js
+node nodesrc/test_stdlib_disjoint_set_borrowed_observers.js
 node nodesrc/test_stdlib_list_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js

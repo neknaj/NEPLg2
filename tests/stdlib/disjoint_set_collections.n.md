@@ -7,9 +7,11 @@
 
 [何/なに]を[確/たし]かめるか:
 - `new`
+- `len`
 - `union`
 - `same`
 - `size`
+- `free`
 
 neplg2:test
 ret: 1
@@ -29,14 +31,19 @@ fn main <()*>i32> ():
         |> union 3 4 |> uwok
         |> union 1 4 |> uwok
     let ok0 <bool> unwrap_ok<bool, Diag> same &dsu0 0 3;
+    let ok_len <bool> eq len &dsu0 5;
+    free dsu0
     let dsu1 <DisjointSet>:
         unwrap_ok<DisjointSet, Diag> new 5
         |> union 0 1 |> uwok
         |> union 3 4 |> uwok
         |> union 1 4 |> uwok
     let sz <i32> unwrap_ok<i32, Diag> size &dsu1 4;
+    free dsu1
     let ok1 <bool> eq sz 4;
-    if and ok0 ok1 1 0
+    let ok01 <bool> and ok0 ok1;
+    let ok <bool> and ok_len ok01;
+    if ok 1 0
 ```
 
 ## disjoint_set_union_free_reallocates
@@ -72,6 +79,7 @@ fn main <()*>i32> ():
         unwrap_ok<DisjointSet, Diag> new 4
         |> union 0 3 |> uwok
     let ok0 <bool> unwrap_ok<bool, Diag> same &dsu0 0 3;
+    free dsu0
     if ok0 1 0
 ```
 
@@ -103,16 +111,20 @@ fn main <()*>i32> ():
         Result::Err _e:
             false
         Result::Ok dsu:
-            eq len_ref &dsu 0
+            let ok <bool> eq len &dsu 0
+            free dsu
+            ok
     let find_err_ok <bool> match new 0:
         Result::Err _e:
             false
         Result::Ok dsu:
-            match find &dsu 0:
+            let ok <bool> match find &dsu 0:
                 Result::Ok _root:
                     false
                 Result::Err _e:
                     true
+            free dsu
+            ok
     let free_ok <bool> block:
         let empty <DisjointSet> unwrap_ok<DisjointSet, Diag> new 0
         free empty
@@ -121,10 +133,12 @@ fn main <()*>i32> ():
         Result::Err _e:
             false
         Result::Ok dsu:
-            match find &dsu 0:
+            let ok <bool> match find &dsu 0:
                 Result::Ok root:
                     eq root 0
                 Result::Err _e:
                     false
+            free dsu
+            ok
     if and and len_ok find_err_ok and free_ok realloc_ok 1 0
 ```

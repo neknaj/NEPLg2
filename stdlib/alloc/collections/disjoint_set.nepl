@@ -16,6 +16,7 @@
 //: - `new` は `n < 0` を `Result::Err Diag` として[返/かえ]します。
 //: - `n = 0` は[空/から]の union-find として[有効/ゆうこう]で、内部配列を[確保/かくほ]しません。
 //: - `find` / `union` / `same` / `size` は[範囲外/はんいがい] index を `Result::Err Diag` として[返/かえ]します。
+//: - [読/よ]み[取/と]りだけの[処理/しょり]では `len &dsu` / `find &dsu idx` のように borrow して、[最後/さいご]に `free dsu` で owner を[閉/と]じます。
 //: - path compression を[使/つか]わないので、`find` / `same` / `size` の[最悪計算量/さいあくけいさんりょう]は O(log n) です。
 //:
 //: ### [計算量/けいさんりょう]
@@ -93,7 +94,9 @@ fn dsu_size_raw <(MemPtr<i32>,i32)->i32> (sizes, root):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let dsu <DisjointSet> unwrap_ok<DisjointSet, Diag> new 5;
-//:     if eq len_ref &dsu 5 1 0
+//:     let ok <bool> eq len &dsu 5;
+//:     free dsu
+//:     if ok 1 0
 //: ```
 fn new <(i32)*>Result<DisjointSet, Diag>> (n):
     if:
@@ -124,10 +127,11 @@ fn new <(i32)*>Result<DisjointSet, Diag>> (n):
 
 //: ## len
 //: [保持/ほじ]している[要素数/ようそすう]を[返/かえ]す
-fn len <(DisjointSet)->i32> (dsu):
-    field::get dsu "n"
-
-fn len_ref <(&DisjointSet)->i32> (dsu):
+//:
+//: ### [仕様/しよう]
+//: - `DisjointSet` owner は[消費/しょうひ]しません。
+//: - caller は `len` [後/ご]も同じ `DisjointSet` を[使/つか]い、不要になったら `free` できます。
+fn len <(&DisjointSet)->i32> (dsu):
     *field::get_ref dsu "n"
 
 //: ## find
@@ -150,6 +154,8 @@ fn len_ref <(&DisjointSet)->i32> (dsu):
 //:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
 //:     let dsu3 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu2 0 1;
 //:     let root1 <i32> unwrap_ok<i32, Diag> find &dsu3 1;
+//:     free dsu1
+//:     free dsu3
 //:     if eq root0 root1 1 0
 //: ```
 fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
@@ -185,6 +191,7 @@ fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
 //:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu0 0 1;
 //:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu1 1 2;
 //:     let ok <bool> unwrap_ok<bool, Diag> same &dsu2 0 2;
+//:     free dsu2
 //:     if ok 1 0
 //: ```
 fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
@@ -236,6 +243,8 @@ fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
 //:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
 //:     let dsu3 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu2 0 1;
 //:     let ok1 <bool> unwrap_ok<bool, Diag> same &dsu3 0 2;
+//:     free dsu1
+//:     free dsu3
 //:     let ok2 <bool> if ok1 false true;
 //:     if and ok0 ok2 1 0
 //: ```
@@ -271,6 +280,7 @@ fn same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
 //:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu0 0 1;
 //:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu1 1 2;
 //:     let s <i32> unwrap_ok<i32, Diag> size &dsu2 2;
+//:     free dsu2
 //:     if eq s 3 1 0
 //: ```
 fn size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
@@ -310,9 +320,9 @@ fn size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
 //:     0
 //: ```
 fn free <(DisjointSet)->()> (dsu):
-    let n <i32> *field::get_ref &dsu "n"
-    let parent <MemPtr<i32>> *field::get_ref &dsu "parent"
-    let sizes <MemPtr<i32>> *field::get_ref &dsu "sizes"
+    let n <i32> field::get dsu "n"
+    let parent <MemPtr<i32>> field::get dsu "parent"
+    let sizes <MemPtr<i32>> field::get dsu "sizes"
     if:
         lt 0 n
         then:

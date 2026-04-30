@@ -28351,3 +28351,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - SegmentTree update API の失敗 contract を Stage 6 の collection owner recovery 方針に合わせた。
+
+# 2026-04-30 note (ISS-20260430T041803682Z DisjointSet borrowed observers/free owner contract)
+
+- [同期]:
+  - `main` で `e581533b` まで push/pull 済みの状態から、作業 branch `work/disjoint-set-borrowed-observers` を作成した。
+- [原因]:
+  - `DisjointSet.len` が read-only observer なのに `DisjointSet` を値で受け取り、`len_ref` が重複 observer surface として残っていた。
+  - doctest / stdlib test / collection test は `find` / `same` / `size` のあと owner を明示的に `free` していなかった。
+  - `DisjointSet.free` が `field::get_ref` で `parent` / `sizes` owner fields を借用読み取りしていたため、Resource IR が owner obligation の解放を証明できなかった。
+- [修正]:
+  - `len` を `&DisjointSet` receiver に変更し、`len_ref` を削除した。
+  - `free` は `field::get dsu "parent"` / `field::get dsu "sizes"` で owner fields を消費してから `dealloc_raw` するように変更した。
+  - DisjointSet doctest / stdlib test / collection test を、borrowed query 後に同じ owner を `free` する形へ更新した。
+  - `nodesrc/test_stdlib_disjoint_set_borrowed_observers.js` を追加し、既存の `nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js` に free owner field consumption 検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_disjoint_set_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl --no-tree -o tmp/disjoint-set-borrowed-observers-doctests.json -j 1`: `total=6`, `passed=6`
+  - `node nodesrc/tests.js -i stdlib/tests/disjoint_set.n.md --no-tree -o tmp/disjoint-set-borrowed-observers-stdlib-tests.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/disjoint-set-borrowed-observers-collections-tests.json -j 1`: `total=3`, `passed=3`
+- [issue]:
+  - `ISS-20260430T041803682Z-DISJOINTSET-OBSERVER-AND-FREE-CONTRA-4A69180E` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - DisjointSet の observer/free contract を Resource IR の owner state 追跡に乗る形へ修正した。

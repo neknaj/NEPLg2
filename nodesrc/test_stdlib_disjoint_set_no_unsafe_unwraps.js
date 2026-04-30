@@ -30,6 +30,8 @@ assert.match(code, /fn\s+dsu_store_owned\s+/, 'DisjointSet must centralize owned
 assert.match(code, /fn\s+dsu_load_owned\s+/, 'DisjointSet must centralize owned array loads');
 assert.match(code, /eq\s+n\s+0[\s\S]*ok<DisjointSet,\s*Diag>\s+DisjointSet\s+0\s+mem_ptr_wrap\s+0\s+mem_ptr_wrap\s+0/, 'DisjointSet.new must treat zero length as an empty owned set without allocating zero bytes');
 assert.match(code, /fn\s+free\s+<\(DisjointSet\)->\(\)>\s+\(dsu\):[\s\S]*dealloc_raw\s+mem_ptr_addr\s+parent[\s\S]*dealloc_raw\s+mem_ptr_addr\s+sizes/, 'DisjointSet.free must use raw owner cleanup for parent and size storage');
+assert.match(code, /fn\s+free\s+<\(DisjointSet\)->\(\)>\s+\(dsu\):[\s\S]*field::get\s+dsu\s+"parent"[\s\S]*field::get\s+dsu\s+"sizes"/, 'DisjointSet.free must consume parent and size owner fields');
+assert.doesNotMatch(code, /fn\s+free\s+<\(DisjointSet\)->\(\)>\s+\(dsu\):[\s\S]*field::get_ref\s+&dsu\s+"(?:parent|sizes)"/, 'DisjointSet.free must not borrow-read owned array fields');
 assert.doesNotMatch(code, /dealloc_ptr/, 'DisjointSet must not use checked deallocation for owned internals');
 
 console.log('disjoint set unsafe unwrap regression passed');
