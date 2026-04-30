@@ -23,13 +23,18 @@ fn test_req_file_io() {
 #import "std/stdio" as *
 #import "core/result" as *
 
+fn consume_str <(str)->()> (s):
+    len s
+    ()
+
 fn main <()*>i32> ():
     // 要件: ファイル I/O の失敗が Result で扱えること
     let path "__definitely_missing_selfhost_req_file__.txt";
     let res <Result<str, i32>> fs_read_to_string path;
 
     match res:
-        Result::Ok _content:
+        Result::Ok content:
+            consume_str content;
             1
         Result::Err _e:
             0
@@ -63,11 +68,14 @@ fn main <()*>i32> ():
     set buf unwrap_ok push<u8> buf b2;
 
     // 要件: バイト単位のアクセス
-    match get<u8> buf 0:
+    match get<u8> &buf 0:
         Option::Some val:
             // i32へのキャスト等
-            cast val
+            let out <i32> cast val
+            free<u8> buf;
+            out
         Option::None:
+            free<u8> buf;
             0
 "#;
     let v = run_main_i32(src);
@@ -84,8 +92,10 @@ fn test_req_string_utils() {
 #entry main
 #indent 4
 #import "alloc/string" as *
-#import "alloc/collections/vec" as *
-#import "core/option" as *
+
+fn consume_str <(str)->()> (s):
+    len s
+    ()
 
 fn main <()*>i32> ():
     let s "  fn main(a: i32)  ";
@@ -98,18 +108,25 @@ fn main <()*>i32> ():
     if:
         ok_starts_with_fn
         then:
-            // 要件: split (区切り文字での分割)
-            let parts <Vec<str>> str_split trimmed "(";
-            let name_part <str> unwrap<str> get<str> parts 0; // "fn main"
-            
-            // 要件: substring / slice
-            let func_name <str> str_slice name_part 3 len name_part; // "main"
-            
+            // 要件: delimiter search (分割せずに区切り位置を調べる)
+            let open <i32> str_find trimmed "(";
             if:
-                str_eq func_name "main"
-                then 0
-                else 2
-        else 1
+                lt open 0
+                then:
+                    consume_str trimmed;
+                    3
+                else:
+                    let name_part <str> str_slice trimmed 0 open; // "fn main"
+                    // 要件: substring / slice
+                    let func_name <str> str_slice name_part 3 len name_part; // "main"
+                    let ok <bool> str_eq func_name "main"
+                    consume_str func_name;
+                    consume_str name_part;
+                    consume_str trimmed;
+                    if ok 0 2
+        else:
+            consume_str trimmed;
+            1
     
 "#;
     // selfhost要件としては「コンパイル可能な文字列ユーティリティが揃っていること」を確認する。

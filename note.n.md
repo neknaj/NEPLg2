@@ -1,3 +1,24 @@
+# 2026-04-30 メモ (ISS-20260430T023401649Z selfhost_req strict owner gate)
+
+- [同期]:
+  - `fix/selfhost-req-strict-owner-gate-20260430` branch で、remote main が up-to-date であることを確認してから作業した。
+- [原因]:
+  - `selfhost_req` の file I/O fixture は `Result::Ok(str)` の予期しない成功 arm で owned `str` を終端していなかった。
+  - byte fixture は `Vec.get` が `&Vec<T>` observer へ移行した後も by-value `get<u8> buf 0` を使い、`Vec<u8>` owner も分岐後に解放していなかった。
+  - string fixture は `Vec<str>` から `get<str>` で非 Copy 要素を読む旧 API 前提だった。現在の `Vec.get` は `.T: Copy` の borrowed observer であり、owning element を取り出す collection/drop 設計は `RV-STDLIB-004` の残件として扱うべき範囲だった。
+- [修正]:
+  - `stdlib/alloc/string.nepl` に public `str_find` を追加し、parser が delimiter 位置だけ必要な場合に所有 `Vec<str>` を作らず byte index を得られるようにした。
+  - `nepl-core/tests/selfhost_req.rs` と `tests/stdlib/selfhost_req.n.md` を owner-safe な file I/O / `Vec<u8>` borrowed get / `str_find` + `str_slice` の形へ同期した。
+  - `ISS-20260430T023401649Z-SELFHOST-REQ-FAILS-STRICT-OWNER-GATE-F0FF69D6` を verified/resolved に更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test selfhost_req -- --nocapture`: 6 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/selfhost-req-str-find.json -j 1 --dist web/dist`: `total=15`, `passed=15`
+- [既存残件]:
+  - `Vec<str>` / `Vec<Owned>` の element Drop と owned pop/remove API は `ISS-20260425T000000Z-RV-STDLIB-004-91534828` で継続する。今回の selfhost_req では raw memory や不自然な field extraction で回避せず、不要な owning collection を作らない API を stdlib に追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - selfhost parser 実装で頻出する delimiter 検索の標準 API を追加し、strict owner gate を回帰テストとして使える状態に戻した。
+
 # 2026-04-30 メモ (ISS-20260430T053723149Z move_effect realloc fixture)
 
 - [同期]:
