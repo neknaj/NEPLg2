@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:25.761Z",
+  "generated_at": "2026-04-30T15:47:03.950Z",
   "counts": {
-    "total": 480,
-    "open": 17,
-    "resolved": 463,
+    "total": 483,
+    "open": 19,
+    "resolved": 464,
     "by_area": {
       "core": {
-        "total": 209,
-        "open": 6,
-        "resolved": 203
+        "total": 212,
+        "open": 8,
+        "resolved": 204
       },
       "CORE": {
         "total": 1,
@@ -183,6 +183,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8.md"
+    },
+    {
+      "id": "ISS-20260430T154405890Z-RESOURCE-IR-TUPLE-OWNER-PROJECTIONS--CCF76754",
+      "title": "Resource IR tuple owner projections leak after aggregate field extraction",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource, tests/compiler/overload.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T154405890Z-RESOURCE-IR-TUPLE-OWNER-PROJECTIONS--CCF76754.md"
+    },
+    {
+      "id": "ISS-20260430T154415527Z-TYPED-BLOCK-CONTEXT-LOSES-VEC-LEN-RE-46F57311",
+      "title": "Typed block context loses Vec len_ref overload after Result unwrap",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/typecheck, tests/compiler/overload.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T154415527Z-TYPED-BLOCK-CONTEXT-LOSES-VEC-LEN-RE-46F57311.md"
     },
     {
       "id": "ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B",
@@ -3318,6 +3348,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T143236266Z-RESOURCE-IR-TYPED-RAW-STORE-LOAD-LOS-711B058B.md"
+    },
+    {
+      "id": "ISS-20260430T144921657Z-RESOURCE-IR-OWNER-SUMMARY-LEAVES-MOV-67611338",
+      "title": "Resource IR owner summary leaves moved Result::Ok payload alias after unwrap pipeline",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/owner_variant.rs, nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/owner_transfer.rs, nepl-core/tests/resource_ir.rs, tests/compiler/overload.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T144921657Z-RESOURCE-IR-OWNER-SUMMARY-LEAVES-MOV-67611338.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

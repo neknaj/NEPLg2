@@ -7,7 +7,10 @@ use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_p
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
-use super::owner_transfer::{free_owner_state, move_owner_state_out, transfer_owner_state};
+use super::owner_transfer::{
+    free_owner_state, move_owner_state_out, move_owner_state_out_protecting_aliases,
+    transfer_owner_state,
+};
 use super::place_utils::{
     construct_aggregate_field_place, place_with_suffix, places_overlap, replace_place_prefix,
     should_track,
@@ -256,6 +259,78 @@ impl ResourceOwnerCheckEngine<'_> {
                         aliased.entry.state,
                         span,
                     );
+                }
+                OwnerState::NoFreeObligation => {}
+            }
+        }
+    }
+
+    pub(super) fn move_owner_out_exact_protecting_aliases(
+        &mut self,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        storage_origins: &mut StorageOriginTable,
+        place: &Place,
+        operation: ResourceOwnerOperation,
+        span: Span,
+        protected_aliases: &[Place],
+    ) {
+        self.move_owner_out_exact_inner(
+            owners,
+            raw_aliases,
+            storage_origins,
+            place,
+            operation,
+            span,
+            protected_aliases,
+        );
+    }
+
+    fn move_owner_out_exact_inner(
+        &mut self,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        storage_origins: &mut StorageOriginTable,
+        place: &Place,
+        operation: ResourceOwnerOperation,
+        span: Span,
+        protected_aliases: &[Place],
+    ) {
+        if !should_track(place) {
+            return;
+        }
+        let descendants = owners.descendant_entries(place);
+        match owners.state(place) {
+            Some(OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }) => {
+                move_owner_state_out_protecting_aliases(
+                    owners,
+                    raw_aliases,
+                    storage_origins,
+                    place,
+                    protected_aliases,
+                );
+                raw_aliases.clear(place);
+            }
+            Some(OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed) => {
+                let state = owners.state(place).unwrap_or(OwnerState::NoFreeObligation);
+                self.push_unavailable(operation, place, state, span);
+            }
+            Some(OwnerState::NoFreeObligation) | None => {}
+        }
+        for entry in descendants {
+            match entry.state {
+                OwnerState::Live { .. } | OwnerState::MaybeFreed { .. } => {
+                    move_owner_state_out_protecting_aliases(
+                        owners,
+                        raw_aliases,
+                        storage_origins,
+                        &entry.place,
+                        protected_aliases,
+                    );
+                    raw_aliases.clear(&entry.place);
+                }
+                OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed => {
+                    self.push_unavailable(operation, &entry.place, entry.state, span);
                 }
                 OwnerState::NoFreeObligation => {}
             }

@@ -1,3 +1,30 @@
+# 2026-04-30 メモ (ISS-20260430T144921657Z Result::Ok owner summary alias protection)
+
+- [原因]:
+  - `Stack::new |> unwrap_ok |> push |> unwrap_ok` のような pipeline で、`push` の owner summary が `Result::Ok` payload projection を返却しながら、元 `Stack` の同じ raw owner projection を `consumed_parameter_sources` として消費していた。
+  - 従来の消費処理は source の raw alias group 全体を retire するため、返却先 `tmp5.Ok.field2.field2.field0` も `Moved` になり、次の `unwrap_ok` が output `Stack` へ owner を移せず `DeclareInitializer` で use-after-move になっていた。
+  - `unwrap_ok` のような通常 call の `parameter_sources=[EnumPayload(Ok)]` は pending variant owner return を事前に materialize しないため、match 以外の call 経路で Result payload owner を正しく使い切れない問題も同じ系列で確認した。
+- [修正]:
+  - call summary 適用前に、引数の variant payload source を参照する summary について pending variant owner return を materialize する処理を追加した。
+  - pending variant owner return は、記録時点の transferable owner state を捕捉し、materialize 時に現在の owner state が既に source から移っていても Result payload 側へ正しく移せるようにした。
+  - summary の consumed parameter source が返却 projection の raw alias と重なる場合は、返却 projection を保護し、元引数側だけを exact move するように owner transfer を分離した。
+  - `resource_ir_owner_check_preserves_unwrap_push_pipeline_owner` を追加し、Result-returning collection helper の pipe 後に `len_ref` と `free` が通ることを回帰テスト化した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_unwrap_push_pipeline_owner -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_safe_realloc_variant_return_preserves_err_owner -- --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt --check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 20 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-owner-pipeline-agent1.json -j 1 --dist web/dist`: total=45, passed=43, failed=2。今回対象の `doctest#20` は passed。
+- [issue]:
+  - `ISS-20260430T144921657Z-RESOURCE-IR-OWNER-SUMMARY-LEAVES-MOV-67611338` を fixed/resolved に更新した。
+  - 残る `overload.n.md::doctest#10` は `ISS-20260430T154405890Z-RESOURCE-IR-TUPLE-OWNER-PROJECTIONS--CCF76754`、`doctest#19` は `ISS-20260430T154415527Z-TYPED-BLOCK-CONTEXT-LOSES-VEC-LEN-RE-46F57311` として分離した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査の正確性を優先し、owner use-after-move 診断を緩めず、Resource IR summary の transfer/consume 責務を分離した。
+
 # 2026-04-30 メモ (fullreview Actions 方針補正)
 
 - [同期]:

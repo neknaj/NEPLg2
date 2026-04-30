@@ -1,7 +1,7 @@
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place};
 use super::owner_state::OwnerTable;
-use super::place_utils::should_track;
+use super::place_utils::{places_overlap, should_track};
 use super::storage_origin::StorageOriginTable;
 
 pub(super) fn transfer_owner_state(
@@ -46,6 +46,25 @@ pub(super) fn move_owner_state_out(
     storage_origins.clear(place);
 }
 
+pub(super) fn move_owner_state_out_protecting_aliases(
+    owners: &mut OwnerTable,
+    raw_aliases: &mut RawCellAddressAliases,
+    storage_origins: &mut StorageOriginTable,
+    place: &Place,
+    protected_aliases: &[Place],
+) {
+    retire_transferred_aliases_except(
+        owners,
+        raw_aliases,
+        storage_origins,
+        place,
+        place,
+        protected_aliases,
+    );
+    owners.set_state(place, OwnerState::Moved);
+    storage_origins.clear(place);
+}
+
 pub(super) fn free_owner_state(
     owners: &mut OwnerTable,
     raw_aliases: &mut RawCellAddressAliases,
@@ -64,8 +83,25 @@ fn retire_transferred_aliases(
     source: &Place,
     target: &Place,
 ) {
+    retire_transferred_aliases_except(owners, raw_aliases, storage_origins, source, target, &[]);
+}
+
+fn retire_transferred_aliases_except(
+    owners: &mut OwnerTable,
+    raw_aliases: &RawCellAddressAliases,
+    storage_origins: &mut StorageOriginTable,
+    source: &Place,
+    target: &Place,
+    protected_aliases: &[Place],
+) {
     for alias in raw_aliases.aliases_for(source) {
         if same_owner_path(&alias, source) || same_owner_path(&alias, target) {
+            continue;
+        }
+        if protected_aliases
+            .iter()
+            .any(|protected| places_overlap(&alias, protected))
+        {
             continue;
         }
         match owners.state(&alias) {

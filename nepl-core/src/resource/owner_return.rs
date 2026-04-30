@@ -1,4 +1,5 @@
 use crate::span::Span;
+use alloc::vec::Vec;
 
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
@@ -9,7 +10,7 @@ use super::owner_raw_address::{raw_address_return_ownership, RawAddressReturnOwn
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
-use super::place_utils::place_with_suffix;
+use super::place_utils::{place_with_suffix, places_overlap};
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{OwnerProjectionReturnSummary, OwnerProjectionSource, OwnerReturnSummary};
@@ -19,7 +20,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
+        raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
@@ -43,6 +44,24 @@ impl ResourceOwnerCheckEngine<'_> {
             return;
         };
         if apply_unconditional_summary {
+            variant_owner_effects.materialize_call_argument_variant_returns(
+                self,
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                args,
+                summary,
+                span,
+            );
+            variant_owner_effects.record_call(
+                owners,
+                raw_aliases,
+                raw_views,
+                output,
+                args,
+                summary,
+            );
             self.apply_owner_return_summary(
                 owners,
                 raw_aliases,
@@ -53,8 +72,16 @@ impl ResourceOwnerCheckEngine<'_> {
                 summary,
                 span,
             );
+        } else {
+            variant_owner_effects.record_call(
+                owners,
+                raw_aliases,
+                raw_views,
+                output,
+                args,
+                summary,
+            );
         }
-        variant_owner_effects.record_call(raw_aliases, raw_views, output, args, summary);
     }
 
     pub(super) fn apply_indirect_call_return_owner(
@@ -62,7 +89,7 @@ impl ResourceOwnerCheckEngine<'_> {
         owners: &mut OwnerTable,
         function_aliases: &FunctionAliasTable,
         raw_aliases: &mut RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
+        raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
@@ -90,6 +117,24 @@ impl ResourceOwnerCheckEngine<'_> {
                 .iter()
                 .find(|summary| summary.function == function.as_str())
             {
+                variant_owner_effects.materialize_call_argument_variant_returns(
+                    self,
+                    owners,
+                    raw_aliases,
+                    raw_views,
+                    storage_origins,
+                    args,
+                    summary,
+                    span,
+                );
+                variant_owner_effects.record_call(
+                    owners,
+                    raw_aliases,
+                    raw_views,
+                    output,
+                    args,
+                    summary,
+                );
                 self.apply_owner_return_summary(
                     owners,
                     raw_aliases,
@@ -100,7 +145,6 @@ impl ResourceOwnerCheckEngine<'_> {
                     summary,
                     span,
                 );
-                variant_owner_effects.record_call(raw_aliases, raw_views, output, args, summary);
                 if self.has_transferable_owner(owners, raw_aliases, output) {
                     return;
                 }
@@ -225,12 +269,14 @@ impl ResourceOwnerCheckEngine<'_> {
                 owners.set_state(&marker_place, OwnerState::NoFreeObligation);
             }
         }
+        let protected_return_places = projection_return_places(output, summary);
         self.consume_owner_summary_parameters(
             owners,
             raw_aliases,
             storage_origins,
             args,
             summary,
+            &protected_return_places,
             span,
         );
     }
@@ -310,6 +356,7 @@ impl ResourceOwnerCheckEngine<'_> {
         storage_origins: &mut StorageOriginTable,
         args: &[Place],
         summary: &OwnerReturnSummary,
+        protected_return_places: &[Place],
         span: Span,
     ) {
         for arg in summary
@@ -317,17 +364,25 @@ impl ResourceOwnerCheckEngine<'_> {
             .iter()
             .filter_map(|index| args.get(*index))
         {
-            self.consume_call_argument_owner(owners, raw_aliases, storage_origins, arg, span);
+            self.consume_call_argument_owner_protecting_returns(
+                owners,
+                raw_aliases,
+                storage_origins,
+                arg,
+                protected_return_places,
+                span,
+            );
         }
         for source in &summary.consumed_parameter_sources {
             let Some(source_place) = owner_projection_source_place(args, source) else {
                 continue;
             };
-            self.consume_call_argument_owner(
+            self.consume_call_argument_owner_protecting_returns(
                 owners,
                 raw_aliases,
                 storage_origins,
                 &source_place,
+                protected_return_places,
                 span,
             );
         }
@@ -351,6 +406,33 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             );
         }
+    }
+
+    fn consume_call_argument_owner_protecting_returns(
+        &mut self,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        storage_origins: &mut StorageOriginTable,
+        arg: &Place,
+        protected_return_places: &[Place],
+        span: Span,
+    ) {
+        let resolved = resolve_owner_alias_place(owners, raw_aliases, arg);
+        if place_or_alias_overlaps(raw_aliases, arg, protected_return_places)
+            || place_or_alias_overlaps(raw_aliases, &resolved, protected_return_places)
+        {
+            self.move_owner_out_exact_protecting_aliases(
+                owners,
+                raw_aliases,
+                storage_origins,
+                arg,
+                ResourceOwnerOperation::CallArgument,
+                span,
+                protected_return_places,
+            );
+            return;
+        }
+        self.consume_call_argument_owner(owners, raw_aliases, storage_origins, arg, span);
     }
 
     fn has_transferable_owner(
@@ -390,4 +472,46 @@ impl ResourceOwnerCheckEngine<'_> {
 fn owner_projection_source_place(args: &[Place], source: &OwnerProjectionSource) -> Option<Place> {
     let arg = args.get(source.parameter_index)?;
     Some(place_with_suffix(arg, &source.suffix, source.ty))
+}
+
+fn projection_return_places(output: &Place, summary: &OwnerReturnSummary) -> Vec<Place> {
+    let mut places = Vec::new();
+    if summary.returns_fresh_owner
+        || summary.returns_maybe_owner
+        || !summary.parameter_indices.is_empty()
+        || !summary.parameter_sources.is_empty()
+    {
+        push_unique_place(&mut places, output);
+    }
+    for projection in &summary.projection_returns {
+        push_unique_place(
+            &mut places,
+            &place_with_suffix(output, &projection.suffix, projection.ty),
+        );
+    }
+    for variant_projection in &summary.variant_projection_returns {
+        push_unique_place(
+            &mut places,
+            &place_with_suffix(output, &variant_projection.suffix, variant_projection.ty),
+        );
+    }
+    places
+}
+
+fn place_or_alias_overlaps(
+    raw_aliases: &RawCellAddressAliases,
+    place: &Place,
+    protected_places: &[Place],
+) -> bool {
+    raw_aliases.aliases_for(place).iter().any(|alias| {
+        protected_places
+            .iter()
+            .any(|protected| places_overlap(alias, protected))
+    })
+}
+
+fn push_unique_place(places: &mut Vec<Place>, place: &Place) {
+    if !places.iter().any(|existing| existing == place) {
+        places.push(place.clone());
+    }
 }

@@ -8434,6 +8434,50 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_preserves_unwrap_push_pipeline_owner() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "alloc/collections/stack" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let st <Stack<i32>>:
+        new
+        |> unwrap_ok<Stack<i32>, Diag>
+        |> push 10
+        |> unwrap_ok<Stack<i32>, Diag>
+    let n <i32> len_ref<i32> &st
+    free<i32> st
+    n
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function == "main" || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Result::Ok payload owner must rekey into unwrap_ok pipeline output without stale moved aliases: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_consumes_only_used_aggregate_owner_projection() {
     let source = r#"
 #entry main

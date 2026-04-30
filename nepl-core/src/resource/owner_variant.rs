@@ -7,7 +7,7 @@ use crate::span::Span;
 use crate::types::TypeId;
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{OwnerState, Place, ResourceMatchPattern, StorageId};
+use super::model::{OwnerState, Place, PlaceProjection, ResourceMatchPattern, StorageId};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
@@ -46,9 +46,16 @@ enum PendingVariantOwnerReturnKind {
         arg: Place,
         source_suffix: Vec<super::model::PlaceProjection>,
         source_ty: TypeId,
+        captured: Option<PendingVariantCapturedOwner>,
     },
     FreshOwner,
     MaybeOwner,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingVariantCapturedOwner {
+    source: Place,
+    state: OwnerState,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,6 +101,7 @@ impl PendingVariantOwnerEffects {
 
     pub(super) fn record_call(
         &mut self,
+        owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
         _raw_views: &RawAddressViewTable,
         output: &Place,
@@ -136,6 +144,13 @@ impl PendingVariantOwnerEffects {
                         arg: raw_aliases.canonicalize(arg),
                         source_suffix: source.suffix.clone(),
                         source_ty: source.ty,
+                        captured: captured_parameter_owner(
+                            owners,
+                            raw_aliases,
+                            arg,
+                            &source.suffix,
+                            source.ty,
+                        ),
                     }
                 }
                 OwnerVariantProjectionReturnKind::FreshOwner => {
@@ -161,6 +176,51 @@ impl PendingVariantOwnerEffects {
                 ty: entry.ty,
                 condition: entry.condition,
             });
+        }
+    }
+
+    pub(super) fn materialize_call_argument_variant_returns(
+        &mut self,
+        engine: &mut ResourceOwnerCheckEngine<'_>,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &mut RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        args: &[Place],
+        summary: &OwnerReturnSummary,
+        span: Span,
+    ) {
+        let mut requests = Vec::new();
+        for source in &summary.parameter_sources {
+            push_variant_source_request(&mut requests, source);
+        }
+        for source in &summary.consumed_parameter_sources {
+            push_variant_source_request(&mut requests, source);
+        }
+        for projection in &summary.projection_returns {
+            for source in &projection.parameter_sources {
+                push_variant_source_request(&mut requests, source);
+            }
+        }
+        for variant_return in &summary.variant_projection_returns {
+            if let OwnerVariantProjectionReturnKind::Parameter(source) = &variant_return.kind {
+                push_variant_source_request(&mut requests, source);
+            }
+        }
+        for (parameter_index, variant) in requests {
+            let Some(result) = args.get(parameter_index) else {
+                continue;
+            };
+            self.materialize_variant_returns(
+                engine,
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                result,
+                &variant,
+                span,
+            );
         }
     }
 
@@ -191,16 +251,18 @@ impl PendingVariantOwnerEffects {
                     arg,
                     source_suffix,
                     source_ty,
+                    captured,
                 } => {
                     let arg = raw_aliases.canonicalize(arg);
                     let source = place_with_suffix(&arg, source_suffix, *source_ty);
-                    engine.transfer_owner(
+                    materialize_parameter_return(
+                        engine,
                         owners,
                         raw_aliases,
                         storage_origins,
                         &source,
+                        captured.as_ref(),
                         &target,
-                        ResourceOwnerOperation::ReturnValue,
                         span,
                     );
                 }
@@ -217,6 +279,68 @@ impl PendingVariantOwnerEffects {
             }
             raw_views.clear(&target);
         }
+    }
+
+    fn materialize_variant_returns(
+        &mut self,
+        engine: &mut ResourceOwnerCheckEngine<'_>,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &mut RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        result: &Place,
+        variant: &str,
+        span: Span,
+    ) {
+        let variant = normalize_variant_name(variant);
+        if self.variant_is_unreachable(result, &variant) {
+            return;
+        }
+        let returns = self
+            .returns
+            .iter()
+            .filter(|entry| entry.result == *result && entry.variant == variant)
+            .cloned()
+            .collect::<Vec<_>>();
+        if returns.is_empty() {
+            return;
+        }
+        for entry in &returns {
+            let target = place_with_suffix(result, &entry.target_suffix, entry.target_ty);
+            match &entry.kind {
+                PendingVariantOwnerReturnKind::Parameter {
+                    arg,
+                    source_suffix,
+                    source_ty,
+                    captured,
+                } => {
+                    let arg = raw_aliases.canonicalize(arg);
+                    let source = place_with_suffix(&arg, source_suffix, *source_ty);
+                    materialize_parameter_return(
+                        engine,
+                        owners,
+                        raw_aliases,
+                        storage_origins,
+                        &source,
+                        captured.as_ref(),
+                        &target,
+                        span,
+                    );
+                }
+                PendingVariantOwnerReturnKind::FreshOwner => {
+                    owners.allocate(&target);
+                    raw_aliases.mark(&target);
+                    storage_origins.mark_owned(&target);
+                }
+                PendingVariantOwnerReturnKind::MaybeOwner => {
+                    owners.set_state(&target, OwnerState::MaybeFreed { storage: None });
+                    raw_aliases.mark(&target);
+                    storage_origins.mark_owned(&target);
+                }
+            }
+            raw_views.clear(&target);
+        }
+        self.resolve_result(result);
     }
 
     pub(super) fn apply_match_arm(
@@ -400,6 +524,7 @@ impl PendingVariantOwnerEffects {
                     arg,
                     source_suffix,
                     source_ty,
+                    captured: _,
                 } => {
                     let arg = raw_aliases.canonicalize(arg);
                     let source = place_with_suffix(&arg, source_suffix, *source_ty);
@@ -467,6 +592,7 @@ impl PendingVariantOwnerEffects {
                 arg,
                 source_suffix,
                 source_ty,
+                captured: _,
             } = &entry.kind
             {
                 push_unique_source(
@@ -490,6 +616,7 @@ impl PendingVariantOwnerEffects {
                     arg,
                     source_suffix,
                     source_ty,
+                    captured: _,
                 } => !source_list_contains(&resolved_sources, arg, source_suffix, *source_ty),
                 PendingVariantOwnerReturnKind::FreshOwner
                 | PendingVariantOwnerReturnKind::MaybeOwner => true,
@@ -649,12 +776,75 @@ fn pending_return_source(
         arg,
         source_suffix,
         source_ty,
+        captured: _,
     } = &entry.kind
     else {
         return None;
     };
     let arg = raw_aliases.canonicalize(arg);
     Some(place_with_suffix(&arg, source_suffix, *source_ty))
+}
+
+fn captured_parameter_owner(
+    owners: &OwnerTable,
+    raw_aliases: &RawCellAddressAliases,
+    arg: &Place,
+    suffix: &[super::model::PlaceProjection],
+    ty: TypeId,
+) -> Option<PendingVariantCapturedOwner> {
+    let arg = raw_aliases.canonicalize(arg);
+    let source = place_with_suffix(&arg, suffix, ty);
+    let resolved = resolve_owner_alias_place(owners, raw_aliases, &source);
+    let Some(state @ (OwnerState::Live { .. } | OwnerState::MaybeFreed { .. })) =
+        owners.state(&resolved)
+    else {
+        return None;
+    };
+    Some(PendingVariantCapturedOwner {
+        source: resolved,
+        state,
+    })
+}
+
+fn materialize_parameter_return(
+    engine: &mut ResourceOwnerCheckEngine<'_>,
+    owners: &mut OwnerTable,
+    raw_aliases: &mut RawCellAddressAliases,
+    storage_origins: &mut StorageOriginTable,
+    source: &Place,
+    captured: Option<&PendingVariantCapturedOwner>,
+    target: &Place,
+    span: Span,
+) {
+    let resolved_source = resolve_owner_alias_place(owners, raw_aliases, source);
+    if owners.has_transferable_owner(&resolved_source) {
+        engine.transfer_owner(
+            owners,
+            raw_aliases,
+            storage_origins,
+            &resolved_source,
+            target,
+            ResourceOwnerOperation::ReturnValue,
+            span,
+        );
+        return;
+    }
+    let Some(captured) = captured else {
+        engine.transfer_owner(
+            owners,
+            raw_aliases,
+            storage_origins,
+            source,
+            target,
+            ResourceOwnerOperation::ReturnValue,
+            span,
+        );
+        return;
+    };
+    owners.set_state(&captured.source, OwnerState::Moved);
+    owners.set_state(target, captured.state.clone());
+    raw_aliases.mark(target);
+    storage_origins.mark_owned(target);
 }
 
 fn reserved_owner_state(owners: &OwnerTable, source: &Place) -> OwnerState {
@@ -677,6 +867,19 @@ fn first_storage_under(owners: &OwnerTable, source: &Place) -> Option<StorageId>
             OwnerState::MaybeFreed { storage } | OwnerState::Reserved { storage } => storage,
             OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed => None,
         })
+}
+
+fn push_variant_source_request(
+    requests: &mut Vec<(usize, String)>,
+    source: &OwnerProjectionSource,
+) {
+    let Some(PlaceProjection::EnumPayload { variant }) = source.suffix.first() else {
+        return;
+    };
+    let request = (source.parameter_index, normalize_variant_name(variant));
+    if !requests.iter().any(|existing| existing == &request) {
+        requests.push(request);
+    }
 }
 
 fn push_unique_source(
