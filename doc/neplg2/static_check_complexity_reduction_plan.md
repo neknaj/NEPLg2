@@ -335,7 +335,11 @@ self-host 実装側の禁止事項:
 - `UnsafeMemoryInPureFunction` は stdlib raw-memory-backed API 移行のため shadow-only に残っている。最終的には public pure surface から unsafe memory を構成できないよう gate 化する。
 - self-host の S1/S2 は進められるが、S3 以降の typecheck / Resource IR / diagnostic aggregation では raw header collection や `MemPtr` owner discipline を中核に持ち込まない。
 
-したがって、この計画の完了条件は変更しない。旧 checker の special-case を増やして現状維持するのではなく、drop elaboration、owner/cell diagnostic、stdlib collection owner state を Resource IR / enum / match の設計へ移す。
+追加精査で、`ResourceDiagnosticCode` 自体は `Move` / `Borrow` / `Cell` / `Owner` / `Raw` / `Lower` に分離済みであることを確認した。設計上の未完了点は、Cell / Owner category の追加ではなく、旧 HIR `move_check` / `insert_drops` がまだ final authority として残っていること、`UnsafeMemoryInPureFunction` が shadow-only であること、stdlib の owner token / collection storage state が compiler-issued capability に揃い切っていないことである。
+
+Resource checker の責務分割 policy も確認し、`initialized_summary_variant_build.rs` が監視対象から漏れていたため `ISS-20260430T062912063Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-CC55287A` で修正した。今後 Resource IR module を分割した場合は、実装だけでなく `nodesrc/test_resource_checker_responsibility.js` の必須 module 一覧と行数上限も同時に更新する。
+
+したがって、この計画の完了条件は変更しない。旧 checker の special-case を増やして現状維持するのではなく、drop elaboration、owner/cell state authority、stdlib collection owner state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件
 

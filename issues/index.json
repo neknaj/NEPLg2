@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T06:32:27.952Z",
+  "generated_at": "2026-04-30T06:35:24.431Z",
   "counts": {
-    "total": 450,
+    "total": 451,
     "open": 15,
-    "resolved": 435,
+    "resolved": 436,
     "by_area": {
       "core": {
         "total": 200,
@@ -75,6 +75,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "docs": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "tutorials": {
         "total": 1,
@@ -5528,6 +5533,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD.md"
+    },
+    {
+      "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",
+      "title": "Static check design docs keep stale Resource diagnostic taxonomy",
+      "area": "docs",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "doc/neplg2/static_check_design_verification_20260430.md, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",
