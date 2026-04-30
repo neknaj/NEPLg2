@@ -4,6 +4,11 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -39,19 +44,21 @@ fn expect_item <(&Vec<i32>,i32,i32)->Result<(),str>> (v, idx, expected):
 fn main <()*>i32> ():
     match build_numbers:
         Result::Err msg:
-            checks_exit_code checks_push checks_new Result<(),str>::Err msg
+            let checks checks_push checks_new Result<(),str>::Err msg
+            let shown checks_print_report checks
+            checks_exit_code shown
         Result::Ok numbers:
             let n <i32> len_ref<i32> &numbers
-            let len_ok <Result<(),str>> check_eq_i32 2 n
             let item0 <Result<(),str>> expect_item &numbers 0 10
             let item1 <Result<(),str>> expect_item &numbers 1 20
             let checks:
                 checks_new
-                |> checks_push len_ok
+                |> checks_push assert_eq_i32 2 n
                 |> checks_push item0
                 |> checks_push item1
             free<i32> numbers;
-            checks_exit_code checks
+            let shown checks_print_report checks
+            checks_exit_code shown
 ```
 
 `Vec` の owner は最後に `free` します。読み取りだけなら `&numbers` を渡す `*_ref` API を使い、collection 本体を消費しないようにします。

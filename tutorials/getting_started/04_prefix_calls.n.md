@@ -4,6 +4,10 @@ NEPLg2 の関数呼び出しは前置です。`add 1 2` は「`add` に `1` と 
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -26,9 +30,10 @@ fn main <()*>i32> ():
         |> double
     let checks:
         checks_new
-        |> checks_push check_eq_i32 30 prefix
-        |> checks_push check_eq_i32 30 piped
-    checks_exit_code checks
+        |> checks_push assert_eq_i32 30 prefix
+        |> checks_push assert_eq_i32 30 piped
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 pipe は可読性のための道具です。まず前置呼び出しで読めるようになってから、段階的な変換に pipe を使うと混乱しにくくなります。

@@ -4,6 +4,13 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -39,12 +46,13 @@ fn escape_code <(char)->i32> (c):
 fn main <()*>i32> ():
     let checks:
         checks_new
-        |> checks_push check_eq_i32 0 grade 40
-        |> checks_push check_eq_i32 1 grade 70
-        |> checks_push check_eq_i32 2 grade 90
-        |> checks_push check_eq_i32 10 escape_code '\n'
-        |> checks_push check_eq_i32 0 escape_code 'A'
-    checks_exit_code checks
+        |> checks_push assert_eq_i32 0 grade 40
+        |> checks_push assert_eq_i32 1 grade 70
+        |> checks_push assert_eq_i32 2 grade 90
+        |> checks_push assert_eq_i32 10 escape_code '\n'
+        |> checks_push assert_eq_i32 0 escape_code 'A'
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 `escape_code` のように「同じ値を複数候補と比較する」処理は `match` で書くと、追加漏れや重複が見つけやすくなります。

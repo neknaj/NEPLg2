@@ -4,6 +4,12 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -24,11 +30,12 @@ fn main <()*>i32> ():
     let text <str> "Aあ"
     let checks:
         checks_new
-        |> checks_push check_eq_i32 4 str_byte_len text
-        |> checks_push check_eq_i32 2 str_char_count text
+        |> checks_push assert_eq_i32 4 str_byte_len text
+        |> checks_push assert_eq_i32 2 str_char_count text
         |> checks_push expect_str_ok str_slice_chars_result text 1 2 "あ"
-        |> checks_push check is_err<str,str> str_slice_result text 2 3
-    checks_exit_code checks
+        |> checks_push assert is_err<str,str> str_slice_result text 2 3
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 byte offset で切る API は UTF-8 boundary を守る必要があります。利用者向けの text 処理では、可能なら `str_slice_chars_result` のような char index API を使います。

@@ -4,6 +4,9 @@ binary output を組み立てるときは `ByteBuilder` を使い、最後に `B
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -47,7 +50,8 @@ fn main <()*>i32> ():
     let checks:
         checks_new
         |> checks_push expect_text make_text_bytes "Aあ"
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 `ByteBuilder` も owner です。各 `push` は builder を消費して新しい builder を返すため、成功した値だけを次の段階へ渡します。

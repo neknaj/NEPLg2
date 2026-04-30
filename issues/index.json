@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T01:58:36.092Z",
+  "generated_at": "2026-04-30T02:12:10.680Z",
   "counts": {
-    "total": 419,
+    "total": 420,
     "open": 16,
-    "resolved": 403,
+    "resolved": 404,
     "by_area": {
       "core": {
         "total": 195,
@@ -70,6 +70,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "tutorials": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       }
     }
   },
@@ -6223,6 +6228,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7.md"
+    },
+    {
+      "id": "ISS-20260430T020255446Z-GETTING-STARTED-DOCTESTS-RELY-ON-EXI-8902362D",
+      "title": "Getting started doctests rely on exit code without stdout reports",
+      "area": "tutorials",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "tutorials/getting_started/*.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T020255446Z-GETTING-STARTED-DOCTESTS-RELY-ON-EXI-8902362D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-008-75A1322E",

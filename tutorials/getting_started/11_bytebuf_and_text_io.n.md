@@ -4,6 +4,10 @@ binary data は `ByteBuf` のまま扱い、text として読むときだけ UTF
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -36,7 +40,8 @@ fn main <()*>i32> ():
         checks_new
         |> checks_push expect_text roundtrip_text "NEPL" "NEPL"
         |> checks_push expect_text roundtrip_text "Aあ" "Aあ"
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 `ByteBuf` は所有権を持つ buffer です。`io_bytebuf_to_str_result` のように引数を消費する関数へ渡した後は、同じ値を再利用しません。

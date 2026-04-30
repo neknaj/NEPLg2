@@ -4,6 +4,11 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -49,7 +54,8 @@ fn main <()*>i32> ():
         |> checks_push expect_valid ServerConfig 8080 4
         |> checks_push expect_invalid ServerConfig 0 4 "port too small"
         |> checks_push expect_invalid ServerConfig 8080 0 "workers too small"
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 `ServerConfig` のような small struct は、validation を通した後に次の層へ渡すと API 境界が読みやすくなります。

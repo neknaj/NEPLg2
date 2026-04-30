@@ -4,6 +4,12 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -22,11 +28,12 @@ fn main <()*>i32> ():
     let answer <Result<i32,str>> identity ok<i32,str> 1
     let checks:
         checks_new
-        |> checks_push check_eq_i32 42 identity 42
-        |> checks_push check identity true
-        |> checks_push check is_some<i32> maybe
-        |> checks_push check is_ok<i32,str> answer
-    checks_exit_code checks
+        |> checks_push assert_eq_i32 42 identity 42
+        |> checks_push assert identity true
+        |> checks_push assert is_some<i32> maybe
+        |> checks_push assert is_ok<i32,str> answer
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 この例では `Copy` bound を付け、`i32`、`bool`、`Option<i32>`、`Result<i32,str>` のような copy できる値だけを受け取ります。所有権を持つ値まで generic に扱う場合は、move / borrow / Clone の境界を別に設計します。

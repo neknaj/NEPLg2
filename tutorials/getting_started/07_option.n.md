@@ -4,6 +4,12 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -25,11 +31,12 @@ fn main <()*>i32> ():
     let b <Option<i32>> none<i32>
     let checks:
         checks_new
-        |> checks_push check_eq_i32 42 point_or_zero a
-        |> checks_push check_eq_i32 0 point_or_zero b
-        |> checks_push check is_some some<i32> 1
-        |> checks_push check is_none none<i32>
-    checks_exit_code checks
+        |> checks_push assert_eq_i32 42 point_or_zero a
+        |> checks_push assert_eq_i32 0 point_or_zero b
+        |> checks_push assert is_some some<i32> 1
+        |> checks_push assert is_none none<i32>
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 入門では `unwrap` より `match` と `unwrap_or` を優先します。失敗する可能性を消してから中身を使う方が、後から大きなコードへ伸ばしやすくなります。

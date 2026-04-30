@@ -4,6 +4,11 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -15,10 +20,11 @@ ret: 0
 fn main <()*>i32> ():
     let checks:
         checks_new
-        |> checks_push check_eq_i32 3 add 1 2
-        |> checks_push check_str_eq "hello" "hello"
-        |> checks_push check true
-    checks_exit_code checks
+        |> checks_push assert_eq_i32 3 add 1 2
+        |> checks_push assert_str_eq "hello" "hello"
+        |> checks_push assert true
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
-`checks_exit_code` は stdout を自動では汚しません。実行結果を表示したいときだけ `checks_print_report` を明示的に呼びます。
+`checks_exit_code` は stdout を自動では汚しません。tutorial では、読者と CI artifact が確認内容を見られるように `checks_print_report` を明示的に呼びます。

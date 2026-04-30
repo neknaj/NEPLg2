@@ -4,6 +4,10 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -16,9 +20,10 @@ ret: 0
 fn main <()*>i32> ():
     let checks:
         checks_new
-        |> checks_push check_eq_i32 7 math::add 3 4
-        |> checks_push check_eq_i32 12 math::mul 3 4
-    checks_exit_code checks
+        |> checks_push assert_eq_i32 7 math::add 3 4
+        |> checks_push assert_eq_i32 12 math::mul 3 4
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 `as *` は学習や小さな test では便利ですが、大きな module では alias を使って衝突を避けます。

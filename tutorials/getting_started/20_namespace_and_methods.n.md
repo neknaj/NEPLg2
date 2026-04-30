@@ -4,6 +4,11 @@ enum constructor、trait method、module alias は `::` で呼び出します。
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -34,10 +39,11 @@ fn main <()*>i32> ():
     let empty <Option<i32>> Option<i32>::None
     let checks:
         checks_new
-        |> checks_push check_eq_i32 1 option_code small
-        |> checks_push check_eq_i32 2 option_code large
-        |> checks_push check_eq_i32 0 option_code empty
-    checks_exit_code checks
+        |> checks_push assert_eq_i32 1 option_code small
+        |> checks_push assert_eq_i32 2 option_code large
+        |> checks_push assert_eq_i32 0 option_code empty
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 `Option::Some` のような省略形が使える場面もありますが、型推論が曖昧なときは `Option<i32>::Some` のように具体型を足します。

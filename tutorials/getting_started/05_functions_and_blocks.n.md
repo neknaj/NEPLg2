@@ -4,6 +4,11 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -32,10 +37,11 @@ fn score <(i32)->i32> (raw):
 fn main <()*>i32> ():
     let checks:
         checks_new
-        |> checks_push check_eq_i32 0 score -10
-        |> checks_push check_eq_i32 8 score 5
-        |> checks_push check_eq_i32 10 score 20
-    checks_exit_code checks
+        |> checks_push assert_eq_i32 0 score -10
+        |> checks_push assert_eq_i32 8 score 5
+        |> checks_push assert_eq_i32 10 score 20
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 `score` の末尾にある `clamp_0_10 adjusted` が戻り値です。計算途中の名前は、意味が増えるときだけ置きます。

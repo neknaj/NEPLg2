@@ -4,6 +4,15 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -26,14 +35,15 @@ fn main <()*>i32> ():
     let hira <char> 'あ'
     let checks:
         checks_new
-        |> checks_push check_eq_i32 65 char_to_i32 a
-        |> checks_push check char_is_ascii_alpha a
-        |> checks_push check char_is_ascii_digit '7'
-        |> checks_push check char_is_ascii_whitespace '\n'
-        |> checks_push check_eq_i32 1 char_utf8_len a
-        |> checks_push check_eq_i32 3 char_utf8_len hira
+        |> checks_push assert_eq_i32 65 char_to_i32 a
+        |> checks_push assert char_is_ascii_alpha a
+        |> checks_push assert char_is_ascii_digit '7'
+        |> checks_push assert char_is_ascii_whitespace '\n'
+        |> checks_push assert_eq_i32 1 char_utf8_len a
+        |> checks_push assert_eq_i32 3 char_utf8_len hira
         |> checks_push expect_char str_char_at_result "Aあ" 1 0x3042
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 ASCII だけを受け付ける処理では `char_is_ascii_*` を使います。任意の text を 1 byte として扱うのは誤りです。

@@ -4,6 +4,11 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -45,7 +50,8 @@ fn main <()*>i32> ():
         |> checks_push expect_port 8080 8080
         |> checks_push expect_port_error 0 "port too small"
         |> checks_push expect_port_error 70000 "port too large"
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 validation の段階で理由付きの `Err` にしておくと、呼び出し元は panic せずに表示、既定値、再入力などを選べます。

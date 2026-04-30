@@ -1,3 +1,24 @@
+# 2026-04-30 メモ (ISS-20260430T020255446Z getting_started tutorial stdout report)
+
+- [同期]:
+  - `work/tutorial-stdout-reports` branch で、CI source policy warn-only 修正後の main から作業した。
+- [原因]:
+  - getting_started tutorial の多くの doctest が `checks_exit_code` の終了 code だけで成功を判定しており、読者や CI artifact がどの assertion を実行したか stdout から確認できなかった。
+  - `std/test` は既に `assert` / `assert_*` で構造化 assertion を作り、`checks_print_report` で安定した stdout report を出す設計になっているため、tutorial 側が古い exit-code-only の書き方を残していた。
+- [修正]:
+  - `tutorials/getting_started/02_test_harness.n.md` から `24_project_byte_output.n.md` までの runtime doctest を、成功時に `checks_print_report` を呼んでから `checks_exit_code` へ渡す形に揃えた。
+  - 単純な bool / i32 / str 等値の検査は `check_*` ではなく `assert` / `assert_eq_i32` / `assert_str_eq` へ寄せ、stdout report の入力が構造化 assertion になるようにした。
+  - `Vec` / `collection` / cleanup 例の allocation failure 分岐でも、失敗 report を stdout に出してから exit code へ変換するようにした。
+- [issue]:
+  - `ISS-20260430T020255446Z-GETTING-STARTED-DOCTESTS-RELY-ON-EXI-8902362D` を fixed/resolved にした。
+- [検証]:
+  - `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/tutorials-stdout-tests.json -j 4`: `total=24`, `passed=24`, `failed=0`
+  - `node nodesrc/tests.js -i examples --no-tree -o tmp/examples-tests.json -j 4`: `total=12`, `passed=7`, `failed=5`
+  - examples の失敗は `stk::push_ref` / `stk::pop_ref` が現行 `stack.nepl` から消えていることによる別問題で、tutorial stdout 修正とは原因が異なる。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - tutorial は exit code だけでなく stdout でも検査結果を見せる方針へ更新した。
+
 # 2026-04-30 メモ (ISS-20260430T015534910Z CI source policy warn-only)
 
 - [同期]:

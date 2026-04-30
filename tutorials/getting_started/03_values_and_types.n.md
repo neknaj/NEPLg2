@@ -4,6 +4,11 @@ NEPLg2 の基本値は式として扱います。型注釈は必要な場所だ�
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -19,10 +24,11 @@ fn main <()*>i32> ():
     let unit <()> ()
     let checks:
         checks_new
-        |> checks_push check_eq_i32 42 add n 2
-        |> checks_push check ok
-        |> checks_push check_str_eq "nepl" text
-    checks_exit_code checks
+        |> checks_push assert_eq_i32 42 add n 2
+        |> checks_push assert ok
+        |> checks_push assert_str_eq "nepl" text
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 `str` は UTF-8 text の値です。byte 数と char 数は同じとは限らないため、文字列の詳しい扱いは Part 3 で分けて扱います。

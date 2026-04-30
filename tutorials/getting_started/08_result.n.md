@@ -4,6 +4,10 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -39,7 +43,8 @@ fn main <()*>i32> ():
         checks_new
         |> checks_push expect_ok divide_10 2 5
         |> checks_push expect_err divide_10 0 "division by zero"
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 `Result` の中身を取り出す関数を小さく分けると、正常系と異常系の扱いをテストしやすくなります。

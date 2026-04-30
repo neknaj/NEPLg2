@@ -4,6 +4,9 @@
 
 neplg2:test
 ret: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 | #entry main
 | #indent 4
@@ -16,13 +19,16 @@ ret: 0
 fn main <()*>i32> ():
     match new<i32>:
         Result::Err _e:
-            checks_exit_code checks_push checks_new Result<(),str>::Err "vec.new failed"
+            let checks checks_push checks_new Result<(),str>::Err "vec.new failed"
+            let shown checks_print_report checks
+            checks_exit_code shown
         Result::Ok values:
             let checks:
                 checks_new
-                |> checks_push check_eq_i32 0 len_ref<i32> &values
+                |> checks_push assert_eq_i32 0 len_ref<i32> &values
             free<i32> values;
-            checks_exit_code checks
+            let shown checks_print_report checks
+            checks_exit_code shown
 ```
 
 raw memory の確保や pointer 計算は通常の tutorial では扱いません。public API だけで書けない場合は、stdlib 側の抽象 API が不足している可能性があります。
