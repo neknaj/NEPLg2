@@ -9,6 +9,9 @@ use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_p
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::owner_summary_cleanup::{
+    remove_variant_consumed_parameter_sources, remove_variant_projection_return_sources,
+};
 use super::owner_summary_leaf::owner_leaf_places;
 use super::owner_summary_record::{
     owner_source_for_storage, push_unique_owner_projection_source, record_projection_marker,
@@ -330,58 +333,4 @@ pub(super) fn consumed_owner_parameters(
         }
     }
     (indices, sources)
-}
-
-fn remove_variant_consumed_parameter_sources(
-    consumed_indices: &mut Vec<usize>,
-    consumed_sources: &mut Vec<OwnerProjectionSource>,
-    variant_indices: &[super::summary::OwnerVariantParameterIndex],
-    variant_sources: &[super::summary::OwnerVariantProjectionSource],
-) {
-    for variant in variant_indices {
-        consumed_indices.retain(|index| *index != variant.parameter_index);
-    }
-    for variant in variant_sources {
-        consumed_sources.retain(|source| source != &variant.source);
-    }
-}
-
-fn remove_variant_projection_return_sources(
-    projection_returns: &mut Vec<super::summary::OwnerProjectionReturnSummary>,
-    variant_returns: &[super::summary::OwnerVariantProjectionReturn],
-) {
-    use super::summary::OwnerVariantProjectionReturnKind;
-
-    for projection in projection_returns.iter_mut() {
-        for variant_return in variant_returns
-            .iter()
-            .filter(|entry| entry.suffix == projection.suffix && entry.ty == projection.ty)
-        {
-            match &variant_return.kind {
-                OwnerVariantProjectionReturnKind::Parameter(source) => {
-                    if source.suffix.is_empty() {
-                        projection
-                            .parameter_indices
-                            .retain(|index| *index != source.parameter_index);
-                    } else {
-                        projection
-                            .parameter_sources
-                            .retain(|existing| existing != source);
-                    }
-                }
-                OwnerVariantProjectionReturnKind::FreshOwner => {
-                    projection.returns_fresh_owner = false;
-                }
-                OwnerVariantProjectionReturnKind::MaybeOwner => {
-                    projection.returns_maybe_owner = false;
-                }
-            }
-        }
-    }
-    projection_returns.retain(|projection| {
-        projection.returns_fresh_owner
-            || projection.returns_maybe_owner
-            || !projection.parameter_indices.is_empty()
-            || !projection.parameter_sources.is_empty()
-    });
 }

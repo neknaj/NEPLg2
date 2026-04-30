@@ -2,12 +2,12 @@
 id: ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA
 title: "Resource initialized raw alias logic reintroduces monolithic checker size"
 area: core
-status: fixed
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: architecture
 created: 2026-04-28
-updated: 2026-04-29
+updated: 2026-05-01
 target: "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
@@ -75,3 +75,12 @@ GitHub Actions run `25078350935` の Source policy regressions で `initialized_
 - `node nodesrc\tests.js -i tests\compiler\move_effect.n.md --no-tree -o tmp\initialized-alias-flow-split-move-effect.json -j 1`: 110/110 pass
 - `node nodesrc\tests.js -i tests\compiler\move_check.n.md --no-tree -o tmp\initialized-alias-flow-split-move-check.json -j 1`: 52/52 pass
 - `node nodesrc\issues.js check`: pass
+
+## 2026-05-01 再発
+
+Resource checker responsibility policy の再確認で、initialized alias 系が再び上限を超えている。
+
+- `initialized_alias.rs`: 723/550
+- `initialized_alias_flow.rs`: 581/550
+
+raw alias table、canonicalization、summary flow、call-site propagation、aggregate alias propagation の責務が再び寄り始めている。owner/lower 側の責務分割とは別 issue として、initialized alias / flow の境界を再分割する。

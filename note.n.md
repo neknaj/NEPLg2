@@ -1,3 +1,23 @@
+# 2026-05-01 メモ (ISS-20260429T135959086Z owner/lower responsibility split recurrence)
+
+- [原因]:
+  - remote main 同期後、Resource IR owner/lower 側で責務が再び集約され、`owner_check.rs`、`owner_summary.rs`、`owner_return.rs`、`lower.rs`、`lower_raw_address.rs` が source policy 上限を超えていた。
+  - raw memory owner semantics、owner return summary application、variant projection cleanup、condition fact lowering、raw address place/type helper が main module に戻り、Stage 4 の監査境界が弱くなっていた。
+- [修正]:
+  - `owner_raw_memory.rs`、`owner_summary_cleanup.rs`、`owner_return_summary.rs`、`lower_condition.rs`、`lower_raw_address_place.rs` を追加し、既存 main module は orchestration / entry point に戻した。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module の存在確認と行数上限を追加した。
+  - 残る initialized 系再肥大化は `ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA` と `ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C` を再openして分離した。
+- [検証]:
+  - `cargo fmt --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - owner/lower 側の line count は policy 内。
+  - `node nodesrc/test_resource_checker_responsibility.js`: initialized 系再肥大化で停止。
+- [issue]:
+  - `ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E` に 2026-05-01 再発対応を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査の意味論を変えず、責務境界だけを切り直した。
+
 # 2026-05-01 メモ (ISS-20260430T135243330Z owner summary variant path split)
 
 - [原因]:

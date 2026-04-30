@@ -2,13 +2,13 @@
 id: ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C
 title: "Resource initialized summary builder exceeds responsibility split limit"
 area: core
-status: verified
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: architecture
 created: 2026-04-30
-updated: 2026-04-30
-target: "nepl-core/src/resource/initialized_summary_build.rs, nodesrc/test_resource_checker_responsibility.js"
+updated: 2026-05-01
+target: "nepl-core/src/resource/initialized_summary.rs, nepl-core/src/resource/initialized_summary_build.rs, nepl-core/src/resource/initialized_summary_variant_build.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C: Resource initialized summary builder exceeds responsibility split limit
@@ -56,3 +56,13 @@ Run node nodesrc/run_source_policy_regressions.js, node nodesrc/issues.js check,
 - `node nodesrc/run_source_policy_regressions.js`: passed
 - `node nodesrc/issues.js check`: files=449, passed
 - `git diff --check`: passed
+
+## 2026-05-01 再発
+
+Resource checker responsibility policy の再確認で、initialized summary 系が再び上限を超えている。
+
+- `initialized_summary.rs`: 93/80
+- `initialized_summary_build.rs`: 647/260
+- `initialized_summary_variant_build.rs`: 337/260
+
+fixed-point orchestration、summary data model、variant-gated fact collection、raw load requirement collection が再び大きい module に集まっている。owner/lower 側の責務分割とは別に、initialized summary builder を再分割する。

@@ -2,13 +2,13 @@
 id: ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E
 title: "Resource owner_flow exceeds checker responsibility source policy limit"
 area: core
-status: verified
+status: fixed
 resolved: true
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-04-30
-target: "nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_summary_record.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js"
+updated: 2026-05-01
+target: "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_raw_memory.rs, nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_return_summary.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_summary_cleanup.rs, nepl-core/src/resource/owner_summary_record.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/lower_condition.rs, nepl-core/src/resource/lower_raw_address.rs, nepl-core/src/resource/lower_raw_address_place.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E: Resource owner_flow exceeds checker responsibility source policy limit
@@ -90,3 +90,28 @@ Split owner_flow.rs and summary.rs by responsibility instead of raising the limi
 - `rustfmt --check nepl-core/src/resource/mod.rs nepl-core/src/resource/owner_flow.rs nepl-core/src/resource/owner_return.rs nepl-core/src/resource/owner_summary.rs nepl-core/src/resource/owner_summary_record.rs`: passed
 - `cargo check -p nepl-core --tests`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 40 passed
+
+## 2026-05-01 再発対応
+
+remote main 同期後、strict resource checker responsibility policy が owner/lower 側の再集約を検出した。
+
+- `owner_check.rs`: 905/800。raw memory operation の owner semantics が main checker dispatch に戻っていた。
+- `owner_summary.rs`: 388/380。variant projection return cleanup が summary fixed-point 本体に残っていた。
+- `owner_return.rs`: 518/400。call return entry point と owner return summary application が同居していた。
+- `lower.rs`: 1386/1300。condition fact lowering と place skeleton 復元が lowering 本体に残っていた。
+- `lower_raw_address.rs`: 733/700。raw address source 推論と MemPtr/RegionToken place/type helper が同居していた。
+
+修正:
+
+- raw memory owner semantics を `owner_raw_memory.rs` へ分離した。
+- variant projection return cleanup を `owner_summary_cleanup.rs` へ分離した。
+- owner return summary application を `owner_return_summary.rs` へ分離した。
+- condition fact lowering / place skeleton 復元を `lower_condition.rs` へ分離した。
+- raw address place/type helper を `lower_raw_address_place.rs` へ分離した。
+- `nodesrc/test_resource_checker_responsibility.js` は新 module の存在と line limit を監視する。
+
+検証:
+
+- `cargo fmt --check`: passed
+- `cargo check -p nepl-core`: passed
+- owner/lower 側 line count は policy 内。strict policy は別件の initialized 系再肥大化で停止するため、そちらは再openした issue で継続する。

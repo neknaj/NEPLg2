@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T16:32:55.305Z",
+  "generated_at": "2026-04-30T16:49:54.233Z",
   "counts": {
     "total": 484,
-    "open": 14,
-    "resolved": 470,
+    "open": 16,
+    "resolved": 468,
     "by_area": {
       "core": {
         "total": 212,
-        "open": 5,
-        "resolved": 207
+        "open": 7,
+        "resolved": 205
       },
       "CORE": {
         "total": 1,
@@ -140,6 +140,21 @@
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
     },
     {
+      "id": "ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA",
+      "title": "Resource initialized raw alias logic reintroduces monolithic checker size",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-05-01",
+      "target": "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA.md"
+    },
+    {
       "id": "ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D",
       "title": "Rust compiler diagnostics are not aligned with Resource IR and self-host model",
       "area": "core",
@@ -153,6 +168,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C",
+      "title": "Resource initialized summary builder exceeds responsibility split limit",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-05-01",
+      "target": "nepl-core/src/resource/initialized_summary.rs, nepl-core/src/resource/initialized_summary_build.rs, nepl-core/src/resource/initialized_summary_variant_build.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C.md"
     },
     {
       "id": "ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C",
@@ -2375,21 +2405,6 @@
       "file": "items/ISS-20260428T175617166Z-RESOURCE-CELLSTATE-EXPRESSION-MARKER-26479BD3.md"
     },
     {
-      "id": "ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA",
-      "title": "Resource initialized raw alias logic reintroduces monolithic checker size",
-      "area": "core",
-      "status": "fixed",
-      "resolved": true,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-28",
-      "updated": "2026-04-29",
-      "target": "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA.md"
-    },
-    {
       "id": "ISS-20260428T182913710Z-RESOURCE-IR-LOWERING-MISCLASSIFIES-C-A1508C51",
       "title": "Resource IR lowering misclassifies compiler field reads as raw memory loads",
       "area": "core",
@@ -2843,13 +2858,13 @@
       "id": "ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E",
       "title": "Resource owner_flow exceeds checker responsibility source policy limit",
       "area": "core",
-      "status": "verified",
+      "status": "fixed",
       "resolved": true,
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_summary_record.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js",
+      "updated": "2026-05-01",
+      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_raw_memory.rs, nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_return_summary.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_summary_cleanup.rs, nepl-core/src/resource/owner_summary_record.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/lower_condition.rs, nepl-core/src/resource/lower_raw_address.rs, nepl-core/src/resource/lower_raw_address_place.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T135959086Z-RESOURCE-OWNER-FLOW-EXCEEDS-CHECKER--EE03E20E.md"
@@ -3138,21 +3153,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T060552075Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-5C2C877E.md"
-    },
-    {
-      "id": "ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C",
-      "title": "Resource initialized summary builder exceeds responsibility split limit",
-      "area": "core",
-      "status": "verified",
-      "resolved": true,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource/initialized_summary_build.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C.md"
     },
     {
       "id": "ISS-20260430T063111361Z-RESOURCE-IR-LACKS-VALUE-REFINED-OWNE-9B53C97C",
