@@ -9845,6 +9845,54 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_preserves_type_equivalent_generic_raw_store_load() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/cast" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    let high <i64> mul <i64> cast 65536 <i64> cast 65536
+    let v <i64> add high <i64> cast 7
+    let r <Result<(),i64>> Result<(),i64>::Err v
+    let p <i32> alloc_raw size_of<Result<(),i64>>
+    store<Result<(),i64>> p r
+    let got <Result<(),i64>> load<Result<(),i64>> p
+    dealloc_raw p size_of<Result<(),i64>>
+    match got:
+        Result::Ok _u:
+            1
+        Result::Err e:
+            if eq e v 0 2
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "generic typed raw store/load must preserve initialized state across equivalent type ids: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_realloc_transfers_copy_raw_cells() {
     let source = r#"
 #entry main

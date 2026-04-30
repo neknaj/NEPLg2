@@ -624,7 +624,7 @@ impl ResourceCheckEngine<'_> {
         if !should_track(place) {
             return true;
         }
-        match cells.availability_state(place) {
+        match cells.availability_state(place, self.types) {
             CellState::Initialized(_) => true,
             state => {
                 self.push_unavailable(operation, place, state, span);

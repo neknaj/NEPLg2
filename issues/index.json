@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:24.314Z",
+  "generated_at": "2026-04-30T14:41:25.761Z",
   "counts": {
-    "total": 479,
+    "total": 480,
     "open": 17,
-    "resolved": 462,
+    "resolved": 463,
     "by_area": {
       "core": {
-        "total": 208,
+        "total": 209,
         "open": 6,
-        "resolved": 202
+        "resolved": 203
       },
       "CORE": {
         "total": 1,
@@ -3303,6 +3303,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/compiler_diagnostics_redesign_plan.md#stage-d0-数値-id-の削除と-enum-registry-導入",
       "file": "items/ISS-20260430T123723307Z-ACTIVE-DOCTESTS-CAN-REINTRODUCE-NUME-1BA2AEA3.md"
+    },
+    {
+      "id": "ISS-20260430T143236266Z-RESOURCE-IR-TYPED-RAW-STORE-LOAD-LOS-711B058B",
+      "title": "Resource IR typed raw store/load loses initialized enum cell after generic store",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/cell_state.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/resource_ir.rs, tests/compiler/intrinsic.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T143236266Z-RESOURCE-IR-TYPED-RAW-STORE-LOAD-LOS-711B058B.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

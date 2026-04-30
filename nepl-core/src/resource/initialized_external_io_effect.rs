@@ -89,7 +89,10 @@ impl ResourceCheckEngine<'_> {
         }
         if candidates.iter().any(|candidate| {
             let cell = raw_memory_unknown_offset_cell_place(candidate, self.types.i32());
-            matches!(cells.availability_state(&cell), CellState::Initialized(_))
+            matches!(
+                cells.availability_state(&cell, self.types),
+                CellState::Initialized(_)
+            )
         }) {
             return true;
         }

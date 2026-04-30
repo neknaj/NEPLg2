@@ -114,7 +114,7 @@ impl ResourceCheckEngine<'_> {
             else_variant_initializations.copy_result(else_value, output);
         }
 
-        *cells = CellTable::merge_paths(&[then_cells, else_cells]);
+        *cells = CellTable::merge_paths(&[then_cells, else_cells], self.types);
         *raw_aliases = RawCellAddressAliases::merge_paths(&[then_aliases, else_aliases]);
         *function_aliases =
             FunctionAliasTable::merge_paths(&[then_function_aliases, else_function_aliases]);
@@ -178,7 +178,7 @@ impl ResourceCheckEngine<'_> {
             &mut body_variant_initializations,
             body_ops,
         );
-        *cells = CellTable::merge_paths(&[condition_cells, body_cells]);
+        *cells = CellTable::merge_paths(&[condition_cells, body_cells], self.types);
         *raw_aliases = RawCellAddressAliases::merge_paths(&[condition_aliases, body_aliases]);
         *function_aliases =
             FunctionAliasTable::merge_paths(&[condition_function_aliases, body_function_aliases]);
@@ -287,7 +287,7 @@ impl ResourceCheckEngine<'_> {
             arms_available = false;
         }
         if !arm_paths.is_empty() {
-            *cells = CellTable::merge_paths(&arm_paths);
+            *cells = CellTable::merge_paths(&arm_paths, self.types);
             *raw_aliases = RawCellAddressAliases::merge_paths(&alias_paths);
             *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
             *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);

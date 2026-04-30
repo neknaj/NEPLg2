@@ -24,7 +24,7 @@ impl CellTable {
         &self.cells
     }
 
-    pub(super) fn availability_state(&self, place: &Place) -> CellState {
+    pub(super) fn availability_state(&self, place: &Place, types: &TypeCtx) -> CellState {
         if let Some(state) = self.state(place) {
             if !matches!(state, CellState::Initialized(_)) {
                 return state;
@@ -49,7 +49,7 @@ impl CellTable {
         }
         for entry in &self.cells {
             if let CellState::Initialized(ty) = entry.state {
-                if initialized_state_flows_to(&entry.place, place, ty) {
+                if initialized_state_flows_to(&entry.place, place, ty, types) {
                     return CellState::Initialized(place.ty);
                 }
             }
@@ -190,7 +190,7 @@ impl CellTable {
             .collect()
     }
 
-    pub(super) fn merge_paths(paths: &[CellTable]) -> Self {
+    pub(super) fn merge_paths(paths: &[CellTable], types: &TypeCtx) -> Self {
         let mut out = CellTable::default();
         let mut places = Vec::new();
         for path in paths {
@@ -205,10 +205,12 @@ impl CellTable {
             }
         }
         for place in places {
-            let mut states = paths.iter().map(|path| path.availability_state(&place));
+            let mut states = paths
+                .iter()
+                .map(|path| path.availability_state(&place, types));
             if let Some(mut merged) = states.next() {
                 for state in states {
-                    merged = merge_cell_states(merged, state);
+                    merged = merge_cell_states(merged, state, types);
                 }
                 out.set_state(&place, merged);
             }
@@ -268,7 +270,12 @@ impl CellTable {
     }
 }
 
-fn initialized_state_flows_to(prefix: &Place, place: &Place, initialized_ty: TypeId) -> bool {
+fn initialized_state_flows_to(
+    prefix: &Place,
+    place: &Place,
+    initialized_ty: TypeId,
+    types: &TypeCtx,
+) -> bool {
     let Some(suffix) = place_suffix_after_prefix(place, prefix)
         .or_else(|| place_suffix_after_address_prefix(place, prefix))
     else {
@@ -286,7 +293,7 @@ fn initialized_state_flows_to(prefix: &Place, place: &Place, initialized_ty: Typ
             .iter()
             .any(|projection| matches!(projection, PlaceProjection::Deref))
     {
-        return initialized_ty == place.ty;
+        return types.same_type(initialized_ty, place.ty);
     }
     true
 }
@@ -432,13 +439,13 @@ fn address_projection_matches(place: &PlaceProjection, prefix: &PlaceProjection)
     }
 }
 
-fn merge_cell_states(left: CellState, right: CellState) -> CellState {
+fn merge_cell_states(left: CellState, right: CellState, types: &TypeCtx) -> CellState {
     if left == right {
         return left;
     }
     match (left, right) {
         (CellState::Initialized(left_ty), CellState::Initialized(right_ty))
-            if left_ty == right_ty =>
+            if types.same_type(left_ty, right_ty) =>
         {
             CellState::Initialized(left_ty)
         }

@@ -29297,3 +29297,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` のStage 4/5方針に沿い、drop obligationとeffect boundaryを分離せず隠すのではなく、auto drop callのeffectを静的検査へ残す。
+
+# 2026-04-30 note (ISS-20260430T143236266Z typed raw store/load initialized cells)
+
+- [同期]:
+  - `4198c24a` の Drop effect fixture commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `tests/compiler/intrinsic.n.md` の enum payload raw store/load case が `resource.cell.uninit` で失敗していた。
+  - `CellTable` は raw cell の projection 一致を見ていたが、initialized cell の流入判定で exact `TypeId` を要求していた。
+  - そのため `Result<(),i64>` のような構造的に同じ generic instantiation が別 `TypeId` として現れた時、直前の typed raw store が load 側へ伝播しなかった。
+- [修正]:
+  - `CellTable::availability_state` と branch / loop / match merge に `TypeCtx::same_type` を渡し、initialized raw cell の同値判定を型同値へ変更した。
+  - moved / dropped / maybe moved の descendant flow は維持し、true load-before-store gate は緩めていない。
+  - `resource_ir_cell_check_preserves_type_equivalent_generic_raw_store_load` を追加した。
+  - `ISS-20260430T143236266Z-RESOURCE-IR-TYPED-RAW-STORE-LOAD-LOS-711B058B` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_type_equivalent_generic_raw_store_load -- --nocapture`: `1 passed`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_reports_raw_load_before_store -- --nocapture`: `1 passed`
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `trunk build`: pass
+  - `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --no-tree -o tmp/intrinsic-typed-raw-store-load-agent1.json -j 1 --dist web/dist`: `8 total / 8 passed`
+  - `node nodesrc/issues.js check`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` のStage 4/5方針に沿い、RawMemoryLoadCell gate を緩めず Resource IR 側の initialized state 精度を上げた。
