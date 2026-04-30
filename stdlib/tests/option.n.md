@@ -3,7 +3,19 @@
 ## option_main
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
 ```neplg2
 
 #entry main
@@ -47,5 +59,6 @@ fn main <()*>i32> ():
     let original <Option<i32>> some<i32> 77
     let copied <Option<i32>> *&original
     set checks checks_push checks assert_eq_i32 77 unwrap<i32> copied;
-    checks_exit_code checks
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```

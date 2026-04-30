@@ -29110,3 +29110,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - tutorial の stdout report + `exit_code:` 契約をsource policyで固定した。
+
+# 2026-04-30 note (ISS-20260430T124826467Z stdlib option stdout report)
+
+- [同期]:
+  - `a1b319aa` の getting_started ret metadata policy commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `stdlib/tests/option.n.md` は `std/test` の `checks_push` で10件の assertion を集約していたが、`checks_print_report` を呼ばず `checks_exit_code checks` を返していた。
+  - metadata も `ret: 0` のままで、process exit contract と言語戻り値検証が混ざっていた。
+  - self-host runner とRust runnerでassertion report formatを比較できるようにするには、stdout reportをfixtureに固定する必要がある。
+- [修正]:
+  - `ret: 0` を `exit_code: 0` に変更した。
+  - `checks_print_report checks` を呼んで `shown` を作り、`checks_exit_code shown` を返すようにした。
+  - stdoutに10件の `ok` reportを固定した。
+  - `ISS-20260430T124826467Z-STDLIB-OPTION-DOCTEST-USES-STD-TEST--93C68BCD` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/option.n.md --no-tree -o tmp/stdlib-option-report-agent1.json -j 1 --dist web/dist`: `1 total / 1 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `.n.md` assertion suite は `ret:` ではなく stdout report + `exit_code:` で検証する方針に沿って、stdlib option fixtureを移行した。

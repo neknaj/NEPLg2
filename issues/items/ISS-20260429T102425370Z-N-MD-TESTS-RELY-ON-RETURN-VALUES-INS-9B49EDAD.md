@@ -108,3 +108,13 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 
 - `node nodesrc/test_tutorial_getting_started_current_style.js`
 - `rg -n "^ret:" tutorials/getting_started`: no matches
+
+## 2026-04-30 stdlib option report migration
+
+`ISS-20260430T124826467Z-STDLIB-OPTION-DOCTEST-USES-STD-TEST--93C68BCD` で、`stdlib/tests/option.n.md` を stdout assertion report + `exit_code: 0` へ移行した。
+
+この fixture は `std/test` の `checks_push` で10件の assertionを集約していたが、`checks_print_report` を呼ばず `ret: 0` だけで成功を表していた。今回の対応で `checks_print_report` のstdoutをfixtureに固定し、`checks_exit_code shown` を返す形にした。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/tests/option.n.md --no-tree -o tmp/stdlib-option-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1
