@@ -20,6 +20,8 @@ pub(super) struct OwnerReturnSummary {
     pub(super) parameter_sources: Vec<OwnerProjectionSource>,
     pub(super) consumed_parameter_indices: Vec<usize>,
     pub(super) consumed_parameter_sources: Vec<OwnerProjectionSource>,
+    pub(super) variant_consumed_parameter_indices: Vec<OwnerVariantParameterIndex>,
+    pub(super) variant_consumed_parameter_sources: Vec<OwnerVariantProjectionSource>,
     pub(super) returns_fresh_owner: bool,
     pub(super) returns_maybe_owner: bool,
     pub(super) projection_returns: Vec<OwnerProjectionReturnSummary>,
@@ -31,6 +33,18 @@ pub(super) struct OwnerProjectionSource {
     pub(super) parameter_index: usize,
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerVariantParameterIndex {
+    pub(super) variant: String,
+    pub(super) parameter_index: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerVariantProjectionSource {
+    pub(super) variant: String,
+    pub(super) source: OwnerProjectionSource,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

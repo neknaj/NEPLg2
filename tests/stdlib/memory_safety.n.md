@@ -19,6 +19,7 @@ fn main <()->i32> ():
         Result::Ok p:
             match store_i32 p 123:
                 Result::Err _e:
+                    dealloc_raw mem_ptr_addr p 4
                     0
                 Result::Ok _:
                     let v <i32> match load_i32 p:
@@ -28,6 +29,7 @@ fn main <()->i32> ():
                             x
                     match dealloc_ptr p 4:
                         Result::Err _e:
+                            dealloc_raw mem_ptr_addr p 4
                             0
                         Result::Ok _:
                             v

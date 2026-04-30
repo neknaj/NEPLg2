@@ -15,6 +15,8 @@ use super::owner_summary_record::{
     record_projection_maybe_owner_return, record_projection_owner_return, record_root_owner_return,
     OwnerParameterStorageSource,
 };
+use super::owner_summary_variant_build::collect_variant_consumed_owner_parameters_from_return;
+use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::{place_suffix_after_prefix, push_unique_usize};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
@@ -36,6 +38,8 @@ pub(super) fn compute_owner_return_summaries(
                 || !summary.parameter_sources.is_empty()
                 || !summary.consumed_parameter_indices.is_empty()
                 || !summary.consumed_parameter_sources.is_empty()
+                || !summary.variant_consumed_parameter_indices.is_empty()
+                || !summary.variant_consumed_parameter_sources.is_empty()
                 || !summary.projection_returns.is_empty()
                 || !summary.projection_markers.is_empty()
             {
@@ -92,9 +96,12 @@ fn function_owner_return_summary(
     let mut returns_maybe_owner = false;
     let mut projection_returns = Vec::new();
     let mut projection_markers = Vec::new();
+    let mut variant_consumed_parameter_indices = Vec::new();
+    let mut variant_consumed_parameter_sources = Vec::new();
     let mut returned_sources = Vec::new();
     let mut function_aliases = FunctionAliasTable::default();
     let mut pending_reallocs = PendingRawReallocs::default();
+    let mut variant_owner_effects = PendingVariantOwnerEffects::default();
     for block in &function.blocks {
         engine.check_ops(
             &mut owners,
@@ -103,12 +110,24 @@ fn function_owner_return_summary(
             &mut raw_views,
             &mut storage_origins,
             &mut pending_reallocs,
+            &mut variant_owner_effects,
             &block.ops,
         );
         if let ResourceTerminator::Return {
             value: Some(value), ..
         } = &block.terminator
         {
+            collect_variant_consumed_owner_parameters_from_return(
+                &mut variant_consumed_parameter_indices,
+                &mut variant_consumed_parameter_sources,
+                function,
+                types,
+                summaries,
+                &parameter_storage_sources,
+                &block.ops,
+                value,
+            );
+
             let resolved_value = resolve_owner_alias_place(&owners, &raw_aliases, value);
             match owners.state(&resolved_value) {
                 Some(OwnerState::Live { storage }) => {
@@ -236,6 +255,8 @@ fn function_owner_return_summary(
         parameter_sources,
         consumed_parameter_indices,
         consumed_parameter_sources,
+        variant_consumed_parameter_indices,
+        variant_consumed_parameter_sources,
         returns_fresh_owner,
         returns_maybe_owner,
         projection_returns,
@@ -243,7 +264,7 @@ fn function_owner_return_summary(
     }
 }
 
-fn consumed_owner_parameters(
+pub(super) fn consumed_owner_parameters(
     owners: &OwnerTable,
     parameter_storage_sources: &[OwnerParameterStorageSource],
     returned_sources: &[OwnerProjectionSource],
@@ -256,7 +277,7 @@ fn consumed_owner_parameters(
             continue;
         }
         match owners.state(&entry.place) {
-            Some(OwnerState::Moved | OwnerState::Freed | OwnerState::MaybeFreed { .. }) => {
+            Some(OwnerState::Moved | OwnerState::Freed) => {
                 if source.suffix.is_empty() {
                     push_unique_usize(&mut indices, source.parameter_index);
                 } else {
@@ -270,7 +291,7 @@ fn consumed_owner_parameters(
                     push_unique_owner_projection_source(&mut sources, source);
                 }
             }
-            Some(OwnerState::Live { .. }) | None => {}
+            Some(OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }) | None => {}
         }
     }
     (indices, sources)

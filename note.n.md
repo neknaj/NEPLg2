@@ -87,6 +87,31 @@
   - `plan.md` 自体は変更していない。
   - selfhost parser 実装で頻出する delimiter 検索の標準 API を追加し、strict owner gate を回帰テストとして使える状態に戻した。
 
+# 2026-04-30 メモ (ISS-20260430T060552075Z Result::Ok-gated owner consumption)
+
+- [同期]:
+  - `work/result-ok-owner-consumption` branch で `92a77c44` の main から継続して作業した。
+- [原因]:
+  - `dealloc_ptr` は内部の `dealloc` が `Result::Ok` を返した場合だけ storage owner を消費するが、既存の `OwnerReturnSummary` は関数全体で無条件に成立する owner 消費しか表現できなかった。
+  - summary 生成時に戻り値 match arm を仮実行する経路で、通常の owner checker と異なり pending variant owner effect を arm 入口へ適用していなかったため、wrapper が内側の Ok-gated 消費を外側の Ok summary として再要約できなかった。
+  - `MaybeFreed` を無条件消費として扱うと Err 経路の owner を消したことになり、正確性を壊すため、無条件 summary からは除外する必要があった。
+- [修正]:
+  - `OwnerReturnSummary` に variant-gated owner consumption を追加した。
+  - direct/indirect call の戻り値に pending variant owner effect を記録し、`match` の該当 arm に入った時だけ `CallArgument` として owner を消費するようにした。
+  - summary 生成側でも `check_match` と同じ pending effect 適用を行い、`dealloc_ptr` の外側 `Result::Ok` へ消費 summary が伝播するようにした。
+  - `tests/stdlib/memory_safety.n.md` の基本 dealloc doctest は、`store_i32` / `dealloc_ptr` の Err 経路で残る owner を明示的に閉じる形へ更新した。
+- [issue]:
+  - `ISS-20260430T060552075Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-5C2C877E` を fixed/resolved にした。
+  - `realloc/realloc_ptr` は `Result::Ok(0)` と owner-carrying `Result::Ok(new_ptr)` が同じ variant に合流する別問題として、`ISS-20260430T063111361Z-RESOURCE-IR-LACKS-VALUE-REFINED-OWNE-9B53C97C` に分離した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_mem_ptr_dealloc_consumption -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: `142 passed`
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-result-ok-owner-consumption-after-cleanup.json -j 1`: `total=12`, `passed=7`, `failed=5`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR summary / owner state propagation 方針に沿って、Result variant による owner 消費の分岐精度を上げた。
+
 # 2026-04-30 メモ (ISS-20260430T053723149Z move_effect realloc fixture)
 
 - [同期]:
