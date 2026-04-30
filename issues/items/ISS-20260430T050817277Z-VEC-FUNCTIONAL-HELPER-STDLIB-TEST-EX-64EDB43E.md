@@ -2,8 +2,8 @@
 id: ISS-20260430T050817277Z-VEC-FUNCTIONAL-HELPER-STDLIB-TEST-EX-64EDB43E
 title: "Vec functional helper stdlib test exceeds doctest runtime budget"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: test
 created: 2026-04-30
@@ -39,6 +39,14 @@ The full Vec stdlib regression file still cannot be used as a clean CI signal ev
 
 Split vec_functional_helpers into smaller focused .n.md doctests or reduce the std/test aggregation overhead while keeping owner-safe cleanup in each block.
 
+## 対応結果
+
+- `stdlib/tests/vec.n.md` の巨大な functional helper doctest を、`vec_functional_helpers` / `vec_partition_helpers` / `vec_prefix_helpers` / `vec_drop_while_helper` / `vec_count_helper` へ分割した。
+- 各 doctest は自分で作成した `Vec` owner を同じ block 内で明示的に `free` し、owner cleanup が後続 test に跨らない形にした。
+- この分割は `125c0345` の Vec observer API 統一 commit に含まれており、旧 `*_ref` surface を戻さずに test runtime budget を回復した。
+
 ## 検証
 
-Run stdlib/tests/vec.n.md to completion, Vec module doctests, and Vec collection tests.
+- `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/vec-functional-helper-runtime-resolved.json -j 1`: `total=6`, `passed=6`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/merge-vec-doctests.json -j 1`: `total=37`, `passed=37`
+- `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/merge-vec-collections-tests.json -j 1`: `total=3`, `passed=3`

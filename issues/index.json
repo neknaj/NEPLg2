@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T05:28:15.938Z",
+  "generated_at": "2026-04-30T05:32:16.559Z",
   "counts": {
     "total": 443,
-    "open": 15,
-    "resolved": 428,
+    "open": 14,
+    "resolved": 429,
     "by_area": {
       "core": {
         "total": 195,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 146,
-        "open": 8,
-        "resolved": 138
+        "open": 7,
+        "resolved": 139
       },
       "TEST": {
         "total": 7,
@@ -293,21 +293,6 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
-    },
-    {
-      "id": "ISS-20260430T050817277Z-VEC-FUNCTIONAL-HELPER-STDLIB-TEST-EX-64EDB43E",
-      "title": "Vec functional helper stdlib test exceeds doctest runtime budget",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "test",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "stdlib/tests/vec.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T050817277Z-VEC-FUNCTIONAL-HELPER-STDLIB-TEST-EX-64EDB43E.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -6563,6 +6548,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T230251210Z-STDLIB-HASHMAP-DOC-COMMENT-REGRESSIO-E0EBED5E.md"
+    },
+    {
+      "id": "ISS-20260430T050817277Z-VEC-FUNCTIONAL-HELPER-STDLIB-TEST-EX-64EDB43E",
+      "title": "Vec functional helper stdlib test exceeds doctest runtime budget",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/tests/vec.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T050817277Z-VEC-FUNCTIONAL-HELPER-STDLIB-TEST-EX-64EDB43E.md"
     },
     {
       "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",

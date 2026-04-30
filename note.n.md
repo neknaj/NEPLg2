@@ -1,3 +1,20 @@
+# 2026-04-30 メモ (ISS-20260430T050817277Z Vec functional helper doctest runtime)
+
+- [同期]:
+  - `work/vec-functional-helper-runtime-issue` branch で、`125c0345` の main から継続して issue 状態を整理した。
+- [原因]:
+  - `stdlib/tests/vec.n.md` の functional helper regression が 1 つの doctest に集中し、owner leak 解消後も std/test 集約と compile/runtime の負荷で 60 秒 timeout に当たっていた。
+  - 個別 helper group の probe は pass していたため、Vec helper 自体の無限 loop ではなく doctest の粒度が主因だった。
+- [対応]:
+  - 直前の Vec observer API 統一で、巨大 doctest を `vec_functional_helpers` / `vec_partition_helpers` / `vec_prefix_helpers` / `vec_drop_while_helper` / `vec_count_helper` に分割済みであることを確認した。
+  - 各 doctest は作成した `Vec` owner を同じ block 内で明示的に `free` し、strict ResourceIR 下でも test cleanup が局所化される。
+  - `ISS-20260430T050817277Z-VEC-FUNCTIONAL-HELPER-STDLIB-TEST-EX-64EDB43E` を fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/vec-functional-helper-runtime-resolved.json -j 1`: `total=6`, `passed=6`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 6 の collection API 移行に合わせ、Vec の regression test 粒度を owner-safe かつ CI signal として使える形にした。
+
 # 2026-04-30 メモ (ISS-20260430T044235959Z Vec doctest owner discipline)
 
 - [同期]:
