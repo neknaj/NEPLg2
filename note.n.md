@@ -29217,3 +29217,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `.n.md` assertion suite の stdout report + `exit_code:` 方針に加え、runner budget を超えない focused fixture 粒度へ調整した。
+
+# 2026-04-30 note (ISS-20260430T132753960Z stdlib hashset report metadata)
+
+- [同期]:
+  - `9f39118b` の stdlib vec report/runtime commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `stdlib/tests/hashset.n.md` の main case は `checks_print_report checks` を呼んでいたが、metadata は `ret: 0` のままで stdout expectation がなかった。
+  - `hashset_free_smoke` は free 成功を `ret: 0` だけで表しており、stdout 上の検査結果として固定できていなかった。
+- [修正]:
+  - 2件の doctest を `exit_code: 0` に変更した。
+  - main case は8件の `ok` reportを stdout に固定した。
+  - free smoke case は free 後に最小の `std/test` report を出す形へ変更した。
+  - `ISS-20260430T132753960Z-STDLIB-HASHSET-DOCTESTS-KEEP-RET-MET-4238B95D` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md --no-tree -o tmp/stdlib-hashset-report-agent1.json -j 1 --dist web/dist`: `2 total / 2 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `.n.md` assertion suite は stdout report + `exit_code:` で検証する方針に沿って、stdlib hashset fixtureを移行した。

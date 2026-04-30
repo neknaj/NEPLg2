@@ -168,3 +168,13 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 検証:
 
 - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/stdlib-vec-report-agent1.json -j 1 --dist web/dist`: total=10, passed=10
+
+## 2026-04-30 stdlib hashset report metadata migration
+
+`ISS-20260430T132753960Z-STDLIB-HASHSET-DOCTESTS-KEEP-RET-MET-4238B95D` で、`stdlib/tests/hashset.n.md` の2件の doctest metadata を `exit_code: 0` へ移行した。
+
+main case は既存の8件 assertion reportを stdout として固定し、free smoke case は `ret: 0` だけの smoke ではなく、free 後に最小の `std/test` report を出す形へ揃えた。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/tests/hashset.n.md --no-tree -o tmp/stdlib-hashset-report-agent1.json -j 1 --dist web/dist`: total=2, passed=2

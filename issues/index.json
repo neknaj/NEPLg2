@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:18.279Z",
+  "generated_at": "2026-04-30T14:41:19.848Z",
   "counts": {
-    "total": 474,
+    "total": 475,
     "open": 16,
-    "resolved": 458,
+    "resolved": 459,
     "by_area": {
       "core": {
         "total": 208,
@@ -22,9 +22,9 @@
         "resolved": 143
       },
       "TEST": {
-        "total": 14,
+        "total": 15,
         "open": 1,
-        "resolved": 13
+        "resolved": 14
       },
       "cli": {
         "total": 19,
@@ -5293,6 +5293,21 @@
       "legacy_id": "",
       "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
       "file": "items/ISS-20260430T131836940Z-STDLIB-VEC-DOCTESTS-STILL-EXCEED-RUN-44D56F6B.md"
+    },
+    {
+      "id": "ISS-20260430T132753960Z-STDLIB-HASHSET-DOCTESTS-KEEP-RET-MET-4238B95D",
+      "title": "stdlib hashset doctests keep ret metadata without pinned reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/tests/hashset.n.md",
+      "legacy_id": "",
+      "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "file": "items/ISS-20260430T132753960Z-STDLIB-HASHSET-DOCTESTS-KEEP-RET-MET-4238B95D.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

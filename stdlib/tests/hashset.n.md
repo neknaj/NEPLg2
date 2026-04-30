@@ -3,7 +3,17 @@
 ## hashset_main
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
 ```neplg2
 #entry main
 #indent 4
@@ -93,7 +103,10 @@ fn main <()*>i32> ():
 ## hashset_free_smoke
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok]
+    ##: [0] ok
 ```neplg2
 #entry main
 #indent 4
@@ -103,6 +116,7 @@ ret: 0
 #import "core/traits/hash" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn must_hs <(Result<HashSet<i32,DefaultHash32>, Diag>)*>HashSet<i32,DefaultHash32>> (r):
     unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
@@ -111,5 +125,7 @@ fn main <()*>i32> ():
     let hsf <HashSet<i32,DefaultHash32>> must_hs new DefaultHash32;
     let hsf <HashSet<i32,DefaultHash32>> must_hs insert hsf 5;
     free hsf;
-    0
+    let checks checks_push checks_new check true;
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
