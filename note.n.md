@@ -14,6 +14,26 @@
   - `doc/fullreview20260430/meta/review-method.md` を更新し、review の test 状況確認は `gh` に統一した。
   - `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8` は、Actions source-policy failure ではなく local 直接確認で見つけた responsibility split design issue として表現を補正した。
 
+# 2026-04-30 メモ (進捗確認及び総レビュー: stdlib)
+
+- [同期]:
+  - `git fetch origin main` を実行し、review 対象 main は `f108cebd` のまま更新なし。
+- [Actions確認]:
+  - `gh run view 25157230630 --job 73742416567 --log-failed` と `gh run download 25157230630 -n stdlib-tests` で stdlib-test を確認した。
+  - `stdlib-tests.json`: `415 total / 232 passed / 173 failed / 10 errored`。
+  - 失敗分類は collections 73、string 10、std/io/fs/stdio 33、selfhost 19、core 16、nm 3、kp 7。
+- [issue]:
+  - `from_f64_result` の scratch buffer が `resource.cell.possibly_moved` を再発させ、HashMap/HashSet doctest を隠しているため、`ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1` を追加した。
+  - issue 追加時点で Discord に内容を直接報告した。
+- [作成]:
+  - `doc/fullreview20260430/stdlib/overview.md`
+  - `doc/fullreview20260430/stdlib/core.md`
+  - `doc/fullreview20260430/stdlib/alloc-string-io.md`
+  - `doc/fullreview20260430/stdlib/alloc-collections.md`
+  - `doc/fullreview20260430/stdlib/alloc-diag-json-hash.md`
+  - `doc/fullreview20260430/stdlib/std-io-fs-env.md`
+  - `doc/fullreview20260430/stdlib/nm-kp-platforms.md`
+
 # 2026-04-30 メモ (進捗確認及び総レビュー開始)
 
 - [同期]:

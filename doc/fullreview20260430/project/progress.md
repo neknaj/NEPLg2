@@ -19,7 +19,7 @@ NEPLg2 は、Rust compiler の大規模安定化と stdlib の所有権安全化
 
 ## issue 状況
 
-`issues/index.md` では 459 件中 14 件が open。open issue の中心は、core Resource IR / memory model、stdlib collection drop、selfhost incomplete、`.n.md` test policy、Resource IR owner variant path builder の責務再集中である。
+`issues/index.md` では 460 件中 15 件が open。open issue の中心は、core Resource IR / memory model、stdlib collection drop、selfhost incomplete、`.n.md` test policy、Resource IR owner variant path builder の責務再集中、string numeric formatting の Resource IR cell failure である。
 
 ### P1 core
 
@@ -36,6 +36,7 @@ NEPLg2 は、Rust compiler の大規模安定化と stdlib の所有権安全化
 - `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47`: dealloc API が initialized payload / drop obligation を表現しない問題。
 - `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84`: raw-memory-backed API の staged effect migration。
 - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749`: collection storage state が enum ではなく sentinel に依存している問題。
+- `ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1`: `from_f64_result` scratch buffer が `resource.cell.possibly_moved` を再発させる問題。
 
 ### P1 test
 
