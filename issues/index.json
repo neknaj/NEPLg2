@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T01:01:59.968Z",
+  "generated_at": "2026-04-30T01:36:48.751Z",
   "counts": {
-    "total": 415,
-    "open": 13,
+    "total": 418,
+    "open": 16,
     "resolved": 402,
     "by_area": {
       "core": {
-        "total": 192,
-        "open": 5,
+        "total": 195,
+        "open": 8,
         "resolved": 187
       },
       "stdlib": {
@@ -145,6 +145,21 @@
       "file": "items/ISS-20260430T004118434Z-RESOURCE-IR-LACKS-EXPLICIT-NON-OWNIN-D546F9CD.md"
     },
     {
+      "id": "ISS-20260430T012423244Z-RESOURCE-IR-EXTERNAL-IO-WRITE-CALLS--3D90A2FD",
+      "title": "Resource IR external IO write calls do not validate initialized iovec input buffers",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/initialized_external_io.rs, nepl-core/src/resource/initialized.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260430T012423244Z-RESOURCE-IR-EXTERNAL-IO-WRITE-CALLS--3D90A2FD.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -233,6 +248,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
+      "title": "Resource IR cannot summarize returned raw headers with length-guarded dynamic ranges",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/initialized_return.rs, nepl-core/src/resource/initialized_external_io.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/kp.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
+    },
+    {
+      "id": "ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD",
+      "title": "Resource IR initialized summaries skip unit-returning in-place helper effects",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/initialized_return.rs, nepl-core/src/resource/initialized.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -2961,7 +3006,7 @@
       "updated": "2026-04-30",
       "target": "nepl-core/tests/kp.rs, nepl-core/src/resource",
       "legacy_id": "",
-      "source": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA.md"
     },
     {

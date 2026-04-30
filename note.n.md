@@ -1,3 +1,33 @@
+# 2026-04-30 メモ (ISS-20260429T234223901Z kp raw memory Resource IR initialized summary)
+
+- [同期]:
+  - 作業開始時は `origin/main` の `92f85011` と同一内容だった。
+  - commit 後に remote main が `7835b392` へ進んでいたため、rebase で `7835b392` の Resource IR 分割実装を基準に統合した。
+- [原因]:
+  - `7835b392` で主要な `fd_read` / returned raw header / raw cell rekey 対応は `initialized_external_io`、`initialized_return`、`initialized_rekey`、`owner_raw_view` に分割済みだった。
+  - 追加レビューで、`fd_pwrite` の `nwritten` は第 5 引数なのに `fd_write` と同じ index で扱うと、scalar offset を out pointer と誤認して `offset.Deref` を initialized にできることを確認した。
+  - 外部 IO summary は `fd_read` 以外の WASI out pointer / out buffer effect をまだ十分に扱っていなかった。
+- [修正]:
+  - remote main の分割設計を維持し、重複する新規 summary module は採用しなかった。
+  - `initialized_external_io` に `fd_pread` / `fd_write` / `fd_pwrite` / `fd_readdir` / `path_open` / `args_get` / `environ_get` / `random_get` などの out pointer / out buffer effect を追加した。
+  - `fd_pwrite` は第 5 引数の `nwritten` だけを out pointer として扱い、offset 引数を初期化対象にしない regression を追加した。
+  - `fd_read` の iovec buffer effect は iovec cell 自体ではなく、cell に格納された buffer alias の unknown-offset raw cells を initialized として扱うようにした。
+- [issue]:
+  - `ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA` を fixed/resolved のまま、rebase 後の追加確認内容へ更新した。
+  - full scanner loop の returned header + length-guarded initialized range summary は `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` として分離した。
+  - `fd_write` / `fd_pwrite` の iovec input buffer initialized check は `ISS-20260430T012423244Z-RESOURCE-IR-EXTERNAL-IO-WRITE-CALLS--3D90A2FD` として分離した。
+  - unit-returning in-place helper の引数側 initialized summary は `ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD` として分離した。
+- [検証]:
+  - `cargo fmt`: passed
+  - `cargo test -p nepl-core --test kp -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_external_fd_read_initializes_iovec_buffers -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_pwrite_initializes_nwritten_not_offset -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_initialized_pointee -- --nocapture`: passed
+  - `node nodesrc/issues.js check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 Resource check の initialized-cell / raw provenance gate を弱めず、外部 IO out effect の型付き扱いを補強した。
+
 # 2026-04-30 メモ (ISS-20260429T233515324Z raw fill initialized cell summary)
 
 - [同期]:

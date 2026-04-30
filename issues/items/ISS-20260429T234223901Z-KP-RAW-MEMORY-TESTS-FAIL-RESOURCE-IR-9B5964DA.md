@@ -9,13 +9,14 @@ type: bug
 created: 2026-04-29
 updated: 2026-04-30
 target: "nepl-core/tests/kp.rs, nepl-core/src/resource"
+source: doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行
 ---
 
 # ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA: kp raw memory tests fail Resource IR initialized checks
 
 ## 概要
 
-nepl-core tests/kp.rs fails after the current Resource IR gate because direct WASI fd_read and dynamic raw-memory prefix-sum fixtures read buffers that Resource IR still sees as Uninit.
+nepl-core tests/kp.rs failed after the current Resource IR gate because direct WASI fd_read and dynamic raw-memory prefix-sum fixtures read buffers that Resource IR still saw as Uninit.
 
 ## 対象
 
@@ -32,7 +33,7 @@ nepl-core tests/kp.rs fails after the current Resource IR gate because direct WA
 
 ## 問題
 
-nepl-core tests/kp.rs fails after the current Resource IR gate because direct WASI fd_read and dynamic raw-memory prefix-sum fixtures read buffers that Resource IR still sees as Uninit.
+nepl-core tests/kp.rs failed after the current Resource IR gate because direct WASI fd_read and dynamic raw-memory prefix-sum fixtures read buffers that Resource IR still saw as Uninit.
 
 ## 影響
 
@@ -53,6 +54,20 @@ Resource IR の `RawMemoryLoadCell` strict gate は維持したまま、初期�
 
 この作業中に、所有 raw address と非所有 raw address view、および fallible `realloc_raw` の状態表現がまだ設計として不足していることを確認したため、別 issue `ISS-20260430T004118434Z-RESOURCE-IR-LACKS-EXPLICIT-NON-OWNIN-D546F9CD` を追加した。
 
+## 追加確認
+
+- remote main の `7835b392` で、主要修正は `initialized_return`、`initialized_external_io`、`initialized_rekey`、`owner_raw_view` に分割済みであることを確認した。
+- Agent 1 側ではその分割設計を維持し、`initialized_external_io` に `fd_pread` / `fd_write` / `fd_pwrite` / `fd_readdir` / `path_open` / `args_get` / `environ_get` / `random_get` などの out pointer / out buffer effect を追加した。
+- `fd_pwrite` は `fd_write` と異なり `nwritten` が第 5 引数なので、scalar offset を out pointer と誤認しないように index を分離し、専用 regression を追加した。
+- `fd_read` の iovec buffer effect は iovec cell 自体を buffer と誤認せず、cell に格納された buffer alias 側の unknown-offset raw cells を initialized として扱うようにした。
+
+## 関連残件
+
+- full scanner の loop / realloc / `buf + len` write を「header.buf と header.len によって守られた initialized range」として要約する dependent range model は、今回の bug fix とは別の設計課題として `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` に分離した。
+- `fd_write` / `fd_pwrite` が iovec input buffer の initialized state を検査しない問題は、external IO read-effect の不足として `ISS-20260430T012423244Z-RESOURCE-IR-EXTERNAL-IO-WRITE-CALLS--3D90A2FD` に分離した。
+- unit-returning in-place helper の引数側 initialized effect が summary 対象外である問題は、return summary ではなく function resource effect として再設計する必要があるため `ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD` に分離した。
+- これらの分離は `RawMemoryLoadCell` を弱めるためではなく、Stage 4 Resource check で range summary、external IO read-effect、function resource effect を型付きに設計するための追跡である。
+
 ## 検証
 
 - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 130 passed。
@@ -60,3 +75,8 @@ Resource IR の `RawMemoryLoadCell` strict gate は維持したまま、初期�
 - `cargo test -p nepl-core --test effects -- --nocapture`: 21 passed。
 - `node nodesrc/test_resource_checker_responsibility.js`: passed。
 - 回帰テストとして、関数 return / branch return / raw address cell load / returned header pointer 配下の initialized raw cells を `nepl-core/tests/resource_ir.rs` に追加した。
+- `cargo fmt`: passed。
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_external_fd_read_initializes_iovec_buffers -- --nocapture`: passed。
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_pwrite_initializes_nwritten_not_offset -- --nocapture`: passed。
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_initialized_pointee -- --nocapture`: passed。
+- `node nodesrc/issues.js check`: passed。
