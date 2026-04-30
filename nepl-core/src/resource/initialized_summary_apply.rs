@@ -3,6 +3,7 @@ use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
+use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{Place, ResourceCallTarget};
 use super::place_utils::place_with_suffix;
 
@@ -11,6 +12,7 @@ impl ResourceCheckEngine<'_> {
         &self,
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
+        variant_initializations: &mut PendingVariantRawCellInitializations,
         output: &Place,
         target: &ResourceCallTarget,
         args: &[Place],
@@ -28,6 +30,7 @@ impl ResourceCheckEngine<'_> {
         self.apply_raw_cell_initialization_function_summary(
             cells,
             raw_aliases,
+            variant_initializations,
             output,
             args,
             summary,
@@ -38,6 +41,7 @@ impl ResourceCheckEngine<'_> {
         &self,
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
+        variant_initializations: &mut PendingVariantRawCellInitializations,
         output: &Place,
         function_aliases: &FunctionAliasTable,
         callee: &Place,
@@ -54,6 +58,7 @@ impl ResourceCheckEngine<'_> {
             self.apply_raw_cell_initialization_function_summary(
                 cells,
                 raw_aliases,
+                variant_initializations,
                 output,
                 args,
                 summary,
@@ -65,10 +70,13 @@ impl ResourceCheckEngine<'_> {
         &self,
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
+        variant_initializations: &mut PendingVariantRawCellInitializations,
         output: &Place,
         args: &[Place],
         summary: &RawCellInitializationFunctionSummary,
     ) {
+        variant_initializations.record_call(raw_aliases, output, args, summary);
+
         if !summary.return_cells.is_empty() {
             mark_known_raw_address(raw_aliases, output);
         }

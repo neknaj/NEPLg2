@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T05:58:19.245Z",
+  "generated_at": "2026-04-30T06:08:31.768Z",
   "counts": {
-    "total": 445,
-    "open": 14,
-    "resolved": 431,
+    "total": 448,
+    "open": 16,
+    "resolved": 432,
     "by_area": {
       "core": {
-        "total": 196,
-        "open": 5,
-        "resolved": 191
+        "total": 199,
+        "open": 7,
+        "resolved": 192
       },
       "stdlib": {
         "total": 147,
@@ -145,6 +145,21 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
+      "id": "ISS-20260430T060552075Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-5C2C877E",
+      "title": "Resource IR lacks Result::Ok-gated owner consumption summaries for checked MemPtr frees",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_control.rs, stdlib/core/mem.nepl, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T060552075Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-5C2C877E.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -263,6 +278,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
+    },
+    {
+      "id": "ISS-20260430T060600668Z-CHECKED-MEMPTR-LOAD-VARIANT-REQUIREM-1A1ADF53",
+      "title": "Checked MemPtr load variant requirements lack impossible-branch refinement",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/initialized_variant.rs, nepl-core/src/resource/initialized_control.rs, stdlib/core/mem.nepl, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T060600668Z-CHECKED-MEMPTR-LOAD-VARIANT-REQUIREM-1A1ADF53.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -3083,6 +3113,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T053723149Z-MOVE-EFFECT-REALLOC-FIXTURES-IGNORE--B08BEB6E.md"
+    },
+    {
+      "id": "ISS-20260430T054603567Z-RESOURCE-IR-SKIPS-RESULT-OK-GATED-PA-C2B25804",
+      "title": "Resource IR skips Result::Ok-gated parameter raw cell initialization summaries",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/initialized_summary.rs, nepl-core/src/resource/initialized_summary_build.rs, nepl-core/src/resource/initialized_summary_apply.rs, nepl-core/src/resource/initialized_control.rs, nepl-core/src/resource/initialized_variant.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/coverage_hir.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T054603567Z-RESOURCE-IR-SKIPS-RESULT-OK-GATED-PA-C2B25804.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

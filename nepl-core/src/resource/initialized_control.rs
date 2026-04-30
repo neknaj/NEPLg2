@@ -6,6 +6,7 @@ use super::cell_state::CellTable;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{CellState, Place, ResourceConditionFact, ResourceMatchArm, ResourceOp};
 use super::place_utils::match_bind_payload_place;
 use super::raw_realloc::{
@@ -20,6 +21,7 @@ impl ResourceCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
+        variant_initializations: &mut PendingVariantRawCellInitializations,
         output: &Place,
         condition: &Place,
         condition_fact: Option<&ResourceConditionFact>,
@@ -43,6 +45,8 @@ impl ResourceCheckEngine<'_> {
         let mut else_function_aliases = function_aliases.clone();
         let mut then_pending_reallocs = pending_reallocs.clone();
         let mut else_pending_reallocs = pending_reallocs.clone();
+        let mut then_variant_initializations = variant_initializations.clone();
+        let mut else_variant_initializations = variant_initializations.clone();
 
         self.apply_realloc_condition_fact(
             &mut then_cells,
@@ -63,6 +67,7 @@ impl ResourceCheckEngine<'_> {
             &mut then_aliases,
             &mut then_function_aliases,
             &mut then_pending_reallocs,
+            &mut then_variant_initializations,
             then_ops,
         );
         self.check_ops(
@@ -70,6 +75,7 @@ impl ResourceCheckEngine<'_> {
             &mut else_aliases,
             &mut else_function_aliases,
             &mut else_pending_reallocs,
+            &mut else_variant_initializations,
             else_ops,
         );
 
@@ -94,6 +100,7 @@ impl ResourceCheckEngine<'_> {
             );
             then_function_aliases.copy_alias(then_value, output);
             then_pending_reallocs.copy_result(then_value, output);
+            then_variant_initializations.copy_result(then_value, output);
         }
         if else_available {
             self.copy_raw_alias_and_rekey_cells_preferring_target(
@@ -104,6 +111,7 @@ impl ResourceCheckEngine<'_> {
             );
             else_function_aliases.copy_alias(else_value, output);
             else_pending_reallocs.copy_result(else_value, output);
+            else_variant_initializations.copy_result(else_value, output);
         }
 
         *cells = CellTable::merge_paths(&[then_cells, else_cells]);
@@ -112,11 +120,16 @@ impl ResourceCheckEngine<'_> {
             FunctionAliasTable::merge_paths(&[then_function_aliases, else_function_aliases]);
         *pending_reallocs =
             PendingRawReallocs::merge_paths(&[then_pending_reallocs, else_pending_reallocs]);
+        *variant_initializations = PendingVariantRawCellInitializations::merge_paths(&[
+            then_variant_initializations,
+            else_variant_initializations,
+        ]);
         if condition_available && then_available && else_available {
             cells.set_state(output, CellState::Initialized(output.ty));
         } else {
             raw_aliases.clear(output);
             pending_reallocs.clear_result(output);
+            variant_initializations.clear_result(output);
         }
     }
 
@@ -126,6 +139,7 @@ impl ResourceCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
+        variant_initializations: &mut PendingVariantRawCellInitializations,
         condition_ops: &[ResourceOp],
         condition: &Place,
         body_ops: &[ResourceOp],
@@ -135,11 +149,13 @@ impl ResourceCheckEngine<'_> {
         let mut condition_aliases = raw_aliases.clone();
         let mut condition_function_aliases = function_aliases.clone();
         let mut condition_pending_reallocs = pending_reallocs.clone();
+        let mut condition_variant_initializations = variant_initializations.clone();
         self.check_ops(
             &mut condition_cells,
             &mut condition_aliases,
             &mut condition_function_aliases,
             &mut condition_pending_reallocs,
+            &mut condition_variant_initializations,
             condition_ops,
         );
         self.consume_by_value(
@@ -153,11 +169,13 @@ impl ResourceCheckEngine<'_> {
         let mut body_aliases = condition_aliases.clone();
         let mut body_function_aliases = condition_function_aliases.clone();
         let mut body_pending_reallocs = condition_pending_reallocs.clone();
+        let mut body_variant_initializations = condition_variant_initializations.clone();
         self.check_ops(
             &mut body_cells,
             &mut body_aliases,
             &mut body_function_aliases,
             &mut body_pending_reallocs,
+            &mut body_variant_initializations,
             body_ops,
         );
         *cells = CellTable::merge_paths(&[condition_cells, body_cells]);
@@ -166,6 +184,10 @@ impl ResourceCheckEngine<'_> {
             FunctionAliasTable::merge_paths(&[condition_function_aliases, body_function_aliases]);
         *pending_reallocs =
             PendingRawReallocs::merge_paths(&[condition_pending_reallocs, body_pending_reallocs]);
+        *variant_initializations = PendingVariantRawCellInitializations::merge_paths(&[
+            condition_variant_initializations,
+            body_variant_initializations,
+        ]);
     }
 
     pub(super) fn check_match(
@@ -174,6 +196,7 @@ impl ResourceCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
+        variant_initializations: &mut PendingVariantRawCellInitializations,
         output: &Place,
         scrutinee: &Place,
         arms: &[ResourceMatchArm],
@@ -190,12 +213,14 @@ impl ResourceCheckEngine<'_> {
         let mut alias_paths = Vec::new();
         let mut function_alias_paths = Vec::new();
         let mut pending_realloc_paths = Vec::new();
+        let mut variant_initialization_paths = Vec::new();
 
         for arm in arms {
             let mut arm_cells = cells.clone();
             let mut arm_aliases = raw_aliases.clone();
             let mut arm_function_aliases = function_aliases.clone();
             let mut arm_pending_reallocs = pending_reallocs.clone();
+            let mut arm_variant_initializations = variant_initializations.clone();
             if let Some(bind_local) = &arm.bind_local {
                 arm_cells.mark_initialized(bind_local);
                 if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
@@ -207,16 +232,27 @@ impl ResourceCheckEngine<'_> {
                     );
                     arm_function_aliases.copy_alias(&source, bind_local);
                     arm_pending_reallocs.copy_result(&source, bind_local);
+                    arm_variant_initializations.copy_result(&source, bind_local);
                 } else {
                     arm_aliases.clear(bind_local);
                     arm_pending_reallocs.clear_result(bind_local);
+                    arm_variant_initializations.clear_result(bind_local);
                 }
             }
+            arm_variant_initializations.apply_match_arm(
+                self,
+                &mut arm_cells,
+                &mut arm_aliases,
+                scrutinee,
+                &arm.pattern,
+                arm.span,
+            );
             self.check_ops(
                 &mut arm_cells,
                 &mut arm_aliases,
                 &mut arm_function_aliases,
                 &mut arm_pending_reallocs,
+                &mut arm_variant_initializations,
                 &arm.ops,
             );
             let arm_available = self.consume_by_value(
@@ -235,11 +271,13 @@ impl ResourceCheckEngine<'_> {
                 );
                 arm_function_aliases.copy_alias(&arm.value, output);
                 arm_pending_reallocs.copy_result(&arm.value, output);
+                arm_variant_initializations.copy_result(&arm.value, output);
             }
             arm_paths.push(arm_cells);
             alias_paths.push(arm_aliases);
             function_alias_paths.push(arm_function_aliases);
             pending_realloc_paths.push(arm_pending_reallocs);
+            variant_initialization_paths.push(arm_variant_initializations);
         }
 
         if !arm_paths.is_empty() {
@@ -247,12 +285,15 @@ impl ResourceCheckEngine<'_> {
             *raw_aliases = RawCellAddressAliases::merge_paths(&alias_paths);
             *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
             *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);
+            *variant_initializations =
+                PendingVariantRawCellInitializations::merge_paths(&variant_initialization_paths);
         }
         if scrutinee_available && arms_available {
             cells.set_state(output, CellState::Initialized(output.ty));
         } else {
             raw_aliases.clear(output);
             pending_reallocs.clear_result(output);
+            variant_initializations.clear_result(output);
         }
     }
 
