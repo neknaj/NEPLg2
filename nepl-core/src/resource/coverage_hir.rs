@@ -2,13 +2,15 @@ extern crate alloc;
 
 use alloc::string::String;
 
-use crate::effects::{intrinsic_is_raw_memory_effect, raw_callee_is_raw_memory_effect};
 use crate::hir::{FuncRef, HirBlock, HirBody, HirExpr, HirExprKind};
 use crate::layout::aggregate_fields_with_offsets;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::coverage::ResourceCoverageCounts;
+use super::lower_raw_address::is_named_struct_type;
+use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
+use super::model::RawMemoryOp;
 use super::type_pattern::field_type_matches_result;
 
 pub(super) fn hir_body_coverage(
@@ -63,7 +65,10 @@ fn hir_expr_coverage(
                 return;
             }
             counts.direct_calls += 1;
-            if callee_is_raw_memory(callee) {
+            if raw_memory_op_from_callee(callee)
+                .filter(|operation| should_count_raw_memory_call(operation, args, types))
+                .is_some()
+            {
                 counts.raw_memory_ops += 1;
             }
             for arg in args {
@@ -137,7 +142,10 @@ fn hir_expr_coverage(
                 hir_field_projection_source_coverage(base, counts, types, string_literals);
                 return;
             }
-            if intrinsic_is_raw_memory_effect(name) {
+            if raw_memory_op_from_intrinsic(name)
+                .filter(|operation| should_count_raw_memory_call(operation, args, types))
+                .is_some()
+            {
                 counts.raw_memory_ops += 1;
             }
             for arg in args {
@@ -341,10 +349,26 @@ fn is_aggregate_projection_owner(types: &TypeCtx, ty: TypeId) -> bool {
     }
 }
 
-fn callee_is_raw_memory(callee: &FuncRef) -> bool {
-    match callee {
-        FuncRef::Builtin(name) | FuncRef::User(name, _, _) => raw_callee_is_raw_memory_effect(name),
-        FuncRef::Trait { .. } => false,
+fn should_count_raw_memory_call(
+    operation: &RawMemoryOp,
+    args: &[HirExpr],
+    types: &TypeCtx,
+) -> bool {
+    match operation {
+        RawMemoryOp::Load
+        | RawMemoryOp::Store
+        | RawMemoryOp::Dealloc
+        | RawMemoryOp::Realloc
+        | RawMemoryOp::Fill
+        | RawMemoryOp::BulkCopy
+        | RawMemoryOp::BulkMove => args
+            .first()
+            .map(|arg| !is_named_struct_type(types, arg.ty, "MemPtr"))
+            .unwrap_or(true),
+        RawMemoryOp::Alloc
+        | RawMemoryOp::MemorySize
+        | RawMemoryOp::MemoryGrow
+        | RawMemoryOp::Other { .. } => true,
     }
 }
 

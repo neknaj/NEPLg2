@@ -28478,6 +28478,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - DisjointSet の observer/free contract を Resource IR の owner state 追跡に乗る形へ修正した。
+# 2026-04-30 note (ISS-20260430T054603567Z Result::Ok-gated raw cell summary)
+
+- [同期]:
+  - `origin/main` を確認し、作業 branch `work/result-ok-param-init-summary` 上で修正した。
+- [原因]:
+  - `store_i32(MemPtr<i32>, i32)` / `fill_i32(MemPtr<i32>, ...)` は `Result::Ok` のときだけ pointee raw cell を初期化するが、Resource IR の raw cell summary は全 return path で保証される fact しか保持していなかった。
+  - call-site で MemPtr safe wrapper を直接 `RawMemory` として下げると、`load_i32(MemPtr)->Option<i32>` の output 型を raw cell 型として使ってしまい、wrapper の `Result` / `Option` semantics も失われていた。
+  - variant-gated summary だけを持つ関数が fixed-point summary list から落ちる判定になっており、`Option::Some` 側の raw load requirement が caller へ届かなかった。
+- [修正]:
+  - `RawCellInitializationFunctionSummary` に variant-gated parameter initialization と variant-gated parameter load requirement を追加した。
+  - call result に紐づく pending variant facts を導入し、`match Result::Ok` / `match Option::Some` arm でだけ raw cell 初期化または load 事前条件を適用するようにした。
+  - MemPtr safe wrapper call は call-site の直接 `RawMemory` lowering から外し、function summary 経由で CellState を反映する設計へ移した。
+  - lowering coverage の HIR 側 raw-memory count も同じ分類へ更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 141 passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-result-ok-param-init-summary.json -j 1`: `total=12`, `passed=7`, `failed=5`
+- [issue]:
+  - `ISS-20260430T054603567Z-RESOURCE-IR-SKIPS-RESULT-OK-GATED-PA-C2B25804` を fixed/resolved に更新した。
+  - 残った checked MemPtr owner 消費の問題を `ISS-20260430T060552075Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-5C2C877E` として追加した。
+  - `mem_ptr_wrap 0` の invalid pointer load false positive を `ISS-20260430T060600668Z-CHECKED-MEMPTR-LOAD-VARIANT-REQUIREM-1A1ADF53` として追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 の CellState summary を、全 path guarantee から enum variant 条件付き fact まで拡張した。
+
 # 2026-04-30 note (ISS-20260430T042346891Z Vec negative capacity guard)
 
 - [同期]:

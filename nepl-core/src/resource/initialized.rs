@@ -16,6 +16,7 @@ use super::initialized_alias_flow::{
 };
 use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
+use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{
     CellState, CellStateEntry, EffectOp, Place, ResourceBlock, ResourceCallTarget,
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
@@ -79,6 +80,7 @@ impl ResourceCheckEngine<'_> {
         let mut raw_aliases = RawCellAddressAliases::default();
         let mut function_aliases = FunctionAliasTable::default();
         let mut pending_reallocs = PendingRawReallocs::default();
+        let mut variant_initializations = PendingVariantRawCellInitializations::default();
         for param in &function.params {
             cells.mark_initialized(&param.place);
             cells.mark_external_raw_storage_root(&param.place);
@@ -90,6 +92,7 @@ impl ResourceCheckEngine<'_> {
                 &mut raw_aliases,
                 &mut function_aliases,
                 &mut pending_reallocs,
+                &mut variant_initializations,
                 block,
             );
         }
@@ -102,6 +105,7 @@ impl ResourceCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
+        variant_initializations: &mut PendingVariantRawCellInitializations,
         block: &ResourceBlock,
     ) {
         self.check_ops(
@@ -109,6 +113,7 @@ impl ResourceCheckEngine<'_> {
             raw_aliases,
             function_aliases,
             pending_reallocs,
+            variant_initializations,
             &block.ops,
         );
         match &block.terminator {
@@ -127,10 +132,18 @@ impl ResourceCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
+        variant_initializations: &mut PendingVariantRawCellInitializations,
         ops: &[ResourceOp],
     ) {
         for op in ops {
-            self.check_op(cells, raw_aliases, function_aliases, pending_reallocs, op);
+            self.check_op(
+                cells,
+                raw_aliases,
+                function_aliases,
+                pending_reallocs,
+                variant_initializations,
+                op,
+            );
         }
     }
 
@@ -140,6 +153,7 @@ impl ResourceCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         function_aliases: &mut FunctionAliasTable,
         pending_reallocs: &mut PendingRawReallocs,
+        variant_initializations: &mut PendingVariantRawCellInitializations,
         op: &ResourceOp,
     ) {
         match op {
@@ -171,15 +185,18 @@ impl ResourceCheckEngine<'_> {
                         );
                         function_aliases.copy_alias(initializer, place);
                         pending_reallocs.copy_result(initializer, place);
+                        variant_initializations.copy_result(initializer, place);
                     } else {
                         cells.set_state(place, CellState::Uninit);
                         raw_aliases.clear(place);
                         pending_reallocs.clear_result(place);
+                        variant_initializations.clear_result(place);
                     }
                 } else {
                     cells.set_state(place, CellState::Uninit);
                     raw_aliases.clear(place);
                     pending_reallocs.clear_result(place);
+                    variant_initializations.clear_result(place);
                 }
             }
             ResourceOp::Read {
@@ -192,6 +209,7 @@ impl ResourceCheckEngine<'_> {
                     self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
+                    variant_initializations.copy_result(source, output);
                 }
             }
             ResourceOp::Assign {
@@ -209,9 +227,11 @@ impl ResourceCheckEngine<'_> {
                     );
                     function_aliases.copy_alias(value, target);
                     pending_reallocs.copy_result(value, target);
+                    variant_initializations.copy_result(value, target);
                 } else {
                     raw_aliases.clear(target);
                     pending_reallocs.clear_result(target);
+                    variant_initializations.clear_result(target);
                 }
             }
             ResourceOp::Borrow {
@@ -224,6 +244,7 @@ impl ResourceCheckEngine<'_> {
                     cells.mark_initialized(output);
                     self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
                     pending_reallocs.clear_result(output);
+                    variant_initializations.clear_result(output);
                 }
             }
             ResourceOp::Move {
@@ -242,6 +263,7 @@ impl ResourceCheckEngine<'_> {
                     );
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
+                    variant_initializations.copy_result(source, output);
                 }
             }
             ResourceOp::Drop { place, span } => {
@@ -249,6 +271,7 @@ impl ResourceCheckEngine<'_> {
                     cells.set_state(place, CellState::Dropped);
                     raw_aliases.clear(place);
                     pending_reallocs.clear_result(place);
+                    variant_initializations.clear_result(place);
                 }
             }
             ResourceOp::CallEffect { .. } => {}
@@ -257,6 +280,7 @@ impl ResourceCheckEngine<'_> {
                 raw_aliases.clear(output);
                 function_aliases.set_alias(output, name.clone());
                 pending_reallocs.clear_result(output);
+                variant_initializations.clear_result(output);
             }
             ResourceOp::Call {
                 output,
@@ -266,11 +290,12 @@ impl ResourceCheckEngine<'_> {
                 span,
                 ..
             } => {
-                if matches!(
-                    effect,
-                    EffectOp::InternalAlloc | EffectOp::UnsafeMemory { .. }
-                ) {
+                if matches!(effect, EffectOp::InternalAlloc)
+                    || (matches!(effect, EffectOp::UnsafeMemory { .. })
+                        && !call_uses_checked_mem_ptr_wrapper(self.types, args))
+                {
                     pending_reallocs.clear_result(output);
+                    variant_initializations.clear_result(output);
                     return;
                 }
                 let args_available =
@@ -286,6 +311,7 @@ impl ResourceCheckEngine<'_> {
                     if !external_inputs_available {
                         raw_aliases.clear(output);
                         pending_reallocs.clear_result(output);
+                        variant_initializations.clear_result(output);
                         return;
                     }
                     cells.mark_initialized(output);
@@ -296,6 +322,7 @@ impl ResourceCheckEngine<'_> {
                     self.apply_call_raw_cell_initialization_summary(
                         cells,
                         raw_aliases,
+                        variant_initializations,
                         output,
                         target,
                         args,
@@ -332,6 +359,7 @@ impl ResourceCheckEngine<'_> {
                     self.apply_indirect_call_raw_cell_initialization_summary(
                         cells,
                         raw_aliases,
+                        variant_initializations,
                         output,
                         function_aliases,
                         callee,
@@ -357,10 +385,12 @@ impl ResourceCheckEngine<'_> {
             ResourceOp::RawAddressAlias { source, target, .. } => {
                 self.copy_raw_address_alias_and_rekey_cells(cells, raw_aliases, source, target);
                 pending_reallocs.copy_result(source, target);
+                variant_initializations.copy_result(source, target);
             }
             ResourceOp::RawAddressView { source, target, .. } => {
                 self.copy_raw_address_alias_and_rekey_cells(cells, raw_aliases, source, target);
                 pending_reallocs.clear_result(target);
+                variant_initializations.clear_result(target);
             }
             ResourceOp::Construct {
                 output,
@@ -377,6 +407,7 @@ impl ResourceCheckEngine<'_> {
                     construct_raw_cell_address_alias_fields(raw_aliases, output, kind, inputs);
                     construct_function_alias_fields(function_aliases, output, kind, inputs);
                     pending_reallocs.clear_result(output);
+                    variant_initializations.clear_result(output);
                 }
             }
             ResourceOp::Branch {
@@ -394,6 +425,7 @@ impl ResourceCheckEngine<'_> {
                     raw_aliases,
                     function_aliases,
                     pending_reallocs,
+                    variant_initializations,
                     output,
                     condition,
                     condition_fact.as_ref(),
@@ -415,6 +447,7 @@ impl ResourceCheckEngine<'_> {
                     raw_aliases,
                     function_aliases,
                     pending_reallocs,
+                    variant_initializations,
                     condition_ops,
                     condition,
                     body_ops,
@@ -432,6 +465,7 @@ impl ResourceCheckEngine<'_> {
                     raw_aliases,
                     function_aliases,
                     pending_reallocs,
+                    variant_initializations,
                     output,
                     scrutinee,
                     arms,
@@ -621,6 +655,24 @@ fn type_preserves_raw_address_alias(types: &TypeCtx, ty: TypeId) -> bool {
                 types.get_ref(base),
                 TypeKind::Struct { name, .. } if name == "MemPtr" || name == "RegionToken"
             )
+        }
+        _ => false,
+    }
+}
+
+fn call_uses_checked_mem_ptr_wrapper(types: &TypeCtx, args: &[Place]) -> bool {
+    args.first()
+        .map(|arg| is_mem_ptr_type(types, arg.ty))
+        .unwrap_or(false)
+}
+
+fn is_mem_ptr_type(types: &TypeCtx, ty: TypeId) -> bool {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Struct { name, .. } => name == "MemPtr",
+        TypeKind::Apply { base, .. } => {
+            let base = types.resolve_named_type_id(*base);
+            matches!(types.get_ref(base), TypeKind::Struct { name, .. } if name == "MemPtr")
         }
         _ => false,
     }

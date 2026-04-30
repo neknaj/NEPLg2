@@ -793,7 +793,9 @@ fn push_direct_call_skeleton(
     if let Some(name) = func_ref_base_name(callee) {
         push_named_raw_address_semantics(name, args, &arg_places, &output, ops, env, expr.span);
     }
-    if let Some(operation) = raw_memory_op_from_callee(callee) {
+    if let Some(operation) = raw_memory_op_from_callee(callee)
+        .filter(|operation| should_lower_raw_memory_call(operation, args, env))
+    {
         ops.push(ResourceOp::RawMemory {
             operation,
             output: output.clone(),
@@ -814,6 +816,29 @@ fn push_direct_call_skeleton(
         span: expr.span,
     });
     output
+}
+
+fn should_lower_raw_memory_call(
+    operation: &RawMemoryOp,
+    args: &[HirExpr],
+    env: &LoweringEnvironment,
+) -> bool {
+    match operation {
+        RawMemoryOp::Load
+        | RawMemoryOp::Store
+        | RawMemoryOp::Dealloc
+        | RawMemoryOp::Realloc
+        | RawMemoryOp::Fill
+        | RawMemoryOp::BulkCopy
+        | RawMemoryOp::BulkMove => args
+            .first()
+            .map(|arg| !is_named_struct_type(env.types, arg.ty, "MemPtr"))
+            .unwrap_or(true),
+        RawMemoryOp::Alloc
+        | RawMemoryOp::MemorySize
+        | RawMemoryOp::MemoryGrow
+        | RawMemoryOp::Other { .. } => true,
+    }
 }
 
 fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {

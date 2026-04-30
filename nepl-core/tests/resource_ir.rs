@@ -3916,6 +3916,135 @@ fn resource_ir_cell_check_keeps_conditional_unit_helper_argument_init_conservati
 }
 
 #[test]
+fn resource_ir_cell_check_applies_result_ok_param_raw_cell_initialization() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    match alloc_ptr<i32> 4:
+        Result::Err _e:
+            0
+        Result::Ok p:
+            match store_i32 p 123:
+                Result::Err _e:
+                    0
+                Result::Ok _:
+                    let v <i32> match load_i32 p:
+                        Option::None:
+                            0
+                        Option::Some x:
+                            x
+                    match dealloc_ptr p 4:
+                        Result::Err _e:
+                            0
+                        Result::Ok _:
+                            v
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "Result::Ok-gated MemPtr store must initialize the caller raw cell before load: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_does_not_apply_result_err_param_raw_cell_initialization() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn maybe_store <(bool,MemPtr<i32>,i32)->Result<(),str>> (flag, p, v):
+    if:
+        flag
+        then:
+            let raw <i32> mem_ptr_addr p
+            store_i32 raw v
+            Result<(),str>::Ok ()
+        else:
+            Result<(),str>::Err "skip"
+
+fn main <()->i32> ():
+    match alloc_ptr<i32> 4:
+        Result::Err _e:
+            0
+        Result::Ok p:
+            match maybe_store false p 123:
+                Result::Err _e:
+                    let v <i32> match load_i32 p:
+                        Option::None:
+                            0
+                        Option::Some x:
+                            x
+                    match dealloc_ptr p 4:
+                        Result::Err _drop:
+                            0
+                        Result::Ok _:
+                            v
+                Result::Ok _:
+                    match dealloc_ptr p 4:
+                        Result::Err _drop:
+                            0
+                        Result::Ok _:
+                            0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Uninit,
+                ..
+            }
+        )),
+        "Result::Err arm must not receive Result::Ok-gated raw cell initialization: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_rekeys_raw_cells_after_loading_raw_address_cell() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);
