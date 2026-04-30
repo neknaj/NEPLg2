@@ -14,6 +14,7 @@ function read(rel) {
 const facade = read("stdlib/core/math.nepl");
 const i32Module = read("stdlib/core/math/i32.nepl");
 const i64Module = read("stdlib/core/math/i64.nepl");
+const f32Module = read("stdlib/core/math/f32.nepl");
 const u8Module = read("stdlib/core/math/u8.nepl");
 const boolModule = read("stdlib/core/math/bool.nepl");
 
@@ -26,6 +27,11 @@ assert.match(
     facade,
     /pub\s+#import\s+"\.\/math\/i64"\s+as\s+\*/,
     "core/math.nepl must re-export the i64 math submodule",
+);
+assert.match(
+    facade,
+    /pub\s+#import\s+"\.\/math\/f32"\s+as\s+\*/,
+    "core/math.nepl must re-export the f32 math submodule",
 );
 assert.match(
     facade,
@@ -116,6 +122,40 @@ for (const [name, signature] of [
 }
 
 for (const [name, signature] of [
+    ["add", "<\\(f32,f32\\)->f32>"],
+    ["sub", "<\\(f32,f32\\)->f32>"],
+    ["mul", "<\\(f32,f32\\)->f32>"],
+    ["div", "<\\(f32,f32\\)->f32>"],
+    ["min", "<\\(f32,f32\\)->f32>"],
+    ["max", "<\\(f32,f32\\)->f32>"],
+    ["copysign", "<\\(f32,f32\\)->f32>"],
+    ["eq", "<\\(f32,f32\\)->bool>"],
+    ["ne", "<\\(f32,f32\\)->bool>"],
+    ["lt", "<\\(f32,f32\\)->bool>"],
+    ["le", "<\\(f32,f32\\)->bool>"],
+    ["gt", "<\\(f32,f32\\)->bool>"],
+    ["ge", "<\\(f32,f32\\)->bool>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(f32Module, pattern, `core/math/f32.nepl must define overload ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep overload ${name} ${signature}`);
+}
+
+for (const [name, signature] of [
+    ["sqrt", "<\\(f32\\)->f32>"],
+    ["abs", "<\\(f32\\)->f32>"],
+    ["neg", "<\\(f32\\)->f32>"],
+    ["ceil", "<\\(f32\\)->f32>"],
+    ["floor", "<\\(f32\\)->f32>"],
+    ["trunc", "<\\(f32\\)->f32>"],
+    ["nearest", "<\\(f32\\)->f32>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(f32Module, pattern, `core/math/f32.nepl must define unary ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep unary ${name} ${signature}`);
+}
+
+for (const [name, signature] of [
     ["and", "<\\(bool,bool\\)->bool>"],
     ["or", "<\\(bool,bool\\)->bool>"],
     ["not", "<\\(bool\\)->bool>"],
@@ -168,6 +208,6 @@ for (const [name, signature] of [
     assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep unary ${name} ${signature}`);
 }
 
-assert.match(facade, /\bfn\s+add\s+<\(f32,f32\)->f32>/, "core/math.nepl must keep f32 math implementation for now");
+assert.match(facade, /\bfn\s+add\s+<\(f64,f64\)->f64>/, "core/math.nepl must keep f64 math implementation for now");
 
 console.log("stdlib math module split regression passed");

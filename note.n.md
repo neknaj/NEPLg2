@@ -28925,6 +28925,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner token / free obligation summary を、未精査 Result の path-dependent reservation まで含めて扱う形に進めた。
 
+# 2026-04-30 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math f32 split)
+
+- [同期]:
+  - `main` の `4b960fe2` から branch `refactor/math-f32-module-split` を作成した。
+  - remote main は同じ `4b960fe2` のままで、他agentの Resource IR branch は main 未反映のため触らない。
+- [原因]:
+  - `core/math` には i64 split 後も f32 の算術・単項・比較演算が残っていた。
+  - f32 演算群は自己完結しており、`core/math` facade が再 export すれば既存 overload 利用と変換 helper からの参照を保てる。
+- [修正]:
+  - f32 算術・単項・comparison を `stdlib/core/math/f32.nepl` へ移した。
+  - `stdlib/core/math.nepl` は `pub #import "./math/f32" as *` で f32 API を再 export する facade にした。
+  - `core/math/f32` direct import doctest を追加し、f32 module 単体で算術・比較を確認する。
+  - `nodesrc/test_stdlib_math_module_split.js` を拡張し、f32 実装が `core/math.nepl` に戻らないことを source policy で固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/f32.nepl --no-tree -o tmp/math-f32-module-direct.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math.nepl --no-tree -o tmp/math-facade-after-f32-split.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/numerics.n.md -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-suite-after-f32-split.json -j 1`: `17 total / 17 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 拡張後の math split policy は passed。既存の `owner_summary_variant_paths.rs` responsibility split warning は継続。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` に core/math f32 split の進捗を追記した。
+  - issue はまだ open。`core/math` には f64/変換/i128 が残り、他の巨大 stdlib file も未分割。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 浮動小数演算も型別 module へ分け、selfhost で数値 primitive を段階的に移植しやすい構成へ寄せた。
+
 # 2026-04-30 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math i64 split)
 
 - [同期]:
