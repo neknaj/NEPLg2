@@ -27975,3 +27975,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.md delta]:
   - `plan.md` は変更していない。
   - CI bootstrap の生成物前提を明確化しただけで、compiler / stdlib の静的検査仕様は変更していない。
+
+# 2026-04-30 note (ISS-20260430T022009877Z BitSet borrowed observers)
+
+- [同期]:
+  - `main` で `git pull --ff-only origin main` を実行し、remote main が最新であることを確認した。
+  - commit 前の再確認で remote main が `60e632e1` まで進んでいたため、作業差分を stash し、branch を fast-forward してから差分を再適用した。
+  - 作業 branch は `fix/bitset-borrowed-observers-20260430`。
+- [原因]:
+  - `BitSet.len` / `BitSet.contains` は読み取り専用 API なのに `BitSet` を値で受け取り、bit storage owner を観察時に消費していた。
+  - そのため caller は `contains bs idx` / `len bs` の後に同じ `BitSet` を `free` できず、strict owner check では実 leak か field-level workaround のどちらかになっていた。
+- [修正]:
+  - `BitSet.len` と `BitSet.contains` を `&BitSet` receiver に変更した。
+  - BitSet doctest / `.n.md` tests を、同じ owner に複数回 borrowed observer を呼んだ後で `free` する形へ整理した。
+  - `nodesrc/test_stdlib_bitset_borrowed_observers.js` を追加し、by-value observer signature と by-value test usage の再発を source policy で検出するようにした。
+- [追加 issue]:
+  - sibling review で同種の by-value observer が残っていたため、AdjacencyMatrix / BloomFilter / CountingBloomFilter / Fenwick / SparseSet の個別 issue を追加した。
+  - source policy 全体確認中に `web/dist_ts/editor-core/language-analysis.js` が diagnostic code mapping に追従していない既存失敗を検出し、web dist_ts stale artifact issue を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/bitset.n.md --no-tree -o tmp/bitset-stdlib-borrowed-observers.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/bitset_collections.n.md --no-tree -o tmp/bitset-collections-borrowed-observers.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl --no-tree -o tmp/bitset-doctest-borrowed-observers.json -j 1`: `total=7`, `passed=7`
+  - `node nodesrc/test_stdlib_bitset_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js`: passed
+  - `cargo test -p nepl-core --test pipe_operator -- pipe_complete_overloaded_source_call_into_target --nocapture`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: BitSet 追加分までは passed。既存の `nodesrc/test_editor_diagnostic_code_contract.js` が `undefined == 'resolve.identifier.undefined'` で失敗したため、`ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62` を追加した。
+  - remote main 再同期後にも上記 BitSet `.n.md` / doctest / source policy / pipe_operator / issue check / `git diff --check` を再実行して passed。
+- [issue]:
+  - `ISS-20260430T022009877Z-BITSET-READ-ONLY-APIS-CONSUME-OWNERS-103D989F` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - self-host に必要な collection observer API を、型/メモリ安全の静的検査が効く借用 contract へ近づけた。

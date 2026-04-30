@@ -10,7 +10,9 @@
 - `insert`
 - `remove`
 - `contains`
+- `len`
 - `fill`
+- `free`
 
 neplg2:test
 ret: 1
@@ -30,17 +32,14 @@ fn main <()*>i32> ():
         |> insert 8 |> uwok
         |> insert 21 |> uwok
         |> remove 8 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> contains bs0 3;
-    let bs1 <BitSet>:
-        unwrap_ok<BitSet, Diag> new 24
-        |> insert 3 |> uwok
-        |> insert 8 |> uwok
-        |> insert 21 |> uwok
-        |> remove 8 |> uwok
-    let ok1 <bool> not unwrap_ok<bool, Diag> contains bs1 8;
+    let ok0 <bool> unwrap_ok<bool, Diag> contains &bs0 3;
+    let ok1 <bool> not unwrap_ok<bool, Diag> contains &bs0 8;
+    let ok2 <bool> eq len &bs0 24;
+    free bs0
     let bs2 <BitSet> fill unwrap_ok<BitSet, Diag> new 24;
-    let ok2 <bool> unwrap_ok<bool, Diag> contains bs2 8;
-    if and ok0 and ok1 ok2 1 0
+    let ok3 <bool> unwrap_ok<bool, Diag> contains &bs2 8;
+    free bs2
+    if and ok0 and ok1 and ok2 ok3 1 0
 ```
 
 ## bitset_free_releases_owned_storage

@@ -5,6 +5,7 @@
 //:
 //: ### [目的/もくてき]
 //: - `BitSet` を[提供/ていきょう]し、`new` / `len` / `contains` / `insert` / `remove` / `clear` / `fill` / `free` の bare API で bit [集合/しゅうごう]を[扱/あつか]えるようにします。
+//: - `len` / `contains` は `&BitSet` を[受/う]け[取/と]り、bit storage の owner を[移動/いどう]せずに[観察/かんさつ]します。
 //: - [固定長/こていちょう]の membership structure を `alloc/collections` に[揃/そろ]え、`BloomFilter` と[違/ちが]って false positive のない[正確/せいかく]な[判定/はんてい]を[標準/ひょうじゅん]で[扱/あつか]えるようにします。
 //:
 //: ### [実装/じっそう]
@@ -16,6 +17,7 @@
 //: - [有効/ゆうこう] index [範囲/はんい]は `[0, len)` です。
 //: - `insert` / `remove` / `contains` は[範囲外/はんいがい] index に[対/たい]して `Result::Err Diag` を[返/かえ]します。
 //: - `len` は set bit [数/すう]ではなく、[保持/ほじ]できる bit [長/ちょう]を[返/かえ]します。
+//: - [読/よ]み[取/と]りだけの[処理/しょり]では `len &bs` / `contains &bs idx` のように borrow して、[最後/さいご]に `free bs` で owner を[閉/と]じます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - `len` / `contains` / `insert` / `remove` は O(1) です。
@@ -78,7 +80,9 @@ fn bitset_fill_bytes <(MemPtr<u8>,i32,i32)->()> (bits, nbytes, byte_value):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 64;
-//:     if eq len bs 64 1 0
+//:     let ok <bool> eq len &bs 64;
+//:     free bs
+//:     if ok 1 0
 //: ```
 fn new <(i32)*>Result<BitSet, Diag>> (nbits):
     if:
@@ -96,8 +100,12 @@ fn new <(i32)*>Result<BitSet, Diag>> (nbits):
 
 //: ## len
 //: [保持可能/ほじかのう]な bit [長/ちょう]を[返/かえ]す
-fn len <(BitSet)->i32> (bs):
-    field::get bs "nbits"
+//:
+//: ### [仕様/しよう]
+//: - `BitSet` owner は[消費/しょうひ]しません。
+//: - caller は `len` [後/ご]も同じ `BitSet` を[使/つか]い、不要になったら `free` できます。
+fn len <(&BitSet)->i32> (bs):
+    *field::get_ref bs "nbits"
 
 //: ## contains
 //: bit が[立/た]っているかを[返/かえ]す
@@ -113,15 +121,16 @@ fn len <(BitSet)->i32> (bs):
 //:     let bs <BitSet>:
 //:         unwrap_ok<BitSet, Diag> new 32
 //:         |> insert 5 |> uwok
-//:     let ok <bool> unwrap_ok<bool, Diag> contains bs 5;
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs 5;
+//:     free bs
 //:     if ok 1 0
 //: ```
-fn contains <(BitSet,i32)*>Result<bool, Diag>> (bs, idx):
-    let nbits <i32> field::get bs "nbits"
+fn contains <(&BitSet,i32)*>Result<bool, Diag>> (bs, idx):
+    let nbits <i32> *field::get_ref bs "nbits"
     if:
         bitset_valid_index idx nbits
         then:
-            let bits <MemPtr<u8>> field::get bs "bits"
+            let bits <MemPtr<u8>> *field::get_ref bs "bits"
             let ptr <MemPtr<u8>> bitset_ptr_at bits idx
             let mask <i32> bitset_mask idx
             let cur <i32> load_u8 mem_ptr_addr ptr
@@ -142,7 +151,8 @@ fn contains <(BitSet,i32)*>Result<bool, Diag>> (bs, idx):
 //: fn main <()*>i32> ():
 //:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 16;
 //:     let bs1 <BitSet> unwrap_ok<BitSet, Diag> insert bs 3;
-//:     let ok <bool> unwrap_ok<bool, Diag> contains bs1 3;
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs1 3;
+//:     free bs1
 //:     if ok 1 0
 //: ```
 fn insert <(BitSet,i32)*>Result<BitSet, Diag>> (bs, idx):
@@ -174,7 +184,8 @@ fn insert <(BitSet,i32)*>Result<BitSet, Diag>> (bs, idx):
 //:         unwrap_ok<BitSet, Diag> new 16
 //:         |> insert 3 |> uwok
 //:         |> remove 3 |> uwok
-//:     let ok <bool> unwrap_ok<bool, Diag> contains bs 3;
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs 3;
+//:     free bs
 //:     if not ok 1 0
 //: ```
 fn remove <(BitSet,i32)*>Result<BitSet, Diag>> (bs, idx):
@@ -206,7 +217,8 @@ fn remove <(BitSet,i32)*>Result<BitSet, Diag>> (bs, idx):
 //:         unwrap_ok<BitSet, Diag> new 16
 //:         |> insert 2 |> uwok
 //:         |> clear
-//:     let ok <bool> unwrap_ok<bool, Diag> contains bs 2;
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs 2;
+//:     free bs
 //:     if not ok 1 0
 //: ```
 fn clear <(BitSet)->BitSet> (bs):
@@ -228,7 +240,8 @@ fn clear <(BitSet)->BitSet> (bs):
 //: fn main <()*>i32> ():
 //:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 10;
 //:     let bs1 <BitSet> fill bs;
-//:     let ok <bool> unwrap_ok<bool, Diag> contains bs1 9;
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs1 9;
+//:     free bs1
 //:     if ok 1 0
 //: ```
 fn fill <(BitSet)->BitSet> (bs):
