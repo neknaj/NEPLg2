@@ -15,7 +15,8 @@
 //: ### [注意/ちゅうい]
 //: - `new` は `n < 0` を `Result::Err Diag` として[返/かえ]します。
 //: - `n = 0` は[空/から]の union-find として[有効/ゆうこう]で、内部配列を[確保/かくほ]しません。
-//: - `find` / `union` / `same` / `size` は[範囲外/はんいがい] index を `Result::Err Diag` として[返/かえ]します。
+//: - `find` / `same` / `size` は[範囲外/はんいがい] index を `Result::Err Diag` として[返/かえ]します。
+//: - [範囲外/はんいがい] index の `union` は `Result::Err DisjointSetUpdateError` で元の owner と[診断/しんだん]を[返/かえ]します。
 //: - [読/よ]み[取/と]りだけの[処理/しょり]では `len &dsu` / `find &dsu idx` のように borrow して、[最後/さいご]に `free dsu` で owner を[閉/と]じます。
 //: - path compression を[使/つか]わないので、`find` / `same` / `size` の[最悪計算量/さいあくけいさんりょう]は O(log n) です。
 //:
@@ -42,6 +43,28 @@ struct DisjointSet:
     n <i32>
     parent <MemPtr<i32>>
     sizes <MemPtr<i32>>
+
+//: ## DisjointSetUpdateError
+//: `union` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
+//:
+//: ### [目的/もくてき]
+//: - `union` は[更新/こうしん] API なので `DisjointSet` owner を[受/う]け[取/と]ります。
+//: - [範囲外/はんいがい] index では parent / sizes storage を[変更/へんこう]せず、caller が cleanup できるように元の owner を `owner` に[戻/もど]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `Result::Err` を[受/う]け[取/と]った caller は `disjoint_set_update_error_owner` で owner を[回収/かいしゅう]し、[不要/ふよう]なら `free` します。
+//: - `diag` は `Diag` の Copy [値/あたい]で、`disjoint_set_update_error_diag` から owner を[動/うご]かさず[確認/かくにん]できます。
+struct DisjointSetUpdateError:
+    owner <DisjointSet>
+    diag <Diag>
+
+//: disjoint_set_update_error_diag: update [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
+fn disjoint_set_update_error_diag <(&DisjointSetUpdateError)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: disjoint_set_update_error_owner: update [失敗/しっぱい]で[戻/もど]された `DisjointSet` owner を[取/と]り[出/だ]す
+fn disjoint_set_update_error_owner <(DisjointSetUpdateError)->DisjointSet> (e):
+    field::get e "owner"
 
 fn dsu_diag_len <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "invalid disjoint set length"
@@ -149,10 +172,10 @@ fn len <(&DisjointSet)->i32> (dsu):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
-//:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu0 0 1;
+//:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu0 0 1;
 //:     let root0 <i32> unwrap_ok<i32, Diag> find &dsu1 0;
 //:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
-//:     let dsu3 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu2 0 1;
+//:     let dsu3 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu2 0 1;
 //:     let root1 <i32> unwrap_ok<i32, Diag> find &dsu3 1;
 //:     free dsu1
 //:     free dsu3
@@ -188,13 +211,13 @@ fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 5;
-//:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu0 0 1;
-//:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu1 1 2;
+//:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu0 0 1;
+//:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu1 1 2;
 //:     let ok <bool> unwrap_ok<bool, Diag> same &dsu2 0 2;
 //:     free dsu2
 //:     if ok 1 0
 //: ```
-fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
+fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, DisjointSetUpdateError>> (dsu, a, b):
     let n <i32> *field::get_ref &dsu "n"
     let parent <MemPtr<i32>> *field::get_ref &dsu "parent"
     let sizes <MemPtr<i32>> *field::get_ref &dsu "sizes"
@@ -206,7 +229,7 @@ fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
             if:
                 eq ra rb
                 then:
-                    ok<DisjointSet, Diag> dsu
+                    ok<DisjointSet, DisjointSetUpdateError> dsu
                 else:
                     let sa <i32> dsu_size_raw sizes ra
                     let sb <i32> dsu_size_raw sizes rb
@@ -216,12 +239,12 @@ fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
                     let sd <i32> dsu_size_raw sizes root_drop
                     dsu_store_owned parent root_drop root_keep
                     dsu_store_owned sizes root_keep add sk sd
-                    ok<DisjointSet, Diag> dsu
+                    ok<DisjointSet, DisjointSetUpdateError> dsu
         else:
             let bad <i32> if and le 0 a lt a n b a
             let d <Diag> dsu_diag_index
-            free dsu
-            err<DisjointSet, Diag> d
+            let e <DisjointSetUpdateError> DisjointSetUpdateError dsu d
+            err<DisjointSet, DisjointSetUpdateError> e
 
 //: ## same
 //: 2 [要素/ようそ]が[同/おな]じ[集合/しゅうごう]に[属/ぞく]するかを[返/かえ]す
@@ -238,10 +261,10 @@ fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, Diag>> (dsu, a, b):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
-//:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu0 0 1;
+//:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu0 0 1;
 //:     let ok0 <bool> unwrap_ok<bool, Diag> same &dsu1 0 1;
 //:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
-//:     let dsu3 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu2 0 1;
+//:     let dsu3 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu2 0 1;
 //:     let ok1 <bool> unwrap_ok<bool, Diag> same &dsu3 0 2;
 //:     free dsu1
 //:     free dsu3
@@ -277,8 +300,8 @@ fn same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 5;
-//:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu0 0 1;
-//:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> union dsu1 1 2;
+//:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu0 0 1;
+//:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu1 1 2;
 //:     let s <i32> unwrap_ok<i32, Diag> size &dsu2 2;
 //:     free dsu2
 //:     if eq s 3 1 0
