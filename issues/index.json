@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:40:29.488Z",
+  "generated_at": "2026-04-30T14:40:51.638Z",
   "counts": {
-    "total": 463,
+    "total": 464,
     "open": 16,
-    "resolved": 447,
+    "resolved": 448,
     "by_area": {
       "core": {
         "total": 207,
@@ -17,9 +17,9 @@
         "resolved": 43
       },
       "stdlib": {
-        "total": 149,
+        "total": 150,
         "open": 7,
-        "resolved": 142
+        "resolved": 143
       },
       "TEST": {
         "total": 7,
@@ -5053,6 +5053,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T044235959Z-VEC-MODULE-DOCTESTS-LEAK-OWNERS-UNDE-EB5A5659.md"
+    },
+    {
+      "id": "ISS-20260430T122142575Z-STD-FREE-HIDES-CHECKED-DEALLOC-FAILU-C1D154EB",
+      "title": "std_free hides checked dealloc failure from owner summaries",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/std/stdio.nepl, nepl-core/tests/kp.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T122142575Z-STD-FREE-HIDES-CHECKED-DEALLOC-FAILU-C1D154EB.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

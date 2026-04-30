@@ -22,12 +22,22 @@
 fn std_alloc <(i32)->Result<i32,str>> (size):
     alloc size
 
+//: std_free: stdio [内部/ないぶ] scratch allocation を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - `std_alloc` の `Result::Ok` から[得/え]た raw pointer を、stdio [内部/ないぶ]の scratch buffer として[解放/かいほう]します。
+//:
+//: [実装/じっそう]:
+//: - caller が valid allocation owner と exact size を[持/も]つことを[前提/ぜんてい]にし、checked `dealloc` ではなく `dealloc_raw` へ[直接/ちょくせつ][渡/わた]します。
+//: - checked `dealloc` の `Err` branch をここで[握/にぎ]りつぶすと、Resource IR の owner summary が「[解放/かいほう]されたかもしれない」状態を[残/のこ]してしまうためです。
+//:
+//: [注意/ちゅうい]:
+//: - `std_alloc` の `Result::Ok` 以外から[得/え]た pointer や、異なる size を[渡/わた]してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - `dealloc_raw` に[依存/いぞん]します。
 fn std_free <(i32,i32)->()> (ptr, size):
-    match dealloc ptr size:
-        Result::Ok _:
-            ()
-        Result::Err _:
-            ()
+    dealloc_raw ptr size
 
 fn stdio_fd_read_mem <(i32,MemPtr<u8>,i32,MemPtr<u8>)*>i32> (fd, iov, iovcnt, nread):
     fd_read fd mem_ptr_addr iov iovcnt mem_ptr_addr nread

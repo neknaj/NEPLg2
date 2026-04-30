@@ -29016,3 +29016,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正計画 Stage 4 の Resource IR owner / raw view 境界を、`MemPtr = non-owning pointer` と raw storage owner の分離方針に沿って進めた。
+
+# 2026-04-30 note (ISS-20260430T122142575Z std_free owner summary)
+
+- [同期]:
+  - `12881bdb` の raw owner/view 分離 commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `stdlib/std/stdio.nepl` の `std_free` は stdio 内部 scratch allocation を解放する helper だが、checked `dealloc` を呼んで `Ok` / `Err` の両方を `()` に潰していた。
+  - Resource IR owner summary は `dealloc` の `Ok` arm だけを owner consumption として扱うため、`Err` arm を握りつぶす wrapper は「解放されたかもしれない」状態を caller に残す。
+  - `stdio_write_fd_mem_result` では `std_alloc` の `Result::Ok` から得た valid pointer と exact size だけを `std_free` に渡すため、checked failure を隠す設計ではなく unchecked internal free として表すのが正しい。
+- [修正]:
+  - `std_free` を `dealloc_raw ptr size` へ直接委譲する internal helper に変更した。
+  - `std_free` のコメントを追加し、`std_alloc` の `Result::Ok` 由来 pointer と exact size のみを受け付ける前提、checked `dealloc` を使わない理由、計算量を明記した。
+  - `ISS-20260430T122142575Z-STD-FREE-HIDES-CHECKED-DEALLOC-FAILU-C1D154EB` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/stdio-result-stderr-std-free.json -j 1 --dist web/dist`: `3 total / 3 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画 Stage 4 の owner summary と stdlib boundary の整合性として、checked Result を握りつぶして owner obligation を曖昧化しない方針を stdio helper に反映した。
