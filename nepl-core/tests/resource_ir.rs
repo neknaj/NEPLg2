@@ -7252,6 +7252,53 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_transfers_raw_local_reads_into_returned_aggregate() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct RawPair:
+    left <i32>
+    right <i32>
+
+fn make_pair <()*>RawPair> ():
+    let left <i32> alloc_raw 4
+    let right <i32> alloc_raw 8
+    RawPair left right
+
+fn main <()*>()> ():
+    let pair <RawPair> make_pair
+    dealloc_raw field::get pair "left" 4
+    dealloc_raw field::get pair "right" 8
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("make_pair__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "owning raw local reads must transfer into returned aggregate fields, not be inferred as non-owning views: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_reinitializes_self_update_fresh_projection_return() {
     let source = r#"
 #entry main

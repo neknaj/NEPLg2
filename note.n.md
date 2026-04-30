@@ -28988,3 +28988,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正計画 Stage 4 の initialized/moved state について、checked MemPtr wrapper の value-refined variant reachability を追加した。
+
+# 2026-04-30 note (ISS-20260430T115402753Z raw owner/view split)
+
+- [同期]:
+  - `origin/main` の `f108cebd` を基点に、branch `work/region-token-owner-cleanup` で継続対応した。
+- [原因]:
+  - Resource owner checker が raw `i32` の alias shape だけを見て non-owning raw address view を推定していた。
+  - `let raw = mem_ptr_addr p` のような projection view と、`let raw = alloc_raw n` のような raw owner local read が同じ alias 表現に潰れていたため、returned aggregate へ raw owner を詰めると owner transfer が省略されて false leak になっていた。
+  - 一方で projection view をすべて owner と扱うと `mem_ptr_addr` / `RegionToken` 派生 view の cleanup fallback が壊れるため、owner と view の境界を明示的に分ける必要があった。
+- [修正]:
+  - `RawAddressViewTable` を exact place だけでなく descendant projection へ伝播できるようにし、copy / clear / contains_under を view marker の責務として整理した。
+  - `initializer_is_non_owning_raw_alias_view` を explicit raw view と context-limited projected alias view に分離した。
+  - aggregate / Result construction では explicit raw view のみを non-owning とし、owning raw local read は field へ owner transfer するようにした。
+  - `let` / assign / branch / match bind では `mem_ptr_addr` のような projected alias view を従来通り non-owning として扱い、view を owner と誤認しないようにした。
+  - returned aggregate に raw owner local を詰めて caller 側で field dealloc する Resource IR 回帰テストを追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_raw_local_reads_into_returned_aggregate -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_alloc_ptr_raw_owner_return -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_mem_ptr_dealloc_consumption -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_allows_region_ptr -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`: `stdio_write_fd_mem_result` の `iov` / `nwritten` MaybeLeak が残る。これは raw owner/view 分離の再発ではなく、`std_free` が checked `dealloc` の Err branch を握りつぶして function summary が unconditional free を証明できない別問題として次 issue で扱う。
+- [issue]:
+  - `ISS-20260430T115402753Z-RESOURCE-OWNER-CHECKER-TREATS-OWNING-F2AED5A6` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画 Stage 4 の Resource IR owner / raw view 境界を、`MemPtr = non-owning pointer` と raw storage owner の分離方針に沿って進めた。

@@ -54,7 +54,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             );
         }
-        variant_owner_effects.record_call(raw_aliases, output, args, summary);
+        variant_owner_effects.record_call(raw_aliases, raw_views, output, args, summary);
     }
 
     pub(super) fn apply_indirect_call_return_owner(
@@ -100,7 +100,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     summary,
                     span,
                 );
-                variant_owner_effects.record_call(raw_aliases, output, args, summary);
+                variant_owner_effects.record_call(raw_aliases, raw_views, output, args, summary);
                 if self.has_transferable_owner(owners, raw_aliases, output) {
                     return;
                 }

@@ -5,6 +5,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::{AggregateKind, OwnerState, Place};
 use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_place};
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_transfer::{free_owner_state, move_owner_state_out, transfer_owner_state};
 use super::place_utils::{
@@ -19,6 +20,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         output: &Place,
         kind: &AggregateKind,
@@ -27,7 +29,14 @@ impl ResourceOwnerCheckEngine<'_> {
     ) {
         for (index, input) in inputs.iter().enumerate() {
             let field = construct_aggregate_field_place(output, kind, index, input);
-            if self.initializer_is_non_owning_raw_alias_view(owners, raw_aliases, input, &field) {
+            if self.initializer_is_non_owning_raw_alias_view(
+                owners,
+                raw_aliases,
+                raw_views,
+                false,
+                input,
+                &field,
+            ) {
                 self.copy_non_owning_owner_markers(owners, input, &field);
                 raw_aliases.copy_alias_or_seed(input, &field);
                 storage_origins.copy_origin(input, &field);

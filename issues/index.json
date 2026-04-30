@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:39:42.190Z",
+  "generated_at": "2026-04-30T14:40:29.488Z",
   "counts": {
-    "total": 462,
+    "total": 463,
     "open": 16,
-    "resolved": 446,
+    "resolved": 447,
     "by_area": {
       "core": {
-        "total": 206,
+        "total": 207,
         "open": 6,
-        "resolved": 200
+        "resolved": 201
       },
       "selfhost": {
         "total": 45,
@@ -3253,6 +3253,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T091939822Z-REGIONTOKEN-PROJECTION-APIS-CONSUME--BEDE77A5.md"
+    },
+    {
+      "id": "ISS-20260430T115402753Z-RESOURCE-OWNER-CHECKER-TREATS-OWNING-F2AED5A6",
+      "title": "Resource owner checker treats owning raw local reads as non-owning views",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_raw_view.rs, nepl-core/tests/resource_ir.rs, nepl-core/tests/kp.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T115402753Z-RESOURCE-OWNER-CHECKER-TREATS-OWNING-F2AED5A6.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

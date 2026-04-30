@@ -173,6 +173,8 @@ impl ResourceOwnerCheckEngine<'_> {
         &self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
+        allow_projected_alias_view: bool,
         source: &Place,
         target: &Place,
     ) -> bool {
@@ -182,7 +184,9 @@ impl ResourceOwnerCheckEngine<'_> {
         {
             return false;
         }
-        initializer_has_raw_alias_view(raw_aliases, source)
+        raw_views.contains_under(source)
+            || (allow_projected_alias_view
+                && initializer_has_projected_raw_alias_view(raw_aliases, source))
     }
 
     pub(super) fn copy_non_owning_owner_markers(
@@ -259,6 +263,8 @@ impl ResourceOwnerCheckEngine<'_> {
                     } else if self.initializer_is_non_owning_raw_alias_view(
                         owners,
                         raw_aliases,
+                        raw_views,
+                        true,
                         initializer,
                         place,
                     ) {
@@ -324,6 +330,8 @@ impl ResourceOwnerCheckEngine<'_> {
                 } else if self.initializer_is_non_owning_raw_alias_view(
                     owners,
                     raw_aliases,
+                    raw_views,
+                    true,
                     value,
                     target,
                 ) {
@@ -713,6 +721,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     self.construct_owner_fields(
                         owners,
                         raw_aliases,
+                        raw_views,
                         storage_origins,
                         output,
                         kind,
@@ -851,16 +860,19 @@ fn owner_state_under_is_not_non_owning(source: &Place, owners: &OwnerTable) -> b
             .any(|entry| entry.state != OwnerState::NoFreeObligation)
 }
 
-fn initializer_has_raw_alias_view(raw_aliases: &RawCellAddressAliases, source: &Place) -> bool {
+fn initializer_has_projected_raw_alias_view(
+    raw_aliases: &RawCellAddressAliases,
+    source: &Place,
+) -> bool {
     raw_aliases
         .aliases_for(source)
         .iter()
-        .any(|alias| alias != source)
+        .any(|alias| alias != source && !alias.projections.is_empty())
         || raw_aliases.tracked_places().iter().any(|place| {
             place_suffix_after_prefix(place, source).is_some()
                 && raw_aliases
                     .aliases_for(place)
                     .iter()
-                    .any(|alias| alias != place)
+                    .any(|alias| alias != place && !alias.projections.is_empty())
         })
 }

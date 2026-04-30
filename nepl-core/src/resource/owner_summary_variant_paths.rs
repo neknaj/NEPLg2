@@ -386,6 +386,8 @@ fn apply_match_arm_entry(
             if path_engine.initializer_is_non_owning_raw_alias_view(
                 path_owners,
                 path_raw_aliases,
+                path_raw_views,
+                true,
                 &source,
                 bind_local,
             ) {

@@ -95,6 +95,7 @@ impl PendingVariantOwnerEffects {
     pub(super) fn record_call(
         &mut self,
         raw_aliases: &RawCellAddressAliases,
+        _raw_views: &RawAddressViewTable,
         output: &Place,
         args: &[Place],
         summary: &OwnerReturnSummary,

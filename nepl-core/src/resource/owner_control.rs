@@ -109,6 +109,8 @@ impl ResourceOwnerCheckEngine<'_> {
                 if self.initializer_is_non_owning_raw_alias_view(
                     &then_owners,
                     &then_raw_aliases,
+                    &then_raw_views,
+                    true,
                     then_value,
                     output,
                 ) {
@@ -151,6 +153,8 @@ impl ResourceOwnerCheckEngine<'_> {
                 if self.initializer_is_non_owning_raw_alias_view(
                     &else_owners,
                     &else_raw_aliases,
+                    &else_raw_views,
+                    true,
                     else_value,
                     output,
                 ) {
@@ -342,6 +346,8 @@ impl ResourceOwnerCheckEngine<'_> {
                         if self.initializer_is_non_owning_raw_alias_view(
                             &arm_owners,
                             &arm_raw_aliases,
+                            &arm_raw_views,
+                            true,
                             &source,
                             bind_local,
                         ) {
@@ -423,6 +429,8 @@ impl ResourceOwnerCheckEngine<'_> {
                     if self.initializer_is_non_owning_raw_alias_view(
                         &arm_owners,
                         &arm_raw_aliases,
+                        &arm_raw_views,
+                        true,
                         &arm.value,
                         output,
                     ) {

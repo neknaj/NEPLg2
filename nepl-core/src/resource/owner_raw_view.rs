@@ -6,6 +6,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_state::OwnerTable;
+use super::place_utils::{place_suffix_after_prefix, place_with_suffix};
 
 #[derive(Clone, Default)]
 pub(super) struct RawAddressViewTable {
@@ -19,19 +20,29 @@ impl RawAddressViewTable {
     }
 
     pub(super) fn copy(&mut self, source: &Place, target: &Place) {
-        if self.contains(source) {
-            self.mark(target);
-        } else {
-            self.clear(target);
+        let existing = self.places.clone();
+        self.clear(target);
+        for place in existing {
+            let Some(suffix) = place_suffix_after_prefix(&place, source) else {
+                continue;
+            };
+            self.mark(&place_with_suffix(target, &suffix, place.ty));
         }
     }
 
     pub(super) fn clear(&mut self, place: &Place) {
-        self.places.retain(|entry| entry != place);
+        self.places
+            .retain(|entry| place_suffix_after_prefix(entry, place).is_none());
     }
 
     pub(super) fn contains(&self, place: &Place) -> bool {
         self.places.iter().any(|entry| entry == place)
+    }
+
+    pub(super) fn contains_under(&self, place: &Place) -> bool {
+        self.places
+            .iter()
+            .any(|entry| place_suffix_after_prefix(entry, place).is_some())
     }
 
     pub(super) fn merge_paths(paths: &[RawAddressViewTable]) -> Self {
