@@ -77,3 +77,46 @@ fn main <()*>i32> ():
     free st0
     if eq total 7 1 0
 ```
+
+## segment_tree_update_error_returns_owner
+
+[目的/もくてき]:
+- `replace` / `add` の[範囲外/はんいがい] error が `SegmentTree` owner を[失/うしな]わず、caller が[回収/かいしゅう]して `free` できることを[確認/かくにん]します。
+
+[何/なに]を[確/たし]かめるか:
+- `replace`
+- `add`
+- `segment_tree_update_error_owner`
+- `len`
+- `free`
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/segment_tree" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let st <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
+    match replace st 8 1:
+        Result::Ok next0:
+            free next0
+            0
+        Result::Err e0:
+            let st0 <SegmentTree> segment_tree_update_error_owner e0
+            let ok0 <bool> eq len &st0 4
+            match add st0 9 3:
+                Result::Ok next1:
+                    free next1
+                    0
+                Result::Err e1:
+                    let recovered <SegmentTree> segment_tree_update_error_owner e1
+                    let ok1 <bool> eq len &recovered 4
+                    free recovered
+                    if and ok0 ok1 1 0
+```

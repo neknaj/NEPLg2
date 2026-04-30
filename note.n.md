@@ -28325,3 +28325,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - SegmentTree の observer/free contract を Resource IR の owner state 追跡に乗る形へ修正した。
+
+# 2026-04-30 note (ISS-20260430T041155306Z SegmentTree update error owner recovery)
+
+- [同期]:
+  - `main` で `60af681c` まで push/pull 済みの状態から、作業 branch `work/segment-tree-update-error-owner` を作成した。
+- [原因]:
+  - `SegmentTree.replace` / `add` は `SegmentTree` owner を値で受け取る update API なのに、範囲外 branch で `free st` してから `Err(Diag)` を返していた。
+  - これにより caller は診断を見たあとで元の tree を再利用/cleanup する選択肢を失い、Fenwick / BitSet / AdjacencyMatrix の owner 返却付き update error contract と不整合になっていた。
+- [修正]:
+  - `SegmentTreeUpdateError` を追加し、`owner <SegmentTree>` と `diag <Diag>` を分けた。
+  - `segment_tree_update_error_diag` / `segment_tree_update_error_owner` を追加した。
+  - `replace` / `add` の戻り値を `Result<SegmentTree, SegmentTreeUpdateError>` に変更し、範囲外 branch は元 owner を error payload に戻すようにした。
+  - stdlib / collection tests を、Err 後に owner を回収して `free` する形へ更新した。
+  - `nodesrc/test_stdlib_segment_tree_update_error_owner.js` を追加し、source policy に登録した。
+- [検証]:
+  - `node nodesrc/test_stdlib_segment_tree_update_error_owner.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-update-error-owner-doctests.json -j 1`: `total=5`, `passed=5`
+  - `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/segment-tree-update-error-owner-stdlib-tests.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-update-error-owner-collections-tests.json -j 1`: `total=3`, `passed=3`
+- [issue]:
+  - `ISS-20260430T041155306Z-SEGMENTTREE-MUTATING-ERROR-PATHS-DES-4E68EDEA` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - SegmentTree update API の失敗 contract を Stage 6 の collection owner recovery 方針に合わせた。
