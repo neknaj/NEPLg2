@@ -4052,6 +4052,7 @@ fn resource_ir_owner_check_applies_result_ok_mem_ptr_dealloc_consumption() {
 #target std
 
 #import "core/mem" as *
+#import "core/option" as *
 #import "core/result" as *
 
 fn main <()*>()> ():
@@ -4059,11 +4060,20 @@ fn main <()*>()> ():
         Result::Err _e:
             ()
         Result::Ok p:
-            match dealloc_ptr p 4:
-                Result::Ok _:
-                    ()
-                Result::Err _drop:
+            match store_i32 p 123:
+                Result::Err _store:
                     dealloc_raw mem_ptr_addr p 4
+                Result::Ok _store:
+                    let _v <i32> match load_i32 p:
+                        Option::None:
+                            0
+                        Option::Some x:
+                            x
+                    match dealloc_ptr p 4:
+                        Result::Ok _:
+                            ()
+                        Result::Err _drop:
+                            dealloc_raw mem_ptr_addr p 4
 "#;
 
     let (module, types) = typecheck_resource_source(source);
@@ -6954,6 +6964,64 @@ fn main <()->i32> ():
     assert!(
         diagnostics.is_empty(),
         "realloc success must move the owner to the new address and failure must keep the old owner: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_safe_realloc_variant_return_preserves_err_owner() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/option" as *
+
+fn grow_or_keep <(bool)->i32> (grow):
+    let p <i32> alloc_raw 4
+    store_i32 p 77
+    let new_size <i32> if:
+        grow
+        then:
+            8
+        else:
+            0
+    match realloc p 4 new_size:
+        Result::Err _e:
+            let v <i32> load_i32 p
+            dealloc_raw p 4
+            v
+        Result::Ok q:
+            let v <i32> load_i32 q
+            dealloc_raw q new_size
+            v
+
+fn main <()->i32> ():
+    let a <i32> grow_or_keep true
+    let b <i32> grow_or_keep false
+    add a b
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("grow_or_keep__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "realloc Err must keep the original owner while Ok transfers it to the payload: {:#?}\nresource:\n{}",
         diagnostics,
         resource.dump_text()
     );

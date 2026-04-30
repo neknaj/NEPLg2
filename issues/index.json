@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T06:53:28.930Z",
+  "generated_at": "2026-04-30T07:24:24.225Z",
   "counts": {
-    "total": 456,
+    "total": 457,
     "open": 16,
-    "resolved": 440,
+    "resolved": 441,
     "by_area": {
       "core": {
-        "total": 202,
+        "total": 203,
         "open": 8,
-        "resolved": 194
+        "resolved": 195
       },
       "stdlib": {
         "total": 148,
@@ -150,21 +150,6 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260430T063111361Z-RESOURCE-IR-LACKS-VALUE-REFINED-OWNE-9B53C97C",
-      "title": "Resource IR lacks value-refined owner returns for realloc Result::Ok payloads",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_control.rs, stdlib/core/mem.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T063111361Z-RESOURCE-IR-LACKS-VALUE-REFINED-OWNE-9B53C97C.md"
-    },
-    {
       "id": "ISS-20260430T064827021Z-RESOURCE-IR-INDIRECT-CALLS-KEEP-UNKN-E9B29774",
       "title": "Resource IR indirect calls keep unknown effect instead of typed effect summary",
       "area": "core",
@@ -178,6 +163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T064827021Z-RESOURCE-IR-INDIRECT-CALLS-KEEP-UNKN-E9B29774.md"
+    },
+    {
+      "id": "ISS-20260430T070449791Z-FALLIBLE-OWNER-EFFECTS-DO-NOT-RESERV-32CC9198",
+      "title": "Fallible owner effects do not reserve owners before Result refinement",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/owner_variant.rs, nepl-core/src/resource/owner_check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T070449791Z-FALLIBLE-OWNER-EFFECTS-DO-NOT-RESERV-32CC9198.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3178,6 +3178,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C.md"
+    },
+    {
+      "id": "ISS-20260430T063111361Z-RESOURCE-IR-LACKS-VALUE-REFINED-OWNE-9B53C97C",
+      "title": "Resource IR lacks value-refined owner returns for realloc Result::Ok payloads",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_summary_variant_build.rs, nepl-core/src/resource/owner_summary_variant_paths.rs, nepl-core/src/resource/owner_summary_variant_return.rs, nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_control.rs, nepl-core/src/resource/owner_variant.rs, stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T063111361Z-RESOURCE-IR-LACKS-VALUE-REFINED-OWNE-9B53C97C.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

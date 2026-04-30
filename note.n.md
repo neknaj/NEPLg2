@@ -28723,3 +28723,35 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Vec prefix/drop の回帰テストを `.n.md` stdout report 方針へ戻し、内部 helper の設計も再帰回避へ修正した。
+
+# 2026-04-30 note (ISS-20260430T063111361Z variant-gated owner returns)
+
+- [同期]:
+  - `main` を `85040c71` まで push/pull 済みの状態から、branch `work/value-refined-owner-returns` で対応した。
+- [原因]:
+  - owner summary は enum payload に返る parameter owner を `projection_returns` として無条件に適用していた。
+  - `realloc` の `Result::Ok(new_ptr)` は旧 pointer owner を Ok payload へ移すが、`Result::Err` では旧 pointer owner を呼び出し側に残す必要があるため、variant 選択前の transfer は Err arm の owner を誤って Moved にしていた。
+  - safe `realloc` が `new_size<=0` を `Ok(0)` として返す契約も、owner を持つ Ok payload と owner を持たない Ok payload を同じ variant に混在させていた。
+- [修正]:
+  - `OwnerReturnSummary` に `variant_projection_returns` を追加し、parameter owner が enum payload に返る場合は match arm 入口で variant が確定してから transfer するようにした。
+  - summary 生成を entry point / branch-match path traversal / returned payload owner 抽出に分割し、nested branch の `Ok` payload owner return も収集できるようにした。
+  - `check_match` の arm 処理では variant owner return を bind local transfer より前に materialize する順序へ揃えた。
+  - raw address 条件 fact の `NoFreeObligation` 化を、条件 place 自体が owner state を持つ場合に限定した。`mem_ptr_addr` 由来の非所有 raw alias を `raw < 1` 判定だけで元 owner 破棄扱いにしない。
+  - `stdlib/core/mem.nepl` の safe `realloc` は `new_size<=0` を `Err` に分け、0 サイズ化は `dealloc` を明示的に使う契約へ変更した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_mem_ptr_dealloc_consumption -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_safe_realloc_variant_return_preserves_err_owner -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: `143 passed`
+  - `node nodesrc/issues.js check`: passed (`files=453`)
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-variant-owner-return-final.json -j 1 --dist web/dist`: `110 total / 110 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-variant-owner-return-final.json -j 1 --dist web/dist`: `12 total / 7 passed / 5 failed`
+- [issue]:
+  - `ISS-20260430T063111361Z-RESOURCE-IR-LACKS-VALUE-REFINED-OWNE-9B53C97C` を fixed/resolved に更新した。
+  - `ISS-20260430T070449791Z-FALLIBLE-OWNER-EFFECTS-DO-NOT-RESERV-32CC9198` を追加し、fallible Result を refine する前の owner reservation 不備を別残件にした。
+  - `tests/stdlib/memory_safety.n.md` の残り 5 件は既存の `ISS-20260430T060600668Z-CHECKED-MEMPTR-LOAD-VARIANT-REQUIREM-1A1ADF53` と MemPtr/RegionToken owner model 整理側で扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 4 の owner token / free obligation summary を、variant 確定後の transfer として扱う方向に進めた。

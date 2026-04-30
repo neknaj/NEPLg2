@@ -271,6 +271,16 @@ impl ResourceOwnerCheckEngine<'_> {
                     arm_storage_origins.clear(&inactive_payload);
                 }
             }
+            arm_variant_owner_effects.apply_match_arm_returns(
+                self,
+                &mut arm_owners,
+                &mut arm_raw_aliases,
+                &mut arm_raw_views,
+                &mut arm_storage_origins,
+                scrutinee,
+                &arm.pattern,
+                span,
+            );
             if let Some(bind_local) = &arm.bind_local {
                 if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
                     self.transfer_owner(
@@ -348,7 +358,7 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
-    fn apply_branch_condition_fact(
+    pub(super) fn apply_branch_condition_fact(
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
@@ -437,6 +447,9 @@ impl ResourceOwnerCheckEngine<'_> {
         storage_origins: &mut StorageOriginTable,
         place: &Place,
     ) {
+        if owners.state(place).is_none() && owners.descendant_entries(place).is_empty() {
+            return;
+        }
         let resolved_place =
             super::owner_alias::resolve_owner_alias_place(owners, raw_aliases, place);
         let descendants = owners.descendant_entries(&resolved_place);

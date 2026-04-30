@@ -550,11 +550,11 @@ fn alloc <(i32)->Result<i32,str>> (size):
 //: - 再確保失敗を `Result` で扱い、エラー伝播しやすくします。
 //:
 //: 実装(アルゴリズム):
-//: - `new_size<=0` は仕様通り `Ok(0)` とします。
-//: - `realloc_raw` の返値が 0 かどうかで成功/失敗を判定します。
+//: - `new_size<=0` は所有領域を解放せず `Err` を返します。0 サイズ化は `dealloc` を使って明示します。
+//: - `new_size>0` のときだけ `realloc_raw` を呼び、返値が 0 かどうかで成功/失敗を判定します。
 //:
 //: 注意(重要):
-//: - `new_size>0` で `0` が返った場合のみ `Err` を返します。
+//: - `Err` では元の `ptr` の所有権が呼び出し側に残ります。
 //:
 //: 計算量:
 //: - O(1)（`realloc` 本体を除く）
@@ -562,7 +562,7 @@ fn realloc <(i32,i32,i32)->Result<i32,str>> (ptr, old_size, new_size):
     if:
         le new_size 0
         then:
-            Result<i32,str>::Ok (realloc_raw ptr old_size new_size)
+            Result<i32,str>::Err "mem.realloc invalid new_size"
         else:
             let new_ptr <i32> realloc_raw ptr old_size new_size
             if:
