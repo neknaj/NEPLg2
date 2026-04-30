@@ -311,13 +311,12 @@ fn lower_expr_skeleton(
             callee,
             params,
             result,
+            effect,
             args,
         } => {
             let callee = lower_expr_skeleton(callee, ops, ctx, env);
             let arg_places = lower_args_skeleton(args, ops, ctx, env);
-            let effect = EffectOp::Unknown {
-                reason: String::from("indirect call"),
-            };
+            let effect = EffectOp::IndirectCall { effect: *effect };
             ops.push(ResourceOp::CallEffect {
                 effect: effect.clone(),
                 span: expr.span,

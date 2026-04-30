@@ -264,6 +264,7 @@ fn check_indirect_sig_expr(
                 params,
                 result,
                 args,
+                ..
             } => {
                 if let Some(sig) = wasm_shared::wasm_sig_ids(ctx, *result, params) {
                     if !wasm_sig_set.contains(&sig) {

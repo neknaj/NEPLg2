@@ -63,6 +63,17 @@ pub(super) fn apply_indirect_function_call(
         ));
         return None;
     }
+    let callee_effect = match checker.ctx.get(func.ty) {
+        TypeKind::Function { effect, .. } => effect,
+        _ => {
+            checker.diagnostics.push(type_error(
+                TypeDiagnosticCode::IndirectCallRequiresFunctionValue,
+                "indirect call requires a function value",
+                func.expr.span,
+            ));
+            return None;
+        }
+    };
 
     let resolved_params: Vec<TypeId> = args.iter().map(|a| checker.ctx.resolve_id(a.ty)).collect();
     let mut resolved_result = checker.ctx.resolve_id(result);
@@ -79,6 +90,7 @@ pub(super) fn apply_indirect_function_call(
                 callee: Box::new(func.expr.clone()),
                 params: resolved_params,
                 result: resolved_result,
+                effect: callee_effect,
                 args: args.into_iter().map(|a| a.expr).collect(),
             },
             span: func.expr.span,

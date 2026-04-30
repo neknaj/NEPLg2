@@ -11,8 +11,8 @@ use nepl_core::resource::{
     OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId,
     ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic,
     ResourceCheckOperation, ResourceCoverageDiagnostic, ResourceCoverageKind,
-    ResourceEffectBoundaryDiagnostic, ResourceExprKind, ResourceFunction, ResourceId,
-    ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
+    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
+    ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
     ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
@@ -2693,6 +2693,7 @@ fn resource_ir_lowering_preserves_call_targets_and_callback_places() {
                             }),
                             params: vec![i32_ty],
                             result: i32_ty,
+                            effect: Effect::Impure,
                             args: vec![HirExpr {
                                 ty: i32_ty,
                                 kind: HirExprKind::Var("arg".to_string()),
@@ -2777,6 +2778,9 @@ fn resource_ir_lowering_preserves_call_targets_and_callback_places() {
             params,
             result,
             args,
+            effect: EffectOp::IndirectCall {
+                effect: Effect::Impure,
+            },
             ..
         } if params == &vec![i32_ty] && result == &i32_ty && args.len() == 1
     )));
@@ -2786,6 +2790,129 @@ fn resource_ir_lowering_preserves_call_targets_and_callback_places() {
     assert!(dump.contains("call user(callee<>)"));
     assert!(dump.contains("effect=call(callee,Impure)"));
     assert!(dump.contains("indirect_call"));
+    assert!(dump.contains("effect=indirect_call(Impure)"));
+    assert!(!dump.contains("unknown(indirect call)"));
+}
+
+#[test]
+fn resource_ir_lowering_carries_typechecked_indirect_call_effect() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/math" as *
+
+fn square <(i32)->i32> (x):
+    mul x x
+
+fn apply <(i32, (i32)->i32)->i32> (value, callback):
+    callback value
+
+fn main <()->i32> ():
+    apply 5 @square
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let apply = resource
+        .functions
+        .iter()
+        .find(|function| function.name == "apply" || function.name.starts_with("apply__"))
+        .expect("apply function should lower");
+    let ops = &apply.blocks[apply.entry_block.0].ops;
+
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::CallEffect {
+            effect: EffectOp::IndirectCall {
+                effect: Effect::Pure,
+            },
+            ..
+        }
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        ResourceOp::IndirectCall {
+            effect: EffectOp::IndirectCall {
+                effect: Effect::Pure,
+            },
+            ..
+        }
+    )));
+
+    let dump = resource.dump_text();
+    assert!(dump.contains("effect indirect_call(Pure)"));
+    assert!(!dump.contains("unknown(indirect call)"));
+}
+
+#[test]
+fn resource_ir_effect_check_rejects_impure_indirect_call_in_pure_function() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let fn_ty = types.function(vec![], vec![i32_ty], i32_ty, Effect::Impure);
+    let span = Span::dummy();
+    let callback = Place::local("callback".to_string(), fn_ty);
+    let arg = Place::temporary(ResourceId(0), i32_ty);
+    let returned = Place::temporary(ResourceId(1), i32_ty);
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![ResourceLocal {
+                name: "callback".to_string(),
+                ty: fn_ty,
+                mutable: false,
+                place: callback.clone(),
+            }],
+            result: i32_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::Literal,
+                        output: arg.clone(),
+                        ty: i32_ty,
+                        span,
+                    },
+                    ResourceOp::CallEffect {
+                        effect: EffectOp::IndirectCall {
+                            effect: Effect::Impure,
+                        },
+                        span,
+                    },
+                    ResourceOp::IndirectCall {
+                        output: returned.clone(),
+                        callee: callback,
+                        params: vec![i32_ty],
+                        result: i32_ty,
+                        args: vec![arg],
+                        effect: EffectOp::IndirectCall {
+                            effect: Effect::Impure,
+                        },
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: Some(returned),
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_effect_boundaries(&module);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction {
+            function,
+            call: ResourceEffectCallKind::Indirect,
+            ..
+        } if function == "main"
+    )));
 }
 
 #[test]

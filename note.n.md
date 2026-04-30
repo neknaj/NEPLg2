@@ -28786,3 +28786,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner token / free obligation summary を、未精査 Result の path-dependent reservation まで含めて扱う形に進めた。
+
+# 2026-04-30 note (ISS-20260430T064827021Z typed indirect call effects)
+
+- [同期]:
+  - `origin/main` の `54f1c0df` を取り込んだ状態から、branch `work/typed-indirect-call-effects` で対応した。
+- [原因]:
+  - `HirExprKind::CallIndirect` が callee の関数型 effect を保持しておらず、Resource IR lowering が通常の間接呼び出しを `EffectOp::Unknown { reason: "indirect call" }` に落としていた。
+  - typecheck は pure から impure function value を呼ぶ経路を拒否していたが、Resource effect boundary gate 側では `Unknown` を数えるだけで、typed effect として診断できなかった。
+- [修正]:
+  - HIR の `CallIndirect` に `effect` を追加し、indirect apply 時に callee の関数型から effect を取得するようにした。
+  - Resource IR に `EffectOp::IndirectCall { effect }` を追加し、indirect call lowering から `unknown(indirect call)` を排除した。
+  - Resource effect boundary diagnostic に `ImpureCallInPureFunction` と `ResourceEffectCallKind` を追加し、pure function 内の impure direct/indirect call を `effect.pure.calls_impure` に写像できるようにした。
+  - raw memory boundary 許可は raw memory 系 effect diagnostic だけに適用し、impure call diagnostic を誤って抑制しないようにした。
+  - `tests/compiler/functions.n.md` に pure から impure function value を間接呼び出しする compile_fail regression を追加した。
+- [検証]:
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: `147 passed`
+  - `cargo test -p nepl-core --test effects pure_indirect_impure_function_value_is_rejected -- --nocapture`: passed
+  - `cargo test -p nepl-core resource_effect_gate_maps_impure_indirect_call_to_effect_code -- --nocapture`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/indirect_effect.n.md --no-tree -o tmp/indirect-effect-typed-resource-ir.json -j 1 --dist web/dist`: `1 total / 1 passed`
+- [issue]:
+  - `ISS-20260430T064827021Z-RESOURCE-IR-INDIRECT-CALLS-KEEP-UNKN-E9B29774` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画 Stage 5 の effect model について、間接呼び出しを Unknown ではなく型付き effect として扱う方向に進めた。

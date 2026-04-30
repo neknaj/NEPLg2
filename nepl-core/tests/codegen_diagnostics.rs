@@ -237,6 +237,7 @@ fn wasm_precheck_reports_indirect_signature_unsupported_code() {
                 }),
                 params: vec![i32_ty],
                 result: never_ty,
+                effect: Effect::Pure,
                 args: vec![HirExpr {
                     ty: i32_ty,
                     kind: HirExprKind::LiteralI32(1),
@@ -276,6 +277,7 @@ fn wasm_precheck_reports_indirect_signature_missing_code() {
                 }),
                 params: vec![i32_ty],
                 result: i32_ty,
+                effect: Effect::Pure,
                 args: vec![HirExpr {
                     ty: i32_ty,
                     kind: HirExprKind::LiteralI32(1),
@@ -315,6 +317,7 @@ fn wasm_codegen_reports_indirect_signature_missing_without_panicking() {
                 }),
                 params: vec![i32_ty],
                 result: i32_ty,
+                effect: Effect::Pure,
                 args: vec![HirExpr {
                     ty: i32_ty,
                     kind: HirExprKind::LiteralI32(1),

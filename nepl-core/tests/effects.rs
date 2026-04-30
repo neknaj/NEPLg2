@@ -278,6 +278,29 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn pure_indirect_impure_function_value_is_rejected() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn impure_id <(i32)*>i32> (x):
+    x
+
+fn call_callback <((i32)*>i32, i32)->i32> (callback, value):
+    callback value
+
+fn main <()->i32> ():
+    call_callback @impure_id 1
+"#;
+
+    assert_has_diag(
+        check_source(src, CompileTarget::Wasm),
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
+    );
+}
+
+#[test]
 fn pure_raw_store_intrinsic_is_rejected_outside_core_mem() {
     let src = r#"
 #entry main

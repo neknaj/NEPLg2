@@ -8,10 +8,10 @@ use crate::ast;
 use crate::codegen_wasm;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{
-    BackendDiagnosticCode, DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode,
-    ResourceBorrowDiagnosticCode, ResourceCellDiagnosticCode, ResourceDiagnosticCode,
-    ResourceLowerDiagnosticCode, ResourceOwnerDiagnosticCode, ResourceRawDiagnosticCode,
-    WasmDiagnosticCode,
+    BackendDiagnosticCode, DiagnosticCode, EffectDiagnosticCode, LoaderDiagnosticCode,
+    ResolveDiagnosticCode, ResourceBorrowDiagnosticCode, ResourceCellDiagnosticCode,
+    ResourceDiagnosticCode, ResourceLowerDiagnosticCode, ResourceOwnerDiagnosticCode,
+    ResourceRawDiagnosticCode, WasmDiagnosticCode,
 };
 use crate::error::CoreError;
 use crate::lexer;
@@ -629,8 +629,8 @@ mod tests {
     use crate::resource::{
         BorrowState, CellState, OwnerState, Place, ResourceBorrowDiagnostic,
         ResourceBorrowOperation, ResourceCheckDiagnostic, ResourceCheckOperation,
-        ResourceEffectBoundaryDiagnostic, ResourceId, ResourceOwnerDiagnostic,
-        ResourceOwnerOperation, StorageId,
+        ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceId,
+        ResourceOwnerDiagnostic, ResourceOwnerOperation, StorageId,
     };
     use alloc::boxed::Box;
 
@@ -914,6 +914,26 @@ mod tests {
     }
 
     #[test]
+    fn resource_effect_gate_maps_impure_indirect_call_to_effect_code() {
+        let diagnostic = ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction {
+            function: String::from("main"),
+            call: ResourceEffectCallKind::Indirect,
+            span: Span::dummy(),
+        };
+
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic)
+            .expect("impure indirect call should become a compiler error");
+
+        assert_eq!(
+            error.code,
+            Some(DiagnosticCode::Effect(
+                EffectDiagnosticCode::PureCallsImpure
+            ))
+        );
+        assert!(error.message.contains("impure function value"));
+    }
+
+    #[test]
     fn resource_effect_gate_keeps_unsafe_memory_shadow_only() {
         let diagnostic = ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
             function: String::from("store_raw"),
@@ -932,13 +952,8 @@ fn run_resource_effect_boundary_gate(
 ) -> Result<(), CoreError> {
     let mut effect_errors = Vec::new();
     for diagnostic in &report.diagnostics {
-        if let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) {
-            if source_map
-                .map(|map| map.raw_memory_boundary_allowed(span.file_id))
-                .unwrap_or(false)
-            {
-                continue;
-            }
+        if resource_effect_boundary_diagnostic_is_raw_boundary_allowed(diagnostic, source_map) {
+            continue;
         }
         if let Some(error) = resource_effect_boundary_diagnostic_to_error(diagnostic) {
             effect_errors.push(error);
@@ -955,7 +970,11 @@ fn resource_effect_boundary_diagnostic_span(
     diagnostic: &crate::resource::ResourceEffectBoundaryDiagnostic,
 ) -> Option<Span> {
     match diagnostic {
-        crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
+        crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction {
+            span,
+            ..
+        }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
             span,
             ..
         }
@@ -966,10 +985,51 @@ fn resource_effect_boundary_diagnostic_span(
     }
 }
 
+fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+    diagnostic: &crate::resource::ResourceEffectBoundaryDiagnostic,
+    source_map: Option<&SourceMap>,
+) -> bool {
+    match diagnostic {
+        crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
+            ..
+        }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            ..
+        } => {
+            let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
+                return false;
+            };
+            source_map
+                .map(|map| map.raw_memory_boundary_allowed(span.file_id))
+                .unwrap_or(false)
+        }
+        crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. } => false,
+    }
+}
+
 fn resource_effect_boundary_diagnostic_to_error(
     diagnostic: &crate::resource::ResourceEffectBoundaryDiagnostic,
 ) -> Option<Diagnostic> {
     match diagnostic {
+        crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction {
+            function,
+            call,
+            span,
+        } => {
+            let call_description = match call {
+                crate::resource::ResourceEffectCallKind::Direct { name } => {
+                    format!("impure function '{}'", name)
+                }
+                crate::resource::ResourceEffectCallKind::Indirect => {
+                    String::from("impure function value")
+                }
+            };
+            Some(Diagnostic::error_with_code(
+                DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure),
+                format!("pure function '{}' calls {}", function, call_description),
+                *span,
+            ))
+        }
         crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
             ..
         } => None,
