@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T15:15:56.266Z",
+  "generated_at": "2026-04-30T15:47:36.336Z",
   "counts": {
     "total": 462,
-    "open": 15,
-    "resolved": 447,
+    "open": 14,
+    "resolved": 448,
     "by_area": {
       "core": {
         "total": 205,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 150,
-        "open": 7,
-        "resolved": 143
+        "open": 6,
+        "resolved": 144
       },
       "TEST": {
         "total": 7,
@@ -238,21 +238,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
-    },
-    {
-      "id": "ISS-20260430T151549577Z-STR-SPLIT-RESULT-STORES-OWNED-STR-IN-B3A69EAB",
-      "title": "str_split_result stores owned str into raw Vec storage without an element cleanup contract",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "stdlib/alloc/string.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T151549577Z-STR-SPLIT-RESULT-STORES-OWNED-STR-IN-B3A69EAB.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -5038,6 +5023,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1.md"
+    },
+    {
+      "id": "ISS-20260430T151549577Z-STR-SPLIT-RESULT-STORES-OWNED-STR-IN-B3A69EAB",
+      "title": "str_split_result stores owned str into raw Vec storage without an element cleanup contract",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/string.nepl, stdlib/std/fs.nepl, stdlib/tests/string.n.md, nodesrc source policies",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T151549577Z-STR-SPLIT-RESULT-STORES-OWNED-STR-IN-B3A69EAB.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

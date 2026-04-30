@@ -243,7 +243,7 @@ helper 関数の説明:
 `examples/rpn.nepl` の冒頭コメントは次の点で良い。
 
 - REPL であること
-- `Stack<i32>` / `str_split` / `to_i32` を使う実装例であること
+- `Stack<i32>` / range-based string scanner / `to_i32` を使う実装例であること
 - 対応演算子が `+ - *` に限定されること
 - 負数対応の前提
 - 全体計算量

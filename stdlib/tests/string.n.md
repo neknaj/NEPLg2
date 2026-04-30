@@ -58,14 +58,21 @@ ret: 1
 #import "core/math" as *
 
 fn main <()*>i32> ():
-    let parts str_split "a--b--c" "--";
+    let first <StrSplitStep> str_split_next "a--b--c" "--" 0
+    let second <StrSplitStep> str_split_next "a--b--c" "--" get first "next"
     let msg <str>:
         string_builder_new
         |> sb_append "Error: "
         |> sb_append_i32 404
         |> sb_append " Not Found"
         |> sb_build
-    let ok0 eq len<str> &parts 3;
+    let ok0 <bool> match get second "kind":
+        StrSplitStepKind::Done:
+            false
+        StrSplitStepKind::Part:
+            let second_start <i32> get second "start"
+            let second_end <i32> get second "end"
+            str_range_eq "a--b--c" second_start second_end "b"
     let ok1 eq len msg 20;
     if and ok0 ok1 1 0
 ```
@@ -136,8 +143,8 @@ fn main <()*>i32> ():
 
 ## string_result_allocation_apis
 
-`concat_result` / `str_slice_result` / `str_split_result` / `StringBuilder` の Result API が、既存の互換 facade と同じ内容を返せることを確認します。
-allocator failure を trap へ寄せない self-host 用入口を固定するための回帰テストです。
+`concat_result` / `str_slice_result` / `str_split_next` / `StringBuilder` の Result API が、所有権を明示した形で期待内容を返せることを確認します。
+allocator failure を trap へ寄せず、owned `Vec<str>` split に戻らない self-host 用入口を固定するための回帰テストです。
 
 neplg2:test
 ret: 0
@@ -159,22 +166,19 @@ fn expect_str_ok <(str,Result<str,str>,str)*>Result<(),str>> (label, got, expect
         Result::Err e:
             Result<(),str>::Err concat label e
 
-fn expect_vec_middle <(Result<Vec<str>,str>)*>Result<(),str>> (got):
-    match got:
-        Result::Err e:
-            Result<(),str>::Err e
-        Result::Ok parts:
-            let part_len <i32> len<str> &parts
-            match get<str> &parts 1:
-                Option::Some mid:
-                    if:
-                        and eq part_len 3 str_eq mid "b"
-                        then:
-                            Result<(),str>::Ok ()
-                        else:
-                            Result<(),str>::Err "split content mismatch"
-                Option::None:
-                    Result<(),str>::Err "split middle missing"
+fn expect_split_middle <(str,StrSplitStep)*>Result<(),str>> (source, step):
+    match get step "kind":
+        StrSplitStepKind::Done:
+            Result<(),str>::Err "split middle missing"
+        StrSplitStepKind::Part:
+            let mid_start <i32> get step "start"
+            let mid_end <i32> get step "end"
+            if:
+                str_range_eq source mid_start mid_end "b"
+                then:
+                    Result<(),str>::Ok ()
+                else:
+                    Result<(),str>::Err "split content mismatch"
 
 fn main <()*>i32> ():
     let builder_result <Result<str,str>>:
@@ -199,7 +203,7 @@ fn main <()*>i32> ():
         checks_new
         |> checks_push expect_str_ok "concat: " concat_result "ab" "cd" "abcd"
         |> checks_push expect_str_ok "slice: " str_slice_result "abcdef" 2 5 "cde"
-        |> checks_push expect_vec_middle str_split_result "a--b--c" "--"
+        |> checks_push expect_split_middle "a--b--c" str_split_next "a--b--c" "--" 3
         |> checks_push expect_str_ok "builder: " builder_result "Error: 404 Not Found"
     checks_exit_code checks
 ```

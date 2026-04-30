@@ -42,6 +42,11 @@ assert.match(code, /fn\s+from_f64_result\s+/, 'from_f64 must have a Result-retur
 assert.notEqual(fromF64Result, '', 'from_f64_result body must be available for source policy checks');
 assert.doesNotMatch(fromF64Result, /\b(?:scratch_raw|alloc_ptr<u8>\s+6|string_from_mem_unchecked_result)\b/, 'from_f64_result must not route fractional digits through raw scratch string construction');
 assert.match(code, /fn\s+from_f64_build_fixed_result[\s\S]*string_builder_with_capacity_result[\s\S]*sb_build_result/, 'from_f64_result must build output through StringBuilder ownership APIs');
+assert.doesNotMatch(code, /fn\s+str_split_result\s+<\(str,str\)->Result<Vec<str>,str>>/, 'alloc/string must not expose owned Vec<str> split until element cleanup is typed');
+assert.doesNotMatch(code, /fn\s+str_split_ranges_result\s+<\(str,str\)->Result<Vec<i32>,str>>/, 'alloc/string must not expose allocation-bearing split range vectors while returned Vec owner summaries are incomplete');
+assert.match(code, /enum\s+StrSplitStepKind:[\s\S]*Part[\s\S]*Done/, 'alloc/string must expose allocation-free split scanner state as an enum');
+assert.match(code, /fn\s+str_split_next\s+<\(str,str,i32\)->StrSplitStep>/, 'alloc/string must expose allocation-free split scanning instead of owned Vec<str> split');
+assert.match(code, /fn\s+sb_append_slice_result\s+/, 'StringBuilder must support appending source string ranges without allocating owned substrings');
 assert.match(code, /fn\s+string_finish_base[\s\S]*store_i32\s+mem_ptr_addr\s+base\s+byte_len/, 'string_finish_base must use owned raw header store');
 assert.match(stringFinish, /\bget\s+region\s+"ptr"/, 'string_finish must consume RegionToken at the final str ownership boundary');
 assert.match(stringFinish, /\bstring_finish_base\s+base\s+byte_len\b/, 'string_finish must delegate raw header finalization to string_finish_base');

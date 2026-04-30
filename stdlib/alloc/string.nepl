@@ -865,6 +865,69 @@ fn sb_append_result <(StringBuilder,str)->Result<StringBuilder,str>> (sb, s):
                                     string_builder_free reserved;
                                     Result<StringBuilder,str>::Err "string.builder append copy failed"
 
+//: sb_append_slice_result: 文字列の byte 範囲を builder に直接追加する
+//:
+//: [目的/もくてき]:
+//: - `s[start..end]` を一時 `str` として確保せず、builder の末尾へ直接 copy します。
+//: - path scanner や parser のように、元文字列の範囲を何度も組み立て直す処理で owned substring collection を作らずに済ませます。
+//:
+//: [実装/じっそう]:
+//: - `str_slice_result` と同じ丸め規則で start/end を正規化し、UTF-8 境界を確認します。
+//: - builder capacity を確保してから、元文字列の data pointer + start から `out_len` byte を `mem_copy` します。
+//:
+//: [注意/ちゅうい]:
+//: - 失敗時は入力 builder を解放して `Err` を返します。
+//: - index は byte index です。文字境界でない範囲は `Err` になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(end - start)
+fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder,str>> (sb, s, start, end):
+    let n <i32> len s
+    let mut s0 <i32> start
+    let mut e0 <i32> end
+    if:
+        lt s0 0
+        then set s0 0
+        else ()
+    if:
+        lt e0 s0
+        then set e0 s0
+        else ()
+    if:
+        lt n e0
+        then set e0 n
+        else ()
+    if:
+        and str_utf8_is_boundary s s0 str_utf8_is_boundary s e0
+        then:
+            let out_len <i32> sub e0 s0
+            if:
+                eq out_len 0
+                then:
+                    Result<StringBuilder,str>::Ok sb
+                else:
+                    match string_builder_reserve_result sb out_len:
+                        Result::Err e:
+                            Result<StringBuilder,str>::Err e
+                        Result::Ok reserved:
+                            let len0 <i32> get reserved "len"
+                            match *get_ref &reserved "data":
+                                Option::None:
+                                    string_builder_free reserved
+                                    Result<StringBuilder,str>::Err "string.builder append slice invalid storage"
+                                Option::Some data:
+                                    let dst <MemPtr<u8>> mem_ptr_add data len0
+                                    let src <MemPtr<u8>> mem_ptr_add string_data_ptr s s0
+                                    match mem_copy<u8> dst src out_len:
+                                        Result::Ok _:
+                                            Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 out_len
+                                        Result::Err _e:
+                                            string_builder_free reserved
+                                            Result<StringBuilder,str>::Err "string.builder append slice copy failed"
+        else:
+            string_builder_free sb
+            Result<StringBuilder,str>::Err "string.builder append slice invalid utf8 boundary"
+
 fn sb_finish_char_append <(StringBuilder,i32)->Result<StringBuilder,str>> (reserved, count):
     let len0 <i32> get reserved "len"
     match *get_ref &reserved "data":
@@ -1879,22 +1942,47 @@ fn str_find <(str,str)->i32> (s, pat):
                                     set scan_end add i pat_len
                     found
 
-//: str_split_result: 区切り文字列で byte 走査して分割する
+//: str_range_eq: 指定 byte 範囲が pattern と一致するか判定する
 //:
 //: [目的/もくてき]:
-//: - `s` を `sep` の出現位置で分割し、各 part を `Vec<str>` として返します。
+//: - `s[start..end]` と `pat` の byte 列が同じかどうかを調べます。
 //:
 //: [実装/じっそう]:
-//: - 先に分割数を数えて `Vec<str>` の容量を確保します。
-//: - その後、同じ byte 走査で各 part を `str_slice_result` し、確保済み storage に直接格納します。
+//: - 範囲と長さを確認し、長さが一致する場合だけ `str_eq_at` で比較します。
 //:
 //: [注意/ちゅうい]:
-//: - `sep` が空文字列の場合は `s` だけを含む `Vec` を返します。
-//: - split point は byte index で扱います。UTF-8 文字境界の検査は行いません。
-//: - `str_split` は失敗時に空 `Vec` fallback を返す互換 API です。
+//: - 比較は byte 単位です。範囲外や逆順の範囲は `false` を返します。
 //:
 //: [計算量/けいさんりょう]:
-//: - n を `s` の byte 長、m を `sep` の byte 長として O(n * m + total_part_bytes) です。
+//: - O(len(pat))
+fn str_range_eq <(str,i32,i32,str)->bool> (s, start, end, pat):
+    let n <i32> len s
+    let pat_len <i32> len pat
+    if:
+        or lt start 0 or lt end start lt n end
+        then:
+            false
+        else:
+            if:
+                ne sub end start pat_len
+                then:
+                    false
+                else:
+                    str_eq_at s pat start pat_len 0
+
+//: str_split_count: 区切り文字列で分割した場合の part 数を数える
+//:
+//: [目的/もくてき]:
+//: - split scanner を使う呼び出し側が、必要に応じて part 数を見積もれるようにします。
+//:
+//: [実装/じっそう]:
+//: - `sep` が空なら全体 1 part とし、それ以外は `str_match_at` で前方走査します。
+//:
+//: [注意/ちゅうい]:
+//: - 戻り値は part 数です。range pair 用の `i32` 要素数はこの 2 倍です。
+//:
+//: [計算量/けいさんりょう]:
+//: - n を `s` の byte 長、m を `sep` の byte 長として O(n * m) です。
 fn str_split_count <(str,str,i32,i32)->i32> (s, sep, s_len, sep_len):
     if:
         eq sep_len 0
@@ -1917,73 +2005,100 @@ fn str_split_count <(str,str,i32,i32)->i32> (s, sep, s_len, sep_len):
                             set scan_end add i sep_len;
             part_total
 
-fn str_split_result <(str,str)->Result<Vec<str>,str>> (s, sep):
-    let sep_len <i32> len sep;
-    let s_len <i32> len s;
-    let part_count <i32> str_split_count s sep s_len sep_len;
-    match v::with_capacity<str> part_count:
-        Result::Err _e:
-            Result<Vec<str>,str>::Err "string.split allocation failed"
-        Result::Ok storage:
-            let data <MemPtr<str>> get storage "data"
-            let data_raw <i32> mem_ptr_addr data
-            let cap0 <i32> get storage "cap"
-            let mut out_len <i32> 0
-            let mut ok <i32> 1
-            let mut err_msg <str> ""
-            let mut i <i32> 0;
-            let mut start <i32> 0;
-            let mut scan_end <i32> add i sep_len;
+//: StrSplitStepKind: allocation-free split scanner の状態
+//:
+//: [目的/もくてき]:
+//: - split scanner が part を返したのか、走査が完了したのかを enum として表します。
+//:
+//: [注意/ちゅうい]:
+//: - 呼び出し側は `match` で `Part` / `Done` を明示的に扱います。
+enum StrSplitStepKind:
+    Part
+    Done
+
+impl Clone for StrSplitStepKind:
+    fn clone <(&StrSplitStepKind)->StrSplitStepKind> (kind):
+        *kind
+
+impl Copy for StrSplitStepKind:
+    fn copy_mark <(StrSplitStepKind)->StrSplitStepKind> (kind):
+        kind
+
+//: StrSplitStep: split scanner が返す 1 step
+//:
+//: [目的/もくてき]:
+//: - `start..end` が今回の part、`next` が次に渡す cursor です。
+//:
+//: [注意/ちゅうい]:
+//: - `kind` が `Done` の場合、start/end/next は 0 です。
+struct StrSplitStep:
+    kind <StrSplitStepKind>
+    start <i32>
+    end <i32>
+    next <i32>
+
+//: str_split_done_step: split scanner の完了 step を返す
+//:
+//: [目的/もくてき]:
+//: - `str_split_next` の完了状態を 1 箇所で構築します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn str_split_done_step <()->StrSplitStep> ():
+    StrSplitStep StrSplitStepKind::Done 0 0 0
+
+//: str_split_next: allocation なしで次の split range を返す
+//:
+//: [目的/もくてき]:
+//: - `s` を `sep` で分割した時の次の `[start,end)` byte range を 1 件返します。
+//: - `Vec<str>` も `Vec<i32>` も返さず、呼び出し側の loop state だけで処理できるようにします。
+//:
+//: [実装/じっそう]:
+//: - `cursor` から前方へ `sep` を探し、見つかれば `cursor..i` と次 cursor `i + len(sep)` を返します。
+//: - 見つからなければ末尾 part `cursor..len(s)` を返し、次 cursor は `len(s) + max(len(sep), 1)` にして次回 `Done` へ進ませます。
+//:
+//: [注意/ちゅうい]:
+//: - split point は byte index です。range を `str` として使う場合は UTF-8 境界を確認する API を通してください。
+//: - 空 separator は最初の呼び出しで全体 1 part を返し、次回 `Done` になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - n を残り byte 長、m を `sep` の byte 長として O(n * m) です。
+fn str_split_next <(str,str,i32)->StrSplitStep> (s, sep, cursor):
+    let s_len <i32> len s
+    let sep_len <i32> len sep
+    if:
+        or lt cursor 0 lt s_len cursor
+        then:
+            str_split_done_step
+        else:
             if:
                 eq sep_len 0
                 then:
-                    store<str> data_raw s
-                    set out_len 1
+                    if:
+                        eq cursor 0
+                        then:
+                            StrSplitStep StrSplitStepKind::Part 0 s_len add s_len 1
+                        else:
+                            str_split_done_step
                 else:
-                    while and eq ok 1 le scan_end s_len:
+                    let mut i <i32> cursor
+                    let mut scan_end <i32> add i sep_len
+                    let mut found <i32> 0
+                    while and eq found 0 le scan_end s_len:
                         do:
                             if:
                                 str_match_at s sep i sep_len
                                 then:
-                                    match str_slice_result s start i:
-                                        Result::Ok part:
-                                            store<str> add data_raw mul out_len size_of<str> part
-                                            set out_len add out_len 1
-                                            set i <i32> add i sep_len
-                                            set start i
-                                            set scan_end <i32> add i sep_len
-                                        Result::Err e:
-                                            set err_msg e
-                                            set ok 0
+                                    set found 1
                                 else:
-                                    set i <i32> add i 1;
-                                    set scan_end <i32> add i sep_len;
+                                    set i add i 1
+                                    set scan_end add i sep_len
                     if:
-                        eq ok 1
+                        eq found 1
                         then:
-                            match str_slice_result s start s_len:
-                                Result::Ok tail:
-                                    store<str> add data_raw mul out_len size_of<str> tail
-                                    set out_len add out_len 1
-                                Result::Err e:
-                                    set err_msg e
-                                    set ok 0
+                            StrSplitStep StrSplitStepKind::Part cursor i add i sep_len
                         else:
-                            ()
-            if:
-                eq ok 1
-                then:
-                    Result<Vec<str>,str>::Ok v::Vec<str> out_len cap0 data
-                else:
-                    dealloc_raw data_raw mul cap0 size_of<str>;
-                    Result<Vec<str>,str>::Err err_msg
-
-fn str_split <(str,str)->Vec<str>> (s, sep):
-    match str_split_result s sep:
-        Result::Ok parts:
-            parts
-        Result::Err _e:
-            v::Vec<str> 0 0 mem_ptr_wrap 0
+                            StrSplitStep StrSplitStepKind::Part cursor s_len add s_len sep_len
 
 //: from_bool: bool を表示用文字列へ変換する
 //:
