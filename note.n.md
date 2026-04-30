@@ -27802,3 +27802,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - stdlib の基本型名と衝突しない fixture 名に変更し、generic enum の検証意図を維持した。
+
+# 2026-04-30 note (ISS-20260429T235902744Z diagnostic code-first source policy recursion)
+
+- [sync]:
+  - Started from `main` at `ccfd6031`.
+  - `git pull --ff-only origin main` reported that remote main was already up to date.
+  - Work branch: `work/diagnostic-code-first-policy`.
+- [cause]:
+  - `nodesrc/test_diagnostic_code_first_boundary.js` was a fixed-file policy. It checked only a small boundary set for `.with_code(...)` and `fn with_code`.
+  - Current active source happened to have no code-less diagnostic pass call sites, but the policy would not fail if another active Rust source file reintroduced `Diagnostic::error(...)` or `Diagnostic::warning(...)` without a `DiagnosticCode`.
+- [fix]:
+  - Expanded `nodesrc/test_diagnostic_code_first_boundary.js` to recursively scan `nepl-core/src`, `nepl-language/src`, `nepl-lsp/src`, and `nepl-web/src`.
+  - The policy now rejects `.with_code(...)`, `fn with_code`, and code-less `Diagnostic::error(...)` / `Diagnostic::warning(...)` across active Rust sources.
+  - The only allowed code-less call site is inside the `#[cfg(test)]` unit-test area of `nepl-core/src/diagnostic.rs`, where the low-level diagnostic value API is tested directly.
+- [issue]:
+  - Added and fixed `ISS-20260429T235902744Z-DIAGNOSTIC-CODE-FIRST-POLICY-DOES-NO-EB36475A`.
+  - Updated parent issue `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D`.
+  - Updated `doc/neplg2/compiler_diagnostics_redesign_plan.md` Stage D1 progress.
+- [verification]:
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+- [plan.md delta]:
+  - `plan.md` was not changed.
+  - This is a regression policy strengthening for compiler diagnostics. It does not weaken static checks.

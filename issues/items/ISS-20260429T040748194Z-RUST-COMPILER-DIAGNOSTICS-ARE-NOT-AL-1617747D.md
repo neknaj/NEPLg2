@@ -866,3 +866,13 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `node nodesrc/test_editor_diagnostic_code_contract.js`
 - `node nodesrc/test_diagnostic_code_first_boundary.js`
 - `node nodesrc/cli.js -i tests/playground_editor -o json=tmp/agent1-editor-diagnostic-code-contract-playground.json --playground-editor-tests`
+
+## 2026-04-30 Stage D1 source policy recursion 追記
+
+`nodesrc/test_diagnostic_code_first_boundary.js` は `.with_code(...)` の復活を検出するために追加していたが、固定された境界ファイルだけを読む実装だった。そのため、active compiler pass の別 file に code-less `Diagnostic::error(...)` / `Diagnostic::warning(...)` が戻っても CI で検出できない監視漏れがあった。
+
+この監視漏れは [ISS-20260429T235902744Z-DIAGNOSTIC-CODE-FIRST-POLICY-DOES-NO-EB36475A](./ISS-20260429T235902744Z-DIAGNOSTIC-CODE-FIRST-POLICY-DOES-NO-EB36475A.md) として分離し、対応済みである。policy は `nepl-core/src`、`nepl-language/src`、`nepl-lsp/src`、`nepl-web/src` を再帰走査し、`.with_code(...)` / `fn with_code` に加えて code-less diagnostic constructor 呼び出しも禁止する。`Diagnostic` module の unit test 内だけは、低レベル value API の構造化 notes / helps をテストするため例外とする。
+
+検証:
+
+- `node nodesrc/test_diagnostic_code_first_boundary.js`

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-29T23:56:02.067Z",
+  "generated_at": "2026-04-30T00:03:47.650Z",
   "counts": {
-    "total": 413,
+    "total": 414,
     "open": 13,
-    "resolved": 400,
+    "resolved": 401,
     "by_area": {
       "core": {
-        "total": 190,
+        "total": 191,
         "open": 5,
-        "resolved": 185
+        "resolved": 186
       },
       "stdlib": {
         "total": 126,
@@ -2948,6 +2948,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939.md"
+    },
+    {
+      "id": "ISS-20260429T235902744Z-DIAGNOSTIC-CODE-FIRST-POLICY-DOES-NO-EB36475A",
+      "title": "Diagnostic code-first policy does not scan active Rust sources",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nodesrc/test_diagnostic_code_first_boundary.js, nepl-core/src/**/*.rs, nepl-language/src/**/*.rs, nepl-lsp/src/**/*.rs, nepl-web/src/**/*.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T235902744Z-DIAGNOSTIC-CODE-FIRST-POLICY-DOES-NO-EB36475A.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
