@@ -28925,6 +28925,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner token / free obligation summary を、未精査 Result の path-dependent reservation まで含めて扱う形に進めた。
 
+# 2026-04-30 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math i64 split)
+
+- [同期]:
+  - `main` の `efc9e8bd` から branch `refactor/math-i64-module-split` を作成した。
+  - remote main は同じ `efc9e8bd` のままで、他agentの Resource IR branch は main 未反映のため触らない。
+- [原因]:
+  - `core/math` には i32 split 後も i64 の算術・bitwise・比較演算が 900 行規模で残っていた。
+  - i64 演算群は自己完結しており、`core/math` facade が再 export すれば既存 overload 利用と残り i128 helper からの参照を保てる。
+- [修正]:
+  - i64 算術・bitwise・rotate/count・signed/unsigned comparison を `stdlib/core/math/i64.nepl` へ移した。
+  - `stdlib/core/math.nepl` は `pub #import "./math/i64" as *` で i64 API を再 export する facade にした。
+  - `core/math/i64` direct import doctest を追加し、i64 module 単体で加算・bitwise・比較を確認する。
+  - `nodesrc/test_stdlib_math_module_split.js` を拡張し、i64 実装が `core/math.nepl` に戻らないことを source policy で固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/i64.nepl --no-tree -o tmp/math-i64-module-direct.json -j 1`: `10 total / 10 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math.nepl --no-tree -o tmp/math-facade-after-i64-split.json -j 1`: `6 total / 6 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/numerics.n.md -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-suite-after-i64-split.json -j 1`: `17 total / 17 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 拡張後の math split policy は passed。既存の `owner_summary_variant_paths.rs` responsibility split warning は継続。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` に core/math i64 split の進捗を追記した。
+  - issue はまだ open。`core/math` には f32/f64/変換/i128 が残り、他の巨大 stdlib file も未分割。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - i64 primitive math も専用 module へ分け、数値型ごとの責務境界を selfhost へ移植しやすい形にした。
+
 # 2026-04-30 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math i32 split)
 
 - [同期]:
