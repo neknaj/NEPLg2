@@ -28558,3 +28558,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - RingBuffer の observer contract を Stage 6 の borrowed read / terminal consume 分離方針に合わせた。
+
+# 2026-04-30 note (ISS-20260430T055147958Z Vec take/drop iterative boundary)
+
+- [同期]:
+  - `origin/main` を `34d027df test(core): refine move effect realloc fixtures` まで取り込んだ後、branch `fix/vec-take-while-iterative-boundary-20260430` で対応した。
+- [原因]:
+  - `ISS-20260430T050817277Z` は remote main で解決済みだったが、`vec_prefix_helpers` / `vec_drop_while_helper` だけ `std/test` report を使わない `if ok 0 1` 形式になっていた。
+  - 根本には `take_while` / `drop_while` の境界探索 helper `vec_take_while_len_impl` が再帰実装のまま残っており、`std/test` の `check_eq_i32` と併用したときに doctest timeout を起こしやすい問題があった。
+- [修正]:
+  - `vec_take_while_len_impl` を while loop に変更し、`idx` から最初の false 位置または `len` を返す仕様を維持した。
+  - `vec_prefix_helpers` / `vec_drop_while_helper` を `checks_*` report 形式に戻し、stdout report と exit code の両方で確認できるようにした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/vec-take-drop-iterative-stdlib-2.json -j 1 --dist web/dist`: `total=6`, `passed=6`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-take-drop-iterative-module.json -j 1 --dist web/dist`: `total=37`, `passed=37`
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-take-drop-iterative-collections.json -j 1 --dist web/dist`: `total=3`, `passed=3`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `node nodesrc/issues.js check`: passed (`files=445`)
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260430T055147958Z-VEC-TAKE-DROP-BOUNDARY-HELPER-RECURSIO-9980E506` を追加し、fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Vec prefix/drop の回帰テストを `.n.md` stdout report 方針へ戻し、内部 helper の設計も再帰回避へ修正した。

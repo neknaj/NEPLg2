@@ -325,11 +325,14 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/math" as *
 #import "core/option" as *
+#import "std/test" as *
 
 fn lt_four <(i32)->bool> (x):
     lt x 4
 
 fn main <()*>i32> ():
+    let mut checks checks_new;
+
     let take_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -338,9 +341,11 @@ fn main <()*>i32> ():
         |> push 5 |> uwok
         |> push 6 |> uwok
     let taken <Vec<i32>> unwrap_ok take_while<i32> take_src lt_four;
-    let ok <bool> eq len<i32> &taken 3;
+    set checks checks_push checks check_eq_i32 3 len<i32> &taken;
     free<i32> taken;
-    if ok 0 1
+
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
 
 ## vec_drop_while_helper
@@ -356,11 +361,14 @@ ret: 0
 #import "alloc/collections/vec" as *
 #import "core/math" as *
 #import "core/option" as *
+#import "std/test" as *
 
 fn lt_four <(i32)->bool> (x):
     lt x 4
 
 fn main <()*>i32> ():
+    let mut checks checks_new;
+
     let drop_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -371,11 +379,13 @@ fn main <()*>i32> ():
     let dropped <Vec<i32>> unwrap_ok drop_while<i32> drop_src lt_four;
     match get<i32> &dropped 0:
         Option::Some x:
-            free<i32> dropped;
-            if eq x 5 0 1
+            set checks checks_push checks check_eq_i32 5 x
         Option::None:
-            free<i32> dropped;
-            1
+            set checks checks_push checks Result<(),str>::Err "vec drop_while returned None";
+    free<i32> dropped;
+
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
 
 ## vec_count_helper

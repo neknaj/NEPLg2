@@ -970,7 +970,7 @@ fn vec_find_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->Option<.T>> (data, le
 //:
 //: ### [実装/じっそう]
 //: - `idx == len` なら[末尾/まつび]まで[到達/とうたつ]したとみなし、[現在/げんざい]の `idx` を[返/かえ]します。
-//: - それ[以外/いがい]では `p (data[idx])` を[評価/ひょうか]し、true なら `idx + 1` へ[再帰/さいき]し、false ならその[位置/いち]を[返/かえ]します。
+//: - `idx` から[末尾/まつび]へ while loop で[進/すす]み、最初に `p (data[i])` が false になった[位置/いち]を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ] helper なので、`data` と `len` の[整合性/せいごうせい]は[呼/よ]び[出/だ]し[側/がわ]が[保証/ほしょう]する[前提/ぜんてい]です。
@@ -1001,16 +1001,17 @@ fn vec_find_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->Option<.T>> (data, le
 //:     if ok 0 1
 //: ```
 fn vec_take_while_len_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->i32> (data, len, idx, p):
-    if:
-        eq idx len
-        then idx
-        else:
+    let mut i <i32> idx
+    let mut active <bool> true
+    while and active lt i len:
+        do:
             if:
-                cond p vec_read_at<.T> data idx
+                cond p vec_read_at<.T> data i
                 then:
-                    let next_idx <i32> add idx 1
-                    vec_take_while_len_impl<.T> data len next_idx p
-                else idx
+                    set i add i 1
+                else:
+                    set active false
+    i
 
 //: ## vec_write_prefix_impl
 //: [連続部分/れんぞくぶぶん]を[別/べつ]バッファへ[複写/ふくしゃ]する[内部/ないぶ] helper

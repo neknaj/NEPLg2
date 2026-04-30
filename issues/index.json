@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T05:39:35.889Z",
+  "generated_at": "2026-04-30T05:58:19.245Z",
   "counts": {
-    "total": 444,
+    "total": 445,
     "open": 14,
-    "resolved": 430,
+    "resolved": 431,
     "by_area": {
       "core": {
         "total": 196,
@@ -12,9 +12,9 @@
         "resolved": 191
       },
       "stdlib": {
-        "total": 146,
+        "total": 147,
         "open": 7,
-        "resolved": 139
+        "resolved": 140
       },
       "TEST": {
         "total": 7,
@@ -6578,6 +6578,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T050817277Z-VEC-FUNCTIONAL-HELPER-STDLIB-TEST-EX-64EDB43E.md"
+    },
+    {
+      "id": "ISS-20260430T055147958Z-VEC-TAKE-DROP-BOUNDARY-HELPER-RECURSIO-9980E506",
+      "title": "Vec take/drop boundary helper recursion forces std/test avoidance",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/vec.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T055147958Z-VEC-TAKE-DROP-BOUNDARY-HELPER-RECURSIO-9980E506.md"
     },
     {
       "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",
