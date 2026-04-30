@@ -60,6 +60,7 @@ const checks = [
     "nodesrc/test_stdlib_hashmap_storage_contract.js",
     "nodesrc/test_stdlib_hashset_storage_contract.js",
     "nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+    "nodesrc/test_stdlib_vec_borrowed_observers.js",
     "nodesrc/test_static_check_boundary_responsibility.js",
     "nodesrc/test_resource_checker_responsibility.js",
     "nodesrc/test_diagnostic_code_first_boundary.js",

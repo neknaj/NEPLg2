@@ -23,6 +23,47 @@
 - [既存残件]:
   - `stdlib/tests/vec.n.md` の 2 本目は compile owner leak は解消したが、既存の巨大 functional helper doctest が 60 秒 timeout に当たる。分割 probe では各まとまりは pass しているため、`ISS-20260430T050817277Z-VEC-FUNCTIONAL-HELPER-STDLIB-TEST-EX-64EDB43E` で test 分割または軽量化を追跡する。
 
+# 2026-04-30 メモ (ISS-20260430T043731199Z Vec borrowed observers)
+
+- [同期]:
+  - `work/vec-borrowed-observers` branch で、remote main が up-to-date であることを確認してから作業した。
+- [原因]:
+  - `Vec` の読み取り専用 observer が `Vec<.T>` を値で受け取り、owner を移動していた。
+  - `len_ref` / `get_ref` などの重複 borrowed API が残っていたため、caller と doctest が owner を保持したいときだけ別名を選ぶ分裂した設計になっていた。
+  - `pop` / `partition` は owner-bearing な戻り値を `.Pair` / tuple field で返し、Resource IR の owner obligation が名前のない tuple projection に残る問題を誘発していた。
+- [修正]:
+  - `len` / `cap` / `is_empty` / `get` / `data_ptr` / `data_mem_ptr` / `data_len` を `&Vec<.T>` receiver に統一し、旧 `*_ref` observer を削除した。
+  - raw storage から値を読む `get` / `replace` / `count` / `fold` / `reduce` / `find` / `any` / `all` は `.T: Copy` を明示した borrowed API にした。
+  - `pop` は `VecPop<.T>`、`partition` は `VecPartition<.T>` を返すようにし、owner-bearing result を名前付き field で追跡できるようにした。
+  - Vec を内部 storage に使う stdlib helper、examples、tutorial、focused tests を新 API へ追従した。
+  - `nodesrc/test_stdlib_vec_borrowed_observers.js` を追加し、by-value observer と旧 `*_ref` surface の再導入を source policy で監視する。
+- [issue]:
+  - `ISS-20260430T043731199Z-VEC-READ-ONLY-OBSERVERS-CONSUME-OWNE-AF1B63AF` を fixed/resolved にした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-borrowed-observers-doctests.json -j 1`: `37/37 passed`
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/vec-borrowed-observers-stdlib-tests.json -j 1`: `6/6 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-borrowed-observers-collections-tests.json -j 1`: `2/2 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/vec-borrowed-observers-fs-doctests.json -j 1`: `7/7 passed`
+  - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/vec-borrowed-observers-bf-tests.json -j 1`: `2/2 passed`
+  - `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md -i tests/compiler/overload_nested_generic_push.n.md --no-tree -o tmp/vec-borrowed-observers-compiler-small-tests.json -j 1`: `6/6 passed`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+  - `tests/stdlib/sort.n.md`、`stdlib/tests/string.n.md`、`tests/stdlib/selfhost_req.n.md`、`tests/stdlib/neplg2_lexer.n.md`、`stdlib/tests/hash.n.md` は追加確認で失敗または timeout を確認した。内容は sort の owner-return/cleanup 契約、str/Vec<str> payload cleanup、selfhost_req の既存 owner obligation、large std/test compile timeout であり、Vec observer API の局所回帰とは別件として扱う。
+- [main merge確認]:
+  - remote main 側の `VecPartition.matched/rest` と `with_capacity` 負容量拒否を保持したうえで、旧 `*_ref` observer を復活させない形に競合解決した。
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/merge-vec-doctests.json -j 1`: `total=37`, `passed=37`
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/merge-vec-stdlib-tests.json -j 1`: `total=6`, `passed=6`
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/merge-vec-collections-tests.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/merge-vec-fs-doctests.json -j 1`: `total=7`, `passed=7`
+  - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/merge-vec-bf-tests.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md -i tests/compiler/overload_nested_generic_push.n.md --no-tree -o tmp/merge-vec-compiler-small-tests.json -j 1`: `total=6`, `passed=6`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 6 の「collection は Copy read、borrowed read、owned remove/pop、container drop を API と型制約で分ける」方針に沿って、Vec の read-only surface と owner-bearing result を整理した。
+
 # 2026-04-30 メモ (ISS-20260430T012746721Z unit helper initialized summary)
 
 - [同期]:

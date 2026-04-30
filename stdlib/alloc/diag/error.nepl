@@ -309,7 +309,7 @@ fn diags_push <(Diags,Diag)*>Diags> (ds, d):
 //: diags_len: [診断/しんだん][件数/けんすう]を[返/かえ]す
 fn diags_len <(&Diags)->i32> (ds):
     let items <&Vec<Diag>> field::get_ref ds "items";
-    v::len_ref<Diag> items
+    v::len<Diag> items
 
 fn diags_len <(Diags)->i32> (ds):
     let n <i32> diags_len &ds
@@ -319,7 +319,7 @@ fn diags_len <(Diags)->i32> (ds):
 //: diags_has_errors: error level の[診断/しんだん]を 1 [件/けん]でも[含/ふく]むか[判定/はんてい]する
 fn diags_has_errors <(&Diags)->bool> (ds):
     let items <&Vec<Diag>> field::get_ref ds "items";
-    let view <VecDataLen<Diag>> v::data_len_ref<Diag> items;
+    let view <VecDataLen<Diag>> v::data_len<Diag> items;
     let items_len <i32> field::get view "len";
     let items_data <i32> mem_ptr_addr field::get view "data";
     diags_has_errors_loop items_data items_len 0

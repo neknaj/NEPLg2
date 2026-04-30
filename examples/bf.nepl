@@ -135,8 +135,8 @@ fn compile_jumps <(str)*>Result<Vec<i32>,str>> (code):
                                                     let next_stack <Stack<i32>> field::get popped "stack"
                                                     match start_opt:
                                                         Option::Some start_pc:
-                                                            v::replace_ref<i32> &jump_table start_pc pc;
-                                                            v::replace_ref<i32> &jump_table pc start_pc;
+                                                            v::replace<i32> &jump_table start_pc pc;
+                                                            v::replace<i32> &jump_table pc start_pc;
                                                             set stack_state ok<Stack<i32>,str> next_stack
                                                         Option::None:
                                                             set error true;
@@ -183,7 +183,7 @@ fn compile_jumps <(str)*>Result<Vec<i32>,str>> (code):
 //: [目的/もくてき]:
 //: - 範囲外を 0 として扱い、VM ループ側を簡潔に保ちます。
 fn current_cell <(&Vec<i32>,i32)->i32> (tape, idx):
-    match v::get_ref<i32> tape idx:
+    match v::get<i32> tape idx:
         Option::Some cell:
             cell
         Option::None:
@@ -194,7 +194,7 @@ fn current_cell <(&Vec<i32>,i32)->i32> (tape, idx):
 //: [目的/もくてき]:
 //: - ジャンプ表が不正な場合は現在位置に留め、範囲外アクセスを避けます。
 fn jump_target <(&Vec<i32>,i32)->i32> (jump_table, pc):
-    match v::get_ref<i32> jump_table pc:
+    match v::get<i32> jump_table pc:
         Option::Some target:
             target
         Option::None:
@@ -231,12 +231,12 @@ fn eval_line <(i32,str)*>()> (tape_len, code):
 
                             if:
                                 eq cmd 43 // '+'
-                                then: v::replace_ref<i32> &tape ptr_idx cell_inc cell
+                                then: v::replace<i32> &tape ptr_idx cell_inc cell
                                 else: ()
 
                             if:
                                 eq cmd 45 // '-'
-                                then: v::replace_ref<i32> &tape ptr_idx cell_dec cell
+                                then: v::replace<i32> &tape ptr_idx cell_dec cell
                                 else: ()
 
                             if:
@@ -266,7 +266,7 @@ fn eval_line <(i32,str)*>()> (tape_len, code):
 
                             if:
                                 eq cmd 44 // ','
-                                then: v::replace_ref<i32> &tape ptr_idx 0
+                                then: v::replace<i32> &tape ptr_idx 0
                                 else: ()
 
                             if:

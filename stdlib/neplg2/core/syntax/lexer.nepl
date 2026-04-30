@@ -437,13 +437,13 @@ fn lex_indent_directive_unit <(str,i32,i32,i32)->i32> (source, n, content_start,
 
 //: lex_stack_top_result: indent stack の末尾を[読/よ]む
 fn lex_stack_top_result <(&Vec<i32>,i32,i32)->Result<i32,LexDiagnostic>> (stack, file_id, offset):
-    let stack_len <i32> len_ref<i32> stack
+    let stack_len <i32> len<i32> stack
     if:
         le stack_len 0
         then:
             Result<i32,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset "lexer indent stack is empty"
         else:
-            match get_ref<i32> stack sub stack_len 1:
+            match get<i32> stack sub stack_len 1:
                 Option::Some top:
                     Result<i32,LexDiagnostic>::Ok top
                 Option::None:
@@ -1096,7 +1096,7 @@ fn lex_raw_token <(str,i32,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx
 
 //: lex_finish_eof: EOF 前に残った indent level を Dedent で[閉/と]じる
 fn lex_finish_eof <(Vec<SelfhostToken>,Vec<i32>,i32,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, stack, file_id, offset):
-    let stack_len <i32> len_ref<i32> &stack
+    let stack_len <i32> len<i32> &stack
     if:
         gt stack_len 1
         then:

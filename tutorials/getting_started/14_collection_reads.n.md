@@ -1,6 +1,6 @@
 # collection の読み取り
 
-collection から値を読むときは、「owner を消費する操作」と「借用して Copy 値だけ読む操作」を分けます。`get_ref` は `&Vec<T>` を受け取り、`.T: Copy` の要素だけを返します。
+collection から値を読むときは、「owner を消費する操作」と「借用して Copy 値だけ読む操作」を分けます。`get` は `&Vec<T>` を受け取り、`.T: Copy` の要素だけを返します。
 
 neplg2:test
 ret: 0
@@ -21,7 +21,7 @@ stdout: mlstr:
 #import "std/test" as *
 
 fn has_at <(&Vec<i32>,i32,i32)->bool> (v, idx, expected):
-    match get_ref<i32> v idx:
+    match get<i32> v idx:
         Option::Some value:
             eq value expected
         Option::None:
@@ -34,7 +34,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks
             checks_exit_code shown
         Result::Ok values:
-            let n <i32> len_ref<i32> &values
+            let n <i32> len<i32> &values
             let has0 <bool> has_at &values 0 7
             let has2 <bool> has_at &values 2 7
             let has3 <bool> has_at &values 3 7
@@ -49,4 +49,4 @@ fn main <()*>i32> ():
             checks_exit_code shown
 ```
 
-非 Copy の要素を collection から読みたい場合は、単なる複製ではなく所有権の移動や借用 lifetime を考えます。入門ではまず Copy 要素の `*_ref` API で読み取りを固定します。
+非 Copy の要素を collection から読みたい場合は、単なる複製ではなく所有権の移動や借用 lifetime を考えます。入門ではまず Copy 要素を borrowed observer で読み取る形を固定します。

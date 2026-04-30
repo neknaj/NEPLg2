@@ -209,7 +209,7 @@ fn size <(str)->i32> (s):
     add 1000 1
 
 fn size <(Vec<i32>)->i32> (vec):
-    let n <i32> v::len_ref<i32> &vec;
+    let n <i32> v::len<i32> &vec;
     v::free<i32> vec;
     n
 
@@ -249,7 +249,7 @@ fn main <()*>i32> ():
         <Vec<i32>> new
         |> v::push 1 |> uwok
         |> v::push 2 |> uwok
-    let n <i32> v::len_ref<i32> &v;
+    let n <i32> v::len<i32> &v;
     v::free<i32> v;
     n
 ```
@@ -281,7 +281,7 @@ fn main <()*>i32> ():
     let parts unwrap_ok pair_with_empty<i32> xs;
     let evens <Vec<i32>> get parts 0;
     let rest <Vec<i32>> get parts 1;
-    let n <i32> v::len_ref<i32> &evens;
+    let n <i32> v::len<i32> &evens;
     v::free<i32> evens;
     v::free<i32> rest;
     if eq n 1 1 0
@@ -326,7 +326,7 @@ fn new <()*>Vec<i32>> ():
 
 fn main <()*>i32> ():
     let v <Vec<i32>> <Vec<i32>> new;
-    let n <i32> v::len_ref<i32> &v;
+    let n <i32> v::len<i32> &v;
     v::free<i32> v;
     n
 ```

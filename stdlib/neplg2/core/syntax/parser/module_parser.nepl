@@ -311,7 +311,7 @@ fn selfhost_parse_module_loop <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRa
         then:
             Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok ast
         else:
-            match v::get_ref<SelfhostToken> tokens idx:
+            match v::get<SelfhostToken> tokens idx:
                 Option::Some token:
                     let kind <TokenKind> token.kind
                     let kind_name <str> token_kind_name kind
@@ -348,7 +348,7 @@ fn selfhost_parse_module_loop <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRa
 fn selfhost_parse_module_tokens <(&Vec<SelfhostToken>)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (tokens):
     match selfhost_module_ast_new:
         Result::Ok ast:
-            let n <i32> v::len_ref<SelfhostToken> tokens
+            let n <i32> v::len<SelfhostToken> tokens
             selfhost_parse_module_loop tokens n 0 0 SelfhostParserRawMode::Normal ast
         Result::Err _e:
             Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_oom_diag

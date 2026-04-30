@@ -35,7 +35,7 @@ fn build_numbers <()*>Result<Vec<i32>,str>> ():
                             Result<Vec<i32>,str>::Ok v2
 
 fn expect_item <(&Vec<i32>,i32,i32)->Result<(),str>> (v, idx, expected):
-    match get_ref<i32> v idx:
+    match get<i32> v idx:
         Option::Some value:
             check_eq_i32 expected value
         Option::None:
@@ -48,7 +48,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks
             checks_exit_code shown
         Result::Ok numbers:
-            let n <i32> len_ref<i32> &numbers
+            let n <i32> len<i32> &numbers
             let item0 <Result<(),str>> expect_item &numbers 0 10
             let item1 <Result<(),str>> expect_item &numbers 1 20
             let checks:
@@ -61,4 +61,4 @@ fn main <()*>i32> ():
             checks_exit_code shown
 ```
 
-`Vec` の owner は最後に `free` します。読み取りだけなら `&numbers` を渡す `*_ref` API を使い、collection 本体を消費しないようにします。
+`Vec` の owner は最後に `free` します。読み取りだけなら `&numbers` を渡し、collection 本体を消費しないようにします。

@@ -187,7 +187,7 @@ fn hashmap_load_limit <(i32)->i32> (cap):
 //: ### [注意/ちゅうい]
 //: - 呼び出し側は `0 <= idx < cap` を[守/まも]る設計です。`Option::None` は不変条件破れの防護として empty に[倒/たお]します。
 fn hashmap_state_at <(&Vec<HashMapBucketState>,i32)->HashMapBucketState> (states, idx):
-    match vec::get_ref<HashMapBucketState> states idx:
+    match vec::get<HashMapBucketState> states idx:
         Option::Some state:
             state
         Option::None:
@@ -195,7 +195,7 @@ fn hashmap_state_at <(&Vec<HashMapBucketState>,i32)->HashMapBucketState> (states
 
 //: hashmap_key_at: key slot を Option として[読/よ]む
 fn hashmap_key_at <.K: Copy> <(&Vec<Option<.K>>,i32)->Option<.K>> (keys, idx):
-    match vec::get_ref<Option<.K>> keys idx:
+    match vec::get<Option<.K>> keys idx:
         Option::Some key_opt:
             key_opt
         Option::None:
@@ -203,7 +203,7 @@ fn hashmap_key_at <.K: Copy> <(&Vec<Option<.K>>,i32)->Option<.K>> (keys, idx):
 
 //: hashmap_value_at: value slot を Option として[読/よ]む
 fn hashmap_value_at <.V: Copy> <(&Vec<Option<.V>>,i32)->Option<.V>> (values, idx):
-    match vec::get_ref<Option<.V>> values idx:
+    match vec::get<Option<.V>> values idx:
         Option::Some value_opt:
             value_opt
         Option::None:
@@ -211,15 +211,15 @@ fn hashmap_value_at <.V: Copy> <(&Vec<Option<.V>>,i32)->Option<.V>> (values, idx
 
 //: hashmap_store_state: state slot を[書/か]き[換/か]える
 fn hashmap_store_state <(&Vec<HashMapBucketState>,i32,HashMapBucketState)*>()> (states, idx, state):
-    vec::replace_ref<HashMapBucketState> states idx state
+    vec::replace<HashMapBucketState> states idx state
 
 //: hashmap_store_key: key slot を[書/か]き[換/か]える
 fn hashmap_store_key <.K: Copy> <(&Vec<Option<.K>>,i32,Option<.K>)*>()> (keys, idx, key):
-    vec::replace_ref<Option<.K>> keys idx key
+    vec::replace<Option<.K>> keys idx key
 
 //: hashmap_store_value: value slot を[書/か]き[換/か]える
 fn hashmap_store_value <.V: Copy> <(&Vec<Option<.V>>,i32,Option<.V>)*>()> (values, idx, value):
-    vec::replace_ref<Option<.V>> values idx value
+    vec::replace<Option<.V>> values idx value
 
 //: hashmap_store_full: slot を Full にして key/value を[格納/かくのう]する
 //:

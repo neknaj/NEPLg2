@@ -54,7 +54,7 @@ fn main <()*>i32> ():
     set buf unwrap_ok push<u8> buf b2;
 
     // 要件: バイト単位のアクセス
-    match get<u8> buf 0:
+    match get<u8> &buf 0:
         Option::Some val:
             // i32へのキャスト等
             cast val
@@ -87,7 +87,7 @@ fn main <()*>i32> ():
         then:
             // 要件: split (区切り文字での分割)
             let parts <Vec<str>> str_split trimmed "(";
-            let name_part <str> unwrap<str> get<str> parts 0; // "fn main"
+            let name_part <str> unwrap<str> get<str> &parts 0; // "fn main"
 
             // 要件: substring / slice
             let func_name <str> str_slice name_part 3 len name_part; // "main"

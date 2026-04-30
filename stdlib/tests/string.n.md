@@ -65,7 +65,7 @@ fn main <()*>i32> ():
         |> sb_append_i32 404
         |> sb_append " Not Found"
         |> sb_build
-    let ok0 eq len<str> parts 3;
+    let ok0 eq len<str> &parts 3;
     let ok1 eq len msg 20;
     if and ok0 ok1 1 0
 ```
@@ -164,8 +164,8 @@ fn expect_vec_middle <(Result<Vec<str>,str>)*>Result<(),str>> (got):
         Result::Err e:
             Result<(),str>::Err e
         Result::Ok parts:
-            let part_len <i32> len_ref<str> &parts
-            match get_ref<str> &parts 1:
+            let part_len <i32> len<str> &parts
+            match get<str> &parts 1:
                 Option::Some mid:
                     if:
                         and eq part_len 3 str_eq mid "b"

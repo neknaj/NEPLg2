@@ -173,7 +173,7 @@ fn source_text_len <(&SelfhostSourceText)->i32> (text):
 //: source_text_line_count: line start table の[要素数/ようそすう]を[返/かえ]す
 fn source_text_line_count <(&SelfhostSourceText)->i32> (text):
     let starts <&Vec<i32>> field::get_ref text "line_starts"
-    v::len_ref<i32> starts
+    v::len<i32> starts
 
 //: source_text_line_start: line index の[開始/かいし] byte offset を[返/かえ]す
 fn source_text_line_start <(&SelfhostSourceText,i32)->Option<i32>> (text, line):
@@ -183,7 +183,7 @@ fn source_text_line_start <(&SelfhostSourceText,i32)->Option<i32>> (text, line):
         then:
             none<i32>
         else:
-            v::get_ref<i32> starts line
+            v::get<i32> starts line
 
 //: source_text_line_index_search: offset を[含/ふく]む line index を binary search で[探/さが]す
 //:
@@ -196,7 +196,7 @@ fn source_text_line_index_search <(&Vec<i32>,i32,i32,i32,i32)->i32> (starts, off
             best
         else:
             let mid <i32> div_s add low high 2
-            match v::get_ref<i32> starts mid:
+            match v::get<i32> starts mid:
                 Option::Some start:
                     if:
                         le start offset
@@ -216,7 +216,7 @@ fn source_text_line_index_for_offset <(&SelfhostSourceText,i32)->Option<i32>> (t
             none<i32>
         else:
             let starts <&Vec<i32>> field::get_ref text "line_starts"
-            let count <i32> v::len_ref<i32> starts
+            let count <i32> v::len<i32> starts
             some<i32> source_text_line_index_search starts offset 0 count 0
 
 //: source_text_trim_line_end: newline byte を[除/のぞ]いた line end を[返/かえ]す
@@ -249,7 +249,7 @@ fn source_text_trim_line_end <(str,i32,i32)->i32> (source, start, raw_end):
 
 //: source_text_next_line_start_or_len: [次/つぎ]の line start、なければ source [長/ちょう]を[返/かえ]す
 fn source_text_next_line_start_or_len <(&Vec<i32>,i32,i32)->i32> (starts, next_line, n):
-    match v::get_ref<i32> starts next_line:
+    match v::get<i32> starts next_line:
         Option::Some start:
             start
         Option::None:
@@ -261,13 +261,13 @@ fn source_text_next_line_start_or_len <(&Vec<i32>,i32,i32)->i32> (starts, next_l
 //: - 返す span の end は newline byte を[含/ふく]みません。
 fn source_text_line_span <(&SelfhostSourceText,i32)->Option<SelfhostSourceSpan>> (text, line):
     let starts <&Vec<i32>> field::get_ref text "line_starts"
-    let count <i32> v::len_ref<i32> starts
+    let count <i32> v::len<i32> starts
     if:
         or lt line 0 ge line count
         then:
             none<SelfhostSourceSpan>
         else:
-            match v::get_ref<i32> starts line:
+            match v::get<i32> starts line:
                 Option::Some start:
                     let source <str> *field::get_ref text "source"
                     let file_id <i32> *field::get_ref text "file_id"

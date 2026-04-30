@@ -273,7 +273,7 @@ fn selfhost_name_scope_free <(SelfhostNameScope)*>()> (scope):
 //: selfhost_name_scope_len: scope 内の binding 数を[返/かえ]す
 fn selfhost_name_scope_len <(&SelfhostNameScope)->i32> (scope):
     let bindings <&Vec<SelfhostNameBinding>> field::get_ref scope "bindings"
-    v::len_ref<SelfhostNameBinding> bindings
+    v::len<SelfhostNameBinding> bindings
 
 //: selfhost_name_scope_add_result_new: add result を[作/つく]る
 fn selfhost_name_scope_add_result_new <(SelfhostNameScope,SelfhostDefId)*>SelfhostNameScopeAddResult> (scope, def_id):
@@ -304,7 +304,7 @@ fn selfhost_name_scope_get <(&SelfhostNameScope,SelfhostDefId)->Option<SelfhostN
             none<SelfhostNameBinding>
         else:
             let bindings <&Vec<SelfhostNameBinding>> field::get_ref scope "bindings"
-            v::get_ref<SelfhostNameBinding> bindings def_id.index
+            v::get<SelfhostNameBinding> bindings def_id.index
 
 //: selfhost_name_scope_find_loop: 指定名の binding を末尾から[探/さが]す
 //:

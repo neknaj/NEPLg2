@@ -25,7 +25,7 @@ fn main <()*>i32> ():
         Result::Ok values:
             let checks:
                 checks_new
-                |> checks_push assert_eq_i32 0 len_ref<i32> &values
+                |> checks_push assert_eq_i32 0 len<i32> &values
             free<i32> values;
             let shown checks_print_report checks
             checks_exit_code shown

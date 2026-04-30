@@ -62,14 +62,14 @@ fn btreeset_key_eq <.T: Ord> <(.T,.T)->bool> (a, b):
     and not ord_lt a b not ord_lt b a
 
 fn btreeset_key_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (keys, idx):
-    match vec::get_ref<Option<.T>> keys idx:
+    match vec::get<Option<.T>> keys idx:
         Option::Some key_opt:
             key_opt
         Option::None:
             none<.T>
 
 fn btreeset_store_key <.T: Copy> <(&Vec<Option<.T>>,i32,Option<.T>)*>()> (keys, idx, key):
-    vec::replace_ref<Option<.T>> keys idx key
+    vec::replace<Option<.T>> keys idx key
 
 fn btreeset_key_slot <.T: Copy> <(&BTreeSetStorage<.T>,i32)->Option<.T>> (storage, idx):
     btreeset_key_at<.T> btreeset_storage_keys<.T> storage idx

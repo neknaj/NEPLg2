@@ -270,7 +270,7 @@ fn sha256_check_digest_loop <(&Vec<i32>,i32,i32,TestReport)*>TestReport> (digest
         then:
             checks
         else:
-            match get_ref<i32> digest idx:
+            match get<i32> digest idx:
                 Option::None:
                     let next_checks checks_push checks Result<(),str>::Err "sha256 digest missing byte"
                     sha256_check_digest_loop digest kind add idx 1 next_checks
@@ -283,7 +283,7 @@ fn sha256_check_result <(Result<Vec<i32>, StdErrorKind>,i32,TestReport)*>TestRep
         Result::Err _e:
             checks_push checks Result<(),str>::Err "sha256 digest returned error"
         Result::Ok digest:
-            let digest_len <i32> len_ref<i32> &digest
+            let digest_len <i32> len<i32> &digest
             let checks1 checks_push checks check_eq_i32 32 digest_len
             let checks2 sha256_check_digest_loop &digest kind 0 checks1
             free<i32> digest

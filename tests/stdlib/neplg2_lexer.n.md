@@ -20,7 +20,7 @@ ret: 0
 #import "std/test" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
-    unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
+    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
 fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
@@ -34,7 +34,7 @@ fn main <()*>i32> ():
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len_ref<SelfhostToken> &tokens
+            let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 19 token_len
             let checks2 check_token checks1 &tokens 0 "DirEntry" "main"
             let checks3 check_token checks2 &tokens 2 "KwFn" "fn"
@@ -74,7 +74,7 @@ ret: 0
 #import "std/test" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
-    unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
+    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
 fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
@@ -88,7 +88,7 @@ fn main <()*>i32> ():
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len_ref<SelfhostToken> &tokens
+            let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 16 token_len
             let checks2 check_token checks1 &tokens 3 "Indent" ""
             let checks3 check_token checks2 &tokens 7 "Indent" ""
@@ -128,7 +128,7 @@ ret: 0
 #import "std/test" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
-    unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
+    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
 fn main <()*>i32> ():
     let checks0 checks_new
@@ -175,7 +175,7 @@ ret: 0
 #import "std/test" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
-    unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
+    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
 fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
@@ -189,7 +189,7 @@ fn main <()*>i32> ():
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len_ref<SelfhostToken> &tokens
+            let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 10 token_len
             let checks2 check_token checks1 &tokens 0 "DirIndentWidth" "#indent 2"
             let checks3 check_token checks2 &tokens 5 "Indent" ""
@@ -376,7 +376,7 @@ ret: 0
 #import "std/test" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
-    unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
+    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
 fn main <()*>i32> ():
     let checks0 checks_new
@@ -455,7 +455,7 @@ ret: 0
 #import "std/test" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
-    unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
+    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
 fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
@@ -469,7 +469,7 @@ fn main <()*>i32> ():
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len_ref<SelfhostToken> &tokens
+            let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 62 token_len
             let checks2 check_token checks1 &tokens 0 "DirTarget" "#target core"
             let checks3 check_token checks2 &tokens 2 "DirImport" "#import \"std/test\" as *"
@@ -519,7 +519,7 @@ ret: 0
 #import "std/test" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
-    unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
+    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
 fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
@@ -533,7 +533,7 @@ fn main <()*>i32> ():
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len_ref<SelfhostToken> &tokens
+            let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 7 token_len
             let checks2 check_token checks1 &tokens 0 "DocComment" "//: module doc"
             let checks3 check_token checks2 &tokens 2 "DocComment" "/// item doc"
@@ -567,7 +567,7 @@ ret: 0
 #import "std/test" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
-    unwrap<SelfhostToken> get_ref<SelfhostToken> tokens idx
+    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
 fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
@@ -581,7 +581,7 @@ fn main <()*>i32> ():
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len_ref<SelfhostToken> &tokens
+            let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 17 token_len
             let checks2 check_token checks1 &tokens 4 "DirWasm" "#wasm:"
             let checks3 check_token checks2 &tokens 6 "Indent" ""

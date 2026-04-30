@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T05:09:47.483Z",
+  "generated_at": "2026-04-30T05:28:15.938Z",
   "counts": {
-    "total": 442,
+    "total": 443,
     "open": 15,
-    "resolved": 427,
+    "resolved": 428,
     "by_area": {
       "core": {
         "total": 195,
@@ -12,9 +12,9 @@
         "resolved": 190
       },
       "stdlib": {
-        "total": 145,
+        "total": 146,
         "open": 8,
-        "resolved": 137
+        "resolved": 138
       },
       "TEST": {
         "total": 7,
@@ -4808,6 +4808,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T043023595Z-RINGBUFFER-READ-ONLY-OBSERVERS-CONSU-9A590BA3.md"
+    },
+    {
+      "id": "ISS-20260430T043731199Z-VEC-READ-ONLY-OBSERVERS-CONSUME-OWNE-AF1B63AF",
+      "title": "Vec read-only observers consume owners instead of borrowing",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/vec.nepl, stdlib/alloc/collections/vec/sort.nepl, stdlib/tests/vec.n.md, tests/stdlib/vec_collections.n.md, nodesrc/test_stdlib_vec_borrowed_observers.js",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-6-stdlib-memory-api-の段階移行",
+      "file": "items/ISS-20260430T043731199Z-VEC-READ-ONLY-OBSERVERS-CONSUME-OWNE-AF1B63AF.md"
     },
     {
       "id": "ISS-20260430T044235959Z-VEC-MODULE-DOCTESTS-LEAK-OWNERS-UNDE-EB5A5659",

@@ -233,7 +233,7 @@ fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>,Opt
 //:             if and check_ok and emit_ok and output_ok input_ok 0 1
 //: ```
 pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (args):
-    let span <VecDataLen<str>> v::data_len_ref<str> args;
+    let span <VecDataLen<str>> v::data_len<str> args;
     let data <i32> mem_ptr_addr *get_ref &span "data";
     let count <i32> *get_ref &span "len";
     selfhost_cli_parse_loop data count 0 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false
@@ -286,7 +286,7 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //:             if and target_ok input_ok 0 1
 //: ```
 pub fn selfhost_cli_parse_argv <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (argv):
-    let span <VecDataLen<str>> v::data_len_ref<str> argv;
+    let span <VecDataLen<str>> v::data_len<str> argv;
     let data <i32> mem_ptr_addr *get_ref &span "data";
     let count <i32> *get_ref &span "len";
     selfhost_cli_parse_loop data count 1 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false
