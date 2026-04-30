@@ -28925,6 +28925,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner token / free obligation summary を、未精査 Result の path-dependent reservation まで含めて扱う形に進めた。
 
+# 2026-04-30 note (ISS-20260430T151549577Z str_split_result raw Vec ownership)
+
+- [発見]:
+  - `from_f64_result` 修正後に HashMap / HashSet doctest を再確認したところ、次の compile failure は `str_split_result__str_str__Result_T_E_Vec_T_str_str__pure` の `store<str>` で `resource.raw.ownership_violation` になった。
+  - 既存の広い collection drop issue だけでは、`str_split_result` が owned substring を raw `Vec<str>` storage に移す境界の再発を直接追えないため、専用 issue を追加した。
+- [issue]:
+  - `ISS-20260430T151549577Z-STR-SPLIT-RESULT-STORES-OWNED-STR-IN-B3A69EAB` を追加した。
+  - 修正方針は Resource IR を弱めず、`Vec<str>` の typed owner/cleanup 境界を設計するか、split 利用側を scanner API に移して owned `Vec<str>` を不要にする方向。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - selfhost で使う stdlib string/collection 境界の owner contract を、より細かい issue として分離した。
+
 # 2026-04-30 note (ISS-20260430T140641137Z from_f64_result scratch buffer)
 
 - [同期]:
