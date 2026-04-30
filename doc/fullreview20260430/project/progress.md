@@ -19,7 +19,7 @@ NEPLg2 は、Rust compiler の大規模安定化と stdlib の所有権安全化
 
 ## issue 状況
 
-`issues/index.md` では 460 件中 15 件が open。open issue の中心は、core Resource IR / memory model、stdlib collection drop、selfhost incomplete、`.n.md` test policy、Resource IR owner variant path builder の責務再集中、string numeric formatting の Resource IR cell failure である。
+`issues/index.md` では 461 件中 16 件が open。open issue の中心は、core Resource IR / memory model、stdlib collection drop、selfhost incomplete、`.n.md` test policy、Resource IR owner variant path builder の責務再集中、string numeric formatting の Resource IR cell failure、selfhost parser の enum/match 不使用である。
 
 ### P1 core
 
@@ -41,6 +41,10 @@ NEPLg2 は、Rust compiler の大規模安定化と stdlib の所有権安全化
 ### P1 test
 
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD`: `.n.md` assertion suite が stdout report ではなく return value に依存する問題。
+
+### P1 selfhost
+
+- `ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B`: selfhost parser が `TokenKind` を文字列/hash/numeric arm に変換して分類し、enum/match の網羅性検査を効かせていない問題。
 
 ### P2
 
