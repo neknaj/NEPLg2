@@ -13,11 +13,17 @@ function read(rel) {
 
 const facade = read("stdlib/core/math.nepl");
 const u8Module = read("stdlib/core/math/u8.nepl");
+const boolModule = read("stdlib/core/math/bool.nepl");
 
 assert.match(
     facade,
     /pub\s+#import\s+"\.\/math\/u8"\s+as\s+\*/,
     "core/math.nepl must re-export the u8 math submodule",
+);
+assert.match(
+    facade,
+    /pub\s+#import\s+"\.\/math\/bool"\s+as\s+\*/,
+    "core/math.nepl must re-export the bool math submodule",
 );
 
 for (const fnName of [
@@ -55,7 +61,18 @@ for (const [name, signature] of [
     assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep overload ${name} ${signature}`);
 }
 
+for (const [name, signature] of [
+    ["and", "<\\(bool,bool\\)->bool>"],
+    ["or", "<\\(bool,bool\\)->bool>"],
+    ["not", "<\\(bool\\)->bool>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(boolModule, pattern, `core/math/bool.nepl must define overload ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep overload ${name} ${signature}`);
+}
+
 assert.match(facade, /\bfn\s+add\s+<\(i32,i32\)->i32>/, "core/math.nepl must keep i32 math implementation for now");
 assert.match(facade, /\bfn\s+add\s+<\(i64,i64\)->i64>/, "core/math.nepl must keep i64 math implementation for now");
+assert.match(facade, /\bfn\s+and\s+<\(i32,i32\)->i32>/, "core/math.nepl must keep i32 bitwise and implementation for now");
 
 console.log("stdlib math module split regression passed");

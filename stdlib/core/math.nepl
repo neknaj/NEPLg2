@@ -18,6 +18,7 @@
 
 #indent 4
 pub #import "./math/u8" as *
+pub #import "./math/bool" as *
 #import "core/field" as *
 
 
@@ -3977,89 +3978,6 @@ fn promote <(f32)->f64> (a):
 //: demote: f64 を f32 に縮小する
 fn demote <(f64)->f32> (a):
     demote_f64_to_f32 a
-
-//: and: bool の論理積
-//:
-//: [目的/もくてき]:
-//: - bool の `a && b` 相当を計算します。
-//:
-//: [実装/じっそう]:
-//: - wasm は `i32.and`、llvm は `and i32` を使います。
-//:
-//: [注意/ちゅうい]:
-//: - bool は 0/1 前提です。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn and <(bool,bool)->bool> (a,b):
-    #if[target=wasm]
-    #wasm:
-        local.get $a
-        local.get $b
-        i32.and
-    #if[target=llvm]
-    #llvmir:
-        define i32 @and(i32 %a, i32 %b) {
-        entry:
-            %0 = and i32 %a, %b
-            ret i32 %0
-        }
-
-
-//: or: bool の論理和
-//:
-//: [目的/もくてき]:
-//: - bool の `a || b` 相当を計算します。
-//:
-//: [実装/じっそう]:
-//: - wasm は `i32.or`、llvm は `or i32` を使います。
-//:
-//: [注意/ちゅうい]:
-//: - bool は 0/1 前提です。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn or <(bool,bool)->bool> (a,b):
-    #if[target=wasm]
-    #wasm:
-        local.get $a
-        local.get $b
-        i32.or
-    #if[target=llvm]
-    #llvmir:
-        define i32 @or(i32 %a, i32 %b) {
-        entry:
-            %0 = or i32 %a, %b
-            ret i32 %0
-        }
-
-
-//: not: bool の否定
-//:
-//: [目的/もくてき]:
-//: - bool の `!a` を計算します。
-//:
-//: [実装/じっそう]:
-//: - wasm は `i32.eqz`、llvm は `icmp eq` を使います。
-//:
-//: [注意/ちゅうい]:
-//: - bool は 0/1 前提です。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn not <(bool)->bool> (a):
-    #if[target=wasm]
-    #wasm:
-        local.get $a
-        i32.eqz
-    #if[target=llvm]
-    #llvmir:
-        define i32 @not(i32 %a) {
-        entry:
-            %0 = icmp eq i32 %a, 0
-            %1 = zext i1 %0 to i32
-            ret i32 %1
-        }
 
 //: 追加整数型 API（u32/u64/u128/i128）
 //:
