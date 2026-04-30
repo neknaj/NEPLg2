@@ -23,18 +23,20 @@ fn main <()*>i32> ():
         |> unwrap_ok<RingBuffer<i32>, Diag>
         |> push<i32> 20
         |> unwrap_ok<RingBuffer<i32>, Diag>
-    let ok0 <bool> eq len<i32> rb0 2;
+    let ok0 <bool> eq len<i32> &rb0 2;
+    free<i32> rb0
     let rb1 <RingBuffer<i32>>:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push<i32> 10
         |> unwrap_ok<RingBuffer<i32>, Diag>
         |> push<i32> 20
         |> unwrap_ok<RingBuffer<i32>, Diag>
-    let ok1 <bool> match peek<i32> rb1:
+    let ok1 <bool> match peek<i32> &rb1:
         Option::Some v:
             eq v 10
         Option::None:
             false
+    free<i32> rb1
     let rb2 <RingBuffer<i32>>:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push<i32> 10
@@ -58,9 +60,9 @@ fn main <()*>i32> ():
             false
     let rb4 <RingBuffer<i32>> field::get p0 "buffer"
     let ok4 <bool>:
-        match peek_ref<i32> &rb4:
+        match peek<i32> &rb4:
             Option::Some v:
-                and eq len_ref<i32> &rb4 1 eq v 40
+                and eq len<i32> &rb4 1 eq v 40
             Option::None:
                 false
     free<i32> rb4;

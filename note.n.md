@@ -28402,3 +28402,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - DisjointSet update API の失敗 contract を Stage 6 の collection owner recovery 方針に合わせた。
+
+# 2026-04-30 note (ISS-20260430T043023595Z RingBuffer borrowed observers)
+
+- [同期]:
+  - `main` で `e35215fb` まで push/pull 済みの状態から、作業 branch `work/ringbuffer-borrowed-observers` を作成した。
+- [原因]:
+  - `RingBuffer.len` / `cap` / `is_empty` / `peek` が read-only observer なのに `RingBuffer` を値で受け取り、観測だけで owner を閉じる contract になっていた。
+  - 同時に `len_ref` / `cap_ref` / `is_empty_ref` / `peek_ref` が借用版として残っており、observer surface が二重化していた。
+- [修正]:
+  - `len` / `cap` / `is_empty` / `peek` を `&RingBuffer` receiver に変更した。
+  - 重複していた `*_ref` observer を削除した。
+  - `pop` は先頭値だけを返して buffer を閉じる terminal API として残し、owner-preserving には既存 `pop_front` を使う設計をコメントで明記した。
+  - `ringbuffer.nepl` に borrowed observer 後に `free` する doctest を追加した。
+  - stdlib / collection tests を、borrowed observer 後に同じ owner を `free` する形へ更新した。
+  - `nodesrc/test_stdlib_ringbuffer_borrowed_observers.js` を追加し、source policy に登録した。
+- [検証]:
+  - `node nodesrc/test_stdlib_ringbuffer_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/ringbuffer.nepl --no-tree -o tmp/ringbuffer-borrowed-observers-doctests.json -j 1`: `total=1`, `passed=1`
+  - `node nodesrc/tests.js -i stdlib/tests/ringbuffer.n.md --no-tree -o tmp/ringbuffer-borrowed-observers-stdlib-tests.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/ringbuffer_collections.n.md --no-tree -o tmp/ringbuffer-borrowed-observers-collections-tests.json -j 1`: `total=2`, `passed=2`
+- [issue]:
+  - `ISS-20260430T043023595Z-RINGBUFFER-READ-ONLY-OBSERVERS-CONSU-9A590BA3` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - RingBuffer の observer contract を Stage 6 の borrowed read / terminal consume 分離方針に合わせた。

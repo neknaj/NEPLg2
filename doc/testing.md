@@ -97,6 +97,7 @@ node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_fenwick_add_error_owner.js
 node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js
+node nodesrc/test_stdlib_ringbuffer_borrowed_observers.js
 node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_disjoint_set_borrowed_observers.js
 node nodesrc/test_stdlib_disjoint_set_union_error_owner.js

@@ -12,11 +12,11 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には ringbuffer payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
-//: - `len` / `cap` / `is_empty` / `peek` / `pop` は `RingBuffer` を[値/あたい]で[消費/しょうひ]し、内部 storage を[閉/と]じます。
-//: - owner を[残/のこ]したまま[観測/かんそく]する場合は `len_ref` / `cap_ref` / `is_empty_ref` / `peek_ref` を[使/つか]います。
+//: - `len` / `cap` / `is_empty` / `peek` は owner を borrow して[観測/かんそく]します。
+//: - `pop_front` は[更新後/こうしんご] owner と値を[返/かえ]し、`pop` は先頭値だけを返して buffer owner を[閉/と]じる terminal API です。
 //:
 //: ### [計算量/けいさんりょう]
-//: - `len_ref` / `cap_ref` / `is_empty_ref` / `peek_ref` / `pop` は O(1) です。
+//: - `len` / `cap` / `is_empty` / `peek` / `pop` は O(1) です。
 //: - `push` は[償却/しょうきゃく] O(1)、grow 時は O(n) です。
 
 #indent 4
@@ -97,6 +97,20 @@ fn ringbuffer_copy_live_slots <.T: Copy> <(&Vec<Option<.T>>,&Vec<Option<.T>>,i32
 
 //: ## new
 //: [既定/きてい][容量/ようりょう]の[空/から]バッファを[作/つく]る
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/ringbuffer" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let rb <RingBuffer<i32>> unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+//:     let ok <bool> is_empty<i32> &rb;
+//:     free<i32> rb
+//:     if ok 1 0
+//: ```
 fn new <.T: Copy> <()*>Result<RingBuffer<.T>, Diag>> ():
     with_capacity<.T> 8
 
@@ -111,34 +125,19 @@ fn with_capacity <.T: Copy> <(i32)*>Result<RingBuffer<.T>, Diag>> (initial_cap):
             ok<RingBuffer<.T>, Diag> RingBuffer<.T> 0 cap0 0 items
 
 //: ## len
-//: buffer を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
-fn len <.T> <(RingBuffer<.T>)->i32> (rb):
-    let n <i32> *field::get_ref &rb "len"
-    free<.T> rb
-    n
-
-fn len_ref <.T> <(&RingBuffer<.T>)->i32> (rb):
+//: buffer owner を[消費/しょうひ]せず[要素数/ようそすう]を[返/かえ]す
+fn len <.T> <(&RingBuffer<.T>)->i32> (rb):
     *field::get_ref rb "len"
 
 //: ## cap
-//: buffer を[消費/しょうひ]して[容量/ようりょう]を[返/かえ]す
-fn cap <.T> <(RingBuffer<.T>)->i32> (rb):
-    let n <i32> *field::get_ref &rb "cap"
-    free<.T> rb
-    n
-
-fn cap_ref <.T> <(&RingBuffer<.T>)->i32> (rb):
+//: buffer owner を[消費/しょうひ]せず[容量/ようりょう]を[返/かえ]す
+fn cap <.T> <(&RingBuffer<.T>)->i32> (rb):
     *field::get_ref rb "cap"
 
 //: ## is_empty
-//: buffer を[消費/しょうひ]して[空/から]かどうかを[返/かえ]す
-fn is_empty <.T> <(RingBuffer<.T>)->bool> (rb):
-    let ok <bool> is_empty_ref<.T> &rb
-    free<.T> rb
-    ok
-
-fn is_empty_ref <.T> <(&RingBuffer<.T>)->bool> (rb):
-    eq len_ref<.T> rb 0
+//: buffer owner を[消費/しょうひ]せず[空/から]かどうかを[返/かえ]す
+fn is_empty <.T> <(&RingBuffer<.T>)->bool> (rb):
+    eq len<.T> rb 0
 
 //: ## push
 //: [末尾/まつび]へ[追加/ついか]する
@@ -194,13 +193,8 @@ fn pop <.T: Copy> <(RingBuffer<.T>)*>Option<.T>> (rb):
     item
 
 //: ## peek
-//: buffer を[消費/しょうひ]して[先頭/せんとう]を[読/よ]む
-fn peek <.T: Copy> <(RingBuffer<.T>)->Option<.T>> (rb):
-    let item <Option<.T>> peek_ref<.T> &rb
-    free<.T> rb
-    item
-
-fn peek_ref <.T: Copy> <(&RingBuffer<.T>)->Option<.T>> (rb):
+//: buffer owner を[消費/しょうひ]せず[先頭/せんとう]を[読/よ]む
+fn peek <.T: Copy> <(&RingBuffer<.T>)->Option<.T>> (rb):
     let len0 <i32> *field::get_ref rb "len"
     if:
         eq len0 0

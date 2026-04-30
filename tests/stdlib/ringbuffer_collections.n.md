@@ -9,6 +9,7 @@
 - `new`
 - `push`
 - `len`
+- `free`
 - `pop`
 - `uwok`
 
@@ -32,7 +33,8 @@ fn main <()*>i32> ():
         |> uwok
         |> push 9
         |> uwok
-    let ok0 <bool> eq len<i32> rb 2;
+    let ok0 <bool> eq len<i32> &rb 2;
+    free<i32> rb
     let rb2 <RingBuffer<i32>>:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push 4
@@ -76,7 +78,8 @@ fn main <()*>i32> ():
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> clear
-    let ok0 <bool> is_empty<i32> rb_clear;
+    let ok0 <bool> is_empty<i32> &rb_clear;
+    free<i32> rb_clear
     let rb0 <RingBuffer<i32>>:
         unwrap_ok<RingBuffer<i32>, Diag> with_capacity<i32> 1
         |> push 4 |> uwok
