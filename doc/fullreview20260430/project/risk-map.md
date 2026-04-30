@@ -4,6 +4,16 @@
 
 ## 最重要リスク
 
+### GitHub Actions が main green ではない
+
+対象 commit `f108cebd` の Actions run `25157230630` は `failure` である。`build`、`Source policy regressions`、`compile-test`、`llvm-test` は成功しているが、`rust-test`、`stdlib-test`、`wasi-test`、`nmd-doctest`、`tutorials-test`、`nm-compile`、dual backend verification が失敗している。
+
+判断:
+
+- review の test 状況は local ではなく Actions を正とする。
+- compile gate が通ることと、stdlib / runtime / doctest が安全に通ることは分けて評価する。
+- Resource IR の未初期化 cell 検出で失敗している経路は、検査を弱めるのではなく stdlib memory API / drop / summary の設計を直す。
+
 ### Resource IR final authority が未完
 
 Resource IR は大きく進んだが、親 issue `ISS-20260425T000000Z-RV-CORE-009-58589A3F` は open のままである。旧 `passes::move_check` と HIR drop insertion が残る限り、selfhost がコピーすべき最終設計はまだ確定していない。

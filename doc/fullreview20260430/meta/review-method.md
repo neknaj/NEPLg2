@@ -25,6 +25,7 @@
 - `doc/neplg2/static_check_soundness_review_20260430.md`: 静的検査の直近レビュー。
 - `issues/index.md` と open issue: 現在の blocker。
 - `note.n.md`: 他 agent の直近作業、検証結果、既存判断。
+- GitHub Actions: review 対象 commit の CI 結果。review では local 実行結果ではなく `gh` で取得した Actions 結果を test 状況の根拠にする。
 - ソース:
   - `nepl-core/src/**`
   - `stdlib/**`
@@ -58,15 +59,24 @@ Get-Content issues\index.md -TotalCount 90
 
 ## 検証方針
 
-docs-only commit では `git diff --check` を最低限実行する。実装に触れる場合は対象に応じて次を追加する。
+review 文書に書く test 状況は GitHub Actions を `gh` で確認した結果を根拠にする。local test は、local で code 変更を行った commit 前確認のためにだけ使う。今回の docs-only review では、local runtime test の結果を review evidence として扱わない。
+
+Actions 確認:
+
+```powershell
+gh run list --branch main --limit 10
+gh run view <run-id> --json status,conclusion,headSha,headBranch,displayTitle,createdAt,updatedAt,jobs
+gh run view <run-id> --job <job-id> --log-failed
+```
+
+docs-only commit 前確認:
 
 ```powershell
 node nodesrc/issues.js check
-node nodesrc/run_source_policy_regressions.js
-cargo test -p nepl-core --test resource_ir -- --nocapture
-trunk build
-node nodesrc/tests.js -i <target> --no-tree -o tmp/<name>.json -j 1 --dist web/dist
+git diff --check
 ```
+
+実装変更 commit 前確認では、対象変更に応じて `cargo test`、`trunk build`、`node nodesrc/tests.js ...` などを追加する。ただし、その local 実行結果は「変更 commit の事前確認」であり、今回の総レビューにおける main の test 状況は Actions 結果で確認する。
 
 ## 報告方針
 

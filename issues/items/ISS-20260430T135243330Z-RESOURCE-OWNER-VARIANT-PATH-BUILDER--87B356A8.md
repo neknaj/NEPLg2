@@ -31,7 +31,7 @@ Remote main expanded owner_summary_variant_paths.rs to 637 lines while source po
 
 ## 影響
 
-Resource checker responsibility policy fails and Resource IR owner summary logic is drifting back toward a monolithic checker. This blocks source-policy aggregate runs and makes selfhost static-check design harder to copy safely.
+Resource IR owner summary logic is drifting back toward a monolithic checker. A local direct responsibility check reports the split-policy violation. GitHub Actions run `25157230630` for `f108cebd` still passed the aggregate `Source policy regressions` step, so this issue is not recorded as the confirmed Actions failure root cause. It remains a P1 design issue because selfhost static-check design becomes harder to copy safely if owner variant path enumeration, condition refinement, reservation, and returned path collection stay concentrated in one module.
 
 ## 修正方針
 
@@ -39,4 +39,12 @@ Split owner variant path logic into smaller modules such as path collection, con
 
 ## 検証
 
-Run node nodesrc/test_resource_checker_responsibility.js, node nodesrc/run_source_policy_regressions.js, and cargo test -p nepl-core --test resource_ir -- --nocapture.
+For review status, confirm GitHub Actions with `gh run view <run-id> --json ...` and distinguish Actions results from local direct checks. For implementation work, run the direct responsibility policy and Resource IR regression after splitting:
+
+- `node nodesrc/test_resource_checker_responsibility.js`
+- `node nodesrc/run_source_policy_regressions.js`
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`
+
+## 2026-04-30 review correction
+
+GitHub Actions run `25157230630` for `f108cebd` passed the `build` job's `Source policy regressions` step. The responsibility problem was found by local direct policy confirmation during review work, not by a failing Actions source-policy step. The issue remains open because the module is still over-concentrated for Resource IR owner summary design.

@@ -18,6 +18,10 @@
   - `note.n.md` に記録された 2026-04-30 の主要変更
   - `issues/index.md` の open issue / resolved issue 状況
   - README / doc の現行説明と実装のずれ
+- `project/actions-status.md`
+  - `gh` で確認した review 対象 commit の GitHub Actions 結果
+  - 成功 job / 失敗 job / 失敗傾向
+  - local test を review evidence に使わない運用の記録
 - `project/risk-map.md`
   - selfhost 開始可否
   - 技術的負債の残存箇所

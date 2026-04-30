@@ -19,7 +19,7 @@ NEPLg2 は、Rust compiler の大規模安定化と stdlib の所有権安全化
 
 ## issue 状況
 
-`issues/index.md` では 458 件中 13 件が open。open issue の中心は、core Resource IR / memory model、stdlib collection drop、selfhost incomplete、`.n.md` test policy である。
+`issues/index.md` では 459 件中 14 件が open。open issue の中心は、core Resource IR / memory model、stdlib collection drop、selfhost incomplete、`.n.md` test policy、Resource IR owner variant path builder の責務再集中である。
 
 ### P1 core
 
@@ -27,6 +27,7 @@ NEPLg2 は、Rust compiler の大規模安定化と stdlib の所有権安全化
 - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04`: raw memory operation と effect / ownership checks の境界問題。
 - `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF`: `MemPtr` / `RegionToken` が compiler-issued provenance model ではない問題。
 - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D`: Rust compiler diagnostics と Resource IR / selfhost model の整合。
+- `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8`: owner variant path builder の責務分割。
 
 ### P1 stdlib
 
@@ -59,6 +60,25 @@ NEPLg2 は、Rust compiler の大規模安定化と stdlib の所有権安全化
 - `tests/stdlib/memory_safety.n.md` は 12 件中 9 件まで進み、残りは `MemPtr` / `RegionToken` の根本設計 issue に紐付けられている。
 
 これにより、以前の `EffectOp::Unknown` 問題は一部前進した。ただし open issue が示す通り、Resource IR final authority、compiler-issued storage/provenance token、stdlib collection element Drop はまだ完了していない。
+
+## Actions 状況
+
+GitHub Actions run `25157230630` では、対象 commit `f108cebd` の main は `failure` である。
+
+成功している job:
+
+- `build`: shared bootstrap build、source policy regressions、doc/tutorial/doc HTML build。
+- `compile-test`: Rust compile tests と wasm32 compile tests。
+- `llvm-test`: LLVM doctests via nodesrc runner。
+- Pages 関連の bundle/deploy。
+
+失敗している job:
+
+- `rust-test`: WASI/fs/stdio 系と drop 系の regression が主に `resource.cell.uninit` で失敗。
+- `stdlib-test`: stdlib doctest が広域に失敗し、selfhost CLI / module graph 周辺の timeout を含む。
+- `wasi-test`, `nmd-doctest`, `tutorials-test`, `nm-compile`, `llvm-dual-test (tests)`, `llvm-dual-test (stdlib)`。
+
+したがって、現在の進捗は「source policy と compile gate は通るが、runtime / stdlib / `.n.md` / dual backend まで green ではない」と判断する。この review では test 状況を local 実行ではなく Actions 結果で確認する。
 
 ## plan.md との差分
 

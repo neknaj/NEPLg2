@@ -8,6 +8,7 @@
 - 作業 branch: `docs/fullreview-20260430`
 - review scope: Rust compiler、selfhost compiler、stdlib、tests、tutorial、tools、web/editor、project governance
 - pull status: review 開始前に `git pull --ff-only origin main` で remote main を取り込み済み
+- test status source: review の test 状況は local 実行ではなく `gh` で取得した GitHub Actions 結果を根拠にする
 
 ## レビュー方針
 

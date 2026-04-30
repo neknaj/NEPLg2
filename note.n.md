@@ -1,3 +1,19 @@
+# 2026-04-30 メモ (fullreview Actions 方針補正)
+
+- [同期]:
+  - branch `docs/fullreview-20260430` で `origin/main` を fetch し、review 対象 main commit は `f108cebd` のまま変化なし。
+- [方針]:
+  - 総レビューの test 状況は local test ではなく GitHub Actions を `gh` で確認した結果を根拠にする。
+  - local runtime test は、local code 変更 commit 前の確認目的に限定する。
+- [Actions確認]:
+  - `gh run view 25157230630 --json status,conclusion,headSha,headBranch,displayTitle,createdAt,updatedAt,jobs` で `f108cebd` の main run を確認した。
+  - `build`、`Source policy regressions`、`compile-test`、`llvm-test`、Pages jobs は success。
+  - `rust-test`、`stdlib-test`、`wasi-test`、`nmd-doctest`、`tutorials-test`、`nm-compile`、dual backend verification は failure。
+- [修正]:
+  - `doc/fullreview20260430/project/actions-status.md` を追加し、Actions status を review evidence として記録した。
+  - `doc/fullreview20260430/meta/review-method.md` を更新し、review の test 状況確認は `gh` に統一した。
+  - `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8` は、Actions source-policy failure ではなく local 直接確認で見つけた responsibility split design issue として表現を補正した。
+
 # 2026-04-30 メモ (進捗確認及び総レビュー開始)
 
 - [同期]:
@@ -33,8 +49,8 @@
 # 2026-04-30 メモ (ISS-20260430T135243330Z owner variant path builder split)
 
 - [発見]:
-  - Rust compiler review 中に `node nodesrc/test_resource_checker_responsibility.js` を実行し、`owner_summary_variant_paths.rs` が 637 行で policy 上限 380 行を超えていることを確認した。
-  - `cargo test -p nepl-core --test resource_ir -- --nocapture` は 150 passed で Resource IR regression 本体は通るが、責務分割 policy は赤い。
+  - Rust compiler review 中の local 直接確認として `node nodesrc/test_resource_checker_responsibility.js` を実行し、`owner_summary_variant_paths.rs` が 637 行で policy 上限 380 行を超えていることを確認した。
+  - この local 直接確認は issue 発見の根拠であり、総レビューの test status には GitHub Actions run `25157230630` の結果を使う。
 - [issue]:
   - `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8` を追加した。
   - 追加時点で Discord に報告した。
