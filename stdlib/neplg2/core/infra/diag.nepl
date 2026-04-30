@@ -367,12 +367,12 @@ fn selfhost_diagnostics_push <(SelfhostDiagnostics,SelfhostDiagnostic)->Result<S
 //: selfhost_diagnostics_len: diagnostic [件数/けんすう]を[返/かえ]す
 fn selfhost_diagnostics_len <(&SelfhostDiagnostics)->i32> (diagnostics):
     let items <&Vec<SelfhostDiagnostic>> field::get_ref diagnostics "items"
-    v::len_ref<SelfhostDiagnostic> items
+    v::len<SelfhostDiagnostic> items
 
 //: selfhost_diagnostics_get: index の diagnostic を[返/かえ]す
 fn selfhost_diagnostics_get <(&SelfhostDiagnostics,i32)->Option<SelfhostDiagnostic>> (diagnostics, idx):
     let items <&Vec<SelfhostDiagnostic>> field::get_ref diagnostics "items"
-    v::get_ref<SelfhostDiagnostic> items idx
+    v::get<SelfhostDiagnostic> items idx
 
 //: selfhost_diagnostics_has_errors_loop: error diagnostic を[探/さが]す
 fn selfhost_diagnostics_has_errors_loop <(&SelfhostDiagnostics,i32,i32)->bool> (diagnostics, n, idx):

@@ -69,24 +69,24 @@ fn key_eq <.K: Ord> <(.K,.K)->bool> (a, b):
     and not ord_lt a b not ord_lt b a
 
 fn btreemap_key_at <.K: Copy> <(&Vec<Option<.K>>,i32)->Option<.K>> (keys, idx):
-    match vec::get_ref<Option<.K>> keys idx:
+    match vec::get<Option<.K>> keys idx:
         Option::Some key_opt:
             key_opt
         Option::None:
             none<.K>
 
 fn btreemap_value_at <.V: Copy> <(&Vec<Option<.V>>,i32)->Option<.V>> (values, idx):
-    match vec::get_ref<Option<.V>> values idx:
+    match vec::get<Option<.V>> values idx:
         Option::Some value_opt:
             value_opt
         Option::None:
             none<.V>
 
 fn btreemap_store_key <.K: Copy> <(&Vec<Option<.K>>,i32,Option<.K>)*>()> (keys, idx, key):
-    vec::replace_ref<Option<.K>> keys idx key
+    vec::replace<Option<.K>> keys idx key
 
 fn btreemap_store_value <.V: Copy> <(&Vec<Option<.V>>,i32,Option<.V>)*>()> (values, idx, value):
-    vec::replace_ref<Option<.V>> values idx value
+    vec::replace<Option<.V>> values idx value
 
 fn btreemap_key_slot <.K: Copy,.V> <(&BTreeMapStorage<.K,.V>,i32)->Option<.K>> (storage, idx):
     btreemap_key_at<.K> btreemap_storage_keys<.K,.V> storage idx

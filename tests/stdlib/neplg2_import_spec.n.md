@@ -19,7 +19,7 @@ ret: 0
 #import "std/test" as *
 
 fn spec_at <(&Vec<SelfhostImportSpec>,i32)->SelfhostImportSpec> (specs, idx):
-    unwrap<SelfhostImportSpec> v::get_ref<SelfhostImportSpec> specs idx
+    unwrap<SelfhostImportSpec> v::get<SelfhostImportSpec> specs idx
 
 fn main <()*>i32> ():
     let source <str> "#import \"core/result\" as *\n#import \"std/test\" as test\nfn main <()->i32> ():\n    0\n"
@@ -28,7 +28,7 @@ fn main <()*>i32> ():
         Result::Ok ast:
             match selfhost_module_import_specs &ast:
                 Result::Ok specs:
-                    let spec_len <i32> v::len_ref<SelfhostImportSpec> &specs
+                    let spec_len <i32> v::len<SelfhostImportSpec> &specs
                     let first <SelfhostImportSpec> spec_at &specs 0
                     let second <SelfhostImportSpec> spec_at &specs 1
                     let checks1 checks_push checks0 check_eq_i32 2 spec_len

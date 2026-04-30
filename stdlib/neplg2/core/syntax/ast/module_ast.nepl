@@ -175,12 +175,12 @@ fn selfhost_module_ast_push <(SelfhostModuleAst,SelfhostModuleItem)*>Result<Self
 //: selfhost_module_ast_len: module item [数/すう]を[返/かえ]す
 fn selfhost_module_ast_len <(&SelfhostModuleAst)->i32> (ast):
     let items <&Vec<SelfhostModuleItem>> field::get_ref ast "items"
-    v::len_ref<SelfhostModuleItem> items
+    v::len<SelfhostModuleItem> items
 
 //: selfhost_module_ast_get: index の module item を[返/かえ]す
 fn selfhost_module_ast_get <(&SelfhostModuleAst,i32)->Option<SelfhostModuleItem>> (ast, idx):
     let items <&Vec<SelfhostModuleItem>> field::get_ref ast "items"
-    v::get_ref<SelfhostModuleItem> items idx
+    v::get<SelfhostModuleItem> items idx
 
 //: selfhost_module_ast_free: module AST が所有する item buffer を[解放/かいほう]する
 fn selfhost_module_ast_free <(SelfhostModuleAst)*>()> (ast):

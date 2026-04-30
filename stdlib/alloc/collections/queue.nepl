@@ -65,7 +65,7 @@ fn queue_next_index <(i32,i32)->i32> (idx, cap):
 
 //: queue_item_at: slot の `Option<T>` を[読/よ]み[出/だ]す
 fn queue_item_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (items, idx):
-    match vec::get_ref<Option<.T>> items idx:
+    match vec::get<Option<.T>> items idx:
         Option::Some item:
             item
         Option::None:
@@ -73,7 +73,7 @@ fn queue_item_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (items, idx):
 
 //: queue_store_slot: slot state を[更新/こうしん]する
 fn queue_store_slot <.T: Copy> <(&Vec<Option<.T>>,i32,Option<.T>)*>()> (items, idx, item):
-    vec::replace_ref<Option<.T>> items idx item
+    vec::replace<Option<.T>> items idx item
 
 fn queue_alloc_slots <.T: Copy> <(i32)*>Result<Vec<Option<.T>>, Diag>> (cap):
     match vec::filled<Option<.T>> cap none<.T>:

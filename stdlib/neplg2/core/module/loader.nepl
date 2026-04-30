@@ -103,12 +103,12 @@ fn selfhost_vfs_add <(SelfhostVirtualFileSystem,str,str)*>Result<SelfhostVirtual
 //: selfhost_vfs_len: VFS に[登録/とうろく]された file 数を[返/かえ]す
 fn selfhost_vfs_len <(&SelfhostVirtualFileSystem)->i32> (vfs):
     let files <&Vec<SelfhostVirtualFile>> field::get_ref vfs "files"
-    v::len_ref<SelfhostVirtualFile> files
+    v::len<SelfhostVirtualFile> files
 
 //: selfhost_vfs_get: index の VFS entry を[返/かえ]す
 fn selfhost_vfs_get <(&SelfhostVirtualFileSystem,i32)->Option<SelfhostVirtualFile>> (vfs, idx):
     let files <&Vec<SelfhostVirtualFile>> field::get_ref vfs "files"
-    v::get_ref<SelfhostVirtualFile> files idx
+    v::get<SelfhostVirtualFile> files idx
 
 //: selfhost_vfs_find_loop: path が[一致/いっち]する entry を線形探索する
 fn selfhost_vfs_find_loop <(&SelfhostVirtualFileSystem,str,i32,i32)->Option<SelfhostVirtualFile>> (vfs, path, n, idx):

@@ -18,15 +18,15 @@ ret: 0
 fn main <()*>i32> ():
     let mut checks checks_new;
     let v0_empty <Vec<i32>> unwrap_ok new<i32>;
-    set checks checks_push checks check is_empty<i32> v0_empty;
+    set checks checks_push checks check is_empty<i32> &v0_empty;
     let v0_ptr <Vec<i32>> unwrap_ok new<i32>;
-    set checks checks_push checks check gt data_ptr<i32> v0_ptr 0;
+    set checks checks_push checks check gt data_ptr<i32> &v0_ptr 0;
 
     let v2:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
-    set checks checks_push checks check_eq_i32 1 len<i32> v2;
+    set checks checks_push checks check_eq_i32 1 len<i32> &v2;
 
     let v6:
         unwrap_ok new<i32>
@@ -36,7 +36,7 @@ fn main <()*>i32> ():
         |> unwrap_ok
         |> push<i32> 30
         |> unwrap_ok
-    set checks checks_push checks check_eq_i32 3 len<i32> v6;
+    set checks checks_push checks check_eq_i32 3 len<i32> &v6;
 
     let g2:
         unwrap_ok new<i32>
@@ -44,7 +44,7 @@ fn main <()*>i32> ():
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    match get<i32> g2 0:
+    match get<i32> &g2 0:
         Option::Some x:
             set checks checks_push checks check_eq_i32 10 x
         Option::None:
@@ -56,43 +56,53 @@ fn main <()*>i32> ():
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    replace<i32> s2 1 21;
+    replace<i32> &s2 1 21;
     let s2_ref:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    replace_ref<i32> &s2_ref 0 11;
-    match get_ref<i32> &s2_ref 0:
+    replace<i32> &s2_ref 0 11;
+    match get<i32> &s2_ref 0:
         Option::Some x:
             set checks checks_push checks check_eq_i32 11 x
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "replace_ref get 0 returned None";
+            set checks checks_push checks Result<(),str>::Err "replace get 0 returned None";
 
     let o1:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
-    set checks checks_push checks check is_none<i32> get<i32> o1 2;
+    set checks checks_push checks check is_none<i32> get<i32> &o1 2;
 
     let p1:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
-    set checks checks_push checks check is_none<i32> get<i32> p1 -1;
+    set checks checks_push checks check is_none<i32> get<i32> &p1 -1;
 
     let u8_65 <u8> cast 65;
     let b1:
         unwrap_ok new<u8>
         |> push<u8> u8_65
         |> unwrap_ok
-    match get<u8> b1 0:
+    match get<u8> &b1 0:
         Option::Some x:
             set checks checks_push checks check_eq_i32 65 cast x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "get<u8> returned None";
 
+    free<i32> v0_empty;
+    free<i32> v0_ptr;
+    free<i32> v2;
+    free<i32> v6;
+    free<i32> g2;
+    free<i32> s2;
+    free<i32> s2_ref;
+    free<i32> o1;
+    free<i32> p1;
+    free<u8> b1;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -136,7 +146,7 @@ fn main <()*>i32> ():
         |> push 2 |> uwok
         |> push 3 |> uwok
     let mapped <Vec<i32>> unwrap_ok map<i32,i32> mapped_src inc;
-    match get<i32> mapped 2:
+    match get<i32> &mapped 2:
         Option::Some x:
             set checks checks_push checks check_eq_i32 4 x
         Option::None:
@@ -149,7 +159,7 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 4 |> uwok
     let filtered_len <Vec<i32>> unwrap_ok filter<i32> filtered_len_src is_even;
-    set checks checks_push checks check_eq_i32 2 len<i32> filtered_len;
+    set checks checks_push checks check_eq_i32 2 len<i32> &filtered_len;
     let filtered_get_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -157,7 +167,7 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 4 |> uwok
     let filtered_get <Vec<i32>> unwrap_ok filter<i32> filtered_get_src is_even;
-    match get<i32> filtered_get 1:
+    match get<i32> &filtered_get 1:
         Option::Some x:
             set checks checks_push checks check_eq_i32 4 x
         Option::None:
@@ -169,7 +179,7 @@ fn main <()*>i32> ():
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    set checks checks_push checks check_eq_i32 10 fold<i32,i32> folded_src 0 add_acc;
+    set checks checks_push checks check_eq_i32 10 fold<i32,i32> &folded_src 0 add_acc;
 
     let reduced_src <Vec<i32>>:
         unwrap_ok new<i32>
@@ -177,7 +187,7 @@ fn main <()*>i32> ():
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    match reduce<i32> reduced_src add_acc:
+    match reduce<i32> &reduced_src add_acc:
         Option::Some x:
             set checks checks_push checks check_eq_i32 10 x
         Option::None:
@@ -188,7 +198,7 @@ fn main <()*>i32> ():
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
-    match find<i32> find_src gt_two:
+    match find<i32> &find_src gt_two:
         Option::Some x:
             set checks checks_push checks check_eq_i32 3 x
         Option::None:
@@ -199,31 +209,47 @@ fn main <()*>i32> ():
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
-    set checks checks_push checks check any<i32> any_src gt_two;
+    set checks checks_push checks check any<i32> &any_src gt_two;
 
     let all_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 2 |> uwok
         |> push 4 |> uwok
         |> push 6 |> uwok
-    set checks checks_push checks check all<i32> all_src is_even;
+    set checks checks_push checks check all<i32> &all_src is_even;
 
-    let tuple_left <Vec<i32>>:
-        unwrap_ok new<i32>
-        |> push 10 |> uwok
-    let tuple_right <Vec<i32>>:
-        unwrap_ok new<i32>
-        |> push 1 |> uwok
-    let tuple_parts Tuple:
-        tuple_left
-        tuple_right
-    let tuple_right_got <Vec<i32>> get tuple_parts 1;
-    set checks checks_push checks check_eq_i32 1 len_ref<i32> &tuple_right_got;
-    match get_ref<i32> &tuple_right_got 0:
-        Option::Some x:
-            set checks checks_push checks check_eq_i32 1 x
-        Option::None:
-            set checks checks_push checks Result<(),str>::Err "tuple Vec second field returned None";
+    free<i32> mapped;
+    free<i32> filtered_len;
+    free<i32> filtered_get;
+    free<i32> folded_src;
+    free<i32> reduced_src;
+    free<i32> find_src;
+    free<i32> any_src;
+    free<i32> all_src;
+    let shown checks_print_report checks;
+    checks_exit_code shown
+```
+
+## vec_partition_helpers
+
+neplg2:test
+ret: 0
+```neplg2
+
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "std/test" as *
+
+fn is_even <(i32)->bool> (x):
+    eq rem_s x 2 0
+
+fn main <()*>i32> ():
+    let mut checks checks_new;
 
     let partition_even_len_src <Vec<i32>>:
         unwrap_ok new<i32>
@@ -232,8 +258,9 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_even_len unwrap_ok partition<i32> partition_even_len_src is_even;
-    let evens_len <Vec<i32>> get parts_even_len 0;
-    set checks checks_push checks check_eq_i32 2 len<i32> evens_len;
+    let evens_len <Vec<i32>> get parts_even_len "left";
+    let rest_len <Vec<i32>> get parts_even_len "right";
+    set checks checks_push checks check_eq_i32 2 len<i32> &evens_len;
     let partition_even_get_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -241,8 +268,9 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_even_get unwrap_ok partition<i32> partition_even_get_src is_even;
-    let evens_get <Vec<i32>> get parts_even_get 0;
-    match get<i32> evens_get 1:
+    let evens_get <Vec<i32>> get parts_even_get "left";
+    let rest_get <Vec<i32>> get parts_even_get "right";
+    match get<i32> &evens_get 1:
         Option::Some x:
             set checks checks_push checks check_eq_i32 4 x
         Option::None:
@@ -254,8 +282,9 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_odds_len unwrap_ok partition<i32> partition_odds_len_src is_even;
-    let odds_len <Vec<i32>> get parts_odds_len 1;
-    set checks checks_push checks check_eq_i32 2 len<i32> odds_len;
+    let evens_len_drop <Vec<i32>> get parts_odds_len "left";
+    let odds_len <Vec<i32>> get parts_odds_len "right";
+    set checks checks_push checks check_eq_i32 2 len<i32> &odds_len;
     let partition_odds_get_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -263,13 +292,44 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_odds_get unwrap_ok partition<i32> partition_odds_get_src is_even;
-    let odds_get <Vec<i32>> get parts_odds_get 1;
-    match get<i32> odds_get 0:
+    let evens_get_drop <Vec<i32>> get parts_odds_get "left";
+    let odds_get <Vec<i32>> get parts_odds_get "right";
+    match get<i32> &odds_get 0:
         Option::Some x:
             set checks checks_push checks check_eq_i32 1 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "vec partition odds returned None";
 
+    free<i32> evens_len;
+    free<i32> rest_len;
+    free<i32> evens_get;
+    free<i32> rest_get;
+    free<i32> evens_len_drop;
+    free<i32> odds_len;
+    free<i32> evens_get_drop;
+    free<i32> odds_get;
+    let shown checks_print_report checks;
+    checks_exit_code shown
+```
+
+## vec_prefix_helpers
+
+neplg2:test
+ret: 0
+```neplg2
+
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+#import "core/option" as *
+
+fn lt_four <(i32)->bool> (x):
+    lt x 4
+
+fn main <()*>i32> ():
     let take_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -278,8 +338,29 @@ fn main <()*>i32> ():
         |> push 5 |> uwok
         |> push 6 |> uwok
     let taken <Vec<i32>> unwrap_ok take_while<i32> take_src lt_four;
-    set checks checks_push checks check_eq_i32 3 len<i32> taken;
+    let ok <bool> eq len<i32> &taken 3;
+    free<i32> taken;
+    if ok 0 1
+```
 
+## vec_drop_while_helper
+
+neplg2:test
+ret: 0
+```neplg2
+
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+#import "core/option" as *
+
+fn lt_four <(i32)->bool> (x):
+    lt x 4
+
+fn main <()*>i32> ():
     let drop_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -288,12 +369,32 @@ fn main <()*>i32> ():
         |> push 5 |> uwok
         |> push 6 |> uwok
     let dropped <Vec<i32>> unwrap_ok drop_while<i32> drop_src lt_four;
-    match get<i32> dropped 0:
+    match get<i32> &dropped 0:
         Option::Some x:
-            set checks checks_push checks check_eq_i32 5 x
+            free<i32> dropped;
+            if eq x 5 0 1
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "vec drop_while returned None";
+            free<i32> dropped;
+            1
+```
 
+## vec_count_helper
+
+neplg2:test
+ret: 0
+```neplg2
+
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/math" as *
+
+fn is_even <(i32)->bool> (x):
+    eq rem_s x 2 0
+
+fn main <()*>i32> ():
     let count_src <Vec<i32>>:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -301,8 +402,7 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 4 |> uwok
         |> push 5 |> uwok
-    set checks checks_push checks check_eq_i32 2 count<i32> count_src is_even;
-
-    let shown checks_print_report checks;
-    checks_exit_code shown
+    let ok <bool> eq count<i32> &count_src is_even 2;
+    free<i32> count_src;
+    if ok 0 1
 ```

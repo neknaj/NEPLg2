@@ -37,11 +37,11 @@ fn main <()*>i32> ():
     set grown unwrap_ok push<i32> grown 7;
     set grown unwrap_ok push<i32> grown 8;
     set grown unwrap_ok push<i32> grown 9;
-    let grown_ok <bool> eq len_ref<i32> &grown 10;
+    let grown_ok <bool> eq len<i32> &grown 10;
     free<i32> grown;
     let mut next <Vec<i32>> unwrap_ok new<i32>;
     set next unwrap_ok push<i32> next 42;
-    let top_ok <bool> match get_ref<i32> &next 0:
+    let top_ok <bool> match get<i32> &next 0:
         Option::Some v:
             eq v 42
         Option::None:
@@ -81,12 +81,12 @@ fn main <()*>i32> ():
         |> push 4 |> uwok
         |> push 1 |> uwok
     let sorted <Vec<i32>> unwrap_ok sort_merge_ret<i32> unsorted;
-    let first_ok <bool> match get_ref<i32> &sorted 0:
+    let first_ok <bool> match get<i32> &sorted 0:
         Option::Some v:
             eq v 1
         Option::None:
             false
-    let last_ok <bool> match get_ref<i32> &sorted 3:
+    let last_ok <bool> match get<i32> &sorted 3:
         Option::Some v:
             eq v 5
         Option::None:
@@ -94,7 +94,7 @@ fn main <()*>i32> ():
     free<i32> sorted;
     let mut next <Vec<i32>> unwrap_ok new<i32>;
     set next unwrap_ok push<i32> next 7;
-    let next_ok <bool> match get_ref<i32> &next 0:
+    let next_ok <bool> match get<i32> &next 0:
         Option::Some v:
             eq v 7
         Option::None:

@@ -134,7 +134,7 @@ fn hashset_load_limit <(i32)->i32> (cap):
 //: ### [注意/ちゅうい]
 //: - 呼び出し側は `0 <= idx < cap` を[守/まも]る設計です。`Option::None` は不変条件破れの防護として empty に[倒/たお]します。
 fn hashset_state_at <(&Vec<HashSetBucketState>,i32)->HashSetBucketState> (states, idx):
-    match vec::get_ref<HashSetBucketState> states idx:
+    match vec::get<HashSetBucketState> states idx:
         Option::Some state:
             state
         Option::None:
@@ -142,7 +142,7 @@ fn hashset_state_at <(&Vec<HashSetBucketState>,i32)->HashSetBucketState> (states
 
 //: hashset_key_at: key slot を Option として[読/よ]む
 fn hashset_key_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (keys, idx):
-    match vec::get_ref<Option<.T>> keys idx:
+    match vec::get<Option<.T>> keys idx:
         Option::Some key_opt:
             key_opt
         Option::None:
@@ -150,11 +150,11 @@ fn hashset_key_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (keys, idx):
 
 //: hashset_store_state: state slot を[書/か]き[換/か]える
 fn hashset_store_state <(&Vec<HashSetBucketState>,i32,HashSetBucketState)*>()> (states, idx, state):
-    vec::replace_ref<HashSetBucketState> states idx state
+    vec::replace<HashSetBucketState> states idx state
 
 //: hashset_store_key: key slot を[書/か]き[換/か]える
 fn hashset_store_key <.T: Copy> <(&Vec<Option<.T>>,i32,Option<.T>)*>()> (keys, idx, key):
-    vec::replace_ref<Option<.T>> keys idx key
+    vec::replace<Option<.T>> keys idx key
 
 //: hashset_store_full: slot を Full にして key を[格納/かくのう]する
 //:

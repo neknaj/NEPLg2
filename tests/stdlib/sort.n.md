@@ -80,7 +80,7 @@ fn make_vec4 <()->Vec<i32>> ():
 
 fn main <()->i32> ():
     let v sort_quick_ret<i32> make_vec4;
-    let s data_len<i32> v;
+    let s data_len<i32> &v;
     let p <i32> mem_ptr_addr get s "data";
     let n <i32> get s "len";
     let bn <bool> eq n 4;
@@ -106,7 +106,7 @@ ret: 0
 fn main <()->i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 sort_quick_ret<i32> v0;
-    let s data_len<i32> v1;
+    let s data_len<i32> &v1;
     get s "len"
 ```
 
@@ -126,7 +126,7 @@ fn main <()->i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok push<i32> v0 42;
     let v2 sort_quick_ret<i32> v1;
-    let s data_len<i32> v2;
+    let s data_len<i32> &v2;
     get s "len"
 ```
 
@@ -148,7 +148,7 @@ fn main <()->i32> ():
     let v2 <Vec<i32>> unwrap_ok push<i32> v1 1;
     let v3 sort_quick_ret<i32> v2;
     let v4 <Vec<i32>> unwrap_ok push<i32> v3 5;
-    let s data_len<i32> v4;
+    let s data_len<i32> &v4;
     get s "len"
 ```
 
@@ -202,7 +202,7 @@ fn make_vec4 <()->Vec<i32>> ():
 
 fn main <()->i32> ():
     let v sort_heap_ret<i32> make_vec4;
-    let s data_len<i32> v;
+    let s data_len<i32> &v;
     let p <i32> mem_ptr_addr get s "data";
     let n <i32> get s "len";
     let bn <bool> eq n 4;
@@ -228,7 +228,7 @@ ret: 0
 fn main <()->i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 sort_heap_ret<i32> v0;
-    let s data_len<i32> v1;
+    let s data_len<i32> &v1;
     get s "len"
 ```
 
@@ -248,7 +248,7 @@ fn main <()->i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok push<i32> v0 42;
     let v2 sort_heap_ret<i32> v1;
-    let s data_len<i32> v2;
+    let s data_len<i32> &v2;
     get s "len"
 ```
 
@@ -270,7 +270,7 @@ fn main <()->i32> ():
     let v2 <Vec<i32>> unwrap_ok push<i32> v1 1;
     let v3 sort_heap_ret<i32> v2;
     let v4 <Vec<i32>> unwrap_ok push<i32> v3 5;
-    let s data_len<i32> v4;
+    let s data_len<i32> &v4;
     get s "len"
 ```
 
@@ -299,7 +299,7 @@ fn make_vec4 <()->Vec<i32>> ():
 
 fn main <()*>i32> ():
     let v <Vec<i32>> unwrap_ok<Vec<i32>, StdErrorKind> sort_merge_ret<i32> make_vec4;
-    let s data_len<i32> v;
+    let s data_len<i32> &v;
     let p <i32> mem_ptr_addr get s "data";
     let n <i32> get s "len";
     let bn <bool> eq n 4;
@@ -326,7 +326,7 @@ ret: 0
 fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok<Vec<i32>, StdErrorKind> sort_merge_ret<i32> v0;
-    let s data_len<i32> v1;
+    let s data_len<i32> &v1;
     get s "len"
 ```
 
@@ -347,7 +347,7 @@ fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;
     let v1 <Vec<i32>> unwrap_ok push<i32> v0 42;
     let v2 <Vec<i32>> unwrap_ok<Vec<i32>, StdErrorKind> sort_merge_ret<i32> v1;
-    let s data_len<i32> v2;
+    let s data_len<i32> &v2;
     get s "len"
 ```
 
@@ -370,7 +370,7 @@ fn main <()*>i32> ():
     let v2 <Vec<i32>> unwrap_ok push<i32> v1 1;
     let v3 <Vec<i32>> unwrap_ok<Vec<i32>, StdErrorKind> sort_merge_ret<i32> v2;
     let v4 <Vec<i32>> unwrap_ok push<i32> v3 5;
-    let s data_len<i32> v4;
+    let s data_len<i32> &v4;
     get s "len"
 ```
 
