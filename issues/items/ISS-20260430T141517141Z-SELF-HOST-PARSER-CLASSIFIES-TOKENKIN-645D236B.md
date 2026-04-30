@@ -2,8 +2,8 @@
 id: ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B
 title: "self-host parser classifies TokenKind through strings and hash keys instead of exhaustive enum match"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-30
@@ -42,3 +42,20 @@ Refactor parser item classification to match directly on TokenKind. Keep token_k
 ## 検証
 
 Use gh Actions after implementation to confirm selfhost/stdlib doctest status. For pre-commit implementation checks, run focused selfhost parser doctests, selfhost lexer/parser parity tests, the new source policy regression, node nodesrc/issues.js check, and git diff --check.
+
+## 解決
+
+- `selfhost_parser_item_kind_from_token` を `TokenKind` 直接 `match` に変更し、module item に変換する token と無視する token を enum arm として明示した。
+- parser loop の特殊 token 処理は `SelfhostParserTokenAction` enum に分離し、`selfhost_parser_token_action` が `TokenKind` 全 variant を網羅して action へ変換する形にした。
+- `token_kind_name`、`hash32`、数値 hash arm、文字列再検証 helper を parser classification から削除した。`token_kind_name` は JSON/reporting/parity boundary 用に `token.nepl` 側へ残す。
+- `nodesrc/test_selfhost_parser_tokenkind_match.js` を追加し、`module_parser.nepl` が TokenKind classification に hash/string dispatch を再導入しないこと、`selfhost_parser_token_action` と `selfhost_parser_item_kind_from_token` が TokenKind 全 variant を明示 arm で扱うこと、module loop が action enum を wildcard なしで処理することを検査するようにした。
+- `nodesrc/run_source_policy_regressions.js` に新規 regression を追加した。
+
+## 検証結果
+
+- `node nodesrc/test_selfhost_parser_tokenkind_match.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規 `selfhost parser TokenKind match regression` は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` は `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8` 側の既知残件。
+- `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/selfhost-parser-tokenkind-match.json -j 1`: 2 件とも既知の wasm timeout。
+- `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/selfhost-parser-tokenkind-match-long-timeout.json -j 1`: 180 秒でも timeout。今回の hash/string dispatch 除去とは別の selfhost parser runtime 残件として継続。
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed

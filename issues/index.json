@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T15:47:03.950Z",
+  "generated_at": "2026-04-30T15:50:05.893Z",
   "counts": {
-    "total": 483,
-    "open": 19,
-    "resolved": 464,
+    "total": 484,
+    "open": 18,
+    "resolved": 466,
     "by_area": {
       "core": {
         "total": 212,
@@ -16,20 +16,20 @@
         "open": 1,
         "resolved": 0
       },
-      "selfhost": {
-        "total": 45,
-        "open": 2,
-        "resolved": 43
-      },
       "stdlib": {
-        "total": 150,
+        "total": 151,
         "open": 7,
-        "resolved": 143
+        "resolved": 144
       },
       "TEST": {
         "total": 18,
         "open": 1,
         "resolved": 17
+      },
+      "selfhost": {
+        "total": 45,
+        "open": 1,
+        "resolved": 44
       },
       "cli": {
         "total": 19,
@@ -215,21 +215,6 @@
       "file": "items/ISS-20260430T154415527Z-TYPED-BLOCK-CONTEXT-LOSES-VEC-LEN-RE-46F57311.md"
     },
     {
-      "id": "ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B",
-      "title": "self-host parser classifies TokenKind through strings and hash keys instead of exhaustive enum match",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/syntax/token.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B.md"
-    },
-    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -305,8 +290,8 @@
       "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
     },
     {
-      "id": "ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1",
-      "title": "from_f64_result scratch buffer reintroduces Resource IR moved-cell failures",
+      "id": "ISS-20260430T151549577Z-STR-SPLIT-RESULT-STORES-OWNED-STR-IN-B3A69EAB",
+      "title": "str_split_result stores owned str into raw Vec storage without an element cleanup contract",
       "area": "stdlib",
       "status": "open",
       "resolved": false,
@@ -314,10 +299,10 @@
       "type": "bug",
       "created": "2026-04-30",
       "updated": "2026-04-30",
-      "target": "stdlib/alloc/string.nepl, stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl, GitHub Actions run 25157230630 stdlib-test",
+      "target": "stdlib/alloc/string.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1.md"
+      "file": "items/ISS-20260430T151549577Z-STR-SPLIT-RESULT-STORES-OWNED-STR-IN-B3A69EAB.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -3935,6 +3920,21 @@
       "file": "items/ISS-20260429T005246036Z-SELF-HOST-CLI-LACKS-FILESYSTEM-FILE--1B6C9F63.md"
     },
     {
+      "id": "ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B",
+      "title": "self-host parser classifies TokenKind through strings and hash keys instead of exhaustive enum match",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/syntax/token.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B.md"
+    },
+    {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",
       "title": "stdlib assert API mixes assertion, reporting, and exit-code responsibilities",
       "area": "STDLIB-TEST",
@@ -5163,6 +5163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T122142575Z-STD-FREE-HIDES-CHECKED-DEALLOC-FAILU-C1D154EB.md"
+    },
+    {
+      "id": "ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1",
+      "title": "from_f64_result scratch buffer reintroduces Resource IR moved-cell failures",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/string.nepl, stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl, GitHub Actions run 25157230630 stdlib-test",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
