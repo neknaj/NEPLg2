@@ -4045,6 +4045,51 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_owner_check_applies_result_ok_mem_ptr_dealloc_consumption() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>()> ():
+    match alloc_ptr<i32> 4:
+        Result::Err _e:
+            ()
+        Result::Ok p:
+            match dealloc_ptr p 4:
+                Result::Ok _:
+                    ()
+                Result::Err _drop:
+                    dealloc_raw mem_ptr_addr p 4
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function == "main" || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "dealloc_ptr must consume the MemPtr owner only in Result::Ok and preserve it in Result::Err: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_rekeys_raw_cells_after_loading_raw_address_cell() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

@@ -7,6 +7,7 @@ use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_address::{raw_address_return_ownership, RawAddressReturnOwnership};
 use super::owner_state::OwnerTable;
+use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::place_with_suffix;
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
@@ -18,9 +19,11 @@ impl ResourceOwnerCheckEngine<'_> {
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
         storage_origins: &mut StorageOriginTable,
+        variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
         target: &ResourceCallTarget,
         args: &[Place],
+        apply_unconditional_summary: bool,
         span: Span,
     ) {
         let ResourceCallTarget::User { name, .. } = target else {
@@ -37,15 +40,18 @@ impl ResourceOwnerCheckEngine<'_> {
         else {
             return;
         };
-        self.apply_owner_return_summary(
-            owners,
-            raw_aliases,
-            storage_origins,
-            output,
-            args,
-            summary,
-            span,
-        );
+        if apply_unconditional_summary {
+            self.apply_owner_return_summary(
+                owners,
+                raw_aliases,
+                storage_origins,
+                output,
+                args,
+                summary,
+                span,
+            );
+        }
+        variant_owner_effects.record_call(raw_aliases, output, args, summary);
     }
 
     pub(super) fn apply_indirect_call_return_owner(
@@ -54,6 +60,7 @@ impl ResourceOwnerCheckEngine<'_> {
         function_aliases: &FunctionAliasTable,
         raw_aliases: &mut RawCellAddressAliases,
         storage_origins: &mut StorageOriginTable,
+        variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
         callee: &Place,
         args: &[Place],
@@ -69,6 +76,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 args,
                 span,
             );
+            variant_owner_effects.clear_result(output);
             return;
         }
         for function in functions {
@@ -86,6 +94,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     summary,
                     span,
                 );
+                variant_owner_effects.record_call(raw_aliases, output, args, summary);
                 if self.has_transferable_owner(owners, raw_aliases, output) {
                     return;
                 }
