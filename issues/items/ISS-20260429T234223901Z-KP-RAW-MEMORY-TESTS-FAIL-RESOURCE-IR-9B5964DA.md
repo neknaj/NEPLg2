@@ -2,8 +2,8 @@
 id: ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA
 title: "kp raw memory tests fail Resource IR initialized checks"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
@@ -38,13 +38,25 @@ nepl-core tests/kp.rs fails after the current Resource IR gate because direct WA
 
 Full nepl-core integration tests are blocked, and self-host IO style programs cannot rely on strict initialized-cell verification for WASI out buffers or dynamic raw storage.
 
-## 修正方針
+## 修正
 
-Design typed Resource IR summaries for external raw writes and dynamic raw cell ranges. Preserve RawMemoryLoadCell strictness; do not silence the diagnostics.
+Resource IR の `RawMemoryLoadCell` strict gate は維持したまま、初期化済み raw cell の情報が正しく伝播するように修正した。
 
-具体的には、WASI `fd_read` / `args_get` / `path_open` のような外部 call を単なる unsafe call として素通しせず、どの out pointer / iovec range を initialized にするかを Resource IR の effect として明示する。加えて、dynamic offset の store/load は「不明だから常に未初期化」ではなく、range owner と要素幅を持つ initialized range として扱える設計へ拡張する。これにより strict `RawMemoryLoadCell` gate は維持したまま、正しく初期化された IO buffer と raw array fixture を通す。
+- lowering が WASI `fd_read` の `ExternalIo` effect を `UserCall` に潰していたため、raw helper 用の call effect 生成で外部 IO operation 名を保持するようにした。
+- `fd_read` の out pointer effect を Resource IR 初期化検査へ追加し、`nread` と `iovec.buf` が指す buffer の raw cells を initialized として扱うようにした。
+- 関数 return summary に、返却 raw address 配下の initialized raw cells と「raw address を保持する cell」を含めるようにした。
+- branch/match の output 初期化で output 配下の raw-cell descendants を消さないようにし、両 arm で構築した raw header/buffer の状態を caller へ残すようにした。
+- raw address を raw memory cell から load したとき、address alias だけでなく initialized raw cells も load 先へ rekey するようにした。
+- `add x 0` のような明示的 raw address view は owner check 側で非所有 view として追跡しつつ、cell table 側では `x` と `x + 0` を同一アドレスとして扱うようにした。
+- `kp.rs` fixture は、所有権を raw i32 cell だけへ隠さず、scanner header pointer と owned buffer を aggregate で返す形に直した。dynamic raw array の prefix sum は `fill_i32` で range 初期化を明示した。
+- 追加で肥大化した Resource IR checker は `initialized_return`、`initialized_external_io`、`initialized_rekey`、`owner_raw_view` に分割し、既存の responsibility policy を更新した。
+
+この作業中に、所有 raw address と非所有 raw address view、および fallible `realloc_raw` の状態表現がまだ設計として不足していることを確認したため、別 issue `ISS-20260430T004118434Z-RESOURCE-IR-LACKS-EXPLICIT-NON-OWNIN-D546F9CD` を追加した。
 
 ## 検証
 
-- `cargo test -p nepl-core --test kp -- --nocapture`: 現状 failed。14 件中 9 passed / 5 failed。
-- 修正後は同コマンドが pass し、少なくとも `fd_read` out buffer、scanner header/buffer、dynamic offset prefix sum の regression を個別に固定する。
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`: 130 passed。
+- `cargo test -p nepl-core --test kp -- --nocapture`: 14 passed。
+- `cargo test -p nepl-core --test effects -- --nocapture`: 21 passed。
+- `node nodesrc/test_resource_checker_responsibility.js`: passed。
+- 回帰テストとして、関数 return / branch return / raw address cell load / returned header pointer 配下の initialized raw cells を `nepl-core/tests/resource_ir.rs` に追加した。

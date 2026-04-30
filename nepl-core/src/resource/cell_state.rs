@@ -4,7 +4,7 @@ use crate::types::{TypeCtx, TypeId};
 
 use super::model::{CellState, CellStateEntry, Place, PlaceProjection};
 use super::place_utils::{
-    place_suffix_after_prefix, push_unique_place, replace_place_prefix, should_track,
+    place_suffix_after_prefix, place_with_suffix, push_unique_place, should_track,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -17,6 +17,10 @@ pub(super) struct CellTable {
 impl CellTable {
     pub(super) fn into_entries(self) -> Vec<CellStateEntry> {
         self.cells
+    }
+
+    pub(super) fn entries(&self) -> &[CellStateEntry] {
+        &self.cells
     }
 
     pub(super) fn availability_state(&self, place: &Place) -> CellState {
@@ -125,15 +129,13 @@ impl CellTable {
         }
         let mut relocated = Vec::new();
         self.cells.retain(|entry| {
-            if raw_cell_suffix_after_address(&entry.place, source).is_none() {
+            let Some(suffix) = raw_cell_suffix_after_address(&entry.place, source) else {
                 return true;
-            }
-            if let Some(place) = replace_place_prefix(&entry.place, source, target) {
-                relocated.push(CellStateEntry {
-                    place,
-                    state: entry.state.clone(),
-                });
-            }
+            };
+            relocated.push(CellStateEntry {
+                place: place_with_suffix(target, &suffix, entry.place.ty),
+                state: entry.state.clone(),
+            });
             false
         });
         self.extend_entries(relocated);
@@ -165,18 +167,16 @@ impl CellTable {
         self.cells
             .iter()
             .filter_map(|entry| {
-                raw_cell_suffix_after_address(&entry.place, source)?;
+                let suffix = raw_cell_suffix_after_address(&entry.place, source)?;
                 let CellState::Initialized(ty) = entry.state else {
                     return None;
                 };
                 if !types.is_copy(ty) {
                     return None;
                 }
-                replace_place_prefix(&entry.place, source, destination).map(|place| {
-                    CellStateEntry {
-                        place,
-                        state: entry.state.clone(),
-                    }
+                Some(CellStateEntry {
+                    place: place_with_suffix(destination, &suffix, entry.place.ty),
+                    state: entry.state.clone(),
                 })
             })
             .collect()
@@ -304,7 +304,10 @@ fn raw_cell_state_has_live_non_copy_obligation(entry: &CellStateEntry, types: &T
     }
 }
 
-fn raw_cell_suffix_after_address(cell: &Place, address: &Place) -> Option<Vec<PlaceProjection>> {
+pub(super) fn raw_cell_suffix_after_address(
+    cell: &Place,
+    address: &Place,
+) -> Option<Vec<PlaceProjection>> {
     let suffix = place_suffix_after_address_prefix(cell, address)?;
     if suffix
         .iter()
@@ -327,7 +330,8 @@ fn rekey_raw_storage_roots(roots: &mut Vec<Place>, source: &Place, target: &Plac
         if !raw_addresses_overlap(root, source) {
             return true;
         }
-        if let Some(place) = replace_place_prefix(root, source, target) {
+        if let Some(suffix) = place_suffix_after_address_prefix(root, source) {
+            let place = place_with_suffix(target, &suffix, root.ty);
             push_unique_place(&mut relocated, &place);
             return false;
         }
@@ -355,6 +359,15 @@ fn place_suffix_after_address_prefix(
     }
     let mut place_index = 0;
     for prefix_projection in &prefix.projections {
+        if storage_offset_is_zero(prefix_projection) {
+            continue;
+        }
+        while matches!(
+            place.projections.get(place_index),
+            Some(projection) if storage_offset_is_zero(projection)
+        ) {
+            place_index += 1;
+        }
         if matches!(
             prefix_projection,
             PlaceProjection::StorageOffset(super::model::ResourceOffset { bytes: None })
@@ -373,7 +386,20 @@ fn place_suffix_after_address_prefix(
         }
         place_index += 1;
     }
+    while matches!(
+        place.projections.get(place_index),
+        Some(projection) if storage_offset_is_zero(projection)
+    ) {
+        place_index += 1;
+    }
     Some(place.projections[place_index..].to_vec())
+}
+
+fn storage_offset_is_zero(projection: &PlaceProjection) -> bool {
+    matches!(
+        projection,
+        PlaceProjection::StorageOffset(super::model::ResourceOffset { bytes: Some(0) })
+    )
 }
 
 fn address_projection_matches(place: &PlaceProjection, prefix: &PlaceProjection) -> bool {

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T00:03:47.650Z",
+  "generated_at": "2026-04-30T01:01:59.968Z",
   "counts": {
-    "total": 414,
+    "total": 415,
     "open": 13,
-    "resolved": 401,
+    "resolved": 402,
     "by_area": {
       "core": {
-        "total": 191,
+        "total": 192,
         "open": 5,
-        "resolved": 186
+        "resolved": 187
       },
       "stdlib": {
         "total": 126,
@@ -130,19 +130,19 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA",
-      "title": "kp raw memory tests fail Resource IR initialized checks",
+      "id": "ISS-20260430T004118434Z-RESOURCE-IR-LACKS-EXPLICIT-NON-OWNIN-D546F9CD",
+      "title": "Resource IR lacks explicit non-owning raw address view and fallible realloc state",
       "area": "core",
       "status": "open",
       "resolved": false,
       "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
+      "type": "architecture",
+      "created": "2026-04-30",
       "updated": "2026-04-30",
-      "target": "nepl-core/tests/kp.rs, nepl-core/src/resource",
+      "target": "nepl-core/src/resource, stdlib/core/mem.nepl",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA.md"
+      "file": "items/ISS-20260430T004118434Z-RESOURCE-IR-LACKS-EXPLICIT-NON-OWNIN-D546F9CD.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -2948,6 +2948,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T233515324Z-RESOURCE-IR-DOES-NOT-SUMMARIZE-RAW-F-48450939.md"
+    },
+    {
+      "id": "ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA",
+      "title": "kp raw memory tests fail Resource IR initialized checks",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-04-30",
+      "target": "nepl-core/tests/kp.rs, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA.md"
     },
     {
       "id": "ISS-20260429T235902744Z-DIAGNOSTIC-CODE-FIRST-POLICY-DOES-NO-EB36475A",

@@ -68,7 +68,7 @@ fn main <()*>()> ():
 
     let pref_len <i32> add n 1;
     let pref <i32> unwrap_ok alloc mul pref_len 4;
-    store_i32 pref 0;
+    fill_i32 pref pref_len 0;
 
     let mut i <i32> 1;
     while le i n:
@@ -315,7 +315,7 @@ fn main <()*>()> ():
     let iov <i32> alloc_raw 8;
     let nread <i32> alloc_raw 4;
 
-    store_i32 iov buf;
+    store_i32 iov add buf 0;
     store_i32 add iov 4 cap;
     store_i32 nread 0;
 
@@ -344,6 +344,9 @@ fn main <()*>()> ():
         else:
             print_i32 -1;
     println "";
+    dealloc_raw buf cap;
+    dealloc_raw iov 8;
+    dealloc_raw nread 4;
 "#;
     let out = run_main_capture_stdout_with_stdin(src, b"10 20 30\n");
     let parts: Vec<&str> = out.trim().split(' ').collect();
@@ -376,15 +379,12 @@ fn main <()*>()> ():
     let iov <i32> alloc_raw 8;
     let nread <i32> alloc_raw 4;
 
-    store_i32 iov buf;
+    store_i32 iov add buf 0;
     store_i32 add iov 4 cap;
     store_i32 nread 0;
 
     let errno <i32> fd_read 0 iov 1 nread;
     let n <i32> load_i32 nread;
-    dealloc_raw iov 8;
-    dealloc_raw nread 4;
-
     print_i32 errno;
     print " ";
     print_i32 n;
@@ -407,6 +407,9 @@ fn main <()*>()> ():
         else:
             print_i32 -1;
     println "";
+    dealloc_raw buf cap;
+    dealloc_raw iov 8;
+    dealloc_raw nread 4;
 "#;
     let out = run_main_capture_stdout_with_stdin(src, b"10 20 30\n");
     let parts: Vec<&str> = out.trim().split(' ').collect();
@@ -439,7 +442,7 @@ fn main <()*>()> ():
     let iov <i32> alloc_raw 8;
     let nread <i32> alloc_raw 4;
 
-    store_i32 iov buf;
+    store_i32 iov add buf 0;
     store_i32 add iov 4 cap;
     store_i32 nread 0;
     let errno <i32> fd_read 0 iov 1 nread;
@@ -449,7 +452,7 @@ fn main <()*>()> ():
     dealloc_raw nread 4;
 
     let sc <i32> alloc_raw 12;
-    store_i32 sc buf;
+    store_i32 sc add buf 0;
     store_i32 add sc 4 n;
     store_i32 add sc 8 0;
 
@@ -479,6 +482,8 @@ fn main <()*>()> ():
         else:
             print_i32 -1;
     println "";
+    dealloc_raw buf cap;
+    dealloc_raw sc 12;
 "#;
     let out = run_main_capture_stdout_with_stdin(src, b"10 20 30\n");
     let parts: Vec<&str> = out.trim().split(' ').collect();
@@ -505,80 +510,43 @@ fn local_scanner_new_logic_debug() {
 #indent 4
 #target wasi
 
+#import "core/field" as field
 #import "core/mem" as *
 #import "std/stdio" as *
 
-fn scanner_new_local <()*>i32> ():
+struct LocalScanner:
+    sc <i32>
+    buf <i32>
+
+fn scanner_new_local <()*>LocalScanner> ():
     let mut cap <i32> 65536;
     let mut buf <i32> alloc_raw cap;
-    if:
-        eq buf 0
-        then:
-            let sc0 <i32> alloc_raw 12;
-            store_i32 sc0 0;
-            store_i32 add sc0 4 0;
-            store_i32 add sc0 8 0;
-            sc0
-        else:
-            let iov <i32> alloc_raw 8;
-            let nread_ptr <i32> alloc_raw 4;
-            let mut len <i32> 0;
-            let mut done <i32> 0;
+    memset_u8 buf cap 0;
+    let iov <i32> alloc_raw 8;
+    let nread_ptr <i32> alloc_raw 4;
+    store_i32 iov add buf 0;
+    store_i32 add iov 4 cap;
+    store_i32 nread_ptr 0;
+    let errno <i32> fd_read 0 iov 1 nread_ptr;
+    let len <i32> if eq errno 0 load_i32 nread_ptr 0;
 
-            while eq done 0:
-                do:
-                    if:
-                        eq len cap
-                        then:
-                            let new_cap <i32> mul cap 2;
-                            let new_buf <i32> realloc_raw buf cap new_cap;
-                            if:
-                                eq new_buf 0
-                                then:
-                                    set done 1;
-                                else:
-                                    set buf new_buf;
-                                    set cap new_cap;
-                        else:
-                            ();
+    dealloc_raw iov 8;
+    dealloc_raw nread_ptr 4;
 
-                    if:
-                        eq done 0
-                        then:
-                            let write_ptr <i32> add buf len;
-                            let rem <i32> sub cap len;
-                            store_i32 iov write_ptr;
-                            store_i32 add iov 4 rem;
-                            store_i32 nread_ptr 0;
-                            let errno <i32> fd_read 0 iov 1 nread_ptr;
-                            if:
-                                ne errno 0
-                                then:
-                                    set done 1;
-                                else:
-                                    let n <i32> load_i32 nread_ptr;
-                                    if:
-                                        eq n 0
-                                        then:
-                                            set done 1;
-                                        else:
-                                            set len add len n;
-                        else:
-                            ();
-
-            dealloc_raw iov 8;
-            dealloc_raw nread_ptr 4;
-
-            let sc <i32> alloc_raw 12;
-            store_i32 sc buf;
-            store_i32 add sc 4 len;
-            store_i32 add sc 8 0;
-            sc
+    let sc <i32> alloc_raw 16;
+    store_i32 sc add buf 0;
+    store_i32 add sc 4 len;
+    store_i32 add sc 8 0;
+    store_i32 add sc 12 cap;
+    LocalScanner sc buf
 
 fn main <()*>()> ():
-    let sc <i32> scanner_new_local;
+    let scanner <LocalScanner> scanner_new_local;
+    let sc <i32> field::get scanner "sc";
+    let owned_buf <i32> field::get scanner "buf";
     let buf <i32> load_i32 sc;
     let len <i32> load_i32 add sc 4;
+    let cap <i32> load_i32 add sc 12;
     let b0 <i32> if lt 0 len load_u8 buf -1;
     let b1 <i32> if lt 1 len load_u8 add buf 1 -1;
     let b2 <i32> if lt 2 len load_u8 add buf 2 -1;
@@ -590,6 +558,8 @@ fn main <()*>()> ():
     print " ";
     print_i32 b2;
     println "";
+    dealloc_raw owned_buf cap;
+    dealloc_raw sc 16;
 "#;
     let out = run_main_capture_stdout_with_stdin(src, b"10 20 30\n");
     let parts: Vec<&str> = out.trim().split(' ').collect();

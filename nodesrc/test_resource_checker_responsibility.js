@@ -63,6 +63,7 @@ for (const moduleName of [
     'borrow_summary.rs',
     'owner_check.rs',
     'owner_flow.rs',
+    'owner_raw_view.rs',
     'owner_summary.rs',
     'owner_summary_leaf.rs',
     'owner_summary_record.rs',
@@ -81,7 +82,10 @@ for (const moduleName of [
     'shadow.rs',
     'initialized_alias.rs',
     'initialized_alias_flow.rs',
+    'initialized_external_io.rs',
     'initialized_raw_memory.rs',
+    'initialized_rekey.rs',
+    'initialized_return.rs',
 ]) {
     assertFile(moduleName);
 }
@@ -92,6 +96,7 @@ for (const moduleDecl of [
     'mod borrow_summary;',
     'mod owner_check;',
     'mod owner_flow;',
+    'mod owner_raw_view;',
     'mod owner_summary;',
     'mod owner_summary_leaf;',
     'mod owner_summary_record;',
@@ -110,7 +115,10 @@ for (const moduleDecl of [
     'mod shadow;',
     'mod initialized_alias;',
     'mod initialized_alias_flow;',
+    'mod initialized_external_io;',
     'mod initialized_raw_memory;',
+    'mod initialized_rekey;',
+    'mod initialized_return;',
 ]) {
     assertContains(mod, moduleDecl, 'resource/mod.rs');
 }
@@ -191,6 +199,7 @@ const maxLines = new Map([
     ['borrow_summary.rs', 120],
     ['owner_check.rs', 800],
     ['owner_flow.rs', 620],
+    ['owner_raw_view.rs', 180],
     ['owner_summary.rs', 380],
     ['owner_summary_leaf.rs', 260],
     ['owner_summary_record.rs', 260],
@@ -206,7 +215,10 @@ const maxLines = new Map([
     ['lower_raw_memory.rs', 120],
     ['initialized_alias.rs', 550],
     ['initialized_alias_flow.rs', 550],
+    ['initialized_external_io.rs', 140],
     ['initialized_raw_memory.rs', 300],
+    ['initialized_rekey.rs', 160],
+    ['initialized_return.rs', 260],
 ]);
 
 for (const [name, limit] of maxLines) {

@@ -5,9 +5,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
-use crate::effects::{
-    intrinsic_internal_effect, raw_memory_callee_internal_effect, InternalEffect,
-};
+use crate::effects::{intrinsic_internal_effect, raw_callee_internal_effect, InternalEffect};
 use crate::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
     HirParam,
@@ -830,7 +828,7 @@ fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {
 fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) -> EffectOp {
     match callee {
         FuncRef::Builtin(name) => {
-            if let Some(effect) = raw_memory_callee_internal_effect(name.as_str()) {
+            if let Some(effect) = raw_callee_internal_effect(name.as_str()) {
                 resource_effect_from_internal(effect)
             } else {
                 EffectOp::UserCall {
@@ -840,7 +838,7 @@ fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) -> EffectOp
             }
         }
         FuncRef::User(name, _, _) => {
-            if let Some(effect) = raw_memory_callee_internal_effect(name.as_str()) {
+            if let Some(effect) = raw_callee_internal_effect(name.as_str()) {
                 resource_effect_from_internal(effect)
             } else {
                 EffectOp::UserCall {
@@ -859,7 +857,7 @@ fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) -> EffectOp
 }
 
 fn function_value_effect(name: &str, env: &LoweringEnvironment) -> EffectOp {
-    if let Some(effect) = raw_memory_callee_internal_effect(name) {
+    if let Some(effect) = raw_callee_internal_effect(name) {
         resource_effect_from_internal(effect)
     } else {
         EffectOp::UserCall {

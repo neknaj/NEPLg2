@@ -140,12 +140,17 @@ pub(super) fn push_named_raw_address_semantics(
 struct RawAddressSource {
     base: Place,
     offset: RawAddressOffset,
+    explicit_offset: bool,
 }
 
 impl RawAddressSource {
     fn place(self, raw_ty: TypeId) -> Place {
         match self.offset {
-            RawAddressOffset::Known(0) => self.base,
+            RawAddressOffset::Known(0) if !self.explicit_offset => self.base,
+            RawAddressOffset::Known(0) => self.base.with_projection(
+                PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(0) }),
+                raw_ty,
+            ),
             RawAddressOffset::Known(bytes) if bytes > 0 => match usize::try_from(bytes) {
                 Ok(bytes) => self.base.with_projection(
                     PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(bytes) }),
@@ -165,11 +170,13 @@ impl RawAddressSource {
 
     fn with_added_offset(mut self, offset: Option<i64>) -> Self {
         self.offset = self.offset.add(offset);
+        self.explicit_offset = true;
         self
     }
 
     fn with_subtracted_offset(mut self, offset: Option<i64>) -> Self {
         self.offset = self.offset.sub(offset);
+        self.explicit_offset = true;
         self
     }
 }
@@ -227,6 +234,7 @@ fn raw_address_source_from_return_expr(
             Some(RawAddressSource {
                 base: raw_address_place_from_argument(arg_places.get(index)?, env),
                 offset: RawAddressOffset::Known(0),
+                explicit_offset: false,
             })
         }
         HirExprKind::Call { callee, args } => raw_address_source_from_named_call(
@@ -402,6 +410,7 @@ fn raw_address_source_from_region_token_ptr_expr(
             Some(RawAddressSource {
                 base: region_token_raw_field_place(token, env.types.i32()),
                 offset: RawAddressOffset::Known(0),
+                explicit_offset: false,
             })
         }
         HirExprKind::Call { callee, args }
@@ -487,6 +496,7 @@ fn raw_address_source_from_actual_arg(
     Some(RawAddressSource {
         base: raw_address_place_from_argument(arg_places.get(index)?, env),
         offset: RawAddressOffset::Known(0),
+        explicit_offset: false,
     })
 }
 

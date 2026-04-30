@@ -92,6 +92,18 @@ impl RawCellAddressAliases {
             .unwrap_or_else(|| place.clone())
     }
 
+    pub(super) fn prefer_canonical(&mut self, place: &Place) {
+        for group in &mut self.groups {
+            let Some(index) = group.iter().position(|alias| alias == place) else {
+                continue;
+            };
+            if index != 0 {
+                let alias = group.remove(index);
+                group.insert(0, alias);
+            }
+        }
+    }
+
     pub(super) fn contains_exact(&self, place: &Place) -> bool {
         self.groups
             .iter()

@@ -59,7 +59,12 @@ impl ResourceCheckEngine<'_> {
                     }
                     cells.mark_initialized(output);
                     if raw_cell_value_is_known_raw_address(raw_aliases, &cell) {
-                        raw_aliases.copy_alias_or_seed(&cell, output);
+                        self.copy_raw_alias_and_rekey_cells_preferring_target(
+                            cells,
+                            raw_aliases,
+                            &cell,
+                            output,
+                        );
                     } else if loaded_from_untracked_external
                         && self.output_can_hold_raw_address(output.ty)
                     {

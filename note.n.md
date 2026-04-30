@@ -27825,3 +27825,33 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.md delta]:
   - `plan.md` was not changed.
   - This is a regression policy strengthening for compiler diagnostics. It does not weaken static checks.
+
+# 2026-04-30 note (ISS-20260429T234223901Z KP raw memory initialized state)
+
+- [sync]:
+  - Started from `main` at `92f85011` after `git pull --rebase --autostash origin main`.
+  - Work branch: `fix/resource-ir-kp-raw-initialized-state`.
+- [cause]:
+  - Resource IR lowering preserved raw memory calls but collapsed direct WASI `fd_read` into a generic user-call effect, so initialized-cell checking could not know that `nread` and the iovec buffer were written by the host.
+  - Initialized raw cells under a returned raw address were not summarized across function calls, branch return values, or raw address cells loaded from raw memory.
+  - `add x 0` is needed as a source-level non-owning raw address view, but initialized-cell tracking must still treat `x` and `x + 0` as the same address.
+  - KP scanner fixtures hid ownership inside raw i32 cells; owner checking needs the owned buffer to remain visible in a typed aggregate.
+- [fix]:
+  - Preserved `ExternalIo("fd_read")` in Resource IR call effects and added fd_read initialized out-pointer handling.
+  - Added raw-cell initialization return summaries and applied them to direct/indirect calls.
+  - Rekeyed initialized raw cells when raw address cells are loaded, copied, moved, or returned through branch/match outputs.
+  - Added explicit raw address view tracking in owner check and kept explicit zero offsets in lowering for `add x 0`.
+  - Normalized zero raw offsets in cell-state address matching so `x` and `x + 0` share initialization state without weakening owner view tracking.
+  - Updated KP fixtures to use non-owning `add buf 0` iovec pointers, typed scanner aggregate ownership, and `fill_i32` for dynamic prefix-array initialization.
+  - Split the added Resource IR checker responsibilities into `initialized_return`, `initialized_external_io`, `initialized_rekey`, and `owner_raw_view` modules.
+- [issue]:
+  - Fixed `ISS-20260429T234223901Z-KP-RAW-MEMORY-TESTS-FAIL-RESOURCE-IR-9B5964DA`.
+  - Added `ISS-20260430T004118434Z-RESOURCE-IR-LACKS-EXPLICIT-NON-OWNIN-D546F9CD` for the remaining architecture work on first-class raw address views and fallible realloc state.
+- [verification]:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: `130 passed`
+  - `cargo test -p nepl-core --test kp -- --nocapture`: `14 passed`
+  - `cargo test -p nepl-core --test effects -- --nocapture`: `21 passed`
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+- [plan.md delta]:
+  - `plan.md` was not changed.
+  - This fix strengthens Resource IR memory-safety verification rather than relaxing diagnostics.

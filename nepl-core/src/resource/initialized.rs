@@ -14,6 +14,9 @@ use super::initialized_alias_flow::{
     compute_raw_cell_address_return_summaries, construct_raw_cell_address_alias_fields,
     expr_kind_preserves_raw_alias, RawCellAddressReturnSummary,
 };
+use super::initialized_return::{
+    compute_raw_cell_initialization_return_summaries, RawCellInitializationReturnSummary,
+};
 use super::model::{
     CellState, CellStateEntry, EffectOp, Place, ResourceBlock, ResourceCallTarget,
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
@@ -32,12 +35,15 @@ pub fn check_resource_initialized_moves(
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceCheckDeferred::default();
     let raw_alias_summaries = compute_raw_cell_address_return_summaries(module, types);
+    let raw_init_summaries =
+        compute_raw_cell_initialization_return_summaries(module, types, &raw_alias_summaries);
 
     for function in &module.functions {
         let mut engine = ResourceCheckEngine {
             function: function.name.as_str(),
             types,
             raw_alias_summaries: &raw_alias_summaries,
+            raw_init_summaries: &raw_init_summaries,
             diagnostics: Vec::new(),
             deferred: ResourceCheckDeferred::default(),
         };
@@ -59,11 +65,12 @@ pub fn check_resource_initialized_moves(
 }
 
 pub(super) struct ResourceCheckEngine<'a> {
-    function: &'a str,
+    pub(super) function: &'a str,
     pub(super) types: &'a TypeCtx,
-    raw_alias_summaries: &'a [RawCellAddressReturnSummary],
-    diagnostics: Vec<ResourceCheckDiagnostic>,
-    deferred: ResourceCheckDeferred,
+    pub(super) raw_alias_summaries: &'a [RawCellAddressReturnSummary],
+    pub(super) raw_init_summaries: &'a [RawCellInitializationReturnSummary],
+    pub(super) diagnostics: Vec<ResourceCheckDiagnostic>,
+    pub(super) deferred: ResourceCheckDeferred,
 }
 
 impl ResourceCheckEngine<'_> {
@@ -100,7 +107,7 @@ impl ResourceCheckEngine<'_> {
         }
     }
 
-    fn check_ops(
+    pub(super) fn check_ops(
         &mut self,
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
@@ -140,7 +147,12 @@ impl ResourceCheckEngine<'_> {
                         *span,
                     ) {
                         cells.mark_initialized(place);
-                        self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, initializer, place);
+                        self.copy_raw_alias_and_rekey_cells_preferring_target(
+                            cells,
+                            raw_aliases,
+                            initializer,
+                            place,
+                        );
                         function_aliases.copy_alias(initializer, place);
                     } else {
                         cells.set_state(place, CellState::Uninit);
@@ -169,7 +181,12 @@ impl ResourceCheckEngine<'_> {
             } => {
                 if self.consume_by_value(cells, value, ResourceCheckOperation::AssignValue, *span) {
                     cells.mark_initialized(target);
-                    self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, value, target);
+                    self.copy_raw_alias_and_rekey_cells_preferring_target(
+                        cells,
+                        raw_aliases,
+                        value,
+                        target,
+                    );
                     function_aliases.copy_alias(value, target);
                 } else {
                     raw_aliases.clear(target);
@@ -194,7 +211,12 @@ impl ResourceCheckEngine<'_> {
                 if self.ensure_available(cells, source, ResourceCheckOperation::Move, *span) {
                     cells.set_state(source, CellState::Moved);
                     cells.mark_initialized(output);
-                    self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
+                    self.copy_raw_alias_and_rekey_cells_preferring_target(
+                        cells,
+                        raw_aliases,
+                        source,
+                        output,
+                    );
                     function_aliases.copy_alias(source, output);
                 }
             }
@@ -228,9 +250,16 @@ impl ResourceCheckEngine<'_> {
                     self.consume_args(cells, args, ResourceCheckOperation::CallArgument, *span);
                 if args_available {
                     cells.mark_initialized(output);
+                    self.apply_external_io_initialized_effect(cells, raw_aliases, effect, args);
                     if !self.apply_call_return_raw_alias(raw_aliases, output, target, args) {
                         raw_aliases.clear(output);
                     }
+                    self.apply_call_return_raw_cell_initialization(
+                        cells,
+                        raw_aliases,
+                        output,
+                        target,
+                    );
                 }
             }
             ResourceOp::IndirectCall {
@@ -259,6 +288,13 @@ impl ResourceCheckEngine<'_> {
                     ) {
                         raw_aliases.clear(output);
                     }
+                    self.apply_indirect_call_return_raw_cell_initialization(
+                        cells,
+                        raw_aliases,
+                        output,
+                        function_aliases,
+                        callee,
+                    );
                 }
             }
             ResourceOp::RawMemory {
@@ -333,7 +369,7 @@ impl ResourceCheckEngine<'_> {
                     *span,
                 );
                 if then_available {
-                    self.copy_raw_alias_and_rekey_cells(
+                    self.copy_raw_alias_and_rekey_cells_preferring_target(
                         &mut then_cells,
                         &mut then_aliases,
                         then_value,
@@ -342,7 +378,7 @@ impl ResourceCheckEngine<'_> {
                     then_function_aliases.copy_alias(then_value, output);
                 }
                 if else_available {
-                    self.copy_raw_alias_and_rekey_cells(
+                    self.copy_raw_alias_and_rekey_cells_preferring_target(
                         &mut else_cells,
                         &mut else_aliases,
                         else_value,
@@ -357,7 +393,7 @@ impl ResourceCheckEngine<'_> {
                     else_function_aliases,
                 ]);
                 if condition_available && then_available && else_available {
-                    cells.mark_initialized(output);
+                    cells.set_state(output, CellState::Initialized(output.ty));
                 } else {
                     raw_aliases.clear(output);
                 }
@@ -448,7 +484,7 @@ impl ResourceCheckEngine<'_> {
                     );
                     arms_available &= arm_available;
                     if arm_available {
-                        self.copy_raw_alias_and_rekey_cells(
+                        self.copy_raw_alias_and_rekey_cells_preferring_target(
                             &mut arm_cells,
                             &mut arm_aliases,
                             &arm.value,
@@ -466,7 +502,7 @@ impl ResourceCheckEngine<'_> {
                     *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
                 }
                 if scrutinee_available && arms_available {
-                    cells.mark_initialized(output);
+                    cells.set_state(output, CellState::Initialized(output.ty));
                 } else {
                     raw_aliases.clear(output);
                 }
@@ -508,59 +544,6 @@ impl ResourceCheckEngine<'_> {
             self.raw_alias_summaries,
             self.types,
         )
-    }
-
-    fn copy_raw_alias_and_rekey_cells(
-        &self,
-        cells: &mut CellTable,
-        raw_aliases: &mut RawCellAddressAliases,
-        source: &Place,
-        target: &Place,
-    ) {
-        self.copy_raw_alias_and_rekey_cells_with_mode(cells, raw_aliases, source, target, false);
-    }
-
-    fn copy_raw_address_alias_and_rekey_cells(
-        &self,
-        cells: &mut CellTable,
-        raw_aliases: &mut RawCellAddressAliases,
-        source: &Place,
-        target: &Place,
-    ) {
-        self.copy_raw_alias_and_rekey_cells_with_mode(cells, raw_aliases, source, target, true);
-    }
-
-    fn copy_raw_alias_and_rekey_cells_with_mode(
-        &self,
-        cells: &mut CellTable,
-        raw_aliases: &mut RawCellAddressAliases,
-        source: &Place,
-        target: &Place,
-        force_raw_address: bool,
-    ) {
-        let source_tracks_raw_address = raw_aliases.contains_exact(source);
-        let source_canonical = raw_aliases.canonicalize(source);
-        let source_aliases = raw_aliases.aliases_for(source);
-        let source_is_known_raw_address = force_raw_address
-            || source_tracks_raw_address
-            || source_canonical != *source
-            || source_aliases.len() > 1;
-        let source_is_external_raw_storage = source_is_known_raw_address
-            && source_aliases
-                .iter()
-                .any(|alias| cells.external_raw_storage_overlaps(alias));
-        raw_aliases.copy_alias_or_seed(source, target);
-        let target_canonical = raw_aliases.canonicalize(target);
-        if source_is_external_raw_storage {
-            for alias in &source_aliases {
-                cells.mark_external_raw_storage_root(alias);
-            }
-            cells.mark_external_raw_storage_root(target);
-            cells.mark_external_raw_storage_root(&target_canonical);
-        }
-        if source_is_known_raw_address {
-            cells.rekey_raw_cells(&source_canonical, &target_canonical);
-        }
     }
 
     fn check_expr(

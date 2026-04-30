@@ -7,6 +7,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, ResourceFunction, ResourceModule, ResourceTerminator};
 use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_place};
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_summary_leaf::owner_leaf_places;
 use super::owner_summary_record::{
@@ -62,6 +63,7 @@ fn function_owner_return_summary(
     };
     let mut owners = OwnerTable::default();
     let mut raw_aliases = RawCellAddressAliases::default();
+    let mut raw_views = RawAddressViewTable::default();
     let mut storage_origins = StorageOriginTable::default();
     let mut parameter_storage_sources = Vec::new();
     for (index, param) in function.params.iter().enumerate() {
@@ -96,6 +98,7 @@ fn function_owner_return_summary(
             &mut owners,
             &mut function_aliases,
             &mut raw_aliases,
+            &mut raw_views,
             &mut storage_origins,
             &block.ops,
         );
