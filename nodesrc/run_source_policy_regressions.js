@@ -19,6 +19,7 @@ const checks = [
     "nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_no_unsafe_helpers.js",
+    "nodesrc/test_stdlib_math_module_split.js",
     "nodesrc/test_stdlib_cast_doc_no_boilerplate.js",
     "nodesrc/test_stdlib_json_doc_no_boilerplate.js",
     "nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js",

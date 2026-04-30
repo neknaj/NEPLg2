@@ -1,0 +1,108 @@
+//: # math/bool
+//: bool の論理演算を提供する core math submodule
+//:
+//: [目的/もくてき]:
+//: - `core/math` の bool 論理演算を型別 module として分離し、数値演算 facade から独立した責務にします。
+//: - 既存利用者は `core/math` facade から同じ overload を利用でき、bool 専用の利用者はこの module を直接 import できます。
+//:
+//: [注意/ちゅうい]:
+//: - bool は wasm 上では 0/1 の i32 value として扱われる前提です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/bool" as *
+//: fn main <()->i32> ():
+//:     if:
+//:         and true not false
+//:         then:
+//:             if or false true 0 1
+//:         else:
+//:             1
+//: ```
+
+#indent 4
+
+//: and: bool の論理積
+//:
+//: [目的/もくてき]:
+//: - bool の `a && b` 相当を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.and`、llvm は `and i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - bool は 0/1 前提です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn and <(bool,bool)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.and
+    #if[target=llvm]
+    #llvmir:
+        define i32 @and(i32 %a, i32 %b) {
+        entry:
+            %0 = and i32 %a, %b
+            ret i32 %0
+        }
+
+
+//: or: bool の論理和
+//:
+//: [目的/もくてき]:
+//: - bool の `a || b` 相当を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.or`、llvm は `or i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - bool は 0/1 前提です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn or <(bool,bool)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.or
+    #if[target=llvm]
+    #llvmir:
+        define i32 @or(i32 %a, i32 %b) {
+        entry:
+            %0 = or i32 %a, %b
+            ret i32 %0
+        }
+
+
+//: not: bool の否定
+//:
+//: [目的/もくてき]:
+//: - bool の `!a` を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.eqz`、llvm は `icmp eq` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - bool は 0/1 前提です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn not <(bool)->bool> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.eqz
+    #if[target=llvm]
+    #llvmir:
+        define i32 @not(i32 %a) {
+        entry:
+            %0 = icmp eq i32 %a, 0
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }

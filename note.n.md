@@ -29007,6 +29007,58 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner token / free obligation summary を、未精査 Result の path-dependent reservation まで含めて扱う形に進めた。
 
+# 2026-04-30 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math bool split)
+
+- [同期]:
+  - `main` の `94a000d8` から branch `refactor/math-bool-module-split` を作成した。
+  - remote main は同じ `94a000d8` のままで、他agentの Resource IR branch は main 未反映のため触らない。
+- [原因]:
+  - `core/math` には u8 split 後も bool の `and` / `or` / `not` が残り、i32/i64 bitwise 演算と bool 論理演算が同じ巨大 file に同居していた。
+  - bool 演算は他の数値型に依存しないため、独立 module へ切り出しても overload と direct import doctest を維持できる。
+- [修正]:
+  - `and <(bool,bool)->bool>` / `or <(bool,bool)->bool>` / `not <(bool)->bool>` を `stdlib/core/math/bool.nepl` へ移した。
+  - `stdlib/core/math.nepl` は `pub #import "./math/bool" as *` で bool API を再 export する facade にした。
+  - `core/math/bool` direct import doctest を追加し、bool module 単体で論理演算を確認する。
+  - `nodesrc/test_stdlib_math_module_split.js` を拡張し、bool 実装が `core/math.nepl` に戻らないことを source policy で固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/bool.nepl --no-tree -o tmp/math-bool-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math.nepl --no-tree -o tmp/math-facade-after-bool-split.json -j 1`: `25 total / 25 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-tests-after-bool-split.json -j 1`: `6 total / 6 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 拡張後の math split policy は passed。既存の `owner_summary_variant_paths.rs` responsibility split warning は継続。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` に core/math bool split の進捗を追記した。
+  - issue はまだ open。`core/math` には i32/i64/f32/f64/変換/i128 が残り、他の巨大 stdlib file も未分割。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib の巨大 facade をさらに型別 module へ分割し、selfhost が import graph と責務境界を追いやすい形へ寄せた。
+
+# 2026-04-30 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math u8 split)
+
+- [同期]:
+  - `main` の `ec35229e` から branch `refactor/math-module-split` を作成した。
+  - 他agentの `origin/work/region-token-owner-cleanup` は Resource IR と stdout report 周辺を広く触っているため、衝突回避として remote branch が触っていない `stdlib/core/math.nepl` の分割に絞った。
+- [原因]:
+  - `stdlib/core/math.nepl` は i32/u8/i64/f32/f64/変換/i128/bool が同居する巨大 facade になっており、`RV-STDLIB-009` の未解決対象として残っていた。
+  - u8 演算群は i32/i64/f32/f64 と依存せず、型別 submodule へ切り出しても overload wrapper を一緒に再 export できるため、独立した分割単位として扱える。
+- [修正]:
+  - u8 算術・比較 helper と u8 overload wrapper を `stdlib/core/math/u8.nepl` へ移した。
+  - `stdlib/core/math.nepl` は `pub #import "./math/u8" as *` で u8 API を再 export する facade にした。
+  - `core/math/u8` direct import doctest を追加し、u8 module 単体で wrapping add と unsigned division を確認する。
+  - `nodesrc/test_stdlib_math_module_split.js` を追加し、u8 実装が `core/math.nepl` に戻らないことを source policy で固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/u8.nepl --no-tree -o tmp/math-u8-module-direct-final.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math.nepl --no-tree -o tmp/math-facade-after-u8-split-final.json -j 1`: `25 total / 25 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/numerics.n.md --no-tree -o tmp/numerics-after-math-u8-split-final.json -j 1`: `11 total / 11 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規 math split policy は passed。既存の `owner_summary_variant_paths.rs` responsibility split warning は継続。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` に core/math u8 split の進捗を追記した。
+  - issue はまだ open。`core/math` には i32/i64/f32/f64/変換/i128/bool が残り、他の巨大 stdlib file も未分割。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib の巨大 facade を型別 module へ分割し、selfhost が import graph と責務境界を追いやすい形へ寄せた。
+
 # 2026-04-30 note (ISS-20260430T151549577Z str_split owned Vec storage fixed)
 
 - [同期]:
