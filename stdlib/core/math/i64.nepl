@@ -1,0 +1,956 @@
+//: # math/i64
+//: i64 の算術・bitwise・比較演算を提供する core math submodule
+//:
+//: [目的/もくてき]:
+//: - `core/math` の i64 基本演算群を型別 module として分離し、巨大 facade の責務を減らします。
+//: - 既存利用者は `core/math` facade から同じ overload を利用でき、i64 専用の利用者はこの module を直接 import できます。
+//:
+//: [注意/ちゅうい]:
+//: - 演算は wasm i64 の wrap / signed / unsigned 規則に従います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/cast" as *
+//:| #import "core/math/i64" as *
+//: fn main <()->i32> ():
+//:     let a <i64> cast 40;
+//:     let b <i64> cast 2;
+//:     let c <i64> add a b;
+//:     let d <i64> and c <i64> cast 7;
+//:     if eq d <i64> cast 2 0 1
+//: ```
+
+#indent 4
+
+//: add: i64 の加算（mod 2^64）
+//:
+//: [目的/もくてき]:
+//: - i64 と i64 を加算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i64.add`、llvm は `add i64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - オーバーフロー時は下位 64-bit が残ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let a <i64> cast 40;
+//:     let b <i64> cast 2;
+//:     let r0 <i64> add a b;
+//:     assert eq r0 <i64> cast 42;
+//:     let a <i64> cast 0;
+//:     let b <i64> cast 7;
+//:     let r1 <i64> add a b;
+//:     assert eq r1 b;
+//: ```
+fn add <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.add
+    #if[target=llvm]
+    #llvmir:
+        define i64 @add(i64 %a, i64 %b) {
+        entry:
+            %0 = add i64 %a, %b
+            ret i64 %0
+        }
+
+//: sub: i64 の減算（mod 2^64）
+//:
+//: [目的/もくてき]:
+//: - i64 から i64 を減算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i64.sub`、llvm は `sub i64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 結果は 64-bit 符号付き値として解釈されますが、演算自体は 64-bit ラップです。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let a <i64> cast 44;
+//:     let b <i64> cast 2;
+//:     let r0 <i64> sub a b;
+//:     assert eq r0 <i64> cast 42;
+//:     let z <i64> cast 0;
+//:     let one <i64> cast 1;
+//:     let r1 <i64> sub z one;
+//:     assert lt r1 z;
+//: ```
+fn sub <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.sub
+    #if[target=llvm]
+    #llvmir:
+        define i64 @sub(i64 %a, i64 %b) {
+        entry:
+            %0 = sub i64 %a, %b
+            ret i64 %0
+        }
+
+//: mul: i64 の乗算（mod 2^64）
+//:
+//: [目的/もくてき]:
+//: - i64 と i64 を乗算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i64.mul`、llvm は `mul i64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 乗算結果が 64-bit を超える場合はラップします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let a <i64> cast 6;
+//:     let b <i64> cast 7;
+//:     let r0 <i64> mul a b;
+//:     assert eq r0 <i64> cast 42;
+//:     let z <i64> cast 0;
+//:     let n <i64> cast 999;
+//:     let r1 <i64> mul z n;
+//:     assert eq r1 z;
+//: ```
+fn mul <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.mul
+    #if[target=llvm]
+    #llvmir:
+        define i64 @mul(i64 %a, i64 %b) {
+        entry:
+            %0 = mul i64 %a, %b
+            ret i64 %0
+        }
+
+//: div_s: i64 の符号付き除算
+//:
+//: [目的/もくてき]:
+//: - i64 を符号付き整数として割り算します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.div_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 0 除算は trap します。
+//: - 最小値 `-2^63` を `-1` で割るケースも trap します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let n9 <i64> cast -9;
+//:     let p9 <i64> cast 9;
+//:     let p3 <i64> cast 3;
+//:     let n3 <i64> cast -3;
+//:     let p <i64> div_s n9 p3;
+//:     let q <i64> div_s p9 n3;
+//:     assert eq p <i64> cast -3;
+//:     assert eq q <i64> cast -3;
+//: ```
+fn div_s <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.div_s
+    #if[target=llvm]
+    #llvmir:
+        define i64 @div_s(i64 %a, i64 %b) {
+        entry:
+            %0 = sdiv i64 %a, %b
+            ret i64 %0
+        }
+
+//: div_u: i64 の符号なし除算
+//:
+//: [目的/もくてき]:
+//: - i64 を符号なし整数として割り算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i64.div_u`、llvm は `udiv i64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 0 除算は trap します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let a <i64> cast 100;
+//:     let b <i64> cast 9;
+//:     let r0 <i64> div_u a b;
+//:     assert eq r0 <i64> cast 11;
+//:     let a <i64> cast 9;
+//:     let b <i64> cast 10;
+//:     let r1 <i64> div_u a b;
+//:     assert eq r1 <i64> cast 0;
+//: ```
+fn div_u <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.div_u
+    #if[target=llvm]
+    #llvmir:
+        define i64 @div_u(i64 %a, i64 %b) {
+        entry:
+            %0 = udiv i64 %a, %b
+            ret i64 %0
+        }
+
+//: rem_s: i64 の符号付き剰余
+//:
+//: [目的/もくてき]:
+//: - i64 の符号付き剰余（余り）を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.rem_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 余りの符号は被除数（左辺）に従います。
+//: - 0 除算は trap します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let n10 <i64> cast -10;
+//:     let p10 <i64> cast 10;
+//:     let p3 <i64> cast 3;
+//:     let a <i64> rem_s n10 p3;
+//:     let b <i64> rem_s p10 p3;
+//:     assert eq a <i64> cast -1;
+//:     assert eq b <i64> cast 1;
+//: ```
+fn rem_s <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.rem_s
+    #if[target=llvm]
+    #llvmir:
+        define i64 @rem_s(i64 %a, i64 %b) {
+        entry:
+            %0 = srem i64 %a, %b
+            ret i64 %0
+        }
+
+//: rem_u: i64 の符号なし剰余
+//:
+//: [目的/もくてき]:
+//: - i64 の符号なし剰余を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i64.rem_u`、llvm は `urem i64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 戻り値は 0 以上かつ除数未満です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let a <i64> cast 100;
+//:     let b <i64> cast 9;
+//:     let r0 <i64> rem_u a b;
+//:     assert eq r0 <i64> cast 1;
+//:     let a <i64> cast 9;
+//:     let b <i64> cast 10;
+//:     let r1 <i64> rem_u a b;
+//:     assert eq r1 a;
+//: ```
+fn rem_u <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.rem_u
+    #if[target=llvm]
+    #llvmir:
+        define i64 @rem_u(i64 %a, i64 %b) {
+        entry:
+            %0 = urem i64 %a, %b
+            ret i64 %0
+        }
+
+//: and: i64 のビット AND
+//:
+//: [目的/もくてき]:
+//: - 2つの i64 の各ビットに AND を適用します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.and` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 演算は整数の符号とは無関係にビット単位で行われます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let a <i64> cast 14;
+//:     let b <i64> cast 11;
+//:     let r_and <i64> and a b;
+//:     let r_or <i64> or a b;
+//:     let r_xor <i64> xor a b;
+//:     assert eq r_and <i64> cast 10;
+//:     assert eq r_or <i64> cast 15;
+//:     assert eq r_xor <i64> cast 5;
+//: ```
+fn and <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.and
+    #if[target=llvm]
+    #llvmir:
+        define i64 @and(i64 %a, i64 %b) {
+        entry:
+            %0 = and i64 %a, %b
+            ret i64 %0
+        }
+
+//: or: i64 のビット OR
+//:
+//: [目的/もくてき]:
+//: - 2つの i64 の各ビットに OR を適用します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.or` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 真理値 OR ではなく、ビット論理和です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn or <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.or
+    #if[target=llvm]
+    #llvmir:
+        define i64 @or(i64 %a, i64 %b) {
+        entry:
+            %0 = or i64 %a, %b
+            ret i64 %0
+        }
+
+//: xor: i64 のビット XOR
+//:
+//: [目的/もくてき]:
+//: - 2つの i64 の各ビットに XOR を適用します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.xor` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 異なるビットのみ 1 になる排他的論理和です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn xor <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.xor
+    #if[target=llvm]
+    #llvmir:
+        define i64 @xor(i64 %a, i64 %b) {
+        entry:
+            %0 = xor i64 %a, %b
+            ret i64 %0
+        }
+
+//: shl: i64 の左シフト
+//:
+//: [目的/もくてき]:
+//: - i64 のビット列を左へシフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.shl` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - シフト量は Wasm 仕様に従い下位 6 bit が使われます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shl <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.shl
+    #if[target=llvm]
+    #llvmir:
+        define i64 @shl(i64 %a, i64 %b) {
+        entry:
+            %0 = shl i64 %a, %b
+            ret i64 %0
+        }
+
+//: shr_s: i64 の算術右シフト
+//:
+//: [目的/もくてき]:
+//: - i64 を符号付き整数として右へシフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.shr_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 最上位ビット（符号ビット）が埋め戻されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shr_s <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.shr_s
+    #if[target=llvm]
+    #llvmir:
+        define i64 @shr_s(i64 %a, i64 %b) {
+        entry:
+            %0 = ashr i64 %a, %b
+            ret i64 %0
+        }
+
+//: shr_u: i64 の論理右シフト
+//:
+//: [目的/もくてき]:
+//: - i64 を符号なし整数として右へシフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.shr_u` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 上位ビットは 0 で埋められます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shr_u <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.shr_u
+    #if[target=llvm]
+    #llvmir:
+        define i64 @shr_u(i64 %a, i64 %b) {
+        entry:
+            %0 = lshr i64 %a, %b
+            ret i64 %0
+        }
+
+//: rotl: i64 の左ローテート
+//:
+//: [目的/もくてき]:
+//: - i64 のビット列を左へ循環シフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.rotl` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - シフトで失われるビットは下位側へ回り込みます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn rotl <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.rotl
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.fshl.i64(i64, i64, i64)
+        define i64 @rotl(i64 %a, i64 %b) {
+        entry:
+            %0 = call i64 @llvm.fshl.i64(i64 %a, i64 %a, i64 %b)
+            ret i64 %0
+        }
+
+//: rotr: i64 の右ローテート
+//:
+//: [目的/もくてき]:
+//: - i64 のビット列を右へ循環シフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.rotr` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - シフトで失われるビットは上位側へ回り込みます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn rotr <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.rotr
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.fshr.i64(i64, i64, i64)
+        define i64 @rotr(i64 %a, i64 %b) {
+        entry:
+            %0 = call i64 @llvm.fshr.i64(i64 %a, i64 %a, i64 %b)
+            ret i64 %0
+        }
+
+//: clz: 先頭ゼロビット数の計算
+//:
+//: [目的/もくてき]:
+//: - i64 の先頭側に連続する 0 bit の個数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.clz` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力が 0 のときは 64 を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn clz <(i64)->i64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i64.clz
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.ctlz.i64(i64, i1)
+        define i64 @clz(i64 %a) {
+        entry:
+            %0 = call i64 @llvm.ctlz.i64(i64 %a, i1 false)
+            ret i64 %0
+        }
+
+//: ctz: 末尾ゼロビット数の計算
+//:
+//: [目的/もくてき]:
+//: - i64 の末尾側に連続する 0 bit の個数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.ctz` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力が 0 のときは 64 を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ctz <(i64)->i64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i64.ctz
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.cttz.i64(i64, i1)
+        define i64 @ctz(i64 %a) {
+        entry:
+            %0 = call i64 @llvm.cttz.i64(i64 %a, i1 false)
+            ret i64 %0
+        }
+
+//: popcnt: 1 ビット数の計算
+//:
+//: [目的/もくてき]:
+//: - i64 に立っている 1 bit の個数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.popcnt` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - ハミング重み（population count）として利用できます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn popcnt <(i64)->i64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i64.popcnt
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.ctpop.i64(i64)
+        define i64 @popcnt(i64 %a) {
+        entry:
+            %0 = call i64 @llvm.ctpop.i64(i64 %a)
+            ret i64 %0
+        }
+
+//: eq: i64 の等値比較
+//:
+//: [目的/もくてき]:
+//: - 2つの i64 が等しいかを判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.eq` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 比較はビット列が一致するかで判定されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let a <i64> cast -1;
+//:     let b <i64> cast 1;
+//:     let c <i64> cast -2;
+//:     let d <i64> cast -1;
+//:     assert eq a d;
+//:     assert ne a b;
+//:     assert lt c d;
+//:     assert gt_u a b;
+//: ```
+fn eq <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.eq
+    #if[target=llvm]
+    #llvmir:
+        define i32 @eq(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp eq i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ne: i64 の非等値比較
+//:
+//: [目的/もくてき]:
+//: - 2つの i64 が異なるかを判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.ne` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - `eq` の否定と同値です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ne <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.ne
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ne(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ne i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: lt: i64 の符号付き小なり比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号付き整数として `a < b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.lt_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 負数を含む順序関係を使うときはこちらを使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn lt <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.lt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @lt(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp slt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: lt_u: i64 の符号なし小なり比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号なし整数として `a < b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.lt_u` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 上位ビットが立っている値は大きな正数として扱われます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn lt_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.lt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @lt_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ult i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: le: i64 の符号付き以下比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号付き整数として `a <= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.le_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - `lt` と `eq` の和集合と同じ真理値になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn le <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.le_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @le(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp sle i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: le_u: i64 の符号なし以下比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号なし整数として `a <= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.le_u` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 符号付き比較とは結果が異なる場合があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn le_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.le_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @le_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ule i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: gt: i64 の符号付き大なり比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号付き整数として `a > b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.gt_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 負数を含む大小比較に使用します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn gt <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.gt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @gt(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp sgt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: gt_u: i64 の符号なし大なり比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号なし整数として `a > b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.gt_u` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 上位ビットが立つ値は大きい値として判定されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn gt_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.gt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @gt_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ugt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ge: i64 の符号付き以上比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号付き整数として `a >= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.ge_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - `gt` または `eq` が真なら真になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ge <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.ge_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ge(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp sge i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ge_u: i64 の符号なし以上比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号なし整数として `a >= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.ge_u` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - `gt_u` または `eq` が真なら真になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ge_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.ge_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ge_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp uge i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
