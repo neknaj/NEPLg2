@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:12.741Z",
+  "generated_at": "2026-04-30T14:41:14.220Z",
   "counts": {
-    "total": 470,
+    "total": 471,
     "open": 16,
-    "resolved": 454,
+    "resolved": 455,
     "by_area": {
       "core": {
         "total": 208,
@@ -22,9 +22,9 @@
         "resolved": 143
       },
       "TEST": {
-        "total": 10,
+        "total": 11,
         "open": 1,
-        "resolved": 9
+        "resolved": 10
       },
       "cli": {
         "total": 19,
@@ -5233,6 +5233,21 @@
       "legacy_id": "",
       "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
       "file": "items/ISS-20260430T125244690Z-STDLIB-RESULT-DOCTEST-USES-STD-TEST--F99DF5C9.md"
+    },
+    {
+      "id": "ISS-20260430T125624124Z-STDLIB-MATH-DOCTEST-KEEPS-RET-METADA-35B82C86",
+      "title": "stdlib math doctest keeps ret metadata despite stdout report",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/tests/math.n.md",
+      "legacy_id": "",
+      "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "file": "items/ISS-20260430T125624124Z-STDLIB-MATH-DOCTEST-KEEPS-RET-METADA-35B82C86.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

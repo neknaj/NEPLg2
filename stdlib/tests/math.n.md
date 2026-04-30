@@ -3,7 +3,36 @@
 ## math_main
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
+    ##: [11] ok
+    ##: [12] ok
+    ##: [13] ok
+    ##: [14] ok
+    ##: [15] ok
+    ##: [16] ok
+    ##: [17] ok
+    ##: [18] ok
+    ##: [19] ok
+    ##: [20] ok
+    ##: [21] ok
+    ##: [22] ok
+    ##: [23] ok
+    ##: [24] ok
+    ##: [25] ok
+    ##: [26] ok
 ```neplg2
 
 #entry main

@@ -128,3 +128,13 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 検証:
 
 - `node nodesrc/tests.js -i stdlib/tests/result.n.md --no-tree -o tmp/stdlib-result-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1
+
+## 2026-04-30 stdlib math report metadata migration
+
+`ISS-20260430T125624124Z-STDLIB-MATH-DOCTEST-KEEPS-RET-METADA-35B82C86` で、`stdlib/tests/math.n.md` の metadata を `exit_code: 0` へ移行し、既存の `checks_print_report` stdout をfixtureに固定した。
+
+この fixture は report 出力自体は行っていたが、`ret: 0` のままで stdout expectation がなかったため、report format の regression を `.n.md` で比較できなかった。今回の対応で27件の assertion reportを stdout として固定した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/tests/math.n.md --no-tree -o tmp/stdlib-math-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1
