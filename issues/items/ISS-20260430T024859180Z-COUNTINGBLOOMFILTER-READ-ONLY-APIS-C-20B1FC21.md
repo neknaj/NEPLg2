@@ -2,8 +2,8 @@
 id: ISS-20260430T024859180Z-COUNTINGBLOOMFILTER-READ-ONLY-APIS-C-20B1FC21
 title: "CountingBloomFilter read-only APIs consume owners by value instead of borrowing"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-30
@@ -41,3 +41,18 @@ Redesign CountingBloomFilter observer APIs to take &CountingBloomFilter, update 
 ## 検証
 
 Add tests that perform borrowed len/contains checks after insert/remove operations and then explicitly free the same CountingBloomFilter owner.
+
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/tests/counting_bloom_filter.n.md --no-tree -o tmp/counting-bloom-stdlib-borrowed-observers.json -j 1` (`total=2`, `passed=2`, `failed=0`)
+- `node nodesrc/tests.js -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/counting-bloom-collections-borrowed-observers.json -j 1` (`total=2`, `passed=2`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib/alloc/collections/counting_bloom_filter.nepl --no-tree -o tmp/counting-bloom-doctest-borrowed-observers.json -j 1` (`total=6`, `passed=6`, `failed=0`)
+- `node nodesrc/test_stdlib_counting_bloom_filter_borrowed_observers.js`: passed
+- `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: passed
+- `node nodesrc/issues.js check`: passed
+
+## 修正内容
+
+- `CountingBloomFilter.len` と `CountingBloomFilter.contains` を `&CountingBloomFilter<.T,.H>` receiver に変更し、読み取りで owner を移動しない公開 API にした。
+- CountingBloomFilter doctest / `.n.md` tests を、borrowed observer の後で同じ owner を `free` する形に直した。
+- `nodesrc/test_stdlib_counting_bloom_filter_borrowed_observers.js` を追加し、by-value observer signature と by-value test usage が戻らないよう source policy に登録した。

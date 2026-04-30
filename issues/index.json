@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T03:06:21.815Z",
+  "generated_at": "2026-04-30T03:11:35.691Z",
   "counts": {
     "total": 430,
-    "open": 20,
-    "resolved": 410,
+    "open": 19,
+    "resolved": 411,
     "by_area": {
       "core": {
         "total": 195,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 133,
-        "open": 10,
-        "resolved": 123
+        "open": 9,
+        "resolved": 124
       },
       "TEST": {
         "total": 7,
@@ -248,21 +248,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T023401649Z-SELFHOST-REQ-FAILS-STRICT-OWNER-GATE-F0FF69D6.md"
-    },
-    {
-      "id": "ISS-20260430T024859180Z-COUNTINGBLOOMFILTER-READ-ONLY-APIS-C-20B1FC21",
-      "title": "CountingBloomFilter read-only APIs consume owners by value instead of borrowing",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "stdlib/alloc/collections/counting_bloom_filter.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T024859180Z-COUNTINGBLOOMFILTER-READ-ONLY-APIS-C-20B1FC21.md"
     },
     {
       "id": "ISS-20260430T024859462Z-FENWICK-SUM-OBSERVER-APIS-CONSUME-OW-2BB59F00",
@@ -4673,6 +4658,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T024858788Z-BLOOMFILTER-READ-ONLY-APIS-CONSUME-O-B8202860.md"
+    },
+    {
+      "id": "ISS-20260430T024859180Z-COUNTINGBLOOMFILTER-READ-ONLY-APIS-C-20B1FC21",
+      "title": "CountingBloomFilter read-only APIs consume owners by value instead of borrowing",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/counting_bloom_filter.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T024859180Z-COUNTINGBLOOMFILTER-READ-ONLY-APIS-C-20B1FC21.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

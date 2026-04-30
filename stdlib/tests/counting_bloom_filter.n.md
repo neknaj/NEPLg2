@@ -20,15 +20,18 @@ fn main <()*>i32> ():
         |> insert 4
         |> insert 9
         |> insert 15
-    let ok0 <bool> contains bf0 9;
+    let ok0 <bool> contains &bf0 9;
+    let ok1 <bool> eq len &bf0 64;
+    free bf0
     let bf1 <CountingBloomFilter<i32, DefaultHash32>>:
         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
         |> insert 4
         |> insert 9
         |> insert 15
         |> remove 9
-    let ok1 <bool> eq len bf1 64;
-    if and ok0 ok1 1 0
+    let ok2 <bool> eq len &bf1 64;
+    free bf1
+    if and ok0 and ok1 ok2 1 0
 ```
 
 ## counting_bloom_filter_clear
@@ -50,6 +53,7 @@ fn main <()*>i32> ():
         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
         |> insert 7
         |> clear
-    let ok0 <bool> not contains bf0 7;
+    let ok0 <bool> not contains &bf0 7;
+    free bf0
     if ok0 1 0
 ```
