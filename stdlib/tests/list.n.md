@@ -3,7 +3,23 @@
 ## list_main
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
+    ##: [11] ok
+    ##: [12] ok
+    ##: [13] ok
 ```neplg2
 
 #entry main
@@ -111,7 +127,19 @@ fn main <()*>i32> ():
 ## list_functional_helpers
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
 ```neplg2
 
 #entry main

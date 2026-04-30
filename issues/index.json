@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:15.567Z",
+  "generated_at": "2026-04-30T14:41:16.996Z",
   "counts": {
-    "total": 472,
+    "total": 473,
     "open": 16,
-    "resolved": 456,
+    "resolved": 457,
     "by_area": {
       "core": {
         "total": 208,
@@ -22,9 +22,9 @@
         "resolved": 143
       },
       "TEST": {
-        "total": 12,
+        "total": 13,
         "open": 1,
-        "resolved": 11
+        "resolved": 12
       },
       "cli": {
         "total": 19,
@@ -5263,6 +5263,21 @@
       "legacy_id": "",
       "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
       "file": "items/ISS-20260430T125946580Z-STDLIB-CAST-DOCTEST-KEEPS-RET-METADA-B6A0E1B5.md"
+    },
+    {
+      "id": "ISS-20260430T130514815Z-STDLIB-LIST-DOCTESTS-KEEP-RET-METADA-7DD9F2F5",
+      "title": "stdlib list doctests keep ret metadata despite stdout reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/tests/list.n.md",
+      "legacy_id": "",
+      "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "file": "items/ISS-20260430T130514815Z-STDLIB-LIST-DOCTESTS-KEEP-RET-METADA-7DD9F2F5.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",
