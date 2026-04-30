@@ -1215,6 +1215,7 @@ impl<'a> Monomorphizer<'a> {
                 params,
                 result,
                 args,
+                ..
             } => {
                 self.substitute_expr(callee, mapping, local_names);
                 for param in params.iter_mut() {

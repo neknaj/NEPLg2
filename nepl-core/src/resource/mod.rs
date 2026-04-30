@@ -70,7 +70,8 @@ pub use coverage::{
 };
 pub use effect::{
     check_resource_effect_boundaries, ResourceEffectBoundaryDiagnostic,
-    ResourceEffectBoundaryReport, ResourceEffectCounts, ResourceEffectFunctionCheck,
+    ResourceEffectBoundaryReport, ResourceEffectCallKind, ResourceEffectCounts,
+    ResourceEffectFunctionCheck,
 };
 pub use initialized::check_resource_initialized_moves;
 pub use lower::{lower_hir_module, lower_hir_module_skeleton};

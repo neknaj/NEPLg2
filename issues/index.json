@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T07:49:21.845Z",
+  "generated_at": "2026-04-30T08:11:04.355Z",
   "counts": {
     "total": 457,
-    "open": 15,
-    "resolved": 442,
+    "open": 14,
+    "resolved": 443,
     "by_area": {
       "core": {
         "total": 203,
-        "open": 7,
-        "resolved": 196
+        "open": 6,
+        "resolved": 197
       },
       "stdlib": {
         "total": 148,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260430T064827021Z-RESOURCE-IR-INDIRECT-CALLS-KEEP-UNKN-E9B29774",
-      "title": "Resource IR indirect calls keep unknown effect instead of typed effect summary",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource/lower.rs, nepl-core/src/resource/effect_check.rs, nepl-core/src/hir.rs, nepl-core/src/typecheck/indirect_apply.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T064827021Z-RESOURCE-IR-INDIRECT-CALLS-KEEP-UNKN-E9B29774.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3178,6 +3163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T063111361Z-RESOURCE-IR-LACKS-VALUE-REFINED-OWNE-9B53C97C.md"
+    },
+    {
+      "id": "ISS-20260430T064827021Z-RESOURCE-IR-INDIRECT-CALLS-KEEP-UNKN-E9B29774",
+      "title": "Resource IR indirect calls keep unknown effect instead of typed effect summary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/lower.rs, nepl-core/src/resource/effect_check.rs, nepl-core/src/hir.rs, nepl-core/src/typecheck/indirect_apply.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T064827021Z-RESOURCE-IR-INDIRECT-CALLS-KEEP-UNKN-E9B29774.md"
     },
     {
       "id": "ISS-20260430T070449791Z-FALLIBLE-OWNER-EFFECTS-DO-NOT-RESERV-32CC9198",

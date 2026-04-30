@@ -307,6 +307,7 @@ pub enum BorrowKind {
 pub enum EffectOp {
     Pure,
     UserCall { name: String, effect: Effect },
+    IndirectCall { effect: Effect },
     InternalAlloc,
     UnsafeMemory { operation: String },
     ExternalIo { operation: String },

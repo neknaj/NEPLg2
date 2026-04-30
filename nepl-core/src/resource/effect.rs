@@ -34,6 +34,11 @@ pub struct ResourceEffectCounts {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResourceEffectBoundaryDiagnostic {
+    ImpureCallInPureFunction {
+        function: String,
+        call: ResourceEffectCallKind,
+        span: Span,
+    },
     UnsafeMemoryInPureFunction {
         function: String,
         operation: String,
@@ -44,6 +49,12 @@ pub enum ResourceEffectBoundaryDiagnostic {
         place: Place,
         span: Span,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResourceEffectCallKind {
+    Direct { name: String },
+    Indirect,
 }
 
 pub fn check_resource_effect_boundaries(module: &ResourceModule) -> ResourceEffectBoundaryReport {

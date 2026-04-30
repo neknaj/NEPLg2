@@ -1093,6 +1093,7 @@ fn gen_expr(
             params,
             result,
             args,
+            ..
         } => {
             for arg in args {
                 gen_expr(ctx, arg, name_map, sig_map, strings, locals, insts)?;

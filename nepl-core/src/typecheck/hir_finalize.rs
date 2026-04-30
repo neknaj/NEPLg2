@@ -55,6 +55,7 @@ pub(super) fn resolve_type_ids_in_expr(ctx: &TypeCtx, expr: &mut HirExpr) {
                 callee,
                 params,
                 result,
+                effect: _,
                 args,
             } => {
                 pending.push(callee);

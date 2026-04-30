@@ -1865,6 +1865,7 @@ fn lower_hir_expr(
             params,
             result,
             args,
+            ..
         } => {
             let Some(callee_v) = lower_hir_expr(types, ctx, callee)? else {
                 llvm_codegen_bail!(

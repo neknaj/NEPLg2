@@ -95,6 +95,7 @@ pub enum HirExprKind {
         callee: Box<HirExpr>,
         params: Vec<TypeId>,
         result: TypeId,
+        effect: Effect,
         args: Vec<HirExpr>,
     },
     If {

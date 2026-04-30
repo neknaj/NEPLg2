@@ -506,6 +506,7 @@ fn dump_effect(effect: &EffectOp) -> String {
     match effect {
         EffectOp::Pure => String::from("pure"),
         EffectOp::UserCall { name, effect } => format!("call({},{:?})", name, effect),
+        EffectOp::IndirectCall { effect } => format!("indirect_call({:?})", effect),
         EffectOp::InternalAlloc => String::from("internal_alloc"),
         EffectOp::UnsafeMemory { operation } => format!("unsafe_memory({})", operation),
         EffectOp::ExternalIo { operation } => format!("external_io({})", operation),
