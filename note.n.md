@@ -28925,6 +28925,33 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - Stage 4 の owner token / free obligation summary を、未精査 Result の path-dependent reservation まで含めて扱う形に進めた。
 
+# 2026-04-30 note (ISS-20260430T140641137Z from_f64_result scratch buffer)
+
+- [同期]:
+  - `origin/main` の `14dd6b3c` を取り込んだ状態から、branch `fix/from-f64-result-scratch-buffer` で対応した。
+- [原因]:
+  - `from_f64_result` が小数 6 桁を `alloc_ptr<u8> 6` の scratch buffer に生成し、`string_from_mem_unchecked_result scratch trim` で `str` 化した後、同じ `scratch_raw` を `dealloc_raw` していた。
+  - この raw owner と `MemPtr` owner の境界が Resource IR から MaybeMoved に見え、HashMap/HashSet doctest が collection logic へ進む前に `resource.cell.possibly_moved` で落ちていた。
+- [修正]:
+  - `from_f64_result` の scratch buffer を廃止し、小数 digit は局所 `i32` 値として 6 桁だけ生成するようにした。
+  - trim 判定を `from_f64_fraction_trim_len` に分離し、出力組み立ては `from_f64_build_fixed_result` / `from_f64_append_fraction_result` で `StringBuilder` の所有 API に集約した。
+  - `from_f64` の値レベル doctestを追加し、`1`、`1.25`、`-0.5` の出力を確認するようにした。
+  - `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` に、`from_f64_result` への raw scratch 経路再導入を拒否する source policy を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/from-f64-result-string-nepl-3.json -j 1`: `10 total / 10 passed`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl --no-tree -o tmp/from-f64-result-hashmap.json -j 1`: `from_f64_result` failure は消え、既知の `str_split_result` owner may leak が露出。
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashset.nepl --no-tree -o tmp/from-f64-result-hashset.json -j 1`: `from_f64_result` failure は消え、既知の `str_split_result` owner may leak が露出。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規 alloc/string policy は passed。既存の `owner_summary_variant_paths.rs` responsibility split warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1` を fixed/resolved に更新した。
+  - HashMap/HashSet で次に露出した `str_split_result` owner 問題は既存 `ISS-20260430T023401649Z-SELFHOST-REQ-FAILS-STRICT-OWNER-GATE-F0FF69D6` で追跡する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - selfhost 向け stdlib string numeric formatter を、raw memory workaround ではなく `StringBuilder` owner 境界で Resource IR に乗る設計へ寄せた。
+
 # 2026-04-30 note (ISS-20260430T064827021Z typed indirect call effects)
 
 - [同期]:

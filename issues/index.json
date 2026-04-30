@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:49:36.145Z",
+  "generated_at": "2026-04-30T15:11:08.615Z",
   "counts": {
     "total": 461,
-    "open": 15,
-    "resolved": 446,
+    "open": 14,
+    "resolved": 447,
     "by_area": {
       "core": {
         "total": 205,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 149,
-        "open": 7,
-        "resolved": 142
+        "open": 6,
+        "resolved": 143
       },
       "TEST": {
         "total": 7,
@@ -238,21 +238,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
-    },
-    {
-      "id": "ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1",
-      "title": "from_f64_result scratch buffer reintroduces Resource IR moved-cell failures",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "stdlib/alloc/string.nepl, stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl, GitHub Actions run 25157230630 stdlib-test",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -5023,6 +5008,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T044235959Z-VEC-MODULE-DOCTESTS-LEAK-OWNERS-UNDE-EB5A5659.md"
+    },
+    {
+      "id": "ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1",
+      "title": "from_f64_result scratch buffer reintroduces Resource IR moved-cell failures",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/string.nepl, stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl, GitHub Actions run 25157230630 stdlib-test",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
