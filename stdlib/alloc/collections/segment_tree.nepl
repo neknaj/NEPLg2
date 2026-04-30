@@ -15,6 +15,7 @@
 //: - [現在/げんざい]は `i32` の[加算/かさん] monoid に[固定/こてい]しています。
 //: - `new` / `replace` / `add` は `Result` を[返/かえ]します。
 //: - `sum_range` は `[l, r)` を[返/かえ]し、[不正/ふせい] range は `Result::Err Diag` です。
+//: - [読/よ]み[取/と]りだけの[処理/しょり]では `len &st` / `sum_range &st l r` のように borrow して、[最後/さいご]に `free st` で owner を[閉/と]じます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - `len` は O(1)。
@@ -79,7 +80,9 @@ fn seg_next_pow2 <(i32)->i32> (n):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let st <SegmentTree> unwrap_ok<SegmentTree, Diag> new 5;
-//:     if eq len st 5 1 0
+//:     let ok <bool> eq len &st 5;
+//:     free st
+//:     if ok 1 0
 //: ```
 fn new <(i32)*>Result<SegmentTree, Diag>> (n):
     if:
@@ -101,10 +104,11 @@ fn new <(i32)*>Result<SegmentTree, Diag>> (n):
 
 //: ## len
 //: [保持/ほじ]している[長/なが]さを[返/かえ]す
-fn len <(SegmentTree)->i32> (st):
-    field::get st "n"
-
-fn len_ref <(&SegmentTree)->i32> (st):
+//:
+//: ### [仕様/しよう]
+//: - `SegmentTree` owner は[消費/しょうひ]しません。
+//: - caller は `len` [後/ご]も同じ `SegmentTree` を[使/つか]い、不要になったら `free` できます。
+fn len <(&SegmentTree)->i32> (st):
     *field::get_ref st "n"
 
 //: ## replace
@@ -121,6 +125,7 @@ fn len_ref <(&SegmentTree)->i32> (st):
 //:     let st0 <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
 //:     let st1 <SegmentTree> unwrap_ok<SegmentTree, Diag> replace st0 1 5;
 //:     let total <i32> unwrap_ok<i32, Diag> sum_range &st1 0 4;
+//:     free st1
 //:     if eq total 5 1 0
 //: ```
 fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, value):
@@ -160,6 +165,7 @@ fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, value):
 //:         |> add 0 2 |> uwok
 //:         |> add 3 5 |> uwok
 //:     let total <i32> unwrap_ok<i32, Diag> sum_range &st 0 4;
+//:     free st
 //:     if eq total 7 1 0
 //: ```
 fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, delta):
@@ -203,6 +209,7 @@ fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, delta):
 //:         |> replace 2 3 |> uwok
 //:         |> replace 3 4 |> uwok
 //:     let total <i32> unwrap_ok<i32, Diag> sum_range &st 1 4;
+//:     free st
 //:     if eq total 9 1 0
 //: ```
 fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
@@ -262,6 +269,6 @@ fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
 //:     0
 //: ```
 fn free <(SegmentTree)->()> (st):
-    let base <i32> *field::get_ref &st "base"
-    let data <MemPtr<i32>> *field::get_ref &st "data"
+    let base <i32> field::get st "base"
+    let data <MemPtr<i32>> field::get st "data"
     dealloc_raw mem_ptr_addr data mul mul base 2 4

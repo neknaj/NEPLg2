@@ -7,9 +7,11 @@
 
 [何/なに]を[確/たし]かめるか:
 - `new`
+- `len`
 - `replace`
 - `add`
 - `sum_range`
+- `free`
 
 neplg2:test
 ret: 1
@@ -29,7 +31,10 @@ fn main <()*>i32> ():
         |> replace 2 4 |> uwok
         |> add 2 1 |> uwok
     let total <i32> unwrap_ok<i32, Diag> sum_range &st 0 3;
-    if eq total 7 1 0
+    let ok_len <bool> eq len &st 5;
+    free st
+    let ok_total <bool> eq total 7;
+    if and ok_len ok_total 1 0
 ```
 
 ## segment_tree_update_free_reallocates
@@ -69,5 +74,6 @@ fn main <()*>i32> ():
         |> replace 4 6 |> uwok
         |> add 4 1 |> uwok
     let total <i32> unwrap_ok<i32, Diag> sum_range &st0 4 5;
+    free st0
     if eq total 7 1 0
 ```

@@ -18,13 +18,17 @@ fn main <()*>i32> ():
     let st1 <SegmentTree> unwrap_ok<SegmentTree, Diag> replace st0 2 5;
     let st2 <SegmentTree> unwrap_ok<SegmentTree, Diag> add st1 4 3;
     let total0 <i32> unwrap_ok<i32, Diag> sum_range &st2 0 6;
+    let ok_len <bool> eq len &st2 6;
+    free st2
     let st3 <SegmentTree> unwrap_ok<SegmentTree, Diag> new 6;
     let st4 <SegmentTree> unwrap_ok<SegmentTree, Diag> replace st3 2 5;
     let st5 <SegmentTree> unwrap_ok<SegmentTree, Diag> add st4 4 3;
     let total1 <i32> unwrap_ok<i32, Diag> sum_range &st5 2 5;
+    free st5
     let ok0 <bool> eq total0 8;
     let ok1 <bool> eq total1 8;
-    if and ok0 ok1 1 0
+    let ok <bool> and ok_len and ok0 ok1;
+    if ok 1 0
 ```
 
 ## segment_tree_invalid_range
@@ -42,10 +46,14 @@ ret: 1
 
 fn main <()*>i32> ():
     let st0 <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
-    let r0 <Result<SegmentTree, Diag>> replace st0 9 1;
-    let st1 <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
-    let r1 <Result<i32, Diag>> sum_range &st1 3 1;
-    let ok0 <bool> is_err<SegmentTree, Diag> r0;
-    let ok1 <bool> is_err<i32, Diag> r1;
-    if and ok0 ok1 1 0
+    match replace st0 9 1:
+        Result::Ok st_bad:
+            free st_bad
+            0
+        Result::Err _e0:
+            let st1 <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
+            let r1 <Result<i32, Diag>> sum_range &st1 3 1;
+            let ok1 <bool> is_err<i32, Diag> r1;
+            free st1
+            if ok1 1 0
 ```

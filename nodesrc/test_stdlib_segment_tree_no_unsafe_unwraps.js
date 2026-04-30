@@ -29,6 +29,8 @@ for (const pattern of forbidden) {
 assert.match(code, /fn\s+seg_store_owned\s+/, 'SegmentTree must centralize owned array raw stores');
 assert.match(code, /fn\s+seg_load_owned\s+/, 'SegmentTree must centralize owned array loads');
 assert.match(code, /fn\s+free\s+<\(SegmentTree\)->\(\)>\s+\(st\):[\s\S]*dealloc_raw\s+mem_ptr_addr\s+data\s+mul\s+mul\s+base\s+2\s+4/, 'SegmentTree.free must use raw owner cleanup for tree storage');
+assert.match(code, /fn\s+free\s+<\(SegmentTree\)->\(\)>\s+\(st\):[\s\S]*field::get\s+st\s+"data"/, 'SegmentTree.free must consume the data owner field');
+assert.doesNotMatch(code, /fn\s+free\s+<\(SegmentTree\)->\(\)>\s+\(st\):[\s\S]*field::get_ref\s+&st\s+"data"/, 'SegmentTree.free must not borrow-read the data owner field');
 assert.doesNotMatch(code, /dealloc_ptr/, 'SegmentTree must not use checked deallocation for owned internals');
 
 console.log('segment tree unsafe unwrap regression passed');
