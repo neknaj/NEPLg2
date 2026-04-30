@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T04:31:11.589Z",
+  "generated_at": "2026-04-30T04:34:06.150Z",
   "counts": {
-    "total": 438,
+    "total": 439,
     "open": 14,
-    "resolved": 424,
+    "resolved": 425,
     "by_area": {
       "core": {
         "total": 195,
@@ -12,9 +12,9 @@
         "resolved": 190
       },
       "stdlib": {
-        "total": 141,
+        "total": 142,
         "open": 7,
-        "resolved": 134
+        "resolved": 135
       },
       "TEST": {
         "total": 7,
@@ -4748,6 +4748,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T041803682Z-DISJOINTSET-OBSERVER-AND-FREE-CONTRA-4A69180E.md"
+    },
+    {
+      "id": "ISS-20260430T042326094Z-DISJOINTSET-UNION-ERROR-PATH-DESTROY-BF72D38B",
+      "title": "DisjointSet union error path destroys owner instead of returning it",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/disjoint_set.nepl, stdlib/tests/disjoint_set.n.md, tests/stdlib/disjoint_set_collections.n.md, nodesrc/test_stdlib_disjoint_set_union_error_owner.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T042326094Z-DISJOINTSET-UNION-ERROR-PATH-DESTROY-BF72D38B.md"
     },
     {
       "id": "ISS-20260430T042346891Z-VEC-WITH-CAPACITY-ACCEPTS-NEGATIVE-C-9EF67482",

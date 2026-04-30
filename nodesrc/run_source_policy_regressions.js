@@ -48,6 +48,7 @@ const checks = [
     "nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_disjoint_set_borrowed_observers.js",
+    "nodesrc/test_stdlib_disjoint_set_union_error_owner.js",
     "nodesrc/test_stdlib_list_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_sparse_set_borrowed_observers.js",

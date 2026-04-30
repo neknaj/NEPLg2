@@ -45,8 +45,11 @@ Run Vec collection tests, Vec source policy, issues check, and diff check. `stdl
 
 確認済み:
 
-- `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-negative-capacity-collections.json -j 1 --dist web/dist`: `total=3`, `passed=3`
+- `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-negative-capacity-after-disjoint-merge.json -j 1 --dist web/dist`: `total=3`, `passed=3`
 - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+- `node nodesrc/run_source_policy_regressions.js`: passed
+- `node nodesrc/issues.js check`: passed (`files=439`)
+- `git diff --check`: passed
 
 既存残件:
 

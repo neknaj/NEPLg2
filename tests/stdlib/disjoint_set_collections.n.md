@@ -142,3 +142,38 @@ fn main <()*>i32> ():
             ok
     if and and len_ok find_err_ok and free_ok realloc_ok 1 0
 ```
+
+## disjoint_set_union_error_returns_owner
+
+[目的/もくてき]:
+- `union` の[範囲外/はんいがい] error が `DisjointSet` owner を[失/うしな]わず、caller が[回収/かいしゅう]して `free` できることを[確認/かくにん]します。
+
+[何/なに]を[確/たし]かめるか:
+- `union`
+- `disjoint_set_update_error_owner`
+- `len`
+- `free`
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/disjoint_set" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let dsu <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
+    match union dsu 1 9:
+        Result::Ok next:
+            free next
+            0
+        Result::Err e:
+            let recovered <DisjointSet> disjoint_set_update_error_owner e
+            let ok <bool> eq len &recovered 4
+            free recovered
+            if ok 1 0
+```

@@ -28380,6 +28380,7 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 
 - [同期]:
   - 作業開始前に `origin/main` を `b26568dc fix(stdlib): borrow disjoint set observers` まで fast-forward した。
+  - branch push 後に `origin/main` が `e35215fb fix(stdlib): return disjoint set owner on union errors` まで進んだため、main を取り込んで issue index/note を統合した。
   - 作業 branch は `fix/vec-negative-capacity-20260430`。
 - [原因]:
   - `Vec.with_capacity` は `cap == 0` だけを特別扱いし、`cap < 0` を `alloc_ptr<.T> mul cap size_of<.T>` に渡し得た。
@@ -28390,8 +28391,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `tests/stdlib/vec_collections.n.md` に negative capacity regression を追加した。
   - `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に source policy を追加した。
 - [検証]:
-  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-negative-capacity-collections.json -j 1 --dist web/dist`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-negative-capacity-after-disjoint-merge.json -j 1 --dist web/dist`: `total=3`, `passed=3`
   - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `node nodesrc/issues.js check`: passed (`files=439`)
+  - `git diff --check`: passed
   - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/vec-negative-capacity-stdlib.json -j 1 --dist web/dist`: existing ResourceIR owner leak / timeout failures remain
   - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-negative-capacity-doctests.json -j 1 --dist web/dist`: existing Vec doctest ResourceIR owner failures remain
 - [issue]:
@@ -28400,3 +28404,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Vec の最終 typed owner storage 化は未実施で、今回は allocator 境界へ負 size を渡さない public API guard を先に固定した。
+
+# 2026-04-30 note (ISS-20260430T042326094Z DisjointSet union error owner recovery)
+
+- [同期]:
+  - `main` で `b26568dc` まで push/pull 済みの状態から、作業 branch `work/disjoint-set-union-error-owner` を作成した。
+- [原因]:
+  - `DisjointSet.union` は `DisjointSet` owner を値で受け取る update API なのに、範囲外 branch で `free dsu` してから `Err(Diag)` を返していた。
+  - caller は診断を見たあとで元の set を再利用/cleanup する選択肢を失い、他の raw-memory-backed collection の owner 返却付き update error contract と不整合だった。
+- [修正]:
+  - `DisjointSetUpdateError` を追加し、`owner <DisjointSet>` と `diag <Diag>` を分けた。
+  - `disjoint_set_update_error_diag` / `disjoint_set_update_error_owner` を追加した。
+  - `union` の戻り値を `Result<DisjointSet, DisjointSetUpdateError>` に変更し、範囲外 branch は元 owner を error payload に戻すようにした。
+  - stdlib / collection tests を、Err 後に owner を回収して `free` する形へ更新した。
+  - `nodesrc/test_stdlib_disjoint_set_union_error_owner.js` を追加し、source policy に登録した。
+- [検証]:
+  - `node nodesrc/test_stdlib_disjoint_set_union_error_owner.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl --no-tree -o tmp/disjoint-set-union-error-owner-doctests.json -j 1`: `total=6`, `passed=6`
+  - `node nodesrc/tests.js -i stdlib/tests/disjoint_set.n.md --no-tree -o tmp/disjoint-set-union-error-owner-stdlib-tests.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/disjoint-set-union-error-owner-collections-tests.json -j 1`: `total=4`, `passed=4`
+- [issue]:
+  - `ISS-20260430T042326094Z-DISJOINTSET-UNION-ERROR-PATH-DESTROY-BF72D38B` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - DisjointSet update API の失敗 contract を Stage 6 の collection owner recovery 方針に合わせた。
