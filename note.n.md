@@ -28299,3 +28299,37 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - diagnostic stable code の source policy が stale generated artifact に依存しないようにした。
+
+# 2026-04-30 note (ISS-20260430T035924737Z SegmentTree owner contract)
+
+- [同期]:
+  - 作業中に `origin/main` が `0a7ec4f0` まで進んだため、local changes を stash し、`git merge --ff-only origin/main` で同期してから再適用した。
+  - `0a7ec4f0 fix(stdlib): return adjacency owner on update errors` を取り込み、AdjacencyMatrix の owner-carrying update error contract と source policy が main に入っていることを確認した。
+  - 作業 branch は `fix/segment-tree-owner-contract-20260430`。
+- [原因]:
+  - `SegmentTree.len` が read-only API なのに `SegmentTree` を値で受け取り、長さ確認だけで tree storage owner を消費していた。
+  - `replace` / `add` は更新 API として owner を受け取るのに、範囲外 branch が `Result<SegmentTree, Diag>` で owner を返せない contract だった。
+  - `stdlib/tests/segment_tree.n.md` は strict ResourceIR owner checking で successful owner と borrowed query owner の leak を検出していた。
+- [修正]:
+  - `SegmentTreeUpdateError` を追加し、`tree <SegmentTree>` と `diag <Diag>` を保持する owner-carrying error type にした。
+  - `update_error_diag` / `update_error_tree` を追加し、診断の borrowed read と owner 回収を分離した。
+  - `replace` / `add` の戻り値を `Result<SegmentTree, SegmentTreeUpdateError>` に変更した。
+  - `len` を `&SegmentTree` receiver に変更した。
+  - doctest / stdlib tests / collection tests を、query 後の successful owner を `free` し、update failure では `update_error_tree` で owner を回収して `free` する形へ更新した。
+  - `nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js` に SegmentTree owner contract の source policy を追加した。
+- [追加 issue]:
+  - `ISS-20260430T035924737Z-SEGMENTTREE-UPDATE-AND-OBSERVER-APIS-E03209E2` を追加し、この作業で fixed/resolved にした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/segment-tree-owner-contract-stdlib-after-sync.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-owner-contract-collections-after-sync.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-owner-contract-doctests-after-sync.json -j 1`: `total=5`, `passed=5`
+  - `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `node nodesrc/issues.js check`: passed (`files=435`)
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260430T035924737Z-SEGMENTTREE-UPDATE-AND-OBSERVER-APIS-E03209E2` を fixed/resolved に更新した。
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` に SegmentTree owner contract 部分進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - SegmentTree の read/update/query/free contract を ResourceIR の owner checking に乗る形へ修正した。

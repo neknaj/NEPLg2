@@ -5,6 +5,7 @@
 //:
 //: ### [目的/もくてき]
 //: - `SegmentTree` を[提供/ていきょう]し、`new` / `len` / `replace` / `add` / `sum_range` / `free` の bare API で[点更新/てんこうしん]と[区間和/くかんわ] query を[扱/あつか]えるようにします。
+//: - `len` / `sum_range` は `&SegmentTree` を[受/う]け[取/と]り、tree storage owner を[移動/いどう]せずに[観察/かんさつ]します。
 //: - Fenwick では[表現/ひょうげん]しにくい[一般区間/いっぱんくかん] query の[土台/どだい]を `alloc/collections` に[揃/そろ]えます。
 //:
 //: ### [実装/じっそう]
@@ -14,7 +15,9 @@
 //: ### [注意/ちゅうい]
 //: - [現在/げんざい]は `i32` の[加算/かさん] monoid に[固定/こてい]しています。
 //: - `new` / `replace` / `add` は `Result` を[返/かえ]します。
-//: - `sum_range` は `[l, r)` を[返/かえ]し、[不正/ふせい] range は `Result::Err Diag` です。
+//: - [範囲外/はんいがい] index の `replace` / `add` は `Result::Err SegmentTreeUpdateError` で元の owner と[診断/しんだん]を[返/かえ]します。
+//: - `sum_range` は `[l, r)` を[返/かえ]し、[不正/ふせい] range は owner を[借用/しゃくよう]したまま `Result::Err Diag` を[返/かえ]します。
+//: - query だけの[処理/しょり]では `len &st` / `sum_range &st l r` のように borrow し、[最後/さいご]に `free st` で owner を[閉/と]じます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - `len` は O(1)。
@@ -37,6 +40,28 @@ struct SegmentTree:
     n <i32>
     base <i32>
     data <MemPtr<i32>>
+
+//: ## SegmentTreeUpdateError
+//: `replace` / `add` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
+//:
+//: ### [目的/もくてき]
+//: - `replace` / `add` は[更新/こうしん] API なので `SegmentTree` owner を[受/う]け[取/と]ります。
+//: - [範囲外/はんいがい] index では[内部/ないぶ]配列を[変更/へんこう]せず、caller が cleanup できるように元の `SegmentTree` owner を `tree` に[戻/もど]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `Result::Err` を[受/う]け[取/と]った caller は `update_error_tree` で owner を[回収/かいしゅう]し、[不要/ふよう]なら `free` します。
+//: - `diag` は `Diag` の Copy [値/あたい]で、`update_error_diag` から owner を[動/うご]かさず[確認/かくにん]できます。
+struct SegmentTreeUpdateError:
+    tree <SegmentTree>
+    diag <Diag>
+
+//: update_error_diag: update [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
+fn update_error_diag <(&SegmentTreeUpdateError)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: update_error_tree: update [失敗/しっぱい]で[戻/もど]された `SegmentTree` owner を[取/と]り[出/だ]す
+fn update_error_tree <(SegmentTreeUpdateError)->SegmentTree> (e):
+    field::get e "tree"
 
 fn seg_diag_len <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "invalid segment tree length"
@@ -79,7 +104,9 @@ fn seg_next_pow2 <(i32)->i32> (n):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let st <SegmentTree> unwrap_ok<SegmentTree, Diag> new 5;
-//:     if eq len st 5 1 0
+//:     let ok <bool> eq len &st 5;
+//:     free st
+//:     if ok 1 0
 //: ```
 fn new <(i32)*>Result<SegmentTree, Diag>> (n):
     if:
@@ -101,10 +128,7 @@ fn new <(i32)*>Result<SegmentTree, Diag>> (n):
 
 //: ## len
 //: [保持/ほじ]している[長/なが]さを[返/かえ]す
-fn len <(SegmentTree)->i32> (st):
-    field::get st "n"
-
-fn len_ref <(&SegmentTree)->i32> (st):
+fn len <(&SegmentTree)->i32> (st):
     *field::get_ref st "n"
 
 //: ## replace
@@ -119,11 +143,12 @@ fn len_ref <(&SegmentTree)->i32> (st):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let st0 <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
-//:     let st1 <SegmentTree> unwrap_ok<SegmentTree, Diag> replace st0 1 5;
+//:     let st1 <SegmentTree> unwrap_ok<SegmentTree, SegmentTreeUpdateError> replace st0 1 5;
 //:     let total <i32> unwrap_ok<i32, Diag> sum_range &st1 0 4;
+//:     free st1
 //:     if eq total 5 1 0
 //: ```
-fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, value):
+fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> (st, idx, value):
     let n <i32> *field::get_ref &st "n"
     let base <i32> *field::get_ref &st "base"
     let data <MemPtr<i32>> *field::get_ref &st "data"
@@ -138,11 +163,11 @@ fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, value):
                     let left <i32> mul pos 2
                     let right <i32> add left 1
                     seg_store_owned data pos add seg_load_owned data left seg_load_owned data right
-            ok<SegmentTree, Diag> st
+            ok<SegmentTree, SegmentTreeUpdateError> st
         else:
             let d <Diag> seg_diag_index
-            free st
-            err<SegmentTree, Diag> d
+            let e <SegmentTreeUpdateError> SegmentTreeUpdateError st d
+            err<SegmentTree, SegmentTreeUpdateError> e
 
 //: ## add
 //: `idx` に `delta` を[加算/かさん]する
@@ -160,9 +185,10 @@ fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, value):
 //:         |> add 0 2 |> uwok
 //:         |> add 3 5 |> uwok
 //:     let total <i32> unwrap_ok<i32, Diag> sum_range &st 0 4;
+//:     free st
 //:     if eq total 7 1 0
 //: ```
-fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, delta):
+fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> (st, idx, delta):
     let n <i32> *field::get_ref &st "n"
     let base <i32> *field::get_ref &st "base"
     let data <MemPtr<i32>> *field::get_ref &st "data"
@@ -179,11 +205,11 @@ fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, delta):
                     let left <i32> mul pos 2
                     let right <i32> add left 1
                     seg_store_owned data pos add seg_load_owned data left seg_load_owned data right
-            ok<SegmentTree, Diag> st
+            ok<SegmentTree, SegmentTreeUpdateError> st
         else:
             let d <Diag> seg_diag_index
-            free st
-            err<SegmentTree, Diag> d
+            let e <SegmentTreeUpdateError> SegmentTreeUpdateError st d
+            err<SegmentTree, SegmentTreeUpdateError> e
 
 //: ## sum_range
 //: [区間/くかん] `[l, r)` の[和/わ]を[返/かえ]す
@@ -203,6 +229,7 @@ fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, Diag>> (st, idx, delta):
 //:         |> replace 2 3 |> uwok
 //:         |> replace 3 4 |> uwok
 //:     let total <i32> unwrap_ok<i32, Diag> sum_range &st 1 4;
+//:     free st
 //:     if eq total 9 1 0
 //: ```
 fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
@@ -262,6 +289,6 @@ fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
 //:     0
 //: ```
 fn free <(SegmentTree)->()> (st):
-    let base <i32> *field::get_ref &st "base"
-    let data <MemPtr<i32>> *field::get_ref &st "data"
+    let base <i32> field::get st "base"
+    let data <MemPtr<i32>> field::get st "data"
     dealloc_raw mem_ptr_addr data mul mul base 2 4

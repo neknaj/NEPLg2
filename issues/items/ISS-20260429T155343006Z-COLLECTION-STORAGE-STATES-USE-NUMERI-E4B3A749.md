@@ -314,3 +314,30 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 - `SparseSet` の dense/sparse payload は引き続き raw `MemPtr<i32>` array であり、最終的な `OwnedBuffer<i32>` / typed buffer state 設計へ移す余地がある。
 - `Vec` / raw byte collection / List node storage の owner state は引き続き残る。
+
+## 2026-04-30 SegmentTree owner contract 部分進捗
+
+`stdlib/alloc/collections/segment_tree.nepl` は `SegmentTreeUpdateError` を導入し、read/update/query/free contract を ResourceIR owner checking に乗る形へ更新した。
+
+進捗:
+
+- `len` は `&SegmentTree` を受け取る read API になり、読み取りで tree storage owner を移動しない。
+- `replace` / `add` は `Result<SegmentTree, SegmentTreeUpdateError>` を返すようになり、範囲外 update では元の `SegmentTree` owner と `Diag` を `Err` に入れて返す。
+- `update_error_diag` / `update_error_tree` により、診断の借用観察と owner 回収を分離した。
+- tests/doctests は query 後の successful owner を `free` し、update failure では `update_error_tree` で owner を回収してから `free` する形に更新した。
+- `nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js` で by-value `len` と `Result<SegmentTree, Diag>` update error への回帰を防止する。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md --no-tree -o tmp/segment-tree-owner-contract-stdlib-after-sync.json -j 1`: total=2, passed=2
+- `node nodesrc/tests.js -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-owner-contract-collections-after-sync.json -j 1`: total=3, passed=3
+- `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-owner-contract-doctests-after-sync.json -j 1`: total=5, passed=5
+- `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+- `node nodesrc/run_source_policy_regressions.js`: passed
+- `node nodesrc/issues.js check`: passed (`files=435`)
+- `git diff --check`: passed
+
+残件:
+
+- `SegmentTree` の backing storage は引き続き raw `MemPtr<i32>` array であり、最終的な `OwnedBuffer<i32>` / typed buffer state 設計へ移す余地がある。
+- `Vec` / raw byte collection / List node storage の owner state は引き続き残る。

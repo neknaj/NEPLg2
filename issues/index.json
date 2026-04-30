@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T03:57:57.923Z",
+  "generated_at": "2026-04-30T04:07:25.485Z",
   "counts": {
-    "total": 434,
+    "total": 435,
     "open": 14,
-    "resolved": 420,
+    "resolved": 421,
     "by_area": {
       "core": {
         "total": 195,
@@ -12,9 +12,9 @@
         "resolved": 190
       },
       "stdlib": {
-        "total": 137,
+        "total": 138,
         "open": 7,
-        "resolved": 130
+        "resolved": 131
       },
       "TEST": {
         "total": 7,
@@ -4703,6 +4703,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T035443712Z-ADJACENCYMATRIX-MUTATING-ERROR-PATHS-3FC34ED3.md"
+    },
+    {
+      "id": "ISS-20260430T035924737Z-SEGMENTTREE-UPDATE-AND-OBSERVER-APIS-E03209E2",
+      "title": "SegmentTree update and observer APIs do not preserve owner contract under ResourceIR",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/segment_tree.nepl, stdlib/tests/segment_tree.n.md, tests/stdlib/segment_tree_collections.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T035924737Z-SEGMENTTREE-UPDATE-AND-OBSERVER-APIS-E03209E2.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
