@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:11.318Z",
+  "generated_at": "2026-04-30T14:41:12.741Z",
   "counts": {
-    "total": 469,
+    "total": 470,
     "open": 16,
-    "resolved": 453,
+    "resolved": 454,
     "by_area": {
       "core": {
         "total": 208,
@@ -22,9 +22,9 @@
         "resolved": 143
       },
       "TEST": {
-        "total": 9,
+        "total": 10,
         "open": 1,
-        "resolved": 8
+        "resolved": 9
       },
       "cli": {
         "total": 19,
@@ -5218,6 +5218,21 @@
       "legacy_id": "",
       "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
       "file": "items/ISS-20260430T124826467Z-STDLIB-OPTION-DOCTEST-USES-STD-TEST--93C68BCD.md"
+    },
+    {
+      "id": "ISS-20260430T125244690Z-STDLIB-RESULT-DOCTEST-USES-STD-TEST--F99DF5C9",
+      "title": "stdlib result doctest uses std/test without stdout report",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/tests/result.n.md",
+      "legacy_id": "",
+      "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "file": "items/ISS-20260430T125244690Z-STDLIB-RESULT-DOCTEST-USES-STD-TEST--F99DF5C9.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

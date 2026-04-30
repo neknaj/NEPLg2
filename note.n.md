@@ -29129,3 +29129,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `.n.md` assertion suite は `ret:` ではなく stdout report + `exit_code:` で検証する方針に沿って、stdlib option fixtureを移行した。
+
+# 2026-04-30 note (ISS-20260430T125244690Z stdlib result stdout report)
+
+- [同期]:
+  - `09e78f59` の stdlib option report commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `stdlib/tests/result.n.md` は `std/test` の `checks_push` で13件の assertion を集約していたが、`checks_print_report` を呼ばず `checks_exit_code checks` を返していた。
+  - metadata も `ret: 0` のままで、process exit contract と言語戻り値検証が混ざっていた。
+- [修正]:
+  - `ret: 0` を `exit_code: 0` に変更した。
+  - `checks_print_report checks` を呼んで `shown` を作り、`checks_exit_code shown` を返すようにした。
+  - stdoutに13件の `ok` reportを固定した。
+  - `ISS-20260430T125244690Z-STDLIB-RESULT-DOCTEST-USES-STD-TEST--F99DF5C9` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/result.n.md --no-tree -o tmp/stdlib-result-report-agent1.json -j 1 --dist web/dist`: `1 total / 1 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `.n.md` assertion suite は `ret:` ではなく stdout report + `exit_code:` で検証する方針に沿って、stdlib result fixtureを移行した。

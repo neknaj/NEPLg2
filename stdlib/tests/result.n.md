@@ -3,7 +3,22 @@
 ## result_main
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
+    ##: [11] ok
+    ##: [12] ok
 ```neplg2
 
 #entry main
@@ -64,5 +79,6 @@ fn main <()*>i32> ():
     let r8 <Result<i32,i32>> and_then<i32,i32,i32> r6 positive_double;
     set checks checks_push checks assert_eq_i32 12 unwrap_ok<i32,i32> r7;
     set checks checks_push checks assert_eq_i32 -1 unwrap_err<i32,i32> r8;
-    checks_exit_code checks
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
