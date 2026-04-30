@@ -21,6 +21,13 @@ pub(super) struct ProjectedRawCellAddressAlias {
 pub(super) struct RawCellAddressAliases {
     groups: Vec<Vec<Place>>,
     marked: Vec<Place>,
+    i32_values: Vec<I32ValueFact>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct I32ValueFact {
+    place: Place,
+    value: i32,
 }
 
 impl RawCellAddressAliases {
@@ -34,12 +41,25 @@ impl RawCellAddressAliases {
         if source == target {
             return;
         }
+        let value_copies = self
+            .i32_values
+            .iter()
+            .filter_map(|fact| {
+                replace_place_prefix(&fact.place, source, target).map(|place| I32ValueFact {
+                    place,
+                    value: fact.value,
+                })
+            })
+            .collect::<Vec<_>>();
         let groups = self.groups_with_replaced_prefix_or_singleton(source, target);
         self.clear(target);
         for group in groups {
             self.union_group(&group);
         }
         self.union_group(&[source.clone(), target.clone()]);
+        for fact in value_copies {
+            self.push_i32_value_fact(fact);
+        }
     }
 
     pub(super) fn move_owner_aliases(&mut self, source: &Place, target: &Place) {
@@ -112,6 +132,31 @@ impl RawCellAddressAliases {
 
     pub(super) fn value_is_known_raw_address(&self, place: &Place) -> bool {
         self.contains_exact(place) || self.aliases_for(place).len() > 1
+    }
+
+    pub(super) fn set_i32_value(&mut self, place: &Place, value: i32) {
+        self.i32_values.retain(|fact| fact.place != *place);
+        self.i32_values.push(I32ValueFact {
+            place: place.clone(),
+            value,
+        });
+    }
+
+    pub(super) fn i32_value(&self, place: &Place) -> Option<i32> {
+        let mut value = None;
+        for alias in self.aliases_for(place) {
+            for fact in &self.i32_values {
+                if fact.place != alias {
+                    continue;
+                }
+                match value {
+                    Some(existing) if existing != fact.value => return None,
+                    Some(_) => {}
+                    None => value = Some(fact.value),
+                }
+            }
+        }
+        value
     }
 
     pub(super) fn contains_marked_alias(&self, place: &Place) -> bool {
@@ -209,6 +254,8 @@ impl RawCellAddressAliases {
         self.groups.retain(|group| !group.is_empty());
         self.marked
             .retain(|existing| place_suffix_after_prefix(existing, place).is_none());
+        self.i32_values
+            .retain(|fact| place_suffix_after_prefix(&fact.place, place).is_none());
     }
 
     pub(super) fn merge_paths(paths: &[RawCellAddressAliases]) -> Self {
@@ -222,6 +269,12 @@ impl RawCellAddressAliases {
             }
         }
         out
+    }
+
+    fn push_i32_value_fact(&mut self, fact: I32ValueFact) {
+        self.i32_values
+            .retain(|existing| existing.place != fact.place);
+        self.i32_values.push(fact);
     }
 
     fn alias_groups_for(&self, place: &Place) -> Vec<Vec<Place>> {

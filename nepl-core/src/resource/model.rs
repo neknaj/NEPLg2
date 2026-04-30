@@ -178,6 +178,7 @@ pub enum ResourceOp {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResourceExprKind {
     Literal,
+    LiteralI32(i32),
     LocalRead,
     FunctionValue,
     Call,

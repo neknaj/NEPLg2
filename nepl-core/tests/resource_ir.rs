@@ -132,7 +132,7 @@ fn resource_ir_lowering_skeleton_tracks_locals_and_dump() {
             "  param arg mut=false ty=t1 place=%arg:t1\n",
             "  block b0:\n",
             "    expr Block out=tmp0:t1 ty=t1 span=0:0-0\n",
-            "    expr Literal out=tmp1:t1 ty=t1 span=0:0-0\n",
+            "    expr LiteralI32(1) out=tmp1:t1 ty=t1 span=0:0-0\n",
             "    declare %x:t1 mut=true init=tmp1:t1 span=0:0-0\n",
             "    expr Let out=tmp2:t0 ty=t0 span=0:0-0\n",
             "    read %x:t1 -> tmp3:t1 span=0:0-0\n",
@@ -4167,6 +4167,94 @@ fn main <()->i32> ():
         )),
         "Result::Err arm must not receive Result::Ok-gated raw cell initialization: {:#?}\nresource:\n{}",
         main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_skips_unreachable_mem_ptr_load_some_requirement() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/option" as *
+
+fn main <()->i32> ():
+    let p <MemPtr<i32>> mem_ptr_wrap 0
+    match load_i32 p:
+        Option::None:
+            1
+        Option::Some _v:
+            0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "statically invalid MemPtr load can only return Option::None: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_keeps_reachable_mem_ptr_load_some_requirement() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    match alloc_ptr<i32> 4:
+        Result::Err _e:
+            0
+        Result::Ok p:
+            let v <i32> match load_i32 p:
+                Option::None:
+                    0
+                Option::Some x:
+                    x
+            match dealloc_ptr p 4:
+                Result::Err _drop:
+                    dealloc_raw mem_ptr_addr p 4
+                    0
+                Result::Ok _:
+                    v
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Uninit,
+                ..
+            }
+        )),
+        "reachable Option::Some from unknown valid MemPtr must still require initialized cell: {:#?}\nresource:\n{}",
+        report.diagnostics,
         resource.dump_text()
     );
 }
