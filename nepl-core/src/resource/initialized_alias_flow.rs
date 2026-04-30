@@ -319,11 +319,21 @@ fn propagate_raw_address_alias_op(
             }
         }
         ResourceOp::Expr { output, kind, .. } => {
-            if !expr_kind_preserves_raw_alias(*kind) {
+            if matches!(kind, ResourceExprKind::Borrow) {
+                raw_aliases.clear_exact(output);
+            } else if !expr_kind_preserves_raw_alias(*kind)
+                && !(matches!(kind, ResourceExprKind::Deref)
+                    && type_preserves_raw_address_alias(types, output.ty))
+            {
                 raw_aliases.clear(output);
             }
         }
-        ResourceOp::Borrow { output, .. } => raw_aliases.clear(output),
+        ResourceOp::Borrow { source, output, .. } => {
+            let deref_output = output
+                .clone()
+                .with_projection(PlaceProjection::Deref, source.ty);
+            raw_aliases.copy_alias_or_seed(source, &deref_output);
+        }
         ResourceOp::Drop { place, .. } => raw_aliases.clear(place),
         ResourceOp::CallEffect { .. } => {}
     }
@@ -472,7 +482,31 @@ fn projection_result_type(
                 .map(|field| field.ty)
         }
         PlaceProjection::EnumPayload { variant } => enum_payload_type(types, base_ty, variant),
-        PlaceProjection::Deref | PlaceProjection::StorageOffset(_) => None,
+        PlaceProjection::Deref => reference_inner_type(types, base_ty),
+        PlaceProjection::StorageOffset(_) => None,
+    }
+}
+
+fn reference_inner_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
+    let resolved = types.resolve_id(ty);
+    match types.get_ref(resolved) {
+        TypeKind::Reference(inner, _) => Some(*inner),
+        _ => None,
+    }
+}
+
+fn type_preserves_raw_address_alias(types: &TypeCtx, ty: TypeId) -> bool {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Struct { name, .. } => name == "MemPtr" || name == "RegionToken",
+        TypeKind::Apply { base, .. } => {
+            let base = types.resolve_named_type_id(*base);
+            matches!(
+                types.get_ref(base),
+                TypeKind::Struct { name, .. } if name == "MemPtr" || name == "RegionToken"
+            )
+        }
+        _ => false,
     }
 }
 

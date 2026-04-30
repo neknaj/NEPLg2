@@ -4,22 +4,26 @@ use alloc::vec::Vec;
 
 use crate::types::TypeCtx;
 
-use super::cell_state::{raw_cell_suffix_after_address, CellTable};
+use super::cell_state::{
+    raw_address_suffix_after_address, raw_cell_suffix_after_address, CellTable,
+};
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummary;
 use super::initialized_summary::{
-    RawCellInitializationFunctionSummary, RawCellInitializationParamCell,
-    RawCellInitializationReturnCell,
+    RawCellDestructionParamAddress, RawCellInitializationFunctionSummary,
+    RawCellInitializationParamCell, RawCellInitializationReturnCell,
 };
 use super::initialized_summary_variant_build::collect_variant_param_initialized_raw_cells_from_return;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{
-    CellState, Place, ResourceFunction, ResourceLocal, ResourceModule, ResourceTerminator,
+    CellState, Place, RawMemoryOp, ResourceCallTarget, ResourceFunction, ResourceLocal,
+    ResourceModule, ResourceOp, ResourceTerminator,
 };
+use super::place_utils::{match_bind_payload_place, place_with_suffix};
 use super::raw_realloc::PendingRawReallocs;
-use super::report::ResourceCheckDeferred;
+use super::report::{ResourceCheckDeferred, ResourceCheckOperation};
 
 pub(super) fn compute_raw_cell_initialization_function_summaries(
     module: &ResourceModule,
@@ -41,6 +45,7 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
                 || !summary.variant_param_cells.is_empty()
                 || !summary.variant_required_param_cells.is_empty()
                 || !summary.variant_conditions.is_empty()
+                || !summary.param_destructions.is_empty()
             {
                 next.push(summary);
             }
@@ -83,16 +88,22 @@ fn function_raw_cell_initialization_summary(
         variant_param_cells: Vec::new(),
         variant_required_param_cells: Vec::new(),
         variant_conditions: Vec::new(),
+        param_destructions: Vec::new(),
     };
     let mut guaranteed_return_cells = None;
     let mut guaranteed_param_cells = None;
     for block in &function.blocks {
-        engine.check_ops(
+        let mut variant_initializations = PendingVariantRawCellInitializations::default();
+        check_ops_and_collect_param_destructions(
+            &mut out.param_destructions,
+            &mut engine,
             &mut cells,
             &mut raw_aliases,
             &mut function_aliases,
             &mut pending_reallocs,
-            &mut PendingVariantRawCellInitializations::default(),
+            &mut variant_initializations,
+            &function.params,
+            raw_init_summaries,
             &block.ops,
         );
         if let ResourceTerminator::Return { value, .. } = &block.terminator {
@@ -202,6 +213,389 @@ pub(super) fn collect_param_initialized_raw_cells(
     }
 }
 
+fn check_ops_and_collect_param_destructions(
+    out: &mut Vec<RawCellDestructionParamAddress>,
+    engine: &mut ResourceCheckEngine<'_>,
+    cells: &mut CellTable,
+    raw_aliases: &mut RawCellAddressAliases,
+    function_aliases: &mut FunctionAliasTable,
+    pending_reallocs: &mut PendingRawReallocs,
+    variant_initializations: &mut PendingVariantRawCellInitializations,
+    params: &[ResourceLocal],
+    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    ops: &[ResourceOp],
+) {
+    for op in ops {
+        collect_param_destructions_from_op(
+            out,
+            engine,
+            cells,
+            raw_aliases,
+            function_aliases,
+            pending_reallocs,
+            variant_initializations,
+            params,
+            raw_init_summaries,
+            op,
+        );
+        engine.check_ops(
+            cells,
+            raw_aliases,
+            function_aliases,
+            pending_reallocs,
+            variant_initializations,
+            core::slice::from_ref(op),
+        );
+    }
+}
+
+fn collect_param_destructions_from_op(
+    out: &mut Vec<RawCellDestructionParamAddress>,
+    engine: &ResourceCheckEngine<'_>,
+    cells: &CellTable,
+    raw_aliases: &RawCellAddressAliases,
+    function_aliases: &FunctionAliasTable,
+    pending_reallocs: &PendingRawReallocs,
+    variant_initializations: &PendingVariantRawCellInitializations,
+    params: &[ResourceLocal],
+    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    op: &ResourceOp,
+) {
+    match op {
+        ResourceOp::RawMemory {
+            operation, args, ..
+        } => collect_param_destructions_from_raw_memory(out, raw_aliases, params, operation, args),
+        ResourceOp::Call { target, args, .. } => {
+            collect_param_destructions_from_direct_call(
+                out,
+                raw_aliases,
+                params,
+                target,
+                args,
+                raw_init_summaries,
+            );
+        }
+        ResourceOp::IndirectCall { callee, args, .. } => {
+            for function in function_aliases.functions(callee) {
+                if let Some(summary) = raw_init_summaries
+                    .iter()
+                    .find(|summary| summary.function == function.as_str())
+                {
+                    collect_param_destructions_from_summary(
+                        out,
+                        raw_aliases,
+                        params,
+                        args,
+                        summary,
+                    );
+                }
+            }
+        }
+        ResourceOp::Branch {
+            then_ops, else_ops, ..
+        } => {
+            collect_param_destructions_from_path(
+                out,
+                engine,
+                cells,
+                raw_aliases,
+                function_aliases,
+                pending_reallocs,
+                variant_initializations,
+                params,
+                raw_init_summaries,
+                then_ops,
+            );
+            collect_param_destructions_from_path(
+                out,
+                engine,
+                cells,
+                raw_aliases,
+                function_aliases,
+                pending_reallocs,
+                variant_initializations,
+                params,
+                raw_init_summaries,
+                else_ops,
+            );
+        }
+        ResourceOp::Loop {
+            condition_ops,
+            body_ops,
+            ..
+        } => {
+            let mut path_engine = clone_summary_engine(engine);
+            let mut path_cells = cells.clone();
+            let mut path_aliases = raw_aliases.clone();
+            let mut path_function_aliases = function_aliases.clone();
+            let mut path_pending_reallocs = pending_reallocs.clone();
+            let mut path_variant_initializations = variant_initializations.clone();
+            check_ops_and_collect_param_destructions(
+                out,
+                &mut path_engine,
+                &mut path_cells,
+                &mut path_aliases,
+                &mut path_function_aliases,
+                &mut path_pending_reallocs,
+                &mut path_variant_initializations,
+                params,
+                raw_init_summaries,
+                condition_ops,
+            );
+            check_ops_and_collect_param_destructions(
+                out,
+                &mut path_engine,
+                &mut path_cells,
+                &mut path_aliases,
+                &mut path_function_aliases,
+                &mut path_pending_reallocs,
+                &mut path_variant_initializations,
+                params,
+                raw_init_summaries,
+                body_ops,
+            );
+        }
+        ResourceOp::Match {
+            scrutinee, arms, ..
+        } => {
+            for arm in arms {
+                let mut path_engine = clone_summary_engine(engine);
+                let mut path_cells = cells.clone();
+                let mut path_aliases = raw_aliases.clone();
+                let mut path_function_aliases = function_aliases.clone();
+                let mut path_pending_reallocs = pending_reallocs.clone();
+                let mut path_variant_initializations = variant_initializations.clone();
+                if !path_variant_initializations.match_arm_reachable(scrutinee, &arm.pattern) {
+                    continue;
+                }
+                if let Some(bind_local) = &arm.bind_local {
+                    path_cells.mark_initialized(bind_local);
+                    if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
+                        path_engine.copy_raw_alias_and_rekey_cells(
+                            &mut path_cells,
+                            &mut path_aliases,
+                            &source,
+                            bind_local,
+                        );
+                        path_function_aliases.copy_alias(&source, bind_local);
+                        path_pending_reallocs.copy_result(&source, bind_local);
+                        path_variant_initializations.copy_result(&source, bind_local);
+                    } else {
+                        path_aliases.clear(bind_local);
+                        path_pending_reallocs.clear_result(bind_local);
+                        path_variant_initializations.clear_result(bind_local);
+                    }
+                }
+                path_variant_initializations.apply_match_arm(
+                    &mut path_engine,
+                    &mut path_cells,
+                    &mut path_aliases,
+                    scrutinee,
+                    &arm.pattern,
+                    arm.span,
+                );
+                check_ops_and_collect_param_destructions(
+                    out,
+                    &mut path_engine,
+                    &mut path_cells,
+                    &mut path_aliases,
+                    &mut path_function_aliases,
+                    &mut path_pending_reallocs,
+                    &mut path_variant_initializations,
+                    params,
+                    raw_init_summaries,
+                    &arm.ops,
+                );
+            }
+        }
+        _ => {}
+    }
+}
+
+fn collect_param_destructions_from_path(
+    out: &mut Vec<RawCellDestructionParamAddress>,
+    engine: &ResourceCheckEngine<'_>,
+    cells: &CellTable,
+    raw_aliases: &RawCellAddressAliases,
+    function_aliases: &FunctionAliasTable,
+    pending_reallocs: &PendingRawReallocs,
+    variant_initializations: &PendingVariantRawCellInitializations,
+    params: &[ResourceLocal],
+    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    ops: &[ResourceOp],
+) {
+    let mut path_engine = clone_summary_engine(engine);
+    let mut path_cells = cells.clone();
+    let mut path_aliases = raw_aliases.clone();
+    let mut path_function_aliases = function_aliases.clone();
+    let mut path_pending_reallocs = pending_reallocs.clone();
+    let mut path_variant_initializations = variant_initializations.clone();
+    check_ops_and_collect_param_destructions(
+        out,
+        &mut path_engine,
+        &mut path_cells,
+        &mut path_aliases,
+        &mut path_function_aliases,
+        &mut path_pending_reallocs,
+        &mut path_variant_initializations,
+        params,
+        raw_init_summaries,
+        ops,
+    );
+}
+
+fn collect_param_destructions_from_raw_memory(
+    out: &mut Vec<RawCellDestructionParamAddress>,
+    raw_aliases: &RawCellAddressAliases,
+    params: &[ResourceLocal],
+    operation: &RawMemoryOp,
+    args: &[Place],
+) {
+    match operation {
+        RawMemoryOp::Store => collect_param_destructions_for_arg(
+            out,
+            raw_aliases,
+            params,
+            args,
+            0,
+            ResourceCheckOperation::RawMemoryStoreCell,
+        ),
+        RawMemoryOp::Dealloc => collect_param_destructions_for_arg(
+            out,
+            raw_aliases,
+            params,
+            args,
+            0,
+            ResourceCheckOperation::RawMemoryDeallocCell,
+        ),
+        RawMemoryOp::Realloc => collect_param_destructions_for_arg(
+            out,
+            raw_aliases,
+            params,
+            args,
+            0,
+            ResourceCheckOperation::RawMemoryReallocCell,
+        ),
+        RawMemoryOp::Fill => collect_param_destructions_for_arg(
+            out,
+            raw_aliases,
+            params,
+            args,
+            0,
+            ResourceCheckOperation::RawMemoryFillCell,
+        ),
+        RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => {
+            collect_param_destructions_for_arg(
+                out,
+                raw_aliases,
+                params,
+                args,
+                0,
+                ResourceCheckOperation::RawMemoryBulkDestinationCell,
+            );
+            collect_param_destructions_for_arg(
+                out,
+                raw_aliases,
+                params,
+                args,
+                1,
+                ResourceCheckOperation::RawMemoryBulkSourceCell,
+            );
+        }
+        RawMemoryOp::Alloc
+        | RawMemoryOp::Load
+        | RawMemoryOp::MemorySize
+        | RawMemoryOp::MemoryGrow
+        | RawMemoryOp::Other { .. } => {}
+    }
+}
+
+fn collect_param_destructions_for_arg(
+    out: &mut Vec<RawCellDestructionParamAddress>,
+    raw_aliases: &RawCellAddressAliases,
+    params: &[ResourceLocal],
+    args: &[Place],
+    arg_index: usize,
+    operation: ResourceCheckOperation,
+) {
+    let Some(address) = args.get(arg_index) else {
+        return;
+    };
+    collect_param_destructions_for_address(out, raw_aliases, params, address, operation);
+}
+
+fn collect_param_destructions_from_direct_call(
+    out: &mut Vec<RawCellDestructionParamAddress>,
+    raw_aliases: &RawCellAddressAliases,
+    params: &[ResourceLocal],
+    target: &ResourceCallTarget,
+    args: &[Place],
+    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+) {
+    let ResourceCallTarget::User { name, .. } = target else {
+        return;
+    };
+    let Some(summary) = raw_init_summaries
+        .iter()
+        .find(|summary| summary.function == name.as_str())
+    else {
+        return;
+    };
+    collect_param_destructions_from_summary(out, raw_aliases, params, args, summary);
+}
+
+fn collect_param_destructions_from_summary(
+    out: &mut Vec<RawCellDestructionParamAddress>,
+    raw_aliases: &RawCellAddressAliases,
+    params: &[ResourceLocal],
+    args: &[Place],
+    summary: &RawCellInitializationFunctionSummary,
+) {
+    for destruction in &summary.param_destructions {
+        let Some(arg) = args.get(destruction.param_index) else {
+            continue;
+        };
+        let address = place_with_suffix(arg, &destruction.suffix, destruction.ty);
+        let address = raw_aliases.canonicalize(&address);
+        collect_param_destructions_for_address(
+            out,
+            raw_aliases,
+            params,
+            &address,
+            destruction.operation,
+        );
+    }
+}
+
+fn collect_param_destructions_for_address(
+    out: &mut Vec<RawCellDestructionParamAddress>,
+    raw_aliases: &RawCellAddressAliases,
+    params: &[ResourceLocal],
+    address: &Place,
+    operation: ResourceCheckOperation,
+) {
+    let address = raw_aliases.canonicalize(address);
+    for address_alias in raw_aliases.aliases_for(&address) {
+        for (param_index, param) in params.iter().enumerate() {
+            for param_alias in raw_aliases.aliases_for(&param.place) {
+                let Some(suffix) = raw_address_suffix_after_address(&address_alias, &param_alias)
+                else {
+                    continue;
+                };
+                push_unique_param_destruction(
+                    out,
+                    RawCellDestructionParamAddress {
+                        param_index,
+                        suffix,
+                        ty: address_alias.ty,
+                        operation,
+                    },
+                );
+            }
+        }
+    }
+}
+
 fn push_unique_return_cell(
     cells: &mut Vec<RawCellInitializationReturnCell>,
     cell: RawCellInitializationReturnCell,
@@ -217,6 +611,26 @@ fn push_unique_param_cell(
 ) {
     if !cells.iter().any(|existing| existing == &cell) {
         cells.push(cell);
+    }
+}
+
+fn push_unique_param_destruction(
+    cells: &mut Vec<RawCellDestructionParamAddress>,
+    cell: RawCellDestructionParamAddress,
+) {
+    if !cells.iter().any(|existing| existing == &cell) {
+        cells.push(cell);
+    }
+}
+
+fn clone_summary_engine<'a>(engine: &ResourceCheckEngine<'a>) -> ResourceCheckEngine<'a> {
+    ResourceCheckEngine {
+        function: engine.function,
+        types: engine.types,
+        raw_alias_summaries: engine.raw_alias_summaries,
+        raw_init_summaries: engine.raw_init_summaries,
+        diagnostics: Vec::new(),
+        deferred: ResourceCheckDeferred::default(),
     }
 }
 

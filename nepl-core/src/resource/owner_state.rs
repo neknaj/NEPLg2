@@ -175,7 +175,9 @@ impl OwnerTable {
         let mut out = OwnerTable::default();
         out.next_storage = self.next_storage;
         for entry in &self.owners {
-            let place = if place_has_raw_owner_projection(&entry.place) {
+            let place = if entry.state != OwnerState::NoFreeObligation
+                && place_has_raw_owner_projection(&entry.place)
+            {
                 raw_aliases.canonicalize_owner_cell_address(&entry.place)
             } else {
                 entry.place.clone()

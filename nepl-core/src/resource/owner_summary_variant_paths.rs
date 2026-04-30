@@ -28,7 +28,7 @@ use super::report::{ResourceOwnerCheckDeferred, ResourceOwnerOperation};
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
     OwnerProjectionSource, OwnerValueCondition, OwnerVariantCondition, OwnerVariantParameterIndex,
-    OwnerVariantPayloadCondition, OwnerVariantProjectionReturnSource, OwnerVariantProjectionSource,
+    OwnerVariantPayloadCondition, OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 
 pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
@@ -47,11 +47,12 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     parameter_storage_sources: &[OwnerParameterStorageSource],
     ops: &[ResourceOp],
     return_value: &Place,
-    return_out: &mut Vec<OwnerVariantProjectionReturnSource>,
+    return_out: &mut Vec<OwnerVariantProjectionReturn>,
 ) {
     let mut engine = ResourceOwnerCheckEngine {
         function: engine.function,
         types: engine.types,
+        raw_alias_summaries: engine.raw_alias_summaries,
         summaries: engine.summaries,
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),
@@ -187,6 +188,16 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
             &ops[index..=index],
         );
     }
+    variant_owner_effects.collect_returned_result_effects(
+        &owners,
+        &raw_aliases,
+        return_value,
+        parameter_storage_sources,
+        index_out,
+        source_out,
+        return_out,
+        payload_condition_out,
+    );
 }
 
 fn collect_variant_consumed_owner_parameters_from_path(
@@ -207,11 +218,12 @@ fn collect_variant_consumed_owner_parameters_from_path(
     path_value: &Place,
     branch_condition: Option<(&ResourceConditionFact, bool)>,
     match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
-    return_out: &mut Vec<OwnerVariantProjectionReturnSource>,
+    return_out: &mut Vec<OwnerVariantProjectionReturn>,
 ) {
     let mut path_engine = ResourceOwnerCheckEngine {
         function: engine.function,
         types: engine.types,
+        raw_alias_summaries: engine.raw_alias_summaries,
         summaries: engine.summaries,
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),
@@ -252,6 +264,26 @@ fn collect_variant_consumed_owner_parameters_from_path(
             path_ops,
             path_value,
             return_out,
+        );
+        path_engine.check_ops(
+            &mut path_owners,
+            &mut path_function_aliases,
+            &mut path_raw_aliases,
+            &mut path_raw_views,
+            &mut path_storage_origins,
+            &mut path_pending_reallocs,
+            &mut path_variant_owner_effects,
+            path_ops,
+        );
+        path_variant_owner_effects.collect_returned_result_effects(
+            &path_owners,
+            &path_raw_aliases,
+            path_value,
+            parameter_storage_sources,
+            index_out,
+            source_out,
+            return_out,
+            payload_condition_out,
         );
         return;
     };
@@ -351,15 +383,26 @@ fn apply_match_arm_entry(
     );
     if let Some(bind_local) = &arm.bind_local {
         if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
-            path_engine.transfer_owner(
+            if path_engine.initializer_is_non_owning_raw_alias_view(
                 path_owners,
                 path_raw_aliases,
-                path_storage_origins,
                 &source,
                 bind_local,
-                ResourceOwnerOperation::MatchValue,
-                span,
-            );
+            ) {
+                path_engine.copy_non_owning_owner_markers(path_owners, &source, bind_local);
+                path_raw_aliases.copy_alias_or_seed(&source, bind_local);
+                path_storage_origins.copy_origin(&source, bind_local);
+            } else {
+                path_engine.transfer_owner(
+                    path_owners,
+                    path_raw_aliases,
+                    path_storage_origins,
+                    &source,
+                    bind_local,
+                    ResourceOwnerOperation::MatchValue,
+                    span,
+                );
+            }
             path_function_aliases.copy_alias(&source, bind_local);
             path_raw_views.copy(&source, bind_local);
             path_pending_reallocs.copy_result(&source, bind_local);

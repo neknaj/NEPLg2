@@ -18,7 +18,7 @@ use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{
-    CellState, CellStateEntry, EffectOp, Place, ResourceBlock, ResourceCallTarget,
+    CellState, CellStateEntry, EffectOp, Place, PlaceProjection, ResourceBlock, ResourceCallTarget,
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::should_track;
@@ -242,7 +242,10 @@ impl ResourceCheckEngine<'_> {
             } => {
                 if self.ensure_available(cells, source, ResourceCheckOperation::Borrow, *span) {
                     cells.mark_initialized(output);
-                    self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
+                    let deref_output = output
+                        .clone()
+                        .with_projection(PlaceProjection::Deref, source.ty);
+                    self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, &deref_output);
                     pending_reallocs.clear_result(output);
                     variant_initializations.clear_result(output);
                 }
@@ -326,6 +329,7 @@ impl ResourceCheckEngine<'_> {
                         output,
                         target,
                         args,
+                        *span,
                     );
                     pending_reallocs.clear_result(output);
                 }
@@ -364,6 +368,7 @@ impl ResourceCheckEngine<'_> {
                         function_aliases,
                         callee,
                         args,
+                        *span,
                     );
                     pending_reallocs.clear_result(output);
                 }
@@ -540,7 +545,9 @@ impl ResourceCheckEngine<'_> {
             | ResourceExprKind::Construct
             | ResourceExprKind::Borrow => {}
         }
-        if !matches!(kind, ResourceExprKind::LiteralI32(_))
+        if matches!(kind, ResourceExprKind::Borrow) {
+            raw_aliases.clear_exact(output);
+        } else if !matches!(kind, ResourceExprKind::LiteralI32(_))
             && !expr_kind_preserves_raw_alias(kind)
             && !(matches!(kind, ResourceExprKind::Deref)
                 && type_preserves_raw_address_alias(self.types, output.ty))

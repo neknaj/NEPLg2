@@ -17,8 +17,6 @@
 //:     0
 //: ```
 
-#import "core/mem" as *
-
 //: get: field value を所有値として取り出す
 //:
 //: [目的/もくてき]:

@@ -2,10 +2,11 @@ use crate::span::Span;
 
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{OwnerState, Place, PlaceProjection, ResourceCallTarget};
+use super::model::{OwnerState, Place, ResourceCallTarget};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_address::{raw_address_return_ownership, RawAddressReturnOwnership};
+use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::place_with_suffix;
@@ -18,6 +19,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
@@ -44,6 +46,7 @@ impl ResourceOwnerCheckEngine<'_> {
             self.apply_owner_return_summary(
                 owners,
                 raw_aliases,
+                raw_views,
                 storage_origins,
                 output,
                 args,
@@ -59,6 +62,7 @@ impl ResourceOwnerCheckEngine<'_> {
         owners: &mut OwnerTable,
         function_aliases: &FunctionAliasTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
@@ -71,6 +75,7 @@ impl ResourceOwnerCheckEngine<'_> {
             self.apply_unknown_indirect_call_return_owner(
                 owners,
                 raw_aliases,
+                raw_views,
                 storage_origins,
                 output,
                 args,
@@ -88,6 +93,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 self.apply_owner_return_summary(
                     owners,
                     raw_aliases,
+                    raw_views,
                     storage_origins,
                     output,
                     args,
@@ -106,6 +112,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         output: &Place,
         args: &[Place],
@@ -117,7 +124,7 @@ impl ResourceOwnerCheckEngine<'_> {
             .enumerate()
             .filter(|(_, arg)| arg.ty == output.ty)
         {
-            if self.has_transferable_owner(owners, raw_aliases, arg) {
+            if self.has_returnable_parameter_owner(owners, raw_aliases, raw_views, arg) {
                 self.transfer_owner(
                     owners,
                     raw_aliases,
@@ -143,6 +150,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         output: &Place,
         args: &[Place],
@@ -155,7 +163,7 @@ impl ResourceOwnerCheckEngine<'_> {
             .iter()
             .filter_map(|index| args.get(*index))
         {
-            if self.has_returnable_parameter_owner(owners, raw_aliases, arg) {
+            if self.has_returnable_parameter_owner(owners, raw_aliases, raw_views, arg) {
                 self.transfer_owner(
                     owners,
                     raw_aliases,
@@ -176,7 +184,7 @@ impl ResourceOwnerCheckEngine<'_> {
             let Some(source_place) = owner_projection_source_place(args, source) else {
                 continue;
             };
-            if self.has_returnable_parameter_owner(owners, raw_aliases, &source_place) {
+            if self.has_returnable_parameter_owner(owners, raw_aliases, raw_views, &source_place) {
                 self.transfer_owner(
                     owners,
                     raw_aliases,
@@ -203,6 +211,7 @@ impl ResourceOwnerCheckEngine<'_> {
             self.apply_owner_projection_return_summary(
                 owners,
                 raw_aliases,
+                raw_views,
                 storage_origins,
                 &output_projection,
                 args,
@@ -230,6 +239,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         output: &Place,
         args: &[Place],
@@ -240,7 +250,7 @@ impl ResourceOwnerCheckEngine<'_> {
         if owners.state(output).is_none() {
             owners.set_state(output, OwnerState::NoFreeObligation);
         }
-        if self.has_transferable_owner(owners, raw_aliases, output) {
+        if owners.has_transferable_owner(output) {
             return;
         }
         for arg in summary
@@ -248,7 +258,7 @@ impl ResourceOwnerCheckEngine<'_> {
             .iter()
             .filter_map(|index| args.get(*index))
         {
-            if self.has_returnable_parameter_owner(owners, raw_aliases, arg) {
+            if self.has_returnable_parameter_owner(owners, raw_aliases, raw_views, arg) {
                 self.transfer_owner(
                     owners,
                     raw_aliases,
@@ -269,7 +279,7 @@ impl ResourceOwnerCheckEngine<'_> {
             let Some(source_place) = owner_projection_source_place(args, source) else {
                 continue;
             };
-            if self.has_returnable_parameter_owner(owners, raw_aliases, &source_place) {
+            if self.has_returnable_parameter_owner(owners, raw_aliases, raw_views, &source_place) {
                 self.transfer_owner(
                     owners,
                     raw_aliases,
@@ -357,36 +367,27 @@ impl ResourceOwnerCheckEngine<'_> {
         &self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         place: &Place,
     ) -> bool {
-        !self.place_is_non_owning_raw_address_view(owners, raw_aliases, place)
+        !self.place_is_non_owning_raw_address_view(owners, raw_views, place)
             && self.has_transferable_owner(owners, raw_aliases, place)
     }
 
     fn place_is_non_owning_raw_address_view(
         &self,
         owners: &OwnerTable,
-        raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         place: &Place,
     ) -> bool {
         self.types.resolve_id(place.ty) == self.types.i32()
+            && raw_views.contains(place)
             && !owners.has_transferable_owner(place)
             && !owners.has_tracked_state_under(place)
-            && raw_aliases
-                .aliases_for(place)
-                .iter()
-                .any(|alias| alias != place && place_has_raw_address_projection(alias))
     }
 }
 
 fn owner_projection_source_place(args: &[Place], source: &OwnerProjectionSource) -> Option<Place> {
     let arg = args.get(source.parameter_index)?;
     Some(place_with_suffix(arg, &source.suffix, source.ty))
-}
-
-fn place_has_raw_address_projection(place: &Place) -> bool {
-    place
-        .projections
-        .iter()
-        .any(|projection| matches!(projection, PlaceProjection::StorageOffset(_)))
 }

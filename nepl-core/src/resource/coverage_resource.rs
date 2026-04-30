@@ -402,7 +402,7 @@ fn resource_ops_coverage(
                 target,
                 span,
             } => {
-                resource_place_coverage(
+                resource_place_coverage_without_deref_count(
                     function,
                     "raw_address_alias.source",
                     source,
@@ -410,7 +410,7 @@ fn resource_ops_coverage(
                     counts,
                     diagnostics,
                 );
-                resource_place_coverage(
+                resource_place_coverage_without_deref_count(
                     function,
                     "raw_address_alias.target",
                     target,
@@ -424,7 +424,7 @@ fn resource_ops_coverage(
                 target,
                 span,
             } => {
-                resource_place_coverage(
+                resource_place_coverage_without_deref_count(
                     function,
                     "raw_address_view.source",
                     source,
@@ -432,7 +432,7 @@ fn resource_ops_coverage(
                     counts,
                     diagnostics,
                 );
-                resource_place_coverage(
+                resource_place_coverage_without_deref_count(
                     function,
                     "raw_address_view.target",
                     target,
@@ -459,6 +459,28 @@ fn resource_place_coverage(
         .iter()
         .filter(|projection| matches!(projection, PlaceProjection::Deref))
         .count();
+    resource_place_unknown_coverage(function, operation, place, span, counts, diagnostics);
+}
+
+fn resource_place_coverage_without_deref_count(
+    function: &str,
+    operation: &str,
+    place: &Place,
+    span: Span,
+    counts: &mut ResourceCoverageCounts,
+    diagnostics: &mut Vec<ResourceCoverageDiagnostic>,
+) {
+    resource_place_unknown_coverage(function, operation, place, span, counts, diagnostics);
+}
+
+fn resource_place_unknown_coverage(
+    function: &str,
+    operation: &str,
+    place: &Place,
+    span: Span,
+    counts: &mut ResourceCoverageCounts,
+    diagnostics: &mut Vec<ResourceCoverageDiagnostic>,
+) {
     if matches!(place.root, PlaceRoot::Unknown) {
         counts.unknown_places += 1;
         diagnostics.push(ResourceCoverageDiagnostic::UnknownPlace {

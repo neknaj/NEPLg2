@@ -4394,6 +4394,180 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_owner_check_allows_region_ptr_at_borrow_projection_dealloc() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    match alloc_region<i32> 1:
+        Result::Err _e:
+            0
+        Result::Ok token:
+            match region_ptr_at<i32,i32> &token 0:
+                Result::Err _e:
+                    let cleanup_ptr <MemPtr<i32>> region_ptr<i32> &token
+                    let cleanup_raw <i32> mem_ptr_addr cleanup_ptr
+                    let cleanup_size <i32> region_size<i32> &token
+                    match dealloc_region<i32> token:
+                        Result::Err _e:
+                            dealloc_raw cleanup_raw cleanup_size
+                            0
+                        Result::Ok _:
+                            0
+                Result::Ok p:
+                    match store_i32 p 321:
+                        Result::Err _e:
+                            let cleanup_ptr <MemPtr<i32>> region_ptr<i32> &token
+                            let cleanup_raw <i32> mem_ptr_addr cleanup_ptr
+                            let cleanup_size <i32> region_size<i32> &token
+                            match dealloc_region<i32> token:
+                                Result::Err _e:
+                                    dealloc_raw cleanup_raw cleanup_size
+                                    0
+                                Result::Ok _:
+                                    0
+                        Result::Ok _:
+                            let v <i32> match load_i32 p:
+                                Option::None:
+                                    0
+                                Option::Some x:
+                                    x
+                            let cleanup_ptr <MemPtr<i32>> region_ptr<i32> &token
+                            let cleanup_raw <i32> mem_ptr_addr cleanup_ptr
+                            let cleanup_size <i32> region_size<i32> &token
+                            match dealloc_region<i32> token:
+                                Result::Err _e:
+                                    dealloc_raw cleanup_raw cleanup_size
+                                    0
+                                Result::Ok _:
+                                    v
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let cell_report = check_resource_initialized_moves(&resource, &types);
+    let owner_report = check_resource_owner_obligations(&resource, &types);
+    let main_cell_diagnostics = cell_report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let ResourceCheckDiagnostic::CellUnavailable { function, .. } = diagnostic;
+            function == "main" || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    let main_owner_diagnostics = owner_report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function == "main" || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_cell_diagnostics.is_empty(),
+        "borrowed RegionToken projection must keep MemPtr cell aliases initialized: {:#?}\nresource:\n{}",
+        main_cell_diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        main_owner_diagnostics.is_empty(),
+        "borrowed RegionToken projection must keep enough non-owning cleanup data for dealloc_region Err fallback: {:#?}\nresource:\n{}",
+        main_owner_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_allows_region_ptr_rewrap_view_dealloc() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    match alloc_region<u8> 16:
+        Result::Err _e:
+            0
+        Result::Ok token:
+            let p_u8 <MemPtr<u8>> region_ptr<u8> &token
+            let p_i32 <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr p_u8
+            match fill_i32 p_i32 4 7:
+                Result::Err _e:
+                    let cleanup_raw <i32> mem_ptr_addr p_u8
+                    let cleanup_size <i32> region_size<u8> &token
+                    match dealloc_region<u8> token:
+                        Result::Err _e:
+                            dealloc_raw cleanup_raw cleanup_size
+                            0
+                        Result::Ok _:
+                            0
+                Result::Ok _:
+                    let ok <i32> match load_i32 p_i32:
+                        Option::None:
+                            0
+                        Option::Some v:
+                            if eq v 7 1 0
+                    let cleanup_raw <i32> mem_ptr_addr p_u8
+                    let cleanup_size <i32> region_size<u8> &token
+                    match dealloc_region<u8> token:
+                        Result::Err _e:
+                            dealloc_raw cleanup_raw cleanup_size
+                            0
+                        Result::Ok _:
+                            ok
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let cell_report = check_resource_initialized_moves(&resource, &types);
+    let owner_report = check_resource_owner_obligations(&resource, &types);
+    let main_cell_diagnostics = cell_report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let ResourceCheckDiagnostic::CellUnavailable { function, .. } = diagnostic;
+            function == "main" || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    let main_owner_diagnostics = owner_report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function == "main" || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_cell_diagnostics.is_empty(),
+        "rewrapping a RegionToken-derived MemPtr view must preserve cell aliases: {:#?}\nresource:\n{}",
+        main_cell_diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        main_owner_diagnostics.is_empty(),
+        "rewrapping a RegionToken-derived MemPtr view must keep enough non-owning cleanup data for dealloc_region Err fallback: {:#?}\nresource:\n{}",
+        main_owner_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement() {
     let source = r#"
 #entry main
@@ -4435,7 +4609,7 @@ fn main <()*>()> ():
         main_diagnostics.iter().any(|diagnostic| matches!(
             diagnostic,
             ResourceOwnerDiagnostic::OwnerUnavailable {
-                operation: ResourceOwnerOperation::Dealloc,
+                operation: ResourceOwnerOperation::Read | ResourceOwnerOperation::Dealloc,
                 state: OwnerState::Reserved { .. },
                 ..
             }
@@ -10542,6 +10716,103 @@ fn main <()->i32> ():
     assert!(
         resource.dump_text().contains("raw_address_alias"),
         "RegionToken ptr helper must expose raw address alias:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_region_ptr_at_zero_alias_reports_moved_cell() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    match region_ptr_at<LocalToken,LocalToken> &token 0:
+        Result::Ok q:
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            let a <LocalToken> load<LocalToken> mem_ptr_addr p
+            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            0
+        Result::Err _e:
+            0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                function,
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Moved,
+                ..
+            } if function == "main" || function.starts_with("main__")
+        )),
+        "RegionToken zero-offset MemPtr alias must preserve moved raw cell state: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_region_ptr_at_unknown_offset_rejects_dealloc_over_live_cell() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_offset <(bool)->i32> (flag):
+    if flag 0 4
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let off <i32> choose_offset true
+    match region_ptr_at<LocalToken,LocalToken> &token off:
+        Result::Ok q:
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            let r <Result<(),str>> dealloc_ptr<LocalToken> q size_of<LocalToken>
+            0
+        Result::Err _e:
+            0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                function,
+                operation: ResourceCheckOperation::RawMemoryDeallocCell,
+                state: CellState::Initialized(_),
+                ..
+            } if function == "main" || function.starts_with("main__")
+        )),
+        "unknown-offset RegionToken view dealloc must reject overlap with live non-Copy cell: {:#?}\nresource:\n{}",
+        report.diagnostics,
         resource.dump_text()
     );
 }

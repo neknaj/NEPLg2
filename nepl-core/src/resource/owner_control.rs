@@ -106,15 +106,28 @@ impl ResourceOwnerCheckEngine<'_> {
                 ResourceOwnerOperation::BranchValue,
                 span,
             ) {
-                self.transfer_owner(
-                    &mut then_owners,
-                    &mut then_raw_aliases,
-                    &mut then_storage_origins,
+                if self.initializer_is_non_owning_raw_alias_view(
+                    &then_owners,
+                    &then_raw_aliases,
                     then_value,
                     output,
-                    ResourceOwnerOperation::BranchValue,
-                    span,
-                );
+                ) {
+                    self.copy_non_owning_owner_markers(&mut then_owners, then_value, output);
+                    then_raw_aliases.copy_alias_or_seed(then_value, output);
+                    then_storage_origins.copy_origin(then_value, output);
+                } else {
+                    self.transfer_owner(
+                        &mut then_owners,
+                        &mut then_raw_aliases,
+                        &mut then_storage_origins,
+                        then_value,
+                        output,
+                        ResourceOwnerOperation::BranchValue,
+                        span,
+                    );
+                    then_raw_aliases.copy_alias_or_seed(then_value, output);
+                    then_storage_origins.copy_origin(then_value, output);
+                }
                 then_pending_reallocs.copy_result(then_value, output);
                 then_variant_owner_effects.copy_result(then_value, output);
             }
@@ -135,15 +148,28 @@ impl ResourceOwnerCheckEngine<'_> {
                 ResourceOwnerOperation::BranchValue,
                 span,
             ) {
-                self.transfer_owner(
-                    &mut else_owners,
-                    &mut else_raw_aliases,
-                    &mut else_storage_origins,
+                if self.initializer_is_non_owning_raw_alias_view(
+                    &else_owners,
+                    &else_raw_aliases,
                     else_value,
                     output,
-                    ResourceOwnerOperation::BranchValue,
-                    span,
-                );
+                ) {
+                    self.copy_non_owning_owner_markers(&mut else_owners, else_value, output);
+                    else_raw_aliases.copy_alias_or_seed(else_value, output);
+                    else_storage_origins.copy_origin(else_value, output);
+                } else {
+                    self.transfer_owner(
+                        &mut else_owners,
+                        &mut else_raw_aliases,
+                        &mut else_storage_origins,
+                        else_value,
+                        output,
+                        ResourceOwnerOperation::BranchValue,
+                        span,
+                    );
+                    else_raw_aliases.copy_alias_or_seed(else_value, output);
+                    else_storage_origins.copy_origin(else_value, output);
+                }
                 else_pending_reallocs.copy_result(else_value, output);
                 else_variant_owner_effects.copy_result(else_value, output);
             }
@@ -313,15 +339,32 @@ impl ResourceOwnerCheckEngine<'_> {
                         ResourceOwnerOperation::MatchValue,
                         span,
                     ) {
-                        self.transfer_owner(
-                            &mut arm_owners,
-                            &mut arm_raw_aliases,
-                            &mut arm_storage_origins,
+                        if self.initializer_is_non_owning_raw_alias_view(
+                            &arm_owners,
+                            &arm_raw_aliases,
                             &source,
                             bind_local,
-                            ResourceOwnerOperation::MatchValue,
-                            span,
-                        );
+                        ) {
+                            self.copy_non_owning_owner_markers(
+                                &mut arm_owners,
+                                &source,
+                                bind_local,
+                            );
+                            arm_raw_aliases.copy_alias_or_seed(&source, bind_local);
+                            arm_storage_origins.copy_origin(&source, bind_local);
+                        } else {
+                            self.transfer_owner(
+                                &mut arm_owners,
+                                &mut arm_raw_aliases,
+                                &mut arm_storage_origins,
+                                &source,
+                                bind_local,
+                                ResourceOwnerOperation::MatchValue,
+                                span,
+                            );
+                            arm_raw_aliases.copy_alias_or_seed(&source, bind_local);
+                            arm_storage_origins.copy_origin(&source, bind_local);
+                        }
                     }
                     arm_function_aliases.copy_alias(&source, bind_local);
                     arm_raw_views.copy(&source, bind_local);
@@ -377,15 +420,28 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::MatchValue,
                     span,
                 ) {
-                    self.transfer_owner(
-                        &mut arm_owners,
-                        &mut arm_raw_aliases,
-                        &mut arm_storage_origins,
+                    if self.initializer_is_non_owning_raw_alias_view(
+                        &arm_owners,
+                        &arm_raw_aliases,
                         &arm.value,
                         output,
-                        ResourceOwnerOperation::MatchValue,
-                        span,
-                    );
+                    ) {
+                        self.copy_non_owning_owner_markers(&mut arm_owners, &arm.value, output);
+                        arm_raw_aliases.copy_alias_or_seed(&arm.value, output);
+                        arm_storage_origins.copy_origin(&arm.value, output);
+                    } else {
+                        self.transfer_owner(
+                            &mut arm_owners,
+                            &mut arm_raw_aliases,
+                            &mut arm_storage_origins,
+                            &arm.value,
+                            output,
+                            ResourceOwnerOperation::MatchValue,
+                            span,
+                        );
+                        arm_raw_aliases.copy_alias_or_seed(&arm.value, output);
+                        arm_storage_origins.copy_origin(&arm.value, output);
+                    }
                     arm_pending_reallocs.copy_result(&arm.value, output);
                     arm_variant_owner_effects.copy_result(&arm.value, output);
                 }

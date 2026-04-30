@@ -1,10 +1,11 @@
 extern crate alloc;
 
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::hir::{FuncRef, HirBody, HirExpr, HirExprKind, HirFunction};
-use crate::layout::storage_size_bytes;
+use crate::layout::{extend_type_mapping, mapped_type_id, storage_size_bytes};
 use crate::runtime_helpers::helper_base_name;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
@@ -82,6 +83,53 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 target: region_token_raw_field_place(output, env.types.i32()),
                 span,
             });
+        }
+        Some("region_ptr") => {
+            let Some(token) = arg_places.first() else {
+                return;
+            };
+            let token = value_place_from_argument(token, env);
+            push_raw_address_op(
+                region_token_raw_field_place(&token, env.types.i32()),
+                mem_ptr_raw_field_place(output, env.types.i32()),
+                true,
+                ops,
+                span,
+            );
+        }
+        Some("region_ptr_at") => {
+            let Some(token) = arg_places.first() else {
+                return;
+            };
+            let Some(ok_payload_ty) = enum_payload_type(env.types, output.ty, "Ok") else {
+                return;
+            };
+            if !is_named_struct_type(env.types, ok_payload_ty, "MemPtr") {
+                return;
+            }
+            let token = value_place_from_argument(token, env);
+            let source = RawAddressSource {
+                base: region_token_raw_field_place(&token, env.types.i32()),
+                offset: RawAddressOffset::Known(0),
+                explicit_offset: false,
+            };
+            let offset = hir_args
+                .get(1)
+                .and_then(|arg| i32_const_from_actual_arg(arg, env));
+            let source = if matches!(offset, Some(0)) {
+                source.into_place_and_view(env.types.i32())
+            } else {
+                source
+                    .with_added_offset(offset)
+                    .into_place_and_view(env.types.i32())
+            };
+            push_raw_address_op(
+                source.place,
+                result_ok_mem_ptr_raw_field_place(output, ok_payload_ty, env.types.i32()),
+                true,
+                ops,
+                span,
+            );
         }
         _ => {}
     }
@@ -343,9 +391,9 @@ fn raw_address_source_from_region_token_ptr_expr(
     match &expr.kind {
         HirExprKind::Var(name) => {
             let index = function_param_index(function, name)?;
-            let token = arg_places.get(index)?;
+            let token = value_place_from_argument(arg_places.get(index)?, env);
             Some(RawAddressSource {
-                base: region_token_raw_field_place(token, env.types.i32()),
+                base: region_token_raw_field_place(&token, env.types.i32()),
                 offset: RawAddressOffset::Known(0),
                 explicit_offset: false,
             })
@@ -533,20 +581,37 @@ fn function_param_index(function: &HirFunction, name: &str) -> Option<usize> {
 }
 
 fn raw_address_place_from_argument(place: &Place, env: &LoweringEnvironment) -> Place {
-    if is_named_struct_type(env.types, place.ty, "MemPtr") {
-        mem_ptr_raw_field_place(place, env.types.i32())
+    let value = value_place_from_argument(place, env);
+    if is_named_struct_type(env.types, value.ty, "MemPtr") {
+        mem_ptr_raw_field_place(&value, env.types.i32())
     } else {
-        place.clone()
+        value
     }
 }
 
 fn raw_address_alias_target(output: &Place, env: &LoweringEnvironment) -> Place {
-    if is_named_struct_type(env.types, output.ty, "MemPtr") {
-        mem_ptr_raw_field_place(output, env.types.i32())
-    } else if is_named_struct_type(env.types, output.ty, "RegionToken") {
-        region_token_raw_field_place(output, env.types.i32())
+    let value = value_place_from_argument(output, env);
+    if is_named_struct_type(env.types, value.ty, "MemPtr") {
+        mem_ptr_raw_field_place(&value, env.types.i32())
+    } else if is_named_struct_type(env.types, value.ty, "RegionToken") {
+        region_token_raw_field_place(&value, env.types.i32())
     } else {
         output.clone()
+    }
+}
+
+fn value_place_from_argument(place: &Place, env: &LoweringEnvironment) -> Place {
+    match reference_inner_type(env.types, place.ty) {
+        Some(inner) => place.clone().with_projection(PlaceProjection::Deref, inner),
+        None => place.clone(),
+    }
+}
+
+fn reference_inner_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
+    let resolved = types.resolve_id(ty);
+    match types.get_ref(resolved) {
+        TypeKind::Reference(inner, _) => Some(*inner),
+        _ => None,
     }
 }
 
@@ -572,6 +637,16 @@ fn mem_ptr_raw_field_place(ptr: &Place, raw_ty: TypeId) -> Place {
     )
 }
 
+fn result_ok_mem_ptr_raw_field_place(result: &Place, payload_ty: TypeId, raw_ty: TypeId) -> Place {
+    let payload = result.clone().with_projection(
+        PlaceProjection::EnumPayload {
+            variant: String::from("Ok"),
+        },
+        payload_ty,
+    );
+    mem_ptr_raw_field_place(&payload, raw_ty)
+}
+
 fn region_token_ptr_field_place(token: &Place, ptr_ty: TypeId) -> Place {
     token.clone().with_projection(
         PlaceProjection::Field {
@@ -591,6 +666,53 @@ fn non_negative_i32_literal_bytes(expr: &HirExpr) -> Option<usize> {
         HirExprKind::LiteralI32(value) if *value >= 0 => Some(*value as usize),
         _ => None,
     }
+}
+
+fn enum_payload_type(types: &TypeCtx, enum_ty: TypeId, variant_name: &str) -> Option<TypeId> {
+    let resolved = types.resolve_id(enum_ty);
+    match types.get_ref(resolved) {
+        TypeKind::Enum { variants, .. } => variants
+            .iter()
+            .find(|variant| variant_name_matches(&variant.name, variant_name))
+            .and_then(|variant| variant.payload),
+        TypeKind::Apply { base, args } => {
+            let base = types.resolve_named_type_id(*base);
+            let TypeKind::Enum {
+                type_params,
+                variants,
+                ..
+            } = types.get_ref(base)
+            else {
+                return None;
+            };
+            let mapping = extend_type_mapping(types, &BTreeMap::new(), type_params, args);
+            variants
+                .iter()
+                .find(|variant| variant_name_matches(&variant.name, variant_name))
+                .and_then(|variant| variant.payload)
+                .map(|payload| mapped_type_id(types, payload, &mapping))
+        }
+        TypeKind::Named(_) => {
+            let named = types.resolve_named_type_id(resolved);
+            if named == resolved {
+                None
+            } else {
+                enum_payload_type(types, named, variant_name)
+            }
+        }
+        _ => {
+            let named = types.resolve_named_type_id(resolved);
+            if named == resolved {
+                None
+            } else {
+                enum_payload_type(types, named, variant_name)
+            }
+        }
+    }
+}
+
+fn variant_name_matches(defined: &str, projected: &str) -> bool {
+    defined == projected || projected.rsplit("::").next() == Some(defined)
 }
 
 fn func_ref_base_name(callee: &FuncRef) -> Option<&str> {

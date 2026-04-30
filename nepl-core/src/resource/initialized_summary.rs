@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 use crate::types::TypeId;
 
 use super::model::PlaceProjection;
+use super::report::ResourceCheckOperation;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawCellInitializationFunctionSummary {
@@ -15,6 +16,7 @@ pub(super) struct RawCellInitializationFunctionSummary {
     pub(super) variant_param_cells: Vec<RawCellInitializationVariantParamCell>,
     pub(super) variant_required_param_cells: Vec<RawCellInitializationVariantParamRequirement>,
     pub(super) variant_conditions: Vec<RawCellInitializationVariantCondition>,
+    pub(super) param_destructions: Vec<RawCellDestructionParamAddress>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +32,14 @@ pub(super) struct RawCellInitializationParamCell {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
     pub(super) holds_raw_address: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct RawCellDestructionParamAddress {
+    pub(super) param_index: usize,
+    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) ty: TypeId,
+    pub(super) operation: ResourceCheckOperation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

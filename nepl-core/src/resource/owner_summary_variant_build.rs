@@ -4,6 +4,7 @@ use crate::types::TypeCtx;
 
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_alias_flow::RawCellAddressReturnSummary;
 use super::model::{Place, ResourceFunction, ResourceOp};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
@@ -17,7 +18,7 @@ use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
     OwnerReturnSummary, OwnerVariantCondition, OwnerVariantParameterIndex,
-    OwnerVariantPayloadCondition, OwnerVariantProjectionReturnSource, OwnerVariantProjectionSource,
+    OwnerVariantPayloadCondition, OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 
 pub(super) fn collect_variant_consumed_owner_parameters_from_return(
@@ -27,15 +28,17 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
     payload_condition_out: &mut Vec<OwnerVariantPayloadCondition>,
     function: &ResourceFunction,
     types: &TypeCtx,
+    raw_alias_summaries: &[RawCellAddressReturnSummary],
     summaries: &[OwnerReturnSummary],
     parameter_storage_sources: &[OwnerParameterStorageSource],
     ops: &[ResourceOp],
     return_value: &Place,
-    return_out: &mut Vec<OwnerVariantProjectionReturnSource>,
+    return_out: &mut Vec<OwnerVariantProjectionReturn>,
 ) {
     let engine = ResourceOwnerCheckEngine {
         function: function.name.as_str(),
         types,
+        raw_alias_summaries,
         summaries,
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),

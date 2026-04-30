@@ -1,9 +1,9 @@
-use alloc::vec::Vec;
-
 use crate::types::TypeCtx;
+use alloc::vec::Vec;
 
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_alias_flow::RawCellAddressReturnSummary;
 use super::model::{OwnerState, ResourceFunction, ResourceModule, ResourceTerminator};
 use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_place};
 use super::owner_check::ResourceOwnerCheckEngine;
@@ -26,12 +26,14 @@ use super::summary::{OwnerProjectionSource, OwnerReturnSummary};
 pub(super) fn compute_owner_return_summaries(
     module: &ResourceModule,
     types: &TypeCtx,
+    raw_alias_summaries: &[RawCellAddressReturnSummary],
 ) -> Vec<OwnerReturnSummary> {
     let mut summaries = Vec::new();
     for _ in 0..=module.functions.len() {
         let mut next = Vec::new();
         for function in &module.functions {
-            let summary = function_owner_return_summary(function, types, &summaries);
+            let summary =
+                function_owner_return_summary(function, types, raw_alias_summaries, &summaries);
             if summary.returns_fresh_owner
                 || summary.returns_maybe_owner
                 || !summary.parameter_indices.is_empty()
@@ -60,11 +62,13 @@ pub(super) fn compute_owner_return_summaries(
 fn function_owner_return_summary(
     function: &ResourceFunction,
     types: &TypeCtx,
+    raw_alias_summaries: &[RawCellAddressReturnSummary],
     summaries: &[OwnerReturnSummary],
 ) -> OwnerReturnSummary {
     let mut engine = ResourceOwnerCheckEngine {
         function: function.name.as_str(),
         types,
+        raw_alias_summaries,
         summaries,
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),
@@ -130,6 +134,7 @@ fn function_owner_return_summary(
                 &mut variant_payload_conditions,
                 function,
                 types,
+                raw_alias_summaries,
                 summaries,
                 &parameter_storage_sources,
                 &block.ops,
@@ -263,8 +268,14 @@ fn function_owner_return_summary(
 
     remove_variant_projection_return_sources(&mut projection_returns, &variant_projection_returns);
 
-    let (consumed_parameter_indices, consumed_parameter_sources) =
+    let (mut consumed_parameter_indices, mut consumed_parameter_sources) =
         consumed_owner_parameters(&owners, &parameter_storage_sources, &returned_sources);
+    remove_variant_consumed_parameter_sources(
+        &mut consumed_parameter_indices,
+        &mut consumed_parameter_sources,
+        &variant_consumed_parameter_indices,
+        &variant_consumed_parameter_sources,
+    );
     OwnerReturnSummary {
         function: function.name.clone(),
         parameter_indices,
@@ -321,23 +332,49 @@ pub(super) fn consumed_owner_parameters(
     (indices, sources)
 }
 
+fn remove_variant_consumed_parameter_sources(
+    consumed_indices: &mut Vec<usize>,
+    consumed_sources: &mut Vec<OwnerProjectionSource>,
+    variant_indices: &[super::summary::OwnerVariantParameterIndex],
+    variant_sources: &[super::summary::OwnerVariantProjectionSource],
+) {
+    for variant in variant_indices {
+        consumed_indices.retain(|index| *index != variant.parameter_index);
+    }
+    for variant in variant_sources {
+        consumed_sources.retain(|source| source != &variant.source);
+    }
+}
+
 fn remove_variant_projection_return_sources(
     projection_returns: &mut Vec<super::summary::OwnerProjectionReturnSummary>,
-    variant_returns: &[super::summary::OwnerVariantProjectionReturnSource],
+    variant_returns: &[super::summary::OwnerVariantProjectionReturn],
 ) {
+    use super::summary::OwnerVariantProjectionReturnKind;
+
     for projection in projection_returns.iter_mut() {
         for variant_return in variant_returns
             .iter()
             .filter(|entry| entry.suffix == projection.suffix && entry.ty == projection.ty)
         {
-            if variant_return.source.suffix.is_empty() {
-                projection
-                    .parameter_indices
-                    .retain(|index| *index != variant_return.source.parameter_index);
-            } else {
-                projection
-                    .parameter_sources
-                    .retain(|source| source != &variant_return.source);
+            match &variant_return.kind {
+                OwnerVariantProjectionReturnKind::Parameter(source) => {
+                    if source.suffix.is_empty() {
+                        projection
+                            .parameter_indices
+                            .retain(|index| *index != source.parameter_index);
+                    } else {
+                        projection
+                            .parameter_sources
+                            .retain(|existing| existing != source);
+                    }
+                }
+                OwnerVariantProjectionReturnKind::FreshOwner => {
+                    projection.returns_fresh_owner = false;
+                }
+                OwnerVariantProjectionReturnKind::MaybeOwner => {
+                    projection.returns_maybe_owner = false;
+                }
             }
         }
     }

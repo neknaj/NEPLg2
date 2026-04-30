@@ -82,6 +82,38 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - Resource IR の責務分割は selfhost static checker の設計前提であり、巨大 checker を再生成しないための継続課題として扱う。
+# 2026-04-30 メモ (ISS-20260430T091939822Z RegionToken projection owner cleanup)
+
+- [同期]:
+  - `work/region-token-owner-cleanup` branch で、未コミット差分を確認してから作業を継続した。
+- [原因]:
+  - `region_ptr` / `region_ptr_at` / 関連 observer が `RegionToken<T>` を by-value で扱う API になっており、読み取り専用 projection 後に owner token を `dealloc_region` へ渡しにくい設計だった。
+  - Resource IR の borrow lowering は `&token` 自体を raw-address alias の基点として扱い、`(*&token).ptr.raw` と元 owner cell の対応を安定して保持できなかった。
+  - `mem_ptr_wrap (mem_ptr_addr view)` のような non-owning `MemPtr` 再ラップでも `ConstructInput` が raw alias 先の owner を転送してしまい、view と owner の責務分割を壊していた。
+  - `NoFreeObligation` marker を path merge で raw owner canonical へ畳み込むと、実 owner state と非所有 marker が混ざり、解放義務の有無を正しく表せなかった。
+- [修正]:
+  - `stdlib/core/mem.nepl` の projection / observer API を `&RegionToken<T>` に揃え、`field.nepl` の import cycle も解消した。
+  - Resource IR borrow lowering と initialized/raw-alias/owner checker 側で、borrow の alias を deref 先へ保持し、`Expr::Borrow` の clear は exact clear に限定した。
+  - owner checker の Declare/Assign/Branch/Match/Construct で non-owning raw-address view を owner transfer ではなく alias/marker copy として扱うようにした。
+  - owner path merge で `NoFreeObligation` を raw owner canonicalization から外し、所有義務と非所有 view marker を分離した。
+  - raw-address alias の canonical 代表を root/projection/offset の構造順で安定化し、同じ raw cell の moved/initialized/uninit state が挿入順で割れないようにした。
+  - raw cell summary に破壊的 raw memory requirement を追加し、`dealloc_ptr` などの wrapper call でも caller 側の live non-Copy cell conflict を検出するようにした。
+  - `resource_ir` に `RegionToken` borrowed projection と `MemPtr` rewrap view の回帰テストを追加し、fallible branch では必ず元 token を cleanup する形にした。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_region_ptr_at -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_allows_region_ptr -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_alloc_ptr_raw_owner_return -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_mem_ptr_dealloc_consumption -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-region-token-cleanup.json -j 1 --dist web/dist`: 110 passed / 0 failed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-region-token-cleanup.json -j 1 --dist web/dist`: 12 passed / 0 failed
+- [issue]:
+  - `ISS-20260430T091939822Z-REGIONTOKEN-PROJECTION-APIS-CONSUME--BEDE77A5` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` の MemPtr=non-owning pointer / RegionToken=owner-token 分離方針に沿って、Resource IR owner 判定の view/owner 混同を減らした。
 
 # 2026-04-30 メモ (ISS-20260430T083411167Z owner variant value conditions)
 

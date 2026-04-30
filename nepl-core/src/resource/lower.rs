@@ -516,6 +516,24 @@ fn lower_expr_skeleton(
         }
         HirExprKind::Intrinsic { name, args, .. } => {
             if let Some(source) =
+                lower_get_field_ref_intrinsic_source(name, args, expr.ty, ops, ctx, env)
+            {
+                let output = ctx.temporary(expr.ty);
+                ops.push(ResourceOp::Borrow {
+                    source,
+                    output: output.clone(),
+                    kind: BorrowKind::Shared,
+                    span: expr.span,
+                });
+                ops.push(ResourceOp::Expr {
+                    kind: ResourceExprKind::Intrinsic,
+                    output: output.clone(),
+                    ty: expr.ty,
+                    span: expr.span,
+                });
+                return output;
+            }
+            if let Some(source) =
                 lower_get_field_intrinsic_source(name, args, expr.ty, ops, ctx, env)
             {
                 let output = ctx.temporary(expr.ty);
@@ -1014,10 +1032,42 @@ fn lower_get_field_intrinsic_source(
     Some(base.with_projection(projection, field_ty))
 }
 
+fn lower_get_field_ref_intrinsic_source(
+    name: &str,
+    args: &[HirExpr],
+    ref_ty: TypeId,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    if helper_base_name(name) != "get_field_ref" {
+        return None;
+    }
+    let owner_ref = args.first()?;
+    let field_name = literal_field_name(env, args.get(1)?)?;
+    let owner_ty = reference_inner_type(env.types, owner_ref.ty)?;
+    let field_ty = reference_inner_type(env.types, ref_ty)?;
+    let projection = aggregate_field_projection_by_name(env.types, owner_ty, field_name, field_ty)?;
+    let mut base = place_from_expr_skeleton(owner_ref, ctx);
+    if matches!(&base.root, super::model::PlaceRoot::Unknown) {
+        base = lower_expr_skeleton(owner_ref, ops, ctx, env);
+    }
+    let deref_base = base.with_projection(super::model::PlaceProjection::Deref, owner_ty);
+    Some(deref_base.with_projection(projection, field_ty))
+}
+
 fn func_ref_base_name(callee: &FuncRef) -> Option<&str> {
     match callee {
         FuncRef::Builtin(name) | FuncRef::User(name, _, _) => Some(helper_base_name(name)),
         FuncRef::Trait { .. } => None,
+    }
+}
+
+fn reference_inner_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
+    let resolved = types.resolve_id(ty);
+    match types.get_ref(resolved) {
+        TypeKind::Reference(inner, _) => Some(*inner),
+        _ => None,
     }
 }
 

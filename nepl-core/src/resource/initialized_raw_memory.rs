@@ -33,18 +33,18 @@ impl ResourceCheckEngine<'_> {
             }
             RawMemoryOp::Load => {
                 pending_reallocs.clear_result(output);
-                let Some(address) = args.first() else {
+                let Some(address_arg) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                     return;
                 };
-                let address = raw_aliases.canonicalize(address);
                 let address_available = self.ensure_available(
                     cells,
-                    &address,
+                    address_arg,
                     ResourceCheckOperation::RawMemoryLoadAddress,
                     span,
                 );
+                let address = raw_aliases.canonicalize(address_arg);
                 let cell = raw_memory_cell_place(&address, output.ty);
                 let loaded_from_untracked_external = raw_aliases
                     .aliases_for(&address)
@@ -81,18 +81,18 @@ impl ResourceCheckEngine<'_> {
             }
             RawMemoryOp::Store => {
                 pending_reallocs.clear_result(output);
-                let Some(address) = args.first() else {
+                let Some(address_arg) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                     return;
                 };
-                let address = raw_aliases.canonicalize(address);
                 let address_available = self.ensure_available(
                     cells,
-                    &address,
+                    address_arg,
                     ResourceCheckOperation::RawMemoryStoreAddress,
                     span,
                 );
+                let address = raw_aliases.canonicalize(address_arg);
                 let cell_available = self.ensure_no_live_non_copy_raw_cells(
                     cells,
                     &address,
@@ -129,18 +129,18 @@ impl ResourceCheckEngine<'_> {
             }
             RawMemoryOp::Dealloc => {
                 pending_reallocs.clear_result(output);
-                let Some(address) = args.first() else {
+                let Some(address_arg) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                     return;
                 };
-                let address = raw_aliases.canonicalize(address);
                 let address_available = self.ensure_available(
                     cells,
-                    &address,
+                    address_arg,
                     ResourceCheckOperation::RawMemoryDeallocAddress,
                     span,
                 );
+                let address = raw_aliases.canonicalize(address_arg);
                 let cells_released = self.ensure_no_live_non_copy_raw_cells(
                     cells,
                     &address,
@@ -156,18 +156,18 @@ impl ResourceCheckEngine<'_> {
             }
             RawMemoryOp::Realloc => {
                 pending_reallocs.clear_result(output);
-                let Some(address) = args.first() else {
+                let Some(address_arg) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                     return;
                 };
-                let address = raw_aliases.canonicalize(address);
                 let address_available = self.ensure_available(
                     cells,
-                    &address,
+                    address_arg,
                     ResourceCheckOperation::RawMemoryReallocAddress,
                     span,
                 );
+                let address = raw_aliases.canonicalize(address_arg);
                 let cells_released = self.ensure_no_live_non_copy_raw_cells(
                     cells,
                     &address,
@@ -182,18 +182,18 @@ impl ResourceCheckEngine<'_> {
             }
             RawMemoryOp::Fill => {
                 pending_reallocs.clear_result(output);
-                let Some(address) = args.first() else {
+                let Some(address_arg) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                     return;
                 };
-                let address = raw_aliases.canonicalize(address);
                 let address_available = self.ensure_available(
                     cells,
-                    &address,
+                    address_arg,
                     ResourceCheckOperation::RawMemoryFillAddress,
                     span,
                 );
+                let address = raw_aliases.canonicalize(address_arg);
                 let cells_released = self.ensure_no_live_non_copy_raw_cells(
                     cells,
                     &address,
@@ -212,30 +212,30 @@ impl ResourceCheckEngine<'_> {
             }
             RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => {
                 pending_reallocs.clear_result(output);
-                let Some(destination) = args.first() else {
+                let Some(destination_arg) = args.first() else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                     return;
                 };
-                let Some(source) = args.get(1) else {
+                let Some(source_arg) = args.get(1) else {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                     return;
                 };
-                let destination = raw_aliases.canonicalize(destination);
-                let source = raw_aliases.canonicalize(source);
                 let destination_available = self.ensure_available(
                     cells,
-                    &destination,
+                    destination_arg,
                     ResourceCheckOperation::RawMemoryBulkDestinationAddress,
                     span,
                 );
                 let source_available = self.ensure_available(
                     cells,
-                    &source,
+                    source_arg,
                     ResourceCheckOperation::RawMemoryBulkSourceAddress,
                     span,
                 );
+                let destination = raw_aliases.canonicalize(destination_arg);
+                let source = raw_aliases.canonicalize(source_arg);
                 let destination_cells_released = self.ensure_no_live_non_copy_raw_cells(
                     cells,
                     &destination,

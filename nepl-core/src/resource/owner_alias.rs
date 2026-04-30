@@ -15,46 +15,61 @@ pub(super) fn resolve_owner_alias_place(
     raw_aliases: &RawCellAddressAliases,
     place: &Place,
 ) -> Place {
+    if place_has_concrete_owner_state(owners, place) {
+        return place.clone();
+    }
+    let aliases = raw_aliases.aliases_for(place);
+    for alias in &aliases {
+        if place_has_concrete_owner_state(owners, alias) {
+            return alias.clone();
+        }
+    }
+    let prefix_aliases = raw_aliases.prefix_aliases_for(place);
+    for alias in &prefix_aliases {
+        if place_has_concrete_owner_state(owners, alias) {
+            return alias.clone();
+        }
+    }
+    // Descendant owner states make the aggregate a concrete ownership root.
+    // Raw-address aliases are only a fallback for read temporaries without local owner state.
+    if place_has_non_no_free_tracked_state(owners, place) {
+        return place.clone();
+    }
+    for alias in aliases {
+        if place_has_non_no_free_tracked_state(owners, &alias) {
+            return alias;
+        }
+    }
+    for alias in prefix_aliases {
+        if place_has_non_no_free_tracked_state(owners, &alias) {
+            return alias;
+        }
+    }
+    place.clone()
+}
+
+fn place_has_non_no_free_tracked_state(owners: &OwnerTable, place: &Place) -> bool {
+    owners
+        .state(place)
+        .is_some_and(|state| state != OwnerState::NoFreeObligation)
+        || owners
+            .descendant_entries(place)
+            .iter()
+            .any(|entry| entry.state != OwnerState::NoFreeObligation)
+}
+
+fn place_has_concrete_owner_state(owners: &OwnerTable, place: &Place) -> bool {
     match owners.state(place) {
         Some(OwnerState::Live { .. })
         | Some(OwnerState::Reserved { .. })
         | Some(OwnerState::Moved)
         | Some(OwnerState::Freed)
-        | Some(OwnerState::MaybeFreed { .. }) => return place.clone(),
-        Some(OwnerState::NoFreeObligation) | None => {}
+        | Some(OwnerState::MaybeFreed { .. }) => true,
+        Some(OwnerState::NoFreeObligation) | None => owners
+            .descendant_entries(place)
+            .iter()
+            .any(|entry| !matches!(entry.state, OwnerState::NoFreeObligation)),
     }
-    // Descendant owner states make the aggregate a concrete ownership root.
-    // Raw-address aliases are only a fallback for read temporaries without local owner state.
-    if !owners.descendant_entries(place).is_empty() {
-        return place.clone();
-    }
-    for alias in raw_aliases.aliases_for(place) {
-        match owners.state(&alias) {
-            Some(OwnerState::Live { .. })
-            | Some(OwnerState::Reserved { .. })
-            | Some(OwnerState::Moved)
-            | Some(OwnerState::Freed)
-            | Some(OwnerState::MaybeFreed { .. }) => return alias,
-            Some(OwnerState::NoFreeObligation) | None => {}
-        }
-        if owners.has_tracked_state_under(&alias) {
-            return alias;
-        }
-    }
-    for alias in raw_aliases.prefix_aliases_for(place) {
-        match owners.state(&alias) {
-            Some(OwnerState::Live { .. })
-            | Some(OwnerState::Reserved { .. })
-            | Some(OwnerState::Moved)
-            | Some(OwnerState::Freed)
-            | Some(OwnerState::MaybeFreed { .. }) => return alias,
-            Some(OwnerState::NoFreeObligation) | None => {}
-        }
-        if owners.has_tracked_state_under(&alias) {
-            return alias;
-        }
-    }
-    place.clone()
 }
 
 pub(super) fn aliased_owner_descendant_entries(

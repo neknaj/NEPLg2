@@ -7,14 +7,18 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_alias_flow::{
+    apply_direct_call_raw_alias_summary, apply_indirect_call_raw_alias_summary,
+    compute_raw_cell_address_return_summaries, RawCellAddressReturnSummary,
+};
 use super::model::{
-    EffectOp, OwnerState, OwnerStateEntry, Place, RawMemoryOp, ResourceBlock, ResourceExprKind,
-    ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
+    EffectOp, OwnerState, OwnerStateEntry, Place, PlaceProjection, RawMemoryOp, ResourceBlock,
+    ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
-use super::place_utils::raw_memory_cell_place;
+use super::place_utils::{place_suffix_after_prefix, raw_memory_cell_place, replace_place_prefix};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{
     ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerDiagnostic,
@@ -30,12 +34,14 @@ pub fn check_resource_owner_obligations(
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceOwnerCheckDeferred::default();
-    let summaries = compute_owner_return_summaries(module, types);
+    let raw_alias_summaries = compute_raw_cell_address_return_summaries(module, types);
+    let summaries = compute_owner_return_summaries(module, types, &raw_alias_summaries);
 
     for function in &module.functions {
         let mut engine = ResourceOwnerCheckEngine {
             function: function.name.as_str(),
             types,
+            raw_alias_summaries: &raw_alias_summaries,
             summaries: &summaries,
             diagnostics: Vec::new(),
             deferred: ResourceOwnerCheckDeferred::default(),
@@ -60,6 +66,7 @@ pub fn check_resource_owner_obligations(
 pub(super) struct ResourceOwnerCheckEngine<'a> {
     pub(super) function: &'a str,
     pub(super) types: &'a TypeCtx,
+    pub(super) raw_alias_summaries: &'a [RawCellAddressReturnSummary],
     pub(super) summaries: &'a [OwnerReturnSummary],
     pub(super) diagnostics: Vec<ResourceOwnerDiagnostic>,
     pub(super) deferred: ResourceOwnerCheckDeferred,
@@ -162,24 +169,39 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
-    fn initializer_is_non_owning_raw_alias_view(
+    pub(super) fn initializer_is_non_owning_raw_alias_view(
         &self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
         source: &Place,
         target: &Place,
     ) -> bool {
-        if self.types.resolve_id(source.ty) != self.types.i32()
-            || self.types.resolve_id(target.ty) != self.types.i32()
+        if self.types.resolve_id(source.ty) != self.types.resolve_id(target.ty)
             || owners.has_transferable_owner(source)
-            || owners.has_tracked_state_under(source)
+            || owner_state_under_is_not_non_owning(source, owners)
         {
             return false;
         }
-        raw_aliases
-            .aliases_for(source)
-            .iter()
-            .any(|alias| alias != source)
+        initializer_has_raw_alias_view(raw_aliases, source)
+    }
+
+    pub(super) fn copy_non_owning_owner_markers(
+        &self,
+        owners: &mut OwnerTable,
+        source: &Place,
+        target: &Place,
+    ) {
+        if owners.state(source) == Some(OwnerState::NoFreeObligation) {
+            owners.set_state(target, OwnerState::NoFreeObligation);
+        }
+        for entry in owners.descendant_entries(source) {
+            if entry.state != OwnerState::NoFreeObligation {
+                continue;
+            }
+            if let Some(target_place) = replace_place_prefix(&entry.place, source, target) {
+                owners.set_state(&target_place, OwnerState::NoFreeObligation);
+            }
+        }
     }
 
     fn reject_reserved_call_arguments(
@@ -240,6 +262,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         initializer,
                         place,
                     ) {
+                        self.copy_non_owning_owner_markers(owners, initializer, place);
                         raw_aliases.copy_alias_or_seed(initializer, place);
                         storage_origins.copy_origin(initializer, place);
                     } else {
@@ -304,6 +327,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     value,
                     target,
                 ) {
+                    self.copy_non_owning_owner_markers(owners, value, target);
                     raw_aliases.copy_alias_or_seed(value, target);
                     storage_origins.copy_origin(value, target);
                 } else {
@@ -593,7 +617,19 @@ impl ResourceOwnerCheckEngine<'_> {
             } => {
                 let checked_mem_ptr_wrapper = matches!(effect, EffectOp::UnsafeMemory { .. })
                     && call_uses_checked_mem_ptr_wrapper(self.types, args);
+                let raw_alias_summary_applied = !direct_raw_memory_effect(effect)
+                    && apply_direct_call_raw_alias_summary(
+                        raw_aliases,
+                        output,
+                        target,
+                        args,
+                        self.raw_alias_summaries,
+                        self.types,
+                    );
                 if !direct_raw_memory_effect(effect) || checked_mem_ptr_wrapper {
+                    if !raw_alias_summary_applied {
+                        raw_aliases.clear(output);
+                    }
                     raw_views.clear(output);
                     pending_reallocs.clear_result(output);
                     variant_owner_effects.clear_result(output);
@@ -607,6 +643,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         self.apply_call_return_owner(
                             owners,
                             raw_aliases,
+                            raw_views,
                             storage_origins,
                             variant_owner_effects,
                             output,
@@ -625,6 +662,17 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
                 ..
             } => {
+                if !apply_indirect_call_raw_alias_summary(
+                    raw_aliases,
+                    function_aliases,
+                    output,
+                    callee,
+                    args,
+                    self.raw_alias_summaries,
+                    self.types,
+                ) {
+                    raw_aliases.clear(output);
+                }
                 raw_views.clear(output);
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);
@@ -639,6 +687,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         owners,
                         function_aliases,
                         raw_aliases,
+                        raw_views,
                         storage_origins,
                         variant_owner_effects,
                         output,
@@ -690,7 +739,13 @@ impl ResourceOwnerCheckEngine<'_> {
                 pending_reallocs.clear_result(target);
                 variant_owner_effects.clear_result(target);
             }
-            ResourceOp::Borrow { output, .. } => {
+            ResourceOp::Borrow { source, output, .. } => {
+                let deref_output = output
+                    .clone()
+                    .with_projection(PlaceProjection::Deref, source.ty);
+                raw_aliases.copy_alias_or_seed(source, &deref_output);
+                storage_origins.copy_origin(source, &deref_output);
+                raw_views.copy(source, &deref_output);
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);
             }
@@ -724,7 +779,15 @@ impl ResourceOwnerCheckEngine<'_> {
             | ResourceExprKind::Set
             | ResourceExprKind::Borrow
             | ResourceExprKind::Deref
-            | ResourceExprKind::Drop => raw_aliases.clear(output),
+            | ResourceExprKind::Drop => {
+                if matches!(kind, ResourceExprKind::Borrow) {
+                    raw_aliases.clear_exact(output);
+                } else if !(matches!(kind, ResourceExprKind::Deref)
+                    && type_preserves_raw_address_alias(self.types, output.ty))
+                {
+                    raw_aliases.clear(output);
+                }
+            }
         }
     }
 }
@@ -761,4 +824,43 @@ fn is_mem_ptr_type(types: &TypeCtx, ty: TypeId) -> bool {
         }
         _ => false,
     }
+}
+
+fn type_preserves_raw_address_alias(types: &TypeCtx, ty: TypeId) -> bool {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Struct { name, .. } => name == "MemPtr" || name == "RegionToken",
+        TypeKind::Apply { base, .. } => {
+            let base = types.resolve_named_type_id(*base);
+            matches!(
+                types.get_ref(base),
+                TypeKind::Struct { name, .. } if name == "MemPtr" || name == "RegionToken"
+            )
+        }
+        _ => false,
+    }
+}
+
+fn owner_state_under_is_not_non_owning(source: &Place, owners: &OwnerTable) -> bool {
+    owners
+        .state(source)
+        .is_some_and(|state| state != OwnerState::NoFreeObligation)
+        || owners
+            .descendant_entries(source)
+            .iter()
+            .any(|entry| entry.state != OwnerState::NoFreeObligation)
+}
+
+fn initializer_has_raw_alias_view(raw_aliases: &RawCellAddressAliases, source: &Place) -> bool {
+    raw_aliases
+        .aliases_for(source)
+        .iter()
+        .any(|alias| alias != source)
+        || raw_aliases.tracked_places().iter().any(|place| {
+            place_suffix_after_prefix(place, source).is_some()
+                && raw_aliases
+                    .aliases_for(place)
+                    .iter()
+                    .any(|alias| alias != place)
+        })
 }

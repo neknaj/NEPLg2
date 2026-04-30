@@ -1,3 +1,9 @@
+extern crate alloc;
+
+use alloc::vec::Vec;
+
+use crate::span::Span;
+
 use super::cell_state::CellTable;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -9,13 +15,14 @@ use super::place_utils::place_with_suffix;
 
 impl ResourceCheckEngine<'_> {
     pub(super) fn apply_call_raw_cell_initialization_summary(
-        &self,
+        &mut self,
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
         variant_initializations: &mut PendingVariantRawCellInitializations,
         output: &Place,
         target: &ResourceCallTarget,
         args: &[Place],
+        span: Span,
     ) {
         let ResourceCallTarget::User { name, .. } = target else {
             return;
@@ -24,6 +31,7 @@ impl ResourceCheckEngine<'_> {
             .raw_init_summaries
             .iter()
             .find(|summary| summary.function == name.as_str())
+            .cloned()
         else {
             return;
         };
@@ -33,12 +41,13 @@ impl ResourceCheckEngine<'_> {
             variant_initializations,
             output,
             args,
-            summary,
+            &summary,
+            span,
         );
     }
 
     pub(super) fn apply_indirect_call_raw_cell_initialization_summary(
-        &self,
+        &mut self,
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
         variant_initializations: &mut PendingVariantRawCellInitializations,
@@ -46,35 +55,50 @@ impl ResourceCheckEngine<'_> {
         function_aliases: &FunctionAliasTable,
         callee: &Place,
         args: &[Place],
+        span: Span,
     ) {
-        for function in function_aliases.functions(callee) {
-            let Some(summary) = self
-                .raw_init_summaries
-                .iter()
-                .find(|summary| summary.function == function.as_str())
-            else {
-                continue;
-            };
+        let summaries = function_aliases
+            .functions(callee)
+            .into_iter()
+            .filter_map(|function| {
+                self.raw_init_summaries
+                    .iter()
+                    .find(|summary| summary.function == function.as_str())
+                    .cloned()
+            })
+            .collect::<Vec<_>>();
+        for summary in summaries {
             self.apply_raw_cell_initialization_function_summary(
                 cells,
                 raw_aliases,
                 variant_initializations,
                 output,
                 args,
-                summary,
+                &summary,
+                span,
             );
         }
     }
 
     fn apply_raw_cell_initialization_function_summary(
-        &self,
+        &mut self,
         cells: &mut CellTable,
         raw_aliases: &mut RawCellAddressAliases,
         variant_initializations: &mut PendingVariantRawCellInitializations,
         output: &Place,
         args: &[Place],
         summary: &RawCellInitializationFunctionSummary,
+        span: Span,
     ) {
+        for destruction in &summary.param_destructions {
+            let Some(arg) = args.get(destruction.param_index) else {
+                continue;
+            };
+            let place = place_with_suffix(arg, &destruction.suffix, destruction.ty);
+            let place = raw_aliases.canonicalize(&place);
+            self.ensure_no_live_non_copy_raw_cells(cells, &place, destruction.operation, span);
+        }
+
         variant_initializations.record_call(raw_aliases, output, args, summary);
 
         if !summary.return_cells.is_empty() {

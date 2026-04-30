@@ -327,6 +327,13 @@ pub(super) fn raw_cell_suffix_after_address(
     }
 }
 
+pub(super) fn raw_address_suffix_after_address(
+    place: &Place,
+    address: &Place,
+) -> Option<Vec<PlaceProjection>> {
+    place_suffix_after_address_prefix(place, address)
+}
+
 fn raw_cell_belongs_to_address_cell(cell: &Place, address: &Place) -> bool {
     raw_cell_suffix_after_address(cell, address)
         .and_then(|suffix| suffix.first().cloned())

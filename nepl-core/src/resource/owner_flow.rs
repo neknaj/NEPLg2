@@ -27,15 +27,21 @@ impl ResourceOwnerCheckEngine<'_> {
     ) {
         for (index, input) in inputs.iter().enumerate() {
             let field = construct_aggregate_field_place(output, kind, index, input);
-            self.transfer_owner(
-                owners,
-                raw_aliases,
-                storage_origins,
-                input,
-                &field,
-                ResourceOwnerOperation::ConstructInput,
-                span,
-            );
+            if self.initializer_is_non_owning_raw_alias_view(owners, raw_aliases, input, &field) {
+                self.copy_non_owning_owner_markers(owners, input, &field);
+                raw_aliases.copy_alias_or_seed(input, &field);
+                storage_origins.copy_origin(input, &field);
+            } else {
+                self.transfer_owner(
+                    owners,
+                    raw_aliases,
+                    storage_origins,
+                    input,
+                    &field,
+                    ResourceOwnerOperation::ConstructInput,
+                    span,
+                );
+            }
             if matches!(kind, AggregateKind::Enum { .. }) && owners.state(&field).is_none() {
                 owners.set_state(&field, OwnerState::NoFreeObligation);
             }
@@ -260,24 +266,91 @@ impl ResourceOwnerCheckEngine<'_> {
             return false;
         }
         let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
+        let descendants = owners.descendant_entries(&resolved_place);
+        let aliased_descendants =
+            aliased_owner_descendant_entries(owners, raw_aliases, &resolved_place);
+        let mut released = false;
+        let mut blocked = false;
         match owners.state(&resolved_place) {
             Some(OwnerState::Live { .. }) => {
                 free_owner_state(owners, raw_aliases, storage_origins, &resolved_place);
                 raw_aliases.clear(place);
                 raw_aliases.clear(&resolved_place);
-                true
+                released = true;
             }
-            Some(state) => {
+            Some(OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed) => {
+                let state = owners
+                    .state(&resolved_place)
+                    .unwrap_or(OwnerState::NoFreeObligation);
                 self.push_unavailable(operation, &resolved_place, state, span);
-                false
+                blocked = true;
             }
-            None => {
-                if self.storage_origin_expects_owned(storage_origins, raw_aliases, place) {
-                    self.push_unavailable(operation, place, OwnerState::NoFreeObligation, span);
+            Some(OwnerState::MaybeFreed { .. }) => {
+                let state = owners
+                    .state(&resolved_place)
+                    .unwrap_or(OwnerState::NoFreeObligation);
+                self.push_unavailable(operation, &resolved_place, state, span);
+                blocked = true;
+            }
+            Some(OwnerState::NoFreeObligation) | None => {}
+        }
+        for entry in descendants {
+            match entry.state {
+                OwnerState::Live { .. } => {
+                    free_owner_state(owners, raw_aliases, storage_origins, &entry.place);
+                    raw_aliases.clear(&entry.place);
+                    released = true;
                 }
-                false
+                OwnerState::Reserved { .. }
+                | OwnerState::Moved
+                | OwnerState::Freed
+                | OwnerState::MaybeFreed { .. } => {
+                    self.push_unavailable(operation, &entry.place, entry.state, span);
+                    blocked = true;
+                }
+                OwnerState::NoFreeObligation => {}
             }
         }
+        for aliased in aliased_descendants {
+            match aliased.entry.state {
+                OwnerState::Live { .. } => {
+                    free_owner_state(owners, raw_aliases, storage_origins, &aliased.entry.place);
+                    raw_aliases.clear(&aliased.entry.place);
+                    released = true;
+                }
+                OwnerState::Reserved { .. }
+                | OwnerState::Moved
+                | OwnerState::Freed
+                | OwnerState::MaybeFreed { .. } => {
+                    self.push_unavailable(
+                        operation,
+                        &aliased.entry.place,
+                        aliased.entry.state,
+                        span,
+                    );
+                    blocked = true;
+                }
+                OwnerState::NoFreeObligation => {}
+            }
+        }
+        if released {
+            raw_aliases.clear(place);
+            raw_aliases.clear(&resolved_place);
+            return true;
+        }
+        if !blocked {
+            if owners.state(&resolved_place) == Some(OwnerState::NoFreeObligation)
+                || self.storage_origin_expects_owned(storage_origins, raw_aliases, place)
+            {
+                self.push_unavailable(
+                    operation,
+                    &resolved_place,
+                    OwnerState::NoFreeObligation,
+                    span,
+                );
+            }
+        }
+        false
     }
 
     pub(super) fn ensure_owner_available(
