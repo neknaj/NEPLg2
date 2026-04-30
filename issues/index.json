@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T05:32:16.559Z",
+  "generated_at": "2026-04-30T05:39:35.889Z",
   "counts": {
-    "total": 443,
+    "total": 444,
     "open": 14,
-    "resolved": 429,
+    "resolved": 430,
     "by_area": {
       "core": {
-        "total": 195,
+        "total": 196,
         "open": 5,
-        "resolved": 190
+        "resolved": 191
       },
       "stdlib": {
         "total": 146,
@@ -3068,6 +3068,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012423244Z-RESOURCE-IR-EXTERNAL-IO-WRITE-CALLS--3D90A2FD.md"
+    },
+    {
+      "id": "ISS-20260430T053723149Z-MOVE-EFFECT-REALLOC-FIXTURES-IGNORE--B08BEB6E",
+      "title": "move_effect realloc fixtures ignore fallible realloc ownership contract",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "tests/compiler/move_effect.n.md, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T053723149Z-MOVE-EFFECT-REALLOC-FIXTURES-IGNORE--B08BEB6E.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

@@ -164,7 +164,12 @@ fn leak_via_realloc_slot <()->i32> ():
     let slot <i32> alloc_raw 4
     store_i32 slot p
     let grown <i32> realloc_raw slot 4 8
-    load_i32 grown
+    if:
+        lt 0 grown
+        then:
+            load_i32 grown
+        else:
+            load_i32 slot
 
 fn main <()->i32> ():
     leak_via_realloc_slot
@@ -1417,8 +1422,14 @@ fn main <()->i32> ():
     store<LocalToken> p LocalToken @token_id
     let a <LocalToken> load<LocalToken> p
     let q <i32> realloc_raw p size_of<LocalToken> 32
-    dealloc_raw q 32
-    0
+    if:
+        lt 0 q
+        then:
+            dealloc_raw q 32
+            0
+        else:
+            dealloc_raw p size_of<LocalToken>
+            0
 ```
 
 ## realloc_ptr は initialized non-Copy MemPtr place を byte move できない

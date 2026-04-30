@@ -1,3 +1,22 @@
+# 2026-04-30 メモ (ISS-20260430T053723149Z move_effect realloc fixture)
+
+- [同期]:
+  - `work/move-effect-realloc-fixtures` branch で、`483b85e9` の main から継続して作業した。
+- [原因]:
+  - `tests/compiler/move_effect.n.md` の doctest#8 と doctest#54 が、`realloc_raw` を常に成功する move として扱っていた。
+  - 現在の Resource IR は `realloc_raw` の戻り値を成功判定するまで conditional owner / conditional initialized cell として扱うため、doctest#8 の `resource.cell.uninit` と doctest#54 の `resource.owner.maybe_freed` は検査として正しい。
+- [修正]:
+  - doctest#8 は `lt 0 grown` で success/failure を分岐し、成功時は新 `grown`、失敗時は旧 `slot` から raw slot payload を読む形にした。
+  - doctest#54 は `lt 0 q` で success/failure を分岐し、成功時は `q`、失敗時は旧 `p` を dealloc する形にした。
+  - `ISS-20260430T053723149Z-MOVE-EFFECT-REALLOC-FIXTURES-IGNORE--B08BEB6E` を追加し、同 commit で fixed/resolved にした。
+- [検証]:
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-realloc-fixtures-fixed.json -j 1`: `total=110`, `passed=110`
+  - `cargo test -p nepl-core --test resource_ir realloc -- --nocapture`: `2 passed`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 5/Resource IR の realloc success/failure refinement に合わせ、test fixture を検査設計と同じ所有権契約へ修正した。
+
 # 2026-04-30 メモ (ISS-20260430T050817277Z Vec functional helper doctest runtime)
 
 - [同期]:
