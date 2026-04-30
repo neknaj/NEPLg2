@@ -110,6 +110,10 @@ impl RawCellAddressAliases {
             .any(|group| group.iter().any(|alias| alias == place))
     }
 
+    pub(super) fn value_is_known_raw_address(&self, place: &Place) -> bool {
+        self.contains_exact(place) || self.aliases_for(place).len() > 1
+    }
+
     pub(super) fn contains_marked_alias(&self, place: &Place) -> bool {
         self.aliases_for(place)
             .iter()
@@ -124,6 +128,19 @@ impl RawCellAddressAliases {
             }
         }
         if out.is_empty() {
+            push_unique_place(&mut out, place);
+        }
+        out
+    }
+
+    pub(super) fn tracked_places(&self) -> Vec<Place> {
+        let mut out = Vec::new();
+        for group in &self.groups {
+            for place in group {
+                push_unique_place(&mut out, place);
+            }
+        }
+        for place in &self.marked {
             push_unique_place(&mut out, place);
         }
         out

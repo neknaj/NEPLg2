@@ -8959,6 +8959,15 @@ fn resource_ir_cell_check_fd_pwrite_initializes_nwritten_not_offset() {
     let errno = Place::temporary(ResourceId(5), i32_ty);
     let loaded_nwritten = Place::temporary(ResourceId(6), i32_ty);
     let loaded_offset = Place::temporary(ResourceId(7), i32_ty);
+    let buf = Place::temporary(ResourceId(8), i32_ty);
+    let fill_value = Place::temporary(ResourceId(9), i32_ty);
+    let fill_buf = Place::temporary(ResourceId(10), unit_ty);
+    let store_buf = Place::temporary(ResourceId(11), unit_ty);
+    let iov_len_cell = iov.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(4) }),
+        i32_ty,
+    );
+    let store_len = Place::temporary(ResourceId(12), unit_ty);
     let offset_cell = offset
         .clone()
         .with_projection(PlaceProjection::Deref, i32_ty);
@@ -8987,6 +8996,18 @@ fn resource_ir_cell_check_fd_pwrite_initializes_nwritten_not_offset() {
                 ty: i32_ty,
                 span,
             },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: fill_value.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: buf.clone(),
+                args: vec![],
+                span,
+            },
             ResourceOp::RawMemory {
                 operation: RawMemoryOp::Alloc,
                 output: iov.clone(),
@@ -8997,6 +9018,24 @@ fn resource_ir_cell_check_fd_pwrite_initializes_nwritten_not_offset() {
                 operation: RawMemoryOp::Alloc,
                 output: nwritten.clone(),
                 args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Fill,
+                output: fill_buf,
+                args: vec![buf.clone(), iov_count.clone(), fill_value],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_buf,
+                args: vec![iov.clone(), buf],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_len,
+                args: vec![iov_len_cell, iov_count.clone()],
                 span,
             },
             ResourceOp::Call {
@@ -9049,6 +9088,305 @@ fn resource_ir_cell_check_fd_pwrite_initializes_nwritten_not_offset() {
             } if place == &offset_cell
         )),
         "fd_pwrite must not treat the scalar offset argument as an out pointer: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_fd_write_accepts_initialized_iovec_buffer() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let fd = Place::temporary(ResourceId(0), i32_ty);
+    let iov_count = Place::temporary(ResourceId(1), i32_ty);
+    let len = Place::temporary(ResourceId(2), i32_ty);
+    let fill_value = Place::temporary(ResourceId(3), i32_ty);
+    let buf = Place::temporary(ResourceId(4), i32_ty);
+    let iov = Place::temporary(ResourceId(5), i32_ty);
+    let nwritten = Place::temporary(ResourceId(6), i32_ty);
+    let fill_buf = Place::temporary(ResourceId(7), unit_ty);
+    let store_buf = Place::temporary(ResourceId(8), unit_ty);
+    let iov_len_cell = iov.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(4) }),
+        i32_ty,
+    );
+    let store_len = Place::temporary(ResourceId(9), unit_ty);
+    let errno = Place::temporary(ResourceId(10), i32_ty);
+    let loaded_nwritten = Place::temporary(ResourceId(11), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: fd.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: iov_count.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: fill_value.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: buf.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: iov.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: nwritten.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Fill,
+                output: fill_buf,
+                args: vec![buf.clone(), len.clone(), fill_value],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_buf,
+                args: vec![iov.clone(), buf],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_len,
+                args: vec![iov_len_cell, len],
+                span,
+            },
+            ResourceOp::Call {
+                output: errno,
+                target: ResourceCallTarget::Builtin {
+                    name: String::from("fd_write"),
+                },
+                args: vec![fd, iov, iov_count, nwritten.clone()],
+                effect: EffectOp::ExternalIo {
+                    operation: String::from("fd_write"),
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded_nwritten,
+                args: vec![nwritten],
+                span,
+            },
+        ],
+    );
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "fd_write must accept initialized iovec descriptors and payload buffers: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_fd_write_reports_uninitialized_iovec_buffer() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let fd = Place::temporary(ResourceId(0), i32_ty);
+    let iov_count = Place::temporary(ResourceId(1), i32_ty);
+    let len = Place::temporary(ResourceId(2), i32_ty);
+    let buf = Place::temporary(ResourceId(3), i32_ty);
+    let iov = Place::temporary(ResourceId(4), i32_ty);
+    let nwritten = Place::temporary(ResourceId(5), i32_ty);
+    let store_buf = Place::temporary(ResourceId(6), unit_ty);
+    let iov_len_cell = iov.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(4) }),
+        i32_ty,
+    );
+    let store_len = Place::temporary(ResourceId(7), unit_ty);
+    let errno = Place::temporary(ResourceId(8), i32_ty);
+    let payload_cell = buf.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+        i32_ty,
+    );
+    let payload_cell = payload_cell.with_projection(PlaceProjection::Deref, i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: fd.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: iov_count.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: len.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: buf.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: iov.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: nwritten.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_buf,
+                args: vec![iov.clone(), buf],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_len,
+                args: vec![iov_len_cell, len],
+                span,
+            },
+            ResourceOp::Call {
+                output: errno,
+                target: ResourceCallTarget::Builtin {
+                    name: String::from("fd_write"),
+                },
+                args: vec![fd, iov, iov_count, nwritten],
+                effect: EffectOp::ExternalIo {
+                    operation: String::from("fd_write"),
+                },
+                span,
+            },
+        ],
+    );
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                place,
+                state: CellState::Uninit,
+                ..
+            } if place == &payload_cell
+        )),
+        "fd_write must reject uninitialized iovec payload buffers: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_fd_read_reports_uninitialized_iovec_descriptor() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let fd = Place::temporary(ResourceId(0), i32_ty);
+    let iov_count = Place::temporary(ResourceId(1), i32_ty);
+    let iov = Place::temporary(ResourceId(2), i32_ty);
+    let nread = Place::temporary(ResourceId(3), i32_ty);
+    let errno = Place::temporary(ResourceId(4), i32_ty);
+    let iov_buffer_cell = iov.clone().with_projection(PlaceProjection::Deref, i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: fd.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::Expr {
+                kind: ResourceExprKind::Literal,
+                output: iov_count.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: iov.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: nread.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Call {
+                output: errno,
+                target: ResourceCallTarget::Builtin {
+                    name: String::from("fd_read"),
+                },
+                args: vec![fd, iov, iov_count, nread],
+                effect: EffectOp::ExternalIo {
+                    operation: String::from("fd_read"),
+                },
+                span,
+            },
+        ],
+    );
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                place,
+                state: CellState::Uninit,
+                ..
+            } if place == &iov_buffer_cell
+        )),
+        "fd_read must reject uninitialized iovec descriptor cells: {:#?}\nresource:\n{}",
         report.diagnostics,
         resource.dump_text()
     );

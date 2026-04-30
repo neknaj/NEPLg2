@@ -27976,6 +27976,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` は変更していない。
   - CI bootstrap の生成物前提を明確化しただけで、compiler / stdlib の静的検査仕様は変更していない。
 
+# 2026-04-30 note (ISS-20260430T012423244Z external IO write initialized input cells)
+
+- [sync]:
+  - `git pull --ff-only origin main` で remote main が最新であることを確認した。
+  - Work branch: `work/resource-external-io-write-init-check`
+- [cause]:
+  - Resource IR の external IO effect は `fd_read` の buffer / `nread` や `fd_write` の `nwritten` の out-parameter 初期化を反映していた。
+  - しかし `fd_write` / `fd_pwrite` は iovec descriptor が指す payload buffer を host 側が読むにもかかわらず、その raw cells が initialized であることを検査していなかった。
+  - また `fd_read` / `fd_pread` も iovec descriptor 自体の buffer pointer / length cell を host が読むため、descriptor cell は input precondition として扱う必要があった。
+- [fix]:
+  - direct external IO call に、通常の call argument 消費とは別の initialized input precondition check を追加した。
+  - `fd_read` / `fd_pread` は iovec descriptor cells を `RawMemoryLoadCell` として検査する。
+  - `fd_write` / `fd_pwrite` は descriptor cells と payload buffer cells を同じ CellState / raw alias model で検査する。
+  - precondition 失敗時は call output や out-parameter side effect を初期化済みに進めず、既存の `CellUnavailable` 診断へ接続した。
+  - `RawCellAddressAliases` に tracked places と raw-address value 判定を追加し、raw memory checker と external IO checker の alias 判断を共有した。
+- [verification]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_write -- --nocapture`: `2 passed`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_read -- --nocapture`: `1 passed`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_pwrite -- --nocapture`: `1 passed`
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: `137 passed`
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-external-io-write-check.json -j 2`: `28 passed`
+- [plan.md delta]:
+  - `plan.md` は変更していない。
+  - 静的検査大規模修正 Stage 4 の ResourceCheck 移行として、外部 IO の raw memory read effect を CellState に接続した。
+
 # 2026-04-30 note (ISS-20260430T022009877Z BitSet borrowed observers)
 
 - [同期]:

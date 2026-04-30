@@ -1,9 +1,36 @@
+use crate::span::Span;
+
 use super::cell_state::CellTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{EffectOp, Place};
 
 impl ResourceCheckEngine<'_> {
+    pub(super) fn ensure_external_io_initialized_inputs(
+        &mut self,
+        cells: &CellTable,
+        raw_aliases: &RawCellAddressAliases,
+        effect: &EffectOp,
+        args: &[Place],
+        span: Span,
+    ) -> bool {
+        let operation = match effect {
+            EffectOp::ExternalIo { operation } | EffectOp::Nondet { operation } => {
+                operation.as_str()
+            }
+            _ => return true,
+        };
+        match operation {
+            "fd_read" | "fd_pread" => {
+                self.ensure_iov_descriptor_cells_available(cells, raw_aliases, args.get(1), span)
+            }
+            "fd_write" | "fd_pwrite" => {
+                self.ensure_iov_write_buffers_available(cells, raw_aliases, args.get(1), span)
+            }
+            _ => true,
+        }
+    }
+
     pub(super) fn apply_external_io_initialized_effect(
         &self,
         cells: &mut CellTable,

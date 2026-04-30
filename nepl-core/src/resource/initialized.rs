@@ -277,6 +277,18 @@ impl ResourceCheckEngine<'_> {
                 let args_available =
                     self.consume_args(cells, args, ResourceCheckOperation::CallArgument, *span);
                 if args_available {
+                    let external_inputs_available = self.ensure_external_io_initialized_inputs(
+                        cells,
+                        raw_aliases,
+                        effect,
+                        args,
+                        *span,
+                    );
+                    if !external_inputs_available {
+                        raw_aliases.clear(output);
+                        pending_reallocs.clear_result(output);
+                        return;
+                    }
                     cells.mark_initialized(output);
                     self.apply_external_io_initialized_effect(cells, raw_aliases, effect, args);
                     if !self.apply_call_return_raw_alias(raw_aliases, output, target, args) {

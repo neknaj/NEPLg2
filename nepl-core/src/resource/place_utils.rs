@@ -15,6 +15,14 @@ pub(super) fn raw_memory_cell_place(address: &Place, ty: TypeId) -> Place {
     address.clone().with_projection(PlaceProjection::Deref, ty)
 }
 
+pub(super) fn raw_memory_unknown_offset_cell_place(address: &Place, ty: TypeId) -> Place {
+    let address = address.clone().with_projection(
+        PlaceProjection::StorageOffset(super::model::ResourceOffset { bytes: None }),
+        ty,
+    );
+    raw_memory_cell_place(&address, ty)
+}
+
 pub(super) fn construct_aggregate_field_place(
     output: &Place,
     kind: &AggregateKind,

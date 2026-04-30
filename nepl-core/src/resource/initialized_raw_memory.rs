@@ -1,11 +1,11 @@
 use crate::span::Span;
-use crate::types::{TypeId, TypeKind};
+use crate::types::TypeKind;
 
 use super::cell_state::CellTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{Place, PlaceProjection, RawMemoryOp, ResourceOffset};
-use super::place_utils::raw_memory_cell_place;
+use super::model::{Place, RawMemoryOp};
+use super::place_utils::{raw_memory_cell_place, raw_memory_unknown_offset_cell_place};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckOperation;
 
@@ -62,7 +62,7 @@ impl ResourceCheckEngine<'_> {
                         cells.mark_raw_cell_moved(&address, output.ty);
                     }
                     cells.mark_initialized(output);
-                    if raw_cell_value_is_known_raw_address(raw_aliases, &cell) {
+                    if raw_aliases.value_is_known_raw_address(&cell) {
                         self.copy_raw_alias_and_rekey_cells_preferring_target(
                             cells,
                             raw_aliases,
@@ -115,7 +115,7 @@ impl ResourceCheckEngine<'_> {
                     if let Some(value) = args.get(1) {
                         let cell = raw_memory_cell_place(&address, value.ty);
                         let value_is_known_raw_address =
-                            raw_cell_value_is_known_raw_address(raw_aliases, value);
+                            raw_aliases.value_is_known_raw_address(value);
                         cells.clear_raw_cells_under(&address);
                         cells.mark_initialized(&cell);
                         raw_aliases.clear(&cell);
@@ -276,16 +276,4 @@ impl ResourceCheckEngine<'_> {
     fn output_can_hold_raw_address(&self, ty: crate::types::TypeId) -> bool {
         matches!(self.types.get_ref(self.types.resolve_id(ty)), TypeKind::I32)
     }
-}
-
-fn raw_memory_unknown_offset_cell_place(address: &Place, ty: TypeId) -> Place {
-    let address = address.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
-        ty,
-    );
-    raw_memory_cell_place(&address, ty)
-}
-
-fn raw_cell_value_is_known_raw_address(raw_aliases: &RawCellAddressAliases, place: &Place) -> bool {
-    raw_aliases.contains_exact(place) || raw_aliases.aliases_for(place).len() > 1
 }
