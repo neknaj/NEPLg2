@@ -470,7 +470,7 @@ fn main <()*>i32> ():
         |> unwrap_ok<Vec<i32>, StdErrorKind>
     let sn <i32> len_ref<i32> &st;
     free<i32> st;
-    let vn <i32> len_ref<i32> &v;
+    let vn <i32> len<i32> &v;
     free<i32> v;
     if and eq sn 0 eq vn 0 1 0
 ```

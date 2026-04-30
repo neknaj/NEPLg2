@@ -1,3 +1,20 @@
+# 2026-05-01 メモ (ISS-20260430T154415527Z overload fixture Vec observer)
+
+- [原因]:
+  - `tests/compiler/overload.n.md::doctest#19` は typed block context の compiler bug ではなく、fixture が現行 `Vec` API に存在しない `len_ref<i32> &v` を呼んでいた。
+  - `Stack` は `len_ref <.T> <(&Stack<.T>)->i32>` を持つが、`Vec` は borrowed observer を `len <.T> <(&Vec<.T>)->i32>` として提供している。
+- [修正]:
+  - `Vec` 側に backward-compatible alias を追加せず、fixture の `Vec` observer を `len<i32> &v` に更新した。
+  - issue の説明を、typechecker の expected-type propagation 問題ではなく obsolete API 呼び出しとして整理し直した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 19 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-typed-block-vec-len-ref-agent1.json -j 1 --dist web/dist`: total=45, passed=45, failed=0
+- [issue]:
+  - `ISS-20260430T154415527Z-TYPED-BLOCK-CONTEXT-LOSES-VEC-LEN-RE-46F57311` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 技術的負債になる旧 API alias は追加せず、test fixture を現行 stdlib API へ合わせた。
+
 # 2026-05-01 メモ (ISS-20260430T154405890Z tuple field owner projection read)
 
 - [原因]:
