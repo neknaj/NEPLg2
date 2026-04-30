@@ -1,3 +1,31 @@
+# 2026-04-30 メモ (ISS-20260430T083411167Z owner variant value conditions)
+
+- [同期]:
+  - `work/raw-dealloc-result-owner-summary` branch で、直前の main merge 後の状態から作業した。
+- [原因]:
+  - checked `dealloc` は `ptr <= 0 || size < 0` のときだけ `Result::Err` を返すが、owner checker はこの条件を variant 到達性として扱えなかった。
+  - `alloc` の `Result::Ok p` は `p > 0` を保証するが、Ok payload に付いた値条件が match bind 後の local に伝播していなかった。
+  - literal `8` のような exact i32 value も owner checker 側では branch / call 条件の評価に使われていなかったため、`dealloc p 8` の Err arm を到達不能と証明できなかった。
+- [修正]:
+  - `ResourceConditionFact` を `Negative` / `NonNegative` / `Any` / `All` まで拡張し、`or le ptr 0 lt size 0` を enum tree として lowering するようにした。
+  - `RawCellAddressAliases` に i32 value condition を追加し、read / move / branch merge で保守的に伝播するようにした。
+  - owner summary に variant condition と payload condition を追加し、caller の match で到達不能 arm を skip できるようにした。
+  - `resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption` を追加し、`alloc 8` の Ok payload から `dealloc p 8` の Err arm が到達不能になることを確認した。
+- [検証]:
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 150 passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `git diff --check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-owner-variant-value-conditions.json -j 1 --dist web/dist`: 12 total / 9 passed / 3 failed
+- [issue]:
+  - `ISS-20260430T083411167Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-D35A0DAD` を fixed/resolved にした。
+  - 残る `memory_safety.n.md::doctest#6/#7/#8` は `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` に追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/value refinement 方針に沿って、文字列や特殊 case ではなく enum と match 網羅性で静的検査できる構造へ寄せた。
+
 # 2026-04-30 メモ (静的検査 soundness review)
 
 - [同期]:

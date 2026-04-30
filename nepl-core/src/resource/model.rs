@@ -266,6 +266,33 @@ pub enum ResourceConditionFact {
     NeZero { place: Place },
     Positive { place: Place },
     NonPositive { place: Place },
+    Negative { place: Place },
+    NonNegative { place: Place },
+    Any(Vec<ResourceConditionFact>),
+    All(Vec<ResourceConditionFact>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum I32ValueCondition {
+    EqZero,
+    NeZero,
+    Positive,
+    NonPositive,
+    Negative,
+    NonNegative,
+}
+
+impl I32ValueCondition {
+    pub fn holds(self, value: i32) -> bool {
+        match self {
+            I32ValueCondition::EqZero => value == 0,
+            I32ValueCondition::NeZero => value != 0,
+            I32ValueCondition::Positive => value > 0,
+            I32ValueCondition::NonPositive => value <= 0,
+            I32ValueCondition::Negative => value < 0,
+            I32ValueCondition::NonNegative => value >= 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

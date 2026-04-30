@@ -64,6 +64,8 @@ pub(super) enum RawCellValueCondition {
     NeZero,
     Positive,
     NonPositive,
+    Negative,
+    NonNegative,
 }
 
 impl RawCellValueCondition {
@@ -73,6 +75,8 @@ impl RawCellValueCondition {
             RawCellValueCondition::NeZero => value != 0,
             RawCellValueCondition::Positive => value > 0,
             RawCellValueCondition::NonPositive => value <= 0,
+            RawCellValueCondition::Negative => value < 0,
+            RawCellValueCondition::NonNegative => value >= 0,
         }
     }
 }

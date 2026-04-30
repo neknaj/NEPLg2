@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-04-28
+updated: 2026-04-30
 target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md"
 ---
 
@@ -128,6 +128,18 @@ raw address 由来の byte write 検査だけでは、`MemPtr<i32>` overload の
 `RegionToken<T>` の value move state と `token.ptr.raw` が指す pointee cell state が混ざり、`get token "ptr"` helper 経由の `MemPtr<T>` load が `RawMemoryLoadCell` `Moved` / `Uninit` になり得る問題を `ISS-20260428T223917440Z-RESOURCE-CELLSTATE-LETS-MOVED-REGION-D9FDA87D` として修正した。
 
 今回の対応では、Resource IR lowering の `region_new` / `get token "ptr"` / typecheck 後の `load token` を `token.ptr.raw` alias として扱い、`CellState` は `Deref` / `StorageOffset` の先へ aggregate value move state を流さないようにした。これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の initialized / moved state 分離の一部であり、compiler-issued owner token への大規模移行は引き続きこの親 issue の残件である。
+
+## 2026-04-30 memory_safety 残件更新
+
+`ISS-20260430T083411167Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-D35A0DAD` の修正で、raw `alloc` の `Result::Ok` payload 条件と checked `dealloc` の Err 到達不能性は owner checker へ伝播できるようになった。
+
+その結果、`node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-owner-variant-value-conditions.json -j 1 --dist web/dist` は 12 total / 9 passed / 3 failed になった。残る失敗は次の通りで、この親 issue の owner token / non-owning pointer 分離が未完であることを示す。
+
+- `doctest#6`: `RegionToken` の `token.ptr.raw` owner が `dealloc_region` / finish boundary によって最終所有者へ移ったことを Resource IR owner checker が表現しきれず、`token.ptr.raw` leak として残る。
+- `doctest#7`: 同じく `RegionToken` storage owner が value wrapper 内の raw owner として残り、RegionToken 自体が compiler-issued free obligation owner でない問題が露出している。
+- `doctest#8`: `MemPtr<i32>` projection `p_i32.raw` が non-owning pointer と storage owner の両方に見えるため、owner transfer/dealloc の責務境界が不明確なまま leak として残る。
+
+この 3 件は stdlib に追加 cleanup を足して隠す問題ではなく、`MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の分離を完了するまで追跡する。
 
 ## 修正方針
 

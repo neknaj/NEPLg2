@@ -17,7 +17,7 @@ use nepl_core::resource::{
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
-use nepl_core::{BuildProfile, CompileTarget};
+use nepl_core::{BuildProfile, CompileOptions, CompileTarget};
 use std::path::PathBuf;
 
 fn stdlib_root() -> PathBuf {
@@ -50,6 +50,26 @@ fn typecheck_resource_source_with_target(
         checked.diagnostics
     );
     (checked.module.expect("typechecked module"), checked.types)
+}
+
+fn compile_resource_source_with_target(
+    source: &str,
+    target: CompileTarget,
+) -> Result<(), nepl_core::CoreError> {
+    let mut loader = Loader::new(stdlib_root());
+    let loaded = loader
+        .load_inline(PathBuf::from("/virtual/entry.nepl"), source.to_string())
+        .expect("load source with stdlib");
+    nepl_core::compile_module_with_source_map(
+        loaded.module,
+        Some(&loaded.source_map),
+        CompileOptions {
+            target: Some(target),
+            verbose: false,
+            profile: Some(BuildProfile::Debug),
+        },
+    )
+    .map(|_| ())
 }
 
 #[test]
@@ -4311,6 +4331,65 @@ fn main <()*>()> ():
         "dealloc_ptr must consume the MemPtr owner only in Result::Ok and preserve it in Result::Err: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    match alloc 8:
+        Result::Err _e:
+            0
+        Result::Ok p:
+            store_i32 p 77
+            let ok <i32> if eq load_i32 p 77 1 0
+            match dealloc p 8:
+                Result::Err _e:
+                    0
+                Result::Ok _:
+                    ok
+"#;
+
+    let (mut module, mut types) = typecheck_resource_source(source);
+    nepl_core::passes::insert_drops(&mut module, &mut types);
+    let (module, unresolved_trait_calls) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    assert!(
+        unresolved_trait_calls.is_empty(),
+        "unresolved trait calls: {:#?}",
+        unresolved_trait_calls
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function == "main" || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "dealloc must consume the raw owner only in Result::Ok and preserve cleanup in Result::Err: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        compile_resource_source_with_target(source, CompileTarget::Wasi).is_ok(),
+        "compiler pipeline must accept the same checked raw dealloc pattern"
     );
 }
 

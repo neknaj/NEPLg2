@@ -98,7 +98,9 @@ pub(super) fn raw_realloc_condition_outcome(
         (ResourceConditionFact::EqZero { place }, true)
         | (ResourceConditionFact::NeZero { place }, false)
         | (ResourceConditionFact::Positive { place }, false)
-        | (ResourceConditionFact::NonPositive { place }, true) => {
+        | (ResourceConditionFact::NonPositive { place }, true)
+        | (ResourceConditionFact::Negative { place }, true)
+        | (ResourceConditionFact::NonNegative { place }, false) => {
             Some((place, RawReallocConditionOutcome::Failure))
         }
         (ResourceConditionFact::EqZero { place }, false)
@@ -107,5 +109,9 @@ pub(super) fn raw_realloc_condition_outcome(
         | (ResourceConditionFact::NonPositive { place }, false) => {
             Some((place, RawReallocConditionOutcome::Success))
         }
+        (ResourceConditionFact::Negative { .. }, false)
+        | (ResourceConditionFact::NonNegative { .. }, true)
+        | (ResourceConditionFact::Any(_), _)
+        | (ResourceConditionFact::All(_), _) => None,
     }
 }

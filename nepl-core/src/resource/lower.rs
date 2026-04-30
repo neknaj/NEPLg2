@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
@@ -1037,6 +1038,8 @@ fn resource_condition_fact(cond: &HirExpr, ctx: &LoweringContext) -> Option<Reso
         return None;
     };
     match comparison {
+        "or" => binary_condition_fact(left, right, ctx, ResourceConditionFact::Any),
+        "and" => binary_condition_fact(left, right, ctx, ResourceConditionFact::All),
         "eq" => zero_comparison_fact(left, right, ctx, |place| ResourceConditionFact::EqZero {
             place,
         }),
@@ -1046,11 +1049,20 @@ fn resource_condition_fact(cond: &HirExpr, ctx: &LoweringContext) -> Option<Reso
         "lt" if literal_i32_is_zero(left) => {
             condition_place(right, ctx).map(|place| ResourceConditionFact::Positive { place })
         }
+        "lt" if literal_i32_is_zero(right) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::Negative { place })
+        }
         "lt" if literal_i32_is_one(right) => {
             condition_place(left, ctx).map(|place| ResourceConditionFact::NonPositive { place })
         }
         "le" if literal_i32_is_zero(right) => {
             condition_place(left, ctx).map(|place| ResourceConditionFact::NonPositive { place })
+        }
+        "le" if literal_i32_is_zero(left) => {
+            condition_place(right, ctx).map(|place| ResourceConditionFact::NonNegative { place })
+        }
+        "gt" if literal_i32_is_zero(left) => {
+            condition_place(right, ctx).map(|place| ResourceConditionFact::Negative { place })
         }
         "gt" if literal_i32_is_zero(right) => {
             condition_place(left, ctx).map(|place| ResourceConditionFact::Positive { place })
@@ -1058,8 +1070,22 @@ fn resource_condition_fact(cond: &HirExpr, ctx: &LoweringContext) -> Option<Reso
         "ge" if literal_i32_is_one(right) => {
             condition_place(left, ctx).map(|place| ResourceConditionFact::Positive { place })
         }
+        "ge" if literal_i32_is_zero(right) => {
+            condition_place(left, ctx).map(|place| ResourceConditionFact::NonNegative { place })
+        }
         _ => None,
     }
+}
+
+fn binary_condition_fact(
+    left: &HirExpr,
+    right: &HirExpr,
+    ctx: &LoweringContext,
+    fact: fn(Vec<ResourceConditionFact>) -> ResourceConditionFact,
+) -> Option<ResourceConditionFact> {
+    let left = resource_condition_fact(left, ctx)?;
+    let right = resource_condition_fact(right, ctx)?;
+    Some(fact(vec![left, right]))
 }
 
 fn zero_comparison_fact(

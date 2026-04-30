@@ -236,6 +236,15 @@ fn variant_value_condition(
         | (ResourceConditionFact::NonPositive { place }, true) => {
             Some((place, RawCellValueCondition::NonPositive))
         }
+        (ResourceConditionFact::Negative { place }, true)
+        | (ResourceConditionFact::NonNegative { place }, false) => {
+            Some((place, RawCellValueCondition::Negative))
+        }
+        (ResourceConditionFact::Negative { place }, false)
+        | (ResourceConditionFact::NonNegative { place }, true) => {
+            Some((place, RawCellValueCondition::NonNegative))
+        }
+        (ResourceConditionFact::Any(_), _) | (ResourceConditionFact::All(_), _) => None,
     }
 }
 

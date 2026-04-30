@@ -41,6 +41,8 @@ pub(super) fn compute_owner_return_summaries(
                 || !summary.variant_consumed_parameter_indices.is_empty()
                 || !summary.variant_consumed_parameter_sources.is_empty()
                 || !summary.variant_projection_returns.is_empty()
+                || !summary.variant_conditions.is_empty()
+                || !summary.variant_payload_conditions.is_empty()
                 || !summary.projection_returns.is_empty()
                 || !summary.projection_markers.is_empty()
             {
@@ -100,6 +102,8 @@ fn function_owner_return_summary(
     let mut variant_consumed_parameter_indices = Vec::new();
     let mut variant_consumed_parameter_sources = Vec::new();
     let mut variant_projection_returns = Vec::new();
+    let mut variant_conditions = Vec::new();
+    let mut variant_payload_conditions = Vec::new();
     let mut returned_sources = Vec::new();
     let mut function_aliases = FunctionAliasTable::default();
     let mut pending_reallocs = PendingRawReallocs::default();
@@ -122,6 +126,8 @@ fn function_owner_return_summary(
             collect_variant_consumed_owner_parameters_from_return(
                 &mut variant_consumed_parameter_indices,
                 &mut variant_consumed_parameter_sources,
+                &mut variant_conditions,
+                &mut variant_payload_conditions,
                 function,
                 types,
                 summaries,
@@ -268,6 +274,8 @@ fn function_owner_return_summary(
         variant_consumed_parameter_indices,
         variant_consumed_parameter_sources,
         variant_projection_returns,
+        variant_conditions,
+        variant_payload_conditions,
         returns_fresh_owner,
         returns_maybe_owner,
         projection_returns,

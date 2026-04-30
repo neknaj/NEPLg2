@@ -3,9 +3,13 @@ use alloc::vec::Vec;
 
 use crate::span::Span;
 
+use super::condition_fact::simple_condition_value_constraint;
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{AggregateKind, Place, ResourceMatchArm, ResourceOp};
+use super::model::{
+    AggregateKind, I32ValueCondition, Place, PlaceProjection, ResourceConditionFact,
+    ResourceMatchArm, ResourceOp,
+};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
@@ -15,17 +19,23 @@ use super::owner_summary_variant_return::{
     record_variant_projection_returns, returned_owner_returns_for_value,
 };
 use super::owner_variant::PendingVariantOwnerEffects;
-use super::place_utils::match_bind_payload_place;
+use super::place_utils::{
+    construct_aggregate_field_place, match_bind_payload_place, place_suffix_after_prefix,
+    place_with_suffix,
+};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{ResourceOwnerCheckDeferred, ResourceOwnerOperation};
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
-    OwnerVariantParameterIndex, OwnerVariantProjectionReturnSource, OwnerVariantProjectionSource,
+    OwnerProjectionSource, OwnerValueCondition, OwnerVariantCondition, OwnerVariantParameterIndex,
+    OwnerVariantPayloadCondition, OwnerVariantProjectionReturnSource, OwnerVariantProjectionSource,
 };
 
 pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     index_out: &mut Vec<OwnerVariantParameterIndex>,
     source_out: &mut Vec<OwnerVariantProjectionSource>,
+    condition_out: &mut Vec<OwnerVariantCondition>,
+    payload_condition_out: &mut Vec<OwnerVariantPayloadCondition>,
     engine: &ResourceOwnerCheckEngine<'_>,
     owners: &OwnerTable,
     raw_aliases: &RawCellAddressAliases,
@@ -81,6 +91,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 collect_variant_consumed_owner_parameters_from_path(
                     index_out,
                     source_out,
+                    condition_out,
+                    payload_condition_out,
                     &engine,
                     &then_owners,
                     &then_raw_aliases,
@@ -92,6 +104,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     parameter_storage_sources,
                     then_ops,
                     then_value,
+                    condition_fact.as_ref().map(|fact| (fact, true)),
                     None,
                     return_out,
                 );
@@ -111,6 +124,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 collect_variant_consumed_owner_parameters_from_path(
                     index_out,
                     source_out,
+                    condition_out,
+                    payload_condition_out,
                     &engine,
                     &else_owners,
                     &else_raw_aliases,
@@ -122,6 +137,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     parameter_storage_sources,
                     else_ops,
                     else_value,
+                    condition_fact.as_ref().map(|fact| (fact, false)),
                     None,
                     return_out,
                 );
@@ -133,9 +149,14 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 span,
             } if output == return_value => {
                 for arm in arms {
+                    if !variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
+                        continue;
+                    }
                     collect_variant_consumed_owner_parameters_from_path(
                         index_out,
                         source_out,
+                        condition_out,
+                        payload_condition_out,
                         &engine,
                         &owners,
                         &raw_aliases,
@@ -147,6 +168,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         parameter_storage_sources,
                         &arm.ops,
                         &arm.value,
+                        None,
                         Some((scrutinee, arm, *span)),
                         return_out,
                     );
@@ -170,6 +192,8 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
 fn collect_variant_consumed_owner_parameters_from_path(
     index_out: &mut Vec<OwnerVariantParameterIndex>,
     source_out: &mut Vec<OwnerVariantProjectionSource>,
+    condition_out: &mut Vec<OwnerVariantCondition>,
+    payload_condition_out: &mut Vec<OwnerVariantPayloadCondition>,
     engine: &ResourceOwnerCheckEngine<'_>,
     owners: &OwnerTable,
     raw_aliases: &RawCellAddressAliases,
@@ -181,6 +205,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     parameter_storage_sources: &[OwnerParameterStorageSource],
     path_ops: &[ResourceOp],
     path_value: &Place,
+    branch_condition: Option<(&ResourceConditionFact, bool)>,
     match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
     return_out: &mut Vec<OwnerVariantProjectionReturnSource>,
 ) {
@@ -209,10 +234,12 @@ fn collect_variant_consumed_owner_parameters_from_path(
         &mut path_variant_owner_effects,
         match_arm,
     );
-    let Some(variant) = construct_variant_for_value(path_ops, path_value) else {
+    let Some(constructed_variant) = construct_variant_for_value(path_ops, path_value) else {
         collect_variant_consumed_owner_parameters_from_nested_return(
             index_out,
             source_out,
+            condition_out,
+            payload_condition_out,
             &path_engine,
             &path_owners,
             &path_raw_aliases,
@@ -228,6 +255,16 @@ fn collect_variant_consumed_owner_parameters_from_path(
         );
         return;
     };
+    if let Some((condition_fact, truthy_path)) = branch_condition {
+        collect_owner_variant_condition(
+            condition_out,
+            &constructed_variant.variant,
+            condition_fact,
+            truthy_path,
+            &path_raw_aliases,
+            parameter_storage_sources,
+        );
+    }
     path_engine.check_ops(
         &mut path_owners,
         &mut path_function_aliases,
@@ -238,6 +275,16 @@ fn collect_variant_consumed_owner_parameters_from_path(
         &mut path_variant_owner_effects,
         path_ops,
     );
+    if let Some((condition_fact, truthy_path)) = branch_condition {
+        collect_owner_variant_payload_conditions(
+            payload_condition_out,
+            &constructed_variant,
+            path_value,
+            condition_fact,
+            truthy_path,
+            &path_raw_aliases,
+        );
+    }
 
     let (projection_returns, returned_sources) = returned_owner_returns_for_value(
         &path_owners,
@@ -247,13 +294,13 @@ fn collect_variant_consumed_owner_parameters_from_path(
     );
     record_variant_projection_returns(
         return_out,
-        &variant,
+        &constructed_variant.variant,
         &projection_returns,
         parameter_storage_sources,
     );
     let (indices, sources) =
         consumed_owner_parameters(&path_owners, parameter_storage_sources, &returned_sources);
-    let variant = normalize_variant_name(&variant);
+    let variant = normalize_variant_name(&constructed_variant.variant);
     for parameter_index in indices {
         push_unique_variant_parameter_index(
             index_out,
@@ -289,6 +336,9 @@ fn apply_match_arm_entry(
     let Some((scrutinee, arm, span)) = match_arm else {
         return;
     };
+    if !path_variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
+        return;
+    }
     path_variant_owner_effects.apply_match_arm_returns(
         path_engine,
         path_owners,
@@ -314,6 +364,12 @@ fn apply_match_arm_entry(
             path_raw_views.copy(&source, bind_local);
             path_pending_reallocs.copy_result(&source, bind_local);
             path_variant_owner_effects.copy_result(&source, bind_local);
+            path_variant_owner_effects.apply_match_arm_payload_conditions(
+                path_raw_aliases,
+                scrutinee,
+                &arm.pattern,
+                Some(bind_local),
+            );
         } else {
             path_raw_aliases.clear(bind_local);
             path_raw_views.clear(bind_local);
@@ -321,6 +377,13 @@ fn apply_match_arm_entry(
             path_pending_reallocs.clear_result(bind_local);
             path_variant_owner_effects.clear_result(bind_local);
         }
+    } else {
+        path_variant_owner_effects.apply_match_arm_payload_conditions(
+            path_raw_aliases,
+            scrutinee,
+            &arm.pattern,
+            None,
+        );
     }
     path_variant_owner_effects.apply_match_arm(
         path_engine,
@@ -334,21 +397,202 @@ fn apply_match_arm_entry(
     );
 }
 
-fn construct_variant_for_value(ops: &[ResourceOp], value: &Place) -> Option<String> {
+#[derive(Debug, Clone)]
+struct ConstructedVariant {
+    variant: String,
+    payloads: Vec<ConstructedVariantPayload>,
+}
+
+#[derive(Debug, Clone)]
+struct ConstructedVariantPayload {
+    suffix: Vec<PlaceProjection>,
+    ty: crate::types::TypeId,
+}
+
+fn construct_variant_for_value(ops: &[ResourceOp], value: &Place) -> Option<ConstructedVariant> {
     for op in ops.iter().rev() {
         let ResourceOp::Construct {
             output,
-            kind: AggregateKind::Enum { variant, .. },
+            kind,
+            inputs,
             ..
         } = op
         else {
             continue;
         };
-        if output == value {
-            return Some(variant.clone());
+        let AggregateKind::Enum { variant, .. } = kind else {
+            continue;
+        };
+        if output != value {
+            continue;
+        }
+        let mut payloads = Vec::new();
+        for (index, input) in inputs.iter().enumerate() {
+            let payload = construct_aggregate_field_place(output, kind, index, input);
+            let suffix = place_suffix_after_prefix(&payload, output).unwrap_or_default();
+            payloads.push(ConstructedVariantPayload {
+                suffix,
+                ty: input.ty,
+            });
+        }
+        return Some(ConstructedVariant {
+            variant: variant.clone(),
+            payloads,
+        });
+    }
+    None
+}
+
+fn collect_owner_variant_condition(
+    out: &mut Vec<OwnerVariantCondition>,
+    variant: &str,
+    condition_fact: &ResourceConditionFact,
+    truthy_path: bool,
+    raw_aliases: &RawCellAddressAliases,
+    parameter_storage_sources: &[OwnerParameterStorageSource],
+) {
+    let Some(condition) = owner_value_condition(
+        condition_fact,
+        truthy_path,
+        raw_aliases,
+        parameter_storage_sources,
+    ) else {
+        return;
+    };
+    push_unique_variant_condition(
+        out,
+        OwnerVariantCondition {
+            variant: normalize_variant_name(variant),
+            condition,
+        },
+    );
+}
+
+fn owner_value_condition(
+    condition_fact: &ResourceConditionFact,
+    truthy_path: bool,
+    raw_aliases: &RawCellAddressAliases,
+    parameter_storage_sources: &[OwnerParameterStorageSource],
+) -> Option<OwnerValueCondition> {
+    if let Some((place, condition)) = simple_condition_value_constraint(condition_fact, truthy_path)
+    {
+        return owner_param_value_condition(
+            place,
+            condition,
+            raw_aliases,
+            parameter_storage_sources,
+        );
+    }
+    match (condition_fact, truthy_path) {
+        (ResourceConditionFact::Any(facts), true) => {
+            let mut conditions = Vec::new();
+            for fact in facts {
+                conditions.push(owner_value_condition(
+                    fact,
+                    truthy_path,
+                    raw_aliases,
+                    parameter_storage_sources,
+                )?);
+            }
+            Some(OwnerValueCondition::Any(conditions))
+        }
+        (ResourceConditionFact::All(facts), true) => {
+            let mut conditions = Vec::new();
+            for fact in facts {
+                conditions.push(owner_value_condition(
+                    fact,
+                    truthy_path,
+                    raw_aliases,
+                    parameter_storage_sources,
+                )?);
+            }
+            Some(OwnerValueCondition::All(conditions))
+        }
+        (ResourceConditionFact::Any(facts), false) => {
+            let mut conditions = Vec::new();
+            for fact in facts {
+                conditions.push(owner_value_condition(
+                    fact,
+                    truthy_path,
+                    raw_aliases,
+                    parameter_storage_sources,
+                )?);
+            }
+            Some(OwnerValueCondition::All(conditions))
+        }
+        (ResourceConditionFact::All(facts), false) => {
+            let mut conditions = Vec::new();
+            for fact in facts {
+                conditions.push(owner_value_condition(
+                    fact,
+                    truthy_path,
+                    raw_aliases,
+                    parameter_storage_sources,
+                )?);
+            }
+            Some(OwnerValueCondition::Any(conditions))
+        }
+        (ResourceConditionFact::EqZero { .. }, _)
+        | (ResourceConditionFact::NeZero { .. }, _)
+        | (ResourceConditionFact::Positive { .. }, _)
+        | (ResourceConditionFact::NonPositive { .. }, _)
+        | (ResourceConditionFact::Negative { .. }, _)
+        | (ResourceConditionFact::NonNegative { .. }, _) => None,
+    }
+}
+
+fn owner_param_value_condition(
+    place: &Place,
+    condition: I32ValueCondition,
+    raw_aliases: &RawCellAddressAliases,
+    parameter_storage_sources: &[OwnerParameterStorageSource],
+) -> Option<OwnerValueCondition> {
+    for place_alias in raw_aliases.aliases_for(place) {
+        for source in parameter_storage_sources {
+            for param_alias in raw_aliases.aliases_for(&source.place) {
+                let Some(suffix) = place_suffix_after_prefix(&place_alias, &param_alias) else {
+                    continue;
+                };
+                return Some(OwnerValueCondition::Param {
+                    source: OwnerProjectionSource {
+                        parameter_index: source.source.parameter_index,
+                        suffix,
+                        ty: place_alias.ty,
+                    },
+                    condition,
+                });
+            }
         }
     }
     None
+}
+
+fn collect_owner_variant_payload_conditions(
+    out: &mut Vec<OwnerVariantPayloadCondition>,
+    constructed_variant: &ConstructedVariant,
+    value: &Place,
+    condition_fact: &ResourceConditionFact,
+    truthy_path: bool,
+    raw_aliases: &RawCellAddressAliases,
+) {
+    let Some((_place, condition)) = simple_condition_value_constraint(condition_fact, truthy_path)
+    else {
+        return;
+    };
+    for payload in &constructed_variant.payloads {
+        let payload_place = place_with_suffix(value, &payload.suffix, payload.ty);
+        if raw_aliases.i32_condition_truth(&payload_place, condition) == Some(true) {
+            push_unique_variant_payload_condition(
+                out,
+                OwnerVariantPayloadCondition {
+                    variant: normalize_variant_name(&constructed_variant.variant),
+                    suffix: payload.suffix.clone(),
+                    ty: payload.ty,
+                    condition,
+                },
+            );
+        }
+    }
 }
 
 fn normalize_variant_name(variant: &str) -> String {
@@ -367,6 +611,24 @@ fn push_unique_variant_parameter_index(
 fn push_unique_variant_projection_source(
     out: &mut Vec<OwnerVariantProjectionSource>,
     entry: OwnerVariantProjectionSource,
+) {
+    if !out.iter().any(|existing| existing == &entry) {
+        out.push(entry);
+    }
+}
+
+fn push_unique_variant_condition(
+    out: &mut Vec<OwnerVariantCondition>,
+    entry: OwnerVariantCondition,
+) {
+    if !out.iter().any(|existing| existing == &entry) {
+        out.push(entry);
+    }
+}
+
+fn push_unique_variant_payload_condition(
+    out: &mut Vec<OwnerVariantPayloadCondition>,
+    entry: OwnerVariantPayloadCondition,
 ) {
     if !out.iter().any(|existing| existing == &entry) {
         out.push(entry);

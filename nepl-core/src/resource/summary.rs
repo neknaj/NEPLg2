@@ -1,7 +1,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use super::model::PlaceProjection;
+use super::model::{I32ValueCondition, PlaceProjection};
 use crate::types::TypeId;
 
 pub(super) use super::borrow_summary::compute_borrow_token_return_summaries;
@@ -23,6 +23,8 @@ pub(super) struct OwnerReturnSummary {
     pub(super) variant_consumed_parameter_indices: Vec<OwnerVariantParameterIndex>,
     pub(super) variant_consumed_parameter_sources: Vec<OwnerVariantProjectionSource>,
     pub(super) variant_projection_returns: Vec<OwnerVariantProjectionReturnSource>,
+    pub(super) variant_conditions: Vec<OwnerVariantCondition>,
+    pub(super) variant_payload_conditions: Vec<OwnerVariantPayloadCondition>,
     pub(super) returns_fresh_owner: bool,
     pub(super) returns_maybe_owner: bool,
     pub(super) projection_returns: Vec<OwnerProjectionReturnSummary>,
@@ -54,6 +56,30 @@ pub(super) struct OwnerVariantProjectionReturnSource {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
     pub(super) source: OwnerProjectionSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerVariantCondition {
+    pub(super) variant: String,
+    pub(super) condition: OwnerValueCondition,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum OwnerValueCondition {
+    Param {
+        source: OwnerProjectionSource,
+        condition: I32ValueCondition,
+    },
+    Any(Vec<OwnerValueCondition>),
+    All(Vec<OwnerValueCondition>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerVariantPayloadCondition {
+    pub(super) variant: String,
+    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) ty: TypeId,
+    pub(super) condition: I32ValueCondition,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

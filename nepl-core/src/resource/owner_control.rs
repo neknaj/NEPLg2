@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use crate::span::Span;
 use crate::types::TypeKind;
 
+use super::condition_fact::record_condition_fact_value_constraints;
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place, ResourceConditionFact, ResourceMatchArm, ResourceOp};
@@ -258,6 +259,9 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut variant_owner_effect_paths = Vec::new();
 
         for arm in arms {
+            if !variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
+                continue;
+            }
             let mut arm_owners = owners.clone();
             let mut arm_function_aliases = function_aliases.clone();
             let mut arm_raw_aliases = raw_aliases.clone();
@@ -323,6 +327,12 @@ impl ResourceOwnerCheckEngine<'_> {
                     arm_raw_views.copy(&source, bind_local);
                     arm_pending_reallocs.copy_result(&source, bind_local);
                     arm_variant_owner_effects.copy_result(&source, bind_local);
+                    arm_variant_owner_effects.apply_match_arm_payload_conditions(
+                        &mut arm_raw_aliases,
+                        scrutinee,
+                        &arm.pattern,
+                        Some(bind_local),
+                    );
                 } else {
                     arm_raw_aliases.clear(bind_local);
                     arm_raw_views.clear(bind_local);
@@ -330,6 +340,13 @@ impl ResourceOwnerCheckEngine<'_> {
                     arm_pending_reallocs.clear_result(bind_local);
                     arm_variant_owner_effects.clear_result(bind_local);
                 }
+            } else {
+                arm_variant_owner_effects.apply_match_arm_payload_conditions(
+                    &mut arm_raw_aliases,
+                    scrutinee,
+                    &arm.pattern,
+                    None,
+                );
             }
             arm_variant_owner_effects.apply_match_arm(
                 self,
@@ -407,6 +424,7 @@ impl ResourceOwnerCheckEngine<'_> {
         let Some(fact) = fact else {
             return;
         };
+        record_condition_fact_value_constraints(raw_aliases, fact, truthy_path);
         if let Some((place, outcome)) = raw_realloc_condition_outcome(fact, truthy_path) {
             match outcome {
                 RawReallocConditionOutcome::Success => {
@@ -469,10 +487,30 @@ impl ResourceOwnerCheckEngine<'_> {
                     place,
                 );
             }
+            ResourceConditionFact::Negative { place } if truthy_path => {
+                self.discard_non_owned_raw_address_owner(
+                    owners,
+                    raw_aliases,
+                    storage_origins,
+                    place,
+                );
+            }
+            ResourceConditionFact::NonNegative { place } if !truthy_path => {
+                self.discard_non_owned_raw_address_owner(
+                    owners,
+                    raw_aliases,
+                    storage_origins,
+                    place,
+                );
+            }
             ResourceConditionFact::EqZero { .. }
             | ResourceConditionFact::NeZero { .. }
             | ResourceConditionFact::Positive { .. }
-            | ResourceConditionFact::NonPositive { .. } => {}
+            | ResourceConditionFact::NonPositive { .. }
+            | ResourceConditionFact::Negative { .. }
+            | ResourceConditionFact::NonNegative { .. }
+            | ResourceConditionFact::Any(_)
+            | ResourceConditionFact::All(_) => {}
         }
     }
 

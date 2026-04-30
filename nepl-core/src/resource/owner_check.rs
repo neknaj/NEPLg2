@@ -8,8 +8,8 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
-    EffectOp, OwnerState, OwnerStateEntry, Place, RawMemoryOp, ResourceBlock, ResourceFunction,
-    ResourceModule, ResourceOp, ResourceTerminator,
+    EffectOp, OwnerState, OwnerStateEntry, Place, RawMemoryOp, ResourceBlock, ResourceExprKind,
+    ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
@@ -694,7 +694,37 @@ impl ResourceOwnerCheckEngine<'_> {
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);
             }
-            ResourceOp::Expr { .. } | ResourceOp::Drop { .. } | ResourceOp::CallEffect { .. } => {}
+            ResourceOp::Expr { output, kind, .. } => {
+                self.check_expr(raw_aliases, *kind, output);
+            }
+            ResourceOp::Drop { .. } | ResourceOp::CallEffect { .. } => {}
+        }
+    }
+
+    fn check_expr(
+        &mut self,
+        raw_aliases: &mut RawCellAddressAliases,
+        kind: ResourceExprKind,
+        output: &Place,
+    ) {
+        match kind {
+            ResourceExprKind::LiteralI32(value) => raw_aliases.set_i32_value(output, value),
+            ResourceExprKind::LocalRead
+            | ResourceExprKind::Call
+            | ResourceExprKind::IndirectCall
+            | ResourceExprKind::Intrinsic
+            | ResourceExprKind::Branch
+            | ResourceExprKind::Match
+            | ResourceExprKind::Construct => {}
+            ResourceExprKind::Literal
+            | ResourceExprKind::FunctionValue
+            | ResourceExprKind::Loop
+            | ResourceExprKind::Block
+            | ResourceExprKind::Let
+            | ResourceExprKind::Set
+            | ResourceExprKind::Borrow
+            | ResourceExprKind::Deref
+            | ResourceExprKind::Drop => raw_aliases.clear(output),
         }
     }
 }

@@ -431,20 +431,46 @@ fn dump_raw_body_kind(kind: RawBodyKind) -> &'static str {
 
 fn dump_condition_fact(fact: &Option<ResourceConditionFact>) -> String {
     match fact {
-        Some(ResourceConditionFact::EqZero { place }) => {
-            format!("eq_zero({})", dump_place(place))
-        }
-        Some(ResourceConditionFact::NeZero { place }) => {
-            format!("ne_zero({})", dump_place(place))
-        }
-        Some(ResourceConditionFact::Positive { place }) => {
-            format!("positive({})", dump_place(place))
-        }
-        Some(ResourceConditionFact::NonPositive { place }) => {
-            format!("non_positive({})", dump_place(place))
-        }
+        Some(fact) => dump_condition_fact_value(fact),
         None => String::from("<none>"),
     }
+}
+
+fn dump_condition_fact_value(fact: &ResourceConditionFact) -> String {
+    match fact {
+        ResourceConditionFact::EqZero { place } => {
+            format!("eq_zero({})", dump_place(place))
+        }
+        ResourceConditionFact::NeZero { place } => {
+            format!("ne_zero({})", dump_place(place))
+        }
+        ResourceConditionFact::Positive { place } => {
+            format!("positive({})", dump_place(place))
+        }
+        ResourceConditionFact::NonPositive { place } => {
+            format!("non_positive({})", dump_place(place))
+        }
+        ResourceConditionFact::Negative { place } => {
+            format!("negative({})", dump_place(place))
+        }
+        ResourceConditionFact::NonNegative { place } => {
+            format!("non_negative({})", dump_place(place))
+        }
+        ResourceConditionFact::Any(facts) => dump_condition_fact_list("any", facts),
+        ResourceConditionFact::All(facts) => dump_condition_fact_list("all", facts),
+    }
+}
+
+fn dump_condition_fact_list(name: &str, facts: &[ResourceConditionFact]) -> String {
+    let mut out = format!("{}(", name);
+    for (index, fact) in facts.iter().enumerate() {
+        if index > 0 {
+            out.push_str(", ");
+        }
+        out.push_str(&dump_condition_fact_value(fact));
+    }
+    out.push(')');
+    out
 }
 
 fn dump_place(place: &Place) -> String {

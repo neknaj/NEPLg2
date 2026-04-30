@@ -15,7 +15,7 @@ use super::owner_state::OwnerTable;
 use super::place_utils::{place_with_suffix, places_overlap};
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
-use super::summary::OwnerReturnSummary;
+use super::summary::{OwnerReturnSummary, OwnerValueCondition, OwnerVariantCondition};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PendingVariantOwnerConsumption {
@@ -37,10 +37,27 @@ struct PendingVariantOwnerReturn {
     source_ty: TypeId,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingUnreachableVariant {
+    result: Place,
+    variant: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingVariantPayloadValueCondition {
+    result: Place,
+    variant: String,
+    suffix: Vec<super::model::PlaceProjection>,
+    ty: TypeId,
+    condition: super::model::I32ValueCondition,
+}
+
 #[derive(Debug, Clone, Default)]
 pub(super) struct PendingVariantOwnerEffects {
     consumptions: Vec<PendingVariantOwnerConsumption>,
     returns: Vec<PendingVariantOwnerReturn>,
+    unreachable_variants: Vec<PendingUnreachableVariant>,
+    payload_conditions: Vec<PendingVariantPayloadValueCondition>,
 }
 
 impl PendingVariantOwnerEffects {
@@ -69,6 +86,7 @@ impl PendingVariantOwnerEffects {
         summary: &OwnerReturnSummary,
     ) {
         self.clear_result(output);
+        self.record_unreachable_variants(raw_aliases, output, args, &summary.variant_conditions);
         for entry in &summary.variant_consumed_parameter_indices {
             let Some(arg) = args.get(entry.parameter_index) else {
                 continue;
@@ -107,6 +125,15 @@ impl PendingVariantOwnerEffects {
                 source_ty: entry.source.ty,
             });
         }
+        for entry in &summary.variant_payload_conditions {
+            self.push_unique_payload_condition(PendingVariantPayloadValueCondition {
+                result: output.clone(),
+                variant: normalize_variant_name(&entry.variant),
+                suffix: entry.suffix.clone(),
+                ty: entry.ty,
+                condition: entry.condition,
+            });
+        }
     }
 
     pub(super) fn apply_match_arm_returns(
@@ -123,6 +150,9 @@ impl PendingVariantOwnerEffects {
         let Some(variant) = match_pattern_variant_name(pattern) else {
             return;
         };
+        if self.variant_is_unreachable(scrutinee, &variant) {
+            return;
+        }
         for entry in &self.returns {
             if entry.result != *scrutinee || entry.variant != variant {
                 continue;
@@ -157,6 +187,9 @@ impl PendingVariantOwnerEffects {
         let Some(variant) = match_pattern_variant_name(pattern) else {
             return;
         };
+        if self.variant_is_unreachable(scrutinee, &variant) {
+            return;
+        }
         for entry in &self.consumptions {
             if entry.result != *scrutinee || entry.variant != variant {
                 continue;
@@ -174,6 +207,44 @@ impl PendingVariantOwnerEffects {
             raw_views.clear(&place);
         }
         self.resolve_result(scrutinee);
+    }
+
+    pub(super) fn apply_match_arm_payload_conditions(
+        &self,
+        raw_aliases: &mut RawCellAddressAliases,
+        scrutinee: &Place,
+        pattern: &ResourceMatchPattern,
+        bind_local: Option<&Place>,
+    ) {
+        let Some(variant) = match_pattern_variant_name(pattern) else {
+            return;
+        };
+        if self.variant_is_unreachable(scrutinee, &variant) {
+            return;
+        }
+        for entry in &self.payload_conditions {
+            if entry.result != *scrutinee || entry.variant != variant {
+                continue;
+            }
+            let source = place_with_suffix(scrutinee, &entry.suffix, entry.ty);
+            raw_aliases.add_i32_condition(&source, entry.condition);
+            if let Some(bind_local) = bind_local {
+                let bind_suffix = payload_bind_suffix(&entry.suffix, &variant);
+                let target = place_with_suffix(bind_local, bind_suffix, entry.ty);
+                raw_aliases.add_i32_condition(&target, entry.condition);
+            }
+        }
+    }
+
+    pub(super) fn match_arm_reachable(
+        &self,
+        scrutinee: &Place,
+        pattern: &ResourceMatchPattern,
+    ) -> bool {
+        let Some(variant) = match_pattern_variant_name(pattern) else {
+            return true;
+        };
+        !self.variant_is_unreachable(scrutinee, &variant)
     }
 
     pub(super) fn copy_result(&mut self, source: &Place, target: &Place) {
@@ -206,6 +277,27 @@ impl PendingVariantOwnerEffects {
                 source_ty: entry.source_ty,
             })
             .collect::<Vec<_>>();
+        let unreachable_copies = self
+            .unreachable_variants
+            .iter()
+            .filter(|entry| entry.result == *source)
+            .map(|entry| PendingUnreachableVariant {
+                result: target.clone(),
+                variant: entry.variant.clone(),
+            })
+            .collect::<Vec<_>>();
+        let payload_condition_copies = self
+            .payload_conditions
+            .iter()
+            .filter(|entry| entry.result == *source)
+            .map(|entry| PendingVariantPayloadValueCondition {
+                result: target.clone(),
+                variant: entry.variant.clone(),
+                suffix: entry.suffix.clone(),
+                ty: entry.ty,
+                condition: entry.condition,
+            })
+            .collect::<Vec<_>>();
         self.clear_result(target);
         for entry in copies {
             self.push_unique_consumption(entry);
@@ -213,11 +305,21 @@ impl PendingVariantOwnerEffects {
         for entry in return_copies {
             self.push_unique_return(entry);
         }
+        for entry in unreachable_copies {
+            self.push_unique_unreachable(entry);
+        }
+        for entry in payload_condition_copies {
+            self.push_unique_payload_condition(entry);
+        }
     }
 
     pub(super) fn clear_result(&mut self, result: &Place) {
         self.consumptions.retain(|entry| entry.result != *result);
         self.returns.retain(|entry| entry.result != *result);
+        self.unreachable_variants
+            .retain(|entry| entry.result != *result);
+        self.payload_conditions
+            .retain(|entry| entry.result != *result);
     }
 
     fn resolve_result(&mut self, result: &Place) {
@@ -255,6 +357,10 @@ impl PendingVariantOwnerEffects {
                     entry.source_ty,
                 )
         });
+        self.unreachable_variants
+            .retain(|entry| entry.result != *result);
+        self.payload_conditions
+            .retain(|entry| entry.result != *result);
     }
 
     fn reserved_source_for(
@@ -304,7 +410,51 @@ impl PendingVariantOwnerEffects {
                 out.push_unique_return(entry.clone());
             }
         }
+        for entry in &first.unreachable_variants {
+            if paths.iter().skip(1).all(|path| {
+                path.unreachable_variants
+                    .iter()
+                    .any(|existing| existing == entry)
+            }) {
+                out.push_unique_unreachable(entry.clone());
+            }
+        }
+        for entry in &first.payload_conditions {
+            if paths.iter().skip(1).all(|path| {
+                path.payload_conditions
+                    .iter()
+                    .any(|existing| existing == entry)
+            }) {
+                out.push_unique_payload_condition(entry.clone());
+            }
+        }
         out
+    }
+
+    fn record_unreachable_variants(
+        &mut self,
+        raw_aliases: &RawCellAddressAliases,
+        output: &Place,
+        args: &[Place],
+        conditions: &[OwnerVariantCondition],
+    ) {
+        for condition in conditions {
+            if matches!(
+                owner_value_condition_truth(raw_aliases, args, &condition.condition),
+                Some(false)
+            ) {
+                self.push_unique_unreachable(PendingUnreachableVariant {
+                    result: output.clone(),
+                    variant: normalize_variant_name(&condition.variant),
+                });
+            }
+        }
+    }
+
+    fn variant_is_unreachable(&self, result: &Place, variant: &str) -> bool {
+        self.unreachable_variants
+            .iter()
+            .any(|entry| entry.result == *result && entry.variant == variant)
     }
 
     fn push_unique_consumption(&mut self, entry: PendingVariantOwnerConsumption) {
@@ -319,6 +469,28 @@ impl PendingVariantOwnerEffects {
             return;
         }
         self.returns.push(entry);
+    }
+
+    fn push_unique_unreachable(&mut self, entry: PendingUnreachableVariant) {
+        if self
+            .unreachable_variants
+            .iter()
+            .any(|existing| existing == &entry)
+        {
+            return;
+        }
+        self.unreachable_variants.push(entry);
+    }
+
+    fn push_unique_payload_condition(&mut self, entry: PendingVariantPayloadValueCondition) {
+        if self
+            .payload_conditions
+            .iter()
+            .any(|existing| existing == &entry)
+        {
+            return;
+        }
+        self.payload_conditions.push(entry);
     }
 }
 
@@ -382,6 +554,68 @@ fn source_list_contains(
         .any(|(existing_arg, existing_suffix, existing_ty)| {
             existing_arg == arg && existing_suffix == suffix && *existing_ty == ty
         })
+}
+
+fn owner_value_condition_truth(
+    raw_aliases: &RawCellAddressAliases,
+    args: &[Place],
+    condition: &OwnerValueCondition,
+) -> Option<bool> {
+    match condition {
+        OwnerValueCondition::Param { source, condition } => {
+            let arg = args.get(source.parameter_index)?;
+            let place = place_with_suffix(arg, &source.suffix, source.ty);
+            let place = raw_aliases.canonicalize(&place);
+            raw_aliases.i32_condition_truth(&place, *condition)
+        }
+        OwnerValueCondition::Any(conditions) => {
+            let mut has_unknown = false;
+            for condition in conditions {
+                match owner_value_condition_truth(raw_aliases, args, condition) {
+                    Some(true) => return Some(true),
+                    Some(false) => {}
+                    None => has_unknown = true,
+                }
+            }
+            if has_unknown {
+                None
+            } else {
+                Some(false)
+            }
+        }
+        OwnerValueCondition::All(conditions) => {
+            let mut has_unknown = false;
+            for condition in conditions {
+                match owner_value_condition_truth(raw_aliases, args, condition) {
+                    Some(true) => {}
+                    Some(false) => return Some(false),
+                    None => has_unknown = true,
+                }
+            }
+            if has_unknown {
+                None
+            } else {
+                Some(true)
+            }
+        }
+    }
+}
+
+fn payload_bind_suffix<'a>(
+    suffix: &'a [super::model::PlaceProjection],
+    variant: &str,
+) -> &'a [super::model::PlaceProjection] {
+    let Some(super::model::PlaceProjection::EnumPayload {
+        variant: suffix_variant,
+    }) = suffix.first()
+    else {
+        return suffix;
+    };
+    if normalize_variant_name(suffix_variant) == variant {
+        &suffix[1..]
+    } else {
+        suffix
+    }
 }
 
 fn normalize_variant_name(variant: &str) -> String {
