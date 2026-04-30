@@ -107,6 +107,7 @@ let doctestCount = 0;
 for (const name of files) {
     const rel = `tutorials/getting_started/${name}`;
     const text = fs.readFileSync(path.join(tutorialDir, name), 'utf8');
+    assert.doesNotMatch(text, /^ret:/m, `${rel} must use exit_code/stdout metadata instead of ret`);
     const blocks = extractNeplBlocks(text);
     doctestCount += blocks.length;
     for (const block of blocks) {

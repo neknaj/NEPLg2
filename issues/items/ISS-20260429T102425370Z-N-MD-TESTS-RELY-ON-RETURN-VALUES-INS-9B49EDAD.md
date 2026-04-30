@@ -97,3 +97,14 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 `ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F` で、`tutorials/getting_started` の assertion-style doctest metadata を `ret: 0` から `exit_code: 0` へ移行した。
 
 各 tutorial は既に `checks_print_report` で stdout に検査結果を出していたため、今回の変更は `ret:` を runner success value として使う曖昧さを取り除くものに限定した。`rg -n "^ret:" tutorials/getting_started` で残存なし、代表 tutorial doctest 4 件で `exit_code` metadata が runner に解釈されることを確認した。
+
+## 2026-04-30 getting_started ret metadata source policy
+
+`ISS-20260430T124444101Z-GETTING-STARTED-TUTORIAL-RET-METADAT-8284AF7A` で、`tutorials/getting_started` に `ret:` metadata が再混入しないよう `nodesrc/test_tutorial_getting_started_current_style.js` へ source policy を追加した。
+
+これにより getting_started tutorial は stdout report + `exit_code:` の契約を維持し、`ret:` を process success/failure の代用へ戻す regression は CI の source policy で検出できる。
+
+検証:
+
+- `node nodesrc/test_tutorial_getting_started_current_style.js`
+- `rg -n "^ret:" tutorials/getting_started`: no matches

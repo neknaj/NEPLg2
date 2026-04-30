@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T14:41:08.423Z",
+  "generated_at": "2026-04-30T14:41:09.843Z",
   "counts": {
-    "total": 467,
+    "total": 468,
     "open": 16,
-    "resolved": 451,
+    "resolved": 452,
     "by_area": {
       "core": {
         "total": 208,
@@ -72,9 +72,9 @@
         "resolved": 2
       },
       "tutorials": {
-        "total": 2,
+        "total": 3,
         "open": 0,
-        "resolved": 2
+        "resolved": 3
       },
       "web": {
         "total": 1,
@@ -5218,6 +5218,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F.md"
+    },
+    {
+      "id": "ISS-20260430T124444101Z-GETTING-STARTED-TUTORIAL-RET-METADAT-8284AF7A",
+      "title": "getting_started tutorial ret metadata migration lacks regression policy",
+      "area": "tutorials",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nodesrc/test_tutorial_getting_started_current_style.js, tutorials/getting_started/**/*.n.md",
+      "legacy_id": "",
+      "source": "issues/items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md",
+      "file": "items/ISS-20260430T124444101Z-GETTING-STARTED-TUTORIAL-RET-METADAT-8284AF7A.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

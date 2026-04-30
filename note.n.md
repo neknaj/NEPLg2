@@ -29093,3 +29093,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - compiler diagnostic location の regression を target-specific backend error に遮られない形へ整理した。
+
+# 2026-04-30 note (ISS-20260430T124444101Z getting_started ret metadata policy)
+
+- [同期]:
+  - `6994384f` の diagnostic location fixture commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `tutorials/getting_started` は `ret: 0` から `exit_code: 0` へ移行済みだったが、current-style source policy は `ret:` の再混入を検出していなかった。
+  - self-host runner と Rust runner の `.n.md` contract では、process success/failure は `exit_code:`、言語戻り値の検証は `ret:` に分離する必要がある。
+- [修正]:
+  - `nodesrc/test_tutorial_getting_started_current_style.js` に `^ret:` metadata 禁止を追加し、getting_started tutorial が戻り値代用の古い形式へ退行した場合に source policy で失敗するようにした。
+  - `ISS-20260430T124444101Z-GETTING-STARTED-TUTORIAL-RET-METADAT-8284AF7A` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/test_tutorial_getting_started_current_style.js`: passed
+  - `rg -n '^ret:' tutorials/getting_started`: no matches
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - tutorial の stdout report + `exit_code:` 契約をsource policyで固定した。
