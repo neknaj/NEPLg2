@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T01:36:48.751Z",
+  "generated_at": "2026-04-30T01:58:36.092Z",
   "counts": {
-    "total": 418,
+    "total": 419,
     "open": 16,
-    "resolved": 402,
+    "resolved": 403,
     "by_area": {
       "core": {
         "total": 195,
@@ -30,6 +30,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "ci": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "doc": {
         "total": 1,
@@ -638,6 +643,21 @@
       "legacy_id": "RV-STDLIB-023",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-023",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-023-881F9E8A.md"
+    },
+    {
+      "id": "ISS-20260430T015534910Z-SOURCE-POLICY-REGRESSIONS-BLOCK-DOWN-33545524",
+      "title": "Source policy regressions block downstream CI jobs",
+      "area": "ci",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": ".github/workflows/ci.yml",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T015534910Z-SOURCE-POLICY-REGRESSIONS-BLOCK-DOWN-33545524.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-002-D74F45E6",

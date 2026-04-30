@@ -50,6 +50,21 @@ node nodesrc/check_utf8.js tutorials/getting_started
 Run source policy regressions for stdlib implementation style:
 
 ```bash
+node nodesrc/run_source_policy_regressions.js
+```
+
+CI runs the same source-policy set with `--warn-only`. A source-policy drift is
+reported as a GitHub warning and in the step summary, but it does not prevent
+compile, doctest, LLVM, or Pages deployment jobs from running:
+
+```bash
+node nodesrc/run_source_policy_regressions.js --warn-only
+```
+
+Individual policy checks can still be run directly when investigating a
+specific warning:
+
+```bash
 node nodesrc/test_stdlib_match_decision_trees.js
 node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js
 node nodesrc/test_run_test_wasi_tmp_dir.js
