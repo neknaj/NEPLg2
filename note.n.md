@@ -1,3 +1,20 @@
+# 2026-04-30 メモ (進捗確認及び総レビュー開始)
+
+- [同期]:
+  - `main` で `git pull --ff-only origin main` を実行し、remote main `f108cebd` を取り込んだ。
+  - `docs/fullreview-20260430` branch を作成してレビュー作業を開始した。
+- [方針]:
+  - `doc/fullreview20260430/` に全体レビューを階層化して記録する。
+  - 各レビュー文書に対象 commit を明記し、レビュー中に remote main の更新があれば取り込んで影響するレビューを更新する。
+  - 最終再レビュー後に入った変更は今回レビューの追従対象外とし、通常開発へ戻る。
+  - 評価基準は、技術的負債を残さないこと、暫定の雑設計を避けること、型安全・メモリ安全を必達にすること、enum / match による静的検査を効かせることとする。
+- [作成]:
+  - `doc/fullreview20260430/README.md`: 対象 commit、レビュー方針、成果物、commit 追跡ルールを記録した。
+  - `doc/fullreview20260430/index.md`: Rust compiler、selfhost compiler、stdlib、tests/tutorial、tools/web、横断観点、再レビューの目次を作成した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 今回は実装ではなく、現行 `main` の進捗確認と設計レビューを doc として作成する。
+
 # 2026-04-30 メモ (ISS-20260430T083411167Z owner variant value conditions)
 
 - [同期]:
