@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T06:25:09.270Z",
+  "generated_at": "2026-04-30T06:36:35.718Z",
   "counts": {
-    "total": 449,
+    "total": 450,
     "open": 15,
-    "resolved": 434,
+    "resolved": 435,
     "by_area": {
       "core": {
-        "total": 200,
+        "total": 201,
         "open": 7,
-        "resolved": 193
+        "resolved": 194
       },
       "stdlib": {
         "total": 147,
@@ -145,8 +145,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260430T060552075Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-5C2C877E",
-      "title": "Resource IR lacks Result::Ok-gated owner consumption summaries for checked MemPtr frees",
+      "id": "ISS-20260430T063111361Z-RESOURCE-IR-LACKS-VALUE-REFINED-OWNE-9B53C97C",
+      "title": "Resource IR lacks value-refined owner returns for realloc Result::Ok payloads",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -154,10 +154,10 @@
       "type": "bug",
       "created": "2026-04-30",
       "updated": "2026-04-30",
-      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_control.rs, stdlib/core/mem.nepl, tests/stdlib/memory_safety.n.md",
+      "target": "nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_control.rs, stdlib/core/mem.nepl",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260430T060552075Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-5C2C877E.md"
+      "file": "items/ISS-20260430T063111361Z-RESOURCE-IR-LACKS-VALUE-REFINED-OWNE-9B53C97C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3113,6 +3113,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T054603567Z-RESOURCE-IR-SKIPS-RESULT-OK-GATED-PA-C2B25804.md"
+    },
+    {
+      "id": "ISS-20260430T060552075Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-5C2C877E",
+      "title": "Resource IR lacks Result::Ok-gated owner consumption summaries for checked MemPtr frees",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_control.rs, stdlib/core/mem.nepl, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T060552075Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-5C2C877E.md"
     },
     {
       "id": "ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C",

@@ -50,6 +50,7 @@ mod owner_summary;
 mod owner_summary_leaf;
 mod owner_summary_record;
 mod owner_transfer;
+mod owner_variant;
 mod place_utils;
 mod raw_realloc;
 mod report;

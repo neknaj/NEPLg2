@@ -9,6 +9,7 @@ use super::model::{OwnerState, Place, ResourceConditionFact, ResourceMatchArm, R
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::{match_arm_variant_payload_name, match_bind_payload_place};
 use super::raw_realloc::{
     raw_realloc_condition_outcome, PendingRawReallocs, RawReallocConditionOutcome,
@@ -25,6 +26,7 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         pending_reallocs: &mut PendingRawReallocs,
+        variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
         condition_fact: Option<&ResourceConditionFact>,
         then_ops: &[ResourceOp],
@@ -45,6 +47,8 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut else_storage_origins = storage_origins.clone();
         let mut then_pending_reallocs = pending_reallocs.clone();
         let mut else_pending_reallocs = pending_reallocs.clone();
+        let mut then_variant_owner_effects = variant_owner_effects.clone();
+        let mut else_variant_owner_effects = variant_owner_effects.clone();
 
         self.apply_branch_condition_fact(
             &mut then_owners,
@@ -71,6 +75,7 @@ impl ResourceOwnerCheckEngine<'_> {
             &mut then_raw_views,
             &mut then_storage_origins,
             &mut then_pending_reallocs,
+            &mut then_variant_owner_effects,
             then_ops,
         );
         self.check_ops(
@@ -80,6 +85,7 @@ impl ResourceOwnerCheckEngine<'_> {
             &mut else_raw_views,
             &mut else_storage_origins,
             &mut else_pending_reallocs,
+            &mut else_variant_owner_effects,
             else_ops,
         );
 
@@ -89,6 +95,7 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut raw_view_paths = Vec::new();
         let mut storage_origin_paths = Vec::new();
         let mut pending_realloc_paths = Vec::new();
+        let mut variant_owner_effect_paths = Vec::new();
         if !self.place_is_never(then_value) {
             self.transfer_owner(
                 &mut then_owners,
@@ -100,12 +107,14 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             );
             then_pending_reallocs.copy_result(then_value, output);
+            then_variant_owner_effects.copy_result(then_value, output);
             owner_paths.push(then_owners);
             function_alias_paths.push(then_function_aliases);
             raw_alias_paths.push(then_raw_aliases);
             raw_view_paths.push(then_raw_views);
             storage_origin_paths.push(then_storage_origins);
             pending_realloc_paths.push(then_pending_reallocs);
+            variant_owner_effect_paths.push(then_variant_owner_effects);
         }
         if !self.place_is_never(else_value) {
             self.transfer_owner(
@@ -118,12 +127,14 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             );
             else_pending_reallocs.copy_result(else_value, output);
+            else_variant_owner_effects.copy_result(else_value, output);
             owner_paths.push(else_owners);
             function_alias_paths.push(else_function_aliases);
             raw_alias_paths.push(else_raw_aliases);
             raw_view_paths.push(else_raw_views);
             storage_origin_paths.push(else_storage_origins);
             pending_realloc_paths.push(else_pending_reallocs);
+            variant_owner_effect_paths.push(else_variant_owner_effects);
         }
         if !owner_paths.is_empty() {
             let merged_raw_aliases = RawCellAddressAliases::merge_paths(&raw_alias_paths);
@@ -133,6 +144,8 @@ impl ResourceOwnerCheckEngine<'_> {
             *raw_views = RawAddressViewTable::merge_paths(&raw_view_paths);
             *storage_origins = StorageOriginTable::merge_paths(&storage_origin_paths);
             *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);
+            *variant_owner_effects =
+                PendingVariantOwnerEffects::merge_paths(&variant_owner_effect_paths);
         }
     }
 
@@ -144,6 +157,7 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         pending_reallocs: &mut PendingRawReallocs,
+        variant_owner_effects: &mut PendingVariantOwnerEffects,
         condition_ops: &[ResourceOp],
         body_ops: &[ResourceOp],
     ) {
@@ -153,6 +167,7 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut condition_raw_views = raw_views.clone();
         let mut condition_storage_origins = storage_origins.clone();
         let mut condition_pending_reallocs = pending_reallocs.clone();
+        let mut condition_variant_owner_effects = variant_owner_effects.clone();
         self.check_ops(
             &mut condition_owners,
             &mut condition_function_aliases,
@@ -160,6 +175,7 @@ impl ResourceOwnerCheckEngine<'_> {
             &mut condition_raw_views,
             &mut condition_storage_origins,
             &mut condition_pending_reallocs,
+            &mut condition_variant_owner_effects,
             condition_ops,
         );
 
@@ -169,6 +185,7 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut body_raw_views = condition_raw_views.clone();
         let mut body_storage_origins = condition_storage_origins.clone();
         let mut body_pending_reallocs = condition_pending_reallocs.clone();
+        let mut body_variant_owner_effects = condition_variant_owner_effects.clone();
         self.check_ops(
             &mut body_owners,
             &mut body_function_aliases,
@@ -176,6 +193,7 @@ impl ResourceOwnerCheckEngine<'_> {
             &mut body_raw_views,
             &mut body_storage_origins,
             &mut body_pending_reallocs,
+            &mut body_variant_owner_effects,
             body_ops,
         );
 
@@ -193,6 +211,10 @@ impl ResourceOwnerCheckEngine<'_> {
             StorageOriginTable::merge_paths(&[condition_storage_origins, body_storage_origins]);
         *pending_reallocs =
             PendingRawReallocs::merge_paths(&[condition_pending_reallocs, body_pending_reallocs]);
+        *variant_owner_effects = PendingVariantOwnerEffects::merge_paths(&[
+            condition_variant_owner_effects,
+            body_variant_owner_effects,
+        ]);
     }
 
     pub(super) fn check_match(
@@ -203,6 +225,7 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         pending_reallocs: &mut PendingRawReallocs,
+        variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
         scrutinee: &Place,
         arms: &[ResourceMatchArm],
@@ -214,6 +237,7 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut raw_view_paths = Vec::new();
         let mut storage_origin_paths = Vec::new();
         let mut pending_realloc_paths = Vec::new();
+        let mut variant_owner_effect_paths = Vec::new();
 
         for arm in arms {
             let mut arm_owners = owners.clone();
@@ -222,6 +246,7 @@ impl ResourceOwnerCheckEngine<'_> {
             let mut arm_raw_views = raw_views.clone();
             let mut arm_storage_origins = storage_origins.clone();
             let mut arm_pending_reallocs = pending_reallocs.clone();
+            let mut arm_variant_owner_effects = variant_owner_effects.clone();
             if let Some(selected_variant) = match_arm_variant_payload_name(arm) {
                 let mut inactive_payloads =
                     arm_owners.sibling_enum_payload_places(scrutinee, selected_variant);
@@ -260,13 +285,25 @@ impl ResourceOwnerCheckEngine<'_> {
                     arm_function_aliases.copy_alias(&source, bind_local);
                     arm_raw_views.copy(&source, bind_local);
                     arm_pending_reallocs.copy_result(&source, bind_local);
+                    arm_variant_owner_effects.copy_result(&source, bind_local);
                 } else {
                     arm_raw_aliases.clear(bind_local);
                     arm_raw_views.clear(bind_local);
                     arm_storage_origins.clear(bind_local);
                     arm_pending_reallocs.clear_result(bind_local);
+                    arm_variant_owner_effects.clear_result(bind_local);
                 }
             }
+            arm_variant_owner_effects.apply_match_arm(
+                self,
+                &mut arm_owners,
+                &mut arm_raw_aliases,
+                &mut arm_raw_views,
+                &mut arm_storage_origins,
+                scrutinee,
+                &arm.pattern,
+                span,
+            );
             self.check_ops(
                 &mut arm_owners,
                 &mut arm_function_aliases,
@@ -274,6 +311,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 &mut arm_raw_views,
                 &mut arm_storage_origins,
                 &mut arm_pending_reallocs,
+                &mut arm_variant_owner_effects,
                 &arm.ops,
             );
             if !self.place_is_never(&arm.value) {
@@ -287,12 +325,14 @@ impl ResourceOwnerCheckEngine<'_> {
                     span,
                 );
                 arm_pending_reallocs.copy_result(&arm.value, output);
+                arm_variant_owner_effects.copy_result(&arm.value, output);
                 arm_paths.push(arm_owners);
                 function_alias_paths.push(arm_function_aliases);
                 raw_alias_paths.push(arm_raw_aliases);
                 raw_view_paths.push(arm_raw_views);
                 storage_origin_paths.push(arm_storage_origins);
                 pending_realloc_paths.push(arm_pending_reallocs);
+                variant_owner_effect_paths.push(arm_variant_owner_effects);
             }
         }
         if !arm_paths.is_empty() {
@@ -303,6 +343,8 @@ impl ResourceOwnerCheckEngine<'_> {
             *raw_views = RawAddressViewTable::merge_paths(&raw_view_paths);
             *storage_origins = StorageOriginTable::merge_paths(&storage_origin_paths);
             *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);
+            *variant_owner_effects =
+                PendingVariantOwnerEffects::merge_paths(&variant_owner_effect_paths);
         }
     }
 
