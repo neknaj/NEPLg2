@@ -2,13 +2,13 @@
 id: ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C
 title: "Resource initialized summary builder exceeds responsibility split limit"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-30
 updated: 2026-05-01
-target: "nepl-core/src/resource/initialized_summary.rs, nepl-core/src/resource/initialized_summary_build.rs, nepl-core/src/resource/initialized_summary_variant_build.rs, nodesrc/test_resource_checker_responsibility.js"
+target: "nepl-core/src/resource/initialized_summary.rs, nepl-core/src/resource/initialized_summary_build.rs, nepl-core/src/resource/initialized_summary_cells.rs, nepl-core/src/resource/initialized_summary_condition.rs, nepl-core/src/resource/initialized_summary_destruction.rs, nepl-core/src/resource/initialized_summary_destruction_address.rs, nepl-core/src/resource/initialized_summary_variant_build.rs, nepl-core/src/resource/initialized_summary_variant_condition.rs, nepl-core/src/resource/initialized_summary_variant_requirement.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C: Resource initialized summary builder exceeds responsibility split limit
@@ -23,7 +23,7 @@ After syncing remote main at 92a77c44, strict source policy fails because nepl-c
 
 ## 根拠
 
-- 未記入
+- [NEPLg2 静的検査の複雑化解消計画 Stage 4](../../doc/neplg2/static_check_complexity_reduction_plan.md)
 
 ## 問題
 
@@ -66,3 +66,33 @@ Resource checker responsibility policy の再確認で、initialized summary 系
 - `initialized_summary_variant_build.rs`: 337/260
 
 fixed-point orchestration、summary data model、variant-gated fact collection、raw load requirement collection が再び大きい module に集まっている。owner/lower 側の責務分割とは別に、initialized summary builder を再分割する。
+
+## 2026-05-01 修正
+
+再発の根本原因は、summary data model、fixed-point orchestration、return / param initialized cell collection、param destruction propagation、variant condition / requirement collection が `initialized_summary_build.rs` と `initialized_summary_variant_build.rs` に再集約されていたこと。
+
+責務境界を以下に分離した。
+
+- `initialized_summary.rs`: raw cell initialization summary のデータ構造。
+- `initialized_summary_condition.rs`: raw cell value condition enum と判定。
+- `initialized_summary_build.rs`: function summary の fixed-point orchestration。
+- `initialized_summary_cells.rs`: return / param initialized raw cell fact collection。
+- `initialized_summary_destruction.rs`: ResourceOp traversal による param destruction propagation。
+- `initialized_summary_destruction_address.rs`: destructive raw memory / call summary から param-relative address destruction への変換。
+- `initialized_summary_variant_build.rs`: Result / Option variant-gated summary collection の入口。
+- `initialized_summary_variant_condition.rs`: branch condition から variant condition fact への変換。
+- `initialized_summary_variant_requirement.rs`: variant-gated raw load requirement collection。
+
+分割後の行数は `initialized_summary.rs` 70/80、`initialized_summary_build.rs` 156/260、`initialized_summary_cells.rs` 90/120、`initialized_summary_condition.rs` 22/60、`initialized_summary_destruction.rs` 262/300、`initialized_summary_destruction_address.rs` 173/200、`initialized_summary_variant_build.rs` 209/260、`initialized_summary_variant_condition.rs` 84/120、`initialized_summary_variant_requirement.rs` 62/100。`node nodesrc/test_resource_checker_responsibility.js` は pass に戻った。
+
+確認:
+
+- `cargo fmt --check`: pass
+- `cargo check -p nepl-core`: pass
+- `node nodesrc/test_resource_checker_responsibility.js`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_initialized_raw_cells_returned_by_branch_helper -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_conditional_unit_helper_argument_init_conservative -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_applies_result_ok_param_raw_cell_initialization -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_does_not_apply_result_err_param_raw_cell_initialization -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_skips_unreachable_mem_ptr_load_some_requirement -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_reachable_mem_ptr_load_some_requirement -- --nocapture`: pass

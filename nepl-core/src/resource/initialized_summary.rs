@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
+use super::initialized_summary_condition::RawCellValueCondition;
 use super::model::PlaceProjection;
 use super::report::ResourceCheckOperation;
 
@@ -66,27 +67,4 @@ pub(super) struct RawCellInitializationVariantCondition {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
     pub(super) condition: RawCellValueCondition,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum RawCellValueCondition {
-    EqZero,
-    NeZero,
-    Positive,
-    NonPositive,
-    Negative,
-    NonNegative,
-}
-
-impl RawCellValueCondition {
-    pub(super) fn holds(self, value: i32) -> bool {
-        match self {
-            RawCellValueCondition::EqZero => value == 0,
-            RawCellValueCondition::NeZero => value != 0,
-            RawCellValueCondition::Positive => value > 0,
-            RawCellValueCondition::NonPositive => value <= 0,
-            RawCellValueCondition::Negative => value < 0,
-            RawCellValueCondition::NonNegative => value >= 0,
-        }
-    }
 }

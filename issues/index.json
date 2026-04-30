@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T17:02:05.751Z",
+  "generated_at": "2026-04-30T17:12:46.372Z",
   "counts": {
     "total": 484,
-    "open": 15,
-    "resolved": 469,
+    "open": 14,
+    "resolved": 470,
     "by_area": {
       "core": {
         "total": 212,
-        "open": 6,
-        "resolved": 206
+        "open": 5,
+        "resolved": 207
       },
       "CORE": {
         "total": 1,
@@ -153,21 +153,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C",
-      "title": "Resource initialized summary builder exceeds responsibility split limit",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-05-01",
-      "target": "nepl-core/src/resource/initialized_summary.rs, nepl-core/src/resource/initialized_summary_build.rs, nepl-core/src/resource/initialized_summary_variant_build.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C.md"
     },
     {
       "id": "ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C",
@@ -3153,6 +3138,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T060552075Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-5C2C877E.md"
+    },
+    {
+      "id": "ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C",
+      "title": "Resource initialized summary builder exceeds responsibility split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-05-01",
+      "target": "nepl-core/src/resource/initialized_summary.rs, nepl-core/src/resource/initialized_summary_build.rs, nepl-core/src/resource/initialized_summary_cells.rs, nepl-core/src/resource/initialized_summary_condition.rs, nepl-core/src/resource/initialized_summary_destruction.rs, nepl-core/src/resource/initialized_summary_destruction_address.rs, nepl-core/src/resource/initialized_summary_variant_build.rs, nepl-core/src/resource/initialized_summary_variant_condition.rs, nepl-core/src/resource/initialized_summary_variant_requirement.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C.md"
     },
     {
       "id": "ISS-20260430T063111361Z-RESOURCE-IR-LACKS-VALUE-REFINED-OWNE-9B53C97C",

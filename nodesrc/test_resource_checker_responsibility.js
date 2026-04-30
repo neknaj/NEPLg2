@@ -103,7 +103,13 @@ for (const moduleName of [
     'initialized_summary.rs',
     'initialized_summary_apply.rs',
     'initialized_summary_build.rs',
+    'initialized_summary_cells.rs',
+    'initialized_summary_condition.rs',
+    'initialized_summary_destruction.rs',
+    'initialized_summary_destruction_address.rs',
     'initialized_summary_variant_build.rs',
+    'initialized_summary_variant_condition.rs',
+    'initialized_summary_variant_requirement.rs',
 ]) {
     assertFile(moduleName);
 }
@@ -154,7 +160,13 @@ for (const moduleDecl of [
     'mod initialized_summary;',
     'mod initialized_summary_apply;',
     'mod initialized_summary_build;',
+    'mod initialized_summary_cells;',
+    'mod initialized_summary_condition;',
+    'mod initialized_summary_destruction;',
+    'mod initialized_summary_destruction_address;',
     'mod initialized_summary_variant_build;',
+    'mod initialized_summary_variant_condition;',
+    'mod initialized_summary_variant_requirement;',
 ]) {
     assertContains(mod, moduleDecl, 'resource/mod.rs');
 }
@@ -272,7 +284,13 @@ const maxLines = new Map([
     ['initialized_summary.rs', 80],
     ['initialized_summary_apply.rs', 160],
     ['initialized_summary_build.rs', 260],
+    ['initialized_summary_cells.rs', 120],
+    ['initialized_summary_condition.rs', 60],
+    ['initialized_summary_destruction.rs', 300],
+    ['initialized_summary_destruction_address.rs', 200],
     ['initialized_summary_variant_build.rs', 260],
+    ['initialized_summary_variant_condition.rs', 120],
+    ['initialized_summary_variant_requirement.rs', 100],
 ]);
 
 for (const [name, limit] of maxLines) {

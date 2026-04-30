@@ -29686,3 +29686,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` のStage 4/5方針に沿い、ResourceIRのalias検査意味を変えず、検査実装の責務境界を静的に監視できる形に戻した。
+
+# 2026-05-01 note (ISS-20260430T062125921Z initialized summary responsibility split recurrence)
+
+- [同期]:
+  - `9724cdfb` の initialized alias responsibility split commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `initialized_summary.rs` は summary data model と value condition enum を同居させ、93/80 行で policy を超過していた。
+  - `initialized_summary_build.rs` は fixed-point orchestration、return / param initialized cell collection、param destruction propagation、summary helperを同居させ、647/260 行まで再肥大化していた。
+  - `initialized_summary_variant_build.rs` は variant-gated collection入口、branch condition conversion、raw load requirement collectionを同居させ、337/260 行まで再肥大化していた。
+- [修正]:
+  - `initialized_summary_condition.rs` に raw cell value condition enum を分離した。
+  - `initialized_summary_cells.rs` に return / param initialized raw cell fact collection を分離した。
+  - `initialized_summary_destruction.rs` と `initialized_summary_destruction_address.rs` に param destruction propagation と address変換を分離した。
+  - `initialized_summary_variant_condition.rs` と `initialized_summary_variant_requirement.rs` に variant condition / raw load requirement collection を分離した。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module の存在確認と行数上限を追加した。
+  - `ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C` を fixed/resolved に更新した。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `node nodesrc/test_resource_checker_responsibility.js`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_initialized_raw_cells_returned_by_branch_helper -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_conditional_unit_helper_argument_init_conservative -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_applies_result_ok_param_raw_cell_initialization -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_does_not_apply_result_err_param_raw_cell_initialization -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_skips_unreachable_mem_ptr_load_some_requirement -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_reachable_mem_ptr_load_some_requirement -- --nocapture`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` のStage 4/5方針に沿い、initialized summaryの検査意味を変えず、data / orchestration / cell fact / destruction / variant requirement の境界を静的に監視できる形に戻した。
