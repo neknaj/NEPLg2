@@ -29660,3 +29660,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` のStage 4/5方針に沿い、RawMemoryLoadCell gate を緩めず Resource IR 側の initialized state 精度を上げた。
+
+# 2026-05-01 note (ISS-20260428T180803802Z initialized alias responsibility split recurrence)
+
+- [同期]:
+  - `9c545212` の owner / lowering responsibility split commit を push し、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `initialized_alias.rs` が raw alias table と stable canonical ordering / raw projection 判定を同じ module に保持し、723/550 行まで再肥大化していた。
+  - `initialized_alias_flow.rs` も raw alias propagation / return summary fixed-point と projection 後の型復元 / MemPtr・RegionToken alias-preserving 型判定を同居させ、581/550 行まで再肥大化していた。
+  - `initialized_alias.rs` は上限直下に留めるだけでは次の小変更で再発するため、i32 value / condition fact も alias table 本体から分離する必要があった。
+  - 検査を弱める問題ではなく、静的検査実装の責務境界が再び曖昧になった architecture regression と判断した。
+- [修正]:
+  - `initialized_alias_i32.rs` を追加し、i32 value fact、i32 condition fact、condition implication を分離した。
+  - `initialized_alias_order.rs` を追加し、canonical place order、owner cell alias rank、raw projection predicate を分離した。
+  - `initialized_alias_type.rs` を追加し、projection 後の concrete TypeId 復元と MemPtr / RegionToken alias-preserving 型判定を分離した。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module の存在確認と行数上限を追加した。
+  - `ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA` を fixed/resolved に戻した。
+- [検証]:
+  - `cargo fmt --check`: pass
+  - `cargo check -p nepl-core`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_initialized_pointee -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_region_token_ptr_helper_alias_after_token_move -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative -- --nocapture`: pass
+  - `node nodesrc/test_resource_checker_responsibility.js`: alias 系は上限内。次の既知 issue `ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C` の `initialized_summary.rs` で停止。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` のStage 4/5方針に沿い、ResourceIRのalias検査意味を変えず、検査実装の責務境界を静的に監視できる形に戻した。

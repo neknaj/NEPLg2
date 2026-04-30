@@ -2,13 +2,13 @@
 id: ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA
 title: "Resource initialized raw alias logic reintroduces monolithic checker size"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-28
 updated: 2026-05-01
-target: "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js"
+target: "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nepl-core/src/resource/initialized_alias_i32.rs, nepl-core/src/resource/initialized_alias_order.rs, nepl-core/src/resource/initialized_alias_type.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA: Resource initialized raw alias logic reintroduces monolithic checker size
@@ -84,3 +84,26 @@ Resource checker responsibility policy の再確認で、initialized alias 系�
 - `initialized_alias_flow.rs`: 581/550
 
 raw alias table、canonicalization、summary flow、call-site propagation、aggregate alias propagation の責務が再び寄り始めている。owner/lower 側の責務分割とは別 issue として、initialized alias / flow の境界を再分割する。
+
+## 2026-05-01 修正
+
+再発の直接原因は、`RawCellAddressAliases` が alias table と canonical ordering / raw projection 判定を同じ module に持ち、`initialized_alias_flow.rs` が return summary flow と projection 後の型復元 / MemPtr・RegionToken alias-preserving 型判定を同じ module に持っていたこと。
+
+責務境界を以下に分離した。
+
+- `initialized_alias.rs`: raw cell address alias table、i32 fact、merge / canonicalize 操作。
+- `initialized_alias_i32.rs`: i32 value fact、i32 condition fact、condition implication。
+- `initialized_alias_order.rs`: stable canonical order、owner cell alias rank、raw projection predicate。
+- `initialized_alias_flow.rs`: ResourceOp 上の raw alias propagation、return summary fixed-point、call-site summary application。
+- `initialized_alias_type.rs`: projection 後の concrete TypeId 復元、MemPtr / RegionToken の alias-preserving 型判定。
+
+分割後の行数は `initialized_alias.rs` 520/550、`initialized_alias_flow.rs` 452/550、`initialized_alias_i32.rs` 33/80、`initialized_alias_order.rs` 183/220、`initialized_alias_type.rs` 136/160 で、alias 系の責務分割上限内に戻った。
+
+確認:
+
+- `cargo fmt --check`: pass
+- `cargo check -p nepl-core`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_initialized_pointee -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_region_token_ptr_helper_alias_after_token_move -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative -- --nocapture`: pass
+- `node nodesrc/test_resource_checker_responsibility.js`: alias 系は上限内。次の既知 issue `ISS-20260430T062125921Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-2875F09C` の `initialized_summary.rs` で停止。

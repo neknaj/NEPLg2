@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T16:49:54.233Z",
+  "generated_at": "2026-04-30T17:02:05.751Z",
   "counts": {
     "total": 484,
-    "open": 16,
-    "resolved": 468,
+    "open": 15,
+    "resolved": 469,
     "by_area": {
       "core": {
         "total": 212,
-        "open": 7,
-        "resolved": 205
+        "open": 6,
+        "resolved": 206
       },
       "CORE": {
         "total": 1,
@@ -138,21 +138,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
-    {
-      "id": "ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA",
-      "title": "Resource initialized raw alias logic reintroduces monolithic checker size",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-28",
-      "updated": "2026-05-01",
-      "target": "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA.md"
     },
     {
       "id": "ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D",
@@ -2403,6 +2388,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T175617166Z-RESOURCE-CELLSTATE-EXPRESSION-MARKER-26479BD3.md"
+    },
+    {
+      "id": "ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA",
+      "title": "Resource initialized raw alias logic reintroduces monolithic checker size",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-28",
+      "updated": "2026-05-01",
+      "target": "nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nepl-core/src/resource/initialized_alias_i32.rs, nepl-core/src/resource/initialized_alias_order.rs, nepl-core/src/resource/initialized_alias_type.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260428T180803802Z-RESOURCE-INITIALIZED-RAW-ALIAS-LOGIC-E8D87FFA.md"
     },
     {
       "id": "ISS-20260428T182913710Z-RESOURCE-IR-LOWERING-MISCLASSIFIES-C-A1508C51",
