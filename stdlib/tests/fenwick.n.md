@@ -49,8 +49,12 @@ ret: 1
 fn main <()*>i32> ():
     let fw <Fenwick> unwrap_ok<Fenwick, Diag> new 3;
     match add fw 5 1:
-        Result::Ok _:
+        Result::Ok next:
+            free next
             0
-        Result::Err _:
-            1
+        Result::Err e:
+            let recovered <Fenwick> add_error_tree e
+            let ok <bool> eq len &recovered 3
+            free recovered
+            if ok 1 0
 ```

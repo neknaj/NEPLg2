@@ -28084,6 +28084,35 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `plan.md` 自体は変更していない。
   - BitSet と同じ owner-consuming observer root cause を AdjacencyMatrix でも借用 contract へ修正した。
 
+# 2026-04-30 note (ISS-20260430T031656331Z Fenwick add error owner recovery)
+
+- [同期]:
+  - 作業 branch は `work/fenwick-add-borrow-owner-safe`。
+  - 作業開始時に `git pull --ff-only origin main` で remote main が `37391faa` と一致していることを確認した。
+  - commit 前に `origin/main` が `43897117 fix(stdlib): type sparse set storage owners` へ進んだため、差分を stash して branch を fast-forward し、issue index を再生成して統合した。
+- [原因]:
+  - `Fenwick.add` は更新 API として `Fenwick` owner を値で受け取るのに、範囲外 index の `Err(Diag)` path で元の owner を返していなかった。
+  - そのため caller は失敗時に internal `bit` storage を cleanup できず、mandatory memory safety の API contract として不完全だった。
+  - 共有 borrow のまま raw storage を更新する設計に変えると、`&Fenwick` の読み取り borrow の意味を崩すため、更新 API は owner transfer のまま、失敗時に owner を返す設計が妥当と判断した。
+- [修正]:
+  - `FenwickAddError` を追加し、`tree <Fenwick>` と `diag <Diag>` を分離して保持する error payload にした。
+  - `Fenwick.add` の戻り値を `Result<Fenwick, FenwickAddError>` に変更し、範囲外 branch で元の `fw` と `Diag` を `Err` に入れて返すようにした。
+  - `add_error_diag` / `add_error_tree` を追加し、診断の borrowed read と owner 回収を明示的な API にした。
+  - `.n.md` tests に、Err 後の owner 回収と `free` を確認する回帰テストを追加した。
+  - `nodesrc/test_stdlib_fenwick_add_error_owner.js` を source policy に登録し、`Result<Fenwick, Diag>` へ戻る再発を検出するようにした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl --no-tree -o tmp/fenwick-add-error-owner-doctests-after-pull.json -j 1`: `total=5`, `passed=5`
+  - `node nodesrc/tests.js -i stdlib/tests/fenwick.n.md --no-tree -o tmp/fenwick-add-error-owner-stdlib-tests-after-pull.json -j 1`: `total=2`, `passed=2`
+  - `node nodesrc/tests.js -i tests/stdlib/fenwick_collections.n.md --no-tree -o tmp/fenwick-add-error-owner-collections-tests-after-pull.json -j 1`: `total=3`, `passed=3`
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `node nodesrc/test_stdlib_fenwick_add_error_owner.js`: passed
+  - `node nodesrc/issues.js check`: passed
+- [issue]:
+  - `ISS-20260430T031656331Z-FENWICK-ADD-ERROR-PATH-CONSUMES-OWNE-10D232BB` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Fenwick update API の失敗 contract を所有権安全にし、self-host 側で更新失敗時の cleanup workaround が不要になる方向へ修正した。
+
 # 2026-04-30 note (ISS-20260430T024858788Z BloomFilter borrowed observers)
 
 - [同期]:

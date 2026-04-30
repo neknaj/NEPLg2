@@ -2,13 +2,13 @@
 id: ISS-20260430T031656331Z-FENWICK-ADD-ERROR-PATH-CONSUMES-OWNE-10D232BB
 title: "Fenwick add error path consumes owner without cleanup or return"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-30
 updated: 2026-04-30
-target: "stdlib/alloc/collections/fenwick.nepl, stdlib/tests/fenwick.n.md"
+target: "stdlib/alloc/collections/fenwick.nepl, stdlib/tests/fenwick.n.md, tests/stdlib/fenwick_collections.n.md, nodesrc/test_stdlib_fenwick_add_error_owner.js"
 ---
 
 # ISS-20260430T031656331Z-FENWICK-ADD-ERROR-PATH-CONSUMES-OWNE-10D232BB: Fenwick add error path consumes owner without cleanup or return
@@ -42,3 +42,20 @@ Redesign Fenwick mutating error semantics so invalid updates either leave the ow
 ## 検証
 
 Add a test that triggers an invalid add and then either frees the returned owner or proves the borrowed owner remains usable and can be freed, with Resource owner checking enabled.
+
+確認済み:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl --no-tree -o tmp/fenwick-add-error-owner-doctests-after-pull.json -j 1` (`total=5`, `passed=5`, `failed=0`)
+- `node nodesrc/tests.js -i stdlib/tests/fenwick.n.md --no-tree -o tmp/fenwick-add-error-owner-stdlib-tests-after-pull.json -j 1` (`total=2`, `passed=2`, `failed=0`)
+- `node nodesrc/tests.js -i tests/stdlib/fenwick_collections.n.md --no-tree -o tmp/fenwick-add-error-owner-collections-tests-after-pull.json -j 1` (`total=3`, `passed=3`, `failed=0`)
+- `node nodesrc/run_source_policy_regressions.js`: passed
+- `node nodesrc/test_stdlib_fenwick_add_error_owner.js`: passed
+- `node nodesrc/issues.js check`: passed
+
+## 修正内容
+
+- `FenwickAddError` を追加し、`tree <Fenwick>` と `diag <Diag>` を分けて `add` の失敗時に元の owner と診断を返す contract にした。
+- `add` の戻り値を `Result<Fenwick, FenwickAddError>` に変更し、範囲外 branch で `FenwickAddError fw d` を返すようにした。
+- `add_error_diag` / `add_error_tree` を追加し、診断の借用観察と owner 回収を API として分離した。
+- `stdlib/tests/fenwick.n.md` と `tests/stdlib/fenwick_collections.n.md` に、Err 後に owner を回収して `free` する回帰テストを追加した。
+- `nodesrc/test_stdlib_fenwick_add_error_owner.js` を source policy に登録し、`Err(Diag)` へ戻って owner を失う再発を検出するようにした。

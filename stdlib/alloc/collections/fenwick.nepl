@@ -13,7 +13,8 @@
 //: ### [注意/ちゅうい]
 //: - `new` と `add` は `Result` を[返/かえ]します。
 //: - `sum_prefix` は `[0, r)`、`sum_range` は `[l, r)` を[返/かえ]します。
-//: - [範囲外/はんいがい] index や[不正/ふせい] range は `Result::Err Diag` です。
+//: - [範囲外/はんいがい] index の `add` は `Result::Err FenwickAddError` で元の owner と[診断/しんだん]を[返/かえ]します。
+//: - [不正/ふせい] query range は owner を[借用/しゃくよう]したまま `Result::Err Diag` を[返/かえ]します。
 //: - query だけの[処理/しょり]では `len &fw` / `sum_range &fw l r` のように borrow して、[最後/さいご]に `free fw` で owner を[閉/と]じます。
 //:
 //: ### [計算量/けいさんりょう]
@@ -41,6 +42,28 @@
 struct Fenwick:
     n <i32>
     bit <MemPtr<i32>>
+
+//: ## FenwickAddError
+//: `add` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
+//:
+//: ### [目的/もくてき]
+//: - `add` は[更新/こうしん] API なので `Fenwick` owner を[受/う]け[取/と]ります。
+//: - [範囲外/はんいがい] index では[内部/ないぶ]配列を[変更/へんこう]せず、caller が cleanup できるように元の `Fenwick` owner を `tree` に[戻/もど]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `Result::Err` を[受/う]け[取/と]った caller は `add_error_tree` で owner を[回収/かいしゅう]し、[不要/ふよう]なら `free` します。
+//: - `diag` は `Diag` の Copy [値/あたい]で、`add_error_diag` から owner を[動/うご]かさず[確認/かくにん]できます。
+struct FenwickAddError:
+    tree <Fenwick>
+    diag <Diag>
+
+//: add_error_diag: `add` [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
+fn add_error_diag <(&FenwickAddError)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: add_error_tree: `add` [失敗/しっぱい]で[戻/もど]された `Fenwick` owner を[取/と]り[出/だ]す
+fn add_error_tree <(FenwickAddError)->Fenwick> (e):
+    field::get e "tree"
 
 fn fenwick_diag_index <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "fenwick index out of bounds"
@@ -115,7 +138,8 @@ fn len <(&Fenwick)->i32> (fw):
 //: `idx` に `delta` を[加算/かさん]する
 //:
 //: ### [注意/ちゅうい]
-//: - [範囲外/はんいがい] index は `Result::Err Diag` です。
+//: - [範囲外/はんいがい] index は `Result::Err FenwickAddError` です。
+//: - `Err` には[変更前/へんこうまえ]の `Fenwick` owner が[入/はい]るので、caller は owner を[回収/かいしゅう]して `free` できます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(log n)
@@ -136,7 +160,7 @@ fn len <(&Fenwick)->i32> (fw):
 //:     free fw
 //:     if eq total 7 1 0
 //: ```
-fn add <(Fenwick,i32,i32)*>Result<Fenwick, Diag>> (fw, idx, delta):
+fn add <(Fenwick,i32,i32)*>Result<Fenwick, FenwickAddError>> (fw, idx, delta):
     let n <i32> field::get fw "n"
     let bit <MemPtr<i32>> field::get fw "bit"
     if:
@@ -151,10 +175,11 @@ fn add <(Fenwick,i32,i32)*>Result<Fenwick, Diag>> (fw, idx, delta):
                     let neg_i <i32> sub 0 i
                     let lb <i32> and i neg_i
                     set i add i lb
-            ok<Fenwick, Diag> fw
+            ok<Fenwick, FenwickAddError> fw
         else:
             let d <Diag> fenwick_diag_index
-            err<Fenwick, Diag> d
+            let e <FenwickAddError> FenwickAddError fw d
+            err<Fenwick, FenwickAddError> e
 
 //: ## sum_prefix
 //: [区間/くかん] `[0, r)` の[和/わ]を[返/かえ]す

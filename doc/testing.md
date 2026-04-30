@@ -93,6 +93,7 @@ node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js
+node nodesrc/test_stdlib_fenwick_add_error_owner.js
 node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js
 node nodesrc/test_stdlib_list_no_unsafe_unwraps.js

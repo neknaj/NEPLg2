@@ -73,3 +73,37 @@ fn main <()*>i32> ():
     free fw1
     1
 ```
+
+## fenwick_add_error_returns_owner
+
+[目的/もくてき]:
+- `add` の[範囲外/はんいがい] error が `Fenwick` owner を[失/うしな]わず、caller が[回収/かいしゅう]して `free` できることを[確認/かくにん]します。
+
+[何/なに]を[確/たし]かめるか:
+- `add`
+- `add_error_tree`
+- `free`
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/fenwick" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let fw <Fenwick> unwrap_ok<Fenwick, Diag> new 4;
+    match add fw 8 3:
+        Result::Ok next:
+            free next
+            0
+        Result::Err e:
+            let recovered <Fenwick> add_error_tree e
+            let ok <bool> eq len &recovered 4
+            free recovered
+            if ok 1 0
+```

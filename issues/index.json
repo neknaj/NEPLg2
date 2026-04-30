@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T03:40:12.915Z",
+  "generated_at": "2026-04-30T03:44:52.745Z",
   "counts": {
     "total": 432,
-    "open": 16,
-    "resolved": 416,
+    "open": 15,
+    "resolved": 417,
     "by_area": {
       "core": {
         "total": 195,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 135,
-        "open": 8,
-        "resolved": 127
+        "open": 7,
+        "resolved": 128
       },
       "TEST": {
         "total": 7,
@@ -233,21 +233,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T023401649Z-SELFHOST-REQ-FAILS-STRICT-OWNER-GATE-F0FF69D6.md"
-    },
-    {
-      "id": "ISS-20260430T031656331Z-FENWICK-ADD-ERROR-PATH-CONSUMES-OWNE-10D232BB",
-      "title": "Fenwick add error path consumes owner without cleanup or return",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "stdlib/alloc/collections/fenwick.nepl, stdlib/tests/fenwick.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T031656331Z-FENWICK-ADD-ERROR-PATH-CONSUMES-OWNE-10D232BB.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -4673,6 +4658,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T024900212Z-SPARSESET-READ-ONLY-APIS-CONSUME-OWN-E281EAC2.md"
+    },
+    {
+      "id": "ISS-20260430T031656331Z-FENWICK-ADD-ERROR-PATH-CONSUMES-OWNE-10D232BB",
+      "title": "Fenwick add error path consumes owner without cleanup or return",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/fenwick.nepl, stdlib/tests/fenwick.n.md, tests/stdlib/fenwick_collections.n.md, nodesrc/test_stdlib_fenwick_add_error_owner.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T031656331Z-FENWICK-ADD-ERROR-PATH-CONSUMES-OWNE-10D232BB.md"
     },
     {
       "id": "ISS-20260430T032616012Z-SPARSESET-MUTATING-ERROR-PATHS-CONSU-2CA06D59",
