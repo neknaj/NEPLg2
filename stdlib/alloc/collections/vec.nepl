@@ -60,17 +60,20 @@
 //:         unwrap_ok with_capacity<i32> 2
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let ok0 <i32>:
-//:         match get<i32> v2 0:
+//:     let ok0 <bool>:
+//:         match get_ref<i32> &v2 0:
 //:             Option::Some x:
-//:                 if ne x 1 then 1 else 0
+//:                 eq x 1
 //:             Option::None:
-//:                 1
+//:                 false
 //:     let w2 <Vec<i32>>:
 //:         unwrap_ok with_capacity<i32> 2
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     if and eq ok0 0 is_none<i32> get<i32> w2 3 0 1
+//:     let ok1 <bool> is_none<i32> get_ref<i32> &w2 3
+//:     free<i32> v2;
+//:     free<i32> w2;
+//:     if and ok0 ok1 0 1
 //: ```
 //:
 //: neplg2:test
@@ -84,7 +87,9 @@
 //:         |> push 11 |> uwok
 //:         |> push 22 |> uwok
 //:         |> clear<i32>
-//:     if eq len cleared 0 0 1
+//:     let ok <bool> eq len_ref<i32> &cleared 0
+//:     free<i32> cleared;
+//:     if ok 0 1
 //: ```
 
 #indent 4
@@ -151,6 +156,26 @@ struct VecDataLen<.T>:
     data <MemPtr<.T>>
     len <i32>
 
+//: ## VecPop
+//: `pop` の[結果/けっか]を field [名/めい]つきで[返/かえ]す struct
+//:
+//: ### [目的/もくてき]
+//: - `.Pair` ではなく `vec` / `item` の field [名/めい]で、更新後 `Vec` owner と[取/と]り[出/だ]した Copy [値/あたい]を[表/あらわ]します。
+//: - owner を[含/ふく]む戻り値を ResourceIR が field 単位で[追跡/ついせき]できるようにします。
+struct VecPop<.T>:
+    vec <Vec<.T>>
+    item <Option<.T>>
+
+//: ## VecPartition
+//: `partition` の 2 [本/ほん]の `Vec` owner を field [名/めい]つきで[返/かえ]す struct
+//:
+//: ### [目的/もくてき]
+//: - `matched` は predicate が true の[要素/ようそ]、`rest` は false の[要素/ようそ]を[保持/ほじ]します。
+//: - `.Pair` の位置番号ではなく名前付き field にして、owner の[解放/かいほう]漏れを静的検査で[見/み]える形にします。
+struct VecPartition<.T>:
+    matched <Vec<.T>>
+    rest <Vec<.T>>
+
 //: ## new
 //: [既定/きてい][容量/ようりょう]の[空/から] `Vec<.T>` を[作/つく]る
 //:
@@ -177,7 +202,9 @@ struct VecDataLen<.T>:
 //:| #import "alloc/collections/vec" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     if eq len<i32> v 0 0 1
+//:     let ok <bool> eq len_ref<i32> &v 0
+//:     free<i32> v;
+//:     if ok 0 1
 //: ```
 fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
     let cap <i32> 8
@@ -213,7 +240,9 @@ fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
 //:| #import "alloc/collections/vec" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>> unwrap_ok with_capacity<i32> 16;
-//:     if eq cap<i32> v 16 0 1
+//:     let ok <bool> eq cap_ref<i32> &v 16
+//:     free<i32> v;
+//:     if ok 0 1
 //: ```
 fn with_capacity <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (cap):
     if:
@@ -317,7 +346,9 @@ fn filled <.T: Copy> <(i32,.T)->Result<Vec<.T>, StdErrorKind>> (n, value):
 //: fn main <()*>i32> ():
 //:     let v0 <Vec<i32>> unwrap_ok new<i32>;
 //:     let v1 <Vec<i32>> unwrap_ok push v0 3;
-//:     if eq len<i32> v1 1 0 1
+//:     let ok <bool> eq len_ref<i32> &v1 1
+//:     free<i32> v1;
+//:     if ok 0 1
 //: ```
 fn len <.T> <(Vec<.T>)->i32> (v):
     *field::get_ref &v "len"
@@ -350,7 +381,9 @@ fn len <.T> <(Vec<.T>)->i32> (v):
 //:             Option::None:
 //:                 false
 //:     let v2 <Vec<i32>> unwrap_ok push v1 9
-//:     if and first_ok and eq n 1 eq len<i32> v2 2 0 1
+//:     let len2_ok <bool> eq len_ref<i32> &v2 2
+//:     free<i32> v2;
+//:     if and first_ok and eq n 1 len2_ok 0 1
 //: ```
 fn len_ref <.T> <(&Vec<.T>)->i32> (v):
     *field::get_ref v "len"
@@ -379,7 +412,9 @@ fn len_ref <.T> <(&Vec<.T>)->i32> (v):
 //:| #import "alloc/collections/vec" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     if gt cap<i32> v 0 0 1
+//:     let ok <bool> gt cap_ref<i32> &v 0
+//:     free<i32> v;
+//:     if ok 0 1
 //: ```
 fn cap <.T> <(Vec<.T>)->i32> (v):
     *field::get_ref &v "cap"
@@ -417,7 +452,9 @@ fn cap_ref <.T> <(&Vec<.T>)->i32> (v):
 //:| #import "alloc/collections/vec" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     if gt data_ptr<i32> v 0 0 1
+//:     let ok <bool> gt data_ptr_ref<i32> &v 0
+//:     free<i32> v;
+//:     if ok 0 1
 //: ```
 fn data_ptr <.T> <(Vec<.T>)->i32> (v):
     mem_ptr_addr *field::get_ref &v "data"
@@ -456,7 +493,9 @@ fn data_ptr_ref <.T> <(&Vec<.T>)->i32> (v):
 //:| #import "core/mem" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     if gt mem_ptr_addr data_mem_ptr<i32> v 0 0 1
+//:     let ok <bool> gt mem_ptr_addr data_mem_ptr_ref<i32> &v 0
+//:     free<i32> v;
+//:     if ok 0 1
 //: ```
 fn data_mem_ptr <.T> <(Vec<.T>)->MemPtr<.T>> (v):
     *field::get_ref &v "data"
@@ -485,8 +524,10 @@ fn data_mem_ptr_ref <.T> <(&Vec<.T>)->MemPtr<.T>> (v):
 //: fn main <()*>i32> ():
 //:     let v0 <Vec<i32>> unwrap_ok new<i32>;
 //:     let v1 <Vec<i32>> unwrap_ok push v0 7;
-//:     let s data_len<i32> v1;
-//:     if and gt mem_ptr_addr get s "data" 0 eq get s "len" 1 0 1
+//:     let s data_len_ref<i32> &v1;
+//:     let ok <bool> and gt mem_ptr_addr get s "data" 0 eq get s "len" 1
+//:     free<i32> v1;
+//:     if ok 0 1
 //: ```
 //:
 //: ### [実装/じっそう]
@@ -539,7 +580,9 @@ fn data_len_ref <.T> <(&Vec<.T>)->VecDataLen<.T>> (v):
 //:| #import "alloc/collections/vec" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     if is_empty<i32> v 0 1
+//:     let ok <bool> is_empty_ref<i32> &v
+//:     free<i32> v;
+//:     if ok 0 1
 //: ```
 fn is_empty <.T> <(Vec<.T>)->bool> (v):
     let n <i32> *field::get_ref &v "len"
@@ -583,7 +626,9 @@ fn is_empty_ref <.T> <(&Vec<.T>)->bool> (v):
 //: fn main <()*>i32> ():
 //:     let v0 <Vec<i32>> unwrap_ok new<i32>;
 //:     let v1 <Vec<i32>> unwrap_ok push v0 7;
-//:     if eq len<i32> v1 1 0 1
+//:     let ok <bool> eq len_ref<i32> &v1 1
+//:     free<i32> v1;
+//:     if ok 0 1
 //: ```
 fn push <.T> <(Vec<.T>,.T)->Result<Vec<.T>, StdErrorKind>> (v, item):
     let v_len <i32> *field::get_ref &v "len"
@@ -639,11 +684,14 @@ fn push <.T> <(Vec<.T>,.T)->Result<Vec<.T>, StdErrorKind>> (v, item):
 //: fn main <()*>i32> ():
 //:     let v0 <Vec<i32>> unwrap_ok new<i32>;
 //:     let v1 <Vec<i32>> unwrap_ok push v0 9;
-//:     match get<i32> v1 0:
-//:         Option::Some x:
-//:             if eq x 9 0 1
-//:         Option::None:
-//:             1
+//:     let ok <bool>:
+//:         match get_ref<i32> &v1 0:
+//:             Option::Some x:
+//:                 eq x 9
+//:             Option::None:
+//:                 false
+//:     free<i32> v1;
+//:     if ok 0 1
 //: ```
 fn get <.T> <(Vec<.T>,i32)->Option<.T>> (v, idx):
     let v_len <i32> *field::get_ref &v "len"
@@ -708,7 +756,8 @@ fn get_ref <.T: Copy> <(&Vec<.T>,i32)->Option<.T>> (v, idx):
 //: fn main <()*>i32> ():
 //:     let v0 <Vec<i32>> unwrap_ok new<i32>;
 //:     let v1 <Vec<i32>> unwrap_ok push v0 1;
-//:     replace<i32> v1 0 5;
+//:     replace_ref<i32> &v1 0 5;
+//:     free<i32> v1;
 //:     0
 //: ```
 fn replace <.T> <(Vec<.T>,i32,.T)->()> (v, idx, item):
@@ -757,8 +806,11 @@ fn replace <.T> <(Vec<.T>,i32,.T)->()> (v, idx, item):
 //:     replace_ref<i32> &v 0 9;
 //:     match get_ref<i32> &v 0:
 //:         Option::Some x:
-//:             if eq x 9 0 1
+//:             let ok <bool> eq x 9
+//:             free<i32> v;
+//:             if ok 0 1
 //:         Option::None:
+//:             free<i32> v;
 //:             1
 //: ```
 fn replace_ref <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
@@ -786,7 +838,7 @@ fn replace_ref <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
 //: - [要素/ようそ]がある[場合/ばあい]は[最後/さいご]の 1 [件/けん]を typed `load` し、`len - 1` の `Vec` と[組/く]にして[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - [返/かえ]り[値/あたい]は `(Vec, Option)` の 2 [要素/ようそ][組/ぐみ]です。
+//: - [返/かえ]り[値/あたい]は `VecPop` です。`vec` field を必ず継続利用または `free` してください。
 //: - [確保/かくほ]も[解放/かいほう]も[行/おこな]わないため O(1) です。
 //:
 //: ### [計算量/けいさんりょう]
@@ -799,30 +851,31 @@ fn replace_ref <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
+//:| #import "core/field" as field
 //:| #import "core/option" as *
 //: fn main <()*>i32> ():
 //:     let v0 <Vec<i32>> unwrap_ok new<i32>;
 //:     let v1 <Vec<i32>> unwrap_ok push v0 4;
 //:     let p pop<i32> v1;
+//:     let rest <Vec<i32>> field::get p "vec";
+//:     free<i32> rest;
 //:     0
 //: ```
-fn pop <.T> <(Vec<.T>)->.Pair> (v):
+fn pop <.T> <(Vec<.T>)->VecPop<.T>> (v):
     let v_len <i32> *field::get_ref &v "len"
     let v_cap <i32> *field::get_ref &v "cap"
     let v_data <MemPtr<.T>> field::get v "data"
     if:
         eq v_len 0
         then:
-            Tuple:
-                Vec<.T> v_len v_cap v_data
-                none<.T>
+            let next <Vec<.T>> Vec<.T> v_len v_cap v_data
+            VecPop<.T> next none<.T>
         else:
             let next_len <i32> sub v_len 1
             let read_off <i32> mul next_len size_of<.T>
             let item <.T> load<.T> add mem_ptr_addr v_data read_off
-            Tuple:
-                Vec<.T> next_len v_cap v_data
-                some<.T> item
+            let next <Vec<.T>> Vec<.T> next_len v_cap v_data
+            VecPop<.T> next some<.T> item
 
 //: ## clear
 //: [要素/ようそ]をすべて[削除/さくじょ]する
@@ -850,7 +903,9 @@ fn pop <.T> <(Vec<.T>)->.Pair> (v):
 //:     let v0 <Vec<i32>> unwrap_ok new<i32>;
 //:     let v1 <Vec<i32>> unwrap_ok push v0 1;
 //:     let v2 clear<i32> v1;
-//:     if eq len<i32> v2 0 0 1
+//:     let ok <bool> eq len_ref<i32> &v2 0
+//:     free<i32> v2;
+//:     if ok 0 1
 //: ```
 fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
     let v_cap <i32> *field::get_ref &v "cap"
@@ -884,7 +939,9 @@ fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
 //:         unwrap_ok new<i32>
 //:         |> push 9 |> uwok
 //:         |> push 11 |> uwok
-//:     if eq vec_read_at<i32> data_mem_ptr<i32> v 1 11 0 1
+//:     let ok <bool> eq vec_read_at<i32> data_mem_ptr_ref<i32> &v 1 11
+//:     free<i32> v;
+//:     if ok 0 1
 //: ```
 fn vec_read_at <.T> <(MemPtr<.T>, i32)->.T> (data, idx):
     load<.T> add mem_ptr_addr data mul idx size_of<.T>
@@ -913,9 +970,11 @@ fn vec_read_at <.T> <(MemPtr<.T>, i32)->.T> (data, idx):
 //:| #import "alloc/collections/vec" as *
 //: fn main <()*>i32> ():
 //:     let v0 <Vec<i32>> unwrap_ok with_capacity<i32> 2;
-//:     let data data_mem_ptr<i32> v0;
+//:     let data data_mem_ptr_ref<i32> &v0;
 //:     vec_write_at<i32> data 0 12;
-//:     if eq vec_read_at<i32> data 0 12 0 1
+//:     let ok <bool> eq vec_read_at<i32> data 0 12
+//:     free<i32> v0;
+//:     if ok 0 1
 //: ```
 fn vec_write_at <.T> <(MemPtr<.T>, i32, .T)->()> (data, idx, item):
     store<.T> add mem_ptr_addr data mul idx size_of<.T> item
@@ -946,13 +1005,15 @@ fn vec_write_at <.T> <(MemPtr<.T>, i32, .T)->()> (data, idx, item):
 //: fn add_acc <(i32,i32)->i32> (acc, x):
 //:     add acc x
 //: fn main <()*>i32> ():
-//:     let p <MemPtr<i32>>:
+//:     let v <Vec<i32>>:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
-//:         |> data_mem_ptr<i32>
-//:     if eq vec_fold_impl<i32,i32> p 3 0 0 add_acc 6 0 1
+//:     let p <MemPtr<i32>> data_mem_ptr_ref<i32> &v
+//:     let ok <bool> eq vec_fold_impl<i32,i32> p 3 0 0 add_acc 6
+//:     free<i32> v;
+//:     if ok 0 1
 //: ```
 fn vec_fold_impl <.T,.U> <(MemPtr<.T>, i32, i32, .U, (.U,.T)->.U)->.U> (data, len, idx, acc, f):
     if:
@@ -989,13 +1050,15 @@ fn vec_fold_impl <.T,.U> <(MemPtr<.T>, i32, i32, .U, (.U,.T)->.U)->.U> (data, le
 //: fn add_acc <(i32,i32)->i32> (acc, x):
 //:     add acc x
 //: fn main <()*>i32> ():
-//:     let p <MemPtr<i32>>:
+//:     let v <Vec<i32>>:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
-//:         |> data_mem_ptr<i32>
-//:     if eq vec_reduce_impl<i32> p 3 1 1 add_acc 6 0 1
+//:     let p <MemPtr<i32>> data_mem_ptr_ref<i32> &v
+//:     let ok <bool> eq vec_reduce_impl<i32> p 3 1 1 add_acc 6
+//:     free<i32> v;
+//:     if ok 0 1
 //: ```
 fn vec_reduce_impl <.T> <(MemPtr<.T>, i32, i32, .T, (.T,.T)->.T)->.T> (data, len, idx, acc, f):
     if:
@@ -1033,16 +1096,19 @@ fn vec_reduce_impl <.T> <(MemPtr<.T>, i32, i32, .T, (.T,.T)->.T)->.T> (data, len
 //: fn gt_two <(i32)->bool> (x):
 //:     gt x 2
 //: fn main <()*>i32> ():
-//:     let p <MemPtr<i32>>:
+//:     let v <Vec<i32>>:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 3 |> uwok
-//:         |> data_mem_ptr<i32>
-//:     match vec_find_impl<i32> p 2 0 gt_two:
-//:         Option::Some x:
-//:             if eq x 3 0 1
-//:         Option::None:
-//:             1
+//:     let p <MemPtr<i32>> data_mem_ptr_ref<i32> &v
+//:     let ok <bool>:
+//:         match vec_find_impl<i32> p 2 0 gt_two:
+//:             Option::Some x:
+//:                 eq x 3
+//:             Option::None:
+//:                 false
+//:     free<i32> v;
+//:     if ok 0 1
 //: ```
 fn vec_find_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->Option<.T>> (data, len, idx, p):
     if:
@@ -1086,13 +1152,15 @@ fn vec_find_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->Option<.T>> (data, le
 //: fn lt_three <(i32)->bool> (x):
 //:     lt x 3
 //: fn main <()*>i32> ():
-//:     let p <MemPtr<i32>>:
+//:     let v <Vec<i32>>:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
-//:         |> data_mem_ptr<i32>
-//:     if eq vec_take_while_len_impl<i32> p 3 0 lt_three 2 0 1
+//:     let p <MemPtr<i32>> data_mem_ptr_ref<i32> &v
+//:     let ok <bool> eq vec_take_while_len_impl<i32> p 3 0 lt_three 2
+//:     free<i32> v;
+//:     if ok 0 1
 //: ```
 fn vec_take_while_len_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->i32> (data, len, idx, p):
     if:
@@ -1129,17 +1197,20 @@ fn vec_take_while_len_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->i32> (data,
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //: fn main <()*>i32> ():
-//:     let src_data <MemPtr<i32>>:
+//:     let src <Vec<i32>>:
 //:         unwrap_ok new<i32>
 //:         |> push 7 |> uwok
 //:         |> push 8 |> uwok
 //:         |> push 9 |> uwok
-//:         |> data_mem_ptr<i32>
-//:     let dst_data <MemPtr<i32>>:
+//:     let src_data <MemPtr<i32>> data_mem_ptr_ref<i32> &src
+//:     let dst <Vec<i32>>:
 //:         unwrap_ok with_capacity<i32> 2
-//:         |> data_mem_ptr<i32>
+//:     let dst_data <MemPtr<i32>> data_mem_ptr_ref<i32> &dst
 //:     vec_write_prefix_impl<i32> src_data dst_data 1 2;
-//:     if eq vec_read_at<i32> dst_data 1 9 0 1
+//:     let ok <bool> eq vec_read_at<i32> dst_data 1 9
+//:     free<i32> src;
+//:     free<i32> dst;
+//:     if ok 0 1
 //: ```
 fn vec_write_prefix_impl <.T> <(MemPtr<.T>, MemPtr<.T>, i32, i32)->()> (src_data, out_data, src_from, count):
     let mut i <i32> 0
@@ -1184,11 +1255,14 @@ fn vec_write_prefix_impl <.T> <(MemPtr<.T>, MemPtr<.T>, i32, i32)->()> (src_data
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
 //:     let ys <Vec<i32>> unwrap_ok map<i32,i32> xs inc;
-//:     match get<i32> ys 2:
-//:         Option::Some x:
-//:             if eq x 4 0 1
-//:         Option::None:
-//:             1
+//:     let ok <bool>:
+//:         match get_ref<i32> &ys 2:
+//:             Option::Some x:
+//:                 eq x 4
+//:             Option::None:
+//:                 false
+//:     free<i32> ys;
+//:     if ok 0 1
 //: ```
 fn map <.T,.U> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
     let src_len <i32> *field::get_ref &v "len"
@@ -1245,7 +1319,9 @@ fn map <.T,.U> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
 //:         |> push 3 |> uwok
 //:         |> push 4 |> uwok
 //:     let zs <Vec<i32>> unwrap_ok filter<i32> ys is_even;
-//:     if eq len<i32> zs 2 0 1
+//:     let ok <bool> eq len_ref<i32> &zs 2
+//:     free<i32> zs;
+//:     if ok 0 1
 //: ```
 fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
@@ -1286,14 +1362,14 @@ fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
 //:
 //: ### [目的/もくてき]
 //: - `xs |> partition p` の[形/かたち]で、`p` を[満/み]たす[要素/ようそ]と、[満/み]たさない[要素/ようそ]へ[分割/ぶんかつ]します。
-//: - [返/かえ]り[値/あたい]は `(matched, rest)` の 2 [要素/ようそ][組/ぐみ]です。
+//: - [返/かえ]り[値/あたい]は `VecPartition` です。`matched` と `rest` の両方を継続利用または `free` してください。
 //:
 //: ### [実装/じっそう]
 //: - 1 [回目/かいめ]の loop で `matched` の[要素数/ようそすう]だけを[数/かぞ]え、2 [回目/かいめ]で exact capacity の 2 [本/ほん]の `Vec` へ[振/ふ]り[分/わ]けます。
 //: - [入力/にゅうりょく][順序/じゅんじょ]は[両方/りょうほう]の[出力/しゅつりょく]で[維持/いじ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - 2 [本/ほん]の[新規/しんき] `Vec` を[確保/かくほ]するので `Result<.Pair, StdErrorKind>` を[返/かえ]します。
+//: - 2 [本/ほん]の[新規/しんき] `Vec` を[確保/かくほ]するので `Result<VecPartition<.T>, StdErrorKind>` を[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -1306,7 +1382,7 @@ fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
-//:| #import "core/field" as *
+//:| #import "core/field" as field
 //: fn is_even <(i32)->bool> (x):
 //:     eq rem_s x 2 0
 //: fn main <()*>i32> ():
@@ -1316,10 +1392,14 @@ fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
 //:     let parts unwrap_ok partition<i32> xs is_even;
-//:     let evens get parts 0;
-//:     if eq len<i32> evens 1 0 1
+//:     let evens <Vec<i32>> field::get parts "matched";
+//:     let rest <Vec<i32>> field::get parts "rest";
+//:     let ok <bool> eq len_ref<i32> &evens 1
+//:     free<i32> evens;
+//:     free<i32> rest;
+//:     if ok 0 1
 //: ```
-fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
+fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let src_cap <i32> *field::get_ref &v "cap"
     let src_data <MemPtr<.T>> field::get v "data"
@@ -1335,7 +1415,7 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
     match with_capacity<.T> left_len:
         Result::Err e:
             dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
-            Result::Err<.Pair, StdErrorKind> e
+            Result::Err<VecPartition<.T>, StdErrorKind> e
         Result::Ok left0:
             match with_capacity<.T> right_len:
                 Result::Err e:
@@ -1343,7 +1423,7 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
                     let left0_data <MemPtr<.T>> field::get left0 "data"
                     dealloc_raw mem_ptr_addr left0_data mul left0_cap size_of<.T>
                     dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
-                    Result::Err<.Pair, StdErrorKind> e
+                    Result::Err<VecPartition<.T>, StdErrorKind> e
                 Result::Ok right0:
                     let left_cap <i32> *field::get_ref &left0 "cap"
                     let left_data <MemPtr<.T>> field::get left0 "data"
@@ -1365,9 +1445,9 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
                                     set right_i add right_i 1
                             set read_i add read_i 1
                     dealloc_raw mem_ptr_addr src_data mul src_cap size_of<.T>
-                    Result::Ok<.Pair, StdErrorKind> Tuple:
-                        Vec<.T> left_len left_cap left_data
-                        Vec<.T> right_len right_cap right_data
+                    let left <Vec<.T>> Vec<.T> left_len left_cap left_data
+                    let right <Vec<.T>> Vec<.T> right_len right_cap right_data
+                    Result::Ok<VecPartition<.T>, StdErrorKind> VecPartition<.T> left right
 
 //: ## take_while
 //: [条件/じょうけん]が[成/な]り[立/た]つ[先頭/せんとう][連続部分/れんぞくぶぶん]だけを[取/と]る
@@ -1401,7 +1481,9 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<.Pair, StdErrorKind>> (v, p):
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
 //:     let ys <Vec<i32>> unwrap_ok take_while<i32> xs lt_three;
-//:     if eq len<i32> ys 2 0 1
+//:     let ok <bool> eq len_ref<i32> &ys 2
+//:     free<i32> ys;
+//:     if ok 0 1
 //: ```
 fn take_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
@@ -1452,11 +1534,14 @@ fn take_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p)
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
 //:     let ys <Vec<i32>> unwrap_ok drop_while<i32> xs lt_three;
-//:     match get<i32> ys 0:
-//:         Option::Some x:
-//:             if eq x 4 0 1
-//:         Option::None:
-//:             1
+//:     let ok <bool>:
+//:         match get_ref<i32> &ys 0:
+//:             Option::Some x:
+//:                 eq x 4
+//:             Option::None:
+//:                 false
+//:     free<i32> ys;
+//:     if ok 0 1
 //: ```
 fn drop_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
@@ -1479,10 +1564,11 @@ fn drop_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p)
 //: [条件/じょうけん]を[満/み]たす[要素数/ようそすう]を[数/かぞ]える
 //:
 //: ### [目的/もくてき]
-//: - `xs |> count p` の[形/かたち]で、`p` が true になる[要素/ようそ]の[個数/こすう]を[返/かえ]します。
+//: - `&xs |> count p` の[形/かたち]で、owner を[消費/しょうひ]せずに `p` が true になる[要素/ようそ]の[個数/こすう]を[返/かえ]します。
 //:
 //: ### [実装/じっそう]
 //: - [先頭/せんとう]から[末尾/まつび]まで 1 [回/かい]だけ[走査/そうさ]し、true のたびに[加算/かさん]します。
+//: - 要素は `.T: Copy` として[読/よ]み[取/と]るため、呼び出し後も `Vec` owner は caller が `free` します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -1504,11 +1590,13 @@ fn drop_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p)
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
 //:         |> push 4 |> uwok
-//:     if eq count<i32> xs is_even 2 0 1
+//:     let ok <bool> eq count<i32> &xs is_even 2
+//:     free<i32> xs;
+//:     if ok 0 1
 //: ```
-fn count <.T> <(Vec<.T>, (.T)->bool)->i32> (v, p):
-    let src_len <i32> *field::get_ref &v "len"
-    let src_data <MemPtr<.T>> *field::get_ref &v "data"
+fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
+    let src_len <i32> *field::get_ref v "len"
+    let src_data <MemPtr<.T>> *field::get_ref v "data"
     let mut out <i32> 0
     let mut i <i32> 0
     while lt i src_len:
@@ -1523,14 +1611,14 @@ fn count <.T> <(Vec<.T>, (.T)->bool)->i32> (v, p):
 //: [左/ひだり]から[順/じゅん]に[畳/たた]み[込/こ]む
 //:
 //: ### [目的/もくてき]
-//: - `xs |> fold init f` の[形/かたち]で、[初期値/しょきち] `init` から[始/はじ]めて[全要素/ぜんようそ]を 1 つの[値/あたい]へ[集約/しゅうやく]します。
+//: - `&xs |> fold init f` の[形/かたち]で、owner を[消費/しょうひ]せず[初期値/しょきち] `init` から[始/はじ]めて[全要素/ぜんようそ]を 1 つの[値/あたい]へ[集約/しゅうやく]します。
 //:
 //: ### [実装/じっそう]
 //: - 0 [番目/ばんめ]から `len - 1` まで[順番/じゅんばん]に `f acc item` を[適用/てきよう]し、[更新後/こうしんご]の acc を[次/つぎ]へ[渡/わた]します。
 //:
 //: ### [注意/ちゅうい]
 //: - [空/から] `Vec` では `init` をそのまま[返/かえ]します。
-//: - `f` は `(.U,.T)->.U` の[純粋/じゅんすい][関数/かんすう]です。
+//: - `f` は `(.U,.T)->.U` の[純粋/じゅんすい][関数/かんすう]です。`.T` は Copy 要素として[渡/わた]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -1551,25 +1639,27 @@ fn count <.T> <(Vec<.T>, (.T)->bool)->i32> (v, p):
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
-//:     if eq fold<i32,i32> xs 10 add_acc 16 0 1
+//:     let total <i32> fold<i32,i32> &xs 10 add_acc
+//:     free<i32> xs;
+//:     if eq total 16 0 1
 //: ```
-fn fold <.T,.U> <(Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
-    let src_len <i32> *field::get_ref &v "len"
-    let src_data <MemPtr<.T>> *field::get_ref &v "data"
+fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
+    let src_len <i32> *field::get_ref v "len"
+    let src_data <MemPtr<.T>> *field::get_ref v "data"
     vec_fold_impl<.T,.U> src_data src_len 0 acc f
 
 //: ## reduce
 //: [初期値/しょきち]なしで[集約/しゅうやく]する
 //:
 //: ### [目的/もくてき]
-//: - [非空/ひくう] `Vec` なら[先頭/せんとう][要素/ようそ]を[初期値/しょきち]として[残/のこ]りを[畳/たた]み[込/こ]み、[空/から]なら `None` を[返/かえ]します。
+//: - owner を[消費/しょうひ]せず、[非空/ひくう] `Vec` なら[先頭/せんとう][要素/ようそ]を[初期値/しょきち]として[残/のこ]りを[畳/たた]み[込/こ]み、[空/から]なら `None` を[返/かえ]します。
 //:
 //: ### [実装/じっそう]
 //: - 0 [番目/ばんめ]を[初期値/しょきち]として[読/よ]み[出/だ]し、1 [番目/ばんめ]から[残/のこ]りを[左畳/ひだりたた]み[込/こ]みします。
 //:
 //: ### [注意/ちゅうい]
 //: - [空/から] `Vec` では `Option::None` です。
-//: - `f` は `(.T,.T)->.T` の[純粋/じゅんすい][関数/かんすう]です。
+//: - `f` は `(.T,.T)->.T` の[純粋/じゅんすい][関数/かんすう]です。`.T` は Copy 要素として[渡/わた]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -1591,15 +1681,17 @@ fn fold <.T,.U> <(Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
-//:     match reduce<i32> xs add_acc:
+//:     let r <Option<i32>> reduce<i32> &xs add_acc
+//:     free<i32> xs;
+//:     match r:
 //:         Option::Some x:
 //:             if eq x 6 0 1
 //:         Option::None:
 //:             1
 //: ```
-fn reduce <.T> <(Vec<.T>, (.T,.T)->.T)->Option<.T>> (v, f):
-    let src_len <i32> *field::get_ref &v "len"
-    let src_data <MemPtr<.T>> *field::get_ref &v "data"
+fn reduce <.T: Copy> <(&Vec<.T>, (.T,.T)->.T)->Option<.T>> (v, f):
+    let src_len <i32> *field::get_ref v "len"
+    let src_data <MemPtr<.T>> *field::get_ref v "data"
     if:
         eq src_len 0
         then none<.T>
@@ -1610,7 +1702,7 @@ fn reduce <.T> <(Vec<.T>, (.T,.T)->.T)->Option<.T>> (v, f):
 //: [条件/じょうけん]に[合/あ]う[最初/さいしょ]の[要素/ようそ]を[探/さが]す
 //:
 //: ### [目的/もくてき]
-//: - `xs |> find p` の[形/かたち]で、0 [番目/ばんめ]から[順/じゅん]に `p` を[試/ため]し、[最初/さいしょ]に[真/しん]となる[要素/ようそ]を `Some` で[返/かえ]します。
+//: - `&xs |> find p` の[形/かたち]で、owner を[消費/しょうひ]せず 0 [番目/ばんめ]から[順/じゅん]に `p` を[試/ため]し、[最初/さいしょ]に[真/しん]となる Copy [要素/ようそ]を `Some` で[返/かえ]します。
 //:
 //: ### [実装/じっそう]
 //: - [先頭/せんとう]から[順番/じゅんばん]に `p` を[評価/ひょうか]し、[見/み]つかった[時点/じてん]で[即座/そくざ]に[返/かえ]します。
@@ -1637,22 +1729,24 @@ fn reduce <.T> <(Vec<.T>, (.T,.T)->.T)->Option<.T>> (v, f):
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 3 |> uwok
-//:     match find<i32> xs gt_two:
+//:     let r <Option<i32>> find<i32> &xs gt_two
+//:     free<i32> xs;
+//:     match r:
 //:         Option::Some x:
 //:             if eq x 3 0 1
 //:         Option::None:
 //:             1
 //: ```
-fn find <.T> <(Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
-    let src_len <i32> *field::get_ref &v "len"
-    let src_data <MemPtr<.T>> *field::get_ref &v "data"
+fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
+    let src_len <i32> *field::get_ref v "len"
+    let src_data <MemPtr<.T>> *field::get_ref v "data"
     vec_find_impl<.T> src_data src_len 0 p
 
 //: ## any
 //: [条件/じょうけん]を[満/み]たす[要素/ようそ]が 1 つでもあるか[判定/はんてい]する
 //:
 //: ### [目的/もくてき]
-//: - `xs |> any p` の[形/かたち]で、`p` を[満/み]たす[要素/ようそ]が 1 つでもあれば `true` を[返/かえ]します。
+//: - `&xs |> any p` の[形/かたち]で、owner を[消費/しょうひ]せず `p` を[満/み]たす[要素/ようそ]が 1 つでもあれば `true` を[返/かえ]します。
 //:
 //: ### [実装/じっそう]
 //: - [先頭/せんとう]から[順番/じゅんばん]に `p` を[評価/ひょうか]し、[見/み]つかった[時点/じてん]で `true` を[返/かえ]します。
@@ -1678,11 +1772,13 @@ fn find <.T> <(Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 3 |> uwok
-//:     if any<i32> xs gt_two 0 1
+//:     let ok <bool> any<i32> &xs gt_two
+//:     free<i32> xs;
+//:     if ok 0 1
 //: ```
-fn any <.T> <(Vec<.T>, (.T)->bool)->bool> (v, p):
-    let src_len <i32> *field::get_ref &v "len"
-    let src_data <MemPtr<.T>> *field::get_ref &v "data"
+fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
+    let src_len <i32> *field::get_ref v "len"
+    let src_data <MemPtr<.T>> *field::get_ref v "data"
     let mut out <bool> false
     let mut i <i32> 0
     while and lt i src_len not out:
@@ -1695,7 +1791,7 @@ fn any <.T> <(Vec<.T>, (.T)->bool)->bool> (v, p):
 //: [全要素/ぜんようそ]が[条件/じょうけん]を[満/み]たすか[判定/はんてい]する
 //:
 //: ### [目的/もくてき]
-//: - `xs |> all p` の[形/かたち]で、[全/すべ]ての[要素/ようそ]が `p` を[満/み]たすときだけ `true` を[返/かえ]します。
+//: - `&xs |> all p` の[形/かたち]で、owner を[消費/しょうひ]せず[全/すべ]ての[要素/ようそ]が `p` を[満/み]たすときだけ `true` を[返/かえ]します。
 //:
 //: ### [実装/じっそう]
 //: - [先頭/せんとう]から[順番/じゅんばん]に `p` を[評価/ひょうか]し、1 [件/けん]でも false が[出/で]たら[即座/そくざ]に[打/う]ち[切/き]ります。
@@ -1721,11 +1817,13 @@ fn any <.T> <(Vec<.T>, (.T)->bool)->bool> (v, p):
 //:         unwrap_ok new<i32>
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
-//:     if all<i32> xs is_even 0 1
+//:     let ok <bool> all<i32> &xs is_even
+//:     free<i32> xs;
+//:     if ok 0 1
 //: ```
-fn all <.T> <(Vec<.T>, (.T)->bool)->bool> (v, p):
-    let src_len <i32> *field::get_ref &v "len"
-    let src_data <MemPtr<.T>> *field::get_ref &v "data"
+fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
+    let src_len <i32> *field::get_ref v "len"
+    let src_data <MemPtr<.T>> *field::get_ref v "data"
     let mut out <bool> true
     let mut i <i32> 0
     while and lt i src_len out:

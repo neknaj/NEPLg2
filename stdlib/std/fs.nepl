@@ -800,7 +800,7 @@ fn fs_normalize_relative <(str)->Result<str,i32>> (path):
                                                                     set err fs_errno_notcapable
                                                                 else:
                                                                     let popped v::pop<str> stack
-                                                                    set stack get popped 0
+                                                                    set stack get popped "vec"
                                                         else:
                                                             match v::push<str> stack part:
                                                                 Result::Ok next_stack:
