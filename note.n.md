@@ -29235,3 +29235,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `.n.md` assertion suite は stdout report + `exit_code:` で検証する方針に沿って、stdlib hashset fixtureを移行した。
+
+# 2026-04-30 note (ISS-20260430T133512620Z stdlib string report/helper contract)
+
+- [同期]:
+  - `cb1aee49` の stdlib hashset report commit 後、`origin/main` が同一であることを確認して継続対応した。
+- [原因]:
+  - `stdlib/tests/string.n.md` の `string_find_byte_index` は `Result<(),str>` を返す helper 内で `assert_eq_i32` を返していた。
+  - 現在の `std/test::assert_eq_i32` は structured `TestAssertion` を返すため、`Result<(),str>` を返す helper では `check_eq_i32` を使う必要がある。
+  - さらに `std/test` を使う5件の doctest は `checks_exit_code checks` のみで stdout report を出しておらず、metadata も `ret: 0` のままだった。
+- [修正]:
+  - `expect_find_some` の成功 arm を `check_eq_i32` に変更した。
+  - 5件の `std/test` doctest に `checks_print_report` を追加した。
+  - 各 doctest を `exit_code: 0` + stdout assertion report fixture へ移行した。
+  - `ISS-20260430T133512620Z-STDLIB-STRING-DOCTESTS-KEEP-OLD-STD--4220AD4F` を追加し fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/stdlib-string-report-agent1.json -j 1 --dist web/dist`: `9 total / 9 passed`
+  - `rg -n '^ret: 0|checks_exit_code checks|assert_eq_i32' stdlib/tests/string.n.md`: no matches
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `.n.md` assertion suite は stdout report + `exit_code:` で検証する方針に沿って、stdlib string fixtureを移行した。

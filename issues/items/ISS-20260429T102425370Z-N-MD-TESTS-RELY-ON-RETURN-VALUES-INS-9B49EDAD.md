@@ -178,3 +178,13 @@ main case は既存の8件 assertion reportを stdout として固定し、free 
 検証:
 
 - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md --no-tree -o tmp/stdlib-hashset-report-agent1.json -j 1 --dist web/dist`: total=2, passed=2
+
+## 2026-04-30 stdlib string report and helper contract migration
+
+`ISS-20260430T133512620Z-STDLIB-STRING-DOCTESTS-KEEP-OLD-STD--4220AD4F` で、`stdlib/tests/string.n.md` の `std/test` doctest 5件を stdout assertion report + `exit_code: 0` へ移行した。
+
+調査時点で `string_find_byte_index` は `Result<(),str>` helper から `assert_eq_i32` の `TestAssertion` を返しており、structured assertion API との型不整合で compile fail していた。これは `check_eq_i32` に戻し、helper signature と `checks_push` の Result overload に合う形へ修正した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/stdlib-string-report-agent1.json -j 1 --dist web/dist`: total=9, passed=9

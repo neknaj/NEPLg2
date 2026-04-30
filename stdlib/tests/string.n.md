@@ -104,7 +104,16 @@ fn main <()*>i32> ():
 NEPLg3 self-host lexer が改行区切りや delimiter を探す用途を想定し、改行を含む探索も固定します。
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
 ```neplg2
 #entry main
 #indent 4
@@ -117,7 +126,7 @@ ret: 0
 fn expect_find_some <(str,Option<i32>,i32)*>Result<(),str>> (label, got, expected):
     match got:
         Option::Some actual:
-            assert_eq_i32 expected actual
+            check_eq_i32 expected actual
         Option::None:
             Result<(),str>::Err label
 
@@ -131,7 +140,8 @@ fn main <()*>i32> ():
         |> checks_push expect_find_some "delimiter" find "#target std\n#entry main" "\n#entry" 11
         |> checks_push assert is_none<i32> find "abc" "z"
         |> checks_push assert is_none<i32> find "ab" "abc"
-    checks_exit_code checks
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
 
 ## string_result_allocation_apis
@@ -140,7 +150,13 @@ fn main <()*>i32> ():
 allocator failure を trap へ寄せない self-host 用入口を固定するための回帰テストです。
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
 ```neplg2
 #entry main
 #indent 4
@@ -201,7 +217,8 @@ fn main <()*>i32> ():
         |> checks_push expect_str_ok "slice: " str_slice_result "abcdef" 2 5 "cde"
         |> checks_push expect_vec_middle str_split_result "a--b--c" "--"
         |> checks_push expect_str_ok "builder: " builder_result "Error: 404 Not Found"
-    checks_exit_code checks
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
 
 ## string_utf8_mem_result
@@ -210,7 +227,11 @@ fn main <()*>i32> ():
 `alloc/string` 自体の境界で UTF-8 不変条件を固定するための回帰テストです。
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
 ```neplg2
 #entry main
 #indent 4
@@ -241,7 +262,8 @@ fn main <()*>i32> ():
                 Result::Err _e:
                     set checks checks_push checks Result<(),str>::Ok ();
             dealloc_raw raw 1;
-    checks_exit_code checks
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
 
 ## string_to_f64_parser
@@ -250,7 +272,20 @@ fn main <()*>i32> ():
 不正な末尾や digit 不足を `Result::Err` として返すことを確認します。
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
+    ##: [5] ok
+    ##: [6] ok
+    ##: [7] ok
+    ##: [8] ok
+    ##: [9] ok
+    ##: [10] ok
 ```neplg2
 #entry main
 #indent 4
@@ -299,7 +334,8 @@ fn main <()*>i32> ():
     set checks checks_push checks expect_f64_err "missing exponent" (to_f64 "1e");
     set checks checks_push checks expect_f64_err "trailing byte" (to_f64 "1x");
     set checks checks_push checks expect_f64_err "trailing fraction byte" (to_f64 "1.2x");
-    checks_exit_code checks
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
 
 ## string_slice_utf8_boundary
@@ -308,7 +344,14 @@ fn main <()*>i32> ():
 multi-byte 文字の途中で切る範囲を `Result::Err` にすることを確認します。
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+    ##: [3] ok
+    ##: [4] ok
 ```neplg2
 #entry main
 #indent 4
@@ -340,5 +383,6 @@ fn main <()*>i32> ():
     set checks checks_push checks expect_slice_err "cut end: " (str_slice_result "あ" 0 1);
     set checks checks_push checks expect_slice_err "cut start: " (str_slice_result "あ" 1 3);
     set checks checks_push checks check_str_eq "" (str_slice "あ" 0 1);
-    checks_exit_code checks
+    let shown checks_print_report checks;
+    checks_exit_code shown
 ```
