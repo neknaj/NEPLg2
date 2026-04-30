@@ -1,3 +1,28 @@
+# 2026-04-30 メモ (ISS-20260430T044235959Z Vec doctest owner discipline)
+
+- [同期]:
+  - `fix/vec-doctest-owner-discipline-20260430` branch で、`83c6e23d` の main から継続して作業した。
+- [原因]:
+  - `stdlib/alloc/collections/vec.nepl` の doctest は旧式の `len/get/data_mem_ptr` などの値渡し観測を使い、観測後の `Vec` owner を閉じていなかった。
+  - `count` / `fold` / `reduce` / `find` / `any` / `all` は読み取り helper なのに `Vec` を値で受け取り、backing storage owner を caller に返さず解放もしない契約になっていた。
+  - `pop` / `partition` は owner を `.Pair` / `Tuple` に入れて返しており、caller が field を取り出して `free` しても ResourceIR が匿名 tuple 内の owner 移動を証明できなかった。
+- [修正]:
+  - Vec module doctest を、borrowed read helper で観測してから戻り値 owner を明示的に `free` する形へ更新した。
+  - `count` / `fold` / `reduce` / `find` / `any` / `all` を `&Vec<.T>` 受け取りと `.T: Copy` 制約に変更した。
+  - `VecPop<.T>` / `VecPartition<.T>` を追加し、`pop` / `partition` の owner-carrying result を名前付き field で追跡できる形にした。
+  - `stdlib/std/fs.nepl` と `stdlib/tests/vec.n.md` を新しい `VecPop` / `VecPartition` contract と borrowed helper 呼び出しへ追従させた。
+  - `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に、匿名 `.Pair` 戻り値禁止、named result、borrowed functional helper の source policy を追加した。
+- [issue]:
+  - `ISS-20260430T044235959Z-VEC-MODULE-DOCTESTS-LEAK-OWNERS-UNDE-EB5A5659` を fixed/resolved にした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-doctest-owner-discipline-after-named-results.json -j 1 --dist web/dist`: `total=39`, `passed=39`
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-doctest-owner-discipline-collections.json -j 1 --dist web/dist`: `total=3`, `passed=3`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-after-vec-pop-result-parsefix.json -j 1 --dist web/dist`: `total=7`, `passed=7`
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+- [既存残件]:
+  - `stdlib/tests/vec.n.md` の 2 本目は compile owner leak は解消したが、既存の巨大 functional helper doctest が 60 秒 timeout に当たる。分割 probe では各まとまりは pass しているため、`ISS-20260430T050817277Z-VEC-FUNCTIONAL-HELPER-STDLIB-TEST-EX-64EDB43E` で test 分割または軽量化を追跡する。
+
 # 2026-04-30 メモ (ISS-20260430T012746721Z unit helper initialized summary)
 
 - [同期]:

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T04:37:11.098Z",
+  "generated_at": "2026-04-30T05:09:47.483Z",
   "counts": {
-    "total": 440,
-    "open": 14,
-    "resolved": 426,
+    "total": 442,
+    "open": 15,
+    "resolved": 427,
     "by_area": {
       "core": {
         "total": 195,
@@ -12,9 +12,9 @@
         "resolved": 190
       },
       "stdlib": {
-        "total": 143,
-        "open": 7,
-        "resolved": 136
+        "total": 145,
+        "open": 8,
+        "resolved": 137
       },
       "TEST": {
         "total": 7,
@@ -293,6 +293,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260430T050817277Z-VEC-FUNCTIONAL-HELPER-STDLIB-TEST-EX-64EDB43E",
+      "title": "Vec functional helper stdlib test exceeds doctest runtime budget",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/tests/vec.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T050817277Z-VEC-FUNCTIONAL-HELPER-STDLIB-TEST-EX-64EDB43E.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -4793,6 +4808,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T043023595Z-RINGBUFFER-READ-ONLY-OBSERVERS-CONSU-9A590BA3.md"
+    },
+    {
+      "id": "ISS-20260430T044235959Z-VEC-MODULE-DOCTESTS-LEAK-OWNERS-UNDE-EB5A5659",
+      "title": "Vec module doctests leak owners under strict ResourceIR",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "stdlib/alloc/collections/vec.nepl, stdlib/std/fs.nepl, stdlib/tests/vec.n.md, nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T044235959Z-VEC-MODULE-DOCTESTS-LEAK-OWNERS-UNDE-EB5A5659.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
