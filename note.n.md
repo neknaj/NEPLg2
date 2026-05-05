@@ -29920,3 +29920,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio/read.nepl` は 376 lines、`stdio/read/buffer.nepl` は 124 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260505T182658141Z Resource IR unknown-offset non-Copy raw move)
+
+- [同期]:
+  - `origin/main` の `cc223b55` を取り込んだ状態から、branch `work/resource-ir-vec-range-cleanup` で対応した。
+- [原因]:
+  - Resource IR の `CellTable::mark_raw_cell_moved` は、unknown storage offset を含む non-Copy raw load を exact cell move と同じように処理していた。
+  - dynamic raw storage の store/load は range traversal の完了を証明していないにもかかわらず、唯一の unknown-offset raw cell fact を削除できたため、後続の storage-only dealloc が live non-Copy obligation を見失う可能性があった。
+  - `availability_state` も non-initialized raw cell state を exact prefix だけで見ており、unknown-offset `MaybeMoved` を exact/dynamic alias 側へ流せていなかった。
+- [修正]:
+  - exact raw move と unknown-offset raw move を分離した。
+  - exact offset だけで構成される move は exact cell を `Moved` にし、unknown offset が絡む move は重なる raw cell fact を `MaybeMoved` として保持するようにした。
+  - raw cell availability で exact/dynamic alias 関係の non-initialized state を参照し、`MaybeMoved` が後続 load / dealloc で見落とされないようにした。
+  - `resource_ir_cell_check_unknown_offset_non_copy_move_keeps_dealloc_conservative` を追加し、dynamic non-Copy store/load 後の dealloc が `RawMemoryDeallocCell` / `MaybeMoved` で拒否されることを固定した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_unknown_offset_non_copy_move_keeps_dealloc_conservative -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_tracks_external_non_copy_raw_load_after_first_move -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_reports_raw_load_before_store -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_raw_fill_does_not_initialize_non_copy_cell -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_external_fd_read_initializes_iovec_buffers -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_read_reports_uninitialized_iovec_descriptor -- --nocapture`: passed
+  - source-based Resource IR 既存 test の一部は、`ShadowSameSignatureCallable` warning を helper が失敗扱いする既存問題で停止した。今回の manual ResourceModule 回帰は通過。
+- [issue]:
+  - `ISS-20260505T182658141Z-RESOURCE-IR-TREATS-UNKNOWN-OFFSET-NO-48ACA3ED` は fixed。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` に Stage 4 Resource IR CellState の進捗として追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

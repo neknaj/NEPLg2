@@ -3394,6 +3394,79 @@ fn resource_ir_cell_check_tracks_external_non_copy_raw_load_after_first_move() {
 }
 
 #[test]
+fn resource_ir_cell_check_unknown_offset_non_copy_move_keeps_dealloc_conservative() {
+    let (mut types, token_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let ptr = Place::temporary(ResourceId(0), i32_ty);
+    let dynamic_ptr = ptr.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+        i32_ty,
+    );
+    let token = Place::temporary(ResourceId(1), token_ty);
+    let store_out = Place::temporary(ResourceId(2), unit_ty);
+    let loaded = Place::temporary(ResourceId(3), token_ty);
+    let dealloc_out = Place::temporary(ResourceId(4), unit_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: ptr.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::Construct {
+                output: token.clone(),
+                kind: AggregateKind::Struct {
+                    name: "Owned".to_string(),
+                    field_offsets: vec![],
+                },
+                inputs: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: store_out,
+                args: vec![dynamic_ptr.clone(), token],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded,
+                args: vec![dynamic_ptr],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: dealloc_out,
+                args: vec![ptr],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                function,
+                operation: ResourceCheckOperation::RawMemoryDeallocCell,
+                state: CellState::MaybeMoved,
+                ..
+            } if function == "main"
+        )),
+        "unknown-offset non-Copy load must not prove full raw range cleanup: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_canonicalizes_raw_address_local_reads() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

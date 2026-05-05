@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T05:39:37.987Z",
+  "generated_at": "2026-05-05T18:30:24.768Z",
   "counts": {
-    "total": 466,
+    "total": 467,
     "open": 14,
-    "resolved": 452,
+    "resolved": 453,
     "by_area": {
       "core": {
-        "total": 205,
+        "total": 206,
         "open": 6,
-        "resolved": 199
+        "resolved": 200
       },
       "stdlib": {
         "total": 154,
@@ -3208,6 +3208,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T083411167Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-D35A0DAD.md"
+    },
+    {
+      "id": "ISS-20260505T182658141Z-RESOURCE-IR-TREATS-UNKNOWN-OFFSET-NO-48ACA3ED",
+      "title": "Resource IR treats unknown-offset non-Copy raw moves as exact cleanup",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/cell_state.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T182658141Z-RESOURCE-IR-TREATS-UNKNOWN-OFFSET-NO-48ACA3ED.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

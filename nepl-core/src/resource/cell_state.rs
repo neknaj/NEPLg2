@@ -30,6 +30,13 @@ impl CellTable {
                 return state;
             }
         }
+        for entry in &self.cells {
+            if !matches!(entry.state, CellState::Initialized(_))
+                && raw_cell_states_may_alias(&entry.place, place)
+            {
+                return entry.state.clone();
+            }
+        }
         for entry in self.ancestor_entries(place) {
             if !matches!(entry.state, CellState::Initialized(_))
                 && cell_descendant_state_flows(&entry.place, place)
@@ -66,10 +73,19 @@ impl CellTable {
     }
 
     pub(super) fn mark_raw_cell_moved(&mut self, address: &Place, ty: TypeId) {
-        self.cells
-            .retain(|entry| !raw_cell_belongs_to_address_cell(&entry.place, address));
         let cell = raw_memory_cell_place(address, ty);
-        self.set_state(&cell, CellState::Moved);
+        if self.raw_cell_move_requires_conservative_state(&cell) {
+            for entry in &mut self.cells {
+                if raw_cell_states_may_alias(&entry.place, &cell) {
+                    entry.state = CellState::MaybeMoved;
+                }
+            }
+            self.set_state(&cell, CellState::MaybeMoved);
+        } else {
+            self.cells
+                .retain(|entry| !raw_cell_states_may_alias(&entry.place, &cell));
+            self.set_state(&cell, CellState::Moved);
+        }
     }
 
     pub(super) fn set_state(&mut self, place: &Place, state: CellState) {
@@ -234,6 +250,14 @@ impl CellTable {
                 .any(|root| raw_cell_suffix_after_address(place, root).is_some())
     }
 
+    fn raw_cell_move_requires_conservative_state(&self, moved_cell: &Place) -> bool {
+        raw_cell_has_unknown_storage_offset(moved_cell)
+            || self.cells.iter().any(|entry| {
+                raw_cell_states_may_alias(&entry.place, moved_cell)
+                    && raw_cell_has_unknown_storage_offset(&entry.place)
+            })
+    }
+
     fn state(&self, place: &Place) -> Option<CellState> {
         self.cells
             .iter()
@@ -327,10 +351,37 @@ pub(super) fn raw_cell_suffix_after_address(
     }
 }
 
-fn raw_cell_belongs_to_address_cell(cell: &Place, address: &Place) -> bool {
-    raw_cell_suffix_after_address(cell, address)
-        .and_then(|suffix| suffix.first().cloned())
-        .is_some_and(|projection| matches!(projection, PlaceProjection::Deref))
+fn raw_cell_states_may_alias(left: &Place, right: &Place) -> bool {
+    let Some(left_address) = raw_cell_address(left) else {
+        return false;
+    };
+    let Some(right_address) = raw_cell_address(right) else {
+        return false;
+    };
+    raw_cell_addresses_may_alias(&left_address, &right_address)
+}
+
+fn raw_cell_addresses_may_alias(left: &Place, right: &Place) -> bool {
+    place_suffix_after_address_prefix(left, right).is_some_and(|suffix| suffix.is_empty())
+        || place_suffix_after_address_prefix(right, left).is_some_and(|suffix| suffix.is_empty())
+}
+
+fn raw_cell_address(cell: &Place) -> Option<Place> {
+    let Some(PlaceProjection::Deref) = cell.projections.last() else {
+        return None;
+    };
+    let mut address = cell.clone();
+    address.projections.pop();
+    Some(address)
+}
+
+fn raw_cell_has_unknown_storage_offset(cell: &Place) -> bool {
+    cell.projections.iter().any(|projection| {
+        matches!(
+            projection,
+            PlaceProjection::StorageOffset(super::model::ResourceOffset { bytes: None })
+        )
+    })
 }
 
 fn raw_addresses_overlap(left: &Place, right: &Place) -> bool {
