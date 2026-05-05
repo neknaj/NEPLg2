@@ -95,6 +95,8 @@ for (const moduleName of [
     'initialized_summary_apply.rs',
     'initialized_summary_build.rs',
     'initialized_summary_variant_build.rs',
+    'lower_aggregate.rs',
+    'lower_condition.rs',
 ]) {
     assertFile(moduleName);
 }
@@ -137,6 +139,8 @@ for (const moduleDecl of [
     'mod initialized_summary_apply;',
     'mod initialized_summary_build;',
     'mod initialized_summary_variant_build;',
+    'mod lower_aggregate;',
+    'mod lower_condition;',
 ]) {
     assertContains(mod, moduleDecl, 'resource/mod.rs');
 }
@@ -234,7 +238,9 @@ const maxLines = new Map([
     ['coverage.rs', 280],
     ['coverage_hir.rs', 420],
     ['coverage_resource.rs', 520],
-    ['lower.rs', 1300],
+    ['lower.rs', 1150],
+    ['lower_aggregate.rs', 320],
+    ['lower_condition.rs', 140],
     ['lower_raw_address.rs', 700],
     ['lower_raw_memory.rs', 120],
     ['initialized_alias.rs', 550],

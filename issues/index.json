@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T19:23:00.023Z",
+  "generated_at": "2026-05-05T19:28:22.620Z",
   "counts": {
-    "total": 467,
+    "total": 468,
     "open": 14,
-    "resolved": 453,
+    "resolved": 454,
     "by_area": {
       "core": {
-        "total": 206,
+        "total": 207,
         "open": 6,
-        "resolved": 200
+        "resolved": 201
       },
       "stdlib": {
         "total": 154,
@@ -150,8 +150,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260505T184012396Z-RESOURCE-IR-LOWERING-TRAVERSAL-EXCEE-8A0A5A86",
-      "title": "Resource IR lowering traversal exceeds responsibility split limit",
+      "id": "ISS-20260505T185456921Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-06DA441F",
+      "title": "Resource initialized alias module exceeds responsibility split limit again",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -159,10 +159,10 @@
       "type": "architecture",
       "created": "2026-05-05",
       "updated": "2026-05-05",
-      "target": "nepl-core/src/resource/lower.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260505T184012396Z-RESOURCE-IR-LOWERING-TRAVERSAL-EXCEE-8A0A5A86.md"
+      "file": "items/ISS-20260505T185456921Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-06DA441F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3223,6 +3223,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8.md"
+    },
+    {
+      "id": "ISS-20260505T184012396Z-RESOURCE-IR-LOWERING-TRAVERSAL-EXCEE-8A0A5A86",
+      "title": "Resource IR lowering traversal exceeds responsibility split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/lower.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T184012396Z-RESOURCE-IR-LOWERING-TRAVERSAL-EXCEE-8A0A5A86.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
