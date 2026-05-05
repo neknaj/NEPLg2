@@ -300,3 +300,13 @@ Resource IR の raw-load initialized check は弱めていない。代わりに 
 
 - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 3 --dist web/dist`: passed
 - `node nodesrc/tests.js -i stdlib/core/mem.nepl --no-tree -o tmp/core-mem-after-metadata-agent1.json -j 1 --dist web/dist`: total=6, passed=6
+
+## 2026-05-05 alloc diag outcome report migration
+
+`ISS-20260505T074155009Z-ALLOC-DIAG-OUTCOME-DOCTESTS-OMIT-STD-80083E0E` で、`stdlib/alloc/diag/error.nepl` の `into_outcome` / `outcome_result` doc-comment doctest 2 件を stdout assertion report + `exit_code: 0` へ移行した。
+
+診断 ownership や `diags_free` の挙動は変えず、Outcome helper の成功観測だけを `Checked [ok]` stdout fixture として固定した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/diag/error.nepl --no-tree -o tmp/alloc-diag-error-report-agent1.json -j 1 --dist web/dist`: total=2, passed=2

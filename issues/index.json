@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:39:57.743Z",
+  "generated_at": "2026-05-05T07:43:36.381Z",
   "counts": {
-    "total": 508,
+    "total": 509,
     "open": 14,
-    "resolved": 494,
+    "resolved": 495,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 29,
+        "total": 30,
         "open": 2,
-        "resolved": 27
+        "resolved": 28
       },
       "selfhost": {
         "total": 45,
@@ -5738,6 +5738,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T073434026Z-CORE-MEM-ALLOCATOR-METADATA-DOCTEST--3D5EEF97.md"
+    },
+    {
+      "id": "ISS-20260505T074155009Z-ALLOC-DIAG-OUTCOME-DOCTESTS-OMIT-STD-80083E0E",
+      "title": "alloc diag outcome doctests omit stdout assertion reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/alloc/diag/error.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T074155009Z-ALLOC-DIAG-OUTCOME-DOCTESTS-OMIT-STD-80083E0E.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

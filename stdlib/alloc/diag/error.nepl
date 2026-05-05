@@ -385,6 +385,10 @@ fn result_to_outcome <.T, .E> <(Result<.T, .E>)->Outcome<.T, .E>> (r):
 //:
 //: ### [使用例/しようれい]
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok]
+//:     ##: [0] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -393,7 +397,8 @@ fn result_to_outcome <.T, .E> <(Result<.T, .E>)->Outcome<.T, .E>> (r):
 //:| fn main <()*>i32> ():
 //:     let o <Outcome<i32, StdErrorKind>> into_outcome Result::Ok<i32, StdErrorKind> 7;
 //:     let checks checks_push checks_new assert outcome_is_ok o
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 //:
 //: ### [実装/じっそう]
@@ -489,6 +494,10 @@ fn result_like_is_err <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
 //:
 //: [使用例/しようれい]:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok]
+//:     ##: [0] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -501,7 +510,8 @@ fn result_like_is_err <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
 //:             checks_push checks_new assert_eq_i32 42 v
 //:         Result::Err _e:
 //:             checks_push checks_new assert false
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 //:
 //: [実装/じっそう]:

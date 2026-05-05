@@ -1,3 +1,22 @@
+# 2026-05-05 メモ (ISS-20260505T074155009Z alloc diag outcome stdout report)
+
+- [原因]:
+  - `stdlib/alloc/diag/error.nepl` の `into_outcome` / `outcome_result` doc-comment doctest が `std/test` checks を使っていたが、`checks_exit_code checks` だけを返していた。
+  - Outcome helper の assertion report が stdout fixture として固定されていなかった。
+- [修正]:
+  - 対象 2 件に `exit_code: 0` + `stdout: mlstr:` を追加した。
+  - `checks_print_report` を追加し、各 1 件の assertion report を fixture として固定した。
+  - 診断 ownership や `diags_free` の挙動は変更していない。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/diag/error.nepl --no-tree -o tmp/alloc-diag-error-report-agent1.json -j 1 --dist web/dist`: total=2, passed=2
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+- [issue]:
+  - `ISS-20260505T074155009Z-ALLOC-DIAG-OUTCOME-DOCTESTS-OMIT-STD-80083E0E` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に alloc diag outcome 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `Outcome` helper doctest の成功観測を stdout report と `exit_code:` に揃えた。
+
 # 2026-05-05 メモ (ISS-20260505T073434026Z core mem allocator metadata doctest)
 
 - [原因]:
