@@ -1,3 +1,26 @@
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs fd split)
+
+- [同期]:
+  - `origin/main` の `62f6633b` を取り込んだ状態から、branch `refactor/fs-fd-module-split` で対応した。
+- [原因]:
+  - raw syscall 分離後も `std/fs.nepl` は file descriptor の open/close lifecycle helper を facade に残していた。
+  - open/close は read/write API が共有する境界であり、path stat/dir/read/write 本体と分けると fd lifecycle の owner/error contract が追いやすい。
+- [修正]:
+  - `stdlib/std/fs/fd.nepl` を追加し、`fs_open_with_flags`、`fs_open_read`、`fs_open_write`、`fs_close` を移した。
+  - `std/fs` facade は `fd` を re-export し、既存 import から同じ API を使える構成にした。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は fd module も検査対象に含め、open/close helper が facade に戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/fd.nepl --no-tree -o tmp/fs-fd-module-direct.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-fd-split.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-fd-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js index; node nodesrc/issues.js check; git diff --check`: passed。generated timestamp だけの差分は commit 対象から除外した。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 826 lines まで縮小し、`fs/fd.nepl` は 163 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs raw split)
 
 - [同期]:
