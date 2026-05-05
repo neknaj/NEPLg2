@@ -638,6 +638,17 @@ fn string_builder_with_len <(StringBuilder,i32)->StringBuilder> (sb, new_len):
     let cap0 <i32> get sb "cap";
     StringBuilder get sb "data" new_len cap0
 
+//: string_builder_dealloc_owned: builder が所有する byte buffer を解放する
+//:
+//: [目的/もくてき]:
+//: - `StringBuilder` 内部で保持している owned `MemPtr<u8>` を解放します。
+//:
+//: [注意/ちゅうい]:
+//: - 呼び出し側は `data` が有効な所有 pointer で、`cap` が対応する allocation size であることを保証します。
+//: - owner cleanup 専用 helper なので checked dealloc ではなく raw dealloc で解放義務を直接消費します。
+fn string_builder_dealloc_owned <(MemPtr<u8>,i32)->()> (data, cap):
+    dealloc_raw mem_ptr_addr data cap
+
 //: string_builder_free: builder が保持する byte buffer を解放する
 //:
 //: [目的/もくてき]:
@@ -647,7 +658,7 @@ fn string_builder_with_len <(StringBuilder,i32)->StringBuilder> (sb, new_len):
 //: - data が `Some` の場合だけ `dealloc_ptr<u8>` を呼びます。
 //:
 //: [注意/ちゅうい]:
-//: - cleanup 用 helper なので、dealloc failure は戻り値にせず破棄します。
+//: - cleanup 用 helper なので戻り値は持ちません。
 //: - 呼び出し後の builder は再利用しません。
 //:
 //: [計算量/けいさんりょう]:
@@ -656,11 +667,7 @@ fn string_builder_free <(StringBuilder)->()> (sb):
     let cap0 <i32> get sb "cap";
     match get sb "data":
         Option::Some data:
-            match dealloc_ptr<u8> data cap0:
-                Result::Ok _:
-                    ()
-                Result::Err _e:
-                    ()
+            string_builder_dealloc_owned data cap0
         Option::None:
             ()
 
@@ -774,11 +781,7 @@ fn string_builder_reserve_result <(StringBuilder,i32)->Result<StringBuilder,str>
                                         then:
                                             match get sb "data":
                                                 Option::Some data:
-                                                    match dealloc_ptr<u8> data 0:
-                                                        Result::Ok _:
-                                                            ()
-                                                        Result::Err _free:
-                                                            ()
+                                                    string_builder_dealloc_owned data cap0;
                                                     Result<StringBuilder,str>::Err "string.builder invalid reserve"
                                                 Option::None:
                                                     match alloc_ptr<u8> next_cap:
@@ -795,11 +798,7 @@ fn string_builder_reserve_result <(StringBuilder,i32)->Result<StringBuilder,str>
                                                         Result::Ok data:
                                                             Result<StringBuilder,str>::Ok string_builder_from_owned_ptr data len0 next_cap
                                                         Result::Err _e:
-                                                            match dealloc_ptr<u8> old cap0:
-                                                                Result::Ok _:
-                                                                    ()
-                                                                Result::Err _free:
-                                                                    ()
+                                                            string_builder_dealloc_owned old cap0;
                                                             Result<StringBuilder,str>::Err "string.builder allocation failed"
 
 //: string_builder_new_result: 空の StringBuilder を作る
@@ -1127,10 +1126,11 @@ fn sb_append_i32 <(StringBuilder,i32)->StringBuilder> (sb, v):
 //: - builder に蓄積した part を、連続した byte 列を持つ新しい `str` として返します。
 //:
 //: [実装/じっそう]:
-//: - builder の byte 長で出力領域を 1 回確保し、buffer 全体を copy して `str` として確定します。
+//: - builder の byte 長で出力領域を 1 回確保し、内部 owned buffer 全体を raw copy して `str` として確定します。
 //:
 //: [注意/ちゅうい]:
 //: - 出力は新規確保された文字列です。build 後、builder buffer は解放されます。
+//: - `data` と `out_region` はこの関数の invariant 上どちらも有効なので、copy は checked Result API ではなく raw memory operation として扱います。
 //: - `sb_build` は失敗時に空文字列 fallback を返す互換 API です。
 //:
 //: [計算量/けいさんりょう]:
@@ -1138,46 +1138,30 @@ fn sb_append_i32 <(StringBuilder,i32)->StringBuilder> (sb, v):
 fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
     let len0 <i32> get sb "len";
     let cap0 <i32> get sb "cap";
-    if:
-        le len0 0
-        then:
-            string_builder_free sb;
-            Result<str,str>::Ok ""
-        else:
-            match get sb "data":
-                Option::None:
+    match get sb "data":
+        Option::None:
+            if:
+                le len0 0
+                then:
+                    Result<str,str>::Ok ""
+                else:
                     Result<str,str>::Err "string.builder build invalid storage"
-                Option::Some data:
+        Option::Some data:
+            if:
+                le len0 0
+                then:
+                    string_builder_dealloc_owned data cap0;
+                    Result<str,str>::Ok ""
+                else:
                     match string_alloc_region len0:
                         Result::Err e:
-                            match dealloc_ptr<u8> data cap0:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _free:
-                                    ()
+                            string_builder_dealloc_owned data cap0;
                             Result<str,str>::Err e
                         Result::Ok out_region:
                             let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
-                            match mem_copy<u8> out_data data len0:
-                                Result::Ok _:
-                                    match dealloc_ptr<u8> data cap0:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _free:
-                                            ()
-                                    Result<str,str>::Ok string_finish out_region len0
-                                Result::Err _e:
-                                    match dealloc_ptr<u8> data cap0:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _free:
-                                            ()
-                                    match dealloc_region<u8> out_region:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _free_out:
-                                            ()
-                                    Result<str,str>::Err "string.builder build copy failed"
+                            mem_copy mem_ptr_addr out_data mem_ptr_addr data len0;
+                            string_builder_dealloc_owned data cap0;
+                            Result<str,str>::Ok string_finish out_region len0
 
 fn sb_build <(StringBuilder)->str> (sb):
     match sb_build_result sb:

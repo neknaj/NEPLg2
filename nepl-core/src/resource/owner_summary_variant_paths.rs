@@ -9,9 +9,10 @@ use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_summary::consumed_owner_parameters;
-use super::owner_summary_record::OwnerParameterStorageSource;
+use super::owner_summary_record::{OwnerParameterStorageSource, OwnerParameterValueSource};
 use super::owner_summary_variant_conditions::{
     collect_owner_variant_condition, collect_owner_variant_payload_conditions,
+    collect_owner_variant_unconditional_reachability,
 };
 use super::owner_summary_variant_construct::{construct_variant_for_value, normalize_variant_name};
 use super::owner_summary_variant_entry::apply_match_arm_entry;
@@ -44,6 +45,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     pending_reallocs: &PendingRawReallocs,
     variant_owner_effects: &PendingVariantOwnerEffects,
     parameter_storage_sources: &[OwnerParameterStorageSource],
+    parameter_value_sources: &[OwnerParameterValueSource],
     ops: &[ResourceOp],
     return_value: &Place,
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
@@ -102,6 +104,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     &then_pending_reallocs,
                     &variant_owner_effects,
                     parameter_storage_sources,
+                    parameter_value_sources,
                     then_ops,
                     then_value,
                     condition_fact.as_ref().map(|fact| (fact, true)),
@@ -135,6 +138,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     &else_pending_reallocs,
                     &variant_owner_effects,
                     parameter_storage_sources,
+                    parameter_value_sources,
                     else_ops,
                     else_value,
                     condition_fact.as_ref().map(|fact| (fact, false)),
@@ -166,6 +170,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         &pending_reallocs,
                         &variant_owner_effects,
                         parameter_storage_sources,
+                        parameter_value_sources,
                         &arm.ops,
                         &arm.value,
                         None,
@@ -192,9 +197,11 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         &raw_aliases,
         return_value,
         parameter_storage_sources,
+        parameter_value_sources,
         index_out,
         source_out,
         return_out,
+        condition_out,
         payload_condition_out,
     );
 }
@@ -213,6 +220,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     pending_reallocs: &PendingRawReallocs,
     variant_owner_effects: &PendingVariantOwnerEffects,
     parameter_storage_sources: &[OwnerParameterStorageSource],
+    parameter_value_sources: &[OwnerParameterValueSource],
     path_ops: &[ResourceOp],
     path_value: &Place,
     branch_condition: Option<(&ResourceConditionFact, bool)>,
@@ -260,6 +268,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
             &path_pending_reallocs,
             &path_variant_owner_effects,
             parameter_storage_sources,
+            parameter_value_sources,
             path_ops,
             path_value,
             return_out,
@@ -279,14 +288,16 @@ fn collect_variant_consumed_owner_parameters_from_path(
             &path_raw_aliases,
             path_value,
             parameter_storage_sources,
+            parameter_value_sources,
             index_out,
             source_out,
             return_out,
+            condition_out,
             payload_condition_out,
         );
         return;
     };
-    if let Some((condition_fact, truthy_path)) = branch_condition {
+    let condition_recorded = if let Some((condition_fact, truthy_path)) = branch_condition {
         collect_owner_variant_condition(
             condition_out,
             &constructed_variant.variant,
@@ -294,6 +305,15 @@ fn collect_variant_consumed_owner_parameters_from_path(
             truthy_path,
             &path_raw_aliases,
             parameter_storage_sources,
+            parameter_value_sources,
+        )
+    } else {
+        false
+    };
+    if !condition_recorded {
+        collect_owner_variant_unconditional_reachability(
+            condition_out,
+            &constructed_variant.variant,
         );
     }
     path_engine.check_ops(

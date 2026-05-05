@@ -13,11 +13,11 @@ use super::owner_summary_cleanup::{
     remove_variant_consumed_parameter_sources,
     remove_variant_consumptions_returned_by_same_variant, remove_variant_projection_return_sources,
 };
-use super::owner_summary_leaf::owner_leaf_places;
+use super::owner_summary_leaf::owner_parameter_leaf_places;
 use super::owner_summary_record::{
     owner_source_for_storage, push_unique_owner_projection_source, record_projection_marker,
     record_projection_maybe_owner_return, record_projection_owner_return, record_root_owner_return,
-    OwnerParameterStorageSource,
+    OwnerParameterStorageSource, OwnerParameterValueSource,
 };
 use super::owner_summary_variant_build::collect_variant_consumed_owner_parameters_from_return;
 use super::owner_variant::PendingVariantOwnerEffects;
@@ -82,22 +82,33 @@ fn function_owner_return_summary(
     let mut raw_views = RawAddressViewTable::default();
     let mut storage_origins = StorageOriginTable::default();
     let mut parameter_storage_sources = Vec::new();
-    for (index, param) in function.params.iter().enumerate() {
-        for leaf in owner_leaf_places(types, &param.place) {
-            owners.allocate(&leaf.place);
-            raw_aliases.mark(&leaf.place);
-            storage_origins.mark_owned(&leaf.place);
-            if let Some(OwnerState::Live { storage }) = owners.state(&leaf.place) {
-                parameter_storage_sources.push(OwnerParameterStorageSource {
-                    storage,
-                    source: OwnerProjectionSource {
-                        parameter_index: index,
-                        suffix: leaf.suffix,
-                        ty: leaf.place.ty,
-                    },
-                    place: leaf.place,
-                });
-            }
+    let parameter_value_sources = function
+        .params
+        .iter()
+        .enumerate()
+        .map(|(parameter_index, param)| OwnerParameterValueSource {
+            source: OwnerProjectionSource {
+                parameter_index,
+                suffix: Vec::new(),
+                ty: param.place.ty,
+            },
+            place: param.place.clone(),
+        })
+        .collect::<Vec<_>>();
+    for leaf in owner_parameter_leaf_places(types, function) {
+        owners.allocate(&leaf.place);
+        raw_aliases.mark(&leaf.place);
+        storage_origins.mark_owned(&leaf.place);
+        if let Some(OwnerState::Live { storage }) = owners.state(&leaf.place) {
+            parameter_storage_sources.push(OwnerParameterStorageSource {
+                storage,
+                source: OwnerProjectionSource {
+                    parameter_index: leaf.parameter_index,
+                    suffix: leaf.suffix,
+                    ty: leaf.place.ty,
+                },
+                place: leaf.place,
+            });
         }
     }
 
@@ -141,6 +152,7 @@ fn function_owner_return_summary(
                 raw_alias_summaries,
                 summaries,
                 &parameter_storage_sources,
+                &parameter_value_sources,
                 &block.ops,
                 value,
                 &mut variant_projection_returns,

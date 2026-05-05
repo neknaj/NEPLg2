@@ -2,8 +2,8 @@
 id: ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB
 title: "ByteBuilder and StringBuilder Result owner paths leak under Resource IR"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-29
@@ -70,3 +70,31 @@ Review builder ownership contracts as a dedicated issue. Model empty builder sta
 - `ISS-20260505T010322571Z-RESOURCE-IR-VARIANT-OWNER-SUMMARY-KE-EB3C4EAC` の core 修正後、`node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-after-owner-summary.json -j 1 --dist web/dist` を実行した。
 - `Result::Ok` payload bind 前の `resource.owner.reserved` は消えたが、`sb_append_result` で `Temporary(ResourceId(24/46)).Field0.Some.Field0`、`sb_build_result` で `out_region.Field0.Field0` の `resource.owner.maybe_leak` が残った。
 - これは StringBuilder owner boundary が再び Resource IR で証明できない状態を示すため、この issue を再 open する。stdlib 側の設計修正は別作業として扱い、今回の core summary 修正には混ぜない。
+
+## 2026-05-05 対応結果
+
+- `Result` variant owner summary に、variant reachability condition を pending call effect と return summary の両方で伝搬する処理を追加した。
+- `match Result::Ok` で parameter owner return を payload 側へ materialize した直後、同じ variant の同じ source を consumed effect として二重適用しないようにした。これは `FreshOwner` / `MaybeOwner` を雑に消す修正ではなく、parameter return と同一 variant consumption の重複だけを対象にした。
+- owner leaf 抽出で `i32` を型だけで free obligation owner と扱う設計をやめた。`MemPtr` は raw field を owner leaf として扱い、`dealloc_raw` / `realloc_raw` に渡る raw `i32` parameter だけを raw owner source として推論する。
+- scalar condition と owner obligation を分離し、`StringBuilder.cap` や byte 値を owner と誤認しない一方で、`Result::Ok` / `Result::Err` の reachability は scalar parameter からも復元できるようにした。
+- `str_from_addr_unchecked` を raw address owner transfer の intrinsic alias として扱い、`RegionToken` から確定した `str` owner が Resource IR 上で失われないようにした。
+- `stdlib/alloc/string.nepl` の `sb_build_result` は `data` の `Option` を先に match し、有効な `Some data` と `out_region` の間の copy を raw operation として扱うように整理した。build / free / reserve failure cleanup は `string_builder_dealloc_owned` に集約し、builder buffer を exactly-once で解放する。
+
+## 2026-05-05 検証
+
+- `cargo fmt --check`: passed
+- `git diff --check`: passed
+- `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_builder_owner_boundary.js`: passed
+- `trunk build`: passed
+- `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/string-builder-after-owner-value-source.json -j 1 --dist web/dist`: total=10, passed=10, failed=0
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_preserves_scalar_variant_condition_through_wrapper_call -- --exact --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_builder_append_byte_result_refinement -- --exact --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_builder_build_result_output_region_transfer -- --exact --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_raw_owner_through_str_from_addr -- --exact --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_string_from_mem_unchecked_result_transfer -- --exact --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_concat_result_output_region_transfer -- --exact --nocapture`: passed
+- `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/byte-builder-after-owner-value-source.json -j 1 --dist web/dist`: total=3, passed=2, errored=1。残件は `doctest#2` の `wasm test case timeout after 60000ms` で、builder owner leak ではない。
+- `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/run_doctest.js -i tests/stdlib/byte_builder.n.md -n 2 --dist web/dist`: passed, duration_ms=153831。
+
+ByteBuilder の timeout は `ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D` として分離した。timeout 解消では timeout 延長だけに逃げず、compile-only / runtime timing と Resource IR/static-check complexity を見て原因を切り分ける。

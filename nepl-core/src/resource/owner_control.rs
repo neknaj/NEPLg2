@@ -323,16 +323,17 @@ impl ResourceOwnerCheckEngine<'_> {
                     arm_storage_origins.clear(&inactive_payload);
                 }
             }
-            arm_variant_owner_effects.apply_match_arm_returns(
-                self,
-                &mut arm_owners,
-                &mut arm_raw_aliases,
-                &mut arm_raw_views,
-                &mut arm_storage_origins,
-                scrutinee,
-                &arm.pattern,
-                span,
-            );
+            let resolved_variant_parameter_returns = arm_variant_owner_effects
+                .apply_match_arm_returns(
+                    self,
+                    &mut arm_owners,
+                    &mut arm_raw_aliases,
+                    &mut arm_raw_views,
+                    &mut arm_storage_origins,
+                    scrutinee,
+                    &arm.pattern,
+                    span,
+                );
             if let Some(bind_local) = &arm.bind_local {
                 if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
                     if !arm_variant_owner_effects.reject_reserved_source_use(
@@ -405,6 +406,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 &mut arm_storage_origins,
                 scrutinee,
                 &arm.pattern,
+                &resolved_variant_parameter_returns,
                 span,
             );
             self.check_ops(

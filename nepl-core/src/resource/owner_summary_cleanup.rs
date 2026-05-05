@@ -11,18 +11,21 @@ pub(super) fn remove_variant_consumptions_returned_by_same_variant(
     variant_returns: &[OwnerVariantProjectionReturn],
 ) {
     for variant_return in variant_returns {
-        let OwnerVariantProjectionReturnKind::Parameter(source) = &variant_return.kind else {
-            continue;
-        };
-        if source.suffix.is_empty() {
-            variant_indices.retain(|consumed| {
-                consumed.variant != variant_return.variant
-                    || consumed.parameter_index != source.parameter_index
-            });
-        } else {
-            variant_sources.retain(|consumed| {
-                consumed.variant != variant_return.variant || consumed.source != *source
-            });
+        match &variant_return.kind {
+            OwnerVariantProjectionReturnKind::Parameter(source) => {
+                if source.suffix.is_empty() {
+                    variant_indices.retain(|consumed| {
+                        consumed.variant != variant_return.variant
+                            || consumed.parameter_index != source.parameter_index
+                    });
+                } else {
+                    variant_sources.retain(|consumed| {
+                        consumed.variant != variant_return.variant || consumed.source != *source
+                    });
+                }
+            }
+            OwnerVariantProjectionReturnKind::FreshOwner
+            | OwnerVariantProjectionReturnKind::MaybeOwner => {}
         }
     }
 }

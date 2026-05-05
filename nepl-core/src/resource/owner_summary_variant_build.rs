@@ -9,8 +9,8 @@ use super::model::{Place, ResourceFunction, ResourceOp};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
-use super::owner_summary_leaf::owner_leaf_places;
-use super::owner_summary_record::OwnerParameterStorageSource;
+use super::owner_summary_leaf::owner_parameter_leaf_places;
+use super::owner_summary_record::{OwnerParameterStorageSource, OwnerParameterValueSource};
 use super::owner_summary_variant_paths::collect_variant_consumed_owner_parameters_from_nested_return;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::raw_realloc::PendingRawReallocs;
@@ -31,6 +31,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
     raw_alias_summaries: &[RawCellAddressReturnSummary],
     summaries: &[OwnerReturnSummary],
     parameter_storage_sources: &[OwnerParameterStorageSource],
+    parameter_value_sources: &[OwnerParameterValueSource],
     ops: &[ResourceOp],
     return_value: &Place,
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
@@ -50,12 +51,10 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
     let function_aliases = FunctionAliasTable::default();
     let pending_reallocs = PendingRawReallocs::default();
     let variant_owner_effects = PendingVariantOwnerEffects::default();
-    for param in &function.params {
-        for leaf in owner_leaf_places(types, &param.place) {
-            owners.allocate(&leaf.place);
-            raw_aliases.mark(&leaf.place);
-            storage_origins.mark_owned(&leaf.place);
-        }
+    for leaf in owner_parameter_leaf_places(types, function) {
+        owners.allocate(&leaf.place);
+        raw_aliases.mark(&leaf.place);
+        storage_origins.mark_owned(&leaf.place);
     }
 
     collect_variant_consumed_owner_parameters_from_nested_return(
@@ -72,6 +71,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
         &pending_reallocs,
         &variant_owner_effects,
         parameter_storage_sources,
+        parameter_value_sources,
         ops,
         return_value,
         return_out,

@@ -112,6 +112,12 @@ pub(super) struct OwnerParameterStorageSource {
     pub(super) place: Place,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerParameterValueSource {
+    pub(super) source: OwnerProjectionSource,
+    pub(super) place: Place,
+}
+
 fn record_projection_owner_source(
     summary: &mut OwnerProjectionReturnSummary,
     returned_sources: &mut Vec<OwnerProjectionSource>,

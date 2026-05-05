@@ -462,7 +462,7 @@ fn raw_address_source_from_actual_named_expr(
                 source.with_subtracted_offset(i32_const_from_actual_arg(&args[1], env))
             })
         }
-        "mem_ptr_addr" | "mem_ptr_wrap" | "str_addr"
+        "mem_ptr_addr" | "mem_ptr_wrap" | "str_addr" | "str_from_addr_unchecked"
             if args.len() == 1 && arg_places.len() == 1 =>
         {
             raw_address_source_from_actual_arg(0, arg_places, env)

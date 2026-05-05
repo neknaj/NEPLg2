@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use super::condition_fact::simple_condition_value_constraint;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{I32ValueCondition, Place, ResourceConditionFact};
-use super::owner_summary_record::OwnerParameterStorageSource;
+use super::owner_summary_record::{OwnerParameterStorageSource, OwnerParameterValueSource};
 use super::owner_summary_variant_construct::{normalize_variant_name, ConstructedVariant};
 use super::owner_summary_variant_unique::{
     push_unique_variant_condition, push_unique_variant_payload_condition,
@@ -20,20 +20,36 @@ pub(super) fn collect_owner_variant_condition(
     truthy_path: bool,
     raw_aliases: &RawCellAddressAliases,
     parameter_storage_sources: &[OwnerParameterStorageSource],
-) {
+    parameter_value_sources: &[OwnerParameterValueSource],
+) -> bool {
     let Some(condition) = owner_value_condition(
         condition_fact,
         truthy_path,
         raw_aliases,
         parameter_storage_sources,
+        parameter_value_sources,
     ) else {
-        return;
+        return false;
     };
     push_unique_variant_condition(
         out,
         OwnerVariantCondition {
             variant: normalize_variant_name(variant),
             condition,
+        },
+    );
+    true
+}
+
+pub(super) fn collect_owner_variant_unconditional_reachability(
+    out: &mut Vec<OwnerVariantCondition>,
+    variant: &str,
+) {
+    push_unique_variant_condition(
+        out,
+        OwnerVariantCondition {
+            variant: normalize_variant_name(variant),
+            condition: OwnerValueCondition::All(Vec::new()),
         },
     );
 }
@@ -43,6 +59,7 @@ fn owner_value_condition(
     truthy_path: bool,
     raw_aliases: &RawCellAddressAliases,
     parameter_storage_sources: &[OwnerParameterStorageSource],
+    parameter_value_sources: &[OwnerParameterValueSource],
 ) -> Option<OwnerValueCondition> {
     if let Some((place, condition)) = simple_condition_value_constraint(condition_fact, truthy_path)
     {
@@ -51,6 +68,7 @@ fn owner_value_condition(
             condition,
             raw_aliases,
             parameter_storage_sources,
+            parameter_value_sources,
         );
     }
     match (condition_fact, truthy_path) {
@@ -62,6 +80,7 @@ fn owner_value_condition(
                     truthy_path,
                     raw_aliases,
                     parameter_storage_sources,
+                    parameter_value_sources,
                 )?);
             }
             Some(OwnerValueCondition::Any(conditions))
@@ -74,6 +93,7 @@ fn owner_value_condition(
                     truthy_path,
                     raw_aliases,
                     parameter_storage_sources,
+                    parameter_value_sources,
                 )?);
             }
             Some(OwnerValueCondition::All(conditions))
@@ -86,6 +106,7 @@ fn owner_value_condition(
                     truthy_path,
                     raw_aliases,
                     parameter_storage_sources,
+                    parameter_value_sources,
                 )?);
             }
             Some(OwnerValueCondition::All(conditions))
@@ -98,6 +119,7 @@ fn owner_value_condition(
                     truthy_path,
                     raw_aliases,
                     parameter_storage_sources,
+                    parameter_value_sources,
                 )?);
             }
             Some(OwnerValueCondition::Any(conditions))
@@ -116,6 +138,7 @@ fn owner_param_value_condition(
     condition: I32ValueCondition,
     raw_aliases: &RawCellAddressAliases,
     parameter_storage_sources: &[OwnerParameterStorageSource],
+    parameter_value_sources: &[OwnerParameterValueSource],
 ) -> Option<OwnerValueCondition> {
     for place_alias in raw_aliases.aliases_for(place) {
         for source in parameter_storage_sources {
@@ -126,6 +149,23 @@ fn owner_param_value_condition(
                 return Some(OwnerValueCondition::Param {
                     source: OwnerProjectionSource {
                         parameter_index: source.source.parameter_index,
+                        suffix,
+                        ty: place_alias.ty,
+                    },
+                    condition,
+                });
+            }
+        }
+    }
+    for place_alias in raw_aliases.aliases_for(place) {
+        for value_source in parameter_value_sources {
+            for param_alias in raw_aliases.aliases_for(&value_source.place) {
+                let Some(suffix) = place_suffix_after_prefix(&place_alias, &param_alias) else {
+                    continue;
+                };
+                return Some(OwnerValueCondition::Param {
+                    source: OwnerProjectionSource {
+                        parameter_index: value_source.source.parameter_index,
                         suffix,
                         ty: place_alias.ty,
                     },

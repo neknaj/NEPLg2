@@ -1,3 +1,32 @@
+# 2026-05-05 メモ (ISS-20260429T142213822Z StringBuilder Result owner paths)
+
+- [原因]:
+  - `Result` variant owner summary が、variant reachability condition を pending call effect / return summary の両方で保持できていなかった。
+  - `match Result::Ok` で parameter owner return を payload へ materialize した後、同じ variant の同じ source が consumed effect として再度適用され、正しい owner transfer が二重消費として見える場合があった。
+  - owner leaf 抽出が `i32` を型だけで free obligation owner と扱っていたため、`StringBuilder.cap` や byte 値のような scalar まで owner と誤認していた。
+- [修正]:
+  - pending variant owner effect に condition を追加し、call output の copy / clear / merge / return summary まで伝搬するようにした。
+  - owner obligation と scalar value condition を分離し、`MemPtr` raw field と raw dealloc/realloc 入力だけを owner source として扱うようにした。
+  - scalar condition は `OwnerParameterValueSource` から復元し、wrapper call 越しでも `Result::Ok` / `Result::Err` reachability が失われないようにした。
+  - `str_from_addr_unchecked` を raw owner transfer の alias intrinsic に追加した。
+  - `stdlib/alloc/string.nepl` は `string_builder_dealloc_owned` を追加し、`sb_build_result` / reserve / free の cleanup を exactly-once の raw dealloc に整理した。
+- [検証]:
+  - `cargo fmt --check`: passed
+  - `git diff --check`: passed
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/string-builder-after-owner-value-source.json -j 1 --dist web/dist`: total=10, passed=10, failed=0
+  - focused `cargo test -p nepl-core --test resource_ir` 10件: scalar condition wrapper / raw dealloc / MemPtr dealloc-realloc reserved rejection / StringBuilder append-build / str_from_addr / concat / string_from_mem transfer が passed。
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/byte-builder-after-owner-value-source.json -j 1 --dist web/dist`: total=3, passed=2, errored=1。残件は `doctest#2` の 60秒 timeout で、builder owner leak ではない。
+  - `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/run_doctest.js -i tests/stdlib/byte_builder.n.md -n 2 --dist web/dist`: passed, duration_ms=153831。
+- [issue]:
+  - `ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB` を fixed/resolved にした。
+  - ByteBuilder doctest#2 の timeout は `ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D` として追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査 Stage 4 Resource Check として、診断抑制ではなく owner/source/condition のモデル分離で修正した。
+
 # 2026-05-05 メモ (ISS-20260505T010322571Z Resource IR variant owner summary)
 
 - [原因]:

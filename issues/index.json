@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T01:10:55.374Z",
+  "generated_at": "2026-05-05T03:34:48.200Z",
   "counts": {
-    "total": 488,
+    "total": 489,
     "open": 18,
-    "resolved": 470,
+    "resolved": 471,
     "by_area": {
       "cli": {
         "total": 20,
@@ -23,8 +23,8 @@
       },
       "stdlib": {
         "total": 152,
-        "open": 8,
-        "resolved": 144
+        "open": 7,
+        "resolved": 145
       },
       "TEST": {
         "total": 19,
@@ -35,6 +35,11 @@
         "total": 45,
         "open": 1,
         "resolved": 44
+      },
+      "tests": {
+        "total": 1,
+        "open": 1,
+        "resolved": 0
       },
       "ci": {
         "total": 4,
@@ -245,21 +250,6 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
-      "id": "ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB",
-      "title": "ByteBuilder and StringBuilder Result owner paths leak under Resource IR",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-05-05",
-      "target": "stdlib/alloc/io.nepl, stdlib/alloc/string.nepl, tests/stdlib/byte_builder.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB.md"
-    },
-    {
       "id": "ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749",
       "title": "collection storage states use numeric/null sentinels instead of enum owner state",
       "area": "stdlib",
@@ -363,6 +353,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D",
+      "title": "ByteBuilder LEB128 doctest exceeds 60s wasm case timeout",
+      "area": "tests",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "tests/stdlib/byte_builder.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -4728,6 +4733,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T125126519Z-IO-BYTEBUF-FROM-STR-RESULT-LOSES-BYT-C0364ECE.md"
+    },
+    {
+      "id": "ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB",
+      "title": "ByteBuilder and StringBuilder Result owner paths leak under Resource IR",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-05-05",
+      "target": "stdlib/alloc/io.nepl, stdlib/alloc/string.nepl, tests/stdlib/byte_builder.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB.md"
     },
     {
       "id": "ISS-20260429T143605389Z-STD-CLIARG-WASI-OUT-POINTER-READS-FA-B9DCD161",

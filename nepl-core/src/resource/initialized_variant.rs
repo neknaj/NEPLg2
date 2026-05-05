@@ -38,6 +38,13 @@ struct PendingUnreachableVariant {
     variant: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InitializationVariantReachability {
+    Reachable,
+    Unknown,
+    Unreachable,
+}
+
 #[derive(Debug, Clone, Default)]
 pub(super) struct PendingVariantRawCellInitializations {
     entries: Vec<PendingVariantRawCellInitialization>,
@@ -233,22 +240,24 @@ impl PendingVariantRawCellInitializations {
         args: &[Place],
         conditions: &[RawCellInitializationVariantCondition],
     ) {
+        let mut variants = Vec::new();
         for condition in conditions {
-            let Some(arg) = args.get(condition.param_index) else {
+            let variant = normalize_variant_name(&condition.variant);
+            if variants.iter().any(|existing| existing == &variant) {
                 continue;
             };
-            let place = place_with_suffix(arg, &condition.suffix, condition.ty);
-            let place = raw_aliases.canonicalize(&place);
-            let Some(value) = raw_aliases.i32_value(&place) else {
-                continue;
-            };
-            if condition.condition.holds(value) {
-                continue;
+            variants.push(variant);
+        }
+        for variant in variants {
+            if matches!(
+                initialization_variant_reachability(raw_aliases, args, conditions, &variant),
+                InitializationVariantReachability::Unreachable
+            ) {
+                self.push_unique_unreachable(PendingUnreachableVariant {
+                    result: output.clone(),
+                    variant,
+                });
             }
-            self.push_unique_unreachable(PendingUnreachableVariant {
-                result: output.clone(),
-                variant: normalize_variant_name(&condition.variant),
-            });
         }
     }
 
@@ -286,6 +295,43 @@ impl PendingVariantRawCellInitializations {
 
 pub(super) fn normalize_variant_name(variant: &str) -> String {
     String::from(variant.rsplit("::").next().unwrap_or(variant))
+}
+
+fn initialization_variant_reachability(
+    raw_aliases: &RawCellAddressAliases,
+    args: &[Place],
+    conditions: &[RawCellInitializationVariantCondition],
+    variant: &str,
+) -> InitializationVariantReachability {
+    let mut saw_condition = false;
+    let mut saw_unknown = false;
+    for condition in conditions
+        .iter()
+        .filter(|condition| normalize_variant_name(&condition.variant) == variant)
+    {
+        saw_condition = true;
+        match initialization_variant_condition_truth(raw_aliases, args, condition) {
+            Some(true) => return InitializationVariantReachability::Reachable,
+            Some(false) => {}
+            None => saw_unknown = true,
+        }
+    }
+    match (saw_condition, saw_unknown) {
+        (_, true) | (false, _) => InitializationVariantReachability::Unknown,
+        (true, false) => InitializationVariantReachability::Unreachable,
+    }
+}
+
+fn initialization_variant_condition_truth(
+    raw_aliases: &RawCellAddressAliases,
+    args: &[Place],
+    condition: &RawCellInitializationVariantCondition,
+) -> Option<bool> {
+    let arg = args.get(condition.param_index)?;
+    let place = place_with_suffix(arg, &condition.suffix, condition.ty);
+    let place = raw_aliases.canonicalize(&place);
+    let value = raw_aliases.i32_value(&place)?;
+    Some(condition.condition.holds(value))
 }
 
 fn match_pattern_variant_name(pattern: &ResourceMatchPattern) -> Option<String> {

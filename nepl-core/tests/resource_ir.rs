@@ -4461,6 +4461,68 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_owner_summary_preserves_scalar_variant_condition_through_wrapper_call() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn maybe_dealloc_raw <(i32,i32)->Result<(),str>> (p, should_free):
+    if:
+        eq should_free 1
+        then:
+            dealloc_raw p 4
+            Result<(),str>::Ok ()
+        else:
+            Result<(),str>::Err "kept"
+
+fn wrap_maybe_dealloc_raw <(i32,i32)->Result<(),str>> (p, should_free):
+    maybe_dealloc_raw p should_free
+
+fn main <()*>()> ():
+    match alloc 4:
+        Result::Err _e:
+            ()
+        Result::Ok p:
+            let r <Result<(),str>> wrap_maybe_dealloc_raw p 0
+            dealloc_raw p 4
+            match r:
+                Result::Err _e:
+                    ()
+                Result::Ok _:
+                    ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("maybe_dealloc_raw__")
+                || function.starts_with("wrap_maybe_dealloc_raw__")
+                || function.starts_with("main__")
+                || function == "main"
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "wrapper summaries must preserve scalar variant conditions so a statically unreachable Ok consumption does not reserve the owner: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_allows_region_ptr_at_borrow_projection_dealloc() {
     let source = r#"
 #entry main
@@ -8240,6 +8302,101 @@ fn main <()* >str> ():
     assert!(
         diagnostics.is_empty(),
         "string_from_mem_unchecked_result must move the output RegionToken owner into the returned Result::Ok str: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_accepts_string_builder_build_result_output_region_transfer() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()* >str> ():
+    match alloc_ptr<u8> 1:
+        Result::Ok data:
+            store_u8 mem_ptr_addr data 'x'
+            let sb <StringBuilder> string_builder_from_owned_ptr data 1 1
+            match sb_build_result sb:
+                Result::Ok out:
+                    out
+                Result::Err e:
+                    e
+        Result::Err e:
+            e
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("sb_build_result__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "sb_build_result must move the output RegionToken owner through Result::Ok str or free it on copy failure: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_accepts_string_builder_append_byte_result_refinement() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn main <()* >str> ():
+    match string_builder_with_capacity_result 4:
+        Result::Ok sb:
+            match sb_append_byte_result sb '.':
+                Result::Ok appended:
+                    match sb_build_result appended:
+                        Result::Ok out:
+                            out
+                        Result::Err e:
+                            e
+                Result::Err e:
+                    e
+        Result::Err e:
+            e
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("sb_append_byte_result__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "sb_append_byte_result must refine the returned builder owner only in Result::Ok: {:#?}\nresource:\n{}",
         diagnostics,
         resource.dump_text()
     );

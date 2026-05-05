@@ -30,7 +30,7 @@ pub(super) fn apply_match_arm_entry(
     if !path_variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
         return;
     }
-    path_variant_owner_effects.apply_match_arm_returns(
+    let resolved_variant_parameter_returns = path_variant_owner_effects.apply_match_arm_returns(
         path_engine,
         path_owners,
         path_raw_aliases,
@@ -97,6 +97,7 @@ pub(super) fn apply_match_arm_entry(
         path_storage_origins,
         scrutinee,
         &arm.pattern,
+        &resolved_variant_parameter_returns,
         span,
     );
 }
