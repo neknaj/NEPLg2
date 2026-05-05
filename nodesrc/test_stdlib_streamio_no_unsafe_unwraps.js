@@ -9,6 +9,8 @@ const relPath = 'stdlib/std/streamio.nepl';
 const writerRelPath = 'stdlib/std/streamio/writer.nepl';
 const writerStateRelPath = 'stdlib/std/streamio/writer/state.nepl';
 const writerAppendRelPath = 'stdlib/std/streamio/writer/append.nepl';
+const inputRelPath = 'stdlib/std/streamio/input.nepl';
+const outputRelPath = 'stdlib/std/streamio/output.nepl';
 const bytesRelPath = 'stdlib/std/streamio/bytes.nepl';
 const scannerRelPath = 'stdlib/std/streamio/scanner.nepl';
 const scannerCursorRelPath = 'stdlib/std/streamio/scanner/cursor.nepl';
@@ -18,6 +20,8 @@ const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
 const writerSrc = fs.readFileSync(path.join(repoRoot, writerRelPath), 'utf8');
 const writerStateSrc = fs.readFileSync(path.join(repoRoot, writerStateRelPath), 'utf8');
 const writerAppendSrc = fs.readFileSync(path.join(repoRoot, writerAppendRelPath), 'utf8');
+const inputSrc = fs.readFileSync(path.join(repoRoot, inputRelPath), 'utf8');
+const outputSrc = fs.readFileSync(path.join(repoRoot, outputRelPath), 'utf8');
 const bytesSrc = fs.readFileSync(path.join(repoRoot, bytesRelPath), 'utf8');
 const scannerSrc = fs.readFileSync(path.join(repoRoot, scannerRelPath), 'utf8');
 const scannerCursorSrc = fs.readFileSync(path.join(repoRoot, scannerCursorRelPath), 'utf8');
@@ -37,6 +41,14 @@ const writerStateCode = writerStateSrc
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
 const writerAppendCode = writerAppendSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const inputCode = inputSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const outputCode = outputSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
@@ -60,8 +72,27 @@ const scannerNumberCode = scannerNumberSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
-const code = `${facadeCode}\n${writerCode}\n${writerStateCode}\n${writerAppendCode}\n${bytesCode}\n${scannerCode}\n${scannerCursorCode}\n${scannerNumberCode}\n${scannerStateCode}`;
+const code = `${facadeCode}\n${inputCode}\n${outputCode}\n${writerCode}\n${writerStateCode}\n${writerAppendCode}\n${bytesCode}\n${scannerCode}\n${scannerCursorCode}\n${scannerNumberCode}\n${scannerStateCode}`;
 
+for (const [modulePath, srcText, maxLines] of [
+    [relPath, src, 90],
+    [inputRelPath, inputSrc, 220],
+    [outputRelPath, outputSrc, 280],
+]) {
+    const lineCount = srcText.split(/\r?\n/).length;
+    assert.ok(lineCount <= maxLines, `${modulePath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
+}
+
+assert.match(
+    facadeCode,
+    /pub\s+#import\s+"\.\/streamio\/input"\s+as\s+\*/,
+    `${relPath} must re-export the input stream module`,
+);
+assert.match(
+    facadeCode,
+    /pub\s+#import\s+"\.\/streamio\/output"\s+as\s+\*/,
+    `${relPath} must re-export the output stream module`,
+);
 assert.match(
     facadeCode,
     /pub\s+#import\s+"\.\/streamio\/writer"\s+as\s+\*/,

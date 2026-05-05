@@ -240,6 +240,34 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査の正確性を優先し、owner use-after-move 診断を緩めず、Resource IR summary の transfer/consume 責務を分離した。
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio input/output split)
+
+- [同期]:
+  - `origin/main` の `3a170d83` を取り込んだ clean な `main` から、branch `refactor/streamio-root-input-output-split` で対応した。
+- [原因]:
+  - `stdlib/std/streamio.nepl` は writer/scanner/bytes 分離後も stdin/text/byte input adapter と stdout/stderr output adapter を root に残していた。
+  - root に実装 body が残ると、streamio facade の import 境界と adapter 実装境界が混ざり、再肥大化や source policy の監視対象が曖昧になる。
+- [修正]:
+  - `stdlib/std/streamio/input.nepl` を追加し、`StdinStream` / `TextInputStream` / `ByteInputStream`、reader impl、input `read` / `close` overload を移した。
+  - `stdlib/std/streamio/output.nepl` を追加し、`StdoutStream` / `StderrStream`、writer/flush/close impl、output `write` / `writeln` / `flush` / `close` overload を移した。
+  - `stdlib/std/streamio.nepl` は `input` / `output` / `writer` / `bytes` / `scanner` を re-export する facade にした。
+  - `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を input/output 分割後の module 構造へ更新し、facade re-export と line limit を固定した。
+  - `input` / `output` に direct import smoke doctest を追加した。
+  - `issues/items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md` に input/output split の進捗を追記した。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-root-input-output-split-facade.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio/input.nepl --no-tree -o tmp/streamio-root-input-output-split-input.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio/output.nepl --no-tree -o tmp/streamio-root-input-output-split-output.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-root-input-output-split-nmd.json -j 1`: `14 total / 14 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: streamio policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`std/streamio.nepl` は 53 lines、`std/streamio/input.nepl` は 172 lines、`std/streamio/output.nepl` は 255 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio writer internal split)
 
 - [同期]:
