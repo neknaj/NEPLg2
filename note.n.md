@@ -29513,3 +29513,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 183 lines まで縮小し、`fs/read.nepl` は 290 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs write split)
+
+- [同期]:
+  - `origin/main` の `d78ae0d6` を取り込んだ状態から、branch `refactor/fs-write-module-split` で対応した。
+- [原因]:
+  - read 分離後の `std/fs.nepl` には write API 本体だけが残り、facade と実装がまだ混在していた。
+  - `std/fs` を完全に re-export 境界へ戻すことで、今後の API 追加時に facade が再肥大化する流れを source policy で検出できる。
+- [修正]:
+  - `stdlib/std/fs/write.nepl` を追加し、`fs_write_fd_mem_result`、`fs_write_fd_bytes`、`fs_write_to_bytes`、`fs_write_to_string` を移した。
+  - `std/fs` facade は `write` を re-export し、実装本体を持たない 32 lines の facade にした。
+  - 実装本体が消えた `std/fs.nepl` に、facade 役割の header と re-export 確認用 doctest を追加した。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` に write module 対象追加と facade への write helper 再混入防止を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/write.nepl --no-tree -o tmp/fs-write-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-write-split.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-write-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 32 lines まで縮小し、`fs/write.nepl` は 189 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

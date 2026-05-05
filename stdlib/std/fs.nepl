@@ -1,158 +1,12 @@
-#indent 4
-
-#import "core/mem" as *
-#import "core/math" as *
-#import "core/result" as *
-#import "alloc/io" as *
-#import "alloc/string" as *
-pub #import "./fs/constants" as *
-pub #import "./fs/path" as *
-pub #import "./fs/raw" as *
-pub #import "./fs/fd" as *
-pub #import "./fs/stat" as *
-pub #import "./fs/dir" as *
-pub #import "./fs/bytes" as *
-pub #import "./fs/read" as *
-
-//: fs_write_fd_bytes: fd へ `ByteBuf` をすべて書き込む
+//: # std/fs
+//: filesystem API の facade module
 //:
-//: 目的:
-//: - 既に開いている fd に所有 byte buffer の内容を最後まで書き込みます。
+//: ### 目的
+//: - `std/fs/*` の責務別 submodule をまとめて re-export します。
+//: - 利用側は必要に応じて `std/fs` 全体、または `std/fs/read` などの個別 module を import できます。
 //:
-//: 実装(アルゴリズム):
-//: - 1 要素 iovec を使って `fd_write` を呼び、partial write の場合は offset を進めて再試行します。
-//: - `nwritten <= 0` は進捗不能な I/O failure として errno 5 に丸めます。
-//:
-//: 注意(重要):
-//: - 入力 `ByteBuf` は成功時も失敗時もこの関数が解放します。
-//: - fd の妥当性と host 側の権限は WASI runtime に委ねます。
-//:
-//: 計算量:
-//: - 書き込み byte 数 n に対して O(n)
-fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data_len):
-    if:
-        le data_len 0
-        then:
-            Result<(),i32>::Ok ()
-        else:
-            match alloc_ptr<u8> 8:
-                Result::Err _e:
-                    Result<(),i32>::Err 12
-                Result::Ok iov_buf:
-                    match alloc_ptr<u8> 4:
-                        Result::Err _e:
-                            match dealloc_ptr<u8> iov_buf 8:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _:
-                                    ()
-                            Result<(),i32>::Err 12
-                        Result::Ok nwritten_buf:
-                            let mut off <i32> 0
-                            let mut done <i32> 0
-                            let mut err <i32> 0
-                            while eq done 0:
-                                do:
-                                    if:
-                                        ge off data_len
-                                        then:
-                                            set done 1
-                                        else:
-                                            match fs_fd_write_from_result fd iov_buf nwritten_buf mem_ptr_add data off sub data_len off:
-                                                Result::Ok n:
-                                                    if:
-                                                        le n 0
-                                                        then:
-                                                            set err 5
-                                                            set done 1
-                                                        else:
-                                                            set off add off n
-                                                Result::Err e:
-                                                    set err e
-                                                    set done 1
-                            match dealloc_ptr<u8> nwritten_buf 4:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _:
-                                    ()
-                            match dealloc_ptr<u8> iov_buf 8:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _:
-                                    ()
-                            if:
-                                eq err 0
-                                then:
-                                    Result<(),i32>::Ok ()
-                                else:
-                                    Result<(),i32>::Err err
-
-fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
-    let data_len <i32> get bytes "len"
-    match get bytes "ptr":
-        Option::None:
-            if:
-                eq data_len 0
-                then:
-                    Result<(),i32>::Ok ()
-                else:
-                    Result<(),i32>::Err 22
-        Option::Some data:
-            let result <Result<(),i32>> fs_write_fd_mem_result fd data data_len
-            match dealloc_ptr<u8> data io_bytebuf_storage_size data_len:
-                Result::Ok _:
-                    result
-                Result::Err _:
-                    result
-
-//: fs_write_to_bytes: path へ `ByteBuf` を create/truncate して書き込む
-//:
-//: 目的:
-//: - path に binary artifact を保存します。
-//:
-//: 実装(アルゴリズム):
-//: - `fs_open_write` → `fs_write_fd_bytes` → `fs_close` の順に処理します。
-//:
-//: 注意(重要):
-//: - 入力 `ByteBuf` は open 失敗時も含めてこの関数が解放します。
-//: - write 成功後に close が失敗した場合は close の errno を返します。
-//:
-//: 計算量:
-//: - 書き込み byte 数 n に対して O(n)
-fn fs_write_to_bytes <(str,ByteBuf)*>Result<(),i32>> (path, bytes):
-    match fs_open_write path:
-        Result::Err e:
-            io_bytebuf_free bytes
-            Result<(),i32>::Err e
-        Result::Ok fd:
-            match fs_write_fd_bytes fd bytes:
-                Result::Ok _:
-                    fs_close fd
-                Result::Err e:
-                    match fs_close fd:
-                        Result::Ok _:
-                            ()
-                        Result::Err _:
-                            ()
-                    Result<(),i32>::Err e
-
-//: fs_write_to_string: path へ str を create/truncate して書き込む
-//:
-//: 目的:
-//: - text artifact を file として保存します。
-//:
-//: 実装(アルゴリズム):
-//: - `io_bytebuf_from_str_result` で byte buffer へ複製し、`fs_write_to_bytes` に委譲します。
-//:
-//: 注意(重要):
-//: - UTF-8 検証や改行変換は行わず、str の byte 表現をそのまま保存します。
-//:
-//: 計算量:
-//: - 入力長 n に対して O(n)
-//: fs_write_to_string: 使い方の最小例
-//:
-//: [目的/もくてき]:
-//: - `fs_write_to_string` で作ったファイルを `fs_read_to_string` で読み戻せることを確認します。
+//: ### 注意
+//: - 実装本体は submodule に置き、この facade は API 公開境界だけを担当します。
 //:
 //: neplg2:test
 //: ret: 0
@@ -161,22 +15,18 @@ fn fs_write_to_bytes <(str,ByteBuf)*>Result<(),i32>> (path, bytes):
 //:| #indent 4
 //:| #target std
 //:| #import "std/fs" as *
-//:| #import "alloc/string" as *
-//:| #import "core/result" as *
 //: fn main <()*>i32> ():
-//:     match fs_write_to_string "tmp/fs_write_to_string_doctest.txt" "fs write":
-//:         Result::Err _e:
-//:             1
-//:         Result::Ok _:
-//:             match fs_read_to_string "tmp/fs_write_to_string_doctest.txt":
-//:                 Result::Ok text:
-//:                     if str_eq text "fs write" 0 2
-//:                 Result::Err _e:
-//:                     3
+//:     if fs_exists "__definitely_missing_fs_facade_case__.txt" then 1 else 0
 //: ```
-fn fs_write_to_string <(str,str)*>Result<(),i32>> (path, text):
-    match io_bytebuf_from_str_result text:
-        Result::Ok bytes:
-            fs_write_to_bytes path bytes
-        Result::Err e:
-            Result<(),i32>::Err fs_std_error_to_errno e
+
+#indent 4
+
+pub #import "./fs/constants" as *
+pub #import "./fs/path" as *
+pub #import "./fs/raw" as *
+pub #import "./fs/fd" as *
+pub #import "./fs/stat" as *
+pub #import "./fs/dir" as *
+pub #import "./fs/bytes" as *
+pub #import "./fs/read" as *
+pub #import "./fs/write" as *
