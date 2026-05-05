@@ -21,6 +21,7 @@ mod effect_check;
 mod effect_identity;
 mod effect_summary;
 mod function_alias;
+mod gate_demand;
 mod initialized;
 mod initialized_alias;
 mod initialized_alias_flow;
@@ -92,6 +93,7 @@ pub use effect::{
     ResourceEffectBoundaryReport, ResourceEffectCallKind, ResourceEffectCounts,
     ResourceEffectFunctionCheck,
 };
+pub(crate) use gate_demand::{resource_safety_gate_demand, ResourceSafetyGateDemand};
 pub use initialized::check_resource_initialized_moves;
 pub use lower::{lower_hir_module, lower_hir_module_skeleton};
 pub use model::{

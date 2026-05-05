@@ -1,3 +1,27 @@
+# 2026-05-05 メモ (ISS-20260505T112825963Z deep prefix Resource IR gate demand)
+
+- [原因]:
+  - `check_pipeline` の deep prefix regression は parse/typecheck/drop/monomorphize/旧 move_check までは数秒で通る一方、`prepare_module_for_codegen` 後半の Resource IR initialized / effect / owner gate が pure `i32` identity call chain の全 temporary を処理して 180 秒以上 timeout していた。
+  - Resource IR lowering は pure `i32` identity call にも `Block` / `Call` marker と primitive-only `raw_address_alias` を出すため、単に `RawAddressAlias` の存在だけで高コスト gate を走らせると、resource obligation のない計算まで full safety state machine に載っていた。
+  - 一方で raw memory op や `MemPtr` / `RegionToken` / borrow / projection / impure effect がある場合まで省略すると静的検査を弱めるため、skip 条件は enum による明示分類が必要だった。
+- [対応]:
+  - `nepl-core/src/resource/gate_demand.rs` を追加し、Resource IR module を `ResourceSafetyGateDemand::ResourceNeutral` / `RequiresResourceSafetyGates` に分類するようにした。
+  - compiler pipeline は Resource IR lowering coverage gate を必ず通した後、`match` で `ResourceNeutral` の場合だけ initialized / borrow / effect / owner gate を省略する。
+  - primitive-only identity call、`Block` / `Call` marker、plain `i32` raw-address alias は中立扱いにし、raw memory op、borrow/move/drop、projection、reference、`MemPtr` / `RegionToken`、impure effect、user aggregate は必ず gate 実行へ倒した。
+  - gate demand の unit regression と既存 deep prefix regression を固定し、raw allocation identity escape / raw fill / owner dealloc / impure indirect call の safety regression も確認した。
+- [検証]:
+  - `cargo test -p nepl-core --lib gate_demand -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test check_pipeline -- --nocapture`: 8 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_reports_raw_alloc_escape_through_identity_call -- --nocapture`: pass
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_raw_fill -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_allows_region_ptr_rewrap_view_dealloc -- --nocapture`: pass
+  - `cargo test -p nepl-core --test effects pure_indirect_impure_function_value_is_rejected -- --nocapture`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo check -p nepl-core --tests`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画では Stage 4 resource check / Stage 5 effect model に該当する。Resource IR lowering coverage は維持し、検査対象がある module では従来 gate を必ず実行する。
+
 # 2026-05-05 メモ (ISS-20260505T094232444Z mem_fill doctest effect boundary)
 
 - [原因]:

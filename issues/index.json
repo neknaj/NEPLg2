@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T11:30:15.835Z",
+  "generated_at": "2026-05-05T12:17:14.942Z",
   "counts": {
     "total": 525,
-    "open": 16,
-    "resolved": 509,
+    "open": 15,
+    "resolved": 510,
     "by_area": {
       "core": {
         "total": 227,
-        "open": 8,
-        "resolved": 219
+        "open": 7,
+        "resolved": 220
       },
       "stdlib": {
         "total": 157,
@@ -293,21 +293,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
-    },
-    {
-      "id": "ISS-20260505T112825963Z-CHECK-PIPELINE-DEEP-PREFIX-CODEGEN-T-1F0C9236",
-      "title": "check_pipeline deep prefix codegen tests exceed local test budget",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "performance",
-      "created": "2026-05-05",
-      "updated": "2026-05-05",
-      "target": "nepl-core/tests/check_pipeline.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/compiler.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260505T112825963Z-CHECK-PIPELINE-DEEP-PREFIX-CODEGEN-T-1F0C9236.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -6578,6 +6563,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T064000205Z-RESOURCE-IR-SOURCE-FIXTURES-FAIL-ON--EDEA5603.md"
+    },
+    {
+      "id": "ISS-20260505T112825963Z-CHECK-PIPELINE-DEEP-PREFIX-CODEGEN-T-1F0C9236",
+      "title": "check_pipeline deep prefix codegen tests exceed local test budget",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/compiler.rs, nepl-core/src/resource/gate_demand.rs, nepl-core/src/resource/mod.rs, nepl-core/tests/check_pipeline.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T112825963Z-CHECK-PIPELINE-DEEP-PREFIX-CODEGEN-T-1F0C9236.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

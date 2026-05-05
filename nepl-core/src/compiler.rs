@@ -260,6 +260,10 @@ fn run_move_check(
     let lowering_coverage =
         crate::resource::compare_hir_resource_lowering_typed(hir_module, &resource, types);
     run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
+    match crate::resource::resource_safety_gate_demand(&resource, types) {
+        crate::resource::ResourceSafetyGateDemand::ResourceNeutral => return Ok(()),
+        crate::resource::ResourceSafetyGateDemand::RequiresResourceSafetyGates => {}
+    }
     let initialized_moves = crate::resource::check_resource_initialized_moves(&resource, types);
     run_resource_raw_cell_gate(&initialized_moves, diagnostics, source_map)?;
     let borrow_lifetimes = crate::resource::check_resource_borrow_lifetimes(&resource);
