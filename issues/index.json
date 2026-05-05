@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T05:34:14.744Z",
+  "generated_at": "2026-05-05T05:47:07.794Z",
   "counts": {
     "total": 494,
-    "open": 14,
-    "resolved": 480,
+    "open": 13,
+    "resolved": 481,
     "by_area": {
       "core": {
         "total": 214,
@@ -25,11 +25,6 @@
         "total": 45,
         "open": 1,
         "resolved": 44
-      },
-      "tests": {
-        "total": 1,
-        "open": 1,
-        "resolved": 0
       },
       "cli": {
         "total": 20,
@@ -95,6 +90,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "tests": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       }
     }
   },
@@ -293,21 +293,6 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
-    },
-    {
-      "id": "ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D",
-      "title": "ByteBuilder LEB128 doctest exceeds 60s wasm case timeout",
-      "area": "tests",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "performance",
-      "created": "2026-05-05",
-      "updated": "2026-05-05",
-      "target": "tests/stdlib/byte_builder.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
@@ -7358,6 +7343,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7.md"
+    },
+    {
+      "id": "ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D",
+      "title": "ByteBuilder LEB128 doctest exceeds 60s wasm case timeout",
+      "area": "tests",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "tests/stdlib/byte_builder.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D.md"
     },
     {
       "id": "ISS-20260430T020255446Z-GETTING-STARTED-DOCTESTS-RELY-ON-EXI-8902362D",

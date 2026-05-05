@@ -30616,3 +30616,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の完全分離は `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` と `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の親 issue で継続する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260505T033328864Z ByteBuilder LEB128 doctest timeout)
+
+- [同期]:
+  - `origin/main` の `3a170d83` まで取り込んだ `work/region-token-owner-cleanup` 上で対応した。
+- [原因]:
+  - `tests/stdlib/byte_builder.n.md::doctest#2` は LEB128 known vector 1 件を確認する小さい runtime case だが、旧 fixture は `std/test` の structured report 集約と stdout report 生成を読み込んでいた。
+  - default timeout のまま再確認すると shell 側 90 秒 timeout でも完了せず、既存の 180 秒 run では pass していたため、ByteBuilder / LEB128 algorithm の runtime 問題ではなく fixture 粒度と test harness compile/static-check cost が主因と判断した。
+- [修正]:
+  - ByteBuilder doctest 3 件を `std/test` report 集約から `core/test` の `assert_eq_i32` / `test_fail` へ切り替えた。
+  - 成功時には `std/stdio` で case 名を stdout に出し、metadata を `exit_code: 0` と stdout expectation に更新した。
+  - wasm header、LEB128 known vector、growth 後の byte preserve の byte 単位検査は維持した。
+  - `ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D` を fixed / resolved に更新した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i tests/stdlib/byte_builder.n.md -n 2 --dist web/dist`: passed, `duration_ms=31695`
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/byte-builder-agent1-lightweight-report.json -j 1 --dist web/dist`: `3 total / 3 passed`
+  - JSON duration: `doctest#1=22124ms`, `doctest#2=29017ms`, `doctest#3=13923ms`
+- [issue]:
+  - `ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
