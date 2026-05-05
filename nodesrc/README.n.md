@@ -57,6 +57,7 @@ node nodesrc/run_doctest.js -i tests/stdlib/sort.n.md -n 3
 ### [注意/ちゅうい]
 
 - `#target wasix` の case はまず `wasmer run` で[実行/じっこう]します。`wasmer` が[無/な]い[環境/かんきょう]や、`wasix_32v1.tty_get` / `tty_set` が[未対応/みたいおう]の Wasmer では、Node.js [内蔵/ないぞう] WASI に WASIX TTY host import を[足/た]した fallback で[実行/じっこう]します。
+- `#target wasix` の doctest では `exit_code:` を[使/つか]います。Wasmer [経路/けいろ]は process exit code、Node.js fallback [経路/けいろ]は exported `main` の[戻/もど]り[値/ち]を exit code として[扱/あつか]います。`ret:` は fallback 以外では[移植/いしょく][可能/かのう]な[契約/けいやく]にならないため、WASIX の[成功/せいこう][失敗/しっぱい]判定には[使/つか]いません。
 - `WASMER_BIN` を[設定/せってい]すると、`wasmer` [以外/いがい]の[実行/じっこう][バイナリ/ばいなり]を[指定/してい]できます。
 
 ## `cli.js`

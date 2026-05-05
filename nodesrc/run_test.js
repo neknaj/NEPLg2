@@ -93,6 +93,19 @@ function decodeExitCode(rawValue) {
     return null;
 }
 
+function decodeRunExitCode(runResult) {
+    if (runResult && Object.prototype.hasOwnProperty.call(runResult, 'exitCode')) {
+        const processExit = decodeExitCode(runResult.exitCode);
+        if (processExit !== null) return processExit;
+    }
+    return decodeExitCode(runResult ? runResult.returnValue : null);
+}
+
+function runtimePhaseOk(runResult, wantsExitCode, decodedExitCode) {
+    if (!runResult || !runResult.trapped) return true;
+    return wantsExitCode && decodedExitCode !== null && decodedExitCode !== undefined;
+}
+
 function runWasiBytes(wasmBytes, stdinText, argv = []) {
     return {
         ...runWasiBytesWithImports(wasmBytes, stdinText, argv),
@@ -464,6 +477,10 @@ async function runSingle(req, preloaded) {
         const stdinText = req.stdin || '';
         const argv = Array.isArray(req.argv) ? req.argv.map((v) => String(v)) : [];
         const expectedRet = Object.prototype.hasOwnProperty.call(req, 'expected_ret') ? req.expected_ret : null;
+        const expectedExitCode = Object.prototype.hasOwnProperty.call(req, 'expected_exit_code')
+            ? req.expected_exit_code
+            : null;
+        const wantsExitCode = expectedExitCode !== null && expectedExitCode !== undefined;
         const loaded = preloaded || await createRunner(req.distHint || '');
         const { api, meta } = loaded;
         if (hasTag(tags, 'skip')) {
@@ -520,7 +537,7 @@ async function runSingle(req, preloaded) {
             runRes.returnValue,
             runRes.memory,
         );
-        const decodedExitCode = decodeExitCode(runRes.returnValue);
+        const decodedExitCode = decodeRunExitCode(runRes);
 
         if (hasTag(tags, 'should_panic')) {
             const ok = runRes.trapped;
@@ -545,7 +562,7 @@ async function runSingle(req, preloaded) {
             };
         }
 
-        const ok = !runRes.trapped;
+        const ok = runtimePhaseOk(runRes, wantsExitCode, decodedExitCode);
         return {
             ok,
             id,
@@ -598,8 +615,10 @@ if (require.main === module) {
 
 module.exports = {
     createRunner,
+    decodeRunExitCode,
     ensureWasiScratchDir,
     isWasmerExecutableMissing,
+    runtimePhaseOk,
     runWasixBytes,
     runSingle,
 };

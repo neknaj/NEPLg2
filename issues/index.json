@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T04:04:20.231Z",
+  "generated_at": "2026-05-05T04:16:16.505Z",
   "counts": {
     "total": 492,
-    "open": 17,
-    "resolved": 475,
+    "open": 16,
+    "resolved": 476,
     "by_area": {
-      "cli": {
-        "total": 20,
-        "open": 1,
-        "resolved": 19
-      },
       "core": {
         "total": 213,
         "open": 5,
@@ -40,6 +35,11 @@
         "total": 1,
         "open": 1,
         "resolved": 0
+      },
+      "cli": {
+        "total": 20,
+        "open": 0,
+        "resolved": 20
       },
       "ci": {
         "total": 4,
@@ -99,21 +99,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260430T172357987Z-WASIX-DOCTEST-RUNNER-DOES-NOT-EXPOSE-800443AF",
-      "title": "WASIX doctest runner does not expose return or exit-code result",
-      "area": "cli",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "nodesrc/run_test.js, nodesrc/run_doctest.js, nodesrc/tests.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T172357987Z-WASIX-DOCTEST-RUNNER-DOES-NOT-EXPOSE-800443AF.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
       "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
@@ -893,6 +878,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T213057127Z-WASM32-COMPILE-TEST-BUILDS-UNIX-ONLY-95E8BF55.md"
+    },
+    {
+      "id": "ISS-20260430T172357987Z-WASIX-DOCTEST-RUNNER-DOES-NOT-EXPOSE-800443AF",
+      "title": "WASIX doctest runner does not expose return or exit-code result",
+      "area": "cli",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-05-05",
+      "target": "nodesrc/run_test.js, nodesrc/run_doctest.js, nodesrc/tests.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T172357987Z-WASIX-DOCTEST-RUNNER-DOES-NOT-EXPOSE-800443AF.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",

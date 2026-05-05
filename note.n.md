@@ -1,3 +1,22 @@
+# 2026-05-05 メモ (ISS-20260430T172357987Z WASIX doctest exit_code)
+
+- [原因]:
+  - WASIX runner は Wasmer 経路では process `exitCode` を返し、Node WASI fallback 経路では exported `main` の `returnValue` を返す。
+  - `runSingle` は exit code を `returnValue` からだけ復元していたため、Wasmer 経路では `exit_code:` が `null` になり得た。
+  - さらに Wasmer の nonzero process exit を runtime trap と同じ扱いにしていたため、`exit_code: 7` のような期待値で判定する前に raw result が fail になり得た。
+- [修正]:
+  - `decodeRunExitCode` を追加し、Wasmer の `exitCode` を優先し、fallback では従来どおり `returnValue` を exit code として扱うようにした。
+  - `runtimePhaseOk` を追加し、`exit_code:` 期待がある場合は nonzero process exit を expectation logic へ渡すようにした。trap や exit code がない失敗は引き続き fail のままにしている。
+  - `nodesrc/README.n.md` に、WASIX doctest では `ret:` ではなく `exit_code:` を使う契約を追記した。
+- [検証]:
+  - `node nodesrc/test_run_test_wasix_missing_wasmer_fallback.js`: passed
+  - `node nodesrc/test_doctest_exit_code_metadata.js`: passed
+- [issue]:
+  - `ISS-20260430T172357987Z-WASIX-DOCTEST-RUNNER-DOES-NOT-EXPOSE-800443AF` を fixed/resolved にした。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 言語仕様の戻り値ではなく runner の process contract を明確化した変更であり、WASIX doctest の assertion/report 移行を安全に進めるための基盤修正。
+
 # 2026-05-05 メモ (ISS-20260430T171954145Z features_tui stdout assertion report)
 
 - [原因]:

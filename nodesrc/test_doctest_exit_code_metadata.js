@@ -167,6 +167,49 @@ fn main <()->i32> ():
     assert.match(aggregateBadJson.results[0].error, /exit code mismatch/);
     assert.match(aggregateBadJson.results[0].error, /expected: 8/);
     assert.match(aggregateBadJson.results[0].error, /actual:\s+7/);
+
+    const previousWasmerBin = process.env.WASMER_BIN;
+    const missingWasmer = path.join(tmpDir, 'definitely-missing-wasmer-for-exit-code');
+    process.env.WASMER_BIN = missingWasmer;
+    try {
+        const wasixGoodFixture = path.join(tmpDir, 'doctest-wasix-exit-code-good.n.md');
+        const wasixBadFixture = path.join(tmpDir, 'doctest-wasix-exit-code-bad.n.md');
+        const wasixCase = `neplg2:test
+exit_code: EXIT_CODE_PLACEHOLDER
+\`\`\`neplg2
+#entry main
+#target wasix
+fn main <()->i32> ():
+    7
+\`\`\`
+`;
+        fs.writeFileSync(wasixGoodFixture, wasixCase.replace('EXIT_CODE_PLACEHOLDER', '7'));
+        fs.writeFileSync(wasixBadFixture, wasixCase.replace('EXIT_CODE_PLACEHOLDER', '8'));
+
+        const wasixGood = runDoctest(wasixGoodFixture);
+        assert.equal(
+            wasixGood.status,
+            0,
+            `expected matching WASIX exit_code to pass\nstdout:\n${wasixGood.stdout}\nstderr:\n${wasixGood.stderr}`,
+        );
+        assert.match(wasixGood.stdout, /"exit_code": 7/);
+
+        const wasixBad = runDoctest(wasixBadFixture);
+        assert.equal(
+            wasixBad.status,
+            1,
+            `expected mismatching WASIX exit_code to fail\nstdout:\n${wasixBad.stdout}\nstderr:\n${wasixBad.stderr}`,
+        );
+        assert.match(wasixBad.stdout, /exit code mismatch/);
+        assert.match(wasixBad.stdout, /expected: 8/);
+        assert.match(wasixBad.stdout, /actual:\s+7/);
+    } finally {
+        if (previousWasmerBin === undefined) {
+            delete process.env.WASMER_BIN;
+        } else {
+            process.env.WASMER_BIN = previousWasmerBin;
+        }
+    }
 }
 
 console.log('doctest exit_code metadata regression passed');

@@ -4,7 +4,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { isWasmerExecutableMissing, runWasixBytes } = require('./run_test');
+const {
+    decodeRunExitCode,
+    isWasmerExecutableMissing,
+    runtimePhaseOk,
+    runWasixBytes,
+} = require('./run_test');
 
 const previousWasmerBin = process.env.WASMER_BIN;
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'nepl-missing-wasmer-'));
@@ -29,10 +34,19 @@ const mainReturnsSevenWasm = Buffer.from([
             spawnErrorCode: 'ENOENT',
             trapError: `Error: spawn ${missingWasmer} ENOENT`,
         }), true);
+        assert.equal(decodeRunExitCode({ runner: 'wasmer', exitCode: 0, returnValue: null }), 0);
+        assert.equal(decodeRunExitCode({ runner: 'wasmer', exitCode: 7, returnValue: null }), 7);
+        assert.equal(decodeRunExitCode({ runner: 'node-wasi-wasix-tty-fallback', returnValue: 7 }), 7);
+        assert.equal(decodeRunExitCode({ runner: 'wasmer', exitCode: null, returnValue: null }), null);
+        assert.equal(runtimePhaseOk({ trapped: true, exitCode: 7 }, true, 7), true);
+        assert.equal(runtimePhaseOk({ trapped: true, exitCode: 7 }, false, 7), false);
+        assert.equal(runtimePhaseOk({ trapped: true, exitCode: null }, true, null), false);
+        assert.equal(runtimePhaseOk({ trapped: false, returnValue: 7 }, false, 7), true);
 
         const result = await runWasixBytes(mainReturnsSevenWasm, '', []);
         assert.equal(result.trapped, false);
         assert.equal(result.returnValue, 7);
+        assert.equal(decodeRunExitCode(result), 7);
         assert.equal(result.runner, 'node-wasi-wasix-tty-fallback');
         assert.match(result.fallbackReason, /wasmer executable not found/);
 
