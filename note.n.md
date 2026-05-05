@@ -76,6 +76,32 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 env cliarg raw/cstr split)
+
+- [同期]:
+  - `origin/main` の `448ededb` を取り込んだ状態から、branch `refactor/env-cliarg-raw-cstr-split` で対応した。
+- [原因]:
+  - `stdlib/std/env/cliarg.nepl` は WASI extern、LLVM `/proc/self/cmdline` fallback、argv scratch 初期化、C string 変換、public `cliarg_*` API を 1 file に保持していた。
+  - raw syscall / out-pointer boundary と public API が同居すると、Resource IR 向けの raw address 境界監視と root API の検証が混ざる。
+- [修正]:
+  - `stdlib/std/env/cliarg/raw.nepl` を追加し、`args_sizes_get` / `args_get` と LLVM fallback、`CliArgSizes`、argv scratch 初期化 helper を移した。
+  - `stdlib/std/env/cliarg/cstr.nepl` を追加し、`cstr_len_result` / `cstr_len` / `cstr_to_str` を移した。
+  - `stdlib/std/env/cliarg.nepl` は `raw` / `cstr` を import し、`cliarg_count` / `cliarg_get` / `cliarg_program` の public API に集中する構成にした。
+  - `nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js` を更新し、raw/cstr 実装が root に戻らないことと unsafe unwrap 禁止を分割後も監視するようにした。
+  - 検証中に既存の `stdlib/tests/cliarg.n.md::cliarg_basic` owner leak を `ISS-20260505T045643031Z-STDLIB-CLIARG-BASIC-TEST-LEAKS-OPTIO-89A61F5E` として追加し、`is_none<str>` による消費形へ修正済み。
+- [検証]:
+  - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/env/cliarg.nepl --no-tree -o tmp/env-cliarg-split-root.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/env-cliarg-split-cliarg-nmd.json -j 1`: `6 total / 6 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: cliarg policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`std/env/cliarg.nepl` は 247 lines、`std/env/cliarg/raw.nepl` は 279 lines、`std/env/cliarg/cstr.nepl` は 164 lines。
+  - `ISS-20260505T045643031Z-STDLIB-CLIARG-BASIC-TEST-LEAKS-OPTIO-89A61F5E` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs raw split)
 
 - [同期]:
