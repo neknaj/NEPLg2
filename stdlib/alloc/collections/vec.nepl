@@ -23,6 +23,12 @@
 //: ### [使用例/しようれい]
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
+//:     ##: [2] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -48,7 +54,8 @@
 //:             checks_push checks1 assert false
 //:     free a2;
 //:     free b2;
-//:     checks_exit_code checks2
+//:     let shown checks_print_report checks2
+//:     checks_exit_code shown
 //: ```
 //:
 //: neplg2:test

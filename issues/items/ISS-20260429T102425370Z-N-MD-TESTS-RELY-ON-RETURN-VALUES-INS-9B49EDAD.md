@@ -320,3 +320,13 @@ Resource IR の raw-load initialized check は弱めていない。代わりに 
 検証:
 
 - `node nodesrc/tests.js -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/core-deserialize-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1
+
+## 2026-05-05 vec usage report migration
+
+`ISS-20260505T074844190Z-VEC-USAGE-DOCTEST-OMITS-STDOUT-ASSER-6C23248D` で、`stdlib/alloc/collections/vec.nepl::doctest#1` を stdout assertion report + `exit_code: 0` へ移行した。
+
+`len` と `get` の基本使用例 3 件を `Checked [ok,ok,ok]` として fixture 化した。Vec owner cleanup の順序は変えず、`free a2` / `free b2` の後に report を出す形にしている。
+
+検証:
+
+- `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec.nepl -n 1 --dist web/dist`: passed

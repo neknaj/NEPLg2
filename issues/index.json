@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:47:05.157Z",
+  "generated_at": "2026-05-05T07:50:02.990Z",
   "counts": {
-    "total": 510,
+    "total": 511,
     "open": 14,
-    "resolved": 496,
+    "resolved": 497,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 31,
+        "total": 32,
         "open": 2,
-        "resolved": 29
+        "resolved": 30
       },
       "selfhost": {
         "total": 45,
@@ -5768,6 +5768,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T074539822Z-CORE-DESERIALIZE-DOCTEST-USES-RESULT-14A3BABF.md"
+    },
+    {
+      "id": "ISS-20260505T074844190Z-VEC-USAGE-DOCTEST-OMITS-STDOUT-ASSER-6C23248D",
+      "title": "vec usage doctest omits stdout assertion report",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/alloc/collections/vec.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T074844190Z-VEC-USAGE-DOCTEST-OMITS-STDOUT-ASSER-6C23248D.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

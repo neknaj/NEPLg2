@@ -1,3 +1,21 @@
+# 2026-05-05 メモ (ISS-20260505T074844190Z vec usage stdout report)
+
+- [原因]:
+  - `stdlib/alloc/collections/vec.nepl::doctest#1` が `std/test` checks で `len` と `get` を確認していたが、`checks_exit_code checks2` だけを返していた。
+  - stdout report が空のため、基本 Vec 使用例の assertion report format を runner 間で比較できなかった。
+- [修正]:
+  - doctest metadata に `exit_code: 0` + `stdout: mlstr:` を追加した。
+  - `free a2` / `free b2` の後に `checks_print_report` を呼び、3件の assertion report を fixture として固定した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec.nepl -n 1 --dist web/dist`: passed
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+- [issue]:
+  - `ISS-20260505T074844190Z-VEC-USAGE-DOCTEST-OMITS-STDOUT-ASSER-6C23248D` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に vec usage 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Vec 使用例の成功観測を stdout report と `exit_code:` に揃えた。
+
 # 2026-05-05 メモ (ISS-20260505T074539822Z core deserialize stdout report)
 
 - [原因]:
