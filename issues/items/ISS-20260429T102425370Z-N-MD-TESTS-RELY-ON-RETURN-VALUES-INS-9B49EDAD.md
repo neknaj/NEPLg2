@@ -258,3 +258,13 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 検証:
 
 - `node nodesrc/tests.js -i stdlib/core/char.nepl --no-tree -o tmp/core-char-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1
+
+## 2026-05-05 core option report migration
+
+`ISS-20260505T072353360Z-CORE-OPTION-DOCTESTS-OMIT-STDOUT-ASS-D22F2EA3` で、`stdlib/core/option.nepl` の doc-comment doctest 3 件を stdout assertion report + `exit_code: 0` へ移行した。
+
+3 件とも `std/test` checks を使いながら `ret: 0` と `checks_exit_code checks` だけで成功を表していた。今回の対応で 4 件 / 3 件 / 2 件の assertion report を stdout fixture として固定し、注意書きも `ret:` 前提から現在の report 契約へ更新した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/core/option.nepl --no-tree -o tmp/core-option-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3

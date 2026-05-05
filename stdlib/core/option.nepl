@@ -12,13 +12,19 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `unwrap` は[便宜上/べんぎじょう][残/のこ]している unsafe helper であり、[通常/つうじょう]は `match` や `unwrap_or` を[優先/ゆうせん]してください。
-//: - doctest では trap [依存/いぞん]の `should_panic` を[使/つか]わず、[安全/あんぜん]な[分岐/ぶんき]と `ret:` [比較/ひかく]で[確認/かくにん]します。
+//: - doctest では trap [依存/いぞん]の `should_panic` を[使/つか]わず、[安全/あんぜん]な[分岐/ぶんき]を stdout report と `exit_code:` で[確認/かくにん]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [基本操作/きほんそうさ]はすべて O(1) です。
 //:
 //: neplg2:test
-//: ret: 0
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok,ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
+//:     ##: [2] ok
+//:     ##: [3] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -31,11 +37,17 @@
 //:         |> checks_push assert is_none none<i32>
 //:         |> checks_push assert_eq_i32 123 unwrap some 123
 //:         |> checks_push assert_eq_i32 7 unwrap_or none<i32> 7
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 //:
 //: neplg2:test
-//: ret: 0
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
+//:     ##: [2] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -54,11 +66,16 @@
 //:         |> checks_push assert is_some a0
 //:         |> checks_push assert is_none b
 //:         |> checks_push assert_eq_i32 10 unwrap a1
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 //:
 //: neplg2:test
-//: ret: 0
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -77,7 +94,8 @@
 //:         checks_new
 //:         |> checks_push assert_eq_i32 6 unwrap a
 //:         |> checks_push assert is_none b
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 
 

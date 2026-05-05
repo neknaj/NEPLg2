@@ -1,3 +1,22 @@
+# 2026-05-05 メモ (ISS-20260505T072353360Z core option stdout report)
+
+- [原因]:
+  - `stdlib/core/option.nepl` の doc-comment doctest 3 件が `std/test` checks を使っていたが、`ret: 0` と `checks_exit_code checks` だけで成功を表していた。
+  - ファイル先頭の注意書きも `ret:` 比較を前提にしており、現在の stdout report + `exit_code:` 方針とずれていた。
+- [修正]:
+  - 3 件の doctest metadata を `exit_code: 0` + `stdout: mlstr:` に移行した。
+  - `checks_print_report` を追加し、4 件 / 3 件 / 2 件の assertion report を fixture として固定した。
+  - 注意書きを stdout report と `exit_code:` で確認する説明へ更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/core/option.nepl --no-tree -o tmp/core-option-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+- [issue]:
+  - `ISS-20260505T072353360Z-CORE-OPTION-DOCTESTS-OMIT-STDOUT-ASS-D22F2EA3` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に core option 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `Option` helper doctest の成功観測を、戻り値ではなく stdout report と `exit_code:` に揃えた。
+
 # 2026-05-05 メモ (ISS-20260505T072111740Z core char stdout report)
 
 - [原因]:
