@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T04:27:19.887Z",
+  "generated_at": "2026-05-05T04:54:53.728Z",
   "counts": {
-    "total": 492,
-    "open": 14,
+    "total": 493,
+    "open": 15,
     "resolved": 478,
     "by_area": {
       "core": {
-        "total": 213,
-        "open": 5,
+        "total": 214,
+        "open": 6,
         "resolved": 208
       },
       "CORE": {
@@ -175,6 +175,21 @@
       "file": "items/ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C.md"
     },
     {
+      "id": "ISS-20260505T045316820Z-RESOURCE-IR-VEC-RANGE-CLEANUP-9A95DB6F",
+      "title": "Resource IR が Vec の range cleanup 完了を証明できない",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/**,nepl-core/src/passes/move_check/**,stdlib/alloc/collections/vec.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T045316820Z-RESOURCE-IR-VEC-RANGE-CLEANUP-9A95DB6F.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -183,7 +198,7 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-25",
-      "updated": "2026-04-28",
+      "updated": "2026-05-05",
       "target": "stdlib/alloc/collections/**",
       "legacy_id": "RV-STDLIB-004",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-004",

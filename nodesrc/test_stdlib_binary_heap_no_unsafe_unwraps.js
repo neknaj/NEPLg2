@@ -33,7 +33,7 @@ assert.match(code, /fn\s+heap_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,
 assert.match(code, /fn\s+heap_alloc_slots\s+<\.T:\s*Copy>\s+<\(i32\)\*>Result<Vec<Option<\.T>>, Diag>>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'BinaryHeap allocation must initialize every slot as None and report allocation failure as Diag');
 assert.match(code, /fn\s+new\s+<\.T:\s*Copy>\s+<\(\)\*>Result<BinaryHeap<\.T>, Diag>>/, 'BinaryHeap.new must expose allocation as an impure Result<BinaryHeap<T>, Diag>');
 assert.match(code, /fn\s+push\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>,\.T\)\*>Result<BinaryHeap<\.T>, Diag>>/, 'BinaryHeap.push must expose heap mutation as an impure Result<BinaryHeap<T>, Diag>');
-assert.match(code, /fn\s+free\s+<\.T>\s+<\(BinaryHeap<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+hp\s+"items"/, 'BinaryHeap.free must close the Vec<Option<T>> owner');
+assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(BinaryHeap<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+hp\s+"items"/, 'BinaryHeap.free must close the Vec<Option<T>> owner through the Copy storage fast path');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\brealloc_ptr\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'BinaryHeap must not reintroduce raw header or raw element storage');
 
 console.log('binary heap unsafe unwrap regression passed');

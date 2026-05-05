@@ -139,7 +139,7 @@ fn with_capacity <.T: Copy> <(i32)*>Result<Deque<.T>, Diag>> (cap):
 
 //: ## len
 //: deque を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
-fn len <.T> <(Deque<.T>)->i32> (dq):
+fn len <.T: Copy> <(Deque<.T>)->i32> (dq):
     let n <i32> *field::get_ref &dq "len"
     free<.T> dq
     n
@@ -151,7 +151,7 @@ fn len_ref <.T> <(&Deque<.T>)->i32> (dq):
 
 //: ## cap
 //: deque を[消費/しょうひ]して[容量/ようりょう]を[返/かえ]す
-fn cap <.T> <(Deque<.T>)->i32> (dq):
+fn cap <.T: Copy> <(Deque<.T>)->i32> (dq):
     let n <i32> *field::get_ref &dq "cap"
     free<.T> dq
     n
@@ -163,7 +163,7 @@ fn cap_ref <.T> <(&Deque<.T>)->i32> (dq):
 
 //: ## is_empty
 //: deque を[消費/しょうひ]して[空/から]かどうかを[返/かえ]す
-fn is_empty <.T> <(Deque<.T>)->bool> (dq):
+fn is_empty <.T: Copy> <(Deque<.T>)->bool> (dq):
     let ok <bool> is_empty_ref<.T> &dq
     free<.T> dq
     ok
@@ -289,5 +289,5 @@ fn clear <.T: Copy> <(Deque<.T>)*>Deque<.T>> (dq):
 
 //: ## free
 //: deque が[所有/しょゆう]する backing storage を[解放/かいほう]する
-fn free <.T> <(Deque<.T>)->()> (dq):
+fn free <.T: Copy> <(Deque<.T>)->()> (dq):
     vec::free<Option<.T>> field::get dq "items"

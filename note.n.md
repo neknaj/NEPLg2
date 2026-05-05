@@ -30417,3 +30417,40 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio/read.nepl` は 376 lines、`stdio/read/buffer.nepl` は 124 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-004 collection Copy cleanup boundary)
+
+- [同期]:
+  - `origin/main` の `e7e2f0` 系まで取り込んだ状態から、branch `work/region-token-owner-cleanup` で対応した。
+- [原因]:
+  - `Vec.free` / `Vec.clear` は raw storage を shallow に扱う fast path だが、`.T` に `Copy` 制約がなく、owning payload を drop せずに length reset / storage dealloc できる逃げ道になっていた。
+  - `Vec.map` / `filter` / `partition` / `take_while` / `drop_while` と internal read helper も raw storage から値を copy-read する設計なので、non-Copy payload には適用できない。
+  - `Queue` / `Stack` / `Deque` / `RingBuffer` / `BinaryHeap` / `BTreeMap` / `BTreeSet` の `free` や consuming observer は内部 `Vec<Option<T>>` storage を shallow dealloc しており、同じく Copy fast path に限定する必要があった。
+- [修正]:
+  - `Vec.clear` / `Vec.free` / `vec_read_at` / fold/reduce/find/take helper / `vec_write_prefix_impl` を `.T: Copy` に限定した。
+  - `Vec.map` は入力 `.T` だけでなく出力 `.U` も `Copy` に限定した。`Vec<Copy> -> Vec<NonCopy>` を許すと、生成された collection の cleanup 経路がないため。
+  - `Vec.filter` / `partition` / `take_while` / `drop_while` を `.T: Copy` に限定した。
+  - `Queue` / `Stack` / `Deque` / `RingBuffer` / `BinaryHeap` / `BTreeMap` / `BTreeSet` の shallow storage cleanup 経路を `.T: Copy` または key/value Copy に限定した。
+  - `tests/stdlib/vec_collections.n.md` に `free<DropCounter>` / `clear<DropCounter>` の compile-fail 回帰を追加した。
+  - `ISS-20260425T000000Z-RV-STDLIB-004-91534828` を更新し、今回閉じた Copy fast path 境界と未完了範囲を明記した。
+- [新規issue]:
+  - `ISS-20260505T045316820Z-RESOURCE-IR-VEC-RANGE-CLEANUP-9A95DB6F` を追加した。
+  - `Vec<DropCounter>` を callback loop で cleanup してから storage dealloc する実装は、Resource IR / 旧 move checker が initialized range の cleanup 完了を証明できず `resource.cell.initialized_conflict` になる。stdlib 側の関数名特別扱いではなく core Resource IR の range summary / owned storage cleanup operation として修正する。
+- [検証]:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-collections-copy-cleanup-boundary.json -j 1 --dist web/dist`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stack_collections.n.md -i tests/stdlib/queue_collections.n.md -i tests/stdlib/deque_collections.n.md -i tests/stdlib/ringbuffer_collections.n.md -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/copy-wrapper-collections.json -j 1 --dist web/dist`: `18 total / 18 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/btree_array_cost.n.md --no-tree -o tmp/btree-copy-free-boundary.json -j 1 --dist web/dist`: `6 total / 6 passed`
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-module-copy-cleanup-boundary.json -j 1 --dist web/dist`: output JSON summary は `37 total / 37 passed`。runner process は JSON 書き出し後に 180 秒 timeout したため、テスト時間 issue として継続監視する。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-004-91534828` は open 継続。今回の commit は shallow cleanup の安全境界を閉じる partial fix。
+  - collection-wide owning cleanup は `ISS-20260505T045316820Z-RESOURCE-IR-VEC-RANGE-CLEANUP-9A95DB6F` の解決後に実装する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

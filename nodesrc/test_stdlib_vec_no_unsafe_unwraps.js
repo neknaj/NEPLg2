@@ -69,13 +69,15 @@ assert.match(vecCode, /struct\s+VecPartition<\.T>:[\s\S]*matched\s+<Vec<\.T>>[\s
 assert.match(pushSection, /let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.push must explicitly move the data owner from the consumed input Vec');
 assert.match(popSection, /let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.pop must explicitly move the data owner into the returned Vec');
 assert.match(popSection, /fn\s+pop\s+<\.T>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, 'Vec.pop must return named VecPop so callers can free the returned Vec owner');
+assert.match(clearSection, /fn\s+clear\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->Vec<\.T>>/, 'Vec.clear must be restricted to Copy payload storage fast path');
 assert.match(clearSection, /let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.clear must explicitly move the data owner into the returned Vec');
 assert.match(freeSection, /let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"[\s\S]*dealloc_raw\s+mem_ptr_addr\s+v_data\s+mul\s+v_cap\s+size_of<\.T>/, 'Vec.free must explicitly move the data owner before deallocating it');
 assert.match(mapSection, /let\s+out_data\s+<MemPtr<\.U>>\s+field::get\s+out0\s+"data"/, 'Vec.map must explicitly move the output data owner from the allocated Vec into the returned Vec');
-assert.match(vecCode, /fn\s+free\s+<\.T>\s+<\(Vec<\.T>\)->\(\)>\s+\(v\):[\s\S]*dealloc_raw\s+mem_ptr_addr\s+v_data\s+mul\s+v_cap\s+size_of<\.T>/, 'Vec.free must use raw owner cleanup for data storage');
+assert.match(mapSection, /fn\s+map\s+<\.T:\s*Copy,\s*\.U:\s*Copy>/, 'Vec.map must require Copy for both source copies and output storage cleanup');
+assert.match(vecCode, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->\(\)>\s+\(v\):[\s\S]*dealloc_raw\s+mem_ptr_addr\s+v_data\s+mul\s+v_cap\s+size_of<\.T>/, 'Vec.free must use raw owner cleanup only for Copy payload storage');
 assert.match(vecCode, /fn\s+push\s+<\.T>\s+<\(Vec<\.T>,\.T\)->Result<Vec<\.T>,\s*StdErrorKind>>\s+\(v,\s*item\):[\s\S]*match\s+realloc_ptr<\.T>\s+v_data\s+old_bytes\s+new_bytes:[\s\S]*Result::Err\s+_e:[\s\S]*dealloc_raw\s+mem_ptr_addr\s+v_data\s+old_bytes[\s\S]*Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::OutOfMemory/, 'Vec.push must release the consumed old buffer when grow fails');
 assert.match(vecCode, /dealloc_raw\s+mem_ptr_addr\s+left0_data\s+mul\s+left0_cap\s+size_of<\.T>/, 'Vec.partition cleanup must use raw owner cleanup for the left buffer after right allocation failure');
-assert.match(vecCode, /fn\s+partition\s+<\.T>\s+<\(Vec<\.T>,\s*\(\.T\)->bool\)->Result<VecPartition<\.T>,\s*StdErrorKind>>/, 'Vec.partition must return named VecPartition instead of anonymous owner pairs');
+assert.match(vecCode, /fn\s+partition\s+<\.T:\s*Copy>\s+<\(Vec<\.T>,\s*\(\.T\)->bool\)->Result<VecPartition<\.T>,\s*StdErrorKind>>/, 'Vec.partition must return named VecPartition and only copy payloads');
 assert.match(countSection, /fn\s+count\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T\)->bool\)->i32>/, 'Vec.count must be a borrowed observer so callers retain and free the Vec owner');
 assert.match(foldSection, /fn\s+fold\s+<\.T:\s+Copy,\s*\.U>\s+<\(&Vec<\.T>,\s*\.U,\s*\(\.U,\.T\)->\.U\)->\.U>/, 'Vec.fold must borrow the Vec owner and copy elements into the reducer');
 assert.match(reduceSection, /fn\s+reduce\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T,\.T\)->\.T\)->Option<\.T>>/, 'Vec.reduce must borrow the Vec owner and require Copy elements');

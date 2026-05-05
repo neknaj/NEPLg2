@@ -32,7 +32,7 @@ assert.match(code, /fn\s+stack_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i3
 assert.match(code, /fn\s+stack_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>\(\)>[\s\S]*vec::replace<Option<\.T>>/, 'Stack must update slot state through Vec<Option<T>> replacement');
 assert.match(code, /fn\s+stack_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'Stack allocation must initialize every slot as None');
 assert.match(code, /fn\s+pop_top\s+<\.T:\s*Copy>\s+<\(Stack<\.T>\)\*>StackPop<\.T>>[\s\S]*stack_store_slot<\.T>\s+&items\s+next_len\s+none<\.T>[\s\S]*StackPop<\.T>/, 'Stack pop_top must clear the consumed slot and return the updated owner');
-assert.match(code, /fn\s+free\s+<\.T>\s+<\(Stack<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+stk\s+"items"/, 'Stack.free must close the Vec<Option<T>> owner');
+assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Stack<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+stk\s+"items"/, 'Stack.free must close the Vec<Option<T>> owner through the Copy storage fast path');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\brealloc_ptr\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'Stack must not reintroduce raw header or raw element storage');
 
 console.log('stack unsafe unwrap regression passed');

@@ -225,7 +225,7 @@ fn with_capacity <.T: Copy> <(i32)*>Result<BinaryHeap<.T>, Diag>> (cap):
 
 //: ## len
 //: heap を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
-fn len <.T> <(BinaryHeap<.T>)->i32> (hp):
+fn len <.T: Copy> <(BinaryHeap<.T>)->i32> (hp):
     let n <i32> len_ref<.T> &hp
     free<.T> hp
     n
@@ -237,7 +237,7 @@ fn len_ref <.T> <(&BinaryHeap<.T>)->i32> (hp):
 
 //: ## cap
 //: heap を[消費/しょうひ]して[容量/ようりょう]を[返/かえ]す
-fn cap <.T> <(BinaryHeap<.T>)->i32> (hp):
+fn cap <.T: Copy> <(BinaryHeap<.T>)->i32> (hp):
     let n <i32> cap_ref<.T> &hp
     free<.T> hp
     n
@@ -249,7 +249,7 @@ fn cap_ref <.T> <(&BinaryHeap<.T>)->i32> (hp):
 
 //: ## is_empty
 //: heap を[消費/しょうひ]して[空/から]かどうかを[返/かえ]す
-fn is_empty <.T> <(BinaryHeap<.T>)->bool> (hp):
+fn is_empty <.T: Copy> <(BinaryHeap<.T>)->bool> (hp):
     let ok <bool> is_empty_ref<.T> &hp
     free<.T> hp
     ok
@@ -419,5 +419,5 @@ fn pop <.T: Ord&Copy> <(BinaryHeap<.T>)*>Option<.T>> (hp):
 //:     free hp;
 //:     0
 //: ```
-fn free <.T> <(BinaryHeap<.T>)->()> (hp):
+fn free <.T: Copy> <(BinaryHeap<.T>)->()> (hp):
     vec::free<Option<.T>> field::get hp "items"

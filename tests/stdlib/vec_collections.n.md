@@ -133,3 +133,52 @@ fn main <()*>i32> ():
             let name <str> std_error_kind_str e
             if str_eq name "InvalidOperation" 1 0
 ```
+
+## vec_plain_free_rejects_non_copy_payloads
+
+[目的/もくてき]:
+- `free` が non-Copy payload を shallow dealloc する逃げ道にならないことを[確認/かくにん]します。
+- owning payload の一括 cleanup は、Resource IR が initialized range の cleanup 完了を表現できる owned storage API として別 issue で扱います。
+
+neplg2:test[compile_fail]
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/mem" as *
+
+struct DropCounter:
+    counter <MemPtr<i32>>
+
+fn main <()*>i32> ():
+    let v <Vec<DropCounter>> unwrap_ok new<DropCounter>
+    free<DropCounter> v
+    0
+```
+
+## vec_plain_clear_rejects_non_copy_payloads
+
+[目的/もくてき]:
+- `clear` が non-Copy payload を drop せずに長さだけ 0 にする逃げ道にならないことを[確認/かくにん]します。
+- storage reuse の fast path は `.T: Copy` に限定し、owning payload は将来の owned storage cleanup API で扱います。
+
+neplg2:test[compile_fail]
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/mem" as *
+
+struct DropCounter:
+    counter <MemPtr<i32>>
+
+fn main <()*>i32> ():
+    let v <Vec<DropCounter>> unwrap_ok new<DropCounter>
+    let cleared <Vec<DropCounter>> clear<DropCounter> v
+    free<DropCounter> cleared
+    0
+```

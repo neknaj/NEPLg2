@@ -109,7 +109,7 @@ fn btreeset_lower_bound_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,.T,i32,i32
 fn btreeset_is_at_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,i32,i32,.T)->bool> (storage, len0, idx, key):
     btreeset_is_at<.T> btreeset_storage_keys<.T> storage len0 idx key
 
-fn btreeset_free_storage <.T> <(BTreeSetStorage<.T>)->()> (storage):
+fn btreeset_free_storage <.T: Copy> <(BTreeSetStorage<.T>)->()> (storage):
     let keys <Vec<Option<.T>>> field::get storage "keys"
     vec::free<Option<.T>> keys
 
@@ -221,7 +221,7 @@ fn new <.T: Copy> <()*>Result<BTreeSet<.T>, Diag>> ():
 //:         |> insert 7 |> uwok
 //:     if eq len s 2 1 0
 //: ```
-fn len <.T> <(BTreeSet<.T>)->i32> (set0):
+fn len <.T: Copy> <(BTreeSet<.T>)->i32> (set0):
     let n <i32> len_ref<.T> &set0
     free<.T> set0
     n
@@ -392,7 +392,7 @@ fn clear <.T: Copy> <(BTreeSet<.T>)*>BTreeSet<.T>> (set0):
 //:     free s;
 //:     0
 //: ```
-fn free <.T> <(BTreeSet<.T>)->()> (set0):
+fn free <.T: Copy> <(BTreeSet<.T>)->()> (set0):
     let storage <BTreeSetStorage<.T>> field::get set0 "storage"
     btreeset_free_storage<.T> storage
 

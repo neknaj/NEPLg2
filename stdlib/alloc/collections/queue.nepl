@@ -120,7 +120,7 @@ fn with_capacity <.T: Copy> <(i32)*>Result<Queue<.T>, Diag>> (cap):
 
 //: ## len
 //: queue を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
-fn len <.T> <(Queue<.T>)->i32> (q):
+fn len <.T: Copy> <(Queue<.T>)->i32> (q):
     let n <i32> *field::get_ref &q "len"
     free<.T> q
     n
@@ -132,7 +132,7 @@ fn len_ref <.T> <(&Queue<.T>)->i32> (q):
 
 //: ## is_empty
 //: queue を[消費/しょうひ]して[空/から]かどうかを[返/かえ]す
-fn is_empty <.T> <(Queue<.T>)->bool> (q):
+fn is_empty <.T: Copy> <(Queue<.T>)->bool> (q):
     let ok <bool> is_empty_ref<.T> &q
     free<.T> q
     ok
@@ -225,5 +225,5 @@ fn clear <.T: Copy> <(Queue<.T>)*>Queue<.T>> (q):
 
 //: ## free
 //: queue が[所有/しょゆう]する backing storage を[解放/かいほう]する
-fn free <.T> <(Queue<.T>)->()> (q):
+fn free <.T: Copy> <(Queue<.T>)->()> (q):
     vec::free<Option<.T>> field::get q "items"

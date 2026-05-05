@@ -10,6 +10,8 @@
 //: - `push` で[容量/ようりょう][不足/ぶそく]が[起/お]きた[場合/ばあい]は 2 [倍/ばい]へ[拡張/かくちょう]し、typed `realloc_ptr` で[再配置/さいはいち]します。
 //:
 //: ### [注意/ちゅうい]
+//: - `get` / `replace` / `clear` / `free` は `.T: Copy` の storage fast path です。
+//: - `.T` が owning payload の場合、現行 API では collection-wide cleanup は[未提供/みていきょう]です。`pop` で[所有値/しょゆうち]を[取/と]り[出/だ]す API と、将来の owned storage cleanup API を分けて扱います。
 //: - `get` / `pop` は[存在/そんざい]しない[位置/いち]を `Option::None` で[返/かえ]します。
 //: - `replace` は[範囲外/はんいがい]では[失敗/しっぱい]にせず、[何/なに]も[変更/へんこう]しません。
 //: - [再確保/さいかくほ]が[起/お]きると[内部/ないぶ]バッファの[番地/ばんち]は[変/か]わりえます。
@@ -727,6 +729,7 @@ fn pop <.T> <(Vec<.T>)->VecPop<.T>> (v):
 //:
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ]メモリは[解放/かいほう]しません。
+//: - `.T: Copy` に[限定/げんてい]します。owning payload の一括 cleanup は今後の owned storage API で扱います。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -746,7 +749,7 @@ fn pop <.T> <(Vec<.T>)->VecPop<.T>> (v):
 //:     free<i32> v2;
 //:     if ok 0 1
 //: ```
-fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
+fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
     let v_cap <i32> *field::get_ref &v "cap"
     let v_data <MemPtr<.T>> field::get v "data"
     Vec<.T> 0 v_cap v_data
@@ -762,6 +765,7 @@ fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
 //:
 //: ### [注意/ちゅうい]
 //: - [範囲/はんい][検査/けんさ]は[行/おこな]いません。`idx` の[妥当性/だとうせい]は[呼/よ]び[出/だ]し[側/がわ]が[保証/ほしょう]する[前提/ぜんてい]です。
+//: - `.T: Copy` の読み取り専用 helper です。owning payload を[移動/いどう]する場合は `pop` のような owner-returning API を[使/つか]います。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -782,7 +786,7 @@ fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-fn vec_read_at <.T> <(MemPtr<.T>, i32)->.T> (data, idx):
+fn vec_read_at <.T: Copy> <(MemPtr<.T>, i32)->.T> (data, idx):
     load<.T> add mem_ptr_addr data mul idx size_of<.T>
 
 //: ## vec_write_at
@@ -854,7 +858,7 @@ fn vec_write_at <.T> <(MemPtr<.T>, i32, .T)->()> (data, idx, item):
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-fn vec_fold_impl <.T,.U> <(MemPtr<.T>, i32, i32, .U, (.U,.T)->.U)->.U> (data, len, idx, acc, f):
+fn vec_fold_impl <.T: Copy,.U> <(MemPtr<.T>, i32, i32, .U, (.U,.T)->.U)->.U> (data, len, idx, acc, f):
     if:
         eq idx len
         then acc
@@ -899,7 +903,7 @@ fn vec_fold_impl <.T,.U> <(MemPtr<.T>, i32, i32, .U, (.U,.T)->.U)->.U> (data, le
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-fn vec_reduce_impl <.T> <(MemPtr<.T>, i32, i32, .T, (.T,.T)->.T)->.T> (data, len, idx, acc, f):
+fn vec_reduce_impl <.T: Copy> <(MemPtr<.T>, i32, i32, .T, (.T,.T)->.T)->.T> (data, len, idx, acc, f):
     if:
         eq idx len
         then acc
@@ -948,7 +952,7 @@ fn vec_reduce_impl <.T> <(MemPtr<.T>, i32, i32, .T, (.T,.T)->.T)->.T> (data, len
 //:             free<i32> v;
 //:             1
 //: ```
-fn vec_find_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->Option<.T>> (data, len, idx, p):
+fn vec_find_impl <.T: Copy> <(MemPtr<.T>, i32, i32, (.T)->bool)->Option<.T>> (data, len, idx, p):
     if:
         eq idx len
         then none<.T>
@@ -1000,7 +1004,7 @@ fn vec_find_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->Option<.T>> (data, le
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-fn vec_take_while_len_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->i32> (data, len, idx, p):
+fn vec_take_while_len_impl <.T: Copy> <(MemPtr<.T>, i32, i32, (.T)->bool)->i32> (data, len, idx, p):
     let mut i <i32> idx
     let mut active <bool> true
     while and active lt i len:
@@ -1050,7 +1054,7 @@ fn vec_take_while_len_impl <.T> <(MemPtr<.T>, i32, i32, (.T)->bool)->i32> (data,
 //:     free<i32> dst;
 //:     if ok 0 1
 //: ```
-fn vec_write_prefix_impl <.T> <(MemPtr<.T>, MemPtr<.T>, i32, i32)->()> (src_data, out_data, src_from, count):
+fn vec_write_prefix_impl <.T: Copy> <(MemPtr<.T>, MemPtr<.T>, i32, i32)->()> (src_data, out_data, src_from, count):
     let mut i <i32> 0
     while lt i count:
         do:
@@ -1071,6 +1075,7 @@ fn vec_write_prefix_impl <.T> <(MemPtr<.T>, MemPtr<.T>, i32, i32)->()> (src_data
 //: ### [注意/ちゅうい]
 //: - [新規/しんき][領域/りょういき]の[確保/かくほ]が[必要/ひつよう]なので `Result<Vec<.U>, StdErrorKind>` を[返/かえ]します。
 //: - `f` は `(.T)->.U` の[純粋/じゅんすい][関数/かんすう]です。
+//: - [入力/にゅうりょく]と[出力/しゅつりょく]はいずれも `.T: Copy` / `.U: Copy` の storage fast path に[限定/げんてい]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -1101,7 +1106,7 @@ fn vec_write_prefix_impl <.T> <(MemPtr<.T>, MemPtr<.T>, i32, i32)->()> (src_data
 //:             free<i32> ys;
 //:             1
 //: ```
-fn map <.T,.U> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
+fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
     let src_len <i32> *field::get_ref &v "len"
     let src_cap <i32> *field::get_ref &v "cap"
     let src_data <MemPtr<.T>> field::get v "data"
@@ -1160,7 +1165,7 @@ fn map <.T,.U> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
 //:     free<i32> zs;
 //:     if ok 0 1
 //: ```
-fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
+fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let src_cap <i32> *field::get_ref &v "cap"
     let src_data <MemPtr<.T>> field::get v "data"
@@ -1236,7 +1241,7 @@ fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
 //:     free<i32> rest;
 //:     if ok 0 1
 //: ```
-fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, StdErrorKind>> (v, p):
+fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let src_cap <i32> *field::get_ref &v "cap"
     let src_data <MemPtr<.T>> field::get v "data"
@@ -1320,7 +1325,7 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, StdErrorKind>
 //:     free<i32> ys;
 //:     if ok 0 1
 //: ```
-fn take_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
+fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let src_cap <i32> *field::get_ref &v "cap"
     let src_data <MemPtr<.T>> field::get v "data"
@@ -1377,7 +1382,7 @@ fn take_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p)
 //:             free<i32> ys;
 //:             1
 //: ```
-fn drop_while <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
+fn drop_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let src_cap <i32> *field::get_ref &v "cap"
     let src_data <MemPtr<.T>> field::get v "data"
@@ -1677,6 +1682,7 @@ fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
 //: ### [注意/ちゅうい]
 //: - `Vec` [自体/じたい]は[値/あたい]なので[追加/ついか]の[解放/かいほう]は[不要/ふよう]です。
 //: - `cap = 0` の[空/から]ベクタでも[呼/よ]べます。
+//: - `.T: Copy` の storage fast path です。owning payload の一括 cleanup は今後の owned storage API で扱います。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -1693,7 +1699,7 @@ fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
 //:     free<i32> v;
 //:     0
 //: ```
-fn free <.T> <(Vec<.T>)->()> (v):
+fn free <.T: Copy> <(Vec<.T>)->()> (v):
     let v_cap <i32> *field::get_ref &v "cap"
     let v_data <MemPtr<.T>> field::get v "data"
     dealloc_raw mem_ptr_addr v_data mul v_cap size_of<.T>

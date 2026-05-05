@@ -215,5 +215,5 @@ fn clear <.T: Copy> <(RingBuffer<.T>)*>RingBuffer<.T>> (rb):
 
 //: ## free
 //: buffer が[所有/しょゆう]する backing storage を[解放/かいほう]する
-fn free <.T> <(RingBuffer<.T>)->()> (rb):
+fn free <.T: Copy> <(RingBuffer<.T>)->()> (rb):
     vec::free<Option<.T>> field::get rb "items"

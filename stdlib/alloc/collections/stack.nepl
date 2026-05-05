@@ -188,7 +188,7 @@ fn get_ref <.T: Copy> <(&Stack<.T>,i32)->Option<.T>> (stk, idx):
 
 //: ## len
 //: stack を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
-fn len <.T> <(Stack<.T>)->i32> (stk):
+fn len <.T: Copy> <(Stack<.T>)->i32> (stk):
     let n <i32> *field::get_ref &stk "len"
     free<.T> stk
     n
@@ -200,7 +200,7 @@ fn len_ref <.T> <(&Stack<.T>)->i32> (stk):
 
 //: ## is_empty
 //: stack を[消費/しょうひ]して[空/から]かどうかを[返/かえ]す
-fn is_empty <.T> <(Stack<.T>)->bool> (stk):
+fn is_empty <.T: Copy> <(Stack<.T>)->bool> (stk):
     let ok <bool> is_empty_ref<.T> &stk
     free<.T> stk
     ok
@@ -220,5 +220,5 @@ fn clear <.T: Copy> <(Stack<.T>)*>Stack<.T>> (stk):
 
 //: ## free
 //: stack が[所有/しょゆう]する backing storage を[解放/かいほう]する
-fn free <.T> <(Stack<.T>)->()> (stk):
+fn free <.T: Copy> <(Stack<.T>)->()> (stk):
     vec::free<Option<.T>> field::get stk "items"

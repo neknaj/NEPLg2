@@ -132,7 +132,7 @@ fn btreemap_lower_bound_storage <.K: Ord&Copy,.V> <(&BTreeMapStorage<.K,.V>,.K,i
 fn btreemap_is_at_storage <.K: Ord&Copy,.V> <(&BTreeMapStorage<.K,.V>,i32,i32,.K)->bool> (storage, len0, idx, key):
     is_at<.K> btreemap_storage_keys<.K,.V> storage len0 idx key
 
-fn btreemap_free_storage <.K,.V> <(BTreeMapStorage<.K,.V>)->()> (storage):
+fn btreemap_free_storage <.K: Copy,.V: Copy> <(BTreeMapStorage<.K,.V>)->()> (storage):
     let keys <Vec<Option<.K>>> field::get storage "keys"
     let values <Vec<Option<.V>>> field::get storage "values"
     vec::free<Option<.K>> keys
@@ -270,7 +270,7 @@ fn new <.K: Copy,.V: Copy> <()*>Result<BTreeMap<.K,.V>, Diag>> ():
 //:         |> insert 7 70 |> uwok
 //:     if eq len hm 2 1 0
 //: ```
-fn len <.K,.V> <(BTreeMap<.K,.V>)->i32> (hm):
+fn len <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)->i32> (hm):
     let n <i32> len_ref<.K,.V> &hm
     free<.K,.V> hm
     n
@@ -483,7 +483,7 @@ fn clear <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)*>BTreeMap<.K,.V>> (hm):
 //:     free hm;
 //:     0
 //: ```
-fn free <.K,.V> <(BTreeMap<.K,.V>)->()> (hm):
+fn free <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)->()> (hm):
     let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"
     btreemap_free_storage<.K,.V> storage
 
