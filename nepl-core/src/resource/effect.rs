@@ -10,7 +10,7 @@ use super::effect_counts::ResourceEffectCounts;
 use super::effect_summary::{
     compute_raw_identity_return_summaries, compute_raw_pointer_return_summaries,
 };
-use super::model::{Place, RawMemoryOp, ResourceModule};
+use super::model::{ExternalIoOp, NondetOp, Place, RawMemoryOp, ResourceModule};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceEffectBoundaryReport {
