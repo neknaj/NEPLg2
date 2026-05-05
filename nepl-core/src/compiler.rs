@@ -1020,6 +1020,12 @@ fn resource_effect_boundary_diagnostic_to_error(
                 crate::resource::ResourceEffectCallKind::Direct { name } => {
                     format!("impure function '{}'", name)
                 }
+                crate::resource::ResourceEffectCallKind::ExternalIo { operation } => {
+                    format!("external I/O '{}'", operation)
+                }
+                crate::resource::ResourceEffectCallKind::Nondet { operation } => {
+                    format!("nondeterministic operation '{}'", operation)
+                }
                 crate::resource::ResourceEffectCallKind::Indirect => {
                     String::from("impure function value")
                 }

@@ -30394,3 +30394,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T233021576Z Resource direct host effect pure boundary)
+
+- [同期]:
+  - `main` を remote main と同期後、`work/resource-host-effect-pure-boundary` で Stage 5 effect boundary の direct host effect enforcement を修正した。
+- [原因]:
+  - `ExternalIoOp` / `NondetOp` は surface fold では `Impure` だが、Resource IR の `check_effect` では count されるだけで pure function の `ImpureCallInPureFunction` 診断へ通っていなかった。
+  - `ResourceEffectCallKind` が direct user call と indirect call しか表せず、host effect operation identity を diagnostic 側に保持できなかった。
+- [修正]:
+  - `ResourceEffectCallKind::{ExternalIo,Nondet}` を追加し、diagnostic でも typed host operation を保持するようにした。
+  - `EffectOp::{ExternalIo,Nondet}` を count 後に `Effect::Impure` として `check_call_effect` へ通し、pure function 内の direct host effect を拒否するようにした。
+  - compiler diagnostic 表示と Resource IR regression を更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_rejects_direct_host_effects_in_pure_function -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_ -- --nocapture`: 22 passed
+- [issue]:
+  - `ISS-20260505T233021576Z-RESOURCE-EFFECT-CHECKER-DOES-NOT-REJ-785FECDE` は fixed。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

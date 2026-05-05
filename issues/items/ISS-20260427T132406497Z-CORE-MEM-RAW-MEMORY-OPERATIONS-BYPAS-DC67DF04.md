@@ -388,3 +388,11 @@ Stage 5 の raw identity escape 判定では、pointer value 自体の raw ident
 `ExternalIoEffectCounts` と `NondetEffectCounts` を追加し、`fd_read` / `fd_write` / `path_open` / `random_get` / `clock_time_get` などの operation-level count を保持するようにした。count 更新は host operation enum の exhaustive match で行うため、新しい host effect operation を追加した場合に report 側の更新漏れを検出しやすくなる。
 
 これにより Stage 5 effect boundary report は raw memory だけでなく host I/O / nondeterminism についても operation-level evidence を保持する。
+
+## 2026-05-06 Stage 5 direct host effect pure boundary 追記
+
+`ISS-20260505T233021576Z-RESOURCE-EFFECT-CHECKER-DOES-NOT-REJ-785FECDE` として、Resource IR の `EffectOp::{ExternalIo,Nondet}` が count されるだけで pure function の impure boundary diagnostic に通っていなかった問題を分離し、修正した。
+
+`ResourceEffectCallKind` に `ExternalIo` / `Nondet` の typed variant を追加し、host effect operation identity を diagnostic 側でも保持するようにした。`check_effect` は host effect を count した後、`Effect::Impure` として `check_call_effect` へ通すため、Resource IR 上に direct `fd_write` や `random_get` が現れた場合でも pure function では `ImpureCallInPureFunction` になる。
+
+これにより Stage 5 effect boundary checker は user call / indirect call / direct host effect のすべてを同じ pure boundary enforcement に接続する。

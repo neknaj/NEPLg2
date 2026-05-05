@@ -262,6 +262,8 @@ pub enum ResourceEffectBoundaryDiagnostic {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResourceEffectCallKind {
     Direct { name: String },
+    ExternalIo { operation: ExternalIoOp },
+    Nondet { operation: NondetOp },
     Indirect,
 }
 

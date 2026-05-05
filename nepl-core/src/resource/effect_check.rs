@@ -562,9 +562,23 @@ impl ResourceEffectBoundaryEngine<'_> {
             }
             EffectOp::ExternalIo { operation } => {
                 self.counts.external_io_ops.record(*operation);
+                self.check_call_effect(
+                    Effect::Impure,
+                    ResourceEffectCallKind::ExternalIo {
+                        operation: *operation,
+                    },
+                    span,
+                );
             }
             EffectOp::Nondet { operation } => {
                 self.counts.nondet_ops.record(*operation);
+                self.check_call_effect(
+                    Effect::Impure,
+                    ResourceEffectCallKind::Nondet {
+                        operation: *operation,
+                    },
+                    span,
+                );
             }
             EffectOp::UserCall { name, effect } => {
                 self.check_call_effect(

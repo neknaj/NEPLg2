@@ -2425,6 +2425,53 @@ fn resource_ir_effect_check_counts_host_effect_operations() {
 }
 
 #[test]
+fn resource_ir_effect_check_rejects_direct_host_effects_in_pure_function() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::CallEffect {
+                effect: EffectOp::ExternalIo {
+                    operation: ExternalIoOp::FdWrite,
+                },
+                span,
+            },
+            ResourceOp::CallEffect {
+                effect: EffectOp::Nondet {
+                    operation: NondetOp::RandomGet,
+                },
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_effect_boundaries(&resource);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction {
+            function,
+            call: ResourceEffectCallKind::ExternalIo {
+                operation: ExternalIoOp::FdWrite,
+            },
+            ..
+        } if function == "main"
+    )));
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction {
+            function,
+            call: ResourceEffectCallKind::Nondet {
+                operation: NondetOp::RandomGet,
+            },
+            ..
+        } if function == "main"
+    )));
+}
+
+#[test]
 fn resource_ir_lowering_treats_compiler_field_load_as_field_read() {
     let mut types = TypeCtx::new();
     let i32_ty = types.i32();
