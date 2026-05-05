@@ -30055,3 +30055,33 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260505T190408092Z-RESOURCE-INITIALIZED-SUMMARY-VARIANT-436C996D` は fixed。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260429T040748194Z diagnostic same-definition shadow warning)
+
+- [同期]:
+  - `work/resource-initialized-summary-variant-split-main` の Resource IR 分割commit後、branch `work/diagnostic-shadow-self-definition-resource-stack` を作成して既存の diagnostic fix を移植した。
+- [原因]:
+  - Resource IR の source-based regression が `core/math` import 時の `resolve.shadow.same_signature_callable` warning で失敗していた。
+  - `find_same_signature_func_in_file` / `find_visible_same_signature_func` は、既存 binding が同じ source definition かどうかを `Span` identity で確認していなかった。
+  - そのため、import 展開や hoist 済み binding として同じ定義が `Env` に見えるだけで、別定義による同一シグネチャ shadow と誤診断していた。
+- [修正]:
+  - 同一 `Span` の callable binding を同一シグネチャ shadow/redefinition 候補から除外した。
+  - 別 span の同一シグネチャ再定義 warning と `noshadow` conflict は維持し、同一定義の再観測だけを診断対象から外した。
+  - `stdlib_reimported_definition_does_not_warn_same_signature_shadow` を追加し、stdlib math import が `ShadowSameSignatureCallable` を出さないことを固定した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test neplg2 stdlib_reimported_definition_does_not_warn_same_signature_shadow -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_applies_result_ok_param_raw_cell_initialization -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_does_not_apply_result_err_param_raw_cell_initialization -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_mem_ptr_disjoint_offsets -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md --no-tree -o tmp/agent1-shadow-same-definition-after-trunk.json -j 1`: `27 total / 27 passed`
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` は親 issue として open のまま維持し、Stage D1 の same-definition shadow warning 修正を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
