@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T08:00:14.500Z",
+  "generated_at": "2026-05-05T08:20:04.481Z",
   "counts": {
-    "total": 513,
-    "open": 14,
+    "total": 514,
+    "open": 15,
     "resolved": 499,
     "by_area": {
       "core": {
-        "total": 217,
-        "open": 6,
+        "total": 218,
+        "open": 7,
         "resolved": 211
       },
       "stdlib": {
@@ -173,6 +173,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T045316820Z-RESOURCE-IR-VEC-RANGE-CLEANUP-9A95DB6F.md"
+    },
+    {
+      "id": "ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C",
+      "title": "selfhost CLI driver doctest codegen exceeds 240s after check succeeds",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/monomorphize.rs, nepl-core/src/codegen.rs, nepl-core/src/codegen_llvm.rs, tests/stdlib/selfhost_cli_driver.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",

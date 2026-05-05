@@ -1,3 +1,20 @@
+# 2026-05-05 メモ (ISS-20260505T081814569Z selfhost CLI driver codegen timeout)
+
+- [原因調査]:
+  - `tests/stdlib/selfhost_cli_driver.n.md::doctest#2` は未変更状態でも `run_doctest` で 180 秒 timeout した。
+  - 同じ source の native `--check` は約 5.4 秒で成功した。
+  - 同じ source の native wasm emit は 240 秒 timeout したため、parse / typecheck / Resource IR 前段ではなく post-check の monomorphize / wasm codegen / backend 側が支配的である。
+- [対応]:
+  - stdout report fixture を未検証のまま入れず、codegen timeout を `ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C` として分離した。
+  - 元 issue `ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58` に blocker と実測値を追記した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cli_driver.n.md -n 2 --dist web/dist`: 180 秒 timeout
+  - `target\debug\nepl-cli.exe --check -i <tmp> --target std --stdlib-root stdlib`: 約 5.4 秒で成功
+  - `target\debug\nepl-cli.exe -i <tmp> --target std --stdlib-root stdlib --emit wasm`: 240 秒 timeout
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - selfhost CLI driver の stdout report 移行前に、codegen 側の計算量問題を解く必要がある。
+
 # 2026-05-05 メモ (ISS-20260505T075515489Z alloc string search/bool stdout report)
 
 - [原因]:

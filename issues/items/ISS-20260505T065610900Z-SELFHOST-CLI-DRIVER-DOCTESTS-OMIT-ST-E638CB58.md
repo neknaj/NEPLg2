@@ -42,3 +42,11 @@ assertion doctests を checks_print_report + stdout fixture + exit_code: 0 へ�
 ## 検証
 
 tests/stdlib/selfhost_cli_driver.n.md を focused run し、3 doctest が通ることを確認する。移行後は `ret:` が残らず、assertion-style doctest には deterministic stdout report があることを確認する。
+
+## 2026-05-05 codegen timeout 切り分け
+
+未変更の `tests/stdlib/selfhost_cli_driver.n.md::doctest#2` を再計測したところ、`node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cli_driver.n.md -n 2 --dist web/dist` は 180 秒で shell timeout した。
+
+同じ doctest source を抽出して native CLI で確認すると、`target\debug\nepl-cli.exe --check -i <tmp> --target std --stdlib-root stdlib` は約 5.4 秒で `Check successful` になった。一方で `target\debug\nepl-cli.exe -i <tmp> --target std --stdlib-root stdlib --emit wasm` は 240 秒 timeout に到達した。
+
+このため、stdout report 移行の未検証差分を入れるのではなく、post-check の monomorphize / wasm codegen / backend 側の性能・到達関数集合問題として `ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C` を追加した。この issue は codegen timeout 解消後に再開する。
