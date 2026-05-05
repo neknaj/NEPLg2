@@ -30002,3 +30002,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - 新たに `ISS-20260505T185947027Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-63167AA8` を追加した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T185947027Z Resource initialized summary model split)
+
+- [同期]:
+  - `work/resource-initialized-alias-split-main` の alias 分割commit後、branch `work/resource-initialized-summary-model-split-main` を作成して対応した。
+- [原因]:
+  - `initialized_summary.rs` は raw cell summary data contract に加えて `RawCellValueCondition` enum と `holds` 判定を持ち、83 lines で責務分割上限を超えていた。
+  - condition の意味論は variant condition の一部であり、summary entry struct 群とは別の責務として監査できる方が安全である。
+- [修正]:
+  - `initialized_summary_condition.rs` を追加し、`RawCellValueCondition` enum と `holds` 判定を分離した。
+  - `initialized_summary.rs` は `RawCellInitializationFunctionSummary` と各 raw cell summary entry の data contract に集中させた。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module と line limit を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_summarizes_unit_helper_argument_raw_cell_initialization -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_conditional_unit_helper_argument_init_conservative -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: `initialized_summary.rs` 超過は解消。次の別件として `initialized_summary_variant_build.rs has 337 lines; responsibility split limit is 260` を検出した。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: downstream policy は継続実行。`initialized_summary_variant_build.rs` 別件を warning として確認。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260505T185947027Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-63167AA8` は fixed。
+  - 新たに `ISS-20260505T190408092Z-RESOURCE-INITIALIZED-SUMMARY-VARIANT-436C996D` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

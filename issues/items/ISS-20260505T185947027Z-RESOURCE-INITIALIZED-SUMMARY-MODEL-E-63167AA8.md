@@ -2,13 +2,13 @@
 id: ISS-20260505T185947027Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-63167AA8
 title: "Resource initialized summary model exceeds responsibility split limit"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: architecture
 created: 2026-05-05
-updated: 2026-05-05
-target: "nepl-core/src/resource/initialized_summary.rs, nodesrc/test_resource_checker_responsibility.js"
+updated: 2026-05-06
+target: "nepl-core/src/resource/initialized_summary.rs, nepl-core/src/resource/initialized_summary_condition.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260505T185947027Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-63167AA8: Resource initialized summary model exceeds responsibility split limit
@@ -19,7 +19,7 @@ After initialized_alias.rs was split, the direct Resource checker responsibility
 
 ## 対象
 
-- `nepl-core/src/resource/initialized_summary.rs, nodesrc/test_resource_checker_responsibility.js`
+- `nepl-core/src/resource/initialized_summary.rs, nepl-core/src/resource/initialized_summary_condition.rs, nodesrc/test_resource_checker_responsibility.js`
 
 ## 根拠
 
@@ -42,3 +42,22 @@ Review initialized_summary.rs and either move helper-only logic to the builder/a
 ## 検証
 
 Run node nodesrc/test_resource_checker_responsibility.js, cargo fmt --check -p nepl-core, cargo check -p nepl-core --tests, and focused initialized summary Resource IR tests.
+
+## 2026-05-06 対応結果
+
+`initialized_summary.rs` から `RawCellValueCondition` enum と `holds` 判定を `initialized_summary_condition.rs` へ分離した。`initialized_summary.rs` は `RawCellInitializationFunctionSummary` と各 raw cell summary entry の data contract に集中し、condition の意味論は専用 module で扱う。
+
+分割後の行数は `initialized_summary.rs` 59 lines、`initialized_summary_condition.rs` 22 lines で、既存の 80 lines 上限内に戻った。`nodesrc/test_resource_checker_responsibility.js` には新 module の存在確認と line limit を追加した。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_summarizes_unit_helper_argument_raw_cell_initialization -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_conditional_unit_helper_argument_init_conservative -- --nocapture`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: `initialized_summary.rs` 超過は解消。次の別件として `initialized_summary_variant_build.rs has 337 lines; responsibility split limit is 260` を検出したため、`ISS-20260505T190408092Z-RESOURCE-INITIALIZED-SUMMARY-VARIANT-436C996D` を追加した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: downstream policy は継続実行。`initialized_summary_variant_build.rs` 別件を warning として確認した。
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+
+関連計画: [NEPLg2 静的検査の複雑化解消計画 Stage 4](../../doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-%E3%81%B8%E3%81%AE%E7%A7%BB%E8%A1%8C)
