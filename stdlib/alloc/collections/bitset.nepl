@@ -9,8 +9,8 @@
 //: - [固定長/こていちょう]の membership structure を `alloc/collections` に[揃/そろ]え、`BloomFilter` と[違/ちが]って false positive のない[正確/せいかく]な[判定/はんてい]を[標準/ひょうじゅん]で[扱/あつか]えるようにします。
 //:
 //: ### [実装/じっそう]
-//: - [内部/ないぶ]は `[nbits, nbytes, bits ptr]` を[持/も]つ owner struct です。
-//: - bit [列/れつ]は byte [配列/はいれつ]として[確保/かくほ]し、index から byte offset と mask を[計算/けいさん]して[読書/よみか]きします。
+//: - [内部/ないぶ]は `[nbits, nbytes, bits]` を[持/も]つ owner struct です。
+//: - bit [列/れつ]は `Vec<i32>` の byte [値/あたい][配列/はいれつ]として[保持/ほじ]し、index から byte index と mask を[計算/けいさん]して[読書/よみか]きします。
 //: - `clear` / `fill` は[全領域/ぜんりょういき]を[線形/せんけい]に[初期化/しょきか]します。
 //:
 //: ### [注意/ちゅうい]
@@ -24,24 +24,25 @@
 //: - `len` / `contains` / `insert` / `remove` は O(1) です。
 //: - `clear` / `fill` は byte [長/ちょう]を m として O(m) です。
 
-#import "core/mem" as *
 #import "core/math" as *
 #import "core/result" as *
 #import "core/field" as field
 #import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
 
 //: ## BitSet
 //: bit [配列/はいれつ]を[所有/しょゆう]する fixed-length set
 //:
 //: ### [目的/もくてき]
-//: - bit [長/ちょう]と byte [長/ちょう]と data pointer を 1 [値/あたい]として[受/う]け[渡/わた]せるようにします。
+//: - bit [長/ちょう]と byte [長/ちょう]と typed byte storage を 1 [値/あたい]として[受/う]け[渡/わた]せるようにします。
 //:
 //: ### [注意/ちゅうい]
 //: - `free` しないかぎり[内部/ないぶ] byte [配列/はいれつ]の[所有権/しょゆうけん]を[保持/ほじ]します。
+//: - storage owner は `Vec<i32>` field として[見/み]えるため、raw byte pointer の alias discipline に[依存/いぞん]しません。
 struct BitSet:
     nbits <i32>
     nbytes <i32>
-    bits <MemPtr<u8>>
+    bits <Vec<i32>>
 
 //: ## BitSetUpdateError
 //: `insert` / `remove` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
@@ -77,18 +78,36 @@ fn bitset_byte_index <(i32)->i32> (bit_idx):
 fn bitset_mask <(i32)->i32> (bit_idx):
     shl 1 rem_s bit_idx 8
 
-fn bitset_ptr_at <(MemPtr<u8>,i32)->MemPtr<u8>> (bits, bit_idx):
-    mem_ptr_wrap add mem_ptr_addr bits bitset_byte_index bit_idx
-
 fn bitset_valid_index <(i32,i32)->bool> (idx, nbits):
     and le 0 idx lt idx nbits
 
-fn bitset_fill_bytes <(MemPtr<u8>,i32,i32)->()> (bits, nbytes, byte_value):
+fn bitset_byte_at <(&Vec<i32>,i32)->Option<i32>> (bits, bit_idx):
+    vec::get<i32> bits bitset_byte_index bit_idx
+
+fn bitset_store_byte <(&Vec<i32>,i32,i32)*>()> (bits, bit_idx, byte_value):
+    vec::replace<i32> bits bitset_byte_index bit_idx byte_value
+
+fn bitset_set_bit <(&Vec<i32>,i32)*>Result<(), Diag>> (bits, bit_idx):
+    match bitset_byte_at bits bit_idx:
+        Option::Some cur:
+            bitset_store_byte bits bit_idx or cur bitset_mask bit_idx
+            Result<(), Diag>::Ok ()
+        Option::None:
+            diag_err<()> bitset_invalid_len_diag
+
+fn bitset_clear_bit <(&Vec<i32>,i32)*>Result<(), Diag>> (bits, bit_idx):
+    match bitset_byte_at bits bit_idx:
+        Option::Some cur:
+            bitset_store_byte bits bit_idx and cur xor bitset_mask bit_idx 255
+            Result<(), Diag>::Ok ()
+        Option::None:
+            diag_err<()> bitset_invalid_len_diag
+
+fn bitset_fill_bytes <(&Vec<i32>,i32,i32)*>()> (bits, nbytes, byte_value):
     let mut i <i32> 0
     while lt i nbytes:
         do:
-            let ptr <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr bits i
-            store_u8 mem_ptr_addr ptr byte_value
+            vec::replace<i32> bits i byte_value
             set i add i 1
 
 //: ## new
@@ -114,11 +133,10 @@ fn new <(i32)*>Result<BitSet, Diag>> (nbits):
             diag_err<BitSet> bitset_invalid_len_diag
         else:
             let nbytes <i32> div_s add nbits 7 8
-            match alloc_ptr<u8> nbytes:
+            match vec::filled<i32> nbytes 0:
                 Result::Err _e:
                     diag_err<BitSet> diag_out_of_memory
                 Result::Ok bits:
-                    bitset_fill_bytes bits nbytes 0
                     ok<BitSet, Diag> BitSet nbits nbytes bits
 
 //: ## len
@@ -153,11 +171,13 @@ fn contains <(&BitSet,i32)*>Result<bool, Diag>> (bs, idx):
     if:
         bitset_valid_index idx nbits
         then:
-            let bits <MemPtr<u8>> *field::get_ref bs "bits"
-            let ptr <MemPtr<u8>> bitset_ptr_at bits idx
             let mask <i32> bitset_mask idx
-            let cur <i32> load_u8 mem_ptr_addr ptr
-            ok<bool, Diag> ne and cur mask 0
+            let bits <&Vec<i32>> field::get_ref bs "bits"
+            match bitset_byte_at bits idx:
+                Option::Some cur:
+                    ok<bool, Diag> ne and cur mask 0
+                Option::None:
+                    diag_err<bool> bitset_invalid_len_diag
         else:
             diag_err<bool> bitset_index_diag
 
@@ -179,16 +199,17 @@ fn contains <(&BitSet,i32)*>Result<bool, Diag>> (bs, idx):
 //:     if ok 1 0
 //: ```
 fn insert <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
-    let nbits <i32> field::get bs "nbits"
+    let nbits <i32> *field::get_ref &bs "nbits"
     if:
         bitset_valid_index idx nbits
         then:
-            let bits <MemPtr<u8>> field::get bs "bits"
-            let ptr <MemPtr<u8>> bitset_ptr_at bits idx
-            let mask <i32> bitset_mask idx
-            let cur <i32> load_u8 mem_ptr_addr ptr
-            store_u8 mem_ptr_addr ptr or cur mask
-            ok<BitSet, BitSetUpdateError> bs
+            let bits <&Vec<i32>> field::get_ref &bs "bits"
+            match bitset_set_bit bits idx:
+                Result::Ok _:
+                    ok<BitSet, BitSetUpdateError> bs
+                Result::Err d:
+                    let e <BitSetUpdateError> BitSetUpdateError bs d
+                    err<BitSet, BitSetUpdateError> e
         else:
             let d <Diag> bitset_index_diag
             let e <BitSetUpdateError> BitSetUpdateError bs d
@@ -214,16 +235,17 @@ fn insert <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
 //:     if not ok 1 0
 //: ```
 fn remove <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
-    let nbits <i32> field::get bs "nbits"
+    let nbits <i32> *field::get_ref &bs "nbits"
     if:
         bitset_valid_index idx nbits
         then:
-            let bits <MemPtr<u8>> field::get bs "bits"
-            let ptr <MemPtr<u8>> bitset_ptr_at bits idx
-            let mask <i32> bitset_mask idx
-            let cur <i32> load_u8 mem_ptr_addr ptr
-            store_u8 mem_ptr_addr ptr and cur xor mask 255
-            ok<BitSet, BitSetUpdateError> bs
+            let bits <&Vec<i32>> field::get_ref &bs "bits"
+            match bitset_clear_bit bits idx:
+                Result::Ok _:
+                    ok<BitSet, BitSetUpdateError> bs
+                Result::Err d:
+                    let e <BitSetUpdateError> BitSetUpdateError bs d
+                    err<BitSet, BitSetUpdateError> e
         else:
             let d <Diag> bitset_index_diag
             let e <BitSetUpdateError> BitSetUpdateError bs d
@@ -248,9 +270,9 @@ fn remove <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
 //:     free bs
 //:     if not ok 1 0
 //: ```
-fn clear <(BitSet)->BitSet> (bs):
-    let nbytes <i32> field::get bs "nbytes"
-    let bits <MemPtr<u8>> field::get bs "bits"
+fn clear <(BitSet)*>BitSet> (bs):
+    let nbytes <i32> *field::get_ref &bs "nbytes"
+    let bits <&Vec<i32>> field::get_ref &bs "bits"
     bitset_fill_bytes bits nbytes 0
     bs
 
@@ -271,9 +293,9 @@ fn clear <(BitSet)->BitSet> (bs):
 //:     free bs1
 //:     if ok 1 0
 //: ```
-fn fill <(BitSet)->BitSet> (bs):
-    let nbytes <i32> field::get bs "nbytes"
-    let bits <MemPtr<u8>> field::get bs "bits"
+fn fill <(BitSet)*>BitSet> (bs):
+    let nbytes <i32> *field::get_ref &bs "nbytes"
+    let bits <&Vec<i32>> field::get_ref &bs "bits"
     bitset_fill_bytes bits nbytes 255
     bs
 
@@ -281,8 +303,8 @@ fn fill <(BitSet)->BitSet> (bs):
 //: [内部/ないぶ] byte [配列/はいれつ]を[解放/かいほう]する
 //:
 //: ### [仕様/しよう]
-//: - `BitSet` は `new` が[確保/かくほ]した `nbytes > 0` の byte [配列/はいれつ]を[所有/しょゆう]します。
-//: - `free` はその owner invariant に[基/もと]づき、`dealloc_raw` で[直接/ちょくせつ][解放/かいほう]します。
+//: - `BitSet` は `new` が[確保/かくほ]した `nbytes > 0` の typed byte [配列/はいれつ]を[所有/しょゆう]します。
+//: - `free` は `Vec<i32>` owner を[取/と]り[出/だ]し、`vec::free` で[閉/と]じます。
 //: - caller は `free` [後/ご]の `BitSet` を[再利用/さいりよう]してはいけません。
 //:
 //: neplg2:test
@@ -298,6 +320,5 @@ fn fill <(BitSet)->BitSet> (bs):
 //:     0
 //: ```
 fn free <(BitSet)->()> (bs):
-    let bits <MemPtr<u8>> field::get bs "bits"
-    let nbytes <i32> field::get bs "nbytes"
-    dealloc_raw mem_ptr_addr bits nbytes
+    let bits <Vec<i32>> field::get bs "bits"
+    vec::free<i32> bits

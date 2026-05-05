@@ -337,3 +337,27 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 - `SparseSet` の dense/sparse payload は引き続き raw `MemPtr<i32>` array であり、最終的な `OwnedBuffer<i32>` / typed buffer state 設計へ移す余地がある。
 - `Vec` / raw byte collection / List node storage の owner state は引き続き残る。
+
+## 2026-05-05 BitSet 部分進捗
+
+`ISS-20260505T055651504Z-BITSET-STORES-BIT-STORAGE-BEHIND-RAW-AAA76E2E` で、`stdlib/alloc/collections/bitset.nepl` を raw `MemPtr<u8>` byte storage から typed `Vec<i32>` byte-value storage へ移行した。
+
+進捗:
+
+- `BitSet` 本体は `nbits/nbytes/bits` を直接持ち、`bits` は `Vec<i32>` owner field として Resource IR から見える。
+- `new` は `vec::filled<i32>` で全 byte slot を初期化するため、未初期化 raw byte range を公開しない。
+- `contains` / `insert` / `remove` / `clear` / `fill` は `vec::get` / `vec::replace` 経由で byte value を読み書きし、`MemPtr` / `load_u8` / `store_u8` / `dealloc_raw` を BitSet 実装から排除した。
+- `insert` / `remove` の Err path は従来どおり `BitSetUpdateError` で owner を返す。
+- `nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js` を更新し、BitSet が raw byte storage へ戻らないことを source policy で固定した。
+
+検証:
+
+- `node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_bitset_borrowed_observers.js`: passed
+- `node nodesrc/test_stdlib_bitset_update_error_owner.js`: passed
+- `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl --no-tree -o tmp/bitset-module-typed-storage-agent1.json -j 1 --dist web/dist`: total=7, passed=7
+- `node nodesrc/tests.js -i stdlib/tests/bitset.n.md -i tests/stdlib/bitset_collections.n.md --no-tree -o tmp/bitset-typed-storage-agent1.json -j 1 --dist web/dist`: total=6, passed=6
+
+残件:
+
+- `Vec` / List node storage / BloomFilter / CountingBloomFilter / AdjacencyMatrix など、raw byte or numeric collection storage の typed owner state 移行は引き続き残る。

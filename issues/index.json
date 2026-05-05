@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T05:48:54.973Z",
+  "generated_at": "2026-05-05T06:05:14.798Z",
   "counts": {
-    "total": 494,
+    "total": 495,
     "open": 13,
-    "resolved": 481,
+    "resolved": 482,
     "by_area": {
       "core": {
         "total": 214,
@@ -12,9 +12,9 @@
         "resolved": 208
       },
       "stdlib": {
-        "total": 156,
+        "total": 157,
         "open": 5,
-        "resolved": 151
+        "resolved": 152
       },
       "TEST": {
         "total": 19,
@@ -5258,6 +5258,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T021408593Z-FS-PATH-FILETYPE-LEAKS-NORMALIZED-ST-2B0962CF.md"
+    },
+    {
+      "id": "ISS-20260505T055651504Z-BITSET-STORES-BIT-STORAGE-BEHIND-RAW-AAA76E2E",
+      "title": "BitSet stores bit storage behind raw MemPtr bytes",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/alloc/collections/bitset.nepl, nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T055651504Z-BITSET-STORES-BIT-STORAGE-BEHIND-RAW-AAA76E2E.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

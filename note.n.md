@@ -30665,3 +30665,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D` は fixed。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260505T055651504Z BitSet typed storage)
+
+- [同期]:
+  - `origin/main` の `cc223b55` まで取り込んだ `work/region-token-owner-cleanup` 上で対応した。
+- [原因]:
+  - `BitSet` は `bits <MemPtr<u8>>` を owner field として持ち、`load_u8` / `store_u8` / `dealloc_raw` で backing storage を直接扱っていた。
+  - そのため BitSet の owner state は typed collection field ではなく raw byte range としてしか Resource IR へ見えず、collection storage state の typed owner 化方針に反していた。
+  - 既存 source policy も raw cleanup を要求しており、BitSet が raw storage へ戻る regression を防げなかった。
+- [修正]:
+  - `BitSet.bits` を `Vec<i32>` に変更し、byte value storage を typed owner field として保持するようにした。
+  - `new` は `vec::filled<i32>` で全 byte slot を初期化する。
+  - `contains` / `insert` / `remove` / `clear` / `fill` は `vec::get` / `vec::replace` 経由で byte value を扱う。
+  - mutation を伴う `clear` / `fill` は impure signature に揃えた。
+  - `free` は `Vec<i32>` owner を取り出して `vec::free<i32>` で閉じる。
+  - `nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js` を更新し、`MemPtr` / raw alloc/load/store/dealloc が BitSet 実装へ戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_bitset_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_bitset_update_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl --no-tree -o tmp/bitset-module-typed-storage-agent1.json -j 1 --dist web/dist`: `7 total / 7 passed`
+  - `node nodesrc/tests.js -i stdlib/tests/bitset.n.md -i tests/stdlib/bitset_collections.n.md --no-tree -o tmp/bitset-typed-storage-agent1.json -j 1 --dist web/dist`: `6 total / 6 passed`
+- [issue]:
+  - `ISS-20260505T055651504Z-BITSET-STORES-BIT-STORAGE-BEHIND-RAW-AAA76E2E` を fixed / resolved に更新した。
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` は親 issue として open 継続。`Vec` / List node storage / BloomFilter / CountingBloomFilter / AdjacencyMatrix などの raw storage 移行が残る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
