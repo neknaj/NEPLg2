@@ -9,12 +9,12 @@ use nepl_core::resource::{
     check_resource_effect_boundaries, check_resource_initialized_moves,
     check_resource_owner_obligations, compare_hir_resource_lowering, lower_hir_module,
     lower_hir_module_skeleton, AggregateKind, BorrowKind, BorrowState, CellState, EffectOp,
-    OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId,
-    ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic,
-    ResourceCheckOperation, ResourceCoverageDiagnostic, ResourceCoverageKind,
-    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
-    ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
-    ResourceOwnerOperation, ResourceTerminator,
+    OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryFillUnit, RawMemoryOp, ResourceBlock,
+    ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget,
+    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCoverageDiagnostic,
+    ResourceCoverageKind, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
+    ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal, ResourceModule, ResourceOffset,
+    ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -849,7 +849,7 @@ fn raw_identity_payload_escape_after_destructive_overwrite(overwrite: RawMemoryO
     let overwrite_unit = Place::temporary(ResourceId(9), unit_ty);
     let loaded = Place::temporary(ResourceId(10), i32_ty);
     let overwrite_args = match overwrite {
-        RawMemoryOp::Fill => vec![slot.clone(), len.clone(), fill_value.clone()],
+        RawMemoryOp::Fill { .. } => vec![slot.clone(), len.clone(), fill_value.clone()],
         RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => {
             vec![slot.clone(), clean_source.clone(), len.clone()]
         }
@@ -956,7 +956,9 @@ fn raw_identity_payload_escape_after_destructive_overwrite(overwrite: RawMemoryO
 #[test]
 fn resource_ir_effect_check_clears_raw_identity_payload_on_fill() {
     assert!(!raw_identity_payload_escape_after_destructive_overwrite(
-        RawMemoryOp::Fill
+        RawMemoryOp::Fill {
+            unit: RawMemoryFillUnit::Unknown,
+        }
     ));
 }
 
@@ -4636,9 +4638,9 @@ fn main <()->i32> ():
         Result::Ok token:
             let p_u8 <MemPtr<u8>> region_ptr<u8> &token
             let p_i32 <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr p_u8
-            match fill_i32 p_i32 4 7:
+            let cleanup_raw <i32> mem_ptr_addr p_u8
+            match fill_u8 p_u8 16 0:
                 Result::Err _e:
-                    let cleanup_raw <i32> mem_ptr_addr p_u8
                     let cleanup_size <i32> region_size<u8> &token
                     match dealloc_region<u8> token:
                         Result::Err _e:
@@ -4647,19 +4649,28 @@ fn main <()->i32> ():
                         Result::Ok _:
                             0
                 Result::Ok _:
-                    let ok <i32> match load_i32 p_i32:
-                        Option::None:
-                            0
-                        Option::Some v:
-                            if eq v 7 1 0
-                    let cleanup_raw <i32> mem_ptr_addr p_u8
-                    let cleanup_size <i32> region_size<u8> &token
-                    match dealloc_region<u8> token:
+                    match fill_i32 p_i32 4 7:
                         Result::Err _e:
-                            dealloc_raw cleanup_raw cleanup_size
-                            0
+                            let cleanup_size <i32> region_size<u8> &token
+                            match dealloc_region<u8> token:
+                                Result::Err _e:
+                                    dealloc_raw cleanup_raw cleanup_size
+                                    0
+                                Result::Ok _:
+                                    0
                         Result::Ok _:
-                            ok
+                            let ok <i32> match load_i32 p_i32:
+                                Option::None:
+                                    0
+                                Option::Some v:
+                                    if eq v 7 1 0
+                            let cleanup_size <i32> region_size<u8> &token
+                            match dealloc_region<u8> token:
+                                Result::Err _e:
+                                    dealloc_raw cleanup_raw cleanup_size
+                                    0
+                                Result::Ok _:
+                                    ok
 "#;
 
     let (module, types) = typecheck_resource_source(source);
@@ -4945,7 +4956,9 @@ fn resource_ir_cell_check_rekeys_raw_cells_after_loading_raw_address_cell() {
                 span,
             },
             ResourceOp::RawMemory {
-                operation: RawMemoryOp::Fill,
+                operation: RawMemoryOp::Fill {
+                    unit: RawMemoryFillUnit::Unknown,
+                },
                 output: fill_out,
                 args: vec![buf.clone(), fill_len, fill_value],
                 span,
@@ -5035,7 +5048,9 @@ fn resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_po
                             span,
                         },
                         ResourceOp::RawMemory {
-                            operation: RawMemoryOp::Fill,
+                            operation: RawMemoryOp::Fill {
+                                unit: RawMemoryFillUnit::Unknown,
+                            },
                             output: fill_out,
                             args: vec![helper_buf.clone(), fill_len, fill_value],
                             span,
@@ -6045,7 +6060,9 @@ fn resource_ir_cell_check_reports_destructive_raw_storage_ops_over_live_cell() {
                 span,
             },
             ResourceOp::RawMemory {
-                operation: RawMemoryOp::Fill,
+                operation: RawMemoryOp::Fill {
+                    unit: RawMemoryFillUnit::Unknown,
+                },
                 output: fill_out,
                 args: vec![ptr.clone()],
                 span,
@@ -11203,7 +11220,9 @@ fn resource_ir_cell_check_fd_pwrite_initializes_nwritten_not_offset() {
                 span,
             },
             ResourceOp::RawMemory {
-                operation: RawMemoryOp::Fill,
+                operation: RawMemoryOp::Fill {
+                    unit: RawMemoryFillUnit::Unknown,
+                },
                 output: fill_buf,
                 args: vec![buf.clone(), iov_count.clone(), fill_value],
                 span,
@@ -11347,7 +11366,9 @@ fn resource_ir_cell_check_fd_write_accepts_initialized_iovec_buffer() {
                 span,
             },
             ResourceOp::RawMemory {
-                operation: RawMemoryOp::Fill,
+                operation: RawMemoryOp::Fill {
+                    unit: RawMemoryFillUnit::Unknown,
+                },
                 output: fill_buf,
                 args: vec![buf.clone(), len.clone(), fill_value],
                 span,
@@ -11655,7 +11676,9 @@ fn resource_ir_cell_check_raw_fill_does_not_initialize_non_copy_cell() {
                 span,
             },
             ResourceOp::RawMemory {
-                operation: RawMemoryOp::Fill,
+                operation: RawMemoryOp::Fill {
+                    unit: RawMemoryFillUnit::Unknown,
+                },
                 output: fill_out,
                 args: vec![ptr.clone(), len, fill_value],
                 span,

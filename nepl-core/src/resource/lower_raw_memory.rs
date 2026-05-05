@@ -8,7 +8,7 @@ use crate::runtime_helpers::{
     helper_base_name, ALLOC_RUNTIME_ABI, DEALLOC_RUNTIME_ABI, REALLOC_RUNTIME_ABI,
 };
 
-use super::model::RawMemoryOp;
+use super::model::{RawMemoryFillUnit, RawMemoryOp};
 
 pub(super) fn raw_memory_op_from_callee(callee: &FuncRef) -> Option<RawMemoryOp> {
     match callee {
@@ -38,10 +38,17 @@ pub(super) fn raw_memory_op_from_name(name: &str) -> Option<RawMemoryOp> {
         "store" => RawMemoryOp::Store,
         "mem_copy" => RawMemoryOp::BulkCopy,
         "mem_move" => RawMemoryOp::BulkMove,
-        "memset_u8" | "fill_u8" | "fill_i32" => RawMemoryOp::Fill,
+        "memset_u8" | "fill_u8" => RawMemoryOp::Fill {
+            unit: RawMemoryFillUnit::Byte,
+        },
+        "fill_i32" => RawMemoryOp::Fill {
+            unit: RawMemoryFillUnit::I32,
+        },
         "mem_size" => RawMemoryOp::MemorySize,
         "mem_grow" => RawMemoryOp::MemoryGrow,
-        "mem_fill" => RawMemoryOp::Fill,
+        "mem_fill" => RawMemoryOp::Fill {
+            unit: RawMemoryFillUnit::Byte,
+        },
         other if other.starts_with("load_") => RawMemoryOp::Load,
         other if other.starts_with("store_") => RawMemoryOp::Store,
         other => RawMemoryOp::Other {

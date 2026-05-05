@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 
 use crate::types::TypeCtx;
 
+use super::cell_state::raw_address_suffix_after_address;
 use super::cell_state::CellTable;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -12,20 +13,24 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummary;
 use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationVariantCondition,
-    RawCellInitializationVariantParamCell, RawCellInitializationVariantParamRequirement,
+    RawCellInitializationVariantParamCell, RawCellInitializationVariantParamRange,
+    RawCellInitializationVariantParamRequirement,
 };
 use super::initialized_summary_cells::collect_param_initialized_raw_cells;
 use super::initialized_summary_variant_condition::collect_variant_param_condition;
 use super::initialized_summary_variant_requirement::collect_variant_param_required_raw_cells;
 use super::initialized_variant::{normalize_variant_name, PendingVariantRawCellInitializations};
 use super::model::{
-    AggregateKind, Place, ResourceConditionFact, ResourceFunction, ResourceLocal, ResourceOp,
+    AggregateKind, Place, RawMemoryOp, ResourceConditionFact, ResourceFunction, ResourceLocal,
+    ResourceOp,
 };
+use super::place_utils::place_suffix_after_prefix;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
 
 pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     out: &mut Vec<RawCellInitializationVariantParamCell>,
+    range_out: &mut Vec<RawCellInitializationVariantParamRange>,
     requirement_out: &mut Vec<RawCellInitializationVariantParamRequirement>,
     condition_out: &mut Vec<RawCellInitializationVariantCondition>,
     function: &ResourceFunction,
@@ -67,6 +72,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
             if output == return_value {
                 collect_branch_variant_param_initialized_raw_cells(
                     out,
+                    range_out,
                     requirement_out,
                     condition_out,
                     &engine,
@@ -83,6 +89,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
                 );
                 collect_branch_variant_param_initialized_raw_cells(
                     out,
+                    range_out,
                     requirement_out,
                     condition_out,
                     &engine,
@@ -112,6 +119,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
 
 fn collect_branch_variant_param_initialized_raw_cells(
     out: &mut Vec<RawCellInitializationVariantParamCell>,
+    range_out: &mut Vec<RawCellInitializationVariantParamRange>,
     requirement_out: &mut Vec<RawCellInitializationVariantParamRequirement>,
     condition_out: &mut Vec<RawCellInitializationVariantCondition>,
     engine: &ResourceCheckEngine<'_>,
@@ -173,6 +181,13 @@ fn collect_branch_variant_param_initialized_raw_cells(
             },
         );
     }
+    collect_variant_param_initialized_raw_ranges(
+        range_out,
+        &variant,
+        path_ops,
+        &path_aliases,
+        params,
+    );
     collect_variant_param_required_raw_cells(
         requirement_out,
         &variant,
@@ -180,6 +195,91 @@ fn collect_branch_variant_param_initialized_raw_cells(
         &path_aliases,
         params,
     );
+}
+
+fn collect_variant_param_initialized_raw_ranges(
+    out: &mut Vec<RawCellInitializationVariantParamRange>,
+    variant: &str,
+    ops: &[ResourceOp],
+    raw_aliases: &RawCellAddressAliases,
+    params: &[ResourceLocal],
+) {
+    for op in ops {
+        let ResourceOp::RawMemory {
+            operation: RawMemoryOp::Fill { unit },
+            args,
+            ..
+        } = op
+        else {
+            continue;
+        };
+        let (Some(address), Some(count), Some(value)) = (args.first(), args.get(1), args.get(2))
+        else {
+            continue;
+        };
+        let address = raw_aliases.canonicalize(address);
+        let count = raw_aliases.canonicalize(count);
+        let address_params = param_suffixes_for_raw_address(raw_aliases, params, &address);
+        let count_params = param_suffixes_for_place(raw_aliases, params, &count);
+        for (address_param_index, address_suffix) in &address_params {
+            for (count_param_index, count_suffix) in &count_params {
+                push_unique_variant_param_range(
+                    out,
+                    RawCellInitializationVariantParamRange {
+                        variant: normalize_variant_name(variant),
+                        address_param_index: *address_param_index,
+                        address_suffix: address_suffix.clone(),
+                        address_ty: address.ty,
+                        count_param_index: *count_param_index,
+                        count_suffix: count_suffix.clone(),
+                        count_ty: count.ty,
+                        unit: *unit,
+                        ty: value.ty,
+                    },
+                );
+            }
+        }
+    }
+}
+
+fn param_suffixes_for_raw_address(
+    raw_aliases: &RawCellAddressAliases,
+    params: &[ResourceLocal],
+    place: &Place,
+) -> Vec<(usize, Vec<super::model::PlaceProjection>)> {
+    let mut out = Vec::new();
+    let aliases = raw_aliases.aliases_for(place);
+    for (param_index, param) in params.iter().enumerate() {
+        for param_alias in raw_aliases.aliases_for(&param.place) {
+            for alias in &aliases {
+                let Some(suffix) = raw_address_suffix_after_address(alias, &param_alias) else {
+                    continue;
+                };
+                push_unique_param_suffix(&mut out, param_index, suffix);
+            }
+        }
+    }
+    out
+}
+
+fn param_suffixes_for_place(
+    raw_aliases: &RawCellAddressAliases,
+    params: &[ResourceLocal],
+    place: &Place,
+) -> Vec<(usize, Vec<super::model::PlaceProjection>)> {
+    let mut out = Vec::new();
+    let aliases = raw_aliases.aliases_for(place);
+    for (param_index, param) in params.iter().enumerate() {
+        for param_alias in raw_aliases.aliases_for(&param.place) {
+            for alias in &aliases {
+                let Some(suffix) = place_suffix_after_prefix(alias, &param_alias) else {
+                    continue;
+                };
+                push_unique_param_suffix(&mut out, param_index, suffix);
+            }
+        }
+    }
+    out
 }
 
 fn construct_variant_for_value(ops: &[ResourceOp], value: &Place) -> Option<String> {
@@ -205,5 +305,26 @@ fn push_unique_variant_param_cell(
 ) {
     if !cells.iter().any(|existing| existing == &cell) {
         cells.push(cell);
+    }
+}
+
+fn push_unique_variant_param_range(
+    ranges: &mut Vec<RawCellInitializationVariantParamRange>,
+    range: RawCellInitializationVariantParamRange,
+) {
+    if !ranges.iter().any(|existing| existing == &range) {
+        ranges.push(range);
+    }
+}
+
+fn push_unique_param_suffix(
+    values: &mut Vec<(usize, Vec<super::model::PlaceProjection>)>,
+    param_index: usize,
+    suffix: Vec<super::model::PlaceProjection>,
+) {
+    if !values.iter().any(|(existing_index, existing_suffix)| {
+        *existing_index == param_index && *existing_suffix == suffix
+    }) {
+        values.push((param_index, suffix));
     }
 }

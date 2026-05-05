@@ -38,6 +38,16 @@ struct PendingUnreachableVariant {
     variant: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingVariantRawCellRange {
+    result: Place,
+    variant: String,
+    address: Place,
+    count: Place,
+    unit: super::model::RawMemoryFillUnit,
+    ty: crate::types::TypeId,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InitializationVariantReachability {
     Reachable,
@@ -48,6 +58,7 @@ enum InitializationVariantReachability {
 #[derive(Debug, Clone, Default)]
 pub(super) struct PendingVariantRawCellInitializations {
     entries: Vec<PendingVariantRawCellInitialization>,
+    ranges: Vec<PendingVariantRawCellRange>,
     requirements: Vec<PendingVariantRawCellRequirement>,
     unreachable_variants: Vec<PendingUnreachableVariant>,
 }
@@ -73,6 +84,30 @@ impl PendingVariantRawCellInitializations {
                 suffix: cell.suffix.clone(),
                 ty: cell.ty,
                 holds_raw_address: cell.holds_raw_address,
+            });
+        }
+        for range in &summary.variant_param_ranges {
+            let (Some(address), Some(count)) = (
+                args.get(range.address_param_index),
+                args.get(range.count_param_index),
+            ) else {
+                continue;
+            };
+            self.push_unique_range(PendingVariantRawCellRange {
+                result: output.clone(),
+                variant: normalize_variant_name(&range.variant),
+                address: raw_aliases.canonicalize(&place_with_suffix(
+                    address,
+                    &range.address_suffix,
+                    range.address_ty,
+                )),
+                count: raw_aliases.canonicalize(&place_with_suffix(
+                    count,
+                    &range.count_suffix,
+                    range.count_ty,
+                )),
+                unit: range.unit,
+                ty: range.ty,
             });
         }
         for cell in &summary.variant_required_param_cells {
@@ -128,6 +163,18 @@ impl PendingVariantRawCellInitializations {
                 mark_known_raw_address(raw_aliases, &place);
             }
         }
+        for range in &self.ranges {
+            if range.result != *scrutinee || range.variant != variant {
+                continue;
+            }
+            let address = raw_aliases.canonicalize(&range.address);
+            let count = raw_aliases.canonicalize(&range.count);
+            if let Some(count) = raw_aliases.i32_value(&count) {
+                for alias in raw_aliases.aliases_for(&address) {
+                    cells.mark_raw_fill_range_initialized(&alias, range.unit, count, range.ty);
+                }
+            }
+        }
     }
 
     pub(super) fn match_arm_reachable(
@@ -170,6 +217,19 @@ impl PendingVariantRawCellInitializations {
                 ty: entry.ty,
             })
             .collect::<Vec<_>>();
+        let range_copies = self
+            .ranges
+            .iter()
+            .filter(|entry| entry.result == *source)
+            .map(|entry| PendingVariantRawCellRange {
+                result: target.clone(),
+                variant: entry.variant.clone(),
+                address: entry.address.clone(),
+                count: entry.count.clone(),
+                unit: entry.unit,
+                ty: entry.ty,
+            })
+            .collect::<Vec<_>>();
         let unreachable_copies = self
             .unreachable_variants
             .iter()
@@ -186,6 +246,9 @@ impl PendingVariantRawCellInitializations {
         for entry in requirement_copies {
             self.push_unique_requirement(entry);
         }
+        for entry in range_copies {
+            self.push_unique_range(entry);
+        }
         for entry in unreachable_copies {
             self.push_unique_unreachable(entry);
         }
@@ -193,6 +256,7 @@ impl PendingVariantRawCellInitializations {
 
     pub(super) fn clear_result(&mut self, result: &Place) {
         self.entries.retain(|entry| entry.result != *result);
+        self.ranges.retain(|entry| entry.result != *result);
         self.requirements.retain(|entry| entry.result != *result);
         self.unreachable_variants
             .retain(|entry| entry.result != *result);
@@ -219,6 +283,15 @@ impl PendingVariantRawCellInitializations {
                 .all(|path| path.requirements.iter().any(|existing| existing == entry))
             {
                 out.push_unique_requirement(entry.clone());
+            }
+        }
+        for entry in &first.ranges {
+            if paths
+                .iter()
+                .skip(1)
+                .all(|path| path.ranges.iter().any(|existing| existing == entry))
+            {
+                out.push_unique_range(entry.clone());
             }
         }
         for entry in &first.unreachable_variants {
@@ -279,6 +352,13 @@ impl PendingVariantRawCellInitializations {
             return;
         }
         self.requirements.push(entry);
+    }
+
+    fn push_unique_range(&mut self, entry: PendingVariantRawCellRange) {
+        if self.ranges.iter().any(|existing| existing == &entry) {
+            return;
+        }
+        self.ranges.push(entry);
     }
 
     fn push_unique_unreachable(&mut self, entry: PendingUnreachableVariant) {

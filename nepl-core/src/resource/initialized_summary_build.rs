@@ -38,6 +38,7 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
             if !summary.return_cells.is_empty()
                 || !summary.param_cells.is_empty()
                 || !summary.variant_param_cells.is_empty()
+                || !summary.variant_param_ranges.is_empty()
                 || !summary.variant_required_param_cells.is_empty()
                 || !summary.variant_conditions.is_empty()
                 || !summary.param_destructions.is_empty()
@@ -82,6 +83,7 @@ fn function_raw_cell_initialization_summary(
         return_cells: Vec::new(),
         param_cells: Vec::new(),
         variant_param_cells: Vec::new(),
+        variant_param_ranges: Vec::new(),
         variant_required_param_cells: Vec::new(),
         variant_conditions: Vec::new(),
         param_destructions: Vec::new(),
@@ -131,6 +133,7 @@ fn function_raw_cell_initialization_summary(
         {
             collect_variant_param_initialized_raw_cells_from_return(
                 &mut out.variant_param_cells,
+                &mut out.variant_param_ranges,
                 &mut out.variant_required_param_cells,
                 &mut out.variant_conditions,
                 function,

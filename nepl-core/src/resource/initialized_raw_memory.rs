@@ -180,7 +180,7 @@ impl ResourceCheckEngine<'_> {
                     pending_reallocs.mark(&address, output);
                 }
             }
-            RawMemoryOp::Fill => {
+            RawMemoryOp::Fill { unit } => {
                 pending_reallocs.clear_result(output);
                 let Some(address_arg) = args.first() else {
                     cells.mark_initialized(output);
@@ -201,10 +201,21 @@ impl ResourceCheckEngine<'_> {
                     span,
                 );
                 if address_available && cells_released {
-                    cells.clear_raw_cells_under(&address);
+                    let address_aliases = raw_aliases.aliases_for(&address);
+                    for alias in &address_aliases {
+                        cells.clear_raw_cells_under(alias);
+                    }
                     if let Some(value) = args.get(2) {
                         let cell = raw_memory_unknown_offset_cell_place(&address, value.ty);
                         cells.mark_initialized(&cell);
+                        if let Some(count) =
+                            args.get(1).and_then(|count| raw_aliases.i32_value(count))
+                        {
+                            for alias in &address_aliases {
+                                cells
+                                    .mark_raw_fill_range_initialized(alias, *unit, count, value.ty);
+                            }
+                        }
                     }
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);

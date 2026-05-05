@@ -46,7 +46,7 @@ pub(super) fn collect_param_destructions_from_raw_memory(
             0,
             ResourceCheckOperation::RawMemoryReallocCell,
         ),
-        RawMemoryOp::Fill => collect_param_destructions_for_arg(
+        RawMemoryOp::Fill { .. } => collect_param_destructions_for_arg(
             out,
             raw_aliases,
             params,
@@ -102,7 +102,7 @@ pub(super) fn collect_param_moves_from_raw_memory(
         | RawMemoryOp::BulkMove
         | RawMemoryOp::MemorySize
         | RawMemoryOp::MemoryGrow
-        | RawMemoryOp::Fill
+        | RawMemoryOp::Fill { .. }
         | RawMemoryOp::Load
         | RawMemoryOp::Other { .. } => {}
     }

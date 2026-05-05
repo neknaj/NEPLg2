@@ -207,8 +207,15 @@ pub enum RawMemoryOp {
     BulkMove,
     MemorySize,
     MemoryGrow,
-    Fill,
+    Fill { unit: RawMemoryFillUnit },
     Other { name: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RawMemoryFillUnit {
+    Byte,
+    I32,
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

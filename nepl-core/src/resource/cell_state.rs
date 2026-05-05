@@ -2,7 +2,9 @@ use alloc::vec::Vec;
 
 use crate::types::{TypeCtx, TypeId};
 
-use super::model::{CellState, CellStateEntry, Place, PlaceProjection, ResourceOffset};
+use super::model::{
+    CellState, CellStateEntry, Place, PlaceProjection, RawMemoryFillUnit, ResourceOffset,
+};
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, raw_memory_cell_place,
     should_track,
@@ -11,8 +13,17 @@ use super::place_utils::{
 #[derive(Debug, Clone, Default)]
 pub(super) struct CellTable {
     cells: Vec<CellStateEntry>,
+    initialized_raw_fill_ranges: Vec<InitializedRawFillRange>,
     owned_raw_storage_roots: Vec<Place>,
     external_raw_storage_roots: Vec<Place>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct InitializedRawFillRange {
+    pub(super) address: Place,
+    pub(super) unit: RawMemoryFillUnit,
+    pub(super) count: i32,
+    pub(super) ty: TypeId,
 }
 
 impl CellTable {
@@ -67,6 +78,13 @@ impl CellTable {
                 }
             }
         }
+        if self
+            .initialized_raw_fill_ranges
+            .iter()
+            .any(|range| raw_fill_range_initializes_cell(range, place, types))
+        {
+            return CellState::Initialized(place.ty);
+        }
         if self.raw_cell_place_is_untracked_external(place) {
             return CellState::Initialized(place.ty);
         }
@@ -76,6 +94,31 @@ impl CellTable {
     pub(super) fn mark_initialized(&mut self, place: &Place) {
         self.set_state(place, CellState::Initialized(place.ty));
         self.clear_descendants(place);
+    }
+
+    pub(super) fn mark_raw_fill_range_initialized(
+        &mut self,
+        address: &Place,
+        unit: RawMemoryFillUnit,
+        count: i32,
+        ty: TypeId,
+    ) {
+        if count <= 0 || matches!(unit, RawMemoryFillUnit::Unknown) {
+            return;
+        }
+        let range = InitializedRawFillRange {
+            address: address.clone(),
+            unit,
+            count,
+            ty,
+        };
+        if !self
+            .initialized_raw_fill_ranges
+            .iter()
+            .any(|existing| existing == &range)
+        {
+            self.initialized_raw_fill_ranges.push(range);
+        }
     }
 
     pub(super) fn mark_raw_cell_moved(&mut self, address: &Place, ty: TypeId) {
@@ -142,6 +185,8 @@ impl CellTable {
     pub(super) fn clear_raw_cells_under(&mut self, address: &Place) {
         self.cells
             .retain(|entry| raw_cell_suffix_after_address(&entry.place, address).is_none());
+        self.initialized_raw_fill_ranges
+            .retain(|range| !raw_addresses_overlap(&range.address, address));
     }
 
     pub(super) fn extend_entries(&mut self, entries: Vec<CellStateEntry>) {
@@ -166,6 +211,7 @@ impl CellTable {
             false
         });
         self.extend_entries(relocated);
+        rekey_raw_fill_ranges(&mut self.initialized_raw_fill_ranges, source, target);
         rekey_raw_storage_roots(&mut self.owned_raw_storage_roots, source, target);
         rekey_raw_storage_roots(&mut self.external_raw_storage_roots, source, target);
     }
@@ -234,6 +280,17 @@ impl CellTable {
                 out.set_state(&place, merged);
             }
         }
+        if let Some(first) = paths.first() {
+            for range in &first.initialized_raw_fill_ranges {
+                if paths.iter().skip(1).all(|path| {
+                    path.initialized_raw_fill_ranges
+                        .iter()
+                        .any(|existing| existing == range)
+                }) {
+                    out.initialized_raw_fill_ranges.push(range.clone());
+                }
+            }
+        }
         out
     }
 
@@ -241,6 +298,10 @@ impl CellTable {
         self.cells
             .iter()
             .any(|entry| raw_cell_suffix_after_address(&entry.place, address).is_some())
+            || self
+                .initialized_raw_fill_ranges
+                .iter()
+                .any(|range| raw_addresses_overlap(&range.address, address))
     }
 
     fn raw_cell_place_is_untracked_external(&self, place: &Place) -> bool {
@@ -353,6 +414,38 @@ fn raw_cell_state_has_live_non_copy_obligation(entry: &CellStateEntry, types: &T
     }
 }
 
+fn raw_fill_range_initializes_cell(
+    range: &InitializedRawFillRange,
+    cell: &Place,
+    types: &TypeCtx,
+) -> bool {
+    types.same_type(range.ty, cell.ty)
+        && raw_cell_exact_offset_after_address(cell, &range.address)
+            .is_some_and(|offset| raw_fill_unit_contains_offset(range.unit, range.count, offset))
+}
+
+fn raw_fill_unit_contains_offset(unit: RawMemoryFillUnit, count: i32, offset: usize) -> bool {
+    let Ok(count) = usize::try_from(count) else {
+        return false;
+    };
+    match unit {
+        RawMemoryFillUnit::Byte => offset < count,
+        RawMemoryFillUnit::I32 => offset % 4 == 0 && offset / 4 < count,
+        RawMemoryFillUnit::Unknown => false,
+    }
+}
+
+fn raw_cell_exact_offset_after_address(cell: &Place, address: &Place) -> Option<usize> {
+    let suffix = raw_cell_suffix_after_address(cell, address)?;
+    match suffix.as_slice() {
+        [PlaceProjection::Deref] => Some(0),
+        [PlaceProjection::StorageOffset(ResourceOffset::Exact(offset)), PlaceProjection::Deref] => {
+            Some(*offset)
+        }
+        _ => None,
+    }
+}
+
 pub(super) fn raw_cell_suffix_after_address(
     cell: &Place,
     address: &Place,
@@ -438,6 +531,43 @@ fn rekey_raw_storage_roots(roots: &mut Vec<Place>, source: &Place, target: &Plac
     });
     for place in relocated {
         push_unique_place(roots, &place);
+    }
+}
+
+fn rekey_raw_fill_ranges(
+    ranges: &mut Vec<InitializedRawFillRange>,
+    source: &Place,
+    target: &Place,
+) {
+    let mut relocated = Vec::new();
+    ranges.retain(|range| {
+        if !raw_addresses_overlap(&range.address, source) {
+            return true;
+        }
+        if let Some(suffix) = place_suffix_after_address_prefix(&range.address, source) {
+            relocated.push(InitializedRawFillRange {
+                address: place_with_suffix(target, &suffix, range.address.ty),
+                unit: range.unit,
+                count: range.count,
+                ty: range.ty,
+            });
+            return false;
+        }
+        if raw_address_covers(&range.address, source) {
+            relocated.push(InitializedRawFillRange {
+                address: target.clone(),
+                unit: range.unit,
+                count: range.count,
+                ty: range.ty,
+            });
+            return true;
+        }
+        true
+    });
+    for range in relocated {
+        if !ranges.iter().any(|existing| existing == &range) {
+            ranges.push(range);
+        }
     }
 }
 

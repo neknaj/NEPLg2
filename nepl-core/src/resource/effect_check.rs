@@ -534,7 +534,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                     }
                 }
             }
-            RawMemoryOp::Fill => {
+            RawMemoryOp::Fill { .. } => {
                 if let Some(ptr) = args.first() {
                     raw_memory_identities.clear(pointer_aliases, ptr);
                 }

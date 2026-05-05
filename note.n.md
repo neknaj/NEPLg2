@@ -1,3 +1,28 @@
+# 2026-05-05 メモ (ISS-20260505T092815045Z fill initialized range facts)
+
+- [原因]:
+  - `ResourceOffset` の exact/dynamic 分離後も `RawMemoryOp::Fill` は initialized Copy cell を dynamic-offset cell としてだけ記録していた。
+  - dynamic initialized fact を exact offset load の証明に戻すと、unknown offset load/store の false negative を再導入するため、`load_i32 add p 0` や checked `fill_i32 p_i32 4 7` の `Result::Ok` 後の `load_i32 p_i32` は別の range fact で証明する必要があった。
+  - `cleanup_raw = mem_ptr_addr p_u8` のような別 local を先に作ると raw alias の canonical が変わり、fill range を 1 つの canonical place だけに記録する実装では `p_i32.raw` 側の exact load に届かなかった。
+- [対応]:
+  - `RawMemoryOp::Fill` を `RawMemoryFillUnit` 付きにし、`memset_u8` / `fill_u8` は byte fill、`fill_i32` は i32 stride fill として扱うようにした。
+  - `CellTable` に known-count fill range fact を追加し、exact raw load が range 内かつ型一致する場合だけ initialized とみなすようにした。
+  - checked MemPtr wrapper の `Result::Ok` gated summary に fill range を伝播し、caller 側の literal count と raw alias set から range fact を materialize するようにした。
+  - fill range は current raw address aliases 全体へ記録し、`cleanup_raw` と `p_i32.raw` のような同一 storage view 間で initialized proof が途切れないようにした。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`
+  - `cargo check -p nepl-core --tests`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_raw_fill -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_allows_region_ptr_rewrap_view_dealloc -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_unknown_offset_load_does_not_clear_all_exact_cells -- --nocapture`
+  - `trunk build`
+  - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 8 --dist web/dist`
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-fill-range-agent1-after.json -j 1 --dist web/dist`: 12 total / 12 passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 80 --dist web/dist`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 4 の initialized cell check と Stage 5 の unsafe memory boundary を弱めず、fill の initialized proof を typed range fact として分離した。
+
 # 2026-05-05 メモ (ISS-20260505T091240393Z memory_safety doctest effect boundary)
 
 - [原因]:

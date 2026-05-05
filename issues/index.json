@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T09:18:36.860Z",
+  "generated_at": "2026-05-05T09:43:18.033Z",
   "counts": {
-    "total": 518,
-    "open": 15,
-    "resolved": 503,
+    "total": 520,
+    "open": 16,
+    "resolved": 504,
     "by_area": {
       "core": {
-        "total": 221,
+        "total": 222,
         "open": 7,
-        "resolved": 214
+        "resolved": 215
       },
       "stdlib": {
         "total": 157,
@@ -17,8 +17,8 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 35,
-        "open": 2,
+        "total": 36,
+        "open": 3,
         "resolved": 33
       },
       "selfhost": {
@@ -278,6 +278,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58.md"
+    },
+    {
+      "id": "ISS-20260505T094232444Z-MEM-FILL-DOCTESTS-STILL-CALL-RAW-FIL-C8F2D305",
+      "title": "mem_fill doctests still call raw fill helpers from pure main",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "tests/stdlib/mem_fill.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T094232444Z-MEM-FILL-DOCTESTS-STILL-CALL-RAW-FIL-C8F2D305.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -3473,6 +3488,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T085105899Z-UNSAFEMEMORYINPUREFUNCTION-REMAINS-S-6CAE4543.md"
+    },
+    {
+      "id": "ISS-20260505T092815045Z-RESOURCE-IR-FILL-INITIALIZATION-COLL-22447391",
+      "title": "Resource IR fill initialization collapses range facts to dynamic cells",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/cell_state.rs, nepl-core/src/resource/initialized_summary.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T092815045Z-RESOURCE-IR-FILL-INITIALIZATION-COLL-22447391.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

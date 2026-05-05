@@ -848,7 +848,7 @@ fn should_lower_raw_memory_call(
         | RawMemoryOp::Store
         | RawMemoryOp::Dealloc
         | RawMemoryOp::Realloc
-        | RawMemoryOp::Fill
+        | RawMemoryOp::Fill { .. }
         | RawMemoryOp::BulkCopy
         | RawMemoryOp::BulkMove => args
             .first()
