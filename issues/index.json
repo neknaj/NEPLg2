@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:53:15.311Z",
+  "generated_at": "2026-05-05T08:00:14.500Z",
   "counts": {
-    "total": 512,
+    "total": 513,
     "open": 14,
-    "resolved": 498,
+    "resolved": 499,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 33,
+        "total": 34,
         "open": 2,
-        "resolved": 31
+        "resolved": 32
       },
       "selfhost": {
         "total": 45,
@@ -243,7 +243,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-04-30",
+      "updated": "2026-05-05",
       "target": "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl",
       "legacy_id": "",
       "source": "",
@@ -5798,6 +5798,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T075155817Z-STRING-STARTS-WITH-AT-DOCTEST-OMITS--311F2ECA.md"
+    },
+    {
+      "id": "ISS-20260505T075515489Z-ALLOC-STRING-SEARCH-AND-BOOL-DOCTEST-29C0BAB3",
+      "title": "alloc string search and bool doctests omit stdout assertion reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T075515489Z-ALLOC-STRING-SEARCH-AND-BOOL-DOCTEST-29C0BAB3.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

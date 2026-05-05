@@ -1,3 +1,23 @@
+# 2026-05-05 メモ (ISS-20260505T075515489Z alloc string search/bool stdout report)
+
+- [原因]:
+  - `stdlib/alloc/string.nepl::doctest#5` / `#7` / `#10` が `str_find`、`to_bool`、`find` の成功条件を `std/test` checks で確認していたが、`checks_exit_code` だけを返していた。
+  - stdout report が空のため、文字列探索や bool 解析の assertion report format を runner 間で比較できなかった。
+- [修正]:
+  - 対象 doctest に `exit_code: 0` と `stdout: mlstr:` を追加した。
+  - `checks_print_report` を通して、4件 / 2件 / 6件の assertion report を fixture として固定した。
+  - `str_find` / `to_bool` / `find` の実装本体は変更していない。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 5 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 7 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 10 --dist web/dist`: passed
+- [issue]:
+  - `ISS-20260505T075515489Z-ALLOC-STRING-SEARCH-AND-BOOL-DOCTEST-29C0BAB3` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に alloc string search/bool 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - string search / bool parsing doctest の成功観測を stdout report と `exit_code:` に揃えた。
+
 # 2026-05-05 メモ (ISS-20260505T075155817Z string starts-with-at stdout report)
 
 - [原因]:

@@ -1893,6 +1893,13 @@ fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
 //: - n を `s` の byte 長、m を `pat` の byte 長として O(n * m) です。
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok,ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
+//:     ##: [2] ok
+//:     ##: [3] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -1905,7 +1912,8 @@ fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
 //:         |> checks_push check_eq_i32 0 str_find "abc" ""
 //:         |> checks_push check_eq_i32 -1 str_find "abc" "z"
 //:         |> checks_push check_eq_i32 -1 str_find "ab" "abc"
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 fn str_find <(str,str)->i32> (s, pat):
     let s_len <i32> len s
@@ -2147,6 +2155,11 @@ fn from_bool <(bool)->str> (b):
 //: - O(n)
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -2165,7 +2178,8 @@ fn from_bool <(bool)->str> (b):
 //:             checks_push checks1 assert_eq_i32 0 cast v
 //:         Result::Err _:
 //:             checks_push checks1 assert_eq_i32 1 0
-//:     checks_exit_code checks2
+//:     let shown checks_print_report checks2
+//:     checks_exit_code shown
 //: ```
 fn to_bool <(str)->Result<bool,i32>> (s):
     if:
@@ -3623,6 +3637,15 @@ fn to_f32 <(str)->Result<f32,i32>> (s):
 //: - n を `s` の byte 長、m を `pat` の byte 長として O((n - m + 1) * m) です。
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok,ok,ok,ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
+//:     ##: [2] ok
+//:     ##: [3] ok
+//:     ##: [4] ok
+//:     ##: [5] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -3645,7 +3668,8 @@ fn to_f32 <(str)->Result<f32,i32>> (s):
 //:         |> checks_push expect_find_some "suffix" find "abc" "bc" 1
 //:         |> checks_push assert is_none<i32> find "abc" "z"
 //:         |> checks_push assert is_none<i32> find "ab" "abc"
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 fn find <(str,str)->Option<i32>> (s, pat):
     let s_len <i32> len s;

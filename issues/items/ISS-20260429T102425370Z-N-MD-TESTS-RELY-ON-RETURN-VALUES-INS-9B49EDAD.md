@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-04-30
+updated: 2026-05-05
 target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl"
 ---
 
@@ -218,6 +218,18 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 `tests/stdlib/selfhost_cli_driver.n.md` にも同種の `ret:` / report 省略が残っているため、`ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58` として分離した。
 
 この fixture は移行試作後の focused run が 3 件とも 60 秒 timeout し、個別 `run_doctest -n 1` も `NEPL_TEST_CASE_TIMEOUT_MS=180000` で shell 240 秒 timeout になった。未検証の fixture 変更は commit せず、先に selfhost driver fixture の粒度または compile/static-check cost を切り分ける。
+
+## 2026-05-05 alloc string search/bool report migration
+
+`ISS-20260505T075515489Z-ALLOC-STRING-SEARCH-AND-BOOL-DOCTEST-29C0BAB3` で、`stdlib/alloc/string.nepl` の `str_find` / `to_bool` / `find` doc-comment doctest を stdout assertion report + `exit_code: 0` へ移行した。
+
+対象 3 件はいずれも `std/test` の checks を構築していたが、`checks_exit_code` だけで成功を表していたため、string search と bool parsing の成功時 assertion report を runner 間で比較できなかった。今回の対応では `checks_print_report` を追加し、4件 / 2件 / 6件の assertion report を fixture として固定した。
+
+検証:
+
+- `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 5 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 7 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 10 --dist web/dist`: passed
 
 ## 2026-05-05 traits text report migration
 
