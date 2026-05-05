@@ -13,6 +13,8 @@ const writeRelPath = 'stdlib/std/stdio/write.nepl';
 const writeSrc = fs.readFileSync(path.join(repoRoot, writeRelPath), 'utf8');
 const readRelPath = 'stdlib/std/stdio/read.nepl';
 const readSrc = fs.readFileSync(path.join(repoRoot, readRelPath), 'utf8');
+const readBufferRelPath = 'stdlib/std/stdio/read/buffer.nepl';
+const readBufferSrc = fs.readFileSync(path.join(repoRoot, readBufferRelPath), 'utf8');
 
 const code = src
     .split(/\r?\n/)
@@ -27,6 +29,10 @@ const writeCode = writeSrc
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
 const readCode = readSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const readBufferCode = readBufferSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
@@ -86,6 +92,19 @@ for (const helper of [
 for (const helper of [
     'stdio_fd_read_into_result',
     'stdio_finish_read_buffer',
+]) {
+    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay below stdio/read`);
+    assert.doesNotMatch(readCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/read/buffer`);
+    assert.match(readBufferCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/read/buffer`);
+}
+
+assert.match(
+    readCode,
+    /#import\s+"std\/stdio\/read\/buffer"\s+as\s+\*/,
+    'std/stdio/read must depend on read/buffer boundary helpers',
+);
+
+for (const helper of [
     'stdio_read_all_bytes_result',
     'stdio_read_all_text_result',
     'read_all',

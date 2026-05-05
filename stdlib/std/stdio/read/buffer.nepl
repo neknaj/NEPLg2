@@ -1,0 +1,124 @@
+//: # std/stdio/read/buffer
+//: stdin read の raw scratch 境界と ByteBuf 所有権詰め直し helper
+//:
+//: ### 目的
+//: - `fd_read` が要求する iovec/nread scratch と、capacity 付き buffer の exact-size 所有権化を `std/stdio/read` 本体から分離します。
+//: - read loop 側が raw ABI layout を直接組み立てず、検証済み helper へ委譲できるようにします。
+//:
+//: ### 注意
+//: - この module は `std/stdio/raw` に近い境界層です。通常の利用者は `std/stdio/read` か `std/stdio` の public API を使います。
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "std/stdio/raw" as *
+
+//: stdio_fd_read_into_result: WASI fd_read の iov/nread scratch を安全な境界へ閉じ込める
+//:
+//: [目的/もくてき]:
+//: - `fd_read` の ABI が要求する iovec と nread の raw memory layout を stdio 内部へ閉じ込め、呼び出し側には「読めた byte 数」だけを返します。
+//:
+//: [実装/じっそう]:
+//: - caller が所有する `iov` 8 byte と `nread` 4 byte を、この関数内で初期化してから `fd_read` を呼びます。
+//: - `nread` は同じ関数内で `0` に初期化したうえで読み戻すため、任意 pointer を読む汎用 helper を作らず ResourceIR の初期化追跡に沿わせます。
+//:
+//: [注意/ちゅうい]:
+//: - `iov` は 8 byte、`nread` は 4 byte の有効領域である必要があります。
+//: - `data_len > 0` の場合、`data` は `data_len` byte 以上の有効領域を指している必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32, StdErrorKind>> (fd, iov, nread, data, data_len):
+    if:
+        lt data_len 0
+        then:
+            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            if:
+                eq data_len 0
+                then:
+                    Result<i32, StdErrorKind>::Ok 0
+                else:
+                    let iov_raw <i32> mem_ptr_addr iov
+                    let nread_raw <i32> mem_ptr_addr nread
+                    let data_raw <i32> mem_ptr_addr data
+                    if:
+                        or or le iov_raw 0 le nread_raw 0 le data_raw 0
+                        then:
+                            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                        else:
+                            store_i32 iov_raw data_raw
+                            store_i32 add iov_raw 4 data_len
+                            store_i32 nread_raw 0
+                            let errno <i32> stdio_fd_read_mem fd iov 1 nread
+                            if:
+                                ne errno 0
+                                then:
+                                    Result<i32, StdErrorKind>::Err StdErrorKind::IoError
+                                else:
+                                    Result<i32, StdErrorKind>::Ok load_i32 nread_raw
+
+//: stdio_finish_read_buffer: capacity 付き読込 buffer を ByteBuf の所有権 invariant へ詰め直す
+//:
+//: [目的/もくてき]:
+//: - `alloc_ptr` / `realloc_ptr` で確保した一時読込 buffer を、`ByteBuf.ptr` が `ByteBuf.len` byte の所有領域を指す形へ戻します。
+//:
+//: [実装/じっそう]:
+//: - 読込長が 0 の場合は元 buffer を解放し、空 `ByteBuf` を返します。
+//: - 読込長が capacity 未満の場合は exact-size に shrink してから `ByteBuf` にします。
+//:
+//: [注意/ちゅうい]:
+//: - 成功時は返った `ByteBuf` が buffer を所有します。
+//: - 失敗時はこの関数が元 buffer を解放します。
+//:
+//: [計算量/けいさんりょう]:
+//: - allocator の shrink に依存します。copy が発生する場合は O(data_len) です。
+fn stdio_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf, StdErrorKind>> (buf, cap, data_len):
+    if:
+        or or lt cap 0 lt data_len 0 gt data_len cap
+        then:
+            if:
+                gt cap 0
+                then:
+                    match dealloc_ptr<u8> buf cap:
+                        Result::Ok _:
+                            ()
+                        Result::Err _e:
+                            ()
+                else:
+                    ()
+            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            if:
+                eq data_len 0
+                then:
+                    if:
+                        gt cap 0
+                        then:
+                            match dealloc_ptr<u8> buf cap:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _e:
+                                    ()
+                        else:
+                            ()
+                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
+                else:
+                    if:
+                        eq data_len cap
+                        then:
+                            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr buf data_len
+                        else:
+                            match realloc_ptr<u8> buf cap data_len:
+                                Result::Ok exact:
+                                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr exact data_len
+                                Result::Err _e:
+                                    match dealloc_ptr<u8> buf cap:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _e2:
+                                            ()
+                                    Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
