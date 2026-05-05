@@ -1,3 +1,25 @@
+# 2026-05-05 メモ (ISS-20260505T082325239Z ResourceOffset exact/dynamic enum)
+
+- [原因]:
+  - Resource IR の storage offset が `ResourceOffset { bytes: Option<usize> }` で、exact offset と dynamic offset の意味が `Some` / `None` に埋もれていた。
+  - range cleanup 実装では unknown/dynamic offset を exact cell fact や全 range cleanup fact と混同しないことが重要なので、`Option` の慣習に依存する表現は静的検査の土台として弱い。
+- [対応]:
+  - `ResourceOffset` を `Exact(usize)` / `Dynamic` の enum に変更した。
+  - alias 判定、dump、raw address lowering、condition lowering、external I/O iov helper、Resource IR test fixture を enum variant に移行した。
+  - dynamic offset は保守的に exact/dynamic と alias し得る扱いを維持し、検査は弱めていない。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`
+  - `cargo check -p nepl-core --tests`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_summary_rejects_unproven_unknown_offset_non_copy_raw_load -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_mem_ptr_disjoint_offsets -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_region_ptr_at_unknown_offset_rejects_dealloc_over_live_cell -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_pwrite_initializes_nwritten_not_offset -- --nocapture`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `ISS-20260505T045316820Z-RESOURCE-IR-VEC-RANGE-CLEANUP-9A95DB6F` の本体である loop/callback 全 range cleanup 証明は未解決で、今回の enum 化はその前提整備。
+
 # 2026-05-05 メモ (ISS-20260505T081814569Z selfhost CLI driver codegen timeout)
 
 - [原因調査]:

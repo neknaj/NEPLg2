@@ -62,3 +62,12 @@ exact offset 修正後の追加監査で、parameter-derived unknown offset addr
 - 修正済み: unknown offset の non-Copy raw load は、range cleanup 完了とは扱わず `RawMemoryLoadCell` precondition として caller へ伝播する。
 - 修正済み: caller が該当 unknown cell の initialized 状態を証明できない場合、`CellUnavailable` として拒否する。
 - 未解決: loop/callback により `[0, len)` の全要素が moved/dropped 済みであることを表す range summary は未実装のままで、この issue の本体として残す。
+
+## 2026-05-05 ResourceOffset exact/dynamic enum 化
+
+range cleanup の本体に入る前提として、storage offset の表現が `ResourceOffset { bytes: Option<usize> }` のままでは exact offset と dynamic offset の分岐が call site ごとの `Option` 慣習に依存していた。これは unknown offset を exact cell fact や range fact へ誤って混ぜる温床になるため、`ISS-20260505T082325239Z-RESOURCEOFFSET-USES-OPTION-INSTEAD-O-84C0E554` として分離して修正した。
+
+- 修正済み: `ResourceOffset` を `Exact(usize)` / `Dynamic` の enum へ変更した。
+- 修正済み: alias 判定では exact 同士は byte が一致した場合だけ同一、dynamic は保守的に exact/dynamic 双方と alias し得る扱いを維持した。
+- 修正済み: lowering / dump / external I/O iov helper / Resource IR tests を enum variant へ移行した。
+- 未解決: `[0, len)` の全 range cleanup を表す state と、loop/callback の全要素訪問証明は引き続きこの issue の本体として残す。

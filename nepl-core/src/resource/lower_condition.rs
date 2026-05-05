@@ -74,14 +74,16 @@ pub(super) fn place_from_expr_skeleton(expr: &HirExpr, ctx: &LoweringContext) ->
             if matches!(&source.root, PlaceRoot::Unknown) {
                 return Place::unknown(expr.ty);
             }
-            let bytes = args.get(1).and_then(|offset| match &offset.kind {
-                HirExprKind::LiteralI32(value) if *value >= 0 => Some(*value as usize),
-                _ => None,
-            });
-            source.with_projection(
-                PlaceProjection::StorageOffset(ResourceOffset { bytes }),
-                expr.ty,
-            )
+            let offset = match args.get(1) {
+                Some(offset) => match &offset.kind {
+                    HirExprKind::LiteralI32(value) if *value >= 0 => {
+                        ResourceOffset::Exact(*value as usize)
+                    }
+                    _ => ResourceOffset::Dynamic,
+                },
+                None => ResourceOffset::Dynamic,
+            };
+            source.with_projection(PlaceProjection::StorageOffset(offset), expr.ty)
         }
         _ => Place::unknown(expr.ty),
     }

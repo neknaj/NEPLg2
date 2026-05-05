@@ -207,7 +207,7 @@ fn iov_buffer_pointer_cells(
 fn iov_buffer_cell_suffix_offset(suffix: &[PlaceProjection]) -> Option<usize> {
     match suffix {
         [PlaceProjection::Deref] => Some(0),
-        [PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(bytes) }), PlaceProjection::Deref]
+        [PlaceProjection::StorageOffset(ResourceOffset::Exact(bytes)), PlaceProjection::Deref]
             if bytes % 8 == 0 =>
         {
             Some(*bytes)
@@ -237,17 +237,13 @@ fn add_static_offset(place: &mut Place, bytes: usize) {
         return;
     }
     match place.projections.last_mut() {
-        Some(PlaceProjection::StorageOffset(ResourceOffset {
-            bytes: Some(existing),
-        })) => {
+        Some(PlaceProjection::StorageOffset(ResourceOffset::Exact(existing))) => {
             *existing = existing.saturating_add(bytes);
         }
-        Some(PlaceProjection::StorageOffset(ResourceOffset { bytes: None })) => {}
+        Some(PlaceProjection::StorageOffset(ResourceOffset::Dynamic)) => {}
         _ => place
             .projections
-            .push(PlaceProjection::StorageOffset(ResourceOffset {
-                bytes: Some(bytes),
-            })),
+            .push(PlaceProjection::StorageOffset(ResourceOffset::Exact(bytes))),
     }
 }
 

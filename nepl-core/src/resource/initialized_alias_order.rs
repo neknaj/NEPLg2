@@ -4,7 +4,7 @@ use core::cmp::Ordering;
 
 use alloc::vec::Vec;
 
-use super::model::{Place, PlaceProjection, PlaceRoot};
+use super::model::{Place, PlaceProjection, PlaceRoot, ResourceOffset};
 use super::place_utils::place_suffix_after_prefix;
 
 pub(super) fn prefer_stable_canonical(group: &mut Vec<Place>) {
@@ -156,19 +156,19 @@ fn projection_order(left: &PlaceProjection, right: &PlaceProjection) -> Ordering
             PlaceProjection::EnumPayload { variant: right },
         ) => left.cmp(right),
         (PlaceProjection::StorageOffset(left), PlaceProjection::StorageOffset(right)) => {
-            storage_offset_order(left.bytes, right.bytes)
+            storage_offset_order(*left, *right)
         }
         (PlaceProjection::Deref, PlaceProjection::Deref) => Ordering::Equal,
         _ => projection_kind_rank(left).cmp(&projection_kind_rank(right)),
     }
 }
 
-fn storage_offset_order(left: Option<usize>, right: Option<usize>) -> Ordering {
+fn storage_offset_order(left: ResourceOffset, right: ResourceOffset) -> Ordering {
     match (left, right) {
-        (None, None) => Ordering::Equal,
-        (None, Some(_)) => Ordering::Less,
-        (Some(_), None) => Ordering::Greater,
-        (Some(left), Some(right)) => left.cmp(&right),
+        (ResourceOffset::Dynamic, ResourceOffset::Dynamic) => Ordering::Equal,
+        (ResourceOffset::Dynamic, ResourceOffset::Exact(_)) => Ordering::Less,
+        (ResourceOffset::Exact(_), ResourceOffset::Dynamic) => Ordering::Greater,
+        (ResourceOffset::Exact(left), ResourceOffset::Exact(right)) => left.cmp(&right),
     }
 }
 

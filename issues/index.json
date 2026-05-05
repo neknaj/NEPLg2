@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T08:20:04.481Z",
+  "generated_at": "2026-05-05T08:31:41.679Z",
   "counts": {
-    "total": 514,
+    "total": 515,
     "open": 15,
-    "resolved": 499,
+    "resolved": 500,
     "by_area": {
       "core": {
-        "total": 218,
+        "total": 219,
         "open": 7,
-        "resolved": 211
+        "resolved": 212
       },
       "stdlib": {
         "total": 157,
@@ -3428,6 +3428,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T063836309Z-RESOURCE-IR-SUMMARIES-OMIT-UNKNOWN-O-4B002380.md"
+    },
+    {
+      "id": "ISS-20260505T082325239Z-RESOURCEOFFSET-USES-OPTION-INSTEAD-O-84C0E554",
+      "title": "ResourceOffset uses Option instead of exact/dynamic enum",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/model.rs,nepl-core/src/resource/**,nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T082325239Z-RESOURCEOFFSET-USES-OPTION-INSTEAD-O-84C0E554.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

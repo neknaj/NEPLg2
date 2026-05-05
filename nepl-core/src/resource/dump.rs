@@ -521,9 +521,9 @@ fn dump_projection(projection: &PlaceProjection) -> String {
         } => format!(".tuple{}@{}", index, offset_bytes),
         PlaceProjection::EnumPayload { variant } => format!(".payload({})", variant),
         PlaceProjection::Deref => String::from(".*"),
-        PlaceProjection::StorageOffset(offset) => match offset.bytes {
-            Some(bytes) => format!("[+{}]", bytes),
-            None => String::from("[+?]"),
+        PlaceProjection::StorageOffset(offset) => match offset {
+            super::model::ResourceOffset::Exact(bytes) => format!("[+{}]", bytes),
+            super::model::ResourceOffset::Dynamic => String::from("[+?]"),
         },
     }
 }

@@ -398,7 +398,7 @@ fn place_suffix_after_address_prefix(
         }
         if matches!(
             prefix_projection,
-            PlaceProjection::StorageOffset(super::model::ResourceOffset { bytes: None })
+            PlaceProjection::StorageOffset(super::model::ResourceOffset::Dynamic)
         ) {
             if matches!(
                 place.projections.get(place_index),
@@ -426,16 +426,30 @@ fn place_suffix_after_address_prefix(
 fn storage_offset_is_zero(projection: &PlaceProjection) -> bool {
     matches!(
         projection,
-        PlaceProjection::StorageOffset(super::model::ResourceOffset { bytes: Some(0) })
+        PlaceProjection::StorageOffset(super::model::ResourceOffset::Exact(0))
     )
 }
 
 fn address_projection_matches(place: &PlaceProjection, prefix: &PlaceProjection) -> bool {
     match (place, prefix) {
         (PlaceProjection::StorageOffset(left), PlaceProjection::StorageOffset(right)) => {
-            left.bytes == right.bytes || left.bytes.is_none() || right.bytes.is_none()
+            storage_offsets_may_alias(*left, *right)
         }
         _ => place == prefix,
+    }
+}
+
+fn storage_offsets_may_alias(
+    left: super::model::ResourceOffset,
+    right: super::model::ResourceOffset,
+) -> bool {
+    match (left, right) {
+        (super::model::ResourceOffset::Exact(left), super::model::ResourceOffset::Exact(right)) => {
+            left == right
+        }
+        (super::model::ResourceOffset::Dynamic, _) | (_, super::model::ResourceOffset::Dynamic) => {
+            true
+        }
     }
 }
 

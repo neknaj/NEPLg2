@@ -321,8 +321,9 @@ pub enum PlaceProjection {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ResourceOffset {
-    pub bytes: Option<usize>,
+pub enum ResourceOffset {
+    Exact(usize),
+    Dynamic,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

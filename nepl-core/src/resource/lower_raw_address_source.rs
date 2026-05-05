@@ -23,21 +23,21 @@ impl RawAddressSource {
         let place = match self.offset {
             RawAddressOffset::Known(0) if !self.explicit_offset => self.base,
             RawAddressOffset::Known(0) => self.base.with_projection(
-                PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(0) }),
+                PlaceProjection::StorageOffset(ResourceOffset::Exact(0)),
                 raw_ty,
             ),
             RawAddressOffset::Known(bytes) if bytes > 0 => match usize::try_from(bytes) {
                 Ok(bytes) => self.base.with_projection(
-                    PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(bytes) }),
+                    PlaceProjection::StorageOffset(ResourceOffset::Exact(bytes)),
                     raw_ty,
                 ),
                 Err(_) => self.base.with_projection(
-                    PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+                    PlaceProjection::StorageOffset(ResourceOffset::Dynamic),
                     raw_ty,
                 ),
             },
             RawAddressOffset::Known(_) | RawAddressOffset::Unknown => self.base.with_projection(
-                PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+                PlaceProjection::StorageOffset(ResourceOffset::Dynamic),
                 raw_ty,
             ),
         };

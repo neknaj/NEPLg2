@@ -17,7 +17,7 @@ pub(super) fn raw_memory_cell_place(address: &Place, ty: TypeId) -> Place {
 
 pub(super) fn raw_memory_unknown_offset_cell_place(address: &Place, ty: TypeId) -> Place {
     let address = address.clone().with_projection(
-        PlaceProjection::StorageOffset(super::model::ResourceOffset { bytes: None }),
+        PlaceProjection::StorageOffset(super::model::ResourceOffset::Dynamic),
         ty,
     );
     raw_memory_cell_place(&address, ty)

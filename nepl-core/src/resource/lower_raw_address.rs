@@ -60,13 +60,13 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 Some(0) => {}
                 Some(bytes) => {
                     raw = raw.with_projection(
-                        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(bytes) }),
+                        PlaceProjection::StorageOffset(ResourceOffset::Exact(bytes)),
                         env.types.i32(),
                     );
                 }
                 None => {
                     raw = raw.with_projection(
-                        PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+                        PlaceProjection::StorageOffset(ResourceOffset::Dynamic),
                         env.types.i32(),
                     );
                 }
