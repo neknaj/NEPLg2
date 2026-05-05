@@ -218,3 +218,13 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 `tests/stdlib/selfhost_cli_driver.n.md` にも同種の `ret:` / report 省略が残っているため、`ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58` として分離した。
 
 この fixture は移行試作後の focused run が 3 件とも 60 秒 timeout し、個別 `run_doctest -n 1` も `NEPL_TEST_CASE_TIMEOUT_MS=180000` で shell 240 秒 timeout になった。未検証の fixture 変更は commit せず、先に selfhost driver fixture の粒度または compile/static-check cost を切り分ける。
+
+## 2026-05-05 traits text report migration
+
+`ISS-20260505T070805638Z-TRAITS-TEXT-DOCTESTS-OMIT-STDOUT-ASS-9750B823` で、`tests/stdlib/traits_text.n.md` の std target assertion doctest 2 件を stdout assertion report + `exit_code: 0` へ移行した。
+
+先頭の `clone_add` は core target の言語戻り値 `14` を検証する test なので `ret:` を維持した。`Stringify` / `Debug` の表示契約は `Checked [...]` stdout report として固定した。
+
+検証:
+
+- `node nodesrc/tests.js -i tests/stdlib/traits_text.n.md --no-tree -o tmp/traits-text-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3

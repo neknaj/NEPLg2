@@ -1,3 +1,20 @@
+# 2026-05-05 メモ (ISS-20260505T070805638Z traits_text stdout report)
+
+- [原因]:
+  - `tests/stdlib/traits_text.n.md` の `stringify` / `debug_string` doctest が `std/test` checks を作る一方で `checks_print_report` を呼ばず、`ret: 0` だけで assertion 成功を表していた。
+  - 先頭の `clone_add` doctest は `#target core` で `main` の戻り値 `14` を検証する言語戻り値 test なので、stdout report 移行対象ではない。
+- [修正]:
+  - std target の 2 doctest を `checks_print_report` + stdout fixture + `exit_code: 0` へ移行した。
+  - core target の戻り値検証は `ret: 14` のまま維持した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/traits_text.n.md --no-tree -o tmp/traits-text-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3
+- [issue]:
+  - `ISS-20260505T070805638Z-TRAITS-TEXT-DOCTESTS-OMIT-STDOUT-ASS-9750B823` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に traits_text 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - core 戻り値 test と std assertion report test の責務を分けた。
+
 # 2026-05-05 メモ (ISS-20260505T065610900Z selfhost CLI driver report blocker)
 
 - [原因]:

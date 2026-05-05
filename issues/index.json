@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:06:49.061Z",
+  "generated_at": "2026-05-05T07:09:49.611Z",
   "counts": {
-    "total": 500,
+    "total": 501,
     "open": 14,
-    "resolved": 486,
+    "resolved": 487,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 21,
+        "total": 22,
         "open": 2,
-        "resolved": 19
+        "resolved": 20
       },
       "selfhost": {
         "total": 45,
@@ -5618,6 +5618,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T065154326Z-SELFHOST-CLI-REPORTER-DOCTESTS-OMIT--BEB95AC0.md"
+    },
+    {
+      "id": "ISS-20260505T070805638Z-TRAITS-TEXT-DOCTESTS-OMIT-STDOUT-ASS-9750B823",
+      "title": "traits text doctests omit stdout assertion reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "tests/stdlib/traits_text.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T070805638Z-TRAITS-TEXT-DOCTESTS-OMIT-STDOUT-ASS-9750B823.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

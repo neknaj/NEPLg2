@@ -40,7 +40,12 @@ fn main <()->i32> ():
 ## stringify は[利用者向/りようしゃむ]け[文字列表現/もじれつひょうげん]を[返/かえ]す
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
 ```neplg2
 #entry main
 #target std
@@ -56,13 +61,18 @@ fn main <()*>i32> ():
         |> checks_push assert_str_eq "42" stringify 42
         |> checks_push assert_str_eq "true" stringify true
         |> checks_push assert_str_eq "9" stringify n
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
 
 ## debug_string は `str` を[区別/くべつ]できる[形/かたち]で[表示/ひょうじ]する
 
 neplg2:test
-ret: 0
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok]
+    ##: [0] ok
+    ##: [1] ok
 ```neplg2
 #entry main
 #target std
@@ -75,5 +85,6 @@ fn main <()*>i32> ():
         checks_new
         |> checks_push assert_str_eq "\"abc\"" debug_string "abc"
         |> checks_push assert_str_eq "5" debug_string 5
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```
