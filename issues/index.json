@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T09:07:44.954Z",
+  "generated_at": "2026-05-05T09:18:36.860Z",
   "counts": {
-    "total": 517,
+    "total": 518,
     "open": 15,
-    "resolved": 502,
+    "resolved": 503,
     "by_area": {
       "core": {
         "total": 221,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 34,
+        "total": 35,
         "open": 2,
-        "resolved": 32
+        "resolved": 33
       },
       "selfhost": {
         "total": 45,
@@ -138,7 +138,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-04-30",
+      "updated": "2026-05-05",
       "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md",
       "legacy_id": "",
       "source": "",
@@ -5873,6 +5873,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T075515489Z-ALLOC-STRING-SEARCH-AND-BOOL-DOCTEST-29C0BAB3.md"
+    },
+    {
+      "id": "ISS-20260505T091240393Z-MEMORY-SAFETY-DOCTESTS-STILL-CALL-RA-7A3E26CD",
+      "title": "memory_safety doctests still call raw memory from pure main",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T091240393Z-MEMORY-SAFETY-DOCTESTS-STILL-CALL-RA-7A3E26CD.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

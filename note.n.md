@@ -1,3 +1,26 @@
+# 2026-05-05 メモ (ISS-20260505T091240393Z memory_safety doctest effect boundary)
+
+- [原因]:
+  - `resource.raw.unsafe_memory_boundary` を実エラーへ昇格した後も、`tests/stdlib/memory_safety.n.md` の positive doctest 複数が raw memory wrapper を呼ぶ `main` を pure のままにしていた。
+  - これらの doctest は pure API の検査ではなく、alloc/load/store/fill/RegionToken projection など raw-memory-backed API の安全境界を確認するものなので、effect signature がテスト意図とずれていた。
+  - 一方で compile_fail の型境界テストまで impure 化すると、型検査の失敗が effect 境界の失敗で隠れたかどうかを見分けにくくなるため、対象は positive doctest に限定する必要があった。
+- [対応]:
+  - raw memory wrapper を実行する positive doctest の `main` を `fn main <()*>i32>` に変更した。
+  - compile_fail の型境界テストは pure のまま残した。
+  - focused run で残った `memory_safety.n.md::doctest#8` の `resource.cell.uninit` は、unsafe boundary ではなく `MemPtr<i32>` projection と checked `fill_i32` の initialized range/provenance が caller 側へ伝わらない core Resource IR 残件として `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` に追記した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-agent1-current.json -j 1 --dist web/dist`: 12 total / 5 passed / 7 failed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-agent1-after-impure.json -j 1 --dist web/dist`: 12 total / 11 passed / 1 failed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 1 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 2 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 3 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 4 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 6 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 7 --dist web/dist`: pass
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 5 の unsafe memory boundary を弱めず、テスト側の effect declaration を現在の Resource IR 設計に合わせた。
+
 # 2026-05-05 メモ (ISS-20260505T085105899Z unsafe memory pure boundary)
 
 - [原因]:

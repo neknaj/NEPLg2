@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-04-30
+updated: 2026-05-05
 target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md"
 ---
 
@@ -140,6 +140,18 @@ raw address 由来の byte write 検査だけでは、`MemPtr<i32>` overload の
 - `doctest#8`: `MemPtr<i32>` projection `p_i32.raw` が non-owning pointer と storage owner の両方に見えるため、owner transfer/dealloc の責務境界が不明確なまま leak として残る。
 
 この 3 件は stdlib に追加 cleanup を足して隠す問題ではなく、`MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の分離を完了するまで追跡する。
+
+## 2026-05-05 memory_safety unsafe boundary 後の残件更新
+
+`ISS-20260505T091240393Z-MEMORY-SAFETY-DOCTESTS-STILL-CALL-RA-7A3E26CD` で positive doctest の effect signature を修正した結果、`resource.raw.unsafe_memory_boundary` 起因の失敗は解消した。
+
+その後の `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-agent1-after-impure.json -j 1 --dist web/dist` は 12 total / 11 passed / 1 failed で、残る失敗は `doctest#8` の `resource.cell.uninit` である。
+
+- `p_i32 = mem_ptr_wrap (mem_ptr_addr p_u8)` のような `MemPtr` projection が、同一 storage の typed view として caller-visible な initialized cell fact に接続されていない。
+- checked `fill_i32 p_i32 1 7` は成功時に少なくとも `p_i32` の先頭 cell を初期化するが、現行 Resource IR は dynamic/unknown offset の fill fact と exact offset zero の load fact を安全に対応付ける range proof を持たない。
+- exact cell と dynamic cell を安易に同一視すると unknown offset load/store の false negative になるため、ここでは stdlib fixture をさらに緩めず、Resource IR 側で count/range/provenance を表現する必要がある。
+
+したがって残件は `MemPtr` の wrapper を増やす問題ではなく、`MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の分離と、checked wrapper summary の range-conditioned initialization を統合する設計問題として扱う。
 
 ## 修正方針
 

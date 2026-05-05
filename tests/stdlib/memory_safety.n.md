@@ -12,7 +12,7 @@ ret: 123
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc_ptr<i32> 4:
         Result::Err _e:
             0
@@ -47,7 +47,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/option" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <MemPtr<i32>> mem_ptr_wrap 0
     match load_i32 p:
         Option::None:
@@ -68,7 +68,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <MemPtr<i32>> mem_ptr_wrap 0
     match store_i32 p 42:
         Result::Err _e:
@@ -89,7 +89,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc 8:
         Result::Err _e:
             0
@@ -136,7 +136,7 @@ ret: 321
 #import "core/result" as *
 #import "core/option" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -186,7 +186,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -220,7 +220,7 @@ ret: 1
 #import "core/result" as *
 #import "core/option" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc_region<u8> 16:
         Result::Err _e:
             0
@@ -272,7 +272,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p_u8 <MemPtr<u8>> mem_ptr_wrap 0
     let p_i32 <MemPtr<i32>> mem_ptr_wrap 0
     let a <Result<(),str>> fill_u8 p_u8 4 1
