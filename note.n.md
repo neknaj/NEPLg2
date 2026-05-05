@@ -30287,3 +30287,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - 親 issue は owner/non-owner/type-level 分離全体を追跡するため open のまま維持する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T225243749Z Resource unsafe memory op enum)
+
+- [同期]:
+  - `origin/main` 同期後、`work/resource-unsafe-memory-op-enum` で Stage 5 effect model の enum 化を行った。
+- [原因]:
+  - Resource IR には `RawMemoryOp` enum があったが、`InternalEffect::UnsafeMemory` / `EffectOp::UnsafeMemory` / `UnsafeMemoryInPureFunction` diagnostic は raw operation を `String` で保持していた。
+  - `RawMemoryOp::Other { name: String }` が存在したため、新しい raw memory helper が enum variant 追加なしに通り、match 網羅性による修正漏れ検出が効きにくかった。
+- [修正]:
+  - `RawMemoryOp` を `effects` 側の compiler-wide enum に移し、Resource IR model から再 export した。
+  - `InternalEffect::{InternalAlloc, UnsafeMemory}`、`EffectOp::UnsafeMemory`、`UnsafeMemoryInPureFunction` diagnostic を `RawMemoryOp` 保持へ変更した。
+  - `RawMemoryOp::Other` を削除し、raw helper / intrinsic marker は明示的に `RawMemoryOp` へ mapping される必要がある形にした。
+  - 全 raw memory marker が typed operation へ mapping されることを `effects` test で固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test effects -- --nocapture`: 23 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 155 passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+- [issue]:
+  - `ISS-20260505T225243749Z-RESOURCE-UNSAFE-MEMORY-EFFECTS-KEEP--D20087E5` は fixed。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

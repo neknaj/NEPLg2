@@ -162,8 +162,7 @@ fn propagate_raw_address_alias_op(
             | RawMemoryOp::BulkMove
             | RawMemoryOp::MemorySize
             | RawMemoryOp::MemoryGrow
-            | RawMemoryOp::Fill
-            | RawMemoryOp::Other { .. } => {}
+            | RawMemoryOp::Fill => {}
         },
         ResourceOp::RawAddressAlias { source, target, .. }
         | ResourceOp::RawAddressView { source, target, .. } => {

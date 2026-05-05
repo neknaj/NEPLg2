@@ -2358,7 +2358,7 @@ fn resource_ir_effect_check_reports_unsafe_memory_in_pure_function() {
             function,
             operation,
             ..
-        } if function == "main" && operation == "store"
+        } if function == "main" && *operation == RawMemoryOp::Store
     )));
 }
 
@@ -5055,7 +5055,7 @@ fn resource_ir_cell_check_raw_memory_call_does_not_consume_store_value_twice() {
                 },
                 args: vec![ptr.clone(), value.clone()],
                 effect: EffectOp::UnsafeMemory {
-                    operation: "store".to_string(),
+                    operation: RawMemoryOp::Store,
                 },
                 span,
             },
@@ -6410,7 +6410,7 @@ fn resource_ir_owner_check_lets_direct_raw_memory_op_consume_argument() {
                             },
                             args: vec![p.clone()],
                             effect: EffectOp::UnsafeMemory {
-                                operation: "dealloc_raw".to_string(),
+                                operation: RawMemoryOp::Dealloc,
                             },
                             span,
                         },

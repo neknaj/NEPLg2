@@ -5,6 +5,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
+pub use crate::effects::RawMemoryOp;
 use crate::span::Span;
 use crate::types::TypeId;
 
@@ -197,21 +198,6 @@ pub enum ResourceExprKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RawMemoryOp {
-    Alloc,
-    Dealloc,
-    Realloc,
-    Load,
-    Store,
-    BulkCopy,
-    BulkMove,
-    MemorySize,
-    MemoryGrow,
-    Fill,
-    Other { name: String },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResourceCallTarget {
     Builtin {
         name: String,
@@ -337,7 +323,7 @@ pub enum EffectOp {
     UserCall { name: String, effect: Effect },
     IndirectCall { effect: Effect },
     InternalAlloc,
-    UnsafeMemory { operation: String },
+    UnsafeMemory { operation: RawMemoryOp },
     ExternalIo { operation: String },
     Nondet { operation: String },
     Unknown { reason: String },

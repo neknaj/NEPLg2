@@ -539,10 +539,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                     raw_memory_identities.clear(pointer_aliases, ptr);
                 }
             }
-            RawMemoryOp::Alloc
-            | RawMemoryOp::MemorySize
-            | RawMemoryOp::MemoryGrow
-            | RawMemoryOp::Other { .. } => {}
+            RawMemoryOp::Alloc | RawMemoryOp::MemorySize | RawMemoryOp::MemoryGrow => {}
         }
     }
 
@@ -557,7 +554,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                     self.diagnostics.push(
                         ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
                             function: String::from(self.function),
-                            operation: operation.clone(),
+                            operation: *operation,
                             span,
                         },
                     );

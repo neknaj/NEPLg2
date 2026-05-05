@@ -3,7 +3,7 @@ use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_codes::DiagnosticCode;
 use nepl_core::effects::{
     internal_effect_surface_fold, intrinsic_effect, raw_callee_internal_effect,
-    raw_memory_callee_internal_effect, InternalEffect,
+    raw_memory_callee_internal_effect, raw_memory_op_from_name, InternalEffect, RawMemoryOp,
 };
 use nepl_core::error::CoreError;
 use nepl_core::loader::Loader;
@@ -83,14 +83,14 @@ fn internal_effect_classifies_raw_memory_and_surface_fold() {
     let alloc = raw_callee_internal_effect("alloc_raw").expect("alloc effect");
     assert!(matches!(
         alloc,
-        InternalEffect::InternalAlloc { ref operation } if operation == "alloc_raw"
+        InternalEffect::InternalAlloc { operation } if operation == RawMemoryOp::Alloc
     ));
     assert_eq!(internal_effect_surface_fold(&alloc), Some(Effect::Pure));
 
     let store = raw_callee_internal_effect("store_i32__i32_i32__unit__pure").expect("store effect");
     assert!(matches!(
         store,
-        InternalEffect::UnsafeMemory { ref operation } if operation == "store_i32"
+        InternalEffect::UnsafeMemory { operation } if operation == RawMemoryOp::Store
     ));
     assert_eq!(internal_effect_surface_fold(&store), None);
     assert_eq!(intrinsic_effect("load"), Effect::Impure);
@@ -109,6 +109,20 @@ fn internal_effect_classifies_raw_memory_and_surface_fold() {
         InternalEffect::Nondet { ref operation } if operation == "random_get"
     ));
     assert_eq!(internal_effect_surface_fold(&nondet), Some(Effect::Impure));
+}
+
+#[test]
+fn all_raw_memory_effect_markers_have_typed_operations() {
+    for marker in nepl_core::effects::RAW_MEMORY_HELPER_EFFECT_MARKERS
+        .iter()
+        .chain(nepl_core::effects::RAW_MEMORY_INTRINSIC_EFFECT_MARKERS.iter())
+    {
+        assert!(
+            raw_memory_op_from_name(marker).is_some(),
+            "raw memory marker '{}' must map to RawMemoryOp",
+            marker
+        );
+    }
 }
 
 #[test]

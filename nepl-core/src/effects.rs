@@ -5,7 +5,11 @@ use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::hir::HirBody;
-use crate::runtime_helpers::helper_base_name;
+use core::fmt;
+
+use crate::runtime_helpers::{
+    helper_base_name, ALLOC_RUNTIME_ABI, DEALLOC_RUNTIME_ABI, REALLOC_RUNTIME_ABI,
+};
 
 pub const IMPURE_IO_EFFECT_MARKERS: &[&str] = &[
     "fd_read",
@@ -81,11 +85,48 @@ pub const RAW_MEMORY_HELPER_EFFECT_MARKERS: &[&str] = &[
     "mem_fill",
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum RawMemoryOp {
+    Alloc,
+    Dealloc,
+    Realloc,
+    Load,
+    Store,
+    BulkCopy,
+    BulkMove,
+    MemorySize,
+    MemoryGrow,
+    Fill,
+}
+
+impl RawMemoryOp {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            RawMemoryOp::Alloc => "alloc",
+            RawMemoryOp::Dealloc => "dealloc",
+            RawMemoryOp::Realloc => "realloc",
+            RawMemoryOp::Load => "load",
+            RawMemoryOp::Store => "store",
+            RawMemoryOp::BulkCopy => "bulk_copy",
+            RawMemoryOp::BulkMove => "bulk_move",
+            RawMemoryOp::MemorySize => "memory_size",
+            RawMemoryOp::MemoryGrow => "memory_grow",
+            RawMemoryOp::Fill => "fill",
+        }
+    }
+}
+
+impl fmt::Display for RawMemoryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InternalEffect {
     Pure,
-    InternalAlloc { operation: String },
-    UnsafeMemory { operation: String },
+    InternalAlloc { operation: RawMemoryOp },
+    UnsafeMemory { operation: RawMemoryOp },
     ExternalIo { operation: String },
     Nondet { operation: String },
 }
@@ -95,9 +136,10 @@ impl InternalEffect {
         match self {
             InternalEffect::Pure => None,
             InternalEffect::InternalAlloc { operation }
-            | InternalEffect::UnsafeMemory { operation }
-            | InternalEffect::ExternalIo { operation }
-            | InternalEffect::Nondet { operation } => Some(operation.as_str()),
+            | InternalEffect::UnsafeMemory { operation } => Some(operation.as_str()),
+            InternalEffect::ExternalIo { operation } | InternalEffect::Nondet { operation } => {
+                Some(operation.as_str())
+            }
         }
     }
 }
@@ -132,6 +174,36 @@ pub fn raw_memory_callee_internal_effect(name: &str) -> Option<InternalEffect> {
 
 pub fn raw_callee_is_raw_memory_effect(name: &str) -> bool {
     raw_memory_internal_effect(name).is_some()
+}
+
+pub fn raw_memory_op_from_name(name: &str) -> Option<RawMemoryOp> {
+    let base = helper_base_name(name);
+    if !raw_memory_base_is_known(base) {
+        return None;
+    }
+    let operation = match base {
+        ALLOC_RUNTIME_ABI | "alloc_raw" => RawMemoryOp::Alloc,
+        DEALLOC_RUNTIME_ABI | "dealloc_raw" => RawMemoryOp::Dealloc,
+        REALLOC_RUNTIME_ABI | "realloc_raw" => RawMemoryOp::Realloc,
+        "load" | "load_i32" | "load_u8" => RawMemoryOp::Load,
+        "store" | "store_i32" | "store_u8" => RawMemoryOp::Store,
+        "mem_copy" => RawMemoryOp::BulkCopy,
+        "mem_move" => RawMemoryOp::BulkMove,
+        "memset_u8" | "fill_u8" | "fill_i32" | "mem_fill" => RawMemoryOp::Fill,
+        "mem_size" => RawMemoryOp::MemorySize,
+        "mem_grow" => RawMemoryOp::MemoryGrow,
+        _ => return None,
+    };
+    Some(operation)
+}
+
+fn raw_memory_base_is_known(base: &str) -> bool {
+    RAW_MEMORY_HELPER_EFFECT_MARKERS
+        .iter()
+        .any(|marker| *marker == base)
+        || RAW_MEMORY_INTRINSIC_EFFECT_MARKERS
+            .iter()
+            .any(|marker| *marker == base)
 }
 
 pub fn internal_effect_surface_fold(effect: &InternalEffect) -> Option<Effect> {
@@ -285,22 +357,18 @@ fn llvm_callee_is_memory_effect(callee: &str) -> bool {
 }
 
 fn raw_memory_internal_effect(name: &str) -> Option<InternalEffect> {
-    let base = helper_base_name(name);
-    if !RAW_MEMORY_HELPER_EFFECT_MARKERS
-        .iter()
-        .any(|marker| *marker == base)
-        && !RAW_MEMORY_INTRINSIC_EFFECT_MARKERS
-            .iter()
-            .any(|marker| *marker == base)
-    {
-        return None;
-    }
-    let operation = String::from(base);
-    match base {
-        "__nepl_rt_alloc" | "__nepl_rt_dealloc" | "__nepl_rt_realloc" | "alloc_raw"
-        | "dealloc_raw" | "realloc_raw" | "alloc" | "dealloc" | "realloc" | "mem_size"
-        | "mem_grow" => Some(InternalEffect::InternalAlloc { operation }),
-        _ => Some(InternalEffect::UnsafeMemory { operation }),
+    let operation = raw_memory_op_from_name(name)?;
+    match operation {
+        RawMemoryOp::Alloc
+        | RawMemoryOp::Dealloc
+        | RawMemoryOp::Realloc
+        | RawMemoryOp::MemorySize
+        | RawMemoryOp::MemoryGrow => Some(InternalEffect::InternalAlloc { operation }),
+        RawMemoryOp::Load
+        | RawMemoryOp::Store
+        | RawMemoryOp::BulkCopy
+        | RawMemoryOp::BulkMove
+        | RawMemoryOp::Fill => Some(InternalEffect::UnsafeMemory { operation }),
     }
 }
 

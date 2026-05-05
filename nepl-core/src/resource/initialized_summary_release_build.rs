@@ -300,8 +300,7 @@ fn release_requirement_args(
         RawMemoryOp::Alloc
         | RawMemoryOp::Load
         | RawMemoryOp::MemorySize
-        | RawMemoryOp::MemoryGrow
-        | RawMemoryOp::Other { .. } => Vec::new(),
+        | RawMemoryOp::MemoryGrow => Vec::new(),
     }
 }
 

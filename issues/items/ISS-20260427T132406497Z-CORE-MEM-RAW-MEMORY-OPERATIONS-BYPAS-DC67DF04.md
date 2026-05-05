@@ -348,3 +348,11 @@ raw slot payload identity は pointer alias group で key 化しているため�
 Stage 5 の raw identity escape 判定では、pointer value 自体の raw identity と raw memory slot に格納された identity payload を分ける必要がある。`Store` は通常値を書いた場合に payload を clear していたが、`BulkCopy` / `BulkMove` の non-identity source と `Fill` は destination の stale payload を消していなかった。
 
 今回の修正で、bulk copy/move は source payload の有無に応じて destination を mark または clear し、fill は destination payload を常に clear する。これにより、内部 allocation identity を含んでいた raw slot が後続の destructive overwrite で通常 bytes に置き換わった場合、後続 load/return を誤って `RawAddressEscapeFromInternalAlloc` と扱わなくなる。
+
+## 2026-05-06 Stage 5 raw memory operation enum 化 追記
+
+`ISS-20260505T225243749Z-RESOURCE-UNSAFE-MEMORY-EFFECTS-KEEP--D20087E5` として、Resource IR の raw memory effect boundary が raw operation を `String` として保持していた問題を分離し、修正した。
+
+`RawMemoryOp` を compiler-wide な enum とし、`InternalEffect::UnsafeMemory`、`EffectOp::UnsafeMemory`、`UnsafeMemoryInPureFunction` diagnostic が同じ enum を保持するようにした。あわせて `RawMemoryOp::Other` を削除し、既知 raw helper / intrinsic marker は明示的に enum variant へ mapping されなければ Resource IR raw operation として扱われないようにした。
+
+これにより Stage 5 effect model のうち、unsafe memory operation の分類は文字列依存から enum 依存へ移り、downstream の match で raw operation 追加時の修正漏れを検出しやすくなった。`UnsafeMemoryInPureFunction` の enforcement 全面化と stdlib public API migration は引き続き本 issue と stdlib migration issue の残件である。

@@ -627,7 +627,7 @@ fn resource_borrow_conflict_diagnostic_code(
 mod tests {
     use super::*;
     use crate::resource::{
-        BorrowState, CellState, OwnerState, Place, ResourceBorrowDiagnostic,
+        BorrowState, CellState, OwnerState, Place, RawMemoryOp, ResourceBorrowDiagnostic,
         ResourceBorrowOperation, ResourceCheckDiagnostic, ResourceCheckOperation,
         ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceId,
         ResourceOwnerDiagnostic, ResourceOwnerOperation, StorageId,
@@ -937,7 +937,7 @@ mod tests {
     fn resource_effect_gate_keeps_unsafe_memory_shadow_only() {
         let diagnostic = ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
             function: String::from("store_raw"),
-            operation: String::from("store"),
+            operation: RawMemoryOp::Store,
             span: Span::dummy(),
         };
 

@@ -512,8 +512,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 | RawMemoryOp::BulkMove
                 | RawMemoryOp::MemorySize
                 | RawMemoryOp::MemoryGrow
-                | RawMemoryOp::Fill
-                | RawMemoryOp::Other { .. } => {
+                | RawMemoryOp::Fill => {
                     pending_reallocs.clear_result(output);
                     variant_owner_effects.clear_result(output);
                 }

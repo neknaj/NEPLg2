@@ -561,7 +561,6 @@ fn dump_raw_memory_op(operation: &RawMemoryOp) -> String {
         RawMemoryOp::MemorySize => String::from("memory_size"),
         RawMemoryOp::MemoryGrow => String::from("memory_grow"),
         RawMemoryOp::Fill => String::from("fill"),
-        RawMemoryOp::Other { name } => format!("other({})", name),
     }
 }
 

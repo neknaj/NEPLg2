@@ -855,10 +855,7 @@ fn should_lower_raw_memory_call(
             .first()
             .map(|arg| !is_named_struct_type(env.types, arg.ty, "MemPtr"))
             .unwrap_or(true),
-        RawMemoryOp::Alloc
-        | RawMemoryOp::MemorySize
-        | RawMemoryOp::MemoryGrow
-        | RawMemoryOp::Other { .. } => true,
+        RawMemoryOp::Alloc | RawMemoryOp::MemorySize | RawMemoryOp::MemoryGrow => true,
     }
 }
 

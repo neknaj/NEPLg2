@@ -9,7 +9,7 @@ use super::effect_check::ResourceEffectBoundaryEngine;
 use super::effect_summary::{
     compute_raw_identity_return_summaries, compute_raw_pointer_return_summaries,
 };
-use super::model::{Place, ResourceModule};
+use super::model::{Place, RawMemoryOp, ResourceModule};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceEffectBoundaryReport {
@@ -41,7 +41,7 @@ pub enum ResourceEffectBoundaryDiagnostic {
     },
     UnsafeMemoryInPureFunction {
         function: String,
-        operation: String,
+        operation: RawMemoryOp,
         span: Span,
     },
     RawAddressEscapeFromInternalAlloc {
