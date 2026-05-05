@@ -29538,3 +29538,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 32 lines まで縮小し、`fs/write.nepl` は 189 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 stdio raw split)
+
+- [同期]:
+  - `origin/main` の `b7b9d257` を取り込んだ状態から、branch `refactor/stdio-raw-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/stdio.nepl` は public stdio API と、WASI extern / LLVM syscall fallback / raw allocation wrapper を同じ file に置いていた。
+  - read/write API を後続で分割する前に low-level ABI 境界を分けないと、submodule 側から raw helper へ依存するときに facade との責務が混ざる。
+- [修正]:
+  - `stdlib/std/stdio/raw.nepl` を追加し、`fd_read` / `fd_write` extern、LLVM `__linux_syscall_rw` fallback、`std_alloc`、`std_free`、`stdio_fd_read_mem` を移した。
+  - `std/stdio` facade は `raw` を re-export し、既存の `stdio_fd_read_into_result` / write API は同じ helper 名を import 経由で使う構成にした。
+  - `nodesrc/test_stdlib_stdio_read_boundary.js` に、raw helper が `stdio.nepl` 本体へ戻らないことと `stdio/raw` に存在することを固定する検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-raw-split-stdio.json -j 1`: `28 total / 28 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/stdio-raw-split-stdout.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/stdio-raw-split-stdin.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md --no-tree -o tmp/stdio-raw-split-read-all.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 1687 lines まで縮小し、`stdio/raw.nepl` は 130 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

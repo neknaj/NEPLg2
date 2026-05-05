@@ -7,17 +7,48 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/std/stdio.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const rawRelPath = 'stdlib/std/stdio/raw.nepl';
+const rawSrc = fs.readFileSync(path.join(repoRoot, rawRelPath), 'utf8');
 
 const code = src
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const rawCode = rawSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+
+assert.match(
+    code,
+    /pub\s+#import\s+"\.\/stdio\/raw"\s+as\s+\*/,
+    'std/stdio facade must re-export raw stdio ABI submodule',
+);
 
 assert.doesNotMatch(
     code,
     /\bfn\s+std_(?:store|load)_i32_at\b/,
     'stdio must not reintroduce generic i32 raw-memory load/store helpers',
 );
+
+for (const helper of [
+    'std_alloc',
+    'std_free',
+    'stdio_fd_read_mem',
+    '__linux_syscall_rw',
+    'fd_read',
+    'fd_write',
+]) {
+    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/raw`);
+}
+
+for (const helper of [
+    'std_alloc',
+    'std_free',
+    'stdio_fd_read_mem',
+]) {
+    assert.match(rawCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/raw`);
+}
 
 for (const helper of [
     'stdio_fd_read_into_result',
