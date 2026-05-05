@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T04:17:46.958Z",
+  "generated_at": "2026-05-05T04:56:43.144Z",
   "counts": {
-    "total": 465,
-    "open": 14,
+    "total": 466,
+    "open": 15,
     "resolved": 451,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 199
       },
       "stdlib": {
-        "total": 153,
-        "open": 6,
+        "total": 154,
+        "open": 7,
         "resolved": 147
       },
       "TEST": {
@@ -298,6 +298,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260505T045643031Z-STDLIB-CLIARG-BASIC-TEST-LEAKS-OPTIO-89A61F5E",
+      "title": "stdlib cliarg basic test leaks Option<str> payload locals",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/tests/cliarg.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T045643031Z-STDLIB-CLIARG-BASIC-TEST-LEAKS-OPTIO-89A61F5E.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
