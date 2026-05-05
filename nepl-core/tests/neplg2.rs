@@ -259,6 +259,51 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn stdlib_overlapping_imports_do_not_reprocess_same_top_level_definitions() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasi
+
+#import "core/field" as field
+#import "core/mem" as *
+#import "std/stdio" as *
+
+fn main <()*>()> ():
+    println "";
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let checked = nepl_core::typecheck::typecheck(
+        &loaded.module,
+        CompileTarget::Wasi,
+        BuildProfile::Debug,
+        Some(&loaded.source_map),
+    );
+    assert!(
+        checked
+            .diagnostics
+            .iter()
+            .all(|diag| diag.severity != Severity::Error),
+        "expected overlapping stdlib imports to typecheck, got {:?}",
+        checked.diagnostics
+    );
+    assert!(
+        checked.diagnostics.iter().all(|diag| {
+            diag.code
+                != Some(DiagnosticCode::Resolve(
+                    ResolveDiagnosticCode::ItemNameConflict,
+                ))
+                && diag.code
+                    != Some(DiagnosticCode::Type(
+                        TypeDiagnosticCode::ImplDuplicateForTraitTarget,
+                    ))
+        }),
+        "same imported definitions must not be reprocessed as duplicate items or impls: {:?}",
+        checked.diagnostics
+    );
+}
+
+#[test]
 fn llvm_target_in_wasm_pipeline_has_backend_code() {
     let src = r#"
 #entry main

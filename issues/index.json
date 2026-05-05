@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T19:43:45.260Z",
+  "generated_at": "2026-05-05T19:52:40.094Z",
   "counts": {
-    "total": 470,
-    "open": 13,
-    "resolved": 457,
+    "total": 472,
+    "open": 14,
+    "resolved": 458,
     "by_area": {
       "core": {
-        "total": 209,
-        "open": 5,
-        "resolved": 204
+        "total": 211,
+        "open": 6,
+        "resolved": 205
       },
       "stdlib": {
         "total": 154,
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260505T195142842Z-RESOURCE-OWNER-CHECKER-REPORTS-STDIO-00591700",
+      "title": "Resource owner checker reports stdio fd_write scratch MaybeLeak after duplicate import cleanup",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/owner_variant.rs, nepl-core/src/resource/owner_control.rs, stdlib/std/stdio/write.nepl, nepl-core/tests/kp.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T195142842Z-RESOURCE-OWNER-CHECKER-REPORTS-STDIO-00591700.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3253,6 +3268,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T190408092Z-RESOURCE-INITIALIZED-SUMMARY-VARIANT-436C996D.md"
+    },
+    {
+      "id": "ISS-20260505T194925584Z-TYPECHECK-DRIVER-REPROCESSES-IDENTIC-1F901103",
+      "title": "typecheck driver reprocesses identical imported definitions as item conflicts",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/typecheck/driver.rs, nepl-core/tests/neplg2.rs, nepl-core/tests/kp.rs, issues/items/ISS-20260505T195142842Z-RESOURCE-OWNER-CHECKER-REPORTS-STDIO-00591700.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T194925584Z-TYPECHECK-DRIVER-REPROCESSES-IDENTIC-1F901103.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

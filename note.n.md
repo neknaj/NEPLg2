@@ -26,6 +26,31 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-06 note (ISS-20260505T194925584Z typecheck top-level definition span dedup)
+
+- [同期]:
+  - `work/diagnostic-shadow-self-definition-resource-stack` の診断 fix 後、branch `work/typecheck-definition-span-dedup-resource-stack` を作成して対応した。
+- [原因]:
+  - import 展開後の `module.root.items` に同じ stdlib top-level definition が同一 `Span` で複数回入る場合、typecheck driver が declaration / impl / callable / body generation の各 pass で同一定義を再処理していた。
+  - その結果、実際には異なる定義の衝突ではないのに `resolve.item.name_conflict` と `type.impl.duplicate_for_trait_target` が出て、Resource IR scanner regression が本来の owner/cell 検査まで進めなかった。
+- [修正]:
+  - `top_level_definition_span` を追加し、dummy ではない top-level definition span を pass 内の identity として扱うようにした。
+  - declaration collection、impl collection、callable registration、function body generation、final impl generation の各 pass で同一 span を一度だけ処理する。
+  - 異なる span の duplicate item / duplicate impl は従来どおり診断する。
+  - `stdlib_overlapping_imports_do_not_reprocess_same_top_level_definitions` を追加し、overlap stdlib import が duplicate diagnostics を出さないことを固定した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test neplg2 stdlib_overlapping_imports_do_not_reprocess_same_top_level_definitions -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+  - `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`: duplicate import diagnostics は解消。次の別件として `stdio_write_fd_mem_result` の `resource.owner.maybe_leak` に到達した。
+- [issue]:
+  - `ISS-20260505T194925584Z-TYPECHECK-DRIVER-REPROCESSES-IDENTIC-1F901103` は fixed。
+  - 新たに `ISS-20260505T195142842Z-RESOURCE-OWNER-CHECKER-REPORTS-STDIO-00591700` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio writer internal split)
 
 - [同期]:

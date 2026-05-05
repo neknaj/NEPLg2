@@ -96,6 +96,21 @@ fn span_key(span: Span) -> (u32, u32, u32) {
     (span.file_id.0, span.start, span.end)
 }
 
+fn top_level_definition_span(item: &Stmt) -> Option<Span> {
+    let span = match item {
+        Stmt::FnDef(def) => def.name.span,
+        Stmt::FnAlias(alias) => alias.name.span,
+        Stmt::StructDef(def) => def.name.span,
+        Stmt::EnumDef(def) => def.name.span,
+        Stmt::Trait(def) => def.span,
+        Stmt::Impl(def) => def.span,
+        Stmt::Wasm(block) => block.span,
+        Stmt::LlvmIr(block) => block.span,
+        Stmt::Directive(_) | Stmt::Expr(_) | Stmt::ExprSemi(_, _) => return None,
+    };
+    (span != Span::dummy()).then_some(span)
+}
+
 pub fn typecheck(
     module: &crate::ast::Module,
     target: CompileTarget,
@@ -239,6 +254,7 @@ pub fn typecheck(
     // Collect top-level function signatures (hoist)
     // Also hoist struct/enum definitions
     let mut pending_if: Option<bool> = None;
+    let mut seen_declaration_item_spans = BTreeSet::new();
     let mut fn_aliases: Vec<&FnAlias> = Vec::new();
     for item in &module.root.items {
         if let Stmt::Directive(d) = item {
@@ -251,6 +267,11 @@ pub fn typecheck(
         pending_if = None;
         if !allowed {
             continue;
+        }
+        if let Some(span) = top_level_definition_span(item) {
+            if !seen_declaration_item_spans.insert(span_key(span)) {
+                continue;
+            }
         }
         match item {
             Stmt::EnumDef(e) => {
@@ -578,6 +599,7 @@ pub fn typecheck(
     // Process Impls separately or in the same loop?
     // Doing it here simplifies pending_if logic.
     pending_if = None;
+    let mut seen_impl_collection_spans = BTreeSet::new();
     for item in &module.root.items {
         if let Stmt::Directive(d) = item {
             if let Some(allowed) = gate_allows(d, target, profile) {
@@ -589,6 +611,11 @@ pub fn typecheck(
         pending_if = None;
         if !allowed {
             continue;
+        }
+        if let Some(span) = top_level_definition_span(item) {
+            if !seen_impl_collection_spans.insert(span_key(span)) {
+                continue;
+            }
         }
         if let Stmt::Impl(i) = item {
             if i.trait_ref.is_none() {
@@ -768,6 +795,7 @@ pub fn typecheck(
     }
 
     let mut pending_if: Option<bool> = None;
+    let mut seen_callable_item_spans = BTreeSet::new();
     for item in &module.root.items {
         if let Stmt::Directive(d) = item {
             if let Some(allowed) = gate_allows(d, target, profile) {
@@ -779,6 +807,11 @@ pub fn typecheck(
         pending_if = None;
         if !allowed {
             continue;
+        }
+        if let Some(span) = top_level_definition_span(item) {
+            if !seen_callable_item_spans.insert(span_key(span)) {
+                continue;
+            }
         }
         if let Stmt::FnAlias(a) = item {
             fn_aliases.push(a);
@@ -1160,6 +1193,7 @@ pub fn typecheck(
 
     let mut functions = Vec::new();
     let mut pending_if = None;
+    let mut seen_function_body_spans = BTreeSet::new();
     for item in &module.root.items {
         if let Stmt::Directive(d) = item {
             if let Some(allowed) = gate_allows(d, target, profile) {
@@ -1171,6 +1205,11 @@ pub fn typecheck(
         pending_if = None;
         if !allowed {
             continue;
+        }
+        if let Some(span) = top_level_definition_span(item) {
+            if !seen_function_body_spans.insert(span_key(span)) {
+                continue;
+            }
         }
         if let Stmt::FnDef(f) = item {
             let f_ty = {
@@ -1326,6 +1365,7 @@ pub fn typecheck(
 
     let mut final_impls = Vec::new();
     pending_if = None;
+    let mut seen_final_impl_spans = BTreeSet::new();
     for item in &module.root.items {
         if let Stmt::Directive(d) = item {
             if let Some(allowed) = gate_allows(d, target, profile) {
@@ -1337,6 +1377,11 @@ pub fn typecheck(
         pending_if = None;
         if !allowed {
             continue;
+        }
+        if let Some(span) = top_level_definition_span(item) {
+            if !seen_final_impl_spans.insert(span_key(span)) {
+                continue;
+            }
         }
         if let Stmt::Impl(i) = item {
             let impl_key = span_key(i.span);
