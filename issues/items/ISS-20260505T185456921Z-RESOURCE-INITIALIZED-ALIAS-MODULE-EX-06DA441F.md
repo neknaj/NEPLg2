@@ -2,12 +2,12 @@
 id: ISS-20260505T185456921Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-06DA441F
 title: "Resource initialized alias module exceeds responsibility split limit again"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-05
-updated: 2026-05-05
+updated: 2026-05-06
 target: "nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
@@ -42,3 +42,24 @@ Review initialized_alias.rs by responsibility and extract the next coherent boun
 ## 検証
 
 Run node nodesrc/test_resource_checker_responsibility.js, node nodesrc/run_source_policy_regressions.js --warn-only, cargo fmt --check -p nepl-core, cargo check -p nepl-core --tests, and focused Resource IR raw alias/cell state tests.
+
+## 2026-05-06 対応結果
+
+`initialized_alias.rs` から i32 value/condition fact と canonical/owner alias ranking を分離した。
+
+- `initialized_alias_i32.rs`: raw address に付随する i32 exact value fact、condition fact、condition implication を担当する。
+- `initialized_alias_rank.rs`: alias group の canonical ordering、owner cell alias ranking、owner alias が raw projection を持つかの判定を担当する。
+- `initialized_alias.rs`: `RawCellAddressAliases` table API、alias group merge/clear/copy/move、projected alias query に集中する。
+
+分割後の行数は `initialized_alias.rs` 513 lines、`initialized_alias_i32.rs` 34 lines、`initialized_alias_rank.rs` 90 lines で、`initialized_alias.rs` の上限を 550 から 520 に下げて再肥大化を検出できるようにした。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_unknown_offset_non_copy_move_keeps_dealloc_conservative -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_canonicalizes_raw_address_local_reads -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check -- --nocapture`: 30 passed / 17 failed。失敗は既存の `ShadowSameSignatureCallable` warning を `typecheck_resource_source` helper が失敗扱いする問題。
+- `node nodesrc/test_resource_checker_responsibility.js`: `initialized_alias.rs` 超過は解消。次の別件として `initialized_summary.rs has 83 lines; responsibility split limit is 80` を検出したため、`ISS-20260505T185947027Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-63167AA8` を追加した。
+
+関連計画: [NEPLg2 静的検査の複雑化解消計画 Stage 4](../../doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-%E3%81%B8%E3%81%AE%E7%A7%BB%E8%A1%8C)
