@@ -1,4 +1,5 @@
 use nepl_core::ast::Effect;
+use nepl_core::diagnostic::Severity;
 use nepl_core::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule, HirParam,
 };
@@ -28,6 +29,28 @@ fn stdlib_root() -> PathBuf {
 
 fn typecheck_resource_source(source: &str) -> (HirModule, TypeCtx) {
     typecheck_resource_source_with_target(source, CompileTarget::Wasm)
+}
+
+fn typecheck_resource_source_allow_warnings(source: &str) -> (HirModule, TypeCtx) {
+    let mut loader = Loader::new(stdlib_root());
+    let loaded = loader
+        .load_inline(PathBuf::from("resource_ir_test.nepl"), source.to_string())
+        .expect("load source with stdlib");
+    let checked = nepl_core::typecheck::typecheck(
+        &loaded.module,
+        CompileTarget::Wasm,
+        BuildProfile::Debug,
+        Some(&loaded.source_map),
+    );
+    assert!(
+        checked
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !matches!(diagnostic.severity, Severity::Error)),
+        "typecheck diagnostics: {:#?}",
+        checked.diagnostics
+    );
+    (checked.module.expect("typechecked module"), checked.types)
 }
 
 fn typecheck_resource_source_with_target(
@@ -8302,6 +8325,102 @@ fn main <()* >str> ():
     assert!(
         diagnostics.is_empty(),
         "string_from_mem_unchecked_result must move the output RegionToken owner into the returned Result::Ok str: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_allows_repeated_str_view_observer_results() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+
+enum LocalResult:
+    Ok <i32>
+    Err <str>
+
+fn keep_view <(str)->LocalResult> (s):
+    LocalResult::Err s
+
+fn main <()* >i32> ():
+    let s <str> "abc"
+    let first <LocalResult> keep_view s
+    let second <LocalResult> keep_view s
+    match first:
+        LocalResult::Err _e:
+            match second:
+                LocalResult::Err _e2:
+                    3
+                LocalResult::Ok n:
+                    n
+        LocalResult::Ok n:
+            n
+"#;
+
+    let (module, types) = typecheck_resource_source_allow_warnings(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "str observer results must not reserve a non-owning Copy view: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_transfers_raw_region_owner_to_str_after_str_leaf_split() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+fn finish_region <(RegionToken<u8>)->str> (region):
+    let base <MemPtr<u8>> get region "ptr"
+    #intrinsic "str_from_addr_unchecked" <> (mem_ptr_addr base)
+
+fn main <()* >str> ():
+    match alloc_region_bytes<u8> 4:
+        Result::Ok region:
+            finish_region region
+        Result::Err e:
+            e
+"#;
+
+    let (module, types) = typecheck_resource_source_allow_warnings(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("finish_region__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "raw region owner must still transfer through str_from_addr_unchecked: {:#?}\nresource:\n{}",
         diagnostics,
         resource.dump_text()
     );

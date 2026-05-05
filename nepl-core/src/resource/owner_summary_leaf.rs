@@ -120,8 +120,9 @@ fn owner_leaf_projections_mapped(
         | TypeKind::F32
         | TypeKind::Bool
         | TypeKind::Char
-        | TypeKind::Function { .. } => Vec::new(),
-        TypeKind::Str | TypeKind::Named(_) | TypeKind::Box(_) => {
+        | TypeKind::Function { .. }
+        | TypeKind::Str => Vec::new(),
+        TypeKind::Named(_) | TypeKind::Box(_) => {
             vec![OwnerLeafProjection {
                 suffix: Vec::new(),
                 ty: mapped,

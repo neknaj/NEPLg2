@@ -107,6 +107,45 @@ fn main <()*>i32> ():
     checks_exit_code shown
 ```
 
+## string_local_view_reused_across_fallible_observers
+
+neplg2:test
+exit_code: 0
+stdout: mlstr:
+    ##: Checked [ok,ok,ok]
+    ##: [0] ok
+    ##: [1] ok
+    ##: [2] ok
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "alloc/string" as *
+#import "core/char" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn expect_char <(str,Result<char,str>,i32)*>Result<(),str>> (label, got, expected_code):
+    match got:
+        Result::Err _e:
+            Result<(),str>::Err label
+        Result::Ok c:
+            check_eq_i32 expected_code char_to_i32 c
+
+fn main <()*>i32> ():
+    let s <str> "Aあ"
+    let first <Result<char,str>> str_char_at_result s 0
+    let second <Result<char,str>> str_char_at_result s 1
+    let checks:
+        checks_new
+        |> checks_push expect_char "local first char" first 'A'
+        |> checks_push expect_char "local second char" second 0x3042
+        |> checks_push assert_str_eq "Aあ" s
+    let shown checks_print_report checks;
+    checks_exit_code shown
+```
+
 ## string_builder_append_char
 
 neplg2:test

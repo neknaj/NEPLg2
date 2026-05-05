@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T05:05:16.773Z",
+  "generated_at": "2026-05-05T05:31:34.687Z",
   "counts": {
     "total": 494,
-    "open": 15,
-    "resolved": 479,
+    "open": 14,
+    "resolved": 480,
     "by_area": {
       "core": {
         "total": 214,
         "open": 6,
         "resolved": 208
-      },
-      "CORE": {
-        "total": 1,
-        "open": 1,
-        "resolved": 0
       },
       "stdlib": {
         "total": 156,
@@ -45,6 +40,11 @@
         "total": 4,
         "open": 0,
         "resolved": 4
+      },
+      "CORE": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "doc": {
         "total": 1,
@@ -158,21 +158,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C",
-      "title": "str Copy view contract conflicts with Resource IR owner obligations",
-      "area": "CORE",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "stdlib/alloc/string.nepl, nepl-core/src/resource",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C.md"
     },
     {
       "id": "ISS-20260505T045316820Z-RESOURCE-IR-VEC-RANGE-CLEANUP-9A95DB6F",
@@ -3293,6 +3278,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/compiler_diagnostics_redesign_plan.md#stage-d0-数値-id-の削除と-enum-registry-導入",
       "file": "items/ISS-20260430T123723307Z-ACTIVE-DOCTESTS-CAN-REINTRODUCE-NUME-1BA2AEA3.md"
+    },
+    {
+      "id": "ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C",
+      "title": "str Copy view contract conflicts with Resource IR owner obligations",
+      "area": "CORE",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-05-05",
+      "target": "stdlib/alloc/string.nepl, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C.md"
     },
     {
       "id": "ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8",

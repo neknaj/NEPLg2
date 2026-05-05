@@ -30535,3 +30535,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - collection-wide owning cleanup は `ISS-20260505T045316820Z-RESOURCE-IR-VEC-RANGE-CLEANUP-9A95DB6F` の解決後に実装する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260430T135134835Z str Copy view owner reservation)
+
+- [同期]:
+  - `origin/main` の `4823a981` まで取り込み済みの `work/region-token-owner-cleanup` 上で対応した。
+- [原因]:
+  - `str` は `stdlib/core/traits/copy.nepl` で Copy non-owning view と定義されているが、Resource IR owner summary の leaf 生成では `TypeKind::Str` が root owner leaf として扱われていた。
+  - そのため、`Result<char,str>` などの fallible observer result が未 match のまま残ると、入力 `str` local が owner obligation として `Reserved` になり、後続の observer 呼び出しや `assert_str_eq` が `resource.owner.reserved` で拒否された。
+- [修正]:
+  - `nepl-core/src/resource/owner_summary_leaf.rs` で `TypeKind::Str` を owner leaf から除外した。
+  - `Copy` 全般を owner checker から除外したのではなく、`MemPtr` は従来通り raw provenance leaf として保持している。
+  - raw region 由来の動的文字列 owner transfer が消えないことを固定するため、`str_from_addr_unchecked` 経由の raw owner transfer 回帰を追加した。
+  - `tests/stdlib/string_char.n.md` に、同じ `str` local を未解決の `str_char_at_result` 結果がある状態で複数回 observer に渡す doctest を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_allows_repeated_str_view_observer_results -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_raw_region_owner_to_str_after_str_leaf_split -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `rustfmt --check nepl-core/src/resource/owner_summary_leaf.rs nepl-core/tests/resource_ir.rs`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/string-char-str-local-view-agent1-fixed.json -j 1 --dist web/dist`: `5 total / 5 passed`
+- [issue]:
+  - `ISS-20260430T135134835Z-STR-COPY-VIEW-CONTRACT-CONFLICTS-WIT-0998304C` を fixed / resolved に更新した。
+  - `MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の完全分離は `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` と `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の親 issue で継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
