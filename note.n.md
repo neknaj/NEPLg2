@@ -1,3 +1,27 @@
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math int128 split)
+
+- [同期]:
+  - `origin/main` の `0eb61a47` を取り込んだ状態から、branch `refactor/math-int128-module-split` で対応した。
+- [原因]:
+  - `stdlib/core/math.nepl` は conversion split 後も u128/i128 API と `core/field` 依存を保持しており、公開 facade と実装責務がまだ分離しきれていなかった。
+  - int128 API は i64 演算と整数幅変換だけに依存するため、`core/math` facade に残す必要はなかった。
+- [修正]:
+  - u128/i128 の構造体、構築、加減算、比較、`mul_wide`、i128 乗算を `core/math/int128.nepl` へ移した。
+  - `core/math/int128` は `core/math` ではなく `core/math/i64` と `core/math/convert/width` を直接 import し、循環 import を避けた。
+  - `core/math.nepl` は `pub #import` 群だけの 27 lines facade になり、`core/field` 依存と real `fn` / `struct` を持たなくなった。
+  - `nodesrc/test_stdlib_math_module_split.js` を拡張し、int128 API が facade に戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/int128.nepl --no-tree -o tmp/math-int128-module-direct.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math.nepl --no-tree -o tmp/math-facade-after-int128-split.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/numerics.n.md -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-suite-after-int128-split.json -j 1`: `17 total / 17 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規/拡張 math split policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`core/math.nepl` の分割は完了したが、他の巨大 stdlib file が残っている。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib core math を、公開 facade と責務別 submodule の構造に整理した。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math conversion split)
 
 - [同期]:

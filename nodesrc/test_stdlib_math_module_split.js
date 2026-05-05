@@ -20,6 +20,7 @@ const convertModule = read("stdlib/core/math/convert.nepl");
 const convertWidthModule = read("stdlib/core/math/convert/width.nepl");
 const convertFloatModule = read("stdlib/core/math/convert/float.nepl");
 const convertReinterpretModule = read("stdlib/core/math/convert/reinterpret.nepl");
+const int128Module = read("stdlib/core/math/int128.nepl");
 const u8Module = read("stdlib/core/math/u8.nepl");
 const boolModule = read("stdlib/core/math/bool.nepl");
 
@@ -58,12 +59,24 @@ assert.match(
     /pub\s+#import\s+"\.\/math\/bool"\s+as\s+\*/,
     "core/math.nepl must re-export the bool math submodule",
 );
+assert.match(
+    facade,
+    /pub\s+#import\s+"\.\/math\/int128"\s+as\s+\*/,
+    "core/math.nepl must re-export the 128-bit integer math submodule",
+);
 for (const [moduleName, pattern] of [
     ["width", /pub\s+#import\s+"\.\/convert\/width"\s+as\s+\*/],
     ["float", /pub\s+#import\s+"\.\/convert\/float"\s+as\s+\*/],
     ["reinterpret", /pub\s+#import\s+"\.\/convert\/reinterpret"\s+as\s+\*/],
 ]) {
     assert.match(convertModule, pattern, `core/math/convert.nepl must re-export the ${moduleName} conversion submodule`);
+}
+for (const [moduleName, pattern] of [
+    ["field", /#import\s+"core\/field"\s+as\s+\*/],
+    ["i64", /#import\s+"core\/math\/i64"\s+as\s+\*/],
+    ["convert width", /#import\s+"core\/math\/convert\/width"\s+as\s+\*/],
+]) {
+    assert.match(int128Module, pattern, `core/math/int128.nepl must import ${moduleName} directly`);
 }
 
 for (const fnName of [
@@ -340,6 +353,33 @@ for (const [name, signature] of [
     assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep conversion wrapper ${name} ${signature}`);
 }
 
-assert.match(facade, /\bstruct\s+u128\b/, "core/math.nepl must keep 128-bit integer API for now");
+for (const structName of ["u128", "i128"]) {
+    const pattern = new RegExp(`\\bstruct\\s+${structName}\\b`);
+    assert.match(int128Module, pattern, `core/math/int128.nepl must define ${structName}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep ${structName}`);
+}
+
+for (const [name, signature] of [
+    ["new", "<\\(i64,i64\\)->u128>"],
+    ["to_u128", "<\\(i64\\)->u128>"],
+    ["add", "<\\(u128,u128\\)->u128>"],
+    ["sub", "<\\(u128,u128\\)->u128>"],
+    ["lt", "<\\(u128,u128\\)->bool>"],
+    ["new", "<\\(i64,i64\\)->i128>"],
+    ["to_i128", "<\\(i64\\)->i128>"],
+    ["add", "<\\(i128,i128\\)->i128>"],
+    ["sub", "<\\(i128,i128\\)->i128>"],
+    ["mul_wide", "<\\(i64,i64\\)->u128>"],
+    ["mul", "<\\(i128,i128\\)->i128>"],
+    ["lt", "<\\(i128,i128\\)->bool>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(int128Module, pattern, `core/math/int128.nepl must define ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep int128 API ${name} ${signature}`);
+}
+
+assert.doesNotMatch(facade, /^#import\s+"core\/field"\s+as\s+\*/m, "core/math.nepl must not depend on core/field after int128 split");
+assert.doesNotMatch(facade, /^fn\s+/m, "core/math.nepl must remain a facade without function bodies");
+assert.doesNotMatch(facade, /^struct\s+/m, "core/math.nepl must remain a facade without structs");
 
 console.log("stdlib math module split regression passed");
