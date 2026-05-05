@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T22:24:15.791Z",
+  "generated_at": "2026-05-05T22:30:35.187Z",
   "counts": {
-    "total": 474,
+    "total": 475,
     "open": 14,
-    "resolved": 460,
+    "resolved": 461,
     "by_area": {
       "core": {
-        "total": 212,
+        "total": 213,
         "open": 6,
-        "resolved": 206
+        "resolved": 207
       },
       "stdlib": {
         "total": 155,
@@ -150,8 +150,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260505T222215631Z-RESOURCE-HIR-COVERAGE-CHECKER-EXCEED-BACF550C",
-      "title": "Resource HIR coverage checker exceeds responsibility split limit",
+      "id": "ISS-20260505T222941901Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-E7680697",
+      "title": "Resource raw address lowering exceeds responsibility split limit",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -159,10 +159,10 @@
       "type": "architecture",
       "created": "2026-05-05",
       "updated": "2026-05-05",
-      "target": "nepl-core/src/resource/coverage_hir.rs, nepl-core/src/resource/coverage.rs, nepl-core/src/resource/coverage_resource.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/lower_raw_address.rs, nepl-core/src/resource/lower.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260505T222215631Z-RESOURCE-HIR-COVERAGE-CHECKER-EXCEED-BACF550C.md"
+      "file": "items/ISS-20260505T222941901Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-E7680697.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3298,6 +3298,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T221903422Z-RESOURCE-OWNER-RETURN-APPLICATION-EX-C8D8DE40.md"
+    },
+    {
+      "id": "ISS-20260505T222215631Z-RESOURCE-HIR-COVERAGE-CHECKER-EXCEED-BACF550C",
+      "title": "Resource HIR coverage checker exceeds responsibility split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/coverage_hir.rs, nepl-core/src/resource/coverage.rs, nepl-core/src/resource/coverage_resource.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T222215631Z-RESOURCE-HIR-COVERAGE-CHECKER-EXCEED-BACF550C.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

@@ -1,3 +1,26 @@
+# 2026-05-06 note (ISS-20260505T222215631Z coverage_hir responsibility split)
+
+- [同期]:
+  - `ISS-20260505T221903422Z` の owner_return 分割を `main` へ fast-forward merge / push / pull した後、clean な `main` から branch `work/resource-hir-coverage-split` を作成して対応した。
+- [原因]:
+  - `coverage_hir.rs` は 463 lines で、Resource checker responsibility policy の 420 lines 上限を超えていた。
+  - HIR traversal と、field/reference projection の分類、compiler `load(add ...)` field source 判定、raw memory op の count policy が同じ file にあり、Resource IR coverage gate の監査境界が太くなっていた。
+- [修正]:
+  - `coverage_hir.rs` は HIR body/block/expression traversal と count orchestration に集中させた。
+  - `coverage_hir_projection.rs` を追加し、`get` / `get_field` / `get_field_ref` / compiler field load / reference address projection の分類を移した。
+  - `coverage_hir_raw.rs` を追加し、raw memory op を coverage count に含めるかの policy を移した。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module と行数上限を追加し、`coverage_hir.rs` 上限を 240 に下げた。
+- [検証]:
+  - `cargo fmt -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir coverage -- --nocapture`: `1 passed`
+  - `node nodesrc/test_resource_checker_responsibility.js`: coverage_hir 超過は解消。次の別件として `lower_raw_address.rs has 727 lines; responsibility split limit is 700` を検出した。
+- [issue]:
+  - `ISS-20260505T222215631Z-RESOURCE-HIR-COVERAGE-CHECKER-EXCEED-BACF550C` は fixed。
+  - 新たに `ISS-20260505T222941901Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-E7680697` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260505T221903422Z owner return application split)
 
 - [同期]:

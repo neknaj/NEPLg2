@@ -2,12 +2,12 @@
 id: ISS-20260505T222215631Z-RESOURCE-HIR-COVERAGE-CHECKER-EXCEED-BACF550C
 title: "Resource HIR coverage checker exceeds responsibility split limit"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-05
-updated: 2026-05-05
+updated: 2026-05-06
 target: "nepl-core/src/resource/coverage_hir.rs, nepl-core/src/resource/coverage.rs, nepl-core/src/resource/coverage_resource.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
@@ -42,3 +42,21 @@ Split coverage_hir.rs by coverage responsibility instead of raising the limit. K
 ## 検証
 
 node nodesrc/test_resource_checker_responsibility.js; node nodesrc/run_source_policy_regressions.js --warn-only; focused Resource IR coverage tests; cargo check -p nepl-core --tests; node nodesrc/issues.js check; git diff --check
+
+## 2026-05-06 対応結果
+
+`coverage_hir.rs` から HIR coverage traversal 以外の分類責務を分離した。
+
+- `coverage_hir.rs`: HIR body/block/expression traversal と count increment の orchestration を担当する。
+- `coverage_hir_projection.rs`: `get` / `get_field` / `get_field_ref` / compiler `load(add ...)` が field/reference projection coverage に対応するかの分類を担当する。
+- `coverage_hir_raw.rs`: raw memory op を coverage count に含めるかどうかの policy を担当する。`MemPtr` wrapper 経由の safe helper を raw memory op として二重計上しない境界を保持する。
+- `nodesrc/test_resource_checker_responsibility.js`: 新 module の存在と行数上限を固定し、`coverage_hir.rs` 上限を 420 から 240 に下げた。
+
+検証:
+
+- `cargo fmt -p nepl-core`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir coverage -- --nocapture`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: `coverage_hir.rs` 超過は解消。次の別件として `lower_raw_address.rs has 727 lines; responsibility split limit is 700` を検出したため、`ISS-20260505T222941901Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-E7680697` を追加した。
+
+関連計画: [NEPLg2 静的検査の複雑化解消計画 Stage 4](../../doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-%E3%81%B8%E3%81%AE%E7%A7%BB%E8%A1%8C)

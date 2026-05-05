@@ -83,6 +83,8 @@ for (const moduleName of [
     'effect_identity.rs',
     'coverage.rs',
     'coverage_hir.rs',
+    'coverage_hir_projection.rs',
+    'coverage_hir_raw.rs',
     'coverage_resource.rs',
     'lower_raw_address.rs',
     'lower_raw_memory.rs',
@@ -134,6 +136,8 @@ for (const moduleDecl of [
     'mod effect_identity;',
     'mod coverage;',
     'mod coverage_hir;',
+    'mod coverage_hir_projection;',
+    'mod coverage_hir_raw;',
     'mod coverage_resource;',
     'mod lower_raw_address;',
     'mod lower_raw_memory;',
@@ -175,6 +179,8 @@ const effectCheck = readResource('effect_check.rs');
 const effectSummary = readResource('effect_summary.rs');
 const coverage = readResource('coverage.rs');
 const coverageHir = readResource('coverage_hir.rs');
+const coverageHirProjection = readResource('coverage_hir_projection.rs');
+const coverageHirRaw = readResource('coverage_hir_raw.rs');
 const coverageResource = readResource('coverage_resource.rs');
 const lower = readResource('lower.rs');
 const lowerRawAddress = readResource('lower_raw_address.rs');
@@ -189,6 +195,16 @@ assertNotContains(effect, 'struct ResourceEffectBoundaryEngine', 'effect.rs');
 assertContains(effect, 'pub fn check_resource_effect_boundaries', 'effect.rs');
 assertContains(coverage, 'pub fn compare_hir_resource_lowering_typed', 'coverage.rs');
 assertContains(coverageHir, 'pub(super) fn hir_body_coverage', 'coverage_hir.rs');
+assertContains(
+    coverageHirProjection,
+    'pub(super) fn field_get_call_owner',
+    'coverage_hir_projection.rs',
+);
+assertContains(
+    coverageHirRaw,
+    'pub(super) fn should_count_raw_memory_call',
+    'coverage_hir_raw.rs',
+);
 assertContains(
     coverageResource,
     'pub(super) fn resource_function_coverage',
@@ -266,7 +282,9 @@ const maxLines = new Map([
     ['summary.rs', 300],
     ['effect_summary.rs', 250],
     ['coverage.rs', 280],
-    ['coverage_hir.rs', 420],
+    ['coverage_hir.rs', 240],
+    ['coverage_hir_projection.rs', 280],
+    ['coverage_hir_raw.rs', 80],
     ['coverage_resource.rs', 520],
     ['lower.rs', 1150],
     ['lower_aggregate.rs', 320],
