@@ -1,3 +1,25 @@
+# 2026-05-05 メモ (ISS-20260427T204839136Z stdlib raw operation capability split)
+
+- [原因]:
+  - ResourceIR summary projection の発散を抑えた後、selfhost CLI driver extracted source は timeout ではなく `stdlib/alloc/string.nepl` と `stdlib/alloc/collections/vec.nepl` の `resource.raw.unsafe_memory_boundary` に到達した。
+  - ただしこれを `core/mem.nepl` と同じ full raw memory boundary で許可すると、`UnsafeMemoryInPureFunction` だけでなく `RawAddressEscapeFromInternalAlloc`、raw cell、owner obligation まで抑制される。
+  - `String` / `Vec` は safe wrapper の実装として raw operation を内部利用する必要があるが、raw address identity escape や owner/cell 検査は引き続き compiler が検出すべきなので、capability の粒度が粗すぎた。
+- [対応]:
+  - `SourceCapabilities` を `raw_memory_operations` と `raw_address_escape` の 2 軸に分けた。
+  - `stdlib/core/mem.nepl` は full raw boundary のまま維持し、`stdlib/alloc/string.nepl` と `stdlib/alloc/collections/vec.nepl` は operation-only boundary とした。
+  - `UnsafeMemoryInPureFunction` は operation-only capability で許可する一方、`RawAddressEscapeFromInternalAlloc` は address-escape capability がある場合だけ許可するようにした。
+  - raw cell gate と owner obligation gate は full raw boundary のみで除外し、safe wrapper 実装ファイルでも owner/cell の検査は弱めない。
+- [検証]:
+  - `cargo test -p nepl-core compiler::tests::resource_effect_gate_splits_raw_operation_and_identity_escape_capabilities -- --nocapture`: pass
+  - `cargo test -p nepl-core loader::tests::source_capabilities_split_stdlib_raw_memory_files -- --nocapture`: pass
+  - `cargo check -p nepl-core --tests`: pass
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo build -p nepl-cli`: pass
+  - rebuilt `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2_latest.nepl --target std --stdlib-root stdlib --emit wasm`: `resource.raw.unsafe_memory_boundary` は出ず、stdout/stderr 0 行のまま 240 秒 timeout。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画では Stage 5 effect boundary / Stage 6 stdlib migration に該当する。raw memory operation と raw address escape を別 capability として扱い、静的検査の抑制範囲を広げない形にした。
+
 # 2026-05-05 メモ (ISS-20260505T112825963Z deep prefix Resource IR gate demand)
 
 - [原因]:

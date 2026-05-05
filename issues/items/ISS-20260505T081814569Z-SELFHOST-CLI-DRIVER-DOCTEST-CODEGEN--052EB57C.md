@@ -85,3 +85,12 @@ Run the extracted selfhost_cli_driver doctest#2 through native --check, native w
 - 停止理由は codegen timeout ではなく、`stdlib/alloc/string.nepl` と `stdlib/alloc/collections/vec.nepl` の raw-memory-backed pure helper が `resource.raw.unsafe_memory_boundary` に到達する別問題だった。
 
 したがって、この親 issue の「ResourceIR summary が unbounded projection で timeout する」部分は fixed issue として分離したが、selfhost driver doctest を最後まで wasm emit / run_doctest で完了させる作業は open 継続する。次の blocker は `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` の stdlib raw-memory boundary migration である。
+
+## 2026-05-05 operation-only stdlib raw memory boundary 修正後の再計測
+
+`ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` で SourceMap capability を full raw boundary と operation-only raw memory boundary に分離し、`stdlib/alloc/string.nepl` と `stdlib/alloc/collections/vec.nepl` を operation-only にした。
+
+- rebuilt `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2_latest.nepl --target std --stdlib-root stdlib --emit wasm -o tmp\selfhost_cli_driver_doctest2_after_raw_ops_boundary_rebuilt.wasm`: 240 秒 timeout
+- stdout/stderr は 0 行で、前段の `resource.raw.unsafe_memory_boundary` 診断は再発しなかった。
+
+したがって stdlib safe wrapper の raw operation boundary blocker は外れたが、selfhost CLI driver の native wasm emit は再び timeout に戻った。次の調査対象は引き続き post-check の phase timing、Resource IR gate demand の残コスト、wasm lowering/validation、または monomorphize 到達 graph の規模である。

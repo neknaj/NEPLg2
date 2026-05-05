@@ -670,10 +670,24 @@ impl Loader {
 
     fn source_capabilities_for_path(&self, canon: &PathBuf) -> SourceCapabilities {
         if *canon == canonicalize_path(&self.stdlib_root.join("core").join("mem.nepl")) {
-            SourceCapabilities::raw_memory_boundary()
-        } else {
-            SourceCapabilities::none()
+            return SourceCapabilities::raw_memory_boundary();
         }
+
+        let raw_memory_operation_files = [
+            self.stdlib_root.join("alloc").join("string.nepl"),
+            self.stdlib_root
+                .join("alloc")
+                .join("collections")
+                .join("vec.nepl"),
+        ];
+        if raw_memory_operation_files
+            .iter()
+            .any(|path| *canon == canonicalize_path(path))
+        {
+            return SourceCapabilities::raw_memory_operations_boundary();
+        }
+
+        SourceCapabilities::none()
     }
 }
 
@@ -720,4 +734,38 @@ fn normalize_path_lexically(path: &PathBuf) -> PathBuf {
 
 fn path_to_source_label(path: &PathBuf) -> String {
     path.to_string_lossy().into_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn source_capabilities_split_stdlib_raw_memory_files() {
+        let loader = Loader::new(PathBuf::from("stdlib"));
+
+        let core_mem = loader.source_capabilities_for_path(&canonicalize_path(&PathBuf::from(
+            "stdlib/core/mem.nepl",
+        )));
+        assert!(core_mem.allows_raw_memory_boundary());
+        assert!(core_mem.allows_raw_memory_operations());
+        assert!(core_mem.allows_raw_address_escape());
+
+        for path in [
+            "stdlib/alloc/string.nepl",
+            "stdlib/alloc/collections/vec.nepl",
+        ] {
+            let capabilities =
+                loader.source_capabilities_for_path(&canonicalize_path(&PathBuf::from(path)));
+            assert!(!capabilities.allows_raw_memory_boundary());
+            assert!(capabilities.allows_raw_memory_operations());
+            assert!(!capabilities.allows_raw_address_escape());
+        }
+
+        let user_file =
+            loader.source_capabilities_for_path(&canonicalize_path(&PathBuf::from("main.nepl")));
+        assert!(!user_file.allows_raw_memory_boundary());
+        assert!(!user_file.allows_raw_memory_operations());
+        assert!(!user_file.allows_raw_address_escape());
+    }
 }

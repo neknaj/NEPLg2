@@ -958,6 +958,39 @@ mod tests {
         );
         assert!(error.message.contains("raw memory operation 'store'"));
     }
+
+    #[test]
+    fn resource_effect_gate_splits_raw_operation_and_identity_escape_capabilities() {
+        let mut source_map = SourceMap::new();
+        let file_id = source_map.add_with_capabilities(
+            "stdlib/alloc/string.nepl",
+            String::from("fn string_finish_base:"),
+            crate::source_map::SourceCapabilities::raw_memory_operations_boundary(),
+        );
+        let span = Span::new(file_id, 0, 1);
+        let unsafe_memory = ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
+            function: String::from("string_finish_base"),
+            operation: String::from("store"),
+            span,
+        };
+        let types = crate::types::TypeCtx::new();
+        let escape = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function: String::from("string_finish_base"),
+            place: Place::temporary(ResourceId(0), types.i32()),
+            span,
+        };
+
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &unsafe_memory,
+            Some(&source_map)
+        ));
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &escape,
+                Some(&source_map)
+            )
+        );
+    }
 }
 
 fn run_resource_effect_boundary_gate(
@@ -1007,15 +1040,22 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
     match diagnostic {
         crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
             ..
+        } => {
+            let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
+                return false;
+            };
+            source_map
+                .map(|map| map.raw_memory_operations_allowed(span.file_id))
+                .unwrap_or(false)
         }
-        | crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+        crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             ..
         } => {
             let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
                 return false;
             };
             source_map
-                .map(|map| map.raw_memory_boundary_allowed(span.file_id))
+                .map(|map| map.raw_address_escape_allowed(span.file_id))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. } => false,

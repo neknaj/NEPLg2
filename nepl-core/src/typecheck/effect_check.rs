@@ -63,7 +63,7 @@ impl<'a> BlockChecker<'a> {
         let Some(source_map) = self.source_map else {
             return false;
         };
-        source_map.raw_memory_boundary_allowed(span.file_id)
+        source_map.raw_memory_operations_allowed(span.file_id)
     }
 
     pub(super) fn raw_memory_intrinsic_allowed(&self, name: &str, span: Span) -> bool {

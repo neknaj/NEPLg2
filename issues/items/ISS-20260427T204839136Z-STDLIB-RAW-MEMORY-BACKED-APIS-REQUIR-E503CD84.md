@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-04-28
+updated: 2026-05-05
 target: "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs"
 ---
 
@@ -91,3 +91,31 @@ self-host 実装では、S1/S2 の文字列走査・token 配列・diagnostic �
 - `stdlib/alloc/collections/vec.nepl`: `get`, `push`
 
 これは user source の raw memory 直呼びを許すべき問題ではなく、stdlib 内部実装の raw memory boundary / internal unsafe effect / public safe API の責務分割が未完了であることを示している。次の対応では、ファイル全体を安易に許可して静的検査を弱めるのではなく、compiler-owned raw boundary capability と stdlib safe wrapper の境界を再設計し、selfhost driver が codegen まで進める形にする。
+
+## 2026-05-05 operation-only SourceCapabilities 追記
+
+`core/mem.nepl` と `stdlib` の safe wrapper 実装を同じ raw memory boundary として扱うと、`RawAddressEscapeFromInternalAlloc`、raw cell、owner obligation まで一括で抑制される。これは user-facing safe API の内部 raw operation を許す目的を超えて、raw address identity や owner/cell 検査の漏れを隠すため不適切である。
+
+そのため SourceMap capability を次の 2 軸へ分離した。
+
+- `raw_memory_operations`: compiler-owned stdlib 実装ファイル内の raw load/store/copy/fill 呼び出しを許可する。
+- `raw_address_escape`: raw address identity escape と full raw memory boundary を許可する。
+
+適用範囲は次の通り。
+
+- `stdlib/core/mem.nepl`: full raw memory boundary (`raw_memory_operations` + `raw_address_escape`)。
+- `stdlib/alloc/string.nepl`、`stdlib/alloc/collections/vec.nepl`: operation-only boundary (`raw_memory_operations` のみ)。
+- user source とその他 stdlib: capability なし。
+
+compiler gate では `UnsafeMemoryInPureFunction` だけを `raw_memory_operations` で許可し、`RawAddressEscapeFromInternalAlloc` は `raw_address_escape` がある場合だけ許可する。raw cell gate と owner obligation gate は引き続き full raw memory boundary のみで除外する。これにより `String` / `Vec` の内部 raw operation は selfhost 用 safe wrapper 実装として扱える一方、raw address の外部漏洩や owner/cell 検査の欠落は抑制されない。
+
+検証結果:
+
+- `cargo test -p nepl-core compiler::tests::resource_effect_gate_splits_raw_operation_and_identity_escape_capabilities -- --nocapture`: pass
+- `cargo test -p nepl-core loader::tests::source_capabilities_split_stdlib_raw_memory_files -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo build -p nepl-cli`: pass
+- rebuilt `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2_latest.nepl --target std --stdlib-root stdlib --emit wasm`: `resource.raw.unsafe_memory_boundary` は出ず、stderr 0 行のまま 240 秒 timeout。
+
+このため、今回露出していた `string.nepl` / `vec.nepl` の unsafe memory boundary blocker は解消した。selfhost driver の完走は post-check/codegen timeout の既存 issue `ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C` に戻る。

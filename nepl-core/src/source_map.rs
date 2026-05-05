@@ -60,26 +60,49 @@ impl fmt::Display for SourcePathDisplay<'_> {
 }
 
 /// Compiler-owned privileges attached to a source file.
+///
+/// These privileges are intentionally split so stdlib safe-wrapper
+/// implementations can use raw memory operations without also suppressing
+/// raw address escape, owner, or cell-state diagnostics.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SourceCapabilities {
-    raw_memory_boundary: bool,
+    raw_memory_operations: bool,
+    raw_address_escape: bool,
 }
 
 impl SourceCapabilities {
     pub fn none() -> Self {
         Self {
-            raw_memory_boundary: false,
+            raw_memory_operations: false,
+            raw_address_escape: false,
         }
     }
 
     pub fn raw_memory_boundary() -> Self {
         Self {
-            raw_memory_boundary: true,
+            raw_memory_operations: true,
+            raw_address_escape: true,
+        }
+    }
+
+    /// Permit raw memory operations while preserving raw identity checks.
+    pub fn raw_memory_operations_boundary() -> Self {
+        Self {
+            raw_memory_operations: true,
+            raw_address_escape: false,
         }
     }
 
     pub fn allows_raw_memory_boundary(self) -> bool {
-        self.raw_memory_boundary
+        self.raw_memory_operations && self.raw_address_escape
+    }
+
+    pub fn allows_raw_memory_operations(self) -> bool {
+        self.raw_memory_operations
+    }
+
+    pub fn allows_raw_address_escape(self) -> bool {
+        self.raw_address_escape
     }
 }
 
@@ -114,6 +137,14 @@ impl SourceMap {
 
     pub fn raw_memory_boundary_allowed(&self, id: FileId) -> bool {
         self.capabilities(id).allows_raw_memory_boundary()
+    }
+
+    pub fn raw_memory_operations_allowed(&self, id: FileId) -> bool {
+        self.capabilities(id).allows_raw_memory_operations()
+    }
+
+    pub fn raw_address_escape_allowed(&self, id: FileId) -> bool {
+        self.capabilities(id).allows_raw_address_escape()
     }
 
     pub fn iter_paths(&self) -> impl Iterator<Item = (FileId, &SourcePath)> {
