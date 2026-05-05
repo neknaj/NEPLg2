@@ -1,3 +1,26 @@
+# 2026-05-06 note (ISS-20260505T222941901Z raw address lowering place split)
+
+- [同期]:
+  - `ISS-20260505T222215631Z` の coverage_hir 分割を `main` へ fast-forward merge / push / pull した後、clean な `main` から branch `work/resource-raw-address-lowering-split` を作成して対応した。
+- [原因]:
+  - `lower_raw_address.rs` は 727 lines で、Resource checker responsibility policy の 700 lines 上限を超えていた。
+  - raw address source 推論本体と、`MemPtr` / `RegionToken` の raw field place、borrowed reference deref place、raw address alias target、named struct 判定が同居していた。
+- [修正]:
+  - `lower_raw_address.rs` は core mem wrapper / user return / named raw address semantics と source 推論に集中させた。
+  - `lower_raw_address_place.rs` を追加し、raw address place/type helper を移した。
+  - `lower.rs` / `lower_aggregate.rs` / `coverage_hir_raw.rs` の `is_named_struct_type` import を新 module に更新した。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module と行数上限を追加し、`lower_raw_address.rs` 上限を 620 に下げた。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir raw_address -- --nocapture`: `9 passed`
+  - `node nodesrc/test_resource_checker_responsibility.js`: lower_raw_address 超過は解消。次の別件として `initialized_summary_apply.rs has 170 lines; responsibility split limit is 160` を検出した。
+- [issue]:
+  - `ISS-20260505T222941901Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-E7680697` は fixed。
+  - 新たに `ISS-20260505T223432842Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-FEA66B2D` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260505T222215631Z coverage_hir responsibility split)
 
 - [同期]:

@@ -12,7 +12,7 @@ use super::lower::{
     func_ref_base_name, lower_expr_skeleton, place_from_expr_skeleton, LoweringContext,
     LoweringEnvironment,
 };
-use super::lower_raw_address::is_named_struct_type;
+use super::lower_raw_address_place::is_named_struct_type;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
 use super::model::{Place, PlaceProjection, RawMemoryOp, ResourceOp};
 use super::place_utils::raw_memory_cell_place;

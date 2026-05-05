@@ -45,6 +45,7 @@ mod lower;
 mod lower_aggregate;
 mod lower_condition;
 mod lower_raw_address;
+mod lower_raw_address_place;
 mod lower_raw_address_source;
 mod lower_raw_memory;
 mod model;

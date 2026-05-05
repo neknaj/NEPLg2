@@ -87,6 +87,7 @@ for (const moduleName of [
     'coverage_hir_raw.rs',
     'coverage_resource.rs',
     'lower_raw_address.rs',
+    'lower_raw_address_place.rs',
     'lower_raw_memory.rs',
     'report.rs',
     'shadow.rs',
@@ -140,6 +141,7 @@ for (const moduleDecl of [
     'mod coverage_hir_raw;',
     'mod coverage_resource;',
     'mod lower_raw_address;',
+    'mod lower_raw_address_place;',
     'mod lower_raw_memory;',
     'mod report;',
     'mod shadow;',
@@ -184,6 +186,7 @@ const coverageHirRaw = readResource('coverage_hir_raw.rs');
 const coverageResource = readResource('coverage_resource.rs');
 const lower = readResource('lower.rs');
 const lowerRawAddress = readResource('lower_raw_address.rs');
+const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawMemory = readResource('lower_raw_memory.rs');
 
 assertContains(initialized, 'struct ResourceCheckEngine', 'initialized.rs');
@@ -214,6 +217,11 @@ assertContains(
     lowerRawAddress,
     'pub(super) fn push_user_raw_address_return_semantics',
     'lower_raw_address.rs',
+);
+assertContains(
+    lowerRawAddressPlace,
+    'pub(super) fn raw_address_place_from_actual_argument',
+    'lower_raw_address_place.rs',
 );
 assertContains(
     lowerRawMemory,
@@ -289,7 +297,8 @@ const maxLines = new Map([
     ['lower.rs', 1150],
     ['lower_aggregate.rs', 320],
     ['lower_condition.rs', 140],
-    ['lower_raw_address.rs', 700],
+    ['lower_raw_address.rs', 620],
+    ['lower_raw_address_place.rs', 180],
     ['lower_raw_memory.rs', 120],
     ['initialized_alias.rs', 520],
     ['initialized_alias_flow.rs', 550],

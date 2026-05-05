@@ -20,9 +20,10 @@ use super::lower_aggregate::{
 };
 use super::lower_condition::resource_condition_fact;
 use super::lower_raw_address::{
-    is_named_struct_type, push_core_mem_wrapper_semantics, push_named_raw_address_semantics,
+    push_core_mem_wrapper_semantics, push_named_raw_address_semantics,
     push_user_raw_address_return_semantics,
 };
+use super::lower_raw_address_place::is_named_struct_type;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
 use super::model::{
     AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, RawMemoryOp, ResourceBlock,

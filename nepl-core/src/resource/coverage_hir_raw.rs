@@ -1,7 +1,7 @@
 use crate::hir::HirExpr;
 use crate::types::TypeCtx;
 
-use super::lower_raw_address::is_named_struct_type;
+use super::lower_raw_address_place::is_named_struct_type;
 use super::model::RawMemoryOp;
 
 pub(super) fn should_count_raw_memory_call(

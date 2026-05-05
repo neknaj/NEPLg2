@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T22:30:35.187Z",
+  "generated_at": "2026-05-05T22:35:51.679Z",
   "counts": {
-    "total": 475,
+    "total": 476,
     "open": 14,
-    "resolved": 461,
+    "resolved": 462,
     "by_area": {
       "core": {
-        "total": 213,
+        "total": 214,
         "open": 6,
-        "resolved": 207
+        "resolved": 208
       },
       "stdlib": {
         "total": 155,
@@ -150,8 +150,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260505T222941901Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-E7680697",
-      "title": "Resource raw address lowering exceeds responsibility split limit",
+      "id": "ISS-20260505T223432842Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-FEA66B2D",
+      "title": "Resource initialized summary apply exceeds responsibility split limit",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -159,10 +159,10 @@
       "type": "architecture",
       "created": "2026-05-05",
       "updated": "2026-05-05",
-      "target": "nepl-core/src/resource/lower_raw_address.rs, nepl-core/src/resource/lower.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/initialized_summary_apply.rs, nepl-core/src/resource/initialized_summary.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260505T222941901Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-E7680697.md"
+      "file": "items/ISS-20260505T223432842Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-FEA66B2D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3313,6 +3313,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T222215631Z-RESOURCE-HIR-COVERAGE-CHECKER-EXCEED-BACF550C.md"
+    },
+    {
+      "id": "ISS-20260505T222941901Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-E7680697",
+      "title": "Resource raw address lowering exceeds responsibility split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/lower_raw_address.rs, nepl-core/src/resource/lower.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T222941901Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-E7680697.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
