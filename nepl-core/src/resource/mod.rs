@@ -37,6 +37,7 @@ mod initialized_summary;
 mod initialized_summary_apply;
 mod initialized_summary_build;
 mod initialized_summary_condition;
+mod initialized_summary_release;
 mod initialized_summary_variant_build;
 mod initialized_summary_variant_condition;
 mod initialized_summary_variant_requirement;

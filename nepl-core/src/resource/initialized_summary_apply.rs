@@ -3,11 +3,9 @@ use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
-use super::initialized_summary::RawCellReleaseRequirementKind;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{Place, ResourceCallTarget};
 use super::place_utils::projected_place_with_concrete_type;
-use super::report::ResourceCheckOperation;
 
 impl ResourceCheckEngine<'_> {
     pub(super) fn apply_call_raw_cell_initialization_summary(
@@ -114,56 +112,10 @@ impl ResourceCheckEngine<'_> {
         }
         release_requirements_ok
     }
-
-    fn apply_raw_cell_release_requirements(
-        &mut self,
-        cells: &mut CellTable,
-        raw_aliases: &RawCellAddressAliases,
-        args: &[Place],
-        summary: &RawCellInitializationFunctionSummary,
-        span: crate::span::Span,
-    ) -> bool {
-        let mut ok = true;
-        for requirement in &summary.param_release_requirements {
-            let Some(arg) = args.get(requirement.param_index) else {
-                continue;
-            };
-            let arg = raw_aliases.canonicalize(arg);
-            let address = projected_place_with_concrete_type(
-                self.types,
-                &arg,
-                &requirement.suffix,
-                requirement.ty,
-            );
-            let address = raw_aliases.canonicalize(&address);
-            ok &= self.ensure_no_live_non_copy_raw_cells(
-                cells,
-                &address,
-                release_requirement_operation(requirement.kind),
-                span,
-            );
-        }
-        ok
-    }
 }
 
 fn mark_known_raw_address(raw_aliases: &mut RawCellAddressAliases, place: &Place) {
     if !raw_aliases.contains_exact(place) {
         raw_aliases.mark(place);
-    }
-}
-
-fn release_requirement_operation(kind: RawCellReleaseRequirementKind) -> ResourceCheckOperation {
-    match kind {
-        RawCellReleaseRequirementKind::Store => ResourceCheckOperation::RawMemoryStoreCell,
-        RawCellReleaseRequirementKind::Dealloc => ResourceCheckOperation::RawMemoryDeallocCell,
-        RawCellReleaseRequirementKind::Realloc => ResourceCheckOperation::RawMemoryReallocCell,
-        RawCellReleaseRequirementKind::Fill => ResourceCheckOperation::RawMemoryFillCell,
-        RawCellReleaseRequirementKind::BulkDestination => {
-            ResourceCheckOperation::RawMemoryBulkDestinationCell
-        }
-        RawCellReleaseRequirementKind::BulkSource => {
-            ResourceCheckOperation::RawMemoryBulkSourceCell
-        }
     }
 }

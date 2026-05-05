@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T22:35:51.679Z",
+  "generated_at": "2026-05-05T22:40:01.471Z",
   "counts": {
-    "total": 476,
+    "total": 477,
     "open": 14,
-    "resolved": 462,
+    "resolved": 463,
     "by_area": {
       "core": {
-        "total": 214,
+        "total": 215,
         "open": 6,
-        "resolved": 208
+        "resolved": 209
       },
       "stdlib": {
         "total": 155,
@@ -150,8 +150,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260505T223432842Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-FEA66B2D",
-      "title": "Resource initialized summary apply exceeds responsibility split limit",
+      "id": "ISS-20260505T223900812Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-A6D4E59A",
+      "title": "Resource initialized summary builder exceeds responsibility split limit again",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -159,10 +159,10 @@
       "type": "architecture",
       "created": "2026-05-05",
       "updated": "2026-05-05",
-      "target": "nepl-core/src/resource/initialized_summary_apply.rs, nepl-core/src/resource/initialized_summary.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/initialized_summary_build.rs, nepl-core/src/resource/initialized_summary_variant_build.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260505T223432842Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-FEA66B2D.md"
+      "file": "items/ISS-20260505T223900812Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-A6D4E59A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3328,6 +3328,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T222941901Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-E7680697.md"
+    },
+    {
+      "id": "ISS-20260505T223432842Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-FEA66B2D",
+      "title": "Resource initialized summary apply exceeds responsibility split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/initialized_summary_apply.rs, nepl-core/src/resource/initialized_summary.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T223432842Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-FEA66B2D.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

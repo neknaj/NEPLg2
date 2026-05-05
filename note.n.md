@@ -1,3 +1,25 @@
+# 2026-05-06 note (ISS-20260505T223432842Z initialized summary release split)
+
+- [同期]:
+  - `ISS-20260505T222941901Z` の raw address lowering 分割を `main` へ fast-forward merge / push / pull した後、clean な `main` から branch `work/resource-initialized-summary-apply-split` を作成して対応した。
+- [原因]:
+  - `initialized_summary_apply.rs` は 170 lines で、Resource checker responsibility policy の 160 lines 上限を超えていた。
+  - summary application、return/param cell marking、variant initialization reservation、release requirement enforcement が同じ file にあり、initialized-state summary application の責務境界がやや肥大化していた。
+- [修正]:
+  - `initialized_summary_apply.rs` は call/indirect-call raw-cell initialization summary application と caller-side cell marking に集中させた。
+  - `initialized_summary_release.rs` を追加し、param release requirement validation と `RawCellReleaseRequirementKind` から `ResourceCheckOperation` への enum match mapping を移した。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module と行数上限を追加し、`initialized_summary_apply.rs` 上限を 130 に下げた。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir raw_cell -- --nocapture`: `13 passed`
+  - `node nodesrc/test_resource_checker_responsibility.js`: initialized_summary_apply 超過は解消。次の別件として `initialized_summary_build.rs has 628 lines; responsibility split limit is 260` を検出した。
+- [issue]:
+  - `ISS-20260505T223432842Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-FEA66B2D` は fixed。
+  - 新たに `ISS-20260505T223900812Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-A6D4E59A` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260505T222941901Z raw address lowering place split)
 
 - [同期]:
