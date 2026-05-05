@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T04:20:38.915Z",
+  "generated_at": "2026-05-05T04:27:19.887Z",
   "counts": {
     "total": 492,
-    "open": 15,
-    "resolved": 477,
+    "open": 14,
+    "resolved": 478,
     "by_area": {
       "core": {
         "total": 213,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 155,
-        "open": 6,
-        "resolved": 149
+        "open": 5,
+        "resolved": 150
       },
       "TEST": {
         "total": 19,
@@ -203,21 +203,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D.md"
-    },
-    {
-      "id": "ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47",
-      "title": "core mem dealloc APIs do not encode drop obligations for initialized storage",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-28",
-      "target": "stdlib/core/mem.nepl, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/passes/move_check.rs, stdlib/alloc/collections/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47.md"
     },
     {
       "id": "ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84",
@@ -4403,6 +4388,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T164412420Z-CORE-MEM-TYPED-MEM-COPY-AND-MEM-MOVE-621A41C7.md"
+    },
+    {
+      "id": "ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47",
+      "title": "core mem dealloc APIs do not encode drop obligations for initialized storage",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-05-05",
+      "target": "stdlib/core/mem.nepl, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/passes/move_check.rs, stdlib/alloc/collections/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47.md"
     },
     {
       "id": "ISS-20260428T003718356Z-NM-PARSER-AND-HTML-GEN-RAW-MEMORY-DE-99175378",

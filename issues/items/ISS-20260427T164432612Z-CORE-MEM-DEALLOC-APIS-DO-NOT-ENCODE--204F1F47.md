@@ -2,12 +2,12 @@
 id: ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47
 title: "core mem dealloc APIs do not encode drop obligations for initialized storage"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-27
-updated: 2026-04-28
+updated: 2026-05-05
 target: "stdlib/core/mem.nepl, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/passes/move_check.rs, stdlib/alloc/collections/**"
 ---
 
@@ -69,6 +69,18 @@ owning payload を `store<T>` した region を `dealloc_region` / `dealloc_ptr`
 この issue は Stage 4/6 の initialized cell / drop obligation / storage-only dealloc の境界を追跡する。`dealloc_*` の caller を一つずつ patch するだけでは解決にならない。完了条件は、Resource IR または同等の compiler-owned state が「initialized payload を含む storage」と「payload consume/drop 後の storage-only region」を区別し、後者だけを free できることである。
 
 collection 固有の element cleanup API は `ISS-20260425T000000Z-RV-STDLIB-004-91534828`、owner token と `MemPtr` の型分離は `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` に分ける。
+
+## 2026-05-05 対応結果
+
+- 最新 main 同期後、`dealloc_raw` / `dealloc_ptr` / `dealloc_region` が initialized non-Copy payload を storage-only free で捨てる経路は compiler / Resource IR 側の D3100 gate で拒否されることを確認した。
+- `tests/compiler/move_effect.n.md` には、raw dealloc、`dealloc_ptr`、`dealloc_region` が live non-Copy payload を捨てられない compile_fail と、payload を `load` で consume した後なら dealloc できる正常系が含まれており、110 件すべて通過している。
+- `tests/stdlib/memory_safety.n.md` は 12 件すべて通過し、RegionToken / MemPtr の基本操作と invalid argument handling が現在の Resource IR owner/cell gate と整合している。
+- collection 固有の element cleanup は `ISS-20260425T000000Z-RV-STDLIB-004-91534828`、`MemPtr` / `RegionToken` の owner token 型分離は `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF`、safe public raw API の縮小は `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D` で継続する。
+
+## 2026-05-05 検証
+
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-current-agent1.json -j 1 --dist web/dist`: total=12, passed=12
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-current-agent1.json -j 1 --dist web/dist`: total=110, passed=110
 
 ## 2026-04-28 Stage 4 owner token / free obligation 追記
 

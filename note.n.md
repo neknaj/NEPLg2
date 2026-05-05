@@ -1,3 +1,23 @@
+# 2026-05-05 メモ (ISS-20260427T164432612Z dealloc drop obligation)
+
+- [原因]:
+  - この issue は `dealloc_raw` / `dealloc_ptr` / `dealloc_region` が initialized non-Copy payload を drop/consume せず storage-only free できる穴を追跡していた。
+  - 既存の個別対応と Resource IR owner/cell gate の main 同期後、関連する compiler regression と stdlib memory_safety が通る状態になっていたため、issue 状態が実装に追従していなかった。
+- [確認]:
+  - `tests/compiler/move_effect.n.md` は raw dealloc / `dealloc_ptr` / `dealloc_region` が live non-Copy payload を捨てる compile_fail と、`load` 後の storage-only dealloc 正常系を含む。
+  - `tests/stdlib/memory_safety.n.md` は RegionToken / MemPtr の基本操作、invalid pointer handling、typed overload compile_fail を含む。
+- [修正]:
+  - 実装変更は不要と判断し、issue を fixed/resolved に更新した。
+  - collection element cleanup、owner token 型分離、safe raw API 縮小はそれぞれ既存の別 issue に残した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-current-agent1.json -j 1 --dist web/dist`: total=12, passed=12
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-current-agent1.json -j 1 --dist web/dist`: total=110, passed=110
+- [issue]:
+  - `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47` を fixed/resolved にした。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - dealloc/drop obligation は Resource IR / compiler gate 側で検査される状態で、残る大規模な owner token 分離は別 issue の範囲として維持する。
+
 # 2026-05-05 メモ (ISS-20260430T172357987Z WASIX doctest exit_code)
 
 - [原因]:
