@@ -29437,3 +29437,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 724 lines まで縮小し、`fs/stat.nepl` は 130 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs dir split)
+
+- [同期]:
+  - `origin/main` の `82cd65a5` を取り込んだ状態から、branch `refactor/fs-dir-module-split` で対応した。
+- [原因]:
+  - `std/fs.nepl` には stat 分離後も directory open / `fd_readdir` / entry name collection が read/write API と同居していた。
+  - directory traversal は selfhost module discovery の独立した責務であり、ByteBuf read/write や text conversion と同じ facade 本体に置くと `std/fs` が再び肥大化する。
+- [修正]:
+  - `stdlib/std/fs/dir.nepl` を追加し、`fs_open_dir`、`fs_read_dir_fd`、`fs_read_dir` を移した。
+  - `std/fs` facade は `dir` を re-export し、directory helper 本体を保持しない構造にした。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は dir module も検査対象に含め、directory helper が facade に戻らないことと、entry push 失敗を errno 12 へ写す処理が dir module に残ることを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/dir.nepl --no-tree -o tmp/fs-dir-module-direct-2.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-dir-split.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-dir-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 575 lines まで縮小し、`fs/dir.nepl` は 209 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
