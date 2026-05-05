@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:15:02.796Z",
+  "generated_at": "2026-05-05T07:19:35.512Z",
   "counts": {
-    "total": 502,
+    "total": 503,
     "open": 14,
-    "resolved": 488,
+    "resolved": 489,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 23,
+        "total": 24,
         "open": 2,
-        "resolved": 21
+        "resolved": 22
       },
       "selfhost": {
         "total": 45,
@@ -5648,6 +5648,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T071255577Z-CORE-TRAITS-HASH-DOCTEST-OMITS-STDOU-4FEE65D8.md"
+    },
+    {
+      "id": "ISS-20260505T071723578Z-CORE-TEXT-TRAIT-DOCTESTS-OMIT-STDOUT-8D134355",
+      "title": "core text trait doctests omit stdout assertion reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/core/traits/stringify.nepl, stdlib/core/traits/debug.nepl, stdlib/core/traits/serialize.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T071723578Z-CORE-TEXT-TRAIT-DOCTESTS-OMIT-STDOUT-8D134355.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

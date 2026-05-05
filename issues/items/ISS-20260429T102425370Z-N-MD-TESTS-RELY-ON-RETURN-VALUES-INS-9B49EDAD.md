@@ -238,3 +238,13 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 検証:
 
 - `node nodesrc/tests.js -i stdlib/core/traits/hash.nepl --no-tree -o tmp/core-traits-hash-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1
+
+## 2026-05-05 core text traits report migration
+
+`ISS-20260505T071723578Z-CORE-TEXT-TRAIT-DOCTESTS-OMIT-STDOUT-8D134355` で、`stdlib/core/traits/stringify.nepl` / `debug.nepl` / `serialize.nepl` の doc-comment doctest 3 件を stdout assertion report + `exit_code: 0` へ移行した。
+
+3 件とも `std/test` checks を作りながら `checks_exit_code checks` だけを返していたため、表示 trait の基本契約が stdout report として固定されていなかった。今回の対応で各 doctest の `Checked [ok,ok]` report を fixture 化した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/core/traits/stringify.nepl -i stdlib/core/traits/debug.nepl -i stdlib/core/traits/serialize.nepl --no-tree -o tmp/core-text-traits-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3

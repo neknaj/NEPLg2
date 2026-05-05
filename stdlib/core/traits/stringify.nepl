@@ -33,6 +33,11 @@ trait Stringify:
 //: - `Stringify` impl を[直接/ちょくせつ] `[呼/よ]び[出/だ]す`のではなく、[共通/きょうつう]の[入口/いりぐち]として[使/つか]います。
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -43,7 +48,8 @@ trait Stringify:
 //:         checks_new
 //:         |> checks_push assert_str_eq "42" stringify 42
 //:         |> checks_push assert_str_eq "true" stringify true
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 //:
 //: [実装/じっそう]:

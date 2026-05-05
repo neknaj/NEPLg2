@@ -1,3 +1,21 @@
+# 2026-05-05 メモ (ISS-20260505T071723578Z core text traits stdout report)
+
+- [原因]:
+  - `stdlib/core/traits/stringify.nepl` / `debug.nepl` / `serialize.nepl` の doc-comment doctest が `std/test` checks を作る一方で、`checks_print_report` を呼ばず `checks_exit_code checks` だけを返していた。
+  - 表示系 trait の基本契約が exit code だけで確認され、stdout report format の regression を fixture で検出できなかった。
+- [修正]:
+  - 3 件の doctest metadata を `exit_code: 0` + `stdout: mlstr:` に移行した。
+  - 各 doctest に `checks_print_report` を追加し、`Checked [ok,ok]` と各 assertion の `ok` 行を stdout fixture として固定した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/core/traits/stringify.nepl -i stdlib/core/traits/debug.nepl -i stdlib/core/traits/serialize.nepl --no-tree -o tmp/core-text-traits-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+- [issue]:
+  - `ISS-20260505T071723578Z-CORE-TEXT-TRAIT-DOCTESTS-OMIT-STDOUT-8D134355` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に core text traits 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `Stringify` / `Debug` / `Serialize` の doctest について、戻り値ではなく stdout report を観測するテスト契約へ揃えた。
+
 # 2026-05-05 メモ (ISS-20260505T071255577Z core traits hash stdout report)
 
 - [原因]:

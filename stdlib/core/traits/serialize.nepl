@@ -38,6 +38,11 @@ trait Serialize:
 //:
 //: ### [使用例/しようれい]
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -48,7 +53,8 @@ trait Serialize:
 //:         checks_new
 //:         |> checks_push assert_str_eq "42" serialize 42
 //:         |> checks_push assert_str_eq "false" serialize false
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 //:
 //: ### [実装/じっそう]

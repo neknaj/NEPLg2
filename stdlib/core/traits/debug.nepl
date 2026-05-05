@@ -23,6 +23,11 @@ trait Debug:
 //: debug_string: trait を[通/とお]して debug [文字列/もじれつ]を[得/え]る
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -33,7 +38,8 @@ trait Debug:
 //:         checks_new
 //:         |> checks_push assert_str_eq "\"hi\"" debug_string "hi"
 //:         |> checks_push assert_str_eq "7" debug_string 7
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 //:
 //: [目的/もくてき]:
