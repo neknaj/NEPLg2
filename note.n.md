@@ -30414,3 +30414,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T233552284Z Resource unsafe memory gate)
+
+- [同期]:
+  - `main` を remote main と同期後、`work/resource-unsafe-memory-gate` で Stage 5 effect boundary の unsafe memory diagnostic mapping を修正した。
+- [原因]:
+  - Resource IR は pure function 内の `EffectOp::UnsafeMemory` から `UnsafeMemoryInPureFunction` diagnostic を生成していた。
+  - しかし compiler gate はこの diagnostic を `None` にしており、unsafe memory effect safety は旧 typecheck gate だけに依存していた。
+  - raw-memory-boundary source の許可は別関数で判定済みなので、diagnostic mapping を shadow-only にする必要はなかった。
+- [修正]:
+  - `UnsafeMemoryInPureFunction` を `effect.pure.calls_impure` へ変換するようにした。
+  - raw-memory-boundary capability による移行中許可は維持した。
+  - compiler unit test と raw intrinsic focused tests で、非 boundary rejection と core mem boundary allowance を確認した。
+- [検証]:
+  - `cargo test -p nepl-core compiler::tests::resource_effect_gate_maps_unsafe_memory_to_effect_code --lib`: passed
+  - `cargo test -p nepl-core --test effects pure_raw_store_intrinsic_is_rejected_outside_core_mem -- --nocapture`: passed
+  - `cargo test -p nepl-core --test effects raw_memory_intrinsic_in_core_mem_source_is_allowed_during_migration -- --nocapture`: passed
+- [issue]:
+  - `ISS-20260505T233552284Z-RESOURCE-UNSAFE-MEMORY-DIAGNOSTICS-R-46C50106` は fixed。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

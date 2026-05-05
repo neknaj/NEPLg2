@@ -396,3 +396,11 @@ Stage 5 の raw identity escape 判定では、pointer value 自体の raw ident
 `ResourceEffectCallKind` に `ExternalIo` / `Nondet` の typed variant を追加し、host effect operation identity を diagnostic 側でも保持するようにした。`check_effect` は host effect を count した後、`Effect::Impure` として `check_call_effect` へ通すため、Resource IR 上に direct `fd_write` や `random_get` が現れた場合でも pure function では `ImpureCallInPureFunction` になる。
 
 これにより Stage 5 effect boundary checker は user call / indirect call / direct host effect のすべてを同じ pure boundary enforcement に接続する。
+
+## 2026-05-06 Stage 5 unsafe memory Resource IR gate 追記
+
+`ISS-20260505T233552284Z-RESOURCE-UNSAFE-MEMORY-DIAGNOSTICS-R-46C50106` として、Resource IR が生成する `UnsafeMemoryInPureFunction` diagnostic が compiler gate で shadow-only として無視されていた問題を分離し、修正した。
+
+`UnsafeMemoryInPureFunction` は `effect.pure.calls_impure` の compiler diagnostic へ変換されるようになった。一方で raw-memory-boundary source capability による許可は既存の `resource_effect_boundary_diagnostic_is_raw_boundary_allowed` に残しているため、`stdlib/core/mem.nepl` の移行中許可は維持される。
+
+これにより Stage 5 effect boundary checker は unsafe memory operation についても Resource IR diagnostic を compiler gate へ接続し、旧 typecheck gate だけに依存しない。

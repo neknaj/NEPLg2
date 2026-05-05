@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T23:32:53.463Z",
+  "generated_at": "2026-05-05T23:38:58.395Z",
   "counts": {
-    "total": 483,
+    "total": 484,
     "open": 13,
-    "resolved": 470,
+    "resolved": 471,
     "by_area": {
       "core": {
-        "total": 221,
+        "total": 222,
         "open": 5,
-        "resolved": 216
+        "resolved": 217
       },
       "stdlib": {
         "total": 155,
@@ -3433,6 +3433,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T233021576Z-RESOURCE-EFFECT-CHECKER-DOES-NOT-REJ-785FECDE.md"
+    },
+    {
+      "id": "ISS-20260505T233552284Z-RESOURCE-UNSAFE-MEMORY-DIAGNOSTICS-R-46C50106",
+      "title": "Resource unsafe memory diagnostics remain shadow-only",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/compiler.rs, nepl-core/src/resource/effect.rs, nepl-core/tests/effects.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T233552284Z-RESOURCE-UNSAFE-MEMORY-DIAGNOSTICS-R-46C50106.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
