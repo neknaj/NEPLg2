@@ -1,3 +1,26 @@
+# 2026-05-06 note (ISS-20260505T233519789Z resource effect counts split)
+
+- [同期]:
+  - ANSI typed text style redesign commit を remote main `1818288f` へ rebase した後、source policy の再確認で検出した別件を対応した。
+- [原因]:
+  - host effect operation counts の型付き化後、`nepl-core/src/resource/effect.rs` に Resource effect boundary report/check entry point と raw/host/nondet effect count model が同居し、297 lines まで肥大化していた。
+  - `nodesrc/test_resource_checker_responsibility.js` の `effect.rs` 上限 160 lines に対し、count model の責務が再集約されていた。
+- [修正]:
+  - `ResourceEffectCounts` を `effect_counts.rs`、`RawMemoryEffectCounts` を `effect_counts_raw.rs`、`ExternalIoEffectCounts` / `NondetEffectCounts` を `effect_counts_host.rs` に分離した。
+  - `effect.rs` は Resource effect boundary report、diagnostic、check entry point に絞った。
+  - `effect_check.rs` / `effect_summary.rs` / `resource/mod.rs` の import / re-export を新 module 境界へ更新した。
+  - source policy に新 module の存在確認と line limit を追加した。
+- [検証]:
+  - `cargo fmt -p nepl-core`: 実行済み
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_counts_host_effect_operations -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: effect.rs 超過は解消。次の別件として `initialized_external_io.rs has 156 lines; responsibility split limit is 140` を検出した。
+- [issue]:
+  - `ISS-20260505T233519789Z-RESOURCE-EFFECT-COUNTS-EXCEED-RESPON-F1DCE536` は fixed。
+  - 次の別件として initialized external io の責務超過を確認したため、別 issue として扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ANSI typed text style output redesign)
 
 - [同期]:

@@ -20,6 +20,9 @@ mod coverage_resource;
 mod dump;
 mod effect;
 mod effect_check;
+mod effect_counts;
+mod effect_counts_host;
+mod effect_counts_raw;
 mod effect_identity;
 mod effect_summary;
 mod function_alias;
@@ -88,10 +91,12 @@ pub use coverage::{
     ResourceLoweringCoverage,
 };
 pub use effect::{
-    check_resource_effect_boundaries, ExternalIoEffectCounts, NondetEffectCounts,
-    RawMemoryEffectCounts, ResourceEffectBoundaryDiagnostic, ResourceEffectBoundaryReport,
-    ResourceEffectCallKind, ResourceEffectCounts, ResourceEffectFunctionCheck,
+    check_resource_effect_boundaries, ResourceEffectBoundaryDiagnostic,
+    ResourceEffectBoundaryReport, ResourceEffectCallKind, ResourceEffectFunctionCheck,
 };
+pub use effect_counts::ResourceEffectCounts;
+pub use effect_counts_host::{ExternalIoEffectCounts, NondetEffectCounts};
+pub use effect_counts_raw::RawMemoryEffectCounts;
 pub use initialized::check_resource_initialized_moves;
 pub use lower::{lower_hir_module, lower_hir_module_skeleton};
 pub use model::{

@@ -6,9 +6,8 @@ use alloc::vec::Vec;
 use crate::ast::Effect;
 use crate::span::Span;
 
-use super::effect::{
-    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceEffectCounts,
-};
+use super::effect::{ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind};
+use super::effect_counts::ResourceEffectCounts;
 use super::effect_identity::{
     construct_pointer_alias_fields, construct_raw_identity_fields, copy_pointer_alias,
     raw_memory_op_produces_identity, RawIdentityTable, RawMemoryIdentityTable,

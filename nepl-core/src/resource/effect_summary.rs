@@ -1,8 +1,8 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use super::effect::ResourceEffectCounts;
 use super::effect_check::ResourceEffectBoundaryEngine;
+use super::effect_counts::ResourceEffectCounts;
 use super::effect_identity::{RawIdentityTable, RawMemoryIdentityTable, RawPointerAliasTable};
 use super::function_alias::FunctionAliasTable;
 use super::model::{Place, ResourceFunction, ResourceModule, ResourceTerminator};

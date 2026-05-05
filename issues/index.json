@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T23:42:56.880Z",
+  "generated_at": "2026-05-05T23:45:42.363Z",
   "counts": {
-    "total": 485,
+    "total": 486,
     "open": 13,
-    "resolved": 472,
+    "resolved": 473,
     "by_area": {
       "core": {
-        "total": 222,
+        "total": 223,
         "open": 5,
-        "resolved": 217
+        "resolved": 218
       },
       "stdlib": {
         "total": 155,
@@ -3433,6 +3433,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T233021576Z-RESOURCE-EFFECT-CHECKER-DOES-NOT-REJ-785FECDE.md"
+    },
+    {
+      "id": "ISS-20260505T233519789Z-RESOURCE-EFFECT-COUNTS-EXCEED-RESPON-F1DCE536",
+      "title": "Resource effect counts exceed responsibility split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_counts.rs, nepl-core/src/resource/effect_counts_raw.rs, nepl-core/src/resource/effect_counts_host.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T233519789Z-RESOURCE-EFFECT-COUNTS-EXCEED-RESPON-F1DCE536.md"
     },
     {
       "id": "ISS-20260505T233552284Z-RESOURCE-UNSAFE-MEMORY-DIAGNOSTICS-R-46C50106",
