@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T06:41:31.825Z",
+  "generated_at": "2026-05-05T06:48:31.208Z",
   "counts": {
     "total": 498,
-    "open": 14,
-    "resolved": 484,
+    "open": 13,
+    "resolved": 485,
     "by_area": {
       "core": {
         "total": 217,
-        "open": 7,
-        "resolved": 210
+        "open": 6,
+        "resolved": 211
       },
       "stdlib": {
         "total": 157,
@@ -263,21 +263,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
-    },
-    {
-      "id": "ISS-20260505T064000205Z-RESOURCE-IR-SOURCE-FIXTURES-FAIL-ON--EDEA5603",
-      "title": "Resource IR source fixtures fail on warning-only shadow diagnostics",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "test",
-      "created": "2026-05-05",
-      "updated": "2026-05-05",
-      "target": "nepl-core/tests/resource_ir.rs,nepl-core/src/typecheck/binding_rules.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260505T064000205Z-RESOURCE-IR-SOURCE-FIXTURES-FAIL-ON--EDEA5603.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -6173,6 +6158,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T060600668Z-CHECKED-MEMPTR-LOAD-VARIANT-REQUIREM-1A1ADF53.md"
+    },
+    {
+      "id": "ISS-20260505T064000205Z-RESOURCE-IR-SOURCE-FIXTURES-FAIL-ON--EDEA5603",
+      "title": "Resource IR source fixtures fail on warning-only shadow diagnostics",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/tests/resource_ir.rs,nepl-core/src/typecheck/binding_rules.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T064000205Z-RESOURCE-IR-SOURCE-FIXTURES-FAIL-ON--EDEA5603.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

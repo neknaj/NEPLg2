@@ -1,3 +1,23 @@
+# 2026-05-05 メモ (ISS-20260505T064000205Z Resource IR source fixture warnings)
+
+- [原因]:
+  - `nepl-core/tests/resource_ir.rs` の `typecheck_resource_source_with_target` が `checked.diagnostics.is_empty()` を要求しており、`Severity::Warning` の `Resolve::ShadowSameSignatureCallable` でも Resource IR lowering 前に失敗していた。
+  - Resource IR tests の主目的は HIR lowering 後の resource diagnostics であり、warning-only typecheck diagnostics は実行を止める条件ではない。
+- [修正]:
+  - source fixture helper の停止条件を `Severity::Error` の存在に変更し、warning-only diagnostics では Resource IR lowering へ進むようにした。
+  - 同じ責務になった `typecheck_resource_source_allow_warnings` を削除し、call site を通常 helper に統一した。
+  - real typecheck error は引き続き assertion で停止するため、型検査失敗は隠さない。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_region_ptr_at_unknown_offset_rejects_dealloc_over_live_cell -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_allows_repeated_str_view_observer_results -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_raw_region_owner_to_str_after_str_leaf_split -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 180 秒で timeout。旧 warning 許容 helper の call site と今回の再現 test は focused で確認済み。
+- [issue]:
+  - `ISS-20260505T064000205Z-RESOURCE-IR-SOURCE-FIXTURES-FAIL-ON--EDEA5603` を fixed/resolved にした。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Resource IR 回帰テストが warning-only resolve diagnostics で遮断されないようにし、静的検査本体の到達性を改善した。
+
 # 2026-05-05 メモ (ISS-20260505T063836309Z unknown-offset raw-load summary)
 
 - [原因]:

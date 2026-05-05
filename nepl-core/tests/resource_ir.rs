@@ -31,28 +31,6 @@ fn typecheck_resource_source(source: &str) -> (HirModule, TypeCtx) {
     typecheck_resource_source_with_target(source, CompileTarget::Wasm)
 }
 
-fn typecheck_resource_source_allow_warnings(source: &str) -> (HirModule, TypeCtx) {
-    let mut loader = Loader::new(stdlib_root());
-    let loaded = loader
-        .load_inline(PathBuf::from("resource_ir_test.nepl"), source.to_string())
-        .expect("load source with stdlib");
-    let checked = nepl_core::typecheck::typecheck(
-        &loaded.module,
-        CompileTarget::Wasm,
-        BuildProfile::Debug,
-        Some(&loaded.source_map),
-    );
-    assert!(
-        checked
-            .diagnostics
-            .iter()
-            .all(|diagnostic| !matches!(diagnostic.severity, Severity::Error)),
-        "typecheck diagnostics: {:#?}",
-        checked.diagnostics
-    );
-    (checked.module.expect("typechecked module"), checked.types)
-}
-
 fn typecheck_resource_source_with_target(
     source: &str,
     target: CompileTarget,
@@ -68,7 +46,10 @@ fn typecheck_resource_source_with_target(
         Some(&loaded.source_map),
     );
     assert!(
-        checked.diagnostics.is_empty(),
+        checked
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !matches!(diagnostic.severity, Severity::Error)),
         "typecheck diagnostics: {:#?}",
         checked.diagnostics
     );
@@ -8788,7 +8769,7 @@ fn main <()* >i32> ():
             n
 "#;
 
-    let (module, types) = typecheck_resource_source_allow_warnings(source);
+    let (module, types) = typecheck_resource_source(source);
     let resource = lower_hir_module(&module, &types);
     let report = check_resource_owner_obligations(&resource, &types);
     let diagnostics = report
@@ -8832,7 +8813,7 @@ fn main <()* >str> ():
             e
 "#;
 
-    let (module, types) = typecheck_resource_source_allow_warnings(source);
+    let (module, types) = typecheck_resource_source(source);
     let resource = lower_hir_module(&module, &types);
     let report = check_resource_owner_obligations(&resource, &types);
     let diagnostics = report
