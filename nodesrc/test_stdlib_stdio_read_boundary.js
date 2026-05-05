@@ -11,6 +11,8 @@ const rawRelPath = 'stdlib/std/stdio/raw.nepl';
 const rawSrc = fs.readFileSync(path.join(repoRoot, rawRelPath), 'utf8');
 const writeRelPath = 'stdlib/std/stdio/write.nepl';
 const writeSrc = fs.readFileSync(path.join(repoRoot, writeRelPath), 'utf8');
+const readRelPath = 'stdlib/std/stdio/read.nepl';
+const readSrc = fs.readFileSync(path.join(repoRoot, readRelPath), 'utf8');
 
 const code = src
     .split(/\r?\n/)
@@ -24,6 +26,10 @@ const writeCode = writeSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const readCode = readSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
 
 assert.match(
     code,
@@ -34,6 +40,11 @@ assert.match(
     code,
     /pub\s+#import\s+"\.\/stdio\/write"\s+as\s+\*/,
     'std/stdio facade must re-export stdio write submodule',
+);
+assert.match(
+    code,
+    /pub\s+#import\s+"\.\/stdio\/read"\s+as\s+\*/,
+    'std/stdio facade must re-export stdio read submodule',
 );
 
 assert.doesNotMatch(
@@ -75,12 +86,17 @@ for (const helper of [
 for (const helper of [
     'stdio_fd_read_into_result',
     'stdio_finish_read_buffer',
+    'stdio_read_all_bytes_result',
+    'stdio_read_all_text_result',
+    'read_all',
     'stdio_read_line_result',
+    'read_line',
 ]) {
-    assert.match(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist`);
+    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must stay in stdio/read`);
+    assert.match(readCode, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must exist in stdio/read`);
 }
 
-const readAllMatch = code.match(
+const readAllMatch = readCode.match(
     /fn\s+stdio_read_all_bytes_result\s+<\(\)\*>\s*Result<ByteBuf\s*,\s*StdErrorKind>>\s+\(\):([\s\S]*?)\nfn\s+stdio_read_all_bytes\s+/,
 );
 assert.ok(readAllMatch, 'stdio_read_all_bytes_result body must be found');
@@ -95,8 +111,8 @@ assert.match(
     'read_all must return an exact-size ByteBuf through stdio_finish_read_buffer',
 );
 
-const readLineMatch = code.match(
-    /fn\s+noshadow\s+read_line\s+<\(\)\*>\s*str>\s+\(\):([\s\S]*?)\nfn\s+noshadow\s+println\s+/,
+const readLineMatch = readCode.match(
+    /fn\s+noshadow\s+read_line\s+<\(\)\*>\s*str>\s+\(\):([\s\S]*?)$/,
 );
 assert.ok(readLineMatch, 'read_line body must be found');
 const readLineBody = readLineMatch[1];

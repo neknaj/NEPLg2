@@ -29592,3 +29592,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 1444 lines まで縮小し、`stdio/write.nepl` は 263 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 stdio read split)
+
+- [同期]:
+  - `origin/main` の `06968a7f` を取り込んだ状態から、branch `refactor/stdio-read-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/stdio.nepl` は raw/write 分離後も stdin read の scratch 境界、growable buffer、UTF-8 検証、互換 facade を同じ file に保持していた。
+  - read API は `std/stdio/raw` と `std/text` に依存する所有権境界であり、print/ANSI/debug helper と同居させると facade へ実装が戻りやすい。
+- [修正]:
+  - `stdlib/std/stdio/read.nepl` を追加し、`stdio_fd_read_into_result`、`stdio_finish_read_buffer`、`stdio_read_all_bytes_result`、`stdio_read_all_bytes`、`stdio_read_all_text_result`、`read_all`、`stdio_read_line_result`、`read_line` を移した。
+  - `std/stdio` facade は `raw` / `write` / `read` を re-export し、残りは print/ANSI/debug helper に限定した。
+  - `nodesrc/test_stdlib_stdio_read_boundary.js` に、read helper が `stdio.nepl` 本体へ戻らず `stdio/read` に存在することを固定する検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/read.nepl --no-tree -o tmp/stdio-read-module-direct.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-read-split-stdio.json -j 1`: `25 total / 25 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/stdio-read-split-stdin.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md --no-tree -o tmp/stdio-read-split-read-all.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/stdio-read-split-stdout.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 974 lines まで縮小し、`stdio/read.nepl` は 483 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
