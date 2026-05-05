@@ -1,1 +1,1 @@
-print_color ansi_green "ok"
+print_style style "ok"

@@ -30342,3 +30342,33 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の stdio root 分割は完了。`stdio.nepl` は 25 lines、`stdio/debug.nepl` は 346 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260505T040130265Z stdio ansi enum api)
+
+- [同期]:
+  - `origin/main` の `60a36d7b` を取り込んだ状態から、branch `refactor/stdio-ansi-enum-api` で対応した。
+- [原因]:
+  - `std/stdio/ansi` は root 分離後も `ansi_red` / `ansi_green` などの raw `str` 返却 helper と `print_color <(str,str)>` を公開していた。
+  - 呼び出し側が任意 `str` を渡せるため、色 typo や unsupported escape code を型検査で防げず、開発方針の enum/match による静的検査が効いていなかった。
+- [修正]:
+  - `AnsiStyle` enum を追加し、`ansi_style_code` の `match` で `Reset` / `Bold` / `Underline` / 色 variant を wildcard なしに対応させた。
+  - raw string facade の `ansi_*` / `print_color` / `println_color` を削除し、`print_style` / `println_style` を `AnsiStyle` 受け取り API にした。
+  - `debug_color` / `debugln_color` も `AnsiStyle` を受け取る API に変更した。
+  - stdout 回帰、compiler tree の release debug no-op fixture、playground hover fixture を typed API に更新した。
+  - `nodesrc/test_stdlib_stdio_ansi_boundary.js` を強化し、`AnsiStyle` enum、wildcard なし match、obsolete raw string facade の再導入禁止を固定した。
+  - `ISS-20260505T040130265Z-STDIO-ANSI-API-ENUM-MATCH-BDF2FB5E` を `fixed` / `resolved: true` に更新し、issue index を再生成した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_ansi_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_debug_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/ansi.nepl --no-tree -o tmp/stdio-ansi-enum-ansi.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i stdlib/std/stdio/debug.nepl --no-tree -o tmp/stdio-ansi-enum-debug.json -j 1`: `8 total / 8 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/stdio-ansi-enum-stdout.json -j 1`: `7 total / 7 passed`
+  - `node tests/compiler/tree/run.js`: `20 total / 20 passed`
+  - playground analysis hover fixture: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260505T040130265Z-STDIO-ANSI-API-ENUM-MATCH-BDF2FB5E` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

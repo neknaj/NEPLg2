@@ -2,147 +2,48 @@
 //: `std/stdio` の ANSI escape code と color output helper を提供する submodule
 //:
 //: ### 目的
-//: - 端末装飾用の escape code と color print helper を `std/stdio` root facade から分離します。
-//: - 出力処理は `std/stdio/print` に委譲し、この module は ANSI 文字列と組み合わせ規則だけを持ちます。
+//: - 端末装飾用の escape code を `AnsiStyle` enum で表し、style 指定に静的検査を効かせます。
+//: - escape code 生成は `match` に集約し、style 追加時に網羅性検査が働く形にします。
 //:
 //: ### 注意
 //: - 端末が ANSI escape code に対応している環境での利用を想定します。
-//: - `print_color` / `println_color` は互換 facade と同じく write error を扱いません。
+//: - `print_style` / `println_style` は互換 facade と同じく write error を扱いません。
 
 #indent 4
 
 #import "std/stdio/print" as *
 
-//: ansi_reset: 色リセットコード
-//:
-//: 目的:
-//: - ANSI のリセットコードを返します。
-//:
-//: 実装(アルゴリズム):
-//: - 文字列リテラルを返します。
-//:
-//: 注意(重要):
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: 計算量:
-//: - O(1)
-//: ansi_reset: 使い方の最小例
+//: AnsiStyle: ANSI escape code で表せる端末装飾
 //:
 //: [目的/もくてき]:
-//: - `ansi_reset` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//: - color/style を任意 `str` ではなく enum として受け渡し、typo や未定義 style を型で排除します。
 //:
 //: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
-//:
-//: neplg2:test
-//: stdout: "\u001b[0m"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     print ansi_reset;
-//: ```
-fn ansi_reset <()->str> ():
-    "\x1b[0m"
+//: - `Reset` は装飾解除、`Bold` / `Underline` は文字装飾、その他は前景色です。
+enum AnsiStyle:
+    Reset
+    Bold
+    Underline
+    Red
+    Green
+    Yellow
+    Blue
+    Magenta
+    Cyan
+    White
+    Gray
 
-//: ansi_bold: 太字コード
-//:
-//: 目的:
-//: - ANSI の太字コードを返します。
-//:
-//: 実装(アルゴリズム):
-//: - 文字列リテラルを返します。
-//:
-//: 注意(重要):
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: 計算量:
-//: - O(1)
-//: ansi_bold: 使い方の最小例
+//: ansi_style_code: ANSI style enum を escape code へ変換する
 //:
 //: [目的/もくてき]:
-//: - `ansi_bold` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//: - `AnsiStyle` の全 variant を `match` で escape code に対応させます。
 //:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//: [実装/じっそう]:
+//: - variant ごとに固定の文字列リテラルを返します。
+//: - wildcard を使わず全 variant を列挙し、style 追加時に網羅性検査で更新漏れを検出できる形にします。
 //:
-//: neplg2:test
-//: stdout: "\u001b[1m"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     print ansi_bold;
-//: ```
-fn ansi_bold <()->str> ():
-    "\x1b[1m"
-
-//: ansi_underline: 下線コード
-//:
-//: 目的:
-//: - ANSI の下線コードを返します。
-//:
-//: 実装(アルゴリズム):
-//: - 文字列リテラルを返します。
-//:
-//: 注意(重要):
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: 計算量:
+//: [計算量/けいさんりょう]:
 //: - O(1)
-//: ansi_underline: 使い方の最小例
-//:
-//: [目的/もくてき]:
-//: - `ansi_underline` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
-//:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
-//:
-//: neplg2:test
-//: stdout: "\u001b[4m"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     print ansi_underline;
-//: ```
-fn ansi_underline <()->str> ():
-    "\x1b[4m"
-
-//: ansi_red: 赤色コード
-//:
-//: 目的:
-//: - ANSI の赤色コードを返します。
-//:
-//: 実装(アルゴリズム):
-//: - 文字列リテラルを返します。
-//:
-//: 注意(重要):
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: 計算量:
-//: - O(1)
-//: ansi_red: 使い方の最小例
-//:
-//: [目的/もくてき]:
-//: - `ansi_red` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
-//:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
 //: neplg2:test
 //: stdout: "\u001b[31m"
@@ -152,285 +53,59 @@ fn ansi_underline <()->str> ():
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     print ansi_red;
+//:     print ansi_style_code AnsiStyle::Red;
 //: ```
-fn ansi_red <()->str> ():
-    "\x1b[31m"
+fn ansi_style_code <(AnsiStyle)->str> (style):
+    match style:
+        AnsiStyle::Reset:
+            "\x1b[0m"
+        AnsiStyle::Bold:
+            "\x1b[1m"
+        AnsiStyle::Underline:
+            "\x1b[4m"
+        AnsiStyle::Red:
+            "\x1b[31m"
+        AnsiStyle::Green:
+            "\x1b[32m"
+        AnsiStyle::Yellow:
+            "\x1b[33m"
+        AnsiStyle::Blue:
+            "\x1b[34m"
+        AnsiStyle::Magenta:
+            "\x1b[35m"
+        AnsiStyle::Cyan:
+            "\x1b[36m"
+        AnsiStyle::White:
+            "\x1b[37m"
+        AnsiStyle::Gray:
+            "\x1b[90m"
 
-//: ansi_green: 緑色コード
-//:
-//: 目的:
-//: - ANSI の緑色コードを返します。
-//:
-//: 実装(アルゴリズム):
-//: - 文字列リテラルを返します。
-//:
-//: 注意(重要):
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: 計算量:
-//: - O(1)
-//: ansi_green: 使い方の最小例
+//: ansi_reset_code: reset escape code を返す
 //:
 //: [目的/もくてき]:
-//: - `ansi_green` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//: - color output helper が最後に必ず使う reset code を名前付き helper として提供します。
 //:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//: [実装/じっそう]:
+//: - `ansi_style_code AnsiStyle::Reset` に委譲します。
 //:
-//: neplg2:test
-//: stdout: "\u001b[32m"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     print ansi_green;
-//: ```
-fn ansi_green <()->str> ():
-    "\x1b[32m"
-
-//: ansi_yellow: 黄色コード
-//:
-//: 目的:
-//: - ANSI の黄色コードを返します。
-//:
-//: 実装(アルゴリズム):
-//: - 文字列リテラルを返します。
-//:
-//: 注意(重要):
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: 計算量:
+//: [計算量/けいさんりょう]:
 //: - O(1)
-//: ansi_yellow: 使い方の最小例
+fn ansi_reset_code <()->str> ():
+    ansi_style_code AnsiStyle::Reset
+
+//: print_style: style を適用して文字列を出力する
 //:
 //: [目的/もくてき]:
-//: - `ansi_yellow` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//: - `style` を適用して `s` を出力し、最後に reset code を出力します。
+//:
+//: [実装/じっそう]:
+//: - style code、本文、reset code の順に `print` へ委譲します。
 //:
 //: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//: - `style` は `AnsiStyle` なので任意の raw escape string は渡せません。
 //:
-//: neplg2:test
-//: stdout: "\u001b[33m"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     print ansi_yellow;
-//: ```
-fn ansi_yellow <()->str> ():
-    "\x1b[33m"
-
-//: ansi_blue: 青色コード
-//:
-//: 目的:
-//: - ANSI の青色コードを返します。
-//:
-//: 実装(アルゴリズム):
-//: - 文字列リテラルを返します。
-//:
-//: 注意(重要):
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: 計算量:
-//: - O(1)
-//: ansi_blue: 使い方の最小例
-//:
-//: [目的/もくてき]:
-//: - `ansi_blue` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
-//:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
-//:
-//: neplg2:test
-//: stdout: "\u001b[34m"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     print ansi_blue;
-//: ```
-fn ansi_blue <()->str> ():
-    "\x1b[34m"
-
-//: ansi_magenta: マゼンタコード
-//:
-//: 目的:
-//: - ANSI のマゼンタコードを返します。
-//:
-//: 実装(アルゴリズム):
-//: - 文字列リテラルを返します。
-//:
-//: 注意(重要):
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: 計算量:
-//: - O(1)
-//: ansi_magenta: 使い方の最小例
-//:
-//: [目的/もくてき]:
-//: - `ansi_magenta` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
-//:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
-//:
-//: neplg2:test
-//: stdout: "\u001b[35m"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     print ansi_magenta;
-//: ```
-fn ansi_magenta <()->str> ():
-    "\x1b[35m"
-
-//: ansi_cyan: シアンコード
-//:
-//: 目的:
-//: - ANSI のシアンコードを返します。
-//:
-//: 実装(アルゴリズム):
-//: - 文字列リテラルを返します。
-//:
-//: 注意(重要):
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: 計算量:
-//: - O(1)
-//: ansi_cyan: 使い方の最小例
-//:
-//: [目的/もくてき]:
-//: - `ansi_cyan` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
-//:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
-//:
-//: neplg2:test
-//: stdout: "\u001b[36m"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     print ansi_cyan;
-//: ```
-fn ansi_cyan <()->str> ():
-    "\x1b[36m"
-
-//: ansi_white: 白色コード
-//:
-//: 目的:
-//: - ANSI の白色コードを返します。
-//:
-//: 実装(アルゴリズム):
-//: - 文字列リテラルを返します。
-//:
-//: 注意(重要):
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: 計算量:
-//: - O(1)
-//: ansi_white: 使い方の最小例
-//:
-//: [目的/もくてき]:
-//: - `ansi_white` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
-//:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
-//:
-//: neplg2:test
-//: stdout: "\u001b[37m"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     print ansi_white;
-//: ```
-fn ansi_white <()->str> ():
-    "\x1b[37m"
-
-//: ansi_gray: 灰色コード
-//:
-//: 目的:
-//: - ANSI の灰色コードを返します。
-//:
-//: 実装(アルゴリズム):
-//: - 文字列リテラルを返します。
-//:
-//: 注意(重要):
-//: - 端末が ANSI に対応している必要があります。
-//:
-//: 計算量:
-//: - O(1)
-//: ansi_gray: 使い方の最小例
-//:
-//: [目的/もくてき]:
-//: - `ansi_gray` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
-//:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
-//:
-//: neplg2:test
-//: stdout: "\u001b[90m"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     print ansi_gray;
-//: ```
-fn ansi_gray <()->str> ():
-    "\x1b[90m"
-
-//: print_color: 色付きで出力する
-//:
-//: 目的:
-//: - color を適用して s を出力し、最後にリセットします。
-//:
-//: 実装(アルゴリズム):
-//: - color/s/reset の順に print します。
-//:
-//: 注意(重要):
-//: - color は ANSI コード文字列を想定します。
-//:
-//: 計算量:
+//: [計算量/けいさんりょう]:
 //: - O(n)
-//: print_color: 使い方の最小例
-//:
-//: [目的/もくてき]:
-//: - `print_color` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
-//:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
 //:
 //: neplg2:test
 //: stdout: "\u001b[31msample\u001b[0m"
@@ -440,36 +115,24 @@ fn ansi_gray <()->str> ():
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     print_color ansi_red "sample";
+//:     print_style AnsiStyle::Red "sample";
 //: ```
-fn print_color <(str,str)*>()> (color, s):
-    print color;
+fn print_style <(AnsiStyle,str)*>()> (style, s):
+    print ansi_style_code style;
     print s;
-    print ansi_reset;
+    print ansi_reset_code;
     ()
 
-//: println_color: 色付きで改行出力
-//:
-//: 目的:
-//: - print_color の後に改行を追加します。
-//:
-//: 実装(アルゴリズム):
-//: - print_color と print("\n") を呼びます。
-//:
-//: 注意(重要):
-//: - 改行は常に追加されます。
-//:
-//: 計算量:
-//: - O(n)
-//: println_color: 使い方の最小例
+//: println_style: style を適用して改行付きで出力する
 //:
 //: [目的/もくてき]:
-//: - `println_color` の典型的な使い方を最小構成で示します。
-//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//: - `print_style` の後に改行を追加します。
 //:
-//: [注意/ちゅうい]:
-//: - 例は用途が伝わる最短の呼び出しに絞っています。
-//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//: [実装/じっそう]:
+//: - `print_style` と `print "\\n"` を呼びます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
 //:
 //: neplg2:test
 //: stdout: "\u001b[31msample\u001b[0m\n"
@@ -479,8 +142,8 @@ fn print_color <(str,str)*>()> (color, s):
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     println_color ansi_red "sample";
+//:     println_style AnsiStyle::Red "sample";
 //: ```
-fn println_color <(str,str)*>()> (color, s):
-    print_color color s;
+fn println_style <(AnsiStyle,str)*>()> (style, s):
+    print_style style s;
     print "\n";
