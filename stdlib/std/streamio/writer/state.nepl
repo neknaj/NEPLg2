@@ -1,0 +1,145 @@
+//: # streamio/writer/state
+//: `StreamWriter` の owning state と flush boundary
+//:
+//: ### [目的/もくてき]
+//: - writer の buffer owner、capacity、pending length、target enum を構造体 field として静的検査に見える形で管理します。
+//: - stdout/stderr の選択は `StreamWriterTargetKind` enum と `match` に閉じ、数値 code に戻しません。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/stdio" as *
+
+//: ## StreamWriter
+//: write target へ[追記/ついき]していく buffered sink
+//:
+//: ### [目的/もくてき]
+//: - `kpwrite` などの buffered write [中核/ちゅうかく]を `std` へ[昇格/しょうかく]し、競技向け helper 以外でも[再利用/さいりよう]できるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - [内部/ないぶ]で[確保/かくほ]した[書/か]き[込/こ]み buffer を[所有/しょゆう]するため `Copy` / `Clone` は[実装/じっそう]しません。
+//: - [使/つか]い[終/お]わったら `close` で[解放/かいほう]してください。`flush` は[出力/しゅつりょく]のみを[行/おこな]い、[所有権/しょゆうけん]は[維持/いじ]します。
+//: - target kind は stdout/stderr を[保持/ほじ]し、flush [時/じ]に[対応/たいおう]する fd へ[流/なが]します。
+//: - [各/かく] writer は[独立/どくりつ]した buffer を[持/も]つため、[複数/ふくすう]の reader / writer を[同時/どうじ]に[保持/ほじ]できます。
+struct StreamWriter:
+    buf <MemPtr<u8>>
+    cap <i32>
+    write_len <i32>
+    target <StreamWriterTargetKind>
+    marker <(i32)->i32>
+
+enum StreamWriterTargetKind:
+    Stdout
+    Stderr
+
+impl Clone for StreamWriterTargetKind:
+    fn clone <(&StreamWriterTargetKind)->StreamWriterTargetKind> (target):
+        *target
+
+impl Copy for StreamWriterTargetKind:
+    fn copy_mark <(StreamWriterTargetKind)->StreamWriterTargetKind> (target):
+        target
+
+fn stream_writer_noncopy_marker <(i32)->i32> (x):
+    x
+
+fn stream_writer_try_free_ptr <.T> <(MemPtr<.T>,i32)*>()> (ptr, size):
+    match dealloc_ptr<.T> ptr size:
+        Result::Ok _:
+            ()
+        Result::Err _e:
+            ()
+
+//: ## stream_writer_new
+//: StreamWriter の buffer を確保して owning handle を作る
+//:
+//: ### [目的/もくてき]
+//: - `StreamWriter` は非 Copy の owning struct として buffer pointer / capacity / pending length / target enum を直接保持します。
+//: - scanner のような共有 cursor ではないため raw header を持たず、所有権は struct field として静的検査に見える形で管理します。
+fn stream_writer_new <(StreamWriterTargetKind)*>Result<StreamWriter,str>> (target):
+    match alloc_ptr<u8> 4096:
+        Result::Ok buf:
+            Result<StreamWriter,str>::Ok StreamWriter buf 4096 0 target @stream_writer_noncopy_marker
+        Result::Err _e:
+            Result<StreamWriter,str>::Err "streamio.stream_writer_new buffer alloc failed"
+
+//: ## close
+//: buffered sink の[確保領域/かくほりょういき]を[解放/かいほう]する
+//:
+//: ### [注意/ちゅうい]
+//: - 未 flush の[内容/ないよう]は[捨/す]てられます。[必要/ひつよう]なら[先/さき]に `flush` を[呼/よ]んでください。
+fn close <(StreamWriter)*>()> (w):
+    let cap <i32> *get_ref &w "cap";
+    let buf <MemPtr<u8>> get w "buf";
+    stream_writer_try_free_ptr<u8> buf cap
+    ()
+
+//: ## drain_impl
+//: buffered sink の[内容/ないよう]を target fd へ[書/か]き[出/だ]す
+//:
+//: ### [実装/じっそう]
+//: - target kind に[応/おう]じて stdout/stderr を[選/えら]び、partial write を[吸収/きゅうしゅう]しながら[保留/ほりゅう] byte [列/れつ]を[出力/しゅつりょく]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [現在/げんざい]の[書/か]き[込/こ]み[長/なが]さを n として O(n) です。
+fn drain_impl <(StreamWriter)*>StreamWriter> (w):
+    let write_len <i32> *get_ref &w "write_len";
+    if:
+        le write_len 0
+        then:
+            w
+        else:
+            let target <StreamWriterTargetKind> *get_ref &w "target";
+            match target:
+                StreamWriterTargetKind::Stdout:
+                    stdio_write_mem *get_ref &w "buf" write_len
+                StreamWriterTargetKind::Stderr:
+                    stdio_write_stderr_mem *get_ref &w "buf" write_len
+            let cap <i32> *get_ref &w "cap";
+            StreamWriter get w "buf" cap 0 target @stream_writer_noncopy_marker
+
+//: ## reserve_impl
+//: need byte [分/ぶん]の[空/あ]きを[確保/かくほ]する
+//:
+//: ### [注意/ちゅうい]
+//: - need が capacity を[超/こ]える case は[呼/よ]び[出/だ]し[側/がわ]で[避/さ]けてください。この[版/ばん]では buffer [拡張/かくちょう]ではなく flush を[選/えら]びます。
+fn reserve_impl <(StreamWriter,i32)*>StreamWriter> (w, need):
+    let cap <i32> *get_ref &w "cap";
+    let write_len <i32> *get_ref &w "write_len";
+    let required <i32> add write_len need;
+    if:
+        le required cap
+        then:
+            w
+        else:
+            drain_impl w
+
+//: ## push_u8_impl
+//: 1 byte [追記/ついき]する
+//:
+//: ### [計算量/けいさんりょう]
+//: - [通常/つうじょう]は O(1) で、flush が[入/はい]ると O(len) です。
+fn push_u8_impl <(StreamWriter,i32)*>StreamWriter> (w, b):
+    let cap0 <i32> *get_ref &w "cap";
+    if:
+        le cap0 0
+        then:
+            w
+        else:
+            let w1 <StreamWriter> reserve_impl w 1;
+            let write_len <i32> *get_ref &w1 "write_len";
+            let cap <i32> *get_ref &w1 "cap";
+            let target <StreamWriterTargetKind> *get_ref &w1 "target";
+            match store_u8 mem_ptr_add *get_ref &w1 "buf" write_len b:
+                Result::Ok _:
+                    StreamWriter get w1 "buf" cap add write_len 1 target @stream_writer_noncopy_marker
+                Result::Err _e:
+                    w1
+
+//: ## push_newline_impl
+//: [改行/かいぎょう] `\n` を 1 byte [出力/しゅつりょく]する
+fn push_newline_impl <(StreamWriter)*>StreamWriter> (w):
+    push_u8_impl w 10

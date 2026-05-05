@@ -1,0 +1,239 @@
+//: # streamio/writer/append
+//: `StreamWriter` へ値を byte 列として追記する helper 群
+//:
+//: ### [目的/もくてき]
+//: - writer state の flush/buffer 管理から、文字列・ByteBuf・数値 format の責務を分離します。
+//: - 全ての byte 追加は `push_u8_impl` を通し、store 失敗時に length だけが先に進まないようにします。
+
+#indent 4
+
+#import "alloc/io" as *
+#import "alloc/string" as *
+#import "core/cast" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "std/streamio/writer/state" as *
+
+//: ## stream_writer_bytebuf_byte_at
+//: borrowed ByteBuf から 1 byte を読む
+//:
+//: ### [目的/もくてき]
+//: - `append_bytebuf_impl` が `ByteBuf` owner を消費前に保持したまま、範囲内 byte だけを読めるようにします。
+//: - `ByteBuf` の field を `get_ref` で読むため、append loop 中に buffer owner を移動しません。
+fn stream_writer_bytebuf_byte_at <(&ByteBuf,i32)->Option<i32>> (bytes, idx):
+    io_bytebuf_byte_at bytes idx
+
+//: ## append_str_impl
+//: `str` を buffered sink へ[追記/ついき]する
+//:
+//: ### [注意/ちゅうい]
+//: - `str` は `[len][bytes]` [形式/けいしき]なので、bytes [先頭/せんとう]は `string_data_ptr` で[得/え]ます。
+//: - writer buffer の capacity を[超/こ]える文字列でも、1 byte ずつ `push_u8_impl` に通して flush 境界を保ちます。
+fn append_str_impl <(StreamWriter,str)*>StreamWriter> (w, s):
+    let n <i32> len s;
+    let mut ww <StreamWriter> w;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let ch <i32> string_byte_at_unchecked s i;
+            set ww push_u8_impl ww ch;
+            set i add i 1;
+    ww
+
+//: ## append_bytebuf_impl
+//: `ByteBuf` を buffered sink へ[追記/ついき]する
+//:
+//: ### [目的/もくてき]
+//: - binary payload を `str` へ[変換/へんかん]せず、`StreamWriter` の byte buffer へそのまま[積/つ]みます。
+//:
+//: ### [注意/ちゅうい]
+//: - `ByteBuf` の[所有権/しょゆうけん]を[受/う]け[取/と]り、copy [後/ご]に[解放/かいほう]します。
+//: - writer の[内部/ないぶ] capacity を[超/こ]える入力でも、1 byte [単位/たんい]で必要に応じて flush するため overflow しません。
+fn append_bytebuf_impl <(StreamWriter,ByteBuf)*>StreamWriter> (w, bytes):
+    let n <i32> get bytes "len";
+    let mut ww <StreamWriter> w;
+    let mut i <i32> 0;
+    let mut done <i32> 0;
+    while and eq done 0 lt i n:
+        do:
+            match stream_writer_bytebuf_byte_at &bytes i:
+                Option::Some ch:
+                    set ww push_u8_impl ww ch;
+                    set i add i 1;
+                Option::None:
+                    set done 1;
+    io_bytebuf_free bytes;
+    ww
+
+//: ## append_i32_digits_impl
+//: 正の `i32` を 10 [進/しん] digit として[追記/ついき]する
+//:
+//: ### [実装/じっそう]
+//: - 上位 digit を再帰で先に出し、各 digit は `push_u8_impl` に通します。
+//: - 直接 length field を進めず `push_u8_impl` に通すため、checked store 失敗時も writer の長さだけが先に進むことを避けます。
+fn append_i32_digits_impl <(StreamWriter,i32)*>StreamWriter> (w, x):
+    if:
+        ge x 10
+        then:
+            let w1 <StreamWriter> append_i32_digits_impl w div_s x 10;
+            let digit <i32> mod_s x 10;
+            push_u8_impl w1 add '0' digit
+        else:
+            push_u8_impl w add '0' x
+
+//: ## append_u32_digits_impl
+//: `u32` 表現の `i32` を符号なし 10 [進/しん] digit として[追記/ついき]する
+fn append_u32_digits_impl <(StreamWriter,i32)*>StreamWriter> (w, x):
+    if:
+        ge_u x 10
+        then:
+            let w1 <StreamWriter> append_u32_digits_impl w div_u x 10;
+            let digit <i32> rem_u x 10;
+            push_u8_impl w1 add '0' digit
+        else:
+            push_u8_impl w add '0' x
+
+//: ## append_u64_digits_impl
+//: `u64` 表現の `i64` を符号なし 10 [進/しん] digit として[追記/ついき]する
+fn append_u64_digits_impl <(StreamWriter,i64)*>StreamWriter> (w, x):
+    let ten <i64> cast 10;
+    if:
+        ge_u x ten
+        then:
+            let w1 <StreamWriter> append_u64_digits_impl w div_u x ten;
+            let rem <i32> cast rem_u x ten;
+            push_u8_impl w1 add '0' rem
+        else:
+            let digit <i32> cast x;
+            push_u8_impl w add '0' digit
+
+//: ## append_i32_impl
+//: `i32` を 10 [進/しん]で buffered sink へ[追記/ついき]する
+//:
+//: ### [実装/じっそう]
+//: - `INT_MIN` は[絶対値/ぜったいち]が overflow するため[定数/ていすう][文字列/もじれつ]で[処理/しょり]します。
+//: - それ[以外/いがい]は digit helper で上位桁から `push_u8_impl` へ通します。
+fn append_i32_impl <(StreamWriter,i32)*>StreamWriter> (w, v):
+    if:
+        eq v -2147483648
+        then:
+            append_str_impl w "-2147483648"
+        else:
+            if:
+                eq v 0
+                then:
+                    push_u8_impl w 48
+                else:
+                    let mut ww <StreamWriter> w;
+                    let mut x <i32> v;
+
+                    if:
+                        lt x 0
+                        then:
+                            set ww push_u8_impl ww 45;
+                            set x sub 0 x;
+                            ()
+                        else:
+                            ();
+                    append_i32_digits_impl ww x
+
+//: ## append_u32_impl
+//: `u32` を 10 [進/しん]で buffered sink へ[追記/ついき]する
+fn append_u32_impl <(StreamWriter,u32)*>StreamWriter> (w, v):
+    let vi <i32> cast v;
+    let zero <i32> 0;
+    if:
+        eq vi zero
+        then:
+            push_u8_impl w 48
+        else:
+            append_u32_digits_impl w vi
+
+//: ## append_u64_impl
+//: `u64` を 10 [進/しん]で[追記/ついき]する
+fn append_u64_impl <(StreamWriter,u64)*>StreamWriter> (w, v):
+    let vi <i64> cast v;
+    let zero <i64> cast 0;
+    if:
+        eq vi zero
+        then:
+            push_u8_impl w 48
+        else:
+            append_u64_digits_impl w vi
+
+//: ## append_i64_impl
+//: `i64` を[符号付/ふごうつ]き 10 [進/しん]で[追記/ついき]する
+fn append_i64_impl <(StreamWriter,i64)*>StreamWriter> (w, v):
+    let zero <i64> cast 0;
+    if:
+        lt v zero
+        then:
+            let w1 <StreamWriter> push_u8_impl w 45;
+            let abs_i <i64> sub zero v;
+            let abs_u <u64> cast abs_i;
+            append_u64_impl w1 abs_u
+        else:
+            let as_u <u64> cast v;
+            append_u64_impl w as_u
+
+//: ## append_f64_fixed_impl
+//: `f64` を[固定/こてい][小数点/しょうすうてん]で[追記/ついき]する
+//:
+//: ### [注意/ちゅうい]
+//: - `NaN` / `inf` は[未対応/みたいおう]です。
+fn append_f64_fixed_impl <(StreamWriter,f64,i32)*>StreamWriter> (w, v, precision):
+    let mut x <f64> v;
+    let zero <f64> cast 0;
+    let is_neg <bool> lt x zero;
+    let mut ww <StreamWriter> w;
+    if:
+        is_neg
+        then:
+            set ww push_u8_impl ww 45;
+            let nx <f64> neg x;
+            set x nx;
+            ()
+        else:
+            ();
+
+    let int_part <i64> cast x;
+    let int_u <u64> cast int_part;
+    set ww append_u64_impl ww int_u;
+
+    if:
+        le precision 0
+        then:
+            ww
+        else:
+            set ww push_u8_impl ww 46;
+            let int_as_f64 <f64> cast int_part;
+            let mut frac <f64> sub x int_as_f64;
+            let ten <f64> cast 10;
+            let mut i <i32> 0;
+            while lt i precision:
+                do:
+                    let frac10 <f64> mul frac ten;
+                    set frac frac10;
+                    let digit <i32> cast frac;
+                    set ww push_u8_impl ww add '0' digit;
+                    let digit_f <f64> cast digit;
+                    let next_frac <f64> sub frac digit_f;
+                    set frac next_frac;
+                    set i add i 1;
+            ww
+
+//: ## append_f64_impl
+//: `f64` を[小数点以下/しょうすうてんいか] 6 [桁/けた]で[追記/ついき]する
+fn append_f64_impl <(StreamWriter,f64)*>StreamWriter> (w, v):
+    append_f64_fixed_impl w v 6
+
+//: ## append_f32_fixed_impl
+//: `f32` を[固定/こてい][小数点/しょうすうてん]で[追記/ついき]する
+fn append_f32_fixed_impl <(StreamWriter,f32,i32)*>StreamWriter> (w, v, precision):
+    let v64 <f64> cast v;
+    append_f64_fixed_impl w v64 precision
+
+//: ## append_f32_impl
+//: `f32` を[小数点以下/しょうすうてんいか] 6 [桁/けた]で[追記/ついき]する
+fn append_f32_impl <(StreamWriter,f32)*>StreamWriter> (w, v):
+    append_f32_fixed_impl w v 6

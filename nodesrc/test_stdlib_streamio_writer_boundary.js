@@ -7,17 +7,37 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const facadeRelPath = 'stdlib/std/streamio.nepl';
 const writerRelPath = 'stdlib/std/streamio/writer.nepl';
+const stateRelPath = 'stdlib/std/streamio/writer/state.nepl';
+const appendRelPath = 'stdlib/std/streamio/writer/append.nepl';
 const facade = fs.readFileSync(path.join(repoRoot, facadeRelPath), 'utf8');
-const src = fs.readFileSync(path.join(repoRoot, writerRelPath), 'utf8');
+const rootSrc = fs.readFileSync(path.join(repoRoot, writerRelPath), 'utf8');
+const stateSrc = fs.readFileSync(path.join(repoRoot, stateRelPath), 'utf8');
+const appendSrc = fs.readFileSync(path.join(repoRoot, appendRelPath), 'utf8');
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+function stripComments(src) {
+    return src
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*\/\//.test(line))
+        .join('\n');
+}
+
+const rootCode = stripComments(rootSrc);
+const stateCode = stripComments(stateSrc);
+const appendCode = stripComments(appendSrc);
+const code = [rootCode, stateCode, appendCode].join('\n');
 const facadeCode = facade
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+
+for (const [relPath, src, maxLines] of [
+    [writerRelPath, rootSrc, 180],
+    [stateRelPath, stateSrc, 240],
+    [appendRelPath, appendSrc, 320],
+]) {
+    const lineCount = src.split(/\r?\n/).length;
+    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
+}
 
 assert.match(
     facadeCode,
@@ -28,7 +48,6 @@ assert.match(
 for (const pattern of [
     /\bstruct\s+StreamWriter\b/,
     /\benum\s+StreamWriterTargetKind\b/,
-    /\btrait\s+StreamWritable\b/,
     /\bfn\s+stream_writer_new\b/,
     /\bfn\s+drain_impl\b/,
     /\bfn\s+append_str_impl\b/,
@@ -37,6 +56,33 @@ for (const pattern of [
         facadeCode,
         pattern,
         'std/streamio.nepl facade must not keep writer implementation bodies',
+    );
+}
+
+assert.match(
+    rootCode,
+    /#import\s+"std\/streamio\/writer\/state"\s+as\s+\*/,
+    'streamio/writer root must import the writer state submodule',
+);
+
+assert.match(
+    rootCode,
+    /#import\s+"std\/streamio\/writer\/append"\s+as\s+\*/,
+    'streamio/writer root must import the writer append submodule',
+);
+
+for (const pattern of [
+    /\bstruct\s+StreamWriter\b/,
+    /\benum\s+StreamWriterTargetKind\b/,
+    /\bfn\s+stream_writer_new\b/,
+    /\bfn\s+drain_impl\b/,
+    /\bfn\s+append_str_impl\b/,
+    /\bfn\s+append_i32_impl\b/,
+]) {
+    assert.doesNotMatch(
+        rootCode,
+        pattern,
+        'streamio/writer root must keep only public open/trait/write API bodies',
     );
 }
 
@@ -59,12 +105,12 @@ assert.doesNotMatch(
 );
 
 assert.match(
-    code,
+    stateCode,
     /struct\s+StreamWriter:\s+buf\s+<MemPtr<u8>>\s+cap\s+<i32>\s+write_len\s+<i32>\s+target\s+<StreamWriterTargetKind>/,
-    'StreamWriter must keep buffer ownership and target enum as visible struct fields',
+    'StreamWriter state module must keep buffer ownership and target enum as visible struct fields',
 );
 
-const writerNewMatch = code.match(/fn\s+stream_writer_new\b([\s\S]*?)\nfn\s+open\s+<\(WriteStream\)/);
+const writerNewMatch = stateCode.match(/fn\s+stream_writer_new\b([\s\S]*?)\nfn\s+close\b/);
 assert.ok(writerNewMatch, 'stream_writer_new body must be found');
 assert.match(
     writerNewMatch[1],
@@ -72,7 +118,7 @@ assert.match(
     'stream_writer_new must return the buffer owner as a StreamWriter field',
 );
 
-const drainMatch = code.match(/fn\s+drain_impl\b([\s\S]*?)\nfn\s+reserve_impl\b/);
+const drainMatch = stateCode.match(/fn\s+drain_impl\b([\s\S]*?)\nfn\s+reserve_impl\b/);
 assert.ok(drainMatch, 'drain_impl body must be found');
 assert.match(
     drainMatch[1],
@@ -85,7 +131,7 @@ assert.doesNotMatch(
     'drain_impl must not branch on numeric target kind codes',
 );
 
-const writerOpenMatch = code.match(/fn\s+open\s+<\(WriteStream\)([\s\S]*?)\nfn\s+close\b/);
+const writerOpenMatch = rootCode.match(/fn\s+open\s+<\(WriteStream\)([\s\S]*?)\ntrait\s+StreamWritable\b/);
 assert.ok(writerOpenMatch, 'WriteStream open body must be found');
 assert.doesNotMatch(
     writerOpenMatch[1],
@@ -93,7 +139,7 @@ assert.doesNotMatch(
     'WriteStream open must not keep the owning writer result in an intermediate raw local',
 );
 
-const appendStrMatch = code.match(/fn\s+append_str_impl\b([\s\S]*?)\nfn\s+append_bytebuf_impl\b/);
+const appendStrMatch = appendCode.match(/fn\s+append_str_impl\b([\s\S]*?)\nfn\s+append_bytebuf_impl\b/);
 assert.ok(appendStrMatch, 'append_str_impl body must be found');
 assert.match(
     appendStrMatch[1],
@@ -106,7 +152,7 @@ assert.doesNotMatch(
     'append_str_impl must not directly load from string_data_ptr',
 );
 
-const appendByteBufMatch = code.match(/fn\s+append_bytebuf_impl\b([\s\S]*?)\nfn\s+append_i32_digits_impl\b/);
+const appendByteBufMatch = appendCode.match(/fn\s+append_bytebuf_impl\b([\s\S]*?)\nfn\s+append_i32_digits_impl\b/);
 assert.ok(appendByteBufMatch, 'append_bytebuf_impl body must be found');
 assert.match(
     appendByteBufMatch[1],

@@ -1,3 +1,31 @@
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio writer internal split)
+
+- [同期]:
+  - `origin/main` の `c8264df9` を取り込んだ clean な `main` から、branch `refactor/streamio-writer-internal-split` で対応した。
+- [原因]:
+  - `stdlib/std/streamio/writer.nepl` は root 分離後も writer state、flush/buffer boundary、append/format helper、public write API を 487 lines で同居させていた。
+  - `StreamWriterTargetKind` enum と `match` による target 分岐は維持できていたが、state と append helper が同じ file にあるため、再肥大化や raw buffer helper の混入を検出しにくい。
+- [修正]:
+  - `stdlib/std/streamio/writer/state.nepl` を追加し、`StreamWriter`、`StreamWriterTargetKind`、alloc/free、flush/reserve/push helper を移した。
+  - `stdlib/std/streamio/writer/append.nepl` を追加し、`str` / `ByteBuf` / 数値 format append helper を移した。
+  - `stdlib/std/streamio/writer.nepl` は `open`、`StreamWritable`、`write` / `writeln` / `flush` の public API に集中する構成にした。
+  - `nodesrc/test_stdlib_streamio_writer_boundary.js` を分割後の module 構造へ更新し、root 実装再混入禁止、line limit、target enum match、borrowed ByteBuf access を固定した。
+  - `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を writer internal module も読むように更新し、`push_u8_impl` の checked store contract と append ownership contract を分割後も監視する。
+  - `issues/items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md` に writer internal split の進捗を追記した。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/writer.nepl --no-tree -o tmp/streamio-writer-internal-split-root.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-writer-internal-split-facade.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-writer-internal-split-nmd.json -j 1`: `14 total / 14 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: streamio policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`std/streamio/writer.nepl` は 132 lines、`std/streamio/writer/state.nepl` は 145 lines、`std/streamio/writer/append.nepl` は 239 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/test module split)
 
 - [同期]:
