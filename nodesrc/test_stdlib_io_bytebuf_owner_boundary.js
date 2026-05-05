@@ -7,7 +7,7 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/alloc/io.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
-const fsRelPath = 'stdlib/std/fs.nepl';
+const fsRelPath = 'stdlib/std/fs/read.nepl';
 const fsSrc = fs.readFileSync(path.join(repoRoot, fsRelPath), 'utf8');
 const fsRawRelPath = 'stdlib/std/fs/raw.nepl';
 const fsRawSrc = fs.readFileSync(path.join(repoRoot, fsRawRelPath), 'utf8');
@@ -99,7 +99,7 @@ assert.doesNotMatch(
     'ByteBuf Result return paths must use the centralized owned pointer constructor',
 );
 
-const fsReadMatch = fsSrc.match(/fn\s+fs_read_fd_bytes\b([\s\S]*?)\n\/\/: fs_write_fd_bytes\b/);
+const fsReadMatch = fsSrc.match(/fn\s+fs_read_fd_bytes\b([\s\S]*?)\n\/\/: fs_read_to_bytes\b/);
 assert.ok(fsReadMatch, 'fs_read_fd_bytes body must be found');
 const fsRead = fsReadMatch[1];
 const fsFinishMatch = fsRawSrc.match(/fn\s+fs_finish_read_buffer\b([\s\S]*?)\n\/\/: fs:/);

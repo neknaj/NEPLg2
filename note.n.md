@@ -29487,3 +29487,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 449 lines まで縮小し、`fs/bytes.nepl` は 143 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs read split)
+
+- [同期]:
+  - `origin/main` の `4ac21e60` を取り込んだ状態から、branch `refactor/fs-read-module-split` で対応した。
+- [原因]:
+  - `std/fs.nepl` には write API と fd/path read API が同居していた。
+  - read path は `fs_finish_read_buffer` による ByteBuf owner 正規化と `std/fs/bytes` の text 変換境界を持つため、write path と分けると static/source policy の確認対象が明確になる。
+- [修正]:
+  - `stdlib/std/fs/read.nepl` を追加し、`fs_read_fd_bytes`、`fs_read_to_bytes`、`fs_read_to_string`、`fs_read_to_string_checked` を移した。
+  - `std/fs` facade は `read` を re-export し、既存 import から同じ API を使える構成にした。
+  - `nodesrc/test_stdlib_bytebuf_utf8_boundary.js` と `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` を read module 配置へ追従し、`nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` に read helper の facade 再混入防止を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: passed
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/read.nepl --no-tree -o tmp/fs-read-module-direct.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-read-split.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-read-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs/ByteBuf 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 183 lines まで縮小し、`fs/read.nepl` は 290 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
