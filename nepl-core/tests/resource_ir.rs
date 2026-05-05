@@ -481,7 +481,7 @@ fn resource_ir_lowering_preserves_raw_memory_operations() {
     )));
 
     let dump = resource.dump_text();
-    assert!(dump.contains("effect internal_alloc"));
+    assert!(dump.contains("effect internal_alloc(alloc)"));
     assert!(dump.contains("effect unsafe_memory(store)"));
     assert!(dump.contains("effect unsafe_memory(load)"));
     assert!(dump.contains("raw_memory alloc"));

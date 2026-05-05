@@ -30310,3 +30310,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T230208194Z Resource internal allocation op preservation)
+
+- [同期]:
+  - `main` を remote main と同期後、`work/resource-internal-alloc-op-enum` で Stage 5 effect model の続きとして対応した。
+- [原因]:
+  - `InternalEffect::InternalAlloc` は typed `RawMemoryOp` を保持するが、Resource IR lowering で `EffectOp::InternalAlloc` へ畳み込む時点で operation を失っていた。
+  - `UnsafeMemory` は enum 化済みだった一方、`InternalAlloc` は alloc/dealloc/realloc/memory_size/memory_grow を区別できず、後続の match 網羅性と review の可視性が弱かった。
+- [修正]:
+  - `EffectOp::InternalAlloc` を `EffectOp::InternalAlloc { operation: RawMemoryOp }` に変更した。
+  - `resource_effect_from_internal` で operation を保持し、downstream match を `InternalAlloc { .. }` に更新した。
+  - Resource IR dump を `internal_alloc(alloc)` のように operation 付きにし、既存 lowering regression で固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_raw_memory_operations -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 155 passed
+  - `cargo test -p nepl-core --test effects -- --nocapture`: 23 passed
+- [issue]:
+  - `ISS-20260505T230208194Z-RESOURCE-INTERNAL-ALLOCATION-EFFECTS-560C2A9E` は fixed。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

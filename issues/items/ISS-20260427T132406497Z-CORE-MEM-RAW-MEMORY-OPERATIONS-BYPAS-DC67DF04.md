@@ -356,3 +356,11 @@ Stage 5 の raw identity escape 判定では、pointer value 自体の raw ident
 `RawMemoryOp` を compiler-wide な enum とし、`InternalEffect::UnsafeMemory`、`EffectOp::UnsafeMemory`、`UnsafeMemoryInPureFunction` diagnostic が同じ enum を保持するようにした。あわせて `RawMemoryOp::Other` を削除し、既知 raw helper / intrinsic marker は明示的に enum variant へ mapping されなければ Resource IR raw operation として扱われないようにした。
 
 これにより Stage 5 effect model のうち、unsafe memory operation の分類は文字列依存から enum 依存へ移り、downstream の match で raw operation 追加時の修正漏れを検出しやすくなった。`UnsafeMemoryInPureFunction` の enforcement 全面化と stdlib public API migration は引き続き本 issue と stdlib migration issue の残件である。
+
+## 2026-05-06 Stage 5 internal allocation operation preservation 追記
+
+`ISS-20260505T230208194Z-RESOURCE-INTERNAL-ALLOCATION-EFFECTS-560C2A9E` として、`InternalEffect::InternalAlloc` が保持していた typed `RawMemoryOp` を Resource IR の `EffectOp::InternalAlloc` へ下げる時点で失っていた問題を分離し、修正した。
+
+`EffectOp::InternalAlloc` は `operation: RawMemoryOp` を保持するようになり、Resource IR dump も `internal_alloc(alloc)` のように operation 付きで出力する。これにより、Stage 5 の internal effect は `UnsafeMemory` と同様に enum-first で raw operation を保持し、`alloc` / `dealloc` / `realloc` / `memory_size` / `memory_grow` を後続検査で区別できる。
+
+`InternalAlloc` の surface fold は引き続き `Pure` だが、operation identity が残るため、今後の stdlib memory API migration や public escape diagnostics で alloc 系と memory management 系を分けて監査できる。

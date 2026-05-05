@@ -913,7 +913,7 @@ fn function_value_effect(name: &str, env: &LoweringEnvironment) -> EffectOp {
 fn resource_effect_from_internal(effect: InternalEffect) -> EffectOp {
     match effect {
         InternalEffect::Pure => EffectOp::Pure,
-        InternalEffect::InternalAlloc { .. } => EffectOp::InternalAlloc,
+        InternalEffect::InternalAlloc { operation } => EffectOp::InternalAlloc { operation },
         InternalEffect::UnsafeMemory { operation } => EffectOp::UnsafeMemory { operation },
         InternalEffect::ExternalIo { operation } => EffectOp::ExternalIo { operation },
         InternalEffect::Nondet { operation } => EffectOp::Nondet { operation },

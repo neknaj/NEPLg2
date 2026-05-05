@@ -190,7 +190,7 @@ fn propagate_raw_address_alias_op(
         } => {
             if !matches!(
                 effect,
-                EffectOp::InternalAlloc | EffectOp::UnsafeMemory { .. }
+                EffectOp::InternalAlloc { .. } | EffectOp::UnsafeMemory { .. }
             ) && !apply_direct_call_raw_alias_summary(
                 raw_aliases,
                 output,

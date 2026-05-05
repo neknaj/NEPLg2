@@ -545,7 +545,7 @@ impl ResourceEffectBoundaryEngine<'_> {
 
     fn check_effect(&mut self, effect: &EffectOp, span: Span) {
         match effect {
-            EffectOp::InternalAlloc => {
+            EffectOp::InternalAlloc { .. } => {
                 self.counts.internal_allocs += 1;
             }
             EffectOp::UnsafeMemory { operation } => {

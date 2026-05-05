@@ -752,7 +752,7 @@ fn merge_owner_deferred(
 fn direct_raw_memory_effect(effect: &EffectOp) -> bool {
     matches!(
         effect,
-        EffectOp::InternalAlloc | EffectOp::UnsafeMemory { .. }
+        EffectOp::InternalAlloc { .. } | EffectOp::UnsafeMemory { .. }
     )
 }
 

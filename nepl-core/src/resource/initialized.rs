@@ -299,7 +299,7 @@ impl ResourceCheckEngine<'_> {
                 span,
                 ..
             } => {
-                if matches!(effect, EffectOp::InternalAlloc)
+                if matches!(effect, EffectOp::InternalAlloc { .. })
                     || (matches!(effect, EffectOp::UnsafeMemory { .. })
                         && !call_uses_checked_mem_ptr_wrapper(self.types, args))
                 {

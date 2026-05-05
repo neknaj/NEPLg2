@@ -533,7 +533,7 @@ fn dump_effect(effect: &EffectOp) -> String {
         EffectOp::Pure => String::from("pure"),
         EffectOp::UserCall { name, effect } => format!("call({},{:?})", name, effect),
         EffectOp::IndirectCall { effect } => format!("indirect_call({:?})", effect),
-        EffectOp::InternalAlloc => String::from("internal_alloc"),
+        EffectOp::InternalAlloc { operation } => format!("internal_alloc({})", operation),
         EffectOp::UnsafeMemory { operation } => format!("unsafe_memory({})", operation),
         EffectOp::ExternalIo { operation } => format!("external_io({})", operation),
         EffectOp::Nondet { operation } => format!("nondet({})", operation),

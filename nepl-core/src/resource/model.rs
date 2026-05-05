@@ -322,7 +322,7 @@ pub enum EffectOp {
     Pure,
     UserCall { name: String, effect: Effect },
     IndirectCall { effect: Effect },
-    InternalAlloc,
+    InternalAlloc { operation: RawMemoryOp },
     UnsafeMemory { operation: RawMemoryOp },
     ExternalIo { operation: String },
     Nondet { operation: String },
