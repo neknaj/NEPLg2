@@ -7,9 +7,13 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const facadeRelPath = 'stdlib/std/streamio.nepl';
 const scannerRelPath = 'stdlib/std/streamio/scanner.nepl';
+const scannerCursorRelPath = 'stdlib/std/streamio/scanner/cursor.nepl';
+const scannerNumberRelPath = 'stdlib/std/streamio/scanner/number.nepl';
 const scannerStateRelPath = 'stdlib/std/streamio/scanner/state.nepl';
 const facade = fs.readFileSync(path.join(repoRoot, facadeRelPath), 'utf8');
 const src = fs.readFileSync(path.join(repoRoot, scannerRelPath), 'utf8');
+const cursorSrc = fs.readFileSync(path.join(repoRoot, scannerCursorRelPath), 'utf8');
+const numberSrc = fs.readFileSync(path.join(repoRoot, scannerNumberRelPath), 'utf8');
 const stateSrc = fs.readFileSync(path.join(repoRoot, scannerStateRelPath), 'utf8');
 
 const code = src
@@ -20,10 +24,19 @@ const stateCode = stateSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const cursorCode = cursorSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const numberCode = numberSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
 const facadeCode = facade
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const scannerImplementationCode = `${cursorCode}\n${code}\n${numberCode}`;
 
 assert.match(
     facadeCode,
@@ -35,6 +48,16 @@ assert.match(
     code,
     /#import\s+"std\/streamio\/scanner\/state"\s+as\s+\*/,
     'std/streamio/scanner.nepl must import the scanner state boundary module',
+);
+assert.match(
+    code,
+    /#import\s+"std\/streamio\/scanner\/cursor"\s+as\s+\*/,
+    'std/streamio/scanner.nepl must import the scanner cursor boundary module',
+);
+assert.match(
+    code,
+    /#import\s+"std\/streamio\/scanner\/number"\s+as\s+\*/,
+    'std/streamio/scanner.nepl must import the scanner number parser module',
 );
 
 for (const pattern of [
@@ -70,6 +93,44 @@ for (const pattern of [
     );
 }
 
+for (const pattern of [
+    /\bfn\s+stream_scanner_is_leading_skip_byte\b/,
+    /\bfn\s+stream_scanner_is_token_separator\b/,
+    /\bfn\s+stream_scanner_is_ascii_digit\b/,
+    /\bfn\s+stream_scanner_skip_ws_header\b/,
+]) {
+    assert.doesNotMatch(
+        code,
+        pattern,
+        'std/streamio/scanner.nepl must not keep scanner cursor implementation bodies',
+    );
+    assert.match(
+        cursorCode,
+        pattern,
+        'std/streamio/scanner/cursor.nepl must own scanner cursor implementation bodies',
+    );
+}
+
+for (const pattern of [
+    /\bfn\s+scan_i32_impl\b/,
+    /\bfn\s+scan_u32_impl\b/,
+    /\bfn\s+scan_u64_impl\b/,
+    /\bfn\s+scan_i64_impl\b/,
+    /\bfn\s+scan_f64_impl\b/,
+    /\bfn\s+scan_f32_impl\b/,
+]) {
+    assert.doesNotMatch(
+        code,
+        pattern,
+        'std/streamio/scanner.nepl must not keep scanner number parser implementation bodies',
+    );
+    assert.match(
+        numberCode,
+        pattern,
+        'std/streamio/scanner/number.nepl must own scanner number parser implementation bodies',
+    );
+}
+
 assert.match(
     stateCode,
     /\bfn\s+stream_scanner_byte_at\s+<\(MemPtr<u8>,i32,i32\)->i32>/,
@@ -91,12 +152,6 @@ assert.doesNotMatch(
     'StreamScanner header load must not read through an unproven RegionToken pointer',
 );
 
-const scannerMatch = code.match(
-    /fn\s+stream_scanner_skip_ws_header\b([\s\S]*?)\nfn\s+scan_f32_impl\b/,
-);
-assert.ok(scannerMatch, 'StreamScanner scanner implementation section must be found');
-const scannerCode = scannerMatch[1];
-
 for (const pattern of [
     /\bload_u8\s+add\s+buf\b/,
     /\bload_u8\s+buf\b/,
@@ -104,7 +159,7 @@ for (const pattern of [
     /\bstring_from_addr_unchecked\s+s\b/,
 ]) {
     assert.doesNotMatch(
-        scannerCode,
+        scannerImplementationCode,
         pattern,
         'StreamScanner scanner code must not directly load raw buffer bytes or rebuild string layout',
     );
@@ -121,7 +176,7 @@ for (const fnName of [
     'scan_f64_impl',
 ]) {
     const re = new RegExp(`fn\\s+${fnName}\\b[\\s\\S]*?(?=\\nfn\\s+|$)`);
-    const match = code.match(re);
+    const match = scannerImplementationCode.match(re);
     assert.ok(match, `${fnName} body must be found`);
     assert.match(
         match[0],
@@ -131,7 +186,7 @@ for (const fnName of [
 }
 
 assert.match(
-    scannerCode,
+    code,
     /\bstring_from_mem_unchecked_result\s+mem_ptr_add\s+buf\s+start\s+tlen\b/,
     'scan_token_impl must delegate token string construction to alloc/string',
 );

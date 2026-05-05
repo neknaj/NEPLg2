@@ -1,0 +1,120 @@
+//: # streamio/scanner/cursor
+//: `StreamScanner` の cursor 移動と token 境界判定 helper
+//:
+//: ### [目的/もくてき]
+//: - scanner の BOM / 空白 skip と ASCII byte classifier を token parser / numeric parser から分離します。
+//: - parser 本体は cursor header を直接走査せず、この module の境界 helper を通して読み取り開始位置を整えます。
+
+#indent 4
+
+#import "core/mem" as *
+#import "std/streamio/scanner/state" as *
+
+//: stream_scanner_is_leading_skip_byte: scanner 先頭で読み飛ばす byte か判定する
+//:
+//: [目的/もくてき]:
+//: - BOM 後の NUL と ASCII 空白を、decimal code ではなく文字として明示します。
+fn stream_scanner_is_leading_skip_byte <(i32)->bool> (byte):
+    match byte:
+        '\0':
+            true
+        ' ':
+            true
+        '\n':
+            true
+        '\r':
+            true
+        '\t':
+            true
+        _:
+            false
+
+//: stream_scanner_is_token_separator: token を区切る ASCII 空白か判定する
+fn stream_scanner_is_token_separator <(i32)->bool> (byte):
+    match byte:
+        ' ':
+            true
+        '\n':
+            true
+        '\r':
+            true
+        '\t':
+            true
+        _:
+            false
+
+//: stream_scanner_is_ascii_digit: ASCII digit か判定する
+fn stream_scanner_is_ascii_digit <(i32)->bool> (byte):
+    and ge byte '0' le byte '9'
+
+//: stream_scanner_digit_value: ASCII digit byte を 0..9 の値へ変換する
+fn stream_scanner_digit_value <(i32)->i32> (byte):
+    sub byte '0'
+
+//: stream_scanner_is_exponent_marker: 浮動小数点 token の指数 marker か判定する
+fn stream_scanner_is_exponent_marker <(i32)->bool> (byte):
+    match byte:
+        'e':
+            true
+        'E':
+            true
+        _:
+            false
+
+fn stream_scanner_skip_ws_header <(MemPtr<u8>)*>()> (header):
+    let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
+    let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
+    let mut p <i32> stream_scanner_load_header header StreamScannerHeaderField::Pos;
+
+    if:
+        eq p 0
+        then:
+            if:
+                ge len 2
+                then:
+                    let b0 <i32> stream_scanner_byte_at buf len 0;
+                    let b1 <i32> stream_scanner_byte_at buf len 1;
+                    if:
+                        ge len 3
+                        then:
+                            let b2 <i32> stream_scanner_byte_at buf len 2;
+                            if:
+                                and and eq b0 239 eq b1 187 eq b2 191
+                                then:
+                                    set p 3;
+                                else:
+                                    if:
+                                        or and eq b0 255 eq b1 254 and eq b0 254 eq b1 255
+                                        then:
+                                            set p 2;
+                                        else:
+                                            ()
+                        else:
+                            if:
+                                or and eq b0 255 eq b1 254 and eq b0 254 eq b1 255
+                                then:
+                                    set p 2;
+                                else:
+                                    ()
+                else:
+                    ()
+        else:
+            ();
+
+    let mut done <i32> 0;
+    while eq done 0:
+        if:
+            lt p len
+            then:
+                let byte <i32> stream_scanner_byte_at buf len p;
+                if:
+                    stream_scanner_is_leading_skip_byte byte
+                    then:
+                        set p add p 1;
+                    else:
+                        set done 1;
+            else:
+                set done 1;
+
+    stream_scanner_store_header header StreamScannerHeaderField::Pos p;
+    ()

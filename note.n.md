@@ -48,6 +48,34 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 streamio scanner cursor/number split)
+
+- [同期]:
+  - `origin/main` の `f2e8f7c2` を取り込んだ状態から、branch `refactor/streamio-scanner-number-split` で対応した。
+- [原因]:
+  - `streamio/scanner.nepl` は state 分離後も byte classifier、BOM/空白 skip、整数 parser、浮動小数点 parser、root API を 1 file に保持していた。
+  - cursor 移動と数値 parser は root `open/read/close` とは責務が異なり、巨大 file を温存すると raw byte access や if nest への逆戻りを検出しにくい。
+- [修正]:
+  - `stdlib/std/streamio/scanner/cursor.nepl` を追加し、空白/BOM skip、token separator、ASCII digit、指数 marker の match helper を移した。
+  - `stdlib/std/streamio/scanner/number.nepl` を追加し、`scan_i32_impl` / `scan_u32_impl` / `scan_u64_impl` / `scan_i64_impl` / `scan_f64_impl` / `scan_f32_impl` を移した。
+  - `scanner.nepl` は `cursor` / `number` / `state` を import し、`open`、`skip`、`scan_token_impl`、read overload、`close` に集中する構成にした。
+  - `nodesrc/test_stdlib_streamio_scanner_boundary.js` と `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を分割後の module 構成へ追従した。
+  - `nodesrc/test_stdlib_match_decision_trees.js` は char literal `match` の監視対象を `scanner/cursor.nepl` へ移した。
+- [検証]:
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/scanner.nepl --no-tree -o tmp/streamio-scanner-number-split-scanner.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-scanner-number-split-facade.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-scanner-number-split-nmd.json -j 1`: `14 total / 14 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: streamio / match policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`streamio/scanner.nepl` は 192 lines、`streamio/scanner/cursor.nepl` は 120 lines、`streamio/scanner/number.nepl` は 374 lines、`streamio/scanner/state.nepl` は 217 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs raw split)
 
 - [同期]:
