@@ -1,0 +1,226 @@
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "alloc/string" as *
+#import "std/test/types" as *
+
+//: # test/assertion
+//: `std/test` の assertion 生成と quiet check helper
+//:
+//: [目的/もくてき]:
+//: - stdout や report 集約を行わず、assertion の評価結果だけを `TestAssertion` または `Result<(),str>` として返します。
+//: - `AssertionKind` を使うことで、assertion の種類を文字列ではなく静的検査可能な enum として扱います。
+
+//: test_str_eq: [文字列/もじれつ]が[等/ひと]しいか[判定/はんてい]する
+//:
+//: [実装/じっそう]:
+//: - 長さ一致を確認し、byte [単位/たんい]で[比較/ひかく]します。
+fn test_str_eq <(str,str)->bool> (a,b):
+    let la <i32> len a
+    let lb <i32> len b
+    if:
+        eq la lb
+        then:
+            test_str_eq_loop a b la 0
+        else:
+            false
+
+fn test_str_eq_loop <(str,str,i32,i32)->bool> (a,b,total,i):
+    if:
+        eq i total
+        then:
+            true
+        else:
+            let ba <i32> string_byte_at_unchecked a i
+            let bb <i32> string_byte_at_unchecked b i
+            if:
+                eq ba bb
+                then:
+                    test_str_eq_loop a b total add i 1
+                else:
+                    false
+
+//: assert: bool 条件を[構造化/こうぞうか] assertion にする
+fn noshadow assert <(str,bool)->TestAssertion> (label, okv):
+    if:
+        okv
+        then:
+            test_assertion_passed AssertionKind::Bool label "true" "true"
+        else:
+            test_assertion_failed AssertionKind::Bool label "true" "false" "check failed"
+
+fn noshadow assert <(bool)->TestAssertion> (okv):
+    assert "assert" okv
+
+//: assert_eq_i32: i32 の[等値/とうち] assertion を[作/つく]る
+fn noshadow assert_eq_i32 <(str,i32,i32)->TestAssertion> (label, expected, actual):
+    let se <str> from_i32 expected
+    let sa <str> from_i32 actual
+    if:
+        eq expected actual
+        then:
+            test_assertion_passed AssertionKind::EqI32 label se sa
+        else:
+            let m0 <str> concat "assert_eq_i32 failed: expected=" se
+            let m1 <str> concat m0 " actual="
+            let m2 <str> concat m1 sa
+            test_assertion_failed AssertionKind::EqI32 label se sa m2
+
+fn noshadow assert_eq_i32 <(i32,i32)->TestAssertion> (expected, actual):
+    assert_eq_i32 "assert_eq_i32" expected actual
+
+//: assert_ne_bool: bool が[等/ひと]しくないことを[検査/けんさ]する
+fn assert_ne_bool <(str,bool,bool)->TestAssertion> (label, a, b):
+    let sa <str> from_bool a
+    let sb <str> from_bool b
+    let actual0 <str> concat sa " vs "
+    let actual <str> concat actual0 sb
+    if:
+        a
+        then:
+            if:
+                b
+                then:
+                    let m0 <str> concat "assert_ne failed: a=" sa
+                    let m1 <str> concat m0 " b="
+                    let m2 <str> concat m1 sb
+                    test_assertion_failed AssertionKind::NeBool label "different" actual m2
+                else:
+                    test_assertion_passed AssertionKind::NeBool label "different" actual
+        else:
+            if:
+                b
+                then:
+                    test_assertion_passed AssertionKind::NeBool label "different" actual
+                else:
+                    let m0 <str> concat "assert_ne failed: a=" sa
+                    let m1 <str> concat m0 " b="
+                    let m2 <str> concat m1 sb
+                    test_assertion_failed AssertionKind::NeBool label "different" actual m2
+
+fn noshadow assert_ne <(str,bool,bool)->TestAssertion> (label, a, b):
+    assert_ne_bool label a b
+
+fn noshadow assert_ne <(bool,bool)->TestAssertion> (a, b):
+    assert_ne_bool "assert_ne" a b
+
+//: assert_str_eq: str の[等値/とうち] assertion を[作/つく]る
+fn noshadow assert_str_eq <(str,str,str)->TestAssertion> (label, expected, actual):
+    if:
+        test_str_eq expected actual
+        then:
+            test_assertion_passed AssertionKind::StrEq label expected actual
+        else:
+            let m0 <str> concat "assert_str_eq failed: expected=\"" expected
+            let m1 <str> concat m0 "\" actual=\""
+            let m2 <str> concat m1 actual
+            let m3 <str> concat m2 "\""
+            test_assertion_failed AssertionKind::StrEq label expected actual m3
+
+fn noshadow assert_str_eq <(str,str)->TestAssertion> (expected, actual):
+    assert_str_eq "assert_str_eq" expected actual
+
+//: assert_ok_i32: `Result<i32,i32>` が Ok であることを[検査/けんさ]する
+fn noshadow assert_ok_i32 <(str,Result<i32,i32>)->TestAssertion> (label, r):
+    match r:
+        Result::Ok v:
+            test_assertion_passed AssertionKind::OkI32 label "Ok" from_i32 v
+        Result::Err e:
+            let se <str> from_i32 e
+            let actual <str> concat "Err " se
+            let msg <str> concat "assert_ok_i32 failed: Err=" se
+            test_assertion_failed AssertionKind::OkI32 label "Ok" actual msg
+
+fn noshadow assert_ok_i32 <(Result<i32,i32>)->TestAssertion> (r):
+    assert_ok_i32 "assert_ok_i32" r
+
+//: assert_err_i32: `Result<i32,i32>` が Err であることを[検査/けんさ]する
+fn noshadow assert_err_i32 <(str,Result<i32,i32>)->TestAssertion> (label, r):
+    match r:
+        Result::Ok v:
+            let sv <str> from_i32 v
+            let actual <str> concat "Ok " sv
+            let msg <str> concat "assert_err_i32 failed: Ok=" sv
+            test_assertion_failed AssertionKind::ErrI32 label "Err" actual msg
+        Result::Err e:
+            test_assertion_passed AssertionKind::ErrI32 label "Err" from_i32 e
+
+fn noshadow assert_err_i32 <(Result<i32,i32>)->TestAssertion> (r):
+    assert_err_i32 "assert_err_i32" r
+
+//: check: bool 条件を quiet な Result にする
+//:
+//: [注意/ちゅうい]:
+//: - 移行中の helper 用です。新しい canonical report では `assert` が返す `TestAssertion` を[優先/ゆうせん]します。
+//: - quiet helper は `TestAssertion` を中間生成しません。失敗時だけ message 文字列を作り、成功時は所有 `str` を作らないことで Resource IR の owner 境界を単純に保ちます。
+fn check <(bool)->Result<(),str>> (okv):
+    if:
+        okv
+        then:
+            Result<(),str>::Ok ()
+        else:
+            Result<(),str>::Err "check failed"
+
+fn check_eq_i32 <(i32,i32)->Result<(),str>> (expected, actual):
+    if:
+        eq expected actual
+        then:
+            Result<(),str>::Ok ()
+        else:
+            let se <str> from_i32 expected
+            let sa <str> from_i32 actual
+            let m0 <str> concat "check_eq_i32 failed: expected=" se
+            let m1 <str> concat m0 " actual="
+            Result<(),str>::Err concat m1 sa
+
+fn check_ne <(bool,bool)->Result<(),str>> (a, b):
+    if:
+        a
+        then:
+            if:
+                b
+                then:
+                    let sa <str> from_bool a
+                    let sb <str> from_bool b
+                    let m0 <str> concat "check_ne failed: a=" sa
+                    let m1 <str> concat m0 " b="
+                    Result<(),str>::Err concat m1 sb
+                else:
+                    Result<(),str>::Ok ()
+        else:
+            if:
+                b
+                then:
+                    Result<(),str>::Ok ()
+                else:
+                    let sa <str> from_bool a
+                    let sb <str> from_bool b
+                    let m0 <str> concat "check_ne failed: a=" sa
+                    let m1 <str> concat m0 " b="
+                    Result<(),str>::Err concat m1 sb
+
+fn check_str_eq <(str,str)->Result<(),str>> (expected, actual):
+    if:
+        test_str_eq expected actual
+        then:
+            Result<(),str>::Ok ()
+        else:
+            let m0 <str> concat "check_str_eq failed: expected=\"" expected
+            let m1 <str> concat m0 "\" actual=\""
+            let m2 <str> concat m1 actual
+            Result<(),str>::Err concat m2 "\""
+
+fn check_ok_i32 <(Result<i32,i32>)->Result<(),str>> (r):
+    match r:
+        Result::Ok _:
+            Result<(),str>::Ok ()
+        Result::Err e:
+            Result<(),str>::Err concat "check_ok_i32 failed: Err=" from_i32 e
+
+fn check_err_i32 <(Result<i32,i32>)->Result<(),str>> (r):
+    match r:
+        Result::Ok v:
+            Result<(),str>::Err concat "check_err_i32 failed: Ok=" from_i32 v
+        Result::Err _:
+            Result<(),str>::Ok ()

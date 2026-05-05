@@ -240,6 +240,62 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査の正確性を優先し、owner use-after-move 診断を緩めず、Resource IR summary の transfer/consume 責務を分離した。
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio writer internal split)
+
+- [同期]:
+  - `origin/main` の `c8264df9` を取り込んだ clean な `main` から、branch `refactor/streamio-writer-internal-split` で対応した。
+- [原因]:
+  - `stdlib/std/streamio/writer.nepl` は root 分離後も writer state、flush/buffer boundary、append/format helper、public write API を 487 lines で同居させていた。
+  - `StreamWriterTargetKind` enum と `match` による target 分岐は維持できていたが、state と append helper が同じ file にあるため、再肥大化や raw buffer helper の混入を検出しにくい。
+- [修正]:
+  - `stdlib/std/streamio/writer/state.nepl` を追加し、`StreamWriter`、`StreamWriterTargetKind`、alloc/free、flush/reserve/push helper を移した。
+  - `stdlib/std/streamio/writer/append.nepl` を追加し、`str` / `ByteBuf` / 数値 format append helper を移した。
+  - `stdlib/std/streamio/writer.nepl` は `open`、`StreamWritable`、`write` / `writeln` / `flush` の public API に集中する構成にした。
+  - `nodesrc/test_stdlib_streamio_writer_boundary.js` を分割後の module 構造へ更新し、root 実装再混入禁止、line limit、target enum match、borrowed ByteBuf access を固定した。
+  - `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を writer internal module も読むように更新し、`push_u8_impl` の checked store contract と append ownership contract を分割後も監視する。
+  - `issues/items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md` に writer internal split の進捗を追記した。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/writer.nepl --no-tree -o tmp/streamio-writer-internal-split-root.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-writer-internal-split-facade.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-writer-internal-split-nmd.json -j 1`: `14 total / 14 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: streamio policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`std/streamio/writer.nepl` は 132 lines、`std/streamio/writer/state.nepl` は 145 lines、`std/streamio/writer/append.nepl` は 239 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/test module split)
+
+- [同期]:
+  - `origin/main` の `4823a981` を取り込んだ clean な `main` から、branch `refactor/std-test-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/test.nepl` は assertion 型、assert/check helper、report 集約、stdout 表示、exit code 変換、旧 `checks_*` 互換層を 1 file に同居させていた。
+  - `AssertionStatus` / `AssertionKind` enum と owner terminal の設計自体は妥当だが、責務境界が曖昧なままだと stdlib test contract の再肥大化や raw `Result<(),str>` accumulator への退行を検出しにくい。
+- [修正]:
+  - `stdlib/std/test/types.nepl` を追加し、`AssertionStatus` / `AssertionKind` / `TestAssertion` / `TestReport`、name conversion、owner terminal を移した。
+  - `stdlib/std/test/assertion.nepl` を追加し、`assert_*` と quiet `check_*` helper を移した。
+  - `stdlib/std/test/report.nepl` を追加し、`TestReport` 集約、render、stdout print、exit code、旧 `checks_*` 互換層を移した。
+  - `stdlib/std/test.nepl` は `pub #import` だけの facade にし、re-export smoke doctest を追加した。
+  - `nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js` を分割後の module 構造へ更新し、root facade の実装再混入禁止、line limit、typed assertion/report contract、unsafe unwrap 禁止を固定した。
+  - `issues/items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md` に std/test 分割進捗を追記した。
+- [検証]:
+  - `node nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/test.nepl --no-tree -o tmp/std-test-module-split-root.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md --no-tree -o tmp/std-test-module-split-collect.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: std/test policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+  - 参考確認の `node nodesrc/tests.js -i stdlib/tests/hash.n.md --no-tree -o tmp/std-test-module-split-hash.json -j 1` は 60s timeout。今回の std/test 分割に直接関係する contract 検証ではないため、別途重い hash suite の実行時間問題として扱う。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`std/test.nepl` は 33 lines、`std/test/types.nepl` は 148 lines、`std/test/assertion.nepl` は 226 lines、`std/test/report.nepl` は 207 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs fd split)
 
 - [同期]:

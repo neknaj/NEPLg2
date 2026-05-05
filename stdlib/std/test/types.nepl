@@ -1,0 +1,148 @@
+#indent 4
+
+#import "core/math" as *
+#import "core/traits/copy" as *
+#import "alloc/string" as *
+
+//: # test/types
+//: `std/test` の assertion/report 型と owner terminal
+//:
+//: [目的/もくてき]:
+//: - assertion の成否と種類を enum で[表/あらわ]し、renderer 側の分岐で enum の網羅性検査が効くようにします。
+//: - `TestAssertion` / `TestReport` は `str` owner を保持するため、浅い `Copy` を与えず明示的な終端関数で消費します。
+
+//: AssertionStatus: assertion の[成否/せいひ]
+//:
+//: [目的/もくてき]:
+//: - 成功/失敗を bool や文字列ではなく enum として[保持/ほじ]します。
+enum AssertionStatus:
+    Passed
+    Failed
+
+impl Clone for AssertionStatus:
+    fn clone <(&AssertionStatus)->AssertionStatus> (status):
+        *status
+
+impl Copy for AssertionStatus:
+    fn copy_mark <(AssertionStatus)->AssertionStatus> (status):
+        status
+
+//: AssertionKind: assertion の[種類/しゅるい]
+//:
+//: [目的/もくてき]:
+//: - bool、i32 等値、文字列等値などの[種類/しゅるい]を enum で[表/あらわ]し、renderer の分岐を `match` に[閉/と]じます。
+enum AssertionKind:
+    Bool
+    EqI32
+    NeBool
+    StrEq
+    OkI32
+    ErrI32
+    Manual
+
+impl Clone for AssertionKind:
+    fn clone <(&AssertionKind)->AssertionKind> (kind):
+        *kind
+
+impl Copy for AssertionKind:
+    fn copy_mark <(AssertionKind)->AssertionKind> (kind):
+        kind
+
+//: TestAssertion: [単一/たんいつ] assertion の[構造化/こうぞうか][結果/けっか]
+//:
+//: [目的/もくてき]:
+//: - kind、status、label、expected、actual、message を[分離/ぶんり]して[保持/ほじ]します。
+//: - stdout 用の整形は renderer に[任/まか]せ、この値を[作/つく]る関数は print しません。
+struct TestAssertion:
+    kind <AssertionKind>
+    status <AssertionStatus>
+    label <str>
+    expected <str>
+    actual <str>
+    message <str>
+
+//: TestReport: assertion の[集約/しゅうやく] report
+//:
+//: [目的/もくてき]:
+//: - assertion を push [順/じゅん]に deterministic な report [文字列/もじれつ]へ[追加/ついか]します。
+//: - exit code 判定に必要な failed_count を[明示/めいじ]して[持/も]ちます。
+//:
+//: [実装/じっそう]:
+//: - `lines` は新しい canonical stdout report 用の本文です。
+//: - `legacy_summary` / `legacy_human` は、移行中の既存 doctest が使う `checks_print_report` の安定出力を同じ構造化 assertion から生成するための文字列です。
+struct TestReport:
+    name <str>
+    count <i32>
+    failed_count <i32>
+    lines <str>
+    legacy_summary <str>
+    legacy_human <str>
+
+//: assertion_status_name: status を stable な[名前/なまえ]へ[変換/へんかん]する
+fn assertion_status_name <(AssertionStatus)->str> (status):
+    match status:
+        AssertionStatus::Passed:
+            "ok"
+        AssertionStatus::Failed:
+            "fail"
+
+//: assertion_kind_name: kind を stable な[名前/なまえ]へ[変換/へんかん]する
+fn assertion_kind_name <(AssertionKind)->str> (kind):
+    match kind:
+        AssertionKind::Bool:
+            "bool"
+        AssertionKind::EqI32:
+            "eq_i32"
+        AssertionKind::NeBool:
+            "ne_bool"
+        AssertionKind::StrEq:
+            "str_eq"
+        AssertionKind::OkI32:
+            "ok_i32"
+        AssertionKind::ErrI32:
+            "err_i32"
+        AssertionKind::Manual:
+            "manual"
+
+//: test_assertion_passed: [成功/せいこう] assertion を[作/つく]る
+fn test_assertion_passed <(AssertionKind,str,str,str)->TestAssertion> (kind, label, expected, actual):
+    TestAssertion kind AssertionStatus::Passed label expected actual ""
+
+//: test_assertion_failed: [失敗/しっぱい] assertion を[作/つく]る
+fn test_assertion_failed <(AssertionKind,str,str,str,str)->TestAssertion> (kind, label, expected, actual, message):
+    TestAssertion kind AssertionStatus::Failed label expected actual message
+
+//: test_assertion_ok: [手動/しゅどう]の[成功/せいこう] assertion を[作/つく]る
+fn test_assertion_ok <(str)->TestAssertion> (label):
+    test_assertion_passed AssertionKind::Manual label "ok" "ok"
+
+//: test_assertion_fail: [手動/しゅどう]の[失敗/しっぱい] assertion を[作/つく]る
+fn test_assertion_fail <(str,str)->TestAssertion> (label, message):
+    test_assertion_failed AssertionKind::Manual label "ok" "fail" message
+
+//: test_consume_str: report 内部の文字列 owner を最終境界で消費する
+//:
+//: [目的/もくてき]:
+//: - `TestAssertion` / `TestReport` は表示用の `str` を保持するため、exit code へ変換する最終境界では保持していた文字列を明示的に消費します。
+//: - 参照で観測する helper と、所有値を終端する helper を分け、浅い `Copy` に依存しない線形な流れにします。
+fn test_consume_str <(str)->()> (s):
+    len s
+    ()
+
+fn test_consume_i32 <(i32)->()> (n):
+    add n 0
+    ()
+
+fn test_assertion_release <(TestAssertion)->()> (a):
+    test_consume_str get a "label"
+    test_consume_str get a "expected"
+    test_consume_str get a "actual"
+    test_consume_str get a "message"
+
+fn test_report_release <(TestReport)->()> (report):
+    test_consume_str get report "name"
+    test_consume_i32 get report "count"
+    test_consume_i32 get report "failed_count"
+    test_consume_str get report "lines"
+    test_consume_str get report "legacy_summary"
+    test_consume_str get report "legacy_human"
