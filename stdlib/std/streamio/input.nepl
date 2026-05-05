@@ -1,0 +1,171 @@
+//: # streamio/input
+//: stdin / in-memory input stream adapter
+//:
+//: ### [目的/もくてき]
+//: - `alloc/io` の reader trait 群に stdin、text buffer、byte buffer を接続します。
+//: - output adapter と分け、input stream の owner 境界と read overload をこの module に閉じます。
+//:
+//: neplg2:test
+//: ret: 2
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//:| #import "std/streamio/input" as *
+//: fn main <()*>i32> ():
+//:     let r <Result<str, StdErrorKind>> read TextInputStream "ab";
+//:     match r:
+//:         Result::Ok s:
+//:             len s
+//:         Result::Err _e:
+//:             0
+//: ```
+
+#indent 4
+
+#import "alloc/diag/error" as *
+#import "alloc/io" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/stdio" as *
+#import "std/text" as *
+
+//: ## StdinStream
+//: [標準入力/ひょうじゅんにゅうりょく]を[表/あらわ]す[軽量/けいりょう] handle
+//:
+//: ### [目的/もくてき]
+//: - `alloc/io` の reader trait [群/ぐん]に stdin を[載/の]せるための[具体型/ぐたいかた]を[与/あた]えます。
+//:
+//: ### [注意/ちゅうい]
+//: - [内部/ないぶ][状態/じょうたい]を[持/も]たないので `Copy` / `Clone` を[実装/じっそう]します。
+struct StdinStream:
+    marker <()>
+
+impl Copy for StdinStream:
+    fn copy_mark <(StdinStream)->StdinStream> (stream):
+        stream
+
+impl Clone for StdinStream:
+    fn clone <(&StdinStream)->StdinStream> (stream):
+        *stream
+
+//: ## TextInputStream
+//: in-memory text を stream として[扱/あつか]う[軽量/けいりょう] handle
+//:
+//: ### [目的/もくてき]
+//: - `ReadStream::Text "..."` から[入力/にゅうりょく] stream を[作/つく]り、stdin や file read と[同/おな]じ `read` [面/めん]へ[載/の]せます。
+//:
+//: ### [注意/ちゅうい]
+//: - [現在/げんざい]は[全読込/ぜんよみこみ] helper だけを[想定/そうてい]した in-memory source です。
+struct TextInputStream:
+    text <str>
+
+//: ## ByteInputStream
+//: raw binary を stream として[扱/あつか]う in-memory input handle
+//:
+//: ### [目的/もくてき]
+//: - `ReadStream::Bytes bytes` から binary input stream を[作/つく]り、stdin や file read と[同/おな]じ `read` [面/めん]へ[載/の]せます。
+//:
+//: ### [注意/ちゅうい]
+//: - `bytes` は stream [内部/ないぶ]へ[所有権/しょゆうけん]ごと[移動/いどう]します。
+struct ByteInputStream:
+    bytes <ByteBuf>
+
+impl ByteReader for StdinStream:
+    fn read_all_bytes <(StdinStream)*>Result<ByteBuf, StdErrorKind>> (_stream):
+        stdio_read_all_bytes_result
+
+impl TextReader for StdinStream:
+    fn read_all_text <(StdinStream)*>Result<str, StdErrorKind>> (_stream):
+        stdio_read_all_text_result
+
+impl ByteReader for TextInputStream:
+    fn read_all_bytes <(TextInputStream)*>Result<ByteBuf, StdErrorKind>> (stream):
+        io_bytebuf_from_str_result get stream "text"
+
+impl TextReader for TextInputStream:
+    fn read_all_text <(TextInputStream)*>Result<str, StdErrorKind>> (stream):
+        Result::Ok get stream "text"
+
+impl Close for TextInputStream:
+    fn close <(TextInputStream)*>Result<(), StdErrorKind>> (_stream):
+        Result::Ok ()
+
+impl ByteReader for ByteInputStream:
+    fn read_all_bytes <(ByteInputStream)*>Result<ByteBuf, StdErrorKind>> (stream):
+        Result::Ok get stream "bytes"
+
+impl TextReader for ByteInputStream:
+    fn read_all_text <(ByteInputStream)*>Result<str, StdErrorKind>> (stream):
+        text_bytebuf_to_utf8_str_result get stream "bytes"
+
+impl Close for ByteInputStream:
+    fn close <(ByteInputStream)*>Result<(), StdErrorKind>> (_stream):
+        Result::Ok ()
+
+impl Close for StdinStream:
+    fn close <(StdinStream)*>Result<(), StdErrorKind>> (_stream):
+        Result::Ok ()
+
+//: ## StreamReadableResult
+//: input stream を[指定/してい]した[型/かた]として[読/よ]み[出/だ]す[能力/のうりょく]
+trait StreamReadableResult:
+    fn read_from_stdin <(StdinStream)*>Result<Self, StdErrorKind>> (_stream):
+        Result::Err StdErrorKind::InvalidOperation
+
+    fn read_from_text_stream <(TextInputStream)*>Result<Self, StdErrorKind>> (_stream):
+        Result::Err StdErrorKind::InvalidOperation
+
+    fn read_from_byte_stream <(ByteInputStream)*>Result<Self, StdErrorKind>> (_stream):
+        Result::Err StdErrorKind::InvalidOperation
+
+impl StreamReadableResult for ByteBuf:
+    fn read_from_stdin <(StdinStream)*>Result<ByteBuf, StdErrorKind>> (stream):
+        io_read_all_bytes stream
+
+    fn read_from_text_stream <(TextInputStream)*>Result<ByteBuf, StdErrorKind>> (stream):
+        io_read_all_bytes stream
+
+    fn read_from_byte_stream <(ByteInputStream)*>Result<ByteBuf, StdErrorKind>> (stream):
+        io_read_all_bytes stream
+
+impl StreamReadableResult for str:
+    fn read_from_stdin <(StdinStream)*>Result<str, StdErrorKind>> (stream):
+        io_read_all_text stream
+
+    fn read_from_text_stream <(TextInputStream)*>Result<str, StdErrorKind>> (stream):
+        io_read_all_text stream
+
+    fn read_from_byte_stream <(ByteInputStream)*>Result<str, StdErrorKind>> (stream):
+        io_read_all_text stream
+
+//: ## read
+//: `StdinStream` を[指定/してい]した[型/かた]として[読/よ]む
+fn read <.T: StreamReadableResult> <(StdinStream)*>Result<.T, StdErrorKind>> (stream):
+    StreamReadableResult::read_from_stdin stream
+
+//: ## read
+//: in-memory text stream を[指定/してい]した[型/かた]として[読/よ]む
+fn read <.T: StreamReadableResult> <(TextInputStream)*>Result<.T, StdErrorKind>> (stream):
+    StreamReadableResult::read_from_text_stream stream
+
+//: ## read
+//: in-memory byte stream を[指定/してい]した[型/かた]として[読/よ]む
+fn read <.T: StreamReadableResult> <(ByteInputStream)*>Result<.T, StdErrorKind>> (stream):
+    StreamReadableResult::read_from_byte_stream stream
+
+//: ## close
+//: `StdinStream` を[閉/と]じる
+fn close <(StdinStream)*>Result<(), StdErrorKind>> (stream):
+    io_close stream
+
+//: ## close
+//: `TextInputStream` を[閉/と]じる
+fn close <(TextInputStream)*>Result<(), StdErrorKind>> (stream):
+    io_close stream
+
+//: ## close
+//: `ByteInputStream` を[閉/と]じる
+fn close <(ByteInputStream)*>Result<(), StdErrorKind>> (stream):
+    io_close stream
