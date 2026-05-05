@@ -1,3 +1,31 @@
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs constants/path split)
+
+- [同期]:
+  - `origin/main` の `70a76082` と一致する状態から、branch `refactor/fs-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/fs.nepl` は WASI shim、fd read/write、path 正規化、directory entry UTF-8 変換、directory sort、read/write public API を同居させていた。
+  - path 正規化 helper は syscall wrapper と独立した責務であり、巨大 facade に残すと Resource IR 境界と source policy の対象が追いづらい。
+- [修正]:
+  - WASI rights/oflags/errno/filetype/readdir buffer 定数を `stdlib/std/fs/constants.nepl` へ分離し、`std/fs` facade から re-export した。
+  - path validation、byte 辞書順 sort、directory entry byte-to-str、relative path normalization を `stdlib/std/fs/path.nepl` へ分離し、`std/fs` facade から re-export した。
+  - `fs_normalize_relative_builder` を追加し、syscall 境界では正規化 path を `str` owner にせず `StringBuilder` owner のまま渡して `string_builder_free` で閉じられる構造にした。
+  - `fs_path_filetype` の filestat out-buffer filetype byte を syscall 前に初期化し、Resource IR が外部 out-buffer 境界を追跡できる形にした。
+  - `tests/stdlib/fs.n.md` の unexpected success arm が返却 `str` owner を未消費にしないよう、失敗 assertion helper へ渡す形に修正した。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_bytebuf_utf8_boundary.js` を新 module 構成へ追従させた。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/path.nepl -i stdlib/std/fs/constants.nepl --no-tree -o tmp/fs-submodules-after-path-split.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-path-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-path-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdlib/fs 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js index; node nodesrc/issues.js check; git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 1740 lines から 1344 lines へ縮小し、`fs/path.nepl` 402 lines、`fs/constants.nepl` 56 lines に分離した。
+  - 検証中に `ISS-20260505T021408593Z-FS-PATH-FILETYPE-LEAKS-NORMALIZED-ST-2B0962CF` を追加し、同ブランチで fixed/resolved とした。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio scanner split)
 
 - [同期]:

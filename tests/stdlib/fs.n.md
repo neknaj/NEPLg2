@@ -18,8 +18,8 @@ neplg2:test
 fn main <()*>i32> ():
     let mut checks checks_new;
     match fs_read_to_string "__definitely_missing_file__.txt":
-        Result::Ok _s:
-            set checks checks_push checks Result<(),str>::Err "fs_read_to_string unexpectedly succeeded"
+        Result::Ok s:
+            set checks checks_push checks check_str_eq "__expected_missing_file_error__" s
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Ok ();
     let shown checks_print_report checks;
@@ -207,8 +207,8 @@ fn main <()*>i32> ():
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "normalizing dot and empty components failed";
     match fs_normalize_relative "../outside":
-        Result::Ok _path:
-            set checks checks_push checks Result<(),str>::Err "parent escape normalized successfully"
+        Result::Ok path:
+            set checks checks_push checks check_str_eq "__expected_parent_escape_error__" path
         Result::Err e:
             set checks checks_push checks check_eq_i32 76 e;
     let shown checks_print_report checks;
