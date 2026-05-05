@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use crate::types::{TypeCtx, TypeId};
 
-use super::model::{CellState, CellStateEntry, Place, PlaceProjection};
+use super::model::{CellState, CellStateEntry, Place, PlaceProjection, ResourceOffset};
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, raw_memory_cell_place,
     should_track,
@@ -44,6 +44,19 @@ impl CellTable {
                 return entry.state;
             }
         }
+        if raw_cell_has_dynamic_offset(place) {
+            for entry in &self.cells {
+                if entry.place == *place
+                    || !types.same_type(entry.place.ty, place.ty)
+                    || !raw_cells_may_alias(&entry.place, place)
+                {
+                    continue;
+                }
+                if !matches!(entry.state, CellState::Initialized(_)) {
+                    return entry.state.clone();
+                }
+            }
+        }
         if let Some(state @ CellState::Initialized(_)) = self.state(place) {
             return state;
         }
@@ -66,10 +79,16 @@ impl CellTable {
     }
 
     pub(super) fn mark_raw_cell_moved(&mut self, address: &Place, ty: TypeId) {
-        self.cells
-            .retain(|entry| !raw_cell_belongs_to_address_cell(&entry.place, address));
+        let moved_state = if raw_address_has_dynamic_offset(address) {
+            self.mark_overlapping_raw_cells_maybe_moved(address, ty);
+            CellState::MaybeMoved
+        } else {
+            self.cells
+                .retain(|entry| !raw_cell_belongs_to_address_cell(&entry.place, address));
+            CellState::Moved
+        };
         let cell = raw_memory_cell_place(address, ty);
-        self.set_state(&cell, CellState::Moved);
+        self.set_state(&cell, moved_state);
     }
 
     pub(super) fn set_state(&mut self, place: &Place, state: CellState) {
@@ -268,6 +287,21 @@ impl CellTable {
             entry.place == *prefix || place_suffix_after_prefix(&entry.place, prefix).is_none()
         });
     }
+
+    fn mark_overlapping_raw_cells_maybe_moved(&mut self, address: &Place, ty: TypeId) {
+        let dynamic_cell = raw_memory_cell_place(address, ty);
+        for entry in &mut self.cells {
+            if entry.place == dynamic_cell
+                || entry.place.ty != ty
+                || !raw_cell_belongs_to_address_cell(&entry.place, address)
+            {
+                continue;
+            }
+            if matches!(entry.state, CellState::Initialized(_)) {
+                entry.state = CellState::MaybeMoved;
+            }
+        }
+    }
 }
 
 fn initialized_state_flows_to(
@@ -277,7 +311,7 @@ fn initialized_state_flows_to(
     types: &TypeCtx,
 ) -> bool {
     let Some(suffix) = place_suffix_after_prefix(place, prefix)
-        .or_else(|| place_suffix_after_address_prefix(place, prefix))
+        .or_else(|| place_suffix_after_address_must_prefix(place, prefix))
     else {
         return false;
     };
@@ -347,6 +381,39 @@ fn raw_cell_belongs_to_address_cell(cell: &Place, address: &Place) -> bool {
         .is_some_and(|projection| matches!(projection, PlaceProjection::Deref))
 }
 
+fn place_suffix_after_address_must_prefix(
+    place: &Place,
+    prefix: &Place,
+) -> Option<Vec<PlaceProjection>> {
+    if place.root != prefix.root {
+        return None;
+    }
+    let mut place_index = 0;
+    for prefix_projection in &prefix.projections {
+        if storage_offset_is_zero(prefix_projection) {
+            continue;
+        }
+        while matches!(
+            place.projections.get(place_index),
+            Some(projection) if storage_offset_is_zero(projection)
+        ) {
+            place_index += 1;
+        }
+        let place_projection = place.projections.get(place_index)?;
+        if !address_projection_must_match(place_projection, prefix_projection) {
+            return None;
+        }
+        place_index += 1;
+    }
+    while matches!(
+        place.projections.get(place_index),
+        Some(projection) if storage_offset_is_zero(projection)
+    ) {
+        place_index += 1;
+    }
+    Some(place.projections[place_index..].to_vec())
+}
+
 fn raw_addresses_overlap(left: &Place, right: &Place) -> bool {
     place_suffix_after_address_prefix(left, right).is_some()
         || place_suffix_after_address_prefix(right, left).is_some()
@@ -398,7 +465,7 @@ fn place_suffix_after_address_prefix(
         }
         if matches!(
             prefix_projection,
-            PlaceProjection::StorageOffset(super::model::ResourceOffset::Dynamic)
+            PlaceProjection::StorageOffset(ResourceOffset::Dynamic)
         ) {
             if matches!(
                 place.projections.get(place_index),
@@ -426,7 +493,7 @@ fn place_suffix_after_address_prefix(
 fn storage_offset_is_zero(projection: &PlaceProjection) -> bool {
     matches!(
         projection,
-        PlaceProjection::StorageOffset(super::model::ResourceOffset::Exact(0))
+        PlaceProjection::StorageOffset(ResourceOffset::Exact(0))
     )
 }
 
@@ -439,18 +506,48 @@ fn address_projection_matches(place: &PlaceProjection, prefix: &PlaceProjection)
     }
 }
 
-fn storage_offsets_may_alias(
-    left: super::model::ResourceOffset,
-    right: super::model::ResourceOffset,
-) -> bool {
-    match (left, right) {
-        (super::model::ResourceOffset::Exact(left), super::model::ResourceOffset::Exact(right)) => {
-            left == right
-        }
-        (super::model::ResourceOffset::Dynamic, _) | (_, super::model::ResourceOffset::Dynamic) => {
-            true
-        }
+fn address_projection_must_match(place: &PlaceProjection, prefix: &PlaceProjection) -> bool {
+    match (place, prefix) {
+        (
+            PlaceProjection::StorageOffset(ResourceOffset::Exact(left)),
+            PlaceProjection::StorageOffset(ResourceOffset::Exact(right)),
+        ) => left == right,
+        (PlaceProjection::StorageOffset(_), PlaceProjection::StorageOffset(_)) => false,
+        _ => place == prefix,
     }
+}
+
+fn storage_offsets_may_alias(left: ResourceOffset, right: ResourceOffset) -> bool {
+    match (left, right) {
+        (ResourceOffset::Exact(left), ResourceOffset::Exact(right)) => left == right,
+        (ResourceOffset::Dynamic, _) | (_, ResourceOffset::Dynamic) => true,
+    }
+}
+
+fn raw_address_has_dynamic_offset(address: &Place) -> bool {
+    address.projections.iter().any(|projection| {
+        matches!(
+            projection,
+            PlaceProjection::StorageOffset(ResourceOffset::Dynamic)
+        )
+    })
+}
+
+fn raw_cell_has_dynamic_offset(cell: &Place) -> bool {
+    cell.projections.iter().any(|projection| {
+        matches!(
+            projection,
+            PlaceProjection::StorageOffset(ResourceOffset::Dynamic)
+        )
+    }) && cell
+        .projections
+        .iter()
+        .any(|projection| matches!(projection, PlaceProjection::Deref))
+}
+
+fn raw_cells_may_alias(left: &Place, right: &Place) -> bool {
+    place_suffix_after_address_prefix(left, right).is_some()
+        || place_suffix_after_address_prefix(right, left).is_some()
 }
 
 fn merge_cell_states(left: CellState, right: CellState, types: &TypeCtx) -> CellState {

@@ -11928,6 +11928,59 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_unknown_offset_load_does_not_clear_all_exact_cells() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_offset <(bool)->i32> (flag):
+    if flag 0 size_of<LocalToken>
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let token <RegionToken<LocalToken>> region_new<LocalToken> p mul 2 size_of<LocalToken>
+    let off <i32> choose_offset true
+    match region_ptr_at<LocalToken,LocalToken> &token off:
+        Result::Ok q:
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            store<LocalToken> add mem_ptr_addr p size_of<LocalToken> LocalToken @token_id
+            let item <LocalToken> load<LocalToken> mem_ptr_addr q
+            let r <Result<(),str>> dealloc_ptr<LocalToken> p mul 2 size_of<LocalToken>
+            0
+        Result::Err _e:
+            0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                function,
+                operation: ResourceCheckOperation::RawMemoryDeallocCell,
+                state,
+                ..
+            } if (function == "main" || function.starts_with("main__"))
+                && matches!(state, CellState::Initialized(_) | CellState::MaybeMoved)
+        )),
+        "one unknown-offset non-Copy load must not prove all exact cells moved: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_str_addr_helper_parameter_raw_load() {
     let source = r#"
 #entry main

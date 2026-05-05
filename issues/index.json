@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T08:31:41.679Z",
+  "generated_at": "2026-05-05T08:44:38.406Z",
   "counts": {
-    "total": 515,
+    "total": 516,
     "open": 15,
-    "resolved": 500,
+    "resolved": 501,
     "by_area": {
       "core": {
-        "total": 219,
+        "total": 220,
         "open": 7,
-        "resolved": 212
+        "resolved": 213
       },
       "stdlib": {
         "total": 157,
@@ -3443,6 +3443,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T082325239Z-RESOURCEOFFSET-USES-OPTION-INSTEAD-O-84C0E554.md"
+    },
+    {
+      "id": "ISS-20260505T083557206Z-DYNAMIC-RAW-LOAD-CLEARS-EXACT-INITIA-C9619723",
+      "title": "dynamic raw load clears exact initialized cells",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/cell_state.rs,nepl-core/src/resource/initialized_raw_memory.rs,nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T083557206Z-DYNAMIC-RAW-LOAD-CLEARS-EXACT-INITIA-C9619723.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

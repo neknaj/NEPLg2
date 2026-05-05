@@ -1,3 +1,26 @@
+# 2026-05-05 メモ (ISS-20260505T083557206Z dynamic raw load cell cleanup)
+
+- [原因]:
+  - dynamic storage offset の non-Copy raw load で、`mark_raw_cell_moved` が may-alias する exact raw cell facts をすべて削除し、その dynamic cell を `Moved` として記録していた。
+  - `ResourceOffset::Dynamic` を exact offset と may-alias させる関数が initialized fact の伝播にも使われ、exact initialized cell から dynamic raw load の availability を証明できるかのようになっていた。
+  - 1 回の unknown-offset load は `[0, len)` 全体の cleanup 証明ではないため、Vec range cleanup の前提としてこの混同を先に除去する必要があった。
+- [対応]:
+  - cell-state の address relation を、liveness / dealloc 用の may-alias と initialized fact 用の must-alias に分けた。
+  - exact initialized facts だけでは dynamic raw load を initialized とみなさないようにした。
+  - dynamic offset の non-Copy load が実行される場合は、overlap する exact cells と dynamic cell を `MaybeMoved` として残し、後続 dealloc が live obligation を見落とさないようにした。
+  - exact offset load は対象 cell を precise に `Moved` へ落とす挙動を維持した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_unknown_offset_load_does_not_clear_all_exact_cells -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_summary_rejects_unproven_unknown_offset_non_copy_raw_load -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_region_ptr_at_unknown_offset_rejects_dealloc_over_live_cell -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_region_ptr_at_zero_alias_reports_moved_cell -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_allows_dealloc_after_non_copy_raw_load -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative -- --nocapture`
+  - `cargo check -p nepl-core --tests`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - range cleanup の本体である `[0, len)` 全要素処理済み state は未実装で、今回の修正は unknown offset を range cleanup 証明として誤用しないための前提整備。
+
 # 2026-05-05 メモ (ISS-20260505T082325239Z ResourceOffset exact/dynamic enum)
 
 - [原因]:

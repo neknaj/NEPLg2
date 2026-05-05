@@ -71,3 +71,12 @@ range cleanup の本体に入る前提として、storage offset の表現が `R
 - 修正済み: alias 判定では exact 同士は byte が一致した場合だけ同一、dynamic は保守的に exact/dynamic 双方と alias し得る扱いを維持した。
 - 修正済み: lowering / dump / external I/O iov helper / Resource IR tests を enum variant へ移行した。
 - 未解決: `[0, len)` の全 range cleanup を表す state と、loop/callback の全要素訪問証明は引き続きこの issue の本体として残す。
+
+## 2026-05-05 dynamic raw-load cell cleanup 修正
+
+`ResourceOffset` enum 化後の監査で、dynamic offset からの 1 回の non-Copy raw load が、may-alias する exact initialized cell facts をすべて削除してしまう false negative を確認した。これは全 range cleanup の証明ではなく単一 unknown access の副作用なので、`ISS-20260505T083557206Z-DYNAMIC-RAW-LOAD-CLEARS-EXACT-INITIA-C9619723` として分離して修正した。
+
+- 修正済み: initialized fact の伝播は must-alias、dealloc / destructive check の overlap は may-alias として扱いを分離した。
+- 修正済み: exact initialized cell facts は dynamic raw load の initialized availability を証明しない。
+- 修正済み: dynamic offset の non-Copy load が実行される場合、overlap する exact cells と dynamic cell は削除ではなく `MaybeMoved` として残す。
+- 未解決: loop/callback による `[0, len)` の全要素 cleanup 完了を証明する range state は未実装で、この issue の本体として残す。
