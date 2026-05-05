@@ -1,3 +1,27 @@
+# 2026-05-06 note (ISS-20260505T223900812Z initialized summary builder split)
+
+- [同期]:
+  - `ISS-20260505T223432842Z` の initialized summary release 分割を `main` へ fast-forward merge / push / pull した後、clean な `main` から branch `work/resource-initialized-summary-builder-split` を作成して対応した。
+- [原因]:
+  - `initialized_summary_build.rs` は 628 lines で、Resource checker responsibility policy の 260 lines 上限を大きく超えていた。
+  - fixed-point orchestration、per-function summary assembly、return/param raw-cell fact collection、release requirement construction、nested control-flow traversal が 1 file に集まっていた。
+- [修正]:
+  - `initialized_summary_build.rs` は summary fixed-point、per-function engine setup、guaranteed fact merge、variant summary delegation に集中させた。
+  - `initialized_summary_cells.rs` を追加し、return/param initialized raw-cell fact collection と duplicate elimination を移した。
+  - `initialized_summary_release_build.rs` を追加し、raw memory / call / branch / loop / match からの param release requirement construction を移した。
+  - `initialized_summary_variant_build.rs` は param cell collector の import を `initialized_summary_cells.rs` に更新した。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module と行数上限を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir raw_cell -- --nocapture`: `13 passed`
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [issue]:
+  - `ISS-20260505T223900812Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-A6D4E59A` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260505T223432842Z initialized summary release split)
 
 - [同期]:

@@ -2,12 +2,12 @@
 id: ISS-20260505T223900812Z-RESOURCE-INITIALIZED-SUMMARY-BUILDER-A6D4E59A
 title: "Resource initialized summary builder exceeds responsibility split limit again"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-05
-updated: 2026-05-05
+updated: 2026-05-06
 target: "nepl-core/src/resource/initialized_summary_build.rs, nepl-core/src/resource/initialized_summary_variant_build.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
@@ -42,3 +42,23 @@ Split initialized_summary_build.rs by semantic role instead of raising the limit
 ## 検証
 
 node nodesrc/test_resource_checker_responsibility.js; node nodesrc/run_source_policy_regressions.js --warn-only; focused Resource IR initialized summary/raw-cell tests; cargo check -p nepl-core --tests; node nodesrc/issues.js check; git diff --check
+
+## 2026-05-06 対応結果
+
+`initialized_summary_build.rs` を fixed-point orchestration と function summary assembly に戻し、raw-cell fact collection と release requirement construction を分離した。
+
+- `initialized_summary_build.rs`: summary fixed-point、per-function engine setup、guaranteed return/param fact merge、variant summary delegation を担当する。
+- `initialized_summary_cells.rs`: initialized raw cell の return/param fact collection と duplicate elimination を担当する。
+- `initialized_summary_release_build.rs`: raw memory / direct call / indirect call / branch / loop / match から param release requirement を構築する。
+- `initialized_summary_variant_build.rs`: param cell collector の import を `initialized_summary_cells.rs` へ更新した。
+- `nodesrc/test_resource_checker_responsibility.js`: 新 module の存在と行数上限を固定した。`initialized_summary_build.rs` は 170 lines まで縮小し、上限 260 の範囲に戻した。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir raw_cell -- --nocapture`: 13 passed
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+
+関連計画: [NEPLg2 静的検査の複雑化解消計画 Stage 4](../../doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-%E3%81%B8%E3%81%AE%E7%A7%BB%E8%A1%8C)

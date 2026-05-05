@@ -14,7 +14,7 @@ use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationVariantCondition,
     RawCellInitializationVariantParamCell, RawCellInitializationVariantParamRequirement,
 };
-use super::initialized_summary_build::collect_param_initialized_raw_cells;
+use super::initialized_summary_cells::collect_param_initialized_raw_cells;
 use super::initialized_summary_variant_condition::collect_variant_param_condition;
 use super::initialized_summary_variant_requirement::collect_variant_param_required_raw_cells;
 use super::initialized_variant::{normalize_variant_name, PendingVariantRawCellInitializations};
