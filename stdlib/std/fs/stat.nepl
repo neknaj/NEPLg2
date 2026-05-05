@@ -1,0 +1,135 @@
+//: # std/fs/stat
+//: `std/fs` の file type / existence 判定 helper を提供する submodule
+//:
+//: ### 目的
+//: - `path_filestat_get` を使う existence / file / directory 判定を、directory listing や read/write API から分離します。
+//: - selfhost の module discovery が read 失敗に頼らず候補 path を分類できるようにします。
+//:
+//: ### 注意
+//: - 権限違反や preopen root escape は existence false として扱います。詳細 errno が必要な場合は `fs_path_filetype` を使ってください。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/fs/stat" as *
+//: fn main <()*>i32> ():
+//:     if fs_exists "__definitely_missing_fs_stat_case__.txt" then 1 else 0
+//: ```
+
+#indent 4
+
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/fs/constants" as *
+#import "std/fs/path" as *
+#import "std/fs/raw" as *
+//: fs_path_filetype: path の WASI filetype を取得する
+//:
+//: 目的:
+//: - existence check と file/dir 判定を、read 失敗の副作用に頼らず取得します。
+//:
+//: 実装(アルゴリズム):
+//: - path を `fs_normalize_relative_builder` で正規化し、WASI `path_filestat_get` の filestat.filetype byte を読みます。
+//: - 正規化後 path は `StringBuilder` owner のまま syscall へ渡し、呼び出し後に `string_builder_free` で閉じます。
+//: - syscall 成功時に読む filetype byte は呼び出し前に初期化し、外部 out-buffer 境界を Resource IR が追跡できる形にします。
+//:
+//: 注意(重要):
+//: - 戻り値は WASI filetype の整数値です。regular file は 4、directory は 3 です。
+//:
+//: 計算量:
+//: - path 正規化 O(n) と host stat 1 回
+fn fs_path_filetype <(str)*>Result<i32,i32>> (path):
+    match fs_normalize_relative_builder path:
+        Result::Err e:
+            Result<i32,i32>::Err e
+        Result::Ok normalized:
+            match alloc_ptr<u8> 64:
+                Result::Err _e:
+                    string_builder_free normalized
+                    Result<i32,i32>::Err 12
+                Result::Ok stat_buf:
+                    let path_len <i32> get normalized "len"
+                    let path_ptr <i32> match *get_ref &normalized "data":
+                        Option::None:
+                            0
+                        Option::Some data:
+                            mem_ptr_addr data
+                    let stat_raw <i32> mem_ptr_addr stat_buf
+                    store_u8 add stat_raw 16 0;
+                    let errno <i32> if:
+                        le path_ptr 0
+                        then:
+                            fs_errno_inval
+                        else:
+                            wasi_path_filestat_get 3 0 path_ptr path_len stat_raw
+                    let res <Result<i32,i32>> if:
+                        eq errno 0
+                        then:
+                            Result<i32,i32>::Ok load_u8 add stat_raw 16
+                        else:
+                            Result<i32,i32>::Err errno
+                    string_builder_free normalized
+                    match dealloc_ptr<u8> stat_buf 64:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+                    res
+
+//: fs_exists: path が preopen root 内に存在するかを返す
+//:
+//: 目的:
+//: - import 解決で候補ファイルの有無を軽量に判定します。
+//:
+//: 実装(アルゴリズム):
+//: - `fs_path_filetype` が成功するかどうかだけを bool に変換します。
+//:
+//: 注意(重要):
+//: - 権限違反や root escape も false になります。詳細 errno が必要なら `fs_path_filetype` を使ってください。
+//:
+//: 計算量:
+//: - host stat 1 回
+fn fs_exists <(str)*>bool> (path):
+    match fs_path_filetype path:
+        Result::Ok _kind:
+            true
+        Result::Err _e:
+            false
+
+//: fs_is_file: path が regular file かを返す
+//:
+//: 目的:
+//: - `.nepl` / `.n.md` 候補を directory と区別します。
+//:
+//: 実装(アルゴリズム):
+//: - `fs_path_filetype` の WASI filetype を regular file 値と比較します。
+//:
+//: 計算量:
+//: - host stat 1 回
+fn fs_is_file <(str)*>bool> (path):
+    match fs_path_filetype path:
+        Result::Ok kind:
+            eq kind fs_filetype_regular_file
+        Result::Err _e:
+            false
+
+//: fs_is_dir: path が directory かを返す
+//:
+//: 目的:
+//: - stdlib root や module root の探索で directory を検出します。
+//:
+//: 実装(アルゴリズム):
+//: - `fs_path_filetype` の WASI filetype を directory 値と比較します。
+//:
+//: 計算量:
+//: - host stat 1 回
+fn fs_is_dir <(str)*>bool> (path):
+    match fs_path_filetype path:
+        Result::Ok kind:
+            eq kind fs_filetype_directory
+        Result::Err _e:
+            false

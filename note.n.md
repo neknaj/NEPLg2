@@ -29414,3 +29414,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正計画 Stage 4 の initialized/moved state について、checked MemPtr wrapper の value-refined variant reachability を追加した。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs stat split)
+
+- [同期]:
+  - `origin/main` の `df8d9215` を取り込んだ状態から、branch `refactor/fs-stat-module-split` で対応した。
+- [原因]:
+  - fd 分離後も `std/fs.nepl` は path stat / existence 判定を directory listing/read/write 本体と同居させていた。
+  - stat helper は `path_filestat_get` による path classification 境界であり、directory listing や read/write と分けると selfhost module discovery の依存面が狭くなる。
+- [修正]:
+  - `stdlib/std/fs/stat.nepl` を追加し、`fs_path_filetype`、`fs_exists`、`fs_is_file`、`fs_is_dir` を移した。
+  - `std/fs` facade は `stat` を re-export し、既存 import から同じ API を使える構成にした。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は stat module も検査対象に含め、stat helper が facade に戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/stat.nepl --no-tree -o tmp/fs-stat-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-stat-split.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-stat-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js index; node nodesrc/issues.js check; git diff --check`: passed。generated timestamp だけの差分は commit 対象から除外した。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 724 lines まで縮小し、`fs/stat.nepl` は 130 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
