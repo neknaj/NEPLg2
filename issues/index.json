@@ -1,15 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-04-30T17:12:46.372Z",
+  "generated_at": "2026-05-05T01:09:11.262Z",
   "counts": {
-    "total": 484,
-    "open": 14,
+    "total": 488,
+    "open": 18,
     "resolved": 470,
     "by_area": {
+      "cli": {
+        "total": 20,
+        "open": 1,
+        "resolved": 19
+      },
       "core": {
-        "total": 212,
+        "total": 213,
         "open": 5,
-        "resolved": 207
+        "resolved": 208
       },
       "CORE": {
         "total": 1,
@@ -17,24 +22,19 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 151,
-        "open": 6,
-        "resolved": 145
+        "total": 152,
+        "open": 8,
+        "resolved": 144
       },
       "TEST": {
-        "total": 18,
-        "open": 1,
+        "total": 19,
+        "open": 2,
         "resolved": 17
       },
       "selfhost": {
         "total": 45,
         "open": 1,
         "resolved": 44
-      },
-      "cli": {
-        "total": 19,
-        "open": 0,
-        "resolved": 19
       },
       "ci": {
         "total": 4,
@@ -94,6 +94,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260430T172357987Z-WASIX-DOCTEST-RUNNER-DOES-NOT-EXPOSE-800443AF",
+      "title": "WASIX doctest runner does not expose return or exit-code result",
+      "area": "cli",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "nodesrc/run_test.js, nodesrc/run_doctest.js, nodesrc/tests.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T172357987Z-WASIX-DOCTEST-RUNNER-DOES-NOT-EXPOSE-800443AF.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
       "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
@@ -230,6 +245,21 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
+      "id": "ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB",
+      "title": "ByteBuilder and StringBuilder Result owner paths leak under Resource IR",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-29",
+      "updated": "2026-05-05",
+      "target": "stdlib/alloc/io.nepl, stdlib/alloc/string.nepl, tests/stdlib/byte_builder.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB.md"
+    },
+    {
       "id": "ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749",
       "title": "collection storage states use numeric/null sentinels instead of enum owner state",
       "area": "stdlib",
@@ -245,6 +275,21 @@
       "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
     },
     {
+      "id": "ISS-20260505T010829802Z-WASIX-GET-TERMINAL-SIZE-DEALLOCATES--A1302F57",
+      "title": "WASIX get_terminal_size deallocates maybe-freed tty state",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/platforms/wasix/tui.nepl, tests/stdlib/features_tui.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T010829802Z-WASIX-GET-TERMINAL-SIZE-DEALLOCATES--A1302F57.md"
+    },
+    {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
       "title": ".n.md tests rely on return values instead of stdout assertion reports",
       "area": "TEST",
@@ -258,6 +303,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260430T171954145Z-FEATURES-TUI-STD-TEST-DOCTEST-OMITS--D7D6F2FD",
+      "title": "features_tui std/test doctest omits stdout assertion report",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-04-30",
+      "target": "tests/stdlib/features_tui.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T171954145Z-FEATURES-TUI-STD-TEST-DOCTEST-OMITS--D7D6F2FD.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -3335,6 +3395,21 @@
       "file": "items/ISS-20260430T154415527Z-TYPED-BLOCK-CONTEXT-LOSES-VEC-LEN-RE-46F57311.md"
     },
     {
+      "id": "ISS-20260505T010322571Z-RESOURCE-IR-VARIANT-OWNER-SUMMARY-KE-EB3C4EAC",
+      "title": "Resource IR variant owner summary keeps consumed projection also returned by same variant",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/owner_summary_cleanup.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_variant.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T010322571Z-RESOURCE-IR-VARIANT-OWNER-SUMMARY-KE-EB3C4EAC.md"
+    },
+    {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
       "title": "getting_started tutorial needs full rewrite for current NEPLg2",
       "area": "doc",
@@ -4653,21 +4728,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T125126519Z-IO-BYTEBUF-FROM-STR-RESULT-LOSES-BYT-C0364ECE.md"
-    },
-    {
-      "id": "ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB",
-      "title": "ByteBuilder and StringBuilder Result owner paths leak under Resource IR",
-      "area": "stdlib",
-      "status": "fixed",
-      "resolved": true,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-29",
-      "updated": "2026-04-30",
-      "target": "stdlib/alloc/io.nepl, stdlib/alloc/string.nepl, tests/stdlib/byte_builder.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB.md"
     },
     {
       "id": "ISS-20260429T143605389Z-STD-CLIARG-WASI-OUT-POINTER-READS-FA-B9DCD161",

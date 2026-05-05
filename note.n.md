@@ -1,3 +1,26 @@
+# 2026-05-05 メモ (ISS-20260505T010322571Z Resource IR variant owner summary)
+
+- [原因]:
+  - `reserve(h, grow)` のように、同じ `Result::Ok` variant で「引数 owner をそのまま返す path」と「古い owner を解放して fresh owner を返す path」が混在する場合、Resource IR の owner summary が同一 owner projection を `variant_projection_returns` と `variant_consumed_parameter_sources` の両方に記録していた。
+  - 呼び出し側の `match Result::Ok reserved` では、その矛盾した summary により payload binding 前の `reserved.data.Some` が `Reserved` と誤診断され、正しい owner-preserving flow がコンパイルできなかった。
+- [修正]:
+  - variant owner summary cleanup に、同一 variant で返却される parameter owner を同一 variant の consumed summary から除外する正規化を追加した。
+  - pending variant return の materialize 時に captured owner の raw alias と storage origin を戻り値 payload 側へ移すようにした。
+  - match arm で選択されなかった variant の pending effect を落とし、選択 arm に必要な effect だけを残すようにした。
+  - fresh owner path と parameter owner return path が同じ `Result::Ok` に混在する Resource IR 回帰テストを追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_materializes_result_payload_owner_aliases_before_binding`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_mem_ptr_use_before_realloc_result_refinement`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-after-owner-summary.json -j 1 --dist web/dist`: total=4, passed=2, failed=2。今回対象の `resource.owner.reserved` は消え、残りは `get_terminal_size` の maybe_freed と StringBuilder の maybe_leak。
+- [issue]:
+  - `ISS-20260505T010322571Z-RESOURCE-IR-VARIANT-OWNER-SUMMARY-KE-EB3C4EAC` を fixed/resolved にした。
+  - `features_tui` の stdout report fixture 化と WASIX runner の `exit_code` 欠落は別 issue として分離した。
+  - focused run で残った `get_terminal_size` の maybe_freed を `ISS-20260505T010829802Z-WASIX-GET-TERMINAL-SIZE-DEALLOCATES--A1302F57` として追加し、StringBuilder maybe_leak は `ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB` を再 open した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査 Stage 4 Resource Check の正確性を優先し、owner summary の矛盾を診断抑制ではなく summary 正規化と回帰テストで潰した。
+
 # 2026-05-01 メモ (ISS-20260429T135959086Z owner/lower responsibility split recurrence)
 
 - [原因]:

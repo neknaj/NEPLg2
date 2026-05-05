@@ -10,7 +10,8 @@ use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_summary_cleanup::{
-    remove_variant_consumed_parameter_sources, remove_variant_projection_return_sources,
+    remove_variant_consumed_parameter_sources,
+    remove_variant_consumptions_returned_by_same_variant, remove_variant_projection_return_sources,
 };
 use super::owner_summary_leaf::owner_leaf_places;
 use super::owner_summary_record::{
@@ -269,6 +270,11 @@ fn function_owner_return_summary(
         }
     }
 
+    remove_variant_consumptions_returned_by_same_variant(
+        &mut variant_consumed_parameter_indices,
+        &mut variant_consumed_parameter_sources,
+        &variant_projection_returns,
+    );
     remove_variant_projection_return_sources(&mut projection_returns, &variant_projection_returns);
 
     let (mut consumed_parameter_indices, mut consumed_parameter_sources) =

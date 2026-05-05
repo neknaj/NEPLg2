@@ -2,12 +2,12 @@
 id: ISS-20260429T142213822Z-BYTEBUILDER-AND-STRINGBUILDER-RESULT-4EB1D1EB
 title: "ByteBuilder and StringBuilder Result owner paths leak under Resource IR"
 area: stdlib
-status: fixed
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: bug
 created: 2026-04-29
-updated: 2026-04-30
+updated: 2026-05-05
 target: "stdlib/alloc/io.nepl, stdlib/alloc/string.nepl, tests/stdlib/byte_builder.n.md"
 ---
 
@@ -64,3 +64,9 @@ Review builder ownership contracts as a dedicated issue. Model empty builder sta
 - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/text-utf8-builder-owner-boundary-after2.json -j 1 --dist web/dist`: total=9 failed=9。失敗は `std/test` の `check_*` helper owner obligation で、`byte_builder_push_u8` / `sb_append_result` の builder owner leak は top issue から消えた。
 
 残った `std/test` 互換 `check_*` helper の `TestAssertion` owner obligation は、builder contract とは別根のテスト基盤問題として次 issue で扱う。
+
+## 2026-05-05 再発確認
+
+- `ISS-20260505T010322571Z-RESOURCE-IR-VARIANT-OWNER-SUMMARY-KE-EB3C4EAC` の core 修正後、`node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-after-owner-summary.json -j 1 --dist web/dist` を実行した。
+- `Result::Ok` payload bind 前の `resource.owner.reserved` は消えたが、`sb_append_result` で `Temporary(ResourceId(24/46)).Field0.Some.Field0`、`sb_build_result` で `out_region.Field0.Field0` の `resource.owner.maybe_leak` が残った。
+- これは StringBuilder owner boundary が再び Resource IR で証明できない状態を示すため、この issue を再 open する。stdlib 側の設計修正は別作業として扱い、今回の core summary 修正には混ぜない。

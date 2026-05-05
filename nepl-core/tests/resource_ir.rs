@@ -4733,13 +4733,104 @@ fn main <()*>()> ():
         main_diagnostics.iter().any(|diagnostic| matches!(
             diagnostic,
             ResourceOwnerDiagnostic::OwnerUnavailable {
-                operation: ResourceOwnerOperation::Dealloc,
+                operation: ResourceOwnerOperation::Read | ResourceOwnerOperation::Dealloc,
                 state: OwnerState::Reserved { .. },
                 ..
             }
         )),
-        "realloc_ptr result must reserve p until Result is matched: {:#?}\nresource:\n{}",
+        "realloc_ptr result must reserve p against read/dealloc until Result is matched: {:#?}\nresource:\n{}",
         main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_materializes_result_payload_owner_aliases_before_binding() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+struct Holder:
+    data <Option<MemPtr<u8>>>
+    len <i32>
+    cap <i32>
+
+fn holder_free <(Holder)->()> (h):
+    let cap0 <i32> get h "cap";
+    match get h "data":
+        Option::Some data:
+            match dealloc_ptr<u8> data cap0:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    #intrinsic "unreachable" <> ()
+        Option::None:
+            ()
+
+fn reserve <(Holder,bool)->Result<Holder,i32>> (h, grow):
+    if:
+        grow
+        then:
+            match alloc_ptr<u8> 2:
+                Result::Ok data:
+                    holder_free h;
+                    Result<Holder,i32>::Ok Holder some<MemPtr<u8>> data 0 2
+                Result::Err _e:
+                    holder_free h;
+                    Result<Holder,i32>::Err 1
+        else:
+            Result<Holder,i32>::Ok h
+
+fn append <(Holder,bool)->Result<Holder,i32>> (h, grow):
+    match reserve h grow:
+        Result::Ok reserved:
+            match *get_ref &reserved "data":
+                Option::Some data:
+                    store_u8 data 7;
+                    Result<Holder,i32>::Ok reserved
+                Option::None:
+                    holder_free reserved;
+                    Result<Holder,i32>::Err 2
+        Result::Err e:
+            Result<Holder,i32>::Err e
+
+fn main <()*>()> ():
+    match alloc_ptr<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok data:
+            let h <Holder> Holder some<MemPtr<u8>> data 0 1;
+            match append h false:
+                Result::Ok out:
+                    holder_free out
+                Result::Err _e:
+                    ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let append_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function == "append" || function.starts_with("append__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        append_diagnostics.is_empty(),
+        "Result::Ok payload binding must materialize returned owner aliases before reading fields: {:#?}\nresource:\n{}",
+        append_diagnostics,
         resource.dump_text()
     );
 }

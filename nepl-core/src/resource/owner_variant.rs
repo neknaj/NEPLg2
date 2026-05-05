@@ -225,7 +225,7 @@ impl PendingVariantOwnerEffects {
     }
 
     pub(super) fn apply_match_arm_returns(
-        &self,
+        &mut self,
         engine: &mut ResourceOwnerCheckEngine<'_>,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
@@ -279,6 +279,9 @@ impl PendingVariantOwnerEffects {
             }
             raw_views.clear(&target);
         }
+        self.consumptions
+            .retain(|entry| entry.result != *scrutinee || entry.variant == variant);
+        self.returns.retain(|entry| entry.result != *scrutinee);
     }
 
     fn materialize_variant_returns(
@@ -841,10 +844,14 @@ fn materialize_parameter_return(
         );
         return;
     };
+    let had_origin = storage_origins.origin(&captured.source).is_some();
     owners.set_state(&captured.source, OwnerState::Moved);
     owners.set_state(target, captured.state.clone());
-    raw_aliases.mark(target);
-    storage_origins.mark_owned(target);
+    raw_aliases.move_owner_aliases(&captured.source, target);
+    storage_origins.move_origin(&captured.source, target);
+    if !had_origin {
+        storage_origins.mark_owned(target);
+    }
 }
 
 fn reserved_owner_state(owners: &OwnerTable, source: &Place) -> OwnerState {
