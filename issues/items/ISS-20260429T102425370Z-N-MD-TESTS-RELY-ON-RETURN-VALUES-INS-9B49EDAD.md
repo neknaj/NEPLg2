@@ -202,3 +202,13 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 検証:
 
 - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/tests-stdlib-string-char-agent1-j4.json -j 4 --dist web/dist`: total=4, passed=4
+
+## 2026-05-05 selfhost CLI reporter report migration
+
+`ISS-20260505T065154326Z-SELFHOST-CLI-REPORTER-DOCTESTS-OMIT--BEB95AC0` で、`tests/stdlib/selfhost_cli_reporter.n.md` の assertion-style doctest 2 件を stdout assertion report + `exit_code: 0` へ移行した。
+
+この fixture は selfhost diagnostics の human/json reporter 境界を検証するため、Rust runner と selfhost runner の parity 上、成功時 report も固定する必要がある。`std/test` の `checks_print_report` を通した `Checked [ok,ok]` stdout を fixture 化し、writer doctest は既存の JSON stdout / human stderr を維持しつつ `ret: 0` を `exit_code: 0` に変更した。
+
+検証:
+
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_reporter.n.md --no-tree -o tmp/selfhost-cli-reporter-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3

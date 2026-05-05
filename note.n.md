@@ -1,3 +1,21 @@
+# 2026-05-05 メモ (ISS-20260505T065154326Z selfhost CLI reporter stdout report)
+
+- [原因]:
+  - `tests/stdlib/selfhost_cli_reporter.n.md` の assertion-style doctest 2 件が `std/test` の checks を作る一方で `checks_print_report` を呼ばず、`ret: 0` だけで成功を表していた。
+  - writer doctest は stdout/stderr fixture を持っていたが、process success を `ret: 0` で表しており、runner の exit code と言語戻り値の意味が混ざっていた。
+- [修正]:
+  - reporter rendering doctest 2 件に `checks_print_report` を追加し、`Checked [ok,ok]` の stdout report を fixture として固定した。
+  - `tests/stdlib/selfhost_cli_reporter.n.md` の 3 件すべてを `ret: 0` から `exit_code: 0` に移行した。
+  - JSON stdout / human stderr を直接検証する writer doctest の出力契約は維持した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_reporter.n.md --no-tree -o tmp/selfhost-cli-reporter-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3
+- [issue]:
+  - `ISS-20260505T065154326Z-SELFHOST-CLI-REPORTER-DOCTESTS-OMIT--BEB95AC0` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に selfhost CLI reporter 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - selfhost runner 互換のため、assertion success の観測点を exit code だけでなく stdout report に固定した。
+
 # 2026-05-05 メモ (ISS-20260505T064000205Z Resource IR source fixture warnings)
 
 - [原因]:

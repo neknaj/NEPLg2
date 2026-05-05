@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T06:48:31.208Z",
+  "generated_at": "2026-05-05T06:54:49.679Z",
   "counts": {
-    "total": 498,
+    "total": 499,
     "open": 13,
-    "resolved": 485,
+    "resolved": 486,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 19,
+        "total": 20,
         "open": 1,
-        "resolved": 18
+        "resolved": 19
       },
       "selfhost": {
         "total": 45,
@@ -5588,6 +5588,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T171954145Z-FEATURES-TUI-STD-TEST-DOCTEST-OMITS--D7D6F2FD.md"
+    },
+    {
+      "id": "ISS-20260505T065154326Z-SELFHOST-CLI-REPORTER-DOCTESTS-OMIT--BEB95AC0",
+      "title": "selfhost CLI reporter doctests omit stdout assertion reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "tests/stdlib/selfhost_cli_reporter.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T065154326Z-SELFHOST-CLI-REPORTER-DOCTESTS-OMIT--BEB95AC0.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",
