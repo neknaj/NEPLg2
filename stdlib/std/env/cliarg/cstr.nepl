@@ -1,0 +1,164 @@
+//: # env/cliarg/cstr
+//: argv raw pointer から NEPL `str` へ変換する helper
+//:
+//: ### [目的/もくてき]
+//: - NUL 終端 C string の長さ計測と `str` コピーを `cliarg` root から分離します。
+//: - public `cliarg_get` は argv buffer の寿命と独立した `str` を、この module の checked 境界を通して作ります。
+
+#indent 4
+
+#import "alloc/string" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+//: cstr_len_result: NUL 終端文字列の長さを checked load で求める
+//:
+//: 目的:
+//: - `MemPtr<u8>` で与えられた C 文字列の長さを、無効 pointer を `Err` として扱いながら返します。
+//:
+//: 実装(アルゴリズム):
+//: - 1 バイトずつ読み、0 に達したら停止します。
+//:
+//: 注意(重要):
+//: - `p` は NUL 終端済みの有効なバイト列を指している必要があります。
+//: - 無効 pointer に到達した場合は `Err` を返します。
+//:
+//: 計算量:
+//: - O(n)
+fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
+    let mut i <i32> 0
+    let mut done <i32> 0
+    let mut ok <i32> 1
+    while and eq done 0 eq ok 1:
+        do:
+            match load_u8 mem_ptr_add p i:
+                Option::Some b:
+                    if:
+                        cond:
+                            eq b 0
+                        then:
+                            set done 1;
+                        else:
+                            set i add i 1
+                Option::None:
+                    set ok 0
+    if:
+        eq ok 1
+        then:
+            Result<i32,str>::Ok i
+        else:
+            Result<i32,str>::Err "cliarg.cstr_len invalid pointer"
+
+//: cstr_len: NUL 終端文字列の長さを求める
+//:
+//: 目的:
+//: - `MemPtr<u8>` で与えられた C 文字列の長さを返します。
+//:
+//: 実装(アルゴリズム):
+//: - `cstr_len_result` に委譲し、無効 pointer は 0 に丸めます。
+//:
+//: 注意(重要):
+//: - `p` は NUL 終端済みの有効なバイト列を指している必要があります。
+//:
+//: 計算量:
+//: - O(n)
+//: cstr_len: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `cstr_len` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/env/cliarg" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let p <MemPtr<u8>> unwrap_ok alloc_ptr<u8> 4;
+//:     unwrap_ok store_u8 mem_ptr_add p 0 'n';
+//:     unwrap_ok store_u8 mem_ptr_add p 1 'e';
+//:     unwrap_ok store_u8 mem_ptr_add p 2 'p';
+//:     unwrap_ok store_u8 mem_ptr_add p 3 '\0';
+//:     let n <i32> cstr_len p;
+//:     match dealloc_ptr<u8> p 4:
+//:         Result::Ok _:
+//:             ()
+//:         Result::Err _:
+//:             ()
+//:     if eq n 3 0 1
+//: ```
+fn cstr_len <(MemPtr<u8>)*>i32> (p):
+    match cstr_len_result p:
+        Result::Ok n:
+            n
+        Result::Err _e:
+            0
+
+//: cstr_to_str: NUL 終端文字列を str にコピーする
+//:
+//: 目的:
+//: - `MemPtr<u8>` から NUL 終端文字列を読み取り、独立した `str` にコピーします。
+//:
+//: 実装(アルゴリズム):
+//: - まず `cstr_len_result` で長さを数え、`[len][bytes]` 形式の新領域へ転写します。
+//:
+//: 注意(重要):
+//: - 呼び出しごとに新しい領域を確保します。
+//: - 返り値は元の C 文字列の寿命と独立です。
+//: - load/store 失敗や確保失敗は空文字列に丸めます。
+//:
+//: 計算量:
+//: - O(n)
+//: cstr_to_str: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `cstr_to_str` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/env/cliarg" as *
+//:| #import "core/mem" as *
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let p <MemPtr<u8>> unwrap_ok alloc_ptr<u8> 4;
+//:     unwrap_ok store_u8 mem_ptr_add p 0 'n';
+//:     unwrap_ok store_u8 mem_ptr_add p 1 'e';
+//:     unwrap_ok store_u8 mem_ptr_add p 2 'p';
+//:     unwrap_ok store_u8 mem_ptr_add p 3 '\0';
+//:     let s <str> cstr_to_str p;
+//:     match dealloc_ptr<u8> p 4:
+//:         Result::Ok _:
+//:             ()
+//:         Result::Err _:
+//:             ()
+//:     if str_eq s "nep" 0 1
+//: ```
+fn cstr_to_str <(MemPtr<u8>)*>str> (p):
+    match cstr_len_result p:
+        Result::Err _e:
+            ""
+        Result::Ok len:
+            match string_from_mem_unchecked_result p len:
+                Result::Err _:
+                    ""
+                Result::Ok s:
+                    s

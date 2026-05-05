@@ -263,6 +263,87 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 streamio scanner state split)
+
+- [同期]:
+  - `origin/main` の `e7e2f066` を取り込んだ状態から、branch `refactor/streamio-scanner-state-split` で対応した。
+- [原因]:
+  - `stdlib/std/streamio/scanner.nepl` は `std/streamio` facade から分離済みだったが、token parser、`open ReadStream`、raw memory backed header layout、ByteBuf 所有権初期化を 1 file に保持していた。
+  - header layout と ByteBuf 消費は scanner state boundary の責務で、token parser と混在すると raw memory 境界の再混入を検出しにくい。
+- [修正]:
+  - `stdlib/std/streamio/scanner/state.nepl` を追加し、`StreamScanner`、`StreamScannerHeaderField`、header load/store boundary、`stream_scanner_byte_at`、`scanner_from_bytes` を移した。
+  - `stdlib/std/streamio/scanner.nepl` は `std/streamio/scanner/state` を import し、byte classifier、`open`、token parser、read overload、`close` に集中する構成にした。
+  - `nodesrc/test_stdlib_streamio_scanner_boundary.js` を更新し、state 実装が `scanner/state` に存在し、`scanner.nepl` に戻らないことを固定した。
+  - `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を更新し、unsafe unwrap 監視対象に `scanner/state` を含めた。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/scanner.nepl --no-tree -o tmp/streamio-scanner-state-split-scanner.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-scanner-state-split-facade.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-scanner-state-split-nmd.json -j 1`: `14 total / 14 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: streamio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`streamio/scanner.nepl` は 661 lines、`streamio/scanner/state.nepl` は 217 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 streamio scanner cursor/number split)
+
+- [同期]:
+  - `origin/main` の `f2e8f7c2` を取り込んだ状態から、branch `refactor/streamio-scanner-number-split` で対応した。
+- [原因]:
+  - `streamio/scanner.nepl` は state 分離後も byte classifier、BOM/空白 skip、整数 parser、浮動小数点 parser、root API を 1 file に保持していた。
+  - cursor 移動と数値 parser は root `open/read/close` とは責務が異なり、巨大 file を温存すると raw byte access や if nest への逆戻りを検出しにくい。
+- [修正]:
+  - `stdlib/std/streamio/scanner/cursor.nepl` を追加し、空白/BOM skip、token separator、ASCII digit、指数 marker の match helper を移した。
+  - `stdlib/std/streamio/scanner/number.nepl` を追加し、`scan_i32_impl` / `scan_u32_impl` / `scan_u64_impl` / `scan_i64_impl` / `scan_f64_impl` / `scan_f32_impl` を移した。
+  - `scanner.nepl` は `cursor` / `number` / `state` を import し、`open`、`skip`、`scan_token_impl`、read overload、`close` に集中する構成にした。
+  - `nodesrc/test_stdlib_streamio_scanner_boundary.js` と `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を分割後の module 構成へ追従した。
+  - `nodesrc/test_stdlib_match_decision_trees.js` は char literal `match` の監視対象を `scanner/cursor.nepl` へ移した。
+- [検証]:
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/scanner.nepl --no-tree -o tmp/streamio-scanner-number-split-scanner.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-scanner-number-split-facade.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-scanner-number-split-nmd.json -j 1`: `14 total / 14 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: streamio / match policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`streamio/scanner.nepl` は 192 lines、`streamio/scanner/cursor.nepl` は 120 lines、`streamio/scanner/number.nepl` は 374 lines、`streamio/scanner/state.nepl` は 217 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 env cliarg raw/cstr split)
+
+- [同期]:
+  - `origin/main` の `448ededb` を取り込んだ状態から、branch `refactor/env-cliarg-raw-cstr-split` で対応した。
+- [原因]:
+  - `stdlib/std/env/cliarg.nepl` は WASI extern、LLVM `/proc/self/cmdline` fallback、argv scratch 初期化、C string 変換、public `cliarg_*` API を 1 file に保持していた。
+  - raw syscall / out-pointer boundary と public API が同居すると、Resource IR 向けの raw address 境界監視と root API の検証が混ざる。
+- [修正]:
+  - `stdlib/std/env/cliarg/raw.nepl` を追加し、`args_sizes_get` / `args_get` と LLVM fallback、`CliArgSizes`、argv scratch 初期化 helper を移した。
+  - `stdlib/std/env/cliarg/cstr.nepl` を追加し、`cstr_len_result` / `cstr_len` / `cstr_to_str` を移した。
+  - `stdlib/std/env/cliarg.nepl` は `raw` / `cstr` を import し、`cliarg_count` / `cliarg_get` / `cliarg_program` の public API に集中する構成にした。
+  - `nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js` を更新し、raw/cstr 実装が root に戻らないことと unsafe unwrap 禁止を分割後も監視するようにした。
+  - 検証中に既存の `stdlib/tests/cliarg.n.md::cliarg_basic` owner leak を `ISS-20260505T045643031Z-STDLIB-CLIARG-BASIC-TEST-LEAKS-OPTIO-89A61F5E` として追加し、`is_none<str>` による消費形へ修正済み。
+- [検証]:
+  - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/env/cliarg.nepl --no-tree -o tmp/env-cliarg-split-root.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/env-cliarg-split-cliarg-nmd.json -j 1`: `6 total / 6 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: cliarg policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`std/env/cliarg.nepl` は 247 lines、`std/env/cliarg/raw.nepl` は 279 lines、`std/env/cliarg/cstr.nepl` は 164 lines。
+  - `ISS-20260505T045643031Z-STDLIB-CLIARG-BASIC-TEST-LEAKS-OPTIO-89A61F5E` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs raw split)
 
 - [同期]:
