@@ -7,7 +7,7 @@ pub(super) enum RawAddressReturnOwnership {
 
 pub(super) fn raw_address_return_ownership(name: &str) -> Option<RawAddressReturnOwnership> {
     match helper_base_name(name) {
-        "mem_ptr_addr" => Some(RawAddressReturnOwnership::NonOwningAddressView),
+        "mem_ptr_addr" | "region_ptr" => Some(RawAddressReturnOwnership::NonOwningAddressView),
         _ => None,
     }
 }

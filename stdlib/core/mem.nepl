@@ -101,23 +101,38 @@ struct RegionToken<.T>:
     ptr <MemPtr<.T>>
     size <i32>
 
+//: region_token_ptr_ref: RegionToken の pointer field を所有権を移動せずに借用する
+//:
+//: 目的:
+//: - `RegionToken` は領域の解放責務を持つため、観察用 API が token を move してはいけません。
+//: - compiler intrinsic で field reference を作り、`MemPtr` の copy 値だけを外側に返せるようにします。
+fn region_token_ptr_ref <.T> <(&RegionToken<.T>)->&MemPtr<.T>> (token):
+    #intrinsic "get_field_ref" <> (token,"ptr")
+
+//: region_token_size_ref: RegionToken の size field を所有権を移動せずに借用する
+//:
+//: 目的:
+//: - bounds check と pointer projection が token owner を消費しないようにします。
+fn region_token_size_ref <.T> <(&RegionToken<.T>)->&i32> (token):
+    #intrinsic "get_field_ref" <> (token,"size")
+
 fn mem_ptr_wrap <.T> <(i32)->MemPtr<.T>> (raw):
     MemPtr raw
 
 fn mem_ptr_addr <.T> <(MemPtr<.T>)->i32> (p):
     get p "raw"
 
-fn region_ptr <.T> <(RegionToken<.T>)->MemPtr<.T>> (token):
-    get token "ptr"
+fn region_ptr <.T> <(&RegionToken<.T>)->MemPtr<.T>> (token):
+    *region_token_ptr_ref token
 
-fn region_size <.T> <(RegionToken<.T>)->i32> (token):
-    get token "size"
+fn region_size <.T> <(&RegionToken<.T>)->i32> (token):
+    *region_token_size_ref token
 
 fn region_new <.T> <(MemPtr<.T>,i32)->RegionToken<.T>> (ptr, size):
     RegionToken ptr size
 
-fn region_in_bounds <.T> <(RegionToken<.T>,i32,i32)->bool> (token, off, bytes):
-    let total <i32> get token "size"
+fn region_in_bounds <.T> <(&RegionToken<.T>,i32,i32)->bool> (token, off, bytes):
+    let total <i32> *region_token_size_ref token
     if:
         or lt off 0 lt bytes 0
         then:
@@ -126,9 +141,9 @@ fn region_in_bounds <.T> <(RegionToken<.T>,i32,i32)->bool> (token, off, bytes):
             let end <i32> add off bytes
             and le end total ge end off
 
-fn region_ptr_at <.T, .U> <(RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (token, off):
+fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (token, off):
     let bytes <i32> size_of<.U>
-    let total <i32> get token "size"
+    let total <i32> *region_token_size_ref token
     if:
         if:
             or lt off 0 lt bytes 0
@@ -138,7 +153,7 @@ fn region_ptr_at <.T, .U> <(RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (token
                 let end <i32> add off bytes
                 and le end total ge end off
         then:
-            let base_raw <i32> mem_ptr_addr get token "ptr"
+            let base_raw <i32> mem_ptr_addr *region_token_ptr_ref token
             Result<MemPtr<.U>,str>::Ok mem_ptr_wrap add base_raw off
         else:
             Result<MemPtr<.U>,str>::Err "mem.region_ptr_at out of bounds"

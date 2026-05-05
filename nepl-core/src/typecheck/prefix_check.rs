@@ -1252,32 +1252,16 @@ impl<'a> BlockChecker<'a> {
                             }
                             _ => None,
                         };
-                        if let Some((f_ty, offset)) = res {
+                        if let Some((f_ty, _offset)) = res {
                             let ref_ty = self.ctx.reference(f_ty, false);
                             let _ = self.ctx.unify(ty, ref_ty);
-                            let addr_expr = if offset == 0 {
-                                obj
-                            } else {
-                                HirExpr {
-                                    ty: ref_ty,
-                                    kind: HirExprKind::Intrinsic {
-                                        name: "add".to_string(),
-                                        type_args: vec![self.ctx.i32()],
-                                        args: vec![
-                                            obj,
-                                            HirExpr {
-                                                ty: self.ctx.i32(),
-                                                kind: HirExprKind::LiteralI32(offset as i32),
-                                                span: idx.span,
-                                            },
-                                        ],
-                                    },
-                                    span: *sp,
-                                }
-                            };
                             let hexpr = HirExpr {
                                 ty: ref_ty,
-                                kind: addr_expr.kind,
+                                kind: HirExprKind::Intrinsic {
+                                    name: "get_field_ref".to_string(),
+                                    type_args: Vec::new(),
+                                    args: vec![obj, idx.clone()],
+                                },
                                 span: *sp,
                             };
                             stack.push(StackEntry {

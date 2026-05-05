@@ -5,6 +5,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::{AggregateKind, OwnerState, Place};
 use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_place};
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_transfer::{free_owner_state, move_owner_state_out, transfer_owner_state};
 use super::place_utils::{
@@ -19,6 +20,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         output: &Place,
         kind: &AggregateKind,
@@ -30,6 +32,7 @@ impl ResourceOwnerCheckEngine<'_> {
             self.transfer_owner(
                 owners,
                 raw_aliases,
+                raw_views,
                 storage_origins,
                 input,
                 &field,
@@ -90,6 +93,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         source: &Place,
         target: &Place,
@@ -99,7 +103,11 @@ impl ResourceOwnerCheckEngine<'_> {
         if source == target || !should_track(source) {
             return;
         }
-        let resolved_source = resolve_owner_alias_place(owners, raw_aliases, source);
+        let resolved_source = if raw_views.contains_under(source) {
+            source.clone()
+        } else {
+            resolve_owner_alias_place(owners, raw_aliases, source)
+        };
         let descendants = owners.descendant_entries(&resolved_source);
         let aliased_descendants =
             aliased_owner_descendant_entries(owners, raw_aliases, &resolved_source);
@@ -124,6 +132,9 @@ impl ResourceOwnerCheckEngine<'_> {
             Some(OwnerState::NoFreeObligation) | None => {}
         }
         for entry in descendants {
+            if raw_views.contains(&entry.place) {
+                continue;
+            }
             let Some(target_place) = replace_place_prefix(&entry.place, &resolved_source, target)
             else {
                 continue;
@@ -151,6 +162,11 @@ impl ResourceOwnerCheckEngine<'_> {
             }
         }
         for aliased in aliased_descendants {
+            let source_place =
+                place_with_suffix(&resolved_source, &aliased.suffix, aliased.entry.place.ty);
+            if raw_views.contains(&source_place) {
+                continue;
+            }
             let target_place = place_with_suffix(target, &aliased.suffix, aliased.entry.place.ty);
             match aliased.entry.state {
                 state @ OwnerState::Live { .. } | state @ OwnerState::MaybeFreed { .. } => {

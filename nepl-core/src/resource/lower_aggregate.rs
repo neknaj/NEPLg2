@@ -107,11 +107,57 @@ pub(super) fn lower_get_field_intrinsic_source(
     Some(base.with_projection(projection, field_ty))
 }
 
+pub(super) fn lower_get_field_ref_intrinsic_source(
+    name: &str,
+    args: &[HirExpr],
+    ref_ty: TypeId,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    if helper_base_name(name) != "get_field_ref" {
+        return None;
+    }
+    let owner = args.first()?;
+    let owner_ref_target = reference_target_type(env.types, owner.ty);
+    let owner_ty = owner_ref_target.unwrap_or(owner.ty);
+    let field_ty = reference_target_type(env.types, ref_ty)?;
+    let projection =
+        if let Some(field_name) = args.get(1).and_then(|arg| literal_field_name(env, arg)) {
+            aggregate_field_projection_by_name(env.types, owner_ty, field_name, field_ty)?
+        } else if is_named_struct_type(env.types, owner_ty, "RegionToken")
+            && is_named_struct_type(env.types, field_ty, "MemPtr")
+        {
+            PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            }
+        } else {
+            return None;
+        };
+    let mut base = place_from_expr_skeleton(owner, ctx);
+    if matches!(&base.root, super::model::PlaceRoot::Unknown) {
+        base = lower_expr_skeleton(owner, ops, ctx, env);
+    }
+    if owner_ref_target.is_some() {
+        base = base.with_projection(PlaceProjection::Deref, owner_ty);
+    }
+    Some(base.with_projection(projection, field_ty))
+}
+
 fn literal_field_name<'a>(env: &'a LoweringEnvironment, expr: &HirExpr) -> Option<&'a str> {
     match &expr.kind {
         HirExprKind::LiteralStr(index) => {
             env.string_literals.get(*index as usize).map(String::as_str)
         }
+        _ => None,
+    }
+}
+
+fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Reference(target, _) => Some(*target),
         _ => None,
     }
 }

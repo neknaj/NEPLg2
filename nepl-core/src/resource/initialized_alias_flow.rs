@@ -1,12 +1,10 @@
 extern crate alloc;
 
-use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::layout::aggregate_fields_with_offsets;
+use crate::types::TypeCtx;
 use crate::types::TypeId;
-use crate::types::{TypeCtx, TypeKind};
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias::{ProjectedRawCellAddressAlias, RawCellAddressAliases};
@@ -14,7 +12,10 @@ use super::model::{
     AggregateKind, EffectOp, Place, PlaceProjection, RawMemoryOp, ResourceCallTarget,
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
-use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
+use super::place_utils::{
+    construct_aggregate_field_place, match_bind_payload_place, projected_place_with_concrete_type,
+    reference_target_place, type_preserves_raw_address_alias,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawCellAddressReturnSummary {
@@ -38,6 +39,7 @@ pub(super) fn expr_kind_preserves_raw_alias(kind: ResourceExprKind) -> bool {
             | ResourceExprKind::Call
             | ResourceExprKind::IndirectCall
             | ResourceExprKind::Intrinsic
+            | ResourceExprKind::Borrow
             | ResourceExprKind::Branch
             | ResourceExprKind::Match
             | ResourceExprKind::Construct
@@ -319,14 +321,28 @@ fn propagate_raw_address_alias_op(
             }
         }
         ResourceOp::Expr { output, kind, .. } => {
-            if !expr_kind_preserves_raw_alias(*kind) {
+            if !expr_kind_preserves_raw_alias(*kind)
+                && !expr_output_preserves_raw_alias(types, *kind, output)
+            {
                 raw_aliases.clear(output);
             }
         }
-        ResourceOp::Borrow { output, .. } => raw_aliases.clear(output),
+        ResourceOp::Borrow { source, output, .. } => {
+            raw_aliases.mark(output);
+            let target = reference_target_place(output, source.ty);
+            raw_aliases.copy_alias_or_seed(source, &target);
+        }
         ResourceOp::Drop { place, .. } => raw_aliases.clear(place),
         ResourceOp::CallEffect { .. } => {}
     }
+}
+
+fn expr_output_preserves_raw_alias(
+    types: &TypeCtx,
+    kind: ResourceExprKind,
+    output: &Place,
+) -> bool {
+    matches!(kind, ResourceExprKind::Deref) && type_preserves_raw_address_alias(types, output.ty)
 }
 
 pub(super) fn construct_raw_cell_address_alias_fields(
@@ -439,108 +455,4 @@ fn push_unique_return_alias(
     if !aliases.iter().any(|existing| existing == &alias) {
         aliases.push(alias);
     }
-}
-
-fn projected_place_with_concrete_type(
-    types: &TypeCtx,
-    base: &Place,
-    projection: &[PlaceProjection],
-    fallback_ty: TypeId,
-) -> Place {
-    let mut out = base.clone();
-    let mut current_ty = base.ty;
-    for item in projection {
-        current_ty = projection_result_type(types, current_ty, item).unwrap_or(fallback_ty);
-        out.projections.push(item.clone());
-        out.ty = current_ty;
-    }
-    if projection.is_empty() {
-        out.ty = base.ty;
-    }
-    out
-}
-
-fn projection_result_type(
-    types: &TypeCtx,
-    base_ty: TypeId,
-    projection: &PlaceProjection,
-) -> Option<TypeId> {
-    match projection {
-        PlaceProjection::Field { index, .. } | PlaceProjection::TupleField { index, .. } => {
-            aggregate_fields_with_offsets(types, base_ty)
-                .get(*index)
-                .map(|field| field.ty)
-        }
-        PlaceProjection::EnumPayload { variant } => enum_payload_type(types, base_ty, variant),
-        PlaceProjection::Deref | PlaceProjection::StorageOffset(_) => None,
-    }
-}
-
-fn enum_payload_type(types: &TypeCtx, enum_ty: TypeId, variant_name: &str) -> Option<TypeId> {
-    let resolved = types.resolve_id(enum_ty);
-    match types.get_ref(resolved) {
-        TypeKind::Enum { variants, .. } => variants
-            .iter()
-            .find(|variant| variant_name_matches(&variant.name, variant_name))
-            .and_then(|variant| variant.payload),
-        TypeKind::Apply { base, args } => {
-            let base = types.resolve_named_type_id(*base);
-            let TypeKind::Enum {
-                type_params,
-                variants,
-                ..
-            } = types.get_ref(base)
-            else {
-                return None;
-            };
-            let mapping = type_arg_mapping(types, type_params, args);
-            variants
-                .iter()
-                .find(|variant| variant_name_matches(&variant.name, variant_name))
-                .and_then(|variant| variant.payload)
-                .map(|payload| mapped_existing_type_id(types, payload, &mapping))
-        }
-        TypeKind::Named(_) => {
-            let named = types.resolve_named_type_id(resolved);
-            if named == resolved {
-                None
-            } else {
-                enum_payload_type(types, named, variant_name)
-            }
-        }
-        _ => {
-            let named = types.resolve_named_type_id(resolved);
-            if named == resolved {
-                None
-            } else {
-                enum_payload_type(types, named, variant_name)
-            }
-        }
-    }
-}
-
-fn variant_name_matches(defined: &str, projected: &str) -> bool {
-    defined == projected || projected.rsplit("::").next() == Some(defined)
-}
-
-fn mapped_existing_type_id(
-    types: &TypeCtx,
-    ty: TypeId,
-    mapping: &BTreeMap<TypeId, TypeId>,
-) -> TypeId {
-    let resolved = types.resolve_id(ty);
-    mapping.get(&resolved).copied().unwrap_or(resolved)
-}
-
-fn type_arg_mapping(
-    types: &TypeCtx,
-    type_params: &[TypeId],
-    args: &[TypeId],
-) -> BTreeMap<TypeId, TypeId> {
-    type_params
-        .iter()
-        .copied()
-        .zip(args.iter().copied())
-        .map(|(param, arg)| (types.resolve_id(param), types.resolve_id(arg)))
-        .collect()
 }

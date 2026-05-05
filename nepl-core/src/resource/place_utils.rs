@@ -1,7 +1,9 @@
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::types::TypeId;
+use crate::layout::{aggregate_fields_with_offsets, extend_type_mapping, mapped_type_id};
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{
     AggregateKind, Place, PlaceProjection, PlaceRoot, ResourceMatchArm, ResourceMatchPattern,
@@ -21,6 +23,27 @@ pub(super) fn raw_memory_unknown_offset_cell_place(address: &Place, ty: TypeId) 
         ty,
     );
     raw_memory_cell_place(&address, ty)
+}
+
+pub(super) fn reference_target_place(reference: &Place, target_ty: TypeId) -> Place {
+    reference
+        .clone()
+        .with_projection(PlaceProjection::Deref, target_ty)
+}
+
+pub(super) fn type_preserves_raw_address_alias(types: &TypeCtx, ty: TypeId) -> bool {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Struct { name, .. } => name == "MemPtr" || name == "RegionToken",
+        TypeKind::Apply { base, .. } => {
+            let base = types.resolve_named_type_id(*base);
+            matches!(
+                types.get_ref(base),
+                TypeKind::Struct { name, .. } if name == "MemPtr" || name == "RegionToken"
+            )
+        }
+        _ => false,
+    }
 }
 
 pub(super) fn construct_aggregate_field_place(
@@ -91,6 +114,102 @@ pub(super) fn place_with_suffix(base: &Place, suffix: &[PlaceProjection], ty: Ty
     out.projections.extend_from_slice(suffix);
     out.ty = ty;
     out
+}
+
+pub(super) fn projected_place_with_concrete_type(
+    types: &TypeCtx,
+    base: &Place,
+    suffix: &[PlaceProjection],
+    fallback_ty: TypeId,
+) -> Place {
+    let mut out = base.clone();
+    let mut current_ty = base.ty;
+    for projection in suffix {
+        current_ty = projection_result_type(types, current_ty, projection).unwrap_or(fallback_ty);
+        out.projections.push(projection.clone());
+        out.ty = current_ty;
+    }
+    if suffix.is_empty() {
+        out.ty = base.ty;
+    }
+    out
+}
+
+fn projection_result_type(
+    types: &TypeCtx,
+    base_ty: TypeId,
+    projection: &PlaceProjection,
+) -> Option<TypeId> {
+    match projection {
+        PlaceProjection::Field { index, .. } | PlaceProjection::TupleField { index, .. } => {
+            aggregate_fields_with_offsets(types, base_ty)
+                .get(*index)
+                .map(|field| normalize_projection_type(types, field.ty))
+        }
+        PlaceProjection::EnumPayload { variant } => enum_payload_type(types, base_ty, variant),
+        PlaceProjection::Deref => reference_target_type(types, base_ty),
+        PlaceProjection::StorageOffset(_) => Some(base_ty),
+    }
+}
+
+fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Reference(target, _) => Some(normalize_projection_type(types, *target)),
+        _ => None,
+    }
+}
+
+fn enum_payload_type(types: &TypeCtx, enum_ty: TypeId, variant_name: &str) -> Option<TypeId> {
+    let resolved = types.resolve_id(enum_ty);
+    match types.get_ref(resolved) {
+        TypeKind::Enum { variants, .. } => variants
+            .iter()
+            .find(|variant| variant_name_matches(&variant.name, variant_name))
+            .and_then(|variant| variant.payload)
+            .map(|payload| normalize_projection_type(types, payload)),
+        TypeKind::Apply { base, args } => {
+            let base = types.resolve_named_type_id(*base);
+            let TypeKind::Enum {
+                type_params,
+                variants,
+                ..
+            } = types.get_ref(base)
+            else {
+                return None;
+            };
+            let mapping = extend_type_mapping(types, &BTreeMap::new(), type_params, args);
+            variants
+                .iter()
+                .find(|variant| variant_name_matches(&variant.name, variant_name))
+                .and_then(|variant| variant.payload)
+                .map(|payload| mapped_type_id(types, payload, &mapping))
+        }
+        TypeKind::Named(_) => {
+            let named = types.resolve_named_type_id(resolved);
+            if named == resolved {
+                None
+            } else {
+                enum_payload_type(types, named, variant_name)
+            }
+        }
+        _ => {
+            let named = types.resolve_named_type_id(resolved);
+            if named == resolved {
+                None
+            } else {
+                enum_payload_type(types, named, variant_name)
+            }
+        }
+    }
+}
+
+fn variant_name_matches(defined: &str, projected: &str) -> bool {
+    defined == projected || projected.rsplit("::").next() == Some(defined)
+}
+
+fn normalize_projection_type(types: &TypeCtx, ty: TypeId) -> TypeId {
+    types.resolve_named_type_id(types.resolve_id(ty))
 }
 
 pub(super) fn match_bind_payload_place(

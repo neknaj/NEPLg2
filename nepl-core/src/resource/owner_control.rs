@@ -54,6 +54,7 @@ impl ResourceOwnerCheckEngine<'_> {
         self.apply_branch_condition_fact(
             &mut then_owners,
             &mut then_raw_aliases,
+            &then_raw_views,
             &mut then_storage_origins,
             &mut then_pending_reallocs,
             condition_fact,
@@ -63,6 +64,7 @@ impl ResourceOwnerCheckEngine<'_> {
         self.apply_branch_condition_fact(
             &mut else_owners,
             &mut else_raw_aliases,
+            &else_raw_views,
             &mut else_storage_origins,
             &mut else_pending_reallocs,
             condition_fact,
@@ -109,6 +111,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 self.transfer_owner(
                     &mut then_owners,
                     &mut then_raw_aliases,
+                    &then_raw_views,
                     &mut then_storage_origins,
                     then_value,
                     output,
@@ -138,6 +141,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 self.transfer_owner(
                     &mut else_owners,
                     &mut else_raw_aliases,
+                    &else_raw_views,
                     &mut else_storage_origins,
                     else_value,
                     output,
@@ -316,6 +320,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         self.transfer_owner(
                             &mut arm_owners,
                             &mut arm_raw_aliases,
+                            &arm_raw_views,
                             &mut arm_storage_origins,
                             &source,
                             bind_local,
@@ -380,6 +385,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     self.transfer_owner(
                         &mut arm_owners,
                         &mut arm_raw_aliases,
+                        &arm_raw_views,
                         &mut arm_storage_origins,
                         &arm.value,
                         output,
@@ -415,6 +421,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         pending_reallocs: &mut PendingRawReallocs,
         fact: Option<&ResourceConditionFact>,
@@ -432,6 +439,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         self.transfer_owner(
                             owners,
                             raw_aliases,
+                            raw_views,
                             storage_origins,
                             &pending.source,
                             &pending.result,

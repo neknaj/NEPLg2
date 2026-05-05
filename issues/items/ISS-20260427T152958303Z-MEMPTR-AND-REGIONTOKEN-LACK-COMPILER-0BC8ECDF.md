@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-04-30
+updated: 2026-05-06
 target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md"
 ---
 
@@ -178,3 +178,24 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 - `RegionToken<T>`: stdlib が勝手に forge できない compiler-issued wrapper へ移行する。
 
 この分割が入らないまま self-host の AST / token stream / diagnostic buffer を増やすと、stdlib 側に raw pointer discipline が広がり、memory safety を compiler で証明するという方針から外れる。
+
+## 2026-05-06 Resource IR borrowed region / raw cell 部分対応
+
+`RegionToken<T>` / `MemPtr<T>` の値 move state と、その内部 raw address が指す initialized cell state が Resource IR 上で混線する経路を追加で修正した。
+
+- `MemPtr` / `RegionToken` は値として `Deref` されても raw address alias を保持する型として扱い、関数サマリ内で `Deref` によって provenance を落とさないようにした。
+- `region_ptr_at` / `region_ptr` / `region_size` / `region_in_bounds` を borrowed `RegionToken` ベースに整理し、pointer projection が token 自体の move と混ざらないようにした。
+- `CellTable` の availability 判定で、raw cell の `Moved` / `Dropped` / `Uninit` / `MaybeMoved` が known offset / unknown offset / alias 経由の query へ保守的に伝播するようにした。
+- `dealloc_ptr` や helper 内 raw dealloc のような destructive raw-memory effect は、関数サマリに call-side release requirement として記録し、caller 側で live non-Copy raw cell を検査するようにした。
+- 外部参照由来 aggregate storage は、raw-memory cell の `Deref` と混同せず、external storage root の照合だけで参照先 field / storage offset を untracked external として扱うように分離した。
+
+今回の対応は `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource check 移行に含まれる。`MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の最終分離は引き続きこの issue の残件である。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`: 155 passed
+- `trunk build`: passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-borrowed-region-owner.json -j 1`: 12 passed
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-borrowed-region-owner.json -j 1`: 110 passed
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed

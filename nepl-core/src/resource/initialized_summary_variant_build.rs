@@ -3,7 +3,7 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::types::TypeCtx;
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
 use super::function_alias::FunctionAliasTable;
@@ -21,6 +21,7 @@ use super::initialized_variant::{normalize_variant_name, PendingVariantRawCellIn
 use super::model::{
     AggregateKind, Place, ResourceConditionFact, ResourceFunction, ResourceLocal, ResourceOp,
 };
+use super::place_utils::reference_target_place;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
 
@@ -51,6 +52,11 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     for param in &function.params {
         cells.mark_initialized(&param.place);
         raw_aliases.mark(&param.place);
+        if let Some(target_ty) = reference_target_type(types, param.place.ty) {
+            let target = reference_target_place(&param.place, target_ty);
+            cells.mark_initialized(&target);
+            raw_aliases.mark(&target);
+        }
     }
 
     for (index, op) in ops.iter().enumerate() {
@@ -205,5 +211,13 @@ fn push_unique_variant_param_cell(
 ) {
     if !cells.iter().any(|existing| existing == &cell) {
         cells.push(cell);
+    }
+}
+
+fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Reference(target, _) => Some(*target),
+        _ => None,
     }
 }

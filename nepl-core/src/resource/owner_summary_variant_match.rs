@@ -45,6 +45,7 @@ pub(super) fn apply_match_arm_entry(
             path_engine.transfer_owner(
                 path_owners,
                 path_raw_aliases,
+                path_raw_views,
                 path_storage_origins,
                 &source,
                 bind_local,

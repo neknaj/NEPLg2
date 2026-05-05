@@ -4394,6 +4394,96 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_owner_check_accepts_borrowed_region_ptr_at_then_region_dealloc() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    match alloc_region<i32> 1:
+        Result::Err _e:
+            0
+        Result::Ok token:
+            match region_ptr_at<i32,i32> &token 0:
+                Result::Err _e:
+                    match dealloc_region token:
+                        Result::Err _drop:
+                            0
+                        Result::Ok _:
+                            0
+                Result::Ok p:
+                    match store_i32 p 321:
+                        Result::Err _e:
+                            match dealloc_region token:
+                                Result::Err _drop:
+                                    0
+                                Result::Ok _:
+                                    0
+                        Result::Ok _:
+                            let v <i32> match load_i32 p:
+                                Option::None:
+                                    0
+                                Option::Some x:
+                                    x
+                            match dealloc_region token:
+                                Result::Err _e:
+                                    0
+                                Result::Ok _:
+                                    v
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("borrowed region_ptr_at must preserve RegionToken owner for dealloc_region");
+}
+
+#[test]
+fn resource_ir_owner_check_accepts_borrowed_region_ptr_retag_then_region_dealloc() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    match alloc_region<u8> 16:
+        Result::Err _e:
+            0
+        Result::Ok token:
+            let p_u8 <MemPtr<u8>> region_ptr &token
+            let p_i32 <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr p_u8
+            match fill_i32 p_i32 4 7:
+                Result::Err _e:
+                    match dealloc_region token:
+                        Result::Err _drop:
+                            0
+                        Result::Ok _:
+                            0
+                Result::Ok _:
+                    let ok <i32> match load_i32 p_i32:
+                        Option::None:
+                            0
+                        Option::Some v:
+                            if eq v 7 1 0
+                    match dealloc_region token:
+                        Result::Err _e:
+                            0
+                        Result::Ok _:
+                            ok
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("borrowed region_ptr MemPtr retag must remain non-owning until token dealloc");
+}
+
+#[test]
 fn resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement() {
     let source = r#"
 #entry main
@@ -10542,6 +10632,101 @@ fn main <()->i32> ():
     assert!(
         resource.dump_text().contains("raw_address_alias"),
         "RegionToken ptr helper must expose raw address alias:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_preserves_borrowed_region_ptr_at_known_offset_alias() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    match region_ptr_at<LocalToken,LocalToken> &token 0:
+        Result::Ok q:
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            let a <LocalToken> load<LocalToken> mem_ptr_addr p
+            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            0
+        Result::Err _e:
+            0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Moved,
+                ..
+            }
+        )),
+        "borrowed region_ptr_at Ok payload must alias the token raw cell and report moved, not uninit: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_rejects_borrowed_region_ptr_at_unknown_offset_dealloc_with_live_cell() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn choose_offset <(bool)->i32> (flag):
+    if flag 0 4
+
+fn main <()->i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
+    let off <i32> choose_offset true
+    match region_ptr_at<LocalToken,LocalToken> &token off:
+        Result::Ok q:
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            let r <Result<(),str>> dealloc_ptr<LocalToken> q size_of<LocalToken>
+            0
+        Result::Err _e:
+            0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryDeallocCell,
+                state: CellState::Initialized(_),
+                ..
+            }
+        )),
+        "borrowed region_ptr_at unknown-offset payload must retain initialized cell conflict on dealloc_ptr: {:#?}\nresource:\n{}",
+        report.diagnostics,
         resource.dump_text()
     );
 }

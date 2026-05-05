@@ -21,7 +21,7 @@ use super::model::{
     CellState, CellStateEntry, EffectOp, Place, ResourceBlock, ResourceCallTarget,
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
-use super::place_utils::should_track;
+use super::place_utils::{reference_target_place, should_track, type_preserves_raw_address_alias};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{
     ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
@@ -85,6 +85,12 @@ impl ResourceCheckEngine<'_> {
             cells.mark_initialized(&param.place);
             cells.mark_external_raw_storage_root(&param.place);
             raw_aliases.mark(&param.place);
+            if let Some(target_ty) = self.reference_target_type(param.place.ty) {
+                let target = reference_target_place(&param.place, target_ty);
+                cells.mark_initialized(&target);
+                cells.mark_external_raw_storage_root(&target);
+                raw_aliases.mark(&target);
+            }
         }
         for block in &function.blocks {
             self.check_block(
@@ -242,7 +248,10 @@ impl ResourceCheckEngine<'_> {
             } => {
                 if self.ensure_available(cells, source, ResourceCheckOperation::Borrow, *span) {
                     cells.mark_initialized(output);
-                    self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
+                    raw_aliases.mark(output);
+                    let target = reference_target_place(output, source.ty);
+                    cells.mark_initialized(&target);
+                    self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, &target);
                     pending_reallocs.clear_result(output);
                     variant_initializations.clear_result(output);
                 }
@@ -319,14 +328,20 @@ impl ResourceCheckEngine<'_> {
                     if !self.apply_call_return_raw_alias(raw_aliases, output, target, args) {
                         raw_aliases.clear(output);
                     }
-                    self.apply_call_raw_cell_initialization_summary(
+                    let release_requirements_ok = self.apply_call_raw_cell_initialization_summary(
                         cells,
                         raw_aliases,
                         variant_initializations,
                         output,
                         target,
                         args,
+                        *span,
                     );
+                    if !release_requirements_ok {
+                        raw_aliases.clear(output);
+                        pending_reallocs.clear_result(output);
+                        variant_initializations.clear_result(output);
+                    }
                     pending_reallocs.clear_result(output);
                 }
             }
@@ -356,15 +371,22 @@ impl ResourceCheckEngine<'_> {
                     ) {
                         raw_aliases.clear(output);
                     }
-                    self.apply_indirect_call_raw_cell_initialization_summary(
-                        cells,
-                        raw_aliases,
-                        variant_initializations,
-                        output,
-                        function_aliases,
-                        callee,
-                        args,
-                    );
+                    let release_requirements_ok = self
+                        .apply_indirect_call_raw_cell_initialization_summary(
+                            cells,
+                            raw_aliases,
+                            variant_initializations,
+                            output,
+                            function_aliases,
+                            callee,
+                            args,
+                            *span,
+                        );
+                    if !release_requirements_ok {
+                        raw_aliases.clear(output);
+                        pending_reallocs.clear_result(output);
+                        variant_initializations.clear_result(output);
+                    }
                     pending_reallocs.clear_result(output);
                 }
             }
@@ -617,12 +639,20 @@ impl ResourceCheckEngine<'_> {
         if !should_track(place) {
             return true;
         }
-        match cells.availability_state(place) {
+        match cells.availability_state_with_types(self.types, place) {
             CellState::Initialized(_) => true,
             state => {
                 self.push_unavailable(operation, place, state, span);
                 false
             }
+        }
+    }
+
+    fn reference_target_type(&self, ty: TypeId) -> Option<TypeId> {
+        let resolved = self.types.resolve_named_type_id(self.types.resolve_id(ty));
+        match self.types.get_ref(resolved) {
+            TypeKind::Reference(target, _) => Some(*target),
+            _ => None,
         }
     }
 
@@ -648,21 +678,6 @@ fn merge_deferred(target: &mut ResourceCheckDeferred, source: ResourceCheckDefer
     target.branch_merges += source.branch_merges;
     target.loop_merges += source.loop_merges;
     target.match_merges += source.match_merges;
-}
-
-fn type_preserves_raw_address_alias(types: &TypeCtx, ty: TypeId) -> bool {
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    match types.get_ref(resolved) {
-        TypeKind::Struct { name, .. } => name == "MemPtr" || name == "RegionToken",
-        TypeKind::Apply { base, .. } => {
-            let base = types.resolve_named_type_id(*base);
-            matches!(
-                types.get_ref(base),
-                TypeKind::Struct { name, .. } if name == "MemPtr" || name == "RegionToken"
-            )
-        }
-        _ => false,
-    }
 }
 
 fn call_uses_checked_mem_ptr_wrapper(types: &TypeCtx, args: &[Place]) -> bool {

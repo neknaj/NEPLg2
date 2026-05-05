@@ -30140,3 +30140,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` は親 issue として open のまま維持し、Stage D1 の same-definition shadow warning 修正を追記した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260427T152958303Z MemPtr / RegionToken Resource IR safety)
+
+- [同期]:
+  - `origin/main` と同じ基点から `work/memptr-region-owner-model-memory-safety` で対応した。commit 前に branch の merge 状況を確認する。
+- [原因]:
+  - `MemPtr<T>` / `RegionToken<T>` は non-owning pointer、free obligation owner、initialized raw cell state を同じ stdlib struct 周辺で扱っており、Resource IR 側で値 move と pointee cell state を混ぜやすかった。
+  - `Deref` を raw address alias summary で落とすと `region_ptr` / `region_ptr_at` helper 経由の provenance が消える一方、一般的な raw-address prefix 判定で `Deref` を透過すると raw memory cell deref と reference target deref を混同して disjoint offset を壊す。
+  - destructive raw memory operation を helper に隠すと、caller 側の live non-Copy raw cell release requirement が検査されない経路が残っていた。
+- [修正]:
+  - `MemPtr` / `RegionToken` の value `Deref` は raw address alias を保持する型として扱い、raw alias summary と call application の両方で provenance を保持した。
+  - `CellTable` に raw cell state の alias / offset overlap 伝播を追加し、known offset / unknown offset の `Moved` / `Dropped` / `Uninit` / `MaybeMoved` を query へ保守的に流すようにした。
+  - raw cell initialization summary に `param_release_requirements` を追加し、`Store` / `Dealloc` / `Realloc` / `Fill` / `BulkCopy` / `BulkMove` の caller-side release 検査を Resource IR 関数境界で復元した。
+  - external aggregate reference の storage root は raw memory cell の `Deref` と分け、external storage root 専用の照合で `StorageOffset` / field projection を扱うようにした。
+  - `stdlib/core/mem.nepl` の `region_ptr` / `region_size` / `region_in_bounds` / `region_ptr_at` を borrowed `RegionToken` ベースにし、token 値の move と raw cell state の混線を避けた。
+- [検証]:
+  - `cargo fmt`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 155 passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-borrowed-region-owner.json -j 1`: 12 passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-borrowed-region-owner.json -j 1`: 110 passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` に Resource IR borrowed region / raw cell 部分対応を追記した。
+  - 親 issue は owner/non-owner/type-level 分離全体を追跡するため open のまま維持する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

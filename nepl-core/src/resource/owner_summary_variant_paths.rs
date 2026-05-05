@@ -78,6 +78,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 engine.apply_branch_condition_fact(
                     &mut then_owners,
                     &mut then_raw_aliases,
+                    &raw_views,
                     &mut then_storage_origins,
                     &mut then_pending_reallocs,
                     condition_fact.as_ref(),
@@ -111,6 +112,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 engine.apply_branch_condition_fact(
                     &mut else_owners,
                     &mut else_raw_aliases,
+                    &raw_views,
                     &mut else_storage_origins,
                     &mut else_pending_reallocs,
                     condition_fact.as_ref(),

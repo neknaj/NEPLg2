@@ -15,7 +15,8 @@ use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId};
 
 use super::lower_aggregate::{
-    lower_compiler_field_load_source, lower_field_get_call_source, lower_get_field_intrinsic_source,
+    lower_compiler_field_load_source, lower_field_get_call_source,
+    lower_get_field_intrinsic_source, lower_get_field_ref_intrinsic_source,
 };
 use super::lower_condition::resource_condition_fact;
 use super::lower_raw_address::{
@@ -524,7 +525,25 @@ pub(super) fn lower_expr_skeleton(
                     span: expr.span,
                 });
                 ops.push(ResourceOp::Expr {
-                    kind: ResourceExprKind::Intrinsic,
+                    kind: ResourceExprKind::Borrow,
+                    output: output.clone(),
+                    ty: expr.ty,
+                    span: expr.span,
+                });
+                return output;
+            }
+            if let Some(source) =
+                lower_get_field_ref_intrinsic_source(name, args, expr.ty, ops, ctx, env)
+            {
+                let output = ctx.temporary(expr.ty);
+                ops.push(ResourceOp::Borrow {
+                    source,
+                    output: output.clone(),
+                    kind: BorrowKind::Shared,
+                    span: expr.span,
+                });
+                ops.push(ResourceOp::Expr {
+                    kind: ResourceExprKind::Borrow,
                     output: output.clone(),
                     ty: expr.ty,
                     span: expr.span,

@@ -12,6 +12,7 @@ pub(super) struct RawCellInitializationFunctionSummary {
     pub(super) function: String,
     pub(super) return_cells: Vec<RawCellInitializationReturnCell>,
     pub(super) param_cells: Vec<RawCellInitializationParamCell>,
+    pub(super) param_release_requirements: Vec<RawCellReleaseParamRequirement>,
     pub(super) variant_param_cells: Vec<RawCellInitializationVariantParamCell>,
     pub(super) variant_required_param_cells: Vec<RawCellInitializationVariantParamRequirement>,
     pub(super) variant_conditions: Vec<RawCellInitializationVariantCondition>,
@@ -30,6 +31,24 @@ pub(super) struct RawCellInitializationParamCell {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
     pub(super) holds_raw_address: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum RawCellReleaseRequirementKind {
+    Store,
+    Dealloc,
+    Realloc,
+    Fill,
+    BulkDestination,
+    BulkSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct RawCellReleaseParamRequirement {
+    pub(super) param_index: usize,
+    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) ty: TypeId,
+    pub(super) kind: RawCellReleaseRequirementKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

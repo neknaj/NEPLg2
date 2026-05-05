@@ -43,6 +43,11 @@ fn function_returns_borrow_token(
     let mut engine = ResourceBorrowCheckEngine {
         function: function.name.as_str(),
         summaries,
+        parameter_names: function
+            .params
+            .iter()
+            .map(|param| param.name.clone())
+            .collect(),
         diagnostics: Vec::new(),
         deferred: ResourceBorrowCheckDeferred::default(),
     };

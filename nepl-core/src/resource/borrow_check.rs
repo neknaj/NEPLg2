@@ -27,6 +27,7 @@ pub fn check_resource_borrow_lifetimes(module: &ResourceModule) -> ResourceBorro
         let mut engine = ResourceBorrowCheckEngine {
             function: function.name.as_str(),
             summaries: &summaries,
+            parameter_names: Vec::new(),
             diagnostics: Vec::new(),
             deferred: ResourceBorrowCheckDeferred::default(),
         };
@@ -50,12 +51,18 @@ pub fn check_resource_borrow_lifetimes(module: &ResourceModule) -> ResourceBorro
 pub(super) struct ResourceBorrowCheckEngine<'a> {
     pub(super) function: &'a str,
     pub(super) summaries: &'a [BorrowTokenReturnSummary],
+    pub(super) parameter_names: Vec<String>,
     pub(super) diagnostics: Vec<ResourceBorrowDiagnostic>,
     pub(super) deferred: ResourceBorrowCheckDeferred,
 }
 
 impl ResourceBorrowCheckEngine<'_> {
     fn check_function(&mut self, function: &ResourceFunction) -> Vec<BorrowStateEntry> {
+        self.parameter_names = function
+            .params
+            .iter()
+            .map(|param| param.name.clone())
+            .collect();
         let mut borrows = BorrowTable::default();
         let mut function_aliases = FunctionAliasTable::default();
         for block in &function.blocks {
@@ -288,6 +295,9 @@ impl ResourceBorrowCheckEngine<'_> {
 
     fn check_return_escape(&mut self, borrows: &BorrowTable, place: &Place, span: Span) {
         if let Some(binding) = borrows.binding(place) {
+            if self.borrow_source_can_escape_return(&binding.source) {
+                return;
+            }
             let active = borrows.state(&binding.source);
             if matches!(
                 active,
@@ -296,6 +306,16 @@ impl ResourceBorrowCheckEngine<'_> {
                 self.push_conflict(ResourceBorrowOperation::ReturnValue, place, active, span);
             }
         }
+    }
+
+    fn borrow_source_can_escape_return(&self, source: &Place) -> bool {
+        let PlaceRoot::Local(name) = &source.root else {
+            return false;
+        };
+        self.parameter_names.iter().any(|param| param == name)
+            && source.projections.first().is_some_and(|projection| {
+                matches!(projection, super::model::PlaceProjection::Deref)
+            })
     }
 
     fn propagate_call_return_token(

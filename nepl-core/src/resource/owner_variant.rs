@@ -163,6 +163,7 @@ impl PendingVariantOwnerEffects {
             engine.transfer_owner(
                 owners,
                 raw_aliases,
+                raw_views,
                 storage_origins,
                 &source,
                 &target,

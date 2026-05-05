@@ -7,6 +7,7 @@ use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, raw_memory_cell_place,
     should_track,
 };
+use super::type_pattern::type_pattern_matches;
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct CellTable {
@@ -25,6 +26,24 @@ impl CellTable {
     }
 
     pub(super) fn availability_state(&self, place: &Place) -> CellState {
+        self.availability_state_by(place, &|left, right| left == right)
+    }
+
+    pub(super) fn availability_state_with_types(
+        &self,
+        types: &TypeCtx,
+        place: &Place,
+    ) -> CellState {
+        self.availability_state_by(place, &|left, right| {
+            type_pattern_matches(types, left, right)
+        })
+    }
+
+    fn availability_state_by(
+        &self,
+        place: &Place,
+        type_matches: &impl Fn(TypeId, TypeId) -> bool,
+    ) -> CellState {
         if let Some(state) = self.state(place) {
             if !matches!(state, CellState::Initialized(_)) {
                 return state;
@@ -44,12 +63,20 @@ impl CellTable {
                 return entry.state;
             }
         }
+        for entry in &self.cells {
+            if entry.place != *place
+                && !matches!(entry.state, CellState::Initialized(_))
+                && raw_cell_state_flows_to_query(&entry.place, place)
+            {
+                return entry.state.clone();
+            }
+        }
         if let Some(state @ CellState::Initialized(_)) = self.state(place) {
             return state;
         }
         for entry in &self.cells {
             if let CellState::Initialized(ty) = entry.state {
-                if initialized_state_flows_to(&entry.place, place, ty) {
+                if initialized_state_flows_to_by(&entry.place, place, ty, type_matches) {
                     return CellState::Initialized(place.ty);
                 }
             }
@@ -111,13 +138,13 @@ impl CellTable {
             && self
                 .external_raw_storage_roots
                 .iter()
-                .any(|root| raw_addresses_overlap(root, address))
+                .any(|root| external_raw_storage_address_overlaps(root, address))
     }
 
     pub(super) fn external_raw_storage_overlaps(&self, address: &Place) -> bool {
         self.external_raw_storage_roots
             .iter()
-            .any(|root| raw_addresses_overlap(root, address))
+            .any(|root| external_raw_storage_address_overlaps(root, address))
     }
 
     pub(super) fn clear_raw_cells_under(&mut self, address: &Place) {
@@ -231,7 +258,7 @@ impl CellTable {
             && self
                 .external_raw_storage_roots
                 .iter()
-                .any(|root| raw_cell_suffix_after_address(place, root).is_some())
+                .any(|root| external_raw_cell_suffix_after_storage_root(place, root).is_some())
     }
 
     fn state(&self, place: &Place) -> Option<CellState> {
@@ -268,7 +295,12 @@ impl CellTable {
     }
 }
 
-fn initialized_state_flows_to(prefix: &Place, place: &Place, initialized_ty: TypeId) -> bool {
+fn initialized_state_flows_to_by(
+    prefix: &Place,
+    place: &Place,
+    initialized_ty: TypeId,
+    type_matches: &impl Fn(TypeId, TypeId) -> bool,
+) -> bool {
     let Some(suffix) = place_suffix_after_prefix(place, prefix)
         .or_else(|| place_suffix_after_address_prefix(place, prefix))
     else {
@@ -286,7 +318,7 @@ fn initialized_state_flows_to(prefix: &Place, place: &Place, initialized_ty: Typ
             .iter()
             .any(|projection| matches!(projection, PlaceProjection::Deref))
     {
-        return initialized_ty == place.ty;
+        return type_matches(initialized_ty, place.ty);
     }
     true
 }
@@ -302,6 +334,23 @@ fn cell_descendant_state_flows(prefix: &Place, place: &Place) -> bool {
             })
         })
         .unwrap_or(false)
+}
+
+fn raw_cell_state_flows_to_query(entry: &Place, query: &Place) -> bool {
+    let Some(query_address) = raw_cell_address_prefix(query) else {
+        return false;
+    };
+    raw_cell_suffix_after_address(entry, &query_address).is_some()
+}
+
+fn raw_cell_address_prefix(cell: &Place) -> Option<Place> {
+    let deref_index = cell
+        .projections
+        .iter()
+        .position(|projection| matches!(projection, PlaceProjection::Deref))?;
+    let mut address = cell.clone();
+    address.projections.truncate(deref_index);
+    Some(address)
 }
 
 fn raw_cell_state_has_live_non_copy_obligation(entry: &CellStateEntry, types: &TypeCtx) -> bool {
@@ -327,6 +376,21 @@ pub(super) fn raw_cell_suffix_after_address(
     }
 }
 
+pub(super) fn raw_address_suffix_after_address(
+    address: &Place,
+    prefix: &Place,
+) -> Option<Vec<PlaceProjection>> {
+    let suffix = place_suffix_after_address_prefix(address, prefix)?;
+    if suffix
+        .iter()
+        .any(|projection| matches!(projection, PlaceProjection::Deref))
+    {
+        None
+    } else {
+        Some(suffix)
+    }
+}
+
 fn raw_cell_belongs_to_address_cell(cell: &Place, address: &Place) -> bool {
     raw_cell_suffix_after_address(cell, address)
         .and_then(|suffix| suffix.first().cloned())
@@ -336,6 +400,29 @@ fn raw_cell_belongs_to_address_cell(cell: &Place, address: &Place) -> bool {
 fn raw_addresses_overlap(left: &Place, right: &Place) -> bool {
     place_suffix_after_address_prefix(left, right).is_some()
         || place_suffix_after_address_prefix(right, left).is_some()
+}
+
+fn external_raw_storage_address_overlaps(root: &Place, address: &Place) -> bool {
+    raw_addresses_overlap(root, address)
+        || place_suffix_after_external_storage_root(address, root).is_some()
+        || place_suffix_after_external_storage_root(root, address).is_some()
+}
+
+fn external_raw_cell_suffix_after_storage_root(
+    cell: &Place,
+    root: &Place,
+) -> Option<Vec<PlaceProjection>> {
+    if let Some(suffix) = raw_cell_suffix_after_address(cell, root) {
+        return Some(suffix);
+    }
+    let address = raw_cell_address_prefix(cell)?;
+    let mut suffix = place_suffix_after_external_storage_root(&address, root)?;
+    suffix.extend(
+        cell.projections[address.projections.len()..]
+            .iter()
+            .cloned(),
+    );
+    Some(suffix)
 }
 
 fn rekey_raw_storage_roots(roots: &mut Vec<Place>, source: &Place, target: &Place) {
@@ -396,6 +483,52 @@ fn place_suffix_after_address_prefix(
         }
         let place_projection = place.projections.get(place_index)?;
         if !address_projection_matches(place_projection, prefix_projection) {
+            return None;
+        }
+        place_index += 1;
+    }
+    while matches!(
+        place.projections.get(place_index),
+        Some(projection) if storage_offset_is_zero(projection)
+    ) {
+        place_index += 1;
+    }
+    Some(place.projections[place_index..].to_vec())
+}
+
+fn place_suffix_after_external_storage_root(
+    place: &Place,
+    root: &Place,
+) -> Option<Vec<PlaceProjection>> {
+    if place.root != root.root {
+        return None;
+    }
+    let mut place_index = 0;
+    for root_projection in &root.projections {
+        if storage_offset_is_zero(root_projection) {
+            continue;
+        }
+        while matches!(
+            place.projections.get(place_index),
+            Some(projection) if storage_offset_is_zero(projection)
+        ) {
+            place_index += 1;
+        }
+        if matches!(root_projection, PlaceProjection::Deref)
+            && matches!(
+                place.projections.get(place_index),
+                Some(
+                    PlaceProjection::Field { .. }
+                        | PlaceProjection::TupleField { .. }
+                        | PlaceProjection::EnumPayload { .. }
+                        | PlaceProjection::StorageOffset(_)
+                )
+            )
+        {
+            continue;
+        }
+        let place_projection = place.projections.get(place_index)?;
+        if !address_projection_matches(place_projection, root_projection) {
             return None;
         }
         place_index += 1;

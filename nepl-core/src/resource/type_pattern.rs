@@ -7,8 +7,12 @@ pub(super) fn field_type_matches_result(
     field_ty: TypeId,
     result_ty: TypeId,
 ) -> bool {
-    types.same_type(field_ty, result_ty)
-        || type_pattern_matches_result(types, field_ty, result_ty, &mut Vec::new())
+    type_pattern_matches(types, field_ty, result_ty)
+}
+
+pub(super) fn type_pattern_matches(types: &TypeCtx, pattern_ty: TypeId, result_ty: TypeId) -> bool {
+    types.same_type(pattern_ty, result_ty)
+        || type_pattern_matches_result(types, pattern_ty, result_ty, &mut Vec::new())
 }
 
 fn type_pattern_matches_result(

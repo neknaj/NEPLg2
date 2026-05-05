@@ -48,13 +48,42 @@ pub(super) fn field_move_path_from_addr(
 
 pub(super) fn field_reference_path_from_addr(
     addr: &HirExpr,
+    ctx: &MoveCheckContext,
     tctx: &crate::types::TypeCtx,
 ) -> Option<FieldMovePath> {
     let field_ty = match tctx.get_ref(tctx.resolve_id(addr.ty)) {
         TypeKind::Reference(inner, _) => *inner,
         _ => return None,
     };
+    if let HirExprKind::Intrinsic { name, args, .. } = &addr.kind {
+        if name == "get_field_ref" && args.len() == 2 {
+            return field_reference_path_from_selector(&args[0], &args[1], field_ty, ctx, tctx);
+        }
+    }
     field_move_path_from_addr(addr, field_ty, tctx)
+}
+
+fn field_reference_path_from_selector(
+    owner_ref_expr: &HirExpr,
+    selector: &HirExpr,
+    result_ty: TypeId,
+    ctx: &MoveCheckContext,
+    tctx: &crate::types::TypeCtx,
+) -> Option<FieldMovePath> {
+    let (owner, owner_ty, base_offset) = reference_base_owner(owner_ref_expr, tctx)?;
+    let (field_index, field_offset, field_ty) =
+        aggregate_field_index_layout_from_selector(owner_ty, selector, ctx, tctx)?;
+    let field_ty = if tctx.same_type(field_ty, result_ty) {
+        field_ty
+    } else {
+        result_ty
+    };
+    Some(FieldMovePath {
+        owner: owner.to_string(),
+        field_index: Some(field_index),
+        offset: base_offset + field_offset,
+        field_ty,
+    })
 }
 
 pub(super) fn field_move_path_from_selector(
@@ -85,6 +114,28 @@ fn base_owner(expr: &HirExpr) -> Option<(&str, TypeId, usize)> {
         HirExprKind::Var(name) => Some((name.as_str(), expr.ty, 0)),
         HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
             let (owner, owner_ty, base_offset) = base_owner(&args[0])?;
+            let offset = match &args[1].kind {
+                HirExprKind::LiteralI32(value) if *value >= 0 => *value as usize,
+                _ => return None,
+            };
+            Some((owner, owner_ty, base_offset + offset))
+        }
+        _ => None,
+    }
+}
+
+fn reference_base_owner<'a>(
+    expr: &'a HirExpr,
+    tctx: &crate::types::TypeCtx,
+) -> Option<(&'a str, TypeId, usize)> {
+    match &expr.kind {
+        HirExprKind::AddrOf(inner) => base_owner(inner),
+        HirExprKind::Var(name) => match tctx.get_ref(tctx.resolve_id(expr.ty)) {
+            TypeKind::Reference(inner, _) => Some((name.as_str(), *inner, 0)),
+            _ => base_owner(expr),
+        },
+        HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
+            let (owner, owner_ty, base_offset) = reference_base_owner(&args[0], tctx)?;
             let offset = match &args[1].kind {
                 HirExprKind::LiteralI32(value) if *value >= 0 => *value as usize,
                 _ => return None,

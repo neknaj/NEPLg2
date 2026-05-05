@@ -14,7 +14,7 @@ use super::model::{
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
-use super::place_utils::raw_memory_cell_place;
+use super::place_utils::{raw_memory_cell_place, reference_target_place};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{
     ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerDiagnostic,
@@ -246,6 +246,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         self.transfer_owner(
                             owners,
                             raw_aliases,
+                            raw_views,
                             storage_origins,
                             initializer,
                             place,
@@ -310,6 +311,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     self.transfer_owner(
                         owners,
                         raw_aliases,
+                        raw_views,
                         storage_origins,
                         value,
                         target,
@@ -338,6 +340,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     self.transfer_owner(
                         owners,
                         raw_aliases,
+                        raw_views,
                         storage_origins,
                         source,
                         output,
@@ -441,6 +444,7 @@ impl ResourceOwnerCheckEngine<'_> {
                             self.transfer_owner(
                                 owners,
                                 raw_aliases,
+                                raw_views,
                                 storage_origins,
                                 &cell,
                                 output,
@@ -494,6 +498,7 @@ impl ResourceOwnerCheckEngine<'_> {
                             self.transfer_owner(
                                 owners,
                                 raw_aliases,
+                                raw_views,
                                 storage_origins,
                                 value,
                                 &cell,
@@ -607,6 +612,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         self.apply_call_return_owner(
                             owners,
                             raw_aliases,
+                            raw_views,
                             storage_origins,
                             variant_owner_effects,
                             output,
@@ -639,6 +645,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         owners,
                         function_aliases,
                         raw_aliases,
+                        raw_views,
                         storage_origins,
                         variant_owner_effects,
                         output,
@@ -664,6 +671,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     self.construct_owner_fields(
                         owners,
                         raw_aliases,
+                        raw_views,
                         storage_origins,
                         output,
                         kind,
@@ -690,7 +698,11 @@ impl ResourceOwnerCheckEngine<'_> {
                 pending_reallocs.clear_result(target);
                 variant_owner_effects.clear_result(target);
             }
-            ResourceOp::Borrow { output, .. } => {
+            ResourceOp::Borrow { source, output, .. } => {
+                let target = reference_target_place(output, source.ty);
+                raw_aliases.copy_alias_or_seed(source, &target);
+                storage_origins.copy_origin(source, &target);
+                raw_views.copy(source, &target);
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);
             }
@@ -722,9 +734,9 @@ impl ResourceOwnerCheckEngine<'_> {
             | ResourceExprKind::Block
             | ResourceExprKind::Let
             | ResourceExprKind::Set
-            | ResourceExprKind::Borrow
             | ResourceExprKind::Deref
             | ResourceExprKind::Drop => raw_aliases.clear(output),
+            ResourceExprKind::Borrow => {}
         }
     }
 }

@@ -10,8 +10,9 @@ use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationVariantCondition,
 };
 use super::model::{Place, ResourceMatchPattern};
-use super::place_utils::place_with_suffix;
+use super::place_utils::projected_place_with_concrete_type;
 use super::report::ResourceCheckOperation;
+use crate::types::TypeCtx;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PendingVariantRawCellInitialization {
@@ -48,13 +49,20 @@ pub(super) struct PendingVariantRawCellInitializations {
 impl PendingVariantRawCellInitializations {
     pub(super) fn record_call(
         &mut self,
+        types: &TypeCtx,
         raw_aliases: &RawCellAddressAliases,
         output: &Place,
         args: &[Place],
         summary: &RawCellInitializationFunctionSummary,
     ) {
         self.clear_result(output);
-        self.record_unreachable_variants(raw_aliases, output, args, &summary.variant_conditions);
+        self.record_unreachable_variants(
+            types,
+            raw_aliases,
+            output,
+            args,
+            &summary.variant_conditions,
+        );
         for cell in &summary.variant_param_cells {
             let Some(arg) = args.get(cell.param_index) else {
                 continue;
@@ -102,7 +110,12 @@ impl PendingVariantRawCellInitializations {
                 continue;
             }
             let arg = raw_aliases.canonicalize(&requirement.arg);
-            let place = place_with_suffix(&arg, &requirement.suffix, requirement.ty);
+            let place = projected_place_with_concrete_type(
+                engine.types,
+                &arg,
+                &requirement.suffix,
+                requirement.ty,
+            );
             engine.ensure_available(
                 cells,
                 &place,
@@ -115,7 +128,8 @@ impl PendingVariantRawCellInitializations {
                 continue;
             }
             let arg = raw_aliases.canonicalize(&entry.arg);
-            let place = place_with_suffix(&arg, &entry.suffix, entry.ty);
+            let place =
+                projected_place_with_concrete_type(engine.types, &arg, &entry.suffix, entry.ty);
             cells.mark_initialized(&place);
             if entry.holds_raw_address {
                 mark_known_raw_address(raw_aliases, &place);
@@ -228,6 +242,7 @@ impl PendingVariantRawCellInitializations {
 
     fn record_unreachable_variants(
         &mut self,
+        types: &TypeCtx,
         raw_aliases: &RawCellAddressAliases,
         output: &Place,
         args: &[Place],
@@ -237,7 +252,8 @@ impl PendingVariantRawCellInitializations {
             let Some(arg) = args.get(condition.param_index) else {
                 continue;
             };
-            let place = place_with_suffix(arg, &condition.suffix, condition.ty);
+            let place =
+                projected_place_with_concrete_type(types, arg, &condition.suffix, condition.ty);
             let place = raw_aliases.canonicalize(&place);
             let Some(value) = raw_aliases.i32_value(&place) else {
                 continue;

@@ -141,20 +141,32 @@ fn main <()->i32> ():
         Result::Err _e:
             0
         Result::Ok token:
-            match region_ptr_at<i32,i32> token 0:
+            match region_ptr_at<i32,i32> &token 0:
                 Result::Err _e:
-                    0
+                    match dealloc_region token:
+                        Result::Err _drop:
+                            0
+                        Result::Ok _:
+                            0
                 Result::Ok p:
                     match store_i32 p 321:
                         Result::Err _e:
-                            0
+                            match dealloc_region token:
+                                Result::Err _drop:
+                                    0
+                                Result::Ok _:
+                                    0
                         Result::Ok _:
                             let v <i32> match load_i32 p:
                                 Option::None:
                                     0
                                 Option::Some x:
                                     x
-                            v
+                            match dealloc_region token:
+                                Result::Err _e:
+                                    0
+                                Result::Ok _:
+                                    v
 ```
 
 ## region_ptr_at は範囲外アクセスを Err で返す
@@ -174,13 +186,17 @@ fn main <()->i32> ():
         Result::Err _e:
             0
         Result::Ok token:
-            let out <Result<MemPtr<i32>,str>> region_ptr_at<i32,i32> token 4
+            let out <Result<MemPtr<i32>,str>> region_ptr_at<i32,i32> &token 4
             let ok <i32> match out:
                 Result::Err _e:
                     1
                 Result::Ok _:
                     0
-            ok
+            match dealloc_region token:
+                Result::Err _e:
+                    0
+                Result::Ok _:
+                    ok
 ```
 
 ## MemPtr fill_i32/fill_u8 の安全オーバーロード
@@ -201,22 +217,34 @@ fn main <()->i32> ():
         Result::Err _e:
             0
         Result::Ok token:
-            let p_u8 <MemPtr<u8>> region_ptr token
+            let p_u8 <MemPtr<u8>> region_ptr &token
             let p_i32 <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr p_u8
             match fill_u8 p_u8 16 0:
                 Result::Err _e:
-                    0
+                    match dealloc_region token:
+                        Result::Err _drop:
+                            0
+                        Result::Ok _:
+                            0
                 Result::Ok _:
                     match fill_i32 p_i32 4 7:
                         Result::Err _e:
-                            0
+                            match dealloc_region token:
+                                Result::Err _drop:
+                                    0
+                                Result::Ok _:
+                                    0
                         Result::Ok _:
                             let ok <i32> match load_i32 p_i32:
                                 Option::None:
                                     0
                                 Option::Some v:
                                     if eq v 7 1 0
-                            ok
+                            match dealloc_region token:
+                                Result::Err _e:
+                                    0
+                                Result::Ok _:
+                                    ok
 ```
 
 ## MemPtr fill 系は無効引数を Err で返す

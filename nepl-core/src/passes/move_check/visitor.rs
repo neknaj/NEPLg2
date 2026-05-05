@@ -342,8 +342,8 @@ fn visit_reference_call_arg(
         .collect();
     match &arg.kind {
         HirExprKind::AddrOf(inner) => visit_temporary_borrow(inner, ctx, kind),
-        _ if field_reference_path_from_addr(arg, tctx).is_some() => {
-            if let Some(path) = field_reference_path_from_addr(arg, tctx) {
+        _ if field_reference_path_from_addr(arg, ctx, tctx).is_some() => {
+            if let Some(path) = field_reference_path_from_addr(arg, ctx, tctx) {
                 ctx.check_field_temporary_borrow(&path, arg.span, kind);
             }
         }

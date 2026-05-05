@@ -64,6 +64,9 @@ fn hir_expr_coverage(
                 hir_field_projection_source_coverage(owner, counts, types, string_literals);
                 return;
             }
+            if call_projects_reference_address(callee_base_name(callee), args, types) {
+                counts.deref_projections += 1;
+            }
             counts.direct_calls += 1;
             if raw_memory_op_from_callee(callee)
                 .filter(|operation| should_count_raw_memory_call(operation, args, types))
@@ -130,11 +133,22 @@ fn hir_expr_coverage(
         }
         HirExprKind::Intrinsic { name, args, .. } => {
             if let Some(owner) =
+                get_field_ref_intrinsic_owner(name, args, expr.ty, types, string_literals)
+            {
+                counts.borrows += 1;
+                counts.deref_projections += 1;
+                hir_place_expr_coverage(owner, counts, types, string_literals);
+                return;
+            }
+            if let Some(owner) =
                 get_field_intrinsic_owner(name, args, expr.ty, types, string_literals)
             {
                 counts.reads += 1;
                 hir_field_projection_source_coverage(owner, counts, types, string_literals);
                 return;
+            }
+            if call_projects_reference_address(Some(helper_base_name(name)), args, types) {
+                counts.deref_projections += 1;
             }
             if let Some((base, _)) = compiler_field_load_base_and_offset(name, args, expr.ty, types)
             {
@@ -234,6 +248,23 @@ fn get_field_intrinsic_owner<'a>(
     aggregate_field_exists_by_name(types, owner.ty, field_name, field_ty).then_some(owner)
 }
 
+fn get_field_ref_intrinsic_owner<'a>(
+    name: &str,
+    args: &'a [HirExpr],
+    ref_ty: TypeId,
+    types: &TypeCtx,
+    string_literals: &[String],
+) -> Option<&'a HirExpr> {
+    if helper_base_name(name) != "get_field_ref" {
+        return None;
+    }
+    let owner = args.first()?;
+    let owner_ty = reference_target_type(types, owner.ty)?;
+    let field_ty = reference_target_type(types, ref_ty)?;
+    aggregate_field_matches_selector(types, owner_ty, args.get(1)?, field_ty, string_literals)
+        .then_some(owner)
+}
+
 fn raw_load_address_expr(expr: &HirExpr) -> Option<&HirExpr> {
     match &expr.kind {
         HirExprKind::Intrinsic { name, args, .. } if name == "load" => args.first(),
@@ -242,9 +273,27 @@ fn raw_load_address_expr(expr: &HirExpr) -> Option<&HirExpr> {
     }
 }
 
+fn call_projects_reference_address(name: Option<&str>, args: &[HirExpr], types: &TypeCtx) -> bool {
+    matches!(name, Some("add" | "sub"))
+        && args.first().is_some_and(|arg| {
+            matches!(
+                types.get_ref(types.resolve_named_type_id(types.resolve_id(arg.ty))),
+                TypeKind::Reference(_, _)
+            )
+        })
+}
+
 fn literal_field_name<'a>(string_literals: &'a [String], expr: &HirExpr) -> Option<&'a str> {
     match &expr.kind {
         HirExprKind::LiteralStr(index) => string_literals.get(*index as usize).map(String::as_str),
+        _ => None,
+    }
+}
+
+fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Reference(target, _) => Some(*target),
         _ => None,
     }
 }
@@ -310,6 +359,29 @@ fn aggregate_field_exists_by_name(
     };
     aggregate_fields_with_offsets(types, owner_ty)
         .get(index)
+        .is_some_and(|field| field_type_matches_result(types, field.ty, field_ty))
+}
+
+fn aggregate_field_matches_selector(
+    types: &TypeCtx,
+    owner_ty: TypeId,
+    selector: &HirExpr,
+    field_ty: TypeId,
+    string_literals: &[String],
+) -> bool {
+    let index = match &selector.kind {
+        HirExprKind::LiteralI32(value) if *value >= 0 => Some(*value as usize),
+        HirExprKind::LiteralStr(index) => string_literals
+            .get(*index as usize)
+            .and_then(|field_name| aggregate_field_index(types, owner_ty, field_name)),
+        _ => None,
+    };
+    index
+        .and_then(|index| {
+            aggregate_fields_with_offsets(types, owner_ty)
+                .get(index)
+                .copied()
+        })
         .is_some_and(|field| field_type_matches_result(types, field.ty, field_ty))
 }
 
