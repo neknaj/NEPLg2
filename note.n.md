@@ -30028,3 +30028,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - 新たに `ISS-20260505T190408092Z-RESOURCE-INITIALIZED-SUMMARY-VARIANT-436C996D` を追加した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T190408092Z Resource initialized summary variant builder split)
+
+- [同期]:
+  - `origin/main` pull 後、branch `work/resource-initialized-summary-variant-split-main` で対応した。
+- [原因]:
+  - `initialized_summary_variant_build.rs` は branch path traversal、variant condition extraction、raw-load requirement collection、dedup helper を同じ file に持ち、337 lines で責務分割上限を超えていた。
+  - variant-gated initialized summary は Result/Option branch ごとの raw cell initialization/requirement を表すため、path traversal と condition/requirement fact construction を分けて監査できる必要がある。
+- [修正]:
+  - `initialized_summary_variant_condition.rs` を追加し、branch condition fact から variant-gated param condition への変換と dedup を分離した。
+  - `initialized_summary_variant_requirement.rs` を追加し、variant path 内の raw memory load requirement を param suffix へ変換する処理と dedup を分離した。
+  - `initialized_summary_variant_build.rs` は branch path traversal、path-local checker実行、variant param initialized cell collection、enum construct detection に集中させた。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module と line limit を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_summarizes_unit_helper_argument_raw_cell_initialization -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_conditional_unit_helper_argument_init_conservative -- --nocapture`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+  - Result::Ok/Err variant-gated source tests は既存の `ShadowSameSignatureCallable` warning を helper が失敗扱いする問題で停止した。
+- [issue]:
+  - `ISS-20260505T190408092Z-RESOURCE-INITIALIZED-SUMMARY-VARIANT-436C996D` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
