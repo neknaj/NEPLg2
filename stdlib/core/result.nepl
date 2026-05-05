@@ -9,13 +9,20 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `unwrap_ok` / `unwrap_err` は[便宜上/べんぎじょう][残/のこ]している unsafe helper であり、[通常/つうじょう]は `match` や `unwrap_or` を[優先/ゆうせん]してください。
-//: - doctest では trap [依存/いぞん]の `should_panic` を[使/つか]わず、[安全/あんぜん]な[分岐/ぶんき]と `ret:` [比較/ひかく]で[確認/かくにん]します。
+//: - doctest では trap [依存/いぞん]の `should_panic` を[使/つか]わず、[安全/あんぜん]な[分岐/ぶんき]を stdout report と `exit_code:` で[確認/かくにん]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [基本操作/きほんそうさ]はすべて O(1) です。
 //:
 //: neplg2:test
-//: ret: 0
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok,ok,ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
+//:     ##: [2] ok
+//:     ##: [3] ok
+//:     ##: [4] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -29,7 +36,8 @@
 //:         |> checks_push assert_eq_i32 1 unwrap_ok ok<i32, str> 1
 //:         |> checks_push assert_str_eq "oops" unwrap_err err<i32, str> "oops"
 //:         |> checks_push assert_eq_i32 9 unwrap_or err<i32, str> "x" 9
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 //:
 //: neplg2:test[compile_fail]
@@ -44,6 +52,11 @@
 //: ```
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -65,11 +78,16 @@
 //:         checks_new
 //:         |> checks_push assert_eq_i32 10 unwrap_ok a
 //:         |> checks_push assert_eq_i32 4 unwrap_err b
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 //:
 //: neplg2:test
-//: ret: 0
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -90,7 +108,8 @@
 //:         checks_new
 //:         |> checks_push assert_eq_i32 6 unwrap_ok a
 //:         |> checks_push assert_str_eq "non-positive" unwrap_err b
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 
 
@@ -291,6 +310,10 @@ fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
 //:
 //: ### [使用例/しようれい]
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok]
+//:     ##: [0] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -298,7 +321,8 @@ fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
 //:| #import "core/result" as *
 //:| fn main <()*>i32> ():
 //:     let checks checks_push checks_new assert_eq_i32 1 uwok ok<i32, str> 1
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 //:
 //: ### [実装/じっそう]

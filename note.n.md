@@ -1,3 +1,22 @@
+# 2026-05-05 メモ (ISS-20260505T072734472Z core result stdout report)
+
+- [原因]:
+  - `stdlib/core/result.nepl` の runnable std-target doctest 4 件が `std/test` checks を使っていたが、`ret: 0` または explicit metadata なしのまま `checks_exit_code checks` だけを返していた。
+  - ファイル先頭の注意書きも `ret:` 比較を前提にしており、現在の stdout report + `exit_code:` 方針とずれていた。
+- [修正]:
+  - runnable std-target `std/test` doctest 4 件を `exit_code: 0` + `stdout: mlstr:` に移行した。
+  - `checks_print_report` を追加し、5 件 / 2 件 / 2 件 / 1 件の assertion report を fixture として固定した。
+  - compile_fail と `#target core` の戻り値確認は責務が異なるため変更しなかった。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/core-result-report-agent1.json -j 1 --dist web/dist`: total=7, passed=7
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+- [issue]:
+  - `ISS-20260505T072734472Z-CORE-RESULT-DOCTESTS-OMIT-STDOUT-ASS-1D20CA46` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に core result 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `Result` helper doctest の runnable std-target case について、戻り値ではなく stdout report と `exit_code:` に揃えた。
+
 # 2026-05-05 メモ (ISS-20260505T072353360Z core option stdout report)
 
 - [原因]:

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:26:01.795Z",
+  "generated_at": "2026-05-05T07:30:08.677Z",
   "counts": {
-    "total": 505,
+    "total": 506,
     "open": 14,
-    "resolved": 491,
+    "resolved": 492,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 26,
+        "total": 27,
         "open": 2,
-        "resolved": 24
+        "resolved": 25
       },
       "selfhost": {
         "total": 45,
@@ -5693,6 +5693,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T072353360Z-CORE-OPTION-DOCTESTS-OMIT-STDOUT-ASS-D22F2EA3.md"
+    },
+    {
+      "id": "ISS-20260505T072734472Z-CORE-RESULT-DOCTESTS-OMIT-STDOUT-ASS-1D20CA46",
+      "title": "core result doctests omit stdout assertion reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/core/result.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T072734472Z-CORE-RESULT-DOCTESTS-OMIT-STDOUT-ASS-1D20CA46.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

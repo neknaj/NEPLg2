@@ -268,3 +268,13 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 検証:
 
 - `node nodesrc/tests.js -i stdlib/core/option.nepl --no-tree -o tmp/core-option-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3
+
+## 2026-05-05 core result report migration
+
+`ISS-20260505T072734472Z-CORE-RESULT-DOCTESTS-OMIT-STDOUT-ASS-1D20CA46` で、`stdlib/core/result.nepl` の runnable std-target doctest 4 件を stdout assertion report + `exit_code: 0` へ移行した。
+
+同ファイルには compile_fail と `#target core` の戻り値確認も含まれるため、それらは責務を分けて維持した。今回の対応対象は `std/test` checks を作っていた 4 件で、5 件 / 2 件 / 2 件 / 1 件の assertion report を fixture 化した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/core-result-report-agent1.json -j 1 --dist web/dist`: total=7, passed=7
