@@ -7,10 +7,16 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const facadeRelPath = 'stdlib/std/streamio.nepl';
 const scannerRelPath = 'stdlib/std/streamio/scanner.nepl';
+const scannerStateRelPath = 'stdlib/std/streamio/scanner/state.nepl';
 const facade = fs.readFileSync(path.join(repoRoot, facadeRelPath), 'utf8');
 const src = fs.readFileSync(path.join(repoRoot, scannerRelPath), 'utf8');
+const stateSrc = fs.readFileSync(path.join(repoRoot, scannerStateRelPath), 'utf8');
 
 const code = src
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const stateCode = stateSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
@@ -23,6 +29,12 @@ assert.match(
     facadeCode,
     /pub\s+#import\s+"\.\/streamio\/scanner"\s+as\s+\*/,
     'std/streamio.nepl must re-export the scanner submodule',
+);
+
+assert.match(
+    code,
+    /#import\s+"std\/streamio\/scanner\/state"\s+as\s+\*/,
+    'std/streamio/scanner.nepl must import the scanner state boundary module',
 );
 
 for (const pattern of [
@@ -39,8 +51,27 @@ for (const pattern of [
     );
 }
 
+for (const pattern of [
+    /\bstruct\s+StreamScanner\b/,
+    /\benum\s+StreamScannerHeaderField\b/,
+    /\bfn\s+stream_scanner_load_header_result\b/,
+    /\bfn\s+stream_scanner_byte_at\b/,
+    /\bfn\s+scanner_from_bytes\b/,
+]) {
+    assert.doesNotMatch(
+        code,
+        pattern,
+        'std/streamio/scanner.nepl must not keep scanner state implementation bodies',
+    );
+    assert.match(
+        stateCode,
+        pattern,
+        'std/streamio/scanner/state.nepl must own scanner state implementation bodies',
+    );
+}
+
 assert.match(
-    code,
+    stateCode,
     /\bfn\s+stream_scanner_byte_at\s+<\(MemPtr<u8>,i32,i32\)->i32>/,
     'StreamScanner byte access must go through stream_scanner_byte_at',
 );
@@ -50,8 +81,8 @@ assert.doesNotMatch(
     /\bfn\s+stream_scanner_header_ptr\b/,
     'StreamScanner must not reintroduce a RegionToken header pointer helper',
 );
-const scannerHeaderMatch = code.match(
-    /fn\s+stream_scanner_header_off\b([\s\S]*?)\nfn\s+stream_scanner_byte_at\b/,
+const scannerHeaderMatch = stateCode.match(
+    /fn\s+stream_scanner_header_off\b([\s\S]*?)\nfn\s+scanner_from_bytes\b/,
 );
 assert.ok(scannerHeaderMatch, 'StreamScanner header helper section must be found');
 assert.doesNotMatch(

@@ -9,10 +9,12 @@ const relPath = 'stdlib/std/streamio.nepl';
 const writerRelPath = 'stdlib/std/streamio/writer.nepl';
 const bytesRelPath = 'stdlib/std/streamio/bytes.nepl';
 const scannerRelPath = 'stdlib/std/streamio/scanner.nepl';
+const scannerStateRelPath = 'stdlib/std/streamio/scanner/state.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
 const writerSrc = fs.readFileSync(path.join(repoRoot, writerRelPath), 'utf8');
 const bytesSrc = fs.readFileSync(path.join(repoRoot, bytesRelPath), 'utf8');
 const scannerSrc = fs.readFileSync(path.join(repoRoot, scannerRelPath), 'utf8');
+const scannerStateSrc = fs.readFileSync(path.join(repoRoot, scannerStateRelPath), 'utf8');
 
 const facadeCode = src
     .split(/\r?\n/)
@@ -30,7 +32,11 @@ const scannerCode = scannerSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
-const code = `${facadeCode}\n${writerCode}\n${bytesCode}\n${scannerCode}`;
+const scannerStateCode = scannerStateSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const code = `${facadeCode}\n${writerCode}\n${bytesCode}\n${scannerCode}\n${scannerStateCode}`;
 
 assert.match(
     facadeCode,

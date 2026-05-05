@@ -21,6 +21,33 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 streamio scanner state split)
+
+- [同期]:
+  - `origin/main` の `e7e2f066` を取り込んだ状態から、branch `refactor/streamio-scanner-state-split` で対応した。
+- [原因]:
+  - `stdlib/std/streamio/scanner.nepl` は `std/streamio` facade から分離済みだったが、token parser、`open ReadStream`、raw memory backed header layout、ByteBuf 所有権初期化を 1 file に保持していた。
+  - header layout と ByteBuf 消費は scanner state boundary の責務で、token parser と混在すると raw memory 境界の再混入を検出しにくい。
+- [修正]:
+  - `stdlib/std/streamio/scanner/state.nepl` を追加し、`StreamScanner`、`StreamScannerHeaderField`、header load/store boundary、`stream_scanner_byte_at`、`scanner_from_bytes` を移した。
+  - `stdlib/std/streamio/scanner.nepl` は `std/streamio/scanner/state` を import し、byte classifier、`open`、token parser、read overload、`close` に集中する構成にした。
+  - `nodesrc/test_stdlib_streamio_scanner_boundary.js` を更新し、state 実装が `scanner/state` に存在し、`scanner.nepl` に戻らないことを固定した。
+  - `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を更新し、unsafe unwrap 監視対象に `scanner/state` を含めた。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/scanner.nepl --no-tree -o tmp/streamio-scanner-state-split-scanner.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-scanner-state-split-facade.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-scanner-state-split-nmd.json -j 1`: `14 total / 14 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: streamio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`streamio/scanner.nepl` は 661 lines、`streamio/scanner/state.nepl` は 217 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs raw split)
 
 - [同期]:
