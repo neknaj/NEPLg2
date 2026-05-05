@@ -3,7 +3,7 @@
     "tokens": [
       {
         "kind": "Ident",
-        "value": "print_color",
+        "value": "print_style",
         "span": {
           "start": 0,
           "end": 11,
@@ -15,26 +15,26 @@
       },
       {
         "kind": "Ident",
-        "value": "ansi_green",
+        "value": "style",
         "span": {
           "start": 12,
-          "end": 22,
+          "end": 17,
           "start_line": 0,
           "start_col": 12,
           "end_line": 0,
-          "end_col": 22
+          "end_col": 17
         }
       },
       {
         "kind": "StringLiteral",
         "value": "\"ok\"",
         "span": {
-          "start": 23,
-          "end": 27,
+          "start": 18,
+          "end": 22,
           "start_line": 0,
-          "start_col": 23,
+          "start_col": 18,
           "end_line": 0,
-          "end_col": 27
+          "end_col": 22
         }
       }
     ],
@@ -46,22 +46,22 @@
         "kind": "Block",
         "span": {
           "start": 0,
-          "end": 27,
+          "end": 22,
           "start_line": 0,
           "start_col": 0,
           "end_line": 0,
-          "end_col": 27
+          "end_col": 22
         },
         "items": [
           {
             "kind": "ExprStmt",
             "span": {
               "start": 0,
-              "end": 27,
+              "end": 22,
               "start_line": 0,
               "start_col": 0,
               "end_line": 0,
-              "end_col": 27
+              "end_col": 22
             },
             "expr": {
               "items": [
@@ -80,32 +80,32 @@
                   "kind": "Ident",
                   "span": {
                     "start": 12,
-                    "end": 22,
+                    "end": 17,
                     "start_line": 0,
                     "start_col": 12,
                     "end_line": 0,
-                    "end_col": 22
+                    "end_col": 17
                   }
                 },
                 {
                   "kind": "Literal",
                   "span": {
-                    "start": 23,
-                    "end": 27,
+                    "start": 18,
+                    "end": 22,
                     "start_line": 0,
-                    "start_col": 23,
+                    "start_col": 18,
                     "end_line": 0,
-                    "end_col": 27
+                    "end_col": 22
                   }
                 }
               ],
               "span": {
                 "start": 0,
-                "end": 27,
+                "end": 22,
                 "start_line": 0,
                 "start_col": 0,
                 "end_line": 0,
-                "end_col": 27
+                "end_col": 22
               }
             }
           }
@@ -118,7 +118,7 @@
     "definitions": [
       {
         "id": 1,
-        "name": "print_color",
+        "name": "print_style",
         "kind": "fn",
         "span": {
           "start": 0,
@@ -132,7 +132,7 @@
     ],
     "references": [
       {
-        "name": "print_color",
+        "name": "print_style",
         "resolved_def_id": 1,
         "candidate_def_ids": [
           1
@@ -154,7 +154,7 @@
     "token_resolution": [
       {
         "token_index": 0,
-        "name": "print_color",
+        "name": "print_style",
         "resolved_def_id": 1,
         "candidate_def_ids": [
           1
@@ -164,7 +164,7 @@
     "token_semantics": [
       {
         "token_index": 0,
-        "inferred_type": "fn(str,str)->()",
+        "inferred_type": "fn(AnsiStyle,str)->()",
         "expr_span": {
           "start": 0,
           "end": 11

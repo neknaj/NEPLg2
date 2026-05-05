@@ -41,6 +41,16 @@ assert.match(
 );
 assert.match(
     debugCode,
+    /fn\s+debug_color\s+<\(AnsiStyle,str\)\*>\(\)>/,
+    'debug_color must use typed AnsiStyle instead of raw str color',
+);
+assert.match(
+    debugCode,
+    /fn\s+debugln_color\s+<\(AnsiStyle,str\)\*>\(\)>/,
+    'debugln_color must use typed AnsiStyle instead of raw str color',
+);
+assert.match(
+    debugCode,
     /#if\[profile=release\][\s\S]*fn\s+debug\s+<\(str\)\*>\(\)>\s+\(_s\):[\s\S]*\(\)/,
     'release profile debug must stay no-op',
 );

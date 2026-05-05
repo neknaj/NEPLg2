@@ -110,7 +110,7 @@ stdout: "\u001b[31mred\u001b[0m \u001b[32mgreen\u001b[0m\n"
 #import "std/stdio" as *
 
 fn main <()*> ()> ():
-    print_color ansi_red "red";
+    print_style AnsiStyle::Red "red";
     print " ";
-    println_color ansi_green "green";
+    println_style AnsiStyle::Green "green";
 ```
