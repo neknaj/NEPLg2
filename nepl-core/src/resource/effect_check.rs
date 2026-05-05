@@ -545,11 +545,11 @@ impl ResourceEffectBoundaryEngine<'_> {
 
     fn check_effect(&mut self, effect: &EffectOp, span: Span) {
         match effect {
-            EffectOp::InternalAlloc { .. } => {
-                self.counts.internal_allocs += 1;
+            EffectOp::InternalAlloc { operation } => {
+                self.counts.internal_memory_ops.record(*operation);
             }
             EffectOp::UnsafeMemory { operation } => {
-                self.counts.unsafe_memory_ops += 1;
+                self.counts.unsafe_memory_ops.record(*operation);
                 if matches!(self.effect, Effect::Pure) {
                     self.diagnostics.push(
                         ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {

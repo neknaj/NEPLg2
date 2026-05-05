@@ -364,3 +364,11 @@ Stage 5 の raw identity escape 判定では、pointer value 自体の raw ident
 `EffectOp::InternalAlloc` は `operation: RawMemoryOp` を保持するようになり、Resource IR dump も `internal_alloc(alloc)` のように operation 付きで出力する。これにより、Stage 5 の internal effect は `UnsafeMemory` と同様に enum-first で raw operation を保持し、`alloc` / `dealloc` / `realloc` / `memory_size` / `memory_grow` を後続検査で区別できる。
 
 `InternalAlloc` の surface fold は引き続き `Pure` だが、operation identity が残るため、今後の stdlib memory API migration や public escape diagnostics で alloc 系と memory management 系を分けて監査できる。
+
+## 2026-05-06 Stage 5 raw effect count breakdown 追記
+
+`ISS-20260505T230807234Z-RESOURCE-EFFECT-COUNTS-COLLAPSE-TYPE-3CD39CCB` として、`EffectOp::{InternalAlloc, UnsafeMemory}` が typed `RawMemoryOp` を保持していても `ResourceEffectCounts` が合計値だけに潰していた問題を分離し、修正した。
+
+`RawMemoryEffectCounts` を追加し、internal memory と unsafe memory の count は `alloc` / `dealloc` / `realloc` / `load` / `store` / `bulk_copy` / `bulk_move` / `memory_size` / `memory_grow` / `fill` ごとに保持する。count の更新は `RawMemoryOp` の exhaustive match で行うため、新しい raw operation を追加した場合に report 側の更新漏れも compiler が検出しやすくなる。
+
+これにより Stage 5 effect model の report は単なる件数ではなく、raw memory boundary enforcement の監査に必要な operation-level evidence を保持する。

@@ -741,7 +741,8 @@ fn resource_ir_effect_check_reports_raw_alloc_return_escape() {
 
     let resource = lower_hir_module_skeleton(&module);
     let report = check_resource_effect_boundaries(&resource);
-    assert_eq!(report.functions[0].counts.internal_allocs, 1);
+    assert_eq!(report.functions[0].counts.internal_memory_ops.alloc, 1);
+    assert_eq!(report.functions[0].counts.internal_memory_ops.total(), 1);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
@@ -2351,7 +2352,8 @@ fn resource_ir_effect_check_reports_unsafe_memory_in_pure_function() {
 
     let resource = lower_hir_module_skeleton(&module);
     let report = check_resource_effect_boundaries(&resource);
-    assert_eq!(report.functions[0].counts.unsafe_memory_ops, 1);
+    assert_eq!(report.functions[0].counts.unsafe_memory_ops.store, 1);
+    assert_eq!(report.functions[0].counts.unsafe_memory_ops.total(), 1);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {

@@ -88,7 +88,7 @@ pub use coverage::{
     ResourceLoweringCoverage,
 };
 pub use effect::{
-    check_resource_effect_boundaries, ResourceEffectBoundaryDiagnostic,
+    check_resource_effect_boundaries, RawMemoryEffectCounts, ResourceEffectBoundaryDiagnostic,
     ResourceEffectBoundaryReport, ResourceEffectCallKind, ResourceEffectCounts,
     ResourceEffectFunctionCheck,
 };

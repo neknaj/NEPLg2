@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T23:05:01.332Z",
+  "generated_at": "2026-05-05T23:10:50.808Z",
   "counts": {
-    "total": 479,
+    "total": 480,
     "open": 13,
-    "resolved": 466,
+    "resolved": 467,
     "by_area": {
       "core": {
-        "total": 217,
+        "total": 218,
         "open": 5,
-        "resolved": 212
+        "resolved": 213
       },
       "stdlib": {
         "total": 155,
@@ -3373,6 +3373,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T230208194Z-RESOURCE-INTERNAL-ALLOCATION-EFFECTS-560C2A9E.md"
+    },
+    {
+      "id": "ISS-20260505T230807234Z-RESOURCE-EFFECT-COUNTS-COLLAPSE-TYPE-3CD39CCB",
+      "title": "Resource effect counts collapse typed raw operations",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_check.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T230807234Z-RESOURCE-EFFECT-COUNTS-COLLAPSE-TYPE-3CD39CCB.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

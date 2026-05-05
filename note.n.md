@@ -30331,3 +30331,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T230807234Z Resource effect count breakdown)
+
+- [同期]:
+  - `main` を remote main と同期後、`work/resource-effect-counts-op-breakdown` で Stage 5 effect report の operation-level count を修正した。
+- [原因]:
+  - `EffectOp::{InternalAlloc, UnsafeMemory}` は typed `RawMemoryOp` を保持するようになったが、`ResourceEffectCounts` は `internal_allocs` / `unsafe_memory_ops` の合計値だけを保持していた。
+  - このままだと effect boundary report から alloc/load/store/fill/bulk operation の内訳が消え、raw memory boundary enforcement の監査に必要な evidence が失われる。
+- [修正]:
+  - `RawMemoryEffectCounts` を追加し、raw memory operation ごとの count を保持するようにした。
+  - `RawMemoryEffectCounts::record` は `RawMemoryOp` の exhaustive match で更新し、新 operation 追加時の更新漏れを検出できる形にした。
+  - `ResourceEffectCounts` は internal memory と unsafe memory の両方で operation-level count を保持するようにした。
+  - Resource IR regression を `internal_memory_ops.alloc` / `unsafe_memory_ops.store` の直接検査へ更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_reports_raw_alloc_return_escape -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_reports_unsafe_memory_in_pure_function -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 155 passed
+- [issue]:
+  - `ISS-20260505T230807234Z-RESOURCE-EFFECT-COUNTS-COLLAPSE-TYPE-3CD39CCB` は fixed。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
