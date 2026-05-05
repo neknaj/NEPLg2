@@ -1,0 +1,180 @@
+//: # math/convert/width
+//: 整数幅の拡張と切り詰めを提供する core math conversion submodule
+//:
+//: [目的/もくてき]:
+//: - i32/i64 間の符号拡張・ゼロ拡張・切り詰めを低水準命令単位で提供します。
+//:
+//: [注意/ちゅうい]:
+//: - `wrap_i64_to_i32` は上位 32 bit を破棄します。範囲検査ではありません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/convert/width" as *
+//: fn main <()->i32> ():
+//:     wrap_i64_to_i32 extend_s_i32_to_i64 7
+//: ```
+
+#indent 4
+//: extend8_s_i32: i8 相当値の符号拡張
+//:
+//: [目的/もくてき]:
+//: - i32 下位 8 bit を符号付き値として i32 へ拡張します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.extend8_s` を使います。
+//: - llvm は `shl 24` 後に `ashr 24` で符号拡張します。
+//:
+//: [注意/ちゅうい]:
+//: - 上位 24 bit は入力の符号に応じて埋められます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn extend8_s_i32 <(i32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.extend8_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @extend8_s_i32(i32 %a) {
+        entry:
+            %shl = shl i32 %a, 24
+            %0 = ashr i32 %shl, 24
+            ret i32 %0
+        }
+
+//: extend16_s_i32: i16 相当値の符号拡張
+//:
+//: [目的/もくてき]:
+//: - i32 下位 16 bit を符号付き値として i32 へ拡張します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.extend16_s` を使います。
+//: - llvm は `shl 16` 後に `ashr 16` で符号拡張します。
+//:
+//: [注意/ちゅうい]:
+//: - 上位 16 bit は入力の符号に応じて埋められます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn extend16_s_i32 <(i32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.extend16_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @extend16_s_i32(i32 %a) {
+        entry:
+            %shl = shl i32 %a, 16
+            %0 = ashr i32 %shl, 16
+            ret i32 %0
+        }
+
+//: <i64> cast: i32 を符号拡張して i64 へ変換する
+//:
+//: [目的/もくてき]:
+//: - i32 の符号を保ったまま i64 に拡張します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i64.extend_i32_s`、llvm は `sext i32 to i64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 負値は上位ビットが 1 で埋められます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let v <i64> cast -1;
+//:     assert lt v <i64> cast 0;
+//:     let v <i64> cast 123;
+//:     assert eq v <i64> cast 123;
+//: ```
+fn extend_s_i32_to_i64 <(i32)->i64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i64.extend_i32_s
+    #if[target=llvm]
+    #llvmir:
+        define i64 @extend_s_i32_to_i64(i32 %a) {
+        entry:
+            %0 = sext i32 %a to i64
+            ret i64 %0
+        }
+
+//: <i64> cast: i32 をゼロ拡張して i64 へ変換する
+//:
+//: [目的/もくてき]:
+//: - i32 を符号なし値として i64 に拡張します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i64.extend_i32_u`、llvm は `zext i32 to i64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 32-bit 上位は必ず 0 になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let v <i64> cast -1;
+//:     assert gt_u v <i64> cast 0;
+//:     let v <i64> cast 1;
+//:     assert eq v <i64> cast 1;
+//: ```
+fn extend_u_i32_to_i64 <(i32)->i64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i64.extend_i32_u
+    #if[target=llvm]
+    #llvmir:
+        define i64 @extend_u_i32_to_i64(i32 %a) {
+        entry:
+            %0 = zext i32 %a to i64
+            ret i64 %0
+        }
+
+//: wrap_i64_to_i32: i64 を i32 へ切り詰める
+//:
+//: [目的/もくてき]:
+//: - i64 の下位 32 bit を取り出して i32 として返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.wrap_i64`、llvm は `trunc i64 to i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 上位 32 bit は破棄されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn wrap_i64_to_i32 <(i64)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.wrap_i64
+    #if[target=llvm]
+    #llvmir:
+        define i32 @wrap_i64_to_i32(i64 %a) {
+        entry:
+            %0 = trunc i64 %a to i32
+            ret i32 %0
+        }

@@ -1,3 +1,30 @@
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math conversion split)
+
+- [同期]:
+  - `origin/main` の `a2ce7b9b` を取り込んだ状態から、branch `refactor/math-convert-module-split` で対応した。
+- [原因]:
+  - `stdlib/core/math.nepl` は u8/bool/i32/i64/f32/f64 分割後も、整数幅変換・浮動小数点変換・bit pattern 再解釈 helper と u128/i128 API を同居させていた。
+  - 変換 helper は i128 実装からも使われる基盤 API であり、facade に実装を残すと次の int128 分割時にも依存境界が不明確になる。
+- [修正]:
+  - `core/math` から変換 helper 本体を除去し、`core/math/convert` を re-export する facade にした。
+  - `core/math/convert` は薄い facade として wrapper overload だけを保持し、raw helper は `convert/width`、`convert/float`、`convert/reinterpret` へ分割した。
+  - 単一の巨大 `convert` module を作らず、整数幅変換・浮動小数点変換・bit 再解釈を別責務に分けた。
+  - `nodesrc/test_stdlib_math_module_split.js` を拡張し、変換 helper が `core/math.nepl` に戻らないことと、`convert` facade が下位 module を re-export することを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/convert.nepl --no-tree -o tmp/math-convert-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math/convert/width.nepl --no-tree -o tmp/math-convert-width-direct.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math/convert/float.nepl --no-tree -o tmp/math-convert-float-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math/convert/reinterpret.nepl --no-tree -o tmp/math-convert-reinterpret-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math.nepl --no-tree -o tmp/math-facade-after-convert-split.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/numerics.n.md -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-suite-after-convert-split.json -j 1`: `17 total / 17 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規/拡張 math split policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`core/math.nepl` は 244 lines まで縮小し、残る u128/i128 API の分割を次段階とする。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib の巨大 file 解消を、facade と責務別 submodule の構造に寄せて進めた。
+
 # 2026-04-30 メモ (fullreview Actions 方針補正)
 
 - [同期]:

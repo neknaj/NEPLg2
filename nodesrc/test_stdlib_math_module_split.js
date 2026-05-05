@@ -16,6 +16,10 @@ const i32Module = read("stdlib/core/math/i32.nepl");
 const i64Module = read("stdlib/core/math/i64.nepl");
 const f32Module = read("stdlib/core/math/f32.nepl");
 const f64Module = read("stdlib/core/math/f64.nepl");
+const convertModule = read("stdlib/core/math/convert.nepl");
+const convertWidthModule = read("stdlib/core/math/convert/width.nepl");
+const convertFloatModule = read("stdlib/core/math/convert/float.nepl");
+const convertReinterpretModule = read("stdlib/core/math/convert/reinterpret.nepl");
 const u8Module = read("stdlib/core/math/u8.nepl");
 const boolModule = read("stdlib/core/math/bool.nepl");
 
@@ -41,6 +45,11 @@ assert.match(
 );
 assert.match(
     facade,
+    /pub\s+#import\s+"\.\/math\/convert"\s+as\s+\*/,
+    "core/math.nepl must re-export the conversion math submodule",
+);
+assert.match(
+    facade,
     /pub\s+#import\s+"\.\/math\/u8"\s+as\s+\*/,
     "core/math.nepl must re-export the u8 math submodule",
 );
@@ -49,6 +58,13 @@ assert.match(
     /pub\s+#import\s+"\.\/math\/bool"\s+as\s+\*/,
     "core/math.nepl must re-export the bool math submodule",
 );
+for (const [moduleName, pattern] of [
+    ["width", /pub\s+#import\s+"\.\/convert\/width"\s+as\s+\*/],
+    ["float", /pub\s+#import\s+"\.\/convert\/float"\s+as\s+\*/],
+    ["reinterpret", /pub\s+#import\s+"\.\/convert\/reinterpret"\s+as\s+\*/],
+]) {
+    assert.match(convertModule, pattern, `core/math/convert.nepl must re-export the ${moduleName} conversion submodule`);
+}
 
 for (const fnName of [
     "add_u8",
@@ -248,6 +264,82 @@ for (const [name, signature] of [
     assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep unary ${name} ${signature}`);
 }
 
-assert.match(facade, /\bfn\s+extend8_s_i32\s+<\(i32\)->i32>/, "core/math.nepl must keep conversion helpers for now");
+for (const [name, signature] of [
+    ["extend8_s_i32", "<\\(i32\\)->i32>"],
+    ["extend16_s_i32", "<\\(i32\\)->i32>"],
+    ["extend_s_i32_to_i64", "<\\(i32\\)->i64>"],
+    ["extend_u_i32_to_i64", "<\\(i32\\)->i64>"],
+    ["wrap_i64_to_i32", "<\\(i64\\)->i32>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(convertWidthModule, pattern, `core/math/convert/width.nepl must define ${name} ${signature}`);
+    assert.doesNotMatch(convertModule, pattern, `core/math/convert.nepl must not keep width helper ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep width helper ${name} ${signature}`);
+}
+
+for (const [name, signature] of [
+    ["convert_s_i32_to_f32", "<\\(i32\\)->f32>"],
+    ["convert_u_i32_to_f32", "<\\(i32\\)->f32>"],
+    ["convert_s_i64_to_f32", "<\\(i64\\)->f32>"],
+    ["convert_u_i64_to_f32", "<\\(i64\\)->f32>"],
+    ["trunc_s_f32_to_i32", "<\\(f32\\)->i32>"],
+    ["trunc_u_f32_to_i32", "<\\(f32\\)->i32>"],
+    ["trunc_sat_s_f32_to_i32", "<\\(f32\\)->i32>"],
+    ["trunc_sat_u_f32_to_i32", "<\\(f32\\)->i32>"],
+    ["trunc_s_f32_to_i64", "<\\(f32\\)->i64>"],
+    ["trunc_u_f32_to_i64", "<\\(f32\\)->i64>"],
+    ["trunc_sat_s_f32_to_i64", "<\\(f32\\)->i64>"],
+    ["trunc_sat_u_f32_to_i64", "<\\(f32\\)->i64>"],
+    ["convert_s_i32_to_f64", "<\\(i32\\)->f64>"],
+    ["convert_u_i32_to_f64", "<\\(i32\\)->f64>"],
+    ["convert_s_i64_to_f64", "<\\(i64\\)->f64>"],
+    ["convert_u_i64_to_f64", "<\\(i64\\)->f64>"],
+    ["trunc_s_f64_to_i32", "<\\(f64\\)->i32>"],
+    ["trunc_u_f64_to_i32", "<\\(f64\\)->i32>"],
+    ["trunc_sat_s_f64_to_i32", "<\\(f64\\)->i32>"],
+    ["trunc_sat_u_f64_to_i32", "<\\(f64\\)->i32>"],
+    ["trunc_s_f64_to_i64", "<\\(f64\\)->i64>"],
+    ["trunc_u_f64_to_i64", "<\\(f64\\)->i64>"],
+    ["trunc_sat_s_f64_to_i64", "<\\(f64\\)->i64>"],
+    ["trunc_sat_u_f64_to_i64", "<\\(f64\\)->i64>"],
+    ["promote_f32_to_f64", "<\\(f32\\)->f64>"],
+    ["demote_f64_to_f32", "<\\(f64\\)->f32>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(convertFloatModule, pattern, `core/math/convert/float.nepl must define ${name} ${signature}`);
+    assert.doesNotMatch(convertModule, pattern, `core/math/convert.nepl must not keep float helper ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep float helper ${name} ${signature}`);
+}
+
+for (const [name, signature] of [
+    ["reinterpret_i32_to_f32", "<\\(i32\\)->f32>"],
+    ["reinterpret_f32_to_i32", "<\\(f32\\)->i32>"],
+    ["reinterpret_i64_to_f64", "<\\(i64\\)->f64>"],
+    ["reinterpret_f64_to_i64", "<\\(f64\\)->i64>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(convertReinterpretModule, pattern, `core/math/convert/reinterpret.nepl must define ${name} ${signature}`);
+    assert.doesNotMatch(convertModule, pattern, `core/math/convert.nepl must not keep reinterpret helper ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep reinterpret helper ${name} ${signature}`);
+}
+
+for (const [name, signature] of [
+    ["extend_s", "<\\(i32\\)->i64>"],
+    ["wrap", "<\\(i64\\)->i32>"],
+    ["convert_s", "<\\(i32\\)->f64>"],
+    ["convert_s", "<\\(i64\\)->f64>"],
+    ["convert_s", "<\\(i64\\)->f32>"],
+    ["trunc_s", "<\\(f64\\)->i32>"],
+    ["trunc_s", "<\\(f64\\)->i64>"],
+    ["trunc_s", "<\\(f32\\)->i64>"],
+    ["promote", "<\\(f32\\)->f64>"],
+    ["demote", "<\\(f64\\)->f32>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(convertModule, pattern, `core/math/convert.nepl must define conversion wrapper ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep conversion wrapper ${name} ${signature}`);
+}
+
+assert.match(facade, /\bstruct\s+u128\b/, "core/math.nepl must keep 128-bit integer API for now");
 
 console.log("stdlib math module split regression passed");

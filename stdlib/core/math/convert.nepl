@@ -1,0 +1,68 @@
+//: # math/convert
+//: 整数・浮動小数点・bit pattern の低水準変換を提供する core math submodule facade
+//:
+//: [目的/もくてき]:
+//: - `core/math` の変換 helper 群を責務別 submodule として分離し、公開 API をこの facade で再 export します。
+//: - 符号拡張、切り詰め、浮動小数点変換、再解釈を集約し、追加整数型 API からも同じ低水準変換を共有します。
+//:
+//: [注意/ちゅうい]:
+//: - `trunc_*` は範囲外や NaN の扱いが基盤命令に依存します。飽和変換が必要な場合は `trunc_sat_*` を使います。
+//: - `reinterpret_*` は数値変換ではなく bit pattern の再解釈です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/convert" as *
+//: fn main <()->i32> ():
+//:     wrap extend_s 7
+//: ```
+
+#indent 4
+pub #import "./convert/width" as *
+pub #import "./convert/float" as *
+pub #import "./convert/reinterpret" as *
+
+//: extend_s: 符号拡張を行う
+//:
+//: [目的/もくてき]:
+//: - 型名 prefix を使わずに符号拡張を呼び出せるようにします。
+fn extend_s <(i32)->i64> (a):
+    extend_s_i32_to_i64 a
+
+//: wrap: i64 を i32 へ切り詰める
+//:
+//: [目的/もくてき]:
+//: - 型名 prefix を使わずに切り詰め変換を呼び出せるようにします。
+fn wrap <(i64)->i32> (a):
+    wrap_i64_to_i32 a
+
+//: convert_s: 符号付き整数を浮動小数へ変換する
+//:
+//: [目的/もくてき]:
+//: - 変換関数を型オーバーロードで統一します。
+fn convert_s <(i32)->f64> (a):
+    convert_s_i32_to_f64 a
+fn convert_s <(i64)->f64> (a):
+    convert_s_i64_to_f64 a
+fn convert_s <(i64)->f32> (a):
+    convert_s_i64_to_f32 a
+
+//: trunc_s: 浮動小数を符号付き整数へ切り捨て変換する
+//:
+//: [目的/もくてき]:
+//: - 切り捨て変換を型オーバーロードで統一します。
+fn trunc_s <(f64)->i32> (a):
+    trunc_s_f64_to_i32 a
+fn trunc_s <(f64)->i64> (a):
+    trunc_s_f64_to_i64 a
+fn trunc_s <(f32)->i64> (a):
+    trunc_s_f32_to_i64 a
+
+//: promote: f32 を f64 に拡張する
+fn promote <(f32)->f64> (a):
+    promote_f32_to_f64 a
+
+//: demote: f64 を f32 に縮小する
+fn demote <(f64)->f32> (a):
+    demote_f64_to_f32 a
