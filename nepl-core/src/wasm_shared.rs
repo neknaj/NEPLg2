@@ -9,6 +9,7 @@ use alloc::vec::Vec;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{BackendDiagnosticCode, DiagnosticCode, WasmDiagnosticCode};
 use crate::hir::{FuncRef, HirBody, HirExpr, HirExprKind, HirFunction, HirModule, HirParam};
+use crate::runtime_helpers::{find_runtime_helper_key, RuntimeHelperKind};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 use wasm_encoder::{Instruction, MemArg, ValType};
 
@@ -269,6 +270,19 @@ pub(crate) fn collect_reachable_wasm_functions(module: &HirModule) -> BTreeSet<S
     if let Some(entry) = &module.entry {
         if all_names.contains(entry) {
             roots.insert(entry.clone());
+        }
+    }
+    let helper_map = all_names
+        .iter()
+        .map(|name| (name.clone(), ()))
+        .collect::<BTreeMap<_, _>>();
+    for kind in [
+        RuntimeHelperKind::Alloc,
+        RuntimeHelperKind::Dealloc,
+        RuntimeHelperKind::Realloc,
+    ] {
+        if let Some(name) = find_runtime_helper_key(&helper_map, kind) {
+            roots.insert(String::from(name));
         }
     }
     if roots.is_empty() {

@@ -138,6 +138,7 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
     // Build imports / function list (builtins first)
     let mut imports: Vec<ImportLower> = Vec::new();
     let mut functions: Vec<FuncLower> = Vec::new();
+    let reachable_functions = crate::wasm_shared::collect_reachable_wasm_functions(module);
 
     // Extern imports
     for ext in &module.externs {
@@ -164,6 +165,9 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
 
     // User functions
     for f in &module.functions {
+        if !reachable_functions.contains(&f.name) {
+            continue;
+        }
         if crate::log::is_verbose() && f.name.contains("partition") {
             wasm_log!(
                 "wasm codegen candidate partition-like: {} skip={} func_ty={}",

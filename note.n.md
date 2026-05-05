@@ -31028,6 +31028,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-05 note (ISS-20260505T101310267Z wasm codegen entry reachability)
+
+- [同期]:
+  - `work/region-token-owner-cleanup` 上で、直前の commit `cfb8b4c3` から継続した。
+- [原因]:
+  - `precheck_wasm_codegen` は entry 到達関数集合を使って到達不能関数を診断対象から外していた。
+  - `generate_wasm` は同じ境界を使わず `module.functions` 全体を emit していたため、到達不能な selfhost/import 関数が backend diagnostic や codegen time に混ざる設計不整合があった。
+  - selfhost CLI driver doctest timeout 調査中、この不整合があると「到達関数集合が広すぎる」のか「backend lowering が遅い」のかを正確に切り分けられないことを確認した。
+- [修正]:
+  - `collect_reachable_wasm_functions` に runtime helper (`Alloc` / `Dealloc` / `Realloc`) を明示 root として追加した。
+  - `generate_wasm` の user function lowering を entry-reachable set に限定し、precheck と実 emit の対象を一致させた。
+  - 到達不能な unsupported signature function が precheck / generate_wasm の両方で無視される regression を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test codegen_diagnostics wasm_codegen_ignores_entry_unreachable_bad_function -- --nocapture`: passed
+  - `cargo test -p nepl-core --test codegen_diagnostics wasm_codegen_reports_unsupported_function_signature_without_panicking -- --nocapture`: passed
+  - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: 11 passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test generics generics_struct_pair_construction -- --nocapture`: passed
+  - `cargo test -p nepl-core --test check_pipeline compile_wasm_accepts_deep_prefix_chain_without_codegen_stack_overflow -- --nocapture`: local 124 秒 timeout。今回の到達関数境界とは別の重い既存テストとして扱い、focused codegen regression と aggregate compile test で差分確認した。
+- [issue]:
+  - `ISS-20260505T101310267Z-WASM-CODEGEN-EMITS-ENTRY-UNREACHABLE-22405735` を追加し、fixed/resolved にした。
+  - `ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C` の根本調査は継続。今回の修正により、以後の selfhost timeout 調査では precheck と emit の到達関数境界不一致を除外できる。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 stdio read buffer split)
 
 - [同期]:

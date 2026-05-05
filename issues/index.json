@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T09:54:45.521Z",
+  "generated_at": "2026-05-05T10:18:39.337Z",
   "counts": {
-    "total": 520,
+    "total": 521,
     "open": 15,
-    "resolved": 505,
+    "resolved": 506,
     "by_area": {
       "core": {
-        "total": 222,
+        "total": 223,
         "open": 7,
-        "resolved": 215
+        "resolved": 216
       },
       "stdlib": {
         "total": 157,
@@ -3488,6 +3488,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T092815045Z-RESOURCE-IR-FILL-INITIALIZATION-COLL-22447391.md"
+    },
+    {
+      "id": "ISS-20260505T101310267Z-WASM-CODEGEN-EMITS-ENTRY-UNREACHABLE-22405735",
+      "title": "wasm codegen emits entry-unreachable functions after reachability precheck",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/codegen_wasm.rs, nepl-core/src/wasm_shared.rs, nepl-core/tests/codegen_diagnostics.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T101310267Z-WASM-CODEGEN-EMITS-ENTRY-UNREACHABLE-22405735.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

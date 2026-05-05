@@ -121,6 +121,41 @@ fn wasm_codegen_reports_unsupported_function_signature_without_panicking() {
 }
 
 #[test]
+fn wasm_codegen_ignores_entry_unreachable_bad_function() {
+    let mut ctx = TypeCtx::new();
+    let i32_ty = ctx.i32();
+    let never_ty = ctx.never();
+    let unit_ty = ctx.unit();
+    let main = zero_arg_function(
+        &mut ctx,
+        "main",
+        i32_ty,
+        HirExpr {
+            ty: i32_ty,
+            kind: HirExprKind::LiteralI32(0),
+            span: Span::dummy(),
+        },
+    );
+    let unreachable_bad = zero_arg_function(
+        &mut ctx,
+        "unreachable_bad",
+        never_ty,
+        HirExpr {
+            ty: unit_ty,
+            kind: HirExprKind::Unit,
+            span: Span::dummy(),
+        },
+    );
+    let module = empty_module(vec![main, unreachable_bad], Some("main"));
+
+    assert!(precheck_wasm_codegen(&ctx, &module).is_empty());
+    let generated = codegen_wasm::generate_wasm(&ctx, &module)
+        .expect("wasm codegen should ignore entry-unreachable functions");
+    let bytes = generated.bytes.expect("wasm bytes should be emitted");
+    assert!(!bytes.is_empty());
+}
+
+#[test]
 fn wasm_codegen_reports_unknown_variable_without_panicking() {
     let mut ctx = TypeCtx::new();
     let i32_ty = ctx.i32();
