@@ -278,3 +278,14 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 検証:
 
 - `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/core-result-report-agent1.json -j 1 --dist web/dist`: total=7, passed=7
+
+## 2026-05-05 core mem fill report migration
+
+`ISS-20260505T073143162Z-CORE-MEM-FILL-DOCTESTS-OMIT-STDOUT-A-CDC0463A` で、`stdlib/core/mem.nepl` の `memset_u8` / `fill_i32` doc-comment doctest 2 件を stdout assertion report + `exit_code: 0` へ移行した。
+
+既存の alloc/write/read/dealloc の順序は維持し、`dealloc_raw` 後に `checks_print_report` を呼ぶ形にした。full file run では未変更の allocator metadata introspection doctest が `resource.cell.uninit` で失敗したため、`ISS-20260505T073434026Z-CORE-MEM-ALLOCATOR-METADATA-DOCTEST--3D5EEF97` として分離した。
+
+検証:
+
+- `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 5 --dist web/dist`: passed
+- `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 6 --dist web/dist`: passed

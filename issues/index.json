@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:30:08.677Z",
+  "generated_at": "2026-05-05T07:35:38.774Z",
   "counts": {
-    "total": 506,
-    "open": 14,
-    "resolved": 492,
+    "total": 508,
+    "open": 15,
+    "resolved": 493,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 27,
-        "open": 2,
-        "resolved": 25
+        "total": 29,
+        "open": 3,
+        "resolved": 26
       },
       "selfhost": {
         "total": 45,
@@ -263,6 +263,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58.md"
+    },
+    {
+      "id": "ISS-20260505T073434026Z-CORE-MEM-ALLOCATOR-METADATA-DOCTEST--3D5EEF97",
+      "title": "core mem allocator metadata doctest fails Resource IR cell initialization",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T073434026Z-CORE-MEM-ALLOCATOR-METADATA-DOCTEST--3D5EEF97.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -5708,6 +5723,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T072734472Z-CORE-RESULT-DOCTESTS-OMIT-STDOUT-ASS-1D20CA46.md"
+    },
+    {
+      "id": "ISS-20260505T073143162Z-CORE-MEM-FILL-DOCTESTS-OMIT-STDOUT-A-CDC0463A",
+      "title": "core mem fill doctests omit stdout assertion reports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T073143162Z-CORE-MEM-FILL-DOCTESTS-OMIT-STDOUT-A-CDC0463A.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

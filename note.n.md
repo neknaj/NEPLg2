@@ -1,3 +1,23 @@
+# 2026-05-05 メモ (ISS-20260505T073143162Z core mem fill stdout report)
+
+- [原因]:
+  - `stdlib/core/mem.nepl` の `memset_u8` / `fill_i32` doc-comment doctest が `std/test` checks を使っていたが、`checks_exit_code checks` だけを返していた。
+  - 低レベルメモリ helper の load/store 観測結果が stdout report として固定されていなかった。
+- [修正]:
+  - 対象 2 件に `exit_code: 0` + `stdout: mlstr:` を追加した。
+  - 既存の `alloc_raw`、書き込み、読み取り、`dealloc_raw` の順序は維持し、`checks_print_report` は cleanup 後に呼ぶ形にした。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 5 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 6 --dist web/dist`: passed
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/mem.nepl --no-tree -o tmp/core-mem-fill-report-agent1.json -j 1 --dist web/dist`: total=6, passed=5, failed=1。失敗は未変更の `doctest#3`。
+- [issue]:
+  - `ISS-20260505T073143162Z-CORE-MEM-FILL-DOCTESTS-OMIT-STDOUT-A-CDC0463A` を fixed/resolved にした。
+  - full file run で見つかった allocator metadata raw-load 失敗は `ISS-20260505T073434026Z-CORE-MEM-ALLOCATOR-METADATA-DOCTEST--3D5EEF97` として追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - メモリ helper の動作順序は変えず、テスト観測点だけを stdout report と `exit_code:` に揃えた。
+
 # 2026-05-05 メモ (ISS-20260505T072734472Z core result stdout report)
 
 - [原因]:

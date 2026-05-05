@@ -847,6 +847,11 @@ fn mem_move <(i32,i32,i32)->()> (dst, src, len):
 //: - O(len)
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -860,7 +865,8 @@ fn mem_move <(i32,i32,i32)->()> (dst, src, len):
 //:         |> checks_push assert_eq_i32 65 load_u8 add p 0
 //:         |> checks_push assert_eq_i32 65 load_u8 add p 7
 //:     dealloc_raw p 8;
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 fn memset_u8 <(i32,i32,i32)->()> (ptr, len, value):
     let mut i <i32> 0;
@@ -901,6 +907,11 @@ fn fill_u8 <(i32,i32,i32)->()> (ptr, len, value):
 //: - O(count)
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -914,7 +925,8 @@ fn fill_u8 <(i32,i32,i32)->()> (ptr, len, value):
 //:         |> checks_push assert_eq_i32 42 load_i32 add p 0
 //:         |> checks_push assert_eq_i32 42 load_i32 add p 12
 //:     dealloc_raw p 16;
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 fn fill_i32 <(i32,i32,i32)->()> (ptr, count, value):
     let mut i <i32> 0;
