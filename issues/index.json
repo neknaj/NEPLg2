@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:50:02.990Z",
+  "generated_at": "2026-05-05T07:53:15.311Z",
   "counts": {
-    "total": 511,
+    "total": 512,
     "open": 14,
-    "resolved": 497,
+    "resolved": 498,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 32,
+        "total": 33,
         "open": 2,
-        "resolved": 30
+        "resolved": 31
       },
       "selfhost": {
         "total": 45,
@@ -5783,6 +5783,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T074844190Z-VEC-USAGE-DOCTEST-OMITS-STDOUT-ASSER-6C23248D.md"
+    },
+    {
+      "id": "ISS-20260505T075155817Z-STRING-STARTS-WITH-AT-DOCTEST-OMITS--311F2ECA",
+      "title": "string starts-with-at doctest omits stdout assertion report",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/alloc/string.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T075155817Z-STRING-STARTS-WITH-AT-DOCTEST-OMITS--311F2ECA.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

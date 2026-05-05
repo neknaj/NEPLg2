@@ -1,3 +1,22 @@
+# 2026-05-05 メモ (ISS-20260505T075155817Z string starts-with-at stdout report)
+
+- [原因]:
+  - `stdlib/alloc/string.nepl::doctest#3` が `str_starts_with_at` の true/false boundary を `std/test` checks 6 件で確認していたが、`checks_exit_code checks` だけを返していた。
+  - stdout report が空のため、parser-facing prefix helper の assertion report format を runner 間で比較できなかった。
+- [修正]:
+  - doctest metadata に `exit_code: 0` + `stdout: mlstr:` を追加した。
+  - `checks_print_report` を追加し、6件の assertion report を fixture として固定した。
+  - byte-oriented prefix matching の実装は変更していない。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 3 --dist web/dist`: passed
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+- [issue]:
+  - `ISS-20260505T075155817Z-STRING-STARTS-WITH-AT-DOCTEST-OMITS--311F2ECA` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に string starts-with-at 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `str_starts_with_at` doctest の成功観測を stdout report と `exit_code:` に揃えた。
+
 # 2026-05-05 メモ (ISS-20260505T074844190Z vec usage stdout report)
 
 - [原因]:

@@ -1308,6 +1308,15 @@ fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
 //: - O(len(prefix))
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok,ok,ok,ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
+//:     ##: [2] ok
+//:     ##: [3] ok
+//:     ##: [4] ok
+//:     ##: [5] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -1322,7 +1331,8 @@ fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
 //:         |> checks_push assert not str_starts_with_at "abc" -1 "a"
 //:         |> checks_push assert not str_starts_with_at "abc" 2 "bc"
 //:         |> checks_push assert not str_starts_with_at "abc" 4 ""
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 fn str_starts_with_at <(str,i32,str)->bool> (s, start, prefix):
     let ls <i32> len s;

@@ -330,3 +330,13 @@ Resource IR の raw-load initialized check は弱めていない。代わりに 
 検証:
 
 - `node nodesrc/run_doctest.js -i stdlib/alloc/collections/vec.nepl -n 1 --dist web/dist`: passed
+
+## 2026-05-05 string starts-with-at report migration
+
+`ISS-20260505T075155817Z-STRING-STARTS-WITH-AT-DOCTEST-OMITS--311F2ECA` で、`stdlib/alloc/string.nepl::doctest#3` を stdout assertion report + `exit_code: 0` へ移行した。
+
+`str_starts_with_at` の true/false boundary 6 件を `Checked [ok,ok,ok,ok,ok,ok]` として fixture 化した。byte-oriented prefix matching の実装は変更していない。
+
+検証:
+
+- `node nodesrc/run_doctest.js -i stdlib/alloc/string.nepl -n 3 --dist web/dist`: passed
