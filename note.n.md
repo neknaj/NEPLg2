@@ -1,3 +1,29 @@
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio writer split)
+
+- [同期]:
+  - `origin/main` の `5147d316` を取り込んだ状態から、branch `refactor/streamio-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/streamio.nepl` は scanner、writer、stdio stream bridge、byte/text helper を同居させており、raw memory backed state の責務境界が大きすぎた。
+  - writer は scanner と独立した owning buffer API なので、先に分離しても循環 import を作らない。
+- [修正]:
+  - `StreamWriter`、`StreamWriterTargetKind`、writer buffer helper、`StreamWritable`、`open WriteStream`、`write` / `writeln` / `flush` / `close` を `std/streamio/writer.nepl` へ移した。
+  - `std/streamio.nepl` は `pub #import "./streamio/writer" as *` で writer API を re-export する。
+  - `std/streamio` facade doctest で `ByteBuf` を値渡しの `io_bytebuf_len` で消費していたため、borrowed `io_bytebuf_len_ref &bytes0` と `io_bytebuf_free bytes0` に修正した。
+  - `nodesrc/test_stdlib_streamio_writer_boundary.js` を writer module 対象へ更新し、writer 実装が facade に戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/writer.nepl --no-tree -o tmp/streamio-writer-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-facade-after-writer-split-3.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-nmd-after-writer-split.json -j 1`: `14 total / 14 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規/更新 streamio policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-nmd-after-streamio-writer-split.json -j 1`: `6 total / 5 passed / 1 failed`。missing-file test の unreachable Ok branch が `_text` str owner を閉じていないためで、streamio writer split とは別問題として issue 化する。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`streamio.nepl` は 1279 lines、`streamio/writer.nepl` は 487 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib streamio の writer state を、scanner とは別の owning-buffer module として分離した。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math int128 split)
 
 - [同期]:

@@ -6,12 +6,25 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/std/streamio.nepl';
+const writerRelPath = 'stdlib/std/streamio/writer.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const writerSrc = fs.readFileSync(path.join(repoRoot, writerRelPath), 'utf8');
 
-const code = src
+const facadeCode = src
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const writerCode = writerSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const code = `${facadeCode}\n${writerCode}`;
+
+assert.match(
+    facadeCode,
+    /pub\s+#import\s+"\.\/streamio\/writer"\s+as\s+\*/,
+    `${relPath} must re-export the writer module`,
+);
 
 const forbidden = [
     /\bunwrap\b/,
