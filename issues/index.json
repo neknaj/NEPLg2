@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T15:24:13.538Z",
+  "generated_at": "2026-05-05T15:37:00.327Z",
   "counts": {
-    "total": 526,
+    "total": 527,
     "open": 13,
-    "resolved": 513,
+    "resolved": 514,
     "by_area": {
       "core": {
         "total": 228,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 36,
+        "total": 37,
         "open": 1,
-        "resolved": 35
+        "resolved": 36
       },
       "selfhost": {
         "total": 45,
@@ -213,7 +213,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-05-05",
+      "updated": "2026-05-06",
       "target": "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs",
       "legacy_id": "",
       "source": "",
@@ -243,7 +243,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-05-05",
+      "updated": "2026-05-06",
       "target": "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl",
       "legacy_id": "",
       "source": "",
@@ -5993,6 +5993,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T094232444Z-MEM-FILL-DOCTESTS-STILL-CALL-RAW-FIL-C8F2D305.md"
+    },
+    {
+      "id": "ISS-20260505T152927005Z-STD-TEST-CHECKS-EXIT-CODE-CAN-BYPASS-5204DA08",
+      "title": "std/test checks_exit_code can bypass stdout report fixtures",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nodesrc/test_doctest_std_test_assertion_report_contract.js, tests/stdlib/selfhost_cliarg_parser.n.md, tests/stdlib/selfhost_cli_file_io.n.md, tests/stdlib/text_utf8.n.md, tests/stdlib/string.n.md, stdlib/neplg2/cli/reporter.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T152927005Z-STD-TEST-CHECKS-EXIT-CODE-CAN-BYPASS-5204DA08.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

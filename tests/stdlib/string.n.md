@@ -145,8 +145,8 @@ fn main <()* >()> ():
 
 `byte_at` が byte index で ASCII byte を返し、範囲外を `None` にすることを確認します。
 
-neplg2:test
-ret: 0
+neplg2:test[normalize_newlines]
+exit_code: 0
 ```neplg2
 #target std
 #entry main
@@ -308,8 +308,9 @@ fn main <()->i32> ():
 
 ## test_string_builder_linear_build
 
-neplg2:test
-ret: 0
+neplg2:test[normalize_newlines]
+exit_code: 0
+stdout: "Checked [ok]\n[0] ok\n"
 ```neplg2
 #target std
 #entry main
@@ -328,5 +329,6 @@ fn main <()* >i32> ():
     let checks:
         checks_new
         |> checks_push assert_eq_i32 2000 len out
-    checks_exit_code checks
+    let shown checks_print_report checks
+    checks_exit_code shown
 ```

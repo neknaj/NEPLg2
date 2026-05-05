@@ -3,7 +3,7 @@
 ## selfhost_cli_file_io_reads_root_source_into_vfs
 
 neplg2:test[normalize_newlines]
-ret: 0
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -32,7 +32,8 @@ fn main <()*>i32> ():
 ## selfhost_cli_file_io_missing_source_returns_diagnostic
 
 neplg2:test[normalize_newlines]
-ret: 0
+exit_code: 0
+stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
 ```neplg2
 #entry main
 #indent 4
@@ -55,13 +56,15 @@ fn main <()*>i32> ():
                 checks_new
                 |> checks_push assert_str_eq "loader.source.read_failed" selfhost_diag_code_name field::get diag "code"
                 |> checks_push assert_str_eq "failed to read source file" field::get diag "message"
-            checks_exit_code checks
+            let shown checks_print_report checks
+            checks_exit_code shown
 ```
 
 ## selfhost_cli_file_io_writes_text_artifact
 
 neplg2:test[normalize_newlines]
-ret: 0
+exit_code: 0
+stdout: "Checked [ok]\n[0] ok\n"
 ```neplg2
 #entry main
 #indent 4
@@ -85,13 +88,15 @@ fn main <()*>i32> ():
                     let checks:
                         checks_new
                         |> checks_push assert_str_eq "artifact text\n" text
-                    checks_exit_code checks
+                    let shown checks_print_report checks
+                    checks_exit_code shown
 ```
 
 ## selfhost_cli_file_io_writes_binary_artifact
 
 neplg2:test[normalize_newlines]
-ret: 0
+exit_code: 0
+stdout: "Checked [ok]\n[0] ok\n"
 ```neplg2
 #entry main
 #indent 4
@@ -121,5 +126,6 @@ fn main <()*>i32> ():
                             let checks:
                                 checks_new
                                 |> checks_push assert_str_eq "A\x00B" text
-                            checks_exit_code checks
+                            let shown checks_print_report checks
+                            checks_exit_code shown
 ```

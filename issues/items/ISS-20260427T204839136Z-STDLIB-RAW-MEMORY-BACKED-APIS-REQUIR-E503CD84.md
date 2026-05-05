@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-05
+updated: 2026-05-06
 target: "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs"
 ---
 
@@ -138,3 +138,21 @@ compiler gate では `UnsafeMemoryInPureFunction` だけを `raw_memory_operatio
 
 - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md -o tmp/selfhost_cliarg_parser_after_notree.json -j1 --dist web/dist --no-tree`: total=10, passed=10, failed=0。
 - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md -o tmp/selfhost_cli_driver_after_notree.json -j1 --dist web/dist --no-tree`: total=3, passed=3, failed=0。
+
+## 2026-05-06 alloc/io と std/text raw boundary 再確認
+
+`ISS-20260505T152927005Z-STD-TEST-CHECKS-EXIT-CODE-CAN-BYPASS-5204DA08` の stdout report 移行検証中に、`tests/stdlib/selfhost_cli_file_io.n.md` と `tests/stdlib/text_utf8.n.md` が compile phase で `resource.raw.unsafe_memory_boundary` に到達することを再確認した。
+
+代表診断:
+
+- `stdlib/alloc/io.nepl:202`: pure function `io_bytebuf_from_str_result__str__Result_T_E_ByteBuf_StdErrorKind__pure` が `mem_copy` を呼ぶ。
+- `stdlib/std/text.nepl:64`: pure function `text_utf8_byte_at__MemPtr_T_u8_i32__Result_T_E_i32_StdErrorKind__pure` が `load_u8` を呼ぶ。
+
+検証結果:
+
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_file_io.n.md --no-tree -o tmp/selfhost_cli_file_io_stdout_contract.json -j1 --dist web/dist`: total=4, passed=0, failed=4。
+- `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/text_utf8_stdout_contract.json -j1 --dist web/dist`: total=9, passed=2, failed=7。
+
+これは今回の stdout report migration の退行ではなく、operation-only raw memory boundary の適用範囲が `stdlib/alloc/string.nepl` / `stdlib/alloc/collections/vec.nepl` に限られており、`alloc/io` と `std/text` の safe wrapper 内部 raw operation にはまだ整理が届いていないことを示す。
+
+次の対応では、`io_bytebuf_from_str_result` と `text_utf8_byte_at` を単に impure 化して利用側へ効果を漏らすのではなく、safe public API と compiler-owned raw operation boundary を分離する。`alloc/io` と `std/text` に operation-only capability を与える場合も、`raw_address_escape`、raw cell、owner obligation の検査は抑制しないことを必須条件とする。

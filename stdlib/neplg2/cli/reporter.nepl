@@ -22,6 +22,11 @@
 //: - diagnostic collection rendering は件数 k、総出力 byte 数 n として O(k + n) です。
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -41,7 +46,8 @@
 //:         checks_new
 //:         |> checks_push assert_str_eq "error[parser.token.index_unavailable]: bad input\n  --> file 2:4..8\n  = label: near `let`\n  = note: try another expression\n" human
 //:         |> checks_push assert_str_eq "{\"severity\":\"error\",\"code\":\"parser.token.index_unavailable\",\"message\":\"bad input\",\"primary_label\":{\"file_id\":2,\"start\":4,\"end\":8,\"message\":\"near `let`\"},\"note\":\"try another expression\"}" json
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 
 #import "alloc/collections/vec" as v

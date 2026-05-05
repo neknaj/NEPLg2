@@ -2,8 +2,9 @@
 
 ## selfhost_cliarg_parser_accepts_check_emit_output_and_input
 
-neplg2:test
-ret: 0
+neplg2:test[normalize_newlines]
+exit_code: 0
+stdout: "Checked [ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n"
 ```neplg2
 #entry main
 #indent 4
@@ -52,13 +53,14 @@ fn main <()*>i32> ():
                 |> checks_push assert emit_ok
                 |> checks_push assert output_ok
                 |> checks_push assert input_ok
-            checks_exit_code checks
+            let shown checks_print_report checks
+            checks_exit_code shown
 ```
 
 ## selfhost_cliarg_parser_rejects_unknown_option
 
 neplg2:test
-ret: 0
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -82,7 +84,7 @@ fn main <()*>i32> ():
 ## selfhost_cliarg_parser_rejects_missing_value
 
 neplg2:test
-ret: 0
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -106,7 +108,7 @@ fn main <()*>i32> ():
 ## selfhost_cliarg_parser_rejects_multiple_input
 
 neplg2:test
-ret: 0
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -130,8 +132,9 @@ fn main <()*>i32> ():
 
 ## selfhost_cliarg_parser_skips_program_name
 
-neplg2:test
-ret: 0
+neplg2:test[normalize_newlines]
+exit_code: 0
+stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
 ```neplg2
 #entry main
 #indent 4
@@ -173,13 +176,14 @@ fn main <()*>i32> ():
                 checks_new
                 |> checks_push assert target_ok
                 |> checks_push assert input_ok
-            checks_exit_code checks
+            let shown checks_print_report checks
+            checks_exit_code shown
 ```
 
 ## selfhost_cliarg_parser_records_run_args_start
 
 neplg2:test
-ret: 0
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4
@@ -213,8 +217,9 @@ fn main <()*>i32> ():
 
 ## selfhost_cliarg_parser_accepts_aliases_and_profile
 
-neplg2:test
-ret: 0
+neplg2:test[normalize_newlines]
+exit_code: 0
+stdout: "Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n[7] ok\n[8] ok\n"
 ```neplg2
 #entry main
 #indent 4
@@ -303,13 +308,15 @@ fn main <()*>i32> ():
                 |> checks_push assert stdlib_root_ok
                 |> checks_push assert input_ok
                 |> checks_push assert run_args_start_ok
-            checks_exit_code checks
+            let shown checks_print_report checks
+            checks_exit_code shown
 ```
 
 ## selfhost_cliarg_parser_accepts_emit_list_and_deduplicates
 
-neplg2:test
-ret: 0
+neplg2:test[normalize_newlines]
+exit_code: 0
+stdout: "Checked [ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n"
 ```neplg2
 #entry main
 #indent 4
@@ -341,13 +348,15 @@ fn main <()*>i32> ():
                 |> checks_push assert selfhost_cli_emit_set_has_llvm_min emit
                 |> checks_push assert not selfhost_cli_emit_set_has_wat_min emit
                 |> checks_push assert not selfhost_cli_emit_set_has_llvm emit
-            checks_exit_code checks
+            let shown checks_print_report checks
+            checks_exit_code shown
 ```
 
 ## selfhost_cliarg_parser_accepts_emit_all
 
-neplg2:test
-ret: 0
+neplg2:test[normalize_newlines]
+exit_code: 0
+stdout: "Checked [ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n"
 ```neplg2
 #entry main
 #indent 4
@@ -378,13 +387,14 @@ fn main <()*>i32> ():
                 |> checks_push assert selfhost_cli_emit_set_has_wat_min emit
                 |> checks_push assert selfhost_cli_emit_set_has_llvm emit
                 |> checks_push assert selfhost_cli_emit_set_has_llvm_min emit
-            checks_exit_code checks
+            let shown checks_print_report checks
+            checks_exit_code shown
 ```
 
 ## selfhost_cliarg_parser_rejects_invalid_emit_member
 
 neplg2:test
-ret: 0
+exit_code: 0
 ```neplg2
 #entry main
 #indent 4

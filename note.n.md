@@ -1,3 +1,23 @@
+# 2026-05-06 メモ (ISS-20260505T152927005Z std/test checks_exit_code report contract)
+
+- [原因]:
+  - `std/test` の direct assertion discard は source policy で検出済みだったが、`checks_exit_code checks` のように raw accumulator をそのまま終了コードへ渡す書き方は許可されていた。
+  - この場合、assertion の詳細 report が stdout fixture として固定されず、Rust runner と selfhost runner の report order / formatting の差異を検出できない。
+- [対応]:
+  - `nodesrc/test_doctest_std_test_assertion_report_contract.js` に、`checks_exit_code <identifier>` は `checks_print_report` の結果 binding だけを受け取れるという source policy を追加した。
+  - `tests/stdlib/selfhost_cliarg_parser.n.md`、`tests/stdlib/selfhost_cli_file_io.n.md`、`tests/stdlib/text_utf8.n.md`、`tests/stdlib/string.n.md`、`stdlib/neplg2/cli/reporter.nepl` の raw `checks_exit_code checks` を `checks_print_report` + `stdout:` + `exit_code:` へ移行した。
+  - 検証中に `alloc/io` と `std/text` の safe wrapper 内 raw operation が `resource.raw.unsafe_memory_boundary` に到達することを再確認したため、既存の stdlib raw boundary issue に追記した。今回の report 契約修正では静的検査を緩めていない。
+- [検証]:
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: pass
+  - `rg -n "checks_exit_code\s+checks\b" tests stdlib tutorials examples -g "*.n.md" -g "*.nepl"`: no matches
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/selfhost_cliarg_parser_stdout_contract.json -j1 --dist web/dist`: total=10, passed=10
+  - `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/string_stdout_contract.json -j1 --dist web/dist`: total=17, passed=17
+  - `node nodesrc/run_doctest.js -i stdlib/neplg2/cli/reporter.nepl -n 1 --dist web/dist`: pass
+  - `tests/stdlib/selfhost_cli_file_io.n.md` は total=4, failed=4、`tests/stdlib/text_utf8.n.md` は total=9, passed=2, failed=7。失敗は既存 `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` の `resource.raw.unsafe_memory_boundary`。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画では Stage 6 test/selfhost runner parity に該当する。stdout report の契約を強化しつつ、raw memory boundary の検査は弱めていない。
+
 # 2026-05-06 メモ (ISS-20260505T065610900Z selfhost CLI driver stdout report migration)
 
 - [原因]:

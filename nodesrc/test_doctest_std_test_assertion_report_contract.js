@@ -51,6 +51,33 @@ function findDiscardedAssertions(code) {
         .filter(({ line }) => isDiscardedStdTestAssertion(line));
 }
 
+function findPrintedChecksBindings(code) {
+    const bindings = new Set();
+    for (const rawLine of code.split(/\r?\n/)) {
+        const line = stripLineComment(rawLine).trim();
+        const match = line.match(/^let\s+([A-Za-z_][A-Za-z0-9_]*)\b.*\bchecks_print_report\b/);
+        if (match) {
+            bindings.add(match[1]);
+        }
+    }
+    return bindings;
+}
+
+function findUnprintedChecksExitCodes(code) {
+    if (!importsStdTest(code)) {
+        return [];
+    }
+    const printed = findPrintedChecksBindings(code);
+    return code
+        .split(/\r?\n/)
+        .map((line, index) => ({ line, lineNumber: index + 1 }))
+        .filter(({ line }) => {
+            const expr = stripLineComment(line).trim().replace(/;$/, '').trim();
+            const match = expr.match(/^checks_exit_code\s+([A-Za-z_][A-Za-z0-9_]*)\b/);
+            return match && !printed.has(match[1]);
+        });
+}
+
 const goodCases = [
     `#import "std/test" as *
 fn helper <(i32,i32)->Result<(),str>> (a, b):
@@ -64,16 +91,24 @@ fn main <()*>i32> ():
 `,
 ];
 
-const badCase = `#import "std/test" as *
+const badDiscardCase = `#import "std/test" as *
 fn main <()*>i32> ():
     assert_eq_i32 1 1;
     0
 `;
 
+const badUnprintedCase = `#import "std/test" as *
+fn main <()*>i32> ():
+    let checks checks_new
+    checks_exit_code checks
+`;
+
 for (const sample of goodCases) {
     assert.deepEqual(findDiscardedAssertions(sample), []);
+    assert.deepEqual(findUnprintedChecksExitCodes(sample), []);
 }
-assert.deepEqual(findDiscardedAssertions(badCase).map((hit) => hit.lineNumber), [3]);
+assert.deepEqual(findDiscardedAssertions(badDiscardCase).map((hit) => hit.lineNumber), [3]);
+assert.deepEqual(findUnprintedChecksExitCodes(badUnprintedCase).map((hit) => hit.lineNumber), [4]);
 
 const violations = [];
 for (const root of roots) {
@@ -86,6 +121,12 @@ for (const root of roots) {
                     `${hit.lineNumber}: ${hit.line.trim()}`,
                 );
             }
+            for (const hit of findUnprintedChecksExitCodes(doctest.code)) {
+                violations.push(
+                    `${path.relative(repoRoot, file)}::doctest#${index + 1}:` +
+                    `${hit.lineNumber}: ${hit.line.trim()}`,
+                );
+            }
         });
     }
 }
@@ -93,7 +134,7 @@ for (const root of roots) {
 assert.deepEqual(
     violations,
     [],
-    `std/test assertions must be aggregated into a report instead of discarded:\n${violations.join('\n')}`,
+    `std/test assertions must be aggregated into a printed report instead of discarded:\n${violations.join('\n')}`,
 );
 
 console.log('doctest std/test assertion report contract passed');

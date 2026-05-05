@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-05-05
+updated: 2026-05-06
 target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl"
 ---
 
@@ -290,6 +290,24 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 検証:
 
 - `node nodesrc/tests.js -i stdlib/core/result.nepl --no-tree -o tmp/core-result-report-agent1.json -j 1 --dist web/dist`: total=7, passed=7
+
+## 2026-05-06 raw checks_exit_code policy
+
+`ISS-20260505T152927005Z-STD-TEST-CHECKS-EXIT-CODE-CAN-BYPASS-5204DA08` で、`checks_exit_code checks` のように raw `checks` accumulator を直接終了コードへ渡す subcase を塞いだ。
+
+今回の source policy は、`std/test` を import する doctest で `checks_exit_code <identifier>` を使う場合、`<identifier>` が `checks_print_report` の結果 binding であることを要求する。これにより assertion suite が成功/失敗だけを返し、report print を省略する退行は CI の source policy で検出できる。
+
+同時に、`tests/stdlib/selfhost_cliarg_parser.n.md`、`tests/stdlib/selfhost_cli_file_io.n.md`、`tests/stdlib/text_utf8.n.md`、`tests/stdlib/string.n.md`、`stdlib/neplg2/cli/reporter.nepl` の該当箇所を `checks_print_report` + `stdout:` + `exit_code:` へ移行した。
+
+検証:
+
+- `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: pass
+- `rg -n "checks_exit_code\s+checks\b" tests stdlib tutorials examples -g "*.n.md" -g "*.nepl"`: no matches
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md --no-tree -o tmp/selfhost_cliarg_parser_stdout_contract.json -j1 --dist web/dist`: total=10, passed=10
+- `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/string_stdout_contract.json -j1 --dist web/dist`: total=17, passed=17
+- `node nodesrc/run_doctest.js -i stdlib/neplg2/cli/reporter.nepl -n 1 --dist web/dist`: pass
+
+`tests/stdlib/selfhost_cli_file_io.n.md` と `tests/stdlib/text_utf8.n.md` の runtime verification は、既存の `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` に属する `resource.raw.unsafe_memory_boundary` で compile phase が止まったため保留した。report 契約の source-level regression は policy と `rg` で固定済みである。
 
 ## 2026-05-05 core mem fill report migration
 
