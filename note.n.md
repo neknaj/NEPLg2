@@ -29975,3 +29975,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - 新たに `ISS-20260505T184012396Z-RESOURCE-IR-LOWERING-TRAVERSAL-EXCEE-8A0A5A86` を追加した。`lower.rs` の責務超過は今回の owner variant path builder とは別issueとして扱う。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T184012396Z Resource IR lowering responsibility split)
+
+- [同期]:
+  - `origin/main` pull 後、branch `work/resource-lower-responsibility-split` で対応した。
+- [原因]:
+  - `lower.rs` は HIR traversal に加えて branch condition fact extraction と aggregate/raw field projection lowering を同じ file に持っていた。
+  - Resource IR lowering は initialized / owner / borrow / effect check の入力を作るため、traversal orchestration と condition / projection semantics を同居させると Stage 4 static check の監査境界が曖昧になる。
+- [修正]:
+  - `lower_condition.rs` を追加し、`ResourceConditionFact` 変換、zero comparison、boolean composition、block condition value extraction を分離した。
+  - `lower_aggregate.rs` を追加し、compiler field load、`get` / `get_field`、raw aggregate field source、struct/tuple field projection resolution を分離した。
+  - `lower.rs` は HIR traversal、scope/temporary 管理、call/effect lowering orchestration、construct lowering、direct-call iterative loweringに集中させた。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module と line limit を追加し、`lower.rs` の上限を 1150 lines へ下げた。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering -- --nocapture`: 9 passed / 1 failed。失敗は既存の `ShadowSameSignatureCallable` warning を helper が失敗扱いする問題。
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_helper -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: `lower.rs` 超過は解消。次の別件として `initialized_alias.rs has 619 lines; responsibility split limit is 550` を検出した。
+- [issue]:
+  - `ISS-20260505T184012396Z-RESOURCE-IR-LOWERING-TRAVERSAL-EXCEE-8A0A5A86` は fixed。
+  - 新たに `ISS-20260505T185456921Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-06DA441F` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

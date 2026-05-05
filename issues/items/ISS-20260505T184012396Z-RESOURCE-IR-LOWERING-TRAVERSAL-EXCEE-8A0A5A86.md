@@ -2,12 +2,12 @@
 id: ISS-20260505T184012396Z-RESOURCE-IR-LOWERING-TRAVERSAL-EXCEE-8A0A5A86
 title: "Resource IR lowering traversal exceeds responsibility split limit"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-05
-updated: 2026-05-05
+updated: 2026-05-06
 target: "nepl-core/src/resource/lower.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
@@ -42,3 +42,23 @@ Split the remaining lower.rs responsibilities by semantic role rather than raisi
 ## 検証
 
 Run node nodesrc/test_resource_checker_responsibility.js, node nodesrc/run_source_policy_regressions.js --warn-only, cargo fmt --check -p nepl-core, cargo check -p nepl-core --tests, and focused Resource IR lowering/owner regression tests.
+
+## 2026-05-06 対応結果
+
+`lower.rs` から condition fact extraction と aggregate/raw field projection lowering を分離した。
+
+- `lower_condition.rs`: branch condition の `ResourceConditionFact` 変換、zero comparison / boolean composition / block condition value extraction を担当する。
+- `lower_aggregate.rs`: compiler field load、`get` / `get_field`、raw aggregate field source、struct/tuple field projection resolution を担当する。
+- `lower.rs`: HIR traversal、scope/temporary 管理、call/effect lowering orchestration、construct lowering、direct-call iterative lowering に集中する。
+
+分割後の行数は `lower.rs` 970 lines、`lower_aggregate.rs` 262 lines、`lower_condition.rs` 112 lines で、`lower.rs` の上限を 1300 から 1150 に下げて再肥大化を検出できるようにした。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_lowering -- --nocapture`: 9 passed / 1 failed。失敗は既存の `ShadowSameSignatureCallable` warning を `typecheck_resource_source` helper が失敗扱いする問題で、今回分離した lower aggregate tests までは通過した。
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_helper -- --nocapture`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: `lower.rs` 超過は解消。次の別件として `initialized_alias.rs has 619 lines; responsibility split limit is 550` を検出したため、`ISS-20260505T185456921Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-06DA441F` を追加した。
+
+関連計画: [NEPLg2 静的検査の複雑化解消計画 Stage 4](../../doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-%E3%81%B8%E3%81%AE%E7%A7%BB%E8%A1%8C)
