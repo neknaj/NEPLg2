@@ -99,7 +99,7 @@ assert.doesNotMatch(
     'ByteBuf Result return paths must use the centralized owned pointer constructor',
 );
 
-const fsReadMatch = fsSrc.match(/fn\s+fs_read_fd_bytes\b([\s\S]*?)\n\/\/: fs_std_error_to_errno\b/);
+const fsReadMatch = fsSrc.match(/fn\s+fs_read_fd_bytes\b([\s\S]*?)\n\/\/: fs_write_fd_bytes\b/);
 assert.ok(fsReadMatch, 'fs_read_fd_bytes body must be found');
 const fsRead = fsReadMatch[1];
 const fsFinishMatch = fsRawSrc.match(/fn\s+fs_finish_read_buffer\b([\s\S]*?)\n\/\/: fs:/);

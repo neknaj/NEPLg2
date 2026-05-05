@@ -13,6 +13,7 @@ const relPaths = [
     'stdlib/std/fs/fd.nepl',
     'stdlib/std/fs/stat.nepl',
     'stdlib/std/fs/dir.nepl',
+    'stdlib/std/fs/bytes.nepl',
 ];
 
 function implementation(relPath) {
@@ -49,6 +50,7 @@ assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/raw"\s+as\s+\*/, 'std/fs faca
 assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/fd"\s+as\s+\*/, 'std/fs facade must re-export fd submodule');
 assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/stat"\s+as\s+\*/, 'std/fs facade must re-export stat submodule');
 assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/dir"\s+as\s+\*/, 'std/fs facade must re-export dir submodule');
+assert.match(facadeCode, /pub\s+#import\s+"\.\/fs\/bytes"\s+as\s+\*/, 'std/fs facade must re-export bytes submodule');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_normalize_relative\b/, 'std/fs facade must not inline path normalization helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_path_has_forbidden_host_byte\b/, 'std/fs facade must not inline path validation helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_fd_read_into_result\b/, 'std/fs facade must not inline raw fd read helpers');
@@ -59,6 +61,8 @@ assert.doesNotMatch(facadeCode, /\bfn\s+fs_path_filetype\b/, 'std/fs facade must
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_exists\b/, 'std/fs facade must not inline existence helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_read_dir_fd\b/, 'std/fs facade must not inline directory listing helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_open_dir\b/, 'std/fs facade must not inline directory open helpers');
+assert.doesNotMatch(facadeCode, /\bfn\s+fs_std_error_to_errno\b/, 'std/fs facade must not inline fs errno conversion helpers');
+assert.doesNotMatch(facadeCode, /\bfn\s+fs_bytes_to_string_result\b/, 'std/fs facade must not inline ByteBuf conversion helpers');
 
 assert.doesNotMatch(combinedCode, /\bstr_split_result\b/, 'fs_normalize_relative must not use owned Vec<str> split');
 assert.doesNotMatch(combinedCode, /\bstr_split_ranges_result\b/, 'fs_normalize_relative must not allocate split range vectors');

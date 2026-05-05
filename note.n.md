@@ -29461,3 +29461,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 575 lines まで縮小し、`fs/dir.nepl` は 209 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs bytes split)
+
+- [同期]:
+  - `origin/main` の `622252a4` を取り込んだ状態から、branch `refactor/fs-bytes-module-split` で対応した。
+- [原因]:
+  - `std/fs.nepl` には read/write 本体と、`ByteBuf`/`str` 変換および `StdErrorKind` から fs errno への境界変換が同居していた。
+  - bytes/text 変換は read/write の共通依存であり、先に独立させることで後続の read/write 分割時に facade 本体へ共通 helper が残ることを避けられる。
+- [修正]:
+  - `stdlib/std/fs/bytes.nepl` を追加し、`fs_std_error_to_errno`、`fs_bytes_to_string_result`、`fs_bytes_to_string`、`fs_bytes_to_utf8_string_result` を移した。
+  - `std/fs` facade は `bytes` を re-export し、既存 import から同じ API を使える構成にした。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は bytes module も検査対象に含め、ByteBuf conversion helper が facade に戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/bytes.nepl --no-tree -o tmp/fs-bytes-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-bytes-split.json -j 1`: `4 total / 4 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-bytes-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: passed
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs/ByteBuf 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 449 lines まで縮小し、`fs/bytes.nepl` は 143 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
