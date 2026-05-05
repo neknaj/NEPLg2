@@ -29673,3 +29673,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 355 lines まで縮小し、`stdio/ansi.nepl` は 486 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 stdio debug split)
+
+- [同期]:
+  - `origin/main` の `c983d8ce` を取り込んだ状態から、branch `refactor/stdio-debug-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/stdio.nepl` は ANSI 分離後も debug/release profile 条件付き helper を保持していた。
+  - debug helper は `std/stdio/print` と `std/stdio/ansi` だけに依存する profile 条件付き facade であり、root に置く必要がない。
+- [修正]:
+  - `stdlib/std/stdio/debug.nepl` を追加し、`debug`、`debug_color`、`debugln`、`debugln_color` の debug/release 実装を移した。
+  - `std/stdio` facade は `debug` を re-export し、全実装を submodule 側へ移した。`stdio.nepl` は 25 lines の facade になった。
+  - pure facade 化により root 直接 doctest が 0 件になったため、`std/stdio` re-export 経路の smoke test を module comment に追加した。
+  - `nodesrc/test_stdlib_stdio_debug_boundary.js` を追加し、debug helper が root facade に戻らないこと、debug profile は `print` へ委譲し release profile は no-op であることを固定した。
+  - `nodesrc/run_source_policy_regressions.js` に debug boundary regression を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_debug_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_ansi_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/debug.nepl --no-tree -o tmp/stdio-debug-module-direct.json -j 1`: `8 total / 8 passed`
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-debug-split-stdio.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/stdio-debug-split-stdout.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の stdio root 分割は完了。`stdio.nepl` は 25 lines、`stdio/debug.nepl` は 346 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
