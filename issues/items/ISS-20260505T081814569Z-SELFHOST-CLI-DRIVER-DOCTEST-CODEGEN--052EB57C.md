@@ -75,3 +75,13 @@ Run the extracted selfhost_cli_driver doctest#2 through native --check, native w
 - `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2.nepl --target std --stdlib-root stdlib --emit wasm -o tmp\selfhost_cli_driver_doctest2_emit_after_trait_resolve`: 180 秒 timeout
 
 したがって、monomorphize の局所的な superlinear 再走査候補は除去したが、selfhost CLI driver timeout の主因はまだ残っている。次の調査は compile_module の phase timing を取り、Resource IR summary/check、wasm function lowering、wasm validation、残る monomorphize 到達 graph のどれが支配的かを数値で分離する。
+
+## 2026-05-05 ResourceIR summary projection domain 修正後の再計測
+
+`ISS-20260505T132758518Z-RESOURCEIR-INITIALIZED-SUMMARIES-KEE-A65C9148` で、raw alias / initialized summary の `StorageOffset` projection を有限domainへ正規化し、小さい exact offset は保持しつつ unbounded な exact offset 列を dynamic summary へ落とすようにした。
+
+- 修正前: `lex_next__str_i32_i32_i32__SelfhostToken__pure` の return alias に `StorageOffset(Exact(1))` が繰り返し積まれ、raw alias summary / initialization summary が収束前に 180 秒 timeout していた。
+- 修正後: `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2_latest.nepl --target std --stdlib-root stdlib --emit wasm` は 240 秒 timeout ではなく約 105 秒で停止した。
+- 停止理由は codegen timeout ではなく、`stdlib/alloc/string.nepl` と `stdlib/alloc/collections/vec.nepl` の raw-memory-backed pure helper が `resource.raw.unsafe_memory_boundary` に到達する別問題だった。
+
+したがって、この親 issue の「ResourceIR summary が unbounded projection で timeout する」部分は fixed issue として分離したが、selfhost driver doctest を最後まで wasm emit / run_doctest で完了させる作業は open 継続する。次の blocker は `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` の stdlib raw-memory boundary migration である。

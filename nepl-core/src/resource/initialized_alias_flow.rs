@@ -10,6 +10,9 @@ use super::initialized_alias::{ProjectedRawCellAddressAlias, RawCellAddressAlias
 use super::initialized_alias_type::{
     projected_place_with_concrete_type, type_preserves_raw_address_alias,
 };
+use super::initialized_projection_domain::{
+    normalize_storage_offsets, widen_projection, MAX_EXACT_PROJECTION_FACTS_PER_SHAPE,
+};
 use super::model::{
     AggregateKind, EffectOp, Place, PlaceProjection, RawMemoryOp, ResourceCallTarget,
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
@@ -446,7 +449,88 @@ fn push_unique_return_alias(
     aliases: &mut Vec<RawCellAddressReturnAlias>,
     alias: RawCellAddressReturnAlias,
 ) {
-    if !aliases.iter().any(|existing| existing == &alias) {
-        aliases.push(alias);
+    let alias = normalize_return_alias(alias);
+    if aliases.iter().any(|existing| existing == &alias) {
+        return;
+    }
+    let compatible_count = aliases
+        .iter()
+        .filter(|existing| widen_return_alias(existing, &alias).is_some())
+        .count();
+    if compatible_count >= MAX_EXACT_PROJECTION_FACTS_PER_SHAPE {
+        if let Some(widened) = aliases
+            .iter()
+            .find_map(|existing| widen_return_alias(existing, &alias))
+        {
+            if !aliases.iter().any(|existing| existing == &widened) {
+                aliases.push(widened);
+            }
+            return;
+        }
+    }
+    aliases.push(alias);
+}
+
+fn normalize_return_alias(mut alias: RawCellAddressReturnAlias) -> RawCellAddressReturnAlias {
+    alias.parameter_projection = normalize_storage_offsets(alias.parameter_projection);
+    alias.return_projection = normalize_storage_offsets(alias.return_projection);
+    alias
+}
+
+fn widen_return_alias(
+    existing: &RawCellAddressReturnAlias,
+    incoming: &RawCellAddressReturnAlias,
+) -> Option<RawCellAddressReturnAlias> {
+    if existing.parameter_index != incoming.parameter_index
+        || existing.parameter_ty != incoming.parameter_ty
+        || existing.return_ty != incoming.return_ty
+    {
+        return None;
+    }
+    let parameter_projection = widen_projection(
+        &existing.parameter_projection,
+        &incoming.parameter_projection,
+    )?;
+    let return_projection =
+        widen_projection(&existing.return_projection, &incoming.return_projection)?;
+    Some(RawCellAddressReturnAlias {
+        parameter_index: existing.parameter_index,
+        parameter_projection,
+        parameter_ty: existing.parameter_ty,
+        return_projection,
+        return_ty: existing.return_ty,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::model::ResourceOffset;
+    use super::*;
+    use crate::types::TypeId;
+    use alloc::vec;
+
+    #[test]
+    fn return_alias_offsets_form_finite_dynamic_widening_domain() {
+        let ty = TypeId(1);
+        let mut aliases = Vec::new();
+
+        for offset in 0..(MAX_EXACT_PROJECTION_FACTS_PER_SHAPE + 8) {
+            push_unique_return_alias(
+                &mut aliases,
+                RawCellAddressReturnAlias {
+                    parameter_index: 0,
+                    parameter_projection: Vec::new(),
+                    parameter_ty: ty,
+                    return_projection: vec![PlaceProjection::StorageOffset(ResourceOffset::Exact(
+                        offset,
+                    ))],
+                    return_ty: ty,
+                },
+            );
+        }
+
+        assert_eq!(aliases.len(), MAX_EXACT_PROJECTION_FACTS_PER_SHAPE + 1);
+        assert!(aliases.iter().any(|alias| alias.return_projection
+            == vec![PlaceProjection::StorageOffset(ResourceOffset::Dynamic)]));
     }
 }

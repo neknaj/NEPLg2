@@ -31,6 +31,7 @@ mod initialized_alias_type;
 mod initialized_control;
 mod initialized_external_io;
 mod initialized_external_io_effect;
+mod initialized_projection_domain;
 mod initialized_raw_memory;
 mod initialized_rekey;
 mod initialized_summary;

@@ -80,3 +80,14 @@ self-host 実装では、S1/S2 の文字列走査・token 配列・diagnostic �
 - `tests/stdlib/traits_hash.n.md::doctest#5`: broad parallel run では 20s timeout したが、focused run では 6/6 pass したため、現時点では再現性ある issue として分離しない。
 
 このため、self-host 実装開始の観点では、文字列・診断 text・NM direct serializer・source policy は前進しているが、typed JSON value、generic `Vec<T>` with enum/non-Copy payload、`std/test` aggregation、`SelfhostOutcome` cell owner は Resource IR / owned collection model の移行対象として残る。現時点で新規 issue 追加ではなく、この parent issue の Stage 6 入力として扱う。
+
+## 2026-05-05 selfhost CLI driver ResourceIR timeout 解消後の追記
+
+`ISS-20260505T132758518Z-RESOURCEIR-INITIALIZED-SUMMARIES-KEE-A65C9148` で ResourceIR summary の unbounded projection 増殖を止めた後、`tmp\selfhost_cli_driver_doctest2_latest.nepl` の native wasm emit は timeout ではなく約 103 秒で `resource.raw.unsafe_memory_boundary` に到達した。
+
+代表的な診断は次の raw-memory-backed stdlib helper に集中している。
+
+- `stdlib/alloc/string.nepl`: `concat_result`, `len`, `string_byte_at_unchecked`, `string_finish_base`, `string_from_mem_unchecked_result`, `sb_append_result`, `sb_build_result`, `from_u128_radix`
+- `stdlib/alloc/collections/vec.nepl`: `get`, `push`
+
+これは user source の raw memory 直呼びを許すべき問題ではなく、stdlib 内部実装の raw memory boundary / internal unsafe effect / public safe API の責務分割が未完了であることを示している。次の対応では、ファイル全体を安易に許可して静的検査を弱めるのではなく、compiler-owned raw boundary capability と stdlib safe wrapper の境界を再設計し、selfhost driver が codegen まで進める形にする。

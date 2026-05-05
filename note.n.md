@@ -31311,3 +31311,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査の正確性は維持し、trait call の unresolved 検査を残したまま、不要な全体再走査だけを除いた。
+
+# 2026-05-05 メモ (ISS-20260505T132758518Z ResourceIR initialized summary projection domain)
+
+- [原因]:
+  - selfhost CLI driver doctest#2 の wasm emit timeout を phase timing で追うと、monomorphize ではなく `check_resource_initialized_moves` 内の raw alias / initialized summary fixed point が支配していた。
+  - raw alias summary の sample では、`lex_next__str_i32_i32_i32__SelfhostToken__pure` の return projection に `StorageOffset(Exact(1))` が何度も積まれ、同じ pointer arithmetic の繰り返しが別 fact として増えていた。
+  - exact offset は cell safety のために必要だが、summary fixed point の抽象domainとして無制限に exact chain を保持すると収束性を保証できない。
+- [修正]:
+  - `initialized_projection_domain.rs` を追加し、連続 `StorageOffset` の正規化と、同一 shape の exact offset fact が閾値を超えた時に `ResourceOffset::Dynamic` summary を追加する処理を共通化した。
+  - raw address return alias summary は小さい fixed-layout offset を exact に保ちつつ、unbounded pointer arithmetic pattern だけ dynamic summary で吸収するようにした。
+  - raw cell initialization summary の positive facts は exact を保持し、param destruction / param move facts に threshold widening を適用した。
+  - summary fixed point の更新順序は既存の全関数一括iteration semantics を維持し、今回の修正範囲を projection domain の有限化に絞った。
+- [検証]:
+  - `cargo test -p nepl-core --lib return_alias_offsets_form_finite_dynamic_widening_domain -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_summary -- --nocapture`: 4 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_str_addr_helper_parameter_raw_load -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2_latest.nepl --target std --stdlib-root stdlib --emit wasm -o tmp\selfhost_cli_driver_doctest2_latest_no_timing.wasm`: 240 秒 timeout ではなく約 105 秒で `resource.raw.unsafe_memory_boundary` に到達
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_pointer -- --nocapture`: HEAD baseline でも同じ既存失敗であることを一時 worktree で確認
+- [issue]:
+  - `ISS-20260505T132758518Z-RESOURCEIR-INITIALIZED-SUMMARIES-KEE-A65C9148` を追加し、fixed / resolved とした。
+  - 親 `ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C` には、次の blocker が stdlib raw-memory boundary migration に移ったことを追記した。
+  - `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` に、`alloc/string.nepl` と `alloc/collections/vec.nepl` の unsafe boundary 診断を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査の正確性は維持し、unknown offset を exact と混同せず dynamic に widen することで、memory safety と fixed point 収束性を両立した。

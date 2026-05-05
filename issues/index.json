@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T12:17:14.942Z",
+  "generated_at": "2026-05-05T13:41:28.079Z",
   "counts": {
-    "total": 525,
+    "total": 526,
     "open": 15,
-    "resolved": 510,
+    "resolved": 511,
     "by_area": {
       "core": {
-        "total": 227,
+        "total": 228,
         "open": 7,
-        "resolved": 220
+        "resolved": 221
       },
       "stdlib": {
         "total": 157,
@@ -3548,6 +3548,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T105951378Z-MONOMORPHIZE-RESCANS-ALL-SPECIALIZED-20DC66B3.md"
+    },
+    {
+      "id": "ISS-20260505T132758518Z-RESOURCEIR-INITIALIZED-SUMMARIES-KEE-A65C9148",
+      "title": "ResourceIR initialized summaries keep unbounded exact storage-offset projections",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/initialized_alias_flow.rs,nepl-core/src/resource/initialized_summary_build.rs,nepl-core/src/resource/initialized_projection_domain.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T132758518Z-RESOURCEIR-INITIALIZED-SUMMARIES-KEE-A65C9148.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
