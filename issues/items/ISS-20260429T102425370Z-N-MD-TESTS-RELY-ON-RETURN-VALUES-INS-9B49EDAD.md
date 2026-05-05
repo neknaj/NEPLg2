@@ -212,3 +212,9 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 検証:
 
 - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_reporter.n.md --no-tree -o tmp/selfhost-cli-reporter-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3
+
+## 2026-05-05 selfhost CLI driver report migration blocker
+
+`tests/stdlib/selfhost_cli_driver.n.md` にも同種の `ret:` / report 省略が残っているため、`ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58` として分離した。
+
+この fixture は移行試作後の focused run が 3 件とも 60 秒 timeout し、個別 `run_doctest -n 1` も `NEPL_TEST_CASE_TIMEOUT_MS=180000` で shell 240 秒 timeout になった。未検証の fixture 変更は commit せず、先に selfhost driver fixture の粒度または compile/static-check cost を切り分ける。

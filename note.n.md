@@ -1,3 +1,19 @@
+# 2026-05-05 メモ (ISS-20260505T065610900Z selfhost CLI driver report blocker)
+
+- [原因]:
+  - `tests/stdlib/selfhost_cli_driver.n.md` にも `std/test` checks を `checks_print_report` へ通さず `ret: 0` だけで成功を表す doctest が残っている。
+  - `exit_code:` / stdout report への移行を試作したが、`node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md --no-tree -o tmp/selfhost-cli-driver-report-agent1.json -j 1 --dist web/dist` は 3 件すべて 60 秒 timeout になった。
+  - 個別 `run_doctest -n 1` も `NEPL_TEST_CASE_TIMEOUT_MS=180000` で shell 240 秒 timeout になり、変更後の stdout 契約を検証できなかった。
+- [対応]:
+  - 未検証の fixture 変更は commit せず戻した。
+  - `ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58` を追加し、report 省略と timeout/粒度 blocker をまとめて追跡する。
+- [検証]:
+  - `tests/stdlib/selfhost_cli_driver.n.md` の fixture 本体は未変更。
+  - `node nodesrc/issues.js check`: この issue 追加後に実行予定。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - selfhost driver doctest は report 移行対象だが、先に検証可能な粒度へ切る必要がある。
+
 # 2026-05-05 メモ (ISS-20260505T065154326Z selfhost CLI reporter stdout report)
 
 - [原因]:
