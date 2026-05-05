@@ -1,3 +1,24 @@
+# 2026-05-06 メモ (ISS-20260505T154332456Z alloc/io std/text raw operation boundary)
+
+- [原因]:
+  - `alloc/io` の `io_bytebuf_from_str_result` は `mem_copy`、`std/text` の `text_utf8_byte_at` は `load_u8` を内部利用する safe wrapper だが、SourceCapabilities の operation-only raw memory boundary 対象が `alloc/string` と `alloc/collections/vec` に限られていた。
+  - そのため `tests/stdlib/selfhost_cli_file_io.n.md` と `tests/stdlib/text_utf8.n.md` は public API 側で raw address escape をしていないにもかかわらず、compile phase の `resource.raw.unsafe_memory_boundary` で停止していた。
+- [対応]:
+  - `nepl-core/src/loader.rs` で raw-memory-backed stdlib module 判定を `StdlibRawMemoryOperationsModule` enum に整理した。
+  - `AllocIo` と `StdText` を operation-only boundary に追加し、`raw_memory_operations` のみ許可するようにした。
+  - full raw boundary は広げていないため、`raw_address_escape`、raw cell gate、owner obligation gate は引き続き有効である。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: pass
+  - `cargo test -p nepl-core loader::tests::source_capabilities_split_stdlib_raw_memory_files -- --nocapture`: pass
+  - `cargo test -p nepl-core compiler::tests::resource_effect_gate_splits_raw_operation_and_identity_escape_capabilities -- --nocapture`: pass
+  - `trunk build --release`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_file_io.n.md --no-tree -o tmp/selfhost_cli_file_io_raw_boundary_after.json -j1 --dist web/dist`: total=4, passed=4
+  - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/text_utf8_raw_boundary_after.json -j1 --dist web/dist`: total=9, passed=9
+  - `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/string_after_io_text_boundary.json -j1 --dist web/dist`: total=17, passed=17
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画では Stage 5 effect boundary / Stage 6 stdlib migration に該当する。safe wrapper 内 raw operation は compiler-owned boundary に閉じつつ、raw address escape と owner/cell 検査は弱めていない。
+
 # 2026-05-06 メモ (ISS-20260505T152927005Z std/test checks_exit_code report contract)
 
 - [原因]:

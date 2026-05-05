@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T15:37:00.327Z",
+  "generated_at": "2026-05-05T15:44:35.823Z",
   "counts": {
-    "total": 527,
+    "total": 528,
     "open": 13,
-    "resolved": 514,
+    "resolved": 515,
     "by_area": {
       "core": {
         "total": 228,
@@ -12,9 +12,9 @@
         "resolved": 222
       },
       "stdlib": {
-        "total": 157,
+        "total": 158,
         "open": 5,
-        "resolved": 152
+        "resolved": 153
       },
       "TEST": {
         "total": 37,
@@ -5453,6 +5453,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T055651504Z-BITSET-STORES-BIT-STORAGE-BEHIND-RAW-AAA76E2E.md"
+    },
+    {
+      "id": "ISS-20260505T154332456Z-ALLOC-IO-AND-STD-TEXT-SAFE-WRAPPERS--FA2B4CA6",
+      "title": "alloc/io and std/text safe wrappers lack raw operation boundary",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/loader.rs, stdlib/alloc/io.nepl, stdlib/std/text.nepl, tests/stdlib/selfhost_cli_file_io.n.md, tests/stdlib/text_utf8.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T154332456Z-ALLOC-IO-AND-STD-TEXT-SAFE-WRAPPERS--FA2B4CA6.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

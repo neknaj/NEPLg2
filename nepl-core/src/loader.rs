@@ -41,6 +41,35 @@ impl core::fmt::Display for LoaderError {
 
 impl std::error::Error for LoaderError {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StdlibRawMemoryOperationsModule {
+    AllocString,
+    AllocVec,
+    AllocIo,
+    StdText,
+}
+
+impl StdlibRawMemoryOperationsModule {
+    const ALL: &'static [Self] = &[
+        Self::AllocString,
+        Self::AllocVec,
+        Self::AllocIo,
+        Self::StdText,
+    ];
+
+    fn path(self, stdlib_root: &PathBuf) -> PathBuf {
+        match self {
+            Self::AllocString => stdlib_root.join("alloc").join("string.nepl"),
+            Self::AllocVec => stdlib_root
+                .join("alloc")
+                .join("collections")
+                .join("vec.nepl"),
+            Self::AllocIo => stdlib_root.join("alloc").join("io.nepl"),
+            Self::StdText => stdlib_root.join("std").join("text.nepl"),
+        }
+    }
+}
+
 impl From<CoreError> for LoaderError {
     fn from(e: CoreError) -> Self {
         LoaderError::Core(e)
@@ -673,16 +702,9 @@ impl Loader {
             return SourceCapabilities::raw_memory_boundary();
         }
 
-        let raw_memory_operation_files = [
-            self.stdlib_root.join("alloc").join("string.nepl"),
-            self.stdlib_root
-                .join("alloc")
-                .join("collections")
-                .join("vec.nepl"),
-        ];
-        if raw_memory_operation_files
+        if StdlibRawMemoryOperationsModule::ALL
             .iter()
-            .any(|path| *canon == canonicalize_path(path))
+            .any(|module| *canon == canonicalize_path(&module.path(&self.stdlib_root)))
         {
             return SourceCapabilities::raw_memory_operations_boundary();
         }
@@ -754,6 +776,8 @@ mod tests {
         for path in [
             "stdlib/alloc/string.nepl",
             "stdlib/alloc/collections/vec.nepl",
+            "stdlib/alloc/io.nepl",
+            "stdlib/std/text.nepl",
         ] {
             let capabilities =
                 loader.source_capabilities_for_path(&canonicalize_path(&PathBuf::from(path)));

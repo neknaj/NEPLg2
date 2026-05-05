@@ -156,3 +156,17 @@ compiler gate では `UnsafeMemoryInPureFunction` だけを `raw_memory_operatio
 これは今回の stdout report migration の退行ではなく、operation-only raw memory boundary の適用範囲が `stdlib/alloc/string.nepl` / `stdlib/alloc/collections/vec.nepl` に限られており、`alloc/io` と `std/text` の safe wrapper 内部 raw operation にはまだ整理が届いていないことを示す。
 
 次の対応では、`io_bytebuf_from_str_result` と `text_utf8_byte_at` を単に impure 化して利用側へ効果を漏らすのではなく、safe public API と compiler-owned raw operation boundary を分離する。`alloc/io` と `std/text` に operation-only capability を与える場合も、`raw_address_escape`、raw cell、owner obligation の検査は抑制しないことを必須条件とする。
+
+## 2026-05-06 alloc/io と std/text operation-only boundary 対応
+
+`ISS-20260505T154332456Z-ALLOC-IO-AND-STD-TEXT-SAFE-WRAPPERS--FA2B4CA6` で、`alloc/io` と `std/text` の safe wrapper 内 raw operation を operation-only raw memory boundary に追加した。
+
+今回の対応では、`SourceCapabilities` の full boundary を広げていない。`raw_memory_operations` だけを許可し、`raw_address_escape` は `false` のままにしたため、raw address identity escape、raw cell state、owner obligation の診断は引き続き有効である。対象 module は `StdlibRawMemoryOperationsModule` enum として `AllocString` / `AllocVec` / `AllocIo` / `StdText` に整理した。
+
+検証結果:
+
+- `cargo test -p nepl-core loader::tests::source_capabilities_split_stdlib_raw_memory_files -- --nocapture`: pass。
+- `cargo test -p nepl-core compiler::tests::resource_effect_gate_splits_raw_operation_and_identity_escape_capabilities -- --nocapture`: pass。
+- `trunk build --release`: pass。
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_file_io.n.md --no-tree -o tmp/selfhost_cli_file_io_raw_boundary_after.json -j1 --dist web/dist`: total=4, passed=4。
+- `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/text_utf8_raw_boundary_after.json -j1 --dist web/dist`: total=9, passed=9。
