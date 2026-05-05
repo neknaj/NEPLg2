@@ -91,6 +91,59 @@ fn monomorphize_accepts_deep_prefix_chain_without_stack_overflow() {
 }
 
 #[test]
+fn monomorphize_resolves_trait_calls_when_finalizing_non_generic_function() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+
+trait Mapper<.T>:
+    fn map <(Self,.T)->i32> (_self, _value):
+        0
+
+impl<.T> Mapper<.T> for i32:
+    fn map <(i32,.T)->i32> (_self, _value):
+        7
+
+fn call_mapper <(i32)->i32> (x):
+    Mapper::map 0 x
+
+fn main <()->i32> ():
+    call_mapper 123
+"#;
+    let module = parse_module(source);
+    let mut tc = nepl_core::typecheck::typecheck(
+        &module,
+        CompileTarget::Wasm,
+        nepl_core::BuildProfile::detect(),
+        None,
+    );
+    let mut hir = tc.module.take().expect("typecheck should produce HIR");
+    nepl_core::passes::insert_drops(&mut hir, &mut tc.types);
+
+    let (_hir, unresolved) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut tc.types, hir);
+
+    assert!(
+        unresolved.is_empty(),
+        "trait calls must be resolved while each function is finalized: {unresolved:#?}"
+    );
+    assert!(
+        compile_wasm(
+            FileId(0),
+            source,
+            CompileOptions {
+                target: Some(CompileTarget::Wasm),
+                verbose: false,
+                profile: None,
+            },
+        )
+        .is_ok(),
+        "the finalized trait call graph should remain valid for codegen"
+    );
+}
+
+#[test]
 fn move_check_accepts_deep_prefix_chain_without_stack_overflow() {
     let module = parse_module(&deep_identity_source(1105));
     let mut tc = nepl_core::typecheck::typecheck(

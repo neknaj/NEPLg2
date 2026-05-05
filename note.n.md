@@ -31259,3 +31259,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正の後段 backend lowering 境界として、意味を変えずに entry-reachable artifact だけを出す方向へ修正した。
+
+# 2026-05-05 メモ (ISS-20260505T105951378Z monomorphize trait-call rescan)
+
+- [原因]:
+  - `monomorphize_internal` は worklist を drain した後、残った trait call を解決するために `specialized` 全体を繰り返し走査していた。
+  - trait impl 候補は monomorphize 開始時に固定されており、後から生成される specialized function によって trait impl の解決結果自体は変わらない。
+  - selfhost CLI driver のような大きい import graph では、新規 specialization が出るたびに既に解決済みの関数まで再走査され、post-check codegen の superlinear cost になり得る。
+- [修正]:
+  - `resolve_remaining_trait_calls()` と worklist drain 後の全体再走査 loop を削除した。
+  - `process_instantiation()` で各 function body を確定する直前に `resolve_trait_calls_in_block()` を実行し、trait call 解決を function 確定時の 1 回に寄せた。
+  - trait impl method の specialization 要求は既存の `request_instantiation()` / worklist へ流すため、trait dispatch の正確性は維持した。
+  - non-generic function 内の trait call が確定時に解決され、codegen 可能な graph として残る regression を `nepl-core/tests/check_pipeline.rs` に追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test check_pipeline monomorphize_resolves_trait_calls_when_finalizing_non_generic_function -- --nocapture`: passed
+  - `cargo test -p nepl-core --test check_pipeline monomorphize_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 generic_trait_impl_method_resolves_by_trait_args -- --nocapture`: passed
+  - `cargo test -p nepl-core --test generics -- --nocapture`: 24 passed
+  - `cargo test -p nepl-core --test functions function_first_class -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: 13 passed
+  - `cargo test -p nepl-core --test effects pure_indirect_impure_function_value_is_rejected -- --nocapture`: passed
+  - `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2.nepl --target std --stdlib-root stdlib --emit wasm -o tmp\selfhost_cli_driver_doctest2_emit_after_trait_resolve`: 180 秒 timeout
+- [issue]:
+  - `ISS-20260505T105951378Z-MONOMORPHIZE-RESCANS-ALL-SPECIALIZED-20DC66B3` を fixed / resolved に更新した。
+  - selfhost driver の native wasm emit はまだ 180 秒 timeout のため、親 `ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C` は open 継続とした。
+  - 検証中に `check_pipeline` の deep prefix codegen tests が 180 秒以上完了しないことを再確認したため、`ISS-20260505T112825963Z-CHECK-PIPELINE-DEEP-PREFIX-CODEGEN-T-1F0C9236` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査の正確性は維持し、trait call の unresolved 検査を残したまま、不要な全体再走査だけを除いた。

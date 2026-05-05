@@ -49,6 +49,7 @@ Run the extracted selfhost_cli_driver doctest#2 through native --check, native w
 - `ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58`: stdout assertion report 移行の直接 issue。この codegen timeout が解消するまで、未検証の fixture 変更を入れない。
 - `ISS-20260505T104136107Z-WASM-INDIRECT-REACHABILITY-KEEPS-ALL-C97F267A`: `call_indirect` を含むだけで WASM reachability が全 monomorphized function に戻る個別バグ。2026-05-05 に fixed。selfhost driver source の native wasm emit は同修正後も 180 秒 timeout するため、この issue は monomorphize / Resource IR / backend work の残件として open 継続する。
 - `ISS-20260505T105107120Z-WASM-STRING-LOWERING-EMITS-ENTRY-UNR-8B692C39`: WASM data section が entry-unreachable string literal まで emit する個別バグ。2026-05-05 に fixed。selfhost driver source の native wasm emit は同修正後も 180 秒 timeout するため、この issue は open 継続する。
+- `ISS-20260505T105951378Z-MONOMORPHIZE-RESCANS-ALL-SPECIALIZED-20DC66B3`: monomorphize が trait call 解決のために specialized graph 全体を繰り返し再走査する個別性能問題。2026-05-05 に fixed。selfhost driver source の native wasm emit は同修正後も 180 秒 timeout するため、この issue は Resource IR / wasm lowering / remaining monomorphize work の残件として open 継続する。
 
 ## 2026-05-05 indirect reachability 修正後の再計測
 
@@ -66,3 +67,11 @@ Run the extracted selfhost_cli_driver doctest#2 through native --check, native w
 - `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2.nepl --target std --stdlib-root stdlib --emit wasm -o tmp\selfhost_cli_driver_doctest2_emit_after_string`: 180 秒 timeout
 
 したがって、未到達文字列 literal の data section 肥大は個別に解消したが、selfhost CLI driver timeout の主因はまだ monomorphize / Resource IR / wasm lowering の phase cost に残っている。
+
+## 2026-05-05 monomorphize trait call 再走査修正後の再計測
+
+`ISS-20260505T105951378Z-MONOMORPHIZE-RESCANS-ALL-SPECIALIZED-20DC66B3` で、trait call 解決を「全 specialized function の反復再走査」から「各 function の確定時に 1 回だけ解決」へ移した後、同じ extracted source を再計測した。
+
+- `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2.nepl --target std --stdlib-root stdlib --emit wasm -o tmp\selfhost_cli_driver_doctest2_emit_after_trait_resolve`: 180 秒 timeout
+
+したがって、monomorphize の局所的な superlinear 再走査候補は除去したが、selfhost CLI driver timeout の主因はまだ残っている。次の調査は compile_module の phase timing を取り、Resource IR summary/check、wasm function lowering、wasm validation、残る monomorphize 到達 graph のどれが支配的かを数値で分離する。

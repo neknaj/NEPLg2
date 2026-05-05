@@ -136,15 +136,6 @@ fn monomorphize_internal(
     while let Some((orig_name, args)) = mono.worklist.pop() {
         mono.process_instantiation(orig_name, args);
     }
-    loop {
-        mono.resolve_remaining_trait_calls();
-        if mono.worklist.is_empty() {
-            break;
-        }
-        while let Some((orig_name, args)) = mono.worklist.pop() {
-            mono.process_instantiation(orig_name, args);
-        }
-    }
 
     let mut unresolved_trait_calls = Vec::new();
     for f in mono.specialized.values() {
@@ -376,20 +367,6 @@ impl<'a> Monomorphizer<'a> {
                 "internal compiler error: unresolved trait call remained after monomorphize: {}",
                 first.description,
             );
-        }
-    }
-
-    fn resolve_remaining_trait_calls(&mut self) {
-        let names: Vec<String> = self.specialized.keys().cloned().collect();
-        for name in names {
-            let Some(mut func) = self.specialized.remove(&name) else {
-                continue;
-            };
-            match &mut func.body {
-                HirBody::Block(block) => self.resolve_trait_calls_in_block(block),
-                HirBody::Wasm(_) | HirBody::LlvmIr(_) => {}
-            }
-            self.specialized.insert(name, func);
         }
     }
 
@@ -1117,6 +1094,9 @@ impl<'a> Monomorphizer<'a> {
                 },
                 self.ctx.type_to_string(f.func_ty)
             );
+        }
+        if let HirBody::Block(block) = &mut f.body {
+            self.resolve_trait_calls_in_block(block);
         }
         self.specialized.insert(mangled, f);
     }

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T10:57:11.309Z",
+  "generated_at": "2026-05-05T11:30:15.835Z",
   "counts": {
-    "total": 523,
-    "open": 15,
-    "resolved": 508,
+    "total": 525,
+    "open": 16,
+    "resolved": 509,
     "by_area": {
       "core": {
-        "total": 225,
-        "open": 7,
-        "resolved": 218
+        "total": 227,
+        "open": 8,
+        "resolved": 219
       },
       "stdlib": {
         "total": 157,
@@ -293,6 +293,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
+    },
+    {
+      "id": "ISS-20260505T112825963Z-CHECK-PIPELINE-DEEP-PREFIX-CODEGEN-T-1F0C9236",
+      "title": "check_pipeline deep prefix codegen tests exceed local test budget",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/tests/check_pipeline.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/compiler.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T112825963Z-CHECK-PIPELINE-DEEP-PREFIX-CODEGEN-T-1F0C9236.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -3533,6 +3548,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T105107120Z-WASM-STRING-LOWERING-EMITS-ENTRY-UNR-8B692C39.md"
+    },
+    {
+      "id": "ISS-20260505T105951378Z-MONOMORPHIZE-RESCANS-ALL-SPECIALIZED-20DC66B3",
+      "title": "Monomorphize rescans all specialized functions for trait calls",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/monomorphize.rs, nepl-core/tests",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T105951378Z-MONOMORPHIZE-RESCANS-ALL-SPECIALIZED-20DC66B3.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
