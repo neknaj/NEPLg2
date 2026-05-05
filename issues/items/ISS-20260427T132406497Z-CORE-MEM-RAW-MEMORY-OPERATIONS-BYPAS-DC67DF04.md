@@ -380,3 +380,11 @@ Stage 5 の raw identity escape 判定では、pointer value 自体の raw ident
 `ExternalIoOp` / `NondetOp` を追加し、`InternalEffect` と Resource IR `EffectOp` は host operation を typed enum として保持するようになった。`fd_read` / `fd_write` / `random_get` などの initialized external IO handling も typed operation の `match` へ移行したため、host operation を追加した場合に enum variant と downstream handling の更新漏れを検出しやすくなった。
 
 `IMPURE_IO_EFFECT_MARKERS` は全て `ExternalIoOp` または `NondetOp` へ分類されることを `effects` regression で固定した。これにより Stage 5 effect model は raw memory だけでなく host I/O / nondeterminism も文字列分岐から enum-first な内部 effect 表現へ揃った。
+
+## 2026-05-06 Stage 5 host effect count breakdown 追記
+
+`ISS-20260505T232450417Z-RESOURCE-HOST-EFFECT-COUNTS-COLLAPSE-C723A6B3` として、`ExternalIoOp` / `NondetOp` が typed enum になった後も `ResourceEffectCounts` が `external_io_ops` / `nondet_ops` の合計値だけを保持していた問題を分離し、修正した。
+
+`ExternalIoEffectCounts` と `NondetEffectCounts` を追加し、`fd_read` / `fd_write` / `path_open` / `random_get` / `clock_time_get` などの operation-level count を保持するようにした。count 更新は host operation enum の exhaustive match で行うため、新しい host effect operation を追加した場合に report 側の更新漏れを検出しやすくなる。
+
+これにより Stage 5 effect boundary report は raw memory だけでなく host I/O / nondeterminism についても operation-level evidence を保持する。

@@ -560,11 +560,11 @@ impl ResourceEffectBoundaryEngine<'_> {
                     );
                 }
             }
-            EffectOp::ExternalIo { .. } => {
-                self.counts.external_io_ops += 1;
+            EffectOp::ExternalIo { operation } => {
+                self.counts.external_io_ops.record(*operation);
             }
-            EffectOp::Nondet { .. } => {
-                self.counts.nondet_ops += 1;
+            EffectOp::Nondet { operation } => {
+                self.counts.nondet_ops.record(*operation);
             }
             EffectOp::UserCall { name, effect } => {
                 self.check_call_effect(

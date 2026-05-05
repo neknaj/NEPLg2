@@ -30374,3 +30374,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T232450417Z Resource host effect count breakdown)
+
+- [同期]:
+  - `main` を remote main と同期後、`work/resource-host-effect-counts` で Stage 5 effect report の host operation-level count を修正した。
+- [原因]:
+  - `ExternalIoOp` / `NondetOp` は typed enum 化されたが、`ResourceEffectCounts` は `external_io_ops` / `nondet_ops` の合計値だけを保持していた。
+  - このままだと `fd_read` / `fd_write` / `path_open` や `random_get` / `clock_time_get` の内訳が report から失われ、host effect boundary の監査 evidence が不足する。
+- [修正]:
+  - `ExternalIoEffectCounts` と `NondetEffectCounts` を追加し、host operation ごとの count を保持するようにした。
+  - count 更新は `ExternalIoOp` / `NondetOp` の exhaustive match で行うため、新しい host operation 追加時の report 側更新漏れを検出できる。
+  - Resource IR regression で host operation の内訳と total を固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_counts_host_effect_operations -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_ -- --nocapture`: 21 passed
+- [issue]:
+  - `ISS-20260505T232450417Z-RESOURCE-HOST-EFFECT-COUNTS-COLLAPSE-C723A6B3` は fixed。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

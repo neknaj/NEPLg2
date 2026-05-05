@@ -8,12 +8,13 @@ use nepl_core::resource::{
     check_resource_effect_boundaries, check_resource_initialized_moves,
     check_resource_owner_obligations, compare_hir_resource_lowering, lower_hir_module,
     lower_hir_module_skeleton, AggregateKind, BorrowKind, BorrowState, CellState, EffectOp,
-    ExternalIoOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp, ResourceBlock,
-    ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget,
-    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCoverageDiagnostic,
-    ResourceCoverageKind, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
-    ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal, ResourceModule, ResourceOffset,
-    ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
+    ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp,
+    ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation,
+    ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceEffectBoundaryDiagnostic,
+    ResourceEffectCallKind, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
+    ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
+    ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -2362,6 +2363,65 @@ fn resource_ir_effect_check_reports_unsafe_memory_in_pure_function() {
             ..
         } if function == "main" && *operation == RawMemoryOp::Store
     )));
+}
+
+#[test]
+fn resource_ir_effect_check_counts_host_effect_operations() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::CallEffect {
+                effect: EffectOp::ExternalIo {
+                    operation: ExternalIoOp::FdRead,
+                },
+                span,
+            },
+            ResourceOp::CallEffect {
+                effect: EffectOp::ExternalIo {
+                    operation: ExternalIoOp::FdWrite,
+                },
+                span,
+            },
+            ResourceOp::CallEffect {
+                effect: EffectOp::ExternalIo {
+                    operation: ExternalIoOp::FdWrite,
+                },
+                span,
+            },
+            ResourceOp::CallEffect {
+                effect: EffectOp::ExternalIo {
+                    operation: ExternalIoOp::PathOpen,
+                },
+                span,
+            },
+            ResourceOp::CallEffect {
+                effect: EffectOp::Nondet {
+                    operation: NondetOp::RandomGet,
+                },
+                span,
+            },
+            ResourceOp::CallEffect {
+                effect: EffectOp::Nondet {
+                    operation: NondetOp::ClockTimeGet,
+                },
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_effect_boundaries(&resource);
+    let counts = report.functions[0].counts;
+    assert_eq!(counts.external_io_ops.fd_read, 1);
+    assert_eq!(counts.external_io_ops.fd_write, 2);
+    assert_eq!(counts.external_io_ops.path_open, 1);
+    assert_eq!(counts.external_io_ops.total(), 4);
+    assert_eq!(counts.nondet_ops.random_get, 1);
+    assert_eq!(counts.nondet_ops.clock_time_get, 1);
+    assert_eq!(counts.nondet_ops.total(), 2);
 }
 
 #[test]

@@ -88,9 +88,9 @@ pub use coverage::{
     ResourceLoweringCoverage,
 };
 pub use effect::{
-    check_resource_effect_boundaries, RawMemoryEffectCounts, ResourceEffectBoundaryDiagnostic,
-    ResourceEffectBoundaryReport, ResourceEffectCallKind, ResourceEffectCounts,
-    ResourceEffectFunctionCheck,
+    check_resource_effect_boundaries, ExternalIoEffectCounts, NondetEffectCounts,
+    RawMemoryEffectCounts, ResourceEffectBoundaryDiagnostic, ResourceEffectBoundaryReport,
+    ResourceEffectCallKind, ResourceEffectCounts, ResourceEffectFunctionCheck,
 };
 pub use initialized::check_resource_initialized_moves;
 pub use lower::{lower_hir_module, lower_hir_module_skeleton};
