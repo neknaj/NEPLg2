@@ -1,3 +1,25 @@
+# 2026-05-05 メモ (ISS-20260505T010829802Z WASIX get_terminal_size owner path)
+
+- [原因]:
+  - `get_tty_state` が成功時の raw owner pointer と失敗時の `0` sentinel を同じ `i32` 戻り値に混ぜていた。
+  - 失敗 path では `get_tty_state` 内で buffer を `dealloc_raw` 済みだが、caller の `get_terminal_size` は `ne state 0` で分岐していたため、Resource IR は「非ゼロなら owner が live」という条件を raw `i32` sentinel から証明できなかった。
+- [修正]:
+  - `get_tty_state` を `Result<i32,i32>` に変更し、`Result::Ok state` だけが 24 byte TTY state buffer owner を返すようにした。
+  - `Result::Err errno` は `get_tty_state` 内で buffer を解放済みの non-owner path として表した。
+  - `enter_raw_mode` と `get_terminal_size` を `match get_tty_state` に変更し、`Ok` arm だけで state を読み取り・解放する形へ整理した。
+  - `get_tty_state` の nm comment に success owner path と caller cleanup obligation を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-before-wasix-state-owner-agent1.json -j 1 --dist web/dist`: 修正前は `doctest#2` が `resource.owner.maybe_freed`。
+  - `node nodesrc/run_doctest.js -i tests/stdlib/features_tui.n.md -n 2 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-after-wasix-state-result-agent1.json -j 1 --dist web/dist`: 現在の workspace では total=4, passed=4, failed=0。ただし doctest#4 の stdout report 差分は別 issue の未 commit 差分を含むため、この issue の commit 対象には含めない。
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/tests.js -i stdlib/platforms/wasix/tui.nepl --no-tree -o tmp/wasix-tui-after-state-result-agent1.json -j 1 --dist web/dist`: runnable doctest なし。
+- [issue]:
+  - `ISS-20260505T010829802Z-WASIX-GET-TERMINAL-SIZE-DEALLOCATES--A1302F57` を fixed/resolved にした。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - raw pointer sentinel を維持して検査を緩めるのではなく、Result variant に成功 owner path を出して Resource IR が検査できる形にした。
+
 # 2026-05-05 メモ (ISS-20260429T142213822Z StringBuilder Result owner paths)
 
 - [原因]:

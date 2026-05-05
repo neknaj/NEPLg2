@@ -7,6 +7,7 @@
 
 #import "core/mem" as *
 #import "core/math" as *
+#import "core/result" as *
 #import "alloc/string" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec" as v
@@ -80,16 +81,28 @@ fn tui_push_str <(Vec<str>,str)->TuiStrPushRes> (items, item):
         Result::Err _e:
             TuiStrPushRes tui_empty_str_vec false
 
-fn get_tty_state <()*>i32> ():
+//: get_tty_state: WASIX TTY 状態 buffer を取得する
+//:
+//: [目的/もくてき]:
+//: - `tty_get` が成功した場合だけ、24 byte の raw owner pointer を `Result::Ok` で返します。
+//:
+//: [実装/じっそう]:
+//: - `alloc_raw` した buffer に `wasix_tty_get` を呼び、成功時は caller に owner を移します。
+//: - 失敗時はこの関数内で buffer を解放し、`Result::Err errno` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - `Result::Ok state` を受け取った caller は、必ず `dealloc_raw state 24` で解放します。
+//: - raw pointer と 0 sentinel を同じ `i32` で返すと Resource IR が owner path を証明できないため、Result variant で成功 owner path を表します。
+fn get_tty_state <()*>Result<i32,i32>> ():
     let ptr <i32> alloc_raw 24;
     let errno <i32> wasix_tty_get ptr;
     if:
         eq errno 0
         then:
-            ptr
+            Result<i32,i32>::Ok ptr
         else:
             dealloc_raw ptr 24;
-            0
+            Result<i32,i32>::Err errno
 
 fn set_tty_state <(i32)*>i32> (ptr):
     wasix_tty_set ptr
@@ -117,10 +130,8 @@ fn set_line_buffered <(i32,bool)*>()> (ptr, enable):
 //: 注意(重要):
 //: - 返されたポインタは restore_mode に渡して解放する必要があります。
 fn enter_raw_mode <()*>i32> ():
-    let state <i32> get_tty_state;
-    if:
-        ne state 0
-        then:
+    match get_tty_state:
+        Result::Ok state:
             let old_state <i32> alloc_raw 24;
             // Copy state to old_state
             let mut i <i32> 0;
@@ -140,7 +151,7 @@ fn enter_raw_mode <()*>i32> ():
                 else:
                     dealloc_raw old_state 24;
                     0
-        else:
+        Result::Err _e:
             0
 
 //: restore_mode: ターミナルの状態を元に戻す
@@ -168,15 +179,13 @@ fn restore_mode <(i32)*>i32> (old_state):
 //: [注意/ちゅうい]:
 //: - 取得に失敗した場合は `TerminalSize 0 0` を返します。
 fn get_terminal_size <()*>TerminalSize> ():
-    let state <i32> get_tty_state;
-    if:
-        ne state 0
-        then:
+    match get_tty_state:
+        Result::Ok state:
             let c <i32> get_cols state;
             let r <i32> get_rows state;
             dealloc_raw state 24;
             TerminalSize c r
-        else:
+        Result::Err _e:
             TerminalSize 0 0
 
 //: --- ANSI 画面制御ヘルパー ---

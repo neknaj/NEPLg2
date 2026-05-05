@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T03:38:59.818Z",
+  "generated_at": "2026-05-05T03:55:11.125Z",
   "counts": {
     "total": 491,
-    "open": 18,
-    "resolved": 473,
+    "open": 17,
+    "resolved": 474,
     "by_area": {
       "cli": {
         "total": 20,
@@ -23,8 +23,8 @@
       },
       "stdlib": {
         "total": 154,
-        "open": 7,
-        "resolved": 147
+        "open": 6,
+        "resolved": 148
       },
       "TEST": {
         "total": 19,
@@ -263,21 +263,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
-    },
-    {
-      "id": "ISS-20260505T010829802Z-WASIX-GET-TERMINAL-SIZE-DEALLOCATES--A1302F57",
-      "title": "WASIX get_terminal_size deallocates maybe-freed tty state",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-05",
-      "updated": "2026-05-05",
-      "target": "stdlib/platforms/wasix/tui.nepl, tests/stdlib/features_tui.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260505T010829802Z-WASIX-GET-TERMINAL-SIZE-DEALLOCATES--A1302F57.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -5258,6 +5243,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T151549577Z-STR-SPLIT-RESULT-STORES-OWNED-STR-IN-B3A69EAB.md"
+    },
+    {
+      "id": "ISS-20260505T010829802Z-WASIX-GET-TERMINAL-SIZE-DEALLOCATES--A1302F57",
+      "title": "WASIX get_terminal_size deallocates maybe-freed tty state",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/platforms/wasix/tui.nepl, tests/stdlib/features_tui.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T010829802Z-WASIX-GET-TERMINAL-SIZE-DEALLOCATES--A1302F57.md"
     },
     {
       "id": "ISS-20260505T021408593Z-FS-PATH-FILETYPE-LEAKS-NORMALIZED-ST-2B0962CF",
