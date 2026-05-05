@@ -29564,3 +29564,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 1687 lines まで縮小し、`stdio/raw.nepl` は 130 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 stdio write split)
+
+- [同期]:
+  - `origin/main` の `e85f420d` を取り込んだ状態から、branch `refactor/stdio-write-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/stdio.nepl` は raw 層分離後も stdout/stderr write API と stdin read / text facade / ANSI/debug helper を同居させていた。
+  - write API は `std/stdio/raw` に依存する再利用境界であり、read や ANSI/debug helper から使われるため、先に `write` module として独立させると後続分割が循環なしで進む。
+- [修正]:
+  - `stdlib/std/stdio/write.nepl` を追加し、`stdio_write_fd_mem_result`、stdout/stderr write result/facade、`print_byte` を移した。
+  - `std/stdio` facade は `write` を re-export し、既存 import から同じ API を使える構成にした。
+  - `nodesrc/test_stdlib_stdio_read_boundary.js` に、write helper が `stdio.nepl` 本体へ戻らず `stdio/write` に存在することを固定する検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/write.nepl --no-tree -o tmp/stdio-write-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/stdio-write-split-stderr.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-write-split-stdio.json -j 1`: `27 total / 27 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/stdio-write-split-stdout.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/stdio-write-split-stdin.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md --no-tree -o tmp/stdio-write-split-read-all.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 1444 lines まで縮小し、`stdio/write.nepl` は 263 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

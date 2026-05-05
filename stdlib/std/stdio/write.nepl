@@ -1,0 +1,263 @@
+//: # std/stdio/write
+//: `std/stdio` の stdout / stderr write API を提供する submodule
+//:
+//: ### 目的
+//: - fd write の iovec scratch と stdout/stderr facade を `std/stdio` 本体から分離します。
+//: - read API や ANSI/debug helper から再利用される write 境界を、`std/stdio/raw` の上位層として固定します。
+//:
+//: ### 注意
+//: - `stdio_write_bytes_result` / `stdio_write_stderr_bytes_result` は入力 `ByteBuf` を成功/失敗にかかわらず消費します。
+
+#indent 4
+
+#import "alloc/io" as *
+#import "alloc/string" as string
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/stdio/raw" as *
+
+//: ## stdio_write_fd_mem_result
+//: fd を[指定/してい]して byte span を[書/か]き[出/だ]す
+//:
+//: ### [目的/もくてき]
+//: - stdout / stderr などの fd [差/さ]だけを[分/わ]け、partial write [吸収/きゅうしゅう]と error [返却/へんきゃく]を 1 [箇所/かしょ]へ[集約/しゅうやく]します。
+//:
+//: ### [実装/じっそう]
+//: - WASI `fd_write(fd, iov, 1, nwritten)` を[呼/よ]び、`nwritten` が[残/のこ]り byte [数/すう]より[小/ちい]さい[場合/ばあい]は offset を[進/すす]めて[再試行/さいしこう]します。
+//: - `fd_write` error、`nwritten == 0`、iov [確保/かくほ][失敗/しっぱい]は `StdErrorKind::IoError` へ[正規化/せいきか]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `data` の[所有権/しょゆうけん]は[受/う]け[取/と]りません。呼び出し側が lifetime と解放を[管理/かんり]します。
+//: - fd の[妥当性/だとうせい]は host WASI runtime に[委/ゆだ]ね、invalid fd は `Err(IoError)` として[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
+fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (fd, data, data_len):
+    let data_ptr <i32> mem_ptr_addr data;
+    if:
+        le data_len 0
+        then:
+            Result<(), StdErrorKind>::Ok ()
+        else:
+            match std_alloc 8:
+                Result::Err _:
+                    Result<(), StdErrorKind>::Err StdErrorKind::IoError
+                Result::Ok iov:
+                    match std_alloc 4:
+                        Result::Err _:
+                            std_free iov 8;
+                            Result<(), StdErrorKind>::Err StdErrorKind::IoError
+                        Result::Ok nwritten:
+                            let mut off <i32> 0;
+                            let mut done <i32> 0;
+                            let mut failed <i32> 0;
+                            while eq done 0:
+                                do:
+                                    if:
+                                        ge off data_len
+                                        then:
+                                            set done 1;
+                                            ()
+                                        else:
+                                            store_i32 iov add data_ptr off;
+                                            store_i32 add iov 4 sub data_len off;
+                                            store_i32 nwritten 0;
+                                            let errno <i32> fd_write fd iov 1 nwritten;
+                                            if:
+                                                ne errno 0
+                                                then:
+                                                    set failed 1;
+                                                    set done 1;
+                                                    ()
+                                                else:
+                                                    let n <i32> load_i32 nwritten;
+                                                    if:
+                                                        le n 0
+                                                        then:
+                                                            set failed 1;
+                                                            set done 1;
+                                                            ()
+                                                        else:
+                                                            set off add off n;
+                                                            ();
+                            std_free nwritten 4;
+                            std_free iov 8;
+                            if:
+                                eq failed 0
+                                then:
+                                    Result<(), StdErrorKind>::Ok ()
+                                else:
+                                    Result<(), StdErrorKind>::Err StdErrorKind::IoError
+
+//: ## stdio_write_mem_result
+//: byte span を stdout へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `print` より[低水準/ていすいじゅん]で、stdout write [失敗/しっぱい]を caller が[検出/けんしゅつ]できるようにします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
+fn stdio_write_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (data, data_len):
+    stdio_write_fd_mem_result 1 data data_len
+
+//: ## stdio_write_stderr_mem_result
+//: byte span を stderr へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - diagnostic 出力を stdout と[分離/ぶんり]し、stderr write [失敗/しっぱい]を caller が[扱/あつか]えるようにします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
+fn stdio_write_stderr_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (data, data_len):
+    stdio_write_fd_mem_result 2 data data_len
+
+//: ## stdio_write_mem
+//: byte span を stdout へ[書/か]き[出/だ]す互換 facade
+//:
+//: ### [目的/もくてき]
+//: - 既存の `print` / `print_byte` が unit API のまま[使/つか]えるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - error は[呼/よ]び[出/だ]し[側/がわ]へ[返/かえ]しません。新しい code は `stdio_write_mem_result` を[使/つか]います。
+fn stdio_write_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
+    match stdio_write_mem_result data data_len:
+        Result::Ok _:
+            ()
+        Result::Err _:
+            ()
+
+//: ## stdio_write_stderr_mem
+//: byte span を stderr へ[書/か]き[出/だ]す互換 facade
+//:
+//: ### [注意/ちゅうい]
+//: - error は[呼/よ]び[出/だ]し[側/がわ]へ[返/かえ]しません。diagnostic caller は `stdio_write_stderr_mem_result` を[使/つか]います。
+fn stdio_write_stderr_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
+    match stdio_write_stderr_mem_result data data_len:
+        Result::Ok _:
+            ()
+        Result::Err _:
+            ()
+
+//: ## stdio_write_str_result
+//: `str` を stdout へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+fn stdio_write_str_result <(str)*>Result<(), StdErrorKind>> (s):
+    stdio_write_mem_result string_data_ptr s len s
+
+//: ## stdio_write_stderr_str_result
+//: `str` を stderr へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+fn stdio_write_stderr_str_result <(str)*>Result<(), StdErrorKind>> (s):
+    stdio_write_stderr_mem_result string_data_ptr s len s
+
+//: ## stdio_write_bytes_result
+//: `ByteBuf` を stdout へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `std/streamio` が binary write を `str` [変換/へんかん]なしで[実行/じっこう]し、stdout write [失敗/しっぱい]を[保持/ほじ]できるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - `bytes` の[所有権/しょゆうけん]を[受/う]け[取/と]り、成功/失敗にかかわらず最後に解放します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
+fn stdio_write_bytes_result <(ByteBuf)*>Result<(), StdErrorKind>> (bytes):
+    let data_len <i32> get bytes "len";
+    match get bytes "ptr":
+        Option::None:
+            if:
+                eq data_len 0
+                then:
+                    Result<(), StdErrorKind>::Ok ()
+                else:
+                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+        Option::Some data:
+            let result <Result<(), StdErrorKind>> stdio_write_mem_result data data_len;
+            match dealloc_ptr<u8> data io_bytebuf_storage_size data_len:
+                Result::Ok _:
+                    result
+                Result::Err _e:
+                    result
+
+//: ## stdio_write_stderr_bytes_result
+//: `ByteBuf` を stderr へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+//:
+//: ### [注意/ちゅうい]
+//: - `bytes` の[所有権/しょゆうけん]を[受/う]け[取/と]り、成功/失敗にかかわらず最後に解放します。
+fn stdio_write_stderr_bytes_result <(ByteBuf)*>Result<(), StdErrorKind>> (bytes):
+    let data_len <i32> get bytes "len";
+    match get bytes "ptr":
+        Option::None:
+            if:
+                eq data_len 0
+                then:
+                    Result<(), StdErrorKind>::Ok ()
+                else:
+                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+        Option::Some data:
+            let result <Result<(), StdErrorKind>> stdio_write_stderr_mem_result data data_len;
+            match dealloc_ptr<u8> data io_bytebuf_storage_size data_len:
+                Result::Ok _:
+                    result
+                Result::Err _e:
+                    result
+
+//: ## stdio_write_bytes
+//: `ByteBuf` を stdout へ[書/か]き[出/だ]す互換 facade
+fn stdio_write_bytes <(ByteBuf)*>()> (bytes):
+    match stdio_write_bytes_result bytes:
+        Result::Ok _:
+            ()
+        Result::Err _:
+            ()
+    ()
+
+//: ## stdio_write_stderr_bytes
+//: `ByteBuf` を stderr へ[書/か]き[出/だ]す互換 facade
+fn stdio_write_stderr_bytes <(ByteBuf)*>()> (bytes):
+    match stdio_write_stderr_bytes_result bytes:
+        Result::Ok _:
+            ()
+        Result::Err _:
+            ()
+    ()
+
+//: print_byte: 1 byte を stdout へ出力する
+//:
+//: [目的/もくてき]:
+//: - binary/VM 系の処理で、`str` を組み立てずに 1 byte だけを stdout へ書き出します。
+//:
+//: [実装/じっそう]:
+//: - 1 byte の一時 buffer を確保して値を書き、`stdio_write_mem` で出力してから解放します。
+//:
+//: [注意/ちゅうい]:
+//: - `b` の下位 8 bit が出力されます。
+//: - UTF-8 文字列としての妥当性は検証しません。text 出力には `print` / `println` を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[normalize_newlines]
+//: stdout: "A"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/stdio/write" as *
+//: fn main <()*>()> ():
+//:     print_byte 'A'
+//: ```
+fn print_byte <(i32)*>()> (b):
+    match alloc_ptr<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok out:
+            match store_u8 out b:
+                Result::Ok _:
+                    stdio_write_mem out 1
+                Result::Err _e:
+                    ()
+            match dealloc_ptr<u8> out 1:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()

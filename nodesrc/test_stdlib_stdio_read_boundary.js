@@ -9,6 +9,8 @@ const relPath = 'stdlib/std/stdio.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
 const rawRelPath = 'stdlib/std/stdio/raw.nepl';
 const rawSrc = fs.readFileSync(path.join(repoRoot, rawRelPath), 'utf8');
+const writeRelPath = 'stdlib/std/stdio/write.nepl';
+const writeSrc = fs.readFileSync(path.join(repoRoot, writeRelPath), 'utf8');
 
 const code = src
     .split(/\r?\n/)
@@ -18,11 +20,20 @@ const rawCode = rawSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const writeCode = writeSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
 
 assert.match(
     code,
     /pub\s+#import\s+"\.\/stdio\/raw"\s+as\s+\*/,
     'std/stdio facade must re-export raw stdio ABI submodule',
+);
+assert.match(
+    code,
+    /pub\s+#import\s+"\.\/stdio\/write"\s+as\s+\*/,
+    'std/stdio facade must re-export stdio write submodule',
 );
 
 assert.doesNotMatch(
@@ -48,6 +59,17 @@ for (const helper of [
     'stdio_fd_read_mem',
 ]) {
     assert.match(rawCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/raw`);
+}
+
+for (const helper of [
+    'stdio_write_fd_mem_result',
+    'stdio_write_mem_result',
+    'stdio_write_stderr_mem_result',
+    'stdio_write_bytes_result',
+    'print_byte',
+]) {
+    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/write`);
+    assert.match(writeCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/write`);
 }
 
 for (const helper of [
