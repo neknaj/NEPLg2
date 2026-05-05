@@ -75,8 +75,9 @@ fn main <()*>i32> ():
     let missing <ReadStream> ReadStream::Fs "__definitely_missing_file__.txt"
     let result0 <Result<str, StdErrorKind>> read missing
     match result0:
-        Result::Ok _text:
-            set checks checks_push checks Result<(),str>::Err "io fs read unexpectedly succeeded"
+        Result::Ok text:
+            let msg <str> concat "io fs read unexpectedly succeeded: " text
+            set checks checks_push checks Result<(),str>::Err msg
         Result::Err kind:
             set checks checks_push checks check_str_eq "IoError" std_error_kind_str kind
     let shown checks_print_report checks

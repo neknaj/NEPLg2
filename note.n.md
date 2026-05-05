@@ -1,3 +1,17 @@
+# 2026-05-05 note (ISS-20260505T013338193Z io missing-file Ok branch owner leak fix)
+
+- [同期]:
+  - `origin/main` の `2c25af73` を取り込んだ状態から、branch `fix/io-missing-file-owner-leak` で対応した。
+- [修正]:
+  - `tests/stdlib/io.n.md` の `io_fs_missing_file_is_io_error` で、missing file の unexpected Ok branch が受け取った `str` owner を failure message へ組み込むようにした。
+  - `_text` 未使用で leak させず、`concat "io fs read unexpectedly succeeded: " text` に移動して `TestReport` の消費経路に乗せた。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-nmd-missing-file-owner-leak-fixed.json -j 1`: `6 total / 6 passed`
+- [issue]:
+  - `ISS-20260505T013338193Z-TESTS-STDLIB-IO-MISSING-FILE-OK-BRAN-824A29BA` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260505T013338193Z io missing-file Ok branch owner leak)
 
 - [同期]:

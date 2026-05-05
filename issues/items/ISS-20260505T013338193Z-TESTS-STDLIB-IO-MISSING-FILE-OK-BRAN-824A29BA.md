@@ -2,8 +2,8 @@
 id: ISS-20260505T013338193Z-TESTS-STDLIB-IO-MISSING-FILE-OK-BRAN-824A29BA
 title: "tests/stdlib/io missing-file Ok branch leaks owned str"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: bug
 created: 2026-05-05
@@ -42,3 +42,11 @@ Ok branch でも受け取った str owner を検査用 assertion へ渡して消
 ## 検証
 
 node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-nmd-missing-file-owner-leak-fixed.json -j 1 が 6/6 passed になること。
+
+## 2026-05-05 修正メモ
+
+`Result::Ok _text` arm を `Result::Ok text` に変更し、受け取った `str` owner を `concat "io fs read unexpectedly succeeded: " text` で failure message へ組み込むようにした。これにより、実行時には到達しない想定の branch でも、静的検査上は `str` owner が `TestReport` の error message へ移動し、最終的に `checks_exit_code` の消費経路に乗る。
+
+検証:
+
+- `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-nmd-missing-file-owner-leak-fixed.json -j 1`: `6 total / 6 passed`
