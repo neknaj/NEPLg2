@@ -29619,3 +29619,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 974 lines まで縮小し、`stdio/read.nepl` は 483 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 stdio print split)
+
+- [同期]:
+  - `origin/main` の `01b38ae2` を取り込んだ状態から、branch `refactor/stdio-print-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/stdio.nepl` は read 分離後も基本 stdout facade と ANSI/debug helper を同じ file に保持していた。
+  - `print` / `println` / `print_i32` / `println_i32` は `std/stdio/write` へ委譲する最小 public API であり、ANSI/debug helper からも再利用されるため独立 module として固定するのが自然。
+- [修正]:
+  - `stdlib/std/stdio/print.nepl` を追加し、基本出力 facade 4 関数を移した。
+  - `std/stdio` facade は `print` を re-export し、ANSI/debug helper から同じ API を使う構成にした。
+  - `nodesrc/test_stdlib_stdio_print_i32_boundary.js` を更新し、`print_i32` が root facade ではなく `stdio/print` に存在し、整数 formatting を `alloc/string::from_i32` に委譲することを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/print.nepl --no-tree -o tmp/stdio-print-module-direct.json -j 1`: `4 total / 4 passed`
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-print-split-stdio.json -j 1`: `21 total / 21 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/stdio-print-split-stdout.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 826 lines まで縮小し、`stdio/print.nepl` は 163 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
