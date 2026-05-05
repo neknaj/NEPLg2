@@ -200,6 +200,7 @@ pub enum ResourceOwnerDiagnosticCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourceRawDiagnosticCode {
     IdentityEscape,
+    UnsafeMemoryBoundary,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -1088,6 +1089,9 @@ impl ResourceRawDiagnosticCode {
     const fn as_str(self) -> &'static str {
         match self {
             ResourceRawDiagnosticCode::IdentityEscape => "resource.raw.identity_escape",
+            ResourceRawDiagnosticCode::UnsafeMemoryBoundary => {
+                "resource.raw.unsafe_memory_boundary"
+            }
         }
     }
 
@@ -1095,6 +1099,9 @@ impl ResourceRawDiagnosticCode {
         match self {
             ResourceRawDiagnosticCode::IdentityEscape => {
                 "raw address identity escapes the pure surface"
+            }
+            ResourceRawDiagnosticCode::UnsafeMemoryBoundary => {
+                "raw memory operation crosses a pure boundary"
             }
         }
     }

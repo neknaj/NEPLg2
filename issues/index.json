@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T08:44:38.406Z",
+  "generated_at": "2026-05-05T09:07:44.954Z",
   "counts": {
-    "total": 516,
+    "total": 517,
     "open": 15,
-    "resolved": 501,
+    "resolved": 502,
     "by_area": {
       "core": {
-        "total": 220,
+        "total": 221,
         "open": 7,
-        "resolved": 213
+        "resolved": 214
       },
       "stdlib": {
         "total": 157,
@@ -123,7 +123,7 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-27",
-      "updated": "2026-04-29",
+      "updated": "2026-05-05",
       "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md",
       "legacy_id": "",
       "source": "",
@@ -3458,6 +3458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T083557206Z-DYNAMIC-RAW-LOAD-CLEARS-EXACT-INITIA-C9619723.md"
+    },
+    {
+      "id": "ISS-20260505T085105899Z-UNSAFEMEMORYINPUREFUNCTION-REMAINS-S-6CAE4543",
+      "title": "UnsafeMemoryInPureFunction remains shadow-only",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/compiler.rs,nepl-core/src/diagnostic_codes.rs,tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T085105899Z-UNSAFEMEMORYINPUREFUNCTION-REMAINS-S-6CAE4543.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

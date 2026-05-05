@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: bug
 created: 2026-04-27
-updated: 2026-04-29
+updated: 2026-05-05
 target: "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md"
 ---
 
@@ -348,3 +348,13 @@ raw slot payload identity は pointer alias group で key 化しているため�
 Stage 5 の raw identity escape 判定では、pointer value 自体の raw identity と raw memory slot に格納された identity payload を分ける必要がある。`Store` は通常値を書いた場合に payload を clear していたが、`BulkCopy` / `BulkMove` の non-identity source と `Fill` は destination の stale payload を消していなかった。
 
 今回の修正で、bulk copy/move は source payload の有無に応じて destination を mark または clear し、fill は destination payload を常に clear する。これにより、内部 allocation identity を含んでいた raw slot が後続の destructive overwrite で通常 bytes に置き換わった場合、後続 load/return を誤って `RawAddressEscapeFromInternalAlloc` と扱わなくなる。
+
+## 2026-05-05 Stage 5 unsafe memory boundary gate 追記
+
+`ISS-20260505T085105899Z-UNSAFEMEMORYINPUREFUNCTION-REMAINS-S-6CAE4543` として、Resource IR が検出していた `UnsafeMemoryInPureFunction` が compiler pipeline では shadow-only のまま残っていた問題を分離し、修正した。
+
+今回の対応で、pure user function から `store_i32` / `load_i32` / generic `store<T>` / `load<T>` などの raw memory operation を直接呼ぶ経路は、stable diagnostic code `resource.raw.unsafe_memory_boundary` で拒否される。`RawAddressEscapeFromInternalAlloc` だけを error 化して raw identity return を塞ぎ、raw memory write/load は pure surface で通すという非対称な境界は解消した。
+
+compiler-owned raw memory boundary は SourceMap capability による除外を維持する。これは stdlib/compiler 内部の raw memory wrapper 実装を許可するための境界であり、user source の pure surface へ unsafe memory operation を公開する逃げ道ではない。
+
+この変更に伴い、`tests/compiler/move_effect.n.md` の raw ownership/cell positive tests は impure signature に移行した。これらのテストは raw place の initialized/moved/drop state を検証するものであり、pure function から raw operation を呼べることを仕様化するものではない。pure 境界の回帰は `pure からメモリ操作 helper を直接呼べない` で固定している。

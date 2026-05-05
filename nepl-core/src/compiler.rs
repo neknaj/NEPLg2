@@ -934,14 +934,25 @@ mod tests {
     }
 
     #[test]
-    fn resource_effect_gate_keeps_unsafe_memory_shadow_only() {
+    fn resource_effect_gate_maps_unsafe_memory_to_resource_raw_code() {
         let diagnostic = ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
             function: String::from("store_raw"),
             operation: String::from("store"),
             span: Span::dummy(),
         };
 
-        assert!(resource_effect_boundary_diagnostic_to_error(&diagnostic).is_none());
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic)
+            .expect("unsafe memory in pure user code should become a compiler error");
+
+        assert_eq!(
+            error.code,
+            Some(DiagnosticCode::Resource(
+                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                    crate::diagnostic_codes::ResourceRawDiagnosticCode::UnsafeMemoryBoundary,
+                )
+            ))
+        );
+        assert!(error.message.contains("raw memory operation 'store'"));
     }
 }
 
@@ -1031,8 +1042,19 @@ fn resource_effect_boundary_diagnostic_to_error(
             ))
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
-            ..
-        } => None,
+            function,
+            operation,
+            span,
+        } => Some(Diagnostic::error_with_code(
+            DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
+                ResourceRawDiagnosticCode::UnsafeMemoryBoundary,
+            )),
+            format!(
+                "pure function '{}' uses raw memory operation '{}' outside a raw memory boundary",
+                function, operation
+            ),
+            *span,
+        )),
         crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             function,
             span,

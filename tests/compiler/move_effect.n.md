@@ -1,6 +1,6 @@
 # move/effect 回帰テスト
 
-## pure からメモリ操作を呼べる
+## impure からメモリ操作を呼べる
 
 neplg2:test
 ret: 123
@@ -12,15 +12,30 @@ ret: 123
 
 #import "core/mem" as *
 
-fn compute <()->i32> ():
+fn compute <()*>i32> ():
     let p <i32> alloc_raw 4
     store_i32 p 123
     let v <i32> load_i32 p
     dealloc_raw p 4
     v
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     compute
+```
+
+## pure からメモリ操作 helper を直接呼べない
+
+neplg2:test[compile_fail]
+diag_code: resource.raw.unsafe_memory_boundary
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn main <()->i32> ():
+    store_i32 0 1
+    0
 ```
 
 ## pure から alloc_raw の raw address を返せない
@@ -502,7 +517,7 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
     let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p 8
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -703,7 +718,7 @@ fn token_id <(i32)->i32> (x):
 fn slot_ptr <.T,.V> <(i32,i32)->i32> (base, idx):
     add base mul idx add size_of<.T> size_of<.V>
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> 16
     store<LocalToken> slot_ptr<LocalToken,i32> p 0 LocalToken @token_id
     store_i32 add p size_of<LocalToken> 123
@@ -781,7 +796,7 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> 16
     store<LocalToken> p LocalToken @token_id
     let a <LocalToken> load<LocalToken> p
@@ -828,7 +843,7 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> 16
     store<LocalToken> p LocalToken @token_id
     let a <LocalToken> load<LocalToken> p
@@ -902,7 +917,7 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
     let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -1417,7 +1432,7 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> alloc_raw size_of<LocalToken>
     store<LocalToken> p LocalToken @token_id
     let a <LocalToken> load<LocalToken> p
@@ -1571,7 +1586,7 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let src <i32> 16
     let dst <i32> 64
     store<LocalToken> src LocalToken @token_id
@@ -1590,7 +1605,7 @@ ret: 123
 #target core
 #import "core/mem" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let src <i32> 16
     let dst <i32> 64
     store_i32 src 123
@@ -1968,7 +1983,7 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> 16
     store<LocalToken> p LocalToken @token_id
     let a <LocalToken> load<LocalToken> p
@@ -1986,7 +2001,7 @@ ret: 456
 #target core
 #import "core/mem" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> 16
     store_i32 p 123
     store_i32 p 456
@@ -2015,7 +2030,7 @@ struct Holder:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> 16
     store<Holder> p Holder 7 LocalToken @token_id
     let a <i32> field::get load<Holder> p "count"
@@ -2045,7 +2060,7 @@ struct Holder:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> 16
     store<Holder> p Holder 7 LocalToken @token_id
     let a <i32> get load<Holder> p "count"
@@ -2077,7 +2092,7 @@ struct Holder:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> 16
     store<Holder> p Holder 7 mem_ptr_wrap<u8> 64 LocalToken @token_id
     let ptr <MemPtr<u8>> get load<Holder> p "ptr"
@@ -2109,7 +2124,7 @@ struct Holder<.H>:
 fn token_id <(i32)->i32> (x):
     x
 
-fn touch <.H> <(Holder<.H>)->i32> (h):
+fn touch <.H> <(Holder<.H>)*>i32> (h):
     let p <i32> 16
     store<Holder<.H>> p h
     let ptr <MemPtr<u8>> get load<Holder<.H>> p "ptr"
@@ -2117,7 +2132,7 @@ fn touch <.H> <(Holder<.H>)->i32> (h):
     let out <Holder<.H>> load<Holder<.H>> p
     add raw sub 14 64
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     touch<LocalToken> Holder<LocalToken> 7 mem_ptr_wrap<u8> 64 LocalToken @token_id
 ```
 
@@ -2138,7 +2153,7 @@ struct LocalToken:
 fn token_id <(i32)->i32> (x):
     x
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> 16
     store<LocalToken> p LocalToken @token_id
     let mut i <i32> 0

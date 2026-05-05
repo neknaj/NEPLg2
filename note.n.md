@@ -1,3 +1,27 @@
+# 2026-05-05 メモ (ISS-20260505T085105899Z unsafe memory pure boundary)
+
+- [原因]:
+  - Resource IR は pure 関数内の raw memory helper 呼び出しを `UnsafeMemoryInPureFunction` として検出していた。
+  - compiler pipeline 側の diagnostic 変換がこの variant だけ `None` を返しており、raw memory operation が shadow diagnostic のまま実エラーになっていなかった。
+  - その結果、raw identity return は `RawAddressEscapeFromInternalAlloc` で拒否される一方、pure 関数内の raw write/load は別の cell violation がなければ通る非対称な境界になっていた。
+- [対応]:
+  - `ResourceRawDiagnosticCode::UnsafeMemoryBoundary` を追加し、`resource.raw.unsafe_memory_boundary` として stable code 化した。
+  - `UnsafeMemoryInPureFunction` を compiler error へ昇格し、pure user source から raw memory operation を呼ぶ経路を拒否するようにした。
+  - `tests/compiler/move_effect.n.md` の raw ownership positive tests は、raw operation を扱う意図が明確になるよう impure signature へ更新した。
+  - compiler-owned raw memory boundary は SourceMap capability による除外を維持し、stdlib/compiler 内部実装だけを境界内に残した。
+- [検証]:
+  - `cargo test -p nepl-core compiler::tests::resource_effect_gate -- --nocapture`
+  - `cargo fmt --check -p nepl-core`
+  - `cargo check -p nepl-core --tests`
+  - `trunk build`
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 1 --dist web/dist`
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 2 --dist web/dist`
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 3 --dist web/dist`
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-unsafe-agent1.json -j 1 --dist web/dist`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 5 の Resource IR effect boundary として、shadow-only だった unsafe memory diagnostic を user-facing error に接続した。
+
 # 2026-05-05 メモ (ISS-20260505T083557206Z dynamic raw load cell cleanup)
 
 - [原因]:
