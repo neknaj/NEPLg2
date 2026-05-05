@@ -30267,3 +30267,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 826 lines まで縮小し、`stdio/print.nepl` は 163 lines。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 stdio ansi split)
+
+- [同期]:
+  - `origin/main` の `98a4562b` を取り込んだ状態から、branch `refactor/stdio-ansi-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/stdio.nepl` は print 分離後も ANSI escape code と color output helper、debug helper を同じ file に保持していた。
+  - ANSI helper は `std/stdio/print` だけに依存する端末装飾層であり、debug helper から再利用されるため独立 module にするのが自然。
+- [修正]:
+  - `stdlib/std/stdio/ansi.nepl` を追加し、`ansi_*`、`print_color`、`println_color` を移した。
+  - `std/stdio` facade は `ansi` を re-export し、debug helper から同じ API を使う構成にした。
+  - `nodesrc/test_stdlib_stdio_ansi_boundary.js` を追加し、ANSI helper が root facade に戻らないことと `print_color` が `std/stdio/print` API に委譲することを固定した。
+  - `nodesrc/run_source_policy_regressions.js` に ANSI boundary regression を追加した。
+- [新規issue]:
+  - `ISS-20260505T040130265Z-STDIO-ANSI-API-ENUM-MATCH-BDF2FB5E` を追加した。
+  - 分離後の `stdio/ansi.nepl` は 486 lines で、色や style が個別の文字列返却関数として管理されている。enum/match による型付けと網羅性検査の設計が必要。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_ansi_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/ansi.nepl --no-tree -o tmp/stdio-ansi-module-direct.json -j 1`: `13 total / 13 passed`
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-ansi-split-stdio.json -j 1`: `8 total / 8 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/stdio-ansi-split-stdout.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 355 lines まで縮小し、`stdio/ansi.nepl` は 486 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

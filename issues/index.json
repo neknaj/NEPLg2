@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T04:02:10.470Z",
+  "generated_at": "2026-05-05T04:04:20.231Z",
   "counts": {
-    "total": 491,
-    "open": 16,
+    "total": 492,
+    "open": 17,
     "resolved": 475,
     "by_area": {
       "cli": {
@@ -22,8 +22,8 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 154,
-        "open": 6,
+        "total": 155,
+        "open": 7,
         "resolved": 148
       },
       "TEST": {
@@ -323,6 +323,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260505T040130265Z-STDIO-ANSI-API-ENUM-MATCH-BDF2FB5E",
+      "title": "stdio ANSI 色 API を enum/match で型付けして整理する",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/std/stdio/ansi.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T040130265Z-STDIO-ANSI-API-ENUM-MATCH-BDF2FB5E.md"
     },
     {
       "id": "ISS-20260505T033328864Z-BYTEBUILDER-LEB128-DOCTEST-EXCEEDS-6-8F319A4D",
