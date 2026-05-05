@@ -15,11 +15,10 @@ ret: 1
 #import "core/option" as *
 
 fn main <()*>i32> ():
-    let c cliarg_count;
-    let _a cliarg_get -1;
-    let _b cliarg_get c;
-    let _p cliarg_program;
-    if ge c 0 1 0
+    let c <i32> cliarg_count;
+    let neg_missing <bool> is_none<str> cliarg_get -1;
+    let end_missing <bool> is_none<str> cliarg_get c;
+    if and and ge c 0 neg_missing end_missing 1 0
 ```
 
 ## cliarg_argv_stdout_count

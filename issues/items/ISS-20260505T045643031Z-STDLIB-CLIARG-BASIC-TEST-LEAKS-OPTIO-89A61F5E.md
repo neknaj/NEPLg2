@@ -2,8 +2,8 @@
 id: ISS-20260505T045643031Z-STDLIB-CLIARG-BASIC-TEST-LEAKS-OPTIO-89A61F5E
 title: "stdlib cliarg basic test leaks Option<str> payload locals"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: bug
 created: 2026-05-05
@@ -40,3 +40,8 @@ cliarg_basic を is_none<str> や match で Option payload を消費する形へ
 ## 検証
 
 node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/cliarg-basic-owner-fixed.json -j 1 が 6/6 passed になること。
+
+## 対応
+
+- `cliarg_basic` の `let _a cliarg_get -1` / `let _b cliarg_get c` / `let _p cliarg_program` を削除した。
+- 範囲外引数は `is_none<str>` で検査し、`Option<str>` の `Some` payload を local に保持したまま捨てない形にした。
