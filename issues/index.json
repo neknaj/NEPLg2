@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T01:31:29.013Z",
+  "generated_at": "2026-05-05T01:34:12.792Z",
   "counts": {
-    "total": 462,
-    "open": 14,
+    "total": 463,
+    "open": 15,
     "resolved": 448,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 199
       },
       "stdlib": {
-        "total": 150,
-        "open": 6,
+        "total": 151,
+        "open": 7,
         "resolved": 144
       },
       "TEST": {
@@ -298,6 +298,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260505T013338193Z-TESTS-STDLIB-IO-MISSING-FILE-OK-BRAN-824A29BA",
+      "title": "tests/stdlib/io missing-file Ok branch leaks owned str",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "tests/stdlib/io.n.md, stdlib/std/io.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T013338193Z-TESTS-STDLIB-IO-MISSING-FILE-OK-BRAN-824A29BA.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",

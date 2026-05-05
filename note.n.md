@@ -1,3 +1,15 @@
+# 2026-05-05 note (ISS-20260505T013338193Z io missing-file Ok branch owner leak)
+
+- [同期]:
+  - `origin/main` の `e42becd6` を取り込んだ状態から、branch `issue/io-test-missing-file-owner-leak` で issue を追加した。
+- [発見]:
+  - `std/streamio` writer split の検証として `tests/stdlib/io.n.md` を実行したところ、`io_fs_missing_file_is_io_error` の `Result::Ok _text` branch が owned `str` を閉じず、`resource.raw.ownership_violation` で失敗した。
+  - missing file は実行時には Err を期待するが、静的検査では全 arm が owner obligation を満たす必要があるため、unreachable 前提で `_text` を未使用にする fixture は不適切。
+- [issue]:
+  - `ISS-20260505T013338193Z-TESTS-STDLIB-IO-MISSING-FILE-OK-BRAN-824A29BA` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio writer split)
 
 - [同期]:
