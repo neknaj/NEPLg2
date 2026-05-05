@@ -1,3 +1,21 @@
+# 2026-05-05 メモ (ISS-20260505T072111740Z core char stdout report)
+
+- [原因]:
+  - `stdlib/core/char.nepl` の doc-comment doctest が `std/test` checks で 9 件の assertion を集約していたが、`ret: 0` と `checks_exit_code checks` だけで成功を表していた。
+  - stdout report を fixture 化していないため、Unicode scalar / ASCII helper doctest の assertion report regression を検出できなかった。
+- [修正]:
+  - doctest metadata を `exit_code: 0` + `stdout: mlstr:` に移行した。
+  - `checks_print_report` を追加し、9 件の `ok` report を stdout fixture として固定した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/core/char.nepl --no-tree -o tmp/core-char-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+- [issue]:
+  - `ISS-20260505T072111740Z-CORE-CHAR-DOCTEST-OMITS-STDOUT-ASSER-83024FA8` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に core char 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `char` helper の std doctest について、戻り値ではなく stdout report を観測するテスト契約へ揃えた。
+
 # 2026-05-05 メモ (ISS-20260505T071723578Z core text traits stdout report)
 
 - [原因]:

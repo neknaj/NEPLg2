@@ -248,3 +248,13 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 検証:
 
 - `node nodesrc/tests.js -i stdlib/core/traits/stringify.nepl -i stdlib/core/traits/debug.nepl -i stdlib/core/traits/serialize.nepl --no-tree -o tmp/core-text-traits-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3
+
+## 2026-05-05 core char report migration
+
+`ISS-20260505T072111740Z-CORE-CHAR-DOCTEST-OMITS-STDOUT-ASSER-83024FA8` で、`stdlib/core/char.nepl` の doc-comment doctest を stdout assertion report + `exit_code: 0` へ移行した。
+
+この doctest は Unicode scalar / ASCII helper を 9 件の `std/test` checks で確認していたが、`ret: 0` と `checks_exit_code checks` だけで成功を表していた。今回の対応で `Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]` report を fixture 化した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/core/char.nepl --no-tree -o tmp/core-char-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1

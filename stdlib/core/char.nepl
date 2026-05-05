@@ -9,7 +9,18 @@
 //: - `char_from_i32_result` は検証済み code point だけを `char` に戻します。検証なしの変換には `core/cast` を直接使わないでください。
 //:
 //: neplg2:test
-//: ret: 0
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
+//:     ##: [2] ok
+//:     ##: [3] ok
+//:     ##: [4] ok
+//:     ##: [5] ok
+//:     ##: [6] ok
+//:     ##: [7] ok
+//:     ##: [8] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -30,7 +41,8 @@
 //:         |> checks_push assert is_ok char_from_i32_result 0x3042
 //:         |> checks_push assert is_err char_from_i32_result 0xD800
 //:         |> checks_push assert is_err char_from_i32_result 0x110000
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 
 #indent 4

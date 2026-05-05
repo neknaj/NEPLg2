@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:19:35.512Z",
+  "generated_at": "2026-05-05T07:22:27.127Z",
   "counts": {
-    "total": 503,
+    "total": 504,
     "open": 14,
-    "resolved": 489,
+    "resolved": 490,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 24,
+        "total": 25,
         "open": 2,
-        "resolved": 22
+        "resolved": 23
       },
       "selfhost": {
         "total": 45,
@@ -5663,6 +5663,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T071723578Z-CORE-TEXT-TRAIT-DOCTESTS-OMIT-STDOUT-8D134355.md"
+    },
+    {
+      "id": "ISS-20260505T072111740Z-CORE-CHAR-DOCTEST-OMITS-STDOUT-ASSER-83024FA8",
+      "title": "core char doctest omits stdout assertion report",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/core/char.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T072111740Z-CORE-CHAR-DOCTEST-OMITS-STDOUT-ASSER-83024FA8.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",
