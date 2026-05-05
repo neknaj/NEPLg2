@@ -1,3 +1,27 @@
+# 2026-05-05 メモ (ISS-20260505T081814569Z selfhost CLI driver codegen timeout fixed)
+
+- [原因]:
+  - selfhost CLI driver doctest#2 の native wasm emit は check 後に timeout していたが、phase timing では wasm lowering ではなく `prepare_module_for_codegen` 内の Resource IR summary/check が支配的だった。
+  - raw alias summary が plain `i32` parameter を無条件に raw address seed し、lexer/parser の index/count/boolean 系引数まで raw alias fixed point へ入れていた。
+  - raw initialization summary は facts 数が iteration 9 で安定した後も、summary 内 vector の順序揺れで `next == summaries` が成立せず、全関数再計算を続けていた。
+  - raw initialization summary は前 iteration snapshot だけを参照する全関数再計算だったため、同じ pass 内で確定した callee summary を後続 caller が利用できなかった。
+- [対応]:
+  - `raw_address_seed` を追加し、raw alias / initialized / variant summary で parameter seed 判定を共有した。
+  - plain `i32` parameter はその関数内で raw address source/argument として使われる場合だけ seed するようにし、`MemPtr` / `RegionToken` / `str` / raw holder aggregate は引き続き seed 対象にした。
+  - raw alias summary と raw initialization summary の facts を canonical order に正規化し、fixed point 判定を vector 順序に依存させないようにした。
+  - raw initialization summary を sorted summary set の即時更新方式に変更し、pass 内で利用可能になった callee summary を後続 function が使えるようにした。
+- [検証]:
+  - `cargo test -p nepl-core raw_cell_initialization_summary_normalization_uses_canonical_fact_order`: pass
+  - `cargo test -p nepl-core i32_parameter`: 2 passed
+  - `cargo build -p nepl-cli`: pass
+  - `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2_latest.nepl --target std --stdlib-root stdlib --emit wasm -o tmp\selfhost_cli_driver_doctest2_gs_emit.wasm`: exit 0, 84.4s, stderr 0 lines, wasm 154253 bytes
+  - `trunk build --release`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cli_driver.n.md -n 2 --dist web/dist`: pass, 16.3s
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md -o tmp/selfhost_cli_driver_final_tests.json -j 1 --dist web/dist`: doctest#2 は 16.0s で pass。file 全体は doctest#1/#3 の `selfhost_cli_arg_at` raw memory boundary と tree path 既存失敗で total 23 / passed 19 / failed 4。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画では Stage 4 Resource IR initialized summary / Stage 6 selfhost performance に該当する。静的検査は弱めず、summary fixed point の有限性と deterministic equality を改善した。
+
 # 2026-05-05 メモ (ISS-20260427T204839136Z stdlib raw operation capability split)
 
 - [原因]:

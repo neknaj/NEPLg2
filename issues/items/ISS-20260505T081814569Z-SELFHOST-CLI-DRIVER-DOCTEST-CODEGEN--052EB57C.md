@@ -2,8 +2,8 @@
 id: ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C
 title: "selfhost CLI driver doctest codegen exceeds 240s after check succeeds"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: performance
 created: 2026-05-05
@@ -94,3 +94,32 @@ Run the extracted selfhost_cli_driver doctest#2 through native --check, native w
 - stdout/stderr は 0 行で、前段の `resource.raw.unsafe_memory_boundary` 診断は再発しなかった。
 
 したがって stdlib safe wrapper の raw operation boundary blocker は外れたが、selfhost CLI driver の native wasm emit は再び timeout に戻った。次の調査対象は引き続き post-check の phase timing、Resource IR gate demand の残コスト、wasm lowering/validation、または monomorphize 到達 graph の規模である。
+
+## 2026-05-05 ResourceIR summary fixed-point 正規化後の対応結果
+
+native phase timing で再調査した結果、timeout の主因は wasm lowering ではなく `prepare_module_for_codegen` 内の Resource IR summary/check にあった。
+
+- raw alias summary は plain `i32` parameter を無条件に raw address seed していたため、lexer/parser の index/count/boolean 系引数まで raw alias fixed point に入っていた。
+- raw initialization summary は facts 数が iteration 9 で安定していたにもかかわらず、summary 内 vector の順序揺れにより `next == summaries` が成立せず、`module.functions.len()` 上限近くまで全関数再計算へ進む構造だった。
+- raw initialization summary は各 iteration で全関数を前 iteration snapshot から再計算しており、同じ pass 内で確定した callee summary を caller が使えなかった。
+
+対応:
+
+- `raw_address_seed` を追加し、raw address summary / initialized summary / variant summary で同じ parameter seed 判定を共有した。
+- plain `i32` parameter は、その関数内で `RawAddressAlias` / `RawAddressView` / `RawMemory` / unsafe/internal call の raw address argument として使われる場合だけ seed するようにした。`MemPtr` / `RegionToken` / `str` / それらを含む aggregate は引き続き raw address holder として扱う。
+- raw alias summary と raw initialization summary の facts を `Ord` による canonical order へ正規化し、fixed point 判定を vector 順序の揺れに依存させないようにした。
+- raw initialization summary の更新を全関数 snapshot 方式から sorted summary set の即時更新方式に変更し、同一 pass 内で利用可能になった callee summary を後続 function が使えるようにした。
+
+検証:
+
+- `cargo test -p nepl-core raw_cell_initialization_summary_normalization_uses_canonical_fact_order`: pass
+- `cargo test -p nepl-core i32_parameter`: 2 passed
+- `cargo build -p nepl-cli`: pass
+- `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2_latest.nepl --target std --stdlib-root stdlib --emit wasm -o tmp\selfhost_cli_driver_doctest2_gs_emit.wasm`: exit 0, 84.4s, stderr 0 lines, wasm 154253 bytes
+- `trunk build --release`: pass
+- `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cli_driver.n.md -n 2 --dist web/dist`: pass, 16.3s, stdout JSON diagnostic matched
+
+補足:
+
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md -o tmp/selfhost_cli_driver_final_tests.json -j 1 --dist web/dist` は `doctest#2` 自体は 16.0s で pass した。
+- 同じ file run の `doctest#1/#3` は `stdlib/neplg2/cli/args/parse.nepl` の `selfhost_cli_arg_at` が `resource.raw.unsafe_memory_boundary` に到達する別問題で失敗する。これは selfhost CLI driver codegen timeout ではなく、stdlib/neplg2 CLI argument storage の raw-memory-backed API migration 残件として `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` に追記する。

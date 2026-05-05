@@ -25,6 +25,7 @@ use super::model::{
     ResourceOp,
 };
 use super::place_utils::place_suffix_after_prefix;
+use super::raw_address_seed::should_seed_raw_address_parameter;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
 
@@ -55,7 +56,9 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     let mut variant_initializations = PendingVariantRawCellInitializations::default();
     for param in &function.params {
         cells.mark_initialized(&param.place);
-        raw_aliases.mark(&param.place);
+        if should_seed_raw_address_parameter(function, &param.place, types) {
+            raw_aliases.mark(&param.place);
+        }
     }
 
     for (index, op) in ops.iter().enumerate() {

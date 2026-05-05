@@ -26,6 +26,7 @@ use super::initialized_summary_destruction::check_ops_and_collect_param_destruct
 use super::initialized_summary_variant_build::collect_variant_param_initialized_raw_cells_from_return;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{ResourceFunction, ResourceModule, ResourceTerminator};
+use super::raw_address_seed::should_seed_raw_address_parameter;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
 
@@ -36,7 +37,7 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
 ) -> Vec<RawCellInitializationFunctionSummary> {
     let mut summaries = Vec::new();
     for _ in 0..=module.functions.len() {
-        let mut next = Vec::new();
+        let mut changed = false;
         for function in &module.functions {
             let mut summary = function_raw_cell_initialization_summary(
                 function,
@@ -45,16 +46,35 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
                 &summaries,
             );
             normalize_raw_cell_initialization_summary(&mut summary);
-            if !raw_cell_initialization_summary_is_empty(&summary) {
-                next.push(summary);
-            }
+            changed |= update_raw_cell_initialization_summary(&mut summaries, summary);
         }
-        if next == summaries {
+        if !changed {
             return summaries;
         }
-        summaries = next;
     }
     summaries
+}
+
+fn update_raw_cell_initialization_summary(
+    summaries: &mut Vec<RawCellInitializationFunctionSummary>,
+    summary: RawCellInitializationFunctionSummary,
+) -> bool {
+    match summaries.binary_search_by(|existing| existing.function.cmp(&summary.function)) {
+        Ok(index) if raw_cell_initialization_summary_is_empty(&summary) => {
+            summaries.remove(index);
+            true
+        }
+        Ok(index) if summaries[index] != summary => {
+            summaries[index] = summary;
+            true
+        }
+        Ok(_) => false,
+        Err(_) if raw_cell_initialization_summary_is_empty(&summary) => false,
+        Err(index) => {
+            summaries.insert(index, summary);
+            true
+        }
+    }
 }
 
 fn raw_cell_initialization_summary_is_empty(
@@ -90,7 +110,9 @@ fn function_raw_cell_initialization_summary(
     let mut pending_reallocs = PendingRawReallocs::default();
     for param in &function.params {
         cells.mark_initialized(&param.place);
-        raw_aliases.mark(&param.place);
+        if should_seed_raw_address_parameter(function, &param.place, types) {
+            raw_aliases.mark(&param.place);
+        }
     }
 
     let mut out = RawCellInitializationFunctionSummary {
@@ -213,30 +235,30 @@ fn normalize_raw_cell_initialization_summary(summary: &mut RawCellInitialization
     );
 }
 
-fn normalize_unique<T: Eq>(input: Vec<T>, normalize: fn(T) -> T) -> Vec<T> {
-    let mut out = Vec::new();
-    for item in input {
-        let item = normalize(item);
-        if !out.iter().any(|existing| existing == &item) {
-            out.push(item);
-        }
-    }
+fn normalize_unique<T: Ord>(input: Vec<T>, normalize: fn(T) -> T) -> Vec<T> {
+    let mut out = input.into_iter().map(normalize).collect::<Vec<_>>();
+    out.sort();
+    out.dedup();
     out
 }
 
-fn normalize_widened<T: Eq>(
+fn normalize_widened<T: Ord>(
     input: Vec<T>,
     normalize: fn(T) -> T,
     widen: fn(&T, &T) -> Option<T>,
 ) -> Vec<T> {
+    let mut input = input.into_iter().map(normalize).collect::<Vec<_>>();
+    input.sort();
     let mut out = Vec::new();
     for item in input {
-        push_widened(&mut out, normalize(item), widen);
+        push_widened(&mut out, item, widen);
     }
+    out.sort();
+    out.dedup();
     out
 }
 
-fn push_widened<T: Eq>(out: &mut Vec<T>, item: T, widen: fn(&T, &T) -> Option<T>) {
+fn push_widened<T: Ord>(out: &mut Vec<T>, item: T, widen: fn(&T, &T) -> Option<T>) {
     if out.iter().any(|existing| existing == &item) {
         return;
     }
@@ -346,4 +368,98 @@ fn widen_param_move(
         cell_ty: existing.cell_ty,
         operation: existing.operation,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::model::{PlaceProjection, ResourceOffset};
+    use super::super::report::ResourceCheckOperation;
+    use super::*;
+    use crate::types::TypeId;
+    use alloc::string::ToString;
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    #[test]
+    fn raw_cell_initialization_summary_normalization_uses_canonical_fact_order() {
+        let ty = TypeId(1);
+        let mut left = empty_summary("f");
+        left.return_cells = vec![return_cell(8, ty), return_cell(0, ty), return_cell(8, ty)];
+        left.param_moves = vec![param_move(16, ty), param_move(0, ty), param_move(16, ty)];
+
+        let mut right = empty_summary("f");
+        right.return_cells = vec![return_cell(0, ty), return_cell(8, ty)];
+        right.param_moves = vec![param_move(0, ty), param_move(16, ty)];
+
+        normalize_raw_cell_initialization_summary(&mut left);
+        normalize_raw_cell_initialization_summary(&mut right);
+
+        assert_eq!(left, right);
+        assert_eq!(left.return_cells.len(), 2);
+        assert_eq!(left.param_moves.len(), 2);
+    }
+
+    #[test]
+    fn raw_cell_initialization_summary_update_keeps_canonical_function_order() {
+        let ty = TypeId(1);
+        let mut summaries = Vec::new();
+        let mut b = empty_summary("b");
+        b.return_cells.push(return_cell(0, ty));
+        let mut a = empty_summary("a");
+        a.return_cells.push(return_cell(0, ty));
+
+        assert!(update_raw_cell_initialization_summary(
+            &mut summaries,
+            b.clone()
+        ));
+        assert!(update_raw_cell_initialization_summary(
+            &mut summaries,
+            a.clone()
+        ));
+        assert_eq!(summaries[0].function, "a");
+        assert_eq!(summaries[1].function, "b");
+        assert!(!update_raw_cell_initialization_summary(&mut summaries, a));
+        assert!(update_raw_cell_initialization_summary(
+            &mut summaries,
+            empty_summary("b")
+        ));
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].function, "a");
+    }
+
+    fn empty_summary(function: &str) -> RawCellInitializationFunctionSummary {
+        RawCellInitializationFunctionSummary {
+            function: function.to_string(),
+            return_cells: Vec::new(),
+            param_cells: Vec::new(),
+            variant_param_cells: Vec::new(),
+            variant_param_ranges: Vec::new(),
+            variant_required_param_cells: Vec::new(),
+            variant_conditions: Vec::new(),
+            param_destructions: Vec::new(),
+            param_moves: Vec::new(),
+        }
+    }
+
+    fn return_cell(offset: usize, ty: TypeId) -> RawCellInitializationReturnCell {
+        RawCellInitializationReturnCell {
+            suffix: vec![PlaceProjection::StorageOffset(ResourceOffset::Exact(
+                offset,
+            ))],
+            ty,
+            holds_raw_address: true,
+        }
+    }
+
+    fn param_move(offset: usize, ty: TypeId) -> RawCellMoveParamAddress {
+        RawCellMoveParamAddress {
+            param_index: 0,
+            suffix: vec![PlaceProjection::StorageOffset(ResourceOffset::Exact(
+                offset,
+            ))],
+            address_ty: ty,
+            cell_ty: ty,
+            operation: ResourceCheckOperation::RawMemoryLoadCell,
+        }
+    }
 }

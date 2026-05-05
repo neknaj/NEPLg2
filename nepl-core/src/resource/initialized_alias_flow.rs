@@ -18,14 +18,15 @@ use super::model::{
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
+use super::raw_address_seed::should_seed_raw_address_parameter;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct RawCellAddressReturnSummary {
     function: String,
     aliases: Vec<RawCellAddressReturnAlias>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct RawCellAddressReturnAlias {
     parameter_index: usize,
     parameter_projection: Vec<PlaceProjection>,
@@ -57,6 +58,9 @@ pub(super) fn compute_raw_cell_address_return_summaries(
         for function in &module.functions {
             let mut aliases = Vec::new();
             for (index, param) in function.params.iter().enumerate() {
+                if !should_seed_raw_address_parameter(function, &param.place, types) {
+                    continue;
+                }
                 aliases.extend(function_raw_cell_address_return_aliases(
                     function,
                     index,
@@ -66,12 +70,14 @@ pub(super) fn compute_raw_cell_address_return_summaries(
                 ));
             }
             if !aliases.is_empty() {
+                aliases.sort();
                 next.push(RawCellAddressReturnSummary {
                     function: function.name.clone(),
                     aliases,
                 });
             }
         }
+        next.sort();
         if next == summaries {
             return summaries;
         }
@@ -469,6 +475,7 @@ fn push_unique_return_alias(
         }
     }
     aliases.push(alias);
+    aliases.sort();
 }
 
 fn normalize_return_alias(mut alias: RawCellAddressReturnAlias) -> RawCellAddressReturnAlias {

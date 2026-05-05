@@ -119,3 +119,11 @@ compiler gate では `UnsafeMemoryInPureFunction` だけを `raw_memory_operatio
 - rebuilt `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2_latest.nepl --target std --stdlib-root stdlib --emit wasm`: `resource.raw.unsafe_memory_boundary` は出ず、stderr 0 行のまま 240 秒 timeout。
 
 このため、今回露出していた `string.nepl` / `vec.nepl` の unsafe memory boundary blocker は解消した。selfhost driver の完走は post-check/codegen timeout の既存 issue `ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C` に戻る。
+
+## 2026-05-05 selfhost CLI arg storage 追記
+
+`ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C` の修正後、`tests/stdlib/selfhost_cli_driver.n.md::doctest#2` は release web dist で pass するようになった。一方、同じ file の focused run では `doctest#1/#3` が次の診断で失敗する。
+
+- `resource.raw.unsafe_memory_boundary`: pure function `selfhost_cli_arg_at__i32_i32_i32__Option_T_str__pure` が `/stdlib/neplg2/cli/args/parse.nepl:57` で `load<str>` を実行している。
+
+これは codegen timeout ではなく、selfhost CLI argument storage が raw-memory-backed `Vec<str>` layout を直接読み、operation-only raw memory boundary の対象にもなっていないことによる stdlib/neplg2 API migration 残件である。単に `selfhost_cli_arg_at` を impure 化するだけでは CLI option parse API 全体の surface effect を変えるため、`Vec` safe accessor / argument storage の責務分割として別途対応する。

@@ -76,6 +76,7 @@ mod owner_summary_variant_unique;
 mod owner_transfer;
 mod owner_variant;
 mod place_utils;
+mod raw_address_seed;
 mod raw_realloc;
 mod report;
 mod shadow;

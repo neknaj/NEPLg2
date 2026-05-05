@@ -211,7 +211,7 @@ pub enum RawMemoryOp {
     Other { name: String },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RawMemoryFillUnit {
     Byte,
     I32,
@@ -318,7 +318,7 @@ pub enum PlaceRoot {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlaceProjection {
     Field { index: usize, offset_bytes: usize },
     TupleField { index: usize, offset_bytes: usize },
@@ -327,7 +327,7 @@ pub enum PlaceProjection {
     StorageOffset(ResourceOffset),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourceOffset {
     Exact(usize),
     Dynamic,

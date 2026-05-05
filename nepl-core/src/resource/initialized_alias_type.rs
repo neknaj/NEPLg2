@@ -1,8 +1,8 @@
 extern crate alloc;
 
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 
-use crate::layout::aggregate_fields_with_offsets;
+use crate::layout::{aggregate_fields_with_offsets, extend_type_mapping, mapped_type_id};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{Place, PlaceProjection};
@@ -39,6 +39,99 @@ pub(super) fn type_preserves_raw_address_alias(types: &TypeCtx, ty: TypeId) -> b
         }
         _ => false,
     }
+}
+
+pub(super) fn type_can_seed_raw_address_alias(types: &TypeCtx, ty: TypeId) -> bool {
+    let mut visiting = BTreeSet::new();
+    type_can_seed_raw_address_alias_inner(types, ty, &BTreeMap::new(), &mut visiting)
+}
+
+fn type_can_seed_raw_address_alias_inner(
+    types: &TypeCtx,
+    ty: TypeId,
+    mapping: &BTreeMap<TypeId, TypeId>,
+    visiting: &mut BTreeSet<TypeId>,
+) -> bool {
+    let resolved = mapped_type_id(types, ty, mapping);
+    if !visiting.insert(resolved) {
+        return false;
+    }
+    let out = match types.get_ref(resolved) {
+        TypeKind::I32 | TypeKind::Str => true,
+        TypeKind::Struct { name, fields, .. } => {
+            name == "MemPtr"
+                || name == "RegionToken"
+                || fields.iter().any(|field| {
+                    type_can_seed_raw_address_alias_inner(types, *field, mapping, visiting)
+                })
+        }
+        TypeKind::Tuple { items } => items
+            .iter()
+            .any(|item| type_can_seed_raw_address_alias_inner(types, *item, mapping, visiting)),
+        TypeKind::Enum { variants, .. } => variants.iter().any(|variant| {
+            variant.payload.is_some_and(|payload| {
+                type_can_seed_raw_address_alias_inner(types, payload, mapping, visiting)
+            })
+        }),
+        TypeKind::Apply { base, args } => {
+            let base = types.resolve_named_type_id(*base);
+            match types.get_ref(base) {
+                TypeKind::Struct {
+                    name,
+                    type_params,
+                    fields,
+                    ..
+                } => {
+                    name == "MemPtr" || name == "RegionToken" || {
+                        let nested_mapping = extend_type_mapping(types, mapping, type_params, args);
+                        fields.iter().any(|field| {
+                            type_can_seed_raw_address_alias_inner(
+                                types,
+                                *field,
+                                &nested_mapping,
+                                visiting,
+                            )
+                        })
+                    }
+                }
+                TypeKind::Enum {
+                    type_params,
+                    variants,
+                    ..
+                } => {
+                    let nested_mapping = extend_type_mapping(types, mapping, type_params, args);
+                    variants.iter().any(|variant| {
+                        variant.payload.is_some_and(|payload| {
+                            type_can_seed_raw_address_alias_inner(
+                                types,
+                                payload,
+                                &nested_mapping,
+                                visiting,
+                            )
+                        })
+                    })
+                }
+                TypeKind::Tuple { items } => items.iter().any(|item| {
+                    type_can_seed_raw_address_alias_inner(types, *item, mapping, visiting)
+                }),
+                _ => false,
+            }
+        }
+        TypeKind::Reference(inner, _) | TypeKind::Box(inner) => {
+            type_can_seed_raw_address_alias_inner(types, *inner, mapping, visiting)
+        }
+        TypeKind::Var(var) => var.binding.is_none_or(|binding| {
+            type_can_seed_raw_address_alias_inner(types, binding, mapping, visiting)
+        }),
+        TypeKind::Named(_) => {
+            let named = types.resolve_named_type_id(resolved);
+            named != resolved
+                && type_can_seed_raw_address_alias_inner(types, named, mapping, visiting)
+        }
+        _ => false,
+    };
+    visiting.remove(&resolved);
+    out
 }
 
 fn projection_result_type(

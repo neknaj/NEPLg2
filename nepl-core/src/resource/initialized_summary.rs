@@ -9,7 +9,7 @@ use super::initialized_summary_condition::RawCellValueCondition;
 use super::model::{PlaceProjection, RawMemoryFillUnit};
 use super::report::ResourceCheckOperation;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct RawCellInitializationFunctionSummary {
     pub(super) function: String,
     pub(super) return_cells: Vec<RawCellInitializationReturnCell>,
@@ -22,14 +22,14 @@ pub(super) struct RawCellInitializationFunctionSummary {
     pub(super) param_moves: Vec<RawCellMoveParamAddress>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct RawCellInitializationReturnCell {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
     pub(super) holds_raw_address: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct RawCellInitializationParamCell {
     pub(super) param_index: usize,
     pub(super) suffix: Vec<PlaceProjection>,
@@ -37,7 +37,7 @@ pub(super) struct RawCellInitializationParamCell {
     pub(super) holds_raw_address: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct RawCellDestructionParamAddress {
     pub(super) param_index: usize,
     pub(super) suffix: Vec<PlaceProjection>,
@@ -45,7 +45,7 @@ pub(super) struct RawCellDestructionParamAddress {
     pub(super) operation: ResourceCheckOperation,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct RawCellMoveParamAddress {
     pub(super) param_index: usize,
     pub(super) suffix: Vec<PlaceProjection>,
@@ -54,7 +54,7 @@ pub(super) struct RawCellMoveParamAddress {
     pub(super) operation: ResourceCheckOperation,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct RawCellInitializationVariantParamCell {
     pub(super) variant: String,
     pub(super) param_index: usize,
@@ -63,7 +63,7 @@ pub(super) struct RawCellInitializationVariantParamCell {
     pub(super) holds_raw_address: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct RawCellInitializationVariantParamRange {
     pub(super) variant: String,
     pub(super) address_param_index: usize,
@@ -76,7 +76,7 @@ pub(super) struct RawCellInitializationVariantParamRange {
     pub(super) ty: TypeId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct RawCellInitializationVariantParamRequirement {
     pub(super) variant: String,
     pub(super) param_index: usize,
@@ -84,7 +84,7 @@ pub(super) struct RawCellInitializationVariantParamRequirement {
     pub(super) ty: TypeId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct RawCellInitializationVariantCondition {
     pub(super) variant: String,
     pub(super) param_index: usize,
