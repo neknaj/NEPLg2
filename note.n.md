@@ -1,3 +1,28 @@
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs raw split)
+
+- [同期]:
+  - `origin/main` の `1844a7be` を取り込んだ状態から、branch `refactor/fs-raw-module-split` で対応した。
+- [原因]:
+  - `std/fs.nepl` は path 分離後も WASI extern、bare wasm fallback、LLVM syscall fallback、fd read/write scratch、ByteBuf finish helper を facade に残していた。
+  - raw syscall/out-pointer 境界は public read/write/path API と責務が違うため、同じ file に残すと Resource IR 境界と ByteBuf owner policy の確認対象が膨らむ。
+- [修正]:
+  - `stdlib/std/fs/raw.nepl` を追加し、WASI extern、bare wasm fallback、LLVM syscall fallback、`fs_fd_read_into_result`、`fs_fd_write_from_result`、`fs_finish_read_buffer` を移した。
+  - `std/fs` facade は `raw` を re-export し、既存 API から raw helper を引き続き参照できる構成にした。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は raw module も検査対象に含め、raw helper が facade に戻らないことを固定した。
+  - `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` は `fs_finish_read_buffer` の owner boundary を `std/fs/raw.nepl` 側で確認するように追従した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/raw.nepl --no-tree -o tmp/fs-raw-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-raw-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-raw-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs/io 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js index; node nodesrc/issues.js check; git diff --check`: passed。generated timestamp だけの差分は commit 対象から除外した。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 972 lines まで縮小し、`fs/raw.nepl` は 404 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs constants/path split)
 
 - [同期]:
