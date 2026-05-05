@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:43:36.381Z",
+  "generated_at": "2026-05-05T07:47:05.157Z",
   "counts": {
-    "total": 509,
+    "total": 510,
     "open": 14,
-    "resolved": 495,
+    "resolved": 496,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 30,
+        "total": 31,
         "open": 2,
-        "resolved": 28
+        "resolved": 29
       },
       "selfhost": {
         "total": 45,
@@ -5753,6 +5753,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T074155009Z-ALLOC-DIAG-OUTCOME-DOCTESTS-OMIT-STD-80083E0E.md"
+    },
+    {
+      "id": "ISS-20260505T074539822Z-CORE-DESERIALIZE-DOCTEST-USES-RESULT-14A3BABF",
+      "title": "core deserialize doctest uses result_exit_code without stdout report",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/core/traits/deserialize.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T074539822Z-CORE-DESERIALIZE-DOCTEST-USES-RESULT-14A3BABF.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

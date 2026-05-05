@@ -1,3 +1,22 @@
+# 2026-05-05 メモ (ISS-20260505T074539822Z core deserialize stdout report)
+
+- [原因]:
+  - `stdlib/core/traits/deserialize.nepl` の doc-comment doctest が `Result<(),str>` と `result_exit_code check` だけで成功を表していた。
+  - `StdErrorKind` の failure branch は網羅していたが、成功時の assertion report が stdout fixture として固定されていなかった。
+- [修正]:
+  - doctest metadata に `exit_code: 0` + `stdout: mlstr:` を追加した。
+  - `Result<(),str>` 直返しを `TestReport` に変え、`checks_print_report` から `checks_exit_code` を返す形にした。
+  - `StdErrorKind` の match は維持し、各 failure branch は `checks_push checks_new assert ... false` で report に失敗 assertion を積むようにした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/core-deserialize-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+- [issue]:
+  - `ISS-20260505T074539822Z-CORE-DESERIALIZE-DOCTEST-USES-RESULT-14A3BABF` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に core deserialize 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - `Deserialize` doctest の成功観測を `Result<(),str>` exit code から stdout report と `exit_code:` に揃えた。
+
 # 2026-05-05 メモ (ISS-20260505T074155009Z alloc diag outcome stdout report)
 
 - [原因]:

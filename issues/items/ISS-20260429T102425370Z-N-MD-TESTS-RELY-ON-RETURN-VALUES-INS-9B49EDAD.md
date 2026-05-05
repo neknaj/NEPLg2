@@ -310,3 +310,13 @@ Resource IR の raw-load initialized check は弱めていない。代わりに 
 検証:
 
 - `node nodesrc/tests.js -i stdlib/alloc/diag/error.nepl --no-tree -o tmp/alloc-diag-error-report-agent1.json -j 1 --dist web/dist`: total=2, passed=2
+
+## 2026-05-05 core deserialize report migration
+
+`ISS-20260505T074539822Z-CORE-DESERIALIZE-DOCTEST-USES-RESULT-14A3BABF` で、`stdlib/core/traits/deserialize.nepl` の doc-comment doctest を stdout assertion report + `exit_code: 0` へ移行した。
+
+この doctest は `Result<(),str>` と `result_exit_code` だけで成功を表していた。今回の対応では `StdErrorKind` の exhaustive match は維持し、各 failure branch が `TestReport` へ失敗 assertion を積む形にして、成功時の `Checked [ok]` report を fixture 化した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/core/traits/deserialize.nepl --no-tree -o tmp/core-deserialize-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1
