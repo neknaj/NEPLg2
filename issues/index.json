@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T23:38:58.395Z",
+  "generated_at": "2026-05-05T23:42:56.880Z",
   "counts": {
-    "total": 484,
+    "total": 485,
     "open": 13,
-    "resolved": 471,
+    "resolved": 472,
     "by_area": {
       "core": {
         "total": 222,
@@ -37,9 +37,9 @@
         "resolved": 4
       },
       "doc": {
-        "total": 1,
+        "total": 2,
         "open": 0,
-        "resolved": 1
+        "resolved": 2
       },
       "docs": {
         "total": 2,
@@ -3463,6 +3463,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2.md"
+    },
+    {
+      "id": "ISS-20260505T234152821Z-STATIC-CHECK-PLAN-STILL-DESCRIBES-UN-A737C86F",
+      "title": "Static check plan still describes unsafe memory as shadow-only",
+      "area": "doc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "doc/neplg2/static_check_complexity_reduction_plan.md, issues/items/ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T234152821Z-STATIC-CHECK-PLAN-STILL-DESCRIBES-UN-A737C86F.md"
     },
     {
       "id": "ISS-20260430T064747382Z-STATIC-CHECK-DESIGN-NEEDS-PASS-BY-PA-4ADB193A",

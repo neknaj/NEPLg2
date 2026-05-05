@@ -334,10 +334,12 @@ self-host 実装側の禁止事項:
 - Resource IR の data model、coverage gate、CellState / OwnerState / BorrowState gate、enum-first diagnostic の方向性は妥当である。
 - ただし、現行 pipeline は `passes::insert_drops` を Resource IR check より前に HIR 上で実行し、旧 `passes::move_check::run` を先に authoritative として通した後に Resource IR gate を追加する構造である。これは移行途中の防壁であり、最終設計ではない。
 - `ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` は compiler diagnostic で `resource.cell.*` と `resource.owner.*` に分離済みである。今後も D3100 相当の粗い raw bucket に戻さず、原因分類を enum-first で維持する。
-- `UnsafeMemoryInPureFunction` は stdlib raw-memory-backed API 移行のため shadow-only に残っている。最終的には public pure surface から unsafe memory を構成できないよう gate 化する。
+- `UnsafeMemoryInPureFunction` は 2026-05-06 時点で Resource IR gate から `effect.pure.calls_impure` へ error 化済みである。ただし、`stdlib/core/mem.nepl` など compiler-owned raw-memory-boundary capability を持つ source では、Stage 6 の stdlib migration が完了するまで移行中許可を維持する。
 - self-host の S1/S2 は進められるが、S3 以降の typecheck / Resource IR / diagnostic aggregation では raw header collection や `MemPtr` owner discipline を中核に持ち込まない。
 
-追加精査で、`ResourceDiagnosticCode` 自体は `Move` / `Borrow` / `Cell` / `Owner` / `Raw` / `Lower` に分離済みであることを確認した。設計上の未完了点は、Cell / Owner category の追加ではなく、旧 HIR `move_check` / `insert_drops` がまだ final authority として残っていること、`UnsafeMemoryInPureFunction` が shadow-only であること、stdlib の owner token / collection storage state が compiler-issued capability に揃い切っていないことである。
+追加精査で、`ResourceDiagnosticCode` 自体は `Move` / `Borrow` / `Cell` / `Owner` / `Raw` / `Lower` に分離済みであることを確認した。設計上の未完了点は、Cell / Owner category の追加ではなく、旧 HIR `move_check` / `insert_drops` がまだ final authority として残っていること、raw-memory-boundary capability による stdlib 移行中許可が残っていること、stdlib の owner token / collection storage state が compiler-issued capability に揃い切っていないことである。
+
+2026-05-06 の Stage 5 追記として、host effect operation と raw/host effect count は enum-first の Resource IR 表現へ移行済みである。`ExternalIo` / `Nondet` / `UnsafeMemory` は pure function 境界で Resource IR diagnostic から compiler error へ接続される。残件は、raw-memory-backed stdlib の public API を Stage 6 で internal/public 境界へ分け、raw identity と owner token を safe surface へ漏らさない形へ移行することである。
 
 Resource checker の責務分割 policy も確認し、`initialized_summary_variant_build.rs` が監視対象から漏れていたため `ISS-20260430T062912063Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-CC55287A` で修正した。今後 Resource IR module を分割した場合は、実装だけでなく `nodesrc/test_resource_checker_responsibility.js` の必須 module 一覧と行数上限も同時に更新する。
 

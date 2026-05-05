@@ -30436,3 +30436,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T234152821Z Static check plan unsafe memory status)
+
+- [同期]:
+  - `main` を remote main と同期後、`work/doc-static-check-unsafe-gate-status` で静的検査計画の Stage 5 status を更新した。
+- [原因]:
+  - `doc/neplg2/static_check_complexity_reduction_plan.md` は `UnsafeMemoryInPureFunction` が shadow-only の未完了点だと説明していた。
+  - 直近の実装で `UnsafeMemoryInPureFunction` は Resource IR gate から compiler error へ接続済みになったため、doc が古い authority boundary を示していた。
+- [修正]:
+  - Stage 5 status を、unsafe memory diagnostic は error 化済みで、残件は raw-memory-boundary capability による stdlib migration 許可である、という説明へ更新した。
+  - 親 raw memory boundary issue に doc status 更新を追記した。
+- [検証]:
+  - `node nodesrc/issues.js check`: commit 前に実行
+  - `git diff --check`: commit 前に実行
+- [issue]:
+  - `ISS-20260505T234152821Z-STATIC-CHECK-PLAN-STILL-DESCRIBES-UN-A737C86F` は fixed。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 status 更新として追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

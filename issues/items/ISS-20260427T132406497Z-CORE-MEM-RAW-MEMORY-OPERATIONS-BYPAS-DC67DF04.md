@@ -404,3 +404,9 @@ Stage 5 の raw identity escape 判定では、pointer value 自体の raw ident
 `UnsafeMemoryInPureFunction` は `effect.pure.calls_impure` の compiler diagnostic へ変換されるようになった。一方で raw-memory-boundary source capability による許可は既存の `resource_effect_boundary_diagnostic_is_raw_boundary_allowed` に残しているため、`stdlib/core/mem.nepl` の移行中許可は維持される。
 
 これにより Stage 5 effect boundary checker は unsafe memory operation についても Resource IR diagnostic を compiler gate へ接続し、旧 typecheck gate だけに依存しない。
+
+## 2026-05-06 Stage 5 status doc 更新
+
+`ISS-20260505T234152821Z-STATIC-CHECK-PLAN-STILL-DESCRIBES-UN-A737C86F` として、`doc/neplg2/static_check_complexity_reduction_plan.md` が `UnsafeMemoryInPureFunction` を shadow-only と説明し続けていた問題を分離し、修正した。
+
+現在の Stage 5 状態は、`ExternalIo` / `Nondet` / `UnsafeMemory` が Resource IR diagnostic から compiler error へ接続済みで、raw-memory-boundary capability だけが stdlib migration 用の許可として残る、という整理である。
