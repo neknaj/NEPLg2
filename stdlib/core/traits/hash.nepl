@@ -18,6 +18,11 @@
 //: - `str` は[文字列長/もじれつちょう]を n として O(n) です。
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -28,7 +33,8 @@
 //:         checks_new
 //:         |> checks_push assert_eq_i32 hash32_by_trait 123456 hash32_by_trait 123456
 //:         |> checks_push assert ne hash32_by_trait 123456 hash32_by_trait 123457
-//:     checks_exit_code checks
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 
 #indent 4

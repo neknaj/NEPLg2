@@ -1,3 +1,22 @@
+# 2026-05-05 メモ (ISS-20260505T071255577Z core traits hash stdout report)
+
+- [原因]:
+  - `stdlib/core/traits/hash.nepl` の doc-comment doctest が `std/test` checks を作る一方で `checks_print_report` を呼ばず、成功時の assertion report を fixture として固定していなかった。
+  - `checks_exit_code checks` だけでは Rust runner と selfhost runner の stdout report 互換性を確認できない。
+- [修正]:
+  - doctest metadata を `exit_code: 0` + `stdout: mlstr:` にし、`Checked [ok,ok]` と各 assertion の `ok` 行を期待値として追加した。
+  - doctest 本体を `let shown checks_print_report checks` から `checks_exit_code shown` を返す形に変更した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/core/traits/hash.nepl -n 1 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i stdlib/core/traits/hash.nepl --no-tree -o tmp/core-traits-hash-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+- [issue]:
+  - `ISS-20260505T071255577Z-CORE-TRAITS-HASH-DOCTEST-OMITS-STDOU-4FEE65D8` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に core traits hash 移行の進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - core trait の std doctest について、戻り値ではなく stdout report を観測するテスト契約へ揃えた。
+
 # 2026-05-05 メモ (ISS-20260505T070805638Z traits_text stdout report)
 
 - [原因]:

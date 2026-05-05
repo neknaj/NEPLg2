@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:09:49.611Z",
+  "generated_at": "2026-05-05T07:15:02.796Z",
   "counts": {
-    "total": 501,
+    "total": 502,
     "open": 14,
-    "resolved": 487,
+    "resolved": 488,
     "by_area": {
       "core": {
         "total": 217,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 22,
+        "total": 23,
         "open": 2,
-        "resolved": 20
+        "resolved": 21
       },
       "selfhost": {
         "total": 45,
@@ -5633,6 +5633,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T070805638Z-TRAITS-TEXT-DOCTESTS-OMIT-STDOUT-ASS-9750B823.md"
+    },
+    {
+      "id": "ISS-20260505T071255577Z-CORE-TRAITS-HASH-DOCTEST-OMITS-STDOU-4FEE65D8",
+      "title": "core traits hash doctest omits stdout assertion report",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/core/traits/hash.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T071255577Z-CORE-TRAITS-HASH-DOCTEST-OMITS-STDOU-4FEE65D8.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

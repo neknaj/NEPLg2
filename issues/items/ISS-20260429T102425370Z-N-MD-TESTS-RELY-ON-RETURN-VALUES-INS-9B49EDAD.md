@@ -228,3 +228,13 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 検証:
 
 - `node nodesrc/tests.js -i tests/stdlib/traits_text.n.md --no-tree -o tmp/traits-text-report-agent1.json -j 1 --dist web/dist`: total=3, passed=3
+
+## 2026-05-05 core traits hash report migration
+
+`ISS-20260505T071255577Z-CORE-TRAITS-HASH-DOCTEST-OMITS-STDOU-4FEE65D8` で、`stdlib/core/traits/hash.nepl` の doc-comment doctest を stdout assertion report + `exit_code: 0` へ移行した。
+
+この doctest は `Hash` trait の基本契約を `std/test` checks で確認していたが、`checks_print_report` を呼ばず exit code だけで成功を表していた。今回の対応で `Checked [ok,ok]` report を stdout fixture として固定し、Rust runner と selfhost runner が assertion report format まで比較できるようにした。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/core/traits/hash.nepl --no-tree -o tmp/core-traits-hash-report-agent1.json -j 1 --dist web/dist`: total=1, passed=1
