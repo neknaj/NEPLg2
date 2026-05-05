@@ -30392,3 +30392,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260505T040130265Z-STDIO-ANSI-API-ENUM-MATCH-BDF2FB5E` は fixed。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 stdio read buffer split)
+
+- [同期]:
+  - `origin/main` の `505a74eb` を取り込んだ状態から、branch `refactor/stdio-read-buffer-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/stdio/read.nepl` は read API 分割後も raw fd_read scratch 境界と ByteBuf exact-size 所有権 helper を同じ file に持ち、376 lines 近くまでしか縮小できていなかった。
+  - fd_read ABI scratch と read loop/text conversion は責務が異なるため、raw boundary helper を下位 module へ分けると read module の役割が明確になる。
+- [修正]:
+  - `stdlib/std/stdio/read/buffer.nepl` を追加し、`stdio_fd_read_into_result` と `stdio_finish_read_buffer` を移した。
+  - `stdlib/std/stdio/read.nepl` は `std/stdio/read/buffer` を import し、read loop と UTF-8 text conversion に集中する構成にした。
+  - `nodesrc/test_stdlib_stdio_read_boundary.js` を更新し、raw read/buffer helper が `std/stdio/read/buffer` に存在し、`std/stdio/read` には再混入しないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/read.nepl --no-tree -o tmp/stdio-read-buffer-split-read.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-read-buffer-split-stdio.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/stdio-read-buffer-split-stdin.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md --no-tree -o tmp/stdio-read-buffer-split-read-all.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio/read.nepl` は 376 lines、`stdio/read/buffer.nepl` は 124 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
