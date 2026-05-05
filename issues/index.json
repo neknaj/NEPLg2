@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T06:28:46.961Z",
+  "generated_at": "2026-05-05T06:41:31.825Z",
   "counts": {
-    "total": 496,
-    "open": 13,
-    "resolved": 483,
+    "total": 498,
+    "open": 14,
+    "resolved": 484,
     "by_area": {
       "core": {
-        "total": 215,
-        "open": 6,
-        "resolved": 209
+        "total": 217,
+        "open": 7,
+        "resolved": 210
       },
       "stdlib": {
         "total": 157,
@@ -263,6 +263,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
+    },
+    {
+      "id": "ISS-20260505T064000205Z-RESOURCE-IR-SOURCE-FIXTURES-FAIL-ON--EDEA5603",
+      "title": "Resource IR source fixtures fail on warning-only shadow diagnostics",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/tests/resource_ir.rs,nepl-core/src/typecheck/binding_rules.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T064000205Z-RESOURCE-IR-SOURCE-FIXTURES-FAIL-ON--EDEA5603.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -3383,6 +3398,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T061748334Z-RESOURCE-IR-SUMMARIES-OMIT-EXACT-NON-C8D2F16E.md"
+    },
+    {
+      "id": "ISS-20260505T063836309Z-RESOURCE-IR-SUMMARIES-OMIT-UNKNOWN-O-4B002380",
+      "title": "Resource IR summaries omit unknown-offset non-Copy raw load requirements",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/initialized_summary_destruction_address.rs,nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T063836309Z-RESOURCE-IR-SUMMARIES-OMIT-UNKNOWN-O-4B002380.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

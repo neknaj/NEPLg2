@@ -54,3 +54,11 @@ Vec<DropCounter> の全要素 cleanup 後に storage dealloc でき、drop count
 - 修正済み: callee が parameter-derived exact raw address から non-Copy 値を `load<T>` した場合、caller 側の `CellTable` でも該当 raw cell を moved に更新する。
 - 修正済み: caller 側で該当 raw cell が未初期化なら、summary 適用時に `RawMemoryLoadCell` として拒否する。
 - 未解決: `data + i * size_of<T>` のような unknown/dynamic offset を loop で全 range cleanup した事実は、まだ Resource IR 上で証明できない。unknown offset を exact move summary に混ぜると「1 要素の動的 load」を「全 range moved」と誤認し得るため、この issue では保守的に残す。
+
+## 2026-05-05 unknown-offset raw-load precondition 部分進捗
+
+exact offset 修正後の追加監査で、parameter-derived unknown offset address からの non-Copy raw load が function summary から完全に落ち、caller 側で未証明 cell を読む false negative を確認した。これは range cleanup 完了の証明ではなく caller-side availability precondition の伝播漏れなので、`ISS-20260505T063836309Z-RESOURCE-IR-SUMMARIES-OMIT-UNKNOWN-O-4B002380` として分離して修正した。
+
+- 修正済み: unknown offset の non-Copy raw load は、range cleanup 完了とは扱わず `RawMemoryLoadCell` precondition として caller へ伝播する。
+- 修正済み: caller が該当 unknown cell の initialized 状態を証明できない場合、`CellUnavailable` として拒否する。
+- 未解決: loop/callback により `[0, len)` の全要素が moved/dropped 済みであることを表す range summary は未実装のままで、この issue の本体として残す。

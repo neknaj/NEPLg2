@@ -5921,6 +5921,102 @@ fn resource_ir_cell_summary_does_not_require_caller_cell_for_callee_initialized_
 }
 
 #[test]
+fn resource_ir_cell_summary_rejects_unproven_unknown_offset_non_copy_raw_load() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let param = ResourceLocal {
+        name: "p".to_string(),
+        ty: i32_ty,
+        mutable: false,
+        place: Place::local("p".to_string(), i32_ty),
+    };
+    let dynamic_address = param.place.clone().with_projection(
+        PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+        i32_ty,
+    );
+    let helper_loaded = Place::temporary(ResourceId(10), owned_ty);
+    let ptr = Place::temporary(ResourceId(0), i32_ty);
+    let call_out = Place::temporary(ResourceId(1), unit_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "take_at".to_string(),
+                params: vec![param],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: helper_loaded,
+                        args: vec![dynamic_address],
+                        span,
+                    }],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: nepl_core::resource::ResourceExprKind::LiteralI32(16),
+                            output: ptr.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: call_out,
+                            target: ResourceCallTarget::User {
+                                name: "take_at".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![ptr],
+                            effect: EffectOp::UserCall {
+                                name: "take_at".to_string(),
+                                effect: Effect::Impure,
+                            },
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                function,
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Uninit,
+                ..
+            } if function == "main" || function.starts_with("main__")
+        )),
+        "unknown-offset helper load must remain a caller-side precondition when no initialized range is proven: {:#?}",
+        report.diagnostics
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_reports_destructive_raw_storage_ops_over_live_cell() {
     let (mut types, owned_ty) = types_with_non_copy_owned();
     types.register_copy_impl_target(types.i32());

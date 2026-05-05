@@ -10,10 +10,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::{
     RawCellDestructionParamAddress, RawCellInitializationFunctionSummary, RawCellMoveParamAddress,
 };
-use super::model::{
-    CellState, Place, PlaceProjection, RawMemoryOp, ResourceCallTarget, ResourceLocal,
-    ResourceOffset,
-};
+use super::model::{CellState, Place, RawMemoryOp, ResourceCallTarget, ResourceLocal};
 use super::place_utils::{place_with_suffix, raw_memory_cell_place};
 use super::report::ResourceCheckOperation;
 
@@ -273,9 +270,6 @@ fn collect_param_moves_for_address(
 ) {
     let address = raw_aliases.canonicalize(address);
     for address_alias in raw_aliases.aliases_for(&address) {
-        if address_has_unknown_offset(&address_alias) {
-            continue;
-        }
         let cell = raw_memory_cell_place(&address_alias, cell_ty);
         if matches!(
             cells.availability_state(&cell, types),
@@ -317,13 +311,4 @@ fn push_unique_param_move(cells: &mut Vec<RawCellMoveParamAddress>, cell: RawCel
     if !cells.iter().any(|existing| existing == &cell) {
         cells.push(cell);
     }
-}
-
-fn address_has_unknown_offset(place: &Place) -> bool {
-    place.projections.iter().any(|projection| {
-        matches!(
-            projection,
-            PlaceProjection::StorageOffset(ResourceOffset { bytes: None })
-        )
-    })
 }

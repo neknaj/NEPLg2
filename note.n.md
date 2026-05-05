@@ -1,3 +1,25 @@
+# 2026-05-05 メモ (ISS-20260505T063836309Z unknown-offset raw-load summary)
+
+- [原因]:
+  - `collect_param_moves_for_address` が `StorageOffset { bytes: None }` を持つ raw address alias を summary 収集から除外していた。
+  - callee body では parameter-derived raw address が外部 storage root として許容されるため、caller 側へ `RawMemoryLoadCell` precondition が伝播しないと、未初期化または moved 済み non-Copy cell の raw load を見逃す。
+  - これは `Vec` range cleanup 完了証明とは別で、unknown offset の 1-cell load 要件を落とさないための false negative 修正である。
+- [修正]:
+  - unknown offset alias の一律 skip を削除し、non-Copy raw load の caller-side availability check に summary 伝播するようにした。
+  - unknown offset を range moved/dropped 済みとは扱わず、caller が該当 cell の initialized availability を証明できない場合だけ `RawMemoryLoadCell` で拒否する保守的な設計にした。
+  - manual `ResourceModule` regression を追加し、helper が `p + ?` から non-Copy load する場合に caller `main` 側で `CellUnavailable(Uninit)` になることを固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_summary -- --nocapture`: 4 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_allows_dealloc_after_non_copy_raw_load -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_reports_destructive_raw_storage_ops_over_live_cell -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_region_ptr_at_unknown_offset_rejects_dealloc_over_live_cell -- --nocapture`: source fixture が `Resolve::ShadowSameSignatureCallable` warning を hard failure として扱う既存問題で Resource IR 到達前に failed。`ISS-20260505T064000205Z-RESOURCE-IR-SOURCE-FIXTURES-FAIL-ON--EDEA5603` として分離した。
+- [issue]:
+  - `ISS-20260505T063836309Z-RESOURCE-IR-SUMMARIES-OMIT-UNKNOWN-O-4B002380` を fixed/resolved にした。
+  - `ISS-20260505T045316820Z-RESOURCE-IR-VEC-RANGE-CLEANUP-9A95DB6F` に、unknown-offset raw-load precondition の部分進捗を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査 Stage 4 Resource Check の一部として、診断抑制ではなく summary precondition の漏れを塞いだ。range cleanup 証明の本体は引き続き親 issue に残す。
+
 # 2026-05-05 メモ (ISS-20260427T164432612Z dealloc drop obligation)
 
 - [原因]:
