@@ -63,6 +63,7 @@ for (const helper of [
     'std_alloc',
     'std_free',
     'stdio_fd_read_mem',
+    'stdio_fd_write_mem',
     '__linux_syscall_rw',
     'fd_read',
     'fd_write',
@@ -71,11 +72,17 @@ for (const helper of [
 }
 
 for (const helper of [
-    'std_alloc',
-    'std_free',
     'stdio_fd_read_mem',
+    'stdio_fd_write_mem',
 ]) {
     assert.match(rawCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/raw`);
+}
+for (const helper of ['std_alloc', 'std_free']) {
+    assert.doesNotMatch(
+        rawCode,
+        new RegExp(`\\bfn\\s+${helper}\\b`),
+        `${helper} must not be reintroduced as a unit wrapper that hides dealloc ownership`,
+    );
 }
 
 for (const helper of [
@@ -88,6 +95,30 @@ for (const helper of [
     assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/write`);
     assert.match(writeCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/write`);
 }
+const writeFdMatch = writeCode.match(
+    /fn\s+stdio_write_fd_mem_result\s+<\(i32,MemPtr<u8>,i32\)\*>\s*Result<\(\),\s*StdErrorKind>>\s+\(fd,\s*data,\s*data_len\):([\s\S]*?)\nfn\s+stdio_write_mem_result\s+/,
+);
+assert.ok(writeFdMatch, 'stdio_write_fd_mem_result body must be found');
+assert.match(
+    writeFdMatch[1],
+    /\balloc_ptr<u8>/,
+    'stdio fd_write scratch allocation must use MemPtr owners',
+);
+assert.match(
+    writeFdMatch[1],
+    /\bstdio_fd_write_mem\b/,
+    'stdio fd_write helper must use the MemPtr ABI wrapper',
+);
+assert.match(
+    writeFdMatch[1],
+    /\bdealloc_raw\b/,
+    'stdio fd_write private scratch owners must be explicitly consumed',
+);
+assert.doesNotMatch(
+    writeFdMatch[1],
+    /\bstd_free\b/,
+    'stdio fd_write must not hide checked dealloc failures behind std_free',
+);
 
 for (const helper of [
     'stdio_fd_read_into_result',

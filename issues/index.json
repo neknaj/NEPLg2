@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T19:52:40.094Z",
+  "generated_at": "2026-05-05T20:08:35.409Z",
   "counts": {
     "total": 472,
-    "open": 14,
-    "resolved": 458,
+    "open": 13,
+    "resolved": 459,
     "by_area": {
       "core": {
-        "total": 211,
-        "open": 6,
+        "total": 210,
+        "open": 5,
         "resolved": 205
       },
       "stdlib": {
-        "total": 154,
+        "total": 155,
         "open": 6,
-        "resolved": 148
+        "resolved": 149
       },
       "TEST": {
         "total": 7,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260505T195142842Z-RESOURCE-OWNER-CHECKER-REPORTS-STDIO-00591700",
-      "title": "Resource owner checker reports stdio fd_write scratch MaybeLeak after duplicate import cleanup",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-05",
-      "updated": "2026-05-05",
-      "target": "nepl-core/src/resource/owner_variant.rs, nepl-core/src/resource/owner_control.rs, stdlib/std/stdio/write.nepl, nepl-core/tests/kp.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260505T195142842Z-RESOURCE-OWNER-CHECKER-REPORTS-STDIO-00591700.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -5128,6 +5113,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T021408593Z-FS-PATH-FILETYPE-LEAKS-NORMALIZED-ST-2B0962CF.md"
+    },
+    {
+      "id": "ISS-20260505T195142842Z-RESOURCE-OWNER-CHECKER-REPORTS-STDIO-00591700",
+      "title": "Resource owner checker reports stdio fd_write scratch MaybeLeak after duplicate import cleanup",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "stdlib/std/stdio/raw.nepl, stdlib/std/stdio/write.nepl, nepl-core/tests/resource_ir.rs, nodesrc/test_stdlib_stdio_read_boundary.js, nepl-core/tests/kp.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T195142842Z-RESOURCE-OWNER-CHECKER-REPORTS-STDIO-00591700.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -11021,3 +11021,69 @@ fn non_copy_read_module(
         impls: vec![],
     }
 }
+
+#[test]
+fn resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasi
+
+#import "core/mem" as *
+#import "core/result" as *
+#import "std/stdio/write" as *
+
+fn main <()*>()> ():
+    match alloc_ptr<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok data:
+            match stdio_write_fd_mem_result 1 data 1:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
+            match dealloc_ptr<u8> data 1:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    dealloc_raw mem_ptr_addr data 1
+"#;
+
+    let (mut module, mut types) =
+        typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    nepl_core::passes::insert_drops(&mut module, &mut types);
+    let (module, unresolved_trait_calls) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    assert!(
+        unresolved_trait_calls.is_empty(),
+        "unresolved trait calls: {:#?}",
+        unresolved_trait_calls
+    );
+    let resource = lower_hir_module(&module, &types);
+    let resource_dump = resource.dump_text();
+    let stdio_dump = resource_dump
+        .split("\nfn ")
+        .filter(|section| section.starts_with("stdio_write_fd_mem_result__"))
+        .collect::<Vec<_>>()
+        .join("\nfn ");
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("stdio_write_fd_mem_result__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "stdio fd_write scratch owners must be released on all paths: {:#?}\nresource:\nfn {}",
+        diagnostics,
+        stdio_dump
+    );
+}

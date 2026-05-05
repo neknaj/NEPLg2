@@ -1,3 +1,33 @@
+# 2026-05-06 note (ISS-20260505T195142842Z stdio fd_write scratch owner cleanup)
+
+- [同期]:
+  - `work/typecheck-definition-span-dedup-resource-stack` の scanner 到達修正後、branch `work/resource-stdio-fd-write-owner-leak-resource-stack` を作成して対応した。
+  - commit 前に `origin/main...HEAD` と branch contains を検査する。現時点では先行 Resource/diagnostic/typecheck stack は work branch へ push 済みだが、`origin/main` には未適用である。
+- [原因]:
+  - `stdio_write_fd_mem_result` は `std_alloc` で raw i32 scratch owner を確保し、`std_free(i32,i32)->()` で解放していた。
+  - `std_free` は checked `dealloc` の `Err` arm を握りつぶして unit を返すため、Resource owner checker から見ると「解放に失敗し owner が残る path」が消えていた。
+  - その結果、`iov` / `nwritten` は source 上では解放しているように見えても、静的検査上は `resource.owner.maybe_leak` として正しく拒否された。checker の弱体化ではなく stdio write 境界の所有権表現が不適切だった。
+- [修正]:
+  - `stdlib/std/stdio/raw.nepl` から旧 `std_alloc` / `std_free` wrapper を削除した。
+  - `stdio_fd_write_mem` を追加し、fd_write ABI には `MemPtr<u8>` scratch を渡す境界に統一した。
+  - `stdio_write_fd_mem_result` は `alloc_ptr<u8>` で `iov` / `nwritten` owner を確保し、raw store/load 用に `iov_raw` / `nwritten_raw` を分離した。
+  - private scratch owner invariant に基づき、`iov` / `nwritten` は全終了 path 前に `dealloc_raw` で消費するようにした。
+  - `print_byte` も private 1 byte scratch の raw store / raw dealloc に揃え、`dealloc_ptr` の Err 握りつぶしで owner leak path が残る構造をなくした。
+  - `nodesrc/test_stdlib_stdio_read_boundary.js` は旧 `std_alloc` / `std_free` wrapper の存在確認を廃止し、`stdio_fd_write_mem` と private scratch owner cleanup を監視する内容へ更新した。
+  - `resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup` を追加し、実呼び出し時に stdio write helper が `iov` / `nwritten` の MaybeLeak を出さないことを固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup -- --nocapture`: passed
+  - `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check -- --nocapture`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/write.nepl --no-tree -o tmp/stdio-write-owner-cleanup.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [issue]:
+  - `ISS-20260505T195142842Z-RESOURCE-OWNER-CHECKER-REPORTS-STDIO-00591700` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio input/output split)
 
 - [同期]:

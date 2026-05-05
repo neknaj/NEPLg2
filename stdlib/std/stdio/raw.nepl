@@ -23,18 +23,11 @@
 #import "core/mem" as *
 #import "core/result" as *
 
-fn std_alloc <(i32)->Result<i32,str>> (size):
-    alloc size
-
-fn std_free <(i32,i32)->()> (ptr, size):
-    match dealloc ptr size:
-        Result::Ok _:
-            ()
-        Result::Err _:
-            ()
-
 fn stdio_fd_read_mem <(i32,MemPtr<u8>,i32,MemPtr<u8>)*>i32> (fd, iov, iovcnt, nread):
     fd_read fd mem_ptr_addr iov iovcnt mem_ptr_addr nread
+
+fn stdio_fd_write_mem <(i32,MemPtr<u8>,i32,MemPtr<u8>)*>i32> (fd, iov, iovcnt, nwritten):
+    fd_write fd mem_ptr_addr iov iovcnt mem_ptr_addr nwritten
 
 #if[target=llvm]
 fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
