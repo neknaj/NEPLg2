@@ -1,3 +1,30 @@
+# 2026-05-06 note (ISS-20260505T221903422Z owner return application split)
+
+- [同期]:
+  - `origin/main` の `2a76494d` と同期済みの clean な `main` から、branch `work/resource-owner-return-application-split` を作成して対応した。
+- [原因]:
+  - `nepl-core/src/resource/owner_return.rs` が 433 lines まで肥大化し、`nodesrc/test_resource_checker_responsibility.js` の 400 lines 上限を超えた。
+  - direct call / indirect call / unknown callback fallback の flow orchestration と、`OwnerReturnSummary` 適用、projection return materialization、consumed parameter owner 処理、non-owning raw address view 判定が同じ file に再集中していた。
+  - これは実行時挙動の欠陥ではなく、Resource IR owner return 境界の監査性を下げる設計負債であり、後続の MemPtr / OwnedRegion / Resource IR state 分離に悪影響がある。
+- [修正]:
+  - `owner_return.rs` は direct/indirect call owner return orchestration と unknown callback fallback に集中させた。
+  - `owner_return_apply.rs` を追加し、owner return summary application、projection owner return application、consumed parameter owner move-out、owner alias 解決済み transferable 判定を移した。
+  - `owner_return_view.rs` を追加し、non-owning raw address view 判定を分離した。raw `i32` view が owner transfer / call argument consumption に誤って巻き込まれない境界を独立して監査できるようにした。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module の存在、`ResourceOwnerCheckEngine` import、行数上限を追加し、`owner_return.rs` 上限を 220 へ下げて再肥大化を検出できるようにした。
+- [検証]:
+  - `cargo fmt -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir owner_return -- --nocapture`: `6 passed`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm -- --nocapture`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: owner_return 分割は通過。次の別件として `coverage_hir.rs has 463 lines; responsibility split limit is 420` を検出した。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260505T221903422Z-RESOURCE-OWNER-RETURN-APPLICATION-EX-C8D8DE40` は fixed。
+  - 新たに `ISS-20260505T222215631Z-RESOURCE-HIR-COVERAGE-CHECKER-EXCEED-BACF550C` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260505T195142842Z stdio fd_write scratch owner cleanup)
 
 - [同期]:

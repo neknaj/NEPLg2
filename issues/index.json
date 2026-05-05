@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T20:08:35.409Z",
+  "generated_at": "2026-05-05T22:24:15.791Z",
   "counts": {
-    "total": 472,
-    "open": 13,
-    "resolved": 459,
+    "total": 474,
+    "open": 14,
+    "resolved": 460,
     "by_area": {
       "core": {
-        "total": 210,
-        "open": 5,
-        "resolved": 205
+        "total": 212,
+        "open": 6,
+        "resolved": 206
       },
       "stdlib": {
         "total": 155,
@@ -128,7 +128,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-04-30",
+      "updated": "2026-05-06",
       "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md",
       "legacy_id": "",
       "source": "",
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260505T222215631Z-RESOURCE-HIR-COVERAGE-CHECKER-EXCEED-BACF550C",
+      "title": "Resource HIR coverage checker exceeds responsibility split limit",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/coverage_hir.rs, nepl-core/src/resource/coverage.rs, nepl-core/src/resource/coverage_resource.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T222215631Z-RESOURCE-HIR-COVERAGE-CHECKER-EXCEED-BACF550C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3268,6 +3283,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T194925584Z-TYPECHECK-DRIVER-REPROCESSES-IDENTIC-1F901103.md"
+    },
+    {
+      "id": "ISS-20260505T221903422Z-RESOURCE-OWNER-RETURN-APPLICATION-EX-C8D8DE40",
+      "title": "Resource owner return application exceeds responsibility split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_return_apply.rs, nepl-core/src/resource/owner_return_view.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T221903422Z-RESOURCE-OWNER-RETURN-APPLICATION-EX-C8D8DE40.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

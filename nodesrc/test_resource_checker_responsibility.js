@@ -74,6 +74,8 @@ for (const moduleName of [
     'owner_summary_leaf.rs',
     'owner_summary_record.rs',
     'owner_return.rs',
+    'owner_return_apply.rs',
+    'owner_return_view.rs',
     'summary.rs',
     'effect.rs',
     'effect_check.rs',
@@ -123,6 +125,8 @@ for (const moduleDecl of [
     'mod owner_summary_leaf;',
     'mod owner_summary_record;',
     'mod owner_return;',
+    'mod owner_return_apply;',
+    'mod owner_return_view;',
     'mod summary;',
     'mod effect;',
     'mod effect_check;',
@@ -163,6 +167,8 @@ const borrowSummary = readResource('borrow_summary.rs');
 const ownerCheck = readResource('owner_check.rs');
 const ownerSummary = readResource('owner_summary.rs');
 const ownerReturn = readResource('owner_return.rs');
+const ownerReturnApply = readResource('owner_return_apply.rs');
+const ownerReturnView = readResource('owner_return_view.rs');
 const summary = readResource('summary.rs');
 const effect = readResource('effect.rs');
 const effectCheck = readResource('effect_check.rs');
@@ -218,6 +224,18 @@ assertUsesResourceModuleSymbol(
     'owner_return.rs',
 );
 assertUsesResourceModuleSymbol(
+    ownerReturnApply,
+    'owner_check',
+    'ResourceOwnerCheckEngine',
+    'owner_return_apply.rs',
+);
+assertUsesResourceModuleSymbol(
+    ownerReturnView,
+    'owner_check',
+    'ResourceOwnerCheckEngine',
+    'owner_return_view.rs',
+);
+assertUsesResourceModuleSymbol(
     effectSummary,
     'effect_check',
     'ResourceEffectBoundaryEngine',
@@ -241,7 +259,9 @@ const maxLines = new Map([
     ['owner_summary_variant_return.rs', 220],
     ['owner_summary_leaf.rs', 260],
     ['owner_summary_record.rs', 260],
-    ['owner_return.rs', 400],
+    ['owner_return.rs', 220],
+    ['owner_return_apply.rs', 280],
+    ['owner_return_view.rs', 80],
     ['effect_check.rs', 700],
     ['summary.rs', 300],
     ['effect_summary.rs', 250],
