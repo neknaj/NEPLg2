@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T03:34:48.200Z",
+  "generated_at": "2026-05-05T03:38:59.818Z",
   "counts": {
-    "total": 489,
+    "total": 491,
     "open": 18,
-    "resolved": 471,
+    "resolved": 473,
     "by_area": {
       "cli": {
         "total": 20,
@@ -22,9 +22,9 @@
         "resolved": 0
       },
       "stdlib": {
-        "total": 152,
+        "total": 154,
         "open": 7,
-        "resolved": 145
+        "resolved": 147
       },
       "TEST": {
         "total": 19,
@@ -5260,6 +5260,21 @@
       "file": "items/ISS-20260430T151549577Z-STR-SPLIT-RESULT-STORES-OWNED-STR-IN-B3A69EAB.md"
     },
     {
+      "id": "ISS-20260505T021408593Z-FS-PATH-FILETYPE-LEAKS-NORMALIZED-ST-2B0962CF",
+      "title": "fs_path_filetype leaks normalized str owner under strict Resource IR",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/std/fs.nepl, stdlib/std/fs/path.nepl, tests/stdlib/fs.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T021408593Z-FS-PATH-FILETYPE-LEAKS-NORMALIZED-ST-2B0962CF.md"
+    },
+    {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
       "title": "nodesrc doctest parser runtime ignores diag_code metadata",
       "area": "TEST",
@@ -7268,6 +7283,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T064223548Z-NM-BYTE-SCANNER-POLICY-STILL-EXPECTS-18CC8784.md"
+    },
+    {
+      "id": "ISS-20260505T013338193Z-TESTS-STDLIB-IO-MISSING-FILE-OK-BRAN-824A29BA",
+      "title": "tests/stdlib/io missing-file Ok branch leaks owned str",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "tests/stdlib/io.n.md, stdlib/std/io.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T013338193Z-TESTS-STDLIB-IO-MISSING-FILE-OK-BRAN-824A29BA.md"
     },
     {
       "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",

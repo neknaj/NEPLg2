@@ -5,13 +5,40 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const relPath = 'stdlib/std/streamio.nepl';
-const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const facadeRelPath = 'stdlib/std/streamio.nepl';
+const writerRelPath = 'stdlib/std/streamio/writer.nepl';
+const facade = fs.readFileSync(path.join(repoRoot, facadeRelPath), 'utf8');
+const src = fs.readFileSync(path.join(repoRoot, writerRelPath), 'utf8');
 
 const code = src
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const facadeCode = facade
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+
+assert.match(
+    facadeCode,
+    /pub\s+#import\s+"\.\/streamio\/writer"\s+as\s+\*/,
+    'std/streamio.nepl must re-export the writer submodule',
+);
+
+for (const pattern of [
+    /\bstruct\s+StreamWriter\b/,
+    /\benum\s+StreamWriterTargetKind\b/,
+    /\btrait\s+StreamWritable\b/,
+    /\bfn\s+stream_writer_new\b/,
+    /\bfn\s+drain_impl\b/,
+    /\bfn\s+append_str_impl\b/,
+]) {
+    assert.doesNotMatch(
+        facadeCode,
+        pattern,
+        'std/streamio.nepl facade must not keep writer implementation bodies',
+    );
+}
 
 assert.doesNotMatch(
     code,
@@ -37,7 +64,7 @@ assert.match(
     'StreamWriter must keep buffer ownership and target enum as visible struct fields',
 );
 
-const writerNewMatch = code.match(/fn\s+stream_writer_new\b([\s\S]*?)\nfn\s+stream_scanner_wrap\b/);
+const writerNewMatch = code.match(/fn\s+stream_writer_new\b([\s\S]*?)\nfn\s+open\s+<\(WriteStream\)/);
 assert.ok(writerNewMatch, 'stream_writer_new body must be found');
 assert.match(
     writerNewMatch[1],

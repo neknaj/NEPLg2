@@ -160,6 +160,210 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査の正確性を優先し、owner use-after-move 診断を緩めず、Resource IR summary の transfer/consume 責務を分離した。
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs fd split)
+
+- [同期]:
+  - `origin/main` の `62f6633b` を取り込んだ状態から、branch `refactor/fs-fd-module-split` で対応した。
+- [原因]:
+  - raw syscall 分離後も `std/fs.nepl` は file descriptor の open/close lifecycle helper を facade に残していた。
+  - open/close は read/write API が共有する境界であり、path stat/dir/read/write 本体と分けると fd lifecycle の owner/error contract が追いやすい。
+- [修正]:
+  - `stdlib/std/fs/fd.nepl` を追加し、`fs_open_with_flags`、`fs_open_read`、`fs_open_write`、`fs_close` を移した。
+  - `std/fs` facade は `fd` を re-export し、既存 import から同じ API を使える構成にした。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は fd module も検査対象に含め、open/close helper が facade に戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/fd.nepl --no-tree -o tmp/fs-fd-module-direct.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-fd-split.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-fd-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js index; node nodesrc/issues.js check; git diff --check`: passed。generated timestamp だけの差分は commit 対象から除外した。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 826 lines まで縮小し、`fs/fd.nepl` は 163 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs raw split)
+
+- [同期]:
+  - `origin/main` の `1844a7be` を取り込んだ状態から、branch `refactor/fs-raw-module-split` で対応した。
+- [原因]:
+  - `std/fs.nepl` は path 分離後も WASI extern、bare wasm fallback、LLVM syscall fallback、fd read/write scratch、ByteBuf finish helper を facade に残していた。
+  - raw syscall/out-pointer 境界は public read/write/path API と責務が違うため、同じ file に残すと Resource IR 境界と ByteBuf owner policy の確認対象が膨らむ。
+- [修正]:
+  - `stdlib/std/fs/raw.nepl` を追加し、WASI extern、bare wasm fallback、LLVM syscall fallback、`fs_fd_read_into_result`、`fs_fd_write_from_result`、`fs_finish_read_buffer` を移した。
+  - `std/fs` facade は `raw` を re-export し、既存 API から raw helper を引き続き参照できる構成にした。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は raw module も検査対象に含め、raw helper が facade に戻らないことを固定した。
+  - `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` は `fs_finish_read_buffer` の owner boundary を `std/fs/raw.nepl` 側で確認するように追従した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/raw.nepl --no-tree -o tmp/fs-raw-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-raw-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-raw-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs/io 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js index; node nodesrc/issues.js check; git diff --check`: passed。generated timestamp だけの差分は commit 対象から除外した。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 972 lines まで縮小し、`fs/raw.nepl` は 404 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs constants/path split)
+
+- [同期]:
+  - `origin/main` の `70a76082` と一致する状態から、branch `refactor/fs-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/fs.nepl` は WASI shim、fd read/write、path 正規化、directory entry UTF-8 変換、directory sort、read/write public API を同居させていた。
+  - path 正規化 helper は syscall wrapper と独立した責務であり、巨大 facade に残すと Resource IR 境界と source policy の対象が追いづらい。
+- [修正]:
+  - WASI rights/oflags/errno/filetype/readdir buffer 定数を `stdlib/std/fs/constants.nepl` へ分離し、`std/fs` facade から re-export した。
+  - path validation、byte 辞書順 sort、directory entry byte-to-str、relative path normalization を `stdlib/std/fs/path.nepl` へ分離し、`std/fs` facade から re-export した。
+  - `fs_normalize_relative_builder` を追加し、syscall 境界では正規化 path を `str` owner にせず `StringBuilder` owner のまま渡して `string_builder_free` で閉じられる構造にした。
+  - `fs_path_filetype` の filestat out-buffer filetype byte を syscall 前に初期化し、Resource IR が外部 out-buffer 境界を追跡できる形にした。
+  - `tests/stdlib/fs.n.md` の unexpected success arm が返却 `str` owner を未消費にしないよう、失敗 assertion helper へ渡す形に修正した。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_bytebuf_utf8_boundary.js` を新 module 構成へ追従させた。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/path.nepl -i stdlib/std/fs/constants.nepl --no-tree -o tmp/fs-submodules-after-path-split.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-path-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-path-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdlib/fs 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js index; node nodesrc/issues.js check; git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 1740 lines から 1344 lines へ縮小し、`fs/path.nepl` 402 lines、`fs/constants.nepl` 56 lines に分離した。
+  - 検証中に `ISS-20260505T021408593Z-FS-PATH-FILETYPE-LEAKS-NORMALIZED-ST-2B0962CF` を追加し、同ブランチで fixed/resolved とした。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio scanner split)
+
+- [同期]:
+  - `origin/main` の `6426cff1` を取り込んだ状態から、branch `refactor/streamio-scanner-module-split` で対応した。
+- [原因]:
+  - `std/streamio.nepl` は writer 分離後も scanner cursor/header state、byte/text conversion helper、stdio stream bridge を同居させていた。
+  - scanner は writer と別の raw memory backed state を持つため、同じ facade に残すと source policy と静的検査境界が追いづらい。
+- [修正]:
+  - `stream_bytes_from_str(_result)` と `stream_bytes_to_str(_result)` を `std/streamio/bytes.nepl` へ移した。
+  - `StreamScanner`、scanner header enum、header load/store boundary、`open ReadStream`、scanner read overload、scanner `close` を `std/streamio/scanner.nepl` へ移した。
+  - `std/streamio.nepl` は `writer` / `bytes` / `scanner` を re-export する facade にした。
+  - scanner source policy、unsafe unwrap policy、match decision tree policy を新 module path に追従させた。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/bytes.nepl --no-tree -o tmp/streamio-bytes-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio/scanner.nepl --no-tree -o tmp/streamio-scanner-module-direct-2.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-facade-after-scanner-split.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-nmd-after-scanner-split.json -j 1`: `14 total / 14 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規/更新 streamio policy と match decision tree policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`streamio.nepl` は 414 lines まで縮小し、scanner 859 / writer 487 / bytes 72 lines に分割された。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260505T013338193Z io missing-file Ok branch owner leak fix)
+
+- [同期]:
+  - `origin/main` の `2c25af73` を取り込んだ状態から、branch `fix/io-missing-file-owner-leak` で対応した。
+- [修正]:
+  - `tests/stdlib/io.n.md` の `io_fs_missing_file_is_io_error` で、missing file の unexpected Ok branch が受け取った `str` owner を failure message へ組み込むようにした。
+  - `_text` 未使用で leak させず、`concat "io fs read unexpectedly succeeded: " text` に移動して `TestReport` の消費経路に乗せた。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-nmd-missing-file-owner-leak-fixed.json -j 1`: `6 total / 6 passed`
+- [issue]:
+  - `ISS-20260505T013338193Z-TESTS-STDLIB-IO-MISSING-FILE-OK-BRAN-824A29BA` を fixed/resolved に更新した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260505T013338193Z io missing-file Ok branch owner leak)
+
+- [同期]:
+  - `origin/main` の `e42becd6` を取り込んだ状態から、branch `issue/io-test-missing-file-owner-leak` で issue を追加した。
+- [発見]:
+  - `std/streamio` writer split の検証として `tests/stdlib/io.n.md` を実行したところ、`io_fs_missing_file_is_io_error` の `Result::Ok _text` branch が owned `str` を閉じず、`resource.raw.ownership_violation` で失敗した。
+  - missing file は実行時には Err を期待するが、静的検査では全 arm が owner obligation を満たす必要があるため、unreachable 前提で `_text` を未使用にする fixture は不適切。
+- [issue]:
+  - `ISS-20260505T013338193Z-TESTS-STDLIB-IO-MISSING-FILE-OK-BRAN-824A29BA` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio writer split)
+
+- [同期]:
+  - `origin/main` の `5147d316` を取り込んだ状態から、branch `refactor/streamio-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/streamio.nepl` は scanner、writer、stdio stream bridge、byte/text helper を同居させており、raw memory backed state の責務境界が大きすぎた。
+  - writer は scanner と独立した owning buffer API なので、先に分離しても循環 import を作らない。
+- [修正]:
+  - `StreamWriter`、`StreamWriterTargetKind`、writer buffer helper、`StreamWritable`、`open WriteStream`、`write` / `writeln` / `flush` / `close` を `std/streamio/writer.nepl` へ移した。
+  - `std/streamio.nepl` は `pub #import "./streamio/writer" as *` で writer API を re-export する。
+  - `std/streamio` facade doctest で `ByteBuf` を値渡しの `io_bytebuf_len` で消費していたため、borrowed `io_bytebuf_len_ref &bytes0` と `io_bytebuf_free bytes0` に修正した。
+  - `nodesrc/test_stdlib_streamio_writer_boundary.js` を writer module 対象へ更新し、writer 実装が facade に戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/writer.nepl --no-tree -o tmp/streamio-writer-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-facade-after-writer-split-3.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-nmd-after-writer-split.json -j 1`: `14 total / 14 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規/更新 streamio policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/io-nmd-after-streamio-writer-split.json -j 1`: `6 total / 5 passed / 1 failed`。missing-file test の unreachable Ok branch が `_text` str owner を閉じていないためで、streamio writer split とは別問題として issue 化する。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`streamio.nepl` は 1279 lines、`streamio/writer.nepl` は 487 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib streamio の writer state を、scanner とは別の owning-buffer module として分離した。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math int128 split)
+
+- [同期]:
+  - `origin/main` の `0eb61a47` を取り込んだ状態から、branch `refactor/math-int128-module-split` で対応した。
+- [原因]:
+  - `stdlib/core/math.nepl` は conversion split 後も u128/i128 API と `core/field` 依存を保持しており、公開 facade と実装責務がまだ分離しきれていなかった。
+  - int128 API は i64 演算と整数幅変換だけに依存するため、`core/math` facade に残す必要はなかった。
+- [修正]:
+  - u128/i128 の構造体、構築、加減算、比較、`mul_wide`、i128 乗算を `core/math/int128.nepl` へ移した。
+  - `core/math/int128` は `core/math` ではなく `core/math/i64` と `core/math/convert/width` を直接 import し、循環 import を避けた。
+  - `core/math.nepl` は `pub #import` 群だけの 27 lines facade になり、`core/field` 依存と real `fn` / `struct` を持たなくなった。
+  - `nodesrc/test_stdlib_math_module_split.js` を拡張し、int128 API が facade に戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/int128.nepl --no-tree -o tmp/math-int128-module-direct.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math.nepl --no-tree -o tmp/math-facade-after-int128-split.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/numerics.n.md -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-suite-after-int128-split.json -j 1`: `17 total / 17 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規/拡張 math split policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`core/math.nepl` の分割は完了したが、他の巨大 stdlib file が残っている。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib core math を、公開 facade と責務別 submodule の構造に整理した。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math conversion split)
+
+- [同期]:
+  - `origin/main` の `a2ce7b9b` を取り込んだ状態から、branch `refactor/math-convert-module-split` で対応した。
+- [原因]:
+  - `stdlib/core/math.nepl` は u8/bool/i32/i64/f32/f64 分割後も、整数幅変換・浮動小数点変換・bit pattern 再解釈 helper と u128/i128 API を同居させていた。
+  - 変換 helper は i128 実装からも使われる基盤 API であり、facade に実装を残すと次の int128 分割時にも依存境界が不明確になる。
+- [修正]:
+  - `core/math` から変換 helper 本体を除去し、`core/math/convert` を re-export する facade にした。
+  - `core/math/convert` は薄い facade として wrapper overload だけを保持し、raw helper は `convert/width`、`convert/float`、`convert/reinterpret` へ分割した。
+  - 単一の巨大 `convert` module を作らず、整数幅変換・浮動小数点変換・bit 再解釈を別責務に分けた。
+  - `nodesrc/test_stdlib_math_module_split.js` を拡張し、変換 helper が `core/math.nepl` に戻らないことと、`convert` facade が下位 module を re-export することを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/convert.nepl --no-tree -o tmp/math-convert-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math/convert/width.nepl --no-tree -o tmp/math-convert-width-direct.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math/convert/float.nepl --no-tree -o tmp/math-convert-float-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math/convert/reinterpret.nepl --no-tree -o tmp/math-convert-reinterpret-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/core/math.nepl --no-tree -o tmp/math-facade-after-convert-split.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/numerics.n.md -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-suite-after-convert-split.json -j 1`: `17 total / 17 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規/拡張 math split policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`core/math.nepl` は 244 lines まで縮小し、残る u128/i128 API の分割を次段階とする。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - stdlib の巨大 file 解消を、facade と責務別 submodule の構造に寄せて進めた。
 
 # 2026-04-30 メモ (fullreview Actions 方針補正)
 
@@ -29793,3 +29997,180 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - `doc/neplg2/static_check_complexity_reduction_plan.md` のStage 4/5方針に沿い、initialized summaryの検査意味を変えず、data / orchestration / cell fact / destruction / variant requirement の境界を静的に監視できる形に戻した。
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs stat split)
+
+- [同期]:
+  - `origin/main` の `df8d9215` を取り込んだ状態から、branch `refactor/fs-stat-module-split` で対応した。
+- [原因]:
+  - fd 分離後も `std/fs.nepl` は path stat / existence 判定を directory listing/read/write 本体と同居させていた。
+  - stat helper は `path_filestat_get` による path classification 境界であり、directory listing や read/write と分けると selfhost module discovery の依存面が狭くなる。
+- [修正]:
+  - `stdlib/std/fs/stat.nepl` を追加し、`fs_path_filetype`、`fs_exists`、`fs_is_file`、`fs_is_dir` を移した。
+  - `std/fs` facade は `stat` を re-export し、既存 import から同じ API を使える構成にした。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は stat module も検査対象に含め、stat helper が facade に戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/stat.nepl --no-tree -o tmp/fs-stat-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-stat-split.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-stat-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js index; node nodesrc/issues.js check; git diff --check`: passed。generated timestamp だけの差分は commit 対象から除外した。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 724 lines まで縮小し、`fs/stat.nepl` は 130 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs dir split)
+
+- [同期]:
+  - `origin/main` の `82cd65a5` を取り込んだ状態から、branch `refactor/fs-dir-module-split` で対応した。
+- [原因]:
+  - `std/fs.nepl` には stat 分離後も directory open / `fd_readdir` / entry name collection が read/write API と同居していた。
+  - directory traversal は selfhost module discovery の独立した責務であり、ByteBuf read/write や text conversion と同じ facade 本体に置くと `std/fs` が再び肥大化する。
+- [修正]:
+  - `stdlib/std/fs/dir.nepl` を追加し、`fs_open_dir`、`fs_read_dir_fd`、`fs_read_dir` を移した。
+  - `std/fs` facade は `dir` を re-export し、directory helper 本体を保持しない構造にした。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は dir module も検査対象に含め、directory helper が facade に戻らないことと、entry push 失敗を errno 12 へ写す処理が dir module に残ることを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/dir.nepl --no-tree -o tmp/fs-dir-module-direct-2.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-dir-split.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-dir-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 575 lines まで縮小し、`fs/dir.nepl` は 209 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs bytes split)
+
+- [同期]:
+  - `origin/main` の `622252a4` を取り込んだ状態から、branch `refactor/fs-bytes-module-split` で対応した。
+- [原因]:
+  - `std/fs.nepl` には read/write 本体と、`ByteBuf`/`str` 変換および `StdErrorKind` から fs errno への境界変換が同居していた。
+  - bytes/text 変換は read/write の共通依存であり、先に独立させることで後続の read/write 分割時に facade 本体へ共通 helper が残ることを避けられる。
+- [修正]:
+  - `stdlib/std/fs/bytes.nepl` を追加し、`fs_std_error_to_errno`、`fs_bytes_to_string_result`、`fs_bytes_to_string`、`fs_bytes_to_utf8_string_result` を移した。
+  - `std/fs` facade は `bytes` を re-export し、既存 import から同じ API を使える構成にした。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` は bytes module も検査対象に含め、ByteBuf conversion helper が facade に戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/bytes.nepl --no-tree -o tmp/fs-bytes-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-bytes-split.json -j 1`: `4 total / 4 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-bytes-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: passed
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs/ByteBuf 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 449 lines まで縮小し、`fs/bytes.nepl` は 143 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs read split)
+
+- [同期]:
+  - `origin/main` の `4ac21e60` を取り込んだ状態から、branch `refactor/fs-read-module-split` で対応した。
+- [原因]:
+  - `std/fs.nepl` には write API と fd/path read API が同居していた。
+  - read path は `fs_finish_read_buffer` による ByteBuf owner 正規化と `std/fs/bytes` の text 変換境界を持つため、write path と分けると static/source policy の確認対象が明確になる。
+- [修正]:
+  - `stdlib/std/fs/read.nepl` を追加し、`fs_read_fd_bytes`、`fs_read_to_bytes`、`fs_read_to_string`、`fs_read_to_string_checked` を移した。
+  - `std/fs` facade は `read` を re-export し、既存 import から同じ API を使える構成にした。
+  - `nodesrc/test_stdlib_bytebuf_utf8_boundary.js` と `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` を read module 配置へ追従し、`nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` に read helper の facade 再混入防止を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: passed
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/read.nepl --no-tree -o tmp/fs-read-module-direct.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-read-split.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-read-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs/ByteBuf 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 183 lines まで縮小し、`fs/read.nepl` は 290 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs write split)
+
+- [同期]:
+  - `origin/main` の `d78ae0d6` を取り込んだ状態から、branch `refactor/fs-write-module-split` で対応した。
+- [原因]:
+  - read 分離後の `std/fs.nepl` には write API 本体だけが残り、facade と実装がまだ混在していた。
+  - `std/fs` を完全に re-export 境界へ戻すことで、今後の API 追加時に facade が再肥大化する流れを source policy で検出できる。
+- [修正]:
+  - `stdlib/std/fs/write.nepl` を追加し、`fs_write_fd_mem_result`、`fs_write_fd_bytes`、`fs_write_to_bytes`、`fs_write_to_string` を移した。
+  - `std/fs` facade は `write` を re-export し、実装本体を持たない 32 lines の facade にした。
+  - 実装本体が消えた `std/fs.nepl` に、facade 役割の header と re-export 確認用 doctest を追加した。
+  - `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` に write module 対象追加と facade への write helper 再混入防止を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/write.nepl --no-tree -o tmp/fs-write-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl --no-tree -o tmp/fs-facade-after-write-split.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-suite-after-write-split.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: fs 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`fs.nepl` は 32 lines まで縮小し、`fs/write.nepl` は 189 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 stdio raw split)
+
+- [同期]:
+  - `origin/main` の `b7b9d257` を取り込んだ状態から、branch `refactor/stdio-raw-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/stdio.nepl` は public stdio API と、WASI extern / LLVM syscall fallback / raw allocation wrapper を同じ file に置いていた。
+  - read/write API を後続で分割する前に low-level ABI 境界を分けないと、submodule 側から raw helper へ依存するときに facade との責務が混ざる。
+- [修正]:
+  - `stdlib/std/stdio/raw.nepl` を追加し、`fd_read` / `fd_write` extern、LLVM `__linux_syscall_rw` fallback、`std_alloc`、`std_free`、`stdio_fd_read_mem` を移した。
+  - `std/stdio` facade は `raw` を re-export し、既存の `stdio_fd_read_into_result` / write API は同じ helper 名を import 経由で使う構成にした。
+  - `nodesrc/test_stdlib_stdio_read_boundary.js` に、raw helper が `stdio.nepl` 本体へ戻らないことと `stdio/raw` に存在することを固定する検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-raw-split-stdio.json -j 1`: `28 total / 28 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/stdio-raw-split-stdout.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/stdio-raw-split-stdin.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md --no-tree -o tmp/stdio-raw-split-read-all.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 1687 lines まで縮小し、`stdio/raw.nepl` は 130 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 stdio write split)
+
+- [同期]:
+  - `origin/main` の `e85f420d` を取り込んだ状態から、branch `refactor/stdio-write-module-split` で対応した。
+- [原因]:
+  - `stdlib/std/stdio.nepl` は raw 層分離後も stdout/stderr write API と stdin read / text facade / ANSI/debug helper を同居させていた。
+  - write API は `std/stdio/raw` に依存する再利用境界であり、read や ANSI/debug helper から使われるため、先に `write` module として独立させると後続分割が循環なしで進む。
+- [修正]:
+  - `stdlib/std/stdio/write.nepl` を追加し、`stdio_write_fd_mem_result`、stdout/stderr write result/facade、`print_byte` を移した。
+  - `std/stdio` facade は `write` を re-export し、既存 import から同じ API を使える構成にした。
+  - `nodesrc/test_stdlib_stdio_read_boundary.js` に、write helper が `stdio.nepl` 本体へ戻らず `stdio/write` に存在することを固定する検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/write.nepl --no-tree -o tmp/stdio-write-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_result_stderr.n.md --no-tree -o tmp/stdio-write-split-stderr.json -j 1`: `3 total / 3 passed`
+  - `node nodesrc/tests.js -i stdlib/std/stdio.nepl --no-tree -o tmp/stdio-write-split-stdio.json -j 1`: `27 total / 27 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/stdio-write-split-stdout.json -j 1`: `7 total / 7 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdin.n.md --no-tree -o tmp/stdio-write-split-stdin.json -j 1`: `5 total / 5 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md --no-tree -o tmp/stdio-write-split-read-all.json -j 1`: `2 total / 2 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdio 関連 policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`stdio.nepl` は 1444 lines まで縮小し、`stdio/write.nepl` は 263 lines。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

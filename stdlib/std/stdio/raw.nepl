@@ -1,0 +1,140 @@
+//: # std/stdio/raw
+//: `std/stdio` の low-level fd read/write ABI 境界を提供する submodule
+//:
+//: ### 目的
+//: - WASI `fd_read` / `fd_write` extern と LLVM Linux syscall fallback を `std/stdio` facade 本体から分離します。
+//: - iovec / nread / nwritten の raw ABI はこの module と上位 boundary helper に閉じ込めます。
+//:
+//: ### 注意
+//: - この module は target ABI に近い低水準層です。通常の利用者は `std/stdio` の Result API を使います。
+
+#indent 4
+
+#if[target=wasi]
+#extern "wasi_snapshot_preview1" "fd_read" fn fd_read <(i32,i32,i32,i32)*>i32>
+#if[target=wasi]
+#extern "wasi_snapshot_preview1" "fd_write" fn fd_write <(i32,i32,i32,i32)*>i32>
+
+#if[target=llvm]
+#extern "c" "syscall" fn __nepl_syscall <(i64,i64,i64,i64,i64,i64,i64)*>i64>
+
+#import "core/cast" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn std_alloc <(i32)->Result<i32,str>> (size):
+    alloc size
+
+//: std_free: stdio [内部/ないぶ] scratch allocation を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - `std_alloc` の `Result::Ok` から[得/え]た raw pointer を、stdio [内部/ないぶ]の scratch buffer として[解放/かいほう]します。
+//:
+//: [実装/じっそう]:
+//: - caller が valid allocation owner と exact size を[持/も]つことを[前提/ぜんてい]にし、checked `dealloc` ではなく `dealloc_raw` へ[直接/ちょくせつ][渡/わた]します。
+//: - checked `dealloc` の `Err` branch をここで[握/にぎ]りつぶすと、Resource IR の owner summary が「[解放/かいほう]されたかもしれない」状態を[残/のこ]してしまうためです。
+//:
+//: [注意/ちゅうい]:
+//: - `std_alloc` の `Result::Ok` 以外から[得/え]た pointer や、異なる size を[渡/わた]してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - `dealloc_raw` に[依存/いぞん]します。
+fn std_free <(i32,i32)->()> (ptr, size):
+    dealloc_raw ptr size
+
+fn stdio_fd_read_mem <(i32,MemPtr<u8>,i32,MemPtr<u8>)*>i32> (fd, iov, iovcnt, nread):
+    fd_read fd mem_ptr_addr iov iovcnt mem_ptr_addr nread
+
+#if[target=llvm]
+fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
+    #llvmir:
+        define i64 @__linux_syscall_rw(i32 %nr, i32 %fd, i32 %ptr, i32 %len) {
+        entry:
+            %nr64 = zext i32 %nr to i64
+            %fd64 = zext i32 %fd to i64
+            %len64 = zext i32 %len to i64
+            %idx = zext i32 %ptr to i64
+            %buf = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %idx
+            %buf64 = ptrtoint ptr %buf to i64
+            %ret = call i64 @__nepl_syscall(i64 %nr64, i64 %fd64, i64 %buf64, i64 %len64, i64 0, i64 0, i64 0)
+            ret i64 %ret
+        }
+
+#if[target=llvm]
+fn fd_write <(i32,i32,i32,i32)*>i32> (_fd,iovs,iovs_len,nwritten_ptr):
+    let mut total <i32> 0;
+    let mut iov_idx <i32> 0;
+    let mut err <i32> 0;
+    let mut done <i32> 0;
+    let fd <i32> _fd;
+    while eq done 0:
+        do:
+            if:
+                cond:
+                    lt iov_idx iovs_len
+                then:
+                    let iov_ptr <i32> add iovs mul iov_idx 8;
+                    let base <i32> load_i32 iov_ptr;
+                    let len <i32> load_i32 add iov_ptr 4;
+                    let n64 <i64> __linux_syscall_rw 1 fd base len;
+                    if:
+                        cond:
+                            lt n64 <i64> cast 0
+                        then:
+                            set err 1;
+                            set done 1;
+                        else:
+                            let n <i32> cast n64;
+                            set total add total n;
+                            if:
+                                cond:
+                                    lt n len
+                                then:
+                                    set done 1;
+                                else:
+                                    ();
+                    set iov_idx add iov_idx 1;
+                else:
+                    set done 1;
+    store_i32 nwritten_ptr total;
+    err
+
+#if[target=llvm]
+fn fd_read <(i32,i32,i32,i32)*>i32> (_fd,iovs,iovs_len,nread_ptr):
+    let mut total <i32> 0;
+    let mut iov_idx <i32> 0;
+    let mut err <i32> 0;
+    let mut done <i32> 0;
+    let fd <i32> _fd;
+    while eq done 0:
+        do:
+            if:
+                cond:
+                    lt iov_idx iovs_len
+                then:
+                    let iov_ptr <i32> add iovs mul iov_idx 8;
+                    let base <i32> load_i32 iov_ptr;
+                    let len <i32> load_i32 add iov_ptr 4;
+                    let n64 <i64> __linux_syscall_rw 0 fd base len;
+                    if:
+                        cond:
+                            lt n64 <i64> cast 0
+                        then:
+                            set err 1;
+                            set done 1;
+                        else:
+                            let n <i32> cast n64;
+                            set total add total n;
+                            if:
+                                cond:
+                                    lt n len
+                                then:
+                                    set done 1;
+                                else:
+                                    ();
+                    set iov_idx add iov_idx 1;
+                else:
+                    set done 1;
+    store_i32 nread_ptr total;
+    err

@@ -1,0 +1,168 @@
+//: # std/fs/fd
+//: `std/fs` の file descriptor open/close helper を提供する submodule
+//:
+//: ### 目的
+//: - path_open と fd_close の Result 変換を raw syscall module から切り離し、read/write API が共有する fd lifecycle 境界としてまとめます。
+//: - `std/fs` facade から re-export されるため、既存利用者の import は維持されます。
+//:
+//: ### 注意
+//: - `fs_open_read` / `fs_open_write` で得た fd は、呼び出し側が `fs_close` で閉じる必要があります。
+
+#indent 4
+
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "std/fs/constants" as *
+#import "std/fs/raw" as *
+//: fs_open_with_flags: path_open の fd_out 確保と結果変換を共通化する
+//:
+//: 目的:
+//: - read/write で共通する WASI `path_open` 呼び出しを 1 箇所へ集約します。
+//:
+//: 実装(アルゴリズム):
+//: - fd_out 用の 4 byte buffer を確保し、`path_open` 成功時だけ fd を読み出して返します。
+//:
+//: 注意(重要):
+//: - dirfd は 3 (preopen) を仮定します。
+//: - 失敗時は WASI errno または確保失敗相当の 12 を返します。
+//:
+//: 計算量:
+//: - O(1)
+fn fs_open_with_flags <(str,i32,i64)*>Result<i32,i32>> (path, oflags, rights):
+    match alloc_ptr<u8> 4:
+        Result::Err _e:
+            Result<i32,i32>::Err 12
+        Result::Ok fd_out_buf:
+            let fd_out_raw <i32> mem_ptr_addr fd_out_buf
+            let res <Result<i32,i32>> if:
+                le fd_out_raw 0
+                then:
+                    Result<i32,i32>::Err fs_errno_inval
+                else:
+                    store_i32 fd_out_raw 0
+                    let path_ptr <i32> mem_ptr_addr string_data_ptr path
+                    let path_len <i32> len path
+                    let errno <i32> wasi_path_open 3 0 path_ptr path_len oflags rights rights 0 fd_out_raw
+                    if:
+                        eq errno 0
+                        then:
+                            Result<i32,i32>::Ok load_i32 fd_out_raw
+                        else:
+                            Result<i32,i32>::Err errno
+            match dealloc_ptr<u8> fd_out_buf 4:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
+            res
+
+//: fs_open_read: ファイルを読み込み専用で開く
+//:
+//: 目的:
+//: - path を開き、fd を返します。
+//:
+//: 実装(アルゴリズム):
+//: - path_open を呼び、fd_out から fd を取得します。
+//:
+//: 注意(重要):
+//: - dirfd は 3 (preopen) を仮定します。
+//: - 失敗時は Err(errno) を返します。
+//:
+//: 計算量:
+//: - O(1)
+//: fs_open_read: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `fs_open_read` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/fs" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_open_read "tests/fixtures/fs/read_sample.txt":
+//:         Result::Ok _fd:
+//:             0
+//:         Result::Err _e:
+//:             1
+//: ```
+fn fs_open_read <(str)*>Result<i32,i32>> (path):
+    fs_open_with_flags path 0 fs_right_fd_read
+
+//: fs_open_write: ファイルを書き込み専用で開く
+//:
+//: 目的:
+//: - path を create + truncate + write の権限で開き、fd を返します。
+//:
+//: 実装(アルゴリズム):
+//: - `path_open` に WASI oflags create/truncate と fd_write right を渡します。
+//:
+//: 注意(重要):
+//: - dirfd は 3 (preopen) を仮定します。
+//: - 既存ファイルは truncate されます。
+//: - 失敗時は Err(errno) を返します。
+//:
+//: 計算量:
+//: - O(1)
+//: fs_open_write: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `fs_open_write` が file descriptor を返し、`fs_close` で閉じられることを確認します。
+//:
+//: [注意/ちゅうい]:
+//: - 内容書き込みは `fs_write_to_string` / `fs_write_to_bytes` の回帰テストで確認します。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/fs" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_open_write "tmp/fs_open_write_doctest.txt":
+//:         Result::Ok fd:
+//:             match fs_close fd:
+//:                 Result::Ok _:
+//:                     0
+//:                 Result::Err _e:
+//:                     2
+//:         Result::Err _e:
+//:             1
+//: ```
+fn fs_open_write <(str)*>Result<i32,i32>> (path):
+    fs_open_with_flags path fs_oflags_create_truncate fs_right_fd_write
+
+//: fs_close: fd を閉じる
+//:
+//: 目的:
+//: - `fs_open_read` / `fs_open_write` で得た fd を明示的に閉じます。
+//:
+//: 実装(アルゴリズム):
+//: - WASI `fd_close` を呼び、errno 0 を `Ok(())`、それ以外を `Err(errno)` に変換します。
+//:
+//: 注意(重要):
+//: - write fd では close 時に host runtime が残りの出力を確定する場合があります。
+//:
+//: 計算量:
+//: - O(1)
+fn fs_close <(i32)*>Result<(),i32>> (fd):
+    let errno <i32> wasi_fd_close fd
+    if:
+        eq errno 0
+        then:
+            Result<(),i32>::Ok ()
+        else:
+            Result<(),i32>::Err errno

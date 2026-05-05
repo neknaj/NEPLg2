@@ -5,13 +5,39 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const relPath = 'stdlib/std/streamio.nepl';
-const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const facadeRelPath = 'stdlib/std/streamio.nepl';
+const scannerRelPath = 'stdlib/std/streamio/scanner.nepl';
+const facade = fs.readFileSync(path.join(repoRoot, facadeRelPath), 'utf8');
+const src = fs.readFileSync(path.join(repoRoot, scannerRelPath), 'utf8');
 
 const code = src
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const facadeCode = facade
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+
+assert.match(
+    facadeCode,
+    /pub\s+#import\s+"\.\/streamio\/scanner"\s+as\s+\*/,
+    'std/streamio.nepl must re-export the scanner submodule',
+);
+
+for (const pattern of [
+    /\bstruct\s+StreamScanner\b/,
+    /\benum\s+StreamScannerHeaderField\b/,
+    /\bfn\s+stream_scanner_load_header_result\b/,
+    /\bfn\s+scanner_from_bytes\b/,
+    /\bfn\s+scan_token_impl\b/,
+]) {
+    assert.doesNotMatch(
+        facadeCode,
+        pattern,
+        'std/streamio.nepl facade must not keep scanner implementation bodies',
+    );
+}
 
 assert.match(
     code,

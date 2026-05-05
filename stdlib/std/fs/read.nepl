@@ -1,0 +1,290 @@
+//: # std/fs/read
+//: `std/fs` の file read helper を提供する submodule
+//:
+//: ### 目的
+//: - fd から `ByteBuf` を作る処理と path-based read API を、write API から分離します。
+//: - read path の owner 境界を `fs_finish_read_buffer` と `std/fs/bytes` に集約して確認しやすくします。
+//:
+//: ### 注意
+//: - text として読む場合は `fs_read_to_string_checked` を使うと UTF-8 検証境界が明示されます。
+
+#indent 4
+
+#import "alloc/io" as *
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "std/fs/bytes" as *
+#import "std/fs/fd" as *
+#import "std/fs/raw" as *
+
+//: fs_read_fd_bytes: fd から全て読み込んで `ByteBuf` を返す
+//:
+//: 目的:
+//: - fd の内容をすべて読み込み、バイト列として返します。
+//:
+//: 実装(アルゴリズム):
+//: - 64KiB から開始する連続 buffer を必要に応じて再確保し、EOF まで `fd_read` を繰り返します。
+//:
+//: 注意(重要):
+//: - 途中でエラーが出た場合は Err(errno) を返します。
+//:
+//: 計算量:
+//: - O(n)
+//: fs_read_fd_bytes: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `fs_read_fd_bytes` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: stdin: "fd bytes"
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/fs/read" as *
+//:| #import "std/fs/bytes" as *
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_read_fd_bytes 0:
+//:         Result::Ok bytes:
+//:             let text <str> fs_bytes_to_string bytes;
+//:             if str_eq text "fd bytes" 0 1
+//:         Result::Err _e:
+//:             1
+//: ```
+fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
+    let mut cap <i32> 65536;
+    match alloc_ptr<u8> cap:
+        Result::Err _e:
+            Result<ByteBuf,i32>::Err 12
+        Result::Ok buf0:
+            let mut buf <MemPtr<u8>> buf0;
+            match alloc_ptr<u8> 8:
+                Result::Err _e:
+                    match dealloc_ptr<u8> buf cap:
+                        Result::Ok _:
+                            ()
+                        Result::Err _e:
+                            ();
+                    Result<ByteBuf,i32>::Err 12
+                Result::Ok iov_buf:
+                    match alloc_ptr<u8> 4:
+                        Result::Err _e:
+                            match dealloc_ptr<u8> iov_buf 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _e:
+                                    ();
+                            match dealloc_ptr<u8> buf cap:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _e:
+                                    ();
+                            Result<ByteBuf,i32>::Err 12
+                        Result::Ok nread_buf:
+                            let mut read_len <i32> 0;
+                            let mut done <i32> 0;
+                            let mut err <i32> 0;
+                            let mut alloc_failed <i32> 0;
+
+                            while eq done 0:
+                                do:
+                                    if:
+                                        eq read_len cap
+                                        then:
+                                            let new_cap <i32> mul cap 2;
+                                            match realloc_ptr<u8> buf cap new_cap:
+                                                Result::Ok new_buf:
+                                                    set buf new_buf;
+                                                    set cap new_cap;
+                                                Result::Err _e:
+                                                    set alloc_failed 1;
+                                                    set done 1;
+                                        else:
+                                            ();
+                                    if:
+                                        eq done 0
+                                        then:
+                                            match fs_fd_read_into_result fd iov_buf nread_buf mem_ptr_add buf read_len sub cap read_len:
+                                                Result::Ok n:
+                                                    if:
+                                                        eq n 0
+                                                        then:
+                                                            set done 1
+                                                        else:
+                                                            set read_len add read_len n
+                                                Result::Err e:
+                                                    set err e;
+                                                    set done 1
+                                        else:
+                                            ()
+
+                            let res <Result<ByteBuf,i32>> if:
+                                eq alloc_failed 1
+                                then:
+                                    match dealloc_ptr<u8> buf cap:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _e:
+                                            ()
+                                    Result<ByteBuf,i32>::Err 12
+                                else:
+                                    if:
+                                        eq err 0
+                                        then:
+                                            fs_finish_read_buffer buf cap read_len
+                                        else:
+                                            match dealloc_ptr<u8> buf cap:
+                                                Result::Ok _:
+                                                    ()
+                                                Result::Err _e:
+                                                    ()
+                                            Result<ByteBuf,i32>::Err err
+                            match dealloc_ptr<u8> nread_buf 4:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _e:
+                                    ();
+                            match dealloc_ptr<u8> iov_buf 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _e:
+                                    ();
+                            res
+
+//: fs_read_to_bytes: ファイルを読み込んで `ByteBuf` を返す
+//:
+//: 目的:
+//: - path を開き、内容をバイト列として返します。
+//:
+//: 実装(アルゴリズム):
+//: - fs_open_read → fs_read_fd_bytes → fd_close の順に処理します。
+//:
+//: 注意(重要):
+//: - 失敗時は Err(errno) を返します。
+//:
+//: 計算量:
+//: - O(n)
+//: fs_read_to_bytes: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `fs_read_to_bytes` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/fs/read" as *
+//:| #import "std/fs/bytes" as *
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_read_to_bytes "tests/fixtures/fs/read_sample.txt":
+//:         Result::Ok bytes:
+//:             let text <str> fs_bytes_to_string bytes;
+//:             if:
+//:                 str_eq text "fs fixture text\n"
+//:                 then 0
+//:                 else if str_eq text "fs fixture text\r\n" 0 1
+//:         Result::Err _e:
+//:             2
+//: ```
+fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
+    match fs_open_read path:
+        Result::Ok fd:
+            let res <Result<ByteBuf,i32>> fs_read_fd_bytes fd;
+            match fs_close fd:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
+            res
+        Result::Err e:
+            Result::Err e
+
+//: fs_read_to_string: ファイルを読み込んで str を返す
+//:
+//: 目的:
+//: - path を読み込み、文字列として返します。
+//:
+//: 実装(アルゴリズム):
+//: - fs_read_to_bytes で読み込み、fs_bytes_to_string_result で UTF-8 検証つき変換を行います。
+//:
+//: 注意(重要):
+//: - invalid UTF-8 は errno 84 (ILSEQ 相当) として返します。
+//: - 失敗時は Err(errno) を返します。
+//:
+//: 計算量:
+//: - O(n)
+//: fs_read_to_string: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `fs_read_to_string` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/fs/read" as *
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_read_to_string "tests/fixtures/fs/read_sample.txt":
+//:         Result::Ok text:
+//:             if:
+//:                 str_eq text "fs fixture text\n"
+//:                 then 0
+//:                 else if str_eq text "fs fixture text\r\n" 0 1
+//:         Result::Err _e:
+//:             2
+//: ```
+fn fs_read_to_string <(str)*>Result<str,i32>> (path):
+    match fs_read_to_bytes path:
+        Result::Ok bytes:
+            fs_bytes_to_string_result bytes
+        Result::Err e:
+            Result::Err e
+
+//: fs_read_to_string_checked: ファイルを UTF-8 [検証/けんしょう]して str として[読/よ]み[込/こ]む
+//:
+//: [目的/もくてき]:
+//: - compiler source や設定 file など、`str` として[扱/あつか]う[前提/ぜんてい]の file を invalid UTF-8 から[守/まも]ります。
+//:
+//: [実装/じっそう]:
+//: - `fs_read_to_bytes` で binary として[読/よ]み、`fs_bytes_to_utf8_string_result` で UTF-8 [検証/けんしょう]と `str` [変換/へんかん]を[行/おこな]います。
+//:
+//: [注意/ちゅうい]:
+//: - binary file を text として[読/よ]む API ではありません。binary artifact は `fs_read_to_bytes` を[使/つか]ってください。
+//: - invalid UTF-8 は errno 84 (ILSEQ 相当) として[返/かえ]します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn fs_read_to_string_checked <(str)*>Result<str,i32>> (path):
+    match fs_read_to_bytes path:
+        Result::Ok bytes:
+            fs_bytes_to_utf8_string_result bytes
+        Result::Err e:
+            Result::Err e

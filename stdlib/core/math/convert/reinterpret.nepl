@@ -1,0 +1,122 @@
+//: # math/convert/reinterpret
+//: 数値の bit pattern 再解釈を提供する core math conversion submodule
+//:
+//: [目的/もくてき]:
+//: - i32/f32 と i64/f64 の bit pattern を数値変換せずに再解釈します。
+//:
+//: [注意/ちゅうい]:
+//: - 再解釈は値の意味を変換しません。NaN payload や符号 bit を含めて基盤表現をそのまま扱います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/convert/reinterpret" as *
+//: fn main <()->i32> ():
+//:     reinterpret_f32_to_i32 reinterpret_i32_to_f32 0
+//: ```
+
+#indent 4
+//: reinterpret_i32_to_f32: i32 のビット列を f32 として再解釈
+//:
+//: [目的/もくてき]:
+//: - 32-bit のビット列を変更せずに f32 として扱います。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.reinterpret_i32`、llvm は `bitcast i32 to float` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 数値変換ではなくビット再解釈です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn reinterpret_i32_to_f32 <(i32)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.reinterpret_i32
+    #if[target=llvm]
+    #llvmir:
+        define float @reinterpret_i32_to_f32(i32 %a) {
+        entry:
+            %0 = bitcast i32 %a to float
+            ret float %0
+        }
+
+//: reinterpret_f32_to_i32: f32 のビット列を i32 として再解釈
+//:
+//: [目的/もくてき]:
+//: - f32 のビット表現をそのまま i32 として読み取ります。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.reinterpret_f32`、llvm は `bitcast float to i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 数値変換ではなくビット再解釈です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn reinterpret_f32_to_i32 <(f32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.reinterpret_f32
+    #if[target=llvm]
+    #llvmir:
+        define i32 @reinterpret_f32_to_i32(float %a) {
+        entry:
+            %0 = bitcast float %a to i32
+            ret i32 %0
+        }
+
+//: reinterpret_i64_to_f64: i64 のビット列を f64 として再解釈
+//:
+//: [目的/もくてき]:
+//: - 64-bit のビット列を変更せずに f64 として扱います。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.reinterpret_i64`、llvm は `bitcast i64 to double` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 数値変換ではなくビット再解釈です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn reinterpret_i64_to_f64 <(i64)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.reinterpret_i64
+    #if[target=llvm]
+    #llvmir:
+        define double @reinterpret_i64_to_f64(i64 %a) {
+        entry:
+            %0 = bitcast i64 %a to double
+            ret double %0
+        }
+
+//: reinterpret_f64_to_i64: f64 のビット列を i64 として再解釈
+//:
+//: [目的/もくてき]:
+//: - f64 のビット表現をそのまま i64 として読み取ります。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i64.reinterpret_f64`、llvm は `bitcast double to i64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 数値変換ではなくビット再解釈です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn reinterpret_f64_to_i64 <(f64)->i64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i64.reinterpret_f64
+    #if[target=llvm]
+    #llvmir:
+        define i64 @reinterpret_f64_to_i64(double %a) {
+        entry:
+            %0 = bitcast double %a to i64
+            ret i64 %0
+        }
