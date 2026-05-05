@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T03:55:11.125Z",
+  "generated_at": "2026-05-05T04:02:10.470Z",
   "counts": {
     "total": 491,
-    "open": 17,
-    "resolved": 474,
+    "open": 16,
+    "resolved": 475,
     "by_area": {
       "cli": {
         "total": 20,
@@ -28,8 +28,8 @@
       },
       "TEST": {
         "total": 19,
-        "open": 2,
-        "resolved": 17
+        "open": 1,
+        "resolved": 18
       },
       "selfhost": {
         "total": 45,
@@ -278,21 +278,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260430T171954145Z-FEATURES-TUI-STD-TEST-DOCTEST-OMITS--D7D6F2FD",
-      "title": "features_tui std/test doctest omits stdout assertion report",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "tests/stdlib/features_tui.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260430T171954145Z-FEATURES-TUI-STD-TEST-DOCTEST-OMITS--D7D6F2FD.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -5543,6 +5528,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T141611950Z-DROP-REGRESSION-FIXTURES-USE-PURE-EN-D9FD2B4F.md"
+    },
+    {
+      "id": "ISS-20260430T171954145Z-FEATURES-TUI-STD-TEST-DOCTEST-OMITS--D7D6F2FD",
+      "title": "features_tui std/test doctest omits stdout assertion report",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-30",
+      "updated": "2026-05-05",
+      "target": "tests/stdlib/features_tui.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T171954145Z-FEATURES-TUI-STD-TEST-DOCTEST-OMITS--D7D6F2FD.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

@@ -1,3 +1,22 @@
+# 2026-05-05 メモ (ISS-20260430T171954145Z features_tui stdout assertion report)
+
+- [原因]:
+  - `features_tui_box_helpers_clamp_narrow_widths` は `std/test` の check aggregator を使っていたが、`checks_exit_code` だけを返しており、stdout の assertion report を doctest fixture として固定していなかった。
+  - そのため、失敗時の詳細表示や report format の退行が exit code だけでは検出できなかった。
+- [修正]:
+  - doctest metadata を stdout fixture に変更し、15 件の `ok` report を期待出力として固定した。
+  - doctest 本体で `checks_print_report` の戻り値を `checks_exit_code` に渡す形へ整理し、report 表示と終了コードを同じ check aggregation の結果から導出するようにした。
+  - WASIX runner の process metadata 欠落は既存 issue の責務として分離し、この issue では stdout 契約だけを閉じた。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i tests/stdlib/features_tui.n.md -n 4 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-stdout-report-agent1.json -j 1 --dist web/dist`: total=4, passed=4, failed=0
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+- [issue]:
+  - `ISS-20260430T171954145Z-FEATURES-TUI-STD-TEST-DOCTEST-OMITS--D7D6F2FD` を fixed/resolved にした。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 言語仕様や静的検査の挙動は変更せず、stdlib doctest の観測可能な assertion report 契約を追加した。
+
 # 2026-05-05 メモ (ISS-20260505T010829802Z WASIX get_terminal_size owner path)
 
 - [原因]:
