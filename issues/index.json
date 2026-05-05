@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T05:39:37.987Z",
+  "generated_at": "2026-05-05T19:19:48.521Z",
   "counts": {
     "total": 466,
     "open": 14,
@@ -143,7 +143,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-04-30",
+      "updated": "2026-05-06",
       "target": "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md",
       "legacy_id": "",
       "source": "",

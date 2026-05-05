@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-04-30
+updated: 2026-05-06
 target: "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md"
 ---
 
@@ -876,3 +876,28 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 検証:
 
 - `node nodesrc/test_diagnostic_code_first_boundary.js`
+
+## 2026-05-06 Stage D1 same-definition shadow warning 修正
+
+Resource IR の source-based regression で、`core/math` 系の stdlib 関数 `add` / `sub` などが `resolve.shadow.same_signature_callable` warning を大量に出し、警告だけで Resource IR テストの前提型検査が止まっていた。
+
+調査の結果、同じ source definition が import 展開や hoist 済み binding として既に `Env` に見えている場合でも、`find_same_signature_func_in_file` / `find_visible_same_signature_func` が `Span` identity を確認せず、同一定義を「同じ file の再定義」または「visible な同一シグネチャ shadow」と誤判定していた。
+
+今回の対応で、同一 `Span` の callable binding は shadow/redefinition 候補から除外するようにした。これにより、実際に別 span で同一シグネチャを定義した場合の warning / noshadow error は維持しつつ、同じ source definition が複数経路で見えるだけのケースでは診断を出さない。これは warning を握りつぶす修正ではなく、診断発生条件を定義 identity に基づくものへ戻す修正である。
+
+回帰として `stdlib_reimported_definition_does_not_warn_same_signature_shadow` を追加し、stdlib math import が `ShadowSameSignatureCallable` を出さないことを固定した。これにより、以前この警告で未完了だった Resource IR の Result::Ok/Err variant-gated initialized summary test と MemPtr disjoint offset test も実行可能になった。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: pass
+- `cargo test -p nepl-core --test neplg2 stdlib_reimported_definition_does_not_warn_same_signature_shadow -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_applies_result_ok_param_raw_cell_initialization -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_does_not_apply_result_err_param_raw_cell_initialization -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_mem_ptr_disjoint_offsets -- --nocapture`: pass
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative -- --nocapture`: pass
+- `cargo check -p nepl-core --tests`: pass
+- `node nodesrc/test_diagnostic_code_first_boundary.js`: pass
+- `trunk build`: pass
+- `node nodesrc/tests.js -i tests/compiler/shadowing.n.md --no-tree -o tmp/agent1-shadow-same-definition-after-trunk.json -j 1`: 27 passed
+- `node nodesrc/issues.js check`: pass
+- `git diff --check`: pass

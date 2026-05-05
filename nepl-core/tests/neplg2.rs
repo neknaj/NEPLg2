@@ -1,3 +1,4 @@
+use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_codes::{
     BackendDiagnosticCode, DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode,
     TypeDiagnosticCode,
@@ -217,6 +218,44 @@ fn load_inline_with_stdlib(src: &str) -> nepl_core::loader::LoadResult {
     loader
         .load_inline(std::path::PathBuf::from("test.nepl"), src.to_string())
         .expect("load")
+}
+
+#[test]
+fn stdlib_reimported_definition_does_not_warn_same_signature_shadow() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn main <()->i32> ():
+    add 40 2
+"#;
+    let loaded = load_inline_with_stdlib(src);
+    let checked = nepl_core::typecheck::typecheck(
+        &loaded.module,
+        CompileTarget::Wasm,
+        BuildProfile::Debug,
+        Some(&loaded.source_map),
+    );
+    assert!(
+        checked
+            .diagnostics
+            .iter()
+            .all(|diag| diag.severity != Severity::Error),
+        "expected stdlib math import to typecheck, got {:?}",
+        checked.diagnostics
+    );
+    assert!(
+        checked.diagnostics.iter().all(|diag| {
+            diag.code
+                != Some(DiagnosticCode::Resolve(
+                    ResolveDiagnosticCode::ShadowSameSignatureCallable,
+                ))
+        }),
+        "same source definition must not be reported as callable shadowing: {:?}",
+        checked.diagnostics
+    );
 }
 
 #[test]

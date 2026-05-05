@@ -85,7 +85,8 @@ pub(super) fn find_same_signature_func_in_file<'a>(
     ctx: &TypeCtx,
 ) -> Option<&'a Binding> {
     env.lookup_all_callables(name).into_iter().find(|b| {
-        b.span.file_id == span.file_id
+        b.span != span
+            && b.span.file_id == span.file_id
             && matches!(b.kind, BindingKind::Func { .. })
             && same_function_signature(ctx, b.ty, ty)
     })
@@ -100,12 +101,14 @@ pub(super) fn find_visible_same_signature_func<'a>(
     ctx: &TypeCtx,
 ) -> Option<&'a Binding> {
     env.lookup_all_callables(name).into_iter().find(|b| {
-        import_resolution.binding_is_visible_unqualified(
-            span.file_id.0,
-            name,
-            b.span.file_id.0,
-            &b.name,
-        ) && matches!(b.kind, BindingKind::Func { .. })
+        b.span != span
+            && import_resolution.binding_is_visible_unqualified(
+                span.file_id.0,
+                name,
+                b.span.file_id.0,
+                &b.name,
+            )
+            && matches!(b.kind, BindingKind::Func { .. })
             && same_function_signature(ctx, b.ty, ty)
     })
 }
