@@ -2,8 +2,9 @@ use nepl_core::ast::Effect;
 use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_codes::DiagnosticCode;
 use nepl_core::effects::{
-    internal_effect_surface_fold, intrinsic_effect, raw_callee_internal_effect,
-    raw_memory_callee_internal_effect, raw_memory_op_from_name, InternalEffect, RawMemoryOp,
+    external_io_op_from_name, internal_effect_surface_fold, intrinsic_effect, nondet_op_from_name,
+    raw_callee_internal_effect, raw_memory_callee_internal_effect, raw_memory_op_from_name,
+    ExternalIoOp, InternalEffect, NondetOp, RawMemoryOp,
 };
 use nepl_core::error::CoreError;
 use nepl_core::loader::Loader;
@@ -98,7 +99,7 @@ fn internal_effect_classifies_raw_memory_and_surface_fold() {
     let io = raw_callee_internal_effect("fd_write").expect("io effect");
     assert!(matches!(
         io,
-        InternalEffect::ExternalIo { ref operation } if operation == "fd_write"
+        InternalEffect::ExternalIo { operation } if operation == ExternalIoOp::FdWrite
     ));
     assert_eq!(raw_memory_callee_internal_effect("fd_write"), None);
     assert_eq!(internal_effect_surface_fold(&io), Some(Effect::Impure));
@@ -106,9 +107,20 @@ fn internal_effect_classifies_raw_memory_and_surface_fold() {
     let nondet = raw_callee_internal_effect("random_get").expect("nondet effect");
     assert!(matches!(
         nondet,
-        InternalEffect::Nondet { ref operation } if operation == "random_get"
+        InternalEffect::Nondet { operation } if operation == NondetOp::RandomGet
     ));
     assert_eq!(internal_effect_surface_fold(&nondet), Some(Effect::Impure));
+}
+
+#[test]
+fn all_impure_io_effect_markers_have_typed_operations() {
+    for marker in nepl_core::effects::IMPURE_IO_EFFECT_MARKERS {
+        assert!(
+            external_io_op_from_name(marker).is_some() || nondet_op_from_name(marker).is_some(),
+            "impure host marker '{}' must map to ExternalIoOp or NondetOp",
+            marker
+        );
+    }
 }
 
 #[test]

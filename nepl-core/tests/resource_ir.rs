@@ -8,12 +8,12 @@ use nepl_core::resource::{
     check_resource_effect_boundaries, check_resource_initialized_moves,
     check_resource_owner_obligations, compare_hir_resource_lowering, lower_hir_module,
     lower_hir_module_skeleton, AggregateKind, BorrowKind, BorrowState, CellState, EffectOp,
-    OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp, ResourceBlock, ResourceBlockId,
-    ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic,
-    ResourceCheckOperation, ResourceCoverageDiagnostic, ResourceCoverageKind,
-    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
-    ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
-    ResourceOwnerOperation, ResourceTerminator,
+    ExternalIoOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp, ResourceBlock,
+    ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget,
+    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCoverageDiagnostic,
+    ResourceCoverageKind, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
+    ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal, ResourceModule, ResourceOffset,
+    ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -9905,7 +9905,7 @@ fn resource_ir_cell_check_external_fd_read_initializes_iovec_buffers() {
                 },
                 args: vec![fd, iov, iov_count, nread.clone()],
                 effect: EffectOp::ExternalIo {
-                    operation: String::from("fd_read"),
+                    operation: ExternalIoOp::FdRead,
                 },
                 span,
             },
@@ -10035,7 +10035,7 @@ fn resource_ir_cell_check_fd_pwrite_initializes_nwritten_not_offset() {
                 },
                 args: vec![fd, iov, iov_count, offset.clone(), nwritten.clone()],
                 effect: EffectOp::ExternalIo {
-                    operation: String::from("fd_pwrite"),
+                    operation: ExternalIoOp::FdPwrite,
                 },
                 span,
             },
@@ -10179,7 +10179,7 @@ fn resource_ir_cell_check_fd_write_accepts_initialized_iovec_buffer() {
                 },
                 args: vec![fd, iov, iov_count, nwritten.clone()],
                 effect: EffectOp::ExternalIo {
-                    operation: String::from("fd_write"),
+                    operation: ExternalIoOp::FdWrite,
                 },
                 span,
             },
@@ -10286,7 +10286,7 @@ fn resource_ir_cell_check_fd_write_reports_uninitialized_iovec_buffer() {
                 },
                 args: vec![fd, iov, iov_count, nwritten],
                 effect: EffectOp::ExternalIo {
-                    operation: String::from("fd_write"),
+                    operation: ExternalIoOp::FdWrite,
                 },
                 span,
             },
@@ -10359,7 +10359,7 @@ fn resource_ir_cell_check_fd_read_reports_uninitialized_iovec_descriptor() {
                 },
                 args: vec![fd, iov, iov_count, nread],
                 effect: EffectOp::ExternalIo {
-                    operation: String::from("fd_read"),
+                    operation: ExternalIoOp::FdRead,
                 },
                 span,
             },

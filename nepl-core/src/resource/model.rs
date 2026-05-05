@@ -5,7 +5,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
-pub use crate::effects::RawMemoryOp;
+pub use crate::effects::{ExternalIoOp, NondetOp, RawMemoryOp};
 use crate::span::Span;
 use crate::types::TypeId;
 
@@ -324,8 +324,8 @@ pub enum EffectOp {
     IndirectCall { effect: Effect },
     InternalAlloc { operation: RawMemoryOp },
     UnsafeMemory { operation: RawMemoryOp },
-    ExternalIo { operation: String },
-    Nondet { operation: String },
+    ExternalIo { operation: ExternalIoOp },
+    Nondet { operation: NondetOp },
     Unknown { reason: String },
 }
 

@@ -3,7 +3,7 @@ use crate::span::Span;
 use super::cell_state::CellTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{EffectOp, Place};
+use super::model::{EffectOp, ExternalIoOp, NondetOp, Place};
 
 impl ResourceCheckEngine<'_> {
     pub(super) fn ensure_external_io_initialized_inputs(
@@ -15,16 +15,14 @@ impl ResourceCheckEngine<'_> {
         span: Span,
     ) -> bool {
         let operation = match effect {
-            EffectOp::ExternalIo { operation } | EffectOp::Nondet { operation } => {
-                operation.as_str()
-            }
+            EffectOp::ExternalIo { operation } => *operation,
             _ => return true,
         };
         match operation {
-            "fd_read" | "fd_pread" => {
+            ExternalIoOp::FdRead | ExternalIoOp::FdPread => {
                 self.ensure_iov_descriptor_cells_available(cells, raw_aliases, args.get(1), span)
             }
-            "fd_write" | "fd_pwrite" => {
+            ExternalIoOp::FdWrite | ExternalIoOp::FdPwrite => {
                 self.ensure_iov_write_buffers_available(cells, raw_aliases, args.get(1), span)
             }
             _ => true,
@@ -38,27 +36,35 @@ impl ResourceCheckEngine<'_> {
         effect: &EffectOp,
         args: &[Place],
     ) {
-        let operation = match effect {
-            EffectOp::ExternalIo { operation } | EffectOp::Nondet { operation } => {
-                operation.as_str()
-            }
-            _ => return,
-        };
-        match operation {
-            "fd_read" => self.apply_fd_read_initialized_effect(cells, raw_aliases, args),
-            "fd_pread" => {
+        match effect {
+            EffectOp::ExternalIo {
+                operation: ExternalIoOp::FdRead,
+            } => self.apply_fd_read_initialized_effect(cells, raw_aliases, args),
+            EffectOp::ExternalIo {
+                operation: ExternalIoOp::FdPread,
+            } => {
                 self.apply_iov_read_buffers_initialized(cells, raw_aliases, args.get(1));
                 if let Some(nread) = args.get(4) {
                     self.mark_raw_cell_initialized(cells, raw_aliases, nread, self.types.i32());
                 }
             }
-            "fd_write" | "fd_pwrite" => {
-                let nwritten_index = if operation == "fd_pwrite" { 4 } else { 3 };
-                if let Some(nwritten) = args.get(nwritten_index) {
+            EffectOp::ExternalIo {
+                operation: ExternalIoOp::FdWrite,
+            } => {
+                if let Some(nwritten) = args.get(3) {
                     self.mark_raw_cell_initialized(cells, raw_aliases, nwritten, self.types.i32());
                 }
             }
-            "fd_readdir" => {
+            EffectOp::ExternalIo {
+                operation: ExternalIoOp::FdPwrite,
+            } => {
+                if let Some(nwritten) = args.get(4) {
+                    self.mark_raw_cell_initialized(cells, raw_aliases, nwritten, self.types.i32());
+                }
+            }
+            EffectOp::ExternalIo {
+                operation: ExternalIoOp::FdReaddir,
+            } => {
                 self.mark_unknown_offset_raw_cell_initialized_for_arg(
                     cells,
                     raw_aliases,
@@ -69,12 +75,16 @@ impl ResourceCheckEngine<'_> {
                     self.mark_raw_cell_initialized(cells, raw_aliases, bufused, self.types.i32());
                 }
             }
-            "path_open" => {
+            EffectOp::ExternalIo {
+                operation: ExternalIoOp::PathOpen,
+            } => {
                 if let Some(opened_fd) = args.get(8) {
                     self.mark_raw_cell_initialized(cells, raw_aliases, opened_fd, self.types.i32());
                 }
             }
-            "args_sizes_get" | "environ_sizes_get" => {
+            EffectOp::ExternalIo {
+                operation: ExternalIoOp::ArgsSizesGet | ExternalIoOp::EnvironSizesGet,
+            } => {
                 if let Some(count) = args.first() {
                     self.mark_raw_cell_initialized(cells, raw_aliases, count, self.types.i32());
                 }
@@ -82,7 +92,9 @@ impl ResourceCheckEngine<'_> {
                     self.mark_raw_cell_initialized(cells, raw_aliases, size, self.types.i32());
                 }
             }
-            "args_get" | "environ_get" => {
+            EffectOp::ExternalIo {
+                operation: ExternalIoOp::ArgsGet | ExternalIoOp::EnvironGet,
+            } => {
                 self.mark_unknown_offset_raw_cell_initialized_for_arg(
                     cells,
                     raw_aliases,
@@ -96,7 +108,10 @@ impl ResourceCheckEngine<'_> {
                     self.types.i32(),
                 );
             }
-            "fd_fdstat_get" | "fd_filestat_get" | "fd_prestat_get" => {
+            EffectOp::ExternalIo {
+                operation:
+                    ExternalIoOp::FdFdstatGet | ExternalIoOp::FdFilestatGet | ExternalIoOp::FdPrestatGet,
+            } => {
                 self.mark_unknown_offset_raw_cell_initialized_for_arg(
                     cells,
                     raw_aliases,
@@ -104,7 +119,9 @@ impl ResourceCheckEngine<'_> {
                     self.types.i32(),
                 );
             }
-            "fd_prestat_dir_name" => {
+            EffectOp::ExternalIo {
+                operation: ExternalIoOp::FdPrestatDirName,
+            } => {
                 self.mark_unknown_offset_raw_cell_initialized_for_arg(
                     cells,
                     raw_aliases,
@@ -112,7 +129,9 @@ impl ResourceCheckEngine<'_> {
                     self.types.i32(),
                 );
             }
-            "path_filestat_get" => {
+            EffectOp::ExternalIo {
+                operation: ExternalIoOp::PathFilestatGet,
+            } => {
                 self.mark_unknown_offset_raw_cell_initialized_for_arg(
                     cells,
                     raw_aliases,
@@ -120,7 +139,9 @@ impl ResourceCheckEngine<'_> {
                     self.types.i32(),
                 );
             }
-            "random_get" => {
+            EffectOp::Nondet {
+                operation: NondetOp::RandomGet,
+            } => {
                 self.mark_unknown_offset_raw_cell_initialized_for_arg(
                     cells,
                     raw_aliases,

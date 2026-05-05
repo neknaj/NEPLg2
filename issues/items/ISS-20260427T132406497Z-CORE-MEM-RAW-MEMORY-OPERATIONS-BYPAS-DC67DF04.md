@@ -372,3 +372,11 @@ Stage 5 の raw identity escape 判定では、pointer value 自体の raw ident
 `RawMemoryEffectCounts` を追加し、internal memory と unsafe memory の count は `alloc` / `dealloc` / `realloc` / `load` / `store` / `bulk_copy` / `bulk_move` / `memory_size` / `memory_grow` / `fill` ごとに保持する。count の更新は `RawMemoryOp` の exhaustive match で行うため、新しい raw operation を追加した場合に report 側の更新漏れも compiler が検出しやすくなる。
 
 これにより Stage 5 effect model の report は単なる件数ではなく、raw memory boundary enforcement の監査に必要な operation-level evidence を保持する。
+
+## 2026-05-06 Stage 5 host effect operation enum 化 追記
+
+`ISS-20260505T231409659Z-RESOURCE-HOST-EFFECTS-KEEP-OPERATION-B5A32D01` として、raw memory effect の enum 化後も `ExternalIo` / `Nondet` が operation identity を `String` のまま保持していた問題を分離し、修正した。
+
+`ExternalIoOp` / `NondetOp` を追加し、`InternalEffect` と Resource IR `EffectOp` は host operation を typed enum として保持するようになった。`fd_read` / `fd_write` / `random_get` などの initialized external IO handling も typed operation の `match` へ移行したため、host operation を追加した場合に enum variant と downstream handling の更新漏れを検出しやすくなった。
+
+`IMPURE_IO_EFFECT_MARKERS` は全て `ExternalIoOp` または `NondetOp` へ分類されることを `effects` regression で固定した。これにより Stage 5 effect model は raw memory だけでなく host I/O / nondeterminism も文字列分岐から enum-first な内部 effect 表現へ揃った。

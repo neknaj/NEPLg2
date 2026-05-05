@@ -96,11 +96,11 @@ pub use initialized::check_resource_initialized_moves;
 pub use lower::{lower_hir_module, lower_hir_module_skeleton};
 pub use model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp,
-    OwnerState, OwnerStateEntry, Place, PlaceProjection, PlaceRoot, PointerProvenance, RawBodyKind,
-    RawMemoryOp, ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceExprKind,
-    ResourceFunction, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern,
-    ResourceModule, ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId,
-    StorageOrigin, StorageOriginEntry,
+    ExternalIoOp, NondetOp, OwnerState, OwnerStateEntry, Place, PlaceProjection, PlaceRoot,
+    PointerProvenance, RawBodyKind, RawMemoryOp, ResourceBlock, ResourceBlockId,
+    ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
+    ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOffset, ResourceOp,
+    ResourceState, ResourceTerminator, StorageId, StorageOrigin, StorageOriginEntry,
 };
 pub use owner_check::check_resource_owner_obligations;
 pub use report::{

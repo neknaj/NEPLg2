@@ -122,13 +122,139 @@ impl fmt::Display for RawMemoryOp {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum ExternalIoOp {
+    FdRead,
+    FdWrite,
+    PathOpen,
+    PathCreateDirectory,
+    PathFilestatGet,
+    PathFilestatSetTimes,
+    PathLink,
+    PathReadlink,
+    PathRemoveDirectory,
+    PathRename,
+    PathSymlink,
+    PathUnlinkFile,
+    FdAdvise,
+    FdAllocate,
+    FdClose,
+    FdDatasync,
+    FdFdstatGet,
+    FdFdstatSetFlags,
+    FdFdstatSetRights,
+    FdFilestatGet,
+    FdFilestatSetSize,
+    FdFilestatSetTimes,
+    FdPread,
+    FdPrestatGet,
+    FdPrestatDirName,
+    FdPwrite,
+    FdReaddir,
+    FdRenumber,
+    FdSeek,
+    FdSync,
+    FdTell,
+    PollOneoff,
+    ProcExit,
+    ProcRaise,
+    SchedYield,
+    SockAccept,
+    SockRecv,
+    SockSend,
+    SockShutdown,
+    ArgsGet,
+    ArgsSizesGet,
+    EnvironGet,
+    EnvironSizesGet,
+}
+
+impl ExternalIoOp {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            ExternalIoOp::FdRead => "fd_read",
+            ExternalIoOp::FdWrite => "fd_write",
+            ExternalIoOp::PathOpen => "path_open",
+            ExternalIoOp::PathCreateDirectory => "path_create_directory",
+            ExternalIoOp::PathFilestatGet => "path_filestat_get",
+            ExternalIoOp::PathFilestatSetTimes => "path_filestat_set_times",
+            ExternalIoOp::PathLink => "path_link",
+            ExternalIoOp::PathReadlink => "path_readlink",
+            ExternalIoOp::PathRemoveDirectory => "path_remove_directory",
+            ExternalIoOp::PathRename => "path_rename",
+            ExternalIoOp::PathSymlink => "path_symlink",
+            ExternalIoOp::PathUnlinkFile => "path_unlink_file",
+            ExternalIoOp::FdAdvise => "fd_advise",
+            ExternalIoOp::FdAllocate => "fd_allocate",
+            ExternalIoOp::FdClose => "fd_close",
+            ExternalIoOp::FdDatasync => "fd_datasync",
+            ExternalIoOp::FdFdstatGet => "fd_fdstat_get",
+            ExternalIoOp::FdFdstatSetFlags => "fd_fdstat_set_flags",
+            ExternalIoOp::FdFdstatSetRights => "fd_fdstat_set_rights",
+            ExternalIoOp::FdFilestatGet => "fd_filestat_get",
+            ExternalIoOp::FdFilestatSetSize => "fd_filestat_set_size",
+            ExternalIoOp::FdFilestatSetTimes => "fd_filestat_set_times",
+            ExternalIoOp::FdPread => "fd_pread",
+            ExternalIoOp::FdPrestatGet => "fd_prestat_get",
+            ExternalIoOp::FdPrestatDirName => "fd_prestat_dir_name",
+            ExternalIoOp::FdPwrite => "fd_pwrite",
+            ExternalIoOp::FdReaddir => "fd_readdir",
+            ExternalIoOp::FdRenumber => "fd_renumber",
+            ExternalIoOp::FdSeek => "fd_seek",
+            ExternalIoOp::FdSync => "fd_sync",
+            ExternalIoOp::FdTell => "fd_tell",
+            ExternalIoOp::PollOneoff => "poll_oneoff",
+            ExternalIoOp::ProcExit => "proc_exit",
+            ExternalIoOp::ProcRaise => "proc_raise",
+            ExternalIoOp::SchedYield => "sched_yield",
+            ExternalIoOp::SockAccept => "sock_accept",
+            ExternalIoOp::SockRecv => "sock_recv",
+            ExternalIoOp::SockSend => "sock_send",
+            ExternalIoOp::SockShutdown => "sock_shutdown",
+            ExternalIoOp::ArgsGet => "args_get",
+            ExternalIoOp::ArgsSizesGet => "args_sizes_get",
+            ExternalIoOp::EnvironGet => "environ_get",
+            ExternalIoOp::EnvironSizesGet => "environ_sizes_get",
+        }
+    }
+}
+
+impl fmt::Display for ExternalIoOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum NondetOp {
+    RandomGet,
+    ClockTimeGet,
+    ClockResGet,
+}
+
+impl NondetOp {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            NondetOp::RandomGet => "random_get",
+            NondetOp::ClockTimeGet => "clock_time_get",
+            NondetOp::ClockResGet => "clock_res_get",
+        }
+    }
+}
+
+impl fmt::Display for NondetOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InternalEffect {
     Pure,
     InternalAlloc { operation: RawMemoryOp },
     UnsafeMemory { operation: RawMemoryOp },
-    ExternalIo { operation: String },
-    Nondet { operation: String },
+    ExternalIo { operation: ExternalIoOp },
+    Nondet { operation: NondetOp },
 }
 
 impl InternalEffect {
@@ -137,9 +263,8 @@ impl InternalEffect {
             InternalEffect::Pure => None,
             InternalEffect::InternalAlloc { operation }
             | InternalEffect::UnsafeMemory { operation } => Some(operation.as_str()),
-            InternalEffect::ExternalIo { operation } | InternalEffect::Nondet { operation } => {
-                Some(operation.as_str())
-            }
+            InternalEffect::ExternalIo { operation } => Some(operation.as_str()),
+            InternalEffect::Nondet { operation } => Some(operation.as_str()),
         }
     }
 }
@@ -192,6 +317,68 @@ pub fn raw_memory_op_from_name(name: &str) -> Option<RawMemoryOp> {
         "memset_u8" | "fill_u8" | "fill_i32" | "mem_fill" => RawMemoryOp::Fill,
         "mem_size" => RawMemoryOp::MemorySize,
         "mem_grow" => RawMemoryOp::MemoryGrow,
+        _ => return None,
+    };
+    Some(operation)
+}
+
+pub fn external_io_op_from_name(name: &str) -> Option<ExternalIoOp> {
+    let base = helper_base_name(name);
+    let operation = match base {
+        "fd_read" => ExternalIoOp::FdRead,
+        "fd_write" => ExternalIoOp::FdWrite,
+        "path_open" => ExternalIoOp::PathOpen,
+        "path_create_directory" => ExternalIoOp::PathCreateDirectory,
+        "path_filestat_get" => ExternalIoOp::PathFilestatGet,
+        "path_filestat_set_times" => ExternalIoOp::PathFilestatSetTimes,
+        "path_link" => ExternalIoOp::PathLink,
+        "path_readlink" => ExternalIoOp::PathReadlink,
+        "path_remove_directory" => ExternalIoOp::PathRemoveDirectory,
+        "path_rename" => ExternalIoOp::PathRename,
+        "path_symlink" => ExternalIoOp::PathSymlink,
+        "path_unlink_file" => ExternalIoOp::PathUnlinkFile,
+        "fd_advise" => ExternalIoOp::FdAdvise,
+        "fd_allocate" => ExternalIoOp::FdAllocate,
+        "fd_close" => ExternalIoOp::FdClose,
+        "fd_datasync" => ExternalIoOp::FdDatasync,
+        "fd_fdstat_get" => ExternalIoOp::FdFdstatGet,
+        "fd_fdstat_set_flags" => ExternalIoOp::FdFdstatSetFlags,
+        "fd_fdstat_set_rights" => ExternalIoOp::FdFdstatSetRights,
+        "fd_filestat_get" => ExternalIoOp::FdFilestatGet,
+        "fd_filestat_set_size" => ExternalIoOp::FdFilestatSetSize,
+        "fd_filestat_set_times" => ExternalIoOp::FdFilestatSetTimes,
+        "fd_pread" => ExternalIoOp::FdPread,
+        "fd_prestat_get" => ExternalIoOp::FdPrestatGet,
+        "fd_prestat_dir_name" => ExternalIoOp::FdPrestatDirName,
+        "fd_pwrite" => ExternalIoOp::FdPwrite,
+        "fd_readdir" => ExternalIoOp::FdReaddir,
+        "fd_renumber" => ExternalIoOp::FdRenumber,
+        "fd_seek" => ExternalIoOp::FdSeek,
+        "fd_sync" => ExternalIoOp::FdSync,
+        "fd_tell" => ExternalIoOp::FdTell,
+        "poll_oneoff" => ExternalIoOp::PollOneoff,
+        "proc_exit" => ExternalIoOp::ProcExit,
+        "proc_raise" => ExternalIoOp::ProcRaise,
+        "sched_yield" => ExternalIoOp::SchedYield,
+        "sock_accept" => ExternalIoOp::SockAccept,
+        "sock_recv" => ExternalIoOp::SockRecv,
+        "sock_send" => ExternalIoOp::SockSend,
+        "sock_shutdown" => ExternalIoOp::SockShutdown,
+        "args_get" => ExternalIoOp::ArgsGet,
+        "args_sizes_get" => ExternalIoOp::ArgsSizesGet,
+        "environ_get" => ExternalIoOp::EnvironGet,
+        "environ_sizes_get" => ExternalIoOp::EnvironSizesGet,
+        _ => return None,
+    };
+    Some(operation)
+}
+
+pub fn nondet_op_from_name(name: &str) -> Option<NondetOp> {
+    let base = helper_base_name(name);
+    let operation = match base {
+        "random_get" => NondetOp::RandomGet,
+        "clock_time_get" => NondetOp::ClockTimeGet,
+        "clock_res_get" => NondetOp::ClockResGet,
         _ => return None,
     };
     Some(operation)
@@ -373,17 +560,13 @@ fn raw_memory_internal_effect(name: &str) -> Option<InternalEffect> {
 }
 
 fn named_internal_effect(name: &str) -> InternalEffect {
-    if !IMPURE_IO_EFFECT_MARKERS
-        .iter()
-        .any(|marker| *marker == name)
-    {
-        return InternalEffect::Pure;
+    if let Some(operation) = nondet_op_from_name(name) {
+        return InternalEffect::Nondet { operation };
     }
-    let operation = String::from(name);
-    match name {
-        "random_get" | "clock_time_get" | "clock_res_get" => InternalEffect::Nondet { operation },
-        _ => InternalEffect::ExternalIo { operation },
+    if let Some(operation) = external_io_op_from_name(name) {
+        return InternalEffect::ExternalIo { operation };
     }
+    InternalEffect::Pure
 }
 
 fn normalize_raw_symbol(symbol: &str) -> String {

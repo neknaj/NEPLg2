@@ -30353,3 +30353,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T231409659Z Resource host effect operation enum)
+
+- [同期]:
+  - `main` を remote main と同期後、`work/resource-host-effect-op-enum` で Stage 5 effect model の続きとして対応した。
+- [原因]:
+  - raw memory effect は `RawMemoryOp` へ enum 化されたが、host I/O と nondeterminism は `InternalEffect::{ExternalIo,Nondet}` / Resource IR `EffectOp::{ExternalIo,Nondet}` で operation 名を `String` として保持していた。
+  - Resource IR initialized external IO handling は `fd_read` / `fd_write` / `random_get` などの literal 文字列分岐で出力 cell initialization を扱っており、新しい host operation を追加した時に compiler の網羅性検査が効かなかった。
+- [修正]:
+  - `ExternalIoOp` と `NondetOp` を追加し、host effect marker から typed operation へ分類する mapping を導入した。
+  - `InternalEffect` と Resource IR `EffectOp` は ExternalIo / Nondet の operation identity を typed enum として保持するようにした。
+  - Resource IR initialized external IO handling と回帰テストを typed operation match へ移行した。
+  - `IMPURE_IO_EFFECT_MARKERS` が必ず `ExternalIoOp` または `NondetOp` に分類されることを `effects` test で固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test effects -- --nocapture`: 24 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 155 passed
+- [issue]:
+  - `ISS-20260505T231409659Z-RESOURCE-HOST-EFFECTS-KEEP-OPERATION-B5A32D01` は fixed。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 の部分進捗として追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

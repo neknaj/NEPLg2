@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T23:10:50.808Z",
+  "generated_at": "2026-05-05T23:21:26.089Z",
   "counts": {
-    "total": 480,
+    "total": 481,
     "open": 13,
-    "resolved": 467,
+    "resolved": 468,
     "by_area": {
       "core": {
-        "total": 218,
+        "total": 219,
         "open": 5,
-        "resolved": 213
+        "resolved": 214
       },
       "stdlib": {
         "total": 155,
@@ -3388,6 +3388,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T230807234Z-RESOURCE-EFFECT-COUNTS-COLLAPSE-TYPE-3CD39CCB.md"
+    },
+    {
+      "id": "ISS-20260505T231409659Z-RESOURCE-HOST-EFFECTS-KEEP-OPERATION-B5A32D01",
+      "title": "Resource host effects keep operation identity as strings",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/effects.rs, nepl-core/src/resource/model.rs, nepl-core/src/resource/initialized_external_io.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T231409659Z-RESOURCE-HOST-EFFECTS-KEEP-OPERATION-B5A32D01.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
