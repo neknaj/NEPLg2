@@ -1,3 +1,23 @@
+# 2026-05-05 メモ (ISS-20260505T073434026Z core mem allocator metadata doctest)
+
+- [原因]:
+  - `stdlib/core/mem.nepl::doctest#3` が `load_i32 0` / `load_i32 4` で allocator 内部 metadata を直接読んでいた。
+  - Resource IR は absolute raw load された cell の initialized state を証明できず、`resource.cell.uninit` を出していた。
+  - static checker を弱めて任意 absolute raw load を許可するのはメモリ安全上不適切なので、doctest の境界設計を直すのが根本対応と判断した。
+- [修正]:
+  - metadata introspection を削除し、`alloc_raw` 2回、pointer order、各領域への store/load を public observable invariant として確認する doctest に置き換えた。
+  - doctest を stdout report + `exit_code: 0` にし、4件の assertion report を fixture として固定した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 3 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i stdlib/core/mem.nepl --no-tree -o tmp/core-mem-after-metadata-agent1.json -j 1 --dist web/dist`: total=6, passed=6
+  - `node nodesrc/test_doctest_std_test_assertion_report_contract.js`: passed
+- [issue]:
+  - `ISS-20260505T073434026Z-CORE-MEM-ALLOCATOR-METADATA-DOCTEST--3D5EEF97` を fixed/resolved にした。
+  - 親 issue `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` に mem allocator metadata doctest rewrite を追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - allocator 内部 metadata の直接読み取りではなく、公開 API から観測できる allocator invariant でテストする方針にした。
+
 # 2026-05-05 メモ (ISS-20260505T073143162Z core mem fill stdout report)
 
 - [原因]:

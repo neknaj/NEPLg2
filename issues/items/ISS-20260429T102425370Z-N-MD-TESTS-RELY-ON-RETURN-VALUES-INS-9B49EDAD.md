@@ -289,3 +289,14 @@ timeout 調査では compile-only 計測が runtime 付き duration とほぼ一
 
 - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 5 --dist web/dist`: passed
 - `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 6 --dist web/dist`: passed
+
+## 2026-05-05 core mem allocator metadata doctest rewrite
+
+`ISS-20260505T073434026Z-CORE-MEM-ALLOCATOR-METADATA-DOCTEST--3D5EEF97` で、`stdlib/core/mem.nepl::doctest#3` が allocator metadata を `load_i32 0` / `load_i32 4` で直接読む設計をやめ、public observable allocator invariant を確認する doctest に置き換えた。
+
+Resource IR の raw-load initialized check は弱めていない。代わりに `alloc_raw` 2回、各領域への `store_i32` / `load_i32`、pointer order の確認を `std/test` report として固定した。
+
+検証:
+
+- `node nodesrc/run_doctest.js -i stdlib/core/mem.nepl -n 3 --dist web/dist`: passed
+- `node nodesrc/tests.js -i stdlib/core/mem.nepl --no-tree -o tmp/core-mem-after-metadata-agent1.json -j 1 --dist web/dist`: total=6, passed=6

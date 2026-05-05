@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T07:35:38.774Z",
+  "generated_at": "2026-05-05T07:39:57.743Z",
   "counts": {
     "total": 508,
-    "open": 15,
-    "resolved": 493,
+    "open": 14,
+    "resolved": 494,
     "by_area": {
       "core": {
         "total": 217,
@@ -18,8 +18,8 @@
       },
       "TEST": {
         "total": 29,
-        "open": 3,
-        "resolved": 26
+        "open": 2,
+        "resolved": 27
       },
       "selfhost": {
         "total": 45,
@@ -263,21 +263,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58.md"
-    },
-    {
-      "id": "ISS-20260505T073434026Z-CORE-MEM-ALLOCATOR-METADATA-DOCTEST--3D5EEF97",
-      "title": "core mem allocator metadata doctest fails Resource IR cell initialization",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-05",
-      "updated": "2026-05-05",
-      "target": "stdlib/core/mem.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260505T073434026Z-CORE-MEM-ALLOCATOR-METADATA-DOCTEST--3D5EEF97.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -5738,6 +5723,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T073143162Z-CORE-MEM-FILL-DOCTESTS-OMIT-STDOUT-A-CDC0463A.md"
+    },
+    {
+      "id": "ISS-20260505T073434026Z-CORE-MEM-ALLOCATOR-METADATA-DOCTEST--3D5EEF97",
+      "title": "core mem allocator metadata doctest fails Resource IR cell initialization",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T073434026Z-CORE-MEM-ALLOCATOR-METADATA-DOCTEST--3D5EEF97.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",

@@ -54,20 +54,34 @@
 //: ```
 //:
 //: neplg2:test
+//: exit_code: 0
+//: stdout: mlstr:
+//:     ##: Checked [ok,ok,ok,ok]
+//:     ##: [0] ok
+//:     ##: [1] ok
+//:     ##: [2] ok
+//:     ##: [3] ok
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
+//:| #import "std/test" as *
 //: fn main <()*>i32> ():
 //:     let p <i32> alloc_raw 4;
-//:     let heap <i32> load_i32 0;
-//:     let free_head <i32> load_i32 4;
-//:     let ok_ptr <bool> ge p 16;
-//:     let ok_heap <bool> ge heap 24;
-//:     let ok_free <bool> eq free_head 0;
+//:     let q <i32> alloc_raw 4;
+//:     store_i32 p 123;
+//:     store_i32 q 456;
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert ge p 16
+//:         |> checks_push assert gt q p
+//:         |> checks_push assert_eq_i32 123 load_i32 p
+//:         |> checks_push assert_eq_i32 456 load_i32 q
+//:     dealloc_raw q 4;
 //:     dealloc_raw p 4;
-//:     if and ok_ptr and ok_heap ok_free 1 0
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
 //: ```
 //:
 //: neplg2:test
