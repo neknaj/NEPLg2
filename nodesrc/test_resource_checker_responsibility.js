@@ -96,6 +96,7 @@ for (const moduleName of [
     'initialized_summary.rs',
     'initialized_summary_apply.rs',
     'initialized_summary_build.rs',
+    'initialized_summary_condition.rs',
     'initialized_summary_variant_build.rs',
     'lower_aggregate.rs',
     'lower_condition.rs',
@@ -142,6 +143,7 @@ for (const moduleDecl of [
     'mod initialized_summary;',
     'mod initialized_summary_apply;',
     'mod initialized_summary_build;',
+    'mod initialized_summary_condition;',
     'mod initialized_summary_variant_build;',
     'mod lower_aggregate;',
     'mod lower_condition;',
@@ -257,6 +259,7 @@ const maxLines = new Map([
     ['initialized_summary.rs', 80],
     ['initialized_summary_apply.rs', 160],
     ['initialized_summary_build.rs', 260],
+    ['initialized_summary_condition.rs', 80],
     ['initialized_summary_variant_build.rs', 260],
 ]);
 

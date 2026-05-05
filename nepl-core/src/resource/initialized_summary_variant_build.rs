@@ -13,9 +13,9 @@ use super::initialized_alias_flow::RawCellAddressReturnSummary;
 use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationVariantCondition,
     RawCellInitializationVariantParamCell, RawCellInitializationVariantParamRequirement,
-    RawCellValueCondition,
 };
 use super::initialized_summary_build::collect_param_initialized_raw_cells;
+use super::initialized_summary_condition::RawCellValueCondition;
 use super::initialized_variant::{normalize_variant_name, PendingVariantRawCellInitializations};
 use super::model::{
     AggregateKind, Place, RawMemoryOp, ResourceConditionFact, ResourceFunction, ResourceLocal,
