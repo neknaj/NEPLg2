@@ -1,0 +1,163 @@
+//: # std/stdio/print
+//: `std/stdio` の基本 stdout 出力 facade を提供する submodule
+//:
+//: ### 目的
+//: - 文字列出力と整数出力を `std/stdio` root facade から分離します。
+//: - 低水準の partial write 処理は `std/stdio/write` に委譲し、この module は利用者向け API だけを持ちます。
+//:
+//: ### 注意
+//: - 既存の `print` / `println` 系 API は互換性のため error を無視します。
+//: - error を扱う必要がある場合は `stdio_write_*_result` を使ってください。
+
+#indent 4
+
+#import "alloc/string" as string
+#import "std/stdio/write" as *
+
+//: print: 文字列を標準出力へ出す
+//:
+//: 目的:
+//: - s をそのまま stdout に書き込みます。
+//:
+//: 実装(アルゴリズム):
+//: - `stdio_write_mem` を[使/つか]い、partial write を[吸収/きゅうしゅう]しながら stdout へ[書/か]き[出/だ]します。
+//:
+//: 注意(重要):
+//: - エラーは無視します。
+//:
+//: 計算量:
+//: - O(n)
+//: print: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `print` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: stdout: "sample"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/stdio" as *
+//: fn main <()*>()> ():
+//:     print "sample";
+//: ```
+fn noshadow print <(str)*>()> (s):
+    stdio_write_mem string_data_ptr s len s
+
+//: println: 改行付き出力
+//:
+//: 目的:
+//: - s を出力し、改行を追加します。
+//:
+//: 実装(アルゴリズム):
+//: - print を 2 回呼びます。
+//:
+//: 注意(重要):
+//: - 改行は "\n" 固定です。
+//:
+//: 計算量:
+//: - O(n)
+//: println: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `println` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: stdout: "sample\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/stdio" as *
+//: fn main <()*>()> ():
+//:     println "sample";
+//: ```
+fn noshadow println <(str)*>()> (s):
+    print s;
+    print "\n";
+    ()
+
+//: print_i32: i32 を文字列にして出力
+//:
+//: 目的:
+//: - v を 10 進文字列にして出力します。
+//:
+//: 実装(アルゴリズム):
+//: - 整数の文字列化は `alloc/string::from_i32` に委譲し、stdio は出力だけを担当します。
+//:
+//: 注意(重要):
+//: - 文字列化に必要な allocation に失敗した場合は `from_i32` の fallback に従います。
+//:
+//: 計算量:
+//: - O(d)
+//: print_i32: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `print_i32` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: stdout: "42"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/stdio" as *
+//: fn main <()*>()> ():
+//:     print_i32 42;
+//: ```
+fn noshadow print_i32 <(i32)*>()> (v):
+    print string::from_i32 v;
+    ()
+
+//: println_i32: i32 を改行付きで出力
+//:
+//: 目的:
+//: - print_i32 の後に改行を出力します。
+//:
+//: 実装(アルゴリズム):
+//: - print_i32 と print("\n") を呼びます。
+//:
+//: 注意(重要):
+//: - 改行は常に追加されます。
+//:
+//: 計算量:
+//: - O(d)
+//: println_i32: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `println_i32` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: stdout: "42\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/stdio" as *
+//: fn main <()*>()> ():
+//:     println_i32 42;
+//: ```
+fn noshadow println_i32 <(i32)*>()> (v):
+    print_i32 v;
+    print "\n";
