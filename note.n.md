@@ -1,3 +1,29 @@
+# 2026-05-05 note (ISS-20260425T000000Z-RV-STDLIB-009 std/streamio scanner split)
+
+- [同期]:
+  - `origin/main` の `6426cff1` を取り込んだ状態から、branch `refactor/streamio-scanner-module-split` で対応した。
+- [原因]:
+  - `std/streamio.nepl` は writer 分離後も scanner cursor/header state、byte/text conversion helper、stdio stream bridge を同居させていた。
+  - scanner は writer と別の raw memory backed state を持つため、同じ facade に残すと source policy と静的検査境界が追いづらい。
+- [修正]:
+  - `stream_bytes_from_str(_result)` と `stream_bytes_to_str(_result)` を `std/streamio/bytes.nepl` へ移した。
+  - `StreamScanner`、scanner header enum、header load/store boundary、`open ReadStream`、scanner read overload、scanner `close` を `std/streamio/scanner.nepl` へ移した。
+  - `std/streamio.nepl` は `writer` / `bytes` / `scanner` を re-export する facade にした。
+  - scanner source policy、unsafe unwrap policy、match decision tree policy を新 module path に追従させた。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/bytes.nepl --no-tree -o tmp/streamio-bytes-module-direct.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio/scanner.nepl --no-tree -o tmp/streamio-scanner-module-direct-2.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl --no-tree -o tmp/streamio-facade-after-scanner-split.json -j 1`: `1 total / 1 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-nmd-after-scanner-split.json -j 1`: `14 total / 14 passed`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: 新規/更新 streamio policy と match decision tree policy は passed。既存の `owner_summary_variant_paths.rs has 637 lines; responsibility split limit is 380` warning は継続。
+- [issue]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`streamio.nepl` は 414 lines まで縮小し、scanner 859 / writer 487 / bytes 72 lines に分割された。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-05 note (ISS-20260505T013338193Z io missing-file Ok branch owner leak fix)
 
 - [同期]:

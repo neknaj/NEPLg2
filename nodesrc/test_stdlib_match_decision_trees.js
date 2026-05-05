@@ -113,21 +113,21 @@ assertLiteralMatch({
 });
 
 assertLiteralMatch({
-    file: 'stdlib/std/streamio.nepl',
+    file: 'stdlib/std/streamio/scanner.nepl',
     name: 'stream_scanner_is_leading_skip_byte',
     scrutinee: 'byte',
     literals: ["'\\0'", "' '", "'\\n'", "'\\r'", "'\\t'"],
 });
 
 assertLiteralMatch({
-    file: 'stdlib/std/streamio.nepl',
+    file: 'stdlib/std/streamio/scanner.nepl',
     name: 'stream_scanner_is_token_separator',
     scrutinee: 'byte',
     literals: ["' '", "'\\n'", "'\\r'", "'\\t'"],
 });
 
 assertLiteralMatch({
-    file: 'stdlib/std/streamio.nepl',
+    file: 'stdlib/std/streamio/scanner.nepl',
     name: 'stream_scanner_is_exponent_marker',
     scrutinee: 'byte',
     literals: ["'e'", "'E'"],
