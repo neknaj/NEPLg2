@@ -41,6 +41,7 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
                 || !summary.variant_required_param_cells.is_empty()
                 || !summary.variant_conditions.is_empty()
                 || !summary.param_destructions.is_empty()
+                || !summary.param_moves.is_empty()
             {
                 next.push(summary);
             }
@@ -84,6 +85,7 @@ fn function_raw_cell_initialization_summary(
         variant_required_param_cells: Vec::new(),
         variant_conditions: Vec::new(),
         param_destructions: Vec::new(),
+        param_moves: Vec::new(),
     };
     let mut guaranteed_return_cells = None;
     let mut guaranteed_param_cells = None;
@@ -91,6 +93,7 @@ fn function_raw_cell_initialization_summary(
         let mut variant_initializations = PendingVariantRawCellInitializations::default();
         check_ops_and_collect_param_destructions(
             &mut out.param_destructions,
+            &mut out.param_moves,
             &mut engine,
             &mut cells,
             &mut raw_aliases,

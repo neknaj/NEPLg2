@@ -5588,6 +5588,339 @@ fn resource_ir_cell_check_allows_dealloc_after_non_copy_raw_load() {
 }
 
 #[test]
+fn resource_ir_cell_summary_moves_exact_non_copy_raw_load_from_param() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let param = ResourceLocal {
+        name: "p".to_string(),
+        ty: i32_ty,
+        mutable: false,
+        place: Place::local("p".to_string(), i32_ty),
+    };
+    let helper_loaded = Place::temporary(ResourceId(10), owned_ty);
+    let ptr = Place::temporary(ResourceId(0), i32_ty);
+    let value = Place::temporary(ResourceId(1), owned_ty);
+    let store_out = Place::temporary(ResourceId(2), unit_ty);
+    let call_out = Place::temporary(ResourceId(3), unit_ty);
+    let dealloc_out = Place::temporary(ResourceId(4), unit_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "take_exact".to_string(),
+                params: vec![param.clone()],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Load,
+                            output: helper_loaded.clone(),
+                            args: vec![param.place.clone()],
+                            span,
+                        },
+                        ResourceOp::Drop {
+                            place: helper_loaded,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: nepl_core::resource::ResourceExprKind::LiteralI32(16),
+                            output: ptr.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::Expr {
+                            kind: nepl_core::resource::ResourceExprKind::Literal,
+                            output: value.clone(),
+                            ty: owned_ty,
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Store,
+                            output: store_out,
+                            args: vec![ptr.clone(), value],
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: call_out,
+                            target: ResourceCallTarget::User {
+                                name: "take_exact".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![ptr.clone()],
+                            effect: EffectOp::UserCall {
+                                name: "take_exact".to_string(),
+                                effect: Effect::Impure,
+                            },
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Dealloc,
+                            output: dealloc_out,
+                            args: vec![ptr],
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. } if function == "main"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "exact raw-load helper summary must move the caller raw cell before dealloc: {:#?}",
+        main_diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_cell_summary_rejects_uninitialized_exact_non_copy_raw_load_from_param() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let param = ResourceLocal {
+        name: "p".to_string(),
+        ty: i32_ty,
+        mutable: false,
+        place: Place::local("p".to_string(), i32_ty),
+    };
+    let helper_loaded = Place::temporary(ResourceId(10), owned_ty);
+    let ptr = Place::temporary(ResourceId(0), i32_ty);
+    let call_out = Place::temporary(ResourceId(1), unit_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "take_exact".to_string(),
+                params: vec![param.clone()],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Load,
+                            output: helper_loaded.clone(),
+                            args: vec![param.place.clone()],
+                            span,
+                        },
+                        ResourceOp::Drop {
+                            place: helper_loaded,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: nepl_core::resource::ResourceExprKind::LiteralI32(16),
+                            output: ptr.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: call_out,
+                            target: ResourceCallTarget::User {
+                                name: "take_exact".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![ptr],
+                            effect: EffectOp::UserCall {
+                                name: "take_exact".to_string(),
+                                effect: Effect::Impure,
+                            },
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                function,
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Uninit,
+                ..
+            } if function == "main"
+        )),
+        "exact raw-load helper summary must require an initialized caller raw cell: {:#?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_cell_summary_does_not_require_caller_cell_for_callee_initialized_load() {
+    let (mut types, owned_ty) = types_with_non_copy_owned();
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let param = ResourceLocal {
+        name: "p".to_string(),
+        ty: i32_ty,
+        mutable: false,
+        place: Place::local("p".to_string(), i32_ty),
+    };
+    let helper_value = Place::temporary(ResourceId(10), owned_ty);
+    let helper_store_out = Place::temporary(ResourceId(11), unit_ty);
+    let helper_loaded = Place::temporary(ResourceId(12), owned_ty);
+    let ptr = Place::temporary(ResourceId(0), i32_ty);
+    let call_out = Place::temporary(ResourceId(1), unit_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "replace_then_take_exact".to_string(),
+                params: vec![param.clone()],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: nepl_core::resource::ResourceExprKind::Literal,
+                            output: helper_value.clone(),
+                            ty: owned_ty,
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Store,
+                            output: helper_store_out,
+                            args: vec![param.place.clone(), helper_value],
+                            span,
+                        },
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Load,
+                            output: helper_loaded.clone(),
+                            args: vec![param.place.clone()],
+                            span,
+                        },
+                        ResourceOp::Drop {
+                            place: helper_loaded,
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Impure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::Expr {
+                            kind: nepl_core::resource::ResourceExprKind::LiteralI32(16),
+                            output: ptr.clone(),
+                            ty: i32_ty,
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: call_out,
+                            target: ResourceCallTarget::User {
+                                name: "replace_then_take_exact".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![ptr],
+                            effect: EffectOp::UserCall {
+                                name: "replace_then_take_exact".to_string(),
+                                effect: Effect::Impure,
+                            },
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. } if function == "main"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "callee-initialized raw cell loads must not become caller preconditions: {:#?}",
+        main_diagnostics
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_reports_destructive_raw_storage_ops_over_live_cell() {
     let (mut types, owned_ty) = types_with_non_copy_owned();
     types.register_copy_impl_target(types.i32());

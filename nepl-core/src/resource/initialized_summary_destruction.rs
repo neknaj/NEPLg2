@@ -7,11 +7,12 @@ use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::{
-    RawCellDestructionParamAddress, RawCellInitializationFunctionSummary,
+    RawCellDestructionParamAddress, RawCellInitializationFunctionSummary, RawCellMoveParamAddress,
 };
 use super::initialized_summary_destruction_address::{
     collect_param_destructions_from_direct_call, collect_param_destructions_from_raw_memory,
-    collect_param_destructions_from_summary,
+    collect_param_destructions_from_summary, collect_param_moves_from_direct_call,
+    collect_param_moves_from_raw_memory, collect_param_moves_from_summary,
 };
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{ResourceLocal, ResourceOp};
@@ -21,6 +22,7 @@ use super::report::ResourceCheckDeferred;
 
 pub(super) fn check_ops_and_collect_param_destructions(
     out: &mut Vec<RawCellDestructionParamAddress>,
+    move_out: &mut Vec<RawCellMoveParamAddress>,
     engine: &mut ResourceCheckEngine<'_>,
     cells: &mut CellTable,
     raw_aliases: &mut RawCellAddressAliases,
@@ -34,6 +36,7 @@ pub(super) fn check_ops_and_collect_param_destructions(
     for op in ops {
         collect_param_destructions_from_op(
             out,
+            move_out,
             engine,
             cells,
             raw_aliases,
@@ -57,6 +60,7 @@ pub(super) fn check_ops_and_collect_param_destructions(
 
 fn collect_param_destructions_from_op(
     out: &mut Vec<RawCellDestructionParamAddress>,
+    move_out: &mut Vec<RawCellMoveParamAddress>,
     engine: &ResourceCheckEngine<'_>,
     cells: &CellTable,
     raw_aliases: &RawCellAddressAliases,
@@ -69,13 +73,38 @@ fn collect_param_destructions_from_op(
 ) {
     match op {
         ResourceOp::RawMemory {
-            operation, args, ..
-        } => collect_param_destructions_from_raw_memory(out, raw_aliases, params, operation, args),
+            operation,
+            output,
+            args,
+            ..
+        } => {
+            collect_param_destructions_from_raw_memory(out, raw_aliases, params, operation, args);
+            collect_param_moves_from_raw_memory(
+                move_out,
+                cells,
+                raw_aliases,
+                params,
+                engine.types,
+                operation,
+                output,
+                args,
+            );
+        }
         ResourceOp::Call { target, args, .. } => {
             collect_param_destructions_from_direct_call(
                 out,
                 raw_aliases,
                 params,
+                target,
+                args,
+                raw_init_summaries,
+            );
+            collect_param_moves_from_direct_call(
+                move_out,
+                cells,
+                raw_aliases,
+                params,
+                engine.types,
                 target,
                 args,
                 raw_init_summaries,
@@ -94,6 +123,15 @@ fn collect_param_destructions_from_op(
                         args,
                         summary,
                     );
+                    collect_param_moves_from_summary(
+                        move_out,
+                        cells,
+                        raw_aliases,
+                        params,
+                        engine.types,
+                        args,
+                        summary,
+                    );
                 }
             }
         }
@@ -102,6 +140,7 @@ fn collect_param_destructions_from_op(
         } => {
             collect_param_destructions_from_path(
                 out,
+                move_out,
                 engine,
                 cells,
                 raw_aliases,
@@ -114,6 +153,7 @@ fn collect_param_destructions_from_op(
             );
             collect_param_destructions_from_path(
                 out,
+                move_out,
                 engine,
                 cells,
                 raw_aliases,
@@ -138,6 +178,7 @@ fn collect_param_destructions_from_op(
             let mut path_variant_initializations = variant_initializations.clone();
             check_ops_and_collect_param_destructions(
                 out,
+                move_out,
                 &mut path_engine,
                 &mut path_cells,
                 &mut path_aliases,
@@ -150,6 +191,7 @@ fn collect_param_destructions_from_op(
             );
             check_ops_and_collect_param_destructions(
                 out,
+                move_out,
                 &mut path_engine,
                 &mut path_cells,
                 &mut path_aliases,
@@ -202,6 +244,7 @@ fn collect_param_destructions_from_op(
                 );
                 check_ops_and_collect_param_destructions(
                     out,
+                    move_out,
                     &mut path_engine,
                     &mut path_cells,
                     &mut path_aliases,
@@ -220,6 +263,7 @@ fn collect_param_destructions_from_op(
 
 fn collect_param_destructions_from_path(
     out: &mut Vec<RawCellDestructionParamAddress>,
+    move_out: &mut Vec<RawCellMoveParamAddress>,
     engine: &ResourceCheckEngine<'_>,
     cells: &CellTable,
     raw_aliases: &RawCellAddressAliases,
@@ -238,6 +282,7 @@ fn collect_param_destructions_from_path(
     let mut path_variant_initializations = variant_initializations.clone();
     check_ops_and_collect_param_destructions(
         out,
+        move_out,
         &mut path_engine,
         &mut path_cells,
         &mut path_aliases,

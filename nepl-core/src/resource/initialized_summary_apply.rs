@@ -11,7 +11,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{Place, ResourceCallTarget};
-use super::place_utils::place_with_suffix;
+use super::place_utils::{place_with_suffix, raw_memory_cell_place};
 
 impl ResourceCheckEngine<'_> {
     pub(super) fn apply_call_raw_cell_initialization_summary(
@@ -90,6 +90,18 @@ impl ResourceCheckEngine<'_> {
         summary: &RawCellInitializationFunctionSummary,
         span: Span,
     ) {
+        for moved in &summary.param_moves {
+            let Some(arg) = args.get(moved.param_index) else {
+                continue;
+            };
+            let address = place_with_suffix(arg, &moved.suffix, moved.address_ty);
+            let address = raw_aliases.canonicalize(&address);
+            let cell = raw_memory_cell_place(&address, moved.cell_ty);
+            if self.ensure_available(cells, &cell, moved.operation, span) {
+                cells.mark_raw_cell_moved(&address, moved.cell_ty);
+            }
+        }
+
         for destruction in &summary.param_destructions {
             let Some(arg) = args.get(destruction.param_index) else {
                 continue;

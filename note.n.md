@@ -30692,3 +30692,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` は親 issue として open 継続。`Vec` / List node storage / BloomFilter / CountingBloomFilter / AdjacencyMatrix などの raw storage 移行が残る。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-05 メモ (ISS-20260505T061748334Z Resource IR exact raw-load summary)
+
+- [原因]:
+  - `RawCellInitializationFunctionSummary` は raw cell の初期化と破壊的 raw memory 操作を伝播していたが、callee が parameter-derived exact address から non-Copy 値を `load<T>` で move した事実を caller に伝えていなかった。
+  - そのため `store<T> p value; helper p; dealloc_raw p size` のような正当な helper 境界で、caller 側の `CellTable` には `p.deref` が initialized のまま残り、dealloc が `resource.cell.initialized_conflict` として拒否されていた。
+  - 逆に、caller 側で未初期化の exact raw cell を helper 経由で move-load しても、summary apply 時に availability check が走らないため診断されない穴があった。
+- [修正]:
+  - `RawCellInitializationFunctionSummary` に `param_moves` を追加し、non-Copy `RawMemoryOp::Load` が exact parameter-derived address を move したことを `RawCellMoveParamAddress` として記録するようにした。
+  - direct call / indirect call の summary 収集と適用に param move を通し、call site では `RawMemoryLoadCell` として availability を確認してから caller 側の raw cell を moved に更新するようにした。
+  - callee 内で対象 exact raw cell が既に initialized になっている `load<T>` は caller の事前条件ではないため、summary 収集時の `CellTable` を見て callee-initialized load を `param_moves` から除外するようにした。
+  - unknown offset / dynamic range を含む address は今回の exact summary には含めず、range cleanup の設計問題として `ISS-20260505T045316820Z-RESOURCE-IR-VEC-RANGE-CLEANUP-9A95DB6F` に残した。これは不明 offset を単一 exact cell move として扱うと安全でないため。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_summary -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_allows_dealloc_after_non_copy_raw_load -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_reports_destructive_raw_storage_ops_over_live_cell -- --nocapture`: passed
+  - `cargo fmt --check`: passed
+- [issue]:
+  - `ISS-20260505T061748334Z-RESOURCE-IR-SUMMARIES-OMIT-EXACT-NON-C8D2F16E` を追加し、fixed/resolved にした。
+  - `ISS-20260505T045316820Z-RESOURCE-IR-VEC-RANGE-CLEANUP-9A95DB6F` には exact raw-load summary の部分進捗を追記し、dynamic range cleanup は open のまま維持した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 4 Resource IR resource check の一部として、診断抑制ではなく function summary の契約を拡張し、caller/callee 境界でも raw cell の move 状態を検査可能にした。

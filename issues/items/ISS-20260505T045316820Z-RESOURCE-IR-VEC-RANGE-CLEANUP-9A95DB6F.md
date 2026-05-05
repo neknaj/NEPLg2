@@ -46,3 +46,11 @@ Vec<DropCounter> の全要素 cleanup 後に storage dealloc でき、drop count
 ## 関連 issue
 
 - `ISS-20260425T000000Z-RV-STDLIB-004-91534828`: Stage 6 collection API / element cleanup の親 issue。stdlib 側では Copy fast path の境界を先に固定し、この issue の Resource IR 修正後に owned storage cleanup を実装する。
+
+## 2026-05-05 exact raw-load summary 部分進捗
+
+調査中に、range cleanup 以前の exact raw cell move も function summary へ伝播していないことを確認したため、`ISS-20260505T061748334Z-RESOURCE-IR-SUMMARIES-OMIT-EXACT-NON-C8D2F16E` として分離して修正した。
+
+- 修正済み: callee が parameter-derived exact raw address から non-Copy 値を `load<T>` した場合、caller 側の `CellTable` でも該当 raw cell を moved に更新する。
+- 修正済み: caller 側で該当 raw cell が未初期化なら、summary 適用時に `RawMemoryLoadCell` として拒否する。
+- 未解決: `data + i * size_of<T>` のような unknown/dynamic offset を loop で全 range cleanup した事実は、まだ Resource IR 上で証明できない。unknown offset を exact move summary に混ぜると「1 要素の動的 load」を「全 range moved」と誤認し得るため、この issue では保守的に残す。
