@@ -24,6 +24,8 @@ mod function_alias;
 mod initialized;
 mod initialized_alias;
 mod initialized_alias_flow;
+mod initialized_alias_i32;
+mod initialized_alias_rank;
 mod initialized_control;
 mod initialized_external_io;
 mod initialized_external_io_effect;

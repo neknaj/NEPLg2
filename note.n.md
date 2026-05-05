@@ -29974,3 +29974,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - 新たに `ISS-20260505T185456921Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-06DA441F` を追加した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260505T185456921Z Resource initialized alias split)
+
+- [同期]:
+  - `work/resource-lowering-traversal-split-main` の lowering 分割commit後、branch `work/resource-initialized-alias-split-main` を作成して対応した。
+- [原因]:
+  - `initialized_alias.rs` は `RawCellAddressAliases` table API に加えて i32 value/condition fact と canonical/owner alias ranking を同居させており、619 lines で責務分割上限を超えていた。
+  - initialized raw alias は CellState / owner check の入力であり、table mutation、condition fact、canonical ordering が混在すると memory-safety audit の境界が曖昧になる。
+- [修正]:
+  - `initialized_alias_i32.rs` を追加し、i32 exact value fact、condition fact、condition implication を分離した。
+  - `initialized_alias_rank.rs` を追加し、alias group canonical ordering、owner cell alias ranking、raw projection classification を分離した。
+  - `initialized_alias.rs` は `RawCellAddressAliases` table API、alias group merge/clear/copy/move、projected alias query に集中させた。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module と line limit を追加し、`initialized_alias.rs` の上限を 520 lines へ下げた。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_tracks_external_non_copy_raw_load_after_first_move -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_canonicalizes_raw_address_local_reads -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check -- --nocapture`: 29 passed / 17 failed。失敗は既存の `ShadowSameSignatureCallable` warning を helper が失敗扱いする問題。
+  - `node nodesrc/test_resource_checker_responsibility.js`: `initialized_alias.rs` 超過は解消。次の別件として `initialized_summary.rs has 83 lines; responsibility split limit is 80` を検出した。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: downstream policy は継続実行。`initialized_summary.rs` 別件を warning として確認。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260505T185456921Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-06DA441F` は fixed。
+  - 新たに `ISS-20260505T185947027Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-63167AA8` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

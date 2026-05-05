@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T19:28:22.620Z",
+  "generated_at": "2026-05-05T19:32:59.142Z",
   "counts": {
-    "total": 468,
+    "total": 469,
     "open": 14,
-    "resolved": 454,
+    "resolved": 455,
     "by_area": {
       "core": {
-        "total": 207,
+        "total": 208,
         "open": 6,
-        "resolved": 201
+        "resolved": 202
       },
       "stdlib": {
         "total": 154,
@@ -150,21 +150,6 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260505T185456921Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-06DA441F",
-      "title": "Resource initialized alias module exceeds responsibility split limit again",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-05",
-      "updated": "2026-05-05",
-      "target": "nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_flow.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260505T185456921Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-06DA441F.md"
-    },
-    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -268,6 +253,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
+    },
+    {
+      "id": "ISS-20260505T185947027Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-63167AA8",
+      "title": "Resource initialized summary model exceeds responsibility split limit",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/initialized_summary.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T185947027Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-63167AA8.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -3238,6 +3238,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T184012396Z-RESOURCE-IR-LOWERING-TRAVERSAL-EXCEE-8A0A5A86.md"
+    },
+    {
+      "id": "ISS-20260505T185456921Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-06DA441F",
+      "title": "Resource initialized alias module exceeds responsibility split limit again",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/initialized_alias_i32.rs, nepl-core/src/resource/initialized_alias_rank.rs, nepl-core/src/resource/initialized_alias_flow.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T185456921Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-06DA441F.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

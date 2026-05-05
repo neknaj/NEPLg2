@@ -4,7 +4,11 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
-use super::model::{I32ValueCondition, Place, PlaceProjection, PlaceRoot};
+use super::initialized_alias_i32::{condition_implication, I32ConditionFact, I32ValueFact};
+use super::initialized_alias_rank::{
+    owner_alias_place_has_raw_projection, owner_cell_alias_rank, prefer_stable_canonical,
+};
+use super::model::{I32ValueCondition, Place};
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, replace_place_prefix,
 };
@@ -23,18 +27,6 @@ pub(super) struct RawCellAddressAliases {
     marked: Vec<Place>,
     i32_values: Vec<I32ValueFact>,
     i32_conditions: Vec<I32ConditionFact>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct I32ValueFact {
-    place: Place,
-    value: i32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct I32ConditionFact {
-    place: Place,
-    condition: I32ValueCondition,
 }
 
 impl RawCellAddressAliases {
@@ -515,104 +507,4 @@ fn place_without_suffix(
     out.projections.truncate(prefix_len);
     out.ty = ty;
     Some(out)
-}
-
-fn prefer_stable_canonical(group: &mut Vec<Place>) {
-    let Some((index, _)) = group.iter().enumerate().min_by_key(|(_, place)| {
-        (
-            canonical_place_projection_rank(place),
-            canonical_place_rank(place),
-            place.projections.len(),
-        )
-    }) else {
-        return;
-    };
-    if index != 0 {
-        let place = group.remove(index);
-        group.insert(0, place);
-    }
-}
-
-fn canonical_place_projection_rank(place: &Place) -> u8 {
-    if place
-        .projections
-        .iter()
-        .any(|projection| matches!(projection, super::model::PlaceProjection::StorageOffset(_)))
-    {
-        0
-    } else {
-        1
-    }
-}
-
-fn owner_cell_alias_rank(place: &Place) -> (u8, u8, usize) {
-    (
-        owner_cell_projection_rank(place),
-        canonical_place_rank(place),
-        place.projections.len(),
-    )
-}
-
-fn owner_cell_projection_rank(place: &Place) -> u8 {
-    if place.projections.iter().any(|projection| {
-        matches!(
-            projection,
-            super::model::PlaceProjection::Field { .. }
-                | super::model::PlaceProjection::TupleField { .. }
-                | super::model::PlaceProjection::EnumPayload { .. }
-        )
-    }) {
-        0
-    } else if place
-        .projections
-        .iter()
-        .any(|projection| matches!(projection, super::model::PlaceProjection::StorageOffset(_)))
-    {
-        1
-    } else {
-        2
-    }
-}
-
-fn owner_alias_place_has_raw_projection(place: &Place, base: &Place) -> bool {
-    place.projections.iter().any(|projection| {
-        matches!(
-            projection,
-            PlaceProjection::Deref | PlaceProjection::StorageOffset(_)
-        )
-    }) || place_suffix_after_prefix(place, base).is_some_and(|suffix| {
-        suffix.iter().any(|projection| {
-            matches!(
-                projection,
-                PlaceProjection::Deref | PlaceProjection::StorageOffset(_)
-            )
-        })
-    })
-}
-
-fn condition_implication(known: I32ValueCondition, query: I32ValueCondition) -> Option<bool> {
-    use I32ValueCondition::{EqZero, NeZero, Negative, NonNegative, NonPositive, Positive};
-    match (known, query) {
-        (left, right) if left == right => Some(true),
-        (EqZero, NeZero | Positive | Negative) => Some(false),
-        (EqZero, NonPositive | NonNegative) => Some(true),
-        (NeZero, EqZero) => Some(false),
-        (Positive, EqZero | Negative | NonPositive) => Some(false),
-        (Positive, NeZero | NonNegative) => Some(true),
-        (NonPositive, Positive) => Some(false),
-        (Negative, EqZero | Positive | NonNegative) => Some(false),
-        (Negative, NeZero | NonPositive) => Some(true),
-        (NonNegative, Negative) => Some(false),
-        _ => None,
-    }
-}
-
-fn canonical_place_rank(place: &Place) -> u8 {
-    match place.root {
-        PlaceRoot::Local(_) => 0,
-        PlaceRoot::Return => 1,
-        PlaceRoot::Storage(_) => 2,
-        PlaceRoot::Temporary(_) => 3,
-        PlaceRoot::Unknown => 4,
-    }
 }
