@@ -174,11 +174,7 @@ pub(crate) fn should_skip_wasm_codegen_for_generic(ctx: &TypeCtx, f: &HirFunctio
     false
 }
 
-fn collect_called_functions_from_expr(
-    expr: &HirExpr,
-    out: &mut BTreeSet<String>,
-    has_indirect: &mut bool,
-) {
+fn collect_called_functions_from_expr(expr: &HirExpr, out: &mut BTreeSet<String>) {
     let mut stack = vec![expr];
     while let Some(expr) = stack.pop() {
         match &expr.kind {
@@ -191,7 +187,6 @@ fn collect_called_functions_from_expr(
                 }
             }
             HirExprKind::CallIndirect { callee, args, .. } => {
-                *has_indirect = true;
                 for arg in args.iter().rev() {
                     stack.push(arg);
                 }
@@ -296,7 +291,6 @@ pub(crate) fn collect_reachable_wasm_functions(module: &HirModule) -> BTreeSet<S
 
     let mut reachable = BTreeSet::new();
     let mut stack: Vec<String> = roots.iter().cloned().collect();
-    let mut has_indirect = false;
     let resolve_name = |name: &str| -> String {
         if all_names.contains(name) {
             return name.to_string();
@@ -326,7 +320,7 @@ pub(crate) fn collect_reachable_wasm_functions(module: &HirModule) -> BTreeSet<S
         if let HirBody::Block(b) = &func.body {
             let mut called = BTreeSet::new();
             for line in &b.lines {
-                collect_called_functions_from_expr(&line.expr, &mut called, &mut has_indirect);
+                collect_called_functions_from_expr(&line.expr, &mut called);
             }
             for callee in called {
                 let resolved_callee = resolve_name(&callee);
@@ -337,9 +331,6 @@ pub(crate) fn collect_reachable_wasm_functions(module: &HirModule) -> BTreeSet<S
         }
     }
 
-    if has_indirect {
-        return all_names;
-    }
     reachable
 }
 

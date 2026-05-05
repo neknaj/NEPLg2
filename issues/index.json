@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T10:18:39.337Z",
+  "generated_at": "2026-05-05T10:47:55.641Z",
   "counts": {
-    "total": 521,
+    "total": 522,
     "open": 15,
-    "resolved": 506,
+    "resolved": 507,
     "by_area": {
       "core": {
-        "total": 223,
+        "total": 224,
         "open": 7,
-        "resolved": 216
+        "resolved": 217
       },
       "stdlib": {
         "total": 157,
@@ -3503,6 +3503,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T101310267Z-WASM-CODEGEN-EMITS-ENTRY-UNREACHABLE-22405735.md"
+    },
+    {
+      "id": "ISS-20260505T104136107Z-WASM-INDIRECT-REACHABILITY-KEEPS-ALL-C97F267A",
+      "title": "WASM indirect reachability keeps all monomorphized functions",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/wasm_shared.rs, nepl-core/tests/codegen_diagnostics.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T104136107Z-WASM-INDIRECT-REACHABILITY-KEEPS-ALL-C97F267A.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

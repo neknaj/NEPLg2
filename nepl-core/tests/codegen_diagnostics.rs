@@ -156,6 +156,68 @@ fn wasm_codegen_ignores_entry_unreachable_bad_function() {
 }
 
 #[test]
+fn wasm_codegen_keeps_indirect_address_taken_callee_without_all_functions_fallback() {
+    let mut ctx = TypeCtx::new();
+    let i32_ty = ctx.i32();
+    let never_ty = ctx.never();
+    let unit_ty = ctx.unit();
+    let callee_ty = ctx.function(Vec::new(), vec![i32_ty], i32_ty, Effect::Pure);
+    let main = zero_arg_function(
+        &mut ctx,
+        "main",
+        i32_ty,
+        HirExpr {
+            ty: i32_ty,
+            kind: HirExprKind::CallIndirect {
+                callee: Box::new(HirExpr {
+                    ty: callee_ty,
+                    kind: HirExprKind::FnValue("callee".to_string()),
+                    span: Span::dummy(),
+                }),
+                params: vec![i32_ty],
+                result: i32_ty,
+                effect: Effect::Pure,
+                args: vec![HirExpr {
+                    ty: i32_ty,
+                    kind: HirExprKind::LiteralI32(7),
+                    span: Span::dummy(),
+                }],
+            },
+            span: Span::dummy(),
+        },
+    );
+    let callee = one_arg_function(
+        &mut ctx,
+        "callee",
+        "x",
+        i32_ty,
+        i32_ty,
+        HirExpr {
+            ty: i32_ty,
+            kind: HirExprKind::Var("x".to_string()),
+            span: Span::dummy(),
+        },
+    );
+    let entry_unreachable_bad = zero_arg_function(
+        &mut ctx,
+        "entry_unreachable_bad",
+        never_ty,
+        HirExpr {
+            ty: unit_ty,
+            kind: HirExprKind::Unit,
+            span: Span::dummy(),
+        },
+    );
+    let module = empty_module(vec![main, callee, entry_unreachable_bad], Some("main"));
+
+    assert!(precheck_wasm_codegen(&ctx, &module).is_empty());
+    let generated = codegen_wasm::generate_wasm(&ctx, &module)
+        .expect("wasm codegen should keep the address-taken callee only");
+    let bytes = generated.bytes.expect("wasm bytes should be emitted");
+    assert!(!bytes.is_empty());
+}
+
+#[test]
 fn wasm_codegen_reports_unknown_variable_without_panicking() {
     let mut ctx = TypeCtx::new();
     let i32_ty = ctx.i32();

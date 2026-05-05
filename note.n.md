@@ -31211,3 +31211,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正 Stage 4 Resource IR resource check の一部として、診断抑制ではなく function summary の契約を拡張し、caller/callee 境界でも raw cell の move 状態を検査可能にした。
+
+# 2026-05-05 メモ (ISS-20260505T104136107Z WASM indirect reachability)
+
+- [原因]:
+  - WASM backend の到達解析は、reachable function 内に `CallIndirect` が 1 つでもあると `all_names` を返し、entry-unreachable な monomorphized function まで precheck/codegen 対象へ戻していた。
+  - selfhost compiler fixture は parser/driver 周辺で function value を使うため、この fallback が entry reachability filter を無効化し、unsupported / expensive な無関係関数を backend work に混ぜる性能バグになっていた。
+  - 既存 collector は `FnValue` / function-valued `Var` / direct user call を収集していたため、`call_indirect` の存在だけを理由に全関数を保持する必要はなかった。
+- [修正]:
+  - `nepl-core/src/wasm_shared.rs` の `has_indirect -> all_names` fallback を削除し、`CallIndirect` は callee expression と arguments を通常通り走査して address-taken な function symbol だけを reachable に入れるようにした。
+  - `nepl-core/tests/codegen_diagnostics.rs` に、`main` が `FnValue("callee")` 経由で indirect call しつつ entry-unreachable unsupported function が同居する regression を追加した。
+  - `ISS-20260505T104136107Z-WASM-INDIRECT-REACHABILITY-KEEPS-ALL-C97F267A` を fixed / resolved に更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test codegen_diagnostics wasm_codegen_keeps_indirect_address_taken_callee_without_all_functions_fallback -- --nocapture`: passed
+  - `cargo test -p nepl-core --test codegen_diagnostics wasm_precheck_reports_indirect_signature_missing_code -- --nocapture`: passed
+  - `cargo test -p nepl-core --test codegen_diagnostics wasm_codegen_reports_indirect_signature_missing_without_panicking -- --nocapture`: passed
+  - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: 12 passed
+  - `cargo test -p nepl-core --test functions function_first_class -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test effects pure_indirect_impure_function_value_is_rejected -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+- [残件]:
+  - 同修正後も `tmp\selfhost_cli_driver_doctest2.nepl` の native wasm emit は 180 秒 timeout したため、`ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C` は open 継続とした。
+  - 残原因は `selfhost_pipeline_load_root` から parser/pipeline 成功経路を広く特殊化している monomorphize、巨大 specialized graph の Resource IR 再走査、または wasm lowering の線形以上のコストとして継続調査する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正 Stage 5/後段 backend 境界の性能修正として、静的検査を弱めずに backend reachability を精密化した。
