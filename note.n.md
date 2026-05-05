@@ -1,3 +1,18 @@
+# 2026-05-05 メモ (ISS-20260505T094232444Z mem_fill doctest effect boundary)
+
+- [原因]:
+  - `tests/stdlib/mem_fill.n.md` の positive doctest 3 件が raw memory helper を呼ぶにもかかわらず pure `main` のままだった。
+  - compiler の `resource.raw.unsafe_memory_boundary` は正しく働いており、ここで境界検査を緩めると raw memory operation を pure surface に戻してしまう。
+- [対応]:
+  - `memset_u8` / `fill_i32` / `fill_u8` を実行する positive doctest の `main` だけを impure signature にした。
+  - raw memory helper や Resource IR の unsafe memory boundary は変更していない。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/mem_fill.n.md --no-tree -o tmp/mem-fill-agent1-after.json -j 1 --dist web/dist`: 3 total / 3 passed
+  - `node nodesrc/issues.js check`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - Stage 5 の unsafe memory boundary enforcement に合わせて、fixture 側の effect signature を更新した。
+
 # 2026-05-05 メモ (ISS-20260505T092815045Z fill initialized range facts)
 
 - [原因]:

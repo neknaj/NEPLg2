@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T09:43:18.033Z",
+  "generated_at": "2026-05-05T09:54:45.521Z",
   "counts": {
     "total": 520,
-    "open": 16,
-    "resolved": 504,
+    "open": 15,
+    "resolved": 505,
     "by_area": {
       "core": {
         "total": 222,
@@ -18,8 +18,8 @@
       },
       "TEST": {
         "total": 36,
-        "open": 3,
-        "resolved": 33
+        "open": 2,
+        "resolved": 34
       },
       "selfhost": {
         "total": 45,
@@ -278,21 +278,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58.md"
-    },
-    {
-      "id": "ISS-20260505T094232444Z-MEM-FILL-DOCTESTS-STILL-CALL-RAW-FIL-C8F2D305",
-      "title": "mem_fill doctests still call raw fill helpers from pure main",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-05-05",
-      "updated": "2026-05-05",
-      "target": "tests/stdlib/mem_fill.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260505T094232444Z-MEM-FILL-DOCTESTS-STILL-CALL-RAW-FIL-C8F2D305.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -5918,6 +5903,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T091240393Z-MEMORY-SAFETY-DOCTESTS-STILL-CALL-RA-7A3E26CD.md"
+    },
+    {
+      "id": "ISS-20260505T094232444Z-MEM-FILL-DOCTESTS-STILL-CALL-RAW-FIL-C8F2D305",
+      "title": "mem_fill doctests still call raw fill helpers from pure main",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "tests/stdlib/mem_fill.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T094232444Z-MEM-FILL-DOCTESTS-STILL-CALL-RAW-FIL-C8F2D305.md"
     },
     {
       "id": "ISS-20260430T123220209Z-GETTING-STARTED-TUTORIALS-USE-RET-FO-0BE9531F",
