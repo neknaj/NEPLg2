@@ -127,3 +127,14 @@ compiler gate では `UnsafeMemoryInPureFunction` だけを `raw_memory_operatio
 - `resource.raw.unsafe_memory_boundary`: pure function `selfhost_cli_arg_at__i32_i32_i32__Option_T_str__pure` が `/stdlib/neplg2/cli/args/parse.nepl:57` で `load<str>` を実行している。
 
 これは codegen timeout ではなく、selfhost CLI argument storage が raw-memory-backed `Vec<str>` layout を直接読み、operation-only raw memory boundary の対象にもなっていないことによる stdlib/neplg2 API migration 残件である。単に `selfhost_cli_arg_at` を impure 化するだけでは CLI option parse API 全体の surface effect を変えるため、`Vec` safe accessor / argument storage の責務分割として別途対応する。
+
+## 2026-05-06 selfhost CLI arg storage 対応追記
+
+`tests/stdlib/selfhost_cli_driver.n.md` の stdout report 移行を再開するにあたり、`selfhost_cli_arg_at` の raw `load<str>` を廃止した。対応は `stdlib/neplg2/cli/args/parse.nepl` の parser state machine を `data/count` ではなく `&Vec<str>/count` で走査し、要素取得を `alloc/collections/vec::get<str>` へ委譲する形で行った。
+
+この対応により、selfhost CLI parser は raw address を保持せず、raw memory operation capability の対象外のまま pure parser として残る。raw-memory-backed storage の内部操作は `Vec` 実装側へ閉じ、CLI parser の責務は token の分類と state transition に限定される。
+
+検証結果:
+
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md -o tmp/selfhost_cliarg_parser_after_notree.json -j1 --dist web/dist --no-tree`: total=10, passed=10, failed=0。
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md -o tmp/selfhost_cli_driver_after_notree.json -j1 --dist web/dist --no-tree`: total=3, passed=3, failed=0。

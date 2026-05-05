@@ -3,7 +3,8 @@
 ## selfhost_cli_driver_success_vfs_returns_zero
 
 neplg2:test[normalize_newlines]
-ret: 0
+exit_code: 0
+stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
 ```neplg2
 #entry main
 #indent 4
@@ -44,13 +45,14 @@ fn main <()*>i32> ():
                         checks_new
                         |> checks_push assert_eq_i32 0 exit_code
                         |> checks_push assert_eq_i32 0 diag_len
-                    checks_exit_code checks
+                    let shown checks_print_report checks
+                    checks_exit_code shown
 ```
 
 ## selfhost_cli_driver_missing_input_writes_json_diagnostic
 
 neplg2:test[normalize_newlines]
-ret: 0
+exit_code: 0
 stdout: "[{\"severity\":\"error\",\"code\":\"cli.input.missing\",\"message\":\"input source file is required\",\"primary_label\":null,\"note\":\"pass -i/--input or a positional input path\"}]"
 ```neplg2
 #entry main
@@ -85,7 +87,8 @@ fn main <()*>i32> ():
 ## selfhost_cli_driver_missing_file_returns_loader_diagnostic
 
 neplg2:test[normalize_newlines]
-ret: 0
+exit_code: 0
+stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
 ```neplg2
 #entry main
 #indent 4
@@ -124,5 +127,6 @@ fn main <()*>i32> ():
                         checks_new
                         |> checks_push assert_eq_i32 1 exit_code
                         |> checks_push assert_str_eq "[{\"severity\":\"error\",\"code\":\"loader.source.file_not_found\",\"message\":\"source file is not registered in self-host VFS\",\"primary_label\":null,\"note\":\"missing.nepl\"}]" json
-                    checks_exit_code checks
+                    let shown checks_print_report checks
+                    checks_exit_code shown
 ```

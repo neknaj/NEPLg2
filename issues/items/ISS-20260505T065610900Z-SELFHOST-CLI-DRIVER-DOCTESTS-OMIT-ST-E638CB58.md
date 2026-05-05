@@ -2,8 +2,8 @@
 id: ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58
 title: "selfhost CLI driver doctests omit stdout assertion reports"
 area: TEST
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: test
 created: 2026-05-05
@@ -50,3 +50,19 @@ tests/stdlib/selfhost_cli_driver.n.md を focused run し、3 doctest が通る�
 同じ doctest source を抽出して native CLI で確認すると、`target\debug\nepl-cli.exe --check -i <tmp> --target std --stdlib-root stdlib` は約 5.4 秒で `Check successful` になった。一方で `target\debug\nepl-cli.exe -i <tmp> --target std --stdlib-root stdlib --emit wasm` は 240 秒 timeout に到達した。
 
 このため、stdout report 移行の未検証差分を入れるのではなく、post-check の monomorphize / wasm codegen / backend 側の性能・到達関数集合問題として `ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C` を追加した。この issue は codegen timeout 解消後に再開する。
+
+## 2026-05-06 対応
+
+- `tests/stdlib/selfhost_cli_driver.n.md` の assertion-style doctest 2 件を `checks_print_report` + stdout fixture + `exit_code: 0` へ移行した。
+- missing input doctest は既存 JSON stdout fixture を維持し、process success metadata を `ret: 0` から `exit_code: 0` へ移行した。
+- stdout report 移行の再開時に露出した `stdlib/neplg2/cli/args/parse.nepl` の raw `load<str>` は、parser 側に raw boundary を追加せず、`Vec<str>` borrow と `alloc/collections/vec::get` による境界付き access へ修正した。
+
+## 2026-05-06 検証結果
+
+- `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cli_driver.n.md -n 1 --dist web/dist`: pass, stdout report `Checked [ok,ok]` を確認。
+- `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cli_driver.n.md -n 2 --dist web/dist`: pass, JSON stdout fixture を確認。
+- `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cli_driver.n.md -n 3 --dist web/dist`: pass, stdout report `Checked [ok,ok]` を確認。
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md -o tmp/selfhost_cli_driver_after_notree.json -j1 --dist web/dist --no-tree`: total=3, passed=3, failed=0。
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md -o tmp/selfhost_cliarg_parser_after_notree.json -j1 --dist web/dist --no-tree`: total=10, passed=10, failed=0。
+
+補足: `--with-tree` 相当の同梱実行では既存の `tests/compiler/tree/semantics_vfs_cross_file_definition_path` / `name_resolution_vfs_cross_file_definition_path` が definition path assertion で失敗するが、今回の selfhost CLI parser / driver 変更とは独立している。

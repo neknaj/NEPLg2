@@ -1,3 +1,22 @@
+# 2026-05-06 メモ (ISS-20260505T065610900Z selfhost CLI driver stdout report migration)
+
+- [原因]:
+  - `tests/stdlib/selfhost_cli_driver.n.md` の success / missing file doctest は `std/test` assertion を組み立てるだけで、stdout report を出していなかった。
+  - codegen timeout 解消後に stdout report 化を再開すると、`stdlib/neplg2/cli/args/parse.nepl` の `selfhost_cli_arg_at` が `Vec<str>` の raw data pointer を `load<str>` で直接読んでおり、pure parser 内の `resource.raw.unsafe_memory_boundary` として露出した。
+- [対応]:
+  - `selfhost_cli_parse_loop` を `data/count` ではなく `&Vec<str>/count` で走査する形に変更し、要素取得を `v::get<str>` に委譲した。
+  - parser 側から `core/mem` / raw address / `load<str>` を取り除き、CLI parser の責務を token 分類と state transition に戻した。
+  - selfhost CLI driver doctest 3 件を `exit_code:` metadata に統一し、assertion-style doctest 2 件は `checks_print_report` の stdout fixture を固定した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cli_driver.n.md -n 1 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cli_driver.n.md -n 2 --dist web/dist`: pass
+  - `node nodesrc/run_doctest.js -i tests/stdlib/selfhost_cli_driver.n.md -n 3 --dist web/dist`: pass
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cliarg_parser.n.md -o tmp/selfhost_cliarg_parser_after_notree.json -j1 --dist web/dist --no-tree`: total=10, passed=10
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md -o tmp/selfhost_cli_driver_after_notree.json -j1 --dist web/dist --no-tree`: total=3, passed=3
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正計画では Stage 6 stdlib/selfhost migration に該当する。静的検査の raw boundary は緩めず、stdlib/neplg2 の parser 実装を safe collection API に寄せた。
+
 # 2026-05-05 メモ (ISS-20260505T081814569Z selfhost CLI driver codegen timeout fixed)
 
 - [原因]:
