@@ -29948,3 +29948,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` に Stage 4 Resource IR CellState の進捗として追記した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260430T135243330Z Resource owner variant path builder split)
+
+- [同期]:
+  - `origin/main` の `cc223b55` と直前の Resource IR CellState 修正 `8e1d3a41` を含む状態から、branch `work/resource-owner-variant-path-split` で対応した。
+- [原因]:
+  - `owner_summary_variant_paths.rs` は return path traversal、branch/match condition propagation、enum construct payload 抽出、match arm entry state mutation、returned owner projection collection を同じ module に保持していた。
+  - Resource IR owner summary は Stage 4 static check の安全性に直結するため、variant path traversal の orchestration と個別意味論を混在させると監査しづらく、後続の MemPtr/non-owning pointer と OwnedRegion/storage owner の修正が再び巨大 checker 化する。
+- [修正]:
+  - `owner_summary_variant_construct.rs` を追加し、return value に対応する enum construct と payload suffix 抽出を分離した。
+  - `owner_summary_variant_conditions.rs` を追加し、branch condition / payload condition の owner variant summary 変換を分離した。
+  - `owner_summary_variant_match.rs` を追加し、match arm entry 時の payload owner transfer、raw alias/view、pending realloc、variant owner effect 適用を分離した。
+  - `owner_summary_variant_paths.rs` は path traversal orchestration と重複排除だけに縮小し、337 lines にした。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module の存在確認と line limit を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_helper -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_owner_into_constructed_aggregate -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_aggregate_owner_projection -- --nocapture`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: owner variant module の分割は通過。別件として `lower.rs has 1315 lines; responsibility split limit is 1300` を検出した。
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check -- --nocapture`: source-based tests は既存の `ShadowSameSignatureCallable` warning を helper が失敗扱いするため一部未完了。
+- [issue]:
+  - `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8` は fixed。
+  - 新たに `ISS-20260505T184012396Z-RESOURCE-IR-LOWERING-TRAVERSAL-EXCEE-8A0A5A86` を追加した。`lower.rs` の責務超過は今回の owner variant path builder とは別issueとして扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

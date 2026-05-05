@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T18:30:24.768Z",
+  "generated_at": "2026-05-05T18:41:12.919Z",
   "counts": {
-    "total": 467,
+    "total": 468,
     "open": 14,
-    "resolved": 453,
+    "resolved": 454,
     "by_area": {
       "core": {
-        "total": 206,
+        "total": 207,
         "open": 6,
-        "resolved": 200
+        "resolved": 201
       },
       "stdlib": {
         "total": 154,
@@ -150,19 +150,19 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8",
-      "title": "Resource owner variant path builder exceeds responsibility split policy",
+      "id": "ISS-20260505T184012396Z-RESOURCE-IR-LOWERING-TRAVERSAL-EXCEE-8A0A5A86",
+      "title": "Resource IR lowering traversal exceeds responsibility split limit",
       "area": "core",
       "status": "open",
       "resolved": false,
       "priority": "P1",
       "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource/owner_summary_variant_paths.rs, nodesrc/test_resource_checker_responsibility.js",
+      "created": "2026-05-05",
+      "updated": "2026-05-05",
+      "target": "nepl-core/src/resource/lower.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8.md"
+      "file": "items/ISS-20260505T184012396Z-RESOURCE-IR-LOWERING-TRAVERSAL-EXCEE-8A0A5A86.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3208,6 +3208,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T083411167Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-D35A0DAD.md"
+    },
+    {
+      "id": "ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8",
+      "title": "Resource owner variant path builder exceeds responsibility split policy",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/owner_summary_variant_paths.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8.md"
     },
     {
       "id": "ISS-20260505T182658141Z-RESOURCE-IR-TREATS-UNKNOWN-OFFSET-NO-48ACA3ED",
