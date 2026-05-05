@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T23:45:42.363Z",
+  "generated_at": "2026-05-05T23:46:03.457Z",
   "counts": {
-    "total": 486,
+    "total": 487,
     "open": 13,
-    "resolved": 473,
+    "resolved": 474,
     "by_area": {
       "core": {
-        "total": 223,
+        "total": 224,
         "open": 5,
-        "resolved": 218
+        "resolved": 219
       },
       "stdlib": {
         "total": 155,
@@ -3463,6 +3463,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T233552284Z-RESOURCE-UNSAFE-MEMORY-DIAGNOSTICS-R-46C50106.md"
+    },
+    {
+      "id": "ISS-20260505T234127273Z-INITIALIZED-EXTERNAL-IO-MIXES-INPUT--B1A15983",
+      "title": "Initialized external IO mixes input checks and effects",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/initialized_external_io.rs, nepl-core/src/resource/initialized_external_io_input.rs, nepl-core/src/resource/mod.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T234127273Z-INITIALIZED-EXTERNAL-IO-MIXES-INPUT--B1A15983.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

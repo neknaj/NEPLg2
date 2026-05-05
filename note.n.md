@@ -1,3 +1,25 @@
+# 2026-05-06 note (ISS-20260505T234127273Z initialized external IO input split)
+
+- [同期]:
+  - `ISS-20260505T233519789Z` の effect count 分割後、Resource checker responsibility policy の次の未解決箇所として検出した問題を対応した。
+- [原因]:
+  - `initialized_external_io.rs` は fd_read/fd_write/fd_pread/fd_pwrite の iovec 入力可用性チェックと、typed host operation の initialized-state effect application を同じ file に持っていた。
+  - その結果、156 lines となり `nodesrc/test_resource_checker_responsibility.js` の 140 lines 上限を超過していた。
+- [修正]:
+  - `ensure_external_io_initialized_inputs` を `initialized_external_io_input.rs` に分離した。
+  - `initialized_external_io.rs` は output pointer / buffer を initialized にする effect application に集中させた。
+  - `resource/mod.rs` と source policy に新 module を追加した。
+- [検証]:
+  - `cargo fmt -p nepl-core`: 実行済み
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd -- --nocapture`: `4 passed`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_external_fd_read_initializes_iovec_buffers -- --nocapture`: passed
+- [issue]:
+  - `ISS-20260505T234127273Z-INITIALIZED-EXTERNAL-IO-MIXES-INPUT--B1A15983` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260505T233519789Z resource effect counts split)
 
 - [同期]:
