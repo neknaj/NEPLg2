@@ -48,6 +48,7 @@ Run the extracted selfhost_cli_driver doctest#2 through native --check, native w
 
 - `ISS-20260505T065610900Z-SELFHOST-CLI-DRIVER-DOCTESTS-OMIT-ST-E638CB58`: stdout assertion report 移行の直接 issue。この codegen timeout が解消するまで、未検証の fixture 変更を入れない。
 - `ISS-20260505T104136107Z-WASM-INDIRECT-REACHABILITY-KEEPS-ALL-C97F267A`: `call_indirect` を含むだけで WASM reachability が全 monomorphized function に戻る個別バグ。2026-05-05 に fixed。selfhost driver source の native wasm emit は同修正後も 180 秒 timeout するため、この issue は monomorphize / Resource IR / backend work の残件として open 継続する。
+- `ISS-20260505T105107120Z-WASM-STRING-LOWERING-EMITS-ENTRY-UNR-8B692C39`: WASM data section が entry-unreachable string literal まで emit する個別バグ。2026-05-05 に fixed。selfhost driver source の native wasm emit は同修正後も 180 秒 timeout するため、この issue は open 継続する。
 
 ## 2026-05-05 indirect reachability 修正後の再計測
 
@@ -57,3 +58,11 @@ Run the extracted selfhost_cli_driver doctest#2 through native --check, native w
 - `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2.nepl --target std --stdlib-root stdlib --emit wasm -o tmp\selfhost_cli_driver_doctest2_emit_after_indirect`: 180 秒 timeout
 
 したがって、entry-unreachable function を `call_indirect` だけで backend 対象へ戻すバグは解消したが、selfhost CLI driver timeout の主因はまだ残っている。次の調査対象は、monomorphize が `selfhost_pipeline_load_root` から parser/pipeline 成功経路を広く特殊化している点、Resource IR check が巨大 specialized graph を再走査している点、または wasm lowering が大きな HIR body を線形以上のコストで処理している点である。
+
+## 2026-05-05 string literal reachability 修正後の再計測
+
+`ISS-20260505T105107120Z-WASM-STRING-LOWERING-EMITS-ENTRY-UNR-8B692C39` で WASM data section を reachable literal だけに絞った後、同じ extracted source を再計測した。
+
+- `target\debug\nepl-cli.exe -i tmp\selfhost_cli_driver_doctest2.nepl --target std --stdlib-root stdlib --emit wasm -o tmp\selfhost_cli_driver_doctest2_emit_after_string`: 180 秒 timeout
+
+したがって、未到達文字列 literal の data section 肥大は個別に解消したが、selfhost CLI driver timeout の主因はまだ monomorphize / Resource IR / wasm lowering の phase cost に残っている。

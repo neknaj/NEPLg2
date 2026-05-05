@@ -31237,3 +31237,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
   - 静的検査大規模修正 Stage 5/後段 backend 境界の性能修正として、静的検査を弱めずに backend reachability を精密化した。
+
+# 2026-05-05 メモ (ISS-20260505T105107120Z WASM reachable strings)
+
+- [原因]:
+  - `codegen_wasm::generate_wasm` は function reachability を計算する前に `module.string_literals` 全体を data section へ配置していた。
+  - user function lowering は entry-reachable function に絞られているのに、文字列 literal だけが未到達関数由来でも wasm bytes に残るため、selfhost/parser/diagnostic の大きい import graph で emit 時間と wasm サイズが imported module size に引きずられていた。
+- [修正]:
+  - `collect_reachable_string_literal_ids` を追加し、reachable function body に現れる `LiteralStr` id だけを収集するようにした。
+  - `StringLower.offsets` を `Vec<Option<u32>>` にして、元の literal id と field selector lookup 用の `values` を保ちながら、未使用 literal は data segment を持たない形にした。
+  - `ISS-20260505T105107120Z-WASM-STRING-LOWERING-EMITS-ENTRY-UNR-8B692C39` を fixed / resolved に更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test codegen_diagnostics wasm_codegen_omits_entry_unreachable_string_literal_data -- --nocapture`: passed
+  - `cargo test -p nepl-core --test codegen_diagnostics wasm_codegen_reports_missing_string_literal_without_panicking -- --nocapture`: passed
+  - `cargo test -p nepl-core --test codegen_diagnostics -- --nocapture`: 13 passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+- [残件]:
+  - 同修正後も `tmp\selfhost_cli_driver_doctest2.nepl` の native wasm emit は 180 秒 timeout したため、`ISS-20260505T081814569Z-SELFHOST-CLI-DRIVER-DOCTEST-CODEGEN--052EB57C` は open 継続とした。
+  - 次は compile_module 内の phase timing を取り、monomorphize / Resource IR / wasm lower / validation のどの段階が支配しているかを数値で切り分ける必要がある。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+  - 静的検査大規模修正の後段 backend lowering 境界として、意味を変えずに entry-reachable artifact だけを出す方向へ修正した。

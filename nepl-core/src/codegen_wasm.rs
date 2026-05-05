@@ -5,7 +5,7 @@ extern crate alloc;
 extern crate std;
 
 use alloc::borrow::Cow;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec;
@@ -58,7 +58,7 @@ fn codegen_error(message: impl Into<String>, span: Span, code: DiagnosticCode) -
 #[derive(Debug, Clone)]
 struct StringLower {
     values: Vec<String>,
-    offsets: Vec<u32>,
+    offsets: Vec<Option<u32>>,
     segments: Vec<(u32, Vec<u8>)>,
     min_pages: u32,
     heap_base: u32,
@@ -66,19 +66,22 @@ struct StringLower {
 
 impl StringLower {
     fn offset(&self, idx: u32) -> Option<u32> {
-        self.offsets.get(idx as usize).copied()
+        self.offsets.get(idx as usize).copied().flatten()
     }
 }
 
-fn lower_strings(strings: &[String]) -> StringLower {
+fn lower_strings(strings: &[String], used_ids: &BTreeSet<u32>) -> StringLower {
     let values = strings.to_vec();
-    let mut offsets = Vec::new();
+    let mut offsets = vec![None; strings.len()];
     let mut segments = Vec::new();
     // Reserve the first 8 bytes for allocator metadata (heap ptr + free list head).
     let mut cursor: u32 = 8;
-    for s in strings {
+    for (idx, s) in strings.iter().enumerate() {
+        if !used_ids.contains(&(idx as u32)) {
+            continue;
+        }
         cursor = align_to(cursor, 4);
-        offsets.push(cursor);
+        offsets[idx] = Some(cursor);
         let mut data = Vec::new();
         let bytes = s.as_bytes();
         let len = bytes.len() as u32;
@@ -95,6 +98,98 @@ fn lower_strings(strings: &[String]) -> StringLower {
         segments,
         min_pages,
         heap_base,
+    }
+}
+
+fn collect_reachable_string_literal_ids(
+    module: &HirModule,
+    reachable_functions: &BTreeSet<String>,
+) -> BTreeSet<u32> {
+    let mut out = BTreeSet::new();
+    for f in &module.functions {
+        if !reachable_functions.contains(&f.name) {
+            continue;
+        }
+        if let HirBody::Block(block) = &f.body {
+            for line in &block.lines {
+                collect_string_literal_ids_from_expr(&line.expr, &mut out);
+            }
+        }
+    }
+    out
+}
+
+fn collect_string_literal_ids_from_expr(expr: &HirExpr, out: &mut BTreeSet<u32>) {
+    let mut stack = vec![expr];
+    while let Some(expr) = stack.pop() {
+        match &expr.kind {
+            HirExprKind::LiteralStr(id) => {
+                out.insert(*id);
+            }
+            HirExprKind::Call { args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+            }
+            HirExprKind::CallIndirect { callee, args, .. } => {
+                for arg in args.iter().rev() {
+                    stack.push(arg);
+                }
+                stack.push(callee);
+            }
+            HirExprKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                stack.push(else_branch);
+                stack.push(then_branch);
+                stack.push(cond);
+            }
+            HirExprKind::While { cond, body } => {
+                stack.push(body);
+                stack.push(cond);
+            }
+            HirExprKind::Match { scrutinee, arms } => {
+                for arm in arms.iter().rev() {
+                    stack.push(&arm.body);
+                }
+                stack.push(scrutinee);
+            }
+            HirExprKind::EnumConstruct { payload, .. } => {
+                if let Some(payload) = payload {
+                    stack.push(payload);
+                }
+            }
+            HirExprKind::StructConstruct { fields, .. } => {
+                for field in fields.iter().rev() {
+                    stack.push(field);
+                }
+            }
+            HirExprKind::TupleConstruct { items } | HirExprKind::Intrinsic { args: items, .. } => {
+                for item in items.iter().rev() {
+                    stack.push(item);
+                }
+            }
+            HirExprKind::Block(block) => {
+                for line in block.lines.iter().rev() {
+                    stack.push(&line.expr);
+                }
+            }
+            HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
+                stack.push(value);
+            }
+            HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
+                stack.push(inner);
+            }
+            HirExprKind::Unit
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::Var(_)
+            | HirExprKind::FnValue(_)
+            | HirExprKind::Drop { .. } => {}
+        }
     }
 }
 
@@ -133,12 +228,12 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
             .collect::<Vec<_>>();
         wasm_log!("wasm codegen functions(new*): {:?}", names);
     }
-    let strings = lower_strings(&module.string_literals);
-
     // Build imports / function list (builtins first)
     let mut imports: Vec<ImportLower> = Vec::new();
     let mut functions: Vec<FuncLower> = Vec::new();
     let reachable_functions = crate::wasm_shared::collect_reachable_wasm_functions(module);
+    let reachable_string_ids = collect_reachable_string_literal_ids(module, &reachable_functions);
+    let strings = lower_strings(&module.string_literals, &reachable_string_ids);
 
     // Extern imports
     for ext in &module.externs {

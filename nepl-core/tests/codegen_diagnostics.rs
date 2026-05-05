@@ -264,6 +264,50 @@ fn wasm_codegen_reports_missing_string_literal_without_panicking() {
 }
 
 #[test]
+fn wasm_codegen_omits_entry_unreachable_string_literal_data() {
+    let mut ctx = TypeCtx::new();
+    let str_ty = ctx.str();
+    let main = zero_arg_function(
+        &mut ctx,
+        "main",
+        str_ty,
+        HirExpr {
+            ty: str_ty,
+            kind: HirExprKind::LiteralStr(0),
+            span: Span::dummy(),
+        },
+    );
+    let entry_unreachable = zero_arg_function(
+        &mut ctx,
+        "entry_unreachable",
+        str_ty,
+        HirExpr {
+            ty: str_ty,
+            kind: HirExprKind::LiteralStr(1),
+            span: Span::dummy(),
+        },
+    );
+    let module = HirModule {
+        functions: vec![main, entry_unreachable],
+        entry: Some("main".to_string()),
+        externs: Vec::new(),
+        string_literals: vec![
+            "reachable literal".to_string(),
+            "UNREACHABLE_LITERAL_MARKER".to_string(),
+        ],
+        traits: Vec::new(),
+        impls: Vec::new(),
+    };
+
+    let generated =
+        codegen_wasm::generate_wasm(&ctx, &module).expect("wasm codegen should succeed");
+    let bytes = generated.bytes.expect("wasm bytes should be emitted");
+    let rendered = String::from_utf8_lossy(&bytes);
+    assert!(rendered.contains("reachable literal"));
+    assert!(!rendered.contains("UNREACHABLE_LITERAL_MARKER"));
+}
+
+#[test]
 fn wasm_precheck_reports_unsupported_extern_signature_code() {
     let ctx = TypeCtx::new();
     let never_ty = ctx.never();
