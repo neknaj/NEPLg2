@@ -4,7 +4,7 @@
       "kind": "hover",
       "index": 1,
       "value": {
-        "content": "expr: print_style style \"ok\"\ntype: fn(AnsiStyle,str)->()\ndef: fn print_style",
+        "content": "expr: print_style style \"ok\"\ntype: fn(AnsiTextStyle,str)->()\ndef: fn print_style",
         "startIndex": 0,
         "endIndex": 11
       }

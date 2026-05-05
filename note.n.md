@@ -1,3 +1,35 @@
+# 2026-05-06 note (ANSI typed text style output redesign)
+
+- [同期]:
+  - `main` を `origin/main` から fast-forward pull し、`4672a3ae` から branch `redesign/ansi-text-style-output` を作成して対応した。
+- [原因]:
+  - `std/stdio/ansi` の旧設計は raw escape string と、reset / bold / underline / color を混在させた単一 `AnsiStyle` に依存していた。
+  - `bold + red` のような複合 style を型付き値として表せず、`examples/rpn.nepl` などでは `ansi_bold`、`ansi_red`、`ansi_reset` を手で並べる不自然な出力になっていた。
+  - `print_i32` など `str` 以外を色付きで出力するための開始/解除境界がなく、色付き文字の扱いが API と利用側の両方で破綻しやすかった。
+- [修正]:
+  - `AnsiColor` / `AnsiTextWeight` / `AnsiTextDecoration` / `AnsiTextStyle` に分け、色・太さ・装飾を enum と typed struct で表す設計へ変更した。
+  - `ansi_color_code` / `ansi_text_weight_code` / `ansi_text_decoration_code` は wildcard を使わず全 variant を `match` で列挙し、静的検査と網羅性検査が効く形にした。
+  - `print_style_start` / `print_style_reset` を追加し、`print_i32` などの非文字列出力にも style を安全に適用できる境界を作った。
+  - `print_style` / `println_style` / `print_color` / `println_color` を新設計へ更新し、`examples/rpn.nepl` / `examples/rpn_legacy.nepl` / `examples/bf.nepl` / `examples/stdio.nepl` と関連 fixture を追従した。
+  - `debug_color` / `debugln_color` は色指定専用の `AnsiColor` API として整理した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/std/stdio/ansi.nepl --no-tree -o tmp/ansi-text-style-ansi-2.json -j 1`: `1 passed`
+  - `node nodesrc/tests.js -i stdlib/std/stdio/debug.nepl --no-tree -o tmp/ansi-text-style-debug-2.json -j 1`: `8 passed`
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/ansi-text-style-stdout-2.json -j 1`: `7 passed`
+  - `node nodesrc/tests.js -i examples/rpn.nepl --no-tree -o tmp/ansi-text-style-rpn.json -j 1`: `2 passed`
+  - `node nodesrc/tests.js -i examples/rpn_legacy.nepl --no-tree -o tmp/ansi-text-style-rpn-legacy.json -j 1`: `1 passed`
+  - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/ansi-text-style-bf.json -j 1`: `2 passed`
+  - `node nodesrc/tests.js -i examples/stdio.nepl --no-tree -o tmp/ansi-text-style-stdio-example.json -j 1`: `2 passed`
+  - `node tests/compiler/tree/run.js`: `20 passed`
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-ansi-text-style.json`: `13 passed`
+  - `node nodesrc/test_stdlib_stdio_ansi_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_debug_boundary.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260505T223900812Z initialized summary builder split)
 
 - [同期]:

@@ -101,7 +101,7 @@ fn main <()*> ()> ():
 ## stdout_ansi_helpers
 
 neplg2:test[normalize_newlines]
-stdout: "\u001b[31mred\u001b[0m \u001b[32mgreen\u001b[0m\n"
+stdout: "\u001b[31mred\u001b[0m \u001b[1m\u001b[32mgreen\u001b[0m\n"
 ```neplg2
 #entry main
 #indent 4
@@ -110,7 +110,8 @@ stdout: "\u001b[31mred\u001b[0m \u001b[32mgreen\u001b[0m\n"
 #import "std/stdio" as *
 
 fn main <()*> ()> ():
-    print_style AnsiStyle::Red "red";
+    print_color AnsiColor::Red "red";
     print " ";
-    println_style AnsiStyle::Green "green";
+    let style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Green;
+    println_style style "green";
 ```

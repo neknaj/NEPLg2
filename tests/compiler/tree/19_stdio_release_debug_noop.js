@@ -26,9 +26,9 @@ module.exports = {
 
 fn main <()*>i32> ():
     debug "hidden"
-    debug_color AnsiStyle::Red "hidden"
+    debug_color AnsiColor::Red "hidden"
     debugln "hidden"
-    debugln_color AnsiStyle::Red "hidden"
+    debugln_color AnsiColor::Red "hidden"
     0
 `;
 

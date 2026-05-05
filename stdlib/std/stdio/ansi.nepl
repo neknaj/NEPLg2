@@ -1,29 +1,29 @@
 //: # std/stdio/ansi
-//: `std/stdio` の ANSI escape code と color output helper を提供する submodule
+//: `std/stdio` の ANSI escape code と typed text style output helper を提供する submodule
 //:
 //: ### 目的
-//: - 端末装飾用の escape code を `AnsiStyle` enum で表し、style 指定に静的検査を効かせます。
-//: - escape code 生成は `match` に集約し、style 追加時に網羅性検査が働く形にします。
+//: - 端末装飾用の escape code を `AnsiColor` / `AnsiTextWeight` / `AnsiTextDecoration` / `AnsiTextStyle` で表し、色指定と文字装飾の両方に静的検査を効かせます。
+//: - 色と太字/下線を 1 個の enum に混ぜず、複合 style を構造体で表すことで `bold + red` のような色付き文字を自然に扱います。
+//: - escape code 生成は enum ごとの `match` に集約し、variant 追加時に網羅性検査が働く形にします。
 //:
 //: ### 注意
 //: - 端末が ANSI escape code に対応している環境での利用を想定します。
-//: - `print_style` / `println_style` は互換 facade と同じく write error を扱いません。
+//: - `print_style` / `println_style` / `print_color` / `println_color` は `std/stdio/print` と同じく write error を扱いません。
 
 #indent 4
 
+#import "core/traits/copy" as *
 #import "std/stdio/print" as *
 
-//: AnsiStyle: ANSI escape code で表せる端末装飾
+//: AnsiColor: ANSI escape code で表せる前景色
 //:
 //: [目的/もくてき]:
-//: - color/style を任意 `str` ではなく enum として受け渡し、typo や未定義 style を型で排除します。
+//: - color を任意 `str` ではなく enum として受け渡し、typo や未定義 color を型で排除します。
 //:
 //: [注意/ちゅうい]:
-//: - `Reset` は装飾解除、`Bold` / `Underline` は文字装飾、その他は前景色です。
-enum AnsiStyle:
-    Reset
-    Bold
-    Underline
+//: - `Default` は前景色 code を出力しない指定です。明示 reset は `ansi_reset_code` / `print_style_reset` が担当します。
+enum AnsiColor:
+    Default
     Red
     Green
     Yellow
@@ -33,65 +33,203 @@ enum AnsiStyle:
     White
     Gray
 
-//: ansi_style_code: ANSI style enum を escape code へ変換する
+impl Clone for AnsiColor:
+    fn clone <(&AnsiColor)->AnsiColor> (color):
+        *color
+
+impl Copy for AnsiColor:
+    fn copy_mark <(AnsiColor)->AnsiColor> (color):
+        color
+
+//: AnsiTextWeight: ANSI escape code で表せる文字の太さ
 //:
 //: [目的/もくてき]:
-//: - `AnsiStyle` の全 variant を `match` で escape code に対応させます。
+//: - 太字指定を color と分離し、`AnsiTextStyle` で色と合成できるようにします。
+enum AnsiTextWeight:
+    Regular
+    Bold
+
+impl Clone for AnsiTextWeight:
+    fn clone <(&AnsiTextWeight)->AnsiTextWeight> (weight):
+        *weight
+
+impl Copy for AnsiTextWeight:
+    fn copy_mark <(AnsiTextWeight)->AnsiTextWeight> (weight):
+        weight
+
+//: AnsiTextDecoration: ANSI escape code で表せる文字装飾
+//:
+//: [目的/もくてき]:
+//: - 下線指定を color と分離し、`AnsiTextStyle` で色と合成できるようにします。
+enum AnsiTextDecoration:
+    Plain
+    Underline
+
+impl Clone for AnsiTextDecoration:
+    fn clone <(&AnsiTextDecoration)->AnsiTextDecoration> (decoration):
+        *decoration
+
+impl Copy for AnsiTextDecoration:
+    fn copy_mark <(AnsiTextDecoration)->AnsiTextDecoration> (decoration):
+        decoration
+
+//: AnsiTextStyle: 色と文字装飾を組み合わせた text style
+//:
+//: [目的/もくてき]:
+//: - 色、太さ、装飾を構造体 field として保持し、`bold + red` のような複合 style を typed value として渡します。
+//:
+//: [注意/ちゅうい]:
+//: - field はすべて `Copy` な enum なので `AnsiTextStyle` も軽量値として `Copy` / `Clone` を実装します。
+struct AnsiTextStyle:
+    color <AnsiColor>
+    weight <AnsiTextWeight>
+    decoration <AnsiTextDecoration>
+
+impl Clone for AnsiTextStyle:
+    fn clone <(&AnsiTextStyle)->AnsiTextStyle> (style):
+        AnsiTextStyle *get_ref style "color" *get_ref style "weight" *get_ref style "decoration"
+
+impl Copy for AnsiTextStyle:
+    fn copy_mark <(AnsiTextStyle)->AnsiTextStyle> (style):
+        style
+
+//: ansi_text_style: text style を明示的に構築する
 //:
 //: [実装/じっそう]:
-//: - variant ごとに固定の文字列リテラルを返します。
-//: - wildcard を使わず全 variant を列挙し、style 追加時に網羅性検査で更新漏れを検出できる形にします。
+//: - `AnsiTextStyle` の 3 field をそのまま組み立てます。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
+fn ansi_text_style <(AnsiColor,AnsiTextWeight,AnsiTextDecoration)->AnsiTextStyle> (color, weight, decoration):
+    AnsiTextStyle color weight decoration
+
+//: ansi_plain_style: 追加装飾のない既定 style を返す
 //:
-//: neplg2:test
-//: stdout: "\u001b[31m"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     print ansi_style_code AnsiStyle::Red;
-//: ```
-fn ansi_style_code <(AnsiStyle)->str> (style):
-    match style:
-        AnsiStyle::Reset:
-            "\x1b[0m"
-        AnsiStyle::Bold:
-            "\x1b[1m"
-        AnsiStyle::Underline:
-            "\x1b[4m"
-        AnsiStyle::Red:
+//: [実装/じっそう]:
+//: - `Default` / `Regular` / `Plain` を指定した `AnsiTextStyle` を返します。
+fn ansi_plain_style <()->AnsiTextStyle> ():
+    ansi_text_style AnsiColor::Default AnsiTextWeight::Regular AnsiTextDecoration::Plain
+
+//: ansi_color_style: 前景色だけを指定した style を返す
+//:
+//: [実装/じっそう]:
+//: - 指定 color と、通常の太さ/装飾なしを合成します。
+fn ansi_color_style <(AnsiColor)->AnsiTextStyle> (color):
+    ansi_text_style color AnsiTextWeight::Regular AnsiTextDecoration::Plain
+
+//: ansi_bold_style: 太字だけを指定した style を返す
+//:
+//: [実装/じっそう]:
+//: - 既定色と `Bold` を合成します。
+fn ansi_bold_style <()->AnsiTextStyle> ():
+    ansi_text_style AnsiColor::Default AnsiTextWeight::Bold AnsiTextDecoration::Plain
+
+//: ansi_bold_color_style: 太字と前景色を指定した style を返す
+//:
+//: [実装/じっそう]:
+//: - 指定 color と `Bold` を合成します。
+fn ansi_bold_color_style <(AnsiColor)->AnsiTextStyle> (color):
+    ansi_text_style color AnsiTextWeight::Bold AnsiTextDecoration::Plain
+
+//: ansi_underlined_color_style: 下線と前景色を指定した style を返す
+//:
+//: [実装/じっそう]:
+//: - 指定 color と `Underline` を合成します。
+fn ansi_underlined_color_style <(AnsiColor)->AnsiTextStyle> (color):
+    ansi_text_style color AnsiTextWeight::Regular AnsiTextDecoration::Underline
+
+//: ansi_color_code: color enum を前景色 escape code へ変換する
+//:
+//: [実装/じっそう]:
+//: - wildcard を使わず全 variant を列挙し、color 追加時に網羅性検査で更新漏れを検出できる形にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ansi_color_code <(AnsiColor)->str> (color):
+    match color:
+        AnsiColor::Default:
+            ""
+        AnsiColor::Red:
             "\x1b[31m"
-        AnsiStyle::Green:
+        AnsiColor::Green:
             "\x1b[32m"
-        AnsiStyle::Yellow:
+        AnsiColor::Yellow:
             "\x1b[33m"
-        AnsiStyle::Blue:
+        AnsiColor::Blue:
             "\x1b[34m"
-        AnsiStyle::Magenta:
+        AnsiColor::Magenta:
             "\x1b[35m"
-        AnsiStyle::Cyan:
+        AnsiColor::Cyan:
             "\x1b[36m"
-        AnsiStyle::White:
+        AnsiColor::White:
             "\x1b[37m"
-        AnsiStyle::Gray:
+        AnsiColor::Gray:
             "\x1b[90m"
+
+//: ansi_text_weight_code: weight enum を escape code へ変換する
+//:
+//: [実装/じっそう]:
+//: - wildcard を使わず `Regular` と `Bold` を列挙します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ansi_text_weight_code <(AnsiTextWeight)->str> (weight):
+    match weight:
+        AnsiTextWeight::Regular:
+            ""
+        AnsiTextWeight::Bold:
+            "\x1b[1m"
+
+//: ansi_text_decoration_code: decoration enum を escape code へ変換する
+//:
+//: [実装/じっそう]:
+//: - wildcard を使わず `Plain` と `Underline` を列挙します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ansi_text_decoration_code <(AnsiTextDecoration)->str> (decoration):
+    match decoration:
+        AnsiTextDecoration::Plain:
+            ""
+        AnsiTextDecoration::Underline:
+            "\x1b[4m"
 
 //: ansi_reset_code: reset escape code を返す
 //:
 //: [目的/もくてき]:
-//: - color output helper が最後に必ず使う reset code を名前付き helper として提供します。
-//:
-//: [実装/じっそう]:
-//: - `ansi_style_code AnsiStyle::Reset` に委譲します。
+//: - style output helper が最後に必ず使う reset code を名前付き helper として提供します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn ansi_reset_code <()->str> ():
-    ansi_style_code AnsiStyle::Reset
+    "\x1b[0m"
+
+//: print_style_start: style を適用する escape code を出力する
+//:
+//: [目的/もくてき]:
+//: - `print_i32` など `str` 以外の出力も色付きにできるように、style の開始と reset を明示的に分けます。
+//:
+//: [注意/ちゅうい]:
+//: - 呼び出し側は対応する `print_style_reset` を必ず呼び、後続出力へ style を漏らさないでください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn print_style_start <(AnsiTextStyle)*>()> (style):
+    print ansi_text_weight_code *get_ref &style "weight";
+    print ansi_text_decoration_code *get_ref &style "decoration";
+    print ansi_color_code *get_ref &style "color";
+    ()
+
+//: print_style_reset: ANSI style を reset する
+//:
+//: [目的/もくてき]:
+//: - 直前の style 出力を解除し、後続出力へ色や装飾が漏れないようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn print_style_reset <()*>()> ():
+    print ansi_reset_code;
+    ()
 
 //: print_style: style を適用して文字列を出力する
 //:
@@ -99,51 +237,46 @@ fn ansi_reset_code <()->str> ():
 //: - `style` を適用して `s` を出力し、最後に reset code を出力します。
 //:
 //: [実装/じっそう]:
-//: - style code、本文、reset code の順に `print` へ委譲します。
-//:
-//: [注意/ちゅうい]:
-//: - `style` は `AnsiStyle` なので任意の raw escape string は渡せません。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n)
+//: - `print_style_start`、本文、`print_style_reset` の順に出力します。
 //:
 //: neplg2:test
-//: stdout: "\u001b[31msample\u001b[0m"
+//: stdout: "\u001b[1m\u001b[31msample\u001b[0m"
 //: ```neplg2
 //:| #entry main
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
 //: fn main <()*>()> ():
-//:     print_style AnsiStyle::Red "sample";
+//:     print_style ansi_bold_color_style AnsiColor::Red "sample";
 //: ```
-fn print_style <(AnsiStyle,str)*>()> (style, s):
-    print ansi_style_code style;
+fn print_style <(AnsiTextStyle,str)*>()> (style, s):
+    print_style_start style;
     print s;
-    print ansi_reset_code;
+    print_style_reset;
     ()
 
 //: println_style: style を適用して改行付きで出力する
 //:
-//: [目的/もくてき]:
-//: - `print_style` の後に改行を追加します。
-//:
 //: [実装/じっそう]:
-//: - `print_style` と `print "\\n"` を呼びます。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n)
-//:
-//: neplg2:test
-//: stdout: "\u001b[31msample\u001b[0m\n"
-//: ```neplg2
-//:| #entry main
-//:| #indent 4
-//:| #target std
-//:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     println_style AnsiStyle::Red "sample";
-//: ```
-fn println_style <(AnsiStyle,str)*>()> (style, s):
+//: - `print_style` で本文を出力した後に改行を出力します。
+fn println_style <(AnsiTextStyle,str)*>()> (style, s):
     print_style style s;
     print "\n";
+    ()
+
+//: print_color: 前景色だけを適用して文字列を出力する
+//:
+//: [目的/もくてき]:
+//: - よく使う color-only 出力を `AnsiColor` で型安全に扱う短い入口です。
+//:
+//: [実装/じっそう]:
+//: - `ansi_color_style` で構築した style を `print_style` に渡します。
+fn print_color <(AnsiColor,str)*>()> (color, s):
+    print_style ansi_color_style color s
+
+//: println_color: 前景色だけを適用して改行付きで出力する
+//:
+//: [実装/じっそう]:
+//: - `ansi_color_style` で構築した style を `println_style` に渡します。
+fn println_color <(AnsiColor,str)*>()> (color, s):
+    println_style ansi_color_style color s

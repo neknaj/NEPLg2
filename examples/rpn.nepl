@@ -57,33 +57,31 @@
 //: [目的/もくてき]:
 //: - `error: <msg>` 形式で標準出力に赤色で表示します。
 fn print_error <(str)*>()> (msg):
-    print ansi_bold;
-    print ansi_red;
-    print "error:";
-    print ansi_reset;
+    let label_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Red;
+    print_style label_style "error:";
     print " ";
-    println_color ansi_red msg;
+    println_color AnsiColor::Red msg;
 
 //: print_prompt: REPL のプロンプトを表示する
 //:
 //: [目的/もくてき]:
 //: - 入力行の先頭に `> ` を太字緑色で出力します。
 fn print_prompt <()*>()> ():
-    print ansi_bold;
-    print_color ansi_green "> ";
+    let prompt_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Green;
+    print_style prompt_style "> ";
 
 //: print_result: 計算結果を色付きで出力する
 //:
 //: [目的/もくてき]:
 //: - `ok: result = <val>` 形式で結果を表示します。
 fn print_result <(i32)*>()> (val):
-    print ansi_bold;
-    print_color ansi_green "ok";
-    print_color ansi_gray ": result = ";
-    print ansi_bold;
-    print ansi_cyan;
+    let ok_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Green;
+    let value_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Cyan;
+    print_style ok_style "ok";
+    print_color AnsiColor::Gray ": result = ";
+    print_style_start value_style;
     print_i32 val;
-    print ansi_reset;
+    print_style_reset;
     print "\n";
 
 //: push_or_report: stack への追加失敗を REPL のエラー表示に変換する
@@ -147,9 +145,10 @@ fn print_stack_line <(&Stack<i32>)*>()> (stack):
 //: - `[stack] [res]` の形式で演算子適用後の状態を出力します。
 fn print_step_after <(&Stack<i32>,i32)*>()> (stack, res):
     print_stack_prefix stack;
-    print ansi_green;
+    let step_style <AnsiTextStyle> ansi_color_style AnsiColor::Green;
+    print_style_start step_style;
     print_i32 res;
-    print ansi_reset;
+    print_style_reset;
 
     print "\n";
 
@@ -316,9 +315,9 @@ fn eval_line <(str)*>()> (line):
 //: [目的/もくてき]:
 //: - 初期バナーを表示後、対話式の無限ループを開始します。
 fn main <()*>()> ():
-    print ansi_bold;
-    println_color ansi_cyan "RPN REPL";
-    println_color ansi_gray "enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.";
+    let title_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Cyan;
+    println_style title_style "RPN REPL";
+    println_color AnsiColor::Gray "enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.";
     println "";
 
     let mut running <bool> true;
@@ -332,8 +331,8 @@ fn main <()*>()> ():
             if:
                 eq input_len 0
                 then:
-                    print ansi_bold;
-                    println_color ansi_yellow "bye";
+                    let bye_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Yellow;
+                    println_style bye_style "bye";
                     set running false;
                 else:
                     eval_line input;

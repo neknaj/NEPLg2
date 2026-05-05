@@ -51,18 +51,17 @@
 //: [目的/もくてき]:
 //: - ジャンプ対応不整合などを利用者へ分かりやすく伝えます。
 fn print_error <(str)*>()> (msg):
-    print ansi_bold;
-    print_color ansi_red "error: ";
-    print ansi_reset;
-    println_color ansi_red msg
+    let label_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Red;
+    print_style label_style "error: ";
+    println_color AnsiColor::Red msg
 
 //: print_prompt: REPL の入力待ちプロンプトを表示する
 //:
 //: [目的/もくてき]:
 //: - 各入力行の先頭を視認しやすくします。
 fn print_prompt <()*>()> ():
-    print ansi_bold;
-    print_color ansi_green "> "
+    let prompt_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Green;
+    print_style prompt_style "> "
 
 //: make_i32_vec: 指定値で埋めた `Vec<i32>` を作る
 //:
@@ -305,9 +304,9 @@ fn eval_line <(i32,str)*>()> (tape_len, code):
 //: [目的/もくてき]:
 //: - バナーを表示し、1 行ごとに Brainfuck プログラムを受け付けます。
 fn main <()*>()> ():
-    print ansi_bold;
-    println_color ansi_cyan "Brainfuck Runner";
-    println_color ansi_gray "enter BF program. Ctrl+Z to exit.";
+    let title_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Cyan;
+    println_style title_style "Brainfuck Runner";
+    println_color AnsiColor::Gray "enter BF program. Ctrl+Z to exit.";
     println "";
 
     let tape_len <i32> 30000;
@@ -321,8 +320,8 @@ fn main <()*>()> ():
             if:
                 eq s::len input 0
                 then:
-                    print ansi_bold;
-                    println_color ansi_yellow "bye";
+                    let bye_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Yellow;
+                    println_style bye_style "bye";
                     set running false
                 else:
                     eval_line tape_len input
