@@ -103,6 +103,7 @@ for (const moduleName of [
     'drop_requirement.rs',
     'lower_raw_address.rs',
     'lower_raw_address_place.rs',
+    'lower_raw_address_return.rs',
     'lower_raw_memory.rs',
     'report.rs',
     'shadow.rs',
@@ -181,6 +182,7 @@ for (const moduleDecl of [
     'mod drop_requirement;',
     'mod lower_raw_address;',
     'mod lower_raw_address_place;',
+    'mod lower_raw_address_return;',
     'mod lower_raw_memory;',
     'mod report;',
     'mod shadow;',
@@ -249,6 +251,7 @@ const lowerAggregate = readResource('lower_aggregate.rs');
 const lowerAggregateProjection = readResource('lower_aggregate_projection.rs');
 const lowerRawAddress = readResource('lower_raw_address.rs');
 const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
+const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
 const lowerRawMemory = readResource('lower_raw_memory.rs');
 
 assertContains(initialized, 'struct ResourceCheckEngine', 'initialized.rs');
@@ -356,6 +359,11 @@ assertContains(
     'lower_raw_address_place.rs',
 );
 assertContains(
+    lowerRawAddressReturn,
+    'pub(super) fn push_transparent_raw_address_return_projection',
+    'lower_raw_address_return.rs',
+);
+assertContains(
     lowerRawMemory,
     'pub(super) fn raw_memory_op_from_name',
     'lower_raw_memory.rs',
@@ -461,6 +469,7 @@ const maxLines = new Map([
     ['lower_condition.rs', 140],
     ['lower_raw_address.rs', 620],
     ['lower_raw_address_place.rs', 180],
+    ['lower_raw_address_return.rs', 430],
     ['lower_raw_memory.rs', 120],
     ['initialized_alias.rs', 520],
     ['initialized_alias_flow.rs', 550],

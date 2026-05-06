@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T17:56:42.205Z",
+  "generated_at": "2026-05-06T18:08:06.159Z",
   "counts": {
-    "total": 530,
+    "total": 531,
     "open": 16,
-    "resolved": 514,
+    "resolved": 515,
     "by_area": {
       "core": {
-        "total": 258,
+        "total": 259,
         "open": 5,
-        "resolved": 253
+        "resolved": 254
       },
       "selfhost": {
         "total": 48,
@@ -135,8 +135,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260506T173138867Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-B64EB6D1",
-      "title": "Resource raw address lowering exceeds split limit after deep-prefix alias fix",
+      "id": "ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A",
+      "title": "Resource initialized alias module exceeds responsibility split limit",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -144,10 +144,10 @@
       "type": "architecture",
       "created": "2026-05-06",
       "updated": "2026-05-06",
-      "target": "nepl-core/src/resource/lower_raw_address.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/initialized_alias.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260506T173138867Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-B64EB6D1.md"
+      "file": "items/ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A.md"
     },
     {
       "id": "ISS-20260506T171738048Z-SELFHOST-MODULE-IMPORT-SPECS-STORES--9975F52D",
@@ -4033,6 +4033,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4.md"
+    },
+    {
+      "id": "ISS-20260506T173138867Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-B64EB6D1",
+      "title": "Resource raw address lowering exceeds split limit after deep-prefix alias fix",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/lower_raw_address.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T173138867Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-B64EB6D1.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

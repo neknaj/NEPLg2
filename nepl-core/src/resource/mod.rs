@@ -73,6 +73,7 @@ mod lower_aggregate_projection;
 mod lower_condition;
 mod lower_raw_address;
 mod lower_raw_address_place;
+mod lower_raw_address_return;
 mod lower_raw_address_source;
 mod lower_raw_memory;
 mod model;

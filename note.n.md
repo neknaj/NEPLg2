@@ -1,3 +1,25 @@
+# 2026-05-07 note (ISS-20260506T173138867Z raw address lowering responsibility split)
+
+## 作業内容
+
+- branch `fix/raw-address-lowering-responsibility-split` で `origin/main` 同期済みの main から作業した。
+- `node nodesrc/test_resource_checker_responsibility.js` が `lower_raw_address.rs has 657 lines; responsibility split limit is 620` で失敗することを確認した。
+- `lower_raw_address.rs` から transparent user return projection の解析を `lower_raw_address_return.rs` へ分離した。
+- 分離後、`lower_raw_address.rs` は core `MemPtr` / `RegionToken` wrapper lowering、actual call の named raw address semantics、actual argument の raw address source extraction を担当する。
+- 新設 `lower_raw_address_return.rs` は user helper の return expression 解析、return-time raw source classification、return offset constant extraction を担当する。
+- `nodesrc/test_resource_checker_responsibility.js` に新 module の存在、`mod` 宣言、line limit、主要 entry point を追加した。
+- source policy は `lower_raw_address.rs` blocker を越え、次の別件として `initialized_alias.rs has 624 lines; responsibility split limit is 520` に到達したため、`ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A` を追加した。
+
+## 検証
+
+- `cargo fmt --check`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: `lower_raw_address.rs` blocker は解消。次の blocker は `ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A`。
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T172100644Z fs/stdio scratch owner alias)
 
 ## 作業内容
