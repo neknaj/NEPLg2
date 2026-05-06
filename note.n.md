@@ -33057,3 +33057,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - storage-offset view を local に束縛した時に、`pref[+?].deref` の broad initialized fact を view local 側へ rekey しないようにした。view は non-owning pointer expression であり、base storage fact の canonical owner ではない。
 - `resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads` を追加し、`fill_i32 pref pref_len 0` 後に unrelated impure `i32` arithmetic を挟んでも `load_i32 add pref off` が通ることを固定した。
 - `kpread_to_kpwrite_prefixsum_i32` は pass。`ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` は dependent initialized range summary 本体の残件として open のまま維持する。
+
+## 2026-05-07 Agent 2: string char / ByteBuilder nested Result owner summary
+
+- [同期]:
+  - `fix/string-char-owner-residuals` branch で `origin/main@3ba24e72` を取り込んでから `ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044` の残件を修正した。
+- [原因]:
+  - ResourceIR owner summary は direct `Result` arm の owner return / consume は扱えていたが、別の `Result` から得た pending variant owner effect を戻り値 `Result` へ包み直す nested path を caller summary へ伝播していなかった。
+  - 同一 variant で返却される owner と conditional consume が同じ source を指す場合、match arm 適用時に返却済み owner をさらに消費して `resource.owner.reserved` / `resource.owner.use_after_move` を発生させていた。
+  - `str_slice_chars_result` は start/end 変換で `Result<CharUtf8Step, str>` payload を作っていたため、source `str` owner を offset 計算だけに使う経路としては余計に複雑だった。
+- [修正]:
+  - `PendingVariantOwnerEffects::collect_result_owner_effect_summaries` を追加し、nested return 収集で pending `Result` variant の owner consume / projection return を関数 summary へ伝播するようにした。
+  - `apply_match_arm` は同一 variant で返却された source owner を同じ arm の conditional consume として二重消費しない。
+  - variant projection return source を unconditional consume 判定からも除外し、`Ok` で返る owner を関数全体の消費扱いにしないようにした。
+  - `stdlib/alloc/string/char_offsets.nepl` を追加し、char index から byte offset への変換を `StringUtf8LeadKind` の網羅 `match` で分離した。`slice.nepl` は 440 行に戻し、公開 slice API と storage 連携に責務を絞った。
+  - `ByteBuilder` は owner-preserving `get_ref` / `byte_builder_with_len` 設計を維持し、compiler bug 回避のための owned pointer direct store へ stdlib を曲げる変更は採用しなかった。
+- [検証]:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_string_source_after -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_forwards_nested_byte_builder_result_owner -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_forwards_byte_builder_owner_through_text_result_mapping -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_source_after_string_from_mem_copy -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md -i stdlib/alloc/string/float.nepl -i stdlib/alloc/string/builder.nepl -i stdlib/alloc/io.nepl --no-tree -o tmp/string-builder-owner-after-fix.json -j 1`: total=5, passed=5
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 193 passed / 10 failed。clean `origin/main@3ba24e72` でも同じ 10 件が失敗する baseline 問題だったため、`ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F` を追加して Discord に直接報告した。
+- [issue]:
+  - `ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044` は fixed。
+  - `ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F` を追加し、full ResourceIR baseline 失敗は別 issue として追跡する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

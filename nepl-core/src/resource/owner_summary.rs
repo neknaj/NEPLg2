@@ -263,6 +263,7 @@ fn function_owner_return_summary(
     }
 
     remove_variant_projection_return_sources(&mut projection_returns, &variant_projection_returns);
+    record_variant_projection_return_sources(&mut returned_sources, &variant_projection_returns);
 
     let (consumed_parameter_indices, consumed_parameter_sources) =
         consumed_owner_parameters(&owners, &parameter_storage_sources, &returned_sources);
@@ -349,4 +350,13 @@ fn remove_variant_projection_return_sources(
             || !projection.parameter_indices.is_empty()
             || !projection.parameter_sources.is_empty()
     });
+}
+
+fn record_variant_projection_return_sources(
+    returned_sources: &mut Vec<OwnerProjectionSource>,
+    variant_returns: &[super::summary::OwnerVariantProjectionReturnSource],
+) {
+    for variant_return in variant_returns {
+        push_unique_owner_projection_source(returned_sources, &variant_return.source);
+    }
 }

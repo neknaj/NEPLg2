@@ -185,6 +185,17 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
             &ops[index..=index],
         );
     }
+    variant_owner_effects.collect_result_owner_effect_summaries(
+        &engine,
+        &owners,
+        &raw_aliases,
+        &raw_views,
+        return_value,
+        parameter_storage_sources,
+        index_out,
+        source_out,
+        return_out,
+    );
 }
 
 fn collect_variant_consumed_owner_parameters_from_path(

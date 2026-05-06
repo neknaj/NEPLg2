@@ -1,0 +1,175 @@
+//: char_offsets: string の char index と byte offset の対応を計算する helper
+//:
+//: [目的/もくてき]:
+//: - UTF-8 `str` を char index で扱う API のために、byte offset への変換を提供します。
+//: - `Result` payload に `str` owner を持ち回らず、offset 計算だけを行うことで静的検査が追跡しやすい所有権 flow にします。
+//:
+//: [注意/ちゅうい]:
+//: - この module は offset 計算だけを所有します。新しい `str` の構築は `alloc/string/slice` と `alloc/string/storage` が行います。
+//: - char は UTF-8 scalar value 単位です。grapheme cluster や表示幅は扱いません。
+
+#indent 4
+
+#import "core/result" as *
+#import "core/math" as *
+#import "core/field" as *
+#import "alloc/string/access" as *
+#import "alloc/string/utf8" as *
+
+//: str_utf8_step_width_at: byte offset にある UTF-8 scalar value の byte 幅を返す
+//:
+//: [目的/もくてき]:
+//: - char index から byte index へ変換するとき、`CharUtf8Step` や `Result` payload を作らずに次 offset だけを計算します。
+//:
+//: [実装/じっそう]:
+//: - leading byte を `StringUtf8LeadKind` で分類し、必要な continuation byte と UTF-8 scalar value の制約を検査します。
+//: - 妥当な sequence なら 1..4 の byte 幅を返し、不正または truncated sequence なら 0 を返します。
+//:
+//: [注意/ちゅうい]:
+//: - `byte_index` は `0 <= byte_index < len(s)` の範囲で呼び出す内部 helper です。
+//: - `str` の UTF-8 不変条件が壊れていない限り 0 にはなりません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn str_utf8_step_width_at <(str,i32)->i32> (s, byte_index):
+    let n <i32> len s
+    let b0 <i32> string_byte_at_unchecked s byte_index
+    match string_utf8_lead_kind b0:
+        StringUtf8LeadKind::Ascii:
+            1
+        StringUtf8LeadKind::Two:
+            if:
+                le n add byte_index 1
+                then:
+                    0
+                else:
+                    let b1 <i32> string_byte_at_unchecked s add byte_index 1
+                    if:
+                        string_utf8_is_continuation b1
+                        then:
+                            2
+                        else:
+                            0
+        StringUtf8LeadKind::Three:
+            if:
+                le n add byte_index 2
+                then:
+                    0
+                else:
+                    let b1 <i32> string_byte_at_unchecked s add byte_index 1
+                    let b2 <i32> string_byte_at_unchecked s add byte_index 2
+                    let first_ok <bool>:
+                        if:
+                            eq b0 0xE0
+                            then:
+                                string_utf8_in_range b1 0xA0 0xBF
+                            else:
+                                if:
+                                    eq b0 0xED
+                                    then:
+                                        string_utf8_in_range b1 0x80 0x9F
+                                    else:
+                                        string_utf8_is_continuation b1
+                    if:
+                        and first_ok string_utf8_is_continuation b2
+                        then:
+                            3
+                        else:
+                            0
+        StringUtf8LeadKind::Four:
+            if:
+                le n add byte_index 3
+                then:
+                    0
+                else:
+                    let b1 <i32> string_byte_at_unchecked s add byte_index 1
+                    let b2 <i32> string_byte_at_unchecked s add byte_index 2
+                    let b3 <i32> string_byte_at_unchecked s add byte_index 3
+                    let first_ok <bool>:
+                        if:
+                            eq b0 0xF0
+                            then:
+                                string_utf8_in_range b1 0x90 0xBF
+                            else:
+                                if:
+                                    eq b0 0xF4
+                                    then:
+                                        string_utf8_in_range b1 0x80 0x8F
+                                    else:
+                                        string_utf8_is_continuation b1
+                    if:
+                        and first_ok and string_utf8_is_continuation b2 string_utf8_is_continuation b3
+                        then:
+                            4
+                        else:
+                            0
+        StringUtf8LeadKind::Invalid:
+            0
+
+//: StrCharSliceOffsets: char slice 範囲に対応する byte offset pair
+//:
+//: [目的/もくてき]:
+//: - `str_slice_chars_result` が 1 回の走査で求めた start/end byte offset をまとめて返します。
+struct StrCharSliceOffsets:
+    start <i32>
+    end <i32>
+
+fn str_char_slice_offsets_new <(i32,i32)->StrCharSliceOffsets> (start_byte, end_byte):
+    StrCharSliceOffsets start_byte end_byte
+
+//: str_char_slice_offsets_result: char index 範囲を byte offset 範囲へ変換する
+//:
+//: [目的/もくてき]:
+//: - char index の半開区間 `[start_char, end_char)` に対応する byte offset pair を求めます。
+//:
+//: [実装/じっそう]:
+//: - `str_utf8_step_width_at` で UTF-8 幅だけを読み、`Result` payload を作らずに 1 回の走査で start/end を確定します。
+//: - `end_char == str_char_count(s)` の場合は末尾 byte offset を end として返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(byte_len)
+fn str_char_slice_offsets_result <(str,i32,i32)->Result<StrCharSliceOffsets,str>> (s, start_char, end_char):
+    let n <i32> len s
+    let mut byte_i <i32> 0
+    let mut char_i <i32> 0
+    let mut start_byte <i32> 0
+    let mut end_byte <i32> 0
+    let mut found_start <bool> false
+    let mut found_end <bool> false
+    let mut done <bool> false
+    let mut failed <bool> or lt start_char 0 lt end_char start_char
+    while and not failed not done:
+        do:
+            if:
+                eq char_i start_char
+                then:
+                    set start_byte byte_i
+                    set found_start true
+                else:
+                    ()
+            if:
+                eq char_i end_char
+                then:
+                    set end_byte byte_i
+                    set found_end true
+                    set done true
+                else:
+                    if:
+                        le n byte_i
+                        then:
+                            set failed true
+                        else:
+                            let width <i32> str_utf8_step_width_at s byte_i
+                            if:
+                                le width 0
+                                then:
+                                    set failed true
+                                else:
+                                    set byte_i add byte_i width
+                                    set char_i add char_i 1
+    if:
+        or failed or not found_start not found_end
+        then:
+            Result<StrCharSliceOffsets,str>::Err "string.char invalid slice range"
+        else:
+            Result<StrCharSliceOffsets,str>::Ok str_char_slice_offsets_new start_byte end_byte

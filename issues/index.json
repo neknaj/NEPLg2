@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T22:09:28.155Z",
+  "generated_at": "2026-05-06T22:32:01.110Z",
   "counts": {
-    "total": 542,
+    "total": 543,
     "open": 16,
-    "resolved": 526,
+    "resolved": 527,
     "by_area": {
       "compiler": {
         "total": 3,
@@ -12,9 +12,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 267,
-        "open": 4,
-        "resolved": 263
+        "total": 269,
+        "open": 5,
+        "resolved": 264
       },
       "selfhost": {
         "total": 50,
@@ -22,8 +22,8 @@
         "resolved": 47
       },
       "stdlib": {
-        "total": 158,
-        "open": 7,
+        "total": 157,
+        "open": 6,
         "resolved": 151
       },
       "TEST": {
@@ -150,6 +150,21 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
+      "id": "ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F",
+      "title": "ResourceIR full regression suite fails on origin/main baseline",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F.md"
+    },
+    {
       "id": "ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF",
       "title": "selfhost stdlib_map and module graph doctests time out on current main",
       "area": "selfhost",
@@ -253,21 +268,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
-    },
-    {
-      "id": "ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044",
-      "title": "String float and char builder owner chains fail strict ResourceIR",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "stdlib/alloc/string/float.nepl, stdlib/alloc/string/builder.nepl, stdlib/alloc/io.nepl, tests/stdlib/string_char.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -4018,6 +4018,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T155747740Z-VEC-RAW-MEMORY-COLLECTION-LACKS-EXAC-3F7CA727.md"
+    },
+    {
+      "id": "ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044",
+      "title": "String float and char builder owner chains fail strict ResourceIR",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/owner_*.rs, stdlib/alloc/string/float.nepl, stdlib/alloc/string/slice.nepl, stdlib/alloc/string/char_offsets.nepl, tests/stdlib/string_char.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044.md"
     },
     {
       "id": "ISS-20260506T172012873Z-RESOURCE-IR-DYNAMIC-RAW-ADDRESS-VIEW-77E94B53",

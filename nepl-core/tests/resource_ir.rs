@@ -9927,6 +9927,289 @@ fn main <()* >str> ():
 }
 
 #[test]
+fn resource_ir_owner_check_keeps_source_after_string_from_mem_copy() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn main <()* >i32> ():
+    let src <str> "abc"
+    match string_from_mem_unchecked_result string_data_ptr src len src:
+        Result::Ok _copied:
+            len src
+        Result::Err _e:
+            len src
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    if function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "string_from_mem_unchecked_result copies bytes and must not reserve the source str: {:#?}",
+        diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_keeps_string_source_after_slice_result_consumer() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn consume_slice <(Result<str,str>)->()> (slice):
+    match slice:
+        Result::Ok _text:
+            ()
+        Result::Err _e:
+            ()
+
+fn main <()* >i32> ():
+    let s <str> "Aあ💯"
+    consume_slice str_slice_chars_result s 1 3
+    len s
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    if function.starts_with("consume_slice__") || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "copying a string slice result must not reserve the source str after the result is consumed: {:#?}",
+        diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_keeps_string_source_after_byte_slice_result_consumer() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn consume_slice <(Result<str,str>)->()> (slice):
+    match slice:
+        Result::Ok _text:
+            ()
+        Result::Err _e:
+            ()
+
+fn main <()* >i32> ():
+    let s <str> "Aあ💯"
+    consume_slice str_slice_result s 1 4
+    len s
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    if function.starts_with("consume_slice__") || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "copying a byte slice result must not reserve the source str after the result is consumed: {:#?}",
+        diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_keeps_string_source_after_char_index_result_consumer() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn consume_index <(Result<i32,str>)->()> (index):
+    match index:
+        Result::Ok _byte:
+            ()
+        Result::Err _e:
+            ()
+
+fn main <()* >i32> ():
+    let s <str> "Aあ💯"
+    consume_index str_char_byte_index_result s 1
+    len s
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    if function.starts_with("consume_index__") || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "char index lookup must not reserve the source str after its Result is consumed: {:#?}",
+        diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_forwards_nested_byte_builder_result_owner() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/io" as *
+#import "core/result" as *
+
+fn make_bytes <()* >Result<ByteBuf, StdErrorKind>> ():
+    match byte_builder_new:
+        Result::Err e:
+            Result<ByteBuf, StdErrorKind>::Err e
+        Result::Ok b0:
+            match byte_builder_push_char_utf8 b0 'A':
+                Result::Err e:
+                    Result<ByteBuf, StdErrorKind>::Err e
+                Result::Ok b1:
+                    match byte_builder_push_char_utf8 b1 'あ':
+                        Result::Err e:
+                            Result<ByteBuf, StdErrorKind>::Err e
+                        Result::Ok b2:
+                            byte_builder_finish b2
+
+fn main <()* >()> ():
+    match make_bytes:
+        Result::Ok bytes:
+            io_bytebuf_free bytes
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    if function.starts_with("make_bytes__") || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "nested Result<ByteBuilder, _> forwarding must transfer the returned builder owner into the Ok payload: {:#?}",
+        diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_forwards_byte_builder_owner_through_text_result_mapping() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/io" as *
+#import "core/result" as *
+
+fn byte_builder_text <()*>Result<str,str>> ():
+    match byte_builder_new:
+        Result::Err _e:
+            Result<str,str>::Err "byte builder alloc"
+        Result::Ok b0:
+            match byte_builder_push_char_utf8 b0 'A':
+                Result::Err _e:
+                    Result<str,str>::Err "byte builder push A"
+                Result::Ok b1:
+                    match byte_builder_push_char_utf8 b1 'あ':
+                        Result::Err _e:
+                            Result<str,str>::Err "byte builder push hira"
+                        Result::Ok b2:
+                            match byte_builder_finish b2:
+                                Result::Err _e:
+                                    Result<str,str>::Err "byte builder finish"
+                                Result::Ok bytes:
+                                    match io_bytebuf_to_str_result bytes:
+                                        Result::Err _e:
+                                            Result<str,str>::Err "byte builder decode"
+                                        Result::Ok text:
+                                            Result<str,str>::Ok text
+
+fn main <()* >()> ():
+    match byte_builder_text:
+        Result::Ok _text:
+            ()
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    if function.starts_with("byte_builder_text__") || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "ByteBuilder owner returned through char append must stay live when the surrounding function maps the final bytes into Result<str, str>: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view() {
     let source = r#"
 #entry main
