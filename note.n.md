@@ -1,3 +1,25 @@
+# 2026-05-07 note (ISS-20260506T172012873Z Resource IR dynamic raw address view origin)
+
+## 作業内容
+
+- branch `fix/resource-dynamic-range-summary` で `origin/main` と同期済みの main から作業した。
+- `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` の調査中、KP prefixsum の `pref` dynamic range failure が dependent range summary 以前に stable local origin propagation で落ちていることを確認した。
+- `fill_i32 pref pref_len 0` は一度 read した `%pref` から `pref[+?].deref` を initialized にするが、後続の `add pref prev_off` は別の read temporary に `StorageOffset(None)` を付けるため、既存 `ValueOrigin` の exact place 解決では `%pref[+?]` へ戻れなかった。
+- `RawCellAddressAliases::value_origin` を prefix 対応にし、origin 登録済み place の descendant なら suffix を stable origin 側へ付け替えるようにした。
+- 通常 i32 copy は raw alias group を seed しない方針を維持したため、deep-prefix alias explosion を再発させずに projected dynamic raw address view だけが stable origin を保持する。
+- `resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads` を追加し、`fill_i32` 後の別 local read 由来 `add pref dynamic` / `load_i32` が `resource.cell.uninit` にならないことを固定した。
+- KP prefixsum は dynamic range の CellState blocker を越え、次の別件として fs/stdio scratch dealloc の `resource.owner.no_free_obligation` に到達したため、`ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4` を追加した。
+
+## 検証
+
+- `cargo fmt --check`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads -- --nocapture`: passed
+- `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`: failed。dynamic range の `resource.cell.uninit` は解消し、残件は fs/stdio scratch dealloc の `resource.owner.no_free_obligation`。
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T165414602Z io ByteBuf source policy raw scratch cleanup)
 
 ## 作業内容

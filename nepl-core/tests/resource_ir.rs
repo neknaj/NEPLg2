@@ -6345,6 +6345,52 @@ fn resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_po
 }
 
 #[test]
+fn resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasi
+
+#import "core/math" as *
+#import "core/result" as *
+#import "core/mem" as *
+
+fn main <()->i32> ():
+    let n <i32> 4
+    let pref_len <i32> add n 1
+    let pref <i32> unwrap_ok alloc mul pref_len 4
+    fill_i32 pref pref_len 0
+    let i <i32> 1
+    let im1 <i32> sub i 1
+    let prev_off <i32> mul im1 4
+    let prev_ptr <i32> add pref prev_off
+    let prev <i32> load_i32 prev_ptr
+    prev
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "dynamic fill through one local read must initialize dynamic loads through later reads of the same raw address: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_raw_address_returned_by_function_value() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

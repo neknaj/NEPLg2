@@ -439,12 +439,7 @@ impl RawCellAddressAliases {
     fn value_origin(&self, place: &Place) -> Place {
         let mut current = place.clone();
         for _ in 0..=self.value_origins.len() {
-            let Some(next) = self
-                .value_origins
-                .iter()
-                .find(|origin| origin.place == current)
-                .map(|origin| origin.origin.clone())
-            else {
+            let Some(next) = self.value_origin_step(&current) else {
                 break;
             };
             if next == current {
@@ -453,6 +448,16 @@ impl RawCellAddressAliases {
             current = next;
         }
         current
+    }
+
+    fn value_origin_step(&self, place: &Place) -> Option<Place> {
+        self.value_origins
+            .iter()
+            .filter_map(|origin| {
+                place_suffix_after_prefix(place, &origin.place)
+                    .map(|suffix| place_with_suffix(&origin.origin, &suffix, place.ty))
+            })
+            .min_by_key(|candidate| candidate.projections.len())
     }
 
     fn canonicalize_group_member(&self, place: &Place) -> Option<Place> {

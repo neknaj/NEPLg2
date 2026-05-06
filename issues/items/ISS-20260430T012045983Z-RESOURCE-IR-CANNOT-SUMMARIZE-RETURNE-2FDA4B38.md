@@ -111,3 +111,18 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 この doctest の書き方問題は `ISS-20260506T145720311Z-KP-PREFIX-SUM-DOCTEST-RELIES-ON-IMPL-5F1F3821` に分離し、Rust KP regression と同じ `fill_i32 pref pref_len 0` へ揃えた。したがって、この issue は doctest#3 そのものではなく、明示 guard / typed range fact を持つ source に対する将来の Resource IR dynamic range summary として継続する。
 
 `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 3 --dist web/dist` では doctest#3 が passed になった。full KP run では remote main の `alloc/string/integer.nepl` split に伴う `from_u128_radix` boundary miss が新たに出たため、これは `ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71` として分離した。
+
+## 2026-05-06 dynamic raw address view origin 部分対応
+
+`ISS-20260506T172012873Z-RESOURCE-IR-DYNAMIC-RAW-ADDRESS-VIEW-77E94B53` として、dynamic range summary 以前に発生していた stable local origin の欠落を分離して修正した。
+
+`fill_i32 pref pref_len 0` は `pref[+?].deref` の Copy cell を initialized にするが、後続の `add pref prev_off` は別の `pref` read から `tmp[+?]` を作る。既存 `ValueOrigin` は exact `tmp -> %pref` だけを解決し、projection suffix を origin 側へ戻せなかったため、`tmp[+?].deref` が `Uninit` になっていた。
+
+今回の修正で `tmp[+?]` は `%pref[+?]` へ正規化される。これは通常 i32 copy を raw alias group として seed しないため、deep-prefix compile-time regression を再発させずに dynamic initialized Copy range の false positive を解消する。
+
+確認結果:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads -- --nocapture`: passed
+- `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`: `pref` dynamic range の `resource.cell.uninit` は解消。次の別件として fs/stdio scratch dealloc の `resource.owner.no_free_obligation` が発火したため、`ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4` に分離した。
+
+この親 issue は引き続き open とする。今回の修正は projected raw address view の origin propagation であり、length field / guard condition / initialized range を一体で表す dependent summary model はまだ未完了である。
