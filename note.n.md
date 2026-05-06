@@ -1,3 +1,34 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR drop point grouping)
+
+- [同期]:
+  - `40c8f60f` push 後、pull して `origin/main` と一致する clean な `main` から branch `work/resource-drop-plan-points` を作成した。
+- [原因]:
+  - `ResourceDropPlan` の flat `auto_drops` だけでは、codegen が drop plan を消費するときに nested block / branch / match のどの EndScope に drop を挿入するかを復元できない。
+  - 位置情報を持たないままだと、HIR scope walker 側で scope end を再推定する必要があり、Resource IR drop elaboration への移行後も二重設計が残る。
+- [修正]:
+  - `ResourceDropFunctionPlan` に `drop_points` を追加した。
+  - `ResourceDropPoint` は EndScope span と、その scope end で LIFO 順に処理すべき `ResourceAutoDrop` 群を保持する。
+  - 既存利用のため `auto_drops` は `drop_points` から flatten した互換 view として維持した。
+  - auto-drop / shadowing / structural + dynamic enum payload regression で drop point grouping も確認するようにした。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_check_auto_drops_live_non_copy_local_at_scope_end -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_drop_plan_classifies_structural_and_dynamic_payload_drops -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test drop -- --nocapture`: 17/17 passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md --runner wasm --no-tree -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md --runner wasm --no-tree -j 1`: 27/27 passed
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md --runner wasm --no-tree -j 1`: 1/1 passed
+- [残件]:
+  - drop point はまだ HIR/Wasm drop call 生成へ接続していない。次は Resource IR drop point を codegen の実挿入位置として使う経路を作る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 ResourceDropRequirement consumer)
 
 - [同期]:

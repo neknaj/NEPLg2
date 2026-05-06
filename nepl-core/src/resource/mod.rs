@@ -102,7 +102,7 @@ pub use coverage::{
 };
 pub use drop_plan::{
     compute_resource_drop_plan, ResourceAutoDrop, ResourceAutoDropKind, ResourceDropFunctionPlan,
-    ResourceDropPlan,
+    ResourceDropPlan, ResourceDropPoint,
 };
 pub use drop_requirement::{
     resource_drop_requirement_for_type, resource_type_needs_drop_code, ResourceDropField,

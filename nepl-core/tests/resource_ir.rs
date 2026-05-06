@@ -3256,6 +3256,8 @@ fn resource_ir_check_auto_drops_live_non_copy_local_at_scope_end() {
     let resource = lower_hir_module(&module, &types);
     let drop_plan = compute_resource_drop_plan(&resource, &types);
     assert_eq!(drop_plan.functions[0].auto_drops.len(), 1);
+    assert_eq!(drop_plan.functions[0].drop_points.len(), 1);
+    assert_eq!(drop_plan.functions[0].drop_points[0].auto_drops.len(), 1);
     assert!(matches!(
         drop_plan.functions[0].auto_drops[0].kind,
         ResourceAutoDropKind::ScopeLocal
@@ -3309,6 +3311,17 @@ fn main <()->i32> ():
         .iter()
         .find(|function| function.name.starts_with("main"))
         .expect("main drop plan should exist");
+    assert!(main_drop_plan.drop_points.iter().any(|point| {
+        point
+            .auto_drops
+            .iter()
+            .any(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "x"))
+    }));
+    assert!(main_drop_plan.drop_points.iter().any(|point| {
+        point.auto_drops.iter().any(
+            |drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name.starts_with("x#")),
+        )
+    }));
     assert!(main_drop_plan
         .auto_drops
         .iter()
@@ -3365,6 +3378,21 @@ fn main <()->i32> ():
         .iter()
         .find(|function| function.name.starts_with("main"))
         .expect("main drop plan should exist");
+    let top_scope_point = main_drop_plan
+        .drop_points
+        .iter()
+        .find(|point| {
+            point
+                .auto_drops
+                .iter()
+                .any(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "h"))
+                && point
+                    .auto_drops
+                    .iter()
+                    .any(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "e"))
+        })
+        .expect("top-level EndScope should keep Holder and MaybeGuard in one drop point");
+    assert_eq!(top_scope_point.auto_drops.len(), 2);
 
     let holder_drop = main_drop_plan
         .auto_drops

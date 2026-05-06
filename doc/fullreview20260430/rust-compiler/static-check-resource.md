@@ -93,6 +93,12 @@ HIR `passes::insert_drops` はまだ残るが、内部の drop-needed 判定は 
 
 この状態は最終形ではないが、checker と codegen が別々に type graph を走査して drop 対象を推測する技術的負債は減った。次に確認すべき点は、HIR pass の scope walker が保持する local move state を Resource IR `CellState` / drop plan へ置き換えられるかである。
 
+## 2026-05-06 drop point grouping 追補
+
+`ResourceDropFunctionPlan` は `drop_points` を持つようになった。`ResourceDropPoint` は EndScope span と、その scope end で処理する auto-drop 候補群を保持する。既存の `auto_drops` は `drop_points` から flatten した view として残している。
+
+flat list だけでは、codegen 側が nested control-flow のどの EndScope に drop を挿入するかを再推定する必要がある。drop point grouping により、次の移行では HIR scope walker の位置推定ではなく Resource IR lowering が生成した EndScope を正にできる。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

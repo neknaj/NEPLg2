@@ -18,6 +18,13 @@ pub struct ResourceDropPlan {
 pub struct ResourceDropFunctionPlan {
     pub name: String,
     pub auto_drops: Vec<ResourceAutoDrop>,
+    pub drop_points: Vec<ResourceDropPoint>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResourceDropPoint {
+    pub span: Span,
+    pub auto_drops: Vec<ResourceAutoDrop>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,43 +72,54 @@ fn compute_function_drop_plan(
     function: &ResourceFunction,
     types: &TypeCtx,
 ) -> ResourceDropFunctionPlan {
-    let mut auto_drops = Vec::new();
+    let mut drop_points = Vec::new();
     for block in &function.blocks {
-        collect_auto_drops_from_ops(&block.ops, types, &mut auto_drops);
+        collect_drop_points_from_ops(&block.ops, types, &mut drop_points);
     }
+    let auto_drops = drop_points
+        .iter()
+        .flat_map(|point| point.auto_drops.iter().cloned())
+        .collect();
     ResourceDropFunctionPlan {
         name: function.name.clone(),
         auto_drops,
+        drop_points,
     }
 }
 
-fn collect_auto_drops_from_ops(
+fn collect_drop_points_from_ops(
     ops: &[ResourceOp],
     types: &TypeCtx,
-    auto_drops: &mut Vec<ResourceAutoDrop>,
+    drop_points: &mut Vec<ResourceDropPoint>,
 ) {
     for op in ops {
         match op {
             ResourceOp::EndScope { locals, span, .. } => {
-                auto_drops.extend(auto_drop_candidates_for_end_scope(types, locals, *span));
+                let auto_drops = auto_drop_candidates_for_end_scope(types, locals, *span);
+                if !auto_drops.is_empty() {
+                    drop_points.push(ResourceDropPoint {
+                        span: *span,
+                        auto_drops,
+                    });
+                }
             }
             ResourceOp::Branch {
                 then_ops, else_ops, ..
             } => {
-                collect_auto_drops_from_ops(then_ops, types, auto_drops);
-                collect_auto_drops_from_ops(else_ops, types, auto_drops);
+                collect_drop_points_from_ops(then_ops, types, drop_points);
+                collect_drop_points_from_ops(else_ops, types, drop_points);
             }
             ResourceOp::Loop {
                 condition_ops,
                 body_ops,
                 ..
             } => {
-                collect_auto_drops_from_ops(condition_ops, types, auto_drops);
-                collect_auto_drops_from_ops(body_ops, types, auto_drops);
+                collect_drop_points_from_ops(condition_ops, types, drop_points);
+                collect_drop_points_from_ops(body_ops, types, drop_points);
             }
             ResourceOp::Match { arms, .. } => {
                 for arm in arms {
-                    collect_auto_drops_from_ops(&arm.ops, types, auto_drops);
+                    collect_drop_points_from_ops(&arm.ops, types, drop_points);
                 }
             }
             ResourceOp::Expr { .. }
