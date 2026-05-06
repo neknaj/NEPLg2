@@ -284,7 +284,7 @@ impl ResourceCheckEngine<'_> {
                     variant_initializations.clear_result(place);
                 }
             }
-            ResourceOp::EndScope { locals, .. } => auto_drop_scope_locals(
+            ResourceOp::EndScope { locals, span, .. } => auto_drop_scope_locals(
                 self.types,
                 cells,
                 raw_aliases,
@@ -292,6 +292,7 @@ impl ResourceCheckEngine<'_> {
                 pending_reallocs,
                 variant_initializations,
                 locals,
+                *span,
             ),
             ResourceOp::CallEffect { .. } => {}
             ResourceOp::FunctionValue { output, name, .. } => {

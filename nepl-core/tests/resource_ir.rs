@@ -6,11 +6,11 @@ use nepl_core::loader::Loader;
 use nepl_core::resource::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
     check_resource_effect_boundaries, check_resource_initialized_moves,
-    check_resource_owner_obligations, compare_hir_resource_lowering, lower_hir_module,
-    lower_hir_module_skeleton, AggregateKind, BorrowKind, BorrowState, CellState, EffectOp,
-    ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp,
-    ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation,
-    ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
+    check_resource_owner_obligations, compare_hir_resource_lowering, compute_resource_drop_plan,
+    lower_hir_module, lower_hir_module_skeleton, AggregateKind, BorrowKind, BorrowState, CellState,
+    EffectOp, ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp,
+    ResourceAutoDropKind, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic,
+    ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
     ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceEffectBoundaryDiagnostic,
     ResourceEffectCallKind, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
     ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
@@ -3254,6 +3254,12 @@ fn resource_ir_check_auto_drops_live_non_copy_local_at_scope_end() {
     };
 
     let resource = lower_hir_module(&module, &types);
+    let drop_plan = compute_resource_drop_plan(&resource, &types);
+    assert_eq!(drop_plan.functions[0].auto_drops.len(), 1);
+    assert!(matches!(
+        drop_plan.functions[0].auto_drops[0].kind,
+        ResourceAutoDropKind::ScopeLocal
+    ));
     let report = check_resource_initialized_moves(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
     assert!(report.functions[0].final_cells.iter().any(|entry| {
@@ -3269,9 +3275,14 @@ fn resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct() {
 #indent 4
 #target core
 #no_prelude
+#import "core/traits/drop" as *
 
 struct Guard:
     id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
 
 fn consume <(Guard)->i32> (_g):
     0
@@ -3288,6 +3299,19 @@ fn main <()->i32> ():
 "#;
     let (module, types) = typecheck_resource_source(source);
     let resource = lower_hir_module(&module, &types);
+    let drop_plan = compute_resource_drop_plan(&resource, &types);
+    let main_drop_plan = drop_plan
+        .functions
+        .iter()
+        .find(|function| function.name.starts_with("main"))
+        .expect("main drop plan should exist");
+    assert!(main_drop_plan
+        .auto_drops
+        .iter()
+        .any(|drop| { matches!(&drop.place.root, PlaceRoot::Local(name) if name == "x") }));
+    assert!(main_drop_plan.auto_drops.iter().any(|drop| {
+        matches!(&drop.place.root, PlaceRoot::Local(name) if name.starts_with("x#"))
+    }));
     let report = check_resource_initialized_moves(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
     let dump = resource.dump_text();

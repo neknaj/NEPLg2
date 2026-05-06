@@ -20,6 +20,7 @@ mod coverage_hir_projection;
 mod coverage_hir_projection_aggregate;
 mod coverage_hir_raw;
 mod coverage_resource;
+mod drop_plan;
 mod dump;
 mod effect;
 mod effect_check;
@@ -97,6 +98,10 @@ pub use coverage::{
     compare_hir_resource_lowering, compare_hir_resource_lowering_typed, ResourceCoverageCounts,
     ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceFunctionCoverage,
     ResourceLoweringCoverage,
+};
+pub use drop_plan::{
+    compute_resource_drop_plan, ResourceAutoDrop, ResourceAutoDropKind, ResourceDropFunctionPlan,
+    ResourceDropPlan,
 };
 pub use effect::{
     check_resource_effect_boundaries, ResourceEffectBoundaryDiagnostic,

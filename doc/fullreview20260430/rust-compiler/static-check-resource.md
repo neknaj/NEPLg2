@@ -75,6 +75,12 @@ Resource IR initialized/cell checker は `EndScope` で live non-Copy local を 
 
 残る blocker は codegen 側である。現在も wasm 生成前の実 drop call 挿入は HIR `passes::insert_drops` に残っているため、次は Resource IR drop elaboration の結果から HIR/Wasm の drop 呼び出しを生成する構造へ移す必要がある。
 
+## 2026-05-06 drop plan 追補
+
+EndScope auto-drop は `ResourceDropPlan` として明示データ化された。`compute_resource_drop_plan` は Resource IR の nested control-flow を含めて non-Copy scope local の auto-drop 候補を列挙し、initialized/cell checker も同じ候補列挙を使う。
+
+これにより、次の codegen 移行で checker と codegen が別々に drop 対象を推定する危険は下がった。残る作業は、この plan を HIR/Wasm drop call 生成へ接続し、旧 HIR `passes::insert_drops` を削除することである。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

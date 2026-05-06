@@ -1,3 +1,31 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR drop plan)
+
+- [同期]:
+  - `3a76bdd2` push 後、`origin/main` と一致する clean な `main` から branch `work/resource-drop-plan` を作成した。
+- [原因]:
+  - EndScope auto-drop を checker 内の暗黙処理に閉じると、次に codegen 側 HIR `passes::insert_drops` を置き換える際に checker と codegen が別々の drop 対象推定を持つ危険がある。
+- [修正]:
+  - `drop_plan.rs` を追加し、`ResourceDropPlan` / `ResourceDropFunctionPlan` / `ResourceAutoDrop` / `ResourceAutoDropKind` を定義した。
+  - `compute_resource_drop_plan` で Resource IR の nested Branch / Loop / Match を含む `EndScope` を走査し、non-Copy scope local の auto-drop 候補を列挙するようにした。
+  - initialized/cell checker の EndScope auto-drop は `auto_drop_candidates_for_end_scope` を使い、drop plan と同じ候補列挙を共有するようにした。
+  - auto-drop / same-type shadowing regression で drop plan の候補も確認するようにした。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_check_auto_drops_live_non_copy_local_at_scope_end -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test drop auto_drop_handles_shadowing_as_distinct_bindings -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md --runner wasm --no-tree -j 1`: 27/27 passed
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --runner wasm --no-tree -j 1`: 52/52 passed
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md --runner wasm --no-tree -j 1`: 1/1 passed
+- [残件]:
+  - drop plan はまだ codegen drop call 生成へ接続していない。次は HIR `passes::insert_drops` の出力と plan の対応を取り、置換経路を作る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR EndScope auto-drop)
 
 - [同期]:

@@ -90,6 +90,7 @@ for (const moduleName of [
     'coverage_hir_projection_aggregate.rs',
     'coverage_hir_raw.rs',
     'coverage_resource.rs',
+    'drop_plan.rs',
     'lower_raw_address.rs',
     'lower_raw_address_place.rs',
     'lower_raw_memory.rs',
@@ -156,6 +157,7 @@ for (const moduleDecl of [
     'mod coverage_hir_projection_aggregate;',
     'mod coverage_hir_raw;',
     'mod coverage_resource;',
+    'mod drop_plan;',
     'mod lower_raw_address;',
     'mod lower_raw_address_place;',
     'mod lower_raw_memory;',
@@ -209,6 +211,7 @@ const coverageHirProjection = readResource('coverage_hir_projection.rs');
 const coverageHirProjectionAggregate = readResource('coverage_hir_projection_aggregate.rs');
 const coverageHirRaw = readResource('coverage_hir_raw.rs');
 const coverageResource = readResource('coverage_resource.rs');
+const dropPlan = readResource('drop_plan.rs');
 const lower = readResource('lower.rs');
 const lowerAggregate = readResource('lower_aggregate.rs');
 const lowerAggregateProjection = readResource('lower_aggregate_projection.rs');
@@ -249,6 +252,11 @@ assertContains(
     coverageResource,
     'pub(super) fn resource_function_coverage',
     'coverage_resource.rs',
+);
+assertContains(
+    dropPlan,
+    'pub fn compute_resource_drop_plan',
+    'drop_plan.rs',
 );
 assertNotContains(
     lowerRawAddress,
@@ -354,6 +362,7 @@ const maxLines = new Map([
     ['coverage_hir_projection_aggregate.rs', 180],
     ['coverage_hir_raw.rs', 80],
     ['coverage_resource.rs', 520],
+    ['drop_plan.rs', 160],
     ['lower.rs', 1150],
     ['lower_aggregate.rs', 320],
     ['lower_aggregate_projection.rs', 180],
