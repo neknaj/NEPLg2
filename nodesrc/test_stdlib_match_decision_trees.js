@@ -63,21 +63,23 @@ assertLiteralMatch({
     literals: ["'\\\\'", "'\"'", "'\\n'", "'\\r'", "'\\t'", "'\\b'", "'\\f'"],
 });
 
-const nmJsonEscapeBlock = functionBlock('stdlib/nm/parser.nepl', 'json_escape');
+const nmJsonEscapeFile = 'stdlib/nm/json_escape.nepl';
+
+const nmJsonEscapeBlock = functionBlock(nmJsonEscapeFile, 'json_escape');
 assert.match(
     nmJsonEscapeBlock,
     /json_escape_into\s+string_builder_new\s+s/,
     'json_escape must delegate through the builder escape boundary'
 );
 
-const nmJsonEscapeIntoBlock = functionBlock('stdlib/nm/parser.nepl', 'json_escape_into');
+const nmJsonEscapeIntoBlock = functionBlock(nmJsonEscapeFile, 'json_escape_into');
 assert.match(
     nmJsonEscapeIntoBlock,
     /json_escape_mem_into\s+sb\s+string_data_ptr\s+s\s+len\s+s/,
     'json_escape_into must delegate through the byte-range escape boundary'
 );
 
-const nmJsonEscapeMemIntoBlock = functionBlock('stdlib/nm/parser.nepl', 'json_escape_mem_into');
+const nmJsonEscapeMemIntoBlock = functionBlock(nmJsonEscapeFile, 'json_escape_mem_into');
 assert.match(
     nmJsonEscapeMemIntoBlock,
     /json_escape_byte_into\s+out\s+ch/,
@@ -85,7 +87,7 @@ assert.match(
 );
 
 assertLiteralMatch({
-    file: 'stdlib/nm/parser.nepl',
+    file: nmJsonEscapeFile,
     name: 'json_escape_byte_into',
     scrutinee: 'ch',
     literals: ["'\\\\'", "'\"'", "'\\n'", "'\\r'", "'\\t'", "'\\b'", "'\\f'"],

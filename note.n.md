@@ -30995,3 +30995,33 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2` は fixed。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm JSON escape split)
+
+- [同期]:
+  - `main` を remote main と同期後、`fix/nm-json-escape-split` で巨大 stdlib file 分割 issue の一部を処理した。
+- [原因]:
+  - `stdlib/nm/parser.nepl` は Markdown block/inline parser と JSON string escape helper を同じ file に持っており、parser 本体の責務と serializer primitive の責務が混ざっていた。
+  - JSON escape helper は byte 固定分岐、builder 直接追加、builder 消費境界を持つ独立した review 単位であり、parser に残すと巨大 file 分割 issue の根本原因が残る。
+- [修正]:
+  - `stdlib/nm/json_escape.nepl` を追加し、`json_escape_byte_into` / `json_escape_mem_into` / `json_escape_into` / `json_escape_builder_into` / `json_escape` を移した。
+  - `stdlib/nm/parser.nepl` は `./json_escape` を `json` alias で import し、JSON escape 呼び出しを module 境界越しに行う形へ変更した。
+  - `nodesrc/test_stdlib_match_decision_trees.js` の NM JSON escape match policy を新 module へ移した。
+  - `nodesrc/test_stdlib_nm_json_escape_boundary.js` を追加し、parser に JSON escape helper が戻らないことを source policy にした。
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` に進捗を追記した。
+- [検証]:
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_no_raw_aggregate_detours.js`: passed
+  - `node nodesrc/test_stdlib_nm_json_escape_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/nm/json_escape.nepl --no-tree -o tmp/nm-json-escape-split-module.json -j 1`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl --no-tree -o tmp/nm-json-escape-split-parser.json -j 1`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-json-escape-split-nm-tests.json -j 1`: total=5, passed=5
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [残件]:
+  - `alloc/string.nepl`、`alloc/collections/vec.nepl`、`nm/parser.nepl` 内の block serializer / section stack などは引き続き分割候補。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

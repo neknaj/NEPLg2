@@ -1,0 +1,127 @@
+//: nm/json_escape: NM JSON serializer 用の JSON string escape helper
+//:
+//: [目的/もくてき]:
+//: - Gloss/Nest Markdown の JSON serializer が使う JSON string escape 境界を提供します。
+//: - parser 本体から byte escape の責務を分離し、inline/block parsing と serializer primitive を独立してレビューできるようにします。
+//:
+//: [実装/じっそう]:
+//: - 1 byte の分類は char literal `match` で行い、escape 対象を静的に確認しやすい形にしています。
+//: - `str`、`MemPtr<u8>`、`StringBuilder` の各入力境界を用意し、呼び出し側が不要な一時 `str` を作らずに JSON 出力へ追加できます。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 の妥当性は入力 `str` / builder の作成経路に依存します。この module は JSON 構文上意味を持つ ASCII byte と制御文字だけを escape します。
+//: - `json_escape_builder_into` は source builder を消費して解放します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力 byte 数 n に対して O(n) です。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "alloc/string" as *
+//:| #import "nm/json_escape" as *
+//: fn main <()*>i32> ():
+//:     let escaped <str> json_escape "a\t\"b\\c"
+//:     if str_eq escaped "a\\t\\\"b\\\\c" 0 1
+//: ```
+
+#indent 4
+
+#import "alloc/string" as *
+#import "core/mem" as *
+#import "core/option" as *
+
+//: json_escape_byte_into: JSON 文字列用に 1 byte を builder へ追加する
+//:
+//: [目的/もくてき]:
+//: - JSON string literal 内の 1 byte を、必要なら escape sequence に変換して追加します。
+//:
+//: [実装/じっそう]:
+//: - escape 対象の固定集合を char literal `match` で列挙し、漏れを policy test で検出できる形にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn json_escape_byte_into <(StringBuilder,i32)->StringBuilder> (sb, ch):
+    match ch:
+        '\\':
+            sb_append sb "\\\\"
+        '"':
+            sb_append sb "\\\""
+        '\n':
+            sb_append sb "\\n"
+        '\r':
+            sb_append sb "\\r"
+        '\t':
+            sb_append sb "\\t"
+        '\b':
+            sb_append sb "\\b"
+        '\f':
+            sb_append sb "\\f"
+        _:
+            sb_append_byte sb ch
+
+//: json_escape_mem_into: byte 列を JSON escape しながら builder へ追加する
+//:
+//: [目的/もくてき]:
+//: - 既に UTF-8 として扱える byte 列を、新しい `str` を作らずに JSON string literal 用へ escape して追加します。
+//:
+//: [実装/じっそう]:
+//: - source byte を順に読み、`json_escape_byte_into` へ渡します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+pub fn json_escape_mem_into <(StringBuilder,MemPtr<u8>,i32)->StringBuilder> (sb, data, byte_len):
+    let mut out <StringBuilder> sb;
+    let mut i <i32> 0;
+    while lt i byte_len:
+        do:
+            let ch <i32> load_u8 <i32> add mem_ptr_addr data i;
+            set out json_escape_byte_into out ch;
+            set i add i 1;
+    out
+
+//: json_escape_into: JSON escape した内容を既存 builder へ追加する
+//:
+//: [目的/もくてき]:
+//: - 一時 `str` を返さず、呼び出し側の builder に直接 escaped byte を追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+pub fn json_escape_into <(StringBuilder,str)->StringBuilder> (sb, s):
+    json_escape_mem_into sb string_data_ptr s len s
+
+//: json_escape_builder_into: builder の内容を JSON escape して別 builder へ移す
+//:
+//: [目的/もくてき]:
+//: - 一時 `str` を作らず、source builder の byte 列を escape して destination builder へ追加します。
+//:
+//: [実装/じっそう]:
+//: - source builder の `Option<MemPtr<u8>>` storage を borrow して走査し、追加後に source builder を解放します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+pub fn json_escape_builder_into <(StringBuilder,StringBuilder)->StringBuilder> (sb, src):
+    let byte_len <i32> get src "len";
+    match *get_ref &src "data":
+        Option::Some data:
+            let out <StringBuilder> json_escape_mem_into sb data byte_len;
+            string_builder_free src;
+            out
+        Option::None:
+            string_builder_free src;
+            sb
+
+//: json_escape: JSON 文字列用に byte を escape する
+//:
+//: [目的/もくてき]:
+//: - JSON string literal に入る `"` / `\` / control character を escape します。
+//:
+//: [実装/じっそう]:
+//: - 実処理は `json_escape_into` に委譲し、単独 API として必要なときだけ最後に `str` を構築します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+pub fn json_escape <(str)->str> (s):
+    sb_build json_escape_into string_builder_new s

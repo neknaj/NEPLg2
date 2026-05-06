@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T02:15:49.824Z",
+  "generated_at": "2026-05-06T02:25:57.949Z",
   "counts": {
     "total": 496,
     "open": 13,
@@ -278,7 +278,7 @@
       "priority": "P2",
       "type": "architecture",
       "created": "2026-04-25",
-      "updated": "2026-05-05",
+      "updated": "2026-05-06",
       "target": "stdlib/core/math.nepl, stdlib/alloc/string.nepl, stdlib/alloc/collections/vec.nepl, stdlib/std/streamio.nepl, stdlib/std/stdio.nepl, stdlib/std/fs.nepl, stdlib/std/test.nepl, stdlib/nm/parser.nepl, stdlib/core/mem.nepl, stdlib/neplg2/cli/args.nepl",
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
