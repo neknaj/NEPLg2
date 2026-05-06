@@ -1,0 +1,73 @@
+//: # math/convert/float/float_width
+//: f32 / f64 間の幅変換を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - f32 から f64 への promote と f64 から f32 への demote を、整数変換や truncation から分けて管理します。
+//: - `core/math/convert/float` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - promote は情報を保ちますが、demote は丸めと精度低下を伴う場合があります。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/convert/float/int_to_float" as *
+//:| #import "core/math/convert/float/float_to_i32" as *
+//:| #import "core/math/convert/float/float_width" as *
+//: fn main <()->i32> ():
+//:     trunc_s_f32_to_i32 demote_f64_to_f32 promote_f32_to_f64 convert_s_i32_to_f32 7
+//: ```
+
+#indent 4
+//: promote_f32_to_f64: f32 を f64 へ拡張変換
+//:
+//: [目的/もくてき]:
+//: - f32 値を精度の高い f64 へ拡張します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.promote_f32`、llvm は `fpext float to double` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 値は厳密に保持されます（f32 から f64 への拡張で情報は失われません）。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn promote_f32_to_f64 <(f32)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.promote_f32
+    #if[target=llvm]
+    #llvmir:
+        define double @promote_f32_to_f64(float %a) {
+        entry:
+            %0 = fpext float %a to double
+            ret double %0
+        }
+
+//: demote_f64_to_f32: f64 を f32 へ縮小変換
+//:
+//: [目的/もくてき]:
+//: - f64 値を f32 へ縮小します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.demote_f64`、llvm は `fptrunc double to float` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 精度は失われる可能性があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn demote_f64_to_f32 <(f64)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.demote_f64
+    #if[target=llvm]
+    #llvmir:
+        define float @demote_f64_to_f32(double %a) {
+        entry:
+            %0 = fptrunc double %a to float
+            ret float %0
+        }

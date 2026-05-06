@@ -1,0 +1,232 @@
+//: # math/convert/float/float_to_i32
+//: f32 / f64 から i32 への変換を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - f32 / f64 から i32 への signed / unsigned truncation と saturating truncation を、他の変換方向から分けて管理します。
+//: - `core/math/convert/float` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - 非飽和 truncation は NaN や範囲外値で基盤命令の trap / 失敗条件に従います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/convert/float/int_to_float" as *
+//:| #import "core/math/convert/float/float_to_i32" as *
+//: fn main <()->i32> ():
+//:     trunc_s_f32_to_i32 convert_s_i32_to_f32 9
+//: ```
+
+#indent 4
+//: trunc_s_f32_to_i32: f32 を i32(符号付き)へ切り捨て変換
+//:
+//: [目的/もくてき]:
+//: - f32 を 0 方向へ切り捨てて符号付き i32 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.trunc_f32_s`、llvm は `fptosi float to i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN や範囲外値は trap（未定義変換）になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn trunc_s_f32_to_i32 <(f32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.trunc_f32_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @trunc_s_f32_to_i32(float %a) {
+        entry:
+            %0 = fptosi float %a to i32
+            ret i32 %0
+        }
+
+//: trunc_u_f32_to_i32: f32 を i32(符号なし)へ切り捨て変換
+//:
+//: [目的/もくてき]:
+//: - f32 を 0 方向へ切り捨てて符号なし i32 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.trunc_f32_u`、llvm は `fptoui float to i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN や範囲外値は trap（未定義変換）になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn trunc_u_f32_to_i32 <(f32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.trunc_f32_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @trunc_u_f32_to_i32(float %a) {
+        entry:
+            %0 = fptoui float %a to i32
+            ret i32 %0
+        }
+
+//: trunc_sat_s_f32_to_i32: f32 を i32(符号付き)へ飽和変換
+//:
+//: [目的/もくてき]:
+//: - f32 を i32 に変換し、範囲外は最小値/最大値に丸めます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.trunc_sat_f32_s` を使います。
+//: - llvm は `llvm.fptosi.sat.i32.f32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN は 0 になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn trunc_sat_s_f32_to_i32 <(f32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.trunc_sat_f32_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @trunc_sat_s_f32_to_i32(float %a) {
+        entry:
+            %0 = call i32 @llvm.fptosi.sat.i32.f32(float %a)
+            ret i32 %0
+        }
+
+//: trunc_sat_u_f32_to_i32: f32 を i32(符号なし)へ飽和変換
+//:
+//: [目的/もくてき]:
+//: - f32 を i32 に変換し、範囲外は 0 か最大値に丸めます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.trunc_sat_f32_u` を使います。
+//: - llvm は `llvm.fptoui.sat.i32.f32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN は 0 になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn trunc_sat_u_f32_to_i32 <(f32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.trunc_sat_f32_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @trunc_sat_u_f32_to_i32(float %a) {
+        entry:
+            %0 = call i32 @llvm.fptoui.sat.i32.f32(float %a)
+            ret i32 %0
+        }
+
+//: trunc_s_f64_to_i32: f64 を i32(符号付き)へ切り捨て変換
+//:
+//: [目的/もくてき]:
+//: - f64 を 0 方向へ切り捨てて i32 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.trunc_f64_s`、llvm は `fptosi double to i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN や範囲外値は trap（未定義変換）になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn trunc_s_f64_to_i32 <(f64)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.trunc_f64_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @trunc_s_f64_to_i32(double %a) {
+        entry:
+            %0 = fptosi double %a to i32
+            ret i32 %0
+        }
+
+//: trunc_u_f64_to_i32: f64 を i32(符号なし)へ切り捨て変換
+//:
+//: [目的/もくてき]:
+//: - f64 を 0 方向へ切り捨てて i32 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.trunc_f64_u`、llvm は `fptoui double to i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN や範囲外値は trap（未定義変換）になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn trunc_u_f64_to_i32 <(f64)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.trunc_f64_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @trunc_u_f64_to_i32(double %a) {
+        entry:
+            %0 = fptoui double %a to i32
+            ret i32 %0
+        }
+
+//: trunc_sat_s_f64_to_i32: f64 を i32(符号付き)へ飽和変換
+//:
+//: [目的/もくてき]:
+//: - f64 を i32 に変換し、範囲外は最小値/最大値へ丸めます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.trunc_sat_f64_s` を使います。
+//: - llvm は `llvm.fptosi.sat.i32.f64` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN は 0 になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn trunc_sat_s_f64_to_i32 <(f64)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.trunc_sat_f64_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @trunc_sat_s_f64_to_i32(double %a) {
+        entry:
+            %0 = call i32 @llvm.fptosi.sat.i32.f64(double %a)
+            ret i32 %0
+        }
+
+//: trunc_sat_u_f64_to_i32: f64 を i32(符号なし)へ飽和変換
+//:
+//: [目的/もくてき]:
+//: - f64 を i32 に変換し、範囲外は 0 か最大値へ丸めます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.trunc_sat_f64_u` を使います。
+//: - llvm は `llvm.fptoui.sat.i32.f64` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN は 0 になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn trunc_sat_u_f64_to_i32 <(f64)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.trunc_sat_f64_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @trunc_sat_u_f64_to_i32(double %a) {
+        entry:
+            %0 = call i32 @llvm.fptoui.sat.i32.f64(double %a)
+            ret i32 %0
+        }

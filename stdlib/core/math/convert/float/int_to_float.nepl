@@ -1,0 +1,228 @@
+//: # math/convert/float/int_to_float
+//: 整数から f32 / f64 への変換を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - i32 / i64 から f32 / f64 への signed / unsigned 変換を、float truncation や幅変換から分けて管理します。
+//: - `core/math/convert/float` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - 整数が浮動小数点で正確に表現できない場合は backend の丸め規則に従います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/convert/float/int_to_float" as *
+//:| #import "core/math/convert/float/float_to_i32" as *
+//: fn main <()->i32> ():
+//:     trunc_s_f64_to_i32 convert_s_i32_to_f64 7
+//: ```
+
+#indent 4
+//: convert_s_i32_to_f32: i32(符号付き) を f32 へ変換
+//:
+//: [目的/もくてき]:
+//: - 符号付き i32 を f32 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.convert_i32_s`、llvm は `sitofp i32 to float` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 大きい整数は f32 で正確に表現できない場合があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn convert_s_i32_to_f32 <(i32)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.convert_i32_s
+    #if[target=llvm]
+    #llvmir:
+        define float @convert_s_i32_to_f32(i32 %a) {
+        entry:
+            %0 = sitofp i32 %a to float
+            ret float %0
+        }
+
+//: convert_u_i32_to_f32: i32(符号なし) を f32 へ変換
+//:
+//: [目的/もくてき]:
+//: - 符号なし i32 を f32 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.convert_i32_u`、llvm は `uitofp i32 to float` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 符号付き値としては負に見えるビット列も、大きな正数として解釈されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn convert_u_i32_to_f32 <(i32)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.convert_i32_u
+    #if[target=llvm]
+    #llvmir:
+        define float @convert_u_i32_to_f32(i32 %a) {
+        entry:
+            %0 = uitofp i32 %a to float
+            ret float %0
+        }
+
+//: convert_s_i64_to_f32: i64(符号付き) を f32 へ変換
+//:
+//: [目的/もくてき]:
+//: - 符号付き i64 を f32 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.convert_i64_s`、llvm は `sitofp i64 to float` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 表現可能桁数を超える場合は丸めが発生します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn convert_s_i64_to_f32 <(i64)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.convert_i64_s
+    #if[target=llvm]
+    #llvmir:
+        define float @convert_s_i64_to_f32(i64 %a) {
+        entry:
+            %0 = sitofp i64 %a to float
+            ret float %0
+        }
+
+//: convert_u_i64_to_f32: i64(符号なし) を f32 へ変換
+//:
+//: [目的/もくてき]:
+//: - 符号なし i64 を f32 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.convert_i64_u`、llvm は `uitofp i64 to float` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 非常に大きな値では丸め誤差が大きくなることがあります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn convert_u_i64_to_f32 <(i64)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.convert_i64_u
+    #if[target=llvm]
+    #llvmir:
+        define float @convert_u_i64_to_f32(i64 %a) {
+        entry:
+            %0 = uitofp i64 %a to float
+            ret float %0
+        }
+
+//: <f64> cast: i32(符号付き) を f64 へ変換
+//:
+//: [目的/もくてき]:
+//: - 符号付き i32 を f64 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.convert_i32_s`、llvm は `sitofp i32 to double` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 大きな整数でも f32 より高い精度で保持できます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn convert_s_i32_to_f64 <(i32)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.convert_i32_s
+    #if[target=llvm]
+    #llvmir:
+        define double @convert_s_i32_to_f64(i32 %a) {
+        entry:
+            %0 = sitofp i32 %a to double
+            ret double %0
+        }
+
+//: convert_u_i32_to_f64: i32(符号なし) を f64 へ変換
+//:
+//: [目的/もくてき]:
+//: - 符号なし i32 を f64 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.convert_i32_u`、llvm は `uitofp i32 to double` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 符号付き値として負に見えるビット列も大きな正数として扱われます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn convert_u_i32_to_f64 <(i32)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.convert_i32_u
+    #if[target=llvm]
+    #llvmir:
+        define double @convert_u_i32_to_f64(i32 %a) {
+        entry:
+            %0 = uitofp i32 %a to double
+            ret double %0
+        }
+
+//: convert_s_i64_to_f64: i64(符号付き) を f64 へ変換
+//:
+//: [目的/もくてき]:
+//: - 符号付き i64 を f64 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.convert_i64_s`、llvm は `sitofp i64 to double` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 2^53 を超える整数は厳密には表現できず丸めが入ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn convert_s_i64_to_f64 <(i64)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.convert_i64_s
+    #if[target=llvm]
+    #llvmir:
+        define double @convert_s_i64_to_f64(i64 %a) {
+        entry:
+            %0 = sitofp i64 %a to double
+            ret double %0
+        }
+
+//: convert_u_i64_to_f64: i64(符号なし) を f64 へ変換
+//:
+//: [目的/もくてき]:
+//: - 符号なし i64 を f64 に変換します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.convert_i64_u`、llvm は `uitofp i64 to double` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 大きな値では下位ビットが丸められます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn convert_u_i64_to_f64 <(i64)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.convert_i64_u
+    #if[target=llvm]
+    #llvmir:
+        define double @convert_u_i64_to_f64(i64 %a) {
+        entry:
+            %0 = uitofp i64 %a to double
+            ret double %0
+        }

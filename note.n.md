@@ -370,6 +370,26 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。静的検査大規模修正の Stage 4 実装状況は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
 
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math convert float responsibility split)
+
+- [同期]:
+  - `origin/main` に ResourceIR drop / move check removal などの大きな変更が入っていたため、`main` を `f30a5627` まで fast-forward してから branch `fix/math-convert-float-responsibility-split` を作成した。
+- [原因]:
+  - `stdlib/core/math/convert/float.nepl` は整数から float、float から i32、float から i64、f32 / f64 幅変換を同居させた 676 lines の変換 module になっていた。
+  - 変換方向ごとに trap 条件、飽和有無、丸め仕様が異なるため、同一 file に戻すと math 分割 issue の責務境界が再び曖昧になる。
+- [修正]:
+  - `stdlib/core/math/convert/float/int_to_float.nepl`、`float_to_i32.nepl`、`float_to_i64.nepl`、`float_width.nepl` を追加した。
+  - `stdlib/core/math/convert/float.nepl` は submodule を再 export する facade にし、関数本体を持たない形へ変更した。
+  - `nodesrc/test_stdlib_math_module_split.js` に convert/float submodule の re-export、所有関数、行数上限、facade の無実装性を固定する検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/convert/float/int_to_float.nepl -i stdlib/core/math/convert/float/float_to_i32.nepl -i stdlib/core/math/convert/float/float_to_i64.nepl -i stdlib/core/math/convert/float/float_width.nepl -i stdlib/core/math/convert/float.nepl -i stdlib/core/math/convert.nepl -i stdlib/core/math.nepl -i tests/stdlib/numerics.n.md -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-convert-float-responsibility-split.json -j 1`: total=24, passed=24
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdlib math split policy は passed。remote main 由来の別件として `nodesrc/test_static_check_boundary_responsibility.js` が削除済み `passes/move_check.rs` を要求する stale warning を検出したため、`ISS-20260506T104320731Z-STATIC-CHECK-SOURCE-POLICY-STILL-REQ-3078A6E1` として分離した。
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl`、`alloc/collections/vec.nepl`、`core/mem.nepl` などの分割を継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math f64 responsibility split)
 
 - [同期]:
