@@ -1,3 +1,21 @@
+# 2026-05-06 note (ISS-20260506T000220058Z fullreview owner variant status)
+
+- [同期]:
+  - `9923b6c3` の fullreview unsafe memory status 更新を push / pull した clean な `main` から、branch `work/fullreview-owner-variant-status` を作成して対応した。
+- [原因]:
+  - `doc/fullreview20260430/rust-compiler/static-check-resource.md` が、解決済みの `owner_summary_variant_paths.rs` 637 lines / responsibility policy red を現在の残件として記載していた。
+  - 現在は `owner_summary_variant_paths.rs` は 338 lines で、source policy も通過している。
+- [修正]:
+  - fullreview static-check resource report の owner variant path builder 記述を fixed 済みの責務分割として更新した。
+  - 2026-05-06 追補の残件リストを、旧 checker authority、raw-memory-boundary migration、MemPtr/Storage/InitializedCell 分離へ絞った。
+- [検証]:
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260506T000220058Z-FULLREVIEW-STATIC-CHECK-RESOURCE-REP-BB4876E4` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260505T235821002Z fullreview static-check resource status)
 
 - [同期]:

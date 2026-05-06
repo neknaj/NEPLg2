@@ -33,7 +33,7 @@ Resource IR gate は `run_move_check` から呼ばれる。
 - `UnsafeMemoryInPureFunction` は 2026-05-06 時点で compiler error gate へ接続済みである。ただし `stdlib/core/mem.nepl` など raw-memory-boundary capability を持つ移行中 source は Stage 6 完了まで限定許可される。
 - `MemPtr` / `RegionToken` が compiler-issued owner/provenance capability ではないため、owner checker は複雑な alias/variant condition を増やし続ける圧力がある。
 - `tests/stdlib/memory_safety.n.md` の残失敗は、stdlib cleanup ではなく owner token / non-owning pointer 分離が必要な問題として残っている。
-- `owner_summary_variant_paths.rs` は 637 行規模であり、Result owner variant path enumeration、condition propagation、call effect reservation、returned owner path collection が集中している。対象 Actions run の `Source policy regressions` step は成功しているが、local 直接確認では responsibility split policy が赤くなる。この review では Actions を test 状況の根拠としつつ、責務再集中そのものは `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8` として追跡する。
+- `owner_summary_variant_paths.rs` の責務再集中は `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8` で解消済みである。現在は path traversal orchestration、condition refinement、construct/match handling が分割され、source policy も通過している。
 
 ## 設計評価
 
@@ -55,6 +55,7 @@ Resource IR の方向は正しい。型安全・メモリ安全を必達にす�
 - `passes::move_check::run` と `passes::insert_drops` がまだ Resource IR より前の authoritative path として残る。
 - raw-memory-boundary capability が stdlib/core/mem 移行のために残っており、safe public API と internal raw implementation の Stage 6 分離が未完了である。
 - `MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の最終分離は完了していない。
+- owner variant path builder の責務分割は完了済みであり、現在の blocker からは外す。
 
 したがって、今後の優先順位は UnsafeMemory gate の再実装ではなく、旧 checker authority の縮小、Resource IR drop elaboration、owner/provenance capability、stdlib raw-memory-backed API の境界移行である。
 
