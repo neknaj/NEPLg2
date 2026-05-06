@@ -69,7 +69,7 @@ fn main <()*>()> ():
 
     let pref_len <i32> add n 1;
     let pref <i32> unwrap_ok alloc mul pref_len 4;
-    store_i32 pref 0;
+    fill_i32 pref pref_len 0;
 
     let mut i <i32> 1;
     while le i n:

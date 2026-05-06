@@ -50,6 +50,25 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-06 Agent 1: KP prefix sum doctest explicit initialization
+
+- [同期]:
+  - `main` と `origin/main` が `46d3d561` で一致していることを確認し、`fix/kp-prefixsum-explicit-init` branch で `tests/stdlib/kp.n.md::doctest#3` の static-check blocker を調査した。
+- [原因]:
+  - doctest#3 は `store_i32 pref 0` だけで prefix buffer の先頭要素を初期化し、その後の dynamic offset load は loop induction と入力 `l/r` の競技プログラミング上の制約へ暗黙依存していた。
+  - source 上には `l/r` の範囲 guard や typed range contract がないため、compiler がこれを通すと「任意の dynamic offset を initialized とみなす」緩和になり、静的検査の正確性を損なう。
+  - 同等の Rust KP regression はすでに `fill_i32 pref pref_len 0` で prefix buffer 全体を明示初期化しており、Resource IR initialized check を通過していた。
+- [修正]:
+  - `ISS-20260506T145720311Z-KP-PREFIX-SUM-DOCTEST-RELIES-ON-IMPL-5F1F3821` を追加した。
+  - `tests/stdlib/kp.n.md::doctest#3` を Rust regression と同じ `fill_i32 pref pref_len 0` へ揃え、compiler 側の unsound な dynamic range 緩和を避けた。
+  - `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` は、明示 guard / typed range fact を持つ source に対する将来の Resource IR range summary として open のまま整理した。
+- [検証]:
+  - `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 3 --dist web/dist`: passed, stdout `6\n14\n15\n`
+  - `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_after_prefixsum_explicit_init.json --runner wasm --no-tree -j 1 --assert-io`: total=7, passed=4, failed=2, errored=1。doctest#3 は top issues から消滅。remote main の `alloc/string/integer.nepl` split による `from_u128_radix` boundary miss を `ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71` として追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string split scanner boundary split)
 
 - [同期]:

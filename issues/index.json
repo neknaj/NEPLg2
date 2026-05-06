@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T14:47:35.246Z",
+  "generated_at": "2026-05-06T15:05:55.263Z",
   "counts": {
-    "total": 517,
-    "open": 14,
-    "resolved": 503,
+    "total": 519,
+    "open": 15,
+    "resolved": 504,
     "by_area": {
       "core": {
-        "total": 251,
-        "open": 5,
+        "total": 252,
+        "open": 6,
         "resolved": 246
       },
       "stdlib": {
@@ -67,9 +67,9 @@
         "resolved": 1
       },
       "test": {
-        "total": 2,
+        "total": 3,
         "open": 0,
-        "resolved": 2
+        "resolved": 3
       },
       "web": {
         "total": 1,
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71",
+      "title": "String integer split loses raw-memory boundary capability",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/loader.rs, stdlib/alloc/string/integer.nepl, tests/stdlib/kp.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -5893,6 +5908,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2.md"
+    },
+    {
+      "id": "ISS-20260506T145720311Z-KP-PREFIX-SUM-DOCTEST-RELIES-ON-IMPL-5F1F3821",
+      "title": "KP prefix sum doctest relies on implicit dynamic buffer initialization",
+      "area": "test",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "tests/stdlib/kp.n.md, nepl-core/tests/kp.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T145720311Z-KP-PREFIX-SUM-DOCTEST-RELIES-ON-IMPL-5F1F3821.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

@@ -103,3 +103,11 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 `ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA` の修正後に `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_after_unwrap_ok_dealloc_summary.json --runner wasm --no-tree -j 1 --assert-io` を再実行した。
 
 結果は total=7, passed=4, failed=1, errored=2 で、doctest#7 の owner leak は消えた。一方 doctest#3 は引き続き `pref` の dynamic-offset prefix buffer read で `resource.cell.possibly_moved` を出しているため、この issue の dynamic initialized range summary 残件は継続する。
+
+## 2026-05-06 KP doctest#3 source discipline の切り分け
+
+`tests/stdlib/kp.n.md::doctest#3` は `store_i32 pref 0` のみで prefix buffer 全体の初期化を loop induction と入力制約へ暗黙依存していた。source 上に `l/r` の範囲 guard や typed range contract がないため、これを compiler 側で通すと dynamic offset を過剰に initialized 扱いする危険がある。
+
+この doctest の書き方問題は `ISS-20260506T145720311Z-KP-PREFIX-SUM-DOCTEST-RELIES-ON-IMPL-5F1F3821` に分離し、Rust KP regression と同じ `fill_i32 pref pref_len 0` へ揃えた。したがって、この issue は doctest#3 そのものではなく、明示 guard / typed range fact を持つ source に対する将来の Resource IR dynamic range summary として継続する。
+
+`node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 3 --dist web/dist` では doctest#3 が passed になった。full KP run では remote main の `alloc/string/integer.nepl` split に伴う `from_u128_radix` boundary miss が新たに出たため、これは `ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71` として分離した。
