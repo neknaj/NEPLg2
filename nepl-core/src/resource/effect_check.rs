@@ -589,8 +589,14 @@ impl ResourceEffectBoundaryEngine<'_> {
             EffectOp::IndirectCall { effect } => {
                 self.check_call_effect(*effect, ResourceEffectCallKind::Indirect, span);
             }
-            EffectOp::Unknown { .. } => {
+            EffectOp::Unknown { reason } => {
                 self.counts.unknown_ops += 1;
+                self.diagnostics
+                    .push(ResourceEffectBoundaryDiagnostic::UnknownEffect {
+                        function: String::from(self.function),
+                        reason: reason.clone(),
+                        span,
+                    });
             }
             EffectOp::Pure => {}
         }

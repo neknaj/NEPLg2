@@ -41,6 +41,11 @@ pub enum ResourceEffectBoundaryDiagnostic {
         place: Place,
         span: Span,
     },
+    UnknownEffect {
+        function: String,
+        reason: String,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

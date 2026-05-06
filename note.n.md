@@ -30488,6 +30488,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-06 note (ISS-20260506T001532659Z Resource unknown effect hard gate)
+
+- [同期]:
+  - `main` を remote main と同期後、`work/resource-unknown-effect-diagnostic` で Resource IR effect gate の unknown effect handling を修正した。
+- [原因]:
+  - `EffectOp::IndirectCall { effect }` により通常の indirect call lowering は typed effect を保持するようになっていた。
+  - しかし `ResourceEffectBoundaryEngine` は残存する `EffectOp::Unknown` を `unknown_ops` に count するだけで、compiler diagnostic へ接続していなかった。
+  - これでは lowering regression や将来の ResourceOp 追加で unknown effect が残った場合、Resource IR が final authority として沈黙する。
+- [修正]:
+  - `ResourceEffectBoundaryDiagnostic::UnknownEffect` を追加し、unknown effect の function / reason / span を保持するようにした。
+  - effect checker は `unknown_ops` count を維持しつつ、unknown effect を必ず diagnostic にする。
+  - compiler gate は `UnknownEffect` を `resource.lower.incomplete` へ写像する。
+  - 既知 pure callback の手作業 Resource IR test は `EffectOp::IndirectCall { effect: Effect::Pure }` に直し、unknown effect を正常系として使わないようにした。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_reports_unknown_effect_as_lowering_incomplete -- --nocapture`: passed
+  - `cargo test -p nepl-core compiler::tests::resource_effect_gate_maps_unknown_effect_to_lower_incomplete_code --lib`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_ -- --nocapture`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+- [issue]:
+  - `ISS-20260506T001532659Z-RESOURCE-EFFECT-CHECKER-COUNTS-UNKNO-3E7D867C` は fixed。
+  - `ISS-20260430T064827021Z-RESOURCE-IR-INDIRECT-CALLS-KEEP-UNKN-E9B29774` に unknown effect hard gate の追記を行った。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260506T000648028Z Diagnostics plan unsafe memory gate status)
 
 - [同期]:

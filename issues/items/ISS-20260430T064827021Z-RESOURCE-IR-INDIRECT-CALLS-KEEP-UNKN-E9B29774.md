@@ -58,3 +58,9 @@ Add Resource IR tests for indirect pure and impure function values, a compile_fa
 - `cargo fmt --check -p nepl-core`
 - `trunk build`
 - `node nodesrc/tests.js -i tests/compiler/indirect_effect.n.md --no-tree -o tmp/indirect-effect-typed-resource-ir.json -j 1 --dist web/dist`
+
+## 2026-05-06 unknown effect hard gate 追記
+
+`EffectOp::IndirectCall { effect }` の導入後も、`EffectOp::Unknown` が Resource IR に残った場合は `ResourceEffectBoundaryEngine` が count するだけで compiler error にしない状態だった。この残件は [ISS-20260506T001532659Z-RESOURCE-EFFECT-CHECKER-COUNTS-UNKNO-3E7D867C](./ISS-20260506T001532659Z-RESOURCE-EFFECT-CHECKER-COUNTS-UNKNO-3E7D867C.md) として分離し、修正した。
+
+現在は、通常の indirect call は typed effect summary として下がり、残存する unknown effect は `resource.lower.incomplete` へ写像される。したがって `EffectOp::Unknown` は正常な lowering 成功状態ではなく、Resource IR lowering incompleteness として扱う。

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T00:09:57.473Z",
+  "generated_at": "2026-05-06T00:20:11.404Z",
   "counts": {
-    "total": 490,
+    "total": 491,
     "open": 13,
-    "resolved": 477,
+    "resolved": 478,
     "by_area": {
       "core": {
-        "total": 227,
+        "total": 228,
         "open": 5,
-        "resolved": 222
+        "resolved": 223
       },
       "stdlib": {
         "total": 155,
@@ -3523,6 +3523,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T000648028Z-DIAGNOSTICS-PLAN-STILL-DESCRIBES-UNS-748EBB08.md"
+    },
+    {
+      "id": "ISS-20260506T001532659Z-RESOURCE-EFFECT-CHECKER-COUNTS-UNKNO-3E7D867C",
+      "title": "Resource effect checker counts unknown effects without diagnostic",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/effect.rs, nepl-core/src/resource/effect_check.rs, nepl-core/src/compiler.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T001532659Z-RESOURCE-EFFECT-CHECKER-COUNTS-UNKNO-3E7D867C.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

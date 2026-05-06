@@ -952,6 +952,27 @@ mod tests {
         );
         assert!(error.message.contains("unsafe memory operation 'store'"));
     }
+
+    #[test]
+    fn resource_effect_gate_maps_unknown_effect_to_lower_incomplete_code() {
+        let diagnostic = ResourceEffectBoundaryDiagnostic::UnknownEffect {
+            function: String::from("main"),
+            reason: String::from("test unknown effect"),
+            span: Span::dummy(),
+        };
+
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic)
+            .expect("unknown resource effect should become a compiler error");
+
+        assert_eq!(
+            error.code,
+            Some(DiagnosticCode::Resource(ResourceDiagnosticCode::Lower(
+                ResourceLowerDiagnosticCode::Incomplete,
+            )))
+        );
+        assert!(error.message.contains("unknown effect"));
+        assert!(error.message.contains("test unknown effect"));
+    }
 }
 
 fn run_resource_effect_boundary_gate(
@@ -990,7 +1011,10 @@ fn resource_effect_boundary_diagnostic_span(
         | crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             span,
             ..
-        } => Some(*span),
+        }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::UnknownEffect { span, .. } => {
+            Some(*span)
+        }
     }
 }
 
@@ -1013,6 +1037,7 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. } => false,
+        crate::resource::ResourceEffectBoundaryDiagnostic::UnknownEffect { .. } => false,
     }
 }
 
@@ -1066,6 +1091,18 @@ fn resource_effect_boundary_diagnostic_to_error(
             format!(
                 "pure function '{}' returns raw address identity from internal allocation",
                 function
+            ),
+            *span,
+        )),
+        crate::resource::ResourceEffectBoundaryDiagnostic::UnknownEffect {
+            function,
+            reason,
+            span,
+        } => Some(Diagnostic::error_with_code(
+            resource_lower_incomplete_code(),
+            format!(
+                "resource ir effect lowering kept unknown effect in function '{}': {}",
+                function, reason
             ),
             *span,
         )),

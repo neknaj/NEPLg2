@@ -24,7 +24,7 @@
 - `passes::insert_drops` は checked Resource IR ではなく HIR 上で drop を挿入している。
 - `ResourceCheckDiagnostic::CellUnavailable` は raw-memory cell operation だけ compiler error へ写像され、通常 read/move/drop/call argument などは旧 move checker の防壁に依存している。
 - `UnsafeMemoryInPureFunction` は 2026-05-06 時点で `effect.pure.calls_impure` へ error 化済みである。ただし raw-memory-boundary capability は stdlib migration の限定許可として残る。
-- `HirExprKind::CallIndirect` は Resource IR lowering で `EffectOp::Unknown` になり、Resource IR effect gate は unknown effect を count するだけで conservative error にしない。
+- `HirExprKind::CallIndirect` は 2026-04-30 時点で typed `EffectOp::IndirectCall { effect }` に下がるようになった。2026-05-06 時点では、残存する `EffectOp::Unknown` も `resource.lower.incomplete` として compiler error 化する。
 - `MemPtr<T>` / `RegionToken<T>` は compiler-issued capability ではなく stdlib struct として forge 可能であり、owner token と non-owning pointer projection の分離が未完である。
 
 ## pass-by-pass matrix
@@ -35,12 +35,12 @@
 | lexer / parser | Rust lexer/parser | 構文エラーを typed diagnostic code で出す。char literal も token として扱う。 | self-host lexer/parser は Rust の diagnostic taxonomy と token contract に追従する必要がある。 |
 | resolve / typecheck | Rust `typecheck` | name、type、trait capability、direct call effect、indirect call effect、match exhaustiveness を検査する。 | typecheck は必要だが、resource safety の final authority にはしない。 |
 | old move check | `passes::move_check::run` | non-Copy move/use/drop/borrow の広い範囲を拒否する。 | 移行中の防壁であり、self-host に同じ HIR special-case をコピーしてはいけない。 |
-| Resource IR lowering | `resource::lower_hir_module` | HIR の resource-relevant operation を `ResourceOp` / `Place` / `EffectOp` へ落とす。 | indirect call effect が `Unknown` になるなど、semantic 情報の欠落がまだ残る。 |
+| Resource IR lowering | `resource::lower_hir_module` | HIR の resource-relevant operation を `ResourceOp` / `Place` / `EffectOp` へ落とす。 | `EffectOp::Unknown` は通常 indirect call representation ではなく、残存時は `resource.lower.incomplete` として扱う。function effect / owner summary の semantic completeness は別途必要。 |
 | lowering coverage gate | `compare_hir_resource_lowering_typed` | HIR と Resource IR の operation coverage、deref projection、unknown place を compiler error にする。 | count coverage は必要条件であり、function effect / owner summary の semantic completeness は別途必要。 |
 | cell gate | `check_resource_initialized_moves` + compiler gate | raw load/store/dealloc/realloc/fill/bulk に対する uninit/moved/dropped/maybe-moved を `resource.cell.*` として拒否する。 | 通常 read/move/drop/call argument の cell violation はまだ Resource IR gate の final authority ではない。 |
 | owner gate | `check_resource_owner_obligations` + compiler gate | leak / maybe leak / no free obligation / double free / use-after-move を `resource.owner.*` として拒否する。 | raw memory boundary file は一部除外される。stdlib owner token 移行後に除外範囲を縮める。 |
 | borrow gate | `check_resource_borrow_lifetimes` + compiler gate | return escape、shared/unique conflict、drop/move/assign 中の borrow conflict を `resource.borrow.*` として拒否する。 | old move check との二重 authority を解消し、Resource IR state merge を最終状態にする必要がある。 |
-| effect gate | `check_resource_effect_boundaries` + compiler gate | raw address identity escape を `resource.raw.identity_escape` として拒否する。 | unsafe memory in pure は shadow-only。unknown effect は count のみ。final では conservative error または typed summary が必要。 |
+| effect gate | `check_resource_effect_boundaries` + compiler gate | raw address identity escape、unsafe memory in pure、direct host/nondet effect、unknown effect を compiler error として拒否する。 | raw-memory-boundary capability の migration allowance と、stdlib public safe API / internal raw boundary の分離が残る。 |
 | drop insertion | `passes::insert_drops` | codegen 前に HIR 上で auto drop を挿入する。 | checked Resource IR 上の owner/cell/drop state から挿入する設計へ移す。 |
 | backend lowering | wasm/llvm backend | typed diagnostic code を backend error へ写像する。 | backend は checked/drop-elaborated IR だけを受け取る形にする。 |
 
@@ -75,7 +75,7 @@ effect safety は現時点で三層に分かれている。
 
 - typecheck: direct / indirect call の pure/impure mismatch を拒否する。
 - Resource IR: raw identity escape を拒否する。
-- migration allowance: `UnsafeMemoryInPureFunction` は error 化済みだが、raw-memory-boundary source は Stage 6 完了まで限定許可される。`EffectOp::Unknown` は最終 error になっていない。
+- migration allowance: `UnsafeMemoryInPureFunction` は error 化済みだが、raw-memory-boundary source は Stage 6 完了まで限定許可される。`EffectOp::Unknown` は `resource.lower.incomplete` として error 化済みであり、通常の lowering 成功状態として扱わない。
 
 final design では、function value / callback / indirect call の effect を Resource IR に typed summary として渡す。`EffectOp::Unknown` は通常の lowering 成功状態として許可せず、coverage failure か明示的な unsafe/internal boundary に限定する。
 
@@ -120,7 +120,7 @@ final design では、function value / callback / indirect call の effect を R
 
 ## 次の実装順
 
-1. Resource IR indirect call effect を typed summary 化する。
+1. Resource IR indirect call effect は typed summary 化済みであり、残存する unknown effect は hard error として維持する。
 2. `UnsafeMemoryInPureFunction` は hard gate 化済みなので、残る raw-memory-boundary capability を stdlib/core/mem の internal/public boundary と compiler-issued token へ狭める。
 3. Resource IR cell gate を raw-memory cell operation だけでなく通常 read/move/drop/call/return へ広げ、old move checker との差分を regression 化する。
 4. drop insertion を checked Resource IR 上の owner/cell state から行う設計へ移す。

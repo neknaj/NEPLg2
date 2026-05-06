@@ -2040,8 +2040,8 @@ fn resource_ir_effect_check_uses_known_function_alias_stored_in_aggregate_field(
                             params: vec![i32_ty],
                             result: i32_ty,
                             args: vec![raw],
-                            effect: EffectOp::Unknown {
-                                reason: "field-stored callback".to_string(),
+                            effect: EffectOp::IndirectCall {
+                                effect: Effect::Pure,
                             },
                             span,
                         },
@@ -2468,6 +2468,34 @@ fn resource_ir_effect_check_rejects_direct_host_effects_in_pure_function() {
             },
             ..
         } if function == "main"
+    )));
+}
+
+#[test]
+fn resource_ir_effect_check_reports_unknown_effect_as_lowering_incomplete() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![ResourceOp::CallEffect {
+            effect: EffectOp::Unknown {
+                reason: "test unknown effect".to_string(),
+            },
+            span,
+        }],
+    );
+
+    let report = check_resource_effect_boundaries(&resource);
+    assert_eq!(report.functions[0].counts.unknown_ops, 1);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::UnknownEffect {
+            function,
+            reason,
+            ..
+        } if function == "main" && reason == "test unknown effect"
     )));
 }
 
