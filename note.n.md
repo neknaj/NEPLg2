@@ -1,3 +1,20 @@
+# 2026-05-06 note (ISS-20260506T002544946Z diagnostic code exhaustive policy)
+
+- [同期]:
+  - `origin/main` と一致する clean な `main` から、branch `work/diagnostic-code-exhaustive-policy` を作成して対応した。
+- [原因]:
+  - 診断 code は `DiagnosticCode` / subcode enum と `as_str()` / `message()` の match で管理されているが、source policy は `.with_code(...)` と code-less diagnostic construction の禁止に留まっていた。
+  - `diagnostic_codes.rs` に `_ =>` wildcard arm が入ると、新しい enum variant の追加時に Rust の網羅性検査が働かず、stable code / message taxonomy の設計漏れを隠せる状態だった。
+- [修正]:
+  - `nodesrc/test_diagnostic_code_first_boundary.js` が `nepl-core/src/diagnostic_codes.rs` の `*DiagnosticCode` impl を走査するようにした。
+  - 各 impl で `as_str(self)` / `message(self)` が存在することと、`_ =>` / `_ if ... =>` wildcard arm を使わないことを検査する。
+- [検証]:
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+- [issue]:
+  - `ISS-20260506T002544946Z-DIAGNOSTIC-CODE-ENUM-MATCHES-LACK-WI-56533A08` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260506T000220058Z fullreview owner variant status)
 
 - [同期]:
