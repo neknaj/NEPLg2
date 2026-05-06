@@ -4,6 +4,7 @@ use crate::span::Span;
 use crate::types::TypeKind;
 
 use super::cell_state::CellTable;
+use super::condition_fact::record_condition_fact_value_constraints;
 use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
@@ -52,14 +53,14 @@ impl ResourceCheckEngine<'_> {
         let mut then_variant_initializations = variant_initializations.clone();
         let mut else_variant_initializations = variant_initializations.clone();
 
-        self.apply_realloc_condition_fact(
+        self.apply_branch_condition_fact(
             &mut then_cells,
             &mut then_aliases,
             &mut then_pending_reallocs,
             condition_fact,
             true,
         );
-        self.apply_realloc_condition_fact(
+        self.apply_branch_condition_fact(
             &mut else_cells,
             &mut else_aliases,
             &mut else_pending_reallocs,
@@ -379,10 +380,83 @@ impl ResourceCheckEngine<'_> {
         }
     }
 
+    fn apply_branch_condition_fact(
+        &mut self,
+        cells: &mut CellTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        pending_reallocs: &mut PendingRawReallocs,
+        fact: Option<&ResourceConditionFact>,
+        truthy_path: bool,
+    ) {
+        record_initialized_condition_fact(raw_aliases, fact, truthy_path);
+        self.apply_realloc_condition_fact(cells, raw_aliases, pending_reallocs, fact, truthy_path);
+    }
+
     fn place_is_never(&self, place: &Place) -> bool {
         matches!(
             self.types.get_ref(self.types.resolve_id(place.ty)),
             TypeKind::Never
         )
+    }
+}
+
+fn record_initialized_condition_fact(
+    raw_aliases: &mut RawCellAddressAliases,
+    fact: Option<&ResourceConditionFact>,
+    truthy_path: bool,
+) {
+    let Some(fact) = fact else {
+        return;
+    };
+    record_condition_fact_value_constraints(raw_aliases, fact, truthy_path);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::model::ResourceI32RelationOp::{Ge, Lt};
+    use super::*;
+    use crate::types::TypeId;
+    use alloc::string::String;
+
+    fn local(name: &str) -> Place {
+        Place::local(String::from(name), TypeId(1))
+    }
+
+    #[test]
+    fn initialized_branch_condition_fact_records_i32_relation() {
+        let left = local("i");
+        let right = local("len");
+        let fact = ResourceConditionFact::I32Relation {
+            left: left.clone(),
+            op: Lt,
+            right: right.clone(),
+        };
+        let mut raw_aliases = RawCellAddressAliases::default();
+
+        record_initialized_condition_fact(&mut raw_aliases, Some(&fact), true);
+
+        assert_eq!(
+            raw_aliases.i32_relation_truth(&left, Lt, &right),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn initialized_branch_condition_fact_records_false_relation_negation() {
+        let left = local("i");
+        let right = local("len");
+        let fact = ResourceConditionFact::I32Relation {
+            left: left.clone(),
+            op: Lt,
+            right: right.clone(),
+        };
+        let mut raw_aliases = RawCellAddressAliases::default();
+
+        record_initialized_condition_fact(&mut raw_aliases, Some(&fact), false);
+
+        assert_eq!(
+            raw_aliases.i32_relation_truth(&left, Ge, &right),
+            Some(true)
+        );
     }
 }

@@ -1,3 +1,22 @@
+# 2026-05-07 note (ISS-20260506T210407334Z initialized branch condition facts)
+
+## 作業内容
+
+- branch `fix/resource-guarded-symbolic-range-summary` で `origin/main` 同期済みの main から作業した。
+- `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` の guarded initialized range summary に入る前提として、owner checker では記録される typed condition fact が initialized checker の branch path に反映されていない問題を切り出した。
+- `initialized_control.rs` に initialized checker 用の branch condition fact application を追加し、then / else path の `RawCellAddressAliases` へ `ResourceConditionFact` を記録してから既存の realloc condition handling を実行するようにした。
+- condition fact の解釈は `condition_fact.rs` に集約したままにし、truthy / false branch の relation negation を duplicated logic にしないようにした。
+- issue `ISS-20260506T210407334Z-INITIALIZED-RESOURCE-BRANCH-PATHS-DO-F88296F7` を fixed にし、親 issue と `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 へ進捗を追記した。
+
+## 検証
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo test -p nepl-core initialized_branch_condition_fact_records -- --nocapture`: passed
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T203942617Z Resource i32 relation fact store)
 
 ## 作業内容

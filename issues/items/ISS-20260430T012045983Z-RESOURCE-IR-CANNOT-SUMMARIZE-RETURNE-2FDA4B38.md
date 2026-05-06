@@ -154,3 +154,11 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 `I32AliasFacts` は value / unary condition 専用のまま維持し、二項関係は別の `I32RelationFacts` に分離した。truthy branch は relation をそのまま保存し、false branch は negated op として保存する。copy / merge / clear でも relation fact が追従するため、後続の initialized range summary は HIR 条件式を再走査せず Resource IR state へ問い合わせられる。
 
 この親 issue は引き続き open とする。残件は、保存済み relation fact と symbolic raw offset を実際に照合し、guarded initialized range を cell availability 判定へ接続することである。
+
+## 2026-05-07 initialized branch fact 部分対応
+
+`ISS-20260506T210407334Z-INITIALIZED-RESOURCE-BRANCH-PATHS-DO-F88296F7` として、owner checker では保存される typed condition fact が initialized checker の branch path へ反映されていない問題を分離して修正した。
+
+`initialized_control.rs` は then / else path を clone した直後に `record_condition_fact_value_constraints` を実行し、その後に既存の realloc condition handling を適用する。これにより `ResourceConditionFact::I32Relation` は initialized cell availability 側の `RawCellAddressAliases` からも query 可能になる。
+
+この親 issue は引き続き open とする。残件は、initialized checker が保持できるようになった relation proof と `ResourceOffset::Symbolic` を、raw memory load の availability 判定へ安全に接続することである。

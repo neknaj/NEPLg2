@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T20:59:01.879Z",
+  "generated_at": "2026-05-06T21:08:18.660Z",
   "counts": {
-    "total": 538,
+    "total": 539,
     "open": 16,
-    "resolved": 522,
+    "resolved": 523,
     "by_area": {
       "compiler": {
         "total": 3,
@@ -12,9 +12,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 263,
+        "total": 264,
         "open": 4,
-        "resolved": 259
+        "resolved": 260
       },
       "selfhost": {
         "total": 50,
@@ -4123,6 +4123,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260506T203942617Z-RESOURCE-BRANCH-PATHS-DO-NOT-RETAIN--4242E13D.md"
+    },
+    {
+      "id": "ISS-20260506T210407334Z-INITIALIZED-RESOURCE-BRANCH-PATHS-DO-F88296F7",
+      "title": "Initialized resource branch paths do not record typed condition facts",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/initialized_control.rs, nepl-core/src/resource/condition_fact.rs, nepl-core/src/resource/initialized_alias*.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T210407334Z-INITIALIZED-RESOURCE-BRANCH-PATHS-DO-F88296F7.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
