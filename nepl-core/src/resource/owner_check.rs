@@ -114,6 +114,15 @@ impl ResourceOwnerCheckEngine<'_> {
         match &block.terminator {
             ResourceTerminator::Return { value, span } => {
                 if let Some(value) = value {
+                    variant_owner_effects.materialize_result_owner_effects(
+                        self,
+                        owners,
+                        raw_aliases,
+                        raw_views,
+                        storage_origins,
+                        value,
+                        *span,
+                    );
                     if !variant_owner_effects.reject_reserved_source_use(
                         self,
                         owners,

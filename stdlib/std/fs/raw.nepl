@@ -183,11 +183,7 @@ fn fs_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf,i32>> (buf, cap, 
             if:
                 gt cap 0
                 then:
-                    match dealloc_ptr<u8> buf cap:
-                        Result::Ok _:
-                            ()
-                        Result::Err _:
-                            ()
+                    dealloc_raw mem_ptr_addr buf cap
                 else:
                     ()
             Result<ByteBuf,i32>::Err fs_errno_inval
@@ -198,11 +194,7 @@ fn fs_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf,i32>> (buf, cap, 
                     if:
                         gt cap 0
                         then:
-                            match dealloc_ptr<u8> buf cap:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _:
-                                    ()
+                            dealloc_raw mem_ptr_addr buf cap
                         else:
                             ()
                     Result<ByteBuf,i32>::Ok io_bytebuf_empty
@@ -216,11 +208,7 @@ fn fs_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf,i32>> (buf, cap, 
                                 Result::Ok exact:
                                     Result<ByteBuf,i32>::Ok io_bytebuf_from_owned_ptr exact data_len
                                 Result::Err _e:
-                                    match dealloc_ptr<u8> buf cap:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _e2:
-                                            ()
+                                    dealloc_raw mem_ptr_addr buf cap
                                     Result<ByteBuf,i32>::Err 12
 
 //: fs: ファイル読み書き（WASI / LLVM）

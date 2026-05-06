@@ -57,6 +57,9 @@ impl ResourceOwnerCheckEngine<'_> {
             if places_overlap(&entry.place, value) {
                 continue;
             }
+            if replacement_preserves_live_storage(owners, &entry.state, value) {
+                continue;
+            }
             match entry.state {
                 OwnerState::Live { storage } => {
                     self.diagnostics.push(ResourceOwnerDiagnostic::OwnerLeaked {
@@ -385,4 +388,22 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             });
     }
+}
+
+fn replacement_preserves_live_storage(
+    owners: &OwnerTable,
+    overwritten: &OwnerState,
+    value: &Place,
+) -> bool {
+    matches!(
+        (overwritten, owners.state(value)),
+        (
+            OwnerState::Live {
+                storage: overwritten_storage,
+            },
+            Some(OwnerState::Live {
+                storage: replacement_storage,
+            }),
+        ) if *overwritten_storage == replacement_storage
+    )
 }

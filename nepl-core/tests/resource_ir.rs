@@ -9030,6 +9030,298 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_owner_check_accepts_realloc_owner_replacement_assignment() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+fn grow_replace_and_free <()*>()> ():
+    match alloc_ptr<i32> 4:
+        Result::Err _e:
+            ()
+        Result::Ok p0:
+            let mut p <MemPtr<i32>> p0
+            match realloc_ptr<i32> p 4 8:
+                Result::Ok grown:
+                    set p grown
+                    match dealloc_ptr<i32> p 8:
+                        Result::Ok _:
+                            ()
+                        Result::Err _drop:
+                            dealloc_raw mem_ptr_addr p 8
+                Result::Err _grow:
+                    match dealloc_ptr<i32> p 4:
+                        Result::Ok _:
+                            ()
+                        Result::Err _drop:
+                            dealloc_raw mem_ptr_addr p 4
+
+fn main <()*>()> ():
+    grow_replace_and_free
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("grow_replace_and_free__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "realloc Ok payload assignment must replace the old handle without losing the same owner obligation: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_accepts_loop_realloc_owner_replacement() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+fn loop_grow_replace_and_free <()*>()> ():
+    match alloc_ptr<i32> 4:
+        Result::Err _e:
+            ()
+        Result::Ok p0:
+            let mut p <MemPtr<i32>> p0
+            let mut cap <i32> 4
+            let mut done <i32> 0
+            while eq done 0:
+                do:
+                    match realloc_ptr<i32> p cap 8:
+                        Result::Ok grown:
+                            set p grown
+                            set cap 8
+                            set done 1
+                        Result::Err _grow:
+                            set done 1
+            dealloc_raw mem_ptr_addr p cap
+
+fn main <()*>()> ():
+    loop_grow_replace_and_free
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("loop_grow_replace_and_free__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "loop-carried realloc replacement must keep the owner obligation live until final dealloc: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_preserves_branch_result_variant_owner_return() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/diag/error" as *
+#import "alloc/io" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn make_branch_result <(bool)*>Result<ByteBuf, StdErrorKind>> (ok_flag):
+    match alloc_ptr<u8> 3:
+        Result::Err _e:
+            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+        Result::Ok out:
+            let res <Result<ByteBuf, StdErrorKind>> if:
+                cond:
+                    ok_flag
+                then:
+                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr out 3
+                else:
+                    dealloc_raw mem_ptr_addr out 3
+                    Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
+            res
+
+fn main <()*>()> ():
+    match make_branch_result true:
+        Result::Ok bytes:
+            io_bytebuf_free bytes
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("make_branch_result__")
+                || function.starts_with("io_bytebuf_free__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "branch output Result::Ok payload must retain the owner return effect through a local binding and function return: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_preserves_branch_result_from_owner_returning_helper() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/diag/error" as *
+#import "alloc/io" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn finish_bytes <(MemPtr<u8>,i32)*>Result<ByteBuf, StdErrorKind>> (ptr, len):
+    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr ptr len
+
+fn make_helper_branch_result <(bool)*>Result<ByteBuf, StdErrorKind>> (ok_flag):
+    match alloc_ptr<u8> 3:
+        Result::Err _e:
+            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+        Result::Ok out:
+            let res <Result<ByteBuf, StdErrorKind>> if:
+                cond:
+                    ok_flag
+                then:
+                    finish_bytes out 3
+                else:
+                    dealloc_raw mem_ptr_addr out 3
+                    Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
+            res
+
+fn main <()*>()> ():
+    match make_helper_branch_result true:
+        Result::Ok bytes:
+            io_bytebuf_free bytes
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("finish_bytes__")
+                || function.starts_with("make_helper_branch_result__")
+                || function.starts_with("io_bytebuf_free__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "branch output must retain a helper's Result::Ok owner return effect through the local result binding: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_does_not_reconsume_unconditional_variant_argument() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/diag/error" as *
+#import "alloc/io" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "std/text" as *
+
+fn make_text_bytes <()* >Result<ByteBuf, StdErrorKind>> ():
+    match alloc_ptr<u8> 2:
+        Result::Err _e:
+            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+        Result::Ok out:
+            store_u8 mem_ptr_addr out 'o'
+            store_u8 add mem_ptr_addr out 1 'k'
+            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr out 2
+
+fn main <()* >str> ():
+    match make_text_bytes:
+        Result::Ok bytes:
+            match text_bytebuf_to_utf8_str_result bytes:
+                Result::Ok text:
+                    text
+                Result::Err _e:
+                    ""
+        Result::Err _e:
+            ""
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("make_text_bytes__")
+                || function.starts_with("text_bytebuf_to_utf8_str_result__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "variant effects must not reconsume a ByteBuf argument already consumed by the callee summary: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind() {
     let source = r#"
 #entry main

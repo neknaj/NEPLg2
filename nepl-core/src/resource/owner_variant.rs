@@ -88,6 +88,12 @@ impl PendingVariantOwnerEffects {
         self.clear_result(output);
         self.record_unreachable_variants(raw_aliases, output, args, &summary.variant_conditions);
         for entry in &summary.variant_consumed_parameter_indices {
+            if summary
+                .consumed_parameter_indices
+                .contains(&entry.parameter_index)
+            {
+                continue;
+            }
             let Some(arg) = args.get(entry.parameter_index) else {
                 continue;
             };
@@ -100,6 +106,16 @@ impl PendingVariantOwnerEffects {
             });
         }
         for entry in &summary.variant_consumed_parameter_sources {
+            if summary
+                .consumed_parameter_indices
+                .contains(&entry.source.parameter_index)
+                || summary
+                    .consumed_parameter_sources
+                    .iter()
+                    .any(|source| source == &entry.source)
+            {
+                continue;
+            }
             let Some(arg) = args.get(entry.source.parameter_index) else {
                 continue;
             };
@@ -235,6 +251,56 @@ impl PendingVariantOwnerEffects {
                 raw_aliases.add_i32_condition(&target, entry.condition);
             }
         }
+    }
+
+    pub(super) fn materialize_result_owner_effects(
+        &mut self,
+        engine: &mut ResourceOwnerCheckEngine<'_>,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &mut RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        result: &Place,
+        span: Span,
+    ) {
+        let mut handled_sources = Vec::new();
+        for entry in self.returns.iter().filter(|entry| entry.result == *result) {
+            let source = pending_return_source(entry, raw_aliases);
+            let target = place_with_suffix(result, &entry.target_suffix, entry.target_ty);
+            engine.transfer_owner(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &source,
+                &target,
+                ResourceOwnerOperation::ReturnValue,
+                span,
+            );
+            raw_views.clear(&target);
+            push_unique_source(&mut handled_sources, source, Vec::new(), entry.source_ty);
+        }
+        for entry in self
+            .consumptions
+            .iter()
+            .filter(|entry| entry.result == *result)
+        {
+            let source = pending_consumption_source(entry, raw_aliases);
+            if source_list_contains(&handled_sources, &source, &[], entry.ty) {
+                continue;
+            }
+            engine.move_owner_out(
+                owners,
+                raw_aliases,
+                storage_origins,
+                &source,
+                ResourceOwnerOperation::CallArgument,
+                span,
+            );
+            raw_views.clear(&source);
+            push_unique_source(&mut handled_sources, source, Vec::new(), entry.ty);
+        }
+        self.resolve_result(result);
     }
 
     pub(super) fn match_arm_reachable(

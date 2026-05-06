@@ -46,3 +46,14 @@ Profile the f64/f32 scanner read and writer formatting path, compare integer sca
 - `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 5 --dist web/dist`
 - `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 6 --dist web/dist`
 - `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_float_runtime.json --runner wasm --no-tree -j 1 --assert-io`
+
+## 2026-05-06 fs/stdio owner 修正後の再確認
+
+`ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F` の修正後、`tests/stdlib/kp.n.md` の doctest#5/#6 は timeout ではなく stdout を出して passed した。
+
+確認結果:
+
+- doctest#5: stdout `3.500000`, `-2.250000`, `100.000000`、実行時間は約 56.7 秒。
+- doctest#6: stdout `1.250000`、実行時間は約 59.0 秒。
+
+timeout symptom は解消したが、60 秒制限に近い実行時間は残っている。これは test budget 引き上げで隠すのではなく、float scanner / formatter / generated wasm の計算量と進捗性を確認する performance issue として open のまま継続する。

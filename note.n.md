@@ -98,6 +98,37 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-06 note (ISS-20260506T130126516Z Resource owner summaries for fs/stdio read)
+
+- [同期]:
+  - `main` / `origin/main` が `be3eb370` で一致していることを確認し、branch `work/fs-stdio-read-owner-summaries` で作業した。
+  - commit 前に remote main の `232715b8` を確認して rebase した後、さらに remote main の `7b6afed3` を取り込み、同 branch を最新 main に rebase してから検証した。
+- [原因]:
+  - fs/stdio read 系の private scratch cleanup は checked `dealloc_ptr` の `Err` を握りつぶす形になっており、Resource IR owner checker からは全経路で free obligation が閉じたと証明できなかった。
+  - `Result::Ok(ByteBuf)` のような owner payload を返す helper/branch では、call summary に保留された owner return/consume effect が branch / return 境界で materialize されず、source local 側の owner leak として見えていた。
+  - `text_bytebuf_to_utf8_str_result bytes` のように unconditional summary と variant-conditioned summary の両方が同じ引数を消費する場合、二重 consumption による false positive が残っていた。
+- [修正]:
+  - `stdlib/std/fs/fd.nepl`、`stdlib/std/fs/read.nepl`、`stdlib/std/fs/raw.nepl`、`stdlib/std/stdio/read.nepl`、`stdlib/std/stdio/read/buffer.nepl` の private scratch cleanup を exact `dealloc_raw` に統一した。
+  - Resource IR owner checker に同一 `StorageId` の live owner replacement を導入し、`realloc_ptr` 成功後の `set p grown` を leak と見なさないようにした。
+  - pending `Result` owner effect を branch value / match arm value / function return value の transfer 前に materialize するようにした。
+  - unconditional consumption 済み source は variant-conditioned consumption から除外し、二重 move 診断を避けるようにした。
+  - 回帰テストを `nepl-core/tests/resource_ir.rs` に追加した。
+- [検証]:
+  - `cargo fmt --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir "resource_ir_owner_check_" -- --nocapture`: 54 passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/read.nepl -i stdlib/std/fs/raw.nepl -i stdlib/std/fs/fd.nepl -i stdlib/std/stdio/read.nepl -i stdlib/std/stdio/read/buffer.nepl -o output/read_owner_raw_cleanup_targeted.json --runner wasm --no-tree -j 1 --assert-io`: total=8, passed=8
+  - `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_owner_read_scratch_after_fix.json --runner wasm --no-tree -j 1 --assert-io`: fs/stdio read owner leak は消滅。残りは dynamic range summary、`unwrap_ok dealloc` summary、float performance residual。
+- [issue]:
+  - `ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F` を fixed にした。
+  - `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` に owner 修正後も残る `pref` dynamic range blocker を追記した。
+  - `ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8` に timeout 解消後も 56-59 秒の residual があることを追記した。
+  - `ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA` を追加し、`unwrap_ok dealloc` 経由の raw owner consumption summary 不足を分離した。
+  - 最新 main の string access 分割で `len__str` / `string_byte_at_unchecked` の raw-memory-boundary capability が追従していないことを検出し、`ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912` として分離した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string storage boundary split)
 
 - [同期]:

@@ -78,3 +78,16 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 `ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52` で byte/scanner helper の `effect.pure.calls_impure` blocker を解消した後、`tests/stdlib/kp.n.md::doctest#3` は引き続き `pref` の dynamic-offset prefix buffer read で `resource.cell.possibly_moved` / `resource.cell.uninit` になる。
 
 この結果により、Stage 5 の raw-memory boundary ではなく、この issue が追跡する dynamic range initialized summary が次の compile blocker として残っていることを確認した。owner leak と float timeout は別 issue に分離し、この issue は `pref` の `store_i32 add pref mul i 4` で初期化した range を `load_i32 add pref left_off/right_off` の guard と結び付ける Resource IR summary を対象に継続する。
+
+## 2026-05-06 fs/stdio owner 修正後の再確認
+
+`ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F` の修正後、`tests/stdlib/kp.n.md` の fs/stdio read scratch owner leak は消えたが、doctest#3 は引き続き `pref` の dynamic range read で停止している。
+
+確認結果:
+
+- doctest#1/#2/#4 は passed。
+- doctest#3 は `pref` の `resource.cell.possibly_moved` / `resource.cell.uninit`。
+- doctest#5/#6 は stdout を出して passed したが、約 56-59 秒で performance residual が残る。
+- doctest#7 は `unwrap_ok dealloc` 経由の raw owner consumption が見えない別 issue として `ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA` に分離した。
+
+この issue の範囲は引き続き、guarded dynamic offset と initialized range fact を Resource IR summary に型付きで表現することである。

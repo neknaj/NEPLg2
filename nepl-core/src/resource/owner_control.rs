@@ -100,6 +100,15 @@ impl ResourceOwnerCheckEngine<'_> {
         let mut pending_realloc_paths = Vec::new();
         let mut variant_owner_effect_paths = Vec::new();
         if !self.place_is_never(then_value) {
+            then_variant_owner_effects.materialize_result_owner_effects(
+                self,
+                &mut then_owners,
+                &mut then_raw_aliases,
+                &mut then_raw_views,
+                &mut then_storage_origins,
+                then_value,
+                span,
+            );
             if !then_variant_owner_effects.reject_reserved_source_use(
                 self,
                 &then_owners,
@@ -130,6 +139,15 @@ impl ResourceOwnerCheckEngine<'_> {
             variant_owner_effect_paths.push(then_variant_owner_effects);
         }
         if !self.place_is_never(else_value) {
+            else_variant_owner_effects.materialize_result_owner_effects(
+                self,
+                &mut else_owners,
+                &mut else_raw_aliases,
+                &mut else_raw_views,
+                &mut else_storage_origins,
+                else_value,
+                span,
+            );
             if !else_variant_owner_effects.reject_reserved_source_use(
                 self,
                 &else_owners,
@@ -374,6 +392,15 @@ impl ResourceOwnerCheckEngine<'_> {
                 &arm.ops,
             );
             if !self.place_is_never(&arm.value) {
+                arm_variant_owner_effects.materialize_result_owner_effects(
+                    self,
+                    &mut arm_owners,
+                    &mut arm_raw_aliases,
+                    &mut arm_raw_views,
+                    &mut arm_storage_origins,
+                    &arm.value,
+                    span,
+                );
                 if !arm_variant_owner_effects.reject_reserved_source_use(
                     self,
                     &arm_owners,

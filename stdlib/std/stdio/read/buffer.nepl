@@ -83,11 +83,7 @@ fn stdio_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf, StdErrorKind>
             if:
                 gt cap 0
                 then:
-                    match dealloc_ptr<u8> buf cap:
-                        Result::Ok _:
-                            ()
-                        Result::Err _e:
-                            ()
+                    dealloc_raw mem_ptr_addr buf cap
                 else:
                     ()
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
@@ -98,11 +94,7 @@ fn stdio_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf, StdErrorKind>
                     if:
                         gt cap 0
                         then:
-                            match dealloc_ptr<u8> buf cap:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e:
-                                    ()
+                            dealloc_raw mem_ptr_addr buf cap
                         else:
                             ()
                     Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
@@ -116,9 +108,5 @@ fn stdio_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf, StdErrorKind>
                                 Result::Ok exact:
                                     Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr exact data_len
                                 Result::Err _e:
-                                    match dealloc_ptr<u8> buf cap:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _e2:
-                                            ()
+                                    dealloc_raw mem_ptr_addr buf cap
                                     Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory

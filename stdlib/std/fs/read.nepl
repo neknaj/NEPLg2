@@ -70,27 +70,17 @@ fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
             let mut buf <MemPtr<u8>> buf0;
             match alloc_ptr<u8> 8:
                 Result::Err _e:
-                    match dealloc_ptr<u8> buf cap:
-                        Result::Ok _:
-                            ()
-                        Result::Err _e:
-                            ();
+                    dealloc_raw mem_ptr_addr buf cap;
                     Result<ByteBuf,i32>::Err 12
                 Result::Ok iov_buf:
+                    let iov_raw <i32> mem_ptr_addr iov_buf;
                     match alloc_ptr<u8> 4:
                         Result::Err _e:
-                            match dealloc_ptr<u8> iov_buf 8:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e:
-                                    ();
-                            match dealloc_ptr<u8> buf cap:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e:
-                                    ();
+                            dealloc_raw iov_raw 8;
+                            dealloc_raw mem_ptr_addr buf cap;
                             Result<ByteBuf,i32>::Err 12
                         Result::Ok nread_buf:
+                            let nread_raw <i32> mem_ptr_addr nread_buf;
                             let mut read_len <i32> 0;
                             let mut done <i32> 0;
                             let mut err <i32> 0;
@@ -131,11 +121,7 @@ fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                             let res <Result<ByteBuf,i32>> if:
                                 eq alloc_failed 1
                                 then:
-                                    match dealloc_ptr<u8> buf cap:
-                                        Result::Ok _:
-                                            ()
-                                        Result::Err _e:
-                                            ()
+                                    dealloc_raw mem_ptr_addr buf cap;
                                     Result<ByteBuf,i32>::Err 12
                                 else:
                                     if:
@@ -143,22 +129,10 @@ fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                         then:
                                             fs_finish_read_buffer buf cap read_len
                                         else:
-                                            match dealloc_ptr<u8> buf cap:
-                                                Result::Ok _:
-                                                    ()
-                                                Result::Err _e:
-                                                    ()
+                                            dealloc_raw mem_ptr_addr buf cap;
                                             Result<ByteBuf,i32>::Err err
-                            match dealloc_ptr<u8> nread_buf 4:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e:
-                                    ();
-                            match dealloc_ptr<u8> iov_buf 8:
-                                Result::Ok _:
-                                    ()
-                                Result::Err _e:
-                                    ();
+                            dealloc_raw nread_raw 4;
+                            dealloc_raw iov_raw 8;
                             res
 
 //: fs_read_to_bytes: ファイルを読み込んで `ByteBuf` を返す

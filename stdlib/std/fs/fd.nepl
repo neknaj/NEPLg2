@@ -51,11 +51,7 @@ fn fs_open_with_flags <(str,i32,i64)*>Result<i32,i32>> (path, oflags, rights):
                             Result<i32,i32>::Ok load_i32 fd_out_raw
                         else:
                             Result<i32,i32>::Err errno
-            match dealloc_ptr<u8> fd_out_buf 4:
-                Result::Ok _:
-                    ()
-                Result::Err _:
-                    ()
+            dealloc_raw fd_out_raw 4;
             res
 
 //: fs_open_read: ファイルを読み込み専用で開く
