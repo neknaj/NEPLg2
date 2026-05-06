@@ -16,6 +16,7 @@ use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::{
     call_uses_checked_mem_ptr_wrapper, raw_memory_cell_place, reference_target_place,
+    structural_i32_projection_preserves_raw_address,
 };
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{
@@ -291,7 +292,11 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::Read,
                     *span,
                 );
-                raw_aliases.copy_alias_if_tracked(source, output);
+                if structural_i32_projection_preserves_raw_address(self.types, source, output) {
+                    raw_aliases.copy_explicit_raw_address_alias(source, output);
+                } else {
+                    raw_aliases.copy_alias_if_tracked(source, output);
+                }
                 storage_origins.copy_origin(source, output);
                 function_aliases.copy_alias(source, output);
                 raw_views.copy(source, output);

@@ -67,11 +67,12 @@ fn owner_cell_projection_rank(place: &Place) -> u8 {
         )
     }) {
         0
-    } else if place
-        .projections
-        .iter()
-        .any(|projection| matches!(projection, PlaceProjection::StorageOffset(_)))
-    {
+    } else if place.projections.iter().any(|projection| {
+        matches!(
+            projection,
+            PlaceProjection::StorageOffset(_) | PlaceProjection::Deref
+        )
+    }) {
         1
     } else {
         2

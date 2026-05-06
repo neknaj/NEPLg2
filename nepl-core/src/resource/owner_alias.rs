@@ -70,9 +70,6 @@ pub(super) fn aliased_owner_descendant_entries(
         ) {
             continue;
         }
-        if !place_has_raw_cell_projection(&entry.place) {
-            continue;
-        }
         if entry.place == *source || place_suffix_after_prefix(&entry.place, source).is_some() {
             continue;
         }
@@ -87,6 +84,11 @@ pub(super) fn aliased_owner_descendant_entries(
                     continue;
                 };
                 suffix.extend_from_slice(&suffix_after_alias);
+                if !place_has_raw_cell_projection(&entry.place)
+                    && !projections_have_raw_cell_projection(&suffix)
+                {
+                    continue;
+                }
                 push_unique_aliased_owner_descendant(&mut out, entry.clone(), suffix);
             }
         }
@@ -105,7 +107,11 @@ fn same_owner_path(left: &Place, right: &Place) -> bool {
 }
 
 fn place_has_raw_cell_projection(place: &Place) -> bool {
-    place.projections.iter().any(|projection| {
+    projections_have_raw_cell_projection(&place.projections)
+}
+
+fn projections_have_raw_cell_projection(projections: &[PlaceProjection]) -> bool {
+    projections.iter().any(|projection| {
         matches!(
             projection,
             PlaceProjection::Deref | PlaceProjection::StorageOffset(_)

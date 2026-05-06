@@ -9,11 +9,12 @@ use crate::types::TypeId;
 use super::lower::LoweringEnvironment;
 use super::lower_raw_address_place::{
     mem_ptr_raw_field_place, raw_address_alias_target, raw_address_place_from_actual_argument,
-    region_token_place_from_actual_arg, region_token_raw_field_place,
+    reference_target_type, region_token_place_from_actual_arg, region_token_raw_field_place,
 };
 pub(super) use super::lower_raw_address_return::push_transparent_raw_address_return_projection;
 use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, RawAddressSource};
 use super::model::{Place, PlaceProjection, ResourceOffset, ResourceOp};
+use super::place_utils::reference_target_place;
 
 pub(super) fn push_core_mem_wrapper_semantics(
     callee: &FuncRef,
@@ -88,6 +89,24 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 ops,
                 span,
             );
+        }
+        Some("region_token_ptr_ref") => {
+            let Some(source) =
+                region_token_raw_source_from_actual_arg(0, hir_args, arg_places, env)
+            else {
+                return;
+            };
+            let Some(target_ty) = reference_target_type(env.types, output.ty) else {
+                return;
+            };
+            ops.push(ResourceOp::RawAddressAlias {
+                source: source.base,
+                target: mem_ptr_raw_field_place(
+                    &reference_target_place(output, target_ty),
+                    env.types.i32(),
+                ),
+                span,
+            });
         }
         _ => {}
     }

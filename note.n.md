@@ -1,3 +1,25 @@
+# 2026-05-07 note (ISS-20260506T222921266Z ResourceIR full baseline)
+
+## 作業内容
+
+- branch `fix/resource-ir-full-baseline` で ResourceIR full regression baseline を継続した。
+- full suite の 10 failure を root cause ごとに修正し、`cargo test -p nepl-core --test resource_ir -- --nocapture` を 203/203 passing へ戻した。
+- freed raw owner alias は free 後も provenance を残し、double dealloc / stale owned alias が `Freed` owner へ解決されるようにした。
+- `region_token_ptr_ref` の raw alias semantics と raw-address return summary の actual-arg offset substitution を追加し、borrowed `RegionToken` 由来の `MemPtr` / `region_ptr_at` を owner / initialized checker が追跡できるようにした。
+- `RawAddressAlias` の synthetic deref を coverage count から外し、lowering coverage は unknown place 検出を維持しつつ semantic alias metadata で誤診断しないようにした。
+- raw-address proof の設計に合わせ、ordinary `i32` literal に依存していた stale tests は `alloc_raw` 由来の explicit proof へ更新した。
+- borrow merge test は dead token を期待する形から live token を後続で読む形へ直し、non-lexical lifetime の正しい解放を failure としないようにした。
+- aggregate i32 field read は raw address identity を保持する構造的 read として initialized / owner checker へ反映し、owner-cell canonicalization は scalar alias より `Deref` cell を優先するようにした。
+- issue `ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F` を fixed に更新した。
+
+## 検証
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`: passed（203 passed）
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T212446487Z loop condition facts)
 
 ## 作業内容
@@ -33097,3 +33119,52 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - seed 対象は `MemPtr` / `RegionToken` / それらを含む aggregate / reference に限定した。通常 scalar は seed しないが、Resource IR lowering が明示した `RawAddressAlias` / `RawAddressView` は引き続き raw relation として扱う。
 - 回帰として、`MemPtr` identity summary が dependency worklist で caller へ伝播すること、plain `i32` identity が raw alias summary を作らないことを追加した。
 - native probe は timeout せず `resource_owner_obligations` まで到達した。残る self-host lexer owner diagnostics は `ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE` として分離した。
+
+## 2026-05-07 Agent 2: ResourceIR full baseline freed raw owner alias
+
+- [同期]:
+  - `main@36bdd244` から `fix/resource-ir-full-baseline` branch を作成し、`ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F` の最初の root cause を修正した。
+- [原因]:
+  - `release_owner` は free 成功時に owner state を `Freed` にする一方で raw alias / provenance も消していた。
+  - そのため、同じ raw owner local を再 read した temporary が canonical freed owner へ解決できず、double dealloc が診断なしで通っていた。
+  - free 後の pointer value は安全に使える値ではないが、stale use を正確に診断するには `Freed` owner への alias として追跡を残す必要がある。
+- [修正]:
+  - successful free path では raw alias を保持し、owner state `Freed` を後続の stale alias / stale read から参照できるようにした。
+  - `resource_ir_owner_check_reports_stale_owned_alias_dealloc_after_free` は `NoFreeObligation` ではなく canonical freed owner `%p` の `Freed` 診断を期待する形に更新した。
+  - double dealloc regression には diagnostics / dump message を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reports_double_dealloc -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reports_stale_owned_alias_dealloc_after_free -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_allows_raw_pointer_read_before_dealloc -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 194 passed / 9 failed。double dealloc は解消済み。
+- [残件]:
+  - full suite の残り 9 件は borrow merge、raw address proof / stale ResourceIR test、lowering dump、returned aggregate raw-cell owner alias に分かれている。`ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F` は open のまま継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2: ResourceIR full baseline final integration
+
+- [同期]:
+  - `origin/main@97d07b31` の bounded raw alias summary / `SummaryWorklist` 修正を取り込み、`fix/resource-ir-full-baseline` を rebase した。
+- [原因]:
+  - full ResourceIR baseline の残件は、freed provenance、RegionToken -> MemPtr.raw bridge、symbolic offset actual-arg 置換、semantic `RawAddressAlias` coverage、borrow merge fixture drift、aggregate raw owner canonicalization が重なっていた。
+  - rebase 後は ordinary scalar を raw seed にしない remote main の設計により、Result wrapper の Ok payload へ caller 側 raw proof を渡す value projection summary が不足していた。
+- [修正]:
+  - free 後も stale pointer provenance を `Freed` owner へ解決できるよう raw alias を保持した。
+  - `region_token_ptr_ref` lowering に `RawAddressAlias` を追加し、RegionToken 内の `MemPtr.raw` と返却 reference target を結び付けた。
+  - raw alias summary は callee parameters を保持し、symbolic offset を caller actual / known i32 fact へ置換するようにした。
+  - `RawAddressAlias` coverage は unknown place 検出だけに限定し、synthetic deref を lowering coverage count に入れない。
+  - `Result` enum を返す straight-line value forwarder だけに限定した value projection summary を追加し、caller actual が既に raw proof を持つ場合だけ Ok payload へ raw alias を伝播するようにした。
+  - plain `i32` helper fixture は raw proof authority として `RawAddressAlias` を明示し、ordinary scalar seed を復活させない方針を維持した。
+- [検証]:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 203 passed / 0 failed
+  - `cargo test -p nepl-core resource::initialized_alias_flow::tests:: -- --nocapture`: passed
+  - `trunk build`: passed
+  - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tmp/probe_lex_empty.n.md --no-tree -o tmp/probe_lex_empty_after_trunk_result_value_summary.json -j 1 --assert-io`: timeout せず、既知の self-host lexer owner diagnostics で compile fail
+  - `node nodesrc/issues.js check`: passed
+- [issue]:
+  - `ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

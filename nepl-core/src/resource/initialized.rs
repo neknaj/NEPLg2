@@ -26,7 +26,7 @@ use super::model::{
 };
 use super::place_utils::{
     call_uses_checked_mem_ptr_wrapper, reference_target_place, should_track,
-    type_preserves_raw_address_alias,
+    structural_i32_projection_preserves_raw_address, type_preserves_raw_address_alias,
 };
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{
@@ -235,7 +235,16 @@ impl ResourceCheckEngine<'_> {
             } => {
                 if self.consume_by_value(cells, source, ResourceCheckOperation::Read, *span) {
                     cells.mark_initialized(output);
-                    self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
+                    if structural_i32_projection_preserves_raw_address(self.types, source, output) {
+                        self.copy_raw_address_alias_and_rekey_cells(
+                            cells,
+                            raw_aliases,
+                            source,
+                            output,
+                        );
+                    } else {
+                        self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
+                    }
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);

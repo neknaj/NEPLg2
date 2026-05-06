@@ -282,8 +282,6 @@ impl ResourceOwnerCheckEngine<'_> {
         match owners.state(&resolved_place) {
             Some(OwnerState::Live { .. }) => {
                 free_owner_state(owners, raw_aliases, storage_origins, &resolved_place);
-                raw_aliases.clear(place);
-                raw_aliases.clear(&resolved_place);
                 true
             }
             Some(state) => {

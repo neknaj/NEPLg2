@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T22:59:11.089Z",
+  "generated_at": "2026-05-06T23:56:45.277Z",
   "counts": {
     "total": 544,
-    "open": 16,
-    "resolved": 528,
+    "open": 15,
+    "resolved": 529,
     "by_area": {
       "core": {
         "total": 269,
-        "open": 5,
-        "resolved": 264
+        "open": 4,
+        "resolved": 265
       },
       "selfhost": {
         "total": 51,
@@ -133,21 +133,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F",
-      "title": "ResourceIR full regression suite fails on origin/main baseline",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "nepl-core/src/resource, nepl-core/tests/resource_ir.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F.md"
     },
     {
       "id": "ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF",
@@ -4213,6 +4198,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260506T215615927Z-RESOURCE-RAWADDRESSVIEW-TREATS-ORDIN-B3C620DA.md"
+    },
+    {
+      "id": "ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F",
+      "title": "ResourceIR full regression suite fails on origin/main baseline",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

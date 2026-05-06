@@ -143,6 +143,23 @@ fn type_can_seed_raw_address_alias_mapped(
     result
 }
 
+pub(super) fn structural_i32_projection_preserves_raw_address(
+    types: &TypeCtx,
+    source: &Place,
+    target: &Place,
+) -> bool {
+    types.resolve_id(source.ty) == types.i32()
+        && types.resolve_id(target.ty) == types.i32()
+        && source.projections.iter().any(|projection| {
+            matches!(
+                projection,
+                PlaceProjection::Field { .. }
+                    | PlaceProjection::TupleField { .. }
+                    | PlaceProjection::EnumPayload { .. }
+            )
+        })
+}
+
 pub(super) fn call_uses_checked_mem_ptr_wrapper(types: &TypeCtx, args: &[Place]) -> bool {
     args.first()
         .map(|arg| is_mem_ptr_type(types, arg.ty))

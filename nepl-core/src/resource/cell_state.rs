@@ -512,6 +512,15 @@ fn place_suffix_after_address_prefix(
             }
             continue;
         }
+        if matches!(
+            prefix_projection,
+            PlaceProjection::StorageOffset(super::model::ResourceOffset::Symbolic { .. })
+        ) && !matches!(
+            place.projections.get(place_index),
+            Some(PlaceProjection::StorageOffset(_))
+        ) {
+            continue;
+        }
         let place_projection = place.projections.get(place_index)?;
         if !address_projection_matches(place_projection, prefix_projection) {
             return None;

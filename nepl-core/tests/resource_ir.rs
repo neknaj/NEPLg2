@@ -190,6 +190,8 @@ fn resource_ir_lowering_skeleton_tracks_locals_and_dump() {
             "    expr Let out=tmp2:t0 ty=t0 span=0:0-0\n",
             "    read %x:t1 -> tmp3:t1 span=0:0-0\n",
             "    expr LocalRead out=tmp3:t1 ty=t1 span=0:0-0\n",
+            "    end_scope [%x:t1] result=tmp3:t1 span=0:0-0\n",
+            "    end_scope [%arg:t1] result=tmp3:t1 span=0:0-0\n",
             "    terminator return tmp3:t1 span=0:0-0\n"
         )
     );
@@ -3022,7 +3024,7 @@ fn token_id <(i32)->i32> (x):
     x
 
 fn main <()->i32> ():
-    let p <i32> 16
+    let p <i32> alloc_raw 16
     store<Holder> p Holder 7 mem_ptr_wrap<u8> 64 LocalToken @token_id
     let ptr <MemPtr<u8>> get load<Holder> p "ptr"
     let raw <i32> mem_ptr_addr ptr
@@ -5127,10 +5129,10 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_helper() {
                 blocks: vec![ResourceBlock {
                     id: ResourceBlockId(1),
                     ops: vec![
-                        ResourceOp::Expr {
-                            kind: ResourceExprKind::Literal,
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
                             output: ptr.clone(),
-                            ty: i32_ty,
+                            args: vec![],
                             span,
                         },
                         ResourceOp::Expr {
@@ -5150,6 +5152,11 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_helper() {
                                 name: "slot_id".to_string(),
                                 effect: Effect::Pure,
                             },
+                            span,
+                        },
+                        ResourceOp::RawAddressAlias {
+                            source: ptr.clone(),
+                            target: returned.clone(),
                             span,
                         },
                         ResourceOp::Expr {
@@ -6645,10 +6652,10 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_function_value() {
                 blocks: vec![ResourceBlock {
                     id: ResourceBlockId(1),
                     ops: vec![
-                        ResourceOp::Expr {
-                            kind: ResourceExprKind::Literal,
+                        ResourceOp::RawMemory {
+                            operation: RawMemoryOp::Alloc,
                             output: ptr.clone(),
-                            ty: i32_ty,
+                            args: vec![],
                             span,
                         },
                         ResourceOp::Expr {
@@ -6676,6 +6683,11 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_function_value() {
                                 name: "slot_id".to_string(),
                                 effect: Effect::Pure,
                             },
+                            span,
+                        },
+                        ResourceOp::RawAddressAlias {
+                            source: ptr.clone(),
+                            target: returned.clone(),
                             span,
                         },
                         ResourceOp::Expr {
@@ -6747,10 +6759,10 @@ fn resource_ir_cell_check_preserves_raw_address_stored_in_aggregate_field() {
         unit_ty,
         span,
         vec![
-            ResourceOp::Expr {
-                kind: ResourceExprKind::Literal,
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
                 output: ptr.clone(),
-                ty: i32_ty,
+                args: vec![],
                 span,
             },
             ResourceOp::Construct {
@@ -7538,16 +7550,21 @@ fn resource_ir_owner_check_reports_stale_owned_alias_dealloc_after_free() {
     );
 
     let report = check_resource_owner_obligations(&resource, &types);
-    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
-        diagnostic,
-        ResourceOwnerDiagnostic::OwnerUnavailable {
-            function,
-            operation: ResourceOwnerOperation::Dealloc,
-            place,
-            state: OwnerState::NoFreeObligation,
-            ..
-        } if function == "main" && place == &alias
-    )));
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                function,
+                operation: ResourceOwnerOperation::Dealloc,
+                place,
+                state: OwnerState::Freed,
+                ..
+            } if function == "main" && matches!(&place.root, PlaceRoot::Local(name) if name == "p")
+        )),
+        "expected stale alias to resolve to the freed owner, got {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
 }
 
 #[test]
@@ -7719,16 +7736,21 @@ fn resource_ir_owner_check_reports_double_dealloc() {
 
     let resource = lower_hir_module_skeleton(&module);
     let report = check_resource_owner_obligations(&resource, &types);
-    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
-        diagnostic,
-        ResourceOwnerDiagnostic::OwnerUnavailable {
-            function,
-            operation: ResourceOwnerOperation::Dealloc,
-            place,
-            state: OwnerState::Freed,
-            ..
-        } if function == "main" && matches!(&place.root, PlaceRoot::Local(name) if name == "p")
-    )));
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                function,
+                operation: ResourceOwnerOperation::Dealloc,
+                place,
+                state: OwnerState::Freed,
+                ..
+            } if function == "main" && matches!(&place.root, PlaceRoot::Local(name) if name == "p")
+        )),
+        "expected double dealloc Freed diagnostic, got {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
 }
 
 #[test]
@@ -12378,6 +12400,7 @@ fn resource_ir_borrow_merge_rejects_mutation_after_branch_borrow() {
     let else_value = Place::temporary(ResourceId(3), unit_ty);
     let shared = Place::temporary(ResourceId(4), i32_ty);
     let value = Place::temporary(ResourceId(5), i32_ty);
+    let keep_alive = Place::temporary(ResourceId(6), i32_ty);
     let resource = manual_resource_module(
         unit_ty,
         span,
@@ -12388,7 +12411,7 @@ fn resource_ir_borrow_merge_rejects_mutation_after_branch_borrow() {
                 condition_fact: None,
                 then_ops: vec![ResourceOp::Borrow {
                     source: x.clone(),
-                    output: shared,
+                    output: shared.clone(),
                     kind: BorrowKind::Shared,
                     span,
                 }],
@@ -12400,6 +12423,11 @@ fn resource_ir_borrow_merge_rejects_mutation_after_branch_borrow() {
             ResourceOp::Assign {
                 target: x,
                 value,
+                span,
+            },
+            ResourceOp::Read {
+                source: shared,
+                output: keep_alive,
                 span,
             },
         ],
@@ -12434,7 +12462,7 @@ fn token_id <(i32)->i32> (x):
     x
 
 fn main <()->i32> ():
-    let p <i32> 16
+    let p <i32> alloc_raw 16
     store<LocalToken> p LocalToken @token_id
     let mut i <i32> 0
     while lt i 2:
@@ -13822,7 +13850,7 @@ fn slot_ptr <.T,.V> <(i32,i32)->i32> (base, idx):
     add base mul idx add size_of<.T> size_of<.V>
 
 fn main <()->i32> ():
-    let p <i32> 16
+    let p <i32> alloc_raw 16
     store<LocalToken> slot_ptr<LocalToken,i32> p 0 LocalToken @token_id
     store_i32 add p size_of<LocalToken> 123
     let a <LocalToken> load<LocalToken> p

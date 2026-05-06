@@ -96,7 +96,7 @@ fn simple_borrowed_expr_place(expr: &HirExpr) -> Option<Place> {
     }
 }
 
-fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
+pub(super) fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
     let resolved = types.resolve_named_type_id(types.resolve_id(ty));
     match types.get_ref(resolved) {
         TypeKind::Reference(target, _) => Some(*target),
