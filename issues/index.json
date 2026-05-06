@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T15:05:55.263Z",
+  "generated_at": "2026-05-06T15:25:07.956Z",
   "counts": {
-    "total": 519,
+    "total": 520,
     "open": 15,
-    "resolved": 504,
+    "resolved": 505,
     "by_area": {
       "core": {
-        "total": 252,
+        "total": 253,
         "open": 6,
-        "resolved": 246
+        "resolved": 247
       },
       "stdlib": {
         "total": 157,
@@ -150,8 +150,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71",
-      "title": "String integer split loses raw-memory boundary capability",
+      "id": "ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4",
+      "title": "String builder split loses raw-memory boundary capability",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -159,10 +159,10 @@
       "type": "bug",
       "created": "2026-05-06",
       "updated": "2026-05-06",
-      "target": "nepl-core/src/loader.rs, stdlib/alloc/string/integer.nepl, tests/stdlib/kp.n.md",
+      "target": "nepl-core/src/loader.rs, stdlib/alloc/string/builder.nepl, tests/stdlib/kp.n.md",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71.md"
+      "file": "items/ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3913,6 +3913,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-5-effect-model-の拡張",
       "file": "items/ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912.md"
+    },
+    {
+      "id": "ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71",
+      "title": "String integer split loses raw-memory boundary capability",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/loader.rs, stdlib/alloc/string/integer.nepl, tests/stdlib/kp.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

@@ -2,8 +2,8 @@
 id: ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71
 title: "String integer split loses raw-memory boundary capability"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-06
@@ -43,3 +43,23 @@ Audit stdlib/alloc/string/integer.nepl. If it is an internal raw-memory-backed s
 ## 検証
 
 Run loader raw-memory-boundary regressions and tests/stdlib/kp.n.md to confirm from_u128_radix no longer fails with effect.pure.calls_impure.
+
+## 2026-05-06 修正
+
+`stdlib/alloc/string/integer.nepl` を監査し、`from_u128_radix` が owned string buffer の data pointer に対して `store_u8` を直接行う内部実装であることを確認した。これは safe public API ではなく、Stage 6 で最終的な internal/public 境界へ移すまで compiler-owned raw-memory-boundary capability で扱うべき exact stdlib path である。
+
+`nepl-core/src/loader.rs` の configured stdlib exact path table に `alloc/string/integer.nepl` を追加し、`nepl-core/tests/effects.rs` の loader regression に同じ path を追加した。stdlib 全体や arbitrary suffix を許可せず、configured `stdlib_root` の canonical path と完全一致した file だけが raw memory boundary になる。
+
+同時に `stdlib/alloc/string/float.nepl` も確認したが、float conversion は `StringBuilder` と `alloc/string/integer` に委譲しており、直接の `load_*` / `store_*` / raw allocation 操作を持たない。したがって float module へ raw-memory-boundary capability は追加しない。これは権限を最小化するためではなく、責務分割上 float module が raw memory owner ではないことに基づく設計判断である。
+
+検証:
+
+- `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boundary -- --nocapture`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo fmt --check`: passed
+- `node nodesrc/test_stdlib_string_integer_boundary.js`: passed
+- `node nodesrc/test_stdlib_string_float_boundary.js`: passed
+- `node nodesrc/test_stdlib_builder_owner_boundary.js`: passed
+- `node nodesrc/issues.js check`: passed
+- `trunk build`: passed
+- `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_after_string_integer_boundary.json --runner wasm --no-tree -j 1 --assert-io`: 240 秒で local command timeout。partial JSON は total=6, passed=4, failed=1, errored=1。`from_u128_radix` の `effect.pure.calls_impure` は top issue から消え、次 blocker は `alloc/string/builder.nepl` の `sb_append_byte_result` / `sb_append_result` / `sb_build_result` raw memory boundary miss になったため、`ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4` として分離した。

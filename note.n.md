@@ -1,3 +1,26 @@
+# 2026-05-06 note (ISS-20260506T150445017Z string integer exact raw-memory boundary)
+
+## 作業内容
+
+- branch `fix/string-integer-float-boundaries` で `origin/main` と同期してから作業した。
+- remote main の `alloc/string/integer.nepl` split 後、`from_u128_radix` が raw `store_u8` で owned string buffer を構築するにもかかわらず loader の configured exact raw-memory-boundary table に追従していなかった。
+- `nepl-core/src/loader.rs` に `alloc/string/integer.nepl` の exact stdlib path を追加し、`nepl-core/tests/effects.rs` に同 path の loader regression を追加した。
+- `alloc/string/float.nepl` も同時に監査した。float conversion は `StringBuilder` と integer conversion へ委譲しており、直接 raw memory 操作を持たないため raw-memory-boundary capability は追加しない。
+- KP全体検証で次に `alloc/string/builder.nepl` の `sb_append_byte_result` / `sb_append_result` / `sb_build_result` が raw `store_u8` / `mem_copy` により `effect.pure.calls_impure` になることを確認したため、これは別 issue `ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4` として分離する。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 5 記録と関連 issue list を更新し、`ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71` を fixed にした。
+
+## 検証
+
+- `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boundary -- --nocapture`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo fmt --check`: passed
+- `node nodesrc/test_stdlib_string_integer_boundary.js`: passed
+- `node nodesrc/test_stdlib_string_float_boundary.js`: passed
+- `node nodesrc/test_stdlib_builder_owner_boundary.js`: passed
+- `node nodesrc/issues.js check`: passed
+- `trunk build`: passed
+- `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_after_string_integer_boundary.json --runner wasm --no-tree -j 1 --assert-io`: 240 秒で local command timeout。partial JSON は total=6, passed=4, failed=1, errored=1。`from_u128_radix` の `effect.pure.calls_impure` は top issue から消え、次 blocker は `alloc/string/builder.nepl` の raw memory boundary miss になった。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string float conversion boundary split)
 
 - [同期]:
