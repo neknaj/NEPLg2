@@ -27,6 +27,8 @@ const splitRelPath = 'stdlib/alloc/string/split.nepl';
 const splitSrc = fs.readFileSync(path.join(repoRoot, splitRelPath), 'utf8');
 const integerRelPath = 'stdlib/alloc/string/integer.nepl';
 const integerSrc = fs.readFileSync(path.join(repoRoot, integerRelPath), 'utf8');
+const floatRelPath = 'stdlib/alloc/string/float.nepl';
+const floatSrc = fs.readFileSync(path.join(repoRoot, floatRelPath), 'utf8');
 
 const code = stripNeplComments(src);
 const utf8Code = stripNeplComments(utf8Src);
@@ -37,10 +39,11 @@ const searchCode = stripNeplComments(searchSrc);
 const sliceCode = stripNeplComments(sliceSrc);
 const splitCode = stripNeplComments(splitSrc);
 const integerCode = stripNeplComments(integerSrc);
+const floatCode = stripNeplComments(floatSrc);
 const fromU128Radix = integerCode.match(/fn\s+from_u128_radix[\s\S]*?(?=\nfn\s+to_u128|\nfn\s+parse_u128|\n\/\/ to_u128|$)/)?.[0] ?? '';
 const stringFinish = storageCode.match(/fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\nfn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
 const storageCodeWithoutStringFinish = stringFinish ? storageCode.replace(stringFinish, '') : storageCode;
-const fromF64Result = code.match(/fn\s+from_f64_result[\s\S]*?(?=\nfn\s+from_f64\s+<|$)/)?.[0] ?? '';
+const fromF64Result = floatCode.match(/fn\s+from_f64_result[\s\S]*?(?=\nfn\s+from_f64\s+<|$)/)?.[0] ?? '';
 
 const forbidden = [
     /\bunwrap\b/,
@@ -61,6 +64,7 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(sliceCode, pattern, `${sliceRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(splitCode, pattern, `${splitRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(integerCode, pattern, `${integerRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(floatCode, pattern, `${floatRelPath} must not use unsafe unwrap helpers in implementation code`);
 }
 
 assert.match(utf8Code, /enum\s+StringUtf8LeadKind:/, 'alloc/string/utf8 must classify UTF-8 leading bytes with an enum');
@@ -71,10 +75,11 @@ assert.match(code, /fn\s+concat_result\s+/, 'alloc/string must keep allocation-b
 assert.match(sliceCode, /fn\s+str_slice_result\s+/, 'alloc/string/slice must keep allocation-bearing slice available as Result');
 assert.match(builderCode, /fn\s+sb_build_result\s+/, 'StringBuilder build must have a Result-returning path');
 assertStringBuilderOwnerBoundary(builderCode);
-assert.match(code, /fn\s+from_f64_result\s+/, 'from_f64 must have a Result-returning implementation path');
+assert.match(code, /pub\s+#import\s+"\.\/string\/float"\s+as\s+\*/, 'alloc/string must re-export float conversion APIs');
+assert.match(floatCode, /fn\s+from_f64_result\s+/, 'from_f64 must have a Result-returning implementation path');
 assert.notEqual(fromF64Result, '', 'from_f64_result body must be available for source policy checks');
 assert.doesNotMatch(fromF64Result, /\b(?:scratch_raw|alloc_ptr<u8>\s+6|string_from_mem_unchecked_result)\b/, 'from_f64_result must not route fractional digits through raw scratch string construction');
-assert.match(code, /fn\s+from_f64_build_fixed_result[\s\S]*string_builder_with_capacity_result[\s\S]*sb_build_result/, 'from_f64_result must build output through StringBuilder ownership APIs');
+assert.match(floatCode, /fn\s+from_f64_build_fixed_result[\s\S]*string_builder_with_capacity_result[\s\S]*sb_build_result/, 'from_f64_result must build output through StringBuilder ownership APIs');
 assert.doesNotMatch(code, /fn\s+str_split_result\s+<\(str,str\)->Result<Vec<str>,str>>/, 'alloc/string must not expose owned Vec<str> split until element cleanup is typed');
 assert.doesNotMatch(code, /fn\s+str_split_ranges_result\s+<\(str,str\)->Result<Vec<i32>,str>>/, 'alloc/string must not expose allocation-bearing split range vectors while returned Vec owner summaries are incomplete');
 assert.match(code, /pub\s+#import\s+"\.\/string\/split"\s+as\s+\*/, 'alloc/string must re-export allocation-free split scanner APIs');

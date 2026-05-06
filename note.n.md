@@ -1,3 +1,28 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string float conversion boundary split)
+
+- [同期]:
+  - `5428a314` を push/pull 済みの `main` から branch `fix/string-float-boundary-split` を作成して作業した。
+  - commit 後に remote main の `46d3d561` を取り込み、同 branch を `origin/main` へ rebase してから再検証した。
+- [原因]:
+  - `stdlib/alloc/string.nepl` は integer conversion 分割後も、f64/f32 formatting、fraction digit append、10 進 float parser を root に持ち続けていた。
+  - float conversion は `access`、`builder`、`integer` の上に構成でき、concat/build helper や find と同じ file に置く必要がない。
+- [修正]:
+  - `stdlib/alloc/string/float.nepl` を追加し、`from_f64_result`、`from_f64`、`to_f64`、`from_f32`、`to_f32`、fraction formatting helper を所有させた。
+  - `stdlib/alloc/string.nepl` は `./string/float` を public re-export し、root から float conversion 実装本体を除去した。
+  - source policy を更新し、float 実装本体が root に戻らないこと、StringBuilder 経由で formatting すること、raw scratch formatting が戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_float_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_string_integer_boundary.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: string/float 関連 policy は passed。remote main 由来で `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` が `fs_finish_read_buffer` の `dealloc_raw` / `dealloc_ptr` 期待差分を warning として報告した。
+  - `node nodesrc/tests.js -i stdlib/alloc/string/float.nepl -i stdlib/alloc/string/integer.nepl -i stdlib/alloc/string/split.nepl -i stdlib/alloc/string/slice.nepl -i stdlib/alloc/string/search.nepl -i stdlib/alloc/string/access.nepl -i stdlib/alloc/string/builder.nepl -i stdlib/alloc/string/storage.nepl -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string.nepl -i stdlib/std/stdio/print.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/string_char.n.md -i tests/stdlib/string_numeric_overflow.n.md --no-tree -o tmp/string-float-boundary-split-no-text-utf8.json -j 1`: total=51, passed=51
+  - `git diff --check`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl` には concat/build helper、find、facade としての残責務が残っている。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string integer conversion boundary split)
 
 - [同期]:

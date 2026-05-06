@@ -1,0 +1,521 @@
+//: float: string の f32 / f64 conversion
+//:
+//: [目的/もくてき]:
+//: - `f64` / `f32` と `str` の相互変換を提供します。
+//: - 固定小数形式の formatting と 10 進 parser を integer conversion から分離して管理します。
+//:
+//: [注意/ちゅうい]:
+//: - 現在の formatter は指数表記を生成せず、小数部は最大 6 桁です。
+//: - 文字列 parsing は byte 走査で行い、少なくとも 1 桁の digit を要求します。
+
+#indent 4
+
+#import "core/result" as *
+#import "core/math" as *
+#import "core/cast" as *
+#import "alloc/string/access" as *
+#import "alloc/string/builder" as *
+#import "alloc/string/integer" as *
+//: from_f64_fraction_trim_len: 固定 6 桁の小数 digit から出力桁数を決める
+//:
+//: [目的/もくてき]:
+//: - `from_f64_result` が生成した 6 個の小数 digit について、末尾の `0` を除いた有効桁数を返します。
+//:
+//: [実装/じっそう]:
+//: - 最後の digit から先頭へ向かって非 0 を探し、見つかった位置に応じた長さを返します。
+//: - すべて 0 の場合は小数点自体を出力しないため `0` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - digit は `0..9` の範囲で渡される前提です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn from_f64_fraction_trim_len <(i32,i32,i32,i32,i32,i32)->i32> (d0, d1, d2, d3, d4, d5):
+    if:
+        ne d5 0
+        then:
+            6
+        else:
+            if:
+                ne d4 0
+                then:
+                    5
+                else:
+                    if:
+                        ne d3 0
+                        then:
+                            4
+                        else:
+                            if:
+                                ne d2 0
+                                then:
+                                    3
+                                else:
+                                    if:
+                                        ne d1 0
+                                        then:
+                                            2
+                                        else:
+                                            if:
+                                                ne d0 0
+                                                then:
+                                                    1
+                                                else:
+                                                    0
+
+//: from_f64_append_fraction_digit_result: 必要な場合だけ小数 digit を builder に追加する
+//:
+//: [目的/もくてき]:
+//: - trim 後に残る digit だけを `StringBuilder` に追加します。
+//:
+//: [実装/じっそう]:
+//: - `index < trim` の digit だけ ASCII 数字 byte として追加し、それ以外は builder をそのまま返します。
+//: - 追加には `sb_append_byte_result` を使い、raw memory を直接扱いません。
+//:
+//: [注意/ちゅうい]:
+//: - digit は `0..9` の範囲で渡される前提です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn from_f64_append_fraction_digit_result <(StringBuilder,i32,i32,i32)->Result<StringBuilder,str>> (sb, trim, index, digit):
+    if:
+        lt index trim
+        then:
+            sb_append_byte_result sb add '0' digit
+        else:
+            Result<StringBuilder,str>::Ok sb
+
+//: from_f64_append_fraction_result: 小数点と小数 digit を builder に追加する
+//:
+//: [目的/もくてき]:
+//: - `from_f64_result` の小数部を、trim 済みの固定小数表記として builder へ追加します。
+//:
+//: [実装/じっそう]:
+//: - trim が 0 の場合は小数点を出力しません。
+//: - trim が 1 以上なら `.` を追加し、続けて必要な digit だけを順番に追加します。
+//:
+//: [注意/ちゅうい]:
+//: - builder owner は各 `_result` API で消費され、失敗時には内部 buffer が解放されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(trim)。ただし trim は最大 6 です。
+fn from_f64_append_fraction_result <(StringBuilder,i32,i32,i32,i32,i32,i32,i32)->Result<StringBuilder,str>> (sb, trim, d0, d1, d2, d3, d4, d5):
+    if:
+        le trim 0
+        then:
+            Result<StringBuilder,str>::Ok sb
+        else:
+            match sb_append_byte_result sb '.':
+                Result::Err e:
+                    Result<StringBuilder,str>::Err e
+                Result::Ok sb_dot:
+                    match from_f64_append_fraction_digit_result sb_dot trim 0 d0:
+                        Result::Err e:
+                            Result<StringBuilder,str>::Err e
+                        Result::Ok sb0:
+                            match from_f64_append_fraction_digit_result sb0 trim 1 d1:
+                                Result::Err e:
+                                    Result<StringBuilder,str>::Err e
+                                Result::Ok sb1:
+                                    match from_f64_append_fraction_digit_result sb1 trim 2 d2:
+                                        Result::Err e:
+                                            Result<StringBuilder,str>::Err e
+                                        Result::Ok sb2:
+                                            match from_f64_append_fraction_digit_result sb2 trim 3 d3:
+                                                Result::Err e:
+                                                    Result<StringBuilder,str>::Err e
+                                                Result::Ok sb3:
+                                                    match from_f64_append_fraction_digit_result sb3 trim 4 d4:
+                                                        Result::Err e:
+                                                            Result<StringBuilder,str>::Err e
+                                                        Result::Ok sb4:
+                                                            from_f64_append_fraction_digit_result sb4 trim 5 d5
+
+//: from_f64_build_fixed_result: 符号、整数部、小数部を 1 つの文字列へ組み立てる
+//:
+//: [目的/もくてき]:
+//: - `from_f64_result` で計算済みの各部品を、所有権が明確な `StringBuilder` 経由で `str` にします。
+//:
+//: [実装/じっそう]:
+//: - 必要 byte 数を先に計算し、その capacity で builder を作ります。
+//: - 符号、整数部、小数部を順に追加し、最後に `sb_build_result` で出力文字列へ copy します。
+//:
+//: [注意/ちゅうい]:
+//: - fractional digit の一時領域を raw buffer として確保しないため、Resource IR の moved-cell 解析に乗る所有権境界だけを通ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(len(int_s) + trim)
+fn from_f64_build_fixed_result <(bool,str,i32,i32,i32,i32,i32,i32,i32)->Result<str,str>> (neg, int_s, trim, d0, d1, d2, d3, d4, d5):
+    let sign_len <i32> if neg:
+        then 1
+        else 0
+    let frac_len <i32> if:
+        gt trim 0
+        then:
+            add 1 trim
+        else:
+            0
+    let total <i32> add add sign_len len int_s frac_len
+    match string_builder_with_capacity_result total:
+        Result::Err e:
+            Result<str,str>::Err e
+        Result::Ok sb0:
+            let signed <Result<StringBuilder,str>> if neg:
+                then:
+                    sb_append_byte_result sb0 '-'
+                else:
+                    Result<StringBuilder,str>::Ok sb0
+            match signed:
+                Result::Err e:
+                    Result<str,str>::Err e
+                Result::Ok sb1:
+                    match sb_append_result sb1 int_s:
+                        Result::Err e:
+                            Result<str,str>::Err e
+                        Result::Ok sb2:
+                            match from_f64_append_fraction_result sb2 trim d0 d1 d2 d3 d4 d5:
+                                Result::Err e:
+                                    Result<str,str>::Err e
+                                Result::Ok sb3:
+                                    sb_build_result sb3
+
+//: from_f64_result: f64 を有限値だけ文字列化する
+//:
+//: [目的/もくてき]:
+//: - `f64` を固定小数の表示用 `str` に変換します。
+//: - 失敗を呼び出し側で扱えるように `Result` で返します。
+//:
+//: [実装/じっそう]:
+//: - 整数部は `from_i64_radix` で 10 進文字列化します。
+//: - 小数部は局所 `i32` digit へ最大 6 桁だけ展開し、末尾の `0` を削ってから `StringBuilder` で連結します。
+//:
+//: [注意/ちゅうい]:
+//: - `NaN` は `"nan"` を返します。
+//: - 現在は指数表記を生成せず、小数部は最大 6 桁です。
+//: - `from_f64` は失敗時に `"0"` fallback を返す互換 API です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 整数部の桁数を `d` として O(d)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let one <f64> <f64> cast 1
+//:     let quartered <f64> div <f64> cast 5 <f64> cast 4
+//:     let neg_half <f64> div <f64> cast -1 <f64> cast 2
+//:     let ok0 <bool> str_eq from_f64 one "1"
+//:     let ok1 <bool> str_eq from_f64 quartered "1.25"
+//:     let ok2 <bool> str_eq from_f64 neg_half "-0.5"
+//:     if and ok0 and ok1 ok2 1 0
+//: ```
+fn from_f64_result <(f64)->Result<str,i32>> (x):
+    if:
+        ne x x
+        then:
+            Result::Ok<str,i32> "nan"
+        else:
+            let neg <bool> lt x <f64> cast 0;
+            let absx <f64> if neg:
+                then sub <f64> cast 0 x
+                else x
+            let int_part <i64> cast absx;
+            let int_f <f64> cast int_part;
+            let mut frac <f64> sub absx int_f;
+            match from_i64_radix int_part 10:
+                Result::Err e:
+                    Result::Err<str,i32> e
+                Result::Ok int_s:
+                    set frac mul frac <f64> cast 10
+                    let d0 <i32> cast frac
+                    set frac sub frac <f64> cast d0
+                    set frac mul frac <f64> cast 10
+                    let d1 <i32> cast frac
+                    set frac sub frac <f64> cast d1
+                    set frac mul frac <f64> cast 10
+                    let d2 <i32> cast frac
+                    set frac sub frac <f64> cast d2
+                    set frac mul frac <f64> cast 10
+                    let d3 <i32> cast frac
+                    set frac sub frac <f64> cast d3
+                    set frac mul frac <f64> cast 10
+                    let d4 <i32> cast frac
+                    set frac sub frac <f64> cast d4
+                    set frac mul frac <f64> cast 10
+                    let d5 <i32> cast frac
+                    let trim <i32> from_f64_fraction_trim_len d0 d1 d2 d3 d4 d5
+                    match from_f64_build_fixed_result neg int_s trim d0 d1 d2 d3 d4 d5:
+                        Result::Ok out:
+                            Result::Ok<str,i32> out
+                        Result::Err _e:
+                            Result::Err<str,i32> 12
+
+fn from_f64 <(f64)->str> (x):
+    match from_f64_result x:
+        Result::Ok text:
+            text
+        Result::Err _e:
+            "0"
+
+//: to_f64: 10 進浮動小数文字列を f64 として解析する
+//:
+//: [目的/もくてき]:
+//: - `123`、`-1.5`、`1e3` のような文字列を `f64` に変換します。
+//:
+//: [実装/じっそう]:
+//: - 符号、整数部、小数部、指数部を byte 走査で読み取り、10 倍/10 分の 1 を繰り返して値を組み立てます。
+//:
+//: [注意/ちゅうい]:
+//: - 少なくとも 1 桁の digit が必要です。
+//: - `nan` / `inf` などの記号名は解析しません。
+//: - overflow / underflow は backend の `f64` 演算に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n + |exponent|)
+fn to_f64 <(str)->Result<f64,i32>> (s):
+    let n <i32> len s;
+    let mut i <i32> 0;
+    let mut ok <i32> 1;
+    let mut neg <i32> 0;
+    let mut int_part <f64> cast 0;
+    let mut frac_part <f64> cast 0;
+    let mut frac_scale <f64> cast 1;
+    let mut has_digit <i32> 0;
+    let ten <f64> cast 10;
+    let mut out_res <Result<f64,i32>> Result::Err<f64,i32> 1;
+
+    if:
+        eq n 0
+        then:
+            set ok 0;
+        else:
+            let first <i32> string_byte_at_unchecked s 0;
+            if:
+                eq first '-'
+                then:
+                    set neg 1;
+                    set i 1;
+                else:
+                    if:
+                        eq first '+'
+                        then:
+                            set i 1;
+                        else:
+                            ();
+
+            let mut done_int <i32> 0;
+            while and eq ok 1 eq done_int 0:
+                do:
+                    if:
+                        lt i n
+                        then:
+                            let b <i32> string_byte_at_unchecked s i;
+                            let d <i32> sub b '0';
+                            if:
+                                and ge d 0 le d 9
+                                then:
+                                    set has_digit 1;
+                                    let scaled <f64> mul int_part ten;
+                                    let dv <f64> cast d;
+                                    let next_int <f64> add scaled dv;
+                                    set int_part next_int;
+                                    set i add i 1;
+                                else:
+                                    set done_int 1;
+                        else:
+                            set done_int 1;
+
+            let mut has_dot <i32> 0;
+            if:
+                and eq ok 1 lt i n
+                then:
+                    let dot <i32> string_byte_at_unchecked s i;
+                    if:
+                        eq dot '.'
+                        then:
+                            set has_dot 1;
+                        else:
+                            ();
+                else:
+                    ();
+
+            if:
+                eq has_dot 1
+                then:
+                    set i add i 1;
+                    let mut done_frac <i32> 0;
+                    while and eq ok 1 eq done_frac 0:
+                        do:
+                            if:
+                                lt i n
+                                then:
+                                    let b <i32> string_byte_at_unchecked s i;
+                                    let d <i32> sub b '0';
+                                    if:
+                                        and ge d 0 le d 9
+                                        then:
+                                            set has_digit 1;
+                                            let next_scale <f64> div frac_scale ten;
+                                            set frac_scale next_scale;
+                                            let dv <f64> cast d;
+                                            let addv <f64> mul dv frac_scale;
+                                            let next_frac <f64> add frac_part addv;
+                                            set frac_part next_frac;
+                                            set i add i 1;
+                                        else:
+                                            set done_frac 1;
+                                else:
+                                    set done_frac 1;
+                else:
+                    ();
+
+            let mut exp_val <i32> 0;
+            let mut exp_neg <i32> 0;
+            let mut has_exp <i32> 0;
+            if:
+                and eq ok 1 lt i n
+                then:
+                    let eb <i32> string_byte_at_unchecked s i;
+                    if:
+                        or eq eb 'e' eq eb 'E'
+                        then:
+                            set has_exp 1;
+                        else:
+                            ();
+                else:
+                    ();
+
+            if:
+                eq has_exp 1
+                then:
+                    set i add i 1;
+                    if:
+                        lt i n
+                        then:
+                            let sb <i32> string_byte_at_unchecked s i;
+                            if:
+                                eq sb '-'
+                                then:
+                                    set exp_neg 1;
+                                    set i add i 1;
+                                else:
+                                    if:
+                                        eq sb '+'
+                                        then:
+                                            set i add i 1;
+                                        else:
+                                            ();
+                        else:
+                            set ok 0;
+
+                    let mut exp_digits <i32> 0;
+                    let mut done_exp <i32> 0;
+                    while and eq ok 1 eq done_exp 0:
+                        do:
+                            if:
+                                lt i n
+                                then:
+                                    let b <i32> string_byte_at_unchecked s i;
+                                    let d <i32> sub b '0';
+                                    if:
+                                        and ge d 0 le d 9
+                                        then:
+                                            set exp_digits 1;
+                                            set exp_val <i32> add <i32> mul exp_val 10 d;
+                                            set i add i 1;
+                                        else:
+                                            set done_exp 1;
+                                else:
+                                    set done_exp 1;
+                    if:
+                        eq exp_digits 0
+                        then:
+                            set ok 0;
+                        else:
+                            ();
+                else:
+                    ();
+
+            if:
+                ne i n
+                then:
+                    set ok 0;
+                else:
+                    ();
+
+            if:
+                eq has_digit 0
+                then:
+                    set ok 0;
+                else:
+                    ();
+
+            let mut out <f64> add int_part frac_part;
+            let mut k <i32> 0;
+            while and eq ok 1 lt k exp_val:
+                do:
+                    if:
+                        eq exp_neg 1
+                        then:
+                            let next_out <f64> div out ten;
+                            set out next_out;
+                        else:
+                            let next_out <f64> mul out ten;
+                            set out next_out;
+                    set k add k 1;
+
+            if:
+                eq ok 1
+                then:
+                    if:
+                        eq neg 1
+                        then:
+                            let zero <f64> cast 0;
+                            let signed_out <f64> sub zero out;
+                            set out_res Result::Ok<f64,i32> signed_out;
+                        else:
+                            set out_res Result::Ok<f64,i32> out;
+                else:
+                    set out_res Result::Err<f64,i32> 1;
+
+    out_res
+
+//: from_f32: f32 を f64 共通経路で文字列化する
+//:
+//: [目的/もくてき]:
+//: - `f32` 値を表示用 `str` へ変換します。
+//:
+//: [実装/じっそう]:
+//: - `f32` を `f64` に拡張し、`from_f64` の formatting に統一します。
+//:
+//: [注意/ちゅうい]:
+//: - 小数桁数や fallback は `from_f64` と同じです。
+//:
+//: [計算量/けいさんりょう]:
+//: - `from_f64` に従います。
+fn from_f32 <(f32)->str> (x):
+    from_f64 <f64> cast x
+
+//: to_f32: 10 進浮動小数文字列を f32 として解析する
+//:
+//: [目的/もくてき]:
+//: - `to_f64` と同じ表記を受理し、結果を `f32` に縮小します。
+//:
+//: [実装/じっそう]:
+//: - `to_f64` による解析結果を `f32` に cast します。
+//:
+//: [注意/ちゅうい]:
+//: - `f32` への丸めや overflow は backend の cast に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - `to_f64` に従います。
+fn to_f32 <(str)->Result<f32,i32>> (s):
+    match to_f64 s:
+        Result::Ok v64:
+            Result::Ok<f32,i32> <f32> cast v64
+        Result::Err e:
+            Result::Err<f32,i32> e
+
