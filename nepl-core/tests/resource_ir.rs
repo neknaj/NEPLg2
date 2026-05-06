@@ -6540,6 +6540,60 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasi
+
+#import "core/math" as *
+#import "core/result" as *
+#import "core/mem" as *
+
+fn next <()*>i32> ():
+    1
+
+fn main <()*>i32> ():
+    let n <i32> 4
+    let pref_len <i32> add n 1
+    let pref <i32> unwrap_ok alloc mul pref_len 4
+    fill_i32 pref pref_len 0
+    let l1 <i32> next
+    let r1 <i32> next
+    let l <i32> sub l1 1
+    let left_off <i32> mul l 4
+    let right_off <i32> mul r1 4
+    let left_ptr <i32> add pref left_off
+    let right_ptr <i32> add pref right_off
+    let left <i32> load_i32 left_ptr
+    let right <i32> load_i32 right_ptr
+    let diff <i32> sub right left
+    diff
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "impure i32-producing calls must not erase initialized Copy facts for unrelated raw buffers: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_raw_address_returned_by_function_value() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

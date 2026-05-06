@@ -1,7 +1,7 @@
 use super::cell_state::CellTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::Place;
+use super::model::{Place, PlaceProjection};
 
 impl ResourceCheckEngine<'_> {
     pub(super) fn copy_raw_alias_and_rekey_cells(
@@ -67,14 +67,14 @@ impl ResourceCheckEngine<'_> {
         let source_tracks_raw_address = raw_aliases.contains_exact(source);
         let source_canonical = raw_aliases.canonicalize(source);
         let source_aliases = raw_aliases.aliases_for(source);
-        let source_is_known_raw_address = force_raw_address
-            || source_tracks_raw_address
-            || source_canonical != *source
-            || source_aliases.len() > 1;
+        let source_is_known_raw_address =
+            force_raw_address || source_tracks_raw_address || source_aliases.len() > 1;
         let source_is_external_raw_storage = source_is_known_raw_address
             && source_aliases
                 .iter()
                 .any(|alias| cells.external_raw_storage_overlaps(alias));
+        let source_is_raw_address_view = place_has_storage_offset(&source_canonical)
+            || source_aliases.iter().any(place_has_storage_offset);
         if force_raw_address {
             raw_aliases.copy_explicit_raw_address_alias(source, target);
         } else {
@@ -92,6 +92,9 @@ impl ResourceCheckEngine<'_> {
             cells.mark_external_raw_storage_root(&target_canonical);
         }
         if source_is_known_raw_address {
+            if source_is_raw_address_view {
+                return;
+            }
             if prefer_target {
                 for alias in &source_aliases {
                     cells.rekey_raw_cells(alias, &target_canonical);
@@ -101,4 +104,11 @@ impl ResourceCheckEngine<'_> {
             }
         }
     }
+}
+
+fn place_has_storage_offset(place: &Place) -> bool {
+    place
+        .projections
+        .iter()
+        .any(|projection| matches!(projection, PlaceProjection::StorageOffset(_)))
 }

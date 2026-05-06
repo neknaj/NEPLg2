@@ -6,7 +6,11 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_state::OwnerTable;
-use super::place_utils::{place_suffix_after_prefix, push_unique_place, replace_place_prefix};
+use super::place_utils::{
+    place_suffix_after_prefix, push_unique_place, raw_address_view_candidate_bases,
+    replace_place_prefix,
+};
+use super::storage_origin::StorageOriginTable;
 
 #[derive(Clone, Default)]
 pub(super) struct RawAddressViewTable {
@@ -60,6 +64,22 @@ impl RawAddressViewTable {
 }
 
 impl ResourceOwnerCheckEngine<'_> {
+    pub(super) fn raw_address_view_source_is_known(
+        &self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        storage_origins: &StorageOriginTable,
+        source: &Place,
+    ) -> bool {
+        raw_aliases.raw_address_view_source_is_known(source)
+            || raw_address_view_candidate_bases(source)
+                .iter()
+                .map(|base| raw_aliases.canonicalize(base))
+                .any(|base| {
+                    owners.has_tracked_state_under(&base) || storage_origins.origin(&base).is_some()
+                })
+    }
+
     pub(super) fn raw_memory_load_is_non_owning_raw_address_view(
         &self,
         owners: &OwnerTable,

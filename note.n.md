@@ -33049,3 +33049,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `str_slice_chars_result` 成功後の source `s` reservation は builder ではなく returned raw header / copied string source view summary の問題として `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` に追記した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+## 2026-05-07 Agent 1 RawAddressView authority 修正
+
+- `ISS-20260506T215615927Z-RESOURCE-RAWADDRESSVIEW-TREATS-ORDIN-B3C620DA` として、`ResourceOp::RawAddressView` が通常の `i32` arithmetic を raw pointer として昇格する問題を切り出して修正した。
+- 原因は、`RawAddressView` を initialized / owner checker が無条件に `copy_explicit_raw_address_alias` へ渡し、さらに `ValueOrigin` による stable origin canonicalization を raw pointer proof と混同していたことだった。
+- 修正後は、alias table の exact/prefix raw-address proof、initialized checker の raw cell / raw storage proof、owner checker の owner / storage-origin proof がある場合だけ view を raw alias / non-owning view として伝播する。scalar `ValueOrigin` だけでは raw alias state を seed しない。
+- storage-offset view を local に束縛した時に、`pref[+?].deref` の broad initialized fact を view local 側へ rekey しないようにした。view は non-owning pointer expression であり、base storage fact の canonical owner ではない。
+- `resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads` を追加し、`fill_i32 pref pref_len 0` 後に unrelated impure `i32` arithmetic を挟んでも `load_i32 add pref off` が通ることを固定した。
+- `kpread_to_kpwrite_prefixsum_i32` は pass。`ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` は dependent initialized range summary 本体の残件として open のまま維持する。

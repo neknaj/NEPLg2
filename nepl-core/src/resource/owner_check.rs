@@ -711,9 +711,20 @@ impl ResourceOwnerCheckEngine<'_> {
                 variant_owner_effects.copy_result(source, target);
             }
             ResourceOp::RawAddressView { source, target, .. } => {
-                raw_aliases.copy_explicit_raw_address_alias(source, target);
-                storage_origins.copy_origin(source, target);
-                raw_views.mark(target);
+                if self.raw_address_view_source_is_known(
+                    owners,
+                    raw_aliases,
+                    storage_origins,
+                    source,
+                ) {
+                    raw_aliases.copy_explicit_raw_address_alias(source, target);
+                    storage_origins.copy_origin(source, target);
+                    raw_views.mark(target);
+                } else {
+                    raw_aliases.clear(target);
+                    storage_origins.clear(target);
+                    raw_views.clear(target);
+                }
                 pending_reallocs.clear_result(target);
                 variant_owner_effects.clear_result(target);
             }

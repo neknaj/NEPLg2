@@ -114,6 +114,20 @@ pub(super) fn places_overlap(left: &Place, right: &Place) -> bool {
         || place_suffix_after_prefix(right, left).is_some()
 }
 
+pub(super) fn raw_address_view_candidate_bases(place: &Place) -> Vec<Place> {
+    let mut out = Vec::new();
+    push_unique_place(&mut out, place);
+    for index in 0..place.projections.len() {
+        if !matches!(place.projections[index], PlaceProjection::StorageOffset(_)) {
+            continue;
+        }
+        let mut prefix = place.clone();
+        prefix.projections.truncate(index);
+        push_unique_place(&mut out, &prefix);
+    }
+    out
+}
+
 pub(super) fn place_suffix_after_prefix(
     place: &Place,
     prefix: &Place,

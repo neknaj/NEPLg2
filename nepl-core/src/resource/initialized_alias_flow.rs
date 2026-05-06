@@ -164,9 +164,15 @@ fn propagate_raw_address_alias_op(
             | RawMemoryOp::MemoryGrow
             | RawMemoryOp::Fill => {}
         },
-        ResourceOp::RawAddressAlias { source, target, .. }
-        | ResourceOp::RawAddressView { source, target, .. } => {
+        ResourceOp::RawAddressAlias { source, target, .. } => {
             raw_aliases.copy_explicit_raw_address_alias(source, target);
+        }
+        ResourceOp::RawAddressView { source, target, .. } => {
+            if raw_aliases.raw_address_view_source_is_known(source) {
+                raw_aliases.copy_explicit_raw_address_alias(source, target);
+            } else {
+                raw_aliases.clear(target);
+            }
         }
         ResourceOp::Construct {
             output,

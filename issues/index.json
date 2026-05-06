@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T21:35:21.080Z",
+  "generated_at": "2026-05-06T22:09:28.155Z",
   "counts": {
-    "total": 541,
+    "total": 542,
     "open": 16,
-    "resolved": 525,
+    "resolved": 526,
     "by_area": {
       "compiler": {
         "total": 3,
@@ -12,9 +12,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 266,
+        "total": 267,
         "open": 4,
-        "resolved": 262
+        "resolved": 263
       },
       "selfhost": {
         "total": 50,
@@ -4168,6 +4168,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T212446487Z-RESOURCE-LOOPS-DO-NOT-CARRY-TYPED-CO-FD0086F2.md"
+    },
+    {
+      "id": "ISS-20260506T215615927Z-RESOURCE-RAWADDRESSVIEW-TREATS-ORDIN-B3C620DA",
+      "title": "Resource RawAddressView treats ordinary i32 arithmetic as a raw pointer",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/initialized_alias_raw_view.rs, nepl-core/src/resource/initialized_raw_view.rs, nepl-core/src/resource/initialized_rekey.rs, nepl-core/src/resource/owner_raw_view.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260506T215615927Z-RESOURCE-RAWADDRESSVIEW-TREATS-ORDIN-B3C620DA.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

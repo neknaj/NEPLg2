@@ -147,6 +147,12 @@ impl CellTable {
             .any(|root| external_raw_storage_address_overlaps(root, address))
     }
 
+    pub(super) fn raw_address_has_tracked_storage(&self, address: &Place) -> bool {
+        self.has_raw_cell_entry_under(address)
+            || self.owns_raw_storage_under(address)
+            || self.external_raw_storage_overlaps(address)
+    }
+
     pub(super) fn clear_raw_cells_under(&mut self, address: &Place) {
         self.cells
             .retain(|entry| raw_cell_suffix_after_address(&entry.place, address).is_none());

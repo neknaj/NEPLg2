@@ -462,7 +462,11 @@ impl ResourceCheckEngine<'_> {
                 variant_initializations.copy_result(source, target);
             }
             ResourceOp::RawAddressView { source, target, .. } => {
-                self.copy_raw_address_alias_and_rekey_cells(cells, raw_aliases, source, target);
+                if self.raw_address_view_source_is_known(cells, raw_aliases, source) {
+                    self.copy_raw_address_alias_and_rekey_cells(cells, raw_aliases, source, target);
+                } else {
+                    raw_aliases.clear(target);
+                }
                 pending_reallocs.clear_result(target);
                 variant_initializations.clear_result(target);
             }

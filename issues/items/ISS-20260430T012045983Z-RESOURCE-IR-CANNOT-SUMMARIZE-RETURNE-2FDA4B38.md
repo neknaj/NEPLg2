@@ -188,3 +188,15 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 `while lt i len` は now `ResourceConditionFact::I32Relation { left: i, op: Lt, right: len }` として Loop op に保存される。initialized checker と owner checker は condition evaluation 後、loop body path に truthy fact、exit path に false/negated fact を適用してから各 path を検査する。
 
 この親 issue は引き続き open とする。今回の修正で loop body から `i < len` を Resource IR state として参照できるようになったが、まだ symbolic raw offset と initialized range fact を照合して raw load availability へ接続する本体 model は未完了である。
+
+## 2026-05-07 RawAddressView authority 部分対応
+
+`ISS-20260506T215615927Z-RESOURCE-RAWADDRESSVIEW-TREATS-ORDIN-B3C620DA` として、`RawAddressView` が通常の `i32` arithmetic を無条件に raw pointer として昇格する問題を分離して修正した。
+
+`RawAddressView` は lowering 上 `add` / `sub` から広めに生成されるため、checker 側では既存の raw-address proof が必要である。今回の対応で、alias table の exact/prefix proof、initialized checker の raw cell / raw storage proof、owner checker の owner / storage-origin proof がある場合だけ view を伝播し、scalar `ValueOrigin` だけでは raw alias を seed しない。
+
+また、storage-offset view を local に束縛しただけで `pref[+?].deref` の broad initialized fact を view local 側へ rekey しないようにした。view は non-owning pointer expression であり、base storage fact の所有 canonical ではない。
+
+確認として `resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads` を追加し、`fill_i32 pref pref_len 0` の後に unrelated impure `i32` arithmetic を挟んでも `load_i32 add pref off` が通ることを確認した。`kpread_to_kpwrite_prefixsum_i32` も pass しており、この経路の `pref` dynamic range blocker は解消した。
+
+この親 issue は引き続き open とする。残件は、明示 guard / returned header / length field をまたぐ dependent initialized range summary を Resource IR の typed model として表現することである。

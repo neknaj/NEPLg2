@@ -269,6 +269,8 @@ commit 単位:
 
 - 2026-05-07: `ISS-20260506T212446487Z-RESOURCE-LOOPS-DO-NOT-CARRY-TYPED-CO-FD0086F2` を解決した。`ResourceOp::Loop` に `condition_fact` を追加し、`while lt i len` のような typed relation guard を Branch と同じ `ResourceConditionFact::I32Relation` として Resource IR に保持する。initialized / owner checker は condition evaluation 後、body path に truthy fact、exit path に negated false fact を適用してから state merge するため、loop body の range summary が HIR 条件式を再走査せず `RawCellAddressAliases` から `i < len` を問い合わせられる。Stage 4 の残件は、保持された loop relation fact と `ResourceOffset::Symbolic` を raw cell availability / initialized range fact へ接続することである。
 
+- 2026-05-07: `ISS-20260506T215615927Z-RESOURCE-RAWADDRESSVIEW-TREATS-ORDIN-B3C620DA` を解決した。`RawAddressView` は lowering で `add` / `sub` から広めに生成されるため、checker 側で既存の raw-address proof がある場合だけ raw alias / non-owning view として扱う。proof は alias table の exact/prefix raw address、initialized checker の raw cell / owned raw storage / external raw storage、owner checker の owner state / storage origin に限定し、scalar `ValueOrigin` だけでは raw pointer とみなさない。さらに storage-offset view を local に束縛しても `pref[+?].deref` の broad initialized fact を view local へ rekey しない。これにより unrelated impure `i32` arithmetic が raw alias state を seed せず、`fill_i32 pref pref_len 0` 後の symbolic load と `kpread_to_kpwrite_prefixsum_i32` は通過する。Stage 4 の残件は、returned header / length field / guard relation をまたぐ dependent initialized range summary を typed model として表現することである。
+
 ### Stage 5: effect model の拡張
 
 目的: raw memory を safe surface から閉じつつ、stdlib 内部の正当な allocation を表現する。
