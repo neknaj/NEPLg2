@@ -94,7 +94,8 @@ assert.match(code, /pub\s+#import\s+"\.\/string\/float"\s+as\s+\*/, 'alloc/strin
 assert.match(floatCode, /fn\s+from_f64_result\s+/, 'from_f64 must have a Result-returning implementation path');
 assert.notEqual(fromF64Result, '', 'from_f64_result body must be available for source policy checks');
 assert.doesNotMatch(fromF64Result, /\b(?:scratch_raw|alloc_ptr<u8>\s+6|string_from_mem_unchecked_result)\b/, 'from_f64_result must not route fractional digits through raw scratch string construction');
-assert.match(floatCode, /fn\s+from_f64_build_fixed_result[\s\S]*string_builder_with_capacity_result[\s\S]*sb_build_result/, 'from_f64_result must build output through StringBuilder ownership APIs');
+assert.match(floatCode, /fn\s+from_f64_build_fixed_result[\s\S]*string_alloc_region[\s\S]*string_finish/, 'from_f64_result must build output through the fixed-size string storage boundary');
+assert.doesNotMatch(floatCode, /\bstring_builder_with_capacity_result\b/, 'from_f64_result must not route fixed-size output through growable StringBuilder owner chains');
 assert.doesNotMatch(code, /fn\s+str_split_result\s+<\(str,str\)->Result<Vec<str>,str>>/, 'alloc/string must not expose owned Vec<str> split until element cleanup is typed');
 assert.doesNotMatch(code, /fn\s+str_split_ranges_result\s+<\(str,str\)->Result<Vec<i32>,str>>/, 'alloc/string must not expose allocation-bearing split range vectors while returned Vec owner summaries are incomplete');
 assert.match(code, /pub\s+#import\s+"\.\/string\/split"\s+as\s+\*/, 'alloc/string must re-export allocation-free split scanner APIs');

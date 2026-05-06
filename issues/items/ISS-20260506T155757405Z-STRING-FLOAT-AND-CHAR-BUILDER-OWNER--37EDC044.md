@@ -40,3 +40,26 @@ Trace the builder owner summaries and call-site Result arm refinement without we
 ## 検証
 
 Run focused string float and string_char doctests, source policy string owner checks, and ResourceIR owner regressions.
+
+## 2026-05-07 Agent 2 float formatter 部分進捗
+
+`stdlib/alloc/string/float.nepl::doctest#1` の `from_f64_build_fixed_result` は、`StringBuilder` の `Result<StringBuilder, str>` owner chain をまたいで小数部を追加していたため、strict Resource IR で `sb2` の backing pointer が moved と判定されていた。
+
+修正:
+
+- 固定小数 formatter は最終出力 byte 数を事前に持っているため、growable `StringBuilder` を使わず、`string_alloc_region` で出力 `RegionToken` を 1 回だけ確保する構造へ変更した。
+- 符号、整数部、小数点、小数 digit を同じ出力領域へ順に書き、最後に `string_finish` で `str` へ確定する。
+- 小数 digit の有限分岐は `match trim` で 0..6 と `_` を列挙し、trim 値が検査から外れた場合は出力 region を解放して `Err` を返す。
+- `alloc/string/float.nepl` は `alloc/string/integer.nepl` や `alloc/string/concat.nepl` と同じく string storage raw write boundary になったため、loader の configured raw-memory boundary path に追加した。
+
+検証:
+
+- `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boundary -- --nocapture`: passed
+- `trunk build`: passed
+- `node nodesrc/tests.js -i stdlib/alloc/string/float.nepl --no-tree -o tmp/string-float-owner-direct-region-after-trunk.json -j 1`: total=1, passed=1
+- `node nodesrc/tests.js -i tests/stdlib/string_char.n.md -i stdlib/alloc/string/float.nepl -i stdlib/alloc/string/builder.nepl -i stdlib/alloc/io.nepl --no-tree -o tmp/string-builder-owner-after-float-direct-region.json -j 1`: total=5, passed=3, failed=2
+
+残件:
+
+- `tests/stdlib/string_char.n.md::doctest#3` は `byte_builder_push_char_utf8` で multi-byte char を追加した後の `byte_builder_finish b2` が `resource.owner.use_after_move` になる。`alloc/io.nepl` の stdlib-only 実験として UTF-8 tail helper の `match` 化、reserve 1 回 + direct store 化、raw store 化を試したが、`Result<ByteBuilder, StdErrorKind>` の multi-step owner summary は安定しなかったため未採用。
+- `tests/stdlib/string_char.n.md::doctest#1` は `str_slice_chars_result s 1 3` の成功後に同じ `s` を読むと `resource.owner.reserved` になる。これは builder chain ではなく、`str_slice_result` / `string_from_mem_unchecked_result` が source `str` から新しい `str` を複製した後の Resource IR returned raw header / source view summary の問題として扱う。

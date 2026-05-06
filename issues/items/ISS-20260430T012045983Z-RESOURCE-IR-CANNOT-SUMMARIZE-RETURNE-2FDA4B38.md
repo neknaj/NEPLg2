@@ -136,3 +136,13 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 今回の対応で `ResourceConditionFact::I32Relation` と `ResourceI32RelationOp` を追加し、`lt i len` が `I32Relation { left: i, op: Lt, right: len }` として lowering / dump される。これはまだ dynamic initialized range を証明する本体ではないが、length field / guard condition / initialized range をつなぐための typed precondition である。
 
 この親 issue は引き続き open とする。残件は、relation fact と symbolic raw offset を結び、`i < len` が証明された場合だけ `base + i` の initialized range を許可する model を実装することである。
+
+## 2026-05-07 string char slice source reservation 追記
+
+`ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044` の focused run で、`tests/stdlib/string_char.n.md::doctest#1` が `str_slice_chars_result s 1 3` の成功後に同じ source `s` を読む箇所で `resource.owner.reserved` になった。
+
+確認内容:
+
+- `str_slice_chars_result` は char index を byte offset へ変換し、最終的に `str_slice_result` / `string_from_mem_unchecked_result` で新しい `str` 領域へ copy する。
+- caller から見ると source `str` は `Copy` view であり、slice 結果は新規確保された `str` なので、source `s` が reserved のまま残るのは API 利用側の所有権違反ではない。
+- したがってこの残件は `string_char.n.md` の順序だけを変えて隠すのではなく、returned raw header / copied string source view の summary が source `str` を予約したままにしないことを Resource IR 側で表現する必要がある。
