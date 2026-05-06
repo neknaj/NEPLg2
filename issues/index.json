@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T16:30:24.039Z",
+  "generated_at": "2026-05-06T16:49:29.495Z",
   "counts": {
     "total": 525,
-    "open": 17,
-    "resolved": 508,
+    "open": 16,
+    "resolved": 509,
     "by_area": {
       "core": {
         "total": 255,
@@ -13,8 +13,8 @@
       },
       "selfhost": {
         "total": 47,
-        "open": 3,
-        "resolved": 44
+        "open": 2,
+        "resolved": 45
       },
       "stdlib": {
         "total": 158,
@@ -163,21 +163,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T155806325Z-SELFHOST-LEXER-AND-IMPORT-SPEC-FIXTU-68BADCC8.md"
-    },
-    {
-      "id": "ISS-20260506T162903318Z-SELFHOST-SOURCETEXT-LINE-MAP-VEC-OWN-2444558D",
-      "title": "selfhost SourceText line map Vec owner leaks after Vec raw boundary",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "stdlib/neplg2/core/infra/text.nepl, stdlib/alloc/collections/vec.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T162903318Z-SELFHOST-SOURCETEXT-LINE-MAP-VEC-OWN-2444558D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4603,6 +4588,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B.md"
+    },
+    {
+      "id": "ISS-20260506T162903318Z-SELFHOST-SOURCETEXT-LINE-MAP-VEC-OWN-2444558D",
+      "title": "selfhost SourceText line map Vec owner leaks after Vec raw boundary",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "stdlib/neplg2/core/infra/text.nepl, stdlib/alloc/collections/vec.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T162903318Z-SELFHOST-SOURCETEXT-LINE-MAP-VEC-OWN-2444558D.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",

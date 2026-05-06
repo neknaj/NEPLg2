@@ -68,6 +68,22 @@ struct SelfhostSourceLocation:
     line <i32>
     column <i32>
 
+//: SourceTextLineStartPushState: line start 追加結果の[状態/じょうたい]
+//:
+//: [目的/もくてき]:
+//: - `Vec::push` が失敗時に入力 owner を閉じる契約を、呼び出し側の loop へ enum と returned owner で明示します。
+enum SourceTextLineStartPushState:
+    Ok
+    Err
+
+//: SourceTextLineStartPush: line start 追加後に loop へ戻す owner と状態
+//:
+//: [目的/もくてき]:
+//: - 成功時は追加済み Vec、失敗時は owner を持たない空 Vec を返し、loop 変数を常に再初期化できるようにします。
+struct SourceTextLineStartPush:
+    state <SourceTextLineStartPushState>
+    starts <Vec<i32>>
+
 impl Clone for SelfhostSourceLocation:
     fn clone <(&SelfhostSourceLocation)->SelfhostSourceLocation> (self):
         *self
@@ -97,6 +113,18 @@ fn source_text_next_index_after_cr <(str,i32,i32)->i32> (source, n, idx):
         else:
             next_idx
 
+//: source_text_push_line_start: line start offset を Vec に[追加/ついか]し、loop 用 outcome を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `Vec::push` は consuming API なので、while loop の accumulator へ戻す owner を成功/失敗の両方で明示します。
+//: - 失敗時、入力 Vec の owner は `Vec::push` 側で閉じられているため、ここでは owner を持たない空 Vec を返します。
+fn source_text_push_line_start <(Vec<i32>,i32)->SourceTextLineStartPush> (starts, offset):
+    match v::push<i32> starts offset:
+        Result::Ok next_starts:
+            SourceTextLineStartPush SourceTextLineStartPushState::Ok next_starts
+        Result::Err _e:
+            SourceTextLineStartPush SourceTextLineStartPushState::Err v::vec_empty<i32>
+
 //: source_text_collect_line_starts: source を 1 [回/かい][走査/そうさ]して line start table を[作/つく]る
 //:
 //: [実装/じっそう]:
@@ -114,27 +142,34 @@ fn source_text_collect_line_starts <(str,i32,i32,Vec<i32>)->Result<Vec<i32>, Std
             let ch <i32> string_access::string_byte_at_unchecked source i
             match ch:
                 '\n':
-                    match v::push<i32> out add i 1:
-                        Result::Ok next_starts:
-                            set out next_starts
+                    let pushed <SourceTextLineStartPush> source_text_push_line_start out add i 1
+                    let push_state <SourceTextLineStartPushState> field::get pushed "state"
+                    let next_out <Vec<i32>> field::get pushed "starts"
+                    match push_state:
+                        SourceTextLineStartPushState::Ok:
+                            set out next_out
                             set i add i 1
-                        Result::Err _e:
-                            set out v::vec_empty<i32>
+                        SourceTextLineStartPushState::Err:
+                            set out next_out
                             set failed true
                 '\r':
                     let next_idx <i32> source_text_next_index_after_cr source n i
-                    match v::push<i32> out next_idx:
-                        Result::Ok next_starts:
-                            set out next_starts
+                    let pushed <SourceTextLineStartPush> source_text_push_line_start out next_idx
+                    let push_state <SourceTextLineStartPushState> field::get pushed "state"
+                    let next_out <Vec<i32>> field::get pushed "starts"
+                    match push_state:
+                        SourceTextLineStartPushState::Ok:
+                            set out next_out
                             set i next_idx
-                        Result::Err _e:
-                            set out v::vec_empty<i32>
+                        SourceTextLineStartPushState::Err:
+                            set out next_out
                             set failed true
                 _:
                     set i add i 1
     if:
         failed
         then:
+            v::free<i32> out
             Result<Vec<i32>, StdErrorKind>::Err StdErrorKind::OutOfMemory
         else:
             Result<Vec<i32>, StdErrorKind>::Ok out
@@ -147,18 +182,14 @@ fn source_text_collect_line_starts <(str,i32,i32,Vec<i32>)->Result<Vec<i32>, Std
 //: [注意/ちゅうい]:
 //: - `path` は diagnostic [表示用/ひょうじよう]の[名前/なまえ]です。filesystem へは[接続/せつぞく]しません。
 fn source_text_new <(i32,str,str)->Result<SelfhostSourceText, StdErrorKind>> (file_id, path, source):
-    match v::new<i32>:
-        Result::Ok starts0:
-            match v::push<i32> starts0 0:
-                Result::Ok starts1:
-                    let n <i32> string_access::len source
-                    match source_text_collect_line_starts source n 0 starts1:
-                        Result::Ok line_starts:
-                            Result<SelfhostSourceText, StdErrorKind>::Ok SelfhostSourceText file_id path source line_starts
-                        Result::Err e:
-                            Result<SelfhostSourceText, StdErrorKind>::Err e
-                Result::Err _e:
-                    Result<SelfhostSourceText, StdErrorKind>::Err StdErrorKind::OutOfMemory
+    match v::filled<i32> 1 0:
+        Result::Ok starts:
+            let n <i32> string_access::len source
+            match source_text_collect_line_starts source n 0 starts:
+                Result::Ok line_starts:
+                    Result<SelfhostSourceText, StdErrorKind>::Ok SelfhostSourceText file_id path source line_starts
+                Result::Err e:
+                    Result<SelfhostSourceText, StdErrorKind>::Err e
         Result::Err _e:
             Result<SelfhostSourceText, StdErrorKind>::Err StdErrorKind::OutOfMemory
 

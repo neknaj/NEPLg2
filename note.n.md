@@ -1,3 +1,30 @@
+# 2026-05-07 note (ISS-20260506T162903318Z selfhost SourceText line map Vec owner)
+
+## 作業内容
+
+- branch `fix/selfhost-source-text-line-map-owner` で `origin/main` と同期済みの main から作業した。
+- Vec raw-memory boundary 修正後、`stdlib/neplg2/core/infra/text.nepl` の doctest が `source_text_collect_line_starts` の `resource.owner.maybe_leak` と `source_text_new` の initial `v::push` use-after-move に到達していた。
+- 原因は line start table の `Vec<i32>` accumulator を while loop 内で consuming `v::push` に渡し、失敗時に caller 側で空 Vec を作って状態を取り繕っていたこと。所有権上は「push が返した owner」を loop へ戻す contract になっていなかった。
+- `SourceTextLineStartPushState` enum と `SourceTextLineStartPush` owner-carrying outcome を追加し、`source_text_push_line_start` で成功/失敗のどちらでも loop へ戻す Vec owner を明示した。
+- `source_text_collect_line_starts` は enum を `match` し、成功時も失敗時も `out` を outcome の Vec owner で再初期化するようにした。
+- failure path は Err を返す前に replacement `out` を `v::free` で閉じ、Resource IR に cleanup を明示した。
+- `source_text_new` は初期 line start table を `v::filled<i32> 1 0` で作り、初期化だけのための consuming push を避けるようにした。
+- `nodesrc/test_selfhost_source_text_no_recursive_line_map.js` に、enum/outcome、failure cleanup、初期 `filled` 構築の source-policy を追加した。
+
+## 検証
+
+- `node nodesrc/test_selfhost_source_text_no_recursive_line_map.js`: passed
+- `node nodesrc/tests.js -i stdlib/neplg2/core/infra/text.nepl -i stdlib/neplg2/core/resolve/name_resolver.nepl --no-tree -o tmp/source-text-line-map-owner-local.json -j 1`: total=3, passed=3
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: SourceText policy は passed。既存の `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` warning は継続。
+- `trunk build`: passed
+- `node nodesrc/tests.js -i stdlib/neplg2/core/infra/text.nepl -i stdlib/neplg2/core/resolve/name_resolver.nepl --no-tree -o tmp/source-text-line-map-owner-after-trunk.json -j 1`: total=3, passed=3
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T155747740Z Vec raw-memory collection exact boundary)
 
 ## 作業内容

@@ -27,6 +27,8 @@ function functionBlock(name) {
 }
 
 const collect = functionBlock('source_text_collect_line_starts');
+const newSourceText = functionBlock('source_text_new');
+const pushLineStart = functionBlock('source_text_push_line_start');
 const withoutSignature = collect.split(/\r?\n/).slice(1).join('\n');
 
 assert.match(
@@ -38,6 +40,36 @@ assert.doesNotMatch(
     withoutSignature,
     /\bsource_text_collect_line_starts\b/,
     'source_text_collect_line_starts must not recurse per input byte'
+);
+assert.match(
+    src,
+    /enum\s+SourceTextLineStartPushState:[\s\S]*\bOk\b[\s\S]*\bErr\b/,
+    'source text line start push state must be an enum so branch coverage is statically visible'
+);
+assert.match(
+    src,
+    /struct\s+SourceTextLineStartPush:[\s\S]*state\s+<SourceTextLineStartPushState>[\s\S]*starts\s+<Vec<i32>>/,
+    'source text line start push outcome must carry the returned Vec owner explicitly'
+);
+assert.match(
+    pushLineStart,
+    /Result::Err\s+_e:[\s\S]*SourceTextLineStartPush\s+SourceTextLineStartPushState::Err\s+v::vec_empty<i32>/,
+    'source_text_push_line_start must return an owner-neutral empty Vec on push failure'
+);
+assert.match(
+    collect,
+    /\bsource_text_push_line_start\b[\s\S]*SourceTextLineStartPushState::Err:[\s\S]*set\s+out\s+next_out[\s\S]*set\s+failed\s+true/,
+    'source_text_collect_line_starts must reinitialize the loop Vec owner on push failure'
+);
+assert.match(
+    collect,
+    /failed[\s\S]*then:[\s\S]*v::free<i32>\s+out[\s\S]*Result<Vec<i32>,\s*StdErrorKind>::Err\s+StdErrorKind::OutOfMemory/,
+    'source_text_collect_line_starts must close the replacement Vec owner before returning Err'
+);
+assert.match(
+    newSourceText,
+    /match\s+v::filled<i32>\s+1\s+0:/,
+    'source_text_new must build the initial line-start table without a separate consuming push'
 );
 
 console.log('selfhost source text line map recursion regression passed');
