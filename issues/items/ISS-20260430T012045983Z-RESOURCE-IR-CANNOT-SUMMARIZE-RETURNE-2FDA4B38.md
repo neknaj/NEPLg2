@@ -162,3 +162,11 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 `initialized_control.rs` は then / else path を clone した直後に `record_condition_fact_value_constraints` を実行し、その後に既存の realloc condition handling を適用する。これにより `ResourceConditionFact::I32Relation` は initialized cell availability 側の `RawCellAddressAliases` からも query 可能になる。
 
 この親 issue は引き続き open とする。残件は、initialized checker が保持できるようになった relation proof と `ResourceOffset::Symbolic` を、raw memory load の availability 判定へ安全に接続することである。
+
+## 2026-05-07 symbolic Copy store 部分対応
+
+`ISS-20260506T211740745Z-SYMBOLIC-COPY-STORES-ERASE-UNKNOWN-O-0BD91F6C` として、symbolic offset store が unknown-offset initialized Copy fact を過剰に消す問題を分離して修正した。
+
+`RawMemoryOp::Store` は store 専用の typed clearing を使う。overlap する raw cell fact でも、既存 fact が initialized Copy で stored value と同じ Copy 型として扱える場合は保持し、non-Copy / moved / uninit state は従来どおり保守的に消す。
+
+この親 issue は引き続き open とする。`kpread_to_kpwrite_prefixsum_i32` はなお `pref[+symbolic].deref` の `Cell(Uninit)` で失敗するため、残件は loop condition fact と guarded initialized range summary の接続である。

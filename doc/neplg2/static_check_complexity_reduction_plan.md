@@ -265,6 +265,8 @@ commit 単位:
 
 - 2026-05-07: `ISS-20260506T210407334Z-INITIALIZED-RESOURCE-BRANCH-PATHS-DO-F88296F7` を解決した。owner checker だけでなく initialized checker の branch path でも `record_condition_fact_value_constraints` を適用し、then / else の `RawCellAddressAliases` に typed condition fact を反映する。既存 realloc condition handling はその後に適用するため、realloc 成否と relation proof の両方が path state に残る。Stage 4 の残件は、この initialized checker から参照可能になった relation proof と `ResourceOffset::Symbolic` を raw memory load の availability 判定へ接続することである。
 
+- 2026-05-07: `ISS-20260506T211740745Z-SYMBOLIC-COPY-STORES-ERASE-UNKNOWN-O-0BD91F6C` を解決した。`RawMemoryOp::Store` の汎用 clear を store 専用の typed clearing に分け、symbolic Copy store が `pref[+?].deref` の initialized Copy fact を過剰に消さないようにした。non-Copy / moved / uninit state は従来どおり保守的に消すため、memory safety の緩和ではない。Stage 4 の残件は、loop condition fact と guarded initialized range summary を接続して、明示 proof のある dynamic raw load だけを通すことである。
+
 ### Stage 5: effect model の拡張
 
 目的: raw memory を safe surface から閉じつつ、stdlib 内部の正当な allocation を表現する。

@@ -116,7 +116,7 @@ impl ResourceCheckEngine<'_> {
                         let cell = raw_memory_cell_place(&address, value.ty);
                         let value_is_known_raw_address =
                             raw_aliases.value_is_known_raw_address(value);
-                        cells.clear_raw_cells_under(&address);
+                        cells.clear_raw_cells_overwritten_by_store(&address, value.ty, self.types);
                         cells.mark_initialized(&cell);
                         raw_aliases.clear(&cell);
                         if value_is_known_raw_address {
