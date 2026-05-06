@@ -714,6 +714,78 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boundary() {
+    let cases: &[(&[&str], &str, &str)] = &[
+        (&["alloc", "io.nepl"], "alloc/io", "alloc_io_raw_store"),
+        (
+            &["alloc", "string", "utf8.nepl"],
+            "alloc/string/utf8",
+            "alloc_string_utf8_raw_store",
+        ),
+        (&["std", "text.nepl"], "std/text", "std_text_raw_store"),
+        (
+            &["std", "streamio", "scanner", "state.nepl"],
+            "std/streamio/scanner/state",
+            "std_streamio_scanner_state_raw_store",
+        ),
+    ];
+
+    for (segments, import_spec, function_name) in cases {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let stdlib_root = temp.path().join("stdlib");
+        let source_path = segments
+            .iter()
+            .fold(stdlib_root.clone(), |path, segment| path.join(segment));
+        std::fs::create_dir_all(source_path.parent().expect("source parent"))
+            .expect("create stdlib boundary dir");
+        std::fs::write(
+            &source_path,
+            format!(
+                r#"
+#indent 4
+#target wasm
+
+fn {function_name} <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        i32.store
+"#
+            ),
+        )
+        .expect("write stdlib boundary module");
+        let entry = temp.path().join("main.nepl");
+        std::fs::write(
+            &entry,
+            format!(
+                r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+#import "{import_spec}" as *
+
+fn main <()->i32> ():
+    {function_name} 0 1;
+    0
+"#
+            ),
+        )
+        .expect("write entry");
+
+        let mut loader = Loader::new(stdlib_root);
+        let loaded = loader.load(&entry).expect("load");
+        check_module_with_source_map(
+            loaded.module,
+            Some(&loaded.source_map),
+            options(CompileTarget::Wasm),
+        )
+        .unwrap_or_else(|err| panic!("{import_spec} should have raw memory capability: {err:?}"));
+    }
+}
+
+#[test]
 fn loader_does_not_mark_user_core_mem_path_by_suffix() {
     let temp = tempfile::tempdir().expect("tempdir");
     let stdlib_root = temp.path().join("stdlib");

@@ -25,6 +25,34 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-06 Agent 1: byte/scanner raw memory boundary capability
+
+- [同期]:
+  - `main` / `origin/main` が `2f1ddf2a` で一致していることを確認し、`work/stdlib-raw-helper-boundaries` branch で作業した。
+- [原因]:
+  - `alloc/string` boundary 修正後、`tests/stdlib/kp.n.md` は `alloc/io.nepl`、`alloc/string/utf8.nepl`、`std/text.nepl`、`std/streamio/scanner/state.nepl` の raw-memory-backed helper で `effect.pure.calls_impure` になっていた。
+  - これらは ByteBuf / UTF-8 / scanner header の内部境界で raw memory を閉じる module だが、compiler-owned raw-memory-boundary capability の exact list に入っていなかった。
+- [修正]:
+  - loader の boundary 判定を `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の explicit table へ分離した。
+  - `alloc/io.nepl`、`alloc/string/utf8.nepl`、`std/text.nepl`、`std/streamio/scanner/state.nepl` を configured exact boundary として追加した。
+  - stdlib 全体や arbitrary suffix path の許可にはせず、既存の suffix rejection regression を維持した。
+  - boundary module ごとの loader regression を追加した。
+- [検証]:
+  - `cargo fmt --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test effects loader_ -- --nocapture`: 5 passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_stage5_raw_boundary.json --runner wasm --no-tree -j 1 --assert-io`: `effect.pure.calls_impure` は消えた。残りは 5 failed / 2 errored。
+  - `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 5 --dist web/dist`: 約 61 秒で stdout empty
+  - `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 6 --dist web/dist`: 約 64 秒で stdout empty
+- [issue]:
+  - `ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52` を fixed にした。
+  - `ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F` を追加し、fs/stdio read scratch owner leak を追跡する。
+  - `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` に `pref` dynamic range summary 残件を追記した。
+  - `ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8` を追加し、f64/f32 scanner runtime timeout を追跡する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260506T115339863Z UTF-8 negative-path owner fixtures)
 
 - [同期]:

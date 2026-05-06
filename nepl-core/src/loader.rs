@@ -24,6 +24,16 @@ macro_rules! loader_log {
     };
 }
 
+const RAW_MEMORY_BOUNDARY_STDLIB_PATHS: &[&[&str]] = &[
+    &["core", "mem.nepl"],
+    &["alloc", "io.nepl"],
+    &["alloc", "string.nepl"],
+    &["alloc", "string", "storage.nepl"],
+    &["alloc", "string", "utf8.nepl"],
+    &["std", "text.nepl"],
+    &["std", "streamio", "scanner", "state.nepl"],
+];
+
 #[derive(Debug)]
 pub enum LoaderError {
     Io(String),
@@ -677,16 +687,17 @@ impl Loader {
     }
 
     fn configured_raw_memory_boundary_path(&self, canon: &PathBuf) -> bool {
-        let paths = [
-            self.stdlib_root.join("core").join("mem.nepl"),
-            self.stdlib_root.join("alloc").join("string.nepl"),
-            self.stdlib_root
-                .join("alloc")
-                .join("string")
-                .join("storage.nepl"),
-        ];
-        paths.iter().any(|path| *canon == canonicalize_path(path))
+        RAW_MEMORY_BOUNDARY_STDLIB_PATHS
+            .iter()
+            .map(|segments| stdlib_path(&self.stdlib_root, segments))
+            .any(|path| *canon == canonicalize_path(&path))
     }
+}
+
+fn stdlib_path(root: &PathBuf, segments: &[&str]) -> PathBuf {
+    segments
+        .iter()
+        .fold(root.clone(), |path, segment| path.join(segment))
 }
 
 #[cfg(not(target_arch = "wasm32"))]

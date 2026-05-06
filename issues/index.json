@@ -1,19 +1,19 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T12:43:08.440Z",
+  "generated_at": "2026-05-06T13:03:49.937Z",
   "counts": {
-    "total": 513,
-    "open": 14,
-    "resolved": 499,
+    "total": 515,
+    "open": 15,
+    "resolved": 500,
     "by_area": {
       "core": {
-        "total": 248,
+        "total": 249,
         "open": 6,
-        "resolved": 242
+        "resolved": 243
       },
       "stdlib": {
-        "total": 156,
-        "open": 6,
+        "total": 157,
+        "open": 7,
         "resolved": 150
       },
       "TEST": {
@@ -150,8 +150,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52",
-      "title": "stdlib raw-memory-backed scanner and byte helpers lack Stage5 boundary plan",
+      "id": "ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F",
+      "title": "Resource owner summaries reject fs and stdio read scratch owners after scanner boundary",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -159,10 +159,10 @@
       "type": "bug",
       "created": "2026-05-06",
       "updated": "2026-05-06",
-      "target": "nepl-core/src/loader.rs, stdlib/alloc/io.nepl, stdlib/alloc/string/utf8.nepl, stdlib/std/text.nepl, stdlib/std/streamio/scanner/state.nepl, tests/stdlib/kp.n.md, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "target": "nepl-core/src/resource/owner_*.rs, stdlib/std/fs/fd.nepl, stdlib/std/fs/read.nepl, stdlib/std/stdio/read.nepl, tests/stdlib/kp.n.md",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52.md"
+      "file": "items/ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -238,6 +238,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
+    },
+    {
+      "id": "ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8",
+      "title": "KP stream scanner float doctests exceed wasm runtime budget",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "tests/stdlib/kp.n.md, stdlib/std/streamio/scanner/number.nepl, stdlib/std/streamio/writer, stdlib/core/float.nepl, nodesrc/tests.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -3838,6 +3853,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T122605377Z-STDLIB-ALLOC-STRING-RAW-MEMORY-BOUND-7853986C.md"
+    },
+    {
+      "id": "ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52",
+      "title": "stdlib raw-memory-backed scanner and byte helpers lack Stage5 boundary plan",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/loader.rs, stdlib/alloc/io.nepl, stdlib/alloc/string/utf8.nepl, stdlib/std/text.nepl, stdlib/std/streamio/scanner/state.nepl, tests/stdlib/kp.n.md, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

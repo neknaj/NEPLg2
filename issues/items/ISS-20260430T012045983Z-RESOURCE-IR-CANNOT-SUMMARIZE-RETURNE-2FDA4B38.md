@@ -72,3 +72,9 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 先頭の blocker は `ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52` として切り出した `alloc/io.nepl` / `alloc/string/utf8.nepl` / `std/text.nepl` / `std/streamio/scanner/state.nepl` の Stage 5 raw-memory boundary 未整理である。
 
 ただし doctest#3 では effect blocker の奥に、`pref` の dynamic-offset prefix buffer read が `resource.cell.possibly_moved` / `resource.cell.uninit` として残っていることも確認した。これはこの issue の本体である returned / dynamic range initialized summary 不足に該当するため、Stage 5 の追加 blocker を取り除いた後に `tests/stdlib/kp.n.md` を authoritative source-level regression として再実行する。
+
+## 2026-05-06 Stage 5 blocker 解消後の再確認
+
+`ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52` で byte/scanner helper の `effect.pure.calls_impure` blocker を解消した後、`tests/stdlib/kp.n.md::doctest#3` は引き続き `pref` の dynamic-offset prefix buffer read で `resource.cell.possibly_moved` / `resource.cell.uninit` になる。
+
+この結果により、Stage 5 の raw-memory boundary ではなく、この issue が追跡する dynamic range initialized summary が次の compile blocker として残っていることを確認した。owner leak と float timeout は別 issue に分離し、この issue は `pref` の `store_i32 add pref mul i 4` で初期化した range を `load_i32 add pref left_off/right_off` の guard と結び付ける Resource IR summary を対象に継続する。
