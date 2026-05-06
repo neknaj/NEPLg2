@@ -70,7 +70,9 @@ fn variant_value_condition(
         | (ResourceConditionFact::NonNegative { place }, true) => {
             Some((place, RawCellValueCondition::NonNegative))
         }
-        (ResourceConditionFact::Any(_), _) | (ResourceConditionFact::All(_), _) => None,
+        (ResourceConditionFact::I32Relation { .. }, _)
+        | (ResourceConditionFact::Any(_), _)
+        | (ResourceConditionFact::All(_), _) => None,
     }
 }
 

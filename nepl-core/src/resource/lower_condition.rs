@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use crate::hir::{HirExpr, HirExprKind};
 
 use super::lower::{func_ref_base_name, place_from_expr_skeleton, LoweringContext};
-use super::model::{Place, PlaceRoot, ResourceConditionFact};
+use super::model::{Place, PlaceRoot, ResourceConditionFact, ResourceI32RelationOp};
 
 pub(super) fn resource_condition_fact(
     cond: &HirExpr,
@@ -25,10 +25,12 @@ pub(super) fn resource_condition_fact(
         "and" => binary_condition_fact(left, right, ctx, ResourceConditionFact::All),
         "eq" => zero_comparison_fact(left, right, ctx, |place| ResourceConditionFact::EqZero {
             place,
-        }),
+        })
+        .or_else(|| relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Eq)),
         "ne" => zero_comparison_fact(left, right, ctx, |place| ResourceConditionFact::NeZero {
             place,
-        }),
+        })
+        .or_else(|| relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Ne)),
         "lt" if literal_i32_is_zero(left) => {
             condition_place(right, ctx).map(|place| ResourceConditionFact::Positive { place })
         }
@@ -56,6 +58,10 @@ pub(super) fn resource_condition_fact(
         "ge" if literal_i32_is_zero(right) => {
             condition_place(left, ctx).map(|place| ResourceConditionFact::NonNegative { place })
         }
+        "lt" => relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Lt),
+        "le" => relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Le),
+        "gt" => relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Gt),
+        "ge" => relation_condition_fact(left, right, ctx, ResourceI32RelationOp::Ge),
         _ => None,
     }
 }
@@ -84,6 +90,17 @@ fn zero_comparison_fact(
     } else {
         None
     }
+}
+
+fn relation_condition_fact(
+    left: &HirExpr,
+    right: &HirExpr,
+    ctx: &LoweringContext,
+    op: ResourceI32RelationOp,
+) -> Option<ResourceConditionFact> {
+    let left = condition_place(left, ctx)?;
+    let right = condition_place(right, ctx)?;
+    Some(ResourceConditionFact::I32Relation { left, op, right })
 }
 
 fn condition_place(expr: &HirExpr, ctx: &LoweringContext) -> Option<Place> {

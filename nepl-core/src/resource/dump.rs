@@ -7,8 +7,8 @@ use core::fmt::Write;
 
 use super::model::{
     AggregateKind, EffectOp, Place, PlaceProjection, PlaceRoot, RawBodyKind, RawMemoryOp,
-    ResourceCallTarget, ResourceConditionFact, ResourceMatchPattern, ResourceModule, ResourceOp,
-    ResourceTerminator,
+    ResourceCallTarget, ResourceConditionFact, ResourceI32RelationOp, ResourceMatchPattern,
+    ResourceModule, ResourceOp, ResourceTerminator,
 };
 
 impl ResourceModule {
@@ -486,8 +486,27 @@ fn dump_condition_fact_value(fact: &ResourceConditionFact) -> String {
         ResourceConditionFact::NonNegative { place } => {
             format!("non_negative({})", dump_place(place))
         }
+        ResourceConditionFact::I32Relation { left, op, right } => {
+            format!(
+                "i32_relation({} {} {})",
+                dump_place(left),
+                dump_i32_relation_op(*op),
+                dump_place(right)
+            )
+        }
         ResourceConditionFact::Any(facts) => dump_condition_fact_list("any", facts),
         ResourceConditionFact::All(facts) => dump_condition_fact_list("all", facts),
+    }
+}
+
+fn dump_i32_relation_op(op: ResourceI32RelationOp) -> &'static str {
+    match op {
+        ResourceI32RelationOp::Eq => "==",
+        ResourceI32RelationOp::Ne => "!=",
+        ResourceI32RelationOp::Lt => "<",
+        ResourceI32RelationOp::Le => "<=",
+        ResourceI32RelationOp::Gt => ">",
+        ResourceI32RelationOp::Ge => ">=",
     }
 }
 

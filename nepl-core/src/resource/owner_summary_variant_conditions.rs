@@ -132,7 +132,8 @@ fn owner_value_condition(
         | (ResourceConditionFact::Positive { .. }, _)
         | (ResourceConditionFact::NonPositive { .. }, _)
         | (ResourceConditionFact::Negative { .. }, _)
-        | (ResourceConditionFact::NonNegative { .. }, _) => None,
+        | (ResourceConditionFact::NonNegative { .. }, _)
+        | (ResourceConditionFact::I32Relation { .. }, _) => None,
     }
 }
 

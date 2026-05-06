@@ -544,6 +544,7 @@ impl ResourceOwnerCheckEngine<'_> {
             | ResourceConditionFact::NonPositive { .. }
             | ResourceConditionFact::Negative { .. }
             | ResourceConditionFact::NonNegative { .. }
+            | ResourceConditionFact::I32Relation { .. }
             | ResourceConditionFact::Any(_)
             | ResourceConditionFact::All(_) => {}
         }

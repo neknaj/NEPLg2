@@ -23,7 +23,8 @@ pub(super) fn record_condition_fact_value_constraints(
         | (ResourceConditionFact::Positive { .. }, _)
         | (ResourceConditionFact::NonPositive { .. }, _)
         | (ResourceConditionFact::Negative { .. }, _)
-        | (ResourceConditionFact::NonNegative { .. }, _) => {}
+        | (ResourceConditionFact::NonNegative { .. }, _)
+        | (ResourceConditionFact::I32Relation { .. }, _) => {}
     }
 }
 
@@ -56,6 +57,8 @@ pub(super) fn simple_condition_value_constraint(
         | (ResourceConditionFact::NonNegative { place }, true) => {
             Some((place, I32ValueCondition::NonNegative))
         }
-        (ResourceConditionFact::Any(_), _) | (ResourceConditionFact::All(_), _) => None,
+        (ResourceConditionFact::I32Relation { .. }, _)
+        | (ResourceConditionFact::Any(_), _)
+        | (ResourceConditionFact::All(_), _) => None,
     }
 }

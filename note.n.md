@@ -1,3 +1,24 @@
+# 2026-05-07 note (ISS-20260506T201433509Z Resource condition relation facts)
+
+## 作業内容
+
+- branch `fix/resource-condition-relation-facts` で `origin/main` 同期済みの main から作業した。
+- `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` の returned raw header range summary を進める前提として、`lt i len` のような nonzero relational guard が `ResourceConditionFact` から消える問題を切り出した。
+- `ResourceConditionFact::I32Relation` と `ResourceI32RelationOp` を追加し、`lt` / `le` / `gt` / `ge` / 非 zero の `eq` / `ne` を typed relation fact として保持するようにした。
+- 既存の zero-value fact は owner / realloc / variant summary refinement に使われているため維持し、relation fact は各 consumer の exhaustive `match` に明示的に追加した。
+- Resource IR dump に `i32_relation` を出力し、range summary の将来回帰で typed guard の存在を確認できるようにした。
+- issue `ISS-20260506T201433509Z-RESOURCE-CONDITION-FACTS-DROP-NONZER-5EE6B7A6` を fixed にし、親 issue と `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 へ進捗を追記した。
+
+## 検証
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_nonzero_i32_relation_condition_fact -- --nocapture`: passed
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T130138471Z KP compile budget)
 
 ## 作業内容

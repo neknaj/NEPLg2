@@ -255,14 +255,41 @@ pub enum ResourceMatchPattern {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResourceConditionFact {
-    EqZero { place: Place },
-    NeZero { place: Place },
-    Positive { place: Place },
-    NonPositive { place: Place },
-    Negative { place: Place },
-    NonNegative { place: Place },
+    EqZero {
+        place: Place,
+    },
+    NeZero {
+        place: Place,
+    },
+    Positive {
+        place: Place,
+    },
+    NonPositive {
+        place: Place,
+    },
+    Negative {
+        place: Place,
+    },
+    NonNegative {
+        place: Place,
+    },
+    I32Relation {
+        left: Place,
+        op: ResourceI32RelationOp,
+        right: Place,
+    },
     Any(Vec<ResourceConditionFact>),
     All(Vec<ResourceConditionFact>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceI32RelationOp {
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -157,9 +157,10 @@ pub use model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp,
     ExternalIoOp, NondetOp, OwnerState, OwnerStateEntry, Place, PlaceProjection, PlaceRoot,
     PointerProvenance, RawBodyKind, RawMemoryOp, ResourceBlock, ResourceBlockId,
-    ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
-    ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOffset, ResourceOp,
-    ResourceState, ResourceTerminator, StorageId, StorageOrigin, StorageOriginEntry,
+    ResourceCallTarget, ResourceConditionFact, ResourceExprKind, ResourceFunction,
+    ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern,
+    ResourceModule, ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId,
+    StorageOrigin, StorageOriginEntry,
 };
 pub use owner_check::check_resource_owner_obligations;
 pub use report::{

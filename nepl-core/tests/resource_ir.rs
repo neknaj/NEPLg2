@@ -14,12 +14,13 @@ use nepl_core::resource::{
     PlaceProjection, PlaceRoot, RawMemoryOp, ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock,
     ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget,
     ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropElaborationHirBridgeError,
-    ResourceDropElaborationPlanError, ResourceDropPoint, ResourceDropPointPath,
-    ResourceDropPointResolutionError, ResourceDropPointStep, ResourceDropRequirement,
-    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
-    ResourceFunctionCheck, ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp,
-    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
+    ResourceConditionFact, ResourceCoverageDiagnostic, ResourceCoverageKind,
+    ResourceDropElaborationHirBridgeError, ResourceDropElaborationPlanError, ResourceDropPoint,
+    ResourceDropPointPath, ResourceDropPointResolutionError, ResourceDropPointStep,
+    ResourceDropRequirement, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
+    ResourceExprKind, ResourceFunction, ResourceFunctionCheck, ResourceI32RelationOp, ResourceId,
+    ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
+    ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -2067,6 +2068,56 @@ fn main <()->i32> ():
         })
         .collect::<Vec<_>>();
     assert_eq!(callable_diagnostics, Vec::<&ResourceCheckDiagnostic>::new());
+}
+
+#[test]
+fn resource_ir_lowering_preserves_nonzero_i32_relation_condition_fact() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <(i32,i32)->i32> (i, len):
+    if lt i len:
+        then:
+            i
+        else:
+            len
+"#;
+    let (hir, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&hir, &types);
+    let main = resource
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "main")
+        .expect("main resource function");
+    let condition_fact = main
+        .blocks
+        .iter()
+        .flat_map(|block| block.ops.iter())
+        .find_map(|op| match op {
+            ResourceOp::Branch {
+                condition_fact: Some(fact),
+                ..
+            } => Some(fact),
+            _ => None,
+        })
+        .expect("branch condition fact");
+
+    let ResourceConditionFact::I32Relation { left, op, right } = condition_fact else {
+        panic!(
+            "lt i len must be preserved as an i32 relation fact:\n{}",
+            resource.dump_text()
+        );
+    };
+    assert_eq!(*op, ResourceI32RelationOp::Lt);
+    assert!(matches!(&left.root, PlaceRoot::Local(name) if name == "i"));
+    assert!(matches!(&right.root, PlaceRoot::Local(name) if name == "len"));
+    assert!(
+        resource.dump_text().contains("fact=i32_relation(%i:"),
+        "relation fact should be visible in Resource IR dump:\n{}",
+        resource.dump_text()
+    );
 }
 
 #[test]

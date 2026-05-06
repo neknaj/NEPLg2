@@ -111,6 +111,7 @@ pub(super) fn raw_realloc_condition_outcome(
         }
         (ResourceConditionFact::Negative { .. }, false)
         | (ResourceConditionFact::NonNegative { .. }, true)
+        | (ResourceConditionFact::I32Relation { .. }, _)
         | (ResourceConditionFact::Any(_), _)
         | (ResourceConditionFact::All(_), _) => None,
     }

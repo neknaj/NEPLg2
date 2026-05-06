@@ -126,3 +126,13 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 - `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`: `pref` dynamic range の `resource.cell.uninit` は解消。次の別件として fs/stdio scratch dealloc の `resource.owner.no_free_obligation` が発火したため、`ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4` に分離した。
 
 この親 issue は引き続き open とする。今回の修正は projected raw address view の origin propagation であり、length field / guard condition / initialized range を一体で表す dependent summary model はまだ未完了である。
+
+## 2026-05-07 relation guard fact 部分対応
+
+`ISS-20260506T201433509Z-RESOURCE-CONDITION-FACTS-DROP-NONZER-5EE6B7A6` として、range summary の前提になる nonzero relational guard を Resource IR に残す対応を分離して修正した。
+
+これまで `ResourceConditionFact` は `lt 0 x` / `le x 0` のような zero/one comparison だけを単項 fact として保持し、`lt i len` は fact なしになっていた。そのため、将来の returned raw header summary が `i < header.len` を要求しても、compiler は typed guard を参照できなかった。
+
+今回の対応で `ResourceConditionFact::I32Relation` と `ResourceI32RelationOp` を追加し、`lt i len` が `I32Relation { left: i, op: Lt, right: len }` として lowering / dump される。これはまだ dynamic initialized range を証明する本体ではないが、length field / guard condition / initialized range をつなぐための typed precondition である。
+
+この親 issue は引き続き open とする。残件は、relation fact と symbolic raw offset を結び、`i < len` が証明された場合だけ `base + i` の initialized range を許可する model を実装することである。

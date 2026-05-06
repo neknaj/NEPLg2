@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T19:58:11.305Z",
+  "generated_at": "2026-05-06T20:19:36.777Z",
   "counts": {
-    "total": 534,
+    "total": 535,
     "open": 15,
-    "resolved": 519,
+    "resolved": 520,
     "by_area": {
       "core": {
-        "total": 260,
+        "total": 261,
         "open": 4,
-        "resolved": 256
+        "resolved": 257
       },
       "selfhost": {
         "total": 50,
@@ -4063,6 +4063,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A.md"
+    },
+    {
+      "id": "ISS-20260506T201433509Z-RESOURCE-CONDITION-FACTS-DROP-NONZER-5EE6B7A6",
+      "title": "Resource condition facts drop nonzero relational guards",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/lower_condition.rs, nepl-core/src/resource/model.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260506T201433509Z-RESOURCE-CONDITION-FACTS-DROP-NONZER-5EE6B7A6.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
