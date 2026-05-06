@@ -385,7 +385,15 @@ async function runAllThreadPool(cases, jobs, distHint, options = {}) {
 
             w.on('message', (msg) => {
                 if (aborted) return;
-                if (!msg || msg.kind !== 'result') return;
+                if (!msg) return;
+                if (msg.kind === 'progress') {
+                    const active = running.get(w);
+                    if (active && active.index === Number(msg.index)) {
+                        active.lastProgress = msg.progress || null;
+                    }
+                    return;
+                }
+                if (msg.kind !== 'result') return;
                 clearWorkerTimer(w);
                 const idx = Number(msg.index);
                 running.delete(w);
@@ -456,7 +464,7 @@ async function runAllThreadPool(cases, jobs, distHint, options = {}) {
             if (nextIndex >= cases.length) return;
             const i = nextIndex++;
             const c = cases[i];
-            running.set(w, { index: i });
+            running.set(w, { index: i, lastProgress: null });
             w.postMessage({
                 kind: 'run',
                 index: i,
@@ -481,6 +489,8 @@ async function runAllThreadPool(cases, jobs, distHint, options = {}) {
                 running.delete(w);
                 retiringWorkers.add(w);
                 try { w.terminate(); } catch {}
+                const lastProgress = active.lastProgress || null;
+                const lastPhase = typeof lastProgress?.phase === 'string' ? lastProgress.phase : null;
                 const result = {
                     ok: false,
                     id: timedCase.id,
@@ -488,7 +498,14 @@ async function runAllThreadPool(cases, jobs, distHint, options = {}) {
                     index: timedCase.index,
                     tags: timedCase.tags,
                     status: 'error',
+                    phase: lastPhase || 'timeout',
                     error: `wasm test case timeout after ${caseTimeoutMs}ms`,
+                    timeout: {
+                        after_ms: caseTimeoutMs,
+                        last_phase: lastPhase,
+                        last_event: typeof lastProgress?.event === 'string' ? lastProgress.event : null,
+                        elapsed_ms: Number.isFinite(lastProgress?.elapsed_ms) ? lastProgress.elapsed_ms : null,
+                    },
                     worker: (workers.indexOf(w) + 1) || 0,
                 };
                 if (acceptResult(idx, result)) return;
@@ -1328,6 +1345,13 @@ function progressFlushEvery() {
     return Number.isFinite(raw) && raw > 0 ? raw : 10;
 }
 
+function effectiveProgressFlushEvery(configuredFlushEvery, expectedResults) {
+    if (Number.isFinite(expectedResults) && expectedResults > 0 && expectedResults < configuredFlushEvery) {
+        return 1;
+    }
+    return configuredFlushEvery;
+}
+
 function printStdlibBuildMessage() {
     console.log('[nodesrc/tests] 固定メッセージ: stdlib のみの修正時は trunk build 不要です。');
     console.log('[nodesrc/tests] 固定メッセージ: Rust 側（nepl-core/nepl-web/nepl-cli）を修正した場合は trunk build 後に tests を実行してください。');
@@ -1489,7 +1513,7 @@ async function main() {
         : runner === 'llvm'
             ? llvmCases.length
             : wasmCases.length + llvmCases.length;
-    const flushEvery = progressFlushEvery();
+    const flushEvery = effectiveProgressFlushEvery(progressFlushEvery(), expectedProgressResults);
     const scanSummary = {
         changed: changedOnly,
         changed_base: changedBase,

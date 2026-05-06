@@ -1,6 +1,6 @@
 ---
 id: ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8
-title: "KP stream scanner float doctests exceed wasm runtime budget"
+title: "KP stream scanner doctests exceed compiler/runtime budget"
 area: stdlib
 status: open
 resolved: false
@@ -11,11 +11,11 @@ updated: 2026-05-06
 target: "tests/stdlib/kp.n.md, stdlib/std/streamio/scanner/number.nepl, stdlib/std/streamio/writer, stdlib/core/float.nepl, nodesrc/tests.js"
 ---
 
-# ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8: KP stream scanner float doctests exceed wasm runtime budget
+# ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8: KP stream scanner doctests exceed compiler/runtime budget
 
 ## 概要
 
-After compile-time Stage5 effect blockers are removed, tests/stdlib/kp.n.md doctest#5 and doctest#6 no longer report effect diagnostics but exceed the 60000ms wasm doctest budget. Focused run_doctest for #5/#6 also takes about 61-64s and produces no stdout, so the issue is in runtime behavior or generated wasm performance for f64/f32 scanner-to-writer paths, not a remaining raw-memory compile diagnostic.
+After compile-time Stage5 effect blockers are removed, tests/stdlib/kp.n.md doctests remain close to or above the wasm doctest budget. Earlier reports focused on f64/f32 scanner-to-writer runtime behavior, but current phase timing shows even the small integer scanner case is dominated by compiler wasm compile time. This issue now tracks the KP stream scanner regression file as a compiler/runtime budget problem until phase-level profiling identifies and fixes the actual hot path.
 
 ## 対象
 
@@ -31,7 +31,7 @@ After compile-time Stage5 effect blockers are removed, tests/stdlib/kp.n.md doct
 
 ## 問題
 
-After compile-time Stage5 effect blockers are removed, tests/stdlib/kp.n.md doctest#5 and doctest#6 no longer report effect diagnostics but exceed the 60000ms wasm doctest budget. Focused run_doctest for #5/#6 also takes about 61-64s and produces no stdout, so the issue is in runtime behavior or generated wasm performance for f64/f32 scanner-to-writer paths, not a remaining raw-memory compile diagnostic.
+After compile-time Stage5 effect blockers are removed, tests/stdlib/kp.n.md doctests remain close to or above the wasm doctest budget. Earlier reports focused on f64/f32 scanner-to-writer runtime behavior, but current phase timing shows even the small integer scanner case is dominated by compiler wasm compile time. This issue now tracks the KP stream scanner regression file as a compiler/runtime budget problem until phase-level profiling identifies and fixes the actual hot path.
 
 ## 影響
 
@@ -39,7 +39,7 @@ The kp regression file cannot become a stable CI signal. The timeout may indicat
 
 ## 修正方針
 
-Profile the f64/f32 scanner read and writer formatting path, compare integer scanner cases, and determine whether the cause is algorithmic complexity, generated wasm/codegen behavior, or test scope. Fix the root cause or split tests only if profiling shows the program work is inherently too large.
+Use phase timing from `ISS-20260506T183933332Z-DOCTEST-TIMEOUT-REPORTS-LACK-COMPILE-9FFADD53` to profile integer and float KP doctests separately. First identify whether the hot path is compiler wasm compile time, Resource IR/static check algorithmic complexity, generated wasm/codegen behavior, or actual scanner/writer runtime work. Fix the root cause; split tests only if profiling proves the program work itself is inherently too large.
 
 ## 検証
 
@@ -69,3 +69,11 @@ timeout symptom は解消したが、60 秒制限に近い実行時間は残っ�
 `ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA` の修正後に `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_after_unwrap_ok_dealloc_summary.json --runner wasm --no-tree -j 1 --assert-io` を再実行した。
 
 結果は total=7, passed=4, failed=1, errored=2 で、doctest#5/#6 はそれぞれ `wasm test case timeout after 60000ms` のまま残った。doctest#7 の owner leak が消えても float scanner/writer path の runtime budget 問題は独立して残るため、この performance issue は open のまま継続する。
+
+## 2026-05-06 phase timing 追加後の再確認
+
+`ISS-20260506T183933332Z-DOCTEST-TIMEOUT-REPORTS-LACK-COMPILE-9FFADD53` の調査で、`tests/stdlib/kp.n.md::doctest#1` は passed するが `timing.compile_ms=47510`, `timing.run_ms=14`, `timing.total_ms=47565` だった。これは小さい i32 scanner case でも runtime ではなく compiler wasm compile phase が支配的であることを示す。
+
+さらに `NEPL_TEST_CASE_TIMEOUT_MS=2000 node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree -o tmp/agent1-kp-timeout-phase.json -j 1 --assert-io` では全 7 case が意図した短時間 timeout になり、top issue の `phase` は `compile`、JSON の `timeout.last_phase` も `compile` だった。
+
+したがって、この issue の旧説明にあった「float runtime path に集中」という前提は現在の main では不十分である。次の修正では compiler wasm compile phase をさらに Rust compiler phase 別に分解し、Resource IR / monomorphize / codegen / stdlib import graph のどれが支配的かを確認する。

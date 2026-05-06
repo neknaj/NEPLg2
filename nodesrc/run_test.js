@@ -7,7 +7,7 @@
 //   { "id": "...", "source": "...", "tags": [..], "stdin": "...", "distHint": "..." }
 // 出力:
 // - JSON (stdout)
-//   { ok, id, status, stdout, stderr, error, compiler, runtime, duration_ms }
+//   { ok, id, status, stdout, stderr, error, compiler, runtime, timing, duration_ms }
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -455,8 +455,31 @@ async function createRunner(distHint) {
     return loaded;
 }
 
-async function runSingle(req, preloaded) {
+function notifyPhaseProgress(onProgress, payload) {
+    if (typeof onProgress !== 'function') return;
+    try {
+        onProgress(payload);
+    } catch {}
+}
+
+async function runSingle(req, preloaded, onProgress = null) {
     const t0 = Date.now();
+    const timing = {
+        load_ms: 0,
+        compile_ms: null,
+        run_ms: null,
+    };
+    const finish = (result) => {
+        const totalMs = Date.now() - t0;
+        return {
+            ...result,
+            timing: {
+                ...timing,
+                total_ms: totalMs,
+            },
+            duration_ms: totalMs,
+        };
+    };
     try {
         const id = req.id || '';
         const source = req.source || '';
@@ -464,10 +487,14 @@ async function runSingle(req, preloaded) {
         const stdinText = req.stdin || '';
         const argv = Array.isArray(req.argv) ? req.argv.map((v) => String(v)) : [];
         const expectedRet = Object.prototype.hasOwnProperty.call(req, 'expected_ret') ? req.expected_ret : null;
+        notifyPhaseProgress(onProgress, { id, phase: 'load', event: 'start', elapsed_ms: Date.now() - t0 });
+        const loadStart = Date.now();
         const loaded = preloaded || await createRunner(req.distHint || '');
+        timing.load_ms = Date.now() - loadStart;
+        notifyPhaseProgress(onProgress, { id, phase: 'load', event: 'end', elapsed_ms: Date.now() - t0, phase_ms: timing.load_ms });
         const { api, meta } = loaded;
         if (hasTag(tags, 'skip')) {
-            return {
+            return finish({
                 ok: true,
                 id,
                 status: 'pass',
@@ -475,22 +502,33 @@ async function runSingle(req, preloaded) {
                 skipped: true,
                 error: null,
                 compiler: { distDir: meta.distDir, js: meta.jsFile, wasm: meta.wasmFile },
-                duration_ms: Date.now() - t0,
-            };
+            });
         }
 
         let wasmU8 = null;
         let compileError = null;
+        notifyPhaseProgress(onProgress, { id, phase: 'compile', event: 'start', elapsed_ms: Date.now() - t0 });
+        const compileStart = Date.now();
         try {
             const vfs = collectVfsSources(source, req.file);
             wasmU8 = compileWithFsStdlib(api, source, vfs, 'debug');
         } catch (e) {
             compileError = formatError(e);
+        } finally {
+            timing.compile_ms = Date.now() - compileStart;
+            notifyPhaseProgress(onProgress, {
+                id,
+                phase: 'compile',
+                event: 'end',
+                elapsed_ms: Date.now() - t0,
+                phase_ms: timing.compile_ms,
+                ok: compileError === null,
+            });
         }
 
         if (hasTag(tags, 'compile_fail')) {
             const ok = (compileError !== null);
-            return {
+            return finish({
                 ok,
                 id,
                 status: ok ? 'pass' : 'fail',
@@ -498,23 +536,32 @@ async function runSingle(req, preloaded) {
                 compile_error: compileError,
                 error: ok ? null : 'expected compile_fail, but compiled successfully',
                 compiler: { distDir: meta.distDir, js: meta.jsFile, wasm: meta.wasmFile },
-                duration_ms: Date.now() - t0,
-            };
+            });
         }
 
         if (compileError !== null) {
-            return {
+            return finish({
                 ok: false,
                 id,
                 status: 'fail',
                 phase: 'compile',
                 error: compileError,
                 compiler: { distDir: meta.distDir, js: meta.jsFile, wasm: meta.wasmFile },
-                duration_ms: Date.now() - t0,
-            };
+            });
         }
 
+        notifyPhaseProgress(onProgress, { id, phase: 'run', event: 'start', elapsed_ms: Date.now() - t0 });
+        const runStart = Date.now();
         const runRes = await runTargetBytes(source, wasmU8, stdinText, argv);
+        timing.run_ms = Date.now() - runStart;
+        notifyPhaseProgress(onProgress, {
+            id,
+            phase: 'run',
+            event: 'end',
+            elapsed_ms: Date.now() - t0,
+            phase_ms: timing.run_ms,
+            ok: !runRes.trapped,
+        });
         const decodedReturn = decodeExpectedReturn(
             expectedRet,
             runRes.returnValue,
@@ -524,7 +571,7 @@ async function runSingle(req, preloaded) {
 
         if (hasTag(tags, 'should_panic')) {
             const ok = runRes.trapped;
-            return {
+            return finish({
                 ok,
                 id,
                 status: ok ? 'pass' : 'fail',
@@ -541,12 +588,11 @@ async function runSingle(req, preloaded) {
                     fallbackReason: runRes.fallbackReason || null,
                 },
                 compiler: { distDir: meta.distDir, js: meta.jsFile, wasm: meta.wasmFile },
-                duration_ms: Date.now() - t0,
-            };
+            });
         }
 
         const ok = !runRes.trapped;
-        return {
+        return finish({
             ok,
             id,
             status: ok ? 'pass' : 'fail',
@@ -563,15 +609,13 @@ async function runSingle(req, preloaded) {
                 fallbackReason: runRes.fallbackReason || null,
             },
             compiler: { distDir: meta.distDir, js: meta.jsFile, wasm: meta.wasmFile },
-            duration_ms: Date.now() - t0,
-        };
+        });
     } catch (e) {
-        return {
+        return finish({
             ok: false,
             status: 'error',
             error: String(e?.stack || e?.message || e),
-            duration_ms: Date.now() - t0,
-        };
+        });
     }
 }
 

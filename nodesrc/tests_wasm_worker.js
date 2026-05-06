@@ -17,7 +17,13 @@ parentPort.on('message', async (msg) => {
     const idx = Number(msg.index);
     try {
         const loaded = await ensureLoaded();
-        const result = await runSingle(msg.req, loaded);
+        const result = await runSingle(msg.req, loaded, (progress) => {
+            parentPort.postMessage({
+                kind: 'progress',
+                index: idx,
+                progress,
+            });
+        });
         parentPort.postMessage({
             kind: 'result',
             index: idx,

@@ -1,3 +1,31 @@
+# 2026-05-07 note (ISS-20260506T183933332Z doctest timeout phase diagnostics)
+
+## 作業内容
+
+- branch `fix/doctest-timeout-phase-diagnostics` で `origin/main` 同期済みの main から作業した。
+- `tests/stdlib/kp.n.md::doctest#1` が total 約 47.5 秒のうち compile 約 47.5 秒、run 約 14ms であり、旧 issue の「float runtime timeout」前提だけでは現在の遅さを説明できないことを確認した。
+- `nodesrc/run_test.js` の結果 JSON に `timing.load_ms` / `timing.compile_ms` / `timing.run_ms` / `timing.total_ms` を追加した。
+- `runSingle` から phase progress callback を出せるようにし、`nodesrc/tests_wasm_worker.js` が `load` / `compile` / `run` の start/end を親へ通知するようにした。
+- `nodesrc/tests.js` は worker progress を保持し、timeout result の `phase` と `timeout.last_phase` に最後の phase を記録する。
+- focused suite の expected result 数が flush 間隔より小さい場合は 1 件ごとに partial JSON を flush し、command-level timeout でも直近結果を失いにくくした。
+- KP performance issue `ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8` は compiler/runtime budget 問題として記述を更新した。
+
+## 検証
+
+- `node --check nodesrc/run_test.js`: passed
+- `node --check nodesrc/tests.js`: passed
+- `node --check nodesrc/tests_wasm_worker.js`: passed
+- `node --check nodesrc/test_run_test_timing_metadata.js`: passed
+- `node nodesrc/test_run_test_timing_metadata.js`: passed
+- `node nodesrc/test_tests_js_partial_progress_policy.js`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 1`: passed, `compile_ms=47510`, `run_ms=14`
+- `node nodesrc/tests.js -i tests/compiler/codegen_diagnostics.n.md --no-tree -o tmp/agent1-tests-progress-timing.json -j 1 --assert-io`: total=3, passed=3
+- `NEPL_TEST_CASE_TIMEOUT_MS=2000 node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree -o tmp/agent1-kp-timeout-phase.json -j 1 --assert-io`: expected timeout, top issue phase is `compile`
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T180609091Z initialized alias responsibility split)
 
 ## 作業内容

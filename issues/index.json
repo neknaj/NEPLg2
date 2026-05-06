@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T18:21:54.462Z",
+  "generated_at": "2026-05-06T18:47:13.603Z",
   "counts": {
-    "total": 532,
+    "total": 533,
     "open": 15,
-    "resolved": 517,
+    "resolved": 518,
     "by_area": {
       "core": {
         "total": 259,
@@ -67,9 +67,9 @@
         "resolved": 1
       },
       "test": {
-        "total": 3,
+        "total": 4,
         "open": 0,
-        "resolved": 3
+        "resolved": 4
       },
       "web": {
         "total": 1,
@@ -226,7 +226,7 @@
     },
     {
       "id": "ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8",
-      "title": "KP stream scanner float doctests exceed wasm runtime budget",
+      "title": "KP stream scanner doctests exceed compiler/runtime budget",
       "area": "stdlib",
       "status": "open",
       "resolved": false,
@@ -6118,6 +6118,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T145720311Z-KP-PREFIX-SUM-DOCTEST-RELIES-ON-IMPL-5F1F3821.md"
+    },
+    {
+      "id": "ISS-20260506T183933332Z-DOCTEST-TIMEOUT-REPORTS-LACK-COMPILE-9FFADD53",
+      "title": "doctest timeout reports lack compile/run phase timing",
+      "area": "test",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nodesrc/run_test.js, nodesrc/tests.js, nodesrc/tests_wasm_worker.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T183933332Z-DOCTEST-TIMEOUT-REPORTS-LACK-COMPILE-9FFADD53.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

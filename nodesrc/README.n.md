@@ -15,6 +15,7 @@ NEPLg2 の Node.js [系/けい]ツールを[目的別/もくてきべつ]にま�
 
 - `stdout:` / `stderr:` を[書/か]いた doctest は、`tests.js` でも[既定/きてい]で I/O [一致/いっち]を[検証/けんしょう]します。
 - `--assert-io` は[明示的/めいじてき]に I/O [厳格/げんかく][確認/かくにん]を[示/しめ]したいときの補助で、I/O [期待値/きたいち]が[書/か]かれた case を[有効化/ゆうこうか]するための必須 flag ではありません。
+- timeout [調査/ちょうさ]では JSON の `timing.compile_ms` / `timing.run_ms` と `timeout.last_phase` を[見/み]て、compiler [側/がわ]の[遅/おそ]さと runtime [側/がわ]の[遅/おそ]さを[分/わ]けて[扱/あつか]います。
 
 ### [主/おも]な[用途/ようと]
 
@@ -58,6 +59,7 @@ node nodesrc/run_doctest.js -i tests/stdlib/sort.n.md -n 3
 
 - `#target wasix` の case はまず `wasmer run` で[実行/じっこう]します。`wasmer` が[無/な]い[環境/かんきょう]や、`wasix_32v1.tty_get` / `tty_set` が[未対応/みたいおう]の Wasmer では、Node.js [内蔵/ないぞう] WASI に WASIX TTY host import を[足/た]した fallback で[実行/じっこう]します。
 - `WASMER_BIN` を[設定/せってい]すると、`wasmer` [以外/いがい]の[実行/じっこう][バイナリ/ばいなり]を[指定/してい]できます。
+- [結果/けっか] JSON には `timing.load_ms` / `timing.compile_ms` / `timing.run_ms` / `timing.total_ms` を[入/い]れます。compile_fail case など run phase に[進/すす]まない case の `run_ms` は `null` です。
 
 ## `cli.js`
 
