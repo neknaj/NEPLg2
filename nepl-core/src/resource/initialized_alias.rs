@@ -4,11 +4,12 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
-use super::initialized_alias_i32::{condition_implication, I32ConditionFact, I32ValueFact};
+use super::initialized_alias_origin::RawValueOrigins;
 use super::initialized_alias_rank::{
     owner_alias_place_has_raw_projection, owner_cell_alias_rank, prefer_stable_canonical,
 };
-use super::model::{I32ValueCondition, Place, PlaceRoot};
+use super::initialized_alias_scalar::I32AliasFacts;
+use super::model::{I32ValueCondition, Place};
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, replace_place_prefix,
 };
@@ -25,15 +26,8 @@ pub(super) struct ProjectedRawCellAddressAlias {
 pub(super) struct RawCellAddressAliases {
     groups: Vec<Vec<Place>>,
     marked: Vec<Place>,
-    value_origins: Vec<ValueOrigin>,
-    i32_values: Vec<I32ValueFact>,
-    i32_conditions: Vec<I32ConditionFact>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ValueOrigin {
-    place: Place,
-    origin: Place,
+    value_origins: RawValueOrigins,
+    i32_facts: I32AliasFacts,
 }
 
 impl RawCellAddressAliases {
@@ -49,38 +43,14 @@ impl RawCellAddressAliases {
         if source == target {
             return;
         }
-        let value_copies = self
-            .i32_values
-            .iter()
-            .filter_map(|fact| {
-                replace_place_prefix(&fact.place, source, target).map(|place| I32ValueFact {
-                    place,
-                    value: fact.value,
-                })
-            })
-            .collect::<Vec<_>>();
-        let condition_copies = self
-            .i32_conditions
-            .iter()
-            .filter_map(|fact| {
-                replace_place_prefix(&fact.place, source, target).map(|place| I32ConditionFact {
-                    place,
-                    condition: fact.condition,
-                })
-            })
-            .collect::<Vec<_>>();
+        let fact_copies = self.i32_facts.facts_with_replaced_prefix(source, target);
         let groups = self.groups_with_replaced_prefix(source, target);
         self.clear(target);
         for group in groups {
             self.union_group(&group);
         }
-        for fact in value_copies {
-            self.push_i32_value_fact(fact);
-        }
-        for fact in condition_copies {
-            self.push_i32_condition_fact(fact);
-        }
-        self.copy_stable_value_origin(source, target);
+        self.i32_facts.extend(fact_copies);
+        self.value_origins.copy_stable_origin(source, target);
     }
 
     /// Records an explicit raw-address relation while preserving any already-tracked aliases and
@@ -94,8 +64,8 @@ impl RawCellAddressAliases {
         let mut group = Vec::new();
         push_unique_place(&mut group, source);
         push_unique_place(&mut group, target);
-        push_unique_place(&mut group, &self.value_origin(source));
-        push_unique_place(&mut group, &self.value_origin(target));
+        push_unique_place(&mut group, &self.value_origins.origin_for(source));
+        push_unique_place(&mut group, &self.value_origins.origin_for(target));
         self.union_group(&group);
     }
 
@@ -111,26 +81,7 @@ impl RawCellAddressAliases {
             .filter(|marked| owner_alias_place_has_raw_projection(marked, source))
             .filter_map(|marked| replace_place_prefix(marked, source, target))
             .collect::<Vec<_>>();
-        let moved_values = self
-            .i32_values
-            .iter()
-            .filter_map(|fact| {
-                replace_place_prefix(&fact.place, source, target).map(|place| I32ValueFact {
-                    place,
-                    value: fact.value,
-                })
-            })
-            .collect::<Vec<_>>();
-        let moved_conditions = self
-            .i32_conditions
-            .iter()
-            .filter_map(|fact| {
-                replace_place_prefix(&fact.place, source, target).map(|place| I32ConditionFact {
-                    place,
-                    condition: fact.condition,
-                })
-            })
-            .collect::<Vec<_>>();
+        let moved_facts = self.i32_facts.facts_with_replaced_prefix(source, target);
         let groups = self
             .groups_with_replaced_prefix(source, target)
             .into_iter()
@@ -151,19 +102,14 @@ impl RawCellAddressAliases {
             push_unique_place(&mut self.marked, &moved);
             self.union_group(core::slice::from_ref(&moved));
         }
-        for fact in moved_values {
-            self.push_i32_value_fact(fact);
-        }
-        for fact in moved_conditions {
-            self.push_i32_condition_fact(fact);
-        }
+        self.i32_facts.extend(moved_facts);
     }
 
     pub(super) fn canonicalize(&self, place: &Place) -> Place {
         if let Some(canonical) = self.canonicalize_group_member(place) {
             return canonical;
         }
-        let origin = self.value_origin(place);
+        let origin = self.value_origins.origin_for(place);
         if origin != *place {
             if let Some(canonical) = self.canonicalize_group_member(&origin) {
                 return canonical;
@@ -203,35 +149,15 @@ impl RawCellAddressAliases {
     }
 
     pub(super) fn set_i32_value(&mut self, place: &Place, value: i32) {
-        self.i32_values.retain(|fact| fact.place != *place);
-        self.i32_values.push(I32ValueFact {
-            place: place.clone(),
-            value,
-        });
+        self.i32_facts.set_value(place, value);
     }
 
     pub(super) fn add_i32_condition(&mut self, place: &Place, condition: I32ValueCondition) {
-        self.push_i32_condition_fact(I32ConditionFact {
-            place: place.clone(),
-            condition,
-        });
+        self.i32_facts.add_condition(place, condition);
     }
 
     pub(super) fn i32_value(&self, place: &Place) -> Option<i32> {
-        let mut value = None;
-        for alias in self.aliases_for(place) {
-            for fact in &self.i32_values {
-                if fact.place != alias {
-                    continue;
-                }
-                match value {
-                    Some(existing) if existing != fact.value => return None,
-                    Some(_) => {}
-                    None => value = Some(fact.value),
-                }
-            }
-        }
-        value
+        self.i32_facts.value_for_aliases(&self.aliases_for(place))
     }
 
     pub(super) fn i32_condition_truth(
@@ -242,23 +168,8 @@ impl RawCellAddressAliases {
         if let Some(value) = self.i32_value(place) {
             return Some(condition.holds(value));
         }
-        let mut truth = None;
-        for alias in self.aliases_for(place) {
-            for fact in &self.i32_conditions {
-                if fact.place != alias {
-                    continue;
-                }
-                let Some(fact_truth) = condition_implication(fact.condition, condition) else {
-                    continue;
-                };
-                match truth {
-                    Some(existing) if existing != fact_truth => return None,
-                    Some(_) => {}
-                    None => truth = Some(fact_truth),
-                }
-            }
-        }
-        truth
+        self.i32_facts
+            .condition_truth_for_aliases(&self.aliases_for(place), condition)
     }
 
     pub(super) fn contains_marked_alias(&self, place: &Place) -> bool {
@@ -356,14 +267,8 @@ impl RawCellAddressAliases {
         self.groups.retain(|group| !group.is_empty());
         self.marked
             .retain(|existing| place_suffix_after_prefix(existing, place).is_none());
-        self.value_origins.retain(|origin| {
-            place_suffix_after_prefix(&origin.place, place).is_none()
-                && place_suffix_after_prefix(&origin.origin, place).is_none()
-        });
-        self.i32_values
-            .retain(|fact| place_suffix_after_prefix(&fact.place, place).is_none());
-        self.i32_conditions
-            .retain(|fact| place_suffix_after_prefix(&fact.place, place).is_none());
+        self.value_origins.clear_prefix(place);
+        self.i32_facts.clear_prefix(place);
     }
 
     pub(super) fn merge_paths(paths: &[RawCellAddressAliases]) -> Self {
@@ -376,90 +281,10 @@ impl RawCellAddressAliases {
                 push_unique_place(&mut out.marked, marked);
             }
         }
-        if let Some(first) = paths.first() {
-            for origin in &first.value_origins {
-                if paths
-                    .iter()
-                    .skip(1)
-                    .all(|path| path.value_origins.iter().any(|existing| existing == origin))
-                {
-                    out.set_value_origin(&origin.place, &origin.origin);
-                }
-            }
-            for fact in &first.i32_values {
-                if paths
-                    .iter()
-                    .skip(1)
-                    .all(|path| path.i32_values.iter().any(|existing| existing == fact))
-                {
-                    out.push_i32_value_fact(fact.clone());
-                }
-            }
-            for fact in &first.i32_conditions {
-                if paths
-                    .iter()
-                    .skip(1)
-                    .all(|path| path.i32_conditions.iter().any(|existing| existing == fact))
-                {
-                    out.push_i32_condition_fact(fact.clone());
-                }
-            }
-        }
+        out.value_origins =
+            RawValueOrigins::merge_paths(paths.iter().map(|path| &path.value_origins));
+        out.i32_facts = I32AliasFacts::merge_paths(paths.iter().map(|path| &path.i32_facts));
         out
-    }
-
-    fn push_i32_value_fact(&mut self, fact: I32ValueFact) {
-        self.i32_values
-            .retain(|existing| existing.place != fact.place);
-        self.i32_values.push(fact);
-    }
-
-    fn push_i32_condition_fact(&mut self, fact: I32ConditionFact) {
-        if self.i32_conditions.iter().any(|existing| existing == &fact) {
-            return;
-        }
-        self.i32_conditions.push(fact);
-    }
-
-    fn copy_stable_value_origin(&mut self, source: &Place, target: &Place) {
-        if !value_origin_copy_is_relevant(source, target) {
-            return;
-        }
-        let resolved_origin = self.value_origin(source);
-        let origin = if value_origin_place_is_stable(&resolved_origin) {
-            Some(resolved_origin)
-        } else if value_origin_place_is_stable(source) {
-            Some(source.clone())
-        } else {
-            None
-        };
-        if let Some(origin) = origin {
-            self.set_value_origin(target, &origin);
-        }
-    }
-
-    fn value_origin(&self, place: &Place) -> Place {
-        let mut current = place.clone();
-        for _ in 0..=self.value_origins.len() {
-            let Some(next) = self.value_origin_step(&current) else {
-                break;
-            };
-            if next == current {
-                break;
-            }
-            current = next;
-        }
-        current
-    }
-
-    fn value_origin_step(&self, place: &Place) -> Option<Place> {
-        self.value_origins
-            .iter()
-            .filter_map(|origin| {
-                place_suffix_after_prefix(place, &origin.place)
-                    .map(|suffix| place_with_suffix(&origin.origin, &suffix, place.ty))
-            })
-            .min_by_key(|candidate| candidate.projections.len())
     }
 
     fn canonicalize_group_member(&self, place: &Place) -> Option<Place> {
@@ -471,20 +296,6 @@ impl RawCellAddressAliases {
             }
         }
         None
-    }
-
-    fn set_value_origin(&mut self, place: &Place, origin: &Place) {
-        self.value_origins
-            .retain(|existing| existing.place != *place);
-        if place == origin
-            || !value_origin_place_is_stable(place) && !value_origin_place_is_stable(origin)
-        {
-            return;
-        }
-        self.value_origins.push(ValueOrigin {
-            place: place.clone(),
-            origin: origin.clone(),
-        });
     }
 
     fn alias_groups_for(&self, place: &Place) -> Vec<Vec<Place>> {
@@ -582,17 +393,6 @@ impl RawCellAddressAliases {
 
 fn groups_overlap(left: &[Place], right: &[Place]) -> bool {
     left.iter().any(|place| right.contains(place))
-}
-
-fn value_origin_copy_is_relevant(source: &Place, target: &Place) -> bool {
-    value_origin_place_is_stable(source) || value_origin_place_is_stable(target)
-}
-
-fn value_origin_place_is_stable(place: &Place) -> bool {
-    matches!(
-        place.root,
-        PlaceRoot::Local(_) | PlaceRoot::Return | PlaceRoot::Storage(_)
-    )
 }
 
 fn push_unique_projected_alias(

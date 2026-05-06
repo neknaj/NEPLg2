@@ -1,3 +1,31 @@
+# 2026-05-07 note (ISS-20260506T180609091Z initialized alias responsibility split)
+
+## 作業内容
+
+- branch `fix/initialized-alias-responsibility-split` で `origin/main` 同期済みの main から作業した。
+- `node nodesrc/test_resource_checker_responsibility.js` が `initialized_alias.rs has 624 lines; responsibility split limit is 520` で失敗する issue を確認した。
+- `RawCellAddressAliases` から stable value origin の追跡を `initialized_alias_origin.rs` へ分離した。
+- i32 value fact / condition fact の copy、clear、branch merge、condition truth query を `initialized_alias_scalar.rs` へ分離した。
+- `initialized_alias.rs` は raw address alias group、marked owner cell、canonicalization、prefix/projected alias query、merge orchestration に責務を絞った。
+- `nodesrc/test_resource_checker_responsibility.js` に新 module の存在、`resource/mod.rs` 宣言、主要 entry point、line limit を追加した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 と issue `ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A` を更新し、issue は fixed にした。
+
+## 検証
+
+- `cargo fmt --check`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
+- `node nodesrc/issues.js check`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_refines_zero_alloc_result_branch -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_merge_rejects_dealloc_after_conditional_dealloc -- --nocapture`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: all source-policy regressions passed; warning 0
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T173138867Z raw address lowering responsibility split)
 
 ## 作業内容

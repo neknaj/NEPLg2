@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T18:13:08.331Z",
+  "generated_at": "2026-05-06T18:21:54.462Z",
   "counts": {
     "total": 532,
-    "open": 16,
-    "resolved": 516,
+    "open": 15,
+    "resolved": 517,
     "by_area": {
       "core": {
         "total": 259,
-        "open": 5,
-        "resolved": 254
+        "open": 4,
+        "resolved": 255
       },
       "selfhost": {
         "total": 49,
@@ -133,21 +133,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A",
-      "title": "Resource initialized alias module exceeds responsibility split limit",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "nepl-core/src/resource/initialized_alias.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A.md"
     },
     {
       "id": "ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF",
@@ -4048,6 +4033,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T173138867Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-B64EB6D1.md"
+    },
+    {
+      "id": "ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A",
+      "title": "Resource initialized alias module exceeds responsibility split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/initialized_alias.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

@@ -110,7 +110,9 @@ for (const moduleName of [
     'initialized_alias.rs',
     'initialized_alias_flow.rs',
     'initialized_alias_i32.rs',
+    'initialized_alias_origin.rs',
     'initialized_alias_rank.rs',
+    'initialized_alias_scalar.rs',
     'initialized_drop_assignment.rs',
     'initialized_drop_scope.rs',
     'initialized_external_io.rs',
@@ -189,7 +191,9 @@ for (const moduleDecl of [
     'mod initialized_alias;',
     'mod initialized_alias_flow;',
     'mod initialized_alias_i32;',
+    'mod initialized_alias_origin;',
     'mod initialized_alias_rank;',
+    'mod initialized_alias_scalar;',
     'mod initialized_drop_assignment;',
     'mod initialized_drop_scope;',
     'mod initialized_external_io;',
@@ -253,6 +257,8 @@ const lowerRawAddress = readResource('lower_raw_address.rs');
 const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
 const lowerRawMemory = readResource('lower_raw_memory.rs');
+const initializedAliasOrigin = readResource('initialized_alias_origin.rs');
+const initializedAliasScalar = readResource('initialized_alias_scalar.rs');
 
 assertContains(initialized, 'struct ResourceCheckEngine', 'initialized.rs');
 assertContains(borrowCheck, 'struct ResourceBorrowCheckEngine', 'borrow_check.rs');
@@ -368,6 +374,16 @@ assertContains(
     'pub(super) fn raw_memory_op_from_name',
     'lower_raw_memory.rs',
 );
+assertContains(
+    initializedAliasOrigin,
+    'pub(super) struct RawValueOrigins',
+    'initialized_alias_origin.rs',
+);
+assertContains(
+    initializedAliasScalar,
+    'pub(super) struct I32AliasFacts',
+    'initialized_alias_scalar.rs',
+);
 assertNotContains(lower, 'struct RawAddressSource', 'lower.rs');
 assertContains(
     lowerAggregate,
@@ -474,7 +490,9 @@ const maxLines = new Map([
     ['initialized_alias.rs', 520],
     ['initialized_alias_flow.rs', 550],
     ['initialized_alias_i32.rs', 80],
+    ['initialized_alias_origin.rs', 160],
     ['initialized_alias_rank.rs', 120],
+    ['initialized_alias_scalar.rs', 180],
     ['initialized_drop_assignment.rs', 100],
     ['initialized_drop_scope.rs', 80],
     ['initialized_external_io.rs', 140],
