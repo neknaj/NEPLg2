@@ -1,3 +1,22 @@
+# 2026-05-06 note (ISS-20260506T091634072Z Resource drop elaboration function origin)
+
+- [同期]:
+  - `f38b37b1` の remote main と一致する clean な状態から branch `work/resource-function-origin-metadata` を作成した。
+- [原因]:
+  - `ResourceDropElaborationPlan` は monomorphize 後の Resource IR function を対象にするため、generic specialization では `name` が source function name と一致しない。
+  - HIR `passes::insert_drops` の置換で source HIR 側へ戻すとき、mangled name を文字列 parsing して対応付ける設計にすると、drop elaboration と codegen の境界に技術的負債が残る。
+- [修正]:
+  - `HirFunction` に `origin_name` を追加し、typecheck 時点の source-level function name を保存するようにした。
+  - monomorphize は specialized `name` を設定しても `origin_name` を維持する。
+  - `ResourceFunction` と `ResourceDropElaborationFunction` へ `origin_name` を伝搬し、Resource IR dump では `name != origin_name` の場合だけ `origin=...` を表示するようにした。
+- [検証]:
+  - generic `ignore<Guard>` specialization で HIR / Resource IR / drop elaboration plan が `origin_name == "ignore"` を保持する regression を追加した。
+  - 同 regression で source binding `_value` と checked auto-drop fact が drop elaboration plan に残ることも確認した。
+- [残件]:
+  - 次は `origin_name`、source binding、checked drop point path を消費して、HIR `passes::insert_drops` の scope walker を削除する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260506T090109381Z Resource IR drop source binding)
 
 - [同期]:

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T09:09:19.386Z",
+  "generated_at": "2026-05-06T09:28:30.005Z",
   "counts": {
-    "total": 503,
+    "total": 504,
     "open": 13,
-    "resolved": 490,
+    "resolved": 491,
     "by_area": {
       "core": {
-        "total": 239,
+        "total": 240,
         "open": 5,
-        "resolved": 234
+        "resolved": 235
       },
       "stdlib": {
         "total": 155,
@@ -3703,6 +3703,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T090109381Z-RESOURCE-DROP-ELABORATION-PLAN-LACKS-82B39C85.md"
+    },
+    {
+      "id": "ISS-20260506T091634072Z-RESOURCE-DROP-ELABORATION-CANNOT-BRI-88F5F95B",
+      "title": "Resource drop elaboration cannot bridge monomorphized functions to source HIR",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/hir.rs, nepl-core/src/typecheck/function_check.rs, nepl-core/src/resource/model.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/drop_elaboration.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T091634072Z-RESOURCE-DROP-ELABORATION-CANNOT-BRI-88F5F95B.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

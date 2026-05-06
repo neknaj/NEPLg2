@@ -228,6 +228,7 @@ fn lower_hir_function_skeleton(
     });
     ResourceFunction {
         name: function.name.clone(),
+        origin_name: function.origin_name.clone(),
         params,
         result: function.result,
         effect: function.effect,

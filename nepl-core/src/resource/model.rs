@@ -28,6 +28,7 @@ pub struct ResourceModule {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceFunction {
     pub name: String,
+    pub origin_name: String,
     pub params: Vec<ResourceLocal>,
     pub result: TypeId,
     pub effect: Effect,

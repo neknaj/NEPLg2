@@ -17,10 +17,16 @@ impl ResourceModule {
         let entry = self.entry.as_deref().unwrap_or("<none>");
         let _ = writeln!(out, "resource_module entry={}", entry);
         for function in &self.functions {
+            let origin_suffix = if function.origin_name == function.name {
+                String::new()
+            } else {
+                format!(" origin={}", function.origin_name)
+            };
             let _ = writeln!(
                 out,
-                "fn {} effect={:?} result=t{} span={}:{}-{}",
+                "fn {}{} effect={:?} result=t{} span={}:{}-{}",
                 function.name,
+                origin_suffix,
                 function.effect,
                 function.result.0,
                 function.span.file_id.0,

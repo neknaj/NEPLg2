@@ -112,6 +112,7 @@ fn resource_ir_lowering_skeleton_tracks_locals_and_dump() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(2),
             params: vec![HirParam {
                 name: "arg".to_string(),
@@ -256,6 +257,7 @@ fn resource_ir_lowering_preserves_aggregate_and_branch_structure() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(4),
             params: vec![HirParam {
                 name: "arg".to_string(),
@@ -337,6 +339,7 @@ fn resource_ir_lowering_uses_declared_local_type_for_drop() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(2),
             params: vec![],
             result: unit_ty,
@@ -396,6 +399,7 @@ fn resource_ir_lowering_preserves_raw_memory_operations() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(2),
             params: vec![],
             result: i32_ty,
@@ -548,6 +552,7 @@ fn resource_ir_lowering_coverage_guards_borrow_and_deref_places() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(2),
             params: vec![HirParam {
                 name: "p".to_string(),
@@ -663,6 +668,7 @@ fn resource_ir_lowering_returns_concrete_unit_place_for_while() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(3),
             params: vec![],
             result: unit_ty,
@@ -738,6 +744,7 @@ fn resource_ir_effect_check_reports_raw_alloc_return_escape() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(20),
             params: vec![],
             result: i32_ty,
@@ -795,6 +802,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_raw_slot() {
     let module = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: i32_ty,
             effect: Effect::Pure,
@@ -886,6 +894,7 @@ fn raw_identity_payload_escape_after_destructive_overwrite(overwrite: RawMemoryO
     let module = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: i32_ty,
             effect: Effect::Pure,
@@ -1035,6 +1044,7 @@ fn resource_ir_effect_check_preserves_raw_slot_pointer_alias_stored_in_aggregate
     let module = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: i32_ty,
             effect: Effect::Pure,
@@ -1149,6 +1159,7 @@ fn resource_ir_effect_check_preserves_raw_slot_pointer_alias_fields_across_aggre
     let module = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: i32_ty,
             effect: Effect::Pure,
@@ -1250,6 +1261,7 @@ fn resource_ir_effect_check_preserves_raw_slot_identity_after_pointer_reassignme
     let module = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: i32_ty,
             effect: Effect::Pure,
@@ -1359,6 +1371,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_parameter_slot_alia
     let module = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![ResourceLocal {
                 name: "slot".to_string(),
                 ty: i32_ty,
@@ -1438,6 +1451,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_returned_slot_alias
         functions: vec![
             ResourceFunction {
                 name: "slot_id".to_string(),
+                origin_name: "slot_id".to_string(),
                 params: vec![ResourceLocal {
                     name: "slot".to_string(),
                     ty: i32_ty,
@@ -1460,6 +1474,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_returned_slot_alias
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![ResourceLocal {
                     name: "slot".to_string(),
                     ty: i32_ty,
@@ -1544,6 +1559,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_wrapped_in_struct() {
     let module = ResourceModule {
         functions: vec![ResourceFunction {
             name: "make_box".to_string(),
+            origin_name: "make_box".to_string(),
             params: vec![],
             result: box_ty,
             effect: Effect::Pure,
@@ -1624,6 +1640,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_read_from_constructed_aggre
     let module = ResourceModule {
         functions: vec![ResourceFunction {
             name: "read_box_field".to_string(),
+            origin_name: "read_box_field".to_string(),
             params: vec![],
             result: i32_ty,
             effect: Effect::Pure,
@@ -1710,6 +1727,7 @@ fn resource_ir_effect_check_preserves_raw_identity_fields_across_aggregate_copy(
     let module = ResourceModule {
         functions: vec![ResourceFunction {
             name: "read_copied_box_field".to_string(),
+            origin_name: "read_copied_box_field".to_string(),
             params: vec![],
             result: i32_ty,
             effect: Effect::Pure,
@@ -1783,6 +1801,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_identity_call() {
         functions: vec![
             ResourceFunction {
                 name: "raw_id".to_string(),
+                origin_name: "raw_id".to_string(),
                 params: vec![nepl_core::resource::ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -1805,6 +1824,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_identity_call() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Pure,
@@ -1876,6 +1896,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_function_value_call
         functions: vec![
             ResourceFunction {
                 name: "raw_id".to_string(),
+                origin_name: "raw_id".to_string(),
                 params: vec![nepl_core::resource::ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -1898,6 +1919,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_function_value_call
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Pure,
@@ -2002,6 +2024,7 @@ fn resource_ir_effect_check_uses_known_function_alias_stored_in_aggregate_field(
         functions: vec![
             ResourceFunction {
                 name: "return_zero".to_string(),
+                origin_name: "return_zero".to_string(),
                 params: vec![ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -2029,6 +2052,7 @@ fn resource_ir_effect_check_uses_known_function_alias_stored_in_aggregate_field(
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Pure,
@@ -2111,6 +2135,7 @@ fn resource_ir_effect_check_clears_stale_function_alias_on_assignment() {
         functions: vec![
             ResourceFunction {
                 name: "safe_zero".to_string(),
+                origin_name: "safe_zero".to_string(),
                 params: vec![nepl_core::resource::ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -2138,6 +2163,7 @@ fn resource_ir_effect_check_clears_stale_function_alias_on_assignment() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Pure,
@@ -2229,6 +2255,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_higher_order_helper
         functions: vec![
             ResourceFunction {
                 name: "apply".to_string(),
+                origin_name: "apply".to_string(),
                 params: vec![
                     nepl_core::resource::ResourceLocal {
                         name: "p".to_string(),
@@ -2269,6 +2296,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_higher_order_helper
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Pure,
@@ -2344,6 +2372,7 @@ fn resource_ir_effect_check_reports_unsafe_memory_in_pure_function() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(21),
             params: vec![],
             result: unit_ty,
@@ -2562,6 +2591,7 @@ fn resource_ir_lowering_treats_compiler_field_load_as_field_read() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty,
             params: vec![pair_param],
             result: i32_ty,
@@ -2683,6 +2713,7 @@ fn resource_ir_lowering_projects_raw_aggregate_field_without_whole_load() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty,
             params: vec![raw_param],
             result: i32_ty,
@@ -2831,6 +2862,7 @@ fn resource_ir_lowering_preserves_call_targets_and_callback_places() {
     let main = HirFunction {
         doc: None,
         name: "main".to_string(),
+        origin_name: "main".to_string(),
         func_ty: TypeId(3),
         params: vec![HirParam {
             name: "arg".to_string(),
@@ -2903,6 +2935,7 @@ fn resource_ir_lowering_preserves_call_targets_and_callback_places() {
     let callee = HirFunction {
         doc: None,
         name: "callee".to_string(),
+        origin_name: "callee".to_string(),
         func_ty: TypeId(4),
         params: vec![HirParam {
             name: "value".to_string(),
@@ -3046,6 +3079,7 @@ fn resource_ir_effect_check_rejects_impure_indirect_call_in_pure_function() {
     let module = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![ResourceLocal {
                 name: "callback".to_string(),
                 ty: fn_ty,
@@ -3117,6 +3151,7 @@ fn resource_ir_check_allows_repeated_copy_reads() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(8),
             params: vec![],
             result: unit_ty,
@@ -3224,6 +3259,7 @@ fn resource_ir_check_auto_drops_live_non_copy_local_at_scope_end() {
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(9),
             params: vec![],
             result: unit_ty,
@@ -3507,6 +3543,77 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_drop_elaboration_plan_preserves_monomorphized_function_origin() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
+
+fn ignore <.T> <(.T)->i32> (_value):
+    1
+
+fn main <()->i32> ():
+    ignore<Guard> Guard 7
+"#;
+    let (module, mut types) = typecheck_resource_source(source);
+    let (module, unresolved_trait_calls) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    assert!(
+        unresolved_trait_calls.is_empty(),
+        "unresolved trait calls: {:#?}",
+        unresolved_trait_calls
+    );
+    let ignore_hir = module
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "ignore")
+        .expect("monomorphized ignore HIR function should keep source origin");
+    assert_ne!(
+        ignore_hir.name, ignore_hir.origin_name,
+        "generic instantiation must keep the mangled function name separate from source origin"
+    );
+
+    let resource = lower_hir_module(&module, &types);
+    let ignore_resource = resource
+        .functions
+        .iter()
+        .find(|function| function.name == ignore_hir.name)
+        .expect("Resource IR function should be lowered from the monomorphized HIR function");
+    assert_eq!(ignore_resource.origin_name, "ignore");
+    assert!(
+        resource
+            .dump_text()
+            .contains(&format!("fn {} origin=ignore", ignore_resource.name)),
+        "Resource IR dump should expose explicit function origin metadata:\n{}",
+        resource.dump_text()
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let elaboration_plan = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect("drop elaboration should accept checked facts for monomorphized functions");
+    let ignore_plan = elaboration_plan
+        .functions
+        .iter()
+        .find(|function| function.name == ignore_resource.name)
+        .expect("drop elaboration plan should include the monomorphized ignore function");
+    assert_eq!(ignore_plan.origin_name, "ignore");
+    assert!(ignore_plan.auto_drops.iter().any(|drop| {
+        drop.source_name == "_value"
+            && matches!(&drop.place.root, PlaceRoot::Local(name) if name == "_value")
+    }));
+}
+
+#[test]
 fn resource_ir_drop_elaboration_plan_uses_checked_live_drop_facts() {
     let source = r#"
 #entry main
@@ -3688,6 +3795,7 @@ fn resource_ir_drop_elaboration_plan_rejects_missing_source_binding() {
     let resource = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: unit_ty,
             effect: Effect::Pure,
@@ -3853,6 +3961,7 @@ fn resource_ir_check_reports_uninitialized_read() {
     let resource = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: unit_ty,
             effect: Effect::Pure,
@@ -3966,6 +4075,7 @@ fn resource_ir_cell_check_allows_external_parameter_raw_load() {
     let resource = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![ResourceLocal {
                 name: "p".to_string(),
                 ty: i32_ty,
@@ -4052,6 +4162,7 @@ fn resource_ir_cell_check_allows_external_aggregate_mem_ptr_field_raw_load() {
     let resource = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![ResourceLocal {
                 name: "v".to_string(),
                 ty: vec_ty,
@@ -4147,6 +4258,7 @@ fn resource_ir_cell_check_tracks_external_non_copy_raw_load_after_first_move() {
     let resource = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![ResourceLocal {
                 name: "p".to_string(),
                 ty: i32_ty,
@@ -4280,6 +4392,7 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_helper() {
         functions: vec![
             ResourceFunction {
                 name: "slot_id".to_string(),
+                origin_name: "slot_id".to_string(),
                 params: vec![ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -4302,6 +4415,7 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_helper() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -4385,6 +4499,7 @@ fn resource_ir_cell_check_preserves_initialized_raw_cells_returned_by_helper() {
         functions: vec![
             ResourceFunction {
                 name: "make_slot".to_string(),
+                origin_name: "make_slot".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Impure,
@@ -4421,6 +4536,7 @@ fn resource_ir_cell_check_preserves_initialized_raw_cells_returned_by_helper() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Impure,
@@ -4488,6 +4604,7 @@ fn resource_ir_cell_check_preserves_initialized_raw_cells_returned_by_branch_hel
         functions: vec![
             ResourceFunction {
                 name: "make_slot".to_string(),
+                origin_name: "make_slot".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Impure,
@@ -4560,6 +4677,7 @@ fn resource_ir_cell_check_preserves_initialized_raw_cells_returned_by_branch_hel
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Impure,
@@ -4631,6 +4749,7 @@ fn resource_ir_cell_check_summarizes_unit_helper_argument_raw_cell_initializatio
         functions: vec![
             ResourceFunction {
                 name: "fill_slot".to_string(),
+                origin_name: "fill_slot".to_string(),
                 params: vec![ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -4663,6 +4782,7 @@ fn resource_ir_cell_check_summarizes_unit_helper_argument_raw_cell_initializatio
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Impure,
@@ -4743,6 +4863,7 @@ fn resource_ir_cell_check_keeps_conditional_unit_helper_argument_init_conservati
         functions: vec![
             ResourceFunction {
                 name: "maybe_fill_slot".to_string(),
+                origin_name: "maybe_fill_slot".to_string(),
                 params: vec![ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -4803,6 +4924,7 @@ fn resource_ir_cell_check_keeps_conditional_unit_helper_argument_init_conservati
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Impure,
@@ -5503,6 +5625,7 @@ fn resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_po
         functions: vec![
             ResourceFunction {
                 name: "make_header".to_string(),
+                origin_name: "make_header".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Impure,
@@ -5557,6 +5680,7 @@ fn resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_po
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Impure,
@@ -5639,6 +5763,7 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_function_value() {
         functions: vec![
             ResourceFunction {
                 name: "slot_id".to_string(),
+                origin_name: "slot_id".to_string(),
                 params: vec![ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -5661,6 +5786,7 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_function_value() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -6309,6 +6435,7 @@ fn resource_ir_cell_check_reports_return_after_field_move() {
     let resource = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: wrapper_ty,
             effect: Effect::Pure,
@@ -6765,6 +6892,7 @@ fn resource_ir_owner_check_reports_helper_alloc_return_leak() {
         functions: vec![
             ResourceFunction {
                 name: "alloc_owner".to_string(),
+                origin_name: "alloc_owner".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Pure,
@@ -6787,6 +6915,7 @@ fn resource_ir_owner_check_reports_helper_alloc_return_leak() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -6840,6 +6969,7 @@ fn resource_ir_owner_check_transfers_owner_returned_by_helper() {
         functions: vec![
             ResourceFunction {
                 name: "owner_id".to_string(),
+                origin_name: "owner_id".to_string(),
                 params: vec![ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -6862,6 +6992,7 @@ fn resource_ir_owner_check_transfers_owner_returned_by_helper() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -6922,6 +7053,7 @@ fn resource_ir_owner_summary_does_not_treat_bool_parameters_as_owners() {
         functions: vec![
             ResourceFunction {
                 name: "bool_id".to_string(),
+                origin_name: "bool_id".to_string(),
                 params: vec![ResourceLocal {
                     name: "flag".to_string(),
                     ty: bool_ty,
@@ -6944,6 +7076,7 @@ fn resource_ir_owner_summary_does_not_treat_bool_parameters_as_owners() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -7002,6 +7135,7 @@ fn resource_ir_owner_check_does_not_freshen_recursive_copy_summary() {
         functions: vec![
             ResourceFunction {
                 name: "copy_loop".to_string(),
+                origin_name: "copy_loop".to_string(),
                 params: vec![ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -7045,6 +7179,7 @@ fn resource_ir_owner_check_does_not_freshen_recursive_copy_summary() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -7091,6 +7226,7 @@ fn resource_ir_owner_check_consumes_non_returned_owner_call_argument() {
         functions: vec![
             ResourceFunction {
                 name: "consume_owner".to_string(),
+                origin_name: "consume_owner".to_string(),
                 params: vec![ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -7115,6 +7251,7 @@ fn resource_ir_owner_check_consumes_non_returned_owner_call_argument() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -7170,6 +7307,7 @@ fn resource_ir_owner_check_lets_direct_raw_memory_op_consume_argument() {
         functions: vec![
             ResourceFunction {
                 name: "dealloc_raw".to_string(),
+                origin_name: "dealloc_raw".to_string(),
                 params: vec![ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -7194,6 +7332,7 @@ fn resource_ir_owner_check_lets_direct_raw_memory_op_consume_argument() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -7253,6 +7392,7 @@ fn resource_ir_owner_check_reports_function_value_alloc_return_leak() {
         functions: vec![
             ResourceFunction {
                 name: "alloc_owner".to_string(),
+                origin_name: "alloc_owner".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Pure,
@@ -7275,6 +7415,7 @@ fn resource_ir_owner_check_reports_function_value_alloc_return_leak() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -7357,6 +7498,7 @@ fn resource_ir_owner_check_reports_function_value_stored_in_aggregate_field_allo
         functions: vec![
             ResourceFunction {
                 name: "make_owner".to_string(),
+                origin_name: "make_owner".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Pure,
@@ -7379,6 +7521,7 @@ fn resource_ir_owner_check_reports_function_value_stored_in_aggregate_field_allo
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -7452,6 +7595,7 @@ fn resource_ir_owner_check_transfers_owner_returned_by_function_value() {
         functions: vec![
             ResourceFunction {
                 name: "owner_id".to_string(),
+                origin_name: "owner_id".to_string(),
                 params: vec![ResourceLocal {
                     name: "p".to_string(),
                     ty: i32_ty,
@@ -7474,6 +7618,7 @@ fn resource_ir_owner_check_transfers_owner_returned_by_function_value() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -7746,6 +7891,7 @@ fn resource_ir_owner_check_reports_aggregate_owner_return_leak_in_caller() {
         functions: vec![
             ResourceFunction {
                 name: "make_wrapper".to_string(),
+                origin_name: "make_wrapper".to_string(),
                 params: vec![],
                 result: wrapper_ty,
                 effect: Effect::Pure,
@@ -7779,6 +7925,7 @@ fn resource_ir_owner_check_reports_aggregate_owner_return_leak_in_caller() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -7850,6 +7997,7 @@ fn resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_hel
         functions: vec![
             ResourceFunction {
                 name: "id_wrapper".to_string(),
+                origin_name: "id_wrapper".to_string(),
                 params: vec![ResourceLocal {
                     name: "w".to_string(),
                     ty: wrapper_ty,
@@ -7872,6 +8020,7 @@ fn resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_hel
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -9639,6 +9788,7 @@ fn resource_ir_borrow_check_reports_returned_borrow_token() {
     let resource = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: i32_ty,
             effect: Effect::Pure,
@@ -9688,6 +9838,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_helper() {
         functions: vec![
             ResourceFunction {
                 name: "borrow_id".to_string(),
+                origin_name: "borrow_id".to_string(),
                 params: vec![ResourceLocal {
                     name: "token".to_string(),
                     ty: i32_ty,
@@ -9710,6 +9861,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_helper() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Pure,
@@ -9777,6 +9929,7 @@ fn resource_ir_borrow_check_releases_non_returned_call_argument_borrow_token() {
         functions: vec![
             ResourceFunction {
                 name: "observe".to_string(),
+                origin_name: "observe".to_string(),
                 params: vec![ResourceLocal {
                     name: "token".to_string(),
                     ty: i32_ty,
@@ -9796,6 +9949,7 @@ fn resource_ir_borrow_check_releases_non_returned_call_argument_borrow_token() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -9857,6 +10011,7 @@ fn resource_ir_borrow_check_keeps_local_call_argument_borrow_token_live() {
         functions: vec![
             ResourceFunction {
                 name: "observe".to_string(),
+                origin_name: "observe".to_string(),
                 params: vec![ResourceLocal {
                     name: "token".to_string(),
                     ty: i32_ty,
@@ -9876,6 +10031,7 @@ fn resource_ir_borrow_check_keeps_local_call_argument_borrow_token_live() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -9950,6 +10106,7 @@ fn resource_ir_borrow_check_keeps_returned_call_argument_borrow_token_live() {
         functions: vec![
             ResourceFunction {
                 name: "borrow_id".to_string(),
+                origin_name: "borrow_id".to_string(),
                 params: vec![ResourceLocal {
                     name: "token".to_string(),
                     ty: i32_ty,
@@ -9972,6 +10129,7 @@ fn resource_ir_borrow_check_keeps_returned_call_argument_borrow_token_live() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -10045,6 +10203,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_function_value() {
         functions: vec![
             ResourceFunction {
                 name: "borrow_id".to_string(),
+                origin_name: "borrow_id".to_string(),
                 params: vec![ResourceLocal {
                     name: "token".to_string(),
                     ty: i32_ty,
@@ -10067,6 +10226,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_function_value() {
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: i32_ty,
                 effect: Effect::Pure,
@@ -10143,6 +10303,7 @@ fn resource_ir_borrow_check_releases_non_returned_indirect_call_argument_borrow_
         functions: vec![
             ResourceFunction {
                 name: "observe".to_string(),
+                origin_name: "observe".to_string(),
                 params: vec![ResourceLocal {
                     name: "token".to_string(),
                     ty: i32_ty,
@@ -10162,6 +10323,7 @@ fn resource_ir_borrow_check_releases_non_returned_indirect_call_argument_borrow_
             },
             ResourceFunction {
                 name: "main".to_string(),
+                origin_name: "main".to_string(),
                 params: vec![],
                 result: unit_ty,
                 effect: Effect::Pure,
@@ -10228,6 +10390,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_unknown_callback() 
     let resource = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: i32_ty,
             effect: Effect::Pure,
@@ -10290,6 +10453,7 @@ fn resource_ir_borrow_check_does_not_return_unknown_callback_token_with_mismatch
     let resource = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: bool_ty,
             effect: Effect::Pure,
@@ -10346,6 +10510,7 @@ fn resource_ir_borrow_check_clears_stale_function_alias_on_assignment() {
     let resource = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: i32_ty,
             effect: Effect::Pure,
@@ -10424,6 +10589,7 @@ fn resource_ir_borrow_check_allows_return_after_borrow_release() {
     let resource = ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: i32_ty,
             effect: Effect::Pure,
@@ -12335,6 +12501,7 @@ fn manual_resource_module(unit_ty: TypeId, span: Span, ops: Vec<ResourceOp>) -> 
     ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             params: vec![],
             result: unit_ty,
             effect: Effect::Pure,
@@ -12418,6 +12585,7 @@ fn raw_owner_module(
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(10),
             params: vec![],
             result: unit_ty,
@@ -12498,6 +12666,7 @@ fn non_copy_read_module(
         functions: vec![HirFunction {
             doc: None,
             name: "main".to_string(),
+            origin_name: "main".to_string(),
             func_ty: TypeId(9),
             params: vec![],
             result: unit_ty,

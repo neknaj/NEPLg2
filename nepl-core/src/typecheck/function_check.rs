@@ -263,6 +263,7 @@ pub(super) fn check_function(
     let mut function = HirFunction {
         doc: f.doc.clone(),
         name: out_name,
+        origin_name: f.name.name.clone(),
         func_ty, // assigned here
         params: {
             let mut out = Vec::new();

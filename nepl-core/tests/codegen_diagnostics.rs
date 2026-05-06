@@ -27,6 +27,7 @@ fn zero_arg_function(ctx: &mut TypeCtx, name: &str, result: TypeId, expr: HirExp
     HirFunction {
         doc: None,
         name: name.to_string(),
+        origin_name: name.to_string(),
         func_ty,
         params: Vec::new(),
         result,
@@ -55,6 +56,7 @@ fn one_arg_function(
     HirFunction {
         doc: None,
         name: name.to_string(),
+        origin_name: name.to_string(),
         func_ty,
         params: vec![HirParam {
             name: param_name.to_string(),

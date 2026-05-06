@@ -24,6 +24,7 @@ pub struct HirModule {
 pub struct HirFunction {
     pub doc: Option<String>,
     pub name: String,
+    pub origin_name: String,
     pub func_ty: TypeId, // new
     pub params: Vec<HirParam>,
     pub result: TypeId,

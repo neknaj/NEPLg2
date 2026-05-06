@@ -131,6 +131,12 @@ drop elaboration plan は checked `Place` だけでなく、backend/HIR が参�
 
 `ResourceDropElaborationDrop` は place、source_name、drop requirement、span を持つ。binding metadata は parameter、`DeclareLocal`、match arm binding から収集し、見つからない場合は `MissingDropBinding` enum error で hard gate する。これにより、次の HIR `passes::insert_drops` 置換で source 名復元のために HIR scope walker へ戻る必要をなくす。
 
+## 2026-05-06 drop elaboration function origin 追補
+
+Resource IR drop elaboration plan は function 単位で `origin_name` を持つようになった。`HirFunction` は typecheck で source-level name を `origin_name` として保持し、monomorphize は specialized `name` だけを変更して origin を維持する。Resource IR lowering と drop elaboration plan はこの metadata をそのまま伝搬する。
+
+これは HIR `passes::insert_drops` 削除へ向けた codegen 境界の補強である。monomorphized function name を parsing して source HIR function を推測する設計は、generic specialization と overload/mangle に依存する技術的負債になる。今後の drop call 生成は `name`、`origin_name`、source binding、checked drop point path を合わせて使い、Resource IR の checked live fact から source/backend の挿入位置を決める。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

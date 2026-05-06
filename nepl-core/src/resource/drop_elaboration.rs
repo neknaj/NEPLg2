@@ -22,6 +22,7 @@ pub struct ResourceDropElaborationPlan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceDropElaborationFunction {
     pub name: String,
+    pub origin_name: String,
     pub auto_drops: Vec<ResourceDropElaborationDrop>,
     pub drop_points: Vec<ResourceDropElaborationPoint>,
 }
@@ -184,6 +185,7 @@ fn validate_function_drop_points(
 
     ResourceDropElaborationFunction {
         name: function.name.clone(),
+        origin_name: function.origin_name.clone(),
         auto_drops: drop_points
             .iter()
             .flat_map(|point| point.auto_drops.iter().cloned())
