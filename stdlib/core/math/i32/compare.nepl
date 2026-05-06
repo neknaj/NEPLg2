@@ -1,0 +1,322 @@
+//: # math/i32/compare
+//: i32 の比較演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - i32 の等値・符号付き比較・符号なし比較を算術や bitwise 演算から分けて管理します。
+//: - `core/math/i32` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - signed / unsigned の比較 API を明確に分け、呼び出し側がどちらの順序を使うかを関数名で選びます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/math/i32/compare" as *
+//: fn main <()*>()> ():
+//:     assert eq 7 7;
+//:     assert lt_u 0 -1;
+//: ```
+
+#indent 4
+
+//: eq: i32 の等値比較
+//:
+//: [目的/もくてき]:
+//: - 2つの i32 が等しいとき true、異なるとき false を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.eq`、llvm は `icmp eq` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     assert eq 7 7;
+//:     assert ne 7 8;
+//:     assert lt -1 0;
+//:     assert lt_u 0 -1;
+//:     assert le 7 7;
+//:     assert le_u 7 8;
+//:     assert gt 9 3;
+//:     assert gt_u -1 0;
+//:     assert ge 9 9;
+//:     assert ge_u -1 -1;
+//: ```
+fn eq <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.eq
+    #if[target=llvm]
+    #llvmir:
+        define i32 @eq(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp eq i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ne: i32 の非等値比較
+//:
+//: [目的/もくてき]:
+//: - 2つの i32 が異なるとき true を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.ne`、llvm は `icmp ne` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ne <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.ne
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ne(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ne i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: lt: i32 の符号付き小なり比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号付き整数として比較し、`a < b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.lt_s`、llvm は `icmp slt` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn lt <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.lt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @lt(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp slt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: lt_u: i32 の符号なし小なり比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号なし整数として比較し、`a < b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.lt_u`、llvm は `icmp ult` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn lt_u <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.lt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @lt_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ult i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: le: i32 の符号付き以下比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号付き整数として比較し、`a <= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.le_s`、llvm は `icmp sle` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn le <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.le_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @le(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sle i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: le_u: i32 の符号なし以下比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号なし整数として比較し、`a <= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.le_u`、llvm は `icmp ule` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn le_u <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.le_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @le_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ule i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: gt: i32 の符号付き大なり比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号付き整数として比較し、`a > b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.gt_s`、llvm は `icmp sgt` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn gt <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.gt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @gt(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sgt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: gt_u: i32 の符号なし大なり比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号なし整数として比較し、`a > b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.gt_u`、llvm は `icmp ugt` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn gt_u <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.gt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @gt_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp ugt i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ge: i32 の符号付き以上比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号付き整数として比較し、`a >= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.ge_s`、llvm は `icmp sge` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ge <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.ge_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ge(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp sge i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ge_u: i32 の符号なし以上比較
+//:
+//: [目的/もくてき]:
+//: - i32 を符号なし整数として比較し、`a >= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.ge_u`、llvm は `icmp uge` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は bool 型です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ge_u <(i32,i32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.ge_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ge_u(i32 %a, i32 %b) {
+        entry:
+            %0 = icmp uge i32 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
