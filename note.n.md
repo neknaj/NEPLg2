@@ -1,3 +1,26 @@
+# 2026-05-06 note (ISS-20260429T155343006Z BloomFilter typed Vec storage)
+
+- [同期]:
+  - `ac7a6ffd` の AdjacencyMatrix typed storage push 後、`origin/main` と一致する clean な `main` から branch `fix/bloom-filter-typed-storage` を作成して対応中。
+- [原因]:
+  - `BloomFilter` は bit array storage を raw `MemPtr<u8>` で所有し、`alloc_ptr` / `load_u8` / `store_u8` / `dealloc_raw` による storage discipline に依存していた。
+  - BitSet / AdjacencyMatrix と同じ byte-backed bitset なのに raw pointer owner が残っており、typed storage へ揃える必要があった。
+- [修正]:
+  - `BloomFilter.bits` を `Vec<u8>` owner に変更し、初期化は `vec::filled<u8>`、読み書きは `vec::get<u8>` / `vec::replace<u8>`、解放は `vec::free<u8>` に集約した。
+  - `vec::get` の `Option::None` は正常値 `0` へ丸めず、`Option<i32>` を返して caller 側で `match` する。
+  - `insert` / `clear` は typed storage mutation として `*` effect を明示した。
+  - BloomFilter source policy と collection/mem/string safety design doc、collection storage issue を更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bloom_filter.nepl --no-tree -o tmp/bloom-filter-vec-storage-doctest4.json -j 1`: total=6, passed=6
+  - `node nodesrc/tests.js -i stdlib/tests/bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md --no-tree -o tmp/bloom-filter-vec-storage-focused4.json -j 1`: total=4, passed=4
+  - `node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_bloom_filter_borrowed_observers.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260429T155343006Z AdjacencyMatrix typed Vec storage)
 
 - [同期]:

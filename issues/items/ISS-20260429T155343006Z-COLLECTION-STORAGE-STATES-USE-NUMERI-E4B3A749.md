@@ -364,7 +364,35 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- List node storage、Bloom / CountingBloom などの raw byte storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+- List node storage、CountingBloom などの raw byte storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+
+## 2026-05-06 BloomFilter typed Vec storage 部分進捗
+
+`stdlib/alloc/collections/bloom_filter.nepl` は bit array payload を raw `MemPtr<u8>` array から `Vec<u8>` owner へ移行した。
+
+進捗:
+
+- `BloomFilter` 本体は `nbits/nbytes/bits/hasher` を持ち、`bits` は `Vec<u8>` として保持する。
+- `new` は `alloc_ptr<u8>` と raw zero-fill loop を使わず、`vec::filled<u8>` で初期化済み byte storage を確保する。
+- bit byte の読み書きは `vec::get` / `vec::replace` に集約し、`BloomFilter` から `MemPtr` / `mem_ptr_wrap` / `mem_ptr_addr` / `alloc_ptr` / `load_u8` / `store_u8` / `dealloc_raw` を排除した。
+- byte read helper は `vec::get` の `Option::None` を正常値に丸めず、`Option<i32>` を返して caller 側で `match` する。
+- `insert` / `clear` は typed storage mutation として `*` effect を明示した。
+- `free` は `vec::free<u8>` で bit storage owner を閉じる。
+- `nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js` は typed `Vec<u8>` storage、Vec helper 経由の byte read/write、raw MemPtr / raw byte load-store 禁止を固定するよう更新した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/bloom_filter.nepl --no-tree -o tmp/bloom-filter-vec-storage-doctest4.json -j 1`: total=6, passed=6
+- `node nodesrc/tests.js -i stdlib/tests/bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md --no-tree -o tmp/bloom-filter-vec-storage-focused4.json -j 1`: total=4, passed=4
+- `node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_bloom_filter_borrowed_observers.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+
+残件:
+
+- List node storage、CountingBloom などの raw byte storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
 
 ## 2026-05-06 AdjacencyMatrix typed Vec storage 部分進捗
 

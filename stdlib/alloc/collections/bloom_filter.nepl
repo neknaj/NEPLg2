@@ -24,14 +24,16 @@
 //: - `insert` / `contains` は probe [本数/ほんすう]を k=3 として O(1) です。
 //: - `clear` は bit [配列/はいれつ][長/ちょう]を m byte として O(m) です。
 
-#import "core/mem" as *
+#import "core/cast" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
 #import "core/traits/hash_key" as *
 #import "core/traits/hash" as *
 #import "core/traits/copy" as *
 #import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
 
 //: ## BloomFilter
 //: bitset と hasher を[保持/ほじ]する[所有者/しょゆうしゃ]
@@ -45,7 +47,7 @@
 struct BloomFilter<.T,.H>:
     nbits <i32>
     nbytes <i32>
-    bits <MemPtr<u8>>
+    bits <Vec<u8>>
     hasher <.H>
 
 fn bloom_invalid_len_diag <()*>Diag> ():
@@ -69,19 +71,50 @@ fn bloom_byte_index <(i32)->i32> (bit_idx):
 fn bloom_bit_mask <(i32)->i32> (bit_idx):
     shl 1 rem_s bit_idx 8
 
-fn bloom_set_bit <(MemPtr<u8>,i32)->()> (bits, bit_idx):
-    let byte_idx <i32> bloom_byte_index bit_idx
-    let mask <i32> bloom_bit_mask bit_idx
-    let ptr <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr bits byte_idx
-    let cur <i32> load_u8 mem_ptr_addr ptr
-    store_u8 mem_ptr_addr ptr or cur mask
+fn bloom_byte_at <(&Vec<u8>,i32)->Option<i32>> (bits, byte_idx):
+    match vec::get<u8> bits byte_idx:
+        Option::Some byte:
+            let value <i32> cast byte
+            some<i32> value
+        Option::None:
+            none<i32>
 
-fn bloom_test_bit <(MemPtr<u8>,i32)->bool> (bits, bit_idx):
+fn bloom_store_byte <(&Vec<u8>,i32,i32)*>()> (bits, byte_idx, byte_value):
+    let byte <u8> cast byte_value
+    vec::replace<u8> bits byte_idx byte
+
+fn bloom_set_bit <(&Vec<u8>,i32)*>()> (bits, bit_idx):
     let byte_idx <i32> bloom_byte_index bit_idx
     let mask <i32> bloom_bit_mask bit_idx
-    let ptr <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr bits byte_idx
-    let cur <i32> load_u8 mem_ptr_addr ptr
-    ne and cur mask 0
+    match bloom_byte_at bits byte_idx:
+        Option::Some cur:
+            bloom_store_byte bits byte_idx or cur mask
+        Option::None:
+            ()
+
+fn bloom_test_bit <(&Vec<u8>,i32)->bool> (bits, bit_idx):
+    let byte_idx <i32> bloom_byte_index bit_idx
+    let mask <i32> bloom_bit_mask bit_idx
+    match bloom_byte_at bits byte_idx:
+        Option::Some cur:
+            ne and cur mask 0
+        Option::None:
+            false
+
+fn bloom_fill_bytes <(&Vec<u8>,i32,i32)*>()> (bits, nbytes, byte_value):
+    let mut i <i32> 0
+    while lt i nbytes:
+        do:
+            bloom_store_byte bits i byte_value
+            set i add i 1
+
+fn bloom_alloc_bits <(i32,i32)*>Result<Vec<u8>, Diag>> (nbytes, byte_value):
+    let byte <u8> cast byte_value
+    match vec::filled<u8> nbytes byte:
+        Result::Ok bits:
+            ok<Vec<u8>, Diag> bits
+        Result::Err _e:
+            diag_err<Vec<u8>> diag_out_of_memory
 
 //: ## new
 //: [空/から]の Bloom Filter を[作/つく]る
@@ -109,16 +142,10 @@ fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<BloomFilter<.T,.
         then diag_err<BloomFilter<.T,.H>> bloom_invalid_len_diag
         else:
             let nbytes <i32> div_s add nbits 7 8
-            match alloc_ptr<u8> nbytes:
-                Result::Err _e:
-                    diag_err<BloomFilter<.T,.H>> diag_out_of_memory
+            match bloom_alloc_bits nbytes 0:
+                Result::Err d:
+                    err<BloomFilter<.T,.H>, Diag> d
                 Result::Ok bits:
-                    let mut i <i32> 0
-                    while lt i nbytes:
-                        do:
-                            let ptr <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr bits i
-                            store_u8 mem_ptr_addr ptr 0
-                            set i add i 1
                     ok<BloomFilter<.T,.H>, Diag> BloomFilter<.T,.H> nbits nbytes bits hasher
 
 //: ## len
@@ -163,10 +190,10 @@ fn len <.T,.H> <(&BloomFilter<.T,.H>)->i32> (bf):
 //:     free bf1
 //:     if ok 1 0
 //: ```
-fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)->BloomFilter<.T,.H>> (bf, key):
-    let nbits <i32> field::get bf "nbits"
-    let bits <MemPtr<u8>> field::get bf "bits"
-    let hasher <.H> field::get bf "hasher"
+fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)*>BloomFilter<.T,.H>> (bf, key):
+    let nbits <i32> *field::get_ref &bf "nbits"
+    let bits <&Vec<u8>> field::get_ref &bf "bits"
+    let hasher <.H> *field::get_ref &bf "hasher"
     let h0 <i32> bloom_hash0<.T,.H> hasher key
     let h1 <i32> bloom_hash1<.T,.H> hasher key
     let i0 <i32> rem_u h0 nbits
@@ -204,7 +231,7 @@ fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)->Bloom
 //: ```
 fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&BloomFilter<.T,.H>,.T)->bool> (bf, key):
     let nbits <i32> *field::get_ref bf "nbits"
-    let bits <MemPtr<u8>> *field::get_ref bf "bits"
+    let bits <&Vec<u8>> field::get_ref bf "bits"
     let hasher <.H> *field::get_ref bf "hasher"
     let h0 <i32> bloom_hash0<.T,.H> hasher key
     let h1 <i32> bloom_hash1<.T,.H> hasher key
@@ -239,23 +266,18 @@ fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&BloomFilter<.T,.H>,.T)->bo
 //:     free bf2
 //:     if ok 0 1
 //: ```
-fn clear <.T,.H> <(BloomFilter<.T,.H>)->BloomFilter<.T,.H>> (bf):
-    let nbytes <i32> field::get bf "nbytes"
-    let bits <MemPtr<u8>> field::get bf "bits"
-    let mut i <i32> 0
-    while lt i nbytes:
-        do:
-            let ptr <MemPtr<u8>> mem_ptr_wrap add mem_ptr_addr bits i
-            store_u8 mem_ptr_addr ptr 0
-            set i add i 1
+fn clear <.T,.H> <(BloomFilter<.T,.H>)*>BloomFilter<.T,.H>> (bf):
+    let nbytes <i32> *field::get_ref &bf "nbytes"
+    let bits <&Vec<u8>> field::get_ref &bf "bits"
+    bloom_fill_bytes bits nbytes 0
     bf
 
 //: ## free
 //: bitset [領域/りょういき]を[解放/かいほう]する
 //:
 //: ### [仕様/しよう]
-//: - `BloomFilter` は `new` が[確保/かくほ]した `nbytes > 0` の bit array を[所有/しょゆう]します。
-//: - `free` はその owner invariant に[基/もと]づき、bit array を `dealloc_raw` で[直接/ちょくせつ][解放/かいほう]します。
+//: - `BloomFilter` は `new` が[確保/かくほ]した `nbytes > 0` の `Vec<u8>` bit array を[所有/しょゆう]します。
+//: - `free` はその owner invariant に[基/もと]づき、`Vec<u8>` owner を[閉/と]じます。
 //: - caller は `free` [後/ご]の `BloomFilter` を[再利用/さいりよう]してはいけません。
 //:
 //: neplg2:test
@@ -272,6 +294,5 @@ fn clear <.T,.H> <(BloomFilter<.T,.H>)->BloomFilter<.T,.H>> (bf):
 //:     0
 //: ```
 fn free <.T,.H> <(BloomFilter<.T,.H>)->()> (bf):
-    let nbytes <i32> field::get bf "nbytes"
-    let bits <MemPtr<u8>> field::get bf "bits"
-    dealloc_raw mem_ptr_addr bits nbytes
+    let bits <Vec<u8>> field::get bf "bits"
+    vec::free<u8> bits
