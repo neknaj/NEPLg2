@@ -1,6 +1,7 @@
 use alloc::vec::Vec;
 
 use crate::span::Span;
+use crate::types::TypeKind;
 
 use super::cell_state::CellTable;
 use super::function_alias::FunctionAliasTable;
@@ -79,52 +80,72 @@ impl ResourceCheckEngine<'_> {
             else_ops,
         );
 
-        let then_available = self.consume_by_value(
-            &mut then_cells,
-            then_value,
-            ResourceCheckOperation::BranchValue,
-            span,
-        );
-        let else_available = self.consume_by_value(
-            &mut else_cells,
-            else_value,
-            ResourceCheckOperation::BranchValue,
-            span,
-        );
-        if then_available {
-            self.copy_raw_alias_and_rekey_cells_preferring_target(
+        let mut cell_paths = Vec::new();
+        let mut alias_paths = Vec::new();
+        let mut function_alias_paths = Vec::new();
+        let mut pending_realloc_paths = Vec::new();
+        let mut variant_initialization_paths = Vec::new();
+        let mut paths_available = condition_available;
+        if !self.place_is_never(then_value) {
+            let then_available = self.consume_by_value(
                 &mut then_cells,
-                &mut then_aliases,
                 then_value,
-                output,
+                ResourceCheckOperation::BranchValue,
+                span,
             );
-            then_function_aliases.copy_alias(then_value, output);
-            then_pending_reallocs.copy_result(then_value, output);
-            then_variant_initializations.copy_result(then_value, output);
+            paths_available &= then_available;
+            if then_available {
+                self.copy_raw_alias_and_rekey_cells_preferring_target(
+                    &mut then_cells,
+                    &mut then_aliases,
+                    then_value,
+                    output,
+                );
+                then_function_aliases.copy_alias(then_value, output);
+                then_pending_reallocs.copy_result(then_value, output);
+                then_variant_initializations.copy_result(then_value, output);
+            }
+            cell_paths.push(then_cells);
+            alias_paths.push(then_aliases);
+            function_alias_paths.push(then_function_aliases);
+            pending_realloc_paths.push(then_pending_reallocs);
+            variant_initialization_paths.push(then_variant_initializations);
         }
-        if else_available {
-            self.copy_raw_alias_and_rekey_cells_preferring_target(
+        if !self.place_is_never(else_value) {
+            let else_available = self.consume_by_value(
                 &mut else_cells,
-                &mut else_aliases,
                 else_value,
-                output,
+                ResourceCheckOperation::BranchValue,
+                span,
             );
-            else_function_aliases.copy_alias(else_value, output);
-            else_pending_reallocs.copy_result(else_value, output);
-            else_variant_initializations.copy_result(else_value, output);
+            paths_available &= else_available;
+            if else_available {
+                self.copy_raw_alias_and_rekey_cells_preferring_target(
+                    &mut else_cells,
+                    &mut else_aliases,
+                    else_value,
+                    output,
+                );
+                else_function_aliases.copy_alias(else_value, output);
+                else_pending_reallocs.copy_result(else_value, output);
+                else_variant_initializations.copy_result(else_value, output);
+            }
+            cell_paths.push(else_cells);
+            alias_paths.push(else_aliases);
+            function_alias_paths.push(else_function_aliases);
+            pending_realloc_paths.push(else_pending_reallocs);
+            variant_initialization_paths.push(else_variant_initializations);
         }
 
-        *cells = CellTable::merge_paths(&[then_cells, else_cells]);
-        *raw_aliases = RawCellAddressAliases::merge_paths(&[then_aliases, else_aliases]);
-        *function_aliases =
-            FunctionAliasTable::merge_paths(&[then_function_aliases, else_function_aliases]);
-        *pending_reallocs =
-            PendingRawReallocs::merge_paths(&[then_pending_reallocs, else_pending_reallocs]);
-        *variant_initializations = PendingVariantRawCellInitializations::merge_paths(&[
-            then_variant_initializations,
-            else_variant_initializations,
-        ]);
-        if condition_available && then_available && else_available {
+        if !cell_paths.is_empty() {
+            *cells = CellTable::merge_paths(&cell_paths);
+            *raw_aliases = RawCellAddressAliases::merge_paths(&alias_paths);
+            *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
+            *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);
+            *variant_initializations =
+                PendingVariantRawCellInitializations::merge_paths(&variant_initialization_paths);
+        }
+        if paths_available && !cell_paths.is_empty() {
             cells.set_state(output, CellState::Initialized(output.ty));
         } else {
             raw_aliases.clear(output);
@@ -258,29 +279,31 @@ impl ResourceCheckEngine<'_> {
                 &mut arm_variant_initializations,
                 &arm.ops,
             );
-            let arm_available = self.consume_by_value(
-                &mut arm_cells,
-                &arm.value,
-                ResourceCheckOperation::MatchValue,
-                arm.span,
-            );
-            arms_available &= arm_available;
-            if arm_available {
-                self.copy_raw_alias_and_rekey_cells_preferring_target(
+            if !self.place_is_never(&arm.value) {
+                let arm_available = self.consume_by_value(
                     &mut arm_cells,
-                    &mut arm_aliases,
                     &arm.value,
-                    output,
+                    ResourceCheckOperation::MatchValue,
+                    arm.span,
                 );
-                arm_function_aliases.copy_alias(&arm.value, output);
-                arm_pending_reallocs.copy_result(&arm.value, output);
-                arm_variant_initializations.copy_result(&arm.value, output);
+                arms_available &= arm_available;
+                if arm_available {
+                    self.copy_raw_alias_and_rekey_cells_preferring_target(
+                        &mut arm_cells,
+                        &mut arm_aliases,
+                        &arm.value,
+                        output,
+                    );
+                    arm_function_aliases.copy_alias(&arm.value, output);
+                    arm_pending_reallocs.copy_result(&arm.value, output);
+                    arm_variant_initializations.copy_result(&arm.value, output);
+                }
+                arm_paths.push(arm_cells);
+                alias_paths.push(arm_aliases);
+                function_alias_paths.push(arm_function_aliases);
+                pending_realloc_paths.push(arm_pending_reallocs);
+                variant_initialization_paths.push(arm_variant_initializations);
             }
-            arm_paths.push(arm_cells);
-            alias_paths.push(arm_aliases);
-            function_alias_paths.push(arm_function_aliases);
-            pending_realloc_paths.push(arm_pending_reallocs);
-            variant_initialization_paths.push(arm_variant_initializations);
         }
 
         if arm_paths.is_empty() {
@@ -342,5 +365,12 @@ impl ResourceCheckEngine<'_> {
                 raw_aliases.clear(&pending.result);
             }
         }
+    }
+
+    fn place_is_never(&self, place: &Place) -> bool {
+        matches!(
+            self.types.get_ref(self.types.resolve_id(place.ty)),
+            TypeKind::Never
+        )
     }
 }

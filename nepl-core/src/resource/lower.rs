@@ -15,8 +15,9 @@ use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId};
 
 use super::lower_aggregate::{
-    lower_compiler_field_load_source, lower_field_get_call_source,
+    lower_compiler_field_load_source, lower_field_get_call_source, lower_field_get_ref_call_source,
     lower_get_field_intrinsic_source, lower_get_field_ref_intrinsic_source,
+    lower_reference_address_projection_source,
 };
 use super::lower_condition::resource_condition_fact;
 use super::lower_raw_address::{
@@ -292,6 +293,24 @@ pub(super) fn lower_expr_skeleton(
             output
         }
         HirExprKind::Call { callee, args } => {
+            if let Some(source) =
+                lower_field_get_ref_call_source(callee, args, expr.ty, ops, ctx, env)
+            {
+                let output = ctx.temporary(expr.ty);
+                ops.push(ResourceOp::Borrow {
+                    source,
+                    output: output.clone(),
+                    kind: BorrowKind::Shared,
+                    span: expr.span,
+                });
+                ops.push(ResourceOp::Expr {
+                    kind: ResourceExprKind::Borrow,
+                    output: output.clone(),
+                    ty: expr.ty,
+                    span: expr.span,
+                });
+                return output;
+            }
             if let Some(source) = lower_field_get_call_source(callee, args, expr.ty, ops, ctx, env)
             {
                 let output = ctx.temporary(expr.ty);
@@ -516,6 +535,24 @@ pub(super) fn lower_expr_skeleton(
             output
         }
         HirExprKind::Intrinsic { name, args, .. } => {
+            if let Some(source) =
+                lower_reference_address_projection_source(name, args, expr.ty, ops, ctx, env)
+            {
+                let output = ctx.temporary(expr.ty);
+                ops.push(ResourceOp::Borrow {
+                    source,
+                    output: output.clone(),
+                    kind: BorrowKind::Shared,
+                    span: expr.span,
+                });
+                ops.push(ResourceOp::Expr {
+                    kind: ResourceExprKind::Borrow,
+                    output: output.clone(),
+                    ty: expr.ty,
+                    span: expr.span,
+                });
+                return output;
+            }
             if let Some(source) =
                 lower_get_field_intrinsic_source(name, args, expr.ty, ops, ctx, env)
             {
@@ -784,7 +821,10 @@ fn is_simple_direct_call_tree(expr: &HirExpr) -> bool {
 }
 
 fn direct_call_needs_recursive_lowering(callee: &FuncRef) -> bool {
-    matches!(func_ref_base_name(callee), Some("get") | Some("get_field"))
+    matches!(
+        func_ref_base_name(callee),
+        Some("get") | Some("get_ref") | Some("get_field") | Some("get_field_ref")
+    )
 }
 
 fn push_direct_call_skeleton(

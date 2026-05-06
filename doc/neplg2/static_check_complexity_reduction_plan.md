@@ -16,6 +16,7 @@ NEPLg2 の Rust compiler は、型検査、effect 判定、move/borrow/lifetime�
 - [ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF](../../issues/items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md): `MemPtr` / `RegionToken` の provenance / owner model。
 - [ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84](../../issues/items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md): stdlib raw-memory-backed API の段階移行。
 - [ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D](../../issues/items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md): Resource IR / self-host model に合わせた compiler diagnostic 再設計。
+- [ISS-20260506T022705566Z-MOVE-CHECK-DOCTESTS-ARE-STALE-AFTER--EDD8402F](../../issues/items/ISS-20260506T022705566Z-MOVE-CHECK-DOCTESTS-ARE-STALE-AFTER--EDD8402F.md): Resource IR field projection / Never merge / move_check doctest authority の同期。
 
 ## 現状の問題
 
@@ -210,6 +211,7 @@ commit 単位:
 - 2026-05-06: Resource IR cell gate を raw-memory cell operation 専用から通常 read/move/drop/call/construct/branch/match/return まで広げた。`ResourceCheckDiagnostic::CellUnavailable` はすべて `resource.cell.*` として compiler diagnostic へ写像され、old move checker が見逃した通常 cell-state violation も Resource IR boundary で止める。残る Stage 4 の主な未完了点は old move checker と HIR drop insertion の統合削除である。
 - 2026-05-06: `run_move_check` の実行順序を見直し、Resource IR lowering coverage / cell / borrow / effect / owner gate を旧 `passes::move_check::run` より先に実行するようにした。旧 checker は Resource IR gate 通過後の fallback 防壁として残す。これにより Resource IR diagnostic が legacy HIR diagnostic に fail-fast で隠される問題を解消した。回帰防止として `nodesrc/test_resource_gate_order.js` を source policy runner に追加した。残る Stage 4 の主な未完了点は、fallback として残る old move checker の削除と HIR drop insertion の Resource IR drop elaboration への統合である。
 - 2026-05-06: `tests/compiler/move_effect.n.md` を Resource IR / effect gate 後の authority に合わせ直し、pure raw operation は `effect.pure.calls_impure`、raw cell state は impure fixture、move 後の raw load は `resource.cell.*` で検証する形へ整理した。あわせて direct `Result::Ok` payload match を介した raw address alias で canonical address が新規束縛名へ揺れ、moved cell が uninit と誤診断される問題を `RawCellAddressAliases` の合流規則で修正した。
+- 2026-05-06: `tests/compiler/move_check.n.md` を Stage 4 Resource IR authority に合わせ直し、52/52 passing にした。`field::get_ref` は typed `get_field_ref` intrinsic と Resource IR `Borrow` lowering で field cell state を保持し、compiler-lowered `add &owner offset` も field projection として coverage / initialized check が扱う。`Never` value の branch / match arm は initialized-state merge から除外し、到達不能 path が reachable cell state を汚染しないようにした。残る Stage 4 の主な未完了点は、旧 `passes::move_check::run` fallback の削除と HIR drop insertion の Resource IR drop elaboration への統合である。
 
 ### Stage 5: effect model の拡張
 

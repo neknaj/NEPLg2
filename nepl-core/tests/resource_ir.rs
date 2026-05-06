@@ -11105,6 +11105,89 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_field_get_ref_deref_uses_borrowed_field_cell() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+struct Pair:
+    token <LocalToken>
+    count <i32>
+
+fn main <()->i32> ():
+    let p <Pair> Pair (LocalToken @token_id) 7
+    let count <i32> *field::get_ref &p "count"
+    count
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CellUnavailable { function, .. } => {
+                function.starts_with("main__")
+            }
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "field::get_ref deref should read the borrowed field cell without uninit diagnostics: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_match_never_arm_does_not_poison_initialized_state() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/result" as *
+
+fn main <()->i32> ():
+    let mut acc <i32> 0
+    let r <Result<i32,str>> Result::Ok 7
+    match r:
+        Result::Ok v:
+            set acc v
+            acc
+        Result::Err _:
+            #intrinsic "unreachable" <> ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CellUnavailable { function, .. } => {
+                function.starts_with("main__")
+            }
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "never-valued match arms must not participate in initialized-state merge: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset() {
     let source = r#"
 #entry main

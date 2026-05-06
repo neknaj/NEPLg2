@@ -7,9 +7,10 @@ use crate::types::TypeCtx;
 
 use super::coverage::ResourceCoverageCounts;
 use super::coverage_hir_projection::{
-    callee_projects_reference_address, compiler_field_load_base_and_offset, field_get_call_owner,
-    get_field_intrinsic_owner, get_field_ref_intrinsic_owner, intrinsic_projects_reference_address,
-    raw_load_address_expr,
+    callee_projects_reference_address, callee_projects_reference_field,
+    compiler_field_load_base_and_offset, field_get_call_owner, get_field_intrinsic_owner,
+    get_field_ref_intrinsic_owner, intrinsic_projects_reference_address,
+    intrinsic_projects_reference_field, raw_load_address_expr,
 };
 use super::coverage_hir_raw::should_count_raw_memory_call;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
@@ -65,7 +66,10 @@ fn hir_expr_coverage(
                 hir_field_projection_source_coverage(owner, counts, types, string_literals);
                 return;
             }
-            if callee_projects_reference_address(callee, args, types) {
+            if callee_projects_reference_field(callee, args, expr.ty, types) {
+                counts.borrows += 1;
+                counts.deref_projections += 1;
+            } else if callee_projects_reference_address(callee, args, types) {
                 counts.deref_projections += 1;
             }
             counts.direct_calls += 1;
@@ -148,7 +152,10 @@ fn hir_expr_coverage(
                 hir_field_projection_source_coverage(owner, counts, types, string_literals);
                 return;
             }
-            if intrinsic_projects_reference_address(name, args, types) {
+            if intrinsic_projects_reference_field(name, args, expr.ty, types) {
+                counts.borrows += 1;
+                counts.deref_projections += 1;
+            } else if intrinsic_projects_reference_address(name, args, types) {
                 counts.deref_projections += 1;
             }
             if let Some((base, _)) = compiler_field_load_base_and_offset(name, args, expr.ty, types)
@@ -192,6 +199,10 @@ fn hir_place_expr_coverage(
             hir_place_expr_coverage(inner, counts, types, string_literals);
         }
         HirExprKind::Intrinsic { name, args, .. } if name == "add" && !args.is_empty() => {
+            if intrinsic_projects_reference_field(name, args, expr.ty, types) {
+                counts.borrows += 1;
+                counts.deref_projections += 1;
+            }
             hir_place_expr_coverage(&args[0], counts, types, string_literals);
             for arg in args.iter().skip(1) {
                 hir_expr_coverage(arg, counts, types, string_literals);

@@ -77,33 +77,17 @@ impl<'a> BlockChecker<'a> {
             }));
         } else if field_accessor == FieldAccessorKind::GetRef && args.len() == 2 {
             let ref_ty = self.ctx.reference(f_ty, false);
-            let addr_expr = if offset == 0 {
-                HirExpr {
-                    ty: ref_ty,
-                    kind: obj.kind,
-                    span,
-                }
-            } else {
-                HirExpr {
-                    ty: ref_ty,
-                    kind: HirExprKind::Intrinsic {
-                        name: "add".to_string(),
-                        type_args: vec![self.ctx.i32()],
-                        args: vec![
-                            obj,
-                            HirExpr {
-                                ty: self.ctx.i32(),
-                                kind: HirExprKind::LiteralI32(offset as i32),
-                                span: idx.span,
-                            },
-                        ],
-                    },
-                    span,
-                }
-            };
             return FieldAccessorApplyResult::Handled(Some(StackEntry {
                 ty: ref_ty,
-                expr: addr_expr,
+                expr: HirExpr {
+                    ty: ref_ty,
+                    kind: HirExprKind::Intrinsic {
+                        name: "get_field_ref".to_string(),
+                        type_args: Vec::new(),
+                        args: vec![obj, idx.clone()],
+                    },
+                    span,
+                },
                 type_args: Vec::new(),
                 assign: None,
                 auto_call: true,

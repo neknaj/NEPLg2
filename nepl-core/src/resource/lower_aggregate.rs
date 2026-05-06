@@ -70,6 +70,20 @@ pub(super) fn lower_field_get_call_source(
     Some(base.with_projection(projection, field_ty))
 }
 
+pub(super) fn lower_field_get_ref_call_source(
+    callee: &FuncRef,
+    args: &[HirExpr],
+    ref_ty: TypeId,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    if func_ref_base_name(callee)? != "get_ref" {
+        return None;
+    }
+    field_get_ref_source(args, ref_ty, ops, ctx, env)
+}
+
 pub(super) fn lower_get_field_intrinsic_source(
     name: &str,
     args: &[HirExpr],
@@ -118,6 +132,42 @@ pub(super) fn lower_get_field_ref_intrinsic_source(
     if helper_base_name(name) != "get_field_ref" {
         return None;
     }
+    field_get_ref_source(args, ref_ty, ops, ctx, env)
+}
+
+pub(super) fn lower_reference_address_projection_source(
+    name: &str,
+    args: &[HirExpr],
+    ref_ty: TypeId,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Option<Place> {
+    if helper_base_name(name) != "add" || args.len() != 2 {
+        return None;
+    }
+    let owner = args.first()?;
+    let owner_ty = reference_target_type(env.types, owner.ty)?;
+    let field_ty = reference_target_type(env.types, ref_ty)?;
+    let offset_bytes = non_negative_i32_literal(args.get(1)?)?;
+    let projection = aggregate_field_projection(env.types, owner_ty, offset_bytes, field_ty)?;
+    let mut base = place_from_expr_skeleton(owner, ctx);
+    if matches!(&base.root, super::model::PlaceRoot::Unknown) {
+        base = lower_expr_skeleton(owner, ops, ctx, env);
+    }
+    Some(
+        base.with_projection(PlaceProjection::Deref, owner_ty)
+            .with_projection(projection, field_ty),
+    )
+}
+
+fn field_get_ref_source(
+    args: &[HirExpr],
+    ref_ty: TypeId,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Option<Place> {
     let owner = args.first()?;
     let owner_ref_target = reference_target_type(env.types, owner.ty);
     let owner_ty = owner_ref_target.unwrap_or(owner.ty);
@@ -143,6 +193,13 @@ pub(super) fn lower_get_field_ref_intrinsic_source(
         base = base.with_projection(PlaceProjection::Deref, owner_ty);
     }
     Some(base.with_projection(projection, field_ty))
+}
+
+fn non_negative_i32_literal(expr: &HirExpr) -> Option<usize> {
+    match expr.kind {
+        HirExprKind::LiteralI32(value) if value >= 0 => Some(value as usize),
+        _ => None,
+    }
 }
 
 fn literal_field_name<'a>(env: &'a LoweringEnvironment, expr: &HirExpr) -> Option<&'a str> {

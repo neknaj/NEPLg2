@@ -31115,3 +31115,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `nm/html_gen` の section renderer、`nm/parser` の section stack / block serializer、`alloc/string.nepl`、`alloc/collections/vec.nepl` は引き続き分割候補。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260506T022705566Z move_check Resource IR field projection)
+
+- [同期]:
+  - `main` 上の Resource IR field projection commit を remote main `0204e431` へ rebase してから、Stage 4 Resource IR / move_check fixture の修正を続行した。
+- [原因]:
+  - `tests/compiler/move_check.n.md` は Resource IR gate の authority 移行後も、legacy `resource.move.*` / `resource.borrow.*` diag_code を期待していた。
+  - `field::get_ref` の offset 0 lowering は `&Pair` の式 kind を `&LocalToken` 型として再利用しており、typed HIR の意味が崩れて Resource IR initialized checker が field cell state を追えなくなっていた。
+  - offset 付き reference projection は `raw_address_view` として下がる経路があり、field borrow と initialized cell state の関係が Resource IR 上で曖昧だった。
+  - `Never` 型 value を返す branch / match arm が initialized-state merge に参加し、到達不能 path が reachable path の cell state を汚染していた。
+- [修正]:
+  - `field::get_ref` は typed `get_field_ref` intrinsic として保持し、offset 0 field reference でも owner 全体の `AddrOf` を別型で流用しないようにした。
+  - `get_ref` / `get_field_ref` / compiler-lowered `add &owner offset` を Resource IR `Borrow` へ下げ、field projection を `Place` として保持するようにした。
+  - HIR/Resource IR coverage は reference field projection を borrow + deref projection として数え、coverage gate を弱めずに新しい lowering と一致させた。
+  - `Never` value の branch / match arm は initialized-state merge path から除外した。
+  - `tests/compiler/move_check.n.md` の stale diag_code を Resource IR cell taxonomy に更新した。
+- [検証]:
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_field_get_ref_deref_uses_borrowed_field_cell -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_match_never_arm_does_not_poison_initialized_state -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md -o output/move_check_after_diag_refresh.json --runner wasm --no-tree -j 1`: total=52, passed=52
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md -o output/move_effect_after_projection_fix.json --runner wasm --no-tree -j 1`: total=110, passed=110
+- [issue]:
+  - `ISS-20260506T022705566Z-MOVE-CHECK-DOCTESTS-ARE-STALE-AFTER--EDD8402F` は fixed。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 進捗に該当する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

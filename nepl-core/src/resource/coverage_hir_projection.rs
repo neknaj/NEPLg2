@@ -76,12 +76,30 @@ pub(super) fn callee_projects_reference_address(
     projects_reference_address(callee_base_name(callee), args, types)
 }
 
+pub(super) fn callee_projects_reference_field(
+    callee: &FuncRef,
+    args: &[HirExpr],
+    ref_ty: TypeId,
+    types: &TypeCtx,
+) -> bool {
+    projects_reference_field(callee_base_name(callee), args, ref_ty, types)
+}
+
 pub(super) fn intrinsic_projects_reference_address(
     name: &str,
     args: &[HirExpr],
     types: &TypeCtx,
 ) -> bool {
     projects_reference_address(Some(helper_base_name(name)), args, types)
+}
+
+pub(super) fn intrinsic_projects_reference_field(
+    name: &str,
+    args: &[HirExpr],
+    ref_ty: TypeId,
+    types: &TypeCtx,
+) -> bool {
+    projects_reference_field(Some(helper_base_name(name)), args, ref_ty, types)
 }
 
 pub(super) fn compiler_field_load_base_and_offset<'a>(
@@ -106,6 +124,33 @@ fn projects_reference_address(name: Option<&str>, args: &[HirExpr], types: &Type
                 TypeKind::Reference(_, _)
             )
         })
+}
+
+fn projects_reference_field(
+    name: Option<&str>,
+    args: &[HirExpr],
+    ref_ty: TypeId,
+    types: &TypeCtx,
+) -> bool {
+    if !matches!(name, Some("add")) || args.len() != 2 {
+        return false;
+    }
+    let Some(owner) = args.first() else {
+        return false;
+    };
+    let Some(owner_ty) = reference_target_type(types, owner.ty) else {
+        return false;
+    };
+    let Some(field_ty) = reference_target_type(types, ref_ty) else {
+        return false;
+    };
+    let HirExprKind::LiteralI32(offset) = args[1].kind else {
+        return false;
+    };
+    if offset < 0 {
+        return false;
+    }
+    aggregate_field_exists(types, owner_ty, offset as usize, field_ty)
 }
 
 fn literal_field_name<'a>(string_literals: &'a [String], expr: &HirExpr) -> Option<&'a str> {

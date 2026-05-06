@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T02:52:09.069Z",
+  "generated_at": "2026-05-06T02:54:29.708Z",
   "counts": {
-    "total": 496,
+    "total": 497,
     "open": 13,
-    "resolved": 483,
+    "resolved": 484,
     "by_area": {
       "core": {
-        "total": 232,
+        "total": 233,
         "open": 5,
-        "resolved": 227
+        "resolved": 228
       },
       "stdlib": {
         "total": 155,
@@ -3598,6 +3598,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T004527322Z-RESOURCE-IR-GATES-ARE-MASKED-BY-LEGA-C34CEE5E.md"
+    },
+    {
+      "id": "ISS-20260506T022705566Z-MOVE-CHECK-DOCTESTS-ARE-STALE-AFTER--EDD8402F",
+      "title": "move_check doctests are stale after Resource IR field projection gates",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/typecheck/field_apply.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/lower_aggregate.rs, nepl-core/src/resource/initialized_control.rs, nepl-core/src/resource/coverage_hir.rs, nepl-core/src/resource/coverage_hir_projection.rs, tests/compiler/move_check.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T022705566Z-MOVE-CHECK-DOCTESTS-ARE-STALE-AFTER--EDD8402F.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

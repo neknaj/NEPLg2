@@ -24,7 +24,7 @@ fn main <()->i32> ():
 ## move_use_after_move
 
 neplg2:test[compile_fail]
-diag_code: resource.move.use_moved
+diag_code: resource.cell.moved
 ```neplg2
 #entry main
 #indent 4
@@ -45,7 +45,7 @@ fn main <()->i32> ():
 ## move_in_branch
 
 neplg2:test[compile_fail]
-diag_code: resource.move.use_possibly_moved
+diag_code: resource.cell.possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -72,7 +72,7 @@ fn main <()->i32> ():
 ## move_in_loop
 
 neplg2:test[compile_fail]
-diag_code: resource.move.loop_possibly_moved
+diag_code: resource.cell.possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -440,7 +440,7 @@ fn main <()->i32> ():
 ## move_mut_reference_is_not_copy
 
 neplg2:test[compile_fail]
-diag_code: resource.move.use_moved
+diag_code: resource.cell.moved
 ```neplg2
 #entry main
 #indent 4
@@ -560,7 +560,7 @@ fn main <()->i32> ():
 ## move_borrow_after_move_err
 
 neplg2:test[compile_fail]
-diag_code: resource.borrow.borrow_moved
+diag_code: resource.cell.moved
 ```neplg2
 #entry main
 #indent 4
@@ -581,7 +581,7 @@ fn main <()->()> ():
 ## move_pass_to_function_err
 
 neplg2:test[compile_fail]
-diag_code: resource.move.use_moved
+diag_code: resource.cell.moved
 ```neplg2
 #entry main
 #indent 4
@@ -605,7 +605,7 @@ fn main <()->()> ():
 ## move_struct_field_err
 
 neplg2:test[compile_fail]
-diag_code: resource.move.use_moved
+diag_code: resource.cell.moved
 ```neplg2
 #entry main
 #indent 4
@@ -660,7 +660,7 @@ fn main <()->i32> ():
 ## move_same_owned_struct_field_twice_rejected
 
 neplg2:test[compile_fail]
-diag_code: resource.move.use_moved
+diag_code: resource.cell.moved
 ```neplg2
 #entry main
 #indent 4
@@ -686,7 +686,7 @@ fn main <()->()> ():
 ## move_owner_after_partial_field_move_rejected
 
 neplg2:test[compile_fail]
-diag_code: resource.move.use_moved
+diag_code: resource.cell.moved
 ```neplg2
 #entry main
 #indent 4
@@ -806,7 +806,7 @@ fn main <()->()> ():
 ## move_branch_reinit_mixed
 
 neplg2:test[compile_fail]
-diag_code: resource.move.use_possibly_moved
+diag_code: resource.cell.possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -832,7 +832,7 @@ fn main <()->()> ():
 ## move_nested_match_potentially_moved
 
 neplg2:test[compile_fail]
-diag_code: resource.move.use_possibly_moved
+diag_code: resource.cell.possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -865,7 +865,7 @@ fn main <()->()> ():
 ## move_in_match_arms
 
 neplg2:test[compile_fail]
-diag_code: resource.move.use_possibly_moved
+diag_code: resource.cell.possibly_moved
 ```neplg2
 #entry main
 #indent 4
@@ -1194,7 +1194,7 @@ fn main <()->i32> ():
 ## move_loop_owned_accumulator_err_continue_without_reinit_rejected
 
 neplg2:test[compile_fail]
-diag_code: resource.move.loop_possibly_moved
+diag_code: resource.cell.possibly_moved
 ```neplg2
 #entry main
 #indent 4
