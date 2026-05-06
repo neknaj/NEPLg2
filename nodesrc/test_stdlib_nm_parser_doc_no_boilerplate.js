@@ -6,7 +6,10 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/nm/parser.nepl';
+const jsonInlinePath = 'stdlib/nm/parser/json_inline.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const jsonInlineSrc = fs.readFileSync(path.join(repoRoot, jsonInlinePath), 'utf8');
+const combined = `${src}\n${jsonInlineSrc}`;
 
 const forbiddenPhrases = [
     ['generic main-use title', '\u4e3b\u306a\u7528\u9014'],
@@ -16,7 +19,7 @@ const forbiddenPhrases = [
 ];
 
 for (const [label, phrase] of forbiddenPhrases) {
-    assert.equal(src.includes(phrase), false, `${relPath} must not contain generated doc boilerplate: ${label}`);
+    assert.equal(combined.includes(phrase), false, `nm parser docs must not contain generated doc boilerplate: ${label}`);
 }
 
 const requiredPhrases = [
@@ -26,7 +29,7 @@ const requiredPhrases = [
 ];
 
 for (const [label, phrase] of requiredPhrases) {
-    assert.equal(src.includes(phrase), true, `${relPath} must document ${label}`);
+    assert.equal(combined.includes(phrase), true, `nm parser docs must document ${label}`);
 }
 
 console.log('stdlib nm/parser doc boilerplate regression passed');

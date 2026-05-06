@@ -14,6 +14,7 @@ const stringSrc = read('stdlib/alloc/string.nepl');
 const scannerSrc = read('stdlib/alloc/string/scanner.nepl');
 const importSpecSrc = read('stdlib/neplg2/core/module/import_spec.nepl');
 const nmParserSrc = read('stdlib/nm/parser.nepl');
+const nmParserJsonInlineSrc = read('stdlib/nm/parser/json_inline.nepl');
 const nmHtmlSrc = read('stdlib/nm/html_gen.nepl');
 const nmHtmlInlineSrc = read('stdlib/nm/html_inline.nepl');
 
@@ -26,6 +27,7 @@ assert.doesNotMatch(
 for (const [name, src] of [
     ['import_spec', importSpecSrc],
     ['nm parser', nmParserSrc],
+    ['nm parser json_inline', nmParserJsonInlineSrc],
     ['nm html_gen', nmHtmlSrc],
     ['nm html_inline', nmHtmlInlineSrc],
 ]) {
@@ -79,6 +81,7 @@ for (const localName of [
     'nm_find_byte',
 ]) {
     assert.doesNotMatch(nmParserSrc, new RegExp(`\\b${localName}\\b`), `nm parser must use alloc/string scanner helpers instead of ${localName}`);
+    assert.doesNotMatch(nmParserJsonInlineSrc, new RegExp(`\\b${localName}\\b`), `nm parser json_inline must use alloc/string scanner helpers instead of ${localName}`);
     assert.doesNotMatch(nmHtmlSrc, new RegExp(`\\b${localName}\\b`), `nm html_gen must use alloc/string scanner helpers instead of ${localName}`);
     assert.doesNotMatch(nmHtmlInlineSrc, new RegExp(`\\b${localName}\\b`), `nm html_inline must use alloc/string scanner helpers instead of ${localName}`);
 }
@@ -93,9 +96,14 @@ for (const symbol of [
 for (const symbol of [
     'scanner::str_line_end',
     'scanner::str_next_line_pos',
-    'scanner::str_find_byte_range',
 ]) {
     assert.match(nmParserSrc, new RegExp(symbol.replaceAll(':', '\\:')), `nm parser must call ${symbol}`);
+}
+
+for (const symbol of [
+    'scanner::str_find_byte_range',
+]) {
+    assert.match(nmParserJsonInlineSrc, new RegExp(symbol.replaceAll(':', '\\:')), `nm parser json_inline must call ${symbol}`);
 }
 
 for (const symbol of [

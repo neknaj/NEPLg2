@@ -7,10 +7,14 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const parserPath = 'stdlib/nm/parser.nepl';
 const scannerPath = 'stdlib/nm/parser/scanner.nepl';
+const jsonInlinePath = 'stdlib/nm/parser/json_inline.nepl';
+const jsonSectionPath = 'stdlib/nm/parser/json_section.nepl';
 const htmlPath = 'stdlib/nm/html_gen.nepl';
 const htmlInlinePath = 'stdlib/nm/html_inline.nepl';
 const parserSrc = fs.readFileSync(path.join(repoRoot, parserPath), 'utf8');
 const scannerSrc = fs.readFileSync(path.join(repoRoot, scannerPath), 'utf8');
+const jsonInlineSrc = fs.readFileSync(path.join(repoRoot, jsonInlinePath), 'utf8');
+const jsonSectionSrc = fs.readFileSync(path.join(repoRoot, jsonSectionPath), 'utf8');
 const htmlSrc = fs.readFileSync(path.join(repoRoot, htmlPath), 'utf8');
 const htmlInlineSrc = fs.readFileSync(path.join(repoRoot, htmlInlinePath), 'utf8');
 
@@ -23,9 +27,11 @@ function implementationSource(src) {
 
 const parser = implementationSource(parserSrc);
 const scanner = implementationSource(scannerSrc);
+const jsonInline = implementationSource(jsonInlineSrc);
+const jsonSection = implementationSource(jsonSectionSrc);
 const html = implementationSource(htmlSrc);
 const htmlInline = implementationSource(htmlInlineSrc);
-const combined = `${parser}\n${scanner}\n${html}\n${htmlInline}`;
+const combined = `${parser}\n${scanner}\n${jsonInline}\n${jsonSection}\n${html}\n${htmlInline}`;
 
 const forbidden = [
     /\bunwrap\b/,

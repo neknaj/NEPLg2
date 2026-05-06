@@ -12,12 +12,14 @@ function read(relPath) {
 
 const parserPath = 'stdlib/nm/parser.nepl';
 const scannerPath = 'stdlib/nm/parser/scanner.nepl';
+const jsonInlinePath = 'stdlib/nm/parser/json_inline.nepl';
 const jsonSectionPath = 'stdlib/nm/parser/json_section.nepl';
 const htmlPath = 'stdlib/nm/html_gen.nepl';
 const htmlInlinePath = 'stdlib/nm/html_inline.nepl';
 const htmlSectionPath = 'stdlib/nm/html_section.nepl';
 const parser = read(parserPath);
 const scanner = read(scannerPath);
+const jsonInline = read(jsonInlinePath);
 const jsonSection = read(jsonSectionPath);
 const html = read(htmlPath);
 const htmlInline = read(htmlInlinePath);
@@ -44,6 +46,11 @@ for (const name of [
         scanner,
         new RegExp(`^pub\\s+fn\\s+${name}\\s+`, 'm'),
         `${scannerPath} must expose ${name}`
+    );
+    assert.doesNotMatch(
+        jsonInline,
+        new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`, 'm'),
+        `${jsonInlinePath} must not own ${name}; NM scan helpers belong to ${scannerPath}`
     );
     assert.doesNotMatch(
         jsonSection,
@@ -73,6 +80,11 @@ assert.match(
     `${parserPath} must import the dedicated NM parser scanner module`
 );
 assert.match(
+    jsonInline,
+    /^#import "\.\/scanner" as scan$/m,
+    `${jsonInlinePath} must import the dedicated NM parser scanner module`
+);
+assert.match(
     jsonSection,
     /^#import "\.\/scanner" as scan$/m,
     `${jsonSectionPath} must import the dedicated NM parser scanner module`
@@ -93,11 +105,6 @@ assert.match(
     `${htmlSectionPath} must import the dedicated NM parser scanner module`
 );
 assert.match(
-    parser,
-    /\bscan::nm_find_math_end\b/,
-    `${parserPath} must use scanner module for math delimiter search`
-);
-assert.match(
     htmlInline,
     /\bscan::nm_find_math_end\b/,
     `${htmlInlinePath} must use scanner module for math delimiter search`
@@ -116,6 +123,16 @@ assert.match(
     html,
     /\bscan::nm_heading_level\b/,
     `${htmlPath} must use scanner module for heading classification`
+);
+assert.match(
+    jsonInline,
+    /\bscan::nm_find_math_end\b/,
+    `${jsonInlinePath} must use scanner module for math delimiter search`
+);
+assert.match(
+    jsonInline,
+    /\bscan::nm_find_gloss_slash\b/,
+    `${jsonInlinePath} must use scanner module for gloss slash search`
 );
 assert.match(
     jsonSection,

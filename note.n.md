@@ -1,3 +1,32 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm parser JSON inline split)
+
+- [同期]:
+  - `1a1f0961` の nm parser JSON section split push 後、`origin/main` と一致する clean な `main` から branch `fix/nm-parser-json-inline-split` を作成した。
+- [原因]:
+  - `stdlib/nm/parser.nepl` は section/comma state を分離した後も、inline markup の JSON marker dispatch を本体に持っていた。
+  - ruby / gloss / inline math / text の serializer は block-level document serializer と別責務であり、`parser.nepl` に残すと修正範囲が再び広がる。
+- [修正]:
+  - `stdlib/nm/parser/json_inline.nepl` を追加し、`nm_inline_to_json_into` と `nm_inline_to_json` を移した。
+  - `parser.nepl` は `json_inline::nm_inline_to_json_into` へ委譲し、document source view と block-level JSON output に集中する形へ変更した。
+  - `nodesrc/test_stdlib_nm_parser_json_inline_boundary.js` を追加し、inline JSON serializer が parser 本体へ戻らないことを固定した。
+  - doc / unwrap / scanner / byte scanner / raw aggregate の source policy を分割後の責務境界へ更新した。
+- [検証]:
+  - `node nodesrc/test_stdlib_nm_parser_json_inline_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_no_raw_aggregate_detours.js`: passed
+  - `node nodesrc/tests.js -i stdlib/nm/parser/json_inline.nepl --no-tree -o tmp/nm-parser-json-inline-module.json -j 1`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl --no-tree -o tmp/nm-parser-json-inline-parser.json -j 1`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-parser-json-inline-nm-tests.json -j 1`: total=5, passed=5
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdlib/nm 関連は passed。既知別件 `ISS-20260506T030752155Z-RESOURCE-HIR-PROJECTION-COVERAGE-MOD-ED65CFB3` の warning は継続。
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl`、`alloc/collections/vec.nepl` などの責務分割を継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm parser JSON section split)
 
 - [同期]:
