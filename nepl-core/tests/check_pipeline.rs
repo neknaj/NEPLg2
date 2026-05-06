@@ -1,5 +1,6 @@
 use nepl_core::compiler::prepare_module_for_codegen;
 use nepl_core::error::CoreError;
+use nepl_core::resource::{ResourceDropElaborationFunction, ResourceDropElaborationPlan};
 use nepl_core::span::FileId;
 use nepl_core::{check_module, compile_wasm, lexer, parser, CompileOptions, CompileTarget};
 
@@ -103,8 +104,12 @@ fn main <()->i32> ():
 }
 
 #[test]
-fn drop_insertion_accepts_deep_prefix_chain_without_stack_overflow() {
-    let module = parse_module(&deep_identity_source(1105));
+fn resource_drop_insertion_accepts_deep_prefix_chain_without_stack_overflow() {
+    let source = deep_identity_source(1105).replace(
+        "#target core\n\n",
+        "#target core\n#import \"core/traits/drop\" as *\n\n",
+    );
+    let module = parse_module(&source);
     let mut tc = nepl_core::typecheck::typecheck(
         &module,
         CompileTarget::Wasm,
@@ -112,8 +117,21 @@ fn drop_insertion_accepts_deep_prefix_chain_without_stack_overflow() {
         None,
     );
     let mut hir = tc.module.take().expect("typecheck should produce HIR");
+    let plan = ResourceDropElaborationPlan {
+        functions: hir
+            .functions
+            .iter()
+            .map(|function| ResourceDropElaborationFunction {
+                name: function.name.clone(),
+                origin_name: function.origin_name.clone(),
+                auto_drops: Vec::new(),
+                drop_points: Vec::new(),
+            })
+            .collect(),
+    };
 
-    nepl_core::passes::insert_drops(&mut hir, &mut tc.types);
+    nepl_core::passes::insert_resource_drops(&mut hir, &mut tc.types, &plan)
+        .expect("empty checked drop plan should still traverse deep HIR iteratively");
 }
 
 #[test]
@@ -125,8 +143,7 @@ fn monomorphize_accepts_deep_prefix_chain_without_stack_overflow() {
         nepl_core::BuildProfile::detect(),
         None,
     );
-    let mut hir = tc.module.take().expect("typecheck should produce HIR");
-    nepl_core::passes::insert_drops(&mut hir, &mut tc.types);
+    let hir = tc.module.take().expect("typecheck should produce HIR");
 
     let (hir, unresolved) =
         nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut tc.types, hir);

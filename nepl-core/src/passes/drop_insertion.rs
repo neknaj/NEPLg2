@@ -9,31 +9,34 @@ use alloc::vec::Vec;
 
 use crate::ast::TraitCapability;
 use crate::hir::{
-    FuncRef, HirBlock, HirExpr, HirExprKind, HirLine, HirMatchArm, HirMatchPattern, HirModule,
+    FuncRef, HirBlock, HirExpr, HirExprKind, HirFunction, HirLine, HirMatchArm, HirMatchPattern,
+    HirModule,
 };
-use crate::layout::{aggregate_fields_with_offsets, extend_type_mapping, mapped_type_id};
-use crate::resource::{resource_drop_requirement_for_type, ResourceDropRequirement};
+use crate::layout::{extend_type_mapping, mapped_type_id};
+use crate::resource::{
+    ResourceAutoDropKind, ResourceDropElaborationDrop, ResourceDropElaborationFunction,
+    ResourceDropElaborationPlan, ResourceDropRequirement,
+};
+use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum VarState {
-    Valid,
-    Moved,
-    PossiblyMoved,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResourceDropInsertionError {
+    MissingFunction {
+        function: String,
+    },
+    UnconsumedDropPoint {
+        function: String,
+        span: Span,
+        source_names: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone)]
-struct VarInfo {
-    ty: TypeId,
-    state: VarState,
-    moved_fields: BTreeMap<usize, TypeId>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct FieldMovePath {
-    owner: String,
-    offset: usize,
-    field_ty: TypeId,
+struct PendingDropPoint {
+    span: Span,
+    auto_drops: Vec<ResourceDropElaborationDrop>,
+    consumed: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -51,156 +54,112 @@ struct DropPlan {
 struct DropInsertionContext<'a> {
     types: &'a mut TypeCtx,
     plan: &'a DropPlan,
-    string_literals: &'a [String],
-    var_stacks: BTreeMap<String, Vec<VarInfo>>,
-    scopes: Vec<Vec<String>>,
+    pending_points: Vec<PendingDropPoint>,
+    reserved_names: BTreeSet<String>,
     next_temp_id: usize,
 }
 
 impl<'a> DropInsertionContext<'a> {
-    fn new(types: &'a mut TypeCtx, plan: &'a DropPlan, string_literals: &'a [String]) -> Self {
+    fn new(
+        types: &'a mut TypeCtx,
+        plan: &'a DropPlan,
+        function_plan: &ResourceDropElaborationFunction,
+        reserved_names: BTreeSet<String>,
+    ) -> Self {
         Self {
             types,
             plan,
-            string_literals,
-            var_stacks: BTreeMap::new(),
-            scopes: Vec::new(),
+            pending_points: function_plan
+                .drop_points
+                .iter()
+                .map(|point| PendingDropPoint {
+                    span: point.span,
+                    auto_drops: point.auto_drops.clone(),
+                    consumed: false,
+                })
+                .collect(),
+            reserved_names,
             next_temp_id: 0,
         }
     }
 
-    fn push_scope(&mut self) {
-        self.scopes.push(Vec::new());
+    fn take_scope_drops(
+        &mut self,
+        span: Span,
+        source_names: &BTreeSet<String>,
+    ) -> Vec<ResourceDropElaborationDrop> {
+        self.take_matching_drops(span, ResourceAutoDropKind::ScopeLocal, |drop| {
+            source_names.contains(&drop.source_name)
+        })
     }
 
-    fn pop_scope(&mut self) {
-        let names = self.scopes.pop().unwrap_or_default();
-        for name in names {
-            if let Some(stack) = self.var_stacks.get_mut(&name) {
-                stack.pop();
-                if stack.is_empty() {
-                    self.var_stacks.remove(&name);
-                }
-            }
-        }
+    fn take_assignment_drops(
+        &mut self,
+        span: Span,
+        name: &str,
+    ) -> Vec<ResourceDropElaborationDrop> {
+        self.take_matching_drops(span, ResourceAutoDropKind::AssignmentOverwrite, |drop| {
+            drop.source_name == name
+        })
     }
 
-    fn declare_var(&mut self, name: String, ty: TypeId) {
-        self.var_stacks
-            .entry(name.clone())
-            .or_default()
-            .push(VarInfo {
-                ty,
-                state: VarState::Valid,
-                moved_fields: BTreeMap::new(),
-            });
-        if let Some(scope) = self.scopes.last_mut() {
-            scope.push(name);
-        }
-    }
-
-    fn get_var(&self, name: &str) -> Option<VarInfo> {
-        self.var_stacks
-            .get(name)
-            .and_then(|stack| stack.last().cloned())
-    }
-
-    fn set_state(&mut self, name: &str, state: VarState) {
-        if let Some(stack) = self.var_stacks.get_mut(name) {
-            if let Some(last) = stack.last_mut() {
-                last.state = state;
-            }
-        }
-    }
-
-    fn reset_var_to_valid(&mut self, name: &str) {
-        if let Some(stack) = self.var_stacks.get_mut(name) {
-            if let Some(last) = stack.last_mut() {
-                last.state = VarState::Valid;
-                last.moved_fields.clear();
-            }
-        }
-    }
-
-    fn mark_field_moved(&mut self, path: &FieldMovePath) {
-        if let Some(stack) = self.var_stacks.get_mut(path.owner.as_str()) {
-            if let Some(last) = stack.last_mut() {
-                last.moved_fields.insert(path.offset, path.field_ty);
-            }
-        }
-    }
-
-    fn merge_state(a: VarState, b: VarState) -> VarState {
-        match (a, b) {
-            (VarState::Valid, VarState::Valid) => VarState::Valid,
-            (VarState::Moved, VarState::Moved) => VarState::Moved,
-            (VarState::PossiblyMoved, _) | (_, VarState::PossiblyMoved) => VarState::PossiblyMoved,
-            (VarState::Moved, _) | (_, VarState::Moved) => VarState::PossiblyMoved,
-        }
-    }
-
-    fn scope_drop_lines(&mut self, span: crate::span::Span) -> Vec<HirLine> {
-        let mut out = Vec::new();
-        let scope = self.scopes.last().cloned().unwrap_or_default();
-        for name in scope.iter().rev() {
-            let Some(info) = self.get_var(name) else {
+    fn take_matching_drops<F>(
+        &mut self,
+        span: Span,
+        kind: ResourceAutoDropKind,
+        mut accepts: F,
+    ) -> Vec<ResourceDropElaborationDrop>
+    where
+        F: FnMut(&ResourceDropElaborationDrop) -> bool,
+    {
+        let mut drops = Vec::new();
+        for point in &mut self.pending_points {
+            if point.consumed || point.span != span || point.auto_drops.is_empty() {
                 continue;
-            };
-            out.extend(self.drop_lines_for_info(name, &info, span));
+            }
+            if !point
+                .auto_drops
+                .iter()
+                .all(|drop| drop.kind == kind && accepts(drop))
+            {
+                continue;
+            }
+            point.consumed = true;
+            drops.extend(point.auto_drops.iter().cloned());
+        }
+        drops
+    }
+
+    fn unconsumed_points(&self, function: &str) -> Vec<ResourceDropInsertionError> {
+        self.pending_points
+            .iter()
+            .filter(|point| !point.consumed && point.auto_drops.iter().any(drop_needs_code))
+            .map(|point| ResourceDropInsertionError::UnconsumedDropPoint {
+                function: function.to_string(),
+                span: point.span,
+                source_names: point_sources(point),
+            })
+            .collect()
+    }
+
+    fn drop_lines_for_drops(&mut self, drops: &[ResourceDropElaborationDrop]) -> Vec<HirLine> {
+        let mut out = Vec::new();
+        for drop in drops {
+            out.extend(self.drop_lines_for_drop(drop));
         }
         out
     }
 
-    fn drop_lines_for_info(
-        &mut self,
-        name: &str,
-        info: &VarInfo,
-        span: crate::span::Span,
-    ) -> Vec<HirLine> {
-        self.drop_lines_for_info_inner(name, info, span, &mut BTreeSet::new())
-    }
-
-    fn drop_lines_for_info_inner(
-        &mut self,
-        name: &str,
-        info: &VarInfo,
-        span: crate::span::Span,
-        visiting: &mut BTreeSet<TypeId>,
-    ) -> Vec<HirLine> {
-        if info.state != VarState::Valid {
-            return Vec::new();
-        }
-        if info.moved_fields.is_empty() {
-            let requirement = resource_drop_requirement_for_type(self.types, info.ty);
-            return self.drop_lines_for_requirement(
-                name,
-                info.ty,
-                info.ty,
-                0,
-                &requirement,
-                span,
-                visiting,
-            );
-        }
-
-        let fields = aggregate_fields_with_offsets(self.types, info.ty);
-        let mut out = Vec::new();
-        for field in fields {
-            if info.moved_fields.contains_key(&field.offset) {
-                continue;
-            }
-            let requirement = resource_drop_requirement_for_type(self.types, field.ty);
-            out.extend(self.drop_lines_for_requirement(
-                name,
-                info.ty,
-                field.ty,
-                field.offset,
-                &requirement,
-                span,
-                visiting,
-            ));
-        }
-        out
+    fn drop_lines_for_drop(&mut self, drop: &ResourceDropElaborationDrop) -> Vec<HirLine> {
+        self.drop_lines_for_requirement(
+            drop.source_name.as_str(),
+            drop.place.ty,
+            drop.place.ty,
+            0,
+            &drop.requirement,
+            drop.span,
+            &mut BTreeSet::new(),
+        )
     }
 
     fn drop_lines_for_requirement(
@@ -210,7 +169,7 @@ impl<'a> DropInsertionContext<'a> {
         ty: TypeId,
         base_offset: usize,
         requirement: &ResourceDropRequirement,
-        span: crate::span::Span,
+        span: Span,
         visiting: &mut BTreeSet<TypeId>,
     ) -> Vec<HirLine> {
         match requirement {
@@ -280,7 +239,7 @@ impl<'a> DropInsertionContext<'a> {
         &mut self,
         name: &str,
         ty: TypeId,
-        span: crate::span::Span,
+        span: Span,
         visiting: &mut BTreeSet<TypeId>,
     ) -> Vec<HirLine> {
         let resolved = self.types.resolve_named_type_id(ty);
@@ -301,14 +260,18 @@ impl<'a> DropInsertionContext<'a> {
             let mut bind_local = None;
             let mut bind_ty = None;
             let body = if let Some(payload_ty) = variant.payload {
-                let payload_name = self.fresh_enum_payload_temp();
-                let payload_info = VarInfo {
-                    ty: payload_ty,
-                    state: VarState::Valid,
-                    moved_fields: BTreeMap::new(),
-                };
-                let payload_drops =
-                    self.drop_lines_for_info_inner(&payload_name, &payload_info, span, visiting);
+                let payload_name = self.fresh_temp("__nepl_drop_enum_payload_");
+                let payload_requirement =
+                    crate::resource::resource_drop_requirement_for_type(self.types, payload_ty);
+                let payload_drops = self.drop_lines_for_requirement(
+                    payload_name.as_str(),
+                    payload_ty,
+                    payload_ty,
+                    0,
+                    &payload_requirement,
+                    span,
+                    visiting,
+                );
                 if payload_drops.is_empty() {
                     HirExpr {
                         ty: unit_ty,
@@ -414,14 +377,10 @@ impl<'a> DropInsertionContext<'a> {
         owner_ty: TypeId,
         ty: TypeId,
         offset: usize,
-        span: crate::span::Span,
+        span: Span,
     ) -> Vec<HirLine> {
-        let temp_name = self.fresh_enum_payload_temp();
-        let temp_info = VarInfo {
-            ty,
-            state: VarState::Valid,
-            moved_fields: BTreeMap::new(),
-        };
+        let temp_name = self.fresh_temp("__nepl_drop_enum_payload_");
+        let requirement = crate::resource::resource_drop_requirement_for_type(self.types, ty);
         let mut lines = vec![HirLine {
             expr: HirExpr {
                 ty: self.plan.unit_ty,
@@ -447,7 +406,15 @@ impl<'a> DropInsertionContext<'a> {
             },
             drop_result: true,
         }];
-        lines.extend(self.drop_lines_for_info(&temp_name, &temp_info, span));
+        lines.extend(self.drop_lines_for_requirement(
+            temp_name.as_str(),
+            ty,
+            ty,
+            0,
+            &requirement,
+            span,
+            &mut BTreeSet::new(),
+        ));
         lines
     }
 
@@ -456,7 +423,7 @@ impl<'a> DropInsertionContext<'a> {
         owner_name: String,
         owner_ty: TypeId,
         offset: usize,
-        span: crate::span::Span,
+        span: Span,
     ) -> HirExpr {
         if offset == 0 {
             return HirExpr {
@@ -488,44 +455,69 @@ impl<'a> DropInsertionContext<'a> {
         }
     }
 
-    fn fresh_assignment_temp(&mut self) -> String {
+    fn fresh_temp(&mut self, prefix: &str) -> String {
         loop {
-            let name = format!("__nepl_drop_assign_tmp_{}", self.next_temp_id);
+            let name = format!("{}{}", prefix, self.next_temp_id);
             self.next_temp_id += 1;
-            if !self.var_stacks.contains_key(name.as_str()) {
-                return name;
-            }
-        }
-    }
-
-    fn fresh_enum_payload_temp(&mut self) -> String {
-        loop {
-            let name = format!("__nepl_drop_enum_payload_{}", self.next_temp_id);
-            self.next_temp_id += 1;
-            if !self.var_stacks.contains_key(name.as_str()) {
+            if self.reserved_names.insert(name.clone()) {
                 return name;
             }
         }
     }
 }
 
-pub fn insert_drops(module: &mut HirModule, types: &mut TypeCtx) {
+pub fn insert_resource_drops(
+    module: &mut HirModule,
+    types: &mut TypeCtx,
+    drop_plan: &ResourceDropElaborationPlan,
+) -> Result<(), Vec<ResourceDropInsertionError>> {
     let Some(plan) = find_drop_plan(module, types.unit()) else {
-        return;
+        return Ok(());
     };
-    let string_literals = &module.string_literals;
-    for func in &mut module.functions {
-        if let crate::hir::HirBody::Block(ref mut block) = func.body {
-            let mut ctx = DropInsertionContext::new(types, &plan, string_literals);
-            ctx.push_scope();
-            for param in &func.params {
-                ctx.declare_var(param.name.clone(), param.ty);
-            }
-            insert_drops_in_block(block, &mut ctx);
-            let param_drops = ctx.scope_drop_lines(block.span);
-            block.lines.extend(param_drops);
-            ctx.pop_scope();
+    let plans = drop_plan
+        .functions
+        .iter()
+        .map(|function| (function.name.as_str(), function))
+        .collect::<BTreeMap<_, _>>();
+    let mut errors = Vec::new();
+    for function_plan in drop_plan
+        .functions
+        .iter()
+        .filter(|function| function.auto_drops.iter().any(drop_needs_code))
+    {
+        if !module
+            .functions
+            .iter()
+            .any(|function| function.name == function_plan.name)
+        {
+            errors.push(ResourceDropInsertionError::MissingFunction {
+                function: function_plan.name.clone(),
+            });
         }
+    }
+    for function in &mut module.functions {
+        let Some(function_plan) = plans.get(function.name.as_str()) else {
+            continue;
+        };
+        let mut reserved_names = BTreeSet::new();
+        collect_function_local_names(function, &mut reserved_names);
+        let crate::hir::HirBody::Block(ref mut block) = function.body else {
+            continue;
+        };
+        let mut ctx = DropInsertionContext::new(types, &plan, function_plan, reserved_names);
+        let param_names = function
+            .params
+            .iter()
+            .map(|param| param.name.clone())
+            .collect::<BTreeSet<_>>();
+        insert_drops_in_block(block, &param_names, &mut ctx);
+        errors.extend(ctx.unconsumed_points(function.name.as_str()));
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
     }
 }
 
@@ -552,12 +544,24 @@ fn find_drop_plan(module: &HirModule, unit_ty: TypeId) -> Option<DropPlan> {
     None
 }
 
+fn drop_needs_code(drop: &ResourceDropElaborationDrop) -> bool {
+    !matches!(drop.requirement, ResourceDropRequirement::StateOnly)
+}
+
+fn point_sources(point: &PendingDropPoint) -> Vec<String> {
+    point
+        .auto_drops
+        .iter()
+        .map(|drop| drop.source_name.clone())
+        .collect()
+}
+
 fn drop_call_expr(
     types: &mut TypeCtx,
     plan: &DropPlan,
     name: String,
     ty: TypeId,
-    span: crate::span::Span,
+    span: Span,
 ) -> HirExpr {
     HirExpr {
         ty: plan.unit_ty,
@@ -589,7 +593,7 @@ fn drop_field_call_expr(
     owner_ty: TypeId,
     field_ty: TypeId,
     offset: usize,
-    span: crate::span::Span,
+    span: Span,
 ) -> HirExpr {
     let ref_ty = types.reference(field_ty, false);
     let arg = if offset == 0 {
@@ -635,93 +639,55 @@ fn drop_field_call_expr(
     }
 }
 
-fn insert_drops_in_block(block: &mut HirBlock, ctx: &mut DropInsertionContext<'_>) {
-    ctx.push_scope();
+fn insert_drops_in_block(
+    block: &mut HirBlock,
+    outer_scope_names: &BTreeSet<String>,
+    ctx: &mut DropInsertionContext<'_>,
+) {
     for line in &mut block.lines {
         insert_drops_in_expr(&mut line.expr, ctx);
-        if let HirExprKind::Let { name, value, .. } = &line.expr.kind {
-            ctx.declare_var(name.clone(), value.ty);
-        }
     }
-    let drops = ctx.scope_drop_lines(block.span);
-    block.lines.extend(drops);
-    ctx.pop_scope();
+    let mut source_names = outer_scope_names.clone();
+    collect_direct_block_let_names(block, &mut source_names);
+    let drops = ctx.take_scope_drops(block.span, &source_names);
+    block.lines.extend(ctx.drop_lines_for_drops(&drops));
 }
 
 fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) {
-    if can_skip_drop_walk_iteratively(expr, ctx.types) {
+    if can_skip_drop_plan_walk_iteratively(expr) {
         return;
     }
 
     match &mut expr.kind {
-        HirExprKind::Var(name) => {
-            if !ctx.types.is_copy(expr.ty) {
-                ctx.set_state(name, VarState::Moved);
-            }
-        }
-        HirExprKind::FnValue(_)
-        | HirExprKind::LiteralI32(_)
-        | HirExprKind::LiteralF32(_)
-        | HirExprKind::LiteralBool(_)
-        | HirExprKind::LiteralStr(_)
-        | HirExprKind::Unit => {}
-        HirExprKind::Call { callee, args } => match callee {
-            FuncRef::Builtin(name) | FuncRef::User(name, _, _) if name == "get" => {
-                if let Some(base) = args.get_mut(0) {
-                    if !ctx.types.is_copy(expr.ty) {
-                        insert_drops_in_expr(base, ctx);
-                    }
-                }
-                for arg in args.iter_mut().skip(1) {
-                    insert_drops_in_expr(arg, ctx);
-                }
-            }
-            _ => {
-                for arg in args {
-                    insert_drops_in_expr(arg, ctx);
-                }
-            }
-        },
-        HirExprKind::CallIndirect { callee, args, .. } => {
-            insert_drops_in_expr(callee, ctx);
-            for arg in args {
-                insert_drops_in_expr(arg, ctx);
-            }
-        }
         HirExprKind::If {
             cond,
             then_branch,
             else_branch,
         } => {
             insert_drops_in_expr(cond, ctx);
-            let saved = ctx.var_stacks.clone();
             insert_drops_in_expr(then_branch, ctx);
-            let then_state = ctx.var_stacks.clone();
-            ctx.var_stacks = saved.clone();
             insert_drops_in_expr(else_branch, ctx);
-            let else_state = ctx.var_stacks.clone();
-            ctx.var_stacks = saved.clone();
-            merge_outer_states(ctx, &saved, &then_state, &else_state);
         }
         HirExprKind::While { cond, body } => {
             insert_drops_in_expr(cond, ctx);
-            let saved = ctx.var_stacks.clone();
             insert_drops_in_expr(body, ctx);
-            let body_state = ctx.var_stacks.clone();
-            ctx.var_stacks = saved.clone();
-            merge_outer_states(ctx, &saved, &saved, &body_state);
         }
         HirExprKind::Match { scrutinee, arms } => {
             insert_drops_in_expr(scrutinee, ctx);
-            let saved = ctx.var_stacks.clone();
-            let mut arm_states = Vec::new();
             for arm in arms {
-                ctx.var_stacks = saved.clone();
                 process_match_arm(arm, ctx);
-                arm_states.push(ctx.var_stacks.clone());
             }
-            ctx.var_stacks = saved.clone();
-            merge_many_outer_states(ctx, &saved, &arm_states);
+        }
+        HirExprKind::Call { args, .. } | HirExprKind::Intrinsic { args, .. } => {
+            for arg in args {
+                insert_drops_in_expr(arg, ctx);
+            }
+        }
+        HirExprKind::CallIndirect { callee, args, .. } => {
+            insert_drops_in_expr(callee, ctx);
+            for arg in args {
+                insert_drops_in_expr(arg, ctx);
+            }
         }
         HirExprKind::EnumConstruct { payload, .. } => {
             if let Some(payload) = payload {
@@ -738,151 +704,85 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
                 insert_drops_in_expr(item, ctx);
             }
         }
-        HirExprKind::Block(block) => insert_drops_in_block(block, ctx),
+        HirExprKind::Block(block) => insert_drops_in_block(block, &BTreeSet::new(), ctx),
         HirExprKind::Let { value, .. } => {
             insert_drops_in_expr(value, ctx);
         }
         HirExprKind::Set { name, value } => {
             let target_name = name.clone();
-            let old_info = ctx.get_var(target_name.as_str());
             insert_drops_in_expr(value, ctx);
-            let should_drop_old = old_info
-                .filter(|info| info.state == VarState::Valid)
-                .filter(|_info| {
-                    ctx.get_var(target_name.as_str())
-                        .map(|current| current.state == VarState::Valid)
-                        .unwrap_or(false)
-                });
-            if let Some(info) = should_drop_old {
-                let drop_lines = ctx.drop_lines_for_info(target_name.as_str(), &info, expr.span);
-                if drop_lines.is_empty() {
-                    ctx.reset_var_to_valid(target_name.as_str());
-                    return;
-                }
-                let temp_name = ctx.fresh_assignment_temp();
-                let temp_ty = value.ty;
-                let temp_span = value.span;
-                let unit_ty = ctx.types.unit();
-                let original_value = core::mem::replace(
-                    value,
-                    Box::new(HirExpr {
-                        ty: unit_ty,
-                        kind: HirExprKind::Unit,
-                        span: expr.span,
-                    }),
-                );
-                expr.kind = HirExprKind::Block(HirBlock {
-                    lines: {
-                        let mut lines = vec![HirLine {
-                            expr: HirExpr {
-                                ty: unit_ty,
-                                kind: HirExprKind::Let {
-                                    name: temp_name.clone(),
-                                    mutable: false,
-                                    value: original_value,
-                                },
-                                span: expr.span,
-                            },
-                            drop_result: false,
-                        }];
-                        lines.extend(drop_lines);
-                        lines.push(HirLine {
-                            expr: HirExpr {
-                                ty: unit_ty,
-                                kind: HirExprKind::Set {
-                                    name: target_name.clone(),
-                                    value: Box::new(HirExpr {
-                                        ty: temp_ty,
-                                        kind: HirExprKind::Var(temp_name),
-                                        span: temp_span,
-                                    }),
-                                },
-                                span: expr.span,
-                            },
-                            drop_result: false,
-                        });
-                        lines
-                    },
+            let drops = ctx.take_assignment_drops(expr.span, target_name.as_str());
+            let drop_lines = ctx.drop_lines_for_drops(&drops);
+            if drop_lines.is_empty() {
+                return;
+            }
+            let temp_name = ctx.fresh_temp("__nepl_drop_assign_tmp_");
+            let temp_ty = value.ty;
+            let temp_span = value.span;
+            let unit_ty = ctx.types.unit();
+            let original_value = core::mem::replace(
+                value,
+                Box::new(HirExpr {
                     ty: unit_ty,
+                    kind: HirExprKind::Unit,
                     span: expr.span,
-                });
-            }
-            ctx.reset_var_to_valid(target_name.as_str());
+                }),
+            );
+            expr.kind = HirExprKind::Block(HirBlock {
+                lines: {
+                    let mut lines = vec![HirLine {
+                        expr: HirExpr {
+                            ty: unit_ty,
+                            kind: HirExprKind::Let {
+                                name: temp_name.clone(),
+                                mutable: false,
+                                value: original_value,
+                            },
+                            span: expr.span,
+                        },
+                        drop_result: false,
+                    }];
+                    lines.extend(drop_lines);
+                    lines.push(HirLine {
+                        expr: HirExpr {
+                            ty: unit_ty,
+                            kind: HirExprKind::Set {
+                                name: target_name,
+                                value: Box::new(HirExpr {
+                                    ty: temp_ty,
+                                    kind: HirExprKind::Var(temp_name),
+                                    span: temp_span,
+                                }),
+                            },
+                            span: expr.span,
+                        },
+                        drop_result: false,
+                    });
+                    lines
+                },
+                ty: unit_ty,
+                span: expr.span,
+            });
         }
-        HirExprKind::Intrinsic {
-            name,
-            type_args,
-            args,
-        } => match name.as_str() {
-            "get_field" => {
-                if !ctx.types.is_copy(expr.ty) {
-                    if let Some(path) =
-                        field_move_path_from_selector(args, expr.ty, ctx.types, ctx.string_literals)
-                    {
-                        ctx.mark_field_moved(&path);
-                    } else if let Some(base) = args.get_mut(0) {
-                        insert_drops_in_expr(base, ctx);
-                    }
-                } else if args
-                    .get(0)
-                    .is_some_and(|base| !field_projection_base_is_local_place(base))
-                {
-                    if let Some(base) = args.get_mut(0) {
-                        insert_drops_in_expr(base, ctx);
-                    }
-                }
-                for arg in args.iter_mut().skip(1) {
-                    insert_drops_in_expr(arg, ctx);
-                }
-            }
-            "load" => {
-                let is_copy_load = type_args
-                    .get(0)
-                    .map(|ty| ctx.types.is_copy(*ty))
-                    .unwrap_or(false);
-                if !is_copy_load {
-                    if let (Some(field_ty), Some(addr)) =
-                        (type_args.first().copied(), args.get_mut(0))
-                    {
-                        if let Some(path) = field_move_path_from_addr(addr, field_ty, ctx.types) {
-                            ctx.mark_field_moved(&path);
-                        } else {
-                            insert_drops_in_expr(addr, ctx);
-                        }
-                    }
-                }
-            }
-            "store" => {
-                if let Some(val) = args.get_mut(1) {
-                    insert_drops_in_expr(val, ctx);
-                }
-            }
-            _ => {
-                for arg in args {
-                    insert_drops_in_expr(arg, ctx);
-                }
-            }
-        },
-        HirExprKind::AddrOf(_) => {}
-        HirExprKind::Deref(inner) => {
+        HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
             insert_drops_in_expr(inner, ctx);
         }
-        HirExprKind::Drop { name } => {
-            ctx.set_state(name, VarState::Moved);
-        }
+        HirExprKind::FnValue(_)
+        | HirExprKind::Var(_)
+        | HirExprKind::LiteralI32(_)
+        | HirExprKind::LiteralF32(_)
+        | HirExprKind::LiteralBool(_)
+        | HirExprKind::LiteralStr(_)
+        | HirExprKind::Unit
+        | HirExprKind::Drop { .. } => {}
     }
 }
 
-fn can_skip_drop_walk_iteratively(expr: &HirExpr, types: &TypeCtx) -> bool {
+fn can_skip_drop_plan_walk_iteratively(expr: &HirExpr) -> bool {
     let mut stack = Vec::new();
     stack.push(expr);
     while let Some(expr) = stack.pop() {
         match &expr.kind {
-            HirExprKind::Var(_) => {
-                if !types.is_copy(expr.ty) {
-                    return false;
-                }
-            }
             HirExprKind::Call { args, .. } => {
                 for arg in args.iter().rev() {
                     stack.push(arg);
@@ -910,6 +810,7 @@ fn can_skip_drop_walk_iteratively(expr: &HirExpr, types: &TypeCtx) -> bool {
                 }
             }
             HirExprKind::FnValue(_)
+            | HirExprKind::Var(_)
             | HirExprKind::LiteralI32(_)
             | HirExprKind::LiteralF32(_)
             | HirExprKind::LiteralBool(_)
@@ -931,14 +832,14 @@ fn can_skip_drop_walk_iteratively(expr: &HirExpr, types: &TypeCtx) -> bool {
 }
 
 fn process_match_arm(arm: &mut HirMatchArm, ctx: &mut DropInsertionContext<'_>) {
-    ctx.push_scope();
-    if let (Some(bind), Some(ty)) = (&arm.bind_local, arm.bind_ty) {
-        ctx.declare_var(bind.clone(), ty);
-    }
     insert_drops_in_expr(&mut arm.body, ctx);
-    let drops = ctx.scope_drop_lines(arm.body.span);
-    append_drop_lines_to_expr(&mut arm.body, drops);
-    ctx.pop_scope();
+    let Some(bind) = &arm.bind_local else {
+        return;
+    };
+    let source_names = [bind.clone()].into_iter().collect::<BTreeSet<_>>();
+    let drops = ctx.take_scope_drops(arm.body.span, &source_names);
+    let drop_lines = ctx.drop_lines_for_drops(&drops);
+    append_drop_lines_to_expr(&mut arm.body, drop_lines);
 }
 
 fn append_drop_lines_to_expr(expr: &mut HirExpr, drops: Vec<HirLine>) {
@@ -968,189 +869,95 @@ fn append_drop_lines_to_expr(expr: &mut HirExpr, drops: Vec<HirLine>) {
     }
 }
 
-fn field_move_path_from_addr(
-    addr: &HirExpr,
-    field_ty: TypeId,
-    types: &TypeCtx,
-) -> Option<FieldMovePath> {
-    let (owner, owner_ty, offset) = base_owner(addr)?;
-    let field_ty = types.resolve_id(field_ty);
-    let is_declared_field = aggregate_fields_with_offsets(types, owner_ty)
-        .into_iter()
-        .any(|field| field.offset == offset && types.resolve_id(field.ty) == field_ty);
-    if is_declared_field {
-        Some(FieldMovePath {
-            owner: owner.to_string(),
-            offset,
-            field_ty,
-        })
-    } else {
-        None
+fn collect_function_local_names(function: &HirFunction, out: &mut BTreeSet<String>) {
+    for param in &function.params {
+        out.insert(param.name.clone());
+    }
+    if let crate::hir::HirBody::Block(block) = &function.body {
+        collect_block_local_names(block, out);
     }
 }
 
-fn base_owner(expr: &HirExpr) -> Option<(&str, TypeId, usize)> {
+fn collect_block_local_names(block: &HirBlock, out: &mut BTreeSet<String>) {
+    for line in &block.lines {
+        collect_expr_local_names(&line.expr, out);
+    }
+}
+
+fn collect_direct_block_let_names(block: &HirBlock, out: &mut BTreeSet<String>) {
+    for line in &block.lines {
+        if let HirExprKind::Let { name, .. } = &line.expr.kind {
+            out.insert(name.clone());
+        }
+    }
+}
+
+fn collect_expr_local_names(expr: &HirExpr, out: &mut BTreeSet<String>) {
     match &expr.kind {
-        HirExprKind::Var(name) => Some((name.as_str(), expr.ty, 0)),
-        HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() >= 2 => {
-            let (owner, owner_ty, base_offset) = base_owner(&args[0])?;
-            let offset = match &args[1].kind {
-                HirExprKind::LiteralI32(value) if *value >= 0 => *value as usize,
-                _ => return None,
-            };
-            Some((owner, owner_ty, base_offset + offset))
+        HirExprKind::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => {
+            collect_expr_local_names(cond, out);
+            collect_expr_local_names(then_branch, out);
+            collect_expr_local_names(else_branch, out);
         }
-        _ => None,
-    }
-}
-
-fn field_move_path_from_selector(
-    args: &[HirExpr],
-    result_ty: TypeId,
-    types: &TypeCtx,
-    string_literals: &[String],
-) -> Option<FieldMovePath> {
-    if args.len() != 2 {
-        return None;
-    }
-    let (owner, owner_ty, base_offset) = base_owner(&args[0])?;
-    let (_field_index, field_offset, field_ty) =
-        aggregate_field_index_layout_from_selector(owner_ty, &args[1], types, string_literals)?;
-    if !types.same_type(field_ty, result_ty) {
-        return None;
-    }
-    Some(FieldMovePath {
-        owner: owner.to_string(),
-        offset: base_offset + field_offset,
-        field_ty: result_ty,
-    })
-}
-
-fn field_projection_base_is_local_place(expr: &HirExpr) -> bool {
-    base_owner(expr).is_some()
-}
-
-fn aggregate_field_index_layout_from_selector(
-    owner_ty: TypeId,
-    selector: &HirExpr,
-    types: &TypeCtx,
-    string_literals: &[String],
-) -> Option<(usize, usize, TypeId)> {
-    let index = match &selector.kind {
-        HirExprKind::LiteralI32(value) if *value >= 0 => Some(*value as usize),
-        HirExprKind::LiteralStr(id) => {
-            let field_name = string_literals.get(*id as usize)?;
-            aggregate_field_index_by_name(types, owner_ty, field_name)
+        HirExprKind::While { cond, body } => {
+            collect_expr_local_names(cond, out);
+            collect_expr_local_names(body, out);
         }
-        _ => None,
-    }?;
-    aggregate_fields_with_offsets(types, owner_ty)
-        .get(index)
-        .map(|field| (index, field.offset, field.ty))
-}
-
-fn aggregate_field_index_by_name(
-    types: &TypeCtx,
-    owner_ty: TypeId,
-    field_name: &str,
-) -> Option<usize> {
-    match types.get_ref(types.resolve_named_type_id(owner_ty)) {
-        TypeKind::Struct { field_names, .. } => {
-            field_names.iter().position(|name| name == field_name)
-        }
-        TypeKind::Tuple { items } => field_name
-            .parse::<usize>()
-            .ok()
-            .filter(|index| *index < items.len()),
-        TypeKind::Apply { base, .. } => match types.get_ref(types.resolve_named_type_id(*base)) {
-            TypeKind::Struct { field_names, .. } => {
-                field_names.iter().position(|name| name == field_name)
-            }
-            TypeKind::Tuple { items } => field_name
-                .parse::<usize>()
-                .ok()
-                .filter(|index| *index < items.len()),
-            _ => None,
-        },
-        _ => None,
-    }
-}
-
-fn merge_info(saved: &VarInfo, branch_infos: &[VarInfo]) -> VarInfo {
-    let mut state = branch_infos
-        .iter()
-        .map(|info| info.state)
-        .reduce(DropInsertionContext::merge_state)
-        .unwrap_or(saved.state);
-    let first_fields = branch_infos
-        .first()
-        .map(|info| info.moved_fields.clone())
-        .unwrap_or_else(|| saved.moved_fields.clone());
-    let fields_match = branch_infos
-        .iter()
-        .all(|info| info.moved_fields == first_fields);
-    let moved_fields = if fields_match {
-        first_fields
-    } else {
-        state = VarState::PossiblyMoved;
-        BTreeMap::new()
-    };
-    VarInfo {
-        ty: saved.ty,
-        state,
-        moved_fields,
-    }
-}
-
-fn merge_outer_states(
-    ctx: &mut DropInsertionContext<'_>,
-    saved: &BTreeMap<String, Vec<VarInfo>>,
-    then_state: &BTreeMap<String, Vec<VarInfo>>,
-    else_state: &BTreeMap<String, Vec<VarInfo>>,
-) {
-    for (name, saved_stack) in saved {
-        let Some(saved_top) = saved_stack.last().cloned() else {
-            continue;
-        };
-        let then_top = then_state
-            .get(name)
-            .and_then(|stack| stack.last().cloned())
-            .unwrap_or_else(|| saved_top.clone());
-        let else_top = else_state
-            .get(name)
-            .and_then(|stack| stack.last().cloned())
-            .unwrap_or_else(|| saved_top.clone());
-        let merged = merge_info(&saved_top, &[then_top, else_top]);
-        if let Some(stack) = ctx.var_stacks.get_mut(name) {
-            if let Some(last) = stack.last_mut() {
-                *last = merged;
+        HirExprKind::Match { scrutinee, arms } => {
+            collect_expr_local_names(scrutinee, out);
+            for arm in arms {
+                if let Some(name) = &arm.bind_local {
+                    out.insert(name.clone());
+                }
+                collect_expr_local_names(&arm.body, out);
             }
         }
-    }
-}
-
-fn merge_many_outer_states(
-    ctx: &mut DropInsertionContext<'_>,
-    saved: &BTreeMap<String, Vec<VarInfo>>,
-    arm_states: &[BTreeMap<String, Vec<VarInfo>>],
-) {
-    for (name, saved_stack) in saved {
-        let Some(saved_top) = saved_stack.last().cloned() else {
-            continue;
-        };
-        let mut infos = Vec::new();
-        for arm_state in arm_states {
-            let info = arm_state
-                .get(name)
-                .and_then(|stack| stack.last().cloned())
-                .unwrap_or_else(|| saved_top.clone());
-            infos.push(info);
-        }
-        let merged = merge_info(&saved_top, &infos);
-        if let Some(stack) = ctx.var_stacks.get_mut(name) {
-            if let Some(last) = stack.last_mut() {
-                *last = merged;
+        HirExprKind::Call { args, .. } | HirExprKind::Intrinsic { args, .. } => {
+            for arg in args {
+                collect_expr_local_names(arg, out);
             }
         }
+        HirExprKind::CallIndirect { callee, args, .. } => {
+            collect_expr_local_names(callee, out);
+            for arg in args {
+                collect_expr_local_names(arg, out);
+            }
+        }
+        HirExprKind::EnumConstruct { payload, .. } => {
+            if let Some(payload) = payload {
+                collect_expr_local_names(payload, out);
+            }
+        }
+        HirExprKind::StructConstruct { fields, .. } => {
+            for field in fields {
+                collect_expr_local_names(field, out);
+            }
+        }
+        HirExprKind::TupleConstruct { items } => {
+            for item in items {
+                collect_expr_local_names(item, out);
+            }
+        }
+        HirExprKind::Block(block) => collect_block_local_names(block, out),
+        HirExprKind::Let { name, value, .. } => {
+            out.insert(name.clone());
+            collect_expr_local_names(value, out);
+        }
+        HirExprKind::Set { value, .. } => collect_expr_local_names(value, out),
+        HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
+            collect_expr_local_names(inner, out);
+        }
+        HirExprKind::FnValue(_)
+        | HirExprKind::Var(_)
+        | HirExprKind::LiteralI32(_)
+        | HirExprKind::LiteralF32(_)
+        | HirExprKind::LiteralBool(_)
+        | HirExprKind::LiteralStr(_)
+        | HirExprKind::Unit
+        | HirExprKind::Drop { .. } => {}
     }
 }

@@ -1297,32 +1297,24 @@ pub fn prepare_module_for_codegen_with_source_map(
     }
     let resource_tc = run_typecheck(module, target, profile, source_map)?;
     let mut diagnostics = resource_tc.diagnostics;
-    let mut resource_types = resource_tc.types;
-    let (resource_hir_module, resource_unresolved_trait_calls) =
-        monomorphize::monomorphize_with_unresolved_trait_calls(
-            &mut resource_types,
-            resource_tc.module,
-        );
+    let mut types = resource_tc.types;
+    let (mut hir_module, resource_unresolved_trait_calls) =
+        monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, resource_tc.module);
     if !resource_unresolved_trait_calls.is_empty() {
         extend_unresolved_trait_call_diagnostics(&mut diagnostics, resource_unresolved_trait_calls);
         return Err(CoreError::from_diagnostics(diagnostics));
     }
-    let resource_drop_elaboration_plan = run_resource_static_check(
-        &resource_hir_module,
-        &resource_types,
-        &mut diagnostics,
-        source_map,
-    )?;
-    let mut codegen_tc = run_typecheck(module, target, profile, source_map)?;
+    let resource_drop_elaboration_plan =
+        run_resource_static_check(&hir_module, &types, &mut diagnostics, source_map)?;
     run_resource_drop_elaboration_hir_bridge_gate(
-        &codegen_tc.module,
+        &hir_module,
         &resource_drop_elaboration_plan,
         &mut diagnostics,
     )?;
-    passes::insert_drops(&mut codegen_tc.module, &mut codegen_tc.types);
-    let mut types = codegen_tc.types;
+    passes::insert_resource_drops(&mut hir_module, &mut types, &resource_drop_elaboration_plan)
+        .map_err(|_| CoreError::internal("resource drop elaboration plan could not be consumed"))?;
     let (hir_module, unresolved_trait_calls) =
-        monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, codegen_tc.module);
+        monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, hir_module);
     if !unresolved_trait_calls.is_empty() {
         extend_unresolved_trait_call_diagnostics(&mut diagnostics, unresolved_trait_calls);
         return Err(CoreError::from_diagnostics(diagnostics));

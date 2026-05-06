@@ -69,23 +69,23 @@ const resourceTypecheckIndex = prepareBody.indexOf('let resource_tc = run_typech
 const resourceMonomorphizeIndex = prepareBody.indexOf(
     'monomorphize::monomorphize_with_unresolved_trait_calls(',
 );
-const resourceCheckIndex = prepareBody.indexOf(
-    '&resource_hir_module,\n        &resource_types,\n        &mut diagnostics,\n        source_map,',
-);
 const resourcePlanBindingIndex = prepareBody.indexOf(
-    'let resource_drop_elaboration_plan = run_resource_static_check(',
+    'let resource_drop_elaboration_plan =',
 );
-const codegenTypecheckIndex = prepareBody.indexOf('let mut codegen_tc = run_typecheck(');
+const resourceCheckIndex = prepareBody.indexOf('run_resource_static_check(');
 const hirBridgeGateIndex = prepareBody.indexOf(
     'run_resource_drop_elaboration_hir_bridge_gate(',
 );
 const dropInsertionIndex = prepareBody.indexOf(
-    'passes::insert_drops(&mut codegen_tc.module, &mut codegen_tc.types);',
+    'passes::insert_resource_drops(&mut hir_module, &mut types, &resource_drop_elaboration_plan)',
+);
+const finalMonomorphizeIndex = prepareBody.lastIndexOf(
+    'monomorphize::monomorphize_with_unresolved_trait_calls(',
 );
 const preparedPlanFieldIndex = prepareBody.lastIndexOf('resource_drop_elaboration_plan,');
 assert(
     resourceTypecheckIndex >= 0,
-    'prepare_module_for_codegen_with_source_map must build a dedicated typed HIR for Resource IR source checking',
+    'prepare_module_for_codegen_with_source_map must typecheck once before Resource IR source checking',
 );
 assert(
     resourceMonomorphizeIndex >= 0,
@@ -105,25 +105,32 @@ assert(
     'prepare_module_for_codegen_with_source_map must retain the checked Resource IR drop elaboration plan',
 );
 assert(
-    codegenTypecheckIndex >= 0,
-    'prepare_module_for_codegen_with_source_map must build a separate typed HIR for legacy HIR drop elaboration until Resource IR drop insertion replaces it',
+    !prepareBody.includes('let mut codegen_tc = run_typecheck('),
+    'prepare_module_for_codegen_with_source_map must not keep a second legacy HIR typecheck path after Resource IR drop insertion is authoritative',
 );
 assert(
     hirBridgeGateIndex >= 0,
-    'prepare_module_for_codegen_with_source_map must validate the checked Resource IR drop plan against source HIR before HIR drop insertion',
+    'prepare_module_for_codegen_with_source_map must validate the checked Resource IR drop plan before consuming it',
 );
 assert(
     dropInsertionIndex >= 0,
-    'prepare_module_for_codegen_with_source_map must still elaborate drops before monomorphize/codegen',
+    'prepare_module_for_codegen_with_source_map must elaborate drops from ResourceDropElaborationPlan',
+);
+assert(
+    !prepareBody.includes('passes::insert_drops'),
+    'prepare_module_for_codegen_with_source_map must not call the legacy HIR VarState drop walker',
+);
+assert(
+    finalMonomorphizeIndex > dropInsertionIndex,
+    'prepare_module_for_codegen_with_source_map must rerun monomorphize after plan-based drop insertion to resolve generated trait calls',
 );
 assert(
     resourceTypecheckIndex < resourceMonomorphizeIndex
         && resourceMonomorphizeIndex < resourceCheckIndex
         && resourcePlanBindingIndex < resourceCheckIndex
-        && resourceCheckIndex < codegenTypecheckIndex
-        && codegenTypecheckIndex < hirBridgeGateIndex
+        && resourceCheckIndex < hirBridgeGateIndex
         && hirBridgeGateIndex < dropInsertionIndex,
-    'Resource IR static check must run on drop-free source semantics before HIR drop insertion so generated drops cannot mask source resource violations',
+    'Resource IR static check must run on drop-free source semantics before plan-based drop insertion so generated drops cannot mask source resource violations',
 );
 assert(
     preparedPlanFieldIndex > dropInsertionIndex,

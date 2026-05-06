@@ -90,6 +90,13 @@ fn monomorphize_internal(
     for f in module.functions {
         mono.funcs.insert(f.name.clone(), f);
     }
+    for imp in &module.impls {
+        for method in &imp.methods {
+            mono.funcs
+                .entry(method.func.name.clone())
+                .or_insert_with(|| method.func.clone());
+        }
+    }
 
     // Start with the entry point or all non-generic functions
     let mut initial = Vec::new();

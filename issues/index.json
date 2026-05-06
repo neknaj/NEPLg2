@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T12:10:25.214Z",
+  "generated_at": "2026-05-06T12:11:57.949Z",
   "counts": {
-    "total": 510,
+    "total": 511,
     "open": 13,
-    "resolved": 497,
+    "resolved": 498,
     "by_area": {
       "core": {
-        "total": 245,
+        "total": 246,
         "open": 5,
-        "resolved": 240
+        "resolved": 241
       },
       "stdlib": {
         "total": 156,
@@ -3793,6 +3793,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T111001704Z-RESOURCE-DROP-ELABORATION-PLAN-OMITS-C984305E.md"
+    },
+    {
+      "id": "ISS-20260506T113709479Z-RESOURCE-DROP-ELABORATION-PLAN-IS-NO-6CFFA860",
+      "title": "Resource drop elaboration plan is not consumed by HIR drop call generation",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs, nepl-core/src/monomorphize.rs, nepl-core/tests/resource_ir.rs, nepl-core/tests/check_pipeline.rs, nodesrc/test_resource_gate_order.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T113709479Z-RESOURCE-DROP-ELABORATION-PLAN-IS-NO-6CFFA860.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

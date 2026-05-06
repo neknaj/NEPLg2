@@ -10,6 +10,7 @@ const TYPECHECK_DIR = path.join(CORE_SRC, 'typecheck');
 const RESOURCE_ROOT = path.join(CORE_SRC, 'resource', 'mod.rs');
 const COMPILER = path.join(CORE_SRC, 'compiler.rs');
 const PASSES_MOD = path.join(CORE_SRC, 'passes', 'mod.rs');
+const DROP_INSERTION = path.join(CORE_SRC, 'passes', 'drop_insertion.rs');
 const MOVE_CHECK_ROOT = path.join(CORE_SRC, 'passes', 'move_check.rs');
 const MOVE_CHECK_DIR = path.join(CORE_SRC, 'passes', 'move_check');
 
@@ -53,6 +54,7 @@ const typecheckRoot = assertFile(TYPECHECK_ROOT, 'typecheck.rs');
 const resourceRoot = assertFile(RESOURCE_ROOT, 'resource/mod.rs');
 const compiler = assertFile(COMPILER, 'compiler.rs');
 const passesMod = assertFile(PASSES_MOD, 'passes/mod.rs');
+const dropInsertion = assertFile(DROP_INSERTION, 'passes/drop_insertion.rs');
 
 assertLineLimit(TYPECHECK_ROOT, 'typecheck.rs', 90);
 
@@ -112,7 +114,7 @@ assertMissing(MOVE_CHECK_ROOT, 'legacy passes/move_check.rs');
 assertMissing(MOVE_CHECK_DIR, 'legacy passes/move_check directory');
 assertNotContains(passesMod, 'move_check', 'passes/mod.rs');
 assertContains(passesMod, 'pub mod drop_insertion;', 'passes/mod.rs');
-assertContains(passesMod, 'pub use drop_insertion::insert_drops;', 'passes/mod.rs');
+assertContains(passesMod, 'pub use drop_insertion::insert_resource_drops;', 'passes/mod.rs');
 
 for (const moduleName of [
     'borrow_check',
@@ -150,7 +152,17 @@ assertContains(compiler, 'check_resource_borrow_lifetimes', 'compiler.rs');
 assertContains(compiler, 'check_resource_effect_boundaries', 'compiler.rs');
 assertContains(compiler, 'check_resource_owner_obligations', 'compiler.rs');
 assertContains(compiler, 'run_resource_drop_elaboration_hir_bridge_gate', 'compiler.rs');
-assertContains(compiler, 'passes::insert_drops', 'compiler.rs');
+assertContains(compiler, 'passes::insert_resource_drops', 'compiler.rs');
+assertNotContains(compiler, 'passes::insert_drops', 'compiler.rs');
 assertNotContains(compiler, 'move_check', 'compiler.rs');
+assertContains(dropInsertion, 'ResourceDropElaborationPlan', 'passes/drop_insertion.rs');
+assertContains(dropInsertion, 'ResourceAutoDropKind::ScopeLocal', 'passes/drop_insertion.rs');
+assertContains(
+    dropInsertion,
+    'ResourceAutoDropKind::AssignmentOverwrite',
+    'passes/drop_insertion.rs',
+);
+assertNotContains(dropInsertion, 'enum VarState', 'passes/drop_insertion.rs');
+assertNotContains(dropInsertion, 'var_stacks', 'passes/drop_insertion.rs');
 
 console.log('static check responsibility boundaries ok');

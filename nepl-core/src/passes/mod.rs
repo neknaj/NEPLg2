@@ -1,4 +1,4 @@
 pub mod codegen_precheck;
 pub mod drop_insertion;
 
-pub use drop_insertion::insert_drops;
+pub use drop_insertion::insert_resource_drops;

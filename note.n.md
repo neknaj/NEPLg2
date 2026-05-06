@@ -70,6 +70,39 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-06 note (ISS-20260506T113709479Z ResourceDropElaborationPlan consumer)
+
+- [同期]:
+  - `214e541b` を push/pull して `main` と `origin/main` が一致した後、branch `work/resource-drop-call-generation` を作成した。
+- [原因]:
+  - Stage 4 では checked `ResourceDropElaborationPlan` が ScopeLocal / AssignmentOverwrite の live drop fact を持つようになっていたが、実 drop call 生成はまだ旧 HIR `passes::insert_drops` が担当していた。
+  - 旧 pass は `VarState`、`var_stacks`、HIR scope walker で drop 対象を再推定しており、Resource IR が static-check authority になっても codegen 側に別 authority が残っていた。
+- [修正]:
+  - `passes::insert_drops` を削除し、public API を `passes::insert_resource_drops` に変更した。
+  - `drop_insertion.rs` を checked `ResourceDropElaborationPlan` consumer として作り替え、`ResourceAutoDropKind::ScopeLocal` / `AssignmentOverwrite` を enum で分岐して処理するようにした。
+  - drop call の生成は `ResourceDropRequirement` の exhaustive match に集約し、direct Drop、structural field Drop、dynamic enum payload Drop を HIR state 推定なしで生成するようにした。
+  - `prepare_module_for_codegen_with_source_map` は 1 回の typecheck から drop 未挿入 monomorphized HIR を作り、Resource IR check / bridge gate の後、その同じ HIR に checked plan から drop call を挿入する構造に変更した。
+  - drop call 挿入後に final monomorphize を再実行し、生成された Drop trait call を concrete user call へ解決する。
+  - plan-based drop insertion は最初の monomorphize 後に Drop call を追加するため、未到達だった Drop impl method body が output HIR から落ちないよう `monomorphize_internal` が `HirModule.impls` の method function も function table に登録するようにした。
+  - `nodesrc/test_resource_gate_order.js` と `nodesrc/test_static_check_boundary_responsibility.js` を更新し、旧 `passes::insert_drops` / `VarState` walker の再導入を拒否するようにした。
+- [検証]:
+  - `cargo fmt --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_drop_insertion_consumes_checked_scope_and_assignment_points -- --nocapture`: passed
+  - `cargo test -p nepl-core --test check_pipeline resource_drop_insertion_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed
+  - `cargo test -p nepl-core --test check_pipeline prepare_codegen_exposes_checked_resource_drop_elaboration_plan -- --nocapture`: passed
+  - `node nodesrc/test_resource_gate_order.js`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md -o tmp/drop-overwrite-resource-plan-consumer-rebased.json --runner wasm --no-tree -j 1 --assert-io`: total=1, passed=1
+- [残件]:
+  - Stage 4 の大きな drop authority 移行は完了した。次は full review / focused regression で partial field move、nested branch/match、LLVM/codegen parity を確認し、問題が出た場合は個別 issue に分ける。
+  - Stage 5/6 として raw memory / stdlib public API 境界の整理が残る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math i64 bitwise internal split)
 
 - [同期]:

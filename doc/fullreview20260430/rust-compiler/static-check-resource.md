@@ -149,6 +149,16 @@ checked `ResourceDropElaborationPlan` が source HIR へ戻せることを compi
 
 この gate は実 drop call 挿入そのものではない。ただし、bridge 不可能な plan を `ResourceDropElaborationHirBridgeError` enum で早期に止めるため、次の置換作業で HIR scope walker や文字列 fallback を復活させる必要がなくなる。残る blocker は bridge 済み plan を drop call 生成へ渡すことである。
 
+## 2026-05-06 ResourceDropElaborationPlan consumer 追補
+
+実 drop call 生成は `passes::insert_resource_drops` が checked `ResourceDropElaborationPlan` を消費する形へ移った。旧 `passes::insert_drops`、`VarState`、`var_stacks` による HIR scope walker は削除済みである。
+
+新しい consumer は `ResourceAutoDropKind::ScopeLocal` と `AssignmentOverwrite` を enum で分け、`ResourceDropRequirement` の `StateOnly` / `WholeValue` / `DynamicEnumPayload` / `Structural` を exhaustive match して HIR drop call を生成する。これにより、Resource IR initialized-state traversal が記録した live drop fact と、codegen が挿入する実 drop call の authority が一致した。
+
+compiler pipeline も、Resource IR check 用 HIR と legacy drop insertion 用 HIR を二重 typecheck する構造をやめた。drop 未挿入の reachable monomorphized HIR を Resource IR check し、同じ HIR に checked plan から drop call を挿入し、最後に monomorphize を再実行して生成 Drop trait call を concrete user call へ解決する。
+
+この後挿入では、最初の monomorphize 時点で未到達だった Drop impl method body が output functions から落ちる危険がある。そのため `monomorphize_internal` は `HirModule.impls` に保持されている impl method function を function table へ再登録する。これにより final monomorphize が生成 Drop call を解決したとき、call target body も final HIR に残り、wasm codegen の unknown function にならない。今後の確認対象は、この新 authority の partial field move / nested control-flow / LLVM parity を full review で固定することである。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

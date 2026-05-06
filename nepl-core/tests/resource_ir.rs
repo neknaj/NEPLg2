@@ -3941,6 +3941,234 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_drop_insertion_consumes_checked_scope_and_assignment_points() {
+    fn count_trait_drop_calls(expr: &HirExpr) -> usize {
+        match &expr.kind {
+            HirExprKind::Call { callee, args } => {
+                let own = usize::from(matches!(
+                    callee,
+                    FuncRef::Trait { method, .. } if method == "drop"
+                ));
+                own + args.iter().map(count_trait_drop_calls).sum::<usize>()
+            }
+            HirExprKind::CallIndirect { callee, args, .. } => {
+                count_trait_drop_calls(callee)
+                    + args.iter().map(count_trait_drop_calls).sum::<usize>()
+            }
+            HirExprKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                count_trait_drop_calls(cond)
+                    + count_trait_drop_calls(then_branch)
+                    + count_trait_drop_calls(else_branch)
+            }
+            HirExprKind::While { cond, body } => {
+                count_trait_drop_calls(cond) + count_trait_drop_calls(body)
+            }
+            HirExprKind::Match { scrutinee, arms } => {
+                count_trait_drop_calls(scrutinee)
+                    + arms
+                        .iter()
+                        .map(|arm| count_trait_drop_calls(&arm.body))
+                        .sum::<usize>()
+            }
+            HirExprKind::Intrinsic { args, .. } => {
+                args.iter().map(count_trait_drop_calls).sum::<usize>()
+            }
+            HirExprKind::EnumConstruct { payload, .. } => {
+                payload.as_deref().map(count_trait_drop_calls).unwrap_or(0)
+            }
+            HirExprKind::StructConstruct { fields, .. } => {
+                fields.iter().map(count_trait_drop_calls).sum()
+            }
+            HirExprKind::TupleConstruct { items } => items.iter().map(count_trait_drop_calls).sum(),
+            HirExprKind::Block(block) => block
+                .lines
+                .iter()
+                .map(|line| count_trait_drop_calls(&line.expr))
+                .sum(),
+            HirExprKind::Let { value, .. }
+            | HirExprKind::Set { value, .. }
+            | HirExprKind::AddrOf(value)
+            | HirExprKind::Deref(value) => count_trait_drop_calls(value),
+            HirExprKind::FnValue(_)
+            | HirExprKind::Var(_)
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Unit
+            | HirExprKind::Drop { .. } => 0,
+        }
+    }
+    fn collect_user_calls(expr: &HirExpr, out: &mut Vec<String>) {
+        match &expr.kind {
+            HirExprKind::Call { callee, args } => {
+                if let FuncRef::User(name, _, _) = callee {
+                    out.push(name.clone());
+                }
+                for arg in args {
+                    collect_user_calls(arg, out);
+                }
+            }
+            HirExprKind::CallIndirect { callee, args, .. } => {
+                collect_user_calls(callee, out);
+                for arg in args {
+                    collect_user_calls(arg, out);
+                }
+            }
+            HirExprKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                collect_user_calls(cond, out);
+                collect_user_calls(then_branch, out);
+                collect_user_calls(else_branch, out);
+            }
+            HirExprKind::While { cond, body } => {
+                collect_user_calls(cond, out);
+                collect_user_calls(body, out);
+            }
+            HirExprKind::Match { scrutinee, arms } => {
+                collect_user_calls(scrutinee, out);
+                for arm in arms {
+                    collect_user_calls(&arm.body, out);
+                }
+            }
+            HirExprKind::Intrinsic { args, .. } => {
+                for arg in args {
+                    collect_user_calls(arg, out);
+                }
+            }
+            HirExprKind::EnumConstruct { payload, .. } => {
+                if let Some(payload) = payload {
+                    collect_user_calls(payload, out);
+                }
+            }
+            HirExprKind::StructConstruct { fields, .. } => {
+                for field in fields {
+                    collect_user_calls(field, out);
+                }
+            }
+            HirExprKind::TupleConstruct { items } => {
+                for item in items {
+                    collect_user_calls(item, out);
+                }
+            }
+            HirExprKind::Block(block) => {
+                for line in &block.lines {
+                    collect_user_calls(&line.expr, out);
+                }
+            }
+            HirExprKind::Let { value, .. }
+            | HirExprKind::Set { value, .. }
+            | HirExprKind::AddrOf(value)
+            | HirExprKind::Deref(value) => collect_user_calls(value, out),
+            HirExprKind::FnValue(_)
+            | HirExprKind::Var(_)
+            | HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Unit
+            | HirExprKind::Drop { .. } => {}
+        }
+    }
+
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
+
+fn main <()->i32> ():
+    let mut g <Guard> Guard 0
+    set g Guard 1
+    0
+"#;
+    let (module, mut types) = typecheck_resource_source(source);
+    let (mut module, unresolved_trait_calls) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    assert!(unresolved_trait_calls.is_empty());
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let plan = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect("checked drop plan should be valid");
+    let main_plan = plan
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "main")
+        .expect("main drop plan should exist");
+    assert!(main_plan
+        .auto_drops
+        .iter()
+        .any(|drop| matches!(drop.kind, ResourceAutoDropKind::AssignmentOverwrite)));
+    assert!(main_plan
+        .auto_drops
+        .iter()
+        .any(|drop| matches!(drop.kind, ResourceAutoDropKind::ScopeLocal)));
+
+    nepl_core::passes::insert_resource_drops(&mut module, &mut types, &plan)
+        .expect("checked Resource IR drop plan should be consumed by HIR drop insertion");
+    let main = module
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "main")
+        .expect("main HIR function should remain present");
+    let HirBody::Block(block) = &main.body else {
+        panic!("main should be a block body");
+    };
+    let drop_calls = block
+        .lines
+        .iter()
+        .map(|line| count_trait_drop_calls(&line.expr))
+        .sum::<usize>();
+    assert_eq!(
+        drop_calls, 2,
+        "assignment overwrite and scope exit should both be generated from checked drop facts"
+    );
+
+    let (module, unresolved_trait_calls) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    assert!(
+        unresolved_trait_calls.is_empty(),
+        "generated Drop trait calls must be resolvable by the final monomorphize pass: {:#?}",
+        unresolved_trait_calls
+    );
+    let function_names = module
+        .functions
+        .iter()
+        .map(|function| function.name.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut user_calls = Vec::new();
+    for function in &module.functions {
+        if let HirBody::Block(block) = &function.body {
+            for line in &block.lines {
+                collect_user_calls(&line.expr, &mut user_calls);
+            }
+        }
+    }
+    assert!(
+        user_calls.iter().all(|name| function_names.contains(name)),
+        "final monomorphize must keep generated Drop impl call targets: calls={:?}, functions={:?}",
+        user_calls,
+        function_names
+    );
+}
+
+#[test]
 fn resource_ir_drop_elaboration_plan_uses_checked_live_drop_facts() {
     let source = r#"
 #entry main
@@ -5609,8 +5837,7 @@ fn main <()*>i32> ():
                     ok
 "#;
 
-    let (mut module, mut types) = typecheck_resource_source(source);
-    nepl_core::passes::insert_drops(&mut module, &mut types);
+    let (module, mut types) = typecheck_resource_source(source);
     let (module, unresolved_trait_calls) =
         nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
     assert!(
@@ -13041,9 +13268,7 @@ fn main <()*>()> ():
                     dealloc_raw mem_ptr_addr data 1
 "#;
 
-    let (mut module, mut types) =
-        typecheck_resource_source_with_target(source, CompileTarget::Wasi);
-    nepl_core::passes::insert_drops(&mut module, &mut types);
+    let (module, mut types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
     let (module, unresolved_trait_calls) =
         nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
     assert!(
