@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T16:56:11.271Z",
+  "generated_at": "2026-05-06T17:09:36.114Z",
   "counts": {
     "total": 526,
-    "open": 16,
-    "resolved": 510,
+    "open": 15,
+    "resolved": 511,
     "by_area": {
       "core": {
         "total": 255,
-        "open": 5,
-        "resolved": 250
+        "open": 4,
+        "resolved": 251
       },
       "selfhost": {
         "total": 47,
@@ -133,21 +133,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232",
-      "title": "Resource authority deep prefix regressions exceed local test budget",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "performance",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "nepl-core/tests/check_pipeline.rs, nepl-core/src/compiler.rs, nepl-core/src/resource",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232.md"
     },
     {
       "id": "ISS-20260506T155806325Z-SELFHOST-LEXER-AND-IMPORT-SPEC-FIXTU-68BADCC8",
@@ -3973,6 +3958,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4.md"
+    },
+    {
+      "id": "ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232",
+      "title": "Resource authority deep prefix regressions exceed local test budget",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/tests/check_pipeline.rs, nepl-core/src/compiler.rs, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232.md"
     },
     {
       "id": "ISS-20260506T155747740Z-VEC-RAW-MEMORY-COLLECTION-LACKS-EXAC-3F7CA727",

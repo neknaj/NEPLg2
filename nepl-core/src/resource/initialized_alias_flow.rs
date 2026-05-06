@@ -137,18 +137,18 @@ fn propagate_raw_address_alias_op(
             place, initializer, ..
         } => {
             if let Some(initializer) = initializer {
-                raw_aliases.copy_alias_or_seed(initializer, place);
+                raw_aliases.copy_alias_if_tracked(initializer, place);
                 function_aliases.copy_alias(initializer, place);
             } else {
                 raw_aliases.clear(place);
             }
         }
         ResourceOp::Read { source, output, .. } | ResourceOp::Move { source, output, .. } => {
-            raw_aliases.copy_alias_or_seed(source, output);
+            raw_aliases.copy_alias_if_tracked(source, output);
             function_aliases.copy_alias(source, output);
         }
         ResourceOp::Assign { target, value, .. } => {
-            raw_aliases.copy_alias_or_seed(value, target);
+            raw_aliases.copy_alias_if_tracked(value, target);
             function_aliases.copy_alias(value, target);
         }
         ResourceOp::RawMemory {
@@ -166,7 +166,7 @@ fn propagate_raw_address_alias_op(
         },
         ResourceOp::RawAddressAlias { source, target, .. }
         | ResourceOp::RawAddressView { source, target, .. } => {
-            raw_aliases.copy_alias_or_seed(source, target);
+            raw_aliases.copy_explicit_raw_address_alias(source, target);
         }
         ResourceOp::Construct {
             output,
@@ -246,8 +246,8 @@ fn propagate_raw_address_alias_op(
                 summaries,
                 types,
             );
-            then_aliases.copy_alias_or_seed(then_value, output);
-            else_aliases.copy_alias_or_seed(else_value, output);
+            then_aliases.copy_alias_if_tracked(then_value, output);
+            else_aliases.copy_alias_if_tracked(else_value, output);
             then_function_aliases.copy_alias(then_value, output);
             else_function_aliases.copy_alias(else_value, output);
             *raw_aliases = RawCellAddressAliases::merge_paths(&[then_aliases, else_aliases]);
@@ -296,7 +296,7 @@ fn propagate_raw_address_alias_op(
                 let mut arm_function_aliases = function_aliases.clone();
                 if let Some(bind_local) = &arm.bind_local {
                     if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
-                        arm_aliases.copy_alias_or_seed(&source, bind_local);
+                        arm_aliases.copy_alias_if_tracked(&source, bind_local);
                         arm_function_aliases.copy_alias(&source, bind_local);
                     } else {
                         arm_aliases.clear(bind_local);
@@ -309,7 +309,7 @@ fn propagate_raw_address_alias_op(
                     summaries,
                     types,
                 );
-                arm_aliases.copy_alias_or_seed(&arm.value, output);
+                arm_aliases.copy_alias_if_tracked(&arm.value, output);
                 arm_function_aliases.copy_alias(&arm.value, output);
                 alias_paths.push(arm_aliases);
                 function_alias_paths.push(arm_function_aliases);
@@ -329,7 +329,7 @@ fn propagate_raw_address_alias_op(
         ResourceOp::Borrow { source, output, .. } => {
             raw_aliases.mark(output);
             let target = reference_target_place(output, source.ty);
-            raw_aliases.copy_alias_or_seed(source, &target);
+            raw_aliases.copy_alias_if_tracked(source, &target);
         }
         ResourceOp::Drop { place, .. } => raw_aliases.clear(place),
         ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
@@ -352,7 +352,7 @@ pub(super) fn construct_raw_cell_address_alias_fields(
 ) {
     for (index, input) in inputs.iter().enumerate() {
         let field = construct_aggregate_field_place(output, kind, index, input);
-        raw_aliases.copy_alias_or_seed(input, &field);
+        raw_aliases.copy_alias_if_tracked(input, &field);
     }
 }
 
@@ -428,7 +428,7 @@ fn apply_raw_alias_summary(
             &alias.return_projection,
             return_fallback_ty,
         );
-        raw_aliases.copy_alias_or_seed(&source, &target);
+        raw_aliases.copy_alias_if_tracked(&source, &target);
         applied = true;
     }
     applied

@@ -249,7 +249,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         initializer,
                         place,
                     ) {
-                        raw_aliases.copy_alias_or_seed(initializer, place);
+                        raw_aliases.copy_alias_if_tracked(initializer, place);
                         storage_origins.copy_origin(initializer, place);
                     } else {
                         self.transfer_owner(
@@ -284,7 +284,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::Read,
                     *span,
                 );
-                raw_aliases.copy_alias_or_seed(source, output);
+                raw_aliases.copy_alias_if_tracked(source, output);
                 storage_origins.copy_origin(source, output);
                 function_aliases.copy_alias(source, output);
                 raw_views.copy(source, output);
@@ -314,7 +314,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     value,
                     target,
                 ) {
-                    raw_aliases.copy_alias_or_seed(value, target);
+                    raw_aliases.copy_alias_if_tracked(value, target);
                     storage_origins.copy_origin(value, target);
                 } else {
                     self.transfer_owner(
@@ -446,7 +446,7 @@ impl ResourceOwnerCheckEngine<'_> {
                             &cell,
                             output.ty,
                         ) {
-                            raw_aliases.copy_alias_or_seed(&cell, output);
+                            raw_aliases.copy_alias_if_tracked(&cell, output);
                             storage_origins.copy_origin(&cell, output);
                             raw_views.mark(output);
                         } else {
@@ -501,7 +501,7 @@ impl ResourceOwnerCheckEngine<'_> {
                                 value,
                             )
                         {
-                            raw_aliases.copy_alias_or_seed(value, &cell);
+                            raw_aliases.copy_alias_if_tracked(value, &cell);
                             storage_origins.copy_origin(value, &cell);
                         } else if !value_reserved {
                             self.transfer_owner(
@@ -693,14 +693,14 @@ impl ResourceOwnerCheckEngine<'_> {
                 variant_owner_effects.clear_result(output);
             }
             ResourceOp::RawAddressAlias { source, target, .. } => {
-                raw_aliases.copy_alias_or_seed(source, target);
+                raw_aliases.copy_explicit_raw_address_alias(source, target);
                 storage_origins.copy_origin(source, target);
                 raw_views.copy(source, target);
                 pending_reallocs.copy_result(source, target);
                 variant_owner_effects.copy_result(source, target);
             }
             ResourceOp::RawAddressView { source, target, .. } => {
-                raw_aliases.copy_alias_or_seed(source, target);
+                raw_aliases.copy_explicit_raw_address_alias(source, target);
                 storage_origins.copy_origin(source, target);
                 raw_views.mark(target);
                 pending_reallocs.clear_result(target);
@@ -708,7 +708,7 @@ impl ResourceOwnerCheckEngine<'_> {
             }
             ResourceOp::Borrow { source, output, .. } => {
                 let target = reference_target_place(output, source.ty);
-                raw_aliases.copy_alias_or_seed(source, &target);
+                raw_aliases.copy_alias_if_tracked(source, &target);
                 storage_origins.copy_origin(source, &target);
                 raw_views.copy(source, &target);
                 pending_reallocs.clear_result(output);

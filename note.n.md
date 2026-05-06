@@ -72,6 +72,29 @@
 ## plan.mdとの差分
 
 - `plan.md` は変更していない。
+# 2026-05-06 note (ISS-20260506T154254968Z Resource authority deep prefix budget)
+
+## 作業内容
+
+- branch `fix/deep-prefix-resource-budget` で `origin/main` から分岐して作業した。
+- deep-prefix `resource_static_check_accepts_deep_prefix_chain_without_stack_overflow` を stage timing 付きで再計測し、修正前は initialized gate 約 124 秒、owner gate 約 354 秒、途中の broad i32-value grouping 案では owner gate 約 428 秒まで悪化することを確認した。
+- 根本原因は、通常の scalar copy を raw-address alias group として扱う設計と、bare i32 identity helper を transparent raw-address return とみなす設計が重なり、普通の prefix call chain に raw alias group を大量生成していたこと。
+- `copy_alias_or_seed` を廃止し、通常 copy は `copy_alias_if_tracked` で既存 raw relation だけを伝播、明示 `RawAddressAlias` / `RawAddressView` は `copy_explicit_raw_address_alias` で seed するように分離した。
+- raw memory address の local origin は alias group ではなく `ValueOrigin` fact として別管理し、raw memory address canonicalization 時だけ参照する。これにより `mem_ptr_wrap raw` と `store raw ...` の別 read temporary は同じ `%raw` に揃うが、普通の i32 chain は raw group にならない。
+- transparent raw-address return lowering は bare i32 parameter return を除外し、`add` / `sub` / `mem_ptr_*` / `region_*` など raw-address operation の operand だけを raw projection として扱う。
+- raw alias return summary の適用は、未追跡 scalar を新規 seed せず、既に追跡中の raw relation だけを伝播する形に戻した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 と `ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232` を更新し、issue は fixed にした。
+
+## 検証
+
+- `cargo fmt --check`: passed
+- `cargo test -p nepl-core --test check_pipeline resource_static_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed, finished in 9.33s
+- `cargo test -p nepl-core --test check_pipeline prepare_codegen_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed, finished in 9.39s
+- `cargo test -p nepl-core --test check_pipeline resource_drop_insertion_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed, finished in 3.09s
+- `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8 passed
+- `cargo check -p nepl-core --tests`: passed
+- `node nodesrc/test_resource_gate_order.js`: passed
+- `node nodesrc/issues.js check`: passed
 
 # 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR authority closure)
 

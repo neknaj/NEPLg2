@@ -75,7 +75,11 @@ impl ResourceCheckEngine<'_> {
             && source_aliases
                 .iter()
                 .any(|alias| cells.external_raw_storage_overlaps(alias));
-        raw_aliases.copy_alias_or_seed(source, target);
+        if force_raw_address {
+            raw_aliases.copy_explicit_raw_address_alias(source, target);
+        } else {
+            raw_aliases.copy_alias_if_tracked(source, target);
+        }
         if prefer_target {
             raw_aliases.prefer_canonical(target);
         }

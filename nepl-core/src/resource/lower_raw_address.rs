@@ -156,9 +156,14 @@ pub(super) fn push_transparent_raw_address_return_projection(
     let Some(return_expr) = function_return_expr(function) else {
         return;
     };
-    let Some(source) =
-        raw_address_source_from_return_expr(return_expr, function, hir_args, arg_places, env)
-    else {
+    let Some(source) = raw_address_source_from_return_expr(
+        return_expr,
+        function,
+        hir_args,
+        arg_places,
+        env,
+        RawAddressReturnContext::DirectReturn,
+    ) else {
         return;
     };
     let source = source.into_place_and_view(env.types.i32());
@@ -193,16 +198,19 @@ fn raw_address_source_from_return_expr(
     hir_args: &[HirExpr],
     arg_places: &[Place],
     env: &LoweringEnvironment,
+    context: RawAddressReturnContext,
 ) -> Option<RawAddressSource> {
     match &expr.kind {
         HirExprKind::Var(name) => {
             let index = function_param_index(function, name)?;
+            let hir_arg = hir_args.get(index)?;
+            let arg_place = arg_places.get(index)?;
+            let base = raw_address_place_from_actual_argument(hir_arg, arg_place, env);
+            if matches!(context, RawAddressReturnContext::DirectReturn) && base == *arg_place {
+                return None;
+            }
             Some(RawAddressSource {
-                base: raw_address_place_from_actual_argument(
-                    hir_args.get(index)?,
-                    arg_places.get(index)?,
-                    env,
-                ),
+                base,
                 offset: RawAddressOffset::Known(0),
                 explicit_offset: false,
             })
@@ -232,13 +240,37 @@ fn raw_address_source_from_return_expr(
                 hir_args,
                 arg_places,
                 env,
+                RawAddressReturnContext::AddressOperand,
             )
         }
         HirExprKind::Deref(inner) => {
-            raw_address_source_from_return_expr(inner, function, hir_args, arg_places, env)
+            raw_address_source_from_return_expr(inner, function, hir_args, arg_places, env, context)
         }
         _ => None,
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RawAddressReturnContext {
+    DirectReturn,
+    AddressOperand,
+}
+
+fn raw_address_source_from_return_operand_expr(
+    expr: &HirExpr,
+    function: &HirFunction,
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    env: &LoweringEnvironment,
+) -> Option<RawAddressSource> {
+    raw_address_source_from_return_expr(
+        expr,
+        function,
+        hir_args,
+        arg_places,
+        env,
+        RawAddressReturnContext::AddressOperand,
+    )
 }
 
 fn raw_address_source_from_return_named_call(
@@ -251,22 +283,22 @@ fn raw_address_source_from_return_named_call(
     env: &LoweringEnvironment,
 ) -> Option<RawAddressSource> {
     match helper_base_name(name) {
-        "add" if args.len() == 2 => {
-            raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
-                .map(|source| {
-                    source.with_added_offset(i32_const_from_return_expr(
-                        &args[1], function, hir_args, env,
-                    ))
-                })
-                .or_else(|| {
-                    let offset = i32_const_from_return_expr(&args[0], function, hir_args, env)?;
-                    raw_address_source_from_return_expr(
-                        &args[1], function, hir_args, arg_places, env,
-                    )
-                    .map(|source| source.with_added_offset(Some(offset)))
-                })
-        }
-        "sub" if args.len() == 2 => raw_address_source_from_return_expr(
+        "add" if args.len() == 2 => raw_address_source_from_return_operand_expr(
+            &args[0], function, hir_args, arg_places, env,
+        )
+        .map(|source| {
+            source.with_added_offset(i32_const_from_return_expr(
+                &args[1], function, hir_args, env,
+            ))
+        })
+        .or_else(|| {
+            let offset = i32_const_from_return_expr(&args[0], function, hir_args, env)?;
+            raw_address_source_from_return_operand_expr(
+                &args[1], function, hir_args, arg_places, env,
+            )
+            .map(|source| source.with_added_offset(Some(offset)))
+        }),
+        "sub" if args.len() == 2 => raw_address_source_from_return_operand_expr(
             &args[0], function, hir_args, arg_places, env,
         )
         .map(|source| {
@@ -277,9 +309,11 @@ fn raw_address_source_from_return_named_call(
         "mem_ptr_addr" | "mem_ptr_wrap" | "str_addr" | "str_from_addr_unchecked"
             if args.len() == 1 =>
         {
-            raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
+            raw_address_source_from_return_operand_expr(
+                &args[0], function, hir_args, arg_places, env,
+            )
         }
-        "mem_ptr_add" if args.len() >= 2 => raw_address_source_from_return_expr(
+        "mem_ptr_add" if args.len() >= 2 => raw_address_source_from_return_operand_expr(
             &args[0], function, hir_args, arg_places, env,
         )
         .map(|source| {
@@ -292,7 +326,9 @@ fn raw_address_source_from_return_named_call(
                 && literal_field_name(env, &args[1]) == Some("raw")
                 && is_named_struct_type(env.types, args[0].ty, "MemPtr") =>
         {
-            raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
+            raw_address_source_from_return_operand_expr(
+                &args[0], function, hir_args, arg_places, env,
+            )
         }
         "get" | "get_field"
             if args.len() >= 2
@@ -305,9 +341,9 @@ fn raw_address_source_from_return_named_call(
                 &args[0], function, hir_args, arg_places, env,
             )
         }
-        "region_new" if args.len() >= 2 => {
-            raw_address_source_from_return_expr(&args[0], function, hir_args, arg_places, env)
-        }
+        "region_new" if args.len() >= 2 => raw_address_source_from_return_operand_expr(
+            &args[0], function, hir_args, arg_places, env,
+        ),
         "region_token_ptr_ref" if args.len() == 1 => raw_address_source_from_region_token_ptr_expr(
             &args[0], function, hir_args, arg_places, env,
         ),
@@ -380,10 +416,22 @@ fn raw_address_source_from_region_token_ptr_expr(
         HirExprKind::Call { callee, args }
             if matches!(func_ref_base_name(callee), Some("region_new")) =>
         {
-            raw_address_source_from_return_expr(args.first()?, function, hir_args, arg_places, env)
+            raw_address_source_from_return_operand_expr(
+                args.first()?,
+                function,
+                hir_args,
+                arg_places,
+                env,
+            )
         }
         HirExprKind::Intrinsic { name, args, .. } if helper_base_name(name) == "region_new" => {
-            raw_address_source_from_return_expr(args.first()?, function, hir_args, arg_places, env)
+            raw_address_source_from_return_operand_expr(
+                args.first()?,
+                function,
+                hir_args,
+                arg_places,
+                env,
+            )
         }
         _ => None,
     }

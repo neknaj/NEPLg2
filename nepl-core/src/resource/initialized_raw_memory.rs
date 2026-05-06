@@ -120,7 +120,7 @@ impl ResourceCheckEngine<'_> {
                         cells.mark_initialized(&cell);
                         raw_aliases.clear(&cell);
                         if value_is_known_raw_address {
-                            raw_aliases.copy_alias_or_seed(value, &cell);
+                            raw_aliases.copy_alias_if_tracked(value, &cell);
                         }
                     }
                     cells.mark_initialized(output);
