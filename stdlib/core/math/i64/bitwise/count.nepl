@@ -1,0 +1,108 @@
+//: # math/i64/bitwise/count
+//: i64 の bit count 系 intrinsic を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - `clz` / `ctz` / `popcnt` を binary bitwise / shift から分けて管理します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力が 0 の場合も wasm / llvm intrinsic の規約に従います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math/i64/bitwise/count" as *
+//:| #import "core/math/i64/compare" as *
+//: fn main <()*>()> ():
+//:     let one <i64> cast 1;
+//:     let eight <i64> cast 8;
+//:     let fifteen <i64> cast 15;
+//:     assert eq clz one <i64> cast 63;
+//:     assert eq ctz eight <i64> cast 3;
+//:     assert eq popcnt fifteen <i64> cast 4;
+//: ```
+
+#indent 4
+
+//: clz: 先頭ゼロビット数の計算
+//:
+//: [目的/もくてき]:
+//: - i64 の先頭側に連続する 0 bit の個数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.clz` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力が 0 のときは 64 を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn clz <(i64)->i64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i64.clz
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.ctlz.i64(i64, i1)
+        define i64 @clz(i64 %a) {
+        entry:
+            %0 = call i64 @llvm.ctlz.i64(i64 %a, i1 false)
+            ret i64 %0
+        }
+
+//: ctz: 末尾ゼロビット数の計算
+//:
+//: [目的/もくてき]:
+//: - i64 の末尾側に連続する 0 bit の個数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.ctz` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力が 0 のときは 64 を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ctz <(i64)->i64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i64.ctz
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.cttz.i64(i64, i1)
+        define i64 @ctz(i64 %a) {
+        entry:
+            %0 = call i64 @llvm.cttz.i64(i64 %a, i1 false)
+            ret i64 %0
+        }
+
+//: popcnt: 1 ビット数の計算
+//:
+//: [目的/もくてき]:
+//: - i64 に立っている 1 bit の個数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.popcnt` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - ハミング重み（population count）として利用できます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn popcnt <(i64)->i64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i64.popcnt
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.ctpop.i64(i64)
+        define i64 @popcnt(i64 %a) {
+        entry:
+            %0 = call i64 @llvm.ctpop.i64(i64 %a)
+            ret i64 %0
+        }

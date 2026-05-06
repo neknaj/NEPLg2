@@ -1,0 +1,107 @@
+//: # math/i64/bitwise/binary
+//: i64 の AND / OR / XOR を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - i64 の binary bitwise 演算を shift / count 系から分けて管理します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力は i64 のビット列として扱い、符号は区別しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math/i64/bitwise/binary" as *
+//:| #import "core/math/i64/compare" as *
+//: fn main <()*>()> ():
+//:     let a <i64> cast 14;
+//:     let b <i64> cast 11;
+//:     assert eq and a b <i64> cast 10;
+//:     assert eq or a b <i64> cast 15;
+//:     assert eq xor a b <i64> cast 5;
+//: ```
+
+#indent 4
+
+//: and: i64 のビット AND
+//:
+//: [目的/もくてき]:
+//: - 2つの i64 の各ビットに AND を適用します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.and` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 演算は整数の符号とは無関係にビット単位で行われます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn and <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.and
+    #if[target=llvm]
+    #llvmir:
+        define i64 @and(i64 %a, i64 %b) {
+        entry:
+            %0 = and i64 %a, %b
+            ret i64 %0
+        }
+
+//: or: i64 のビット OR
+//:
+//: [目的/もくてき]:
+//: - 2つの i64 の各ビットに OR を適用します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.or` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 真理値 OR ではなく、ビット論理和です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn or <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.or
+    #if[target=llvm]
+    #llvmir:
+        define i64 @or(i64 %a, i64 %b) {
+        entry:
+            %0 = or i64 %a, %b
+            ret i64 %0
+        }
+
+//: xor: i64 のビット XOR
+//:
+//: [目的/もくてき]:
+//: - 2つの i64 の各ビットに XOR を適用します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.xor` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 異なるビットのみ 1 になる排他的論理和です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn xor <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.xor
+    #if[target=llvm]
+    #llvmir:
+        define i64 @xor(i64 %a, i64 %b) {
+        entry:
+            %0 = xor i64 %a, %b
+            ret i64 %0
+        }

@@ -1,0 +1,162 @@
+//: # math/i64/bitwise/shift
+//: i64 の shift / rotate 演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - 左右 shift と rotate を binary bitwise / bit count から分けて管理します。
+//:
+//: [注意/ちゅうい]:
+//: - signed / unsigned の違いは `shr_s` と `shr_u` の API 名で明示します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math/i64/bitwise/shift" as *
+//:| #import "core/math/i64/compare" as *
+//: fn main <()*>()> ():
+//:     let one <i64> cast 1;
+//:     let three <i64> cast 3;
+//:     assert eq shl one three <i64> cast 8;
+//:     assert eq rotl one one <i64> cast 2;
+//: ```
+
+#indent 4
+
+//: shl: i64 の左シフト
+//:
+//: [目的/もくてき]:
+//: - i64 のビット列を左へシフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.shl` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - シフト量は Wasm 仕様に従い下位 6 bit が使われます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shl <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.shl
+    #if[target=llvm]
+    #llvmir:
+        define i64 @shl(i64 %a, i64 %b) {
+        entry:
+            %0 = shl i64 %a, %b
+            ret i64 %0
+        }
+
+//: shr_s: i64 の算術右シフト
+//:
+//: [目的/もくてき]:
+//: - i64 を符号付き整数として右へシフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.shr_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 最上位ビット（符号ビット）が埋め戻されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shr_s <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.shr_s
+    #if[target=llvm]
+    #llvmir:
+        define i64 @shr_s(i64 %a, i64 %b) {
+        entry:
+            %0 = ashr i64 %a, %b
+            ret i64 %0
+        }
+
+//: shr_u: i64 の論理右シフト
+//:
+//: [目的/もくてき]:
+//: - i64 を符号なし整数として右へシフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.shr_u` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 上位ビットは 0 で埋められます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shr_u <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.shr_u
+    #if[target=llvm]
+    #llvmir:
+        define i64 @shr_u(i64 %a, i64 %b) {
+        entry:
+            %0 = lshr i64 %a, %b
+            ret i64 %0
+        }
+
+//: rotl: i64 の左ローテート
+//:
+//: [目的/もくてき]:
+//: - i64 のビット列を左へ循環シフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.rotl` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - シフトで失われるビットは下位側へ回り込みます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn rotl <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.rotl
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.fshl.i64(i64, i64, i64)
+        define i64 @rotl(i64 %a, i64 %b) {
+        entry:
+            %0 = call i64 @llvm.fshl.i64(i64 %a, i64 %a, i64 %b)
+            ret i64 %0
+        }
+
+//: rotr: i64 の右ローテート
+//:
+//: [目的/もくてき]:
+//: - i64 のビット列を右へ循環シフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.rotr` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - シフトで失われるビットは上位側へ回り込みます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn rotr <(i64,i64)->i64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.rotr
+    #if[target=llvm]
+    #llvmir:
+        declare i64 @llvm.fshr.i64(i64, i64, i64)
+        define i64 @rotr(i64 %a, i64 %b) {
+        entry:
+            %0 = call i64 @llvm.fshr.i64(i64 %a, i64 %a, i64 %b)
+            ret i64 %0
+        }
