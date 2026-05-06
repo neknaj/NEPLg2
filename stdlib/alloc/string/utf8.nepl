@@ -1,0 +1,213 @@
+//: utf8: string の UTF-8 byte sequence validation
+//:
+//: [目的/もくてき]:
+//: - `str` 構築前の raw byte 列が UTF-8 scalar value として妥当か検証します。
+//: - leading byte の分類を enum と `match` で扱い、検査漏れを静的に見つけやすくします。
+//:
+//: [注意/ちゅうい]:
+//: - この module は検証だけを所有します。検証済み byte 列から `str` を構築する処理は `alloc/string.nepl` 側が所有します。
+//: - `MemPtr<u8>` の指す領域は caller が `byte_len` byte ぶん有効に保つ必要があります。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/option" as *
+#import "core/math" as *
+
+//: StringUtf8LeadKind: UTF-8 leading byte の分類
+//:
+//: [目的/もくてき]:
+//: - UTF-8 検証の分岐を enum と `match` にし、if の深いネストに戻らないようにします。
+enum StringUtf8LeadKind:
+    Ascii
+    Two
+    Three
+    Four
+    Invalid
+
+fn string_utf8_in_range <(i32,i32,i32)->bool> (b, lo, hi):
+    and ge b lo le b hi
+
+fn string_utf8_is_continuation <(i32)->bool> (b):
+    string_utf8_in_range b 128 191
+
+fn string_utf8_lead_kind <(i32)->StringUtf8LeadKind> (b):
+    if:
+        le b 127
+        then:
+            StringUtf8LeadKind::Ascii
+        else:
+            if:
+                string_utf8_in_range b 194 223
+                then:
+                    StringUtf8LeadKind::Two
+                else:
+                    if:
+                        string_utf8_in_range b 224 239
+                        then:
+                            StringUtf8LeadKind::Three
+                        else:
+                            if:
+                                string_utf8_in_range b 240 244
+                                then:
+                                    StringUtf8LeadKind::Four
+                                else:
+                                    StringUtf8LeadKind::Invalid
+
+fn string_utf8_byte_at <(MemPtr<u8>,i32)->Result<i32,str>> (data, idx):
+    match load_u8 mem_ptr_add data idx:
+        Option::Some b:
+            Result<i32,str>::Ok b
+        Option::None:
+            Result<i32,str>::Err "string.utf8 invalid pointer"
+
+fn string_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(),str>> (data, i, byte_len):
+    if:
+        gt add i 2 byte_len
+        then:
+            Result<(),str>::Err "string.utf8 truncated sequence"
+        else:
+            match string_utf8_byte_at data add i 1:
+                Result::Err e:
+                    Result<(),str>::Err e
+                Result::Ok b1:
+                    if:
+                        string_utf8_is_continuation b1
+                        then:
+                            Result<(),str>::Ok ()
+                        else:
+                            Result<(),str>::Err "string.utf8 invalid continuation"
+
+fn string_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
+    if:
+        gt add i 3 byte_len
+        then:
+            Result<(),str>::Err "string.utf8 truncated sequence"
+        else:
+            match string_utf8_byte_at data add i 1:
+                Result::Err e:
+                    Result<(),str>::Err e
+                Result::Ok b1:
+                    match string_utf8_byte_at data add i 2:
+                        Result::Err e:
+                            Result<(),str>::Err e
+                        Result::Ok b2:
+                            let first_ok <bool>:
+                                if:
+                                    eq b0 224
+                                    then:
+                                        string_utf8_in_range b1 160 191
+                                    else:
+                                        if:
+                                            eq b0 237
+                                            then:
+                                                string_utf8_in_range b1 128 159
+                                            else:
+                                                string_utf8_is_continuation b1
+                            if:
+                                and first_ok string_utf8_is_continuation b2
+                                then:
+                                    Result<(),str>::Ok ()
+                                else:
+                                    Result<(),str>::Err "string.utf8 invalid three-byte sequence"
+
+fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
+    if:
+        gt add i 4 byte_len
+        then:
+            Result<(),str>::Err "string.utf8 truncated sequence"
+        else:
+            match string_utf8_byte_at data add i 1:
+                Result::Err e:
+                    Result<(),str>::Err e
+                Result::Ok b1:
+                    match string_utf8_byte_at data add i 2:
+                        Result::Err e:
+                            Result<(),str>::Err e
+                        Result::Ok b2:
+                            match string_utf8_byte_at data add i 3:
+                                Result::Err e:
+                                    Result<(),str>::Err e
+                                Result::Ok b3:
+                                    let first_ok <bool>:
+                                        if:
+                                            eq b0 240
+                                            then:
+                                                string_utf8_in_range b1 144 191
+                                            else:
+                                                if:
+                                                    eq b0 244
+                                                    then:
+                                                        string_utf8_in_range b1 128 143
+                                                    else:
+                                                        string_utf8_is_continuation b1
+                                    if:
+                                        and first_ok and string_utf8_is_continuation b2 string_utf8_is_continuation b3
+                                        then:
+                                            Result<(),str>::Ok ()
+                                        else:
+                                            Result<(),str>::Err "string.utf8 invalid four-byte sequence"
+
+//: string_utf8_validate_mem: raw byte 列が UTF-8 として妥当か検証する
+//:
+//: [目的/もくてき]:
+//: - `str` を構築する前に、外部由来の byte 列が UTF-8 scalar value の制約を満たすことを確認します。
+//:
+//: [実装/じっそう]:
+//: - leading byte を `StringUtf8LeadKind` に分類し、sequence 長ごとの検査関数を `match` で呼び分けます。
+//:
+//: [注意/ちゅうい]:
+//: - overlong sequence、surrogate range、U+10FFFF 超過につながる先頭 byte は拒否します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(byte_len)
+fn string_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(),str>> (data, byte_len):
+    if:
+        lt byte_len 0
+        then:
+            Result<(),str>::Err "string.utf8 invalid length"
+        else:
+            let mut i <i32> 0
+            let mut done <i32> 0
+            let mut res <Result<(),str>> Result<(),str>::Ok ()
+            while eq done 0:
+                do:
+                    if:
+                        ge i byte_len
+                        then:
+                            set done 1
+                        else:
+                            match string_utf8_byte_at data i:
+                                Result::Err e:
+                                    set res Result<(),str>::Err e
+                                    set done 1
+                                Result::Ok b0:
+                                    match string_utf8_lead_kind b0:
+                                        StringUtf8LeadKind::Ascii:
+                                            set i add i 1
+                                        StringUtf8LeadKind::Two:
+                                            match string_utf8_validate_two data i byte_len:
+                                                Result::Ok _:
+                                                    set i add i 2
+                                                Result::Err e:
+                                                    set res Result<(),str>::Err e
+                                                    set done 1
+                                        StringUtf8LeadKind::Three:
+                                            match string_utf8_validate_three data i byte_len b0:
+                                                Result::Ok _:
+                                                    set i add i 3
+                                                Result::Err e:
+                                                    set res Result<(),str>::Err e
+                                                    set done 1
+                                        StringUtf8LeadKind::Four:
+                                            match string_utf8_validate_four data i byte_len b0:
+                                                Result::Ok _:
+                                                    set i add i 4
+                                                Result::Err e:
+                                                    set res Result<(),str>::Err e
+                                                    set done 1
+                                        StringUtf8LeadKind::Invalid:
+                                            set res Result<(),str>::Err "string.utf8 invalid leading byte"
+                                            set done 1
+            res

@@ -1,3 +1,31 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string UTF-8 validation split)
+
+- [同期]:
+  - `55317d5f` を push/pull して `main` と `origin/main` が一致した後、branch `fix/string-utf8-validation-split` を作成した。
+- [原因]:
+  - `stdlib/alloc/string.nepl` は文字列 layout、UTF-8 byte validation、builder、slice/search/split、numeric conversion を 3500 lines 超の 1 file に持ち続けていた。
+  - UTF-8 検証は外部 byte 列を `str` にする前のメモリ安全・型安全境界であり、文字列 ownership finalization や builder と同居させる必要がない。
+- [修正]:
+  - `stdlib/alloc/string/utf8.nepl` を追加し、`StringUtf8LeadKind`、leading byte 分類、2/3/4 byte sequence validation、`string_utf8_validate_mem` を移した。
+  - `stdlib/alloc/string.nepl` は `./string/utf8` を public re-export し、検証済み byte 列から `str` を構築する `string_from_utf8_mem_result` は root に残した。
+  - `nodesrc/test_stdlib_string_utf8_boundary.js` を追加し、root へ UTF-8 validation 実装が戻らないこと、enum + `match` による分岐、line count 上限を固定した。
+  - `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` を更新し、unsafe helper 禁止対象と UTF-8 enum 所有先を新 module に追従させた。
+  - 広い UTF-8 negative-path test で owner を閉じていない fixture 問題を確認し、`ISS-20260506T115339863Z-UTF-8-NEGATIVE-PATH-TESTS-LEAK-OWNED-2057C710` として分離した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_utf8_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl --no-tree -o tmp/string-root-after-utf8-split.json -j 1`: total=10, passed=10
+  - `node nodesrc/tests.js -i tests/stdlib/string.n.md --no-tree -o tmp/tests-stdlib-string-after-utf8-split.json -j 1`: total=17, passed=17
+  - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/tests-stdlib-string-char-after-utf8-split.json -j 1`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/string_numeric_overflow.n.md --no-tree -o tmp/tests-stdlib-string-numeric-after-utf8-split.json -j 1`: total=8, passed=8
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl` の builder、slice/search/split、numeric parse/format、`alloc/collections/vec.nepl`、`core/mem.nepl` の分割を継続する。
+  - `stdlib/tests/string.n.md` と `tests/stdlib/text_utf8.n.md` の negative-path owner fixture 修正は新規 issue `ISS-20260506T115339863Z-UTF-8-NEGATIVE-PATH-TESTS-LEAK-OWNED-2057C710` で扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/collections/vec/sort responsibility split)
 
 - [同期]:

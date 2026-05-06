@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T11:25:43.168Z",
+  "generated_at": "2026-05-06T11:54:57.400Z",
   "counts": {
-    "total": 509,
-    "open": 13,
+    "total": 510,
+    "open": 14,
     "resolved": 496,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 240
       },
       "stdlib": {
-        "total": 155,
-        "open": 6,
+        "total": 156,
+        "open": 7,
         "resolved": 149
       },
       "TEST": {
@@ -283,6 +283,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260506T115339863Z-UTF-8-NEGATIVE-PATH-TESTS-LEAK-OWNED-2057C710",
+      "title": "UTF-8 negative-path tests leak owned str in Ok arms",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "stdlib/tests/string.n.md, tests/stdlib/text_utf8.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T115339863Z-UTF-8-NEGATIVE-PATH-TESTS-LEAK-OWNED-2057C710.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
