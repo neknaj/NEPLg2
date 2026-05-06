@@ -1,0 +1,103 @@
+//: # math/i32/bitwise/binary
+//: i32 の AND / OR / XOR を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - i32 の binary bitwise 演算を shift / count 系から分けて管理します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力は i32 のビット列として扱い、符号は区別しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/math/i32/bitwise/binary" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 2 and 6 3;
+//:     assert_eq_i32 7 or 6 3;
+//:     assert_eq_i32 5 xor 6 3;
+//: ```
+
+#indent 4
+
+//: and: i32 のビット AND
+//:
+//: [目的/もくてき]:
+//: - i32 と i32 の各ビットに対して AND を取り、両方が 1 のビットだけを残します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.and`、llvm は `and i32` を使って同じ結果を返します。
+//:
+//: [注意/ちゅうい]:
+//: - ビット演算なので符号は区別しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn and <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.and
+    #if[target=llvm]
+    #llvmir:
+        define i32 @and(i32 %a, i32 %b) {
+        entry:
+            %0 = and i32 %a, %b
+            ret i32 %0
+        }
+
+//: or: i32 のビット OR
+//:
+//: [目的/もくてき]:
+//: - i32 と i32 の各ビットに対して OR を取り、どちらかが 1 のビットを立てます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.or`、llvm は `or i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - ビット演算なので符号は区別しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn or <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.or
+    #if[target=llvm]
+    #llvmir:
+        define i32 @or(i32 %a, i32 %b) {
+        entry:
+            %0 = or i32 %a, %b
+            ret i32 %0
+        }
+
+//: xor: i32 のビット XOR
+//:
+//: [目的/もくてき]:
+//: - i32 と i32 の各ビットに対して XOR を取り、異なるビットだけを 1 にします。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.xor`、llvm は `xor i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - ビット演算なので符号は区別しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn xor <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.xor
+    #if[target=llvm]
+    #llvmir:
+        define i32 @xor(i32 %a, i32 %b) {
+        entry:
+            %0 = xor i32 %a, %b
+            ret i32 %0
+        }

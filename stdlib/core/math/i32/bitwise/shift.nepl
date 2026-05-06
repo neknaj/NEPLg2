@@ -1,0 +1,161 @@
+//: # math/i32/bitwise/shift
+//: i32 の shift / rotate 演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - 左右 shift と rotate を binary bitwise / bit count から分けて管理します。
+//:
+//: [注意/ちゅうい]:
+//: - signed / unsigned の違いは `shr_s` と `shr_u` の API 名で明示します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/math/i32/bitwise/shift" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 8 shl 1 3;
+//:     assert_eq_i32 -2 shr_s -8 2;
+//:     assert_eq_i32 1073741822 shr_u -8 2;
+//:     assert_eq_i32 2 rotl 1 1;
+//:     assert_eq_i32 1 rotr 2 1;
+//: ```
+
+#indent 4
+
+//: shl: i32 の左シフト
+//:
+//: [目的/もくてき]:
+//: - `a` のビット列を `b` だけ左にずらします。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.shl`、llvm は `shl i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - シフト量は実行系の規則に従って下位ビットが使われます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shl <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.shl
+    #if[target=llvm]
+    #llvmir:
+        define i32 @shl(i32 %a, i32 %b) {
+        entry:
+            %0 = shl i32 %a, %b
+            ret i32 %0
+        }
+
+//: shr_s: i32 の算術右シフト
+//:
+//: [目的/もくてき]:
+//: - 符号を保ちながら `a` を右シフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.shr_s`、llvm は `ashr i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 負数のときは符号拡張されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shr_s <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.shr_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @shr_s(i32 %a, i32 %b) {
+        entry:
+            %0 = ashr i32 %a, %b
+            ret i32 %0
+        }
+
+//: shr_u: i32 の論理右シフト
+//:
+//: [目的/もくてき]:
+//: - 上位を 0 で埋めながら `a` を右シフトします。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.shr_u`、llvm は `lshr i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 符号なし値として扱いたいときに使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn shr_u <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.shr_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @shr_u(i32 %a, i32 %b) {
+        entry:
+            %0 = lshr i32 %a, %b
+            ret i32 %0
+        }
+
+//: rotl: i32 の左ローテート
+//:
+//: [目的/もくてき]:
+//: - i32 のビット列を左方向に循環回転します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.rotl`、llvm は `llvm.fshl.i32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - ローテートはシフトと異なり、あふれたビットが反対側に戻ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn rotl <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.rotl
+    #if[target=llvm]
+    #llvmir:
+        declare i32 @llvm.fshl.i32(i32, i32, i32)
+        define i32 @rotl(i32 %a, i32 %b) {
+        entry:
+            %0 = call i32 @llvm.fshl.i32(i32 %a, i32 %a, i32 %b)
+            ret i32 %0
+        }
+
+//: rotr: i32 の右ローテート
+//:
+//: [目的/もくてき]:
+//: - i32 のビット列を右方向に循環回転します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.rotr`、llvm は `llvm.fshr.i32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - ローテートはシフトと異なり、あふれたビットが反対側に戻ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn rotr <(i32,i32)->i32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.rotr
+    #if[target=llvm]
+    #llvmir:
+        declare i32 @llvm.fshr.i32(i32, i32, i32)
+        define i32 @rotr(i32 %a, i32 %b) {
+        entry:
+            %0 = call i32 @llvm.fshr.i32(i32 %a, i32 %a, i32 %b)
+            ret i32 %0
+        }

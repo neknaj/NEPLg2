@@ -1,0 +1,103 @@
+//: # math/i32/bitwise/count
+//: i32 の bit count 系 intrinsic を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - `clz` / `ctz` / `popcnt` を binary bitwise / shift から分けて管理します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力が 0 の場合も wasm / llvm intrinsic の規約に従います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/math/i32/bitwise/count" as *
+//: fn main <()*>()> ():
+//:     assert_eq_i32 31 clz 1;
+//:     assert_eq_i32 3 ctz 8;
+//:     assert_eq_i32 4 popcnt 15;
+//: ```
+
+#indent 4
+
+//: clz: 先頭ゼロビット数を数える
+//:
+//: [目的/もくてき]:
+//: - i32 の上位側に連続する 0 ビット数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.clz`、llvm は `llvm.ctlz.i32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 入力が 0 の場合も実行系の規約に沿って定義されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn clz <(i32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.clz
+    #if[target=llvm]
+    #llvmir:
+        declare i32 @llvm.ctlz.i32(i32, i1)
+        define i32 @clz(i32 %a) {
+        entry:
+            %0 = call i32 @llvm.ctlz.i32(i32 %a, i1 0)
+            ret i32 %0
+        }
+
+//: ctz: 末尾ゼロビット数を数える
+//:
+//: [目的/もくてき]:
+//: - i32 の下位側に連続する 0 ビット数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.ctz`、llvm は `llvm.cttz.i32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 入力が 0 の場合も実行系の規約に沿って定義されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ctz <(i32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.ctz
+    #if[target=llvm]
+    #llvmir:
+        declare i32 @llvm.cttz.i32(i32, i1)
+        define i32 @ctz(i32 %a) {
+        entry:
+            %0 = call i32 @llvm.cttz.i32(i32 %a, i1 0)
+            ret i32 %0
+        }
+
+//: popcnt: 1 ビットの個数を数える
+//:
+//: [目的/もくてき]:
+//: - i32 のビット列に含まれる 1 の個数を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.popcnt`、llvm は `llvm.ctpop.i32` intrinsic を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 値の符号には依存しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn popcnt <(i32)->i32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        i32.popcnt
+    #if[target=llvm]
+    #llvmir:
+        declare i32 @llvm.ctpop.i32(i32)
+        define i32 @popcnt(i32 %a) {
+        entry:
+            %0 = call i32 @llvm.ctpop.i32(i32 %a)
+            ret i32 %0
+        }

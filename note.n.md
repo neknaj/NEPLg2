@@ -1,3 +1,25 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math i32 bitwise internal split)
+
+- [同期]:
+  - `5e6e812e` を push/pull して `main` と `origin/main` が一致した後、branch `fix/math-i32-bitwise-internal-split` を作成した。
+- [原因]:
+  - `stdlib/core/math/i32/bitwise.nepl` は i32 の AND/OR/XOR、shift/rotate、bit count intrinsic を 352 lines の 1 file に持ち続けていた。
+  - i64 側にも同型の構造が残っており、まず i32 側で binary / shift / count の責務境界を固定する必要があった。
+- [修正]:
+  - `stdlib/core/math/i32/bitwise/binary.nepl` を追加し、`and` / `or` / `xor` を移した。
+  - `stdlib/core/math/i32/bitwise/shift.nepl` を追加し、`shl` / `shr_s` / `shr_u` / `rotl` / `rotr` を移した。
+  - `stdlib/core/math/i32/bitwise/count.nepl` を追加し、`clz` / `ctz` / `popcnt` を移した。
+  - `stdlib/core/math/i32/bitwise.nepl` は 3 submodule を再 export する facade にし、関数本体を持たない形にした。
+  - `nodesrc/test_stdlib_math_module_split.js` に i32 bitwise submodule の re-export、所有関数、行数上限、facade の無実装性を固定する検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/i32/bitwise/binary.nepl -i stdlib/core/math/i32/bitwise/shift.nepl -i stdlib/core/math/i32/bitwise/count.nepl -i stdlib/core/math/i32/bitwise.nepl -i stdlib/core/math/i32.nepl -i stdlib/core/math.nepl -i tests/stdlib/numerics.n.md -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-i32-bitwise-internal-split.json -j 1`: total=23, passed=23
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`i64/bitwise`、`alloc/string.nepl`、`alloc/collections/vec.nepl`、`core/mem.nepl` などの分割を継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math int128 responsibility split)
 
 - [同期]:
