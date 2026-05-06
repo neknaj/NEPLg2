@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T15:25:07.956Z",
+  "generated_at": "2026-05-06T15:30:24.497Z",
   "counts": {
     "total": 520,
-    "open": 15,
-    "resolved": 505,
+    "open": 14,
+    "resolved": 506,
     "by_area": {
       "core": {
         "total": 253,
-        "open": 6,
-        "resolved": 247
+        "open": 5,
+        "resolved": 248
       },
       "stdlib": {
         "total": 157,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4",
-      "title": "String builder split loses raw-memory boundary capability",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "nepl-core/src/loader.rs, stdlib/alloc/string/builder.nepl, tests/stdlib/kp.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3928,6 +3913,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71.md"
+    },
+    {
+      "id": "ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4",
+      "title": "String builder split loses raw-memory boundary capability",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/loader.rs, stdlib/alloc/string/builder.nepl, tests/stdlib/kp.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

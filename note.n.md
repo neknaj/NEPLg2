@@ -1,3 +1,26 @@
+# 2026-05-06 note (ISS-20260506T152038161Z string builder exact raw-memory boundary)
+
+## 作業内容
+
+- branch `fix/string-builder-boundary` で `origin/main` に merge 済みの `89f08d57` から作業した。
+- `ISS-20260506T150445017Z` の検証中、`alloc/string/integer.nepl` の boundary miss 解消後に `alloc/string/builder.nepl` の `sb_append_byte_result` / `sb_append_result` / `sb_build_result` が `effect.pure.calls_impure` になることを確認した。
+- `stdlib/alloc/string/builder.nepl` は owned byte buffer に `store_u8` / `mem_copy` で byte を書く内部構築境界なので、`nepl-core/src/loader.rs` の configured exact raw-memory-boundary table に追加した。
+- `nepl-core/tests/effects.rs` に `alloc/string/builder.nepl` の exact path loader regression を追加した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 5 記録と関連 issue list を更新し、`ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4` を fixed にした。
+
+## 検証
+
+- `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boundary -- --nocapture`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo fmt --check`: passed
+- `node nodesrc/test_stdlib_builder_owner_boundary.js`: passed
+- `node nodesrc/test_stdlib_string_integer_boundary.js`: passed
+- `node nodesrc/test_stdlib_string_float_boundary.js`: passed
+- `node nodesrc/issues.js check`: passed
+- `trunk build`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 1 --dist web/dist`: passed, stdout `10\n20\n30\n`
+- `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 7 --dist web/dist`: passed, stdout `2 3\n1 2 5\n`
+
 # 2026-05-06 note (ISS-20260506T150445017Z string integer exact raw-memory boundary)
 
 ## 作業内容

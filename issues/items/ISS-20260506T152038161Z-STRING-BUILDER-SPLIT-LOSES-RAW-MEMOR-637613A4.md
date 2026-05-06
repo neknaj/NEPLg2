@@ -2,8 +2,8 @@
 id: ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4
 title: "String builder split loses raw-memory boundary capability"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-06
@@ -42,3 +42,22 @@ Audit stdlib/alloc/string/builder.nepl as an internal raw-memory-backed string c
 ## 検証
 
 Run loader raw-memory-boundary regressions and tests/stdlib/kp.n.md focused doctests to confirm StringBuilder no longer fails with effect.pure.calls_impure.
+
+## 2026-05-06 修正
+
+`stdlib/alloc/string/builder.nepl` を監査し、`sb_append_result` / `sb_append_char_result` / `sb_append_ascii_result` / `sb_append_byte_result` / `sb_build_result` が owned byte buffer に対して `store_u8` または `mem_copy` を直接行うことを確認した。StringBuilder は Stage 6 の `OwnedRegion` / owner-token API 移行が完了するまでは internal raw-memory-backed string construction boundary であり、safe public source へ任意の raw memory capability を与えるものではない。
+
+`nepl-core/src/loader.rs` の configured stdlib exact path table に `alloc/string/builder.nepl` を追加し、`nepl-core/tests/effects.rs` の loader regression に同じ path を追加した。configured `stdlib_root` の canonical path と完全一致した file だけを許可するため、同名 suffix や user source には raw-memory-boundary capability は渡らない。
+
+検証:
+
+- `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boundary -- --nocapture`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo fmt --check`: passed
+- `node nodesrc/test_stdlib_builder_owner_boundary.js`: passed
+- `node nodesrc/test_stdlib_string_integer_boundary.js`: passed
+- `node nodesrc/test_stdlib_string_float_boundary.js`: passed
+- `node nodesrc/issues.js check`: passed
+- `trunk build`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 1 --dist web/dist`: passed, stdout `10\n20\n30\n`
+- `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 7 --dist web/dist`: passed, stdout `2 3\n1 2 5\n`
