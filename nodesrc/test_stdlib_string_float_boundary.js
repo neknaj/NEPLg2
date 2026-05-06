@@ -16,17 +16,17 @@ const floatCode = stripNeplComments(floatSrc);
 assert.match(rootSrc, /pub #import "\.\/string\/float" as \*/, 'alloc/string facade must re-export string/float');
 
 for (const importPath of [
+    'core/mem',
     'alloc/string/access',
-    'alloc/string/builder',
     'alloc/string/integer',
+    'alloc/string/storage',
 ]) {
     assert.match(floatSrc, new RegExp(`#import "${importPath}" as \\*`), `string/float must import ${importPath} directly`);
 }
 
 for (const name of [
     'from_f64_fraction_trim_len',
-    'from_f64_append_fraction_digit_result',
-    'from_f64_append_fraction_result',
+    'from_f64_write_fraction_digits_result',
     'from_f64_build_fixed_result',
     'from_f64_result',
     'from_f64',
@@ -40,8 +40,13 @@ for (const name of [
 
 assert.match(
     floatCode,
-    /fn\s+from_f64_build_fixed_result[\s\S]*string_builder_with_capacity_result[\s\S]*sb_append_byte_result[\s\S]*sb_append_result[\s\S]*sb_build_result/,
-    'f64 formatting must build owned output through StringBuilder APIs',
+    /fn\s+from_f64_build_fixed_result[\s\S]*string_alloc_region[\s\S]*mem_copy[\s\S]*from_f64_write_fraction_digits_result[\s\S]*string_finish/,
+    'f64 formatting must build owned output through one fixed-size string storage allocation',
+);
+assert.doesNotMatch(
+    floatCode,
+    /\bstring_builder_with_capacity_result\b|\bsb_append_result\b|\bsb_build_result\b/,
+    'f64 formatting must not reintroduce growable StringBuilder owner chains',
 );
 assert.doesNotMatch(
     floatCode,

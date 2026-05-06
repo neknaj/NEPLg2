@@ -13,9 +13,10 @@
 #import "core/result" as *
 #import "core/math" as *
 #import "core/cast" as *
+#import "core/mem" as *
 #import "alloc/string/access" as *
-#import "alloc/string/builder" as *
 #import "alloc/string/integer" as *
+#import "alloc/string/storage" as *
 //: from_f64_fraction_trim_len: 固定 6 桁の小数 digit から出力桁数を決める
 //:
 //: [目的/もくてき]:
@@ -63,85 +64,71 @@ fn from_f64_fraction_trim_len <(i32,i32,i32,i32,i32,i32)->i32> (d0, d1, d2, d3, 
                                                 else:
                                                     0
 
-//: from_f64_append_fraction_digit_result: 必要な場合だけ小数 digit を builder に追加する
+//: from_f64_write_fraction_digits_result: 小数 digit を出力領域へ書き込む
 //:
 //: [目的/もくてき]:
-//: - trim 後に残る digit だけを `StringBuilder` に追加します。
+//: - `from_f64_build_fixed_result` が確保した文字列本文領域へ、trim 済みの小数 digit を書き込みます。
 //:
 //: [実装/じっそう]:
-//: - `index < trim` の digit だけ ASCII 数字 byte として追加し、それ以外は builder をそのまま返します。
-//: - 追加には `sb_append_byte_result` を使い、raw memory を直接扱いません。
+//: - trim は 0..6 の閉じた集合として `match` で分岐します。
+//: - digit はすべて `0..9` の範囲で計算済みなので、ASCII 数字 byte を順に raw store します。
 //:
 //: [注意/ちゅうい]:
-//: - digit は `0..9` の範囲で渡される前提です。
+//: - `base_raw + start` から少なくとも trim byte 書ける領域があることは呼び出し側が保証します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn from_f64_append_fraction_digit_result <(StringBuilder,i32,i32,i32)->Result<StringBuilder,str>> (sb, trim, index, digit):
-    if:
-        lt index trim
-        then:
-            sb_append_byte_result sb add '0' digit
-        else:
-            Result<StringBuilder,str>::Ok sb
-
-//: from_f64_append_fraction_result: 小数点と小数 digit を builder に追加する
-//:
-//: [目的/もくてき]:
-//: - `from_f64_result` の小数部を、trim 済みの固定小数表記として builder へ追加します。
-//:
-//: [実装/じっそう]:
-//: - trim が 0 の場合は小数点を出力しません。
-//: - trim が 1 以上なら `.` を追加し、続けて必要な digit だけを順番に追加します。
-//:
-//: [注意/ちゅうい]:
-//: - builder owner は各 `_result` API で消費され、失敗時には内部 buffer が解放されます。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(trim)。ただし trim は最大 6 です。
-fn from_f64_append_fraction_result <(StringBuilder,i32,i32,i32,i32,i32,i32,i32)->Result<StringBuilder,str>> (sb, trim, d0, d1, d2, d3, d4, d5):
-    if:
-        le trim 0
-        then:
-            Result<StringBuilder,str>::Ok sb
-        else:
-            match sb_append_byte_result sb '.':
-                Result::Err e:
-                    Result<StringBuilder,str>::Err e
-                Result::Ok sb_dot:
-                    match from_f64_append_fraction_digit_result sb_dot trim 0 d0:
-                        Result::Err e:
-                            Result<StringBuilder,str>::Err e
-                        Result::Ok sb0:
-                            match from_f64_append_fraction_digit_result sb0 trim 1 d1:
-                                Result::Err e:
-                                    Result<StringBuilder,str>::Err e
-                                Result::Ok sb1:
-                                    match from_f64_append_fraction_digit_result sb1 trim 2 d2:
-                                        Result::Err e:
-                                            Result<StringBuilder,str>::Err e
-                                        Result::Ok sb2:
-                                            match from_f64_append_fraction_digit_result sb2 trim 3 d3:
-                                                Result::Err e:
-                                                    Result<StringBuilder,str>::Err e
-                                                Result::Ok sb3:
-                                                    match from_f64_append_fraction_digit_result sb3 trim 4 d4:
-                                                        Result::Err e:
-                                                            Result<StringBuilder,str>::Err e
-                                                        Result::Ok sb4:
-                                                            from_f64_append_fraction_digit_result sb4 trim 5 d5
+fn from_f64_write_fraction_digits_result <(i32,i32,i32,i32,i32,i32,i32,i32,i32)->Result<(),str>> (base_raw, start, trim, d0, d1, d2, d3, d4, d5):
+    match trim:
+        0:
+            Result<(),str>::Ok ()
+        1:
+            store_u8 add base_raw start add '0' d0
+            Result<(),str>::Ok ()
+        2:
+            store_u8 add base_raw start add '0' d0
+            store_u8 add base_raw add start 1 add '0' d1
+            Result<(),str>::Ok ()
+        3:
+            store_u8 add base_raw start add '0' d0
+            store_u8 add base_raw add start 1 add '0' d1
+            store_u8 add base_raw add start 2 add '0' d2
+            Result<(),str>::Ok ()
+        4:
+            store_u8 add base_raw start add '0' d0
+            store_u8 add base_raw add start 1 add '0' d1
+            store_u8 add base_raw add start 2 add '0' d2
+            store_u8 add base_raw add start 3 add '0' d3
+            Result<(),str>::Ok ()
+        5:
+            store_u8 add base_raw start add '0' d0
+            store_u8 add base_raw add start 1 add '0' d1
+            store_u8 add base_raw add start 2 add '0' d2
+            store_u8 add base_raw add start 3 add '0' d3
+            store_u8 add base_raw add start 4 add '0' d4
+            Result<(),str>::Ok ()
+        6:
+            store_u8 add base_raw start add '0' d0
+            store_u8 add base_raw add start 1 add '0' d1
+            store_u8 add base_raw add start 2 add '0' d2
+            store_u8 add base_raw add start 3 add '0' d3
+            store_u8 add base_raw add start 4 add '0' d4
+            store_u8 add base_raw add start 5 add '0' d5
+            Result<(),str>::Ok ()
+        _:
+            Result<(),str>::Err "string.float invalid fraction trim"
 
 //: from_f64_build_fixed_result: 符号、整数部、小数部を 1 つの文字列へ組み立てる
 //:
 //: [目的/もくてき]:
-//: - `from_f64_result` で計算済みの各部品を、所有権が明確な `StringBuilder` 経由で `str` にします。
+//: - `from_f64_result` で計算済みの各部品を、1 回だけ確保した `str` 領域へ書き込んで組み立てます。
 //:
 //: [実装/じっそう]:
-//: - 必要 byte 数を先に計算し、その capacity で builder を作ります。
-//: - 符号、整数部、小数部を順に追加し、最後に `sb_build_result` で出力文字列へ copy します。
+//: - 必要 byte 数を先に計算し、`string_alloc_region` で出力領域を確保します。
+//: - 符号、整数部、小数点、小数部を順に raw byte として書き、最後に `string_finish` で `str` として確定します。
 //:
 //: [注意/ちゅうい]:
-//: - fractional digit の一時領域を raw buffer として確保しないため、Resource IR の moved-cell 解析に乗る所有権境界だけを通ります。
+//: - fractional digit の一時領域も growable builder も作らず、所有権境界は出力 `RegionToken` 1 つに集約します。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(int_s) + trim)
@@ -156,28 +143,40 @@ fn from_f64_build_fixed_result <(bool,str,i32,i32,i32,i32,i32,i32,i32)->Result<s
         else:
             0
     let total <i32> add add sign_len len int_s frac_len
-    match string_builder_with_capacity_result total:
+    match string_alloc_region total:
         Result::Err e:
             Result<str,str>::Err e
-        Result::Ok sb0:
-            let signed <Result<StringBuilder,str>> if neg:
+        Result::Ok out_region:
+            let out_data <MemPtr<u8>> string_region_data_ptr &out_region
+            let out_raw <i32> mem_ptr_addr out_data
+            let mut pos <i32> 0
+            if:
+                neg
                 then:
-                    sb_append_byte_result sb0 '-'
+                    store_u8 out_raw '-'
+                    set pos 1
                 else:
-                    Result<StringBuilder,str>::Ok sb0
-            match signed:
+                    ()
+            let int_len <i32> len int_s
+            mem_copy add out_raw pos mem_ptr_addr string_data_ptr int_s int_len
+            set pos add pos int_len
+            if:
+                gt trim 0
+                then:
+                    store_u8 add out_raw pos '.'
+                    set pos add pos 1
+                else:
+                    ()
+            match from_f64_write_fraction_digits_result out_raw pos trim d0 d1 d2 d3 d4 d5:
                 Result::Err e:
+                    match dealloc_region<u8> out_region:
+                        Result::Ok _:
+                            ()
+                        Result::Err _free:
+                            ()
                     Result<str,str>::Err e
-                Result::Ok sb1:
-                    match sb_append_result sb1 int_s:
-                        Result::Err e:
-                            Result<str,str>::Err e
-                        Result::Ok sb2:
-                            match from_f64_append_fraction_result sb2 trim d0 d1 d2 d3 d4 d5:
-                                Result::Err e:
-                                    Result<str,str>::Err e
-                                Result::Ok sb3:
-                                    sb_build_result sb3
+                Result::Ok _:
+                    Result<str,str>::Ok string_finish out_region total
 
 //: from_f64_result: f64 を有限値だけ文字列化する
 //:
@@ -187,7 +186,7 @@ fn from_f64_build_fixed_result <(bool,str,i32,i32,i32,i32,i32,i32,i32)->Result<s
 //:
 //: [実装/じっそう]:
 //: - 整数部は `from_i64_radix` で 10 進文字列化します。
-//: - 小数部は局所 `i32` digit へ最大 6 桁だけ展開し、末尾の `0` を削ってから `StringBuilder` で連結します。
+//: - 小数部は局所 `i32` digit へ最大 6 桁だけ展開し、末尾の `0` を削ってから固定長の出力領域へ書き込みます。
 //:
 //: [注意/ちゅうい]:
 //: - `NaN` は `"nan"` を返します。

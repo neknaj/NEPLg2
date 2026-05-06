@@ -743,6 +743,11 @@ fn loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boun
             "alloc_string_concat_raw_store",
         ),
         (
+            &["alloc", "string", "float.nepl"],
+            "alloc/string/float",
+            "alloc_string_float_raw_store",
+        ),
+        (
             &["alloc", "string", "integer.nepl"],
             "alloc/string/integer",
             "alloc_string_integer_raw_store",

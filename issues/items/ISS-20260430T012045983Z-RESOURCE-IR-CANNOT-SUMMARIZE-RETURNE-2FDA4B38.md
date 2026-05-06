@@ -162,3 +162,13 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 `initialized_control.rs` は then / else path を clone した直後に `record_condition_fact_value_constraints` を実行し、その後に既存の realloc condition handling を適用する。これにより `ResourceConditionFact::I32Relation` は initialized cell availability 側の `RawCellAddressAliases` からも query 可能になる。
 
 この親 issue は引き続き open とする。残件は、initialized checker が保持できるようになった relation proof と `ResourceOffset::Symbolic` を、raw memory load の availability 判定へ安全に接続することである。
+
+## 2026-05-07 string char slice source reservation 追記
+
+`ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044` の focused run で、`tests/stdlib/string_char.n.md::doctest#1` が `str_slice_chars_result s 1 3` の成功後に同じ source `s` を読む箇所で `resource.owner.reserved` になった。
+
+確認内容:
+
+- `str_slice_chars_result` は char index を byte offset へ変換し、最終的に `str_slice_result` / `string_from_mem_unchecked_result` で新しい `str` 領域へ copy する。
+- caller から見ると source `str` は `Copy` view であり、slice 結果は新規確保された `str` なので、source `s` が reserved のまま残るのは API 利用側の所有権違反ではない。
+- したがってこの残件は `string_char.n.md` の順序だけを変えて隠すのではなく、returned raw header / copied string source view の summary が source `str` を予約したままにしないことを Resource IR 側で表現する必要がある。

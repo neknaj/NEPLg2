@@ -32982,3 +32982,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` は Stage 6 の internal/public stdlib API 移行が残るため open のまま継続する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+## 2026-05-07 Agent 2: string float formatter owner chain 部分修正
+
+- [同期]:
+  - `fix/string-builder-owner-chains` branch で `ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044` の focused run を再確認した。
+- [原因]:
+  - `from_f64_build_fixed_result` は出力長が確定済みなのに `StringBuilder` の `Result<StringBuilder, str>` chain で符号、整数部、小数部を追加していた。
+  - strict Resource IR では `sb_append_result` から戻った `sb2` の backing pointer が後続の `from_f64_append_fraction_result` call で moved と判定され、float formatter doctest が compile failure になっていた。
+- [修正]:
+  - float formatter は growable builder を使わず、`string_alloc_region` で最終出力領域を 1 回だけ確保する形へ変更した。
+  - `match trim` で 0..6 の小数 digit 書き込みを列挙し、不正 trim では出力 region を解放して `Err` を返す。
+  - `alloc/string/float.nepl` を loader の configured raw-memory boundary に追加し、`integer.nepl` / `concat.nepl` と同じ string storage construction boundary として扱う。
+- [検証]:
+  - `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boundary -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string/float.nepl --no-tree -o tmp/string-float-owner-direct-region-after-trunk.json -j 1`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md -i stdlib/alloc/string/float.nepl -i stdlib/alloc/string/builder.nepl -i stdlib/alloc/io.nepl --no-tree -o tmp/string-builder-owner-after-float-direct-region.json -j 1`: total=5, passed=3, failed=2
+- [残件]:
+  - `byte_builder_push_char_utf8` multi-byte path 後の `byte_builder_finish b2` は引き続き `resource.owner.use_after_move`。stdlib-only の direct store 化では解消せず、`Result<ByteBuilder, StdErrorKind>` の multi-step owner summary / raw-backed builder design の残件として継続する。
+  - `str_slice_chars_result` 成功後の source `s` reservation は builder ではなく returned raw header / copied string source view summary の問題として `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` に追記した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
