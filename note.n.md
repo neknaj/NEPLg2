@@ -1,3 +1,30 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string storage boundary split)
+
+- [同期]:
+  - remote main の `dbab83d7` を `git pull --ff-only origin main` で取り込み、branch `fix/string-storage-boundary-split` 上で作業した。
+  - merge 前に remote main の `3ff0149e` を取り込み、同 branch を最新 main に rebase してから検証した。
+- [原因]:
+  - `stdlib/alloc/string.nepl` は UTF-8 validation 分割後も、`[len][bytes...]` storage 確保、`RegionToken` projection、raw memory から `str` への ownership finalization を root に残していた。
+  - storage/layout boundary は `str` のメモリ安全境界であり、slice/search/builder/numeric conversion と同じ file に置くと責務が肥大化し、unsafe な raw construction 経路の監視も曖昧になる。
+- [修正]:
+  - `stdlib/alloc/string/storage.nepl` を追加し、`string_alloc_region`、`string_region_len_ptr`、`string_region_data_ptr`、`string_addr`、`string_data_ptr`、`string_finish`、`string_from_addr_unchecked`、`string_finish_base`、`string_from_mem_unchecked_result`、`string_from_utf8_mem_result` を移した。
+  - `stdlib/alloc/string.nepl` は `./string/storage` を public re-export し、既存の `alloc/string` 利用者は同じ facade から storage API を参照する。
+  - `stdlib/alloc/string/utf8.nepl` の責務説明を更新し、UTF-8 検証後の `str` 構築先が `alloc/string/storage` であることに揃えた。
+  - `nodesrc/test_stdlib_string_storage_boundary.js` を追加し、root に storage 関数本体が戻らないこと、storage module が UTF-8 検証を呼んでから unchecked construction へ進むこと、`RegionToken` projection が reference 経由であることを固定した。
+  - 既存の string source policy を storage module 配置へ追従させた。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_utf8_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_storage_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string/storage.nepl -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/string_char.n.md -i tests/stdlib/text_utf8.n.md -i tests/stdlib/string_numeric_overflow.n.md --no-tree -o tmp/string-storage-boundary-split-rebased.json -j 1`: total=56, passed=56
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `git diff --check`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl` には builder、slice/search/split、numeric parse/format が残っており、次の責務分割候補として継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260506T115339863Z UTF-8 negative-path owner fixtures)
 
 - [同期]:

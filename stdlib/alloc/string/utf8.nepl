@@ -5,7 +5,7 @@
 //: - leading byte の分類を enum と `match` で扱い、検査漏れを静的に見つけやすくします。
 //:
 //: [注意/ちゅうい]:
-//: - この module は検証だけを所有します。検証済み byte 列から `str` を構築する処理は `alloc/string.nepl` 側が所有します。
+//: - この module は検証だけを所有します。検証済み byte 列から `str` を構築する処理は `alloc/string/storage` 側が所有します。
 //: - `MemPtr<u8>` の指す領域は caller が `byte_len` byte ぶん有効に保つ必要があります。
 
 #indent 4
