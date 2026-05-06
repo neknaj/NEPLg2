@@ -23,7 +23,10 @@ On current main, even an empty lex_all_with_file_id smoke case times out at the 
 
 ## 根拠
 
-- 未記入
+- `node nodesrc/tests.js -i tmp/probe_lex_empty.n.md --no-tree -o tmp/probe_lex_empty_after_remote_resource_fixes.json -j 1` on `5a8515ec` still timed out at compile phase after 60000ms.
+- `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i tmp/probe_lex_empty.n.md --no-tree -o tmp/probe_lex_empty_long_timeout.json -j 1` also timed out before diagnostics.
+- A local stdlib-only experiment split lexer internals, converted raw mode to enum state, removed token-wide predicate helper calls from `lex_all`, and rewrote the offside loop away from mutual recursion. The `lex_all_with_file_id` call still timed out, while import-only probes for the split submodules completed quickly.
+- Compiler-side blocker issue `ISS-20260506T203121413Z-COMPILER-STATIC-CHECKER-TIMES-OUT-ON-5B942F4A` tracks the static/resource analysis timeout that prevents this self-host lexer issue from being closed by stdlib-only refactoring.
 
 ## 問題
 
@@ -35,7 +38,7 @@ Self-host parser/loader/import-graph doctests cannot provide CI signal, and grap
 
 ## 修正方針
 
-Redesign lexer tokenization so lex_next does not force static checking/codegen through a monolithic resource-bearing branch tree. Prefer Copy-only token range classification, avoid temporary str owner creation while classifying identifiers/directives, and split directive/keyword/token construction so enum/match coverage remains explicit without concentrating all branches in one owner-returning function.
+First fix the compiler-side static/resource analysis timeout tracked by `ISS-20260506T203121413Z-COMPILER-STATIC-CHECKER-TIMES-OUT-ON-5B942F4A`, because stdlib-only lexer refactoring did not make `lex_all_with_file_id` compile within budget. After the compiler can check the owner/offside flow, revisit lexer structure for maintainability: keep Copy-only token range classification, use enum state for raw modes, avoid temporary string owners while classifying identifiers/directives, and keep directive/keyword/token construction split so enum/match coverage remains explicit.
 
 ## 検証
 

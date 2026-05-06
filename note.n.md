@@ -1,3 +1,23 @@
+# 2026-05-07 note (Agent 2: self-host lexer compile timeout triage)
+
+## 作業内容
+
+- branch `fix/selfhost-lexer-lex-next-timeout` で `origin/main` `5a8515ec` に rebase して確認した。
+- `tmp/probe_lex_empty.n.md` の `lex_all_with_file_id "" 0` smoke test は、Resource IR の relation fact / KP summary 修正後の `origin/main` でも compile phase timeout のままだった。
+- `NEPL_TEST_CASE_TIMEOUT_MS=240000` に伸ばしても diagnostics へ到達せず、240000ms で compile phase timeout した。
+- stdlib-only の局所実験として、lexer を `types` / `scan` / `keyword` / `reader` / `offside` に分割し、raw mode の `i32` sentinel を enum 化し、token-wide predicate helper 呼び出しを外し、offside loop の相互再帰も外したが、`lex_all_with_file_id` 呼び出しは timeout のままだった。
+- 一方で split 後の各 submodule を import するだけの probe は 5-6 秒程度で通過したため、単なる file parse/import ではなく、`lex_all` の owner/offside flow を静的検査する compiler 側の問題として切り分けた。
+- compiler-side blocker issue `ISS-20260506T203121413Z-COMPILER-STATIC-CHECKER-TIMES-OUT-ON-5B942F4A` を追加し、既存 self-host lexer issue から参照した。
+
+## 検証
+
+- `node nodesrc/tests.js -i tmp/probe_lex_empty.n.md --no-tree -o tmp/probe_lex_empty_after_remote_resource_fixes.json -j 1`: expected timeout, compile phase, 60000ms。
+- `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i tmp/probe_lex_empty.n.md --no-tree -o tmp/probe_lex_empty_long_timeout.json -j 1`: expected timeout, compile phase, 240000ms。
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T201433509Z Resource condition relation facts)
 
 ## 作業内容
