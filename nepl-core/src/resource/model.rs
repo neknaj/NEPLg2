@@ -75,6 +75,7 @@ pub enum ResourceOp {
     },
     DeclareLocal {
         place: Place,
+        source_name: String,
         mutable: bool,
         initializer: Option<Place>,
         span: Span,

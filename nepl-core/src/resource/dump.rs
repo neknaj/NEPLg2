@@ -72,6 +72,7 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
         }
         ResourceOp::DeclareLocal {
             place,
+            source_name,
             mutable,
             initializer,
             span,
@@ -80,10 +81,16 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
                 .as_ref()
                 .map(dump_place)
                 .unwrap_or_else(|| String::from("<none>"));
+            let source_suffix = match &place.root {
+                PlaceRoot::Local(local_name) if local_name == source_name => String::new(),
+                PlaceRoot::Local(_) => format!(" source={source_name}"),
+                _ => String::new(),
+            };
             let _ = writeln!(
                 out,
-                "declare {} mut={} init={} span={}:{}-{}",
+                "declare {}{} mut={} init={} span={}:{}-{}",
                 dump_place(place),
+                source_suffix,
                 mutable,
                 init,
                 span.file_id.0,

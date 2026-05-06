@@ -125,6 +125,12 @@ plan 構築時には、Resource IR function と check report の対応、`Resour
 
 この変更で実 drop call 生成そのものはまだ HIR `passes::insert_drops` に残る。ただし次の置換作業では、candidate plan や HIR scope traversal ではなく、この checked live drop elaboration plan を唯一の入力として消費できる。
 
+## 2026-05-06 drop elaboration source binding 追補
+
+drop elaboration plan は checked `Place` だけでなく、backend/HIR が参照する source binding 名も保持するようになった。Resource IR lowering は `DeclareLocal` に `source_name` を記録し、shadowing で内部 place を `x#...` に固有化しても、実 drop call 生成時に参照すべき source 名 `x` を失わない。
+
+`ResourceDropElaborationDrop` は place、source_name、drop requirement、span を持つ。binding metadata は parameter、`DeclareLocal`、match arm binding から収集し、見つからない場合は `MissingDropBinding` enum error で hard gate する。これにより、次の HIR `passes::insert_drops` 置換で source 名復元のために HIR scope walker へ戻る必要をなくす。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

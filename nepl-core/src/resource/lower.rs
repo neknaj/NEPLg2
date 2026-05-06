@@ -545,6 +545,7 @@ pub(super) fn lower_expr_skeleton(
             let place = ctx.declare_local(name.clone(), value.ty);
             ops.push(ResourceOp::DeclareLocal {
                 place: place.clone(),
+                source_name: name.clone(),
                 mutable: *mutable,
                 initializer: Some(initializer),
                 span: expr.span,

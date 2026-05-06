@@ -91,6 +91,7 @@ for (const moduleName of [
     'coverage_hir_raw.rs',
     'coverage_resource.rs',
     'drop_elaboration.rs',
+    'drop_elaboration_bindings.rs',
     'drop_model.rs',
     'drop_plan.rs',
     'drop_point_path.rs',
@@ -163,6 +164,7 @@ for (const moduleDecl of [
     'mod coverage_hir_raw;',
     'mod coverage_resource;',
     'mod drop_elaboration;',
+    'mod drop_elaboration_bindings;',
     'mod drop_model;',
     'mod drop_plan;',
     'mod drop_point_path;',
@@ -222,6 +224,7 @@ const coverageHirProjectionAggregate = readResource('coverage_hir_projection_agg
 const coverageHirRaw = readResource('coverage_hir_raw.rs');
 const coverageResource = readResource('coverage_resource.rs');
 const dropElaboration = readResource('drop_elaboration.rs');
+const dropElaborationBindings = readResource('drop_elaboration_bindings.rs');
 const dropModel = readResource('drop_model.rs');
 const dropPlan = readResource('drop_plan.rs');
 const dropPointPath = readResource('drop_point_path.rs');
@@ -272,6 +275,11 @@ assertContains(
     dropElaboration,
     'pub fn compute_resource_drop_elaboration_plan',
     'drop_elaboration.rs',
+);
+assertContains(
+    dropElaborationBindings,
+    'pub(super) fn function_source_bindings',
+    'drop_elaboration_bindings.rs',
 );
 assertContains(
     dropModel,
@@ -402,7 +410,8 @@ const maxLines = new Map([
     ['coverage_hir_projection_aggregate.rs', 180],
     ['coverage_hir_raw.rs', 80],
     ['coverage_resource.rs', 520],
-    ['drop_elaboration.rs', 160],
+    ['drop_elaboration.rs', 220],
+    ['drop_elaboration_bindings.rs', 140],
     ['drop_model.rs', 80],
     ['drop_plan.rs', 160],
     ['drop_point_path.rs', 80],

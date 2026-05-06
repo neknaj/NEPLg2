@@ -11,13 +11,15 @@ use nepl_core::resource::{
     lower_hir_module_skeleton, resolve_resource_drop_point_end_scope,
     resolve_resource_drop_point_path, AggregateKind, BorrowKind, BorrowState, CellState, EffectOp,
     ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp,
-    ResourceAutoDropKind, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic,
-    ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
+    ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock, ResourceBlockId,
+    ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred,
+    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
     ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropElaborationPlanError,
-    ResourceDropPointPath, ResourceDropPointResolutionError, ResourceDropPointStep,
-    ResourceDropRequirement, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
-    ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal, ResourceModule, ResourceOffset,
-    ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
+    ResourceDropPoint, ResourceDropPointPath, ResourceDropPointResolutionError,
+    ResourceDropPointStep, ResourceDropRequirement, ResourceEffectBoundaryDiagnostic,
+    ResourceEffectCallKind, ResourceExprKind, ResourceFunction, ResourceFunctionCheck, ResourceId,
+    ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
+    ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -1293,6 +1295,7 @@ fn resource_ir_effect_check_preserves_raw_slot_identity_after_pointer_reassignme
                     },
                     ResourceOp::DeclareLocal {
                         place: p.clone(),
+                        source_name: "p".to_string(),
                         mutable: true,
                         initializer: Some(ptr_a.clone()),
                         span,
@@ -1913,6 +1916,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_function_value_call
                         },
                         ResourceOp::DeclareLocal {
                             place: function_local.clone(),
+                            source_name: "f".to_string(),
                             mutable: false,
                             initializer: Some(function_value),
                             span,
@@ -2152,6 +2156,7 @@ fn resource_ir_effect_check_clears_stale_function_alias_on_assignment() {
                         },
                         ResourceOp::DeclareLocal {
                             place: function_local.clone(),
+                            source_name: "f".to_string(),
                             mutable: true,
                             initializer: Some(known_function),
                             span,
@@ -3490,6 +3495,11 @@ fn main <()->i32> ():
         .auto_drops
         .iter()
         .any(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "_g")));
+    assert!(ignore_plan
+        .auto_drops
+        .iter()
+        .any(|drop| drop.source_name == "_g"
+            && matches!(&drop.place.root, PlaceRoot::Local(name) if name == "_g")));
     assert!(ignore_check.final_cells.iter().any(|entry| {
         matches!(&entry.place.root, PlaceRoot::Local(name) if name == "_g")
             && entry.state == CellState::Dropped
@@ -3539,6 +3549,10 @@ fn main <()->i32> ():
 
     assert!(main_plan.auto_drops.iter().any(|drop| {
         matches!(&drop.place.root, PlaceRoot::Local(name) if name.starts_with("x#"))
+    }));
+    assert!(main_plan.auto_drops.iter().any(|drop| {
+        drop.source_name == "x"
+            && matches!(&drop.place.root, PlaceRoot::Local(name) if name.starts_with("x#"))
     }));
     assert!(!main_plan
         .auto_drops
@@ -3658,6 +3672,71 @@ fn main <()->i32> ():
             place,
             ..
         } if function.starts_with("ignore") && place == &bad_place
+    )));
+}
+
+#[test]
+fn resource_ir_drop_elaboration_plan_rejects_missing_source_binding() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let place = Place::local("x#0".to_string(), owned_ty);
+    let path = ResourceDropPointPath {
+        block: ResourceBlockId(0),
+        steps: vec![ResourceDropPointStep::Op { index: 0 }],
+    };
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            params: vec![],
+            result: unit_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![ResourceOp::EndScope {
+                    locals: vec![place.clone()],
+                    result: None,
+                    span,
+                }],
+                terminator: ResourceTerminator::Return { value: None, span },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+    let report = ResourceCheckReport {
+        functions: vec![ResourceFunctionCheck {
+            name: "main".to_string(),
+            final_cells: vec![],
+            auto_drop_points: vec![ResourceDropPoint {
+                path: path.clone(),
+                span,
+                auto_drops: vec![ResourceAutoDrop {
+                    place: place.clone(),
+                    kind: ResourceAutoDropKind::ScopeLocal,
+                    requirement: ResourceDropRequirement::StateOnly,
+                    span,
+                }],
+            }],
+            deferred: ResourceCheckDeferred::default(),
+        }],
+        diagnostics: vec![],
+        deferred: ResourceCheckDeferred::default(),
+    };
+
+    let errors = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect_err("drop elaboration must reject places without source binding names");
+    assert!(errors.iter().any(|error| matches!(
+        error,
+        ResourceDropElaborationPlanError::MissingDropBinding {
+            function,
+            path: error_path,
+            place: error_place,
+            ..
+        } if function == "main" && error_path == &path && error_place == &place
     )));
 }
 
@@ -3783,6 +3862,7 @@ fn resource_ir_check_reports_uninitialized_read() {
                 ops: vec![
                     ResourceOp::DeclareLocal {
                         place: x.clone(),
+                        source_name: "x".to_string(),
                         mutable: false,
                         initializer: None,
                         span,
@@ -4008,6 +4088,7 @@ fn resource_ir_cell_check_allows_external_aggregate_mem_ptr_field_raw_load() {
                     },
                     ResourceOp::DeclareLocal {
                         place: data_local.clone(),
+                        source_name: "v_data".to_string(),
                         mutable: false,
                         initializer: Some(data_from_ref),
                         span,
@@ -4140,6 +4221,7 @@ fn resource_ir_cell_check_canonicalizes_raw_address_local_reads() {
             },
             ResourceOp::DeclareLocal {
                 place: ptr_local.clone(),
+                source_name: "p".to_string(),
                 mutable: false,
                 initializer: Some(ptr_value),
                 span,
@@ -4500,6 +4582,7 @@ fn resource_ir_cell_check_preserves_initialized_raw_cells_returned_by_branch_hel
                         },
                         ResourceOp::DeclareLocal {
                             place: local.clone(),
+                            source_name: "p".to_string(),
                             mutable: false,
                             initializer: Some(call_output),
                             span,
@@ -5496,6 +5579,7 @@ fn resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_po
                         },
                         ResourceOp::DeclareLocal {
                             place: header_local.clone(),
+                            source_name: "sc".to_string(),
                             mutable: false,
                             initializer: Some(returned_header),
                             span,
@@ -5508,6 +5592,7 @@ fn resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_po
                         },
                         ResourceOp::DeclareLocal {
                             place: buf_local.clone(),
+                            source_name: "buf".to_string(),
                             mutable: false,
                             initializer: Some(loaded_buf),
                             span,
@@ -6508,6 +6593,7 @@ fn resource_ir_owner_check_reports_assign_over_live_owner_leak() {
             },
             ResourceOp::DeclareLocal {
                 place: p.clone(),
+                source_name: "p".to_string(),
                 mutable: true,
                 initializer: Some(old_ptr),
                 span,
@@ -10281,6 +10367,7 @@ fn resource_ir_borrow_check_clears_stale_function_alias_on_assignment() {
                     },
                     ResourceOp::DeclareLocal {
                         place: f.clone(),
+                        source_name: "f".to_string(),
                         mutable: true,
                         initializer: Some(known_function),
                         span,
@@ -10497,6 +10584,7 @@ fn resource_ir_cell_merge_reports_moved_on_one_branch() {
             },
             ResourceOp::DeclareLocal {
                 place: x.clone(),
+                source_name: "x".to_string(),
                 mutable: false,
                 initializer: Some(init),
                 span,
@@ -10582,6 +10670,7 @@ fn resource_ir_cell_merge_reports_moved_after_loop_body() {
             },
             ResourceOp::DeclareLocal {
                 place: x.clone(),
+                source_name: "x".to_string(),
                 mutable: false,
                 initializer: Some(init),
                 span,

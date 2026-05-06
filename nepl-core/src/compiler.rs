@@ -365,6 +365,19 @@ fn resource_drop_elaboration_plan_error_to_error(
             ),
             *span,
         ),
+        crate::resource::ResourceDropElaborationPlanError::MissingDropBinding {
+            function,
+            path,
+            place,
+            span,
+        } => Diagnostic::error_with_code(
+            resource_lower_incomplete_code(),
+            format!(
+                "resource drop elaboration point in function '{}' references place {:?} without a source binding name (path {:?})",
+                function, place, path
+            ),
+            *span,
+        ),
     }
 }
 

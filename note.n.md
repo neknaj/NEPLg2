@@ -1,3 +1,22 @@
+# 2026-05-06 note (ISS-20260506T090109381Z Resource IR drop source binding)
+
+- [同期]:
+  - `f1cdfcdd` を push/pull して `main` と `origin/main` が一致した後、branch `work/resource-drop-elaboration-bindings` を作成した。
+- [原因]:
+  - `ResourceDropElaborationPlan` は checked live `Place` を保持するようになったが、shadowed local は Resource IR 内部で `x#...` に固有化される。
+  - HIR/backend の drop call 生成は source binding 名 `x` を参照する必要があるため、place 名だけを codegen 境界に渡すと HIR scope walker に戻る危険があった。
+- [修正]:
+  - `ResourceOp::DeclareLocal` に `source_name` を追加し、内部 place 名と source binding 名を分離した。
+  - `drop_elaboration_bindings.rs` を追加し、parameter、DeclareLocal、match arm binding から place/source-name 対応を収集するようにした。
+  - `ResourceDropElaborationDrop` / `ResourceDropElaborationPoint` を追加し、drop elaboration plan が checked place、source_name、drop requirement をまとめて保持するようにした。
+  - source binding が解決できない live drop fact は `MissingDropBinding` enum error とし、compiler gate で `resource.lower.incomplete` へ写像するようにした。
+- [検証]:
+  - shadowed internal place `x#...` が source_name `x` を持つことを Resource IR regression で確認した。
+  - parameter drop entry が parameter 名 `_g` を持つことを確認した。
+  - binding 不在の drop fact が `MissingDropBinding` で拒否されることを確認した。
+- [残件]:
+  - 次は source binding 付き `ResourceDropElaborationPlan` を消費して実 drop call を生成し、HIR `passes::insert_drops` の scope walker を削除する。
+
 # 2026-05-06 note (ISS-20260506T084621972Z Resource IR drop elaboration live plan)
 
 - [同期]:
