@@ -133,8 +133,8 @@ fn main <()*>i32> ():
             let raw <i32> mem_ptr_addr data
             store_u8 raw 128;
             match text_bytebuf_to_utf8_str_result io_bytebuf_from_owned_ptr data 1:
-                Result::Ok _text:
-                    set checks checks_push checks Result<(),str>::Err "invalid leading byte was accepted"
+                Result::Ok text:
+                    set checks checks_push checks Result<(),str>::Err text
                 Result::Err e:
                     set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
     let shown checks_print_report checks;
@@ -167,8 +167,8 @@ fn main <()*>i32> ():
             let raw <i32> mem_ptr_addr data
             store_u8 raw 128;
             match io_bytebuf_to_str_result io_bytebuf_from_owned_ptr data 1:
-                Result::Ok _text:
-                    set checks checks_push checks Result<(),str>::Err "invalid ByteBuf was accepted as str"
+                Result::Ok text:
+                    set checks checks_push checks Result<(),str>::Err text
                 Result::Err e:
                     set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
     let shown checks_print_report checks;
@@ -204,8 +204,8 @@ fn main <()*>i32> ():
             store_u8 add raw 1 128;
             store_u8 add raw 2 128;
             match text_bytebuf_to_utf8_str_result io_bytebuf_from_owned_ptr data 3:
-                Result::Ok _text:
-                    set checks checks_push checks Result<(),str>::Err "overlong sequence was accepted"
+                Result::Ok text:
+                    set checks checks_push checks Result<(),str>::Err text
                 Result::Err e:
                     set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
     let shown checks_print_report checks;
@@ -244,8 +244,8 @@ fn main <()*>i32> ():
                     set checks checks_push checks Result<(),str>::Err "write failed"
                 Result::Ok _:
                     match fs_read_to_string_checked path:
-                        Result::Ok _text:
-                            set checks checks_push checks Result<(),str>::Err "invalid UTF-8 file was accepted"
+                        Result::Ok text:
+                            set checks checks_push checks Result<(),str>::Err text
                         Result::Err e:
                             set checks checks_push checks check_eq_i32 84 e;
     let shown checks_print_report checks;
@@ -284,8 +284,8 @@ fn main <()*>i32> ():
                     set checks checks_push checks Result<(),str>::Err "write failed"
                 Result::Ok _:
                     match fs_read_to_string path:
-                        Result::Ok _text:
-                            set checks checks_push checks Result<(),str>::Err "invalid UTF-8 file was accepted"
+                        Result::Ok text:
+                            set checks checks_push checks Result<(),str>::Err text
                         Result::Err e:
                             set checks checks_push checks check_eq_i32 84 e;
     let shown checks_print_report checks;
@@ -322,8 +322,8 @@ fn main <()*>i32> ():
             let target <ReadStream> ReadStream::Bytes io_bytebuf_from_owned_ptr data 1
             let text_result <Result<str, StdErrorKind>> read target;
             match text_result:
-                Result::Ok _text:
-                    set checks checks_push checks Result<(),str>::Err "invalid bytes target was accepted as text"
+                Result::Ok text:
+                    set checks checks_push checks Result<(),str>::Err text
                 Result::Err e:
                     set checks checks_push checks check_str_eq "InvalidUtf8" std_error_kind_str e;
     let shown checks_print_report checks;

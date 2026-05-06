@@ -124,7 +124,7 @@ ret: 0
 fn expect_find_some <(str,Option<i32>,i32)*>Result<(),str>> (label, got, expected):
     match got:
         Option::Some actual:
-            assert_eq_i32 expected actual
+            check_eq_i32 expected actual
         Option::None:
             Result<(),str>::Err label
 
@@ -230,7 +230,8 @@ fn main <()*>i32> ():
     let src <str> "こんにちは";
     match string_from_utf8_mem_result string_data_ptr src len src:
         Result::Ok copied:
-            set checks checks_push checks check_str_eq src copied
+            let ok <Result<(),str>> check_str_eq src copied
+            set checks checks_push checks ok
         Result::Err e:
             set checks checks_push checks Result<(),str>::Err e;
     match alloc_ptr<u8> 1:
@@ -240,8 +241,8 @@ fn main <()*>i32> ():
             let raw <i32> mem_ptr_addr data;
             store_u8 raw 128;
             match string_from_utf8_mem_result data 1:
-                Result::Ok _text:
-                    set checks checks_push checks Result<(),str>::Err "invalid UTF-8 was accepted"
+                Result::Ok text:
+                    set checks checks_push checks Result<(),str>::Err text
                 Result::Err _e:
                     set checks checks_push checks Result<(),str>::Ok ();
             dealloc_raw raw 1;

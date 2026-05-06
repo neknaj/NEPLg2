@@ -1,3 +1,19 @@
+# 2026-05-06 note (ISS-20260506T115339863Z UTF-8 negative-path owner fixtures)
+
+- [同期]:
+  - `4ec97b15` を push/pull して `main` と `origin/main` が一致した後、branch `fix/utf8-negative-path-owner-fixtures` を作成した。
+- [原因]:
+  - `stdlib/tests/string.n.md` と `tests/stdlib/text_utf8.n.md` の invalid UTF-8 negative-path は、実行時に Err を期待する Ok arm で `Result::Ok _text` として owned `str` を捨てていた。
+  - 静的検査では到達しない想定の branch でも owner obligation を満たす必要があり、remote main の Resource assignment/drop 検査後は `resource.raw.ownership_violation` として検出される。
+  - `stdlib/tests/string.n.md` の `expect_find_some` は `Result<(),str>` を返す signature なのに `assert_eq_i32` の `TestAssertion` を返しており、match arm 型不一致も残っていた。
+- [修正]:
+  - invalid UTF-8 Ok arm は `text` として受け取り、`Result<(),str>::Err text` へ移動して owner を閉じる形にした。
+  - `expect_find_some` は `check_eq_i32` を返すようにし、`Option::None` arm と同じ `Result<(),str>` に揃えた。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/utf8-negative-path-owner-fixtures.json -j 1`: total=18, passed=18
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string UTF-8 validation split)
 
 - [同期]:
