@@ -31423,3 +31423,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - Rust regression: branch retained borrow、match payload borrow、inner local reference assignment escape、inner local struct reference assignment escape を `resource_ir_compiler_rejects_*` に追加し、7/7 passed。
 - [残件]:
   - effect/cell summary 側の `move_effect.n.md` 5 件は `ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2` で継続する。
+
+# 2026-05-06 note (ISS-20260506T005443213Z move_effect Resource IR summary residuals)
+
+- [同期]:
+  - `main` と `origin/main` が `c9b24c23` で一致していることを確認し、`work/resource-move-effect-residuals` branch で Stage 4 の Resource IR effect/cell summary 残件を継続した。
+- [原因]:
+  - 旧 `passes::move_check::run` fallback を削除した後、`tests/compiler/move_effect.n.md` は 105/110 になり、5 件が Resource IR 側の残件として露出していた。
+  - `slot_ptr p 0` のような user helper return は raw address projection として伝播せず、literal `0` offset が unknown offset に落ち、disjoint store が `resource.cell.initialized_conflict` で誤拒否されていた。
+  - function value alias を解決できない unknown impure indirect call では、`MemPtr` / `RegionToken` 引数経由の raw write release requirement が summary に反映されず、高階関数、aggregate field、enum payload に保存された callback が initialized non-Copy cell を上書きしても検出できなかった。
+- [修正]:
+  - 専用 lowering を持たない user helper について、return expression が引数由来の raw address projection だけで構成される場合に限り、Resource IR lowering で透明な raw address return projection を発行するようにした。
+  - unknown impure indirect call summary は `MemPtr` / `RegionToken` 引数を保守的な raw cell store release requirement として扱うようにした。
+  - unknown indirect call と raw memory operation の release requirement 構築は `initialized_summary_indirect_release.rs` / `initialized_summary_raw_release.rs` へ分離し、summary builder の責務分割 policy を維持した。
+  - higher-order、多段 higher-order、aggregate field、enum payload に保存された function value raw write を拒否する Rust regression を追加した。
+- [検証]:
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects_function_value_raw_writes_through_summaries -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8 passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md -o output/move_effect_resource_residuals_fix.json --runner wasm --no-tree -j 1`: total=110, passed=110
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2` は fixed。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 進捗に該当する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

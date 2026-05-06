@@ -45,6 +45,8 @@ mod initialized_summary_apply;
 mod initialized_summary_build;
 mod initialized_summary_cells;
 mod initialized_summary_condition;
+mod initialized_summary_indirect_release;
+mod initialized_summary_raw_release;
 mod initialized_summary_release;
 mod initialized_summary_release_build;
 mod initialized_summary_variant_build;

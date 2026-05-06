@@ -2,8 +2,8 @@
 id: ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2
 title: "move_effect doctests are stale after Resource IR and effect gates"
 area: TEST
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: test
 created: 2026-05-06
@@ -62,3 +62,31 @@ trunk build; cargo test -p nepl-core --test resource_ir resource_ir_cell_check_p
 - doctest#69/#70: aggregate field / enum payload に保存した function value raw write が caller の initialized non-Copy place 上書きを検出できない。
 
 このため、この issue は fixed ではなく open に戻す。次対応では Resource IR effect/cell summary が function value alias、aggregate projection、enum payload projection、call-site literal offset を同一の Resource IR `Place` / `EffectOp` / initialized cell modelで扱えるようにし、旧 HIR checker の summary を復活させない。
+
+## 2026-05-06 再解決
+
+旧 `passes::move_check::run` fallback は復活させず、残った 5 件を Resource IR lowering / summary 側で解決した。`tests/compiler/move_effect.n.md` は total=110, passed=110 になった。
+
+根本原因:
+
+- doctest#30 は、`slot_ptr p 0` のような user helper return が Resource IR の raw address projection として伝播せず、literal `0` offset が不明 offset に落ちて別 cell store と衝突していた。
+- doctest#66/#67/#69/#70 は、function value alias が解決できない unknown impure indirect call で `MemPtr` / `RegionToken` 引数の raw cell release requirement が summary に反映されず、高階関数、aggregate field、enum payload に保存された callback raw write が caller の initialized non-Copy cell 上書きとして検出されなかった。
+
+対応:
+
+- 専用 lowering を持たない user helper のうち、return expression が引数由来の raw address projection だけで構成される場合に限り、Resource IR lowering で透明な raw address return projection を発行するようにした。
+- unknown impure indirect call summary は `MemPtr` / `RegionToken` 引数を保守的に raw cell store release requirement として扱い、callback 経由の raw write が caller 側の initialized cell state を破壊することを検査できるようにした。
+- unknown indirect call と raw memory operation の release requirement はそれぞれ `initialized_summary_indirect_release.rs` / `initialized_summary_raw_release.rs` に分離し、summary builder の責務肥大化を避けた。
+- higher-order、多段 higher-order、aggregate field、enum payload に保存された function value raw write を拒否する Rust regression を追加した。
+
+検証:
+
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects_function_value_raw_writes_through_summaries -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8 passed
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
+- `node nodesrc/issues.js check`: passed
+- `trunk build`: passed
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md -o output/move_effect_resource_residuals_fix.json --runner wasm --no-tree -j 1`: total=110, passed=110
+- `git diff --check`: passed

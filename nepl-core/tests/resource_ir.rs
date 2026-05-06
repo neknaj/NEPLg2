@@ -8732,6 +8732,112 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_compiler_rejects_function_value_raw_writes_through_summaries() {
+    let cases = [
+        r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn clobber_i32 <(MemPtr<i32>)*>()> (p):
+    let r <Result<(),str>> store_i32 p 0
+    ()
+
+fn apply_clobber <(MemPtr<i32>, (MemPtr<i32>)*>())*>()> (p, f):
+    f p
+
+fn forward_clobber <(MemPtr<i32>, (MemPtr<i32>)*>())*>()> (p, f):
+    apply_clobber p f
+
+fn main <()*>i32> ():
+    let raw <i32> 16
+    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+    store<LocalToken> raw LocalToken @token_id
+    forward_clobber pi @clobber_i32
+    0
+"#,
+        r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+struct CallbackHolder:
+    cb <(MemPtr<i32>)*>()>
+
+fn clobber_i32 <(MemPtr<i32>)*>()> (p):
+    let r <Result<(),str>> store_i32 p 0
+    ()
+
+fn call_holder <(MemPtr<i32>, CallbackHolder)*>()> (p, holder):
+    let f <(MemPtr<i32>)*>()> field::get holder "cb"
+    f p
+
+fn main <()*>i32> ():
+    let raw <i32> 16
+    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+    store<LocalToken> raw LocalToken @token_id
+    let holder <CallbackHolder> CallbackHolder @clobber_i32
+    call_holder pi holder
+    0
+"#,
+        r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/option" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn clobber_i32 <(MemPtr<i32>)*>()> (p):
+    let r <Result<(),str>> store_i32 p 0
+    ()
+
+fn call_option <(MemPtr<i32>, Option<(MemPtr<i32>)*>()>)*>()> (p, opt):
+    match opt:
+        Option::Some f:
+            f p
+        Option::None:
+            ()
+
+fn main <()*>i32> ():
+    let raw <i32> 16
+    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+    store<LocalToken> raw LocalToken @token_id
+    call_option pi Option::Some @clobber_i32
+    0
+"#,
+    ];
+
+    for source in cases {
+        assert_compile_resource_source_reports_code(
+            source,
+            CompileTarget::Wasm,
+            "resource.cell.initialized_conflict",
+        );
+    }
+}
+
+#[test]
 fn resource_ir_borrow_check_allows_shared_read_until_release() {
     let types = type_ctx_with_copy_i32();
     let span = Span::dummy();

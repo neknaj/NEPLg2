@@ -20,7 +20,10 @@ use super::lower_aggregate::{
     lower_reference_address_projection_source,
 };
 use super::lower_condition::resource_condition_fact;
-use super::lower_raw_address::{push_core_mem_wrapper_semantics, push_named_raw_address_semantics};
+use super::lower_raw_address::{
+    push_core_mem_wrapper_semantics, push_named_raw_address_semantics,
+    push_transparent_raw_address_return_projection,
+};
 use super::lower_raw_address_place::is_named_struct_type;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
 use super::model::{
@@ -867,6 +870,15 @@ fn push_direct_call_skeleton(
     if let Some(name) = func_ref_base_name(callee) {
         push_named_raw_address_semantics(name, args, &arg_places, &output, ops, env, expr.span);
     }
+    push_transparent_raw_address_return_projection(
+        callee,
+        args,
+        &arg_places,
+        &output,
+        ops,
+        env,
+        expr.span,
+    );
     if let Some(operation) = raw_memory_op_from_callee(callee)
         .filter(|operation| should_lower_raw_memory_call(operation, args, env))
     {

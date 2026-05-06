@@ -10,8 +10,12 @@ use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellReleaseParamRequirement,
     RawCellReleaseRequirementKind,
 };
+use super::initialized_summary_indirect_release::{
+    collect_unknown_indirect_call_release_requirements, indirect_call_may_release_raw_cells,
+};
+use super::initialized_summary_raw_release::collect_raw_memory_release_requirements;
 use super::initialized_variant::PendingVariantRawCellInitializations;
-use super::model::{Place, RawMemoryOp, ResourceCallTarget, ResourceLocal, ResourceOp};
+use super::model::{Place, ResourceCallTarget, ResourceLocal, ResourceOp};
 use super::place_utils::{match_bind_payload_place, projected_place_with_concrete_type};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
@@ -78,8 +82,15 @@ fn collect_param_release_requirements_from_op(
             params,
             raw_init_summaries,
         ),
-        ResourceOp::IndirectCall { callee, args, .. } => {
-            for function in function_aliases.functions(callee) {
+        ResourceOp::IndirectCall {
+            callee,
+            params: call_params,
+            args,
+            effect,
+            ..
+        } => {
+            let functions = function_aliases.functions(callee);
+            for function in functions {
                 collect_function_summary_release_requirements(
                     out,
                     engine,
@@ -89,6 +100,16 @@ fn collect_param_release_requirements_from_op(
                     raw_init_summaries
                         .iter()
                         .find(|summary| summary.function == function.as_str()),
+                );
+            }
+            if functions.is_empty() && indirect_call_may_release_raw_cells(effect) {
+                collect_unknown_indirect_call_release_requirements(
+                    out,
+                    engine.types,
+                    call_params,
+                    args,
+                    raw_aliases,
+                    params,
                 );
             }
         }
@@ -271,40 +292,6 @@ fn collect_nested_release_requirements(
     );
 }
 
-fn collect_raw_memory_release_requirements(
-    out: &mut Vec<RawCellReleaseParamRequirement>,
-    operation: &RawMemoryOp,
-    args: &[Place],
-    raw_aliases: &RawCellAddressAliases,
-    params: &[ResourceLocal],
-) {
-    for (arg_index, kind) in release_requirement_args(operation) {
-        let Some(address) = args.get(arg_index) else {
-            continue;
-        };
-        collect_address_release_requirements(out, address, kind, raw_aliases, params);
-    }
-}
-
-fn release_requirement_args(
-    operation: &RawMemoryOp,
-) -> Vec<(usize, RawCellReleaseRequirementKind)> {
-    match operation {
-        RawMemoryOp::Store => alloc::vec![(0, RawCellReleaseRequirementKind::Store)],
-        RawMemoryOp::Dealloc => alloc::vec![(0, RawCellReleaseRequirementKind::Dealloc)],
-        RawMemoryOp::Realloc => alloc::vec![(0, RawCellReleaseRequirementKind::Realloc)],
-        RawMemoryOp::Fill => alloc::vec![(0, RawCellReleaseRequirementKind::Fill)],
-        RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => alloc::vec![
-            (0, RawCellReleaseRequirementKind::BulkDestination),
-            (1, RawCellReleaseRequirementKind::BulkSource),
-        ],
-        RawMemoryOp::Alloc
-        | RawMemoryOp::Load
-        | RawMemoryOp::MemorySize
-        | RawMemoryOp::MemoryGrow => Vec::new(),
-    }
-}
-
 fn collect_call_release_requirements(
     out: &mut Vec<RawCellReleaseParamRequirement>,
     engine: &ResourceCheckEngine<'_>,
@@ -354,7 +341,7 @@ fn collect_function_summary_release_requirements(
     }
 }
 
-fn collect_address_release_requirements(
+pub(super) fn collect_address_release_requirements(
     out: &mut Vec<RawCellReleaseParamRequirement>,
     address: &Place,
     kind: RawCellReleaseRequirementKind,
