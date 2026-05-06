@@ -31086,3 +31086,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `nm/html_gen` の heading/section renderer、`nm/parser` の section stack / block serializer、`alloc/string.nepl`、`alloc/collections/vec.nepl` は引き続き分割候補。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm HTML heading split)
+
+- [同期]:
+  - `main` を remote main と同期し、`fix/nm-html-heading-split` で巨大 stdlib file 分割 issue を継続した。
+- [原因]:
+  - `stdlib/nm/html_gen.nepl` は HTML renderer 本体と heading tag helper を同じ file に持っていた。
+  - heading level から h1..h6 への固定分岐は静的検査で match を監視したい有限集合であり、renderer 本体から分けて責務を明確にする必要がある。
+- [修正]:
+  - `stdlib/nm/html_heading.nepl` を追加し、`HtmlHeadingKind` / `html_heading_kind` / `nm_append_heading_open` / `nm_append_heading_close` を移した。
+  - `stdlib/nm/html_gen.nepl` は `./html_heading` を `heading` alias で import し、heading node 出力時に `heading::` helper を呼ぶようにした。
+  - `nodesrc/test_stdlib_match_decision_trees.js` の HTML heading match policy を新 module へ移した。
+  - `nodesrc/test_stdlib_nm_html_heading_boundary.js` を追加し、heading helper が renderer 本体へ戻らないことを source policy にした。
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` に進捗を追記した。
+- [検証]:
+  - `node nodesrc/test_stdlib_nm_html_heading_boundary.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/nm/html_heading.nepl --no-tree -o tmp/nm-html-heading-split-module.json -j 1`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/nm/html_gen.nepl --no-tree -o tmp/nm-html-heading-split-html-gen.json -j 1`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-html-heading-split-nm-tests.json -j 1`: total=5, passed=5
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [残件]:
+  - `nm/html_gen` の section renderer、`nm/parser` の section stack / block serializer、`alloc/string.nepl`、`alloc/collections/vec.nepl` は引き続き分割候補。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

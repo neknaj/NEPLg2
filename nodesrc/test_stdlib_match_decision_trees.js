@@ -101,7 +101,7 @@ assertLiteralMatch({
 });
 
 assertLiteralMatch({
-    file: 'stdlib/nm/html_gen.nepl',
+    file: 'stdlib/nm/html_heading.nepl',
     name: 'html_heading_kind',
     scrutinee: 'level',
     literals: [1, 2, 3, 4, 5],

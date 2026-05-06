@@ -1,0 +1,111 @@
+//: nm/html_heading: NM HTML serializer 用の heading tag helper
+//:
+//: [目的/もくてき]:
+//: - NM heading level を HTML heading tag へ写す helper を提供します。
+//: - HTML renderer 本体から h1..h6 の固定分岐を分離し、heading level の扱いを単独で監視できるようにします。
+//:
+//: [実装/じっそう]:
+//: - `HtmlHeadingKind` enum で HTML heading tag 種別を表し、`html_heading_kind` は level を `match` で分類します。
+//: - open / close tag 追加は同じ分類関数を共有し、範囲外 level は h6 として扱います。
+//:
+//: [注意/ちゅうい]:
+//: - NM parser 側の heading level は通常 1..6 ですが、この helper は防御的に範囲外を h6 に丸めます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "alloc/string" as *
+//:| #import "nm/html_heading" as *
+//: fn main <()*>i32> ():
+//:     let sb0 <StringBuilder> string_builder_new
+//:     let sb1 <StringBuilder> nm_append_heading_open sb0 2
+//:     let sb2 <StringBuilder> sb_append sb1 "T"
+//:     let out <str> sb_build nm_append_heading_close sb2 2
+//:     if str_eq out "<h2>T</h2>" 0 1
+//: ```
+
+#indent 4
+
+#import "alloc/string" as *
+
+//: HtmlHeadingKind: HTML heading tag の分類
+//:
+//: [目的/もくてき]:
+//: - NM heading level を HTML の h1 から h6 に対応させます。
+//:
+//: [注意/ちゅうい]:
+//: - 範囲外 level は h6 として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+enum HtmlHeadingKind:
+    H1
+    H2
+    H3
+    H4
+    H5
+    H6
+
+pub fn html_heading_kind <(i32)->HtmlHeadingKind> (level):
+    match level:
+        1:
+            HtmlHeadingKind::H1
+        2:
+            HtmlHeadingKind::H2
+        3:
+            HtmlHeadingKind::H3
+        4:
+            HtmlHeadingKind::H4
+        5:
+            HtmlHeadingKind::H5
+        _:
+            HtmlHeadingKind::H6
+
+//: nm_append_heading_open: heading 開始 tag を追加する
+//:
+//: [目的/もくてき]:
+//: - level に応じた `<h1>` から `<h6>` を builder へ追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn nm_append_heading_open <(StringBuilder,i32)->StringBuilder> (sb, level):
+    match html_heading_kind level:
+        HtmlHeadingKind::H1:
+            sb_append sb "<h1>"
+        HtmlHeadingKind::H2:
+            sb_append sb "<h2>"
+        HtmlHeadingKind::H3:
+            sb_append sb "<h3>"
+        HtmlHeadingKind::H4:
+            sb_append sb "<h4>"
+        HtmlHeadingKind::H5:
+            sb_append sb "<h5>"
+        HtmlHeadingKind::H6:
+            sb_append sb "<h6>"
+
+//: nm_append_heading_close: heading 終了 tag を追加する
+//:
+//: [目的/もくてき]:
+//: - level に応じた `</h1>` から `</h6>` を builder へ追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn nm_append_heading_close <(StringBuilder,i32)->StringBuilder> (sb, level):
+    match html_heading_kind level:
+        HtmlHeadingKind::H1:
+            sb_append sb "</h1>"
+        HtmlHeadingKind::H2:
+            sb_append sb "</h2>"
+        HtmlHeadingKind::H3:
+            sb_append sb "</h3>"
+        HtmlHeadingKind::H4:
+            sb_append sb "</h4>"
+        HtmlHeadingKind::H5:
+            sb_append sb "</h5>"
+        HtmlHeadingKind::H6:
+            sb_append sb "</h6>"

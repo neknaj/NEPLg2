@@ -29,85 +29,9 @@
 #import "core/math" as *
 
 #import "./html_escape" as html
+#import "./html_heading" as heading
 #import "./parser" as *
 #import "./parser/scanner" as scan
-
-//: HtmlHeadingKind: HTML heading tag の分類
-//:
-//: [目的/もくてき]:
-//: - NM heading level を HTML の h1 から h6 に対応させます。
-//:
-//: [注意/ちゅうい]:
-//: - 範囲外 level は h6 として扱います。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-enum HtmlHeadingKind:
-    H1
-    H2
-    H3
-    H4
-    H5
-    H6
-
-fn html_heading_kind <(i32)->HtmlHeadingKind> (level):
-    match level:
-        1:
-            HtmlHeadingKind::H1
-        2:
-            HtmlHeadingKind::H2
-        3:
-            HtmlHeadingKind::H3
-        4:
-            HtmlHeadingKind::H4
-        5:
-            HtmlHeadingKind::H5
-        _:
-            HtmlHeadingKind::H6
-
-//: nm_append_heading_open: heading 開始 tag を追加する
-//:
-//: [目的/もくてき]:
-//: - level に応じた `<h1>` から `<h6>` を builder へ追加します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn nm_append_heading_open <(StringBuilder,i32)->StringBuilder> (sb, level):
-    match html_heading_kind level:
-        HtmlHeadingKind::H1:
-            sb_append sb "<h1>"
-        HtmlHeadingKind::H2:
-            sb_append sb "<h2>"
-        HtmlHeadingKind::H3:
-            sb_append sb "<h3>"
-        HtmlHeadingKind::H4:
-            sb_append sb "<h4>"
-        HtmlHeadingKind::H5:
-            sb_append sb "<h5>"
-        HtmlHeadingKind::H6:
-            sb_append sb "<h6>"
-
-//: nm_append_heading_close: heading 終了 tag を追加する
-//:
-//: [目的/もくてき]:
-//: - level に応じた `</h1>` から `</h6>` を builder へ追加します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn nm_append_heading_close <(StringBuilder,i32)->StringBuilder> (sb, level):
-    match html_heading_kind level:
-        HtmlHeadingKind::H1:
-            sb_append sb "</h1>"
-        HtmlHeadingKind::H2:
-            sb_append sb "</h2>"
-        HtmlHeadingKind::H3:
-            sb_append sb "</h3>"
-        HtmlHeadingKind::H4:
-            sb_append sb "</h4>"
-        HtmlHeadingKind::H5:
-            sb_append sb "</h5>"
-        HtmlHeadingKind::H6:
-            sb_append sb "</h6>"
 
 //: nm_inline_to_html: inline markup を HTML fragment に変換する
 //:
@@ -381,9 +305,9 @@ fn nm_render_source_html <(str)->str> (src):
                                                     set sb sb_append sb "<section class=\"nm-sec level-";
                                                     set sb sb_append_i32 sb hlevel;
                                                     set sb sb_append sb "\">";
-                                                    set sb nm_append_heading_open sb hlevel;
+                                                    set sb heading::nm_append_heading_open sb hlevel;
                                                     set sb sb_append sb nm_inline_to_html htext;
-                                                    set sb nm_append_heading_close sb hlevel;
+                                                    set sb heading::nm_append_heading_close sb hlevel;
                                                     match hlevel:
                                                         1:
                                                             set open1 true
