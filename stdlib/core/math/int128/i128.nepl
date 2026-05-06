@@ -1,0 +1,114 @@
+//: # math/int128/i128
+//: i128 相当整数の基本演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - i128 の構築、加減算、乗算、符号付き比較を管理します。
+//: - 型定義は `int128/types`、u64 × u64 wide multiply は `int128/u128` が所有します。
+//:
+//: [注意/ちゅうい]:
+//: - i128 は 2 の補数表現です。演算は mod 2^128 でラップします。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/field" as *
+//:| #import "core/math/convert/width" as *
+//:| #import "core/math/int128/i128" as *
+//: fn main <()->i32> ():
+//:     let a <i128> to_i128 extend_s_i32_to_i64 7;
+//:     let b <i128> to_i128 extend_s_i32_to_i64 6;
+//:     let c <i128> mul a b;
+//:     wrap_i64_to_i32 get c "lo"
+//: ```
+
+#indent 4
+
+#import "core/field" as *
+#import "core/math/i64" as *
+#import "core/math/convert/width" as *
+#import "./types" as *
+#import "./u128" as u128_math
+
+//: new: hi/lo から i128 値を構築する
+fn new <(i64,i64)->i128> (hi, lo):
+    i128 hi lo
+
+//: to_i128: i64 値を符号拡張して i128 に変換する
+fn to_i128 <(i64)->i128> (v):
+    let hi <i64> if lt v extend_s_i32_to_i64 0:
+        then extend_s_i32_to_i64 -1
+        else extend_s_i32_to_i64 0
+    i128 hi v
+
+//: add: i128 の加算（mod 2^128）
+fn add <(i128,i128)->i128> (a, b):
+    let a_hi <i64> get a "hi";
+    let a_lo <i64> get a "lo";
+    let b_hi <i64> get b "hi";
+    let b_lo <i64> get b "lo";
+    let lo <i64> add a_lo b_lo;
+    let carry <i64> if lt_u lo a_lo:
+        then extend_s_i32_to_i64 1
+        else extend_s_i32_to_i64 0
+    let hi0 <i64> add a_hi b_hi;
+    let hi <i64> add hi0 carry;
+    i128 hi lo
+
+//: sub: i128 の減算（mod 2^128）
+fn sub <(i128,i128)->i128> (a, b):
+    let a_hi <i64> get a "hi";
+    let a_lo <i64> get a "lo";
+    let b_hi <i64> get b "hi";
+    let b_lo <i64> get b "lo";
+    let lo <i64> sub a_lo b_lo;
+    let borrow <i64> if lt_u a_lo b_lo:
+        then extend_s_i32_to_i64 1
+        else extend_s_i32_to_i64 0
+    let hi0 <i64> sub a_hi b_hi;
+    let hi <i64> sub hi0 borrow;
+    i128 hi lo
+
+//: mul: i128 の乗算（mod 2^128）
+//:
+//: [目的/もくてき]:
+//: - i128 同士の積の下位 128-bit を返します。
+//:
+//: [実装/じっそう]:
+//: - `a = a_hi*2^64 + a_lo`, `b = b_hi*2^64 + b_lo` とみなし、
+//:   `a_lo*b_lo` の 128-bit 積と交差項 `a_hi*b_lo`, `a_lo*b_hi` を合成します。
+//:
+//: [注意/ちゅうい]:
+//: - 2 の補数表現の mod 2^128 乗算です（オーバーフローはラップ）。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn mul <(i128,i128)->i128> (a, b):
+    let a_hi <i64> get a "hi";
+    let a_lo <i64> get a "lo";
+    let b_hi <i64> get b "hi";
+    let b_lo <i64> get b "lo";
+
+    let lo_wide <u128> u128_math::mul_wide a_lo b_lo;
+    let lo <i64> get lo_wide "lo";
+    let lo_hi <i64> get lo_wide "hi";
+
+    let cross1 <i64> mul a_hi b_lo;
+    let cross2 <i64> mul a_lo b_hi;
+    let cross <i64> add cross1 cross2;
+    let hi <i64> add lo_hi cross;
+    i128 hi lo
+
+//: lt: i128 の大小比較（a < b）
+fn lt <(i128,i128)->bool> (a, b):
+    let a_hi <i64> get a "hi";
+    let b_hi <i64> get b "hi";
+    let a_lo <i64> get a "lo";
+    let b_lo <i64> get b "lo";
+    if lt a_hi b_hi:
+        true
+    else:
+        if gt a_hi b_hi:
+            false
+        else:
+            lt_u a_lo b_lo

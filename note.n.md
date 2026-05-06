@@ -1,3 +1,25 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math int128 responsibility split)
+
+- [同期]:
+  - `683b5665` を push/pull して `main` と `origin/main` が一致した後、branch `fix/math-int128-responsibility-split` を作成した。
+- [原因]:
+  - `stdlib/core/math/int128.nepl` は u128/i128 の型定義、u128 演算、i128 演算、wide multiply を 240 lines の 1 file に持ち続けていた。
+  - 型定義と演算対象が同居したままだと、今後 i128 除算や追加変換を実装する際に root module へ責務が再集中する。
+- [修正]:
+  - `stdlib/core/math/int128/types.nepl` を追加し、`u128` / `i128` struct 定義を移した。
+  - `stdlib/core/math/int128/u128.nepl` を追加し、u128 の基本演算と `mul_wide` を移した。
+  - `stdlib/core/math/int128/i128.nepl` を追加し、i128 の基本演算を移した。`mul_wide` は `u128_math::mul_wide` として alias import し、i128 側に u128 実装を再所有させない。
+  - `stdlib/core/math/int128.nepl` は `types` / `u128` / `i128` を再 export する facade にし、関数本体と struct 定義を持たない形にした。
+  - `nodesrc/test_stdlib_math_module_split.js` に int128 submodule の re-export、所有関数/struct、行数上限、facade の無実装性を固定する検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/int128/types.nepl -i stdlib/core/math/int128/u128.nepl -i stdlib/core/math/int128/i128.nepl -i stdlib/core/math/int128.nepl -i stdlib/core/math.nepl -i tests/stdlib/math.n.md -i tests/stdlib/numerics.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-int128-responsibility-split.json -j 1`: total=22, passed=22
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl`、`alloc/collections/vec.nepl`、`core/mem.nepl` などの分割を継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math u8 responsibility split)
 
 - [同期]:

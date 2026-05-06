@@ -1,0 +1,32 @@
+//: # math/int128/types
+//: u128/i128 相当整数の表現型を定義する submodule
+//:
+//: [目的/もくてき]:
+//: - 128-bit 相当整数の 2 word 表現を、演算実装から分けて管理します。
+//:
+//: [注意/ちゅうい]:
+//: - `hi` / `lo` はどちらも i64 です。`u128` は符号なし、`i128` は 2 の補数として上位 word を解釈します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/field" as *
+//:| #import "core/math/convert/width" as *
+//:| #import "core/math/int128/types" as *
+//: fn main <()->i32> ():
+//:     let v <u128> u128 extend_s_i32_to_i64 0 extend_s_i32_to_i64 9;
+//:     wrap_i64_to_i32 get v "lo"
+//: ```
+
+#indent 4
+
+//: u128: u128 相当（上位/下位 64-bit）
+struct u128:
+    hi <i64>
+    lo <i64>
+
+//: i128: i128 相当（上位/下位 64-bit, 2 の補数）
+struct i128:
+    hi <i64>
+    lo <i64>

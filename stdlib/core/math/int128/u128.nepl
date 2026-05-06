@@ -1,0 +1,126 @@
+//: # math/int128/u128
+//: u128 相当整数の基本演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - u128 の構築、加減算、符号なし比較、u64 × u64 の wide multiply を管理します。
+//: - 型定義は `int128/types` に置き、ここでは u128 演算だけを所有します。
+//:
+//: [注意/ちゅうい]:
+//: - u128 の除算は未提供です。乗算は `mul_wide` による u64 × u64 の 128-bit 積だけを提供します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/field" as *
+//:| #import "core/math/convert/width" as *
+//:| #import "core/math/int128/u128" as *
+//: fn main <()->i32> ():
+//:     let a <u128> to_u128 extend_s_i32_to_i64 40;
+//:     let b <u128> to_u128 extend_s_i32_to_i64 2;
+//:     let c <u128> add a b;
+//:     wrap_i64_to_i32 get c "lo"
+//: ```
+
+#indent 4
+
+#import "core/field" as *
+#import "core/math/i64" as *
+#import "core/math/convert/width" as *
+#import "./types" as *
+
+//: new: hi/lo から u128 値を構築する
+fn new <(i64,i64)->u128> (hi, lo):
+    u128 hi lo
+
+//: to_u128: u64 値から u128 値を作る
+fn to_u128 <(i64)->u128> (v):
+    u128 extend_s_i32_to_i64 0 v
+
+//: add: u128 の加算（mod 2^128）
+fn add <(u128,u128)->u128> (a, b):
+    let a_hi <i64> get a "hi";
+    let a_lo <i64> get a "lo";
+    let b_hi <i64> get b "hi";
+    let b_lo <i64> get b "lo";
+    let lo <i64> add a_lo b_lo;
+    let carry <i64> if lt_u lo a_lo:
+        then extend_s_i32_to_i64 1
+        else extend_s_i32_to_i64 0
+    let hi0 <i64> add a_hi b_hi;
+    let hi <i64> add hi0 carry;
+    u128 hi lo
+
+//: sub: u128 の減算（mod 2^128）
+fn sub <(u128,u128)->u128> (a, b):
+    let a_hi <i64> get a "hi";
+    let a_lo <i64> get a "lo";
+    let b_hi <i64> get b "hi";
+    let b_lo <i64> get b "lo";
+    let lo <i64> sub a_lo b_lo;
+    let borrow <i64> if lt_u a_lo b_lo:
+        then extend_s_i32_to_i64 1
+        else extend_s_i32_to_i64 0
+    let hi0 <i64> sub a_hi b_hi;
+    let hi <i64> sub hi0 borrow;
+    u128 hi lo
+
+//: lt: u128 の大小比較（a < b）
+fn lt <(u128,u128)->bool> (a, b):
+    let a_hi <i64> get a "hi";
+    let b_hi <i64> get b "hi";
+    let a_lo <i64> get a "lo";
+    let b_lo <i64> get b "lo";
+    if lt_u a_hi b_hi:
+        true
+    else:
+        if gt_u a_hi b_hi:
+            false
+        else:
+            lt_u a_lo b_lo
+
+//: mul_wide: u64 × u64 の 128-bit 積を返す
+//:
+//: [目的/もくてき]:
+//: - 64-bit 乗算の上位 64-bit と下位 64-bit を同時に求めます。
+//:
+//: [実装/じっそう]:
+//: - 入力を 32-bit 上位/下位に分割し、部分積を合成します。
+//: - 途中の加算では `lt_u` でキャリーを検出します。
+//:
+//: [注意/ちゅうい]:
+//: - 符号なし演算として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn mul_wide <(i64,i64)->u128> (a, b):
+    let mask32 <i64> extend_s_i32_to_i64 -1;
+    let sh32 <i64> extend_s_i32_to_i64 32;
+
+    let a0 <i64> and a mask32;
+    let a1 <i64> shr_u a sh32;
+    let b0 <i64> and b mask32;
+    let b1 <i64> shr_u b sh32;
+
+    let p0 <i64> mul a0 b0;
+    let p1 <i64> mul a0 b1;
+    let p2 <i64> mul a1 b0;
+    let p3 <i64> mul a1 b1;
+
+    let mid <i64> add p1 p2;
+    let carry_mid <i64> if lt_u mid p1:
+        then extend_s_i32_to_i64 1
+        else extend_s_i32_to_i64 0
+
+    let lo_add <i64> shl mid sh32;
+    let lo <i64> add p0 lo_add;
+    let carry_lo <i64> if lt_u lo p0:
+        then extend_s_i32_to_i64 1
+        else extend_s_i32_to_i64 0
+
+    let mid_hi <i64> shr_u mid sh32;
+    let hi0 <i64> add p3 mid_hi;
+    let carry_hi <i64> shl carry_mid sh32;
+    let hi1 <i64> add hi0 carry_hi;
+    let hi <i64> add hi1 carry_lo;
+    u128 hi lo

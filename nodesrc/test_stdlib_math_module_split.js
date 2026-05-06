@@ -37,6 +37,9 @@ const convertFloatToI64Module = read("stdlib/core/math/convert/float/float_to_i6
 const convertFloatWidthModule = read("stdlib/core/math/convert/float/float_width.nepl");
 const convertReinterpretModule = read("stdlib/core/math/convert/reinterpret.nepl");
 const int128Module = read("stdlib/core/math/int128.nepl");
+const int128TypesModule = read("stdlib/core/math/int128/types.nepl");
+const int128U128Module = read("stdlib/core/math/int128/u128.nepl");
+const int128I128Module = read("stdlib/core/math/int128/i128.nepl");
 const u8Module = read("stdlib/core/math/u8.nepl");
 const u8ArithModule = read("stdlib/core/math/u8/arith.nepl");
 const u8CompareModule = read("stdlib/core/math/u8/compare.nepl");
@@ -109,11 +112,33 @@ for (const [relPath, src, maxLines] of [
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 for (const [moduleName, pattern] of [
-    ["field", /#import\s+"core\/field"\s+as\s+\*/],
-    ["i64", /#import\s+"core\/math\/i64"\s+as\s+\*/],
-    ["convert width", /#import\s+"core\/math\/convert\/width"\s+as\s+\*/],
+    ["types", /pub\s+#import\s+"\.\/int128\/types"\s+as\s+\*/],
+    ["u128", /pub\s+#import\s+"\.\/int128\/u128"\s+as\s+\*/],
+    ["i128", /pub\s+#import\s+"\.\/int128\/i128"\s+as\s+\*/],
 ]) {
-    assert.match(int128Module, pattern, `core/math/int128.nepl must import ${moduleName} directly`);
+    assert.match(int128Module, pattern, `core/math/int128.nepl must re-export the ${moduleName} int128 submodule`);
+}
+assert.doesNotMatch(int128Module, /^fn\s+/m, "core/math/int128.nepl must remain a facade without function bodies");
+assert.doesNotMatch(int128Module, /^struct\s+/m, "core/math/int128.nepl must remain a facade without structs");
+for (const [moduleName, moduleSrc, pattern] of [
+    ["u128 field", int128U128Module, /#import\s+"core\/field"\s+as\s+\*/],
+    ["u128 i64", int128U128Module, /#import\s+"core\/math\/i64"\s+as\s+\*/],
+    ["u128 convert width", int128U128Module, /#import\s+"core\/math\/convert\/width"\s+as\s+\*/],
+    ["i128 field", int128I128Module, /#import\s+"core\/field"\s+as\s+\*/],
+    ["i128 i64", int128I128Module, /#import\s+"core\/math\/i64"\s+as\s+\*/],
+    ["i128 convert width", int128I128Module, /#import\s+"core\/math\/convert\/width"\s+as\s+\*/],
+    ["i128 u128 alias", int128I128Module, /#import\s+"\.\/u128"\s+as\s+u128_math/],
+]) {
+    assert.match(moduleSrc, pattern, `core/math/int128 submodule must import ${moduleName} directly`);
+}
+for (const [relPath, src, maxLines] of [
+    ["stdlib/core/math/int128.nepl", int128Module, 80],
+    ["stdlib/core/math/int128/types.nepl", int128TypesModule, 80],
+    ["stdlib/core/math/int128/u128.nepl", int128U128Module, 180],
+    ["stdlib/core/math/int128/i128.nepl", int128I128Module, 180],
+]) {
+    const lineCount = src.split(/\r?\n/).length;
+    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 
 for (const [moduleName, pattern] of [
@@ -578,7 +603,8 @@ for (const [name, signature] of [
 
 for (const structName of ["u128", "i128"]) {
     const pattern = new RegExp(`\\bstruct\\s+${structName}\\b`);
-    assert.match(int128Module, pattern, `core/math/int128.nepl must define ${structName}`);
+    assert.match(int128TypesModule, pattern, `core/math/int128/types.nepl must define ${structName}`);
+    assert.doesNotMatch(int128Module, pattern, `core/math/int128.nepl must not keep ${structName}`);
     assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep ${structName}`);
 }
 
@@ -588,16 +614,25 @@ for (const [name, signature] of [
     ["add", "<\\(u128,u128\\)->u128>"],
     ["sub", "<\\(u128,u128\\)->u128>"],
     ["lt", "<\\(u128,u128\\)->bool>"],
+    ["mul_wide", "<\\(i64,i64\\)->u128>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(int128U128Module, pattern, `core/math/int128/u128.nepl must define ${name} ${signature}`);
+    assert.doesNotMatch(int128Module, pattern, `core/math/int128.nepl must not keep u128 API ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep int128 API ${name} ${signature}`);
+}
+
+for (const [name, signature] of [
     ["new", "<\\(i64,i64\\)->i128>"],
     ["to_i128", "<\\(i64\\)->i128>"],
     ["add", "<\\(i128,i128\\)->i128>"],
     ["sub", "<\\(i128,i128\\)->i128>"],
-    ["mul_wide", "<\\(i64,i64\\)->u128>"],
     ["mul", "<\\(i128,i128\\)->i128>"],
     ["lt", "<\\(i128,i128\\)->bool>"],
 ]) {
     const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
-    assert.match(int128Module, pattern, `core/math/int128.nepl must define ${name} ${signature}`);
+    assert.match(int128I128Module, pattern, `core/math/int128/i128.nepl must define ${name} ${signature}`);
+    assert.doesNotMatch(int128Module, pattern, `core/math/int128.nepl must not keep i128 API ${name} ${signature}`);
     assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep int128 API ${name} ${signature}`);
 }
 
