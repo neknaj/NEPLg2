@@ -114,6 +114,7 @@ for (const moduleName of [
     'initialized_summary_variant_condition.rs',
     'initialized_summary_variant_requirement.rs',
     'lower_aggregate.rs',
+    'lower_aggregate_projection.rs',
     'lower_condition.rs',
 ]) {
     assertFile(moduleName);
@@ -176,6 +177,7 @@ for (const moduleDecl of [
     'mod initialized_summary_variant_condition;',
     'mod initialized_summary_variant_requirement;',
     'mod lower_aggregate;',
+    'mod lower_aggregate_projection;',
     'mod lower_condition;',
 ]) {
     assertContains(mod, moduleDecl, 'resource/mod.rs');
@@ -202,6 +204,8 @@ const coverageHirProjectionAggregate = readResource('coverage_hir_projection_agg
 const coverageHirRaw = readResource('coverage_hir_raw.rs');
 const coverageResource = readResource('coverage_resource.rs');
 const lower = readResource('lower.rs');
+const lowerAggregate = readResource('lower_aggregate.rs');
+const lowerAggregateProjection = readResource('lower_aggregate_projection.rs');
 const lowerRawAddress = readResource('lower_raw_address.rs');
 const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawMemory = readResource('lower_raw_memory.rs');
@@ -251,6 +255,16 @@ assertContains(
     'lower_raw_memory.rs',
 );
 assertNotContains(lower, 'struct RawAddressSource', 'lower.rs');
+assertContains(
+    lowerAggregate,
+    'pub(super) fn lower_compiler_field_load_source',
+    'lower_aggregate.rs',
+);
+assertContains(
+    lowerAggregateProjection,
+    'pub(super) fn aggregate_field_projection_by_name',
+    'lower_aggregate_projection.rs',
+);
 assertUsesResourceModuleSymbol(
     borrowSummary,
     'borrow_check',
@@ -322,6 +336,7 @@ const maxLines = new Map([
     ['coverage_resource.rs', 520],
     ['lower.rs', 1150],
     ['lower_aggregate.rs', 320],
+    ['lower_aggregate_projection.rs', 140],
     ['lower_condition.rs', 140],
     ['lower_raw_address.rs', 620],
     ['lower_raw_address_place.rs', 180],

@@ -1,3 +1,23 @@
+# 2026-05-06 note (ISS-20260506T034331265Z Resource aggregate lowering projection split)
+
+- [同期]:
+  - `7079615d` の aggregate lowering split issue push 後、`origin/main` と一致する clean な `main` から branch `fix/lower-aggregate-responsibility-split` を作成した。
+- [原因]:
+  - `lower_aggregate.rs` は compiler field load lowering、`get` / `get_field` projection lowering、raw aggregate source、struct / tuple projection 解決を同居させていた。
+  - aggregate projection 解決は lowering entrypoint とは別責務であり、source policy の responsibility split limit 320 を超える再肥大化の原因になっていた。
+- [修正]:
+  - `lower_aggregate_projection.rs` を追加し、field offset / field name / tuple selector から `PlaceProjection` を解決する処理を分離した。
+  - `lower_aggregate.rs` は aggregate lowering entrypoint と source 分類に集中させた。
+  - `nodesrc/test_resource_checker_responsibility.js` に新 module の存在、`resource/mod.rs` 宣言、責務境界、行数上限を追加した。
+- [検証]:
+  - `cargo fmt -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core resource_ir --tests`: passed, 161 tests
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260506T030752155Z Resource HIR projection coverage split)
 
 - [同期]:

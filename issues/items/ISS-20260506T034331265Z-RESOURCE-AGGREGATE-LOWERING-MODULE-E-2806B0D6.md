@@ -2,13 +2,13 @@
 id: ISS-20260506T034331265Z-RESOURCE-AGGREGATE-LOWERING-MODULE-E-2806B0D6
 title: "Resource aggregate lowering module exceeds responsibility split limit again"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-06
 updated: 2026-05-06
-target: "nepl-core/src/resource/lower_aggregate.rs, nodesrc/test_resource_checker_responsibility.js"
+target: "nepl-core/src/resource/lower_aggregate.rs, nepl-core/src/resource/lower_aggregate_projection.rs, nodesrc/test_resource_checker_responsibility.js"
 ---
 
 # ISS-20260506T034331265Z-RESOURCE-AGGREGATE-LOWERING-MODULE-E-2806B0D6: Resource aggregate lowering module exceeds responsibility split limit again
@@ -41,3 +41,17 @@ Split lower_aggregate.rs by aggregate lowering responsibility, for example movin
 ## 検証
 
 Run node nodesrc/test_resource_checker_responsibility.js and node nodesrc/run_source_policy_regressions.js --warn-only; the lower_aggregate.rs warning must disappear.
+
+## 2026-05-06 対応結果
+
+- `nepl-core/src/resource/lower_aggregate_projection.rs` を追加し、struct / tuple aggregate の field projection 解決を `lower_aggregate.rs` から分離した。
+- `lower_aggregate.rs` は compiler field load、`get` / `get_field`、raw aggregate source の lowering entrypoint に集中する構成へ戻した。
+- `nodesrc/test_resource_checker_responsibility.js` に新 module の存在、`resource/mod.rs` 宣言、責務境界、行数上限を追加し、再肥大化を検出できるようにした。
+
+## 2026-05-06 検証結果
+
+- `cargo fmt -p nepl-core`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core resource_ir --tests`: passed, 161 tests
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
