@@ -11,10 +11,10 @@ use nepl_core::resource::{
     EffectOp, ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp,
     ResourceAutoDropKind, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic,
     ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropRequirement,
-    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
-    ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
-    ResourceOwnerOperation, ResourceTerminator,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropPointStep,
+    ResourceDropRequirement, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
+    ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal, ResourceModule, ResourceOffset,
+    ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -3258,6 +3258,14 @@ fn resource_ir_check_auto_drops_live_non_copy_local_at_scope_end() {
     assert_eq!(drop_plan.functions[0].auto_drops.len(), 1);
     assert_eq!(drop_plan.functions[0].drop_points.len(), 1);
     assert_eq!(drop_plan.functions[0].drop_points[0].auto_drops.len(), 1);
+    assert_eq!(
+        drop_plan.functions[0].drop_points[0].path.block,
+        ResourceBlockId(0)
+    );
+    assert!(matches!(
+        drop_plan.functions[0].drop_points[0].path.steps.last(),
+        Some(ResourceDropPointStep::Op { .. })
+    ));
     assert!(matches!(
         drop_plan.functions[0].auto_drops[0].kind,
         ResourceAutoDropKind::ScopeLocal
@@ -3320,7 +3328,11 @@ fn main <()->i32> ():
     assert!(main_drop_plan.drop_points.iter().any(|point| {
         point.auto_drops.iter().any(
             |drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name.starts_with("x#")),
-        )
+        ) && point
+            .path
+            .steps
+            .iter()
+            .any(|step| matches!(step, ResourceDropPointStep::BranchThen))
     }));
     assert!(main_drop_plan
         .auto_drops
@@ -3393,6 +3405,14 @@ fn main <()->i32> ():
         })
         .expect("top-level EndScope should keep Holder and MaybeGuard in one drop point");
     assert_eq!(top_scope_point.auto_drops.len(), 2);
+    assert!(!top_scope_point.path.steps.iter().any(|step| matches!(
+        step,
+        ResourceDropPointStep::BranchThen
+            | ResourceDropPointStep::BranchElse
+            | ResourceDropPointStep::LoopBody
+            | ResourceDropPointStep::LoopCondition
+            | ResourceDropPointStep::MatchArm { .. }
+    )));
 
     let holder_drop = main_drop_plan
         .auto_drops

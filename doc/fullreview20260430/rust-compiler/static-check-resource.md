@@ -99,6 +99,12 @@ HIR `passes::insert_drops` はまだ残るが、内部の drop-needed 判定は 
 
 flat list だけでは、codegen 側が nested control-flow のどの EndScope に drop を挿入するかを再推定する必要がある。drop point grouping により、次の移行では HIR scope walker の位置推定ではなく Resource IR lowering が生成した EndScope を正にできる。
 
+## 2026-05-06 drop point typed path 追補
+
+`ResourceDropPoint` は `ResourceDropPointPath` を持つようになった。path は block id と `ResourceDropPointStep` enum の列であり、`Op`、`BranchThen`、`BranchElse`、`LoopCondition`、`LoopBody`、`MatchArm` を区別する。
+
+span は診断表示には必要だが、drop elaboration の挿入位置としては不十分である。同一 span の nested lowering や複数 EndScope を扱うため、Resource IR 構造上の位置を typed data として保持する。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

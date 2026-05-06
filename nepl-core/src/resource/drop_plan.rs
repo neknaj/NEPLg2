@@ -1,44 +1,15 @@
-extern crate alloc;
-
-use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::span::Span;
 use crate::types::TypeCtx;
 
-use super::drop_requirement::{resource_drop_requirement_for_type, ResourceDropRequirement};
+use super::drop_model::{
+    ResourceAutoDrop, ResourceAutoDropKind, ResourceDropFunctionPlan, ResourceDropPlan,
+    ResourceDropPoint,
+};
+use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
+use super::drop_requirement::resource_drop_requirement_for_type;
 use super::model::{Place, ResourceFunction, ResourceModule, ResourceOp};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResourceDropPlan {
-    pub functions: Vec<ResourceDropFunctionPlan>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResourceDropFunctionPlan {
-    pub name: String,
-    pub auto_drops: Vec<ResourceAutoDrop>,
-    pub drop_points: Vec<ResourceDropPoint>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResourceDropPoint {
-    pub span: Span,
-    pub auto_drops: Vec<ResourceAutoDrop>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResourceAutoDrop {
-    pub place: Place,
-    pub kind: ResourceAutoDropKind,
-    pub requirement: ResourceDropRequirement,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ResourceAutoDropKind {
-    ScopeLocal,
-}
 
 pub fn compute_resource_drop_plan(module: &ResourceModule, types: &TypeCtx) -> ResourceDropPlan {
     ResourceDropPlan {
@@ -74,7 +45,11 @@ fn compute_function_drop_plan(
 ) -> ResourceDropFunctionPlan {
     let mut drop_points = Vec::new();
     for block in &function.blocks {
-        collect_drop_points_from_ops(&block.ops, types, &mut drop_points);
+        let path = ResourceDropPointPath {
+            block: block.id,
+            steps: Vec::new(),
+        };
+        collect_drop_points_from_ops(&block.ops, types, path, &mut drop_points);
     }
     let auto_drops = drop_points
         .iter()
@@ -90,14 +65,17 @@ fn compute_function_drop_plan(
 fn collect_drop_points_from_ops(
     ops: &[ResourceOp],
     types: &TypeCtx,
+    path: ResourceDropPointPath,
     drop_points: &mut Vec<ResourceDropPoint>,
 ) {
-    for op in ops {
+    for (index, op) in ops.iter().enumerate() {
+        let op_path = path.clone().with_step(ResourceDropPointStep::Op { index });
         match op {
             ResourceOp::EndScope { locals, span, .. } => {
                 let auto_drops = auto_drop_candidates_for_end_scope(types, locals, *span);
                 if !auto_drops.is_empty() {
                     drop_points.push(ResourceDropPoint {
+                        path: op_path,
                         span: *span,
                         auto_drops,
                     });
@@ -106,20 +84,49 @@ fn collect_drop_points_from_ops(
             ResourceOp::Branch {
                 then_ops, else_ops, ..
             } => {
-                collect_drop_points_from_ops(then_ops, types, drop_points);
-                collect_drop_points_from_ops(else_ops, types, drop_points);
+                collect_drop_points_from_ops(
+                    then_ops,
+                    types,
+                    op_path.clone().with_step(ResourceDropPointStep::BranchThen),
+                    drop_points,
+                );
+                collect_drop_points_from_ops(
+                    else_ops,
+                    types,
+                    op_path.with_step(ResourceDropPointStep::BranchElse),
+                    drop_points,
+                );
             }
             ResourceOp::Loop {
                 condition_ops,
                 body_ops,
                 ..
             } => {
-                collect_drop_points_from_ops(condition_ops, types, drop_points);
-                collect_drop_points_from_ops(body_ops, types, drop_points);
+                collect_drop_points_from_ops(
+                    condition_ops,
+                    types,
+                    op_path
+                        .clone()
+                        .with_step(ResourceDropPointStep::LoopCondition),
+                    drop_points,
+                );
+                collect_drop_points_from_ops(
+                    body_ops,
+                    types,
+                    op_path.with_step(ResourceDropPointStep::LoopBody),
+                    drop_points,
+                );
             }
             ResourceOp::Match { arms, .. } => {
-                for arm in arms {
-                    collect_drop_points_from_ops(&arm.ops, types, drop_points);
+                for (arm_index, arm) in arms.iter().enumerate() {
+                    collect_drop_points_from_ops(
+                        &arm.ops,
+                        types,
+                        op_path
+                            .clone()
+                            .with_step(ResourceDropPointStep::MatchArm { index: arm_index }),
+                        drop_points,
+                    );
                 }
             }
             ResourceOp::Expr { .. }

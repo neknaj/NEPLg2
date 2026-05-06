@@ -221,6 +221,7 @@ commit 単位:
 - 2026-05-06: `ResourceDropPlan` の auto-drop 候補へ `ResourceDropRequirement` を追加し、`StateOnly` / `WholeValue` / `DynamicEnumPayload` / `Structural` を enum として分類するようにした。これにより、direct Drop impl、structural field Drop、runtime tag 依存の enum payload Drop を codegen 側が文字列や独自 flag で再推定しない。残る Stage 4 の未完了点は、この分類済み plan を実 drop call 生成へ接続し、HIR `passes::insert_drops` を削除することである。
 - 2026-05-06: HIR `passes::insert_drops` の内部に残っていた drop-needed 再推定を削除し、`ResourceDropRequirement` を消費する `drop_lines_for_requirement` へ統合した。旧 `structural_drop_fields` / `structural_enum_field_drop_lines` / `type_needs_structural_drop` は削除済みで、partial field move でも残存 field の requirement を enum match で扱う。残る Stage 4 の未完了点は、HIR scope walker 自体を Resource IR drop elaboration へ置き換え、compiler pipeline から `passes::insert_drops` を外すことである。
 - 2026-05-06: `ResourceDropFunctionPlan` に `drop_points` を追加し、EndScope 単位の auto-drop group を保持するようにした。flat `auto_drops` は `drop_points` から flatten した互換 view として維持する。これにより codegen 移行時に、nested block / branch / match の scope end を HIR 側で再推定せず、Resource IR の drop point を消費できる。残る Stage 4 の未完了点は、drop point を実 drop call 生成へ接続することである。
+- 2026-05-06: `ResourceDropPoint` に `ResourceDropPointPath` を追加し、block id と `Op` / `BranchThen` / `BranchElse` / `LoopCondition` / `LoopBody` / `MatchArm` の enum step で EndScope の Resource IR 構造上の位置を保持するようにした。span だけに依存せず、codegen が typed path を辿れる形へ進める。残る Stage 4 の未完了点は、この path を実 drop call 挿入位置へ接続し、HIR scope traversal を削除することである。
 
 ### Stage 5: effect model の拡張
 

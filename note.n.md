@@ -1,3 +1,33 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR drop point typed path)
+
+- [同期]:
+  - `97a42ed0` push 後、pull して `origin/main` と一致する clean な `main` から branch `work/resource-drop-point-path` を作成した。
+- [原因]:
+  - `ResourceDropPoint` は EndScope group を持つが、位置情報は span だけだった。
+  - span だけでは同一 source span の nested lowering や同一 block 内の複数 EndScope を安定に区別できず、codegen 接続時に文字列 path や HIR 再走査へ戻る危険がある。
+- [修正]:
+  - `ResourceDropPointPath` を追加し、block id と typed step list で Resource IR 上の位置を保持するようにした。
+  - `ResourceDropPointStep` は `Op` / `BranchThen` / `BranchElse` / `LoopCondition` / `LoopBody` / `MatchArm` の enum とし、nested control-flow を文字列ではなく match 可能な data として表す。
+  - auto-drop / shadowing / structural + dynamic enum payload regression で top-level point と branch-local point の path を確認するようにした。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_check_auto_drops_live_non_copy_local_at_scope_end -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_drop_plan_classifies_structural_and_dynamic_payload_drops -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test drop -- --nocapture`: 17/17 passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md --runner wasm --no-tree -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md --runner wasm --no-tree -j 1`: 27/27 passed
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md --runner wasm --no-tree -j 1`: 1/1 passed
+- [残件]:
+  - `ResourceDropPointPath` はまだ実 drop call 挿入先選択へ接続していない。次は typed path を使って HIR/Wasm drop elaboration の挿入位置を決める。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR drop point grouping)
 
 - [同期]:

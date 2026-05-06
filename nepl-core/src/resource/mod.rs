@@ -20,7 +20,9 @@ mod coverage_hir_projection;
 mod coverage_hir_projection_aggregate;
 mod coverage_hir_raw;
 mod coverage_resource;
+mod drop_model;
 mod drop_plan;
+mod drop_point_path;
 mod drop_requirement;
 mod dump;
 mod effect;
@@ -100,10 +102,12 @@ pub use coverage::{
     ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceFunctionCoverage,
     ResourceLoweringCoverage,
 };
-pub use drop_plan::{
-    compute_resource_drop_plan, ResourceAutoDrop, ResourceAutoDropKind, ResourceDropFunctionPlan,
-    ResourceDropPlan, ResourceDropPoint,
+pub use drop_model::{
+    ResourceAutoDrop, ResourceAutoDropKind, ResourceDropFunctionPlan, ResourceDropPlan,
+    ResourceDropPoint,
 };
+pub use drop_plan::compute_resource_drop_plan;
+pub use drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 pub use drop_requirement::{
     resource_drop_requirement_for_type, resource_type_needs_drop_code, ResourceDropField,
     ResourceDropRequirement,
