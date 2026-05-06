@@ -146,8 +146,10 @@ impl RawCellAddressAliases {
         }
         self.clear(source);
         push_unique_place(&mut self.marked, target);
+        self.union_group(core::slice::from_ref(target));
         for moved in moved_marks {
             push_unique_place(&mut self.marked, &moved);
+            self.union_group(core::slice::from_ref(&moved));
         }
         for fact in moved_values {
             self.push_i32_value_fact(fact);

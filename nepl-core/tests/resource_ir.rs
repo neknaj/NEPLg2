@@ -13689,3 +13689,85 @@ fn main <()*>()> ():
         stdio_dump
     );
 }
+
+#[test]
+fn resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasi
+
+#import "core/mem" as *
+#import "core/result" as *
+#import "std/fs/fd" as *
+#import "std/fs/read" as *
+#import "std/stdio/read" as *
+#import "std/stdio/write" as *
+
+fn main <()*>()> ():
+    match fs_open_read "tests/fixtures/fs/read_sample.txt":
+        Result::Ok _fd:
+            ()
+        Result::Err _e:
+            ()
+    match fs_read_fd_bytes 0:
+        Result::Ok _bytes:
+            ()
+        Result::Err _e:
+            ()
+    match stdio_read_all_bytes_result:
+        Result::Ok _bytes:
+            ()
+        Result::Err _e:
+            ()
+    match alloc_ptr<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok data:
+            match stdio_write_fd_mem_result 1 data 1:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
+            match dealloc_ptr<u8> data 1:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    dealloc_raw mem_ptr_addr data 1
+"#;
+
+    let (module, mut types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let (module, unresolved_trait_calls) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    assert!(
+        unresolved_trait_calls.is_empty(),
+        "unresolved trait calls: {:#?}",
+        unresolved_trait_calls
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let prefixes = [
+        "fs_open_with_flags__",
+        "fs_read_fd_bytes__",
+        "stdio_read_all_bytes_result__",
+        "stdio_write_fd_mem_result__",
+    ];
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            prefixes.iter().any(|prefix| function.starts_with(prefix))
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "fs/stdio scratch owners must be released on all paths: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}

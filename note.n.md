@@ -1,3 +1,27 @@
+# 2026-05-07 note (ISS-20260506T172100644Z fs/stdio scratch owner alias)
+
+## 作業内容
+
+- branch `fix/fs-stdio-scratch-owner-obligation` で、KP prefixsum が到達した fs / stdio scratch dealloc の `resource.owner.no_free_obligation` を調査した。
+- stdlib の `fs_open_with_flags`、`fs_read_fd_bytes`、`stdio_read_all_bytes_result`、`stdio_write_fd_mem_result` は private scratch を `alloc_ptr` 成功後に `dealloc_raw` で閉じる正しい contract になっており、問題は stdlib 側の cleanup ではなかった。
+- 根本原因は `RawCellAddressAliases::move_owner_aliases` が owner transfer 後に `marked` だけを移し、raw owner value 自身の alias group を再作成していなかったこと。`RawMemory::Alloc` の temporary を local / enum payload へ移した後、後続 `Read` が exact raw owner copy として伝播しなくなっていた。
+- moved target と moved marked projection を alias group に戻すようにし、通常 i32 copy を raw alias group として seed しない deep-prefix 対策は維持した。
+- `resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup` を追加し、fs / stdio の対象 scratch 関数で owner diagnostic が出ないことを固定した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 と issue `ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4` を更新し、issue は fixed にした。
+
+## 検証
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_deallocated_alloc -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_allows_raw_pointer_read_before_dealloc -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reports_stale_owned_alias_dealloc_after_free -- --nocapture`: passed
+- `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`: passed
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T172012873Z Resource IR dynamic raw address view origin)
 
 ## 作業内容
