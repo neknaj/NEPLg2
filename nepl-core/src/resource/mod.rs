@@ -23,6 +23,7 @@ mod coverage_resource;
 mod drop_model;
 mod drop_plan;
 mod drop_point_path;
+mod drop_point_resolve;
 mod drop_requirement;
 mod dump;
 mod effect;
@@ -108,6 +109,10 @@ pub use drop_model::{
 };
 pub use drop_plan::compute_resource_drop_plan;
 pub use drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
+pub use drop_point_resolve::{
+    resolve_resource_drop_point_end_scope, resolve_resource_drop_point_path,
+    ResourceDropPointEndScope, ResourceDropPointOpKind, ResourceDropPointResolutionError,
+};
 pub use drop_requirement::{
     resource_drop_requirement_for_type, resource_type_needs_drop_code, ResourceDropField,
     ResourceDropRequirement,

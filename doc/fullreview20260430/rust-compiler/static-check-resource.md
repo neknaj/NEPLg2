@@ -105,6 +105,12 @@ flat list だけでは、codegen 側が nested control-flow のどの EndScope �
 
 span は診断表示には必要だが、drop elaboration の挿入位置としては不十分である。同一 span の nested lowering や複数 EndScope を扱うため、Resource IR 構造上の位置を typed data として保持する。
 
+## 2026-05-06 drop point resolver 追補
+
+`ResourceDropPointPath` は `resolve_resource_drop_point_path` / `resolve_resource_drop_point_end_scope` で実 Resource IR op へ解決できるようになった。resolver は `ResourceDropPointResolutionError` enum を返し、block 不在、op index 範囲外、container step と実 op の不一致、match arm 範囲外、EndScope 以外の選択を区別する。
+
+これにより、drop point path は span 補助情報ではなく、codegen が消費前に検証できる typed insertion anchor になった。残る作業は、この resolver の EndScope 結果を実 drop call 生成へ渡し、HIR `passes::insert_drops` の scope traversal を削除することである。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

@@ -93,6 +93,7 @@ for (const moduleName of [
     'drop_model.rs',
     'drop_plan.rs',
     'drop_point_path.rs',
+    'drop_point_resolve.rs',
     'drop_requirement.rs',
     'lower_raw_address.rs',
     'lower_raw_address_place.rs',
@@ -163,6 +164,7 @@ for (const moduleDecl of [
     'mod drop_model;',
     'mod drop_plan;',
     'mod drop_point_path;',
+    'mod drop_point_resolve;',
     'mod drop_requirement;',
     'mod lower_raw_address;',
     'mod lower_raw_address_place;',
@@ -220,6 +222,7 @@ const coverageResource = readResource('coverage_resource.rs');
 const dropModel = readResource('drop_model.rs');
 const dropPlan = readResource('drop_plan.rs');
 const dropPointPath = readResource('drop_point_path.rs');
+const dropPointResolve = readResource('drop_point_resolve.rs');
 const dropRequirement = readResource('drop_requirement.rs');
 const lower = readResource('lower.rs');
 const lowerAggregate = readResource('lower_aggregate.rs');
@@ -276,6 +279,11 @@ assertContains(
     dropPointPath,
     'pub enum ResourceDropPointStep',
     'drop_point_path.rs',
+);
+assertContains(
+    dropPointResolve,
+    'pub fn resolve_resource_drop_point_end_scope',
+    'drop_point_resolve.rs',
 );
 assertContains(
     dropRequirement,
@@ -389,6 +397,7 @@ const maxLines = new Map([
     ['drop_model.rs', 80],
     ['drop_plan.rs', 160],
     ['drop_point_path.rs', 80],
+    ['drop_point_resolve.rs', 220],
     ['drop_requirement.rs', 220],
     ['lower.rs', 1150],
     ['lower_aggregate.rs', 320],

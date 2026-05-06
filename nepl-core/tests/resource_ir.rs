@@ -7,14 +7,16 @@ use nepl_core::resource::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
     check_resource_effect_boundaries, check_resource_initialized_moves,
     check_resource_owner_obligations, compare_hir_resource_lowering, compute_resource_drop_plan,
-    lower_hir_module, lower_hir_module_skeleton, AggregateKind, BorrowKind, BorrowState, CellState,
-    EffectOp, ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp,
+    lower_hir_module, lower_hir_module_skeleton, resolve_resource_drop_point_end_scope,
+    resolve_resource_drop_point_path, AggregateKind, BorrowKind, BorrowState, CellState, EffectOp,
+    ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp,
     ResourceAutoDropKind, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic,
     ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropPointStep,
-    ResourceDropRequirement, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
-    ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal, ResourceModule, ResourceOffset,
-    ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropPointPath,
+    ResourceDropPointResolutionError, ResourceDropPointStep, ResourceDropRequirement,
+    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
+    ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
+    ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -3274,6 +3276,29 @@ fn resource_ir_check_auto_drops_live_non_copy_local_at_scope_end() {
         drop_plan.functions[0].auto_drops[0].requirement,
         ResourceDropRequirement::StateOnly
     ));
+    let end_scope = resolve_resource_drop_point_end_scope(
+        resource_function(&resource, &drop_plan.functions[0].name),
+        &drop_plan.functions[0].drop_points[0].path,
+    )
+    .expect("drop point path must resolve to the EndScope it describes");
+    assert!(end_scope
+        .locals
+        .iter()
+        .any(|place| matches!(&place.root, PlaceRoot::Local(name) if name == "x")));
+    let invalid_path = ResourceDropPointPath {
+        block: ResourceBlockId(0),
+        steps: vec![ResourceDropPointStep::Op { index: usize::MAX }],
+    };
+    assert!(matches!(
+        resolve_resource_drop_point_path(
+            resource_function(&resource, &drop_plan.functions[0].name),
+            &invalid_path
+        ),
+        Err(ResourceDropPointResolutionError::OpIndexOutOfBounds {
+            index: usize::MAX,
+            ..
+        })
+    ));
     let report = check_resource_initialized_moves(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
     assert!(report.functions[0].final_cells.iter().any(|entry| {
@@ -3325,6 +3350,19 @@ fn main <()->i32> ():
             .iter()
             .any(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "x"))
     }));
+    let inner_drop_point = main_drop_plan
+        .drop_points
+        .iter()
+        .find(|point| {
+            point.auto_drops.iter().any(
+                |drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name.starts_with("x#")),
+            ) && point
+                .path
+                .steps
+                .iter()
+                .any(|step| matches!(step, ResourceDropPointStep::BranchThen))
+        })
+        .expect("inner shadowed local should be auto-dropped at the then branch EndScope");
     assert!(main_drop_plan.drop_points.iter().any(|point| {
         point.auto_drops.iter().any(
             |drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name.starts_with("x#")),
@@ -3334,6 +3372,20 @@ fn main <()->i32> ():
             .iter()
             .any(|step| matches!(step, ResourceDropPointStep::BranchThen))
     }));
+    let inner_end_scope = resolve_resource_drop_point_end_scope(
+        resource_function(&resource, &main_drop_plan.name),
+        &inner_drop_point.path,
+    )
+    .unwrap_or_else(|error| {
+        panic!(
+            "nested branch drop point path must resolve to an EndScope: {error:?}, path={:?}",
+            inner_drop_point.path
+        )
+    });
+    assert!(inner_end_scope
+        .locals
+        .iter()
+        .any(|place| matches!(&place.root, PlaceRoot::Local(name) if name.starts_with("x#"))));
     assert!(main_drop_plan
         .auto_drops
         .iter()
@@ -3413,6 +3465,19 @@ fn main <()->i32> ():
             | ResourceDropPointStep::LoopCondition
             | ResourceDropPointStep::MatchArm { .. }
     )));
+    let top_end_scope = resolve_resource_drop_point_end_scope(
+        resource_function(&resource, &main_drop_plan.name),
+        &top_scope_point.path,
+    )
+    .expect("top-level drop point path must resolve to an EndScope");
+    assert!(top_end_scope
+        .locals
+        .iter()
+        .any(|place| matches!(&place.root, PlaceRoot::Local(name) if name == "h")));
+    assert!(top_end_scope
+        .locals
+        .iter()
+        .any(|place| matches!(&place.root, PlaceRoot::Local(name) if name == "e")));
 
     let holder_drop = main_drop_plan
         .auto_drops
@@ -11940,6 +12005,14 @@ fn manual_resource_module(unit_ty: TypeId, span: Span, ops: Vec<ResourceOp>) -> 
         entry: Some("main".to_string()),
         string_literals: vec![],
     }
+}
+
+fn resource_function<'a>(resource: &'a ResourceModule, name: &str) -> &'a ResourceFunction {
+    resource
+        .functions
+        .iter()
+        .find(|function| function.name == name)
+        .expect("resource function should exist")
 }
 
 fn raw_owner_module(

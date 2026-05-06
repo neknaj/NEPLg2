@@ -10,7 +10,7 @@ pub struct ResourceDropPointPath {
     pub steps: Vec<ResourceDropPointStep>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResourceDropPointStep {
     Op { index: usize },
     BranchThen,

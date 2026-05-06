@@ -1,3 +1,34 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR drop point resolver)
+
+- [同期]:
+  - `1ae0d5af` の remote main と一致する clean な状態を確認し、branch `work/resource-drop-point-resolve` で続行した。
+- [原因]:
+  - `ResourceDropPointPath` は EndScope の構造上の位置を保持するようになったが、実際に Resource IR の `ResourceOp::EndScope` へ解決する API がなかった。
+  - このままだと codegen 接続時に path の妥当性を検査せず、span fallback や HIR 再走査へ戻る危険がある。
+- [修正]:
+  - `resolve_resource_drop_point_path` / `resolve_resource_drop_point_end_scope` を追加し、block id と `ResourceDropPointStep` の列から Resource IR 上の対象 op を辿れるようにした。
+  - 無効 path は `Option` や文字列ではなく `ResourceDropPointResolutionError` enum で返し、block 不在、op index 範囲外、container step と実 op の不一致、match arm 範囲外、EndScope 以外の選択を区別する。
+  - `ResourceDropPointStep` は `Copy` にし、resolver error と exhaustive match で安全に扱えるようにした。
+  - auto-drop / shadowing / structural + dynamic enum payload regression で、top-level と nested branch の drop point path が実 EndScope に解決できることを確認するようにした。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_check_auto_drops_live_non_copy_local_at_scope_end -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_drop_plan_classifies_structural_and_dynamic_payload_drops -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test drop -- --nocapture`: 17/17 passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md -o output/drop_point_resolve.json --runner wasm --no-tree -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md -o output/shadowing_drop_point_resolve.json --runner wasm --no-tree -j 1`: 27/27 passed
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md -o output/drop_overwrite_drop_point_resolve.json --runner wasm --no-tree -j 1`: 1/1 passed
+- [残件]:
+  - resolver は EndScope の特定までを行う。次はこの解決結果を HIR/Wasm drop call 生成に接続し、`passes::insert_drops` の scope walker を削除する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR drop point typed path)
 
 - [同期]:
