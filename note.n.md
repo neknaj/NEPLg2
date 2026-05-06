@@ -1,3 +1,35 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR drop requirement classification)
+
+- [同期]:
+  - `d171cc27` push 後、`origin/main` と一致する clean な `main` から branch `work/resource-drop-plan-classification` を作成した。
+- [原因]:
+  - `ResourceDropPlan` は EndScope の non-Copy local 候補を列挙できるようになったが、codegen が使うには「実 drop call が必要か」「structural field drop か」「runtime enum payload drop か」の分類が足りなかった。
+  - この分類を codegen 側へ残すと、checker と codegen が別々に型走査を持ち、HIR `passes::insert_drops` の置換後も drop 対象推定が二重化する。
+- [修正]:
+  - `drop_requirement.rs` を追加し、`ResourceDropRequirement` を `StateOnly` / `WholeValue` / `DynamicEnumPayload` / `Structural` の enum として定義した。
+  - `ResourceAutoDrop` に requirement を持たせ、`auto_drop_candidates_for_end_scope` が TypeCtx から drop requirement を分類するようにした。
+  - enum payload 分類は同じ visiting set を使って再帰し、再帰型や循環参照で分類処理が暴走しないようにした。
+  - direct Drop impl、structural field Drop、dynamic enum payload Drop の regression を `nepl-core/tests/resource_ir.rs` に追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_drop_plan_classifies_structural_and_dynamic_payload_drops -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_check_auto_drops_live_non_copy_local_at_scope_end -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test drop auto_drop_handles_shadowing_as_distinct_bindings -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md --runner wasm --no-tree -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md --runner wasm --no-tree -j 1`: 27/27 passed
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md --runner wasm --no-tree -j 1`: 1/1 passed
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --runner wasm --no-tree -j 1`: 52/52 passed
+- [残件]:
+  - requirement 分類済み drop plan はまだ実 drop call 生成へ接続していない。次は HIR `passes::insert_drops` の代替として plan を消費する drop elaboration/codegen path を作る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR drop plan)
 
 - [同期]:

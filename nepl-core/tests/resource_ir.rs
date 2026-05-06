@@ -11,10 +11,10 @@ use nepl_core::resource::{
     EffectOp, ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp,
     ResourceAutoDropKind, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic,
     ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceEffectBoundaryDiagnostic,
-    ResourceEffectCallKind, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
-    ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
-    ResourceTerminator,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropRequirement,
+    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
+    ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
+    ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -3260,6 +3260,10 @@ fn resource_ir_check_auto_drops_live_non_copy_local_at_scope_end() {
         drop_plan.functions[0].auto_drops[0].kind,
         ResourceAutoDropKind::ScopeLocal
     ));
+    assert!(matches!(
+        drop_plan.functions[0].auto_drops[0].requirement,
+        ResourceDropRequirement::StateOnly
+    ));
     let report = check_resource_initialized_moves(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
     assert!(report.functions[0].final_cells.iter().any(|entry| {
@@ -3312,10 +3316,83 @@ fn main <()->i32> ():
     assert!(main_drop_plan.auto_drops.iter().any(|drop| {
         matches!(&drop.place.root, PlaceRoot::Local(name) if name.starts_with("x#"))
     }));
+    assert!(main_drop_plan.auto_drops.iter().any(|drop| {
+        matches!(
+            (&drop.place.root, &drop.requirement),
+            (PlaceRoot::Local(name), ResourceDropRequirement::WholeValue) if name == "x"
+        )
+    }));
     let report = check_resource_initialized_moves(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
     let dump = resource.dump_text();
     assert!(dump.contains("%x#"));
+}
+
+#[test]
+fn resource_ir_drop_plan_classifies_structural_and_dynamic_payload_drops() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
+
+struct Holder:
+    guard <Guard>
+    count <i32>
+
+enum MaybeGuard:
+    Some <Guard>
+    None
+
+fn main <()->i32> ():
+    let h <Holder> Holder (Guard 1) 2
+    let e <MaybeGuard> MaybeGuard::Some Guard 3
+    0
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let drop_plan = compute_resource_drop_plan(&resource, &types);
+    let main_drop_plan = drop_plan
+        .functions
+        .iter()
+        .find(|function| function.name.starts_with("main"))
+        .expect("main drop plan should exist");
+
+    let holder_drop = main_drop_plan
+        .auto_drops
+        .iter()
+        .find(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "h"))
+        .expect("Holder local should be an auto-drop candidate");
+    match &holder_drop.requirement {
+        ResourceDropRequirement::Structural {
+            fields,
+            dynamic_enum_fields,
+        } => {
+            assert_eq!(fields.len(), 1);
+            assert!(dynamic_enum_fields.is_empty());
+            assert_eq!(fields[0].offset, 0);
+            assert_eq!(types.type_to_string(fields[0].ty), "Guard");
+        }
+        other => panic!("Holder must require structural field drop, got {other:?}"),
+    }
+
+    let enum_drop = main_drop_plan
+        .auto_drops
+        .iter()
+        .find(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "e"))
+        .expect("MaybeGuard local should be an auto-drop candidate");
+    assert!(matches!(
+        enum_drop.requirement,
+        ResourceDropRequirement::DynamicEnumPayload
+    ));
 }
 
 #[test]

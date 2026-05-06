@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 use crate::span::Span;
 use crate::types::TypeCtx;
 
+use super::drop_requirement::{resource_drop_requirement_for_type, ResourceDropRequirement};
 use super::model::{Place, ResourceFunction, ResourceModule, ResourceOp};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,6 +24,7 @@ pub struct ResourceDropFunctionPlan {
 pub struct ResourceAutoDrop {
     pub place: Place,
     pub kind: ResourceAutoDropKind,
+    pub requirement: ResourceDropRequirement,
     pub span: Span,
 }
 
@@ -53,6 +55,7 @@ pub(super) fn auto_drop_candidates_for_end_scope(
         .map(|local| ResourceAutoDrop {
             place: local.clone(),
             kind: ResourceAutoDropKind::ScopeLocal,
+            requirement: resource_drop_requirement_for_type(types, local.ty),
             span,
         })
         .collect()

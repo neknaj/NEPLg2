@@ -21,6 +21,7 @@ mod coverage_hir_projection_aggregate;
 mod coverage_hir_raw;
 mod coverage_resource;
 mod drop_plan;
+mod drop_requirement;
 mod dump;
 mod effect;
 mod effect_check;
@@ -102,6 +103,10 @@ pub use coverage::{
 pub use drop_plan::{
     compute_resource_drop_plan, ResourceAutoDrop, ResourceAutoDropKind, ResourceDropFunctionPlan,
     ResourceDropPlan,
+};
+pub use drop_requirement::{
+    resource_drop_requirement_for_type, resource_type_needs_drop_code, ResourceDropField,
+    ResourceDropRequirement,
 };
 pub use effect::{
     check_resource_effect_boundaries, ResourceEffectBoundaryDiagnostic,
