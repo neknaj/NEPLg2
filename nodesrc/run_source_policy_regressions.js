@@ -64,6 +64,7 @@ const checks = [
     "nodesrc/test_stdlib_vec_borrowed_observers.js",
     "nodesrc/test_static_check_boundary_responsibility.js",
     "nodesrc/test_resource_checker_responsibility.js",
+    "nodesrc/test_resource_gate_order.js",
     "nodesrc/test_resource_ir_test_harness_policy.js",
     "nodesrc/test_selfhost_outcome_no_raw_result_cell.js",
     "nodesrc/test_selfhost_cli_args_types_split.js",

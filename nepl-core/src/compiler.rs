@@ -251,11 +251,6 @@ fn run_move_check(
     source_map: Option<&SourceMap>,
 ) -> Result<(), CoreError> {
     run_resource_shadow_check(hir_module, types);
-    let move_errors = passes::move_check::run(hir_module, types);
-    if !move_errors.is_empty() {
-        diagnostics.extend(move_errors);
-        return Err(CoreError::from_diagnostics(diagnostics.clone()));
-    }
     let resource = crate::resource::lower_hir_module(hir_module, types);
     let lowering_coverage =
         crate::resource::compare_hir_resource_lowering_typed(hir_module, &resource, types);
@@ -267,7 +262,15 @@ fn run_move_check(
     let effect_boundaries = crate::resource::check_resource_effect_boundaries(&resource);
     run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)?;
     let owner_obligations = crate::resource::check_resource_owner_obligations(&resource, types);
-    run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)
+    run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)?;
+
+    let move_errors = passes::move_check::run(hir_module, types);
+    if !move_errors.is_empty() {
+        diagnostics.extend(move_errors);
+        return Err(CoreError::from_diagnostics(diagnostics.clone()));
+    }
+
+    Ok(())
 }
 
 fn run_resource_lowering_coverage_gate(

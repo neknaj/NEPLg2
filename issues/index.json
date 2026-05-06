@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T00:53:59.123Z",
+  "generated_at": "2026-05-06T00:57:17.446Z",
   "counts": {
-    "total": 494,
-    "open": 13,
-    "resolved": 481,
+    "total": 496,
+    "open": 14,
+    "resolved": 482,
     "by_area": {
       "core": {
-        "total": 231,
+        "total": 232,
         "open": 5,
-        "resolved": 226
+        "resolved": 227
       },
       "stdlib": {
         "total": 155,
@@ -17,8 +17,8 @@
         "resolved": 149
       },
       "TEST": {
-        "total": 7,
-        "open": 1,
+        "total": 8,
+        "open": 2,
         "resolved": 6
       },
       "selfhost": {
@@ -238,6 +238,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2",
+      "title": "move_effect doctests are stale after Resource IR and effect gates",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "tests/compiler/move_effect.n.md, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -3583,6 +3598,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T003541589Z-RESOURCE-IR-OWNER-PIPELINE-FIXTURES--393E98C4.md"
+    },
+    {
+      "id": "ISS-20260506T004527322Z-RESOURCE-IR-GATES-ARE-MASKED-BY-LEGA-C34CEE5E",
+      "title": "Resource IR gates are masked by legacy move_check ordering",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/compiler.rs, nodesrc/test_resource_gate_order.js, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T004527322Z-RESOURCE-IR-GATES-ARE-MASKED-BY-LEGA-C34CEE5E.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

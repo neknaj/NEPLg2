@@ -30723,3 +30723,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_sparse_set_borrowed_observers.js`: passed
 - [残件]:
   - List node storage、bitset / bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す必要がある。
+
+# 2026-05-06 note (ISS-20260506T004527322Z Resource IR gate ordering)
+
+- [同期]:
+  - `main` を remote main と同期後、`work/resource-gates-before-legacy-move-check` で Stage 4 Resource IR gate の実行順序を修正した。
+- [原因]:
+  - `compiler::run_move_check` は旧 `passes::move_check::run` を Resource IR lowering / cell / borrow / effect / owner gate より先に実行し、legacy diagnostic が出ると即 return していた。
+  - この順序だと Resource IR diagnostic が最初に enforcement されず、静的検査大規模修正の final authority へ移す計画とずれる。
+- [修正]:
+  - Resource IR lowering coverage / cell / borrow / effect / owner gate を旧 checker より先に実行するようにした。
+  - 旧 checker は Resource IR gate 通過後の fallback 防壁として残した。
+  - `nodesrc/test_resource_gate_order.js` を source policy runner に追加し、順序の回帰を検出できるようにした。
+  - 静的検査計画、soundness review、親 issue を更新した。
+- [検証]:
+  - `node nodesrc/test_resource_gate_order.js`: commit 前に実行
+  - `cargo test -p nepl-core compiler::tests::resource_cell_gate_maps_cell_diagnostics_to_cell_code --lib`: commit 前に実行
+  - `cargo check -p nepl-core --tests`: commit 前に実行
+  - `node nodesrc/issues.js check`: commit 前に実行
+  - `trunk build`: commit 前に実行
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md -o output/resource_gate_order_move_effect.json --runner wasm -j 1`: 130 件中 94 passed / 36 failed。これは `move_effect.n.md` fixture が現在の Resource IR/effect gate authority に追従していない別問題として `ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2` に分離した。
+- [issue]:
+  - `ISS-20260506T004527322Z-RESOURCE-IR-GATES-ARE-MASKED-BY-LEGA-C34CEE5E` は fixed。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` に Stage 4 の部分進捗として追記した。
+  - `ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2` は追加済み、未解決。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

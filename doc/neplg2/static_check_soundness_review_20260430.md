@@ -20,9 +20,9 @@
 
 最終設計として未完のもの:
 
-- 旧 `passes::move_check::run` が Resource IR gate より前に authoritative として残っている。
+- 旧 `passes::move_check::run` は 2026-05-06 時点で Resource IR gate より後へ下がったが、fallback 防壁としてまだ残っている。
 - `passes::insert_drops` は checked Resource IR ではなく HIR 上で drop を挿入している。
-- `ResourceCheckDiagnostic::CellUnavailable` は 2026-05-06 時点で通常 read/move/drop/call/return を含めて compiler error へ写像される。残る未完了点は、旧 move checker が Resource IR gate より前に authoritative として残ることと、drop insertion が HIR 上で行われることである。
+- `ResourceCheckDiagnostic::CellUnavailable` は 2026-05-06 時点で通常 read/move/drop/call/return を含めて compiler error へ写像される。残る未完了点は、旧 move checker が fallback として残ることと、drop insertion が HIR 上で行われることである。
 - `UnsafeMemoryInPureFunction` は 2026-05-06 時点で `effect.pure.calls_impure` へ error 化済みである。ただし raw-memory-boundary capability は stdlib migration の限定許可として残る。
 - `HirExprKind::CallIndirect` は 2026-04-30 時点で typed `EffectOp::IndirectCall { effect }` に下がるようになった。2026-05-06 時点では、残存する `EffectOp::Unknown` も `resource.lower.incomplete` として compiler error 化する。
 - `MemPtr<T>` / `RegionToken<T>` は compiler-issued capability ではなく stdlib struct として forge 可能であり、owner token と non-owning pointer projection の分離が未完である。
@@ -34,7 +34,7 @@
 | loader / SourceMap | Rust loader | `stdlib/core/mem.nepl` だけに raw memory boundary capability を付ける。 | capability が file 単位で粗い。最終的には internal raw API / safe public API の module boundary と compiler-issued token に寄せる。 |
 | lexer / parser | Rust lexer/parser | 構文エラーを typed diagnostic code で出す。char literal も token として扱う。 | self-host lexer/parser は Rust の diagnostic taxonomy と token contract に追従する必要がある。 |
 | resolve / typecheck | Rust `typecheck` | name、type、trait capability、direct call effect、indirect call effect、match exhaustiveness を検査する。 | typecheck は必要だが、resource safety の final authority にはしない。 |
-| old move check | `passes::move_check::run` | non-Copy move/use/drop/borrow の広い範囲を拒否する。 | 移行中の防壁であり、self-host に同じ HIR special-case をコピーしてはいけない。 |
+| old move check | `passes::move_check::run` | Resource IR gate 通過後の fallback として non-Copy move/use/drop/borrow の広い範囲を拒否する。 | 移行中の防壁であり、self-host に同じ HIR special-case をコピーしてはいけない。 |
 | Resource IR lowering | `resource::lower_hir_module` | HIR の resource-relevant operation を `ResourceOp` / `Place` / `EffectOp` へ落とす。 | `EffectOp::Unknown` は通常 indirect call representation ではなく、残存時は `resource.lower.incomplete` として扱う。function effect / owner summary の semantic completeness は別途必要。 |
 | lowering coverage gate | `compare_hir_resource_lowering_typed` | HIR と Resource IR の operation coverage、deref projection、unknown place を compiler error にする。 | count coverage は必要条件であり、function effect / owner summary の semantic completeness は別途必要。 |
 | cell gate | `check_resource_initialized_moves` + compiler gate | raw load/store/dealloc/realloc/fill/bulk と通常 read/move/drop/call/construct/branch/match/return の uninit/moved/dropped/maybe-moved を `resource.cell.*` として拒否する。 | old move check との二重 authority を解消し、Resource IR gate を最終 authority にする必要がある。 |
@@ -60,12 +60,12 @@ self-host では、diagnostic code や token kind を raw string / number で分
 
 ### Memory safety
 
-メモリ安全の現在の防壁は、old move checker と Resource IR gate の二重構造である。
+メモリ安全の現在の防壁は、Resource IR gate を先に実行し、old move checker を後段 fallback に置く二重構造である。
 
 - raw memory cell と通常 value cell の initialized / moved / dropped / maybe-moved は Resource IR が active error にする。
 - owner obligation は Resource IR が active error にする。
 - borrow conflict は Resource IR が active error にする。
-- old move checker は Resource IR gate より前に残る二重防壁であり、最終 authority ではない。
+- old move checker は Resource IR gate より後の二重防壁であり、最終 authority ではない。
 
 したがって、次の final design 作業は `ResourceCheckOperation` の通常 cell diagnostic を増やすことではなく、old move checker と HIR drop insertion を Resource IR の checked state / drop elaboration へ統合して削除することである。
 
