@@ -1,3 +1,25 @@
+# 2026-05-07 note (ISS-20260506T165414602Z io ByteBuf source policy raw scratch cleanup)
+
+## 作業内容
+
+- branch `fix/io-bytebuf-source-policy-raw-dealloc` で `origin/main` と同期済みの main から作業した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` が毎回 `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` で warning を出していた。
+- 実装側 `stdlib/std/fs/raw.nepl` の `fs_finish_read_buffer` は、private scratch buffer を `dealloc_raw mem_ptr_addr buf cap` で閉じる現行設計に沿っていた。
+- stale だったのは source-policy 側で、古い `dealloc_ptr<u8> buf cap` を期待していたため、strict Resource IR の private scratch cleanup 方針と逆方向の regression になっていた。
+- `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` を更新し、0-byte read path では exact raw cleanup を要求し、`dealloc_ptr<u8> buf cap` への退行を禁止した。
+- 実装側は変更していない。
+
+## 検証
+
+- `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: all source-policy regressions passed; warning 0
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T162903318Z selfhost SourceText line map Vec owner)
 
 ## 作業内容

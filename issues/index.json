@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T16:49:29.495Z",
+  "generated_at": "2026-05-06T16:56:11.271Z",
   "counts": {
-    "total": 525,
+    "total": 526,
     "open": 16,
-    "resolved": 509,
+    "resolved": 510,
     "by_area": {
       "core": {
         "total": 255,
@@ -17,9 +17,9 @@
         "resolved": 45
       },
       "stdlib": {
-        "total": 158,
+        "total": 159,
         "open": 8,
-        "resolved": 150
+        "resolved": 151
       },
       "TEST": {
         "total": 8,
@@ -5878,6 +5878,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T195142842Z-RESOURCE-OWNER-CHECKER-REPORTS-STDIO-00591700.md"
+    },
+    {
+      "id": "ISS-20260506T165414602Z-IO-BYTEBUF-SOURCE-POLICY-STILL-EXPEC-4096A6A5",
+      "title": "io ByteBuf source policy still expects checked dealloc after raw scratch cleanup migration",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nodesrc/test_stdlib_io_bytebuf_owner_boundary.js, stdlib/std/fs/raw.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T165414602Z-IO-BYTEBUF-SOURCE-POLICY-STILL-EXPEC-4096A6A5.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

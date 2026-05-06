@@ -114,8 +114,14 @@ assert.match(
 
 assert.match(
     fsFinish,
-    /\beq\s+data_len\s+0[\s\S]*?\bdealloc_ptr<u8>\s+buf\s+cap[\s\S]*?\bResult<ByteBuf,i32>::Ok\s+io_bytebuf_empty\b/,
-    'fs_finish_read_buffer must deallocate scratch storage before returning an empty ByteBuf',
+    /\beq\s+data_len\s+0[\s\S]*?\bdealloc_raw\s+mem_ptr_addr\s+buf\s+cap[\s\S]*?\bResult<ByteBuf,i32>::Ok\s+io_bytebuf_empty\b/,
+    'fs_finish_read_buffer must deallocate private scratch storage with exact raw cleanup before returning an empty ByteBuf',
+);
+
+assert.doesNotMatch(
+    fsFinish,
+    /\bdealloc_ptr<u8>\s+buf\s+cap\b/,
+    'fs_finish_read_buffer private scratch cleanup must not regress to checked dealloc_ptr',
 );
 
 console.log('alloc/io ByteBuf owner boundary regression passed');
