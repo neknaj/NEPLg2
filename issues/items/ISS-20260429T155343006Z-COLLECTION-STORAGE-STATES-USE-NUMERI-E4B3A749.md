@@ -364,7 +364,7 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- List node storage、bitset / bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+- List node storage、bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
 
 ## 2026-05-06 SparseSet typed Vec storage 部分進捗
 
@@ -387,4 +387,30 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- List node storage、bitset / bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+- List node storage、bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+
+## 2026-05-06 BitSet typed Vec storage 部分進捗
+
+`stdlib/alloc/collections/bitset.nepl` は bit payload を raw `MemPtr<u8>` byte array から `Vec<u8>` owner へ移行した。
+
+進捗:
+
+- `BitSet` 本体は `nbits/nbytes/bits` を持ち、`bits` は `Vec<u8>` として保持する。
+- `new` は `alloc_ptr<u8>` と raw zero-fill loop を使わず、`vec::filled<u8>` で初期化済み byte storage を確保する。
+- bit byte の読み書きは `vec::get` / `vec::replace` に集約し、`BitSet` から `MemPtr` / `mem_ptr_addr` / `alloc_ptr` / `load_u8` / `store_u8` / `dealloc_raw` を排除した。
+- `clear` / `fill` は typed storage を更新する API として `*` effect を明示した。
+- `free` は `vec::free<u8>` で bit storage owner を閉じる。
+- `nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js` は typed `Vec<u8>` storage、Vec helper 経由の byte read/write、raw MemPtr / raw byte load-store 禁止を固定するよう更新した。
+- `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` の BitSet / SparseSet 進捗を実装後の状態へ更新した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl --no-tree -o tmp/bitset-vec-storage-doctest2.json -j 1`: total=7, passed=7
+- `node nodesrc/tests.js -i tests/stdlib/bitset_collections.n.md --no-tree -o tmp/bitset-vec-storage-tests.json -j 1`: total=3, passed=3
+- `node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_bitset_borrowed_observers.js`: passed
+- `node nodesrc/test_stdlib_bitset_update_error_owner.js`: passed
+
+残件:
+
+- List node storage、bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。

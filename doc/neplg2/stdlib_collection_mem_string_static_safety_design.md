@@ -28,7 +28,7 @@
 | `alloc/collections/Vec` | `len/cap/data: MemPtr<T>`。空は `mem_ptr_wrap 0`。`get_ref<T: Copy>` はあるが、`get(Vec<T>) -> Option<T>` など non-Copy move-out と storage state が混在する。 | 再設計対象。`MemPtr` が owner field であり、空状態も null pointer discipline。 | `OwnedBuffer<T>` + initialized prefix へ移行し、read/copy/move/drop/free を分離する。 |
 | `Stack` / `Queue` / `Deque` / `RingBuffer` / `BinaryHeap` | raw header は廃止済みで、`len/cap/head/items: Vec<Option<T>>` 系へ移行済み。live/inactive slot は `Some` / `None` で表す。 | 良い方向。ただし現行 `Vec` 自体が `MemPtr<T>` owner を持つため、最終形ではない。 | `OwnedBuffer<T>` 再実装後、`Vec<Option<T>>` 依存を新 buffer model に移す。 |
 | `HashMap` / `HashSet` | `BucketState` enum と typed bucket storage を導入済み。key/value/key-only storage は `Vec<Option<...>>` で初期化状態を表す。 | 良い方向。Copy payload 前提では Resource IR が storage owner と initialized slot を追いやすい。 | source policy で raw header / numeric sentinel への退行を防ぎ、非 Copy payload は別設計で扱う。 |
-| bitset 系 collection | payload は `u8` buffer なので owner payload 問題は小さいが、裸 `MemPtr<u8>` owner field が残る。 | 中程度。Copy byte storage としては移行しやすい。 | `OwnedBytes` に移行し、null pointer discipline をやめる。 |
+| bitset 系 collection | `BitSet` は `Vec<u8>` storage へ移行済み。Bloom / CountingBloom / AdjacencyMatrix は raw byte storage が残る。 | BitSet は良い方向。残る byte collection は owner field が未分離。 | 残る byte collection を `Vec<u8>` / `OwnedBytes` に移行し、null pointer discipline をやめる。 |
 | Rust Resource IR | `CellState` / `OwnerState` / `BorrowState` / `StorageOrigin` があり、raw memory op、aggregate projection、enum payload、branch merge を追跡している。 | 方向は正しい。現状は stdlib の曖昧な所有権表現を補うための alias 処理が多い。 | stdlib 側の owner wrapper 化に合わせ、特例的 alias summary を減らす。 |
 | self-host stdlib 利用 | ByteBuf / builders / Copy-only Vec / typed slot collection は使えるが、non-Copy payload collection や fallible update は危険。 | 制限付き開始は可能。ただし ResourceIR / typecheck 実装で raw collection discipline を増やしてはいけない。 | token stream / diagnostics / symbol table は安全 subset か専用 typed collection を使う。 |
 
@@ -44,16 +44,16 @@
 | derived linear collection | `Queue` / `Deque` / `RingBuffer` / `Stack` / `BinaryHeap` は `Vec<Option<T>>` storage。 | 良い方向。raw header は消えたが `Vec` 依存なので基礎 storage owner は未完。 | `OwnedBuffer<T>` 上の slot-state collection へ移す。 |
 | ordered table | `BTreeMap` / `BTreeSet` は sorted-array typed storage。 | 良い方向。名前上は BTree だが実装は ordered array table。 | self-host 用には用途を小規模 ordered table と明記し、大規模 map は別設計にする。 |
 | raw node collection | `List` は raw node chain。`reverse` / `map` / `filter` の owner flow は改善済み。 | 部分的に安全。node owner が raw address に残る。 | node owner wrapper または `OwnedBuffer` based persistent/linked structure へ再設計する。 |
-| byte/bit collection | bitset / bloom / adjacency matrix は `MemPtr<u8>` raw byte storage。 | payload は Copy byte なので危険は限定的だが、owner field は未分離。 | `OwnedBytes` に移行し、`MemPtr` を view に限定する。 |
-| numeric array collection | Fenwick / SegmentTree / DisjointSet / SparseSet は raw i32 storage が残る。 | payload は Copy だが、storage owner と raw pointer が混在する。 | `Vec<i32>` ではなく `OwnedBuffer<i32>` / typed index API へ移す。 |
+| byte/bit collection | `BitSet` は `Vec<u8>` storage。Bloom / CountingBloom / adjacency matrix は `MemPtr<u8>` raw byte storage。 | BitSet は良い方向。残る byte collection は payload が Copy byte でも owner field が未分離。 | 残る byte collection を `Vec<u8>` / `OwnedBytes` に移行し、`MemPtr` を view に限定する。 |
+| numeric array collection | SparseSet は `Vec<i32>` storage。Fenwick / SegmentTree / DisjointSet は raw i32 storage が残る。 | SparseSet は良い方向。残る numeric collection は storage owner と raw pointer が混在する。 | `OwnedBuffer<i32>` / typed index API へ移す。 |
 | `Vec<T>` | `len/cap/data: MemPtr<T>`、空は `mem_ptr_wrap 0`。 | 最重要残件。`MemPtr` が owner と view を兼ねる。 | `OwnedBuffer<T>` + `StorageState<T>` + initialized prefix に再実装する。 |
 | `core/mem` | raw allocator、`MemPtr<T>`、`RegionToken<T>`、load/store が同居。 | 過渡。token forging と owner/view 混同が残る。 | public safe API と internal raw API を分離し、compiler-issued owner token にする。 |
 | `alloc/string` / `alloc/io` | `RegionToken` と `Option<MemPtr<u8>>` builder で owner flow を改善済み。 | 短期 self-host では使用可能。 | `OwnedBytes` / `OwnedStringRegion` へ移し、unchecked raw conversion を internal boundary に閉じる。 |
 
 現状実装の粗い集計:
 
-- raw memory pattern が残る collection: `Vec`, `List`, `AdjacencyMatrix`, `BitSet`, `BloomFilter`, `CountingBloomFilter`, `DisjointSet`, `Fenwick`, `SegmentTree`, `SparseSet`。
-- raw memory pattern が消えた主要 collection: `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `Queue`, `Deque`, `RingBuffer`, `Stack`, `BinaryHeap`。
+- raw memory pattern が残る collection: `Vec`, `List`, `AdjacencyMatrix`, `BloomFilter`, `CountingBloomFilter`, `DisjointSet`, `Fenwick`, `SegmentTree`。
+- raw memory pattern が消えた主要 collection: `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `Queue`, `Deque`, `RingBuffer`, `Stack`, `BinaryHeap`, `SparseSet`, `BitSet`。
 - enum state が明示されている主要 collection: `HashMap`, `HashSet`。
 - slot state を `Option<T>` で明示している collection: `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `Queue`, `Deque`, `RingBuffer`, `Stack`, `BinaryHeap`, 一部 `Vec` 利用 API。
 
