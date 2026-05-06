@@ -12,11 +12,14 @@ use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::owner_summary_record::{owner_source_for_storage, OwnerParameterStorageSource};
 use super::place_utils::{place_with_suffix, places_overlap};
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
-    OwnerResolvedParameterVariant, OwnerReturnSummary, OwnerValueCondition, OwnerVariantCondition,
+    OwnerProjectionSource, OwnerResolvedParameterVariant, OwnerReturnSummary, OwnerValueCondition,
+    OwnerVariantCondition, OwnerVariantParameterIndex, OwnerVariantProjectionReturnSource,
+    OwnerVariantProjectionSource,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -209,12 +212,24 @@ impl PendingVariantOwnerEffects {
         if self.variant_is_unreachable(scrutinee, &variant) {
             return;
         }
+        let mut handled_sources = Vec::new();
+        for entry in self
+            .returns
+            .iter()
+            .filter(|entry| entry.result == *scrutinee && entry.variant == variant)
+        {
+            let source = pending_return_source(entry, raw_aliases);
+            push_unique_source(&mut handled_sources, source, Vec::new(), entry.source_ty);
+        }
         for entry in &self.consumptions {
             if entry.result != *scrutinee || entry.variant != variant {
                 continue;
             }
             let arg = raw_aliases.canonicalize(&entry.arg);
             let place = place_with_suffix(&arg, &entry.suffix, entry.ty);
+            if source_list_contains(&handled_sources, &place, &[], entry.ty) {
+                continue;
+            }
             engine.move_owner_out(
                 owners,
                 raw_aliases,
@@ -303,6 +318,63 @@ impl PendingVariantOwnerEffects {
             push_unique_source(&mut handled_sources, source, Vec::new(), entry.ty);
         }
         self.resolve_result(result);
+    }
+
+    pub(super) fn collect_result_owner_effect_summaries(
+        &self,
+        engine: &ResourceOwnerCheckEngine<'_>,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
+        result: &Place,
+        parameter_storage_sources: &[OwnerParameterStorageSource],
+        index_out: &mut Vec<OwnerVariantParameterIndex>,
+        source_out: &mut Vec<OwnerVariantProjectionSource>,
+        return_out: &mut Vec<OwnerVariantProjectionReturnSource>,
+    ) {
+        for entry in self
+            .consumptions
+            .iter()
+            .filter(|entry| entry.result == *result)
+        {
+            let source = pending_consumption_source(entry, raw_aliases);
+            for parameter_source in owner_projection_sources_for_place(
+                owners,
+                raw_aliases,
+                &source,
+                parameter_storage_sources,
+            ) {
+                push_unique_variant_consumed_source(
+                    index_out,
+                    source_out,
+                    normalize_variant_name(&entry.variant),
+                    parameter_source,
+                );
+            }
+        }
+        for entry in self.returns.iter().filter(|entry| entry.result == *result) {
+            let source = pending_return_source(entry, raw_aliases);
+            if engine.place_is_non_owning_raw_address_view(owners, raw_aliases, raw_views, &source)
+            {
+                continue;
+            }
+            for parameter_source in owner_projection_sources_for_place(
+                owners,
+                raw_aliases,
+                &source,
+                parameter_storage_sources,
+            ) {
+                push_unique_variant_projection_return(
+                    return_out,
+                    OwnerVariantProjectionReturnSource {
+                        variant: normalize_variant_name(&entry.variant),
+                        suffix: entry.target_suffix.clone(),
+                        ty: entry.target_ty,
+                        source: parameter_source,
+                    },
+                );
+            }
+        }
     }
 
     pub(super) fn apply_resolved_parameter_variants(
@@ -687,6 +759,90 @@ fn first_storage_under(owners: &OwnerTable, source: &Place) -> Option<StorageId>
             OwnerState::MaybeFreed { storage } | OwnerState::Reserved { storage } => storage,
             OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed => None,
         })
+}
+
+fn owner_projection_sources_for_place(
+    owners: &OwnerTable,
+    raw_aliases: &RawCellAddressAliases,
+    place: &Place,
+    parameter_storage_sources: &[OwnerParameterStorageSource],
+) -> Vec<OwnerProjectionSource> {
+    let resolved = resolve_owner_alias_place(owners, raw_aliases, place);
+    let mut out = Vec::new();
+    if let Some(source) =
+        owner_projection_source_for_owner_state(owners.state(&resolved), parameter_storage_sources)
+    {
+        push_unique_projection_source(&mut out, source);
+    }
+    for entry in owners.live_entries_under(&resolved) {
+        if let Some(source) =
+            owner_projection_source_for_owner_state(Some(entry.state), parameter_storage_sources)
+        {
+            push_unique_projection_source(&mut out, source);
+        }
+    }
+    out
+}
+
+fn owner_projection_source_for_owner_state(
+    state: Option<OwnerState>,
+    parameter_storage_sources: &[OwnerParameterStorageSource],
+) -> Option<OwnerProjectionSource> {
+    let storage = match state {
+        Some(OwnerState::Live { storage }) => storage,
+        Some(OwnerState::MaybeFreed {
+            storage: Some(storage),
+        }) => storage,
+        Some(
+            OwnerState::NoFreeObligation
+            | OwnerState::Reserved { .. }
+            | OwnerState::Moved
+            | OwnerState::Freed,
+        )
+        | Some(OwnerState::MaybeFreed { storage: None })
+        | None => return None,
+    };
+    owner_source_for_storage(storage, parameter_storage_sources).cloned()
+}
+
+fn push_unique_variant_consumed_source(
+    index_out: &mut Vec<OwnerVariantParameterIndex>,
+    source_out: &mut Vec<OwnerVariantProjectionSource>,
+    variant: String,
+    source: OwnerProjectionSource,
+) {
+    if source.suffix.is_empty() {
+        let entry = OwnerVariantParameterIndex {
+            variant,
+            parameter_index: source.parameter_index,
+        };
+        if !index_out.iter().any(|existing| existing == &entry) {
+            index_out.push(entry);
+        }
+    } else {
+        let entry = OwnerVariantProjectionSource { variant, source };
+        if !source_out.iter().any(|existing| existing == &entry) {
+            source_out.push(entry);
+        }
+    }
+}
+
+fn push_unique_variant_projection_return(
+    out: &mut Vec<OwnerVariantProjectionReturnSource>,
+    entry: OwnerVariantProjectionReturnSource,
+) {
+    if !out.iter().any(|existing| existing == &entry) {
+        out.push(entry);
+    }
+}
+
+fn push_unique_projection_source(
+    out: &mut Vec<OwnerProjectionSource>,
+    source: OwnerProjectionSource,
+) {
+    if !out.iter().any(|existing| existing == &source) {
+        out.push(source);
+    }
 }
 
 fn push_unique_source(
