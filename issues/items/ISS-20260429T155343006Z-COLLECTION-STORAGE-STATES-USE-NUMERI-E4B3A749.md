@@ -364,7 +364,35 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- List node storage、bloom / adjacency matrix などの raw byte storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+- List node storage、Bloom / CountingBloom などの raw byte storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+
+## 2026-05-06 AdjacencyMatrix typed Vec storage 部分進捗
+
+`stdlib/alloc/collections/adjacency_matrix.nepl` は matrix byte payload を raw `MemPtr<u8>` array から `Vec<u8>` owner へ移行した。
+
+進捗:
+
+- `AdjacencyMatrix` 本体は `nverts/nbytes/bits` を持ち、`bits` は `Vec<u8>` として保持する。
+- `new` は `alloc_ptr<u8>` と raw zero-fill loop を使わず、`vec::filled<u8>` で初期化済み byte storage を確保する。
+- matrix byte の読み書きは `vec::get` / `vec::replace` に集約し、`AdjacencyMatrix` から `MemPtr` / `mem_ptr_wrap` / `mem_ptr_addr` / `alloc_ptr` / `load_u8` / `store_u8` / `dealloc_raw` を排除した。
+- `clear` は typed storage mutation として `*` effect を明示した。
+- `free` は `vec::free<u8>` で matrix storage owner を閉じる。
+- `nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js` は typed `Vec<u8>` storage、Vec helper 経由の byte read/write、raw MemPtr / raw byte load-store 禁止を固定するよう更新した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl --no-tree -o tmp/adjacency-matrix-vec-storage-doctest.json -j 1`: total=6, passed=6
+- `node nodesrc/tests.js -i stdlib/tests/adjacency_matrix.n.md -i tests/stdlib/adjacency_matrix_collections.n.md --no-tree -o tmp/adjacency-matrix-vec-storage-focused.json -j 1`: total=7, passed=7
+- `node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_adjacency_matrix_borrowed_observers.js`: passed
+- `node nodesrc/test_stdlib_adjacency_matrix_update_error_owner.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+
+残件:
+
+- List node storage、Bloom / CountingBloom などの raw byte storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
 
 ## 2026-05-06 DisjointSet typed Vec storage 部分進捗
 

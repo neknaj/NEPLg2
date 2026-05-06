@@ -125,3 +125,34 @@ fn main <()*>i32> ():
                 ok
     if and ok0 ok1 1 0
 ```
+
+## adjacency_matrix_non_positive_length_rejected
+
+[目的/もくてき]:
+- `new` が 0 以下の vertex length を allocator に[渡/わた]さず、typed `Diag` として[拒否/きょひ]することを[確認/かくにん]します。
+
+[何/なに]を[確/たし]かめるか:
+- `new`
+- `StdErrorKind::CapacityExceeded`
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/adjacency_matrix" as *
+#import "alloc/diag/error" as *
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match new 0:
+        Result::Ok g:
+            free g
+            0
+        Result::Err d:
+            let name <str> diag_std_error_kind_str d
+            if str_eq name "CapacityExceeded" 1 0
+```

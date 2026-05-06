@@ -1,3 +1,27 @@
+# 2026-05-06 note (ISS-20260429T155343006Z AdjacencyMatrix typed Vec storage)
+
+- [同期]:
+  - `61421b92` の DisjointSet typed storage push 後、`origin/main` と一致する clean な `main` から branch `fix/adjacency-matrix-typed-storage` を作成して対応中。
+- [原因]:
+  - `AdjacencyMatrix` は matrix byte storage を raw `MemPtr<u8>` で所有し、`alloc_ptr` / `load_u8` / `store_u8` / `dealloc_raw` による storage discipline に依存していた。
+  - 実質的には BitSet と同じ byte-backed bitset であり、typed `Vec<u8>` owner に移行できるのに raw pointer owner が残っていた。
+- [修正]:
+  - `AdjacencyMatrix.bits` を `Vec<u8>` owner に変更し、初期化は `vec::filled<u8>`、読み書きは `vec::get<u8>` / `vec::replace<u8>`、解放は `vec::free<u8>` に集約した。
+  - `clear` は typed storage mutation として `*` effect を明示した。
+  - AdjacencyMatrix source policy と collection/mem/string safety design doc、collection storage issue を更新した。
+  - `tests/stdlib/adjacency_matrix_collections.n.md` に non-positive length regression を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl --no-tree -o tmp/adjacency-matrix-vec-storage-doctest.json -j 1`: total=6, passed=6
+  - `node nodesrc/tests.js -i stdlib/tests/adjacency_matrix.n.md -i tests/stdlib/adjacency_matrix_collections.n.md --no-tree -o tmp/adjacency-matrix-vec-storage-focused.json -j 1`: total=7, passed=7
+  - `node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_adjacency_matrix_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_adjacency_matrix_update_error_owner.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260429T155343006Z DisjointSet typed Vec storage)
 
 - [同期]:
