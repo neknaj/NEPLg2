@@ -101,9 +101,9 @@ pub struct CompilationArtifact {
 /// この関数はコンパイルパイプラインの中核であり、以下の段階を順番に実行する。
 /// 1. target/profile の確定
 /// 2. typecheck
-/// 3. monomorphize
-/// 4. move check
-/// 5. drop 挿入
+/// 3. Resource IR 静的検査用の source HIR monomorphize
+/// 4. Resource IR 静的検査
+/// 5. codegen 用 drop 挿入と monomorphize
 /// 6. wasm 生成と妥当性検証
 pub fn compile_module(
     module: ast::Module,
@@ -242,6 +242,22 @@ fn run_typecheck(
         }),
         None => Err(CoreError::from_diagnostics(tc.diagnostics)),
     }
+}
+
+fn extend_unresolved_trait_call_diagnostics(
+    diagnostics: &mut Vec<Diagnostic>,
+    unresolved_trait_calls: Vec<monomorphize::UnresolvedTraitCall>,
+) {
+    diagnostics.extend(unresolved_trait_calls.into_iter().map(|call| {
+        Diagnostic::error_with_code(
+            DiagnosticCode::Backend(BackendDiagnosticCode::TraitCallUnresolved),
+            format!(
+                "unresolved trait call remained after monomorphize: {}",
+                call.description
+            ),
+            call.span,
+        )
+    }));
 }
 
 fn run_resource_static_check(
@@ -1116,26 +1132,33 @@ pub fn prepare_module_for_codegen_with_source_map(
     {
         return Err(CoreError::from_diagnostics(precheck_diags));
     }
-    let mut tc = run_typecheck(module, target, profile, source_map)?;
-    passes::insert_drops(&mut tc.module, &mut tc.types);
-    let mut types = tc.types;
-    let mut diagnostics = tc.diagnostics;
-    let (hir_module, unresolved_trait_calls) =
-        monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, tc.module);
-    if !unresolved_trait_calls.is_empty() {
-        diagnostics.extend(unresolved_trait_calls.into_iter().map(|call| {
-            Diagnostic::error_with_code(
-                DiagnosticCode::Backend(BackendDiagnosticCode::TraitCallUnresolved),
-                format!(
-                    "unresolved trait call remained after monomorphize: {}",
-                    call.description
-                ),
-                call.span,
-            )
-        }));
+    let resource_tc = run_typecheck(module, target, profile, source_map)?;
+    let mut diagnostics = resource_tc.diagnostics;
+    let mut resource_types = resource_tc.types;
+    let (resource_hir_module, resource_unresolved_trait_calls) =
+        monomorphize::monomorphize_with_unresolved_trait_calls(
+            &mut resource_types,
+            resource_tc.module,
+        );
+    if !resource_unresolved_trait_calls.is_empty() {
+        extend_unresolved_trait_call_diagnostics(&mut diagnostics, resource_unresolved_trait_calls);
         return Err(CoreError::from_diagnostics(diagnostics));
     }
-    run_resource_static_check(&hir_module, &types, &mut diagnostics, source_map)?;
+    run_resource_static_check(
+        &resource_hir_module,
+        &resource_types,
+        &mut diagnostics,
+        source_map,
+    )?;
+    let mut codegen_tc = run_typecheck(module, target, profile, source_map)?;
+    passes::insert_drops(&mut codegen_tc.module, &mut codegen_tc.types);
+    let mut types = codegen_tc.types;
+    let (hir_module, unresolved_trait_calls) =
+        monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, codegen_tc.module);
+    if !unresolved_trait_calls.is_empty() {
+        extend_unresolved_trait_call_diagnostics(&mut diagnostics, unresolved_trait_calls);
+        return Err(CoreError::from_diagnostics(diagnostics));
+    }
     Ok(PreparedProgram {
         types,
         hir_module,

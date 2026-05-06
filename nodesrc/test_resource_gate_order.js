@@ -62,4 +62,49 @@ const compilerRelative = source
     .includes('passes::move_check::run');
 assert(!compilerRelative, 'compiler.rs must not retain legacy move_check fallback');
 
+const prepareBody = extractFunctionBody(source, 'prepare_module_for_codegen_with_source_map');
+const resourceTypecheckIndex = prepareBody.indexOf('let resource_tc = run_typecheck(');
+const resourceMonomorphizeIndex = prepareBody.indexOf(
+    'monomorphize::monomorphize_with_unresolved_trait_calls(',
+);
+const resourceCheckIndex = prepareBody.indexOf(
+    '&resource_hir_module,\n        &resource_types,\n        &mut diagnostics,\n        source_map,',
+);
+const codegenTypecheckIndex = prepareBody.indexOf('let mut codegen_tc = run_typecheck(');
+const dropInsertionIndex = prepareBody.indexOf(
+    'passes::insert_drops(&mut codegen_tc.module, &mut codegen_tc.types);',
+);
+assert(
+    resourceTypecheckIndex >= 0,
+    'prepare_module_for_codegen_with_source_map must build a dedicated typed HIR for Resource IR source checking',
+);
+assert(
+    resourceMonomorphizeIndex >= 0,
+    'prepare_module_for_codegen_with_source_map must monomorphize source HIR for Resource IR before generated drops',
+);
+assert(
+    !prepareBody.includes('tc.module.clone()')
+        && !prepareBody.includes('resource_tc.module.clone()'),
+    'Resource IR source monomorphize must not recursively clone HIR because deep prefix trees can overflow the native stack',
+);
+assert(
+    resourceCheckIndex >= 0,
+    'prepare_module_for_codegen_with_source_map must run Resource IR static check on monomorphized source HIR',
+);
+assert(
+    codegenTypecheckIndex >= 0,
+    'prepare_module_for_codegen_with_source_map must build a separate typed HIR for legacy HIR drop elaboration until Resource IR drop insertion replaces it',
+);
+assert(
+    dropInsertionIndex >= 0,
+    'prepare_module_for_codegen_with_source_map must still elaborate drops before monomorphize/codegen',
+);
+assert(
+    resourceTypecheckIndex < resourceMonomorphizeIndex
+        && resourceMonomorphizeIndex < resourceCheckIndex
+        && resourceCheckIndex < codegenTypecheckIndex
+        && codegenTypecheckIndex < dropInsertionIndex,
+    'Resource IR static check must run on drop-free source semantics before HIR drop insertion so generated drops cannot mask source resource violations',
+);
+
 console.log('resource gate authority ok');

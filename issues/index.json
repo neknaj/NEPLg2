@@ -98,7 +98,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-25",
-      "updated": "2026-04-30",
+      "updated": "2026-05-06",
       "target": "nepl-core/src/resource, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs",
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",

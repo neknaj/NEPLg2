@@ -1,3 +1,34 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR pre-drop gate)
+
+- [同期]:
+  - `f0673da5` push 後、`origin/main` と一致する `main` から branch `work/resource-drop-elaboration-audit` を作成した。
+- [原因]:
+  - HIR `passes::insert_drops` が Resource IR check より前に走ると、compiler が生成した drop 呼び出しが source code の move/borrow/cell violation と混ざり、Resource IR が本来判定すべき source semantics を後段の elaboration が隠す危険が残る。
+  - typecheck 直後の未単相化 HIR 全体を Resource IR へ直接掛ける案は、`#target std` で未使用 stdlib まで検査対象になり `tests/compiler/move_effect.n.md::doctest#108` が 60 秒 timeout した。
+  - Resource IR 用に HIR を clone する案は、deep prefix chain の再帰 `Clone` で native stack overflow した。
+- [修正]:
+  - `prepare_module_for_codegen_with_source_map` で Resource IR gate を HIR drop insertion より前へ移動した。
+  - Resource IR gate の入力は、drop 未挿入 source semantics を保持したまま monomorphize した reachable HIR とした。
+  - HIR clone による stack overflow を避けるため、Resource IR 用 HIR と codegen 用 HIR は typecheck を二度実行して分離した。codegen 側は従来通り HIR drop insertion 後に monomorphize し、生成 drop の trait 解決を壊さない。
+  - `nodesrc/test_resource_gate_order.js` と `nepl-core/tests/check_pipeline.rs` を新しい順序と clone 禁止に合わせて更新した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test check_pipeline prepare_codegen_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed
+  - `cargo test -p nepl-core --test check_pipeline resource_static_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed
+  - `cargo test -p nepl-core --test drop -- --nocapture`: 17/17 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8/8 passed
+  - `node nodesrc/test_resource_gate_order.js`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --runner wasm --no-tree -j 1`: 110/110 passed
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md --runner wasm --no-tree -j 1`: 1/1 passed
+- [残件]:
+  - HIR `passes::insert_drops` 自体はまだ残っている。次の Stage 4 作業は Resource IR drop elaboration を実装し、この二重 typecheck 経路を削除すること。
+  - deep prefix regression は pass するが各 300 秒超で重い。既存 deep prefix / compile-time issue 群の文脈で別途性能改善を継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。静的検査大規模修正の Stage 4 実装状況は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math f64 responsibility split)
 
 - [同期]:

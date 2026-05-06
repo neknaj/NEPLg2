@@ -8,7 +8,7 @@ Resource IR は現行 compiler の最重要進捗である。`nepl-core/src/reso
 
 ## 現状
 
-Resource IR gate は `run_move_check` から呼ばれる。
+Resource IR gate は compiler pipeline の authoritative static-check gate として実行される。
 
 - lowering coverage: HIR と Resource IR の static-check input 欠落を hard error にする。
 - initialized/raw cell: raw memory cell state の uninit / moved / dropped / conflict を検査する。
@@ -28,8 +28,8 @@ Resource IR gate は `run_move_check` から呼ばれる。
 
 ## 残る問題
 
-- 旧 `passes::move_check::run` が Resource IR gate より先に authoritative として残る。
-- `passes::insert_drops` は Resource IR check 前に HIR 上で drop を入れる。
+- 旧 `passes::move_check::run` fallback は 2026-05-06 に削除済みである。
+- Resource IR check は HIR `passes::insert_drops` より前に実行される。ただし、drop elaboration 自体はまだ HIR pass に残っている。
 - `UnsafeMemoryInPureFunction` は 2026-05-06 時点で compiler error gate へ接続済みである。ただし `stdlib/core/mem.nepl` など raw-memory-boundary capability を持つ移行中 source は Stage 6 完了まで限定許可される。
 - `MemPtr` / `RegionToken` が compiler-issued owner/provenance capability ではないため、owner checker は複雑な alias/variant condition を増やし続ける圧力がある。
 - `tests/stdlib/memory_safety.n.md` の残失敗は、stdlib cleanup ではなく owner token / non-owning pointer 分離が必要な問題として残っている。
@@ -52,12 +52,20 @@ Resource IR の方向は正しい。型安全・メモリ安全を必達にす�
 
 残る未完了点は「unsafe memory gate が shadow-only かどうか」ではなく、次の点である。
 
-- `passes::move_check::run` と `passes::insert_drops` がまだ Resource IR より前の authoritative path として残る。
+- 旧 `passes::move_check::run` fallback は削除済みであり、Resource IR check は HIR drop insertion より前に実行される。ただし HIR `passes::insert_drops` 自体がまだ drop elaboration authority として残る。
 - raw-memory-boundary capability が stdlib/core/mem 移行のために残っており、safe public API と internal raw implementation の Stage 6 分離が未完了である。
 - `MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の最終分離は完了していない。
 - owner variant path builder の責務分割は完了済みであり、現在の blocker からは外す。
 
-したがって、今後の優先順位は UnsafeMemory gate の再実装ではなく、旧 checker authority の縮小、Resource IR drop elaboration、owner/provenance capability、stdlib raw-memory-backed API の境界移行である。
+したがって、今後の優先順位は UnsafeMemory gate の再実装ではなく、HIR drop insertion の Resource IR drop elaboration への置換、owner/provenance capability、stdlib raw-memory-backed API の境界移行である。
+
+## 2026-05-06 pre-drop gate 追補
+
+`ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 進捗として、Resource IR check の入力を「drop 未挿入 source semantics を保持したまま monomorphize した reachable HIR」へ変更した。
+
+typecheck 直後の未単相化 HIR 全体を Resource IR へ直接下げると、`#target std` で未使用 stdlib source まで検査対象になり、Resource IR の責務境界を越えて timeout する。一方で HIR を clone して二経路化すると deep prefix tree の再帰 clone が native stack overflow を起こす。そのため現時点の pipeline は、Resource IR 用 HIR と codegen 用 HIR を typecheck の再実行で分離する。
+
+これは最終形ではない。最終的には HIR `passes::insert_drops` を Resource IR drop elaboration へ置き換え、Resource IR check と drop elaboration を同じ Resource IR 上で連続させる。その時点で二重 typecheck 経路は削除する。
 
 ## 次の確認対象
 

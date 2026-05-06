@@ -99,8 +99,7 @@ fn resource_static_check_accepts_deep_prefix_chain_without_stack_overflow() {
         nepl_core::BuildProfile::detect(),
         None,
     );
-    let mut hir = tc.module.take().expect("typecheck should produce HIR");
-    nepl_core::passes::insert_drops(&mut hir, &mut tc.types);
+    let hir = tc.module.take().expect("typecheck should produce HIR");
     let (hir, unresolved) =
         nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut tc.types, hir);
     assert!(unresolved.is_empty());
