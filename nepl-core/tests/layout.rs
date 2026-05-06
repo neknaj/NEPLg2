@@ -68,3 +68,14 @@ fn compiler_passes_do_not_reintroduce_local_storage_layout_helpers() {
         assert!(!source.contains("fn aggregate_fields_with_offsets"));
     }
 }
+
+#[test]
+fn drop_insertion_uses_resource_drop_requirement_for_drop_classification() {
+    let source = include_str!("../src/passes/drop_insertion.rs");
+
+    assert!(source.contains("ResourceDropRequirement"));
+    assert!(source.contains("resource_drop_requirement_for_type"));
+    assert!(!source.contains("fn structural_drop_fields"));
+    assert!(!source.contains("fn type_needs_structural_drop"));
+    assert!(!source.contains("fn structural_enum_field_drop_lines"));
+}

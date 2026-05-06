@@ -12,6 +12,7 @@ use crate::hir::{
     FuncRef, HirBlock, HirExpr, HirExprKind, HirLine, HirMatchArm, HirMatchPattern, HirModule,
 };
 use crate::layout::{aggregate_fields_with_offsets, extend_type_mapping, mapped_type_id};
+use crate::resource::{resource_drop_requirement_for_type, ResourceDropRequirement};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -170,17 +171,16 @@ impl<'a> DropInsertionContext<'a> {
             return Vec::new();
         }
         if info.moved_fields.is_empty() {
-            if self.types.has_drop_impl_target(info.ty) {
-                return vec![HirLine {
-                    expr: drop_call_expr(self.types, self.plan, name.to_string(), info.ty, span),
-                    drop_result: true,
-                }];
-            }
-            let enum_payload_drops = self.enum_payload_drop_lines(name, info.ty, span, visiting);
-            if !enum_payload_drops.is_empty() {
-                return enum_payload_drops;
-            }
-            return self.structural_field_drop_lines(name, info.ty, info.ty, 0, span);
+            let requirement = resource_drop_requirement_for_type(self.types, info.ty);
+            return self.drop_lines_for_requirement(
+                name,
+                info.ty,
+                info.ty,
+                0,
+                &requirement,
+                span,
+                visiting,
+            );
         }
 
         let fields = aggregate_fields_with_offsets(self.types, info.ty);
@@ -189,15 +189,91 @@ impl<'a> DropInsertionContext<'a> {
             if info.moved_fields.contains_key(&field.offset) {
                 continue;
             }
-            out.extend(self.structural_field_drop_lines(
+            let requirement = resource_drop_requirement_for_type(self.types, field.ty);
+            out.extend(self.drop_lines_for_requirement(
                 name,
                 info.ty,
                 field.ty,
                 field.offset,
+                &requirement,
                 span,
+                visiting,
             ));
         }
         out
+    }
+
+    fn drop_lines_for_requirement(
+        &mut self,
+        name: &str,
+        owner_ty: TypeId,
+        ty: TypeId,
+        base_offset: usize,
+        requirement: &ResourceDropRequirement,
+        span: crate::span::Span,
+        visiting: &mut BTreeSet<TypeId>,
+    ) -> Vec<HirLine> {
+        match requirement {
+            ResourceDropRequirement::StateOnly => Vec::new(),
+            ResourceDropRequirement::WholeValue => {
+                if base_offset == 0 && self.types.same_type(owner_ty, ty) {
+                    vec![HirLine {
+                        expr: drop_call_expr(self.types, self.plan, name.to_string(), ty, span),
+                        drop_result: true,
+                    }]
+                } else {
+                    vec![HirLine {
+                        expr: drop_field_call_expr(
+                            self.types,
+                            self.plan,
+                            name.to_string(),
+                            owner_ty,
+                            ty,
+                            base_offset,
+                            span,
+                        ),
+                        drop_result: true,
+                    }]
+                }
+            }
+            ResourceDropRequirement::DynamicEnumPayload => {
+                if base_offset == 0 && self.types.same_type(owner_ty, ty) {
+                    self.enum_payload_drop_lines(name, ty, span, visiting)
+                } else {
+                    self.load_place_and_drop_lines(name, owner_ty, ty, base_offset, span)
+                }
+            }
+            ResourceDropRequirement::Structural {
+                fields,
+                dynamic_enum_fields,
+            } => {
+                let mut out = Vec::new();
+                for field in fields {
+                    out.push(HirLine {
+                        expr: drop_field_call_expr(
+                            self.types,
+                            self.plan,
+                            name.to_string(),
+                            owner_ty,
+                            field.ty,
+                            base_offset + field.offset,
+                            span,
+                        ),
+                        drop_result: true,
+                    });
+                }
+                for field in dynamic_enum_fields {
+                    out.extend(self.load_place_and_drop_lines(
+                        name,
+                        owner_ty,
+                        field.ty,
+                        base_offset + field.offset,
+                        span,
+                    ));
+                }
+                out
+            }
+        }
     }
 
     fn enum_payload_drop_lines(
@@ -330,111 +406,6 @@ impl<'a> DropInsertionContext<'a> {
             }
             _ => None,
         }
-    }
-
-    fn structural_field_drop_lines(
-        &mut self,
-        name: &str,
-        owner_ty: TypeId,
-        ty: TypeId,
-        base_offset: usize,
-        span: crate::span::Span,
-    ) -> Vec<HirLine> {
-        let drop_fields = structural_drop_fields(self.types, ty, base_offset);
-        let mut out: Vec<HirLine> = drop_fields
-            .into_iter()
-            .map(|(offset, field_ty)| HirLine {
-                expr: drop_field_call_expr(
-                    self.types,
-                    self.plan,
-                    name.to_string(),
-                    owner_ty,
-                    field_ty,
-                    offset,
-                    span,
-                ),
-                drop_result: true,
-            })
-            .collect();
-        out.extend(self.structural_enum_field_drop_lines(
-            name,
-            owner_ty,
-            ty,
-            base_offset,
-            span,
-            &mut BTreeSet::new(),
-        ));
-        out
-    }
-
-    fn structural_enum_field_drop_lines(
-        &mut self,
-        name: &str,
-        owner_ty: TypeId,
-        ty: TypeId,
-        base_offset: usize,
-        span: crate::span::Span,
-        visiting: &mut BTreeSet<TypeId>,
-    ) -> Vec<HirLine> {
-        let resolved = self.types.resolve_named_type_id(ty);
-        if !visiting.insert(resolved) {
-            return Vec::new();
-        }
-
-        let mut out = Vec::new();
-        for field in aggregate_fields_with_offsets(self.types, ty) {
-            if self.types.has_drop_impl_target(field.ty) {
-                continue;
-            }
-            let field_offset = base_offset + field.offset;
-            if self.enum_drop_variants(field.ty).is_some() {
-                if self.type_needs_structural_drop(field.ty, &mut BTreeSet::new()) {
-                    out.extend(self.load_place_and_drop_lines(
-                        name,
-                        owner_ty,
-                        field.ty,
-                        field_offset,
-                        span,
-                    ));
-                }
-                continue;
-            }
-            out.extend(self.structural_enum_field_drop_lines(
-                name,
-                owner_ty,
-                field.ty,
-                field_offset,
-                span,
-                visiting,
-            ));
-        }
-
-        visiting.remove(&resolved);
-        out
-    }
-
-    fn type_needs_structural_drop(&self, ty: TypeId, visiting: &mut BTreeSet<TypeId>) -> bool {
-        if self.types.has_drop_impl_target(ty) {
-            return true;
-        }
-        let resolved = self.types.resolve_named_type_id(ty);
-        if !visiting.insert(resolved) {
-            return false;
-        }
-
-        let needs_drop = if let Some(variants) = self.enum_drop_variants(ty) {
-            variants
-                .into_iter()
-                .filter_map(|variant| variant.payload)
-                .any(|payload| self.type_needs_structural_drop(payload, visiting))
-        } else {
-            aggregate_fields_with_offsets(self.types, ty)
-                .into_iter()
-                .any(|field| self.type_needs_structural_drop(field.ty, visiting))
-        };
-
-        visiting.remove(&resolved);
-        needs_drop
     }
 
     fn load_place_and_drop_lines(
@@ -995,31 +966,6 @@ fn append_drop_lines_to_expr(expr: &mut HirExpr, drops: Vec<HirLine>) {
             });
         }
     }
-}
-
-fn structural_drop_fields(types: &TypeCtx, ty: TypeId, base_offset: usize) -> Vec<(usize, TypeId)> {
-    fn inner(
-        types: &TypeCtx,
-        ty: TypeId,
-        base_offset: usize,
-        visiting: &mut BTreeSet<TypeId>,
-    ) -> Vec<(usize, TypeId)> {
-        let resolved = types.resolve_id(ty);
-        if types.has_drop_impl_target(resolved) {
-            return vec![(base_offset, resolved)];
-        }
-        if !visiting.insert(resolved) {
-            return Vec::new();
-        }
-        let mut out = Vec::new();
-        for field in aggregate_fields_with_offsets(types, resolved) {
-            out.extend(inner(types, field.ty, base_offset + field.offset, visiting));
-        }
-        visiting.remove(&resolved);
-        out
-    }
-
-    inner(types, ty, base_offset, &mut BTreeSet::new())
 }
 
 fn field_move_path_from_addr(

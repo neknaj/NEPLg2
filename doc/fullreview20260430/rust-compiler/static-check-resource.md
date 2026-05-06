@@ -87,6 +87,12 @@ EndScope auto-drop は `ResourceDropPlan` として明示データ化された�
 
 これは Resource IR drop elaboration への移行で必要な中間段階である。候補列挙だけでは codegen が旧 HIR `passes::insert_drops` 相当の型走査を別途持つことになり、checker と codegen の drop 対象推定が分岐する。分類済み plan により、次はこの requirement を消費して実 drop call を生成し、HIR drop insertion を削除する段階へ進める。
 
+## 2026-05-06 insert_drops requirement consumer 追補
+
+HIR `passes::insert_drops` はまだ残るが、内部の drop-needed 判定は `ResourceDropRequirement` を消費する形へ寄せた。旧 `structural_drop_fields`、`structural_enum_field_drop_lines`、`type_needs_structural_drop` は削除され、direct Drop / structural field Drop / dynamic enum payload Drop は `match ResourceDropRequirement` で生成される。
+
+この状態は最終形ではないが、checker と codegen が別々に type graph を走査して drop 対象を推測する技術的負債は減った。次に確認すべき点は、HIR pass の scope walker が保持する local move state を Resource IR `CellState` / drop plan へ置き換えられるかである。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。
