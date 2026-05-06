@@ -45,6 +45,9 @@ pub enum ResourceDropPointResolutionError {
     PathDoesNotSelectEndScope {
         actual: ResourceDropPointOpKind,
     },
+    PathDoesNotSelectAssignment {
+        actual: ResourceDropPointOpKind,
+    },
 }
 
 pub fn resolve_resource_drop_point_path<'a>(
@@ -184,7 +187,7 @@ fn enter_match_arm_ops<'a>(
     }
 }
 
-fn op_kind(op: &ResourceOp) -> ResourceDropPointOpKind {
+pub(super) fn op_kind(op: &ResourceOp) -> ResourceDropPointOpKind {
     match op {
         ResourceOp::Branch { .. } => ResourceDropPointOpKind::Branch,
         ResourceOp::Loop { .. } => ResourceDropPointOpKind::Loop,

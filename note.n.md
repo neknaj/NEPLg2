@@ -85,6 +85,37 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-06 note (ISS-20260506T111001704Z Resource assignment overwrite drop facts)
+
+- [同期]:
+  - `7857186c` を push/pull して `main` と `origin/main` が一致した後、branch `work/resource-assignment-drop-points` を作成した。
+- [原因]:
+  - Stage 4 の残件である HIR `passes::insert_drops` 削除に向けて確認したところ、`ResourceDropElaborationPlan` は EndScope の live auto-drop だけを保持していた。
+  - 旧 HIR drop insertion は `set` で initialized non-Copy local を上書きする直前の Drop call を `VarState` walker で独自に生成しており、ここが plan に無いまま旧 walker を消すと `drop_overwrite` が欠落する。
+- [修正]:
+  - `ResourceAutoDropKind::AssignmentOverwrite` を追加し、scope-local drop と assignment overwrite drop を enum で分離した。
+  - initialized-state traversal が assignment target の到達時点 cell state を見て、initialized non-Copy target だけ live overwrite drop fact として記録するようにした。
+  - move 済み target の再初期化では overwrite drop fact を出さない regression を追加した。
+  - assignment drop candidate / live recording / path resolver / plan kind validation を専用 module に分割し、source policy の責務境界を更新した。
+  - HIR bridge は `set` expression span と target binding を bridge point として扱うようにした。
+- [検証]:
+  - `cargo fmt --check`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_drop_elaboration_plan -- --nocapture`: 7/7 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_drop_elaboration_hir_bridge -- --nocapture`: 3/3 passed
+  - `cargo test -p nepl-core --test check_pipeline prepare_codegen_exposes_checked_resource_drop_elaboration_plan -- --nocapture`: passed
+  - `cargo test -p nepl-core --test layout drop_insertion_uses_resource_drop_requirement_for_drop_classification -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_check_auto_drops_live_non_copy_local_at_scope_end -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/test_resource_gate_order.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md -o tmp/drop-overwrite-assignment-drop-points.json --runner wasm --no-tree -j 1 --assert-io`: 1/1 passed
+- [残件]:
+  - 次は `ScopeLocal` と `AssignmentOverwrite` の両方を消費して HIR/Wasm drop call を生成し、旧 `passes::insert_drops` の `VarState` scope walker を削除する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260506T104708173Z Resource IR callable value lowering)
 
 - [同期]:

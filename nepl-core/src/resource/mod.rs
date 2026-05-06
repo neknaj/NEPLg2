@@ -24,10 +24,13 @@ mod coverage_resource;
 mod drop_elaboration;
 mod drop_elaboration_bindings;
 mod drop_elaboration_hir_bridge;
+mod drop_elaboration_validate;
 mod drop_model;
 mod drop_plan;
+mod drop_plan_assignment;
 mod drop_point_path;
 mod drop_point_resolve;
+mod drop_point_resolve_assignment;
 mod drop_requirement;
 mod dump;
 mod effect;
@@ -44,6 +47,7 @@ mod initialized_alias_flow;
 mod initialized_alias_i32;
 mod initialized_alias_rank;
 mod initialized_control;
+mod initialized_drop_assignment;
 mod initialized_drop_scope;
 mod initialized_external_io;
 mod initialized_external_io_effect;
@@ -124,6 +128,9 @@ pub use drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 pub use drop_point_resolve::{
     resolve_resource_drop_point_end_scope, resolve_resource_drop_point_path,
     ResourceDropPointEndScope, ResourceDropPointOpKind, ResourceDropPointResolutionError,
+};
+pub use drop_point_resolve_assignment::{
+    resolve_resource_drop_point_assignment, ResourceDropPointAssignment,
 };
 pub use drop_requirement::{
     resource_drop_requirement_for_type, resource_type_needs_drop_code, ResourceDropField,

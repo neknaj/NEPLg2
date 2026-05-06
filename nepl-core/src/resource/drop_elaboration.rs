@@ -5,11 +5,10 @@ use alloc::vec::Vec;
 use crate::span::Span;
 
 use super::drop_elaboration_bindings::{function_source_bindings, source_name_for_place};
+use super::drop_elaboration_validate::validate_drop_point_kind;
 use super::drop_model::ResourceAutoDropKind;
 use super::drop_point_path::ResourceDropPointPath;
-use super::drop_point_resolve::{
-    resolve_resource_drop_point_end_scope, ResourceDropPointResolutionError,
-};
+use super::drop_point_resolve::ResourceDropPointResolutionError;
 use super::drop_requirement::ResourceDropRequirement;
 use super::model::{Place, ResourceFunction, ResourceModule};
 use super::report::{ResourceCheckReport, ResourceFunctionCheck};
@@ -64,6 +63,13 @@ pub enum ResourceDropElaborationPlanError {
         function: String,
         path: ResourceDropPointPath,
         place: Place,
+        span: Span,
+    },
+    DropPlaceDoesNotMatchAssignmentTarget {
+        function: String,
+        path: ResourceDropPointPath,
+        place: Place,
+        target: Place,
         span: Span,
     },
     MissingDropBinding {
@@ -136,51 +142,31 @@ fn validate_function_drop_points(
     let mut drop_points = Vec::new();
     for point in &check.auto_drop_points {
         let mut auto_drops = Vec::new();
-        match resolve_resource_drop_point_end_scope(function, &point.path) {
-            Ok(end_scope) => {
-                for drop in &point.auto_drops {
-                    if !end_scope.locals.iter().any(|local| local == &drop.place) {
-                        errors.push(ResourceDropElaborationPlanError::DropPlaceOutsideEndScope {
-                            function: function.name.clone(),
-                            path: point.path.clone(),
-                            place: drop.place.clone(),
-                            span: drop.span,
-                        });
-                        continue;
-                    }
-                    let Some(source_name) = source_name_for_place(&source_bindings, &drop.place)
-                    else {
-                        errors.push(ResourceDropElaborationPlanError::MissingDropBinding {
-                            function: function.name.clone(),
-                            path: point.path.clone(),
-                            place: drop.place.clone(),
-                            span: drop.span,
-                        });
-                        continue;
-                    };
-                    auto_drops.push(ResourceDropElaborationDrop {
+        for drop in &point.auto_drops {
+            if validate_drop_point_kind(function, point, drop, errors) {
+                let Some(source_name) = source_name_for_place(&source_bindings, &drop.place) else {
+                    errors.push(ResourceDropElaborationPlanError::MissingDropBinding {
+                        function: function.name.clone(),
+                        path: point.path.clone(),
                         place: drop.place.clone(),
-                        source_name,
-                        kind: drop.kind,
-                        requirement: drop.requirement.clone(),
                         span: drop.span,
                     });
-                }
-                drop_points.push(ResourceDropElaborationPoint {
-                    path: point.path.clone(),
-                    span: point.span,
-                    auto_drops,
-                });
-            }
-            Err(error) => {
-                errors.push(ResourceDropElaborationPlanError::InvalidDropPointPath {
-                    function: function.name.clone(),
-                    path: point.path.clone(),
-                    span: point.span,
-                    error,
+                    continue;
+                };
+                auto_drops.push(ResourceDropElaborationDrop {
+                    place: drop.place.clone(),
+                    source_name,
+                    kind: drop.kind,
+                    requirement: drop.requirement.clone(),
+                    span: drop.span,
                 });
             }
         }
+        drop_points.push(ResourceDropElaborationPoint {
+            path: point.path.clone(),
+            span: point.span,
+            auto_drops,
+        });
     }
 
     ResourceDropElaborationFunction {

@@ -349,7 +349,7 @@ fn resource_drop_elaboration_plan_error_to_error(
         } => Diagnostic::error_with_code(
             resource_lower_incomplete_code(),
             format!(
-                "resource drop elaboration point in function '{}' does not resolve to EndScope: {:?} (path {:?})",
+                "resource drop elaboration point in function '{}' does not resolve to its required insertion point: {:?} (path {:?})",
                 function, error, path
             ),
             *span,
@@ -364,6 +364,20 @@ fn resource_drop_elaboration_plan_error_to_error(
             format!(
                 "resource drop elaboration point in function '{}' references place {:?} outside its EndScope locals (path {:?})",
                 function, place, path
+            ),
+            *span,
+        ),
+        crate::resource::ResourceDropElaborationPlanError::DropPlaceDoesNotMatchAssignmentTarget {
+            function,
+            path,
+            place,
+            target,
+            span,
+        } => Diagnostic::error_with_code(
+            resource_lower_incomplete_code(),
+            format!(
+                "resource drop elaboration point in function '{}' references overwrite place {:?}, but assignment target is {:?} (path {:?})",
+                function, place, target, path
             ),
             *span,
         ),

@@ -7,6 +7,7 @@ use super::drop_model::{
     ResourceAutoDrop, ResourceAutoDropKind, ResourceDropFunctionPlan, ResourceDropPlan,
     ResourceDropPoint,
 };
+use super::drop_plan_assignment::assignment_overwrite_drop_point;
 use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::drop_requirement::resource_drop_requirement_for_type;
 use super::model::{Place, ResourceFunction, ResourceModule, ResourceOp};
@@ -81,6 +82,13 @@ fn collect_drop_points_from_ops(
                     });
                 }
             }
+            ResourceOp::Assign { target, span, .. } => {
+                if let Some(drop_point) =
+                    assignment_overwrite_drop_point(types, target, op_path, *span)
+                {
+                    drop_points.push(drop_point);
+                }
+            }
             ResourceOp::Branch {
                 then_ops, else_ops, ..
             } => {
@@ -132,7 +140,6 @@ fn collect_drop_points_from_ops(
             ResourceOp::Expr { .. }
             | ResourceOp::DeclareLocal { .. }
             | ResourceOp::Read { .. }
-            | ResourceOp::Assign { .. }
             | ResourceOp::Borrow { .. }
             | ResourceOp::Move { .. }
             | ResourceOp::Drop { .. }

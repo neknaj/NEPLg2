@@ -93,10 +93,13 @@ for (const moduleName of [
     'coverage_resource.rs',
     'drop_elaboration.rs',
     'drop_elaboration_bindings.rs',
+    'drop_elaboration_validate.rs',
     'drop_model.rs',
     'drop_plan.rs',
+    'drop_plan_assignment.rs',
     'drop_point_path.rs',
     'drop_point_resolve.rs',
+    'drop_point_resolve_assignment.rs',
     'drop_requirement.rs',
     'lower_raw_address.rs',
     'lower_raw_address_place.rs',
@@ -107,6 +110,7 @@ for (const moduleName of [
     'initialized_alias_flow.rs',
     'initialized_alias_i32.rs',
     'initialized_alias_rank.rs',
+    'initialized_drop_assignment.rs',
     'initialized_drop_scope.rs',
     'initialized_external_io.rs',
     'initialized_external_io_input.rs',
@@ -167,10 +171,13 @@ for (const moduleDecl of [
     'mod coverage_resource;',
     'mod drop_elaboration;',
     'mod drop_elaboration_bindings;',
+    'mod drop_elaboration_validate;',
     'mod drop_model;',
     'mod drop_plan;',
+    'mod drop_plan_assignment;',
     'mod drop_point_path;',
     'mod drop_point_resolve;',
+    'mod drop_point_resolve_assignment;',
     'mod drop_requirement;',
     'mod lower_raw_address;',
     'mod lower_raw_address_place;',
@@ -181,6 +188,7 @@ for (const moduleDecl of [
     'mod initialized_alias_flow;',
     'mod initialized_alias_i32;',
     'mod initialized_alias_rank;',
+    'mod initialized_drop_assignment;',
     'mod initialized_drop_scope;',
     'mod initialized_external_io;',
     'mod initialized_external_io_input;',
@@ -228,10 +236,13 @@ const coverageHirScope = readResource('coverage_hir_scope.rs');
 const coverageResource = readResource('coverage_resource.rs');
 const dropElaboration = readResource('drop_elaboration.rs');
 const dropElaborationBindings = readResource('drop_elaboration_bindings.rs');
+const dropElaborationValidate = readResource('drop_elaboration_validate.rs');
 const dropModel = readResource('drop_model.rs');
 const dropPlan = readResource('drop_plan.rs');
+const dropPlanAssignment = readResource('drop_plan_assignment.rs');
 const dropPointPath = readResource('drop_point_path.rs');
 const dropPointResolve = readResource('drop_point_resolve.rs');
+const dropPointResolveAssignment = readResource('drop_point_resolve_assignment.rs');
 const dropRequirement = readResource('drop_requirement.rs');
 const lower = readResource('lower.rs');
 const lowerAggregate = readResource('lower_aggregate.rs');
@@ -290,6 +301,11 @@ assertContains(
     'drop_elaboration_bindings.rs',
 );
 assertContains(
+    dropElaborationValidate,
+    'pub(super) fn validate_drop_point_kind',
+    'drop_elaboration_validate.rs',
+);
+assertContains(
     dropModel,
     'pub struct ResourceDropPoint',
     'drop_model.rs',
@@ -300,6 +316,11 @@ assertContains(
     'drop_plan.rs',
 );
 assertContains(
+    dropPlanAssignment,
+    'pub(super) fn assignment_overwrite_drop_point',
+    'drop_plan_assignment.rs',
+);
+assertContains(
     dropPointPath,
     'pub enum ResourceDropPointStep',
     'drop_point_path.rs',
@@ -308,6 +329,11 @@ assertContains(
     dropPointResolve,
     'pub fn resolve_resource_drop_point_end_scope',
     'drop_point_resolve.rs',
+);
+assertContains(
+    dropPointResolveAssignment,
+    'pub fn resolve_resource_drop_point_assignment',
+    'drop_point_resolve_assignment.rs',
 );
 assertContains(
     dropRequirement,
@@ -421,10 +447,13 @@ const maxLines = new Map([
     ['coverage_resource.rs', 520],
     ['drop_elaboration.rs', 220],
     ['drop_elaboration_bindings.rs', 140],
+    ['drop_elaboration_validate.rs', 120],
     ['drop_model.rs', 80],
     ['drop_plan.rs', 160],
+    ['drop_plan_assignment.rs', 80],
     ['drop_point_path.rs', 80],
     ['drop_point_resolve.rs', 220],
+    ['drop_point_resolve_assignment.rs', 80],
     ['drop_requirement.rs', 220],
     ['lower.rs', 1150],
     ['lower_aggregate.rs', 320],
@@ -437,6 +466,7 @@ const maxLines = new Map([
     ['initialized_alias_flow.rs', 550],
     ['initialized_alias_i32.rs', 80],
     ['initialized_alias_rank.rs', 120],
+    ['initialized_drop_assignment.rs', 100],
     ['initialized_drop_scope.rs', 80],
     ['initialized_external_io.rs', 140],
     ['initialized_external_io_input.rs', 80],

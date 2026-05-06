@@ -163,8 +163,15 @@ fn collect_expr_bridge_points(expr: &HirExpr, out: &mut Vec<HirDropBridgePoint>)
             }
         }
         HirExprKind::Block(block) => collect_block_bridge_points(block, out),
-        HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
+        HirExprKind::Let { value, .. } => {
             collect_expr_bridge_points(value, out);
+        }
+        HirExprKind::Set { name, value } => {
+            collect_expr_bridge_points(value, out);
+            out.push(HirDropBridgePoint {
+                span: expr.span,
+                source_names: [name.clone()].into_iter().collect(),
+            });
         }
         HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
             collect_expr_bridge_points(inner, out);

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T11:03:39.248Z",
+  "generated_at": "2026-05-06T11:25:43.168Z",
   "counts": {
-    "total": 508,
+    "total": 509,
     "open": 13,
-    "resolved": 495,
+    "resolved": 496,
     "by_area": {
       "core": {
-        "total": 244,
+        "total": 245,
         "open": 5,
-        "resolved": 239
+        "resolved": 240
       },
       "stdlib": {
         "total": 155,
@@ -3778,6 +3778,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T104708173Z-RESOURCE-IR-LOWERING-TREATS-CALLABLE-02721744.md"
+    },
+    {
+      "id": "ISS-20260506T111001704Z-RESOURCE-DROP-ELABORATION-PLAN-OMITS-C984305E",
+      "title": "Resource drop elaboration plan omits assignment overwrite drops",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/drop_model.rs, nepl-core/src/resource/drop_plan_assignment.rs, nepl-core/src/resource/initialized_drop_assignment.rs, nepl-core/src/resource/drop_elaboration_validate.rs, nepl-core/src/resource/drop_point_resolve_assignment.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T111001704Z-RESOURCE-DROP-ELABORATION-PLAN-OMITS-C984305E.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

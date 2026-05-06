@@ -8,12 +8,12 @@ use nepl_core::resource::{
     check_resource_effect_boundaries, check_resource_initialized_moves,
     check_resource_owner_obligations, compare_hir_resource_lowering,
     compute_resource_drop_elaboration_plan, compute_resource_drop_plan, lower_hir_module,
-    lower_hir_module_skeleton, resolve_resource_drop_point_end_scope,
-    resolve_resource_drop_point_path, AggregateKind, BorrowKind, BorrowState, CellState, EffectOp,
-    ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp,
-    ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock, ResourceBlockId,
-    ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred,
-    ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
+    lower_hir_module_skeleton, resolve_resource_drop_point_assignment,
+    resolve_resource_drop_point_end_scope, resolve_resource_drop_point_path, AggregateKind,
+    BorrowKind, BorrowState, CellState, EffectOp, ExternalIoOp, NondetOp, OwnerState, Place,
+    PlaceProjection, PlaceRoot, RawMemoryOp, ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock,
+    ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget,
+    ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
     ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropElaborationHirBridgeError,
     ResourceDropElaborationPlanError, ResourceDropPoint, ResourceDropPointPath,
     ResourceDropPointResolutionError, ResourceDropPointStep, ResourceDropRequirement,
@@ -3821,6 +3821,123 @@ fn main <()->i32> ():
             && error_origin_name == &origin_name
             && source_name == "__missing_binding"
     )));
+}
+
+#[test]
+fn resource_ir_drop_elaboration_plan_records_assignment_overwrite_drop_facts() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
+
+fn main <()->i32> ():
+    let mut g <Guard> Guard 0
+    set g Guard 1
+    0
+"#;
+    let (source_module, _) = typecheck_resource_source(source);
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let plan = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect("assignment overwrite should build a checked drop elaboration plan");
+    let main_plan = plan
+        .functions
+        .iter()
+        .find(|function| function.name.starts_with("main"))
+        .expect("main plan should exist");
+    let overwrite_point = main_plan
+        .drop_points
+        .iter()
+        .find(|point| {
+            point.auto_drops.iter().any(|drop| {
+                drop.source_name == "g"
+                    && matches!(drop.kind, ResourceAutoDropKind::AssignmentOverwrite)
+            })
+        })
+        .expect("assignment overwrite should record a dedicated drop point");
+    let overwrite_drop = overwrite_point
+        .auto_drops
+        .iter()
+        .find(|drop| matches!(drop.kind, ResourceAutoDropKind::AssignmentOverwrite))
+        .expect("assignment drop point should contain an assignment overwrite drop");
+    assert_eq!(overwrite_drop.source_name, "g");
+    assert!(matches!(
+        overwrite_drop.requirement,
+        ResourceDropRequirement::WholeValue
+    ));
+    let assignment = resolve_resource_drop_point_assignment(
+        resource_function(&resource, &main_plan.name),
+        &overwrite_point.path,
+    )
+    .expect("assignment overwrite drop point must resolve to ResourceOp::Assign");
+    assert_eq!(assignment.target, &overwrite_drop.place);
+
+    nepl_core::resource::validate_resource_drop_elaboration_hir_bridge(&source_module, &plan)
+        .expect("assignment overwrite drop point should bridge to source HIR set binding");
+}
+
+#[test]
+fn resource_ir_drop_elaboration_plan_skips_moved_assignment_targets() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
+
+fn consume <(Guard)->i32> (_g):
+    0
+
+fn main <()->i32> ():
+    let mut g <Guard> Guard 0
+    let _ <i32> consume g
+    set g Guard 1
+    0
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let plan = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect("moved assignment target should still build a plan");
+    let main_plan = plan
+        .functions
+        .iter()
+        .find(|function| function.name.starts_with("main"))
+        .expect("main plan should exist");
+
+    assert!(
+        !main_plan.auto_drops.iter().any(|drop| {
+            drop.source_name == "g"
+                && matches!(drop.kind, ResourceAutoDropKind::AssignmentOverwrite)
+        }),
+        "moved target reinitialization must not emit an overwrite drop: {:#?}",
+        main_plan.auto_drops
+    );
+    assert!(
+        main_plan.auto_drops.iter().any(|drop| {
+            drop.source_name == "g" && matches!(drop.kind, ResourceAutoDropKind::ScopeLocal)
+        }),
+        "the newly assigned value should still be dropped at scope exit"
+    );
 }
 
 #[test]

@@ -236,6 +236,16 @@ impl ResourceCheckEngine<'_> {
                 value,
                 span,
             } => {
+                self.record_assignment_overwrite_drop(
+                    cells,
+                    raw_aliases,
+                    function_aliases,
+                    pending_reallocs,
+                    variant_initializations,
+                    target,
+                    path,
+                    *span,
+                );
                 if self.consume_by_value(cells, value, ResourceCheckOperation::AssignValue, *span) {
                     cells.mark_initialized(target);
                     self.copy_raw_alias_and_rekey_cells_preferring_target(

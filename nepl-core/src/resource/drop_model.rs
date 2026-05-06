@@ -39,4 +39,5 @@ pub struct ResourceAutoDrop {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResourceAutoDropKind {
     ScopeLocal,
+    AssignmentOverwrite,
 }
