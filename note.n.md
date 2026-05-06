@@ -1,3 +1,35 @@
+# 2026-05-06 note (ISS-20260429T155343006Z numeric collection Option read)
+
+- [同期]:
+  - `70659e4f` の byte collection Option read push 後、`origin/main` と一致する clean な `main` から branch `fix/numeric-collection-option-reads` を作成して対応中。
+- [原因]:
+  - Fenwick / SegmentTree / DisjointSet は `Vec<i32>` storage へ移行済みだったが、numeric read helper が `vec::get` の `Option::None` を `0` に丸めていた。
+  - この fallback は storage invariant の破損を正常な zero cell と区別できず、root 探索や range sum の誤判定につながる。
+- [修正]:
+  - `fenwick_load_owned` / `seg_load_owned` / `dsu_load_owned` を `Option<i32>` return に変更した。
+  - Fenwick の prefix sum helper は `Option<i32>` を返し、public `Result` API で diagnostic へ変換する。
+  - SegmentTree は `seg_pair_sum` を追加し、更新前に `Vec` 長と `base` の整合を確認する。
+  - DisjointSet の root 探索は `Vec` 長を上限にし、missing cell や壊れた parent cycle を diagnostic へ流す。
+  - Fenwick / SegmentTree / DisjointSet source policy を更新し、`Option<i32>` helper と `none<i32>` arm を固定した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/segment_tree.nepl -i stdlib/alloc/collections/disjoint_set.nepl --no-tree -o tmp/numeric-collection-option-read-doctests.json -j 1`: total=16, passed=16
+  - `node nodesrc/tests.js -i stdlib/tests/fenwick.n.md -i tests/stdlib/fenwick_collections.n.md -i stdlib/tests/segment_tree.n.md -i tests/stdlib/segment_tree_collections.n.md -i stdlib/tests/disjoint_set.n.md -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/numeric-collection-option-read-focused.json -j 1`: total=19, passed=19
+  - `node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_fenwick_borrowed_queries.js`: passed
+  - `node nodesrc/test_stdlib_fenwick_add_error_owner.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_update_error_owner.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_union_error_owner.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+  - `rg -U -n "Option::None:\r?\n\s*0" ...`: no matches
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260429T155343006Z byte collection Option read)
 
 - [同期]:

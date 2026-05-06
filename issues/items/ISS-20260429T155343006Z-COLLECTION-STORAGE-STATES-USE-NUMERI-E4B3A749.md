@@ -419,7 +419,47 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- Fenwick / SegmentTree / DisjointSet の numeric storage read helper も同様に `Option::None` を正常値に丸めており、別途 `Option` contract へ移す必要がある。
+- List node storage は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+
+## 2026-05-06 numeric collection Vec.get Option read 部分進捗
+
+Fenwick / SegmentTree / DisjointSet の numeric storage read helper は `vec::get` の `Option::None` を `0` に丸めていたため、typed `Vec<i32>` storage 化後も backing storage invariant の破損を正常値として隠す余地があった。
+
+進捗:
+
+- `fenwick_load_owned` / `seg_load_owned` / `dsu_load_owned` は `Option<i32>` を返す helper に変更した。
+- Fenwick の prefix sum helper は `Option<i32>` を返し、public `sum_prefix` / `sum_range` は `None` を既存 diagnostic へ流す。
+- Fenwick `add` は storage borrow を inner block に閉じ、read miss を `FenwickAddError` として owner とともに返す。
+- SegmentTree は `seg_pair_sum` を追加し、更新前に `Vec` 長と `base` の整合を確認する。read miss は update/query diagnostic へ流す。
+- DisjointSet の root 探索は `Vec` 長を上限にし、missing parent cell や壊れた parent cycle を正常 root に丸めず diagnostic へ流す。
+- source policy は numeric read helper が `Option<i32>` と `none<i32>` arm を持つことを固定する。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl --no-tree -o tmp/fenwick-option-read-doctest.json -j 1`: total=5, passed=5
+- `node nodesrc/tests.js -i stdlib/tests/fenwick.n.md -i tests/stdlib/fenwick_collections.n.md --no-tree -o tmp/fenwick-option-read-focused.json -j 1`: total=6, passed=6
+- `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-option-read-doctest2.json -j 1`: total=5, passed=5
+- `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-option-read-focused2.json -j 1`: total=6, passed=6
+- `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl --no-tree -o tmp/disjoint-set-option-read-doctest.json -j 1`: total=6, passed=6
+- `node nodesrc/tests.js -i stdlib/tests/disjoint_set.n.md -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/disjoint-set-option-read-focused.json -j 1`: total=7, passed=7
+- `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/segment_tree.nepl -i stdlib/alloc/collections/disjoint_set.nepl --no-tree -o tmp/numeric-collection-option-read-doctests.json -j 1`: total=16, passed=16
+- `node nodesrc/tests.js -i stdlib/tests/fenwick.n.md -i tests/stdlib/fenwick_collections.n.md -i stdlib/tests/segment_tree.n.md -i tests/stdlib/segment_tree_collections.n.md -i stdlib/tests/disjoint_set.n.md -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/numeric-collection-option-read-focused.json -j 1`: total=19, passed=19
+- `node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_fenwick_borrowed_queries.js`: passed
+- `node nodesrc/test_stdlib_fenwick_add_error_owner.js`: passed
+- `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_segment_tree_borrowed_observers.js`: passed
+- `node nodesrc/test_stdlib_segment_tree_update_error_owner.js`: passed
+- `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_disjoint_set_borrowed_observers.js`: passed
+- `node nodesrc/test_stdlib_disjoint_set_union_error_owner.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+- `rg -U -n "Option::None:\r?\n\s*0" ...`: no matches
+
+残件:
+
 - List node storage は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
 
 ## 2026-05-06 BloomFilter typed Vec storage 部分進捗

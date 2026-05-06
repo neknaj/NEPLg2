@@ -31,7 +31,7 @@ assert.match(code, /fn\s+seg_load_owned\s+/, 'SegmentTree must centralize owned 
 assert.match(code, /#import\s+"alloc\/collections\/vec"\s+as\s+vec/, 'SegmentTree must use typed Vec storage');
 assert.match(code, /struct\s+SegmentTree:\s+[\s\S]*\bn\s+<i32>[\s\S]*\bbase\s+<i32>[\s\S]*\bdata\s+<Vec<i32>>/, 'SegmentTree must store tree payload as a typed Vec<i32> owner');
 assert.match(code, /fn\s+new\s+<\(i32\)\*>Result<SegmentTree,\s*Diag>>[\s\S]*lt\s+n\s+0[\s\S]*seg_diag_len[\s\S]*vec::filled<i32>\s+cells\s+0/, 'SegmentTree.new must reject negative lengths and allocate initialized typed storage through Vec.filled');
-assert.match(code, /fn\s+seg_load_owned\s+<\(&Vec<i32>,i32\)->i32>[\s\S]*vec::get<i32>/, 'SegmentTree must read tree cells through Vec.get');
+assert.match(code, /fn\s+seg_load_owned\s+<\(&Vec<i32>,i32\)->Option<i32>>[\s\S]*vec::get<i32>[\s\S]*Option::None:[\s\S]*none<i32>/, 'SegmentTree must read tree cells through Vec.get and expose missing cells as Option');
 assert.match(code, /fn\s+seg_store_owned\s+<\(&Vec<i32>,i32,i32\)\*>\(\)>[\s\S]*vec::replace<i32>/, 'SegmentTree must update tree cells through Vec.replace');
 assert.match(code, /fn\s+free\s+<\(SegmentTree\)->\(\)>\s+\(st\):[\s\S]*vec::free<i32>\s+data/, 'SegmentTree.free must close typed Vec<i32> storage');
 assert.match(code, /fn\s+free\s+<\(SegmentTree\)->\(\)>\s+\(st\):[\s\S]*field::get\s+st\s+"data"/, 'SegmentTree.free must consume the data owner field');

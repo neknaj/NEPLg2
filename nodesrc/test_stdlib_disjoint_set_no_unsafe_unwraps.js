@@ -32,7 +32,7 @@ assert.match(code, /#import\s+"alloc\/collections\/vec"\s+as\s+vec/, 'DisjointSe
 assert.match(code, /struct\s+DisjointSet:\s+[\s\S]*\bn\s+<i32>[\s\S]*\bparent\s+<Vec<i32>>[\s\S]*\bsizes\s+<Vec<i32>>/, 'DisjointSet must store parent and size payloads as typed Vec<i32> owners');
 assert.match(code, /fn\s+new\s+<\(i32\)\*>Result<DisjointSet,\s*Diag>>[\s\S]*lt\s+n\s+0[\s\S]*dsu_diag_len[\s\S]*vec::filled<i32>\s+n\s+0[\s\S]*vec::filled<i32>\s+n\s+1/, 'DisjointSet.new must reject negative lengths and allocate initialized typed storage through Vec.filled');
 assert.doesNotMatch(code, /DisjointSet\s+0\s+mem_ptr_wrap\s+0\s+mem_ptr_wrap\s+0/, 'DisjointSet.new must not encode empty storage with null raw pointers');
-assert.match(code, /fn\s+dsu_load_owned\s+<\(&Vec<i32>,i32\)->i32>[\s\S]*vec::get<i32>/, 'DisjointSet must read parent and size cells through Vec.get');
+assert.match(code, /fn\s+dsu_load_owned\s+<\(&Vec<i32>,i32\)->Option<i32>>[\s\S]*vec::get<i32>[\s\S]*Option::None:[\s\S]*none<i32>/, 'DisjointSet must read parent and size cells through Vec.get and expose missing cells as Option');
 assert.match(code, /fn\s+dsu_store_owned\s+<\(&Vec<i32>,i32,i32\)\*>\(\)>[\s\S]*vec::replace<i32>/, 'DisjointSet must update parent and size cells through Vec.replace');
 assert.match(code, /fn\s+free\s+<\(DisjointSet\)->\(\)>\s+\(dsu\):[\s\S]*vec::free<i32>\s+parent[\s\S]*vec::free<i32>\s+sizes/, 'DisjointSet.free must close typed Vec<i32> storage');
 assert.match(code, /fn\s+free\s+<\(DisjointSet\)->\(\)>\s+\(dsu\):[\s\S]*field::get\s+dsu\s+"parent"[\s\S]*field::get\s+dsu\s+"sizes"/, 'DisjointSet.free must consume parent and size owner fields');

@@ -73,31 +73,43 @@ fn dsu_diag_len <()*>Diag> ():
 fn dsu_diag_index <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "disjoint set index out of bounds"
 
-fn dsu_load_owned <(&Vec<i32>,i32)->i32> (base, idx):
+fn dsu_load_owned <(&Vec<i32>,i32)->Option<i32>> (base, idx):
     match vec::get<i32> base idx:
         Option::Some v:
-            v
+            some<i32> v
         Option::None:
-            0
+            none<i32>
 
 fn dsu_store_owned <(&Vec<i32>,i32,i32)*>()> (base, idx, value):
     vec::replace<i32> base idx value
 
-fn dsu_root_storage <(&Vec<i32>,i32)->i32> (parent, idx):
+fn dsu_root_storage <(&Vec<i32>,i32)->Option<i32>> (parent, idx):
     let mut cur <i32> idx
     let mut done <bool> false
-    while not done:
+    let mut valid <bool> true
+    let mut steps <i32> 0
+    let limit <i32> vec::len<i32> parent
+    while and and not done valid lt steps limit:
         do:
-            let next <i32> dsu_load_owned parent cur
-            if:
-                eq next cur
-                then:
-                    set done true
-                else:
-                    set cur next
-    cur
+            match dsu_load_owned parent cur:
+                Option::Some next:
+                    if:
+                        eq next cur
+                        then:
+                            set done true
+                        else:
+                            set cur next
+                    set steps add steps 1
+                Option::None:
+                    set valid false
+    if:
+        and valid done
+        then:
+            some<i32> cur
+        else:
+            none<i32>
 
-fn dsu_size_storage <(&Vec<i32>,i32)->i32> (sizes, root):
+fn dsu_size_storage <(&Vec<i32>,i32)->Option<i32>> (sizes, root):
     dsu_load_owned sizes root
 
 //: ## new
@@ -179,8 +191,11 @@ fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
         and le 0 idx lt idx n
         then:
             let parent <&Vec<i32>> field::get_ref dsu "parent"
-            let root <i32> dsu_root_storage parent idx
-            ok<i32, Diag> root
+            match dsu_root_storage parent idx:
+                Option::Some root:
+                    ok<i32, Diag> root
+                Option::None:
+                    diag_err<i32> dsu_diag_index
         else:
             let d <Diag> dsu_diag_index
             err<i32, Diag> d
@@ -214,26 +229,49 @@ fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, DisjointSetUpdateError>> (d
     if:
         and and le 0 a lt a n and le 0 b lt b n
         then:
-            let _updated <bool> block:
+            let result <Result<(), Diag>> block:
                 let parent <&Vec<i32>> field::get_ref &dsu "parent"
                 let sizes <&Vec<i32>> field::get_ref &dsu "sizes"
-                let ra <i32> dsu_root_storage parent a
-                let rb <i32> dsu_root_storage parent b
-                if:
-                    eq ra rb
-                    then:
-                        true
-                    else:
-                        let sa <i32> dsu_size_storage sizes ra
-                        let sb <i32> dsu_size_storage sizes rb
-                        let root_keep <i32> if lt sa sb rb ra
-                        let root_drop <i32> if lt sa sb ra rb
-                        let sk <i32> dsu_size_storage sizes root_keep
-                        let sd <i32> dsu_size_storage sizes root_drop
-                        dsu_store_owned parent root_drop root_keep
-                        dsu_store_owned sizes root_keep add sk sd
-                        true
-            ok<DisjointSet, DisjointSetUpdateError> dsu
+                match dsu_root_storage parent a:
+                    Option::Some ra:
+                        match dsu_root_storage parent b:
+                            Option::Some rb:
+                                if:
+                                    eq ra rb
+                                    then:
+                                        ok<(), Diag> ()
+                                    else:
+                                        match dsu_size_storage sizes ra:
+                                            Option::Some sa:
+                                                match dsu_size_storage sizes rb:
+                                                    Option::Some sb:
+                                                        let root_keep <i32> if lt sa sb rb ra
+                                                        let root_drop <i32> if lt sa sb ra rb
+                                                        match dsu_size_storage sizes root_keep:
+                                                            Option::Some sk:
+                                                                match dsu_size_storage sizes root_drop:
+                                                                    Option::Some sd:
+                                                                        dsu_store_owned parent root_drop root_keep
+                                                                        dsu_store_owned sizes root_keep add sk sd
+                                                                        ok<(), Diag> ()
+                                                                    Option::None:
+                                                                        diag_err<()> dsu_diag_index
+                                                            Option::None:
+                                                                diag_err<()> dsu_diag_index
+                                                    Option::None:
+                                                        diag_err<()> dsu_diag_index
+                                            Option::None:
+                                                diag_err<()> dsu_diag_index
+                            Option::None:
+                                diag_err<()> dsu_diag_index
+                    Option::None:
+                        diag_err<()> dsu_diag_index
+            match result:
+                Result::Ok _unit:
+                    ok<DisjointSet, DisjointSetUpdateError> dsu
+                Result::Err d:
+                    let e <DisjointSetUpdateError> DisjointSetUpdateError dsu d
+                    err<DisjointSet, DisjointSetUpdateError> e
         else:
             let d <Diag> dsu_diag_index
             let e <DisjointSetUpdateError> DisjointSetUpdateError dsu d
@@ -270,9 +308,15 @@ fn same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
         and and le 0 a lt a n and le 0 b lt b n
         then:
             let parent <&Vec<i32>> field::get_ref dsu "parent"
-            let ra <i32> dsu_root_storage parent a
-            let rb <i32> dsu_root_storage parent b
-            ok<bool, Diag> eq ra rb
+            match dsu_root_storage parent a:
+                Option::Some ra:
+                    match dsu_root_storage parent b:
+                        Option::Some rb:
+                            ok<bool, Diag> eq ra rb
+                        Option::None:
+                            diag_err<bool> dsu_diag_index
+                Option::None:
+                    diag_err<bool> dsu_diag_index
         else:
             let d <Diag> dsu_diag_index
             err<bool, Diag> d
@@ -305,9 +349,15 @@ fn size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
         then:
             let parent <&Vec<i32>> field::get_ref dsu "parent"
             let sizes <&Vec<i32>> field::get_ref dsu "sizes"
-            let root <i32> dsu_root_storage parent idx
-            let out <i32> dsu_size_storage sizes root
-            ok<i32, Diag> out
+            match dsu_root_storage parent idx:
+                Option::Some root:
+                    match dsu_size_storage sizes root:
+                        Option::Some out:
+                            ok<i32, Diag> out
+                        Option::None:
+                            diag_err<i32> dsu_diag_index
+                Option::None:
+                    diag_err<i32> dsu_diag_index
         else:
             let d <Diag> dsu_diag_index
             err<i32, Diag> d

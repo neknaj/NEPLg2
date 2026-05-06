@@ -72,15 +72,26 @@ fn seg_diag_index <()*>Diag> ():
 fn seg_diag_range <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "segment tree range out of bounds"
 
-fn seg_load_owned <(&Vec<i32>,i32)->i32> (data, idx):
+fn seg_load_owned <(&Vec<i32>,i32)->Option<i32>> (data, idx):
     match vec::get<i32> data idx:
         Option::Some v:
-            v
+            some<i32> v
         Option::None:
-            0
+            none<i32>
 
 fn seg_store_owned <(&Vec<i32>,i32,i32)*>()> (data, idx, value):
     vec::replace<i32> data idx value
+
+fn seg_pair_sum <(&Vec<i32>,i32,i32)->Option<i32>> (data, left, right):
+    match seg_load_owned data left:
+        Option::Some lv:
+            match seg_load_owned data right:
+                Option::Some rv:
+                    some<i32> add lv rv
+                Option::None:
+                    none<i32>
+        Option::None:
+            none<i32>
 
 fn seg_next_pow2 <(i32)->i32> (n):
     let mut x <i32> 1
@@ -150,16 +161,39 @@ fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> 
     if:
         and le 0 idx lt idx n
         then:
-            let data <&Vec<i32>> field::get_ref &st "data"
-            let mut pos <i32> add base idx
-            seg_store_owned data pos value
-            while lt 1 pos:
-                do:
-                    set pos div_s pos 2
-                    let left <i32> mul pos 2
-                    let right <i32> add left 1
-                    seg_store_owned data pos add seg_load_owned data left seg_load_owned data right
-            ok<SegmentTree, SegmentTreeUpdateError> st
+            let result <Result<(), Diag>> block:
+                let data <&Vec<i32>> field::get_ref &st "data"
+                let expected_len <i32> mul base 2
+                if:
+                    ne vec::len<i32> data expected_len
+                    then:
+                        diag_err<()> seg_diag_index
+                    else:
+                        let mut pos <i32> add base idx
+                        let mut valid <bool> true
+                        seg_store_owned data pos value
+                        while and lt 1 pos valid:
+                            do:
+                                set pos div_s pos 2
+                                let left <i32> mul pos 2
+                                let right <i32> add left 1
+                                match seg_pair_sum data left right:
+                                    Option::Some total:
+                                        seg_store_owned data pos total
+                                    Option::None:
+                                        set valid false
+                        if:
+                            valid
+                            then:
+                                ok<(), Diag> ()
+                            else:
+                                diag_err<()> seg_diag_index
+            match result:
+                Result::Ok _unit:
+                    ok<SegmentTree, SegmentTreeUpdateError> st
+                Result::Err d:
+                    let e <SegmentTreeUpdateError> SegmentTreeUpdateError st d
+                    err<SegmentTree, SegmentTreeUpdateError> e
         else:
             let d <Diag> seg_diag_index
             let e <SegmentTreeUpdateError> SegmentTreeUpdateError st d
@@ -190,18 +224,44 @@ fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> (st,
     if:
         and le 0 idx lt idx n
         then:
-            let data <&Vec<i32>> field::get_ref &st "data"
-            let leaf <i32> add base idx
-            let cur <i32> seg_load_owned data leaf
-            let mut pos <i32> leaf
-            seg_store_owned data pos add cur delta
-            while lt 1 pos:
-                do:
-                    set pos div_s pos 2
-                    let left <i32> mul pos 2
-                    let right <i32> add left 1
-                    seg_store_owned data pos add seg_load_owned data left seg_load_owned data right
-            ok<SegmentTree, SegmentTreeUpdateError> st
+            let result <Result<(), Diag>> block:
+                let data <&Vec<i32>> field::get_ref &st "data"
+                let expected_len <i32> mul base 2
+                if:
+                    ne vec::len<i32> data expected_len
+                    then:
+                        diag_err<()> seg_diag_index
+                    else:
+                        let leaf <i32> add base idx
+                        match seg_load_owned data leaf:
+                            Option::Some cur:
+                                let mut pos <i32> leaf
+                                let mut valid <bool> true
+                                seg_store_owned data pos add cur delta
+                                while and lt 1 pos valid:
+                                    do:
+                                        set pos div_s pos 2
+                                        let left <i32> mul pos 2
+                                        let right <i32> add left 1
+                                        match seg_pair_sum data left right:
+                                            Option::Some total:
+                                                seg_store_owned data pos total
+                                            Option::None:
+                                                set valid false
+                                if:
+                                    valid
+                                    then:
+                                        ok<(), Diag> ()
+                                    else:
+                                        diag_err<()> seg_diag_index
+                            Option::None:
+                                diag_err<()> seg_diag_index
+            match result:
+                Result::Ok _unit:
+                    ok<SegmentTree, SegmentTreeUpdateError> st
+                Result::Err d:
+                    let e <SegmentTreeUpdateError> SegmentTreeUpdateError st d
+                    err<SegmentTree, SegmentTreeUpdateError> e
         else:
             let d <Diag> seg_diag_index
             let e <SegmentTreeUpdateError> SegmentTreeUpdateError st d
@@ -235,29 +295,55 @@ fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
         and and le 0 l le l r le r n
         then:
             let data <&Vec<i32>> field::get_ref st "data"
-            let mut left <i32> add base l
-            let mut right <i32> add base r
-            let mut acc_l <i32> 0
-            let mut acc_r <i32> 0
-            while lt left right:
-                do:
+            let expected_len <i32> mul base 2
+            if:
+                ne vec::len<i32> data expected_len
+                then:
+                    diag_err<i32> seg_diag_range
+                else:
+                    let mut left <i32> add base l
+                    let mut right <i32> add base r
+                    let mut acc_l <i32> 0
+                    let mut acc_r <i32> 0
+                    let mut valid <bool> true
+                    while and lt left right valid:
+                        do:
+                            if:
+                                eq rem_s left 2 1
+                                then:
+                                    match seg_load_owned data left:
+                                        Option::Some v:
+                                            set acc_l add acc_l v
+                                            set left add left 1
+                                        Option::None:
+                                            set valid false
+                                else:
+                                    ()
+                            if:
+                                and valid eq rem_s right 2 1
+                                then:
+                                    set right sub right 1
+                                    match seg_load_owned data right:
+                                        Option::Some v:
+                                            set acc_r add v acc_r
+                                        Option::None:
+                                            set valid false
+                                else:
+                                    ()
+                            if:
+                                valid
+                                then:
+                                    set left div_s left 2
+                                    set right div_s right 2
+                                else:
+                                    ()
                     if:
-                        eq rem_s left 2 1
+                        valid
                         then:
-                            set acc_l add acc_l seg_load_owned data left
-                            set left add left 1
+                            let total <i32> add acc_l acc_r
+                            ok<i32, Diag> total
                         else:
-                            ()
-                    if:
-                        eq rem_s right 2 1
-                        then:
-                            set right sub right 1
-                            set acc_r add seg_load_owned data right acc_r
-                        else:
-                            ()
-                    set left div_s left 2
-                    set right div_s right 2
-            ok<i32, Diag> add acc_l acc_r
+                            diag_err<i32> seg_diag_range
         else:
             let d <Diag> seg_diag_range
             err<i32, Diag> d

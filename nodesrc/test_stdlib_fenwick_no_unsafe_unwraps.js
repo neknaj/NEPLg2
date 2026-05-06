@@ -31,7 +31,7 @@ assert.match(code, /fn\s+fenwick_load_owned\s+/, 'Fenwick must centralize owned 
 assert.match(code, /#import\s+"alloc\/collections\/vec"\s+as\s+vec/, 'Fenwick must use typed Vec storage');
 assert.match(code, /struct\s+Fenwick:\s+[\s\S]*\bn\s+<i32>[\s\S]*\bbit\s+<Vec<i32>>/, 'Fenwick must store bit payload as a typed Vec<i32> owner');
 assert.match(code, /fn\s+new\s+<\(i32\)\*>Result<Fenwick,\s*Diag>>[\s\S]*lt\s+n\s+0[\s\S]*fenwick_diag_len[\s\S]*vec::filled<i32>\s+bit_len\s+0/, 'Fenwick.new must reject negative lengths and allocate initialized typed storage through Vec.filled');
-assert.match(code, /fn\s+fenwick_load_owned\s+<\(&Vec<i32>,i32\)->i32>[\s\S]*vec::get<i32>/, 'Fenwick must read tree cells through Vec.get');
+assert.match(code, /fn\s+fenwick_load_owned\s+<\(&Vec<i32>,i32\)->Option<i32>>[\s\S]*vec::get<i32>[\s\S]*Option::None:[\s\S]*none<i32>/, 'Fenwick must read tree cells through Vec.get and expose missing cells as Option');
 assert.match(code, /fn\s+fenwick_store_owned\s+<\(&Vec<i32>,i32,i32\)\*>\(\)>[\s\S]*vec::replace<i32>/, 'Fenwick must update tree cells through Vec.replace');
 assert.match(code, /fn\s+free\s+<\(Fenwick\)\*>\(\)>\s+\(fw\):[\s\S]*vec::free<i32>\s+bit/, 'Fenwick.free must close typed Vec<i32> storage');
 assert.doesNotMatch(code, /\bMemPtr\b/, 'Fenwick must not expose raw MemPtr storage');
