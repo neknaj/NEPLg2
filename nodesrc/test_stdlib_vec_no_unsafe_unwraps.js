@@ -59,6 +59,7 @@ for (const [relPath, code] of codeByPath) {
 
 const vecCode = codeByPath.get('stdlib/alloc/collections/vec.nepl');
 const sortMergeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge.nepl');
+const loaderCode = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 
 function between(code, start, end) {
     const startIdx = code.indexOf(start);
@@ -84,6 +85,7 @@ const freeSection = vecCode.slice(vecCode.indexOf('fn free '));
 assert.doesNotMatch(vecCode, /\bfield::get\s+\w+\s+"(?:len|cap)"/, 'Vec implementation must read Copy len/cap header fields through field::get_ref so owner-consuming helpers do not move them');
 assert.match(withCapacitySection, /if:\s+lt\s+cap\s+0\s+then:\s+Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::InvalidOperation[\s\S]*else:\s+vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must reject negative capacity before allocating owned storage');
 assert.match(vecCode, /enum\s+VecStorageState:[\s\S]*Empty[\s\S]*Owned/, 'Vec storage owner state must be represented by an enum');
+assert.match(loaderCode, /&\["alloc",\s*"collections",\s*"vec\.nepl"\]/, 'loader raw-memory boundary must include the exact alloc/collections/vec.nepl stdlib path');
 assert.match(vecCode, /struct\s+Vec<\.T>:[\s\S]*storage\s+<VecStorageState>[\s\S]*data\s+<MemPtr<\.T>>/, 'Vec must separate enum owner state from the raw pointer field so Resource IR can track memory cells');
 assert.match(vecCode, /fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>[\s\S]*Vec<\.T>\s+0\s+0\s+VecStorageState::Empty\s+mem_ptr_wrap\s+0/, 'Vec.empty must construct typed Empty storage');
 assert.match(vecCode, /fn\s+vec_alloc_empty\s+<\.T>\s+<\(i32\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*le\s+requested_cap\s+0[\s\S]*vec_empty<\.T>[\s\S]*VecStorageState::Owned\s+data/, 'Vec empty construction must use Empty for zero capacity and Owned for allocated storage');

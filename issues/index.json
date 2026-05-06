@@ -1,19 +1,19 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T16:02:08.622Z",
+  "generated_at": "2026-05-06T16:30:24.039Z",
   "counts": {
-    "total": 524,
+    "total": 525,
     "open": 17,
-    "resolved": 507,
+    "resolved": 508,
     "by_area": {
       "core": {
         "total": 255,
-        "open": 6,
-        "resolved": 249
+        "open": 5,
+        "resolved": 250
       },
       "selfhost": {
-        "total": 46,
-        "open": 2,
+        "total": 47,
+        "open": 3,
         "resolved": 44
       },
       "stdlib": {
@@ -150,21 +150,6 @@
       "file": "items/ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232.md"
     },
     {
-      "id": "ISS-20260506T155747740Z-VEC-RAW-MEMORY-COLLECTION-LACKS-EXAC-3F7CA727",
-      "title": "Vec raw-memory collection lacks exact loader effect boundary",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "nepl-core/src/loader.rs, stdlib/alloc/collections/vec.nepl, stdlib/neplg2/core/infra/text.nepl, stdlib/neplg2/core/resolve/name_resolver.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T155747740Z-VEC-RAW-MEMORY-COLLECTION-LACKS-EXAC-3F7CA727.md"
-    },
-    {
       "id": "ISS-20260506T155806325Z-SELFHOST-LEXER-AND-IMPORT-SPEC-FIXTU-68BADCC8",
       "title": "Selfhost lexer and import spec fixtures drift under strict static checks",
       "area": "selfhost",
@@ -178,6 +163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T155806325Z-SELFHOST-LEXER-AND-IMPORT-SPEC-FIXTU-68BADCC8.md"
+    },
+    {
+      "id": "ISS-20260506T162903318Z-SELFHOST-SOURCETEXT-LINE-MAP-VEC-OWN-2444558D",
+      "title": "selfhost SourceText line map Vec owner leaks after Vec raw boundary",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "stdlib/neplg2/core/infra/text.nepl, stdlib/alloc/collections/vec.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T162903318Z-SELFHOST-SOURCETEXT-LINE-MAP-VEC-OWN-2444558D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3988,6 +3988,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4.md"
+    },
+    {
+      "id": "ISS-20260506T155747740Z-VEC-RAW-MEMORY-COLLECTION-LACKS-EXAC-3F7CA727",
+      "title": "Vec raw-memory collection lacks exact loader effect boundary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/loader.rs, stdlib/alloc/collections/vec.nepl, stdlib/neplg2/core/infra/text.nepl, stdlib/neplg2/core/resolve/name_resolver.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T155747740Z-VEC-RAW-MEMORY-COLLECTION-LACKS-EXAC-3F7CA727.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

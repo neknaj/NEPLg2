@@ -1,3 +1,29 @@
+# 2026-05-07 note (ISS-20260506T155747740Z Vec raw-memory collection exact boundary)
+
+## 作業内容
+
+- branch `fix/vec-raw-memory-boundary` で `origin/main` と同期済みの main から作業した。
+- `stdlib/alloc/collections/vec.nepl` は `alloc_ptr` / `realloc_ptr` / `store<.T>` / `load<.T>` / `dealloc_raw` を使う raw-memory-backed collection owner module だが、loader の configured exact raw-memory boundary table に `alloc/collections/vec.nepl` が登録されていなかった。
+- `nepl-core/src/loader.rs` に exact path `alloc/collections/vec.nepl` を追加した。
+- `nepl-core/tests/effects.rs` に `alloc/collections/vec` の configured stdlib raw-memory boundary regression を追加した。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` に loader boundary policy を追加し、Vec の raw-memory owner module と loader 許可表がずれた場合に検出できるようにした。
+- focused selfhost doctest では Vec raw `store/load` の `effect.pure.calls_impure` は消え、次の別問題として `source_text_collect_line_starts` の `Vec<i32>` owner leak が露出したため、`ISS-20260506T162903318Z-SELFHOST-SOURCETEXT-LINE-MAP-VEC-OWN-2444558D` を追加し、追加時点で Discord に直接報告した。
+
+## 検証
+
+- `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+- `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boundary -- --nocapture`: passed
+- `cargo test -p nepl-core --test effects`: 27 passed
+- `trunk build`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: Vec boundary policy は passed。既存の `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` warning は継続。
+- `node nodesrc/tests.js -i stdlib/neplg2/core/infra/text.nepl -i stdlib/neplg2/core/resolve/name_resolver.nepl --no-tree -o tmp/vec-raw-boundary-selfhost.json -j 1`: total=3, passed=2, failed=1。Vec raw `store/load` effect failure は解消し、残件は SourceText line map の owner leak。
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR authority closure)
 
 ## 作業内容
