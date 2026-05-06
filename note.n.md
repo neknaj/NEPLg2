@@ -30,6 +30,8 @@
 - `selfhost_import_spec_free` を追加し、`SelfhostImportSpec` の `path` / `alias` owner を fixture や一時 spec の破棄時に明示的に閉じられるようにした。
 - `tests/stdlib/neplg2_import_spec.n.md` は直接 import lexeme parse の検証へ絞り、Copy field は参照、owner field は移動して `std/test` の assertion report へ渡す形にした。
 - module AST から `Vec<SelfhostImportSpec>` を集める経路は、owned aggregate を raw Vec storage に入れる深い設計問題として `ISS-20260506T171738048Z-SELFHOST-MODULE-IMPORT-SPECS-STORES--9975F52D` に分離した。
+- rebase 後の `origin/main` `4bc486af` で全 source-policy を再実行したところ、remote main 由来の別件として `lower_raw_address.rs has 657 lines; responsibility split limit is 620` を検出したため、`ISS-20260506T173138867Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-B64EB6D1` を追加した。
+- `origin/main` `376a3bc1` まで再同期した後も focused selfhost tests は通過し、source-policy warning は同じ `lower_raw_address.rs` 責務分割 issue に限定されている。
 
 ## 検証
 
@@ -37,6 +39,9 @@
 - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/lexer.nepl -i stdlib/neplg2/core/module/import_spec.nepl -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/selfhost-lexer-import-spec-final-focused2.json -j 1`: total=4, passed=4
 - `node nodesrc/run_source_policy_regressions.js --warn-only`: all source-policy regressions passed; warning 0
 - `trunk build`: passed
+- rebase 後の `node nodesrc/run_source_policy_regressions.js --warn-only`: selfhost/string/import-spec 関連は passed。remote main 由来の別件として `nodesrc/test_resource_checker_responsibility.js` が `lower_raw_address.rs has 657 lines; responsibility split limit is 620` warning を報告。
+- `origin/main` `376a3bc1` 取り込み後の `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/lexer.nepl -i stdlib/neplg2/core/module/import_spec.nepl -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/selfhost-lexer-import-spec-after-rebase2.json -j 1`: total=4, passed=4
+- `origin/main` `376a3bc1` 取り込み後の `trunk build`: passed
 
 ## plan.mdとの差分
 

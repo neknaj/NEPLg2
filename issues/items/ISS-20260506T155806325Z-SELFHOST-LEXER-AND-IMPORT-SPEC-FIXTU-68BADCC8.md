@@ -52,3 +52,4 @@ Fix the selfhost lexer Vec construction/stack discipline and update import_spec 
 - `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/lexer.nepl -i stdlib/neplg2/core/module/import_spec.nepl -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/selfhost-lexer-import-spec-final-focused2.json -j 1`: total=4, passed=4, failed=0, errored=0
 - `node nodesrc/run_source_policy_regressions.js --warn-only`: all source-policy regressions passed; warning 0
 - `trunk build`: passed
+- `origin/main` `4bc486af` 取り込み後の focused selfhost tests も total=4, passed=4。全 source-policy 再実行では selfhost/import-spec 関連は passed だが、remote main 由来の別件 `lower_raw_address.rs has 657 lines; responsibility split limit is 620` を検出したため `ISS-20260506T173138867Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-B64EB6D1` として分離。

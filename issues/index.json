@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T17:33:58.494Z",
+  "generated_at": "2026-05-06T17:34:28.683Z",
   "counts": {
-    "total": 529,
-    "open": 16,
+    "total": 530,
+    "open": 17,
     "resolved": 513,
     "by_area": {
       "core": {
-        "total": 257,
-        "open": 5,
+        "total": 258,
+        "open": 6,
         "resolved": 252
       },
       "selfhost": {
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4.md"
+    },
+    {
+      "id": "ISS-20260506T173138867Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-B64EB6D1",
+      "title": "Resource raw address lowering exceeds split limit after deep-prefix alias fix",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/lower_raw_address.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T173138867Z-RESOURCE-RAW-ADDRESS-LOWERING-EXCEED-B64EB6D1.md"
     },
     {
       "id": "ISS-20260506T171738048Z-SELFHOST-MODULE-IMPORT-SPECS-STORES--9975F52D",
