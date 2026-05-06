@@ -94,7 +94,7 @@ assertLiteralMatch({
 });
 
 assertLiteralMatch({
-    file: 'stdlib/nm/html_gen.nepl',
+    file: 'stdlib/nm/html_escape.nepl',
     name: 'html_escape_kind',
     scrutinee: 'ch',
     literals: ["'&'", "'<'", "'>'", "'\"'", "'\\''"],

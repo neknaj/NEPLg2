@@ -1,0 +1,98 @@
+//: nm/html_escape: NM HTML serializer 用の HTML escape helper
+//:
+//: [目的/もくてき]:
+//: - Gloss/Nest Markdown の HTML serializer が使う text / attribute escape 境界を提供します。
+//: - renderer 本体から HTML 構文上危険な byte の分類を分離し、escape policy を単独でレビューできるようにします。
+//:
+//: [実装/じっそう]:
+//: - `HtmlEscapeKind` enum で escape 対象を表し、`escape_html` は `match` で entity か元 byte への出力を選びます。
+//: - UTF-8 の byte 列はそのまま通し、HTML 構文として意味を持つ ASCII byte だけを置換します。
+//:
+//: [注意/ちゅうい]:
+//: - URL sanitizer や CSS sanitizer ではありません。呼び出し側は HTML 文脈を text node / attribute value に限定してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力 byte 数 n に対して O(n) です。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "alloc/string" as *
+//:| #import "nm/html_escape" as *
+//: fn main <()*>i32> ():
+//:     let escaped <str> escape_html "<a b=\"c&d\">'"
+//:     if str_eq escaped "&lt;a b=&quot;c&amp;d&quot;&gt;&#39;" 0 1
+//: ```
+
+#indent 4
+
+#import "alloc/string" as *
+
+//: HtmlEscapeKind: HTML text escape の分類
+//:
+//: [目的/もくてき]:
+//: - HTML text / attribute 内で escape が必要な byte を分類します。
+//:
+//: [実装/じっそう]:
+//: - 固定 byte 集合を char literal `match` で列挙し、escape の抜けを source policy で検出できる形にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+enum HtmlEscapeKind:
+    Amp
+    Lt
+    Gt
+    Quote
+    Apostrophe
+    Plain
+
+pub fn html_escape_kind <(i32)->HtmlEscapeKind> (ch):
+    match ch:
+        '&':
+            HtmlEscapeKind::Amp
+        '<':
+            HtmlEscapeKind::Lt
+        '>':
+            HtmlEscapeKind::Gt
+        '"':
+            HtmlEscapeKind::Quote
+        '\'':
+            HtmlEscapeKind::Apostrophe
+        _:
+            HtmlEscapeKind::Plain
+
+//: escape_html: HTML 用に文字列を escape する
+//:
+//: [目的/もくてき]:
+//: - text node と attribute value に入る `&` / `<` / `>` / `"` / `'` を entity へ変換します。
+//: - NM の通常 text、heading text、code fence info string、code body を安全に HTML fragment へ埋め込むための共通 escape です。
+//:
+//: [実装/じっそう]:
+//: - byte を 1 つずつ読み、`HtmlEscapeKind` の match で対応する entity または元 byte を追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+pub fn escape_html <(str)->str> (s):
+    let mut sb <StringBuilder> string_builder_new;
+    let n <i32> len s;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let ch <i32> string_byte_at_unchecked s i;
+            match html_escape_kind ch:
+                HtmlEscapeKind::Amp:
+                    set sb sb_append sb "&amp;"
+                HtmlEscapeKind::Lt:
+                    set sb sb_append sb "&lt;"
+                HtmlEscapeKind::Gt:
+                    set sb sb_append sb "&gt;"
+                HtmlEscapeKind::Quote:
+                    set sb sb_append sb "&quot;"
+                HtmlEscapeKind::Apostrophe:
+                    set sb sb_append sb "&#39;"
+                HtmlEscapeKind::Plain:
+                    set sb sb_append sb str_slice s i add i 1;
+            set i add i 1;
+    sb_build sb

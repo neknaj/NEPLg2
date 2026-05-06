@@ -31057,3 +31057,32 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `nm/parser` の section stack / block serializer、`alloc/string.nepl`、`alloc/collections/vec.nepl` は引き続き分割候補。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm HTML escape split)
+
+- [同期]:
+  - `main` を remote main と同期し、`fix/nm-html-escape-split` で巨大 stdlib file 分割 issue を継続した。
+- [原因]:
+  - `stdlib/nm/html_gen.nepl` は HTML renderer 本体と HTML escape primitive を同じ file に持っていた。
+  - escape 対象 byte の分類は text / attribute 安全性に関わる固定集合であり、renderer の section/inline/block 出力とは別責務として監視する必要がある。
+- [修正]:
+  - `stdlib/nm/html_escape.nepl` を追加し、`HtmlEscapeKind` / `html_escape_kind` / `escape_html` を移した。
+  - `stdlib/nm/html_gen.nepl` は `./html_escape` を `html` alias で import し、HTML 出力時に `html::escape_html` を呼ぶようにした。
+  - `nodesrc/test_stdlib_match_decision_trees.js` の HTML escape match policy を新 module へ移した。
+  - `nodesrc/test_stdlib_nm_html_escape_boundary.js` を追加し、HTML escape helper が renderer 本体へ戻らないことを source policy にした。
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` に進捗を追記した。
+- [検証]:
+  - `node nodesrc/test_stdlib_nm_html_escape_boundary.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/nm/html_escape.nepl --no-tree -o tmp/nm-html-escape-split-module.json -j 1`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/nm/html_gen.nepl --no-tree -o tmp/nm-html-escape-split-html-gen.json -j 1`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-html-escape-split-nm-tests.json -j 1`: total=5, passed=5
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [残件]:
+  - `nm/html_gen` の heading/section renderer、`nm/parser` の section stack / block serializer、`alloc/string.nepl`、`alloc/collections/vec.nepl` は引き続き分割候補。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
