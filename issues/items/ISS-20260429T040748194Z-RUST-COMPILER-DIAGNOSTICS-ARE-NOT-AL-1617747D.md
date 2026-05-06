@@ -73,7 +73,7 @@ enum 化により、`#indent xx` が parser の generic token error として分
 
 Resource IR の `RawAddressEscapeFromInternalAlloc` が ordinary な `effect.pure.calls_impure` に潰れていたため、`ResourceRawDiagnosticCode::IdentityEscape` を追加し、compiler gate では `resource.raw.identity_escape` として出すようにした。
 
-これにより、pure context で impure I/O を呼ぶ診断と、internal allocation の raw address identity が public surface へ漏れる診断が enum 上でも doctest 上でも分離された。`UnsafeMemoryInPureFunction` は stdlib raw-memory-backed API 移行中のため、今回も explicit match で shadow-only に残している。
+これにより、pure context で impure I/O を呼ぶ診断と、internal allocation の raw address identity が public surface へ漏れる診断が enum 上でも doctest 上でも分離された。この対応時点では `UnsafeMemoryInPureFunction` は stdlib raw-memory-backed API 移行中のため shadow-only に残していたが、2026-05-06 時点の main では `effect.pure.calls_impure` へ error として接続済みである。
 
 検証:
 
@@ -83,6 +83,16 @@ Resource IR の `RawAddressEscapeFromInternalAlloc` が ordinary な `effect.pur
 - `cargo check -p nepl-core --tests`
 - `trunk build`
 - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-resource-raw-identity-code-move-effect.json -j 1`
+
+## 2026-05-06 Stage D2 unsafe memory gate status 追記
+
+診断再設計 plan に残っていた `UnsafeMemoryInPureFunction` shadow-only 記述を現在の Resource IR gate 実装に合わせて更新した。
+
+- `UnsafeMemoryInPureFunction` は compiler boundary で `Effect(PureCallsImpure)` / `effect.pure.calls_impure` へ写像する。
+- `stdlib/core/mem.nepl` など compiler-owned raw-memory-boundary capability を持つ source だけが、Stage 6 の stdlib migration 完了まで限定許可される。
+- raw identity escape は引き続き `Resource(Raw(IdentityEscape))` / `resource.raw.identity_escape` で分離し、ordinary impure call や unsafe memory pure-boundary violation と混同しない。
+
+この追記は [diagnostics plan still describes unsafe memory gate as shadow-only](./ISS-20260506T000648028Z-DIAGNOSTICS-PLAN-STILL-DESCRIBES-UNS-748EBB08.md) の対応として行った。親 issue は D3 以降の表示整理、test migration、self-host parity を追跡するため open のまま維持する。
 
 ## 2026-04-30 静的検査設計確認追記
 

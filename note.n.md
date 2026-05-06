@@ -30488,6 +30488,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-06 note (ISS-20260506T000648028Z Diagnostics plan unsafe memory gate status)
+
+- [同期]:
+  - `main` を remote main と同期後、`work/diagnostics-plan-unsafe-memory-status` で diagnostics plan と親 issue の Stage D2 status を更新した。
+- [原因]:
+  - `doc/neplg2/compiler_diagnostics_redesign_plan.md` と diagnostics 親 issue に、`UnsafeMemoryInPureFunction` は stdlib migration 中なので shadow-only に残すという古い記述が残っていた。
+  - 現在の main では Resource IR compiler gate が `UnsafeMemoryInPureFunction` を `effect.pure.calls_impure` へ error 化済みであり、移行中許可は raw-memory-boundary capability を持つ compiler-owned source へ限定されている。
+- [修正]:
+  - Stage D2 の進捗と完了条件を、unsafe memory pure-boundary violation は error、raw-memory-boundary capability は Stage 6 migration allowance、raw identity escape は `resource.raw.identity_escape` という責務分割に更新した。
+  - `static_check_design_verification_20260430.md`、`static_check_soundness_review_20260430.md`、fullreview の crosscutting / pipeline diagnostics doc に残っていた同じ古い status も現在状態へ揃えた。
+  - 親 issue に 2026-05-06 の Stage D2 unsafe memory gate status を追記した。
+- [検証]:
+  - `node nodesrc/issues.js check`: commit 前に実行
+  - `git diff --check`: commit 前に実行
+- [issue]:
+  - `ISS-20260506T000648028Z-DIAGNOSTICS-PLAN-STILL-DESCRIBES-UNS-748EBB08` は fixed。
+  - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` は D3 以降の表示整理、test migration、self-host parity を追跡する親 issue として open を維持する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260505T232450417Z Resource host effect count breakdown)
 
 - [同期]:

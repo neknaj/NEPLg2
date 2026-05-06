@@ -23,7 +23,7 @@
 - 旧 `passes::move_check::run` が Resource IR gate より前に authoritative として残っている。
 - `passes::insert_drops` は checked Resource IR ではなく HIR 上で drop を挿入している。
 - `ResourceCheckDiagnostic::CellUnavailable` は raw-memory cell operation だけ compiler error へ写像され、通常 read/move/drop/call argument などは旧 move checker の防壁に依存している。
-- `UnsafeMemoryInPureFunction` は Resource IR effect report では出るが compiler error へ写像されず、shadow-only である。
+- `UnsafeMemoryInPureFunction` は 2026-05-06 時点で `effect.pure.calls_impure` へ error 化済みである。ただし raw-memory-boundary capability は stdlib migration の限定許可として残る。
 - `HirExprKind::CallIndirect` は Resource IR lowering で `EffectOp::Unknown` になり、Resource IR effect gate は unknown effect を count するだけで conservative error にしない。
 - `MemPtr<T>` / `RegionToken<T>` は compiler-issued capability ではなく stdlib struct として forge 可能であり、owner token と non-owning pointer projection の分離が未完である。
 
@@ -75,7 +75,7 @@ effect safety は現時点で三層に分かれている。
 
 - typecheck: direct / indirect call の pure/impure mismatch を拒否する。
 - Resource IR: raw identity escape を拒否する。
-- shadow-only: `UnsafeMemoryInPureFunction` と `EffectOp::Unknown` は最終 error になっていない。
+- migration allowance: `UnsafeMemoryInPureFunction` は error 化済みだが、raw-memory-boundary source は Stage 6 完了まで限定許可される。`EffectOp::Unknown` は最終 error になっていない。
 
 final design では、function value / callback / indirect call の effect を Resource IR に typed summary として渡す。`EffectOp::Unknown` は通常の lowering 成功状態として許可せず、coverage failure か明示的な unsafe/internal boundary に限定する。
 
@@ -121,7 +121,7 @@ final design では、function value / callback / indirect call の effect を R
 ## 次の実装順
 
 1. Resource IR indirect call effect を typed summary 化する。
-2. `UnsafeMemoryInPureFunction` を shadow-only から段階的に hard gate へ移すため、stdlib/core/mem の internal/public boundary を先に狭める。
+2. `UnsafeMemoryInPureFunction` は hard gate 化済みなので、残る raw-memory-boundary capability を stdlib/core/mem の internal/public boundary と compiler-issued token へ狭める。
 3. Resource IR cell gate を raw-memory cell operation だけでなく通常 read/move/drop/call/return へ広げ、old move checker との差分を regression 化する。
 4. drop insertion を checked Resource IR 上の owner/cell state から行う設計へ移す。
 5. self-host S3 ではこの順序を前提にし、旧 HIR checker の special-case を再実装しない。

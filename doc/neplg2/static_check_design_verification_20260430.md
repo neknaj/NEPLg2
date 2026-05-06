@@ -31,7 +31,7 @@ NEPLg2 の静的検査が、型安全・メモリ安全を「実装上も設計�
 | CellState gate | raw load/store/dealloc/realloc/fill/bulk の cell violation が `resource.cell.*` として compiler error 化されている。 | 良い。 | raw bucket へ戻さず、self-host 側でも同じ cell diagnostic taxonomy を持つ。 |
 | OwnerState gate | owner leak / maybe leak / unavailable が `resource.owner.*` として compiler error 化されている。 | 良いが未完。 | owner diagnostic 分離は維持し、`MemPtr` owner 兼用の stdlib 設計を解消する。 |
 | BorrowState gate | return escape と通常 borrow conflict が compiler error 化されている。 | 良い。 | self-host 側も同じ borrow diagnostic taxonomy を持つ。 |
-| Effect gate | raw identity escape は `resource.raw.identity_escape` へ分離済み。 | 部分的に良い。 | `UnsafeMemoryInPureFunction` は stdlib 移行のため shadow-only であり、最終状態では不可。 |
+| Effect gate | raw identity escape は `resource.raw.identity_escape` へ分離済み。`UnsafeMemoryInPureFunction` は 2026-05-06 時点で `effect.pure.calls_impure` へ error 化済み。 | 改善済みだが migration allowance は未完。 | raw-memory-boundary capability は Stage 6 の stdlib migration 完了まで限定許可とし、最終状態では internal unsafe boundary と public safe API を分離する。 |
 | drop elaboration | `passes::insert_drops` が Resource IR check より前に HIR 上で動く。 | 設計未完。 | drop は Resource IR 上の checked state から挿入する。旧 `drop_insertion` は移行対象。 |
 | Diagnostic code | Rust core は `Move` / `Borrow` / `Cell` / `Owner` / `Raw` / `Lower` の階層 enum と stable string 境界へ移行済み。 | 方向は正しい。 | `Cell` / `Owner` 分離を維持し、self-host も同じ category contract へ揃える。 |
 | self-host diagnostic | 現在の S1/S2 用 code は enum 化済み。 | 現段階では妥当。 | S3 以降で Type / Effect / Resource / Backend category を Rust と同じ contract で追加する。 |
@@ -47,7 +47,7 @@ NEPLg2 の静的検査が、型安全・メモリ安全を「実装上も設計�
 1. `passes::move_check::run` がまだ先に authoritative で走り、その後に Resource IR gate が追加で走る。
 2. `passes::insert_drops` が Resource IR check より前に HIR 上で drop を挿入している。
 3. Resource IR の `CellState` / `OwnerState` diagnostic は `resource.cell.*` / `resource.owner.*` へ分離されたが、旧 `passes::move_check::run` との二重 authority はまだ残っている。
-4. `UnsafeMemoryInPureFunction` が stdlib 移行都合で shadow-only のまま残っている。
+4. raw-memory-boundary capability が file/source 単位の移行中許可として残っている。
 5. `MemPtr<T>` / `RegionToken<T>` が stdlib struct として forge 可能で、owner token と non-owning pointer の分離が完了していない。
 6. collections が safety-critical state を enum ではなく null pointer / numeric status / raw header layout で表している。
 

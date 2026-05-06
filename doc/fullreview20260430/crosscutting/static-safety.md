@@ -32,7 +32,7 @@ Resource IR は、move / borrow / initialized cell / owner obligation / raw prov
 
 - `passes::move_check::run` がまだ authoritative gate として残る。
 - HIR drop insertion が Resource IR check より前に実行される。
-- `UnsafeMemoryInPureFunction` が stdlib 移行のため shadow-only に残る。
+- `UnsafeMemoryInPureFunction` は 2026-05-06 時点で `effect.pure.calls_impure` へ error 化済みである。残る未完了点は raw-memory-boundary capability が stdlib migration の限定許可として残ることである。
 - stdlib の `MemPtr` owner/view 混同を補うため、Resource IR 側に special-case alias summary が増えやすい。
 - selfhost S3 以降にコピーできる最終形がまだ固定されていない。
 

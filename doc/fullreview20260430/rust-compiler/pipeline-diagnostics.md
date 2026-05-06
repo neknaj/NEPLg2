@@ -64,7 +64,7 @@ Resource diagnostic はさらに次へ分かれる。
 
 ## 残る問題
 
-- `UnsafeMemoryInPureFunction` は現在も shadow-only のままであり、compiler error へ写像されない。
+- `UnsafeMemoryInPureFunction` は 2026-05-06 時点で `effect.pure.calls_impure` へ error 化済みであり、残る未完了点は raw-memory-boundary capability の stdlib migration 限定許可である。
 - raw memory boundary file の除外は移行期として必要だが、最終的には public safe API と internal unsafe boundary を module/token で分けるべきである。
 - `compiler.rs` に pipeline orchestration と Resource diagnostic conversion test が同居している。現状は許容範囲だが、selfhost では `pipeline`, `diagnostic_mapping`, `resource_gate` の分割を前提にする。
 

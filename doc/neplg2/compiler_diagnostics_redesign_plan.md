@@ -1,7 +1,7 @@
 # NEPLg2 compiler diagnostic redesign plan
 
 作成日: 2026-04-29
-更新日: 2026-04-30
+更新日: 2026-05-06
 
 ## 目的
 
@@ -216,7 +216,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 進捗:
 
 - 2026-04-29: `ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc` を `Effect(PureCallsImpure)` から分離し、`Resource(Raw(IdentityEscape))` / `resource.raw.identity_escape` として compiler diagnostic へ写像するようにした。raw identity escape の compile_fail regression は `effect.pure.calls_impure` ではなく `resource.raw.identity_escape` を期待する。
-- `UnsafeMemoryInPureFunction` は現行 stdlib の raw-memory-backed API 移行と衝突するため、これまで通り shadow-only に残す。ordinary impure call や raw body I/O は `effect.pure.calls_impure` のまま維持する。
+- 2026-05-06: `ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction` は Resource IR compiler gate から `Effect(PureCallsImpure)` / `effect.pure.calls_impure` へ error として写像する。Stage 6 まで残る移行中許可は、`stdlib/core/mem.nepl` など compiler-owned raw-memory-boundary capability を持つ source に限定する。
 - 2026-04-30: `ResourceDiagnosticCode::Cell(...)` と `ResourceDiagnosticCode::Owner(...)` を追加し、Resource IR の `CellState` / `OwnerState` 診断を `resource.raw.ownership_violation` bucket へ潰さないようにした。raw-memory-backed 旧 move checker の non-Copy raw cell diagnostics も `resource.cell.*` へ移行したため、`resource.raw.*` は raw identity escape など raw provenance / unsafe boundary そのものへ限定する。
 
 2026-04-30 追記:
@@ -229,7 +229,8 @@ D2 の完了条件は次の通り。
 
 - `ResourceDiagnosticCode` に cell / owner category を追加済みであること。
 - raw memory 上で起きた violation でも、原因が initialized cell state なのか owner/free obligation なのかを stable code 上で失わない。
-- `resource.raw.*` は raw identity escape、unsafe boundary、pointer provenance そのものの問題に限定する。
+- `UnsafeMemoryInPureFunction` は `effect.pure.calls_impure` として hard error へ接続済みであり、raw-memory-boundary capability は stdlib migration の限定許可として扱う。
+- `resource.raw.*` は raw identity escape、raw capability/provenance boundary、pointer provenance そのものの問題に限定する。
 - `resource.cell.*` と `resource.owner.*` の `as_str()` / `message()` は wildcard なしの exhaustive match で管理する。
 - self-host S3 以降の diagnostic category も、この Rust taxonomy と同じ構造で追加する。
 

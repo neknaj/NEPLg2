@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T00:02:59.429Z",
+  "generated_at": "2026-05-06T00:09:57.473Z",
   "counts": {
-    "total": 489,
+    "total": 490,
     "open": 13,
-    "resolved": 476,
+    "resolved": 477,
     "by_area": {
       "core": {
-        "total": 226,
+        "total": 227,
         "open": 5,
-        "resolved": 221
+        "resolved": 222
       },
       "stdlib": {
         "total": 155,
@@ -3508,6 +3508,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T000220058Z-FULLREVIEW-STATIC-CHECK-RESOURCE-REP-BB4876E4.md"
+    },
+    {
+      "id": "ISS-20260506T000648028Z-DIAGNOSTICS-PLAN-STILL-DESCRIBES-UNS-748EBB08",
+      "title": "unsafe memory gate docs still describe diagnostics as shadow-only",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "doc/neplg2/compiler_diagnostics_redesign_plan.md, doc/neplg2/static_check_design_verification_20260430.md, doc/neplg2/static_check_soundness_review_20260430.md, doc/fullreview20260430/crosscutting/static-safety.md, doc/fullreview20260430/rust-compiler/pipeline-diagnostics.md, issues/items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T000648028Z-DIAGNOSTICS-PLAN-STILL-DESCRIBES-UNS-748EBB08.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
