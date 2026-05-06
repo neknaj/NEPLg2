@@ -455,8 +455,9 @@ fn lex_stack_top_result <(&Vec<i32>,i32,i32)->Result<i32,LexDiagnostic>> (stack,
 fn lex_stack_drop_top <(Vec<i32>)->Vec<i32>> (stack):
     let stack_len <i32> *field::get_ref &stack "len"
     let stack_cap <i32> *field::get_ref &stack "cap"
-    let stack_data <MemPtr<i32>> *field::get_ref &stack "data"
-    Vec<i32> sub stack_len 1 stack_cap stack_data
+    let stack_storage <VecStorageState> *field::get_ref &stack "storage"
+    let stack_data <MemPtr<i32>> field::get stack "data"
+    Vec<i32> sub stack_len 1 stack_cap stack_storage stack_data
 
 //: lex_indent_aligned: indent 幅が offside unit に[揃/そろ]っているか[返/かえ]す
 fn lex_indent_aligned <(i32,i32)->bool> (indent_width, indent_unit):

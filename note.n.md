@@ -20,6 +20,28 @@
 
 - `plan.md` は変更していない。
 
+# 2026-05-07 note (ISS-20260506T155806325Z selfhost lexer/import spec strict fixture)
+
+## 作業内容
+
+- branch `fix/selfhost-lexer-import-spec-strict` で `origin/main` と同期済みの main から作業した。
+- direct string submodule import 後に露出した focused selfhost failure を確認し、`lex_stack_drop_top` の旧 `Vec<i32>` 4-field constructor と import spec fixture の owner leak を修正した。
+- `lex_stack_drop_top` は `VecStorageState` を保持し、`data` field を `field::get` で移動して返す現行 `Vec` layout に合わせた。
+- `selfhost_import_spec_free` を追加し、`SelfhostImportSpec` の `path` / `alias` owner を fixture や一時 spec の破棄時に明示的に閉じられるようにした。
+- `tests/stdlib/neplg2_import_spec.n.md` は直接 import lexeme parse の検証へ絞り、Copy field は参照、owner field は移動して `std/test` の assertion report へ渡す形にした。
+- module AST から `Vec<SelfhostImportSpec>` を集める経路は、owned aggregate を raw Vec storage に入れる深い設計問題として `ISS-20260506T171738048Z-SELFHOST-MODULE-IMPORT-SPECS-STORES--9975F52D` に分離した。
+
+## 検証
+
+- `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed
+- `node nodesrc/tests.js -i stdlib/neplg2/core/syntax/lexer.nepl -i stdlib/neplg2/core/module/import_spec.nepl -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/selfhost-lexer-import-spec-final-focused2.json -j 1`: total=4, passed=4
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: all source-policy regressions passed; warning 0
+- `trunk build`: passed
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T165414602Z io ByteBuf source policy raw scratch cleanup)
 
 ## 作業内容

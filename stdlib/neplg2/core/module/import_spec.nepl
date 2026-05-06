@@ -24,12 +24,17 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "alloc/string/search" as string_search
+//:| #import "core/field" as field
 //:| #import "core/result" as *
 //:| #import "neplg2/core/module/import_spec" as *
 //: fn main <()*>i32> ():
 //:     match selfhost_import_spec_parse_lexeme source_span_new 0 0 28 "#import \"core/result\" as *":
 //:         Result::Ok spec:
-//:             if selfhost_import_spec_is_wildcard spec 0 1
+//:             let wildcard <bool> *field::get_ref &spec "is_wildcard"
+//:             let path <str> field::get spec "path"
+//:             let alias <str> field::get spec "alias"
+//:             if and wildcard and string_search::str_eq path "core/result" string_search::str_eq alias "*" 0 1
 //:         Result::Err _diag:
 //:             1
 //: ```
@@ -39,6 +44,7 @@
 #import "alloc/string/search" as string_search
 #import "alloc/string/slice" as string_slice
 #import "alloc/string/scanner" as scanner
+#import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -73,6 +79,16 @@ fn selfhost_import_spec_new <(SelfhostSourceSpan,str,str,bool)->SelfhostImportSp
 //: selfhost_import_spec_is_wildcard: wildcard import か[返/かえ]す
 fn selfhost_import_spec_is_wildcard <(SelfhostImportSpec)->bool> (spec):
     spec.is_wildcard
+
+//: selfhost_import_spec_free: import spec が[所有/しょゆう]する文字列 field を[閉/と]じる
+//:
+//: [目的/もくてき]:
+//: - `path` と `alias` は parse 時に切り出した `str` owner なので、fixture や一時 spec を捨てる前に明示的に消費します。
+//: - `SelfhostImportSpec` を `Vec` に入れて扱う既存 API は段階移行中のため、この helper は局所的な cleanup 境界として使います。
+fn selfhost_import_spec_free <(SelfhostImportSpec)->()> (spec):
+    let _path <str> field::get spec "path"
+    let _alias <str> field::get spec "alias"
+    ()
 
 //: selfhost_module_item_kind_is_import_directive: module item kind が import directive か[判定/はんてい]する
 //:

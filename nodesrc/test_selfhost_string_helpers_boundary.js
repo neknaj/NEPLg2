@@ -64,9 +64,27 @@ assert.doesNotMatch(
 );
 
 assert.match(
+    lexerSrc,
+    /fn\s+lex_stack_drop_top[\s\S]*let\s+stack_storage\s+<VecStorageState>[\s\S]*let\s+stack_data\s+<MemPtr<i32>>\s+field::get\s+stack\s+"data"[\s\S]*Vec<i32>\s+sub\s+stack_len\s+1\s+stack_cap\s+stack_storage\s+stack_data/,
+    'lex_stack_drop_top must preserve Vec storage state and move the data owner into the returned Vec',
+);
+
+assert.doesNotMatch(
+    lexerSrc,
+    /Vec<i32>\s+sub\s+stack_len\s+1\s+stack_cap\s+stack_data/,
+    'lex_stack_drop_top must not use the obsolete four-field Vec constructor',
+);
+
+assert.match(
     importSpecSrc,
     /str_starts_with_at\s+s\s+idx\s+"as"/,
     'import spec parser must use str_starts_with_at for the as keyword',
+);
+
+assert.match(
+    importSpecSrc,
+    /fn\s+selfhost_import_spec_free[\s\S]*field::get\s+spec\s+"path"[\s\S]*field::get\s+spec\s+"alias"/,
+    'import spec parser must keep an explicit cleanup helper for parsed path and alias string owners',
 );
 
 console.log('selfhost string helper boundary regression passed');
