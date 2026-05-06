@@ -22,7 +22,7 @@
 
 - 旧 `passes::move_check::run` が Resource IR gate より前に authoritative として残っている。
 - `passes::insert_drops` は checked Resource IR ではなく HIR 上で drop を挿入している。
-- `ResourceCheckDiagnostic::CellUnavailable` は raw-memory cell operation だけ compiler error へ写像され、通常 read/move/drop/call argument などは旧 move checker の防壁に依存している。
+- `ResourceCheckDiagnostic::CellUnavailable` は 2026-05-06 時点で通常 read/move/drop/call/return を含めて compiler error へ写像される。残る未完了点は、旧 move checker が Resource IR gate より前に authoritative として残ることと、drop insertion が HIR 上で行われることである。
 - `UnsafeMemoryInPureFunction` は 2026-05-06 時点で `effect.pure.calls_impure` へ error 化済みである。ただし raw-memory-boundary capability は stdlib migration の限定許可として残る。
 - `HirExprKind::CallIndirect` は 2026-04-30 時点で typed `EffectOp::IndirectCall { effect }` に下がるようになった。2026-05-06 時点では、残存する `EffectOp::Unknown` も `resource.lower.incomplete` として compiler error 化する。
 - `MemPtr<T>` / `RegionToken<T>` は compiler-issued capability ではなく stdlib struct として forge 可能であり、owner token と non-owning pointer projection の分離が未完である。
@@ -37,7 +37,7 @@
 | old move check | `passes::move_check::run` | non-Copy move/use/drop/borrow の広い範囲を拒否する。 | 移行中の防壁であり、self-host に同じ HIR special-case をコピーしてはいけない。 |
 | Resource IR lowering | `resource::lower_hir_module` | HIR の resource-relevant operation を `ResourceOp` / `Place` / `EffectOp` へ落とす。 | `EffectOp::Unknown` は通常 indirect call representation ではなく、残存時は `resource.lower.incomplete` として扱う。function effect / owner summary の semantic completeness は別途必要。 |
 | lowering coverage gate | `compare_hir_resource_lowering_typed` | HIR と Resource IR の operation coverage、deref projection、unknown place を compiler error にする。 | count coverage は必要条件であり、function effect / owner summary の semantic completeness は別途必要。 |
-| cell gate | `check_resource_initialized_moves` + compiler gate | raw load/store/dealloc/realloc/fill/bulk に対する uninit/moved/dropped/maybe-moved を `resource.cell.*` として拒否する。 | 通常 read/move/drop/call argument の cell violation はまだ Resource IR gate の final authority ではない。 |
+| cell gate | `check_resource_initialized_moves` + compiler gate | raw load/store/dealloc/realloc/fill/bulk と通常 read/move/drop/call/construct/branch/match/return の uninit/moved/dropped/maybe-moved を `resource.cell.*` として拒否する。 | old move check との二重 authority を解消し、Resource IR gate を最終 authority にする必要がある。 |
 | owner gate | `check_resource_owner_obligations` + compiler gate | leak / maybe leak / no free obligation / double free / use-after-move を `resource.owner.*` として拒否する。 | raw memory boundary file は一部除外される。stdlib owner token 移行後に除外範囲を縮める。 |
 | borrow gate | `check_resource_borrow_lifetimes` + compiler gate | return escape、shared/unique conflict、drop/move/assign 中の borrow conflict を `resource.borrow.*` として拒否する。 | old move check との二重 authority を解消し、Resource IR state merge を最終状態にする必要がある。 |
 | effect gate | `check_resource_effect_boundaries` + compiler gate | raw address identity escape、unsafe memory in pure、direct host/nondet effect、unknown effect を compiler error として拒否する。 | raw-memory-boundary capability の migration allowance と、stdlib public safe API / internal raw boundary の分離が残る。 |
@@ -62,12 +62,12 @@ self-host では、diagnostic code や token kind を raw string / number で分
 
 メモリ安全の現在の防壁は、old move checker と Resource IR gate の二重構造である。
 
-- raw memory cell の initialized / moved / dropped / maybe-moved は Resource IR が active error にする。
+- raw memory cell と通常 value cell の initialized / moved / dropped / maybe-moved は Resource IR が active error にする。
 - owner obligation は Resource IR が active error にする。
 - borrow conflict は Resource IR が active error にする。
-- non-raw owner/move/drop の広い範囲はまだ old move checker が防いでいる。
+- old move checker は Resource IR gate より前に残る二重防壁であり、最終 authority ではない。
 
-したがって、final design では `ResourceCheckOperation` のうち raw-memory cell だけを compiler gate に写す形を完了条件にしてはいけない。通常 read / move / drop / call argument / return value も Resource IR の cell state authority に移す。
+したがって、次の final design 作業は `ResourceCheckOperation` の通常 cell diagnostic を増やすことではなく、old move checker と HIR drop insertion を Resource IR の checked state / drop elaboration へ統合して削除することである。
 
 ### Effect safety
 
@@ -122,6 +122,6 @@ final design では、function value / callback / indirect call の effect を R
 
 1. Resource IR indirect call effect は typed summary 化済みであり、残存する unknown effect は hard error として維持する。
 2. `UnsafeMemoryInPureFunction` は hard gate 化済みなので、残る raw-memory-boundary capability を stdlib/core/mem の internal/public boundary と compiler-issued token へ狭める。
-3. Resource IR cell gate を raw-memory cell operation だけでなく通常 read/move/drop/call/return へ広げ、old move checker との差分を regression 化する。
+3. Resource IR cell gate は通常 read/move/drop/call/return まで hard gate 化済みなので、この状態を regression として維持する。
 4. drop insertion を checked Resource IR 上の owner/cell state から行う設計へ移す。
 5. self-host S3 ではこの順序を前提にし、旧 HIR checker の special-case を再実装しない。

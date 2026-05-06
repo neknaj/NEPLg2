@@ -261,7 +261,7 @@ fn run_move_check(
         crate::resource::compare_hir_resource_lowering_typed(hir_module, &resource, types);
     run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
     let initialized_moves = crate::resource::check_resource_initialized_moves(&resource, types);
-    run_resource_raw_cell_gate(&initialized_moves, diagnostics, source_map)?;
+    run_resource_cell_gate(&initialized_moves, diagnostics, source_map)?;
     let borrow_lifetimes = crate::resource::check_resource_borrow_lifetimes(&resource);
     run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)?;
     let effect_boundaries = crate::resource::check_resource_effect_boundaries(&resource);
@@ -338,12 +338,12 @@ fn resource_raw_identity_escape_code() -> DiagnosticCode {
     ))
 }
 
-fn run_resource_raw_cell_gate(
+fn run_resource_cell_gate(
     report: &crate::resource::ResourceCheckReport,
     diagnostics: &mut Vec<Diagnostic>,
     source_map: Option<&SourceMap>,
 ) -> Result<(), CoreError> {
-    let mut raw_cell_errors = Vec::new();
+    let mut cell_errors = Vec::new();
     for diagnostic in &report.diagnostics {
         let crate::resource::ResourceCheckDiagnostic::CellUnavailable { span, .. } = diagnostic;
         if source_map
@@ -352,20 +352,18 @@ fn run_resource_raw_cell_gate(
         {
             continue;
         }
-        if let Some(error) = resource_raw_cell_diagnostic_to_error(diagnostic) {
-            raw_cell_errors.push(error);
-        }
+        cell_errors.push(resource_cell_diagnostic_to_error(diagnostic));
     }
-    if raw_cell_errors.is_empty() {
+    if cell_errors.is_empty() {
         return Ok(());
     }
-    diagnostics.extend(raw_cell_errors);
+    diagnostics.extend(cell_errors);
     Err(CoreError::from_diagnostics(diagnostics.clone()))
 }
 
-fn resource_raw_cell_diagnostic_to_error(
+fn resource_cell_diagnostic_to_error(
     diagnostic: &crate::resource::ResourceCheckDiagnostic,
-) -> Option<Diagnostic> {
+) -> Diagnostic {
     match diagnostic {
         crate::resource::ResourceCheckDiagnostic::CellUnavailable {
             function,
@@ -373,33 +371,15 @@ fn resource_raw_cell_diagnostic_to_error(
             place,
             state,
             span,
-        } if resource_check_operation_is_raw_memory_cell(*operation) => Some(
-            Diagnostic::error_with_code(
-                resource_cell_diagnostic_code(state),
-                format!(
-                    "resource ir raw memory cell ownership violation in function '{}': {:?} on {:?} found {:?}",
-                    function, operation, place, state
-                ),
-                *span,
+        } => Diagnostic::error_with_code(
+            resource_cell_diagnostic_code(state),
+            format!(
+                "resource ir cell state violation in function '{}': {:?} on {:?} found {:?}",
+                function, operation, place, state
             ),
+            *span,
         ),
-        _ => None,
     }
-}
-
-fn resource_check_operation_is_raw_memory_cell(
-    operation: crate::resource::ResourceCheckOperation,
-) -> bool {
-    matches!(
-        operation,
-        crate::resource::ResourceCheckOperation::RawMemoryStoreCell
-            | crate::resource::ResourceCheckOperation::RawMemoryLoadCell
-            | crate::resource::ResourceCheckOperation::RawMemoryDeallocCell
-            | crate::resource::ResourceCheckOperation::RawMemoryReallocCell
-            | crate::resource::ResourceCheckOperation::RawMemoryFillCell
-            | crate::resource::ResourceCheckOperation::RawMemoryBulkDestinationCell
-            | crate::resource::ResourceCheckOperation::RawMemoryBulkSourceCell
-    )
 }
 
 fn resource_cell_diagnostic_code(state: &crate::resource::CellState) -> DiagnosticCode {
@@ -635,11 +615,13 @@ mod tests {
     use alloc::boxed::Box;
 
     #[test]
-    fn resource_raw_cell_gate_maps_raw_cell_diagnostic_to_cell_code() {
+    fn resource_cell_gate_maps_cell_diagnostics_to_cell_code() {
         let types = crate::types::TypeCtx::new();
         for operation in [
             ResourceCheckOperation::RawMemoryLoadCell,
             ResourceCheckOperation::RawMemoryDeallocCell,
+            ResourceCheckOperation::Read,
+            ResourceCheckOperation::ReturnValue,
         ] {
             let place = Place::temporary(ResourceId(0), types.i32());
             let diagnostic = ResourceCheckDiagnostic::CellUnavailable {
@@ -650,8 +632,7 @@ mod tests {
                 span: Span::dummy(),
             };
 
-            let error = resource_raw_cell_diagnostic_to_error(&diagnostic)
-                .expect("raw memory cell diagnostic should become a compiler error");
+            let error = resource_cell_diagnostic_to_error(&diagnostic);
 
             assert_eq!(
                 error.code,
@@ -661,25 +642,8 @@ mod tests {
                     )
                 ))
             );
-            assert!(error
-                .message
-                .contains("resource ir raw memory cell ownership violation"));
+            assert!(error.message.contains("resource ir cell state violation"));
         }
-    }
-
-    #[test]
-    fn resource_raw_cell_gate_ignores_non_raw_cell_diagnostic() {
-        let types = crate::types::TypeCtx::new();
-        let place = Place::temporary(ResourceId(0), types.i32());
-        let diagnostic = ResourceCheckDiagnostic::CellUnavailable {
-            function: String::from("main"),
-            operation: ResourceCheckOperation::Read,
-            place,
-            state: CellState::Moved,
-            span: Span::dummy(),
-        };
-
-        assert!(resource_raw_cell_diagnostic_to_error(&diagnostic).is_none());
     }
 
     #[test]

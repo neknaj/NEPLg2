@@ -1,3 +1,29 @@
+# 2026-05-06 note (ISS-20260506T003017725Z Resource IR normal cell gate)
+
+- [同期]:
+  - `24b49401` push / pull 後の clean な `main` から、branch `work/resource-cell-gate-all-ops` を作成して対応した。
+- [原因]:
+  - `run_resource_raw_cell_gate` は `ResourceCheckDiagnostic::CellUnavailable` のうち raw-memory cell operation だけを compiler diagnostic へ変換していた。
+  - 通常 read / move / drop / call argument / construct input / branch / match / return の cell-state violation は、Resource IR 側で検出されても compiler boundary では shadow-only になっていた。
+- [修正]:
+  - gate を `run_resource_cell_gate` へ整理し、すべての `CellUnavailable` を `resource.cell.*` へ変換するようにした。
+  - raw-memory-boundary capability による stdlib/core/mem 移行中許可は維持しつつ、operation filter を削除した。
+  - static check plan / soundness review / RV-CORE-009 issue に、通常 cell gate hard-error 化済みの状態を追記した。
+- [検証]:
+  - `cargo test -p nepl-core compiler::tests::resource_cell_gate_maps_cell_diagnostics_to_cell_code --lib`: passed
+  - `cargo test -p nepl-core --lib compiler::tests::resource_`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check -- --nocapture`: 48 passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 155 passed / 3 failed。失敗は pure `main` fixture が raw memory helper を呼ぶ既存 test annotation 問題であり、`ISS-20260506T003541589Z-RESOURCE-IR-OWNER-PIPELINE-FIXTURES--393E98C4` として別 issue 化した。
+- [issue]:
+  - `ISS-20260506T003017725Z-RESOURCE-IR-CELL-GATE-FILTERS-NON-RA-233DF19C` は fixed。
+  - `ISS-20260506T003541589Z-RESOURCE-IR-OWNER-PIPELINE-FIXTURES--393E98C4` を新規 open issue として追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260506T002544946Z diagnostic code exhaustive policy)
 
 - [同期]:
