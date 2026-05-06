@@ -14,6 +14,7 @@ use super::initialized_alias_flow::{
     compute_raw_cell_address_return_summaries, construct_raw_cell_address_alias_fields,
     expr_kind_preserves_raw_alias, RawCellAddressReturnSummary,
 };
+use super::initialized_drop_scope::auto_drop_scope_locals;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
 use super::initialized_variant::PendingVariantRawCellInitializations;
@@ -283,7 +284,16 @@ impl ResourceCheckEngine<'_> {
                     variant_initializations.clear_result(place);
                 }
             }
-            ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
+            ResourceOp::EndScope { locals, .. } => auto_drop_scope_locals(
+                self.types,
+                cells,
+                raw_aliases,
+                function_aliases,
+                pending_reallocs,
+                variant_initializations,
+                locals,
+            ),
+            ResourceOp::CallEffect { .. } => {}
             ResourceOp::FunctionValue { output, name, .. } => {
                 cells.mark_initialized(output);
                 raw_aliases.clear(output);

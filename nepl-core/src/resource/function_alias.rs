@@ -59,7 +59,7 @@ impl FunctionAliasTable {
         });
     }
 
-    fn clear_alias(&mut self, place: &Place) {
+    pub(super) fn clear_alias(&mut self, place: &Place) {
         self.entries.retain(|entry| entry.place != *place);
     }
 

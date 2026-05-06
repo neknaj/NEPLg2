@@ -1,3 +1,32 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR EndScope auto-drop)
+
+- [同期]:
+  - `b0ad1ac4` push 後、`origin/main` と一致する clean な `main` から branch `work/resource-ir-drop-elaboration` を作成した。
+- [原因]:
+  - Resource IR gate は HIR drop insertion より前へ移動したが、scope exit の drop obligation 自体は Resource IR の `EndScope` で state transition されず、HIR `passes::insert_drops` の生成済み `drop` 式に依存する構造が残っていた。
+  - EndScope auto-drop を単純に local name で実装すると、同名・同型 shadowing で inner local の drop が outer local の `CellState` を壊す。
+- [修正]:
+  - `initialized_drop_scope.rs` を追加し、live initialized non-Copy local を `EndScope` で `Dropped` へ遷移させるようにした。
+  - auto-drop 時に raw alias、function alias、pending realloc、variant raw-cell initialization の補助状態も scope local から削除するようにした。
+  - Resource IR lowering で有効範囲内の同名 local を固有 Place に分け、shadowed local だけ `x#N` 形式にすることで outer local の state を守るようにした。
+  - `resource_ir_check_auto_drops_live_non_copy_local_at_scope_end` と `resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct` を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_check_auto_drops_live_non_copy_local_at_scope_end -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct -- --nocapture`: passed
+  - `cargo test -p nepl-core --test drop auto_drop_handles_shadowing_as_distinct_bindings -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8/8 passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md --runner wasm --no-tree -j 1`: 27/27 passed
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md --runner wasm --no-tree -j 1`: 52/52 passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --runner wasm --no-tree -j 1`: 110/110 passed
+- [残件]:
+  - codegen 側の実 drop call 挿入はまだ HIR `passes::insert_drops` に残っている。次は Resource IR drop elaboration の結果から codegen drop を生成する構造へ移す。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR pre-drop gate)
 
 - [同期]:

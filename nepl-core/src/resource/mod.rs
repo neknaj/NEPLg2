@@ -35,6 +35,7 @@ mod initialized_alias_flow;
 mod initialized_alias_i32;
 mod initialized_alias_rank;
 mod initialized_control;
+mod initialized_drop_scope;
 mod initialized_external_io;
 mod initialized_external_io_effect;
 mod initialized_external_io_input;

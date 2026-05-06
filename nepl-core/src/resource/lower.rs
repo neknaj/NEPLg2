@@ -107,17 +107,19 @@ fn insert_effect(function_effects: &mut BTreeMap<String, Effect>, name: String, 
 
 pub(super) struct LoweringContext {
     next_resource: usize,
-    local_scopes: Vec<BTreeMap<String, TypeId>>,
+    next_local: usize,
+    local_scopes: Vec<BTreeMap<String, Place>>,
 }
 
 impl LoweringContext {
     fn new(params: &[ResourceLocal]) -> Self {
         let mut root_scope = BTreeMap::new();
         for param in params {
-            root_scope.insert(param.name.clone(), param.ty);
+            root_scope.insert(param.name.clone(), param.place.clone());
         }
         Self {
             next_resource: 0,
+            next_local: 0,
             local_scopes: alloc::vec![root_scope],
         }
     }
@@ -137,31 +139,42 @@ impl LoweringContext {
             .pop()
             .unwrap_or_default()
             .into_iter()
-            .map(|(name, ty)| Place::local(name, ty))
+            .map(|(_, place)| place)
             .collect()
     }
 
-    fn declare_local(&mut self, name: String, ty: TypeId) {
+    fn declare_local(&mut self, name: String, ty: TypeId) -> Place {
+        let local_name = if self.local_place_for_name(&name).is_some() {
+            let id = self.next_local;
+            self.next_local += 1;
+            alloc::format!("{name}#{id}")
+        } else {
+            name.clone()
+        };
+        let place = Place::local(local_name, ty);
         if let Some(scope) = self.local_scopes.last_mut() {
-            scope.insert(name, ty);
+            scope.insert(name, place.clone());
         }
+        place
     }
 
     fn local_place(&self, name: &str, fallback_ty: TypeId) -> Place {
-        let ty = self
-            .local_scopes
-            .iter()
-            .rev()
-            .find_map(|scope| scope.get(name).copied())
-            .unwrap_or(fallback_ty);
-        Place::local(String::from(name), ty)
+        self.local_place_for_name(name)
+            .unwrap_or_else(|| Place::local(String::from(name), fallback_ty))
     }
 
-    fn snapshot_locals(&self) -> Vec<BTreeMap<String, TypeId>> {
+    fn local_place_for_name(&self, name: &str) -> Option<Place> {
+        self.local_scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.get(name).cloned())
+    }
+
+    fn snapshot_locals(&self) -> Vec<BTreeMap<String, Place>> {
         self.local_scopes.clone()
     }
 
-    fn restore_locals(&mut self, local_scopes: Vec<BTreeMap<String, TypeId>>) {
+    fn restore_locals(&mut self, local_scopes: Vec<BTreeMap<String, Place>>) {
         self.local_scopes = local_scopes;
     }
 }
@@ -517,8 +530,7 @@ pub(super) fn lower_expr_skeleton(
             value,
         } => {
             let initializer = lower_expr_skeleton(value, ops, ctx, env);
-            let place = Place::local(name.clone(), value.ty);
-            ctx.declare_local(name.clone(), value.ty);
+            let place = ctx.declare_local(name.clone(), value.ty);
             ops.push(ResourceOp::DeclareLocal {
                 place: place.clone(),
                 mutable: *mutable,

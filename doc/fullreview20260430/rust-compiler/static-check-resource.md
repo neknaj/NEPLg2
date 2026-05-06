@@ -67,6 +67,14 @@ typecheck 直後の未単相化 HIR 全体を Resource IR へ直接下げると�
 
 これは最終形ではない。最終的には HIR `passes::insert_drops` を Resource IR drop elaboration へ置き換え、Resource IR check と drop elaboration を同じ Resource IR 上で連続させる。その時点で二重 typecheck 経路は削除する。
 
+## 2026-05-06 EndScope auto-drop 追補
+
+Resource IR initialized/cell checker は `EndScope` で live non-Copy local を auto-drop state transition として扱うようになった。これにより、source Resource IR check は HIR `passes::insert_drops` が生成した `drop` 式に依存せず、scope exit の drop obligation を Resource IR 上で検査できる。
+
+同名・同型 shadowing では inner scope の auto-drop が outer local の `CellState` を壊すため、Resource IR lowering は有効範囲内の同名 local を内部 place として固有化する。通常 local の表示名は維持し、shadowed local だけ `x#N` 形式の Resource IR local name を使う。
+
+残る blocker は codegen 側である。現在も wasm 生成前の実 drop call 挿入は HIR `passes::insert_drops` に残っているため、次は Resource IR drop elaboration の結果から HIR/Wasm の drop 呼び出しを生成する構造へ移す必要がある。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

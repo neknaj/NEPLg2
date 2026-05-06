@@ -3208,6 +3208,93 @@ fn resource_ir_check_reports_read_after_drop() {
 }
 
 #[test]
+fn resource_ir_check_auto_drops_live_non_copy_local_at_scope_end() {
+    let (types, owned_ty) = types_with_non_copy_owned();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            func_ty: TypeId(9),
+            params: vec![],
+            result: unit_ty,
+            effect: Effect::Pure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![HirLine {
+                    expr: HirExpr {
+                        ty: unit_ty,
+                        kind: HirExprKind::Let {
+                            name: "x".to_string(),
+                            mutable: false,
+                            value: Box::new(HirExpr {
+                                ty: owned_ty,
+                                kind: HirExprKind::StructConstruct {
+                                    name: "Owned".to_string(),
+                                    type_args: vec![],
+                                    fields: vec![],
+                                },
+                                span,
+                            }),
+                        },
+                        span,
+                    },
+                    drop_result: true,
+                }],
+                ty: unit_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    assert!(report.functions[0].final_cells.iter().any(|entry| {
+        matches!(&entry.place.root, PlaceRoot::Local(name) if name == "x")
+            && entry.state == CellState::Dropped
+    }));
+}
+
+#[test]
+fn resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+
+struct Guard:
+    id <i32>
+
+fn consume <(Guard)->i32> (_g):
+    0
+
+fn main <()->i32> ():
+    let x <Guard> Guard 1
+    let _ <i32> if true:
+        then:
+            let x <Guard> Guard 2
+            0
+        else:
+            0
+    consume x
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let dump = resource.dump_text();
+    assert!(dump.contains("%x#"));
+}
+
+#[test]
 fn resource_ir_check_reports_uninitialized_read() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();
