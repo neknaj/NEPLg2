@@ -396,6 +396,32 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 - List node storage は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
 
+## 2026-05-06 byte collection Vec.get Option read 部分進捗
+
+`BitSet` / `AdjacencyMatrix` の byte read helper は `vec::get` の `Option::None` を `0` に丸めていたため、typed storage 化後も backing storage invariant の破損を正常値として隠す余地があった。
+
+進捗:
+
+- `bitset_byte_at` / `adjacency_matrix_byte_at` は `Option<i32>` を返す helper に変更した。
+- `contains` は `Option::None` を既存の index / vertex diagnostic へ流す。
+- `insert` / `remove` は byte storage borrow を inner block に閉じ、`Result<(), Diag>` を得てから owner を返すことで shared borrow と owner move を重ねない。
+- source policy は byte read helper が `Option<i32>` を返し、missing byte を `none<i32>` として `match` することを固定する。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl -i stdlib/alloc/collections/adjacency_matrix.nepl --no-tree -o tmp/byte-collection-option-read-doctests2.json -j 1`: total=13, passed=13
+- `node nodesrc/tests.js -i stdlib/tests/bitset.n.md -i tests/stdlib/bitset_collections.n.md -i stdlib/tests/adjacency_matrix.n.md -i tests/stdlib/adjacency_matrix_collections.n.md --no-tree -o tmp/byte-collection-option-read-focused2.json -j 1`: total=13, passed=13
+- `node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+
+残件:
+
+- Fenwick / SegmentTree / DisjointSet の numeric storage read helper も同様に `Option::None` を正常値に丸めており、別途 `Option` contract へ移す必要がある。
+- List node storage は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+
 ## 2026-05-06 BloomFilter typed Vec storage 部分進捗
 
 `stdlib/alloc/collections/bloom_filter.nepl` は bit array payload を raw `MemPtr<u8>` array から `Vec<u8>` owner へ移行した。

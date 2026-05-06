@@ -82,12 +82,13 @@ fn bitset_mask <(i32)->i32> (bit_idx):
 fn bitset_valid_index <(i32,i32)->bool> (idx, nbits):
     and le 0 idx lt idx nbits
 
-fn bitset_byte_at <(&Vec<u8>,i32)->i32> (bits, byte_idx):
+fn bitset_byte_at <(&Vec<u8>,i32)->Option<i32>> (bits, byte_idx):
     match vec::get<u8> bits byte_idx:
         Option::Some byte:
-            cast byte
+            let value <i32> cast byte
+            some<i32> value
         Option::None:
-            0
+            none<i32>
 
 fn bitset_store_byte <(&Vec<u8>,i32,i32)*>()> (bits, byte_idx, byte_value):
     let byte <u8> cast byte_value
@@ -172,8 +173,11 @@ fn contains <(&BitSet,i32)*>Result<bool, Diag>> (bs, idx):
             let bits <&Vec<u8>> field::get_ref bs "bits"
             let byte_idx <i32> bitset_byte_index idx
             let mask <i32> bitset_mask idx
-            let cur <i32> bitset_byte_at bits byte_idx
-            ok<bool, Diag> ne and cur mask 0
+            match bitset_byte_at bits byte_idx:
+                Option::Some cur:
+                    ok<bool, Diag> ne and cur mask 0
+                Option::None:
+                    diag_err<bool> bitset_index_diag
         else:
             diag_err<bool> bitset_index_diag
 
@@ -199,12 +203,22 @@ fn insert <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
     if:
         bitset_valid_index idx nbits
         then:
-            let bits <&Vec<u8>> field::get_ref &bs "bits"
-            let byte_idx <i32> bitset_byte_index idx
-            let mask <i32> bitset_mask idx
-            let cur <i32> bitset_byte_at bits byte_idx
-            bitset_store_byte bits byte_idx or cur mask
-            ok<BitSet, BitSetUpdateError> bs
+            let result <Result<(), Diag>> block:
+                let bits <&Vec<u8>> field::get_ref &bs "bits"
+                let byte_idx <i32> bitset_byte_index idx
+                let mask <i32> bitset_mask idx
+                match bitset_byte_at bits byte_idx:
+                    Option::Some cur:
+                        bitset_store_byte bits byte_idx or cur mask
+                        ok<(), Diag> ()
+                    Option::None:
+                        diag_err<()> bitset_index_diag
+            match result:
+                Result::Ok _unit:
+                    ok<BitSet, BitSetUpdateError> bs
+                Result::Err d:
+                    let e <BitSetUpdateError> BitSetUpdateError bs d
+                    err<BitSet, BitSetUpdateError> e
         else:
             let d <Diag> bitset_index_diag
             let e <BitSetUpdateError> BitSetUpdateError bs d
@@ -234,12 +248,22 @@ fn remove <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
     if:
         bitset_valid_index idx nbits
         then:
-            let bits <&Vec<u8>> field::get_ref &bs "bits"
-            let byte_idx <i32> bitset_byte_index idx
-            let mask <i32> bitset_mask idx
-            let cur <i32> bitset_byte_at bits byte_idx
-            bitset_store_byte bits byte_idx and cur xor mask 255
-            ok<BitSet, BitSetUpdateError> bs
+            let result <Result<(), Diag>> block:
+                let bits <&Vec<u8>> field::get_ref &bs "bits"
+                let byte_idx <i32> bitset_byte_index idx
+                let mask <i32> bitset_mask idx
+                match bitset_byte_at bits byte_idx:
+                    Option::Some cur:
+                        bitset_store_byte bits byte_idx and cur xor mask 255
+                        ok<(), Diag> ()
+                    Option::None:
+                        diag_err<()> bitset_index_diag
+            match result:
+                Result::Ok _unit:
+                    ok<BitSet, BitSetUpdateError> bs
+                Result::Err d:
+                    let e <BitSetUpdateError> BitSetUpdateError bs d
+                    err<BitSet, BitSetUpdateError> e
         else:
             let d <Diag> bitset_index_diag
             let e <BitSetUpdateError> BitSetUpdateError bs d

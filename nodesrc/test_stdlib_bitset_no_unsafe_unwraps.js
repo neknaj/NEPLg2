@@ -29,7 +29,7 @@ for (const pattern of forbidden) {
 assert.match(code, /#import\s+"alloc\/collections\/vec"\s+as\s+vec/, 'BitSet must use typed Vec storage');
 assert.match(code, /struct\s+BitSet:\s+[\s\S]*\bnbits\s+<i32>[\s\S]*\bnbytes\s+<i32>[\s\S]*\bbits\s+<Vec<u8>>/, 'BitSet must store bit payload as a typed Vec<u8> owner');
 assert.match(code, /fn\s+bitset_alloc_bits\s+<\(i32,i32\)\*>Result<Vec<u8>,\s*Diag>>[\s\S]*vec::filled<u8>\s+nbytes\s+byte/, 'BitSet must allocate initialized typed byte storage through Vec.filled');
-assert.match(code, /fn\s+bitset_byte_at\s+<\(&Vec<u8>,i32\)->i32>[\s\S]*vec::get<u8>/, 'BitSet must read bit bytes through Vec.get');
+assert.match(code, /fn\s+bitset_byte_at\s+<\(&Vec<u8>,i32\)->Option<i32>>[\s\S]*vec::get<u8>[\s\S]*Option::None:[\s\S]*none<i32>/, 'BitSet must read bit bytes through Vec.get and expose missing bytes as Option');
 assert.match(code, /fn\s+bitset_store_byte\s+<\(&Vec<u8>,i32,i32\)\*>\(\)>[\s\S]*vec::replace<u8>/, 'BitSet must update bit bytes through Vec.replace');
 assert.match(code, /fn\s+free\s+<\(BitSet\)->\(\)>[\s\S]*vec::free<u8>\s+bits/, 'BitSet.free must close typed Vec<u8> storage');
 assert.doesNotMatch(code, /\bMemPtr\b/, 'BitSet must not expose raw MemPtr storage');

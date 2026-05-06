@@ -1,3 +1,26 @@
+# 2026-05-06 note (ISS-20260429T155343006Z byte collection Option read)
+
+- [同期]:
+  - `8dc9f6a5` の CountingBloomFilter typed storage push 後、`origin/main` と一致する clean な `main` から branch `fix/typed-collection-option-reads` を作成して対応中。
+- [原因]:
+  - `BitSet` / `AdjacencyMatrix` は `Vec<u8>` storage へ移行済みだったが、byte read helper が `vec::get` の `Option::None` を `0` に丸めていた。
+  - この fallback は backing storage invariant の破損を正常な zero byte と区別できず、`match` による静的分岐も caller に現れなかった。
+- [修正]:
+  - `bitset_byte_at` / `adjacency_matrix_byte_at` を `Option<i32>` return に変更した。
+  - `contains` は missing byte を既存 diagnostic へ流す。
+  - `insert` / `remove` は byte storage borrow を inner block に閉じ、`Result<(), Diag>` を `match` してから owner を返す形へ変更した。
+  - BitSet / AdjacencyMatrix source policy を更新し、`Option<i32>` helper と `none<i32>` arm を固定した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl -i stdlib/alloc/collections/adjacency_matrix.nepl --no-tree -o tmp/byte-collection-option-read-doctests2.json -j 1`: total=13, passed=13
+  - `node nodesrc/tests.js -i stdlib/tests/bitset.n.md -i tests/stdlib/bitset_collections.n.md -i stdlib/tests/adjacency_matrix.n.md -i tests/stdlib/adjacency_matrix_collections.n.md --no-tree -o tmp/byte-collection-option-read-focused2.json -j 1`: total=13, passed=13
+  - `node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260429T155343006Z CountingBloomFilter typed Vec storage)
 
 - [同期]:

@@ -29,7 +29,7 @@ for (const pattern of forbidden) {
 assert.match(code, /#import\s+"alloc\/collections\/vec"\s+as\s+vec/, 'AdjacencyMatrix must use typed Vec storage');
 assert.match(code, /struct\s+AdjacencyMatrix:\s+[\s\S]*\bnverts\s+<i32>[\s\S]*\bnbytes\s+<i32>[\s\S]*\bbits\s+<Vec<u8>>/, 'AdjacencyMatrix must store matrix bytes as a typed Vec<u8> owner');
 assert.match(code, /fn\s+adjacency_matrix_alloc_bits\s+<\(i32,i32\)\*>Result<Vec<u8>,\s*Diag>>[\s\S]*vec::filled<u8>\s+nbytes\s+byte/, 'AdjacencyMatrix must allocate initialized byte storage through Vec.filled');
-assert.match(code, /fn\s+adjacency_matrix_byte_at\s+<\(&Vec<u8>,i32\)->i32>[\s\S]*vec::get<u8>/, 'AdjacencyMatrix must read matrix bytes through Vec.get');
+assert.match(code, /fn\s+adjacency_matrix_byte_at\s+<\(&Vec<u8>,i32\)->Option<i32>>[\s\S]*vec::get<u8>[\s\S]*Option::None:[\s\S]*none<i32>/, 'AdjacencyMatrix must read matrix bytes through Vec.get and expose missing bytes as Option');
 assert.match(code, /fn\s+adjacency_matrix_store_byte\s+<\(&Vec<u8>,i32,i32\)\*>\(\)>[\s\S]*vec::replace<u8>/, 'AdjacencyMatrix must update matrix bytes through Vec.replace');
 assert.match(code, /fn\s+free\s+<\(AdjacencyMatrix\)->\(\)>[\s\S]*vec::free<u8>\s+bits/, 'AdjacencyMatrix.free must close typed Vec<u8> storage');
 assert.doesNotMatch(code, /\bMemPtr\b/, 'AdjacencyMatrix must not expose raw MemPtr storage');

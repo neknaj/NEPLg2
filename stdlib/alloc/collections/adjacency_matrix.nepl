@@ -88,12 +88,13 @@ fn adjacency_matrix_valid_vertex <(i32,i32)->bool> (idx, nverts):
 fn adjacency_matrix_valid_edge <(i32,i32,i32)->bool> (nverts, from, to):
     and adjacency_matrix_valid_vertex from nverts adjacency_matrix_valid_vertex to nverts
 
-fn adjacency_matrix_byte_at <(&Vec<u8>,i32)->i32> (bits, byte_idx):
+fn adjacency_matrix_byte_at <(&Vec<u8>,i32)->Option<i32>> (bits, byte_idx):
     match vec::get<u8> bits byte_idx:
         Option::Some byte:
-            cast byte
+            let value <i32> cast byte
+            some<i32> value
         Option::None:
-            0
+            none<i32>
 
 fn adjacency_matrix_store_byte <(&Vec<u8>,i32,i32)*>()> (bits, byte_idx, byte_value):
     let byte <u8> cast byte_value
@@ -180,8 +181,11 @@ fn contains <(&AdjacencyMatrix,i32,i32)*>Result<bool, Diag>> (g, from, to):
             let bit_idx <i32> adjacency_matrix_bit_index nverts from to
             let byte_idx <i32> adjacency_matrix_byte_index bit_idx
             let mask <i32> adjacency_matrix_mask bit_idx
-            let cur <i32> adjacency_matrix_byte_at bits byte_idx
-            ok<bool, Diag> ne and cur mask 0
+            match adjacency_matrix_byte_at bits byte_idx:
+                Option::Some cur:
+                    ok<bool, Diag> ne and cur mask 0
+                Option::None:
+                    diag_err<bool> adjacency_matrix_vertex_diag
         else:
             if:
                 not adjacency_matrix_valid_vertex from nverts
@@ -212,13 +216,23 @@ fn insert <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, AdjacencyMatrixUpd
     if:
         adjacency_matrix_valid_edge nverts from to
         then:
-            let bits <&Vec<u8>> field::get_ref &g "bits"
-            let bit_idx <i32> adjacency_matrix_bit_index nverts from to
-            let byte_idx <i32> adjacency_matrix_byte_index bit_idx
-            let mask <i32> adjacency_matrix_mask bit_idx
-            let cur <i32> adjacency_matrix_byte_at bits byte_idx
-            adjacency_matrix_store_byte bits byte_idx or cur mask
-            ok<AdjacencyMatrix, AdjacencyMatrixUpdateError> g
+            let result <Result<(), Diag>> block:
+                let bits <&Vec<u8>> field::get_ref &g "bits"
+                let bit_idx <i32> adjacency_matrix_bit_index nverts from to
+                let byte_idx <i32> adjacency_matrix_byte_index bit_idx
+                let mask <i32> adjacency_matrix_mask bit_idx
+                match adjacency_matrix_byte_at bits byte_idx:
+                    Option::Some cur:
+                        adjacency_matrix_store_byte bits byte_idx or cur mask
+                        ok<(), Diag> ()
+                    Option::None:
+                        diag_err<()> adjacency_matrix_vertex_diag
+            match result:
+                Result::Ok _unit:
+                    ok<AdjacencyMatrix, AdjacencyMatrixUpdateError> g
+                Result::Err d:
+                    let e <AdjacencyMatrixUpdateError> AdjacencyMatrixUpdateError g d
+                    err<AdjacencyMatrix, AdjacencyMatrixUpdateError> e
         else:
             let d <Diag> adjacency_matrix_vertex_diag
             let e <AdjacencyMatrixUpdateError> AdjacencyMatrixUpdateError g d
@@ -248,13 +262,23 @@ fn remove <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, AdjacencyMatrixUpd
     if:
         adjacency_matrix_valid_edge nverts from to
         then:
-            let bits <&Vec<u8>> field::get_ref &g "bits"
-            let bit_idx <i32> adjacency_matrix_bit_index nverts from to
-            let byte_idx <i32> adjacency_matrix_byte_index bit_idx
-            let mask <i32> adjacency_matrix_mask bit_idx
-            let cur <i32> adjacency_matrix_byte_at bits byte_idx
-            adjacency_matrix_store_byte bits byte_idx and cur xor mask 255
-            ok<AdjacencyMatrix, AdjacencyMatrixUpdateError> g
+            let result <Result<(), Diag>> block:
+                let bits <&Vec<u8>> field::get_ref &g "bits"
+                let bit_idx <i32> adjacency_matrix_bit_index nverts from to
+                let byte_idx <i32> adjacency_matrix_byte_index bit_idx
+                let mask <i32> adjacency_matrix_mask bit_idx
+                match adjacency_matrix_byte_at bits byte_idx:
+                    Option::Some cur:
+                        adjacency_matrix_store_byte bits byte_idx and cur xor mask 255
+                        ok<(), Diag> ()
+                    Option::None:
+                        diag_err<()> adjacency_matrix_vertex_diag
+            match result:
+                Result::Ok _unit:
+                    ok<AdjacencyMatrix, AdjacencyMatrixUpdateError> g
+                Result::Err d:
+                    let e <AdjacencyMatrixUpdateError> AdjacencyMatrixUpdateError g d
+                    err<AdjacencyMatrix, AdjacencyMatrixUpdateError> e
         else:
             let d <Diag> adjacency_matrix_vertex_diag
             let e <AdjacencyMatrixUpdateError> AdjacencyMatrixUpdateError g d
