@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T12:21:06.635Z",
+  "generated_at": "2026-05-06T12:43:08.440Z",
   "counts": {
-    "total": 511,
-    "open": 13,
-    "resolved": 498,
+    "total": 513,
+    "open": 14,
+    "resolved": 499,
     "by_area": {
       "core": {
-        "total": 246,
-        "open": 5,
-        "resolved": 241
+        "total": 248,
+        "open": 6,
+        "resolved": 242
       },
       "stdlib": {
         "total": 156,
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52",
+      "title": "stdlib raw-memory-backed scanner and byte helpers lack Stage5 boundary plan",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/loader.rs, stdlib/alloc/io.nepl, stdlib/alloc/string/utf8.nepl, stdlib/std/text.nepl, stdlib/std/streamio/scanner/state.nepl, tests/stdlib/kp.n.md, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3808,6 +3823,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T113709479Z-RESOURCE-DROP-ELABORATION-PLAN-IS-NO-6CFFA860.md"
+    },
+    {
+      "id": "ISS-20260506T122605377Z-STDLIB-ALLOC-STRING-RAW-MEMORY-BOUND-7853986C",
+      "title": "stdlib alloc/string raw memory boundary lacks loader capability",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/loader.rs, nepl-core/tests/effects.rs, stdlib/alloc/string.nepl, stdlib/alloc/string/storage.nepl, nepl-core/tests/kp.rs, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T122605377Z-STDLIB-ALLOC-STRING-RAW-MEMORY-BOUND-7853986C.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

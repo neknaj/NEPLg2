@@ -20,7 +20,7 @@ Resource IR initialized-cell summaries can propagate returned raw header fields 
 
 ## 対象
 
-- `nepl-core/src/resource/initialized_return.rs, nepl-core/src/resource/initialized_external_io.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/kp.rs`
+- `nepl-core/src/resource/initialized_summary*.rs, nepl-core/src/resource/initialized_external_io*.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/kp.rs, tests/stdlib/kp.n.md`
 
 ## 根拠
 
@@ -64,3 +64,11 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 - `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`: `concat_result` / `from_u128_radix` / `len__str` / `string_finish_base` など raw-memory backed pure stdlib helper の `UnsafeMemoryInPureFunction` / `PureCallsImpure` で compile failure
 
 この issue は引き続き open とする。理由は、既存の単発 returned-header summary は十分ではなく、header pointer field / len field / initialized byte range の dependent relation を型付き summary として表す必要が残るためである。ただし full scanner regression を authoritative に戻すには、先に `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` 側で raw-memory-backed stdlib helper の effect boundary を整理する必要がある。
+
+## 2026-05-06 wasm doctest 追加確認
+
+`trunk build` 後に `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_alloc_string_raw_boundary.json --runner wasm --no-tree -j 1 --assert-io` を実行したところ、7 件すべて compile failure になった。
+
+先頭の blocker は `ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52` として切り出した `alloc/io.nepl` / `alloc/string/utf8.nepl` / `std/text.nepl` / `std/streamio/scanner/state.nepl` の Stage 5 raw-memory boundary 未整理である。
+
+ただし doctest#3 では effect blocker の奥に、`pref` の dynamic-offset prefix buffer read が `resource.cell.possibly_moved` / `resource.cell.uninit` として残っていることも確認した。これはこの issue の本体である returned / dynamic range initialized summary 不足に該当するため、Stage 5 の追加 blocker を取り除いた後に `tests/stdlib/kp.n.md` を authoritative source-level regression として再実行する。

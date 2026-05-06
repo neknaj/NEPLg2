@@ -619,6 +619,101 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn loader_marks_configured_stdlib_alloc_string_as_raw_memory_boundary() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let stdlib_root = temp.path().join("stdlib");
+    std::fs::create_dir_all(stdlib_root.join("alloc")).expect("create stdlib alloc dir");
+    std::fs::write(
+        stdlib_root.join("alloc").join("string.nepl"),
+        r#"
+#indent 4
+#target wasm
+
+fn string_raw_store <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        i32.store
+"#,
+    )
+    .expect("write alloc string");
+    let entry = temp.path().join("main.nepl");
+    std::fs::write(
+        &entry,
+        r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+#import "alloc/string" as *
+
+fn main <()->i32> ():
+    string_raw_store 0 1;
+    0
+"#,
+    )
+    .expect("write entry");
+
+    let mut loader = Loader::new(stdlib_root);
+    let loaded = loader.load(&entry).expect("load");
+    check_module_with_source_map(
+        loaded.module,
+        Some(&loaded.source_map),
+        options(CompileTarget::Wasm),
+    )
+    .expect("configured stdlib alloc/string has raw memory capability");
+}
+
+#[test]
+fn loader_marks_configured_stdlib_alloc_string_storage_as_raw_memory_boundary() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let stdlib_root = temp.path().join("stdlib");
+    let storage_dir = stdlib_root.join("alloc").join("string");
+    std::fs::create_dir_all(&storage_dir).expect("create stdlib alloc/string dir");
+    std::fs::write(
+        storage_dir.join("storage.nepl"),
+        r#"
+#indent 4
+#target wasm
+
+fn string_storage_raw_store <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        i32.store
+"#,
+    )
+    .expect("write alloc string storage");
+    let entry = temp.path().join("main.nepl");
+    std::fs::write(
+        &entry,
+        r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+#import "alloc/string/storage" as *
+
+fn main <()->i32> ():
+    string_storage_raw_store 0 1;
+    0
+"#,
+    )
+    .expect("write entry");
+
+    let mut loader = Loader::new(stdlib_root);
+    let loaded = loader.load(&entry).expect("load");
+    check_module_with_source_map(
+        loaded.module,
+        Some(&loaded.source_map),
+        options(CompileTarget::Wasm),
+    )
+    .expect("configured stdlib alloc/string/storage has raw memory capability");
+}
+
+#[test]
 fn loader_does_not_mark_user_core_mem_path_by_suffix() {
     let temp = tempfile::tempdir().expect("tempdir");
     let stdlib_root = temp.path().join("stdlib");

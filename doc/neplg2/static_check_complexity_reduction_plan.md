@@ -23,6 +23,8 @@ NEPLg2 の Rust compiler は、型検査、effect 判定、move/borrow/lifetime�
 - [ISS-20260506T104708173Z-RESOURCE-IR-LOWERING-TREATS-CALLABLE-02721744](../../issues/items/ISS-20260506T104708173Z-RESOURCE-IR-LOWERING-TREATS-CALLABLE-02721744.md): bare callable value reference を local read と誤認しない Resource IR lowering / coverage rule。
 - [ISS-20260506T111001704Z-RESOURCE-DROP-ELABORATION-PLAN-OMITS-C984305E](../../issues/items/ISS-20260506T111001704Z-RESOURCE-DROP-ELABORATION-PLAN-OMITS-C984305E.md): assignment overwrite drop obligation を checked Resource IR drop elaboration plan に含める。
 - [ISS-20260506T113709479Z-RESOURCE-DROP-ELABORATION-PLAN-IS-NO-6CFFA860](../../issues/items/ISS-20260506T113709479Z-RESOURCE-DROP-ELABORATION-PLAN-IS-NO-6CFFA860.md): checked ResourceDropElaborationPlan を実 drop call 生成で消費し、旧 HIR VarState drop walker を削除する。
+- [ISS-20260506T122605377Z-STDLIB-ALLOC-STRING-RAW-MEMORY-BOUND-7853986C](../../issues/items/ISS-20260506T122605377Z-STDLIB-ALLOC-STRING-RAW-MEMORY-BOUND-7853986C.md): configured stdlib `alloc/string.nepl` と `alloc/string/storage.nepl` を exact raw-memory-boundary capability として扱う。
+- [ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52](../../issues/items/ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52.md): raw-memory-backed scanner / byte helper の Stage 5 boundary と Stage 6 public API 移行を整理する。
 
 ## 現状の問題
 
@@ -258,6 +260,13 @@ commit 単位:
 3. stdlib internal boundary の暫定許可。
 4. public escape diagnostics。
 
+進捗:
+
+- 2026-05-06: compiler-owned raw-memory-boundary capability は `SourceCapabilities` と SourceMap を通して Resource IR effect gate に届く。`UnsafeMemoryInPureFunction` は raw-memory-boundary でない source では `effect.pure.calls_impure` として error 化済みである。
+- 2026-05-06: `ISS-20260506T122605377Z-STDLIB-ALLOC-STRING-RAW-MEMORY-BOUND-7853986C` として、configured stdlib の `alloc/string.nepl` と `alloc/string/storage.nepl` を `core/mem.nepl` と同じ exact raw-memory-boundary capability の対象に加えた。これは string / str owned storage helper の内部 raw `load` / `store` / `bulk_copy` を Stage 6 移行中に許可するもので、stdlib 全体や arbitrary suffix path を許可するものではない。`Loader` は configured `stdlib_root` から canonical path を計算し、該当する exact path だけを許可する。
+- 2026-05-06: wasm doctest で、`alloc/io.nepl` / `alloc/string/utf8.nepl` / `std/text.nepl` / `std/streamio/scanner/state.nepl` にも同種の raw-memory-backed boundary 未整理が残ることを確認し、`ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52` として分離した。これらは安易に stdlib 全体を許可せず、true internal boundary と safe public wrapper の責務を確認してから exact capability か Stage 6 API 移行で解く。
+- 残件は、raw-memory-backed stdlib public API を Stage 6 で internal/public 境界へ分け、raw identity と owner token が safe surface へ漏れない最終 API に移行することである。
+
 ### Stage 6: stdlib memory API の段階移行
 
 目的: compiler の Resource IR と stdlib の公開 API を同期する。
@@ -365,7 +374,7 @@ self-host 実装側の禁止事項:
 - Resource IR の data model、coverage gate、CellState / OwnerState / BorrowState gate、enum-first diagnostic の方向性は妥当である。
 - 現行 pipeline は Resource IR check を HIR `passes::insert_drops` より前に実行する。Resource IR の入力は drop 未挿入 source semantics を monomorphize した reachable HIR であり、生成 drop が source violation を隠すことは避ける。ただし、drop elaboration 自体はまだ HIR `passes::insert_drops` に残るため、drop obligation の最終設計は完了していない。旧 `passes::move_check::run` fallback は 2026-05-06 に削除済みである。
 - `ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` は compiler diagnostic で `resource.cell.*` と `resource.owner.*` に分離済みである。今後も D3100 相当の粗い raw bucket に戻さず、原因分類を enum-first で維持する。
-- `UnsafeMemoryInPureFunction` は 2026-05-06 時点で Resource IR gate から `effect.pure.calls_impure` へ error 化済みである。ただし、`stdlib/core/mem.nepl` など compiler-owned raw-memory-boundary capability を持つ source では、Stage 6 の stdlib migration が完了するまで移行中許可を維持する。
+- `UnsafeMemoryInPureFunction` は 2026-05-06 時点で Resource IR gate から `effect.pure.calls_impure` へ error 化済みである。ただし、configured stdlib の `core/mem.nepl`、`alloc/string.nepl`、`alloc/string/storage.nepl` など compiler-owned raw-memory-boundary capability を持つ source では、Stage 6 の stdlib migration が完了するまで移行中許可を維持する。この許可は loader の configured `stdlib_root` から計算した exact path に限定し、任意の同名 suffix path は許可しない。
 - self-host の S1/S2 は進められるが、S3 以降の typecheck / Resource IR / diagnostic aggregation では raw header collection や `MemPtr` owner discipline を中核に持ち込まない。
 
 追加精査で、`ResourceDiagnosticCode` 自体は `Move` / `Borrow` / `Cell` / `Owner` / `Raw` / `Lower` に分離済みであることを確認した。設計上の未完了点は、Cell / Owner category の追加ではなく、HIR `insert_drops` がまだ drop elaboration authority として残っていること、raw-memory-boundary capability による stdlib 移行中許可が残っていること、stdlib の owner token / collection storage state が compiler-issued capability に揃い切っていないことである。

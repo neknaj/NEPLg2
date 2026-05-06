@@ -422,3 +422,11 @@ Stage 5 の raw identity escape 判定では、pointer value 自体の raw ident
 発生した compiler diagnostics は、`concat_result` / `from_u128_radix` / `len__str` / `string_finish_base` などの raw-memory-backed stdlib helper が pure signature のまま `bulk_copy` / `store` / `load` を使うことを `PureCallsImpure` として拒否している。これは `UnsafeMemoryInPureFunction` を hard gate 化したこと自体の誤りではなく、現行 stdlib public API が raw-memory-backed helper を pure surface として公開し続けている設計残件である。
 
 したがって、この親 issue の残件はまだ閉じられない。次の実装単位では、stdlib 側の個別回避で diagnostic を隠すのではなく、compiler の effect model が internal raw-memory boundary と public observable impurity を区別できる設計にするか、stdlib API を effect-aware な境界へ移行する必要がある。
+
+## 2026-05-06 Stage 5 alloc/string raw boundary capability 追記
+
+`ISS-20260506T122605377Z-STDLIB-ALLOC-STRING-RAW-MEMORY-BOUND-7853986C` として、configured stdlib の `alloc/string.nepl` と `alloc/string/storage.nepl` が raw-memory-boundary capability を受け取れず、Stage 5 effect gate で scanner style regression が停止していた問題を分離し、修正した。
+
+修正は stdlib 全体や suffix path の一括許可ではない。`Loader` は configured `stdlib_root` から canonical path を計算し、`core/mem.nepl`、`alloc/string.nepl`、`alloc/string/storage.nepl` の exact path だけへ `raw_memory_boundary` を付与する。これにより、string / str の owned storage boundary helper は audited internal raw memory operation として扱われる一方で、user source や任意の同名 path から raw memory gate を迂回する経路は作らない。
+
+`cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture` はこの blocker を越えるようになった。ただし、この親 issue の残件はまだ閉じない。Stage 6 では raw-memory-backed stdlib public API を internal/public 境界へ移行し、raw identity と owner token が safe surface へ漏れない最終設計にする必要がある。

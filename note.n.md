@@ -32145,3 +32145,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 単発 returned header の Resource IR regression は通る一方、full scanner style の source-level regression は Resource IR range summary の不足ではなく、先に Stage 5 effect gate が raw-memory-backed stdlib pure helper を拒否して停止した。これは `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` の残件として issue に追記した。
 
 次の作業は、full scanner regression を無理に通す小手先修正ではなく、raw-memory-backed stdlib helper の internal boundary と public effect surface の設計を整理すること。その後、returned header の pointer field / len field / initialized range relation を Resource IR summary として実装する。
+
+## 2026-05-06 Agent 1: alloc/string raw memory boundary capability
+
+- [同期]:
+  - `work/raw-memory-effect-boundary-design` branch で着手し、remote main が `1c7336a8` へ進んだため rebase して string storage split 後の構造に合わせ直した。
+- [原因]:
+  - Stage 5 で `UnsafeMemoryInPureFunction` を compiler error に接続した結果、raw-memory-backed stdlib helper は raw-memory-boundary capability を正しく受け取る必要がある。
+  - `Loader` は configured stdlib の `core/mem.nepl` にだけ capability を付与しており、`alloc/string.nepl` と `alloc/string/storage.nepl` の string / str owned storage helper が `effect.pure.calls_impure` で停止していた。
+  - full scanner style regression は returned raw header range summary の検証地点へ到達する前に、この Stage 5 boundary 設定漏れで止まっていた。
+- [修正]:
+  - `Loader` の raw-memory boundary 判定を `configured_raw_memory_boundary_path` に集約し、configured `stdlib_root` から導出した `core/mem.nepl`、`alloc/string.nepl`、`alloc/string/storage.nepl` の exact canonical path だけを許可するようにした。
+  - arbitrary suffix path は許可しないため、user source が同名 path で raw memory gate を迂回する経路は作っていない。
+  - configured stdlib `alloc/string.nepl` の raw `store` を許可する regression を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_alloc_string_as_raw_memory_boundary -- --nocapture`: passed
+  - `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_alloc_string_storage_as_raw_memory_boundary -- --nocapture`: passed
+  - `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_alloc_string_raw_boundary.json --runner wasm --no-tree -j 1 --assert-io`: failed。`alloc/io.nepl` / `alloc/string/utf8.nepl` / `std/text.nepl` / `std/streamio/scanner/state.nepl` の Stage 5 boundary 未整理と、`pref` dynamic range summary 残件を確認した。
+- [issue]:
+  - `ISS-20260506T122605377Z-STDLIB-ALLOC-STRING-RAW-MEMORY-BOUND-7853986C` を fixed として追加した。
+  - `ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52` を追加し、残る raw-memory-backed scanner / byte helper boundary を追跡する。
+  - `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` に wasm doctest で確認した `pref` dynamic range summary 残件を追記した。
+  - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` は Stage 6 の internal/public stdlib API 移行が残るため open のまま継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

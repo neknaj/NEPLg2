@@ -669,11 +669,23 @@ impl Loader {
     }
 
     fn source_capabilities_for_path(&self, canon: &PathBuf) -> SourceCapabilities {
-        if *canon == canonicalize_path(&self.stdlib_root.join("core").join("mem.nepl")) {
+        if self.configured_raw_memory_boundary_path(canon) {
             SourceCapabilities::raw_memory_boundary()
         } else {
             SourceCapabilities::none()
         }
+    }
+
+    fn configured_raw_memory_boundary_path(&self, canon: &PathBuf) -> bool {
+        let paths = [
+            self.stdlib_root.join("core").join("mem.nepl"),
+            self.stdlib_root.join("alloc").join("string.nepl"),
+            self.stdlib_root
+                .join("alloc")
+                .join("string")
+                .join("storage.nepl"),
+        ];
+        paths.iter().any(|path| *canon == canonicalize_path(path))
     }
 }
 
