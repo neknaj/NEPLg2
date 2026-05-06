@@ -1,3 +1,23 @@
+# 2026-05-06 note (ISS-20260506T003541589Z Resource IR owner fixture effect annotations)
+
+- [同期]:
+  - `926f079e` push / pull 後の clean な `main` から、branch `work/resource-owner-impure-fixtures` を作成して対応した。
+- [原因]:
+  - Stage 5 の unsafe memory effect gate hard-error 化後も、`resource_ir.rs` の owner pipeline fixture 3 件が pure `main` のまま `store_i32` / `load_i32` / `fill_i32` を呼んでいた。
+  - そのため owner checker の妥当性を見る前に `effect.pure.calls_impure` で失敗していた。
+- [修正]:
+  - 該当 3 fixture の `main` signature を `fn main <()*>i32> ():` へ更新し、raw memory helper を意図的に呼ぶ test であることを effect model 上も明示した。
+  - compiler の unsafe memory pure gate は維持しており、検査を弱めていない。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_borrowed_region_ptr_at_then_region_dealloc -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_borrowed_region_ptr_retag_then_region_dealloc -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 158 passed
+- [issue]:
+  - `ISS-20260506T003541589Z-RESOURCE-IR-OWNER-PIPELINE-FIXTURES--393E98C4` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260506T003017725Z Resource IR normal cell gate)
 
 - [同期]:

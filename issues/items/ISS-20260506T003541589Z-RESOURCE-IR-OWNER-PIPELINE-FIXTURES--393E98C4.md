@@ -2,8 +2,8 @@
 id: ISS-20260506T003541589Z-RESOURCE-IR-OWNER-PIPELINE-FIXTURES--393E98C4
 title: "Resource IR owner pipeline fixtures call unsafe memory from pure main"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: test
 created: 2026-05-06
@@ -45,3 +45,16 @@ Update the affected owner pipeline fixtures to use the current effect model, eit
 ## 検証
 
 Run the three affected Resource IR owner tests and then cargo test -p nepl-core --test resource_ir.
+
+## 対応結果
+
+2026-05-06 に、3 つの owner pipeline fixture の `main` signature を pure `fn main <()->i32> ():` から impure `fn main <()*>i32> ():` へ更新した。
+
+これは raw memory helper を許可する抜け道を作る変更ではなく、fixture が意図的に `store_i32` / `load_i32` / `fill_i32` を呼ぶことを現行 Stage 5 effect model に合わせて明示する変更である。owner checker の対象 pattern は維持し、unsafe memory operation は pure function から呼べないという compiler gate も維持する。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_borrowed_region_ptr_at_then_region_dealloc -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_borrowed_region_ptr_retag_then_region_dealloc -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`

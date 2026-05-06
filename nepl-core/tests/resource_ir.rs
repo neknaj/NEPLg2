@@ -4481,7 +4481,7 @@ fn resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption() {
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc 8:
         Result::Err _e:
             0
@@ -4541,7 +4541,7 @@ fn resource_ir_owner_check_accepts_borrowed_region_ptr_at_then_region_dealloc() 
 #import "core/option" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -4589,7 +4589,7 @@ fn resource_ir_owner_check_accepts_borrowed_region_ptr_retag_then_region_dealloc
 #import "core/option" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc_region<u8> 16:
         Result::Err _e:
             0
