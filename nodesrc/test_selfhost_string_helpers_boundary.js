@@ -14,6 +14,8 @@ const stringSrc = read('stdlib/alloc/string.nepl');
 const stringSearchSrc = read('stdlib/alloc/string/search.nepl');
 const lexerSrc = read('stdlib/neplg2/core/syntax/lexer.nepl');
 const importSpecSrc = read('stdlib/neplg2/core/module/import_spec.nepl');
+const moduleGraphSrc = read('stdlib/neplg2/core/module/graph.nepl');
+const stdlibMapSrc = read('stdlib/neplg2/core/module/stdlib_map.nepl');
 
 assert.match(
     stringSrc,
@@ -83,8 +85,50 @@ assert.match(
 
 assert.match(
     importSpecSrc,
-    /fn\s+selfhost_import_spec_free[\s\S]*field::get\s+spec\s+"path"[\s\S]*field::get\s+spec\s+"alias"/,
-    'import spec parser must keep an explicit cleanup helper for parsed path and alias string owners',
+    /struct\s+SelfhostImportSpec:[\s\S]*item_index\s+<i32>[\s\S]*path_start\s+<i32>[\s\S]*path_end\s+<i32>[\s\S]*alias_start\s+<i32>[\s\S]*alias_end\s+<i32>/,
+    'SelfhostImportSpec must store copy-only lexeme ranges instead of owned path/alias strings',
+);
+
+assert.doesNotMatch(
+    importSpecSrc,
+    /struct\s+SelfhostImportSpec:[\s\S]*\n\s+(path|alias)\s+<str>/,
+    'SelfhostImportSpec must not store owned str fields in Vec<SelfhostImportSpec>',
+);
+
+assert.match(
+    importSpecSrc,
+    /fn\s+selfhost_import_spec_path\s+<\(str,SelfhostImportSpec\)->str>[\s\S]*string_slice::str_slice\s+lexeme\s+spec\.path_start\s+spec\.path_end/,
+    'import spec path extraction must slice from the source lexeme at the owner boundary',
+);
+
+assert.match(
+    importSpecSrc,
+    /fn\s+selfhost_import_spec_alias\s+<\(str,SelfhostImportSpec\)->str>[\s\S]*string_slice::str_slice\s+lexeme\s+spec\.alias_start\s+spec\.alias_end/,
+    'import spec alias extraction must slice from the source lexeme at the owner boundary',
+);
+
+assert.match(
+    moduleGraphSrc,
+    /fn\s+selfhost_module_graph_visit_imports\s+<\(&SelfhostVirtualFileSystem,str,&SelfhostModuleAst,&Vec<SelfhostImportSpec>/,
+    'module graph import traversal must keep the AST alive while resolving range-only import specs',
+);
+
+assert.match(
+    moduleGraphSrc,
+    /selfhost_module_graph_visit_imports\s+vfs\s+path\s+&ast\s+&imports/,
+    'module graph must pass the AST into import traversal instead of freeing it before path slicing',
+);
+
+assert.match(
+    moduleGraphSrc,
+    /selfhost_import_spec_path\s+item\.lexeme\s+spec/,
+    'module graph must slice import paths from the original module item lexeme',
+);
+
+assert.match(
+    stdlibMapSrc,
+    /fn\s+selfhost_module_path_resolve_import_spec\s+<\(&SelfhostModulePathMap,str,str,SelfhostImportSpec\)/,
+    'stdlib path map import-spec resolver must receive the source lexeme for range-only specs',
 );
 
 console.log('selfhost string helper boundary regression passed');

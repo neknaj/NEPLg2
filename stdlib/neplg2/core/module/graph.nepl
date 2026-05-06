@@ -235,8 +235,16 @@ fn selfhost_module_graph_set_state <(SelfhostModuleGraph,i32,SelfhostModuleGraph
         Option::None:
             graph
 
+//: selfhost_module_graph_import_item: import spec の元 AST item を[取/と]り[出/だ]す
+fn selfhost_module_graph_import_item <(&SelfhostModuleAst,SelfhostImportSpec)*>Result<SelfhostModuleItem, SelfhostDiagnostic>> (ast, spec):
+    match selfhost_module_ast_get ast selfhost_import_spec_item_index spec:
+        Option::Some item:
+            Result<SelfhostModuleItem, SelfhostDiagnostic>::Ok item
+        Option::None:
+            Result<SelfhostModuleItem, SelfhostDiagnostic>::Err selfhost_module_graph_internal_diag selfhost_import_spec_span spec "import spec item index was unavailable"
+
 //: selfhost_module_graph_visit_imports: 1 module の import list を DFS で[辿/たど]る
-fn selfhost_module_graph_visit_imports <(&SelfhostVirtualFileSystem,str,&Vec<SelfhostImportSpec>,i32,i32,SelfhostModuleGraph)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, from_path, imports, n, idx, graph):
+fn selfhost_module_graph_visit_imports <(&SelfhostVirtualFileSystem,str,&SelfhostModuleAst,&Vec<SelfhostImportSpec>,i32,i32,SelfhostModuleGraph)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, from_path, ast, imports, n, idx, graph):
     if:
         ge idx n
         then:
@@ -244,12 +252,19 @@ fn selfhost_module_graph_visit_imports <(&SelfhostVirtualFileSystem,str,&Vec<Sel
         else:
             match v::get<SelfhostImportSpec> imports idx:
                 Option::Some spec:
-                    let edge <SelfhostModuleGraphEdge> selfhost_module_graph_edge_new from_path spec.path spec.span
-                    match selfhost_module_graph_push_edge graph edge spec.span:
-                        Result::Ok edge_graph:
-                            match selfhost_module_graph_visit vfs spec.path spec.span edge_graph:
-                                Result::Ok next_graph:
-                                    selfhost_module_graph_visit_imports vfs from_path imports n add idx 1 next_graph
+                    match selfhost_module_graph_import_item ast spec:
+                        Result::Ok item:
+                            let span <SelfhostSourceSpan> selfhost_import_spec_span spec
+                            let edge_path <str> selfhost_import_spec_path item.lexeme spec
+                            let edge <SelfhostModuleGraphEdge> selfhost_module_graph_edge_new from_path edge_path span
+                            match selfhost_module_graph_push_edge graph edge span:
+                                Result::Ok edge_graph:
+                                    let visit_path <str> selfhost_import_spec_path item.lexeme spec
+                                    match selfhost_module_graph_visit vfs visit_path span edge_graph:
+                                        Result::Ok next_graph:
+                                            selfhost_module_graph_visit_imports vfs from_path ast imports n add idx 1 next_graph
+                                        Result::Err diag:
+                                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
                                 Result::Err diag:
                                     Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
                         Result::Err diag:
@@ -259,7 +274,7 @@ fn selfhost_module_graph_visit_imports <(&SelfhostVirtualFileSystem,str,&Vec<Sel
                     Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_internal_diag source_span_empty 0 0 "import spec index was unavailable"
 
 //: selfhost_module_graph_visit_imports_with_path_map: path map で import list を DFS 展開する
-fn selfhost_module_graph_visit_imports_with_path_map <(&SelfhostVirtualFileSystem,&SelfhostModulePathMap,str,&Vec<SelfhostImportSpec>,i32,i32,SelfhostModuleGraph)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, path_map, from_path, imports, n, idx, graph):
+fn selfhost_module_graph_visit_imports_with_path_map <(&SelfhostVirtualFileSystem,&SelfhostModulePathMap,str,&SelfhostModuleAst,&Vec<SelfhostImportSpec>,i32,i32,SelfhostModuleGraph)*>Result<SelfhostModuleGraph, SelfhostDiagnostic>> (vfs, path_map, from_path, ast, imports, n, idx, graph):
     if:
         ge idx n
         then:
@@ -267,17 +282,23 @@ fn selfhost_module_graph_visit_imports_with_path_map <(&SelfhostVirtualFileSyste
         else:
             match v::get<SelfhostImportSpec> imports idx:
                 Option::Some spec:
-                    match selfhost_module_path_resolve_import_spec path_map from_path spec:
-                        Result::Ok resolved:
-                            let edge <SelfhostModuleGraphEdge> selfhost_module_graph_edge_new from_path resolved.path spec.span
-                            match selfhost_module_graph_push_edge graph edge spec.span:
-                                Result::Ok edge_graph:
-                                    match selfhost_module_graph_visit_with_path_map vfs path_map resolved.path spec.span edge_graph:
-                                        Result::Ok next_graph:
-                                            selfhost_module_graph_visit_imports_with_path_map vfs path_map from_path imports n add idx 1 next_graph
+                    match selfhost_module_graph_import_item ast spec:
+                        Result::Ok item:
+                            let span <SelfhostSourceSpan> selfhost_import_spec_span spec
+                            match selfhost_module_path_resolve_import_spec path_map from_path item.lexeme spec:
+                                Result::Ok resolved:
+                                    let edge <SelfhostModuleGraphEdge> selfhost_module_graph_edge_new from_path resolved.path span
+                                    match selfhost_module_graph_push_edge graph edge span:
+                                        Result::Ok edge_graph:
+                                            match selfhost_module_graph_visit_with_path_map vfs path_map resolved.path span edge_graph:
+                                                Result::Ok next_graph:
+                                                    selfhost_module_graph_visit_imports_with_path_map vfs path_map from_path ast imports n add idx 1 next_graph
+                                                Result::Err diag:
+                                                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
                                         Result::Err diag:
                                             Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
                                 Result::Err diag:
+                                    selfhost_module_graph_free graph
                                     Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
                         Result::Err diag:
                             selfhost_module_graph_free graph
@@ -292,13 +313,14 @@ fn selfhost_module_graph_extract_imports <(&SelfhostVirtualFileSystem,str,i32,Se
         Result::Ok imports:
             let import_count <i32> v::len<SelfhostImportSpec> &imports
             let graph_with_count <SelfhostModuleGraph> selfhost_module_graph_set_state graph node_idx SelfhostModuleGraphNodeStatus::Visiting import_count
-            selfhost_module_ast_free ast
-            match selfhost_module_graph_visit_imports vfs path &imports import_count 0 graph_with_count:
+            match selfhost_module_graph_visit_imports vfs path &ast &imports import_count 0 graph_with_count:
                 Result::Ok graph_after_imports:
                     v::free<SelfhostImportSpec> imports
+                    selfhost_module_ast_free ast
                     Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok selfhost_module_graph_set_state graph_after_imports node_idx SelfhostModuleGraphNodeStatus::Done import_count
                 Result::Err diag:
                     v::free<SelfhostImportSpec> imports
+                    selfhost_module_ast_free ast
                     Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
         Result::Err diag:
             selfhost_module_ast_free ast
@@ -311,13 +333,14 @@ fn selfhost_module_graph_extract_imports_with_path_map <(&SelfhostVirtualFileSys
         Result::Ok imports:
             let import_count <i32> v::len<SelfhostImportSpec> &imports
             let graph_with_count <SelfhostModuleGraph> selfhost_module_graph_set_state graph node_idx SelfhostModuleGraphNodeStatus::Visiting import_count
-            selfhost_module_ast_free ast
-            match selfhost_module_graph_visit_imports_with_path_map vfs path_map path &imports import_count 0 graph_with_count:
+            match selfhost_module_graph_visit_imports_with_path_map vfs path_map path &ast &imports import_count 0 graph_with_count:
                 Result::Ok graph_after_imports:
                     v::free<SelfhostImportSpec> imports
+                    selfhost_module_ast_free ast
                     Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok selfhost_module_graph_set_state graph_after_imports node_idx SelfhostModuleGraphNodeStatus::Done import_count
                 Result::Err diag:
                     v::free<SelfhostImportSpec> imports
+                    selfhost_module_ast_free ast
                     Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
         Result::Err diag:
             selfhost_module_ast_free ast

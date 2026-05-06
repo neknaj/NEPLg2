@@ -44,6 +44,34 @@
 
 - `plan.md` は変更していない。
 
+# 2026-05-07 note (ISS-20260506T171738048Z selfhost import spec copy-only ranges)
+
+## 作業内容
+
+- branch `fix/selfhost-import-spec-copy-ranges` で最新 `origin/main` から作業した。
+- `SelfhostImportSpec` が `path <str>` / `alias <str>` owner field を持ち、それを `Vec<SelfhostImportSpec>` に入れる設計を廃止した。
+- `SelfhostImportSpec` は `item_index`、path/alias の lexeme 範囲、`is_wildcard` だけを持つ Copy-only data へ再設計した。
+- path/alias が必要な境界では `selfhost_import_spec_path` / `selfhost_import_spec_alias` で元 lexeme から `str_slice` する。
+- module graph は import traversal 中に AST を保持し、range-only spec の `item_index` から元 item lexeme を取って path を切り出すようにした。
+- stdlib path map の import-spec resolver は元 lexeme を受け取り、range-only spec から path を切り出して既存 resolver に渡すようにした。
+- `nodesrc/test_selfhost_string_helpers_boundary.js` に、SelfhostImportSpec が owned `str` field を持たないこと、path/alias slice helper を使うこと、graph が AST を保持して traversal することを固定する source-policy を追加した。
+- current main 由来で `stdlib_map` / `graph` doctest timeout が今回差分なしでも再現したため、`ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF` を追加し Discord に直接報告した。
+
+## 検証
+
+- `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed
+- `node nodesrc/tests.js -i stdlib/neplg2/core/module/import_spec.nepl --no-tree -o tmp/selfhost-import-spec-module-after-trunk.json -j 1`: total=1, passed=1
+- 一時 smoke `tmp/selfhost_import_spec_ast_smoke.n.md`: total=1, passed=1。検証後に削除。
+- `trunk build`: passed
+- `origin/main` `824ada60` 取り込み後に `trunk build`: passed
+- `node nodesrc/tests.js -i stdlib/neplg2/core/module/import_spec.nepl -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/selfhost-import-spec-ranges-after-rebase-trunk.json -j 1`: total=4, passed=4
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: selfhost import-spec source-policy は passed。remote main で `lower_raw_address.rs` blocker は解消済み。既知別件 `initialized_alias.rs has 624 lines; responsibility split limit is 520` warning は継続。
+- `node nodesrc/tests.js -i stdlib/neplg2/core/module/stdlib_map.nepl --no-tree -o tmp/selfhost-stdlib-map-after-fs-stdio-fix.json -j 1`: `ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF` として切り分け済みの 60000ms timeout は継続。
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T172012873Z Resource IR dynamic raw address view origin)
 
 ## 作業内容

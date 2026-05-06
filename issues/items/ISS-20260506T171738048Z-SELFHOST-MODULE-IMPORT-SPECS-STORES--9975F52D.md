@@ -2,8 +2,8 @@
 id: ISS-20260506T171738048Z-SELFHOST-MODULE-IMPORT-SPECS-STORES--9975F52D
 title: "selfhost module_import_specs stores owned str payloads in Vec under strict ResourceIR"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-06
@@ -39,6 +39,22 @@ The selfhost module graph cannot safely use a Vec of import specs with owned str
 
 Redesign module import collection so the Vec element is Copy-only or has explicit element ownership semantics: store item indexes/ranges and resolve path/alias against the AST while it is alive, or implement typed Vec element Drop/transfer support before storing owned str payloads. Do not keep SelfhostImportSpec as a Copy aggregate containing owned str fields.
 
+## 対応
+
+- `SelfhostImportSpec` から `path <str>` / `alias <str>` を削除し、`item_index`、`path_start` / `path_end`、`alias_start` / `alias_end`、`is_wildcard` を持つ Copy-only range spec に再設計した。
+- `selfhost_import_spec_path` / `selfhost_import_spec_alias` を追加し、path/alias が必要な境界でだけ元 lexeme から `str_slice` するようにした。
+- `selfhost_module_import_specs` は `Vec<SelfhostImportSpec>` に owner payload を入れず、AST item index と範囲だけを保存するようにした。
+- `graph.nepl` は import traversal 中に `SelfhostModuleAst` を保持し、range-only spec の `item_index` から元 item lexeme を参照して path を切り出すようにした。
+- `stdlib_map.nepl` の import-spec resolver は元 lexeme を受け取り、range-only spec から path を切り出して通常の path resolver に渡すようにした。
+- `nodesrc/test_selfhost_string_helpers_boundary.js` に、`SelfhostImportSpec` が owned `str` field を持たないこと、path/alias は lexeme slice で取り出すこと、module graph が AST を保持して traversal することの source-policy を追加した。
+
 ## 検証
 
-Add focused selfhost module_import_specs/module_graph doctests that compile under strict ResourceIR, run tests/stdlib/neplg2_import_spec.n.md, and add source policy preventing Vec<SelfhostImportSpec> from carrying owned str payloads without an explicit drop contract.
+- `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed
+- `node nodesrc/tests.js -i stdlib/neplg2/core/module/import_spec.nepl --no-tree -o tmp/selfhost-import-spec-module-after-trunk.json -j 1`: total=1, passed=1
+- 一時 smoke `tmp/selfhost_import_spec_ast_smoke.n.md`: `selfhost_module_import_specs` が手組み AST から range-only spec を `Vec` に入れ、元 item lexeme から path/alias を切り出せることを確認。total=1, passed=1。検証後に tmp file は削除。
+- `trunk build`: passed
+- `origin/main` `824ada60` 取り込み後に `trunk build`: passed
+- `node nodesrc/tests.js -i stdlib/neplg2/core/module/import_spec.nepl -i tests/stdlib/neplg2_import_spec.n.md --no-tree -o tmp/selfhost-import-spec-ranges-after-rebase-trunk.json -j 1`: total=4, passed=4
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: selfhost import-spec source-policy は passed。remote main で `lower_raw_address.rs` blocker は解消済み。既知別件 `ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A` の `initialized_alias.rs has 624 lines; responsibility split limit is 520` warning は継続。
+- `node nodesrc/tests.js -i stdlib/neplg2/core/module/stdlib_map.nepl --no-tree -o tmp/selfhost-stdlib-map-baseline-head.json -j 1`: 今回差分を stash した状態でも timeout。`ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF` として分離。

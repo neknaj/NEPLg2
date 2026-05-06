@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T18:08:06.159Z",
+  "generated_at": "2026-05-06T18:13:08.331Z",
   "counts": {
-    "total": 531,
+    "total": 532,
     "open": 16,
-    "resolved": 515,
+    "resolved": 516,
     "by_area": {
       "core": {
         "total": 259,
@@ -12,9 +12,9 @@
         "resolved": 254
       },
       "selfhost": {
-        "total": 48,
+        "total": 49,
         "open": 2,
-        "resolved": 46
+        "resolved": 47
       },
       "stdlib": {
         "total": 159,
@@ -150,19 +150,19 @@
       "file": "items/ISS-20260506T180609091Z-RESOURCE-INITIALIZED-ALIAS-MODULE-EX-BA05D57A.md"
     },
     {
-      "id": "ISS-20260506T171738048Z-SELFHOST-MODULE-IMPORT-SPECS-STORES--9975F52D",
-      "title": "selfhost module_import_specs stores owned str payloads in Vec under strict ResourceIR",
+      "id": "ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF",
+      "title": "selfhost stdlib_map and module graph doctests time out on current main",
       "area": "selfhost",
       "status": "open",
       "resolved": false,
       "priority": "P1",
-      "type": "architecture",
+      "type": "performance",
       "created": "2026-05-06",
-      "updated": "2026-05-07",
-      "target": "stdlib/neplg2/core/module/import_spec.nepl, stdlib/neplg2/core/module/graph.nepl, stdlib/alloc/collections/vec.nepl",
+      "updated": "2026-05-06",
+      "target": "stdlib/neplg2/core/module/stdlib_map.nepl, stdlib/neplg2/core/module/graph.nepl, tests/stdlib/neplg2_stdlib_map.n.md",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260506T171738048Z-SELFHOST-MODULE-IMPORT-SPECS-STORES--9975F52D.md"
+      "file": "items/ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4678,6 +4678,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T162903318Z-SELFHOST-SOURCETEXT-LINE-MAP-VEC-OWN-2444558D.md"
+    },
+    {
+      "id": "ISS-20260506T171738048Z-SELFHOST-MODULE-IMPORT-SPECS-STORES--9975F52D",
+      "title": "selfhost module_import_specs stores owned str payloads in Vec under strict ResourceIR",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "stdlib/neplg2/core/module/import_spec.nepl, stdlib/neplg2/core/module/graph.nepl, stdlib/alloc/collections/vec.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T171738048Z-SELFHOST-MODULE-IMPORT-SPECS-STORES--9975F52D.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",

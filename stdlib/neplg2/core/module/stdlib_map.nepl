@@ -347,5 +347,9 @@ fn selfhost_module_path_resolve_import <(&SelfhostModulePathMap,str,SelfhostSour
                     selfhost_module_path_resolve_stdlib map span spec
 
 //: selfhost_module_path_resolve_import_spec: typed import spec を VFS logical path へ[解決/かいけつ]する
-fn selfhost_module_path_resolve_import_spec <(&SelfhostModulePathMap,str,SelfhostImportSpec)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (map, current_path, spec):
-    selfhost_module_path_resolve_import map current_path spec.span spec.path
+//:
+//: [目的/もくてき]:
+//: - `SelfhostImportSpec` は `str` owner を持たないため、元 lexeme から import path を切り出して resolver に渡します。
+fn selfhost_module_path_resolve_import_spec <(&SelfhostModulePathMap,str,str,SelfhostImportSpec)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (map, current_path, lexeme, spec):
+    let path <str> selfhost_import_spec_path lexeme spec
+    selfhost_module_path_resolve_import map current_path selfhost_import_spec_span spec path
