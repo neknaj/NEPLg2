@@ -1,3 +1,24 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math u8 responsibility split)
+
+- [同期]:
+  - `315c0134` を push/pull して `main` と `origin/main` が一致した後、branch `fix/math-u8-responsibility-split` を作成した。
+- [原因]:
+  - `stdlib/core/math/u8.nepl` は core/math root からは分離済みだったが、u8 の算術・比較演算を 389 lines の 1 file に持ち続けていた。
+  - このままだと i32 / i64 と異なる責務粒度が残り、u8 overload の追加時に型別 root へ実装が再集中する。
+- [修正]:
+  - `stdlib/core/math/u8/arith.nepl` を追加し、u8 算術 intrinsic wrapper と overload を移した。
+  - `stdlib/core/math/u8/compare.nepl` を追加し、u8 等値・符号なし比較 intrinsic wrapper と overload を移した。
+  - `stdlib/core/math/u8.nepl` は `arith` / `compare` を再 export する facade にし、関数本体を持たない形にした。
+  - `nodesrc/test_stdlib_math_module_split.js` に u8 submodule の re-export、所有関数、行数上限、facade の無実装性を固定する検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/u8/arith.nepl -i stdlib/core/math/u8/compare.nepl -i stdlib/core/math/u8.nepl -i stdlib/core/math.nepl -i tests/stdlib/numerics.n.md -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-u8-responsibility-split.json -j 1`: total=21, passed=21
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl`、`alloc/collections/vec.nepl`、`core/mem.nepl` などの分割を継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260506T094754766Z Resource drop HIR bridge gate)
 
 - [同期]:

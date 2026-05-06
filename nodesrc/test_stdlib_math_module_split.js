@@ -38,6 +38,8 @@ const convertFloatWidthModule = read("stdlib/core/math/convert/float/float_width
 const convertReinterpretModule = read("stdlib/core/math/convert/reinterpret.nepl");
 const int128Module = read("stdlib/core/math/int128.nepl");
 const u8Module = read("stdlib/core/math/u8.nepl");
+const u8ArithModule = read("stdlib/core/math/u8/arith.nepl");
+const u8CompareModule = read("stdlib/core/math/u8/compare.nepl");
 const boolModule = read("stdlib/core/math/bool.nepl");
 
 assert.match(
@@ -183,12 +185,35 @@ for (const [relPath, src, maxLines] of [
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 
+for (const [moduleName, pattern] of [
+    ["arith", /pub\s+#import\s+"\.\/u8\/arith"\s+as\s+\*/],
+    ["compare", /pub\s+#import\s+"\.\/u8\/compare"\s+as\s+\*/],
+]) {
+    assert.match(u8Module, pattern, `core/math/u8.nepl must re-export the ${moduleName} u8 submodule`);
+}
+assert.doesNotMatch(u8Module, /^fn\s+/m, "core/math/u8.nepl must remain a facade without function bodies");
+for (const [relPath, src, maxLines] of [
+    ["stdlib/core/math/u8.nepl", u8Module, 80],
+    ["stdlib/core/math/u8/arith.nepl", u8ArithModule, 240],
+    ["stdlib/core/math/u8/compare.nepl", u8CompareModule, 260],
+]) {
+    const lineCount = src.split(/\r?\n/).length;
+    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
+}
+
 for (const fnName of [
     "add_u8",
     "sub_u8",
     "mul_u8",
     "div_u_u8",
     "rem_u_u8",
+]) {
+    assert.match(u8ArithModule, new RegExp(`\\bfn\\s+${fnName}\\b`), `core/math/u8/arith.nepl must define ${fnName}`);
+    assert.doesNotMatch(u8Module, new RegExp(`\\bfn\\s+${fnName}\\b`), `core/math/u8.nepl must not keep ${fnName}`);
+    assert.doesNotMatch(facade, new RegExp(`\\bfn\\s+${fnName}\\b`), `core/math.nepl must not keep ${fnName}`);
+}
+
+for (const fnName of [
     "eq_u8",
     "ne_u8",
     "lt_u_u8",
@@ -196,7 +221,8 @@ for (const fnName of [
     "gt_u_u8",
     "ge_u_u8",
 ]) {
-    assert.match(u8Module, new RegExp(`\\bfn\\s+${fnName}\\b`), `core/math/u8.nepl must define ${fnName}`);
+    assert.match(u8CompareModule, new RegExp(`\\bfn\\s+${fnName}\\b`), `core/math/u8/compare.nepl must define ${fnName}`);
+    assert.doesNotMatch(u8Module, new RegExp(`\\bfn\\s+${fnName}\\b`), `core/math/u8.nepl must not keep ${fnName}`);
     assert.doesNotMatch(facade, new RegExp(`\\bfn\\s+${fnName}\\b`), `core/math.nepl must not keep ${fnName}`);
 }
 
@@ -206,6 +232,14 @@ for (const [name, signature] of [
     ["mul", "<\\(u8,u8\\)->u8>"],
     ["div_u", "<\\(u8,u8\\)->u8>"],
     ["rem_u", "<\\(u8,u8\\)->u8>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(u8ArithModule, pattern, `core/math/u8/arith.nepl must define overload ${name} ${signature}`);
+    assert.doesNotMatch(u8Module, pattern, `core/math/u8.nepl must not keep arithmetic overload ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep overload ${name} ${signature}`);
+}
+
+for (const [name, signature] of [
     ["eq", "<\\(u8,u8\\)->bool>"],
     ["ne", "<\\(u8,u8\\)->bool>"],
     ["lt_u", "<\\(u8,u8\\)->bool>"],
@@ -214,7 +248,8 @@ for (const [name, signature] of [
     ["ge_u", "<\\(u8,u8\\)->bool>"],
 ]) {
     const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
-    assert.match(u8Module, pattern, `core/math/u8.nepl must define overload ${name} ${signature}`);
+    assert.match(u8CompareModule, pattern, `core/math/u8/compare.nepl must define overload ${name} ${signature}`);
+    assert.doesNotMatch(u8Module, pattern, `core/math/u8.nepl must not keep compare overload ${name} ${signature}`);
     assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep overload ${name} ${signature}`);
 }
 

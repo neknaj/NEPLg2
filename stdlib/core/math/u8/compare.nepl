@@ -1,0 +1,220 @@
+//: # math/u8/compare
+//: u8 の比較演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - u8 の等値比較と符号なし順序比較を、算術演算から分けて管理します。
+//: - `core/math/u8` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - u8 の順序比較は符号なし順序だけを公開します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/cast" as *
+//:| #import "core/math/u8/compare" as *
+//: fn main <()->i32> ():
+//:     let a <u8> cast 1;
+//:     let b <u8> cast 2;
+//:     if:
+//:         lt_u a b
+//:         then:
+//:             if ge_u b a 0 1
+//:         else:
+//:             1
+//: ```
+
+#indent 4
+
+//: eq_u8: u8 の等値比較
+//:
+//: [目的/もくてき]:
+//: - u8 の `a == b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.eq`、llvm は `icmp eq` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 結果は bool（0/1）です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn eq_u8 <(u8,u8)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.eq
+    #if[target=llvm]
+    #llvmir:
+        define i32 @eq_u8(i32 %a, i32 %b) {
+        entry:
+            %cmp = icmp eq i32 %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
+
+//: ne_u8: u8 の非等値比較
+//:
+//: [目的/もくてき]:
+//: - u8 の `a != b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.ne`、llvm は `icmp ne` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 結果は bool（0/1）です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ne_u8 <(u8,u8)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.ne
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ne_u8(i32 %a, i32 %b) {
+        entry:
+            %cmp = icmp ne i32 %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
+
+//: lt_u_u8: u8 の符号なし小なり比較
+//:
+//: [目的/もくてき]:
+//: - u8 を符号なし整数として `a < b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.lt_u`、llvm は `icmp ult` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 結果は bool（0/1）です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn lt_u_u8 <(u8,u8)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.lt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @lt_u_u8(i32 %a, i32 %b) {
+        entry:
+            %cmp = icmp ult i32 %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
+
+//: le_u_u8: u8 の符号なし以下比較
+//:
+//: [目的/もくてき]:
+//: - u8 を符号なし整数として `a <= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.le_u`、llvm は `icmp ule` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 結果は bool（0/1）です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn le_u_u8 <(u8,u8)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.le_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @le_u_u8(i32 %a, i32 %b) {
+        entry:
+            %cmp = icmp ule i32 %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
+
+//: gt_u_u8: u8 の符号なし大なり比較
+//:
+//: [目的/もくてき]:
+//: - u8 を符号なし整数として `a > b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.gt_u`、llvm は `icmp ugt` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 結果は bool（0/1）です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn gt_u_u8 <(u8,u8)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.gt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @gt_u_u8(i32 %a, i32 %b) {
+        entry:
+            %cmp = icmp ugt i32 %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
+
+//: ge_u_u8: u8 の符号なし以上比較
+//:
+//: [目的/もくてき]:
+//: - u8 を符号なし整数として `a >= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.ge_u`、llvm は `icmp uge` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 結果は bool（0/1）です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ge_u_u8 <(u8,u8)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.ge_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ge_u_u8(i32 %a, i32 %b) {
+        entry:
+            %cmp = icmp uge i32 %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
+
+//: eq: u8 の等値比較
+fn eq <(u8,u8)->bool> (a,b):
+    eq_u8 a b
+
+//: ne: u8 の非等値比較
+fn ne <(u8,u8)->bool> (a,b):
+    ne_u8 a b
+
+//: lt_u: u8 の符号なし小なり比較
+fn lt_u <(u8,u8)->bool> (a,b):
+    lt_u_u8 a b
+
+//: le_u: u8 の符号なし以下比較
+fn le_u <(u8,u8)->bool> (a,b):
+    le_u_u8 a b
+
+//: gt_u: u8 の符号なし大なり比較
+fn gt_u <(u8,u8)->bool> (a,b):
+    gt_u_u8 a b
+
+//: ge_u: u8 の符号なし以上比較
+fn ge_u <(u8,u8)->bool> (a,b):
+    ge_u_u8 a b

@@ -1,0 +1,196 @@
+//: # math/u8/arith
+//: u8 の算術演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - u8 の加算・減算・乗算・符号なし除算・符号なし剰余を、比較から分けて管理します。
+//: - `core/math/u8` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - u8 は wasm 上では i32 value として運ばれるため、加減乗算は下位 8-bit を残すように mask します。
+//: - 除算と剰余の 0 除算は wasm / llvm の trap です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/cast" as *
+//:| #import "core/math/u8/arith" as *
+//:| #import "core/math/u8/compare" as *
+//: fn main <()->i32> ():
+//:     let a <u8> cast 255;
+//:     let b <u8> cast 1;
+//:     let wrapped <u8> add a b;
+//:     let q <u8> div_u <u8> cast 200 <u8> cast 20;
+//:     if:
+//:         eq wrapped <u8> cast 0
+//:         then:
+//:             if eq q <u8> cast 10 0 1
+//:         else:
+//:             1
+//: ```
+
+#indent 4
+
+//: add_u8: u8 の加算（mod 2^8）
+//:
+//: [目的/もくてき]:
+//: - u8 と u8 を加算します。
+//:
+//: [実装/じっそう]:
+//: - i32 演算で加算した後、`0xff` でマスクして下位 8-bit を残します。
+//:
+//: [注意/ちゅうい]:
+//: - オーバーフロー時は 8-bit でラップします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn add_u8 <(u8,u8)->u8> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.add
+        i32.const 255
+        i32.and
+    #if[target=llvm]
+    #llvmir:
+        define i32 @add_u8(i32 %a, i32 %b) {
+        entry:
+            %sum = add i32 %a, %b
+            %0 = and i32 %sum, 255
+            ret i32 %0
+        }
+
+//: sub_u8: u8 の減算（mod 2^8）
+//:
+//: [目的/もくてき]:
+//: - u8 から u8 を減算します。
+//:
+//: [実装/じっそう]:
+//: - i32 演算で減算した後、`0xff` でマスクして下位 8-bit を残します。
+//:
+//: [注意/ちゅうい]:
+//: - 負の結果は 8-bit でラップします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sub_u8 <(u8,u8)->u8> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.sub
+        i32.const 255
+        i32.and
+    #if[target=llvm]
+    #llvmir:
+        define i32 @sub_u8(i32 %a, i32 %b) {
+        entry:
+            %dif = sub i32 %a, %b
+            %0 = and i32 %dif, 255
+            ret i32 %0
+        }
+
+//: mul_u8: u8 の乗算（mod 2^8）
+//:
+//: [目的/もくてき]:
+//: - u8 と u8 の積を計算します。
+//:
+//: [実装/じっそう]:
+//: - i32 演算で乗算した後、`0xff` でマスクして下位 8-bit を残します。
+//:
+//: [注意/ちゅうい]:
+//: - 大きな積は 8-bit でラップします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn mul_u8 <(u8,u8)->u8> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.mul
+        i32.const 255
+        i32.and
+    #if[target=llvm]
+    #llvmir:
+        define i32 @mul_u8(i32 %a, i32 %b) {
+        entry:
+            %prd = mul i32 %a, %b
+            %0 = and i32 %prd, 255
+            ret i32 %0
+        }
+
+//: div_u_u8: u8 の符号なし除算
+//:
+//: [目的/もくてき]:
+//: - u8 を符号なし整数として除算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.div_u`、llvm は `udiv i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 0 除算は trap になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn div_u_u8 <(u8,u8)->u8> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.div_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @div_u_u8(i32 %a, i32 %b) {
+        entry:
+            %0 = udiv i32 %a, %b
+            ret i32 %0
+        }
+
+//: rem_u_u8: u8 の符号なし剰余
+//:
+//: [目的/もくてき]:
+//: - u8 を符号なし整数として剰余を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `i32.rem_u`、llvm は `urem i32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 0 除算は trap になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn rem_u_u8 <(u8,u8)->u8> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i32.rem_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @rem_u_u8(i32 %a, i32 %b) {
+        entry:
+            %0 = urem i32 %a, %b
+            ret i32 %0
+        }
+
+//: add: u8 の加算（mod 2^8）
+fn add <(u8,u8)->u8> (a,b):
+    add_u8 a b
+
+//: sub: u8 の減算（mod 2^8）
+fn sub <(u8,u8)->u8> (a,b):
+    sub_u8 a b
+
+//: mul: u8 の乗算（mod 2^8）
+fn mul <(u8,u8)->u8> (a,b):
+    mul_u8 a b
+
+//: div_u: u8 の符号なし除算
+fn div_u <(u8,u8)->u8> (a,b):
+    div_u_u8 a b
+
+//: rem_u: u8 の符号なし剰余
+fn rem_u <(u8,u8)->u8> (a,b):
+    rem_u_u8 a b
