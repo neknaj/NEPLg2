@@ -150,7 +150,7 @@ fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
                                                                                                 Result::Ok next_entries:
                                                                                                     set entries next_entries
                                                                                                 Result::Err _e:
-                                                                                                    set entries v::Vec<str> 0 0 mem_ptr_wrap 0
+                                                                                                    set entries v::vec_empty<str>
                                                                                                     set err 12
                                                                             set cookie <i64> cast next_cookie_low
                                                                             set off name_off

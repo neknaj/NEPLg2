@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T00:41:00.250Z",
+  "generated_at": "2026-05-06T00:44:09.910Z",
   "counts": {
     "total": 494,
     "open": 13,
@@ -218,7 +218,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-04-30",
+      "updated": "2026-05-06",
       "target": "stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl, stdlib/alloc/collections/**",
       "legacy_id": "",
       "source": "",

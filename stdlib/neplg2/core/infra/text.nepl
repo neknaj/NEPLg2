@@ -119,7 +119,7 @@ fn source_text_collect_line_starts <(str,i32,i32,Vec<i32>)->Result<Vec<i32>, Std
                             set out next_starts
                             set i add i 1
                         Result::Err _e:
-                            set out v::Vec<i32> 0 0 mem_ptr_wrap 0
+                            set out v::vec_empty<i32>
                             set failed true
                 '\r':
                     let next_idx <i32> source_text_next_index_after_cr source n i
@@ -128,7 +128,7 @@ fn source_text_collect_line_starts <(str,i32,i32,Vec<i32>)->Result<Vec<i32>, Std
                             set out next_starts
                             set i next_idx
                         Result::Err _e:
-                            set out v::Vec<i32> 0 0 mem_ptr_wrap 0
+                            set out v::vec_empty<i32>
                             set failed true
                 _:
                     set i add i 1

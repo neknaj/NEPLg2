@@ -78,12 +78,12 @@ struct KpI32PushRes:
     items <Vec<i32>>
     ok <bool>
 
-//: kp_i32_empty_vec: 空の `Vec<i32>` sentinel を作る
+//: kp_i32_empty_vec: 空の `Vec<i32>` を作る
 //:
 //: [目的/もくてき]:
 //: - allocation failure 時に consumed owner を再利用せず、空の BFS 結果へ切り替えます。
 fn kp_i32_empty_vec <()->Vec<i32>> ():
-    v::Vec<i32> 0 0 mem_ptr_wrap 0
+    v::vec_empty<i32>
 
 //: kp_push_i32: `Vec<i32>` push を trap せず結果化する
 fn kp_push_i32 <(Vec<i32>,i32)->KpI32PushRes> (items, item):

@@ -158,12 +158,12 @@ struct Outcome<.T, .E>:
     result <Result<.T, .E>>
     diags <Option<Diags>>
 
-//: diag_empty_diag_vec: [空/から]の `Vec<Diag>` sentinel を[作/つく]る
+//: diag_empty_diag_vec: [空/から]の `Vec<Diag>` を[作/つく]る
 //:
 //: [目的/もくてき]:
 //: - `Diags` [構築/こうちく]で allocation failure が[起/お]きても trap せず、[空/から]の[診断群/しんだんぐん]へ[丸/まる]めます。
 fn diag_empty_diag_vec <()->Vec<Diag>> ():
-    v::Vec<Diag> 0 0 mem_ptr_wrap 0
+    v::vec_empty<Diag>
 
 //: diag_kind_new: `DiagKind` を[構築/こうちく]する
 fn diag_kind_new <(DiagLevel,Option<StdErrorKind>,Option<str>)->DiagKind> (level, std_error, local_kind):

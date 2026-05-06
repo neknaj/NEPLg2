@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-04-30
+updated: 2026-05-06
 target: "stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl, stdlib/alloc/collections/**"
 ---
 
@@ -337,3 +337,31 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 - `SparseSet` の dense/sparse payload は引き続き raw `MemPtr<i32>` array であり、最終的な `OwnedBuffer<i32>` / typed buffer state 設計へ移す余地がある。
 - `Vec` / raw byte collection / List node storage の owner state は引き続き残る。
+
+## 2026-05-06 Vec / sort 部分進捗
+
+`stdlib/alloc/collections/vec.nepl` は `cap = 0` の empty owner state を `mem_ptr_wrap 0` だけで表す設計をやめ、`VecStorageState::{Empty, Owned}` を追加した。
+
+進捗:
+
+- `Vec` 本体は `len/cap/storage/data` を持つ。owner state は `VecStorageState` enum、実 pointer は `data <MemPtr<T>>` として分離した。
+- enum payload に `MemPtr<T>` を入れる案は Resource IR が raw memory cell 初期化状態を追えなかったため破棄した。最終設計は enum で owner state を静的に分岐しつつ、pointer field は Resource IR が追跡できる直接 field として残す。
+- `new` / `with_capacity` / `filled` / `push` / `pop` / `clear` / `free` / `map` / `filter` / `partition` / `take_while` / `drop_while` は `VecStorageState` の `match` と `vec_free_storage` を通る。
+- `diag` / `kpgraph` / `tui` / `std/fs` / selfhost text の push failure fallback は `v::vec_empty<T>` へ統一し、`v::Vec<T> 0 0 mem_ptr_wrap 0` の直接構築を廃止した。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` は、`VecStorageState` と `Vec` layout、direct null owner sentinel 禁止、`VecStorageState` による cleanup を固定するよう更新した。
+- `sort` の in-place API は owner を消費しない `&Vec<T>` へ移し、`sort_i32` / raw slice helper も raw `i32` address ではなく `MemPtr<T>` を受け取る形にした。
+
+検証:
+
+- `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-storage-state-docs2.json -j 1`: total=37, passed=37
+- `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-storage-state-tests2.json -j 1`: total=3, passed=3
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/vec-storage-state-sort-docs4.json -j 1`: total=3, passed=3
+- `node nodesrc/tests.js -i tests/stdlib/sort.n.md --no-tree -o tmp/vec-storage-state-sort-tests6.json -j 1`: total=22, passed=22
+- `node nodesrc/tests.js -i stdlib/tests/queue.n.md -i stdlib/tests/stack.n.md -i stdlib/tests/deque.n.md -i stdlib/tests/ringbuffer.n.md --no-tree -o tmp/vec-storage-state-dependent-collections2.json -j 1`: total=15, passed=15
+- `node nodesrc/tests.js -i tests/stdlib/binary_heap_collections.n.md -i stdlib/tests/binary_heap.n.md --no-tree -o tmp/vec-storage-state-binary-heap2.json -j 1`: total=8, passed=8
+
+残件:
+
+- `SparseSet` の dense/sparse payload、List node storage、bitset / bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。

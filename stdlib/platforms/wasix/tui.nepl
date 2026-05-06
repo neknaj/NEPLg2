@@ -65,12 +65,12 @@ struct TuiStrPushRes:
     items <Vec<str>>
     ok <bool>
 
-//: tui_empty_str_vec: 空の `Vec<str>` sentinel を作る
+//: tui_empty_str_vec: 空の `Vec<str>` を作る
 //:
 //: [目的/もくてき]:
 //: - allocation failure 時に consumed owner を再利用せず、空の折り返し結果へ切り替えます。
 fn tui_empty_str_vec <()->Vec<str>> ():
-    v::Vec<str> 0 0 mem_ptr_wrap 0
+    v::vec_empty<str>
 
 //: tui_push_str: `Vec<str>` push を trap せず結果化する
 fn tui_push_str <(Vec<str>,str)->TuiStrPushRes> (items, item):

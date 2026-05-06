@@ -119,6 +119,34 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-06 note (ISS-20260429T155343006Z collection storage states)
+
+- [同期]:
+  - `main` を remote main と同期後、`fix/vec-empty-owned-buffer` で stdlib `Vec` の empty storage owner state を修正した。
+- [原因]:
+  - `Vec` は `cap = 0` を `mem_ptr_wrap 0` の raw pointer sentinel で表しており、owner state が型で表現されていなかった。
+  - `diag` / `kpgraph` / `tui` / `std/fs` / selfhost text も push failure fallback で `v::Vec<T> 0 0 mem_ptr_wrap 0` を直接組み立てていた。
+  - 最初に `VecStorage<T>::Owned(MemPtr<T>)` を試したが、Resource IR が enum payload 内の `MemPtr` の raw memory cell 初期化状態を追跡できず、`get` の load が未初期化扱いになった。
+- [修正]:
+  - `VecStorageState::{Empty, Owned}` を追加し、`Vec` は `storage <VecStorageState>` と `data <MemPtr<T>>` を分けて保持する設計へ変更した。
+  - empty owner state は enum で判定しつつ、実ポインタ field は直接残すことで Resource IR のメモリ追跡を維持した。
+  - `new` / `with_capacity` / `filled` / `push` / `pop` / `clear` / `free` / `map` / `filter` / `partition` / `take_while` / `drop_while` を `VecStorageState` に追従させた。
+  - fallback empty vector は `v::vec_empty<T>` に統一し、直接 `v::Vec<T> 0 0 mem_ptr_wrap 0` を使わないようにした。
+  - sort の in-place API は owner を消費しない `&Vec<T>` へ寄せ、`sort_i32` / raw slice helper は raw `i32` ではなく `MemPtr<T>` を受ける形へ変更した。
+- [検証]:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-storage-state-docs2.json -j 1`: 37 passed
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-storage-state-tests2.json -j 1`: 3 passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/vec-storage-state-sort-docs4.json -j 1`: 3 passed
+  - `node nodesrc/tests.js -i tests/stdlib/sort.n.md --no-tree -o tmp/vec-storage-state-sort-tests6.json -j 1`: 22 passed
+  - `node nodesrc/tests.js -i stdlib/tests/queue.n.md -i stdlib/tests/stack.n.md -i stdlib/tests/deque.n.md -i stdlib/tests/ringbuffer.n.md --no-tree -o tmp/vec-storage-state-dependent-collections2.json -j 1`: 15 passed
+  - `node nodesrc/tests.js -i tests/stdlib/binary_heap_collections.n.md -i stdlib/tests/binary_heap.n.md --no-tree -o tmp/vec-storage-state-binary-heap2.json -j 1`: 8 passed
+- [issue]:
+  - `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` は Vec 部分を大きく前進。SparseSet など他 collection の storage state は残件。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260505T233519789Z resource effect counts split)
 
 - [同期]:

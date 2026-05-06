@@ -29,7 +29,7 @@ for (const pattern of forbidden) {
 assert.match(code, /struct\s+Diag:[\s\S]*notes\s+<str>[\s\S]*help\s+<str>/, 'Diag notes/help must use string fields in the current compact diagnostic layout');
 assert.doesNotMatch(code, /struct\s+Diag:[\s\S]*notes\s+<Vec<str>>/, 'Diag notes must not silently reintroduce Vec<str> storage without a checked fallback policy');
 assert.doesNotMatch(code, /struct\s+Diag:[\s\S]*help\s+<Vec<str>>/, 'Diag help must not silently reintroduce Vec<str> storage without a checked fallback policy');
-assert.match(code, /fn\s+diag_empty_diag_vec\s+<\(\)->Vec<Diag>>\s+\(\):\s+v::Vec<Diag>\s+0\s+0\s+mem_ptr_wrap\s+0/, 'Diags allocation fallback must use an empty sentinel');
+assert.match(code, /fn\s+diag_empty_diag_vec\s+<\(\)->Vec<Diag>>\s+\(\):\s+v::vec_empty<Diag>/, 'Diags allocation fallback must use typed empty Vec storage');
 assert.match(code, /fn\s+diag_new\s+<\(DiagKind,str\)\*>Diag>\s+\(kind,\s*message\):\s+Diag\s+kind\s+message\s+none<Span>\s+""\s+""\s+none<str>/, 'diag_new must initialize note/help text without allocating Vec<str>');
 assert.match(code, /fn\s+diag_add_note\s+<\(Diag,str\)\*>Diag>\s+\(d,\s*note\):\s+Diag[\s\S]*\snote\s+/, 'diag_add_note must store an owner-neutral note fragment directly');
 assert.match(code, /fn\s+diag_add_help\s+<\(Diag,str\)\*>Diag>\s+\(d,\s*help_item\):\s+Diag[\s\S]*\shelp_item\s+/, 'diag_add_help must store an owner-neutral help fragment directly');

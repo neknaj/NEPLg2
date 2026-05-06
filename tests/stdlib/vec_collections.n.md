@@ -3,10 +3,11 @@
 ## vec_free_zero_and_grow_reallocates
 
 [目的/もくてき]:
-- `Vec` が capacity 0 と grow [後/ご]の owned buffer を `free` しても trap せず、その[後/あと]の[再確保/さいかくほ]が[正常/せいじょう]に[動作/どうさ]することを[確認/かくにん]します。
+- `Vec` が `with_capacity 0` を typed empty storage として[扱/あつか]い、`free` とその[後/あと]の[再確保/さいかくほ]が[正常/せいじょう]に[動作/どうさ]することを[確認/かくにん]します。
 
 [何/なに]を[確/たし]かめるか:
 - `with_capacity`
+- typed empty storage
 - `push`
 - grow
 - `free`
@@ -25,6 +26,9 @@ ret: 1
 
 fn main <()*>i32> ():
     let empty <Vec<i32>> unwrap_ok with_capacity<i32> 0;
+    let empty_is_empty <bool> is_empty<i32> &empty;
+    let empty_cap_zero <bool> eq cap<i32> &empty 0;
+    let empty_ok <bool> and empty_is_empty empty_cap_zero;
     free<i32> empty;
     let mut grown <Vec<i32>> unwrap_ok new<i32>;
     set grown unwrap_ok push<i32> grown 0;
@@ -47,7 +51,8 @@ fn main <()*>i32> ():
         Option::None:
             false
     free<i32> next;
-    if and grown_ok top_ok 1 0
+    let post_ok <bool> and grown_ok top_ok;
+    if and empty_ok post_ok 1 0
 ```
 
 ## vec_sort_merge_ret_releases_scratch_buffer

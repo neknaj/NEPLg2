@@ -27,7 +27,7 @@ for (const pattern of forbidden) {
 }
 
 assert.match(code, /#import\s+"alloc\/collections\/vec"\s+as\s+v/, 'wasix tui must qualify implementation Vec allocation calls');
-assert.match(code, /fn\s+tui_empty_str_vec\s+<\(\)->Vec<str>>\s+\(\):\s+v::Vec<str>\s+0\s+0\s+mem_ptr_wrap\s+0/, 'text_wrap_lines allocation fallback must use an empty Vec sentinel');
+assert.match(code, /fn\s+tui_empty_str_vec\s+<\(\)->Vec<str>>\s+\(\):\s+v::vec_empty<str>/, 'text_wrap_lines allocation fallback must use typed empty Vec storage');
 assert.match(code, /fn\s+tui_push_str\s+<\(Vec<str>,str\)->TuiStrPushRes>\s+\(items,\s*item\):[\s\S]*match\s+v::push<str>\s+items\s+item:[\s\S]*Result::Err\s+_e:[\s\S]*TuiStrPushRes\s+tui_empty_str_vec\s+false/, 'text_wrap_lines push must convert grow failure to ok=false');
 assert.match(code, /fn\s+text_wrap_lines\s+<\(str,i32\)\*>Vec<str>>\s+\(text,\s*cols\):[\s\S]*match\s+v::new<str>:[\s\S]*Result::Err\s+_e:[\s\S]*set\s+failed\s+true/, 'text_wrap_lines must handle Vec allocation failure');
 assert.match(code, /while\s+and\s+lt\s+i\s+n\s+not\s+failed:/, 'text_wrap_lines must stop scanning after line accumulation failure');
