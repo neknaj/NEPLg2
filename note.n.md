@@ -1,3 +1,22 @@
+# 2026-05-06 note (ISS-20260506T030752155Z Resource HIR projection coverage split)
+
+- [同期]:
+  - `2f41ce2b` の nm parser JSON inline split push 後、`origin/main` と一致する clean な `main` から branch `fix/resource-hir-projection-coverage-split` を作成した。
+- [原因]:
+  - `coverage_hir_projection.rs` は field/reference projection coverage の entrypoint 判定と aggregate field matching helper を同居させ、responsibility split limit 280 に対して 296 lines まで増えていた。
+  - aggregate field/name/selector matching は projection coverage entrypoint と別責務で、再肥大化の原因になっていた。
+- [修正]:
+  - `coverage_hir_projection_aggregate.rs` を追加し、field name / selector / offset が expected type に対応するかの判定を分離した。
+  - `coverage_hir_projection.rs` は `get` / `get_field` / `get_field_ref` / compiler `load(add ...)` / reference-address projection の entrypoint 判定に集中させた。
+  - `resource/mod.rs` と `nodesrc/test_resource_checker_responsibility.js` に新 module を追加し、行数上限を固定した。
+- [検証]:
+  - `cargo fmt -p nepl-core`: passed
+  - `cargo test -p nepl-core resource_ir --tests`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: coverage_hir_projection 超過は解消。次の別件として `lower_aggregate.rs has 366 lines; responsibility split limit is 320` を検出。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: coverage_hir_projection 関連は passed。`lower_aggregate.rs` warning は継続。
+- [新規検出]:
+  - `lower_aggregate.rs has 366 lines; responsibility split limit is 320` は別 issue として追加する。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm parser JSON inline split)
 
 - [同期]:

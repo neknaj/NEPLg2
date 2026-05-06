@@ -87,6 +87,7 @@ for (const moduleName of [
     'coverage.rs',
     'coverage_hir.rs',
     'coverage_hir_projection.rs',
+    'coverage_hir_projection_aggregate.rs',
     'coverage_hir_raw.rs',
     'coverage_resource.rs',
     'lower_raw_address.rs',
@@ -148,6 +149,7 @@ for (const moduleDecl of [
     'mod coverage;',
     'mod coverage_hir;',
     'mod coverage_hir_projection;',
+    'mod coverage_hir_projection_aggregate;',
     'mod coverage_hir_raw;',
     'mod coverage_resource;',
     'mod lower_raw_address;',
@@ -196,6 +198,7 @@ const effectSummary = readResource('effect_summary.rs');
 const coverage = readResource('coverage.rs');
 const coverageHir = readResource('coverage_hir.rs');
 const coverageHirProjection = readResource('coverage_hir_projection.rs');
+const coverageHirProjectionAggregate = readResource('coverage_hir_projection_aggregate.rs');
 const coverageHirRaw = readResource('coverage_hir_raw.rs');
 const coverageResource = readResource('coverage_resource.rs');
 const lower = readResource('lower.rs');
@@ -216,6 +219,11 @@ assertContains(
     coverageHirProjection,
     'pub(super) fn field_get_call_owner',
     'coverage_hir_projection.rs',
+);
+assertContains(
+    coverageHirProjectionAggregate,
+    'pub(super) fn aggregate_field_matches_selector',
+    'coverage_hir_projection_aggregate.rs',
 );
 assertContains(
     coverageHirRaw,
@@ -309,6 +317,7 @@ const maxLines = new Map([
     ['coverage.rs', 280],
     ['coverage_hir.rs', 240],
     ['coverage_hir_projection.rs', 280],
+    ['coverage_hir_projection_aggregate.rs', 180],
     ['coverage_hir_raw.rs', 80],
     ['coverage_resource.rs', 520],
     ['lower.rs', 1150],

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T03:35:42.319Z",
+  "generated_at": "2026-05-06T03:42:26.757Z",
   "counts": {
     "total": 498,
-    "open": 14,
-    "resolved": 484,
+    "open": 13,
+    "resolved": 485,
     "by_area": {
       "core": {
         "total": 234,
-        "open": 6,
-        "resolved": 228
+        "open": 5,
+        "resolved": 229
       },
       "stdlib": {
         "total": 155,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260506T030752155Z-RESOURCE-HIR-PROJECTION-COVERAGE-MOD-ED65CFB3",
-      "title": "Resource HIR projection coverage module exceeds responsibility split limit",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "nepl-core/src/resource/coverage_hir_projection.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T030752155Z-RESOURCE-HIR-PROJECTION-COVERAGE-MOD-ED65CFB3.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3628,6 +3613,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T022705566Z-MOVE-CHECK-DOCTESTS-ARE-STALE-AFTER--EDD8402F.md"
+    },
+    {
+      "id": "ISS-20260506T030752155Z-RESOURCE-HIR-PROJECTION-COVERAGE-MOD-ED65CFB3",
+      "title": "Resource HIR projection coverage module exceeds responsibility split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/coverage_hir_projection.rs, nepl-core/src/resource/coverage_hir_projection_aggregate.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T030752155Z-RESOURCE-HIR-PROJECTION-COVERAGE-MOD-ED65CFB3.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

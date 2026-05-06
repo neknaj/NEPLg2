@@ -15,6 +15,7 @@ mod condition_fact;
 mod coverage;
 mod coverage_hir;
 mod coverage_hir_projection;
+mod coverage_hir_projection_aggregate;
 mod coverage_hir_raw;
 mod coverage_resource;
 mod dump;
