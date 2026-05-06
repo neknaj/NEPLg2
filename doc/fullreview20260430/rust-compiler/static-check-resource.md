@@ -137,6 +137,12 @@ Resource IR drop elaboration plan は function 単位で `origin_name` を持つ
 
 これは HIR `passes::insert_drops` 削除へ向けた codegen 境界の補強である。monomorphized function name を parsing して source HIR function を推測する設計は、generic specialization と overload/mangle に依存する技術的負債になる。今後の drop call 生成は `name`、`origin_name`、source binding、checked drop point path を合わせて使い、Resource IR の checked live fact から source/backend の挿入位置を決める。
 
+## 2026-05-06 prepared drop elaboration plan 追補
+
+`run_resource_static_check` は checked `ResourceDropElaborationPlan` を返すようになり、`PreparedProgram` は `resource_drop_elaboration_plan` を保持する。これにより checked live drop facts は compiler gate の一時値ではなく、codegen bridge が消費できる pipeline artifact になった。
+
+まだ HIR `passes::insert_drops` は残っているが、次の置換作業は Resource IR plan を再計算せずに `PreparedProgram` から受け取れる。残る blocker は、この prepared plan を実 drop call 生成へ渡し、HIR scope walker の drop 対象推定を削除することである。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

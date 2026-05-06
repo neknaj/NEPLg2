@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T09:28:30.005Z",
+  "generated_at": "2026-05-06T09:42:52.452Z",
   "counts": {
-    "total": 504,
+    "total": 505,
     "open": 13,
-    "resolved": 491,
+    "resolved": 492,
     "by_area": {
       "core": {
-        "total": 240,
+        "total": 241,
         "open": 5,
-        "resolved": 235
+        "resolved": 236
       },
       "stdlib": {
         "total": 155,
@@ -3718,6 +3718,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T091634072Z-RESOURCE-DROP-ELABORATION-CANNOT-BRI-88F5F95B.md"
+    },
+    {
+      "id": "ISS-20260506T093453445Z-RESOURCE-DROP-ELABORATION-PLAN-IS-DI-E004B013",
+      "title": "Resource drop elaboration plan is discarded before codegen",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/compiler.rs, nepl-core/tests/check_pipeline.rs, nodesrc/test_resource_gate_order.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T093453445Z-RESOURCE-DROP-ELABORATION-PLAN-IS-DI-E004B013.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

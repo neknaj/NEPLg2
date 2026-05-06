@@ -218,6 +218,7 @@ struct TypedProgram {
 pub struct PreparedProgram {
     pub types: crate::types::TypeCtx,
     pub hir_module: crate::hir::HirModule,
+    pub resource_drop_elaboration_plan: crate::resource::ResourceDropElaborationPlan,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -265,7 +266,7 @@ fn run_resource_static_check(
     types: &crate::types::TypeCtx,
     diagnostics: &mut Vec<Diagnostic>,
     source_map: Option<&SourceMap>,
-) -> Result<(), CoreError> {
+) -> Result<crate::resource::ResourceDropElaborationPlan, CoreError> {
     run_resource_shadow_check(hir_module, types);
     let resource = crate::resource::lower_hir_module(hir_module, types);
     let lowering_coverage =
@@ -273,7 +274,7 @@ fn run_resource_static_check(
     run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
     let initialized_moves = crate::resource::check_resource_initialized_moves(&resource, types);
     run_resource_cell_gate(&initialized_moves, diagnostics, source_map)?;
-    run_resource_drop_elaboration_plan_gate(
+    let drop_elaboration_plan = run_resource_drop_elaboration_plan_gate(
         crate::resource::compute_resource_drop_elaboration_plan(&resource, &initialized_moves),
         diagnostics,
     )?;
@@ -284,7 +285,7 @@ fn run_resource_static_check(
     let owner_obligations = crate::resource::check_resource_owner_obligations(&resource, types);
     run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)?;
 
-    Ok(())
+    Ok(drop_elaboration_plan)
 }
 
 fn run_resource_drop_elaboration_plan_gate(
@@ -293,9 +294,10 @@ fn run_resource_drop_elaboration_plan_gate(
         Vec<crate::resource::ResourceDropElaborationPlanError>,
     >,
     diagnostics: &mut Vec<Diagnostic>,
-) -> Result<(), CoreError> {
-    let Err(errors) = plan else {
-        return Ok(());
+) -> Result<crate::resource::ResourceDropElaborationPlan, CoreError> {
+    let errors = match plan {
+        Ok(plan) => return Ok(plan),
+        Err(errors) => errors,
     };
     diagnostics.extend(
         errors
@@ -1242,7 +1244,7 @@ pub fn prepare_module_for_codegen_with_source_map(
         extend_unresolved_trait_call_diagnostics(&mut diagnostics, resource_unresolved_trait_calls);
         return Err(CoreError::from_diagnostics(diagnostics));
     }
-    run_resource_static_check(
+    let resource_drop_elaboration_plan = run_resource_static_check(
         &resource_hir_module,
         &resource_types,
         &mut diagnostics,
@@ -1260,6 +1262,7 @@ pub fn prepare_module_for_codegen_with_source_map(
     Ok(PreparedProgram {
         types,
         hir_module,
+        resource_drop_elaboration_plan,
         diagnostics,
     })
 }

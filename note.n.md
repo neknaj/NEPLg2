@@ -1,3 +1,22 @@
+# 2026-05-06 note (ISS-20260506T093453445Z Resource drop plan pipeline artifact)
+
+- [同期]:
+  - `7a4b1745` を push/pull して `main` と `origin/main` が一致した後、branch `work/resource-drop-plan-pipeline-output` を作成した。
+- [原因]:
+  - `run_resource_static_check` は `ResourceDropElaborationPlan` を hard gate として検証していたが、成功した plan を返さずに捨てていた。
+  - その状態では次の HIR/Wasm drop call 生成 bridge が checked live drop facts を正式な compiler pipeline artifact として受け取れず、HIR scope walker や再計算へ戻る危険があった。
+- [修正]:
+  - `run_resource_static_check` の戻り値を checked `ResourceDropElaborationPlan` に変更した。
+  - `PreparedProgram` に `resource_drop_elaboration_plan` を追加し、`prepare_module_for_codegen_with_source_map` が Resource IR static check の成果物を保持するようにした。
+  - `nodesrc/test_resource_gate_order.js` で checked plan を捨てずに `PreparedProgram` へ渡すことを監視するようにした。
+- [検証]:
+  - `prepare_codegen_exposes_checked_resource_drop_elaboration_plan` で generic `ignore<Guard>` の monomorphized drop fact が prepared artifact に残ることを確認した。
+  - `cargo check -p nepl-core --tests` は通過済み。
+- [残件]:
+  - 次は `PreparedProgram.resource_drop_elaboration_plan` を HIR/Wasm drop call 生成の入力として消費し、`passes::insert_drops` の scope walker を削除する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260506T091634072Z Resource drop elaboration function origin)
 
 - [同期]:

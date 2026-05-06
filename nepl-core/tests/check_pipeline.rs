@@ -59,6 +59,50 @@ fn prepare_codegen_accepts_deep_prefix_chain_without_stack_overflow() {
 }
 
 #[test]
+fn prepare_codegen_exposes_checked_resource_drop_elaboration_plan() {
+    let module = parse_module(
+        r#"#entry main
+#indent 4
+#target core
+#no_prelude
+
+struct Guard:
+    id <i32>
+
+fn ignore <.T> <(.T)->i32> (_value):
+    1
+
+fn main <()->i32> ():
+    ignore<Guard> Guard 7
+"#,
+    );
+
+    let prepared = prepare_module_for_codegen(
+        &module,
+        CompileTarget::Wasm,
+        nepl_core::BuildProfile::detect(),
+    )
+    .expect("prepare codegen should expose checked Resource IR drop elaboration");
+    let ignore_plan = prepared
+        .resource_drop_elaboration_plan
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "ignore")
+        .expect("monomorphized generic function should keep a source-origin drop plan");
+    assert_ne!(
+        ignore_plan.name, ignore_plan.origin_name,
+        "prepared drop plan should be built from monomorphized Resource IR"
+    );
+    assert!(ignore_plan.auto_drops.iter().any(|drop| {
+        drop.source_name == "_value"
+            && matches!(
+                drop.requirement,
+                nepl_core::resource::ResourceDropRequirement::StateOnly
+            )
+    }));
+}
+
+#[test]
 fn drop_insertion_accepts_deep_prefix_chain_without_stack_overflow() {
     let module = parse_module(&deep_identity_source(1105));
     let mut tc = nepl_core::typecheck::typecheck(
