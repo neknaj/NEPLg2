@@ -13,9 +13,11 @@ function read(relPath) {
 const parserPath = 'stdlib/nm/parser.nepl';
 const scannerPath = 'stdlib/nm/parser/scanner.nepl';
 const htmlPath = 'stdlib/nm/html_gen.nepl';
+const htmlInlinePath = 'stdlib/nm/html_inline.nepl';
 const parser = read(parserPath);
 const scanner = read(scannerPath);
 const html = read(htmlPath);
+const htmlInline = read(htmlInlinePath);
 
 for (const name of [
     'nm_read_line',
@@ -44,6 +46,11 @@ for (const name of [
         new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`, 'm'),
         `${htmlPath} must not own ${name}; NM scan helpers belong to ${scannerPath}`
     );
+    assert.doesNotMatch(
+        htmlInline,
+        new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`, 'm'),
+        `${htmlInlinePath} must not own ${name}; NM scan helpers belong to ${scannerPath}`
+    );
 }
 
 assert.match(
@@ -57,14 +64,24 @@ assert.match(
     `${htmlPath} must import the dedicated NM parser scanner module`
 );
 assert.match(
+    htmlInline,
+    /^#import "\.\/parser\/scanner" as scan$/m,
+    `${htmlInlinePath} must import the dedicated NM parser scanner module`
+);
+assert.match(
     parser,
     /\bscan::nm_find_math_end\b/,
     `${parserPath} must use scanner module for math delimiter search`
 );
 assert.match(
-    html,
+    htmlInline,
     /\bscan::nm_find_math_end\b/,
-    `${htmlPath} must use scanner module for math delimiter search`
+    `${htmlInlinePath} must use scanner module for math delimiter search`
+);
+assert.match(
+    htmlInline,
+    /\bscan::nm_find_gloss_slash\b/,
+    `${htmlInlinePath} must use scanner module for gloss slash search`
 );
 assert.match(
     parser,

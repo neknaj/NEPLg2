@@ -1,3 +1,32 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm HTML inline split)
+
+- [同期]:
+  - `origin/main` が `412a550a` まで進んでいたため、作業差分を一時退避し、`main` を fast-forward してから branch `fix/nm-html-inline-split` を rebase した。
+- [原因]:
+  - `stdlib/nm/html_gen.nepl` は HTML block/section rendering、escape、heading、inline markup rendering が段階的に分離されていたが、`nm_inline_to_html` がまだ renderer 本体に残っていた。
+  - inline renderer は ruby / gloss / inline math / text escape の marker dispatch と recursive gloss rendering を持ち、block renderer とは別の責務だった。
+- [修正]:
+  - `stdlib/nm/html_inline.nepl` を追加し、`pub fn nm_inline_to_html` を移した。
+  - `stdlib/nm/html_gen.nepl` は `./html_inline` を `inline` alias で import し、heading と paragraph の inline output を `inline::nm_inline_to_html` に委譲する形へ変更した。
+  - `nodesrc/test_stdlib_nm_html_inline_boundary.js` を追加し、inline renderer が `html_gen` に戻らないこと、`match ch:` による marker dispatch と gloss の再帰 inline 変換が維持されることを固定した。
+  - scanner boundary policy を分割後の責務へ更新し、`html_gen` は line scanner、`html_inline` は inline delimiter / byte range scanner を監視対象にした。
+- [検証]:
+  - `node nodesrc/test_stdlib_nm_html_inline_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_no_raw_aggregate_detours.js`: passed
+  - `node nodesrc/tests.js -i stdlib/nm/html_inline.nepl --no-tree -o tmp/nm-html-inline-split-module.json -j 1`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/nm/html_gen.nepl --no-tree -o tmp/nm-html-inline-split-html-gen.json -j 1`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-html-inline-split-nm-tests.json -j 1`: total=5, passed=5
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdlib/nm 関連は passed。remote main 由来の別件として `coverage_hir_projection.rs has 296 lines; responsibility split limit is 280` warning は継続。
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`nm/html_gen` section renderer、`nm/parser` section stack / block serializer、`alloc/string.nepl`、`alloc/collections/vec.nepl` などの責務分割を継続する。
+  - `coverage_hir_projection.rs` の source policy warning は stdlib/nm 分割とは独立した core/resource checker issue として追跡が必要。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260429T155343006Z numeric collection Option read)
 
 - [同期]:

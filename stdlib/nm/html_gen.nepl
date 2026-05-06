@@ -30,139 +30,9 @@
 
 #import "./html_escape" as html
 #import "./html_heading" as heading
+#import "./html_inline" as inline
 #import "./parser" as *
 #import "./parser/scanner" as scan
-
-//: nm_inline_to_html: inline markup を HTML fragment に変換する
-//:
-//: [目的/もくてき]:
-//: - 1 行分の inline markup を HTML fragment へ直接変換します。
-//: - ruby `[base/ruby]`、gloss `{main/sub...}`、inline math `$...$` / `$$...$$` を HTML へ写します。
-//:
-//: [実装/じっそう]:
-//: - pending text を marker の直前で flush し、ruby/gloss/math を直接 HTML として追加します。
-//: - gloss の main/sub は再帰的に inline 変換し、ruby を内側でも使えるようにします。
-//:
-//: [注意/ちゅうい]:
-//: - math segment は元の delimiter を含めて通します。数式 renderer への semantic validation はここでは行いません。
-//: - marker が閉じていない場合は通常 text として扱い、部分的な HTML tag は生成しません。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n + m)
-fn nm_inline_to_html <(str)->str> (s):
-    let mut sb <StringBuilder> string_builder_new;
-    let n <i32> len s;
-    let mut i <i32> 0;
-    let mut text_start <i32> 0;
-    while lt i n:
-        do:
-            let ch <i32> string_byte_at_unchecked s i;
-            match ch:
-                '$':
-                    let mut delim <i32> 1;
-                    if:
-                        and lt add i 1 n eq string_byte_at_unchecked s add i 1 '$'
-                        then set delim 2
-                        else ()
-                    let math_end <i32> scan::nm_find_math_end s add i delim delim;
-                    if:
-                        ge math_end 0
-                        then:
-                            let seg <str> str_slice s text_start i;
-                            if:
-                                gt len seg 0
-                                then set sb sb_append sb html::escape_html seg
-                                else ()
-                            let endpos <i32> add math_end delim;
-                            set sb sb_append sb str_slice s i endpos;
-                            set i endpos;
-                            set text_start endpos
-                        else:
-                            set i add i 1
-                '[':
-                    let close <i32> scanner::str_find_byte_range s add i 1 n ']';
-                    let slash <i32>:
-                        if:
-                            ge close 0
-                            then scanner::str_find_byte_range s add i 1 close '/'
-                            else -1
-                    let mut next_is_paren <bool> false;
-                    if:
-                        and ge close 0 lt add close 1 n
-                        then set next_is_paren eq string_byte_at_unchecked s add close 1 '('
-                        else ()
-                    if:
-                        and ge close 0 and ge slash 0 not next_is_paren
-                        then:
-                            let seg <str> str_slice s text_start i;
-                            if:
-                                gt len seg 0
-                                then set sb sb_append sb html::escape_html seg
-                                else ()
-                            let base <str> str_slice s add i 1 slash;
-                            let rub <str> str_slice s add slash 1 close;
-                            set sb sb_append sb "<ruby class=\"nm-ruby\"><rb>";
-                            set sb sb_append sb html::escape_html base;
-                            set sb sb_append sb "</rb><rt>";
-                            set sb sb_append sb html::escape_html rub;
-                            set sb sb_append sb "</rt></ruby>";
-                            set i add close 1;
-                            set text_start i
-                        else:
-                            set i add i 1
-                '{':
-                    let close <i32> scanner::str_find_byte_range s add i 1 n '}';
-                    let first_slash <i32>:
-                        if:
-                            ge close 0
-                            then scan::nm_find_gloss_slash s add i 1 close
-                            else -1
-                    if:
-                        and ge close 0 ge first_slash 0
-                        then:
-                            let seg <str> str_slice s text_start i;
-                            if:
-                                gt len seg 0
-                                then set sb sb_append sb html::escape_html seg
-                                else ()
-                            let main <str> str_slice s add i 1 first_slash;
-                            set sb sb_append sb "<ruby class=\"nm-anno\"><rb>";
-                            set sb sb_append sb nm_inline_to_html main;
-                            set sb sb_append sb "</rb><rt>";
-                            let mut sub_start <i32> add first_slash 1;
-                            let mut k <i32> sub_start;
-                            while lt k close:
-                                do:
-                                    let next_slash <i32> scan::nm_find_gloss_slash s k close;
-                                    let part_end <i32>:
-                                        if:
-                                            ge next_slash 0
-                                            then next_slash
-                                            else close
-                                    let part <str> str_slice s sub_start part_end;
-                                    set sb sb_append sb "<span class=\"nm-anno-note\">";
-                                    set sb sb_append sb nm_inline_to_html part;
-                                    set sb sb_append sb "</span>";
-                                    if:
-                                        ge next_slash 0
-                                        then:
-                                            set sub_start add next_slash 1;
-                                            set k sub_start
-                                        else:
-                                            set k close
-                            set sb sb_append sb "</rt></ruby>";
-                            set i add close 1;
-                            set text_start i
-                        else:
-                            set i add i 1
-                _:
-                    set i add i 1
-    let tail <str> str_slice s text_start n;
-    if:
-        gt len tail 0
-        then set sb sb_append sb html::escape_html tail
-        else ()
-    sb_build sb
 
 //: nm_render_source_html: source を HTML fragment に変換する
 //:
@@ -172,7 +42,7 @@ fn nm_inline_to_html <(str)->str> (s):
 //:
 //: [実装/じっそう]:
 //: - section close は `</section>` を direct に追加し、stack state は Copy bool と current level だけで持ちます。
-//: - paragraph は次の block boundary まで複数行を束ね、inline markup は `nm_inline_to_html` で変換します。
+//: - paragraph は次の block boundary まで複数行を束ね、inline markup は `html_inline` module で変換します。
 //:
 //: [注意/ちゅうい]:
 //: - heading level 1 から 6 だけを section stack として扱います。より深い heading は parser helper 側で h6 相当に丸めます。
@@ -306,7 +176,7 @@ fn nm_render_source_html <(str)->str> (src):
                                                     set sb sb_append_i32 sb hlevel;
                                                     set sb sb_append sb "\">";
                                                     set sb heading::nm_append_heading_open sb hlevel;
-                                                    set sb sb_append sb nm_inline_to_html htext;
+                                                    set sb sb_append sb inline::nm_inline_to_html htext;
                                                     set sb heading::nm_append_heading_close sb hlevel;
                                                     match hlevel:
                                                         1:
@@ -339,7 +209,7 @@ fn nm_render_source_html <(str)->str> (src):
                                                                     set para_sb sb_append para_sb praw;
                                                                     set pos scanner::str_next_line_pos src pend
                                                     set sb sb_append sb "<p>";
-                                                    set sb sb_append sb nm_inline_to_html sb_build para_sb;
+                                                    set sb sb_append sb inline::nm_inline_to_html sb_build para_sb;
                                                     set sb sb_append sb "</p>"
 
     while gt current_level 0:

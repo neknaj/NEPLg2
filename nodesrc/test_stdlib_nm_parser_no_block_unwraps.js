@@ -8,9 +8,11 @@ const repoRoot = path.resolve(__dirname, '..');
 const parserPath = 'stdlib/nm/parser.nepl';
 const scannerPath = 'stdlib/nm/parser/scanner.nepl';
 const htmlPath = 'stdlib/nm/html_gen.nepl';
+const htmlInlinePath = 'stdlib/nm/html_inline.nepl';
 const parserSrc = fs.readFileSync(path.join(repoRoot, parserPath), 'utf8');
 const scannerSrc = fs.readFileSync(path.join(repoRoot, scannerPath), 'utf8');
 const htmlSrc = fs.readFileSync(path.join(repoRoot, htmlPath), 'utf8');
+const htmlInlineSrc = fs.readFileSync(path.join(repoRoot, htmlInlinePath), 'utf8');
 
 function implementationSource(src) {
     return src
@@ -22,7 +24,8 @@ function implementationSource(src) {
 const parser = implementationSource(parserSrc);
 const scanner = implementationSource(scannerSrc);
 const html = implementationSource(htmlSrc);
-const combined = `${parser}\n${scanner}\n${html}`;
+const htmlInline = implementationSource(htmlInlineSrc);
+const combined = `${parser}\n${scanner}\n${html}\n${htmlInline}`;
 
 const forbidden = [
     /\bunwrap\b/,
