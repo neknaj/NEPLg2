@@ -1,0 +1,109 @@
+//: access: string の byte length と byte access helper
+//:
+//: [目的/もくてき]:
+//: - `str` の `[len][bytes...]` layout を使った byte length / byte read API を提供します。
+//: - storage layout の raw pointer 操作を root から分離し、parser や builder が循環 import なしに byte accessor を再利用できるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - index は byte index です。Unicode scalar index ではありません。
+//: - `string_byte_at_unchecked` は呼び出し側が範囲確認済みであることを前提にします。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/math" as *
+#import "alloc/string/storage" as *
+
+//: len: 文字列の byte 長を返す
+//:
+//: [目的/もくてき]:
+//: - `str` の本文 byte 数を返します。
+//: - lexer や parser が byte index で走査するときの上限として使います。
+//:
+//: [実装/じっそう]:
+//: - `str` layout の先頭 4 byte に格納された長さ header を読みます。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 の byte 長であり、Unicode scalar count や表示幅ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn len <(str)->i32> (s):
+    load_i32 string_addr s
+
+//: str_byte_len: `str` の byte 長を明示名で返す
+//:
+//: [目的/もくてき]:
+//: - `len` が Unicode scalar count ではなく byte length であることを、呼び出し側の名前で明確にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn str_byte_len <(str)->i32> (s):
+    len s
+
+//: byte_at: 文字列の指定 byte を読む
+//:
+//: [目的/もくてき]:
+//: - `str` の UTF-8 byte 列から、指定した byte index の値を `Option<i32>` として返します。
+//: - VM や tokenizer のように ASCII byte を直接見たい処理で、呼び出し側が raw pointer を扱わずに済むようにします。
+//:
+//: [実装/じっそう]:
+//: - `len` で範囲を確認し、本文先頭 pointer に index を足して `load_u8` します。
+//:
+//: [注意/ちゅうい]:
+//: - index は byte index です。Unicode の文字単位ではありません。
+//: - 範囲外では `Option::None` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     let ok0 <bool> match byte_at "AZ" 0:
+//:         Option::Some b:
+//:             eq b 'A'
+//:         Option::None:
+//:             false
+//:     let ok1 <bool> match byte_at "AZ" 1:
+//:         Option::Some b:
+//:             eq b 'Z'
+//:         Option::None:
+//:             false
+//:     if and ok0 and ok1 is_none<i32> byte_at "AZ" 2 0 1
+//: ```
+fn byte_at <(str,i32)->Option<i32>> (s, idx):
+    let n <i32> len s
+    if:
+        lt idx 0
+        then:
+            none<i32>
+        else:
+            if:
+                le n idx
+                then:
+                    none<i32>
+                else:
+                    some<i32> string_byte_at_unchecked s idx
+
+//: string_byte_at_unchecked: 範囲確認なしで `str` の本文 1 バイトを読む
+//:
+//: [目的/もくてき]:
+//: - ループ内部で範囲確認済みの byte index から高速に 1 バイトを読みます。
+//:
+//: [実装/じっそう]:
+//: - `string_addr` で文字列ヘッダの生アドレスを明示的に取り出し、4 バイトの長さヘッダを飛ばして `load_u8` します。
+//:
+//: [注意/ちゅうい]:
+//: - idx が範囲外の場合は未定義動作です。公開 API では `byte_at` を使ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn string_byte_at_unchecked <(str,i32)->i32> (s, idx):
+    load_u8 <i32> add string_addr s <i32> add 4 idx

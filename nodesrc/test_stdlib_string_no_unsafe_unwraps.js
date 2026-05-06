@@ -15,10 +15,16 @@ const utf8RelPath = 'stdlib/alloc/string/utf8.nepl';
 const utf8Src = fs.readFileSync(path.join(repoRoot, utf8RelPath), 'utf8');
 const storageRelPath = 'stdlib/alloc/string/storage.nepl';
 const storageSrc = fs.readFileSync(path.join(repoRoot, storageRelPath), 'utf8');
+const accessRelPath = 'stdlib/alloc/string/access.nepl';
+const accessSrc = fs.readFileSync(path.join(repoRoot, accessRelPath), 'utf8');
+const builderRelPath = 'stdlib/alloc/string/builder.nepl';
+const builderSrc = fs.readFileSync(path.join(repoRoot, builderRelPath), 'utf8');
 
 const code = stripNeplComments(src);
 const utf8Code = stripNeplComments(utf8Src);
 const storageCode = stripNeplComments(storageSrc);
+const accessCode = stripNeplComments(accessSrc);
+const builderCode = stripNeplComments(builderSrc);
 const fromU128Radix = code.match(/fn\s+from_u128_radix[\s\S]*?(?=\nfn\s+to_u128|\nfn\s+parse_u128|\n\/\/ to_u128|$)/)?.[0] ?? '';
 const stringFinish = storageCode.match(/fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\nfn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
 const storageCodeWithoutStringFinish = stringFinish ? storageCode.replace(stringFinish, '') : storageCode;
@@ -37,6 +43,8 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(code, pattern, `${relPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(utf8Code, pattern, `${utf8RelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(storageCode, pattern, `${storageRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(accessCode, pattern, `${accessRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(builderCode, pattern, `${builderRelPath} must not use unsafe unwrap helpers in implementation code`);
 }
 
 assert.match(utf8Code, /enum\s+StringUtf8LeadKind:/, 'alloc/string/utf8 must classify UTF-8 leading bytes with an enum');
@@ -45,8 +53,8 @@ assert.match(storageCode, /fn\s+string_from_utf8_mem_result\s+/, 'alloc/string/s
 assert.match(code, /fn\s+str_utf8_is_boundary\s+/, 'alloc/string must validate UTF-8 slice boundaries');
 assert.match(code, /fn\s+concat_result\s+/, 'alloc/string must keep allocation-bearing concat available as Result');
 assert.match(code, /fn\s+str_slice_result\s+/, 'alloc/string must keep allocation-bearing slice available as Result');
-assert.match(code, /fn\s+sb_build_result\s+/, 'StringBuilder build must have a Result-returning path');
-assertStringBuilderOwnerBoundary(code);
+assert.match(builderCode, /fn\s+sb_build_result\s+/, 'StringBuilder build must have a Result-returning path');
+assertStringBuilderOwnerBoundary(builderCode);
 assert.match(code, /fn\s+from_f64_result\s+/, 'from_f64 must have a Result-returning implementation path');
 assert.notEqual(fromF64Result, '', 'from_f64_result body must be available for source policy checks');
 assert.doesNotMatch(fromF64Result, /\b(?:scratch_raw|alloc_ptr<u8>\s+6|string_from_mem_unchecked_result)\b/, 'from_f64_result must not route fractional digits through raw scratch string construction');

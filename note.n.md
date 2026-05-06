@@ -1,3 +1,30 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string access and builder boundary split)
+
+- [同期]:
+  - `1c7336a8` を push/pull して `main` と `origin/main` が一致した後、branch `fix/string-builder-boundary-split` を作成した。
+  - merge 前に remote main の `2f1ddf2a` を取り込み、同 branch を最新 main に rebase してから検証した。
+  - push 前に remote main の `be3eb370` も取り込み、同 branch を再度最新 main に rebase してから検証した。
+- [原因]:
+  - `stdlib/alloc/string.nepl` は storage 分割後も、byte length / byte access helper と `StringBuilder` の owner state / grow / build logic を root に持ち続けていた。
+  - builder は `len` に依存するため、builder だけを切り出して root を import すると循環 import になる。byte accessor を `alloc/string/access` へ分け、builder が access/storage を直接 import する構成にする必要があった。
+- [修正]:
+  - `stdlib/alloc/string/access.nepl` を追加し、`len`、`str_byte_len`、`byte_at`、`string_byte_at_unchecked` を所有させた。
+  - `stdlib/alloc/string/builder.nepl` を追加し、`StringBuilder`、capacity/grow helper、`sb_append_result`、char/ascii/byte append、`sb_build_result` を所有させた。
+  - `stdlib/alloc/string.nepl` は `./string/access` と `./string/builder` を public re-export し、slice / numeric と横断する `sb_append_slice_result`、`sb_append_i32_result` は root に残した。
+  - source policy を access/builder の所有先へ更新し、root に accessor / builder storage / builder grow/build が戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_access_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string/access.nepl -i stdlib/alloc/string/builder.nepl -i stdlib/alloc/string/storage.nepl -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/string_char.n.md -i tests/stdlib/text_utf8.n.md -i tests/stdlib/string_numeric_overflow.n.md --no-tree -o tmp/string-builder-boundary-split-rebased2.json -j 1`: total=56, passed=56
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `git diff --check`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl` には concat、slice/search/split、numeric parse/format、float formatting が残っている。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string storage boundary split)
 
 - [同期]:

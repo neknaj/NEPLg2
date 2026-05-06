@@ -98,6 +98,7 @@ const checks = [
     "nodesrc/test_stdlib_string_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_string_utf8_boundary.js",
     "nodesrc/test_stdlib_string_storage_boundary.js",
+    "nodesrc/test_stdlib_string_access_boundary.js",
     "nodesrc/test_stdlib_stdio_print_i32_boundary.js",
     "nodesrc/test_stdlib_stdio_ansi_boundary.js",
     "nodesrc/test_stdlib_stdio_debug_boundary.js",
