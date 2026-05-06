@@ -1,3 +1,20 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR authority closure)
+
+## 作業内容
+
+- branch `chore/close-rv-core-009-resource-ir-authority` で `origin/main` と同期してから作業した。
+- `nepl-core/src/compiler.rs` と `nodesrc/test_resource_gate_order.js` を確認し、`run_resource_static_check` が Resource IR lowering coverage / cell / checked drop elaboration plan / borrow / effect / owner gateを authoritative path として実行していることを確認した。
+- `prepare_module_for_codegen_with_source_map` は checked `ResourceDropElaborationPlan` を HIR bridge gate で検証し、`passes::insert_resource_drops` で消費してから final monomorphize する。旧 `passes::move_check::run` と旧 `passes::insert_drops` 呼び出しは pipeline に残っていない。
+- `ISS-20260425T000000Z-RV-CORE-009-58589A3F` は Resource IR authority 化完了として fixed にする。Stage 5/6 の raw-memory-backed stdlib API、`MemPtr` owner token 分離、collection drop obligation は既存 open issue で追跡する。
+- 監査中に `check_pipeline` deep-prefix focused regression が local 240 秒 budget を超えたため、`ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232` を追加した。
+
+## 検証
+
+- `node nodesrc/test_resource_gate_order.js`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8 passed
+- `cargo test -p nepl-core --test check_pipeline resource_static_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: 240 秒で local timeout。新規 performance issue に分離。
+- `cargo test -p nepl-core --test check_pipeline prepare_codegen_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: 240 秒で local timeout。新規 performance issue に分離。
+
 # 2026-05-06 note (ISS-20260506T152038161Z string builder exact raw-memory boundary)
 
 ## 作業内容

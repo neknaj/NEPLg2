@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T15:30:24.497Z",
+  "generated_at": "2026-05-06T15:44:05.026Z",
   "counts": {
-    "total": 520,
+    "total": 521,
     "open": 14,
-    "resolved": 506,
+    "resolved": 507,
     "by_area": {
       "core": {
-        "total": 253,
+        "total": 254,
         "open": 5,
-        "resolved": 248
+        "resolved": 249
       },
       "stdlib": {
         "total": 157,
@@ -90,21 +90,6 @@
   },
   "issues": [
     {
-      "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
-      "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-25",
-      "updated": "2026-05-06",
-      "target": "nepl-core/src/resource, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs",
-      "legacy_id": "RV-CORE-009",
-      "source": "doc/review20260425/core.md#rv-core-009",
-      "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
-    },
-    {
       "id": "ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04",
       "title": "core/mem raw memory operations bypass effect and ownership checks",
       "area": "core",
@@ -148,6 +133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232",
+      "title": "Resource authority deep prefix regressions exceed local test budget",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/tests/check_pipeline.rs, nepl-core/src/compiler.rs, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -913,6 +913,21 @@
       "legacy_id": "RV-CORE-008",
       "source": "doc/review20260425/core.md#rv-core-008",
       "file": "items/ISS-20260425T000000Z-RV-CORE-008-AEBF6A2F.md"
+    },
+    {
+      "id": "ISS-20260425T000000Z-RV-CORE-009-58589A3F",
+      "title": "move/borrow/drop が Resource IR なしで後付け実装されている",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-25",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs",
+      "legacy_id": "RV-CORE-009",
+      "source": "doc/review20260425/core.md#rv-core-009",
+      "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-014-777EF359",
