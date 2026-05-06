@@ -1,24 +1,19 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T22:32:01.110Z",
+  "generated_at": "2026-05-06T22:59:11.089Z",
   "counts": {
-    "total": 543,
+    "total": 544,
     "open": 16,
-    "resolved": 527,
+    "resolved": 528,
     "by_area": {
-      "compiler": {
-        "total": 3,
-        "open": 1,
-        "resolved": 2
-      },
       "core": {
         "total": 269,
         "open": 5,
         "resolved": 264
       },
       "selfhost": {
-        "total": 50,
-        "open": 3,
+        "total": 51,
+        "open": 4,
         "resolved": 47
       },
       "stdlib": {
@@ -40,6 +35,11 @@
         "total": 4,
         "open": 0,
         "resolved": 4
+      },
+      "compiler": {
+        "total": 3,
+        "open": 0,
+        "resolved": 3
       },
       "doc": {
         "total": 2,
@@ -89,21 +89,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260506T203121413Z-COMPILER-STATIC-CHECKER-TIMES-OUT-ON-5B942F4A",
-      "title": "Compiler static checker times out on self-host lexer lex_all owner/offside flow",
-      "area": "compiler",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "nepl-core/src/resource, stdlib/neplg2/core/syntax/lexer.nepl, nodesrc/tests.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T203121413Z-COMPILER-STATIC-CHECKER-TIMES-OUT-ON-5B942F4A.md"
-    },
     {
       "id": "ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04",
       "title": "core/mem raw memory operations bypass effect and ownership checks",
@@ -188,11 +173,26 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-05-06",
-      "updated": "2026-05-06",
+      "updated": "2026-05-07",
       "target": "stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/module/loader.nepl, stdlib/neplg2/core/module/graph.nepl",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D.md"
+    },
+    {
+      "id": "ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE",
+      "title": "Self-host lexer owner flow fails after raw alias timeout fix",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -868,6 +868,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T213057127Z-WASM32-COMPILE-TEST-BUILDS-UNIX-ONLY-95E8BF55.md"
+    },
+    {
+      "id": "ISS-20260506T203121413Z-COMPILER-STATIC-CHECKER-TIMES-OUT-ON-5B942F4A",
+      "title": "Compiler static checker times out on self-host lexer lex_all owner/offside flow",
+      "area": "compiler",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource, stdlib/neplg2/core/syntax/lexer.nepl, nodesrc/tests.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T203121413Z-COMPILER-STATIC-CHECKER-TIMES-OUT-ON-5B942F4A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CORE-001-B3603AB7",

@@ -14,8 +14,9 @@ use super::model::{
 };
 use super::place_utils::{
     construct_aggregate_field_place, match_bind_payload_place, projected_place_with_concrete_type,
-    reference_target_place, type_preserves_raw_address_alias,
+    reference_target_place, type_can_seed_raw_address_alias, type_preserves_raw_address_alias,
 };
+use super::summary_worklist::SummaryWorklist;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawCellAddressReturnSummary {
@@ -50,33 +51,71 @@ pub(super) fn compute_raw_cell_address_return_summaries(
     module: &ResourceModule,
     types: &TypeCtx,
 ) -> Vec<RawCellAddressReturnSummary> {
+    let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
-    for _ in 0..=module.functions.len() {
-        let mut next = Vec::new();
-        for function in &module.functions {
-            let mut aliases = Vec::new();
-            for (index, param) in function.params.iter().enumerate() {
-                aliases.extend(function_raw_cell_address_return_aliases(
-                    function,
-                    index,
-                    &param.place,
-                    &summaries,
-                    types,
-                ));
-            }
-            if !aliases.is_empty() {
-                next.push(RawCellAddressReturnSummary {
-                    function: function.name.clone(),
-                    aliases,
-                });
-            }
+    while let Some(function_index) = worklist.pop() {
+        let function = &module.functions[function_index];
+        let summary = function_raw_cell_address_return_summary(function, &summaries, types);
+        if update_raw_cell_address_return_summary(&mut summaries, summary) {
+            worklist.notify_changed(function_index);
         }
-        if next == summaries {
-            return summaries;
-        }
-        summaries = next;
+    }
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    if std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {
+        std::eprintln!(
+            "[compile-stage] resource_raw_alias_summary_recomputations={} summaries={}",
+            worklist.recomputations(),
+            summaries.len()
+        );
     }
     summaries
+}
+
+fn update_raw_cell_address_return_summary(
+    summaries: &mut Vec<RawCellAddressReturnSummary>,
+    summary: RawCellAddressReturnSummary,
+) -> bool {
+    let has_aliases = !summary.aliases.is_empty();
+    let position = summaries
+        .iter()
+        .position(|existing| existing.function == summary.function);
+    match (has_aliases, position) {
+        (true, Some(index)) if summaries[index] == summary => false,
+        (true, Some(index)) => {
+            summaries[index] = summary;
+            true
+        }
+        (true, None) => {
+            summaries.push(summary);
+            true
+        }
+        (false, Some(index)) => {
+            summaries.remove(index);
+            true
+        }
+        (false, None) => false,
+    }
+}
+
+fn function_raw_cell_address_return_summary(
+    function: &ResourceFunction,
+    summaries: &[RawCellAddressReturnSummary],
+    types: &TypeCtx,
+) -> RawCellAddressReturnSummary {
+    let mut aliases = Vec::new();
+    for (index, param) in function.params.iter().enumerate() {
+        aliases.extend(function_raw_cell_address_return_aliases(
+            function,
+            index,
+            &param.place,
+            summaries,
+            types,
+        ));
+    }
+    RawCellAddressReturnSummary {
+        function: function.name.clone(),
+        aliases,
+    }
 }
 
 fn function_raw_cell_address_return_aliases(
@@ -88,7 +127,9 @@ fn function_raw_cell_address_return_aliases(
 ) -> Vec<RawCellAddressReturnAlias> {
     let mut raw_aliases = RawCellAddressAliases::default();
     let mut function_aliases = FunctionAliasTable::default();
-    raw_aliases.mark(parameter);
+    if type_can_seed_raw_address_alias(types, parameter.ty) {
+        raw_aliases.mark(parameter);
+    }
     let mut aliases = Vec::new();
     for block in &function.blocks {
         propagate_raw_address_alias_ops(
@@ -461,3 +502,7 @@ fn push_unique_return_alias(
         aliases.push(alias);
     }
 }
+
+#[cfg(test)]
+#[path = "initialized_alias_flow_tests.rs"]
+mod tests;

@@ -33088,3 +33088,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F` を追加し、full ResourceIR baseline 失敗は別 issue として追跡する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 self-host lexer raw alias timeout 修正
+
+- `ISS-20260506T203121413Z-COMPILER-STATIC-CHECKER-TIMES-OUT-ON-5B942F4A` として、self-host lexer の empty `lex_all_with_file_id` smoke が compile phase で timeout する問題を修正した。
+- 原因は `compute_raw_cell_address_return_summaries` が dependency worklist を使わず、さらにすべての parameter を raw address seed として扱っていたこと。`lex_all_loop` の `idx` / `file_id` など普通の `i32` が `SelfhostToken` 構築や branch merge を通じて bogus raw alias として増殖し、性能と静的検査の正確性の両方を壊していた。
+- raw alias return summary は `SummaryWorklist` に移行し、再計算対象を direct call / function value dependency の影響範囲に限定した。
+- seed 対象は `MemPtr` / `RegionToken` / それらを含む aggregate / reference に限定した。通常 scalar は seed しないが、Resource IR lowering が明示した `RawAddressAlias` / `RawAddressView` は引き続き raw relation として扱う。
+- 回帰として、`MemPtr` identity summary が dependency worklist で caller へ伝播すること、plain `i32` identity が raw alias summary を作らないことを追加した。
+- native probe は timeout せず `resource_owner_obligations` まで到達した。残る self-host lexer owner diagnostics は `ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE` として分離した。
