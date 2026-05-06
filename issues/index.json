@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T03:42:26.757Z",
+  "generated_at": "2026-05-06T03:43:49.682Z",
   "counts": {
-    "total": 498,
-    "open": 13,
+    "total": 499,
+    "open": 14,
     "resolved": 485,
     "by_area": {
       "core": {
-        "total": 234,
-        "open": 5,
+        "total": 235,
+        "open": 6,
         "resolved": 229
       },
       "stdlib": {
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260506T034331265Z-RESOURCE-AGGREGATE-LOWERING-MODULE-E-2806B0D6",
+      "title": "Resource aggregate lowering module exceeds responsibility split limit again",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/lower_aggregate.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T034331265Z-RESOURCE-AGGREGATE-LOWERING-MODULE-E-2806B0D6.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
