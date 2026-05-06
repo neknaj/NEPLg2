@@ -30703,3 +30703,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` に Stage 5 status 更新として追記した。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+# 2026-05-06 note (ISS-20260429T155343006Z SparseSet typed Vec storage)
+
+- [作業]:
+  - `fix/sparse-set-typed-storage` で `SparseSet` の dense/sparse payload を raw `MemPtr<i32>` array から `Vec<i32>` owner へ移行した。
+- [背景]:
+  - `SparseSet` は 2026-04-30 に raw header は廃止済みだったが、`dense` / `sparse` は `MemPtr<i32>` のままで、`new 0` は `mem_ptr_wrap 0` を直接 owner state として使っていた。
+  - これは collection storage state issue の残件であり、静的検査が enum/typed owner を見られる形へ寄せる必要があった。
+- [対応]:
+  - `SparseSet` 本体の `dense` / `sparse` field を `Vec<i32>` に変更した。
+  - allocation は `sparse_set_alloc_array` から `vec::filled<i32> n 0` を使う形へ変更し、0-length も empty `Vec` storage に正規化した。
+  - slot read/write は `vec::get` / `vec::replace` に集約し、`SparseSet` から `MemPtr` / `mem_ptr_addr` / `alloc_ptr` / `load_i32` / `store_i32` / `dealloc_raw` を排除した。
+  - `insert` / `remove` の invalid index error path と `free` は、`sparse_set_free_arrays` で 2 本の `Vec<i32>` owner を閉じる契約にした。
+  - `nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js` を typed `Vec<i32>` storage 契約へ更新し、raw pointer storage への退行を検出するようにした。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/sparse_set.nepl --no-tree -o tmp/sparse-set-vec-storage-doctest.json -j 1`: total=7, passed=7
+  - `node nodesrc/tests.js -i stdlib/tests/sparse_set.n.md -i tests/stdlib/sparse_set_collections.n.md --no-tree -o tmp/sparse-set-vec-storage-tests.json -j 1`: total=5, passed=5
+  - `node nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_sparse_set_borrowed_observers.js`: passed
+- [残件]:
+  - List node storage、bitset / bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す必要がある。

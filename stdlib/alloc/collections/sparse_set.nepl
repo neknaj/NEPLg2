@@ -15,7 +15,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [扱/あつか]える key は `[0, universe_len)` に[限/かぎ]られます。
-//: - `universe_len = 0` は[空/から] domain として[有効/ゆうこう]で、dense/sparse [配列/はいれつ]は[確保/かくほ]しません。
+//: - `universe_len = 0` は[空/から] domain として[有効/ゆうこう]で、dense/sparse は empty `Vec` storage として[保持/ほじ]します。
 //: - `clear` は `len = 0` に[戻/もど]すだけで、`sparse` [配列/はいれつ]の[過去値/かこち]は[消/け]しません。membership [判定/はんてい]は `len` と `dense` の[両方/りょうほう]で[検証/けんしょう]するため[安全/あんぜん]です。
 //: - query だけの[処理/しょり]では `contains &s value` のように borrow し、[最後/さいご]に `free s` で owner を[閉/と]じます。
 //: - `insert` / `remove` の[範囲外/はんいがい] `Err` は入力 owner を[消費/しょうひ]し、dense/sparse storage を[解放/かいほう]してから `Diag` を[返/かえ]します。
@@ -25,26 +25,27 @@
 //: - `insert` / `remove` / `clear` は O(1) です。
 //: - `new` / `free` は O(n) です。
 
-#import "core/mem" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
 #import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
 
 //: ## SparseSet
 //: dense/sparse [配列/はいれつ]を[所有/しょゆう]する integer set
 //:
 //: ### [目的/もくてき]
-//: - domain [長/なが]さ、active [要素数/ようそすう]、dense/sparse [配列/はいれつ] owner を 1 [値/あたい]として[受/う]け[渡/わた]しします。
+//: - domain [長/なが]さ、active [要素数/ようそすう]、dense/sparse `Vec<i32>` owner を 1 [値/あたい]として[受/う]け[渡/わた]しします。
 //:
 //: ### [注意/ちゅうい]
-//: - `n = 0` のとき dense/sparse は `mem_ptr_wrap 0` で、`free` は内部配列を[解放/かいほう]しません。
+//: - `n = 0` のとき dense/sparse は empty `Vec` で、null pointer sentinel を owner state として[使/つか]いません。
 //: - [不要/ふよう]になったら `free` で dense / sparse owner を[閉/と]じます。
 struct SparseSet:
     n <i32>
     len0 <i32>
-    dense <MemPtr<i32>>
-    sparse <MemPtr<i32>>
+    dense <Vec<i32>>
+    sparse <Vec<i32>>
 
 fn sparse_set_diag_len <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "invalid sparse set length"
@@ -55,29 +56,28 @@ fn sparse_set_diag_index <()*>Diag> ():
 fn sparse_set_valid_index <(i32,i32)->bool> (idx, n):
     and le 0 idx lt idx n
 
-fn sparse_set_slot_ptr <(MemPtr<i32>,i32)->MemPtr<i32>> (base, idx):
-    mem_ptr_wrap add mem_ptr_addr base mul idx 4
-
-fn sparse_set_load_owned <(MemPtr<i32>,i32)->i32> (base, idx):
-    match load_i32 sparse_set_slot_ptr base idx:
+fn sparse_set_load_owned <(&Vec<i32>,i32)->i32> (base, idx):
+    match vec::get<i32> base idx:
         Option::Some v:
             v
         Option::None:
             0
 
-fn sparse_set_store_owned <(MemPtr<i32>,i32,i32)->()> (base, idx, value):
-    store_i32 mem_ptr_addr sparse_set_slot_ptr base idx value
+fn sparse_set_store_owned <(&Vec<i32>,i32,i32)*>()> (base, idx, value):
+    vec::replace<i32> base idx value
 
-fn sparse_set_free_arrays <(i32,MemPtr<i32>,MemPtr<i32>)->()> (n, dense, sparse):
-    if:
-        lt 0 n
-        then:
-            dealloc_raw mem_ptr_addr dense mul n 4
-            dealloc_raw mem_ptr_addr sparse mul n 4
-        else:
-            ()
+fn sparse_set_free_arrays <(Vec<i32>,Vec<i32>)->()> (dense, sparse):
+    vec::free<i32> dense
+    vec::free<i32> sparse
 
-fn sparse_set_contains_raw <(i32,MemPtr<i32>,MemPtr<i32>,i32,i32)->bool> (n, dense, sparse, len0, value):
+fn sparse_set_alloc_array <(i32)*>Result<Vec<i32>, Diag>> (n):
+    match vec::filled<i32> n 0:
+        Result::Ok items:
+            ok<Vec<i32>, Diag> items
+        Result::Err _e:
+            diag_err<Vec<i32>> diag_out_of_memory
+
+fn sparse_set_contains_raw <(i32,&Vec<i32>,&Vec<i32>,i32,i32)->bool> (n, dense, sparse, len0, value):
     if:
         not sparse_set_valid_index value n
         then false
@@ -109,27 +109,16 @@ fn new <(i32)*>Result<SparseSet, Diag>> (n):
         lt n 0
         then diag_err<SparseSet> sparse_set_diag_len
         else:
-            if:
-                eq n 0
-                then:
-                    ok<SparseSet, Diag> SparseSet 0 0 mem_ptr_wrap 0 mem_ptr_wrap 0
-                else:
-                    match alloc_ptr<i32> mul n 4:
-                        Result::Err _e:
-                            diag_err<SparseSet> diag_out_of_memory
-                        Result::Ok dense:
-                            match alloc_ptr<i32> mul n 4:
-                                Result::Err _e:
-                                    dealloc_raw mem_ptr_addr dense mul n 4
-                                    diag_err<SparseSet> diag_out_of_memory
-                                Result::Ok sparse:
-                                    let mut i <i32> 0
-                                    while lt i n:
-                                        do:
-                                            sparse_set_store_owned dense i 0
-                                            sparse_set_store_owned sparse i 0
-                                            set i add i 1
-                                    ok<SparseSet, Diag> SparseSet n 0 dense sparse
+            match sparse_set_alloc_array n:
+                Result::Err d:
+                    err<SparseSet, Diag> d
+                Result::Ok dense:
+                    match sparse_set_alloc_array n:
+                        Result::Err d:
+                            vec::free<i32> dense
+                            err<SparseSet, Diag> d
+                        Result::Ok sparse:
+                            ok<SparseSet, Diag> SparseSet n 0 dense sparse
 
 //: ## len
 //: [現/げん]在[入/はい]っている[要素数/ようそすう]を[返/かえ]す
@@ -176,8 +165,8 @@ fn universe_len <(&SparseSet)->i32> (s):
 fn contains <(&SparseSet,i32)*>Result<bool, Diag>> (s, value):
     let n <i32> *field::get_ref s "n"
     let len0 <i32> *field::get_ref s "len0"
-    let dense <MemPtr<i32>> *field::get_ref s "dense"
-    let sparse <MemPtr<i32>> *field::get_ref s "sparse"
+    let dense <&Vec<i32>> field::get_ref s "dense"
+    let sparse <&Vec<i32>> field::get_ref s "sparse"
     if:
         sparse_set_valid_index value n
         then:
@@ -208,22 +197,22 @@ fn contains <(&SparseSet,i32)*>Result<bool, Diag>> (s, value):
 fn insert <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
     let n <i32> field::get s "n"
     let len0 <i32> field::get s "len0"
-    let dense <MemPtr<i32>> field::get s "dense"
-    let sparse <MemPtr<i32>> field::get s "sparse"
+    let dense <Vec<i32>> field::get s "dense"
+    let sparse <Vec<i32>> field::get s "sparse"
     if:
         not sparse_set_valid_index value n
         then:
             let d <Diag> sparse_set_diag_index
-            sparse_set_free_arrays n dense sparse
+            sparse_set_free_arrays dense sparse
             err<SparseSet, Diag> d
         else:
             if:
-                sparse_set_contains_raw n dense sparse len0 value
+                sparse_set_contains_raw n &dense &sparse len0 value
                 then:
                     ok<SparseSet, Diag> SparseSet n len0 dense sparse
                 else:
-                    sparse_set_store_owned dense len0 value
-                    sparse_set_store_owned sparse value len0
+                    sparse_set_store_owned &dense len0 value
+                    sparse_set_store_owned &sparse value len0
                     ok<SparseSet, Diag> SparseSet n add len0 1 dense sparse
 
 //: ## remove
@@ -249,25 +238,25 @@ fn insert <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
 fn remove <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
     let n <i32> field::get s "n"
     let len0 <i32> field::get s "len0"
-    let dense <MemPtr<i32>> field::get s "dense"
-    let sparse <MemPtr<i32>> field::get s "sparse"
+    let dense <Vec<i32>> field::get s "dense"
+    let sparse <Vec<i32>> field::get s "sparse"
     if:
         not sparse_set_valid_index value n
         then:
             let d <Diag> sparse_set_diag_index
-            sparse_set_free_arrays n dense sparse
+            sparse_set_free_arrays dense sparse
             err<SparseSet, Diag> d
         else:
             if:
-                not sparse_set_contains_raw n dense sparse len0 value
+                not sparse_set_contains_raw n &dense &sparse len0 value
                 then:
                     ok<SparseSet, Diag> SparseSet n len0 dense sparse
                 else:
-                    let idx <i32> sparse_set_load_owned sparse value
+                    let idx <i32> sparse_set_load_owned &sparse value
                     let last_idx <i32> sub len0 1
-                    let last_value <i32> sparse_set_load_owned dense last_idx
-                    sparse_set_store_owned dense idx last_value
-                    sparse_set_store_owned sparse last_value idx
+                    let last_value <i32> sparse_set_load_owned &dense last_idx
+                    sparse_set_store_owned &dense idx last_value
+                    sparse_set_store_owned &sparse last_value idx
                     ok<SparseSet, Diag> SparseSet n last_idx dense sparse
 
 //: ## clear
@@ -291,16 +280,16 @@ fn remove <(SparseSet,i32)*>Result<SparseSet, Diag>> (s, value):
 //: ```
 fn clear <(SparseSet)->SparseSet> (s):
     let n <i32> field::get s "n"
-    let dense <MemPtr<i32>> field::get s "dense"
-    let sparse <MemPtr<i32>> field::get s "sparse"
+    let dense <Vec<i32>> field::get s "dense"
+    let sparse <Vec<i32>> field::get s "sparse"
     SparseSet n 0 dense sparse
 
 //: ## free
 //: dense/sparse [配列/はいれつ]を[解放/かいほう]する
 //:
 //: ### [実装/じっそう]
-//: - dense/sparse はそれぞれ `n * 4` byte を `new` が[確保/かくほ]し、`SparseSet` が[所有/しょゆう]します。
-//: - owner invariant に[基/もと]づき、内部 cleanup は `dealloc_raw` で[行/おこな]います。
+//: - dense/sparse はそれぞれ `Vec<i32>` として `new` が[確保/かくほ]し、`SparseSet` が[所有/しょゆう]します。
+//: - owner invariant に[基/もと]づき、内部 cleanup は `vec::free` で[行/おこな]います。
 //:
 //: ### [注意/ちゅうい]
 //: - [解放後/かいほうご]に `s` を[再利用/さいりよう]してはいけません。
@@ -318,7 +307,6 @@ fn clear <(SparseSet)->SparseSet> (s):
 //:     0
 //: ```
 fn free <(SparseSet)->()> (s):
-    let n <i32> field::get s "n"
-    let dense <MemPtr<i32>> field::get s "dense"
-    let sparse <MemPtr<i32>> field::get s "sparse"
-    sparse_set_free_arrays n dense sparse
+    let dense <Vec<i32>> field::get s "dense"
+    let sparse <Vec<i32>> field::get s "sparse"
+    sparse_set_free_arrays dense sparse

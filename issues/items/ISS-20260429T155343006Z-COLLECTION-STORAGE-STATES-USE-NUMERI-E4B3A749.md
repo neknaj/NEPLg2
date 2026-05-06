@@ -364,4 +364,27 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- `SparseSet` の dense/sparse payload、List node storage、bitset / bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+- List node storage、bitset / bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+
+## 2026-05-06 SparseSet typed Vec storage 部分進捗
+
+`stdlib/alloc/collections/sparse_set.nepl` は dense/sparse payload を raw `MemPtr<i32>` array から `Vec<i32>` owner へ移行した。
+
+進捗:
+
+- `SparseSet` 本体は `n/len0/dense/sparse` を持ち、`dense` / `sparse` は `Vec<i32>` として保持する。
+- `new 0` は `mem_ptr_wrap 0` を `SparseSet` の owner state として直接構築せず、`vec::filled<i32> 0 0` で empty `Vec` storage を持つ。
+- dense/sparse の読み書きは `vec::get` / `vec::replace` に集約し、`SparseSet` から `MemPtr` / `mem_ptr_addr` / `alloc_ptr` / `load_i32` / `store_i32` / `dealloc_raw` を排除した。
+- `insert` / `remove` の範囲外 Err path と `free` は `sparse_set_free_arrays` 経由で 2 本の `Vec<i32>` owner を必ず閉じる。
+- `nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js` は、typed `Vec<i32>` storage、Vec helper 経由の slot 更新、raw MemPtr / null sentinel / raw load-store 禁止を固定するよう更新した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/sparse_set.nepl --no-tree -o tmp/sparse-set-vec-storage-doctest.json -j 1`: total=7, passed=7
+- `node nodesrc/tests.js -i stdlib/tests/sparse_set.n.md -i tests/stdlib/sparse_set_collections.n.md --no-tree -o tmp/sparse-set-vec-storage-tests.json -j 1`: total=5, passed=5
+- `node nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_sparse_set_borrowed_observers.js`: passed
+
+残件:
+
+- List node storage、bitset / bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
