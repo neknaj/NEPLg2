@@ -92,6 +92,36 @@ impl<'a> LoweringEnvironment<'a> {
             .unwrap_or(Effect::Pure)
     }
 
+    fn known_function_value_effect(&self, name: &str) -> Option<EffectOp> {
+        if let Some(effect) = raw_callee_internal_effect(name) {
+            Some(resource_effect_from_internal(effect))
+        } else if self.function_effects.contains_key(name) {
+            Some(EffectOp::UserCall {
+                name: String::from(name),
+                effect: self.function_effect(name),
+            })
+        } else {
+            None
+        }
+    }
+
+    fn known_function_value(&self, name: &str, ty: TypeId) -> Option<(String, EffectOp)> {
+        if self.function_effects.contains_key(name) || raw_callee_internal_effect(name).is_some() {
+            return Some((String::from(name), function_value_effect(name, self)));
+        }
+        let mut matches = self
+            .functions
+            .values()
+            .filter(|function| function.origin_name == name && function.func_ty == ty);
+        let function = matches.next()?;
+        if matches.next().is_some() {
+            return None;
+        }
+        let function_name = function.name.clone();
+        let effect = function_value_effect(&function_name, self);
+        Some((function_name, effect))
+    }
+
     pub(super) fn function(&self, name: &str) -> Option<&'a HirFunction> {
         self.functions.get(name).copied()
     }
@@ -297,6 +327,24 @@ pub(super) fn lower_expr_skeleton(
         | HirExprKind::LiteralStr(_)
         | HirExprKind::Unit => push_expr(ops, ResourceExprKind::Literal, expr, ctx),
         HirExprKind::Var(name) => {
+            if ctx.local_place_for_name(name).is_none() {
+                if let Some((function_name, effect)) = env.known_function_value(name, expr.ty) {
+                    let output = ctx.temporary(expr.ty);
+                    ops.push(ResourceOp::FunctionValue {
+                        output: output.clone(),
+                        name: function_name,
+                        effect,
+                        span: expr.span,
+                    });
+                    ops.push(ResourceOp::Expr {
+                        kind: ResourceExprKind::FunctionValue,
+                        output: output.clone(),
+                        ty: expr.ty,
+                        span: expr.span,
+                    });
+                    return output;
+                }
+            }
             let output = ctx.temporary(expr.ty);
             ops.push(ResourceOp::Read {
                 source: ctx.local_place(name, expr.ty),
@@ -313,10 +361,12 @@ pub(super) fn lower_expr_skeleton(
         }
         HirExprKind::FnValue(name) => {
             let output = ctx.temporary(expr.ty);
-            let effect = function_value_effect(name, env);
+            let (function_name, effect) = env
+                .known_function_value(name, expr.ty)
+                .unwrap_or_else(|| (name.clone(), function_value_effect(name, env)));
             ops.push(ResourceOp::FunctionValue {
                 output: output.clone(),
-                name: name.clone(),
+                name: function_name,
                 effect,
                 span: expr.span,
             });
@@ -991,14 +1041,11 @@ fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) -> EffectOp
 }
 
 fn function_value_effect(name: &str, env: &LoweringEnvironment) -> EffectOp {
-    if let Some(effect) = raw_callee_internal_effect(name) {
-        resource_effect_from_internal(effect)
-    } else {
-        EffectOp::UserCall {
+    env.known_function_value_effect(name)
+        .unwrap_or_else(|| EffectOp::UserCall {
             name: String::from(name),
             effect: env.function_effect(name),
-        }
-    }
+        })
 }
 
 fn resource_effect_from_internal(effect: InternalEffect) -> EffectOp {

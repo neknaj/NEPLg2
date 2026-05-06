@@ -2,7 +2,7 @@ extern crate alloc;
 
 use alloc::string::String;
 
-use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind};
+use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirModule};
 use crate::types::TypeCtx;
 
 use super::coverage::ResourceCoverageCounts;
@@ -17,29 +17,21 @@ use super::coverage_hir_projection::{
     intrinsic_projects_reference_field,
 };
 use super::coverage_hir_raw::should_count_raw_memory_call;
+use super::coverage_hir_scope::HirCoverageContext;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
 
-pub(super) fn hir_body_coverage(
-    body: &HirBody,
+pub(super) fn hir_function_coverage(
+    function: &HirFunction,
+    module: &HirModule,
     types: &TypeCtx,
     string_literals: &[String],
 ) -> ResourceCoverageCounts {
     let mut counts = ResourceCoverageCounts::default();
-    if let HirBody::Block(block) = body {
-        hir_block_coverage(block, &mut counts, types, string_literals);
+    let mut context = HirCoverageContext::new(function, module);
+    if let HirBody::Block(block) = &function.body {
+        hir_block_coverage(&mut context, block, &mut counts, types, string_literals);
     }
     counts
-}
-
-fn hir_block_coverage(
-    block: &HirBlock,
-    counts: &mut ResourceCoverageCounts,
-    types: &TypeCtx,
-    string_literals: &[String],
-) {
-    for line in &block.lines {
-        hir_expr_coverage(&line.expr, counts, types, string_literals);
-    }
 }
 
 pub(super) fn hir_expr_coverage(
@@ -48,155 +40,196 @@ pub(super) fn hir_expr_coverage(
     types: &TypeCtx,
     string_literals: &[String],
 ) {
-    match &expr.kind {
-        HirExprKind::LiteralI32(_)
-        | HirExprKind::LiteralF32(_)
-        | HirExprKind::LiteralBool(_)
-        | HirExprKind::LiteralStr(_)
-        | HirExprKind::Unit => {}
-        HirExprKind::Var(_) => {
-            counts.reads += 1;
-        }
-        HirExprKind::Drop { .. } => {
-            counts.drops += 1;
-        }
-        HirExprKind::FnValue(_) => {
-            counts.function_values += 1;
-        }
-        HirExprKind::Call { callee, args } => {
-            if let Some(owner) = field_get_call_owner(callee, args, expr.ty, types, string_literals)
-            {
-                counts.reads += 1;
-                hir_field_projection_source_coverage(owner, counts, types, string_literals);
-                return;
+    let mut context = HirCoverageContext::empty();
+    context.hir_expr_coverage(expr, counts, types, string_literals);
+}
+
+fn hir_block_coverage(
+    context: &mut HirCoverageContext,
+    block: &HirBlock,
+    counts: &mut ResourceCoverageCounts,
+    types: &TypeCtx,
+    string_literals: &[String],
+) {
+    context.push_scope();
+    for line in &block.lines {
+        context.hir_expr_coverage(&line.expr, counts, types, string_literals);
+    }
+    context.pop_scope();
+}
+
+impl HirCoverageContext {
+    fn hir_expr_coverage(
+        &mut self,
+        expr: &HirExpr,
+        counts: &mut ResourceCoverageCounts,
+        types: &TypeCtx,
+        string_literals: &[String],
+    ) {
+        match &expr.kind {
+            HirExprKind::LiteralI32(_)
+            | HirExprKind::LiteralF32(_)
+            | HirExprKind::LiteralBool(_)
+            | HirExprKind::LiteralStr(_)
+            | HirExprKind::Unit => {}
+            HirExprKind::Var(name) => {
+                if self.var_is_callable_value_reference(name) {
+                    counts.function_values += 1;
+                } else {
+                    counts.reads += 1;
+                }
             }
-            if callee_projects_reference_field(callee, args, expr.ty, types) {
-                counts.borrows += 1;
-                counts.deref_projections += 1;
-            } else if callee_projects_reference_address(callee, args, types) {
-                counts.deref_projections += 1;
+            HirExprKind::Drop { .. } => {
+                counts.drops += 1;
             }
-            counts.direct_calls += 1;
-            if raw_memory_op_from_callee(callee)
-                .filter(|operation| should_count_raw_memory_call(operation, args, types))
-                .is_some()
-            {
-                counts.raw_memory_ops += 1;
+            HirExprKind::FnValue(_) => {
+                counts.function_values += 1;
             }
-            for arg in args {
-                hir_expr_coverage(arg, counts, types, string_literals);
-            }
-        }
-        HirExprKind::CallIndirect { callee, args, .. } => {
-            counts.indirect_calls += 1;
-            hir_expr_coverage(callee, counts, types, string_literals);
-            for arg in args {
-                hir_expr_coverage(arg, counts, types, string_literals);
-            }
-        }
-        HirExprKind::If {
-            cond,
-            then_branch,
-            else_branch,
-        } => {
-            hir_expr_coverage(cond, counts, types, string_literals);
-            hir_expr_coverage(then_branch, counts, types, string_literals);
-            hir_expr_coverage(else_branch, counts, types, string_literals);
-        }
-        HirExprKind::While { cond, body } => {
-            hir_expr_coverage(cond, counts, types, string_literals);
-            hir_expr_coverage(body, counts, types, string_literals);
-        }
-        HirExprKind::Match { scrutinee, arms } => {
-            hir_expr_coverage(scrutinee, counts, types, string_literals);
-            for arm in arms {
-                hir_expr_coverage(&arm.body, counts, types, string_literals);
-            }
-        }
-        HirExprKind::EnumConstruct { payload, .. } => {
-            counts.constructs += 1;
-            if let Some(payload) = payload {
-                hir_expr_coverage(payload, counts, types, string_literals);
-            }
-        }
-        HirExprKind::StructConstruct { fields, .. } => {
-            counts.constructs += 1;
-            for field in fields {
-                hir_expr_coverage(field, counts, types, string_literals);
-            }
-        }
-        HirExprKind::TupleConstruct { items } => {
-            counts.constructs += 1;
-            for item in items {
-                hir_expr_coverage(item, counts, types, string_literals);
-            }
-        }
-        HirExprKind::Block(block) => hir_block_coverage(block, counts, types, string_literals),
-        HirExprKind::Let { value, .. } => {
-            counts.declares += 1;
-            hir_expr_coverage(value, counts, types, string_literals);
-        }
-        HirExprKind::Set { value, .. } => {
-            counts.assigns += 1;
-            hir_expr_coverage(value, counts, types, string_literals);
-        }
-        HirExprKind::Intrinsic { name, args, .. } => {
-            if let Some(owner) =
-                get_field_ref_intrinsic_owner(name, args, expr.ty, types, string_literals)
-            {
-                counts.borrows += 1;
-                if !matches!(owner.kind, HirExprKind::AddrOf(_)) {
+            HirExprKind::Call { callee, args } => {
+                if let Some(owner) =
+                    field_get_call_owner(callee, args, expr.ty, types, string_literals)
+                {
+                    counts.reads += 1;
+                    hir_field_projection_source_coverage(owner, counts, types, string_literals);
+                    return;
+                }
+                if callee_projects_reference_field(callee, args, expr.ty, types) {
+                    counts.borrows += 1;
+                    counts.deref_projections += 1;
+                } else if callee_projects_reference_address(callee, args, types) {
                     counts.deref_projections += 1;
                 }
-                hir_reference_owner_source_coverage(owner, counts, types, string_literals);
-                return;
+                counts.direct_calls += 1;
+                if raw_memory_op_from_callee(callee)
+                    .filter(|operation| should_count_raw_memory_call(operation, args, types))
+                    .is_some()
+                {
+                    counts.raw_memory_ops += 1;
+                }
+                for arg in args {
+                    self.hir_expr_coverage(arg, counts, types, string_literals);
+                }
             }
-            if let Some(owner) =
-                get_field_intrinsic_owner(name, args, expr.ty, types, string_literals)
-            {
-                counts.reads += 1;
-                hir_field_projection_source_coverage(owner, counts, types, string_literals);
-                return;
+            HirExprKind::CallIndirect { callee, args, .. } => {
+                counts.indirect_calls += 1;
+                self.hir_expr_coverage(callee, counts, types, string_literals);
+                for arg in args {
+                    self.hir_expr_coverage(arg, counts, types, string_literals);
+                }
             }
-            if intrinsic_projects_reference_field(name, args, expr.ty, types) {
-                counts.borrows += 1;
-                if let Some(owner) = args.first() {
+            HirExprKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                self.hir_expr_coverage(cond, counts, types, string_literals);
+                self.hir_expr_coverage(then_branch, counts, types, string_literals);
+                self.hir_expr_coverage(else_branch, counts, types, string_literals);
+            }
+            HirExprKind::While { cond, body } => {
+                self.hir_expr_coverage(cond, counts, types, string_literals);
+                self.hir_expr_coverage(body, counts, types, string_literals);
+            }
+            HirExprKind::Match { scrutinee, arms } => {
+                self.hir_expr_coverage(scrutinee, counts, types, string_literals);
+                for arm in arms {
+                    self.push_scope();
+                    if let Some(bind_local) = &arm.bind_local {
+                        self.declare_local(bind_local);
+                    }
+                    self.hir_expr_coverage(&arm.body, counts, types, string_literals);
+                    self.pop_scope();
+                }
+            }
+            HirExprKind::EnumConstruct { payload, .. } => {
+                counts.constructs += 1;
+                if let Some(payload) = payload {
+                    self.hir_expr_coverage(payload, counts, types, string_literals);
+                }
+            }
+            HirExprKind::StructConstruct { fields, .. } => {
+                counts.constructs += 1;
+                for field in fields {
+                    self.hir_expr_coverage(field, counts, types, string_literals);
+                }
+            }
+            HirExprKind::TupleConstruct { items } => {
+                counts.constructs += 1;
+                for item in items {
+                    self.hir_expr_coverage(item, counts, types, string_literals);
+                }
+            }
+            HirExprKind::Block(block) => {
+                hir_block_coverage(self, block, counts, types, string_literals);
+            }
+            HirExprKind::Let { name, value, .. } => {
+                counts.declares += 1;
+                self.hir_expr_coverage(value, counts, types, string_literals);
+                self.declare_local(name);
+            }
+            HirExprKind::Set { value, .. } => {
+                counts.assigns += 1;
+                self.hir_expr_coverage(value, counts, types, string_literals);
+            }
+            HirExprKind::Intrinsic { name, args, .. } => {
+                if let Some(owner) =
+                    get_field_ref_intrinsic_owner(name, args, expr.ty, types, string_literals)
+                {
+                    counts.borrows += 1;
                     if !matches!(owner.kind, HirExprKind::AddrOf(_)) {
                         counts.deref_projections += 1;
                     }
                     hir_reference_owner_source_coverage(owner, counts, types, string_literals);
+                    return;
                 }
-                for arg in args.iter().skip(1) {
-                    hir_expr_coverage(arg, counts, types, string_literals);
+                if let Some(owner) =
+                    get_field_intrinsic_owner(name, args, expr.ty, types, string_literals)
+                {
+                    counts.reads += 1;
+                    hir_field_projection_source_coverage(owner, counts, types, string_literals);
+                    return;
                 }
-                return;
-            } else if intrinsic_projects_reference_address(name, args, types) {
-                counts.deref_projections += 1;
+                if intrinsic_projects_reference_field(name, args, expr.ty, types) {
+                    counts.borrows += 1;
+                    if let Some(owner) = args.first() {
+                        if !matches!(owner.kind, HirExprKind::AddrOf(_)) {
+                            counts.deref_projections += 1;
+                        }
+                        hir_reference_owner_source_coverage(owner, counts, types, string_literals);
+                    }
+                    for arg in args.iter().skip(1) {
+                        self.hir_expr_coverage(arg, counts, types, string_literals);
+                    }
+                    return;
+                } else if intrinsic_projects_reference_address(name, args, types) {
+                    counts.deref_projections += 1;
+                }
+                if let Some((base, _)) =
+                    compiler_field_load_base_and_offset(name, args, expr.ty, types)
+                {
+                    counts.reads += 1;
+                    hir_field_projection_source_coverage(base, counts, types, string_literals);
+                    return;
+                }
+                if raw_memory_op_from_intrinsic(name)
+                    .filter(|operation| should_count_raw_memory_call(operation, args, types))
+                    .is_some()
+                {
+                    counts.raw_memory_ops += 1;
+                }
+                for arg in args {
+                    self.hir_expr_coverage(arg, counts, types, string_literals);
+                }
             }
-            if let Some((base, _)) = compiler_field_load_base_and_offset(name, args, expr.ty, types)
-            {
+            HirExprKind::AddrOf(inner) => {
+                counts.borrows += 1;
+                hir_place_expr_coverage(inner, counts, types, string_literals);
+            }
+            HirExprKind::Deref(inner) => {
                 counts.reads += 1;
-                hir_field_projection_source_coverage(base, counts, types, string_literals);
-                return;
+                counts.deref_projections += 1;
+                hir_place_expr_coverage(inner, counts, types, string_literals);
             }
-            if raw_memory_op_from_intrinsic(name)
-                .filter(|operation| should_count_raw_memory_call(operation, args, types))
-                .is_some()
-            {
-                counts.raw_memory_ops += 1;
-            }
-            for arg in args {
-                hir_expr_coverage(arg, counts, types, string_literals);
-            }
-        }
-        HirExprKind::AddrOf(inner) => {
-            counts.borrows += 1;
-            hir_place_expr_coverage(inner, counts, types, string_literals);
-        }
-        HirExprKind::Deref(inner) => {
-            counts.reads += 1;
-            counts.deref_projections += 1;
-            hir_place_expr_coverage(inner, counts, types, string_literals);
         }
     }
 }

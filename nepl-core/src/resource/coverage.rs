@@ -8,7 +8,7 @@ use crate::hir::HirModule;
 use crate::span::Span;
 use crate::types::TypeCtx;
 
-use super::coverage_hir::hir_body_coverage;
+use super::coverage_hir::hir_function_coverage;
 use super::coverage_resource::resource_function_coverage;
 use super::model::{Place, ResourceModule};
 
@@ -101,7 +101,7 @@ pub fn compare_hir_resource_lowering_typed(
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     for function in &module.functions {
-        let hir = hir_body_coverage(&function.body, types, &module.string_literals);
+        let hir = hir_function_coverage(function, module, types, &module.string_literals);
         let Some(resource_function) = resource_functions.get(function.name.as_str()) else {
             diagnostics.push(ResourceCoverageDiagnostic::MissingFunction {
                 name: function.name.clone(),

@@ -41,6 +41,34 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-06 note (ISS-20260506T104708173Z Resource IR callable value lowering)
+
+- [同期]:
+  - `b92e48ae` の remote main を pull した後、branch `work/resource-function-value-cell-init` を作成して作業した。
+- [原因]:
+  - GitHub Actions run `25428627798` の `tests/compiler/functions.n.md::doctest#8` / `#12` で、`add_op` / `sub_op` / generated lambda symbol が `resource.cell.uninit` になっていた。
+  - Resource IR lowerer は `HirExprKind::Var` を常に local read として lowering しており、active local binding が存在しない callable value reference も未初期化 local として cell checker に渡していた。
+  - ここで cell checker を緩めると型安全・メモリ安全の authority が壊れるため、lowering 側で local read と function value を正しく分離する必要があった。
+- [修正]:
+  - `LoweringEnvironment` が typed `origin_name` / function type から canonical function symbol を一意解決し、unresolved-local `Var` を `ResourceOp::FunctionValue` として lowering するようにした。
+  - local binding が存在する場合は従来どおり `Read` / `LocalRead` として扱い、function-typed local variable の cell / alias 検査を維持した。
+  - HIR coverage gate も shadow-aware callable rule に合わせ、bare callable `Var` を `FunctionValue` coverage として数えるようにした。
+  - callable name / local scope tracking を `coverage_hir_scope.rs` に分離し、coverage walker の責務分割 source policy を更新した。
+- [検証]:
+  - `cargo fmt --check`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_initializes_bare_callable_var_references -- --nocapture`: passed
+  - `cargo test -p nepl-core --test functions function_return -- --nocapture`: passed
+  - `node nodesrc/test_resource_gate_order.js`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/functions.n.md -o tmp/resource-callable-functions-tests.json --runner wasm --no-tree -j 1 --assert-io`: 23/24 passed。今回の affected `doctest#8` / `#12` は passed、残る `doctest#23` は既存の stdlib raw-memory-backed `effect.pure.calls_impure`。
+- [残件]:
+  - Stage 4 の主残件は、bridge 済み `ResourceDropElaborationPlan` を HIR/Wasm drop call 生成へ接続し、旧 `passes::insert_drops` の scope walker を削除すること。
+  - CI には stdlib raw-memory-backed API の `effect.pure.calls_impure` が残っており、これは既存の stdlib raw boundary issue で別管理する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260506T094754766Z Resource drop HIR bridge gate)
 
 - [同期]:

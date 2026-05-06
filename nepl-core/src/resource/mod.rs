@@ -19,6 +19,7 @@ mod coverage_hir_place;
 mod coverage_hir_projection;
 mod coverage_hir_projection_aggregate;
 mod coverage_hir_raw;
+mod coverage_hir_scope;
 mod coverage_resource;
 mod drop_elaboration;
 mod drop_elaboration_bindings;

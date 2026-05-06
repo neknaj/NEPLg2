@@ -89,6 +89,7 @@ for (const moduleName of [
     'coverage_hir_projection.rs',
     'coverage_hir_projection_aggregate.rs',
     'coverage_hir_raw.rs',
+    'coverage_hir_scope.rs',
     'coverage_resource.rs',
     'drop_elaboration.rs',
     'drop_elaboration_bindings.rs',
@@ -162,6 +163,7 @@ for (const moduleDecl of [
     'mod coverage_hir_projection;',
     'mod coverage_hir_projection_aggregate;',
     'mod coverage_hir_raw;',
+    'mod coverage_hir_scope;',
     'mod coverage_resource;',
     'mod drop_elaboration;',
     'mod drop_elaboration_bindings;',
@@ -222,6 +224,7 @@ const coverageHir = readResource('coverage_hir.rs');
 const coverageHirProjection = readResource('coverage_hir_projection.rs');
 const coverageHirProjectionAggregate = readResource('coverage_hir_projection_aggregate.rs');
 const coverageHirRaw = readResource('coverage_hir_raw.rs');
+const coverageHirScope = readResource('coverage_hir_scope.rs');
 const coverageResource = readResource('coverage_resource.rs');
 const dropElaboration = readResource('drop_elaboration.rs');
 const dropElaborationBindings = readResource('drop_elaboration_bindings.rs');
@@ -245,7 +248,7 @@ assertContains(effectCheck, 'struct ResourceEffectBoundaryEngine', 'effect_check
 assertNotContains(effect, 'struct ResourceEffectBoundaryEngine', 'effect.rs');
 assertContains(effect, 'pub fn check_resource_effect_boundaries', 'effect.rs');
 assertContains(coverage, 'pub fn compare_hir_resource_lowering_typed', 'coverage.rs');
-assertContains(coverageHir, 'pub(super) fn hir_body_coverage', 'coverage_hir.rs');
+assertContains(coverageHir, 'pub(super) fn hir_function_coverage', 'coverage_hir.rs');
 assertContains(
     coverageHirProjection,
     'pub(super) fn field_get_call_owner',
@@ -265,6 +268,11 @@ assertContains(
     coverageHirRaw,
     'pub(super) fn should_count_raw_memory_call',
     'coverage_hir_raw.rs',
+);
+assertContains(
+    coverageHirScope,
+    'struct HirCoverageContext',
+    'coverage_hir_scope.rs',
 );
 assertContains(
     coverageResource,
@@ -409,6 +417,7 @@ const maxLines = new Map([
     ['coverage_hir_projection.rs', 280],
     ['coverage_hir_projection_aggregate.rs', 180],
     ['coverage_hir_raw.rs', 80],
+    ['coverage_hir_scope.rs', 100],
     ['coverage_resource.rs', 520],
     ['drop_elaboration.rs', 220],
     ['drop_elaboration_bindings.rs', 140],

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T10:55:48.913Z",
+  "generated_at": "2026-05-06T11:03:39.248Z",
   "counts": {
-    "total": 507,
+    "total": 508,
     "open": 13,
-    "resolved": 494,
+    "resolved": 495,
     "by_area": {
       "core": {
-        "total": 243,
+        "total": 244,
         "open": 5,
-        "resolved": 238
+        "resolved": 239
       },
       "stdlib": {
         "total": 155,
@@ -3763,6 +3763,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T104320731Z-STATIC-CHECK-SOURCE-POLICY-STILL-REQ-3078A6E1.md"
+    },
+    {
+      "id": "ISS-20260506T104708173Z-RESOURCE-IR-LOWERING-TREATS-CALLABLE-02721744",
+      "title": "Resource IR lowering treats callable value references as uninitialized locals",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/lower.rs, nepl-core/src/resource/coverage_hir.rs, nepl-core/src/resource/coverage_hir_scope.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T104708173Z-RESOURCE-IR-LOWERING-TREATS-CALLABLE-02721744.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

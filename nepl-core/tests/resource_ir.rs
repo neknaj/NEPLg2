@@ -1991,6 +1991,85 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_function_value_call
 }
 
 #[test]
+fn resource_ir_lowering_initializes_bare_callable_var_references() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn id <(i32)->i32> (x):
+    x
+
+fn get_op <(bool)->(i32)->i32> (con):
+    if con:
+        then:
+            id;
+            @id
+        else:
+            id
+            @id
+
+fn main <()->i32> ():
+    let f get_op true
+    f 1
+"#;
+    let (hir, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&hir, &types);
+    fn count_named_function_values(ops: &[ResourceOp], name_prefix: &str) -> usize {
+        ops.iter()
+            .map(|op| match op {
+                ResourceOp::FunctionValue { name, .. } if name.starts_with(name_prefix) => 1,
+                ResourceOp::Branch {
+                    then_ops, else_ops, ..
+                } => {
+                    count_named_function_values(then_ops, name_prefix)
+                        + count_named_function_values(else_ops, name_prefix)
+                }
+                ResourceOp::Loop {
+                    condition_ops,
+                    body_ops,
+                    ..
+                } => {
+                    count_named_function_values(condition_ops, name_prefix)
+                        + count_named_function_values(body_ops, name_prefix)
+                }
+                ResourceOp::Match { arms, .. } => arms
+                    .iter()
+                    .map(|arm| count_named_function_values(&arm.ops, name_prefix))
+                    .sum(),
+                _ => 0,
+            })
+            .sum()
+    }
+
+    let id_function_values = resource
+        .functions
+        .iter()
+        .flat_map(|function| function.blocks.iter())
+        .map(|block| count_named_function_values(&block.ops, "id"))
+        .sum::<usize>();
+    assert!(
+        id_function_values >= 4,
+        "bare callable references and explicit @ references should both lower as function values:\n{}",
+        resource.dump_text()
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    let callable_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| match diagnostic {
+            ResourceCheckDiagnostic::CellUnavailable { function, .. } => {
+                function.starts_with("id")
+                    || function.starts_with("get_op")
+                    || function.starts_with("main")
+            }
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(callable_diagnostics, Vec::<&ResourceCheckDiagnostic>::new());
+}
+
+#[test]
 fn resource_ir_effect_check_uses_known_function_alias_stored_in_aggregate_field() {
     let mut types = TypeCtx::new();
     let i32_ty = types.i32();
