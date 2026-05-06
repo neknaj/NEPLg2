@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: bug
 created: 2026-04-27
-updated: 2026-04-29
+updated: 2026-05-06
 target: "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md"
 ---
 
@@ -410,3 +410,15 @@ Stage 5 の raw identity escape 判定では、pointer value 自体の raw ident
 `ISS-20260505T234152821Z-STATIC-CHECK-PLAN-STILL-DESCRIBES-UN-A737C86F` として、`doc/neplg2/static_check_complexity_reduction_plan.md` が `UnsafeMemoryInPureFunction` を shadow-only と説明し続けていた問題を分離し、修正した。
 
 現在の Stage 5 状態は、`ExternalIo` / `Nondet` / `UnsafeMemory` が Resource IR diagnostic から compiler error へ接続済みで、raw-memory-boundary capability だけが stdlib migration 用の許可として残る、という整理である。
+
+## 2026-05-06 scanner / returned range regression blocker 追記
+
+`ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` の full scanner style regression を確認したところ、Resource IR の returned range summary 不足へ到達する前に Stage 5 effect gate が stdlib helper を拒否していることを確認した。
+
+再現:
+
+- `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`
+
+発生した compiler diagnostics は、`concat_result` / `from_u128_radix` / `len__str` / `string_finish_base` などの raw-memory-backed stdlib helper が pure signature のまま `bulk_copy` / `store` / `load` を使うことを `PureCallsImpure` として拒否している。これは `UnsafeMemoryInPureFunction` を hard gate 化したこと自体の誤りではなく、現行 stdlib public API が raw-memory-backed helper を pure surface として公開し続けている設計残件である。
+
+したがって、この親 issue の残件はまだ閉じられない。次の実装単位では、stdlib 側の個別回避で diagnostic を隠すのではなく、compiler の effect model が internal raw-memory boundary と public observable impurity を区別できる設計にするか、stdlib API を effect-aware な境界へ移行する必要がある。

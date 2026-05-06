@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T12:11:57.949Z",
+  "generated_at": "2026-05-06T12:21:06.635Z",
   "counts": {
     "total": 511,
     "open": 13,
@@ -113,7 +113,7 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-27",
-      "updated": "2026-04-29",
+      "updated": "2026-05-06",
       "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md",
       "legacy_id": "",
       "source": "",
@@ -248,8 +248,8 @@
       "priority": "P2",
       "type": "architecture",
       "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource/initialized_return.rs, nepl-core/src/resource/initialized_external_io.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/kp.rs",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/initialized_summary*.rs, nepl-core/src/resource/initialized_external_io*.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/kp.rs",
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"

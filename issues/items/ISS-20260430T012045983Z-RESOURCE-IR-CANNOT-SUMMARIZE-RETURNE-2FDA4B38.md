@@ -7,8 +7,8 @@ resolved: false
 priority: P2
 type: architecture
 created: 2026-04-30
-updated: 2026-04-30
-target: "nepl-core/src/resource/initialized_return.rs, nepl-core/src/resource/initialized_external_io.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/kp.rs"
+updated: 2026-05-06
+target: "nepl-core/src/resource/initialized_summary*.rs, nepl-core/src/resource/initialized_external_io*.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/kp.rs"
 source: doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行
 ---
 
@@ -53,3 +53,14 @@ Design a typed range-summary model for returned raw headers: connect the pointer
 ## 検証
 
 Add a source-level scanner regression that returns a header after a loop of fd_read/realloc and then reads bytes guarded by len. Keep direct fd_read and single-read returned-header regressions passing.
+
+## 2026-05-06 現状確認
+
+現在の実装では、古い `initialized_return.rs` は `initialized_summary*.rs` へ分割済みである。単発の returned raw header regression は `resource_ir_cell_check_returned_raw_header_preserves_initialized_pointee` で通過するが、full scanner style の source-level regression は range summary の診断へ到達する前に Stage 5 effect gate で停止する。
+
+確認した再現:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_initialized_pointee -- --nocapture`: passed
+- `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`: `concat_result` / `from_u128_radix` / `len__str` / `string_finish_base` など raw-memory backed pure stdlib helper の `UnsafeMemoryInPureFunction` / `PureCallsImpure` で compile failure
+
+この issue は引き続き open とする。理由は、既存の単発 returned-header summary は十分ではなく、header pointer field / len field / initialized byte range の dependent relation を型付き summary として表す必要が残るためである。ただし full scanner regression を authoritative に戻すには、先に `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` 側で raw-memory-backed stdlib helper の effect boundary を整理する必要がある。

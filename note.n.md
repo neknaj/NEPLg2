@@ -32111,3 +32111,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 進捗に該当する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+## 2026-05-06 Agent 1: returned raw header range summary 調査
+
+`ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` の現状を確認した。現在のコードでは古い `initialized_return.rs` は存在せず、returned raw-cell summary は `initialized_summary*.rs` に分割済みである。
+
+単発 returned header の Resource IR regression は通る一方、full scanner style の source-level regression は Resource IR range summary の不足ではなく、先に Stage 5 effect gate が raw-memory-backed stdlib pure helper を拒否して停止した。これは `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` の残件として issue に追記した。
+
+次の作業は、full scanner regression を無理に通す小手先修正ではなく、raw-memory-backed stdlib helper の internal boundary と public effect surface の設計を整理すること。その後、returned header の pointer field / len field / initialized range relation を Resource IR summary として実装する。
