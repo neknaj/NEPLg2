@@ -180,3 +180,11 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 `RawMemoryOp::Store` は store 専用の typed clearing を使う。overlap する raw cell fact でも、既存 fact が initialized Copy で stored value と同じ Copy 型として扱える場合は保持し、non-Copy / moved / uninit state は従来どおり保守的に消す。
 
 この親 issue は引き続き open とする。`kpread_to_kpwrite_prefixsum_i32` はなお `pref[+symbolic].deref` の `Cell(Uninit)` で失敗するため、残件は loop condition fact と guarded initialized range summary の接続である。
+
+## 2026-05-07 loop condition fact 部分対応
+
+`ISS-20260506T212446487Z-RESOURCE-LOOPS-DO-NOT-CARRY-TYPED-CO-FD0086F2` として、`ResourceOp::Loop` が typed condition fact を持たない問題を分離して修正した。
+
+`while lt i len` は now `ResourceConditionFact::I32Relation { left: i, op: Lt, right: len }` として Loop op に保存される。initialized checker と owner checker は condition evaluation 後、loop body path に truthy fact、exit path に false/negated fact を適用してから各 path を検査する。
+
+この親 issue は引き続き open とする。今回の修正で loop body から `i < len` を Resource IR state として参照できるようになったが、まだ symbolic raw offset と initialized range fact を照合して raw load availability へ接続する本体 model は未完了である。

@@ -200,7 +200,9 @@ impl ResourceOwnerCheckEngine<'_> {
         pending_reallocs: &mut PendingRawReallocs,
         variant_owner_effects: &mut PendingVariantOwnerEffects,
         condition_ops: &[ResourceOp],
+        condition_fact: Option<&ResourceConditionFact>,
         body_ops: &[ResourceOp],
+        span: Span,
     ) {
         let mut condition_owners = owners.clone();
         let mut condition_function_aliases = function_aliases.clone();
@@ -220,13 +222,38 @@ impl ResourceOwnerCheckEngine<'_> {
             condition_ops,
         );
 
-        let mut body_owners = condition_owners.clone();
+        let mut exit_owners = condition_owners.clone();
+        let mut exit_raw_aliases = condition_raw_aliases.clone();
+        let mut exit_storage_origins = condition_storage_origins.clone();
+        let mut exit_pending_reallocs = condition_pending_reallocs.clone();
+        self.apply_branch_condition_fact(
+            &mut exit_owners,
+            &mut exit_raw_aliases,
+            &condition_raw_views,
+            &mut exit_storage_origins,
+            &mut exit_pending_reallocs,
+            condition_fact,
+            false,
+            span,
+        );
+
+        let mut body_owners = condition_owners;
         let mut body_function_aliases = condition_function_aliases.clone();
-        let mut body_raw_aliases = condition_raw_aliases.clone();
+        let mut body_raw_aliases = condition_raw_aliases;
         let mut body_raw_views = condition_raw_views.clone();
-        let mut body_storage_origins = condition_storage_origins.clone();
-        let mut body_pending_reallocs = condition_pending_reallocs.clone();
+        let mut body_storage_origins = condition_storage_origins;
+        let mut body_pending_reallocs = condition_pending_reallocs;
         let mut body_variant_owner_effects = condition_variant_owner_effects.clone();
+        self.apply_branch_condition_fact(
+            &mut body_owners,
+            &mut body_raw_aliases,
+            &body_raw_views,
+            &mut body_storage_origins,
+            &mut body_pending_reallocs,
+            condition_fact,
+            true,
+            span,
+        );
         self.check_ops(
             &mut body_owners,
             &mut body_function_aliases,
@@ -239,9 +266,9 @@ impl ResourceOwnerCheckEngine<'_> {
         );
 
         let merged_raw_aliases =
-            RawCellAddressAliases::merge_paths(&[condition_raw_aliases, body_raw_aliases]);
+            RawCellAddressAliases::merge_paths(&[exit_raw_aliases, body_raw_aliases]);
         *owners = OwnerTable::merge_paths_with_raw_aliases(
-            &[condition_owners, body_owners],
+            &[exit_owners, body_owners],
             &merged_raw_aliases,
         );
         *function_aliases =
@@ -249,9 +276,9 @@ impl ResourceOwnerCheckEngine<'_> {
         *raw_aliases = merged_raw_aliases;
         *raw_views = RawAddressViewTable::merge_paths(&[condition_raw_views, body_raw_views]);
         *storage_origins =
-            StorageOriginTable::merge_paths(&[condition_storage_origins, body_storage_origins]);
+            StorageOriginTable::merge_paths(&[exit_storage_origins, body_storage_origins]);
         *pending_reallocs =
-            PendingRawReallocs::merge_paths(&[condition_pending_reallocs, body_pending_reallocs]);
+            PendingRawReallocs::merge_paths(&[exit_pending_reallocs, body_pending_reallocs]);
         *variant_owner_effects = PendingVariantOwnerEffects::merge_paths(&[
             condition_variant_owner_effects,
             body_variant_owner_effects,

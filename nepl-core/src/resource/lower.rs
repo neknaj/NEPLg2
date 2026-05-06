@@ -476,6 +476,7 @@ pub(super) fn lower_expr_skeleton(
             output
         }
         HirExprKind::While { cond, body } => {
+            let condition_fact = resource_condition_fact(cond, ctx);
             let loop_locals = ctx.snapshot_locals();
             let mut condition_ops = Vec::new();
             let condition = lower_expr_skeleton(cond, &mut condition_ops, ctx, env);
@@ -486,6 +487,7 @@ pub(super) fn lower_expr_skeleton(
             ops.push(ResourceOp::Loop {
                 condition_ops,
                 condition,
+                condition_fact,
                 body_ops,
                 span: expr.span,
             });

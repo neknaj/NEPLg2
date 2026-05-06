@@ -515,6 +515,7 @@ impl ResourceCheckEngine<'_> {
             ResourceOp::Loop {
                 condition_ops,
                 condition,
+                condition_fact,
                 body_ops,
                 span,
             } => {
@@ -526,6 +527,7 @@ impl ResourceCheckEngine<'_> {
                     variant_initializations,
                     condition_ops,
                     condition,
+                    condition_fact.as_ref(),
                     body_ops,
                     *span,
                     path.clone().with_step(ResourceDropPointStep::LoopCondition),

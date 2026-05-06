@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T21:21:24.545Z",
+  "generated_at": "2026-05-06T21:35:21.080Z",
   "counts": {
-    "total": 540,
+    "total": 541,
     "open": 16,
-    "resolved": 524,
+    "resolved": 525,
     "by_area": {
       "compiler": {
         "total": 3,
@@ -12,9 +12,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 265,
+        "total": 266,
         "open": 4,
-        "resolved": 261
+        "resolved": 262
       },
       "selfhost": {
         "total": 50,
@@ -4153,6 +4153,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T211740745Z-SYMBOLIC-COPY-STORES-ERASE-UNKNOWN-O-0BD91F6C.md"
+    },
+    {
+      "id": "ISS-20260506T212446487Z-RESOURCE-LOOPS-DO-NOT-CARRY-TYPED-CO-FD0086F2",
+      "title": "Resource loops do not carry typed condition facts into body paths",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/model.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/initialized_control.rs, nepl-core/src/resource/owner_control.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T212446487Z-RESOURCE-LOOPS-DO-NOT-CARRY-TYPED-CO-FD0086F2.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

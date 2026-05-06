@@ -1,3 +1,28 @@
+# 2026-05-07 note (ISS-20260506T212446487Z loop condition facts)
+
+## 作業内容
+
+- branch `fix/resource-loop-condition-facts` で main から作業した。
+- dynamic initialized range summary の前提として、`ResourceOp::Branch` には typed `condition_fact` がある一方、`ResourceOp::Loop` が `while lt i len` の relation guard を保持していない問題を切り出した。
+- `ResourceOp::Loop` に `condition_fact` を追加し、lowering / dump / coverage / initialized checker / owner checker の loop handling を更新した。
+- initialized checker と owner checker は、loop condition evaluation 後に body path へ truthy fact、exit path へ false/negated fact を適用してから各 state を merge するようにした。
+- issue `ISS-20260506T212446487Z-RESOURCE-LOOPS-DO-NOT-CARRY-TYPED-CO-FD0086F2` を fixed にし、親 issue と `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 へ進捗を追記した。
+
+## 検証
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_loop_i32_relation_condition_fact -- --nocapture`: passed
+- `cargo test -p nepl-core initialized_branch_condition_fact_records -- --nocapture`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `node nodesrc/issues.js check`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- `git diff --check`: passed
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T211740745Z symbolic Copy store initialized facts)
 
 ## 作業内容

@@ -562,7 +562,9 @@ impl ResourceOwnerCheckEngine<'_> {
             }
             ResourceOp::Loop {
                 condition_ops,
+                condition_fact,
                 body_ops,
+                span,
                 ..
             } => {
                 self.check_loop(
@@ -574,7 +576,9 @@ impl ResourceOwnerCheckEngine<'_> {
                     pending_reallocs,
                     variant_owner_effects,
                     condition_ops,
+                    condition_fact.as_ref(),
                     body_ops,
+                    *span,
                 );
             }
             ResourceOp::Match {

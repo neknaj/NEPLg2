@@ -180,6 +180,7 @@ fn resource_ops_coverage(
             ResourceOp::Loop {
                 condition_ops,
                 condition,
+                condition_fact: _,
                 body_ops,
                 span,
             } => {

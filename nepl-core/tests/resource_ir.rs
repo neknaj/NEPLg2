@@ -2121,6 +2121,57 @@ fn main <(i32,i32)->i32> (i, len):
 }
 
 #[test]
+fn resource_ir_lowering_preserves_loop_i32_relation_condition_fact() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main <(i32)->i32> (len):
+    let mut i <i32> 0
+    while lt i len:
+        do:
+            set i add i 1
+    i
+"#;
+    let (hir, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&hir, &types);
+    let main = resource
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "main")
+        .expect("main resource function");
+    let condition_fact = main
+        .blocks
+        .iter()
+        .flat_map(|block| block.ops.iter())
+        .find_map(|op| match op {
+            ResourceOp::Loop {
+                condition_fact: Some(fact),
+                ..
+            } => Some(fact),
+            _ => None,
+        })
+        .expect("loop condition fact");
+
+    let ResourceConditionFact::I32Relation { left, op, right } = condition_fact else {
+        panic!(
+            "while lt i len must be preserved as an i32 relation fact:\n{}",
+            resource.dump_text()
+        );
+    };
+    assert_eq!(*op, ResourceI32RelationOp::Lt);
+    assert!(matches!(&left.root, PlaceRoot::Local(name) if name == "i"));
+    assert!(matches!(&right.root, PlaceRoot::Local(name) if name == "len"));
+    assert!(
+        resource.dump_text().contains("loop cond=")
+            && resource.dump_text().contains("fact=i32_relation(%i:"),
+        "loop relation fact should be visible in Resource IR dump:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_lowering_preserves_symbolic_mem_ptr_add_offset() {
     let source = r#"
 #entry main
@@ -11887,6 +11938,7 @@ fn resource_ir_cell_merge_reports_moved_after_loop_body() {
                     span,
                 }],
                 condition: cond,
+                condition_fact: None,
                 body_ops: vec![ResourceOp::Read {
                     source: x.clone(),
                     output: moved,

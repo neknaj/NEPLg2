@@ -172,6 +172,7 @@ pub enum ResourceOp {
     Loop {
         condition_ops: Vec<ResourceOp>,
         condition: Place,
+        condition_fact: Option<ResourceConditionFact>,
         body_ops: Vec<ResourceOp>,
         span: Span,
     },

@@ -267,6 +267,8 @@ commit 単位:
 
 - 2026-05-07: `ISS-20260506T211740745Z-SYMBOLIC-COPY-STORES-ERASE-UNKNOWN-O-0BD91F6C` を解決した。`RawMemoryOp::Store` の汎用 clear を store 専用の typed clearing に分け、symbolic Copy store が `pref[+?].deref` の initialized Copy fact を過剰に消さないようにした。non-Copy / moved / uninit state は従来どおり保守的に消すため、memory safety の緩和ではない。Stage 4 の残件は、loop condition fact と guarded initialized range summary を接続して、明示 proof のある dynamic raw load だけを通すことである。
 
+- 2026-05-07: `ISS-20260506T212446487Z-RESOURCE-LOOPS-DO-NOT-CARRY-TYPED-CO-FD0086F2` を解決した。`ResourceOp::Loop` に `condition_fact` を追加し、`while lt i len` のような typed relation guard を Branch と同じ `ResourceConditionFact::I32Relation` として Resource IR に保持する。initialized / owner checker は condition evaluation 後、body path に truthy fact、exit path に negated false fact を適用してから state merge するため、loop body の range summary が HIR 条件式を再走査せず `RawCellAddressAliases` から `i < len` を問い合わせられる。Stage 4 の残件は、保持された loop relation fact と `ResourceOffset::Symbolic` を raw cell availability / initialized range fact へ接続することである。
+
 ### Stage 5: effect model の拡張
 
 目的: raw memory を safe surface から閉じつつ、stdlib 内部の正当な allocation を表現する。

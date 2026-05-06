@@ -359,13 +359,15 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
         ResourceOp::Loop {
             condition_ops,
             condition,
+            condition_fact,
             body_ops,
             span,
         } => {
             let _ = writeln!(
                 out,
-                "loop cond={} span={}:{}-{}",
+                "loop cond={} fact={} span={}:{}-{}",
                 dump_place(condition),
+                dump_condition_fact(condition_fact),
                 span.file_id.0,
                 span.start,
                 span.end

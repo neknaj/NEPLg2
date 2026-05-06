@@ -169,6 +169,7 @@ impl ResourceCheckEngine<'_> {
         variant_initializations: &mut PendingVariantRawCellInitializations,
         condition_ops: &[ResourceOp],
         condition: &Place,
+        condition_fact: Option<&ResourceConditionFact>,
         body_ops: &[ResourceOp],
         span: Span,
         condition_path: ResourceDropPointPath,
@@ -195,11 +196,29 @@ impl ResourceCheckEngine<'_> {
             span,
         );
 
-        let mut body_cells = condition_cells.clone();
-        let mut body_aliases = condition_aliases.clone();
+        let mut exit_cells = condition_cells.clone();
+        let mut exit_aliases = condition_aliases.clone();
+        let mut exit_pending_reallocs = condition_pending_reallocs.clone();
+        self.apply_branch_condition_fact(
+            &mut exit_cells,
+            &mut exit_aliases,
+            &mut exit_pending_reallocs,
+            condition_fact,
+            false,
+        );
+
+        let mut body_cells = condition_cells;
+        let mut body_aliases = condition_aliases;
         let mut body_function_aliases = condition_function_aliases.clone();
-        let mut body_pending_reallocs = condition_pending_reallocs.clone();
+        let mut body_pending_reallocs = condition_pending_reallocs;
         let mut body_variant_initializations = condition_variant_initializations.clone();
+        self.apply_branch_condition_fact(
+            &mut body_cells,
+            &mut body_aliases,
+            &mut body_pending_reallocs,
+            condition_fact,
+            true,
+        );
         self.check_ops(
             &mut body_cells,
             &mut body_aliases,
@@ -209,12 +228,12 @@ impl ResourceCheckEngine<'_> {
             body_ops,
             body_path,
         );
-        *cells = CellTable::merge_paths(&[condition_cells, body_cells]);
-        *raw_aliases = RawCellAddressAliases::merge_paths(&[condition_aliases, body_aliases]);
+        *cells = CellTable::merge_paths(&[exit_cells, body_cells]);
+        *raw_aliases = RawCellAddressAliases::merge_paths(&[exit_aliases, body_aliases]);
         *function_aliases =
             FunctionAliasTable::merge_paths(&[condition_function_aliases, body_function_aliases]);
         *pending_reallocs =
-            PendingRawReallocs::merge_paths(&[condition_pending_reallocs, body_pending_reallocs]);
+            PendingRawReallocs::merge_paths(&[exit_pending_reallocs, body_pending_reallocs]);
         *variant_initializations = PendingVariantRawCellInitializations::merge_paths(&[
             condition_variant_initializations,
             body_variant_initializations,
