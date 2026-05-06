@@ -82,3 +82,35 @@ fn main <()*>i32> ():
     free bf1
     1
 ```
+
+## counting_bloom_filter_rejects_non_positive_length
+
+[目的/もくてき]:
+- counter [長/ちょう]が 0 [以下/いか]のとき、counter owner を[作/つく]らず `Result::Err` を[返/かえ]すことを[確認/かくにん]します。
+
+[何/なに]を[確/たし]かめるか:
+- `new`
+- invalid length
+- `Result`
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/counting_bloom_filter" as *
+#import "core/traits/hash" as *
+#import "alloc/diag/error" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let result <Result<CountingBloomFilter<i32, DefaultHash32>, Diag>> new DefaultHash32 0
+    match result:
+        Result::Ok bf:
+            free bf
+            0
+        Result::Err _d:
+            1
+```

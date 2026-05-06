@@ -1,3 +1,28 @@
+# 2026-05-06 note (ISS-20260429T155343006Z CountingBloomFilter typed Vec storage)
+
+- [同期]:
+  - `a0c9415c` の BloomFilter typed storage push 後、`origin/main` と一致する clean な `main` から branch `fix/counting-bloom-filter-typed-storage` を作成して対応中。
+- [原因]:
+  - `CountingBloomFilter` は counter storage を raw `MemPtr<u8>` で所有し、`alloc_ptr` / `load_u8` / `store_u8` / `dealloc_raw` による storage discipline に依存していた。
+  - `nbytes` は `nslots` と常に同じで、counter 長の invariant を重複 field として持っていた。
+- [修正]:
+  - `CountingBloomFilter.counters` を `Vec<u8>` owner に変更し、初期化は `vec::filled<u8>`、読み書きは `vec::get<u8>` / `vec::replace<u8>`、解放は `vec::free<u8>` に集約した。
+  - `nbytes` field を削除し、counter 長の single source of truth を `nslots` にした。
+  - `vec::get` の `Option::None` は正常値へ丸めず、`Option<i32>` を返して caller 側で `match` する。
+  - `insert` / `remove` / `clear` は typed storage mutation として `*` effect を明示した。
+  - CountingBloomFilter source policy と collection/mem/string safety design doc、collection storage issue を更新した。
+  - `tests/stdlib/counting_bloom_filter_collections.n.md` に non-positive length regression を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/counting_bloom_filter.nepl --no-tree -o tmp/counting-bloom-vec-storage-doctest2.json -j 1`: total=6, passed=6
+  - `node nodesrc/tests.js -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/counting-bloom-vec-storage-focused3.json -j 1`: total=5, passed=5
+  - `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_counting_bloom_filter_borrowed_observers.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260429T155343006Z BloomFilter typed Vec storage)
 
 - [同期]:

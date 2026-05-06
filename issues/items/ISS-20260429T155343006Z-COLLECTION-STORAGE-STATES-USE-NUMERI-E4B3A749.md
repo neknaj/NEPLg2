@@ -364,7 +364,37 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- List node storage、CountingBloom などの raw byte storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+- List node storage は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+
+## 2026-05-06 CountingBloomFilter typed Vec storage 部分進捗
+
+`stdlib/alloc/collections/counting_bloom_filter.nepl` は counter payload を raw `MemPtr<u8>` array から `Vec<u8>` owner へ移行した。
+
+進捗:
+
+- `CountingBloomFilter` 本体は `nslots/counters/hasher` を持ち、`counters` は `Vec<u8>` として保持する。
+- `nbytes` は `nslots` と常に同じ重複 field だったため削除し、counter 長の single source of truth を `nslots` にした。
+- `new` は `alloc_ptr<u8>` と raw zero-fill loop を使わず、`vec::filled<u8>` で初期化済み counter storage を確保する。
+- counter の読み書きは `vec::get` / `vec::replace` に集約し、`CountingBloomFilter` から `MemPtr` / `mem_ptr_wrap` / `mem_ptr_addr` / `alloc_ptr` / `load_u8` / `store_u8` / `dealloc_raw` を排除した。
+- counter read helper は `vec::get` の `Option::None` を正常値に丸めず、`Option<i32>` を返して caller 側で `match` する。
+- `insert` / `remove` / `clear` は typed storage mutation として `*` effect を明示した。
+- `free` は `vec::free<u8>` で counter storage owner を閉じる。
+- `nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js` は typed `Vec<u8>` storage、Vec helper 経由の counter read/write、raw MemPtr / raw byte load-store 禁止を固定するよう更新した。
+- `tests/stdlib/counting_bloom_filter_collections.n.md` に non-positive length regression を追加した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/counting_bloom_filter.nepl --no-tree -o tmp/counting-bloom-vec-storage-doctest2.json -j 1`: total=6, passed=6
+- `node nodesrc/tests.js -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/counting-bloom-vec-storage-focused3.json -j 1`: total=5, passed=5
+- `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_counting_bloom_filter_borrowed_observers.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+
+残件:
+
+- List node storage は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
 
 ## 2026-05-06 BloomFilter typed Vec storage 部分進捗
 
@@ -392,7 +422,7 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- List node storage、CountingBloom などの raw byte storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+- List node storage は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
 
 ## 2026-05-06 AdjacencyMatrix typed Vec storage 部分進捗
 
@@ -420,7 +450,7 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- List node storage、Bloom / CountingBloom などの raw byte storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+- List node storage は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
 
 ## 2026-05-06 DisjointSet typed Vec storage 部分進捗
 

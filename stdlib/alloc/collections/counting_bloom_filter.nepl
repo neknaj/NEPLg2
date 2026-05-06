@@ -9,7 +9,7 @@
 //: - `BloomFilter` と[同/おな]じ hasher [設計/せっけい]を[保/たも]ちながら、[重複/ちょうふく][挿入/そうにゅう]を[数/かぞ]える counter [配列/はいれつ]で delete [操作/そうさ]を[支/ささ]えます。
 //:
 //: ### [実装/じっそう]
-//: - [内部/ないぶ]は byte counter [配列/はいれつ]と hasher [値/あたい]を[保持/ほじ]します。
+//: - [内部/ないぶ]は `Vec<u8>` counter [配列/はいれつ]と hasher [値/あたい]を[保持/ほじ]します。
 //: - [各要素/かくようそ]に[対/たい]して 3 [本/ぼん]の probe index を[生成/せいせい]し、insert では[対応/たいおう] counter を[飽和/ほうわ] 255 まで[加算/かさん]し、remove では 0 まで[減算/げんざん]します。
 //: - `contains` は 3 [本/ぼん]すべての counter が 1 [以上/いじょう]なら true を[返/かえ]します。
 //:
@@ -24,28 +24,29 @@
 //: - `insert` / `remove` / `contains` は probe [本数/ほんすう]を k=3 として O(1) です。
 //: - `clear` は counter [配列/はいれつ][長/ちょう]を m byte として O(m) です。
 
-#import "core/mem" as *
+#import "core/cast" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
 #import "core/traits/hash_key" as *
 #import "core/traits/hash" as *
 #import "core/traits/copy" as *
 #import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
 
 //: ## CountingBloomFilter
 //: counter [配列/はいれつ]と hasher を[保持/ほじ]する[所有者/しょゆうしゃ]
 //:
 //: ### [目的/もくてき]
-//: - counter [長/ちょう]・byte [長/ちょう]・counter pointer・hasher を 1 [値/あたい]として[受/う]け[渡/わた]しできるようにします。
+//: - counter [長/ちょう]・typed counter owner・hasher を 1 [値/あたい]として[受/う]け[渡/わた]しできるようにします。
 //:
 //: ### [注意/ちゅうい]
 //: - counter [領域/りょういき]の[所有権/しょゆうけん]を[持/も]つので、[不要/ふよう]になったら `free` します。
 //: - key 型 `.T` と hasher 型 `.H` は、複数 probe の[計算/けいさん]で[繰/く]り[返/かえ]し[読/よ]むため標準 `Copy` を impl する[必要/ひつよう]があります。
 struct CountingBloomFilter<.T,.H>:
     nslots <i32>
-    nbytes <i32>
-    counters <MemPtr<u8>>
+    counters <Vec<u8>>
     hasher <.H>
 
 fn counting_bloom_invalid_len_diag <()*>Diag> ():
@@ -63,34 +64,63 @@ fn counting_bloom_hash1 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,.T)->i32> (h
 fn counting_bloom_probe_index <(i32,i32,i32)->i32> (nslots, h0, h1):
     rem_u add h0 h1 nslots
 
-fn counting_bloom_ptr_at <(MemPtr<u8>,i32)->MemPtr<u8>> (counters, idx):
-    mem_ptr_wrap add mem_ptr_addr counters idx
+fn counting_bloom_counter_at <(&Vec<u8>,i32)->Option<i32>> (counters, idx):
+    match vec::get<u8> counters idx:
+        Option::Some counter:
+            let value <i32> cast counter
+            some<i32> value
+        Option::None:
+            none<i32>
 
-fn counting_bloom_counter_inc <(MemPtr<u8>,i32)->()> (counters, idx):
-    let ptr <MemPtr<u8>> counting_bloom_ptr_at counters idx
-    let cur <i32> load_u8 mem_ptr_addr ptr
-    let next <i32> add cur 1
-    if:
-        lt cur 255
-        then:
-            store_u8 mem_ptr_addr ptr next
-        else:
+fn counting_bloom_store_counter <(&Vec<u8>,i32,i32)*>()> (counters, idx, value):
+    let counter <u8> cast value
+    vec::replace<u8> counters idx counter
+
+fn counting_bloom_counter_inc <(&Vec<u8>,i32)*>()> (counters, idx):
+    match counting_bloom_counter_at counters idx:
+        Option::Some cur:
+            if:
+                lt cur 255
+                then:
+                    counting_bloom_store_counter counters idx add cur 1
+                else:
+                    ()
+        Option::None:
             ()
 
-fn counting_bloom_counter_dec <(MemPtr<u8>,i32)->()> (counters, idx):
-    let ptr <MemPtr<u8>> counting_bloom_ptr_at counters idx
-    let cur <i32> load_u8 mem_ptr_addr ptr
-    let next <i32> sub cur 1
-    if:
-        lt 0 cur
-        then:
-            store_u8 mem_ptr_addr ptr next
-        else:
+fn counting_bloom_counter_dec <(&Vec<u8>,i32)*>()> (counters, idx):
+    match counting_bloom_counter_at counters idx:
+        Option::Some cur:
+            if:
+                lt 0 cur
+                then:
+                    counting_bloom_store_counter counters idx sub cur 1
+                else:
+                    ()
+        Option::None:
             ()
 
-fn counting_bloom_counter_nonzero <(MemPtr<u8>,i32)->bool> (counters, idx):
-    let ptr <MemPtr<u8>> counting_bloom_ptr_at counters idx
-    lt 0 load_u8 mem_ptr_addr ptr
+fn counting_bloom_counter_nonzero <(&Vec<u8>,i32)->bool> (counters, idx):
+    match counting_bloom_counter_at counters idx:
+        Option::Some cur:
+            lt 0 cur
+        Option::None:
+            false
+
+fn counting_bloom_fill_counters <(&Vec<u8>,i32,i32)*>()> (counters, nslots, value):
+    let mut i <i32> 0
+    while lt i nslots:
+        do:
+            counting_bloom_store_counter counters i value
+            set i add i 1
+
+fn counting_bloom_alloc_counters <(i32,i32)*>Result<Vec<u8>, Diag>> (nslots, value):
+    let counter <u8> cast value
+    match vec::filled<u8> nslots counter:
+        Result::Ok counters:
+            ok<Vec<u8>, Diag> counters
+        Result::Err _e:
+            diag_err<Vec<u8>> diag_out_of_memory
 
 //: ## new
 //: [空/から]の Counting Bloom Filter を[作/つく]る
@@ -117,17 +147,11 @@ fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<CountingBloomFil
         le nslots 0
         then diag_err<CountingBloomFilter<.T,.H>> counting_bloom_invalid_len_diag
         else:
-            match alloc_ptr<u8> nslots:
-                Result::Err _e:
-                    diag_err<CountingBloomFilter<.T,.H>> diag_out_of_memory
+            match counting_bloom_alloc_counters nslots 0:
+                Result::Err d:
+                    err<CountingBloomFilter<.T,.H>, Diag> d
                 Result::Ok counters:
-                    let mut i <i32> 0
-                    while lt i nslots:
-                        do:
-                            let ptr <MemPtr<u8>> counting_bloom_ptr_at counters i
-                            store_u8 mem_ptr_addr ptr 0
-                            set i add i 1
-                    ok<CountingBloomFilter<.T,.H>, Diag> CountingBloomFilter<.T,.H> nslots nslots counters hasher
+                    ok<CountingBloomFilter<.T,.H>, Diag> CountingBloomFilter<.T,.H> nslots counters hasher
 
 //: ## len
 //: counter [長/ちょう]を[返/かえ]す
@@ -152,10 +176,10 @@ fn len <.T,.H> <(&CountingBloomFilter<.T,.H>)->i32> (bf):
 //:     free bf1
 //:     if ok 1 0
 //: ```
-fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>,.T)->CountingBloomFilter<.T,.H>> (bf, key):
-    let nslots <i32> field::get bf "nslots"
-    let counters <MemPtr<u8>> field::get bf "counters"
-    let hasher <.H> field::get bf "hasher"
+fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>,.T)*>CountingBloomFilter<.T,.H>> (bf, key):
+    let nslots <i32> *field::get_ref &bf "nslots"
+    let counters <&Vec<u8>> field::get_ref &bf "counters"
+    let hasher <.H> *field::get_ref &bf "hasher"
     let h0 <i32> counting_bloom_hash0<.T,.H> hasher key
     let h1 <i32> counting_bloom_hash1<.T,.H> hasher key
     let i0 <i32> rem_u h0 nslots
@@ -186,10 +210,10 @@ fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>,.T
 //:     free bf0
 //:     if ok 0 1
 //: ```
-fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>,.T)->CountingBloomFilter<.T,.H>> (bf, key):
-    let nslots <i32> field::get bf "nslots"
-    let counters <MemPtr<u8>> field::get bf "counters"
-    let hasher <.H> field::get bf "hasher"
+fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>,.T)*>CountingBloomFilter<.T,.H>> (bf, key):
+    let nslots <i32> *field::get_ref &bf "nslots"
+    let counters <&Vec<u8>> field::get_ref &bf "counters"
+    let hasher <.H> *field::get_ref &bf "hasher"
     let h0 <i32> counting_bloom_hash0<.T,.H> hasher key
     let h1 <i32> counting_bloom_hash1<.T,.H> hasher key
     let i0 <i32> rem_u h0 nslots
@@ -225,7 +249,7 @@ fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>,.T
 //: ```
 fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&CountingBloomFilter<.T,.H>,.T)->bool> (bf, key):
     let nslots <i32> *field::get_ref bf "nslots"
-    let counters <MemPtr<u8>> *field::get_ref bf "counters"
+    let counters <&Vec<u8>> field::get_ref bf "counters"
     let hasher <.H> *field::get_ref bf "hasher"
     let h0 <i32> counting_bloom_hash0<.T,.H> hasher key
     let h1 <i32> counting_bloom_hash1<.T,.H> hasher key
@@ -257,23 +281,18 @@ fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&CountingBloomFilter<.T,.H>
 //:     free bf0
 //:     if ok 0 1
 //: ```
-fn clear <.T,.H> <(CountingBloomFilter<.T,.H>)->CountingBloomFilter<.T,.H>> (bf):
-    let nbytes <i32> field::get bf "nbytes"
-    let counters <MemPtr<u8>> field::get bf "counters"
-    let mut i <i32> 0
-    while lt i nbytes:
-        do:
-            let ptr <MemPtr<u8>> counting_bloom_ptr_at counters i
-            store_u8 mem_ptr_addr ptr 0
-            set i add i 1
+fn clear <.T,.H> <(CountingBloomFilter<.T,.H>)*>CountingBloomFilter<.T,.H>> (bf):
+    let nslots <i32> *field::get_ref &bf "nslots"
+    let counters <&Vec<u8>> field::get_ref &bf "counters"
+    counting_bloom_fill_counters counters nslots 0
     bf
 
 //: ## free
 //: counter [配列/はいれつ]を[解放/かいほう]する
 //:
 //: ### [仕様/しよう]
-//: - `CountingBloomFilter` は `new` が[確保/かくほ]した `nbytes > 0` の counter [配列/はいれつ]を[所有/しょゆう]します。
-//: - `free` はその owner invariant に[基/もと]づき、counter [配列/はいれつ]を `dealloc_raw` で[直接/ちょくせつ][解放/かいほう]します。
+//: - `CountingBloomFilter` は `new` が[確保/かくほ]した counter `Vec<u8>` を[所有/しょゆう]します。
+//: - `free` はその owner invariant に[基/もと]づき、counter `Vec<u8>` owner を[閉/と]じます。
 //: - caller は `free` [後/ご]の `CountingBloomFilter` を[再利用/さいりよう]してはいけません。
 //:
 //: neplg2:test
@@ -290,6 +309,5 @@ fn clear <.T,.H> <(CountingBloomFilter<.T,.H>)->CountingBloomFilter<.T,.H>> (bf)
 //:     0
 //: ```
 fn free <.T,.H> <(CountingBloomFilter<.T,.H>)->()> (bf):
-    let nbytes <i32> field::get bf "nbytes"
-    let counters <MemPtr<u8>> field::get bf "counters"
-    dealloc_raw mem_ptr_addr counters nbytes
+    let counters <Vec<u8>> field::get bf "counters"
+    vec::free<u8> counters
