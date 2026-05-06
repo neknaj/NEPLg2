@@ -17,6 +17,9 @@ const i32ArithModule = read("stdlib/core/math/i32/arith.nepl");
 const i32BitwiseModule = read("stdlib/core/math/i32/bitwise.nepl");
 const i32CompareModule = read("stdlib/core/math/i32/compare.nepl");
 const i64Module = read("stdlib/core/math/i64.nepl");
+const i64ArithModule = read("stdlib/core/math/i64/arith.nepl");
+const i64BitwiseModule = read("stdlib/core/math/i64/bitwise.nepl");
+const i64CompareModule = read("stdlib/core/math/i64/compare.nepl");
 const f32Module = read("stdlib/core/math/f32.nepl");
 const f64Module = read("stdlib/core/math/f64.nepl");
 const convertModule = read("stdlib/core/math/convert.nepl");
@@ -99,6 +102,23 @@ for (const [relPath, src, maxLines] of [
     const lineCount = src.split(/\r?\n/).length;
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
+for (const [moduleName, pattern] of [
+    ["arith", /pub\s+#import\s+"\.\/i64\/arith"\s+as\s+\*/],
+    ["bitwise", /pub\s+#import\s+"\.\/i64\/bitwise"\s+as\s+\*/],
+    ["compare", /pub\s+#import\s+"\.\/i64\/compare"\s+as\s+\*/],
+]) {
+    assert.match(i64Module, pattern, `core/math/i64.nepl must re-export the ${moduleName} i64 submodule`);
+}
+assert.doesNotMatch(i64Module, /^fn\s+/m, "core/math/i64.nepl must remain a facade without function bodies");
+for (const [relPath, src, maxLines] of [
+    ["stdlib/core/math/i64.nepl", i64Module, 80],
+    ["stdlib/core/math/i64/arith.nepl", i64ArithModule, 360],
+    ["stdlib/core/math/i64/bitwise.nepl", i64BitwiseModule, 380],
+    ["stdlib/core/math/i64/compare.nepl", i64CompareModule, 360],
+]) {
+    const lineCount = src.split(/\r?\n/).length;
+    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
+}
 
 for (const fnName of [
     "add_u8",
@@ -143,6 +163,14 @@ for (const [name, signature] of [
     ["div_u", "<\\(i64,i64\\)->i64>"],
     ["rem_s", "<\\(i64,i64\\)->i64>"],
     ["rem_u", "<\\(i64,i64\\)->i64>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(i64ArithModule, pattern, `core/math/i64/arith.nepl must define overload ${name} ${signature}`);
+    assert.doesNotMatch(i64Module, pattern, `core/math/i64.nepl must not keep arithmetic overload ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep overload ${name} ${signature}`);
+}
+
+for (const [name, signature] of [
     ["and", "<\\(i64,i64\\)->i64>"],
     ["or", "<\\(i64,i64\\)->i64>"],
     ["xor", "<\\(i64,i64\\)->i64>"],
@@ -151,6 +179,14 @@ for (const [name, signature] of [
     ["shr_u", "<\\(i64,i64\\)->i64>"],
     ["rotl", "<\\(i64,i64\\)->i64>"],
     ["rotr", "<\\(i64,i64\\)->i64>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(i64BitwiseModule, pattern, `core/math/i64/bitwise.nepl must define overload ${name} ${signature}`);
+    assert.doesNotMatch(i64Module, pattern, `core/math/i64.nepl must not keep bitwise overload ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep overload ${name} ${signature}`);
+}
+
+for (const [name, signature] of [
     ["eq", "<\\(i64,i64\\)->bool>"],
     ["ne", "<\\(i64,i64\\)->bool>"],
     ["lt", "<\\(i64,i64\\)->bool>"],
@@ -163,7 +199,8 @@ for (const [name, signature] of [
     ["ge_u", "<\\(i64,i64\\)->bool>"],
 ]) {
     const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
-    assert.match(i64Module, pattern, `core/math/i64.nepl must define overload ${name} ${signature}`);
+    assert.match(i64CompareModule, pattern, `core/math/i64/compare.nepl must define overload ${name} ${signature}`);
+    assert.doesNotMatch(i64Module, pattern, `core/math/i64.nepl must not keep compare overload ${name} ${signature}`);
     assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep overload ${name} ${signature}`);
 }
 
@@ -173,7 +210,8 @@ for (const [name, signature] of [
     ["popcnt", "<\\(i64\\)->i64>"],
 ]) {
     const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
-    assert.match(i64Module, pattern, `core/math/i64.nepl must define unary ${name} ${signature}`);
+    assert.match(i64BitwiseModule, pattern, `core/math/i64/bitwise.nepl must define unary ${name} ${signature}`);
+    assert.doesNotMatch(i64Module, pattern, `core/math/i64.nepl must not keep bitwise unary ${name} ${signature}`);
     assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep unary ${name} ${signature}`);
 }
 

@@ -1,0 +1,321 @@
+//: # math/i64/compare
+//: i64 の比較演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - i64 の等値・符号付き比較・符号なし比較を算術や bitwise 演算から分けて管理します。
+//: - `core/math/i64` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - signed / unsigned の比較 API を明確に分け、呼び出し側がどちらの順序を使うかを関数名で選びます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/cast" as *
+//:| #import "core/math/i64/compare" as *
+//: fn main <()->i32> ():
+//:     let a <i64> cast 0;
+//:     let b <i64> cast -1;
+//:     if lt_u a b 0 1
+//: ```
+
+#indent 4
+
+//: eq: i64 の等値比較
+//:
+//: [目的/もくてき]:
+//: - 2つの i64 が等しいかを判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.eq` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 比較はビット列が一致するかで判定されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let a <i64> cast -1;
+//:     let b <i64> cast 1;
+//:     let c <i64> cast -2;
+//:     let d <i64> cast -1;
+//:     assert eq a d;
+//:     assert ne a b;
+//:     assert lt c d;
+//:     assert gt_u a b;
+//: ```
+fn eq <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.eq
+    #if[target=llvm]
+    #llvmir:
+        define i32 @eq(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp eq i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ne: i64 の非等値比較
+//:
+//: [目的/もくてき]:
+//: - 2つの i64 が異なるかを判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.ne` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - `eq` の否定と同値です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ne <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.ne
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ne(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ne i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: lt: i64 の符号付き小なり比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号付き整数として `a < b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.lt_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 負数を含む順序関係を使うときはこちらを使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn lt <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.lt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @lt(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp slt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: lt_u: i64 の符号なし小なり比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号なし整数として `a < b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.lt_u` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 上位ビットが立っている値は大きな正数として扱われます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn lt_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.lt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @lt_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ult i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: le: i64 の符号付き以下比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号付き整数として `a <= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.le_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - `lt` と `eq` の和集合と同じ真理値になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn le <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.le_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @le(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp sle i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: le_u: i64 の符号なし以下比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号なし整数として `a <= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.le_u` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 符号付き比較とは結果が異なる場合があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn le_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.le_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @le_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ule i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: gt: i64 の符号付き大なり比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号付き整数として `a > b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.gt_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 負数を含む大小比較に使用します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn gt <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.gt_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @gt(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp sgt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: gt_u: i64 の符号なし大なり比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号なし整数として `a > b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.gt_u` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 上位ビットが立つ値は大きい値として判定されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn gt_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.gt_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @gt_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp ugt i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ge: i64 の符号付き以上比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号付き整数として `a >= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.ge_s` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - `gt` または `eq` が真なら真になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ge <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.ge_s
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ge(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp sge i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
+
+//: ge_u: i64 の符号なし以上比較
+//:
+//: [目的/もくてき]:
+//: - i64 を符号なし整数として `a >= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm 命令 `i64.ge_u` を直接実行します。
+//:
+//: [注意/ちゅうい]:
+//: - `gt_u` または `eq` が真なら真になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ge_u <(i64,i64)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        i64.ge_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ge_u(i64 %a, i64 %b) {
+        entry:
+            %0 = icmp uge i64 %a, %b
+            %1 = zext i1 %0 to i32
+            ret i32 %1
+        }
