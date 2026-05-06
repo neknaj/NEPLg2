@@ -31025,3 +31025,35 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `alloc/string.nepl`、`alloc/collections/vec.nepl`、`nm/parser.nepl` 内の block serializer / section stack などは引き続き分割候補。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm parser scanner split)
+
+- [同期]:
+  - `main` を remote main と同期し、`fix/nm-parser-scan-split` で巨大 stdlib file 分割 issue を継続した。
+- [原因]:
+  - `stdlib/nm/parser.nepl` は parser 本体に line / heading / delimiter scanner helper を持ち、`stdlib/nm/html_gen.nepl` も `#import "./parser" as *` 経由でその内部 helper に依存していた。
+  - この構成では parser の責務が増え続け、HTML serializer も parser 内部実装へ暗黙依存するため、file 分割の根本原因が残る。
+- [修正]:
+  - `stdlib/nm/parser/scanner.nepl` を追加し、line read、heading level/text、fence/hr/section break 判定、paragraph boundary、section depth、math/gloss delimiter search を移した。
+  - `stdlib/nm/parser.nepl` と `stdlib/nm/html_gen.nepl` は `./parser/scanner` を `scan` alias で直接 import し、scan helper を `scan::` 経由で呼ぶようにした。
+  - `nodesrc/test_stdlib_nm_parser_scanner_boundary.js` を追加し、scan helper が parser/html_gen へ戻らないことを source policy にした。
+  - `nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js` を scanner module も検査対象に含めるよう更新した。
+  - `nodesrc/test_stdlib_nm_parser_no_block_unwraps.js` を scanner module の section depth helper を見るよう更新した。
+  - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` に進捗を追記した。
+- [検証]:
+  - `node nodesrc/test_stdlib_nm_parser_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_no_raw_aggregate_detours.js`: passed
+  - `node nodesrc/tests.js -i stdlib/nm/parser/scanner.nepl --no-tree -o tmp/nm-parser-scanner-split-module.json -j 1`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl --no-tree -o tmp/nm-parser-scanner-split-parser.json -j 1`: total=3, passed=3
+  - `node nodesrc/tests.js -i stdlib/nm/html_gen.nepl --no-tree -o tmp/nm-parser-scanner-split-html.json -j 1`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-parser-scanner-split-nm-tests2.json -j 1`: total=5, passed=5
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [残件]:
+  - `nm/parser` の section stack / block serializer、`alloc/string.nepl`、`alloc/collections/vec.nepl` は引き続き分割候補。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

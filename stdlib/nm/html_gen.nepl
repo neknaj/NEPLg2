@@ -29,6 +29,7 @@
 #import "core/math" as *
 
 #import "./parser" as *
+#import "./parser/scanner" as scan
 
 //: HtmlEscapeKind: HTML text escape の分類
 //:
@@ -209,7 +210,7 @@ fn nm_inline_to_html <(str)->str> (s):
                         and lt add i 1 n eq string_byte_at_unchecked s add i 1 '$'
                         then set delim 2
                         else ()
-                    let math_end <i32> nm_find_math_end s add i delim delim;
+                    let math_end <i32> scan::nm_find_math_end s add i delim delim;
                     if:
                         ge math_end 0
                         then:
@@ -260,7 +261,7 @@ fn nm_inline_to_html <(str)->str> (s):
                     let first_slash <i32>:
                         if:
                             ge close 0
-                            then nm_find_gloss_slash s add i 1 close
+                            then scan::nm_find_gloss_slash s add i 1 close
                             else -1
                     if:
                         and ge close 0 ge first_slash 0
@@ -278,7 +279,7 @@ fn nm_inline_to_html <(str)->str> (s):
                             let mut k <i32> sub_start;
                             while lt k close:
                                 do:
-                                    let next_slash <i32> nm_find_gloss_slash s k close;
+                                    let next_slash <i32> scan::nm_find_gloss_slash s k close;
                                     let part_end <i32>:
                                         if:
                                             ge next_slash 0
@@ -349,7 +350,7 @@ fn nm_render_source_html <(str)->str> (src):
                     ()
                 else:
                     if:
-                        is_section_break t
+                        scan::is_section_break t
                         then:
                             if:
                                 gt current_level 0
@@ -368,11 +369,11 @@ fn nm_render_source_html <(str)->str> (src):
                                             set open5 false
                                         _:
                                             set open6 false
-                                    set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+                                    set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
                                 else ()
                         else:
                             if:
-                                is_hr t
+                                scan::is_hr t
                                 then:
                                     set sb sb_append sb "<hr/>";
                                     if:
@@ -392,11 +393,11 @@ fn nm_render_source_html <(str)->str> (src):
                                                     set open5 false
                                                 _:
                                                     set open6 false
-                                            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+                                            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
                                         else ()
                                 else:
                                     if:
-                                        is_fence_start t
+                                        scan::is_fence_start t
                                         then:
                                             let info <str> str_trim str_slice t 3 len t;
                                             let mut code_sb <StringBuilder> string_builder_new;
@@ -408,7 +409,7 @@ fn nm_render_source_html <(str)->str> (src):
                                                     let ct <str> str_trim craw;
                                                     set pos scanner::str_next_line_pos src cend;
                                                     if:
-                                                        is_fence_start ct
+                                                        scan::is_fence_start ct
                                                         then set done true
                                                         else:
                                                             set code_sb sb_append code_sb craw;
@@ -425,7 +426,7 @@ fn nm_render_source_html <(str)->str> (src):
                                             set sb sb_append sb escape_html sb_build code_sb;
                                             set sb sb_append sb "</code></pre>"
                                         else:
-                                            let hlevel <i32> nm_heading_level t;
+                                            let hlevel <i32> scan::nm_heading_level t;
                                             if:
                                                 gt hlevel 0
                                                 then:
@@ -445,8 +446,8 @@ fn nm_render_source_html <(str)->str> (src):
                                                                     set open5 false
                                                                 _:
                                                                     set open6 false
-                                                            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
-                                                    let htext <str> nm_heading_text t hlevel;
+                                                            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
+                                                    let htext <str> scan::nm_heading_text t hlevel;
                                                     set sb sb_append sb "<section class=\"nm-sec level-";
                                                     set sb sb_append_i32 sb hlevel;
                                                     set sb sb_append sb "\">";
@@ -477,7 +478,7 @@ fn nm_render_source_html <(str)->str> (src):
                                                             let praw <str> str_slice_trim_suffix_cr src pos pend;
                                                             let pt <str> str_trim praw;
                                                             if:
-                                                                nm_is_block_boundary pt
+                                                                scan::nm_is_block_boundary pt
                                                                 then set done true
                                                                 else:
                                                                     set para_sb sb_append para_sb "\n";
@@ -503,7 +504,7 @@ fn nm_render_source_html <(str)->str> (src):
                     set open5 false
                 _:
                     set open6 false
-            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
     sb_build sb
 
 //: render_document: `Document` source view を HTML 文字列へ変換する

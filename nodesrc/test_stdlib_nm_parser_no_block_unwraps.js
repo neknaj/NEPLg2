@@ -6,8 +6,10 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const parserPath = 'stdlib/nm/parser.nepl';
+const scannerPath = 'stdlib/nm/parser/scanner.nepl';
 const htmlPath = 'stdlib/nm/html_gen.nepl';
 const parserSrc = fs.readFileSync(path.join(repoRoot, parserPath), 'utf8');
+const scannerSrc = fs.readFileSync(path.join(repoRoot, scannerPath), 'utf8');
 const htmlSrc = fs.readFileSync(path.join(repoRoot, htmlPath), 'utf8');
 
 function implementationSource(src) {
@@ -18,8 +20,9 @@ function implementationSource(src) {
 }
 
 const parser = implementationSource(parserSrc);
+const scanner = implementationSource(scannerSrc);
 const html = implementationSource(htmlSrc);
-const combined = `${parser}\n${html}`;
+const combined = `${parser}\n${scanner}\n${html}`;
 
 const forbidden = [
     /\bunwrap\b/,
@@ -44,6 +47,6 @@ assert.match(parser, /pub\s+struct\s+Document:[\s\S]*source\s+<str>/, 'Document 
 assert.match(parser, /pub\s+fn\s+parse_markdown\s+<\(str\)->Document>\s+\(input\):\s+Document\s+input/, 'parse_markdown must not allocate a non-Copy block AST');
 assert.match(parser, /pub\s+fn\s+document_to_json\s+<\(Document\)->str>\s+\(doc\):[\s\S]*let\s+src\s+<str>\s+get\s+doc\s+"source"/, 'document_to_json must direct-serialize from source');
 assert.match(html, /fn\s+nm_render_source_html\s+<\(str\)->str>\s+\(src\):[\s\S]*while\s+lt\s+pos\s+n:/, 'HTML renderer must direct-scan source lines');
-assert.match(parser, /fn\s+nm_deepest_level\s+<\(bool,bool,bool,bool,bool,bool\)->i32>/, 'section stack must remain Copy bool state');
+assert.match(scanner, /fn\s+nm_deepest_level\s+<\(bool,bool,bool,bool,bool,bool\)->i32>/, 'section stack must remain Copy bool state');
 
 console.log('stdlib nm parser block unsafe unwrap regression passed');

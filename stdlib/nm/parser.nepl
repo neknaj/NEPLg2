@@ -32,6 +32,7 @@
 #import "alloc/string/scanner" as scanner
 #import "core/math" as *
 #import "./json_escape" as json
+#import "./parser/scanner" as scan
 
 //: Document: NM document の source view
 //:
@@ -57,209 +58,6 @@ impl Clone for Document:
 impl Copy for Document:
     fn copy_mark <(Document)->Document> (doc):
         doc
-
-//: nm_read_line: 入力から 1 行を切り出す
-//:
-//: [目的/もくてき]:
-//: - byte index `pos` から LF までを切り出し、末尾 CR を取り除きます。
-//:
-//: [実装/じっそう]:
-//: - 行末探索は `scanner::str_line_end` に委譲し、この wrapper は NM parser の CRLF 正規化だけを担当します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(line_length)
-fn nm_read_line <(str,i32)->str> (s, pos):
-    str_slice_trim_suffix_cr s pos scanner::str_line_end s pos
-
-//: nm_heading_level: ATX heading の level を判定する
-//:
-//: [目的/もくてき]:
-//: - `# ` から `###### ` までを 1..6 として返し、それ以外は 0 を返します。
-//:
-//: [実装/じっそう]:
-//: - 先頭の `#` 個数を数え、直後が空白である場合だけ heading とします。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)。最大 6 byte だけを確認します。
-fn nm_heading_level <(str)->i32> (line):
-    let n <i32> len line;
-    let mut i <i32> 0;
-    while and lt i n and lt i 6 eq string_byte_at_unchecked line i '#':
-        do:
-            set i add i 1
-    if:
-        and gt i 0 lt i n
-        then:
-            if:
-                eq string_byte_at_unchecked line i ' '
-                then i
-                else 0
-        else:
-            0
-
-//: nm_heading_text: heading marker の後ろの text を返す
-//:
-//: [目的/もくてき]:
-//: - `level` 個の `#` と続く空白を除いた heading 本文を取り出します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(text_length)
-fn nm_heading_text <(str,i32)->str> (line, level):
-    str_trim str_slice line add level 1 len line
-
-//: is_fence_start: fenced code block 開始行を判定する
-//:
-//: [目的/もくてき]:
-//: - trim 済み行が triple backtick で始まるか判定します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn is_fence_start <(str)->bool> (line):
-    str_starts_with line "```"
-
-//: is_hr: horizontal rule 行を判定する
-//:
-//: [目的/もくてき]:
-//: - Nest では `---` を水平線かつ 1 段 close として扱います。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn is_hr <(str)->bool> (line):
-    str_eq line "---"
-
-//: is_section_break: section break 行を判定する
-//:
-//: [目的/もくてき]:
-//: - `;;;` を表示なしの 1 段 close として扱います。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn is_section_break <(str)->bool> (line):
-    str_eq line ";;;"
-
-//: nm_is_block_boundary: paragraph を止める行か判定する
-//:
-//: [目的/もくてき]:
-//: - paragraph lookahead で、空行・heading・fence・horizontal rule・section break を境界として検出します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(line_length)
-fn nm_is_block_boundary <(str)->bool> (trimmed):
-    if:
-        eq len trimmed 0
-        then true
-        else:
-            if:
-                gt nm_heading_level trimmed 0
-                then true
-                else:
-                    if:
-                        is_fence_start trimmed
-                        then true
-                        else:
-                            if:
-                                is_hr trimmed
-                                then true
-                                else is_section_break trimmed
-
-//: nm_deepest_level: open section の最深 level を返す
-//:
-//: [目的/もくてき]:
-//: - 最大 6 段の heading stack を Copy bool だけで管理するため、現在の最深 section を計算します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn nm_deepest_level <(bool,bool,bool,bool,bool,bool)->i32> (open1, open2, open3, open4, open5, open6):
-    if:
-        open6
-        then 6
-        else:
-            if:
-                open5
-                then 5
-                else:
-                    if:
-                        open4
-                        then 4
-                        else:
-                            if:
-                                open3
-                                then 3
-                                else:
-                                    if:
-                                        open2
-                                        then 2
-                                        else:
-                                            if:
-                                                open1
-                                                then 1
-                                                else 0
-
-//: nm_find_math_end: math delimiter の閉じ位置を探す
-//:
-//: [目的/もくてき]:
-//: - `$...$` と `$$...$$` の閉じ delimiter 開始位置を返します。見つからなければ -1 です。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n)
-fn nm_find_math_end <(str,i32,i32)->i32> (s, start, delim):
-    let n <i32> len s;
-    let mut j <i32> start;
-    let mut found <i32> -1;
-    while and lt j n lt found 0:
-        do:
-            let c0 <i32> string_byte_at_unchecked s j;
-            if:
-                eq delim 1
-                then:
-                    if:
-                        eq c0 '$'
-                        then set found j
-                        else set j add j 1
-                else:
-                    if:
-                        and eq c0 '$' lt add j 1 n
-                        then:
-                            let c1 <i32> string_byte_at_unchecked s add j 1;
-                            if:
-                                eq c1 '$'
-                                then set found j
-                                else set j add j 1
-                        else:
-                            set j add j 1
-    found
-
-//: nm_find_gloss_slash: gloss body の top-level slash を探す
-//:
-//: [目的/もくてき]:
-//: - `{main/sub}` の `/` を探します。`[base/ruby]` 内の slash は無視します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(end - start)
-fn nm_find_gloss_slash <(str,i32,i32)->i32> (s, start, end):
-    let mut i <i32> start;
-    let mut depth <i32> 0;
-    let mut found <i32> -1;
-    while and lt i end lt found 0:
-        do:
-            let ch <i32> string_byte_at_unchecked s i;
-            match ch:
-                '[':
-                    set depth add depth 1
-                ']':
-                    if:
-                        gt depth 0
-                        then set depth sub depth 1
-                        else ()
-                '/':
-                    if:
-                        eq depth 0
-                        then set found i
-                        else ()
-                _:
-                    ()
-            set i add i 1;
-    found
 
 //: nm_inline_to_json_into: inline markup を JSON array として builder へ追加する
 //:
@@ -289,7 +87,7 @@ fn nm_inline_to_json_into <(StringBuilder,str)->StringBuilder> (out, s):
                         and lt add i 1 n eq string_byte_at_unchecked s add i 1 '$'
                         then set delim 2
                         else ()
-                    let math_end <i32> nm_find_math_end s add i delim delim;
+                    let math_end <i32> scan::nm_find_math_end s add i delim delim;
                     if:
                         ge math_end 0
                         then:
@@ -357,7 +155,7 @@ fn nm_inline_to_json_into <(StringBuilder,str)->StringBuilder> (out, s):
                     let first_slash <i32>:
                         if:
                             ge close 0
-                            then nm_find_gloss_slash s add i 1 close
+                            then scan::nm_find_gloss_slash s add i 1 close
                             else -1
                     if:
                         and ge close 0 ge first_slash 0
@@ -382,7 +180,7 @@ fn nm_inline_to_json_into <(StringBuilder,str)->StringBuilder> (out, s):
                             let mut sub_has <bool> false;
                             while lt k close:
                                 do:
-                                    let next_slash <i32> nm_find_gloss_slash s k close;
+                                    let next_slash <i32> scan::nm_find_gloss_slash s k close;
                                     let part_end <i32>:
                                         if:
                                             ge next_slash 0
@@ -542,7 +340,7 @@ pub fn document_to_json <(Document)->str> (doc):
                     ()
                 else:
                     if:
-                        is_section_break t
+                        scan::is_section_break t
                         then:
                             if:
                                 gt current_level 0
@@ -561,11 +359,11 @@ pub fn document_to_json <(Document)->str> (doc):
                                             set open5 false
                                         _:
                                             set open6 false
-                                    set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+                                    set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
                                 else ()
                         else:
                             if:
-                                is_hr t
+                                scan::is_hr t
                                 then:
                                     if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
                                     match current_level:
@@ -601,11 +399,11 @@ pub fn document_to_json <(Document)->str> (doc):
                                                     set open5 false
                                                 _:
                                                     set open6 false
-                                            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+                                            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
                                         else ()
                                 else:
                                     if:
-                                        is_fence_start t
+                                        scan::is_fence_start t
                                         then:
                                             let info <str> str_trim str_slice t 3 len t;
                                             let mut code_sb <StringBuilder> string_builder_new;
@@ -617,7 +415,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                     let ct <str> str_trim craw;
                                                     set pos scanner::str_next_line_pos src cend;
                                                     if:
-                                                        is_fence_start ct
+                                                        scan::is_fence_start ct
                                                         then set done true
                                                         else:
                                                             set code_sb sb_append code_sb craw;
@@ -644,7 +442,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                             set sb json::json_escape_builder_into sb code_sb;
                                             set sb sb_append sb "\"}"
                                         else:
-                                            let hlevel <i32> nm_heading_level t;
+                                            let hlevel <i32> scan::nm_heading_level t;
                                             if:
                                                 gt hlevel 0
                                                 then:
@@ -664,7 +462,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                                     set open5 false
                                                                 _:
                                                                     set open6 false
-                                                            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+                                                            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
                                                     if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
                                                     match current_level:
                                                         0:
@@ -681,7 +479,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                             set has5 true
                                                         _:
                                                             set has6 true
-                                                    let htext <str> nm_heading_text t hlevel;
+                                                    let htext <str> scan::nm_heading_text t hlevel;
                                                     set sb sb_append sb "{\"t\":\"section\",\"level\":";
                                                     set sb sb_append_i32 sb hlevel;
                                                     set sb sb_append sb ",\"heading\":{\"level\":";
@@ -713,7 +511,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                             let praw <str> str_slice_trim_suffix_cr src pos pend;
                                                             let pt <str> str_trim praw;
                                                             if:
-                                                                nm_is_block_boundary pt
+                                                                scan::nm_is_block_boundary pt
                                                                 then set done true
                                                                 else:
                                                                     set para_sb sb_append para_sb "\n";
@@ -756,6 +554,6 @@ pub fn document_to_json <(Document)->str> (doc):
                     set open5 false
                 _:
                     set open6 false
-            set current_level nm_deepest_level open1 open2 open3 open4 open5 open6
+            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
     set sb sb_append sb "]}";
     sb_build sb
