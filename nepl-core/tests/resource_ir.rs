@@ -3301,6 +3301,11 @@ fn resource_ir_check_auto_drops_live_non_copy_local_at_scope_end() {
     ));
     let report = check_resource_initialized_moves(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
+    assert_eq!(report.functions[0].auto_drop_points.len(), 1);
+    assert!(report.functions[0].auto_drop_points[0]
+        .auto_drops
+        .iter()
+        .any(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "x")));
     assert!(report.functions[0].final_cells.iter().any(|entry| {
         matches!(&entry.place.root, PlaceRoot::Local(name) if name == "x")
             && entry.state == CellState::Dropped
@@ -3401,8 +3406,82 @@ fn main <()->i32> ():
     }));
     let report = check_resource_initialized_moves(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
+    let main_check = report
+        .functions
+        .iter()
+        .find(|function| function.name == main_drop_plan.name)
+        .expect("main resource check should exist");
+    assert!(main_check.auto_drop_points.iter().any(|point| {
+        point.auto_drops.iter().any(
+            |drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name.starts_with("x#")),
+        )
+    }));
+    assert!(!main_check.auto_drop_points.iter().any(|point| {
+        point
+            .auto_drops
+            .iter()
+            .any(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "x"))
+    }));
     let dump = resource.dump_text();
     assert!(dump.contains("%x#"));
+}
+
+#[test]
+fn resource_ir_live_auto_drop_points_include_function_parameters() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
+
+fn ignore <(Guard)->i32> (_g):
+    1
+
+fn main <()->i32> ():
+    ignore Guard 7
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let ignore_check = report
+        .functions
+        .iter()
+        .find(|function| function.name.starts_with("ignore"))
+        .expect("ignore resource check should exist");
+    let param_drop_point = ignore_check
+        .auto_drop_points
+        .iter()
+        .find(|point| {
+            point
+                .auto_drops
+                .iter()
+                .any(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "_g"))
+        })
+        .expect("unused non-Copy parameter should be a live auto-drop point");
+    let ignore_function = resource
+        .functions
+        .iter()
+        .find(|function| function.name == ignore_check.name)
+        .expect("ignore resource function should exist");
+    let end_scope = resolve_resource_drop_point_end_scope(ignore_function, &param_drop_point.path)
+        .expect("parameter drop point should resolve to its EndScope");
+    assert!(end_scope
+        .locals
+        .iter()
+        .any(|place| matches!(&place.root, PlaceRoot::Local(name) if name == "_g")));
+    assert!(ignore_check.final_cells.iter().any(|entry| {
+        matches!(&entry.place.root, PlaceRoot::Local(name) if name == "_g")
+            && entry.state == CellState::Dropped
+    }));
 }
 
 #[test]

@@ -1,3 +1,34 @@
+# 2026-05-06 note (ISS-20260506T083026784Z Resource IR live drop facts)
+
+- [同期]:
+  - `383485ed` を push/pull して `main` と `origin/main` が一致した後、branch `work/resource-live-drop-points` を作成した。
+- [原因]:
+  - `ResourceDropPlan` は EndScope の non-Copy 候補を列挙するが、move 済みかどうかは initialized-state traversal 側でしか決まらない。
+  - function parameter の drop は HIR `insert_drops` の outer scope に残っており、Resource IR 上には対応する EndScope anchor がなかった。
+- [修正]:
+  - `ResourceFunctionCheck::auto_drop_points` を追加し、EndScope 到達時点で実際に `Initialized` だった non-Copy place だけを live drop fact として記録するようにした。
+  - initialized summary 計算用の補助 engine では live drop fact を authority として使わないため、dummy path で走らせた記録は破棄する。
+  - Resource IR lowering が non-Copy function parameter の EndScope anchor を terminator return 前に生成するようにした。
+  - live local、move 済み outer local、unused Drop parameter の regression を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_check_auto_drops_live_non_copy_local_at_scope_end -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_live_auto_drop_points_include_function_parameters -- --nocapture`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 8/8 passed
+  - `cargo test -p nepl-core --test drop -- --nocapture`: 17/17 passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md -o output/live_drop_points_drop.json --runner wasm --no-tree -j 1`: 4/4 passed
+  - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md -o output/live_drop_points_shadowing.json --runner wasm --no-tree -j 1`: 27/27 passed
+  - `node nodesrc/tests.js -i tests/compiler/drop_overwrite.n.md -o output/live_drop_points_drop_overwrite.json --runner wasm --no-tree -j 1`: 1/1 passed
+- [残件]:
+  - live drop facts はまだ HIR/Wasm drop call 生成へ接続していない。次は candidate plan ではなく checked live fact を codegen authority にする。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-CORE-009 Resource IR drop point resolver)
 
 - [同期]:

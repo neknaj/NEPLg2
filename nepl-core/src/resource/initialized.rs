@@ -7,6 +7,8 @@ use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
+use super::drop_model::ResourceDropPoint;
+use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::{
@@ -14,7 +16,7 @@ use super::initialized_alias_flow::{
     compute_raw_cell_address_return_summaries, construct_raw_cell_address_alias_fields,
     expr_kind_preserves_raw_alias, RawCellAddressReturnSummary,
 };
-use super::initialized_drop_scope::auto_drop_scope_locals;
+use super::initialized_drop_scope::auto_drop_scope_locals_with_record;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
 use super::initialized_variant::PendingVariantRawCellInitializations;
@@ -47,6 +49,7 @@ pub fn check_resource_initialized_moves(
             raw_alias_summaries: &raw_alias_summaries,
             raw_init_summaries: &raw_init_summaries,
             diagnostics: Vec::new(),
+            auto_drop_points: Vec::new(),
             deferred: ResourceCheckDeferred::default(),
         };
         let final_cells = engine.check_function(function);
@@ -55,6 +58,7 @@ pub fn check_resource_initialized_moves(
         functions.push(ResourceFunctionCheck {
             name: function.name.clone(),
             final_cells,
+            auto_drop_points: engine.auto_drop_points,
             deferred: engine.deferred,
         });
     }
@@ -72,6 +76,7 @@ pub(super) struct ResourceCheckEngine<'a> {
     pub(super) raw_alias_summaries: &'a [RawCellAddressReturnSummary],
     pub(super) raw_init_summaries: &'a [RawCellInitializationFunctionSummary],
     pub(super) diagnostics: Vec<ResourceCheckDiagnostic>,
+    pub(super) auto_drop_points: Vec<ResourceDropPoint>,
     pub(super) deferred: ResourceCheckDeferred,
 }
 
@@ -122,6 +127,10 @@ impl ResourceCheckEngine<'_> {
             pending_reallocs,
             variant_initializations,
             &block.ops,
+            ResourceDropPointPath {
+                block: block.id,
+                steps: Vec::new(),
+            },
         );
         match &block.terminator {
             ResourceTerminator::Return { value, span } => {
@@ -141,8 +150,9 @@ impl ResourceCheckEngine<'_> {
         pending_reallocs: &mut PendingRawReallocs,
         variant_initializations: &mut PendingVariantRawCellInitializations,
         ops: &[ResourceOp],
+        path: ResourceDropPointPath,
     ) {
-        for op in ops {
+        for (index, op) in ops.iter().enumerate() {
             self.check_op(
                 cells,
                 raw_aliases,
@@ -150,6 +160,7 @@ impl ResourceCheckEngine<'_> {
                 pending_reallocs,
                 variant_initializations,
                 op,
+                path.clone().with_step(ResourceDropPointStep::Op { index }),
             );
         }
     }
@@ -162,6 +173,7 @@ impl ResourceCheckEngine<'_> {
         pending_reallocs: &mut PendingRawReallocs,
         variant_initializations: &mut PendingVariantRawCellInitializations,
         op: &ResourceOp,
+        path: ResourceDropPointPath,
     ) {
         match op {
             ResourceOp::Expr {
@@ -284,16 +296,25 @@ impl ResourceCheckEngine<'_> {
                     variant_initializations.clear_result(place);
                 }
             }
-            ResourceOp::EndScope { locals, span, .. } => auto_drop_scope_locals(
-                self.types,
-                cells,
-                raw_aliases,
-                function_aliases,
-                pending_reallocs,
-                variant_initializations,
-                locals,
-                *span,
-            ),
+            ResourceOp::EndScope { locals, span, .. } => {
+                let auto_drops = auto_drop_scope_locals_with_record(
+                    self.types,
+                    cells,
+                    raw_aliases,
+                    function_aliases,
+                    pending_reallocs,
+                    variant_initializations,
+                    locals,
+                    *span,
+                );
+                if !auto_drops.is_empty() {
+                    self.auto_drop_points.push(ResourceDropPoint {
+                        path,
+                        span: *span,
+                        auto_drops,
+                    });
+                }
+            }
             ResourceOp::CallEffect { .. } => {}
             ResourceOp::FunctionValue { output, name, .. } => {
                 cells.mark_initialized(output);
@@ -467,6 +488,8 @@ impl ResourceCheckEngine<'_> {
                     else_ops,
                     else_value,
                     *span,
+                    path.clone().with_step(ResourceDropPointStep::BranchThen),
+                    path.with_step(ResourceDropPointStep::BranchElse),
                 );
             }
             ResourceOp::Loop {
@@ -485,6 +508,8 @@ impl ResourceCheckEngine<'_> {
                     condition,
                     body_ops,
                     *span,
+                    path.clone().with_step(ResourceDropPointStep::LoopCondition),
+                    path.with_step(ResourceDropPointStep::LoopBody),
                 );
             }
             ResourceOp::Match {
@@ -503,6 +528,7 @@ impl ResourceCheckEngine<'_> {
                     scrutinee,
                     arms,
                     *span,
+                    path,
                 );
             }
         }

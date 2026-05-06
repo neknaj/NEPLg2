@@ -111,6 +111,12 @@ span は診断表示には必要だが、drop elaboration の挿入位置とし�
 
 これにより、drop point path は span 補助情報ではなく、codegen が消費前に検証できる typed insertion anchor になった。残る作業は、この resolver の EndScope 結果を実 drop call 生成へ渡し、HIR `passes::insert_drops` の scope traversal を削除することである。
 
+## 2026-05-06 live drop facts 追補
+
+`ResourceFunctionCheck` は `auto_drop_points` を持つようになった。これは `ResourceDropPlan` の型ベース候補ではなく、initialized-state traversal が EndScope 到達時点で実際に `Initialized` と判定して `Dropped` へ遷移させた live drop fact である。
+
+また Resource IR lowering は non-Copy function parameter の EndScope anchor を terminator return 前に生成する。これにより HIR `insert_drops` が outer scope で扱っていた parameter drop obligation も Resource IR 上で追跡できる。次は candidate plan ではなくこの checked live fact を実 drop call 生成へ接続する必要がある。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

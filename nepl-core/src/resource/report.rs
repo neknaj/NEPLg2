@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use crate::span::Span;
 
 use super::coverage::ResourceLoweringCoverage;
+use super::drop_model::ResourceDropPoint;
 use super::effect::ResourceEffectBoundaryReport;
 use super::model::{
     BorrowState, BorrowStateEntry, CellState, CellStateEntry, OwnerState, OwnerStateEntry, Place,
@@ -54,6 +55,7 @@ pub struct ResourceCheckReport {
 pub struct ResourceFunctionCheck {
     pub name: String,
     pub final_cells: Vec<CellStateEntry>,
+    pub auto_drop_points: Vec<ResourceDropPoint>,
     pub deferred: ResourceCheckDeferred,
 }
 

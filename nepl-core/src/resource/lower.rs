@@ -193,6 +193,18 @@ fn lower_hir_function_skeleton(
     let terminator = match &function.body {
         HirBody::Block(block) => {
             let value = lower_block_skeleton(block, &mut ops, &mut ctx, env);
+            let param_drop_locals = params
+                .iter()
+                .filter(|param| !env.types.is_copy(param.ty))
+                .map(|param| param.place.clone())
+                .collect::<Vec<_>>();
+            if !param_drop_locals.is_empty() {
+                ops.push(ResourceOp::EndScope {
+                    locals: param_drop_locals,
+                    result: Some(value.clone()),
+                    span: block.span,
+                });
+            }
             ResourceTerminator::Return {
                 value: Some(value),
                 span: block.span,

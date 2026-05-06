@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
+use super::drop_point_path::ResourceDropPointPath;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -19,7 +20,8 @@ use super::initialized_summary_variant_condition::collect_variant_param_conditio
 use super::initialized_summary_variant_requirement::collect_variant_param_required_raw_cells;
 use super::initialized_variant::{normalize_variant_name, PendingVariantRawCellInitializations};
 use super::model::{
-    AggregateKind, Place, ResourceConditionFact, ResourceFunction, ResourceLocal, ResourceOp,
+    AggregateKind, Place, ResourceBlockId, ResourceConditionFact, ResourceFunction, ResourceLocal,
+    ResourceOp,
 };
 use super::place_utils::reference_target_place;
 use super::raw_realloc::PendingRawReallocs;
@@ -42,6 +44,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
         raw_alias_summaries,
         raw_init_summaries,
         diagnostics: Vec::new(),
+        auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
     };
     let mut cells = CellTable::default();
@@ -112,7 +115,12 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
             &mut pending_reallocs,
             &mut variant_initializations,
             &ops[index..=index],
+            ResourceDropPointPath {
+                block: ResourceBlockId(usize::MAX),
+                steps: Vec::new(),
+            },
         );
+        engine.auto_drop_points.clear();
     }
 }
 
@@ -141,6 +149,7 @@ fn collect_branch_variant_param_initialized_raw_cells(
         raw_alias_summaries: engine.raw_alias_summaries,
         raw_init_summaries: engine.raw_init_summaries,
         diagnostics: Vec::new(),
+        auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
     };
     let mut path_cells = cells.clone();
@@ -163,7 +172,12 @@ fn collect_branch_variant_param_initialized_raw_cells(
         &mut path_pending_reallocs,
         &mut path_variant_initializations,
         path_ops,
+        ResourceDropPointPath {
+            block: ResourceBlockId(usize::MAX),
+            steps: Vec::new(),
+        },
     );
+    path_engine.auto_drop_points.clear();
 
     let mut path_param_cells = Vec::new();
     collect_param_initialized_raw_cells(&mut path_param_cells, &path_cells, &path_aliases, params);

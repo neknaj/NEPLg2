@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T06:01:08.996Z",
+  "generated_at": "2026-05-06T08:41:09.771Z",
   "counts": {
-    "total": 500,
+    "total": 501,
     "open": 13,
-    "resolved": 487,
+    "resolved": 488,
     "by_area": {
       "core": {
-        "total": 236,
+        "total": 237,
         "open": 5,
-        "resolved": 231
+        "resolved": 232
       },
       "stdlib": {
         "total": 155,
@@ -3658,6 +3658,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T034331265Z-RESOURCE-AGGREGATE-LOWERING-MODULE-E-2806B0D6.md"
+    },
+    {
+      "id": "ISS-20260506T083026784Z-RESOURCE-IR-DROP-PLAN-LACKS-LIVE-DRO-358D2C7E",
+      "title": "Resource IR drop plan lacks live drop facts and parameter scope",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource, nepl-core/src/passes/drop_insertion.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T083026784Z-RESOURCE-IR-DROP-PLAN-LACKS-LIVE-DRO-358D2C7E.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

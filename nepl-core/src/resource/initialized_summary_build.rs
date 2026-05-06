@@ -66,6 +66,7 @@ fn function_raw_cell_initialization_summary(
         raw_alias_summaries,
         raw_init_summaries,
         diagnostics: Vec::new(),
+        auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
     };
     let mut cells = CellTable::default();

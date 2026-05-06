@@ -3,6 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::cell_state::{raw_address_suffix_after_address, CellTable};
+use super::drop_point_path::ResourceDropPointPath;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -15,7 +16,7 @@ use super::initialized_summary_indirect_release::{
 };
 use super::initialized_summary_raw_release::collect_raw_memory_release_requirements;
 use super::initialized_variant::PendingVariantRawCellInitializations;
-use super::model::{Place, ResourceCallTarget, ResourceLocal, ResourceOp};
+use super::model::{Place, ResourceBlockId, ResourceCallTarget, ResourceLocal, ResourceOp};
 use super::place_utils::{match_bind_payload_place, projected_place_with_concrete_type};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
@@ -53,7 +54,12 @@ pub(super) fn collect_param_release_requirements_from_ops(
             pending_reallocs,
             variant_initializations,
             core::slice::from_ref(op),
+            ResourceDropPointPath {
+                block: ResourceBlockId(usize::MAX),
+                steps: Vec::new(),
+            },
         );
+        step_engine.auto_drop_points.clear();
     }
 }
 
@@ -386,6 +392,7 @@ fn summary_check_engine<'a>(engine: &ResourceCheckEngine<'a>) -> ResourceCheckEn
         raw_alias_summaries: engine.raw_alias_summaries,
         raw_init_summaries: engine.raw_init_summaries,
         diagnostics: Vec::new(),
+        auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
     }
 }

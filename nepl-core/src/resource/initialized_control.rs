@@ -4,6 +4,7 @@ use crate::span::Span;
 use crate::types::TypeKind;
 
 use super::cell_state::CellTable;
+use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -31,6 +32,8 @@ impl ResourceCheckEngine<'_> {
         else_ops: &[ResourceOp],
         else_value: &Place,
         span: Span,
+        then_path: ResourceDropPointPath,
+        else_path: ResourceDropPointPath,
     ) {
         let condition_available = self.consume_by_value(
             cells,
@@ -70,6 +73,7 @@ impl ResourceCheckEngine<'_> {
             &mut then_pending_reallocs,
             &mut then_variant_initializations,
             then_ops,
+            then_path,
         );
         self.check_ops(
             &mut else_cells,
@@ -78,6 +82,7 @@ impl ResourceCheckEngine<'_> {
             &mut else_pending_reallocs,
             &mut else_variant_initializations,
             else_ops,
+            else_path,
         );
 
         let mut cell_paths = Vec::new();
@@ -165,6 +170,8 @@ impl ResourceCheckEngine<'_> {
         condition: &Place,
         body_ops: &[ResourceOp],
         span: Span,
+        condition_path: ResourceDropPointPath,
+        body_path: ResourceDropPointPath,
     ) {
         let mut condition_cells = cells.clone();
         let mut condition_aliases = raw_aliases.clone();
@@ -178,6 +185,7 @@ impl ResourceCheckEngine<'_> {
             &mut condition_pending_reallocs,
             &mut condition_variant_initializations,
             condition_ops,
+            condition_path,
         );
         self.consume_by_value(
             &mut condition_cells,
@@ -198,6 +206,7 @@ impl ResourceCheckEngine<'_> {
             &mut body_pending_reallocs,
             &mut body_variant_initializations,
             body_ops,
+            body_path,
         );
         *cells = CellTable::merge_paths(&[condition_cells, body_cells]);
         *raw_aliases = RawCellAddressAliases::merge_paths(&[condition_aliases, body_aliases]);
@@ -222,6 +231,7 @@ impl ResourceCheckEngine<'_> {
         scrutinee: &Place,
         arms: &[ResourceMatchArm],
         span: Span,
+        path: ResourceDropPointPath,
     ) {
         let scrutinee_available = self.consume_by_value(
             cells,
@@ -236,7 +246,7 @@ impl ResourceCheckEngine<'_> {
         let mut pending_realloc_paths = Vec::new();
         let mut variant_initialization_paths = Vec::new();
 
-        for arm in arms {
+        for (arm_index, arm) in arms.iter().enumerate() {
             let mut arm_cells = cells.clone();
             let mut arm_aliases = raw_aliases.clone();
             let mut arm_function_aliases = function_aliases.clone();
@@ -278,6 +288,8 @@ impl ResourceCheckEngine<'_> {
                 &mut arm_pending_reallocs,
                 &mut arm_variant_initializations,
                 &arm.ops,
+                path.clone()
+                    .with_step(ResourceDropPointStep::MatchArm { index: arm_index }),
             );
             if !self.place_is_never(&arm.value) {
                 let arm_available = self.consume_by_value(
