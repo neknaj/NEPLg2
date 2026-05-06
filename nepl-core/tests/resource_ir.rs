@@ -11046,6 +11046,65 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_preserves_direct_result_payload_raw_address_alias() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn ok_ptr <(MemPtr<LocalToken>)->Result<MemPtr<LocalToken>,str>> (p):
+    Result<MemPtr<LocalToken>,str>::Ok p
+
+fn main <()*>i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    match ok_ptr p:
+        Result::Ok q:
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            let a <LocalToken> load<LocalToken> mem_ptr_addr p
+            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            0
+        Result::Err _e:
+            0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Moved,
+                ..
+            }
+        )),
+        "direct Result::Ok match payload must alias the returned MemPtr raw cell and report moved, not uninit: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset() {
     let source = r#"
 #entry main

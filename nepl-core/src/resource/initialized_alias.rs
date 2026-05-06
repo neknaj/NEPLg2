@@ -459,16 +459,19 @@ impl RawCellAddressAliases {
     }
 
     fn union_group(&mut self, group: &[Place]) {
-        let mut merged = group.to_vec();
+        let mut merged = Vec::new();
         let mut retained = Vec::new();
         for existing in self.groups.drain(..) {
-            if groups_overlap(&existing, &merged) {
+            if groups_overlap(&existing, group) {
                 for place in &existing {
                     push_unique_place(&mut merged, place);
                 }
             } else {
                 retained.push(existing);
             }
+        }
+        for place in group {
+            push_unique_place(&mut merged, place);
         }
         if !merged.is_empty() {
             prefer_stable_canonical(&mut merged);

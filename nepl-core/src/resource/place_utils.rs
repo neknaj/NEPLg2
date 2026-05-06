@@ -68,7 +68,7 @@ pub(super) fn construct_aggregate_field_place(
         }
         AggregateKind::Enum { variant, .. } => {
             place.projections.push(PlaceProjection::EnumPayload {
-                variant: variant.clone(),
+                variant: canonical_variant_name(variant),
             });
             if index > 0 {
                 place.projections.push(PlaceProjection::TupleField {
@@ -206,6 +206,10 @@ fn enum_payload_type(types: &TypeCtx, enum_ty: TypeId, variant_name: &str) -> Op
 
 fn variant_name_matches(defined: &str, projected: &str) -> bool {
     defined == projected || projected.rsplit("::").next() == Some(defined)
+}
+
+fn canonical_variant_name(variant: &str) -> String {
+    String::from(variant.rsplit("::").next().unwrap_or(variant))
 }
 
 fn normalize_projection_type(types: &TypeCtx, ty: TypeId) -> TypeId {

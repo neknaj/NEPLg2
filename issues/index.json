@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T01:32:08.569Z",
+  "generated_at": "2026-05-06T01:38:45.781Z",
   "counts": {
     "total": 496,
-    "open": 14,
-    "resolved": 482,
+    "open": 13,
+    "resolved": 483,
     "by_area": {
       "core": {
         "total": 232,
@@ -18,8 +18,8 @@
       },
       "TEST": {
         "total": 8,
-        "open": 2,
-        "resolved": 6
+        "open": 1,
+        "resolved": 7
       },
       "selfhost": {
         "total": 45,
@@ -238,21 +238,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2",
-      "title": "move_effect doctests are stale after Resource IR and effect gates",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "tests/compiler/move_effect.n.md, doc/neplg2/static_check_complexity_reduction_plan.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -5593,6 +5578,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T231611047Z-STD-TEST-ASSERTION-DISCARD-SOURCE-PO-B9226736.md"
+    },
+    {
+      "id": "ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2",
+      "title": "move_effect doctests are stale after Resource IR and effect gates",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "tests/compiler/move_effect.n.md, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

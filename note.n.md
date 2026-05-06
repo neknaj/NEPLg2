@@ -30868,3 +30868,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_bitset_update_error_owner.js`: passed
 - [残件]:
   - List node storage、bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す必要がある。
+
+# 2026-05-06 note (ISS-20260506T005443213Z move_effect Resource IR fixture)
+
+- [同期]:
+  - `work/move-effect-fixtures-resource-gates` を remote main `ac7a6ffd` へ fast-forward してから、Stage 4 Resource IR cell/effect fixture の修正を続行した。
+- [原因]:
+  - `tests/compiler/move_effect.n.md` は Resource IR gate の実行順序変更後も、pure 関数内 raw memory operation、未初期化 raw load、legacy `resource.move.*` bucket を前提にした fixture が混在していた。
+  - fixture 更新後に残った direct `Result::Ok` payload match の失敗は、raw alias summary の欠落ではなく、alias group 合流時に新しい束縛 local が既存 raw address canonical を同順位で押し出し、CellTable の moved state と後続 load の query address が分裂したことが原因だった。
+- [修正]:
+  - move/effect fixture を現在の Resource IR / effect gate authority に合わせ、pure raw operation、impure raw cell fixture、初期化済み raw storage、`resource.cell.*` diagnostic expectation を分離した。
+  - enum payload projection の variant 名を canonical 化し、aggregate construction と match bind の raw alias suffix が一致するようにした。
+  - `RawCellAddressAliases::union_group` は既存 group の canonical を先に保持してから新規 alias を足す規則へ変更し、明示的な `prefer_canonical` なしに同順位の新規束縛が canonical を奪わないようにした。
+  - direct `Result::Ok` payload match を介した `MemPtr` raw cell alias の Resource IR regression を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_direct_result_payload_raw_address_alias -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves -- --nocapture`: 16 passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md -o output/move_effect_after_fix.json --runner wasm --no-tree -j 1`: total=110, passed=110
+- [issue]:
+  - `ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
