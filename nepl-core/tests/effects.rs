@@ -718,6 +718,16 @@ fn loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boun
     let cases: &[(&[&str], &str, &str)] = &[
         (&["alloc", "io.nepl"], "alloc/io", "alloc_io_raw_store"),
         (
+            &["alloc", "string", "access.nepl"],
+            "alloc/string/access",
+            "alloc_string_access_raw_store",
+        ),
+        (
+            &["alloc", "string", "scanner.nepl"],
+            "alloc/string/scanner",
+            "alloc_string_scanner_raw_store",
+        ),
+        (
             &["alloc", "string", "utf8.nepl"],
             "alloc/string/utf8",
             "alloc_string_utf8_raw_store",

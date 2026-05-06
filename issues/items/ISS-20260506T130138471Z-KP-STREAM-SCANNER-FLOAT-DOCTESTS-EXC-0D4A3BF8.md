@@ -57,3 +57,9 @@ Profile the f64/f32 scanner read and writer formatting path, compare integer sca
 - doctest#6: stdout `1.250000`、実行時間は約 59.0 秒。
 
 timeout symptom は解消したが、60 秒制限に近い実行時間は残っている。これは test budget 引き上げで隠すのではなく、float scanner / formatter / generated wasm の計算量と進捗性を確認する performance issue として open のまま継続する。
+
+## 2026-05-06 string boundary 修正後の再確認
+
+`ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912` の修正後、`tests/stdlib/kp.n.md` の doctest#5/#6 は再び `wasm test case timeout after 60000ms` になった。
+
+今回の実行は fs/stdio focused doctest と並行していたため単独実行での再測定が必要だが、`len__str` / scanner boundary の compile blocker は消えており、残る問題が runtime budget / algorithm / generated wasm 側に戻ったことは確認できた。この issue は引き続き open とする。

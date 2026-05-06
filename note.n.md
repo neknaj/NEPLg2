@@ -98,6 +98,31 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-06 note (ISS-20260506T135746003Z string access/scanner raw boundary)
+
+- [同期]:
+  - `main` / `origin/main` が `8d12f487` で一致していることを確認し、branch `fix/string-access-raw-boundary` で作業した。
+- [原因]:
+  - remote main の string responsibility split により、`alloc/string/access.nepl` と `alloc/string/scanner.nepl` が `alloc/string.nepl` から分離された。
+  - `access` の `len` / `string_byte_at_unchecked` と `scanner` の `scanner_str_byte_len` / `scanner_string_byte_at_unchecked` は `str` の `[len][bytes...]` layout を読む内部 raw-memory-backed helper だが、loader の exact raw-memory-boundary capability table は旧 module 配置に追従していなかった。
+  - その結果、fs/stdio owner 修正後の wasm doctest は downstream owner/range issue の前に `effect.pure.calls_impure` で停止していた。
+- [修正]:
+  - `nepl-core/src/loader.rs` の `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` に `alloc/string/access.nepl` と `alloc/string/scanner.nepl` を exact path として追加した。
+  - `nepl-core/tests/effects.rs` の loader boundary regression に `alloc/string/access` と `alloc/string/scanner` を追加した。
+  - stdlib 全体や arbitrary suffix path は許可せず、configured `stdlib_root` から計算した canonical path だけを許可する既存方針を維持した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_access_boundary.js`: passed
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: passed
+  - `cargo test -p nepl-core --test effects loader_ -- --nocapture`: 5 passed
+  - `cargo fmt --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/read.nepl -i stdlib/std/fs/raw.nepl -i stdlib/std/fs/fd.nepl -i stdlib/std/stdio/read.nepl -i stdlib/std/stdio/read/buffer.nepl -o output/read_owner_raw_cleanup_after_string_boundary.json --runner wasm --no-tree -j 1 --assert-io`: total=8, passed=8
+  - `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_after_string_boundary.json --runner wasm --no-tree -j 1 --assert-io`: `effect.pure.calls_impure` は消滅。残りは dynamic range summary、`unwrap_ok dealloc` owner summary、float timeout。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 5 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260506T130126516Z Resource owner summaries for fs/stdio read)
 
 - [同期]:

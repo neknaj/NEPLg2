@@ -45,3 +45,9 @@ Model Result unwrap helpers and checked dealloc success consumption in Resource 
 ## 検証
 
 Add a Resource IR regression for unwrap_ok dealloc consuming a raw owner and rerun tests/stdlib/kp.n.md doctest#7.
+
+## 2026-05-06 string boundary 修正後の再確認
+
+`ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912` の修正後、`tests/stdlib/kp.n.md::doctest#7` は引き続き `resource.owner.leak` で停止した。
+
+診断は `Place { root: Local("data"), projections: [], ty: TypeId(1) } still owns StorageId(0)` であり、`unwrap_ok dealloc data ...` の checked cleanup consumption が Resource IR owner summary に伝わっていないというこの issue の本体を再確認した。

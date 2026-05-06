@@ -91,3 +91,9 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 - doctest#7 は `unwrap_ok dealloc` 経由の raw owner consumption が見えない別 issue として `ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA` に分離した。
 
 この issue の範囲は引き続き、guarded dynamic offset と initialized range fact を Resource IR summary に型付きで表現することである。
+
+## 2026-05-06 string boundary 修正後の再確認
+
+`ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912` の修正後、`tests/stdlib/kp.n.md::doctest#3` は `len__str` の effect blocker ではなく、再び `pref` の `resource.cell.possibly_moved` / `resource.cell.uninit` で停止した。
+
+これにより、この issue が tracking している dynamic initialized range summary が KP doctest#3 の本体 blocker として残っていることを再確認した。

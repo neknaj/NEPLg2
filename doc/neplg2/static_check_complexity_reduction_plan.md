@@ -28,7 +28,7 @@ NEPLg2 の Rust compiler は、型検査、effect 判定、move/borrow/lifetime�
 - [ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F](../../issues/items/ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F.md): fs / stdio read scratch owner cleanup の Resource IR owner summary。
 - [ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8](../../issues/items/ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8.md): KP stream scanner float doctest runtime timeout。
 - [ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA](../../issues/items/ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA.md): `unwrap_ok dealloc` 経由の checked raw owner consumption を Resource IR summary に反映する。
-- [ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912](../../issues/items/ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912.md): `alloc/string/access.nepl` 分割後の exact raw-memory-boundary capability 追従。
+- [ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912](../../issues/items/ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912.md): `alloc/string/access.nepl` / `alloc/string/scanner.nepl` 分割後の exact raw-memory-boundary capability 追従。
 
 ## 現状の問題
 
@@ -271,7 +271,7 @@ commit 単位:
 - 2026-05-06: `ISS-20260506T122605377Z-STDLIB-ALLOC-STRING-RAW-MEMORY-BOUND-7853986C` として、configured stdlib の `alloc/string.nepl` と `alloc/string/storage.nepl` を `core/mem.nepl` と同じ exact raw-memory-boundary capability の対象に加えた。これは string / str owned storage helper の内部 raw `load` / `store` / `bulk_copy` を Stage 6 移行中に許可するもので、stdlib 全体や arbitrary suffix path を許可するものではない。`Loader` は configured `stdlib_root` から canonical path を計算し、該当する exact path だけを許可する。
 - 2026-05-06: wasm doctest で、`alloc/io.nepl` / `alloc/string/utf8.nepl` / `std/text.nepl` / `std/streamio/scanner/state.nepl` にも同種の raw-memory-backed boundary 未整理が残ることを確認し、`ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52` として分離した。これらは安易に stdlib 全体を許可せず、true internal boundary と safe public wrapper の責務を確認してから exact capability か Stage 6 API 移行で解く。
 - 2026-05-06: `ISS-20260506T123740149Z-STDLIB-RAW-MEMORY-BACKED-SCANNER-AND-338A3B52` として、`alloc/io.nepl` / `alloc/string/utf8.nepl` / `std/text.nepl` / `std/streamio/scanner/state.nepl` を configured exact boundary table に追加した。`tests/stdlib/kp.n.md` から `effect.pure.calls_impure` は消え、残りは fs/stdio read owner summary、`pref` dynamic range summary、f64/f32 runtime timeout として分離された。
-- 2026-05-06: remote main の string responsibility split 後、`alloc/string/access.nepl` の `len` / `string_byte_at_unchecked` が exact raw-memory-boundary capability に追従しておらず、`effect.pure.calls_impure` が再発した。`ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912` として分離し、Stage 6 移行完了までの internal string layout boundary を module split ごとに明示更新する必要がある。
+- 2026-05-06: remote main の string responsibility split 後、`alloc/string/access.nepl` の `len` / `string_byte_at_unchecked` と `alloc/string/scanner.nepl` の scanner byte helper が exact raw-memory-boundary capability に追従しておらず、`effect.pure.calls_impure` が再発した。`ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912` として、両 module を configured stdlib の exact boundary table に追加した。Stage 6 移行完了までの internal string layout boundary は、module split ごとに loader capability table と regression を同時更新する。
 - 残件は、raw-memory-backed stdlib public API を Stage 6 で internal/public 境界へ分け、raw identity と owner token が safe surface へ漏れない最終 API に移行することである。
 
 ### Stage 6: stdlib memory API の段階移行

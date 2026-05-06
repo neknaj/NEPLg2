@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T13:59:24.709Z",
+  "generated_at": "2026-05-06T14:18:42.321Z",
   "counts": {
     "total": 517,
-    "open": 16,
-    "resolved": 501,
+    "open": 15,
+    "resolved": 502,
     "by_area": {
       "core": {
         "total": 251,
-        "open": 7,
-        "resolved": 244
+        "open": 6,
+        "resolved": 245
       },
       "stdlib": {
         "total": 157,
@@ -163,21 +163,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA.md"
-    },
-    {
-      "id": "ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912",
-      "title": "String access split loses raw-memory boundary capability",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "nepl-core/src/loader.rs, stdlib/alloc/string/access.nepl, tests/stdlib/kp.n.md",
-      "legacy_id": "",
-      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-5-effect-model-の拡張",
-      "file": "items/ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3898,6 +3883,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F.md"
+    },
+    {
+      "id": "ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912",
+      "title": "String access and scanner splits lose raw-memory boundary capability",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/loader.rs, stdlib/alloc/string/access.nepl, stdlib/alloc/string/scanner.nepl, tests/stdlib/kp.n.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-5-effect-model-の拡張",
+      "file": "items/ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
