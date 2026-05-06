@@ -1,3 +1,26 @@
+# 2026-05-07 note (ISS-20260506T203942617Z Resource i32 relation fact store)
+
+## 作業内容
+
+- branch `fix/resource-i32-relation-fact-store` で `origin/main` 同期済みの main から作業した。
+- `ResourceConditionFact::I32Relation` は lowering されていたが、branch path の fact recording で無視されていたため、range summary が `i < len` を Resource IR state から問い合わせられない問題を切り出した。
+- `I32RelationFacts` を value / unary condition 用の `I32AliasFacts` から分離して追加し、relation fact を copy、prefix replacement、clear、path merge で維持するようにした。
+- truthy branch では relation をそのまま、false branch では negated relation として記録するようにした。
+- query 側は reversed relation も扱い、`i < len` から `len > i` を導けるようにした。矛盾する fact は `None` として安全側へ倒す。
+- issue `ISS-20260506T203942617Z-RESOURCE-BRANCH-PATHS-DO-NOT-RETAIN--4242E13D` を fixed にし、親 issue と `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 へ進捗を追記した。
+
+## 検証
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core i32_relation -- --nocapture`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T202600181Z Resource symbolic raw offsets)
 
 ## 作業内容

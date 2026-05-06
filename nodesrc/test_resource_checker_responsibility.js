@@ -116,6 +116,9 @@ for (const moduleName of [
     'initialized_alias_i32.rs',
     'initialized_alias_origin.rs',
     'initialized_alias_rank.rs',
+    'initialized_alias_relation.rs',
+    'initialized_alias_relation_flow.rs',
+    'initialized_alias_relation_op.rs',
     'initialized_alias_scalar.rs',
     'initialized_drop_assignment.rs',
     'initialized_drop_scope.rs',
@@ -198,6 +201,9 @@ for (const moduleDecl of [
     'mod initialized_alias_i32;',
     'mod initialized_alias_origin;',
     'mod initialized_alias_rank;',
+    'mod initialized_alias_relation;',
+    'mod initialized_alias_relation_flow;',
+    'mod initialized_alias_relation_op;',
     'mod initialized_alias_scalar;',
     'mod initialized_drop_assignment;',
     'mod initialized_drop_scope;',
@@ -266,6 +272,9 @@ const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
 const lowerRawMemory = readResource('lower_raw_memory.rs');
 const initializedAliasOrigin = readResource('initialized_alias_origin.rs');
+const initializedAliasRelation = readResource('initialized_alias_relation.rs');
+const initializedAliasRelationFlow = readResource('initialized_alias_relation_flow.rs');
+const initializedAliasRelationOp = readResource('initialized_alias_relation_op.rs');
 const initializedAliasScalar = readResource('initialized_alias_scalar.rs');
 
 assertContains(initialized, 'struct ResourceCheckEngine', 'initialized.rs');
@@ -392,6 +401,26 @@ assertContains(
     'pub(super) struct I32AliasFacts',
     'initialized_alias_scalar.rs',
 );
+assertContains(
+    initializedAliasRelation,
+    'pub(super) struct I32RelationFact',
+    'initialized_alias_relation.rs',
+);
+assertContains(
+    initializedAliasRelation,
+    'pub(super) struct I32RelationFacts',
+    'initialized_alias_relation.rs',
+);
+assertContains(
+    initializedAliasRelationFlow,
+    'pub(super) fn facts_with_replaced_prefix',
+    'initialized_alias_relation_flow.rs',
+);
+assertContains(
+    initializedAliasRelationOp,
+    'pub(super) fn relation_negation',
+    'initialized_alias_relation_op.rs',
+);
 assertNotContains(lower, 'struct RawAddressSource', 'lower.rs');
 assertContains(
     lowerAggregate,
@@ -504,6 +533,9 @@ const maxLines = new Map([
     ['initialized_alias_i32.rs', 80],
     ['initialized_alias_origin.rs', 160],
     ['initialized_alias_rank.rs', 120],
+    ['initialized_alias_relation.rs', 100],
+    ['initialized_alias_relation_flow.rs', 100],
+    ['initialized_alias_relation_op.rs', 80],
     ['initialized_alias_scalar.rs', 180],
     ['initialized_drop_assignment.rs', 100],
     ['initialized_drop_scope.rs', 80],

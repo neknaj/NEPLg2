@@ -8,8 +8,9 @@ use super::initialized_alias_origin::RawValueOrigins;
 use super::initialized_alias_rank::{
     owner_alias_place_has_raw_projection, owner_cell_alias_rank, prefer_stable_canonical,
 };
+use super::initialized_alias_relation::I32RelationFacts;
 use super::initialized_alias_scalar::I32AliasFacts;
-use super::model::{I32ValueCondition, Place};
+use super::model::{I32ValueCondition, Place, ResourceI32RelationOp};
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, replace_place_prefix,
 };
@@ -28,6 +29,7 @@ pub(super) struct RawCellAddressAliases {
     marked: Vec<Place>,
     value_origins: RawValueOrigins,
     i32_facts: I32AliasFacts,
+    i32_relations: I32RelationFacts,
 }
 
 impl RawCellAddressAliases {
@@ -44,12 +46,16 @@ impl RawCellAddressAliases {
             return;
         }
         let fact_copies = self.i32_facts.facts_with_replaced_prefix(source, target);
+        let relation_copies = self
+            .i32_relations
+            .facts_with_replaced_prefix(source, target);
         let groups = self.groups_with_replaced_prefix(source, target);
         self.clear(target);
         for group in groups {
             self.union_group(&group);
         }
         self.i32_facts.extend(fact_copies);
+        self.i32_relations.extend(relation_copies);
         self.value_origins.copy_stable_origin(source, target);
     }
 
@@ -82,6 +88,9 @@ impl RawCellAddressAliases {
             .filter_map(|marked| replace_place_prefix(marked, source, target))
             .collect::<Vec<_>>();
         let moved_facts = self.i32_facts.facts_with_replaced_prefix(source, target);
+        let moved_relations = self
+            .i32_relations
+            .facts_with_replaced_prefix(source, target);
         let groups = self
             .groups_with_replaced_prefix(source, target)
             .into_iter()
@@ -103,6 +112,7 @@ impl RawCellAddressAliases {
             self.union_group(core::slice::from_ref(&moved));
         }
         self.i32_facts.extend(moved_facts);
+        self.i32_relations.extend(moved_relations);
     }
 
     pub(super) fn canonicalize(&self, place: &Place) -> Place {
@@ -156,6 +166,15 @@ impl RawCellAddressAliases {
         self.i32_facts.add_condition(place, condition);
     }
 
+    pub(super) fn add_i32_relation(
+        &mut self,
+        left: &Place,
+        op: ResourceI32RelationOp,
+        right: &Place,
+    ) {
+        self.i32_relations.add_relation(left, op, right);
+    }
+
     pub(super) fn i32_value(&self, place: &Place) -> Option<i32> {
         self.i32_facts.value_for_aliases(&self.aliases_for(place))
     }
@@ -170,6 +189,23 @@ impl RawCellAddressAliases {
         }
         self.i32_facts
             .condition_truth_for_aliases(&self.aliases_for(place), condition)
+    }
+
+    pub(super) fn i32_relation_truth(
+        &self,
+        left: &Place,
+        op: ResourceI32RelationOp,
+        right: &Place,
+    ) -> Option<bool> {
+        if let (Some(left_value), Some(right_value)) = (self.i32_value(left), self.i32_value(right))
+        {
+            return Some(relation_holds(left_value, op, right_value));
+        }
+        self.i32_relations.relation_truth_for_aliases(
+            &self.aliases_for(left),
+            op,
+            &self.aliases_for(right),
+        )
     }
 
     pub(super) fn contains_marked_alias(&self, place: &Place) -> bool {
@@ -269,6 +305,7 @@ impl RawCellAddressAliases {
             .retain(|existing| place_suffix_after_prefix(existing, place).is_none());
         self.value_origins.clear_prefix(place);
         self.i32_facts.clear_prefix(place);
+        self.i32_relations.clear_prefix(place);
     }
 
     pub(super) fn merge_paths(paths: &[RawCellAddressAliases]) -> Self {
@@ -284,6 +321,8 @@ impl RawCellAddressAliases {
         out.value_origins =
             RawValueOrigins::merge_paths(paths.iter().map(|path| &path.value_origins));
         out.i32_facts = I32AliasFacts::merge_paths(paths.iter().map(|path| &path.i32_facts));
+        out.i32_relations =
+            I32RelationFacts::merge_paths(paths.iter().map(|path| &path.i32_relations));
         out
     }
 
@@ -388,6 +427,56 @@ impl RawCellAddressAliases {
             retained.push(merged);
         }
         self.groups = retained;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::String;
+    use ResourceI32RelationOp::Lt;
+
+    fn local(name: &str) -> Place {
+        Place::local(String::from(name), TypeId(1))
+    }
+
+    #[test]
+    fn i32_relation_facts_follow_alias_copy() {
+        let source = local("i");
+        let target = local("j");
+        let len = local("len");
+        let mut aliases = RawCellAddressAliases::default();
+
+        aliases.add_i32_relation(&source, Lt, &len);
+        aliases.copy_alias_if_tracked(&source, &target);
+
+        assert_eq!(aliases.i32_relation_truth(&target, Lt, &len), Some(true));
+    }
+
+    #[test]
+    fn i32_relation_merge_keeps_only_path_common_proofs() {
+        let i = local("i");
+        let len = local("len");
+        let mut left = RawCellAddressAliases::default();
+        let right = RawCellAddressAliases::default();
+
+        left.add_i32_relation(&i, Lt, &len);
+        let merged = RawCellAddressAliases::merge_paths(&[left.clone(), right]);
+        assert_eq!(merged.i32_relation_truth(&i, Lt, &len), None);
+
+        let merged = RawCellAddressAliases::merge_paths(&[left.clone(), left]);
+        assert_eq!(merged.i32_relation_truth(&i, Lt, &len), Some(true));
+    }
+}
+
+fn relation_holds(left: i32, op: ResourceI32RelationOp, right: i32) -> bool {
+    match op {
+        ResourceI32RelationOp::Eq => left == right,
+        ResourceI32RelationOp::Ne => left != right,
+        ResourceI32RelationOp::Lt => left < right,
+        ResourceI32RelationOp::Le => left <= right,
+        ResourceI32RelationOp::Gt => left > right,
+        ResourceI32RelationOp::Ge => left >= right,
     }
 }
 

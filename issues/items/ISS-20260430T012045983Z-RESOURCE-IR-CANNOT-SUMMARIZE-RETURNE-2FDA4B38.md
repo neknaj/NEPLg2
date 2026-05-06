@@ -146,3 +146,11 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 一方で、この変更は dynamic offset を安全とみなす checker 緩和ではない。general overlap 判定では `Symbolic` / `Unknown` を may-overlap として扱うため、memory safety は保守的なまま維持する。
 
 この親 issue は引き続き open とする。残件は、`I32Relation` と `ResourceOffset::Symbolic` を照合し、loop / branch summary 上で initialized byte range を typed fact として伝播する本体実装である。
+
+## 2026-05-07 i32 relation fact store 部分対応
+
+`ISS-20260506T203942617Z-RESOURCE-BRANCH-PATHS-DO-NOT-RETAIN--4242E13D` として、`ResourceConditionFact::I32Relation` が branch path の fact store に保存されていない問題を分離して修正した。
+
+`I32AliasFacts` は value / unary condition 専用のまま維持し、二項関係は別の `I32RelationFacts` に分離した。truthy branch は relation をそのまま保存し、false branch は negated op として保存する。copy / merge / clear でも relation fact が追従するため、後続の initialized range summary は HIR 条件式を再走査せず Resource IR state へ問い合わせられる。
+
+この親 issue は引き続き open とする。残件は、保存済み relation fact と symbolic raw offset を実際に照合し、guarded initialized range を cell availability 判定へ接続することである。
