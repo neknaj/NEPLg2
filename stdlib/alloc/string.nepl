@@ -30,6 +30,7 @@ pub #import "./string/access" as *
 pub #import "./string/builder" as *
 pub #import "./string/search" as *
 pub #import "./string/slice" as *
+pub #import "./string/split" as *
 #import "alloc/collections/vec" as v
 #import "core/field" as *
 
@@ -194,140 +195,6 @@ fn sb_append_i32 <(StringBuilder,i32)->StringBuilder> (sb, v):
             next
         Result::Err _e:
             string_builder_empty
-
-
-
-
-//: str_split_count: 区切り文字列で分割した場合の part 数を数える
-//:
-//: [目的/もくてき]:
-//: - split scanner を使う呼び出し側が、必要に応じて part 数を見積もれるようにします。
-//:
-//: [実装/じっそう]:
-//: - `sep` が空なら全体 1 part とし、それ以外は `str_match_at` で前方走査します。
-//:
-//: [注意/ちゅうい]:
-//: - 戻り値は part 数です。range pair 用の `i32` 要素数はこの 2 倍です。
-//:
-//: [計算量/けいさんりょう]:
-//: - n を `s` の byte 長、m を `sep` の byte 長として O(n * m) です。
-fn str_split_count <(str,str,i32,i32)->i32> (s, sep, s_len, sep_len):
-    if:
-        eq sep_len 0
-        then:
-            1
-        else:
-            let mut part_total <i32> 1
-            let mut i <i32> 0
-            let mut scan_end <i32> sep_len
-            while le scan_end s_len:
-                do:
-                    if:
-                        str_match_at s sep i sep_len
-                        then:
-                            set part_total add part_total 1;
-                            set i add i sep_len;
-                            set scan_end add i sep_len;
-                        else:
-                            set i add i 1;
-                            set scan_end add i sep_len;
-            part_total
-
-//: StrSplitStepKind: allocation-free split scanner の状態
-//:
-//: [目的/もくてき]:
-//: - split scanner が part を返したのか、走査が完了したのかを enum として表します。
-//:
-//: [注意/ちゅうい]:
-//: - 呼び出し側は `match` で `Part` / `Done` を明示的に扱います。
-enum StrSplitStepKind:
-    Part
-    Done
-
-impl Clone for StrSplitStepKind:
-    fn clone <(&StrSplitStepKind)->StrSplitStepKind> (kind):
-        *kind
-
-impl Copy for StrSplitStepKind:
-    fn copy_mark <(StrSplitStepKind)->StrSplitStepKind> (kind):
-        kind
-
-//: StrSplitStep: split scanner が返す 1 step
-//:
-//: [目的/もくてき]:
-//: - `start..end` が今回の part、`next` が次に渡す cursor です。
-//:
-//: [注意/ちゅうい]:
-//: - `kind` が `Done` の場合、start/end/next は 0 です。
-struct StrSplitStep:
-    kind <StrSplitStepKind>
-    start <i32>
-    end <i32>
-    next <i32>
-
-//: str_split_done_step: split scanner の完了 step を返す
-//:
-//: [目的/もくてき]:
-//: - `str_split_next` の完了状態を 1 箇所で構築します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn str_split_done_step <()->StrSplitStep> ():
-    StrSplitStep StrSplitStepKind::Done 0 0 0
-
-//: str_split_next: allocation なしで次の split range を返す
-//:
-//: [目的/もくてき]:
-//: - `s` を `sep` で分割した時の次の `[start,end)` byte range を 1 件返します。
-//: - `Vec<str>` も `Vec<i32>` も返さず、呼び出し側の loop state だけで処理できるようにします。
-//:
-//: [実装/じっそう]:
-//: - `cursor` から前方へ `sep` を探し、見つかれば `cursor..i` と次 cursor `i + len(sep)` を返します。
-//: - 見つからなければ末尾 part `cursor..len(s)` を返し、次 cursor は `len(s) + max(len(sep), 1)` にして次回 `Done` へ進ませます。
-//:
-//: [注意/ちゅうい]:
-//: - split point は byte index です。range を `str` として使う場合は UTF-8 境界を確認する API を通してください。
-//: - 空 separator は最初の呼び出しで全体 1 part を返し、次回 `Done` になります。
-//:
-//: [計算量/けいさんりょう]:
-//: - n を残り byte 長、m を `sep` の byte 長として O(n * m) です。
-fn str_split_next <(str,str,i32)->StrSplitStep> (s, sep, cursor):
-    let s_len <i32> len s
-    let sep_len <i32> len sep
-    if:
-        or lt cursor 0 lt s_len cursor
-        then:
-            str_split_done_step
-        else:
-            if:
-                eq sep_len 0
-                then:
-                    if:
-                        eq cursor 0
-                        then:
-                            StrSplitStep StrSplitStepKind::Part 0 s_len add s_len 1
-                        else:
-                            str_split_done_step
-                else:
-                    let mut i <i32> cursor
-                    let mut scan_end <i32> add i sep_len
-                    let mut found <i32> 0
-                    while and eq found 0 le scan_end s_len:
-                        do:
-                            if:
-                                str_match_at s sep i sep_len
-                                then:
-                                    set found 1
-                                else:
-                                    set i add i 1
-                                    set scan_end add i sep_len
-                    if:
-                        eq found 1
-                        then:
-                            StrSplitStep StrSplitStepKind::Part cursor i add i sep_len
-                        else:
-                            StrSplitStep StrSplitStepKind::Part cursor s_len add s_len sep_len
-
 //: from_bool: bool を表示用文字列へ変換する
 //:
 //: [目的/もくてき]:

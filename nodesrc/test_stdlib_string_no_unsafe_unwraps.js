@@ -23,6 +23,8 @@ const searchRelPath = 'stdlib/alloc/string/search.nepl';
 const searchSrc = fs.readFileSync(path.join(repoRoot, searchRelPath), 'utf8');
 const sliceRelPath = 'stdlib/alloc/string/slice.nepl';
 const sliceSrc = fs.readFileSync(path.join(repoRoot, sliceRelPath), 'utf8');
+const splitRelPath = 'stdlib/alloc/string/split.nepl';
+const splitSrc = fs.readFileSync(path.join(repoRoot, splitRelPath), 'utf8');
 
 const code = stripNeplComments(src);
 const utf8Code = stripNeplComments(utf8Src);
@@ -31,6 +33,7 @@ const accessCode = stripNeplComments(accessSrc);
 const builderCode = stripNeplComments(builderSrc);
 const searchCode = stripNeplComments(searchSrc);
 const sliceCode = stripNeplComments(sliceSrc);
+const splitCode = stripNeplComments(splitSrc);
 const fromU128Radix = code.match(/fn\s+from_u128_radix[\s\S]*?(?=\nfn\s+to_u128|\nfn\s+parse_u128|\n\/\/ to_u128|$)/)?.[0] ?? '';
 const stringFinish = storageCode.match(/fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\nfn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
 const storageCodeWithoutStringFinish = stringFinish ? storageCode.replace(stringFinish, '') : storageCode;
@@ -53,6 +56,7 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(builderCode, pattern, `${builderRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(searchCode, pattern, `${searchRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(sliceCode, pattern, `${sliceRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(splitCode, pattern, `${splitRelPath} must not use unsafe unwrap helpers in implementation code`);
 }
 
 assert.match(utf8Code, /enum\s+StringUtf8LeadKind:/, 'alloc/string/utf8 must classify UTF-8 leading bytes with an enum');
@@ -69,8 +73,11 @@ assert.doesNotMatch(fromF64Result, /\b(?:scratch_raw|alloc_ptr<u8>\s+6|string_fr
 assert.match(code, /fn\s+from_f64_build_fixed_result[\s\S]*string_builder_with_capacity_result[\s\S]*sb_build_result/, 'from_f64_result must build output through StringBuilder ownership APIs');
 assert.doesNotMatch(code, /fn\s+str_split_result\s+<\(str,str\)->Result<Vec<str>,str>>/, 'alloc/string must not expose owned Vec<str> split until element cleanup is typed');
 assert.doesNotMatch(code, /fn\s+str_split_ranges_result\s+<\(str,str\)->Result<Vec<i32>,str>>/, 'alloc/string must not expose allocation-bearing split range vectors while returned Vec owner summaries are incomplete');
-assert.match(code, /enum\s+StrSplitStepKind:[\s\S]*Part[\s\S]*Done/, 'alloc/string must expose allocation-free split scanner state as an enum');
-assert.match(code, /fn\s+str_split_next\s+<\(str,str,i32\)->StrSplitStep>/, 'alloc/string must expose allocation-free split scanning instead of owned Vec<str> split');
+assert.match(code, /pub\s+#import\s+"\.\/string\/split"\s+as\s+\*/, 'alloc/string must re-export allocation-free split scanner APIs');
+assert.match(splitCode, /enum\s+StrSplitStepKind:[\s\S]*Part[\s\S]*Done/, 'alloc/string/split must expose allocation-free split scanner state as an enum');
+assert.match(splitCode, /fn\s+str_split_next\s+<\(str,str,i32\)->StrSplitStep>/, 'alloc/string/split must expose allocation-free split scanning instead of owned Vec<str> split');
+assert.doesNotMatch(code, /enum\s+StrSplitStepKind:/, 'alloc/string root must not own split scanner state');
+assert.doesNotMatch(code, /fn\s+str_split_next\s+<\(str,str,i32\)->StrSplitStep>/, 'alloc/string root must not own allocation-free split scanning');
 assert.match(code, /fn\s+sb_append_slice_result\s+/, 'StringBuilder must support appending source string ranges without allocating owned substrings');
 assert.match(storageCode, /fn\s+string_finish_base[\s\S]*store_i32\s+mem_ptr_addr\s+base\s+byte_len/, 'string_finish_base must use owned raw header store');
 assert.match(stringFinish, /\bget\s+region\s+"ptr"/, 'string_finish must consume RegionToken at the final str ownership boundary');

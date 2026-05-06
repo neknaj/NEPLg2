@@ -1,3 +1,27 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string split scanner boundary split)
+
+- [同期]:
+  - `7b6afed3` を push/pull 済みの `main` から branch `fix/string-split-boundary-split` を作成して作業した。
+- [原因]:
+  - `stdlib/alloc/string.nepl` は slice/char 分割後も、allocation-free split scanner の enum state、step struct、count/next scanner を root に持ち続けていた。
+  - split scanner は `access` と `search` の上に構成でき、owned split vector を返さないため、numeric conversion や concat と同居させる必要がない。
+- [修正]:
+  - `stdlib/alloc/string/split.nepl` を追加し、`StrSplitStepKind`、`StrSplitStep`、`str_split_count`、`str_split_done_step`、`str_split_next` を所有させた。
+  - `stdlib/alloc/string.nepl` は `./string/split` を public re-export し、既存 facade から split scanner API を参照できる構成にした。
+  - source policy を更新し、split scanner の state が enum のままであること、root に split 実装本体が戻らないこと、allocation-bearing split vector が戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_split_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string/split.nepl -i stdlib/alloc/string/slice.nepl -i stdlib/alloc/string/search.nepl -i stdlib/alloc/string/access.nepl -i stdlib/alloc/string/builder.nepl -i stdlib/alloc/string/storage.nepl -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md --no-tree -o tmp/string-split-boundary-split.json -j 1`: total=36, passed=36
+  - `git diff --check`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl` には numeric parse/format、float formatting、concat/build helper、facade としての残責務が残っている。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string slice and char boundary split)
 
 - [同期]:
