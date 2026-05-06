@@ -4,6 +4,7 @@ use crate::hir::{FuncRef, HirBody, HirExpr, HirExprKind};
 use crate::layout::storage_size_bytes;
 use crate::runtime_helpers::helper_base_name;
 use crate::span::Span;
+use crate::types::TypeId;
 
 use super::lower::LoweringEnvironment;
 use super::lower_raw_address_place::{
@@ -50,21 +51,11 @@ pub(super) fn push_core_mem_wrapper_semantics(
             };
             let mut raw = mem_ptr_raw_field_place(ptr, env.types.i32());
             let is_view = true;
-            match hir_args.get(1).and_then(non_negative_i32_literal_bytes) {
-                Some(0) => {}
-                Some(bytes) => {
-                    raw = raw.with_projection(
-                        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(bytes) }),
-                        env.types.i32(),
-                    );
-                }
-                None => {
-                    raw = raw.with_projection(
-                        PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
-                        env.types.i32(),
-                    );
-                }
-            }
+            raw = raw_address_place_with_offset(
+                raw,
+                raw_address_offset_from_actual_arg(1, hir_args, arg_places, env),
+                env.types.i32(),
+            );
             push_raw_address_op(
                 raw,
                 mem_ptr_raw_field_place(output, env.types.i32()),
@@ -159,17 +150,23 @@ fn raw_address_source_from_actual_named_expr(
                 && i32_const_from_actual_arg(&args[1], env).is_none()
             {
                 raw_address_source_from_actual_arg(1, args, arg_places, env).map(|source| {
-                    source.with_added_offset(i32_const_from_actual_arg(&args[0], env))
+                    source.with_added_offset(raw_address_offset_from_actual_arg(
+                        0, args, arg_places, env,
+                    ))
                 })
             } else {
                 raw_address_source_from_actual_arg(0, args, arg_places, env).map(|source| {
-                    source.with_added_offset(i32_const_from_actual_arg(&args[1], env))
+                    source.with_added_offset(raw_address_offset_from_actual_arg(
+                        1, args, arg_places, env,
+                    ))
                 })
             }
         }
         "sub" if args.len() == 2 && arg_places.len() == 2 => {
             raw_address_source_from_actual_arg(0, args, arg_places, env).map(|source| {
-                source.with_subtracted_offset(i32_const_from_actual_arg(&args[1], env))
+                source.with_subtracted_offset(raw_address_offset_from_actual_arg(
+                    1, args, arg_places, env,
+                ))
             })
         }
         "mem_ptr_addr" | "mem_ptr_wrap" | "str_addr"
@@ -178,13 +175,57 @@ fn raw_address_source_from_actual_named_expr(
             raw_address_source_from_actual_arg(0, args, arg_places, env)
         }
         "mem_ptr_add" if args.len() >= 2 && arg_places.len() >= 2 => {
-            raw_address_source_from_actual_arg(0, args, arg_places, env)
-                .map(|source| source.with_added_offset(i32_const_from_actual_arg(&args[1], env)))
+            raw_address_source_from_actual_arg(0, args, arg_places, env).map(|source| {
+                source
+                    .with_added_offset(raw_address_offset_from_actual_arg(1, args, arg_places, env))
+            })
         }
         "region_new" if args.len() >= 2 && !arg_places.is_empty() => {
             raw_address_source_from_actual_arg(0, args, arg_places, env)
         }
         _ => None,
+    }
+}
+
+fn raw_address_offset_from_actual_arg(
+    index: usize,
+    args: &[HirExpr],
+    arg_places: &[Place],
+    env: &LoweringEnvironment,
+) -> RawAddressOffset {
+    if let Some(value) = args
+        .get(index)
+        .and_then(|arg| i32_const_from_actual_arg(arg, env))
+    {
+        return RawAddressOffset::Known(value);
+    }
+    arg_places
+        .get(index)
+        .map(RawAddressOffset::symbolic)
+        .unwrap_or(RawAddressOffset::Unknown)
+}
+
+fn raw_address_place_with_offset(raw: Place, offset: RawAddressOffset, raw_ty: TypeId) -> Place {
+    match offset {
+        RawAddressOffset::Known(0) => raw,
+        RawAddressOffset::Known(bytes) if bytes > 0 => match usize::try_from(bytes) {
+            Ok(bytes) => raw.with_projection(
+                PlaceProjection::StorageOffset(ResourceOffset::Known(bytes)),
+                raw_ty,
+            ),
+            Err(_) => raw.with_projection(
+                PlaceProjection::StorageOffset(ResourceOffset::Unknown),
+                raw_ty,
+            ),
+        },
+        RawAddressOffset::Symbolic { place } => raw.with_projection(
+            PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place }),
+            raw_ty,
+        ),
+        RawAddressOffset::Known(_) | RawAddressOffset::Unknown => raw.with_projection(
+            PlaceProjection::StorageOffset(ResourceOffset::Unknown),
+            raw_ty,
+        ),
     }
 }
 
@@ -273,13 +314,6 @@ pub(super) fn i32_const_from_size_of_call(
                 None
             }
         }
-        _ => None,
-    }
-}
-
-fn non_negative_i32_literal_bytes(expr: &HirExpr) -> Option<usize> {
-    match &expr.kind {
-        HirExprKind::LiteralI32(value) if *value >= 0 => Some(*value as usize),
         _ => None,
     }
 }

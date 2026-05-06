@@ -1123,8 +1123,9 @@ pub(super) fn place_from_expr_skeleton(expr: &HirExpr, ctx: &LoweringContext) ->
                 _ => None,
             });
             source.with_projection(
-                super::model::PlaceProjection::StorageOffset(super::model::ResourceOffset {
-                    bytes,
+                super::model::PlaceProjection::StorageOffset(match bytes {
+                    Some(bytes) => super::model::ResourceOffset::Known(bytes),
+                    None => super::model::ResourceOffset::Unknown,
                 }),
                 expr.ty,
             )

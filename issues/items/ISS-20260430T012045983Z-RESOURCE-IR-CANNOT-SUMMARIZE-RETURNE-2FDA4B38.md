@@ -7,7 +7,7 @@ resolved: false
 priority: P2
 type: architecture
 created: 2026-04-30
-updated: 2026-05-06
+updated: 2026-05-07
 target: "nepl-core/src/resource/initialized_summary*.rs, nepl-core/src/resource/initialized_external_io*.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/kp.rs"
 source: doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行
 ---
@@ -136,3 +136,13 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 今回の対応で `ResourceConditionFact::I32Relation` と `ResourceI32RelationOp` を追加し、`lt i len` が `I32Relation { left: i, op: Lt, right: len }` として lowering / dump される。これはまだ dynamic initialized range を証明する本体ではないが、length field / guard condition / initialized range をつなぐための typed precondition である。
 
 この親 issue は引き続き open とする。残件は、relation fact と symbolic raw offset を結び、`i < len` が証明された場合だけ `base + i` の initialized range を許可する model を実装することである。
+
+## 2026-05-07 symbolic raw offset 部分対応
+
+`ISS-20260506T202600181Z-RESOURCE-RAW-OFFSETS-ERASE-SYMBOLIC--E5DDB5A0` として、dynamic raw address offset が `ResourceOffset { bytes: None }` に潰れていた問題を分離して修正した。
+
+`ResourceOffset` は `Known(usize)` / `Symbolic { place }` / `Unknown` の enum になり、`RawAddressOffset` も simple dynamic offset place を `Symbolic` として保持する。`mem_ptr_add ptr idx` のような raw view は `base[+symbolic]` として Resource IR に残るため、relation fact と offset identity を後続 summary が参照できる。
+
+一方で、この変更は dynamic offset を安全とみなす checker 緩和ではない。general overlap 判定では `Symbolic` / `Unknown` を may-overlap として扱うため、memory safety は保守的なまま維持する。
+
+この親 issue は引き続き open とする。残件は、`I32Relation` と `ResourceOffset::Symbolic` を照合し、loop / branch summary 上で initialized byte range を typed fact として伝播する本体実装である。

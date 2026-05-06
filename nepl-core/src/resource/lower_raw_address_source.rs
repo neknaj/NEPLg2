@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::span::Span;
@@ -23,34 +24,38 @@ impl RawAddressSource {
         let place = match self.offset {
             RawAddressOffset::Known(0) if !self.explicit_offset => self.base,
             RawAddressOffset::Known(0) => self.base.with_projection(
-                PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(0) }),
+                PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
                 raw_ty,
             ),
             RawAddressOffset::Known(bytes) if bytes > 0 => match usize::try_from(bytes) {
                 Ok(bytes) => self.base.with_projection(
-                    PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(bytes) }),
+                    PlaceProjection::StorageOffset(ResourceOffset::Known(bytes)),
                     raw_ty,
                 ),
                 Err(_) => self.base.with_projection(
-                    PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+                    PlaceProjection::StorageOffset(ResourceOffset::Unknown),
                     raw_ty,
                 ),
             },
+            RawAddressOffset::Symbolic { place } => self.base.with_projection(
+                PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place }),
+                raw_ty,
+            ),
             RawAddressOffset::Known(_) | RawAddressOffset::Unknown => self.base.with_projection(
-                PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+                PlaceProjection::StorageOffset(ResourceOffset::Unknown),
                 raw_ty,
             ),
         };
         RawAddressPlace { place, is_view }
     }
 
-    pub(super) fn with_added_offset(mut self, offset: Option<i64>) -> Self {
+    pub(super) fn with_added_offset(mut self, offset: RawAddressOffset) -> Self {
         self.offset = self.offset.add(offset);
         self.explicit_offset = true;
         self
     }
 
-    pub(super) fn with_subtracted_offset(mut self, offset: Option<i64>) -> Self {
+    pub(super) fn with_subtracted_offset(mut self, offset: RawAddressOffset) -> Self {
         self.offset = self.offset.sub(offset);
         self.explicit_offset = true;
         self
@@ -79,16 +84,29 @@ pub(super) fn push_raw_address_op(
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum RawAddressOffset {
     Known(i64),
+    Symbolic { place: Box<Place> },
     Unknown,
 }
 
 impl RawAddressOffset {
-    fn add(self, rhs: Option<i64>) -> Self {
+    pub(super) fn symbolic(place: &Place) -> Self {
+        if matches!(place.root, super::model::PlaceRoot::Unknown) {
+            RawAddressOffset::Unknown
+        } else {
+            RawAddressOffset::Symbolic {
+                place: Box::new(place.clone()),
+            }
+        }
+    }
+
+    fn add(self, rhs: RawAddressOffset) -> Self {
         match (self, rhs) {
-            (RawAddressOffset::Known(lhs), Some(rhs)) => lhs
+            (offset, RawAddressOffset::Known(0)) => offset,
+            (RawAddressOffset::Known(0), offset) => offset,
+            (RawAddressOffset::Known(lhs), RawAddressOffset::Known(rhs)) => lhs
                 .checked_add(rhs)
                 .map(RawAddressOffset::Known)
                 .unwrap_or(RawAddressOffset::Unknown),
@@ -96,9 +114,10 @@ impl RawAddressOffset {
         }
     }
 
-    fn sub(self, rhs: Option<i64>) -> Self {
+    fn sub(self, rhs: RawAddressOffset) -> Self {
         match (self, rhs) {
-            (RawAddressOffset::Known(lhs), Some(rhs)) => lhs
+            (offset, RawAddressOffset::Known(0)) => offset,
+            (RawAddressOffset::Known(lhs), RawAddressOffset::Known(rhs)) => lhs
                 .checked_sub(rhs)
                 .map(RawAddressOffset::Known)
                 .unwrap_or(RawAddressOffset::Unknown),

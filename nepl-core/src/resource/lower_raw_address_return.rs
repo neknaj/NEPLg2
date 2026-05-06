@@ -177,8 +177,8 @@ fn raw_address_source_from_return_named_call(
             &args[0], function, hir_args, arg_places, env,
         )
         .map(|source| {
-            source.with_added_offset(i32_const_from_return_expr(
-                &args[1], function, hir_args, env,
+            source.with_added_offset(raw_address_offset_from_return_expr(
+                &args[1], function, hir_args, arg_places, env,
             ))
         })
         .or_else(|| {
@@ -186,14 +186,14 @@ fn raw_address_source_from_return_named_call(
             raw_address_source_from_return_operand_expr(
                 &args[1], function, hir_args, arg_places, env,
             )
-            .map(|source| source.with_added_offset(Some(offset)))
+            .map(|source| source.with_added_offset(RawAddressOffset::Known(offset)))
         }),
         "sub" if args.len() == 2 => raw_address_source_from_return_operand_expr(
             &args[0], function, hir_args, arg_places, env,
         )
         .map(|source| {
-            source.with_subtracted_offset(i32_const_from_return_expr(
-                &args[1], function, hir_args, env,
+            source.with_subtracted_offset(raw_address_offset_from_return_expr(
+                &args[1], function, hir_args, arg_places, env,
             ))
         }),
         "mem_ptr_addr" | "mem_ptr_wrap" | "str_addr" | "str_from_addr_unchecked"
@@ -207,8 +207,8 @@ fn raw_address_source_from_return_named_call(
             &args[0], function, hir_args, arg_places, env,
         )
         .map(|source| {
-            source.with_added_offset(i32_const_from_return_expr(
-                &args[1], function, hir_args, env,
+            source.with_added_offset(raw_address_offset_from_return_expr(
+                &args[1], function, hir_args, arg_places, env,
             ))
         }),
         "get" | "get_field"
@@ -238,6 +238,30 @@ fn raw_address_source_from_return_named_call(
             &args[0], function, hir_args, arg_places, env,
         ),
         _ => None,
+    }
+}
+
+fn raw_address_offset_from_return_expr(
+    expr: &HirExpr,
+    function: &HirFunction,
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    env: &LoweringEnvironment,
+) -> RawAddressOffset {
+    if let Some(value) = i32_const_from_return_expr(expr, function, hir_args, env) {
+        return RawAddressOffset::Known(value);
+    }
+    match &expr.kind {
+        HirExprKind::Var(name) => {
+            let Some(index) = function_param_index(function, name) else {
+                return RawAddressOffset::Unknown;
+            };
+            arg_places
+                .get(index)
+                .map(RawAddressOffset::symbolic)
+                .unwrap_or(RawAddressOffset::Unknown)
+        }
+        _ => RawAddressOffset::Unknown,
     }
 }
 

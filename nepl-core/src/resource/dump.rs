@@ -570,9 +570,12 @@ fn dump_projection(projection: &PlaceProjection) -> String {
         } => format!(".tuple{}@{}", index, offset_bytes),
         PlaceProjection::EnumPayload { variant } => format!(".payload({})", variant),
         PlaceProjection::Deref => String::from(".*"),
-        PlaceProjection::StorageOffset(offset) => match offset.bytes {
-            Some(bytes) => format!("[+{}]", bytes),
-            None => String::from("[+?]"),
+        PlaceProjection::StorageOffset(offset) => match offset {
+            super::model::ResourceOffset::Known(bytes) => format!("[+{}]", bytes),
+            super::model::ResourceOffset::Symbolic { place } => {
+                format!("[+{}]", dump_place(place))
+            }
+            super::model::ResourceOffset::Unknown => String::from("[+?]"),
         },
     }
 }

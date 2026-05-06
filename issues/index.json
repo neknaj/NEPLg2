@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T20:32:31.639Z",
+  "generated_at": "2026-05-06T20:36:12.796Z",
   "counts": {
-    "total": 536,
+    "total": 537,
     "open": 16,
-    "resolved": 520,
+    "resolved": 521,
     "by_area": {
       "compiler": {
         "total": 3,
@@ -12,9 +12,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 261,
+        "total": 262,
         "open": 4,
-        "resolved": 257
+        "resolved": 258
       },
       "selfhost": {
         "total": 50,
@@ -293,7 +293,7 @@
       "priority": "P2",
       "type": "architecture",
       "created": "2026-04-30",
-      "updated": "2026-05-06",
+      "updated": "2026-05-07",
       "target": "nepl-core/src/resource/initialized_summary*.rs, nepl-core/src/resource/initialized_external_io*.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/kp.rs",
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
@@ -4093,6 +4093,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260506T201433509Z-RESOURCE-CONDITION-FACTS-DROP-NONZER-5EE6B7A6.md"
+    },
+    {
+      "id": "ISS-20260506T202600181Z-RESOURCE-RAW-OFFSETS-ERASE-SYMBOLIC--E5DDB5A0",
+      "title": "Resource raw offsets erase symbolic dynamic index identity",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/model.rs, nepl-core/src/resource/lower_raw_address*.rs, nepl-core/src/resource/cell_state.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260506T202600181Z-RESOURCE-RAW-OFFSETS-ERASE-SYMBOLIC--E5DDB5A0.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

@@ -471,7 +471,7 @@ fn place_suffix_after_address_prefix(
         }
         if matches!(
             prefix_projection,
-            PlaceProjection::StorageOffset(super::model::ResourceOffset { bytes: None })
+            PlaceProjection::StorageOffset(super::model::ResourceOffset::Unknown)
         ) {
             if matches!(
                 place.projections.get(place_index),
@@ -545,16 +545,31 @@ fn place_suffix_after_external_storage_root(
 fn storage_offset_is_zero(projection: &PlaceProjection) -> bool {
     matches!(
         projection,
-        PlaceProjection::StorageOffset(super::model::ResourceOffset { bytes: Some(0) })
+        PlaceProjection::StorageOffset(super::model::ResourceOffset::Known(0))
     )
 }
 
 fn address_projection_matches(place: &PlaceProjection, prefix: &PlaceProjection) -> bool {
     match (place, prefix) {
         (PlaceProjection::StorageOffset(left), PlaceProjection::StorageOffset(right)) => {
-            left.bytes == right.bytes || left.bytes.is_none() || right.bytes.is_none()
+            resource_offsets_may_overlap(left, right)
         }
         _ => place == prefix,
+    }
+}
+
+fn resource_offsets_may_overlap(
+    left: &super::model::ResourceOffset,
+    right: &super::model::ResourceOffset,
+) -> bool {
+    match (left, right) {
+        (super::model::ResourceOffset::Known(left), super::model::ResourceOffset::Known(right)) => {
+            left == right
+        }
+        (super::model::ResourceOffset::Unknown, _)
+        | (_, super::model::ResourceOffset::Unknown)
+        | (super::model::ResourceOffset::Symbolic { .. }, _)
+        | (_, super::model::ResourceOffset::Symbolic { .. }) => true,
     }
 }
 

@@ -2121,6 +2121,53 @@ fn main <(i32,i32)->i32> (i, len):
 }
 
 #[test]
+fn resource_ir_lowering_preserves_symbolic_mem_ptr_add_offset() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasm
+
+#import "core/mem" as *
+
+fn main <(i32)->i32> (idx):
+    let raw <i32> alloc_raw 16
+    let ptr <MemPtr<i32>> mem_ptr_wrap raw
+    let slot <MemPtr<i32>> mem_ptr_add ptr idx
+    mem_ptr_addr slot
+"#;
+    let (hir, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&hir, &types);
+    let main = resource
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "main")
+        .expect("main resource function");
+    let has_symbolic_offset = main
+        .blocks
+        .iter()
+        .flat_map(|block| block.ops.iter())
+        .any(|op| {
+            matches!(
+                op,
+                ResourceOp::RawAddressView { source, .. }
+                    if source.projections.iter().any(|projection| {
+                        matches!(
+                            projection,
+                            PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place })
+                                if matches!(place.root, PlaceRoot::Temporary(_))
+                        )
+                    })
+            )
+        });
+
+    assert!(
+        has_symbolic_offset,
+        "dynamic mem_ptr_add offset must keep the symbolic index place instead of collapsing to unknown:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_effect_check_uses_known_function_alias_stored_in_aggregate_field() {
     let mut types = TypeCtx::new();
     let i32_ty = types.i32();
@@ -4620,7 +4667,7 @@ fn resource_ir_cell_check_reports_raw_load_before_store() {
     let span = Span::dummy();
     let ptr = Place::temporary(ResourceId(0), i32_ty);
     let offset_ptr = ptr.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(4) }),
+        PlaceProjection::StorageOffset(ResourceOffset::Known(4)),
         i32_ty,
     );
     let loaded = Place::temporary(ResourceId(1), i32_ty);
@@ -4655,7 +4702,7 @@ fn resource_ir_cell_check_reports_raw_load_before_store() {
         } if function == "main"
             && place.ty == i32_ty
             && place.projections == vec![
-                PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(4) }),
+                PlaceProjection::StorageOffset(ResourceOffset::Known(4)),
                 PlaceProjection::Deref,
             ]
     )));
@@ -4745,7 +4792,7 @@ fn resource_ir_cell_check_allows_external_aggregate_mem_ptr_field_raw_load() {
     let vec_param = Place::local("v".to_string(), vec_ty);
     let vec_ref = Place::temporary(ResourceId(0), vec_ref_ty);
     let data_ref_address = vec_ref.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(8) }),
+        PlaceProjection::StorageOffset(ResourceOffset::Known(8)),
         i32_ty,
     );
     let data_ref = Place::temporary(ResourceId(1), data_ref_ty);
@@ -4761,7 +4808,7 @@ fn resource_ir_cell_check_allows_external_aggregate_mem_ptr_field_raw_load() {
     );
     let raw_addr = Place::temporary(ResourceId(4), i32_ty);
     let element_addr = raw_addr.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+        PlaceProjection::StorageOffset(ResourceOffset::Unknown),
         i32_ty,
     );
     let loaded = Place::temporary(ResourceId(5), i32_ty);
@@ -6187,7 +6234,7 @@ fn resource_ir_cell_check_rekeys_raw_cells_after_loading_raw_address_cell() {
     let store_out = Place::temporary(ResourceId(5), unit_ty);
     let loaded_buf = Place::temporary(ResourceId(6), i32_ty);
     let loaded_cell_address = loaded_buf.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(2) }),
+        PlaceProjection::StorageOffset(ResourceOffset::Known(2)),
         i32_ty,
     );
     let loaded = Place::temporary(ResourceId(7), i32_ty);
@@ -6270,7 +6317,7 @@ fn resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_po
     let loaded_buf = Place::temporary(ResourceId(7), i32_ty);
     let buf_local = Place::local("buf".to_string(), i32_ty);
     let loaded_cell_address = buf_local.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(1) }),
+        PlaceProjection::StorageOffset(ResourceOffset::Known(1)),
         i32_ty,
     );
     let loaded = Place::temporary(ResourceId(8), i32_ty);
@@ -12146,7 +12193,7 @@ fn resource_ir_cell_check_external_fd_read_initializes_iovec_buffers() {
     let nread = Place::temporary(ResourceId(4), i32_ty);
     let store_buf = Place::temporary(ResourceId(5), unit_ty);
     let iov_len_cell = iov.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(4) }),
+        PlaceProjection::StorageOffset(ResourceOffset::Known(4)),
         i32_ty,
     );
     let store_iov_len = Place::temporary(ResourceId(6), unit_ty);
@@ -12269,7 +12316,7 @@ fn resource_ir_cell_check_fd_pwrite_initializes_nwritten_not_offset() {
     let fill_buf = Place::temporary(ResourceId(10), unit_ty);
     let store_buf = Place::temporary(ResourceId(11), unit_ty);
     let iov_len_cell = iov.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(4) }),
+        PlaceProjection::StorageOffset(ResourceOffset::Known(4)),
         i32_ty,
     );
     let store_len = Place::temporary(ResourceId(12), unit_ty);
@@ -12417,7 +12464,7 @@ fn resource_ir_cell_check_fd_write_accepts_initialized_iovec_buffer() {
     let fill_buf = Place::temporary(ResourceId(7), unit_ty);
     let store_buf = Place::temporary(ResourceId(8), unit_ty);
     let iov_len_cell = iov.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(4) }),
+        PlaceProjection::StorageOffset(ResourceOffset::Known(4)),
         i32_ty,
     );
     let store_len = Place::temporary(ResourceId(9), unit_ty);
@@ -12532,13 +12579,13 @@ fn resource_ir_cell_check_fd_write_reports_uninitialized_iovec_buffer() {
     let nwritten = Place::temporary(ResourceId(5), i32_ty);
     let store_buf = Place::temporary(ResourceId(6), unit_ty);
     let iov_len_cell = iov.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset { bytes: Some(4) }),
+        PlaceProjection::StorageOffset(ResourceOffset::Known(4)),
         i32_ty,
     );
     let store_len = Place::temporary(ResourceId(7), unit_ty);
     let errno = Place::temporary(ResourceId(8), i32_ty);
     let payload_cell = buf.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset { bytes: None }),
+        PlaceProjection::StorageOffset(ResourceOffset::Unknown),
         i32_ty,
     );
     let payload_cell = payload_cell.with_projection(PlaceProjection::Deref, i32_ty);

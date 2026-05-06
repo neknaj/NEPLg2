@@ -1,3 +1,25 @@
+# 2026-05-07 note (ISS-20260506T202600181Z Resource symbolic raw offsets)
+
+## 作業内容
+
+- branch `fix/resource-symbolic-offset-identity` で `origin/main` 同期済みの main から作業した。
+- `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` の dynamic initialized range summary に必要な前提として、raw address offset が `ResourceOffset { bytes: None }` に潰れて relation fact と照合できない問題を切り出した。
+- `ResourceOffset` を `Known(usize)` / `Symbolic { place }` / `Unknown` の enum に変更し、byte option の `None` に dynamic index と unknown wildcard を混在させないようにした。
+- `RawAddressOffset` も `Known` / `Symbolic` / `Unknown` に変更し、`mem_ptr_add ptr idx` や transparent raw-address return projection の simple dynamic offset を symbolic place として Resource IR に残すようにした。
+- general overlap 判定では `Symbolic` / `Unknown` を may-overlap として扱い、dynamic offset を無条件に initialized とみなす緩和は入れていない。
+- issue `ISS-20260506T202600181Z-RESOURCE-RAW-OFFSETS-ERASE-SYMBOLIC--E5DDB5A0` を fixed にし、親 issue と `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 へ進捗を追記した。
+
+## 検証
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_symbolic_mem_ptr_add_offset -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_nonzero_i32_relation_condition_fact -- --nocapture`: passed
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (Agent 2: self-host lexer compile timeout triage)
 
 ## 作業内容

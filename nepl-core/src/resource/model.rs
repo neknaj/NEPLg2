@@ -340,9 +340,11 @@ pub enum PlaceProjection {
     StorageOffset(ResourceOffset),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ResourceOffset {
-    pub bytes: Option<usize>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResourceOffset {
+    Known(usize),
+    Symbolic { place: Box<Place> },
+    Unknown,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
