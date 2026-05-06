@@ -1,3 +1,23 @@
+# 2026-05-06 note (ISS-20260506T094754766Z Resource drop HIR bridge gate)
+
+- [同期]:
+  - `96a7aad2` を push/pull して `main` と `origin/main` が一致した後、branch `work/resource-drop-plan-hir-bridge` を作成した。
+- [原因]:
+  - `PreparedProgram` は checked `ResourceDropElaborationPlan` を保持するようになったが、その plan が source HIR の関数・binding・scope span へ戻せるかは未検証だった。
+  - このまま実 drop call 生成へ進むと、bridge 不整合が後段で発覚し、HIR scope walker や span fallback を再 authority に戻す危険があった。
+- [修正]:
+  - `drop_elaboration_hir_bridge.rs` を追加し、`validate_resource_drop_elaboration_hir_bridge` を実装した。
+  - HIR function parameter、block-local `let`、match arm binding を scope span ごとに収集し、plan の `origin_name` / `source_name` / span と照合するようにした。
+  - `MissingSourceFunction` / `MissingSourceBinding` を enum error として定義し、compiler gate で `resource.lower.incomplete` に写像した。
+  - `prepare_module_for_codegen_with_source_map` で HIR `passes::insert_drops` の前に bridge gate を実行するようにした。
+- [検証]:
+  - monomorphized generic function の plan が source HIR origin / binding に戻る regression を追加した。
+  - 欠落 origin / 欠落 binding が enum error で拒否される regression を追加した。
+- [残件]:
+  - 次は bridge 済み `ResourceDropElaborationPlan` を実 drop call 生成へ渡し、`passes::insert_drops` の scope walker を削除する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。Stage 4 の進捗は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
+
 # 2026-05-06 note (ISS-20260506T093453445Z Resource drop plan pipeline artifact)
 
 - [同期]:

@@ -22,6 +22,7 @@ mod coverage_hir_raw;
 mod coverage_resource;
 mod drop_elaboration;
 mod drop_elaboration_bindings;
+mod drop_elaboration_hir_bridge;
 mod drop_model;
 mod drop_plan;
 mod drop_point_path;
@@ -109,6 +110,9 @@ pub use drop_elaboration::{
     compute_resource_drop_elaboration_plan, ResourceDropElaborationDrop,
     ResourceDropElaborationFunction, ResourceDropElaborationPlan, ResourceDropElaborationPlanError,
     ResourceDropElaborationPoint,
+};
+pub use drop_elaboration_hir_bridge::{
+    validate_resource_drop_elaboration_hir_bridge, ResourceDropElaborationHirBridgeError,
 };
 pub use drop_model::{
     ResourceAutoDrop, ResourceAutoDropKind, ResourceDropFunctionPlan, ResourceDropPlan,

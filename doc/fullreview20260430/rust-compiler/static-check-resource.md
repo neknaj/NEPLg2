@@ -143,6 +143,12 @@ Resource IR drop elaboration plan は function 単位で `origin_name` を持つ
 
 まだ HIR `passes::insert_drops` は残っているが、次の置換作業は Resource IR plan を再計算せずに `PreparedProgram` から受け取れる。残る blocker は、この prepared plan を実 drop call 生成へ渡し、HIR scope walker の drop 対象推定を削除することである。
 
+## 2026-05-06 HIR bridge gate 追補
+
+checked `ResourceDropElaborationPlan` が source HIR へ戻せることを compiler gate で検証するようになった。bridge validator は HIR の function parameter、block-local `let`、match arm binding を scope span ごとに収集し、plan の `origin_name` / `source_name` / span と照合する。
+
+この gate は実 drop call 挿入そのものではない。ただし、bridge 不可能な plan を `ResourceDropElaborationHirBridgeError` enum で早期に止めるため、次の置換作業で HIR scope walker や文字列 fallback を復活させる必要がなくなる。残る blocker は bridge 済み plan を drop call 生成へ渡すことである。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

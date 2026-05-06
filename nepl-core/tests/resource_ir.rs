@@ -14,12 +14,12 @@ use nepl_core::resource::{
     ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock, ResourceBlockId,
     ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred,
     ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropElaborationPlanError,
-    ResourceDropPoint, ResourceDropPointPath, ResourceDropPointResolutionError,
-    ResourceDropPointStep, ResourceDropRequirement, ResourceEffectBoundaryDiagnostic,
-    ResourceEffectCallKind, ResourceExprKind, ResourceFunction, ResourceFunctionCheck, ResourceId,
-    ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
-    ResourceOwnerOperation, ResourceTerminator,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropElaborationHirBridgeError,
+    ResourceDropElaborationPlanError, ResourceDropPoint, ResourceDropPointPath,
+    ResourceDropPointResolutionError, ResourceDropPointStep, ResourceDropRequirement,
+    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
+    ResourceFunctionCheck, ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp,
+    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -3611,6 +3611,137 @@ fn main <()->i32> ():
         drop.source_name == "_value"
             && matches!(&drop.place.root, PlaceRoot::Local(name) if name == "_value")
     }));
+}
+
+#[test]
+fn resource_ir_drop_elaboration_hir_bridge_accepts_monomorphized_origin() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+
+struct Guard:
+    id <i32>
+
+fn ignore <.T> <(.T)->i32> (_value):
+    1
+
+fn main <()->i32> ():
+    ignore<Guard> Guard 7
+"#;
+    let (source_module, _) = typecheck_resource_source(source);
+    let (module, mut types) = typecheck_resource_source(source);
+    let (module, unresolved_trait_calls) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    assert!(
+        unresolved_trait_calls.is_empty(),
+        "unresolved trait calls: {:#?}",
+        unresolved_trait_calls
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let plan = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect("checked Resource IR drop plan should be valid");
+
+    nepl_core::resource::validate_resource_drop_elaboration_hir_bridge(&source_module, &plan)
+        .expect("monomorphized plan should bridge back to source HIR origin and binding");
+}
+
+#[test]
+fn resource_ir_drop_elaboration_hir_bridge_rejects_missing_source_origin() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+
+struct Guard:
+    id <i32>
+
+fn ignore <.T> <(.T)->i32> (_value):
+    1
+
+fn main <()->i32> ():
+    ignore<Guard> Guard 7
+"#;
+    let (source_module, _) = typecheck_resource_source(source);
+    let (module, mut types) = typecheck_resource_source(source);
+    let (module, unresolved_trait_calls) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    assert!(unresolved_trait_calls.is_empty());
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let mut plan = compute_resource_drop_elaboration_plan(&resource, &report).unwrap();
+    let function = plan
+        .functions
+        .iter_mut()
+        .find(|function| !function.auto_drops.is_empty())
+        .expect("test plan should contain a live drop function");
+    let resource_function_name = function.name.clone();
+    function.origin_name = "__missing_origin".to_string();
+
+    let errors =
+        nepl_core::resource::validate_resource_drop_elaboration_hir_bridge(&source_module, &plan)
+            .expect_err("missing source origin must be rejected");
+    assert!(errors.iter().any(|error| matches!(
+        error,
+        ResourceDropElaborationHirBridgeError::MissingSourceFunction {
+            function,
+            origin_name,
+        } if function == &resource_function_name && origin_name == "__missing_origin"
+    )));
+}
+
+#[test]
+fn resource_ir_drop_elaboration_hir_bridge_rejects_missing_source_binding() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+
+struct Guard:
+    id <i32>
+
+fn ignore <.T> <(.T)->i32> (_value):
+    1
+
+fn main <()->i32> ():
+    ignore<Guard> Guard 7
+"#;
+    let (source_module, _) = typecheck_resource_source(source);
+    let (module, mut types) = typecheck_resource_source(source);
+    let (module, unresolved_trait_calls) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    assert!(unresolved_trait_calls.is_empty());
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let mut plan = compute_resource_drop_elaboration_plan(&resource, &report).unwrap();
+    let function = plan
+        .functions
+        .iter_mut()
+        .find(|function| !function.auto_drops.is_empty())
+        .expect("test plan should contain a live drop function");
+    let resource_function_name = function.name.clone();
+    let origin_name = function.origin_name.clone();
+    function.drop_points[0].auto_drops[0].source_name = "__missing_binding".to_string();
+
+    let errors =
+        nepl_core::resource::validate_resource_drop_elaboration_hir_bridge(&source_module, &plan)
+            .expect_err("missing source binding must be rejected");
+    assert!(errors.iter().any(|error| matches!(
+        error,
+        ResourceDropElaborationHirBridgeError::MissingSourceBinding {
+            function,
+            origin_name: error_origin_name,
+            source_name,
+            ..
+        } if function == &resource_function_name
+            && error_origin_name == &origin_name
+            && source_name == "__missing_binding"
+    )));
 }
 
 #[test]

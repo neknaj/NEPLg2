@@ -383,6 +383,55 @@ fn resource_drop_elaboration_plan_error_to_error(
     }
 }
 
+fn run_resource_drop_elaboration_hir_bridge_gate(
+    hir_module: &crate::hir::HirModule,
+    plan: &crate::resource::ResourceDropElaborationPlan,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(), CoreError> {
+    let Err(errors) =
+        crate::resource::validate_resource_drop_elaboration_hir_bridge(hir_module, plan)
+    else {
+        return Ok(());
+    };
+    diagnostics.extend(
+        errors
+            .iter()
+            .map(resource_drop_elaboration_hir_bridge_error_to_error),
+    );
+    Err(CoreError::from_diagnostics(diagnostics.clone()))
+}
+
+fn resource_drop_elaboration_hir_bridge_error_to_error(
+    error: &crate::resource::ResourceDropElaborationHirBridgeError,
+) -> Diagnostic {
+    match error {
+        crate::resource::ResourceDropElaborationHirBridgeError::MissingSourceFunction {
+            function,
+            origin_name,
+        } => Diagnostic::error_with_code(
+            resource_lower_incomplete_code(),
+            format!(
+                "resource drop elaboration function '{}' with origin '{}' has no source HIR function",
+                function, origin_name
+            ),
+            Span::dummy(),
+        ),
+        crate::resource::ResourceDropElaborationHirBridgeError::MissingSourceBinding {
+            function,
+            origin_name,
+            source_name,
+            span,
+        } => Diagnostic::error_with_code(
+            resource_lower_incomplete_code(),
+            format!(
+                "resource drop elaboration function '{}' with origin '{}' references source binding '{}' that is not available at the HIR insertion point",
+                function, origin_name, source_name
+            ),
+            *span,
+        ),
+    }
+}
+
 fn run_resource_lowering_coverage_gate(
     coverage: &crate::resource::ResourceLoweringCoverage,
     diagnostics: &mut Vec<Diagnostic>,
@@ -1251,6 +1300,11 @@ pub fn prepare_module_for_codegen_with_source_map(
         source_map,
     )?;
     let mut codegen_tc = run_typecheck(module, target, profile, source_map)?;
+    run_resource_drop_elaboration_hir_bridge_gate(
+        &codegen_tc.module,
+        &resource_drop_elaboration_plan,
+        &mut diagnostics,
+    )?;
     passes::insert_drops(&mut codegen_tc.module, &mut codegen_tc.types);
     let mut types = codegen_tc.types;
     let (hir_module, unresolved_trait_calls) =

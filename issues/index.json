@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T09:42:52.452Z",
+  "generated_at": "2026-05-06T09:54:31.418Z",
   "counts": {
-    "total": 505,
+    "total": 506,
     "open": 13,
-    "resolved": 492,
+    "resolved": 493,
     "by_area": {
       "core": {
-        "total": 241,
+        "total": 242,
         "open": 5,
-        "resolved": 236
+        "resolved": 237
       },
       "stdlib": {
         "total": 155,
@@ -3733,6 +3733,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T093453445Z-RESOURCE-DROP-ELABORATION-PLAN-IS-DI-E004B013.md"
+    },
+    {
+      "id": "ISS-20260506T094754766Z-RESOURCE-DROP-ELABORATION-PLAN-LACKS-5D3C7F54",
+      "title": "Resource drop elaboration plan lacks HIR bridge validation",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/drop_elaboration_hir_bridge.rs, nepl-core/src/compiler.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T094754766Z-RESOURCE-DROP-ELABORATION-PLAN-LACKS-5D3C7F54.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
