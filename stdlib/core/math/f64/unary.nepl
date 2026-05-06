@@ -1,0 +1,207 @@
+//: # math/f64/unary
+//: f64 の単項 math 演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - sqrt / abs / neg / ceil / floor / trunc / nearest を二項算術や比較から分けて管理します。
+//: - `core/math/f64` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - NaN、丸め、±0、±∞ の扱いは wasm f64 と backend の規則に従います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/f64/unary" as *
+//:| #import "core/math/f64/compare" as *
+//: fn main <()->i32> ():
+//:     if eq abs -2.5 2.5 0 1
+//: ```
+
+#indent 4
+
+//: sqrt_f64: f64 の平方根
+//:
+//: [目的/もくてき]:
+//: - f64 の平方根を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.sqrt` を実行します。
+//: - llvm は `llvm.sqrt.f64` intrinsic を呼びます。
+//:
+//: [注意/ちゅうい]:
+//: - 負数入力は NaN になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sqrt <(f64)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.sqrt
+    #if[target=llvm]
+    #llvmir:
+        define double @sqrt_f64(double %a) {
+        entry:
+            %0 = call double @llvm.sqrt.f64(double %a)
+            ret double %0
+        }
+
+//: abs_f64: f64 の絶対値
+//:
+//: [目的/もくてき]:
+//: - f64 の符号を取り除いた絶対値を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.abs` を使います。
+//: - llvm は `bitcast -> and mask -> bitcast` で符号ビットのみを落とします。
+//:
+//: [注意/ちゅうい]:
+//: - NaN の payload は backend の仕様に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn abs <(f64)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.abs
+    #if[target=llvm]
+    #llvmir:
+        define double @abs_f64(double %a) {
+        entry:
+            %bits = bitcast double %a to i64
+            %masked = and i64 %bits, 9223372036854775807
+            %0 = bitcast i64 %masked to double
+            ret double %0
+        }
+
+//: neg: f64 の符号反転
+//:
+//: [目的/もくてき]:
+//: - f64 の符号を反転した値 `-a` を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.neg`、llvm は `fneg double` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - `-0.0` と `+0.0` は区別されるため、符号反転で相互変換されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn neg <(f64)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.neg
+    #if[target=llvm]
+    #llvmir:
+        define double @neg(double %a) {
+        entry:
+            %0 = fneg double %a
+            ret double %0
+        }
+
+//: ceil_f64: f64 の切り上げ
+//:
+//: [目的/もくてき]:
+//: - f64 を「以上の最小整数値」へ切り上げます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.ceil`、llvm は `llvm.ceil.f64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 戻り値の型は f64 のままです。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ceil <(f64)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.ceil
+    #if[target=llvm]
+    #llvmir:
+        define double @ceil_f64(double %a) {
+        entry:
+            %0 = call double @llvm.ceil.f64(double %a)
+            ret double %0
+        }
+
+//: floor_f64: f64 の切り下げ
+//:
+//: [目的/もくてき]:
+//: - f64 を「以下の最大整数値」へ切り下げます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.floor`、llvm は `llvm.floor.f64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 戻り値の型は f64 のままです。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn floor <(f64)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.floor
+    #if[target=llvm]
+    #llvmir:
+        define double @floor_f64(double %a) {
+        entry:
+            %0 = call double @llvm.floor.f64(double %a)
+            ret double %0
+        }
+
+//: trunc_f64: f64 の小数部切り捨て
+//:
+//: [目的/もくてき]:
+//: - f64 の小数部を 0 方向へ切り捨てます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.trunc`、llvm は `llvm.trunc.f64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 負数では切り下げではなく 0 方向へ寄ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn trunc <(f64)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.trunc
+    #if[target=llvm]
+    #llvmir:
+        define double @trunc_f64(double %a) {
+        entry:
+            %0 = call double @llvm.trunc.f64(double %a)
+            ret double %0
+        }
+
+//: nearest_f64: f64 の最近接整数丸め
+//:
+//: [目的/もくてき]:
+//: - f64 を最近接整数へ丸めます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.nearest`、llvm は `llvm.nearbyint.f64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 中間値（x.5）は backend の丸め規則に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn nearest <(f64)->f64> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f64.nearest
+    #if[target=llvm]
+    #llvmir:
+        define double @nearest_f64(double %a) {
+        entry:
+            %0 = call double @llvm.nearbyint.f64(double %a)
+            ret double %0
+        }

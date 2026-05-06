@@ -1,0 +1,228 @@
+//: # math/f64/binary
+//: f64 の二項算術演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - f64 の加減乗除、min / max、copysign を unary math や比較から分けて管理します。
+//: - `core/math/f64` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - NaN、丸め、±0、±∞ の扱いは wasm f64 と backend の規則に従います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/f64/binary" as *
+//:| #import "core/math/f64/compare" as *
+//: fn main <()->i32> ():
+//:     if eq add 1.5 0.5 2.0 0 1
+//: ```
+
+#indent 4
+
+//: add: f64 の加算
+//:
+//: [目的/もくてき]:
+//: - 2つの f64 を加算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.add`、llvm は `fadd double` を実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 丸め誤差や NaN の伝播は IEEE 754 の規則に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let one <f64> cast 1;
+//:     let two <f64> cast 2;
+//:     let three <f64> cast 3;
+//:     let six <f64> cast 6;
+//:     let x <f64> add one two;
+//:     let y <f64> mul x two;
+//:     assert eq x three;
+//:     assert eq y six;
+//: ```
+fn add <(f64,f64)->f64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f64.add
+    #if[target=llvm]
+    #llvmir:
+        define double @add(double %a, double %b) {
+        entry:
+            %0 = fadd double %a, %b
+            ret double %0
+        }
+
+//: sub: f64 の減算
+//:
+//: [目的/もくてき]:
+//: - 2つの f64 の差を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.sub`、llvm は `fsub double` を実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 丸めの影響で `(a - b) + b` が常に `a` になるとは限りません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sub <(f64,f64)->f64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f64.sub
+    #if[target=llvm]
+    #llvmir:
+        define double @sub(double %a, double %b) {
+        entry:
+            %0 = fsub double %a, %b
+            ret double %0
+        }
+
+//: mul: f64 の乗算
+//:
+//: [目的/もくてき]:
+//: - 2つの f64 の積を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.mul`、llvm は `fmul double` を実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 大きい値では ±∞、非数値入力では NaN になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn mul <(f64,f64)->f64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f64.mul
+    #if[target=llvm]
+    #llvmir:
+        define double @mul(double %a, double %b) {
+        entry:
+            %0 = fmul double %a, %b
+            ret double %0
+        }
+
+//: div: f64 の除算
+//:
+//: [目的/もくてき]:
+//: - 2つの f64 の商を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.div`、llvm は `fdiv double` を実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 整数演算とは異なり 0 除算で trap せず、±∞ や NaN が返ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn div <(f64,f64)->f64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f64.div
+    #if[target=llvm]
+    #llvmir:
+        define double @div(double %a, double %b) {
+        entry:
+            %0 = fdiv double %a, %b
+            ret double %0
+        }
+
+//: min_f64: f64 の最小値
+//:
+//: [目的/もくてき]:
+//: - 2つの f64 から小さい方を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.min`、llvm は `llvm.minimum.f64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN 入力時の振る舞いは backend 仕様に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn min <(f64,f64)->f64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f64.min
+    #if[target=llvm]
+    #llvmir:
+        define double @min_f64(double %a, double %b) {
+        entry:
+            %0 = call double @llvm.minimum.f64(double %a, double %b)
+            ret double %0
+        }
+
+//: max_f64: f64 の最大値
+//:
+//: [目的/もくてき]:
+//: - 2つの f64 から大きい方を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.max`、llvm は `llvm.maximum.f64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN 入力時の振る舞いは backend 仕様に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn max <(f64,f64)->f64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f64.max
+    #if[target=llvm]
+    #llvmir:
+        define double @max_f64(double %a, double %b) {
+        entry:
+            %0 = call double @llvm.maximum.f64(double %a, double %b)
+            ret double %0
+        }
+
+//: copysign_f64: f64 の符号コピー
+//:
+//: [目的/もくてき]:
+//: - 第1引数の絶対値に、第2引数の符号ビットを適用した値を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f64.copysign`、llvm は `llvm.copysign.f64` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 値の大きさは第1引数、符号のみ第2引数から採用されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn copysign <(f64,f64)->f64> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f64.copysign
+    #if[target=llvm]
+    #llvmir:
+        define double @copysign_f64(double %a, double %b) {
+        entry:
+            %0 = call double @llvm.copysign.f64(double %a, double %b)
+            ret double %0
+        }

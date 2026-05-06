@@ -25,6 +25,9 @@ const f32BinaryModule = read("stdlib/core/math/f32/binary.nepl");
 const f32UnaryModule = read("stdlib/core/math/f32/unary.nepl");
 const f32CompareModule = read("stdlib/core/math/f32/compare.nepl");
 const f64Module = read("stdlib/core/math/f64.nepl");
+const f64BinaryModule = read("stdlib/core/math/f64/binary.nepl");
+const f64UnaryModule = read("stdlib/core/math/f64/unary.nepl");
+const f64CompareModule = read("stdlib/core/math/f64/compare.nepl");
 const convertModule = read("stdlib/core/math/convert.nepl");
 const convertWidthModule = read("stdlib/core/math/convert/width.nepl");
 const convertFloatModule = read("stdlib/core/math/convert/float.nepl");
@@ -135,6 +138,23 @@ for (const [relPath, src, maxLines] of [
     ["stdlib/core/math/f32/binary.nepl", f32BinaryModule, 280],
     ["stdlib/core/math/f32/unary.nepl", f32UnaryModule, 260],
     ["stdlib/core/math/f32/compare.nepl", f32CompareModule, 240],
+]) {
+    const lineCount = src.split(/\r?\n/).length;
+    assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
+}
+for (const [moduleName, pattern] of [
+    ["binary", /pub\s+#import\s+"\.\/f64\/binary"\s+as\s+\*/],
+    ["unary", /pub\s+#import\s+"\.\/f64\/unary"\s+as\s+\*/],
+    ["compare", /pub\s+#import\s+"\.\/f64\/compare"\s+as\s+\*/],
+]) {
+    assert.match(f64Module, pattern, `core/math/f64.nepl must re-export the ${moduleName} f64 submodule`);
+}
+assert.doesNotMatch(f64Module, /^fn\s+/m, "core/math/f64.nepl must remain a facade without function bodies");
+for (const [relPath, src, maxLines] of [
+    ["stdlib/core/math/f64.nepl", f64Module, 80],
+    ["stdlib/core/math/f64/binary.nepl", f64BinaryModule, 280],
+    ["stdlib/core/math/f64/unary.nepl", f64UnaryModule, 260],
+    ["stdlib/core/math/f64/compare.nepl", f64CompareModule, 240],
 ]) {
     const lineCount = src.split(/\r?\n/).length;
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
@@ -287,6 +307,14 @@ for (const [name, signature] of [
     ["min", "<\\(f64,f64\\)->f64>"],
     ["max", "<\\(f64,f64\\)->f64>"],
     ["copysign", "<\\(f64,f64\\)->f64>"],
+]) {
+    const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
+    assert.match(f64BinaryModule, pattern, `core/math/f64/binary.nepl must define overload ${name} ${signature}`);
+    assert.doesNotMatch(f64Module, pattern, `core/math/f64.nepl must not keep binary overload ${name} ${signature}`);
+    assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep overload ${name} ${signature}`);
+}
+
+for (const [name, signature] of [
     ["eq", "<\\(f64,f64\\)->bool>"],
     ["ne", "<\\(f64,f64\\)->bool>"],
     ["lt", "<\\(f64,f64\\)->bool>"],
@@ -295,7 +323,8 @@ for (const [name, signature] of [
     ["ge", "<\\(f64,f64\\)->bool>"],
 ]) {
     const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
-    assert.match(f64Module, pattern, `core/math/f64.nepl must define overload ${name} ${signature}`);
+    assert.match(f64CompareModule, pattern, `core/math/f64/compare.nepl must define overload ${name} ${signature}`);
+    assert.doesNotMatch(f64Module, pattern, `core/math/f64.nepl must not keep compare overload ${name} ${signature}`);
     assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep overload ${name} ${signature}`);
 }
 
@@ -309,7 +338,8 @@ for (const [name, signature] of [
     ["nearest", "<\\(f64\\)->f64>"],
 ]) {
     const pattern = new RegExp(`\\bfn\\s+${name}\\s+${signature}`);
-    assert.match(f64Module, pattern, `core/math/f64.nepl must define unary ${name} ${signature}`);
+    assert.match(f64UnaryModule, pattern, `core/math/f64/unary.nepl must define unary ${name} ${signature}`);
+    assert.doesNotMatch(f64Module, pattern, `core/math/f64.nepl must not keep unary ${name} ${signature}`);
     assert.doesNotMatch(facade, pattern, `core/math.nepl must not keep unary ${name} ${signature}`);
 }
 
