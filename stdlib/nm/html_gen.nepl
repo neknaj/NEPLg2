@@ -31,6 +31,7 @@
 #import "./html_escape" as html
 #import "./html_heading" as heading
 #import "./html_inline" as inline
+#import "./html_section" as *
 #import "./parser" as *
 #import "./parser/scanner" as scan
 
@@ -41,7 +42,7 @@
 //: - `Vec<Node>` を構築せず、parser の source view から直接 serializer output を作ります。
 //:
 //: [実装/じっそう]:
-//: - section close は `</section>` を direct に追加し、stack state は Copy bool と current level だけで持ちます。
+//: - section stack の state 遷移と tag 生成は `html_section` module に委譲します。
 //: - paragraph は次の block boundary まで複数行を束ね、inline markup は `html_inline` module で変換します。
 //:
 //: [注意/ちゅうい]:
@@ -54,13 +55,7 @@ fn nm_render_source_html <(str)->str> (src):
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> len src;
     let mut pos <i32> 0;
-    let mut current_level <i32> 0;
-    let mut open1 <bool> false;
-    let mut open2 <bool> false;
-    let mut open3 <bool> false;
-    let mut open4 <bool> false;
-    let mut open5 <bool> false;
-    let mut open6 <bool> false;
+    let mut sections <NmHtmlSectionState> nm_section_state_new;
 
     while lt pos n:
         do:
@@ -77,23 +72,10 @@ fn nm_render_source_html <(str)->str> (src):
                         scan::is_section_break t
                         then:
                             if:
-                                gt current_level 0
+                                gt nm_section_current_level sections 0
                                 then:
-                                    set sb sb_append sb "</section>";
-                                    match current_level:
-                                        1:
-                                            set open1 false
-                                        2:
-                                            set open2 false
-                                        3:
-                                            set open3 false
-                                        4:
-                                            set open4 false
-                                        5:
-                                            set open5 false
-                                        _:
-                                            set open6 false
-                                    set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
+                                    set sb nm_append_section_close sb;
+                                    set sections nm_section_state_close_current sections
                                 else ()
                         else:
                             if:
@@ -101,23 +83,10 @@ fn nm_render_source_html <(str)->str> (src):
                                 then:
                                     set sb sb_append sb "<hr/>";
                                     if:
-                                        gt current_level 0
+                                        gt nm_section_current_level sections 0
                                         then:
-                                            set sb sb_append sb "</section>";
-                                            match current_level:
-                                                1:
-                                                    set open1 false
-                                                2:
-                                                    set open2 false
-                                                3:
-                                                    set open3 false
-                                                4:
-                                                    set open4 false
-                                                5:
-                                                    set open5 false
-                                                _:
-                                                    set open6 false
-                                            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
+                                            set sb nm_append_section_close sb;
+                                            set sections nm_section_state_close_current sections
                                         else ()
                                 else:
                                     if:
@@ -154,44 +123,16 @@ fn nm_render_source_html <(str)->str> (src):
                                             if:
                                                 gt hlevel 0
                                                 then:
-                                                    while ge current_level hlevel:
+                                                    while ge nm_section_current_level sections hlevel:
                                                         do:
-                                                            set sb sb_append sb "</section>";
-                                                            match current_level:
-                                                                1:
-                                                                    set open1 false
-                                                                2:
-                                                                    set open2 false
-                                                                3:
-                                                                    set open3 false
-                                                                4:
-                                                                    set open4 false
-                                                                5:
-                                                                    set open5 false
-                                                                _:
-                                                                    set open6 false
-                                                            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
+                                                            set sb nm_append_section_close sb;
+                                                            set sections nm_section_state_close_current sections
                                                     let htext <str> scan::nm_heading_text t hlevel;
-                                                    set sb sb_append sb "<section class=\"nm-sec level-";
-                                                    set sb sb_append_i32 sb hlevel;
-                                                    set sb sb_append sb "\">";
+                                                    set sb nm_append_section_open sb hlevel;
                                                     set sb heading::nm_append_heading_open sb hlevel;
                                                     set sb sb_append sb inline::nm_inline_to_html htext;
                                                     set sb heading::nm_append_heading_close sb hlevel;
-                                                    match hlevel:
-                                                        1:
-                                                            set open1 true
-                                                        2:
-                                                            set open2 true
-                                                        3:
-                                                            set open3 true
-                                                        4:
-                                                            set open4 true
-                                                        5:
-                                                            set open5 true
-                                                        _:
-                                                            set open6 true
-                                                    set current_level hlevel
+                                                    set sections nm_section_state_open_level sections hlevel
                                                 else:
                                                     let mut para_sb <StringBuilder> string_builder_new;
                                                     set para_sb sb_append para_sb raw;
@@ -212,23 +153,10 @@ fn nm_render_source_html <(str)->str> (src):
                                                     set sb sb_append sb inline::nm_inline_to_html sb_build para_sb;
                                                     set sb sb_append sb "</p>"
 
-    while gt current_level 0:
+    while gt nm_section_current_level sections 0:
         do:
-            set sb sb_append sb "</section>";
-            match current_level:
-                1:
-                    set open1 false
-                2:
-                    set open2 false
-                3:
-                    set open3 false
-                4:
-                    set open4 false
-                5:
-                    set open5 false
-                _:
-                    set open6 false
-            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
+            set sb nm_append_section_close sb;
+            set sections nm_section_state_close_current sections
     sb_build sb
 
 //: render_document: `Document` source view を HTML 文字列へ変換する

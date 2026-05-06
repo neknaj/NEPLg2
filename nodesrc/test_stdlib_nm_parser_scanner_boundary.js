@@ -14,10 +14,12 @@ const parserPath = 'stdlib/nm/parser.nepl';
 const scannerPath = 'stdlib/nm/parser/scanner.nepl';
 const htmlPath = 'stdlib/nm/html_gen.nepl';
 const htmlInlinePath = 'stdlib/nm/html_inline.nepl';
+const htmlSectionPath = 'stdlib/nm/html_section.nepl';
 const parser = read(parserPath);
 const scanner = read(scannerPath);
 const html = read(htmlPath);
 const htmlInline = read(htmlInlinePath);
+const htmlSection = read(htmlSectionPath);
 
 for (const name of [
     'nm_read_line',
@@ -51,6 +53,11 @@ for (const name of [
         new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`, 'm'),
         `${htmlInlinePath} must not own ${name}; NM scan helpers belong to ${scannerPath}`
     );
+    assert.doesNotMatch(
+        htmlSection,
+        new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`, 'm'),
+        `${htmlSectionPath} must not own ${name}; NM scan helpers belong to ${scannerPath}`
+    );
 }
 
 assert.match(
@@ -67,6 +74,11 @@ assert.match(
     htmlInline,
     /^#import "\.\/parser\/scanner" as scan$/m,
     `${htmlInlinePath} must import the dedicated NM parser scanner module`
+);
+assert.match(
+    htmlSection,
+    /^#import "\.\/parser\/scanner" as scan$/m,
+    `${htmlSectionPath} must import the dedicated NM parser scanner module`
 );
 assert.match(
     parser,
@@ -92,6 +104,11 @@ assert.match(
     html,
     /\bscan::nm_heading_level\b/,
     `${htmlPath} must use scanner module for heading classification`
+);
+assert.match(
+    htmlSection,
+    /\bscan::nm_deepest_level\b/,
+    `${htmlSectionPath} must use scanner module for section depth calculation`
 );
 assert.match(
     scanner,

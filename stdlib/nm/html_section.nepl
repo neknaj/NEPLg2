@@ -1,0 +1,203 @@
+//: nm/html_section: nm HTML section stack helper
+//:
+//: [目的/もくてき]:
+//: - Gloss/Nest Markdown の heading section stack を Copy state として管理します。
+//: - `html_gen` が block scan と HTML 出力順序に集中できるよう、section open/close の state 遷移をこの module に閉じます。
+//:
+//: [実装/じっそう]:
+//: - h1..h6 の open flag と現在の最深 level を `NmHtmlSectionState` にまとめます。
+//: - close は現在 level の flag を落とし、`nm/parser/scanner` の deepest helper で次の現在 level を再計算します。
+//:
+//: [注意/ちゅうい]:
+//: - heading level は parser scanner 側で 1..6 に丸められる前提です。6 より大きい level は h6 相当として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - state 更新と tag 追加はいずれも O(1) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "alloc/string" as *
+//:| #import "nm/html_section" as *
+//: fn main <()*>i32> ():
+//:     let s0 <NmHtmlSectionState> nm_section_state_new
+//:     let s1 <NmHtmlSectionState> nm_section_state_open_level s0 2
+//:     let s2 <NmHtmlSectionState> nm_section_state_open_level s1 4
+//:     let s3 <NmHtmlSectionState> nm_section_state_close_current s2
+//:     let mut sb <StringBuilder> string_builder_new
+//:     set sb nm_append_section_open sb 2
+//:     set sb nm_append_section_close sb
+//:     if and eq nm_section_current_level s3 2 str_starts_with sb_build sb "<section" 0 1
+//: ```
+
+#indent 4
+
+#import "alloc/string" as *
+#import "core/traits/copy" as *
+
+#import "./parser/scanner" as scan
+
+//: NmHtmlSectionState: HTML section stack の Copy state
+//:
+//: [目的/もくてき]:
+//: - h1..h6 の open flag と現在の最深 level を 1 つの値にまとめます。
+//: - `html_gen` 側に bool 群と close 時の同じ match を散らさないための state record です。
+pub struct NmHtmlSectionState:
+    current_level <i32>
+    open1 <bool>
+    open2 <bool>
+    open3 <bool>
+    open4 <bool>
+    open5 <bool>
+    open6 <bool>
+
+impl Clone for NmHtmlSectionState:
+    fn clone <(&NmHtmlSectionState)->NmHtmlSectionState> (self):
+        *self
+
+impl Copy for NmHtmlSectionState:
+    fn copy_mark <(NmHtmlSectionState)->NmHtmlSectionState> (self):
+        self
+
+fn nm_section_state_make <(i32,bool,bool,bool,bool,bool,bool)->NmHtmlSectionState> (current_level, open1, open2, open3, open4, open5, open6):
+    NmHtmlSectionState current_level open1 open2 open3 open4 open5 open6
+
+//: nm_section_state_new: 空の section stack を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - heading をまだ処理していない状態を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn nm_section_state_new <()->NmHtmlSectionState> ():
+    nm_section_state_make 0 false false false false false false
+
+//: nm_section_current_level: 現在開いている最深 section level を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - close loop の条件に使う level だけを公開します。
+//: - open flag の詳細は module 内に閉じます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn nm_section_current_level <(NmHtmlSectionState)->i32> (state):
+    state.current_level
+
+//: nm_section_state_open_level: 指定 level の section を open state にする
+//:
+//: [目的/もくてき]:
+//: - heading を出力した後に対応する section level の flag を立てます。
+//:
+//: [注意/ちゅうい]:
+//: - level 6 以上は h6 相当として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn nm_section_state_open_level <(NmHtmlSectionState,i32)->NmHtmlSectionState> (state, level):
+    match level:
+        1:
+            nm_section_state_make 1 true state.open2 state.open3 state.open4 state.open5 state.open6
+        2:
+            nm_section_state_make 2 state.open1 true state.open3 state.open4 state.open5 state.open6
+        3:
+            nm_section_state_make 3 state.open1 state.open2 true state.open4 state.open5 state.open6
+        4:
+            nm_section_state_make 4 state.open1 state.open2 state.open3 true state.open5 state.open6
+        5:
+            nm_section_state_make 5 state.open1 state.open2 state.open3 state.open4 true state.open6
+        _:
+            nm_section_state_make 6 state.open1 state.open2 state.open3 state.open4 state.open5 true
+
+//: nm_section_state_close_current: 現在 level の section を close state にする
+//:
+//: [目的/もくてき]:
+//: - `</section>` を出力した後、対応する open flag を落として次の最深 level を再計算します。
+//: - close 対象が無い状態では入力 state をそのまま返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn nm_section_state_close_current <(NmHtmlSectionState)->NmHtmlSectionState> (state):
+    match state.current_level:
+        1:
+            nm_section_state_make:
+                scan::nm_deepest_level false state.open2 state.open3 state.open4 state.open5 state.open6
+                false
+                state.open2
+                state.open3
+                state.open4
+                state.open5
+                state.open6
+        2:
+            nm_section_state_make:
+                scan::nm_deepest_level state.open1 false state.open3 state.open4 state.open5 state.open6
+                state.open1
+                false
+                state.open3
+                state.open4
+                state.open5
+                state.open6
+        3:
+            nm_section_state_make:
+                scan::nm_deepest_level state.open1 state.open2 false state.open4 state.open5 state.open6
+                state.open1
+                state.open2
+                false
+                state.open4
+                state.open5
+                state.open6
+        4:
+            nm_section_state_make:
+                scan::nm_deepest_level state.open1 state.open2 state.open3 false state.open5 state.open6
+                state.open1
+                state.open2
+                state.open3
+                false
+                state.open5
+                state.open6
+        5:
+            nm_section_state_make:
+                scan::nm_deepest_level state.open1 state.open2 state.open3 state.open4 false state.open6
+                state.open1
+                state.open2
+                state.open3
+                state.open4
+                false
+                state.open6
+        _:
+            if:
+                gt state.current_level 0
+                then:
+                    nm_section_state_make:
+                        scan::nm_deepest_level state.open1 state.open2 state.open3 state.open4 state.open5 false
+                        state.open1
+                        state.open2
+                        state.open3
+                        state.open4
+                        state.open5
+                        false
+                else:
+                    state
+
+//: nm_append_section_open: section open tag を追加する
+//:
+//: [目的/もくてき]:
+//: - heading level に対応する `<section class="nm-sec level-N">` を builder に追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn nm_append_section_open <(StringBuilder,i32)->StringBuilder> (sb, level):
+    let mut out <StringBuilder> sb
+    set out sb_append out "<section class=\"nm-sec level-"
+    set out sb_append_i32 out level
+    sb_append out "\">"
+
+//: nm_append_section_close: section close tag を追加する
+//:
+//: [目的/もくてき]:
+//: - `</section>` を builder に追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn nm_append_section_close <(StringBuilder)->StringBuilder> (sb):
+    sb_append sb "</section>"

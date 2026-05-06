@@ -28,6 +28,7 @@ const checks = [
     "nodesrc/test_stdlib_nm_html_escape_boundary.js",
     "nodesrc/test_stdlib_nm_html_heading_boundary.js",
     "nodesrc/test_stdlib_nm_html_inline_boundary.js",
+    "nodesrc/test_stdlib_nm_html_section_boundary.js",
     "nodesrc/test_stdlib_string_doc_no_boilerplate.js",
     "nodesrc/test_tutorial_getting_started_current_style.js",
     "nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js",

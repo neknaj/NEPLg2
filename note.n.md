@@ -1,3 +1,29 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm HTML section split)
+
+- [同期]:
+  - `7c4f8506` の coverage_hir_projection tracking issue push 後、`origin/main` と一致する clean な `main` から branch `fix/nm-html-section-split` を作成した。
+- [原因]:
+  - `stdlib/nm/html_gen.nepl` に section stack の `current_level` と `open1..open6` が残り、section break / hr / heading close / final close で同じ close state update が重複していた。
+  - block renderer が section state の詳細まで抱えると、次の heading/section 挙動変更時に漏れやすい。
+- [修正]:
+  - `stdlib/nm/html_section.nepl` を追加し、`NmHtmlSectionState`、open/close state 遷移、section tag helper を分離した。
+  - `html_gen` は `html_section` を star import し、section close / open / current level 判定を helper 経由にした。
+  - `nodesrc/test_stdlib_nm_html_section_boundary.js` を追加し、section state が `html_gen` に戻らないことを固定した。
+  - parser scanner boundary を更新し、`html_section` が `scan::nm_deepest_level` を使い scanner helper を再所有しないことを確認する。
+- [検証]:
+  - `node nodesrc/test_stdlib_nm_html_section_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_html_inline_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_no_raw_aggregate_detours.js`: passed
+  - `node nodesrc/tests.js -i stdlib/nm/html_section.nepl --no-tree -o tmp/nm-html-section-split-module2.json -j 1`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/nm/html_gen.nepl --no-tree -o tmp/nm-html-section-split-html-gen3.json -j 1`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-html-section-split-nm-tests2.json -j 1`: total=5, passed=5
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdlib/nm 関連は passed。既知別件 `ISS-20260506T030752155Z-RESOURCE-HIR-PROJECTION-COVERAGE-MOD-ED65CFB3` の warning は継続。
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`nm/parser` section stack / block serializer、`alloc/string.nepl`、`alloc/collections/vec.nepl` などの責務分割を継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm HTML inline split)
 
 - [同期]:
