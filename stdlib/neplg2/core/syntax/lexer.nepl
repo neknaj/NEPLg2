@@ -21,7 +21,9 @@
 //: - 入力 byte 数を n として O(n) 時間、token 数に比例する O(n) 領域です。
 
 #import "alloc/collections/vec" as *
-#import "alloc/string" as string
+#import "alloc/string/access" as string_access
+#import "alloc/string/search" as string_search
+#import "alloc/string/slice" as string_slice
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
@@ -75,7 +77,7 @@ fn lex_skip_line_comment <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             match ch:
                 '\n':
                     idx
@@ -89,9 +91,9 @@ fn lex_is_doc_comment_at <(str,i32,i32)->bool> (source, n, idx):
         then:
             false
         else:
-            let c0 <i32> string::string_byte_at_unchecked source idx
-            let c1 <i32> string::string_byte_at_unchecked source add idx 1
-            let c2 <i32> string::string_byte_at_unchecked source add idx 2
+            let c0 <i32> string_access::string_byte_at_unchecked source idx
+            let c1 <i32> string_access::string_byte_at_unchecked source add idx 1
+            let c2 <i32> string_access::string_byte_at_unchecked source add idx 2
             if:
                 and eq c0 '/' and eq c1 '/' eq c2 ':'
                 then:
@@ -103,7 +105,7 @@ fn lex_is_doc_comment_at <(str,i32,i32)->bool> (source, n, idx):
                             if:
                                 lt add idx 3 n
                                 then:
-                                    not eq string::string_byte_at_unchecked source add idx 3 '/'
+                                    not eq string_access::string_byte_at_unchecked source add idx 3 '/'
                                 else:
                                     true
                         else:
@@ -120,7 +122,7 @@ fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             match ch:
                 '\t':
                     lex_skip_trivia source n add idx 1
@@ -132,7 +134,7 @@ fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
                     if:
                         lt add idx 1 n
                         then:
-                            let next <i32> string::string_byte_at_unchecked source add idx 1
+                            let next <i32> string_access::string_byte_at_unchecked source add idx 1
                             if:
                                 eq next '/'
                                 then:
@@ -156,7 +158,7 @@ fn lex_ident_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             if:
                 lex_is_ident_continue ch
                 then:
@@ -178,7 +180,7 @@ fn lex_hex_int_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             if:
                 lex_is_hex_digit ch
                 then:
@@ -193,7 +195,7 @@ fn lex_number_end_loop <(str,i32,i32,bool)->i32> (source, n, idx, seen_dot):
         then:
             idx
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             if:
                 lex_is_digit ch
                 then:
@@ -217,7 +219,7 @@ fn lex_range_has_dot <(str,i32,i32)->bool> (source, idx, end):
         then:
             false
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             if:
                 eq ch '.'
                 then:
@@ -236,7 +238,7 @@ fn lex_string_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             -1
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             match ch:
                 '"':
                     idx
@@ -262,7 +264,7 @@ fn lex_char_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             -1
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             match ch:
                 '\'':
                     idx
@@ -280,7 +282,7 @@ fn lex_char_end <(str,i32,i32)->i32> (source, n, idx):
 
 //: lex_token_slice: source slice を lexeme とする token を[作/つく]る
 fn lex_token_slice <(TokenKind,str,i32,i32,i32)->SelfhostToken> (kind, source, file_id, start, end):
-    selfhost_token_new kind source_span_new file_id start end string::str_slice source start end
+    selfhost_token_new kind source_span_new file_id start end string_slice::str_slice source start end
 
 //: lex_structural_token: offside rule の 0 byte token を[作/つく]る
 fn lex_structural_token <(TokenKind,i32,i32)->SelfhostToken> (kind, file_id, offset):
@@ -293,7 +295,7 @@ fn lex_line_indent_width <(str,i32,i32,i32,i32)->i32> (source, n, idx, indent_un
         then:
             width
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             match ch:
                 ' ':
                     lex_line_indent_width source n add idx 1 indent_unit add width 1
@@ -311,7 +313,7 @@ fn lex_line_content_start <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             match ch:
                 ' ':
                     lex_line_content_start source n add idx 1
@@ -329,7 +331,7 @@ fn lex_line_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             match ch:
                 '\n':
                     idx
@@ -343,7 +345,7 @@ fn lex_line_is_blank_or_comment <(str,i32,i32)->bool> (source, n, content_start)
         then:
             true
         else:
-            let ch <i32> string::string_byte_at_unchecked source content_start
+            let ch <i32> string_access::string_byte_at_unchecked source content_start
             match ch:
                 '\n':
                     true
@@ -351,7 +353,7 @@ fn lex_line_is_blank_or_comment <(str,i32,i32)->bool> (source, n, content_start)
                     if:
                         lt add content_start 1 n
                         then:
-                            eq string::string_byte_at_unchecked source add content_start 1 '/'
+                            eq string_access::string_byte_at_unchecked source add content_start 1 '/'
                         else:
                             false
                 _:
@@ -364,7 +366,7 @@ fn lex_directive_boundary <(str,i32,i32)->bool> (source, n, idx):
         then:
             true
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             match ch:
                 ' ':
                     true
@@ -382,8 +384,8 @@ fn lex_directive_boundary <(str,i32,i32)->bool> (source, n, idx):
 //: lex_starts_with_indent_directive: line content が `#indent` で[始/はじ]まるか[返/かえ]す
 fn lex_starts_with_indent_directive <(str,i32,i32)->bool> (source, n, start):
     let directive <str> "#indent"
-    let directive_len <i32> string::len directive
-    and string::str_starts_with_at source start directive lex_directive_boundary source n add start directive_len
+    let directive_len <i32> string_access::len directive
+    and string_search::str_starts_with_at source start directive lex_directive_boundary source n add start directive_len
 
 //: lex_skip_horizontal: 同じ行の horizontal whitespace を[読/よ]み[飛/と]ばす
 fn lex_skip_horizontal <(str,i32,i32)->i32> (source, n, idx):
@@ -392,7 +394,7 @@ fn lex_skip_horizontal <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             match ch:
                 ' ':
                     lex_skip_horizontal source n add idx 1
@@ -410,7 +412,7 @@ fn lex_parse_indent_digits <(str,i32,i32,i32,bool)->i32> (source, n, idx, acc, s
         then:
             if seen acc -1
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             if:
                 lex_is_digit ch
                 then:
@@ -467,8 +469,8 @@ fn lex_indent_aligned <(i32,i32)->bool> (indent_width, indent_unit):
 
 //: lex_directive_word_at: 指定位置から directive word が始まり、後続が directive 境界か[返/かえ]す
 fn lex_directive_word_at <(str,i32,i32,str)->bool> (source, n, start, word):
-    let word_len <i32> string::len word
-    and string::str_starts_with_at source start word lex_directive_boundary source n add start word_len
+    let word_len <i32> string_access::len word
+    and string_search::str_starts_with_at source start word lex_directive_boundary source n add start word_len
 
 //: lex_directive_arg_start: directive 名の後ろの argument 開始 offset を[返/かえ]す
 fn lex_directive_arg_start <(str,i32,i32,i32)->i32> (source, n, start, name_len):
@@ -481,7 +483,7 @@ fn lex_hash_bracket_end <(str,i32,i32)->i32> (source, n, idx):
         then:
             idx
         else:
-            let ch <i32> string::string_byte_at_unchecked source idx
+            let ch <i32> string_access::string_byte_at_unchecked source idx
             match ch:
                 ']':
                     add idx 1
@@ -560,12 +562,12 @@ fn lex_directive_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, s
                                                                                                             lex_token_slice TokenKind::DirNoPrelude source file_id start line_end
                                                                                                         else:
                                                                                                             if:
-                                                                                                                string::str_starts_with_at source start "#if[target="
+                                                                                                                string_search::str_starts_with_at source start "#if[target="
                                                                                                                 then:
                                                                                                                     lex_token_slice TokenKind::DirIfTarget source file_id start lex_hash_bracket_end source n start
                                                                                                                 else:
                                                                                                                     if:
-                                                                                                                        string::str_starts_with_at source start "#if[profile="
+                                                                                                                        string_search::str_starts_with_at source start "#if[profile="
                                                                                                                         then:
                                                                                                                             lex_token_slice TokenKind::DirIfProfile source file_id start lex_hash_bracket_end source n start
                                                                                                                         else:
@@ -589,8 +591,8 @@ fn lex_doc_comment_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id,
 //: - 先に byte length bucket で 2 byte 以上の候補に絞ってから呼びます。
 //: - key 値は lexer の内部実装です。同じ prefix の非 keyword は equality check で `None` に戻します。
 fn lex_keyword_match_key <(str)->i32> (lexeme):
-    let first <i32> string::string_byte_at_unchecked lexeme 0
-    let second <i32> string::string_byte_at_unchecked lexeme 1
+    let first <i32> string_access::string_byte_at_unchecked lexeme 0
+    let second <i32> string_access::string_byte_at_unchecked lexeme 1
     add mul first 256 second
 
 //: lex_keyword_kind_if_eq: key arm の keyword 候補を実文字列で検証する
@@ -598,7 +600,7 @@ fn lex_keyword_match_key <(str)->i32> (lexeme):
 //: [目的/もくてき]:
 //: - key の衝突で別 identifier が同じ arm に入っても、`str_eq` が一致した場合だけ keyword として扱います。
 fn lex_keyword_kind_if_eq <(str,str,TokenKind)->Option<TokenKind>> (lexeme, expected, kind):
-    match string::str_eq lexeme expected:
+    match string_search::str_eq lexeme expected:
         true:
             Option<TokenKind>::Some kind
         false:
@@ -722,7 +724,7 @@ fn lex_keyword_kind_len8 <(str)->Option<TokenKind>> (lexeme):
 //: [計算量/けいさんりょう]:
 //: - lexeme 長を n として O(n) 時間、追加領域は O(1) です。
 fn lex_keyword_kind <(str)->Option<TokenKind>> (lexeme):
-    match string::len lexeme:
+    match string_access::len lexeme:
         2:
             lex_keyword_kind_len2 lexeme
         3:
@@ -746,7 +748,7 @@ fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
         then:
             selfhost_token_new TokenKind::Eof source_span_empty file_id start ""
         else:
-            let ch <i32> string::string_byte_at_unchecked source start
+            let ch <i32> string_access::string_byte_at_unchecked source start
             match ch:
                 '\n':
                     lex_structural_token TokenKind::Newline file_id start
@@ -754,9 +756,9 @@ fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                     if:
                         lt add start 2 n
                         then:
-                            let next <i32> string::string_byte_at_unchecked source add start 1
+                            let next <i32> string_access::string_byte_at_unchecked source add start 1
                             if:
-                                and eq next '#' eq string::string_byte_at_unchecked source add start 2 ':'
+                                and eq next '#' eq string_access::string_byte_at_unchecked source add start 2 ':'
                                 then:
                                     lex_mlstr_token source n file_id start
                                 else:
@@ -775,7 +777,7 @@ fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                     if:
                         lt add start 1 n
                         then:
-                            let next <i32> string::string_byte_at_unchecked source add start 1
+                            let next <i32> string_access::string_byte_at_unchecked source add start 1
                             if:
                                 eq next ':'
                                 then:
@@ -790,7 +792,7 @@ fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                     if:
                         lt add start 1 n
                         then:
-                            let next <i32> string::string_byte_at_unchecked source add start 1
+                            let next <i32> string_access::string_byte_at_unchecked source add start 1
                             if:
                                 eq next '>'
                                 then:
@@ -815,7 +817,7 @@ fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                         lt arrow_end n
                         then:
                             if:
-                                eq string::string_byte_at_unchecked source arrow_end '>'
+                                eq string_access::string_byte_at_unchecked source arrow_end '>'
                                 then:
                                     lex_token_slice TokenKind::Arrow source file_id start add arrow_end 1
                                 else:
@@ -828,7 +830,7 @@ fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                         lt arrow_end n
                         then:
                             if:
-                                eq string::string_byte_at_unchecked source arrow_end '>'
+                                eq string_access::string_byte_at_unchecked source arrow_end '>'
                                 then:
                                     lex_token_slice TokenKind::Arrow source file_id start add arrow_end 1
                                 else:
@@ -863,7 +865,7 @@ fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                         lex_is_ident_start ch
                         then:
                             let end <i32> lex_ident_end source n add start 1
-                            let lexeme <str> string::str_slice source start end
+                            let lexeme <str> string_slice::str_slice source start end
                             match lex_keyword_kind lexeme:
                                 Option::Some kind:
                                     lex_token_slice kind source file_id start end
@@ -876,7 +878,7 @@ fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                                     if:
                                         and eq ch '0' lt add start 1 n
                                         then:
-                                            let next <i32> string::string_byte_at_unchecked source add start 1
+                                            let next <i32> string_access::string_byte_at_unchecked source add start 1
                                             if:
                                                 or eq next 'x' eq next 'X'
                                                 then:
@@ -1069,12 +1071,12 @@ fn lex_fail_indent <(Vec<SelfhostToken>,Vec<i32>,i32,i32,str)*>Result<Vec<Selfho
 fn lex_token_pending_raw_mode <(SelfhostToken)->i32> (token):
     let kind_name <str> token_kind_name field::get token "kind"
     if:
-        string::str_eq kind_name "DirWasm"
+        string_search::str_eq kind_name "DirWasm"
         then:
             1
         else:
             if:
-                string::str_eq kind_name "DirLlvmIr"
+                string_search::str_eq kind_name "DirLlvmIr"
                 then:
                     2
                 else:
@@ -1272,7 +1274,7 @@ fn lex_all_with_file_id <(str,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (s
                 Result::Ok stack0:
                     match push<i32> stack0 0:
                         Result::Ok stack:
-                            lex_all_loop source string::len source file_id 0 tokens stack 4 true false 0 0 0
+                            lex_all_loop source string_access::len source file_id 0 tokens stack 4 true false 0 0 0
                         Result::Err _e:
                             free<SelfhostToken> tokens
                             let span <SelfhostSourceSpan> source_span_empty file_id 0

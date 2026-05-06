@@ -1,0 +1,71 @@
+//: concat: string の allocation-bearing concat helper
+//:
+//: [目的/もくてき]:
+//: - `str` 同士を連結し、新しい owned `str` を構築する API を提供します。
+//: - root facade から allocation / raw copy の責務を分離します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力文字列は UTF-8 不変条件を満たす前提で、追加 validation は行いません。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/math" as *
+#import "alloc/string/access" as *
+#import "alloc/string/storage" as *
+
+//: concat_result: 2 つの文字列を確保付きで連結する
+//:
+//: [目的/もくてき]:
+//: - `a` と `b` の byte 列を連結した新しい `str` を返します。
+//: - allocation failure を呼び出し側で扱う必要がある処理では、この Result 版を使います。
+//:
+//: [実装/じっそう]:
+//: - 両方の byte 長を合計し、`string_alloc_region` で出力領域を 1 回だけ確保します。
+//: - 確保した本文領域へ `a`、`b` の順に byte copy し、最後に長さ header を確定します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力文字列は UTF-8 不変条件を満たす前提で、追加の validation は行いません。
+//: - `concat` は失敗時に空文字列へ落とす互換 API です。新規コードでは `concat_result` を優先してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(len(a) + len(b))
+fn concat_result <(str,str)->Result<str,str>> (a,b):
+    let la <i32> len a;
+    let lb <i32> len b;
+    let total <i32> add la lb;
+    match string_alloc_region total:
+        Result::Err e:
+            Result<str,str>::Err e
+        Result::Ok out_region:
+            let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
+            mem_copy mem_ptr_addr out_data mem_ptr_addr string_data_ptr a la;
+            mem_copy add mem_ptr_addr out_data la mem_ptr_addr string_data_ptr b lb;
+            Result<str,str>::Ok string_finish out_region total
+
+fn concat <(str,str)->str> (a,b):
+    match concat_result a b:
+        Result::Ok s:
+            s
+        Result::Err _e:
+            ""
+
+//: concat3: 3 つの文字列を順に連結する
+//:
+//: [目的/もくてき]:
+//: - `a`、`b`、`c` をこの順に連結した `str` を返します。
+//: - 小さい診断文など、3 片だけを簡潔に組み立てたい場合の補助です。
+//:
+//: [実装/じっそう]:
+//: - `concat a b` の結果に `c` を再度 `concat` します。
+//:
+//: [注意/ちゅうい]:
+//: - 中間文字列を 1 つ確保します。多数の片を結合する場合は `StringBuilder` を使ってください。
+//: - allocation failure は `concat` と同じく空文字列 fallback に吸収されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(len(a) + len(b) + len(c)) ですが、中間 copy が 1 回追加で発生します。
+fn concat3 <(str,str,str)->str> (a,b,c):
+    let ab <str> concat a b;
+    concat ab c

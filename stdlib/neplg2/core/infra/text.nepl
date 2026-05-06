@@ -36,7 +36,7 @@
 //: ```
 
 #import "alloc/collections/vec" as v
-#import "alloc/string" as string
+#import "alloc/string/access" as string_access
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
@@ -88,7 +88,7 @@ fn source_text_next_index_after_cr <(str,i32,i32)->i32> (source, n, idx):
     if:
         lt next_idx n
         then:
-            let next_ch <i32> string::string_byte_at_unchecked source next_idx
+            let next_ch <i32> string_access::string_byte_at_unchecked source next_idx
             match next_ch:
                 '\n':
                     add idx 2
@@ -111,7 +111,7 @@ fn source_text_collect_line_starts <(str,i32,i32,Vec<i32>)->Result<Vec<i32>, Std
     let mut failed <bool> false
     while and lt i n not failed:
         do:
-            let ch <i32> string::string_byte_at_unchecked source i
+            let ch <i32> string_access::string_byte_at_unchecked source i
             match ch:
                 '\n':
                     match v::push<i32> out add i 1:
@@ -151,7 +151,7 @@ fn source_text_new <(i32,str,str)->Result<SelfhostSourceText, StdErrorKind>> (fi
         Result::Ok starts0:
             match v::push<i32> starts0 0:
                 Result::Ok starts1:
-                    let n <i32> string::len source
+                    let n <i32> string_access::len source
                     match source_text_collect_line_starts source n 0 starts1:
                         Result::Ok line_starts:
                             Result<SelfhostSourceText, StdErrorKind>::Ok SelfhostSourceText file_id path source line_starts
@@ -168,7 +168,7 @@ fn source_text_free <(SelfhostSourceText)->()> (text):
 
 //: source_text_len: source [本文/ほんぶん]の byte [長/ちょう]を[返/かえ]す
 fn source_text_len <(&SelfhostSourceText)->i32> (text):
-    string::len *field::get_ref text "source"
+    string_access::len *field::get_ref text "source"
 
 //: source_text_line_count: line start table の[要素数/ようそすう]を[返/かえ]す
 fn source_text_line_count <(&SelfhostSourceText)->i32> (text):
@@ -227,7 +227,7 @@ fn source_text_trim_line_end <(str,i32,i32)->i32> (source, start, raw_end):
             raw_end
         else:
             let last_idx <i32> sub raw_end 1
-            let last <i32> string::string_byte_at_unchecked source last_idx
+            let last <i32> string_access::string_byte_at_unchecked source last_idx
             match last:
                 '\n':
                     if:
@@ -236,7 +236,7 @@ fn source_text_trim_line_end <(str,i32,i32)->i32> (source, start, raw_end):
                             last_idx
                         else:
                             let prev_idx <i32> sub last_idx 1
-                            let prev <i32> string::string_byte_at_unchecked source prev_idx
+                            let prev <i32> string_access::string_byte_at_unchecked source prev_idx
                             match prev:
                                 '\r':
                                     prev_idx
@@ -271,7 +271,7 @@ fn source_text_line_span <(&SelfhostSourceText,i32)->Option<SelfhostSourceSpan>>
                 Option::Some start:
                     let source <str> *field::get_ref text "source"
                     let file_id <i32> *field::get_ref text "file_id"
-                    let n <i32> string::len source
+                    let n <i32> string_access::len source
                     let raw_end <i32> source_text_next_line_start_or_len starts add line 1 n
                     let end <i32> source_text_trim_line_end source start raw_end
                     some<SelfhostSourceSpan> source_span_new file_id start end

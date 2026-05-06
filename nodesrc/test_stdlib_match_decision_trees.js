@@ -145,7 +145,7 @@ assertHasLiteralMatch({
 assertLiteralMatch({
     file: 'stdlib/neplg2/core/syntax/lexer.nepl',
     name: 'lex_keyword_kind',
-    scrutinee: 'string::len lexeme',
+    scrutinee: 'string_access::len lexeme',
     literals: [2, 3, 4, 5, 6, 8],
 });
 

@@ -31,7 +31,7 @@
 //: ```
 
 #import "alloc/collections/vec" as v
-#import "alloc/string" as string
+#import "alloc/string/search" as string_search
 #import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
@@ -157,7 +157,7 @@ fn selfhost_module_graph_find_node_loop <(&SelfhostModuleGraph,str,i32,i32)->Opt
             match selfhost_module_graph_node_at graph idx:
                 Option::Some node:
                     if:
-                        string::str_eq node.path path
+                        string_search::str_eq node.path path
                         then:
                             some<i32> idx
                         else:

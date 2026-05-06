@@ -1,30 +1,30 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T15:44:05.026Z",
+  "generated_at": "2026-05-06T16:02:08.622Z",
   "counts": {
-    "total": 521,
-    "open": 14,
+    "total": 524,
+    "open": 17,
     "resolved": 507,
     "by_area": {
       "core": {
-        "total": 254,
-        "open": 5,
+        "total": 255,
+        "open": 6,
         "resolved": 249
       },
+      "selfhost": {
+        "total": 46,
+        "open": 2,
+        "resolved": 44
+      },
       "stdlib": {
-        "total": 157,
-        "open": 7,
+        "total": 158,
+        "open": 8,
         "resolved": 150
       },
       "TEST": {
         "total": 8,
         "open": 1,
         "resolved": 7
-      },
-      "selfhost": {
-        "total": 45,
-        "open": 1,
-        "resolved": 44
       },
       "cli": {
         "total": 19,
@@ -150,6 +150,36 @@
       "file": "items/ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232.md"
     },
     {
+      "id": "ISS-20260506T155747740Z-VEC-RAW-MEMORY-COLLECTION-LACKS-EXAC-3F7CA727",
+      "title": "Vec raw-memory collection lacks exact loader effect boundary",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/loader.rs, stdlib/alloc/collections/vec.nepl, stdlib/neplg2/core/infra/text.nepl, stdlib/neplg2/core/resolve/name_resolver.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T155747740Z-VEC-RAW-MEMORY-COLLECTION-LACKS-EXAC-3F7CA727.md"
+    },
+    {
+      "id": "ISS-20260506T155806325Z-SELFHOST-LEXER-AND-IMPORT-SPEC-FIXTU-68BADCC8",
+      "title": "Selfhost lexer and import spec fixtures drift under strict static checks",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/module/import_spec.nepl, tests/stdlib/neplg2_import_spec.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T155806325Z-SELFHOST-LEXER-AND-IMPORT-SPEC-FIXTU-68BADCC8.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -238,6 +268,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8.md"
+    },
+    {
+      "id": "ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044",
+      "title": "String float and char builder owner chains fail strict ResourceIR",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "stdlib/alloc/string/float.nepl, stdlib/alloc/string/builder.nepl, stdlib/alloc/io.nepl, tests/stdlib/string_char.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",

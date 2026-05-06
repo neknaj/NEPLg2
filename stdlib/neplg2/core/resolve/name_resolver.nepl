@@ -139,7 +139,7 @@
 //: ```
 
 #import "alloc/collections/vec" as v
-#import "alloc/string" as string
+#import "alloc/string/search" as string_search
 #import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
@@ -318,7 +318,7 @@ fn selfhost_name_scope_find_loop <(&SelfhostNameScope,str,i32)->Option<SelfhostN
         else:
             match selfhost_name_scope_get scope selfhost_def_id_new idx:
                 Option::Some binding:
-                    match string::str_eq binding.name name:
+                    match string_search::str_eq binding.name name:
                         true:
                             some<SelfhostNameBinding> binding
                         false:
@@ -343,7 +343,7 @@ fn selfhost_name_scope_find_kind_loop <(&SelfhostNameScope,str,SelfhostDefKind,i
         else:
             match selfhost_name_scope_get scope selfhost_def_id_new idx:
                 Option::Some binding:
-                    match and string::str_eq binding.name name selfhost_def_kind_eq binding.kind kind:
+                    match and string_search::str_eq binding.name name selfhost_def_kind_eq binding.kind kind:
                         true:
                             some<SelfhostNameBinding> binding
                         false:

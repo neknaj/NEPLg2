@@ -33,7 +33,7 @@
 //: ```
 
 #import "alloc/collections/vec" as v
-#import "alloc/string" as string
+#import "alloc/string/search" as string_search
 #import "core/field" as field
 #import "core/option" as *
 #import "core/result" as *
@@ -120,7 +120,7 @@ fn selfhost_vfs_find_loop <(&SelfhostVirtualFileSystem,str,i32,i32)->Option<Self
             match selfhost_vfs_get vfs idx:
                 Option::Some file:
                     if:
-                        string::str_eq file.path path
+                        string_search::str_eq file.path path
                         then:
                             some<SelfhostVirtualFile> file
                         else:

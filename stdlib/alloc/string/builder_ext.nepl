@@ -1,0 +1,112 @@
+//: builder_ext: StringBuilder と string conversion をつなぐ拡張 helper
+//:
+//: [目的/もくてき]:
+//: - 既存 `str` の byte range や i32 value を `StringBuilder` に追加する helper を提供します。
+//: - builder core、slice boundary、integer conversion の横断 API を root から分離します。
+//:
+//: [注意/ちゅうい]:
+//: - `sb_append_slice_result` の index は byte index で、UTF-8 boundary を検査してから copy します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/option" as *
+#import "core/math" as *
+#import "core/field" as *
+#import "alloc/string/access" as *
+#import "alloc/string/search" as *
+#import "alloc/string/storage" as *
+#import "alloc/string/builder" as *
+#import "alloc/string/integer" as *
+
+//: sb_append_slice_result: 文字列の byte 範囲を builder に直接追加する
+//:
+//: [目的/もくてき]:
+//: - `s[start..end]` を一時 `str` として確保せず、builder の末尾へ直接 copy します。
+//: - path scanner や parser のように、元文字列の範囲を何度も組み立て直す処理で owned substring collection を作らずに済ませます。
+//:
+//: [実装/じっそう]:
+//: - `str_slice_result` と同じ丸め規則で start/end を正規化し、UTF-8 境界を確認します。
+//: - builder capacity を確保してから、元文字列の data pointer + start から `out_len` byte を `mem_copy` します。
+//:
+//: [注意/ちゅうい]:
+//: - 失敗時は入力 builder を解放して `Err` を返します。
+//: - index は byte index です。文字境界でない範囲は `Err` になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(end - start)
+fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder,str>> (sb, s, start, end):
+    let n <i32> len s
+    let mut s0 <i32> start
+    let mut e0 <i32> end
+    if:
+        lt s0 0
+        then set s0 0
+        else ()
+    if:
+        lt e0 s0
+        then set e0 s0
+        else ()
+    if:
+        lt n e0
+        then set e0 n
+        else ()
+    if:
+        and str_utf8_is_boundary s s0 str_utf8_is_boundary s e0
+        then:
+            let out_len <i32> sub e0 s0
+            if:
+                eq out_len 0
+                then:
+                    Result<StringBuilder,str>::Ok sb
+                else:
+                    match string_builder_reserve_result sb out_len:
+                        Result::Err e:
+                            Result<StringBuilder,str>::Err e
+                        Result::Ok reserved:
+                            let len0 <i32> get reserved "len"
+                            match *get_ref &reserved "data":
+                                Option::None:
+                                    string_builder_free reserved
+                                    Result<StringBuilder,str>::Err "string.builder append slice invalid storage"
+                                Option::Some data:
+                                    let dst <MemPtr<u8>> mem_ptr_add data len0
+                                    let src <MemPtr<u8>> mem_ptr_add string_data_ptr s s0
+                                    match mem_copy<u8> dst src out_len:
+                                        Result::Ok _:
+                                            Result<StringBuilder,str>::Ok string_builder_with_len reserved add len0 out_len
+                                        Result::Err _e:
+                                            string_builder_free reserved
+                                            Result<StringBuilder,str>::Err "string.builder append slice copy failed"
+        else:
+            string_builder_free sb
+            Result<StringBuilder,str>::Err "string.builder append slice invalid utf8 boundary"
+
+//: sb_append_i32_result: i32 を 10 進文字列化して builder に追加する
+//:
+//: [目的/もくてき]:
+//: - 診断やログで整数値を builder に混ぜるため、`v` を `from_i32_radix v 10` で文字列化して追加します。
+//:
+//: [実装/じっそう]:
+//: - 変換に成功した文字列を `sb_append_result` へ渡します。
+//:
+//: [注意/ちゅうい]:
+//: - 数値変換または builder grow の失敗は `Result::Err` として返します。
+//: - `sb_append_i32` は失敗時に空 builder fallback を返す互換 API です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(d) + builder append の cost です。`d` は 10 進桁数です。
+fn sb_append_i32_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, v):
+    match from_i32_radix v 10:
+        Result::Ok text:
+            sb_append_result sb text
+        Result::Err _e:
+            Result<StringBuilder,str>::Err "string.builder append_i32 conversion failed"
+
+fn sb_append_i32 <(StringBuilder,i32)->StringBuilder> (sb, v):
+    match sb_append_i32_result sb v:
+        Result::Ok next:
+            next
+        Result::Err _e:
+            string_builder_empty

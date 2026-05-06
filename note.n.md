@@ -60,6 +60,40 @@
 - `node nodesrc/issues.js check`: passed
 - `trunk build`: passed
 - `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_after_string_integer_boundary.json --runner wasm --no-tree -j 1 --assert-io`: 240 秒で local command timeout。partial JSON は total=6, passed=4, failed=1, errored=1。`from_u128_radix` の `effect.pure.calls_impure` は top issue から消え、次 blocker は `alloc/string/builder.nepl` の raw memory boundary miss になった。
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string root facade boundary)
+
+- [同期]:
+  - `1fbc2cd9` を push/pull 済みの `main` から branch `fix/string-root-facade-boundary` を作成して作業した。
+- [原因]:
+  - `stdlib/alloc/string.nepl` は float 分割後も `concat_result` / `concat` / `concat3`、builder extension、`find` を root に持ち続けていた。
+  - root を実装 owner のまま残すと、以後の `alloc/string/*` 分割で raw-memory boundary と selfhost direct import の責務が曖昧になる。
+  - selfhost 側には `#import "alloc/string" as string` から `string::len` などを呼ぶ箇所が残っており、root facade の `pub #import ... as *` を qualified namespace として使えない現行 importer では未定義 identifier になる。
+- [修正]:
+  - `stdlib/alloc/string/concat.nepl` を追加し、`concat_result`、`concat`、`concat3` を所有させた。
+  - `stdlib/alloc/string/builder_ext.nepl` を追加し、`sb_append_slice_result`、`sb_append_i32_result`、`sb_append_i32` を所有させた。
+  - `stdlib/alloc/string/find.nepl` を追加し、`find` を `Option<i32>` returning byte search helper として所有させた。
+  - `stdlib/alloc/string.nepl` は public re-export だけを持つ facade にした。
+  - remote main で先に入っていた `builder` / `integer` の raw-memory boundary に続けて、今回分離した `builder_ext` / `concat` を loader の configured stdlib exact raw-memory boundary に追加し、Rust test でも固定した。
+  - `stdlib/neplg2` の qualified root string import を、`alloc/string/access`、`search`、`slice`、`concat` の direct import へ置き換えた。
+  - source policy に root facade 境界、selfhost direct import 境界、loader raw-memory boundary の回帰を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_facade_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `cargo test -p nepl-core --test effects`: 27 passed
+  - `trunk build`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: string facade / match / selfhost direct import 関連は passed。既存の `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` warning は継続。
+  - `node nodesrc/tests.js -i ... -o tmp/string-root-facade-boundary-rebased.json -j 1`: 900 秒で command timeout。partial JSON は total=55, passed=43, failed=10, errored=2。root facade の `undefined identifier` と string submodule raw-memory boundary failure は解消し、残件として Vec raw-memory boundary、StringBuilder/ByteBuilder owner chain、selfhost lexer/import_spec strict checker 追従不足が露出した。
+- [追加 issue]:
+  - `ISS-20260506T155747740Z-VEC-RAW-MEMORY-COLLECTION-LACKS-EXAC-3F7CA727`
+  - `ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044`
+  - `ISS-20260506T155806325Z-SELFHOST-LEXER-AND-IMPORT-SPEC-FIXTU-68BADCC8`
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl` root は facade 化できたが、`alloc/collections/vec.nepl`、`core/mem.nepl` など残る巨大 file / raw-memory-backed collection の分割を継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
 
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string float conversion boundary split)
 

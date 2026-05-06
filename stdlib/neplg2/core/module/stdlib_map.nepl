@@ -35,7 +35,10 @@
 //:             1
 //: ```
 
-#import "alloc/string" as string
+#import "alloc/string/access" as string_access
+#import "alloc/string/search" as string_search
+#import "alloc/string/slice" as string_slice
+#import "alloc/string/concat" as string_concat
 #import "core/field" as field
 #import "core/math" as *
 #import "core/result" as *
@@ -134,22 +137,22 @@ fn selfhost_module_path_escape_diag <(SelfhostSourceSpan,str)->SelfhostDiagnosti
 //: selfhost_module_path_join: root と path segment を `/` で[結合/けつごう]する
 fn selfhost_module_path_join <(SelfhostSourceSpan,str,str)*>Result<str, SelfhostDiagnostic>> (span, left, right):
     if:
-        eq string::len left 0
+        eq string_access::len left 0
         then:
             Result<str, SelfhostDiagnostic>::Ok right
         else:
             if:
-                string::str_ends_with left "/"
+                string_search::str_ends_with left "/"
                 then:
-                    match string::concat_result left right:
+                    match string_concat::concat_result left right:
                         Result::Ok out:
                             Result<str, SelfhostDiagnostic>::Ok out
                         Result::Err _e:
                             Result<str, SelfhostDiagnostic>::Err selfhost_module_path_oom_diag span
                 else:
-                    match string::concat_result left "/":
+                    match string_concat::concat_result left "/":
                         Result::Ok prefix:
-                            match string::concat_result prefix right:
+                            match string_concat::concat_result prefix right:
                                 Result::Ok out:
                                     Result<str, SelfhostDiagnostic>::Ok out
                                 Result::Err _e:
@@ -160,11 +163,11 @@ fn selfhost_module_path_join <(SelfhostSourceSpan,str,str)*>Result<str, Selfhost
 //: selfhost_module_path_ensure_extension: `.nepl` 拡張子を[補/おぎな]う
 fn selfhost_module_path_ensure_extension <(SelfhostSourceSpan,str)*>Result<str, SelfhostDiagnostic>> (span, path):
     if:
-        string::str_ends_with path ".nepl"
+        string_search::str_ends_with path ".nepl"
         then:
             Result<str, SelfhostDiagnostic>::Ok path
         else:
-            match string::concat_result path ".nepl":
+            match string_concat::concat_result path ".nepl":
                 Result::Ok out:
                     Result<str, SelfhostDiagnostic>::Ok out
                 Result::Err _e:
@@ -177,7 +180,7 @@ fn selfhost_module_path_last_slash_loop <(str,i32,i32,i32)->i32> (path, n, idx, 
         then:
             last
         else:
-            let ch <i32> string::string_byte_at_unchecked path idx
+            let ch <i32> string_access::string_byte_at_unchecked path idx
             let next_last <i32> if:
                 eq ch '/'
                 then:
@@ -188,28 +191,28 @@ fn selfhost_module_path_last_slash_loop <(str,i32,i32,i32)->i32> (path, n, idx, 
 
 //: selfhost_module_path_parent_dir: logical path の親 directory を[返/かえ]す
 fn selfhost_module_path_parent_dir <(str)->str> (path):
-    let n <i32> string::len path
+    let n <i32> string_access::len path
     let last <i32> selfhost_module_path_last_slash_loop path n 0 -1
     if:
         lt last 0
         then:
             ""
         else:
-            string::str_slice path 0 last
+            string_slice::str_slice path 0 last
 
 //: selfhost_module_path_in_root: path が root prefix 配下か[返/かえ]す
 fn selfhost_module_path_in_root <(str,str)->bool> (path, root):
     if:
-        eq string::len root 0
+        eq string_access::len root 0
         then:
             false
         else:
             if:
-                string::str_eq path root
+                string_search::str_eq path root
                 then:
                     true
                 else:
-                    string::str_starts_with path string::concat root "/"
+                    string_search::str_starts_with path string_concat::concat root "/"
 
 //: selfhost_module_path_kind_for_current: current module path から root 分類を[決/き]める
 fn selfhost_module_path_kind_for_current <(&SelfhostModulePathMap,str)->SelfhostModulePathKind> (map, current_path):
@@ -231,21 +234,21 @@ fn selfhost_module_path_root_for_kind <(&SelfhostModulePathMap,SelfhostModulePat
 //: selfhost_module_path_cannot_pop: `..` で root を越えるか[判定/はんてい]する
 fn selfhost_module_path_cannot_pop <(str,str)->bool> (root, base_dir):
     if:
-        eq string::len base_dir 0
+        eq string_access::len base_dir 0
         then:
             true
         else:
             if:
-                eq string::len root 0
+                eq string_access::len root 0
                 then:
                     false
                 else:
-                    string::str_eq base_dir root
+                    string_search::str_eq base_dir root
 
 //: selfhost_module_path_finish: path に拡張子を付け、resolved value にする
 fn selfhost_module_path_finish <(SelfhostSourceSpan,SelfhostModulePathKind,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (span, kind, path):
     if:
-        eq string::len path 0
+        eq string_access::len path 0
         then:
             Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err selfhost_module_path_invalid_diag span path
         else:
@@ -258,24 +261,24 @@ fn selfhost_module_path_finish <(SelfhostSourceSpan,SelfhostModulePathKind,str)*
 //: selfhost_module_path_resolve_relative_loop: `.` / `..` を lexical に[処理/しょり]する
 fn selfhost_module_path_resolve_relative_loop <(SelfhostSourceSpan,SelfhostModulePathKind,str,str,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (span, kind, root, base_dir, rel):
     if:
-        eq string::len rel 0
+        eq string_access::len rel 0
         then:
             Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err selfhost_module_path_invalid_diag span rel
         else:
             if:
-                string::str_starts_with rel "./"
+                string_search::str_starts_with rel "./"
                 then:
-                    selfhost_module_path_resolve_relative_loop span kind root base_dir string::str_slice rel 2 string::len rel
+                    selfhost_module_path_resolve_relative_loop span kind root base_dir string_slice::str_slice rel 2 string_access::len rel
                 else:
                     if:
-                        string::str_starts_with rel "../"
+                        string_search::str_starts_with rel "../"
                         then:
                             if:
                                 selfhost_module_path_cannot_pop root base_dir
                                 then:
                                     Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err selfhost_module_path_escape_diag span rel
                                 else:
-                                    selfhost_module_path_resolve_relative_loop span kind root selfhost_module_path_parent_dir base_dir string::str_slice rel 3 string::len rel
+                                    selfhost_module_path_resolve_relative_loop span kind root selfhost_module_path_parent_dir base_dir string_slice::str_slice rel 3 string_access::len rel
                         else:
                             match selfhost_module_path_join span base_dir rel:
                                 Result::Ok joined:
@@ -294,20 +297,20 @@ fn selfhost_module_path_kind_for_absolute <(&SelfhostModulePathMap,str)->Selfhos
 
 //: selfhost_module_path_resolve_absolute: `/...` を root-relative logical path として[解決/かいけつ]する
 fn selfhost_module_path_resolve_absolute <(&SelfhostModulePathMap,SelfhostSourceSpan,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (map, span, spec):
-    let n <i32> string::len spec
+    let n <i32> string_access::len spec
     if:
         le n 1
         then:
             Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err selfhost_module_path_invalid_diag span spec
         else:
-            let stripped <str> string::str_slice spec 1 n
+            let stripped <str> string_slice::str_slice spec 1 n
             let kind <SelfhostModulePathKind> selfhost_module_path_kind_for_absolute map stripped
             selfhost_module_path_finish span kind stripped
 
 //: selfhost_module_path_resolve_stdlib: stdlib root 基準で import path を[解決/かいけつ]する
 fn selfhost_module_path_resolve_stdlib <(&SelfhostModulePathMap,SelfhostSourceSpan,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (map, span, spec):
     if:
-        eq string::len spec 0
+        eq string_access::len spec 0
         then:
             Result<SelfhostResolvedModulePath, SelfhostDiagnostic>::Err selfhost_module_path_invalid_diag span spec
         else:
@@ -332,12 +335,12 @@ fn selfhost_module_path_resolve_relative <(&SelfhostModulePathMap,str,SelfhostSo
 //: - それ以外は stdlib root 基準で解決します。
 fn selfhost_module_path_resolve_import <(&SelfhostModulePathMap,str,SelfhostSourceSpan,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (map, current_path, span, spec):
     if:
-        string::str_starts_with spec "/"
+        string_search::str_starts_with spec "/"
         then:
             selfhost_module_path_resolve_absolute map span spec
         else:
             if:
-                string::str_starts_with spec "."
+                string_search::str_starts_with spec "."
                 then:
                     selfhost_module_path_resolve_relative map current_path span spec
                 else:

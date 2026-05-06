@@ -29,6 +29,12 @@ const integerRelPath = 'stdlib/alloc/string/integer.nepl';
 const integerSrc = fs.readFileSync(path.join(repoRoot, integerRelPath), 'utf8');
 const floatRelPath = 'stdlib/alloc/string/float.nepl';
 const floatSrc = fs.readFileSync(path.join(repoRoot, floatRelPath), 'utf8');
+const concatRelPath = 'stdlib/alloc/string/concat.nepl';
+const concatSrc = fs.readFileSync(path.join(repoRoot, concatRelPath), 'utf8');
+const builderExtRelPath = 'stdlib/alloc/string/builder_ext.nepl';
+const builderExtSrc = fs.readFileSync(path.join(repoRoot, builderExtRelPath), 'utf8');
+const findRelPath = 'stdlib/alloc/string/find.nepl';
+const findSrc = fs.readFileSync(path.join(repoRoot, findRelPath), 'utf8');
 
 const code = stripNeplComments(src);
 const utf8Code = stripNeplComments(utf8Src);
@@ -40,6 +46,9 @@ const sliceCode = stripNeplComments(sliceSrc);
 const splitCode = stripNeplComments(splitSrc);
 const integerCode = stripNeplComments(integerSrc);
 const floatCode = stripNeplComments(floatSrc);
+const concatCode = stripNeplComments(concatSrc);
+const builderExtCode = stripNeplComments(builderExtSrc);
+const findCode = stripNeplComments(findSrc);
 const fromU128Radix = integerCode.match(/fn\s+from_u128_radix[\s\S]*?(?=\nfn\s+to_u128|\nfn\s+parse_u128|\n\/\/ to_u128|$)/)?.[0] ?? '';
 const stringFinish = storageCode.match(/fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\nfn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
 const storageCodeWithoutStringFinish = stringFinish ? storageCode.replace(stringFinish, '') : storageCode;
@@ -65,13 +74,19 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(splitCode, pattern, `${splitRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(integerCode, pattern, `${integerRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(floatCode, pattern, `${floatRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(concatCode, pattern, `${concatRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(builderExtCode, pattern, `${builderExtRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(findCode, pattern, `${findRelPath} must not use unsafe unwrap helpers in implementation code`);
 }
 
 assert.match(utf8Code, /enum\s+StringUtf8LeadKind:/, 'alloc/string/utf8 must classify UTF-8 leading bytes with an enum');
 assert.match(utf8Code, /fn\s+string_utf8_validate_mem\s+/, 'alloc/string/utf8 must own raw UTF-8 memory validation');
 assert.match(storageCode, /fn\s+string_from_utf8_mem_result\s+/, 'alloc/string/storage must expose a checked UTF-8 construction API');
 assert.match(searchCode, /fn\s+str_utf8_is_boundary\s+/, 'alloc/string/search must validate UTF-8 slice boundaries');
-assert.match(code, /fn\s+concat_result\s+/, 'alloc/string must keep allocation-bearing concat available as Result');
+assert.match(code, /pub\s+#import\s+"\.\/string\/concat"\s+as\s+\*/, 'alloc/string must re-export concat APIs');
+assert.match(code, /pub\s+#import\s+"\.\/string\/builder_ext"\s+as\s+\*/, 'alloc/string must re-export StringBuilder extension APIs');
+assert.match(code, /pub\s+#import\s+"\.\/string\/find"\s+as\s+\*/, 'alloc/string must re-export Option-returning find API');
+assert.match(concatCode, /fn\s+concat_result\s+/, 'alloc/string/concat must keep allocation-bearing concat available as Result');
 assert.match(sliceCode, /fn\s+str_slice_result\s+/, 'alloc/string/slice must keep allocation-bearing slice available as Result');
 assert.match(builderCode, /fn\s+sb_build_result\s+/, 'StringBuilder build must have a Result-returning path');
 assertStringBuilderOwnerBoundary(builderCode);
@@ -91,7 +106,9 @@ assert.match(code, /pub\s+#import\s+"\.\/string\/integer"\s+as\s+\*/, 'alloc/str
 assert.match(integerCode, /fn\s+from_i32_radix\s+/, 'alloc/string/integer must own i32 formatting');
 assert.match(integerCode, /fn\s+to_i128_radix\s+/, 'alloc/string/integer must own i128 parsing');
 assert.doesNotMatch(code, /fn\s+to_i128_radix\s+/, 'alloc/string root must not own integer parsing');
-assert.match(code, /fn\s+sb_append_slice_result\s+/, 'StringBuilder must support appending source string ranges without allocating owned substrings');
+assert.match(builderExtCode, /fn\s+sb_append_slice_result\s+/, 'StringBuilder must support appending source string ranges without allocating owned substrings');
+assert.match(findCode, /fn\s+find\s+<\(str,str\)->Option<i32>>/, 'alloc/string/find must expose Option-returning byte search');
+assert.doesNotMatch(code, /\bfn\s+/, 'alloc/string root facade must not own implementation function bodies');
 assert.match(storageCode, /fn\s+string_finish_base[\s\S]*store_i32\s+mem_ptr_addr\s+base\s+byte_len/, 'string_finish_base must use owned raw header store');
 assert.match(stringFinish, /\bget\s+region\s+"ptr"/, 'string_finish must consume RegionToken at the final str ownership boundary');
 assert.match(stringFinish, /\bstring_finish_base\s+base\s+byte_len\b/, 'string_finish must delegate raw header finalization to string_finish_base');
