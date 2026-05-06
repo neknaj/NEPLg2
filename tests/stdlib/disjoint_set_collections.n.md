@@ -177,3 +177,35 @@ fn main <()*>i32> ():
             free recovered
             if ok 1 0
 ```
+
+## disjoint_set_negative_length_rejected
+
+[目的/もくてき]:
+- `new` が[負/ふ]の length を allocator に[渡/わた]さず、typed `Diag` として[拒否/きょひ]することを[確認/かくにん]します。
+
+[何/なに]を[確/たし]かめるか:
+- `new`
+- `StdErrorKind::CapacityExceeded`
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/disjoint_set" as *
+#import "alloc/diag/error" as *
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let neg <i32> sub 0 1
+    match new neg:
+        Result::Ok dsu:
+            free dsu
+            0
+        Result::Err d:
+            let name <str> diag_std_error_kind_str d
+            if str_eq name "CapacityExceeded" 1 0
+```

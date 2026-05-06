@@ -364,7 +364,36 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- List node storage、bloom / adjacency matrix / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+- List node storage、bloom / adjacency matrix などの raw byte storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+
+## 2026-05-06 DisjointSet typed Vec storage 部分進捗
+
+`stdlib/alloc/collections/disjoint_set.nepl` は parent / sizes payload を raw `MemPtr<i32>` array から `Vec<i32>` owner へ移行した。
+
+進捗:
+
+- `DisjointSet` 本体は `n/parent/sizes` を持ち、`parent` / `sizes` は `Vec<i32>` として保持する。
+- `new 0` は `mem_ptr_wrap 0` の null raw pointer sentinel ではなく、empty `Vec<i32>` storage を持つ空 union-find として表現する。
+- `new` は `vec::filled<i32>` で parent / sizes を初期化し、parent の `parent[i] = i` 初期化だけを `vec::replace` 経由で行う。
+- parent / sizes cell の読み書きは `vec::get` / `vec::replace` に集約し、`DisjointSet` から `MemPtr` / `mem_ptr_wrap` / `mem_ptr_addr` / `alloc_ptr` / `load_i32` / `store_i32` / `dealloc_raw` を排除した。
+- `union` は `parent` / `sizes` の field borrow と mutation を inner block に閉じてから owner を返す形にし、shared borrow と owner move の重なりを避けた。
+- `free` は `vec::free<i32>` で 2 本の storage owner を閉じる。
+- `nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js` は typed `Vec<i32>` storage、empty Vec state、Vec helper 経由の cell read/write、raw MemPtr / raw i32 load-store 禁止を固定するよう更新した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl --no-tree -o tmp/disjoint-set-vec-storage-doctest2.json -j 1`: total=6, passed=6
+- `node nodesrc/tests.js -i stdlib/tests/disjoint_set.n.md -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/disjoint-set-vec-storage-focused2.json -j 1`: total=7, passed=7
+- `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_disjoint_set_borrowed_observers.js`: passed
+- `node nodesrc/test_stdlib_disjoint_set_union_error_owner.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+
+残件:
+
+- List node storage、bloom / adjacency matrix などの raw byte storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
 
 ## 2026-05-06 SegmentTree typed Vec storage 部分進捗
 

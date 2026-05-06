@@ -8,13 +8,13 @@
 //: - graph [連結性/れんけつせい]、Kruskal、grouping のような[用途/ようと]を `alloc/collections` の[標準/ひょうじゅん][構造/こうぞう]だけで[書/か]けるようにします。
 //:
 //: ### [実装/じっそう]
-//: - `parent[i]` と `size[root]` の 2 [本/ほん]の `i32` [配列/はいれつ]を[所有/しょゆう]します。
+//: - `parent[i]` と `size[root]` の 2 [本/ほん]の `Vec<i32>` [配列/はいれつ]を[所有/しょゆう]します。
 //: - `union` は union-by-size を[使/つか]い、[小/ちい]さい[木/き]を[大/おお]きい[木/き]の root へ[付/つ]けます。
 //: - public API は pure query を[保/たも]つため path compression は[行/おこな]わず、`find` / `same` / `size` は[読/よ]み[取/と]りだけを[行/おこな]います。
 //:
 //: ### [注意/ちゅうい]
 //: - `new` は `n < 0` を `Result::Err Diag` として[返/かえ]します。
-//: - `n = 0` は[空/から]の union-find として[有効/ゆうこう]で、内部配列を[確保/かくほ]しません。
+//: - `n = 0` は[空/から]の union-find として[有効/ゆうこう]で、空の `Vec<i32>` storage を[所有/しょゆう]します。
 //: - `find` / `same` / `size` は[範囲外/はんいがい] index を `Result::Err Diag` として[返/かえ]します。
 //: - [範囲外/はんいがい] index の `union` は `Result::Err DisjointSetUpdateError` で元の owner と[診断/しんだん]を[返/かえ]します。
 //: - [読/よ]み[取/と]りだけの[処理/しょり]では `len &dsu` / `find &dsu idx` のように borrow して、[最後/さいご]に `free dsu` で owner を[閉/と]じます。
@@ -22,14 +22,15 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - `len` は O(1) です。
-//: - `new` / `free` は O(n) です。
+//: - `new` は O(n)、`free` は O(1) です。
 //: - `find` / `same` / `size` / `union` は union-by-size のもとで O(log n) です。
 
-#import "core/mem" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
 #import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
 
 //: ## DisjointSet
 //: [代表元/だいひょうげん][配列/はいれつ]と[集合サイズ/しゅうごうさいず][配列/はいれつ]を[所有/しょゆう]する
@@ -41,8 +42,8 @@
 //: - `parent` と `sizes` の 2 [本/ほん]の[内部配列/ないぶはいれつ]を[所有/しょゆう]するので、[不要/ふよう]になったら `free` します。
 struct DisjointSet:
     n <i32>
-    parent <MemPtr<i32>>
-    sizes <MemPtr<i32>>
+    parent <Vec<i32>>
+    sizes <Vec<i32>>
 
 //: ## DisjointSetUpdateError
 //: `union` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
@@ -72,20 +73,17 @@ fn dsu_diag_len <()*>Diag> ():
 fn dsu_diag_index <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "disjoint set index out of bounds"
 
-fn dsu_slot_ptr <(MemPtr<i32>,i32)->MemPtr<i32>> (base, idx):
-    mem_ptr_wrap add mem_ptr_addr base mul idx 4
-
-fn dsu_load_owned <(MemPtr<i32>,i32)->i32> (base, idx):
-    match load_i32 dsu_slot_ptr base idx:
+fn dsu_load_owned <(&Vec<i32>,i32)->i32> (base, idx):
+    match vec::get<i32> base idx:
         Option::Some v:
             v
         Option::None:
             0
 
-fn dsu_store_owned <(MemPtr<i32>,i32,i32)->()> (base, idx, value):
-    store_i32 mem_ptr_addr dsu_slot_ptr base idx value
+fn dsu_store_owned <(&Vec<i32>,i32,i32)*>()> (base, idx, value):
+    vec::replace<i32> base idx value
 
-fn dsu_root_raw <(MemPtr<i32>,i32)->i32> (parent, idx):
+fn dsu_root_storage <(&Vec<i32>,i32)->i32> (parent, idx):
     let mut cur <i32> idx
     let mut done <bool> false
     while not done:
@@ -99,7 +97,7 @@ fn dsu_root_raw <(MemPtr<i32>,i32)->i32> (parent, idx):
                     set cur next
     cur
 
-fn dsu_size_raw <(MemPtr<i32>,i32)->i32> (sizes, root):
+fn dsu_size_storage <(&Vec<i32>,i32)->i32> (sizes, root):
     dsu_load_owned sizes root
 
 //: ## new
@@ -126,27 +124,21 @@ fn new <(i32)*>Result<DisjointSet, Diag>> (n):
         lt n 0
         then diag_err<DisjointSet> dsu_diag_len
         else:
-            if:
-                eq n 0
-                then:
-                    ok<DisjointSet, Diag> DisjointSet 0 mem_ptr_wrap 0 mem_ptr_wrap 0
-                else:
-                    match alloc_ptr<i32> mul n 4:
+            match vec::filled<i32> n 0:
+                Result::Err _e:
+                    diag_err<DisjointSet> diag_out_of_memory
+                Result::Ok parent:
+                    match vec::filled<i32> n 1:
                         Result::Err _e:
+                            vec::free<i32> parent
                             diag_err<DisjointSet> diag_out_of_memory
-                        Result::Ok parent:
-                            match alloc_ptr<i32> mul n 4:
-                                Result::Err _e:
-                                    dealloc_raw mem_ptr_addr parent mul n 4
-                                    diag_err<DisjointSet> diag_out_of_memory
-                                Result::Ok sizes:
-                                    let mut i <i32> 0
-                                    while lt i n:
-                                        do:
-                                            dsu_store_owned parent i i
-                                            dsu_store_owned sizes i 1
-                                            set i add i 1
-                                    ok<DisjointSet, Diag> DisjointSet n parent sizes
+                        Result::Ok sizes:
+                            let mut i <i32> 0
+                            while lt i n:
+                                do:
+                                    dsu_store_owned &parent i i
+                                    set i add i 1
+                            ok<DisjointSet, Diag> DisjointSet n parent sizes
 
 //: ## len
 //: [保持/ほじ]している[要素数/ようそすう]を[返/かえ]す
@@ -183,11 +175,11 @@ fn len <(&DisjointSet)->i32> (dsu):
 //: ```
 fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
     let n <i32> *field::get_ref dsu "n"
-    let parent <MemPtr<i32>> *field::get_ref dsu "parent"
     if:
         and le 0 idx lt idx n
         then:
-            let root <i32> dsu_root_raw parent idx
+            let parent <&Vec<i32>> field::get_ref dsu "parent"
+            let root <i32> dsu_root_storage parent idx
             ok<i32, Diag> root
         else:
             let d <Diag> dsu_diag_index
@@ -219,29 +211,30 @@ fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
 //: ```
 fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, DisjointSetUpdateError>> (dsu, a, b):
     let n <i32> *field::get_ref &dsu "n"
-    let parent <MemPtr<i32>> *field::get_ref &dsu "parent"
-    let sizes <MemPtr<i32>> *field::get_ref &dsu "sizes"
     if:
         and and le 0 a lt a n and le 0 b lt b n
         then:
-            let ra <i32> dsu_root_raw parent a
-            let rb <i32> dsu_root_raw parent b
-            if:
-                eq ra rb
-                then:
-                    ok<DisjointSet, DisjointSetUpdateError> dsu
-                else:
-                    let sa <i32> dsu_size_raw sizes ra
-                    let sb <i32> dsu_size_raw sizes rb
-                    let root_keep <i32> if lt sa sb rb ra
-                    let root_drop <i32> if lt sa sb ra rb
-                    let sk <i32> dsu_size_raw sizes root_keep
-                    let sd <i32> dsu_size_raw sizes root_drop
-                    dsu_store_owned parent root_drop root_keep
-                    dsu_store_owned sizes root_keep add sk sd
-                    ok<DisjointSet, DisjointSetUpdateError> dsu
+            let _updated <bool> block:
+                let parent <&Vec<i32>> field::get_ref &dsu "parent"
+                let sizes <&Vec<i32>> field::get_ref &dsu "sizes"
+                let ra <i32> dsu_root_storage parent a
+                let rb <i32> dsu_root_storage parent b
+                if:
+                    eq ra rb
+                    then:
+                        true
+                    else:
+                        let sa <i32> dsu_size_storage sizes ra
+                        let sb <i32> dsu_size_storage sizes rb
+                        let root_keep <i32> if lt sa sb rb ra
+                        let root_drop <i32> if lt sa sb ra rb
+                        let sk <i32> dsu_size_storage sizes root_keep
+                        let sd <i32> dsu_size_storage sizes root_drop
+                        dsu_store_owned parent root_drop root_keep
+                        dsu_store_owned sizes root_keep add sk sd
+                        true
+            ok<DisjointSet, DisjointSetUpdateError> dsu
         else:
-            let bad <i32> if and le 0 a lt a n b a
             let d <Diag> dsu_diag_index
             let e <DisjointSetUpdateError> DisjointSetUpdateError dsu d
             err<DisjointSet, DisjointSetUpdateError> e
@@ -273,15 +266,14 @@ fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, DisjointSetUpdateError>> (d
 //: ```
 fn same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
     let n <i32> *field::get_ref dsu "n"
-    let parent <MemPtr<i32>> *field::get_ref dsu "parent"
     if:
         and and le 0 a lt a n and le 0 b lt b n
         then:
-            let ra <i32> dsu_root_raw parent a
-            let rb <i32> dsu_root_raw parent b
+            let parent <&Vec<i32>> field::get_ref dsu "parent"
+            let ra <i32> dsu_root_storage parent a
+            let rb <i32> dsu_root_storage parent b
             ok<bool, Diag> eq ra rb
         else:
-            let bad <i32> if and le 0 a lt a n b a
             let d <Diag> dsu_diag_index
             err<bool, Diag> d
 
@@ -308,13 +300,13 @@ fn same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
 //: ```
 fn size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
     let n <i32> *field::get_ref dsu "n"
-    let parent <MemPtr<i32>> *field::get_ref dsu "parent"
-    let sizes <MemPtr<i32>> *field::get_ref dsu "sizes"
     if:
         and le 0 idx lt idx n
         then:
-            let root <i32> dsu_root_raw parent idx
-            let out <i32> dsu_size_raw sizes root
+            let parent <&Vec<i32>> field::get_ref dsu "parent"
+            let sizes <&Vec<i32>> field::get_ref dsu "sizes"
+            let root <i32> dsu_root_storage parent idx
+            let out <i32> dsu_size_storage sizes root
             ok<i32, Diag> out
         else:
             let d <Diag> dsu_diag_index
@@ -324,8 +316,8 @@ fn size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
 //: [内部配列/ないぶはいれつ]を[解放/かいほう]する
 //:
 //: ### [実装/じっそう]
-//: - `parent` と `sizes` は `new` が `n * 4` byte で[確保/かくほ]し、`DisjointSet` が[単独/たんどく]で[所有/しょゆう]します。
-//: - owner invariant に[基/もと]づき、内部 cleanup は `dealloc_raw` で[行/おこな]います。
+//: - `parent` と `sizes` は `new` が `Vec<i32>` として[確保/かくほ]し、`DisjointSet` が[単独/たんどく]で[所有/しょゆう]します。
+//: - owner invariant に[基/もと]づき、内部 cleanup は 2 [本/ほん]の `Vec<i32>` owner を[閉/と]じます。
 //:
 //: ### [注意/ちゅうい]
 //: - [解放後/かいほうご]に `dsu` を[再利用/さいりよう]してはいけません。
@@ -343,13 +335,7 @@ fn size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
 //:     0
 //: ```
 fn free <(DisjointSet)->()> (dsu):
-    let n <i32> field::get dsu "n"
-    let parent <MemPtr<i32>> field::get dsu "parent"
-    let sizes <MemPtr<i32>> field::get dsu "sizes"
-    if:
-        lt 0 n
-        then:
-            dealloc_raw mem_ptr_addr parent mul n 4
-            dealloc_raw mem_ptr_addr sizes mul n 4
-        else:
-            ()
+    let parent <Vec<i32>> field::get dsu "parent"
+    let sizes <Vec<i32>> field::get dsu "sizes"
+    vec::free<i32> parent
+    vec::free<i32> sizes

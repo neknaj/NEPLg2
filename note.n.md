@@ -1,3 +1,28 @@
+# 2026-05-06 note (ISS-20260429T155343006Z DisjointSet typed Vec storage)
+
+- [同期]:
+  - `3dd82666` の SegmentTree typed storage push 後、`origin/main` と一致する clean な `main` から branch `fix/disjoint-set-typed-storage` を作成して対応中。
+- [原因]:
+  - `DisjointSet` は parent / sizes の 2 本の storage を raw `MemPtr<i32>` で所有し、`new 0` では `mem_ptr_wrap 0` を empty owner sentinel としていた。
+  - query は borrow API になっていたが、storage owner 自体が raw pointer field のため、Resource IR が collection field owner として追いやすい形ではなかった。
+- [修正]:
+  - `DisjointSet.parent` / `DisjointSet.sizes` を `Vec<i32>` owner に変更し、初期化は `vec::filled<i32>`、読み書きは `vec::get<i32>` / `vec::replace<i32>`、解放は `vec::free<i32>` に集約した。
+  - `new 0` は null raw pointer sentinel ではなく empty `Vec<i32>` を 2 本持つ空 union-find として表現するようにした。
+  - `union` は parent/sizes の borrow と mutation を inner block に閉じ、owner 返却と shared borrow が重ならないようにした。
+  - DisjointSet source policy と collection/mem/string safety design doc、collection storage issue を更新した。
+  - `tests/stdlib/disjoint_set_collections.n.md` に負 length regression を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl --no-tree -o tmp/disjoint-set-vec-storage-doctest2.json -j 1`: total=6, passed=6
+  - `node nodesrc/tests.js -i stdlib/tests/disjoint_set.n.md -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/disjoint-set-vec-storage-focused2.json -j 1`: total=7, passed=7
+  - `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_union_error_owner.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260429T155343006Z SegmentTree typed Vec storage)
 
 - [同期]:
