@@ -1,0 +1,197 @@
+//: common: sort algorithms で共有する比較と raw access helper
+//:
+//: [目的/もくてき]:
+//: - `Vec` sort family の比較規約と unchecked raw access を 1 箇所に集約します。
+//: - algorithm module が個別に raw load/store 境界を再定義しないようにします。
+//:
+//: [注意/ちゅうい]:
+//: - unchecked helper の index 境界は caller が保証します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/traits/ord" as *
+#import "alloc/collections/vec" as *
+//: sort_lt: sort 内部の strict less-than predicate
+//:
+//: [目的/もくてき]:
+//: - `Ord` の `<` 判定を sort algorithm から呼びやすい名前で提供します。
+//: - quick / heap / insertion などの比較規約を 1 箇所にそろえます。
+//:
+//: [実装/じっそう]:
+//: - `ord_lt` に委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - `Ord` 実装が全順序であることを前提にします。矛盾した比較は sort 結果を不安定にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sort_lt <.T: Ord> <(.T,.T)->bool> (a, b):
+    ord_lt a b
+
+//: sort_le: sort 内部の less-or-equal predicate
+//:
+//: [目的/もくてき]:
+//: - partition や stable merge で「右より大きくない」ことを判定します。
+//:
+//: [実装/じっそう]:
+//: - `ord_le` に委譲します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sort_le <.T: Ord> <(.T,.T)->bool> (a, b):
+    ord_le a b
+
+//: sort_gt: sort 内部の greater-than predicate
+//:
+//: [目的/もくてき]:
+//: - 降順側の比較や heap 条件の説明で使える `>` 判定を提供します。
+//:
+//: [実装/じっそう]:
+//: - `ord_gt` に委譲します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sort_gt <.T: Ord> <(.T,.T)->bool> (a, b):
+    ord_gt a b
+
+//: sort_ge: sort 内部の greater-or-equal predicate
+//:
+//: [目的/もくてき]:
+//: - 境界条件の比較を `Ord` の名前空間へそろえます。
+//:
+//: [実装/じっそう]:
+//: - `ord_ge` に委譲します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sort_ge <.T: Ord> <(.T,.T)->bool> (a, b):
+    ord_ge a b
+
+
+//: sort_get_unchecked: `Vec` storage から index を検査せずに読む
+//:
+//: [目的/もくてき]:
+//: - sort loop 内で `Vec` の `data` から `.T` を高速に読み出します。
+//:
+//: [実装/じっそう]:
+//: - `data_ptr(v) + idx * size_of<.T>` を typed `load<.T>` します。
+//:
+//: [注意/ちゅうい]:
+//: - `0 <= idx < len(v)` を呼び出し側が保証する内部 helper です。
+//: - 所有権を持つ payload の typed load は Resource IR 移行の制約を受けます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sort_get_unchecked <.T> <(&Vec<.T>,i32)->.T> (v, idx):
+    let data <i32> data_ptr<.T> v
+    let off <i32> mul idx size_of<.T>
+    load<.T> add data off
+
+//: sort_set_unchecked: `Vec` storage へ index を検査せずに書く
+//:
+//: [目的/もくてき]:
+//: - sort loop 内で `.T` を指定 index へ書き戻します。
+//:
+//: [実装/じっそう]:
+//: - `data_ptr(v) + idx * size_of<.T>` を typed `store<.T>` します。
+//:
+//: [注意/ちゅうい]:
+//: - `0 <= idx < len(v)` と上書き時の drop 義務を呼び出し側が保証する内部 helper です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sort_set_unchecked <.T> <(&Vec<.T>,i32,.T)->()> (v, idx, val):
+    let data <i32> data_ptr<.T> v
+    let off <i32> mul idx size_of<.T>
+    store<.T> add data off val;
+    ()
+
+// sort_get_unchecked_data: data ポインタ版の取得
+fn sort_get_unchecked_data <.T> <(MemPtr<.T>,i32)->.T> (data_ptr, idx):
+    let off <i32> mul idx size_of<.T>
+    load<.T> add mem_ptr_addr data_ptr off
+
+// sort_set_unchecked_data: data ポインタ版の設定
+fn sort_set_unchecked_data <.T> <(MemPtr<.T>,i32,.T)->()> (data_ptr, idx, val):
+    let off <i32> mul idx size_of<.T>
+    store<.T> add mem_ptr_addr data_ptr off val;
+    ()
+
+// sort_swap_data: data ポインタ版の交換
+fn sort_swap_data <.T> <(MemPtr<.T>,i32,i32)->()> (data_ptr, i, j):
+    if:
+        eq i j
+        then ()
+        else:
+            let a <.T> sort_get_unchecked_data<.T> data_ptr i
+            let b <.T> sort_get_unchecked_data<.T> data_ptr j
+            sort_set_unchecked_data<.T> data_ptr i b;
+            sort_set_unchecked_data<.T> data_ptr j a;
+            ()
+
+
+//: sort_swap: `Vec` の 2 要素を入れ替える
+//:
+//: [目的/もくてき]:
+//: - sort algorithm が見つけた 2 つの index の値を交換します。
+//:
+//: [実装/じっそう]:
+//: - 2 要素を unchecked load で読み、逆順に unchecked store します。
+//:
+//: [注意/ちゅうい]:
+//: - `i` と `j` が同じ場合は何もしません。
+//: - 両 index は `Vec` の範囲内である必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sort_swap <.T> <(&Vec<.T>,i32,i32)->()> (v, i, j):
+    if:
+        eq i j
+        then ()
+        else:
+            let a <.T> sort_get_unchecked<.T> v i
+            let b <.T> sort_get_unchecked<.T> v j
+            sort_set_unchecked<.T> v i b;
+            sort_set_unchecked<.T> v j a;
+            ()
+
+//: sort_is_sorted: `Vec` が昇順か確認する
+//:
+//: [目的/もくてき]:
+//: - 隣接要素を左から右へ比較し、昇順に並んでいるかを返します。
+//: - sort doctest と caller-side assertion のための軽量 verifier です。
+//:
+//: [実装/じっそう]:
+//: - `right < left` になる隣接 pair が 1 つでもあれば `false` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - equal element は昇順として許可されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn sort_is_sorted <.T: Ord> <(&Vec<.T>)->bool> (v):
+    let n <i32> len<.T> v
+    let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
+    if:
+        le n 1
+        then true
+        else:
+            let mut i <i32> 1
+            let mut ok <bool> true
+            while and ok lt i n:
+                do:
+                    let a <.T> sort_get_unchecked_data<.T> data_ptr sub i 1;
+                    let b <.T> sort_get_unchecked_data<.T> data_ptr i;
+                    if:
+                        sort_lt<.T> b a
+                        then set ok false
+                        else ()
+                    set i add i 1;
+            ok
+
+
+// -----------------------------------------------------------------------------
+// 1) Insertion sort
+// -----------------------------------------------------------------------------

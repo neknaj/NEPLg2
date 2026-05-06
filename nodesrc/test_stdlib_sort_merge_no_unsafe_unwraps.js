@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const relPath = 'stdlib/alloc/collections/vec/sort.nepl';
+const relPath = 'stdlib/alloc/collections/vec/sort/merge.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
 const lines = src.split(/\r?\n/);
 

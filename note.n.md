@@ -1,3 +1,31 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/collections/vec/sort responsibility split)
+
+- [同期]:
+  - `0fc55708` を push/pull して `main` と `origin/main` が一致した後、branch `fix/vec-sort-responsibility-split` を作成した。
+- [原因]:
+  - `stdlib/alloc/collections/vec/sort.nepl` は比較 helper、unchecked raw access、小規模 sort、quick/heap/merge sort、owner-returning wrapper を 1105 lines の 1 file に持ち続けていた。
+  - `Vec` 本体の storage owner state は安定しているが、sort algorithm 群は独立して分割できるため、collections の巨大 submodule として放置する必要がなかった。
+- [修正]:
+  - `stdlib/alloc/collections/vec/sort.nepl` を `common` / `simple` / `quick` / `heap` / `merge` の再 export facade にした。
+  - `sort/common.nepl` に比較 predicate、unchecked raw access、swap、`sort_is_sorted` を移した。
+  - `sort/simple.nepl` に insertion / selection / bubble / cocktail / gnome / shell / comb sort を移した。
+  - `sort/quick.nepl` に Lomuto quick sort、raw slice quick sort、`sort_quick_ret`、default `sort` を移した。
+  - `sort/heap.nepl` に heap sift-down、`sort_heap`、`sort_heap_ret` を移した。
+  - `sort/merge.nepl` に merge scratch buffer helper、`sort_merge`、`sort_merge_ret` を移した。
+  - `nodesrc/test_stdlib_vec_sort_module_split.js` を追加し、facade 無実装性、関数所有先、行数上限を固定した。
+  - `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` / `nodesrc/test_stdlib_vec_borrowed_observers.js` / `nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js` を新しい module 配置へ追従させた。
+- [検証]:
+  - `node nodesrc/test_stdlib_vec_sort_module_split.js`: passed
+  - `node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort/common.nepl -i stdlib/alloc/collections/vec/sort/simple.nepl -i stdlib/alloc/collections/vec/sort/quick.nepl -i stdlib/alloc/collections/vec/sort/heap.nepl -i stdlib/alloc/collections/vec/sort/merge.nepl -i stdlib/alloc/collections/vec/sort.nepl -i stdlib/alloc/collections/vec.nepl -i tests/stdlib/sort.n.md -i stdlib/tests/vec.n.md --no-tree -o tmp/vec-sort-responsibility-split.json -j 1`: total=68, passed=68
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl`、`alloc/collections/vec.nepl`、`core/mem.nepl` などの分割を継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math i64 bitwise internal split)
 
 - [同期]:

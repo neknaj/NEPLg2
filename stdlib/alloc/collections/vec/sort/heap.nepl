@@ -1,0 +1,148 @@
+//: heap: heap sort implementation
+//:
+//: [目的/もくてき]:
+//: - max-heap 構築と sift-down による in-place heap sort を所有します。
+//: - 追加領域 O(1) の sort が必要な呼び出し側に提供します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/traits/ord" as *
+#import "alloc/collections/vec" as *
+#import "alloc/collections/vec/sort/common" as *
+//: sort_heap_sift_down_data: max-heap の root を下へ沈める
+//:
+//: [目的/もくてき]:
+//: - heap sort の heapify と extraction 後の復元で、`start` から `end` までの heap 条件を回復します。
+//:
+//: [実装/じっそう]:
+//: - root と左右 child を比較し、最大 child と交換しながら下へ進みます。
+//:
+//: [注意/ちゅうい]:
+//: - `[0, end)` が有効な raw storage 内にあることを呼び出し側が保証します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(log n)
+fn sort_heap_sift_down_data <.T: Ord> <(MemPtr<.T>,i32,i32)->()> (data_ptr, start, end):
+    let mut root <i32> start;
+    let mut done <i32> 0;
+
+    while eq done 0:
+        do:
+            let doubled_root <i32> mul root 2;
+            let child <i32> add doubled_root 1;
+            if:
+                lt child end
+                then:
+                    let mut swap_idx <i32> root;
+
+                    let swap_v <.T> sort_get_unchecked_data<.T> data_ptr swap_idx;
+                    let child_v <.T> sort_get_unchecked_data<.T> data_ptr child;
+                    if:
+                        sort_lt<.T> swap_v child_v
+                        then set swap_idx child
+                        else ()
+
+                    let right <i32> add child 1;
+                    if:
+                        lt right end
+                        then:
+                            let swap_v2 <.T> sort_get_unchecked_data<.T> data_ptr swap_idx;
+                            let right_v <.T> sort_get_unchecked_data<.T> data_ptr right;
+                            if:
+                                sort_lt<.T> swap_v2 right_v
+                                then set swap_idx right
+                                else ()
+                            ()
+                        else ()
+
+                    if:
+                        eq swap_idx root
+                        then set done 1
+                        else:
+                            sort_swap_data<.T> data_ptr root swap_idx;
+                            set root swap_idx;
+                            ();
+                    ()
+                else set done 1
+
+    ()
+
+//: sort_heap: heap sort で `Vec` を in-place 整列する
+//:
+//: [目的/もくてき]:
+//: - 追加 allocation なしで O(n log n) の最悪計算量を持つ昇順 sort を提供します。
+//:
+//: [実装/じっそう]:
+//: - まず max-heap を構築し、最大値を末尾へ交換して heap 範囲を縮めます。
+//:
+//: [注意/ちゅうい]:
+//: - stable ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n log n)、追加領域 O(1)
+fn sort_heap <.T: Ord> <(&Vec<.T>)->()> (v):
+    let n <i32> len<.T> v
+    let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
+    if:
+        le n 1
+        then ()
+        else:
+            let n_minus_two <i32> sub n 2;
+            let mut start <i32> div_s n_minus_two 2;
+            let mut done0 <i32> 0;
+            while eq done0 0:
+                do:
+                    if:
+                        lt start 0
+                        then set done0 1
+                        else:
+                            sort_heap_sift_down_data<.T> data_ptr start n;
+                            set start sub start 1;
+                            ();
+            let mut end <i32> sub n 1;
+            while lt 0 end:
+                do:
+                    sort_swap_data<.T> data_ptr 0 end;
+                    sort_heap_sift_down_data<.T> data_ptr 0 end;
+                    set end sub end 1;
+            ()
+
+//: sort_heap_ret: heap sort 後の Vec を返す
+//:
+//: [目的/もくてき]:
+//: - 破壊的ソートを行った同じ `Vec` を返し、後続処理で検証や連結処理をしやすくします。
+//:
+//: [実装/じっそう]:
+//: - `sort_heap` を呼んだあと `v` をそのまま返します。
+//:
+//: [注意/ちゅうい]:
+//: - ソート自体は in-place です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `sort_heap` と同じです。
+fn sort_heap_ret <.T: Ord> <(Vec<.T>)->Vec<.T>> (v):
+    let n <i32> get v "len"
+    let cap <i32> get v "cap"
+    let storage <VecStorageState> get v "storage"
+    let data_ptr <MemPtr<.T>> get v "data"
+    if:
+        le n 1
+        then ()
+        else:
+            let n_minus_two <i32> sub n 2;
+            let mut start <i32> div_s n_minus_two 2;
+            while ge start 0:
+                do:
+                    sort_heap_sift_down_data<.T> data_ptr start n;
+                    set start sub start 1;
+
+            let mut end <i32> sub n 1;
+            while gt end 0:
+                do:
+                    sort_swap_data<.T> data_ptr 0 end;
+                    sort_heap_sift_down_data<.T> data_ptr 0 end;
+                    set end sub end 1;
+            ()
+    Vec<.T> n cap storage data_ptr

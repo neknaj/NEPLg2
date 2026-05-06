@@ -13,6 +13,7 @@ const checks = [
     "nodesrc/test_run_test_wasi_tmp_dir.js",
     "nodesrc/test_run_test_wasix_missing_wasmer_fallback.js",
     "nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js",
+    "nodesrc/test_stdlib_vec_sort_module_split.js",
     "nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js",
     "nodesrc/test_stdlib_bytebuf_utf8_boundary.js",
     "nodesrc/test_stdlib_fs_no_unsafe_unwraps.js",

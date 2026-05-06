@@ -1,0 +1,184 @@
+//: quick: quick sort と raw slice quick sort adapter
+//:
+//: [目的/もくてき]:
+//: - Lomuto partition による quick sort と `sort` default implementation を所有します。
+//: - raw slice 用 adapter と Vec owner を返す helper を同じ責務に置きます。
+//:
+//: [注意/ちゅうい]:
+//: - 平均 O(n log n)、pivot によっては最悪 O(n^2) です。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/traits/ord" as *
+#import "alloc/collections/vec" as *
+#import "alloc/collections/vec/sort/common" as *
+//: sort_quick_partition_data: Lomuto partition で pivot 位置を決める
+//:
+//: [目的/もくてき]:
+//: - raw data pointer 上の `[lo, hi]` 区間を pivot 以下 / pivot より大きい要素へ分割します。
+//: - partition 後の pivot index を返し、quick sort の再帰境界に使います。
+//:
+//: [実装/じっそう]:
+//: - 末尾 `hi` の値を pivot とし、`sort_le(x, pivot)` を満たす値を左側へ交換します。
+//:
+//: [注意/ちゅうい]:
+//: - `lo <= hi` と区間が有効な raw storage 内にあることを呼び出し側が保証します。
+//: - Lomuto partition なので equal element が多い入力では分割が偏ることがあります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(hi - lo + 1)
+fn sort_quick_partition_data <.T: Ord> <(MemPtr<.T>,i32,i32)->i32> (data_ptr, lo, hi):
+    let pivot <.T> sort_get_unchecked_data<.T> data_ptr hi
+    let mut i <i32> lo;
+    let mut j <i32> lo;
+
+    while lt j hi:
+        do:
+            let x <.T> sort_get_unchecked_data<.T> data_ptr j;
+            if:
+                sort_le<.T> x pivot
+                then:
+                    sort_swap_data<.T> data_ptr i j;
+                    set i add i 1;
+                    ()
+                else ()
+            set j add j 1;
+
+    sort_swap_data<.T> data_ptr i hi;
+    i
+
+//: sort_quick_range_data: raw slice 区間を quick sort する
+//:
+//: [目的/もくてき]:
+//: - raw data pointer 上の `[lo, hi]` 区間を Lomuto quick sort で昇順にします。
+//:
+//: [実装/じっそう]:
+//: - `sort_quick_partition_data` で pivot を確定し、左右区間へ再帰します。
+//:
+//: [注意/ちゅうい]:
+//: - recursion depth は pivot の偏りに依存します。整列済みや equal-heavy な入力では深くなります。
+//:
+//: [計算量/けいさんりょう]:
+//: - 平均 O(n log n)、最悪 O(n^2)
+fn sort_quick_range_data <.T: Ord> <(MemPtr<.T>,i32,i32)->()> (data_ptr, lo, hi):
+    if:
+        lt lo hi
+        then:
+            let p <i32> sort_quick_partition_data<.T> data_ptr lo hi;
+            sort_quick_range_data<.T> data_ptr lo sub p 1;
+            sort_quick_range_data<.T> data_ptr add p 1 hi;
+            ()
+        else ()
+
+//: sort_quick: quick sort で `Vec` を in-place 整列する
+//:
+//: [目的/もくてき]:
+//: - 追加 allocation なしの既定候補として `Vec` を昇順に並べ替えます。
+//:
+//: [実装/じっそう]:
+//: - `Vec` の `data` と `len` から raw slice 区間を作り、`sort_quick_range_data` を呼びます。
+//:
+//: [注意/ちゅうい]:
+//: - stable ではありません。
+//: - 最悪 O(n^2) と recursion depth の偏りがあるため、入力分布が悪い場合は `sort_heap` や `sort_merge` を検討します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 平均 O(n log n)、最悪 O(n^2)、追加領域は recursion stack です。
+fn sort_quick <.T: Ord> <(&Vec<.T>)->()> (v):
+    let n <i32> len<.T> v
+    let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
+    if:
+        le n 1
+        then ()
+        else:
+            sort_quick_range_data<.T> data_ptr 0 sub n 1;
+            ()
+
+
+// -----------------------------------------------------------------------------
+// 9) Heap sort (max-heap)
+// -----------------------------------------------------------------------------
+
+//: sort_slice_quick: `MemPtr` 配列を quick sort で並べ替える
+//:
+//: [目的/もくてき]:
+//: - `data_ptr` から始まる長さ `len` の typed 連続領域を in-place で昇順ソートします。
+//:
+//: [実装/じっそう]:
+//: - `sort_quick_range_data` へ raw slice の開始位置と長さを渡す小さな adapter です。
+//:
+//: [注意/ちゅうい]:
+//: - `data_ptr` は `.T` の `len` 要素ぶん有効である必要があります。
+//: - メモリ所有権・境界チェックは呼び出し側が管理します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 平均 O(n log n), 最悪 O(n^2)
+fn sort_slice_quick <.T: Ord> <(MemPtr<.T>,i32)->()> (data_ptr, len):
+    if:
+        le len 1
+        then ()
+        else:
+            sort_quick_range_data<.T> data_ptr 0 sub len 1;
+            ()
+
+//: sort_i32: `i32` 配列 `MemPtr` を in-place で昇順ソートする
+//:
+//: [目的/もくてき]:
+//: - 競技プログラミング向けに `sort_i32(ptr, n)` の薄い API を提供します。
+//:
+//: [実装/じっそう]:
+//: - `sort_slice_quick<i32>` を呼び出します。
+//:
+//: [注意/ちゅうい]:
+//: - `data_ptr` は `n` 個の `i32` が格納された有効な領域である必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - 平均 O(n log n), 最悪 O(n^2)
+fn sort_i32 <(MemPtr<i32>,i32)->()> (data_ptr, n):
+    sort_slice_quick<i32> data_ptr n
+
+//: sort_quick_ret: quick sort 後の Vec を返す
+//:
+//: [目的/もくてき]:
+//: - 破壊的ソートを行った同じ `Vec` を返し、後続処理で検証や連結処理をしやすくします。
+//:
+//: [実装/じっそう]:
+//: - `sort_quick` を呼んだあと `v` をそのまま返します。
+//:
+//: [注意/ちゅうい]:
+//: - ソート自体は in-place です。
+//:
+//: [計算量/けいさんりょう]:
+//: - `sort_quick` と同じです。
+fn sort_quick_ret <.T: Ord> <(Vec<.T>)->Vec<.T>> (v):
+    let n <i32> get v "len"
+    let cap <i32> get v "cap"
+    let storage <VecStorageState> get v "storage"
+    let data_ptr <MemPtr<.T>> get v "data"
+    if:
+        le n 1
+        then ()
+        else:
+            sort_quick_range_data<.T> data_ptr 0 sub n 1;
+            ()
+    Vec<.T> n cap storage data_ptr
+
+//: sort: default sort として quick sort を実行する
+//:
+//: [目的/もくてき]:
+//: - 追加 allocation なしの一般用途 default として `sort_quick` を呼びます。
+//: - 安定性や worst-case bound が必要ない caller に短い API を提供します。
+//:
+//: [実装/じっそう]:
+//: - 現在の default は Lomuto quick sort です。
+//:
+//: [注意/ちゅうい]:
+//: - stable sort が必要なら `sort_merge` を使います。
+//: - worst-case O(n log n) を優先するなら `sort_heap` を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - `sort_quick` と同じです。
+fn sort <.T: Ord> <(&Vec<.T>)->()> (v):
+    sort_quick<.T> v

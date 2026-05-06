@@ -8,6 +8,11 @@ const repoRoot = path.resolve(__dirname, '..');
 const relPaths = [
     'stdlib/alloc/collections/vec.nepl',
     'stdlib/alloc/collections/vec/sort.nepl',
+    'stdlib/alloc/collections/vec/sort/common.nepl',
+    'stdlib/alloc/collections/vec/sort/simple.nepl',
+    'stdlib/alloc/collections/vec/sort/quick.nepl',
+    'stdlib/alloc/collections/vec/sort/heap.nepl',
+    'stdlib/alloc/collections/vec/sort/merge.nepl',
 ];
 
 const codeByPath = new Map();
@@ -53,7 +58,7 @@ for (const [relPath, code] of codeByPath) {
 }
 
 const vecCode = codeByPath.get('stdlib/alloc/collections/vec.nepl');
-const sortCode = codeByPath.get('stdlib/alloc/collections/vec/sort.nepl');
+const sortMergeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge.nepl');
 
 function between(code, start, end) {
     const startIdx = code.indexOf(start);
@@ -116,7 +121,7 @@ for (const [name, section] of [
 ]) {
     assert.doesNotMatch(section, /field::get_ref\s+&v\s+"data"/, `Vec.${name} must not consume Vec just to read backing storage`);
 }
-assert.match(sortCode, /fn\s+sort_merge\s+<\.T:\s+Ord>[\s\S]*dealloc_raw\s+mem_ptr_addr\s+buf\s+mul\s+n\s+size_of<\.T>[\s\S]*Result<\(\),\s*StdErrorKind>::Ok\s+\(\)/, 'sort_merge must release scratch buffer with raw owner cleanup');
-assert.match(sortCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord>[\s\S]*let\s+storage\s+<VecStorageState>\s+get\s+v\s+"storage"[\s\S]*let\s+data_ptr\s+<MemPtr<\.T>>\s+get\s+v\s+"data"[\s\S]*dealloc_raw\s+mem_ptr_addr\s+buf\s+mul\s+n\s+size_of<\.T>[\s\S]*Result<Vec<\.T>,\s*StdErrorKind>::Ok\s+Vec<\.T>\s+n\s+cap\s+storage\s+data_ptr/, 'sort_merge_ret must release scratch buffer and return the original Vec storage state and data owner');
+assert.match(sortMergeCode, /fn\s+sort_merge\s+<\.T:\s+Ord>[\s\S]*dealloc_raw\s+mem_ptr_addr\s+buf\s+mul\s+n\s+size_of<\.T>[\s\S]*Result<\(\),\s*StdErrorKind>::Ok\s+\(\)/, 'sort_merge must release scratch buffer with raw owner cleanup');
+assert.match(sortMergeCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord>[\s\S]*let\s+storage\s+<VecStorageState>\s+get\s+v\s+"storage"[\s\S]*let\s+data_ptr\s+<MemPtr<\.T>>\s+get\s+v\s+"data"[\s\S]*dealloc_raw\s+mem_ptr_addr\s+buf\s+mul\s+n\s+size_of<\.T>[\s\S]*Result<Vec<\.T>,\s*StdErrorKind>::Ok\s+Vec<\.T>\s+n\s+cap\s+storage\s+data_ptr/, 'sort_merge_ret must release scratch buffer and return the original Vec storage state and data owner');
 
 console.log('vec unsafe unwrap regression passed');
