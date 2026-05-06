@@ -7,6 +7,9 @@ const ROOT = path.resolve(__dirname, '..');
 const CORE_SRC = path.join(ROOT, 'nepl-core', 'src');
 const TYPECHECK_ROOT = path.join(CORE_SRC, 'typecheck.rs');
 const TYPECHECK_DIR = path.join(CORE_SRC, 'typecheck');
+const RESOURCE_ROOT = path.join(CORE_SRC, 'resource', 'mod.rs');
+const COMPILER = path.join(CORE_SRC, 'compiler.rs');
+const PASSES_MOD = path.join(CORE_SRC, 'passes', 'mod.rs');
 const MOVE_CHECK_ROOT = path.join(CORE_SRC, 'passes', 'move_check.rs');
 const MOVE_CHECK_DIR = path.join(CORE_SRC, 'passes', 'move_check');
 
@@ -29,8 +32,16 @@ function assertFile(filePath, label) {
     return read(filePath);
 }
 
+function assertMissing(filePath, label) {
+    assert(!fs.existsSync(filePath), `${label} must not be reintroduced`);
+}
+
 function assertContains(text, needle, label) {
     assert(text.includes(needle), `${label} must contain ${needle}`);
+}
+
+function assertNotContains(text, needle, label) {
+    assert(!text.includes(needle), `${label} must not contain ${needle}`);
 }
 
 function assertLineLimit(filePath, label, limit) {
@@ -39,10 +50,11 @@ function assertLineLimit(filePath, label, limit) {
 }
 
 const typecheckRoot = assertFile(TYPECHECK_ROOT, 'typecheck.rs');
-const moveCheckRoot = assertFile(MOVE_CHECK_ROOT, 'passes/move_check.rs');
+const resourceRoot = assertFile(RESOURCE_ROOT, 'resource/mod.rs');
+const compiler = assertFile(COMPILER, 'compiler.rs');
+const passesMod = assertFile(PASSES_MOD, 'passes/mod.rs');
 
 assertLineLimit(TYPECHECK_ROOT, 'typecheck.rs', 90);
-assertLineLimit(MOVE_CHECK_ROOT, 'passes/move_check.rs', 240);
 
 for (const moduleName of [
     'ascription',
@@ -96,38 +108,49 @@ for (const [moduleName, limit] of [
     assertLineLimit(path.join(TYPECHECK_DIR, moduleName), `typecheck/${moduleName}`, limit);
 }
 
+assertMissing(MOVE_CHECK_ROOT, 'legacy passes/move_check.rs');
+assertMissing(MOVE_CHECK_DIR, 'legacy passes/move_check directory');
+assertNotContains(passesMod, 'move_check', 'passes/mod.rs');
+assertContains(passesMod, 'pub mod drop_insertion;', 'passes/mod.rs');
+assertContains(passesMod, 'pub use drop_insertion::insert_drops;', 'passes/mod.rs');
+
 for (const moduleName of [
-    'alias',
-    'branch_merge',
-    'context_state',
-    'provenance',
-    'raw_memory',
-    'raw_memory_args',
-    'raw_place',
-    'raw_state',
-    'state',
-    'summary',
-    'summary_build',
-    'visitor',
+    'borrow_check',
+    'drop_elaboration',
+    'drop_elaboration_hir_bridge',
+    'drop_model',
+    'drop_plan',
+    'drop_point_resolve',
+    'drop_requirement',
+    'effect',
+    'initialized',
+    'lower',
+    'owner_check',
+    'shadow',
 ]) {
-    assertFile(path.join(MOVE_CHECK_DIR, `${moduleName}.rs`), `passes/move_check/${moduleName}.rs`);
-    assertContains(moveCheckRoot, `mod ${moduleName};`, 'passes/move_check.rs');
+    assertContains(resourceRoot, `mod ${moduleName};`, 'resource/mod.rs');
 }
 
-assertContains(moveCheckRoot, 'pub fn run', 'passes/move_check.rs');
-assertContains(moveCheckRoot, 'struct MoveCheckContext', 'passes/move_check.rs');
-
-for (const [moduleName, limit] of [
-    ['alias.rs', 1850],
-    ['visitor.rs', 1450],
-    ['context_state.rs', 1250],
-    ['summary_build.rs', 820],
-    ['branch_merge.rs', 760],
-    ['provenance.rs', 620],
-    ['raw_memory_args.rs', 180],
-    ['raw_state.rs', 360],
+for (const exportName of [
+    'check_resource_initialized_moves',
+    'compute_resource_drop_elaboration_plan',
+    'validate_resource_drop_elaboration_hir_bridge',
+    'check_resource_borrow_lifetimes',
+    'check_resource_effect_boundaries',
+    'check_resource_owner_obligations',
+    'check_hir_resource_safety_shadow',
 ]) {
-    assertLineLimit(path.join(MOVE_CHECK_DIR, moduleName), `passes/move_check/${moduleName}`, limit);
+    assertContains(resourceRoot, exportName, 'resource/mod.rs');
 }
+
+assertContains(compiler, 'fn run_resource_static_check(', 'compiler.rs');
+assertContains(compiler, 'check_resource_initialized_moves', 'compiler.rs');
+assertContains(compiler, 'compute_resource_drop_elaboration_plan', 'compiler.rs');
+assertContains(compiler, 'check_resource_borrow_lifetimes', 'compiler.rs');
+assertContains(compiler, 'check_resource_effect_boundaries', 'compiler.rs');
+assertContains(compiler, 'check_resource_owner_obligations', 'compiler.rs');
+assertContains(compiler, 'run_resource_drop_elaboration_hir_bridge_gate', 'compiler.rs');
+assertContains(compiler, 'passes::insert_drops', 'compiler.rs');
+assertNotContains(compiler, 'move_check', 'compiler.rs');
 
 console.log('static check responsibility boundaries ok');

@@ -370,6 +370,22 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。静的検査大規模修正の Stage 4 実装状況は `doc/neplg2/static_check_complexity_reduction_plan.md` に反映した。
 
+# 2026-05-06 note (ISS-20260506T104320731Z static check source policy stale move_check)
+
+- [同期]:
+  - `b92e48ae` の stale static check policy tracking issue push 後、`origin/main` と一致する clean な `main` 上で同 issue を修正した。
+- [原因]:
+  - remote main で legacy `passes/move_check.rs` と `passes/move_check/**` が削除され、ResourceIR の initialized / borrow / effect / owner / drop elaboration gate が静的検査の正規経路になった。
+  - `nodesrc/test_static_check_boundary_responsibility.js` は旧 move_check module の存在をまだ要求していたため、source policy regression が stale warning を出していた。
+- [修正]:
+  - `passes/move_check.rs` / `passes/move_check` directory の存在要求を削除し、再導入を拒否する assertion に変更した。
+  - `passes/mod.rs` の `drop_insertion` export、`resource/mod.rs` の ResourceIR check / drop elaboration / borrow / effect / owner exports、`compiler.rs` の `run_resource_static_check` gate と `passes::insert_drops` 接続を監視する形へ更新した。
+- [検証]:
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math convert float responsibility split)
 
 - [同期]:

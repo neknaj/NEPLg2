@@ -2,8 +2,8 @@
 id: ISS-20260506T104320731Z-STATIC-CHECK-SOURCE-POLICY-STILL-REQ-3078A6E1
 title: "static check source policy still requires removed legacy move_check pass"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-06
@@ -42,3 +42,14 @@ Update the static check responsibility policy to track the current ResourceIR/st
 ## 検証
 
 Run node nodesrc/test_static_check_boundary_responsibility.js and node nodesrc/run_source_policy_regressions.js --warn-only; both must pass without stale move_check warnings.
+
+## 2026-05-06 対応結果
+
+- `nodesrc/test_static_check_boundary_responsibility.js` から削除済み `passes/move_check.rs` / `passes/move_check/**` の存在要求を削除した。
+- 代わりに legacy move_check pass の再導入を拒否する assertion を追加した。
+- 現行の静的検査境界として、`passes/mod.rs` の `drop_insertion` export、`resource/mod.rs` の ResourceIR check / drop elaboration / borrow / effect / owner exports、`compiler.rs` の `run_resource_static_check` gate と `passes::insert_drops` 接続を監視する形へ更新した。
+
+## 2026-05-06 検証結果
+
+- `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
