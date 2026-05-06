@@ -1,3 +1,21 @@
+# 2026-05-06 note (ISS-20260505T235821002Z fullreview static-check resource status)
+
+- [同期]:
+  - `origin/main` の `64f6bda6` と一致する clean な `main` から、branch `work/fullreview-static-check-resource-status` を作成して対応した。
+- [原因]:
+  - `doc/fullreview20260430/rust-compiler/static-check-resource.md` が、現在は compiler error gate へ接続済みの `UnsafeMemoryInPureFunction` を shadow-only と説明し続けていた。
+  - このままだと Stage 5 の残件を誤認し、既に error 化済みの Resource IR unsafe memory gate を再実装対象として扱う危険がある。
+- [修正]:
+  - fullreview static-check resource report の effect boundary 説明を現在の main に合わせた。
+  - 2026-05-06 追補を追加し、完了済みの `ExternalIo` / `Nondet` / `UnsafeMemory` compiler error gate と、残件である旧 `move_check` / `insert_drops` authority、raw-memory-boundary capability、MemPtr/Storage/InitializedCell 分離を切り分けた。
+- [検証]:
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [issue]:
+  - `ISS-20260505T235821002Z-FULLREVIEW-STATIC-CHECK-RESOURCE-REP-F45743C8` は fixed。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260505T234127273Z initialized external IO input split)
 
 - [同期]:

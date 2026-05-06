@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-05T23:46:03.457Z",
+  "generated_at": "2026-05-05T23:59:44.692Z",
   "counts": {
-    "total": 487,
+    "total": 488,
     "open": 13,
-    "resolved": 474,
+    "resolved": 475,
     "by_area": {
       "core": {
-        "total": 224,
+        "total": 225,
         "open": 5,
-        "resolved": 219
+        "resolved": 220
       },
       "stdlib": {
         "total": 155,
@@ -3478,6 +3478,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260505T234127273Z-INITIALIZED-EXTERNAL-IO-MIXES-INPUT--B1A15983.md"
+    },
+    {
+      "id": "ISS-20260505T235821002Z-FULLREVIEW-STATIC-CHECK-RESOURCE-REP-F45743C8",
+      "title": "Fullreview static-check resource report still describes UnsafeMemory gate as shadow-only",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-05",
+      "updated": "2026-05-06",
+      "target": "doc/fullreview20260430/rust-compiler/static-check-resource.md, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260505T235821002Z-FULLREVIEW-STATIC-CHECK-RESOURCE-REP-F45743C8.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
