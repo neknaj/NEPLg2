@@ -1,3 +1,27 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string slice and char boundary split)
+
+- [同期]:
+  - `232715b8` を push/pull 済みの `main` から branch `fix/string-slice-char-boundary-split` を作成して作業した。
+- [原因]:
+  - `stdlib/alloc/string.nepl` は search 分割後も、byte slice、CR trim、UTF-8 char decode、char index、char slice、trim helper を root に持ち続けていた。
+  - これらは `alloc/string/access`、`alloc/string/search`、`alloc/string/storage`、`alloc/string/utf8` の上に構成できる slice/char boundary の責務であり、numeric parse/format や split と同じ root に置く必要がない。
+- [修正]:
+  - `stdlib/alloc/string/slice.nepl` を追加し、`str_slice_result`、`str_slice`、`str_next_char_result`、`str_char_count`、`str_char_byte_index_result`、`str_char_at_result`、`str_slice_chars_result`、`str_starts_with_char`、`str_contains_char`、`str_trim` などを所有させた。
+  - `stdlib/alloc/string.nepl` は `./string/slice` を public re-export し、既存 facade から slice/char API を参照できる構成にした。
+  - source policy を更新し、slice/char 関数本体が root に戻らないこと、UTF-8 boundary を検証してから owned string を構築すること、char decode が `StringUtf8LeadKind` の enum match を使うことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_slice_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string/slice.nepl -i stdlib/alloc/string/search.nepl -i stdlib/alloc/string/access.nepl -i stdlib/alloc/string/builder.nepl -i stdlib/alloc/string/storage.nepl -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/string_char.n.md -i tests/stdlib/text_utf8.n.md -i tests/stdlib/string_numeric_overflow.n.md --no-tree -o tmp/string-slice-char-boundary-split.json -j 1`: total=56, passed=56
+  - `git diff --check`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl` には split、numeric parse/format、float formatting、facade としての残責務が残っている。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string search boundary split)
 
 - [同期]:

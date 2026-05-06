@@ -13,6 +13,8 @@ const builderRelPath = 'stdlib/alloc/string/builder.nepl';
 const builderSrc = fs.readFileSync(path.join(repoRoot, builderRelPath), 'utf8');
 const searchRelPath = 'stdlib/alloc/string/search.nepl';
 const searchSrc = fs.readFileSync(path.join(repoRoot, searchRelPath), 'utf8');
+const sliceRelPath = 'stdlib/alloc/string/slice.nepl';
+const sliceSrc = fs.readFileSync(path.join(repoRoot, sliceRelPath), 'utf8');
 
 const forbiddenPhrases = [
     ['generic main-use title', '\u4e3b\u306a\u7528\u9014'],
@@ -27,6 +29,7 @@ for (const [sourceRelPath, sourceText] of [
     [accessRelPath, accessSrc],
     [builderRelPath, builderSrc],
     [searchRelPath, searchSrc],
+    [sliceRelPath, sliceSrc],
 ]) {
     for (const [label, phrase] of forbiddenPhrases) {
         assert.equal(sourceText.includes(phrase), false, `${sourceRelPath} must not contain generated doc boilerplate: ${label}`);
@@ -39,7 +42,7 @@ const requiredPhrases = [
     [builderRelPath, builderSrc, 'StringBuilder byte-buffer ownership contract', 'StringBuilder: \u8907\u6570\u306e str \u7247\u3092 byte buffer \u306b\u8ffd\u52a0\u3057\u3066\u6700\u5f8c\u306b 1 \u3064\u3078\u307e\u3068\u3081\u308b'],
     [builderRelPath, builderSrc, 'StringBuilder non-Copy owner contract', 'builder \u306f `Copy` / `Clone` \u3067\u306f\u3042\u308a\u307e\u305b\u3093'],
     [builderRelPath, builderSrc, 'StringBuilder raw storage contract', 'raw storage \u306b\u306f `u8` \u3060\u3051\u3092\u7f6e\u304d'],
-    [relPath, src, 'slice UTF-8 boundary contract', 'str_slice_result: UTF-8 \u5883\u754c\u306b\u63c3\u3063\u305f byte \u7bc4\u56f2\u3092\u65b0\u3057\u3044 str \u3068\u3057\u3066\u5207\u308a\u51fa\u3059'],
+    [sliceRelPath, sliceSrc, 'slice UTF-8 boundary contract', 'str_slice_result: UTF-8 \u5883\u754c\u306b\u63c3\u3063\u305f byte \u7bc4\u56f2\u3092\u65b0\u3057\u3044 str \u3068\u3057\u3066\u5207\u308a\u51fa\u3059'],
     [relPath, src, 'split scanner byte-scan contract', 'str_split_next: allocation \u306a\u3057\u3067\u6b21\u306e split range \u3092\u8fd4\u3059'],
     [relPath, src, 'i32 parse overflow contract', 'to_i32: 10 \u9032\u6587\u5b57\u5217\u3092 i32 \u3068\u3057\u3066\u89e3\u6790\u3059\u308b'],
     [relPath, src, 'f64 formatting contract', 'from_f64_result: f64 \u3092\u6709\u9650\u5024\u3060\u3051\u6587\u5b57\u5217\u5316\u3059\u308b'],

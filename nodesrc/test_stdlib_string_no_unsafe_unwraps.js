@@ -21,6 +21,8 @@ const builderRelPath = 'stdlib/alloc/string/builder.nepl';
 const builderSrc = fs.readFileSync(path.join(repoRoot, builderRelPath), 'utf8');
 const searchRelPath = 'stdlib/alloc/string/search.nepl';
 const searchSrc = fs.readFileSync(path.join(repoRoot, searchRelPath), 'utf8');
+const sliceRelPath = 'stdlib/alloc/string/slice.nepl';
+const sliceSrc = fs.readFileSync(path.join(repoRoot, sliceRelPath), 'utf8');
 
 const code = stripNeplComments(src);
 const utf8Code = stripNeplComments(utf8Src);
@@ -28,6 +30,7 @@ const storageCode = stripNeplComments(storageSrc);
 const accessCode = stripNeplComments(accessSrc);
 const builderCode = stripNeplComments(builderSrc);
 const searchCode = stripNeplComments(searchSrc);
+const sliceCode = stripNeplComments(sliceSrc);
 const fromU128Radix = code.match(/fn\s+from_u128_radix[\s\S]*?(?=\nfn\s+to_u128|\nfn\s+parse_u128|\n\/\/ to_u128|$)/)?.[0] ?? '';
 const stringFinish = storageCode.match(/fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\nfn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
 const storageCodeWithoutStringFinish = stringFinish ? storageCode.replace(stringFinish, '') : storageCode;
@@ -49,6 +52,7 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(accessCode, pattern, `${accessRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(builderCode, pattern, `${builderRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(searchCode, pattern, `${searchRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(sliceCode, pattern, `${sliceRelPath} must not use unsafe unwrap helpers in implementation code`);
 }
 
 assert.match(utf8Code, /enum\s+StringUtf8LeadKind:/, 'alloc/string/utf8 must classify UTF-8 leading bytes with an enum');
@@ -56,7 +60,7 @@ assert.match(utf8Code, /fn\s+string_utf8_validate_mem\s+/, 'alloc/string/utf8 mu
 assert.match(storageCode, /fn\s+string_from_utf8_mem_result\s+/, 'alloc/string/storage must expose a checked UTF-8 construction API');
 assert.match(searchCode, /fn\s+str_utf8_is_boundary\s+/, 'alloc/string/search must validate UTF-8 slice boundaries');
 assert.match(code, /fn\s+concat_result\s+/, 'alloc/string must keep allocation-bearing concat available as Result');
-assert.match(code, /fn\s+str_slice_result\s+/, 'alloc/string must keep allocation-bearing slice available as Result');
+assert.match(sliceCode, /fn\s+str_slice_result\s+/, 'alloc/string/slice must keep allocation-bearing slice available as Result');
 assert.match(builderCode, /fn\s+sb_build_result\s+/, 'StringBuilder build must have a Result-returning path');
 assertStringBuilderOwnerBoundary(builderCode);
 assert.match(code, /fn\s+from_f64_result\s+/, 'from_f64 must have a Result-returning implementation path');
@@ -73,7 +77,7 @@ assert.match(stringFinish, /\bget\s+region\s+"ptr"/, 'string_finish must consume
 assert.match(stringFinish, /\bstring_finish_base\s+base\s+byte_len\b/, 'string_finish must delegate raw header finalization to string_finish_base');
 assert.match(fromU128Radix, /digit_count[\s\S]*string_alloc_region\s+digit_count[\s\S]*set\s+pos\s+sub\s+pos\s+1/, 'from_u128_radix must count digits before allocating and write output from the end');
 assert.doesNotMatch(fromU128Radix, /scratch_raw/, 'from_u128_radix must not use scratch raw storage for digit reversal');
-assert.match(code, /fn\s+str_slice_result[\s\S]*str_utf8_is_boundary\s+s\s+s0[\s\S]*str_utf8_is_boundary\s+s\s+e0/, 'str_slice_result must reject non-boundary UTF-8 byte ranges');
+assert.match(sliceCode, /fn\s+str_slice_result[\s\S]*str_utf8_is_boundary\s+s\s+s0[\s\S]*str_utf8_is_boundary\s+s\s+e0/, 'str_slice_result must reject non-boundary UTF-8 byte ranges');
 assert.doesNotMatch(storageCodeWithoutStringFinish, /\bget\s+(?:region|out_region)\s+"ptr"/, 'alloc/string/storage must read RegionToken ptr through get_ref except at the final string_finish ownership boundary');
 assert.doesNotMatch(storageCode, /\bstring_region_data_ptr\s+(?:region|out_region)\b/, 'alloc/string/storage must pass RegionToken projections by reference');
 assert.match(storageCode, /fn\s+string_region_data_ptr\s+<\(&RegionToken<u8>\)->MemPtr<u8>>/, 'string_region_data_ptr must project from a RegionToken reference');
