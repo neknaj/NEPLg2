@@ -1,3 +1,23 @@
+# 2026-05-06 note (ISS-20260506T084621972Z Resource IR drop elaboration live plan)
+
+- [同期]:
+  - `6219c217` push 後、remote main と一致する clean な `main` から branch `work/resource-live-drop-elaboration-plan` を作成した。
+- [原因]:
+  - `ResourceFunctionCheck::auto_drop_points` は live initialized auto-drop fact を持つようになったが、codegen 境界へ渡す verified plan がまだなかった。
+  - そのまま次工程へ進むと、`ResourceDropPlan` の candidate や HIR `passes::insert_drops` の scope walker を誤って authority に戻す危険があった。
+- [修正]:
+  - `nepl-core/src/resource/drop_elaboration.rs` を追加し、`ResourceDropElaborationPlan` / `ResourceDropElaborationFunction` / `ResourceDropElaborationPlanError` を定義した。
+  - `compute_resource_drop_elaboration_plan` は `ResourceCheckReport::functions[*].auto_drop_points` のみを入力にし、function/check 対応、drop point path の EndScope 解決、auto-drop place が EndScope locals に含まれることを検証する。
+  - `run_resource_static_check` で Resource IR cell gate 直後に drop elaboration plan gate を実行し、不整合を `resource.lower.incomplete` の hard error にするようにした。
+  - source policy に `drop_elaboration.rs` と compiler gate 順序監視を追加した。
+- [検証]:
+  - `resource_ir_live_auto_drop_points_include_function_parameters` で non-Copy parameter の live drop fact が drop elaboration plan に出ることを確認した。
+  - `resource_ir_drop_elaboration_plan_uses_checked_live_drop_facts` で move 済み outer local は plan に出ず、live inner shadow local だけが EndScope に解決されることを確認した。
+  - `resource_ir_drop_elaboration_plan_rejects_invalid_checked_paths` で壊れた typed path が enum error として拒否されることを確認した。
+  - `resource_ir_drop_elaboration_plan_rejects_places_outside_end_scope` で EndScope locals と auto-drop place の不一致が enum error として拒否されることを確認した。
+- [残件]:
+  - 実 drop call 生成はまだ HIR `passes::insert_drops` が担当している。次は checked live drop elaboration plan を消費して HIR/Wasm drop call を生成し、scope walker を削除する。
+
 # 2026-05-06 note (ISS-20260506T083026784Z Resource IR live drop facts)
 
 - [同期]:

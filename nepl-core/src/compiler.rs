@@ -273,6 +273,10 @@ fn run_resource_static_check(
     run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
     let initialized_moves = crate::resource::check_resource_initialized_moves(&resource, types);
     run_resource_cell_gate(&initialized_moves, diagnostics, source_map)?;
+    run_resource_drop_elaboration_plan_gate(
+        crate::resource::compute_resource_drop_elaboration_plan(&resource, &initialized_moves),
+        diagnostics,
+    )?;
     let borrow_lifetimes = crate::resource::check_resource_borrow_lifetimes(&resource, types);
     run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)?;
     let effect_boundaries = crate::resource::check_resource_effect_boundaries(&resource);
@@ -281,6 +285,87 @@ fn run_resource_static_check(
     run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)?;
 
     Ok(())
+}
+
+fn run_resource_drop_elaboration_plan_gate(
+    plan: Result<
+        crate::resource::ResourceDropElaborationPlan,
+        Vec<crate::resource::ResourceDropElaborationPlanError>,
+    >,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(), CoreError> {
+    let Err(errors) = plan else {
+        return Ok(());
+    };
+    diagnostics.extend(
+        errors
+            .iter()
+            .map(resource_drop_elaboration_plan_error_to_error),
+    );
+    Err(CoreError::from_diagnostics(diagnostics.clone()))
+}
+
+fn resource_drop_elaboration_plan_error_to_error(
+    error: &crate::resource::ResourceDropElaborationPlanError,
+) -> Diagnostic {
+    match error {
+        crate::resource::ResourceDropElaborationPlanError::DuplicateFunctionCheck { function } => {
+            Diagnostic::error_with_code(
+                resource_lower_incomplete_code(),
+                format!(
+                    "resource drop elaboration found duplicate initialized-state check for function '{}'",
+                    function
+                ),
+                Span::dummy(),
+            )
+        }
+        crate::resource::ResourceDropElaborationPlanError::MissingFunctionCheck { function } => {
+            Diagnostic::error_with_code(
+                resource_lower_incomplete_code(),
+                format!(
+                    "resource drop elaboration is missing initialized-state check for function '{}'",
+                    function
+                ),
+                Span::dummy(),
+            )
+        }
+        crate::resource::ResourceDropElaborationPlanError::MissingResourceFunction { function } => {
+            Diagnostic::error_with_code(
+                resource_lower_incomplete_code(),
+                format!(
+                    "resource drop elaboration check references missing function '{}'",
+                    function
+                ),
+                Span::dummy(),
+            )
+        }
+        crate::resource::ResourceDropElaborationPlanError::InvalidDropPointPath {
+            function,
+            path,
+            span,
+            error,
+        } => Diagnostic::error_with_code(
+            resource_lower_incomplete_code(),
+            format!(
+                "resource drop elaboration point in function '{}' does not resolve to EndScope: {:?} (path {:?})",
+                function, error, path
+            ),
+            *span,
+        ),
+        crate::resource::ResourceDropElaborationPlanError::DropPlaceOutsideEndScope {
+            function,
+            path,
+            place,
+            span,
+        } => Diagnostic::error_with_code(
+            resource_lower_incomplete_code(),
+            format!(
+                "resource drop elaboration point in function '{}' references place {:?} outside its EndScope locals (path {:?})",
+                function, place, path
+            ),
+            *span,
+        ),
+    }
 }
 
 fn run_resource_lowering_coverage_gate(

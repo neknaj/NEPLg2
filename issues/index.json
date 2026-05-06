@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T08:41:09.771Z",
+  "generated_at": "2026-05-06T08:53:24.967Z",
   "counts": {
-    "total": 501,
+    "total": 502,
     "open": 13,
-    "resolved": 488,
+    "resolved": 489,
     "by_area": {
       "core": {
-        "total": 237,
+        "total": 238,
         "open": 5,
-        "resolved": 232
+        "resolved": 233
       },
       "stdlib": {
         "total": 155,
@@ -3673,6 +3673,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T083026784Z-RESOURCE-IR-DROP-PLAN-LACKS-LIVE-DRO-358D2C7E.md"
+    },
+    {
+      "id": "ISS-20260506T084621972Z-RESOURCE-IR-LIVE-DROP-FACTS-LACK-COD-9EB91BC5",
+      "title": "Resource IR live drop facts lack codegen-facing elaboration plan",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource, nepl-core/src/compiler.rs, nepl-core/src/passes/drop_insertion.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T084621972Z-RESOURCE-IR-LIVE-DROP-FACTS-LACK-COD-9EB91BC5.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

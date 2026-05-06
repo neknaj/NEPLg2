@@ -46,6 +46,8 @@ for (const gate of [
     'run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)',
     'crate::resource::check_resource_initialized_moves(&resource, types)',
     'run_resource_cell_gate(&initialized_moves, diagnostics, source_map)',
+    'crate::resource::compute_resource_drop_elaboration_plan(&resource, &initialized_moves)',
+    'run_resource_drop_elaboration_plan_gate(',
     'crate::resource::check_resource_borrow_lifetimes(&resource, types)',
     'run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)',
     'crate::resource::check_resource_effect_boundaries(&resource)',

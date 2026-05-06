@@ -20,6 +20,7 @@ mod coverage_hir_projection;
 mod coverage_hir_projection_aggregate;
 mod coverage_hir_raw;
 mod coverage_resource;
+mod drop_elaboration;
 mod drop_model;
 mod drop_plan;
 mod drop_point_path;
@@ -102,6 +103,10 @@ pub use coverage::{
     compare_hir_resource_lowering, compare_hir_resource_lowering_typed, ResourceCoverageCounts,
     ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceFunctionCoverage,
     ResourceLoweringCoverage,
+};
+pub use drop_elaboration::{
+    compute_resource_drop_elaboration_plan, ResourceDropElaborationFunction,
+    ResourceDropElaborationPlan, ResourceDropElaborationPlanError,
 };
 pub use drop_model::{
     ResourceAutoDrop, ResourceAutoDropKind, ResourceDropFunctionPlan, ResourceDropPlan,

@@ -117,6 +117,14 @@ span は診断表示には必要だが、drop elaboration の挿入位置とし�
 
 また Resource IR lowering は non-Copy function parameter の EndScope anchor を terminator return 前に生成する。これにより HIR `insert_drops` が outer scope で扱っていた parameter drop obligation も Resource IR 上で追跡できる。次は candidate plan ではなくこの checked live fact を実 drop call 生成へ接続する必要がある。
 
+## 2026-05-06 drop elaboration plan gate 追補
+
+checked live fact を codegen 境界へ渡す `ResourceDropElaborationPlan` を追加した。入力は `ResourceFunctionCheck::auto_drop_points` に限定し、`ResourceDropPlan` の candidate は使わない。
+
+plan 構築時には、Resource IR function と check report の対応、`ResourceDropPointPath` が実際に EndScope へ解決できること、各 auto-drop place がその EndScope locals に含まれることを検証する。失敗は `ResourceDropElaborationPlanError` enum で分類し、compiler pipeline では Resource IR cell gate 直後に `resource.lower.incomplete` の hard error へ写像する。
+
+この変更で実 drop call 生成そのものはまだ HIR `passes::insert_drops` に残る。ただし次の置換作業では、candidate plan や HIR scope traversal ではなく、この checked live drop elaboration plan を唯一の入力として消費できる。
+
 ## 次の確認対象
 
 - `ISS-20260425T000000Z-RV-CORE-009-58589A3F`: Resource IR final authority。

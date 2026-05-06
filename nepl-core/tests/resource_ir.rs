@@ -6,17 +6,18 @@ use nepl_core::loader::Loader;
 use nepl_core::resource::{
     check_hir_resource_safety_shadow, check_resource_borrow_lifetimes,
     check_resource_effect_boundaries, check_resource_initialized_moves,
-    check_resource_owner_obligations, compare_hir_resource_lowering, compute_resource_drop_plan,
-    lower_hir_module, lower_hir_module_skeleton, resolve_resource_drop_point_end_scope,
+    check_resource_owner_obligations, compare_hir_resource_lowering,
+    compute_resource_drop_elaboration_plan, compute_resource_drop_plan, lower_hir_module,
+    lower_hir_module_skeleton, resolve_resource_drop_point_end_scope,
     resolve_resource_drop_point_path, AggregateKind, BorrowKind, BorrowState, CellState, EffectOp,
     ExternalIoOp, NondetOp, OwnerState, Place, PlaceProjection, PlaceRoot, RawMemoryOp,
     ResourceAutoDropKind, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic,
     ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDiagnostic, ResourceCheckOperation,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropPointPath,
-    ResourceDropPointResolutionError, ResourceDropPointStep, ResourceDropRequirement,
-    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
-    ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
-    ResourceOwnerOperation, ResourceTerminator,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceDropElaborationPlanError,
+    ResourceDropPointPath, ResourceDropPointResolutionError, ResourceDropPointStep,
+    ResourceDropRequirement, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
+    ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal, ResourceModule, ResourceOffset,
+    ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -3478,10 +3479,186 @@ fn main <()->i32> ():
         .locals
         .iter()
         .any(|place| matches!(&place.root, PlaceRoot::Local(name) if name == "_g")));
+    let elaboration_plan = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect("parameter live drop point should be valid for drop elaboration");
+    let ignore_plan = elaboration_plan
+        .functions
+        .iter()
+        .find(|function| function.name == ignore_check.name)
+        .expect("ignore drop elaboration function should exist");
+    assert!(ignore_plan
+        .auto_drops
+        .iter()
+        .any(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "_g")));
     assert!(ignore_check.final_cells.iter().any(|entry| {
         matches!(&entry.place.root, PlaceRoot::Local(name) if name == "_g")
             && entry.state == CellState::Dropped
     }));
+}
+
+#[test]
+fn resource_ir_drop_elaboration_plan_uses_checked_live_drop_facts() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
+
+fn consume <(Guard)->i32> (_g):
+    0
+
+fn main <()->i32> ():
+    let x <Guard> Guard 1
+    let _ <i32> if true:
+        then:
+            let x <Guard> Guard 2
+            0
+        else:
+            0
+    consume x
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let plan = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect("checked live drop facts should build a codegen-facing plan");
+    let main_plan = plan
+        .functions
+        .iter()
+        .find(|function| function.name.starts_with("main"))
+        .expect("main drop elaboration plan should exist");
+
+    assert!(main_plan.auto_drops.iter().any(|drop| {
+        matches!(&drop.place.root, PlaceRoot::Local(name) if name.starts_with("x#"))
+    }));
+    assert!(!main_plan
+        .auto_drops
+        .iter()
+        .any(|drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name == "x")));
+    let inner_point = main_plan
+        .drop_points
+        .iter()
+        .find(|point| {
+            point.auto_drops.iter().any(
+                |drop| matches!(&drop.place.root, PlaceRoot::Local(name) if name.starts_with("x#")),
+            )
+        })
+        .expect("inner live drop point should be present");
+    resolve_resource_drop_point_end_scope(
+        resource_function(&resource, &main_plan.name),
+        &inner_point.path,
+    )
+    .expect("drop elaboration point must resolve to an EndScope");
+}
+
+#[test]
+fn resource_ir_drop_elaboration_plan_rejects_invalid_checked_paths() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
+
+fn ignore <(Guard)->i32> (_g):
+    1
+
+fn main <()->i32> ():
+    ignore Guard 7
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let mut report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let ignore_check = report
+        .functions
+        .iter_mut()
+        .find(|function| function.name.starts_with("ignore"))
+        .expect("ignore resource check should exist");
+    ignore_check.auto_drop_points[0].path = ResourceDropPointPath {
+        block: ResourceBlockId(0),
+        steps: vec![ResourceDropPointStep::Op { index: 9999 }],
+    };
+
+    let errors = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect_err("invalid live drop point path must be rejected");
+    assert!(errors.iter().any(|error| matches!(
+        error,
+        ResourceDropElaborationPlanError::InvalidDropPointPath {
+            function,
+            error:
+                ResourceDropPointResolutionError::OpIndexOutOfBounds {
+                    index: 9999,
+                    ..
+                },
+            ..
+        } if function.starts_with("ignore")
+    )));
+}
+
+#[test]
+fn resource_ir_drop_elaboration_plan_rejects_places_outside_end_scope() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
+
+fn ignore <(Guard)->i32> (_g):
+    1
+
+fn main <()->i32> ():
+    ignore Guard 7
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let mut report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let ignore_check = report
+        .functions
+        .iter_mut()
+        .find(|function| function.name.starts_with("ignore"))
+        .expect("ignore resource check should exist");
+    let bad_place = Place::local(
+        "not_in_this_scope".to_string(),
+        ignore_check.auto_drop_points[0].auto_drops[0].place.ty,
+    );
+    ignore_check.auto_drop_points[0].auto_drops[0].place = bad_place.clone();
+
+    let errors = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect_err("live drop point place outside EndScope locals must be rejected");
+    assert!(errors.iter().any(|error| matches!(
+        error,
+        ResourceDropElaborationPlanError::DropPlaceOutsideEndScope {
+            function,
+            place,
+            ..
+        } if function.starts_with("ignore") && place == &bad_place
+    )));
 }
 
 #[test]
