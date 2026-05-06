@@ -11,17 +11,24 @@ function read(rel) {
 }
 
 const stringSrc = read('stdlib/alloc/string.nepl');
+const stringSearchSrc = read('stdlib/alloc/string/search.nepl');
 const lexerSrc = read('stdlib/neplg2/core/syntax/lexer.nepl');
 const importSpecSrc = read('stdlib/neplg2/core/module/import_spec.nepl');
 
 assert.match(
     stringSrc,
-    /\bfn\s+str_starts_with_at\s+<\(str,i32,str\)->bool>/,
-    'alloc/string.nepl must expose str_starts_with_at for offset-based scanners',
+    /pub\s+#import\s+"\.\/string\/search"\s+as\s+\*/,
+    'alloc/string.nepl must re-export string/search for offset-based scanners',
 );
 
 assert.match(
-    stringSrc,
+    stringSearchSrc,
+    /\bfn\s+str_starts_with_at\s+<\(str,i32,str\)->bool>/,
+    'alloc/string/search.nepl must own str_starts_with_at for offset-based scanners',
+);
+
+assert.match(
+    stringSearchSrc,
     /\bstr_eq_at\s+s\s+prefix\s+start\s+lp\s+0\b/,
     'str_starts_with_at must centralize the internal str_eq_at loop-index argument',
 );

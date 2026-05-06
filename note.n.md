@@ -1,3 +1,28 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string search boundary split)
+
+- [同期]:
+  - `1e226c40` を push/pull して `main` と `origin/main` が一致した後、branch `fix/string-search-boundary-split` を作成した。
+- [原因]:
+  - `stdlib/alloc/string.nepl` は byte accessor / builder 分割後も、byte 列比較、prefix/suffix 判定、UTF-8 boundary predicate、split/search 用位置一致判定を root に持ち続けていた。
+  - これらは raw memory を直接持たず、`alloc/string/access` と `alloc/string/utf8` の上に構成できるため、slice / split / numeric conversion と同居させる必要がない。
+- [修正]:
+  - `stdlib/alloc/string/search.nepl` を追加し、`str_eq`、`str_is_space`、`str_starts_with_at`、`str_ends_with`、`str_utf8_is_boundary`、`str_match_at`、`str_find`、`str_range_eq` などを所有させた。
+  - `stdlib/alloc/string.nepl` は `./string/search` を public re-export し、slice/split/numeric 側は search API を利用する構成にした。
+  - source policy を更新し、`str_is_space` の match arm 検査、self-host lexer 向け `str_starts_with_at` 境界、root に search 関数本体が戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_search_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string/search.nepl -i stdlib/alloc/string/access.nepl -i stdlib/alloc/string/builder.nepl -i stdlib/alloc/string/storage.nepl -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/string_char.n.md -i tests/stdlib/text_utf8.n.md -i tests/stdlib/string_numeric_overflow.n.md --no-tree -o tmp/string-search-boundary-split.json -j 1`: total=56, passed=56
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `git diff --check`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl` には slice/char/split、numeric parse/format、float formatting が残っている。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string access and builder boundary split)
 
 - [同期]:

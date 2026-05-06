@@ -11,6 +11,8 @@ const accessRelPath = 'stdlib/alloc/string/access.nepl';
 const accessSrc = fs.readFileSync(path.join(repoRoot, accessRelPath), 'utf8');
 const builderRelPath = 'stdlib/alloc/string/builder.nepl';
 const builderSrc = fs.readFileSync(path.join(repoRoot, builderRelPath), 'utf8');
+const searchRelPath = 'stdlib/alloc/string/search.nepl';
+const searchSrc = fs.readFileSync(path.join(repoRoot, searchRelPath), 'utf8');
 
 const forbiddenPhrases = [
     ['generic main-use title', '\u4e3b\u306a\u7528\u9014'],
@@ -24,6 +26,7 @@ for (const [sourceRelPath, sourceText] of [
     [relPath, src],
     [accessRelPath, accessSrc],
     [builderRelPath, builderSrc],
+    [searchRelPath, searchSrc],
 ]) {
     for (const [label, phrase] of forbiddenPhrases) {
         assert.equal(sourceText.includes(phrase), false, `${sourceRelPath} must not contain generated doc boilerplate: ${label}`);
