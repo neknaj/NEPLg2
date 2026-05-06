@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T03:06:22.493Z",
+  "generated_at": "2026-05-06T03:08:12.298Z",
   "counts": {
-    "total": 497,
-    "open": 13,
+    "total": 498,
+    "open": 14,
     "resolved": 484,
     "by_area": {
       "core": {
-        "total": 233,
-        "open": 5,
+        "total": 234,
+        "open": 6,
         "resolved": 228
       },
       "stdlib": {
@@ -148,6 +148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260506T030752155Z-RESOURCE-HIR-PROJECTION-COVERAGE-MOD-ED65CFB3",
+      "title": "Resource HIR projection coverage module exceeds responsibility split limit",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/coverage_hir_projection.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T030752155Z-RESOURCE-HIR-PROJECTION-COVERAGE-MOD-ED65CFB3.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
