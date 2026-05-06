@@ -364,7 +364,35 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- List node storage、bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+- List node storage、bloom / adjacency matrix / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+
+## 2026-05-06 Fenwick typed Vec storage 部分進捗
+
+`stdlib/alloc/collections/fenwick.nepl` は 1-indexed Fenwick tree payload を raw `MemPtr<i32>` array から `Vec<i32>` owner へ移行した。
+
+進捗:
+
+- `Fenwick` 本体は `n/bit` を持ち、`bit` は `Vec<i32>` として保持する。
+- `new` は負の length を allocator に渡さず `StdErrorKind::CapacityExceeded` の `Diag` として拒否する。
+- `new` は `alloc_ptr<i32>` と raw zero-fill loop を使わず、`vec::filled<i32>` で `n + 1` 個の初期化済み tree cell を確保する。
+- tree cell の読み書きは `vec::get` / `vec::replace` に集約し、`Fenwick` から `MemPtr` / `mem_ptr_addr` / `alloc_ptr` / `load_i32` / `store_i32` / `dealloc_raw` を排除した。
+- `free` は `vec::free<i32>` で tree storage owner を閉じる。
+- `nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js` は typed `Vec<i32>` storage、負 length guard、Vec helper 経由の cell read/write、raw MemPtr / raw i32 load-store 禁止を固定するよう更新した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl --no-tree -o tmp/fenwick-vec-storage-doctest.json -j 1`: total=5, passed=5
+- `node nodesrc/tests.js -i stdlib/tests/fenwick.n.md -i tests/stdlib/fenwick_collections.n.md --no-tree -o tmp/fenwick-vec-storage-focused.json -j 1`: total=6, passed=6
+- `node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_fenwick_borrowed_queries.js`: passed
+- `node nodesrc/test_stdlib_fenwick_add_error_owner.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+
+残件:
+
+- List node storage、bloom / adjacency matrix / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
 
 ## 2026-05-06 SparseSet typed Vec storage 部分進捗
 

@@ -1,3 +1,26 @@
+# 2026-05-06 note (ISS-20260429T155343006Z Fenwick typed Vec storage)
+
+- [同期]:
+  - `08f84a52` の BitSet typed storage push 後、`origin/main` と一致する clean な `main` から branch `fix/fenwick-typed-storage` を作成して対応中。
+- [原因]:
+  - `Fenwick` は 1-indexed tree cell を raw `MemPtr<i32>` で所有し、`alloc_ptr` / `load_i32` / `store_i32` / `dealloc_raw` による storage discipline に依存していた。
+  - `new` は負の length を明示的に拒否しておらず、allocator 境界に不正 length が到達しうる設計だった。
+- [修正]:
+  - `Fenwick.bit` を `Vec<i32>` owner に変更し、初期化は `vec::filled<i32>`、読み書きは `vec::get<i32>` / `vec::replace<i32>`、解放は `vec::free<i32>` に集約した。
+  - `new` に負 length guard を追加し、`StdErrorKind::CapacityExceeded` の `Diag` を返すようにした。
+  - Fenwick source policy と collection/mem/string safety design doc、collection storage issue を更新した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl --no-tree -o tmp/fenwick-vec-storage-doctest.json -j 1`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib/tests/fenwick.n.md -i tests/stdlib/fenwick_collections.n.md --no-tree -o tmp/fenwick-vec-storage-focused.json -j 1`: total=6, passed=6
+  - `node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_fenwick_borrowed_queries.js`: passed
+  - `node nodesrc/test_stdlib_fenwick_add_error_owner.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260506T003541589Z Resource IR owner fixture effect annotations)
 
 - [同期]:

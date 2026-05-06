@@ -7,7 +7,7 @@
 //: - `kpfenwick` の[競技/きょうぎ][向/む]け実装を `alloc/collections` へ[昇格/しょうかく]し、[一般用途/いっぱんようと]の collection として[再利用/さいりよう]できるようにします。
 //:
 //: ### [実装/じっそう]
-//: - [内部/ないぶ]は 1-indexed `bit[1..n]` [配列/はいれつ]を[持/も]つ[古典的/こてんてき] Fenwick Tree です。
+//: - [内部/ないぶ]は 1-indexed `bit[1..n]` [配列/はいれつ]を `Vec<i32>` owner として[持/も]つ[古典的/こてんてき] Fenwick Tree です。
 //: - [公開/こうかい] API の index は 0-index で[受/う]け、[内部/ないぶ]で 1-index に[変換/へんかん]します。
 //:
 //: ### [注意/ちゅうい]
@@ -20,15 +20,16 @@
 //: ### [計算量/けいさんりょう]
 //: - `len` は O(1)。
 //: - `add` / `sum_prefix` / `sum_range` は O(log n)。
-//: - `new` / `free` は O(n)。
+//: - `new` は O(n)、`free` は O(1)。
 
 #indent 4
 
 #import "core/math" as *
-#import "core/mem" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
 #import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
 
 //: ## Fenwick
 //: [点更新/てんこうしん]と[累積和/るいせきわ]クエリを[保持/ほじ]する[所有者/しょゆうしゃ]
@@ -41,7 +42,7 @@
 //: - `Fenwick` は[内部/ないぶ]メモリの[所有権/しょゆうけん]を[持/も]つので、[不要/ふよう]になったら `free` します。
 struct Fenwick:
     n <i32>
-    bit <MemPtr<i32>>
+    bit <Vec<i32>>
 
 //: ## FenwickAddError
 //: `add` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
@@ -65,28 +66,31 @@ fn add_error_diag <(&FenwickAddError)->Diag> (e):
 fn add_error_tree <(FenwickAddError)->Fenwick> (e):
     field::get e "tree"
 
+fn fenwick_diag_len <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid fenwick length"
+
 fn fenwick_diag_index <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "fenwick index out of bounds"
 
 fn fenwick_diag_range <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "fenwick range out of bounds"
 
-fn fenwick_ptr_at <(MemPtr<i32>,i32)->MemPtr<i32>> (bit, idx):
-    mem_ptr_wrap add mem_ptr_addr bit mul idx 4
+fn fenwick_load_owned <(&Vec<i32>,i32)->i32> (bit, idx):
+    match vec::get<i32> bit idx:
+        Option::Some v:
+            v
+        Option::None:
+            0
 
-fn fenwick_load_owned <(MemPtr<i32>)->i32> (ptr):
-    load_i32 mem_ptr_addr ptr
+fn fenwick_store_owned <(&Vec<i32>,i32,i32)*>()> (bit, idx, value):
+    vec::replace<i32> bit idx value
 
-fn fenwick_store_owned <(MemPtr<i32>,i32)->()> (ptr, value):
-    store_i32 mem_ptr_addr ptr value
-
-fn fenwick_sum_prefix_raw <(MemPtr<i32>,i32)->i32> (bit, r):
+fn fenwick_sum_prefix_storage <(&Vec<i32>,i32)->i32> (bit, r):
     let mut i <i32> r
     let mut acc <i32> 0
     while lt 0 i:
         do:
-            let ptr <MemPtr<i32>> fenwick_ptr_at bit i
-            let v <i32> fenwick_load_owned ptr
+            let v <i32> fenwick_load_owned bit i
             set acc add acc v
             let neg_i <i32> sub 0 i
             let lb <i32> and i neg_i
@@ -98,6 +102,7 @@ fn fenwick_sum_prefix_raw <(MemPtr<i32>,i32)->i32> (bit, r):
 //:
 //: ### [目的/もくてき]
 //: - [全要素/ぜんようそ] 0 の Fenwick Tree を[確保/かくほ]して[返/かえ]します。
+//: - `n < 0` は[不正/ふせい]な[長/なが]さとして `Diag` にします。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n)
@@ -116,18 +121,17 @@ fn fenwick_sum_prefix_raw <(MemPtr<i32>,i32)->i32> (bit, r):
 //:     if ok 1 0
 //: ```
 fn new <(i32)*>Result<Fenwick, Diag>> (n):
-    let bit_len <i32> add n 1
-    match alloc_ptr<i32> mul bit_len 4:
-        Result::Err _e:
-            diag_err<Fenwick> diag_out_of_memory
-        Result::Ok bit:
-            let mut i <i32> 0
-            while lt i bit_len:
-                do:
-                    let ptr <MemPtr<i32>> fenwick_ptr_at bit i
-                    fenwick_store_owned ptr 0
-                    set i add i 1
-            ok<Fenwick, Diag> Fenwick n bit
+    if:
+        lt n 0
+        then:
+            diag_err<Fenwick> fenwick_diag_len
+        else:
+            let bit_len <i32> add n 1
+            match vec::filled<i32> bit_len 0:
+                Result::Err _e:
+                    diag_err<Fenwick> diag_out_of_memory
+                Result::Ok bit:
+                    ok<Fenwick, Diag> Fenwick n bit
 
 //: ## len
 //: [保持/ほじ]している[長/なが]さを[返/かえ]す
@@ -161,17 +165,16 @@ fn len <(&Fenwick)->i32> (fw):
 //:     if eq total 7 1 0
 //: ```
 fn add <(Fenwick,i32,i32)*>Result<Fenwick, FenwickAddError>> (fw, idx, delta):
-    let n <i32> field::get fw "n"
-    let bit <MemPtr<i32>> field::get fw "bit"
+    let n <i32> *field::get_ref &fw "n"
     if:
         and le 0 idx lt idx n
         then:
+            let bit <&Vec<i32>> field::get_ref &fw "bit"
             let mut i <i32> add idx 1
             while le i n:
                 do:
-                    let ptr <MemPtr<i32>> fenwick_ptr_at bit i
-                    let cur <i32> fenwick_load_owned ptr
-                    fenwick_store_owned ptr add cur delta
+                    let cur <i32> fenwick_load_owned bit i
+                    fenwick_store_owned bit i add cur delta
                     let neg_i <i32> sub 0 i
                     let lb <i32> and i neg_i
                     set i add i lb
@@ -209,11 +212,11 @@ fn add <(Fenwick,i32,i32)*>Result<Fenwick, FenwickAddError>> (fw, idx, delta):
 //: ```
 fn sum_prefix <(&Fenwick,i32)*>Result<i32, Diag>> (fw, r):
     let n <i32> *field::get_ref fw "n"
-    let bit <MemPtr<i32>> *field::get_ref fw "bit"
     if:
         and le 0 r le r n
         then:
-            let acc <i32> fenwick_sum_prefix_raw bit r
+            let bit <&Vec<i32>> field::get_ref fw "bit"
+            let acc <i32> fenwick_sum_prefix_storage bit r
             ok<i32, Diag> acc
         else:
             let d <Diag> fenwick_diag_index
@@ -245,12 +248,12 @@ fn sum_prefix <(&Fenwick,i32)*>Result<i32, Diag>> (fw, r):
 //: ```
 fn sum_range <(&Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
     let n <i32> *field::get_ref fw "n"
-    let bit <MemPtr<i32>> *field::get_ref fw "bit"
     if:
         and and le 0 l le l r le r n
         then:
-            let sr <i32> fenwick_sum_prefix_raw bit r
-            let sl <i32> fenwick_sum_prefix_raw bit l
+            let bit <&Vec<i32>> field::get_ref fw "bit"
+            let sr <i32> fenwick_sum_prefix_storage bit r
+            let sl <i32> fenwick_sum_prefix_storage bit l
             ok<i32, Diag> sub sr sl
         else:
             let d <Diag> fenwick_diag_range
@@ -260,8 +263,8 @@ fn sum_range <(&Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
 //: [内部/ないぶ][配列/はいれつ]を[解放/かいほう]する
 //:
 //: ### [仕様/しよう]
-//: - `Fenwick` は `new` が[確保/かくほ]した `n + 1` 要素の 1-indexed `bit` [配列/はいれつ]を[所有/しょゆう]します。
-//: - `free` はその owner invariant に[基/もと]づき、`dealloc_raw` で[直接/ちょくせつ][解放/かいほう]します。
+//: - `Fenwick` は `new` が[確保/かくほ]した `n + 1` 要素の 1-indexed `bit` `Vec<i32>` を[所有/しょゆう]します。
+//: - `free` はその owner invariant に[基/もと]づき、`Vec<i32>` owner を[閉/と]じます。
 //: - caller は `free` [後/ご]の `Fenwick` を[再利用/さいりよう]してはいけません。
 //:
 //: ### [計算量/けいさんりょう]
@@ -280,8 +283,5 @@ fn sum_range <(&Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
 //:     1
 //: ```
 fn free <(Fenwick)*>()> (fw):
-    let n <i32> field::get fw "n"
-    let bit <MemPtr<i32>> field::get fw "bit"
-    let bit_len <i32> add n 1
-    let bytes <i32> mul bit_len 4
-    dealloc_raw mem_ptr_addr bit bytes
+    let bit <Vec<i32>> field::get fw "bit"
+    vec::free<i32> bit
