@@ -9,11 +9,11 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use nepl_core::{
-    check_module_with_source_map, compile_module_with_source_map,
+    check_module_with_source_map, compile_module_with_source_map_and_artifact_options,
     diagnostic::{Diagnostic, Severity},
     error::CoreError,
     loader::{Loader, SourceMap},
-    BuildProfile, CompilationArtifact, CompileOptions, CompileTarget,
+    BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions, CompileTarget,
 };
 use wasmi::{Caller, Engine, Linker, Module, Store};
 use wasmprinter::print_bytes;
@@ -667,7 +667,15 @@ fn execute_inner(cli: Cli) -> Result<()> {
     }
 
     cli_verbose!(cli.verbose, "DEBUG: Calling compile_module");
-    let artifact = match compile_module_with_source_map(module, Some(&source_map), options) {
+    let include_wat_comments = emits.contains(&Emit::Wat);
+    let artifact = match compile_module_with_source_map_and_artifact_options(
+        module,
+        Some(&source_map),
+        options,
+        CompilationArtifactOptions {
+            include_wat_comments,
+        },
+    ) {
         Ok(a) => {
             cli_verbose!(cli.verbose, "DEBUG: compile_module returned Ok");
             a
@@ -792,13 +800,16 @@ fn run_test_file(path: &Path, std_root: &Path, verbose: bool) -> Result<()> {
         Err(e) => return Err(anyhow::anyhow!(e.to_string())),
     };
     cli_verbose!(verbose, "[nepl-cli] compile_module for {}", path.display());
-    let artifact = match compile_module_with_source_map(
+    let artifact = match compile_module_with_source_map_and_artifact_options(
         res.module,
         Some(loader.source_map()),
         CompileOptions {
             target: Some(CompileTarget::Wasi),
             verbose,
             profile: None,
+        },
+        CompilationArtifactOptions {
+            include_wat_comments: false,
         },
     ) {
         Ok(a) => a,

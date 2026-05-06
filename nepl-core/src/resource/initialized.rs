@@ -24,23 +24,32 @@ use super::model::{
     CellState, CellStateEntry, EffectOp, Place, ResourceBlock, ResourceCallTarget,
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
-use super::place_utils::{reference_target_place, should_track, type_preserves_raw_address_alias};
+use super::place_utils::{
+    call_uses_checked_mem_ptr_wrapper, reference_target_place, should_track,
+    type_preserves_raw_address_alias,
+};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{
     ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
     ResourceFunctionCheck,
 };
+use super::timing::ResourceStageTimer;
 
 pub fn check_resource_initialized_moves(
     module: &ResourceModule,
     types: &TypeCtx,
 ) -> ResourceCheckReport {
+    let stage_start = ResourceStageTimer::start();
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceCheckDeferred::default();
     let raw_alias_summaries = compute_raw_cell_address_return_summaries(module, types);
+    stage_start.log("resource_initialized_raw_alias_summaries");
+    let stage_start = ResourceStageTimer::start();
     let raw_init_summaries =
         compute_raw_cell_initialization_function_summaries(module, types, &raw_alias_summaries);
+    stage_start.log("resource_initialized_raw_init_summaries");
+    let stage_start = ResourceStageTimer::start();
 
     for function in &module.functions {
         let mut engine = ResourceCheckEngine {
@@ -62,6 +71,7 @@ pub fn check_resource_initialized_moves(
             deferred: engine.deferred,
         });
     }
+    stage_start.log("resource_initialized_function_checks");
 
     ResourceCheckReport {
         functions,
@@ -725,22 +735,4 @@ fn merge_deferred(target: &mut ResourceCheckDeferred, source: ResourceCheckDefer
     target.branch_merges += source.branch_merges;
     target.loop_merges += source.loop_merges;
     target.match_merges += source.match_merges;
-}
-
-fn call_uses_checked_mem_ptr_wrapper(types: &TypeCtx, args: &[Place]) -> bool {
-    args.first()
-        .map(|arg| is_mem_ptr_type(types, arg.ty))
-        .unwrap_or(false)
-}
-
-fn is_mem_ptr_type(types: &TypeCtx, ty: TypeId) -> bool {
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    match types.get_ref(resolved) {
-        TypeKind::Struct { name, .. } => name == "MemPtr",
-        TypeKind::Apply { base, .. } => {
-            let base = types.resolve_named_type_id(*base);
-            matches!(types.get_ref(base), TypeKind::Struct { name, .. } if name == "MemPtr")
-        }
-        _ => false,
-    }
 }

@@ -93,6 +93,7 @@ mod owner_summary;
 mod owner_summary_leaf;
 mod owner_summary_record;
 mod owner_summary_resolved_variant;
+mod owner_summary_update;
 mod owner_summary_variant_build;
 mod owner_summary_variant_conditions;
 mod owner_summary_variant_construct;
@@ -107,6 +108,9 @@ mod report;
 mod shadow;
 mod storage_origin;
 mod summary;
+mod summary_dependency;
+mod summary_worklist;
+mod timing;
 mod type_pattern;
 
 pub use borrow_check::check_resource_borrow_lifetimes;

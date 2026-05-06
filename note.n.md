@@ -1,3 +1,34 @@
+# 2026-05-07 note (ISS-20260506T130138471Z KP compile budget)
+
+## 作業内容
+
+- branch `fix/kp-compile-budget-profile` で `origin/main` 同期済みの main から作業した。
+- `tests/stdlib/kp.n.md::doctest#1` は runtime ではなく compile phase が支配的で、修正前の phase timing は `compile_ms=47510`, `run_ms=14` だった。
+- `NEPL_COMPILE_STAGE_TIMING=1` の host-only stage timing を追加し、wasm32 では `std::time::Instant::now()` を実行しない cfg にした。
+- `compile_module` の WAT コメント生成を `CompilationArtifactOptions.include_wat_comments` で制御し、CLI / Web の wasm-only compile では WAT コメント補助情報を生成しないようにした。
+- Resource IR の initialized / owner summary builder を in-place fixed point 更新へ変更した。
+- Resource IR 関数 summary の direct call / function value / nested branch / loop / match dependency graph を `summary_dependency.rs` として追加し、summary が変化した関数に依存する caller だけを worklist 再計算するようにした。
+- 依存抽出の単体回帰で direct call、function value、nested branch、self recursion を固定した。
+- issue `ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8` と `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の進捗を更新し、issue は fixed にした。
+
+## 検証
+
+- `cargo fmt --check`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo check -p nepl-cli`: passed
+- `cargo check` in `nepl-web`: passed
+- `cargo test -p nepl-core summary_dependents_cover_nested_calls_function_values_and_self_recursion -- --nocapture`: passed
+- `trunk build` in `web`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 1 --dist web/dist`: passed, `compile_ms=17580`, `run_ms=10`
+- `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 5 --dist web/dist`: passed, `compile_ms=24905`, `run_ms=10`
+- `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 6 --dist web/dist`: passed, `compile_ms=25168`, `run_ms=9`
+- `node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree -o tmp/agent1-kp-worklist-summary.json -j 1 --assert-io --dist web/dist`: total=7, passed=7
+- `node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree -o tmp/agent1-kp-worklist-summary-final.json -j 1 --assert-io --dist web/dist`: total=7, passed=7。最終 compile_ms は #1 14195, #2 9984, #3 11783, #4 11187, #5 18108, #6 20252, #7 6299
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T183933332Z doctest timeout phase diagnostics)
 
 ## 作業内容

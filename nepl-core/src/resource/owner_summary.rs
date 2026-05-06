@@ -16,6 +16,7 @@ use super::owner_summary_record::{
     OwnerParameterStorageSource,
 };
 use super::owner_summary_resolved_variant::collect_resolved_parameter_variants_from_return;
+use super::owner_summary_update::update_owner_return_summary;
 use super::owner_summary_variant_build::collect_variant_consumed_owner_parameters_from_return;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::{place_suffix_after_prefix, push_unique_usize};
@@ -23,38 +24,28 @@ use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{OwnerProjectionSource, OwnerReturnSummary};
+use super::summary_worklist::SummaryWorklist;
 
 pub(super) fn compute_owner_return_summaries(
     module: &ResourceModule,
     types: &TypeCtx,
 ) -> Vec<OwnerReturnSummary> {
+    let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
-    for _ in 0..=module.functions.len() {
-        let mut next = Vec::new();
-        for function in &module.functions {
-            let summary = function_owner_return_summary(function, types, &summaries);
-            if summary.returns_fresh_owner
-                || summary.returns_maybe_owner
-                || !summary.parameter_indices.is_empty()
-                || !summary.parameter_sources.is_empty()
-                || !summary.consumed_parameter_indices.is_empty()
-                || !summary.consumed_parameter_sources.is_empty()
-                || !summary.variant_consumed_parameter_indices.is_empty()
-                || !summary.variant_consumed_parameter_sources.is_empty()
-                || !summary.variant_projection_returns.is_empty()
-                || !summary.resolved_parameter_variants.is_empty()
-                || !summary.variant_conditions.is_empty()
-                || !summary.variant_payload_conditions.is_empty()
-                || !summary.projection_returns.is_empty()
-                || !summary.projection_markers.is_empty()
-            {
-                next.push(summary);
-            }
+    while let Some(function_index) = worklist.pop() {
+        let summary =
+            function_owner_return_summary(&module.functions[function_index], types, &summaries);
+        if update_owner_return_summary(&mut summaries, summary) {
+            worklist.notify_changed(function_index);
         }
-        if next == summaries {
-            return summaries;
-        }
-        summaries = next;
+    }
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    if std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {
+        std::eprintln!(
+            "[compile-stage] resource_owner_summary_recomputations={} summaries={}",
+            worklist.recomputations(),
+            summaries.len()
+        );
     }
     summaries
 }

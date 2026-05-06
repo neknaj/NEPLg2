@@ -5,7 +5,7 @@ use js_sys::{Reflect, Uint8Array};
 use nepl_core::ast::{
     Block, Directive, FnBody, MatchArm, MatchPattern, PrefixExpr, PrefixItem, Stmt, Symbol,
 };
-use nepl_core::compiler::compile_module_with_source_map;
+use nepl_core::compiler::compile_module_with_source_map_and_artifact_options;
 use nepl_core::diagnostic::{Diagnostic, Severity};
 use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
 use nepl_core::error::CoreError;
@@ -15,7 +15,7 @@ use nepl_core::loader::{Loader, LoaderError, SourceMap};
 use nepl_core::parser::parse_tokens;
 use nepl_core::span::{FileId, Span};
 use nepl_core::typecheck::typecheck;
-use nepl_core::{BuildProfile, CompileOptions, CompileTarget};
+use nepl_core::{BuildProfile, CompilationArtifactOptions, CompileOptions, CompileTarget};
 use wasmprinter::print_bytes;
 use wasm_bindgen::prelude::*;
 
@@ -2891,12 +2891,15 @@ fn compile_outputs_impl(
     emit: JsValue,
     attach_source: bool,
 ) -> Result<JsValue, JsValue> {
-    // 1) wasm を生成
-    let compiled = compile_wasm_with_entry(entry_path, source, vfs)
-        .map_err(|msg| JsValue::from_str(&msg))?;
-
-    // 2) 依頼された形式に応じて結果を詰める
     let emit_list = parse_emit_list(emit)?;
+    let include_wat_comments = emit_list.iter().any(|kind| kind == "wat");
+    let compiled = compile_wasm_with_entry_and_comments(
+        entry_path,
+        source,
+        vfs,
+        include_wat_comments,
+    )
+    .map_err(|msg| JsValue::from_str(&msg))?;
     let obj = js_sys::Object::new();
 
     for e in emit_list {
@@ -2931,14 +2934,14 @@ fn compile_outputs_impl(
 
 #[wasm_bindgen]
 pub fn compile_source(source: &str) -> Result<Vec<u8>, JsValue> {
-    compile_wasm_with_entry("/virtual/entry.nepl", source, None)
+    compile_wasm_with_entry_and_comments("/virtual/entry.nepl", source, None, false)
         .map(|a| a.wasm)
         .map_err(|msg| JsValue::from_str(&msg))
 }
 
 #[wasm_bindgen]
 pub fn compile_source_with_vfs(entry_path: &str, source: &str, vfs: JsValue) -> Result<Vec<u8>, JsValue> {
-    compile_wasm_with_entry(entry_path, source, Some(vfs))
+    compile_wasm_with_entry_and_comments(entry_path, source, Some(vfs), false)
         .map(|a| a.wasm)
         .map_err(|msg| JsValue::from_str(&msg))
 }
@@ -2962,14 +2965,14 @@ pub fn compile_outputs_with_vfs(
 
 #[wasm_bindgen]
 pub fn compile_to_wat_min(source: &str, attach_source: bool) -> Result<String, JsValue> {
-    let compiled = compile_wasm_with_entry("/virtual/entry.nepl", source, None)
+    let compiled = compile_wasm_with_entry_and_comments("/virtual/entry.nepl", source, None, false)
         .map_err(|msg| JsValue::from_str(&msg))?;
     make_wat_min(&compiled.wasm, attach_source, "/virtual/entry.nepl", source)
 }
 
 #[wasm_bindgen]
 pub fn compile_to_wat(source: &str) -> Result<String, JsValue> {
-    let compiled = compile_wasm_with_entry("/virtual/entry.nepl", source, None)
+    let compiled = compile_wasm_with_entry_and_comments("/virtual/entry.nepl", source, None, true)
         .map_err(|msg| JsValue::from_str(&msg))?;
     make_wat(
         &compiled.wasm,
@@ -3041,7 +3044,7 @@ pub fn compile_test(name: &str) -> Result<Vec<u8>, JsValue> {
         .find(|(n, _)| *n == name)
         .map(|(_, src)| *src)
         .ok_or_else(|| JsValue::from_str("unknown test"))?;
-    compile_wasm_with_entry(&format!("/virtual/tests/{name}.nepl"), src, None)
+    compile_wasm_with_entry_and_comments(&format!("/virtual/tests/{name}.nepl"), src, None, false)
         .map(|a| a.wasm)
         .map_err(|msg| JsValue::from_str(&msg))
 }
@@ -3051,12 +3054,20 @@ struct CompiledWasm {
     wat_comments: String,
 }
 
-fn compile_wasm_with_entry(
+fn compile_wasm_with_entry_and_comments(
     entry_path: &str,
     source: &str,
     vfs: Option<JsValue>,
+    include_wat_comments: bool,
 ) -> Result<CompiledWasm, String> {
-    compile_wasm_with_entry_and_profile_and_stdlib(entry_path, source, vfs, None, None)
+    compile_wasm_with_entry_and_profile_and_stdlib(
+        entry_path,
+        source,
+        vfs,
+        None,
+        None,
+        include_wat_comments,
+    )
 }
 
 fn parse_profile(profile: &str) -> Option<BuildProfile> {
@@ -3065,15 +3076,6 @@ fn parse_profile(profile: &str) -> Option<BuildProfile> {
         "release" => Some(BuildProfile::Release),
         _ => None,
     }
-}
-
-fn compile_wasm_with_entry_and_profile(
-    entry_path: &str,
-    source: &str,
-    vfs: Option<JsValue>,
-    profile: Option<BuildProfile>,
-) -> Result<CompiledWasm, String> {
-    compile_wasm_with_entry_and_profile_and_stdlib(entry_path, source, vfs, None, profile)
 }
 
 fn merge_vfs_sources(
@@ -3101,6 +3103,7 @@ fn compile_wasm_with_entry_and_profile_and_stdlib(
     vfs: Option<JsValue>,
     stdlib_vfs: Option<JsValue>,
     profile: Option<BuildProfile>,
+    include_wat_comments: bool,
 ) -> Result<CompiledWasm, String> {
     let stdlib_root = PathBuf::from("/stdlib");
     let mut sources = stdlib_sources(&stdlib_root);
@@ -3139,13 +3142,16 @@ fn compile_wasm_with_entry_and_profile_and_stdlib(
         })?;
     #[cfg(target_arch = "wasm32")]
     web_sys::console::log_1(&"[nepl-web] loading success. Proceeding to compilation phases.".into());
-    let artifact = compile_module_with_source_map(
+    let artifact = compile_module_with_source_map_and_artifact_options(
         loaded.module,
         Some(&loaded.source_map),
         CompileOptions {
             target: None,
             verbose: false,
             profile,
+        },
+        CompilationArtifactOptions {
+            include_wat_comments,
         },
     )
     .map_err(|e| render_core_error(e, &loaded.source_map))?;
@@ -3168,6 +3174,7 @@ pub fn compile_source_with_vfs_and_stdlib(
         Some(vfs),
         Some(stdlib_vfs),
         None,
+        false,
     )
     .map(|a| a.wasm)
     .map_err(|msg| JsValue::from_str(&msg))
@@ -3177,7 +3184,14 @@ pub fn compile_source_with_vfs_and_stdlib(
 pub fn compile_source_with_profile(source: &str, profile: &str) -> Result<Vec<u8>, JsValue> {
     let parsed = parse_profile(profile)
         .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
-    compile_wasm_with_entry_and_profile("/virtual/entry.nepl", source, None, Some(parsed))
+    compile_wasm_with_entry_and_profile_and_stdlib(
+        "/virtual/entry.nepl",
+        source,
+        None,
+        None,
+        Some(parsed),
+        false,
+    )
         .map(|a| a.wasm)
         .map_err(|msg| JsValue::from_str(&msg))
 }
@@ -3191,7 +3205,14 @@ pub fn compile_source_with_vfs_and_profile(
 ) -> Result<Vec<u8>, JsValue> {
     let parsed = parse_profile(profile)
         .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
-    compile_wasm_with_entry_and_profile(entry_path, source, Some(vfs), Some(parsed))
+    compile_wasm_with_entry_and_profile_and_stdlib(
+        entry_path,
+        source,
+        Some(vfs),
+        None,
+        Some(parsed),
+        false,
+    )
         .map(|a| a.wasm)
         .map_err(|msg| JsValue::from_str(&msg))
 }
@@ -3212,6 +3233,7 @@ pub fn compile_source_with_vfs_stdlib_and_profile(
         Some(vfs),
         Some(stdlib_vfs),
         Some(parsed),
+        false,
     )
     .map(|a| a.wasm)
     .map_err(|msg| JsValue::from_str(&msg))

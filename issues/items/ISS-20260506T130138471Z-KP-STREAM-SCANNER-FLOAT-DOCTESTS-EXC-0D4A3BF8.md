@@ -1,14 +1,14 @@
 ---
 id: ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8
-title: "KP stream scanner doctests exceed compiler/runtime budget"
-area: stdlib
-status: open
-resolved: false
+title: "KP stream scanner doctests exceeded compiler/runtime budget"
+area: core
+status: fixed
+resolved: true
 priority: P1
 type: performance
 created: 2026-05-06
-updated: 2026-05-06
-target: "tests/stdlib/kp.n.md, stdlib/std/streamio/scanner/number.nepl, stdlib/std/streamio/writer, stdlib/core/float.nepl, nodesrc/tests.js"
+updated: 2026-05-07
+target: "nepl-core/src/resource/*summary*.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nepl-web/src/lib.rs, tests/stdlib/kp.n.md"
 ---
 
 # ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8: KP stream scanner doctests exceed compiler/runtime budget
@@ -77,3 +77,25 @@ timeout symptom は解消したが、60 秒制限に近い実行時間は残っ�
 さらに `NEPL_TEST_CASE_TIMEOUT_MS=2000 node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree -o tmp/agent1-kp-timeout-phase.json -j 1 --assert-io` では全 7 case が意図した短時間 timeout になり、top issue の `phase` は `compile`、JSON の `timeout.last_phase` も `compile` だった。
 
 したがって、この issue の旧説明にあった「float runtime path に集中」という前提は現在の main では不十分である。次の修正では compiler wasm compile phase をさらに Rust compiler phase 別に分解し、Resource IR / monomorphize / codegen / stdlib import graph のどれが支配的かを確認する。
+
+## 2026-05-07 Resource summary worklist 修正後の解決確認
+
+原因は stdlib / KP runtime ではなく、Resource IR static check の関数 summary 計算量だった。`resource_initialized_raw_init_summaries` と `resource_owner_summaries` が、関数ごとの依存関係を見ずに全関数を全反復で再計算していたため、KP の小さい doctest でも stdlib import graph 全体の summary 再計算が compile phase を支配していた。
+
+対応:
+
+- `initialized` / `owner` summary builder を in-place fixed point 更新へ変更した。
+- Resource IR 関数 summary の direct call / function value / nested branch / loop / match dependency graph を作り、変化した callee summary に依存する caller だけを worklist で再計算するようにした。
+- wasm-only compile API では WAT コメント補助情報を生成せず、WAT 出力を要求する経路だけ `CompilationArtifactOptions.include_wat_comments` を有効にするようにした。
+- `NEPL_COMPILE_STAGE_TIMING=1` による host-only stage timing を追加し、wasm32 runtime では `Instant::now()` が実行されない cfg にした。
+- `summary_dependency` の単体回帰で direct call、function value、nested branch、self recursion の dependent graph を固定した。
+
+計測:
+
+- 修正前: `tests/stdlib/kp.n.md::doctest#1` は `compile_ms=47510`, `run_ms=14`。
+- in-place summary 後: doctest#1 は `compile_ms=31498`。
+- worklist summary 後: doctest#1 は単体 `compile_ms=17580`、focused suite 内では `compile_ms=16364`。
+- native stage timing では `resource_static_check` が約 15.9 秒から約 6.7 秒へ低下した。内訳は `resource_initialized_raw_init_summaries=3956ms`, `resource_owner_summaries=1103ms`。
+- `tests/stdlib/kp.n.md` focused suite は total=7, passed=7。最終 refactor 後の focused suite 内 compile time は doctest#1 14.2s、#2 10.0s、#3 11.8s、#4 11.2s、#5 18.1s、#6 20.3s、#7 6.3s。
+
+現在の 60 秒 timeout budget 超過は解消したため、この issue は fixed とする。各 case の compile がまだ数秒から 20 秒台である点は残る改善余地だが、今回の「KP doctest が budget を超える」主症状とは分ける。

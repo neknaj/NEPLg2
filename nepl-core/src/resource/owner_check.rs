@@ -3,7 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use crate::span::Span;
-use crate::types::{TypeCtx, TypeId, TypeKind};
+use crate::types::TypeCtx;
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias::RawCellAddressAliases;
@@ -14,7 +14,9 @@ use super::model::{
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
-use super::place_utils::{raw_memory_cell_place, reference_target_place};
+use super::place_utils::{
+    call_uses_checked_mem_ptr_wrapper, raw_memory_cell_place, reference_target_place,
+};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::{
     ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerDiagnostic,
@@ -22,15 +24,19 @@ use super::report::{
 };
 use super::storage_origin::StorageOriginTable;
 use super::summary::{compute_owner_return_summaries, OwnerReturnSummary};
+use super::timing::ResourceStageTimer;
 
 pub fn check_resource_owner_obligations(
     module: &ResourceModule,
     types: &TypeCtx,
 ) -> ResourceOwnerCheckReport {
+    let stage_start = ResourceStageTimer::start();
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceOwnerCheckDeferred::default();
     let summaries = compute_owner_return_summaries(module, types);
+    stage_start.log("resource_owner_summaries");
+    let stage_start = ResourceStageTimer::start();
 
     for function in &module.functions {
         let mut engine = ResourceOwnerCheckEngine {
@@ -49,6 +55,7 @@ pub fn check_resource_owner_obligations(
             deferred: engine.deferred,
         });
     }
+    stage_start.log("resource_owner_function_checks");
 
     ResourceOwnerCheckReport {
         functions,
@@ -765,22 +772,4 @@ fn direct_raw_memory_effect(effect: &EffectOp) -> bool {
         effect,
         EffectOp::InternalAlloc { .. } | EffectOp::UnsafeMemory { .. }
     )
-}
-
-fn call_uses_checked_mem_ptr_wrapper(types: &TypeCtx, args: &[Place]) -> bool {
-    args.first()
-        .map(|arg| is_mem_ptr_type(types, arg.ty))
-        .unwrap_or(false)
-}
-
-fn is_mem_ptr_type(types: &TypeCtx, ty: TypeId) -> bool {
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    match types.get_ref(resolved) {
-        TypeKind::Struct { name, .. } => name == "MemPtr",
-        TypeKind::Apply { base, .. } => {
-            let base = types.resolve_named_type_id(*base);
-            matches!(types.get_ref(base), TypeKind::Struct { name, .. } if name == "MemPtr")
-        }
-        _ => false,
-    }
 }

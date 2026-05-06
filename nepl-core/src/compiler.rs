@@ -87,6 +87,21 @@ impl Default for CompileOptions {
     }
 }
 
+/// コンパイル成果物の構成オプション。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompilationArtifactOptions {
+    /// WAT 出力に付与する関数・ローカル・型コメントを生成する。
+    pub include_wat_comments: bool,
+}
+
+impl Default for CompilationArtifactOptions {
+    fn default() -> Self {
+        Self {
+            include_wat_comments: true,
+        }
+    }
+}
+
 /// コンパイル成果物。
 #[derive(Debug, Clone)]
 pub struct CompilationArtifact {
@@ -109,13 +124,35 @@ pub fn compile_module(
     module: ast::Module,
     options: CompileOptions,
 ) -> Result<CompilationArtifact, CoreError> {
-    compile_module_with_source_map(module, None, options)
+    compile_module_with_artifact_options(module, options, CompilationArtifactOptions::default())
 }
 
 pub fn compile_module_with_source_map(
     module: ast::Module,
     source_map: Option<&SourceMap>,
     options: CompileOptions,
+) -> Result<CompilationArtifact, CoreError> {
+    compile_module_with_source_map_and_artifact_options(
+        module,
+        source_map,
+        options,
+        CompilationArtifactOptions::default(),
+    )
+}
+
+pub fn compile_module_with_artifact_options(
+    module: ast::Module,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+) -> Result<CompilationArtifact, CoreError> {
+    compile_module_with_source_map_and_artifact_options(module, None, options, artifact_options)
+}
+
+pub fn compile_module_with_source_map_and_artifact_options(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
 ) -> Result<CompilationArtifact, CoreError> {
     crate::log::set_verbose(options.verbose);
     let target = resolve_target(&module, options)?;
@@ -142,7 +179,12 @@ pub fn compile_module_with_source_map(
         return Err(CoreError::from_diagnostics(diagnostics));
     }
 
-    emit_wasm(&prepared.types, &prepared.hir_module, prepared.diagnostics)
+    emit_wasm(
+        &prepared.types,
+        &prepared.hir_module,
+        prepared.diagnostics,
+        artifact_options.include_wat_comments,
+    )
 }
 
 /// 解析済みモジュールを診断目的で検証する。
@@ -267,22 +309,54 @@ fn run_resource_static_check(
     diagnostics: &mut Vec<Diagnostic>,
     source_map: Option<&SourceMap>,
 ) -> Result<crate::resource::ResourceDropElaborationPlan, CoreError> {
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     run_resource_shadow_check(hir_module, types);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_shadow_check", stage_start);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let resource = crate::resource::lower_hir_module(hir_module, types);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_lowering", stage_start);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let lowering_coverage =
         crate::resource::compare_hir_resource_lowering_typed(hir_module, &resource, types);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_lowering_coverage", stage_start);
     run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let initialized_moves = crate::resource::check_resource_initialized_moves(&resource, types);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_initialized_moves", stage_start);
     run_resource_cell_gate(&initialized_moves, diagnostics, source_map)?;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let drop_elaboration_plan = run_resource_drop_elaboration_plan_gate(
         crate::resource::compute_resource_drop_elaboration_plan(&resource, &initialized_moves),
         diagnostics,
     )?;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_drop_elaboration_plan", stage_start);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let borrow_lifetimes = crate::resource::check_resource_borrow_lifetimes(&resource, types);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_borrow_lifetimes", stage_start);
     run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)?;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let effect_boundaries = crate::resource::check_resource_effect_boundaries(&resource);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_effect_boundaries", stage_start);
     run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)?;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let owner_obligations = crate::resource::check_resource_owner_obligations(&resource, types);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_owner_obligations", stage_start);
     run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)?;
 
     Ok(drop_elaboration_plan)
@@ -1273,6 +1347,17 @@ fn emit_resource_shadow_report(report: &crate::resource::ResourceSafetyShadowRep
 #[cfg(target_os = "none")]
 fn emit_resource_shadow_report(_report: &crate::resource::ResourceSafetyShadowReport) {}
 
+#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+fn log_compile_stage_timing(stage: &str, start: std::time::Instant) {
+    if crate::log::is_verbose() || std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {
+        std::eprintln!(
+            "[compile-stage] {}={}ms",
+            stage,
+            start.elapsed().as_millis()
+        );
+    }
+}
+
 pub fn prepare_module_for_codegen(
     module: &ast::Module,
     target: CompileTarget,
@@ -1287,34 +1372,62 @@ pub fn prepare_module_for_codegen_with_source_map(
     profile: BuildProfile,
     source_map: Option<&SourceMap>,
 ) -> Result<PreparedProgram, CoreError> {
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let precheck_diags =
         crate::target_precheck::precheck_module_before_codegen(module, target, profile);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("target_precheck", stage_start);
     if precheck_diags
         .iter()
         .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error))
     {
         return Err(CoreError::from_diagnostics(precheck_diags));
     }
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let resource_tc = run_typecheck(module, target, profile, source_map)?;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_typecheck", stage_start);
     let mut diagnostics = resource_tc.diagnostics;
     let mut types = resource_tc.types;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let (mut hir_module, resource_unresolved_trait_calls) =
         monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, resource_tc.module);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_monomorphize", stage_start);
     if !resource_unresolved_trait_calls.is_empty() {
         extend_unresolved_trait_call_diagnostics(&mut diagnostics, resource_unresolved_trait_calls);
         return Err(CoreError::from_diagnostics(diagnostics));
     }
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let resource_drop_elaboration_plan =
         run_resource_static_check(&hir_module, &types, &mut diagnostics, source_map)?;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_static_check", stage_start);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     run_resource_drop_elaboration_hir_bridge_gate(
         &hir_module,
         &resource_drop_elaboration_plan,
         &mut diagnostics,
     )?;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_drop_bridge", stage_start);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     passes::insert_resource_drops(&mut hir_module, &mut types, &resource_drop_elaboration_plan)
         .map_err(|_| CoreError::internal("resource drop elaboration plan could not be consumed"))?;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("insert_resource_drops", stage_start);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let (hir_module, unresolved_trait_calls) =
         monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, hir_module);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("codegen_monomorphize", stage_start);
     if !unresolved_trait_calls.is_empty() {
         extend_unresolved_trait_call_diagnostics(&mut diagnostics, unresolved_trait_calls);
         return Err(CoreError::from_diagnostics(diagnostics));
@@ -1583,7 +1696,10 @@ fn emit_wasm(
     types: &crate::types::TypeCtx,
     hir_module: &crate::hir::HirModule,
     mut diagnostics: Vec<Diagnostic>,
+    include_wat_comments: bool,
 ) -> Result<CompilationArtifact, CoreError> {
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let cg = match codegen_wasm::generate_wasm(types, hir_module) {
         Ok(cg) => cg,
         Err(mut codegen_diags) => {
@@ -1591,11 +1707,15 @@ fn emit_wasm(
             return Err(CoreError::from_diagnostics(diagnostics));
         }
     };
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("wasm_codegen", stage_start);
     diagnostics.extend(cg.diagnostics);
     let Some(bytes) = cg.bytes else {
         return Err(CoreError::from_diagnostics(diagnostics));
     };
 
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let mut validator = Validator::new();
     if let Err(err) = validator.validate_all(&bytes) {
         let err_msg = alloc::format!("invalid wasm generated: {}", err);
@@ -1622,9 +1742,20 @@ fn emit_wasm(
         diagnostics.push(diag);
         return Err(CoreError::from_diagnostics(diagnostics));
     }
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("wasm_validate", stage_start);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
+    let wat_comments = if include_wat_comments {
+        build_wat_comments(types, hir_module)
+    } else {
+        String::new()
+    };
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("wat_comments", stage_start);
     Ok(CompilationArtifact {
         wasm: bytes,
-        wat_comments: build_wat_comments(types, hir_module),
+        wat_comments,
     })
 }
 

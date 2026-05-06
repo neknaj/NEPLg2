@@ -20,38 +20,67 @@ use super::model::{ResourceFunction, ResourceModule, ResourceTerminator};
 use super::place_utils::reference_target_place;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
+use super::summary_worklist::SummaryWorklist;
 
 pub(super) fn compute_raw_cell_initialization_function_summaries(
     module: &ResourceModule,
     types: &TypeCtx,
     raw_alias_summaries: &[RawCellAddressReturnSummary],
 ) -> Vec<RawCellInitializationFunctionSummary> {
+    let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
-    for _ in 0..=module.functions.len() {
-        let mut next = Vec::new();
-        for function in &module.functions {
-            let summary = function_raw_cell_initialization_summary(
-                function,
-                types,
-                raw_alias_summaries,
-                &summaries,
-            );
-            if !summary.return_cells.is_empty()
-                || !summary.param_cells.is_empty()
-                || !summary.param_release_requirements.is_empty()
-                || !summary.variant_param_cells.is_empty()
-                || !summary.variant_required_param_cells.is_empty()
-                || !summary.variant_conditions.is_empty()
-            {
-                next.push(summary);
-            }
+    while let Some(function_index) = worklist.pop() {
+        let function = &module.functions[function_index];
+        let summary = function_raw_cell_initialization_summary(
+            function,
+            types,
+            raw_alias_summaries,
+            &summaries,
+        );
+        if update_raw_cell_initialization_summary(&mut summaries, summary) {
+            worklist.notify_changed(function_index);
         }
-        if next == summaries {
-            return summaries;
-        }
-        summaries = next;
+    }
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    if std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {
+        std::eprintln!(
+            "[compile-stage] resource_raw_init_summary_recomputations={} summaries={}",
+            worklist.recomputations(),
+            summaries.len()
+        );
     }
     summaries
+}
+
+fn update_raw_cell_initialization_summary(
+    summaries: &mut Vec<RawCellInitializationFunctionSummary>,
+    summary: RawCellInitializationFunctionSummary,
+) -> bool {
+    let has_facts = !summary.return_cells.is_empty()
+        || !summary.param_cells.is_empty()
+        || !summary.param_release_requirements.is_empty()
+        || !summary.variant_param_cells.is_empty()
+        || !summary.variant_required_param_cells.is_empty()
+        || !summary.variant_conditions.is_empty();
+    let position = summaries
+        .iter()
+        .position(|existing| existing.function == summary.function);
+    match (has_facts, position) {
+        (true, Some(index)) if summaries[index] == summary => false,
+        (true, Some(index)) => {
+            summaries[index] = summary;
+            true
+        }
+        (true, None) => {
+            summaries.push(summary);
+            true
+        }
+        (false, Some(index)) => {
+            summaries.remove(index);
+            true
+        }
+        (false, None) => false,
+    }
 }
 
 fn function_raw_cell_initialization_summary(

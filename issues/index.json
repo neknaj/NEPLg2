@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T19:43:41.253Z",
+  "generated_at": "2026-05-06T19:58:11.305Z",
   "counts": {
     "total": 534,
-    "open": 16,
-    "resolved": 518,
+    "open": 15,
+    "resolved": 519,
     "by_area": {
       "core": {
-        "total": 259,
+        "total": 260,
         "open": 4,
-        "resolved": 255
+        "resolved": 256
       },
       "selfhost": {
         "total": 50,
@@ -17,8 +17,8 @@
         "resolved": 47
       },
       "stdlib": {
-        "total": 159,
-        "open": 8,
+        "total": 158,
+        "open": 7,
         "resolved": 151
       },
       "TEST": {
@@ -238,21 +238,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
-    },
-    {
-      "id": "ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8",
-      "title": "KP stream scanner doctests exceed compiler/runtime budget",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "performance",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "tests/stdlib/kp.n.md, stdlib/std/streamio/scanner/number.nepl, stdlib/std/streamio/writer, stdlib/core/float.nepl, nodesrc/tests.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8.md"
     },
     {
       "id": "ISS-20260506T155757405Z-STRING-FLOAT-AND-CHAR-BUILDER-OWNER--37EDC044",
@@ -3913,6 +3898,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F.md"
+    },
+    {
+      "id": "ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8",
+      "title": "KP stream scanner doctests exceeded compiler/runtime budget",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/*summary*.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nepl-web/src/lib.rs, tests/stdlib/kp.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8.md"
     },
     {
       "id": "ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA",

@@ -46,6 +46,24 @@ pub(super) fn type_preserves_raw_address_alias(types: &TypeCtx, ty: TypeId) -> b
     }
 }
 
+pub(super) fn call_uses_checked_mem_ptr_wrapper(types: &TypeCtx, args: &[Place]) -> bool {
+    args.first()
+        .map(|arg| is_mem_ptr_type(types, arg.ty))
+        .unwrap_or(false)
+}
+
+fn is_mem_ptr_type(types: &TypeCtx, ty: TypeId) -> bool {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Struct { name, .. } => name == "MemPtr",
+        TypeKind::Apply { base, .. } => {
+            let base = types.resolve_named_type_id(*base);
+            matches!(types.get_ref(base), TypeKind::Struct { name, .. } if name == "MemPtr")
+        }
+        _ => false,
+    }
+}
+
 pub(super) fn construct_aggregate_field_place(
     output: &Place,
     kind: &AggregateKind,
