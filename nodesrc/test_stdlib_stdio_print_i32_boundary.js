@@ -36,8 +36,13 @@ assert.ok(match, 'stdio print_i32 body must be found');
 const body = match[1];
 assert.match(
     body,
-    /\bprint\s+string::from_i32\s+v\b/,
-    'print_i32 must delegate integer formatting to alloc/string::from_i32',
+    /\bprint\s+string_integer::from_i32\s+v\b/,
+    'print_i32 must delegate integer formatting to alloc/string/integer::from_i32',
+);
+assert.match(
+    printCode,
+    /#import\s+"alloc\/string\/integer"\s+as\s+string_integer/,
+    'stdio print_i32 must import the integer conversion module directly',
 );
 
 const forbidden = [

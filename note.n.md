@@ -1,3 +1,30 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string integer conversion boundary split)
+
+- [同期]:
+  - `c413b776` を push/pull 済みの `main` から branch `fix/string-integer-boundary-split` を作成して作業した。
+  - commit 後に remote main の `8d12f487` / `e2a802ad` を取り込み、同 branch を `origin/main` へ rebase してから再検証した。
+- [原因]:
+  - `stdlib/alloc/string.nepl` は split scanner 分割後も、bool / i32 / i64 / u128 / i128 conversion、digit/radix helper、u128/i128 補助演算を root に持ち続けていた。
+  - integer conversion は `access`、`search`、`slice`、`storage`、`builder` の上に構成できる独立した境界であり、float formatting や concat と同じ file に置く必要がない。
+- [修正]:
+  - `stdlib/alloc/string/integer.nepl` を追加し、`from_bool`、`to_bool`、`from_i32_radix`、`to_i64_radix`、`from_u128_radix`、`to_i128_radix`、`U128DivRem` などを所有させた。
+  - `from_i128_radix` の負号付与は root の `concat_result` に依存せず、`StringBuilder` 経由で構築するようにした。
+  - `stdlib/std/stdio/print.nepl` は integer conversion module を直接 import し、`print_i32` が broad string root の qualified facade に依存しないようにした。
+  - source policy を更新し、integer 実装本体が root に戻らないこと、u128 overflow check が残ること、stdio が direct import することを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_integer_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_stdio_print_i32_boundary.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: string/integer 関連 policy は passed。rebase 後の remote main 由来で `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` が `fs_finish_read_buffer` の `dealloc_raw` / `dealloc_ptr` 期待差分を warning として報告した。
+  - `node nodesrc/tests.js -i stdlib/alloc/string/integer.nepl -i stdlib/alloc/string/split.nepl -i stdlib/alloc/string/slice.nepl -i stdlib/alloc/string/search.nepl -i stdlib/alloc/string/access.nepl -i stdlib/alloc/string/builder.nepl -i stdlib/alloc/string/storage.nepl -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string.nepl -i stdlib/std/stdio/print.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string.n.md -i tests/stdlib/string_char.n.md -i tests/stdlib/string_numeric_overflow.n.md --no-tree -o tmp/string-integer-boundary-split-rebased-no-text-utf8.json -j 1`: total=51, passed=51
+  - `node nodesrc/tests.js -i ... -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/string-integer-boundary-split-rebased.json -j 1`: total=60, passed=57, failed=3。失敗は `fs_open_with_flags` の Resource IR owner violation で、remote main の既存 open issue `ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F` 系として扱う。
+  - `git diff --check`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl` には float formatting/parsing、concat/build helper、find、facade としての残責務が残っている。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string split scanner boundary split)
 
 - [同期]:

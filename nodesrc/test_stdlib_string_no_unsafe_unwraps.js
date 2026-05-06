@@ -25,6 +25,8 @@ const sliceRelPath = 'stdlib/alloc/string/slice.nepl';
 const sliceSrc = fs.readFileSync(path.join(repoRoot, sliceRelPath), 'utf8');
 const splitRelPath = 'stdlib/alloc/string/split.nepl';
 const splitSrc = fs.readFileSync(path.join(repoRoot, splitRelPath), 'utf8');
+const integerRelPath = 'stdlib/alloc/string/integer.nepl';
+const integerSrc = fs.readFileSync(path.join(repoRoot, integerRelPath), 'utf8');
 
 const code = stripNeplComments(src);
 const utf8Code = stripNeplComments(utf8Src);
@@ -34,7 +36,8 @@ const builderCode = stripNeplComments(builderSrc);
 const searchCode = stripNeplComments(searchSrc);
 const sliceCode = stripNeplComments(sliceSrc);
 const splitCode = stripNeplComments(splitSrc);
-const fromU128Radix = code.match(/fn\s+from_u128_radix[\s\S]*?(?=\nfn\s+to_u128|\nfn\s+parse_u128|\n\/\/ to_u128|$)/)?.[0] ?? '';
+const integerCode = stripNeplComments(integerSrc);
+const fromU128Radix = integerCode.match(/fn\s+from_u128_radix[\s\S]*?(?=\nfn\s+to_u128|\nfn\s+parse_u128|\n\/\/ to_u128|$)/)?.[0] ?? '';
 const stringFinish = storageCode.match(/fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\nfn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
 const storageCodeWithoutStringFinish = stringFinish ? storageCode.replace(stringFinish, '') : storageCode;
 const fromF64Result = code.match(/fn\s+from_f64_result[\s\S]*?(?=\nfn\s+from_f64\s+<|$)/)?.[0] ?? '';
@@ -57,6 +60,7 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(searchCode, pattern, `${searchRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(sliceCode, pattern, `${sliceRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(splitCode, pattern, `${splitRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(integerCode, pattern, `${integerRelPath} must not use unsafe unwrap helpers in implementation code`);
 }
 
 assert.match(utf8Code, /enum\s+StringUtf8LeadKind:/, 'alloc/string/utf8 must classify UTF-8 leading bytes with an enum');
@@ -78,6 +82,10 @@ assert.match(splitCode, /enum\s+StrSplitStepKind:[\s\S]*Part[\s\S]*Done/, 'alloc
 assert.match(splitCode, /fn\s+str_split_next\s+<\(str,str,i32\)->StrSplitStep>/, 'alloc/string/split must expose allocation-free split scanning instead of owned Vec<str> split');
 assert.doesNotMatch(code, /enum\s+StrSplitStepKind:/, 'alloc/string root must not own split scanner state');
 assert.doesNotMatch(code, /fn\s+str_split_next\s+<\(str,str,i32\)->StrSplitStep>/, 'alloc/string root must not own allocation-free split scanning');
+assert.match(code, /pub\s+#import\s+"\.\/string\/integer"\s+as\s+\*/, 'alloc/string must re-export integer conversion APIs');
+assert.match(integerCode, /fn\s+from_i32_radix\s+/, 'alloc/string/integer must own i32 formatting');
+assert.match(integerCode, /fn\s+to_i128_radix\s+/, 'alloc/string/integer must own i128 parsing');
+assert.doesNotMatch(code, /fn\s+to_i128_radix\s+/, 'alloc/string root must not own integer parsing');
 assert.match(code, /fn\s+sb_append_slice_result\s+/, 'StringBuilder must support appending source string ranges without allocating owned substrings');
 assert.match(storageCode, /fn\s+string_finish_base[\s\S]*store_i32\s+mem_ptr_addr\s+base\s+byte_len/, 'string_finish_base must use owned raw header store');
 assert.match(stringFinish, /\bget\s+region\s+"ptr"/, 'string_finish must consume RegionToken at the final str ownership boundary');
