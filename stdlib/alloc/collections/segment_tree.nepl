@@ -8,7 +8,7 @@
 //: - Fenwick では[表現/ひょうげん]しにくい[一般区間/いっぱんくかん] query の[土台/どだい]を `alloc/collections` に[揃/そろ]えます。
 //:
 //: ### [実装/じっそう]
-//: - [内部/ないぶ]は `base` を 2 [冪/べき]に[丸/まる]めた full binary tree を[配列/はいれつ]で[保持/ほじ]する iterative segment tree です。
+//: - [内部/ないぶ]は `base` を 2 [冪/べき]に[丸/まる]めた full binary tree を `Vec<i32>` [配列/はいれつ]で[保持/ほじ]する iterative segment tree です。
 //: - leaf は `[base, base+n)` に[置/お]き、internal node は[子/こ]の[和/わ]を[保持/ほじ]します。
 //:
 //: ### [注意/ちゅうい]
@@ -21,13 +21,14 @@
 //: ### [計算量/けいさんりょう]
 //: - `len` は O(1)。
 //: - `replace` / `add` / `sum_range` は O(log n)。
-//: - `new` / `free` は O(n)。
+//: - `new` は O(n)、`free` は O(1)。
 
-#import "core/mem" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
 #import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
 
 //: ## SegmentTree
 //: [長/なが]さと base と[内部配列/ないぶはいれつ]を[所有/しょゆう]する
@@ -38,7 +39,7 @@
 struct SegmentTree:
     n <i32>
     base <i32>
-    data <MemPtr<i32>>
+    data <Vec<i32>>
 
 //: ## SegmentTreeUpdateError
 //: `replace` / `add` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
@@ -71,18 +72,15 @@ fn seg_diag_index <()*>Diag> ():
 fn seg_diag_range <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "segment tree range out of bounds"
 
-fn seg_ptr <(MemPtr<i32>,i32)->MemPtr<i32>> (data, idx):
-    mem_ptr_wrap add mem_ptr_addr data mul idx 4
-
-fn seg_load_owned <(MemPtr<i32>,i32)->i32> (data, idx):
-    match load_i32 seg_ptr data idx:
+fn seg_load_owned <(&Vec<i32>,i32)->i32> (data, idx):
+    match vec::get<i32> data idx:
         Option::Some v:
             v
         Option::None:
             0
 
-fn seg_store_owned <(MemPtr<i32>,i32,i32)->()> (data, idx, value):
-    store_i32 mem_ptr_addr seg_ptr data idx value
+fn seg_store_owned <(&Vec<i32>,i32,i32)*>()> (data, idx, value):
+    vec::replace<i32> data idx value
 
 fn seg_next_pow2 <(i32)->i32> (n):
     let mut x <i32> 1
@@ -114,15 +112,10 @@ fn new <(i32)*>Result<SegmentTree, Diag>> (n):
         else:
             let base <i32> seg_next_pow2 if eq n 0 1 n
             let cells <i32> mul base 2
-            match alloc_ptr<i32> mul cells 4:
+            match vec::filled<i32> cells 0:
                 Result::Err _e:
                     diag_err<SegmentTree> diag_out_of_memory
                 Result::Ok data:
-                    let mut i <i32> 0
-                    while lt i cells:
-                        do:
-                            seg_store_owned data i 0
-                            set i add i 1
                     ok<SegmentTree, Diag> SegmentTree n base data
 
 //: ## len
@@ -154,10 +147,10 @@ fn len <(&SegmentTree)->i32> (st):
 fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> (st, idx, value):
     let n <i32> *field::get_ref &st "n"
     let base <i32> *field::get_ref &st "base"
-    let data <MemPtr<i32>> *field::get_ref &st "data"
     if:
         and le 0 idx lt idx n
         then:
+            let data <&Vec<i32>> field::get_ref &st "data"
             let mut pos <i32> add base idx
             seg_store_owned data pos value
             while lt 1 pos:
@@ -194,10 +187,10 @@ fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> 
 fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> (st, idx, delta):
     let n <i32> *field::get_ref &st "n"
     let base <i32> *field::get_ref &st "base"
-    let data <MemPtr<i32>> *field::get_ref &st "data"
     if:
         and le 0 idx lt idx n
         then:
+            let data <&Vec<i32>> field::get_ref &st "data"
             let leaf <i32> add base idx
             let cur <i32> seg_load_owned data leaf
             let mut pos <i32> leaf
@@ -238,10 +231,10 @@ fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> (st,
 fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
     let n <i32> *field::get_ref st "n"
     let base <i32> *field::get_ref st "base"
-    let data <MemPtr<i32>> *field::get_ref st "data"
     if:
         and and le 0 l le l r le r n
         then:
+            let data <&Vec<i32>> field::get_ref st "data"
             let mut left <i32> add base l
             let mut right <i32> add base r
             let mut acc_l <i32> 0
@@ -273,8 +266,8 @@ fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
 //: [内部配列/ないぶはいれつ]を[解放/かいほう]する
 //:
 //: ### [実装/じっそう]
-//: - `data` は `new` が `2 * base * 4` byte で[確保/かくほ]し、`SegmentTree` が[単独/たんどく]で[所有/しょゆう]します。
-//: - owner invariant に[基/もと]づき、内部 cleanup は `dealloc_raw` で[行/おこな]います。
+//: - `data` は `new` が `2 * base` 要素の `Vec<i32>` として[確保/かくほ]し、`SegmentTree` が[単独/たんどく]で[所有/しょゆう]します。
+//: - owner invariant に[基/もと]づき、内部 cleanup は `Vec<i32>` owner を[閉/と]じます。
 //:
 //: ### [注意/ちゅうい]
 //: - [解放後/かいほうご]に `st` を[再利用/さいりよう]してはいけません。
@@ -292,6 +285,5 @@ fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
 //:     0
 //: ```
 fn free <(SegmentTree)->()> (st):
-    let base <i32> field::get st "base"
-    let data <MemPtr<i32>> field::get st "data"
-    dealloc_raw mem_ptr_addr data mul mul base 2 4
+    let data <Vec<i32>> field::get st "data"
+    vec::free<i32> data

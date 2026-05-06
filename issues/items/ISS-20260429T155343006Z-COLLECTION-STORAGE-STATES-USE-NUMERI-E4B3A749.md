@@ -364,7 +364,34 @@ Add source policy tests rejecting numeric bucket state comments/branches and nul
 
 残件:
 
-- List node storage、bloom / adjacency matrix / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+- List node storage、bloom / adjacency matrix / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+
+## 2026-05-06 SegmentTree typed Vec storage 部分進捗
+
+`stdlib/alloc/collections/segment_tree.nepl` は tree payload を raw `MemPtr<i32>` array から `Vec<i32>` owner へ移行した。
+
+進捗:
+
+- `SegmentTree` 本体は `n/base/data` を持ち、`data` は `Vec<i32>` として保持する。
+- `new` は既存どおり負の length を `StdErrorKind::CapacityExceeded` の `Diag` として拒否し、`vec::filled<i32>` で `2 * base` 個の初期化済み tree cell を確保する。
+- tree cell の読み書きは `vec::get` / `vec::replace` に集約し、`SegmentTree` から `MemPtr` / `mem_ptr_addr` / `alloc_ptr` / `load_i32` / `store_i32` / `dealloc_raw` を排除した。
+- `free` は `vec::free<i32>` で tree storage owner を閉じる。
+- `nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js` は typed `Vec<i32>` storage、負 length guard、Vec helper 経由の cell read/write、raw MemPtr / raw i32 load-store 禁止を固定するよう更新した。
+
+検証:
+
+- `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-vec-storage-doctest.json -j 1`: total=5, passed=5
+- `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-vec-storage-focused.json -j 1`: total=6, passed=6
+- `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_segment_tree_borrowed_observers.js`: passed
+- `node nodesrc/test_stdlib_segment_tree_update_error_owner.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- `node nodesrc/issues.js check`: passed
+- `git diff --check`: passed
+
+残件:
+
+- List node storage、bloom / adjacency matrix / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
 
 ## 2026-05-06 Fenwick typed Vec storage 部分進捗
 

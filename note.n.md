@@ -1,3 +1,26 @@
+# 2026-05-06 note (ISS-20260429T155343006Z SegmentTree typed Vec storage)
+
+- [同期]:
+  - `c4291334` の Fenwick typed storage push 後、`origin/main` と一致する clean な `main` から branch `fix/segment-tree-typed-storage` を作成して対応中。
+- [原因]:
+  - `SegmentTree` は iterative tree cell を raw `MemPtr<i32>` で所有し、`alloc_ptr` / `load_i32` / `store_i32` / `dealloc_raw` による storage discipline に依存していた。
+  - 既に負 length guard はあったが、初期化済み cell の所有状態は raw pointer discipline に残っており、Resource IR が collection field owner として扱いにくかった。
+- [修正]:
+  - `SegmentTree.data` を `Vec<i32>` owner に変更し、初期化は `vec::filled<i32>`、読み書きは `vec::get<i32>` / `vec::replace<i32>`、解放は `vec::free<i32>` に集約した。
+  - SegmentTree source policy と collection/mem/string safety design doc、collection storage issue を更新した。
+  - `tests/stdlib/segment_tree_collections.n.md` に負 length regression を追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl --no-tree -o tmp/segment-tree-vec-storage-doctest.json -j 1`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib/tests/segment_tree.n.md -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-vec-storage-focused.json -j 1`: total=6, passed=6
+  - `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_update_error_owner.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260429T155343006Z Fenwick typed Vec storage)
 
 - [同期]:
