@@ -15,6 +15,7 @@ use super::owner_summary_record::{
     record_projection_maybe_owner_return, record_projection_owner_return, record_root_owner_return,
     OwnerParameterStorageSource,
 };
+use super::owner_summary_resolved_variant::collect_resolved_parameter_variants_from_return;
 use super::owner_summary_variant_build::collect_variant_consumed_owner_parameters_from_return;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::{place_suffix_after_prefix, push_unique_usize};
@@ -41,6 +42,7 @@ pub(super) fn compute_owner_return_summaries(
                 || !summary.variant_consumed_parameter_indices.is_empty()
                 || !summary.variant_consumed_parameter_sources.is_empty()
                 || !summary.variant_projection_returns.is_empty()
+                || !summary.resolved_parameter_variants.is_empty()
                 || !summary.variant_conditions.is_empty()
                 || !summary.variant_payload_conditions.is_empty()
                 || !summary.projection_returns.is_empty()
@@ -102,6 +104,7 @@ fn function_owner_return_summary(
     let mut variant_consumed_parameter_indices = Vec::new();
     let mut variant_consumed_parameter_sources = Vec::new();
     let mut variant_projection_returns = Vec::new();
+    let mut resolved_parameter_variants = Vec::new();
     let mut variant_conditions = Vec::new();
     let mut variant_payload_conditions = Vec::new();
     let mut returned_sources = Vec::new();
@@ -135,6 +138,13 @@ fn function_owner_return_summary(
                 &block.ops,
                 value,
                 &mut variant_projection_returns,
+            );
+            collect_resolved_parameter_variants_from_return(
+                &mut resolved_parameter_variants,
+                function,
+                types,
+                &block.ops,
+                value,
             );
 
             let resolved_value = resolve_owner_alias_place(&owners, &raw_aliases, value);
@@ -274,6 +284,7 @@ fn function_owner_return_summary(
         variant_consumed_parameter_indices,
         variant_consumed_parameter_sources,
         variant_projection_returns,
+        resolved_parameter_variants,
         variant_conditions,
         variant_payload_conditions,
         returns_fresh_owner,

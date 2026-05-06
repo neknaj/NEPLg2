@@ -97,3 +97,9 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 `ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912` の修正後、`tests/stdlib/kp.n.md::doctest#3` は `len__str` の effect blocker ではなく、再び `pref` の `resource.cell.possibly_moved` / `resource.cell.uninit` で停止した。
 
 これにより、この issue が tracking している dynamic initialized range summary が KP doctest#3 の本体 blocker として残っていることを再確認した。
+
+## 2026-05-06 unwrap_ok dealloc 修正後の再確認
+
+`ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA` の修正後に `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_after_unwrap_ok_dealloc_summary.json --runner wasm --no-tree -j 1 --assert-io` を再実行した。
+
+結果は total=7, passed=4, failed=1, errored=2 で、doctest#7 の owner leak は消えた。一方 doctest#3 は引き続き `pref` の dynamic-offset prefix buffer read で `resource.cell.possibly_moved` を出しているため、この issue の dynamic initialized range summary 残件は継続する。

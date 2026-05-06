@@ -89,6 +89,7 @@ mod owner_state;
 mod owner_summary;
 mod owner_summary_leaf;
 mod owner_summary_record;
+mod owner_summary_resolved_variant;
 mod owner_summary_variant_build;
 mod owner_summary_variant_conditions;
 mod owner_summary_variant_construct;

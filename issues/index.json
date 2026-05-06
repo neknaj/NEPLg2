@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T14:18:42.321Z",
+  "generated_at": "2026-05-06T14:47:35.246Z",
   "counts": {
     "total": 517,
-    "open": 15,
-    "resolved": 502,
+    "open": 14,
+    "resolved": 503,
     "by_area": {
       "core": {
         "total": 251,
-        "open": 6,
-        "resolved": 245
+        "open": 5,
+        "resolved": 246
       },
       "stdlib": {
         "total": 157,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA",
-      "title": "Resource owner summary misses raw dealloc consumption through unwrap_ok",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "nepl-core/src/resource/owner_*.rs, stdlib/core/result.nepl, tests/stdlib/kp.n.md",
-      "legacy_id": "",
-      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
-      "file": "items/ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -3883,6 +3868,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260506T130126516Z-RESOURCE-OWNER-SUMMARIES-REJECT-FS-A-7E58243F.md"
+    },
+    {
+      "id": "ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA",
+      "title": "Resource owner summary misses raw dealloc consumption through unwrap_ok",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/resource/owner_*.rs, stdlib/core/result.nepl, tests/stdlib/kp.n.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA.md"
     },
     {
       "id": "ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912",

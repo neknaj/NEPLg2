@@ -5872,6 +5872,54 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_owner_check_resolves_unwrap_ok_raw_dealloc_consumption() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>()> ():
+    let data <i32> unwrap_ok alloc 8
+    store_i32 data 77;
+    unwrap_ok dealloc data 8;
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let (module, unresolved_trait_calls) =
+        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    assert!(
+        unresolved_trait_calls.is_empty(),
+        "unresolved trait calls: {:#?}",
+        unresolved_trait_calls
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function == "main" || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "unwrap_ok must resolve the Result::Ok owner effects from alloc/dealloc: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("compiler pipeline must accept unwrap_ok alloc/dealloc owner flow");
+}
+
+#[test]
 fn resource_ir_owner_check_accepts_borrowed_region_ptr_at_then_region_dealloc() {
     let source = r#"
 #entry main

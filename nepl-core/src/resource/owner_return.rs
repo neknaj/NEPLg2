@@ -16,7 +16,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
+        raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
@@ -39,6 +39,16 @@ impl ResourceOwnerCheckEngine<'_> {
         else {
             return;
         };
+        variant_owner_effects.apply_resolved_parameter_variants(
+            self,
+            owners,
+            raw_aliases,
+            raw_views,
+            storage_origins,
+            args,
+            &summary.resolved_parameter_variants,
+            span,
+        );
         if apply_unconditional_summary {
             self.apply_owner_return_summary(
                 owners,
@@ -59,7 +69,7 @@ impl ResourceOwnerCheckEngine<'_> {
         owners: &mut OwnerTable,
         function_aliases: &FunctionAliasTable,
         raw_aliases: &mut RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
+        raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         variant_owner_effects: &mut PendingVariantOwnerEffects,
         output: &Place,
@@ -87,6 +97,16 @@ impl ResourceOwnerCheckEngine<'_> {
                 .iter()
                 .find(|summary| summary.function == function.as_str())
             {
+                variant_owner_effects.apply_resolved_parameter_variants(
+                    self,
+                    owners,
+                    raw_aliases,
+                    raw_views,
+                    storage_origins,
+                    args,
+                    &summary.resolved_parameter_variants,
+                    span,
+                );
                 self.apply_owner_return_summary(
                     owners,
                     raw_aliases,

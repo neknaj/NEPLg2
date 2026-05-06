@@ -32349,6 +32349,30 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 進捗に該当する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 Agent 1: unwrap_ok dealloc owner summary
+
+- [同期]:
+  - `main` / `origin/main` の `e2a802ad` を起点に `fix/unwrap-ok-dealloc-owner-summary` branch で Stage 4 Resource IR owner summary の残件を修正した。
+- [原因]:
+  - `tests/stdlib/kp.n.md::doctest#7` は `unwrap_ok alloc` で取得した raw owner を `unwrap_ok dealloc` で checked cleanup しているが、Resource IR owner checker は `data` の `resource.owner.leak` を報告していた。
+  - `dealloc` は `Result::Ok` branch でだけ owner を consume するため pending variant owner effect として表現される。一方、`unwrap_ok` は `Result::Ok` arm だけを戻し `Err` arm は `Never` になるため、呼び出し元で引数 `Result` の `Ok` 確定として扱う必要がある。
+  - `unwrap_ok` の Resource IR では `match` scrutinee が `%r` そのものではなく `read %r -> tmp` であり、さらに `expr LocalRead` 注釈 op が同じ output に続くため、既存の summary 収集は引数 variant 確定を見つけられなかった。
+- [修正]:
+  - `OwnerReturnSummary` に `resolved_parameter_variants` を追加し、reachable return arm が単一 variant に確定する関数を関数境界の owner effect として表現した。
+  - summary 収集で `Read` / `Move` / local initializer / assignment の透明な値 alias を追跡し、`expr LocalRead` などの注釈 op では alias を保持するようにした。
+  - call / construct / borrow / raw / match output は変換値として alias を切るため、任意の値変換を parameter variant と誤認しない。
+  - 呼び出し時に `resolved_parameter_variants` を pending `Result` owner effect へ適用し、`unwrap_ok dealloc` の `Ok` 確定が `dealloc` success branch の owner consume を実体化するようにした。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_resolves_unwrap_ok_raw_dealloc_consumption -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_ -- --nocapture`: 55 passed
+  - `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_after_unwrap_ok_dealloc_summary.json --runner wasm --no-tree -j 1 --assert-io`: total=7, passed=4, failed=1, errored=2。doctest#7 の owner leak は消滅。残件は `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` と `ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8`。
+- [issue]:
+  - `ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA` は fixed。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 Resource IR owner summary 進捗に該当する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-06 Agent 1: returned raw header range summary 調査
 
 `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` の現状を確認した。現在のコードでは古い `initialized_return.rs` は存在せず、returned raw-cell summary は `initialized_summary*.rs` に分割済みである。

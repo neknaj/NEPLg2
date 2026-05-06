@@ -15,7 +15,9 @@ use super::owner_state::OwnerTable;
 use super::place_utils::{place_with_suffix, places_overlap};
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
-use super::summary::{OwnerReturnSummary, OwnerValueCondition, OwnerVariantCondition};
+use super::summary::{
+    OwnerResolvedParameterVariant, OwnerReturnSummary, OwnerValueCondition, OwnerVariantCondition,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PendingVariantOwnerConsumption {
@@ -284,6 +286,94 @@ impl PendingVariantOwnerEffects {
             .consumptions
             .iter()
             .filter(|entry| entry.result == *result)
+        {
+            let source = pending_consumption_source(entry, raw_aliases);
+            if source_list_contains(&handled_sources, &source, &[], entry.ty) {
+                continue;
+            }
+            engine.move_owner_out(
+                owners,
+                raw_aliases,
+                storage_origins,
+                &source,
+                ResourceOwnerOperation::CallArgument,
+                span,
+            );
+            raw_views.clear(&source);
+            push_unique_source(&mut handled_sources, source, Vec::new(), entry.ty);
+        }
+        self.resolve_result(result);
+    }
+
+    pub(super) fn apply_resolved_parameter_variants(
+        &mut self,
+        engine: &mut ResourceOwnerCheckEngine<'_>,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &mut RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        args: &[Place],
+        variants: &[OwnerResolvedParameterVariant],
+        span: Span,
+    ) {
+        for entry in variants {
+            let Some(result) = args.get(entry.parameter_index) else {
+                continue;
+            };
+            self.apply_resolved_result_variant(
+                engine,
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                result,
+                &entry.variant,
+                span,
+            );
+        }
+    }
+
+    fn apply_resolved_result_variant(
+        &mut self,
+        engine: &mut ResourceOwnerCheckEngine<'_>,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &mut RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        result: &Place,
+        variant: &str,
+        span: Span,
+    ) {
+        let variant = normalize_variant_name(variant);
+        if self.variant_is_unreachable(result, &variant) {
+            self.resolve_result(result);
+            return;
+        }
+        let mut handled_sources = Vec::new();
+        for entry in self
+            .returns
+            .iter()
+            .filter(|entry| entry.result == *result && entry.variant == variant)
+        {
+            let source = pending_return_source(entry, raw_aliases);
+            let target = place_with_suffix(result, &entry.target_suffix, entry.target_ty);
+            engine.transfer_owner(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &source,
+                &target,
+                ResourceOwnerOperation::ReturnValue,
+                span,
+            );
+            raw_views.clear(&target);
+            push_unique_source(&mut handled_sources, source, Vec::new(), entry.source_ty);
+        }
+        for entry in self
+            .consumptions
+            .iter()
+            .filter(|entry| entry.result == *result && entry.variant == variant)
         {
             let source = pending_consumption_source(entry, raw_aliases);
             if source_list_contains(&handled_sources, &source, &[], entry.ty) {

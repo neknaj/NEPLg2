@@ -63,3 +63,9 @@ timeout symptom は解消したが、60 秒制限に近い実行時間は残っ�
 `ISS-20260506T135746003Z-STRING-ACCESS-SPLIT-LOSES-RAW-MEMORY-8C64A912` の修正後、`tests/stdlib/kp.n.md` の doctest#5/#6 は再び `wasm test case timeout after 60000ms` になった。
 
 今回の実行は fs/stdio focused doctest と並行していたため単独実行での再測定が必要だが、`len__str` / scanner boundary の compile blocker は消えており、残る問題が runtime budget / algorithm / generated wasm 側に戻ったことは確認できた。この issue は引き続き open とする。
+
+## 2026-05-06 unwrap_ok dealloc 修正後の再確認
+
+`ISS-20260506T134653279Z-RESOURCE-OWNER-SUMMARY-MISSES-RAW-DE-007EB7EA` の修正後に `node nodesrc/tests.js -i tests/stdlib/kp.n.md -o output/kp_after_unwrap_ok_dealloc_summary.json --runner wasm --no-tree -j 1 --assert-io` を再実行した。
+
+結果は total=7, passed=4, failed=1, errored=2 で、doctest#5/#6 はそれぞれ `wasm test case timeout after 60000ms` のまま残った。doctest#7 の owner leak が消えても float scanner/writer path の runtime budget 問題は独立して残るため、この performance issue は open のまま継続する。
