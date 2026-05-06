@@ -1,0 +1,188 @@
+//: # math/f32/compare
+//: f32 の比較演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - f32 の等値・大小比較を算術や unary math から分けて管理します。
+//: - `core/math/f32` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - NaN が関与する比較は backend の IEEE 754 規則に従います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/f32/compare" as *
+//: fn main <()->i32> ():
+//:     if lt 1.0 2.0 0 1
+//: ```
+
+#indent 4
+
+//: eq: f32 の等値比較
+//:
+//: [目的/もくてき]:
+//: - 2つの f32 が等しいかを判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.eq`、llvm は `fcmp oeq` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN を含む比較は false になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn eq <(f32,f32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.eq
+    #if[target=llvm]
+    #llvmir:
+        define i32 @eq(float %a, float %b) {
+        entry:
+            %cmp = fcmp oeq float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
+
+//: ne: f32 の非等値比較
+//:
+//: [目的/もくてき]:
+//: - 2つの f32 が異なるかを判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.ne`、llvm は `fcmp une` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN を含む比較は true になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ne <(f32,f32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.ne
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ne(float %a, float %b) {
+        entry:
+            %cmp = fcmp une float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
+
+//: lt: f32 の小なり比較
+//:
+//: [目的/もくてき]:
+//: - `a < b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.lt`、llvm は `fcmp olt` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN を含むと false です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn lt <(f32,f32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.lt
+    #if[target=llvm]
+    #llvmir:
+        define i32 @lt(float %a, float %b) {
+        entry:
+            %cmp = fcmp olt float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
+
+//: le: f32 の以下比較
+//:
+//: [目的/もくてき]:
+//: - `a <= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.le`、llvm は `fcmp ole` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN を含むと false です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn le <(f32,f32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.le
+    #if[target=llvm]
+    #llvmir:
+        define i32 @le(float %a, float %b) {
+        entry:
+            %cmp = fcmp ole float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
+
+//: gt: f32 の大なり比較
+//:
+//: [目的/もくてき]:
+//: - `a > b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.gt`、llvm は `fcmp ogt` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN を含むと false です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn gt <(f32,f32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.gt
+    #if[target=llvm]
+    #llvmir:
+        define i32 @gt(float %a, float %b) {
+        entry:
+            %cmp = fcmp ogt float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }
+
+//: ge: f32 の以上比較
+//:
+//: [目的/もくてき]:
+//: - `a >= b` を判定します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.ge`、llvm は `fcmp oge` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN を含むと false です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ge <(f32,f32)->bool> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.ge
+    #if[target=llvm]
+    #llvmir:
+        define i32 @ge(float %a, float %b) {
+        entry:
+            %cmp = fcmp oge float %a, %b
+            %0 = zext i1 %cmp to i32
+            ret i32 %0
+        }

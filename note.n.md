@@ -1,3 +1,23 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math f32 responsibility split)
+
+- [同期]:
+  - `5e26e207` の i64 math split push 後、`origin/main` と一致する clean な `main` から branch `fix/math-f32-responsibility-split` を作成した。
+- [原因]:
+  - `stdlib/core/math/f32.nepl` は二項算術、単項 math、比較を同居させた 558 lines の型別 module になっていた。
+  - f32 の二項演算、単項演算、比較は NaN / 丸め / 比較規則の検証観点が異なるため、同一 file に戻すと math 分割 issue の責務境界が再び曖昧になる。
+- [修正]:
+  - `stdlib/core/math/f32/binary.nepl`、`stdlib/core/math/f32/unary.nepl`、`stdlib/core/math/f32/compare.nepl` を追加した。
+  - `stdlib/core/math/f32.nepl` は submodule を再 export する facade にし、関数本体を持たない形へ変更した。
+  - `nodesrc/test_stdlib_math_module_split.js` に f32 submodule の re-export、所有関数、行数上限、facade の無実装性を固定する検査を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/math/f32/binary.nepl -i stdlib/core/math/f32/unary.nepl -i stdlib/core/math/f32/compare.nepl -i stdlib/core/math/f32.nepl -i stdlib/core/math.nepl -i tests/stdlib/numerics.n.md -i tests/stdlib/math.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/math-f32-responsibility-split.json -j 1`: total=23, passed=23
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`alloc/string.nepl`、`alloc/collections/vec.nepl`、`core/mem.nepl`、`math/f64.nepl` などの分割を継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 core/math i64 responsibility split)
 
 - [同期]:

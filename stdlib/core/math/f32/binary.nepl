@@ -1,0 +1,224 @@
+//: # math/f32/binary
+//: f32 の二項算術演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - f32 の加減乗除、min / max、copysign を unary math や比較から分けて管理します。
+//: - `core/math/f32` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - NaN、丸め、±0、±∞ の扱いは wasm f32 と backend の規則に従います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/f32/binary" as *
+//:| #import "core/math/f32/compare" as *
+//: fn main <()->i32> ():
+//:     if eq add 1.5 0.5 2.0 0 1
+//: ```
+
+#indent 4
+
+//: add: f32 の加算
+//:
+//: [目的/もくてき]:
+//: - 2つの f32 を加算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.add`、llvm は `fadd float` を実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 丸め・NaN・±∞の扱いは IEEE 754 と各 backend の仕様に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/test" as *
+//:| #import "core/cast" as *
+//:| #import "core/math" as *
+//: fn main <()*>()> ():
+//:     let x <f32> add 1.5 2.25;
+//:     let y <f32> sub x 1.25;
+//:     assert eq x 3.75;
+//:     assert eq y 2.5;
+//: ```
+fn add <(f32,f32)->f32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.add
+    #if[target=llvm]
+    #llvmir:
+        define float @add(float %a, float %b) {
+        entry:
+            %0 = fadd float %a, %b
+            ret float %0
+        }
+
+//: sub: f32 の減算
+//:
+//: [目的/もくてき]:
+//: - 2つの f32 の差を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.sub`、llvm は `fsub float` を実行します。
+//:
+//: [注意/ちゅうい]:
+//: - NaN が関与する場合は比較で偽になる点に注意してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sub <(f32,f32)->f32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.sub
+    #if[target=llvm]
+    #llvmir:
+        define float @sub(float %a, float %b) {
+        entry:
+            %0 = fsub float %a, %b
+            ret float %0
+        }
+
+//: mul: f32 の乗算
+//:
+//: [目的/もくてき]:
+//: - 2つの f32 の積を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.mul`、llvm は `fmul float` を実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 大きな値同士では `+∞` や `-∞` へ飽和することがあります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn mul <(f32,f32)->f32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.mul
+    #if[target=llvm]
+    #llvmir:
+        define float @mul(float %a, float %b) {
+        entry:
+            %0 = fmul float %a, %b
+            ret float %0
+        }
+
+//: div: f32 の除算
+//:
+//: [目的/もくてき]:
+//: - 2つの f32 の商を計算します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.div`、llvm は `fdiv float` を実行します。
+//:
+//: [注意/ちゅうい]:
+//: - 整数除算と異なり、0 除算は trap せず ±∞ / NaN になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn div <(f32,f32)->f32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.div
+    #if[target=llvm]
+    #llvmir:
+        define float @div(float %a, float %b) {
+        entry:
+            %0 = fdiv float %a, %b
+            ret float %0
+        }
+
+//: min_f32: f32 の最小値
+//:
+//: [目的/もくてき]:
+//: - 2つの f32 から小さい方を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.min`、llvm は `llvm.minimum.f32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN 入力時の振る舞いは backend 仕様に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn min <(f32,f32)->f32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.min
+    #if[target=llvm]
+    #llvmir:
+        define float @min_f32(float %a, float %b) {
+        entry:
+            %0 = call float @llvm.minimum.f32(float %a, float %b)
+            ret float %0
+        }
+
+//: max_f32: f32 の最大値
+//:
+//: [目的/もくてき]:
+//: - 2つの f32 から大きい方を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.max`、llvm は `llvm.maximum.f32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - NaN 入力時の振る舞いは backend 仕様に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn max <(f32,f32)->f32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.max
+    #if[target=llvm]
+    #llvmir:
+        define float @max_f32(float %a, float %b) {
+        entry:
+            %0 = call float @llvm.maximum.f32(float %a, float %b)
+            ret float %0
+        }
+
+//: copysign_f32: f32 の符号コピー
+//:
+//: [目的/もくてき]:
+//: - 第1引数の絶対値に、第2引数の符号ビットを適用した値を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.copysign`、llvm は `llvm.copysign.f32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 値の大きさは第1引数、符号のみ第2引数から採用されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn copysign <(f32,f32)->f32> (a,b):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        local.get $b
+        f32.copysign
+    #if[target=llvm]
+    #llvmir:
+        define float @copysign_f32(float %a, float %b) {
+        entry:
+            %0 = call float @llvm.copysign.f32(float %a, float %b)
+            ret float %0
+        }

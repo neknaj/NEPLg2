@@ -1,0 +1,207 @@
+//: # math/f32/unary
+//: f32 の単項 math 演算を提供する submodule
+//:
+//: [目的/もくてき]:
+//: - sqrt / abs / neg / ceil / floor / trunc / nearest を二項算術や比較から分けて管理します。
+//: - `core/math/f32` facade から再 export されるため、通常利用では既存の import path を変えずに使えます。
+//:
+//: [注意/ちゅうい]:
+//: - NaN、丸め、±0、±∞ の扱いは wasm f32 と backend の規則に従います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "core/math/f32/unary" as *
+//:| #import "core/math/f32/compare" as *
+//: fn main <()->i32> ():
+//:     if eq abs -2.5 2.5 0 1
+//: ```
+
+#indent 4
+
+//: sqrt_f32: f32 の平方根
+//:
+//: [目的/もくてき]:
+//: - f32 の平方根を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.sqrt` を実行します。
+//: - llvm は `llvm.sqrt.f32` intrinsic を呼びます。
+//:
+//: [注意/ちゅうい]:
+//: - 負数入力は NaN になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn sqrt <(f32)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.sqrt
+    #if[target=llvm]
+    #llvmir:
+        define float @sqrt_f32(float %a) {
+        entry:
+            %0 = call float @llvm.sqrt.f32(float %a)
+            ret float %0
+        }
+
+//: abs_f32: f32 の絶対値
+//:
+//: [目的/もくてき]:
+//: - f32 の符号を取り除いた絶対値を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.abs` を使います。
+//: - llvm は `bitcast -> and mask -> bitcast` で符号ビットのみを落とします。
+//:
+//: [注意/ちゅうい]:
+//: - NaN の payload は backend の仕様に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn abs <(f32)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.abs
+    #if[target=llvm]
+    #llvmir:
+        define float @abs_f32(float %a) {
+        entry:
+            %bits = bitcast float %a to i32
+            %masked = and i32 %bits, 2147483647
+            %0 = bitcast i32 %masked to float
+            ret float %0
+        }
+
+//: neg: f32 の符号反転
+//:
+//: [目的/もくてき]:
+//: - f32 の符号を反転した値 `-a` を返します。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.neg`、llvm は `fneg float` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - `-0.0` と `+0.0` は符号が反転します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn neg <(f32)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.neg
+    #if[target=llvm]
+    #llvmir:
+        define float @neg(float %a) {
+        entry:
+            %0 = fneg float %a
+            ret float %0
+        }
+
+//: ceil_f32: f32 の切り上げ
+//:
+//: [目的/もくてき]:
+//: - f32 を「以上の最小整数値」へ切り上げます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.ceil`、llvm は `llvm.ceil.f32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 戻り値の型は f32 のままです。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ceil <(f32)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.ceil
+    #if[target=llvm]
+    #llvmir:
+        define float @ceil_f32(float %a) {
+        entry:
+            %0 = call float @llvm.ceil.f32(float %a)
+            ret float %0
+        }
+
+//: floor_f32: f32 の切り下げ
+//:
+//: [目的/もくてき]:
+//: - f32 を「以下の最大整数値」へ切り下げます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.floor`、llvm は `llvm.floor.f32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 戻り値の型は f32 のままです。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn floor <(f32)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.floor
+    #if[target=llvm]
+    #llvmir:
+        define float @floor_f32(float %a) {
+        entry:
+            %0 = call float @llvm.floor.f32(float %a)
+            ret float %0
+        }
+
+//: trunc_f32: f32 の小数部切り捨て
+//:
+//: [目的/もくてき]:
+//: - f32 の小数部を 0 方向へ切り捨てます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.trunc`、llvm は `llvm.trunc.f32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 負数では切り下げではなく 0 方向へ寄ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn trunc <(f32)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.trunc
+    #if[target=llvm]
+    #llvmir:
+        define float @trunc_f32(float %a) {
+        entry:
+            %0 = call float @llvm.trunc.f32(float %a)
+            ret float %0
+        }
+
+//: nearest_f32: f32 の最近接整数丸め
+//:
+//: [目的/もくてき]:
+//: - f32 を最近接整数へ丸めます。
+//:
+//: [実装/じっそう]:
+//: - wasm は `f32.nearest`、llvm は `llvm.nearbyint.f32` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - 中間値（x.5）は backend の丸め規則に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn nearest <(f32)->f32> (a):
+    #if[target=wasm]
+    #wasm:
+        local.get $a
+        f32.nearest
+    #if[target=llvm]
+    #llvmir:
+        define float @nearest_f32(float %a) {
+        entry:
+            %0 = call float @llvm.nearbyint.f32(float %a)
+            ret float %0
+        }
