@@ -6,7 +6,7 @@
 //:
 //: [実装/じっそう]:
 //: - strict move checking に合わせ、`Vec<Inline>` / `Vec<Node>` のような non-Copy AST raw storage を使いません。
-//: - block parser は入力文字列を byte index で走査し、section stack は最大 heading level 6 の Copy state として管理します。
+//: - block parser は入力文字列を byte index で走査し、JSON section stack は `parser/json_section` が管理します。
 //: - inline parser は JSON/HTML 文字列を直接構築し、ruby/gloss/math を必要箇所だけ再帰処理します。
 //:
 //: [注意/ちゅうい]:
@@ -32,6 +32,7 @@
 #import "alloc/string/scanner" as scanner
 #import "core/math" as *
 #import "./json_escape" as json
+#import "./parser/json_section" as *
 #import "./parser/scanner" as scan
 
 //: Document: NM document の source view
@@ -232,30 +233,6 @@ fn nm_inline_to_json_into <(StringBuilder,str)->StringBuilder> (out, s):
 fn nm_inline_to_json <(str)->str> (s):
     sb_build nm_inline_to_json_into string_builder_new s
 
-//: nm_json_begin_node: 現在 container に JSON node を追加する前処理を行う
-//:
-//: [目的/もくてき]:
-//: - root または現在 section children の comma が必要かどうかを判定します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
-fn nm_json_needs_comma <(i32,bool,bool,bool,bool,bool,bool,bool)->bool> (current_level, root_has, has1, has2, has3, has4, has5, has6):
-    match current_level:
-        0:
-            root_has
-        1:
-            has1
-        2:
-            has2
-        3:
-            has3
-        4:
-            has4
-        5:
-            has5
-        _:
-            has6
-
 //: parse_markdown: 拡張 Markdown 文字列を `Document` source view にする
 //:
 //: [目的/もくてき]:
@@ -287,7 +264,7 @@ pub fn parse_markdown <(str)->Document> (input):
 //: - Document source を再走査し、block / inline 構造を JSON へ直接出力します。
 //:
 //: [実装/じっそう]:
-//: - section stack は bool と current level で保持し、JSON の children array は section close 時に閉じます。
+//: - section stack と comma state は `parser/json_section` の Copy state で保持し、JSON の children array は section close 時に閉じます。
 //: - `Vec<Node>` / `Vec<Inline>` は使わず、StringBuilder だけで出力します。
 //:
 //: [注意/ちゅうい]:
@@ -313,20 +290,7 @@ pub fn document_to_json <(Document)->str> (doc):
     set sb sb_append sb "{\"t\":\"doc\",\"nodes\":[";
     let n <i32> len src;
     let mut pos <i32> 0;
-    let mut current_level <i32> 0;
-    let mut open1 <bool> false;
-    let mut open2 <bool> false;
-    let mut open3 <bool> false;
-    let mut open4 <bool> false;
-    let mut open5 <bool> false;
-    let mut open6 <bool> false;
-    let mut root_has <bool> false;
-    let mut has1 <bool> false;
-    let mut has2 <bool> false;
-    let mut has3 <bool> false;
-    let mut has4 <bool> false;
-    let mut has5 <bool> false;
-    let mut has6 <bool> false;
+    let mut sections <NmJsonSectionState> nm_json_section_state_new;
 
     while lt pos n:
         do:
@@ -343,63 +307,23 @@ pub fn document_to_json <(Document)->str> (doc):
                         scan::is_section_break t
                         then:
                             if:
-                                gt current_level 0
+                                gt nm_json_section_current_level sections 0
                                 then:
                                     set sb sb_append sb "]}";
-                                    match current_level:
-                                        1:
-                                            set open1 false
-                                        2:
-                                            set open2 false
-                                        3:
-                                            set open3 false
-                                        4:
-                                            set open4 false
-                                        5:
-                                            set open5 false
-                                        _:
-                                            set open6 false
-                                    set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
+                                    set sections nm_json_section_close_current sections
                                 else ()
                         else:
                             if:
                                 scan::is_hr t
                                 then:
-                                    if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
-                                    match current_level:
-                                        0:
-                                            set root_has true
-                                        1:
-                                            set has1 true
-                                        2:
-                                            set has2 true
-                                        3:
-                                            set has3 true
-                                        4:
-                                            set has4 true
-                                        5:
-                                            set has5 true
-                                        _:
-                                            set has6 true
+                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
+                                    set sections nm_json_section_mark_current_has sections;
                                     set sb sb_append sb "{\"t\":\"hr\"}";
                                     if:
-                                        gt current_level 0
+                                        gt nm_json_section_current_level sections 0
                                         then:
                                             set sb sb_append sb "]}";
-                                            match current_level:
-                                                1:
-                                                    set open1 false
-                                                2:
-                                                    set open2 false
-                                                3:
-                                                    set open3 false
-                                                4:
-                                                    set open4 false
-                                                5:
-                                                    set open5 false
-                                                _:
-                                                    set open6 false
-                                            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
+                                            set sections nm_json_section_close_current sections
                                         else ()
                                 else:
                                     if:
@@ -420,22 +344,8 @@ pub fn document_to_json <(Document)->str> (doc):
                                                         else:
                                                             set code_sb sb_append code_sb craw;
                                                             set code_sb sb_append code_sb "\n"
-                                            if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
-                                            match current_level:
-                                                0:
-                                                    set root_has true
-                                                1:
-                                                    set has1 true
-                                                2:
-                                                    set has2 true
-                                                3:
-                                                    set has3 true
-                                                4:
-                                                    set has4 true
-                                                5:
-                                                    set has5 true
-                                                _:
-                                                    set has6 true
+                                            if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
+                                            set sections nm_json_section_mark_current_has sections;
                                             set sb sb_append sb "{\"t\":\"code\",\"info\":\"";
                                             set sb json::json_escape_into sb info;
                                             set sb sb_append sb "\",\"code\":\"";
@@ -446,39 +356,12 @@ pub fn document_to_json <(Document)->str> (doc):
                                             if:
                                                 gt hlevel 0
                                                 then:
-                                                    while ge current_level hlevel:
+                                                    while ge nm_json_section_current_level sections hlevel:
                                                         do:
                                                             set sb sb_append sb "]}";
-                                                            match current_level:
-                                                                1:
-                                                                    set open1 false
-                                                                2:
-                                                                    set open2 false
-                                                                3:
-                                                                    set open3 false
-                                                                4:
-                                                                    set open4 false
-                                                                5:
-                                                                    set open5 false
-                                                                _:
-                                                                    set open6 false
-                                                            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
-                                                    if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
-                                                    match current_level:
-                                                        0:
-                                                            set root_has true
-                                                        1:
-                                                            set has1 true
-                                                        2:
-                                                            set has2 true
-                                                        3:
-                                                            set has3 true
-                                                        4:
-                                                            set has4 true
-                                                        5:
-                                                            set has5 true
-                                                        _:
-                                                            set has6 true
+                                                            set sections nm_json_section_close_current sections
+                                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
+                                                    set sections nm_json_section_mark_current_has sections;
                                                     let htext <str> scan::nm_heading_text t hlevel;
                                                     set sb sb_append sb "{\"t\":\"section\",\"level\":";
                                                     set sb sb_append_i32 sb hlevel;
@@ -487,20 +370,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                     set sb sb_append sb ",\"inl\":";
                                                     set sb nm_inline_to_json_into sb htext;
                                                     set sb sb_append sb "},\"children\":[";
-                                                    match hlevel:
-                                                        1:
-                                                            set open1 true; set has1 false
-                                                        2:
-                                                            set open2 true; set has2 false
-                                                        3:
-                                                            set open3 true; set has3 false
-                                                        4:
-                                                            set open4 true; set has4 false
-                                                        5:
-                                                            set open5 true; set has5 false
-                                                        _:
-                                                            set open6 true; set has6 false
-                                                    set current_level hlevel
+                                                    set sections nm_json_section_open_level sections hlevel
                                                 else:
                                                     let mut para_sb <StringBuilder> string_builder_new;
                                                     set para_sb sb_append para_sb raw;
@@ -517,43 +387,16 @@ pub fn document_to_json <(Document)->str> (doc):
                                                                     set para_sb sb_append para_sb "\n";
                                                                     set para_sb sb_append para_sb praw;
                                                                     set pos scanner::str_next_line_pos src pend
-                                                    if nm_json_needs_comma current_level root_has has1 has2 has3 has4 has5 has6 then set sb sb_append sb "," else ()
-                                                    match current_level:
-                                                        0:
-                                                            set root_has true
-                                                        1:
-                                                            set has1 true
-                                                        2:
-                                                            set has2 true
-                                                        3:
-                                                            set has3 true
-                                                        4:
-                                                            set has4 true
-                                                        5:
-                                                            set has5 true
-                                                        _:
-                                                            set has6 true
+                                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
+                                                    set sections nm_json_section_mark_current_has sections;
                                                     set sb sb_append sb "{\"t\":\"p\",\"inl\":";
                                                     let para_text <str> sb_build para_sb;
                                                     set sb nm_inline_to_json_into sb para_text;
                                                     set sb sb_append sb "}"
 
-    while gt current_level 0:
+    while gt nm_json_section_current_level sections 0:
         do:
             set sb sb_append sb "]}";
-            match current_level:
-                1:
-                    set open1 false
-                2:
-                    set open2 false
-                3:
-                    set open3 false
-                4:
-                    set open4 false
-                5:
-                    set open5 false
-                _:
-                    set open6 false
-            set current_level scan::nm_deepest_level open1 open2 open3 open4 open5 open6
+            set sections nm_json_section_close_current sections
     set sb sb_append sb "]}";
     sb_build sb

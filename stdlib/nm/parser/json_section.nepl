@@ -1,0 +1,233 @@
+//: nm/parser/json_section: NM JSON serializer の section state helper
+//:
+//: [目的/もくてき]:
+//: - `document_to_json` が使う section stack と comma state を 1 つの Copy record にまとめます。
+//: - JSON serializer 本体から h1..h6 の open flag / children flag 分岐を分離します。
+//:
+//: [実装/じっそう]:
+//: - `open1..open6` は現在開いている section stack、`has1..has6` は各 section children に既に node があるかを表します。
+//: - close は現在 level の open flag を落とし、scanner helper の deepest level で親 section へ戻します。
+//:
+//: [注意/ちゅうい]:
+//: - section node を追加する直前に `nm_json_section_mark_current_has` を呼び、開いた section 自身の children は `nm_json_section_open_level` が false に初期化します。
+//:
+//: [計算量/けいさんりょう]:
+//: - すべて O(1) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "nm/parser/json_section" as *
+//: fn main <()*>i32> ():
+//:     let s0 <NmJsonSectionState> nm_json_section_state_new
+//:     let s1 <NmJsonSectionState> nm_json_section_mark_current_has s0
+//:     let s2 <NmJsonSectionState> nm_json_section_open_level s1 2
+//:     let s3 <NmJsonSectionState> nm_json_section_mark_current_has s2
+//:     let s4 <NmJsonSectionState> nm_json_section_open_level s3 4
+//:     let s5 <NmJsonSectionState> nm_json_section_close_current s4
+//:     let ok <bool> and nm_json_section_needs_comma s1 eq nm_json_section_current_level s5 2
+//:     if ok 0 1
+//: ```
+
+#indent 4
+
+#import "core/traits/copy" as *
+
+#import "./scanner" as scan
+
+//: NmJsonSectionState: JSON serializer の section/comma state
+//:
+//: [目的/もくてき]:
+//: - root と各 section の children comma 有無、開いている section level をまとめて持ちます。
+pub struct NmJsonSectionState:
+    current_level <i32>
+    open1 <bool>
+    open2 <bool>
+    open3 <bool>
+    open4 <bool>
+    open5 <bool>
+    open6 <bool>
+    root_has <bool>
+    has1 <bool>
+    has2 <bool>
+    has3 <bool>
+    has4 <bool>
+    has5 <bool>
+    has6 <bool>
+
+impl Clone for NmJsonSectionState:
+    fn clone <(&NmJsonSectionState)->NmJsonSectionState> (self):
+        *self
+
+impl Copy for NmJsonSectionState:
+    fn copy_mark <(NmJsonSectionState)->NmJsonSectionState> (self):
+        self
+
+fn nm_json_section_state_make <(i32,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool)->NmJsonSectionState> (current_level, open1, open2, open3, open4, open5, open6, root_has, has1, has2, has3, has4, has5, has6):
+    NmJsonSectionState current_level open1 open2 open3 open4 open5 open6 root_has has1 has2 has3 has4 has5 has6
+
+//: nm_json_section_state_new: 空の JSON section state を[作/つく]る
+pub fn nm_json_section_state_new <()->NmJsonSectionState> ():
+    nm_json_section_state_make 0 false false false false false false false false false false false false false
+
+//: nm_json_section_current_level: 現在開いている最深 section level を[返/かえ]す
+pub fn nm_json_section_current_level <(NmJsonSectionState)->i32> (state):
+    state.current_level
+
+//: nm_json_section_needs_comma: 現在 container に次 node の comma が必要か[返/かえ]す
+pub fn nm_json_section_needs_comma <(NmJsonSectionState)->bool> (state):
+    match state.current_level:
+        0:
+            state.root_has
+        1:
+            state.has1
+        2:
+            state.has2
+        3:
+            state.has3
+        4:
+            state.has4
+        5:
+            state.has5
+        _:
+            state.has6
+
+//: nm_json_section_mark_current_has: 現在 container に node が追加済みであることを記録する
+pub fn nm_json_section_mark_current_has <(NmJsonSectionState)->NmJsonSectionState> (state):
+    match state.current_level:
+        0:
+            nm_json_section_state_make 0 state.open1 state.open2 state.open3 state.open4 state.open5 state.open6 true state.has1 state.has2 state.has3 state.has4 state.has5 state.has6
+        1:
+            nm_json_section_state_make 1 state.open1 state.open2 state.open3 state.open4 state.open5 state.open6 state.root_has true state.has2 state.has3 state.has4 state.has5 state.has6
+        2:
+            nm_json_section_state_make 2 state.open1 state.open2 state.open3 state.open4 state.open5 state.open6 state.root_has state.has1 true state.has3 state.has4 state.has5 state.has6
+        3:
+            nm_json_section_state_make 3 state.open1 state.open2 state.open3 state.open4 state.open5 state.open6 state.root_has state.has1 state.has2 true state.has4 state.has5 state.has6
+        4:
+            nm_json_section_state_make 4 state.open1 state.open2 state.open3 state.open4 state.open5 state.open6 state.root_has state.has1 state.has2 state.has3 true state.has5 state.has6
+        5:
+            nm_json_section_state_make 5 state.open1 state.open2 state.open3 state.open4 state.open5 state.open6 state.root_has state.has1 state.has2 state.has3 state.has4 true state.has6
+        _:
+            nm_json_section_state_make 6 state.open1 state.open2 state.open3 state.open4 state.open5 state.open6 state.root_has state.has1 state.has2 state.has3 state.has4 state.has5 true
+
+//: nm_json_section_open_level: 指定 level の section を開き children comma state を初期化する
+pub fn nm_json_section_open_level <(NmJsonSectionState,i32)->NmJsonSectionState> (state, level):
+    match level:
+        1:
+            nm_json_section_state_make 1 true state.open2 state.open3 state.open4 state.open5 state.open6 state.root_has false state.has2 state.has3 state.has4 state.has5 state.has6
+        2:
+            nm_json_section_state_make 2 state.open1 true state.open3 state.open4 state.open5 state.open6 state.root_has state.has1 false state.has3 state.has4 state.has5 state.has6
+        3:
+            nm_json_section_state_make 3 state.open1 state.open2 true state.open4 state.open5 state.open6 state.root_has state.has1 state.has2 false state.has4 state.has5 state.has6
+        4:
+            nm_json_section_state_make 4 state.open1 state.open2 state.open3 true state.open5 state.open6 state.root_has state.has1 state.has2 state.has3 false state.has5 state.has6
+        5:
+            nm_json_section_state_make 5 state.open1 state.open2 state.open3 state.open4 true state.open6 state.root_has state.has1 state.has2 state.has3 state.has4 false state.has6
+        _:
+            nm_json_section_state_make 6 state.open1 state.open2 state.open3 state.open4 state.open5 true state.root_has state.has1 state.has2 state.has3 state.has4 state.has5 false
+
+//: nm_json_section_close_current: 現在 level の section を閉じた state を[返/かえ]す
+pub fn nm_json_section_close_current <(NmJsonSectionState)->NmJsonSectionState> (state):
+    match state.current_level:
+        1:
+            nm_json_section_state_make:
+                scan::nm_deepest_level false state.open2 state.open3 state.open4 state.open5 state.open6
+                false
+                state.open2
+                state.open3
+                state.open4
+                state.open5
+                state.open6
+                state.root_has
+                state.has1
+                state.has2
+                state.has3
+                state.has4
+                state.has5
+                state.has6
+        2:
+            nm_json_section_state_make:
+                scan::nm_deepest_level state.open1 false state.open3 state.open4 state.open5 state.open6
+                state.open1
+                false
+                state.open3
+                state.open4
+                state.open5
+                state.open6
+                state.root_has
+                state.has1
+                state.has2
+                state.has3
+                state.has4
+                state.has5
+                state.has6
+        3:
+            nm_json_section_state_make:
+                scan::nm_deepest_level state.open1 state.open2 false state.open4 state.open5 state.open6
+                state.open1
+                state.open2
+                false
+                state.open4
+                state.open5
+                state.open6
+                state.root_has
+                state.has1
+                state.has2
+                state.has3
+                state.has4
+                state.has5
+                state.has6
+        4:
+            nm_json_section_state_make:
+                scan::nm_deepest_level state.open1 state.open2 state.open3 false state.open5 state.open6
+                state.open1
+                state.open2
+                state.open3
+                false
+                state.open5
+                state.open6
+                state.root_has
+                state.has1
+                state.has2
+                state.has3
+                state.has4
+                state.has5
+                state.has6
+        5:
+            nm_json_section_state_make:
+                scan::nm_deepest_level state.open1 state.open2 state.open3 state.open4 false state.open6
+                state.open1
+                state.open2
+                state.open3
+                state.open4
+                false
+                state.open6
+                state.root_has
+                state.has1
+                state.has2
+                state.has3
+                state.has4
+                state.has5
+                state.has6
+        _:
+            if:
+                gt state.current_level 0
+                then:
+                    nm_json_section_state_make:
+                        scan::nm_deepest_level state.open1 state.open2 state.open3 state.open4 state.open5 false
+                        state.open1
+                        state.open2
+                        state.open3
+                        state.open4
+                        state.open5
+                        false
+                        state.root_has
+                        state.has1
+                        state.has2
+                        state.has3
+                        state.has4
+                        state.has5
+                        state.has6
+                else:
+                    state

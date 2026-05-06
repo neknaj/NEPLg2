@@ -1,3 +1,29 @@
+# 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm parser JSON section split)
+
+- [同期]:
+  - `4fda9746` の nm HTML section split push 後、`origin/main` と一致する clean な `main` から branch `fix/nm-parser-block-section-split` を作成した。
+- [原因]:
+  - `stdlib/nm/parser.nepl` の `document_to_json` は block scan と JSON node output に加え、section stack と comma state まで local bool 群で直接管理していた。
+  - `current_level` / `open1..open6` / `root_has` / `has1..has6` の重複分岐は、HTML section split と同じく serializer 本体の責務を広げていた。
+- [修正]:
+  - `stdlib/nm/parser/json_section.nepl` を追加し、`NmJsonSectionState`、comma 判定、current container mark、section open/close state 遷移を分離した。
+  - `parser.nepl` から local section/comma bool 群と `nm_json_needs_comma` を削除し、`document_to_json` は `json_section` helper を使う形へ変更した。
+  - `nodesrc/test_stdlib_nm_parser_json_section_boundary.js` を追加し、JSON section state が parser 本体へ戻らないことを固定した。
+  - parser scanner boundary を更新し、`json_section` が `scan::nm_deepest_level` を使い scanner helper を再所有しないことを確認する。
+- [検証]:
+  - `node nodesrc/test_stdlib_nm_parser_json_section_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_no_raw_aggregate_detours.js`: passed
+  - `node nodesrc/tests.js -i stdlib/nm/parser/json_section.nepl --no-tree -o tmp/nm-parser-json-section-module2.json -j 1`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl --no-tree -o tmp/nm-parser-json-section-parser2.json -j 1`: total=3, passed=3
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-parser-json-section-nm-tests.json -j 1`: total=5, passed=5
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdlib/nm 関連は passed。既知別件 `ISS-20260506T030752155Z-RESOURCE-HIR-PROJECTION-COVERAGE-MOD-ED65CFB3` の warning は継続。
+- [残件]:
+  - `ISS-20260425T000000Z-RV-STDLIB-009` は open のまま。`nm/parser` inline JSON serializer、`alloc/string.nepl`、`alloc/collections/vec.nepl` などの責務分割を継続する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 nm HTML section split)
 
 - [同期]:
