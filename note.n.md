@@ -54,6 +54,28 @@
 
 - `plan.md` は変更していない。
 
+# 2026-05-07 note (ISS-20260506T175807290Z selfhost stdlib_map timeout split)
+
+## 作業内容
+
+- branch `fix/selfhost-stdlib-map-timeout` で `origin/main` と同期し、`trunk build` 後の compiler bundle で検証した。
+- `stdlib/neplg2/core/module/stdlib_map.nepl` の timeout は、`selfhost_module_path_last_slash_loop` の recursive byte scan が static/resource check で重くなっていることと、doctest が `resolved.path` を検証せず owner field を残していたことが原因だった。
+- `selfhost_module_path_last_slash_loop` を while scan に変更し、import path 形式は `SelfhostModuleImportPathKind` enum へ分類して `match` で resolver 分岐する形にした。
+- `stdlib_map` doctest は resolved kind だけでなく resolved path `"stdlib/core/result.nepl"` まで検証するようにし、owner leak 診断を回避ではなく期待値検証として閉じた。
+- `stdlib/neplg2/core/module/graph.nepl` の timeout は継続。切り分けにより `loader.nepl`、`module_parser.nepl`、空入力の `lex_all_with_file_id` も default 60000ms timeout になるため、graph 残件の根は lexer/parser/loader 側にある。
+- graph blocker は `ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D` として追加し、Discord に直接報告した。
+
+## 検証
+
+- `trunk build`: passed
+- `node nodesrc/tests.js -i stdlib/neplg2/core/module/stdlib_map.nepl --no-tree -o tmp/selfhost-stdlib-map-after-trunk.json -j 1`: total=1, passed=1
+- `node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl --no-tree -o tmp/selfhost-module-graph-after-trunk.json -j 1`: `ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D` の lexer timeout により blocked
+- `node nodesrc/tests.js -i tmp/probe_lex_empty.n.md --no-tree -o tmp/probe_lex_empty_after_trunk.json -j 1`: default 60000ms timeout を確認し、新規 issue の根拠にした
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T173138867Z raw address lowering responsibility split)
 
 ## 作業内容

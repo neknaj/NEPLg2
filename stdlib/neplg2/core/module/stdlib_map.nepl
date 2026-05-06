@@ -24,13 +24,19 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "alloc/string/search" as string_search
 //:| #import "core/result" as *
 //:| #import "neplg2/core/module/stdlib_map" as *
 //: fn main <()*>i32> ():
 //:     let map <SelfhostModulePathMap> selfhost_module_path_map_new "user" "stdlib";
 //:     match selfhost_module_path_resolve_import &map "user/app/main.nepl" source_span_empty 0 0 "core/result":
 //:         Result::Ok resolved:
-//:             if selfhost_resolved_module_path_is_stdlib resolved 0 1
+//:             if:
+//:                 and selfhost_resolved_module_path_is_stdlib resolved string_search::str_eq resolved.path "stdlib/core/result.nepl"
+//:                 then:
+//:                     0
+//:                 else:
+//:                     1
 //:         Result::Err _diag:
 //:             1
 //: ```
@@ -55,12 +61,30 @@ enum SelfhostModulePathKind:
     User
     Stdlib
 
+//: SelfhostModuleImportPathKind: import spec の path 形式
+//:
+//: [目的/もくてき]:
+//: - `.` / `/` / stdlib path の分類を enum として保持し、resolver の分岐に match 網羅性検査を効かせます。
+//: - 分類の追加時に resolver 側の対応漏れを静的に検出できるようにします。
+enum SelfhostModuleImportPathKind:
+    Absolute
+    Relative
+    Stdlib
+
 impl Clone for SelfhostModulePathKind:
     fn clone <(&SelfhostModulePathKind)->SelfhostModulePathKind> (self):
         *self
 
 impl Copy for SelfhostModulePathKind:
     fn copy_mark <(SelfhostModulePathKind)->SelfhostModulePathKind> (self):
+        self
+
+impl Clone for SelfhostModuleImportPathKind:
+    fn clone <(&SelfhostModuleImportPathKind)->SelfhostModuleImportPathKind> (self):
+        *self
+
+impl Copy for SelfhostModuleImportPathKind:
+    fn copy_mark <(SelfhostModuleImportPathKind)->SelfhostModuleImportPathKind> (self):
         self
 
 //: SelfhostResolvedModulePath: import spec から得られた VFS logical path
@@ -175,19 +199,19 @@ fn selfhost_module_path_ensure_extension <(SelfhostSourceSpan,str)*>Result<str, 
 
 //: selfhost_module_path_last_slash_loop: 最後の `/` byte index を[探/さが]す
 fn selfhost_module_path_last_slash_loop <(str,i32,i32,i32)->i32> (path, n, idx, last):
-    if:
-        ge idx n
-        then:
-            last
-        else:
-            let ch <i32> string_access::string_byte_at_unchecked path idx
-            let next_last <i32> if:
+    let mut i <i32> idx
+    let mut found <i32> last
+    while lt i n:
+        do:
+            let ch <i32> string_access::string_byte_at_unchecked path i
+            if:
                 eq ch '/'
                 then:
-                    idx
+                    set found i
                 else:
-                    last
-            selfhost_module_path_last_slash_loop path n add idx 1 next_last
+                    ()
+            set i add i 1
+    found
 
 //: selfhost_module_path_parent_dir: logical path の親 directory を[返/かえ]す
 fn selfhost_module_path_parent_dir <(str)->str> (path):
@@ -327,6 +351,24 @@ fn selfhost_module_path_resolve_relative <(&SelfhostModulePathMap,str,SelfhostSo
     let base_dir <str> selfhost_module_path_parent_dir current_path
     selfhost_module_path_resolve_relative_loop span kind root base_dir spec
 
+//: selfhost_module_path_import_kind: import path の形式を[分類/ぶんるい]する
+//:
+//: [目的/もくてき]:
+//: - resolver の入口で string prefix 判定を閉じ込め、以降の分岐を enum の match として扱います。
+//: - `SelfhostModuleImportPathKind` を増やした場合、resolver 側の match arm 追加漏れを検出できる形にします。
+fn selfhost_module_path_import_kind <(str)->SelfhostModuleImportPathKind> (spec):
+    if:
+        string_search::str_starts_with spec "/"
+        then:
+            SelfhostModuleImportPathKind::Absolute
+        else:
+            if:
+                string_search::str_starts_with spec "."
+                then:
+                    SelfhostModuleImportPathKind::Relative
+                else:
+                    SelfhostModuleImportPathKind::Stdlib
+
 //: selfhost_module_path_resolve_import: import path 文字列を VFS logical path へ[解決/かいけつ]する
 //:
 //: [仕様/しよう]:
@@ -334,17 +376,13 @@ fn selfhost_module_path_resolve_relative <(&SelfhostModulePathMap,str,SelfhostSo
 //: - `.` で始まる path は current module の directory から lexical に解決します。
 //: - それ以外は stdlib root 基準で解決します。
 fn selfhost_module_path_resolve_import <(&SelfhostModulePathMap,str,SelfhostSourceSpan,str)*>Result<SelfhostResolvedModulePath, SelfhostDiagnostic>> (map, current_path, span, spec):
-    if:
-        string_search::str_starts_with spec "/"
-        then:
+    match selfhost_module_path_import_kind spec:
+        SelfhostModuleImportPathKind::Absolute:
             selfhost_module_path_resolve_absolute map span spec
-        else:
-            if:
-                string_search::str_starts_with spec "."
-                then:
-                    selfhost_module_path_resolve_relative map current_path span spec
-                else:
-                    selfhost_module_path_resolve_stdlib map span spec
+        SelfhostModuleImportPathKind::Relative:
+            selfhost_module_path_resolve_relative map current_path span spec
+        SelfhostModuleImportPathKind::Stdlib:
+            selfhost_module_path_resolve_stdlib map span spec
 
 //: selfhost_module_path_resolve_import_spec: typed import spec を VFS logical path へ[解決/かいけつ]する
 //:
