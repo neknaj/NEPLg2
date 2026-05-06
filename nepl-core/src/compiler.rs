@@ -244,7 +244,7 @@ fn run_typecheck(
     }
 }
 
-fn run_move_check(
+fn run_resource_static_check(
     hir_module: &crate::hir::HirModule,
     types: &crate::types::TypeCtx,
     diagnostics: &mut Vec<Diagnostic>,
@@ -257,18 +257,12 @@ fn run_move_check(
     run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
     let initialized_moves = crate::resource::check_resource_initialized_moves(&resource, types);
     run_resource_cell_gate(&initialized_moves, diagnostics, source_map)?;
-    let borrow_lifetimes = crate::resource::check_resource_borrow_lifetimes(&resource);
+    let borrow_lifetimes = crate::resource::check_resource_borrow_lifetimes(&resource, types);
     run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)?;
     let effect_boundaries = crate::resource::check_resource_effect_boundaries(&resource);
     run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)?;
     let owner_obligations = crate::resource::check_resource_owner_obligations(&resource, types);
     run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)?;
-
-    let move_errors = passes::move_check::run(hir_module, types);
-    if !move_errors.is_empty() {
-        diagnostics.extend(move_errors);
-        return Err(CoreError::from_diagnostics(diagnostics.clone()));
-    }
 
     Ok(())
 }
@@ -1141,7 +1135,7 @@ pub fn prepare_module_for_codegen_with_source_map(
         }));
         return Err(CoreError::from_diagnostics(diagnostics));
     }
-    run_move_check(&hir_module, &types, &mut diagnostics, source_map)?;
+    run_resource_static_check(&hir_module, &types, &mut diagnostics, source_map)?;
     Ok(PreparedProgram {
         types,
         hir_module,

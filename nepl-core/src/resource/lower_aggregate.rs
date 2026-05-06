@@ -1,11 +1,10 @@
 extern crate alloc;
 
-use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::hir::{FuncRef, HirExpr, HirExprKind};
 use crate::runtime_helpers::helper_base_name;
-use crate::types::{TypeCtx, TypeId, TypeKind};
+use crate::types::TypeId;
 
 use super::lower::{
     func_ref_base_name, lower_expr_skeleton, place_from_expr_skeleton, LoweringContext,
@@ -13,6 +12,8 @@ use super::lower::{
 };
 use super::lower_aggregate_projection::{
     aggregate_field_projection, aggregate_field_projection_by_name,
+    compiler_field_address_base_and_offset, literal_field_name, non_negative_i32_literal,
+    reference_target_type,
 };
 use super::lower_raw_address_place::is_named_struct_type;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
@@ -152,14 +153,8 @@ pub(super) fn lower_reference_address_projection_source(
     let field_ty = reference_target_type(env.types, ref_ty)?;
     let offset_bytes = non_negative_i32_literal(args.get(1)?)?;
     let projection = aggregate_field_projection(env.types, owner_ty, offset_bytes, field_ty)?;
-    let mut base = place_from_expr_skeleton(owner, ctx);
-    if matches!(&base.root, super::model::PlaceRoot::Unknown) {
-        base = lower_expr_skeleton(owner, ops, ctx, env);
-    }
-    Some(
-        base.with_projection(PlaceProjection::Deref, owner_ty)
-            .with_projection(projection, field_ty),
-    )
+    let base = reference_owner_target_place(owner, owner_ty, ops, ctx, env);
+    Some(base.with_projection(projection, field_ty))
 }
 
 fn field_get_ref_source(
@@ -186,38 +181,37 @@ fn field_get_ref_source(
         } else {
             return None;
         };
+    let base = if owner_ref_target.is_some() {
+        reference_owner_target_place(owner, owner_ty, ops, ctx, env)
+    } else {
+        let mut base = place_from_expr_skeleton(owner, ctx);
+        if matches!(&base.root, super::model::PlaceRoot::Unknown) {
+            base = lower_expr_skeleton(owner, ops, ctx, env);
+        }
+        base
+    };
+    Some(base.with_projection(projection, field_ty))
+}
+
+fn reference_owner_target_place(
+    owner: &HirExpr,
+    target_ty: TypeId,
+    ops: &mut Vec<ResourceOp>,
+    ctx: &mut LoweringContext,
+    env: &LoweringEnvironment,
+) -> Place {
+    if let HirExprKind::AddrOf(inner) = &owner.kind {
+        let mut source = place_from_expr_skeleton(inner, ctx);
+        if matches!(&source.root, super::model::PlaceRoot::Unknown) {
+            source = lower_expr_skeleton(inner, ops, ctx, env);
+        }
+        return source;
+    }
     let mut base = place_from_expr_skeleton(owner, ctx);
     if matches!(&base.root, super::model::PlaceRoot::Unknown) {
         base = lower_expr_skeleton(owner, ops, ctx, env);
     }
-    if owner_ref_target.is_some() {
-        base = base.with_projection(PlaceProjection::Deref, owner_ty);
-    }
-    Some(base.with_projection(projection, field_ty))
-}
-
-fn non_negative_i32_literal(expr: &HirExpr) -> Option<usize> {
-    match expr.kind {
-        HirExprKind::LiteralI32(value) if value >= 0 => Some(value as usize),
-        _ => None,
-    }
-}
-
-fn literal_field_name<'a>(env: &'a LoweringEnvironment, expr: &HirExpr) -> Option<&'a str> {
-    match &expr.kind {
-        HirExprKind::LiteralStr(index) => {
-            env.string_literals.get(*index as usize).map(String::as_str)
-        }
-        _ => None,
-    }
-}
-
-fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    match types.get_ref(resolved) {
-        TypeKind::Reference(target, _) => Some(*target),
-        _ => None,
-    }
+    base.with_projection(PlaceProjection::Deref, target_ty)
 }
 
 fn lower_raw_aggregate_field_source(
@@ -249,27 +243,5 @@ fn raw_load_address_expr(expr: &HirExpr) -> Option<&HirExpr> {
             args.first()
         }
         _ => None,
-    }
-}
-
-fn compiler_field_address_base_and_offset(expr: &HirExpr) -> Option<(&HirExpr, usize)> {
-    match &expr.kind {
-        HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() == 2 => {
-            let offset = match args[1].kind {
-                HirExprKind::LiteralI32(value) if value >= 0 => value as usize,
-                _ => return None,
-            };
-            Some((&args[0], offset))
-        }
-        HirExprKind::Call { callee, args }
-            if matches!(func_ref_base_name(callee), Some("add")) && args.len() == 2 =>
-        {
-            let offset = match args[1].kind {
-                HirExprKind::LiteralI32(value) if value >= 0 => value as usize,
-                _ => return None,
-            };
-            Some((&args[0], offset))
-        }
-        _ => Some((expr, 0)),
     }
 }

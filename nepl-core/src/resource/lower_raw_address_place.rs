@@ -52,16 +52,6 @@ pub(super) fn raw_address_alias_target(output: &Place, env: &LoweringEnvironment
     }
 }
 
-pub(super) fn raw_address_output_can_carry_value(types: &TypeCtx, ty: TypeId) -> bool {
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    if matches!(types.get_ref(resolved), TypeKind::Reference(_, _)) {
-        return false;
-    }
-    matches!(types.get_ref(resolved), TypeKind::I32 | TypeKind::Str)
-        || is_named_struct_type(types, ty, "MemPtr")
-        || is_named_struct_type(types, ty, "RegionToken")
-}
-
 pub(super) fn is_named_struct_type(types: &TypeCtx, ty: TypeId, expected: &str) -> bool {
     let resolved = types.resolve_named_type_id(types.resolve_id(ty));
     match types.get_ref(resolved) {

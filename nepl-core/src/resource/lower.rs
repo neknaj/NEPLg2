@@ -12,7 +12,7 @@ use crate::hir::{
 };
 use crate::layout::aggregate_fields_with_offsets;
 use crate::runtime_helpers::helper_base_name;
-use crate::types::{TypeCtx, TypeId};
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::lower_aggregate::{
     lower_compiler_field_load_source, lower_field_get_call_source, lower_field_get_ref_call_source,
@@ -20,10 +20,7 @@ use super::lower_aggregate::{
     lower_reference_address_projection_source,
 };
 use super::lower_condition::resource_condition_fact;
-use super::lower_raw_address::{
-    push_core_mem_wrapper_semantics, push_named_raw_address_semantics,
-    push_user_raw_address_return_semantics,
-};
+use super::lower_raw_address::{push_core_mem_wrapper_semantics, push_named_raw_address_semantics};
 use super::lower_raw_address_place::is_named_struct_type;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
 use super::model::{
@@ -132,8 +129,13 @@ impl LoweringContext {
         self.local_scopes.push(BTreeMap::new());
     }
 
-    fn pop_scope(&mut self) {
-        let _ = self.local_scopes.pop();
+    fn pop_scope(&mut self) -> Vec<Place> {
+        self.local_scopes
+            .pop()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(name, ty)| Place::local(name, ty))
+            .collect()
     }
 
     fn declare_local(&mut self, name: String, ty: TypeId) {
@@ -237,7 +239,12 @@ fn lower_block_skeleton(
             last = value;
         }
     }
-    ctx.pop_scope();
+    let locals = ctx.pop_scope();
+    ops.push(ResourceOp::EndScope {
+        locals,
+        result: Some(last.clone()),
+        span: block.span,
+    });
     last
 }
 
@@ -300,7 +307,7 @@ pub(super) fn lower_expr_skeleton(
                 ops.push(ResourceOp::Borrow {
                     source,
                     output: output.clone(),
-                    kind: BorrowKind::Shared,
+                    kind: borrow_kind_for_reference_type(env.types, expr.ty),
                     span: expr.span,
                 });
                 ops.push(ResourceOp::Expr {
@@ -423,6 +430,13 @@ pub(super) fn lower_expr_skeleton(
                     }
                 }
                 let value = lower_expr_skeleton(&arm.body, &mut arm_ops, ctx, env);
+                if let Some(place) = &bind_local {
+                    arm_ops.push(ResourceOp::EndScope {
+                        locals: alloc::vec![place.clone()],
+                        result: Some(value.clone()),
+                        span: arm.body.span,
+                    });
+                }
                 resource_arms.push(ResourceMatchArm {
                     pattern: lower_match_pattern(&arm.pattern),
                     bind_local,
@@ -542,7 +556,7 @@ pub(super) fn lower_expr_skeleton(
                 ops.push(ResourceOp::Borrow {
                     source,
                     output: output.clone(),
-                    kind: BorrowKind::Shared,
+                    kind: borrow_kind_for_reference_type(env.types, expr.ty),
                     span: expr.span,
                 });
                 ops.push(ResourceOp::Expr {
@@ -577,7 +591,7 @@ pub(super) fn lower_expr_skeleton(
                 ops.push(ResourceOp::Borrow {
                     source,
                     output: output.clone(),
-                    kind: BorrowKind::Shared,
+                    kind: borrow_kind_for_reference_type(env.types, expr.ty),
                     span: expr.span,
                 });
                 ops.push(ResourceOp::Expr {
@@ -652,7 +666,7 @@ pub(super) fn lower_expr_skeleton(
             ops.push(ResourceOp::Borrow {
                 source,
                 output: output.clone(),
-                kind: BorrowKind::Shared,
+                kind: borrow_kind_for_reference_type(env.types, expr.ty),
                 span: expr.span,
             });
             ops.push(ResourceOp::Expr {
@@ -850,7 +864,6 @@ fn push_direct_call_skeleton(
         span: expr.span,
     });
     push_core_mem_wrapper_semantics(callee, args, &arg_places, &output, ops, env, expr.span);
-    push_user_raw_address_return_semantics(callee, args, &arg_places, &output, ops, env, expr.span);
     if let Some(name) = func_ref_base_name(callee) {
         push_named_raw_address_semantics(name, args, &arg_places, &output, ops, env, expr.span);
     }
@@ -985,6 +998,15 @@ pub(super) fn func_ref_base_name(callee: &FuncRef) -> Option<&str> {
     match callee {
         FuncRef::Builtin(name) | FuncRef::User(name, _, _) => Some(helper_base_name(name)),
         FuncRef::Trait { .. } => None,
+    }
+}
+
+fn borrow_kind_for_reference_type(types: &TypeCtx, ty: TypeId) -> BorrowKind {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    match types.get_ref(resolved) {
+        TypeKind::Reference(_, true) => BorrowKind::Unique,
+        TypeKind::Reference(_, false) => BorrowKind::Shared,
+        _ => BorrowKind::Shared,
     }
 }
 

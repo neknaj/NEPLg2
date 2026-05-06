@@ -226,6 +226,11 @@ assertContains(
 );
 assertContains(
     coverageHirProjectionAggregate,
+    'pub(super) fn aggregate_field_exists',
+    'coverage_hir_projection_aggregate.rs',
+);
+assertContains(
+    coverageHirProjectionAggregate,
     'pub(super) fn aggregate_field_matches_selector',
     'coverage_hir_projection_aggregate.rs',
 );
@@ -239,9 +244,14 @@ assertContains(
     'pub(super) fn resource_function_coverage',
     'coverage_resource.rs',
 );
-assertContains(
+assertNotContains(
     lowerRawAddress,
     'pub(super) fn push_user_raw_address_return_semantics',
+    'lower_raw_address.rs',
+);
+assertContains(
+    lowerRawAddress,
+    'pub(super) fn push_named_raw_address_semantics',
     'lower_raw_address.rs',
 );
 assertContains(
@@ -308,8 +318,11 @@ const maxLines = new Map([
     ['effect_counts_host.rs', 220],
     ['effect_counts_raw.rs', 80],
     ['initialized.rs', 750],
+    ['borrow_call.rs', 120],
     ['borrow_check.rs', 550],
+    ['borrow_scope.rs', 100],
     ['borrow_summary.rs', 120],
+    ['borrow_usage.rs', 260],
     ['owner_check.rs', 800],
     ['owner_flow.rs', 620],
     ['owner_raw_view.rs', 180],
@@ -330,13 +343,14 @@ const maxLines = new Map([
     ['effect_summary.rs', 250],
     ['coverage.rs', 280],
     ['coverage_hir.rs', 240],
+    ['coverage_hir_place.rs', 120],
     ['coverage_hir_projection.rs', 280],
     ['coverage_hir_projection_aggregate.rs', 180],
     ['coverage_hir_raw.rs', 80],
     ['coverage_resource.rs', 520],
     ['lower.rs', 1150],
     ['lower_aggregate.rs', 320],
-    ['lower_aggregate_projection.rs', 140],
+    ['lower_aggregate_projection.rs', 180],
     ['lower_condition.rs', 140],
     ['lower_raw_address.rs', 620],
     ['lower_raw_address_place.rs', 180],

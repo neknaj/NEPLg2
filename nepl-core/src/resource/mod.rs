@@ -1,19 +1,21 @@
 //! Resource IR used as the typed input for ownership and lifetime checks.
 //!
-//! This module is intentionally separate from the current HIR move checker.
-//! Stage 2 exposes the data model, a non-enforcing lowering skeleton, and a
-//! deterministic dump so later stages can migrate checks one operation class
-//! at a time.
+//! The compiler pipeline treats this module as the authority for ownership,
+//! lifetime, effect, and initialized-state checks after typed HIR is lowered.
 
 extern crate alloc;
 
+mod borrow_call;
 mod borrow_check;
+mod borrow_scope;
 mod borrow_state;
 mod borrow_summary;
+mod borrow_usage;
 mod cell_state;
 mod condition_fact;
 mod coverage;
 mod coverage_hir;
+mod coverage_hir_place;
 mod coverage_hir_projection;
 mod coverage_hir_projection_aggregate;
 mod coverage_hir_raw;

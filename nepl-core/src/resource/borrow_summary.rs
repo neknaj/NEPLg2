@@ -1,5 +1,7 @@
 use alloc::vec::Vec;
 
+use crate::types::TypeCtx;
+
 use super::borrow_check::ResourceBorrowCheckEngine;
 use super::borrow_state::BorrowTable;
 use super::function_alias::FunctionAliasTable;
@@ -9,6 +11,7 @@ use super::summary::BorrowTokenReturnSummary;
 
 pub(super) fn compute_borrow_token_return_summaries(
     module: &ResourceModule,
+    types: &TypeCtx,
 ) -> Vec<BorrowTokenReturnSummary> {
     let mut summaries = Vec::new();
     for _ in 0..=module.functions.len() {
@@ -16,7 +19,7 @@ pub(super) fn compute_borrow_token_return_summaries(
         for function in &module.functions {
             let mut parameter_indices = Vec::new();
             for (index, param) in function.params.iter().enumerate() {
-                if function_returns_borrow_token(function, &param.place, &summaries) {
+                if function_returns_borrow_token(function, &param.place, &summaries, types) {
                     parameter_indices.push(index);
                 }
             }
@@ -39,9 +42,11 @@ fn function_returns_borrow_token(
     function: &ResourceFunction,
     parameter: &Place,
     summaries: &[BorrowTokenReturnSummary],
+    types: &TypeCtx,
 ) -> bool {
     let mut engine = ResourceBorrowCheckEngine {
         function: function.name.as_str(),
+        types,
         summaries,
         parameter_names: function
             .params
@@ -55,14 +60,20 @@ fn function_returns_borrow_token(
     let mut function_aliases = FunctionAliasTable::default();
     borrows.add_shared(parameter, parameter);
     for block in &function.blocks {
-        engine.check_ops(&mut borrows, &mut function_aliases, &block.ops);
+        engine.check_ops_with_terminator(
+            &mut borrows,
+            &mut function_aliases,
+            &block.ops,
+            Some(&block.terminator),
+        );
         if let ResourceTerminator::Return {
             value: Some(value), ..
         } = &block.terminator
         {
             if borrows
-                .binding(value)
-                .is_some_and(|binding| binding.source == *parameter)
+                .bindings_overlapping_token(value)
+                .iter()
+                .any(|binding| binding.source == *parameter)
             {
                 return true;
             }

@@ -73,6 +73,31 @@ fn compile_resource_source_with_target(
     .map(|_| ())
 }
 
+fn assert_compile_resource_source_reports_code(
+    source: &str,
+    target: CompileTarget,
+    expected_code: &str,
+) {
+    let err = compile_resource_source_with_target(source, target)
+        .expect_err("source should be rejected by Resource IR static checks");
+    let nepl_core::CoreError::Diagnostics(diagnostics) = err else {
+        panic!("expected diagnostics error");
+    };
+    assert!(
+        diagnostics.iter().any(|diagnostic| diagnostic
+            .code
+            .is_some_and(|code| code.as_str() == expected_code)),
+        "expected diagnostic code {expected_code}, diagnostics: {diagnostics:#?}"
+    );
+}
+
+fn type_ctx_with_copy_i32() -> TypeCtx {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.i32());
+    types
+}
+
 #[test]
 fn resource_ir_lowering_skeleton_tracks_locals_and_dump() {
     let unit_ty = TypeId(0);
@@ -8488,8 +8513,227 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_compiler_rejects_non_copy_move_from_live_shared_reference() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let r <&LocalToken> &x
+    let y <LocalToken> x
+    let z <&LocalToken> r
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.borrow.move_from_shared",
+    );
+}
+
+#[test]
+fn resource_ir_compiler_rejects_unique_and_shared_reference_overlap() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn use_both <(&mut LocalToken,&LocalToken)->i32> (_a, _b):
+    0
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    use_both &mut x &x
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.borrow.borrow_during_unique",
+    );
+}
+
+#[test]
+fn resource_ir_compiler_rejects_local_reference_return_escape() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn leak <()->&LocalToken> ():
+    let t <LocalToken> LocalToken @token_id
+    &t
+
+fn main <()->i32> ():
+    let r <&LocalToken> leak
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.borrow.return_escape",
+    );
+}
+
+#[test]
+fn resource_ir_compiler_rejects_branch_retained_borrow_move() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let y <LocalToken> LocalToken @token_id
+    let mut r <&LocalToken> &x
+    let cnd <bool> true
+    if cnd:
+        then:
+            set r &y
+            0
+        else:
+            0
+    let moved <LocalToken> y
+    let still_live <&LocalToken> r
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.borrow.move_from_shared",
+    );
+}
+
+#[test]
+fn resource_ir_compiler_rejects_match_payload_borrow_move() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+enum RefOpt:
+    Some <&LocalToken>
+    None
+
+fn main <()->i32> ():
+    let x <LocalToken> LocalToken @token_id
+    let e <RefOpt> RefOpt::Some &x
+    match e:
+        RefOpt::Some r:
+            let y <LocalToken> x
+            let keep <&LocalToken> r
+            0
+        RefOpt::None:
+            0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.borrow.move_from_shared",
+    );
+}
+
+#[test]
+fn resource_ir_compiler_rejects_inner_local_reference_assignment_escape() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let outer <LocalToken> LocalToken @token_id
+    let mut r <&LocalToken> &outer
+    block:
+        let inner <LocalToken> LocalToken @token_id
+        set r &inner
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.borrow.return_escape",
+    );
+}
+
+#[test]
+fn resource_ir_compiler_rejects_inner_local_struct_reference_assignment_escape() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+struct RefBox:
+    inner <&LocalToken>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()->i32> ():
+    let outer <LocalToken> LocalToken @token_id
+    let mut b <RefBox> RefBox &outer
+    block:
+        let inner <LocalToken> LocalToken @token_id
+        let local <RefBox> RefBox &inner
+        set b local
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.borrow.return_escape",
+    );
+}
+
+#[test]
 fn resource_ir_borrow_check_allows_shared_read_until_release() {
-    let types = TypeCtx::new();
+    let types = type_ctx_with_copy_i32();
     let span = Span::dummy();
     let x = Place::local("x".to_string(), types.i32());
     let borrow = Place::temporary(ResourceId(0), types.i32());
@@ -8516,34 +8760,40 @@ fn resource_ir_borrow_check_allows_shared_read_until_release() {
         ],
     );
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
 #[test]
 fn resource_ir_borrow_check_reports_read_during_unique_borrow() {
-    let types = TypeCtx::new();
+    let types = type_ctx_with_copy_i32();
     let span = Span::dummy();
     let x = Place::local("x".to_string(), types.i32());
+    let unique = Place::temporary(ResourceId(0), types.i32());
     let resource = manual_resource_module(
         types.unit(),
         span,
         vec![
             ResourceOp::Borrow {
                 source: x.clone(),
-                output: Place::temporary(ResourceId(0), types.i32()),
+                output: unique.clone(),
                 kind: BorrowKind::Unique,
                 span,
             },
             ResourceOp::Read {
-                source: x,
+                source: x.clone(),
                 output: Place::temporary(ResourceId(1), types.i32()),
+                span,
+            },
+            ResourceOp::Read {
+                source: unique,
+                output: Place::temporary(ResourceId(2), types.i32()),
                 span,
             },
         ],
     );
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceBorrowDiagnostic::BorrowConflict {
@@ -8560,13 +8810,14 @@ fn resource_ir_borrow_check_reports_unique_conflict_with_shared_borrow() {
     let types = TypeCtx::new();
     let span = Span::dummy();
     let x = Place::local("x".to_string(), types.i32());
+    let shared = Place::temporary(ResourceId(0), types.i32());
     let resource = manual_resource_module(
         types.unit(),
         span,
         vec![
             ResourceOp::Borrow {
                 source: x.clone(),
-                output: Place::temporary(ResourceId(0), types.i32()),
+                output: shared.clone(),
                 kind: BorrowKind::Shared,
                 span,
             },
@@ -8576,10 +8827,15 @@ fn resource_ir_borrow_check_reports_unique_conflict_with_shared_borrow() {
                 kind: BorrowKind::Unique,
                 span,
             },
+            ResourceOp::Read {
+                source: shared,
+                output: Place::temporary(ResourceId(2), types.i32()),
+                span,
+            },
         ],
     );
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceBorrowDiagnostic::BorrowConflict {
@@ -8620,7 +8876,7 @@ fn resource_ir_borrow_check_releases_shared_before_unique_borrow() {
         ],
     );
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -8658,7 +8914,7 @@ fn resource_ir_borrow_check_reports_returned_borrow_token() {
         string_literals: vec![],
     };
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceBorrowDiagnostic::BorrowConflict {
@@ -8745,7 +9001,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_helper() {
         string_literals: vec![],
     };
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceBorrowDiagnostic::BorrowConflict {
@@ -8833,7 +9089,7 @@ fn resource_ir_borrow_check_releases_non_returned_call_argument_borrow_token() {
         string_literals: vec![],
     };
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -8890,7 +9146,7 @@ fn resource_ir_borrow_check_keeps_local_call_argument_borrow_token_live() {
                                 name: "observe".to_string(),
                                 type_args: vec![],
                             },
-                            args: vec![local_ref],
+                            args: vec![local_ref.clone()],
                             effect: EffectOp::UserCall {
                                 name: "observe".to_string(),
                                 effect: Effect::Pure,
@@ -8900,6 +9156,11 @@ fn resource_ir_borrow_check_keeps_local_call_argument_borrow_token_live() {
                         ResourceOp::Assign {
                             target: x,
                             value: replacement,
+                            span,
+                        },
+                        ResourceOp::Read {
+                            source: local_ref,
+                            output: Place::temporary(ResourceId(3), i32_ty),
                             span,
                         },
                     ],
@@ -8913,7 +9174,7 @@ fn resource_ir_borrow_check_keeps_local_call_argument_borrow_token_live() {
         string_literals: vec![],
     };
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceBorrowDiagnostic::BorrowConflict {
@@ -8976,7 +9237,7 @@ fn resource_ir_borrow_check_keeps_returned_call_argument_borrow_token_live() {
                             span,
                         },
                         ResourceOp::Call {
-                            output: returned,
+                            output: returned.clone(),
                             target: ResourceCallTarget::User {
                                 name: "borrow_id".to_string(),
                                 type_args: vec![],
@@ -8993,6 +9254,11 @@ fn resource_ir_borrow_check_keeps_returned_call_argument_borrow_token_live() {
                             value: replacement,
                             span,
                         },
+                        ResourceOp::Read {
+                            source: returned,
+                            output: Place::temporary(ResourceId(3), i32_ty),
+                            span,
+                        },
                     ],
                     terminator: ResourceTerminator::Return { value: None, span },
                     span,
@@ -9004,7 +9270,7 @@ fn resource_ir_borrow_check_keeps_returned_call_argument_borrow_token_live() {
         string_literals: vec![],
     };
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceBorrowDiagnostic::BorrowConflict {
@@ -9100,7 +9366,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_function_value() {
         string_literals: vec![],
     };
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceBorrowDiagnostic::BorrowConflict {
@@ -9197,7 +9463,7 @@ fn resource_ir_borrow_check_releases_non_returned_indirect_call_argument_borrow_
         string_literals: vec![],
     };
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -9250,7 +9516,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_unknown_callback() 
         string_literals: vec![],
     };
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceBorrowDiagnostic::BorrowConflict {
@@ -9312,7 +9578,7 @@ fn resource_ir_borrow_check_does_not_return_unknown_callback_token_with_mismatch
         string_literals: vec![],
     };
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -9385,7 +9651,7 @@ fn resource_ir_borrow_check_clears_stale_function_alias_on_assignment() {
         string_literals: vec![],
     };
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceBorrowDiagnostic::BorrowConflict {
@@ -9443,7 +9709,7 @@ fn resource_ir_borrow_check_allows_return_after_borrow_release() {
         string_literals: vec![],
     };
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
 }
 
@@ -9479,7 +9745,7 @@ fn resource_ir_borrow_check_rejects_assign_over_borrowed_field_projection() {
         vec![
             ResourceOp::Borrow {
                 source: field,
-                output: shared,
+                output: shared.clone(),
                 kind: BorrowKind::Shared,
                 span,
             },
@@ -9488,10 +9754,15 @@ fn resource_ir_borrow_check_rejects_assign_over_borrowed_field_projection() {
                 value: replacement,
                 span,
             },
+            ResourceOp::Read {
+                source: shared,
+                output: Place::temporary(ResourceId(2), i32_ty),
+                span,
+            },
         ],
     );
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceBorrowDiagnostic::BorrowConflict {
@@ -9789,7 +10060,7 @@ fn resource_ir_borrow_merge_rejects_mutation_after_branch_borrow() {
         ],
     );
 
-    let report = check_resource_borrow_lifetimes(&resource);
+    let report = check_resource_borrow_lifetimes(&resource, &types);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
         diagnostic,
         ResourceBorrowDiagnostic::BorrowConflict {

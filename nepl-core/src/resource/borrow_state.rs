@@ -2,7 +2,9 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use super::model::{BorrowKind, BorrowState, BorrowStateEntry, Place};
-use super::place_utils::{places_overlap, push_unique_place, should_track};
+use super::place_utils::{
+    place_suffix_after_prefix, place_with_suffix, places_overlap, push_unique_place, should_track,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct BorrowBinding {
@@ -78,41 +80,95 @@ impl BorrowTable {
         });
     }
 
-    pub(super) fn copy_or_move_token(&mut self, source: &Place, output: &Place) -> bool {
-        let Some(index) = self.binding_index(source) else {
+    pub(super) fn copy_or_move_token_tree(
+        &mut self,
+        source: &Place,
+        output: &Place,
+        copy_shared: bool,
+    ) -> bool {
+        let bindings = self
+            .bindings
+            .iter()
+            .enumerate()
+            .filter_map(|(index, binding)| {
+                let suffix = place_suffix_after_prefix(&binding.token, source)?;
+                let target = place_with_suffix(output, &suffix, binding.token.ty);
+                Some((index, binding.clone(), target))
+            })
+            .collect::<Vec<_>>();
+        if bindings.is_empty() {
             return false;
-        };
-        let binding = self.bindings[index].clone();
-        match binding.kind {
-            BorrowKind::Shared => {
-                self.add_shared(&binding.source, output);
-            }
-            BorrowKind::Unique => {
-                self.bindings[index].token = output.clone();
+        }
+        for (index, binding, target) in bindings {
+            if copy_shared && binding.kind == BorrowKind::Shared {
+                self.add_shared(&binding.source, &target);
+            } else if let Some(slot) = self.bindings.get_mut(index) {
+                slot.token = target;
             }
         }
         true
     }
 
-    pub(super) fn transfer_token(&mut self, source: &Place, target: &Place) -> bool {
-        let Some(index) = self.binding_index(source) else {
-            return false;
-        };
-        self.bindings[index].token = target.clone();
-        true
+    pub(super) fn release_token_tree(&mut self, token: &Place) -> bool {
+        let mut released = false;
+        let mut index = 0;
+        while index < self.bindings.len() {
+            if place_suffix_after_prefix(&self.bindings[index].token, token).is_none() {
+                index += 1;
+                continue;
+            }
+            let binding = self.bindings.remove(index);
+            self.release_source(&binding.source, binding.kind);
+            released = true;
+        }
+        released
     }
 
-    pub(super) fn release_token(&mut self, token: &Place) -> bool {
-        let Some(index) = self.binding_index(token) else {
-            return false;
-        };
-        let binding = self.bindings.remove(index);
-        self.release_source(&binding.source, binding.kind);
-        true
+    pub(super) fn release_tokens_not_used_by<F>(&mut self, mut is_used: F)
+    where
+        F: FnMut(&BorrowBinding) -> bool,
+    {
+        let mut index = 0;
+        while index < self.bindings.len() {
+            if is_used(&self.bindings[index]) {
+                index += 1;
+                continue;
+            }
+            let binding = self.bindings.remove(index);
+            self.release_source(&binding.source, binding.kind);
+        }
     }
 
-    pub(super) fn binding(&self, token: &Place) -> Option<&BorrowBinding> {
-        self.bindings.iter().find(|binding| binding.token == *token)
+    pub(super) fn active_state_for_deref_access(&self, place: &Place) -> Option<BorrowState> {
+        let deref_index = place
+            .projections
+            .iter()
+            .position(|projection| matches!(projection, super::model::PlaceProjection::Deref))?;
+        let mut token = place.clone();
+        token.projections.truncate(deref_index);
+        let binding = self.binding_by_root_projection(&token)?;
+        let state = self.state(&binding.source);
+        matches!(
+            state,
+            BorrowState::Shared { .. } | BorrowState::Unique { .. }
+        )
+        .then_some(state)
+    }
+
+    pub(super) fn bindings_overlapping_token(&self, place: &Place) -> Vec<BorrowBinding> {
+        self.bindings
+            .iter()
+            .filter(|binding| places_overlap(&binding.token, place))
+            .cloned()
+            .collect()
+    }
+
+    pub(super) fn bindings_with_source_overlapping(&self, place: &Place) -> Vec<BorrowBinding> {
+        self.bindings
+            .iter()
+            .filter(|binding| places_overlap(&binding.source, place))
+            .cloned()
+            .collect()
     }
 
     pub(super) fn merge_paths(paths: &[BorrowTable]) -> Self {
@@ -183,6 +239,12 @@ impl BorrowTable {
         self.bindings
             .iter()
             .position(|binding| binding.token == *token)
+    }
+
+    fn binding_by_root_projection(&self, token: &Place) -> Option<&BorrowBinding> {
+        self.bindings.iter().find(|binding| {
+            binding.token.root == token.root && binding.token.projections == token.projections
+        })
     }
 }
 

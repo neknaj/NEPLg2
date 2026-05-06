@@ -104,6 +104,11 @@ pub enum ResourceOp {
         place: Place,
         span: Span,
     },
+    EndScope {
+        locals: Vec<Place>,
+        result: Option<Place>,
+        span: Span,
+    },
     CallEffect {
         effect: EffectOp,
         span: Span,

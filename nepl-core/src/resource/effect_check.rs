@@ -356,7 +356,10 @@ impl ResourceEffectBoundaryEngine<'_> {
             ResourceOp::FunctionValue { output, name, .. } => {
                 function_aliases.set_alias(output, name.clone());
             }
-            ResourceOp::Expr { .. } | ResourceOp::Borrow { .. } | ResourceOp::Drop { .. } => {}
+            ResourceOp::Expr { .. }
+            | ResourceOp::Borrow { .. }
+            | ResourceOp::Drop { .. }
+            | ResourceOp::EndScope { .. } => {}
         }
     }
 

@@ -31376,3 +31376,50 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 進捗に該当する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (ISS-20260506T025727360Z legacy move_check fallback removal)
+
+- [同期]:
+  - `main` と `origin/main` が `412a550a` で一致していることを確認し、`work/resource-ir-remove-old-move-check-fallback` branch で Stage 4 の残件に着手した。
+- [原因]:
+  - `compiler.rs` は Resource IR lowering / cell / borrow / effect / owner gate の後に旧 `passes::move_check::run` を fallback として実行していた。
+  - これにより、Stage 4 が Resource IR authority へ移行した後も、旧 HIR checker の raw alias / borrow / move 状態機械が compiled pass として残っていた。
+- [修正]:
+  - compiler pipeline の関数を `run_resource_static_check` に改名し、旧 `passes::move_check::run` fallback を削除した。
+  - `nepl-core/src/passes/move_check.rs` と配下 module を削除し、compiled pass として旧 checker が残らないようにした。
+  - direct old checker test は Resource IR shadow report の lowering / resource diagnostics を確認する test に置き換えた。
+  - `nodesrc/test_resource_gate_order.js` は Resource IR gate の存在と legacy fallback 不在を監視する policy に更新した。
+- [検証]:
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_rejects -- --nocapture`: 7 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_borrow_check -- --nocapture`: 16 passed
+  - `cargo test -p nepl-core --test check_pipeline resource_static_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed
+  - `cargo test -p nepl-core --test check_pipeline prepare_codegen_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed
+  - `node nodesrc/test_resource_gate_order.js`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/compiler/move_check.n.md -o output/move_check_after_legacy_fallback_removal.json --runner wasm --no-tree -j 1`: total=52, passed=52
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md -o output/move_effect_after_legacy_fallback_removal.json --runner wasm --no-tree -j 1`: total=110, passed=105, failed=5（別 issue として再オープン）
+- [issue]:
+  - `ISS-20260506T025727360Z-REMOVE-LEGACY-MOVE-CHECK-FALLBACK-AF-C143E79B` は fixed。
+  - `ISS-20260425T000000Z-RV-CORE-009-58589A3F` の Stage 4 進捗に該当する。
+  - `ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2` は、raw address helper literal offset と higher-order / aggregate / enum payload function value raw write の Resource IR effect/cell summary 残件として open に戻した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+# 2026-05-06 note (Resource IR borrow token tree after fallback removal)
+
+- [原因]:
+  - 旧 `move_check` fallback を外すと、Resource IR borrow checker は exact token だけを見ており、`RefBox { inner: &t }`、`RefOpt::Some &x`、block から外側 local への reference assignment などで borrow token が aggregate / enum payload / field projection をまたいで消える経路があった。
+  - 一方で単純に EndScope まで token を保持すると、`let r &x; let y x` のような last-use release が false positive になった。
+- [修正]:
+  - `BorrowTable` に projected token tree の copy/move/release を追加し、Read / Move / Assign / DeclareLocal / Drop / call temporary cleanup が prefix/suffix 付き `Place` を扱うようにした。
+  - Construct / Match bind / user call return summary も aggregate field / enum payload / return aggregate 内の borrow token を伝播するようにした。
+  - branch / match arm の内部検査は外側 continuation を順序付きに参照し、将来使用される前に token の scope が閉じる場合は外側 EndScope で過剰保持しない。
+  - match arm bind は arm 専用 local として `EndScope` を明示し、payload bind の寿命が arm 外へ漏れないようにした。
+  - enum payload projection の variant 名は match pattern 側の fully-qualified 名から payload projection 用の bare variant 名へ canonical 化した。
+- [検証]:
+  - `tests/compiler/move_check.n.md`: 52/52 passed
+  - Rust regression: branch retained borrow、match payload borrow、inner local reference assignment escape、inner local struct reference assignment escape を `resource_ir_compiler_rejects_*` に追加し、7/7 passed。
+- [残件]:
+  - effect/cell summary 側の `move_effect.n.md` 5 件は `ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2` で継続する。

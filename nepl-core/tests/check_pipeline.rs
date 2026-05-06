@@ -91,7 +91,7 @@ fn monomorphize_accepts_deep_prefix_chain_without_stack_overflow() {
 }
 
 #[test]
-fn move_check_accepts_deep_prefix_chain_without_stack_overflow() {
+fn resource_static_check_accepts_deep_prefix_chain_without_stack_overflow() {
     let module = parse_module(&deep_identity_source(1105));
     let mut tc = nepl_core::typecheck::typecheck(
         &module,
@@ -105,10 +105,23 @@ fn move_check_accepts_deep_prefix_chain_without_stack_overflow() {
         nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut tc.types, hir);
     assert!(unresolved.is_empty());
 
-    let diagnostics = nepl_core::passes::move_check::run(&hir, &tc.types);
+    let resource = nepl_core::resource::lower_hir_module(&hir, &tc.types);
+    let coverage =
+        nepl_core::resource::compare_hir_resource_lowering_typed(&hir, &resource, &tc.types);
+    let initialized_moves =
+        nepl_core::resource::check_resource_initialized_moves(&resource, &tc.types);
+    let borrow_lifetimes =
+        nepl_core::resource::check_resource_borrow_lifetimes(&resource, &tc.types);
+    let effect_boundaries = nepl_core::resource::check_resource_effect_boundaries(&resource);
+    let owner_obligations =
+        nepl_core::resource::check_resource_owner_obligations(&resource, &tc.types);
     assert!(
-        diagnostics.is_empty(),
-        "move check diagnostics: {diagnostics:?}"
+        coverage.diagnostics.is_empty()
+            && initialized_moves.diagnostics.is_empty()
+            && borrow_lifetimes.diagnostics.is_empty()
+            && effect_boundaries.diagnostics.is_empty()
+            && owner_obligations.diagnostics.is_empty(),
+        "resource static-check diagnostics: {coverage:#?} {initialized_moves:#?} {borrow_lifetimes:#?} {effect_boundaries:#?} {owner_obligations:#?}"
     );
 }
 

@@ -283,7 +283,7 @@ impl ResourceCheckEngine<'_> {
                     variant_initializations.clear_result(place);
                 }
             }
-            ResourceOp::CallEffect { .. } => {}
+            ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
             ResourceOp::FunctionValue { output, name, .. } => {
                 cells.mark_initialized(output);
                 raw_aliases.clear(output);

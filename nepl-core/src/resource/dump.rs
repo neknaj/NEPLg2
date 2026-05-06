@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::format;
 use alloc::string::String;
+use alloc::vec::Vec;
 use core::fmt::Write;
 
 use super::model::{
@@ -160,6 +161,22 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
                 span.file_id.0,
                 span.start,
                 span.end
+            );
+        }
+        ResourceOp::EndScope {
+            locals,
+            result,
+            span,
+        } => {
+            let locals = locals.iter().map(dump_place).collect::<Vec<_>>().join(", ");
+            let result = result
+                .as_ref()
+                .map(dump_place)
+                .unwrap_or_else(|| String::from("_"));
+            let _ = writeln!(
+                out,
+                "end_scope [{}] result={} span={}:{}-{}",
+                locals, result, span.file_id.0, span.start, span.end
             );
         }
         ResourceOp::CallEffect { effect, span } => {

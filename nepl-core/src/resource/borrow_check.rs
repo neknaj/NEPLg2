@@ -4,12 +4,22 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::span::Span;
+use crate::types::TypeCtx;
 
+use super::borrow_call::{
+    propagate_call_return_token, propagate_indirect_call_return_token,
+    release_call_temporary_argument_tokens,
+};
+use super::borrow_scope::check_end_scope;
 use super::borrow_state::BorrowTable;
+use super::borrow_usage::{
+    propagate_construct_borrow_tokens, propagate_match_bind_borrow_token,
+    scan_borrow_binding_future, terminator_uses_place, BorrowBindingFuture,
+};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
-    BorrowKind, BorrowState, BorrowStateEntry, Place, PlaceRoot, ResourceBlock, ResourceCallTarget,
-    ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
+    BorrowKind, BorrowState, BorrowStateEntry, Place, PlaceRoot, ResourceBlock, ResourceFunction,
+    ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::report::{
     ResourceBorrowCheckDeferred, ResourceBorrowCheckReport, ResourceBorrowDiagnostic,
@@ -17,15 +27,19 @@ use super::report::{
 };
 use super::summary::{compute_borrow_token_return_summaries, BorrowTokenReturnSummary};
 
-pub fn check_resource_borrow_lifetimes(module: &ResourceModule) -> ResourceBorrowCheckReport {
+pub fn check_resource_borrow_lifetimes(
+    module: &ResourceModule,
+    types: &TypeCtx,
+) -> ResourceBorrowCheckReport {
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceBorrowCheckDeferred::default();
-    let summaries = compute_borrow_token_return_summaries(module);
+    let summaries = compute_borrow_token_return_summaries(module, types);
 
     for function in &module.functions {
         let mut engine = ResourceBorrowCheckEngine {
             function: function.name.as_str(),
+            types,
             summaries: &summaries,
             parameter_names: Vec::new(),
             diagnostics: Vec::new(),
@@ -50,10 +64,49 @@ pub fn check_resource_borrow_lifetimes(module: &ResourceModule) -> ResourceBorro
 
 pub(super) struct ResourceBorrowCheckEngine<'a> {
     pub(super) function: &'a str,
+    pub(super) types: &'a TypeCtx,
     pub(super) summaries: &'a [BorrowTokenReturnSummary],
     pub(super) parameter_names: Vec<String>,
     pub(super) diagnostics: Vec<ResourceBorrowDiagnostic>,
     pub(super) deferred: ResourceBorrowCheckDeferred,
+}
+
+struct BorrowContinuation<'a> {
+    op_segments: Vec<&'a [ResourceOp]>,
+    terminator: Option<&'a ResourceTerminator>,
+}
+
+impl<'a> BorrowContinuation<'a> {
+    fn new(terminator: Option<&'a ResourceTerminator>) -> Self {
+        Self {
+            op_segments: Vec::new(),
+            terminator,
+        }
+    }
+
+    fn with_segment(&self, segment: &'a [ResourceOp]) -> Self {
+        let mut op_segments = Vec::with_capacity(self.op_segments.len() + 1);
+        if !segment.is_empty() {
+            op_segments.push(segment);
+        }
+        op_segments.extend(self.op_segments.iter().copied());
+        Self {
+            op_segments,
+            terminator: self.terminator,
+        }
+    }
+
+    fn keeps_borrow_binding(&self, binding: &super::borrow_state::BorrowBinding) -> bool {
+        for ops in &self.op_segments {
+            match scan_borrow_binding_future(ops, binding) {
+                BorrowBindingFuture::Keep => return true,
+                BorrowBindingFuture::Ended => return false,
+                BorrowBindingFuture::Unused => {}
+            }
+        }
+        self.terminator
+            .is_some_and(|terminator| terminator_uses_place(terminator, &binding.token))
+    }
 }
 
 impl ResourceBorrowCheckEngine<'_> {
@@ -77,9 +130,16 @@ impl ResourceBorrowCheckEngine<'_> {
         function_aliases: &mut FunctionAliasTable,
         block: &ResourceBlock,
     ) {
-        self.check_ops(borrows, function_aliases, &block.ops);
+        self.check_ops_with_terminator(
+            borrows,
+            function_aliases,
+            &block.ops,
+            Some(&block.terminator),
+        );
         match &block.terminator {
             ResourceTerminator::Return { value, span } => {
+                let continuation = BorrowContinuation::new(Some(&block.terminator));
+                self.release_dead_borrow_tokens(borrows, &[], &continuation);
                 if let Some(value) = value {
                     self.check_return_escape(borrows, value, *span);
                 }
@@ -88,15 +148,46 @@ impl ResourceBorrowCheckEngine<'_> {
         }
     }
 
-    pub(super) fn check_ops(
+    pub(super) fn check_ops_with_terminator(
         &mut self,
         borrows: &mut BorrowTable,
         function_aliases: &mut FunctionAliasTable,
         ops: &[ResourceOp],
+        terminator: Option<&ResourceTerminator>,
     ) {
-        for op in ops {
-            self.check_op(borrows, function_aliases, op);
+        let continuation = BorrowContinuation::new(terminator);
+        self.check_ops_with_continuation(borrows, function_aliases, ops, &continuation);
+    }
+
+    fn check_ops_with_continuation<'op>(
+        &mut self,
+        borrows: &mut BorrowTable,
+        function_aliases: &mut FunctionAliasTable,
+        ops: &'op [ResourceOp],
+        continuation: &BorrowContinuation<'op>,
+    ) {
+        for (index, op) in ops.iter().enumerate() {
+            if !matches!(op, ResourceOp::EndScope { .. }) {
+                self.release_dead_borrow_tokens(borrows, &ops[index..], continuation);
+            }
+            let nested_continuation = continuation.with_segment(&ops[index + 1..]);
+            self.check_op(borrows, function_aliases, op, &nested_continuation);
         }
+    }
+
+    fn release_dead_borrow_tokens(
+        &self,
+        borrows: &mut BorrowTable,
+        future_ops: &[ResourceOp],
+        continuation: &BorrowContinuation<'_>,
+    ) {
+        borrows.release_tokens_not_used_by(|binding| {
+            match scan_borrow_binding_future(future_ops, binding) {
+                BorrowBindingFuture::Keep => true,
+                BorrowBindingFuture::Ended => false,
+                BorrowBindingFuture::Unused => continuation.keeps_borrow_binding(binding),
+            }
+        });
     }
 
     fn check_op(
@@ -104,13 +195,14 @@ impl ResourceBorrowCheckEngine<'_> {
         borrows: &mut BorrowTable,
         function_aliases: &mut FunctionAliasTable,
         op: &ResourceOp,
+        continuation: &BorrowContinuation<'_>,
     ) {
         match op {
             ResourceOp::DeclareLocal {
                 place, initializer, ..
             } => {
                 if let Some(initializer) = initializer {
-                    borrows.transfer_token(initializer, place);
+                    borrows.copy_or_move_token_tree(initializer, place, false);
                     function_aliases.copy_alias(initializer, place);
                 }
             }
@@ -119,8 +211,19 @@ impl ResourceBorrowCheckEngine<'_> {
                 output,
                 span,
             } => {
-                if !borrows.copy_or_move_token(source, output) {
-                    self.check_source_read(borrows, source, *span);
+                let is_copy = self.types.is_copy(source.ty);
+                let propagated = borrows.copy_or_move_token_tree(source, output, is_copy);
+                if is_copy {
+                    if !propagated {
+                        self.check_source_read(borrows, source, *span);
+                    }
+                } else {
+                    self.check_source_exclusive(
+                        borrows,
+                        source,
+                        ResourceBorrowOperation::Move,
+                        *span,
+                    );
                 }
                 function_aliases.copy_alias(source, output);
             }
@@ -135,7 +238,8 @@ impl ResourceBorrowCheckEngine<'_> {
                     ResourceBorrowOperation::Assign,
                     *span,
                 );
-                borrows.transfer_token(value, target);
+                borrows.release_token_tree(target);
+                borrows.copy_or_move_token_tree(value, target, false);
                 function_aliases.copy_alias(value, target);
             }
             ResourceOp::Borrow {
@@ -149,18 +253,12 @@ impl ResourceBorrowCheckEngine<'_> {
                 output,
                 span,
             } => {
-                if !borrows.transfer_token(source, output) {
-                    self.check_source_exclusive(
-                        borrows,
-                        source,
-                        ResourceBorrowOperation::Move,
-                        *span,
-                    );
-                }
+                borrows.copy_or_move_token_tree(source, output, false);
+                self.check_source_exclusive(borrows, source, ResourceBorrowOperation::Move, *span);
                 function_aliases.copy_alias(source, output);
             }
             ResourceOp::Drop { place, span } => {
-                if !borrows.release_token(place) {
+                if !borrows.release_token_tree(place) {
                     self.check_source_exclusive(
                         borrows,
                         place,
@@ -169,6 +267,11 @@ impl ResourceBorrowCheckEngine<'_> {
                     );
                 }
             }
+            ResourceOp::EndScope {
+                locals,
+                result,
+                span,
+            } => self.end_scope(borrows, locals, result.as_ref(), *span),
             ResourceOp::Branch {
                 then_ops, else_ops, ..
             } => {
@@ -176,8 +279,18 @@ impl ResourceBorrowCheckEngine<'_> {
                 let mut else_borrows = borrows.clone();
                 let mut then_function_aliases = function_aliases.clone();
                 let mut else_function_aliases = function_aliases.clone();
-                self.check_ops(&mut then_borrows, &mut then_function_aliases, then_ops);
-                self.check_ops(&mut else_borrows, &mut else_function_aliases, else_ops);
+                self.check_ops_with_continuation(
+                    &mut then_borrows,
+                    &mut then_function_aliases,
+                    then_ops,
+                    continuation,
+                );
+                self.check_ops_with_continuation(
+                    &mut else_borrows,
+                    &mut else_function_aliases,
+                    else_ops,
+                    continuation,
+                );
                 *borrows = BorrowTable::merge_paths(&[then_borrows, else_borrows]);
                 *function_aliases = FunctionAliasTable::merge_paths(&[
                     then_function_aliases,
@@ -191,14 +304,20 @@ impl ResourceBorrowCheckEngine<'_> {
             } => {
                 let mut condition_borrows = borrows.clone();
                 let mut condition_function_aliases = function_aliases.clone();
-                self.check_ops(
+                self.check_ops_with_continuation(
                     &mut condition_borrows,
                     &mut condition_function_aliases,
                     condition_ops,
+                    continuation,
                 );
                 let mut body_borrows = condition_borrows.clone();
                 let mut body_function_aliases = condition_function_aliases.clone();
-                self.check_ops(&mut body_borrows, &mut body_function_aliases, body_ops);
+                self.check_ops_with_continuation(
+                    &mut body_borrows,
+                    &mut body_function_aliases,
+                    body_ops,
+                    continuation,
+                );
                 *borrows = BorrowTable::merge_paths(&[condition_borrows, body_borrows]);
                 *function_aliases = FunctionAliasTable::merge_paths(&[
                     condition_function_aliases,
@@ -211,7 +330,18 @@ impl ResourceBorrowCheckEngine<'_> {
                 for arm in arms {
                     let mut arm_borrows = borrows.clone();
                     let mut arm_function_aliases = function_aliases.clone();
-                    self.check_ops(&mut arm_borrows, &mut arm_function_aliases, &arm.ops);
+                    propagate_match_bind_borrow_token(
+                        &mut arm_borrows,
+                        op,
+                        &arm.pattern,
+                        arm.bind_local.as_ref(),
+                    );
+                    self.check_ops_with_continuation(
+                        &mut arm_borrows,
+                        &mut arm_function_aliases,
+                        &arm.ops,
+                        continuation,
+                    );
                     arm_paths.push(arm_borrows);
                     function_alias_paths.push(arm_function_aliases);
                 }
@@ -229,8 +359,8 @@ impl ResourceBorrowCheckEngine<'_> {
                 args,
                 ..
             } => {
-                self.propagate_call_return_token(borrows, output, target, args);
-                self.release_call_temporary_argument_tokens(borrows, output, args);
+                propagate_call_return_token(borrows, self.summaries, output, target, args);
+                release_call_temporary_argument_tokens(borrows, output, args);
             }
             ResourceOp::IndirectCall {
                 output,
@@ -238,14 +368,15 @@ impl ResourceBorrowCheckEngine<'_> {
                 args,
                 ..
             } => {
-                self.propagate_indirect_call_return_token(
+                propagate_indirect_call_return_token(
                     borrows,
                     function_aliases,
+                    self.summaries,
                     output,
                     callee,
                     args,
                 );
-                self.release_call_temporary_argument_tokens(borrows, output, args);
+                release_call_temporary_argument_tokens(borrows, output, args);
             }
             ResourceOp::Expr { .. }
             | ResourceOp::CallEffect { .. }
@@ -258,6 +389,7 @@ impl ResourceBorrowCheckEngine<'_> {
                 inputs,
                 ..
             } => {
+                propagate_construct_borrow_tokens(borrows, output, kind, inputs);
                 construct_function_alias_fields(function_aliases, output, kind, inputs);
             }
         }
@@ -294,16 +426,21 @@ impl ResourceBorrowCheckEngine<'_> {
     }
 
     fn check_return_escape(&mut self, borrows: &BorrowTable, place: &Place, span: Span) {
-        if let Some(binding) = borrows.binding(place) {
+        for binding in borrows.bindings_overlapping_token(place) {
             if self.borrow_source_can_escape_return(&binding.source) {
-                return;
+                continue;
             }
             let active = borrows.state(&binding.source);
             if matches!(
                 active,
                 BorrowState::Shared { .. } | BorrowState::Unique { .. }
             ) {
-                self.push_conflict(ResourceBorrowOperation::ReturnValue, place, active, span);
+                self.push_conflict(
+                    ResourceBorrowOperation::ReturnValue,
+                    &binding.token,
+                    active,
+                    span,
+                );
             }
         }
     }
@@ -318,93 +455,6 @@ impl ResourceBorrowCheckEngine<'_> {
             })
     }
 
-    fn propagate_call_return_token(
-        &self,
-        borrows: &mut BorrowTable,
-        output: &Place,
-        target: &ResourceCallTarget,
-        args: &[Place],
-    ) {
-        let ResourceCallTarget::User { name, .. } = target else {
-            return;
-        };
-        let Some(summary) = self
-            .summaries
-            .iter()
-            .find(|summary| summary.function == name.as_str())
-        else {
-            return;
-        };
-        for arg in summary
-            .parameter_indices
-            .iter()
-            .filter_map(|index| args.get(*index))
-        {
-            if borrows.copy_or_move_token(arg, output) {
-                return;
-            }
-        }
-    }
-
-    fn propagate_indirect_call_return_token(
-        &self,
-        borrows: &mut BorrowTable,
-        function_aliases: &FunctionAliasTable,
-        output: &Place,
-        callee: &Place,
-        args: &[Place],
-    ) {
-        let functions = function_aliases.functions(callee);
-        if functions.is_empty() {
-            self.propagate_unknown_indirect_call_return_token(borrows, output, args);
-            return;
-        }
-        for function in functions {
-            if let Some(summary) = self
-                .summaries
-                .iter()
-                .find(|summary| summary.function == function.as_str())
-            {
-                for arg in summary
-                    .parameter_indices
-                    .iter()
-                    .filter_map(|index| args.get(*index))
-                {
-                    if borrows.copy_or_move_token(arg, output) {
-                        return;
-                    }
-                }
-            }
-        }
-    }
-
-    fn propagate_unknown_indirect_call_return_token(
-        &self,
-        borrows: &mut BorrowTable,
-        output: &Place,
-        args: &[Place],
-    ) {
-        for arg in args.iter().filter(|arg| arg.ty == output.ty) {
-            if borrows.copy_or_move_token(arg, output) {
-                return;
-            }
-        }
-    }
-
-    fn release_call_temporary_argument_tokens(
-        &self,
-        borrows: &mut BorrowTable,
-        output: &Place,
-        args: &[Place],
-    ) {
-        for arg in args
-            .iter()
-            .filter(|arg| *arg != output && matches!(arg.root, PlaceRoot::Temporary(_)))
-        {
-            borrows.release_token(arg);
-        }
-    }
-
     fn check_source_exclusive(
         &mut self,
         borrows: &BorrowTable,
@@ -412,6 +462,12 @@ impl ResourceBorrowCheckEngine<'_> {
         operation: ResourceBorrowOperation,
         span: Span,
     ) {
+        if let Some(active @ (BorrowState::Shared { .. } | BorrowState::Unique { .. })) =
+            borrows.active_state_for_deref_access(place)
+        {
+            self.push_conflict(operation, place, active, span);
+            return;
+        }
         match borrows.active_state_overlapping(place) {
             Some(active @ (BorrowState::Shared { .. } | BorrowState::Unique { .. })) => {
                 self.push_conflict(operation, place, active, span);
@@ -435,6 +491,23 @@ impl ResourceBorrowCheckEngine<'_> {
                 active,
                 span,
             });
+    }
+
+    fn end_scope(
+        &mut self,
+        borrows: &mut BorrowTable,
+        locals: &[Place],
+        result: Option<&Place>,
+        span: Span,
+    ) {
+        check_end_scope(
+            self.function,
+            &mut self.diagnostics,
+            borrows,
+            locals,
+            result,
+            span,
+        );
     }
 }
 

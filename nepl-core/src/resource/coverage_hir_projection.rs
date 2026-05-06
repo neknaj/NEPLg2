@@ -8,7 +8,7 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::coverage_hir_projection_aggregate::{
     aggregate_field_exists, aggregate_field_exists_by_name, aggregate_field_matches_selector,
-    literal_field_name, reference_target_type,
+    compiler_field_address_base_and_offset, literal_field_name, reference_target_type,
 };
 
 pub(super) fn field_get_call_owner<'a>(
@@ -153,28 +153,6 @@ fn projects_reference_field(
         return false;
     }
     aggregate_field_exists(types, owner_ty, offset as usize, field_ty)
-}
-
-fn compiler_field_address_base_and_offset(expr: &HirExpr) -> Option<(&HirExpr, usize)> {
-    match &expr.kind {
-        HirExprKind::Intrinsic { name, args, .. } if name == "add" && args.len() == 2 => {
-            let offset = match args[1].kind {
-                HirExprKind::LiteralI32(value) if value >= 0 => value as usize,
-                _ => return None,
-            };
-            Some((&args[0], offset))
-        }
-        HirExprKind::Call { callee, args }
-            if callee_base_name(callee).is_some_and(|name| name == "add") && args.len() == 2 =>
-        {
-            let offset = match args[1].kind {
-                HirExprKind::LiteralI32(value) if value >= 0 => value as usize,
-                _ => return None,
-            };
-            Some((&args[0], offset))
-        }
-        _ => Some((expr, 0)),
-    }
 }
 
 fn callee_base_name(callee: &FuncRef) -> Option<&str> {

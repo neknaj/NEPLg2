@@ -2,8 +2,8 @@
 id: ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2
 title: "move_effect doctests are stale after Resource IR and effect gates"
 area: TEST
-status: fixed
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: test
 created: 2026-05-06
@@ -50,3 +50,15 @@ trunk build; cargo test -p nepl-core --test resource_ir resource_ir_cell_check_p
 - enum payload の raw address alias が fully-qualified variant と match arm variant で分裂しないよう、aggregate field place の enum payload variant 名を canonical 化した。
 - raw alias group の合流時に既存 group の canonical を同順位の新規 alias が押し出さないよう、`RawCellAddressAliases::union_group` の merge 順序を修正した。
 - direct `Result::Ok` payload match を介した `MemPtr` alias で、2 回目の non-Copy raw load が `resource.cell.moved` として検出される Resource IR regression を追加した。
+
+## 2026-05-06 再オープン
+
+旧 `passes::move_check::run` fallback 削除後に focused run を再実行したところ、`tests/compiler/move_effect.n.md` は total=110, passed=105, failed=5 だった。
+
+残件:
+
+- doctest#30: literal 引数で確定する raw address helper の disjoint store が `resource.cell.initialized_conflict` で誤拒否される。
+- doctest#66/#67: higher-order helper / 多段 higher-order helper の function value raw write が compile_fail にならず受理される。
+- doctest#69/#70: aggregate field / enum payload に保存した function value raw write が caller の initialized non-Copy place 上書きを検出できない。
+
+このため、この issue は fixed ではなく open に戻す。次対応では Resource IR effect/cell summary が function value alias、aggregate projection、enum payload projection、call-site literal offset を同一の Resource IR `Place` / `EffectOp` / initialized cell modelで扱えるようにし、旧 HIR checker の summary を復活させない。

@@ -6,11 +6,15 @@ use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind};
 use crate::types::TypeCtx;
 
 use super::coverage::ResourceCoverageCounts;
+use super::coverage_hir_place::{
+    hir_field_projection_source_coverage, hir_place_expr_coverage,
+    hir_reference_owner_source_coverage,
+};
 use super::coverage_hir_projection::{
     callee_projects_reference_address, callee_projects_reference_field,
     compiler_field_load_base_and_offset, field_get_call_owner, get_field_intrinsic_owner,
     get_field_ref_intrinsic_owner, intrinsic_projects_reference_address,
-    intrinsic_projects_reference_field, raw_load_address_expr,
+    intrinsic_projects_reference_field,
 };
 use super::coverage_hir_raw::should_count_raw_memory_call;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
@@ -38,7 +42,7 @@ fn hir_block_coverage(
     }
 }
 
-fn hir_expr_coverage(
+pub(super) fn hir_expr_coverage(
     expr: &HirExpr,
     counts: &mut ResourceCoverageCounts,
     types: &TypeCtx,
@@ -141,8 +145,10 @@ fn hir_expr_coverage(
                 get_field_ref_intrinsic_owner(name, args, expr.ty, types, string_literals)
             {
                 counts.borrows += 1;
-                counts.deref_projections += 1;
-                hir_place_expr_coverage(owner, counts, types, string_literals);
+                if !matches!(owner.kind, HirExprKind::AddrOf(_)) {
+                    counts.deref_projections += 1;
+                }
+                hir_reference_owner_source_coverage(owner, counts, types, string_literals);
                 return;
             }
             if let Some(owner) =
@@ -154,7 +160,16 @@ fn hir_expr_coverage(
             }
             if intrinsic_projects_reference_field(name, args, expr.ty, types) {
                 counts.borrows += 1;
-                counts.deref_projections += 1;
+                if let Some(owner) = args.first() {
+                    if !matches!(owner.kind, HirExprKind::AddrOf(_)) {
+                        counts.deref_projections += 1;
+                    }
+                    hir_reference_owner_source_coverage(owner, counts, types, string_literals);
+                }
+                for arg in args.iter().skip(1) {
+                    hir_expr_coverage(arg, counts, types, string_literals);
+                }
+                return;
             } else if intrinsic_projects_reference_address(name, args, types) {
                 counts.deref_projections += 1;
             }
@@ -183,45 +198,5 @@ fn hir_expr_coverage(
             counts.deref_projections += 1;
             hir_place_expr_coverage(inner, counts, types, string_literals);
         }
-    }
-}
-
-fn hir_place_expr_coverage(
-    expr: &HirExpr,
-    counts: &mut ResourceCoverageCounts,
-    types: &TypeCtx,
-    string_literals: &[String],
-) {
-    match &expr.kind {
-        HirExprKind::Var(_) => {}
-        HirExprKind::Deref(inner) => {
-            counts.deref_projections += 1;
-            hir_place_expr_coverage(inner, counts, types, string_literals);
-        }
-        HirExprKind::Intrinsic { name, args, .. } if name == "add" && !args.is_empty() => {
-            if intrinsic_projects_reference_field(name, args, expr.ty, types) {
-                counts.borrows += 1;
-                counts.deref_projections += 1;
-            }
-            hir_place_expr_coverage(&args[0], counts, types, string_literals);
-            for arg in args.iter().skip(1) {
-                hir_expr_coverage(arg, counts, types, string_literals);
-            }
-        }
-        _ => hir_expr_coverage(expr, counts, types, string_literals),
-    }
-}
-
-fn hir_field_projection_source_coverage(
-    expr: &HirExpr,
-    counts: &mut ResourceCoverageCounts,
-    types: &TypeCtx,
-    string_literals: &[String],
-) {
-    if let Some(address) = raw_load_address_expr(expr) {
-        counts.deref_projections += 1;
-        hir_place_expr_coverage(address, counts, types, string_literals);
-    } else {
-        hir_place_expr_coverage(expr, counts, types, string_literals);
     }
 }

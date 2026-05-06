@@ -708,7 +708,9 @@ impl ResourceOwnerCheckEngine<'_> {
             ResourceOp::Expr { output, kind, .. } => {
                 self.check_expr(raw_aliases, *kind, output);
             }
-            ResourceOp::Drop { .. } | ResourceOp::CallEffect { .. } => {}
+            ResourceOp::Drop { .. }
+            | ResourceOp::CallEffect { .. }
+            | ResourceOp::EndScope { .. } => {}
         }
     }
 

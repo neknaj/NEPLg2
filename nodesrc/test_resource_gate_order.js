@@ -35,16 +35,18 @@ function extractFunctionBody(text, name) {
     throw new Error(`unterminated body for ${name}`);
 }
 
-const body = extractFunctionBody(source, 'run_move_check');
-const legacyMoveCheck = body.indexOf('passes::move_check::run(hir_module, types)');
-assert(legacyMoveCheck >= 0, 'run_move_check must retain legacy move_check as fallback');
+const body = extractFunctionBody(source, 'run_resource_static_check');
+assert(
+    !body.includes('passes::move_check::run'),
+    'run_resource_static_check must not call legacy passes::move_check::run',
+);
 
 for (const gate of [
     'crate::resource::lower_hir_module(hir_module, types)',
     'run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)',
     'crate::resource::check_resource_initialized_moves(&resource, types)',
     'run_resource_cell_gate(&initialized_moves, diagnostics, source_map)',
-    'crate::resource::check_resource_borrow_lifetimes(&resource)',
+    'crate::resource::check_resource_borrow_lifetimes(&resource, types)',
     'run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)',
     'crate::resource::check_resource_effect_boundaries(&resource)',
     'run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)',
@@ -52,11 +54,12 @@ for (const gate of [
     'run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)',
 ]) {
     const index = body.indexOf(gate);
-    assert(index >= 0, `run_move_check must call ${gate}`);
-    assert(
-        index < legacyMoveCheck,
-        `${gate} must run before legacy passes::move_check::run`,
-    );
+    assert(index >= 0, `run_resource_static_check must call ${gate}`);
 }
 
-console.log('resource gate order ok');
+const compilerRelative = source
+    .replace(/\r\n/g, '\n')
+    .includes('passes::move_check::run');
+assert(!compilerRelative, 'compiler.rs must not retain legacy move_check fallback');
+
+console.log('resource gate authority ok');

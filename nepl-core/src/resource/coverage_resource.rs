@@ -441,7 +441,7 @@ fn resource_ops_coverage(
                     diagnostics,
                 );
             }
-            ResourceOp::CallEffect { .. } => {}
+            ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
         }
     }
 }

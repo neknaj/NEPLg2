@@ -332,7 +332,7 @@ fn propagate_raw_address_alias_op(
             raw_aliases.copy_alias_or_seed(source, &target);
         }
         ResourceOp::Drop { place, .. } => raw_aliases.clear(place),
-        ResourceOp::CallEffect { .. } => {}
+        ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
     }
 }
 

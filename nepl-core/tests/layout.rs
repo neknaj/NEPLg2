@@ -56,7 +56,6 @@ fn generic_struct_layout_substitutes_field_sizes_once() {
 fn compiler_passes_do_not_reintroduce_local_storage_layout_helpers() {
     let sources = [
         include_str!("../src/typecheck.rs"),
-        include_str!("../src/passes/move_check.rs"),
         include_str!("../src/passes/drop_insertion.rs"),
         include_str!("../src/codegen_wasm.rs"),
         include_str!("../src/codegen_llvm.rs"),

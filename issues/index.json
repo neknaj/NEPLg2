@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T04:13:04.845Z",
+  "generated_at": "2026-05-06T05:18:17.363Z",
   "counts": {
-    "total": 499,
-    "open": 13,
+    "total": 500,
+    "open": 14,
     "resolved": 486,
     "by_area": {
       "core": {
-        "total": 235,
+        "total": 236,
         "open": 5,
-        "resolved": 230
+        "resolved": 231
       },
       "stdlib": {
         "total": 155,
@@ -18,8 +18,8 @@
       },
       "TEST": {
         "total": 8,
-        "open": 1,
-        "resolved": 7
+        "open": 2,
+        "resolved": 6
       },
       "selfhost": {
         "total": 45,
@@ -99,7 +99,7 @@
       "type": "architecture",
       "created": "2026-04-25",
       "updated": "2026-04-30",
-      "target": "nepl-core/src/resource, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs",
+      "target": "nepl-core/src/resource, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/compiler.rs",
       "legacy_id": "RV-CORE-009",
       "source": "doc/review20260425/core.md#rv-core-009",
       "file": "items/ISS-20260425T000000Z-RV-CORE-009-58589A3F.md"
@@ -238,6 +238,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2",
+      "title": "move_effect doctests are stale after Resource IR and effect gates",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "tests/compiler/move_effect.n.md, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -3615,6 +3630,21 @@
       "file": "items/ISS-20260506T022705566Z-MOVE-CHECK-DOCTESTS-ARE-STALE-AFTER--EDD8402F.md"
     },
     {
+      "id": "ISS-20260506T025727360Z-REMOVE-LEGACY-MOVE-CHECK-FALLBACK-AF-C143E79B",
+      "title": "Remove legacy move_check fallback after Resource IR gates",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-06",
+      "updated": "2026-05-06",
+      "target": "nepl-core/src/compiler.rs, nepl-core/src/passes/mod.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/borrow_*.rs, nepl-core/src/resource/lower*.rs, nepl-core/src/resource/coverage_hir*.rs, nodesrc/test_resource_gate_order.js, nodesrc/test_resource_checker_responsibility.js, nepl-core/tests/check_pipeline.rs, nepl-core/tests/layout.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T025727360Z-REMOVE-LEGACY-MOVE-CHECK-FALLBACK-AF-C143E79B.md"
+    },
+    {
       "id": "ISS-20260506T030752155Z-RESOURCE-HIR-PROJECTION-COVERAGE-MOD-ED65CFB3",
       "title": "Resource HIR projection coverage module exceeds responsibility split limit",
       "area": "core",
@@ -5623,21 +5653,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T231611047Z-STD-TEST-ASSERTION-DISCARD-SOURCE-PO-B9226736.md"
-    },
-    {
-      "id": "ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2",
-      "title": "move_effect doctests are stale after Resource IR and effect gates",
-      "area": "TEST",
-      "status": "fixed",
-      "resolved": true,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "tests/compiler/move_effect.n.md, doc/neplg2/static_check_complexity_reduction_plan.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T005443213Z-MOVE-EFFECT-DOCTESTS-ARE-STALE-AFTER-6955AAD2.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",
