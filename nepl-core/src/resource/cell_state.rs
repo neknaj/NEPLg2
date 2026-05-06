@@ -152,6 +152,18 @@ impl CellTable {
             .retain(|entry| raw_cell_suffix_after_address(&entry.place, address).is_none());
     }
 
+    pub(super) fn clear_raw_cells_overwritten_by_store(
+        &mut self,
+        address: &Place,
+        value_ty: TypeId,
+        types: &TypeCtx,
+    ) {
+        self.cells.retain(|entry| {
+            raw_cell_suffix_after_address(&entry.place, address).is_none()
+                || initialized_copy_cell_survives_store(entry, value_ty, types)
+        });
+    }
+
     pub(super) fn extend_entries(&mut self, entries: Vec<CellStateEntry>) {
         for entry in entries {
             self.set_state(&entry.place, entry.state);
@@ -359,6 +371,19 @@ fn raw_cell_state_has_live_non_copy_obligation(entry: &CellStateEntry, types: &T
         CellState::MaybeMoved => !types.is_copy(entry.place.ty),
         CellState::Uninit | CellState::Moved | CellState::Dropped => false,
     }
+}
+
+fn initialized_copy_cell_survives_store(
+    entry: &CellStateEntry,
+    value_ty: TypeId,
+    types: &TypeCtx,
+) -> bool {
+    let CellState::Initialized(entry_ty) = entry.state else {
+        return false;
+    };
+    types.is_copy(entry_ty)
+        && types.is_copy(value_ty)
+        && type_pattern_matches(types, entry_ty, value_ty)
 }
 
 pub(super) fn raw_cell_suffix_after_address(
@@ -587,5 +612,49 @@ fn merge_cell_states(left: CellState, right: CellState) -> CellState {
         (CellState::Moved, CellState::Moved) => CellState::Moved,
         (CellState::Dropped, CellState::Dropped) => CellState::Dropped,
         _ => CellState::MaybeMoved,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::model::{ResourceId, ResourceOffset};
+    use super::super::place_utils::raw_memory_unknown_offset_cell_place;
+    use super::*;
+    use alloc::boxed::Box;
+    use alloc::string::String;
+
+    fn symbolic_cell(base: &Place, id: usize, ty: TypeId) -> Place {
+        let offset = Place::temporary(ResourceId(id), ty);
+        raw_memory_cell_place(
+            &base.clone().with_projection(
+                PlaceProjection::StorageOffset(ResourceOffset::Symbolic {
+                    place: Box::new(offset),
+                }),
+                ty,
+            ),
+            ty,
+        )
+    }
+
+    #[test]
+    fn copy_store_preserves_unknown_offset_initialized_copy_fact() {
+        let mut types = TypeCtx::new();
+        types.set_copy_trait_enabled(true);
+        types.register_copy_impl_target(types.i32());
+        let i32_ty = types.i32();
+        let base = Place::local(String::from("pref"), i32_ty);
+        let mut cells = CellTable::default();
+
+        cells.mark_initialized(&raw_memory_unknown_offset_cell_place(&base, i32_ty));
+        let stored = symbolic_cell(&base, 0, i32_ty);
+        let stored_address = raw_cell_address_prefix(&stored).expect("raw cell address");
+        cells.clear_raw_cells_overwritten_by_store(&stored_address, i32_ty, &types);
+        cells.mark_initialized(&stored);
+
+        let loaded = symbolic_cell(&base, 1, i32_ty);
+        assert_eq!(
+            cells.availability_state_with_types(&types, &loaded),
+            CellState::Initialized(i32_ty)
+        );
     }
 }

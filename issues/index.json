@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T21:12:57.132Z",
+  "generated_at": "2026-05-06T21:21:24.545Z",
   "counts": {
-    "total": 539,
+    "total": 540,
     "open": 16,
-    "resolved": 523,
+    "resolved": 524,
     "by_area": {
       "compiler": {
         "total": 3,
@@ -12,9 +12,9 @@
         "resolved": 2
       },
       "core": {
-        "total": 264,
+        "total": 265,
         "open": 4,
-        "resolved": 260
+        "resolved": 261
       },
       "selfhost": {
         "total": 50,
@@ -4138,6 +4138,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T210407334Z-INITIALIZED-RESOURCE-BRANCH-PATHS-DO-F88296F7.md"
+    },
+    {
+      "id": "ISS-20260506T211740745Z-SYMBOLIC-COPY-STORES-ERASE-UNKNOWN-O-0BD91F6C",
+      "title": "Symbolic copy stores erase unknown-offset initialized copy facts",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/cell_state.rs, nepl-core/src/resource/initialized_raw_memory.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T211740745Z-SYMBOLIC-COPY-STORES-ERASE-UNKNOWN-O-0BD91F6C.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

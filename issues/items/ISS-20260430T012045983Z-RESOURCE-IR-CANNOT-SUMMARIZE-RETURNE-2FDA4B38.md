@@ -172,3 +172,11 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 - `str_slice_chars_result` は char index を byte offset へ変換し、最終的に `str_slice_result` / `string_from_mem_unchecked_result` で新しい `str` 領域へ copy する。
 - caller から見ると source `str` は `Copy` view であり、slice 結果は新規確保された `str` なので、source `s` が reserved のまま残るのは API 利用側の所有権違反ではない。
 - したがってこの残件は `string_char.n.md` の順序だけを変えて隠すのではなく、returned raw header / copied string source view の summary が source `str` を予約したままにしないことを Resource IR 側で表現する必要がある。
+
+## 2026-05-07 symbolic Copy store 部分対応
+
+`ISS-20260506T211740745Z-SYMBOLIC-COPY-STORES-ERASE-UNKNOWN-O-0BD91F6C` として、symbolic offset store が unknown-offset initialized Copy fact を過剰に消す問題を分離して修正した。
+
+`RawMemoryOp::Store` は store 専用の typed clearing を使う。overlap する raw cell fact でも、既存 fact が initialized Copy で stored value と同じ Copy 型として扱える場合は保持し、non-Copy / moved / uninit state は従来どおり保守的に消す。
+
+この親 issue は引き続き open とする。`kpread_to_kpwrite_prefixsum_i32` はなお `pref[+symbolic].deref` の `Cell(Uninit)` で失敗するため、残件は loop condition fact と guarded initialized range summary の接続である。

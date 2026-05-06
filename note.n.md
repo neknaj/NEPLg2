@@ -1,3 +1,24 @@
+# 2026-05-07 note (ISS-20260506T211740745Z symbolic Copy store initialized facts)
+
+## 作業内容
+
+- branch `fix/resource-guarded-initialized-range` で `origin/main` 同期済みの main から作業した。
+- `kpread_to_kpwrite_prefixsum_i32` の current blocker を再確認し、`pref[+symbolic].deref` の `Cell(Uninit)` が残っていることを確認した。
+- 調査中に、`RawMemoryOp::Store` が symbolic address の store で `pref[+?].deref` の initialized Copy fact を過剰に消す問題を切り出した。
+- `CellTable::clear_raw_cells_overwritten_by_store` を追加し、overlap する fact でも initialized Copy かつ stored value と同じ Copy 型なら保持し、non-Copy / moved / uninit state は従来どおり消すようにした。
+- `RawMemoryOp::Store` は汎用 `clear_raw_cells_under` ではなく store 専用 typed clearing を使うようにした。
+- issue `ISS-20260506T211740745Z-SYMBOLIC-COPY-STORES-ERASE-UNKNOWN-O-0BD91F6C` を fixed にし、親 issue と `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 へ進捗を追記した。
+
+## 検証
+
+- `cargo test -p nepl-core copy_store_preserves_unknown_offset_initialized_copy_fact -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_raw_fill_helpers_initialize_copy_cells -- --nocapture`: passed
+- `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`: expected remaining failure; loop condition fact / guarded range summary blocker remains.
+
+## plan.mdとの差分
+
+- `plan.md` は変更していない。
+
 # 2026-05-07 note (ISS-20260506T210407334Z initialized branch condition facts)
 
 ## 作業内容
