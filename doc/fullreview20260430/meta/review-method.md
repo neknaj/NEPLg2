@@ -1,90 +1,60 @@
 # レビュー方法
 
-対象 commit: `f108cebd`
+確認対象 commit: `545d2ab0 fix(resource): align region_ptr reference coverage`
 
 ## 目的
 
-このレビューは、NEPLg2 の現状を「どこまで実装済みか」だけでなく、「今の設計が型安全・メモリ安全・selfhost に耐えるか」という観点で確認する。
+今回の総レビューでは、現行の NEPLg2 全体を一次情報から確認する。前回レビューの結論に引きずられないよう、レビュー本文の作成前と作成中は前回レビューの内容を参照しない。前回レビューは、今回レビュー完了後の差分報告で初めて内容を確認する。
 
-レビュー中の remote main 更新は取り込む。取り込み後に判断が変わる章は更新し、対象 commit を更新する。最終再レビュー後の更新は今回レビューの範囲外とする。
+## 前回レビューの扱い
 
-## 判断基準
+- 確認したもの: `doc/fullreview20260430/` 配下のファイル名とディレクトリ構成。
+- 確認しないもの: 前回レビュー本文の判断、findings、要約、結論。
+- 以後の確認: レビュー完了前は `doc/fullreview20260430/` の旧版内容を比較対象として読まない。差分確認は `git diff --name-status` と `git diff --check` に限定する。
+- 注意: README/index の置き換え後に通常の `git diff` を実行すると旧版削除行が出るため、以後は旧内容が本文判断に混ざらないよう、内容差分ではなく name/status と whitespace check を使う。
 
-- 技術的負債を残さない。既存互換より設計の正しさを優先する。
-- 暫定実装は許容しても、暫定の雑設計は許容しない。
-- 型安全とメモリ安全は必達であり、検査が実際に compiler pipeline で強制される必要がある。
-- 状態や診断は raw number / raw string ではなく enum を主表現にする。
-- 有限分岐は `match` に寄せ、網羅性検査が効く構造にする。
-- selfhost 実装は Rust 側の Resource IR / diagnostic code / static check 設計から後退しない。
+## 実施済み手順
 
-## 調査入力
+1. `main` 上で `git pull --ff-only origin main` を実行し、開始時点の remote main を取り込んだ。
+2. レビュー用 branch `review/fullreview-20260430-current` を作成した。
+3. 前回レビューのファイル構成のみ確認した。
+4. 現行ツリーのファイル一覧、主要ディレクトリ、`plan.md`、`note.n.md`、`todo.md`、issue index、recent commit message を確認した。
+5. `doc/fullreview20260430/README.md` と `index.md` を目次 checkpoint として更新し、`97b07bad docs(review): refresh full review index` を main に push した。
+6. project レビュー開始後、remote main に `545d2ab0 fix(resource): align region_ptr reference coverage` が入ったため、`review/fullreview-project-status` を `origin/main` に rebase した。
 
-- `plan.md`: 言語の元仕様と構文方針。
-- `README.md`: public-facing explanation と現行実装のずれ。
-- `doc/neplg2/self_host_plan.md`: selfhost S0-S7 の正規計画。
-- `doc/neplg2/static_check_soundness_review_20260430.md`: 静的検査の直近レビュー。
-- `issues/index.md` と open issue: 現在の blocker。
-- `note.n.md`: 他 agent の直近作業、検証結果、既存判断。
-- GitHub Actions: review 対象 commit の CI 結果。review では local 実行結果ではなく `gh` で取得した Actions 結果を test 状況の根拠にする。
-- ソース:
-  - `nepl-core/src/**`
-  - `stdlib/**`
-  - `nodesrc/**`
-  - `tests/**`
-  - `tutorials/**`
-  - `nepl-cli`, `nepl-language`, `nepl-lsp`, `nepl-web`, `web`
+## 使用した確認コマンド
 
-## 初期確認コマンド
+- `git status --short --branch`
+- `git pull --ff-only origin main`
+- `git fetch origin main`
+- `git log --oneline --decorate -30`
+- `git show --stat --oneline --name-only 545d2ab0`
+- `rg --files`
+- `Get-Content plan.md`
+- `Get-Content note.n.md`
+- `Get-Content todo.md`
+- `Get-Content issues/index.json`
+- `node -e "...issues/index.json..."`
+- `gh run list --limit 12 --json ...`
+- `gh run view <run-id> --json ...`
 
-```powershell
-git pull --ff-only origin main
-git checkout -b docs/fullreview-20260430
-git log --oneline --decorate -n 20
-Get-ChildItem nepl-core\src -Recurse -File
-Get-ChildItem stdlib -Recurse -File
-Get-Content issues\index.md -TotalCount 90
-```
+## GitHub Actions 確認方針
 
-## レビュー手順
+レビュー上の test 状況は local test ではなく GitHub Actions の結果を根拠にする。現在の latest run は `545d2ab0` の CI run で、project checkpoint 作成時点では queued である。CI の最終状態は、レビュー進行中に再確認して `project/actions-status.md` と最終 summary へ反映する。
 
-1. repository 全体の構成、巨大ファイル、open issue、直近 commit を確認する。
-2. `doc/fullreview20260430/index.md` にレビュー目次を作成する。
-3. `project/` で進捗、blocker、selfhost 開始可否を整理する。
-4. `rust-compiler/` で Rust compiler pipeline を stage ごとに確認する。
-5. `stdlib/` で core / alloc / std / nm / platform / collections を確認する。
-6. `selfhost/` で S0-S7 の現物実装と plan を照合する。
-7. `tools/` と `quality/` で CLI、nodesrc、tests、tutorial、web/editor を確認する。
-8. `crosscutting/` で静的安全性、stdlib-selfhost readiness、diagnostics/tests/docs の横断判断をまとめる。
-9. `summary/` と `meta/review-validity.md` で、レビュー内容そのものの妥当性を再確認する。
+## レビュー判断基準
 
-## 検証方針
+- 技術的負債を残さない。
+- 後方互換より正しい設計を優先する。
+- 暫定実装は許容しても、暫定の雑設計は禁止する。
+- 設計ミスが発覚した場合は、継ぎ足しではなく再設計再実装を選ぶ。
+- 型安全とメモリ安全は必達とし、静的検査が効くデータ構造と pass 境界にする。
+- 数値や文字列 sentinel ではなく enum / Option / typed wrapper を使う。
+- 分岐は wildcard で握り潰さず、`match` の網羅性検査を活用する。
 
-review 文書に書く test 状況は GitHub Actions を `gh` で確認した結果を根拠にする。local test は、local で code 変更を行った commit 前確認のためにだけ使う。今回の docs-only review では、local runtime test の結果を review evidence として扱わない。
+## 未完了
 
-Actions 確認:
-
-```powershell
-gh run list --branch main --limit 10
-gh run view <run-id> --json status,conclusion,headSha,headBranch,displayTitle,createdAt,updatedAt,jobs
-gh run view <run-id> --job <job-id> --log-failed
-```
-
-docs-only commit 前確認:
-
-```powershell
-node nodesrc/issues.js check
-git diff --check
-```
-
-実装変更 commit 前確認では、対象変更に応じて `cargo test`、`trunk build`、`node nodesrc/tests.js ...` などを追加する。ただし、その local 実行結果は「変更 commit の事前確認」であり、今回の総レビューにおける main の test 状況は Actions 結果で確認する。
-
-## 報告方針
-
-各レビュー単位で commit し、Discord へ次を含めて報告する。
-
-- タイトル: `進捗確認及び総レビュー: 具体的な内容`
-- 作成・更新した file
-- 対象 commit
-- 概要
-- 検証結果
-- 次に行うレビュー
+- Rust compiler、selfhost、stdlib、quality、tools の個別レビュー本文。
+- CI run `545d2ab0` の完了結果確認。
+- レビュー全体の妥当性再確認。
+- 前回レビューとの差分報告。

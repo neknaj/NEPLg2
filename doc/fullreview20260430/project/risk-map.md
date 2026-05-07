@@ -1,103 +1,35 @@
-# リスクマップ
+# プロジェクトリスクマップ
 
-対象 commit: `f108cebd`
+確認対象 commit: `545d2ab0 fix(resource): align region_ptr reference coverage`
 
-## 最重要リスク
+## 重要リスク
 
-### GitHub Actions が main green ではない
+| 優先度 | リスク | 根本原因 | 現在の状態 | 次の確認 |
+|---|---|---|---|---|
+| P1 | 静的検査 authority が過渡期 | legacy move/drop と ResourceIR の責務統合がまだ完了していない。 | ResourceIR regression は増えているが、最終 authority の確認が必要。 | `rust-compiler/static-resource-check.md` で pass 順序と gate を確認する。 |
+| P1 | `MemPtr` / `RegionToken` の owner model が未完 | pointer projection と storage owner が型レベルで完全分離されていない。 | open issue が core/stdlib に残る。最新 commit も region_ptr forged token 周辺の regression。 | `stdlib/core.md` と `crosscutting/static-safety.md` で扱う。 |
+| P1 | stdlib raw-memory-backed API migration | raw memory capability が移行中の exact boundary として残る。 | Vec/string/io で module split が進むが、public safe API と internal raw API の最終分離は未完。 | `stdlib/alloc-string.md`、`stdlib/alloc-collections.md`、`stdlib/std-io-fs-env-test.md`。 |
+| P1 | `.n.md` test / assert contract | main return value に依存した test は失敗時の情報が不足する。 | open issue `ISS-20260429T102425370Z...` が残る。 | `quality/tests.md` と `crosscutting/diagnostics-tests-docs.md`。 |
+| P2 | selfhost が部分実装 | S0/S1/S2 の骨格はあるが、S3 以降の静的検査・stdlib owner model への依存が大きい。 | S1/S2 は制限付きで進行可能。全面移植は不可。 | `selfhost/readiness.md`。 |
+| P2 | 巨大 stdlib file split の残件 | stdlib 分割は進んだが open issue が残る。 | Vec/string/streamio/nm/stdio debug は分割済み。巨大 module policy warning は継続的に発見されている。 | `stdlib/overview.md` と `stdlib/tests.md`。 |
+| P2 | CI status 未確定 | latest main run が queued で、連続 push による cancel が多い。 | `545d2ab0` の run 完了待ち。 | `project/actions-status.md` を更新する。 |
 
-対象 commit `f108cebd` の Actions run `25157230630` は `failure` である。`build`、`Source policy regressions`、`compile-test`、`llvm-test` は成功しているが、`rust-test`、`stdlib-test`、`wasi-test`、`nmd-doctest`、`tutorials-test`、`nm-compile`、dual backend verification が失敗している。
+## 技術方針との対応
 
-判断:
+- 技術的負債を残さない: open issue は safety-critical な根本設計に集中しており、回避実装で閉じるべきではない。
+- 後方互換不要: `MemPtr` や raw-memory-backed API は互換性維持より役割分離を優先すべき。
+- 暫定の雑設計禁止: ResourceIR と stdlib memory model の二重 authority を固定化しない。
+- 静的検査の正確性必須: owner/cell/borrow/effect/drop は数値や文字列ではなく enum / typed state で保持し、match の網羅性検査を活用する。
 
-- review の test 状況は local ではなく Actions を正とする。
-- compile gate が通ることと、stdlib / runtime / doctest が安全に通ることは分けて評価する。
-- Resource IR の未初期化 cell 検出で失敗している経路は、検査を弱めるのではなく stdlib memory API / drop / summary の設計を直す。
+## 監視すべき regression
 
-### Resource IR final authority が未完
+- ResourceIR coverage が diagnostic を覆い隠し、owner/cell/borrow の根本違反が別エラーになる。
+- raw-memory-boundary capability が facade root や raw-free helper に戻る。
+- collection observer が owner を値で消費する API に戻る。
+- fallible collection update が error path で collection/item owner を失う。
+- diagnostics code が自由文字列に戻り、Rust/selfhost の enum taxonomy とずれる。
+- n.md doctest が stdout assertion report ではなく return value contract に固定される。
 
-Resource IR は大きく進んだが、親 issue `ISS-20260425T000000Z-RV-CORE-009-58589A3F` は open のままである。旧 `passes::move_check` と HIR drop insertion が残る限り、selfhost がコピーすべき最終設計はまだ確定していない。
+## 現時点の結論
 
-判断:
-
-- 現行の二重防壁は開発中の安全策として妥当。
-- selfhost の final checker に旧 HIR special-case を移植するのは不適切。
-- Resource IR 上で move / borrow / initialized cell / owner / effect / drop obligation を統合する方向を維持する。
-
-### `MemPtr` / `RegionToken` が compiler-issued capability ではない
-
-`MemPtr<T>` が non-owning pointer と storage owner の両方に見える設計は、memory safety の根本リスクである。直近 main で Result variant / value condition の伝播は進んだが、`tests/stdlib/memory_safety.n.md` の残失敗はこの設計 issue に残っている。
-
-判断:
-
-- stdlib に cleanup を足して残失敗を隠すべきではない。
-- `MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell = Resource IR state` へ分ける設計が必要。
-- selfhost の buffer / token stream / diagnostic storage は、この分離前提で API を選ぶ。
-
-### collection element Drop が未完
-
-`Vec<T>` や `HashMap<K,V>` の storage dealloc と element Drop はまだ根本完了していない。owning element を格納する collection を selfhost で多用すると、drop obligation の曖昧さが広がる。
-
-判断:
-
-- selfhost 初期実装では、owning element を含む長寿命 collection を不用意に増やさない。
-- `Copy` read、borrowed read、owned remove/pop、container Drop を API と型制約で分ける設計が必要。
-- sentinel state ではなく enum state へ寄せる。
-
-### `.n.md` test output policy が移行中
-
-assertion suite は stdout report と exit code を分ける方向だが、open issue が残る。Rust/selfhost 共通テスト運用の基盤として重要である。
-
-判断:
-
-- return value だけに依存する assertion suite は減らす。
-- stdout report の deterministic format と exit code 0/1 を固定する。
-- selfhost compiler でも同じ `.n.md` を読む前提で runner contract を設計する。
-
-## selfhost 開始可否
-
-### すぐ開始できる領域
-
-- SourceText / SourceMap / line map。
-- lexer tokenization と Rust lexer parity fixture。
-- parser AST subset と Rust AST JSON parity。
-- in-memory VFS と module graph。
-- diagnostic enum / stable string boundary。
-- CLI args / file_io / reporter / driver の I/O 境界。
-- small helper stdlib: string find/slice/compare、hash、byte scanner、fs/stdout/stderr result boundary。
-
-これらは raw memory owner model に深く依存せず、Rust 側の現行方針を参考に進められる。
-
-### まだ慎重に進める領域
-
-- full typecheck / overload / trait capability。
-- Resource IR checker。
-- drop insertion。
-- owned collection を多用する compiler arena。
-- selfhost codegen。
-
-これらは Rust 側の Resource IR final authority と stdlib memory model の影響を強く受ける。先に独自設計で固定すると、後で Rust 側とずれる。
-
-## 技術的負債として残してはいけないもの
-
-- diagnostic code を raw string で持ち回る設計。
-- token kind / AST kind / type kind / resource state を raw number sentinel で分岐する設計。
-- `if` の深いネストで本来 `match` にすべき有限分岐を表す設計。
-- raw memory operation を stdlib safe API として広げる設計。
-- collection cleanup を caller convention に任せる設計。
-- HIR direct traversal special-case を selfhost checker の正規実装にする設計。
-
-## 既存防壁
-
-- `node nodesrc/run_source_policy_regressions.js` は stdlib / selfhost / Resource IR の source policy を集約している。
-- `cargo test -p nepl-core --test resource_ir` は Resource IR regression の中心になっている。
-- `issues/index.md` と per-issue docs は open blocker を比較的よく追跡している。
-- `note.n.md` には各 agent の同期・検証結果が詳細に残っている。
-
-## リスク低減の優先順
-
-1. Resource IR を final authority にするための残差分を明文化し、旧 move_check / HIR drop insertion の削除条件を固定する。
-2. `MemPtr` / `RegionToken` / owner token / non-owning pointer の設計を stdlib と compiler で合わせる。
-3. collection element Drop と owned remove/pop API を設計し、selfhost が安全に arena / list / table を使えるようにする。
-4. `.n.md` stdout report policy を固定し、Rust/selfhost 共通 test の基盤にする。
-5. README と doc の NEPLg2 / NEPLg3 / selfhost の説明を現行方針へ合わせる。
+進捗は大きいが、根本安全性の最終形はまだ未完である。今後の修正は、既存 API を少しずつ救済する方向ではなく、owner model、ResourceIR authority、stdlib safe surface、test contract を同じ設計へ収束させる必要がある。
