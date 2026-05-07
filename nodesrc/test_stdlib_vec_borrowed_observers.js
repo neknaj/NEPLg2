@@ -11,6 +11,10 @@ const vecRelPaths = [
     "stdlib/alloc/collections/vec/types.nepl",
     "stdlib/alloc/collections/vec/storage.nepl",
     "stdlib/alloc/collections/vec/access.nepl",
+    "stdlib/alloc/collections/vec/raw.nepl",
+    "stdlib/alloc/collections/vec/query.nepl",
+    "stdlib/alloc/collections/vec/mutation.nepl",
+    "stdlib/alloc/collections/vec/transform.nepl",
 ];
 const vecSources = Object.fromEntries(vecRelPaths.map((relPath) => [relPath, fs.readFileSync(path.join(repoRoot, relPath), "utf8")]));
 const vecCode = vecRelPaths
@@ -19,8 +23,13 @@ const vecCode = vecRelPaths
         .filter((line) => !/^\s*\/\//.test(line))
         .join("\n"))
     .join("\n");
+const vecRootImplementation = vecSources["stdlib/alloc/collections/vec.nepl"]
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join("\n");
 
-assert.match(vecSources["stdlib/alloc/collections/vec.nepl"], /#import\s+"\.\/vec\/access"\s+as\s+vec_access/, "Vec root must delegate borrowed observers to access module");
+assert.match(vecSources["stdlib/alloc/collections/vec.nepl"], /pub\s+#import\s+"\.\/vec\/access"\s+as\s+@merge/, "Vec root must re-export borrowed observers through the access module");
+assert.doesNotMatch(vecRootImplementation, /\bfn\s+\w+\b/, "Vec root must not keep duplicate borrowed observer wrappers");
 
 for (const name of [
     "len_ref",

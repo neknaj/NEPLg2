@@ -714,7 +714,7 @@ fn main <()->i32> ():
 }
 
 #[test]
-fn loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boundary() {
+fn loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary() {
     let cases: &[(&[&str], &str, &str)] = &[
         (
             &["alloc", "io", "bytebuf.nepl"],
@@ -727,9 +727,49 @@ fn loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boun
             "alloc_io_bytebuilder_raw_store",
         ),
         (
-            &["alloc", "collections", "vec.nepl"],
-            "alloc/collections/vec",
-            "alloc_collections_vec_raw_store",
+            &["alloc", "collections", "vec", "access.nepl"],
+            "alloc/collections/vec/access",
+            "alloc_collections_vec_access_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "mutation.nepl"],
+            "alloc/collections/vec/mutation",
+            "alloc_collections_vec_mutation_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "query.nepl"],
+            "alloc/collections/vec/query",
+            "alloc_collections_vec_query_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "raw.nepl"],
+            "alloc/collections/vec/raw",
+            "alloc_collections_vec_raw_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "storage.nepl"],
+            "alloc/collections/vec/storage",
+            "alloc_collections_vec_storage_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "transform.nepl"],
+            "alloc/collections/vec/transform",
+            "alloc_collections_vec_transform_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "types.nepl"],
+            "alloc/collections/vec/types",
+            "alloc_collections_vec_types_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "sort", "common.nepl"],
+            "alloc/collections/vec/sort/common",
+            "alloc_collections_vec_sort_common_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "sort", "merge.nepl"],
+            "alloc/collections/vec/sort/merge",
+            "alloc_collections_vec_sort_merge_raw_store",
         ),
         (
             &["alloc", "string", "access.nepl"],
@@ -737,9 +777,24 @@ fn loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boun
             "alloc_string_access_raw_store",
         ),
         (
-            &["alloc", "string", "builder.nepl"],
-            "alloc/string/builder",
-            "alloc_string_builder_raw_store",
+            &["alloc", "string", "builder", "append.nepl"],
+            "alloc/string/builder/append",
+            "alloc_string_builder_append_raw_store",
+        ),
+        (
+            &["alloc", "string", "builder", "build.nepl"],
+            "alloc/string/builder/build",
+            "alloc_string_builder_build_raw_store",
+        ),
+        (
+            &["alloc", "string", "builder", "reserve.nepl"],
+            "alloc/string/builder/reserve",
+            "alloc_string_builder_reserve_raw_store",
+        ),
+        (
+            &["alloc", "string", "builder", "types.nepl"],
+            "alloc/string/builder/types",
+            "alloc_string_builder_types_raw_store",
         ),
         (
             &["alloc", "string", "builder_ext.nepl"],
@@ -831,6 +886,81 @@ fn main <()->i32> ():
             options(CompileTarget::Wasm),
         )
         .unwrap_or_else(|err| panic!("{import_spec} should have raw memory capability: {err:?}"));
+    }
+}
+
+#[test]
+fn loader_does_not_mark_split_facades_as_raw_memory_boundaries() {
+    let cases: &[(&[&str], &str, &str)] = &[
+        (
+            &["alloc", "collections", "vec.nepl"],
+            "alloc/collections/vec",
+            "alloc_collections_vec_raw_store",
+        ),
+        (
+            &["alloc", "string", "builder.nepl"],
+            "alloc/string/builder",
+            "alloc_string_builder_raw_store",
+        ),
+    ];
+
+    for (segments, import_spec, function_name) in cases {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let stdlib_root = temp.path().join("stdlib");
+        let source_path = segments
+            .iter()
+            .fold(stdlib_root.clone(), |path, segment| path.join(segment));
+        std::fs::create_dir_all(source_path.parent().expect("source parent"))
+            .expect("create stdlib facade dir");
+        std::fs::write(
+            &source_path,
+            format!(
+                r#"
+#indent 4
+#target wasm
+
+fn {function_name} <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        i32.store
+"#
+            ),
+        )
+        .expect("write stdlib facade module");
+        let entry = temp.path().join("main.nepl");
+        std::fs::write(
+            &entry,
+            format!(
+                r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+#import "{import_spec}" as *
+
+fn main <()->i32> ():
+    {function_name} 0 1;
+    0
+"#
+            ),
+        )
+        .expect("write entry");
+
+        let mut loader = Loader::new(stdlib_root);
+        let loaded = loader.load(&entry).expect("load");
+        let result = check_module_with_source_map(
+            loaded.module,
+            Some(&loaded.source_map),
+            options(CompileTarget::Wasm),
+        );
+        assert_has_diag(
+            result,
+            DiagnosticCode::Effect(
+                nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
+            ),
+        );
     }
 }
 

@@ -72,7 +72,7 @@ const vecRawCode = codeByPath.get('stdlib/alloc/collections/vec/raw.nepl');
 const vecTransformCode = codeByPath.get('stdlib/alloc/collections/vec/transform.nepl');
 const vecQueryCode = codeByPath.get('stdlib/alloc/collections/vec/query.nepl');
 const vecMutationCode = codeByPath.get('stdlib/alloc/collections/vec/mutation.nepl');
-const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecRawCode, vecTransformCode, vecMutationCode, vecQueryCode, vecRootCode].join('\n');
+const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecRawCode, vecTransformCode, vecQueryCode, vecMutationCode, vecRootCode].join('\n');
 const sortMergeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge.nepl');
 const loaderCode = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 
@@ -99,13 +99,11 @@ const freeSection = vecCode.slice(vecCode.indexOf('fn free '));
 
 assert.doesNotMatch(vecCode, /\bfield::get\s+\w+\s+"(?:len|cap)"/, 'Vec implementation must read Copy len/cap header fields through field::get_ref so owner-consuming helpers do not move them');
 assert.match(withCapacitySection, /if:\s+lt\s+cap\s+0\s+then:\s+Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::InvalidOperation[\s\S]*else:\s+vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must reject negative capacity before allocating owned storage');
-assert.match(vecRootCode, /pub\s+#import\s+"\.\/vec\/types"\s+as\s+\*/, 'Vec root must re-export the types module');
-assert.match(vecRootCode, /#import\s+"\.\/vec\/storage"\s+as\s+vec_storage/, 'Vec root must delegate storage helpers to vec/storage.nepl');
-assert.match(vecRootCode, /#import\s+"\.\/vec\/access"\s+as\s+vec_access/, 'Vec root must delegate observer helpers to vec/access.nepl');
-assert.match(vecRootCode, /#import\s+"\.\/vec\/raw"\s+as\s+vec_raw/, 'Vec root must delegate raw storage helpers to vec/raw.nepl');
-assert.match(vecRootCode, /#import\s+"\.\/vec\/transform"\s+as\s+vec_transform/, 'Vec root must delegate transform helpers to vec/transform.nepl');
-assert.match(vecRootCode, /#import\s+"\.\/vec\/query"\s+as\s+vec_query/, 'Vec root must delegate query helpers to vec/query.nepl');
-assert.match(vecRootCode, /#import\s+"\.\/vec\/mutation"\s+as\s+vec_mutation/, 'Vec root must delegate mutation helpers to vec/mutation.nepl');
+for (const name of ['types', 'storage', 'access', 'raw', 'mutation', 'query', 'transform', 'sort']) {
+    assert.match(vecRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/vec\\/${name}"\\s+as\\s+@merge`), `Vec root must merge re-export vec/${name}.nepl`);
+}
+assert.doesNotMatch(vecRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'Vec root must be a pure facade without implementation bodies');
+assert.doesNotMatch(vecRootCode, /\bas\s+vec_/, 'Vec root must not keep private delegation aliases after becoming a merge facade');
 for (const name of ['VecStorageState', 'Vec', 'VecDataLen', 'VecPop', 'VecPartition']) {
     assert.doesNotMatch(vecRootCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `Vec root must not own ${name}; it belongs in vec/types.nepl`);
     assert.match(vecTypesCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `vec/types.nepl must own ${name}`);
@@ -128,70 +126,9 @@ for (const name of ['get', 'count', 'fold', 'reduce', 'find', 'any', 'all']) {
 for (const name of ['push', 'replace', 'pop', 'clear', 'free']) {
     assert.match(vecMutationCode, new RegExp(`fn\\s+${name}\\b`), `vec/mutation.nepl must own ${name}`);
 }
-for (const [name, target] of [
-    ['vec_empty', 'vec_storage::vec_empty<\\.T>'],
-    ['vec_alloc_empty', 'vec_storage::vec_alloc_empty<\\.T>\\s+requested_cap'],
-    ['vec_storage_mem_ptr', 'vec_storage::vec_storage_mem_ptr<\\.T>\\s+storage\\s+data'],
-    ['vec_free_storage', 'vec_storage::vec_free_storage<\\.T>\\s+storage\\s+data\\s+cap'],
-    ['new', 'vec_storage::new<\\.T>'],
-    ['with_capacity', 'vec_storage::with_capacity<\\.T>\\s+cap'],
-    ['filled', 'vec_storage::filled<\\.T>\\s+n\\s+value'],
-]) {
-    assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin storage facade wrapper`);
-}
-for (const [name, target] of [
-    ['len', 'vec_access::len<\\.T>\\s+v'],
-    ['cap', 'vec_access::cap<\\.T>\\s+v'],
-    ['data_ptr', 'vec_access::data_ptr<\\.T>\\s+v'],
-    ['data_mem_ptr', 'vec_access::data_mem_ptr<\\.T>\\s+v'],
-    ['data_len', 'vec_access::data_len<\\.T>\\s+v'],
-    ['is_empty', 'vec_access::is_empty<\\.T>\\s+v'],
-]) {
-    assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin access facade wrapper`);
-}
-for (const [name, target] of [
-    ['vec_read_at', 'vec_raw::vec_read_at<\\.T>\\s+data\\s+idx'],
-    ['vec_write_at', 'vec_raw::vec_write_at<\\.T>\\s+data\\s+idx\\s+item'],
-    ['vec_fold_impl', 'vec_raw::vec_fold_impl<\\.T,\\.U>\\s+data\\s+len\\s+idx\\s+acc\\s+f'],
-    ['vec_reduce_impl', 'vec_raw::vec_reduce_impl<\\.T>\\s+data\\s+len\\s+idx\\s+acc\\s+f'],
-    ['vec_find_impl', 'vec_raw::vec_find_impl<\\.T>\\s+data\\s+len\\s+idx\\s+p'],
-    ['vec_take_while_len_impl', 'vec_raw::vec_take_while_len_impl<\\.T>\\s+data\\s+len\\s+idx\\s+p'],
-    ['vec_write_prefix_impl', 'vec_raw::vec_write_prefix_impl<\\.T>\\s+src_data\\s+out_data\\s+src_from\\s+count'],
-]) {
-    assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin raw helper facade wrapper`);
-}
-for (const [name, target] of [
-    ['map', 'vec_transform::map<\\.T,\\.U>\\s+v\\s+f'],
-    ['filter', 'vec_transform::filter<\\.T>\\s+v\\s+p'],
-    ['partition', 'vec_transform::partition<\\.T>\\s+v\\s+p'],
-    ['take_while', 'vec_transform::take_while<\\.T>\\s+v\\s+p'],
-    ['drop_while', 'vec_transform::drop_while<\\.T>\\s+v\\s+p'],
-]) {
-    assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin transform facade wrapper`);
-}
-for (const [name, target] of [
-    ['push', 'vec_mutation::push<\\.T>\\s+v\\s+item'],
-    ['replace', 'vec_mutation::replace<\\.T>\\s+v\\s+idx\\s+item'],
-    ['pop', 'vec_mutation::pop<\\.T>\\s+v'],
-    ['clear', 'vec_mutation::clear<\\.T>\\s+v'],
-    ['free', 'vec_mutation::free<\\.T>\\s+v'],
-]) {
-    assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin mutation facade wrapper`);
-}
-for (const [name, target] of [
-    ['get', 'vec_query::get<\\.T>\\s+v\\s+idx'],
-    ['count', 'vec_query::count<\\.T>\\s+v\\s+p'],
-    ['fold', 'vec_query::fold<\\.T,\\.U>\\s+v\\s+acc\\s+f'],
-    ['reduce', 'vec_query::reduce<\\.T>\\s+v\\s+f'],
-    ['find', 'vec_query::find<\\.T>\\s+v\\s+p'],
-    ['any', 'vec_query::any<\\.T>\\s+v\\s+p'],
-    ['all', 'vec_query::all<\\.T>\\s+v\\s+p'],
-]) {
-    assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin query facade wrapper`);
-}
 assert.match(vecCode, /enum\s+VecStorageState:[\s\S]*Empty[\s\S]*Owned/, 'Vec storage owner state must be represented by an enum');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec\.nepl"\]/, 'Vec root facade must not receive raw-memory boundary capability');
 for (const relPath of [
-    /&\["alloc",\s*"collections",\s*"vec\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"access\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"mutation\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"query\.nepl"\]/,
@@ -202,7 +139,7 @@ for (const relPath of [
     /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"common\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge\.nepl"\]/,
 ]) {
-    assert.match(loaderCode, relPath, 'loader raw-memory boundary must include Vec root and exact submodule stdlib paths');
+    assert.match(loaderCode, relPath, 'loader raw-memory boundary must include exact Vec implementation submodule stdlib paths');
 }
 assert.match(vecCode, /struct\s+Vec<\.T>:[\s\S]*storage\s+<VecStorageState>[\s\S]*data\s+<MemPtr<\.T>>/, 'Vec must separate enum owner state from the raw pointer field so Resource IR can track memory cells');
 assert.match(vecCode, /fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>[\s\S]*Vec<\.T>\s+0\s+0\s+VecStorageState::Empty\s+mem_ptr_wrap\s+0/, 'Vec.empty must construct typed Empty storage');

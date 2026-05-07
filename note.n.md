@@ -34241,3 +34241,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl --no-tree -o tmp/examples-string-direct-imports.json -j 1 --dist web/dist`: total=5, passed=5
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 Vec root @merge facade
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/vec.nepl` に残っていた thin wrapper 群を削除した。
+- root は `vec/types`、`vec/storage`、`vec/access`、`vec/raw`、`vec/mutation`、`vec/query`、`vec/transform`、`vec/sort` の public `@merge` re-export だけを持つ pure facade にした。
+- `#import "alloc/collections/vec" as v` と `as *` の公開 API は `@merge` facade で維持し、root に実装本体や private delegation alias を戻さない方針にした。
+- `nepl-core/src/loader.rs` から root `alloc/collections/vec.nepl` の raw-memory boundary capability を外し、Vec の実装 submodule だけに exact boundary を残した。
+- `nepl-core/tests/effects.rs` には split facade が raw-memory boundary にならない regression を追加し、Vec / StringBuilder root に raw wasm body を置いた場合は `effect.pure.calls_impure` になることを固定した。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_vec_borrowed_observers.js` を更新し、Vec root の `@merge` facade、body なし、exact raw boundary を検査するようにした。
+- [検証]:
+  - `git pull --ff-only origin main`: already up to date
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_string_facade_boundary.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary -- loader_does_not_mark_split_facades_as_raw_memory_boundaries`: passed
+  - `trunk build --release`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/vec-root-facade-merge-root.json -j 1 --dist web/dist`: total=3, passed=3
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-root-facade-merge-suite.json -j 1 --dist web/dist`: total=9, passed=9
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: Vec / string facade 関連は passed。既知 open issue `ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D` の `lower_aggregate_projection.rs has 204 lines; responsibility split limit is 180` warning は継続。
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
