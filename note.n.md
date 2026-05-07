@@ -1,3 +1,22 @@
+# 2026-05-08 Agent 2 cliarg raw argv boundary capability 修正
+
+- `ISS-20260507T175704848Z-CLIARG-RAW-ARGV-BOUNDARY-LACKS-RAW-M-C25E93E9` を追加し、fixed/resolved に更新した。
+- 根本原因は、typed SourceCapabilities 化後に raw memory operation が exact source module capability で制御されるようになった一方で、WASI argv scratch 初期化を担当する `stdlib/std/env/cliarg/raw.nepl` が raw-memory boundary whitelist に入っていなかったことだった。
+- `cliarg/raw.nepl` は `args_sizes_get` / `args_get` 用 out pointer と argv buffer を `store_i32` / `store_u8` で初期化する境界 module であり、public facade や cstr conversion ではなく、この module だけに raw-memory boundary capability を与える設計にした。
+- `nepl-core/src/loader.rs` の `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` に `["std", "env", "cliarg", "raw.nepl"]` を追加した。
+- `nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js` に source-policy regression を追加し、`stdlib/std/env/cliarg.nepl` と `stdlib/std/env/cliarg/cstr.nepl` へ raw-memory boundary capability が広がらないことも固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_cliarg_no_unsafe_unwraps.js`: passed
+  - `cargo test -p nepl-core raw_memory_boundary_`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/examples-cliarg-raw-boundary.json -j 4 --dist web/dist`: total=32, passed=32
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 2 VFS cross-file definition path / semantics selected callee 修正
 
 - `ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9` を fixed/resolved に更新した。

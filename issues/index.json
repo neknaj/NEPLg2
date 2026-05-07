@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T17:51:23.719Z",
+  "generated_at": "2026-05-07T18:01:46.803Z",
   "counts": {
-    "total": 613,
+    "total": 614,
     "open": 11,
-    "resolved": 602,
+    "resolved": 603,
     "by_area": {
       "core": {
         "total": 306,
@@ -12,9 +12,9 @@
         "resolved": 303
       },
       "stdlib": {
-        "total": 164,
+        "total": 165,
         "open": 5,
-        "resolved": 159
+        "resolved": 160
       },
       "TEST": {
         "total": 17,
@@ -6923,6 +6923,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T114726130Z-NM-JSON-ESCAPE-MEM-INTO-IS-REJECTED--0F849F57.md"
+    },
+    {
+      "id": "ISS-20260507T175704848Z-CLIARG-RAW-ARGV-BOUNDARY-LACKS-RAW-M-C25E93E9",
+      "title": "cliarg raw argv boundary lacks raw memory source capability",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "stdlib/std/env/cliarg/raw.nepl, nepl-core/src/loader.rs, tests/stdlib/cliarg.n.md, examples/nm.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T175704848Z-CLIARG-RAW-ARGV-BOUNDARY-LACKS-RAW-M-C25E93E9.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

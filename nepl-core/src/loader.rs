@@ -53,6 +53,7 @@ const RAW_MEMORY_BOUNDARY_STDLIB_PATHS: &[&[&str]] = &[
     &["alloc", "string", "scanner.nepl"],
     &["alloc", "string", "storage.nepl"],
     &["alloc", "string", "utf8.nepl"],
+    &["std", "env", "cliarg", "raw.nepl"],
     &["std", "text.nepl"],
     &["std", "streamio", "scanner", "state.nepl"],
 ];
