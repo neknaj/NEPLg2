@@ -19,6 +19,31 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string builder types/reserve/append/build split)
+
+- branch `refactor/string-builder-module-split` で、`stdlib/alloc/string/builder.nepl` を facade 化し、`builder/types`、`builder/reserve`、`builder/append`、`builder/build` へ責務分割した。
+- `builder/types.nepl` は `StringBuilder` owner state、empty / owned pointer construction、len 更新、free を所有する。
+- `builder/reserve.nepl` は capacity 計算、初期 allocation、reserve/realloc、`string_builder_new` を所有する。
+- `builder/append.nepl` は `sb_append_result`、char/ascii/byte append、fallback wrapper を所有する。
+- `builder/build.nepl` は `sb_build_result` / `sb_build` と final `str` construction boundary を所有する。
+- `nepl-core/src/loader.rs` の exact raw-memory boundary は root `alloc/string/builder.nepl` ではなく、raw memory を実際に扱う builder submodule 4 file に移した。
+- source policy は builder facade、submodule line count、owner-preserving storage access、exact raw-memory boundary を固定するよう更新した。
+- line count は `builder.nepl` 15、`builder/types.nepl` 105、`builder/reserve.nepl` 179、`builder/append.nepl` 226、`builder/build.nepl` 84。
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`core/mem.nepl`、collection の巨大 file、selfhost compiler の巨大 file などの分割対象は残る。
+- [検証]:
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_string_facade_boundary.js`: passed
+  - remote main `7e23143e` へ rebase 後に `trunk build --release`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string_extra.n.md -i tests/stdlib/string_char.n.md --no-tree -o tmp/string-builder-module-split-string-suite-after-rebase.json -j 1 --dist web/dist`: total=13, passed=13
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/string-builder-module-split-nm-selfhost-after-rebase.json -j 1 --dist web/dist`: total=11, passed=11
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: builder/string 関連は passed。既知 open issue `ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D` の `lower_aggregate_projection.rs has 204 lines; responsibility split limit is 180` warning は継続。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T114726130Z nm json_escape raw traversal removed)
 
 - branch `fix/nm-json-escape-pure-raw-load` で、`stdlib/nm/json_escape.nepl` の public pure raw traversal を削除した。

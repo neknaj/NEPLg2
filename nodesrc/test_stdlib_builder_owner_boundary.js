@@ -14,11 +14,20 @@ const ioRootSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/io.nepl'), '
 const ioByteBuilderSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/io/bytebuilder.nepl'), 'utf8');
 const stringRootSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string.nepl'), 'utf8');
 const stringBuilderSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder.nepl'), 'utf8');
+const stringBuilderTypesSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder/types.nepl'), 'utf8');
+const stringBuilderReserveSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder/reserve.nepl'), 'utf8');
+const stringBuilderAppendSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder/append.nepl'), 'utf8');
+const stringBuilderBuildSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder/build.nepl'), 'utf8');
 
 const ioRootCode = stripNeplComments(ioRootSrc);
 const ioByteBuilderCode = stripNeplComments(ioByteBuilderSrc);
 const stringRootCode = stripNeplComments(stringRootSrc);
-const stringBuilderCode = stripNeplComments(stringBuilderSrc);
+const stringBuilderCode = stripNeplComments([
+    stringBuilderTypesSrc,
+    stringBuilderReserveSrc,
+    stringBuilderAppendSrc,
+    stringBuilderBuildSrc,
+].join('\n'));
 
 assert.match(ioRootCode, /pub\s+#import\s+"\.\/io\/bytebuilder"\s+as\s+\*/, 'alloc/io root must re-export ByteBuilder APIs');
 assert.doesNotMatch(ioRootCode, /struct\s+ByteBuilder:/, 'alloc/io root must not own ByteBuilder storage state');
@@ -31,7 +40,16 @@ assert.doesNotMatch(stringRootCode, /struct\s+StringBuilder:/, 'alloc/string roo
 assert.doesNotMatch(stringRootCode, /fn\s+string_builder_reserve_result\b/, 'alloc/string root must not own StringBuilder grow logic');
 assert.doesNotMatch(stringRootCode, /fn\s+sb_append_result\b/, 'alloc/string root must not own StringBuilder str append logic');
 assert.doesNotMatch(stringRootCode, /fn\s+sb_build_result\b/, 'alloc/string root must not own StringBuilder finalization logic');
+assert.match(stringBuilderSrc, /pub\s+#import\s+"\.\/builder\/types"\s+as\s+@merge/, 'alloc/string/builder facade must merge StringBuilder type APIs');
+assert.match(stringBuilderSrc, /pub\s+#import\s+"\.\/builder\/reserve"\s+as\s+@merge/, 'alloc/string/builder facade must merge reserve APIs');
+assert.match(stringBuilderSrc, /pub\s+#import\s+"\.\/builder\/append"\s+as\s+@merge/, 'alloc/string/builder facade must merge append APIs');
+assert.match(stringBuilderSrc, /pub\s+#import\s+"\.\/builder\/build"\s+as\s+@merge/, 'alloc/string/builder facade must merge build APIs');
+assert.doesNotMatch(stripNeplComments(stringBuilderSrc), /\b(?:fn|struct|enum)\s+/, 'alloc/string/builder facade must not own implementation bodies');
 assertStringBuilderOwnerBoundary(stringBuilderCode);
-assert.ok(stringBuilderSrc.split(/\r?\n/).length <= 560, 'alloc/string/builder should stay narrowly scoped');
+assert.ok(stringBuilderSrc.split(/\r?\n/).length <= 35, 'alloc/string/builder facade should stay small');
+assert.ok(stringBuilderTypesSrc.split(/\r?\n/).length <= 130, 'alloc/string/builder/types should stay narrowly scoped');
+assert.ok(stringBuilderReserveSrc.split(/\r?\n/).length <= 210, 'alloc/string/builder/reserve should stay narrowly scoped');
+assert.ok(stringBuilderAppendSrc.split(/\r?\n/).length <= 260, 'alloc/string/builder/append should stay narrowly scoped');
+assert.ok(stringBuilderBuildSrc.split(/\r?\n/).length <= 110, 'alloc/string/builder/build should stay narrowly scoped');
 
 console.log('stdlib builder owner boundary regression passed');

@@ -19,6 +19,14 @@ const accessRelPath = 'stdlib/alloc/string/access.nepl';
 const accessSrc = fs.readFileSync(path.join(repoRoot, accessRelPath), 'utf8');
 const builderRelPath = 'stdlib/alloc/string/builder.nepl';
 const builderSrc = fs.readFileSync(path.join(repoRoot, builderRelPath), 'utf8');
+const builderTypesRelPath = 'stdlib/alloc/string/builder/types.nepl';
+const builderTypesSrc = fs.readFileSync(path.join(repoRoot, builderTypesRelPath), 'utf8');
+const builderReserveRelPath = 'stdlib/alloc/string/builder/reserve.nepl';
+const builderReserveSrc = fs.readFileSync(path.join(repoRoot, builderReserveRelPath), 'utf8');
+const builderAppendRelPath = 'stdlib/alloc/string/builder/append.nepl';
+const builderAppendSrc = fs.readFileSync(path.join(repoRoot, builderAppendRelPath), 'utf8');
+const builderBuildRelPath = 'stdlib/alloc/string/builder/build.nepl';
+const builderBuildSrc = fs.readFileSync(path.join(repoRoot, builderBuildRelPath), 'utf8');
 const searchRelPath = 'stdlib/alloc/string/search.nepl';
 const searchSrc = fs.readFileSync(path.join(repoRoot, searchRelPath), 'utf8');
 const searchCompareRelPath = 'stdlib/alloc/string/search/compare.nepl';
@@ -61,6 +69,16 @@ const utf8Code = stripNeplComments(utf8Src);
 const storageCode = stripNeplComments(storageSrc);
 const accessCode = stripNeplComments(accessSrc);
 const builderCode = stripNeplComments(builderSrc);
+const builderTypesCode = stripNeplComments(builderTypesSrc);
+const builderReserveCode = stripNeplComments(builderReserveSrc);
+const builderAppendCode = stripNeplComments(builderAppendSrc);
+const builderBuildCode = stripNeplComments(builderBuildSrc);
+const builderCombinedCode = [
+    builderTypesCode,
+    builderReserveCode,
+    builderAppendCode,
+    builderBuildCode,
+].join('\n');
 const searchCode = stripNeplComments(searchSrc);
 const searchCompareCode = stripNeplComments(searchCompareSrc);
 const searchBoundaryCode = stripNeplComments(searchBoundarySrc);
@@ -99,6 +117,10 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(storageCode, pattern, `${storageRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(accessCode, pattern, `${accessRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(builderCode, pattern, `${builderRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(builderTypesCode, pattern, `${builderTypesRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(builderReserveCode, pattern, `${builderReserveRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(builderAppendCode, pattern, `${builderAppendRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(builderBuildCode, pattern, `${builderBuildRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(searchCode, pattern, `${searchRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(searchCompareCode, pattern, `${searchCompareRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(searchBoundaryCode, pattern, `${searchBoundaryRelPath} must not use unsafe unwrap helpers in implementation code`);
@@ -144,8 +166,13 @@ assert.match(sliceCode, /pub\s+#import\s+"\.\/slice\/char"\s+as\s+@merge/, 'allo
 assert.match(sliceCode, /pub\s+#import\s+"\.\/slice\/trim"\s+as\s+@merge/, 'alloc/string/slice facade must merge trim APIs for qualified imports');
 assert.doesNotMatch(sliceCode, /\bfn\s+/, 'alloc/string/slice facade must not own implementation function bodies');
 assert.match(sliceByteCode, /fn\s+str_slice_result\s+/, 'alloc/string/slice/byte must keep allocation-bearing slice available as Result');
-assert.match(builderCode, /fn\s+sb_build_result\s+/, 'StringBuilder build must have a Result-returning path');
-assertStringBuilderOwnerBoundary(builderCode);
+assert.match(builderCode, /pub\s+#import\s+"\.\/builder\/types"\s+as\s+@merge/, 'alloc/string/builder facade must merge StringBuilder type APIs');
+assert.match(builderCode, /pub\s+#import\s+"\.\/builder\/reserve"\s+as\s+@merge/, 'alloc/string/builder facade must merge reserve APIs');
+assert.match(builderCode, /pub\s+#import\s+"\.\/builder\/append"\s+as\s+@merge/, 'alloc/string/builder facade must merge append APIs');
+assert.match(builderCode, /pub\s+#import\s+"\.\/builder\/build"\s+as\s+@merge/, 'alloc/string/builder facade must merge build APIs');
+assert.doesNotMatch(builderCode, /\b(?:fn|struct|enum)\s+/, 'alloc/string/builder facade must not own implementation bodies');
+assert.match(builderBuildCode, /fn\s+sb_build_result\s+/, 'StringBuilder build must have a Result-returning path');
+assertStringBuilderOwnerBoundary(builderCombinedCode);
 assert.match(code, /pub\s+#import\s+"\.\/string\/float"\s+as\s+\*/, 'alloc/string must re-export float conversion APIs');
 assert.match(floatCode, /pub\s+#import\s+"\.\/float\/format"\s+as\s+\*/, 'alloc/string/float facade must re-export float formatting APIs');
 assert.match(floatCode, /pub\s+#import\s+"\.\/float\/parse"\s+as\s+\*/, 'alloc/string/float facade must re-export float parsing APIs');

@@ -1,0 +1,105 @@
+//: # string/builder/types
+//: StringBuilder の storage owner 型と基本操作
+//:
+//: [目的/もくてき]:
+//: - `StringBuilder` の所有 byte buffer state と、空 builder / owned pointer construction / len 更新 / free を所有します。
+//: - grow、append、build の各 module が共有する owner 境界をこの module に集約します。
+//:
+//: [注意/ちゅうい]:
+//: - raw storage には `u8` だけを置き、`str` のような non-Copy payload は保持しません。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/option" as *
+#import "core/field" as *
+
+//: StringBuilder: 複数の str 片を byte buffer に追加して最後に 1 つへまとめる
+//:
+//: [目的/もくてき]:
+//: - lexer/parser/diagnostics のように小さな文字列片を段階的に集め、最後に 1 つの `str` として出力します。
+//:
+//: [実装/じっそう]:
+//: - 内部では所有権を持つ `u8` buffer を 2 倍 growth し、append 時点で入力 `str` の byte 列を copy します。
+//:
+//: [注意/ちゅうい]:
+//: - builder は `Copy` / `Clone` ではありません。append/build 系 API は builder owner を消費します。
+//: - allocation failure を扱う処理では `_result` suffix の API を使ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - state access は O(1) です。
+struct StringBuilder:
+    data <Option<MemPtr<u8>>>
+    len <i32>
+    cap <i32>
+
+//: string_builder_empty: allocation を持たない空 builder を作る
+//:
+//: [目的/もくてき]:
+//: - allocation failure 時の fallback や、capacity 0 の内部状態として使う空 builder を作ります。
+//:
+//: [実装/じっそう]:
+//: - data は `None`、len/cap は 0 にします。
+//:
+//: [注意/ちゅうい]:
+//: - この builder に append する場合は `string_builder_reserve_result` が初回 allocation を行います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn string_builder_empty <()->StringBuilder> ():
+    StringBuilder none<MemPtr<u8>> 0 0
+
+//: string_builder_from_owned_ptr: 所有 byte 領域を `StringBuilder` に包む
+//:
+//: [目的/もくてき]:
+//: - builder 本文 buffer の所有権を `Option<MemPtr<u8>>` field に集約し、空 builder と所有 builder を型で区別します。
+//:
+//: [注意/ちゅうい]:
+//: - `cap0` は正でなければなりません。空 builder は `string_builder_empty` を使ってください。
+//: - `data` は返った builder が所有します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn string_builder_from_owned_ptr <(MemPtr<u8>,i32,i32)->StringBuilder> (data, len0, cap0):
+    StringBuilder some<MemPtr<u8>> data len0 cap0
+
+//: string_builder_with_len: builder の storage owner を保ったまま length だけ更新する
+//:
+//: [目的/もくてき]:
+//: - append が本文 byte の書き込みに成功したあと、`data` field の owner を取り出して包み直さず、`Option<MemPtr<u8>>` field 全体を次の builder へ移します。
+//:
+//: [注意/ちゅうい]:
+//: - `new_len` は `cap` 以下でなければなりません。capacity 確保は呼び出し前に `string_builder_reserve_result` で済ませます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn string_builder_with_len <(StringBuilder,i32)->StringBuilder> (sb, new_len):
+    let cap0 <i32> get sb "cap";
+    StringBuilder get sb "data" new_len cap0
+
+//: string_builder_free: builder が保持する byte buffer を解放する
+//:
+//: [目的/もくてき]:
+//: - `StringBuilder` owner を消費し、内部 buffer があれば allocator へ返します。
+//:
+//: [実装/じっそう]:
+//: - data が `Some` の場合だけ `dealloc_ptr<u8>` を呼びます。
+//:
+//: [注意/ちゅうい]:
+//: - cleanup 用 helper なので、dealloc failure は戻り値にせず破棄します。
+//: - 呼び出し後の builder は再利用しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - allocator に依存します。
+fn string_builder_free <(StringBuilder)->()> (sb):
+    let cap0 <i32> get sb "cap";
+    match get sb "data":
+        Option::Some data:
+            match dealloc_ptr<u8> data cap0:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+        Option::None:
+            ()

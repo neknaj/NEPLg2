@@ -11,6 +11,14 @@ const accessRelPath = 'stdlib/alloc/string/access.nepl';
 const accessSrc = fs.readFileSync(path.join(repoRoot, accessRelPath), 'utf8');
 const builderRelPath = 'stdlib/alloc/string/builder.nepl';
 const builderSrc = fs.readFileSync(path.join(repoRoot, builderRelPath), 'utf8');
+const builderTypesRelPath = 'stdlib/alloc/string/builder/types.nepl';
+const builderTypesSrc = fs.readFileSync(path.join(repoRoot, builderTypesRelPath), 'utf8');
+const builderReserveRelPath = 'stdlib/alloc/string/builder/reserve.nepl';
+const builderReserveSrc = fs.readFileSync(path.join(repoRoot, builderReserveRelPath), 'utf8');
+const builderAppendRelPath = 'stdlib/alloc/string/builder/append.nepl';
+const builderAppendSrc = fs.readFileSync(path.join(repoRoot, builderAppendRelPath), 'utf8');
+const builderBuildRelPath = 'stdlib/alloc/string/builder/build.nepl';
+const builderBuildSrc = fs.readFileSync(path.join(repoRoot, builderBuildRelPath), 'utf8');
 const searchRelPath = 'stdlib/alloc/string/search.nepl';
 const searchSrc = fs.readFileSync(path.join(repoRoot, searchRelPath), 'utf8');
 const searchCompareRelPath = 'stdlib/alloc/string/search/compare.nepl';
@@ -60,6 +68,10 @@ for (const [sourceRelPath, sourceText] of [
     [relPath, src],
     [accessRelPath, accessSrc],
     [builderRelPath, builderSrc],
+    [builderTypesRelPath, builderTypesSrc],
+    [builderReserveRelPath, builderReserveSrc],
+    [builderAppendRelPath, builderAppendSrc],
+    [builderBuildRelPath, builderBuildSrc],
     [searchRelPath, searchSrc],
     [searchCompareRelPath, searchCompareSrc],
     [searchBoundaryRelPath, searchBoundarySrc],
@@ -87,16 +99,16 @@ for (const [sourceRelPath, sourceText] of [
 const requiredPhrases = [
     [accessRelPath, accessSrc, 'byte length contract', 'len: \u6587\u5b57\u5217\u306e byte \u9577\u3092\u8fd4\u3059'],
     [concatRelPath, concatSrc, 'concat Result contract', 'concat_result: 2 \u3064\u306e\u6587\u5b57\u5217\u3092\u78ba\u4fdd\u4ed8\u304d\u3067\u9023\u7d50\u3059\u308b'],
-    [builderRelPath, builderSrc, 'StringBuilder byte-buffer ownership contract', 'StringBuilder: \u8907\u6570\u306e str \u7247\u3092 byte buffer \u306b\u8ffd\u52a0\u3057\u3066\u6700\u5f8c\u306b 1 \u3064\u3078\u307e\u3068\u3081\u308b'],
-    [builderRelPath, builderSrc, 'StringBuilder non-Copy owner contract', 'builder \u306f `Copy` / `Clone` \u3067\u306f\u3042\u308a\u307e\u305b\u3093'],
-    [builderRelPath, builderSrc, 'StringBuilder raw storage contract', 'raw storage \u306b\u306f `u8` \u3060\u3051\u3092\u7f6e\u304d'],
+    [builderTypesRelPath, builderTypesSrc, 'StringBuilder byte-buffer ownership contract', 'StringBuilder: \u8907\u6570\u306e str \u7247\u3092 byte buffer \u306b\u8ffd\u52a0\u3057\u3066\u6700\u5f8c\u306b 1 \u3064\u3078\u307e\u3068\u3081\u308b'],
+    [builderTypesRelPath, builderTypesSrc, 'StringBuilder non-Copy owner contract', 'builder \u306f `Copy` / `Clone` \u3067\u306f\u3042\u308a\u307e\u305b\u3093'],
+    [builderTypesRelPath, builderTypesSrc, 'StringBuilder raw storage contract', 'raw storage \u306b\u306f `u8` \u3060\u3051\u3092\u7f6e\u304d'],
     [sliceByteRelPath, sliceByteSrc, 'slice UTF-8 boundary contract', 'str_slice_result: UTF-8 \u5883\u754c\u306b\u63c3\u3063\u305f byte \u7bc4\u56f2\u3092\u65b0\u3057\u3044 str \u3068\u3057\u3066\u5207\u308a\u51fa\u3059'],
     [splitRelPath, splitSrc, 'split scanner byte-scan contract', 'str_split_next: allocation \u306a\u3057\u3067\u6b21\u306e split range \u3092\u8fd4\u3059'],
     [integerParseRelPath, integerParseSrc, 'i32 parse overflow contract', 'to_i32: 10 \u9032\u6587\u5b57\u5217\u3092 i32 \u3068\u3057\u3066\u89e3\u6790\u3059\u308b'],
     [floatFormatRelPath, floatFormatSrc, 'f64 formatting contract', 'from_f64_result: f64 \u3092\u6709\u9650\u5024\u3060\u3051\u6587\u5b57\u5217\u5316\u3059\u308b'],
     [findRelPath, findSrc, 'find byte-index contract', 'find: \u6700\u521d\u306b\u4e00\u81f4\u3057\u305f byte index \u3092\u8fd4\u3059'],
     [accessRelPath, accessSrc, 'UTF-8 byte-length note', 'UTF-8 \u306e byte \u9577\u3067\u3042\u308a'],
-    [builderRelPath, builderSrc, 'allocation failure Result guidance', 'allocation failure \u3092\u6271\u3046\u51e6\u7406\u3067\u306f'],
+    [builderTypesRelPath, builderTypesSrc, 'allocation failure Result guidance', 'allocation failure \u3092\u6271\u3046\u51e6\u7406\u3067\u306f'],
 ];
 
 for (const [sourceRelPath, sourceText, label, phrase] of requiredPhrases) {

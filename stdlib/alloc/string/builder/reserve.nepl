@@ -1,0 +1,179 @@
+//: # string/builder/reserve
+//: StringBuilder の capacity 計算と grow
+//:
+//: [目的/もくてき]:
+//: - append/build 本体から allocation / reallocation の責務を分離し、builder capacity 管理を所有します。
+//:
+//: [注意/ちゅうい]:
+//: - error を返す場合、保持済み buffer は可能な範囲で解放して owner を残しません。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/option" as *
+#import "core/math" as *
+#import "core/field" as *
+#import "./types" as *
+
+//: string_builder_next_capacity: append に必要な次 capacity を計算する
+//:
+//: [目的/もくてき]:
+//: - 現在 capacity と必要 byte 数から、2 倍 growth 後の capacity を求めます。
+//:
+//: [実装/じっそう]:
+//: - 最小 capacity を 64 とし、needed 以上になるまで倍増します。
+//: - overflow で値が増えなくなった場合は `Result::Err` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - byte 数を扱う helper であり、UTF-8 境界の検証は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(log needed)
+fn string_builder_next_capacity <(i32,i32)->Result<i32,str>> (cap, needed):
+    let mut next <i32>:
+        if:
+            le cap 0
+            then 64
+            else cap
+    let mut failed <bool> false;
+    while and lt next needed not failed:
+        do:
+            let doubled <i32> mul next 2;
+            if:
+                le doubled next
+                then set failed true
+                else set next doubled
+    if:
+        failed
+        then Result<i32,str>::Err "string.builder capacity exceeded"
+        else Result<i32,str>::Ok next
+
+//: string_builder_with_capacity_result: 指定 capacity の builder を作る
+//:
+//: [目的/もくてき]:
+//: - 呼び出し側が初期 capacity を選べる形で `StringBuilder` を初期化します。
+//:
+//: [実装/じっそう]:
+//: - capacity が 0 の場合は allocation しない空 builder を返します。
+//: - 正の capacity では `alloc_ptr<u8>` で byte buffer を確保します。
+//:
+//: [注意/ちゅうい]:
+//: - capacity は byte 数です。負数は `Result::Err` になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - allocator に依存します。
+fn string_builder_with_capacity_result <(i32)->Result<StringBuilder,str>> (capacity):
+    if:
+        lt capacity 0
+        then:
+            Result<StringBuilder,str>::Err "string.builder invalid capacity"
+        else:
+            if:
+                eq capacity 0
+                then:
+                    Result<StringBuilder,str>::Ok string_builder_empty
+                else:
+                    match alloc_ptr<u8> capacity:
+                        Result::Ok data:
+                            Result<StringBuilder,str>::Ok string_builder_from_owned_ptr data 0 capacity
+                        Result::Err _e:
+                            Result<StringBuilder,str>::Err "string.builder allocation failed"
+
+//: string_builder_reserve_result: append 前に必要 byte capacity を確保する
+//:
+//: [目的/もくてき]:
+//: - 追加予定 byte 数を受け取り、builder buffer が `len + additional` 以上の capacity を持つようにします。
+//:
+//: [実装/じっそう]:
+//: - capacity が足りていれば builder をそのまま返します。
+//: - 不足時は `string_builder_next_capacity` で次 capacity を計算し、未確保なら `alloc_ptr<u8>`、既存 buffer があれば `realloc_ptr<u8>` を使います。
+//:
+//: [注意/ちゅうい]:
+//: - error を返す場合、保持済み buffer は可能な範囲で解放して owner を残しません。
+//: - この helper は byte buffer の確保だけを行い、内容の copy は append module が行います。
+//:
+//: [計算量/けいさんりょう]:
+//: - grow なしなら O(1)、grow ありなら allocator / realloc に依存します。
+fn string_builder_reserve_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, additional):
+    let len0 <i32> get sb "len";
+    let cap0 <i32> get sb "cap";
+    if:
+        lt additional 0
+        then:
+            string_builder_free sb;
+            Result<StringBuilder,str>::Err "string.builder invalid reserve"
+        else:
+            let needed <i32> add len0 additional;
+            if:
+                lt needed len0
+                then:
+                    string_builder_free sb;
+                    Result<StringBuilder,str>::Err "string.builder capacity exceeded"
+                else:
+                    if:
+                        le needed cap0
+                        then:
+                            Result<StringBuilder,str>::Ok sb
+                        else:
+                            match string_builder_next_capacity cap0 needed:
+                                Result::Err e:
+                                    string_builder_free sb;
+                                    Result<StringBuilder,str>::Err e
+                                Result::Ok next_cap:
+                                    if:
+                                        le cap0 0
+                                        then:
+                                            match get sb "data":
+                                                Option::Some data:
+                                                    match dealloc_ptr<u8> data 0:
+                                                        Result::Ok _:
+                                                            ()
+                                                        Result::Err _free:
+                                                            ()
+                                                    Result<StringBuilder,str>::Err "string.builder invalid reserve"
+                                                Option::None:
+                                                    match alloc_ptr<u8> next_cap:
+                                                        Result::Ok data:
+                                                            Result<StringBuilder,str>::Ok string_builder_from_owned_ptr data len0 next_cap
+                                                        Result::Err _e:
+                                                            Result<StringBuilder,str>::Err "string.builder allocation failed"
+                                        else:
+                                            match get sb "data":
+                                                Option::None:
+                                                    Result<StringBuilder,str>::Err "string.builder invalid reserve"
+                                                Option::Some old:
+                                                    match realloc_ptr<u8> old cap0 next_cap:
+                                                        Result::Ok data:
+                                                            Result<StringBuilder,str>::Ok string_builder_from_owned_ptr data len0 next_cap
+                                                        Result::Err _e:
+                                                            match dealloc_ptr<u8> old cap0:
+                                                                Result::Ok _:
+                                                                    ()
+                                                                Result::Err _free:
+                                                                    ()
+                                                            Result<StringBuilder,str>::Err "string.builder allocation failed"
+
+//: string_builder_new_result: 空の StringBuilder を作る
+//:
+//: [目的/もくてき]:
+//: - 既定 capacity の byte buffer を持つ builder を初期化します。
+//:
+//: [実装/じっそう]:
+//: - `string_builder_with_capacity_result 64` を呼び、最初の小さな append で realloc しないようにします。
+//:
+//: [注意/ちゅうい]:
+//: - `string_builder_new` は失敗時に空 builder fallback を返します。
+//: - allocation failure を診断として伝えたい場合は `string_builder_new_result` を使ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn string_builder_new_result <()->Result<StringBuilder,str>> ():
+    string_builder_with_capacity_result 64
+
+fn string_builder_new <()->StringBuilder> ():
+    match string_builder_new_result:
+        Result::Ok sb:
+            sb
+        Result::Err _e:
+            string_builder_empty

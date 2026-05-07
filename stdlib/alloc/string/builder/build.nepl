@@ -1,0 +1,84 @@
+//: # string/builder/build
+//: StringBuilder の str 確定
+//:
+//: [目的/もくてき]:
+//: - builder buffer を 1 つの owned `str` に確定する処理を所有します。
+//: - append/grow の責務から finalization boundary を分離します。
+//:
+//: [注意/ちゅうい]:
+//: - `sb_build_result` / `sb_build` は入力 builder を消費し、内部 buffer を解放します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/option" as *
+#import "core/math" as *
+#import "core/field" as *
+#import "alloc/string/storage" as *
+#import "./types" as *
+
+//: sb_build_result: builder の全 part を 1 つの str にまとめる
+//:
+//: [目的/もくてき]:
+//: - builder に蓄積した part を、連続した byte 列を持つ新しい `str` として返します。
+//:
+//: [実装/じっそう]:
+//: - builder の byte 長で出力領域を 1 回確保し、buffer 全体を copy して `str` として確定します。
+//:
+//: [注意/ちゅうい]:
+//: - 出力は新規確保された文字列です。build 後、builder buffer は解放されます。
+//: - `sb_build` は失敗時に空文字列 fallback を返す互換 API です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(total_bytes)
+fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
+    let len0 <i32> get sb "len";
+    let cap0 <i32> get sb "cap";
+    if:
+        le len0 0
+        then:
+            string_builder_free sb;
+            Result<str,str>::Ok ""
+        else:
+            match get sb "data":
+                Option::None:
+                    Result<str,str>::Err "string.builder build invalid storage"
+                Option::Some data:
+                    match string_alloc_region len0:
+                        Result::Err e:
+                            match dealloc_ptr<u8> data cap0:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _free:
+                                    ()
+                            Result<str,str>::Err e
+                        Result::Ok out_region:
+                            let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
+                            match mem_copy<u8> out_data data len0:
+                                Result::Ok _:
+                                    match dealloc_ptr<u8> data cap0:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _free:
+                                            ()
+                                    Result<str,str>::Ok string_finish out_region len0
+                                Result::Err _e:
+                                    match dealloc_ptr<u8> data cap0:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _free:
+                                            ()
+                                    match dealloc_region<u8> out_region:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _free_out:
+                                            ()
+                                    Result<str,str>::Err "string.builder build copy failed"
+
+fn sb_build <(StringBuilder)->str> (sb):
+    match sb_build_result sb:
+        Result::Ok out:
+            out
+        Result::Err _e:
+            ""
