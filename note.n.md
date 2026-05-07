@@ -1,3 +1,10 @@
+# 2026-05-07 note (ISS-20260507T023409425Z direct MemPtr initialized-cell regression)
+
+- branch `fix/resource-direct-memptr-summary` で、`RegionToken` 由来 `MemPtr` の direct `store_i32 p` -> direct `load_i32 p` 経路を再監査した。
+- 現行 main では direct `region_ptr &region` と `region_ptr_at ... Result::Ok p` の両方で、Result::Ok-gated initialized-cell summary が direct `p.raw.deref` へ適用され、`resource.cell.uninit` は再現しなかった。
+- `nepl-core/tests/resource_ir.rs` に `resource_ir_cell_check_applies_result_ok_region_ptr_direct_store_initialization` と `resource_ir_cell_check_applies_result_ok_region_ptr_at_direct_store_initialization` を追加し、RawMemoryLoadCell strictness を緩めずに回帰を固定した。
+- `ISS-20260507T023409425Z-RESOURCE-IR-MISSES-DIRECT-MEMPTR-STO-8DEA4710` は現行実装で解消済みかつ回帰テスト追加済みとして fixed に更新した。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 Vec raw helper split)
 
 - branch `refactor/vec-raw-helper-module` で `stdlib/alloc/collections/vec.nepl` の raw `MemPtr<T>` load/store helper と scan/fold helper を `stdlib/alloc/collections/vec/raw.nepl` へ分離した。

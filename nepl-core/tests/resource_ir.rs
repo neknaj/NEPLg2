@@ -5752,6 +5752,119 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_applies_result_ok_region_ptr_direct_store_initialization() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    match alloc_region<i32> 1:
+        Result::Err _e:
+            0
+        Result::Ok region:
+            let p <MemPtr<i32>> region_ptr &region
+            match store_i32 p 123:
+                Result::Err _e:
+                    0
+                Result::Ok _:
+                    let v <i32> match load_i32 p:
+                        Option::None:
+                            0
+                        Option::Some x:
+                            x
+                    match dealloc_region region:
+                        Result::Err _drop:
+                            0
+                        Result::Ok _:
+                            v
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "Result::Ok-gated RegionToken MemPtr store must initialize the direct raw cell before load: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_applies_result_ok_region_ptr_at_direct_store_initialization() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    match alloc_region<i32> 1:
+        Result::Err _e:
+            0
+        Result::Ok region:
+            match region_ptr_at<i32,i32> &region 0:
+                Result::Err _ptr_err:
+                    0
+                Result::Ok p:
+                    match store_i32 p 123:
+                        Result::Err _store_err:
+                            0
+                        Result::Ok _:
+                            let v <i32> match load_i32 p:
+                                Option::None:
+                                    0
+                                Option::Some x:
+                                    x
+                            match dealloc_region region:
+                                Result::Err _drop:
+                                    0
+                                Result::Ok _:
+                                    v
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function == "main" || function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "Result::Ok-gated region_ptr_at MemPtr store must initialize the direct raw cell before load: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_does_not_apply_result_err_param_raw_cell_initialization() {
     let source = r#"
 #entry main
