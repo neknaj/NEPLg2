@@ -1,3 +1,16 @@
+# 2026-05-08 Agent 1 selfhost mono instance absence
+
+- `ISS-20260507T155948337Z-SELFHOST-MONO-INSTANCE-IDS-USE-1-INV-434774DA` を追加し、fixed/resolved に更新した。
+- 根本原因は、`SelfhostMonoInstanceId` が stable table index であるにもかかわらず、未割り当て状態を `selfhost_mono_instance_id_invalid` の `index = -1` として表していたことだった。
+- `selfhost_mono_instance_id_invalid` と `selfhost_mono_instance_id_is_valid` を削除し、ID 値を table index のみに限定した。
+- 未割り当ては `selfhost_mono_instance_id_pending` が返す `Option<SelfhostMonoInstanceId>::None`、割り当て済みは `selfhost_mono_instance_id_assigned` の `Some` payload として表す。
+- `nodesrc/test_selfhost_mono_instance_absence.js` を追加し、invalid constructor、validity helper、`-1` instance construction の再導入を source policy で拒否する。
+- [検証]:
+  - `node nodesrc/test_selfhost_mono_instance_absence.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/mono/mono.nepl --no-tree -o tmp/agent1-selfhost-mono-instance-absence.json -j 1 --dist web/dist`: total=1, passed=1
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 1 selfhost HIR range payload
 
 - `ISS-20260507T155231568Z-SELFHOST-HIR-RANGES-ENCODE-EMPTY-STA-8B562D49` を追加し、fixed/resolved に更新した。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T15:56:46.552Z",
+  "generated_at": "2026-05-07T16:01:59.939Z",
   "counts": {
-    "total": 602,
+    "total": 603,
     "open": 14,
-    "resolved": 588,
+    "resolved": 589,
     "by_area": {
       "core": {
         "total": 301,
@@ -12,9 +12,9 @@
         "resolved": 298
       },
       "selfhost": {
-        "total": 57,
+        "total": 58,
         "open": 3,
-        "resolved": 54
+        "resolved": 55
       },
       "stdlib": {
         "total": 164,
@@ -5423,6 +5423,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T155231568Z-SELFHOST-HIR-RANGES-ENCODE-EMPTY-STA-8B562D49.md"
+    },
+    {
+      "id": "ISS-20260507T155948337Z-SELFHOST-MONO-INSTANCE-IDS-USE-1-INV-434774DA",
+      "title": "Selfhost mono instance IDs use -1 invalid sentinel",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "stdlib/neplg2/core/mono/mono.nepl, nodesrc/test_selfhost_mono_instance_absence.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T155948337Z-SELFHOST-MONO-INSTANCE-IDS-USE-1-INV-434774DA.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",
