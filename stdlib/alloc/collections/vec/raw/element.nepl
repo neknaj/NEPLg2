@@ -1,0 +1,78 @@
+//: # vec/raw/element
+//: `Vec` raw storage の element load/store
+//:
+//: ### [目的/もくてき]
+//: - direct `load` / `store` をこの module に[閉/と]じ、他の Vec helper が raw offset 計算を[重複/じゅうふく]して[持/も]たないようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - [範囲/はんい][検査/けんさ]は[行/おこな]いません。呼び出し側が index と初期化済み cell を保証します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+
+//: vec_read_at: `MemPtr<.T>` から[添字/そえじ][位置/いち]の[要素/ようそ]を[読/よ]む[内部/ないぶ] helper
+//:
+//: ### [目的/もくてき]
+//: - `Vec<.T>` の[内部/ないぶ] loop で、typed `load` の byte offset [計算/けいさん]を 1 [箇所/かしょ]へまとめます。
+//:
+//: ### [実装/じっそう]
+//: - `idx * size_of<.T>` を[用/もち]いて `data` から byte offset を[計算/けいさん]し、その[位置/いち]を typed `load<.T>` します。
+//:
+//: ### [注意/ちゅうい]
+//: - [範囲/はんい][検査/けんさ]は[行/おこな]いません。`idx` の[妥当性/だとうせい]は[呼/よ]び[出/だ]し[側/がわ]が[保証/ほしょう]する[前提/ぜんてい]です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 9 |> uwok
+//:         |> push 11 |> uwok
+//:     let ok <bool> eq vec_read_at<i32> data_mem_ptr<i32> &v 1 11
+//:     free<i32> v;
+//:     if ok 0 1
+//: ```
+fn vec_read_at <.T> <(MemPtr<.T>, i32)->.T> (data, idx):
+    load<.T> add mem_ptr_addr data mul idx size_of<.T>
+
+//: vec_write_at: `MemPtr<.T>` の[添字/そえじ][位置/いち]へ[要素/ようそ]を[書/か]く[内部/ないぶ] helper
+//:
+//: ### [目的/もくてき]
+//: - `Vec<.T>` [内部/ないぶ]の copy / map / filter 実装で、typed `store` の byte offset [計算/けいさん]を[共通化/きょうつうか]します。
+//:
+//: ### [実装/じっそう]
+//: - `idx * size_of<.T>` を[用/もち]いて byte offset を[求/もと]め、typed `store<.T>` を[行/おこな]います。
+//:
+//: ### [注意/ちゅうい]
+//: - [範囲/はんい][検査/けんさ]は[行/おこな]いません。[書/か]き[込/こ]み[先/さき]が[確保/かくほ]ずみであることを[呼/よ]び[出/だ]し[側/がわ]が[保証/ほしょう]する[前提/ぜんてい]です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok with_capacity<i32> 2;
+//:     let data data_mem_ptr<i32> &v0;
+//:     vec_write_at<i32> data 0 12;
+//:     let ok <bool> eq vec_read_at<i32> data 0 12
+//:     free<i32> v0;
+//:     if ok 0 1
+//: ```
+fn vec_write_at <.T> <(MemPtr<.T>, i32, .T)->()> (data, idx, item):
+    store<.T> add mem_ptr_addr data mul idx size_of<.T> item

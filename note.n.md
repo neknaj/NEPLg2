@@ -34360,3 +34360,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 Vec raw module split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/vec/raw.nepl` を責務別 submodule へ分割した。
+- `raw.nepl` は `raw/element`、`raw/aggregate`、`raw/predicate`、`raw/prefix` の public `@merge` re-export だけを持つ facade にした。
+- `raw/element.nepl` は direct `load` / `store` を使う `vec_read_at` / `vec_write_at` だけを所有する。Vec 内部 helper の raw memory capability はここへ集約した。
+- `raw/aggregate.nepl` は `vec_fold_impl` / `vec_reduce_impl`、`raw/predicate.nepl` は `vec_find_impl`、`raw/prefix.nepl` は `vec_take_while_len_impl` / `vec_write_prefix_impl` を所有し、direct raw intrinsic は持たず `raw/element` を経由する。
+- `nepl-core/src/loader.rs` の exact raw-memory boundary を root `alloc/collections/vec/raw.nepl` から `alloc/collections/vec/raw/element.nepl` へ移し、raw root / aggregate / predicate / prefix には capability を付けない設計にした。
+- `nepl-core/tests/effects.rs` と `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` を更新し、raw-free submodule に raw wasm body が戻らないこと、raw capability が element module にだけ付くことを固定した。
+- line count は `raw.nepl` 21、`raw/element.nepl` 74、`raw/aggregate.nepl` 98、`raw/predicate.nepl` 64、`raw/prefix.nepl` 103。
+- [検証]:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary -- loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries`: passed
+  - `trunk build --release`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/raw.nepl -i stdlib/alloc/collections/vec/raw/element.nepl -i stdlib/alloc/collections/vec/raw/aggregate.nepl -i stdlib/alloc/collections/vec/raw/predicate.nepl -i stdlib/alloc/collections/vec/raw/prefix.nepl --no-tree -o tmp/vec-raw-module-split-focused-after-trunk.json -j 1 --dist web/dist`: total=7, passed=7
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/raw.nepl -i stdlib/alloc/collections/vec/raw/element.nepl -i stdlib/alloc/collections/vec/raw/aggregate.nepl -i stdlib/alloc/collections/vec/raw/predicate.nepl -i stdlib/alloc/collections/vec/raw/prefix.nepl -i stdlib/tests/vec.n.md -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-raw-module-split-suite.json -j 1 --dist web/dist`: total=16, passed=16
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: Vec raw 関連は passed。既知 open issue `ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D` の `lower_aggregate_projection.rs has 204 lines; responsibility split limit is 180` warning は継続。
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -732,9 +732,9 @@ fn loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_bounda
             "alloc_collections_vec_mutation_raw_store",
         ),
         (
-            &["alloc", "collections", "vec", "raw.nepl"],
-            "alloc/collections/vec/raw",
-            "alloc_collections_vec_raw_raw_store",
+            &["alloc", "collections", "vec", "raw", "element.nepl"],
+            "alloc/collections/vec/raw/element",
+            "alloc_collections_vec_raw_element_raw_store",
         ),
         (
             &["alloc", "collections", "vec", "storage.nepl"],
@@ -881,6 +881,26 @@ fn loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries()
             &["alloc", "collections", "vec", "access.nepl"],
             "alloc/collections/vec/access",
             "alloc_collections_vec_access_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "raw.nepl"],
+            "alloc/collections/vec/raw",
+            "alloc_collections_vec_raw_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "raw", "aggregate.nepl"],
+            "alloc/collections/vec/raw/aggregate",
+            "alloc_collections_vec_raw_aggregate_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "raw", "predicate.nepl"],
+            "alloc/collections/vec/raw/predicate",
+            "alloc_collections_vec_raw_predicate_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "raw", "prefix.nepl"],
+            "alloc/collections/vec/raw/prefix",
+            "alloc_collections_vec_raw_prefix_raw_store",
         ),
         (
             &["alloc", "collections", "vec", "transform.nepl"],
