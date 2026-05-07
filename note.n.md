@@ -1,3 +1,24 @@
+# 2026-05-08 Agent 2 owner_return unknown callback split
+
+- `ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737` を fixed/resolved に更新した。
+- 根本原因は、unknown callback non-owning view 修正により return candidate selection と non-owning fallback が `owner_return.rs` の orchestration file に戻り、責務分割上限を超えたこと。
+- `nepl-core/src/resource/owner_return_unknown.rs` を追加し、unknown indirect callback return の候補選択、non-owning view copy、unknown callback argument consumption skip 判定を分離した。
+- `owner_return.rs` は direct call と known/unknown indirect call の orchestration に戻した。line count は `owner_return.rs` 123、`owner_return_unknown.rs` 119。
+- `nodesrc/test_resource_checker_responsibility.js` に新 module、`mod owner_return_unknown;`、helper body の所有 module、line count 上限を追加した。
+- [検証]:
+  - `cargo fmt -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir unknown_callback -- --nocapture`: 5 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 240 passed
+  - `trunk build`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js index`: total=617, open=10, resolved=607
+  - `node nodesrc/issues.js check`: ok, files=617
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 2 owner_return responsibility split issue 追加
 
 - `ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737` を追加した。

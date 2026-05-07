@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T19:00:11.148Z",
+  "generated_at": "2026-05-07T19:05:52.111Z",
   "counts": {
     "total": 617,
-    "open": 11,
-    "resolved": 606,
+    "open": 10,
+    "resolved": 607,
     "by_area": {
       "core": {
         "total": 308,
         "open": 3,
         "resolved": 305
-      },
-      "resource": {
-        "total": 2,
-        "open": 1,
-        "resolved": 1
       },
       "stdlib": {
         "total": 165,
@@ -35,6 +30,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "resource": {
+        "total": 2,
+        "open": 0,
+        "resolved": 2
       },
       "ci": {
         "total": 4,
@@ -143,21 +143,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737",
-      "title": "Resource owner_return module exceeds responsibility split limit after unknown callback fix",
-      "area": "resource",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "nepl-core/src/resource/owner_return.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4958,6 +4943,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T053406066Z-NM-PARSER-DOC-POLICY-STILL-REQUIRES--F7604AA4.md"
+    },
+    {
+      "id": "ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737",
+      "title": "Resource owner_return module exceeds responsibility split limit after unknown callback fix",
+      "area": "resource",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_return_unknown.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737.md"
     },
     {
       "id": "ISS-20260429T083822053Z-SELF-HOST-DIAGNOSTICS-USE-STRING-COD-1040C21E",

@@ -89,6 +89,7 @@ for (const moduleName of [
     'owner_summary_variant_leaf.rs',
     'owner_return.rs',
     'owner_return_apply.rs',
+    'owner_return_unknown.rs',
     'owner_return_view.rs',
     'summary.rs',
     'summary_dependency.rs',
@@ -217,6 +218,7 @@ for (const moduleDecl of [
     'mod owner_summary_record;',
     'mod owner_return;',
     'mod owner_return_apply;',
+    'mod owner_return_unknown;',
     'mod owner_return_view;',
     'mod summary;',
     'mod effect;',
@@ -323,6 +325,7 @@ const ownerConsumption = readResource('owner_consumption.rs');
 const ownerSummary = readResource('owner_summary.rs');
 const ownerReturn = readResource('owner_return.rs');
 const ownerReturnApply = readResource('owner_return_apply.rs');
+const ownerReturnUnknown = readResource('owner_return_unknown.rs');
 const ownerReturnView = readResource('owner_return_view.rs');
 const summary = readResource('summary.rs');
 const effect = readResource('effect.rs');
@@ -555,10 +558,26 @@ assertUsesResourceModuleSymbol(
     'owner_return_apply.rs',
 );
 assertUsesResourceModuleSymbol(
+    ownerReturnUnknown,
+    'owner_check',
+    'ResourceOwnerCheckEngine',
+    'owner_return_unknown.rs',
+);
+assertUsesResourceModuleSymbol(
     ownerReturnView,
     'owner_check',
     'ResourceOwnerCheckEngine',
     'owner_return_view.rs',
+);
+assertContains(
+    ownerReturnUnknown,
+    'apply_unknown_indirect_call_return_owner',
+    'owner_return_unknown.rs',
+);
+assertNotContains(
+    ownerReturn,
+    'fn apply_unknown_indirect_call_return_owner',
+    'owner_return.rs',
 );
 assertUsesResourceModuleSymbol(
     effectSummary,
@@ -606,6 +625,7 @@ const maxLines = new Map([
     ['owner_summary_variant_leaf.rs', 80],
     ['owner_return.rs', 220],
     ['owner_return_apply.rs', 280],
+    ['owner_return_unknown.rs', 180],
     ['owner_return_view.rs', 80],
     ['summary_dependency.rs', 220],
     ['summary_worklist.rs', 100],
