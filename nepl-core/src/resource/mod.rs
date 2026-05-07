@@ -75,6 +75,7 @@ mod initialized_external_io_effect;
 mod initialized_external_io_input;
 mod initialized_external_io_iov;
 mod initialized_external_io_iov_layout;
+mod initialized_external_io_payload;
 mod initialized_raw_fill;
 mod initialized_raw_memory;
 mod initialized_raw_view;

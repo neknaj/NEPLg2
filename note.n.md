@@ -33626,3 +33626,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 external I/O payload helper 分割
+
+- `ISS-20260507T054543555Z-INITIALIZED-EXTERNAL-IO-EFFECT-EXCEE-5C420730` を fixed にした。
+- `fd_read` / `fd_pread` bounded payload range の追加で `initialized_external_io_effect.rs` が responsibility split limit を超えていた。
+- single-iov payload range construction を `initialized_external_io_payload.rs` に分離し、`initialized_external_io_effect.rs` は external I/O effect entry point と nread exact-cell initialization に戻した。
+- iovec descriptor 探索、single-iov 判定、payload alias filtering、`nread` count の byte range 登録は新 module 側に閉じた。
+- line limit は緩めていない。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_read -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_aggregate -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
