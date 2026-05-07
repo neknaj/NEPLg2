@@ -23,7 +23,7 @@
 | `core/mem` | `MemPtr<T>` / `RegionToken<T>` / `alloc_ptr` / `dealloc_ptr` が存在する。raw `i32` API と typed wrapper が同じ module に同居している。 | 過渡。Resource IR の防壁は増えたが、設計としては owner token と pointer projection がまだ分離不足。 | internal raw API と public safe API を分離し、compiler-issued owner token へ移行する。 |
 | `alloc/io` `ByteBuf` | `ptr: Option<MemPtr<u8>>` で空/所有領域を型に出した。`RegionToken` から `ByteBuf` へ確定する境界もある。 | 良い方向。短期 self-host の binary I/O buffer として使用可能。 | `OwnedBytes` / `OwnedRegion` 設計が入った後に `Option<MemPtr>` から owner wrapper へ移行する。 |
 | `alloc/io` `ByteBuilder` | `ptr: Option<MemPtr<u8>>` と `byte_builder_with_len` で owner payload の unwrap/rewrap を避けている。 | 良い方向。builder owner leak は回帰テストで監視済み。 | fallible append の失敗契約を collection と揃え、将来の owner wrapper に合わせる。 |
-| `alloc/string` `str` | `string_alloc_region` / `string_finish` で `RegionToken` を使う経路が増えた。UTF-8 と char API も進み、numeric conversion は `integer` / `integer/common` / `float` へ分割済み。 | 部分的に良い。`str` 確定境界と module 責務は改善済みだが、raw address helper はまだ内部 discipline に依存する。 | `str` 生成 API を `OwnedStringRegion` に寄せ、unchecked helper を internal boundary に閉じる。 |
+| `alloc/string` `str` | `string_alloc_region` / `string_finish` で `RegionToken` を使う経路が増えた。UTF-8 と char API も進み、numeric conversion は `integer/common` / `integer/format` / `integer/parse` / `float` へ分割済み。 | 部分的に良い。`str` 確定境界と module 責務は改善済みだが、raw address helper はまだ内部 discipline に依存する。 | `str` 生成 API を `OwnedStringRegion` に寄せ、unchecked helper を internal boundary に閉じる。 |
 | `alloc/string` `StringBuilder` | `data: Option<MemPtr<u8>>` で空/所有領域を型に出した。append は借用 pointer で書き込み、owner field はそのまま移す。 | 良い方向。短期 self-host の text builder として使用可能。 | `ByteBuilder` と同じく owner wrapper 化し、panic/fallback API と Result API の責務を分ける。 |
 | `alloc/collections/Vec` | `VecStorageState::Empty/Owned` と `data: MemPtr<T>` を分け、空 storage は enum state で表す。型定義は `vec/types`、storage allocation/free は `vec/storage`、borrowed observer は `vec/access`、raw load/store と scan/fold helper は `vec/raw`、owner-consuming transform は `vec/transform`、borrowed query は `vec/query`、mutation/cleanup は `vec/mutation` が所有する。 | 過渡。root はほぼ facade になったが、`MemPtr` が storage owner field である点は `OwnedBuffer<T>` 化まで残る。 | `OwnedBuffer<T>` + initialized prefix へ移行し、read/copy/move/drop/free を分離する。 |
 | `Stack` / `Queue` / `Deque` / `RingBuffer` / `BinaryHeap` | raw header は廃止済みで、`len/cap/head/items: Vec<Option<T>>` 系へ移行済み。live/inactive slot は `Some` / `None` で表す。 | 良い方向。ただし現行 `Vec` 自体が `MemPtr<T>` owner を持つため、最終形ではない。 | `OwnedBuffer<T>` 再実装後、`Vec<Option<T>>` 依存を新 buffer model に移す。 |
@@ -97,7 +97,7 @@
 - `StringBuilder.data` は `Option<MemPtr<u8>>` になり、空 builder と owning builder の違いが型に出ている。
 - append は `get_ref` で pointer を借用して raw byte 書き込みを行い、成功後に `Option<MemPtr<u8>>` field 全体を次 builder へ移す。
 - UTF-8 lead byte の分類など、一部で enum / match による分岐へ移行している。
-- numeric conversion は root facade から分離済みで、integer conversion も `integer/common` が bool/digit/radix/u128 helper を所有し、`integer` が public conversion API を所有する形へ整理されている。
+- numeric conversion は root facade から分離済みで、integer conversion も `integer/common` が bool/digit/radix/u128 helper、`integer/format` が文字列化、`integer/parse` が解析と範囲検査を所有する形へ整理されている。
 
 残る問題:
 

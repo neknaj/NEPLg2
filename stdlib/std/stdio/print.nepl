@@ -12,7 +12,7 @@
 #indent 4
 
 #import "alloc/string" as string
-#import "alloc/string/integer" as string_integer
+#import "alloc/string/integer/format" as string_integer
 #import "std/stdio/write" as *
 
 //: print: 文字列を標準出力へ出す
@@ -95,7 +95,7 @@ fn noshadow println <(str)*>()> (s):
 //: - v を 10 進文字列にして出力します。
 //:
 //: 実装(アルゴリズム):
-//: - 整数の文字列化は `alloc/string/integer::from_i32` に委譲し、stdio は出力だけを担当します。
+//: - 整数の文字列化は `alloc/string/integer/format::from_i32` に委譲し、stdio は出力だけを担当します。
 //:
 //: 注意(重要):
 //: - 文字列化に必要な allocation に失敗した場合は `from_i32` の fallback に従います。

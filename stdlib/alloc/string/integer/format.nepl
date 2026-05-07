@@ -1,0 +1,250 @@
+//: # string/integer/format
+//: integer から string への変換
+//:
+//: [目的/もくてき]:
+//: - i32 / i64 / u128 / i128 の表示用文字列化をまとめます。
+//: - 桁生成と符号付与を parse と分け、formatting 側の ownership と allocation boundary を監査しやすくします。
+//:
+//: [注意/ちゅうい]:
+//: - 基数は common の validate_radix に従い 2 / 8 / 10 / 16 のみを受理します。
+//: - u128 の桁生成は string region を確保し、末尾から byte を埋めて finalized str にします。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/math" as *
+#import "core/cast" as *
+#import "core/char" as *
+#import "core/field" as *
+#import "alloc/string/access" as *
+#import "alloc/string/storage" as *
+#import "alloc/string/builder" as *
+#import "./common" as *
+
+//: from_i32: i32 を符号付き 10 進文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - `i32` を `"-42"` のような表示用文字列へ変換します。
+//: - 診断文やログで、負数を含む整数をそのまま表示したい時に使います。
+//:
+//: [実装/じっそう]:
+//: - `from_i32_radix x 10` に委譲し、基数付き整数文字列化の実装へ統一します。
+//: - 桁生成と負号処理は `i64` / `i128` の共通経路で扱います。
+//:
+//: [注意/ちゅうい]:
+//: - 返値は新規確保された文字列です。
+//: - allocation failure または内部変換失敗時は `"0"` fallback を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(d)  (d は 10 進桁数)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let ok0 <bool> str_eq from_i32 42 "42";
+//:     let ok1 <bool> str_eq from_i32 -42 "-42";
+//:     let ok <bool> and ok0 ok1;
+//:     if ok 1 0
+//: ```
+fn from_i32 <(i32)->str> (x):
+    match from_i32_radix x 10:
+        Result::Ok s:
+            s
+        Result::Err _:
+            "0"
+
+// from_i32_radix: i32 を指定した基数の文字列へ変換する
+//
+// 目的:
+// - i32 を 2 / 8 / 10 / 16 進の文字列へ変換します。
+// - ログ、テスト、シリアライズで基数を明示した文字列表現が必要な場面に使います。
+//
+// 実装(アルゴリズム):
+// - `i32` を `i64` に符号拡張してから `from_i64_radix` に委譲します。
+// - 桁列生成の本体は i64 共通実装に集約します。
+//
+// 注意(重要):
+// - 対応基数は 2 / 8 / 10 / 16 のみです。
+// - 結果は小文字英字を使うため、16 進では `ff` のような表記になります。
+//
+// 計算量:
+// - O(d)  (d は指定基数での桁数)
+fn from_i32_radix <(i32,i32)->Result<str,i32>> (x, radix):
+    from_i64_radix <i64> cast x radix
+
+//: from_i64: i64 を符号付き 10 進文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - `i64` を `"-42"` のような表示用文字列へ変換します。
+//:
+//: [実装/じっそう]:
+//: - `from_i64_radix x 10` に委譲し、基数付き実装へ統一します。
+//:
+//: [注意/ちゅうい]:
+//: - `i64` 最小値も `i128` 経由で magnitude を扱うため、符号反転 overflow に依存しません。
+//: - 失敗時は `"0"` fallback を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(d)
+fn from_i64 <(i64)->str> (x):
+    match from_i64_radix x 10:
+        Result::Ok s:
+            s
+        Result::Err _:
+            "0"
+
+// from_i64_radix: i64 を指定した基数の文字列へ変換する
+//
+// 目的:
+// - i64 を 2 / 8 / 10 / 16 進文字列へ変換します。
+// - 整数の可視化や、基数を固定したテストデータ生成に使います。
+//
+// 実装(アルゴリズム):
+// - `i64` を `i128` に持ち上げ、符号と magnitude の処理を `from_i128_radix` に統一します。
+//
+// 注意(重要):
+// - すべての基数で負数は `-ff` のような符号付き文字列として返します。
+// - 16 進の英字は小文字です。
+// - 基数が不正な場合は `Result::Err 1` を返します。
+//
+// 計算量:
+// - O(d)  (d は指定基数での桁数)
+fn from_i64_radix <(i64,i32)->Result<str,i32>> (x, radix):
+    from_i128_radix <i128> cast x radix
+
+// from_u128: u128 を 10 進文字列へ変換する
+//
+// 目的:
+// - `u128` の大きな値を 10 進文字列として可視化します。
+//
+// 実装(アルゴリズム):
+// - `from_u128_radix v 10` に委譲します。
+//
+// 注意(重要):
+// - 返る文字列は常に非負で、負号は付きません。
+//
+// 計算量:
+// - O(d)
+fn from_u128 <(u128)->str> (v):
+    match from_u128_radix v 10:
+        Result::Ok s:
+            s
+        Result::Err _:
+            "0"
+
+// from_u128_radix: u128 を指定基数の文字列へ変換する
+//
+// 目的:
+// - `u128` を 2 / 8 / 10 / 16 進文字列へ変換します。
+//
+// 実装(アルゴリズム):
+// - 小さい基数での `u128_divrem_small` を繰り返し、まず必要な桁数を数えます。
+// - 確保した出力領域を末尾から埋めることで、一時 raw buffer を使わずに確定文字列を作ります。
+//
+// 注意(重要):
+// - 英字桁は小文字です。
+// - 基数が不正な場合は `Result::Err 1` を返します。
+//
+// 計算量:
+// - O(128 * d) だが 128 は固定幅なので、桁数 d に対して実質 O(d)
+fn from_u128_radix <(u128,i32)->Result<str,i32>> (v, radix):
+    match validate_radix radix:
+        Result::Err e:
+            Result::Err<str,i32> e
+        Result::Ok _:
+            if:
+                u128_is_zero v
+                then:
+                    Result::Ok<str,i32> "0"
+                else:
+                    let mut digit_count <i32> 0;
+                    let mut count_n <u128> v;
+                    while not u128_is_zero count_n:
+                        do:
+                            let qr_count <U128DivRem> u128_divrem_small count_n radix;
+                            set digit_count add digit_count 1;
+                            set count_n get qr_count "quotient";
+                    match string_alloc_region digit_count:
+                        Result::Err _e:
+                            Result::Err<str,i32> 12
+                        Result::Ok out_region:
+                            let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
+                            let out_raw <i32> mem_ptr_addr out_data;
+                            let mut pos <i32> digit_count;
+                            let mut write_n <u128> v;
+                            while not u128_is_zero write_n:
+                                do:
+                                    let qr_write <U128DivRem> u128_divrem_small write_n radix;
+                                    set pos sub pos 1;
+                                    store_u8 add out_raw pos digit_to_char_lower get qr_write "remainder";
+                                    set write_n get qr_write "quotient";
+                            Result::Ok<str,i32> string_finish out_region digit_count
+
+// from_i128: i128 を 10 進文字列へ変換する
+//
+// 目的:
+// - `i128` を 10 進の符号付き文字列へ変換します。
+//
+// 実装(アルゴリズム):
+// - `from_i128_radix v 10` に委譲します。
+//
+// 注意(重要):
+// - 大きさの処理は `u128` の桁生成へ寄せています。
+//
+// 計算量:
+// - O(d)
+fn from_i128 <(i128)->str> (v):
+    match from_i128_radix v 10:
+        Result::Ok s:
+            s
+        Result::Err _:
+            "0"
+
+// from_i128_radix: i128 を指定基数の文字列へ変換する
+//
+// 目的:
+// - `i128` を 2 / 8 / 10 / 16 進の符号付き文字列へ変換します。
+//
+// 実装(アルゴリズム):
+// - 負号の有無だけを `i128` 側で判定し、大きさは `i128_abs_u128` を通して `from_u128_radix` に渡します。
+//
+// 注意(重要):
+// - すべての基数で負数は `-...` の形に統一します。
+// - 16 進英字は小文字です。
+//
+// 計算量:
+// - O(d)
+fn from_i128_radix <(i128,i32)->Result<str,i32>> (v, radix):
+    let neg <bool> i128_is_negative v;
+    let mag <u128> i128_abs_u128 v;
+    match from_u128_radix mag radix:
+        Result::Ok body:
+            if:
+                neg
+                then:
+                    match string_builder_with_capacity_result add 1 len body:
+                        Result::Err _e:
+                            Result::Err<str,i32> 12
+                        Result::Ok sb0:
+                            match sb_append_byte_result sb0 '-':
+                                Result::Err _e:
+                                    Result::Err<str,i32> 12
+                                Result::Ok sb1:
+                                    match sb_append_result sb1 body:
+                                        Result::Err _e:
+                                            Result::Err<str,i32> 12
+                                        Result::Ok sb2:
+                                            match sb_build_result sb2:
+                                                Result::Err _e:
+                                                    Result::Err<str,i32> 12
+                                                Result::Ok text:
+                                                    Result::Ok<str,i32> text
+                else:
+                    Result::Ok<str,i32> body
+        Result::Err e:
+            Result::Err<str,i32> e

@@ -61,6 +61,7 @@ for (const modulePath of [
     '&["alloc", "string", "builder.nepl"]',
     '&["alloc", "string", "concat.nepl"]',
     '&["alloc", "string", "builder_ext.nepl"]',
+    '&["alloc", "string", "integer", "format.nepl"]',
     '&["alloc", "string", "integer.nepl"]',
 ]) {
     assert.equal(loaderSrc.includes(modulePath), true, `loader raw-memory boundary must include ${modulePath}`);

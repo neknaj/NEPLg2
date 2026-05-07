@@ -15,7 +15,7 @@
 #import "core/cast" as *
 #import "core/mem" as *
 #import "alloc/string/access" as *
-#import "alloc/string/integer" as *
+#import "alloc/string/integer/format" as *
 #import "alloc/string/storage" as *
 //: from_f64_fraction_trim_len: 固定 6 桁の小数 digit から出力桁数を決める
 //:

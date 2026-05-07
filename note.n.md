@@ -1,3 +1,14 @@
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 string integer format/parse split)
+
+- branch `refactor/string-integer-parse-format-split` で `stdlib/alloc/string/integer.nepl` を facade 化し、integer formatting と parsing の実装本体を submodule へ分離した。
+- `stdlib/alloc/string/integer/format.nepl` は `from_i32` / `from_i64` / `from_u128` / `from_i128` と radix formatting を所有する。
+- `stdlib/alloc/string/integer/parse.nepl` は `to_i32` / `to_i64` / `to_u128` / `to_i128`、i64/i128 range helper、u128 overflow check flow を所有する。
+- `integer.nepl` は `common` / `format` / `parse` の public re-export と facade doctest だけになった。
+- `from_u128_radix` の raw byte store が `format.nepl` へ移ったため、`nepl-core/src/loader.rs` の exact raw-memory boundary に `alloc/string/integer/format.nepl` を追加した。
+- qualified facade re-export に依存していた `std/stdio/print.nepl` は `alloc/string/integer/format` を直接 import するようにし、`builder_ext.nepl` と `float.nepl` も format module を直接 import する。
+- line count は `integer.nepl` 34、`integer/common.nepl` 481、`integer/format.nepl` 251、`integer/parse.nepl` 374。
+- 検証は `trunk build`、string integer/unsafe/facade/doc/float/stdio source policies、format/parse/facade/root/string suite/stdio print doctest、`cargo fmt --check -p nepl-core`、`cargo check -p nepl-core --tests`、`issues.js check` が通過した。source policy regression は既知 open issue `ISS-20260507T032436743Z-RESOURCE-RAW-CELL-RANGE-MODULE-EXCEE-92BDC72B` の warning のみ継続。
+
 # 2026-05-07 note (ISS-20260507T032436743Z Resource raw cell range split limit)
 
 - `refactor/string-integer-common-module` の rebase 後検証で `node nodesrc/run_source_policy_regressions.js --warn-only` を実行したところ、remote main `18768838` 由来の別件として `cell_state_raw_range.rs has 159 lines; responsibility split limit is 140` を検出した。

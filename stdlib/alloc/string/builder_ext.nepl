@@ -18,7 +18,7 @@
 #import "alloc/string/search" as *
 #import "alloc/string/storage" as *
 #import "alloc/string/builder" as *
-#import "alloc/string/integer" as *
+#import "alloc/string/integer/format" as *
 
 //: sb_append_slice_result: 文字列の byte 範囲を builder に直接追加する
 //:

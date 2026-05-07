@@ -18,7 +18,7 @@ assert.match(rootSrc, /pub #import "\.\/string\/float" as \*/, 'alloc/string fac
 for (const importPath of [
     'core/mem',
     'alloc/string/access',
-    'alloc/string/integer',
+    'alloc/string/integer/format',
     'alloc/string/storage',
 ]) {
     assert.match(floatSrc, new RegExp(`#import "${importPath}" as \\*`), `string/float must import ${importPath} directly`);
