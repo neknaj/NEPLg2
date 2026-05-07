@@ -10360,6 +10360,51 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_rejects_region_token_forged_from_str_addr_view() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/result" as *
+
+fn string_addr <(str)->i32> (s):
+    #intrinsic "str_addr" <> (s)
+
+fn forge_region_from_str <(str)*>Result<(), str>> (s):
+    let raw <i32> string_addr s
+    let p <MemPtr<u8>> mem_ptr_wrap raw
+    let token <RegionToken<u8>> region_new p 1
+    dealloc_region token
+
+fn main <()*>()> ():
+    match forge_region_from_str "abc":
+        Result::Ok _:
+            ()
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                function,
+                state: OwnerState::NoFreeObligation,
+                ..
+            } if function.starts_with("main__")
+                || function.starts_with("forge_region_from_str__")
+        )),
+        "region_new must not turn a non-owning str_addr MemPtr view into a RegionToken owner: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_accepts_concat_result_output_region_transfer() {
     let source = r#"
 #entry main

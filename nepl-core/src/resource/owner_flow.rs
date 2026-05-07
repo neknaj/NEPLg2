@@ -336,7 +336,7 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
-    fn storage_origin_expects_owned(
+    pub(super) fn storage_origin_expects_owned(
         &self,
         storage_origins: &StorageOriginTable,
         raw_aliases: &RawCellAddressAliases,

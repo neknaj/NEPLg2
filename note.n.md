@@ -1,3 +1,22 @@
+# 2026-05-07 note (ISS-20260507T134613401Z RegionToken forged non-owning view)
+
+- branch `work/resource-region-token-forged-view` で、`str_addr` 由来の non-owning raw view を `mem_ptr_wrap` / `region_new` で `RegionToken` に詰め直し、`dealloc_region` に渡すと owner summary consumption が no-op になっていた問題を修正した。
+- 根本原因は、callee summary が `RegionToken` parameter の `token.ptr.raw` を consumed owner source として示していても、caller actual projection が non-owning raw view の場合に `consume_call_argument_owner` が診断を出さなかったことだった。
+- `owner_consumption.rs` を追加し、caller-side owner summary consumption の責務を `owner_return_apply.rs` から分離した。
+- consumed actual projection が non-owning raw address view なら `OwnerState::NoFreeObligation` として `resource.owner.no_free_obligation` を出す。owned storage origin が残るのに transferable owner がない場合も同じく拒否する。
+- unmanaged fixed raw address のように provenance も owner origin もない値は、従来通り owner summary consumption だけでは拒否しない。
+- `tests/stdlib/memory_safety.n.md` に `region_new` forged-token compile_fail を追加し、`MemPtr = non-owning pointer` / `OwnedRegion = free obligation owner` の境界を helper call 越しにも固定した。
+- [検証]:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_str_addr_view -- --nocapture`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-region-forge.json -j 1 --dist web/dist`: total=15, passed=15
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-move-effect-region-forge.json -j 1 --dist web/dist`: total=110, passed=110
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260506T172012873Z ResourceIR dynamic raw address view scalar origin split)
 
 - branch `fix/resource-dynamic-fill-range-alias` で、`fill_i32 pref pref_len 0` 後の guarded dynamic `load_i32 (pref + im1 * 4)` が `resource.cell.uninit` になる再発を修正した。

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T13:34:46.662Z",
+  "generated_at": "2026-05-07T13:56:47.654Z",
   "counts": {
-    "total": 588,
+    "total": 589,
     "open": 10,
-    "resolved": 578,
+    "resolved": 579,
     "by_area": {
       "core": {
-        "total": 295,
+        "total": 296,
         "open": 3,
-        "resolved": 292
+        "resolved": 293
       },
       "stdlib": {
         "total": 164,
@@ -4518,6 +4518,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T133214452Z-CLI-DIAGNOSTIC-RENDERER-STILL-TREATS-DE19F24C.md"
+    },
+    {
+      "id": "ISS-20260507T134613401Z-RESOURCE-OWNER-SUMMARY-IGNORES-NON-O-9A39F228",
+      "title": "Resource owner summary ignores non-owning raw views consumed through helper parameters",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/owner_return_apply.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T134613401Z-RESOURCE-OWNER-SUMMARY-IGNORES-NON-O-9A39F228.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

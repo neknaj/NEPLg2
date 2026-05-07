@@ -230,3 +230,18 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_dealloc_through_result_wrapped_str_addr_view -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir str_addr -- --nocapture`: passed
+
+## 2026-05-07 Resource IR helper parameter consumption non-owning view 部分対応
+
+`str_addr` 由来の non-owning raw view を `mem_ptr_wrap` で `MemPtr<u8>` に包み、さらに `region_new` で `RegionToken<u8>` へ詰め直してから `dealloc_region` に渡すと、`dealloc_region` の caller-side owner summary consumption が何も診断しない問題を `ISS-20260507T134613401Z-RESOURCE-OWNER-SUMMARY-IGNORES-NON-O-9A39F228` として修正した。
+
+根本原因は、callee summary が `RegionToken` parameter の `token.ptr.raw` を consumed owner source として示していても、caller actual projection が non-owning raw view の場合に `consume_call_argument_owner` が no-op になっていたことだった。これは direct `dealloc_raw` 入口では拒否できる non-owning view を、helper parameter consumption 経由で free obligation owner のように扱わせる抜け道だった。
+
+対応では owner summary consumption を `owner_consumption.rs` に分離し、actual projection が non-owning raw address view なら `OwnerState::NoFreeObligation` として `resource.owner.no_free_obligation` を出すようにした。owned storage origin が残るのに transferable owner がない場合も同じく拒否し、provenance のない unmanaged fixed address は従来どおり owner summary consumption だけでは拒否しない。
+
+この対応は `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に含まれる。`RegionToken` を compiler-issued owner token にする最終設計はまだ残るが、少なくとも `region_new` を使って non-owning pointer projection を helper-call 境界で free obligation owner に偽装する経路は塞いだ。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_str_addr_view -- --nocapture`: passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-region-forge.json -j 1 --dist web/dist`: 15 passed

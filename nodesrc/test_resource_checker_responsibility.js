@@ -71,6 +71,7 @@ for (const moduleName of [
     'cell_state_raw_range_value.rs',
     'cell_state_raw_range_value_alias.rs',
     'owner_check.rs',
+    'owner_consumption.rs',
     'owner_flow.rs',
     'owner_raw_view.rs',
     'owner_raw_view_table.rs',
@@ -198,6 +199,7 @@ for (const moduleDecl of [
     'mod cell_state_raw_range_value;',
     'mod cell_state_raw_range_value_alias;',
     'mod owner_check;',
+    'mod owner_consumption;',
     'mod owner_flow;',
     'mod owner_raw_view;',
     'mod owner_raw_view_table;',
@@ -317,6 +319,7 @@ const initialized = readResource('initialized.rs');
 const borrowCheck = readResource('borrow_check.rs');
 const borrowSummary = readResource('borrow_summary.rs');
 const ownerCheck = readResource('owner_check.rs');
+const ownerConsumption = readResource('owner_consumption.rs');
 const ownerSummary = readResource('owner_summary.rs');
 const ownerReturn = readResource('owner_return.rs');
 const ownerReturnApply = readResource('owner_return_apply.rs');
@@ -528,6 +531,12 @@ assertUsesResourceModuleSymbol(
     'borrow_summary.rs',
 );
 assertUsesResourceModuleSymbol(
+    ownerConsumption,
+    'owner_check',
+    'ResourceOwnerCheckEngine',
+    'owner_consumption.rs',
+);
+assertUsesResourceModuleSymbol(
     ownerSummary,
     'owner_check',
     'ResourceOwnerCheckEngine',
@@ -579,6 +588,7 @@ const maxLines = new Map([
     ['cell_state_raw_range_value.rs', 80],
     ['cell_state_raw_range_value_alias.rs', 80],
     ['owner_check.rs', 800],
+    ['owner_consumption.rs', 80],
     ['owner_flow.rs', 620],
     ['owner_raw_view.rs', 180],
     ['owner_raw_view_table.rs', 160],

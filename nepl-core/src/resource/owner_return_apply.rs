@@ -111,29 +111,6 @@ impl ResourceOwnerCheckEngine<'_> {
         );
     }
 
-    pub(super) fn consume_call_argument_owner(
-        &mut self,
-        owners: &mut OwnerTable,
-        raw_aliases: &mut RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
-        storage_origins: &mut StorageOriginTable,
-        arg: &Place,
-        span: Span,
-    ) {
-        if !self.place_is_non_owning_raw_address_view(owners, raw_aliases, raw_views, arg)
-            && self.has_transferable_owner(owners, raw_aliases, arg)
-        {
-            self.move_owner_out(
-                owners,
-                raw_aliases,
-                storage_origins,
-                arg,
-                ResourceOwnerOperation::CallArgument,
-                span,
-            );
-        }
-    }
-
     pub(super) fn has_transferable_owner(
         &self,
         owners: &OwnerTable,
