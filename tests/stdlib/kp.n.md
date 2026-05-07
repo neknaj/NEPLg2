@@ -218,6 +218,7 @@ stdout: "2 3\n1 2 5\n"
 fn main <()*>()> ():
     let len <i32> 6;
     let data <i32> unwrap_ok alloc mul len 4;
+    fill_i32 data len 0;
     store_i32 add data 0 1;
     store_i32 add data 4 1;
     store_i32 add data 8 2;

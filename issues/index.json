@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T00:52:15.550Z",
+  "generated_at": "2026-05-07T01:05:02.979Z",
   "counts": {
-    "total": 546,
+    "total": 547,
     "open": 12,
-    "resolved": 534,
+    "resolved": 535,
     "by_area": {
       "core": {
         "total": 270,
@@ -17,9 +17,9 @@
         "resolved": 151
       },
       "TEST": {
-        "total": 9,
+        "total": 10,
         "open": 1,
-        "resolved": 8
+        "resolved": 9
       },
       "selfhost": {
         "total": 51,
@@ -6328,6 +6328,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T005013028Z-MEMORY-SAFETY-FIXTURES-STILL-CALL-UN-3C928E60.md"
+    },
+    {
+      "id": "ISS-20260507T010031891Z-KP-UNIQUE-COUNT-FIXTURE-LACKS-EXPLIC-85D146AF",
+      "title": "kp unique/count fixture lacks explicit raw range initialization proof",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "tests/stdlib/kp.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T010031891Z-KP-UNIQUE-COUNT-FIXTURE-LACKS-EXPLIC-85D146AF.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

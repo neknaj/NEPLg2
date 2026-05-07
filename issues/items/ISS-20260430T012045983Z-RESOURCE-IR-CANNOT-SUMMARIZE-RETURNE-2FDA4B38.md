@@ -200,3 +200,17 @@ Add a source-level scanner regression that returns a header after a loop of fd_r
 確認として `resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads` を追加し、`fill_i32 pref pref_len 0` の後に unrelated impure `i32` arithmetic を挟んでも `load_i32 add pref off` が通ることを確認した。`kpread_to_kpwrite_prefixsum_i32` も pass しており、この経路の `pref` dynamic range blocker は解消した。
 
 この親 issue は引き続き open とする。残件は、明示 guard / returned header / length field をまたぐ dependent initialized range summary を Resource IR の typed model として表現することである。
+
+## 2026-05-07 KP unique/count fixture 初期化 contract 整理
+
+`ISS-20260507T010031891Z-KP-UNIQUE-COUNT-FIXTURE-LACKS-EXPLIC-85D146AF` として、`tests/stdlib/kp.n.md::doctest#7` が direct post-unique loop で `resource.cell.uninit` になる fixture 側 blocker を分離して修正した。
+
+この doctest は fixed-offset stores で 6 要素を初期化した後、`unique_sorted_i32` の戻り値 `new_len` を上限に dynamic offset load を行っていた。現行 Resource IR は exact offset store と `new_len <= len` の関係を dependent range summary として結び付けないため、後続 loop の `load_i32 ptr` は `RawMemoryLoadCell Uninit` になる。
+
+fixture では配列全体を `fill_i32 data len 0` で initialized Copy range にしてから exact value を上書きする形へ更新した。これは runtime semantics を変えず、`RawMemoryLoadCell` を緩めず、現在の Resource IR が要求する source-level range contract を明示する修正である。
+
+確認結果:
+
+- `node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree --dist web/dist -o tmp/kp_agent1_after_unique_range_init_default_timeout.json -j 1 --assert-io`: total=7, passed=7, failed=0, errored=0
+
+この親 issue は引き続き open とする。残件は、明示的な fill に依存しない returned header / length field / guard relation をまたぐ dependent initialized range summary を typed model として実装することである。

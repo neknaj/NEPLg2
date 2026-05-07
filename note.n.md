@@ -33239,3 +33239,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree --dist web/dist -o tmp/memory_safety_agent1_after_fixture_update.json -j 1 --assert-io`: total=14, passed=14, failed=0, errored=0
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 KP unique/count raw range fixture 整理
+
+- `ISS-20260507T010031891Z-KP-UNIQUE-COUNT-FIXTURE-LACKS-EXPLIC-85D146AF` を追加して fixed にした。
+- `tests/stdlib/kp.n.md::doctest#7` は fixed-offset stores で raw buffer を初期化してから `unique_sorted_i32` の戻り値 `new_len` を上限に dynamic offset load していた。
+- 現行 Resource IR は exact offset stores と `new_len <= len` の dependent range relation をまだ表現しないため、post-unique loop の `load_i32 ptr` が `resource.cell.uninit` になっていた。
+- `RawMemoryLoadCell` を緩めず、fixture 側で `fill_i32 data len 0` により `data[0..len)` の initialized Copy range を明示した。fixed-offset stores と期待 stdout は維持している。
+- `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` は dependent initialized range summary の親 issue として open のまま更新した。
+- [検証]:
+  - `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree --dist web/dist -o tmp/kp_agent1_after_unique_range_init.json -j 1 --assert-io`: total=7, passed=7, failed=0, errored=0
+  - `node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree --dist web/dist -o tmp/kp_agent1_after_unique_range_init_default_timeout.json -j 1 --assert-io`: total=7, passed=7, failed=0, errored=0
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
