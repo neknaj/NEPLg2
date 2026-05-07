@@ -1,13 +1,13 @@
 # プロジェクト進捗レビュー
 
-確認対象 commit: `e8a4e399 docs(review): add check ResourceIR gate issue`
+確認対象 commit: `3742a1a7 fix(cli): run Resource IR gates for check-only`
 
 ## 確認した一次情報
 
 - `plan.md`: NEPLg2 の核となる言語方針。前置記法、式指向、オフサイドルール、型注釈、型推論、`#import` / `#target` / `#indent` など。
 - `note.n.md`: 2026-05-07 の Agent 1 / Agent 2 作業記録。ResourceIR coverage 修正、Vec / string / streamio / nm / stdio debug の module split、examples string import 修正など。
 - `todo.md`: selfhost、NEPLg3、playground、tutorial、2026-04-25 review 由来の未着手作業。
-- `issues/index.json`: issue 集計。現在 `total=591`, `open=11`, `resolved=580`。
+- `issues/index.json`: issue 集計。現在 `total=594`, `open=12`, `resolved=582`。
 - recent commits: ResourceIR 修正と stdlib split/refactor が集中している。
 - `doc/neplg2/self_host_plan.md` / `self_host_execution_plan.md`: selfhost の S0-S7 成功条件、branch/checkpoint/Issue 運用。
 
@@ -21,8 +21,8 @@ NEPLg2 は「既存機能を増やす段階」から、「静的検査・memory 
 
 | 領域 | 状態 | 判定 |
 |---|---|---|
-| Rust compiler `nepl-core` | ResourceIR 関連が大規模に分割され、owner/cell/borrow/raw coverage の regression が継続的に追加されている。最新 commit は `region_ptr` helper 経由の reference coverage を修正した。 | 中核改善中。静的検査 authority の最終形はまだ個別レビューで確認が必要。 |
-| Rust CLI `nepl-cli` | CLI と backend runner は既存構造を維持。`--check` が ResourceIR gate を通らない issue を追加した。 | check-only の意味を compile preparation と揃える必要がある。 |
+| Rust compiler `nepl-core` | ResourceIR 関連が大規模に分割され、owner/cell/borrow/raw coverage の regression が継続的に追加されている。`region_ptr` / `region_ptr_at` の non-owning provenance regression も固定された。 | 中核改善中。parser/backend/monomorphize の分割 policy は不足。 |
+| Rust CLI `nepl-cli` | CLI と backend runner は既存構造を維持。`--check` は `3742a1a7` で compile preparation を共有し、ResourceIR gate と drop insertion bridge まで通るよう修正された。 | 良い。artifact emission に入らず safety authority を共有する regression が追加済み。 |
 | selfhost `stdlib/neplg2` | ディレクトリ骨格と S1/S2 周辺の module は存在する。issue 上は `NEPLg2 self-host compiler が部分実装に留まっている` が open。 | S1/S2 は進行可能。S3 以降は静的検査と stdlib owner model の制約を守る必要がある。 |
 | NEPLg3 `stdlib/neplg3` | 仕様 doc と placeholder compiler tree がある。NEPLg2 selfhost とは別扱い。 | 今回は進捗確認対象。NEPLg2 selfhost の作業場所として使わない。 |
 | stdlib core/alloc/std | string、Vec、streamio、nm、stdio debug などで facade 化と責務分割が進んだ。open issue は stdlib 5 件。 | 方向は良いが `core/mem`、raw-memory-backed API、collection drop/free、巨大 file split が残る。 |
@@ -34,15 +34,15 @@ NEPLg2 は「既存機能を増やす段階」から、「静的検査・memory 
 
 `issues/index.json` の現在値:
 
-- total: 591
-- open: 11
-- resolved: 580
+- total: 594
+- open: 12
+- resolved: 582
 
 open issue の内訳:
 
 | area | open | 主な内容 |
 |---|---:|---|
-| core | 4 | `core/mem` raw memory bypass、MemPtr/RegionToken owner provenance、ResourceIR/selfhost diagnostic alignment、`--check` ResourceIR gate 不足。 |
+| core | 5 | `core/mem` raw memory bypass、MemPtr/RegionToken owner provenance、ResourceIR/selfhost diagnostic alignment、parser/backend split policy 不足、public monomorphize panic API。 |
 | stdlib | 5 | collection free/drop、safe mem API、dealloc obligation、raw-memory-backed API migration、巨大 stdlib file split。 |
 | TEST | 1 | `.n.md` tests が return value に依存し stdout assertion report になっていない。 |
 | selfhost | 1 | selfhost compiler が部分実装に留まっている。 |

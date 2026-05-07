@@ -1,6 +1,6 @@
 # レビュー方法
 
-確認対象 commit: `e8a4e399 docs(review): add check ResourceIR gate issue`
+確認対象 commit: `3742a1a7 fix(cli): run Resource IR gates for check-only`
 
 ## 目的
 
@@ -22,6 +22,9 @@
 5. `doc/fullreview20260430/README.md` と `index.md` を目次 checkpoint として更新し、`97b07bad docs(review): refresh full review index` を main に push した。
 6. project レビュー開始後、remote main に `545d2ab0 fix(resource): align region_ptr reference coverage` が入ったため、`review/fullreview-project-status` を `origin/main` に rebase した。
 7. Rust compiler review 中に `nepl-cli --check` が ResourceIR gate を通らないことを確認し、`ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF` を追加した。
+8. Rust compiler rest review 開始時に remote main の `cd44312f fix(resource): preserve region_ptr_at non-owning provenance` を取り込み、ResourceIR static review へ `region_ptr_at` regression を追記対象にした。
+9. parser/backend/monomorphize の responsibility split 不足と public monomorphize panic API を確認し、`ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587` と `ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C` を追加した。
+10. Rust compiler rest review の push 前に remote main の `3742a1a7 fix(cli): run Resource IR gates for check-only` を取り込み、`--check` の ResourceIR gate 不足を fixed 扱いへ更新した。
 
 ## 使用した確認コマンド
 
@@ -30,6 +33,7 @@
 - `git fetch origin main`
 - `git log --oneline --decorate -30`
 - `git show --stat --oneline --name-only 545d2ab0`
+- `git show --stat --oneline 3742a1a7`
 - `rg --files`
 - `Get-Content plan.md`
 - `Get-Content note.n.md`
@@ -48,10 +52,15 @@
 - `Get-Content nodesrc/test_static_check_boundary_responsibility.js`
 - `Get-Content nodesrc/test_diagnostic_code_first_boundary.js`
 - `node nodesrc/issues.js check`
+- `Get-ChildItem nepl-core/src -File`
+- `Get-Content nepl-core/src/{lexer,parser,loader,module_graph,resolve,target_gate,target_precheck,layout,monomorphize,codegen_wasm,codegen_llvm,wasm_shared,runtime_helpers}.rs`
+- `rg -n "panic!|unwrap\\(|expect\\(" nepl-core/src/...`
 
 ## GitHub Actions 確認方針
 
-レビュー上の test 状況は local test ではなく GitHub Actions の結果を根拠にする。現在の latest run は `e8a4e399` の CI run で、Rust compiler checkpoint 作成時点では pending / in_progress の可能性がある。CI の最終状態は、レビュー進行中に再確認して `project/actions-status.md` と最終 summary へ反映する。
+レビュー上の test 状況は local test ではなく GitHub Actions の結果を根拠にする。現在の latest run は `d2ba8b8b` の CI run で、Rust compiler rest checkpoint 作成時点では pending である。CI の最終状態は、レビュー進行中に再確認して `project/actions-status.md` と最終 summary へ反映する。
+
+`3742a1a7` で `--check` ResourceIR gate の regression が追加されたため、関連レビュー文書は同 commit を基準に更新した。Actions の最新 run はまだ pending であり、green 判定は後続 checkpoint で引き続き確認する。
 
 ## レビュー判断基準
 
@@ -66,6 +75,6 @@
 ## 未完了
 
 - selfhost、stdlib、quality、tools の個別レビュー本文。
-- CI run `e8a4e399` 以降の完了結果確認。
+- CI run `3742a1a7` 以降の完了結果確認。
 - レビュー全体の妥当性再確認。
 - 前回レビューとの差分報告。

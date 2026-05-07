@@ -1,6 +1,6 @@
 # GitHub Actions 状況
 
-確認対象 commit: `e8a4e399 docs(review): add check ResourceIR gate issue`
+確認対象 commit: `3742a1a7 fix(cli): run Resource IR gates for check-only`
 
 ## 確認方法
 
@@ -16,23 +16,27 @@
 
 | 項目 | 内容 |
 |---|---|
-| run id | `25502754448` |
+| run id | `25503574023` |
 | workflow | `CI (NEPL-g2)` |
 | branch | `main` |
-| head sha | `e8a4e39923da3aa15e031751847b7401b3b2443c` |
-| status | in_progress |
+| head sha | `3742a1a75fde11615376d6cd5fad13a7e3836fd1` |
+| status | pending |
 | conclusion | 未確定 |
-| createdAt | `2026-05-07T14:40:08Z` |
-| updatedAt | `2026-05-07T14:42:20Z` |
+| createdAt | `2026-05-07T14:54:53Z` |
+| updatedAt | `2026-05-07T14:54:55Z` |
 | active job | 未完了 run。job 詳細は次 checkpoint で必要に応じて取得する。 |
 
-この run は Rust compiler checkpoint 作成時点では完了していない。したがって、この時点では main の green 判定は未確定である。レビュー進行中に再度 `gh run view` を実行し、完了結果を本ファイルまたは最終 summary に反映する。
+この run は `3742a1a7` 取り込み時点では完了していない。したがって、この時点では main の green 判定は未確定である。レビュー進行中に再度 `gh run view` を実行し、完了結果を本ファイルまたは最終 summary に反映する。
 
 ## 直近 run の傾向
 
 | head | 状態 | 備考 |
 |---|---|---|
-| `e8a4e399` | in_progress | 最新 main。`--check` ResourceIR gate issue 追加。 |
+| `3742a1a7` | pending | 最新 main。CLI `--check` ResourceIR gate 共有修正。 |
+| `d2ba8b8b` | in_progress | Rust compiler follow-up issue 追加。 |
+| `cd44312f` | cancelled | ResourceIR `region_ptr_at` non-owning provenance 修正。 |
+| `a97c5343` | cancelled | 次の main push により workflow concurrency で cancel。 |
+| `e8a4e399` | cancelled | 次の main push により workflow concurrency で cancel。 |
 | `9797bcbf` | cancelled | 次の main push により workflow concurrency で cancel。 |
 | `545d2ab0` | cancelled | 次の main push により workflow concurrency で cancel。 |
 | `97b07bad` | cancelled | 次の main push により workflow concurrency で cancel。 |
@@ -67,4 +71,4 @@ test coverage は Rust compile/run、WASI doctest、`.n.md` doctest、tutorial d
 
 - 最新 main の CI 結果は未確定。
 - 連続 push による cancelled run が多いため、過去 run の conclusion だけで main の健全性を判断しない。
-- 次 checkpoint 以降で `e8a4e399` 以降の run が完了していれば、成功/失敗 job と artifact 有無を追記する。
+- 次 checkpoint 以降で `3742a1a7` 以降の run が完了していれば、成功/失敗 job と artifact 有無を追記する。

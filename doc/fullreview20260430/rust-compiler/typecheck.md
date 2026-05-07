@@ -1,6 +1,6 @@
 # Rust コンパイラ typecheck レビュー
 
-確認対象 commit: `e8a4e399 docs(review): add check ResourceIR gate issue`
+確認対象 commit: `3742a1a7 fix(cli): run Resource IR gates for check-only`
 
 ## 確認範囲
 
@@ -23,7 +23,7 @@
 | scalar char support | char literal arm は char/u8/i32 の型に応じて制約され、bool との混同を拒否する。 | 既存 char 改善と整合。char stdlib 連携は stdlib review で確認する。 |
 | effect typing | raw body memory operation は pure context で拒否し、raw memory boundary は source map で限定する。 | 移行 boundary として妥当。最終的には stdlib API 側の型境界へ寄せるべき。 |
 | diagnostic | type/effect diagnostics は typed `DiagnosticCode` へ分類される。 | 良い。code-less diagnostic へ戻さない policy がある。 |
-| check pipeline | `check_module_with_source_map` は typecheck までで停止する。 | 問題。ResourceIR gate と分離されたままでは `--check` の意味が弱い。 |
+| check pipeline | `check_module_with_source_map` は `3742a1a7` で compile preparation を共有し、typecheck 後に ResourceIR gate まで進む。 | fixed。typecheck 成功だけを静的安全性全体と誤認する経路は閉じられた。 |
 
 ## 良い点
 
@@ -34,9 +34,9 @@
 
 ## 問題
 
-### check-only API が typecheck-only のまま残っている
+### check-only API の typecheck-only 退行を防ぐ必要がある
 
-typecheck 自体は Rust compiler の前段として整ってきているが、CLI の `--check` が typecheck までで成功するため、typecheck の成功が「静的安全性全体の成功」と誤解される。これは ResourceIR review 側の新規 issue と同じ根本問題であり、typecheck review でも重要な境界として扱う。
+typecheck 自体は Rust compiler の前段として整ってきており、`3742a1a7` で CLI の `--check` も typecheck 後に ResourceIR gate へ進むようになった。今後のリスクは、利便 API や stack overflow 回避を理由に check-only が再び typecheck-only へ戻ることである。typecheck の役割は HIR/effect/diagnostic の前提を作ることにとどめ、静的安全性全体の authority は ResourceIR gate と共有 prepare phase で保証する必要がある。
 
 ### typecheck は ResourceIR に必要な情報を作る責務に集中すべき
 

@@ -1,48 +1,45 @@
-# Rust compiler overview
+# Rust コンパイラ overview レビュー
 
-対象 commit: `f108cebd`
+確認対象 commit: `3742a1a7 fix(cli): run Resource IR gates for check-only`
 
-## 概要
+## 確認範囲
 
-Rust compiler の中心は `nepl-core` である。現状は実用的な compiler pipeline と多くの regression を持つが、selfhost へ移植する設計としては、巨大 file と旧 HIR checker の残存をそのままコピーしてはいけない。
+- `nepl-core/src/lib.rs`
+- `nepl-core/src/compiler.rs`
+- `nepl-core/src/{lexer,parser,ast,loader,module_graph,resolve}.rs`
+- `nepl-core/src/{typecheck,resource,passes}.rs`
+- `nepl-core/src/{monomorphize,layout,codegen_wasm,codegen_llvm,target_gate,target_precheck}.rs`
+- `nepl-cli/src/main.rs`
 
-## 構成
+## 全体構造
 
-- `lexer.rs`, `parser.rs`, `ast.rs`: NEPLg2 構文の token / AST。
-- `loader.rs`, `module_graph.rs`, `source_map.rs`: import、source identity、stdlib resolution。
-- `typecheck/*`, `types.rs`, `resolve.rs`: name/type/effect/trait/match/overload。
-- `passes/move_check/*`, `passes/drop_insertion.rs`: 旧 move/borrow/drop 系の防壁。
-- `resource/*`: Resource IR lowering と cell / owner / borrow / effect / coverage gate。
-- `monomorphize.rs`, `hir.rs`, `layout.rs`: HIR instance 化と layout。
-- `codegen_wasm.rs`, `codegen_llvm.rs`, `wasm_shared.rs`, `llvm_ir.rs`: backend。
-- `compiler.rs`, `diagnostic_codes.rs`, `diagnostic.rs`: pipeline と diagnostic boundary。
+Rust compiler は、lexer/parser で AST を作り、loader/source map で multi-file source を flat module として保持し、typecheck で HIR と type context を作る。その後、monomorphize 済み source HIR を ResourceIR へ lowering し、cell/owner/borrow/effect/drop を検査してから plan-based drop insertion と backend codegen へ進む。
 
-## 巨大ファイル
+`nepl-core` は no_std 対応を意識しているが、loader/module graph など host filesystem に依存する領域も同じ crate にある。`SourceMap` は core 側へ分離済みで、typecheck / diagnostics / ResourceIR は host path ではなく file id / span を通じて source 情報を受ける。
 
-| file | 概算行数 | 判定 |
-|---|---:|---|
-| `parser.rs` | 4037 | syntax layout と match / if / while / typeexpr が集中している。selfhost では parser submodule 分割が必要。 |
-| `codegen_llvm.rs` | 4037 | LLVM backend と tests が大きい。backend diagnostic は改善済みだが分割余地が大きい。 |
-| `codegen_wasm.rs` | 2478 | WASM backend の主要 logic が集中。selfhost backend では binary / section / layout / intrinsic を分けるべき。 |
-| `types.rs` | 2033 | type arena と type operation が大きい。selfhost S3 では `ty/arena`, `ty/subst`, `ty/layout` に分けるべき。 |
-| `typecheck/prefix_check.rs` | 1893 | prefix expression reduction の中心。多数の `unwrap` が stack invariant に依存するため、selfhost では invariant を型/Result で明示する。 |
-| `compiler.rs` | 1613 | pipeline と Resource IR gate mapping が同居。diagnostic mapping は維持しつつ、stage orchestration と gate conversion の分割余地がある。 |
+## 進捗状況
 
-## 良い点
+| 領域 | 状態 | 判定 |
+|---|---|---|
+| compiler pipeline | compile preparation は ResourceIR gate と drop insertion を通る。`--check` も `3742a1a7` で同じ prepare phase を共有するよう修正された。 | 良い。artifact emission と safety check の責務分離を保ったまま meaning が揃った。 |
+| typecheck / ResourceIR | module split と source policy がある。 | 良い。安全性 review の中心として成立している。 |
+| parser / backend / monomorphize | 巨大 file のままで、typecheck/resource 相当の responsibility guard がない。 | 新規 issue 化済み。selfhost parity 前に分割設計が必要。 |
+| diagnostics | code-first / mandatory diagnostic code。 | 良い。selfhost 側への拡張が必要。 |
+| target/profile gates | `target_gate.rs` と `target_precheck.rs` に共通化されている。 | 良い。codegen と typecheck の active statement 集合を揃える方向。 |
+| loader raw-memory boundary | exact stdlib path table で raw memory capability を付与する。 | 移行措置として機能。最終的には型/API 境界へ寄せる必要がある。 |
 
-- `diagnostic_codes.rs` は stage ごとの enum と stable string boundary を持つ。
-- `resource/check.rs` のような monolithic checker は削除され、source policy で再導入を防いでいる。
-- Resource IR は lowering coverage、cell、borrow、effect、owner の順に compiler gate へ接続されている。
-- `nodesrc/run_source_policy_regressions.js` に Resource checker responsibility policy が含まれ、責務再集中を監視する構成になっている。対象 Actions run では aggregate の `Source policy regressions` step は成功している。
+## 主要リスク
 
-## 残る問題
+- parser/backend/monomorphize の肥大化は、将来の diagnostics、layout、match lowering、selfhost parity の監査性を落とす。
+- public `monomorphize` API は unresolved trait call で panic し得る。compile pipeline は diagnostic-returning API を使うが、public API として残るのは不適切。
+- `--check` は修正済みだが、今後再び typecheck-only convenience API へ戻さない source policy / regression の維持が必要。
 
-- `prepare_module_for_codegen_with_source_map` は `insert_drops` 後に monomorphize し、その後 `run_move_check` を実行する。drop elaboration が checked Resource IR に基づいていない。
-- `run_move_check` は最初に旧 `passes::move_check::run` を authoritative に実行し、その後 Resource IR gate を実行する。最終設計としては Resource IR が単一 authority になるべきである。
-- `owner_summary_variant_paths.rs` が 637 行規模になり、owner variant path logic が再び大きな責務を持ち始めている。対象 Actions run の source policy step は成功しているが、local 直接確認では responsibility split policy が赤くなるため、設計負債として再分割が必要である。
-- parser / codegen / prefix_check は巨大で、selfhost へ同じ粒度で移植すると保守不能になる。
-- backend は改善済みとはいえ、WASM / LLVM parity と diagnostic coverage を継続監視する必要がある。
+## issue 連携
 
-## selfhost への示唆
+- `ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF` fixed
+- `ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587`
+- `ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C`
 
-selfhost compiler は現行 Rust compiler の挙動を参考にするが、ファイル構造は `doc/neplg2/self_host_plan.md` の分割を正とする。特に parser、typecheck、Resource IR、codegen は、Rust 側の巨大 file をそのまま移植せず、最初から module boundary を設計する。
+## 次の確認
+
+Rust compiler の残りは、lexer/parser、loader/resolve、drop/effect、codegen/layout/target、tests の個別文書で扱う。

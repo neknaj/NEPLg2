@@ -1,6 +1,6 @@
 # Rust コンパイラ diagnostics レビュー
 
-確認対象 commit: `e8a4e399 docs(review): add check ResourceIR gate issue`
+確認対象 commit: `3742a1a7 fix(cli): run Resource IR gates for check-only`
 
 ## 確認範囲
 
@@ -37,14 +37,14 @@
 
 現行 selfhost の診断 infrastructure は S1/S2 の loader/lexer/parser/resolve 相当を中心に進んでいる。今後 typecheck、effect、ResourceIR、backend へ進むとき、Rust 側の `DiagnosticCode` 設計に従い、文字列 code を直接持たせない必要がある。
 
-### diagnostic と `--check` の意味がずれる
+### diagnostic と `--check` の意味は揃ったが退行監視が必要
 
-Rust compiler diagnostics は code-first へかなり進んでいるが、`--check` が ResourceIR gate を通らないため、`resource.*` diagnostic を check-only UX で確認できない。このため diagnostic taxonomy の品質とは別に、検査 pipeline の入口をそろえる必要がある。
+Rust compiler diagnostics は code-first へかなり進んでおり、`3742a1a7` で `--check` も ResourceIR gate を通るようになったため、`resource.*` diagnostic を check-only UX で確認できる経路ができた。今後は CLI/web/LSP/selfhost の diagnostic renderer が mandatory code を保ち、check-only API が ResourceIR diagnostic を落とさないことを監視する。
 
 ## issue 連携
 
 - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D`: open。Rust compiler diagnostics と ResourceIR/selfhost model の整合。
-- `ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF`: open。`--check` が `resource.*` diagnostic gate を通らない。
+- `ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF`: fixed。`--check` が `resource.*` diagnostic gate を通る。
 
 ## 次に確認すること
 
