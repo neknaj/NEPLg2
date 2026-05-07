@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T15:12:43.440Z",
+  "generated_at": "2026-05-07T15:15:09.411Z",
   "counts": {
     "total": 596,
     "open": 13,
@@ -141,7 +141,7 @@
     },
     {
       "id": "ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D",
-      "title": "Selfhost type HIR and builtin models use invalid sentinels instead of typed absence",
+      "title": "Selfhost typed IR models use invalid sentinels instead of typed absence",
       "area": "selfhost",
       "status": "open",
       "resolved": false,
@@ -149,7 +149,7 @@
       "type": "architecture",
       "created": "2026-05-07",
       "updated": "2026-05-07",
-      "target": "stdlib/neplg2/core/ty/ty.nepl, stdlib/neplg2/core/hir/hir.nepl, stdlib/neplg2/core/mono/mono.nepl, stdlib/neplg2/core/builtins/prelude.nepl",
+      "target": "stdlib/neplg2/core/ty/ty.nepl, stdlib/neplg2/core/hir/hir.nepl, stdlib/neplg2/core/mono/mono.nepl, stdlib/neplg2/core/builtins/prelude.nepl, stdlib/neplg2/core/resolve/name_resolver.nepl",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D.md"
