@@ -275,10 +275,29 @@ impl Copy for SelfhostHirExprId:
     fn copy_mark <(SelfhostHirExprId)->SelfhostHirExprId> (self):
         self
 
-//: SelfhostHirChildRange: expression child table 上の連続範囲
-struct SelfhostHirChildRange:
+//: SelfhostHirChildRangeItems: nonempty expression child table 範囲の payload
+//:
+//: [目的/もくてき]:
+//: - child を持つ expression だけが child table の開始 index と個数を保持します。
+struct SelfhostHirChildRangeItems:
     first_child <i32>
     child_count <i32>
+
+impl Clone for SelfhostHirChildRangeItems:
+    fn clone <(&SelfhostHirChildRangeItems)->SelfhostHirChildRangeItems> (self):
+        *self
+
+impl Copy for SelfhostHirChildRangeItems:
+    fn copy_mark <(SelfhostHirChildRangeItems)->SelfhostHirChildRangeItems> (self):
+        self
+
+//: SelfhostHirChildRange: expression child table 上の連続範囲
+//:
+//: [目的/もくてき]:
+//: - 空範囲を `-1` sentinel ではなく `Empty` variant として表し、payload の有無を match で確定します。
+enum SelfhostHirChildRange:
+    Empty
+    Range <SelfhostHirChildRangeItems>
 
 impl Clone for SelfhostHirChildRange:
     fn clone <(&SelfhostHirChildRange)->SelfhostHirChildRange> (self):
@@ -288,10 +307,29 @@ impl Copy for SelfhostHirChildRange:
     fn copy_mark <(SelfhostHirChildRange)->SelfhostHirChildRange> (self):
         self
 
-//: SelfhostHirParamRange: parameter table 上の連続範囲
-struct SelfhostHirParamRange:
+//: SelfhostHirParamRangeItems: nonempty parameter table 範囲の payload
+//:
+//: [目的/もくてき]:
+//: - parameter を持つ function だけが parameter table の開始 index と個数を保持します。
+struct SelfhostHirParamRangeItems:
     first_param <i32>
     param_count <i32>
+
+impl Clone for SelfhostHirParamRangeItems:
+    fn clone <(&SelfhostHirParamRangeItems)->SelfhostHirParamRangeItems> (self):
+        *self
+
+impl Copy for SelfhostHirParamRangeItems:
+    fn copy_mark <(SelfhostHirParamRangeItems)->SelfhostHirParamRangeItems> (self):
+        self
+
+//: SelfhostHirParamRange: parameter table 上の連続範囲
+//:
+//: [目的/もくてき]:
+//: - 空範囲を `-1` sentinel ではなく `Empty` variant として表し、payload の有無を match で確定します。
+enum SelfhostHirParamRange:
+    Empty
+    Range <SelfhostHirParamRangeItems>
 
 impl Clone for SelfhostHirParamRange:
     fn clone <(&SelfhostHirParamRange)->SelfhostHirParamRange> (self):
@@ -434,35 +472,51 @@ fn selfhost_hir_expr_id_index <(SelfhostHirExprId)->i32> (expr_id):
 
 //: selfhost_hir_child_range_new: child table 範囲を[作/つく]る
 fn selfhost_hir_child_range_new <(i32,i32)->SelfhostHirChildRange> (first_child, child_count):
-    SelfhostHirChildRange first_child child_count
+    SelfhostHirChildRange::Range SelfhostHirChildRangeItems first_child child_count
 
 //: selfhost_hir_child_range_empty: child を持たない範囲を[返/かえ]す
 fn selfhost_hir_child_range_empty <()->SelfhostHirChildRange> ():
-    selfhost_hir_child_range_new -1 0
+    SelfhostHirChildRange::Empty
 
 //: selfhost_hir_child_range_first: child table の開始 index を[返/かえ]す
 fn selfhost_hir_child_range_first <(SelfhostHirChildRange)->i32> (child_range):
-    child_range.first_child
+    match child_range:
+        SelfhostHirChildRange::Empty:
+            0
+        SelfhostHirChildRange::Range range:
+            range.first_child
 
 //: selfhost_hir_child_range_count: child 数を[返/かえ]す
 fn selfhost_hir_child_range_count <(SelfhostHirChildRange)->i32> (child_range):
-    child_range.child_count
+    match child_range:
+        SelfhostHirChildRange::Empty:
+            0
+        SelfhostHirChildRange::Range range:
+            range.child_count
 
 //: selfhost_hir_param_range_new: parameter table 範囲を[作/つく]る
 fn selfhost_hir_param_range_new <(i32,i32)->SelfhostHirParamRange> (first_param, param_count):
-    SelfhostHirParamRange first_param param_count
+    SelfhostHirParamRange::Range SelfhostHirParamRangeItems first_param param_count
 
 //: selfhost_hir_param_range_empty: parameter を持たない範囲を[返/かえ]す
 fn selfhost_hir_param_range_empty <()->SelfhostHirParamRange> ():
-    selfhost_hir_param_range_new -1 0
+    SelfhostHirParamRange::Empty
 
 //: selfhost_hir_param_range_first: parameter table の開始 index を[返/かえ]す
 fn selfhost_hir_param_range_first <(SelfhostHirParamRange)->i32> (param_range):
-    param_range.first_param
+    match param_range:
+        SelfhostHirParamRange::Empty:
+            0
+        SelfhostHirParamRange::Range range:
+            range.first_param
 
 //: selfhost_hir_param_range_count: parameter 数を[返/かえ]す
 fn selfhost_hir_param_range_count <(SelfhostHirParamRange)->i32> (param_range):
-    param_range.param_count
+    match param_range:
+        SelfhostHirParamRange::Empty:
+            0
+        SelfhostHirParamRange::Range range:
+            range.param_count
 
 //: selfhost_hir_expr_kind_eq: expression kind が同じ分類か[返/かえ]す
 //:
@@ -662,7 +716,9 @@ fn selfhost_hir_expr_new <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpan
 
 //: selfhost_hir_expr_with_children: child range を持つ expression record を[作/つく]る
 fn selfhost_hir_expr_with_children <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange,str,i32,bool)->SelfhostHirExpr> (kind, ty, span, child_range, name, int_value, bool_value):
-    selfhost_hir_expr_new kind ty span child_range.first_child child_range.child_count name int_value bool_value
+    let first_child <i32> selfhost_hir_child_range_first child_range
+    let child_count <i32> selfhost_hir_child_range_count child_range
+    selfhost_hir_expr_new kind ty span first_child child_count name int_value bool_value
 
 //: selfhost_hir_expr_leaf: child を持たない expression record を[作/つく]る
 fn selfhost_hir_expr_leaf <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpan,str,i32,bool)->SelfhostHirExpr> (kind, ty, span, name, int_value, bool_value):
@@ -670,7 +726,12 @@ fn selfhost_hir_expr_leaf <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpa
 
 //: selfhost_hir_expr_child_range: expression record の child 範囲を[返/かえ]す
 fn selfhost_hir_expr_child_range <(SelfhostHirExpr)->SelfhostHirChildRange> (expr):
-    selfhost_hir_child_range_new expr.first_child expr.child_count
+    if:
+        eq expr.child_count 0
+        then:
+            selfhost_hir_child_range_empty
+        else:
+            selfhost_hir_child_range_new expr.first_child expr.child_count
 
 //: selfhost_hir_function_new: function record を[作/つく]る
 fn selfhost_hir_function_new <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,i32,i32)->SelfhostHirFunction> (name, result, span, root, first_param, param_count):
@@ -678,11 +739,18 @@ fn selfhost_hir_function_new <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHir
 
 //: selfhost_hir_function_with_params: parameter range を持つ function record を[作/つく]る
 fn selfhost_hir_function_with_params <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,SelfhostHirParamRange)->SelfhostHirFunction> (name, result, span, root, param_range):
-    selfhost_hir_function_new name result span root param_range.first_param param_range.param_count
+    let first_param <i32> selfhost_hir_param_range_first param_range
+    let param_count <i32> selfhost_hir_param_range_count param_range
+    selfhost_hir_function_new name result span root first_param param_count
 
 //: selfhost_hir_function_param_range: function record の parameter 範囲を[返/かえ]す
 fn selfhost_hir_function_param_range <(SelfhostHirFunction)->SelfhostHirParamRange> (func):
-    selfhost_hir_param_range_new func.first_param func.param_count
+    if:
+        eq func.param_count 0
+        then:
+            selfhost_hir_param_range_empty
+        else:
+            selfhost_hir_param_range_new func.first_param func.param_count
 
 //: selfhost_hir_module_new: [空/から]の HIR module を[作/つく]る
 fn selfhost_hir_module_new <()*>Result<SelfhostHirModule, StdErrorKind>> ():
@@ -915,33 +983,31 @@ fn selfhost_hir_module_get_expr <(&SelfhostHirModule,SelfhostHirExprId)->Option<
 
 //: selfhost_hir_module_get_param: parameter range 内の parameter record を[返/かえ]す
 fn selfhost_hir_module_get_param <(&SelfhostHirModule,SelfhostHirParamRange,i32)->Option<SelfhostHirParam>> (module, param_range, idx):
-    if:
-        or lt idx 0 ge idx param_range.param_count
-        then:
+    match param_range:
+        SelfhostHirParamRange::Empty:
             none<SelfhostHirParam>
-        else:
+        SelfhostHirParamRange::Range range:
             if:
-                lt param_range.first_param 0
+                or lt idx 0 ge idx range.param_count
                 then:
                     none<SelfhostHirParam>
                 else:
                     let params <&Vec<SelfhostHirParam>> field::get_ref module "params"
-                    v::get<SelfhostHirParam> params add param_range.first_param idx
+                    v::get<SelfhostHirParam> params add range.first_param idx
 
 //: selfhost_hir_module_get_child: child range 内の expression id を[返/かえ]す
 fn selfhost_hir_module_get_child <(&SelfhostHirModule,SelfhostHirChildRange,i32)->Option<SelfhostHirExprId>> (module, child_range, idx):
-    if:
-        or lt idx 0 ge idx child_range.child_count
-        then:
+    match child_range:
+        SelfhostHirChildRange::Empty:
             none<SelfhostHirExprId>
-        else:
+        SelfhostHirChildRange::Range range:
             if:
-                lt child_range.first_child 0
+                or lt idx 0 ge idx range.child_count
                 then:
                     none<SelfhostHirExprId>
                 else:
                     let expr_children <&Vec<SelfhostHirExprId>> field::get_ref module "expr_children"
-                    v::get<SelfhostHirExprId> expr_children add child_range.first_child idx
+                    v::get<SelfhostHirExprId> expr_children add range.first_child idx
 
 //: selfhost_hir_stage0: HIR module の smoke API
 fn selfhost_hir_stage0 <()*>i32> ():

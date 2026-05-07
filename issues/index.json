@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T15:50:04.569Z",
+  "generated_at": "2026-05-07T15:56:46.552Z",
   "counts": {
-    "total": 601,
+    "total": 602,
     "open": 14,
-    "resolved": 587,
+    "resolved": 588,
     "by_area": {
       "core": {
         "total": 301,
@@ -12,9 +12,9 @@
         "resolved": 298
       },
       "selfhost": {
-        "total": 56,
+        "total": 57,
         "open": 3,
-        "resolved": 53
+        "resolved": 54
       },
       "stdlib": {
         "total": 164,
@@ -5408,6 +5408,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T154503761Z-SELFHOST-TYPE-RECORDS-USE-INVALID-TY-E984125D.md"
+    },
+    {
+      "id": "ISS-20260507T155231568Z-SELFHOST-HIR-RANGES-ENCODE-EMPTY-STA-8B562D49",
+      "title": "Selfhost HIR ranges encode empty state with negative first index",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "stdlib/neplg2/core/hir/hir.nepl, nodesrc/test_selfhost_hir_range_payload.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T155231568Z-SELFHOST-HIR-RANGES-ENCODE-EMPTY-STA-8B562D49.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",

@@ -15,7 +15,7 @@ target: "stdlib/neplg2/core/ty/ty.nepl, stdlib/neplg2/core/hir/hir.nepl, stdlib/
 
 ## 概要
 
-Selfhost resolver, type, HIR, mono, and builtin signature records still encode absent or unassigned state with numeric invalid IDs, numeric enum tags, and Error-kind placeholder payloads. SelfhostDefId(-1), SelfhostTypeId(-1), first_arg = -1, SelfhostHirExprId(-1), SelfhostHirChildRange(-1, 0), SelfhostMonoInstanceId(-1), SelfhostDefKind -> i32 comparison tags, and builtin arg slots filled with SelfhostTypeKind::Error make invalid or non-exhaustive state representable in ordinary records.
+Selfhost resolver, HIR, and mono models still encode some absent or unassigned state with numeric invalid IDs, and HIR expression payloads still store fields that are meaningful only for some expression kinds. Earlier numeric enum tags, builtin placeholder arguments, type-record invalid TypeId payloads, and HIR empty range sentinels have been split into child issues and fixed.
 
 ## 対象
 
@@ -27,7 +27,7 @@ Selfhost resolver, type, HIR, mono, and builtin signature records still encode a
 
 ## 問題
 
-Selfhost resolver, type, HIR, mono, and builtin signature records still encode absent or unassigned state with numeric invalid IDs, numeric enum tags, and Error-kind placeholder payloads. SelfhostDefId(-1), SelfhostTypeId(-1), first_arg = -1, SelfhostHirExprId(-1), SelfhostHirChildRange(-1, 0), SelfhostMonoInstanceId(-1), SelfhostDefKind -> i32 comparison tags, and builtin arg slots filled with SelfhostTypeKind::Error make invalid or non-exhaustive state representable in ordinary records.
+Remaining self-host typed model debt is concentrated in `SelfhostDefId(-1)`, `SelfhostHirExprId(-1)`, `SelfhostMonoInstanceId(-1)`, and `SelfhostHirExpr` flat payload fields. These still allow invalid or non-exhaustive state to be represented in ordinary records instead of requiring typed absence or variant-specific payload matching.
 
 ## 影響
 
@@ -48,7 +48,6 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 残件:
 
 - `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
-- `SelfhostHirChildRange(-1, 0)`、`SelfhostHirParamRange(-1, 0)` の empty range sentinel。
 - HIR expression payload が kind ごとに所有 field を分離できていないこと。
 
 ## 2026-05-08 builtin signature payload 対応
@@ -58,7 +57,6 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 残件:
 
 - `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
-- `SelfhostHirChildRange(-1, 0)`、`SelfhostHirParamRange(-1, 0)` の empty range sentinel。
 - HIR expression payload が kind ごとに所有 field を分離できていないこと。
 
 ## 2026-05-08 type record payload 対応
@@ -68,5 +66,13 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 残件:
 
 - `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
-- `SelfhostHirChildRange(-1, 0)`、`SelfhostHirParamRange(-1, 0)` の empty range sentinel。
+- HIR expression payload が kind ごとに所有 field を分離できていないこと。
+
+## 2026-05-08 HIR range payload 対応
+
+この親 issue のうち、`SelfhostHirChildRange` と `SelfhostHirParamRange` が empty state を `(-1, 0)` sentinel で表していた問題は、[ISS-20260507T155231568Z-SELFHOST-HIR-RANGES-ENCODE-EMPTY-STA-8B562D49](./ISS-20260507T155231568Z-SELFHOST-HIR-RANGES-ENCODE-EMPTY-STA-8B562D49.md) で分離して解決した。
+
+残件:
+
+- `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
 - HIR expression payload が kind ごとに所有 field を分離できていないこと。

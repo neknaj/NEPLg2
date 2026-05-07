@@ -1,3 +1,17 @@
+# 2026-05-08 Agent 1 selfhost HIR range payload
+
+- `ISS-20260507T155231568Z-SELFHOST-HIR-RANGES-ENCODE-EMPTY-STA-8B562D49` を追加し、fixed/resolved に更新した。
+- 根本原因は、`SelfhostHirChildRange` と `SelfhostHirParamRange` が flat `first/count` pair で、空範囲を `(-1, 0)` sentinel として表していたことだった。
+- `SelfhostHirChildRange` を `Empty` / `Range <SelfhostHirChildRangeItems>`、`SelfhostHirParamRange` を `Empty` / `Range <SelfhostHirParamRangeItems>` に分離した。
+- empty constructor は `-1` を作らず `Empty` variant を返す。table lookup は `Empty` を即 `None` にし、`Range` payload だけを table offset として使う。
+- `selfhost_hir_child_range_first/count` と `selfhost_hir_param_range_first/count` は variant match を通す。現行 HIR expression/function の flat payload 分離は親 issue の残件として残した。
+- `nodesrc/test_selfhost_hir_range_payload.js` を追加し、flat range struct、negative empty range、direct range field read、Empty/Range match 不足を source policy で拒否する。
+- [検証]:
+  - `node nodesrc/test_selfhost_hir_range_payload.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/hir/hir.nepl --no-tree -o tmp/agent1-selfhost-hir-range-payload.json -j 1 --dist web/dist`: total=3, passed=3
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 1 selfhost type record payload
 
 - `ISS-20260507T154503761Z-SELFHOST-TYPE-RECORDS-USE-INVALID-TY-E984125D` を追加し、fixed/resolved に更新した。
