@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T16:13:17.137Z",
+  "generated_at": "2026-05-07T16:14:16.737Z",
   "counts": {
-    "total": 605,
-    "open": 15,
+    "total": 606,
+    "open": 16,
     "resolved": 590,
     "by_area": {
       "core": {
@@ -22,8 +22,8 @@
         "resolved": 159
       },
       "TEST": {
-        "total": 16,
-        "open": 1,
+        "total": 17,
+        "open": 2,
         "resolved": 15
       },
       "tutorials": {
@@ -233,6 +233,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9",
+      "title": "VFS cross-file definition path tree tests fail in tutorials CI",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "tests/compiler/tree/16_semantics_vfs_cross_file.js, tests/compiler/tree/17_name_resolution_vfs_cross_file.js, nepl-web analysis API",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9.md"
     },
     {
       "id": "ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153",
