@@ -1,3 +1,12 @@
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 Vec raw helper split)
+
+- branch `refactor/vec-raw-helper-module` で `stdlib/alloc/collections/vec.nepl` の raw `MemPtr<T>` load/store helper と scan/fold helper を `stdlib/alloc/collections/vec/raw.nepl` へ分離した。
+- `vec/raw.nepl` は `vec_read_at` / `vec_write_at` / `vec_fold_impl` / `vec_reduce_impl` / `vec_find_impl` / `vec_take_while_len_impl` / `vec_write_prefix_impl` を所有する。
+- root `vec.nepl` は既存 doctest と root namespace 互換を保つ thin facade wrapper だけを持ち、raw offset 計算と typed `load` / `store` は `vec/raw` に集約する。
+- `nepl-core/src/loader.rs` の exact raw-memory boundary に `alloc/collections/vec/raw.nepl` を追加した。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` を更新し、raw helper 実装が root に戻らないこと、root wrapper が `vec_raw::` へ委譲すること、loader boundary が分割先を含むことを固定した。
+- 検証は `trunk build`、Vec source policy、`vec/raw.nepl` direct doctest、root `vec.nepl` doctest、既存 Vec suite、`issues.js check`、source policy regression、`cargo check -p nepl-core --tests`、`cargo test -p nepl-core --test effects` が通過した。
+
 # 2026-05-07 note (ISS-20260507T015824839Z sort raw pointer doctest contract)
 
 - branch `fix/sort-raw-pointer-fixtures` で `tests/stdlib/sort.n.md` の `sort_i32` pointer doctest 5 件を現行 Resource IR の owner/effect/initialized-cell contract に合わせて修正した。
