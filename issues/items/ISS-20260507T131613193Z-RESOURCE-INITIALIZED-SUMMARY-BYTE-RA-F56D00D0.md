@@ -1,0 +1,45 @@
+---
+id: ISS-20260507T131613193Z-RESOURCE-INITIALIZED-SUMMARY-BYTE-RA-F56D00D0
+title: "Resource initialized summary byte range builder exceeds responsibility split limit"
+area: core
+status: open
+resolved: false
+priority: P1
+type: architecture
+created: 2026-05-07
+updated: 2026-05-07
+target: "nepl-core/src/resource/initialized_summary_byte_ranges.rs, nodesrc/test_resource_checker_responsibility.js"
+---
+
+# ISS-20260507T131613193Z-RESOURCE-INITIALIZED-SUMMARY-BYTE-RA-F56D00D0: Resource initialized summary byte range builder exceeds responsibility split limit
+
+## 概要
+
+After splitting initialized summary apply parameter updates, the direct Resource checker responsibility policy advanced to initialized_summary_byte_ranges.rs and reported 268 lines against the 140-line limit. Returned range collection, param range collection, count-source extraction, and deduplication are still concentrated in one memory-safety summary builder.
+
+## 対象
+
+- `nepl-core/src/resource/initialized_summary_byte_ranges.rs, nodesrc/test_resource_checker_responsibility.js`
+
+## 根拠
+
+- `ISS-20260507T130937432Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-7FFA13D6` の修正で `initialized_summary_apply.rs` は 97 / 130 lines、`initialized_summary_apply_param.rs` は 69 / 100 lines まで分割された。
+- その直後の `node nodesrc/test_resource_checker_responsibility.js` は次の未解決 responsibility violation として `initialized_summary_byte_ranges.rs has 268 lines; responsibility split limit is 140` を報告した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` でも同じ warning を確認した。
+- 関連計画: [NEPLg2 静的検査の複雑化解消計画 Stage 4](../../doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-%E3%81%B8%E3%81%AE%E7%A7%BB%E8%A1%8C)
+
+## 問題
+
+After splitting initialized summary apply parameter updates, the direct Resource checker responsibility policy advanced to initialized_summary_byte_ranges.rs and reported 268 lines against the 140-line limit. Returned range collection, param range collection, count-source extraction, and deduplication are still concentrated in one memory-safety summary builder.
+
+## 影響
+
+initialized_summary_byte_ranges.rs builds the dependent raw byte range facts used by ResourceIR initialized-state checks. If returned/param range collection and count proof extraction stay concentrated, range summary bugs can be hidden behind an oversized module and weaken auditability of guarded raw-memory loads.
+
+## 修正方針
+
+Split initialized_summary_byte_ranges.rs by stable responsibility instead of raising the limit. Separate returned range count/source extraction, param range count/source extraction, and uniqueness helpers into focused modules guarded by the responsibility policy while preserving guarded range semantics.
+
+## 検証
+
+Run node nodesrc/test_resource_checker_responsibility.js, node nodesrc/run_source_policy_regressions.js --warn-only, cargo fmt/check, and focused ResourceIR returned/param byte range regressions.

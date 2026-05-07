@@ -128,6 +128,24 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 1 initialized summary apply param split
+
+- `ISS-20260507T130937432Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-7FFA13D6` を fixed/resolved に更新した。
+- `initialized_summary_apply.rs` から caller-side param cell / param byte range application と param count source 解決を `initialized_summary_apply_param.rs` へ分離した。
+- `initialized_summary_apply.rs` は direct / indirect call target の summary lookup、release requirement check、variant initialization reservation、return/param summary application の orchestration に戻した。
+- source policy には `initialized_summary_apply_param.rs` の存在、`mod initialized_summary_apply_param;`、100 lines 上限を追加した。
+- 分割後の行数は `initialized_summary_apply.rs` 97 / 130、`initialized_summary_apply_param.rs` 69 / 100。
+- `node nodesrc/test_resource_checker_responsibility.js` は `initialized_summary_apply.rs` 超過を出さなくなり、次の別件として `initialized_summary_byte_ranges.rs has 268 lines; responsibility split limit is 140` を検出した。これは `ISS-20260507T131613193Z-RESOURCE-INITIALIZED-SUMMARY-BYTE-RA-F56D00D0` として追加した。
+- [検証]:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_guarded_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_rejects_unguarded_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_aggregate -- --nocapture`: 2 passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: `initialized_summary_apply.rs` warning は解消。残る warning は `ISS-20260507T131613193Z-RESOURCE-INITIALIZED-SUMMARY-BYTE-RA-F56D00D0` の `initialized_summary_byte_ranges.rs` 超過。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T114726130Z nm json_escape raw traversal removed)
 
 - branch `fix/nm-json-escape-pure-raw-load` で、`stdlib/nm/json_escape.nepl` の public pure raw traversal を削除した。
