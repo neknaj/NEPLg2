@@ -1,0 +1,102 @@
+//: # platforms/wasix/tui/buffer/wrap
+//: 折り返し text を TUI 行バッファへ反映する helper
+//:
+//: ### 目的
+//: - 表示幅ベースの折り返し走査と `buffer_set_line` 呼び出しをこの module に集約します。
+//: - raw slot layout は `buffer/storage` に委譲し、この module は描画範囲と text slicing の policy だけを持ちます。
+
+#indent 4
+
+#import "core/math" as *
+#import "alloc/string" as *
+#import "platforms/wasix/tui/text" as *
+#import "./storage" as *
+
+//: buffer_set_wrapped_text: 折り返し文字列を行バッファへ描画する
+//:
+//: [目的/もくてき]:
+//: - 指定矩形（開始行と高さ）に、表示幅ベースで折り返したテキストを描画します。
+//:
+//: [実装/じっそう]:
+//: - 入力を走査しながら `buffer_set_line` で反映します。
+//: - 各行は `line_clip_to_cols` と `line_pad_to_cols` を通し、幅を安定化します。
+//: - 高さを超える分は切り捨て、不足行は空白行を入れて残像を防ぎます。
+//:
+//: [注意/ちゅうい]:
+//: - 行番号は 1-origin です。
+//: - 文字色/背景色は、この関数に渡す前に `style_text` で付与してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n + h) （n: テキスト長, h: 描画高さ）
+fn buffer_set_wrapped_text <(i32,i32,i32,i32,str)*>()> (b, start_row, cols, height, text):
+    if:
+        and gt height 0 gt cols 0
+        then:
+            let n <i32> len text;
+            let mut i <i32> 0;
+            let mut line_start <i32> 0;
+            let mut line_w <i32> 0;
+            let mut row_i <i32> 0;
+            while and lt i n lt row_i height:
+                do:
+                    let row <i32> add start_row row_i;
+                    let b0 <i32> str_byte_at text i;
+                    if:
+                        eq b0 '\n'
+                        then:
+                            let s0 <str> str_slice text line_start i;
+                            let s0c <str> line_clip_to_cols s0 cols;
+                            let s0p <str> line_pad_to_cols s0c cols;
+                            buffer_set_line b row s0p;
+                            set i add i 1;
+                            set line_start i;
+                            set line_w 0;
+                            set row_i add row_i 1;
+                        else:
+                            let kind <TuiTextByteKind> tui_text_byte_kind b0;
+                            let ch_len <i32> tui_text_byte_len kind;
+                            let ch_w <i32> tui_text_byte_width kind;
+                            let next_w <i32> add line_w ch_w;
+                            if:
+                                lt cols next_w
+                                then:
+                                    if:
+                                        eq i line_start
+                                        then:
+                                            let s1 <str> str_slice text line_start add i ch_len;
+                                            let s1c <str> line_clip_to_cols s1 cols;
+                                            let s1p <str> line_pad_to_cols s1c cols;
+                                            buffer_set_line b row s1p;
+                                            set i add i ch_len;
+                                            set line_start i;
+                                            set line_w 0;
+                                            set row_i add row_i 1;
+                                        else:
+                                            let s2 <str> str_slice text line_start i;
+                                            let s2c <str> line_clip_to_cols s2 cols;
+                                            let s2p <str> line_pad_to_cols s2c cols;
+                                            buffer_set_line b row s2p;
+                                            set line_start i;
+                                            set line_w 0;
+                                            set row_i add row_i 1;
+                                else:
+                                    set i add i ch_len;
+                                    set line_w next_w;
+            if:
+                lt row_i height
+                then:
+                    let row2 <i32> add start_row row_i;
+                    let s3 <str> str_slice text line_start n;
+                    let s3c <str> line_clip_to_cols s3 cols;
+                    let s3p <str> line_pad_to_cols s3c cols;
+                    buffer_set_line b row2 s3p;
+                    set row_i add row_i 1;
+                else:
+                    ();
+            while lt row_i height:
+                do:
+                    buffer_set_line b add start_row row_i line_pad_to_cols "" cols;
+                    set row_i add row_i 1;
+        else:
+            ();
+    ()

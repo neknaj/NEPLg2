@@ -17,6 +17,9 @@ const relPaths = [
     'stdlib/platforms/wasix/tui/style.nepl',
     'stdlib/platforms/wasix/tui/box.nepl',
     'stdlib/platforms/wasix/tui/buffer.nepl',
+    'stdlib/platforms/wasix/tui/buffer/storage.nepl',
+    'stdlib/platforms/wasix/tui/buffer/wrap.nepl',
+    'stdlib/platforms/wasix/tui/buffer/present.nepl',
 ];
 
 const sources = Object.fromEntries(relPaths.map((relPath) => [
@@ -40,6 +43,9 @@ const textWrapRelPath = 'stdlib/platforms/wasix/tui/text/wrap.nepl';
 const styleRelPath = 'stdlib/platforms/wasix/tui/style.nepl';
 const boxRelPath = 'stdlib/platforms/wasix/tui/box.nepl';
 const bufferRelPath = 'stdlib/platforms/wasix/tui/buffer.nepl';
+const bufferStorageRelPath = 'stdlib/platforms/wasix/tui/buffer/storage.nepl';
+const bufferWrapRelPath = 'stdlib/platforms/wasix/tui/buffer/wrap.nepl';
+const bufferPresentRelPath = 'stdlib/platforms/wasix/tui/buffer/present.nepl';
 
 const codeByPath = Object.fromEntries(Object.entries(sources).map(([relPath, src]) => [relPath, stripComments(src)]));
 const code = Object.values(codeByPath).join('\n');
@@ -55,6 +61,9 @@ const textFamilyCode = [textCode, textRepeatCode, textWidthCode, textLineCode, t
 const styleCode = codeByPath[styleRelPath];
 const boxCode = codeByPath[boxRelPath];
 const bufferCode = codeByPath[bufferRelPath];
+const bufferStorageCode = codeByPath[bufferStorageRelPath];
+const bufferWrapCode = codeByPath[bufferWrapRelPath];
+const bufferPresentCode = codeByPath[bufferPresentRelPath];
 
 const forbidden = [
     /\bunwrap\b/,
@@ -89,6 +98,14 @@ for (const submodule of ['repeat', 'width', 'line', 'wrap']) {
 }
 assert.doesNotMatch(textCode, /\b(fn|struct|enum)\s+\w+/, 'wasix tui text facade must not regain implementation bodies');
 assert.match(textWrapCode, /#import\s+"alloc\/collections\/vec"\s+as\s+v/, 'wasix tui text wrap module must qualify implementation Vec allocation calls');
+for (const submodule of ['storage', 'wrap', 'present']) {
+    assert.match(
+        bufferCode,
+        new RegExp(`pub\\s+#import\\s+"\\.\\/buffer\\/${submodule}"\\s+as\\s+@merge`),
+        `wasix tui buffer facade must re-export buffer/${submodule}`,
+    );
+}
+assert.doesNotMatch(bufferCode, /\b(fn|struct|enum)\s+\w+/, 'wasix tui buffer facade must not regain implementation bodies');
 assert.match(ttyCode, /fn\s+get_tty_state_result\s+<\(\)\*>Result<i32,i32>>\s+\(\):[\s\S]*Result<i32,i32>::Ok\s+ptr[\s\S]*Result<i32,i32>::Err\s+errno/, 'TTY state acquisition must return Result instead of a freed-pointer sentinel');
 assert.doesNotMatch(ttyCode, /fn\s+get_tty_state\s+<\(\)\*>i32>/, 'TTY state acquisition must not return raw i32 sentinel values');
 assert.match(ansiCode, /fn\s+set_fg_color\s+<\(AnsiColor\)\*>\(\)>\s+\(color\):[\s\S]*print\s+ansi_color_code\s+color/, 'set_fg_color must use typed AnsiColor conversion');
@@ -103,7 +120,11 @@ assert.match(textWidthCode, /fn\s+tui_text_byte_len\s+<\(TuiTextByteKind\)->i32>
 assert.match(textWidthCode, /fn\s+tui_text_byte_width\s+<\(TuiTextByteKind\)->i32>\s+\(kind\):[\s\S]*match\s+kind:/, 'TUI text byte width must branch through enum match');
 assert.match(textWidthCode, /fn\s+str_display_width\s+<\(str\)\*>i32>\s+\(s\):[\s\S]*tui_skip_escape_sequence[\s\S]*tui_text_byte_kind/, 'str_display_width must share escape skipping and byte classification helpers');
 assert.match(textLineCode, /fn\s+line_clip_to_cols\s+<\(str,i32\)\*>str>\s+\(s,\s*cols\):[\s\S]*tui_text_byte_kind[\s\S]*tui_text_byte_len[\s\S]*tui_text_byte_width/, 'line clipping must use shared TUI byte classification helpers');
-assert.match(bufferCode, /fn\s+buffer_set_wrapped_text\s+<\(i32,i32,i32,i32,str\)\*>\(\)>\s+\(b,\s*start_row,\s*cols,\s*height,\s*text\):[\s\S]*tui_text_byte_kind[\s\S]*tui_text_byte_len[\s\S]*tui_text_byte_width/, 'TUI buffer wrapped text must use shared TUI byte classification helpers');
+assert.match(bufferStorageCode, /fn\s+buffer_new\s+<\(i32,i32\)\*>i32>\s+\(cols,\s*rows\):[\s\S]*alloc_raw[\s\S]*store<str>/, 'TUI buffer storage module must own raw slot allocation');
+assert.match(bufferStorageCode, /fn\s+buffer_set_line\s+<\(i32,i32,str\)\*>\(\)>\s+\(b,\s*row,\s*line\):[\s\S]*store<str>/, 'TUI buffer storage module must own raw slot writes');
+assert.match(bufferWrapCode, /fn\s+buffer_set_wrapped_text\s+<\(i32,i32,i32,i32,str\)\*>\(\)>\s+\(b,\s*start_row,\s*cols,\s*height,\s*text\):[\s\S]*tui_text_byte_kind[\s\S]*tui_text_byte_len[\s\S]*tui_text_byte_width/, 'TUI buffer wrapped text must use shared TUI byte classification helpers');
+assert.match(bufferWrapCode, /fn\s+buffer_set_wrapped_text[\s\S]*buffer_set_line/, 'TUI buffer wrap module must delegate raw slot updates to storage');
+assert.match(bufferPresentCode, /fn\s+buffer_present_diff\s+<\(i32\)\*>\(\)>\s+\(b\):[\s\S]*move_cursor[\s\S]*print/, 'TUI buffer present module must own cursor output policy');
 assert.match(textWrapCode, /fn\s+tui_empty_str_vec\s+<\(\)->Vec<str>>\s+\(\):\s+v::vec_empty<str>/, 'text_wrap_lines allocation fallback must use typed empty Vec storage');
 assert.match(textWrapCode, /fn\s+tui_push_str\s+<\(Vec<str>,str\)->TuiStrPushRes>\s+\(items,\s*item\):[\s\S]*match\s+v::push<str>\s+items\s+item:[\s\S]*Result::Err\s+_e:[\s\S]*TuiStrPushRes\s+tui_empty_str_vec\s+false/, 'text_wrap_lines push must convert grow failure to ok=false');
 assert.match(textWrapCode, /fn\s+text_wrap_lines\s+<\(str,i32\)\*>Vec<str>>\s+\(text,\s*cols\):[\s\S]*match\s+v::new<str>:[\s\S]*Result::Err\s+_e:[\s\S]*set\s+failed\s+true/, 'text_wrap_lines must handle Vec allocation failure');

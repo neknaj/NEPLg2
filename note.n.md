@@ -35242,3 +35242,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-08 Agent 2 WASIX TUI buffer facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/platforms/wasix/tui/buffer.nepl` に同居していた raw storage 管理、折り返し text 反映、差分 present を責務別 submodule に分割した。
+- `stdlib/platforms/wasix/tui/buffer.nepl` は public facade にし、`buffer/storage.nepl`、`buffer/wrap.nepl`、`buffer/present.nepl` を `@merge` re-export するだけの構成にした。
+- `buffer/storage.nepl` は `buffer_new` / `buffer_free` / `buffer_set_line` を所有し、buffer header layout と curr/prev slot raw storage を閉じ込めた。
+- `buffer/wrap.nepl` は `buffer_set_wrapped_text` を所有し、表示幅と slicing の policy だけを持つ。raw slot 更新は `buffer_set_line` へ委譲する。
+- `buffer/present.nepl` は `line_has_escape` / `buffer_present_diff` を所有し、ANSI/OSC8 を含む行の全行更新 fallback と cursor output policy を閉じ込めた。
+- `nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js` を更新し、buffer facade に実装が戻らないこと、storage/wrap/present の責務境界が維持されることを固定した。
+- line count は `buffer.nepl` 14、`buffer/storage.nepl` 71、`buffer/wrap.nepl` 99、`buffer/present.nepl` 93。
+- [検証]:
+  - `node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/platforms/wasix/tui.nepl -i stdlib/platforms/wasix/tui/buffer.nepl -i stdlib/platforms/wasix/tui/buffer/storage.nepl -i stdlib/platforms/wasix/tui/buffer/wrap.nepl -i stdlib/platforms/wasix/tui/buffer/present.nepl -i stdlib/platforms/wasix/tui/text.nepl -i tests/stdlib/features_tui.n.md --no-tree -o tmp/wasix-tui-buffer-split-focused.json -j 1 --dist web/dist`: total=5, passed=5
+  - `node nodesrc/tests.js -i examples -o tmp/wasix-tui-buffer-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `trunk build`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

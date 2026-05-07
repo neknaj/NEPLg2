@@ -1,0 +1,76 @@
+//: # platforms/wasix/tui/buffer/storage
+//: TUI 行バッファの raw storage 管理
+//:
+//: ### 目的
+//: - curr/prev の `str` slot 配列と buffer header の確保・解放・行設定をこの module に閉じ込めます。
+//: - 折り返しや差分 present の policy から raw slot layout を分離します。
+//:
+//: ### 注意
+//: - `buffer_new` が返す raw handle は `buffer_free` で解放してください。
+//: - buffer header layout は `[cols, rows, curr_ptr, prev_ptr]` の 4 x i32 です。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/mem" as *
+
+//: buffer_new: 行バッファを作成する
+//:
+//: [目的/もくてき]:
+//: - 差分レンダリングのための `curr`/`prev` 行配列を初期化します。
+//:
+//: [実装/じっそう]:
+//: - 行数ぶんの `str` ポインタ配列を2面確保し、空文字列で初期化します。
+//:
+//: [注意/ちゅうい]:
+//: - 返り値は `buffer_free` で解放してください。
+fn buffer_new <(i32,i32)*>i32> (cols, rows):
+    let curr <i32> alloc_raw mul rows 4;
+    let prev <i32> alloc_raw mul rows 4;
+    let mut i <i32> 0;
+    while lt i rows:
+        do:
+            let off <i32> mul i 4;
+            store<str> add curr off "";
+            store<str> add prev off "";
+            set i add i 1;
+    let b <i32> alloc_raw 16;
+    store_i32 b cols;
+    store_i32 add b 4 rows;
+    store_i32 add b 8 curr;
+    store_i32 add b 12 prev;
+    b
+
+//: buffer_free: 行バッファを解放する
+//:
+//: [目的/もくてき]:
+//: - `buffer_new` で確保したメモリを解放します。
+fn buffer_free <(i32)*>()> (b):
+    let rows <i32> load_i32 add b 4;
+    let curr <i32> load_i32 add b 8;
+    let prev <i32> load_i32 add b 12;
+    dealloc_raw curr mul rows 4;
+    dealloc_raw prev mul rows 4;
+    dealloc_raw b 16;
+    ()
+
+//: buffer_set_line: row(1-origin) の行文字列を設定する
+//:
+//: [目的/もくてき]:
+//: - 次フレームの行内容を `curr` 側へ登録します。
+//:
+//: [注意/ちゅうい]:
+//: - 行番号が範囲外の場合は何もしません。
+fn buffer_set_line <(i32,i32,str)*>()> (b, row, line):
+    let rows <i32> load_i32 add b 4;
+    let row_max_excl <i32> add rows 1;
+    if:
+        and gt row 0 lt row row_max_excl
+        then:
+            let curr <i32> load_i32 add b 8;
+            let row0 <i32> sub row 1;
+            let off <i32> mul row0 4;
+            store<str> add curr off line;
+        else:
+            ();
+    ()

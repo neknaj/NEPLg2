@@ -1,0 +1,97 @@
+//: # platforms/wasix/tui/buffer/present
+//: TUI 行バッファの差分 present
+//:
+//: ### 目的
+//: - curr/prev slot を比較し、必要な行だけ ANSI cursor output へ反映します。
+//: - raw storage layout は `buffer/storage` と同じ header contract を読むだけにし、text width と cursor output の policy をこの module に集約します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/mem" as *
+#import "alloc/string" as *
+#import "std/stdio" as *
+#import "platforms/wasix/tui/ansi" as *
+#import "platforms/wasix/tui/text" as *
+
+//: line_has_escape: 行に ESC 制御文字が含まれるか判定する
+//:
+//: [目的/もくてき]:
+//: - 文字単位差分時に、ANSI/OSC8 を含む行を安全に全行更新へフォールバックするために使います。
+fn line_has_escape <(str)*>bool> (s):
+    let n <i32> len s;
+    let mut i <i32> 0;
+    let mut found <bool> false;
+    while and lt i n not found:
+        do:
+            if:
+                eq str_byte_at s i '\x1B'
+                then:
+                    set found true
+                else:
+                    ();
+            set i add i 1;
+    found
+
+//: buffer_present_diff: 差分のある行だけ再描画する
+//:
+//: [目的/もくてき]:
+//: - `curr` と `prev` を比較し、変更行のみ端末へ出力します。
+//: - 同一行内では先頭差分位置から末尾のみを書き換え、更新量を削減します。
+//:
+//: [実装/じっそう]:
+//: - まず `str_eq` で同一行を判定します。
+//: - 差分行では「最初に異なるバイト位置」を求め、そこから行末までを再描画します。
+//: - ANSI/OSC8 を含む行は安全性のため行全体更新にフォールバックします。
+//: - 描画後は該当行の `prev` を更新します。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 文字幅は `str_display_width` による近似です。
+//: - 差分開始位置はバイト基準で探索し、カーソル列は表示幅換算で計算します。
+fn buffer_present_diff <(i32)*>()> (b):
+    let cols <i32> load_i32 b;
+    let rows <i32> load_i32 add b 4;
+    let curr <i32> load_i32 add b 8;
+    let prev <i32> load_i32 add b 12;
+    let mut i <i32> 0;
+    while lt i rows:
+        do:
+            let off <i32> mul i 4;
+            let c <str> load<str> add curr off;
+            let p <str> load<str> add prev off;
+            if:
+                not str_eq c p
+                then:
+                    if:
+                        or line_has_escape c line_has_escape p
+                        then:
+                            move_cursor 1 add i 1;
+                            print line_pad_to_cols c cols;
+                        else:
+                            let lc <i32> len c;
+                            let lp <i32> len p;
+                            let minlen <i32> if lt lc lp lc lp;
+                            let mut d <i32> 0;
+                            let mut found <bool> false;
+                            while and lt d minlen not found:
+                                do:
+                                    if:
+                                        eq str_byte_at c d str_byte_at p d
+                                        then:
+                                            set d add d 1
+                                        else:
+                                            set found true;
+                            let prefix <str> str_slice c 0 d;
+                            let prefix_w <i32> str_display_width prefix;
+                            let col0 <i32> add prefix_w 1;
+                            let tail <str> str_slice c d lc;
+                            let remain_base <i32> sub cols col0;
+                            let remain_cols <i32> add remain_base 1;
+                            let tail_padded <str> line_pad_to_cols tail remain_cols;
+                            move_cursor col0 add i 1;
+                            print tail_padded;
+                    store<str> add prev off c;
+                else:
+                    ();
+            set i add i 1;
+    ()
