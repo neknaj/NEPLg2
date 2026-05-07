@@ -67,7 +67,7 @@ assert(!compilerRelative, 'compiler.rs must not retain legacy move_check fallbac
 const prepareBody = extractFunctionBody(source, 'prepare_module_for_codegen_with_source_map');
 const resourceTypecheckIndex = prepareBody.indexOf('let resource_tc = run_typecheck(');
 const resourceMonomorphizeIndex = prepareBody.indexOf(
-    'monomorphize::monomorphize_with_unresolved_trait_calls(',
+    'monomorphize::monomorphize(',
 );
 const resourcePlanBindingIndex = prepareBody.indexOf(
     'let resource_drop_elaboration_plan =',
@@ -80,7 +80,7 @@ const dropInsertionIndex = prepareBody.indexOf(
     'passes::insert_resource_drops(&mut hir_module, &mut types, &resource_drop_elaboration_plan)',
 );
 const finalMonomorphizeIndex = prepareBody.lastIndexOf(
-    'monomorphize::monomorphize_with_unresolved_trait_calls(',
+    'monomorphize::monomorphize(',
 );
 const preparedPlanFieldIndex = prepareBody.lastIndexOf('resource_drop_elaboration_plan,');
 assert(

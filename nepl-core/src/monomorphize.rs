@@ -25,27 +25,35 @@ macro_rules! mono_log {
     }};
 }
 
-pub fn monomorphize(ctx: &mut TypeCtx, module: HirModule) -> HirModule {
-    monomorphize_internal(ctx, module, true).0
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnresolvedTraitCall {
     pub description: String,
     pub span: Span,
 }
 
-pub fn monomorphize_with_unresolved_trait_calls(
-    ctx: &mut TypeCtx,
-    module: HirModule,
-) -> (HirModule, Vec<UnresolvedTraitCall>) {
-    monomorphize_internal(ctx, module, false)
+#[derive(Debug, Clone)]
+pub struct MonomorphizeResult {
+    pub module: HirModule,
+    pub unresolved_trait_calls: Vec<UnresolvedTraitCall>,
+}
+
+impl MonomorphizeResult {
+    pub fn into_parts(self) -> (HirModule, Vec<UnresolvedTraitCall>) {
+        (self.module, self.unresolved_trait_calls)
+    }
+}
+
+pub fn monomorphize(ctx: &mut TypeCtx, module: HirModule) -> MonomorphizeResult {
+    let (module, unresolved_trait_calls) = monomorphize_internal(ctx, module);
+    MonomorphizeResult {
+        module,
+        unresolved_trait_calls,
+    }
 }
 
 fn monomorphize_internal(
     ctx: &mut TypeCtx,
     module: HirModule,
-    assert_trait_calls: bool,
 ) -> (HirModule, Vec<UnresolvedTraitCall>) {
     let mut impl_map: BTreeMap<(String, String, TypeId), usize> = BTreeMap::new();
     let mut impl_method_index: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
@@ -156,9 +164,6 @@ fn monomorphize_internal(
     let mut unresolved_trait_calls = Vec::new();
     for f in mono.specialized.values() {
         let unresolved = mono.collect_unresolved_trait_calls(f);
-        if assert_trait_calls && !unresolved.is_empty() {
-            mono.assert_no_trait_calls(f);
-        }
         unresolved_trait_calls.extend(unresolved);
     }
     let mut new_functions = Vec::new();
@@ -374,16 +379,6 @@ impl<'a> Monomorphizer<'a> {
             }
         }
         out
-    }
-
-    fn assert_no_trait_calls(&self, func: &HirFunction) {
-        let unresolved = self.collect_unresolved_trait_calls(func);
-        if let Some(first) = unresolved.first() {
-            panic!(
-                "internal compiler error: unresolved trait call remained after monomorphize: {}",
-                first.description,
-            );
-        }
     }
 
     fn resolve_remaining_trait_calls(&mut self) {
@@ -1387,5 +1382,73 @@ fn collect_local_names_in_expr(expr: &HirExpr, out: &mut BTreeSet<String>) {
         | HirExprKind::Var(_)
         | HirExprKind::FnValue(_)
         | HirExprKind::Drop { .. } => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::Effect;
+    use alloc::vec;
+
+    #[test]
+    fn public_monomorphize_returns_unresolved_trait_calls_without_panicking() {
+        let mut types = TypeCtx::new();
+        let i32_ty = types.i32();
+        let func_ty = types.function(Vec::new(), Vec::new(), i32_ty, Effect::Pure);
+        let span = Span::dummy();
+        let module = HirModule {
+            functions: vec![HirFunction {
+                doc: None,
+                name: String::from("main"),
+                origin_name: String::from("main"),
+                func_ty,
+                params: Vec::new(),
+                result: i32_ty,
+                effect: Effect::Pure,
+                body: HirBody::Block(HirBlock {
+                    lines: vec![HirLine {
+                        expr: HirExpr {
+                            ty: i32_ty,
+                            kind: HirExprKind::Call {
+                                callee: FuncRef::Trait {
+                                    trait_name: String::from("Show"),
+                                    trait_args: Vec::new(),
+                                    method: String::from("show"),
+                                    self_ty: i32_ty,
+                                },
+                                args: vec![HirExpr {
+                                    ty: i32_ty,
+                                    kind: HirExprKind::LiteralI32(1),
+                                    span,
+                                }],
+                            },
+                            span,
+                        },
+                        drop_result: false,
+                    }],
+                    ty: i32_ty,
+                    span,
+                }),
+                span,
+            }],
+            entry: Some(String::from("main")),
+            externs: Vec::new(),
+            string_literals: Vec::new(),
+            traits: Vec::new(),
+            impls: Vec::new(),
+        };
+
+        let result = monomorphize(&mut types, module);
+
+        assert_eq!(result.unresolved_trait_calls.len(), 1);
+        assert!(
+            result.unresolved_trait_calls[0]
+                .description
+                .contains("Show"),
+            "unresolved trait call should carry a structural description: {:#?}",
+            result.unresolved_trait_calls
+        );
+        assert_eq!(result.module.functions.len(), 1);
     }
 }

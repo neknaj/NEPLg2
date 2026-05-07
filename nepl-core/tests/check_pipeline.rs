@@ -146,8 +146,8 @@ fn monomorphize_accepts_deep_prefix_chain_without_stack_overflow() {
     );
     let hir = tc.module.take().expect("typecheck should produce HIR");
 
-    let (hir, unresolved) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut tc.types, hir);
+    let mono = nepl_core::monomorphize::monomorphize(&mut tc.types, hir);
+    let (hir, unresolved) = mono.into_parts();
     assert!(unresolved.is_empty());
     assert!(!hir.functions.is_empty());
 }
@@ -162,8 +162,8 @@ fn resource_static_check_accepts_deep_prefix_chain_without_stack_overflow() {
         None,
     );
     let hir = tc.module.take().expect("typecheck should produce HIR");
-    let (hir, unresolved) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut tc.types, hir);
+    let mono = nepl_core::monomorphize::monomorphize(&mut tc.types, hir);
+    let (hir, unresolved) = mono.into_parts();
     assert!(unresolved.is_empty());
 
     let resource = nepl_core::resource::lower_hir_module(&hir, &tc.types);

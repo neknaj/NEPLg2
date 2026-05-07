@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T14:53:45.315Z",
+  "generated_at": "2026-05-07T15:05:47.713Z",
   "counts": {
     "total": 594,
-    "open": 12,
-    "resolved": 582,
+    "open": 11,
+    "resolved": 583,
     "by_area": {
       "core": {
         "total": 301,
-        "open": 5,
-        "resolved": 296
+        "open": 4,
+        "resolved": 297
       },
       "stdlib": {
         "total": 164,
@@ -138,21 +138,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C",
-      "title": "Public monomorphize API panics on unresolved trait calls",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "nepl-core/src/monomorphize.rs, nepl-core/src/compiler.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4608,6 +4593,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF.md"
+    },
+    {
+      "id": "ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C",
+      "title": "Public monomorphize API panics on unresolved trait calls",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/monomorphize.rs, nepl-core/src/compiler.rs, nepl-core/tests/check_pipeline.rs, nepl-core/tests/resource_ir.rs, nodesrc/test_monomorphize_unresolved_api_policy.js, nodesrc/test_resource_gate_order.js, nodesrc/run_source_policy_regressions.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

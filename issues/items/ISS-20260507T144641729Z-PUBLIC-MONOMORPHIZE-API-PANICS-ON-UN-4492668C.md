@@ -2,13 +2,13 @@
 id: ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C
 title: "Public monomorphize API panics on unresolved trait calls"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-07
 updated: 2026-05-07
-target: "nepl-core/src/monomorphize.rs, nepl-core/src/compiler.rs"
+target: "nepl-core/src/monomorphize.rs, nepl-core/src/compiler.rs, nepl-core/tests/check_pipeline.rs, nepl-core/tests/resource_ir.rs, nodesrc/test_monomorphize_unresolved_api_policy.js, nodesrc/test_resource_gate_order.js, nodesrc/run_source_policy_regressions.js"
 ---
 
 # ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C: Public monomorphize API panics on unresolved trait calls
@@ -19,7 +19,7 @@ The compile pipeline now calls monomorphize_with_unresolved_trait_calls and conv
 
 ## 対象
 
-- `nepl-core/src/monomorphize.rs, nepl-core/src/compiler.rs`
+- `nepl-core/src/monomorphize.rs, nepl-core/src/compiler.rs, nepl-core/tests/check_pipeline.rs, nepl-core/tests/resource_ir.rs, nodesrc/test_monomorphize_unresolved_api_policy.js, nodesrc/test_resource_gate_order.js, nodesrc/run_source_policy_regressions.js`
 
 ## 根拠
 
@@ -44,3 +44,22 @@ Remove the panic-based public API or change it to return Result / unresolved dia
 ## 検証
 
 Add a focused regression that constructs or compiles a module with an unresolved trait call through the public monomorphize boundary and confirms diagnostics/structured errors are returned rather than panic. Keep existing compile pipeline unresolved-trait diagnostics green in GitHub Actions.
+
+## 対応結果
+
+2026-05-07 に修正済み。
+
+- panic する `monomorphize(ctx, module) -> HirModule` と unresolved を返す長い API の併存をやめ、公開入口を `monomorphize(ctx, module) -> MonomorphizeResult` に統一した。
+- `MonomorphizeResult` は `module` と `unresolved_trait_calls` を構造化して返すため、compiler pipeline は従来どおり `BackendDiagnosticCode::TraitCallUnresolved` へ写像できる。
+- `assert_no_trait_calls` と unresolved trait call の `panic!` path は削除した。
+- `compiler.rs`、Resource IR regression、check pipeline regression は新 API を使うように更新した。
+- `nodesrc/test_monomorphize_unresolved_api_policy.js` を追加し、panic-based unresolved trait handling と二重公開 API の再導入を source policy で拒否する。
+
+検証:
+
+- `cargo test -p nepl-core monomorphize::tests::public_monomorphize_returns_unresolved_trait_calls_without_panicking -- --nocapture`: passed
+- `cargo test -p nepl-core --test check_pipeline monomorphize_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed
+- `cargo test -p nepl-core --test check_pipeline resource_static_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed
+- `node nodesrc/test_resource_gate_order.js`: passed
+- `node nodesrc/test_monomorphize_unresolved_api_policy.js`: passed
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: passed

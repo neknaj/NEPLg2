@@ -1369,8 +1369,9 @@ pub fn prepare_module_for_codegen_with_source_map(
     let mut types = resource_tc.types;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
-    let (mut hir_module, resource_unresolved_trait_calls) =
-        monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, resource_tc.module);
+    let resource_monomorphize = monomorphize::monomorphize(&mut types, resource_tc.module);
+    let mut hir_module = resource_monomorphize.module;
+    let resource_unresolved_trait_calls = resource_monomorphize.unresolved_trait_calls;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_monomorphize", stage_start);
     if !resource_unresolved_trait_calls.is_empty() {
@@ -1400,8 +1401,9 @@ pub fn prepare_module_for_codegen_with_source_map(
     log_compile_stage_timing("insert_resource_drops", stage_start);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
-    let (hir_module, unresolved_trait_calls) =
-        monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, hir_module);
+    let codegen_monomorphize = monomorphize::monomorphize(&mut types, hir_module);
+    let hir_module = codegen_monomorphize.module;
+    let unresolved_trait_calls = codegen_monomorphize.unresolved_trait_calls;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("codegen_monomorphize", stage_start);
     if !unresolved_trait_calls.is_empty() {

@@ -34700,3 +34700,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test effects loader_does_not_mark_user_core_mem_path_by_suffix -- --nocapture`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 monomorphize unresolved trait API 修正
+
+- `ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C` として、公開 `monomorphize` API が unresolved trait call で `panic!` する問題を修正した。
+- panic する短縮 API と unresolved を返す長い API の併存をやめ、公開入口を `monomorphize(ctx, module) -> MonomorphizeResult` に統一した。
+- `MonomorphizeResult` は `module` と `unresolved_trait_calls` を構造化して返すため、compiler pipeline は `BackendDiagnosticCode::TraitCallUnresolved` へ変換できる。
+- `assert_no_trait_calls` と unresolved trait call の panic path は削除した。
+- `nodesrc/test_monomorphize_unresolved_api_policy.js` を追加し、panic-based unresolved trait handling と二重公開 API の再導入を拒否する。
+- [検証]:
+  - `cargo test -p nepl-core monomorphize::tests::public_monomorphize_returns_unresolved_trait_calls_without_panicking -- --nocapture`: passed
+  - `cargo test -p nepl-core --test check_pipeline monomorphize_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed
+  - `cargo test -p nepl-core --test check_pipeline resource_static_check_accepts_deep_prefix_chain_without_stack_overflow -- --nocapture`: passed
+  - `node nodesrc/test_resource_gate_order.js`: passed
+  - `node nodesrc/test_monomorphize_unresolved_api_policy.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

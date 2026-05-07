@@ -3885,8 +3885,8 @@ fn main <()->i32> ():
     ignore<Guard> Guard 7
 "#;
     let (module, mut types) = typecheck_resource_source(source);
-    let (module, unresolved_trait_calls) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    let (module, unresolved_trait_calls) = mono.into_parts();
     assert!(
         unresolved_trait_calls.is_empty(),
         "unresolved trait calls: {:#?}",
@@ -3952,8 +3952,8 @@ fn main <()->i32> ():
 "#;
     let (source_module, _) = typecheck_resource_source(source);
     let (module, mut types) = typecheck_resource_source(source);
-    let (module, unresolved_trait_calls) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    let (module, unresolved_trait_calls) = mono.into_parts();
     assert!(
         unresolved_trait_calls.is_empty(),
         "unresolved trait calls: {:#?}",
@@ -3988,8 +3988,8 @@ fn main <()->i32> ():
 "#;
     let (source_module, _) = typecheck_resource_source(source);
     let (module, mut types) = typecheck_resource_source(source);
-    let (module, unresolved_trait_calls) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    let (module, unresolved_trait_calls) = mono.into_parts();
     assert!(unresolved_trait_calls.is_empty());
     let resource = lower_hir_module(&module, &types);
     let report = check_resource_initialized_moves(&resource, &types);
@@ -4033,8 +4033,8 @@ fn main <()->i32> ():
 "#;
     let (source_module, _) = typecheck_resource_source(source);
     let (module, mut types) = typecheck_resource_source(source);
-    let (module, unresolved_trait_calls) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    let (module, unresolved_trait_calls) = mono.into_parts();
     assert!(unresolved_trait_calls.is_empty());
     let resource = lower_hir_module(&module, &types);
     let report = check_resource_initialized_moves(&resource, &types);
@@ -4339,8 +4339,8 @@ fn main <()->i32> ():
     0
 "#;
     let (module, mut types) = typecheck_resource_source(source);
-    let (mut module, unresolved_trait_calls) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    let (mut module, unresolved_trait_calls) = mono.into_parts();
     assert!(unresolved_trait_calls.is_empty());
     let resource = lower_hir_module(&module, &types);
     let report = check_resource_initialized_moves(&resource, &types);
@@ -4381,8 +4381,8 @@ fn main <()->i32> ():
         "assignment overwrite and scope exit should both be generated from checked drop facts"
     );
 
-    let (module, unresolved_trait_calls) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    let (module, unresolved_trait_calls) = mono.into_parts();
     assert!(
         unresolved_trait_calls.is_empty(),
         "generated Drop trait calls must be resolvable by the final monomorphize pass: {:#?}",
@@ -6197,8 +6197,8 @@ fn main <()*>i32> ():
 "#;
 
     let (module, mut types) = typecheck_resource_source(source);
-    let (module, unresolved_trait_calls) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    let (module, unresolved_trait_calls) = mono.into_parts();
     assert!(
         unresolved_trait_calls.is_empty(),
         "unresolved trait calls: {:#?}",
@@ -6247,8 +6247,8 @@ fn main <()*>()> ():
 "#;
 
     let (module, mut types) = typecheck_resource_source(source);
-    let (module, unresolved_trait_calls) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    let (module, unresolved_trait_calls) = mono.into_parts();
     assert!(
         unresolved_trait_calls.is_empty(),
         "unresolved trait calls: {:#?}",
@@ -15938,8 +15938,8 @@ fn main <()*>()> ():
 "#;
 
     let (module, mut types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
-    let (module, unresolved_trait_calls) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    let (module, unresolved_trait_calls) = mono.into_parts();
     assert!(
         unresolved_trait_calls.is_empty(),
         "unresolved trait calls: {:#?}",
@@ -16020,8 +16020,8 @@ fn main <()*>()> ():
 "#;
 
     let (module, mut types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
-    let (module, unresolved_trait_calls) =
-        nepl_core::monomorphize::monomorphize_with_unresolved_trait_calls(&mut types, module);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    let (module, unresolved_trait_calls) = mono.into_parts();
     assert!(
         unresolved_trait_calls.is_empty(),
         "unresolved trait calls: {:#?}",
