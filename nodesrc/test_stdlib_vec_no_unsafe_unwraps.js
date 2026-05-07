@@ -10,6 +10,7 @@ const relPaths = [
     'stdlib/alloc/collections/vec/types.nepl',
     'stdlib/alloc/collections/vec/storage.nepl',
     'stdlib/alloc/collections/vec/access.nepl',
+    'stdlib/alloc/collections/vec/raw.nepl',
     'stdlib/alloc/collections/vec/sort.nepl',
     'stdlib/alloc/collections/vec/sort/common.nepl',
     'stdlib/alloc/collections/vec/sort/simple.nepl',
@@ -64,7 +65,8 @@ const vecRootCode = codeByPath.get('stdlib/alloc/collections/vec.nepl');
 const vecTypesCode = codeByPath.get('stdlib/alloc/collections/vec/types.nepl');
 const vecStorageCode = codeByPath.get('stdlib/alloc/collections/vec/storage.nepl');
 const vecAccessCode = codeByPath.get('stdlib/alloc/collections/vec/access.nepl');
-const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecRootCode].join('\n');
+const vecRawCode = codeByPath.get('stdlib/alloc/collections/vec/raw.nepl');
+const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecRawCode, vecRootCode].join('\n');
 const sortMergeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge.nepl');
 const loaderCode = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 
@@ -94,6 +96,7 @@ assert.match(withCapacitySection, /if:\s+lt\s+cap\s+0\s+then:\s+Result::Err<Vec<
 assert.match(vecRootCode, /pub\s+#import\s+"\.\/vec\/types"\s+as\s+\*/, 'Vec root must re-export the types module');
 assert.match(vecRootCode, /#import\s+"\.\/vec\/storage"\s+as\s+vec_storage/, 'Vec root must delegate storage helpers to vec/storage.nepl');
 assert.match(vecRootCode, /#import\s+"\.\/vec\/access"\s+as\s+vec_access/, 'Vec root must delegate observer helpers to vec/access.nepl');
+assert.match(vecRootCode, /#import\s+"\.\/vec\/raw"\s+as\s+vec_raw/, 'Vec root must delegate raw storage helpers to vec/raw.nepl');
 for (const name of ['VecStorageState', 'Vec', 'VecDataLen', 'VecPop', 'VecPartition']) {
     assert.doesNotMatch(vecRootCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `Vec root must not own ${name}; it belongs in vec/types.nepl`);
     assert.match(vecTypesCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `vec/types.nepl must own ${name}`);
@@ -103,6 +106,9 @@ for (const name of ['vec_empty', 'vec_alloc_empty', 'vec_storage_mem_ptr', 'vec_
 }
 for (const name of ['len', 'cap', 'data_ptr', 'data_mem_ptr', 'data_len', 'is_empty']) {
     assert.match(vecAccessCode, new RegExp(`fn\\s+${name}\\b`), `vec/access.nepl must own ${name}`);
+}
+for (const name of ['vec_read_at', 'vec_write_at', 'vec_fold_impl', 'vec_reduce_impl', 'vec_find_impl', 'vec_take_while_len_impl', 'vec_write_prefix_impl']) {
+    assert.match(vecRawCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw.nepl must own ${name}`);
 }
 for (const [name, target] of [
     ['vec_empty', 'vec_storage::vec_empty<\\.T>'],
@@ -125,10 +131,22 @@ for (const [name, target] of [
 ]) {
     assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin access facade wrapper`);
 }
+for (const [name, target] of [
+    ['vec_read_at', 'vec_raw::vec_read_at<\\.T>\\s+data\\s+idx'],
+    ['vec_write_at', 'vec_raw::vec_write_at<\\.T>\\s+data\\s+idx\\s+item'],
+    ['vec_fold_impl', 'vec_raw::vec_fold_impl<\\.T,\\.U>\\s+data\\s+len\\s+idx\\s+acc\\s+f'],
+    ['vec_reduce_impl', 'vec_raw::vec_reduce_impl<\\.T>\\s+data\\s+len\\s+idx\\s+acc\\s+f'],
+    ['vec_find_impl', 'vec_raw::vec_find_impl<\\.T>\\s+data\\s+len\\s+idx\\s+p'],
+    ['vec_take_while_len_impl', 'vec_raw::vec_take_while_len_impl<\\.T>\\s+data\\s+len\\s+idx\\s+p'],
+    ['vec_write_prefix_impl', 'vec_raw::vec_write_prefix_impl<\\.T>\\s+src_data\\s+out_data\\s+src_from\\s+count'],
+]) {
+    assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin raw helper facade wrapper`);
+}
 assert.match(vecCode, /enum\s+VecStorageState:[\s\S]*Empty[\s\S]*Owned/, 'Vec storage owner state must be represented by an enum');
 for (const relPath of [
     /&\["alloc",\s*"collections",\s*"vec\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"access\.nepl"\]/,
+    /&\["alloc",\s*"collections",\s*"vec",\s*"raw\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"storage\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"types\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"common\.nepl"\]/,
