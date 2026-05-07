@@ -1,0 +1,54 @@
+//: # string/search/boundary
+//: UTF-8 byte boundary predicate
+//:
+//: [目的/もくてき]:
+//: - `str_slice_result` などが valid UTF-8 の途中 byte を切らないよう、byte index が文字境界かを判定します。
+//: - byte 比較や検索 loop とは別 module に置き、UTF-8 validator への依存をこの file に閉じます。
+//:
+//: [注意/ちゅうい]:
+//: - `s` 自体は valid UTF-8 である前提です。範囲外 index は `false` を返します。
+
+#indent 4
+
+#import "core/math" as *
+#import "alloc/string/access" as *
+#import "alloc/string/utf8" as *
+
+//: str_utf8_is_boundary: byte index が UTF-8 文字境界か判定する
+//:
+//: [目的/もくてき]:
+//: - `str_slice_result` が valid UTF-8 の途中 byte から新しい `str` を作らないようにします。
+//:
+//: [実装/じっそう]:
+//: - 0 と `len(s)` は常に境界として扱います。
+//: - それ以外の位置では、その byte が UTF-8 continuation byte でなければ境界です。
+//:
+//: [注意/ちゅうい]:
+//: - `s` 自体は valid UTF-8 である前提です。
+//: - 範囲外 index は `false` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn str_utf8_is_boundary <(str,i32)->bool> (s, idx):
+    let n <i32> len s;
+    if:
+        lt idx 0
+        then:
+            false
+        else:
+            if:
+                eq idx 0
+                then:
+                    true
+                else:
+                    if:
+                        eq idx n
+                        then:
+                            true
+                        else:
+                            if:
+                                lt n idx
+                                then:
+                                    false
+                                else:
+                                    not string_utf8_is_continuation string_byte_at_unchecked s idx

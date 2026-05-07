@@ -108,7 +108,7 @@ assertLiteralMatch({
 });
 
 assertLiteralMatch({
-    file: 'stdlib/alloc/string/search.nepl',
+    file: 'stdlib/alloc/string/search/compare.nepl',
     name: 'str_is_space',
     scrutinee: 'b',
     literals: ["' '", "'\\t'", "'\\n'", "'\\r'"],

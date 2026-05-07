@@ -1,0 +1,104 @@
+//: # string/search/byte_find
+//: byte 列検索
+//:
+//: [目的/もくてき]:
+//: - `str` 内の pattern の byte index を検索する処理を所有します。
+//: - prefix/suffix 比較や UTF-8 boundary predicate から分離し、検索 loop の計算量を監査しやすくします。
+//:
+//: [注意/ちゅうい]:
+//: - 戻り値は byte index です。UTF-8 の文字 index ではありません。
+
+#indent 4
+
+#import "core/math" as *
+#import "alloc/string/access" as *
+
+//: str_match_at: split/search 用の位置一致判定
+//:
+//: [目的/もくてき]:
+//: - `s` の `pos` から `sep` が始まるかを byte 列で判定します。
+//:
+//: [実装/じっそう]:
+//: - `sep_len` byte 分を先頭から順に比較し、不一致があれば loop を止めます。
+//:
+//: [注意/ちゅうい]:
+//: - 呼び出し側が `pos + sep_len <= len(s)` を保証する内部 helper です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(sep_len)
+fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
+    let mut i <i32> 0;
+    let mut ok <i32> 1;
+    while lt i sep_len:
+        do:
+            let rd_off <i32> add pos i;
+            let bs <i32> string_byte_at_unchecked s rd_off;
+            let bp <i32> string_byte_at_unchecked sep i;
+            if:
+                eq bs bp
+                then set i <i32> add i 1
+                else:
+                    set ok 0
+                    set i sep_len
+    eq ok 1
+
+//: str_find: byte 列として最初に一致する位置を返す
+//:
+//: [目的/もくてき]:
+//: - `s` の中で `pat` が最初に現れる byte index を返します。
+//: - 見つからない場合は `-1` を返します。
+//:
+//: [実装/じっそう]:
+//: - 先頭から候補位置を 1 byte ずつ進め、内部 helper `str_match_at` で byte 列一致を調べます。
+//: - `pat` が空文字列の場合は、標準的な検索 API と同じく `0` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - 戻り値は byte index です。UTF-8 の文字 index ではありません。
+//: - parser の delimiter 検索のように、所有 `Vec<str>` を作らず位置だけ欲しい用途で使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - n を `s` の byte 長、m を `pat` の byte 長として O(n * m) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/string" as *
+//: fn main <()*>i32> ():
+//:     let checks:
+//:         checks_new
+//:         |> checks_push check_eq_i32 2 str_find "abcabc" "ca"
+//:         |> checks_push check_eq_i32 0 str_find "abc" ""
+//:         |> checks_push check_eq_i32 -1 str_find "abc" "z"
+//:         |> checks_push check_eq_i32 -1 str_find "ab" "abc"
+//:     checks_exit_code checks
+//: ```
+fn str_find <(str,str)->i32> (s, pat):
+    let s_len <i32> len s
+    let pat_len <i32> len pat
+    if:
+        eq pat_len 0
+        then:
+            0
+        else:
+            if:
+                lt s_len pat_len
+                then:
+                    -1
+                else:
+                    let mut i <i32> 0
+                    let mut found <i32> -1
+                    let mut done <i32> 0
+                    let mut scan_end <i32> pat_len
+                    while and eq done 0 le scan_end s_len:
+                        do:
+                            if:
+                                str_match_at s pat i pat_len
+                                then:
+                                    set found i
+                                    set done 1
+                                else:
+                                    set i add i 1
+                                    set scan_end add i pat_len
+                    found

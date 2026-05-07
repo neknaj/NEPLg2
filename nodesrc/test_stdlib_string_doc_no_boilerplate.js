@@ -13,6 +13,12 @@ const builderRelPath = 'stdlib/alloc/string/builder.nepl';
 const builderSrc = fs.readFileSync(path.join(repoRoot, builderRelPath), 'utf8');
 const searchRelPath = 'stdlib/alloc/string/search.nepl';
 const searchSrc = fs.readFileSync(path.join(repoRoot, searchRelPath), 'utf8');
+const searchCompareRelPath = 'stdlib/alloc/string/search/compare.nepl';
+const searchCompareSrc = fs.readFileSync(path.join(repoRoot, searchCompareRelPath), 'utf8');
+const searchBoundaryRelPath = 'stdlib/alloc/string/search/boundary.nepl';
+const searchBoundarySrc = fs.readFileSync(path.join(repoRoot, searchBoundaryRelPath), 'utf8');
+const searchByteFindRelPath = 'stdlib/alloc/string/search/byte_find.nepl';
+const searchByteFindSrc = fs.readFileSync(path.join(repoRoot, searchByteFindRelPath), 'utf8');
 const sliceRelPath = 'stdlib/alloc/string/slice.nepl';
 const sliceSrc = fs.readFileSync(path.join(repoRoot, sliceRelPath), 'utf8');
 const splitRelPath = 'stdlib/alloc/string/split.nepl';
@@ -49,6 +55,9 @@ for (const [sourceRelPath, sourceText] of [
     [accessRelPath, accessSrc],
     [builderRelPath, builderSrc],
     [searchRelPath, searchSrc],
+    [searchCompareRelPath, searchCompareSrc],
+    [searchBoundaryRelPath, searchBoundarySrc],
+    [searchByteFindRelPath, searchByteFindSrc],
     [sliceRelPath, sliceSrc],
     [splitRelPath, splitSrc],
     [integerRelPath, integerSrc],

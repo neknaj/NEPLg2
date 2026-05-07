@@ -1,0 +1,239 @@
+//: # string/search/compare
+//: byte 列比較・prefix/suffix 判定
+//:
+//: [目的/もくてき]:
+//: - `str` 同士の byte 等価性、prefix/suffix、指定範囲一致をまとめます。
+//: - parser や slice が使う位置比較の基礎を、検索 loop や UTF-8 boundary 判定から分離します。
+//:
+//: [注意/ちゅうい]:
+//: - 比較は byte index / byte sequence 単位です。Unicode 正規化や locale 比較は行いません。
+
+#indent 4
+
+#import "core/math" as *
+#import "alloc/string/access" as *
+
+//: str_eq: 2 つの文字列が byte 列として等しいか判定する
+//:
+//: [目的/もくてき]:
+//: - `a` と `b` の内容が完全に同じなら `true` を返します。
+//:
+//: [実装/じっそう]:
+//: - 先に byte 長を比較し、一致した場合だけ本文を先頭から 1 byte ずつ比較します。
+//:
+//: [注意/ちゅうい]:
+//: - 大文字小文字の正規化、Unicode 正規化、locale 依存比較は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn str_eq <(str,str)->bool> (a,b):
+    let la <i32> len a;
+    let lb <i32> len b;
+    if:
+        eq la lb
+        then str_eq_loop a b la 0
+        else false
+
+//: str_eq_loop: 先頭から n byte を比較する内部ループ
+//:
+//: [目的/もくてき]:
+//: - `str_eq`、prefix/suffix 判定、検索補助から使う共通の byte 比較処理です。
+//:
+//: [実装/じっそう]:
+//: - index `i` から `n` まで 1 byte ずつ読み、一致しない byte を見つけた時点で `false` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - 呼び出し側が `a` と `b` の対象範囲を保証する内部 helper です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,n,i):
+    if:
+        eq i n
+        then:
+            true
+        else:
+            let ba <i32> string_byte_at_unchecked a i;
+            let bb <i32> string_byte_at_unchecked b i;
+            if:
+                eq ba bb
+                then str_eq_loop a b n <i32> add i 1
+                else false
+
+//: str_is_space: ASCII 空白 byte か判定する
+//:
+//: [目的/もくてき]:
+//: - trim や簡易 scanner で使う ASCII 空白判定を提供します。
+//:
+//: [実装/じっそう]:
+//: - space、tab、LF、CR の byte 値だけを char literal の match で分類します。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 の空白文字全般は扱いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn str_is_space <(i32)->bool> (b):
+    match b:
+        ' ':
+            true
+        '\t':
+            true
+        '\n':
+            true
+        '\r':
+            true
+        _:
+            false
+
+//: str_starts_with: 先頭 byte 列が prefix と一致するか判定する
+//:
+//: [目的/もくてき]:
+//: - `s` が `prefix` で始まるかを調べます。
+//:
+//: [実装/じっそう]:
+//: - `prefix` が `s` より長い場合は即座に `false` を返し、それ以外は前方 byte を比較します。
+//:
+//: [注意/ちゅうい]:
+//: - 比較は UTF-8 文字単位ではなく byte 列単位です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(len(prefix))
+fn str_starts_with <(str,str)->bool> (s, prefix):
+    let ls <i32> len s;
+    let lp <i32> len prefix;
+    if:
+        lt ls lp
+        then false
+        else str_eq_loop s prefix lp 0
+
+//: str_eq_at: 指定 byte 位置から pat と一致するか判定する
+//:
+//: [目的/もくてき]:
+//: - `s[start..start+n]` と `pat[0..n]` の byte 列一致を調べます。
+//:
+//: [実装/じっそう]:
+//: - `i` を増やしながら `s` と `pat` の対応 byte を比較します。
+//:
+//: [注意/ちゅうい]:
+//: - 呼び出し側が `start + n <= len(s)` と `n <= len(pat)` を保証する内部 helper です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
+    if:
+        eq i n
+        then true
+        else:
+            let s_off <i32> add start i;
+            let bs <i32> string_byte_at_unchecked s s_off;
+            let bp <i32> string_byte_at_unchecked pat i;
+            if:
+                eq bs bp
+                then str_eq_at s pat start n <i32> add i 1
+                else false
+
+//: str_starts_with_at: 指定 byte 位置から prefix が始まるか判定する
+//:
+//: [目的/もくてき]:
+//: - scanner や parser が `s[start..]` の先頭を literal prefix と比較するときの安全な入口です。
+//: - 呼び出し側に `prefix` の長さや内部 loop index を渡させず、範囲確認をこの関数に閉じ込めます。
+//:
+//: [実装/じっそう]:
+//: - `start` が負、または `s` の末尾を越える場合は `false` を返します。
+//: - `prefix` が残り byte 数より長い場合は `false`、それ以外は `str_eq_at` で byte 比較します。
+//:
+//: [注意/ちゅうい]:
+//: - 比較は UTF-8 文字単位ではなく byte 列単位です。
+//: - `prefix` が空文字列なら、`0 <= start <= len(s)` のとき `true` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(len(prefix))
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/string" as *
+//: fn main <()*>i32> ():
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert str_starts_with_at "abc" 0 "ab"
+//:         |> checks_push assert str_starts_with_at "abc" 1 "bc"
+//:         |> checks_push assert str_starts_with_at "abc" 3 ""
+//:         |> checks_push assert not str_starts_with_at "abc" -1 "a"
+//:         |> checks_push assert not str_starts_with_at "abc" 2 "bc"
+//:         |> checks_push assert not str_starts_with_at "abc" 4 ""
+//:     checks_exit_code checks
+//: ```
+fn str_starts_with_at <(str,i32,str)->bool> (s, start, prefix):
+    let ls <i32> len s;
+    let lp <i32> len prefix;
+    if:
+        lt start 0
+        then:
+            false
+        else:
+            if:
+                gt start ls
+                then:
+                    false
+                else:
+                    if:
+                        lt sub ls start lp
+                        then:
+                            false
+                        else:
+                            str_eq_at s prefix start lp 0
+
+//: str_ends_with: 末尾 byte 列が suffix と一致するか判定する
+//:
+//: [目的/もくてき]:
+//: - `s` が `suffix` で終わるかを調べます。
+//:
+//: [実装/じっそう]:
+//: - `suffix` が `s` より長い場合は `false`、それ以外は末尾開始位置から byte 比較します。
+//:
+//: [注意/ちゅうい]:
+//: - 比較は byte 列単位です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(len(suffix))
+fn str_ends_with <(str,str)->bool> (s, suffix):
+    let ls <i32> len s;
+    let lp <i32> len suffix;
+    if:
+        lt ls lp
+        then false
+        else:
+            let start <i32> sub ls lp;
+            str_eq_at s suffix start lp 0
+
+//: str_range_eq: 指定 byte 範囲が pattern と一致するか判定する
+//:
+//: [目的/もくてき]:
+//: - `s[start..end]` と `pat` の byte 列が同じかどうかを調べます。
+//:
+//: [実装/じっそう]:
+//: - 範囲と長さを確認し、長さが一致する場合だけ `str_eq_at` で比較します。
+//:
+//: [注意/ちゅうい]:
+//: - 比較は byte 単位です。範囲外や逆順の範囲は `false` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(len(pat))
+fn str_range_eq <(str,i32,i32,str)->bool> (s, start, end, pat):
+    let n <i32> len s
+    let pat_len <i32> len pat
+    if:
+        or lt start 0 or lt end start lt n end
+        then:
+            false
+        else:
+            if:
+                ne sub end start pat_len
+                then:
+                    false
+                else:
+                    str_eq_at s pat start pat_len 0

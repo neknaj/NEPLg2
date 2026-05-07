@@ -16,6 +16,31 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string search compare/boundary/byte_find split)
+
+- branch `refactor/string-search-module-split` で、`stdlib/alloc/string/search.nepl` を facade 化し、byte 比較、UTF-8 boundary、byte find loop を submodule へ分離した。
+- `stdlib/alloc/string/search/compare.nepl` は `str_eq` / prefix / suffix / range equality を所有する。
+- `stdlib/alloc/string/search/boundary.nepl` は `str_utf8_is_boundary` を所有し、UTF-8 continuation 判定への依存をこの module に閉じた。
+- `stdlib/alloc/string/search/byte_find.nepl` は `str_match_at` / `str_find` の byte search loop を所有する。
+- `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_string_doc_no_boilerplate.js` を新 submodule へ追従し、facade に実装本体が戻らないことを固定した。
+- line count は `search.nepl` 15、`search/compare.nepl` 240、`search/boundary.nepl` 55、`search/byte_find.nepl` 105。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_string_facade_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_search_boundary.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string/search.nepl -i stdlib/alloc/string/search/compare.nepl -i stdlib/alloc/string/search/boundary.nepl -i stdlib/alloc/string/search/byte_find.nepl --no-tree -o tmp/string-search-module-split-focused.json -j 1 --dist web/dist`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/alloc/string/slice.nepl -i stdlib/alloc/string/split.nepl -i stdlib/alloc/string/find.nepl --no-tree -o tmp/string-search-module-split-callers.json -j 1 --dist web/dist`: total=3, passed=3
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md -i tests/stdlib/string_extra.n.md -i tests/stdlib/string_char.n.md --no-tree -o tmp/string-search-module-split-suite.json -j 1 --dist web/dist`: total=12, passed=12
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdlib/string/search 関連 policy は passed。remote main `cc5d7662` 取り込み後の full run では別件として `lower_aggregate_projection.rs has 204 lines; responsibility split limit is 180` warning が残る。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`core/mem.nepl`、selfhost compiler の巨大 file などの分割対象は残る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T105015762Z btree array cost borrowed observers)
 
 - branch `fix/btree-array-cost-borrowed-observers` で、BTree observer API 借用化後に `tests/stdlib/btree_array_cost.n.md` が stale になっていた問題を修正した。
