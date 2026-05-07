@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T05:10:11.012Z",
+  "generated_at": "2026-05-07T05:16:09.669Z",
   "counts": {
-    "total": 561,
-    "open": 12,
+    "total": 562,
+    "open": 13,
     "resolved": 549,
     "by_area": {
       "core": {
-        "total": 279,
-        "open": 4,
+        "total": 280,
+        "open": 5,
         "resolved": 275
       },
       "stdlib": {
@@ -133,6 +133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260507T051545017Z-CELL-STATE-RAW-RANGE-EXCEEDS-SPLIT-L-76536EAC",
+      "title": "cell_state_raw_range exceeds split limit again after realloc range transfer",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/cell_state_raw_range.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T051545017Z-CELL-STATE-RAW-RANGE-EXCEEDS-SPLIT-L-76536EAC.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
