@@ -5,6 +5,17 @@
 - `nepl-core/tests/resource_ir.rs` に `resource_ir_cell_check_applies_result_ok_region_ptr_direct_store_initialization` と `resource_ir_cell_check_applies_result_ok_region_ptr_at_direct_store_initialization` を追加し、RawMemoryLoadCell strictness を緩めずに回帰を固定した。
 - `ISS-20260507T023409425Z-RESOURCE-IR-MISSES-DIRECT-MEMPTR-STO-8DEA4710` は現行実装で解消済みかつ回帰テスト追加済みとして fixed に更新した。
 
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 Vec transform/query split)
+
+- branch `refactor/vec-query-transform-modules` で `stdlib/alloc/collections/vec.nepl` の owner-consuming transform 群と borrowed query 群を submodule へ分離した。
+- `stdlib/alloc/collections/vec/transform.nepl` は `map` / `filter` / `partition` / `take_while` / `drop_while` を所有する。
+- `stdlib/alloc/collections/vec/query.nepl` は `count` / `fold` / `reduce` / `find` / `any` / `all` を所有する。
+- root `vec.nepl` は transform/query API について root namespace 互換 wrapper だけを持ち、`vec_transform::` / `vec_query::` に委譲する。
+- `nepl-core/src/loader.rs` の exact raw-memory boundary に `alloc/collections/vec/transform.nepl` と `alloc/collections/vec/query.nepl` を追加した。現行 `Vec` はまだ `MemPtr<T>` storage owner を持つため、submodule 分割後も exact path で raw storage discipline を管理する。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` を更新し、transform/query 実装が root に戻らないこと、root wrapper が submodule へ委譲すること、loader boundary が分割先を含むことを固定した。
+- `vec.nepl` root は 623 行まで縮小した。`vec/transform.nepl` は 369 行、`vec/query.nepl` は 304 行。
+- 検証は `trunk build`、Vec source policy、transform/query/root focused doctest、既存 Vec suite、`issues.js check`、source policy regression、`cargo check -p nepl-core --tests`、`cargo test -p nepl-core --test effects` が通過した。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 Vec raw helper split)
 
 - branch `refactor/vec-raw-helper-module` で `stdlib/alloc/collections/vec.nepl` の raw `MemPtr<T>` load/store helper と scan/fold helper を `stdlib/alloc/collections/vec/raw.nepl` へ分離した。

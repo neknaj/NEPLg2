@@ -11,6 +11,8 @@ const relPaths = [
     'stdlib/alloc/collections/vec/storage.nepl',
     'stdlib/alloc/collections/vec/access.nepl',
     'stdlib/alloc/collections/vec/raw.nepl',
+    'stdlib/alloc/collections/vec/transform.nepl',
+    'stdlib/alloc/collections/vec/query.nepl',
     'stdlib/alloc/collections/vec/sort.nepl',
     'stdlib/alloc/collections/vec/sort/common.nepl',
     'stdlib/alloc/collections/vec/sort/simple.nepl',
@@ -66,7 +68,9 @@ const vecTypesCode = codeByPath.get('stdlib/alloc/collections/vec/types.nepl');
 const vecStorageCode = codeByPath.get('stdlib/alloc/collections/vec/storage.nepl');
 const vecAccessCode = codeByPath.get('stdlib/alloc/collections/vec/access.nepl');
 const vecRawCode = codeByPath.get('stdlib/alloc/collections/vec/raw.nepl');
-const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecRawCode, vecRootCode].join('\n');
+const vecTransformCode = codeByPath.get('stdlib/alloc/collections/vec/transform.nepl');
+const vecQueryCode = codeByPath.get('stdlib/alloc/collections/vec/query.nepl');
+const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecRawCode, vecTransformCode, vecQueryCode, vecRootCode].join('\n');
 const sortMergeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge.nepl');
 const loaderCode = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 
@@ -97,6 +101,8 @@ assert.match(vecRootCode, /pub\s+#import\s+"\.\/vec\/types"\s+as\s+\*/, 'Vec roo
 assert.match(vecRootCode, /#import\s+"\.\/vec\/storage"\s+as\s+vec_storage/, 'Vec root must delegate storage helpers to vec/storage.nepl');
 assert.match(vecRootCode, /#import\s+"\.\/vec\/access"\s+as\s+vec_access/, 'Vec root must delegate observer helpers to vec/access.nepl');
 assert.match(vecRootCode, /#import\s+"\.\/vec\/raw"\s+as\s+vec_raw/, 'Vec root must delegate raw storage helpers to vec/raw.nepl');
+assert.match(vecRootCode, /#import\s+"\.\/vec\/transform"\s+as\s+vec_transform/, 'Vec root must delegate transform helpers to vec/transform.nepl');
+assert.match(vecRootCode, /#import\s+"\.\/vec\/query"\s+as\s+vec_query/, 'Vec root must delegate query helpers to vec/query.nepl');
 for (const name of ['VecStorageState', 'Vec', 'VecDataLen', 'VecPop', 'VecPartition']) {
     assert.doesNotMatch(vecRootCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `Vec root must not own ${name}; it belongs in vec/types.nepl`);
     assert.match(vecTypesCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `vec/types.nepl must own ${name}`);
@@ -109,6 +115,12 @@ for (const name of ['len', 'cap', 'data_ptr', 'data_mem_ptr', 'data_len', 'is_em
 }
 for (const name of ['vec_read_at', 'vec_write_at', 'vec_fold_impl', 'vec_reduce_impl', 'vec_find_impl', 'vec_take_while_len_impl', 'vec_write_prefix_impl']) {
     assert.match(vecRawCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw.nepl must own ${name}`);
+}
+for (const name of ['map', 'filter', 'partition', 'take_while', 'drop_while']) {
+    assert.match(vecTransformCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform.nepl must own ${name}`);
+}
+for (const name of ['count', 'fold', 'reduce', 'find', 'any', 'all']) {
+    assert.match(vecQueryCode, new RegExp(`fn\\s+${name}\\b`), `vec/query.nepl must own ${name}`);
 }
 for (const [name, target] of [
     ['vec_empty', 'vec_storage::vec_empty<\\.T>'],
@@ -142,12 +154,33 @@ for (const [name, target] of [
 ]) {
     assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin raw helper facade wrapper`);
 }
+for (const [name, target] of [
+    ['map', 'vec_transform::map<\\.T,\\.U>\\s+v\\s+f'],
+    ['filter', 'vec_transform::filter<\\.T>\\s+v\\s+p'],
+    ['partition', 'vec_transform::partition<\\.T>\\s+v\\s+p'],
+    ['take_while', 'vec_transform::take_while<\\.T>\\s+v\\s+p'],
+    ['drop_while', 'vec_transform::drop_while<\\.T>\\s+v\\s+p'],
+]) {
+    assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin transform facade wrapper`);
+}
+for (const [name, target] of [
+    ['count', 'vec_query::count<\\.T>\\s+v\\s+p'],
+    ['fold', 'vec_query::fold<\\.T,\\.U>\\s+v\\s+acc\\s+f'],
+    ['reduce', 'vec_query::reduce<\\.T>\\s+v\\s+f'],
+    ['find', 'vec_query::find<\\.T>\\s+v\\s+p'],
+    ['any', 'vec_query::any<\\.T>\\s+v\\s+p'],
+    ['all', 'vec_query::all<\\.T>\\s+v\\s+p'],
+]) {
+    assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin query facade wrapper`);
+}
 assert.match(vecCode, /enum\s+VecStorageState:[\s\S]*Empty[\s\S]*Owned/, 'Vec storage owner state must be represented by an enum');
 for (const relPath of [
     /&\["alloc",\s*"collections",\s*"vec\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"access\.nepl"\]/,
+    /&\["alloc",\s*"collections",\s*"vec",\s*"query\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"raw\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"storage\.nepl"\]/,
+    /&\["alloc",\s*"collections",\s*"vec",\s*"transform\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"types\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"common\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge\.nepl"\]/,
