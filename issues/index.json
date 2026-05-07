@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T09:39:26.544Z",
+  "generated_at": "2026-05-07T09:46:20.628Z",
   "counts": {
     "total": 574,
-    "open": 13,
-    "resolved": 561,
+    "open": 12,
+    "resolved": 562,
     "by_area": {
       "core": {
         "total": 285,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 163,
-        "open": 8,
-        "resolved": 155
+        "open": 7,
+        "resolved": 156
       },
       "TEST": {
         "total": 15,
@@ -193,21 +193,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260507T092629042Z-BINARYHEAP-KEEPS-DUPLICATE-BY-VALUE--31161123",
-      "title": "BinaryHeap keeps duplicate by-value and *_ref observer APIs",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "stdlib/alloc/collections/binary_heap.nepl, stdlib/tests/binary_heap.n.md, tests/stdlib/binary_heap_collections.n.md, nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T092629042Z-BINARYHEAP-KEEPS-DUPLICATE-BY-VALUE--31161123.md"
     },
     {
       "id": "ISS-20260507T092629151Z-BTREEMAP-AND-BTREESET-KEEP-DUPLICATE-CEEF7344",
@@ -6418,6 +6403,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T091737456Z-QUEUE-AND-DEQUE-KEEP-DUPLICATE-BY-VA-48ACFE57.md"
+    },
+    {
+      "id": "ISS-20260507T092629042Z-BINARYHEAP-KEEPS-DUPLICATE-BY-VALUE--31161123",
+      "title": "BinaryHeap keeps duplicate by-value and *_ref observer APIs",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "stdlib/alloc/collections/binary_heap.nepl, stdlib/tests/binary_heap.n.md, tests/stdlib/binary_heap_collections.n.md, nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T092629042Z-BINARYHEAP-KEEPS-DUPLICATE-BY-VALUE--31161123.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -22,17 +22,19 @@ fn main <()*>i32> ():
         |> push 9 |> uwok
         |> push 1 |> uwok
         |> push 7 |> uwok
-    let ok0 <bool> eq len hp0 4;
+    let ok0 <bool> eq len<i32> &hp0 4;
+    free<i32> hp0;
     let hp1 <BinaryHeap<i32>>:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
-    let ok1 <bool> match peek hp1:
+    let ok1 <bool> match peek<i32> &hp1:
         Option::Some v:
             eq v 9
         Option::None:
             false
+    free<i32> hp1;
     let hp2 <BinaryHeap<i32>>:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 4 |> uwok
@@ -64,7 +66,8 @@ ret: 1
 
 fn main <()*>i32> ():
     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 8;
-    let ok0 <bool> is_empty hp0;
+    let ok0 <bool> is_empty<i32> &hp0;
+    free<i32> hp0;
     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
     let ok1 <bool> match pop hp1:
         Option::Some _:
@@ -74,7 +77,7 @@ fn main <()*>i32> ():
     if and ok0 ok1 1 0
 ```
 
-## binary_heap_ref_reads_preserve_owner
+## binary_heap_borrowed_reads_preserve_owner
 
 neplg2:test
 ret: 1
@@ -95,8 +98,8 @@ fn main <()*>i32> ():
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
-    let ok_len <bool> eq len_ref<i32> &hp 3;
-    let ok_peek <bool> match peek_ref<i32> &hp:
+    let ok_len <bool> eq len<i32> &hp 3;
+    let ok_peek <bool> match peek<i32> &hp:
         Option::Some v:
             eq v 9
         Option::None:
@@ -135,8 +138,8 @@ fn main <()*>i32> ():
             eq v 9
         Option::None:
             false
-    let ok_len <bool> eq len_ref<i32> &hp1 2;
-    let ok_peek <bool> match peek_ref<i32> &hp1:
+    let ok_len <bool> eq len<i32> &hp1 2;
+    let ok_peek <bool> match peek<i32> &hp1:
         Option::Some v:
             eq v 4
         Option::None:

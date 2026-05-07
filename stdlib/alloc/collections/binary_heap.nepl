@@ -16,11 +16,12 @@
 //: - [順序/じゅんじょ]は `Ord::lt` に[従/したが]います。`ord_lt a b` が true なら `b` の[方/ほう]が[優先/ゆうせん]されます。
 //: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には heap payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
 //: - `new` / `with_capacity` / `push` は `Result` を[返/かえ]します。
-//: - `peek` / `pop` / `len` / `cap` / `is_empty` は heap を[値/あたい]で[消費/しょうひ]し、内部 storage を[閉/と]じます。owner を[残/のこ]す[読/よ]み[取/と]りは `*_ref` API を[使/つか]います。
+//: - `peek` / `len` / `cap` / `is_empty` は heap を[借用/しゃくよう]して[観測/かんそく]します。観測後の owner は caller が `free` または更新 API で[閉/と]じます。
+//: - `pop` は terminal API として heap owner を[消費/しょうひ]し、内部 storage を[閉/と]じて[値/あたい]だけを[返/かえ]します。
 //: - `pop_max` は[更新後/こうしんご]の owner と[取/と]り[出/だ]した `Option<T>` を[同時/どうじ]に[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
-//: - `len_ref` / `cap_ref` / `is_empty_ref` / `peek_ref` は O(1) です。
+//: - `len` / `cap` / `is_empty` / `peek` は O(1) です。
 //: - `push` / `pop_max` は O(log n) です。
 //: - `new` / `with_capacity` / `free` は O(n) です。storage 全 slot を `None` で[初期化/しょきか]するためです。
 
@@ -193,7 +194,9 @@ fn heap_copy_live_slots <.T: Copy> <(&Vec<Option<.T>>,&Vec<Option<.T>>,i32)*>()>
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let hp <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
-//:     if eq len hp 0 1 0
+//:     let ok <bool> eq len<i32> &hp 0
+//:     free<i32> hp
+//:     if ok 1 0
 //: ```
 fn new <.T: Copy> <()*>Result<BinaryHeap<.T>, Diag>> ():
     with_capacity<.T> 8
@@ -210,9 +213,9 @@ fn new <.T: Copy> <()*>Result<BinaryHeap<.T>, Diag>> ():
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 16;
-//:     let ok0 <bool> eq len hp0 0;
-//:     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 16;
-//:     let ok1 <bool> eq cap hp1 16;
+//:     let ok0 <bool> eq len<i32> &hp0 0;
+//:     let ok1 <bool> eq cap<i32> &hp0 16;
+//:     free<i32> hp0;
 //:     if and ok0 ok1 1 0
 //: ```
 fn with_capacity <.T: Copy> <(i32)*>Result<BinaryHeap<.T>, Diag>> (cap):
@@ -224,40 +227,19 @@ fn with_capacity <.T: Copy> <(i32)*>Result<BinaryHeap<.T>, Diag>> (cap):
             err<BinaryHeap<.T>, Diag> e
 
 //: ## len
-//: heap を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
-fn len <.T> <(BinaryHeap<.T>)->i32> (hp):
-    let n <i32> len_ref<.T> &hp
-    free<.T> hp
-    n
-
-//: ## len_ref
 //: heap を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
-fn len_ref <.T> <(&BinaryHeap<.T>)->i32> (hp):
+fn len <.T> <(&BinaryHeap<.T>)->i32> (hp):
     *field::get_ref hp "len"
 
 //: ## cap
-//: heap を[消費/しょうひ]して[容量/ようりょう]を[返/かえ]す
-fn cap <.T> <(BinaryHeap<.T>)->i32> (hp):
-    let n <i32> cap_ref<.T> &hp
-    free<.T> hp
-    n
-
-//: ## cap_ref
 //: heap を[移動/いどう]せずに[容量/ようりょう]を[返/かえ]す
-fn cap_ref <.T> <(&BinaryHeap<.T>)->i32> (hp):
+fn cap <.T> <(&BinaryHeap<.T>)->i32> (hp):
     *field::get_ref hp "cap"
 
 //: ## is_empty
-//: heap を[消費/しょうひ]して[空/から]かどうかを[返/かえ]す
-fn is_empty <.T> <(BinaryHeap<.T>)->bool> (hp):
-    let ok <bool> is_empty_ref<.T> &hp
-    free<.T> hp
-    ok
-
-//: ## is_empty_ref
 //: heap を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
-fn is_empty_ref <.T> <(&BinaryHeap<.T>)->bool> (hp):
-    eq len_ref<.T> hp 0
+fn is_empty <.T> <(&BinaryHeap<.T>)->bool> (hp):
+    eq len<.T> hp 0
 
 //: ## push
 //: [要素/ようそ]を[追加/ついか]する
@@ -276,11 +258,13 @@ fn is_empty_ref <.T> <(&BinaryHeap<.T>)->bool> (hp):
 //:     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp0 2;
 //:     let hp2 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp1 7;
 //:     let hp3 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp2 5;
-//:     match peek<i32> hp3:
+//:     let ok <bool> match peek<i32> &hp3:
 //:         Option::Some v:
-//:             if eq v 7 1 0
+//:             eq v 7
 //:         Option::None:
-//:             0
+//:             false
+//:     free<i32> hp3
+//:     if ok 1 0
 //: ```
 fn push <.T: Ord&Copy> <(BinaryHeap<.T>,.T)*>Result<BinaryHeap<.T>, Diag>> (hp, item):
     let len0 <i32> *field::get_ref &hp "len"
@@ -306,7 +290,7 @@ fn push <.T: Ord&Copy> <(BinaryHeap<.T>,.T)*>Result<BinaryHeap<.T>, Diag>> (hp, 
             ok<BinaryHeap<.T>, Diag> BinaryHeap<.T> add len0 1 cap0 items
 
 //: ## peek
-//: heap を[消費/しょうひ]して[最大/さいだい][要素/ようそ]を[読/よ]む
+//: heap を[移動/いどう]せずに[最大/さいだい][要素/ようそ]を[読/よ]む
 //:
 //: neplg2:test
 //: ```neplg2
@@ -321,20 +305,15 @@ fn push <.T: Ord&Copy> <(BinaryHeap<.T>,.T)*>Result<BinaryHeap<.T>, Diag>> (hp, 
 //:     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
 //:     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp0 4;
 //:     let hp2 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp1 9;
-//:     match peek<i32> hp2:
+//:     let ok <bool> match peek<i32> &hp2:
 //:         Option::Some v:
-//:             if eq v 9 1 0
+//:             eq v 9
 //:         Option::None:
-//:             0
+//:             false
+//:     free<i32> hp2
+//:     if ok 1 0
 //: ```
-fn peek <.T: Copy> <(BinaryHeap<.T>)->Option<.T>> (hp):
-    let item <Option<.T>> peek_ref<.T> &hp
-    free<.T> hp
-    item
-
-//: ## peek_ref
-//: heap を[移動/いどう]せずに[最大/さいだい][要素/ようそ]を[読/よ]む
-fn peek_ref <.T: Copy> <(&BinaryHeap<.T>)->Option<.T>> (hp):
+fn peek <.T: Copy> <(&BinaryHeap<.T>)->Option<.T>> (hp):
     let len0 <i32> *field::get_ref hp "len"
     if:
         eq len0 0

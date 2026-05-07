@@ -31,11 +31,12 @@ fn main <()*>i32> ():
         |> push 3 |> uwok
         |> push 8 |> uwok
         |> push 5 |> uwok
-    let ok0 <bool> match hp0 |> peek:
+    let ok0 <bool> match peek<i32> &hp0:
         Option::Some v:
             eq v 8
         Option::None:
             false
+    free<i32> hp0;
     let hp1 <BinaryHeap<i32>>:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 3 |> uwok
@@ -91,9 +92,11 @@ ret: 1
 fn main <()*>i32> ():
     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 0;
     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp0 42;
-    match peek<i32> hp1:
+    let ok <bool> match peek<i32> &hp1:
         Option::Some v:
-            if eq v 42 1 0
+            eq v 42
         Option::None:
-            0
+            false
+    free<i32> hp1;
+    if ok 1 0
 ```

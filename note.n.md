@@ -33944,3 +33944,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/deque.nepl -i stdlib/tests/queue.n.md -i stdlib/tests/deque.n.md -i tests/stdlib/queue_collections.n.md -i tests/stdlib/deque_collections.n.md -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/queue-deque-borrowed-primary-observers.json -j 1 --dist web/dist`: total=18, passed=18
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 BinaryHeap primary borrowed observers
+
+- `ISS-20260507T092629042Z-BINARYHEAP-KEEPS-DUPLICATE-BY-VALUE--31161123` を fixed/resolved に更新した。
+- `BinaryHeap` は primary observer の `len` / `cap` / `is_empty` / `peek` が owner を値で受け取り、同じ用途の `len_ref` / `cap_ref` / `is_empty_ref` / `peek_ref` が借用版として併存していた。
+- `len` / `cap` / `is_empty` / `peek` を `&BinaryHeap<T>` receiver に統一し、`*_ref` 互換 API を削除した。
+- `stdlib/tests/binary_heap.n.md` と `tests/stdlib/binary_heap_collections.n.md` は primary observer 名と明示 borrow/free へ更新した。
+- `nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js` は by-value observer と `*_ref` surface の再導入、および owner-to-peek pipe の再導入を拒否する regression に拡張した。
+- [検証]:
+  - `node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap.nepl -i stdlib/tests/binary_heap.n.md -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/binary-heap-primary-borrowed-observers.json -j 1 --dist web/dist`: total=14, passed=14
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
