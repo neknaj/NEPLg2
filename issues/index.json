@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T14:24:51.696Z",
+  "generated_at": "2026-05-07T14:38:50.475Z",
   "counts": {
-    "total": 590,
-    "open": 10,
+    "total": 591,
+    "open": 11,
     "resolved": 580,
     "by_area": {
       "core": {
-        "total": 297,
-        "open": 3,
+        "total": 298,
+        "open": 4,
         "resolved": 294
       },
       "stdlib": {
@@ -138,6 +138,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF",
+      "title": "CLI --check does not run ResourceIR memory-safety gates",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/compiler.rs, nepl-cli/src/main.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
