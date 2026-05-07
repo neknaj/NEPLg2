@@ -1,0 +1,134 @@
+//: # platforms/wasix/tui/tty
+//: WASIX TTY 状態取得と raw mode 切り替え helper
+//:
+//: ### 目的
+//: - WASIX の `tty_get` / `tty_set` ABI 境界をこの module に集約します。
+//: - TTY state pointer の所有と解放契約を `Result` で表し、失敗時 sentinel `0` と有効 pointer を同じ raw `i32` へ混ぜないようにします。
+//:
+//: ### 注意
+//: - `enter_raw_mode` が返す pointer は `restore_mode` に渡して復元・解放してください。
+//: - `get_tty_state_result` は内部境界向け helper です。通常は `get_terminal_size` / `enter_raw_mode` を使います。
+
+#indent 4
+
+#if[target=wasm&wasix]
+#extern "wasix_32v1" "tty_get" fn wasix_tty_get <(i32)*>i32>
+#if[target=wasm&wasix]
+#extern "wasix_32v1" "tty_set" fn wasix_tty_set <(i32)*>i32>
+
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+//: TerminalSize: 端末の列数と行数
+//:
+//: [目的/もくてき]:
+//: - `get_terminal_size` の戻り値を名前付き field で扱い、呼び出し側の意図を明確にします。
+//:
+//: [注意/ちゅうい]:
+//: - `cols` と `rows` は 0 のことがあります。TTY 取得に失敗した場合も 0,0 を返します。
+struct TerminalSize:
+    cols <i32>
+    rows <i32>
+
+//: get_tty_state_result: WASIX TTY 状態を取得する
+//:
+//: [目的/もくてき]:
+//: - 成功時の raw state pointer と失敗時 errno を `Result` で分け、解放済み pointer と `0` sentinel を同じ `i32` へ混ぜないようにします。
+//:
+//: [注意/ちゅうい]:
+//: - `Result::Ok ptr` の `ptr` は呼び出し側が 24 bytes として `dealloc_raw` する必要があります。
+fn get_tty_state_result <()*>Result<i32,i32>> ():
+    let ptr <i32> alloc_raw 24;
+    let errno <i32> wasix_tty_get ptr;
+    if:
+        eq errno 0
+        then:
+            Result<i32,i32>::Ok ptr
+        else:
+            dealloc_raw ptr 24;
+            Result<i32,i32>::Err errno
+
+fn set_tty_state <(i32)*>i32> (ptr):
+    wasix_tty_set ptr
+
+fn get_cols <(i32)*>i32> (ptr):
+    load_i32 ptr
+
+fn get_rows <(i32)*>i32> (ptr):
+    load_i32 add ptr 4
+
+fn set_echo <(i32,bool)*>()> (ptr, enable):
+    let v <i32> if enable 1 0;
+    store_u8 add ptr 19 v
+
+fn set_line_buffered <(i32,bool)*>()> (ptr, enable):
+    let v <i32> if enable 1 0;
+    store_u8 add ptr 20 v
+
+//: enter_raw_mode: ターミナルを RAW モードにする
+//:
+//: 目的:
+//: - echo と line_buffered を無効化します。
+//: - 成功時は以前の TtyState ポインタを返します。
+//:
+//: 注意(重要):
+//: - 返されたポインタは restore_mode に渡して解放する必要があります。
+fn enter_raw_mode <()*>i32> ():
+    match get_tty_state_result:
+        Result::Ok state:
+            let old_state <i32> alloc_raw 24;
+            // 復元用に WASIX TTY state の ABI layout をそのまま保存します。
+            let mut i <i32> 0;
+            while lt i 24:
+                do:
+                    store_u8 add old_state i load_u8 add state i;
+                    set i add i 1;
+
+            set_echo state false;
+            set_line_buffered state false;
+            let errno <i32> set_tty_state state;
+            dealloc_raw state 24;
+            if:
+                eq errno 0
+                then:
+                    old_state
+                else:
+                    dealloc_raw old_state 24;
+                    0
+        Result::Err _errno:
+            0
+
+//: restore_mode: ターミナルの状態を元に戻す
+//:
+//: 目的:
+//: - enter_raw_mode で保存した状態を復元します。
+fn restore_mode <(i32)*>i32> (old_state):
+    if:
+        ne old_state 0
+        then:
+            let errno <i32> set_tty_state old_state;
+            dealloc_raw old_state 24;
+            errno
+        else:
+            -1
+
+//: get_terminal_size: ターミナルのサイズを取得する
+//:
+//: [目的/もくてき]:
+//: - 現在のターミナルの列数と行数を `TerminalSize` として取得します。
+//:
+//: [実装/じっそう]:
+//: - WASIX の TTY 状態を読み、`cols` / `rows` を取り出して構造化して返します。
+//:
+//: [注意/ちゅうい]:
+//: - 取得に失敗した場合は `TerminalSize 0 0` を返します。
+fn get_terminal_size <()*>TerminalSize> ():
+    match get_tty_state_result:
+        Result::Ok state:
+            let c <i32> get_cols state;
+            let r <i32> get_rows state;
+            dealloc_raw state 24;
+            TerminalSize c r
+        Result::Err _errno:
+            TerminalSize 0 0

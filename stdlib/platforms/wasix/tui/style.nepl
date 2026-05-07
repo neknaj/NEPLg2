@@ -1,0 +1,42 @@
+//: # platforms/wasix/tui/style
+//: 行バッファに埋め込める ANSI style 文字列 helper
+//:
+//: ### 目的
+//: - 直接 `print` しない TUI 描画用に、typed ANSI style と OSC8 hyperlink を文字列として組み立てます。
+//: - 色 code 生成は `std/stdio/ansi` に委譲し、TUI 固有の numeric ANSI code 生成を持たないようにします。
+
+#indent 4
+
+#import "alloc/string" as *
+#import "std/stdio" as *
+
+//: style_text: typed ANSI style を付与した文字列を作る
+//:
+//: [目的/もくてき]:
+//: - 文字列単位で色付けし、差分レンダリング行に埋め込めるようにします。
+//:
+//: [実装/じっそう]:
+//: - `std/stdio/ansi` の `AnsiTextStyle` から escape code を生成し、末尾に `ESC[0m` を付加します。
+//:
+//: [注意/ちゅうい]:
+//: - 色シーケンス自体は `str_display_width` で幅0として扱われます。
+fn style_text <(AnsiTextStyle,str)*>str> (style, s):
+    let prefix <str> ansi_text_style_code style;
+    let p <str> concat prefix s;
+    concat p ansi_reset_code
+
+//: hyperlink_text: OSC8 でハイパーリンク付き文字列を作る
+//:
+//: [目的/もくてき]:
+//: - 端末が対応している場合にクリック可能なリンクを表示します。
+//:
+//: [実装/じっそう]:
+//: - `ESC]8;;urlESC\\` + `text` + `ESC]8;;ESC\\` を連結します。
+//:
+//: [注意/ちゅうい]:
+//: - OSC8 非対応端末ではリンクとして機能しません。
+fn hyperlink_text <(str,str)*>str> (url, text):
+    let open <str> concat3 "\x1b]8;;" url "\x1b\\";
+    let close <str> "\x1b]8;;\x1b\\";
+    let t <str> concat open text;
+    concat t close

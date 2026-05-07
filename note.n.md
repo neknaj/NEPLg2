@@ -12,6 +12,26 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 2 WASIX TUI module split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の一部として、`stdlib/platforms/wasix/tui.nepl` を root facade と 6 submodule に分割した。
+- `tui/tty.nepl` は WASIX `tty_get` / `tty_set` extern、`TerminalSize`、`get_tty_state_result`、raw mode 復元契約を所有する。
+- `tui/ansi.nepl` は cursor / screen / typed color 直接出力 helper を所有する。
+- `tui/text.nepl` は表示幅計算、padding、clipping、wrap、checked `Vec<str>` accumulation を所有する。
+- `tui/style.nepl` は `style_text` と OSC8 hyperlink の文字列構築を所有する。
+- `tui/box.nepl` は narrow width contract と box line helper を所有する。
+- `tui/buffer.nepl` は raw storage 行バッファと差分描画を所有する。
+- root `tui.nepl` は `pub #import ... as @merge` による facade にし、`features/tui` 経由の `tui::line_box` などの qualified API を維持した。
+- [検証]:
+  - `node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/wasix-tui-module-split-features-merge.json -j 1 --dist web/dist`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib/features/tui.nepl -i tests/stdlib/features_tui.n.md --no-tree -o tmp/wasix-tui-module-split-features-with-facade.json -j 1 --dist web/dist`: total=6, passed=6
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-07 Agent 2 WASIX TUI typed color / TTY Result 修正
 
 - `ISS-20260507T065612249Z-WASIX-TUI-COLOR-HELPERS-STILL-ACCEPT-1FD08056` を fixed にした。
