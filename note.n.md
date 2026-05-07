@@ -6,6 +6,12 @@
 - `node nodesrc/tests.js -i tests/stdlib/sort.n.md --no-tree -o tmp/sort-raw-pointer-fixtures-after-final.json -j 1 --dist web/dist`: total=22, passed=22。
 - `node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`: passed。
 
+# 2026-05-07 note (Agent 1 direct MemPtr store/load summary 残件)
+
+- sort raw pointer fixture の調査中に、`RegionToken` 由来の `MemPtr` へ direct `store_i32 p` した後、direct `load_i32 p` が `resource.cell.uninit` になる Resource IR precision bug を確認した。
+- zero-offset `mem_ptr_add<i32> p 0` 経路では同じ意図の store/read が通るため、direct `MemPtr` projection と zero-offset projection の initialized-cell summary が一致していない。
+- sort fixture 自体は remote main の修正で `Vec` owner 契約へ移行済みなので、この compiler 側残件は `ISS-20260507T023409425Z-RESOURCE-IR-MISSES-DIRECT-MEMPTR-STO-8DEA4710` として open issue に分離した。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 Vec storage/types/access split)
 
 - branch `refactor/vec-storage-module-split` で `stdlib/alloc/collections/vec.nepl` の型定義、storage allocation/deallocation、read-only observer を submodule へ分離した。
