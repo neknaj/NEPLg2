@@ -33602,3 +33602,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 returned aggregate range projection 修正
+
+- `ISS-20260507T052014018Z-RESOURCE-IR-RETURNED-AGGREGATE-FIELD-F78CD903` を fixed にした。
+- returned aggregate の `buf` / `len` field をまたぐ initialized raw range が caller local へ束縛される時に失われていた。
+- 原因は値コピーが initialized raw range の count projection だけを複写し、address / count の dependent pair を同時に value projection として複写していなかったこと。
+- `CellTable::copy_initialized_raw_byte_ranges_through_value` を追加し、`DeclareLocal` / `Read` / `Assign` / `Move` / branch / match / raw memory `Load` / raw memory `Store` / aggregate `Construct` に接続した。
+- 構造体 field、raw memory cell、関数返却 temporary をまたいでも dependent initialized range が保持される。
+- assignment / raw memory store では overwritten target 配下の stale range fact を削除し、filled aggregate を unfilled aggregate で上書きした後の guarded load が通らないことも回帰で固定した。
+- guard なし symbolic load は引き続き `resource.cell.uninit` で拒否し、`0 <= i && i < len` が Resource IR relation fact で証明された場合だけ通す。
+- 追加した value projection range helper は `cell_state_raw_range_value.rs` に分離し、既存 cover test も `cell_state_raw_range_cover_tests.rs` へ移した。line limit 自体は緩めていない。
+- `node nodesrc/test_resource_checker_responsibility.js` は別件 `initialized_external_io_effect.rs has 115 lines; responsibility split limit is 90` を検出したため、`ISS-20260507T054543555Z-INITIALIZED-EXTERNAL-IO-EFFECT-EXCEE-5C420730` として分離した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_aggregate -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_aggregate_assignment_clears_stale_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_read -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`: passed
+  - `cargo test -p nepl-core element_range_accepts_guarded_scaled_symbolic_offset -- --nocapture`: passed
+  - `node nodesrc/issues.js check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

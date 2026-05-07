@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T05:24:27.577Z",
+  "generated_at": "2026-05-07T05:48:12.604Z",
   "counts": {
-    "total": 564,
+    "total": 565,
     "open": 14,
-    "resolved": 550,
+    "resolved": 551,
     "by_area": {
       "core": {
-        "total": 282,
+        "total": 283,
         "open": 6,
-        "resolved": 276
+        "resolved": 277
       },
       "stdlib": {
         "total": 158,
@@ -150,6 +150,21 @@
       "file": "items/ISS-20260507T051545017Z-CELL-STATE-RAW-RANGE-EXCEEDS-SPLIT-L-76536EAC.md"
     },
     {
+      "id": "ISS-20260507T054543555Z-INITIALIZED-EXTERNAL-IO-EFFECT-EXCEE-5C420730",
+      "title": "initialized_external_io_effect exceeds responsibility split limit after fd_read bounded ranges",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/initialized_external_io_effect.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T054543555Z-INITIALIZED-EXTERNAL-IO-EFFECT-EXCEE-5C420730.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -253,21 +268,6 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
-    },
-    {
-      "id": "ISS-20260507T052014018Z-RESOURCE-IR-RETURNED-AGGREGATE-FIELD-F78CD903",
-      "title": "Resource IR returned aggregate fields do not carry initialized raw range summaries",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "nepl-core/src/resource/initialized_summary_byte_ranges.rs, nepl-core/src/resource/initialized_alias_flow_value_projection.rs, nepl-core/tests/kp.rs",
-      "legacy_id": "",
-      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
-      "file": "items/ISS-20260507T052014018Z-RESOURCE-IR-RETURNED-AGGREGATE-FIELD-F78CD903.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -7153,6 +7153,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T023409425Z-RESOURCE-IR-MISSES-DIRECT-MEMPTR-STO-8DEA4710.md"
+    },
+    {
+      "id": "ISS-20260507T052014018Z-RESOURCE-IR-RETURNED-AGGREGATE-FIELD-F78CD903",
+      "title": "Resource IR returned aggregate fields do not carry initialized raw range summaries",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/cell_state_raw_range.rs, nepl-core/src/resource/cell_state_raw_range_value.rs, nepl-core/src/resource/initialized.rs, nepl-core/src/resource/initialized_control.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260507T052014018Z-RESOURCE-IR-RETURNED-AGGREGATE-FIELD-F78CD903.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

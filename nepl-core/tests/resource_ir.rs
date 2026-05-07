@@ -14121,6 +14121,174 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_returned_aggregate_preserves_guarded_byte_range() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct Scanner:
+    buf <i32>
+    len <i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+fn make_scanner <(i32)->Scanner> (len):
+    let data <i32> alloc_raw len
+    fill_u8 data len 65
+    Scanner data len
+
+fn main <()->i32> ():
+    let sc <Scanner> make_scanner 4
+    let data <i32> field::get sc "buf"
+    let len <i32> field::get sc "len"
+    let i <i32> id 2
+    let value <i32> if:
+        and ge i 0 lt i len
+        then:
+            load_u8 add data i
+        else:
+            0
+    dealloc_raw data len
+    value
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "returned aggregate fields must carry guarded byte range summaries: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_returned_aggregate_rejects_unguarded_byte_range() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct Scanner:
+    buf <i32>
+    len <i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+fn make_scanner <(i32)->Scanner> (len):
+    let data <i32> alloc_raw len
+    fill_u8 data len 65
+    Scanner data len
+
+fn main <()->i32> ():
+    let sc <Scanner> make_scanner 4
+    let data <i32> field::get sc "buf"
+    let len <i32> field::get sc "len"
+    let i <i32> id 2
+    let value <i32> load_u8 add data i
+    dealloc_raw data len
+    value
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                function,
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Uninit,
+                ..
+            } if function.starts_with("main__")
+        )),
+        "returned aggregate byte range must still reject unguarded symbolic loads: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_aggregate_assignment_clears_stale_byte_range() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+
+struct Scanner:
+    buf <i32>
+    len <i32>
+
+fn id <(i32)->i32> (x):
+    x
+
+fn make_filled <(i32)->Scanner> (len):
+    let data <i32> alloc_raw len
+    fill_u8 data len 65
+    Scanner data len
+
+fn make_unfilled <(i32)->Scanner> (len):
+    let data <i32> alloc_raw len
+    Scanner data len
+
+fn main <()->i32> ():
+    let mut sc <Scanner> make_filled 4
+    set sc make_unfilled 4
+    let data <i32> field::get sc "buf"
+    let len <i32> field::get sc "len"
+    let i <i32> id 2
+    let value <i32> if:
+        and ge i 0 lt i len
+        then:
+            load_u8 add data i
+        else:
+            0
+    dealloc_raw data len
+    value
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                function,
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Uninit,
+                ..
+            } if function.starts_with("main__")
+        )),
+        "aggregate assignment must clear stale initialized range facts: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_raw_fill_does_not_initialize_non_copy_cell() {
     let (mut types, owned_ty) = types_with_non_copy_owned();
     types.register_copy_impl_target(types.i32());

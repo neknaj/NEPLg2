@@ -107,6 +107,7 @@ impl ResourceCheckEngine<'_> {
                     then_value,
                     output,
                 );
+                then_cells.copy_initialized_raw_byte_ranges_through_value(then_value, output);
                 then_function_aliases.copy_alias(then_value, output);
                 then_pending_reallocs.copy_result(then_value, output);
                 then_variant_initializations.copy_result(then_value, output);
@@ -132,6 +133,7 @@ impl ResourceCheckEngine<'_> {
                     else_value,
                     output,
                 );
+                else_cells.copy_initialized_raw_byte_ranges_through_value(else_value, output);
                 else_function_aliases.copy_alias(else_value, output);
                 else_pending_reallocs.copy_result(else_value, output);
                 else_variant_initializations.copy_result(else_value, output);
@@ -326,6 +328,7 @@ impl ResourceCheckEngine<'_> {
                         &arm.value,
                         output,
                     );
+                    arm_cells.copy_initialized_raw_byte_ranges_through_value(&arm.value, output);
                     arm_function_aliases.copy_alias(&arm.value, output);
                     arm_pending_reallocs.copy_result(&arm.value, output);
                     arm_variant_initializations.copy_result(&arm.value, output);

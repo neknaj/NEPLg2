@@ -65,30 +65,6 @@ impl CellTable {
             .retain(|range| !raw_addresses_overlap(&range.address, address));
     }
 
-    pub(super) fn copy_initialized_raw_byte_range_counts(
-        &mut self,
-        source: &Place,
-        target: &Place,
-    ) {
-        let mut copied = Vec::new();
-        for range in &self.initialized_raw_byte_ranges {
-            let Some(count) = replace_place_prefix(&range.count, source, target) else {
-                continue;
-            };
-            copied.push(InitializedRawByteRange {
-                address: range.address.clone(),
-                count,
-                unit: range.unit,
-                ty: range.ty,
-            });
-        }
-        for range in copied {
-            if !self.initialized_raw_byte_ranges.contains(&range) {
-                self.initialized_raw_byte_ranges.push(range);
-            }
-        }
-    }
-
     pub(super) fn copy_initialized_raw_byte_ranges_under(
         &self,
         source: &Place,

@@ -24,7 +24,7 @@ use super::model::{
     ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{
-    call_uses_checked_mem_ptr_wrapper, reference_target_place,
+    call_uses_checked_mem_ptr_wrapper, construct_aggregate_field_place, reference_target_place,
     structural_i32_projection_preserves_raw_address, type_preserves_raw_address_alias,
 };
 use super::raw_realloc::PendingRawReallocs;
@@ -211,7 +211,7 @@ impl ResourceCheckEngine<'_> {
                             initializer,
                             place,
                         );
-                        cells.copy_initialized_raw_byte_range_counts(initializer, place);
+                        cells.copy_initialized_raw_byte_ranges_through_value(initializer, place);
                         function_aliases.copy_alias(initializer, place);
                         pending_reallocs.copy_result(initializer, place);
                         variant_initializations.copy_result(initializer, place);
@@ -245,7 +245,7 @@ impl ResourceCheckEngine<'_> {
                     } else {
                         self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
                     }
-                    cells.copy_initialized_raw_byte_range_counts(source, output);
+                    cells.copy_initialized_raw_byte_ranges_through_value(source, output);
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);
@@ -268,13 +268,14 @@ impl ResourceCheckEngine<'_> {
                 );
                 if self.consume_by_value(cells, value, ResourceCheckOperation::AssignValue, *span) {
                     cells.mark_initialized(target);
+                    cells.clear_initialized_raw_byte_ranges_through_value(target);
                     self.copy_raw_alias_and_rekey_cells_preferring_target(
                         cells,
                         raw_aliases,
                         value,
                         target,
                     );
-                    cells.copy_initialized_raw_byte_range_counts(value, target);
+                    cells.copy_initialized_raw_byte_ranges_through_value(value, target);
                     function_aliases.copy_alias(value, target);
                     pending_reallocs.copy_result(value, target);
                     variant_initializations.copy_result(value, target);
@@ -314,7 +315,7 @@ impl ResourceCheckEngine<'_> {
                         source,
                         output,
                     );
-                    cells.copy_initialized_raw_byte_range_counts(source, output);
+                    cells.copy_initialized_raw_byte_ranges_through_value(source, output);
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);
@@ -497,6 +498,10 @@ impl ResourceCheckEngine<'_> {
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);
                     construct_raw_cell_address_alias_fields(raw_aliases, output, kind, inputs);
+                    for (index, input) in inputs.iter().enumerate() {
+                        let field = construct_aggregate_field_place(output, kind, index, input);
+                        cells.copy_initialized_raw_byte_ranges_through_value(input, &field);
+                    }
                     construct_function_alias_fields(function_aliases, output, kind, inputs);
                     pending_reallocs.clear_result(output);
                     variant_initializations.clear_result(output);

@@ -15,7 +15,10 @@ mod cell_state;
 mod cell_state_raw_range;
 mod cell_state_raw_range_count;
 mod cell_state_raw_range_cover;
+#[cfg(test)]
+mod cell_state_raw_range_cover_tests;
 mod cell_state_raw_range_model;
+mod cell_state_raw_range_value;
 mod condition_fact;
 mod coverage;
 mod coverage_hir;

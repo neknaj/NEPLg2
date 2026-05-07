@@ -336,3 +336,13 @@ returned raw header のうち、byte-level initialized range を `return_byte_ra
 - `wasi_fd_read_then_alloc_header_debug`: passed
 
 この親 issue は引き続き open とする。今回の対応で `fd_read` payload の過剰初期化は解消したが、returned struct field projection をまたぐ initialized range summary は `ISS-20260507T052014018Z-RESOURCE-IR-RETURNED-AGGREGATE-FIELD-F78CD903` として残る。
+
+## 2026-05-07 returned aggregate field projection 部分対応
+
+`ISS-20260507T052014018Z-RESOURCE-IR-RETURNED-AGGREGATE-FIELD-F78CD903` として、returned aggregate の field projection をまたぐ initialized range summary 欠落を修正した。
+
+原因は、value copy が initialized raw range の count suffix だけを複写し、address / count の dependent pair を一体で複写していなかったことだった。callee summary が `return.buf` / `return.len` を持っていても、call output temporary から caller local aggregate へ束縛する段階で address が old temporary に残り、`field::get sc "buf"` 後の guarded load が `RawMemoryLoadCell Uninit` になっていた。
+
+今回の対応で `DeclareLocal` / `Read` / `Assign` / `Move` / branch / match / raw memory `Load` / raw memory `Store` / aggregate `Construct` は、initialized raw range の address と count を value projection として同時に複写する。assignment / raw memory store は overwritten target 配下の古い range fact を消すため、stale fact で unfilled buffer を通さない。guard なしの symbolic load は引き続き拒否し、`0 <= i && i < len` が証明される場合だけ通す。
+
+この親 issue は引き続き open とする。returned aggregate field projection は解消したが、`fd_read` loop / realloc / capacity field を含む full scanner-style dependent range model はまだ全体 issue として残る。
