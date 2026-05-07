@@ -15,7 +15,7 @@ target: "stdlib/neplg2/core/ty/ty.nepl, stdlib/neplg2/core/hir/hir.nepl, stdlib/
 
 ## 概要
 
-Selfhost resolver and HIR models still encode some absent or unassigned state with numeric invalid IDs, and HIR expression payloads still store fields that are meaningful only for some expression kinds. Earlier numeric enum tags, builtin placeholder arguments, type-record invalid TypeId payloads, HIR empty range sentinels, and mono instance invalid IDs have been split into child issues and fixed.
+Selfhost resolver and HIR models still encode some absent or unassigned state with numeric invalid IDs, and HIR expression payloads still store fields that are meaningful only for some expression kinds. Earlier numeric enum tags, builtin placeholder arguments, type-record invalid TypeId payloads, HIR empty range sentinels, mono instance invalid IDs, and HIR expression invalid IDs have been split into child issues and fixed.
 
 ## 対象
 
@@ -27,7 +27,7 @@ Selfhost resolver and HIR models still encode some absent or unassigned state wi
 
 ## 問題
 
-Remaining self-host typed model debt is concentrated in `SelfhostDefId(-1)`, `SelfhostHirExprId(-1)`, and `SelfhostHirExpr` flat payload fields. These still allow invalid or non-exhaustive state to be represented in ordinary records instead of requiring typed absence or variant-specific payload matching.
+Remaining self-host typed model debt is concentrated in `SelfhostDefId(-1)` and `SelfhostHirExpr` flat payload fields. These still allow invalid or non-exhaustive state to be represented in ordinary records instead of requiring typed absence or variant-specific payload matching.
 
 ## 影響
 
@@ -47,7 +47,7 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` の invalid sentinel。
+- `SelfhostDefId(-1)` の invalid sentinel。
 - HIR expression payload が kind ごとに所有 field を分離できていないこと。
 
 ## 2026-05-08 builtin signature payload 対応
@@ -56,7 +56,7 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` の invalid sentinel。
+- `SelfhostDefId(-1)` の invalid sentinel。
 - HIR expression payload が kind ごとに所有 field を分離できていないこと。
 
 ## 2026-05-08 type record payload 対応
@@ -65,7 +65,7 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` の invalid sentinel。
+- `SelfhostDefId(-1)` の invalid sentinel。
 - HIR expression payload が kind ごとに所有 field を分離できていないこと。
 
 ## 2026-05-08 HIR range payload 対応
@@ -74,7 +74,7 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` の invalid sentinel。
+- `SelfhostDefId(-1)` の invalid sentinel。
 - HIR expression payload が kind ごとに所有 field を分離できていないこと。
 
 ## 2026-05-08 mono instance absence 対応
@@ -83,5 +83,14 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` の invalid sentinel。
+- `SelfhostDefId(-1)` の invalid sentinel。
+- HIR expression payload が kind ごとに所有 field を分離できていないこと。
+
+## 2026-05-08 HIR expression id absence 対応
+
+この親 issue のうち、`SelfhostHirExprId` が未設定 root / expression reference を `-1` sentinel として表していた問題は、[ISS-20260507T160530818Z-SELFHOST-HIR-EXPRESSION-IDS-USE-1-IN-7A6D6ABC](./ISS-20260507T160530818Z-SELFHOST-HIR-EXPRESSION-IDS-USE-1-IN-7A6D6ABC.md) で分離して解決した。
+
+残件:
+
+- `SelfhostDefId(-1)` の invalid sentinel。
 - HIR expression payload が kind ごとに所有 field を分離できていないこと。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T16:01:59.939Z",
+  "generated_at": "2026-05-07T16:09:35.603Z",
   "counts": {
-    "total": 603,
+    "total": 604,
     "open": 14,
-    "resolved": 589,
+    "resolved": 590,
     "by_area": {
       "core": {
         "total": 301,
@@ -12,9 +12,9 @@
         "resolved": 298
       },
       "selfhost": {
-        "total": 58,
+        "total": 59,
         "open": 3,
-        "resolved": 55
+        "resolved": 56
       },
       "stdlib": {
         "total": 164,
@@ -5438,6 +5438,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T155948337Z-SELFHOST-MONO-INSTANCE-IDS-USE-1-INV-434774DA.md"
+    },
+    {
+      "id": "ISS-20260507T160530818Z-SELFHOST-HIR-EXPRESSION-IDS-USE-1-IN-7A6D6ABC",
+      "title": "Selfhost HIR expression IDs use -1 invalid sentinel",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "stdlib/neplg2/core/hir/hir.nepl, nodesrc/test_selfhost_hir_expr_id_absence.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T160530818Z-SELFHOST-HIR-EXPRESSION-IDS-USE-1-IN-7A6D6ABC.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",

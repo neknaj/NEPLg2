@@ -462,9 +462,13 @@ fn selfhost_hir_function_id_index <(SelfhostHirFunctionId)->i32> (function_id):
 fn selfhost_hir_expr_id_new <(i32)->SelfhostHirExprId> (index):
     SelfhostHirExprId index
 
-//: selfhost_hir_expr_id_invalid: 未設定 root 用の invalid expression id を[返/かえ]す
-fn selfhost_hir_expr_id_invalid <()->SelfhostHirExprId> ():
-    selfhost_hir_expr_id_new -1
+//: selfhost_hir_expr_id_pending: expression id がまだ設定されていない状態を[返/かえ]す
+fn selfhost_hir_expr_id_pending <()->Option<SelfhostHirExprId>> ():
+    none<SelfhostHirExprId>
+
+//: selfhost_hir_expr_id_assigned: expression id を Option に[包/つつ]む
+fn selfhost_hir_expr_id_assigned <(SelfhostHirExprId)->Option<SelfhostHirExprId>> (expr_id):
+    some<SelfhostHirExprId> expr_id
 
 //: selfhost_hir_expr_id_index: expression id の index を[返/かえ]す
 fn selfhost_hir_expr_id_index <(SelfhostHirExprId)->i32> (expr_id):
@@ -1014,7 +1018,17 @@ fn selfhost_hir_stage0 <()*>i32> ():
     match selfhost_hir_module_new:
         Result::Ok module:
             let n <i32> selfhost_hir_module_function_len &module
+            let expr_id <SelfhostHirExprId> selfhost_hir_expr_id_new 0
+            let pending <Option<SelfhostHirExprId>> selfhost_hir_expr_id_pending
+            let assigned <Option<SelfhostHirExprId>> selfhost_hir_expr_id_assigned expr_id
+            let assigned_ok <bool>:
+                match assigned:
+                    Option::Some assigned_id:
+                        eq 0 selfhost_hir_expr_id_index assigned_id
+                    Option::None:
+                        false
+            let option_ok <bool> and is_none<SelfhostHirExprId> pending assigned_ok
             selfhost_hir_module_free module
-            n
+            if and eq n 0 option_ok 0 1
         Result::Err _e:
             1

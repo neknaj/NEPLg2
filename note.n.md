@@ -11,6 +11,20 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-08 Agent 1 Selfhost HIR expression id absence 修正
+
+- `ISS-20260507T160530818Z-SELFHOST-HIR-EXPRESSION-IDS-USE-1-IN-7A6D6ABC` として、`SelfhostHirExprId` が未設定 expression reference を `-1` sentinel で表せる問題を分離して解決した。
+- `selfhost_hir_expr_id_invalid` を削除し、未設定状態は `selfhost_hir_expr_id_pending <()->Option<SelfhostHirExprId>>` の `None`、設定済み id は `selfhost_hir_expr_id_assigned <(SelfhostHirExprId)->Option<SelfhostHirExprId>>` の `Some` として表すようにした。
+- `SelfhostHirExprId` は HIR module 内 expression table index だけを表す型に戻し、absence と valid id を同じ i32 payload に混ぜない。
+- `selfhost_hir_stage0` は pending / assigned の両方を `Option` match で検査し、typed absence helper が current compiler で実行可能であることを固定した。
+- `nodesrc/test_selfhost_hir_expr_id_absence.js` を追加し、`selfhost_hir_expr_id_invalid` と `selfhost_hir_expr_id_new -1` の再導入を source policy で拒否する。
+- 親 issue `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D` の残件は、`SelfhostDefId(-1)` と `SelfhostHirExpr` flat payload 分離に絞った。
+- [検証]:
+  - `node nodesrc/test_selfhost_hir_expr_id_absence.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/hir/hir.nepl --no-tree -o tmp/agent1-selfhost-hir-expr-id-absence.json -j 1 --dist web/dist`: total=3, passed=3
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 1 selfhost HIR range payload
 
 - `ISS-20260507T155231568Z-SELFHOST-HIR-RANGES-ENCODE-EMPTY-STA-8B562D49` を追加し、fixed/resolved に更新した。
