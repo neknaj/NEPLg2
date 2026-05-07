@@ -528,6 +528,41 @@ fn main <()*>()> ():
                     ()
 ```
 
+## callback parameter が返した region_ptr は元 token の dealloc を妨げない
+
+neplg2:test
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
+    p
+
+fn apply_ptr <(MemPtr<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (p, f):
+    f p
+
+fn borrowed_region_ptr_via_callback_param <(&RegionToken<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (token, f):
+    let p <MemPtr<u8>> region_ptr token
+    apply_ptr p f
+
+fn main <()*>()> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok token:
+            let p <MemPtr<u8>> borrowed_region_ptr_via_callback_param &token @id_ptr
+            store_u8 mem_ptr_addr p 7
+            match dealloc_region token:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+```
+
 ## region_ptr_at の Ok payload は owner token にできない
 
 neplg2:test[compile_fail]

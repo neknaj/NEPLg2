@@ -203,8 +203,8 @@ pub use lower::{lower_hir_module, lower_hir_module_skeleton};
 pub use model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp,
     ExternalIoOp, NondetOp, OwnerState, OwnerStateEntry, Place, PlaceProjection, PlaceRoot,
-    PointerProvenance, RawBodyKind, RawMemoryOp, ResourceBlock, ResourceBlockId,
-    ResourceCallTarget, ResourceConditionFact, ResourceExprKind, ResourceFunction,
+    PointerProvenance, RawAddressViewKind, RawBodyKind, RawMemoryOp, ResourceBlock,
+    ResourceBlockId, ResourceCallTarget, ResourceConditionFact, ResourceExprKind, ResourceFunction,
     ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern,
     ResourceModule, ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId,
     StorageOrigin, StorageOriginEntry,

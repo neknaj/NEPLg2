@@ -11,16 +11,16 @@ use nepl_core::resource::{
     lower_hir_module_skeleton, resolve_resource_drop_point_assignment,
     resolve_resource_drop_point_end_scope, resolve_resource_drop_point_path, AggregateKind,
     BorrowKind, BorrowState, CellState, EffectOp, ExternalIoOp, NondetOp, OwnerState, Place,
-    PlaceProjection, PlaceRoot, RawMemoryOp, ResourceAutoDrop, ResourceAutoDropKind, ResourceBlock,
-    ResourceBlockId, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCallTarget,
-    ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
-    ResourceConditionFact, ResourceCoverageDiagnostic, ResourceCoverageKind,
-    ResourceDropElaborationHirBridgeError, ResourceDropElaborationPlanError, ResourceDropPoint,
-    ResourceDropPointPath, ResourceDropPointResolutionError, ResourceDropPointStep,
-    ResourceDropRequirement, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
-    ResourceExprKind, ResourceFunction, ResourceFunctionCheck, ResourceI32RelationOp, ResourceId,
-    ResourceLocal, ResourceModule, ResourceOffset, ResourceOp, ResourceOwnerDiagnostic,
-    ResourceOwnerOperation, ResourceTerminator,
+    PlaceProjection, PlaceRoot, RawAddressViewKind, RawMemoryOp, ResourceAutoDrop,
+    ResourceAutoDropKind, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic,
+    ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred, ResourceCheckDiagnostic,
+    ResourceCheckOperation, ResourceCheckReport, ResourceConditionFact, ResourceCoverageDiagnostic,
+    ResourceCoverageKind, ResourceDropElaborationHirBridgeError, ResourceDropElaborationPlanError,
+    ResourceDropPoint, ResourceDropPointPath, ResourceDropPointResolutionError,
+    ResourceDropPointStep, ResourceDropRequirement, ResourceEffectBoundaryDiagnostic,
+    ResourceEffectCallKind, ResourceExprKind, ResourceFunction, ResourceFunctionCheck,
+    ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp,
+    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -8959,6 +8959,138 @@ fn resource_ir_owner_check_transfers_owner_returned_by_unknown_callback() {
 }
 
 #[test]
+fn resource_ir_owner_check_preserves_non_owning_arg_to_unknown_callback() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let owner = Place::temporary(ResourceId(0), i32_ty);
+    let view = Place::temporary(ResourceId(1), i32_ty);
+    let callee = Place::local("callback".to_string(), i32_ty);
+    let returned = Place::temporary(ResourceId(2), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: owner.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawAddressView {
+                source: owner.clone(),
+                target: view.clone(),
+                kind: RawAddressViewKind::NonOwningProjection,
+                span,
+            },
+            ResourceOp::IndirectCall {
+                output: returned,
+                callee,
+                params: vec![i32_ty],
+                result: i32_ty,
+                args: vec![view],
+                effect: EffectOp::Unknown {
+                    reason: "callback parameter".to_string(),
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(3), unit_ty),
+                args: vec![owner],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert_eq!(
+        report.diagnostics,
+        vec![],
+        "passing a non-owning raw address view to an unknown callback must not require a free obligation: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_rejects_unknown_callback_return_with_non_owning_candidate() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let owned_return_candidate = Place::temporary(ResourceId(0), i32_ty);
+    let view_owner = Place::temporary(ResourceId(1), i32_ty);
+    let view = Place::temporary(ResourceId(2), i32_ty);
+    let callee = Place::local("callback".to_string(), i32_ty);
+    let returned = Place::temporary(ResourceId(3), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: owned_return_candidate.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Alloc,
+                output: view_owner.clone(),
+                args: vec![],
+                span,
+            },
+            ResourceOp::RawAddressView {
+                source: view_owner.clone(),
+                target: view.clone(),
+                kind: RawAddressViewKind::NonOwningProjection,
+                span,
+            },
+            ResourceOp::IndirectCall {
+                output: returned.clone(),
+                callee,
+                params: vec![i32_ty, i32_ty],
+                result: i32_ty,
+                args: vec![owned_return_candidate, view],
+                effect: EffectOp::Unknown {
+                    reason: "callback parameter".to_string(),
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(4), unit_ty),
+                args: vec![returned.clone()],
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Dealloc,
+                output: Place::temporary(ResourceId(5), unit_ty),
+                args: vec![view_owner],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                place,
+                state: OwnerState::NoFreeObligation,
+                operation: ResourceOwnerOperation::Dealloc,
+                ..
+            } if place == &returned
+        )),
+        "unknown callback output must not become a definite owner when a non-owning same-type argument could be returned: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_moves_owner_into_constructed_aggregate() {
     let mut types = TypeCtx::new();
     let unit_ty = types.unit();
@@ -10612,6 +10744,66 @@ fn main <()*>()> ():
     );
     compile_resource_source_with_target(source, CompileTarget::Wasm)
         .expect("known identity callback should preserve a borrowed MemPtr view");
+}
+
+#[test]
+fn resource_ir_owner_check_preserves_region_ptr_through_callback_parameter() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/result" as *
+
+fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
+    p
+
+fn apply_ptr <(MemPtr<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (p, f):
+    f p
+
+fn borrowed_region_ptr_via_callback_param <(&RegionToken<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (token, f):
+    let p <MemPtr<u8>> region_ptr token
+    apply_ptr p f
+
+fn main <()*>()> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok token:
+            let p <MemPtr<u8>> borrowed_region_ptr_via_callback_param &token @id_ptr
+            store_u8 mem_ptr_addr p 7
+            match dealloc_region token:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("apply_ptr__")
+                || function.starts_with("borrowed_region_ptr_via_callback_param__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "callback parameter identity must preserve borrowed region_ptr as a non-owning MemPtr without requiring a free obligation: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("callback parameter identity should preserve a borrowed MemPtr view");
 }
 
 #[test]

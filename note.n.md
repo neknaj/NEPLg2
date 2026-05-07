@@ -1,3 +1,22 @@
+# 2026-05-08 Agent 1 ResourceIR unknown callback non-owning view 修正
+
+- `ISS-20260507T183017038Z-RESOURCE-OWNER-CHECKER-TREATS-NON-OW-95BB68AF` を追加し、fixed/resolved に更新した。
+- 根本原因は、unknown indirect-call return handling が same-type owner argument を definite owner return として先に選び、same-type non-owning raw address view argument が返り得る可能性を出力の owner state に反映していなかったことだった。
+- `nepl-core/src/resource/owner_return.rs` で unknown callback return の判定順を変更し、non-owning view candidate がある場合は output を non-owning raw view として伝播するようにした。output の raw alias / storage origin は clear し、free obligation owner の alias が non-owning view に混入しないようにしている。
+- unknown callback argument consumption では non-owning raw view 引数を owner consumption 対象から外した。これにより、borrowed `RegionToken` 由来 `MemPtr` を callback parameter 経由で返す正常系は維持し、callback result が non-owning candidate を返し得る場合の `dealloc returned` は `OwnerState::NoFreeObligation` で拒否する。
+- `owner_return_view.rs` の global non-owning 判定は拡張していない。raw address load の既存正常系を壊さないため、unknown callback 境界だけで保守的に扱う設計にした。
+- [検証]:
+  - `cargo fmt -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir unknown_callback -- --nocapture`: 5 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_raw_address_load_as_nonowning_view -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 240 passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-unknown-callback-non-owning-memory-safety.json -j 1 --dist web/dist`: 21 passed
+  - `node nodesrc/issues.js check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 2 std/stdio ansi facade split
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の追加対応として、`stdlib/std/stdio/ansi.nepl` を facade 化した。

@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-07
+updated: 2026-05-08
 target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md"
 ---
 
@@ -288,3 +288,11 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 - `cargo test -p nepl-core --test resource_ir typecheck_rejects_mem_ptr_struct_constructor_outside_memory_boundary -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named_mem_ptr -- --nocapture`: passed
 - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memptr-constructor-boundary.json -j 1 --dist web/dist`: 19 passed
+
+## 2026-05-08 Resource IR unknown callback non-owning view 部分対応
+
+unknown callback 境界で same-type non-owning raw address view argument が返り得るにもかかわらず、別の same-type owner argument を definite owner return として先に選ぶ問題を `ISS-20260507T183017038Z-RESOURCE-OWNER-CHECKER-TREATS-NON-OW-95BB68AF` として修正した。
+
+今回の対応では、unknown indirect-call return handling が non-owning view candidate を owner transfer より先に評価し、出力を non-owning raw view として伝播する。unknown callback argument consumption でも non-owning view 引数を free obligation owner として消費しない。これにより、borrowed `RegionToken` から作った `MemPtr` を callback parameter 経由で返す正常系は維持しつつ、callback result が non-owning candidate を返し得る場合の `dealloc returned` は `OwnerState::NoFreeObligation` で拒否される。
+
+この対応は `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に含まれる。`MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の最終分離は引き続きこの親 issue の残件である。

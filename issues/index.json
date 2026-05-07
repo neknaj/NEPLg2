@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T18:28:28.169Z",
+  "generated_at": "2026-05-07T18:43:27.480Z",
   "counts": {
-    "total": 615,
+    "total": 616,
     "open": 10,
-    "resolved": 605,
+    "resolved": 606,
     "by_area": {
       "core": {
-        "total": 307,
+        "total": 308,
         "open": 3,
-        "resolved": 304
+        "resolved": 305
       },
       "stdlib": {
         "total": 165,
@@ -123,7 +123,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-05-07",
+      "updated": "2026-05-08",
       "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md",
       "legacy_id": "",
       "source": "",
@@ -4688,6 +4688,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T175848360Z-RESOURCE-OWNER-SUMMARY-TREATS-KNOWN--2116E247.md"
+    },
+    {
+      "id": "ISS-20260507T183017038Z-RESOURCE-OWNER-CHECKER-TREATS-NON-OW-95BB68AF",
+      "title": "Resource owner checker treats non-owning callback arguments as owner candidates",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_return_view.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T183017038Z-RESOURCE-OWNER-CHECKER-TREATS-NON-OW-95BB68AF.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
