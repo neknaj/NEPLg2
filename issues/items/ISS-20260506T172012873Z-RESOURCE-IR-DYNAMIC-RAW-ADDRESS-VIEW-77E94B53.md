@@ -7,7 +7,7 @@ resolved: true
 priority: P1
 type: bug
 created: 2026-05-06
-updated: 2026-05-06
+updated: 2026-05-07
 target: "nepl-core/src/resource/initialized_alias.rs, nepl-core/tests/resource_ir.rs"
 ---
 
@@ -63,3 +63,26 @@ cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dyna
 - [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md)
 - [ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38](./ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md)
 - [ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232](./ISS-20260506T154254968Z-RESOURCE-AUTHORITY-DEEP-PREFIX-REGRE-14D21232.md)
+
+## 2026-05-07 Agent 1 再発修正
+
+`origin/main` 上で ResourceIR full regression suite を再確認したところ、動的 fill 系の 2 本が再び `RawMemoryLoadCell` / `resource.cell.uninit` で失敗していた。
+
+根本原因は、`RawCellAddressAliases` が raw address view origin と ordinary scalar value origin を同じ `RawValueOrigins` に入れていたことだった。`sub im1` / `add pref_len` のような普通の i32 演算も lowering 上は `RawAddressView` を伴うことがあるため、その view origin が `%im1` や `%pref_len` の scalar canonicalization を `%i[+?]` / `%n[+1]` のような raw-address projection へ置き換えていた。結果として `mul im1 4` の scale source と `im1 < pref_len` の branch relation が別の scalar として扱われ、`fill_i32 pref pref_len` の initialized element range が `load_i32 (pref + im1 * 4)` を cover することを証明できなかった。
+
+修正では `RawCellAddressAliases` 内部を `raw_view_origins` と `scalar_origins` に分離した。raw address canonicalization は raw view origin を使い、i32 value / condition / relation / scale の証明は scalar origin だけを使う。`RawAddressView` は raw pointer provenance だけを更新し、ordinary scalar copy の安定 origin を上書きしない。これにより普通の i32 を raw pointer proof として復活させず、かつ static check の range 証明に必要な scalar facts は保持される。
+
+回帰として `raw_address_view_origin_does_not_replace_scalar_value_origin` を追加し、raw view origin を持つ call output から stable local へ値を束縛しても、後続の `i32_scale` と branch relation が local scalar で結び付くことを固定した。
+
+検証:
+
+- `cargo test -p nepl-core resource::initialized_alias_tests::raw_address_view_origin_does_not_replace_scalar_value_origin -- --nocapture`: passed
+- `cargo fmt -p nepl-core --check`: passed
+- `cargo check -p nepl-core`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`: 215 passed / 13 failed。今回対象の dynamic fill 2 本は解消。残り 13 本は `ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F` に継続。
+- `trunk build --release`: passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-scalar-origin-split.json -j 1 --dist web/dist`: total=14, passed=14
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-scalar-origin-split.json -j 1 --dist web/dist`: total=110, passed=110
+- `node nodesrc/issues.js check`: passed

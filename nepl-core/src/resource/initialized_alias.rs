@@ -29,7 +29,8 @@ pub(super) struct ProjectedRawCellAddressAlias {
 pub(super) struct RawCellAddressAliases {
     groups: Vec<Vec<Place>>,
     marked: Vec<Place>,
-    value_origins: RawValueOrigins,
+    raw_view_origins: RawValueOrigins,
+    scalar_origins: RawValueOrigins,
     pub(super) i32_facts: I32AliasFacts,
     pub(super) i32_differences: I32DifferenceFacts,
     pub(super) i32_relations: I32RelationFacts,
@@ -66,7 +67,8 @@ impl RawCellAddressAliases {
         self.i32_differences.extend(difference_copies);
         self.i32_relations.extend(relation_copies);
         self.i32_scales.extend(scale_copies);
-        self.value_origins.copy_stable_origin(source, target);
+        self.raw_view_origins.copy_stable_origin(source, target);
+        self.scalar_origins.copy_stable_origin(source, target);
     }
 
     /// Records an explicit raw-address relation while preserving any already-tracked aliases and
@@ -80,8 +82,8 @@ impl RawCellAddressAliases {
         let mut group = Vec::new();
         push_unique_place(&mut group, source);
         push_unique_place(&mut group, target);
-        push_unique_place(&mut group, &self.value_origins.origin_for(source));
-        push_unique_place(&mut group, &self.value_origins.origin_for(target));
+        push_unique_place(&mut group, &self.raw_view_origins.origin_for(source));
+        push_unique_place(&mut group, &self.raw_view_origins.origin_for(target));
         self.union_group(&group);
     }
     pub(super) fn record_raw_address_view_origin(&mut self, source: &Place, target: &Place) {
@@ -89,7 +91,7 @@ impl RawCellAddressAliases {
             return;
         }
         self.clear_raw_address_metadata(target);
-        self.value_origins.record_view_origin(source, target);
+        self.raw_view_origins.record_view_origin(source, target);
     }
 
     pub(super) fn move_owner_aliases(&mut self, source: &Place, target: &Place) {
@@ -142,7 +144,7 @@ impl RawCellAddressAliases {
         if let Some(canonical) = self.canonicalize_group_member(place) {
             return canonical;
         }
-        let origin = self.value_origins.origin_for(place);
+        let origin = self.raw_view_origins.origin_for(place);
         if origin != *place {
             if let Some(canonical) = self.canonicalize_group_member(&origin) {
                 return canonical;
@@ -271,6 +273,7 @@ impl RawCellAddressAliases {
 
     pub(super) fn clear(&mut self, place: &Place) {
         self.clear_raw_address_metadata(place);
+        self.scalar_origins.clear_prefix(place);
         self.i32_facts.clear_prefix(place);
         self.i32_differences.clear_prefix(place);
         self.i32_relations.clear_prefix(place);
@@ -284,7 +287,7 @@ impl RawCellAddressAliases {
         self.groups.retain(|group| !group.is_empty());
         self.marked
             .retain(|existing| place_suffix_after_prefix(existing, place).is_none());
-        self.value_origins.clear_prefix(place);
+        self.raw_view_origins.clear_prefix(place);
     }
 
     pub(super) fn merge_paths(paths: &[RawCellAddressAliases]) -> Self {
@@ -297,8 +300,10 @@ impl RawCellAddressAliases {
                 push_unique_place(&mut out.marked, marked);
             }
         }
-        out.value_origins =
-            RawValueOrigins::merge_paths(paths.iter().map(|path| &path.value_origins));
+        out.raw_view_origins =
+            RawValueOrigins::merge_paths(paths.iter().map(|path| &path.raw_view_origins));
+        out.scalar_origins =
+            RawValueOrigins::merge_paths(paths.iter().map(|path| &path.scalar_origins));
         out.i32_facts = I32AliasFacts::merge_paths(paths.iter().map(|path| &path.i32_facts));
         out.i32_differences =
             I32DifferenceFacts::merge_paths(paths.iter().map(|path| &path.i32_differences));
@@ -391,7 +396,7 @@ impl RawCellAddressAliases {
 
     pub(super) fn scalar_aliases_for(&self, place: &Place) -> Vec<Place> {
         let mut out = self.aliases_for(place);
-        let origin = self.value_origins.origin_for(place);
+        let origin = self.scalar_origins.origin_for(place);
         if origin != *place {
             push_unique_place(&mut out, &origin);
             for alias in self.aliases_for(&origin) {

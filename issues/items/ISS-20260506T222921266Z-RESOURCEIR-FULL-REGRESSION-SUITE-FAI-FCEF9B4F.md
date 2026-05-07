@@ -149,3 +149,34 @@ cargo test -p nepl-core --test resource_ir -- --nocapture must pass on clean ori
 - `resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm`
 
 優先度は P1 のまま維持する。静的検査大規模修正の完了条件として、これらは expected-fail 化せず root cause ごとに解消する必要がある。
+
+## 2026-05-07 Agent 1 dynamic fill 2 本解消
+
+`ISS-20260506T172012873Z-RESOURCE-IR-DYNAMIC-RAW-ADDRESS-VIEW-77E94B53` の再発修正として、raw address view origin と scalar value origin を分離した。
+
+解消した失敗:
+
+- `resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads`
+- `resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads`
+
+現在観測した full suite の状態:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`: 215 passed / 13 failed
+
+残り失敗:
+
+- `resource_ir_cell_check_rekeys_raw_cells_after_loading_raw_address_cell`
+- `resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_pointer`
+- `resource_ir_owner_check_consumes_only_used_aggregate_owner_projection`
+- `resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind`
+- `resource_ir_owner_check_moves_stored_tail_owner_under_new_raw_node`
+- `resource_ir_owner_check_reinitializes_self_update_aggregate_return`
+- `resource_ir_owner_check_reinitializes_self_update_fresh_projection_return`
+- `resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement`
+- `resource_ir_owner_check_rejects_mem_ptr_use_before_realloc_result_refinement`
+- `resource_ir_owner_check_returns_aggregate_with_raw_cell_owner_stored_through_field_alias`
+- `resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_helper`
+- `resource_ir_owner_check_transfers_owner_returned_by_function_value`
+- `resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm`
+
+残件は owner / returned raw cell summary / result refinement に集中しており、dynamic raw range scalar proof とは別 root cause として扱う。

@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T11:53:21.022Z",
+  "generated_at": "2026-05-07T11:58:01.821Z",
   "counts": {
     "total": 581,
     "open": 12,
@@ -3998,7 +3998,7 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-05-06",
-      "updated": "2026-05-06",
+      "updated": "2026-05-07",
       "target": "nepl-core/src/resource/initialized_alias.rs, nepl-core/tests/resource_ir.rs",
       "legacy_id": "",
       "source": "",

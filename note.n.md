@@ -1,3 +1,24 @@
+# 2026-05-07 note (ISS-20260506T172012873Z ResourceIR dynamic raw address view scalar origin split)
+
+- branch `fix/resource-dynamic-fill-range-alias` で、`fill_i32 pref pref_len 0` 後の guarded dynamic `load_i32 (pref + im1 * 4)` が `resource.cell.uninit` になる再発を修正した。
+- 根本原因は、Resource IR の raw address view origin と ordinary i32 scalar value origin が同じ `RawValueOrigins` に混在していたことだった。`sub` / `add` の lowering が生成する raw view origin が `%im1` / `%pref_len` の scalar canonicalization を raw-address projection 側へ寄せ、`mul im1 4` の scale fact と `im1 < pref_len` の branch relation が結び付かなくなっていた。
+- `RawCellAddressAliases` を `raw_view_origins` と `scalar_origins` に分離し、raw pointer provenance と scalar proof を別責務にした。raw address canonicalization は raw view origin を参照し、i32 value / condition / relation / scale 証明は scalar origin だけを参照する。
+- ordinary i32 を raw pointer proof として扱う設計には戻していない。raw proof の authority は従来通り explicit raw alias / known raw storage / typed wrapper 側に限定し、今回の修正は scalar proof の汚染を取り除くもの。
+- `raw_address_view_origin_does_not_replace_scalar_value_origin` を追加し、raw view origin が stable local scalar の scale / relation proof を上書きしないことを固定した。
+- [検証]:
+  - `cargo test -p nepl-core resource::initialized_alias_tests::raw_address_view_origin_does_not_replace_scalar_value_origin -- --nocapture`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 215 passed / 13 failed。今回対象の dynamic fill 2 本は解消し、残り 13 本は `ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F` に継続。
+  - `trunk build --release`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-scalar-origin-split.json -j 1 --dist web/dist`: total=14, passed=14
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-scalar-origin-split.json -j 1 --dist web/dist`: total=110, passed=110
+  - `node nodesrc/issues.js check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T114726130Z nm json_escape raw traversal removed)
 
 - branch `fix/nm-json-escape-pure-raw-load` で、`stdlib/nm/json_escape.nepl` の public pure raw traversal を削除した。
