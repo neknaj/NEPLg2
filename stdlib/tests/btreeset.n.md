@@ -31,7 +31,8 @@ fn main <()*>i32> ():
         |> must_set
         |> insert<i32> 3
         |> must_set
-    set checks checks_push checks check_eq_i32 3 len<i32> s0;
+    set checks checks_push checks check_eq_i32 3 len<i32> &s0;
+    free<i32> s0;
 
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -80,7 +81,8 @@ fn main <()*>i32> ():
         |> must_set
         |> insert<i32> 8
         |> must_set
-    set checks checks_push checks check contains<i32> s0 8;
+    set checks checks_push checks check contains<i32> &s0 8;
+    free<i32> s0;
 
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -115,7 +117,8 @@ fn main <()*>i32> ():
         |> must_set
         |> insert<i32> 1
         |> must_set
-    set checks checks_push checks check contains<i32> s0 1;
+    set checks checks_push checks check contains<i32> &s0 1;
+    free<i32> s0;
 
     let s1 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
@@ -124,7 +127,8 @@ fn main <()*>i32> ():
         |> insert<i32> 1
         |> must_set
         |> remove<i32> 1
-    set checks checks_push checks check not contains<i32> s1 1;
+    set checks checks_push checks check not contains<i32> &s1 1;
+    free<i32> s1;
 
     let s2 <BTreeSet<i32>>:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
@@ -133,7 +137,8 @@ fn main <()*>i32> ():
         |> insert<i32> 1
         |> must_set
         |> remove<i32> 1
-    set checks checks_push checks check_eq_i32 1 len<i32> s2;
+    set checks checks_push checks check_eq_i32 1 len<i32> &s2;
+    free<i32> s2;
 
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -168,13 +173,14 @@ fn main <()*>i32> ():
         |> must_set
         |> insert<i32> 3
         |> must_set
-    set checks checks_push checks check_eq_i32 1 len<i32> s0;
+    set checks checks_push checks check_eq_i32 1 len<i32> &s0;
+    free<i32> s0;
 
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
-## btreeset_ref_reads_keep_owner
+## btreeset_borrowed_reads_keep_owner
 
 neplg2:test
 ```neplg2
@@ -203,8 +209,8 @@ fn main <()*>i32> ():
         |> must_set
         |> insert<i32> 1
         |> must_set
-    set checks checks_push checks check_eq_i32 2 len_ref<i32> &s;
-    set checks checks_push checks check contains_ref<i32> &s 1;
+    set checks checks_push checks check_eq_i32 2 len<i32> &s;
+    set checks checks_push checks check contains<i32> &s 1;
     free s;
 
     let shown checks_print_report checks;

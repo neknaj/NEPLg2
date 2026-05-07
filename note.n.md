@@ -28,6 +28,20 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 2 BTreeMap/BTreeSet primary borrowed observers
+
+- `ISS-20260507T092629151Z-BTREEMAP-AND-BTREESET-KEEP-DUPLICATE-CEEF7344` を fixed/resolved に更新した。
+- `BTreeMap.len` / `contains` / `get` と `BTreeSet.len` / `contains` は読み取り専用 API なのに owner を値で受け取り、`*_ref` が借用版として併存していた。
+- `BTreeMap.len` / `contains` / `get` を `&BTreeMap<K,V>` receiver、`BTreeSet.len` / `contains` を `&BTreeSet<T>` receiver に統一した。
+- `BTreeMap.len_ref` / `contains_ref` / `get_ref` と `BTreeSet.len_ref` / `contains_ref` を削除した。
+- `stdlib/tests/btreemap.n.md`、`stdlib/tests/btreeset.n.md`、`tests/stdlib/pipe_collections.n.md` を primary observer 名と明示 borrow/free に更新した。
+- `nodesrc/test_stdlib_btree_borrowed_observers.js` を追加し、source policy に組み込んだ。
+- [検証]:
+  - `node nodesrc/test_stdlib_btree_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreeset.nepl -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/btree-primary-borrowed-observers.json -j 1 --dist web/dist`: total=33, passed=33
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T094645212Z mandatory DiagnosticCode)
 
 - branch `fix/diagnostic-code-required` で、Rust compiler diagnostic value が code-less 診断を型として許していた問題を修正した。

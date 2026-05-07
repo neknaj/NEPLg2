@@ -16,11 +16,11 @@
 //: - [本物/ほんもの]の B-tree ではありません。
 //: - 大きな mutable set、visited set、module traversal set には[使/つか]わないでください。更新が[多/おお]い[集合/しゅうごう]は `HashSet` を[使/つか]い、安定順の[出力/しゅつりょく]が[必要/ひつよう]な[段階/だんかい]だけ key を[整列/せいれつ]する[構造/こうぞう]を[選/えら]びます。
 //: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には set payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
-//: - `len` / `contains` は set を[値/あたい]で[消費/しょうひ]し、内部 storage を[閉/と]じます。owner を[残/のこ]す[読/よ]み[取/と]りは `len_ref` / `contains_ref` を[使/つか]います。
+//: - `len` / `contains` は set を[借用/しゃくよう]して[観測/かんそく]します。観測後の owner は caller が `free` または更新 API で[閉/と]じます。
 //: - `Ord` impl が[全順序/ぜんじゅんじょ]を[満/み]たすことを[前提/ぜんてい]にします。
 //:
 //: ### [計算量/けいさんりょう]
-//: - `contains_ref` は O(log n)、`insert` / `remove` は O(n) です。
+//: - `contains` は O(log n)、`insert` / `remove` は O(n) です。
 
 #indent 4
 
@@ -194,7 +194,9 @@ fn btreeset_grow <.T: Copy> <(BTreeSet<.T>)*>Result<BTreeSet<.T>, Diag>> (set0):
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let s <BTreeSet<i32>> unwrap_ok<BTreeSet<i32>, Diag> new<i32>;
-//:     if eq len s 0 1 0
+//:     let ok <bool> eq len<i32> &s 0
+//:     free<i32> s
+//:     if ok 1 0
 //: ```
 fn new <.T: Copy> <()*>Result<BTreeSet<.T>, Diag>> ():
     let cap <i32> 8
@@ -205,7 +207,7 @@ fn new <.T: Copy> <()*>Result<BTreeSet<.T>, Diag>> ():
             ok<BTreeSet<.T>, Diag> BTreeSet<.T> 0 cap storage
 
 //: ## len
-//: set を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
+//: set を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
 //:
 //: neplg2:test
 //: ```neplg2
@@ -219,20 +221,15 @@ fn new <.T: Copy> <()*>Result<BTreeSet<.T>, Diag>> ():
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 3 |> uwok
 //:         |> insert 7 |> uwok
-//:     if eq len s 2 1 0
+//:     let ok <bool> eq len<i32> &s 2
+//:     free<i32> s
+//:     if ok 1 0
 //: ```
-fn len <.T> <(BTreeSet<.T>)->i32> (set0):
-    let n <i32> len_ref<.T> &set0
-    free<.T> set0
-    n
-
-//: ## len_ref
-//: set を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
-fn len_ref <.T> <(&BTreeSet<.T>)->i32> (set0):
+fn len <.T> <(&BTreeSet<.T>)->i32> (set0):
     *field::get_ref set0 "len"
 
 //: ## contains
-//: set を[消費/しょうひ]して key の[存在/そんざい]を[確/たし]かめる
+//: set を[移動/いどう]せずに key の[存在/そんざい]を[確/たし]かめる
 //:
 //: neplg2:test
 //: ```neplg2
@@ -245,16 +242,11 @@ fn len_ref <.T> <(&BTreeSet<.T>)->i32> (set0):
 //:     let s <BTreeSet<i32>>:
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 7 |> uwok
-//:     if contains s 7 1 0
+//:     let ok <bool> contains<i32> &s 7
+//:     free<i32> s
+//:     if ok 1 0
 //: ```
-fn contains <.T: Ord&Copy> <(BTreeSet<.T>,.T)->bool> (set0, key):
-    let ok <bool> contains_ref<.T> &set0 key
-    free<.T> set0
-    ok
-
-//: ## contains_ref
-//: set を[移動/いどう]せずに key の[存在/そんざい]を[確/たし]かめる
-fn contains_ref <.T: Ord&Copy> <(&BTreeSet<.T>,.T)->bool> (set0, key):
+fn contains <.T: Ord&Copy> <(&BTreeSet<.T>,.T)->bool> (set0, key):
     let len0 <i32> *field::get_ref set0 "len"
     let storage <&BTreeSetStorage<.T>> field::get_ref set0 "storage"
     let keys <&Vec<Option<.T>>> btreeset_storage_keys<.T> storage
@@ -308,7 +300,9 @@ fn btreeset_insert_ready <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>,
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 7 |> uwok
 //:         |> insert 3 |> uwok
-//:     if eq len s 2 1 0
+//:     let ok <bool> eq len<i32> &s 2
+//:     free<i32> s
+//:     if ok 1 0
 //: ```
 fn insert <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set0, key):
     let len_init <i32> *field::get_ref &set0 "len"
@@ -338,7 +332,9 @@ fn insert <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, Diag>> (set0, 
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 7 |> uwok
 //:         |> remove 7
-//:     if eq len s 0 1 0
+//:     let ok <bool> eq len<i32> &s 0
+//:     free<i32> s
+//:     if ok 1 0
 //: ```
 fn remove <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set0, key):
     let len0 <i32> *field::get_ref &set0 "len"
@@ -368,7 +364,9 @@ fn remove <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set0, key):
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 7 |> uwok
 //:         |> clear
-//:     if eq len s 0 1 0
+//:     let ok <bool> eq len<i32> &s 0
+//:     free<i32> s
+//:     if ok 1 0
 //: ```
 fn clear <.T: Copy> <(BTreeSet<.T>)*>BTreeSet<.T>> (set0):
     let len0 <i32> *field::get_ref &set0 "len"

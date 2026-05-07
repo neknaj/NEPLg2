@@ -32,7 +32,8 @@ fn main <()*>i32> ():
         |> must_map
         |> insert<i32,i32> 3 30
         |> must_map
-    set checks checks_push checks check_eq_i32 3 len<i32,i32> m0;
+    set checks checks_push checks check_eq_i32 3 len<i32,i32> &m0;
+    free<i32,i32> m0;
 
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -83,11 +84,12 @@ fn main <()*>i32> ():
         |> must_map
         |> insert<i32,i32> 8 80
         |> must_map
-    match get<i32,i32> m0 8:
+    match get<i32,i32> &m0 8:
         Option::Some v:
             set checks checks_push checks check_eq_i32 80 v
         Option::None:
             set checks checks_push checks Result<(),str>::Err "btreemap grow boundary lost inserted value";
+    free<i32,i32> m0;
 
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -124,11 +126,12 @@ fn main <()*>i32> ():
         |> must_map
         |> insert<i32,i32> 1 10
         |> must_map
-    match get<i32,i32> m0 3:
+    match get<i32,i32> &m0 3:
         Option::Some v:
             set checks checks_push checks check_eq_i32 30 v
         Option::None:
             set checks checks_push checks Result<(),str>::Err "btreemap get did not return inserted value";
+    free<i32,i32> m0;
 
     let m1 <BTreeMap<i32,i32>>:
         new<i32,i32>
@@ -138,7 +141,8 @@ fn main <()*>i32> ():
         |> insert<i32,i32> 1 10
         |> must_map
         |> remove<i32,i32> 1
-    set checks checks_push checks check_eq_i32 1 len<i32,i32> m1;
+    set checks checks_push checks check_eq_i32 1 len<i32,i32> &m1;
+    free<i32,i32> m1;
 
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -175,17 +179,18 @@ fn main <()*>i32> ():
         |> must_map
         |> insert<i32,i32> 7 71
         |> must_map
-    match get<i32,i32> m0 7:
+    match get<i32,i32> &m0 7:
         Option::Some v:
             set checks checks_push checks check_eq_i32 71 v
         Option::None:
             set checks checks_push checks Result<(),str>::Err "btreemap update did not overwrite value";
+    free<i32,i32> m0;
 
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
 
-## btreemap_ref_reads_keep_owner
+## btreemap_borrowed_reads_keep_owner
 
 neplg2:test
 ```neplg2
@@ -216,13 +221,13 @@ fn main <()*>i32> ():
         |> must_map
         |> insert<i32,i32> 1 10
         |> must_map
-    set checks checks_push checks check_eq_i32 2 len_ref<i32,i32> &m;
-    set checks checks_push checks check contains_ref<i32,i32> &m 1;
-    match get_ref<i32,i32> &m 2:
+    set checks checks_push checks check_eq_i32 2 len<i32,i32> &m;
+    set checks checks_push checks check contains<i32,i32> &m 1;
+    match get<i32,i32> &m 2:
         Option::Some v:
             set checks checks_push checks check_eq_i32 20 v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "btreemap get_ref lost owner-backed value";
+            set checks checks_push checks Result<(),str>::Err "btreemap get lost owner-backed value";
     free m;
 
     let shown checks_print_report checks;
