@@ -101,484 +101,94 @@
 #import "core/result" as *
 #import "core/field" as field
 #import "core/traits/copy" as *
+pub #import "./vec/types" as *
+#import "./vec/storage" as vec_storage
+#import "./vec/access" as vec_access
 
-//: ## VecStorageState
-//: `Vec` の backing storage owner state
+//: ## facade wrappers
+//: storage/access submodule の公開 API を root namespace から[呼/よ]べるようにする
 //:
 //: ### [目的/もくてき]
-//: - `cap = 0` の empty storage と、実際に[確保/かくほ]された buffer owner を enum として[分/わ]けます。
-//: - `mem_ptr_wrap 0` を owner sentinel として[使/つか]わず、`match` の[網羅性/もうらせい]で storage state を[扱/あつか]います。
-//: - backing pointer は `Vec.data` field として[保持/ほじ]し、Resource IR が raw memory cell を[追跡/ついせき]できる[形/かたち]を[保/たも]ちます。
-enum VecStorageState:
-    Empty
-    Owned
+//: - `#import "alloc/collections/vec" as v` の `v::new` / `v::len` などを維持しつつ、実装本体を submodule へ[分離/ぶんり]します。
+//: - wrapper は raw memory を直接[扱/あつか]わず、責務を `vec/storage` と `vec/access` に[委譲/いじょう]します。
 
-impl Clone for VecStorageState:
-    fn clone <(&VecStorageState)->VecStorageState> (storage):
-        *storage
-
-impl Copy for VecStorageState:
-    fn copy_mark <(VecStorageState)->VecStorageState> (storage):
-        storage
-
-//: ## Vec
-//: [可変長/かへんちょう][配列/はいれつ]の[本体/ほんたい]
+//: vec_empty: root namespace から allocation なしの[空/から] `Vec` を[作/つく]る
 //:
-//: ### [目的/もくてき]
-//: - [要素数/ようそすう]・[容量/ようりょう]・storage owner state を[保持/ほじ]し、`alloc/collections` の[他/ほか] API から[共通/きょうつう]に[扱/あつか]えるようにします。
-//:
-//: ### [実装/じっそう]
-//: - `len` と `cap` は `i32`、`storage` は `VecStorageState`、`data` は `MemPtr<.T>` で[保持/ほじ]します。
-//: - [実体/じったい]の[配列/はいれつ]はヒープ[上/じょう]の[連続/れんぞく][領域/りょういき]です。
-//:
-//: ### [注意/ちゅうい]
-//: - `Vec<.T>` [自体/じたい]は `data` [領域/りょういき]の[所有権/しょゆうけん]を[持/も]ちます。
-//: - `Vec<.T>` は shallow copy できません。値を[渡/わた]すと[所有権/しょゆうけん]が[移動/いどう]します。
-//: - [再確保/さいかくほ]により `data` の[番地/ばんち]が[変/か]わるため、[生/なま]アドレスを[長期/ちょうき]に[保持/ほじ]してはいけません。
-//:
-//: ### [計算量/けいさんりょう]
-//: - struct [自体/じたい]の[読/よ]み[書/か]きは O(1) です。
-//:
-//: neplg2:test[compile_fail]
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     let moved <Vec<i32>> v;
-//:     free<i32> v;
-//:     free<i32> moved;
-//:     0
-//: ```
-struct Vec<.T>:
-    len <i32>
-    cap <i32>
-    storage <VecStorageState>
-    data <MemPtr<.T>>
-
-//: ## VecDataLen
-//: `Vec<.T>` の data/len をまとめて[返/かえ]す[軽量/けいりょう] struct
-//:
-//: ### [目的/もくてき]
-//: - [内部/ないぶ]バッファ[先頭/せんとう]と[要素数/ようそすう]を 1 [回/かい]の[呼/よ]び[出/だ]しで[扱/あつか]えるようにします。
-//: - sort [系/けい] helper のように data と len を[対/つい]で[読む/よむ] API で、`.Pair` に[頼/たよ]らず[明示的/めいじてき]な field [名/めい]を[与/あた]えます。
-//:
-//: ### [実装/じっそう]
-//: - `data` は `MemPtr<.T>`、`len` は `i32` を[保持/ほじ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `data` は `Vec<.T>` の[内部/ないぶ][領域/りょういき]を[指/さ]すため、[再確保/さいかくほ]が[起/お]きると[無効/むこう]になります。
-//: - `len` は[取得時点/しゅとくじてん]の[値/あたい]であり、その[後/あと]の[変更/へんこう]には[追従/ついじゅう]しません。
-//:
-//: ### [計算量/けいさんりょう]
-//: - struct [自体/じたい]の[生成/せいせい]と field [読/よ]み[取/と]りは O(1) です。
-struct VecDataLen<.T>:
-    data <MemPtr<.T>>
-    len <i32>
-
-//: ## VecPop
-//: `pop` の結果を名前付き field で返す構造です。
-//:
-//: ### [目的/もくてき]
-//: - `.Pair` の数値 field ではなく、`vec` と `item` を名前付き field として Resource IR に渡します。
-//: - 返却された `vec` owner を呼び出し側が明示的に回収できます。
-struct VecPop<.T>:
-    vec <Vec<.T>>
-    item <Option<.T>>
-
-//: ## VecPartition
-//: `partition` の 2 本の結果 `Vec` を名前付き field で返す構造です。
-//:
-//: ### [目的/もくてき]
-//: - `matched` は predicate が true の[要素/ようそ]、`rest` は false の[要素/ようそ]を[保持/ほじ]します。
-//: - `.Pair` の位置番号ではなく名前付き field にして、owner の[解放/かいほう]漏れを静的検査で[見/み]える形にします。
-struct VecPartition<.T>:
-    matched <Vec<.T>>
-    rest <Vec<.T>>
-
-//: ## vec_empty
-//: allocation を[持/も]たない[空/から]の `Vec` を[作/つく]る
-//:
-//: ### [目的/もくてき]
-//: - OOM fallback など追加 allocation を行えない場面でも、null pointer ではなく `VecStorageState::Empty` で空 storage を[表/あらわ]します。
+//: [実装/じっそう]: `vec/storage` の同名 helper へ[委譲/いじょう]します。
 fn vec_empty <.T> <()->Vec<.T>> ():
-    Vec<.T> 0 0 VecStorageState::Empty mem_ptr_wrap 0
+    vec_storage::vec_empty<.T>
 
-//: ## vec_alloc_empty
-//: [空/から]の `Vec` 用 owned storage を[確保/かくほ]する
+//: vec_alloc_empty: root namespace から[指定/してい][容量/ようりょう]の empty storage を[確保/かくほ]する
 //:
-//: ### [目的/もくてき]
-//: - `cap > 0` の[空/から] `Vec` に対して、`VecStorageState::Owned` の backing storage を[確保/かくほ]します。
-//:
-//: ### [実装/じっそう]
+//: [実装/じっそう]: storage owner state の構築は `vec/storage` に[集約/しゅうやく]します。
 fn vec_alloc_empty <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_cap):
-    if:
-        le requested_cap 0
-        then:
-            Result::Ok<Vec<.T>, StdErrorKind> vec_empty<.T>
-        else:
-            match alloc_ptr<.T> mul requested_cap size_of<.T>:
-                Result::Ok data:
-                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 requested_cap VecStorageState::Owned data
-                Result::Err _e:
-                    Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
+    vec_storage::vec_alloc_empty<.T> requested_cap
 
-//: ## vec_storage_mem_ptr
-//: storage state を raw pointer view へ[変換/へんかん]する
+//: vec_storage_mem_ptr: storage state と data field から raw pointer view を[得/え]る
 //:
-//: ### [目的/もくてき]
-//: - `VecStorageState::Empty` は owner state としては null pointer を[持/も]ちませんが、legacy raw pointer observer では 0 address view を[返/かえ]します。
+//: [実装/じっそう]: `VecStorageState::Empty` の null view 変換は `vec/storage` に[閉/と]じます。
 fn vec_storage_mem_ptr <.T> <(VecStorageState,MemPtr<.T>)->MemPtr<.T>> (storage, data):
-    match storage:
-        VecStorageState::Empty:
-            mem_ptr_wrap 0
-        VecStorageState::Owned:
-            data
+    vec_storage::vec_storage_mem_ptr<.T> storage data
 
-//: ## vec_free_storage
-//: storage state に[応/おう]じて backing buffer を[解放/かいほう]する
+//: vec_free_storage: storage state に[応/おう]じて backing buffer を[解放/かいほう]する
 //:
-//: ### [目的/もくてき]
-//: - empty storage は何もせず、owned storage だけを `dealloc_raw` へ[渡/わた]します。
+//: [実装/じっそう]: raw dealloc は `vec/storage` の storage boundary に[委譲/いじょう]します。
 fn vec_free_storage <.T> <(VecStorageState,MemPtr<.T>,i32)->()> (storage, data, cap):
-    match storage:
-        VecStorageState::Empty:
-            ()
-        VecStorageState::Owned:
-            dealloc_raw mem_ptr_addr data mul cap size_of<.T>
+    vec_storage::vec_free_storage<.T> storage data cap
 
-//: ## new
-//: [既定/きてい][容量/ようりょう]の[空/から] `Vec<.T>` を[作/つく]る
+//: new: root namespace から[既定/きてい][容量/ようりょう]の `Vec` を[作/つく]る
 //:
-//: ### [目的/もくてき]
-//: - [空/から]の `Vec<.T>` を[返/かえ]し、`push` [連鎖/れんさ]の[起点/きてん]として[使/つか]えるようにします。
-//:
-//: ### [実装/じっそう]
-//: - [初期/しょき][容量/ようりょう]を 8 とし、その byte [数/すう]だけ typed `alloc_ptr<.T>` で[確保/かくほ]します。
-//: - `len = 0`、`cap = 8`、`data = allocated pointer` の struct を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [初期/しょき][容量/ようりょう]は[固定値/こていち] 8 です。
-//: - `cap < 0` は[不正/ふせい]な[容量/ようりょう]として `StdErrorKind::InvalidOperation` を[返/かえ]します。
-//: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]は `Result::Err StdErrorKind::OutOfMemory` を[返/かえ]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん][計算量/けいさんりょう]は O(1)、[追加/ついか]の[空間/くうかん][計算量/けいさんりょう]も O(1) です。
-//:
-//: ### [使用例/しようれい]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     let ok <bool> eq len<i32> &v 0
-//:     free<i32> v;
-//:     if ok 0 1
-//: ```
+//: [実装/じっそう]: allocation policy は `vec/storage::new` が[保持/ほじ]します。
 fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
-    vec_alloc_empty<.T> 8
+    vec_storage::new<.T>
 
-//: ## with_capacity
-//: [初期/しょき][容量/ようりょう]を[指定/してい]して `Vec<.T>` を[作/つく]る
+//: with_capacity: root namespace から[容量/ようりょう][指定/してい]つき `Vec` を[作/つく]る
 //:
-//: ### [目的/もくてき]
-//: - [事前/じぜん]に[必要/ひつよう]な[容量/ようりょう]が[分/わ]かっている[場面/ばめん]で、[再確保/さいかくほ]を[減/へ]らした `Vec<.T>` を[作/つく]ります。
-//:
-//: ### [実装/じっそう]
-//: - [指定/してい]した `cap` に[応/おう]じて typed `alloc_ptr<.T>` を[呼/よ]び、`len = 0` で[返/かえ]します。
-//: - `cap = 0` は null pointer sentinel ではなく、`VecStorageState::Empty` に[正規化/せいきか]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `cap = 0` でも[動作/どうさ]し、`cap` observer は 0 を[返/かえ]します。
-//: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]は `Result::Err StdErrorKind::OutOfMemory` を[返/かえ]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
-//:
-//: ### [使用例/しようれい]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>> unwrap_ok with_capacity<i32> 16;
-//:     let ok <bool> eq cap<i32> &v 16
-//:     free<i32> v;
-//:     if ok 0 1
-//: ```
+//: [実装/じっそう]: negative capacity validation と allocation は `vec/storage` に[委譲/いじょう]します。
 fn with_capacity <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (cap):
-    if:
-        lt cap 0
-        then:
-            Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::InvalidOperation
-        else:
-            vec_alloc_empty<.T> cap
+    vec_storage::with_capacity<.T> cap
 
-//: ## filled
-//: [同/おな]じ Copy [値/あたい]で[満/み]たした `Vec<.T>` を[作/つく]る
+//: filled: root namespace から Copy 値で[満/み]たした `Vec` を[作/つく]る
 //:
-//: ### [目的/もくてき]
-//: - [固定長/こていちょう]の buffer や table を、`with_capacity` + `push` の loop ではなく 1 つの API で[作成/さくせい]します。
-//: - [確保/かくほ][失敗/しっぱい]は `Result::Err StdErrorKind::OutOfMemory` として[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - `n <= 0` なら `VecStorageState::Empty` の[空/から]の `Vec` を[返/かえ]します。
-//: - `n > 0` なら `n` [要素分/ようそぶん]を typed `alloc_ptr<.T>` で[確保/かくほ]し、先頭から順に `store` で同じ値を書き込みます。
-//: - 書き込み完了後は `len = cap = n` の `Vec` として[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `.T: Copy` に[限定/げんてい]します。同じ値を複数セルへ複製して保持するためです。
-//: - [返/かえ]った `Vec` は通常どおり `free` で[解放/かいほう]してください。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん][計算量/けいさんりょう]は O(n)、[追加/ついか]の[空間/くうかん][計算量/けいさんりょう]は O(n) です。
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//:| #import "core/math" as *
-//:| #import "core/option" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     match filled<i32> 3 7:
-//:         Result::Ok v:
-//:             let len_ok <bool> eq len<i32> &v 3
-//:             let mid_ok <bool>:
-//:                 match get<i32> &v 1:
-//:                     Option::Some x:
-//:                         eq x 7
-//:                     Option::None:
-//:                         false
-//:             free<i32> v;
-//:             if and len_ok mid_ok 0 1
-//:         Result::Err _:
-//:             1
-//: ```
+//: [実装/じっそう]: allocation と初期化 loop は `vec/storage` の storage boundary に[閉/と]じます。
 fn filled <.T: Copy> <(i32,.T)->Result<Vec<.T>, StdErrorKind>> (n, value):
-    if:
-        le n 0
-        then:
-            Result::Ok<Vec<.T>, StdErrorKind> vec_empty<.T>
-        else:
-            match alloc_ptr<.T> mul n size_of<.T>:
-                Result::Ok data:
-                    let mut i <i32> 0
-                    while lt i n:
-                        do:
-                            let write_off <i32> mul i size_of<.T>
-                            store<.T> add mem_ptr_addr data write_off value
-                            set i add i 1
-                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> n n VecStorageState::Owned data
-                Result::Err _e:
-                    Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
+    vec_storage::filled<.T> n value
 
-//: ## len
-//: [要素数/ようそすう]を[返/かえ]す
+//: len: root namespace から `Vec` の[要素数/ようそすう]を[読/よ]む
 //:
-//: ### [目的/もくてき]
-//: - `Vec<.T>` に[現在/げんざい][何個/なんこ]の[要素/ようそ]が[入/はい]っているかを[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - struct field `len` をそのまま[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [変更/へんこう]を[伴/ともな]わない[読/よ]み[取/と]り API です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
-//:
-//: ### [使用例/しようれい]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
-//:     let v1 <Vec<i32>> unwrap_ok push v0 3;
-//:     let ok <bool> eq len<i32> &v1 1
-//:     free<i32> v1;
-//:     if ok 0 1
-//: ```
+//: [実装/じっそう]: borrowed observer は `vec/access` に[集約/しゅうやく]します。
 fn len <.T> <(&Vec<.T>)->i32> (v):
-    *field::get_ref v "len"
+    vec_access::len<.T> v
 
-//: ## cap
-//: [容量/ようりょう]を[返/かえ]す
+//: cap: root namespace から `Vec` の[容量/ようりょう]を[読/よ]む
 //:
-//: ### [目的/もくてき]
-//: - [現在/げんざい][確保/かくほ]されている[要素数/ようそすう]ぶんの[容量/ようりょう]を[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - struct field `cap` をそのまま[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [変更/へんこう]を[伴/ともな]わない[読/よ]み[取/と]り API です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
-//:
-//: ### [使用例/しようれい]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     let ok <bool> gt cap<i32> &v 0
-//:     free<i32> v;
-//:     if ok 0 1
-//: ```
+//: [実装/じっそう]: borrowed observer は `vec/access` に[集約/しゅうやく]します。
 fn cap <.T> <(&Vec<.T>)->i32> (v):
-    *field::get_ref v "cap"
+    vec_access::cap<.T> v
 
-//: ## data_ptr
-//: [内部/ないぶ]データ[領域/りょういき]の raw address を[返/かえ]す
+//: data_ptr: root namespace から[内部/ないぶ] data の raw address view を[読/よ]む
 //:
-//: ### [目的/もくてき]
-//: - [既存/きぞん] API との[互換/ごかん]のため、`MemPtr<.T>` の[番地/ばんち]を `i32` として[取/と]り[出/だ]します。
-//:
-//: ### [実装/じっそう]
-//: - field `data` の `MemPtr<.T>` を `mem_ptr_addr` で raw address に[戻/もど]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [返/かえ]り[値/あたい]は[生/なま]アドレスなので、[範囲/はんい]・[寿命/じゅみょう]・[再確保/さいかくほ]を[呼/よ]び[出/だ]し[側/がわ]で[管理/かんり]する[必要/ひつよう]があります。
-//: - [新規/しんき]コードでは、できるだけ `data_mem_ptr` を[優先/ゆうせん]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
-//:
-//: ### [使用例/しようれい]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     let ok <bool> gt data_ptr<i32> &v 0
-//:     free<i32> v;
-//:     if ok 0 1
-//: ```
+//: [実装/じっそう]: empty storage の null view 変換は `vec/access` 経由で[扱/あつか]います。
 fn data_ptr <.T> <(&Vec<.T>)->i32> (v):
-    let v_storage <VecStorageState> *field::get_ref v "storage"
-    let v_data <MemPtr<.T>> *field::get_ref v "data"
-    mem_ptr_addr vec_storage_mem_ptr<.T> v_storage v_data
+    vec_access::data_ptr<.T> v
 
-//: ## data_mem_ptr
-//: [内部/ないぶ]データ[領域/りょういき]を `MemPtr<.T>` として[返/かえ]す
+//: data_mem_ptr: root namespace から[内部/ないぶ] data の typed pointer view を[読/よ]む
 //:
-//: ### [目的/もくてき]
-//: - `alloc/collections` [内部/ないぶ]で `Vec<.T>` の[要素/ようそ][領域/りょういき]を型付きポインタとして[安全/あんぜん]に[扱/あつか]えるようにします。
-//:
-//: ### [実装/じっそう]
-//: - field `data` をそのまま[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [主/おも]に stdlib [内部/ないぶ]の[実装/じっそう][補助/ほじょ]を[想定/そうてい]した API です。
-//: - [再確保/さいかくほ]が[起/お]きると pointer は[無効化/むこうか]されうるので、[長期/ちょうき][保持/ほじ]は[避/さ]けます。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
-//:
-//: ### [使用例/しようれい]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//:| #import "core/mem" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     let ok <bool> gt mem_ptr_addr data_mem_ptr<i32> &v 0
-//:     free<i32> v;
-//:     if ok 0 1
-//: ```
+//: [実装/じっそう]: storage state の[解釈/かいしゃく]は `vec/access` に[委譲/いじょう]します。
 fn data_mem_ptr <.T> <(&Vec<.T>)->MemPtr<.T>> (v):
-    let v_storage <VecStorageState> *field::get_ref v "storage"
-    let v_data <MemPtr<.T>> *field::get_ref v "data"
-    vec_storage_mem_ptr<.T> v_storage v_data
+    vec_access::data_mem_ptr<.T> v
 
-//: ## data_len
-//: [内部/ないぶ]バッファ[先頭/せんとう]と[要素数/ようそすう]を[同時/どうじ]に[返/かえ]す
+//: data_len: root namespace から data pointer と len を[対/つい]で[読/よ]む
 //:
-//: ### [目的/もくてき]
-//: - sort [系/けい] helper のように `data` と `len` を[同時/どうじ]に[使/つか]う[処理/しょり]で、field [名/めい]つきの struct を[得/え]られるようにします。
-//:
-//: ### [使用例/しようれい]
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//:| #import "core/field" as *
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
-//:     let v1 <Vec<i32>> unwrap_ok push v0 7;
-//:     let s data_len<i32> &v1;
-//:     let ok <bool> and gt mem_ptr_addr get s "data" 0 eq get s "len" 1
-//:     free<i32> v1;
-//:     if ok 0 1
-//: ```
-//:
-//: ### [実装/じっそう]
-//: - `Vec<.T>` から `data` と `len` を[取/と]り[出/だ]し、`VecDataLen<.T>` として[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `data` は `MemPtr<.T>` なので、[生/なま]アドレスが[必要/ひつよう]な[場合/ばあい]は `mem_ptr_addr` を[通/とお]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
+//: [実装/じっそう]: `VecDataLen` の構築は `vec/access` に[集約/しゅうやく]します。
 fn data_len <.T> <(&Vec<.T>)->VecDataLen<.T>> (v):
-    let v_len <i32> *field::get_ref v "len"
-    let v_storage <VecStorageState> *field::get_ref v "storage"
-    let raw_data <MemPtr<.T>> *field::get_ref v "data"
-    let v_data <MemPtr<.T>> vec_storage_mem_ptr<.T> v_storage raw_data
-    VecDataLen<.T> v_data v_len
+    vec_access::data_len<.T> v
 
-//: ## is_empty
-//: [空/から]かどうかを[判定/はんてい]する
+//: is_empty: root namespace から `Vec` が[空/から]か[判定/はんてい]する
 //:
-//: ### [目的/もくてき]
-//: - `len == 0` なら true を[返/かえ]し、[要素/ようそ]が[存在/そんざい]しないことを[判定/はんてい]します。
-//:
-//: ### [実装/じっそう]
-//: - field `len` を[読/よ]み、0 と[比較/ひかく]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [変更/へんこう]を[伴/ともな]わない[読/よ]み[取/と]り API です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: ### [使用例/しようれい]
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/vec" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     let ok <bool> is_empty<i32> &v
-//:     free<i32> v;
-//:     if ok 0 1
-//: ```
+//: [実装/じっそう]: borrowed observer は `vec/access` に[委譲/いじょう]します。
 fn is_empty <.T> <(&Vec<.T>)->bool> (v):
-    eq len<.T> v 0
+    vec_access::is_empty<.T> v
 
 //: ## push
 //: [末尾/まつび]に[要素/ようそ]を[追加/ついか]する

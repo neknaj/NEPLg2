@@ -1,0 +1,200 @@
+//: # vec/storage
+//: `Vec` の storage allocation / deallocation helper
+//:
+//: ### [目的/もくてき]
+//: - `Vec` root から backing storage の[確保/かくほ]・[解放/かいほう]・empty/owned state [変換/へんかん]を[分離/ぶんり]します。
+//: - `VecStorageState` の match をこの module に集め、numeric/null sentinel に戻らない設計を[保/たも]ちます。
+//:
+//: ### [注意/ちゅうい]
+//: - `vec_free_storage` は storage-only dealloc helper です。non-Copy 要素の drop traversal は collection cleanup issue の対象として分けます。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./types" as *
+
+//: ## vec_empty
+//: allocation を[持/も]たない[空/から]の `Vec` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - OOM fallback など追加 allocation を行えない場面でも、null pointer ではなく `VecStorageState::Empty` で空 storage を[表/あらわ]します。
+fn vec_empty <.T> <()->Vec<.T>> ():
+    Vec<.T> 0 0 VecStorageState::Empty mem_ptr_wrap 0
+
+//: ## vec_alloc_empty
+//: [空/から]の `Vec` 用 owned storage を[確保/かくほ]する
+//:
+//: ### [目的/もくてき]
+//: - `cap > 0` の[空/から] `Vec` に対して、`VecStorageState::Owned` の backing storage を[確保/かくほ]します。
+//:
+//: ### [実装/じっそう]
+fn vec_alloc_empty <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_cap):
+    if:
+        le requested_cap 0
+        then:
+            Result::Ok<Vec<.T>, StdErrorKind> vec_empty<.T>
+        else:
+            match alloc_ptr<.T> mul requested_cap size_of<.T>:
+                Result::Ok data:
+                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> 0 requested_cap VecStorageState::Owned data
+                Result::Err _e:
+                    Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
+
+//: ## vec_storage_mem_ptr
+//: storage state を raw pointer view へ[変換/へんかん]する
+//:
+//: ### [目的/もくてき]
+//: - `VecStorageState::Empty` は owner state としては null pointer を[持/も]ちませんが、legacy raw pointer observer では 0 address view を[返/かえ]します。
+fn vec_storage_mem_ptr <.T> <(VecStorageState,MemPtr<.T>)->MemPtr<.T>> (storage, data):
+    match storage:
+        VecStorageState::Empty:
+            mem_ptr_wrap 0
+        VecStorageState::Owned:
+            data
+
+//: ## vec_free_storage
+//: storage state に[応/おう]じて backing buffer を[解放/かいほう]する
+//:
+//: ### [目的/もくてき]
+//: - empty storage は何もせず、owned storage だけを `dealloc_raw` へ[渡/わた]します。
+fn vec_free_storage <.T> <(VecStorageState,MemPtr<.T>,i32)->()> (storage, data, cap):
+    match storage:
+        VecStorageState::Empty:
+            ()
+        VecStorageState::Owned:
+            dealloc_raw mem_ptr_addr data mul cap size_of<.T>
+
+//: ## new
+//: [既定/きてい][容量/ようりょう]の[空/から] `Vec<.T>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - [空/から]の `Vec<.T>` を[返/かえ]し、`push` [連鎖/れんさ]の[起点/きてん]として[使/つか]えるようにします。
+//:
+//: ### [実装/じっそう]
+//: - [初期/しょき][容量/ようりょう]を 8 とし、その byte [数/すう]だけ typed `alloc_ptr<.T>` で[確保/かくほ]します。
+//: - `len = 0`、`cap = 8`、`data = allocated pointer` の struct を[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [初期/しょき][容量/ようりょう]は[固定値/こていち] 8 です。
+//: - `cap < 0` は[不正/ふせい]な[容量/ようりょう]として `StdErrorKind::InvalidOperation` を[返/かえ]します。
+//: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]は `Result::Err StdErrorKind::OutOfMemory` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん][計算量/けいさんりょう]は O(1)、[追加/ついか]の[空間/くうかん][計算量/けいさんりょう]も O(1) です。
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>> unwrap_ok new<i32>;
+//:     let ok <bool> eq len<i32> &v 0
+//:     free<i32> v;
+//:     if ok 0 1
+//: ```
+fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
+    vec_alloc_empty<.T> 8
+
+//: ## with_capacity
+//: [初期/しょき][容量/ようりょう]を[指定/してい]して `Vec<.T>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - [事前/じぜん]に[必要/ひつよう]な[容量/ようりょう]が[分/わ]かっている[場面/ばめん]で、[再確保/さいかくほ]を[減/へ]らした `Vec<.T>` を[作/つく]ります。
+//:
+//: ### [実装/じっそう]
+//: - [指定/してい]した `cap` に[応/おう]じて typed `alloc_ptr<.T>` を[呼/よ]び、`len = 0` で[返/かえ]します。
+//: - `cap = 0` は null pointer sentinel ではなく、`VecStorageState::Empty` に[正規化/せいきか]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `cap = 0` でも[動作/どうさ]し、`cap` observer は 0 を[返/かえ]します。
+//: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]は `Result::Err StdErrorKind::OutOfMemory` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>> unwrap_ok with_capacity<i32> 16;
+//:     let ok <bool> eq cap<i32> &v 16
+//:     free<i32> v;
+//:     if ok 0 1
+//: ```
+fn with_capacity <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (cap):
+    if:
+        lt cap 0
+        then:
+            Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::InvalidOperation
+        else:
+            vec_alloc_empty<.T> cap
+
+//: ## filled
+//: [同/おな]じ Copy [値/あたい]で[満/み]たした `Vec<.T>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - [固定長/こていちょう]の buffer や table を、`with_capacity` + `push` の loop ではなく 1 つの API で[作成/さくせい]します。
+//: - [確保/かくほ][失敗/しっぱい]は `Result::Err StdErrorKind::OutOfMemory` として[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - `n <= 0` なら `VecStorageState::Empty` の[空/から]の `Vec` を[返/かえ]します。
+//: - `n > 0` なら `n` [要素分/ようそぶん]を typed `alloc_ptr<.T>` で[確保/かくほ]し、先頭から順に `store` で同じ値を書き込みます。
+//: - 書き込み完了後は `len = cap = n` の `Vec` として[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `.T: Copy` に[限定/げんてい]します。同じ値を複数セルへ複製して保持するためです。
+//: - [返/かえ]った `Vec` は通常どおり `free` で[解放/かいほう]してください。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん][計算量/けいさんりょう]は O(n)、[追加/ついか]の[空間/くうかん][計算量/けいさんりょう]は O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match filled<i32> 3 7:
+//:         Result::Ok v:
+//:             let len_ok <bool> eq len<i32> &v 3
+//:             let mid_ok <bool>:
+//:                 match get<i32> &v 1:
+//:                     Option::Some x:
+//:                         eq x 7
+//:                     Option::None:
+//:                         false
+//:             free<i32> v;
+//:             if and len_ok mid_ok 0 1
+//:         Result::Err _:
+//:             1
+//: ```
+fn filled <.T: Copy> <(i32,.T)->Result<Vec<.T>, StdErrorKind>> (n, value):
+    if:
+        le n 0
+        then:
+            Result::Ok<Vec<.T>, StdErrorKind> vec_empty<.T>
+        else:
+            match alloc_ptr<.T> mul n size_of<.T>:
+                Result::Ok data:
+                    let mut i <i32> 0
+                    while lt i n:
+                        do:
+                            let write_off <i32> mul i size_of<.T>
+                            store<.T> add mem_ptr_addr data write_off value
+                            set i add i 1
+                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> n n VecStorageState::Owned data
+                Result::Err _e:
+                    Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory

@@ -1,3 +1,16 @@
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 Vec storage/types/access split)
+
+- branch `refactor/vec-storage-module-split` で `stdlib/alloc/collections/vec.nepl` の型定義、storage allocation/deallocation、read-only observer を submodule へ分離した。
+- 追加 module:
+  - `stdlib/alloc/collections/vec/types.nepl`: `VecStorageState`, `Vec`, `VecDataLen`, `VecPop`, `VecPartition`
+  - `stdlib/alloc/collections/vec/storage.nepl`: `vec_empty`, allocation, `new`, `with_capacity`, `filled`, storage cleanup
+  - `stdlib/alloc/collections/vec/access.nepl`: `len`, `cap`, `data_ptr`, `data_mem_ptr`, `data_len`, `is_empty`
+- root `stdlib/alloc/collections/vec.nepl` は `types` を public re-export し、`storage` / `access` へ薄い wrapper で委譲する。`#import "alloc/collections/vec" as v` の `v::new` / `v::len` などは維持しつつ、実装本体は submodule が所有する。
+- `nepl-core/src/loader.rs` の exact raw-memory boundary を `vec/storage.nepl`, `vec/access.nepl`, `vec/types.nepl`, `vec/sort/common.nepl`, `vec/sort/merge.nepl` に追従させた。fresh `trunk build` 後の `Vec` focused doctest で root/submodule import は通過した。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_vec_borrowed_observers.js` を更新し、Vec root に型/storage/access 実装本体が戻らないこと、root wrapper が submodule へ委譲すること、loader raw-memory boundary が exact path に追従することを固定した。
+- 追加確認で `tests/stdlib/sort.n.md::doctest#18-#22` が現在の Resource IR/effect gate とずれていることを確認し、`ISS-20260507T015824839Z-SORT-RAW-POINTER-DOCTESTS-BYPASS-CUR-41C19268` を追加した。追加時点で Discord に直接報告し、commit `9eade86a` として branch push 済み。
+- `tests/stdlib/sort.n.md` の full suite 失敗は今回の Vec storage/access split の回帰ではなく、sort raw pointer fixture の owner/effect contract issue として分離した。
+
 # 2026-05-07 note (ISS-20260429T155343006Z List typed Vec storage)
 
 ## 作業内容

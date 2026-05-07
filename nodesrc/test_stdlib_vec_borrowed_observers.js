@@ -6,12 +6,21 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
-const vecRelPath = "stdlib/alloc/collections/vec.nepl";
-const vecSource = fs.readFileSync(path.join(repoRoot, vecRelPath), "utf8");
-const vecCode = vecSource
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
+const vecRelPaths = [
+    "stdlib/alloc/collections/vec.nepl",
+    "stdlib/alloc/collections/vec/types.nepl",
+    "stdlib/alloc/collections/vec/storage.nepl",
+    "stdlib/alloc/collections/vec/access.nepl",
+];
+const vecSources = Object.fromEntries(vecRelPaths.map((relPath) => [relPath, fs.readFileSync(path.join(repoRoot, relPath), "utf8")]));
+const vecCode = vecRelPaths
+    .map((relPath) => vecSources[relPath]
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*\/\//.test(line))
+        .join("\n"))
     .join("\n");
+
+assert.match(vecSources["stdlib/alloc/collections/vec.nepl"], /#import\s+"\.\/vec\/access"\s+as\s+vec_access/, "Vec root must delegate borrowed observers to access module");
 
 for (const name of [
     "len_ref",
