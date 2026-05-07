@@ -1,6 +1,6 @@
 # GitHub Actions 状況
 
-確認対象 commit: `31291b37 fix(core): add parser backend responsibility policy`
+確認対象 commit: `b350213c docs(review): add selfhost compiler review`
 
 ## 確認方法
 
@@ -16,24 +16,25 @@
 
 | 項目 | 内容 |
 |---|---|
-| run id | `25504986573` |
+| run id | `25505188662` |
 | workflow | `CI (NEPL-g2)` |
 | branch | `main` |
-| head sha | `31291b3799089c7dbe2ec33a370abc0d03d7154c` |
-| status | pending |
+| head sha | `b350213c2e80afe81ba666a834d2e2e9ed9ad45b` |
+| status | in_progress |
 | conclusion | 未確定 |
-| createdAt | `2026-05-07T15:19:58Z` |
-| updatedAt | `2026-05-07T15:20:00Z` |
+| createdAt | `2026-05-07T15:23:35Z` |
+| updatedAt | `2026-05-07T15:28:21Z` |
 | active job | 未完了 run。job 詳細は次 checkpoint で必要に応じて取得する。 |
 
-この run は `31291b37` 取り込み時点では完了していない。したがって、この時点では main の green 判定は未確定である。レビュー進行中に再度 `gh run view` を実行し、完了結果を本ファイルまたは最終 summary に反映する。
+この run は `b350213c` 取り込み時点では完了していない。したがって、この時点では main の green 判定は未確定である。レビュー進行中に再度 `gh run view` を実行し、完了結果を本ファイルまたは最終 summary に反映する。
 
 ## 直近 run の傾向
 
 | head | 状態 | 備考 |
 |---|---|---|
-| `31291b37` | pending | 最新 main。parser/backend responsibility policy 追加。 |
-| `09ddb790` | in_progress | selfhost sentinel issue 更新。 |
+| `b350213c` | in_progress | 最新 main。selfhost compiler review 追加。 |
+| `31291b37` | cancelled | parser/backend responsibility policy 追加。 |
+| `09ddb790` | cancelled | selfhost sentinel issue 更新。 |
 | `e677a4e3` | cancelled | selfhost lexer enum coverage issue 追加。 |
 | `08b58a2e` | cancelled | selfhost typed IR sentinel issue 追加。 |
 | `c58dd6e3` | cancelled | public monomorphize API Result 化。 |
@@ -76,4 +77,4 @@ test coverage は Rust compile/run、WASI doctest、`.n.md` doctest、tutorial d
 
 - 最新 main の CI 結果は未確定。
 - 連続 push による cancelled run が多いため、過去 run の conclusion だけで main の健全性を判断しない。
-- 次 checkpoint 以降で `31291b37` 以降の run が完了していれば、成功/失敗 job と artifact 有無を追記する。
+- 次 checkpoint 以降で `b350213c` 以降の run が完了していれば、成功/失敗 job と artifact 有無を追記する。

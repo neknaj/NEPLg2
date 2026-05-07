@@ -1,6 +1,6 @@
 # プロジェクトリスクマップ
 
-確認対象 commit: `31291b37 fix(core): add parser backend responsibility policy`
+確認対象 commit: `b350213c docs(review): add selfhost compiler review`
 
 ## 重要リスク
 
@@ -17,7 +17,7 @@
 | P2 | selfhost lexer raw mode が enum coverage 外 | raw mode が `i32` sentinel、directive classifier が deep if chain。 | `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B` を追加。 | enum raw state と classifier source policy。 |
 | P2 | 巨大 stdlib file split の残件 | stdlib 分割は進んだが open issue が残る。 | Vec/string/streamio/nm/stdio debug は分割済み。巨大 module policy warning は継続的に発見されている。 | `stdlib/overview.md` と `stdlib/tests.md`。 |
 | fixed | Rust parser/backend の responsibility policy 不足 | typecheck/resource と違い responsibility source policy がなかった。 | `31291b37` で `parser_backend_responsibility_split_plan.md` と source policy が追加された。 | 実分割の継続確認。 |
-| P2 | CI status 未確定 | latest main run が pending で、連続 push による cancel が多い。 | `31291b37` の run 完了待ち。 | `project/actions-status.md` を更新する。 |
+| P2 | CI status 未確定 | latest main run が in_progress で、連続 push による cancel が多い。 | `b350213c` の run 完了待ち。 | `project/actions-status.md` を更新する。 |
 
 ## 技術方針との対応
 

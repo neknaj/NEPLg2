@@ -1,6 +1,6 @@
 # レビュー方法
 
-確認対象 commit: `31291b37 fix(core): add parser backend responsibility policy`
+確認対象 commit: `b350213c docs(review): add selfhost compiler review`
 
 ## 目的
 
@@ -28,6 +28,7 @@
 11. selfhost review 開始時に remote main の `c58dd6e3 fix(monomorphize): return unresolved trait calls` を取り込み、public monomorphize API panic issue を resolved 扱いへ更新した。
 12. selfhost review 中に `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D` と `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B` を追加し、resolver sentinel も同 issue へ追記した。
 13. selfhost review 文書 commit 前に remote main の `31291b37 fix(core): add parser backend responsibility policy` を取り込み、parser/backend policy 不足を fixed 扱いへ更新した。
+14. stdlib review では `core/mem`、string、collections、hash/json/diag/io、std I/O/fs/env/test、platforms/TUI、nm、kp、source policy を現行ソースから確認した。
 
 ## 使用した確認コマンド
 
@@ -65,15 +66,26 @@
 - `Get-Content stdlib/neplg2/core/{ty,hir,mono,builtins}/...`
 - `Get-Content stdlib/neplg2/cli/**`
 - `Get-Content nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`
+- `Get-Content stdlib/core/{mem,char,result,option}.nepl`
+- `Get-Content stdlib/core/math/**`
+- `Get-Content stdlib/core/traits/**`
+- `Get-Content stdlib/alloc/string/**`
+- `Get-Content stdlib/alloc/collections/**`
+- `Get-Content stdlib/alloc/{hash,encoding/json,diag,io}/**`
+- `Get-Content stdlib/std/**`
+- `Get-Content stdlib/platforms/wasix/tui/**`
+- `Get-Content stdlib/nm/**`
+- `Get-Content stdlib/kp/**`
+- `Get-ChildItem nodesrc -Filter test_stdlib*.js`
 - `Get-ChildItem nepl-core/src -File`
 - `Get-Content nepl-core/src/{lexer,parser,loader,module_graph,resolve,target_gate,target_precheck,layout,monomorphize,codegen_wasm,codegen_llvm,wasm_shared,runtime_helpers}.rs`
 - `rg -n "panic!|unwrap\\(|expect\\(" nepl-core/src/...`
 
 ## GitHub Actions 確認方針
 
-レビュー上の test 状況は local test ではなく GitHub Actions の結果を根拠にする。現在の latest run は `31291b37` の CI run で、selfhost checkpoint 作成時点では pending である。CI の最終状態は、レビュー進行中に再確認して `project/actions-status.md` と最終 summary へ反映する。
+レビュー上の test 状況は local test ではなく GitHub Actions の結果を根拠にする。現在の latest run は `b350213c` の CI run で、stdlib checkpoint 作成時点では in_progress である。CI の最終状態は、レビュー進行中に再確認して `project/actions-status.md` と最終 summary へ反映する。
 
-`3742a1a7` で `--check` ResourceIR gate の regression が追加され、`c58dd6e3` で public monomorphize API panic が Result 化され、`31291b37` で parser/backend responsibility policy が追加された。selfhost review はこれらを取り込んだ `31291b37` を基準に更新した。Actions の最新 run はまだ pending であり、green 判定は後続 checkpoint で引き続き確認する。
+`3742a1a7` で `--check` ResourceIR gate の regression が追加され、`c58dd6e3` で public monomorphize API panic が Result 化され、`31291b37` で parser/backend responsibility policy が追加された。stdlib review は selfhost review commit `b350213c` までを基準に更新した。Actions の最新 run はまだ in_progress であり、green 判定は後続 checkpoint で引き続き確認する。
 
 ## レビュー判断基準
 
@@ -87,7 +99,7 @@
 
 ## 未完了
 
-- stdlib、quality、tools の個別レビュー本文。
-- CI run `31291b37` 以降の完了結果確認。
+- quality、tools の個別レビュー本文。
+- CI run `b350213c` 以降の完了結果確認。
 - レビュー全体の妥当性再確認。
 - 前回レビューとの差分報告。

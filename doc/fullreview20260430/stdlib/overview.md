@@ -1,65 +1,54 @@
 # stdlib overview review
 
-対象 commit: `f108cebd`
+確認対象 commit: `b350213c docs(review): add selfhost compiler review`
 
-参照 Actions: `25157230630`
+## 確認対象
 
-## 概要
+- `stdlib/index.n.md`
+- `stdlib/core/**`
+- `stdlib/alloc/**`
+- `stdlib/std/**`
+- `stdlib/platforms/**`
+- `stdlib/nm/**`
+- `stdlib/kp/**`
+- `stdlib/tests/**`
+- `nodesrc/test_stdlib*.js`
+- `issues/index.json`
 
-`stdlib` は 144 file あり、`core`、`alloc`、`std`、`nm`、`kp`、`platforms`、`neplg2` selfhost、旧 `neplg3` に分かれている。現状は、selfhost の S1/S2 に必要な string / byte buffer / CLI / module helper が増えている一方、strict Resource IR の下では stdlib doctest 全体がまだ green ではない。
+## 全体判定
 
-Actions の `stdlib-test` artifact は `415 total / 232 passed / 173 failed / 10 errored`。失敗は local 実行ではなく `gh run download 25157230630 -n stdlib-tests` で取得した artifact から分類した。
+stdlib は 2026-05-07 時点で、文字列、Vec、HashMap/HashSet、stdio、streamio、nm、TUI などの module split と source policy がかなり進んでいる。enum と match を使った状態管理も、HashMap/HashSet bucket、Vec storage、ANSI color/style、JSON value/escape、std/test assertion などで確認できる。
 
-## module map
+一方で、selfhost の基盤としてはまだ最終形ではない。`core/mem` と raw-memory-backed API は移行中で、collection の element drop contract、MemPtr/RegionToken の compiler-owned provenance、raw memory public surface の分離が未完である。non-Copy payload を多く持つ AST/HIR/diagnostic buffer を stdlib collection に載せる前に、既存 open issue を根本設計として解決する必要がある。
 
-| 領域 | 主な内容 | 判定 |
+## 進捗状況
+
+| 領域 | 状態 | 判定 |
 |---|---|---|
-| `stdlib/core` | primitive helper、`mem`、`char`、`Option`、`Result`、traits | `char` / enum / trait は進んだが `mem` は owner token 未完 |
-| `stdlib/alloc/string.nepl` | `str` layout、UTF-8、StringBuilder、numeric parser | selfhost に必要だが巨大で、`from_f64_result` に current Actions failure |
-| `stdlib/alloc/io.nepl` | `ByteBuf` / `ByteBuilder` / I/O traits | `Option<MemPtr<u8>>` 化で改善、最終的には `OwnedBytes` が必要 |
-| `stdlib/alloc/collections` | Vec / List / HashMap / HashSet / tree / heap / bitset | 改善中だが `Vec` と raw storage collection が未完 |
-| `stdlib/alloc/diag` | `Diag` / `Diags` / `Outcome` | selfhost に有用だが string code ではなく typed diag へ寄せ続ける必要 |
-| `stdlib/alloc/encoding/json` | typed `JsonValue` と serializer | enum 化は良い。owned payload drop/free は collection 設計に依存 |
-| `stdlib/alloc/hash` | FNV / generic hash / SHA256 | selfhost symbol table の基盤候補。SHA256 は Vec<i32> 依存 |
-| `stdlib/std` | fs / stdio / streamio / env / text / test | WASI と assertion report の中心。Actions failure が多い |
-| `stdlib/nm` | gloss/nm parser と HTML generator | raw AST storage 回避は良いが parser/html はまだ巨大で if nest が残る |
-| `stdlib/kp` / `features` / `platforms` | 競プロ helper、TUI | useful examples だが selfhost 中核の優先度は低い |
-| `stdlib/neplg2` | selfhost compiler | 別章で詳細 review |
+| `stdlib/core` | char、Option/Result、test、traits、math、mem がある。`core/mem` は 1134 行。 | char/test/traits は良い。mem は安全性 critical な open issue が残る。 |
+| `stdlib/alloc/string` | facade と storage/access/builder/search/slice/split/integer/float/utf8 に分割済み。 | selfhost に必要な文字列基盤は前進。raw boundary は migration 対象。 |
+| `stdlib/alloc/collections` | Vec は大きく分割、HashMap/HashSet は enum bucket、List は Vec storage 化。 | typed storage は前進。collection free/drop contract は P1 open。 |
+| `stdlib/alloc/hash/json/diag/io` | SHA-256 split、JSON typed value/escape、diag outcome、ByteBuf/ByteBuilder。 | 良いが JSON non-Copy payload と byte buffer owner は collection/drop問題に依存。 |
+| `stdlib/std` | fs/env/stdio/streamio/test が分割。ANSI style は enum-first。 | I/O raw scratch buffer は ResourceIR/stdlib memory boundaryに依存。 |
+| `stdlib/platforms/wasix/tui` | ANSI/TUI style/buffer/tty が分割。typed color helperへ寄せている。 | raw terminal state bufferは低レベル境界として監視対象。 |
+| `stdlib/nm` | parser/htmlgen が分割、scanner/string helperを活用。 | 以前の raw aggregate detourは解消方向。nested boolean stateは必要に応じ改善。 |
+| `stdlib/kp` | competitive helper は残るが raw memory use が多い。 | performance用として隔離しつつ ResourceIR proof を維持する必要あり。 |
+| `stdlib/tests` | 各 module の `.n.md` が広い。 | `std/test` stdout/assert移行は進むが、`.n.md` contract issueは open。 |
 
-## 巨大ファイル
+## 重要な open issue
 
-| file | lines | review |
-|---|---:|---|
-| `stdlib/core/math.nepl` | 4435 | primitive numeric helper が過密。stdlib file 分割 issue の中心 |
-| `stdlib/alloc/string.nepl` | 3290 | string / UTF-8 / builder / numeric parser が集中。selfhost 必須なので分割設計が必要 |
-| `stdlib/std/stdio.nepl` | 1741 | fd read/write、debug、ANSI、read_line が同居 |
-| `stdlib/alloc/collections/vec.nepl` | 1660 | collection 基礎型。現状の raw storage owner model の根 |
-| `stdlib/std/fs.nepl` | 1596 | WASI path/fs/read/write/dir が集中 |
-| `stdlib/std/streamio.nepl` | 1572 | stream scanner/writer。ByteBuf/string/stdio に強く依存 |
-| `stdlib/neplg2/core/syntax/lexer.nepl` | 1230 | selfhost lexer。別章対象 |
-| `stdlib/core/mem.nepl` | 1121 | raw allocator と typed wrappers が同居 |
-| `stdlib/alloc/collections/vec/sort.nepl` | 1021 | raw slice sort helper が多い |
+- `ISS-20260425T000000Z-RV-STDLIB-004-91534828`: collection free が要素の Drop を呼ばない。
+- `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D`: core mem の raw address escape。
+- `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47`: dealloc API が initialized storage の drop obligation を表さない。
+- `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84`: raw-memory-backed stdlib API の staged effect migration。
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF`: 巨大 stdlib file の分割。
 
-## Actions stdlib-test 分類
+## selfhost readiness
 
-Artifact `stdlib-tests.json` の失敗分類:
+stdlib は S1/S2 selfhost には十分使える範囲がある。特に `alloc/string/search`、`alloc/string/scanner`、`std/test`、`alloc/collections/vec`、diagnostic/string builder 系は selfhost lexer/parser/module graph を進める材料になる。
 
-| 分類 | 失敗数 | 主な原因 |
-|---|---:|---|
-| collections | 73 | `Vec` / `List` owner leak、HashMap/HashSet が `from_f64_result` failure に隠れる |
-| string | 10 | `from_f64_result` scratch buffer、StringBuilder / std/test 絡み |
-| std/io/fs/stdio | 33 | `stdio_write_fd_mem_result`、`fs_open_with_flags`、`cliarg` out pointer / owner summary |
-| selfhost | 19 | CLI / module graph timeout と owner gate |
-| core | 16 | `Option` / `Result` / traits doctest が std/test owner issue を拾う |
-| nm | 3 | parser/html generator と StringBuilder/JSON 依存 |
-| kp | 7 | Vec / std/test 依存 |
+S3 以降では、`Vec<JsonValue>` や `Vec<SelfhostHirExpr>` のような non-Copy payload collection、diagnostic buffer、AST/HIR arena の owner/drop contract が blocker になる。現状の `Copy` 制約や raw-memory-backed exact boundary を無理に回避せず、collection drop/move/remove API と ResourceIR の責務を合わせてから使うべきである。
 
-失敗の上位 error は、`sb_build_result` owner may leak、`stdio_write_fd_mem_result` owner may leak、`from_f64_result` `resource.cell.possibly_moved`、`fs_open_with_flags` owner may leak、timeout である。
+## ドキュメント上の注意
 
-## 追加 issue
-
-Actions artifact で `from_f64_result` の scratch buffer failure が current main に残っていることを確認したため、`ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1` を追加した。これは resolved 済み string constructor 系 issue の説明だけでは current Actions failure を追跡できないため、再発監視として必要である。
-
-## 結論
-
-stdlib の方向性は、raw sentinel から enum / Option / Result へ移す点では正しい。しかし、`core/mem`、`Vec`、`stdio/fs`、string numeric formatting はまだ strict Resource IR と完全には噛み合っていない。selfhost は lexer / parser / CLI shell などの限定領域なら進められるが、typecheck / ResourceIR / diagnostic aggregation の中核で owning collection を多用する前に、`OwnedBuffer`、owner-preserving failure result、stdout assertion report の整備が必要である。
+`stdlib/index.n.md` は現状ほぼ空で、stdlib 全体の module map と安全性契約を説明していない。今回のレビューでは doc 品質の詳細は `quality/docs.md` で扱うが、stdlib 利用者向けには core/alloc/std/platforms/nm/kp の入口と unsafe/raw boundary を一覧化する必要がある。

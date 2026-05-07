@@ -1,46 +1,51 @@
 # stdlib alloc collections review
 
-対象 commit: `f108cebd`
+確認対象 commit: `b350213c docs(review): add selfhost compiler review`
 
-参照 Actions: `25157230630`
+## 確認対象
 
-## 概要
-
-collections は selfhost に必要だが、現時点で最も慎重に扱うべき領域である。HashMap / HashSet / Stack / Queue / Deque / RingBuffer / BinaryHeap / BTreeMap / BTreeSet は raw header から typed storage へかなり移行した。一方で、基礎型 `Vec<T>`、raw node `List<T>`、byte/numeric raw storage collection はまだ `MemPtr` owner model に依存する。
-
-## Actions で確認した状態
-
-`stdlib-test` artifact の collection 関連失敗は 73 件。主な内訳は次の通り。
-
-- `Vec` doctest: owner-bearing result / storage owner leak。
-- `List` doctest: raw node owner leak と map/filter accumulator may leak。
-- `HashMap` / `HashSet` doctest: collection 本体に入る前に `from_f64_result` の `resource.cell.possibly_moved` が表面化。
-- `vec/sort`: raw sort helper と Vec storage owner の境界。
-- `stdlib/tests/*`: external tests が std/test / collection cleanup 問題を拾う。
+- `stdlib/alloc/collections/vec.nepl`
+- `stdlib/alloc/collections/vec/**`
+- `stdlib/alloc/collections/{hashmap,hashset}.nepl`
+- `stdlib/alloc/collections/{hashmap,hashset}/**`
+- `stdlib/alloc/collections/{list,stack,queue,deque,ringbuffer,binary_heap}.nepl`
+- `stdlib/alloc/collections/{btreemap,btreeset}.nepl`
+- `stdlib/alloc/collections/{bitset,bloom_filter,counting_bloom_filter,adjacency_matrix,fenwick,segment_tree,disjoint_set,sparse_set}.nepl`
 
 ## 良い点
 
-- `HashMapBucketState` / `HashSetBucketState` は enum で、0/1/2 sentinel から脱却した。
-- HashMap / HashSet は `Vec<HashMapBucketState>` と `Vec<Option<K/V>>` で live slot を型に出している。
-- Stack / Queue / Deque / RingBuffer / BinaryHeap は `Vec<Option<T>>` storage に移行し、inactive slot を `None` として扱う。
-- `Vec` の read-only observer は `&Vec<T>` に寄せられ、by-value observer から前進している。
+`Vec` は facade と `types/storage/access/raw/mutation/query/transform/sort` に分割されている。`VecStorageState` は `Empty` / `Owned` enum で、null pointer sentinel を owner state に使わない。
 
-## 残る問題
+HashMap/HashSet は bucket state を enum (`Empty` / `Full` / `Tombstone`) として持ち、storage/probe/rehash/api に分かれている。numeric sentinel ではなく match で扱える設計になっている。
 
-### `Vec<T>` が未完の根
+Stack/Queue/Deque/RingBuffer/BinaryHeap/BTreeMap/BTreeSet/List は raw header や raw node pointer から、`Vec<Option<T>>` や `Vec<T>` などの typed storage へかなり移行している。List も raw node chain ではなく Vec storage を持つ。
 
-`Vec<T>` は `len/cap/data: MemPtr<T>` であり、empty は `mem_ptr_wrap 0` に依存する。`MemPtr<T>` は non-owning pointer であるべきだが、`Vec.data` では storage owner field になっている。これが derived collection 全体へ波及する。
+DisjointSet/Fenwick/SegmentTree/BitSet/AdjacencyMatrix/BloomFilter は Copy payload 中心だが、update error owner を返す API や borrowed observers が増えている。
 
-必要な設計は `OwnedBuffer<T>` + initialized prefix である。
+## 問題とリスク
 
-### `List<T>` は raw node chain
+P1 open issue の通り、collection free/drop contract は未完である。`Vec<T>` や `HashMap<K,V>` に owning/non-Copy payload を入れたとき、container free が要素 Drop をどう呼ぶか、remove/pop が owner をどう返すか、storage-only dealloc と element cleanup をどう分けるかが未確定である。
 
-`List<T>` は raw node address を持つ。`reverse` / `map` / `filter` の owner flow は改善されているが、node owner wrapper がない限り Resource IR は raw cell owner を追い続ける必要がある。
+多くの collection が `.T: Copy` を要求して問題を回避している。これは現時点では正直な制約だが、selfhost AST/HIR/diagnostic では non-Copy payload が必要になるため、長期的な解決にはならない。
 
-### fallible update の owner contract
+BTreeMap/BTreeSet は名前に反して sorted array 実装で、doc では明記済みである。大きい mutable table や compiler symbol table に使うと O(n) update が問題になる。既存 issue は resolved だが、selfhost で誤用しないよう review で再確認する。
 
-`push` / `insert` / `rehash` / `map` / `filter` などの fallible update は、失敗時に入力 collection と入力 item owner をどう扱うかを型で表す必要がある。`Result<Vec<T>, E>` だけでは non-Copy payload の所有権が不足する。
+List には by-value observer が残る。現実には owner を閉じる terminal API として設計されているが、borrowed observer へ統一する余地がある。現時点では collection free/drop parent issue の一部として扱う。
 
-## selfhost への示唆
+## 進捗状況
 
-短期 selfhost では、`Vec<i32>` / `Vec<char>` / `Vec<TokenId>` のような Copy payload に限定する。`Vec<str>`、`Vec<Diagnostic>`、`HashMap<str, ...>` のような owning payload collection は、`OwnedBuffer` と owner-preserving failure result が入るまで中核データ構造にしない。
+| 領域 | 状態 | 判定 |
+|---|---|---|
+| `Vec` | module split + storage enum。 | 良い。element drop contractは未完。 |
+| `HashMap` / `HashSet` | bucket state enum + storage分割。 | 良い。non-Copy value/dropは未完。 |
+| `BTreeMap` / `BTreeSet` | sorted-array implementation。 | 小規模/安定順用。compiler大規模表には不向き。 |
+| `List` | Vec-backed storage。 | raw node廃止は良い。observer/drop contractは残る。 |
+| Stack/Queue/Deque/RingBuffer/BinaryHeap | typed slot storage。 | Copy payload中心なら有用。 |
+| graph/numeric collections | Vec/Copy storage中心。 | selfhost symbol tableにはHashMap優先。 |
+
+## 推奨対応
+
+- collection API を `Copy read`、`borrowed read`、`owned remove/pop`、`container drop`、`storage-only dealloc` に分ける。
+- `Drop<T>` bound と ResourceIR drop obligation を前提に、non-Copy payload の container free を設計する。
+- selfhost compiler の table は BTree sorted-array ではなく HashMap/HashSet と最終 sort の組み合わせを基本にする。
+- source policy は raw header/raw pointer sentinel 再導入だけでなく、by-value observer の再拡大も監視する。

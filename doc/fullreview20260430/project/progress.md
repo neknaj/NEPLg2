@@ -1,6 +1,6 @@
 # プロジェクト進捗レビュー
 
-確認対象 commit: `31291b37 fix(core): add parser backend responsibility policy`
+確認対象 commit: `b350213c docs(review): add selfhost compiler review`
 
 ## 確認した一次情報
 
@@ -25,7 +25,7 @@ NEPLg2 は「既存機能を増やす段階」から、「静的検査・memory 
 | Rust CLI `nepl-cli` | CLI と backend runner は既存構造を維持。`--check` は `3742a1a7` で compile preparation を共有し、ResourceIR gate と drop insertion bridge まで通るよう修正された。 | 良い。artifact emission に入らず safety authority を共有する regression が追加済み。 |
 | selfhost `stdlib/neplg2` | ディレクトリ骨格と S1/S2 周辺の module は存在する。レビュー中に typed IR sentinel と lexer enum coverage の問題を issue 化した。 | S1/S2 は進行可能。S3 以降は typed absence と ResourceIR/stdlib owner model の制約を守る必要がある。 |
 | NEPLg3 `stdlib/neplg3` | 仕様 doc と placeholder compiler tree がある。NEPLg2 selfhost とは別扱い。 | 今回は進捗確認対象。NEPLg2 selfhost の作業場所として使わない。 |
-| stdlib core/alloc/std | string、Vec、streamio、nm、stdio debug などで facade 化と責務分割が進んだ。open issue は stdlib 5 件。 | 方向は良いが `core/mem`、raw-memory-backed API、collection drop/free、巨大 file split が残る。 |
+| stdlib core/alloc/std | string、Vec、streamio、nm、stdio debug などで facade 化と責務分割が進んだ。stdlib review で core/mem、collections、string、std I/O、nm/kp/TUIを整理した。open issue は stdlib 5 件。 | 方向は良いが `core/mem`、raw-memory-backed API、collection drop/free、巨大 file split が残る。 |
 | tests / harness | `.n.md` doctest、source policy regression、Rust tests、playground editor tests が広い。n.md stdout/assert 運用は open issue。 | 検証資産は厚いが、test contract はまだ改善途中。 |
 | docs / tutorials | `doc/neplg2` に selfhost/static check/std safety/test plan が増えている。tutorial rewrite は計画済み。 | tutorial は古さが残るため個別レビューで確認する。 |
 | CI / Actions | workflow は build、compile-test、rust-test、WASI/nmd/tutorial/stdlib/LLVM/pages を持つ。最新 run は queued。 | 成功/失敗は `gh` で継続確認が必要。 |
