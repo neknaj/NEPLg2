@@ -8,7 +8,13 @@ use crate::types::{EnumVariantInfo, TypeId};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum StructConstructorPolicy {
     Public,
-    RawMemoryBoundaryOnly,
+    RawMemoryBoundaryOnly(RestrictedStructConstructor),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum RestrictedStructConstructor {
+    OwnerToken,
+    RawPointer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

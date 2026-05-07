@@ -34904,3 +34904,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-08 Agent 1 MemPtr direct constructor boundary 修正
+
+- `ISS-20260507T171425909Z-MEMPTR-STRUCT-CONSTRUCTOR-IS-FORGEAB-7EC211C1` として、`MemPtr<T>` の通常 struct constructor を user source から直接呼び、raw-pointer-shaped value を作れる問題を修正した。
+- `StructConstructorPolicy::RawMemoryBoundaryOnly` に `RestrictedStructConstructor::{OwnerToken,RawPointer}` を持たせ、owner token と raw pointer の constructor 制限を enum で分離した。
+- core memory boundary 内で定義された `MemPtr` direct constructor は `RawPointer` として扱い、`raw_memory_boundary` capability 外では `type.raw_pointer.constructor_restricted` を出すようにした。
+- 同名の user-defined `MemPtr` は `Public` policy のままなので、core raw pointer wrapper の制限が通常の user struct へ波及しない。
+- `mem_ptr_wrap` は今回の scope では explicit boundary wrapper として維持した。public raw address escape API の移行は `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D` に残す。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_mem_ptr_struct_constructor_outside_memory_boundary -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named_mem_ptr -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_region_token_struct_constructor_outside_memory_boundary -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named -- --nocapture`: passed
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memptr-constructor-boundary.json -j 1 --dist web/dist`: total=19, passed=19
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

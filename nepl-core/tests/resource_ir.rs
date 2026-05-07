@@ -10459,6 +10459,49 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn typecheck_rejects_mem_ptr_struct_constructor_outside_memory_boundary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+
+fn make <()->MemPtr<u8>> ():
+    MemPtr 0
+
+fn main <()->i32> ():
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "type.raw_pointer.constructor_restricted",
+    );
+}
+
+#[test]
+fn typecheck_allows_user_struct_named_mem_ptr() {
+    let source = r#"
+#no_prelude
+#entry main
+#indent 4
+#target std
+
+struct MemPtr:
+    raw <i32>
+
+fn make <()->MemPtr> ():
+    MemPtr 3
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let _ = typecheck_resource_source(source);
+}
+
+#[test]
 fn resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_helper() {
     let source = r#"
 #entry main

@@ -133,6 +133,7 @@ pub enum TypeDiagnosticCode {
     MatchPatternUnsupported,
     MatchWildcardNotLast,
     OwnerTokenConstructorRestricted,
+    RawPointerConstructorRestricted,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -400,6 +401,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::MatchPatternUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::MatchWildcardNotLast),
     DiagnosticCode::Type(TypeDiagnosticCode::OwnerTokenConstructorRestricted),
+    DiagnosticCode::Type(TypeDiagnosticCode::RawPointerConstructorRestricted),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
         ResourceBorrowDiagnosticCode::ReturnEscape,
     )),
@@ -785,6 +787,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::OwnerTokenConstructorRestricted => {
                 "type.owner_token.constructor_restricted"
             }
+            TypeDiagnosticCode::RawPointerConstructorRestricted => {
+                "type.raw_pointer.constructor_restricted"
+            }
         }
     }
 
@@ -909,6 +914,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::MatchWildcardNotLast => "wildcard match arm must be last",
             TypeDiagnosticCode::OwnerTokenConstructorRestricted => {
                 "owner token constructor is restricted to compiler memory boundary"
+            }
+            TypeDiagnosticCode::RawPointerConstructorRestricted => {
+                "raw pointer constructor is restricted to compiler memory boundary"
             }
         }
     }

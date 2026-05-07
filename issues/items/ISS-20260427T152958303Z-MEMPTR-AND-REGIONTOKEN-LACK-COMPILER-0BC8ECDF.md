@@ -274,3 +274,17 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 - `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named_region_token -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_str_addr_view -- --nocapture`: passed
 - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-region-token-constructor-boundary.json -j 1 --dist web/dist`: 18 passed
+
+## 2026-05-08 MemPtr direct constructor boundary 部分対応
+
+`MemPtr<T>` の通常 struct constructor を user source から直接呼び、`MemPtr raw` の形で raw pointer wrapper を作れる問題を `ISS-20260507T171425909Z-MEMPTR-STRUCT-CONSTRUCTOR-IS-FORGEAB-7EC211C1` として修正した。
+
+根本原因は、`MemPtr` が non-owning pointer wrapper であり raw address provenance の入口であるにもかかわらず、型検査上は他の struct constructor と同じ pure callable として扱われていたことだった。`mem_ptr_wrap` は compiler-known helper として Resource IR が扱えるが、direct aggregate constructor は raw pointer construction を通常 struct construction に混ぜる。
+
+対応では `StructConstructorPolicy::RawMemoryBoundaryOnly` に `RestrictedStructConstructor::{OwnerToken,RawPointer}` を持たせ、core memory boundary 内で定義された `MemPtr` direct constructor を `RawPointer` として raw-memory-boundary capability に限定した。診断は `type.raw_pointer.constructor_restricted` として owner token 制限と分けた。`mem_ptr_wrap` の public API 移行は raw address escape 親 issue 側で継続する。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir typecheck_rejects_mem_ptr_struct_constructor_outside_memory_boundary -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named_mem_ptr -- --nocapture`: passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memptr-constructor-boundary.json -j 1 --dist web/dist`: 19 passed

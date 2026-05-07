@@ -73,3 +73,15 @@ safe import だけでは `mem_ptr_addr` / `mem_ptr_wrap` / raw `load<T>` / raw `
 この issue は Stage 5/6 の stdlib public API 境界を追跡する。compiler 側の raw memory effect / ownership 境界は `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04`、`MemPtr` の owner/non-owner 分離は `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` に分ける。
 
 完了条件は、safe import から raw address escape を構成できないこと、raw identity が public pure API へ漏れないこと、raw operation が必要な stdlib 実装は internal/unsafe boundary 内へ閉じられていることである。
+
+## 2026-05-08 MemPtr direct constructor boundary 部分対応
+
+`MemPtr<T>` の通常 struct constructor を user source から直接呼び、`MemPtr raw` の形で raw pointer wrapper を作れる問題を `ISS-20260507T171425909Z-MEMPTR-STRUCT-CONSTRUCTOR-IS-FORGEAB-7EC211C1` として修正した。
+
+対応では `StructConstructorPolicy::RawMemoryBoundaryOnly(RestrictedStructConstructor::RawPointer)` を追加し、core memory boundary 内で定義された `MemPtr` direct constructor だけを raw-memory-boundary capability に制限した。これにより direct aggregate construction は safe source から閉じたが、`mem_ptr_wrap` / `mem_ptr_addr` の public API 移行はこの親 issue の残件として維持する。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir typecheck_rejects_mem_ptr_struct_constructor_outside_memory_boundary -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named_mem_ptr -- --nocapture`: passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memptr-constructor-boundary.json -j 1 --dist web/dist`: 19 passed

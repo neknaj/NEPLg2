@@ -347,6 +347,24 @@ fn main <()->i32> ():
     0
 ```
 
+## MemPtr の直 constructor は memory boundary 外で使えない
+
+neplg2:test[compile_fail]
+diag_code: type.raw_pointer.constructor_restricted
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+
+fn make <()->MemPtr<u8>> ():
+    MemPtr 0
+
+fn main <()->i32> ():
+    0
+```
+
 ## store_u8 は MemPtr<u8> だけを受け付ける
 
 neplg2:test[compile_fail]

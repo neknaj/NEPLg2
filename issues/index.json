@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T17:09:18.642Z",
+  "generated_at": "2026-05-07T17:18:25.057Z",
   "counts": {
-    "total": 609,
+    "total": 610,
     "open": 13,
-    "resolved": 596,
+    "resolved": 597,
     "by_area": {
       "core": {
-        "total": 302,
+        "total": 303,
         "open": 3,
-        "resolved": 299
+        "resolved": 300
       },
       "stdlib": {
         "total": 164,
@@ -4658,6 +4658,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T170021735Z-REGIONTOKEN-STRUCT-CONSTRUCTOR-IS-FO-0CC2D37A.md"
+    },
+    {
+      "id": "ISS-20260507T171425909Z-MEMPTR-STRUCT-CONSTRUCTOR-IS-FORGEAB-7EC211C1",
+      "title": "MemPtr struct constructor is forgeable outside compiler memory boundary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "security",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/typecheck/driver.rs, nepl-core/src/typecheck/constructor_apply.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T171425909Z-MEMPTR-STRUCT-CONSTRUCTOR-IS-FORGEAB-7EC211C1.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

@@ -9,7 +9,7 @@ use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
 use super::diagnostics::type_error;
-use super::model::StructConstructorPolicy;
+use super::model::{RestrictedStructConstructor, StructConstructorPolicy};
 use super::syntax_helpers::parse_variant_name;
 use super::{BlockChecker, StackEntry};
 
@@ -162,13 +162,19 @@ impl<'a> BlockChecker<'a> {
         };
         match info.constructor_policy {
             StructConstructorPolicy::Public => {}
-            StructConstructorPolicy::RawMemoryBoundaryOnly => {
+            StructConstructorPolicy::RawMemoryBoundaryOnly(restricted) => {
                 if !self.raw_memory_boundary_allowed(span) {
-                    self.diagnostics.push(type_error(
-                        TypeDiagnosticCode::OwnerTokenConstructorRestricted,
-                        "owner token constructor is restricted to compiler memory boundary",
-                        span,
-                    ));
+                    let (code, message) = match restricted {
+                        RestrictedStructConstructor::OwnerToken => (
+                            TypeDiagnosticCode::OwnerTokenConstructorRestricted,
+                            "owner token constructor is restricted to compiler memory boundary",
+                        ),
+                        RestrictedStructConstructor::RawPointer => (
+                            TypeDiagnosticCode::RawPointerConstructorRestricted,
+                            "raw pointer constructor is restricted to compiler memory boundary",
+                        ),
+                    };
+                    self.diagnostics.push(type_error(code, message, span));
                     return Some(None);
                 }
             }
