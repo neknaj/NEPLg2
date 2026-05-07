@@ -1,68 +1,101 @@
-# selfhost readiness 最終判定
+# selfhost readiness 総括
 
-対象 commit: `f108cebd`
+## 判断
 
-参照 Actions: `25157230630`
+現時点で selfhost の実装は、限定された範囲なら進められる。ただし full type checker、Resource IR、borrow checker、effect checker、codegen の最終仕様化を一気に進める段階ではない。
 
-## 判定
+理由は、selfhost の中核となる static check と memory model が、Rust compiler 側の Resource IR と stdlib memory boundary に強く依存するためである。ここが未確定のまま selfhost を拡張すると、動くコードは増えても型安全とメモリ安全の保証が弱くなる。
 
-現段階で selfhost の実装を開始できる範囲はある。ただし、selfhost compiler 全体の bootstrap 実装を完成に向けて積み上げる段階ではない。
+## すぐ進めてよい範囲
 
-開始してよいのは S1/S2 の周辺基盤である。S3 以降、特に型検査、Resource IR、drop、borrow、codegen は Rust 側の final design と stdlib memory model に依存するため、今独自に固定すると技術的負債になる。
+### syntax と lexer state
 
-## Stage 判定
+lexer/parser の構文処理は進めてよい。特に raw block mode や directive state を `i32` から enum に変え、`match` の網羅性検査が効くようにする修正は優先してよい。
 
-| Stage | 判定 | 次に進める条件 |
-|---|---|---|
-| S0 tree / smoke | 実装済み | 現状維持。stage marker ではなく実 fixture を増やす。 |
-| S1 lexer / parser | 実装中 | TokenKind direct match、Rust lexer/parser parity、timeout 分類。 |
-| S2 module loader | 実装中 | VFS/module graph の doctest timeout を分類し、stdlib map と import diagnostic を固める。 |
-| S3 type/check | 未開始寄り | Rust typecheck / effect / match exhaustiveness / diagnostic taxonomy に追従して設計する。 |
-| S4 HIR/resource/mono | 未開始寄り | Resource IR final authority と stdlib owner token model が必要。 |
-| S5 backend | 未着手相当 | HIR/layout/mono と Resource IR safety gate の後に進める。 |
-| S6 CLI | 部分実装 | args/file_io/reporter は進めてよい。artifact pipeline は S3-S5 待ち。 |
-| S7 bootstrap comparison | 未着手 | Rust/selfhost 共通 `.n.md` runner と artifact comparison が必要。 |
+必要な修正:
 
-## 今進めてよい作業
+- raw mode を `SelfhostRawMode` のような enum にする。
+- pending raw mode も `Option<SelfhostRawMode>` で扱う。
+- directive recognition を byte 列直書きではなく stdlib string/prefix API と directive enum に寄せる。
+- `lex_raw_kind` と raw branch を `match` で処理する。
 
-- source text / line map / span / diagnostic location。
-- lexer tokenization と Rust lexer parity fixture。
-- parser AST subset と Rust AST JSON parity。
-- `TokenKind` / AST kind / diagnostic kind の enum-first 化。
-- module path / import spec / in-memory VFS / module graph。
-- CLI args / file_io / reporter / driver の I/O shell。
-- string compare、byte scanner、hash、path helper、stdout/stderr result boundary。
-- `.n.md` block metadata を selfhost runner が読める形への整理。
+関連 issue:
 
-## 今固定してはいけない作業
+- `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`
 
-- Resource IR を介さない selfhost move/borrow/drop checker。
-- Rust 旧 `passes::move_check` の visitor special-case 移植。
-- raw memory helper を compiler core の public data structure にする設計。
-- `MemPtr` owner field を前提にした AST/HIR/arena。
-- raw string / numeric diagnostic ID。
-- hash 値による token / AST / resource state dispatch。
-- collection element Drop が未整理なまま、owning payload table を広く使う設計。
+### HIR と typed model
 
-## S3 以降の開始条件
+HIR payload、child range、param range、def id absence は直近で改善されている。この方向で AST/HIR/typed model の sentinel を消し、`Option` と enum payload へ寄せる作業は続行できる。
 
-S3 以降を本格化する前に、最低限次を満たす必要がある。
+今後確認すること:
 
-1. Rust Resource IR が final authority になる道筋が固定され、旧 move_check / HIR drop insertion の扱いが明確である。
-2. diagnostic taxonomy が Rust/selfhost で揃い、stable string は外部境界に限定されている。
-3. `MemPtr` は non-owning view、owner token は別型、initialized cell は Resource IR state として扱う設計が stdlib に入っている。
-4. `Vec` / owned collection が `OwnedBuffer` / initialized prefix / element Drop contract を持つ。
-5. `.n.md` test が stdout report と exit code separation を持ち、Rust/selfhost 共通 fixture として運用できる。
-6. selfhost S1/S2 の parser/module/CLI doctest timeout が分類済みである。
+- ID 未割当を `0` や `-1` で表さない。
+- variant payload を shared nullable field に戻さない。
+- arity や kind を numeric tag で比較しない。
+- `match` で全 variant を処理する。
+
+### diagnostic registry
+
+selfhost diagnostic ID は早めに設計してよい。Rust compiler 側の診断 ID 再設計に従い、selfhost 内部では enum registry を authority にする。文字列 ID は CLI、JSON、snapshot、doc などの外部境界だけで使う。
+
+この作業は memory model と比較して干渉が小さく、将来の `.n.md` 共通 test とも相性が良い。
+
+### module graph と test harness
+
+module graph、VFS fixture、name resolution の deterministic test は進めてよい。`.n.md` test は Rust/selfhost 共通運用にする前提で、stdout assertion report と exit code の分離を使うべきである。
+
+関連 issue:
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD`
+- `ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9`
+
+## まだ本格化を避ける範囲
+
+### selfhost Resource IR
+
+Resource IR の skeleton は設計してよいが、最終 model は Rust compiler 側 Resource IR と stdlib memory boundary を見て揃える必要がある。特に owner state、cell state、borrow state、effect boundary、drop obligation は、Rust 側と別設計にすると後で統合不能になる。
+
+### selfhost type checker
+
+type checker は AST/HIR の型表現整備までは進められる。しかし、resource-aware type checking、move/borrow/effect 診断、drop insertion を含む本体は、diagnostic ID と Resource IR の model を確定してから進めるべきである。
+
+### allocator-heavy runtime
+
+selfhost で string/Vec/hash map などを大きく使う実装は避けられない。ただし、`core/mem` と collections の安全境界が未確定のため、allocator-heavy な runtime 仕様を先に固定するのは危険である。
+
+## selfhost blocker
+
+| blocker | 影響 | 必要な解決 |
+| --- | --- | --- |
+| `core/mem` raw API | selfhost runtime が安全性を迂回できる | safe/raw boundary と provenance を compiler-owned にする |
+| collection Drop obligation | AST/HIR/diagnostic containers の解放が不完全になる | collection free/dealloc と Resource IR drop plan を接続 |
+| diagnostic ID 未同期 | Rust/selfhost の test と report が揃わない | enum registry と stable ID taxonomy を共通方針化 |
+| `.n.md` return-value 運用 | selfhost/Rust 共通 test が弱い | stdout assertion report と exit code に統一 |
+| lexer numeric state | enum/match の静的検査が効かない | raw/directive mode を enum 化 |
+
+## 進捗状況
+
+| selfhost 領域 | 状態 | 次の作業 |
+| --- | --- | --- |
+| `neplg2/cli` | 動く実装あり、継続整理 | diagnostic/reporting と test harness に合わせる |
+| `neplg2/core/syntax` | 実装中 | lexer raw/directive state の enum 化 |
+| `neplg2/core/ast` | 実装中 | sentinel と shared payload の有無を継続確認 |
+| `neplg2/core/hir` | 改善済み | payload enum と range enum の回帰を policy で守る |
+| `neplg2/core/ty` | 実装中 | type record variant を増やすときは enum/match を維持 |
+| `neplg2/core/resolve` | 実装中 | `Option<SelfhostDefId>` model を維持 |
+| `neplg2/core/check` | 未完成 | Rust Resource IR 方針に従って設計 |
+| `neplg2/core/resource` | 未完成 | owner/cell/borrow/effect/drop model を Rust 側と揃える |
+| `neplg2/core/codegen` | 未完成 | static check 完了後に本格化 |
+| `stdlib/std/test` 連携 | 実装中 | stdout report を selfhost runner でも使う |
 
 ## 実装方針
 
-selfhost は Rust compiler の現行改善を追いかけるが、旧実装の都合までは追いかけない。コピーすべきなのは次の設計である。
+selfhost は次の順番で進めるのが妥当である。
 
-- enum と `match` による静的検査が効く状態表現。
-- typed diagnostic code と stable string boundary。
-- typed AST / typed HIR / Resource IR の段階分離。
-- owner / cell / borrow / raw provenance / effect の統合検査。
-- stdlib safe public API と internal raw boundary の分離。
+1. lexer/parser/model の enum/match 化を進め、数値 sentinel を減らす。
+2. selfhost diagnostic enum registry を実装する。
+3. `.n.md` test harness を stdout assertion report 前提に揃える。
+4. Rust Resource IR と stdlib memory design の確定に合わせて selfhost Resource IR skeleton を作る。
+5. type checker、borrow/effect/drop checker、codegen の順に進める。
 
-コピーしてはいけないのは、移行途中の旧 HIR checker、raw pointer owner 混同、diagnostic string dispatch、hash dispatch、stdlib の null pointer sentinel discipline である。
+この順序なら、静的検査の正確性を犠牲にせずに selfhost の実装面積を増やせる。

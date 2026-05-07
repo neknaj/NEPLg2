@@ -1,82 +1,107 @@
-# 総レビュー findings
+# 総括 findings
 
-対象 commit: `f108cebd`
+## レビュー前提
 
-参照 Actions: `25157230630`
+この総括は、今回の進捗確認及び総レビューで確認した現行 source tree、issue registry、GitHub Actions 状態に基づく。前回レビュー本文の結論は、この時点では参照していない。前回レビューとの差分調査は、レビュー妥当性の再レビューが完了した後に別作業として行う。
 
-## 結論
+基準 commit:
 
-NEPLg2 は、Rust compiler の Resource IR / typed diagnostic / stdlib safety migration が大きく進んでいる。一方で、main は GitHub Actions green ではなく、stdlib、WASI、`.n.md`、tutorial、dual backend に広域 failure が残る。現段階を「selfhost compiler 全体を実装開始できる状態」と扱うのは早い。
+- `15e51fe0 docs(review): add crosscutting safety review`
 
-進めてよいのは、selfhost S1/S2 の source map、lexer、parser subset、module loader、typed diagnostic、CLI shell、stdlib helper の整備である。S3 以降の typecheck / Resource IR / codegen は、Rust 側の Resource IR final authority と stdlib memory model の完了条件に同期して設計する必要がある。
+直近の refactor と review checkpoint:
 
-## レビュー commit
+- `c64396d6 docs(review): add stdlib review`
+- `b350213c docs(review): add selfhost compiler review`
+- `46aa9bf7 docs(review): add quality tools review`
+- `15e51fe0 docs(review): add crosscutting safety review`
 
-| review 単位 | commit | 内容 |
-|---|---|---|
-| outline | `f185c880` | `README.md` / `index.md` / review method の追加 |
-| project progress | `aba537df` | project progress、Actions status、risk map |
-| issue tracking | `d6af3c03` | owner variant path builder issue 追加 |
-| Rust compiler | `bc9951af` | Rust compiler pipeline / parser / typecheck / Resource IR / backend review |
-| stdlib | `b67db2ac` | stdlib core / string / collections / std / nm review |
-| issue tracking | `f4d14740` | selfhost parser TokenKind hash dispatch issue 追加 |
-| selfhost compiler | `a7911df9` | selfhost S0-S7 review |
-| tools / quality | `478c298e` | CLI / nodesrc / language / web / tests / tutorials / examples review |
-| crosscutting | `c04dd880` | static safety、stdlib readiness、diagnostics/tests/docs review |
+issue registry:
 
-## 重要 findings
+- total: 608
+- open: 15
+- resolved: 593
 
-### 1. Actions は green ではない
+## 最重要 findings
 
-対象 run `25157230630` は failure である。`build`、`Source policy regressions`、`compile-test`、`llvm-test` は成功しているが、`rust-test`、`stdlib-test`、`wasi-test`、`nmd-doctest`、`tutorials-test`、`nm-compile`、dual backend verification が失敗している。
+### 1. Rust compiler の静的検査経路は改善している
 
-このため、compile gate が通ることと、stdlib / runtime / doctest / backend parity が正しいことは分けて扱う必要がある。
+Rust compiler の `--check` 経路は、codegen 準備経路と同じ型検査、Resource IR monomorphize、Resource static check、drop elaboration bridge gate を通る構造になっている。これは「検査が行われるような実装にする」という方針に沿っている。
 
-### 2. Resource IR は方向性は正しいが final authority ではない
+Resource IR は typed ID と enum state を中心にした model であり、owner/cell/borrow/effect/drop の責務を数値や文字列ではなく型で扱う方向に進んでいる。この方向は維持するべきである。
 
-Resource IR data model、typed diagnostic、owner/cell/borrow/raw 分類は正しい方向である。ただし旧 `passes::move_check` と HIR drop insertion が残るため、最終設計としては未完である。
+残る懸念は、Resource IR 自体の正しさよりも、stdlib raw memory API と Resource IR authority の接続である。ここが未完了だと、Resource IR が正しくても stdlib 経由で安全性が逃げる。
 
-旧 checker に special-case を足して維持するのではなく、move / borrow / initialized cell / owner obligation / effect / drop authority を Resource IR に統合する方針を維持する。
+### 2. stdlib memory boundary が最大の P1 リスクである
 
-### 3. stdlib memory model は過渡期である
+`stdlib/core/mem.nepl` には raw allocator と typed wrapper が併存しており、現状では compiler-owned provenance、初期化状態、drop obligation を完全に表現できていない。raw API を使う caller に安全性を委ねる構造は、NEPLg2 の方針に対して弱い。
 
-`StringBuilder` / `ByteBuf` / `ByteBuilder` の `Option<MemPtr<u8>>` 化、HashMap / HashSet の enum state 化、derived collection の raw header 廃止は良い進捗である。
+collections も、要素の `Drop` を伴う free/dealloc obligation が未完了である。selfhost が collections を広く使う前に、collection ownership と destructor semantics を Resource IR と接続する必要がある。
 
-しかし `core/mem` と `Vec<T>` はまだ根本 issue を残す。`MemPtr<T>` が owner field と non-owning view を兼ねる構造は、selfhost の長期基盤にしてはいけない。`OwnedBuffer`、owner token、initialized prefix、enum storage state への移行が必要である。
+この問題は局所修正では解決しない。`core/mem` safe/raw boundary、`MemPtr<T>`/`RegionToken<T>`、collection free、drop insertion、Resource IR owner obligation を一つの設計として揃える必要がある。
 
-### 4. selfhost は S1/S2 に限定して進める段階
+### 3. selfhost は構文・モデル整備は進められるが、静的検査本体は設計確定が必要である
 
-`stdlib/neplg2/` は placeholder から前進している。source text、span、diagnostic、lexer、module graph、CLI 境界は作業可能である。
+selfhost compiler は AST/HIR/type/builtin/name resolver の基礎が存在し、直近 refactor で sentinel や shared payload の問題がかなり改善した。`Option` と enum payload の利用は、方針に沿う良い進捗である。
 
-一方で、S3 typecheck、S4 HIR/resource/mono、S5 backend は受け皿と marker API が中心で、Rust compiler と同等の安全性判定を持っていない。旧 HIR checker や raw memory helper を selfhost に移植すると、後で設計を破棄することになる。
+一方、selfhost の full type checker、Resource IR、borrow/effect/drop checker はまだ未完成である。Rust compiler 側の Resource IR と diagnostic ID 設計を selfhost 側に移植する前提を固めずに大きく進めると、後で設計破棄が必要になる。
 
-### 5. diagnostic / `.n.md` / assert は移行中
+現時点では、lexer/parser/module graph/diagnostic registry/test harness など、静的検査本体に干渉しにくい範囲を優先して進めるのが妥当である。
 
-Rust 側の `DiagnosticCode` と selfhost 側の `SelfhostDiagnosticCode` は正しい方向である。stable string は CLI / web / JSON / doctest 境界に限定すべきである。
+### 4. 診断 ID と test report は正しい方向だが、CI gate 化が残る
 
-`.n.md` test は Rust と selfhost で共通運用できるが、main が `i32` を返すだけの形式では失敗内容を追えない。stdout assertion report と exit code separation を stdlib assert と runner contract で固定する必要がある。
+Rust compiler の diagnostic ID は enum registry 化されており、文字列 ID を内部 authority にしない方向へ進んでいる。selfhost diagnostic ID はこの設計に揃える必要がある。
 
-### 6. tutorial / README / examples は追従が必要
+`stdlib/std/test` は structured assertion/report へ進んでいる。`.n.md` を Rust/selfhost 共通 test として運用するには、stdout に assertion report を出し、exit code は可否だけを表す運用へ統一する必要がある。
 
-tutorial は getting_started の序盤から Actions failure を拾っている。README には NEPLg3 と NEPLg2 selfhost の説明が混在して見える箇所がある。examples は obsolete API 修正が進んだが、web sync と current stdlib API の継続確認が必要である。
+source policy regression は CI に入っているが warn-only である。静的検査方針を必達にするには、policy を fail gate にできる状態まで整える必要がある。
 
-## 追加 issue
+### 5. docs/tutorial/examples は仕様 drift の検出対象として扱う必要がある
 
-今回の総レビュー中に追加した issue は次の 2 件である。
+tutorial と examples は単なる補助文書ではなく、現行仕様が利用者にどう見えるかを検査する regression である。getting_started tutorial doctest failure、examples doctest が CI gate になっていない問題は、仕様 drift を隠す。
 
-| issue | 理由 |
-|---|---|
-| `ISS-20260430T140641137Z-FROM-F64-RESULT-SCRATCH-BUFFER-REINT-1D9324F1` | Actions artifact で `from_f64_result` の `resource.cell.possibly_moved` が current main に残っているため。 |
-| `ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B` | selfhost parser が `TokenKind` を文字列/hash/numeric arm に変換し、enum/match の網羅性検査を効かせていないため。 |
+特に後方互換不要の方針では、古い tutorial を残す意味は薄い。古い書き方は削除し、現行 compiler と stdlib の正しい使い方に合わせて継続的に検査する必要がある。
 
-横断 review では、既存 open issue で追跡できない新規 issue は確認していない。
+## open issue の優先度整理
 
-## 修正優先順位
+P1 として先に解くべき issue:
 
-1. Resource IR final authority の完了条件を固定し、旧 move_check / HIR drop insertion の削除条件を明文化する。
-2. `MemPtr` / `RegionToken` / owner token / initialized cell を stdlib と compiler で分離する。
-3. `Vec<T>` と collection Drop contract を `OwnedBuffer` / initialized prefix / enum state に再設計する。
-4. stdio/fs/string numeric formatter の current Actions failure を owner-preserving Result contract で直す。
-5. `.n.md` stdout assertion report と exit code separation を実装し、Rust/selfhost 共通 fixture 運用へ移す。
-6. selfhost parser の TokenKind direct match 化、Rust parity fixture、module/CLI timeout 分類を進める。
-7. tutorial / README / examples を current NEPLg2 / stdlib API / selfhost plan に合わせる。
+- `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04`
+- `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF`
+- `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D`
+- `ISS-20260425T000000Z-RV-STDLIB-004-91534828`
+- `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D`
+- `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47`
+- `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84`
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD`
+- `ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9`
+- `ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153`
+
+P2 として進めるべき issue:
+
+- `ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895`
+- `ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD`
+- `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF`
+- `ISS-20260507T153515441Z-ZED-EXTENSION-BUILD-ARTIFACTS-ARE-TR-B7D814F1`
+
+## 進捗状況
+
+| 作業範囲 | 状態 | 次の判断 |
+| --- | --- | --- |
+| Rust compiler parser/AST/HIR/codegen | 実装済み、継続レビュー | Resource IR gate との整合を維持する |
+| Rust compiler static check | 実装中、重要改善あり | stdlib memory boundary との接続を優先 |
+| Rust compiler diagnostics | 実装中、enum registry あり | selfhost へ同設計を展開する |
+| stdlib string | 分割改善済み | raw memory 依存と API 境界を継続確認 |
+| stdlib collections | 分割改善済み、Drop 未完了 | free/drop obligation を P1 で解く |
+| stdlib `core/mem` | 未完了 P1 | safe/raw boundary と provenance を再設計 |
+| stdlib `std/test` | 実装中、方向は良い | `.n.md` stdout report 運用へ統一 |
+| selfhost syntax/model | 実装中、改善あり | lexer raw/directive state を enum 化 |
+| selfhost typecheck/resource | 未完成 | Rust 側設計確定後に本格化 |
+| tutorials/examples | 一部未追従 | CI gate と doctest を整備 |
+| tools/editor/web | 実用段階、未整理あり | build artifact と diagnostic code 同期を整理 |
+
+## 総合判断
+
+NEPLg2 は、Rust compiler の静的検査基盤と stdlib/selfhost の型表現の改善が進んでいる。方向性は開発方針に合っている。ただし、メモリ安全の必達という観点では、stdlib `core/mem` と collections の raw/dealloc/drop 境界がまだ最重要 blocker である。
+
+次に行うべき開発は、個別の表面修正ではなく、Resource IR authority と stdlib safe API を接続する設計の実装である。そのうえで selfhost の Resource IR/static check を Rust 側と揃えて構築するべきである。
