@@ -1,0 +1,105 @@
+//: # vec/access/header
+//: `Vec` の header observer
+//:
+//: ### [目的/もくてき]
+//: - `Vec` header field だけを[読/よ]む observer を[所有/しょゆう]します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/field" as field
+#import "../types" as *
+
+//: ## len
+//: [要素数/ようそすう]を[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `Vec<.T>` に[現在/げんざい][何個/なんこ]の[要素/ようそ]が[入/はい]っているかを[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - struct field `len` をそのまま[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [変更/へんこう]を[伴/ともな]わない[読/よ]み[取/と]り API です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
+//:     let v1 <Vec<i32>> unwrap_ok push v0 3;
+//:     let ok <bool> eq len<i32> &v1 1
+//:     free<i32> v1;
+//:     if ok 0 1
+//: ```
+fn len <.T> <(&Vec<.T>)->i32> (v):
+    *field::get_ref v "len"
+
+//: ## cap
+//: [容量/ようりょう]を[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - [現在/げんざい][確保/かくほ]されている[要素数/ようそすう]ぶんの[容量/ようりょう]を[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - struct field `cap` をそのまま[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [変更/へんこう]を[伴/ともな]わない[読/よ]み[取/と]り API です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>> unwrap_ok new<i32>;
+//:     let ok <bool> gt cap<i32> &v 0
+//:     free<i32> v;
+//:     if ok 0 1
+//: ```
+fn cap <.T> <(&Vec<.T>)->i32> (v):
+    *field::get_ref v "cap"
+
+//: ## is_empty
+//: [空/から]かどうかを[判定/はんてい]する
+//:
+//: ### [目的/もくてき]
+//: - `len == 0` なら true を[返/かえ]し、[要素/ようそ]が[存在/そんざい]しないことを[判定/はんてい]します。
+//:
+//: ### [実装/じっそう]
+//: - field `len` を[読/よ]み、0 と[比較/ひかく]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [変更/へんこう]を[伴/ともな]わない[読/よ]み[取/と]り API です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>> unwrap_ok new<i32>;
+//:     let ok <bool> is_empty<i32> &v
+//:     free<i32> v;
+//:     if ok 0 1
+//: ```
+fn is_empty <.T> <(&Vec<.T>)->bool> (v):
+    eq len<.T> v 0

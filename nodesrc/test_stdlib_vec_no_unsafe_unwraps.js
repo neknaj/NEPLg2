@@ -14,6 +14,8 @@ const relPaths = [
     'stdlib/alloc/collections/vec/storage/cleanup.nepl',
     'stdlib/alloc/collections/vec/storage/fill.nepl',
     'stdlib/alloc/collections/vec/access.nepl',
+    'stdlib/alloc/collections/vec/access/header.nepl',
+    'stdlib/alloc/collections/vec/access/data.nepl',
     'stdlib/alloc/collections/vec/raw.nepl',
     'stdlib/alloc/collections/vec/raw/element.nepl',
     'stdlib/alloc/collections/vec/raw/aggregate.nepl',
@@ -90,7 +92,10 @@ const vecStorageAllocCode = codeByPath.get('stdlib/alloc/collections/vec/storage
 const vecStorageCleanupCode = codeByPath.get('stdlib/alloc/collections/vec/storage/cleanup.nepl');
 const vecStorageFillCode = codeByPath.get('stdlib/alloc/collections/vec/storage/fill.nepl');
 const vecStorageCode = [vecStorageRootCode, vecStorageViewCode, vecStorageAllocCode, vecStorageCleanupCode, vecStorageFillCode].join('\n');
-const vecAccessCode = codeByPath.get('stdlib/alloc/collections/vec/access.nepl');
+const vecAccessRootCode = codeByPath.get('stdlib/alloc/collections/vec/access.nepl');
+const vecAccessHeaderCode = codeByPath.get('stdlib/alloc/collections/vec/access/header.nepl');
+const vecAccessDataCode = codeByPath.get('stdlib/alloc/collections/vec/access/data.nepl');
+const vecAccessCode = [vecAccessRootCode, vecAccessHeaderCode, vecAccessDataCode].join('\n');
 const vecRawRootCode = codeByPath.get('stdlib/alloc/collections/vec/raw.nepl');
 const vecRawElementCode = codeByPath.get('stdlib/alloc/collections/vec/raw/element.nepl');
 const vecRawAggregateCode = codeByPath.get('stdlib/alloc/collections/vec/raw/aggregate.nepl');
@@ -167,6 +172,16 @@ assert.match(vecStorageFillCode, /\bfn\s+filled\b/, 'vec/storage/fill.nepl must 
 for (const name of ['len', 'cap', 'data_ptr', 'data_mem_ptr', 'data_len', 'is_empty']) {
     assert.match(vecAccessCode, new RegExp(`fn\\s+${name}\\b`), `vec/access.nepl must own ${name}`);
 }
+for (const name of ['header', 'data']) {
+    assert.match(vecAccessRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/access\\/${name}"\\s+as\\s+@merge`), `vec/access.nepl must merge re-export access/${name}.nepl`);
+}
+assert.doesNotMatch(vecAccessRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/access.nepl must be a pure facade without implementation bodies');
+for (const name of ['len', 'cap', 'is_empty']) {
+    assert.match(vecAccessHeaderCode, new RegExp(`fn\\s+${name}\\b`), `vec/access/header.nepl must own ${name}`);
+}
+for (const name of ['data_ptr', 'data_mem_ptr', 'data_len']) {
+    assert.match(vecAccessDataCode, new RegExp(`fn\\s+${name}\\b`), `vec/access/data.nepl must own ${name}`);
+}
 for (const name of ['vec_read_at', 'vec_write_at', 'vec_fold_impl', 'vec_reduce_impl', 'vec_find_impl', 'vec_take_while_len_impl', 'vec_write_prefix_impl']) {
     assert.match(vecRawCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw facade closure must expose ${name}`);
 }
@@ -228,6 +243,8 @@ for (const name of ['clear', 'free']) {
 assert.match(vecCode, /enum\s+VecStorageState:[\s\S]*Empty[\s\S]*Owned/, 'Vec storage owner state must be represented by an enum');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec\.nepl"\]/, 'Vec root facade must not receive raw-memory boundary capability');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"access\.nepl"\]/, 'Vec access module must not receive raw-memory boundary capability because it has no direct raw intrinsic');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"access",\s*"data\.nepl"\]/, 'Vec access data module must not receive raw-memory boundary capability because it has no direct raw intrinsic');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"access",\s*"header\.nepl"\]/, 'Vec access header module must not receive raw-memory boundary capability because it has no direct raw intrinsic');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"storage\.nepl"\]/, 'Vec storage facade must not receive raw-memory boundary capability');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"storage",\s*"view\.nepl"\]/, 'Vec storage view must not receive raw-memory boundary capability because it has no direct raw intrinsic');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"mutation\.nepl"\]/, 'Vec mutation facade must not receive raw-memory boundary capability');

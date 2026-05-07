@@ -893,6 +893,16 @@ fn loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries()
             "alloc_collections_vec_access_raw_store",
         ),
         (
+            &["alloc", "collections", "vec", "access", "data.nepl"],
+            "alloc/collections/vec/access/data",
+            "alloc_collections_vec_access_data_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "access", "header.nepl"],
+            "alloc/collections/vec/access/header",
+            "alloc_collections_vec_access_header_raw_store",
+        ),
+        (
             &["alloc", "collections", "vec", "mutation.nepl"],
             "alloc/collections/vec/mutation",
             "alloc_collections_vec_mutation_raw_store",

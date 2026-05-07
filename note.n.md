@@ -34543,3 +34543,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 Vec access module split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/vec/access.nepl` を責務別 submodule へ分割した。
+- `access.nepl` は `access/header`、`access/data` の public `@merge` re-export だけを持つ facade にした。
+- `access/header.nepl` は `len` / `cap` / `is_empty` を所有する。
+- `access/data.nepl` は `data_ptr` / `data_mem_ptr` / `data_len` を所有する。
+- access 系 module は direct raw intrinsic を持たないため raw-memory boundary は追加せず、`nepl-core/tests/effects.rs` と `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` で access root / header / data が raw-free module であることを固定した。
+- line count は `access.nepl` 16、`access/header.nepl` 100、`access/data.nepl` 114。
+- [検証]:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary -- loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries`: passed
+  - `trunk build --release`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access.nepl -i stdlib/alloc/collections/vec/access/header.nepl -i stdlib/alloc/collections/vec/access/data.nepl --no-tree -o tmp/vec-access-module-split-focused.json -j 1 --dist web/dist`: total=6, passed=6
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access.nepl -i stdlib/alloc/collections/vec/access/header.nepl -i stdlib/alloc/collections/vec/access/data.nepl -i stdlib/tests/vec.n.md -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-access-module-split-suite.json -j 1 --dist web/dist`: total=15, passed=15
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
