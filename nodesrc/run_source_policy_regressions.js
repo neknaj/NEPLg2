@@ -78,6 +78,7 @@ const checks = [
     "nodesrc/test_stdlib_vec_borrowed_observers.js",
     "nodesrc/test_static_check_boundary_responsibility.js",
     "nodesrc/test_resource_checker_responsibility.js",
+    "nodesrc/test_parser_backend_responsibility_policy.js",
     "nodesrc/test_resource_gate_order.js",
     "nodesrc/test_monomorphize_unresolved_api_policy.js",
     "nodesrc/test_resource_ir_test_harness_policy.js",

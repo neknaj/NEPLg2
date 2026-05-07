@@ -1,3 +1,19 @@
+# 2026-05-08 Agent 1 parser/backend responsibility source policy
+
+- `ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587` を fixed/resolved に更新した。
+- 根本原因は、typecheck / Resource IR には責務分割 source policy がある一方で、parser、WASM backend、LLVM backend、monomorphize には巨大 file の増築を止める policy と分割計画がなかったことだった。
+- `doc/neplg2/parser_backend_responsibility_split_plan.md` を追加し、parser の token/recovery/declaration/expression/type-expression、backend の shared model/WASM/LLVM、monomorphize の impl index/specialization/unresolved diagnostics に分けて staged split を定義した。
+- `nodesrc/test_parser_backend_responsibility_policy.js` を追加し、split plan の存在、関連 issue link、parser doc line 重複禁止、parser/backend/monomorphize の現行 line baseline 超過禁止を固定した。
+- `nodesrc/run_source_policy_regressions.js` に新 policy を接続した。今後これらの file に大きな変更を入れる場合は、先に module 分割して root file の limit を下げる必要がある。
+- `nepl-core/src/parser.rs` の重複 module doc line を削除した。
+- [検証]:
+  - `node nodesrc/test_parser_backend_responsibility_policy.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T134613401Z RegionToken forged non-owning view)
 
 - branch `work/resource-region-token-forged-view` で、`str_addr` 由来の non-owning raw view を `mem_ptr_wrap` / `region_new` で `RegionToken` に詰め直し、`dealloc_region` に渡すと owner summary consumption が no-op になっていた問題を修正した。

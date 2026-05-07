@@ -1,5 +1,4 @@
 //! Parser for NEPLG2 surface syntax (prefix + indentation blocks).
-//! Parser for NEPLG2 surface syntax (prefix + indentation blocks).
 extern crate alloc;
 
 use alloc::boxed::Box;

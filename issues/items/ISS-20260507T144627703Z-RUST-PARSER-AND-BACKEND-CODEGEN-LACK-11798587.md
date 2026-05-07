@@ -2,13 +2,13 @@
 id: ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587
 title: "Rust parser and backend codegen lack responsibility split policy"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: architecture
 created: 2026-05-07
-updated: 2026-05-07
-target: "nepl-core/src/parser.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/src/monomorphize.rs"
+updated: 2026-05-08
+target: "nepl-core/src/parser.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/src/monomorphize.rs, nodesrc/test_parser_backend_responsibility_policy.js, doc/neplg2/parser_backend_responsibility_split_plan.md"
 ---
 
 # ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587: Rust parser and backend codegen lack responsibility split policy
@@ -44,3 +44,23 @@ Design a responsibility split before further large parser/backend changes. Parse
 ## 検証
 
 Add nodesrc source-policy tests for parser/codegen/monomorphize responsibility boundaries, then run the Rust compiler parser/codegen regression suites in GitHub Actions. Local pre-commit checks should include git diff --check and focused source-policy validation when implementation begins.
+
+## 対応結果
+
+2026-05-08 に [NEPLg2 parser / backend responsibility split plan](../../doc/neplg2/parser_backend_responsibility_split_plan.md) を追加し、parser / WASM backend / LLVM backend / monomorphize の責務境界と段階的な分割 stage を明文化した。
+
+`nodesrc/test_parser_backend_responsibility_policy.js` を追加し、次を source policy として固定した。
+
+- split plan が存在し、parser / backend / monomorphize の stage とこの issue への link を含むこと。
+- `parser.rs` の重複 module doc line が戻らないこと。
+- `parser.rs` / `codegen_wasm.rs` / `codegen_llvm.rs` / `monomorphize.rs` が現行 baseline 以上に増えないこと。
+- `nodesrc/run_source_policy_regressions.js` からこの policy が実行されること。
+
+巨大 file の物理分割はこの commit で雑に始めず、まず凍結線を置いた。今後 parser/backend/monomorphize に大きな変更を入れる場合は、計画文書の stage に沿って module を切り出し、root file の line limit を段階的に下げる。limit を上げることで責務集中を隠すことは禁止する。
+
+検証:
+
+- `node nodesrc/test_parser_backend_responsibility_policy.js`
+- `node nodesrc/issues.js check`
+- `git diff --check`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
