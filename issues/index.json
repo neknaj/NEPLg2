@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T04:26:29.862Z",
+  "generated_at": "2026-05-07T04:38:19.754Z",
   "counts": {
-    "total": 556,
+    "total": 557,
     "open": 11,
-    "resolved": 545,
+    "resolved": 546,
     "by_area": {
       "core": {
-        "total": 277,
+        "total": 278,
         "open": 4,
-        "resolved": 273
+        "resolved": 274
       },
       "stdlib": {
         "total": 157,
@@ -4258,6 +4258,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T032436743Z-RESOURCE-RAW-CELL-RANGE-MODULE-EXCEE-92BDC72B.md"
+    },
+    {
+      "id": "ISS-20260507T043123048Z-RESOURCE-EXTERNAL-IO-INITIALIZED-EFF-3792771D",
+      "title": "Resource external IO initialized effect module escapes responsibility policy",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/initialized_external_io*.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260507T043123048Z-RESOURCE-EXTERNAL-IO-INITIALIZED-EFF-3792771D.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
