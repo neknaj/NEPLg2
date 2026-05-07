@@ -277,6 +277,8 @@ commit 単位:
 
 - 2026-05-07: `ISS-20260507T054543555Z-INITIALIZED-EXTERNAL-IO-EFFECT-EXCEE-5C420730` を解決した。`fd_read` / `fd_pread` の single-iov payload range construction を `initialized_external_io_payload.rs` に分離し、`initialized_external_io_effect.rs` は external I/O effect entry point と nread exact-cell initialization に戻した。iovec descriptor 探索、single-iov 判定、payload alias filtering、`nread` を count とする `InitializedRawRangeUnit::Bytes` 登録は新 module が担当する。line limit は緩めず、`node nodesrc/test_resource_checker_responsibility.js` は passed になった。Stage 4 の残件は、full scanner-style の `fd_read` loop / realloc / capacity field を含む dependent range model である。
 
+- 2026-05-07: `ISS-20260507T051545017Z-CELL-STATE-RAW-RANGE-EXCEEDS-SPLIT-L-76536EAC` を fixed として整理した。`cell_state_raw_range.rs` の責務超過は、raw range mutation / value projection / guarded cover proof / cover test を module 分離した結果、129/140 lines まで戻っている。`node nodesrc/test_resource_checker_responsibility.js` と `node nodesrc/run_source_policy_regressions.js --warn-only` はどちらも warning なしで通過しており、line limit を上げる形の回避はしていない。Stage 4 の残件は、full scanner-style の `fd_read` loop / realloc / capacity field を含む dependent range model である。
+
 ### Stage 5: effect model の拡張
 
 目的: raw memory を safe surface から閉じつつ、stdlib 内部の正当な allocation を表現する。

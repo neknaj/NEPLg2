@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T05:58:14.020Z",
+  "generated_at": "2026-05-07T06:01:57.420Z",
   "counts": {
     "total": 565,
-    "open": 13,
-    "resolved": 552,
+    "open": 12,
+    "resolved": 553,
     "by_area": {
       "core": {
         "total": 283,
-        "open": 5,
-        "resolved": 278
+        "open": 4,
+        "resolved": 279
       },
       "stdlib": {
         "total": 158,
@@ -133,21 +133,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260507T051545017Z-CELL-STATE-RAW-RANGE-EXCEEDS-SPLIT-L-76536EAC",
-      "title": "cell_state_raw_range exceeds split limit again after realloc range transfer",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "nepl-core/src/resource/cell_state_raw_range.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T051545017Z-CELL-STATE-RAW-RANGE-EXCEEDS-SPLIT-L-76536EAC.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4333,6 +4318,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260507T050848630Z-RESOURCE-IR-FD-READ-INITIALIZES-IOVE-A43EAA89.md"
+    },
+    {
+      "id": "ISS-20260507T051545017Z-CELL-STATE-RAW-RANGE-EXCEEDS-SPLIT-L-76536EAC",
+      "title": "cell_state_raw_range exceeds split limit again after realloc range transfer",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/cell_state_raw_range.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T051545017Z-CELL-STATE-RAW-RANGE-EXCEEDS-SPLIT-L-76536EAC.md"
     },
     {
       "id": "ISS-20260507T054543555Z-INITIALIZED-EXTERNAL-IO-EFFECT-EXCEE-5C420730",

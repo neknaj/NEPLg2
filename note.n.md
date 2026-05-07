@@ -33674,3 +33674,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 cell_state_raw_range split issue 整理
+
+- `ISS-20260507T051545017Z-CELL-STATE-RAW-RANGE-EXCEEDS-SPLIT-L-76536EAC` を fixed にした。
+- 対象 issue の根本原因だった `cell_state_raw_range.rs` の 140 行超過は、raw range mutation / value projection / guarded cover proof / cover test を module 分離した現在の構成で解消済みである。
+- 現在の行数は `cell_state_raw_range.rs` 129/140、`cell_state_raw_range_value.rs` 43/80、`cell_state_raw_range_cover_tests.rs` 48/80。
+- source policy の limit は引き上げず、責務分割を維持している。
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
