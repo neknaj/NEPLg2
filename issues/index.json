@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T15:28:22.098Z",
+  "generated_at": "2026-05-07T15:36:03.277Z",
   "counts": {
-    "total": 597,
-    "open": 12,
+    "total": 598,
+    "open": 13,
     "resolved": 585,
     "by_area": {
       "core": {
@@ -25,6 +25,11 @@
         "total": 16,
         "open": 1,
         "resolved": 15
+      },
+      "tools": {
+        "total": 1,
+        "open": 1,
+        "resolved": 0
       },
       "cli": {
         "total": 19,
@@ -273,6 +278,21 @@
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
+    },
+    {
+      "id": "ISS-20260507T153515441Z-ZED-EXTENSION-BUILD-ARTIFACTS-ARE-TR-B7D814F1",
+      "title": "Zed extension build artifacts are tracked in git",
+      "area": "tools",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "maintenance",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "editors/zed/target, editors/zed/.gitignore",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T153515441Z-ZED-EXTENSION-BUILD-ARTIFACTS-ARE-TR-B7D814F1.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-CLI-001-F3E49A92",
