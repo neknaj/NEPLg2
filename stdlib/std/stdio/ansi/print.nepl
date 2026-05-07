@@ -1,0 +1,87 @@
+//: # std/stdio/ansi/print
+//: typed ANSI style を `std/stdio/print` へ出力する helper
+//:
+//: ### 目的
+//: - style の開始、本文、reset を一貫した順序で出力し、色や装飾が後続出力へ漏れないようにします。
+//: - `std/stdio/print` と同じく write error を扱わない簡潔な convenience API を提供します。
+
+#indent 4
+
+#import "std/stdio/print" as *
+#import "./types" as *
+#import "./code" as *
+
+//: print_style_start: style を適用する escape code を出力する
+//:
+//: [目的/もくてき]:
+//: - `print_i32` など `str` 以外の出力も色付きにできるように、style の開始と reset を明示的に分けます。
+//:
+//: [注意/ちゅうい]:
+//: - 呼び出し側は対応する `print_style_reset` を必ず呼び、後続出力へ style を漏らさないでください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn print_style_start <(AnsiTextStyle)*>()> (style):
+    print ansi_text_style_code style;
+    ()
+
+//: print_style_reset: ANSI style を reset する
+//:
+//: [目的/もくてき]:
+//: - 直前の style 出力を解除し、後続出力へ色や装飾が漏れないようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn print_style_reset <()*>()> ():
+    print ansi_reset_code;
+    ()
+
+//: print_style: style を適用して文字列を出力する
+//:
+//: [目的/もくてき]:
+//: - `style` を適用して `s` を出力し、最後に reset code を出力します。
+//:
+//: [実装/じっそう]:
+//: - `print_style_start`、本文、`print_style_reset` の順に出力します。
+//:
+//: neplg2:test
+//: stdout: "\u001b[1m\u001b[31msample\u001b[0m"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/stdio" as *
+//: fn main <()*>()> ():
+//:     print_style ansi_bold_color_style AnsiColor::Red "sample";
+//: ```
+fn print_style <(AnsiTextStyle,str)*>()> (style, s):
+    print_style_start style;
+    print s;
+    print_style_reset;
+    ()
+
+//: println_style: style を適用して改行付きで出力する
+//:
+//: [実装/じっそう]:
+//: - `print_style` で本文を出力した後に改行を出力します。
+fn println_style <(AnsiTextStyle,str)*>()> (style, s):
+    print_style style s;
+    print "\n";
+    ()
+
+//: print_color: 前景色だけを適用して文字列を出力する
+//:
+//: [目的/もくてき]:
+//: - よく使う color-only 出力を `AnsiColor` で型安全に扱う短い入口です。
+//:
+//: [実装/じっそう]:
+//: - `ansi_color_style` で構築した style を `print_style` に渡します。
+fn print_color <(AnsiColor,str)*>()> (color, s):
+    print_style ansi_color_style color s
+
+//: println_color: 前景色だけを適用して改行付きで出力する
+//:
+//: [実装/じっそう]:
+//: - `ansi_color_style` で構築した style を `println_style` に渡します。
+fn println_color <(AnsiColor,str)*>()> (color, s):
+    println_style ansi_color_style color s

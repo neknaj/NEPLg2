@@ -1,3 +1,22 @@
+# 2026-05-08 Agent 2 std/stdio ansi facade split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の追加対応として、`stdlib/std/stdio/ansi.nepl` を facade 化した。
+- 根本原因は、typed ANSI API の enum/match 設計は妥当な一方で、型定義、style constructor、escape code 生成、stdout 出力 helper が 1 file に同居し、今後の色/装飾追加時に責務境界が崩れやすい状態だったこと。
+- `stdlib/std/stdio/ansi.nepl` は `ansi/types`、`ansi/code`、`ansi/print` の public `@merge` re-export だけを持つ facade にした。
+- `ansi/types.nepl` は `AnsiColor` / `AnsiTextWeight` / `AnsiTextDecoration` / `AnsiTextStyle` と style constructor、`ansi/code.nepl` は enum/struct から escape code 文字列への変換、`ansi/print.nepl` は `std/stdio/print` への出力 helper を所有する。
+- `nodesrc/test_stdlib_stdio_ansi_boundary.js` を更新し、root facade に enum / struct / code 変換 / print helper の実装が戻らないことと、各 helper の所有 module を固定した。
+- line count は `ansi.nepl` 17、`ansi/types.nepl` 158、`ansi/code.nepl` 123、`ansi/print.nepl` 87。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_ansi_boundary.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/ansi.nepl -i stdlib/std/stdio/ansi/types.nepl -i stdlib/std/stdio/ansi/code.nepl -i stdlib/std/stdio/ansi/print.nepl -i tests/stdlib/stdout.n.md -i tests/stdlib/features_tui.n.md --no-tree -o tmp/stdio-ansi-split-focused-rebased.json -j 1 --dist web/dist`: total=13, passed=13
+  - `node nodesrc/tests.js -i examples -o tmp/stdio-ansi-split-examples-rebased.json -j 4 --dist web/dist`: total=32, passed=32
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 2 examples doctest CI 追加
 
 - `ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895` を fixed/resolved に更新した。

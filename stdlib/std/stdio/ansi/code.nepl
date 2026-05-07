@@ -1,0 +1,123 @@
+//: # std/stdio/ansi/code
+//: typed ANSI style から escape code 文字列への変換
+//:
+//: ### 目的
+//: - escape code 生成を enum ごとの `match` helper に集約し、variant 追加時に網羅性検査が働く形にします。
+//: - 出力処理から code 生成を分離し、TUI や buffer builder など直接 print しない利用者も同じ typed 変換を使えるようにします。
+
+#indent 4
+
+#import "alloc/string/concat" as *
+#import "./types" as *
+
+//: ansi_color_code: color enum を前景色 escape code へ変換する
+//:
+//: [実装/じっそう]:
+//: - wildcard を使わず全 variant を列挙し、color 追加時に網羅性検査で更新漏れを検出できる形にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ansi_color_code <(AnsiColor)->str> (color):
+    match color:
+        AnsiColor::Default:
+            ""
+        AnsiColor::Red:
+            "\x1b[31m"
+        AnsiColor::Green:
+            "\x1b[32m"
+        AnsiColor::Yellow:
+            "\x1b[33m"
+        AnsiColor::Blue:
+            "\x1b[34m"
+        AnsiColor::Magenta:
+            "\x1b[35m"
+        AnsiColor::Cyan:
+            "\x1b[36m"
+        AnsiColor::White:
+            "\x1b[37m"
+        AnsiColor::Gray:
+            "\x1b[90m"
+
+//: ansi_background_color_code: color enum を背景色 escape code へ変換する
+//:
+//: [実装/じっそう]:
+//: - 前景色と同じ `AnsiColor` enum を使い、background 用 code へ wildcard なしで変換します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ansi_background_color_code <(AnsiColor)->str> (color):
+    match color:
+        AnsiColor::Default:
+            ""
+        AnsiColor::Red:
+            "\x1b[41m"
+        AnsiColor::Green:
+            "\x1b[42m"
+        AnsiColor::Yellow:
+            "\x1b[43m"
+        AnsiColor::Blue:
+            "\x1b[44m"
+        AnsiColor::Magenta:
+            "\x1b[45m"
+        AnsiColor::Cyan:
+            "\x1b[46m"
+        AnsiColor::White:
+            "\x1b[47m"
+        AnsiColor::Gray:
+            "\x1b[100m"
+
+//: ansi_text_weight_code: weight enum を escape code へ変換する
+//:
+//: [実装/じっそう]:
+//: - wildcard を使わず `Regular` と `Bold` を列挙します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ansi_text_weight_code <(AnsiTextWeight)->str> (weight):
+    match weight:
+        AnsiTextWeight::Regular:
+            ""
+        AnsiTextWeight::Bold:
+            "\x1b[1m"
+
+//: ansi_text_decoration_code: decoration enum を escape code へ変換する
+//:
+//: [実装/じっそう]:
+//: - wildcard を使わず `Plain` と `Underline` を列挙します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ansi_text_decoration_code <(AnsiTextDecoration)->str> (decoration):
+    match decoration:
+        AnsiTextDecoration::Plain:
+            ""
+        AnsiTextDecoration::Underline:
+            "\x1b[4m"
+
+//: ansi_reset_code: reset escape code を返す
+//:
+//: [目的/もくてき]:
+//: - style output helper が最後に必ず使う reset code を名前付き helper として提供します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ansi_reset_code <()->str> ():
+    "\x1b[0m"
+
+//: ansi_text_style_code: style enum/struct を escape code 文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - 行バッファなど、直接 `print` せず文字列として style を埋め込む API で使います。
+//:
+//: [実装/じっそう]:
+//: - weight、decoration、foreground、background の code を固定順で連結します。
+//: - 各 code は enum `match` helper を通るため、variant 追加時の更新漏れを検出できます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ansi_text_style_code <(AnsiTextStyle)->str> (style):
+    let weight_code <str> ansi_text_weight_code *get_ref &style "weight";
+    let decoration_code <str> ansi_text_decoration_code *get_ref &style "decoration";
+    let foreground_code <str> ansi_color_code *get_ref &style "foreground";
+    let background_code <str> ansi_background_color_code *get_ref &style "background";
+    concat concat concat weight_code decoration_code foreground_code background_code

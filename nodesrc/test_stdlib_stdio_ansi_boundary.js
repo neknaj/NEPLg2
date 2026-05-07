@@ -7,8 +7,14 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/std/stdio.nepl';
 const ansiRelPath = 'stdlib/std/stdio/ansi.nepl';
+const typesRelPath = 'stdlib/std/stdio/ansi/types.nepl';
+const codeRelPath = 'stdlib/std/stdio/ansi/code.nepl';
+const printRelPath = 'stdlib/std/stdio/ansi/print.nepl';
 const rootSrc = fs.readFileSync(path.join(repoRoot, rootRelPath), 'utf8');
 const ansiSrc = fs.readFileSync(path.join(repoRoot, ansiRelPath), 'utf8');
+const typesSrc = fs.readFileSync(path.join(repoRoot, typesRelPath), 'utf8');
+const codeSrc = fs.readFileSync(path.join(repoRoot, codeRelPath), 'utf8');
+const printSrc = fs.readFileSync(path.join(repoRoot, printRelPath), 'utf8');
 
 const stripComments = (src) => src
     .split(/\r?\n/)
@@ -17,23 +23,62 @@ const stripComments = (src) => src
 
 const rootCode = stripComments(rootSrc);
 const ansiCode = stripComments(ansiSrc);
+const typesCode = stripComments(typesSrc);
+const codeCode = stripComments(codeSrc);
+const printCode = stripComments(printSrc);
+const allAnsiImplCode = [typesCode, codeCode, printCode].join('\n');
 
 assert.match(
     rootCode,
     /pub\s+#import\s+"\.\/stdio\/ansi"\s+as\s+\*/,
-    'std/stdio facade must re-export stdio ansi submodule',
+    'std/stdio facade must re-export stdio ansi facade',
 );
+
+for (const submodule of ['types', 'code', 'print']) {
+    assert.match(
+        ansiCode,
+        new RegExp(`pub\\s+#import\\s+"\\.\\/ansi\\/${submodule}"\\s+as\\s+@merge`),
+        `stdio/ansi facade must re-export ansi/${submodule}`,
+    );
+}
+
+for (const forbidden of [
+    'enum AnsiColor',
+    'enum AnsiTextWeight',
+    'enum AnsiTextDecoration',
+    'struct AnsiTextStyle',
+    'fn ansi_color_code',
+    'fn ansi_text_style_code',
+    'fn print_style',
+    'fn println_color',
+]) {
+    assert.doesNotMatch(ansiCode, new RegExp(`\\b${forbidden.replace(/\s+/g, '\\s+')}\\b`), `${forbidden} must not be implemented in stdio/ansi facade`);
+}
 
 for (const helper of [
     'ansi_background_color_style',
     'ansi_color_pair_style',
     'ansi_bold_color_pair_style',
+]) {
+    assert.doesNotMatch(rootCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay outside stdio root facade`);
+    assert.doesNotMatch(ansiCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay outside stdio/ansi facade`);
+    assert.match(typesCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/ansi/types`);
+}
+
+for (const helper of [
     'ansi_color_code',
     'ansi_background_color_code',
     'ansi_text_weight_code',
     'ansi_text_decoration_code',
     'ansi_reset_code',
     'ansi_text_style_code',
+]) {
+    assert.doesNotMatch(rootCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay outside stdio root facade`);
+    assert.doesNotMatch(ansiCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay outside stdio/ansi facade`);
+    assert.match(codeCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/ansi/code`);
+}
+
+for (const helper of [
     'print_style_start',
     'print_style_reset',
     'print_style',
@@ -41,25 +86,26 @@ for (const helper of [
     'print_color',
     'println_color',
 ]) {
-    assert.doesNotMatch(rootCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/ansi`);
-    assert.match(ansiCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/ansi`);
+    assert.doesNotMatch(rootCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay outside stdio root facade`);
+    assert.doesNotMatch(ansiCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay outside stdio/ansi facade`);
+    assert.match(printCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/ansi/print`);
 }
 
 assert.match(
-    ansiCode,
+    typesCode,
     /enum\s+AnsiColor:[\s\S]*Default[\s\S]*Red[\s\S]*Green[\s\S]*Yellow[\s\S]*Blue[\s\S]*Magenta[\s\S]*Cyan[\s\S]*White[\s\S]*Gray/,
-    'stdio/ansi must model colors as an enum',
+    'stdio/ansi/types must model colors as an enum',
 );
-assert.match(ansiCode, /enum\s+AnsiTextWeight:[\s\S]*Regular[\s\S]*Bold/, 'stdio/ansi must model text weight as an enum');
-assert.match(ansiCode, /enum\s+AnsiTextDecoration:[\s\S]*Plain[\s\S]*Underline/, 'stdio/ansi must model text decoration as an enum');
+assert.match(typesCode, /enum\s+AnsiTextWeight:[\s\S]*Regular[\s\S]*Bold/, 'stdio/ansi/types must model text weight as an enum');
+assert.match(typesCode, /enum\s+AnsiTextDecoration:[\s\S]*Plain[\s\S]*Underline/, 'stdio/ansi/types must model text decoration as an enum');
 assert.match(
-    ansiCode,
+    typesCode,
     /struct\s+AnsiTextStyle:[\s\S]*foreground\s+<AnsiColor>[\s\S]*background\s+<AnsiColor>[\s\S]*weight\s+<AnsiTextWeight>[\s\S]*decoration\s+<AnsiTextDecoration>/,
-    'stdio/ansi must model foreground, background, and decorations as typed fields',
+    'stdio/ansi/types must model foreground, background, and decorations as typed fields',
 );
 
-const styleCodeMatch = ansiCode.match(
-    /fn\s+ansi_color_code\s+<\(AnsiColor\)->str>\s+\(color\):([\s\S]*?)\nfn\s+ansi_text_weight_code\s+/,
+const styleCodeMatch = codeCode.match(
+    /fn\s+ansi_color_code\s+<\(AnsiColor\)->str>\s+\(color\):([\s\S]*?)\nfn\s+ansi_background_color_code\s+/,
 );
 assert.ok(styleCodeMatch, 'ansi_color_code body must be found');
 assert.doesNotMatch(styleCodeMatch[1], /\n\s*_:/, 'ansi_color_code must not use wildcard fallback');
@@ -77,7 +123,7 @@ for (const variant of [
     assert.match(styleCodeMatch[1], new RegExp(`AnsiColor::${variant}:`), `ansi_color_code must cover ${variant}`);
 }
 
-const backgroundCodeMatch = ansiCode.match(
+const backgroundCodeMatch = codeCode.match(
     /fn\s+ansi_background_color_code\s+<\(AnsiColor\)->str>\s+\(color\):([\s\S]*?)\nfn\s+ansi_text_weight_code\s+/,
 );
 assert.ok(backgroundCodeMatch, 'ansi_background_color_code body must be found');
@@ -96,7 +142,7 @@ for (const variant of [
     assert.match(backgroundCodeMatch[1], new RegExp(`AnsiColor::${variant}:`), `ansi_background_color_code must cover ${variant}`);
 }
 
-const weightCodeMatch = ansiCode.match(
+const weightCodeMatch = codeCode.match(
     /fn\s+ansi_text_weight_code\s+<\(AnsiTextWeight\)->str>\s+\(weight\):([\s\S]*?)\nfn\s+ansi_text_decoration_code\s+/,
 );
 assert.ok(weightCodeMatch, 'ansi_text_weight_code body must be found');
@@ -105,7 +151,7 @@ for (const variant of ['Regular', 'Bold']) {
     assert.match(weightCodeMatch[1], new RegExp(`AnsiTextWeight::${variant}:`), `ansi_text_weight_code must cover ${variant}`);
 }
 
-const decorationCodeMatch = ansiCode.match(
+const decorationCodeMatch = codeCode.match(
     /fn\s+ansi_text_decoration_code\s+<\(AnsiTextDecoration\)->str>\s+\(decoration\):([\s\S]*?)\nfn\s+ansi_reset_code\s+/,
 );
 assert.ok(decorationCodeMatch, 'ansi_text_decoration_code body must be found');
@@ -121,10 +167,10 @@ for (const obsolete of [
     'ansi_reset',
     'AnsiStyle',
 ]) {
-    assert.doesNotMatch(ansiCode, new RegExp(`\\b${obsolete}\\b`), `${obsolete} raw or single-enum facade must not be reintroduced`);
+    assert.doesNotMatch(allAnsiImplCode, new RegExp(`\\b${obsolete}\\b`), `${obsolete} raw or single-enum facade must not be reintroduced`);
 }
 
-const printStyleMatch = ansiCode.match(
+const printStyleMatch = printCode.match(
     /fn\s+print_style\s+<\(AnsiTextStyle,str\)\*>\(\)>\s+\(style,\s*s\):([\s\S]*?)\nfn\s+println_style\s+/,
 );
 assert.ok(printStyleMatch, 'print_style body must be found');
@@ -135,19 +181,19 @@ assert.match(
 );
 
 assert.match(
-    ansiCode,
+    codeCode,
     /fn\s+ansi_text_style_code\s+<\(AnsiTextStyle\)->str>\s+\(style\):[\s\S]*ansi_text_weight_code\s+\*get_ref\s+&style\s+"weight"[\s\S]*ansi_text_decoration_code\s+\*get_ref\s+&style\s+"decoration"[\s\S]*ansi_color_code\s+\*get_ref\s+&style\s+"foreground"[\s\S]*ansi_background_color_code\s+\*get_ref\s+&style\s+"background"/,
     'ansi_text_style_code must compose typed foreground/background/decorations through enum code helpers',
 );
 
 assert.match(
-    ansiCode,
+    printCode,
     /fn\s+print_style_start\s+<\(AnsiTextStyle\)\*>\(\)>\s+\(style\):[\s\S]*print\s+ansi_text_style_code\s+style/,
     'print_style_start must use the shared typed style code helper',
 );
 
 assert.match(
-    ansiCode,
+    printCode,
     /fn\s+print_color\s+<\(AnsiColor,str\)\*>\(\)>\s+\(color,\s*s\):[\s\S]*print_style\s+ansi_color_style\s+color\s+s/,
     'print_color must be a typed AnsiColor convenience wrapper',
 );
