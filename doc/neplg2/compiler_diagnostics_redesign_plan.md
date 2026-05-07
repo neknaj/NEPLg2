@@ -206,6 +206,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-30: `nodesrc/test_diagnostic_code_first_boundary.js` の対象を active Rust source tree 全体へ拡張した。`nepl-core/src`、`nepl-language/src`、`nepl-lsp/src`、`nepl-web/src` を再帰走査し、`.with_code(...)` / `fn with_code` の再導入に加えて、compiler pass 側の code-less `Diagnostic::error(...)` / `Diagnostic::warning(...)` も拒否する。
 - 2026-05-07: `ALL_DIAGNOSTIC_CODES` が手動 registry であるにもかかわらず、source policy は enum variant と registry の対応を検査していなかった。`TypeDiagnosticCode::CallCaptureArityMismatch` と `ResourceOwnerDiagnosticCode::Reserved` が registry から漏れていたため追加し、`nodesrc/test_diagnostic_code_first_boundary.js` で各 leaf diagnostic enum variant が `ALL_DIAGNOSTIC_CODES` に正確に 1 回登録されることを検査するようにした。
 - 2026-05-07: `Diagnostic.code` を `Option<DiagnosticCode>` から必須 `DiagnosticCode` へ変更し、code-less な `Diagnostic::error(...)` / `Diagnostic::warning(...)` constructor を削除した。`DiagnosticSpec` / code-first constructor 以外では `Diagnostic` を構築できないため、診断 code の欠落は source policy ではなく Rust の型検査でも止まる。`nepl-language` の `EditorDiagnostic.code` も必須 stable string にし、web serialization は `code` / `code_message` を常に出す。
+- 2026-05-07: CLI renderer に残っていた旧 `Option<DiagnosticCode>` 前提の `d.code.map(...)` を削除し、`d.code.as_str()` を直接表示するようにした。`nodesrc/test_diagnostic_code_first_boundary.js` は `nepl-cli/src` も監視対象に含め、`.code.map(...)` を拒否する。これにより、CLI / web / language / LSP の外部境界すべてで mandatory diagnostic code contract を source policy が監視する。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

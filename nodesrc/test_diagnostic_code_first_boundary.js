@@ -8,6 +8,7 @@ const path = require('path');
 const repo = path.resolve(__dirname, '..');
 
 const rustSourceRoots = [
+  'nepl-cli/src',
   'nepl-core/src',
   'nepl-language/src',
   'nepl-lsp/src',
@@ -114,6 +115,11 @@ for (const { rel, text } of rustFiles) {
     text,
     /\bfn\s+with_code\b/,
     `${rel} must not define Diagnostic::with_code; diagnostics with codes must be constructed code-first`,
+  );
+  assert.doesNotMatch(
+    text,
+    /\.code\s*\.map\s*\(/,
+    `${rel} must not treat Diagnostic.code as optional; render mandatory DiagnosticCode directly`,
   );
 }
 

@@ -80,6 +80,14 @@ enum 化により、`#indent xx` が parser の generic token error として分
 - `node nodesrc/test_diagnostic_code_first_boundary.js`
 - `cargo test -p nepl-core diagnostic_codes -- --nocapture`
 
+## 2026-05-07 Stage D0 CLI mandatory code renderer 追記
+
+GitHub Actions run `25498880571` の build job で、`nepl-cli/src/main.rs` が `Diagnostic.code` をまだ `Option<DiagnosticCode>` として扱い `d.code.map(...)` を呼んでいたため、mandatory `DiagnosticCode` 化後の full workspace build が止まった。
+
+`nepl-cli` の renderer は `d.code.as_str()` を直接表示するよう修正した。併せて `nodesrc/test_diagnostic_code_first_boundary.js` の Rust source root に `nepl-cli/src` を追加し、`.code.map(...)` を source policy で拒否する。これにより、CLI / web / language / LSP の外部境界すべてで `Diagnostic.code` が mandatory enum である前提を維持する。
+
+この具体的な CI blocker は [CLI diagnostic renderer still treats DiagnosticCode as optional](./ISS-20260507T133214452Z-CLI-DIAGNOSTIC-RENDERER-STILL-TREATS-DE19F24C.md) として fixed にした。親 issue は D3 以降の表示整理、note/help、self-host parity を追跡するため open のまま維持する。
+
 ## 2026-04-29 Stage D2 raw identity escape code 追記
 
 Resource IR の `RawAddressEscapeFromInternalAlloc` が ordinary な `effect.pure.calls_impure` に潰れていたため、`ResourceRawDiagnosticCode::IdentityEscape` を追加し、compiler gate では `resource.raw.identity_escape` として出すようにした。

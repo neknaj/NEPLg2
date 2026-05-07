@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T13:28:38.198Z",
+  "generated_at": "2026-05-07T13:34:46.662Z",
   "counts": {
-    "total": 587,
+    "total": 588,
     "open": 10,
-    "resolved": 577,
+    "resolved": 578,
     "by_area": {
       "core": {
-        "total": 294,
+        "total": 295,
         "open": 3,
-        "resolved": 291
+        "resolved": 292
       },
       "stdlib": {
         "total": 164,
@@ -4503,6 +4503,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T132339456Z-RESOURCE-INITIALIZED-SUMMARY-VARIANT-32AEE691.md"
+    },
+    {
+      "id": "ISS-20260507T133214452Z-CLI-DIAGNOSTIC-RENDERER-STILL-TREATS-DE19F24C",
+      "title": "CLI diagnostic renderer still treats DiagnosticCode as optional",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-cli/src/main.rs, nodesrc/test_diagnostic_code_first_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T133214452Z-CLI-DIAGNOSTIC-RENDERER-STILL-TREATS-DE19F24C.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

@@ -184,6 +184,24 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 1 CLI diagnostic mandatory code renderer
+
+- `ISS-20260507T133214452Z-CLI-DIAGNOSTIC-RENDERER-STILL-TREATS-DE19F24C` を追加し、fixed/resolved に更新した。
+- GitHub Actions run `25498880571` の build job は `nepl-cli/src/main.rs:1950` の `d.code.map(...)` で失敗していた。`Diagnostic.code` は mandatory `DiagnosticCode` になっているため、CLI renderer だけが旧 `Option` 前提を残していた。
+- `render_diagnostics` は `d.code.as_str()` を直接表示するように変更した。
+- `nodesrc/test_diagnostic_code_first_boundary.js` は `nepl-cli/src` を Rust source root に追加し、`.code.map(...)` を拒否するようにした。
+- 親 issue `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` には Stage D0 CLI mandatory code renderer 追記を追加した。親 issue は D3 以降の表示整理 / self-host parity のため open のまま維持する。
+- [検証]:
+  - `cargo fmt --check`: passed
+  - `cargo check -p nepl-cli`: passed
+  - `cargo check`: passed
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T114726130Z nm json_escape raw traversal removed)
 
 - branch `fix/nm-json-escape-pure-raw-load` で、`stdlib/nm/json_escape.nepl` の public pure raw traversal を削除した。
