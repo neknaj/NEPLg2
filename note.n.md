@@ -1,3 +1,22 @@
+# 2026-05-07 note (ISS-20260507T114726130Z nm json_escape raw traversal removed)
+
+- branch `fix/nm-json-escape-pure-raw-load` で、`stdlib/nm/json_escape.nepl` の public pure raw traversal を削除した。
+- `json_escape_mem_into <(StringBuilder,MemPtr<u8>,i32)->StringBuilder>` は `nm` public API から外した。`nm` は raw pointer を直接受け取らず、`str` の byte access boundary を経由する。
+- `json_escape_into` は `len s` と `string_byte_at_unchecked s i` で byte を読み、`json_escape_byte_into` の char literal `match` へ渡す構造にした。
+- `json_escape_builder_into` は source `StringBuilder` を `sb_build` で `str` に確定し、同じ `json_escape_into` path を再利用する。source builder の storage borrow と raw `load_u8` は `nm` module から消えた。
+- `nodesrc/test_stdlib_nm_json_escape_boundary.js` は `nm/json_escape` が `MemPtr` / `load_u8` / `string_data_ptr` / `mem_ptr_addr` を持たないことを固定するよう更新した。
+- `nodesrc/test_stdlib_match_decision_trees.js` は `json_escape_into` が `string_byte_at_unchecked` と `json_escape_byte_into` の match dispatch を使うこと、`json_escape_builder_into` が `sb_build` 経由で同じ path を使うことを固定するよう更新した。
+- `ISS-20260507T114726130Z-NM-JSON-ESCAPE-MEM-INTO-IS-REJECTED--0F849F57` は fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/test_stdlib_nm_json_escape_boundary.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-json-escape-pure-raw-after.json -j 1 --dist web/dist`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib/nm/json_escape.nepl --no-tree -o tmp/nm-json-escape-module-after.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/parser/json_inline.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-json-escape-parser-after.json -j 1 --dist web/dist`: total=9, passed=9
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: nm/json_escape 関連は passed。既知 open issue `ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D` の `lower_aggregate_projection.rs has 204 lines; responsibility split limit is 180` warning は継続。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T114726130Z nm json_escape_mem_into pure raw load)
 
 - `ISS-20260507T114726130Z-NM-JSON-ESCAPE-MEM-INTO-IS-REJECTED--0F849F57` を追加した。

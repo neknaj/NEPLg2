@@ -17,7 +17,6 @@ const jsonEscape = read(jsonEscapePath);
 
 for (const name of [
     'json_escape_byte_into',
-    'json_escape_mem_into',
     'json_escape_into',
     'json_escape_builder_into',
     'json_escape',
@@ -48,6 +47,18 @@ assert.match(
     parser,
     /\bjson::json_escape_builder_into\b/,
     `${parserPath} must call the JSON escape module for code block builders`
+);
+
+assert.doesNotMatch(
+    jsonEscape,
+    /\bMemPtr\b|\bload_u8\b|\bstring_data_ptr\b|\bmem_ptr_addr\b/,
+    `${jsonEscapePath} must not expose or own raw memory traversal; use alloc/string byte access boundaries`
+);
+
+assert.doesNotMatch(
+    jsonEscape,
+    /^#import "core\/mem" as \*$/m,
+    `${jsonEscapePath} must not import core/mem directly`
 );
 
 console.log('stdlib nm json escape boundary regression passed');

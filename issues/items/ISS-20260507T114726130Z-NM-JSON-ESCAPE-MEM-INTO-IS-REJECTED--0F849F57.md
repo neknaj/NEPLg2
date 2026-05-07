@@ -2,8 +2,8 @@
 id: ISS-20260507T114726130Z-NM-JSON-ESCAPE-MEM-INTO-IS-REJECTED--0F849F57
 title: "nm json_escape_mem_into is rejected as pure raw memory load"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-07
@@ -50,3 +50,18 @@ target: "stdlib/nm/json_escape.nepl, tests/stdlib/nm.n.md"
 - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-json-escape-pure-raw-after.json -j 1 --dist web/dist`: total=5, passed=5 になること。
 - public pure `nm` helper が unmanaged raw memory を直接 `load` しないことを source policy で固定すること。
 - 既存の `nodesrc/test_stdlib_nm_json_escape_boundary.js` と `nodesrc/test_stdlib_match_decision_trees.js` を、新しい責務境界に合わせて更新すること。
+
+## 2026-05-07 修正
+
+`json_escape_mem_into` を削除し、`nm/json_escape` の public API から `MemPtr<u8>` を受ける raw traversal helper を外した。`json_escape_into` は `str` の byte length と `string_byte_at_unchecked` を使う safe string access boundary に一本化し、各 byte を従来どおり `json_escape_byte_into` の `match` へ渡す。
+
+`json_escape_builder_into` は source `StringBuilder` を `sb_build` で `str` に確定してから `json_escape_into` に渡す。これにより、source builder の storage borrow / raw pointer traversal は `nm` module から消え、raw memory load は既存の `alloc/string/access` boundary へ閉じる。
+
+検証:
+
+- `node nodesrc/test_stdlib_nm_json_escape_boundary.js`: passed
+- `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+- `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-json-escape-pure-raw-after.json -j 1 --dist web/dist`: total=5, passed=5
+- `node nodesrc/tests.js -i stdlib/nm/json_escape.nepl --no-tree -o tmp/nm-json-escape-module-after.json -j 1 --dist web/dist`: total=1, passed=1
+- `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/parser/json_inline.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-json-escape-parser-after.json -j 1 --dist web/dist`: total=9, passed=9
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: nm/json_escape 関連は passed。既知 open issue `ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D` の `lower_aggregate_projection.rs has 204 lines; responsibility split limit is 180` warning は継続。

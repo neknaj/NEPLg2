@@ -75,15 +75,25 @@ assert.match(
 const nmJsonEscapeIntoBlock = functionBlock(nmJsonEscapeFile, 'json_escape_into');
 assert.match(
     nmJsonEscapeIntoBlock,
-    /json_escape_mem_into\s+sb\s+string_data_ptr\s+s\s+len\s+s/,
-    'json_escape_into must delegate through the byte-range escape boundary'
+    /string_byte_at_unchecked\s+s\s+i/,
+    'json_escape_into must read string bytes through the alloc/string access boundary'
+);
+assert.match(
+    nmJsonEscapeIntoBlock,
+    /json_escape_byte_into\s+out\s+ch/,
+    'json_escape_into must dispatch each byte through json_escape_byte_into'
 );
 
-const nmJsonEscapeMemIntoBlock = functionBlock(nmJsonEscapeFile, 'json_escape_mem_into');
+const nmJsonEscapeBuilderIntoBlock = functionBlock(nmJsonEscapeFile, 'json_escape_builder_into');
 assert.match(
-    nmJsonEscapeMemIntoBlock,
-    /json_escape_byte_into\s+out\s+ch/,
-    'json_escape_mem_into must dispatch each byte through json_escape_byte_into'
+    nmJsonEscapeBuilderIntoBlock,
+    /let\s+text\s+<str>\s+sb_build\s+src/,
+    'json_escape_builder_into must consume the source builder via sb_build'
+);
+assert.match(
+    nmJsonEscapeBuilderIntoBlock,
+    /json_escape_into\s+sb\s+text/,
+    'json_escape_builder_into must reuse the string escape path'
 );
 
 assertLiteralMatch({
