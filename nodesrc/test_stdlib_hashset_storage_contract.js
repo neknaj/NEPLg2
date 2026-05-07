@@ -5,13 +5,22 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const relPath = 'stdlib/alloc/collections/hashset.nepl';
-const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const modulePaths = {
+    root: 'stdlib/alloc/collections/hashset.nepl',
+    types: 'stdlib/alloc/collections/hashset/types.nepl',
+    storage: 'stdlib/alloc/collections/hashset/storage.nepl',
+    probe: 'stdlib/alloc/collections/hashset/probe.nepl',
+    rehash: 'stdlib/alloc/collections/hashset/rehash.nepl',
+    api: 'stdlib/alloc/collections/hashset/api.nepl',
+};
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+function readCode(relPath) {
+    return fs
+        .readFileSync(path.join(repoRoot, relPath), 'utf8')
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*\/\//.test(line))
+        .join('\n');
+}
 
 function between(source, start, end) {
     const startIdx = source.indexOf(start);
@@ -21,14 +30,33 @@ function between(source, start, end) {
     return source.slice(startIdx, endIdx);
 }
 
-const allocStorageSection = between(code, 'fn hashset_alloc_storage ', 'fn hashset_find_present ');
-const findPresentSection = between(code, 'fn hashset_find_present ', 'fn hashset_find_insert_slot ');
-const findInsertSlotSection = between(code, 'fn hashset_find_insert_slot ', 'fn hashset_insert_entry_into_storage ');
-const rehashSection = between(code, 'fn hashset_rehash_to ', 'fn hashset_prepare_insert ');
-const insertSection = between(code, 'fn insert ', 'fn contains ');
-const containsSection = between(code, 'fn contains ', 'fn remove ');
-const lenSection = between(code, 'fn len ', 'fn free ');
-const freeSection = code.slice(code.indexOf('fn free '));
+const codes = Object.fromEntries(Object.entries(modulePaths).map(([name, relPath]) => [name, readCode(relPath)]));
+const allCode = Object.values(codes).join('\n');
+
+for (const submodule of ['types', 'storage', 'probe', 'rehash', 'api']) {
+    assert.match(
+        codes.root,
+        new RegExp(`pub\\s+#import\\s+"alloc/collections/hashset/${submodule}"\\s+as\\s+@merge`),
+        `HashSet root facade must publicly merge ${submodule}`,
+    );
+}
+
+assert.doesNotMatch(
+    codes.root,
+    /\b(fn|struct|enum)\s+\w+/,
+    'HashSet root facade must not keep implementation bodies after module split',
+);
+
+const allocStorageStart = codes.storage.indexOf('fn hashset_alloc_storage ');
+assert.notEqual(allocStorageStart, -1, 'missing section start: fn hashset_alloc_storage ');
+const allocStorageSection = codes.storage.slice(allocStorageStart);
+const findPresentSection = between(codes.probe, 'fn hashset_find_present ', 'fn hashset_find_insert_slot ');
+const findInsertSlotSection = between(codes.probe, 'fn hashset_find_insert_slot ', 'fn hashset_insert_entry_into_storage ');
+const rehashSection = between(codes.rehash, 'fn hashset_rehash_to ', 'fn hashset_prepare_insert ');
+const insertSection = between(codes.api, 'fn insert ', 'fn contains ');
+const containsSection = between(codes.api, 'fn contains ', 'fn remove ');
+const lenSection = between(codes.api, 'fn len ', 'fn free ');
+const freeSection = codes.api.slice(codes.api.indexOf('fn free '));
 
 const forbiddenImplementationPatterns = [
     /\balloc_raw\b/,
@@ -45,29 +73,33 @@ const forbiddenImplementationPatterns = [
 ];
 
 for (const pattern of forbiddenImplementationPatterns) {
-    assert.doesNotMatch(code, pattern, `${relPath} must keep HashSet storage typed and must not use raw storage or unsafe unwrap helpers`);
+    assert.doesNotMatch(
+        allCode,
+        pattern,
+        'HashSet modules must keep storage typed and must not use raw storage or unsafe unwrap helpers',
+    );
 }
 
 assert.match(
-    code,
+    codes.types,
     /enum\s+HashSetBucketState:\s+Empty\s+Full\s+Tombstone/,
     'HashSet bucket state must be represented as an enum',
 );
 
 assert.match(
-    code,
+    codes.types,
     /enum\s+HashSetInsertSlotState:\s+EmptySlot\s+TombstoneSlot/,
     'HashSet insertion slot state must be represented as an enum',
 );
 
 assert.match(
-    code,
+    codes.types,
     /struct\s+HashSetStorage<\.T>:\s+states\s+<Vec<HashSetBucketState>>\s+keys\s+<Vec<Option<\.T>>>/,
     'HashSet storage must keep initialized state and keys as typed Vec owners',
 );
 
 assert.match(
-    code,
+    codes.types,
     /struct\s+HashSet<\.T,\.H>:\s+count\s+<i32>\s+cap\s+<i32>\s+tombstones\s+<i32>\s+storage\s+<HashSetStorage<\.T>>\s+hasher\s+<\.H>/,
     'HashSet must own typed storage directly instead of raw header or entries pointers',
 );

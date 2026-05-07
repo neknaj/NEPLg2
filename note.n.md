@@ -33865,3 +33865,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/tests/hashmap.n.md -i stdlib/tests/hashmap_str.n.md -i tests/stdlib/hash_collection_rehash.n.md -i tests/stdlib/traits_hash.n.md -i tests/stdlib/collections_diag.n.md -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/traits-hash-resource-cell-hash-suite.json -j 1 --dist web/dist`: total=25, passed=25
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 HashSet module split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の追加対応として、`stdlib/alloc/collections/hashset.nepl` を facade 化した。
+- HashMap と同じ境界で `types` / `storage` / `probe` / `rehash` / `api` に分割し、typed storage、probe state enum、rehash owner transfer、public API の責務を module 単位に分離した。
+- root facade は `pub #import ... as @merge` だけを持つ構成にし、既存の `#import "alloc/collections/hashset" as *` 利用を維持した。
+- `nodesrc/test_stdlib_hashset_storage_contract.js` は分割後の全 module を検査し、root に実装本体が戻らないこと、raw memory / unsafe unwrap が戻らないこと、typed storage と borrow read API を固定するよう更新した。
+- [検証]:
+  - `node nodesrc/test_stdlib_hashset_storage_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashset.nepl -i stdlib/alloc/collections/hashset/types.nepl -i stdlib/alloc/collections/hashset/storage.nepl -i stdlib/alloc/collections/hashset/probe.nepl -i stdlib/alloc/collections/hashset/rehash.nepl -i stdlib/alloc/collections/hashset/api.nepl -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md -i tests/stdlib/hash_collection_rehash.n.md -i tests/stdlib/collections_diag.n.md -i tests/stdlib/traits_hash.n.md --no-tree -o tmp/hashset-module-split-suite-no-pipe.json -j 1 --dist web/dist`: total=22, passed=22
+- [別件として確認]:
+  - `tests/stdlib/pipe_collections.n.md` は current main で selected import / RingBuffer overload の失敗が残る。HashSet module split とは別 issue として扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

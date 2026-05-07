@@ -1,0 +1,178 @@
+//: # alloc/collections/hashset/api
+//: HashSet の公開 API
+//:
+//: ### [目的/もくてき]
+//: - `new` / `with_capacity` / `insert` / `contains` / `remove` / `len` / `free` を集約します。
+//: - storage / probe / rehash helper を内部利用し、公開 API の owner 移動と borrow API の境界を明確にします。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/hash_key" as *
+#import "core/traits/hash" as *
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/hashset/types" as *
+#import "alloc/collections/hashset/storage" as *
+#import "alloc/collections/hashset/probe" as *
+#import "alloc/collections/hashset/rehash" as *
+
+//: ## new
+//: [空/から]の `HashSet<.T, .H>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - hasher [値/あたい]を[受/う]け[取/と]り、[空/から]の hash set を[初期化/しょきか]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(cap)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let ok <i32> if eq len &hs 0 1 0;
+//:     free hs;
+//:     ok
+//: ```
+fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H)*>Result<HashSet<.T,.H>, Diag>> (hasher):
+    hashset_new_with_capacity<.T,.H> hasher 16
+
+//: ## with_capacity
+//: [指定/してい]した[初期容量/しょきようりょう]で `HashSet<.T, .H>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - self-host compiler の visited set など、要素数の[見積/みつ]もりがある用途で rehash 回数を[減/へ]らします。
+fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
+    hashset_new_with_capacity<.T,.H> hasher requested
+
+//: ## insert
+//: [要素/ようそ]を[追加/ついか]する
+//:
+//: ### [目的/もくてき]
+//: - key を[集合/しゅうごう]へ[追加/ついか]し、[既存/きそん]なら[状態/じょうたい]を[保/たも]ったまま[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - 必要なら grow / rehash し、linear probing で slot を[探索/たんさく]し、empty か first tombstone に[配置/はいち]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashset" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> insert hs0 7;
+//:     let ok <i32> if contains &hs1 7 1 0;
+//:     free hs1;
+//:     ok
+//: ```
+fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
+    match hashset_prepare_insert<.T,.H> hs key:
+        Result::Err d:
+            err<HashSet<.T,.H>, Diag> d
+        Result::Ok ready:
+            let count0 <i32> *field::get_ref &ready "count"
+            let cap0 <i32> *field::get_ref &ready "cap"
+            let tombstones0 <i32> *field::get_ref &ready "tombstones"
+            let hasher <.H> *field::get_ref &ready "hasher"
+            let storage <HashSetStorage<.T>> field::get ready "storage"
+            let existing <i32> hashset_find_present<.T,.H> &storage cap0 hasher key
+            if:
+                not lt existing 0
+                then:
+                    ok<HashSet<.T,.H>, Diag> HashSet<.T,.H> count0 cap0 tombstones0 storage hasher
+                else:
+                    let slot <HashSetInsertSlot> hashset_find_insert_slot<.T,.H> &storage cap0 hasher key
+                    let slot_idx <i32> field::get slot "index"
+                    let slot_state <HashSetInsertSlotState> field::get slot "state"
+                    hashset_store_full<.T> &storage slot_idx key
+                    let next_tombstones <i32>:
+                        match slot_state:
+                            HashSetInsertSlotState::EmptySlot:
+                                tombstones0
+                            HashSetInsertSlotState::TombstoneSlot:
+                                sub tombstones0 1
+                    ok<HashSet<.T,.H>, Diag> HashSet<.T,.H> add count0 1 cap0 next_tombstones storage hasher
+
+//: ## contains
+//: [要素/ようそ]の[存在/そんざい]を[確/たし]かめる
+//:
+//: ### [目的/もくてき]
+//: - key が[集合/しゅうごう]に[含/ふく]まれるかどうかだけを[判定/はんてい]します。
+//: - `&HashSet` を受け取り、table owner を移動せずに値を[読/よ]みます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
+fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>,.T)->bool> (hs, key):
+    let cap0 <i32> *field::get_ref hs "cap"
+    let hasher <.H> *field::get_ref hs "hasher"
+    let storage <&HashSetStorage<.T>> field::get_ref hs "storage"
+    not lt hashset_find_present<.T,.H> storage cap0 hasher key 0
+
+//: ## remove
+//: [要素/ようそ]を[削除/さくじょ]する
+//:
+//: ### [目的/もくてき]
+//: - key が[存在/そんざい]する[場合/ばあい]は bucket を tombstone にし、probe chain を[保/たも]ちます。
+//:
+//: ### [注意/ちゅうい]
+//: - key が[存在/そんざい]しない[場合/ばあい]、入力 HashSet はこの[関数/かんすう]が[消費/しょうひ]して storage を[解放/かいほう]した上で `Err(Diag)` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
+fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
+    let count0 <i32> *field::get_ref &hs "count"
+    let cap0 <i32> *field::get_ref &hs "cap"
+    let tombstones0 <i32> *field::get_ref &hs "tombstones"
+    let hasher <.H> *field::get_ref &hs "hasher"
+    let storage <HashSetStorage<.T>> field::get hs "storage"
+    let idx <i32> hashset_find_present<.T,.H> &storage cap0 hasher key
+    if:
+        lt idx 0
+        then:
+            hashset_free_storage<.T> storage
+            diag_err<HashSet<.T,.H>> diag_key_not_found
+        else:
+            hashset_store_tombstone<.T> &storage idx
+            ok<HashSet<.T,.H>, Diag> HashSet<.T,.H> sub count0 1 cap0 add tombstones0 1 storage hasher
+
+//: ## len
+//: [要素数/ようそすう]を[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `&HashSet` から[現在/げんざい][登録/とうろく]されている[要素/ようそ]の[個数/こすう]を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+fn len <.T,.H> <(&HashSet<.T,.H>)->i32> (hs):
+    *field::get_ref hs "count"
+
+//: ## free
+//: [内部/ないぶ]メモリを[解放/かいほう]する
+//:
+//: ### [目的/もくてき]
+//: - HashSet が[所有/しょゆう]する storage Vec 群を[解放/かいほう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `.T` は Copy 前提のため payload drop traversal は[行/おこな]いません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(cap)
+fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>)->()> (hs):
+    let storage <HashSetStorage<.T>> field::get hs "storage"
+    hashset_free_storage<.T> storage

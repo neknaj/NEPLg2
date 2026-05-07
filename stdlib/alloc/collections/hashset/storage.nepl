@@ -1,0 +1,105 @@
+//: # alloc/collections/hashset/storage
+//: HashSet typed storage の初期化・slot 読み書き・解放 helper
+//:
+//: ### [目的/もくてき]
+//: - `Vec<HashSetBucketState>` / `Vec<Option<T>>` の 2 owner を扱う処理を集約します。
+//: - raw memory ではなく typed Vec storage を維持し、未初期化 bucket を作らないようにします。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "alloc/collections/hashset/types" as *
+
+//: hashset_storage_states: storage の state Vec を borrow する
+fn hashset_storage_states <.T> <(&HashSetStorage<.T>)->&Vec<HashSetBucketState>> (storage):
+    field::get_ref storage "states"
+
+//: hashset_storage_keys: storage の key Vec を borrow する
+fn hashset_storage_keys <.T> <(&HashSetStorage<.T>)->&Vec<Option<.T>>> (storage):
+    field::get_ref storage "keys"
+
+//: hashset_normalize_capacity: hash set の[実容量/じつようりょう]を[下限/かげん]つきで[決/き]める
+fn hashset_normalize_capacity <(i32)->i32> (requested):
+    if lt requested 4 4 requested
+
+//: hashset_load_limit: grow / rehash の[閾値/しきいち]を[計算/けいさん]する
+//:
+//: ### [実装/じっそう]
+//: - 75% を[超/こ]える[前/まえ]に rehash するため、`cap * 3 / 4` を[返/かえ]します。
+fn hashset_load_limit <(i32)->i32> (cap):
+    div_u mul cap 3 4
+
+//: hashset_state_at: bucket state を[読/よ]み[出/だ]す
+//:
+//: ### [注意/ちゅうい]
+//: - 呼び出し側は `0 <= idx < cap` を[守/まも]る設計です。`Option::None` は不変条件破れの防護として empty に[倒/たお]します。
+fn hashset_state_at <(&Vec<HashSetBucketState>,i32)->HashSetBucketState> (states, idx):
+    match vec::get<HashSetBucketState> states idx:
+        Option::Some state:
+            state
+        Option::None:
+            HashSetBucketState::Empty
+
+//: hashset_key_at: key slot を Option として[読/よ]む
+fn hashset_key_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (keys, idx):
+    match vec::get<Option<.T>> keys idx:
+        Option::Some key_opt:
+            key_opt
+        Option::None:
+            none<.T>
+
+//: hashset_store_state: state slot を[書/か]き[換/か]える
+fn hashset_store_state <(&Vec<HashSetBucketState>,i32,HashSetBucketState)*>()> (states, idx, state):
+    vec::replace<HashSetBucketState> states idx state
+
+//: hashset_store_key: key slot を[書/か]き[換/か]える
+fn hashset_store_key <.T: Copy> <(&Vec<Option<.T>>,i32,Option<.T>)*>()> (keys, idx, key):
+    vec::replace<Option<.T>> keys idx key
+
+//: hashset_store_full: slot を Full にして key を[格納/かくのう]する
+//:
+//: ### [目的/もくてき]
+//: - state と key option を同じ slot index で[同時/どうじ]に[更新/こうしん]します。
+fn hashset_store_full <.T: Copy> <(&HashSetStorage<.T>,i32,.T)*>()> (storage, idx, key):
+    hashset_store_key<.T> hashset_storage_keys<.T> storage idx some<.T> key
+    hashset_store_state hashset_storage_states<.T> storage idx HashSetBucketState::Full
+
+//: hashset_store_tombstone: slot を tombstone にして payload を None に[戻/もど]す
+fn hashset_store_tombstone <.T: Copy> <(&HashSetStorage<.T>,i32)*>()> (storage, idx):
+    hashset_store_key<.T> hashset_storage_keys<.T> storage idx none<.T>
+    hashset_store_state hashset_storage_states<.T> storage idx HashSetBucketState::Tombstone
+
+//: hashset_free_storage: backing storage を[解放/かいほう]する
+//:
+//: ### [目的/もくてき]
+//: - states / keys の 2 本の Vec owner を[閉/と]じます。
+fn hashset_free_storage <.T: Copy> <(HashSetStorage<.T>)->()> (storage):
+    let states <Vec<HashSetBucketState>> field::get storage "states"
+    let keys <Vec<Option<.T>>> field::get storage "keys"
+    vec::free<HashSetBucketState> states
+    vec::free<Option<.T>> keys
+
+//: hashset_alloc_storage: empty storage を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - 全 slot を初期化済み enum / Option として[確保/かくほ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(cap)
+fn hashset_alloc_storage <.T: Copy> <(i32)*>Result<HashSetStorage<.T>, Diag>> (cap):
+    match vec::filled<HashSetBucketState> cap HashSetBucketState::Empty:
+        Result::Err _e:
+            diag_err<HashSetStorage<.T>> diag_out_of_memory
+        Result::Ok states:
+            match vec::filled<Option<.T>> cap none<.T>:
+                Result::Err _e:
+                    vec::free<HashSetBucketState> states
+                    diag_err<HashSetStorage<.T>> diag_out_of_memory
+                Result::Ok keys:
+                    ok<HashSetStorage<.T>, Diag> HashSetStorage<.T> states keys
