@@ -9,10 +9,11 @@ use nepl_core::compiler::compile_module_with_source_map_and_artifact_options;
 use nepl_core::diagnostic::{Diagnostic, Severity};
 use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
 use nepl_core::error::CoreError;
-use nepl_core::hir::{HirBlock, HirExpr, HirExprKind, HirLine};
+use nepl_core::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine};
 use nepl_core::lexer::{lex, Token, TokenKind};
 use nepl_core::loader::{Loader, LoaderError, SourceMap};
 use nepl_core::parser::parse_tokens;
+use nepl_core::resolve::DefId;
 use nepl_core::span::{FileId, Span};
 use nepl_core::typecheck::typecheck;
 use nepl_core::{BuildProfile, CompilationArtifactOptions, CompileOptions, CompileTarget};
@@ -820,6 +821,7 @@ struct NameDefTrace {
     name: String,
     kind: &'static str,
     span: Span,
+    def_id: Option<DefId>,
     scope_depth: usize,
     doc: Option<String>,
 }
@@ -854,6 +856,7 @@ struct SemanticExprTrace {
     ty: String,
     parent_id: Option<usize>,
     arg_spans: Vec<Span>,
+    callee_def_id: Option<DefId>,
 }
 
 #[derive(Clone)]
@@ -864,6 +867,7 @@ struct SemanticTokenTrace {
     expr_span: Option<Span>,
     arg_index: Option<usize>,
     arg_span: Option<Span>,
+    selected_resolved_def_id: Option<usize>,
 }
 
 #[derive(Default)]
@@ -913,6 +917,7 @@ impl NameResolutionTrace {
             name: name.clone(),
             kind,
             span,
+            def_id: DefId::from_span(span),
             scope_depth: depth,
             doc,
         });
@@ -1476,6 +1481,13 @@ fn semantic_token_to_js(source: &str, st: &SemanticTokenTrace) -> JsValue {
             .map(|s| span_to_js(source, s))
             .unwrap_or(JsValue::NULL),
     );
+    let _ = Reflect::set(
+        &obj,
+        &JsValue::from_str("selected_resolved_def_id"),
+        &st.selected_resolved_def_id
+            .map(|v| JsValue::from_f64(v as f64))
+            .unwrap_or(JsValue::NULL),
+    );
     obj.into()
 }
 
@@ -1532,12 +1544,24 @@ fn build_token_hints_to_js(
                     .map(|s| span_to_js_with_map(source, s, source_map))
                     .unwrap_or(JsValue::NULL),
             );
+            let _ = Reflect::set(
+                &item,
+                &JsValue::from_str("selected_resolved_def_id"),
+                &ts.selected_resolved_def_id
+                    .map(|v| JsValue::from_f64(v as f64))
+                    .unwrap_or(JsValue::NULL),
+            );
         } else {
             let _ = Reflect::set(&item, &JsValue::from_str("inferred_expr_id"), &JsValue::NULL);
             let _ = Reflect::set(&item, &JsValue::from_str("inferred_type"), &JsValue::NULL);
             let _ = Reflect::set(&item, &JsValue::from_str("expression_range"), &JsValue::NULL);
             let _ = Reflect::set(&item, &JsValue::from_str("arg_index"), &JsValue::NULL);
             let _ = Reflect::set(&item, &JsValue::from_str("arg_range"), &JsValue::NULL);
+            let _ = Reflect::set(
+                &item,
+                &JsValue::from_str("selected_resolved_def_id"),
+                &JsValue::NULL,
+            );
         }
 
         let mut best_ref: Option<&NameRefTrace> = None;
@@ -1554,6 +1578,10 @@ fn build_token_hints_to_js(
         }
 
         if let Some(rf) = best_ref {
+            let resolved_def_id = token_semantics
+                .get(tok_idx)
+                .and_then(|ts| ts.selected_resolved_def_id)
+                .or(rf.resolved_def_id);
             let _ = Reflect::set(&item, &JsValue::from_str("name"), &JsValue::from_str(&rf.name));
             let _ = Reflect::set(
                 &item,
@@ -1563,7 +1591,7 @@ fn build_token_hints_to_js(
             let _ = Reflect::set(
                 &item,
                 &JsValue::from_str("resolved_def_id"),
-                &rf.resolved_def_id
+                &resolved_def_id
                     .map(|v| JsValue::from_f64(v as f64))
                     .unwrap_or(JsValue::NULL),
             );
@@ -1572,7 +1600,7 @@ fn build_token_hints_to_js(
                 cand.push(&JsValue::from_f64(*id as f64));
             }
             let _ = Reflect::set(&item, &JsValue::from_str("candidate_def_ids"), &cand);
-            if let Some(id) = rf.resolved_def_id {
+            if let Some(id) = resolved_def_id {
                 if let Some(def) = resolve_trace.defs.get(id) {
                     let resolved = js_sys::Object::new();
                     let _ = Reflect::set(
@@ -1705,6 +1733,50 @@ fn span_width(span: Span) -> usize {
     span.end.saturating_sub(span.start) as usize
 }
 
+fn callee_def_id(callee: &FuncRef) -> Option<DefId> {
+    match callee {
+        FuncRef::User(_, _, def_id) => *def_id,
+        FuncRef::Builtin(_) | FuncRef::Trait { .. } => None,
+    }
+}
+
+fn trace_def_id(resolve_trace: &NameResolutionTrace, def_id: DefId) -> Option<usize> {
+    resolve_trace
+        .defs
+        .iter()
+        .find(|def| def.def_id == Some(def_id))
+        .map(|def| def.id)
+}
+
+fn best_semantic_expr_for_token<'a>(
+    exprs: &'a [SemanticExprTrace],
+    token: &Token,
+) -> Option<&'a SemanticExprTrace> {
+    let mut best_expr: Option<&SemanticExprTrace> = None;
+    for ex in exprs {
+        if span_contains(ex.span, token.span) {
+            if let Some(prev) = best_expr {
+                if span_width(ex.span) < span_width(prev.span) {
+                    best_expr = Some(ex);
+                }
+            } else {
+                best_expr = Some(ex);
+            }
+        }
+    }
+    best_expr
+}
+
+fn selected_resolved_def_id_for_token(
+    token: &Token,
+    exprs: &[SemanticExprTrace],
+    resolve_trace: &NameResolutionTrace,
+) -> Option<usize> {
+    best_semantic_expr_for_token(exprs, token)
+        .and_then(|expr| expr.callee_def_id)
+        .and_then(|def_id| trace_def_id(resolve_trace, def_id))
+}
+
 fn hir_kind_name(kind: &HirExprKind) -> &'static str {
     match kind {
         HirExprKind::LiteralI32(_) => "LiteralI32",
@@ -1761,6 +1833,10 @@ fn collect_semantic_expr(
     out: &mut Vec<SemanticExprTrace>,
 ) -> usize {
     let id = out.len();
+    let expr_callee_def_id = match &expr.kind {
+        HirExprKind::Call { callee, .. } => callee_def_id(callee),
+        _ => None,
+    };
     out.push(SemanticExprTrace {
         id,
         function_name: function_name.to_string(),
@@ -1769,6 +1845,7 @@ fn collect_semantic_expr(
         ty: types.type_to_string(expr.ty),
         parent_id,
         arg_spans: Vec::new(),
+        callee_def_id: expr_callee_def_id,
     });
 
     let mut arg_spans = Vec::new();
@@ -2307,12 +2384,15 @@ pub fn analyze_semantics(source: &str) -> JsValue {
                     &JsValue::from_f64(tok_idx as f64),
                 );
                 if let Some(rf) = best_ref {
+                    let resolved_def_id =
+                        selected_resolved_def_id_for_token(token, &exprs, &resolve_trace)
+                            .or(rf.resolved_def_id);
                     let _ = Reflect::set(&item, &JsValue::from_str("name"), &JsValue::from_str(&rf.name));
                     let _ = Reflect::set(&item, &JsValue::from_str("ref_span"), &span_to_js(source, rf.span));
                     let _ = Reflect::set(
                         &item,
                         &JsValue::from_str("resolved_def_id"),
-                        &rf.resolved_def_id
+                        &resolved_def_id
                             .map(|v| JsValue::from_f64(v as f64))
                             .unwrap_or(JsValue::NULL),
                     );
@@ -2321,7 +2401,7 @@ pub fn analyze_semantics(source: &str) -> JsValue {
                         cand.push(&JsValue::from_f64(*id as f64));
                     }
                     let _ = Reflect::set(&item, &JsValue::from_str("candidate_def_ids"), &cand);
-                    if let Some(id) = rf.resolved_def_id {
+                    if let Some(id) = resolved_def_id {
                         if let Some(def) = resolve_trace.defs.get(id) {
                             let resolved = js_sys::Object::new();
                             let _ = Reflect::set(
@@ -2477,6 +2557,9 @@ pub fn analyze_semantics(source: &str) -> JsValue {
                     expr_span: best_expr.map(|x| x.span),
                     arg_index: arg_hit.map(|(idx, _)| idx),
                     arg_span: arg_hit.map(|(_, sp)| sp),
+                    selected_resolved_def_id: best_expr
+                        .and_then(|x| x.callee_def_id)
+                        .and_then(|def_id| trace_def_id(&resolve_trace, def_id)),
                 });
             }
             let token_sem_arr = js_sys::Array::new();
@@ -2668,6 +2751,9 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
                 &JsValue::from_f64(tok_idx as f64),
             );
             if let Some(rf) = best_ref {
+                let resolved_def_id =
+                    selected_resolved_def_id_for_token(token, &exprs, &resolve_trace)
+                        .or(rf.resolved_def_id);
                 let _ = Reflect::set(&item, &JsValue::from_str("name"), &JsValue::from_str(&rf.name));
                 let _ = Reflect::set(
                     &item,
@@ -2677,7 +2763,7 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
                 let _ = Reflect::set(
                     &item,
                     &JsValue::from_str("resolved_def_id"),
-                    &rf.resolved_def_id
+                    &resolved_def_id
                         .map(|v| JsValue::from_f64(v as f64))
                         .unwrap_or(JsValue::NULL),
                 );
@@ -2686,7 +2772,7 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
                     cand.push(&JsValue::from_f64(*id as f64));
                 }
                 let _ = Reflect::set(&item, &JsValue::from_str("candidate_def_ids"), &cand);
-                if let Some(id) = rf.resolved_def_id {
+                if let Some(id) = resolved_def_id {
                     if let Some(def) = resolve_trace.defs.get(id) {
                         let resolved = js_sys::Object::new();
                         let _ = Reflect::set(
@@ -2842,6 +2928,9 @@ pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) 
                 expr_span: best_expr.map(|x| x.span),
                 arg_index: arg_hit.map(|(idx, _)| idx),
                 arg_span: arg_hit.map(|(_, sp)| sp),
+                selected_resolved_def_id: best_expr
+                    .and_then(|x| x.callee_def_id)
+                    .and_then(|def_id| trace_def_id(&resolve_trace, def_id)),
             });
         }
         let token_sem_arr = js_sys::Array::new();

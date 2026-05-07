@@ -34,9 +34,23 @@ fn main <()->i32> ():
         );
         assert.ok(addRef, 'add reference should include resolved_def span file_path');
         assert.ok(
-            addRef.resolved_def.span.file_path.includes('/stdlib/core/math.nepl'),
-            'resolved_def should point to stdlib/core/math.nepl'
+            addRef.resolved_def.span.file_path.includes('/stdlib/core/math/'),
+            'resolved_def should point to a stdlib/core/math implementation file'
         );
-        return { checked: 5, reference_count: refs.length };
+
+        const candidates = Array.isArray(addRef?.candidate_definitions)
+            ? addRef.candidate_definitions
+            : [];
+        assert.ok(
+            candidates.some(
+                (c) =>
+                    c &&
+                    c.span &&
+                    typeof c.span.file_path === 'string' &&
+                    c.span.file_path.includes('/stdlib/core/math/i32/arith.nepl')
+            ),
+            'candidate_definitions should include stdlib/core/math/i32/arith.nepl entry'
+        );
+        return { checked: 6, reference_count: refs.length };
     },
 };

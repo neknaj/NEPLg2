@@ -31,8 +31,8 @@ fn main <()->i32> ():
         );
         assert.ok(addRef, 'add reference should resolve to definition with file_path');
         assert.ok(
-            addRef.resolved_definition.span.file_path.includes('/stdlib/core/math.nepl'),
-            'resolved definition should point to stdlib/core/math.nepl'
+            addRef.resolved_definition.span.file_path.includes('/stdlib/core/math/i32/arith.nepl'),
+            'resolved definition should point to selected i32 add implementation'
         );
 
         const candidates = Array.isArray(addRef?.candidate_definitions)
@@ -45,9 +45,9 @@ fn main <()->i32> ():
                     c &&
                     c.span &&
                     typeof c.span.file_path === 'string' &&
-                    c.span.file_path.includes('/stdlib/core/math.nepl')
+                    c.span.file_path.includes('/stdlib/core/math/i32/arith.nepl')
             ),
-            'candidate_definitions should include stdlib/core/math.nepl entry'
+            'candidate_definitions should include stdlib/core/math/i32/arith.nepl entry'
         );
         const addHint = tokenHints.find(
             (t) =>
@@ -55,7 +55,7 @@ fn main <()->i32> ():
                 t?.resolved_definition &&
                 t.resolved_definition?.span &&
                 typeof t.resolved_definition.span?.file_path === 'string' &&
-                t.resolved_definition.span.file_path.includes('/stdlib/core/math.nepl') &&
+                t.resolved_definition.span.file_path.includes('/stdlib/core/math/i32/arith.nepl') &&
                 typeof t?.inferred_type === 'string' &&
                 t.inferred_type.length > 0
         );

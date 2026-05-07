@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T17:49:21.204Z",
+  "generated_at": "2026-05-07T17:51:23.719Z",
   "counts": {
     "total": 613,
-    "open": 12,
-    "resolved": 601,
+    "open": 11,
+    "resolved": 602,
     "by_area": {
       "core": {
         "total": 306,
@@ -18,8 +18,8 @@
       },
       "TEST": {
         "total": 17,
-        "open": 2,
-        "resolved": 15
+        "open": 1,
+        "resolved": 16
       },
       "examples": {
         "total": 17,
@@ -218,21 +218,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9",
-      "title": "VFS cross-file definition path tree tests fail in tutorials CI",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "tests/compiler/tree/16_semantics_vfs_cross_file.js, tests/compiler/tree/17_name_resolution_vfs_cross_file.js, nepl-web analysis API",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9.md"
     },
     {
       "id": "ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895",
@@ -7223,6 +7208,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T105015762Z-BTREE-ARRAY-COST-FIXTURES-STILL-CALL-51BA8332.md"
+    },
+    {
+      "id": "ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9",
+      "title": "VFS cross-file definition path tree tests fail in tutorials CI",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "tests/compiler/tree/16_semantics_vfs_cross_file.js, tests/compiler/tree/17_name_resolution_vfs_cross_file.js, nepl-web analysis API",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9.md"
     },
     {
       "id": "ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153",

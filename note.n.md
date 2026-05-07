@@ -1,3 +1,19 @@
+# 2026-05-08 Agent 2 VFS cross-file definition path / semantics selected callee 修正
+
+- `ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9` を fixed/resolved に更新した。
+- 根本原因は、`core/math` facade 分割後の実定義 path が `stdlib/core/math.nepl` ではなく `stdlib/core/math/i32/arith.nepl` などの implementation module へ移った一方で、tree test が旧 facade root path を固定していたことだった。
+- さらに `nepl-web` semantics API は型検査後 HIR call の selected callee `DefId` を見ず、AST ベース name-resolution trace の先頭候補を `resolved_definition` としていたため、`add 1 2` の `inferred_type` が `i32` でも `resolved_definition` が overload 候補先頭の `int128/i128.add` になる不整合があった。
+- `NameDefTrace` に span-derived compiler `DefId` を保持し、`SemanticExprTrace` には selected callee `DefId` を保持するようにした。
+- semantics API の `token_resolution` / `token_hints` は、token が typed call callee に対応する場合、型検査後に選択された definition を優先するようにした。name_resolution API は型情報なしの段階なので、candidate list を確認する契約に整理した。
+- tree regression は semantics 側で `add` の selected definition が `stdlib/core/math/i32/arith.nepl` になること、name_resolution 側で stdlib math implementation path と i32 candidate が見えることを固定した。
+- [検証]:
+  - `trunk build`: passed
+  - `NEPL_DIST=web/dist node tests/compiler/tree/run.js`: total=20, passed=20
+  - `node nodesrc/tests.js -i tutorials/getting_started --with-tree -o tmp/vfs-tree-tutorials-final.json -j 4 --dist web/dist`: total=44, passed=44
+  - inline API inspection: `add` token の `token_resolution.resolved_definition.span.file_path` と `token_hints.resolved_definition.span.file_path` が `/stdlib/core/math/i32/arith.nepl`、`token_hints.inferred_type` が `i32`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 1 selfhost mono instance absence
 
 - `ISS-20260507T155948337Z-SELFHOST-MONO-INSTANCE-IDS-USE-1-INV-434774DA` を追加し、fixed/resolved に更新した。
