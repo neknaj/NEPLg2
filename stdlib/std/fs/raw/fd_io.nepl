@@ -1,0 +1,155 @@
+//: # std/fs/raw/fd_io
+//: WASI fd_read/fd_write scratch と ByteBuf finish 境界
+//:
+//: ### 目的
+//: - WASI fd I/O が要求する iovec / out-pointer raw layout を、Resource IR が追跡しやすい単一境界に閉じ込めます。
+//: - 読み込み用 scratch buffer を `ByteBuf` の所有権 invariant へ戻す処理を所有します。
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "std/fs/constants" as *
+#import "std/fs/raw/wasi" as *
+
+//: fs_fd_read_into_result: WASI fd_read の iov/nread scratch を検査可能な境界へ閉じ込める
+//:
+//: 目的:
+//: - `fd_read` が要求する iovec と nread の raw layout をこの関数内で初期化し、読み戻した byte 数だけを返します。
+//:
+//: 実装(アルゴリズム):
+//: - `iov` の base/len と `nread` の初期値を raw address に対して同じ関数内で store します。
+//: - `fd_read` 成功後、同じ raw address から `nread` を load します。
+//: - 任意の `MemPtr<i32>` を作って関数境界越しに読む形にはしません。Resource IR の RawMemoryLoadCell が初期化 store を追跡できるようにするためです。
+//:
+//: 注意(重要):
+//: - `iov` は 8 byte、`nread` は 4 byte、`data` は `data_len` byte 以上の有効領域を指している必要があります。
+//: - `data_len == 0` の場合は WASI を呼ばず 0 byte read として返します。
+//:
+//: 計算量:
+//: - O(1)
+fn fs_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32,i32>> (fd, iov, nread, data, data_len):
+    if:
+        lt data_len 0
+        then:
+            Result<i32,i32>::Err fs_errno_inval
+        else:
+            if:
+                eq data_len 0
+                then:
+                    Result<i32,i32>::Ok 0
+                else:
+                    let iov_raw <i32> mem_ptr_addr iov
+                    let nread_raw <i32> mem_ptr_addr nread
+                    let data_raw <i32> mem_ptr_addr data
+                    if:
+                        or or le iov_raw 0 le nread_raw 0 le data_raw 0
+                        then:
+                            Result<i32,i32>::Err fs_errno_inval
+                        else:
+                            store_i32 iov_raw data_raw
+                            store_i32 add iov_raw 4 data_len
+                            store_i32 nread_raw 0
+                            let errno <i32> wasi_fd_read fd iov_raw 1 nread_raw
+                            if:
+                                ne errno 0
+                                then:
+                                    Result<i32,i32>::Err errno
+                                else:
+                                    Result<i32,i32>::Ok load_i32 nread_raw
+
+//: fs_fd_write_from_result: WASI fd_write の iov/nwritten scratch を検査可能な境界へ閉じ込める
+//:
+//: 目的:
+//: - `fd_write` が要求する iovec と nwritten の raw layout をこの関数内で初期化し、書けた byte 数だけを返します。
+//:
+//: 実装(アルゴリズム):
+//: - `iov` の base/len と `nwritten` の初期値を raw address に対して同じ関数内で store します。
+//: - `fd_write` 成功後、同じ raw address から `nwritten` を load します。
+//:
+//: 注意(重要):
+//: - `iov` は 8 byte、`nwritten` は 4 byte、`data` は `data_len` byte 以上の有効領域を指している必要があります。
+//:
+//: 計算量:
+//: - O(1)
+fn fs_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32,i32>> (fd, iov, nwritten, data, data_len):
+    if:
+        lt data_len 0
+        then:
+            Result<i32,i32>::Err fs_errno_inval
+        else:
+            if:
+                eq data_len 0
+                then:
+                    Result<i32,i32>::Ok 0
+                else:
+                    let iov_raw <i32> mem_ptr_addr iov
+                    let nwritten_raw <i32> mem_ptr_addr nwritten
+                    let data_raw <i32> mem_ptr_addr data
+                    if:
+                        or or le iov_raw 0 le nwritten_raw 0 le data_raw 0
+                        then:
+                            Result<i32,i32>::Err fs_errno_inval
+                        else:
+                            store_i32 iov_raw data_raw
+                            store_i32 add iov_raw 4 data_len
+                            store_i32 nwritten_raw 0
+                            let errno <i32> wasi_fd_write fd iov_raw 1 nwritten_raw
+                            if:
+                                ne errno 0
+                                then:
+                                    Result<i32,i32>::Err errno
+                                else:
+                                    Result<i32,i32>::Ok load_i32 nwritten_raw
+
+//: fs_finish_read_buffer: capacity 付き読み込み buffer を ByteBuf の所有権 invariant へ詰め直す
+//:
+//: 目的:
+//: - `alloc_ptr` / `realloc_ptr` で確保した一時読み込み buffer を、`ByteBuf.ptr` が `Some` の場合だけ `ByteBuf.len` byte の所有領域を指す形へ戻します。
+//:
+//: 実装(アルゴリズム):
+//: - 読み込み長が 0 の場合は元 buffer を解放し、空 `ByteBuf` を返します。
+//: - 読み込み長が capacity 未満の場合は exact-size に shrink してから `ByteBuf` にします。
+//:
+//: 注意(重要):
+//: - 成功時は返った `ByteBuf` が buffer を所有します。
+//: - 失敗時はこの関数が元 buffer を解放します。
+//:
+//: 計算量:
+//: - allocator の shrink に依存します。copy が発生する場合は O(data_len) です。
+fn fs_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf,i32>> (buf, cap, data_len):
+    if:
+        or or lt cap 0 lt data_len 0 gt data_len cap
+        then:
+            if:
+                gt cap 0
+                then:
+                    dealloc_raw mem_ptr_addr buf cap
+                else:
+                    ()
+            Result<ByteBuf,i32>::Err fs_errno_inval
+        else:
+            if:
+                eq data_len 0
+                then:
+                    if:
+                        gt cap 0
+                        then:
+                            dealloc_raw mem_ptr_addr buf cap
+                        else:
+                            ()
+                    Result<ByteBuf,i32>::Ok io_bytebuf_empty
+                else:
+                    if:
+                        eq data_len cap
+                        then:
+                            Result<ByteBuf,i32>::Ok io_bytebuf_from_owned_ptr buf data_len
+                        else:
+                            match realloc_ptr<u8> buf cap data_len:
+                                Result::Ok exact:
+                                    Result<ByteBuf,i32>::Ok io_bytebuf_from_owned_ptr exact data_len
+                                Result::Err _e:
+                                    dealloc_raw mem_ptr_addr buf cap
+                                    Result<ByteBuf,i32>::Err 12

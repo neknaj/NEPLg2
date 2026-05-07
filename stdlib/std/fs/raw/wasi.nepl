@@ -1,0 +1,45 @@
+//: # std/fs/raw/wasi
+//: WASI preview1 extern と bare wasm fallback
+//:
+//: ### 目的
+//: - WASI target では preview1 syscall を extern として宣言します。
+//: - bare wasm target では filesystem が使えないことを errno で返す fallback を提供します。
+
+#indent 4
+
+#if[target=wasi]
+#extern "wasi_snapshot_preview1" "path_open" fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>
+#if[target=wasi]
+#extern "wasi_snapshot_preview1" "path_filestat_get" fn wasi_path_filestat_get <(i32,i32,i32,i32,i32)*>i32>
+#if[target=wasi]
+#extern "wasi_snapshot_preview1" "fd_readdir" fn wasi_fd_readdir <(i32,i32,i32,i64,i32)*>i32>
+#if[target=wasi]
+#extern "wasi_snapshot_preview1" "fd_read" fn wasi_fd_read <(i32,i32,i32,i32)*>i32>
+#if[target=wasi]
+#extern "wasi_snapshot_preview1" "fd_write" fn wasi_fd_write <(i32,i32,i32,i32)*>i32>
+#if[target=wasi]
+#extern "wasi_snapshot_preview1" "fd_close" fn wasi_fd_close <(i32)*>i32>
+
+#if[target=bare_wasm]
+fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirflags,_path_ptr,_path_len,_oflags,_rights_base,_rights_inheriting,_fdflags,_fd_out):
+    1 // EPERM or similar
+
+#if[target=bare_wasm]
+fn wasi_path_filestat_get <(i32,i32,i32,i32,i32)*>i32> (_dirfd,_flags,_path_ptr,_path_len,_buf):
+    1
+
+#if[target=bare_wasm]
+fn wasi_fd_readdir <(i32,i32,i32,i64,i32)*>i32> (_fd,_buf,_buf_len,_cookie,_bufused):
+    1
+
+#if[target=bare_wasm]
+fn wasi_fd_read <(i32,i32,i32,i32)*>i32> (_fd,_iovs,_iovs_len,_nread_ptr):
+    1
+
+#if[target=bare_wasm]
+fn wasi_fd_write <(i32,i32,i32,i32)*>i32> (_fd,_iovs,_iovs_len,_nwritten_ptr):
+    1
+
+#if[target=bare_wasm]
+fn wasi_fd_close <(i32)*>i32> (_fd):
+    1

@@ -1,3 +1,17 @@
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs/raw wasi/fd_io/llvm split)
+
+- branch `refactor/fs-raw-target-split` で `stdlib/std/fs/raw.nepl` を facade 化し、WASI/bare target ABI、fd scratch helper、LLVM syscall fallback を submodule へ分離した。
+- `stdlib/std/fs/raw/wasi.nepl` は WASI preview1 extern と bare wasm fallback を所有する。
+- `stdlib/std/fs/raw/fd_io.nepl` は `fs_fd_read_into_result` / `fs_fd_write_from_result` の iovec/out-pointer scratch 初期化と `fs_finish_read_buffer` の ByteBuf ownership normalization を所有する。
+- `stdlib/std/fs/raw/llvm.nepl` は LLVM target の Linux syscall fallback、C string conversion、WASI 互換名の fallback implementation を所有する。
+- root `stdlib/std/fs/raw.nepl` は public re-export と facade doctest だけになった。line count は root 31、`raw/wasi.nepl` 45、`raw/fd_io.nepl` 155、`raw/llvm.nepl` 203。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` を分割後の module 一覧へ追従し、root facade に syscall / helper body が戻らないこと、fd scratch と LLVM fallback の責務境界を固定した。
+- `nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` は `fs_finish_read_buffer` の移動先 `raw/fd_io.nepl` を確認するように更新した。
+- 検証は `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`、`node nodesrc/tests.js -i stdlib/std/fs/raw.nepl -i stdlib/std/fs/raw/wasi.nepl -i stdlib/std/fs/raw/fd_io.nepl -i stdlib/std/fs/raw/llvm.nepl -i tests/stdlib/std_fs_bytes.n.md -i tests/stdlib/std_fs.n.md --no-tree -o tmp/fs-raw-module-split-focused.json -j 1 --dist web/dist`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/issues.js check`、`git diff --check` が通過した。
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`core/mem.nepl`、selfhost compiler の巨大 file などは残る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs/path entry/normalize split)
 
 - branch `refactor/fs-path-module-split` で `stdlib/std/fs/path.nepl` を facade 化し、directory entry helper と relative path normalization を submodule へ分離した。

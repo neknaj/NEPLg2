@@ -16,7 +16,7 @@ const traitsSrc = fs.readFileSync(path.join(repoRoot, traitsRelPath), 'utf8');
 const loaderSrc = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 const fsRelPath = 'stdlib/std/fs/read.nepl';
 const fsSrc = fs.readFileSync(path.join(repoRoot, fsRelPath), 'utf8');
-const fsRawRelPath = 'stdlib/std/fs/raw.nepl';
+const fsRawRelPath = 'stdlib/std/fs/raw/fd_io.nepl';
 const fsRawSrc = fs.readFileSync(path.join(repoRoot, fsRawRelPath), 'utf8');
 
 const code = src
@@ -169,7 +169,7 @@ assert.match(
 const fsReadMatch = fsSrc.match(/fn\s+fs_read_fd_bytes\b([\s\S]*?)\n\/\/: fs_read_to_bytes\b/);
 assert.ok(fsReadMatch, 'fs_read_fd_bytes body must be found');
 const fsRead = fsReadMatch[1];
-const fsFinishMatch = fsRawSrc.match(/fn\s+fs_finish_read_buffer\b([\s\S]*?)\n\/\/: fs:/);
+const fsFinishMatch = fsRawSrc.match(/fn\s+fs_finish_read_buffer\b([\s\S]*)/);
 assert.ok(fsFinishMatch, 'fs_finish_read_buffer body must be found');
 const fsFinish = fsFinishMatch[1];
 

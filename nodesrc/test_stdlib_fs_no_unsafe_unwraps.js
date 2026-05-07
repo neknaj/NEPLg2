@@ -12,6 +12,9 @@ const relPaths = [
     'stdlib/std/fs/path/entry.nepl',
     'stdlib/std/fs/path/normalize.nepl',
     'stdlib/std/fs/raw.nepl',
+    'stdlib/std/fs/raw/wasi.nepl',
+    'stdlib/std/fs/raw/fd_io.nepl',
+    'stdlib/std/fs/raw/llvm.nepl',
     'stdlib/std/fs/fd.nepl',
     'stdlib/std/fs/stat.nepl',
     'stdlib/std/fs/dir.nepl',
@@ -33,6 +36,9 @@ const facadeCode = codeByPath.get('stdlib/std/fs.nepl');
 const pathCode = codeByPath.get('stdlib/std/fs/path.nepl');
 const pathEntryCode = codeByPath.get('stdlib/std/fs/path/entry.nepl');
 const pathNormalizeCode = codeByPath.get('stdlib/std/fs/path/normalize.nepl');
+const rawCode = codeByPath.get('stdlib/std/fs/raw.nepl');
+const rawFdIoCode = codeByPath.get('stdlib/std/fs/raw/fd_io.nepl');
+const rawLlvmCode = codeByPath.get('stdlib/std/fs/raw/llvm.nepl');
 const dirCode = codeByPath.get('stdlib/std/fs/dir.nepl');
 
 const forbidden = [
@@ -87,6 +93,13 @@ assert.match(pathNormalizeCode, /fn\s+fs_normalize_relative_builder\s+<\(str\)->
 assert.match(pathNormalizeCode, /fn\s+fs_normalize_relative\s+<\(str\)->Result<str,i32>>\s+\(path\):[\s\S]*fs_normalize_relative_builder\s+path[\s\S]*sb_build_result\s+sb/, 'fs_normalize_relative must delegate through the builder boundary');
 assert.match(pathEntryCode, /\bfn\s+fs_str_lt\b[\s\S]*\bstring_byte_at_unchecked\b/, 'directory entry comparison must stay in std/fs/path/entry');
 assert.match(pathEntryCode, /\bfn\s+fs_string_from_bytes\b[\s\S]*\bstring_utf8_validate_mem\b[\s\S]*\bstring_from_mem_unchecked_result\b/, 'directory entry byte conversion must validate UTF-8 before constructing str');
+assert.match(rawCode, /pub\s+#import\s+"std\/fs\/raw\/wasi"\s+as\s+\*/, 'std/fs/raw facade must re-export WASI syscall submodule');
+assert.match(rawCode, /pub\s+#import\s+"std\/fs\/raw\/fd_io"\s+as\s+\*/, 'std/fs/raw facade must re-export fd I/O scratch submodule');
+assert.match(rawCode, /pub\s+#import\s+"std\/fs\/raw\/llvm"\s+as\s+\*/, 'std/fs/raw facade must re-export LLVM fallback submodule');
+assert.doesNotMatch(rawCode, /^\s*(#extern|fn|struct|impl)\s/m, 'std/fs/raw root must stay a facade without syscall or helper bodies');
+assert.match(rawFdIoCode, /\bfn\s+fs_fd_read_into_result\b[\s\S]*\bstore_i32\s+iov_raw\s+data_raw[\s\S]*\bwasi_fd_read\s+fd\s+iov_raw\s+1\s+nread_raw[\s\S]*\bload_i32\s+nread_raw/, 'fd read scratch initialization must stay in std/fs/raw/fd_io');
+assert.match(rawFdIoCode, /\bfn\s+fs_finish_read_buffer\b[\s\S]*\bio_bytebuf_from_owned_ptr\b/, 'ByteBuf finish ownership normalization must stay in std/fs/raw/fd_io');
+assert.match(rawLlvmCode, /\bfn\s+__fs_copy_to_cstr\b[\s\S]*\bfn\s+wasi_path_open\b/, 'LLVM filesystem fallback must stay in std/fs/raw/llvm');
 assert.match(dirCode, /fn\s+fs_read_dir_fd\s+<\(i32\)\*>Result<Vec<str>,i32>>\s+\(fd\):[\s\S]*match\s+v::push<str>\s+entries\s+name:[\s\S]*Result::Err\s+_e:[\s\S]*set\s+entries\s+v::vec_empty<str>[\s\S]*set\s+err\s+12/, 'fs_read_dir_fd must map entry accumulation push failure to errno 12');
 
 console.log('stdlib fs unsafe unwrap regression passed');

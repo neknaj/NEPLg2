@@ -1,0 +1,203 @@
+//: # std/fs/raw/llvm
+//: LLVM backend 用 Linux syscall fallback
+//:
+//: ### 目的
+//: - LLVM target で WASI 互換名の filesystem primitive を Linux syscall 経由で提供します。
+//: - C string conversion と syscall lowering を WASI extern / fd scratch helper から分離します。
+//:
+//: ### 注意
+//: - 権限/パス解決はホスト環境に依存します。
+//: - この fallback は stdlib API の互換実装であり、WASI preopen model の完全再現ではありません。
+
+#indent 4
+
+#if[target=llvm]
+#extern "c" "syscall" fn __fs_syscall <(i64,i64,i64,i64,i64,i64,i64)*>i64>
+
+#import "core/cast" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+#if[target=llvm]
+fn __fs_copy_to_cstr <(i32,i32)*>Result<MemPtr<u8>,i32>> (src_ptr, src_len):
+    let size <i32> add src_len 1;
+    match alloc_ptr<u8> size:
+        Result::Err e:
+            Result<MemPtr<u8>,i32>::Err e
+        Result::Ok dst:
+            let mut i <i32> 0;
+            while lt i src_len:
+                do:
+                    match store_u8 mem_ptr_add dst i load_u8 add src_ptr i:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+                    set i add i 1;
+            match store_u8 mem_ptr_add dst src_len 0:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
+            Result<MemPtr<u8>,i32>::Ok dst
+
+#if[target=llvm]
+fn __linux_syscall_openat_path <(i32,i32,i32)*>i64> (path_ptr, flags, mode):
+    #llvmir:
+        define i64 @__linux_syscall_openat_path(i32 %path_ptr, i32 %flags, i32 %mode) {
+        entry:
+            %idx = zext i32 %path_ptr to i64
+            %path = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %idx
+            %path64 = ptrtoint ptr %path to i64
+            %flags64 = zext i32 %flags to i64
+            %mode64 = zext i32 %mode to i64
+            %ret = call i64 @__fs_syscall(i64 257, i64 -100, i64 %path64, i64 %flags64, i64 %mode64, i64 0, i64 0)
+            ret i64 %ret
+        }
+
+#if[target=llvm]
+fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
+    #llvmir:
+        define i64 @__linux_syscall_rw(i32 %nr, i32 %fd, i32 %ptr, i32 %len) {
+        entry:
+            %nr64 = zext i32 %nr to i64
+            %fd64 = zext i32 %fd to i64
+            %len64 = zext i32 %len to i64
+            %idx = zext i32 %ptr to i64
+            %buf = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %idx
+            %buf64 = ptrtoint ptr %buf to i64
+            %ret = call i64 @__fs_syscall(i64 %nr64, i64 %fd64, i64 %buf64, i64 %len64, i64 0, i64 0, i64 0)
+            ret i64 %ret
+        }
+
+#if[target=llvm]
+fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirflags,path_ptr,path_len,_oflags,_rights_base,_rights_inheriting,_fdflags,fd_out):
+    match __fs_copy_to_cstr path_ptr path_len:
+        Result::Err e:
+            e
+        Result::Ok cpath:
+            let linux_flags <i32> if:
+                eq _oflags 0
+                then:
+                    0
+                else:
+                    577
+            let linux_mode <i32> if:
+                eq _oflags 0
+                then:
+                    0
+                else:
+                    438
+            // Linux x86_64: openat(AT_FDCWD=-100, path, flags, mode)
+            let fd64 <i64> __linux_syscall_openat_path mem_ptr_addr cpath linux_flags linux_mode;
+            match dealloc_ptr<u8> cpath add path_len 1:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
+            if:
+                cond:
+                    lt fd64 <i64> cast 0
+                then:
+                    1
+                else:
+                    store_i32 fd_out <i32> cast fd64;
+                    0
+
+#if[target=llvm]
+fn wasi_path_filestat_get <(i32,i32,i32,i32,i32)*>i32> (_dirfd,_flags,_path_ptr,_path_len,_buf):
+    52
+
+#if[target=llvm]
+fn wasi_fd_readdir <(i32,i32,i32,i64,i32)*>i32> (_fd,_buf,_buf_len,_cookie,bufused):
+    store_i32 bufused 0;
+    52
+
+#if[target=llvm]
+fn wasi_fd_read <(i32,i32,i32,i32)*>i32> (fd,iovs,iovs_len,nread_ptr):
+    let mut total <i32> 0;
+    let mut iov_idx <i32> 0;
+    let mut err <i32> 0;
+    let mut done <i32> 0;
+    while eq done 0:
+        do:
+            if:
+                cond:
+                    lt iov_idx iovs_len
+                then:
+                    let iov_ptr <i32> add iovs mul iov_idx 8;
+                    let base <i32> load_i32 iov_ptr;
+                    let len <i32> load_i32 add iov_ptr 4;
+                    // Linux x86_64: read(fd, buf, count)
+                    let n64 <i64> __linux_syscall_rw 0 fd base len;
+                    if:
+                        cond:
+                            lt n64 <i64> cast 0
+                        then:
+                            set err 1;
+                            set done 1;
+                        else:
+                            let n <i32> cast n64;
+                            set total add total n;
+                            if:
+                                cond:
+                                    lt n len
+                                then:
+                                    set done 1;
+                                else:
+                                    ();
+                    set iov_idx add iov_idx 1;
+                else:
+                    set done 1;
+    store_i32 nread_ptr total;
+    err
+
+#if[target=llvm]
+fn wasi_fd_write <(i32,i32,i32,i32)*>i32> (fd,iovs,iovs_len,nwritten_ptr):
+    let mut total <i32> 0;
+    let mut iov_idx <i32> 0;
+    let mut err <i32> 0;
+    let mut done <i32> 0;
+    while eq done 0:
+        do:
+            if:
+                cond:
+                    lt iov_idx iovs_len
+                then:
+                    let iov_ptr <i32> add iovs mul iov_idx 8;
+                    let base <i32> load_i32 iov_ptr;
+                    let len <i32> load_i32 add iov_ptr 4;
+                    // Linux x86_64: write(fd, buf, count)
+                    let n64 <i64> __linux_syscall_rw 1 fd base len;
+                    if:
+                        cond:
+                            lt n64 <i64> cast 0
+                        then:
+                            set err 1;
+                            set done 1;
+                        else:
+                            let n <i32> cast n64;
+                            set total add total n;
+                            if:
+                                cond:
+                                    lt n len
+                                then:
+                                    set done 1;
+                                else:
+                                    ();
+                    set iov_idx add iov_idx 1;
+                else:
+                    set done 1;
+    store_i32 nwritten_ptr total;
+    err
+
+#if[target=llvm]
+fn wasi_fd_close <(i32)*>i32> (fd):
+    // Linux x86_64: close(fd)
+    let rc64 <i64> __fs_syscall <i64> cast 3 <i64> cast fd <i64> cast 0 <i64> cast 0 <i64> cast 0 <i64> cast 0 <i64> cast 0;
+    if:
+        cond:
+            lt rc64 <i64> cast 0
+        then 1
+        else 0
