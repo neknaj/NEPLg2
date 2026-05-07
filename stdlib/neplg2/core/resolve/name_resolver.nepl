@@ -33,12 +33,12 @@
 //:     match selfhost_name_scope_new:
 //:         Result::Ok scope0:
 //:             let span <SelfhostSourceSpan> source_span_new 0 1 2
-//:             let first <SelfhostNameBinding> selfhost_name_binding_new "x" selfhost_def_id_invalid SelfhostDefKind::Local span
+//:             let first <SelfhostNameBinding> selfhost_name_binding_pending "x" SelfhostDefKind::Local span
 //:             match selfhost_name_scope_add_binding scope0 first:
 //:                 Result::Ok add1:
 //:                     let first_id <SelfhostDefId> field::get add1 "def_id"
 //:                     let scope1 <SelfhostNameScope> field::get add1 "scope"
-//:                     let second <SelfhostNameBinding> selfhost_name_binding_new "x" selfhost_def_id_invalid SelfhostDefKind::Param span
+//:                     let second <SelfhostNameBinding> selfhost_name_binding_pending "x" SelfhostDefKind::Param span
 //:                     match selfhost_name_scope_add_binding scope1 second:
 //:                         Result::Ok add2:
 //:                             let second_id <SelfhostDefId> field::get add2 "def_id"
@@ -47,7 +47,7 @@
 //:                             let checks2 checks_push checks1 check_eq_i32 1 selfhost_def_id_index second_id
 //:                             match selfhost_name_scope_find &scope2 "x":
 //:                                 Option::Some binding:
-//:                                     let checks3 checks_push checks2 check selfhost_def_id_eq binding.def_id second_id
+//:                                     let checks3 checks_push checks2 check selfhost_name_binding_def_id_eq binding second_id
 //:                                     let checks4 checks_push checks3 check selfhost_def_kind_eq binding.kind SelfhostDefKind::Param
 //:                                     let checks5 checks_push checks4 check_eq_i32 2 selfhost_name_scope_len &scope2
 //:                                     let shown checks_print_report checks5
@@ -87,22 +87,22 @@
 //:     match selfhost_name_scope_new:
 //:         Result::Ok scope0:
 //:             let span <SelfhostSourceSpan> source_span_new 0 10 14
-//:             let local_binding <SelfhostNameBinding> selfhost_name_binding_new "Item" selfhost_def_id_invalid SelfhostDefKind::Local span
+//:             let local_binding <SelfhostNameBinding> selfhost_name_binding_pending "Item" SelfhostDefKind::Local span
 //:             match selfhost_name_scope_add_binding scope0 local_binding:
 //:                 Result::Ok add1:
 //:                     let local_id <SelfhostDefId> field::get add1 "def_id"
 //:                     let scope1 <SelfhostNameScope> field::get add1 "scope"
-//:                     let struct_binding <SelfhostNameBinding> selfhost_name_binding_new "Item" selfhost_def_id_invalid SelfhostDefKind::Struct span
+//:                     let struct_binding <SelfhostNameBinding> selfhost_name_binding_pending "Item" SelfhostDefKind::Struct span
 //:                     match selfhost_name_scope_add_binding scope1 struct_binding:
 //:                         Result::Ok add2:
 //:                             let struct_id <SelfhostDefId> field::get add2 "def_id"
 //:                             let scope2 <SelfhostNameScope> field::get add2 "scope"
 //:                             match selfhost_name_scope_find &scope2 "Item":
 //:                                 Option::Some latest:
-//:                                     let checks1 checks_push checks0 check selfhost_def_id_eq latest.def_id struct_id
+//:                                     let checks1 checks_push checks0 check selfhost_name_binding_def_id_eq latest struct_id
 //:                                     match selfhost_name_scope_find_kind &scope2 "Item" SelfhostDefKind::Local:
 //:                                         Option::Some value_binding:
-//:                                             let checks2 checks_push checks1 check selfhost_def_id_eq value_binding.def_id local_id
+//:                                             let checks2 checks_push checks1 check selfhost_name_binding_def_id_eq value_binding local_id
 //:                                             match selfhost_name_scope_find_kind &scope2 "Item" SelfhostDefKind::Builtin:
 //:                                                 Option::None:
 //:                                                     let checks3 checks_push checks2 check_eq_i32 2 selfhost_name_scope_len &scope2
@@ -190,7 +190,7 @@ impl Copy for SelfhostDefKind:
 //: - scope 内の宣言順、定義分類、宣言位置を 1 record にまとめます。
 struct SelfhostNameBinding:
     name <str>
-    def_id <SelfhostDefId>
+    def_id <Option<SelfhostDefId>>
     kind <SelfhostDefKind>
     span <SelfhostSourceSpan>
 
@@ -218,9 +218,13 @@ struct SelfhostNameScopeAddResult:
 fn selfhost_def_id_new <(i32)->SelfhostDefId> (index):
     SelfhostDefId index
 
-//: selfhost_def_id_invalid: 未解決用の invalid DefId を[返/かえ]す
-fn selfhost_def_id_invalid <()->SelfhostDefId> ():
-    selfhost_def_id_new -1
+//: selfhost_def_id_pending: DefId がまだ割り当てられていない状態を[返/かえ]す
+fn selfhost_def_id_pending <()->Option<SelfhostDefId>> ():
+    none<SelfhostDefId>
+
+//: selfhost_def_id_assigned: DefId を Option に[包/つつ]む
+fn selfhost_def_id_assigned <(SelfhostDefId)->Option<SelfhostDefId>> (def_id):
+    some<SelfhostDefId> def_id
 
 //: selfhost_def_id_index: DefId の index を[返/かえ]す
 fn selfhost_def_id_index <(SelfhostDefId)->i32> (def_id):
@@ -383,8 +387,20 @@ fn selfhost_def_kind_eq <(SelfhostDefKind,SelfhostDefKind)->bool> (a, b):
                     true
 
 //: selfhost_name_binding_new: binding record を[作/つく]る
-fn selfhost_name_binding_new <(str,SelfhostDefId,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, def_id, kind, span):
+fn selfhost_name_binding_new <(str,Option<SelfhostDefId>,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, def_id, kind, span):
     SelfhostNameBinding name def_id kind span
+
+//: selfhost_name_binding_pending: scope table 追加前の binding record を[作/つく]る
+fn selfhost_name_binding_pending <(str,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, kind, span):
+    selfhost_name_binding_new name selfhost_def_id_pending kind span
+
+//: selfhost_name_binding_def_id_eq: binding の DefId が指定 id と同じか[返/かえ]す
+fn selfhost_name_binding_def_id_eq <(SelfhostNameBinding,SelfhostDefId)->bool> (binding, def_id):
+    match binding.def_id:
+        Option::Some actual:
+            selfhost_def_id_eq actual def_id
+        Option::None:
+            false
 
 //: selfhost_name_scope_new: [空/から]の scope を[作/つく]る
 fn selfhost_name_scope_new <()*>Result<SelfhostNameScope, StdErrorKind>> ():
@@ -417,7 +433,7 @@ fn selfhost_name_scope_add_result_new <(SelfhostNameScope,SelfhostDefId)*>Selfho
 fn selfhost_name_scope_add_binding <(SelfhostNameScope,SelfhostNameBinding)*>Result<SelfhostNameScopeAddResult, StdErrorKind>> (scope, binding):
     let def_id <SelfhostDefId> selfhost_def_id_new selfhost_name_scope_len &scope
     let bindings <Vec<SelfhostNameBinding>> field::get scope "bindings"
-    let item <SelfhostNameBinding> selfhost_name_binding_new binding.name def_id binding.kind binding.span
+    let item <SelfhostNameBinding> selfhost_name_binding_new binding.name selfhost_def_id_assigned def_id binding.kind binding.span
     match v::push<SelfhostNameBinding> bindings item:
         Result::Ok next_bindings:
             Result<SelfhostNameScopeAddResult, StdErrorKind>::Ok selfhost_name_scope_add_result_new (SelfhostNameScope next_bindings) def_id
@@ -490,7 +506,7 @@ fn selfhost_name_scope_find_kind <(&SelfhostNameScope,str,SelfhostDefKind)->Opti
 fn selfhost_name_resolver_stage0 <()*>i32> ():
     match selfhost_name_scope_new:
         Result::Ok scope0:
-            let binding <SelfhostNameBinding> selfhost_name_binding_new "main" selfhost_def_id_invalid SelfhostDefKind::Function source_span_empty 0 0
+            let binding <SelfhostNameBinding> selfhost_name_binding_pending "main" SelfhostDefKind::Function source_span_empty 0 0
             match selfhost_name_scope_add_binding scope0 binding:
                 Result::Ok scope_add:
                     let def_id <SelfhostDefId> field::get scope_add "def_id"

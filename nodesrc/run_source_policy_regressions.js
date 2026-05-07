@@ -95,6 +95,7 @@ const checks = [
     "nodesrc/test_selfhost_hir_range_payload.js",
     "nodesrc/test_selfhost_mono_instance_absence.js",
     "nodesrc/test_selfhost_hir_expr_id_absence.js",
+    "nodesrc/test_selfhost_def_id_absence.js",
     "nodesrc/test_selfhost_source_text_no_recursive_line_map.js",
     "nodesrc/test_selfhost_string_helpers_boundary.js",
     "nodesrc/test_selfhost_parser_tokenkind_match.js",

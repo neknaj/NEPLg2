@@ -11,6 +11,20 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-08 Agent 1 Selfhost resolver DefId absence 修正
+
+- `ISS-20260507T161157719Z-SELFHOST-DEFINITION-IDS-USE-1-INVALI-E74DCE86` として、`SelfhostDefId` が未割り当て binding id を `-1` sentinel で表せる問題を分離して解決した。
+- `selfhost_def_id_invalid` を削除し、未割り当ては `selfhost_def_id_pending <()->Option<SelfhostDefId>>` の `None`、割り当て済みは `selfhost_def_id_assigned <(SelfhostDefId)->Option<SelfhostDefId>>` の `Some` として表すようにした。
+- `SelfhostNameBinding.def_id` は `Option<SelfhostDefId>` に変更した。scope 追加前の binding は `selfhost_name_binding_pending` で `None` を持ち、`selfhost_name_scope_add_binding` が scope table index から stable id を割り当てた時点でだけ `Some(def_id)` を保存する。
+- 追加時には入力 binding の def_id を信用せず、scope 側で割り当て直す設計にした。
+- `nodesrc/test_selfhost_def_id_absence.js` を追加し、invalid constructor、`selfhost_def_id_new -1`、非 Option field、pre-insertion def_id を信用する add path の再導入を source policy で拒否する。
+- 親 issue `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D` の残件は、`SelfhostHirExpr` flat payload 分離だけに更新した。
+- [検証]:
+  - `node nodesrc/test_selfhost_def_id_absence.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/resolve/name_resolver.nepl --no-tree -o tmp/agent1-selfhost-def-id-absence.json -j 1 --dist web/dist`: total=2, passed=2
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-08 Agent 1 Selfhost HIR expression id absence 修正
 
 - `ISS-20260507T160530818Z-SELFHOST-HIR-EXPRESSION-IDS-USE-1-IN-7A6D6ABC` として、`SelfhostHirExprId` が未設定 expression reference を `-1` sentinel で表せる問題を分離して解決した。

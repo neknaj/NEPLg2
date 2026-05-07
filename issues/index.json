@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T16:14:16.737Z",
+  "generated_at": "2026-05-07T16:16:06.340Z",
   "counts": {
-    "total": 606,
+    "total": 607,
     "open": 16,
-    "resolved": 590,
+    "resolved": 591,
     "by_area": {
       "core": {
         "total": 301,
@@ -12,9 +12,9 @@
         "resolved": 298
       },
       "selfhost": {
-        "total": 59,
+        "total": 60,
         "open": 3,
-        "resolved": 56
+        "resolved": 57
       },
       "stdlib": {
         "total": 164,
@@ -5483,6 +5483,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T160530818Z-SELFHOST-HIR-EXPRESSION-IDS-USE-1-IN-7A6D6ABC.md"
+    },
+    {
+      "id": "ISS-20260507T161157719Z-SELFHOST-DEFINITION-IDS-USE-1-INVALI-E74DCE86",
+      "title": "Selfhost definition IDs use -1 invalid sentinel",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "stdlib/neplg2/core/resolve/name_resolver.nepl, nodesrc/test_selfhost_def_id_absence.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T161157719Z-SELFHOST-DEFINITION-IDS-USE-1-INVALI-E74DCE86.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",
