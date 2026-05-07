@@ -1052,7 +1052,7 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/field" as *
+#import "core/field" as field
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1082,7 +1082,7 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/field" as *
+#import "core/field" as field
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1117,7 +1117,7 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/field" as *
+#import "core/field" as field
 #import "core/result" as *
 
 struct LocalToken:
@@ -1153,7 +1153,7 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/field" as *
+#import "core/field" as field
 #import "core/result" as *
 
 struct LocalToken:
@@ -1222,7 +1222,7 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/field" as *
+#import "core/field" as field
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1288,7 +1288,7 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/field" as *
+#import "core/field" as field
 #import "core/result" as *
 
 struct LocalToken:
@@ -2006,7 +2006,7 @@ ret: 14
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/field" as *
+#import "core/field" as field
 #import "core/math" as *
 
 struct LocalToken:
@@ -2162,7 +2162,7 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/field" as *
+#import "core/field" as field
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -2191,7 +2191,7 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
-#import "core/field" as *
+#import "core/field" as field
 
 struct LocalToken:
     raw <(i32)->i32>

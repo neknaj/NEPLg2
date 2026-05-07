@@ -33346,3 +33346,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree --dist web/dist -o tmp/move_effect_agent1_after_raw_view_origin.json -j 1 --assert-io`: total=110, passed=101, failed=9
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 move_effect field import 整理
+
+- `ISS-20260507T015042055Z-MOVE-EFFECT-FIELD-GET-FIXTURES-STILL-F9F8D1C4` を追加して fixed にした。
+- `tests/compiler/move_effect.n.md` の残り 9 件は `field::get` を qualified に呼んでいるのに `#import "core/field" as *` のままで、Resource IR の検査前に `resolve.identifier.undefined` で落ちていた。
+- qualified `field::get` fixture は `#import "core/field" as field` へ変更し、unqualified `get` の re-export / glob import fixture はそのまま残した。
+- [検証]:
+  - `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree --dist web/dist -o tmp/move_effect_agent1_after_field_imports.json -j 1 --assert-io`: total=110, passed=110, failed=0
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

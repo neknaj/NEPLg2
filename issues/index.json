@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T01:46:28.214Z",
+  "generated_at": "2026-05-07T01:52:50.501Z",
   "counts": {
-    "total": 551,
+    "total": 552,
     "open": 11,
-    "resolved": 540,
+    "resolved": 541,
     "by_area": {
       "core": {
         "total": 274,
@@ -17,9 +17,9 @@
         "resolved": 152
       },
       "TEST": {
-        "total": 10,
+        "total": 11,
         "open": 1,
-        "resolved": 9
+        "resolved": 10
       },
       "selfhost": {
         "total": 51,
@@ -6403,6 +6403,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T010031891Z-KP-UNIQUE-COUNT-FIXTURE-LACKS-EXPLIC-85D146AF.md"
+    },
+    {
+      "id": "ISS-20260507T015042055Z-MOVE-EFFECT-FIELD-GET-FIXTURES-STILL-F9F8D1C4",
+      "title": "move_effect field::get fixtures still use glob core/field imports",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T015042055Z-MOVE-EFFECT-FIELD-GET-FIXTURES-STILL-F9F8D1C4.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",
