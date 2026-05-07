@@ -27,8 +27,8 @@ assert.match(
 
 assert.match(
     stringSearchSrc,
-    /pub\s+#import\s+"\.\/search\/compare"\s+as\s+\*/,
-    'alloc/string/search.nepl must re-export compare helpers for offset-based scanners',
+    /pub\s+#import\s+"\.\/search\/compare"\s+as\s+@merge/,
+    'alloc/string/search.nepl must merge compare helpers for qualified offset-based scanners',
 );
 
 assert.match(

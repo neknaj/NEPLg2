@@ -21,6 +21,12 @@ const searchByteFindRelPath = 'stdlib/alloc/string/search/byte_find.nepl';
 const searchByteFindSrc = fs.readFileSync(path.join(repoRoot, searchByteFindRelPath), 'utf8');
 const sliceRelPath = 'stdlib/alloc/string/slice.nepl';
 const sliceSrc = fs.readFileSync(path.join(repoRoot, sliceRelPath), 'utf8');
+const sliceByteRelPath = 'stdlib/alloc/string/slice/byte.nepl';
+const sliceByteSrc = fs.readFileSync(path.join(repoRoot, sliceByteRelPath), 'utf8');
+const sliceCharRelPath = 'stdlib/alloc/string/slice/char.nepl';
+const sliceCharSrc = fs.readFileSync(path.join(repoRoot, sliceCharRelPath), 'utf8');
+const sliceTrimRelPath = 'stdlib/alloc/string/slice/trim.nepl';
+const sliceTrimSrc = fs.readFileSync(path.join(repoRoot, sliceTrimRelPath), 'utf8');
 const splitRelPath = 'stdlib/alloc/string/split.nepl';
 const splitSrc = fs.readFileSync(path.join(repoRoot, splitRelPath), 'utf8');
 const integerRelPath = 'stdlib/alloc/string/integer.nepl';
@@ -59,6 +65,9 @@ for (const [sourceRelPath, sourceText] of [
     [searchBoundaryRelPath, searchBoundarySrc],
     [searchByteFindRelPath, searchByteFindSrc],
     [sliceRelPath, sliceSrc],
+    [sliceByteRelPath, sliceByteSrc],
+    [sliceCharRelPath, sliceCharSrc],
+    [sliceTrimRelPath, sliceTrimSrc],
     [splitRelPath, splitSrc],
     [integerRelPath, integerSrc],
     [integerFormatRelPath, integerFormatSrc],
@@ -81,7 +90,7 @@ const requiredPhrases = [
     [builderRelPath, builderSrc, 'StringBuilder byte-buffer ownership contract', 'StringBuilder: \u8907\u6570\u306e str \u7247\u3092 byte buffer \u306b\u8ffd\u52a0\u3057\u3066\u6700\u5f8c\u306b 1 \u3064\u3078\u307e\u3068\u3081\u308b'],
     [builderRelPath, builderSrc, 'StringBuilder non-Copy owner contract', 'builder \u306f `Copy` / `Clone` \u3067\u306f\u3042\u308a\u307e\u305b\u3093'],
     [builderRelPath, builderSrc, 'StringBuilder raw storage contract', 'raw storage \u306b\u306f `u8` \u3060\u3051\u3092\u7f6e\u304d'],
-    [sliceRelPath, sliceSrc, 'slice UTF-8 boundary contract', 'str_slice_result: UTF-8 \u5883\u754c\u306b\u63c3\u3063\u305f byte \u7bc4\u56f2\u3092\u65b0\u3057\u3044 str \u3068\u3057\u3066\u5207\u308a\u51fa\u3059'],
+    [sliceByteRelPath, sliceByteSrc, 'slice UTF-8 boundary contract', 'str_slice_result: UTF-8 \u5883\u754c\u306b\u63c3\u3063\u305f byte \u7bc4\u56f2\u3092\u65b0\u3057\u3044 str \u3068\u3057\u3066\u5207\u308a\u51fa\u3059'],
     [splitRelPath, splitSrc, 'split scanner byte-scan contract', 'str_split_next: allocation \u306a\u3057\u3067\u6b21\u306e split range \u3092\u8fd4\u3059'],
     [integerParseRelPath, integerParseSrc, 'i32 parse overflow contract', 'to_i32: 10 \u9032\u6587\u5b57\u5217\u3092 i32 \u3068\u3057\u3066\u89e3\u6790\u3059\u308b'],
     [floatFormatRelPath, floatFormatSrc, 'f64 formatting contract', 'from_f64_result: f64 \u3092\u6709\u9650\u5024\u3060\u3051\u6587\u5b57\u5217\u5316\u3059\u308b'],

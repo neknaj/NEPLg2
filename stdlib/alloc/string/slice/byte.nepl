@@ -1,0 +1,65 @@
+//: # string/slice/byte
+//: UTF-8 boundary を検査する byte slice
+//:
+//: [目的/もくてき]:
+//: - byte index の半開区間を、UTF-8 文字境界に揃っている場合だけ新しい `str` として切り出します。
+//: - char traversal や trim からも使う owned string construction boundary を、この module に集約します。
+//:
+//: [注意/ちゅうい]:
+//: - `str_slice_result` の index は byte index です。char index ではありません。
+//: - 文字境界でない範囲は `Result::Err` にします。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/result" as *
+#import "core/math" as *
+#import "alloc/string/access" as *
+#import "alloc/string/search" as *
+#import "alloc/string/storage" as *
+
+//: str_slice_result: UTF-8 境界に揃った byte 範囲を新しい str として切り出す
+//:
+//: [目的/もくてき]:
+//: - `s[start..end]` の byte 範囲を copy した新しい `str` を返します。
+//:
+//: [実装/じっそう]:
+//: - `start` は 0 未満なら 0 に、`end` は `start` 未満なら `start` に、`len(s)` より大きければ `len(s)` に丸めます。
+//: - 丸め後の start/end が UTF-8 文字境界であることを確認してから、新しい `str` 領域へ copy します。
+//:
+//: [注意/ちゅうい]:
+//: - index は byte index です。ただし `str` の UTF-8 不変条件を守るため、文字境界でない範囲は `Result::Err` にします。
+//: - `str_slice` は失敗時に空文字列 fallback を返す互換 API です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(end - start)
+fn str_slice_result <(str,i32,i32)->Result<str,str>> (s, start, end):
+    let n <i32> len s;
+    let mut s0 <i32> start;
+    let mut e0 <i32> end;
+    if:
+        lt s0 0
+        then set s0 0
+        else ()
+    if:
+        lt e0 s0
+        then set e0 s0
+        else ()
+    if:
+        lt n e0
+        then set e0 n
+        else ()
+    let out_len <i32> sub e0 s0;
+    if:
+        and str_utf8_is_boundary s s0 str_utf8_is_boundary s e0
+        then:
+            string_from_mem_unchecked_result mem_ptr_add string_data_ptr s s0 out_len
+        else:
+            Result<str,str>::Err "string.slice invalid utf8 boundary"
+
+fn str_slice <(str,i32,i32)->str> (s, start, end):
+    match str_slice_result s start end:
+        Result::Ok out:
+            out
+        Result::Err _e:
+            ""

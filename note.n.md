@@ -18,6 +18,32 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string slice byte/char/trim split)
+
+- branch `refactor/string-slice-module-split` で、`stdlib/alloc/string/slice.nepl` を facade 化し、byte slice、char traversal、trim helper を submodule へ分離した。
+- `stdlib/alloc/string/slice/byte.nepl` は `str_slice_result` / `str_slice` と owned string construction boundary を所有する。
+- `stdlib/alloc/string/slice/char.nepl` は `str_next_char_result`、char count、char index to byte offset、char slice、char predicate を所有する。
+- `stdlib/alloc/string/slice/trim.nepl` は `str_trim_suffix_cr` / `str_slice_trim_suffix_cr` / `str_trim` を所有する。
+- root `slice.nepl` は `pub #import ... as @merge` にし、`#import "alloc/string/slice" as string_slice` の qualified caller を維持した。
+- 前段の `alloc/string/search` facade も qualified import 互換のため `as @merge` に修正した。
+- line count は `slice.nepl` 15、`slice/byte.nepl` 66、`slice/char.nepl` 281、`slice/trim.nepl` 130。
+- [検証]:
+  - `trunk build --release`: passed
+  - `node nodesrc/test_stdlib_string_search_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_slice_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: passed
+  - `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string/slice.nepl -i stdlib/alloc/string/slice/byte.nepl -i stdlib/alloc/string/slice/char.nepl -i stdlib/alloc/string/slice/trim.nepl --no-tree -o tmp/string-slice-module-split-focused-after-sync.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/alloc/string.nepl -i stdlib/tests/string.n.md -i tests/stdlib/string_extra.n.md -i tests/stdlib/string_char.n.md --no-tree -o tmp/string-slice-module-split-suite-after-sync.json -j 1 --dist web/dist`: total=13, passed=13
+  - `node nodesrc/tests.js -i tests/stdlib/selfhost_req.n.md -i examples/rpn.nepl -i examples/rpn_legacy.nepl --no-tree -o tmp/string-slice-module-split-callers-after-sync.json -j 1 --dist web/dist`: total=9, passed=9
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdlib/string/slice 関連は passed。既知 open issue `ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D` の `lower_aggregate_projection.rs has 204 lines; responsibility split limit is 180` warning は継続。
+- `tests/stdlib/nm.n.md` は current main で別件 `effect.pure.calls_impure` (`nm/json_escape_mem_into` の raw load) が残るため、この slice split の合否からは切り分ける。
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`core/mem.nepl`、selfhost compiler の巨大 file などの分割対象は残る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T112048241Z Resource aggregate projection module exceeds responsibility split limit)
 
 - `ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D` を追加した。

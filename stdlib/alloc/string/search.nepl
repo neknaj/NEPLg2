@@ -9,6 +9,6 @@
 
 #indent 4
 
-pub #import "./search/compare" as *
-pub #import "./search/boundary" as *
-pub #import "./search/byte_find" as *
+pub #import "./search/compare" as @merge
+pub #import "./search/boundary" as @merge
+pub #import "./search/byte_find" as @merge

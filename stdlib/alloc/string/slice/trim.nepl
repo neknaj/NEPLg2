@@ -1,0 +1,129 @@
+//: # string/slice/trim
+//: ASCII trim / CR suffix trim
+//:
+//: [目的/もくてき]:
+//: - byte scanner と parser で使う ASCII trim helper を所有します。
+//: - slice construction は `slice/byte` に委譲し、trim 固有の scan だけをこの module に閉じます。
+//:
+//: [注意/ちゅうい]:
+//: - 空白判定は ASCII space/tab/LF/CR のみです。
+
+#indent 4
+
+#import "core/math" as *
+#import "alloc/string/access" as *
+#import "alloc/string/search" as *
+#import "./byte" as *
+
+//: str_trim_suffix_cr: 末尾 CR を 1 byte だけ取り除く
+//:
+//: [目的/もくてき]:
+//: - byte scanner で LF 直前まで切った CRLF 行から、残った CR を取り除きます。
+//:
+//: [注意/ちゅうい]:
+//: - 末尾が CR でない場合は元の `str` を返します。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string" as *
+//: fn main <()*>i32> ():
+//:     if:
+//:         str_eq "abc" str_trim_suffix_cr "abc\r"
+//:         then:
+//:             if:
+//:                 str_eq "abc" str_trim_suffix_cr "abc"
+//:                 then 0
+//:                 else 1
+//:         else 1
+//: ```
+fn str_trim_suffix_cr <(str)->str> (s):
+    let n <i32> len s
+    if:
+        and gt n 0 eq string_byte_at_unchecked s sub n 1 '\r'
+        then str_slice s 0 sub n 1
+        else s
+
+//: str_slice_trim_suffix_cr: 範囲切り出しと末尾 CR 除去を 1 回の str 構築にまとめる
+//:
+//: [目的/もくてき]:
+//: - `str_trim_suffix_cr str_slice s start end` と同じ結果を、不要な中間 `str` を作らずに返します。
+//:
+//: [実装/じっそう]:
+//: - `str_slice` と同じ境界丸めを行い、丸め後の末尾 byte が CR なら end を 1 byte 戻してから切り出します。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 境界検査と失敗時 fallback は最終的な `str_slice` に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(end - start)
+fn str_slice_trim_suffix_cr <(str,i32,i32)->str> (s, start, end):
+    let n <i32> len s
+    let mut s0 <i32> start
+    let mut e0 <i32> end
+    if:
+        lt s0 0
+        then set s0 0
+        else ()
+    if:
+        lt e0 s0
+        then set e0 s0
+        else ()
+    if:
+        lt n e0
+        then set e0 n
+        else ()
+    if:
+        and gt e0 s0 eq string_byte_at_unchecked s sub e0 1 '\r'
+        then str_slice s s0 sub e0 1
+        else str_slice s s0 e0
+
+//: str_trim: 前後の ASCII 空白を取り除く
+//:
+//: [目的/もくてき]:
+//: - 先頭と末尾の space/tab/LF/CR を除いた文字列を返します。
+//:
+//: [実装/じっそう]:
+//: - 先頭側と末尾側から `str_is_space` が true の byte を読み飛ばします。
+//: - 最後に残った byte 範囲を `str_slice` で切り出します。
+//:
+//: [注意/ちゅうい]:
+//: - 空白判定は ASCII のみです。
+//: - allocation failure は `str_slice` の fallback に従って空文字列になり得ます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn str_trim <(str)->str> (s):
+    let n <i32> len s;
+    let mut start <i32> 0;
+    let mut end <i32> n;
+    let mut done <i32> 0;
+    while eq done 0:
+        do:
+            if:
+                lt start end
+                then:
+                    let b <i32> string_byte_at_unchecked s start;
+                    if:
+                        str_is_space b
+                        then set start <i32> add start 1
+                        else set done 1
+                else:
+                    set done 1
+    let mut done2 <i32> 0;
+    while eq done2 0:
+        do:
+            if:
+                lt start end
+                then:
+                    let idx <i32> sub end 1;
+                    let b <i32> string_byte_at_unchecked s idx;
+                    if:
+                        str_is_space b
+                        then set end <i32> sub end 1
+                        else set done2 1
+                else:
+                    set done2 1
+    str_slice s start end

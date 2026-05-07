@@ -23,9 +23,9 @@ const boundaryCode = stripNeplComments(boundarySrc);
 const byteFindCode = stripNeplComments(byteFindSrc);
 
 assert.match(rootSrc, /pub #import "\.\/string\/search" as \*/, 'alloc/string facade must re-export string/search');
-assert.match(searchSrc, /pub #import "\.\/search\/compare" as \*/, 'string/search facade must re-export compare helpers');
-assert.match(searchSrc, /pub #import "\.\/search\/boundary" as \*/, 'string/search facade must re-export UTF-8 boundary helpers');
-assert.match(searchSrc, /pub #import "\.\/search\/byte_find" as \*/, 'string/search facade must re-export byte find helpers');
+assert.match(searchSrc, /pub #import "\.\/search\/compare" as @merge/, 'string/search facade must merge compare helpers for qualified imports');
+assert.match(searchSrc, /pub #import "\.\/search\/boundary" as @merge/, 'string/search facade must merge UTF-8 boundary helpers for qualified imports');
+assert.match(searchSrc, /pub #import "\.\/search\/byte_find" as @merge/, 'string/search facade must merge byte find helpers for qualified imports');
 assert.doesNotMatch(searchCode, /\bfn\s+/, 'string/search facade must not own implementation function bodies');
 assert.match(compareSrc, /#import "alloc\/string\/access" as \*/, 'string/search/compare must use string/access byte readers');
 assert.match(boundarySrc, /#import "alloc\/string\/access" as \*/, 'string/search/boundary must use string/access byte readers');

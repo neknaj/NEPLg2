@@ -12,6 +12,7 @@ function read(rel) {
 
 const stringSrc = read('stdlib/alloc/string.nepl');
 const stringSliceSrc = read('stdlib/alloc/string/slice.nepl');
+const stringSliceTrimSrc = read('stdlib/alloc/string/slice/trim.nepl');
 const scannerSrc = read('stdlib/alloc/string/scanner.nepl');
 const importSpecSrc = read('stdlib/neplg2/core/module/import_spec.nepl');
 const nmParserSrc = read('stdlib/nm/parser.nepl');
@@ -59,12 +60,18 @@ assert.match(
     /pub\s+#import\s+"\.\/string\/slice"\s+as\s+\*/,
     'alloc/string.nepl must re-export slice helpers from alloc/string/slice.nepl',
 );
+assert.match(
+    stringSliceSrc,
+    /pub\s+#import\s+"\.\/slice\/trim"\s+as\s+@merge/,
+    'alloc/string/slice.nepl must merge trim helpers from alloc/string/slice/trim.nepl for qualified imports',
+);
 
 for (const fnName of [
     'str_trim_suffix_cr',
     'str_slice_trim_suffix_cr',
 ]) {
-    assert.match(stringSliceSrc, new RegExp(`\\bfn\\s+${fnName}\\b`), `alloc/string/slice.nepl must own ${fnName}`);
+    assert.match(stringSliceTrimSrc, new RegExp(`\\bfn\\s+${fnName}\\b`), `alloc/string/slice/trim.nepl must own ${fnName}`);
+    assert.doesNotMatch(stringSliceSrc, new RegExp(`\\bfn\\s+${fnName}\\b`), `alloc/string/slice.nepl facade must not own ${fnName}`);
     assert.doesNotMatch(stringSrc, new RegExp(`\\bfn\\s+${fnName}\\b`), `alloc/string.nepl must not keep slice helper ${fnName}`);
 }
 
