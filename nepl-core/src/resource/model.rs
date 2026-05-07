@@ -151,6 +151,7 @@ pub enum ResourceOp {
     RawAddressView {
         source: Place,
         target: Place,
+        kind: RawAddressViewKind,
         span: Span,
     },
     Construct {
@@ -182,6 +183,12 @@ pub enum ResourceOp {
         arms: Vec<ResourceMatchArm>,
         span: Span,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RawAddressViewKind {
+    Offset,
+    NonOwningProjection,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

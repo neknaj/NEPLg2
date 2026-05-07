@@ -60,7 +60,7 @@ pub(super) fn push_transparent_raw_address_return_projection(
     push_raw_address_op(
         source.place,
         raw_address_alias_target(output, env),
-        source.is_view,
+        source.view_kind,
         ops,
         span,
     );
@@ -103,6 +103,7 @@ fn raw_address_source_from_return_expr(
                 base,
                 offset: RawAddressOffset::Known(0),
                 explicit_offset: false,
+                non_owning_view: false,
             })
         }
         HirExprKind::Call { callee, args } => raw_address_source_from_return_named_call(
@@ -196,13 +197,15 @@ fn raw_address_source_from_return_named_call(
                 &args[1], function, hir_args, arg_places, env,
             ))
         }),
-        "mem_ptr_addr" | "mem_ptr_wrap" | "str_addr" | "str_from_addr_unchecked"
-            if args.len() == 1 =>
-        {
+        "mem_ptr_addr" | "mem_ptr_wrap" | "str_from_addr_unchecked" if args.len() == 1 => {
             raw_address_source_from_return_operand_expr(
                 &args[0], function, hir_args, arg_places, env,
             )
         }
+        "str_addr" if args.len() == 1 => raw_address_source_from_return_operand_expr(
+            &args[0], function, hir_args, arg_places, env,
+        )
+        .map(RawAddressSource::into_non_owning_view),
         "mem_ptr_add" if args.len() >= 2 => raw_address_source_from_return_operand_expr(
             &args[0], function, hir_args, arg_places, env,
         )
@@ -325,6 +328,7 @@ fn raw_address_source_from_region_token_ptr_expr(
                 base: region_token_raw_field_place(&token, env.types.i32()),
                 offset: RawAddressOffset::Known(0),
                 explicit_offset: false,
+                non_owning_view: false,
             })
         }
         HirExprKind::Call { callee, args }

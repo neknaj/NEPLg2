@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use crate::types::{TypeId, TypeKind};
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{OwnerState, Place};
+use super::model::{OwnerState, Place, RawAddressViewKind};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_state::OwnerTable;
 use super::place_utils::{
@@ -64,6 +64,32 @@ impl RawAddressViewTable {
 }
 
 impl ResourceOwnerCheckEngine<'_> {
+    pub(super) fn apply_raw_address_view(
+        &self,
+        owners: &OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &mut RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        source: &Place,
+        target: &Place,
+        kind: RawAddressViewKind,
+    ) {
+        let source_is_known =
+            self.raw_address_view_source_is_known(owners, raw_aliases, storage_origins, source);
+        if source_is_known {
+            raw_aliases.copy_explicit_raw_address_alias(source, target);
+            storage_origins.copy_origin(source, target);
+        } else {
+            raw_aliases.clear(target);
+            storage_origins.clear(target);
+        }
+        if source_is_known || matches!(kind, RawAddressViewKind::NonOwningProjection) {
+            raw_views.mark(target);
+        } else {
+            raw_views.clear(target);
+        }
+    }
+
     pub(super) fn raw_address_view_source_is_known(
         &self,
         owners: &OwnerTable,

@@ -404,6 +404,7 @@ impl ResourceOwnerCheckEngine<'_> {
                             self.release_owner(
                                 owners,
                                 raw_aliases,
+                                raw_views,
                                 storage_origins,
                                 ptr,
                                 ResourceOwnerOperation::Dealloc,
@@ -426,6 +427,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         ) && self.ensure_owner_available(
                             owners,
                             raw_aliases,
+                            raw_views,
                             storage_origins,
                             ptr,
                             ResourceOwnerOperation::ReallocInput,
@@ -716,21 +718,21 @@ impl ResourceOwnerCheckEngine<'_> {
                 pending_reallocs.copy_result(source, target);
                 variant_owner_effects.copy_result(source, target);
             }
-            ResourceOp::RawAddressView { source, target, .. } => {
-                if self.raw_address_view_source_is_known(
+            ResourceOp::RawAddressView {
+                source,
+                target,
+                kind,
+                ..
+            } => {
+                self.apply_raw_address_view(
                     owners,
                     raw_aliases,
+                    raw_views,
                     storage_origins,
                     source,
-                ) {
-                    raw_aliases.copy_explicit_raw_address_alias(source, target);
-                    storage_origins.copy_origin(source, target);
-                    raw_views.mark(target);
-                } else {
-                    raw_aliases.clear(target);
-                    storage_origins.clear(target);
-                    raw_views.clear(target);
-                }
+                    target,
+                    *kind,
+                );
                 pending_reallocs.clear_result(target);
                 variant_owner_effects.clear_result(target);
             }

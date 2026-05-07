@@ -283,6 +283,8 @@ commit 単位:
 
 - 2026-05-07: `ISS-20260507T050025343Z-SHA256-HASH-DOCTEST-FAILS-RESOURCE-I-A4EE25CE` を解決した。match payload binding が外側 local / parameter を shadow した場合、Resource IR lowering が payload 初期化対象を `%e`、arm body の参照を `%e#0` に分裂させ、`sha256_rounds_loop` の `Result::Err e` を `resource.cell.uninit` と誤診断していた。match arm binding は `ctx.declare_local` が返す固有 Place を checked authority とし、drop elaboration bridge 用の source binding 名は `bind_source_name` として別に保持する。checker の cell-state 判定は緩めず、shadowed Copy payload と non-Copy payload drop bridge の Rust 回帰、および SHA-256 known-vector doctest で固定した。Stage 4 の残件は、full scanner-style の dependent range model と、Resource IR authority path の継続的な full regression である。
 
+- 2026-05-07: `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` の部分対応として、`str_addr` と borrowed `region_ptr` の lowering を `RawAddressViewKind::NonOwningProjection` として表現するようにした。`RawAddressViewKind::Offset` と分けることで、通常 i32 arithmetic の raw pointer proof gate は維持しつつ、仕様上 non-owning な pointer projection は source 未解決でも dealloc / realloc の owner として扱わない。`mem_ptr_addr` と `str_from_addr_unchecked` の owner transfer 経路は残しており、静的検査を緩めずに `str_addr` helper 経由の free bypass を拒否する。Stage 4 の残件は、`MemPtr = non-owning pointer` と `OwnedRegion/Storage = free obligation owner` の最終分離である。
+
 ### Stage 5: effect model の拡張
 
 目的: raw memory を safe surface から閉じつつ、stdlib 内部の正当な allocation を表現する。

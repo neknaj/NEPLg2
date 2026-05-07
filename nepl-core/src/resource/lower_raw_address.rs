@@ -13,7 +13,7 @@ use super::lower_raw_address_place::{
 };
 pub(super) use super::lower_raw_address_return::push_transparent_raw_address_return_projection;
 use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, RawAddressSource};
-use super::model::{Place, PlaceProjection, ResourceOffset, ResourceOp};
+use super::model::{Place, PlaceProjection, RawAddressViewKind, ResourceOffset, ResourceOp};
 use super::place_utils::reference_target_place;
 
 pub(super) fn push_core_mem_wrapper_semantics(
@@ -51,7 +51,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
                 return;
             };
             let mut raw = mem_ptr_raw_field_place(ptr, env.types.i32());
-            let is_view = true;
+            let view_kind = Some(RawAddressViewKind::Offset);
             raw = raw_address_place_with_offset(
                 raw,
                 raw_address_offset_from_actual_arg(1, hir_args, arg_places, env),
@@ -60,7 +60,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             push_raw_address_op(
                 raw,
                 mem_ptr_raw_field_place(output, env.types.i32()),
-                is_view,
+                view_kind,
                 ops,
                 span,
             );
@@ -85,7 +85,7 @@ pub(super) fn push_core_mem_wrapper_semantics(
             push_raw_address_op(
                 source.place,
                 mem_ptr_raw_field_place(output, env.types.i32()),
-                true,
+                Some(RawAddressViewKind::NonOwningProjection),
                 ops,
                 span,
             );
@@ -129,7 +129,7 @@ pub(super) fn push_named_raw_address_semantics(
     push_raw_address_op(
         source.place,
         raw_address_alias_target(output, env),
-        source.is_view,
+        source.view_kind,
         ops,
         span,
     );
@@ -188,10 +188,12 @@ fn raw_address_source_from_actual_named_expr(
                 ))
             })
         }
-        "mem_ptr_addr" | "mem_ptr_wrap" | "str_addr"
-            if args.len() == 1 && arg_places.len() == 1 =>
-        {
+        "mem_ptr_addr" | "mem_ptr_wrap" if args.len() == 1 && arg_places.len() == 1 => {
             raw_address_source_from_actual_arg(0, args, arg_places, env)
+        }
+        "str_addr" if args.len() == 1 && arg_places.len() == 1 => {
+            raw_address_source_from_actual_arg(0, args, arg_places, env)
+                .map(RawAddressSource::into_non_owning_view)
         }
         "mem_ptr_add" if args.len() >= 2 && arg_places.len() >= 2 => {
             raw_address_source_from_actual_arg(0, args, arg_places, env).map(|source| {
@@ -258,6 +260,7 @@ fn raw_address_source_from_actual_arg(
         base: raw_address_place_from_actual_argument(args.get(index)?, arg_places.get(index)?, env),
         offset: RawAddressOffset::Known(0),
         explicit_offset: false,
+        non_owning_view: false,
     })
 }
 
@@ -272,6 +275,7 @@ fn region_token_raw_source_from_actual_arg(
         base: region_token_raw_field_place(&token, env.types.i32()),
         offset: RawAddressOffset::Known(0),
         explicit_offset: false,
+        non_owning_view: false,
     })
 }
 

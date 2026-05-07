@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-06
+updated: 2026-05-07
 target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md"
 ---
 
@@ -199,3 +199,21 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-borrowed-region-owner.json -j 1`: 110 passed
 - `node nodesrc/issues.js check`: passed
 - `git diff --check`: passed
+
+## 2026-05-07 Resource IR str_addr non-owning view 部分対応
+
+`str_addr` を user helper で包むと、戻り値の raw `i32` が owner alias と同じ経路へ落ち、`dealloc_raw addr len s` のような経路で `str` の backing storage を非所有 view から解放できる問題を確認した。
+
+根本原因は、Resource IR lowering が zero-offset raw address を一律に alias として扱い、owner checker の `dealloc` / `realloc` 入口も raw view を確認する前に alias を辿って元 owner へ到達していたことだった。これにより、`MemPtr` の owned raw address transfer と、`str_addr` / `region_ptr` の non-owning pointer projection が同じ表現に混ざっていた。
+
+対応として `RawAddressViewKind::Offset` / `RawAddressViewKind::NonOwningProjection` を追加し、`str_addr` と borrowed `region_ptr` は仕様上 non-owning projection として lowering する。owner checker は `NonOwningProjection` を source 未解決でも non-owning view として保持し、`dealloc` / `realloc` では raw view を owner として扱わず `OwnerUnavailable` を出す。一方で `mem_ptr_addr` と `str_from_addr_unchecked` は既存どおり owner transfer 可能な raw owner 経路として残した。
+
+この対応は `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に含まれる。`MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の最終分離は引き続きこの issue の残件である。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_dealloc_through_str_addr_helper_view -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_str_owner_through_str_addr_helper -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_alloc_ptr_raw_owner_return -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_raw_owner_through_str_from_addr -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_str_addr_helper_parameter_raw_load -- --nocapture`: passed

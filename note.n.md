@@ -1,3 +1,12 @@
+# 2026-05-07 note (ISS-20260427 MemPtr/RegionToken str_addr non-owning view)
+
+- branch `fix/non-owning-str-addr-owner-view` で、`str_addr` helper の raw address が owner alias として dealloc 可能になる Resource IR owner/provenance の不備を修正した。
+- `RawAddressViewKind::Offset` / `RawAddressViewKind::NonOwningProjection` を追加し、通常 i32 arithmetic 由来の view と、`str_addr` / borrowed `region_ptr` の仕様上 non-owning な projection を分離した。
+- owner checker は `NonOwningProjection` を source 未解決でも raw view として保持し、`dealloc` / `realloc` で owner として解決しない。`mem_ptr_addr` と `str_from_addr_unchecked` の owner transfer 回帰は維持した。
+- `resource_ir_owner_check_rejects_dealloc_through_str_addr_helper_view` と `resource_ir_owner_check_preserves_str_owner_through_str_addr_helper` を追加し、既存の raw owner transfer / str construction 回帰も focused test で確認した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260427 core mem raw boundary whitelist coverage)
 
 - branch `test/raw-memory-boundary-whitelist-coverage` で、compiler-owned raw memory boundary capability の whitelist 回帰を追加した。

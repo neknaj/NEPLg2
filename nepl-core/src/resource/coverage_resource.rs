@@ -423,6 +423,7 @@ fn resource_ops_coverage(
             ResourceOp::RawAddressView {
                 source,
                 target,
+                kind: _,
                 span,
             } => {
                 resource_place_coverage(

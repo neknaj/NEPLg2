@@ -270,12 +270,17 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         place: &Place,
         operation: ResourceOwnerOperation,
         span: Span,
     ) -> bool {
         if !should_track(place) {
+            return false;
+        }
+        if self.place_is_non_owning_raw_address_view(owners, raw_aliases, raw_views, place) {
+            self.push_unavailable(operation, place, OwnerState::NoFreeObligation, span);
             return false;
         }
         let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
@@ -301,12 +306,17 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
         storage_origins: &StorageOriginTable,
         place: &Place,
         operation: ResourceOwnerOperation,
         span: Span,
     ) -> bool {
         if !should_track(place) {
+            return false;
+        }
+        if self.place_is_non_owning_raw_address_view(owners, raw_aliases, raw_views, place) {
+            self.push_unavailable(operation, place, OwnerState::NoFreeObligation, span);
             return false;
         }
         let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);

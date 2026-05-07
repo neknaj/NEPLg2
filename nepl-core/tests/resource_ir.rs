@@ -10137,6 +10137,87 @@ fn main <()* >str> ():
 }
 
 #[test]
+fn resource_ir_owner_check_preserves_str_owner_through_str_addr_helper() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/result" as *
+
+fn string_addr <(str)->i32> (s):
+    #intrinsic "str_addr" <> (s)
+
+fn main <()* >str> ():
+    match concat_result "a" "b":
+        Result::Ok s:
+            let _addr <i32> string_addr s
+            s
+        Result::Err e:
+            e
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("string_addr__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "str_addr helper must return a non-owning raw address view and keep the str owner with the source: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_rejects_dealloc_through_str_addr_helper_view() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn string_addr <(str)->i32> (s):
+    #intrinsic "str_addr" <> (s)
+
+fn main <()*>()> ():
+    match concat_result "a" "b":
+        Result::Ok s:
+            let addr <i32> string_addr s
+            dealloc_raw addr len s
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                if function == "main" || function.starts_with("main__")
+        )),
+        "str_addr helper must produce only a non-owning raw address view; dealloc through it must be rejected: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_accepts_concat_result_output_region_transfer() {
     let source = r#"
 #entry main
@@ -14818,8 +14899,10 @@ fn main <()->i32> ():
         resource.dump_text()
     );
     assert!(
-        resource.dump_text().contains("raw_address_alias"),
-        "str_addr helper lowering must expose a raw address alias:\n{}",
+        resource
+            .dump_text()
+            .contains("raw_address_view non_owning_projection"),
+        "str_addr helper lowering must expose a non-owning raw address view:\n{}",
         resource.dump_text()
     );
 }

@@ -4,23 +4,30 @@ use alloc::vec::Vec;
 use crate::span::Span;
 use crate::types::TypeId;
 
-use super::model::{Place, PlaceProjection, ResourceOffset, ResourceOp};
+use super::model::{Place, PlaceProjection, RawAddressViewKind, ResourceOffset, ResourceOp};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawAddressSource {
     pub(super) base: Place,
     pub(super) offset: RawAddressOffset,
     pub(super) explicit_offset: bool,
+    pub(super) non_owning_view: bool,
 }
 
 pub(super) struct RawAddressPlace {
     pub(super) place: Place,
-    pub(super) is_view: bool,
+    pub(super) view_kind: Option<RawAddressViewKind>,
 }
 
 impl RawAddressSource {
     pub(super) fn into_place_and_view(self, raw_ty: TypeId) -> RawAddressPlace {
-        let is_view = self.explicit_offset;
+        let view_kind = if self.non_owning_view {
+            Some(RawAddressViewKind::NonOwningProjection)
+        } else if self.explicit_offset {
+            Some(RawAddressViewKind::Offset)
+        } else {
+            None
+        };
         let place = match self.offset {
             RawAddressOffset::Known(0) if !self.explicit_offset => self.base,
             RawAddressOffset::Known(0) => self.base.with_projection(
@@ -46,7 +53,12 @@ impl RawAddressSource {
                 raw_ty,
             ),
         };
-        RawAddressPlace { place, is_view }
+        RawAddressPlace { place, view_kind }
+    }
+
+    pub(super) fn into_non_owning_view(mut self) -> Self {
+        self.non_owning_view = true;
+        self
     }
 
     pub(super) fn with_added_offset(mut self, offset: RawAddressOffset) -> Self {
@@ -65,14 +77,15 @@ impl RawAddressSource {
 pub(super) fn push_raw_address_op(
     source: Place,
     target: Place,
-    is_view: bool,
+    view_kind: Option<RawAddressViewKind>,
     ops: &mut Vec<ResourceOp>,
     span: Span,
 ) {
-    if is_view {
+    if let Some(kind) = view_kind {
         ops.push(ResourceOp::RawAddressView {
             source,
             target,
+            kind,
             span,
         });
     } else {
