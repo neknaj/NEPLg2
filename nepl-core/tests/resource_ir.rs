@@ -7830,7 +7830,7 @@ fn resource_ir_owner_check_reports_helper_alloc_return_leak() {
 }
 
 #[test]
-fn resource_ir_owner_check_transfers_owner_returned_by_helper() {
+fn resource_ir_owner_check_does_not_treat_plain_i32_identity_as_owner_return() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();
     let i32_ty = types.i32();
@@ -7885,7 +7885,7 @@ fn resource_ir_owner_check_transfers_owner_returned_by_helper() {
                                 name: "owner_id".to_string(),
                                 type_args: vec![],
                             },
-                            args: vec![p],
+                            args: vec![p.clone()],
                             effect: EffectOp::UserCall {
                                 name: "owner_id".to_string(),
                                 effect: Effect::Pure,
@@ -7910,7 +7910,18 @@ fn resource_ir_owner_check_transfers_owner_returned_by_helper() {
     };
 
     let report = check_resource_owner_obligations(&resource, &types);
-    assert_eq!(report.diagnostics, vec![]);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerLeaked {
+                function,
+                place,
+                ..
+            } if function == "main" && place == &p
+        )),
+        "plain i32 identity helpers must not implicitly transfer raw ownership: {:#?}",
+        report.diagnostics
+    );
 }
 
 #[test]
@@ -7989,6 +8000,53 @@ fn resource_ir_owner_summary_does_not_treat_bool_parameters_as_owners() {
 
     let report = check_resource_owner_obligations(&resource, &types);
     assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
+fn resource_ir_owner_summary_does_not_treat_plain_i32_struct_fields_as_owners() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+
+struct SourceSpan:
+    file_id <i32>
+    start <i32>
+    end <i32>
+
+struct Token:
+    kind <i32>
+    span <SourceSpan>
+
+fn make_token <(i32,i32,i32)->Token> (file_id, start, end):
+    let span <SourceSpan> SourceSpan file_id start end
+    Token 0 span
+
+fn main <()*>()> ():
+    let token <Token> make_token 0 1 2
+    ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("make_token__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "plain i32 span fields must not become owner obligations: {diagnostics:#?}\nresource:\n{}",
+        resource.dump_text()
+    );
 }
 
 #[test]

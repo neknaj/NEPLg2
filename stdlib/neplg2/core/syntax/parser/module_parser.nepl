@@ -446,8 +446,9 @@ fn selfhost_parser_item_kind_from_token <(TokenKind,i32)->Option<SelfhostModuleI
             none<SelfhostModuleItemKind>
 
 //: selfhost_parser_push_item: token を module item として AST に[追加/ついか]する
-fn selfhost_parser_push_item <(SelfhostModuleAst,SelfhostToken,SelfhostModuleItemKind)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (ast, token, item_kind):
-    let item <SelfhostModuleItem> selfhost_module_item_new item_kind token.span token.lexeme
+fn selfhost_parser_push_item <(str,SelfhostModuleAst,SelfhostToken,SelfhostModuleItemKind)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, ast, token, item_kind):
+    let lexeme <str> selfhost_token_lexeme source token
+    let item <SelfhostModuleItem> selfhost_module_item_new item_kind token.span lexeme
     match selfhost_module_ast_push ast item:
         Result::Ok next_ast:
             Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok next_ast
@@ -455,18 +456,18 @@ fn selfhost_parser_push_item <(SelfhostModuleAst,SelfhostToken,SelfhostModuleIte
             Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_oom_diag
 
 //: selfhost_parse_push_and_continue: item 追加後に parse loop へ戻る
-fn selfhost_parse_push_and_continue <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken,SelfhostModuleItemKind)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (tokens, n, idx, depth, mode, ast, token, item_kind):
-    match selfhost_parser_push_item ast token item_kind:
+fn selfhost_parse_push_and_continue <(str,&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken,SelfhostModuleItemKind)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, depth, mode, ast, token, item_kind):
+    match selfhost_parser_push_item source ast token item_kind:
         Result::Ok next_ast:
-            selfhost_parse_module_loop tokens n add idx 1 depth mode next_ast
+            selfhost_parse_module_loop source tokens n add idx 1 depth mode next_ast
         Result::Err diag:
             Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
 
 //: selfhost_parse_raw_wasm_text: WasmText token を raw mode に応じて処理する
-fn selfhost_parse_raw_wasm_text <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (tokens, n, idx, depth, mode, ast, token):
+fn selfhost_parse_raw_wasm_text <(str,&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, depth, mode, ast, token):
     match mode:
         SelfhostParserRawMode::Wasm:
-            selfhost_parse_push_and_continue tokens n idx depth mode ast token SelfhostModuleItemKind::WasmText
+            selfhost_parse_push_and_continue source tokens n idx depth mode ast token SelfhostModuleItemKind::WasmText
         SelfhostParserRawMode::Normal:
             selfhost_parser_raw_text_error &token ast
         SelfhostParserRawMode::PendingWasm:
@@ -477,10 +478,10 @@ fn selfhost_parse_raw_wasm_text <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParser
             selfhost_parser_raw_text_error &token ast
 
 //: selfhost_parse_raw_llvmir_text: LlvmIrText token を raw mode に応じて処理する
-fn selfhost_parse_raw_llvmir_text <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (tokens, n, idx, depth, mode, ast, token):
+fn selfhost_parse_raw_llvmir_text <(str,&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, depth, mode, ast, token):
     match mode:
         SelfhostParserRawMode::LlvmIr:
-            selfhost_parse_push_and_continue tokens n idx depth mode ast token SelfhostModuleItemKind::LlvmIrText
+            selfhost_parse_push_and_continue source tokens n idx depth mode ast token SelfhostModuleItemKind::LlvmIrText
         SelfhostParserRawMode::Normal:
             selfhost_parser_raw_text_error &token ast
         SelfhostParserRawMode::PendingWasm:
@@ -491,53 +492,53 @@ fn selfhost_parse_raw_llvmir_text <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostPars
             selfhost_parser_raw_text_error &token ast
 
 //: selfhost_parse_indent: Indent token による通常 block / raw block 状態遷移を処理する
-fn selfhost_parse_indent <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (tokens, n, idx, depth, mode, ast):
+fn selfhost_parse_indent <(str,&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, depth, mode, ast):
     match mode:
         SelfhostParserRawMode::PendingWasm:
-            selfhost_parse_module_loop tokens n add idx 1 depth SelfhostParserRawMode::Wasm ast
+            selfhost_parse_module_loop source tokens n add idx 1 depth SelfhostParserRawMode::Wasm ast
         SelfhostParserRawMode::PendingLlvmIr:
-            selfhost_parse_module_loop tokens n add idx 1 depth SelfhostParserRawMode::LlvmIr ast
+            selfhost_parse_module_loop source tokens n add idx 1 depth SelfhostParserRawMode::LlvmIr ast
         SelfhostParserRawMode::Normal:
-            selfhost_parse_module_loop tokens n add idx 1 add depth 1 mode ast
+            selfhost_parse_module_loop source tokens n add idx 1 add depth 1 mode ast
         SelfhostParserRawMode::Wasm:
-            selfhost_parse_module_loop tokens n add idx 1 depth mode ast
+            selfhost_parse_module_loop source tokens n add idx 1 depth mode ast
         SelfhostParserRawMode::LlvmIr:
-            selfhost_parse_module_loop tokens n add idx 1 depth mode ast
+            selfhost_parse_module_loop source tokens n add idx 1 depth mode ast
 
 //: selfhost_parse_dedent: Dedent token による通常 block / raw block 状態遷移を処理する
-fn selfhost_parse_dedent <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (tokens, n, idx, depth, mode, ast, token):
+fn selfhost_parse_dedent <(str,&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, depth, mode, ast, token):
     match mode:
         SelfhostParserRawMode::Wasm:
-            selfhost_parse_module_loop tokens n add idx 1 depth SelfhostParserRawMode::Normal ast
+            selfhost_parse_module_loop source tokens n add idx 1 depth SelfhostParserRawMode::Normal ast
         SelfhostParserRawMode::LlvmIr:
-            selfhost_parse_module_loop tokens n add idx 1 depth SelfhostParserRawMode::Normal ast
+            selfhost_parse_module_loop source tokens n add idx 1 depth SelfhostParserRawMode::Normal ast
         SelfhostParserRawMode::PendingWasm:
             selfhost_parser_pending_error &token ast
         SelfhostParserRawMode::PendingLlvmIr:
             selfhost_parser_pending_error &token ast
         SelfhostParserRawMode::Normal:
-            selfhost_parse_module_loop tokens n add idx 1 selfhost_parser_depth_dec depth mode ast
+            selfhost_parse_module_loop source tokens n add idx 1 selfhost_parser_depth_dec depth mode ast
 
 //: selfhost_parse_dir_wasm: `#wasm:` directive を item 化して raw mode へ入る
-fn selfhost_parse_dir_wasm <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (tokens, n, idx, depth, mode, ast, token):
+fn selfhost_parse_dir_wasm <(str,&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, depth, mode, ast, token):
     if:
         selfhost_parser_raw_mode_is_pending mode
         then:
             selfhost_parser_pending_error &token ast
         else:
-            selfhost_parse_push_and_continue tokens n idx depth SelfhostParserRawMode::PendingWasm ast token SelfhostModuleItemKind::WasmBlock
+            selfhost_parse_push_and_continue source tokens n idx depth SelfhostParserRawMode::PendingWasm ast token SelfhostModuleItemKind::WasmBlock
 
 //: selfhost_parse_dir_llvmir: `#llvmir:` directive を item 化して raw mode へ入る
-fn selfhost_parse_dir_llvmir <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (tokens, n, idx, depth, mode, ast, token):
+fn selfhost_parse_dir_llvmir <(str,&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, depth, mode, ast, token):
     if:
         selfhost_parser_raw_mode_is_pending mode
         then:
             selfhost_parser_pending_error &token ast
         else:
-            selfhost_parse_push_and_continue tokens n idx depth SelfhostParserRawMode::PendingLlvmIr ast token SelfhostModuleItemKind::LlvmIrBlock
+            selfhost_parse_push_and_continue source tokens n idx depth SelfhostParserRawMode::PendingLlvmIr ast token SelfhostModuleItemKind::LlvmIrBlock
 
 //: selfhost_parse_regular_token: raw text 以外の token を必要なら item 化する
-fn selfhost_parse_regular_token <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken,TokenKind)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (tokens, n, idx, depth, mode, ast, token, kind):
+fn selfhost_parse_regular_token <(str,&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst,SelfhostToken,TokenKind)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, depth, mode, ast, token, kind):
     if:
         selfhost_parser_raw_mode_is_pending mode
         then:
@@ -545,12 +546,12 @@ fn selfhost_parse_regular_token <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParser
         else:
             match selfhost_parser_item_kind_from_token kind depth:
                 Option::Some item_kind:
-                    selfhost_parse_push_and_continue tokens n idx depth mode ast token item_kind
+                    selfhost_parse_push_and_continue source tokens n idx depth mode ast token item_kind
                 Option::None:
-                    selfhost_parse_module_loop tokens n add idx 1 depth mode ast
+                    selfhost_parse_module_loop source tokens n add idx 1 depth mode ast
 
 //: selfhost_parse_module_loop: token stream を 1 回だけ走査して module item stream を作る
-fn selfhost_parse_module_loop <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (tokens, n, idx, depth, mode, ast):
+fn selfhost_parse_module_loop <(str,&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRawMode,SelfhostModuleAst)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, depth, mode, ast):
     if:
         ge idx n
         then:
@@ -568,32 +569,32 @@ fn selfhost_parse_module_loop <(&Vec<SelfhostToken>,i32,i32,i32,SelfhostParserRa
                                 else:
                                     Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok ast
                         SelfhostParserTokenAction::Skip:
-                            selfhost_parse_module_loop tokens n add idx 1 depth mode ast
+                            selfhost_parse_module_loop source tokens n add idx 1 depth mode ast
                         SelfhostParserTokenAction::Indent:
-                            selfhost_parse_indent tokens n idx depth mode ast
+                            selfhost_parse_indent source tokens n idx depth mode ast
                         SelfhostParserTokenAction::Dedent:
-                            selfhost_parse_dedent tokens n idx depth mode ast token
+                            selfhost_parse_dedent source tokens n idx depth mode ast token
                         SelfhostParserTokenAction::WasmText:
-                            selfhost_parse_raw_wasm_text tokens n idx depth mode ast token
+                            selfhost_parse_raw_wasm_text source tokens n idx depth mode ast token
                         SelfhostParserTokenAction::LlvmIrText:
-                            selfhost_parse_raw_llvmir_text tokens n idx depth mode ast token
+                            selfhost_parse_raw_llvmir_text source tokens n idx depth mode ast token
                         SelfhostParserTokenAction::DirWasm:
-                            selfhost_parse_dir_wasm tokens n idx depth mode ast token
+                            selfhost_parse_dir_wasm source tokens n idx depth mode ast token
                         SelfhostParserTokenAction::DirLlvmIr:
-                            selfhost_parse_dir_llvmir tokens n idx depth mode ast token
+                            selfhost_parse_dir_llvmir source tokens n idx depth mode ast token
                         SelfhostParserTokenAction::Regular:
-                            selfhost_parse_regular_token tokens n idx depth mode ast token kind
+                            selfhost_parse_regular_token source tokens n idx depth mode ast token kind
                 Option::None:
                     let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "self-host module parser could not read token"
                     selfhost_module_ast_free ast
                     Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
 
 //: selfhost_parse_module_tokens: lexer token stream から module AST を[作/つく]る
-fn selfhost_parse_module_tokens <(&Vec<SelfhostToken>)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (tokens):
+fn selfhost_parse_module_tokens <(str,&Vec<SelfhostToken>)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens):
     match selfhost_module_ast_new:
         Result::Ok ast:
             let n <i32> v::len<SelfhostToken> tokens
-            selfhost_parse_module_loop tokens n 0 0 SelfhostParserRawMode::Normal ast
+            selfhost_parse_module_loop source tokens n 0 0 SelfhostParserRawMode::Normal ast
         Result::Err _e:
             Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_oom_diag
 
@@ -604,7 +605,7 @@ fn selfhost_parse_module_tokens <(&Vec<SelfhostToken>)*>Result<SelfhostModuleAst
 fn selfhost_parse_module_source_with_file_id <(str,i32)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, file_id):
     match lex_all_with_file_id source file_id:
         Result::Ok tokens:
-            match selfhost_parse_module_tokens &tokens:
+            match selfhost_parse_module_tokens source &tokens:
                 Result::Ok ast:
                     v::free<SelfhostToken> tokens
                     Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok ast

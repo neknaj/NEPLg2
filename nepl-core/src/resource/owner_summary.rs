@@ -9,7 +9,7 @@ use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_p
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
-use super::owner_summary_leaf::owner_leaf_places;
+use super::owner_summary_leaf::owner_seed_leaf_places;
 use super::owner_summary_record::{
     owner_source_for_storage, push_unique_owner_projection_source, record_projection_marker,
     record_projection_maybe_owner_return, record_projection_owner_return, record_root_owner_return,
@@ -68,7 +68,7 @@ fn function_owner_return_summary(
     let mut storage_origins = StorageOriginTable::default();
     let mut parameter_storage_sources = Vec::new();
     for (index, param) in function.params.iter().enumerate() {
-        for leaf in owner_leaf_places(types, &param.place) {
+        for leaf in owner_seed_leaf_places(types, function, index, &param.place) {
             owners.allocate(&leaf.place);
             raw_aliases.mark(&leaf.place);
             storage_origins.mark_owned(&leaf.place);

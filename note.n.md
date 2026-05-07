@@ -33166,5 +33166,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check`: passed
 - [issue]:
   - `ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F` は fixed。
+## 2026-05-07 Agent 1 self-host lexer owner flow / scalar owner leaf 修正
+
+- `ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE` を fixed にした。
+- self-host lexer 側では `SelfhostToken` を kind/span だけの range-only token に変更し、owned `str` lexeme を `Vec<SelfhostToken>` に保存しない設計へ移行した。
+- token の lexeme は `selfhost_token_lexeme source token` で消費境界だけ切り出す。lexer の keyword 判定で使う一時 lexeme は token に保存せず `lex_consume_temp_str` で閉じる。
+- parser/module parser は source を loop に渡して token span から lexeme を復元する形にした。`SelfhostModuleItem.lexeme` の所有設計は後続 module AST 整理の範囲で継続確認する。
+- compiler core 側では `owner_leaf_places` が ordinary `i32` を無条件に owner leaf として扱う設計を廃止した。`MemPtr` leaf / `str` / owner-carrying aggregate を通常 owner leaf とし、裸 `i32` raw API は Dealloc/Realloc を本体で扱う関数の parameter seed に限定した。
+- 古い raw `i32` identity helper が所有権を暗黙転送する前提は、MemPtr/RegionToken/明示 raw owner 経路へ移すべき技術的負債としてテスト期待を反転した。
+- [検証]:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - focused `resource_ir` tests: bool parameter, plain i32 struct fields, plain i32 identity non-transfer, raw dealloc, MemPtr dealloc all passed
+  - `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed
+  - native empty lexer smoke: passed, `resource_owner_obligations` 約 1.4s
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree --dist web/dist -j 1 --assert-io`: 13/13 passed
+  - `node nodesrc/issues.js check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。

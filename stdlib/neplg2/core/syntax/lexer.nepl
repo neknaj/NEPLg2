@@ -14,7 +14,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - `#indent N` は後続行の offside 幅として[読/よ]み、invalid な引数は通常 token stream として[扱/あつか]います。
-//: - string literal の escape 解釈は parser / literal lowering の責務とし、lexer は閉じ quote までの raw lexeme を[保持/ほじ]します。
+//: - string literal の escape 解釈は parser / literal lowering の責務とし、lexer は閉じ quote までの raw span を[保持/ほじ]します。
 //: - 複数 file を[扱/あつか]う loader からは `lex_all_with_file_id` を[呼/よ]び、token と diagnostic の span に同じ file_id を[通/とお]します。
 //:
 //: [計算量/けいさんりょう]:
@@ -280,13 +280,13 @@ fn lex_char_end <(str,i32,i32)->i32> (source, n, idx):
                 _:
                     lex_char_end source n add idx 1
 
-//: lex_token_slice: source slice を lexeme とする token を[作/つく]る
+//: lex_token_slice: source range を span とする token を[作/つく]る
 fn lex_token_slice <(TokenKind,str,i32,i32,i32)->SelfhostToken> (kind, source, file_id, start, end):
-    selfhost_token_new kind source_span_new file_id start end string_slice::str_slice source start end
+    selfhost_token_new kind source_span_new file_id start end
 
 //: lex_structural_token: offside rule の 0 byte token を[作/つく]る
 fn lex_structural_token <(TokenKind,i32,i32)->SelfhostToken> (kind, file_id, offset):
-    selfhost_token_new kind source_span_empty file_id offset ""
+    selfhost_token_new kind source_span_empty file_id offset
 
 //: lex_line_indent_width: line start から content までの indent 幅を[返/かえ]す
 fn lex_line_indent_width <(str,i32,i32,i32,i32)->i32> (source, n, idx, indent_unit, width):
@@ -741,13 +741,35 @@ fn lex_keyword_kind <(str)->Option<TokenKind>> (lexeme):
         _:
             Option<TokenKind>::None
 
+//: lex_consume_temp_str: lexer 内部の一時 str owner を終端する
+//:
+//: [目的/もくてき]:
+//: - keyword 判定用に切り出した一時文字列を `SelfhostToken` へ保存しないため、判定後に所有境界を閉じます。
+fn lex_consume_temp_str <(str)->()> (s):
+    string_access::len s
+    ()
+
+//: lex_ident_or_keyword_token: identifier 範囲を keyword なら keyword token へ分類する
+//:
+//: [目的/もくてき]:
+//: - keyword 判定には一時 `str` を使いますが、token buffer には owner を持たない range-only token だけを保存します。
+fn lex_ident_or_keyword_token <(str,i32,i32,i32)->SelfhostToken> (source, file_id, start, end):
+    let lexeme <str> string_slice::str_slice source start end
+    let kind <TokenKind> match lex_keyword_kind lexeme:
+        Option::Some keyword:
+            keyword
+        Option::None:
+            TokenKind::Ident
+    lex_consume_temp_str lexeme;
+    lex_token_slice kind source file_id start end
+
 //: lex_next: 指定 offset 以降の 1 token を[返/かえ]す
 fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
     let start <i32> lex_skip_trivia source n idx
     if:
         ge start n
         then:
-            selfhost_token_new TokenKind::Eof source_span_empty file_id start ""
+            selfhost_token_new TokenKind::Eof source_span_empty file_id start
         else:
             let ch <i32> string_access::string_byte_at_unchecked source start
             match ch:
@@ -866,12 +888,7 @@ fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                         lex_is_ident_start ch
                         then:
                             let end <i32> lex_ident_end source n add start 1
-                            let lexeme <str> string_slice::str_slice source start end
-                            match lex_keyword_kind lexeme:
-                                Option::Some kind:
-                                    lex_token_slice kind source file_id start end
-                                Option::None:
-                                    lex_token_slice TokenKind::Ident source file_id start end
+                            lex_ident_or_keyword_token source file_id start end
                         else:
                             if:
                                 lex_is_digit ch
@@ -1070,18 +1087,13 @@ fn lex_fail_indent <(Vec<SelfhostToken>,Vec<i32>,i32,i32,str)*>Result<Vec<Selfho
 
 //: lex_token_pending_raw_mode: raw block を開始する directive なら mode を[返/かえ]す
 fn lex_token_pending_raw_mode <(SelfhostToken)->i32> (token):
-    let kind_name <str> token_kind_name field::get token "kind"
-    if:
-        string_search::str_eq kind_name "DirWasm"
-        then:
+    match field::get token "kind":
+        TokenKind::DirWasm:
             1
-        else:
-            if:
-                string_search::str_eq kind_name "DirLlvmIr"
-                then:
-                    2
-                else:
-                    0
+        TokenKind::DirLlvmIr:
+            2
+        _:
+            0
 
 //: lex_raw_kind: raw block mode から token kind を[返/かえ]す
 fn lex_raw_kind <(i32)->TokenKind> (raw_mode):

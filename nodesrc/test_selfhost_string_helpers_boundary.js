@@ -12,6 +12,7 @@ function read(rel) {
 
 const stringSrc = read('stdlib/alloc/string.nepl');
 const stringSearchSrc = read('stdlib/alloc/string/search.nepl');
+const tokenSrc = read('stdlib/neplg2/core/syntax/token.nepl');
 const lexerSrc = read('stdlib/neplg2/core/syntax/lexer.nepl');
 const importSpecSrc = read('stdlib/neplg2/core/module/import_spec.nepl');
 const moduleGraphSrc = read('stdlib/neplg2/core/module/graph.nepl');
@@ -63,6 +64,36 @@ assert.doesNotMatch(
     lexerSrc,
     /string::str_eq_at/,
     'self-host lexer must not call internal-style str_eq_at directly',
+);
+
+assert.match(
+    tokenSrc,
+    /struct\s+SelfhostToken:[\s\S]*kind\s+<TokenKind>[\s\S]*span\s+<SelfhostSourceSpan>/,
+    'SelfhostToken must keep only copyable token identity and source span',
+);
+
+assert.doesNotMatch(
+    tokenSrc,
+    /struct\s+SelfhostToken:[\s\S]*\n\s+lexeme\s+<str>/,
+    'SelfhostToken must not store owned lexeme strings in Vec<SelfhostToken>',
+);
+
+assert.match(
+    tokenSrc,
+    /fn\s+selfhost_token_lexeme\s+<\(str,SelfhostToken\)->str>[\s\S]*string_slice::str_slice\s+source\s+field::get\s+span\s+"start"\s+field::get\s+span\s+"end"/,
+    'token lexeme extraction must slice from source text at the owner boundary',
+);
+
+assert.match(
+    lexerSrc,
+    /fn\s+lex_ident_or_keyword_token\s+<\(str,i32,i32,i32\)->SelfhostToken>[\s\S]*let\s+lexeme\s+<str>\s+string_slice::str_slice\s+source\s+start\s+end[\s\S]*lex_consume_temp_str\s+lexeme;[\s\S]*lex_token_slice\s+kind\s+source\s+file_id\s+start\s+end/,
+    'identifier keyword classification must consume temporary lexeme strings and store only token ranges',
+);
+
+assert.doesNotMatch(
+    lexerSrc,
+    /selfhost_token_new\s+kind\s+source_span_new\s+file_id\s+start\s+end\s+string_slice::str_slice/,
+    'lexer must not pass owned source slices into SelfhostToken construction',
 );
 
 assert.match(

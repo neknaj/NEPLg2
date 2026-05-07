@@ -22,10 +22,10 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> field::get token "lexeme"
+    let lexeme <str> selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
@@ -36,14 +36,14 @@ fn main <()*>i32> ():
         Result::Ok tokens:
             let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 19 token_len
-            let checks2 check_token checks1 &tokens 0 "DirEntry" "main"
-            let checks3 check_token checks2 &tokens 2 "KwFn" "fn"
-            let checks4 check_token checks3 &tokens 3 "Ident" "main"
-            let checks5 check_token checks4 &tokens 7 "Arrow" "*>"
-            let checks6 check_token checks5 &tokens 14 "Indent" ""
-            let checks7 check_token checks6 &tokens 15 "IntLiteral" "42"
-            let checks8 check_token checks7 &tokens 17 "Dedent" ""
-            let checks9 check_token checks8 &tokens 18 "Eof" ""
+            let checks2 check_token checks1 source &tokens 0 "DirEntry" "main"
+            let checks3 check_token checks2 source &tokens 2 "KwFn" "fn"
+            let checks4 check_token checks3 source &tokens 3 "Ident" "main"
+            let checks5 check_token checks4 source &tokens 7 "Arrow" "*>"
+            let checks6 check_token checks5 source &tokens 14 "Indent" ""
+            let checks7 check_token checks6 source &tokens 15 "IntLiteral" "42"
+            let checks8 check_token checks7 source &tokens 17 "Dedent" ""
+            let checks9 check_token checks8 source &tokens 18 "Eof" ""
             free<SelfhostToken> tokens
             let shown checks_print_report checks9
             checks_exit_code shown
@@ -76,10 +76,10 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> field::get token "lexeme"
+    let lexeme <str> selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
@@ -90,14 +90,14 @@ fn main <()*>i32> ():
         Result::Ok tokens:
             let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 16 token_len
-            let checks2 check_token checks1 &tokens 3 "Indent" ""
-            let checks3 check_token checks2 &tokens 7 "Indent" ""
-            let checks4 check_token checks3 &tokens 8 "Ident" "c"
-            let checks5 check_token checks4 &tokens 10 "Dedent" ""
-            let checks6 check_token checks5 &tokens 11 "Ident" "d"
-            let checks7 check_token checks6 &tokens 13 "Dedent" ""
-            let checks8 check_token checks7 &tokens 14 "Ident" "z"
-            let checks9 check_token checks8 &tokens 15 "Eof" ""
+            let checks2 check_token checks1 source &tokens 3 "Indent" ""
+            let checks3 check_token checks2 source &tokens 7 "Indent" ""
+            let checks4 check_token checks3 source &tokens 8 "Ident" "c"
+            let checks5 check_token checks4 source &tokens 10 "Dedent" ""
+            let checks6 check_token checks5 source &tokens 11 "Ident" "d"
+            let checks7 check_token checks6 source &tokens 13 "Dedent" ""
+            let checks8 check_token checks7 source &tokens 14 "Ident" "z"
+            let checks9 check_token checks8 source &tokens 15 "Eof" ""
             free<SelfhostToken> tokens
             let shown checks_print_report checks9
             checks_exit_code shown
@@ -177,10 +177,10 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> field::get token "lexeme"
+    let lexeme <str> selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
@@ -191,11 +191,11 @@ fn main <()*>i32> ():
         Result::Ok tokens:
             let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 10 token_len
-            let checks2 check_token checks1 &tokens 0 "DirIndentWidth" "#indent 2"
-            let checks3 check_token checks2 &tokens 5 "Indent" ""
-            let checks4 check_token checks3 &tokens 6 "IntLiteral" "1"
-            let checks5 check_token checks4 &tokens 8 "Dedent" ""
-            let checks6 check_token checks5 &tokens 9 "Eof" ""
+            let checks2 check_token checks1 source &tokens 0 "DirIndentWidth" "#indent 2"
+            let checks3 check_token checks2 source &tokens 5 "Indent" ""
+            let checks4 check_token checks3 source &tokens 6 "IntLiteral" "1"
+            let checks5 check_token checks4 source &tokens 8 "Dedent" ""
+            let checks6 check_token checks5 source &tokens 9 "Eof" ""
             free<SelfhostToken> tokens
             let shown checks_print_report checks6
             checks_exit_code shown
@@ -380,16 +380,17 @@ fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
 
 fn main <()*>i32> ():
     let checks0 checks_new
-    match lex_all "'\\n' 'a'":
+    let source <str> "'\\n' 'a'"
+    match lex_all source:
         Result::Ok tokens:
             let t0 <SelfhostToken> token_at &tokens 0
             let t1 <SelfhostToken> token_at &tokens 1
             let checks1:
                 checks0
                 |> checks_push check_str_eq "CharLiteral" token_kind_name field::get t0 "kind"
-                |> checks_push check_str_eq "'\\n'" field::get t0 "lexeme"
+                |> checks_push check_str_eq "'\\n'" selfhost_token_lexeme source t0
                 |> checks_push check_str_eq "CharLiteral" token_kind_name field::get t1 "kind"
-                |> checks_push check_str_eq "'a'" field::get t1 "lexeme"
+                |> checks_push check_str_eq "'a'" selfhost_token_lexeme source t1
             free<SelfhostToken> tokens
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -457,10 +458,10 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> field::get token "lexeme"
+    let lexeme <str> selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
@@ -471,26 +472,26 @@ fn main <()*>i32> ():
         Result::Ok tokens:
             let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 62 token_len
-            let checks2 check_token checks1 &tokens 0 "DirTarget" "#target core"
-            let checks3 check_token checks2 &tokens 2 "DirImport" "#import \"std/test\" as *"
-            let checks4 check_token checks3 &tokens 4 "DirUse" "#use \"std/prelude\""
-            let checks5 check_token checks4 &tokens 6 "DirIfTarget" "#if[target=core]"
-            let checks6 check_token checks5 &tokens 8 "DirIfProfile" "#if[profile=debug]"
-            let checks7 check_token checks6 &tokens 10 "DirCapability" "#capability io"
-            let checks8 check_token checks7 &tokens 12 "DirPrelude" "#prelude \"std/prelude\""
-            let checks9 check_token checks8 &tokens 14 "DirNoPrelude" "#no_prelude"
-            let checks10 check_token checks9 &tokens 16 "DirIntrinsic" "#intrinsic"
-            let checks11 check_token checks10 &tokens 17 "StringLiteral" "\"unreachable\""
-            let checks12 check_token checks11 &tokens 23 "KwFn" "fn"
-            let checks13 check_token checks12 &tokens 28 "Arrow" "->"
-            let checks14 check_token checks13 &tokens 36 "KwLet" "let"
-            let checks15 check_token checks14 &tokens 37 "KwMut" "mut"
-            let checks16 check_token checks15 &tokens 44 "FloatLiteral" "1.5"
-            let checks17 check_token checks16 &tokens 47 "KwIf" "if"
-            let checks18 check_token checks17 &tokens 49 "BoolLiteral" "true"
-            let checks19 check_token checks18 &tokens 56 "PathSep" "::"
-            let checks20 check_token checks19 &tokens 60 "Dedent" ""
-            let checks21 check_token checks20 &tokens 61 "Eof" ""
+            let checks2 check_token checks1 source &tokens 0 "DirTarget" "#target core"
+            let checks3 check_token checks2 source &tokens 2 "DirImport" "#import \"std/test\" as *"
+            let checks4 check_token checks3 source &tokens 4 "DirUse" "#use \"std/prelude\""
+            let checks5 check_token checks4 source &tokens 6 "DirIfTarget" "#if[target=core]"
+            let checks6 check_token checks5 source &tokens 8 "DirIfProfile" "#if[profile=debug]"
+            let checks7 check_token checks6 source &tokens 10 "DirCapability" "#capability io"
+            let checks8 check_token checks7 source &tokens 12 "DirPrelude" "#prelude \"std/prelude\""
+            let checks9 check_token checks8 source &tokens 14 "DirNoPrelude" "#no_prelude"
+            let checks10 check_token checks9 source &tokens 16 "DirIntrinsic" "#intrinsic"
+            let checks11 check_token checks10 source &tokens 17 "StringLiteral" "\"unreachable\""
+            let checks12 check_token checks11 source &tokens 23 "KwFn" "fn"
+            let checks13 check_token checks12 source &tokens 28 "Arrow" "->"
+            let checks14 check_token checks13 source &tokens 36 "KwLet" "let"
+            let checks15 check_token checks14 source &tokens 37 "KwMut" "mut"
+            let checks16 check_token checks15 source &tokens 44 "FloatLiteral" "1.5"
+            let checks17 check_token checks16 source &tokens 47 "KwIf" "if"
+            let checks18 check_token checks17 source &tokens 49 "BoolLiteral" "true"
+            let checks19 check_token checks18 source &tokens 56 "PathSep" "::"
+            let checks20 check_token checks19 source &tokens 60 "Dedent" ""
+            let checks21 check_token checks20 source &tokens 61 "Eof" ""
             free<SelfhostToken> tokens
             let shown checks_print_report checks21
             checks_exit_code shown
@@ -521,10 +522,10 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> field::get token "lexeme"
+    let lexeme <str> selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
@@ -535,10 +536,10 @@ fn main <()*>i32> ():
         Result::Ok tokens:
             let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 7 token_len
-            let checks2 check_token checks1 &tokens 0 "DocComment" "//: module doc"
-            let checks3 check_token checks2 &tokens 2 "DocComment" "/// item doc"
-            let checks4 check_token checks3 &tokens 4 "MlstrLine" "##: text"
-            let checks5 check_token checks4 &tokens 6 "Eof" ""
+            let checks2 check_token checks1 source &tokens 0 "DocComment" "//: module doc"
+            let checks3 check_token checks2 source &tokens 2 "DocComment" "/// item doc"
+            let checks4 check_token checks3 source &tokens 4 "MlstrLine" "##: text"
+            let checks5 check_token checks4 source &tokens 6 "Eof" ""
             free<SelfhostToken> tokens
             let shown checks_print_report checks5
             checks_exit_code shown
@@ -569,10 +570,10 @@ ret: 0
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, tokens, idx, expected_kind, expected_lexeme):
+fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
     let token <SelfhostToken> token_at tokens idx
     let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> field::get token "lexeme"
+    let lexeme <str> selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
@@ -583,15 +584,15 @@ fn main <()*>i32> ():
         Result::Ok tokens:
             let token_len <i32> len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 17 token_len
-            let checks2 check_token checks1 &tokens 4 "DirWasm" "#wasm:"
-            let checks3 check_token checks2 &tokens 6 "Indent" ""
-            let checks4 check_token checks3 &tokens 7 "WasmText" "local.get 0"
-            let checks5 check_token checks4 &tokens 9 "Dedent" ""
-            let checks6 check_token checks5 &tokens 10 "DirLlvmIr" "#llvmir:"
-            let checks7 check_token checks6 &tokens 12 "Indent" ""
-            let checks8 check_token checks7 &tokens 13 "LlvmIrText" "ret i32 0"
-            let checks9 check_token checks8 &tokens 15 "Dedent" ""
-            let checks10 check_token checks9 &tokens 16 "Eof" ""
+            let checks2 check_token checks1 source &tokens 4 "DirWasm" "#wasm:"
+            let checks3 check_token checks2 source &tokens 6 "Indent" ""
+            let checks4 check_token checks3 source &tokens 7 "WasmText" "local.get 0"
+            let checks5 check_token checks4 source &tokens 9 "Dedent" ""
+            let checks6 check_token checks5 source &tokens 10 "DirLlvmIr" "#llvmir:"
+            let checks7 check_token checks6 source &tokens 12 "Indent" ""
+            let checks8 check_token checks7 source &tokens 13 "LlvmIrText" "ret i32 0"
+            let checks9 check_token checks8 source &tokens 15 "Dedent" ""
+            let checks10 check_token checks9 source &tokens 16 "Eof" ""
             free<SelfhostToken> tokens
             let shown checks_print_report checks10
             checks_exit_code shown

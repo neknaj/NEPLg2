@@ -2,12 +2,12 @@
 id: ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE
 title: "Self-host lexer owner flow fails after raw alias timeout fix"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-06
-updated: 2026-05-06
+updated: 2026-05-07
 target: "stdlib/neplg2/core/syntax/lexer.nepl, nepl-core/src/resource"
 ---
 
@@ -15,7 +15,7 @@ target: "stdlib/neplg2/core/syntax/lexer.nepl, nepl-core/src/resource"
 
 ## 概要
 
-After the compiler raw-alias summary no longer times out on an empty lex_all_with_file_id smoke case, Resource IR owner checking reaches lex_all_loop and lex_all_with_file_id and reports resource.owner.maybe_leak for SelfhostToken string/span fields plus resource.owner.use_after_move for the initial indent stack push result. The previous timeout hid these diagnostics.
+After the compiler raw-alias summary no longer times out on an empty lex_all_with_file_id smoke case, Resource IR owner checking reached lex_all_loop and reported owner diagnostics for `SelfhostToken` / `LexDiagnostic` span fields. Investigation split the blocker into two root causes: self-host tokens stored owned lexeme strings in a Copy Vec element, and Resource IR owner summary treated ordinary `i32` aggregate fields as owner leaves.
 
 ## 対象
 
@@ -23,26 +23,38 @@ After the compiler raw-alias summary no longer times out on an empty lex_all_wit
 
 ## 根拠
 
-- `NEPL_COMPILE_STAGE_TIMING=1 cargo run -p nepl-cli -- --stdlib-root stdlib -i tmp/agent1_probe_lex_empty.nepl -o tmp/agent1_probe_lex_empty_out --emit wasm` after `ISS-20260506T203121413Z-COMPILER-STATIC-CHECKER-TIMES-OUT-ON-5B942F4A` no longer timed out.
-- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tmp/agent1_probe_lex_empty.n.md --no-tree -o tmp/agent1_probe_lex_empty_after_seed_gate_wasm.json -j 1 --assert-io` also no longer timed out; it reported compile diagnostics after `compile_ms=37347`.
-- The same run reached `resource_owner_obligations` and reported:
-  - `resource.owner.maybe_leak` in `lex_all_loop__...` for `raw_token` / `token` projections that include `SelfhostToken` span / lexeme fields.
-  - `resource.owner.use_after_move` in `lex_all_with_file_id__...` at the initial `push<i32> stack0 0` result handling.
-  - `resource.owner.maybe_leak` in the empty smoke test `main` for the `LexDiagnostic` owner path.
-- This is a separate blocker from the compiler timeout: the compiler now produces diagnostics within budget, but lexer behavioral doctests still cannot execute.
+- `NEPL_COMPILE_STAGE_TIMING=1 cargo run -p nepl-cli -- --stdlib-root stdlib -i tmp/agent1_probe_lex_empty.nepl -o tmp/agent1_probe_lex_empty_after_token_range_out --emit wasm` after removing token lexeme ownership still failed on `SelfhostToken.span.end` and `LexDiagnostic.span.end`.
+- The remaining diagnostics pointed at `Place { ... ty: TypeId(1) }`, i.e. ordinary `i32`, not an owned allocation. That showed Resource IR owner summary was conflating raw-address owner leaves with plain scalar fields.
+- `SelfhostToken` was also a real stdlib issue: it was `Copy`, stored in `Vec<SelfhostToken>`, and contained `lexeme <str>`. This repeated the owned-payload-in-Copy-Vec pattern fixed earlier for import specs.
 
 ## 問題
 
-After the compiler raw-alias summary no longer times out on an empty lex_all_with_file_id smoke case, Resource IR owner checking reaches lex_all_loop and lex_all_with_file_id and reports resource.owner.maybe_leak for SelfhostToken string/span fields plus resource.owner.use_after_move for the initial indent stack push result. The previous timeout hid these diagnostics.
+`SelfhostToken` mixed a non-owning lexical identity with owned `str` storage, and Resource IR owner summary had an overbroad fallback where `TypeKind::I32` was always an owner leaf. This made ordinary spans and diagnostics look like free obligations and also inflated owner summary work.
 
 ## 影響
 
-Self-host lexer/parser/loader/module graph doctests still cannot run as behavioral CI signal after the compiler timeout is removed. The remaining blocker must be resolved without weakening owner diagnostics, because token lexeme/span string owners and Vec owner transfers are part of the memory-safety contract.
+The empty lexer smoke case and lexer doctests could not compile with strict owner checking. The scalar-owner false positive also risked hiding real memory-safety issues by training later code to add unnecessary ownership workarounds around plain integers.
 
 ## 修正方針
 
-Trace whether the diagnostics are real stdlib owner-transfer bugs or Resource owner summary false positives around Result<Vec<SelfhostToken>,LexDiagnostic>, Vec push failure branches, and Copy token/span fields. Fix the owner transfer model or self-host API shape at the root; do not suppress resource.owner.maybe_leak/use_after_move.
+- `SelfhostToken` を kind/span の range-only token に変更し、lexeme は `selfhost_token_lexeme source token` で消費境界だけ切り出す。
+- lexer の keyword 判定は一時 `str` を使うが、token buffer へ保存せず `lex_consume_temp_str` で境界を閉じる。
+- parser/module item への橋渡しは source を parser loop に渡し、token から必要時に lexeme を復元する。
+- Resource IR owner summary は `MemPtr` leaf / `str` / owner-carrying aggregate だけを通常 owner leaf とし、裸 `i32` は Dealloc/Realloc を実際に扱う raw owner function の parameter seed に限定する。
+- 古い「裸 i32 identity helper が raw owner を暗黙に転送する」テストは、技術的負債として逆向きの仕様へ更新した。
 
 ## 検証
 
-Run the empty lex_all_with_file_id smoke case and tests/stdlib/neplg2_lexer.n.md under the default timeout; require compile and runtime pass without resource.owner.maybe_leak or resource.owner.use_after_move. Then rerun parser module_parser, loader, and graph focused doctests.
+- `cargo fmt -p nepl-core --check`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_does_not_treat_plain_i32_identity_as_owner_return -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_does_not_treat_bool_parameters_as_owners -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_does_not_treat_plain_i32_struct_fields_as_owners -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_mem_ptr_dealloc_consumption -- --nocapture`: passed
+- `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed
+- `NEPL_COMPILE_STAGE_TIMING=1 cargo run -p nepl-cli -- --stdlib-root stdlib -i tmp/agent1_probe_lex_empty.nepl -o tmp/agent1_probe_lex_empty_after_final_out --emit wasm`: passed。`resource_owner_obligations` は約 1.4s、`resource_static_check` は約 16.5s。
+- `trunk build`: passed
+- `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i tmp/agent1_probe_lex_empty.n.md --no-tree --dist web/dist -o tmp/agent1_probe_lex_empty_after_range_dist.json -j 1 --assert-io`: passed
+- `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree --dist web/dist -o tmp/neplg2_lexer_range_only_tokens_after_dist.json -j 1 --assert-io`: passed, 13/13
+- `node nodesrc/issues.js check`: passed
