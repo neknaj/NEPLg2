@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T15:09:14.511Z",
+  "generated_at": "2026-05-07T15:12:43.440Z",
   "counts": {
-    "total": 595,
-    "open": 12,
+    "total": 596,
+    "open": 13,
     "resolved": 583,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 297
       },
       "selfhost": {
-        "total": 52,
-        "open": 2,
+        "total": 53,
+        "open": 3,
         "resolved": 50
       },
       "stdlib": {
@@ -258,6 +258,21 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
+    },
+    {
+      "id": "ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B",
+      "title": "Selfhost lexer raw modes and directives bypass enum match coverage",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib/neplg2_lexer.n.md, nodesrc/test_selfhost_lexer_rust_parity.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
