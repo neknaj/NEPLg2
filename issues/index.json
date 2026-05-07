@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T02:20:54.387Z",
+  "generated_at": "2026-05-07T02:28:02.395Z",
   "counts": {
     "total": 554,
-    "open": 12,
-    "resolved": 542,
+    "open": 11,
+    "resolved": 543,
     "by_area": {
       "core": {
         "total": 275,
@@ -18,8 +18,8 @@
       },
       "TEST": {
         "total": 12,
-        "open": 2,
-        "resolved": 10
+        "open": 1,
+        "resolved": 11
       },
       "selfhost": {
         "total": 51,
@@ -208,21 +208,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260507T015824839Z-SORT-RAW-POINTER-DOCTESTS-BYPASS-CUR-41C19268",
-      "title": "sort raw pointer doctests bypass current Resource IR owner and effect contract",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "tests/stdlib/sort.n.md; stdlib/alloc/collections/vec/sort/common.nepl; stdlib/alloc/collections/vec/sort/merge.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T015824839Z-SORT-RAW-POINTER-DOCTESTS-BYPASS-CUR-41C19268.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -6448,6 +6433,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T015042055Z-MOVE-EFFECT-FIELD-GET-FIXTURES-STILL-F9F8D1C4.md"
+    },
+    {
+      "id": "ISS-20260507T015824839Z-SORT-RAW-POINTER-DOCTESTS-BYPASS-CUR-41C19268",
+      "title": "sort raw pointer doctests bypass current Resource IR owner and effect contract",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "tests/stdlib/sort.n.md; stdlib/alloc/collections/vec/sort/common.nepl; stdlib/alloc/collections/vec/sort/merge.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T015824839Z-SORT-RAW-POINTER-DOCTESTS-BYPASS-CUR-41C19268.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

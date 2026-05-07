@@ -1,3 +1,11 @@
+# 2026-05-07 note (ISS-20260507T015824839Z sort raw pointer doctest contract)
+
+- branch `fix/sort-raw-pointer-fixtures` で `tests/stdlib/sort.n.md` の `sort_i32` pointer doctest 5 件を現行 Resource IR の owner/effect/initialized-cell contract に合わせて修正した。
+- 直接 `alloc_ptr` / helper 経由 `store_i32` / raw `load_i32` / `dealloc_raw` を行う fixture をやめ、`Vec<i32>` の `new` / `with_capacity` / `push` で初期化済み storage を作り、`data_mem_ptr<i32> &v` を `sort_i32` に渡す形にした。
+- 検証は `Vec` の `get`、解放は `free<i32> v` に寄せたため、pointer API の検証を残しつつ raw memory owner obligation と initialized-cell proof は `Vec` に集約される。
+- `node nodesrc/tests.js -i tests/stdlib/sort.n.md --no-tree -o tmp/sort-raw-pointer-fixtures-after-final.json -j 1 --dist web/dist`: total=22, passed=22。
+- `node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`: passed。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 Vec storage/types/access split)
 
 - branch `refactor/vec-storage-module-split` で `stdlib/alloc/collections/vec.nepl` の型定義、storage allocation/deallocation、read-only observer を submodule へ分離した。
@@ -8,7 +16,7 @@
 - root `stdlib/alloc/collections/vec.nepl` は `types` を public re-export し、`storage` / `access` へ薄い wrapper で委譲する。`#import "alloc/collections/vec" as v` の `v::new` / `v::len` などは維持しつつ、実装本体は submodule が所有する。
 - `nepl-core/src/loader.rs` の exact raw-memory boundary を `vec/storage.nepl`, `vec/access.nepl`, `vec/types.nepl`, `vec/sort/common.nepl`, `vec/sort/merge.nepl` に追従させた。fresh `trunk build` 後の `Vec` focused doctest で root/submodule import は通過した。
 - `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_vec_borrowed_observers.js` を更新し、Vec root に型/storage/access 実装本体が戻らないこと、root wrapper が submodule へ委譲すること、loader raw-memory boundary が exact path に追従することを固定した。
-- 追加確認で `tests/stdlib/sort.n.md::doctest#18-#22` が現在の Resource IR/effect gate とずれていることを確認し、`ISS-20260507T015824839Z-SORT-RAW-POINTER-DOCTESTS-BYPASS-CUR-41C19268` を追加した。追加時点で Discord に直接報告し、commit `9eade86a` として branch push 済み。
+- 追加確認で `tests/stdlib/sort.n.md::doctest#18-#22` が現在の Resource IR/effect gate とずれていることを確認し、`ISS-20260507T015824839Z-SORT-RAW-POINTER-DOCTESTS-BYPASS-CUR-41C19268` を追加した。追加時点で Discord に直接報告し、rebase 後の commit `208e30e1` として main 反映済み。
 - `tests/stdlib/sort.n.md` の full suite 失敗は今回の Vec storage/access split の回帰ではなく、sort raw pointer fixture の owner/effect contract issue として分離した。
 
 # 2026-05-07 note (ISS-20260429T155343006Z List typed Vec storage)

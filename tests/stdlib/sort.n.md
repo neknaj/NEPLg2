@@ -518,35 +518,34 @@ ret: 1234
 #entry main
 #indent 4
 #target core
+#import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 
-fn put_i32 <(MemPtr<i32>,i32,i32)->()> (p, off, value):
-    unwrap_ok store_i32 mem_ptr_add<i32> p off value
-
-fn read_i32_or_zero <(MemPtr<i32>,i32)->i32> (p, off):
-    match load_i32 mem_ptr_add<i32> p off:
+fn check_at <(&Vec<i32>,i32,i32)->bool> (v, idx, expected):
+    match get<i32> v idx:
         Option::Some value:
-            value
+            eq value expected
         Option::None:
-            0
+            false
 
-fn main <()->i32> ():
-    let p <MemPtr<i32>> unwrap_ok alloc_ptr<i32> 16;
-    put_i32 p 0 4;
-    put_i32 p 4 1;
-    put_i32 p 8 3;
-    put_i32 p 12 2;
+fn main <()*>i32> ():
+    let v0 <Vec<i32>> unwrap_ok new<i32>;
+    let v1 <Vec<i32>> unwrap_ok push<i32> v0 4;
+    let v2 <Vec<i32>> unwrap_ok push<i32> v1 1;
+    let v3 <Vec<i32>> unwrap_ok push<i32> v2 3;
+    let v4 <Vec<i32>> unwrap_ok push<i32> v3 2;
+    let p <MemPtr<i32>> data_mem_ptr<i32> &v4;
     sort_i32 p 4;
-    let b0 <bool> eq read_i32_or_zero p 0 1;
-    let b1 <bool> eq read_i32_or_zero p 4 2;
-    let b2 <bool> eq read_i32_or_zero p 8 3;
-    let b3 <bool> eq read_i32_or_zero p 12 4;
+    let b0 <bool> check_at &v4 0 1;
+    let b1 <bool> check_at &v4 1 2;
+    let b2 <bool> check_at &v4 2 3;
+    let b3 <bool> check_at &v4 3 4;
     let ok <bool> and b0 and b1 and b2 b3;
-    dealloc_raw mem_ptr_addr p 16;
+    free<i32> v4;
     if ok 1234 0
 ```
 
@@ -558,37 +557,36 @@ ret: 2234
 #entry main
 #indent 4
 #target core
+#import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 
-fn put_i32 <(MemPtr<i32>,i32,i32)->()> (p, off, value):
-    unwrap_ok store_i32 mem_ptr_add<i32> p off value
-
-fn read_i32_or_zero <(MemPtr<i32>,i32)->i32> (p, off):
-    match load_i32 mem_ptr_add<i32> p off:
+fn check_at <(&Vec<i32>,i32,i32)->bool> (v, idx, expected):
+    match get<i32> v idx:
         Option::Some value:
-            value
+            eq value expected
         Option::None:
-            0
+            false
 
-fn main <()->i32> ():
-    let p <MemPtr<i32>> unwrap_ok alloc_ptr<i32> 20;
-    put_i32 p 0 3;
-    put_i32 p 4 1;
-    put_i32 p 8 3;
-    put_i32 p 12 2;
-    put_i32 p 16 1;
+fn main <()*>i32> ():
+    let v0 <Vec<i32>> unwrap_ok new<i32>;
+    let v1 <Vec<i32>> unwrap_ok push<i32> v0 3;
+    let v2 <Vec<i32>> unwrap_ok push<i32> v1 1;
+    let v3 <Vec<i32>> unwrap_ok push<i32> v2 3;
+    let v4 <Vec<i32>> unwrap_ok push<i32> v3 2;
+    let v5 <Vec<i32>> unwrap_ok push<i32> v4 1;
+    let p <MemPtr<i32>> data_mem_ptr<i32> &v5;
     sort_i32 p 5;
-    let b0 <bool> eq read_i32_or_zero p 0 1;
-    let b1 <bool> eq read_i32_or_zero p 4 1;
-    let b2 <bool> eq read_i32_or_zero p 8 2;
-    let b3 <bool> eq read_i32_or_zero p 12 3;
-    let b4 <bool> eq read_i32_or_zero p 16 3;
+    let b0 <bool> check_at &v5 0 1;
+    let b1 <bool> check_at &v5 1 1;
+    let b2 <bool> check_at &v5 2 2;
+    let b3 <bool> check_at &v5 3 3;
+    let b4 <bool> check_at &v5 4 3;
     let ok <bool> and b0 and b1 and b2 and b3 b4;
-    dealloc_raw mem_ptr_addr p 20;
+    free<i32> v5;
     if ok 2234 0
 ```
 
@@ -600,37 +598,36 @@ ret: 3234
 #entry main
 #indent 4
 #target core
+#import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 
-fn put_i32 <(MemPtr<i32>,i32,i32)->()> (p, off, value):
-    unwrap_ok store_i32 mem_ptr_add<i32> p off value
-
-fn read_i32_or_zero <(MemPtr<i32>,i32)->i32> (p, off):
-    match load_i32 mem_ptr_add<i32> p off:
+fn check_at <(&Vec<i32>,i32,i32)->bool> (v, idx, expected):
+    match get<i32> v idx:
         Option::Some value:
-            value
+            eq value expected
         Option::None:
-            0
+            false
 
-fn main <()->i32> ():
-    let p <MemPtr<i32>> unwrap_ok alloc_ptr<i32> 20;
-    put_i32 p 0 -2;
-    put_i32 p 4 5;
-    put_i32 p 8 0;
-    put_i32 p 12 -1;
-    put_i32 p 16 3;
+fn main <()*>i32> ():
+    let v0 <Vec<i32>> unwrap_ok new<i32>;
+    let v1 <Vec<i32>> unwrap_ok push<i32> v0 -2;
+    let v2 <Vec<i32>> unwrap_ok push<i32> v1 5;
+    let v3 <Vec<i32>> unwrap_ok push<i32> v2 0;
+    let v4 <Vec<i32>> unwrap_ok push<i32> v3 -1;
+    let v5 <Vec<i32>> unwrap_ok push<i32> v4 3;
+    let p <MemPtr<i32>> data_mem_ptr<i32> &v5;
     sort_i32 p 5;
-    let b0 <bool> eq read_i32_or_zero p 0 -2;
-    let b1 <bool> eq read_i32_or_zero p 4 -1;
-    let b2 <bool> eq read_i32_or_zero p 8 0;
-    let b3 <bool> eq read_i32_or_zero p 12 3;
-    let b4 <bool> eq read_i32_or_zero p 16 5;
+    let b0 <bool> check_at &v5 0 -2;
+    let b1 <bool> check_at &v5 1 -1;
+    let b2 <bool> check_at &v5 2 0;
+    let b3 <bool> check_at &v5 3 3;
+    let b4 <bool> check_at &v5 4 5;
     let ok <bool> and b0 and b1 and b2 and b3 b4;
-    dealloc_raw mem_ptr_addr p 20;
+    free<i32> v5;
     if ok 3234 0
 ```
 
@@ -642,15 +639,17 @@ ret: 4234
 #entry main
 #indent 4
 #target core
+#import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
-    let p <MemPtr<i32>> unwrap_ok alloc_ptr<i32> 4;
+fn main <()*>i32> ():
+    let v <Vec<i32>> unwrap_ok with_capacity<i32> 0;
+    let p <MemPtr<i32>> data_mem_ptr<i32> &v;
     sort_i32 p 0;
-    dealloc_raw mem_ptr_addr p 4;
+    free<i32> v;
     4234
 ```
 
@@ -662,21 +661,23 @@ ret: 5234
 #entry main
 #indent 4
 #target core
+#import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
-    let p <MemPtr<i32>> unwrap_ok alloc_ptr<i32> 4;
-    unwrap_ok store_i32 p 7;
+fn main <()*>i32> ():
+    let v0 <Vec<i32>> unwrap_ok new<i32>;
+    let v1 <Vec<i32>> unwrap_ok push<i32> v0 7;
+    let p <MemPtr<i32>> data_mem_ptr<i32> &v1;
     sort_i32 p 1;
-    let ok <bool> match load_i32 p:
+    let ok <bool> match get<i32> &v1 0:
         Option::Some value:
             eq value 7
         Option::None:
             false
-    dealloc_raw mem_ptr_addr p 4;
+    free<i32> v1;
     if ok 5234 0
 ```
