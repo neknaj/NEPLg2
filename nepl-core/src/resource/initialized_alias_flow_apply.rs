@@ -136,6 +136,21 @@ fn substitute_summary_projection_offsets(
                 }
                 projection.clone()
             }
+            PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic { place, scale }) => {
+                let actual = substitute_summary_place(place, summary, args);
+                if let Some(actual) = actual {
+                    if let Some(value) = raw_aliases.i32_value(&actual) {
+                        return PlaceProjection::StorageOffset(resource_offset_from_scaled_i32(
+                            value, *scale,
+                        ));
+                    }
+                    return PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic {
+                        place: Box::new(actual),
+                        scale: *scale,
+                    });
+                }
+                projection.clone()
+            }
             _ => projection.clone(),
         })
         .collect()
@@ -159,6 +174,16 @@ fn substitute_summary_place(
 
 fn resource_offset_from_i32(value: i32) -> ResourceOffset {
     usize::try_from(value)
+        .map(ResourceOffset::Known)
+        .unwrap_or(ResourceOffset::Unknown)
+}
+
+fn resource_offset_from_scaled_i32(value: i32, scale: usize) -> ResourceOffset {
+    let Ok(value) = usize::try_from(value) else {
+        return ResourceOffset::Unknown;
+    };
+    value
+        .checked_mul(scale)
         .map(ResourceOffset::Known)
         .unwrap_or(ResourceOffset::Unknown)
 }

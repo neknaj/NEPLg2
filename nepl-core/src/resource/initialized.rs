@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
+use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
@@ -404,6 +405,8 @@ impl ResourceCheckEngine<'_> {
                         raw_aliases.clear(output);
                         pending_reallocs.clear_result(output);
                         variant_initializations.clear_result(output);
+                    } else {
+                        self.record_i32_scale_result(raw_aliases, target, output, args);
                     }
                     pending_reallocs.clear_result(output);
                 }
@@ -588,6 +591,26 @@ impl ResourceCheckEngine<'_> {
         )
     }
 
+    fn record_i32_scale_result(
+        &self,
+        raw_aliases: &mut RawCellAddressAliases,
+        target: &ResourceCallTarget,
+        output: &Place,
+        args: &[Place],
+    ) {
+        if resource_call_target_base_name(target) != Some("mul") {
+            return;
+        }
+        let [left, right] = args else {
+            return;
+        };
+        if let Some(scale) = positive_i32_value_as_usize(raw_aliases, left) {
+            raw_aliases.add_i32_scale(right, output, scale);
+        } else if let Some(scale) = positive_i32_value_as_usize(raw_aliases, right) {
+            raw_aliases.add_i32_scale(left, output, scale);
+        }
+    }
+
     fn apply_indirect_call_return_raw_alias(
         &self,
         raw_aliases: &mut RawCellAddressAliases,
@@ -658,4 +681,64 @@ fn merge_deferred(target: &mut ResourceCheckDeferred, source: ResourceCheckDefer
     target.branch_merges += source.branch_merges;
     target.loop_merges += source.loop_merges;
     target.match_merges += source.match_merges;
+}
+
+fn resource_call_target_base_name(target: &ResourceCallTarget) -> Option<&str> {
+    match target {
+        ResourceCallTarget::Builtin { name } | ResourceCallTarget::User { name, .. } => {
+            Some(helper_base_name(name))
+        }
+        ResourceCallTarget::Trait { method, .. } => Some(helper_base_name(method)),
+    }
+}
+
+fn positive_i32_value_as_usize(
+    raw_aliases: &RawCellAddressAliases,
+    place: &Place,
+) -> Option<usize> {
+    let value = raw_aliases.i32_value(place)?;
+    usize::try_from(value).ok().filter(|value| *value > 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::string::String;
+
+    use super::super::model::ResourceId;
+
+    #[test]
+    fn records_i32_scale_result_for_mangled_mul_call() {
+        let types = TypeCtx::new();
+        let raw_alias_summaries = Vec::new();
+        let raw_init_summaries = Vec::new();
+        let engine = ResourceCheckEngine {
+            function: "test",
+            types: &types,
+            raw_alias_summaries: &raw_alias_summaries,
+            raw_init_summaries: &raw_init_summaries,
+            diagnostics: Vec::new(),
+            auto_drop_points: Vec::new(),
+            deferred: ResourceCheckDeferred::default(),
+        };
+        let source = Place::local(String::from("i"), types.i32());
+        let source_read = Place::temporary(ResourceId(1), types.i32());
+        let constant = Place::temporary(ResourceId(2), types.i32());
+        let output = Place::temporary(ResourceId(3), types.i32());
+        let mut raw_aliases = RawCellAddressAliases::default();
+
+        raw_aliases.copy_alias_if_tracked(&source, &source_read);
+        raw_aliases.set_i32_value(&constant, 4);
+        engine.record_i32_scale_result(
+            &mut raw_aliases,
+            &ResourceCallTarget::User {
+                name: String::from("mul__i32_i32__i32__pure"),
+                type_args: Vec::new(),
+            },
+            &output,
+            &[source_read, constant],
+        );
+
+        assert_eq!(raw_aliases.i32_scaled_source(&output), Some((source, 4)));
+    }
 }

@@ -521,7 +521,10 @@ pub(super) fn place_suffix_after_address_prefix(
         }
         if matches!(
             prefix_projection,
-            PlaceProjection::StorageOffset(super::model::ResourceOffset::Symbolic { .. })
+            PlaceProjection::StorageOffset(
+                super::model::ResourceOffset::Symbolic { .. }
+                    | super::model::ResourceOffset::ScaledSymbolic { .. }
+            )
         ) && !matches!(
             place.projections.get(place_index),
             Some(PlaceProjection::StorageOffset(_))
@@ -616,7 +619,9 @@ fn resource_offsets_may_overlap(
         (super::model::ResourceOffset::Unknown, _)
         | (_, super::model::ResourceOffset::Unknown)
         | (super::model::ResourceOffset::Symbolic { .. }, _)
-        | (_, super::model::ResourceOffset::Symbolic { .. }) => true,
+        | (_, super::model::ResourceOffset::Symbolic { .. })
+        | (super::model::ResourceOffset::ScaledSymbolic { .. }, _)
+        | (_, super::model::ResourceOffset::ScaledSymbolic { .. }) => true,
     }
 }
 

@@ -251,3 +251,39 @@ returned raw header のうち、byte-level initialized range を `return_byte_ra
 - `cargo check -p nepl-core --tests`: passed
 
 この親 issue は引き続き open とする。今回の対応で returned header の pointer field / len field / guarded byte load は安全に表現できるようになったが、`fd_read` loop / realloc / capacity field / `fill_i32` の element-size scaled range を一体で扱う dependent range model はまだ残っている。
+
+## 2026-05-07 fill_i32 element-size scaled range 部分対応
+
+`fill_i32` の initialized range を、byte fill と同じ unknown-offset Copy fact へ戻さず、要素数と要素 stride を持つ typed initialized range として表現した。
+
+実装した内容:
+
+- `InitializedRawByteRange` に `unit` を追加し、`Bytes` と `Elements { stride }` を区別する。
+- `fill_u8` / `memset_u8` は byte count の `Bytes` range、`fill_i32` は element count と `storage_size_bytes(value.ty)` の stride を持つ `Elements` range として記録する。
+- `mul i 4` のような positive constant scale を `I32ScaleFacts` として保存し、local read / copy / move / branch merge / summary projection をまたいで伝播する。
+- scale source は stable value origin へ正規化してから衝突判定するため、`%i`、一時 read、local copy が同じ論理 source を指す場合は false conflict にしない。一方で別 source の scale fact が混在した場合は `None` にして安全側へ倒す。
+- `load_i32 add p off` は、`off` が `i * stride` と証明され、かつ `0 <= i` と `i < len` が Resource IR relation fact から証明できる場合だけ initialized とみなす。guard のない symbolic scaled load は引き続き `resource.cell.uninit` で拒否する。
+
+追加した回帰:
+
+- `resource_ir_cell_check_word_fill_requires_guard_for_scaled_symbolic_load`
+- `resource_ir_cell_check_word_fill_accepts_scaled_symbolic_load_with_range_guard`
+- `resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads`
+- `resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads`
+- `i32_scale_facts_follow_stable_value_copies`
+- `i32_relation_facts_match_stable_value_origin_copies`
+- `records_i32_scale_result_for_mangled_mul_call`
+- `element_range_accepts_guarded_scaled_symbolic_offset`
+
+確認結果:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_word_fill_accepts_scaled_symbolic_load_with_range_guard -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_word_fill_requires_guard_for_scaled_symbolic_load -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads -- --nocapture`: passed
+- `cargo test -p nepl-core i32_scale -- --nocapture`: passed
+- `cargo test -p nepl-core element_range_accepts_guarded_scaled_symbolic_offset -- --nocapture`: passed
+- `cargo test -p nepl-core i32_relation_facts_match_stable_value_origin_copies -- --nocapture`: passed
+- `cargo check -p nepl-core --tests`: passed
+
+この親 issue は引き続き open とする。今回の対応で `fill_i32` の element-size scaled range は guard 付き dynamic load へ接続できたが、`fd_read` loop / realloc / capacity field をまたぐ returned header の dependent range summary 全体はまだ残る。

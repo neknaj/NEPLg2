@@ -35,6 +35,17 @@
 - `integer.nepl` は 581 行、`integer/common.nepl` は 481 行になった。numeric conversion の parse/format 分離は今後の分割対象として残る。
 - focused doctest は common 2/2、integer 1/1、root `alloc/string` 1/1、既存 string suite 9/9 が通過した。
 
+# 2026-05-07 note (ISS-20260430T012045983Z fill_i32 element range summary)
+
+- branch `fix/resource-element-fill-range-summary` で、`fill_i32` の initialized range を element count と element stride を持つ typed range として表現した。
+- `InitializedRawByteRange` は `Bytes` と `Elements { stride }` を区別し、`fill_u8` / `memset_u8` は byte range、`fill_i32` は `storage_size_bytes(value.ty)` に基づく element range として記録する。
+- `mul i 4` のような positive constant scale を `I32ScaleFacts` として保存し、local read / copy / move / branch merge / returned summary projection をまたいで伝播する。
+- scale source は stable value origin へ正規化してから衝突判定するため、`%i`、一時 read、local copy が同じ論理 source を指す場合は false conflict にしない。別 source が混在する場合は安全側に `None` として扱う。
+- `load_i32 add p off` は、`off = i * stride` と `0 <= i` / `i < len` が Resource IR state から証明された場合だけ initialized とみなす。guard のない symbolic scaled load は `resource.cell.uninit` のまま拒否する。
+- 既存の dynamic fill 回帰は、静的検査の正確性に合わせて guard を明示する形に更新した。RawMemoryLoadCell の strictness は緩めていない。
+- 検証は `resource_ir_cell_check_word_fill_accepts_scaled_symbolic_load_with_range_guard`、`resource_ir_cell_check_word_fill_requires_guard_for_scaled_symbolic_load`、dynamic fill 既存 2 件、`cargo test -p nepl-core i32_scale -- --nocapture`、`element_range_accepts_guarded_scaled_symbolic_offset`、`i32_relation_facts_match_stable_value_origin_copies`、`cargo check -p nepl-core --tests` が通過した。
+- 親 issue は引き続き open。残件は `fd_read` loop / realloc / capacity field をまたぐ returned header の dependent range summary 全体である。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 Vec mutation/query facade split)
 
 - branch `refactor/vec-mutation-query-facade` で `stdlib/alloc/collections/vec.nepl` に残っていた基本 mutation / cleanup と `get` を submodule へ分離した。

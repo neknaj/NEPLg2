@@ -110,6 +110,7 @@ pub(super) fn collect_return_initialized_raw_byte_ranges(
                         address_ty: *address_ty,
                         count_suffix: count_suffix.clone(),
                         count_ty: *count_ty,
+                        unit: range.unit(),
                         ty: range.ty(),
                     },
                 );
