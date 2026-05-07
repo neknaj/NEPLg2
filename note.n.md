@@ -34866,3 +34866,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/agent1-selfhost-lexer-raw-mode-enum.json -j 1 --dist web/dist`: 13/13 passed。初回 300 秒 timeout は 10/13 passed の進行中で、各 compile が約 39 秒かかるため timeout 設定不足だった。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-08 Agent 2 Zed extension build artifact tracking 修正
+
+- `ISS-20260507T153515441Z-ZED-EXTENSION-BUILD-ARTIFACTS-ARE-TR-B7D814F1` として、`editors/zed/target` 配下の Cargo build artifact が 940 件 tracked source として混入していた問題を修正した。
+- 原因は `.gitignore` の意図とは別に、既に index に入った生成物が残り続けていたこと。`git rm -r --cached -- editors/zed/target` で tracked artifact をすべて index から外し、作業用 target directory は local ignored output として扱うようにした。
+- `editors/zed/.gitignore` は `/target/` に整理し、Zed extension の build output を directory 単位で ignore する。
+- `nodesrc/test_zed_extension_no_tracked_target.js` を追加し、`git ls-files editors/zed/target` が空であることと、`editors/zed/target/...` が `git check-ignore` で ignore されることを source policy regression で固定した。
+- [検証]:
+  - `node nodesrc/test_zed_extension_no_tracked_target.js`: passed
+  - `git ls-files -- editors/zed/target`: 0 files
+  - `cargo check` (`editors/zed`): passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

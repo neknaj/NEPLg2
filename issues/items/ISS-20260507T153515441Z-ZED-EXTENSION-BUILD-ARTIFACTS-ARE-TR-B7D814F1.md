@@ -2,12 +2,12 @@
 id: ISS-20260507T153515441Z-ZED-EXTENSION-BUILD-ARTIFACTS-ARE-TR-B7D814F1
 title: "Zed extension build artifacts are tracked in git"
 area: tools
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: maintenance
 created: 2026-05-07
-updated: 2026-05-07
+updated: 2026-05-08
 target: "editors/zed/target, editors/zed/.gitignore"
 ---
 
@@ -40,3 +40,15 @@ Remove editors/zed/target from git, add a scoped ignore rule for the Zed extensi
 ## 検証
 
 git ls-files editors/zed/target returns no files. Building the Zed extension recreates target/ as ignored output. Source review file lists no longer include generated Cargo artifacts.
+
+## 解決内容
+
+- `editors/zed/target` 配下の tracked Cargo build artifact を git index から削除した。
+- `editors/zed/.gitignore` を `/target/` に整理し、Zed extension ローカル build output を directory 単位で ignore するようにした。
+- `nodesrc/test_zed_extension_no_tracked_target.js` を追加し、`git ls-files editors/zed/target` が空であることと `editors/zed/target/...` が ignore されることを source policy regression で監視する。
+
+## 解決確認
+
+- `node nodesrc/test_zed_extension_no_tracked_target.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `node nodesrc/issues.js check`

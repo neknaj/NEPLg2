@@ -127,6 +127,7 @@ const checks = [
     "nodesrc/test_stdlib_stdio_read_boundary.js",
     "nodesrc/test_stdlib_streamio_scanner_boundary.js",
     "nodesrc/test_stdlib_streamio_writer_boundary.js",
+    "nodesrc/test_zed_extension_no_tracked_target.js",
 ];
 
 let failures = 0;
