@@ -24,6 +24,6 @@
 
 #indent 4
 
-pub #import "./i64/arith" as *
-pub #import "./i64/bitwise" as *
-pub #import "./i64/compare" as *
+pub #import "./i64/arith" as @merge
+pub #import "./i64/bitwise" as @merge
+pub #import "./i64/compare" as @merge

@@ -31,5 +31,5 @@
 
 #indent 4
 
-pub #import "./u8/arith" as *
-pub #import "./u8/compare" as *
+pub #import "./u8/arith" as @merge
+pub #import "./u8/compare" as @merge

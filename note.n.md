@@ -34925,3 +34925,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-08 Agent 2 getting_started tutorial doctest / core math facade 修正
+
+- `ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153` として、getting_started tutorial の doctest failure 2 件を修正した。
+- `15_move_and_borrow.n.md` は旧診断 `resource.move.use_moved` を期待していたが、現行 ResourceIR は use-after-move を `resource.cell.moved` として報告するため、compile_fail の期待診断を現行診断へ更新した。
+- `17_imports_and_modules.n.md` の `math::add` / `math::mul` 失敗は tutorial の alias 例そのものではなく、`core/math` facade 群が `pub #import ... as *` のままで qualified alias target expansion に乗っていないことが原因だった。`stdlib/core/math` 配下の public re-export facade を `as @merge` に揃え、`#import "core/math" as math` で再 export 先の関数を qualified 参照できるようにした。
+- `tests/stdlib/math.n.md` に `core/math` qualified alias の回帰テストを追加した。
+- [検証]:
+  - `node nodesrc/tests.js -i tutorials/getting_started/15_move_and_borrow.n.md -i tutorials/getting_started/17_imports_and_modules.n.md --no-tree -o tmp/getting-started-focused-after.json -j 1`: 2/2 passed
+  - `node nodesrc/tests.js -i tutorials/getting_started --no-tree -o tmp/getting-started-all-after.json -j 4`: 24/24 passed
+  - `node nodesrc/tests.js -i tests/stdlib/math.n.md --no-tree -o tmp/math-qualified-facade.json -j 1`: 6/6 passed
+  - `node nodesrc/tests.js -i stdlib/core/math.nepl -i stdlib/core/math --no-tree -o tmp/stdlib-core-math-facade-after.json -j 4`: 59/59 passed
+  - `node nodesrc/test_tutorial_getting_started_current_style.js`: passed
+  - `node nodesrc/test_stdlib_math_module_split.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

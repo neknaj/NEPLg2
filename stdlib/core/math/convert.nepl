@@ -19,9 +19,9 @@
 //: ```
 
 #indent 4
-pub #import "./convert/width" as *
-pub #import "./convert/float" as *
-pub #import "./convert/reinterpret" as *
+pub #import "./convert/width" as @merge
+pub #import "./convert/float" as @merge
+pub #import "./convert/reinterpret" as @merge
 
 //: extend_s: 符号拡張を行う
 //:

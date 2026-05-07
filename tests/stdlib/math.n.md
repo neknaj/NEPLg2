@@ -17,6 +17,20 @@ fn main <()->i32> ():
     add c -37
 ```
 
+## math_facade_qualified_alias_reexports_i32_arith
+
+neplg2:test
+ret: 19
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/math" as math
+
+fn main <()->i32> ():
+    math::add math::add 3 4 math::mul 3 4
+```
+
 ## math_i64_overload_add_sub_mul
 
 neplg2:test

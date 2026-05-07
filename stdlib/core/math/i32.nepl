@@ -22,6 +22,6 @@
 
 #indent 4
 
-pub #import "./i32/arith" as *
-pub #import "./i32/bitwise" as *
-pub #import "./i32/compare" as *
+pub #import "./i32/arith" as @merge
+pub #import "./i32/bitwise" as @merge
+pub #import "./i32/compare" as @merge

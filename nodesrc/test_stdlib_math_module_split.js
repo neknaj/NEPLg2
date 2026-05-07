@@ -53,56 +53,56 @@ const boolModule = read("stdlib/core/math/bool.nepl");
 
 assert.match(
     facade,
-    /pub\s+#import\s+"\.\/math\/i32"\s+as\s+\*/,
+    /pub\s+#import\s+"\.\/math\/i32"\s+as\s+@merge/,
     "core/math.nepl must re-export the i32 math submodule",
 );
 assert.match(
     facade,
-    /pub\s+#import\s+"\.\/math\/i64"\s+as\s+\*/,
+    /pub\s+#import\s+"\.\/math\/i64"\s+as\s+@merge/,
     "core/math.nepl must re-export the i64 math submodule",
 );
 assert.match(
     facade,
-    /pub\s+#import\s+"\.\/math\/f32"\s+as\s+\*/,
+    /pub\s+#import\s+"\.\/math\/f32"\s+as\s+@merge/,
     "core/math.nepl must re-export the f32 math submodule",
 );
 assert.match(
     facade,
-    /pub\s+#import\s+"\.\/math\/f64"\s+as\s+\*/,
+    /pub\s+#import\s+"\.\/math\/f64"\s+as\s+@merge/,
     "core/math.nepl must re-export the f64 math submodule",
 );
 assert.match(
     facade,
-    /pub\s+#import\s+"\.\/math\/convert"\s+as\s+\*/,
+    /pub\s+#import\s+"\.\/math\/convert"\s+as\s+@merge/,
     "core/math.nepl must re-export the conversion math submodule",
 );
 assert.match(
     facade,
-    /pub\s+#import\s+"\.\/math\/u8"\s+as\s+\*/,
+    /pub\s+#import\s+"\.\/math\/u8"\s+as\s+@merge/,
     "core/math.nepl must re-export the u8 math submodule",
 );
 assert.match(
     facade,
-    /pub\s+#import\s+"\.\/math\/bool"\s+as\s+\*/,
+    /pub\s+#import\s+"\.\/math\/bool"\s+as\s+@merge/,
     "core/math.nepl must re-export the bool math submodule",
 );
 assert.match(
     facade,
-    /pub\s+#import\s+"\.\/math\/int128"\s+as\s+\*/,
+    /pub\s+#import\s+"\.\/math\/int128"\s+as\s+@merge/,
     "core/math.nepl must re-export the 128-bit integer math submodule",
 );
 for (const [moduleName, pattern] of [
-    ["width", /pub\s+#import\s+"\.\/convert\/width"\s+as\s+\*/],
-    ["float", /pub\s+#import\s+"\.\/convert\/float"\s+as\s+\*/],
-    ["reinterpret", /pub\s+#import\s+"\.\/convert\/reinterpret"\s+as\s+\*/],
+    ["width", /pub\s+#import\s+"\.\/convert\/width"\s+as\s+@merge/],
+    ["float", /pub\s+#import\s+"\.\/convert\/float"\s+as\s+@merge/],
+    ["reinterpret", /pub\s+#import\s+"\.\/convert\/reinterpret"\s+as\s+@merge/],
 ]) {
     assert.match(convertModule, pattern, `core/math/convert.nepl must re-export the ${moduleName} conversion submodule`);
 }
 for (const [moduleName, pattern] of [
-    ["int_to_float", /pub\s+#import\s+"\.\/float\/int_to_float"\s+as\s+\*/],
-    ["float_to_i32", /pub\s+#import\s+"\.\/float\/float_to_i32"\s+as\s+\*/],
-    ["float_to_i64", /pub\s+#import\s+"\.\/float\/float_to_i64"\s+as\s+\*/],
-    ["float_width", /pub\s+#import\s+"\.\/float\/float_width"\s+as\s+\*/],
+    ["int_to_float", /pub\s+#import\s+"\.\/float\/int_to_float"\s+as\s+@merge/],
+    ["float_to_i32", /pub\s+#import\s+"\.\/float\/float_to_i32"\s+as\s+@merge/],
+    ["float_to_i64", /pub\s+#import\s+"\.\/float\/float_to_i64"\s+as\s+@merge/],
+    ["float_width", /pub\s+#import\s+"\.\/float\/float_width"\s+as\s+@merge/],
 ]) {
     assert.match(convertFloatModule, pattern, `core/math/convert/float.nepl must re-export the ${moduleName} conversion submodule`);
 }
@@ -118,9 +118,9 @@ for (const [relPath, src, maxLines] of [
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 for (const [moduleName, pattern] of [
-    ["types", /pub\s+#import\s+"\.\/int128\/types"\s+as\s+\*/],
-    ["u128", /pub\s+#import\s+"\.\/int128\/u128"\s+as\s+\*/],
-    ["i128", /pub\s+#import\s+"\.\/int128\/i128"\s+as\s+\*/],
+    ["types", /pub\s+#import\s+"\.\/int128\/types"\s+as\s+@merge/],
+    ["u128", /pub\s+#import\s+"\.\/int128\/u128"\s+as\s+@merge/],
+    ["i128", /pub\s+#import\s+"\.\/int128\/i128"\s+as\s+@merge/],
 ]) {
     assert.match(int128Module, pattern, `core/math/int128.nepl must re-export the ${moduleName} int128 submodule`);
 }
@@ -148,9 +148,9 @@ for (const [relPath, src, maxLines] of [
 }
 
 for (const [moduleName, pattern] of [
-    ["arith", /pub\s+#import\s+"\.\/i32\/arith"\s+as\s+\*/],
-    ["bitwise", /pub\s+#import\s+"\.\/i32\/bitwise"\s+as\s+\*/],
-    ["compare", /pub\s+#import\s+"\.\/i32\/compare"\s+as\s+\*/],
+    ["arith", /pub\s+#import\s+"\.\/i32\/arith"\s+as\s+@merge/],
+    ["bitwise", /pub\s+#import\s+"\.\/i32\/bitwise"\s+as\s+@merge/],
+    ["compare", /pub\s+#import\s+"\.\/i32\/compare"\s+as\s+@merge/],
 ]) {
     assert.match(i32Module, pattern, `core/math/i32.nepl must re-export the ${moduleName} i32 submodule`);
 }
@@ -168,17 +168,17 @@ for (const [relPath, src, maxLines] of [
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 for (const [moduleName, pattern] of [
-    ["binary", /pub\s+#import\s+"\.\/bitwise\/binary"\s+as\s+\*/],
-    ["shift", /pub\s+#import\s+"\.\/bitwise\/shift"\s+as\s+\*/],
-    ["count", /pub\s+#import\s+"\.\/bitwise\/count"\s+as\s+\*/],
+    ["binary", /pub\s+#import\s+"\.\/bitwise\/binary"\s+as\s+@merge/],
+    ["shift", /pub\s+#import\s+"\.\/bitwise\/shift"\s+as\s+@merge/],
+    ["count", /pub\s+#import\s+"\.\/bitwise\/count"\s+as\s+@merge/],
 ]) {
     assert.match(i32BitwiseModule, pattern, `core/math/i32/bitwise.nepl must re-export the ${moduleName} i32 bitwise submodule`);
 }
 assert.doesNotMatch(i32BitwiseModule, /^fn\s+/m, "core/math/i32/bitwise.nepl must remain a facade without function bodies");
 for (const [moduleName, pattern] of [
-    ["arith", /pub\s+#import\s+"\.\/i64\/arith"\s+as\s+\*/],
-    ["bitwise", /pub\s+#import\s+"\.\/i64\/bitwise"\s+as\s+\*/],
-    ["compare", /pub\s+#import\s+"\.\/i64\/compare"\s+as\s+\*/],
+    ["arith", /pub\s+#import\s+"\.\/i64\/arith"\s+as\s+@merge/],
+    ["bitwise", /pub\s+#import\s+"\.\/i64\/bitwise"\s+as\s+@merge/],
+    ["compare", /pub\s+#import\s+"\.\/i64\/compare"\s+as\s+@merge/],
 ]) {
     assert.match(i64Module, pattern, `core/math/i64.nepl must re-export the ${moduleName} i64 submodule`);
 }
@@ -196,17 +196,17 @@ for (const [relPath, src, maxLines] of [
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 for (const [moduleName, pattern] of [
-    ["binary", /pub\s+#import\s+"\.\/bitwise\/binary"\s+as\s+\*/],
-    ["shift", /pub\s+#import\s+"\.\/bitwise\/shift"\s+as\s+\*/],
-    ["count", /pub\s+#import\s+"\.\/bitwise\/count"\s+as\s+\*/],
+    ["binary", /pub\s+#import\s+"\.\/bitwise\/binary"\s+as\s+@merge/],
+    ["shift", /pub\s+#import\s+"\.\/bitwise\/shift"\s+as\s+@merge/],
+    ["count", /pub\s+#import\s+"\.\/bitwise\/count"\s+as\s+@merge/],
 ]) {
     assert.match(i64BitwiseModule, pattern, `core/math/i64/bitwise.nepl must re-export the ${moduleName} i64 bitwise submodule`);
 }
 assert.doesNotMatch(i64BitwiseModule, /^fn\s+/m, "core/math/i64/bitwise.nepl must remain a facade without function bodies");
 for (const [moduleName, pattern] of [
-    ["binary", /pub\s+#import\s+"\.\/f32\/binary"\s+as\s+\*/],
-    ["unary", /pub\s+#import\s+"\.\/f32\/unary"\s+as\s+\*/],
-    ["compare", /pub\s+#import\s+"\.\/f32\/compare"\s+as\s+\*/],
+    ["binary", /pub\s+#import\s+"\.\/f32\/binary"\s+as\s+@merge/],
+    ["unary", /pub\s+#import\s+"\.\/f32\/unary"\s+as\s+@merge/],
+    ["compare", /pub\s+#import\s+"\.\/f32\/compare"\s+as\s+@merge/],
 ]) {
     assert.match(f32Module, pattern, `core/math/f32.nepl must re-export the ${moduleName} f32 submodule`);
 }
@@ -221,9 +221,9 @@ for (const [relPath, src, maxLines] of [
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
 }
 for (const [moduleName, pattern] of [
-    ["binary", /pub\s+#import\s+"\.\/f64\/binary"\s+as\s+\*/],
-    ["unary", /pub\s+#import\s+"\.\/f64\/unary"\s+as\s+\*/],
-    ["compare", /pub\s+#import\s+"\.\/f64\/compare"\s+as\s+\*/],
+    ["binary", /pub\s+#import\s+"\.\/f64\/binary"\s+as\s+@merge/],
+    ["unary", /pub\s+#import\s+"\.\/f64\/unary"\s+as\s+@merge/],
+    ["compare", /pub\s+#import\s+"\.\/f64\/compare"\s+as\s+@merge/],
 ]) {
     assert.match(f64Module, pattern, `core/math/f64.nepl must re-export the ${moduleName} f64 submodule`);
 }
@@ -239,8 +239,8 @@ for (const [relPath, src, maxLines] of [
 }
 
 for (const [moduleName, pattern] of [
-    ["arith", /pub\s+#import\s+"\.\/u8\/arith"\s+as\s+\*/],
-    ["compare", /pub\s+#import\s+"\.\/u8\/compare"\s+as\s+\*/],
+    ["arith", /pub\s+#import\s+"\.\/u8\/arith"\s+as\s+@merge/],
+    ["compare", /pub\s+#import\s+"\.\/u8\/compare"\s+as\s+@merge/],
 ]) {
     assert.match(u8Module, pattern, `core/math/u8.nepl must re-export the ${moduleName} u8 submodule`);
 }

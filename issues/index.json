@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T17:18:25.057Z",
+  "generated_at": "2026-05-07T17:24:10.548Z",
   "counts": {
     "total": 610,
-    "open": 13,
-    "resolved": 597,
+    "open": 12,
+    "resolved": 598,
     "by_area": {
       "core": {
         "total": 303,
@@ -20,11 +20,6 @@
         "total": 17,
         "open": 2,
         "resolved": 15
-      },
-      "tutorials": {
-        "total": 2,
-        "open": 1,
-        "resolved": 1
       },
       "examples": {
         "total": 17,
@@ -85,6 +80,11 @@
         "total": 5,
         "open": 0,
         "resolved": 5
+      },
+      "tutorials": {
+        "total": 2,
+        "open": 0,
+        "resolved": 2
       },
       "web": {
         "total": 1,
@@ -233,21 +233,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9.md"
-    },
-    {
-      "id": "ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153",
-      "title": "getting_started tutorial doctests fail on current main",
-      "area": "tutorials",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "tutorials/getting_started/15_move_and_borrow.n.md, tutorials/getting_started/17_imports_and_modules.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153.md"
     },
     {
       "id": "ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895",
@@ -7193,6 +7178,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T105015762Z-BTREE-ARRAY-COST-FIXTURES-STILL-CALL-51BA8332.md"
+    },
+    {
+      "id": "ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153",
+      "title": "getting_started tutorial doctests fail on current main",
+      "area": "tutorials",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "tutorials/getting_started/15_move_and_borrow.n.md, tutorials/getting_started/17_imports_and_modules.n.md, stdlib/core/math*.nepl, tests/stdlib/math.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

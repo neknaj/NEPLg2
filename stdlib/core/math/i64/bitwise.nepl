@@ -24,6 +24,6 @@
 
 #indent 4
 
-pub #import "./bitwise/binary" as *
-pub #import "./bitwise/shift" as *
-pub #import "./bitwise/count" as *
+pub #import "./bitwise/binary" as @merge
+pub #import "./bitwise/shift" as @merge
+pub #import "./bitwise/count" as @merge

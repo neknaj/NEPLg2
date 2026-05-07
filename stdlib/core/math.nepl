@@ -3,6 +3,7 @@
 //: [目的/もくてき]:
 //: - このモジュールの公開 API を提供します。
 //: - 実装の変更時に最小限の doctest 実行経路を維持します。
+//: - `as @merge` により `#import "core/math" as math` の qualified API でも再 export 先の関数を参照できます。
 //:
 //: [注意/ちゅうい]:
 //: - 利用時は各関数の「目的」「注意」「計算量」を確認してください。
@@ -17,11 +18,11 @@
 //: ```
 
 #indent 4
-pub #import "./math/i32" as *
-pub #import "./math/i64" as *
-pub #import "./math/f32" as *
-pub #import "./math/f64" as *
-pub #import "./math/convert" as *
-pub #import "./math/u8" as *
-pub #import "./math/bool" as *
-pub #import "./math/int128" as *
+pub #import "./math/i32" as @merge
+pub #import "./math/i64" as @merge
+pub #import "./math/f32" as @merge
+pub #import "./math/f64" as @merge
+pub #import "./math/convert" as @merge
+pub #import "./math/u8" as @merge
+pub #import "./math/bool" as @merge
+pub #import "./math/int128" as @merge

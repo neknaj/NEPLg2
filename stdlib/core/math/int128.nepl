@@ -23,6 +23,6 @@
 
 #indent 4
 
-pub #import "./int128/types" as *
-pub #import "./int128/u128" as *
-pub #import "./int128/i128" as *
+pub #import "./int128/types" as @merge
+pub #import "./int128/u128" as @merge
+pub #import "./int128/i128" as @merge

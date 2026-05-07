@@ -21,6 +21,6 @@
 
 #indent 4
 
-pub #import "./f32/binary" as *
-pub #import "./f32/unary" as *
-pub #import "./f32/compare" as *
+pub #import "./f32/binary" as @merge
+pub #import "./f32/unary" as @merge
+pub #import "./f32/compare" as @merge
