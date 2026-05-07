@@ -9,16 +9,25 @@ const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/alloc/string.nepl';
 const integerRelPath = 'stdlib/alloc/string/integer.nepl';
 const commonRelPath = 'stdlib/alloc/string/integer/common.nepl';
+const commonBoolRelPath = 'stdlib/alloc/string/integer/common/bool.nepl';
+const commonRadixRelPath = 'stdlib/alloc/string/integer/common/radix.nepl';
+const commonU128RelPath = 'stdlib/alloc/string/integer/common/u128.nepl';
 const formatRelPath = 'stdlib/alloc/string/integer/format.nepl';
 const parseRelPath = 'stdlib/alloc/string/integer/parse.nepl';
 const rootSrc = fs.readFileSync(path.join(repoRoot, rootRelPath), 'utf8');
 const integerSrc = fs.readFileSync(path.join(repoRoot, integerRelPath), 'utf8');
 const commonSrc = fs.readFileSync(path.join(repoRoot, commonRelPath), 'utf8');
+const commonBoolSrc = fs.readFileSync(path.join(repoRoot, commonBoolRelPath), 'utf8');
+const commonRadixSrc = fs.readFileSync(path.join(repoRoot, commonRadixRelPath), 'utf8');
+const commonU128Src = fs.readFileSync(path.join(repoRoot, commonU128RelPath), 'utf8');
 const formatSrc = fs.readFileSync(path.join(repoRoot, formatRelPath), 'utf8');
 const parseSrc = fs.readFileSync(path.join(repoRoot, parseRelPath), 'utf8');
 const rootCode = stripNeplComments(rootSrc);
 const integerCode = stripNeplComments(integerSrc);
 const commonCode = stripNeplComments(commonSrc);
+const commonBoolCode = stripNeplComments(commonBoolSrc);
+const commonRadixCode = stripNeplComments(commonRadixSrc);
+const commonU128Code = stripNeplComments(commonU128Src);
 const formatCode = stripNeplComments(formatSrc);
 const parseCode = stripNeplComments(parseSrc);
 const loaderSrc = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
@@ -27,6 +36,9 @@ assert.match(rootSrc, /pub #import "\.\/string\/integer" as \*/, 'alloc/string f
 assert.match(integerSrc, /pub #import "\.\/integer\/common" as \*/, 'string/integer must re-export integer/common helpers');
 assert.match(integerSrc, /pub #import "\.\/integer\/format" as \*/, 'string/integer must re-export integer/format APIs');
 assert.match(integerSrc, /pub #import "\.\/integer\/parse" as \*/, 'string/integer must re-export integer/parse APIs');
+assert.match(commonSrc, /pub #import "\.\/common\/bool" as \*/, 'string/integer/common facade must re-export bool helpers');
+assert.match(commonSrc, /pub #import "\.\/common\/radix" as \*/, 'string/integer/common facade must re-export radix helpers');
+assert.match(commonSrc, /pub #import "\.\/common\/u128" as \*/, 'string/integer/common facade must re-export u128 helpers');
 
 for (const importPath of [
     'alloc/string/storage',
@@ -45,18 +57,45 @@ for (const importPath of [
 for (const name of [
     'from_bool',
     'to_bool',
+]) {
+    assert.doesNotMatch(rootCode, new RegExp(`fn\\s+${name}\\b`), `${rootRelPath} must not own ${name}`);
+    assert.doesNotMatch(integerCode, new RegExp(`fn\\s+${name}\\b`), `${integerRelPath} must not own common helper ${name}`);
+    assert.doesNotMatch(commonCode, new RegExp(`fn\\s+${name}\\b`), `${commonRelPath} facade must not own common helper ${name}`);
+    assert.match(commonBoolCode, new RegExp(`fn\\s+${name}\\b`), `${commonBoolRelPath} must own ${name}`);
+    assert.doesNotMatch(commonRadixCode, new RegExp(`fn\\s+${name}\\b`), `${commonRadixRelPath} must not own bool helper ${name}`);
+    assert.doesNotMatch(commonU128Code, new RegExp(`fn\\s+${name}\\b`), `${commonU128RelPath} must not own bool helper ${name}`);
+    assert.doesNotMatch(formatCode, new RegExp(`fn\\s+${name}\\b`), `${formatRelPath} must not own common helper ${name}`);
+    assert.doesNotMatch(parseCode, new RegExp(`fn\\s+${name}\\b`), `${parseRelPath} must not own common helper ${name}`);
+}
+
+for (const name of [
     'digit_to_char_lower',
     'digit_from_char',
     'validate_radix',
+]) {
+    assert.doesNotMatch(rootCode, new RegExp(`fn\\s+${name}\\b`), `${rootRelPath} must not own ${name}`);
+    assert.doesNotMatch(integerCode, new RegExp(`fn\\s+${name}\\b`), `${integerRelPath} must not own common helper ${name}`);
+    assert.doesNotMatch(commonCode, new RegExp(`fn\\s+${name}\\b`), `${commonRelPath} facade must not own common helper ${name}`);
+    assert.doesNotMatch(commonBoolCode, new RegExp(`fn\\s+${name}\\b`), `${commonBoolRelPath} must not own radix helper ${name}`);
+    assert.match(commonRadixCode, new RegExp(`fn\\s+${name}\\b`), `${commonRadixRelPath} must own ${name}`);
+    assert.doesNotMatch(commonU128Code, new RegExp(`fn\\s+${name}\\b`), `${commonU128RelPath} must not own radix helper ${name}`);
+    assert.doesNotMatch(formatCode, new RegExp(`fn\\s+${name}\\b`), `${formatRelPath} must not own common helper ${name}`);
+    assert.doesNotMatch(parseCode, new RegExp(`fn\\s+${name}\\b`), `${parseRelPath} must not own common helper ${name}`);
+}
+
+for (const name of [
     'u128_zero',
     'u128_divrem_small',
     'u128_can_mul_add_small',
 ]) {
     assert.doesNotMatch(rootCode, new RegExp(`fn\\s+${name}\\b`), `${rootRelPath} must not own ${name}`);
     assert.doesNotMatch(integerCode, new RegExp(`fn\\s+${name}\\b`), `${integerRelPath} must not own common helper ${name}`);
+    assert.doesNotMatch(commonCode, new RegExp(`fn\\s+${name}\\b`), `${commonRelPath} facade must not own common helper ${name}`);
+    assert.doesNotMatch(commonBoolCode, new RegExp(`fn\\s+${name}\\b`), `${commonBoolRelPath} must not own u128 helper ${name}`);
+    assert.doesNotMatch(commonRadixCode, new RegExp(`fn\\s+${name}\\b`), `${commonRadixRelPath} must not own u128 helper ${name}`);
+    assert.match(commonU128Code, new RegExp(`fn\\s+${name}\\b`), `${commonU128RelPath} must own ${name}`);
     assert.doesNotMatch(formatCode, new RegExp(`fn\\s+${name}\\b`), `${formatRelPath} must not own common helper ${name}`);
     assert.doesNotMatch(parseCode, new RegExp(`fn\\s+${name}\\b`), `${parseRelPath} must not own common helper ${name}`);
-    assert.match(commonCode, new RegExp(`fn\\s+${name}\\b`), `${commonRelPath} must own ${name}`);
 }
 
 for (const name of [
@@ -86,7 +125,8 @@ for (const name of [
 ]) {
     assert.doesNotMatch(rootCode, new RegExp(`struct\\s+${name}\\b`), `${rootRelPath} must not own ${name}`);
     assert.doesNotMatch(integerCode, new RegExp(`struct\\s+${name}\\b`), `${integerRelPath} must not own common helper struct ${name}`);
-    assert.match(commonCode, new RegExp(`struct\\s+${name}\\b`), `${commonRelPath} must own ${name}`);
+    assert.doesNotMatch(commonCode, new RegExp(`struct\\s+${name}\\b`), `${commonRelPath} facade must not own common helper struct ${name}`);
+    assert.match(commonU128Code, new RegExp(`struct\\s+${name}\\b`), `${commonU128RelPath} must own ${name}`);
 }
 
 assert.doesNotMatch(
@@ -105,7 +145,11 @@ assert.match(
     'u128 parsing must keep overflow checks before multiply-add',
 );
 assert.ok(integerSrc.split(/\r?\n/).length <= 80, `${integerRelPath} should stay within the public integer facade boundary`);
-assert.ok(commonSrc.split(/\r?\n/).length <= 500, `${commonRelPath} should stay within the common helper boundary`);
+assert.doesNotMatch(commonCode, /\b(?:fn|struct|enum)\s+/, `${commonRelPath} must stay as a small common facade`);
+assert.ok(commonSrc.split(/\r?\n/).length <= 40, `${commonRelPath} should stay within the common facade boundary`);
+assert.ok(commonBoolSrc.split(/\r?\n/).length <= 120, `${commonBoolRelPath} should stay within the bool helper boundary`);
+assert.ok(commonRadixSrc.split(/\r?\n/).length <= 120, `${commonRadixRelPath} should stay within the radix helper boundary`);
+assert.ok(commonU128Src.split(/\r?\n/).length <= 330, `${commonU128RelPath} should stay within the u128 helper boundary`);
 assert.ok(formatSrc.split(/\r?\n/).length <= 300, `${formatRelPath} should stay within the format boundary`);
 assert.ok(parseSrc.split(/\r?\n/).length <= 380, `${parseRelPath} should stay within the parse boundary`);
 assert.ok(

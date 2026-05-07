@@ -10,6 +10,30 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string integer common bool/radix/u128 split)
+
+- branch `refactor/string-integer-common-helper-split` で、`stdlib/alloc/string/integer/common.nepl` を facade 化し、bool 変換、digit/radix、u128/i128 helper を submodule へ分離した。
+- `stdlib/alloc/string/integer/common/bool.nepl` は `from_bool` / `to_bool` と `str_eq` 依存だけを所有する。
+- `stdlib/alloc/string/integer/common/radix.nepl` は `digit_to_char_lower` / `digit_from_char` / `validate_radix` を所有する。
+- `stdlib/alloc/string/integer/common/u128.nepl` は `U128DivRem`、u128/i128 bit reinterpretation、small multiply/add/divrem、overflow 判定を所有する。
+- root `common.nepl` は public re-export のみになり、`format.nepl` / `parse.nepl` は従来どおり `./common` import で helper を使える。
+- `nodesrc/test_stdlib_string_integer_boundary.js` を更新し、common facade に helper body が戻らないこと、bool/radix/u128 の所有 module、line count boundary を固定した。
+- line count は `common.nepl` 15、`common/bool.nepl` 97、`common/radix.nepl` 89、`common/u128.nepl` 291。
+- [検証]:
+  - `node nodesrc/test_stdlib_string_integer_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/string/integer/common.nepl -i stdlib/alloc/string/integer/common/bool.nepl -i stdlib/alloc/string/integer/common/radix.nepl -i stdlib/alloc/string/integer/common/u128.nepl --no-tree -o tmp/string-integer-common-helper-split-common.json -j 1 --dist web/dist`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib/alloc/string/integer/format.nepl -i stdlib/alloc/string/integer/parse.nepl -i stdlib/alloc/string/integer.nepl -i stdlib/alloc/string.nepl --no-tree -o tmp/string-integer-common-helper-split-integer.json -j 1 --dist web/dist`: total=4, passed=4
+  - `node nodesrc/tests.js -i stdlib/tests/string.n.md -i tests/stdlib/string_extra.n.md --no-tree -o tmp/string-integer-common-helper-split-suite.json -j 1 --dist web/dist`: total=9, passed=9
+  - `node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_string_facade_boundary.js`: passed
+  - `node nodesrc/test_stdlib_string_doc_no_boilerplate.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`core/mem.nepl`、selfhost compiler の巨大 file、`nm/parser` などの分割対象は残る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T092629164Z Stack primary borrowed observers)
 
 - branch `fix/stack-primary-borrowed-observers` で、Stack が by-value observer と `*_ref` observer を重複して持っていた問題を修正した。

@@ -1,0 +1,89 @@
+//: # string/integer/common/radix
+//: digit と radix の分類 helper
+//:
+//: [目的/もくてき]:
+//: - integer format / parse の 1 digit 変換と基数検証を[集約/しゅうやく]します。
+//: - 128-bit arithmetic helper と分け、文字分類の責務を小さく保ちます。
+
+#indent 4
+
+#import "core/result" as *
+#import "core/math" as *
+
+//: digit_to_char_lower: 0..15 の数値を小文字 16 進数字へ変換する
+//:
+//: [目的/もくてき]:
+//: - 基数変換で得た 1 桁分の値を、`0-9` または `a-f` の 1 文字へ変換します。
+//:
+//: [実装/じっそう]:
+//: - `v < 10` のときは `'0' + v` を返します。
+//: - それ以外は `'a' + (v - 10)` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - 呼び出し側は `0 <= v < 16` を満たす値だけを渡す必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn digit_to_char_lower <(i32)->i32> (v):
+    if:
+        lt v 10
+        then:
+            add '0' v
+        else:
+            add 'a' sub v 10
+
+//: digit_from_char: 1 文字を数値へ変換する
+//:
+//: [目的/もくてき]:
+//: - `0-9`、`a-f`、`A-F` を数値 0..15 へ変換します。
+//: - 基数付きの文字列解析で各文字の意味を判定する時に使います。
+//:
+//: [実装/じっそう]:
+//: - ASCII 範囲を順に判定し、対応する値へ写像します。
+//: - 数字でも英字でもない場合は `Result::Err 1` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - 返る値が基数未満かどうかの判定は、この関数ではなく呼び出し側が行います。
+//: - 英字は大小どちらも受理します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn digit_from_char <(i32)->Result<i32,i32>> (ch):
+    if:
+        and ge ch '0' le ch '9'
+        then:
+            Result::Ok<i32,i32> sub ch '0'
+        else:
+            if:
+                and ge ch 'a' le ch 'f'
+                then:
+                    Result::Ok<i32,i32> add 10 sub ch 'a'
+                else:
+                    if:
+                        and ge ch 'A' le ch 'F'
+                        then:
+                            Result::Ok<i32,i32> add 10 sub ch 'A'
+                        else:
+                            Result::Err<i32,i32> 1
+
+//: validate_radix: 文字列変換で使える基数かを判定する
+//:
+//: [目的/もくてき]:
+//: - 2 / 8 / 10 / 16 のみを受理し、それ以外の基数を早期に弾きます。
+//:
+//: [実装/じっそう]:
+//: - 許可された 4 値との等値比較だけで判定します。
+//:
+//: [注意/ちゅうい]:
+//: - 現在の文字列変換 API は NEPLg2 の標準的な整数リテラル系に合わせ、2 / 8 / 10 / 16 に限定します。
+//: - それ以外の基数を使いたい場合は、この関数と対応する doctest を拡張してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn validate_radix <(i32)->Result<i32,i32>> (radix):
+    if:
+        or or eq radix 2 eq radix 8 or eq radix 10 eq radix 16
+        then:
+            Result::Ok<i32,i32> radix
+        else:
+            Result::Err<i32,i32> 1

@@ -1,0 +1,291 @@
+//: # string/integer/common/u128
+//: u128 / i128 の補助演算 helper
+//:
+//: [目的/もくてき]:
+//: - integer format / parse が共有する 128-bit 補助演算を[集約/しゅうやく]します。
+//: - digit/radix の文字分類とは分け、long division と overflow 判定を監査しやすくします。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/cast" as *
+#import "core/field" as *
+
+//: U128DivRem: u128 の小基数除算の結果
+struct U128DivRem:
+    quotient <u128>
+    remainder <i32>
+
+//: u128_zero: 0 の u128 値を返す
+//:
+//: [目的/もくてき]:
+//: - u128 補助関数群で共通して使う 0 値を作ります。
+//:
+//: [実装/じっそう]:
+//: - hi / lo の両方を 0 にした `u128` を直接構築します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn u128_zero <()->u128> ():
+    u128 <i64> cast 0 <i64> cast 0
+
+//: u128_max: u128 の最大値を返す
+//:
+//: [目的/もくてき]:
+//: - 文字列解析で `res * radix + digit` が表現域を超えないかを調べる上限値として使います。
+//:
+//: [実装/じっそう]:
+//: - hi / lo の両方を全ビット 1 にした `u128` を直接構築します。
+//:
+//: [注意/ちゅうい]:
+//: - `i64` field 上では -1 と見えますが、ここでは符号なし 64-bit word として扱います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn u128_max <()->u128> ():
+    u128 <i64> cast -1 <i64> cast -1
+
+//: u128_is_zero: u128 が 0 かを判定する
+//:
+//: [目的/もくてき]:
+//: - 桁生成や解析で `u128` の終了条件を判定します。
+//:
+//: [実装/じっそう]:
+//: - hi / lo の両方が 0 かを確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn u128_is_zero <(u128)->bool> (v):
+    and eq get v "hi" <i64> cast 0 eq get v "lo" <i64> cast 0
+
+//: u128_from_i128_bits: i128 のビット列をそのまま u128 として見る
+//:
+//: [目的/もくてき]:
+//: - 符号付き i128 の内部表現を、同じ 128-bit 幅の符号なし値として扱います。
+//:
+//: [注意/ちゅうい]:
+//: - 数値変換ではなくビット列の再解釈です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn u128_from_i128_bits <(i128)->u128> (v):
+    u128 get v "hi" get v "lo"
+
+//: i128_from_u128_bits: u128 のビット列をそのまま i128 として見る
+//:
+//: [目的/もくてき]:
+//: - 符号なし u128 の内部表現を、同じ 128-bit 幅の符号付き値として扱います。
+//:
+//: [注意/ちゅうい]:
+//: - 数値変換ではなくビット列の再解釈です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn i128_from_u128_bits <(u128)->i128> (v):
+    i128 get v "hi" get v "lo"
+
+//: i128_is_negative: i128 が負数かを判定する
+//:
+//: [目的/もくてき]:
+//: - 文字列表現で負号を付けるべきかを判定します。
+//:
+//: [実装/じっそう]:
+//: - 上位 64-bit の符号だけを見ます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn i128_is_negative <(i128)->bool> (v):
+    lt get v "hi" <i64> cast 0
+
+//: i128_neg: i128 の符号を反転する
+//:
+//: [目的/もくてき]:
+//: - 符号付き文字列化で絶対値を求める前段として使います。
+//:
+//: [実装/じっそう]:
+//: - `0 - v` を `i128` 演算で行います。
+//:
+//: [注意/ちゅうい]:
+//: - 最小値も 2 の補数 mod 2^128 で反転します。ビット列としてはそのまま絶対値の大きさに使えます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn i128_neg <(i128)->i128> (v):
+    sub <i128> cast 0 v
+
+//: i128_abs_u128: i128 の絶対値を u128 として返す
+//:
+//: [目的/もくてき]:
+//: - 符号付き整数の文字列表現生成を、符号処理と magnitude 処理に分離します。
+//:
+//: [実装/じっそう]:
+//: - 非負ならそのまま、負なら `i128_neg` したビット列を `u128` として返します。
+//:
+//: [注意/ちゅうい]:
+//: - `i128` 最小値でも `u128` の大きさとして正しく扱えます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn i128_abs_u128 <(i128)->u128> (v):
+    if:
+        i128_is_negative v
+        then:
+            u128_from_i128_bits i128_neg v
+        else:
+            u128_from_i128_bits v
+
+//: u128_get_bit: u128 の指定ビットを取り出す
+//:
+//: [目的/もくてき]:
+//: - 小基数除算の long division で、上位ビットから順に 1bit ずつ読むために使います。
+//:
+//: [実装/じっそう]:
+//: - idx が 64 以上か未満かで hi / lo を切り替え、右シフト後の最下位ビットを読みます。
+//:
+//: [注意/ちゅうい]:
+//: - `0 <= idx < 128` を呼び出し側が守る前提です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn u128_get_bit <(u128,i32)->i32> (v, idx):
+    if:
+        ge idx 64
+        then:
+            let shifted <i64> shr_u get v "hi" <i64> cast sub idx 64;
+            let bit64 <i64> and shifted <i64> cast 1;
+            <i32> cast bit64
+        else:
+            let shifted <i64> shr_u get v "lo" <i64> cast idx;
+            let bit64 <i64> and shifted <i64> cast 1;
+            <i32> cast bit64
+
+//: u128_set_bit: u128 の指定ビットを 1 にする
+//:
+//: [目的/もくてき]:
+//: - 小基数除算で求めた商のビットを立てます。
+//:
+//: [実装/じっそう]:
+//: - idx に対応する mask を作り、hi または lo に `or` します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn u128_set_bit <(u128,i32)->u128> (v, idx):
+    if:
+        ge idx 64
+        then:
+            let mask <i64> shl <i64> cast 1 <i64> cast sub idx 64;
+            u128 or get v "hi" mask get v "lo"
+        else:
+            let mask <i64> shl <i64> cast 1 <i64> cast idx;
+            u128 get v "hi" or get v "lo" mask
+
+//: u128_add_small: u128 に小さい非負整数を加える
+//:
+//: [目的/もくてき]:
+//: - 基数付き解析で `res = res * radix + digit` を構成する末尾加算に使います。
+//:
+//: [実装/じっそう]:
+//: - `digit` を `u128` に持ち上げて通常の `u128 add` に渡します。
+//:
+//: [注意/ちゅうい]:
+//: - `digit` は 0..15 の範囲を前提にしています。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn u128_add_small <(u128,i32)->u128> (v, digit):
+    add v to_u128 <i64> cast digit
+
+//: u128_mul_small: u128 に小さい非負整数を掛ける
+//:
+//: [目的/もくてき]:
+//: - 文字列解析で基数倍を行うための補助です。
+//:
+//: [実装/じっそう]:
+//: - 二進法の繰り返し加算で `v * factor` を作ります。
+//: - factor は 2 / 8 / 10 / 16 のいずれかなので、回数は定数で抑えられます。
+//:
+//: [注意/ちゅうい]:
+//: - この関数自体は `u128` 演算に従ってラップします。
+//: - 解析用途では呼び出し前に `u128_can_mul_add_small` で上限確認してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(log factor) だが factor は固定小定数なので実質 O(1)
+fn u128_mul_small <(u128,i32)->u128> (v, factor):
+    let mut out <u128> u128_zero;
+    let mut base <u128> v;
+    let mut n <i32> factor;
+    while gt n 0:
+        do:
+            if:
+                ne and n 1 0
+                then:
+                    set out add out base;
+                else:
+                    ();
+            set base add base base;
+            set n shr_u n 1;
+    out
+
+//: u128_divrem_small: u128 を小さい正基数で割った商と余りを返す
+//:
+//: [目的/もくてき]:
+//: - `u128` の文字列表現生成で、下位 1 桁ずつを取り出します。
+//:
+//: [実装/じっそう]:
+//: - 128bit の long division を上位ビットから順に行います。
+//: - 余りは `i32` に収まるので、各段階では `rem = rem * 2 + bit` を更新します。
+//:
+//: [注意/ちゅうい]:
+//: - radix は 2 / 8 / 10 / 16 を前提にしています。
+//: - 商は `u128`、余りは 0..radix-1 の `i32` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(128) = O(1)
+fn u128_divrem_small <(u128,i32)->U128DivRem> (v, radix):
+    let mut q <u128> u128_zero;
+    let mut rem <i32> 0;
+    let mut idx <i32> 127;
+    while ge idx 0:
+        do:
+            let bit <i32> u128_get_bit v idx;
+            let shifted_rem <i32> shl rem 1;
+            set rem add shifted_rem bit;
+            if:
+                ge rem radix
+                then:
+                    set rem sub rem radix;
+                    set q u128_set_bit q idx;
+                else:
+                    ();
+            set idx sub idx 1;
+    U128DivRem q rem
+
+//: u128_can_mul_add_small: `v * radix + digit` が u128 に収まるかを判定する
+//:
+//: [目的/もくてき]:
+//: - 数値文字列の解析で、演算がラップする前に範囲外入力を `Result::Err` へ変換します。
+//:
+//: [実装/じっそう]:
+//: - 事前に計算した `u128_max / radix` の商と余りに対して、現在値 v を比較します。
+//: - `v < quotient` なら次の桁は必ず安全です。
+//: - `v > quotient` なら必ず overflow します。
+//: - `v == quotient` の場合だけ、digit が最大余り以下かを確認します。
+//:
+//: [注意/ちゅうい]:
+//: - radix は `validate_radix` 済みで、digit は radix 未満であることを前提にします。
+//: - 実際の乗算と加算はこの判定が true の時だけ行ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn u128_can_mul_add_small <(u128,i32,u128,i32)->bool> (v, digit, max_quotient, max_remainder):
+    if:
+        lt v max_quotient
+        then:
+            true
+        else:
+            if:
+                lt max_quotient v
+                then:
+                    false
+                else:
+                    le digit max_remainder

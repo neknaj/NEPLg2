@@ -1,0 +1,97 @@
+//: # string/integer/common/bool
+//: bool と string の表示・解析 helper
+//:
+//: [目的/もくてき]:
+//: - bool の表示用文字列化と、`"true"` / `"false"` の解析を integer common facade から[分離/ぶんり]します。
+//: - 数値 digit / 128-bit arithmetic helper と混ざらない小さな module にして、依存関係を読みやすくします。
+
+#indent 4
+
+#import "core/result" as *
+#import "alloc/string/search" as *
+
+//: from_bool: bool を表示用文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - `true` を `"true"`、`false` を `"false"` として返します。
+//: - 診断文やテスト失敗メッセージで論理値をそのまま表示したい時に使います。
+//:
+//: [実装/じっそう]:
+//: - 分岐だけで固定文字列 literal を選びます。
+//:
+//: [注意/ちゅうい]:
+//: - 返す文字列は表示用の表現です。数値変換や bool 解析ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let ok0 <bool> str_eq from_bool true "true";
+//:     let ok1 <bool> str_eq from_bool false "false";
+//:     let ok <bool> and ok0 ok1;
+//:     if ok 1 0
+//: ```
+fn from_bool <(bool)->str> (b):
+    if:
+        b
+        then:
+            "true"
+        else:
+            "false"
+
+//: to_bool: 文字列を bool として解析する
+//:
+//: [目的/もくてき]:
+//: - `"true"` または `"false"` の文字列を `bool` として読み取ります。
+//: - 設定値や CLI 引数、テスト入力などで論理値を文字列から受け取る時に使います。
+//:
+//: [実装/じっそう]:
+//: - `str_eq` で `"true"`、続いて `"false"` と比較します。
+//:
+//: [注意/ちゅうい]:
+//: - 受理する表記は小文字の `"true"` / `"false"` のみです。
+//: - `"True"` や `"0"` / `"1"` は bool として扱いません。
+//: - 解析失敗は `Result::Err 1` で返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "alloc/string" as *
+//: fn main <()*>i32> ():
+//:     let checks0 checks_new
+//:     let checks1 match to_bool "true":
+//:         Result::Ok v:
+//:             checks_push checks0 assert_eq_i32 1 cast v
+//:         Result::Err _:
+//:             checks_push checks0 assert_eq_i32 1 0
+//:     let checks2 match to_bool "false":
+//:         Result::Ok v:
+//:             checks_push checks1 assert_eq_i32 0 cast v
+//:         Result::Err _:
+//:             checks_push checks1 assert_eq_i32 1 0
+//:     checks_exit_code checks2
+//: ```
+fn to_bool <(str)->Result<bool,i32>> (s):
+    if:
+        str_eq s "true"
+        then:
+            Result::Ok<bool,i32> true
+        else:
+            if:
+                str_eq s "false"
+                then:
+                    Result::Ok<bool,i32> false
+                else:
+                    Result::Err<bool,i32> 1
