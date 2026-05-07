@@ -2,7 +2,7 @@
 //: `Vec<Option<T>>` backed LIFO stack
 //:
 //: ### [目的/もくてき]
-//: - `push` / `pop_top` / `peek_ref` / `get_ref` / `len_ref` など、stack 操作の基本 API を[提供/ていきょう]します。
+//: - `push` / `pop_top` / `peek` / `get` / `len` など、stack 操作の基本 API を[提供/ていきょう]します。
 //: - raw header / raw element buffer ではなく、初期化済み `Vec<Option<T>>` で slot state を[表/あらわ]します。
 //:
 //: ### [実装/じっそう]
@@ -12,11 +12,11 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には stack payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
-//: - `len` / `is_empty` / `peek` / `pop` は `Stack` を[値/あたい]で[消費/しょうひ]し、内部 storage を[閉/と]じます。owner を[残/のこ]したまま[観測/かんそく]する場合は `len_ref` / `is_empty_ref` / `peek_ref` / `get_ref` を[使/つか]います。
+//: - `len` / `is_empty` / `peek` / `get` は `&Stack` を[受/う]け[取/と]る[観測/かんそく] API です。stack owner を[消費/しょうひ]しません。
 //: - `pop_top` は[更新後/こうしんご]の owner と[値/あたい]を[同時/どうじ]に[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
-//: - `len_ref` / `is_empty_ref` / `peek_ref` / `get_ref` / `pop_top` は O(1) です。
+//: - `len` / `is_empty` / `peek` / `get` / `pop_top` は O(1) です。
 //: - `push` は[償却/しょうきゃく] O(1)、grow 時は O(n) です。
 
 #indent 4
@@ -151,15 +151,8 @@ fn pop <.T: Copy> <(Stack<.T>)*>Option<.T>> (stk):
     item
 
 //: ## peek
-//: stack を[消費/しょうひ]して[末尾/まつび]を[読/よ]む
-fn peek <.T: Copy> <(Stack<.T>)->Option<.T>> (stk):
-    let item <Option<.T>> peek_ref<.T> &stk
-    free<.T> stk
-    item
-
-//: ## peek_ref
 //: `Stack` を[移動/いどう]せずに[末尾/まつび]を[読/よ]む
-fn peek_ref <.T: Copy> <(&Stack<.T>)->Option<.T>> (stk):
+fn peek <.T: Copy> <(&Stack<.T>)->Option<.T>> (stk):
     let len0 <i32> *field::get_ref stk "len"
     if:
         eq len0 0
@@ -169,9 +162,9 @@ fn peek_ref <.T: Copy> <(&Stack<.T>)->Option<.T>> (stk):
             let items <&Vec<Option<.T>>> field::get_ref stk "items"
             stack_item_at<.T> items sub len0 1
 
-//: ## get_ref
+//: ## get
 //: `Stack` を[移動/いどう]せずに index の[値/あたい]を[読/よ]む
-fn get_ref <.T: Copy> <(&Stack<.T>,i32)->Option<.T>> (stk, idx):
+fn get <.T: Copy> <(&Stack<.T>,i32)->Option<.T>> (stk, idx):
     let len0 <i32> *field::get_ref stk "len"
     if:
         lt idx 0
@@ -187,28 +180,14 @@ fn get_ref <.T: Copy> <(&Stack<.T>,i32)->Option<.T>> (stk, idx):
                     stack_item_at<.T> items idx
 
 //: ## len
-//: stack を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
-fn len <.T> <(Stack<.T>)->i32> (stk):
-    let n <i32> *field::get_ref &stk "len"
-    free<.T> stk
-    n
-
-//: ## len_ref
 //: `Stack` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
-fn len_ref <.T> <(&Stack<.T>)->i32> (stk):
+fn len <.T> <(&Stack<.T>)->i32> (stk):
     *field::get_ref stk "len"
 
 //: ## is_empty
-//: stack を[消費/しょうひ]して[空/から]かどうかを[返/かえ]す
-fn is_empty <.T> <(Stack<.T>)->bool> (stk):
-    let ok <bool> is_empty_ref<.T> &stk
-    free<.T> stk
-    ok
-
-//: ## is_empty_ref
 //: `Stack` を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
-fn is_empty_ref <.T> <(&Stack<.T>)->bool> (stk):
-    eq len_ref<.T> stk 0
+fn is_empty <.T> <(&Stack<.T>)->bool> (stk):
+    eq len<.T> stk 0
 
 //: ## clear
 //: [内容/ないよう]を[空/から]にする

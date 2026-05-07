@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T10:13:48.162Z",
+  "generated_at": "2026-05-07T10:25:32.589Z",
   "counts": {
     "total": 576,
-    "open": 12,
-    "resolved": 564,
+    "open": 11,
+    "resolved": 565,
     "by_area": {
       "core": {
         "total": 286,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 163,
-        "open": 7,
-        "resolved": 156
+        "open": 6,
+        "resolved": 157
       },
       "TEST": {
         "total": 15,
@@ -208,21 +208,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T092629151Z-BTREEMAP-AND-BTREESET-KEEP-DUPLICATE-CEEF7344.md"
-    },
-    {
-      "id": "ISS-20260507T092629164Z-STACK-KEEPS-DUPLICATE-BY-VALUE-AND-R-B8BF2270",
-      "title": "Stack keeps duplicate by-value and *_ref observer APIs",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "stdlib/alloc/collections/stack.nepl, stdlib/tests/stack.n.md, tests/stdlib/stack_collections.n.md, examples/rpn.nepl, examples/bf.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T092629164Z-STACK-KEEPS-DUPLICATE-BY-VALUE-AND-R-B8BF2270.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -6448,6 +6433,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T092629042Z-BINARYHEAP-KEEPS-DUPLICATE-BY-VALUE--31161123.md"
+    },
+    {
+      "id": "ISS-20260507T092629164Z-STACK-KEEPS-DUPLICATE-BY-VALUE-AND-R-B8BF2270",
+      "title": "Stack keeps duplicate by-value and *_ref observer APIs",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "stdlib/alloc/collections/stack.nepl, stdlib/tests/stack.n.md, tests/stdlib/stack_collections.n.md, examples/rpn.nepl, examples/bf.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T092629164Z-STACK-KEEPS-DUPLICATE-BY-VALUE-AND-R-B8BF2270.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

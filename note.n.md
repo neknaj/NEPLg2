@@ -1,3 +1,22 @@
+# 2026-05-07 note (ISS-20260507T092629164Z Stack primary borrowed observers)
+
+- branch `fix/stack-primary-borrowed-observers` で、Stack が by-value observer と `*_ref` observer を重複して持っていた問題を修正した。
+- 根本原因は、`len` / `is_empty` / `peek` が観測だけで `Stack<T>` owner を消費する設計になっており、実利用側が `len_ref` / `is_empty_ref` / `peek_ref` / `get_ref` に逃げる API surface を維持していたことだった。
+- `len` / `is_empty` / `peek` / `get` は `&Stack<T>` を受け取る primary read-only observer に統一し、重複していた `*_ref` API を削除した。
+- `push` / `pop_top` / `clear` / `free` は owner 更新または解放を明示する API として残し、観測と所有権操作の責務を分離した。
+- stack doctest、collection regression、pipe / overload regression、RPN / BF examples を primary borrowed observer 名へ更新した。
+- remote main の `ISS-20260507T100459865Z-EXAMPLES-RELY-ON-QUALIFIED-ALLOC-STR-B6D68CEA` と同期し、examples の string import 整理を維持した上で Stack observer 呼び出しだけを primary borrowed names へ移行した。
+- `nodesrc/test_stdlib_stack_no_unsafe_unwraps.js` に、Stack observer が owner を消費しないこと、削除済み `*_ref` API が戻らないこと、tests/examples が borrowed primary names を使うことを固定する source policy を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl --no-tree -o tmp/stack-primary-borrowed-observers-stack-examples.json -j 1 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 2 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 15 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 19 --dist web/dist`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 20 --dist web/dist`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T094645212Z mandatory DiagnosticCode)
 
 - branch `fix/diagnostic-code-required` で、Rust compiler diagnostic value が code-less 診断を型として許していた問題を修正した。

@@ -164,7 +164,7 @@ fn compile_jumps <(str)*>Result<Vec<i32>,str>> (code):
                         else:
                             match stack_state:
                                 Result::Ok stk:
-                                    let empty <bool> stk::is_empty_ref<i32> &stk
+                                    let empty <bool> stk::is_empty<i32> &stk
                                     stk::free<i32> stk;
                                     if:
                                         not empty

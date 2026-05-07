@@ -92,7 +92,7 @@ fn push_or_report <(Stack<i32>,i32)*>Result<Stack<i32>,str>> (stack, val):
 //: - stack が不足する場合はエラーを表示し、stack をそのまま返します。
 fn apply_op <(Stack<i32>,str)*>Result<Stack<i32>,str>> (stack, token):
     if:
-        lt stk::len_ref<i32> &stack 2
+        lt stk::len<i32> &stack 2
         then:
             print_error "stack underflow";
             ok<Stack<i32>,str> stack
@@ -205,7 +205,7 @@ fn eval_line <(str)*>()> (line):
 
             match stack_state:
                 Result::Ok stack:
-                    let sp <i32> stk::len_ref<i32> &stack;
+                    let sp <i32> stk::len<i32> &stack;
                     if:
                         eq sp 1
                         then:

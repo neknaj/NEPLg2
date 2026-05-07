@@ -393,7 +393,7 @@ fn main <()*>i32> ():
     let s <str> "abc";
     let st <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new;
     let n1 <i32> len s;
-    let n2 <i32> len_ref<i32> &st;
+    let n2 <i32> len<i32> &st;
     free<i32> st;
     if and eq n1 3 eq n2 0 1 0
 ```
@@ -468,9 +468,9 @@ fn main <()*>i32> ():
     let v <Vec<i32>>:
         new
         |> unwrap_ok<Vec<i32>, StdErrorKind>
-    let sn <i32> len_ref<i32> &st;
+    let sn <i32> len<i32> &st;
     free<i32> st;
-    let vn <i32> len_ref<i32> &v;
+    let vn <i32> len<i32> &v;
     free<i32> v;
     if and eq sn 0 eq vn 0 1 0
 ```
@@ -495,7 +495,7 @@ fn main <()*>i32> ():
         |> unwrap_ok<Stack<i32>, Diag>
         |> push 10
         |> unwrap_ok<Stack<i32>, Diag>
-    let n <i32> len_ref<i32> &st;
+    let n <i32> len<i32> &st;
     free<i32> st;
     if eq n 1 1 0
 ```

@@ -18,7 +18,9 @@ fn main <()*>i32> ():
     let mut s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
     set s unwrap_ok<Stack<i32>, Diag> push<i32> s 10;
     set s unwrap_ok<Stack<i32>, Diag> push<i32> s 20;
-    if eq len<i32> s 2 1 0
+    let ok <bool> eq len<i32> &s 2;
+    free<i32> s;
+    if ok 1 0
 ```
 
 ## stack_peek_and_pop
@@ -44,11 +46,12 @@ fn main <()*>i32> ():
         |> unwrap_ok<Stack<i32>, Diag>
         |> push<i32> 20
         |> unwrap_ok<Stack<i32>, Diag>
-    let ok0 <bool> match peek<i32> s0:
+    let ok0 <bool> match peek<i32> &s0:
         Option::Some v:
             eq v 20
         Option::None:
             false
+    free<i32> s0;
     let s1 <Stack<i32>>:
         unwrap_ok<Stack<i32>, Diag> new<i32>
         |> push<i32> 10
@@ -111,7 +114,9 @@ fn main <()*>i32> ():
         |> unwrap_ok<Stack<i32>, Diag>
         |> push<i32> 20
         |> unwrap_ok<Stack<i32>, Diag>
-    if eq len<i32> s 2 1 0
+    let ok <bool> eq len<i32> &s 2;
+    free<i32> s;
+    if ok 1 0
 ```
 
 ## stack_peek_and_pop_pipe
@@ -137,11 +142,12 @@ fn main <()*>i32> ():
         |> unwrap_ok<Stack<i32>, Diag>
         |> push<i32> 20
         |> unwrap_ok<Stack<i32>, Diag>
-    let ok0 <bool> match s0 |> peek<i32>:
+    let ok0 <bool> match peek<i32> &s0:
         Option::Some v:
             eq v 20
         Option::None:
             false
+    free<i32> s0;
     let s1 <Stack<i32>>:
         unwrap_ok<Stack<i32>, Diag> new<i32>
         |> push<i32> 10
@@ -216,11 +222,12 @@ fn main <()*>i32> ():
         unwrap_ok<Stack<i32>, Diag> new
         |> push 5
         |> unwrap_ok<Stack<i32>, Diag>
-    let ok1 <bool> eq len s1 1;
+    let ok1 <bool> eq len &s1 1;
+    free s1;
     if and ok0 ok1 1 0
 ```
 
-## stack_get_ref_keeps_stack
+## stack_get_keeps_stack
 
 neplg2:test
 ret: 1
@@ -239,19 +246,19 @@ fn main <()*>i32> ():
     let mut s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
     set s unwrap_ok<Stack<i32>, Diag> push<i32> s 10;
     set s unwrap_ok<Stack<i32>, Diag> push<i32> s 20;
-    let first_ok <bool> match get_ref<i32> &s 0:
+    let first_ok <bool> match get<i32> &s 0:
         Option::Some v:
             eq v 10
         Option::None:
             false
-    let len_before <i32> len_ref<i32> &s;
+    let len_before <i32> len<i32> &s;
     set s unwrap_ok<Stack<i32>, Diag> push<i32> s 30;
-    let ok <bool> and first_ok and eq len_before 2 eq len_ref<i32> &s 3;
+    let ok <bool> and first_ok and eq len_before 2 eq len<i32> &s 3;
     free<i32> s;
     if ok 1 0
 ```
 
-## stack_pop_ref_keeps_stack
+## stack_pop_top_keeps_stack
 
 neplg2:test
 ret: 1
@@ -277,7 +284,7 @@ fn main <()*>i32> ():
     let p1 <StackPop<i32>> pop_top<i32> s1;
     let b <Option<i32>> *field::get_ref &p1 "item";
     let s2 <Stack<i32>> field::get p1 "stack";
-    let empty_ok <bool> eq len_ref<i32> &s2 0;
+    let empty_ok <bool> eq len<i32> &s2 0;
     let s3 <Stack<i32>> unwrap_ok<Stack<i32>, Diag> push<i32> s2 30;
     let a_ok <bool> match a:
         Option::Some v:
@@ -289,7 +296,7 @@ fn main <()*>i32> ():
             eq v 10
         Option::None:
             false
-    let ok <bool> and a_ok and b_ok and empty_ok eq len_ref<i32> &s3 1;
+    let ok <bool> and a_ok and b_ok and empty_ok eq len<i32> &s3 1;
     free<i32> s3;
     if ok 1 0
 ```
