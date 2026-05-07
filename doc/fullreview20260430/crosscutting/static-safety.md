@@ -1,91 +1,98 @@
-# 横断レビュー: 静的安全性
+# 静的安全性横断レビュー
 
-対象 commit: `f108cebd`
+## レビュー範囲
 
-参照 Actions: `25157230630`
+この文書は、NEPLg2 の型安全、メモリ安全、効果境界、Resource IR、診断 ID、selfhost 側の静的検査準備を横断して確認した結果です。
 
-## 結論
+確認対象:
 
-静的検査の設計方針は、`DiagnosticCode` / Resource diagnostic / owner state / cell state を enum として持ち、`match` の網羅性検査を効かせる方向へ進んでいる。この方向は、型安全とメモリ安全を必達にするという開発方針に合っている。
+- Rust compiler: `nepl-core/src/compiler.rs`, `nepl-core/src/resource/**`, `nepl-core/src/diagnostic*.rs`
+- stdlib memory surface: `stdlib/core/mem.nepl`, `stdlib/alloc/collections/**`, `stdlib/alloc/string/**`
+- selfhost compiler model: `stdlib/neplg2/core/**`
+- issue registry: `issues/index.json`
+- CI status: `gh run list`
 
-ただし現時点の実装は、まだ final authority ではない。旧 `passes::move_check` と HIR 上の drop insertion が先に走り、その後に Resource IR gate を追加する二重構造である。これは移行中の防壁としては妥当だが、selfhost が採用すべき最終設計ではない。
+レビュー基準:
 
-今回の review では、静的検査を弱めるべき箇所は確認していない。Actions で `resource.owner.*` / `resource.cell.*` が失敗している箇所は、検査の誤検知として隠すのではなく、stdlib の所有権契約、Resource IR lowering、または function summary の不足として根本修正する必要がある。
+- 技術的負債を残さず、根本原因を修正する。
+- 暫定設計を採用しない。
+- 型安全とメモリ安全を必達とする。
+- 数値や文字列ではなく enum を用いて静的検査が効く形にする。
+- `match` による網羅性検査が効く分岐にする。
+
+## 現状の到達点
+
+Rust compiler の静的検査パイプラインは、現在の `check` 経路でも codegen 準備経路と同じ安全性ゲートを通る構造になっている。`check_module_with_source_map` が `prepare_module_for_codegen_with_source_map` を呼び、型検査、Resource IR monomorphize、Resource static check、drop elaboration bridge gate、drop insertion を同一経路で実行するため、`--check` だけが重要な検査を迂回する構造にはなっていない。
+
+Resource IR 側は、所有、初期化状態、借用、効果、drop 計画を typed model として管理している。`ResourceId`, `StorageId`, `ResourceBlockId` の ID 型、`ResourceOp`, `EffectOp`, `CellState`, `OwnerState`, `BorrowState` などの enum が中心であり、状態を単なる `i32` や文字列で管理する設計からは離れている。
+
+診断 ID も `DiagnosticCode` enum を中心にした階層化へ進んでいる。`Loader`, `Lexer`, `Parser`, `Resolve`, `Type`, `Effect`, `Resource`, `Backend` の領域別 enum があり、文字列表現は表示、シリアライズ境界として扱われている。`ALL_DIAGNOSTIC_CODES` とテストにより、重複と階層名の崩れを検出できる。
+
+selfhost 側では直近の refactor で、HIR と name binding の未割当 sentinel が改善された。`SelfhostNameBinding.def_id` は `Option<SelfhostDefId>`、`SelfhostHirExpr` は共通メタデータと `SelfhostHirExprPayload` enum に分離され、子範囲や引数範囲も `Empty`/`Range` の enum へ寄せられている。これは開発方針に沿った進捗として評価できる。
+
+## 未完了リスク
+
+### `core/mem` と stdlib raw memory 境界
+
+`stdlib/core/mem.nepl` には `alloc_raw`, `dealloc_raw`, `realloc_raw` と raw address を扱う API が残っている。`MemPtr<T>` と `RegionToken<T>` も存在するが、コンパイラ所有の provenance、初期化状態、drop obligation と完全には接続されていない。現在のコメントでも、無効ポインタや範囲外アクセスが未定義動作になる raw API として説明されている。
+
+これは単なる実装漏れではなく、stdlib API と Resource IR の責務境界の設計問題である。安全 API と unsafe/raw API の境界、所有権の発行元、dealloc 前に必要な drop 義務、再配置後の old pointer の失効を静的検査へ接続する必要がある。
+
+関連 open issue:
+
+- `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04`
+- `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF`
+- `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D`
+- `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47`
+- `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84`
+
+### collections の drop obligation
+
+collections の `free` 系 API が要素の `Drop` を呼ぶ責務を型と静的検査で保証できていない。`Vec` などは分割が進み、facade と storage/access/mutation/query などの責務分離は改善しているが、所有要素を持つ collection の破棄順序、panic 時の部分初期化、再確保時の move/drop を Resource IR にどう見せるかは未完了である。
+
+関連 open issue:
+
+- `ISS-20260425T000000Z-RV-STDLIB-004-91534828`
+
+### selfhost lexer の数値状態
+
+`stdlib/neplg2/core/syntax/lexer.nepl` では、raw block mode と pending raw mode が `i32` として関数引数に流れている。`lex_raw_kind`, `lex_token_pending_raw_mode`, `lex_all_loop` などが `raw_mode > 0` や `eq raw_mode 1` に依存しており、追加モードに対して enum の網羅性検査が効かない。
+
+また `lex_starts_with_indent_directive` は `#indent` を byte ごとに比較している。この問題自体は stdlib の文字列比較不足と lexer 状態設計の問題であり、単に局所的な helper に置き換えるだけでは十分ではない。directive 種別、raw block mode、line directive boundary を enum と `match` で扱う再設計が必要である。
+
+関連 open issue:
+
+- `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`
+
+### Resource IR と selfhost 静的検査の接続
+
+Rust compiler 側の Resource IR は安全性の中核として進んでいるが、selfhost 側で同等の静的検査を実装する準備はまだ部分的である。selfhost の AST/HIR/型表現は enum 化が進みつつあるが、Resource IR、borrow lifetime、effect boundary、drop obligation を selfhost 側で実装するための最終モデルは未完了である。
+
+ここで妥協すると selfhost は「動くが型安全とメモリ安全が検査されない compiler」になるため、parser や syntax の前進とは別に、Resource IR と静的検査の設計を Rust 側と揃える必要がある。
 
 ## 進捗状況
 
-| 領域 | 状況 | review |
-|---|---|---|
-| `nepl-core/src/diagnostic_codes.rs` | 実装済み寄り | 数値 ID ではなく階層 enum を中心にした設計へ移行済み。stable string は表示・JSON 境界に限定する方向。 |
-| `nepl-core/src/resource` | 実装中 | Resource IR data model と owner/cell/borrow/raw diagnostic は進んだが、旧 checker との authority split が残る。 |
-| `nepl-core/src/passes/move_check` | 移行対象 | 現行 Actions では防壁として有効だが、最終設計では Resource IR に統合して削除条件を固定すべき。 |
-| `nepl-core/src/passes/drop_insertion.rs` | 移行対象 | HIR 上で drop を入れる現方式は、Resource IR が drop obligation の最終 authority になる設計と競合する。 |
-| `nepl-core/src/typecheck` | 実装中 | match exhaustiveness、effect、typed diagnostic は進んだ。Resource IR に渡す型付き情報の完全性が今後の焦点。 |
-| `stdlib/core/mem.nepl` | 過渡 | raw memory boundary は防壁が増えたが、`MemPtr` / owner token / initialized cell の分離が未完。 |
-| `stdlib/neplg2/core/resource` | 未実装相当 | selfhost 側は Rust 旧 checker を移植せず、Resource IR authority を前提に設計すべき。 |
+| 領域 | 状態 | 根拠 |
+| --- | --- | --- |
+| Rust compiler `--check` 経路 | 実装済み、継続検証中 | codegen 準備と同じ Resource IR gate を通る |
+| Resource IR model | 実装中だが中核は成立 | typed ID と enum 状態で owner/cell/borrow/effect を表現 |
+| drop elaboration bridge | 実装中 | bridge gate と drop insertion が pipeline に入っている |
+| diagnostic code model | 実装済み寄り、selfhost 同期は未完了 | enum registry はあるが open issue が残る |
+| stdlib `core/mem` 安全境界 | 未完了 P1 | raw API と compiler-owned provenance の接続が未完了 |
+| collections drop obligation | 未完了 P1 | collection free が要素 Drop を保証しない |
+| stdlib string/Vec 分割 | 進行済み、継続レビュー必要 | facade と submodule 分割は進んだ |
+| selfhost HIR payload model | 改善済み | payload enum と `Option` 化が入った |
+| selfhost lexer state | 未完了 P2 | raw mode が `i32` で網羅性検査不可 |
+| selfhost Resource IR/static check | 未着手から設計段階 | Rust 側モデルへの追従が必要 |
 
-## Resource IR authority
+## 判断
 
-Resource IR は、move / borrow / initialized cell / owner obligation / raw provenance / effect を同じ検査入力で扱うための中核である。`doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/static_check_soundness_review_20260430.md` の方向性は、この review でも妥当と判断する。
+現時点で Rust compiler の静的検査基盤は、開発方針に沿った方向へ大きく改善されている。一方で、メモリ安全の最重要境界は stdlib `core/mem` と collections の API 設計に残っている。ここを残したまま selfhost の高度な実装へ進むと、selfhost 側が安全性を表現できない API に依存することになる。
 
-未完了点は次の通り。
+したがって、次の優先順位は次の通りである。
 
-- `passes::move_check::run` がまだ authoritative gate として残る。
-- HIR drop insertion が Resource IR check より前に実行される。
-- `UnsafeMemoryInPureFunction` は 2026-05-06 時点で `effect.pure.calls_impure` へ error 化済みである。残る未完了点は raw-memory-boundary capability が stdlib migration の限定許可として残ることである。
-- stdlib の `MemPtr` owner/view 混同を補うため、Resource IR 側に special-case alias summary が増えやすい。
-- selfhost S3 以降にコピーできる最終形がまだ固定されていない。
-
-したがって、今後の根本修正は「旧 checker に special-case を足す」ではなく、Resource IR を final authority にする方向で進めるべきである。
-
-## enum / match / stable string
-
-診断 code、resource state、token kind、AST kind、storage state は、raw number や raw string を主表現にしてはいけない。現在の Rust compiler diagnostic redesign は、`DiagnosticCode` と下位 enum を内部表現にし、`as_str()` を外部境界に限定する方針なので適切である。
-
-selfhost 側も同じ制約を持つ。`SelfhostDiagnosticCode` を typed enum にした変更は良いが、parser で `TokenKind` を文字列化し、hash 値で分岐する実装が残っている。これは `ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B` で追跡済みであり、`TokenKind` を直接 `match` する形へ直す必要がある。
-
-review 上の判定:
-
-- finite state は enum にする。
-- finite branch は `match` にする。
-- wildcard arm は、将来 variant の追加を握りつぶす場合は禁止する。
-- stable string は CLI / web / JSON / doctest の表示・比較境界だけで使う。
-
-## Actions evidence
-
-対象 Actions run `25157230630` は failure である。`build`、`Source policy regressions`、`compile-test`、`llvm-test` は成功した一方で、`rust-test`、`stdlib-test`、`wasi-test`、`nmd-doctest`、`tutorials-test`、dual backend verification は失敗した。
-
-Artifact 分類では、stdlib / nmd / wasi / dual backend の失敗に `resource.owner.maybe_leak`、`resource.owner.leak`、`resource.cell.possibly_moved`、`resource.cell.uninit` が多い。これは compiler が検出し始めた問題であり、検査を弱める理由にはならない。
-
-特に重要な current failure:
-
-- `sb_build_result`: owner may leak
-- `stdio_write_fd_mem_result`: owner may leak
-- `from_f64_result`: `resource.cell.possibly_moved`
-- `fs_open_with_flags`: owner may leak
-- selfhost module / parser / CLI doctest: timeout と owner failure
-
-## 既存 issue との対応
-
-| issue | review 判断 |
-|---|---|
-| `ISS-20260425T000000Z-RV-CORE-009-58589A3F` | Resource IR final authority の親 issue。引き続き P1。 |
-| `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` | raw memory effect / ownership boundary の根本 issue。 |
-| `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` | `MemPtr` / owner token / provenance 分離の中心 issue。 |
-| `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` | diagnostic enum / Resource IR mapping の親 issue。 |
-| `ISS-20260430T135243330Z-RESOURCE-OWNER-VARIANT-PATH-BUILDER--87B356A8` | owner variant path builder の責務再集中。Resource IR の保守性リスク。 |
-| `ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B` | selfhost parser の enum/match 化 issue。 |
-
-今回の横断 review では、上記で追跡できない新規の静的検査 issue は確認していない。
-
-## selfhost への制約
-
-selfhost の静的検査は、Rust 旧 checker の構造を模倣してはいけない。S3 以降は次を最低条件にする。
-
-- typed AST / HIR から Resource IR を生成する。
-- typecheck、effect check、Resource IR check の責務を分ける。
-- diagnostic は `SelfhostDiagnosticCode` の下位 enum で分類する。
-- move / borrow / drop / initialized cell を別々の ad-hoc pass に散らさない。
-- raw memory helper を compiler core の public data structure に持ち込まない。
-
-S1/S2 の lexer/parser/module/diagnostic は進めてよい。一方で、S3 typecheck、S4 Resource IR、S5 backend は Rust 側の final authority 化と stdlib memory model の進捗に同期して設計する必要がある。
+1. `MemPtr<T>`/`RegionToken<T>`/raw API の authority を Resource IR に接続する。
+2. collection の `Drop`/free/dealloc obligation を型と Resource IR で表現する。
+3. selfhost lexer の raw/directive state を enum と `match` に置き換える。
+4. selfhost Resource IR と static check のモデルを Rust 側診断 ID 設計と整合させる。
+5. CI の source policy を warn-only から必須 gate へ移行できる状態にする。
