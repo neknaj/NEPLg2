@@ -1,0 +1,82 @@
+//: # vec/mutation/cleanup
+//: `Vec` の clear/free
+//:
+//: ### [目的/もくてき]
+//: - owner cleanup と length reset をまとめ、storage state に[応/おう]じた[解放/かいほう]を `vec/storage` に[委譲/いじょう]します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/field" as field
+#import "../types" as *
+#import "../storage" as vec_storage
+
+//: ## clear
+//: [要素/ようそ]をすべて[削除/さくじょ]する
+//:
+//: ### [目的/もくてき]
+//: - `len` を 0 にして、[確保済/かくほず]み[領域/りょういき]を[再利用/さいりよう]できる[空/から]ベクタを[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - `data` と `cap` はそのままに、`len` だけを 0 にします。
+//:
+//: ### [注意/ちゅうい]
+//: - [内部/ないぶ]メモリは[解放/かいほう]しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
+//:     let v1 <Vec<i32>> unwrap_ok push v0 1;
+//:     let v2 clear<i32> v1;
+//:     let ok <bool> eq len<i32> &v2 0
+//:     free<i32> v2;
+//:     if ok 0 1
+//: ```
+fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
+    let v_cap <i32> *field::get_ref &v "cap"
+    let v_storage <VecStorageState> *field::get_ref &v "storage"
+    let v_data <MemPtr<.T>> field::get v "data"
+    Vec<.T> 0 v_cap v_storage v_data
+
+//: ## free
+//: [内部/ないぶ]メモリを[解放/かいほう]する
+//:
+//: ### [目的/もくてき]
+//: - `Vec<.T>` が[所有/しょゆう]する `data` [領域/りょういき]を[明示的/めいじてき]に[解放/かいほう]します。
+//:
+//: ### [実装/じっそう]
+//: - `cap` は `&v` から Copy field として[読/よ]み、`data` owner は `vec/storage` の cleanup helper へ[移動/いどう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `Vec` [自体/じたい]は[値/あたい]なので[追加/ついか]の[解放/かいほう]は[不要/ふよう]です。
+//: - `cap = 0` の[空/から]ベクタでも[呼/よ]べます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>> unwrap_ok new<i32>;
+//:     free<i32> v;
+//:     0
+//: ```
+fn free <.T> <(Vec<.T>)->()> (v):
+    let v_cap <i32> *field::get_ref &v "cap"
+    let v_storage <VecStorageState> *field::get_ref &v "storage"
+    let v_data <MemPtr<.T>> field::get v "data"
+    vec_storage::vec_free_storage<.T> v_storage v_data v_cap

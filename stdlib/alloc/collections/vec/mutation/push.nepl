@@ -1,0 +1,94 @@
+//: # vec/mutation/push
+//: `Vec` の grow と末尾[追加/ついか]
+//:
+//: ### [目的/もくてき]
+//: - `push` の allocation / reallocation と owner transfer をこの module に[閉/と]じます。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は direct `alloc_ptr` / `realloc_ptr` / `dealloc_raw` を[使/つか]うため exact raw-memory boundary です。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "../types" as *
+#import "../raw" as vec_raw
+
+//: ## push
+//: [末尾/まつび]に[要素/ようそ]を[追加/ついか]する
+//:
+//: ### [目的/もくてき]
+//: - `item` を[末尾/まつび]へ[追加/ついか]し、[必要/ひつよう]なら[再確保/さいかくほ]した `Vec<.T>` を[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - `len` / `cap` は `&v` から Copy field として[読/よ]み、`data` owner は[戻/もど]り[値/ち]または dealloc/realloc へ[移動/いどう]します。
+//: - [容量/ようりょう][不足/ぶそく]なら 2 [倍/ばい]へ[拡張/かくちょう]し、typed `realloc_ptr<.T>` を[用/もち]います。
+//: - [空/から][容量/ようりょう] 0 の `Vec` に対しては 1 [要素分/ようそぶん]から[開始/かいし]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [返/かえ]り[値/あたい]は `Result<Vec<.T>, StdErrorKind>` です。`unwrap_ok` や `match` で[受/う]け[取/と]り[直/なお]してください。
+//: - [再確保/さいかくほ]が[起/お]きると[内部/ないぶ]バッファ[番地/ばんち]は[変/か]わります。
+//: - [容量/ようりょう][拡張/かくちょう]に[失敗/しっぱい]した[場合/ばあい]、入力 `Vec` の owner はこの[関数/かんすう]が[消費/しょうひ]し、旧 buffer を[解放/かいほう]してから `Err` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [償却/しょうきゃく] O(1)
+//: - [最悪/さいあく] O(n)（[再確保/さいかくほ]が[起/お]きる[場合/ばあい]）
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
+//:     let v1 <Vec<i32>> unwrap_ok push v0 7;
+//:     let ok <bool> eq len<i32> &v1 1
+//:     free<i32> v1;
+//:     if ok 0 1
+//: ```
+fn push <.T> <(Vec<.T>,.T)->Result<Vec<.T>, StdErrorKind>> (v, item):
+    let v_len <i32> *field::get_ref &v "len"
+    let v_cap <i32> *field::get_ref &v "cap"
+    let v_storage <VecStorageState> *field::get_ref &v "storage"
+    let v_data <MemPtr<.T>> field::get v "data"
+    if:
+        eq v_len v_cap
+        then:
+            let grown_cap <i32> if eq v_cap 0 1 mul v_cap 2
+            let old_bytes <i32> mul v_cap size_of<.T>
+            let new_bytes <i32> mul grown_cap size_of<.T>
+            match v_storage:
+                VecStorageState::Empty:
+                    if:
+                        and eq v_len 0 eq v_cap 0
+                        then:
+                            match alloc_ptr<.T> new_bytes:
+                                Result::Ok grown_data:
+                                    let next_len <i32> add v_len 1
+                                    vec_raw::vec_write_at<.T> grown_data v_len item
+                                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> next_len grown_cap VecStorageState::Owned grown_data
+                                Result::Err _e:
+                                    Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
+                        else:
+                            Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::InvalidOperation
+                VecStorageState::Owned:
+                    match realloc_ptr<.T> v_data old_bytes new_bytes:
+                        Result::Ok grown_data:
+                            let next_len <i32> add v_len 1
+                            vec_raw::vec_write_at<.T> grown_data v_len item
+                            Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> next_len grown_cap VecStorageState::Owned grown_data
+                        Result::Err _e:
+                            dealloc_raw mem_ptr_addr v_data old_bytes
+                            Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
+        else:
+            match v_storage:
+                VecStorageState::Empty:
+                    Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::InvalidOperation
+                VecStorageState::Owned:
+                    let next_len <i32> add v_len 1
+                    vec_raw::vec_write_at<.T> v_data v_len item
+                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> next_len v_cap VecStorageState::Owned v_data

@@ -1,0 +1,61 @@
+//: # vec/mutation/replace
+//: `Vec` の in-place [置換/ちかん]
+//:
+//: ### [目的/もくてき]
+//: - 借用 `Vec` の[範囲/はんい][検査/けんさ]と element write をこの module に[閉/と]じます。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/field" as field
+#import "../types" as *
+#import "../raw" as vec_raw
+
+//: ## replace
+//: [要素/ようそ]を[上書/うわが]きする（[範囲外/はんいがい]は[無視/むし]）
+//:
+//: ### [目的/もくてき]
+//: - `idx` が[範囲内/はんいない]なら[指定/してい]した[要素/ようそ]へ[置/お]き[換/か]えます。
+//:
+//: ### [実装/じっそう]
+//: - `idx` を[検査/けんさ]し、[妥当/だとう]な[場合/ばあい]だけ `vec/raw` の typed write helper に[委譲/いじょう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [範囲外/はんいがい]では[失敗/しっぱい]を[返/かえ]さず、[何/なに]も[変更/へんこう]しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
+//:     let v1 <Vec<i32>> unwrap_ok push v0 1;
+//:     replace<i32> &v1 0 5;
+//:     free<i32> v1;
+//:     0
+//: ```
+fn replace <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
+    let v_len <i32> *field::get_ref v "len"
+    let v_storage <VecStorageState> *field::get_ref v "storage"
+    let v_data <MemPtr<.T>> *field::get_ref v "data"
+    if:
+        lt idx 0
+        then ()
+        else:
+            if:
+                le v_len idx
+                then ()
+                else:
+                    match v_storage:
+                        VecStorageState::Empty:
+                            ()
+                        VecStorageState::Owned:
+                            vec_raw::vec_write_at<.T> v_data idx item

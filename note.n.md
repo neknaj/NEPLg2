@@ -34419,3 +34419,27 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 Vec mutation module split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/vec/mutation.nepl` を責務別 submodule へ分割した。
+- `mutation.nepl` は `mutation/push`、`mutation/replace`、`mutation/pop`、`mutation/cleanup` の public `@merge` re-export だけを持つ facade にした。
+- `mutation/push.nepl` は `push`、capacity grow、`alloc_ptr` / `realloc_ptr` / grow 失敗時の `dealloc_raw` を所有する。Vec mutation の direct raw-memory boundary はここへ集約した。
+- `mutation/replace.nepl` は borrowed `replace`、`mutation/pop.nepl` は owner-consuming `pop`、`mutation/cleanup.nepl` は `clear` / `free` を所有し、direct raw intrinsic は持たない。
+- `nepl-core/src/loader.rs` の exact raw-memory boundary を root `alloc/collections/vec/mutation.nepl` から `alloc/collections/vec/mutation/push.nepl` へ移し、mutation root / replace / pop / cleanup には capability を付けない設計にした。
+- `nepl-core/tests/effects.rs` と `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` を更新し、raw-free mutation submodule に raw wasm body が戻らないこと、raw capability が push module にだけ付くことを固定した。
+- line count は `mutation.nepl` 20、`mutation/push.nepl` 91、`mutation/replace.nepl` 58、`mutation/pop.nepl` 63、`mutation/cleanup.nepl` 78。
+- [検証]:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary -- loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries`: passed
+  - `trunk build --release`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation.nepl -i stdlib/alloc/collections/vec/mutation/push.nepl -i stdlib/alloc/collections/vec/mutation/replace.nepl -i stdlib/alloc/collections/vec/mutation/pop.nepl -i stdlib/alloc/collections/vec/mutation/cleanup.nepl --no-tree -o tmp/vec-mutation-module-split-focused.json -j 1 --dist web/dist`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation.nepl -i stdlib/alloc/collections/vec/mutation/push.nepl -i stdlib/alloc/collections/vec/mutation/replace.nepl -i stdlib/alloc/collections/vec/mutation/pop.nepl -i stdlib/alloc/collections/vec/mutation/cleanup.nepl -i stdlib/tests/vec.n.md -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-mutation-module-split-suite.json -j 1 --dist web/dist`: total=14, passed=14
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: Vec mutation 関連は passed。remote main の resource 分割後に残る別件として `initialized_summary_apply.rs has 151 lines; responsibility split limit is 130` warning は継続。
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -727,9 +727,9 @@ fn loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_bounda
             "alloc_io_bytebuilder_raw_store",
         ),
         (
-            &["alloc", "collections", "vec", "mutation.nepl"],
-            "alloc/collections/vec/mutation",
-            "alloc_collections_vec_mutation_raw_store",
+            &["alloc", "collections", "vec", "mutation", "push.nepl"],
+            "alloc/collections/vec/mutation/push",
+            "alloc_collections_vec_mutation_push_raw_store",
         ),
         (
             &["alloc", "collections", "vec", "raw", "element.nepl"],
@@ -881,6 +881,26 @@ fn loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries()
             &["alloc", "collections", "vec", "access.nepl"],
             "alloc/collections/vec/access",
             "alloc_collections_vec_access_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "mutation.nepl"],
+            "alloc/collections/vec/mutation",
+            "alloc_collections_vec_mutation_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "mutation", "cleanup.nepl"],
+            "alloc/collections/vec/mutation/cleanup",
+            "alloc_collections_vec_mutation_cleanup_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "mutation", "pop.nepl"],
+            "alloc/collections/vec/mutation/pop",
+            "alloc_collections_vec_mutation_pop_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "mutation", "replace.nepl"],
+            "alloc/collections/vec/mutation/replace",
+            "alloc_collections_vec_mutation_replace_raw_store",
         ),
         (
             &["alloc", "collections", "vec", "raw.nepl"],

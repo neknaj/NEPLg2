@@ -1,0 +1,66 @@
+//: # vec/mutation/pop
+//: `Vec` の末尾[取/と]り[出/だ]し
+//:
+//: ### [目的/もくてき]
+//: - owner を[消費/しょうひ]し、要素と次の owner を named struct で[返/かえ]す `pop` を[所有/しょゆう]します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/field" as field
+#import "../types" as *
+#import "../storage" as vec_storage
+#import "../raw" as vec_raw
+
+//: ## pop
+//: [末尾/まつび][要素/ようそ]を[取/と]り[出/だ]す
+//:
+//: ### [目的/もくてき]
+//: - [末尾/まつび][要素/ようそ]を `Option` で[返/かえ]し、[長/なが]さを 1 [減/へ]らした `Vec` を[同時/どうじ]に[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - `len == 0` なら `Option::None` です。
+//: - [要素/ようそ]がある[場合/ばあい]は[最後/さいご]の 1 [件/けん]を typed `load` し、`len - 1` の `Vec` と[組/く]にして[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [返/かえ]り[値/あたい]は `VecPop<.T>` です。
+//: - [確保/かくほ]も[解放/かいほう]も[行/おこな]わないため O(1) です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
+//:     let v1 <Vec<i32>> unwrap_ok push v0 4;
+//:     let p pop<i32> v1;
+//:     let next <Vec<i32>> get p "vec";
+//:     free<i32> next;
+//:     0
+//: ```
+fn pop <.T> <(Vec<.T>)->VecPop<.T>> (v):
+    let v_len <i32> *field::get_ref &v "len"
+    let v_cap <i32> *field::get_ref &v "cap"
+    let v_storage <VecStorageState> *field::get_ref &v "storage"
+    let v_data <MemPtr<.T>> field::get v "data"
+    if:
+        eq v_len 0
+        then:
+            VecPop<.T> (Vec<.T> v_len v_cap v_storage v_data) none<.T>
+        else:
+            match v_storage:
+                VecStorageState::Empty:
+                    VecPop<.T> vec_storage::vec_empty<.T> none<.T>
+                VecStorageState::Owned:
+                    let next_len <i32> sub v_len 1
+                    let item <.T> vec_raw::vec_read_at<.T> v_data next_len
+                    VecPop<.T> (Vec<.T> next_len v_cap VecStorageState::Owned v_data) some<.T> item
