@@ -34,7 +34,9 @@ fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
 
 fn main <()*>i32> ():
     let m <BTreeMap<i32,i32>> build_desc_map 32;
-    if eq sorted_array_map_len<i32,i32> m 32 0 1
+    let ok <bool> eq sorted_array_map_len<i32,i32> &m 32;
+    sorted_array_map_free<i32,i32> m;
+    if ok 0 1
 ```
 
 ## sorted_array_map_insert_128
@@ -68,7 +70,9 @@ fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
 
 fn main <()*>i32> ():
     let m <BTreeMap<i32,i32>> build_desc_map 128;
-    if eq sorted_array_map_len<i32,i32> m 128 0 1
+    let ok <bool> eq sorted_array_map_len<i32,i32> &m 128;
+    sorted_array_map_free<i32,i32> m;
+    if ok 0 1
 ```
 
 ## sorted_array_map_lookup_after_128
@@ -103,7 +107,9 @@ fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
 
 fn main <()*>i32> ():
     let m <BTreeMap<i32,i32>> build_desc_map 128;
-    match sorted_array_map_get<i32,i32> m 64:
+    let value <Option<i32>> sorted_array_map_get<i32,i32> &m 64;
+    sorted_array_map_free<i32,i32> m;
+    match value:
         Option::Some v:
             if eq v 640 0 1
         Option::None:
@@ -141,7 +147,9 @@ fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
 
 fn main <()*>i32> ():
     let s <BTreeSet<i32>> build_desc_set 32;
-    if eq sorted_array_set_len<i32> s 32 0 1
+    let ok <bool> eq sorted_array_set_len<i32> &s 32;
+    sorted_array_set_free<i32> s;
+    if ok 0 1
 ```
 
 ## sorted_array_set_insert_128
@@ -175,7 +183,9 @@ fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
 
 fn main <()*>i32> ():
     let s <BTreeSet<i32>> build_desc_set 128;
-    if eq sorted_array_set_len<i32> s 128 0 1
+    let ok <bool> eq sorted_array_set_len<i32> &s 128;
+    sorted_array_set_free<i32> s;
+    if ok 0 1
 ```
 
 ## sorted_array_set_contains_after_128
@@ -209,5 +219,7 @@ fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
 
 fn main <()*>i32> ():
     let s <BTreeSet<i32>> build_desc_set 128;
-    if sorted_array_set_contains<i32> s 64 0 1
+    let ok <bool> sorted_array_set_contains<i32> &s 64;
+    sorted_array_set_free<i32> s;
+    if ok 0 1
 ```

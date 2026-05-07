@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T10:44:16.554Z",
+  "generated_at": "2026-05-07T10:51:55.576Z",
   "counts": {
-    "total": 577,
+    "total": 578,
     "open": 11,
-    "resolved": 566,
+    "resolved": 567,
     "by_area": {
       "core": {
         "total": 287,
@@ -17,9 +17,9 @@
         "resolved": 158
       },
       "TEST": {
-        "total": 15,
+        "total": 16,
         "open": 1,
-        "resolved": 14
+        "resolved": 15
       },
       "selfhost": {
         "total": 51,
@@ -6733,6 +6733,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T085551696Z-PIPE-COLLECTIONS-RINGBUFFER-DOCTEST--5893794D.md"
+    },
+    {
+      "id": "ISS-20260507T105015762Z-BTREE-ARRAY-COST-FIXTURES-STILL-CALL-51BA8332",
+      "title": "btree array cost fixtures still call borrowed observers by value",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "tests/stdlib/btree_array_cost.n.md, nodesrc/test_stdlib_btree_borrowed_observers.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T105015762Z-BTREE-ARRAY-COST-FIXTURES-STILL-CALL-51BA8332.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

@@ -32,6 +32,10 @@ for (const testPath of [
     assert.doesNotMatch(src, /\b(?:len|contains|get)<i32(?:,i32)?>\s+(?:m|m[0-9]|s|s[0-9])\b/, `${testPath} must not call BTree observers by value`);
 }
 
+const costFixture = fs.readFileSync(path.join(repoRoot, 'tests/stdlib/btree_array_cost.n.md'), 'utf8');
+assert.doesNotMatch(costFixture, /\bsorted_array_(?:map|set)_(?:len|get|contains)<[^>]+>\s+(?:m|s)\b/, 'btree_array_cost must not call sorted-array BTree observers by value');
+assert.match(costFixture, /\bsorted_array_(?:map|set)_(?:len|get|contains)<[^>]+>\s+&(?:m|s)\b/, 'btree_array_cost must exercise borrowed sorted-array observer aliases');
+
 console.log('btree borrowed observer regression passed');
 
 function stripComments(src) {

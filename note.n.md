@@ -1,3 +1,15 @@
+# 2026-05-07 note (ISS-20260507T105015762Z btree array cost borrowed observers)
+
+- branch `fix/btree-array-cost-borrowed-observers` で、BTree observer API 借用化後に `tests/stdlib/btree_array_cost.n.md` が stale になっていた問題を修正した。
+- 根本原因は、remote main の BTree observer 修正が stdlib tests / pipe collections を更新した一方で、sorted-array alias の cost fixture が by-value observer 呼び出しのまま残っていたことだった。
+- `sorted_array_map_len` / `sorted_array_map_get` / `sorted_array_set_len` / `sorted_array_set_contains` を `&m` / `&s` の borrowed receiver で呼び、観測後に `sorted_array_map_free` / `sorted_array_set_free` で owner を明示解放する形へ更新した。
+- `nodesrc/test_stdlib_btree_borrowed_observers.js` に cost fixture の sorted-array observer alias が by-value 呼び出しへ戻らないことを固定する source policy を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_btree_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/btree_array_cost.n.md --no-tree -o tmp/btree-array-cost-borrowed-observers.json -j 1 --dist web/dist`: total=6, passed=6
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T092629164Z Stack primary borrowed observers)
 
 - branch `fix/stack-primary-borrowed-observers` で、Stack が by-value observer と `*_ref` observer を重複して持っていた問題を修正した。
