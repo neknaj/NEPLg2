@@ -4,6 +4,7 @@
 //! filesystem paths are converted to strings by the loader layer so this module
 //! can stay `no_std` + `alloc`.
 
+use alloc::collections::BTreeSet;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
@@ -59,27 +60,41 @@ impl fmt::Display for SourcePathDisplay<'_> {
     }
 }
 
+/// Compiler-owned privilege attached to a source file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SourceCapability {
+    RawMemoryBoundary,
+}
+
 /// Compiler-owned privileges attached to a source file.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SourceCapabilities {
-    raw_memory_boundary: bool,
+    capabilities: BTreeSet<SourceCapability>,
 }
 
 impl SourceCapabilities {
     pub fn none() -> Self {
         Self {
-            raw_memory_boundary: false,
+            capabilities: BTreeSet::new(),
         }
     }
 
     pub fn raw_memory_boundary() -> Self {
-        Self {
-            raw_memory_boundary: true,
-        }
+        Self::with(SourceCapability::RawMemoryBoundary)
     }
 
-    pub fn allows_raw_memory_boundary(self) -> bool {
-        self.raw_memory_boundary
+    pub fn with(capability: SourceCapability) -> Self {
+        let mut capabilities = BTreeSet::new();
+        capabilities.insert(capability);
+        Self { capabilities }
+    }
+
+    pub fn allows(&self, capability: SourceCapability) -> bool {
+        self.capabilities.contains(&capability)
+    }
+
+    pub fn allows_raw_memory_boundary(&self) -> bool {
+        self.allows(SourceCapability::RawMemoryBoundary)
     }
 }
 
@@ -108,7 +123,7 @@ impl SourceMap {
     pub fn capabilities(&self, id: FileId) -> SourceCapabilities {
         self.files
             .get(id.0 as usize)
-            .map(|file| file.capabilities)
+            .map(|file| file.capabilities.clone())
             .unwrap_or_default()
     }
 
@@ -174,5 +189,36 @@ impl SourceMap {
             capabilities,
         });
         FileId(id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::string::String;
+
+    use super::{SourceCapabilities, SourceCapability, SourceMap};
+
+    #[test]
+    fn source_capabilities_are_enum_keyed() {
+        let none = SourceCapabilities::none();
+        assert!(!none.allows(SourceCapability::RawMemoryBoundary));
+
+        let raw_boundary = SourceCapabilities::with(SourceCapability::RawMemoryBoundary);
+        assert!(raw_boundary.allows(SourceCapability::RawMemoryBoundary));
+        assert!(raw_boundary.allows_raw_memory_boundary());
+    }
+
+    #[test]
+    fn source_map_keeps_capabilities_per_file() {
+        let mut source_map = SourceMap::new();
+        let plain = source_map.add("plain.nepl", String::from(""));
+        let raw = source_map.add_with_capabilities(
+            "core/mem.nepl",
+            String::from(""),
+            SourceCapabilities::with(SourceCapability::RawMemoryBoundary),
+        );
+
+        assert!(!source_map.raw_memory_boundary_allowed(plain));
+        assert!(source_map.raw_memory_boundary_allowed(raw));
     }
 }

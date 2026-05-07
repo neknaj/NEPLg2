@@ -34972,3 +34972,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --lib source_map::tests -- --nocapture`: 2 passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-08 Agent 1 source capability enum 化
+
+- `ISS-20260507T174020115Z-SOURCE-CAPABILITIES-KEEP-RAW-MEMORY--41F29FB6` として、raw-memory-boundary source privilege が `SourceCapabilities` の boolean field として保持されていた設計を修正した。
+- `SourceCapability` enum を追加し、`SourceCapabilities` は enum-keyed set として compiler-owned privilege を保持するようにした。
+- 既存の `raw_memory_boundary_allowed` と loader の exact stdlib path whitelist の意味は変えていない。user source / suffix 偽装拒否 / configured stdlib boundary の挙動は loader regression で維持した。
+- Stage 5/6 で capability が増える場合は enum variant として追加されるため、文字列や個別 boolean の増殖で静的検査境界が分散するのを避けられる。
+- [検証]:
+  - `cargo test -p nepl-core --lib source_map::tests -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test effects raw_memory_boundary -- --nocapture`: 4 passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-source-capability-memory-safety.json -j 1 --dist web/dist`: total=19, passed=19
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
