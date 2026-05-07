@@ -5,8 +5,10 @@ use alloc::vec::Vec;
 use crate::layout::{aggregate_fields_with_offsets, extend_type_mapping, mapped_type_id};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
-use super::model::{Place, PlaceProjection, RawMemoryOp, ResourceFunction, ResourceOp};
-use super::place_utils::{place_suffix_after_prefix, place_with_suffix};
+use super::model::{Place, PlaceProjection, ResourceFunction};
+use super::owner_summary_raw_consumption::function_has_raw_owner_consumption;
+use super::owner_summary_variant_leaf::enum_owner_leaf_projections;
+use super::place_utils::place_with_suffix;
 
 pub(super) struct OwnerLeafPlace {
     pub(super) place: Place,
@@ -39,16 +41,16 @@ pub(super) fn owner_seed_leaf_places(
     leaves
 }
 
-struct OwnerLeafProjection {
-    suffix: Vec<PlaceProjection>,
-    ty: TypeId,
+pub(super) struct OwnerLeafProjection {
+    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) ty: TypeId,
 }
 
 fn owner_leaf_projections(types: &TypeCtx, ty: TypeId) -> Vec<OwnerLeafProjection> {
     owner_leaf_projections_mapped(types, ty, &BTreeMap::new(), &mut BTreeSet::new())
 }
 
-fn owner_leaf_projections_mapped(
+pub(super) fn owner_leaf_projections_mapped(
     types: &TypeCtx,
     ty: TypeId,
     mapping: &BTreeMap<TypeId, TypeId>,
@@ -221,160 +223,7 @@ fn apply_owner_leaf_projections(
     }
 }
 
-fn function_has_raw_owner_consumption(function: &ResourceFunction) -> bool {
-    function.blocks.iter().any(|block| {
-        function.params.iter().any(|param| {
-            let mut aliases = vec![param.place.clone()];
-            ops_use_raw_owner_alias(&block.ops, &mut aliases)
-        })
-    })
-}
-
-fn ops_use_raw_owner_alias(ops: &[ResourceOp], aliases: &mut Vec<Place>) -> bool {
-    for op in ops {
-        match op {
-            ResourceOp::Read { source, output, .. }
-            | ResourceOp::Move { source, output, .. }
-            | ResourceOp::RawAddressAlias {
-                source,
-                target: output,
-                ..
-            }
-            | ResourceOp::RawAddressView {
-                source,
-                target: output,
-                ..
-            } => {
-                if place_matches_any_alias(source, aliases) {
-                    push_unique_place(aliases, output);
-                }
-            }
-            ResourceOp::Assign { target, value, .. } => {
-                if place_matches_any_alias(value, aliases) {
-                    push_unique_place(aliases, target);
-                }
-            }
-            ResourceOp::RawMemory {
-                operation, args, ..
-            } => match operation {
-                RawMemoryOp::Dealloc | RawMemoryOp::Realloc => {
-                    if args
-                        .first()
-                        .is_some_and(|arg| place_matches_any_alias(arg, aliases))
-                    {
-                        return true;
-                    }
-                }
-                _ => {}
-            },
-            ResourceOp::Branch {
-                output,
-                then_ops,
-                then_value,
-                else_ops,
-                else_value,
-                ..
-            } => {
-                let mut then_aliases = aliases.clone();
-                if ops_use_raw_owner_alias(then_ops, &mut then_aliases) {
-                    return true;
-                }
-                let mut else_aliases = aliases.clone();
-                if ops_use_raw_owner_alias(else_ops, &mut else_aliases) {
-                    return true;
-                }
-                if place_matches_any_alias(then_value, &then_aliases)
-                    || place_matches_any_alias(else_value, &else_aliases)
-                {
-                    push_unique_place(aliases, output);
-                }
-            }
-            ResourceOp::Loop {
-                condition_ops,
-                body_ops,
-                ..
-            } => {
-                let mut loop_aliases = aliases.clone();
-                if ops_use_raw_owner_alias(condition_ops, &mut loop_aliases)
-                    || ops_use_raw_owner_alias(body_ops, &mut loop_aliases)
-                {
-                    return true;
-                }
-            }
-            ResourceOp::Match { output, arms, .. } => {
-                let mut output_alias = false;
-                for arm in arms {
-                    let mut arm_aliases = aliases.clone();
-                    if ops_use_raw_owner_alias(&arm.ops, &mut arm_aliases) {
-                        return true;
-                    }
-                    output_alias |= place_matches_any_alias(&arm.value, &arm_aliases);
-                }
-                if output_alias {
-                    push_unique_place(aliases, output);
-                }
-            }
-            ResourceOp::Expr { .. }
-            | ResourceOp::DeclareLocal { .. }
-            | ResourceOp::Borrow { .. }
-            | ResourceOp::Drop { .. }
-            | ResourceOp::EndScope { .. }
-            | ResourceOp::CallEffect { .. }
-            | ResourceOp::FunctionValue { .. }
-            | ResourceOp::Call { .. }
-            | ResourceOp::IndirectCall { .. }
-            | ResourceOp::Construct { .. } => {}
-        }
-    }
-    false
-}
-
-fn place_matches_any_alias(place: &Place, aliases: &[Place]) -> bool {
-    aliases.iter().any(|alias| {
-        place == alias
-            || place_suffix_after_prefix(place, alias).is_some()
-            || place_suffix_after_prefix(alias, place).is_some()
-    })
-}
-
-fn push_unique_place(places: &mut Vec<Place>, place: &Place) {
-    if !places.iter().any(|existing| existing == place) {
-        places.push(place.clone());
-    }
-}
-
-fn enum_owner_leaf_projections(
-    types: &TypeCtx,
-    variants: &[crate::types::EnumVariantInfo],
-    mapping: &BTreeMap<TypeId, TypeId>,
-    seen: &mut BTreeSet<TypeId>,
-) -> Vec<OwnerLeafProjection> {
-    let mut out = Vec::new();
-    for variant in variants {
-        let Some(payload) = variant.payload else {
-            continue;
-        };
-        let payload_ty = mapped_type_id(types, payload, mapping);
-        let projection = PlaceProjection::EnumPayload {
-            variant: variant.name.clone(),
-        };
-        let mut payload_leaves = owner_leaf_projections_mapped(types, payload_ty, mapping, seen);
-        if payload_leaves.is_empty() && scalar_enum_payload_can_carry_owner(types, payload_ty) {
-            payload_leaves.push(OwnerLeafProjection {
-                suffix: Vec::new(),
-                ty: payload_ty,
-            });
-        }
-        push_nested_owner_leaf_projections(&mut out, projection, payload_leaves);
-    }
-    out
-}
-
-fn scalar_enum_payload_can_carry_owner(types: &TypeCtx, ty: TypeId) -> bool {
-    matches!(types.get_ref(types.resolve_id(ty)), TypeKind::I32)
-}
-
-fn push_nested_owner_leaf_projections(
+pub(super) fn push_nested_owner_leaf_projections(
     out: &mut Vec<OwnerLeafProjection>,
     projection: PlaceProjection,
     children: Vec<OwnerLeafProjection>,

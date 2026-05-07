@@ -33270,3 +33270,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/compiler/drop.n.md -i tests/compiler/drop_overwrite.n.md --no-tree --dist web/dist -o tmp/drop_agent1_after_initialized_availability_split.json -j 1 --assert-io`: total=5, passed=5
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 owner summary leaf 責務分割
+
+- `ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE` を fixed にした。
+- `owner_summary_leaf.rs` は owner leaf projection、raw owner consumption の関数本体走査、enum payload 展開を同居させていた。
+- raw owner consumption の alias 追跡と dealloc/realloc 検出を `owner_summary_raw_consumption.rs` に分離した。
+- enum payload owner leaf 展開を `owner_summary_variant_leaf.rs` に分離した。
+- `owner_summary_leaf.rs` は型ごとの owner leaf projection entry に責務を戻した。
+- 行数は `owner_summary_leaf.rs` 236/260、`owner_summary_raw_consumption.rs` 122/140、`owner_summary_variant_leaf.rs` 42/80。
+- 分割後に policy を直接実行したところ、次の未解決問題として `initialized_alias_flow.rs` 1034/550 行が露出したため、`ISS-20260507T011907998Z-RESOURCE-INITIALIZED-ALIAS-FLOW-EXCE-E65684BD` を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core resource:: --lib`: 10 passed
+  - `trunk build`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: owner summary leaf 側は解消、`initialized_alias_flow.rs` 超過のみ warning
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md -i tests/compiler/drop_overwrite.n.md --no-tree --dist web/dist -o tmp/drop_agent1_after_owner_summary_leaf_split.json -j 1 --assert-io`: total=5, passed=5
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

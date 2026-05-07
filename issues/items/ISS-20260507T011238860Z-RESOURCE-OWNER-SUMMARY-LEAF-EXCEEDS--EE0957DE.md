@@ -2,8 +2,8 @@
 id: ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE
 title: "Resource owner summary leaf exceeds responsibility split policy"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-07
@@ -42,3 +42,23 @@ Split owner_summary_leaf.rs into coherent leaf classification and traversal/upda
 ## 検証
 
 Run node nodesrc/test_resource_checker_responsibility.js after the split and focused owner-summary/resource tests.
+
+## 2026-05-07 Agent 1 fixed
+
+- `owner_summary_leaf.rs` から raw owner consumption の関数本体走査を `owner_summary_raw_consumption.rs` へ分離した。
+- enum payload owner leaf 展開を `owner_summary_variant_leaf.rs` へ分離した。
+- `owner_summary_leaf.rs` は型ごとの owner leaf projection と public entry に責務を絞った。
+- source policy に新 module と上限を登録し、owner summary leaf 周辺の再集中を検出できるようにした。
+- 行数は `owner_summary_leaf.rs` 236/260、`owner_summary_raw_consumption.rs` 122/140、`owner_summary_variant_leaf.rs` 42/80。
+- 分割後の policy は次の未解決問題として `initialized_alias_flow.rs` 1034/550 行を露出したため、`ISS-20260507T011907998Z-RESOURCE-INITIALIZED-ALIAS-FLOW-EXCE-E65684BD` を追加した。
+
+確認:
+
+- `cargo fmt --check -p nepl-core`
+- `cargo check -p nepl-core --tests`
+- `cargo test -p nepl-core resource:: --lib`
+- `trunk build`
+- `node -e ... owner_summary_* line count`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`: owner summary leaf 側は解消。`initialized_alias_flow.rs` 超過のみ警告。
+- `node nodesrc/issues.js check`
+- `node nodesrc/tests.js -i tests/compiler/drop.n.md -i tests/compiler/drop_overwrite.n.md --no-tree --dist web/dist -o tmp/drop_agent1_after_owner_summary_leaf_split.json -j 1 --assert-io`

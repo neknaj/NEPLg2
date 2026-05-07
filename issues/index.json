@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T01:14:34.582Z",
+  "generated_at": "2026-05-07T01:20:11.364Z",
   "counts": {
-    "total": 549,
+    "total": 550,
     "open": 13,
-    "resolved": 536,
+    "resolved": 537,
     "by_area": {
       "core": {
-        "total": 272,
+        "total": 273,
         "open": 5,
-        "resolved": 267
+        "resolved": 268
       },
       "stdlib": {
         "total": 157,
@@ -135,8 +135,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE",
-      "title": "Resource owner summary leaf exceeds responsibility split policy",
+      "id": "ISS-20260507T011907998Z-RESOURCE-INITIALIZED-ALIAS-FLOW-EXCE-E65684BD",
+      "title": "Resource initialized alias flow exceeds responsibility split policy",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -144,10 +144,10 @@
       "type": "architecture",
       "created": "2026-05-07",
       "updated": "2026-05-07",
-      "target": "nepl-core/src/resource/owner_summary_leaf.rs; nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/initialized_alias_flow.rs; nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE.md"
+      "file": "items/ISS-20260507T011907998Z-RESOURCE-INITIALIZED-ALIAS-FLOW-EXCE-E65684BD.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4213,6 +4213,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T011054993Z-RESOURCE-INITIALIZED-AVAILABILITY-CH-ED41979E.md"
+    },
+    {
+      "id": "ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE",
+      "title": "Resource owner summary leaf exceeds responsibility split policy",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/owner_summary_leaf.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
