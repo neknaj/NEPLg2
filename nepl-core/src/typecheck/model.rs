@@ -6,6 +6,12 @@ use crate::hir::{HirExpr, HirFunction};
 use crate::types::{EnumVariantInfo, TypeId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum StructConstructorPolicy {
+    Public,
+    RawMemoryBoundaryOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ScalarMatchKind {
     I32,
     U8,
@@ -32,6 +38,7 @@ pub(super) struct StructInfo {
     pub(super) type_params: Vec<TypeId>,
     pub(super) fields: Vec<TypeId>,
     pub(super) field_names: Vec<String>,
+    pub(super) constructor_policy: StructConstructorPolicy,
 }
 
 #[derive(Debug, Clone)]

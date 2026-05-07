@@ -22,7 +22,7 @@ use super::check_function;
 use super::diagnostics::{resolve_error, resolve_warning, type_error};
 use super::driver_entry::resolve_entry_function;
 use super::env::{Binding, BindingKind, Env};
-use super::model::{EnumInfo, StructInfo};
+use super::model::{EnumInfo, StructConstructorPolicy, StructInfo};
 use super::signature::{
     contains_same_type, function_signature_string, mangle_function_symbol,
     mangle_function_symbol_for_def, mangle_impl_method, push_unique_type, same_function_signature,
@@ -474,6 +474,11 @@ pub fn typecheck(
                         type_params: tps,
                         fields: fs,
                         field_names: f_names,
+                        constructor_policy: struct_constructor_policy(
+                            &s.name.name,
+                            s.name.span,
+                            source_map,
+                        ),
                     },
                 );
             }
@@ -1617,5 +1622,22 @@ pub fn typecheck(
         },
         diagnostics,
         types: ctx,
+    }
+}
+
+fn struct_constructor_policy(
+    name: &str,
+    span: Span,
+    source_map: Option<&SourceMap>,
+) -> StructConstructorPolicy {
+    match name {
+        "RegionToken"
+            if source_map
+                .map(|source_map| source_map.raw_memory_boundary_allowed(span.file_id))
+                .unwrap_or(false) =>
+        {
+            StructConstructorPolicy::RawMemoryBoundaryOnly
+        }
+        _ => StructConstructorPolicy::Public,
     }
 }

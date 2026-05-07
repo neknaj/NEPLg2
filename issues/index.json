@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T17:03:46.796Z",
+  "generated_at": "2026-05-07T17:09:18.642Z",
   "counts": {
-    "total": 608,
+    "total": 609,
     "open": 13,
-    "resolved": 595,
+    "resolved": 596,
     "by_area": {
       "core": {
-        "total": 301,
+        "total": 302,
         "open": 3,
-        "resolved": 298
+        "resolved": 299
       },
       "stdlib": {
         "total": 164,
@@ -4643,6 +4643,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C.md"
+    },
+    {
+      "id": "ISS-20260507T170021735Z-REGIONTOKEN-STRUCT-CONSTRUCTOR-IS-FO-0CC2D37A",
+      "title": "RegionToken struct constructor is forgeable outside compiler memory boundary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "security",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/typecheck/constructor_apply.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T170021735Z-REGIONTOKEN-STRUCT-CONSTRUCTOR-IS-FO-0CC2D37A.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

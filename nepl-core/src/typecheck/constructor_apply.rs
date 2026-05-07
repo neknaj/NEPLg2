@@ -9,6 +9,7 @@ use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
 use super::diagnostics::type_error;
+use super::model::StructConstructorPolicy;
 use super::syntax_helpers::parse_variant_name;
 use super::{BlockChecker, StackEntry};
 
@@ -159,6 +160,19 @@ impl<'a> BlockChecker<'a> {
         let Some(info) = self.structs.get(name) else {
             return None;
         };
+        match info.constructor_policy {
+            StructConstructorPolicy::Public => {}
+            StructConstructorPolicy::RawMemoryBoundaryOnly => {
+                if !self.raw_memory_boundary_allowed(span) {
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::OwnerTokenConstructorRestricted,
+                        "owner token constructor is restricted to compiler memory boundary",
+                        span,
+                    ));
+                    return Some(None);
+                }
+            }
+        }
         let struct_ty = info.ty;
         let fields = info.fields.clone();
         let field_names = info.field_names.clone();

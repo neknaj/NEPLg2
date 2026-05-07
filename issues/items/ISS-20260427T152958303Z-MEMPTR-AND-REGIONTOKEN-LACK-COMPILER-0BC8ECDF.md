@@ -259,3 +259,18 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_at_ok_payload -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_borrowed_region_ptr_at_then_region_dealloc -- --nocapture`: passed
 - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-region-ptr-at-forge.json -j 1 --dist web/dist`: 17 passed
+
+## 2026-05-08 RegionToken direct constructor boundary 部分対応
+
+`RegionToken<T>` の通常 struct constructor を user source から直接呼び、`RegionToken p size` の形で owner-token-shaped value を作れる問題を `ISS-20260507T170021735Z-REGIONTOKEN-STRUCT-CONSTRUCTOR-IS-FO-0CC2D37A` として修正した。
+
+根本原因は、`RegionToken` が free obligation owner を表す token であるにもかかわらず、型検査上は他の struct constructor と同じ pure callable として扱われていたことだった。後段の Resource IR owner checker は forged token の使用時に `resource.owner.no_free_obligation` を出せるが、typed HIR に forge 済み token を残す設計は compiler-issued capability として弱い。
+
+対応では `TypeDiagnosticCode::OwnerTokenConstructorRestricted` / `type.owner_token.constructor_restricted` を追加し、struct 定義時に `StructConstructorPolicy` enum で constructor policy を分類するようにした。core memory boundary 内で定義された `RegionToken` の direct constructor だけを raw-memory-boundary capability を持つ source に限定し、同名の user-defined struct は通常の public constructor のまま扱う。`stdlib/core/mem.nepl` の `region_new` は compiler-owned memory boundary 内の wrapper として維持し、user source は allocation API と Resource IR summary 経由でしか free obligation owner を得られない。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir typecheck_rejects_region_token_struct_constructor_outside_memory_boundary -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named_region_token -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_str_addr_view -- --nocapture`: passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-region-token-constructor-boundary.json -j 1 --dist web/dist`: 18 passed

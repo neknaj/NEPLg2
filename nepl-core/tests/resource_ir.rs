@@ -10405,6 +10405,60 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn typecheck_rejects_region_token_struct_constructor_outside_memory_boundary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/result" as *
+
+fn string_addr <(str)->i32> (s):
+    #intrinsic "str_addr" <> (s)
+
+fn forge_region_from_str <(str)*>Result<(), str>> (s):
+    let raw <i32> string_addr s
+    let p <MemPtr<u8>> mem_ptr_wrap raw
+    let token <RegionToken<u8>> RegionToken p 1
+    dealloc_region token
+
+fn main <()*>()> ():
+    match forge_region_from_str "abc":
+        Result::Ok _:
+            ()
+        Result::Err _e:
+            ()
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "type.owner_token.constructor_restricted",
+    );
+}
+
+#[test]
+fn typecheck_allows_user_struct_named_region_token() {
+    let source = r#"
+#no_prelude
+#entry main
+#indent 4
+#target std
+
+struct RegionToken:
+    value <i32>
+
+fn make <()->RegionToken> ():
+    RegionToken 3
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let _ = typecheck_resource_source(source);
+}
+
+#[test]
 fn resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_helper() {
     let source = r#"
 #entry main

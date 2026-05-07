@@ -132,6 +132,7 @@ pub enum TypeDiagnosticCode {
     TraitCapabilityUnknown,
     MatchPatternUnsupported,
     MatchWildcardNotLast,
+    OwnerTokenConstructorRestricted,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -398,6 +399,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::TraitCapabilityUnknown),
     DiagnosticCode::Type(TypeDiagnosticCode::MatchPatternUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::MatchWildcardNotLast),
+    DiagnosticCode::Type(TypeDiagnosticCode::OwnerTokenConstructorRestricted),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
         ResourceBorrowDiagnosticCode::ReturnEscape,
     )),
@@ -780,6 +782,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::TraitCapabilityUnknown => "type.trait_capability.unknown",
             TypeDiagnosticCode::MatchPatternUnsupported => "type.match.pattern_unsupported",
             TypeDiagnosticCode::MatchWildcardNotLast => "type.match.wildcard_not_last",
+            TypeDiagnosticCode::OwnerTokenConstructorRestricted => {
+                "type.owner_token.constructor_restricted"
+            }
         }
     }
 
@@ -902,6 +907,9 @@ impl TypeDiagnosticCode {
                 "match arm pattern is not supported for this scrutinee type"
             }
             TypeDiagnosticCode::MatchWildcardNotLast => "wildcard match arm must be last",
+            TypeDiagnosticCode::OwnerTokenConstructorRestricted => {
+                "owner token constructor is restricted to compiler memory boundary"
+            }
         }
     }
 }

@@ -34882,3 +34882,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-08 Agent 1 RegionToken direct constructor boundary 修正
+
+- `ISS-20260507T170021735Z-REGIONTOKEN-STRUCT-CONSTRUCTOR-IS-FO-0CC2D37A` として、`RegionToken<T>` の通常 struct constructor を user source から直接呼び、owner-token-shaped value を作れる問題を修正した。
+- `RegionToken` は free obligation owner token なので、他の pure struct constructor と同じ扱いにせず、core memory boundary 内で定義された `RegionToken` だけを `raw_memory_boundary` capability を持つ source 内で直構築できるようにした。
+- struct 定義時に `StructConstructorPolicy::{Public,RawMemoryBoundaryOnly}` を付与し、constructor 適用時は policy enum を `match` する構造にした。同名の user-defined `RegionToken` は `Public` のままなので、core owner token の制限が通常の user struct へ波及しない。
+- `TypeDiagnosticCode::OwnerTokenConstructorRestricted` / `type.owner_token.constructor_restricted` を追加し、diagnostic code-first policy と match 網羅性に乗せた。
+- `stdlib/core/mem.nepl` の `region_new` は boundary 内 wrapper として維持した。`region_new` に non-owning `MemPtr` を渡す経路は引き続き Resource IR owner checker が `resource.owner.no_free_obligation` で拒否する。
+- `tests/stdlib/memory_safety.n.md` に direct constructor compile_fail を追加し、既存の `region_new` owner forge regression と責務を分けた。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_region_token_struct_constructor_outside_memory_boundary -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named_region_token -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_str_addr_view -- --nocapture`: passed
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-region-token-constructor-boundary.json -j 1 --dist web/dist`: total=18, passed=18
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

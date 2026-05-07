@@ -410,6 +410,35 @@ fn main <()*>()> ():
             ()
 ```
 
+## RegionToken の直 constructor は memory boundary 外で使えない
+
+neplg2:test[compile_fail]
+diag_code: type.owner_token.constructor_restricted
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn string_addr_probe <(str)->i32> (s):
+    #intrinsic "str_addr" <> (s)
+
+fn forge_region_from_str <(str)*>Result<(), str>> (s):
+    let raw <i32> string_addr_probe s
+    let p <MemPtr<u8>> mem_ptr_wrap raw
+    let token <RegionToken<u8>> RegionToken p 1
+    dealloc_region token
+
+fn main <()*>()> ():
+    match forge_region_from_str "abc":
+        Result::Ok _:
+            ()
+        Result::Err _e:
+            ()
+```
+
 ## helper が返した region_ptr は owner token にできない
 
 neplg2:test[compile_fail]
