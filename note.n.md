@@ -11,6 +11,21 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-08 Agent 1 Selfhost HIR expression payload 修正
+
+- `ISS-20260507T161930297Z-SELFHOST-HIR-EXPRESSIONS-STORE-KIND--54E75EE3` として、`SelfhostHirExpr` が kind 固有 field を flat record に持っていた問題を分離して解決した。
+- `SelfhostHirExpr` は common な `ty` / `span` と `SelfhostHirExprPayload` だけを持つ record に変更した。
+- `SelfhostHirExprPayload` は `Error` / `Unit` / `BoolLiteral` / `I32Literal` / `StrLiteral` / `Var` / `Call` / `Block` / `If` の enum payload に分離し、Call 専用 payload は `SelfhostHirCallExpr` が `name` と `args` を所有する。
+- `selfhost_hir_expr_kind` と `selfhost_hir_expr_child_range` は `&SelfhostHirExpr` を受け、borrowed payload を match して返すようにした。値で payload 全体を消費して child range だけ返す形は Resource IR owner check で leak と見なされるため避けた。
+- flat constructor の `selfhost_hir_expr_leaf` / `selfhost_hir_expr_with_children` を削除し、variant-specific constructor に置き換えた。
+- `nodesrc/test_selfhost_hir_expr_payload.js` を追加し、flat payload field、flat constructor、payload match を通さない accessor の再導入を source policy で拒否する。
+- 親 issue `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D` は全 child が解決したため fixed/resolved に更新した。
+- [検証]:
+  - `node nodesrc/test_selfhost_hir_expr_payload.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/hir/hir.nepl --no-tree -o tmp/agent1-selfhost-hir-expr-payload.json -j 1 --dist web/dist`: total=3, passed=3
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-08 Agent 1 Selfhost resolver DefId absence 修正
 
 - `ISS-20260507T161157719Z-SELFHOST-DEFINITION-IDS-USE-1-INVALI-E74DCE86` として、`SelfhostDefId` が未割り当て binding id を `-1` sentinel で表せる問題を分離して解決した。

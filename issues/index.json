@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T16:16:06.340Z",
+  "generated_at": "2026-05-07T16:25:54.352Z",
   "counts": {
-    "total": 607,
-    "open": 16,
-    "resolved": 591,
+    "total": 608,
+    "open": 15,
+    "resolved": 593,
     "by_area": {
       "core": {
         "total": 301,
         "open": 3,
         "resolved": 298
-      },
-      "selfhost": {
-        "total": 60,
-        "open": 3,
-        "resolved": 57
       },
       "stdlib": {
         "total": 164,
@@ -35,6 +30,11 @@
         "total": 17,
         "open": 1,
         "resolved": 16
+      },
+      "selfhost": {
+        "total": 61,
+        "open": 2,
+        "resolved": 59
       },
       "tools": {
         "total": 1,
@@ -143,21 +143,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D",
-      "title": "Selfhost typed IR models use invalid sentinels instead of typed absence",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-07",
-      "updated": "2026-05-08",
-      "target": "stdlib/neplg2/core/ty/ty.nepl, stdlib/neplg2/core/hir/hir.nepl, stdlib/neplg2/core/mono/mono.nepl, stdlib/neplg2/core/builtins/prelude.nepl, stdlib/neplg2/core/resolve/name_resolver.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -5395,6 +5380,21 @@
       "file": "items/ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE.md"
     },
     {
+      "id": "ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D",
+      "title": "Selfhost typed IR models use invalid sentinels instead of typed absence",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "stdlib/neplg2/core/ty/ty.nepl, stdlib/neplg2/core/hir/hir.nepl, stdlib/neplg2/core/mono/mono.nepl, stdlib/neplg2/core/builtins/prelude.nepl, stdlib/neplg2/core/resolve/name_resolver.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D.md"
+    },
+    {
       "id": "ISS-20260507T152220930Z-SELFHOST-ENUM-EQUALITY-HELPERS-LOWER-4E1FAA87",
       "title": "Selfhost enum equality helpers lower variants to numeric tags",
       "area": "selfhost",
@@ -5498,6 +5498,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T161157719Z-SELFHOST-DEFINITION-IDS-USE-1-INVALI-E74DCE86.md"
+    },
+    {
+      "id": "ISS-20260507T161930297Z-SELFHOST-HIR-EXPRESSIONS-STORE-KIND--54E75EE3",
+      "title": "Selfhost HIR expressions store kind-specific fields in a flat record",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "stdlib/neplg2/core/hir/hir.nepl, nodesrc/test_selfhost_hir_expr_payload.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T161930297Z-SELFHOST-HIR-EXPRESSIONS-STORE-KIND--54E75EE3.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",

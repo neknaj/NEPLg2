@@ -2,8 +2,8 @@
 id: ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D
 title: "Selfhost typed IR models use invalid sentinels instead of typed absence"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-07
@@ -15,7 +15,7 @@ target: "stdlib/neplg2/core/ty/ty.nepl, stdlib/neplg2/core/hir/hir.nepl, stdlib/
 
 ## 概要
 
-Selfhost HIR expression payloads still store fields that are meaningful only for some expression kinds. Earlier numeric enum tags, builtin placeholder arguments, type-record invalid TypeId payloads, HIR empty range sentinels, mono instance invalid IDs, HIR expression invalid IDs, and resolver definition invalid IDs have been split into child issues and fixed.
+Selfhost typed IR model debt around invalid sentinels and flat kind-specific payload fields has been split into child issues and fixed. Numeric enum tags, builtin placeholder arguments, type-record invalid TypeId payloads, HIR empty range sentinels, mono instance invalid IDs, HIR expression invalid IDs, resolver definition invalid IDs, and HIR expression flat payload fields are now covered by focused regressions.
 
 ## 対象
 
@@ -27,7 +27,7 @@ Selfhost HIR expression payloads still store fields that are meaningful only for
 
 ## 問題
 
-Remaining self-host typed model debt is concentrated in `SelfhostHirExpr` flat payload fields. These still allow non-exhaustive expression state to be represented in ordinary records instead of requiring variant-specific payload matching.
+The tracked self-host typed model debt in this issue is fixed. Remaining self-host work should be tracked as new issues tied to concrete modules or stages.
 
 ## 影響
 
@@ -47,7 +47,7 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- HIR expression payload が kind ごとに所有 field を分離できていないこと。
+- なし。
 
 ## 2026-05-08 builtin signature payload 対応
 
@@ -55,7 +55,7 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- HIR expression payload が kind ごとに所有 field を分離できていないこと。
+- なし。
 
 ## 2026-05-08 type record payload 対応
 
@@ -63,7 +63,7 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- HIR expression payload が kind ごとに所有 field を分離できていないこと。
+- なし。
 
 ## 2026-05-08 HIR range payload 対応
 
@@ -71,7 +71,7 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- HIR expression payload が kind ごとに所有 field を分離できていないこと。
+- なし。
 
 ## 2026-05-08 mono instance absence 対応
 
@@ -79,7 +79,7 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- HIR expression payload が kind ごとに所有 field を分離できていないこと。
+- なし。
 
 ## 2026-05-08 HIR expression id absence 対応
 
@@ -87,7 +87,7 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- HIR expression payload が kind ごとに所有 field を分離できていないこと。
+- なし。
 
 ## 2026-05-08 resolver DefId absence 対応
 
@@ -95,4 +95,12 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- HIR expression payload が kind ごとに所有 field を分離できていないこと。
+- なし。
+
+## 2026-05-08 HIR expression payload 対応
+
+この親 issue のうち、`SelfhostHirExpr` が kind 固有 field を flat record に持っていた問題は、[ISS-20260507T161930297Z-SELFHOST-HIR-EXPRESSIONS-STORE-KIND--54E75EE3](./ISS-20260507T161930297Z-SELFHOST-HIR-EXPRESSIONS-STORE-KIND--54E75EE3.md) で分離して解決した。
+
+残件:
+
+- なし。この親 issue は fixed / resolved とする。

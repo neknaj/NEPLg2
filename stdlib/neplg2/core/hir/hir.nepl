@@ -11,12 +11,12 @@
 //: [実装/じっそう]:
 //: - `SelfhostHirModule` は function / param / expr / expr_children の 4 つの Vec を所有します。
 //: - `SelfhostHirFunctionId` と `SelfhostHirExprId` は arena-local index です。別 module の id と混ぜないでください。
-//: - expression record は typed child range から作り、first_child / child_count で child table 範囲を参照します。
+//: - expression record は variant payload で kind 固有の情報を持ち、child table 範囲は child を持つ payload からだけ参照します。
 //: - function record は typed parameter range から作り、first_param / param_count で param table 範囲を参照します。
 //:
 //: [注意/ちゅうい]:
 //: - これは S4 HIR stage の最小 model です。完全な lowering、pattern、drop plan は別 issue で追加します。
-//: - string literal は現時点では `name` field に lexeme / symbol を置く最小表現です。後で string table に分離します。
+//: - string literal は現時点では payload の `str` 値に lexeme / symbol を置く最小表現です。後で string table に分離します。
 //:
 //: [計算量/けいさんりょう]:
 //: - record 追加は Vec の償却 O(1)、再確保時 O(n) です。
@@ -39,7 +39,7 @@
 //:         Result::Ok module0:
 //:             let span <SelfhostSourceSpan> source_span_new 3 10 14
 //:             let result_ty <SelfhostTypeId> selfhost_type_id_new 1
-//:             let expr <SelfhostHirExpr> selfhost_hir_expr_new SelfhostHirExprKind::Unit result_ty span -1 0 "" 0 false
+//:             let expr <SelfhostHirExpr> selfhost_hir_expr_unit result_ty span
 //:             match selfhost_hir_module_add_expr module0 expr:
 //:                 Result::Ok expr_alloc:
 //:                     let root <SelfhostHirExprId> field::get expr_alloc "expr_id"
@@ -58,7 +58,7 @@
 //:                                     let checks5 checks_push checks4 check_str_eq "main" got_func.name
 //:                                     match selfhost_hir_module_get_expr &module2 got_func.root:
 //:                                         Option::Some got_expr:
-//:                                             let checks6 checks_push checks5 check selfhost_hir_expr_kind_eq got_expr.kind SelfhostHirExprKind::Unit
+//:                                             let checks6 checks_push checks5 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &got_expr SelfhostHirExprKind::Unit
 //:                                             selfhost_hir_module_free module2
 //:                                             let shown checks_print_report checks6
 //:                                             checks_exit_code shown
@@ -104,7 +104,7 @@
 //:         Result::Ok module0:
 //:             let span <SelfhostSourceSpan> source_span_new 4 20 25
 //:             let result_ty <SelfhostTypeId> selfhost_type_id_new 1
-//:             let child_expr <SelfhostHirExpr> selfhost_hir_expr_leaf SelfhostHirExprKind::Unit result_ty span "" 0 false
+//:             let child_expr <SelfhostHirExpr> selfhost_hir_expr_unit result_ty span
 //:             match selfhost_hir_module_add_expr module0 child_expr:
 //:                 Result::Ok child_alloc:
 //:                     let child_id <SelfhostHirExprId> field::get child_alloc "expr_id"
@@ -115,7 +115,7 @@
 //:                         Result::Ok range_alloc:
 //:                             let child_range <SelfhostHirChildRange> field::get range_alloc "child_range"
 //:                             let module2 <SelfhostHirModule> field::get range_alloc "module"
-//:                             let parent_expr <SelfhostHirExpr> selfhost_hir_expr_with_children SelfhostHirExprKind::Block result_ty span child_range "" 0 false
+//:                             let parent_expr <SelfhostHirExpr> selfhost_hir_expr_block result_ty span child_range
 //:                             match selfhost_hir_module_add_expr module2 parent_expr:
 //:                                 Result::Ok parent_alloc:
 //:                                     let parent_id <SelfhostHirExprId> field::get parent_alloc "expr_id"
@@ -130,9 +130,10 @@
 //:                                             let checks4 checks_push checks3 check_eq_i32 expected_child_idx got_child_idx
 //:                                             match selfhost_hir_module_get_expr &module3 parent_id:
 //:                                                 Option::Some got_parent:
-//:                                                     let checks5 checks_push checks4 check selfhost_hir_expr_kind_eq got_parent.kind SelfhostHirExprKind::Block
-//:                                                     let checks6 checks_push checks5 check_eq_i32 1 got_parent.child_count
-//:                                                     let checks7 checks_push checks6 check_eq_i32 0 got_parent.first_child
+//:                                                     let checks5 checks_push checks4 check selfhost_hir_expr_kind_eq selfhost_hir_expr_kind &got_parent SelfhostHirExprKind::Block
+//:                                                     let got_range <SelfhostHirChildRange> selfhost_hir_expr_child_range &got_parent
+//:                                                     let checks6 checks_push checks5 check_eq_i32 1 selfhost_hir_child_range_count got_range
+//:                                                     let checks7 checks_push checks6 check_eq_i32 0 selfhost_hir_child_range_first got_range
 //:                                                     selfhost_hir_module_free module3
 //:                                                     let shown checks_print_report checks7
 //:                                                     checks_exit_code shown
@@ -189,7 +190,7 @@
 //:                 Result::Ok param_alloc:
 //:                     let param_range <SelfhostHirParamRange> field::get param_alloc "param_range"
 //:                     let module1 <SelfhostHirModule> field::get param_alloc "module"
-//:                     let root_expr <SelfhostHirExpr> selfhost_hir_expr_leaf SelfhostHirExprKind::Unit result_ty span "" 0 false
+//:                     let root_expr <SelfhostHirExpr> selfhost_hir_expr_unit result_ty span
 //:                     match selfhost_hir_module_add_expr module1 root_expr:
 //:                         Result::Ok expr_alloc:
 //:                             let root <SelfhostHirExprId> field::get expr_alloc "expr_id"
@@ -380,20 +381,46 @@ impl Copy for SelfhostHirParam:
 //: SelfhostHirExpr: HIR expression record
 //:
 //: [目的/もくてき]:
-//: - expression kind、型、span、child table 範囲、最小 payload を 1 record にまとめます。
+//: - expression 共通の型 / span と、kind 固有の payload を分けて保持します。
 //:
 //: [注意/ちゅうい]:
-//: - `name` は Var / Call / StrLiteral の初期 payload です。後続の symbol table / string table 導入時に分離します。
-//: - `int_value` / `bool_value` は literal 用 payload です。使わない kind では 0 / false を入れます。
+//: - child range や literal 値は `SelfhostHirExprPayload` を match した後でだけ読めます。
+//: - 後続の symbol table / string table 導入までは、Var / Call / StrLiteral payload に `str` を直接保持します。
+struct SelfhostHirCallExpr:
+    name <str>
+    args <SelfhostHirChildRange>
+
+impl Clone for SelfhostHirCallExpr:
+    fn clone <(&SelfhostHirCallExpr)->SelfhostHirCallExpr> (self):
+        *self
+
+impl Copy for SelfhostHirCallExpr:
+    fn copy_mark <(SelfhostHirCallExpr)->SelfhostHirCallExpr> (self):
+        self
+
+enum SelfhostHirExprPayload:
+    Error
+    Unit
+    BoolLiteral <bool>
+    I32Literal <i32>
+    StrLiteral <str>
+    Var <str>
+    Call <SelfhostHirCallExpr>
+    Block <SelfhostHirChildRange>
+    If <SelfhostHirChildRange>
+
+impl Clone for SelfhostHirExprPayload:
+    fn clone <(&SelfhostHirExprPayload)->SelfhostHirExprPayload> (self):
+        *self
+
+impl Copy for SelfhostHirExprPayload:
+    fn copy_mark <(SelfhostHirExprPayload)->SelfhostHirExprPayload> (self):
+        self
+
 struct SelfhostHirExpr:
-    kind <SelfhostHirExprKind>
     ty <SelfhostTypeId>
     span <SelfhostSourceSpan>
-    first_child <i32>
-    child_count <i32>
-    name <str>
-    int_value <i32>
-    bool_value <bool>
+    payload <SelfhostHirExprPayload>
 
 impl Clone for SelfhostHirExpr:
     fn clone <(&SelfhostHirExpr)->SelfhostHirExpr> (self):
@@ -715,27 +742,88 @@ fn selfhost_hir_param_new <(str,SelfhostTypeId,bool,SelfhostSourceSpan)->Selfhos
     SelfhostHirParam name ty mutable span
 
 //: selfhost_hir_expr_new: expression record を[作/つく]る
-fn selfhost_hir_expr_new <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpan,i32,i32,str,i32,bool)->SelfhostHirExpr> (kind, ty, span, first_child, child_count, name, int_value, bool_value):
-    SelfhostHirExpr kind ty span first_child child_count name int_value bool_value
+fn selfhost_hir_expr_new <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprPayload)->SelfhostHirExpr> (ty, span, payload):
+    SelfhostHirExpr ty span payload
 
-//: selfhost_hir_expr_with_children: child range を持つ expression record を[作/つく]る
-fn selfhost_hir_expr_with_children <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange,str,i32,bool)->SelfhostHirExpr> (kind, ty, span, child_range, name, int_value, bool_value):
-    let first_child <i32> selfhost_hir_child_range_first child_range
-    let child_count <i32> selfhost_hir_child_range_count child_range
-    selfhost_hir_expr_new kind ty span first_child child_count name int_value bool_value
+//: selfhost_hir_expr_error: error expression record を[作/つく]る
+fn selfhost_hir_expr_error <(SelfhostTypeId,SelfhostSourceSpan)->SelfhostHirExpr> (ty, span):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Error
 
-//: selfhost_hir_expr_leaf: child を持たない expression record を[作/つく]る
-fn selfhost_hir_expr_leaf <(SelfhostHirExprKind,SelfhostTypeId,SelfhostSourceSpan,str,i32,bool)->SelfhostHirExpr> (kind, ty, span, name, int_value, bool_value):
-    selfhost_hir_expr_with_children kind ty span selfhost_hir_child_range_empty name int_value bool_value
+//: selfhost_hir_expr_unit: unit expression record を[作/つく]る
+fn selfhost_hir_expr_unit <(SelfhostTypeId,SelfhostSourceSpan)->SelfhostHirExpr> (ty, span):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Unit
+
+//: selfhost_hir_expr_bool_literal: bool literal expression record を[作/つく]る
+fn selfhost_hir_expr_bool_literal <(SelfhostTypeId,SelfhostSourceSpan,bool)->SelfhostHirExpr> (ty, span, value):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::BoolLiteral value
+
+//: selfhost_hir_expr_i32_literal: i32 literal expression record を[作/つく]る
+fn selfhost_hir_expr_i32_literal <(SelfhostTypeId,SelfhostSourceSpan,i32)->SelfhostHirExpr> (ty, span, value):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::I32Literal value
+
+//: selfhost_hir_expr_str_literal: str literal expression record を[作/つく]る
+fn selfhost_hir_expr_str_literal <(SelfhostTypeId,SelfhostSourceSpan,str)->SelfhostHirExpr> (ty, span, value):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::StrLiteral value
+
+//: selfhost_hir_expr_var: variable reference expression record を[作/つく]る
+fn selfhost_hir_expr_var <(SelfhostTypeId,SelfhostSourceSpan,str)->SelfhostHirExpr> (ty, span, name):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Var name
+
+//: selfhost_hir_expr_call: call expression record を[作/つく]る
+fn selfhost_hir_expr_call <(SelfhostTypeId,SelfhostSourceSpan,str,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, name, args):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Call SelfhostHirCallExpr name args
+
+//: selfhost_hir_expr_block: block expression record を[作/つく]る
+fn selfhost_hir_expr_block <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, children):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::Block children
+
+//: selfhost_hir_expr_if: if expression record を[作/つく]る
+fn selfhost_hir_expr_if <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, branches):
+    selfhost_hir_expr_new ty span SelfhostHirExprPayload::If branches
+
+//: selfhost_hir_expr_kind: expression record の kind を[返/かえ]す
+fn selfhost_hir_expr_kind <(&SelfhostHirExpr)->SelfhostHirExprKind> (expr):
+    match *field::get_ref expr "payload":
+        SelfhostHirExprPayload::Error:
+            SelfhostHirExprKind::Error
+        SelfhostHirExprPayload::Unit:
+            SelfhostHirExprKind::Unit
+        SelfhostHirExprPayload::BoolLiteral _value:
+            SelfhostHirExprKind::BoolLiteral
+        SelfhostHirExprPayload::I32Literal _value:
+            SelfhostHirExprKind::I32Literal
+        SelfhostHirExprPayload::StrLiteral _value:
+            SelfhostHirExprKind::StrLiteral
+        SelfhostHirExprPayload::Var _name:
+            SelfhostHirExprKind::Var
+        SelfhostHirExprPayload::Call _call:
+            SelfhostHirExprKind::Call
+        SelfhostHirExprPayload::Block _children:
+            SelfhostHirExprKind::Block
+        SelfhostHirExprPayload::If _branches:
+            SelfhostHirExprKind::If
 
 //: selfhost_hir_expr_child_range: expression record の child 範囲を[返/かえ]す
-fn selfhost_hir_expr_child_range <(SelfhostHirExpr)->SelfhostHirChildRange> (expr):
-    if:
-        eq expr.child_count 0
-        then:
+fn selfhost_hir_expr_child_range <(&SelfhostHirExpr)->SelfhostHirChildRange> (expr):
+    match *field::get_ref expr "payload":
+        SelfhostHirExprPayload::Error:
             selfhost_hir_child_range_empty
-        else:
-            selfhost_hir_child_range_new expr.first_child expr.child_count
+        SelfhostHirExprPayload::Unit:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::BoolLiteral _value:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::I32Literal _value:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::StrLiteral _value:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::Var _name:
+            selfhost_hir_child_range_empty
+        SelfhostHirExprPayload::Call call:
+            call.args
+        SelfhostHirExprPayload::Block children:
+            children
+        SelfhostHirExprPayload::If branches:
+            branches
 
 //: selfhost_hir_function_new: function record を[作/つく]る
 fn selfhost_hir_function_new <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,i32,i32)->SelfhostHirFunction> (name, result, span, root, first_param, param_count):
