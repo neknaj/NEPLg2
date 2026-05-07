@@ -201,6 +201,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-30: `nepl-language` の editor / LSP 解析境界に残っていた target directive diagnostic を code-first constructor へ移行し、`Diagnostic::with_code` API 自体を削除した。これ以降、後付け diagnostic code は Rust の型検査で使えない。code を持つ diagnostic は `error_with_code` / `warning_with_code` または category helper で生成時点に分類を確定する。
 - 2026-04-30: `nepl-web` の wasm analysis 境界に残っていた target directive / loader failure diagnostic も code-first helper へ移行した。`nodesrc/test_diagnostic_code_first_boundary.js` を CI source policy に追加し、`nepl-core` / `nepl-language` / `nepl-lsp` / `nepl-web` に `.with_code(...)` や `Diagnostic::with_code` API が戻らないことを軽量に検査する。
 - 2026-04-30: `nodesrc/test_diagnostic_code_first_boundary.js` の対象を active Rust source tree 全体へ拡張した。`nepl-core/src`、`nepl-language/src`、`nepl-lsp/src`、`nepl-web/src` を再帰走査し、`.with_code(...)` / `fn with_code` の再導入に加えて、compiler pass 側の code-less `Diagnostic::error(...)` / `Diagnostic::warning(...)` も拒否する。`Diagnostic` module の unit test だけは構造化 note/help の低レベル値テストとして例外にする。
+- 2026-05-07: `ALL_DIAGNOSTIC_CODES` が手動 registry であるにもかかわらず、source policy は enum variant と registry の対応を検査していなかった。`TypeDiagnosticCode::CallCaptureArityMismatch` と `ResourceOwnerDiagnosticCode::Reserved` が registry から漏れていたため追加し、`nodesrc/test_diagnostic_code_first_boundary.js` で各 leaf diagnostic enum variant が `ALL_DIAGNOSTIC_CODES` に正確に 1 回登録されることを検査するようにした。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

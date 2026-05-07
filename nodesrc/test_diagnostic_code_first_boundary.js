@@ -47,6 +47,58 @@ function diagnosticCodeImplBlocks(text) {
   });
 }
 
+function diagnosticCodeEnumVariants(text, name) {
+  const match = text.match(new RegExp(`\\npub enum ${name}\\s*\\{([\\s\\S]*?)\\n\\}`));
+  assert(match, `nepl-core/src/diagnostic_codes.rs must define ${name}`);
+  return [...match[1].matchAll(/^\s*([A-Z][A-Za-z0-9]*)(?:\(|,)/gm)].map((item) => item[1]);
+}
+
+function diagnosticCodeRegistryBlock(text) {
+  const declaration = text.indexOf('pub const ALL_DIAGNOSTIC_CODES');
+  assert(declaration >= 0, 'nepl-core/src/diagnostic_codes.rs must define ALL_DIAGNOSTIC_CODES');
+  const open = text.indexOf('= &[', declaration);
+  assert(open >= 0, 'ALL_DIAGNOSTIC_CODES must be initialized from a slice literal');
+
+  let depth = 1;
+  for (let index = open + '= &['.length; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '[') {
+      depth += 1;
+    } else if (char === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(open, index + 1);
+      }
+    }
+  }
+  assert.fail('could not find end of ALL_DIAGNOSTIC_CODES slice literal');
+}
+
+function countOccurrences(text, needle) {
+  let count = 0;
+  let index = text.indexOf(needle);
+  while (index >= 0) {
+    count += 1;
+    index = text.indexOf(needle, index + needle.length);
+  }
+  return count;
+}
+
+function assertRegistryCoversEnum(registry, variantsByEnum, enumName, options = {}) {
+  const ignored = new Set(options.ignore ?? []);
+  for (const variant of variantsByEnum.get(enumName) ?? []) {
+    if (ignored.has(variant)) {
+      continue;
+    }
+    const reference = `${enumName}::${variant}`;
+    assert.strictEqual(
+      countOccurrences(registry, reference),
+      1,
+      `${reference} must appear exactly once in ALL_DIAGNOSTIC_CODES`,
+    );
+  }
+}
+
 const rustFiles = rustSourceRoots
   .flatMap(walkRustFiles)
   .sort()
@@ -83,6 +135,27 @@ for (const { rel, text } of rustFiles) {
 }
 
 const diagnosticCodes = rustFiles.find((item) => item.rel === 'nepl-core/src/diagnostic_codes.rs')?.text ?? '';
+const diagnosticCodeEnumNames = [
+  'LoaderDiagnosticCode',
+  'LexerDiagnosticCode',
+  'ParserDiagnosticCode',
+  'ResolveDiagnosticCode',
+  'TypeDiagnosticCode',
+  'EffectDiagnosticCode',
+  'ResourceMoveDiagnosticCode',
+  'ResourceBorrowDiagnosticCode',
+  'ResourceCellDiagnosticCode',
+  'ResourceOwnerDiagnosticCode',
+  'ResourceRawDiagnosticCode',
+  'ResourceLowerDiagnosticCode',
+  'BackendDiagnosticCode',
+  'WasmDiagnosticCode',
+  'LlvmDiagnosticCode',
+];
+const diagnosticCodeVariantsByEnum = new Map(
+  diagnosticCodeEnumNames.map((name) => [name, diagnosticCodeEnumVariants(diagnosticCodes, name)]),
+);
+const diagnosticCodeRegistry = diagnosticCodeRegistryBlock(diagnosticCodes);
 
 for (const { name, text } of diagnosticCodeImplBlocks(diagnosticCodes)) {
   assert.match(
@@ -99,6 +172,28 @@ for (const { name, text } of diagnosticCodeImplBlocks(diagnosticCodes)) {
     text,
     /^\s*_\s*(?:if\b[^\n]*)?=>/m,
     `${name} must not use wildcard diagnostic code match arms; keep enum additions exhaustively checked`,
+  );
+}
+
+for (const enumName of diagnosticCodeEnumNames) {
+  const ignore = enumName === 'BackendDiagnosticCode' ? ['Wasm', 'Llvm'] : [];
+  assertRegistryCoversEnum(
+    diagnosticCodeRegistry,
+    diagnosticCodeVariantsByEnum,
+    enumName,
+    { ignore },
+  );
+}
+
+const registryLeafReferences = diagnosticCodeRegistry.matchAll(/\b([A-Za-z][A-Za-z0-9]*DiagnosticCode)::([A-Z][A-Za-z0-9]*)\b/g);
+const registryWrapperEnums = new Set(['DiagnosticCode', 'ResourceDiagnosticCode']);
+for (const [, enumName, variant] of registryLeafReferences) {
+  if (registryWrapperEnums.has(enumName)) {
+    continue;
+  }
+  assert(
+    diagnosticCodeVariantsByEnum.get(enumName)?.includes(variant),
+    `ALL_DIAGNOSTIC_CODES references unknown diagnostic code variant ${enumName}::${variant}`,
   );
 }
 

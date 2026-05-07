@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-05-06
+updated: 2026-05-07
 target: "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md"
 ---
 
@@ -68,6 +68,17 @@ enum 化により、`#indent xx` が parser の generic token error として分
 - `node nodesrc/issues.js check`
 
 この issue はまだ open のままとする。Stage D1 以降で builder、note/help、Resource IR typed mapping、self-host parity を続けて追跡する。
+
+## 2026-05-07 Stage D1 registry exhaustiveness policy 追記
+
+`DiagnosticCode` と下位 enum は導入済みだったが、`ALL_DIAGNOSTIC_CODES` は手動 registry のままで、source policy は registry が全 enum variant を含むことまでは検査していなかった。このため `TypeDiagnosticCode::CallCaptureArityMismatch` と `ResourceOwnerDiagnosticCode::Reserved` は `as_str()` / `message()` には存在する一方で registry から漏れていた。
+
+今回の対応で両 variant を registry に追加し、`nodesrc/test_diagnostic_code_first_boundary.js` が `diagnostic_codes.rs` の leaf diagnostic enum と `ALL_DIAGNOSTIC_CODES` を照合するようにした。各 variant は registry に正確に 1 回だけ現れる必要があり、unknown leaf reference も拒否する。これにより、今後 diagnostic enum を追加した場合に stable code registry への登録漏れが source policy で検出される。
+
+検証:
+
+- `node nodesrc/test_diagnostic_code_first_boundary.js`
+- `cargo test -p nepl-core diagnostic_codes -- --nocapture`
 
 ## 2026-04-29 Stage D2 raw identity escape code 追記
 

@@ -1,3 +1,12 @@
+# 2026-05-07 note (ISS-20260429 diagnostics registry exhaustiveness)
+
+- branch `fix/diagnostic-registry-exhaustive-policy` で、Rust compiler diagnostic registry の未登録 enum variant と再発防止 policy を修正した。
+- 根本原因は、`DiagnosticCode` / 下位 enum の `as_str()` / `message()` は wildcard なしの `match` で網羅されている一方、`ALL_DIAGNOSTIC_CODES` への登録は手動で、source policy が enum variant と registry の対応を検査していなかったことだった。
+- `TypeDiagnosticCode::CallCaptureArityMismatch` と `ResourceOwnerDiagnosticCode::Reserved` は表示文字列と message を持つが registry に存在していなかったため追加した。
+- `nodesrc/test_diagnostic_code_first_boundary.js` は `diagnostic_codes.rs` の leaf diagnostic enum を解析し、各 variant が `ALL_DIAGNOSTIC_CODES` に正確に 1 回登録されていること、registry が unknown leaf variant を参照しないことを検査する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260430T012045983Z returned grow scanner capacity range)
 
 - branch `fix/returned-range-full-scanner-regression` で、full scanner-style の `fd_read` loop / `realloc_raw` / returned header capacity field をまたぐ initialized byte range propagation を修正した。

@@ -297,6 +297,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowSameSignatureCallable),
     DiagnosticCode::Type(TypeDiagnosticCode::FunctionValueCapturingUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::IndirectCallRequiresFunctionValue),
+    DiagnosticCode::Type(TypeDiagnosticCode::CallCaptureArityMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::VariableNotCallable),
     DiagnosticCode::Effect(EffectDiagnosticCode::OverloadMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::OverloadTypeArgsMismatch),
@@ -417,6 +418,9 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
         ResourceOwnerDiagnosticCode::NoFreeObligation,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
+        ResourceOwnerDiagnosticCode::Reserved,
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
         ResourceOwnerDiagnosticCode::UseAfterMove,
