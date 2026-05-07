@@ -287,3 +287,17 @@ returned raw header のうち、byte-level initialized range を `return_byte_ra
 - `cargo check -p nepl-core --tests`: passed
 
 この親 issue は引き続き open とする。今回の対応で `fill_i32` の element-size scaled range は guard 付き dynamic load へ接続できたが、`fd_read` loop / realloc / capacity field をまたぐ returned header の dependent range summary 全体はまだ残る。
+
+## 2026-05-07 KP prefix sum guard fixture 整理
+
+`ISS-20260507T045028757Z-KP-PREFIX-SUM-REGRESSION-LACKS-EXPLI-B8A2B29A` として、KP prefix sum regression が typed `fill_i32` range model に必要な明示 guard を欠いていた問題を分離して修正した。
+
+`fill_i32 pref pref_len 0` により prefix buffer 全体は initialized element range として記録されるが、`pref + index * 4` の dynamic load/store は `0 <= index && index < pref_len` が Resource IR state から証明される場合だけ通す設計である。fixture 側に prefix loop と query loop の range guard を追加し、compiler 側の `RawMemoryLoadCell` strictness は緩めていない。
+
+確認結果:
+
+- `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_word_fill -- --nocapture`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 3 --dist web/dist`: passed
+
+この親 issue は引き続き open とする。残件は、明示 guard のある returned header / length field / fd_read loop / realloc / capacity field を一体で表す dependent initialized range summary である。

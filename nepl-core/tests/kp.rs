@@ -77,11 +77,19 @@ fn main <()*>()> ():
             let im1 <i32> sub i 1;
             let prev_off <i32> mul im1 4;
             let prev_ptr <i32> add pref prev_off;
-            let prev <i32> load_i32 prev_ptr;
+            let prev <i32> if and ge im1 0 lt im1 pref_len:
+                then:
+                    load_i32 prev_ptr
+                else:
+                    #intrinsic "unreachable" <> ()
             let cur <i32> add prev a;
             let cur_off <i32> mul i 4;
             let cur_ptr <i32> add pref cur_off;
-            store_i32 cur_ptr cur;
+            if and ge i 0 lt i pref_len:
+                then:
+                    store_i32 cur_ptr cur
+                else:
+                    #intrinsic "unreachable" <> ()
             set i add i 1;
 
     let mut w <StreamWriter> unwrap_ok open WriteStream::Stdio;
@@ -95,9 +103,13 @@ fn main <()*>()> ():
             let right_off <i32> mul r1 4;
             let left_ptr <i32> add pref left_off;
             let right_ptr <i32> add pref right_off;
-            let left <i32> load_i32 left_ptr;
-            let right <i32> load_i32 right_ptr;
-            let diff <i32> sub right left;
+            let diff <i32> if and and ge l 0 lt l pref_len and ge r1 0 lt r1 pref_len:
+                then:
+                    let left <i32> load_i32 left_ptr;
+                    let right <i32> load_i32 right_ptr;
+                    sub right left
+                else:
+                    0
             set w writeln w diff;
             set k add k 1;
 

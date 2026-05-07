@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T04:41:20.217Z",
+  "generated_at": "2026-05-07T04:55:16.584Z",
   "counts": {
-    "total": 557,
+    "total": 558,
     "open": 11,
-    "resolved": 546,
+    "resolved": 547,
     "by_area": {
       "core": {
         "total": 278,
@@ -72,9 +72,9 @@
         "resolved": 1
       },
       "test": {
-        "total": 4,
+        "total": 5,
         "open": 0,
-        "resolved": 4
+        "resolved": 5
       },
       "web": {
         "total": 1,
@@ -6478,6 +6478,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T015824839Z-SORT-RAW-POINTER-DOCTESTS-BYPASS-CUR-41C19268.md"
+    },
+    {
+      "id": "ISS-20260507T045028757Z-KP-PREFIX-SUM-REGRESSION-LACKS-EXPLI-B8A2B29A",
+      "title": "KP prefix sum regression lacks explicit range guards after typed fill range",
+      "area": "test",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/tests/kp.rs, tests/stdlib/kp.n.md",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260507T045028757Z-KP-PREFIX-SUM-REGRESSION-LACKS-EXPLI-B8A2B29A.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

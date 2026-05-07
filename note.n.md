@@ -1,3 +1,11 @@
+# 2026-05-07 note (ISS-20260507T045028757Z KP prefix sum explicit range guards)
+
+- branch `fix/resource-prefixsum-scaled-range` で、KP prefix sum regression の `pref + index * 4` dynamic access に明示 range guard を追加した。
+- `fill_i32 pref pref_len 0` は `pref` 全体を typed initialized element range として記録するが、`load_i32` / `store_i32` は `0 <= index && index < pref_len` が Resource IR state で証明される場合だけ通す方針を維持する。
+- prefix 構築 loop の `im1` load、`i` store、query loop の `l` / `r1` load をそれぞれ then branch 内へ移し、compiler 側の `RawMemoryLoadCell` / `RawMemoryStoreCell` strictness は緩めていない。
+- `ISS-20260507T045028757Z-KP-PREFIX-SUM-REGRESSION-LACKS-EXPLI-B8A2B29A` を追加し、修正後に fixed とした。親 issue `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` は returned header / fd_read loop / realloc / capacity field の dependent range summary 残件として open のまま維持する。
+- 検証は `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`、`cargo test -p nepl-core --test resource_ir resource_ir_cell_check_word_fill -- --nocapture`、`cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill -- --nocapture`、`trunk build`、`node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 3 --dist web/dist` が通過した。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/io bytebuf/bytebuilder/traits split)
 
 - branch `refactor/alloc-io-bytebuf-bytebuilder-split` で `stdlib/alloc/io.nepl` を facade 化し、ByteBuf storage、ByteBuilder storage、stream traits の責務を submodule へ分離した。
