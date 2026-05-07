@@ -12,6 +12,9 @@ const relPaths = [
     'stdlib/alloc/collections/vec/access.nepl',
     'stdlib/alloc/collections/vec/raw.nepl',
     'stdlib/alloc/collections/vec/transform.nepl',
+    'stdlib/alloc/collections/vec/transform/map.nepl',
+    'stdlib/alloc/collections/vec/transform/filter.nepl',
+    'stdlib/alloc/collections/vec/transform/prefix.nepl',
     'stdlib/alloc/collections/vec/query.nepl',
     'stdlib/alloc/collections/vec/query/get.nepl',
     'stdlib/alloc/collections/vec/query/aggregate.nepl',
@@ -72,7 +75,11 @@ const vecTypesCode = codeByPath.get('stdlib/alloc/collections/vec/types.nepl');
 const vecStorageCode = codeByPath.get('stdlib/alloc/collections/vec/storage.nepl');
 const vecAccessCode = codeByPath.get('stdlib/alloc/collections/vec/access.nepl');
 const vecRawCode = codeByPath.get('stdlib/alloc/collections/vec/raw.nepl');
-const vecTransformCode = codeByPath.get('stdlib/alloc/collections/vec/transform.nepl');
+const vecTransformRootCode = codeByPath.get('stdlib/alloc/collections/vec/transform.nepl');
+const vecTransformMapCode = codeByPath.get('stdlib/alloc/collections/vec/transform/map.nepl');
+const vecTransformFilterCode = codeByPath.get('stdlib/alloc/collections/vec/transform/filter.nepl');
+const vecTransformPrefixCode = codeByPath.get('stdlib/alloc/collections/vec/transform/prefix.nepl');
+const vecTransformCode = [vecTransformRootCode, vecTransformMapCode, vecTransformFilterCode, vecTransformPrefixCode].join('\n');
 const vecQueryRootCode = codeByPath.get('stdlib/alloc/collections/vec/query.nepl');
 const vecQueryGetCode = codeByPath.get('stdlib/alloc/collections/vec/query/get.nepl');
 const vecQueryAggregateCode = codeByPath.get('stdlib/alloc/collections/vec/query/aggregate.nepl');
@@ -125,7 +132,18 @@ for (const name of ['vec_read_at', 'vec_write_at', 'vec_fold_impl', 'vec_reduce_
     assert.match(vecRawCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw.nepl must own ${name}`);
 }
 for (const name of ['map', 'filter', 'partition', 'take_while', 'drop_while']) {
-    assert.match(vecTransformCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform.nepl must own ${name}`);
+    assert.match(vecTransformCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform facade closure must expose ${name}`);
+}
+for (const name of ['map', 'filter', 'prefix']) {
+    assert.match(vecTransformRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/transform\\/${name}"\\s+as\\s+@merge`), `vec/transform.nepl must merge re-export transform/${name}.nepl`);
+}
+assert.doesNotMatch(vecTransformRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/transform.nepl must be a pure facade without implementation bodies');
+assert.match(vecTransformMapCode, /\bfn\s+map\b/, 'vec/transform/map.nepl must own map');
+for (const name of ['filter', 'partition']) {
+    assert.match(vecTransformFilterCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform/filter.nepl must own ${name}`);
+}
+for (const name of ['take_while', 'drop_while']) {
+    assert.match(vecTransformPrefixCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform/prefix.nepl must own ${name}`);
 }
 for (const name of ['get', 'count', 'fold', 'reduce', 'find', 'any', 'all']) {
     assert.match(vecQueryCode, new RegExp(`fn\\s+${name}\\b`), `vec/query facade closure must expose ${name}`);
@@ -146,17 +164,20 @@ for (const name of ['push', 'replace', 'pop', 'clear', 'free']) {
 }
 assert.match(vecCode, /enum\s+VecStorageState:[\s\S]*Empty[\s\S]*Owned/, 'Vec storage owner state must be represented by an enum');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec\.nepl"\]/, 'Vec root facade must not receive raw-memory boundary capability');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"access\.nepl"\]/, 'Vec access module must not receive raw-memory boundary capability because it has no direct raw intrinsic');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"query\.nepl"\]/, 'Vec query facade must not receive raw-memory boundary capability');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"query",\s*"aggregate\.nepl"\]/, 'Vec query aggregate must not receive raw-memory boundary capability because it has no direct raw intrinsic');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"query",\s*"get\.nepl"\]/, 'Vec query get must not receive raw-memory boundary capability because it has no direct raw intrinsic');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"query",\s*"predicate\.nepl"\]/, 'Vec query predicate must not receive raw-memory boundary capability because it has no direct raw intrinsic');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"transform\.nepl"\]/, 'Vec transform facade must not receive raw-memory boundary capability');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"transform",\s*"filter\.nepl"\]/, 'Vec transform filter must not receive raw-memory boundary capability because it has no direct raw intrinsic');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"transform",\s*"map\.nepl"\]/, 'Vec transform map must not receive raw-memory boundary capability because it has no direct raw intrinsic');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"transform",\s*"prefix\.nepl"\]/, 'Vec transform prefix must not receive raw-memory boundary capability because it has no direct raw intrinsic');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"types\.nepl"\]/, 'Vec types module must not receive raw-memory boundary capability because it has no direct raw intrinsic');
 for (const relPath of [
-    /&\["alloc",\s*"collections",\s*"vec",\s*"access\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"mutation\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"raw\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"storage\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"transform\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"types\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"common\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge\.nepl"\]/,
 ]) {

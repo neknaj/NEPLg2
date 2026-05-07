@@ -727,11 +727,6 @@ fn loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_bounda
             "alloc_io_bytebuilder_raw_store",
         ),
         (
-            &["alloc", "collections", "vec", "access.nepl"],
-            "alloc/collections/vec/access",
-            "alloc_collections_vec_access_raw_store",
-        ),
-        (
             &["alloc", "collections", "vec", "mutation.nepl"],
             "alloc/collections/vec/mutation",
             "alloc_collections_vec_mutation_raw_store",
@@ -745,16 +740,6 @@ fn loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_bounda
             &["alloc", "collections", "vec", "storage.nepl"],
             "alloc/collections/vec/storage",
             "alloc_collections_vec_storage_raw_store",
-        ),
-        (
-            &["alloc", "collections", "vec", "transform.nepl"],
-            "alloc/collections/vec/transform",
-            "alloc_collections_vec_transform_raw_store",
-        ),
-        (
-            &["alloc", "collections", "vec", "types.nepl"],
-            "alloc/collections/vec/types",
-            "alloc_collections_vec_types_raw_store",
         ),
         (
             &["alloc", "collections", "vec", "sort", "common.nepl"],
@@ -891,6 +876,36 @@ fn loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries()
             &["alloc", "collections", "vec.nepl"],
             "alloc/collections/vec",
             "alloc_collections_vec_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "access.nepl"],
+            "alloc/collections/vec/access",
+            "alloc_collections_vec_access_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "transform.nepl"],
+            "alloc/collections/vec/transform",
+            "alloc_collections_vec_transform_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "transform", "filter.nepl"],
+            "alloc/collections/vec/transform/filter",
+            "alloc_collections_vec_transform_filter_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "transform", "map.nepl"],
+            "alloc/collections/vec/transform/map",
+            "alloc_collections_vec_transform_map_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "transform", "prefix.nepl"],
+            "alloc/collections/vec/transform/prefix",
+            "alloc_collections_vec_transform_prefix_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "types.nepl"],
+            "alloc/collections/vec/types",
+            "alloc_collections_vec_types_raw_store",
         ),
         (
             &["alloc", "collections", "vec", "query.nepl"],

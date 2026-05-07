@@ -18,6 +18,9 @@ const vecRelPaths = [
     "stdlib/alloc/collections/vec/query/predicate.nepl",
     "stdlib/alloc/collections/vec/mutation.nepl",
     "stdlib/alloc/collections/vec/transform.nepl",
+    "stdlib/alloc/collections/vec/transform/map.nepl",
+    "stdlib/alloc/collections/vec/transform/filter.nepl",
+    "stdlib/alloc/collections/vec/transform/prefix.nepl",
 ];
 const vecSources = Object.fromEntries(vecRelPaths.map((relPath) => [relPath, fs.readFileSync(path.join(repoRoot, relPath), "utf8")]));
 const vecCode = vecRelPaths

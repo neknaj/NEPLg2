@@ -1,0 +1,82 @@
+//: # vec/transform/map
+//: `Vec` の map transform
+//:
+//: ### [目的/もくてき]
+//: - `map` を transform facade から[分離/ぶんり]し、element type 変換の owner-consuming 処理をこの module に[閉/と]じます。
+//:
+//: ### [注意/ちゅうい]
+//: - raw storage の読み書きは `vec/raw` helper に[委譲/いじょう]します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "../types" as *
+#import "../storage" as vec_storage
+#import "../raw" as vec_raw
+
+//: map: [各要素/かくようそ]を[同/おな]じ[規則/きそく]で[変換/へんかん]する
+//:
+//: ### [目的/もくてき]
+//: - `xs |> map f` の[形/かたち]で、`Vec<.T>` の[全要素/ぜんようそ]へ[同/おな]じ[純粋/じゅんすい][関数/かんすう]を[適用/てきよう]します。
+//: - [元/もと]の[順序/じゅんじょ]を[保/たも]ったまま、[新/あたら]しい `Vec<.U>` を[作成/さくせい]します。
+//:
+//: ### [実装/じっそう]
+//: - [入力/にゅうりょく]の `len` と[同/おな]じ[容量/ようりょう]を[先/さき]に[確保/かくほ]し、raw loop で[順番/じゅんばん]に[書/か]き[込/こ]みます。
+//: - [出力/しゅつりょく] `Vec` の `len` は[最後/さいご]に[確定/かくてい]させ、[途中/とちゅう]で[再確保/さいかくほ]を[発生/はっせい]させません。
+//:
+//: ### [注意/ちゅうい]
+//: - [新規/しんき][領域/りょういき]の[確保/かくほ]が[必要/ひつよう]なので `Result<Vec<.U>, StdErrorKind>` を[返/かえ]します。
+//: - `f` は `(.T)->.U` の[純粋/じゅんすい][関数/かんすう]です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//: fn inc <(i32)->i32> (x):
+//:     add x 1
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:         |> push 3 |> uwok
+//:     let ys <Vec<i32>> unwrap_ok map<i32,i32> xs inc;
+//:     match get<i32> &ys 2:
+//:         Option::Some x:
+//:             free<i32> ys;
+//:             if eq x 4 0 1
+//:         Option::None:
+//:             free<i32> ys;
+//:             1
+//: ```
+fn map <.T,.U> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
+    let src_len <i32> *field::get_ref &v "len"
+    let src_cap <i32> *field::get_ref &v "cap"
+    let src_storage <VecStorageState> *field::get_ref &v "storage"
+    let src_data <MemPtr<.T>> field::get v "data"
+    match vec_storage::with_capacity<.U> src_len:
+        Result::Err e:
+            vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+            Result::Err<Vec<.U>, StdErrorKind> e
+        Result::Ok out0:
+            let out_cap <i32> *field::get_ref &out0 "cap"
+            let out_storage <VecStorageState> *field::get_ref &out0 "storage"
+            let out_data <MemPtr<.U>> field::get out0 "data"
+            let mut i <i32> 0
+            while lt i src_len:
+                do:
+                    vec_raw::vec_write_at<.U> out_data i f vec_raw::vec_read_at<.T> src_data i
+                    set i add i 1
+            vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+            Result::Ok<Vec<.U>, StdErrorKind> Vec<.U> src_len out_cap out_storage out_data

@@ -1,0 +1,186 @@
+//: # vec/transform/filter
+//: `Vec` の predicate based transform
+//:
+//: ### [目的/もくてき]
+//: - `filter` / `partition` を transform facade から[分離/ぶんり]し、predicate で[要素/ようそ]を[選別/せんべつ]する owner-consuming 処理をこの module に[集約/しゅうやく]します。
+//:
+//: ### [注意/ちゅうい]
+//: - raw storage の読み書きは `vec/raw` helper に[委譲/いじょう]します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "../types" as *
+#import "../storage" as vec_storage
+#import "../raw" as vec_raw
+
+//: filter: [条件/じょうけん]を[満/み]たす[要素/ようそ]だけを[残/のこ]す
+//:
+//: ### [目的/もくてき]
+//: - `xs |> filter p` の[形/かたち]で、[条件/じょうけん] `p` を[満/み]たす[要素/ようそ]だけを[残/のこ]した[新/あたら]しい `Vec<.T>` を[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - 1 [回目/かいめ]の loop で[残/のこ]す[要素数/ようそすう]を[数/かぞ]え、2 [回目/かいめ]の loop で exact capacity の[出力/しゅつりょく]バッファへ[詰/つ]めます。
+//: - [入力/にゅうりょく][順序/じゅんじょ]は[維持/いじ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [新規/しんき][領域/りょういき]の[確保/かくほ]が[必要/ひつよう]なので `Result<Vec<.T>, StdErrorKind>` を[返/かえ]します。
+//: - `p` は `(.T)->bool` の[純粋/じゅんすい][関数/かんすう]です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//: fn is_even <(i32)->bool> (x):
+//:     eq rem_s x 2 0
+//: fn main <()*>i32> ():
+//:     let ys <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:         |> push 3 |> uwok
+//:         |> push 4 |> uwok
+//:     let zs <Vec<i32>> unwrap_ok filter<i32> ys is_even;
+//:     let ok <bool> eq len<i32> &zs 2
+//:     free<i32> zs;
+//:     if ok 0 1
+//: ```
+fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
+    let src_len <i32> *field::get_ref &v "len"
+    let src_cap <i32> *field::get_ref &v "cap"
+    let src_storage <VecStorageState> *field::get_ref &v "storage"
+    let src_data <MemPtr<.T>> field::get v "data"
+    let mut keep_len <i32> 0
+    let mut i <i32> 0
+    while lt i src_len:
+        do:
+            if cond p vec_raw::vec_read_at<.T> src_data i:
+                then set keep_len add keep_len 1
+                else ()
+            set i add i 1
+    match vec_storage::with_capacity<.T> keep_len:
+        Result::Err e:
+            vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+            Result::Err<Vec<.T>, StdErrorKind> e
+        Result::Ok out0:
+            let out_cap <i32> *field::get_ref &out0 "cap"
+            let out_storage <VecStorageState> *field::get_ref &out0 "storage"
+            let out_data <MemPtr<.T>> field::get out0 "data"
+            let mut read_i <i32> 0
+            let mut write_i <i32> 0
+            while lt read_i src_len:
+                do:
+                    let item <.T> vec_raw::vec_read_at<.T> src_data read_i
+                    if:
+                        cond p item
+                        then:
+                            vec_raw::vec_write_at<.T> out_data write_i item
+                            set write_i add write_i 1
+                        else ()
+                    set read_i add read_i 1
+            vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+            Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> keep_len out_cap out_storage out_data
+
+//: partition: [条件/じょうけん]で 2 [群/ぐん]に[分/わ]ける
+//:
+//: ### [目的/もくてき]
+//: - `xs |> partition p` の[形/かたち]で、`p` を[満/み]たす[要素/ようそ]と、[満/み]たさない[要素/ようそ]へ[分割/ぶんかつ]します。
+//: - [返/かえ]り[値/あたい]は `VecPartition` です。`matched` と `rest` の両方を継続利用または `free` してください。
+//:
+//: ### [実装/じっそう]
+//: - 1 [回目/かいめ]の loop で `matched` の[要素数/ようそすう]だけを[数/かぞ]え、2 [回目/かいめ]で exact capacity の 2 [本/ほん]の `Vec` へ[振/ふ]り[分/わ]けます。
+//: - [入力/にゅうりょく][順序/じゅんじょ]は[両方/りょうほう]の[出力/しゅつりょく]で[維持/いじ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - 2 [本/ほん]の[新規/しんき] `Vec` を[確保/かくほ]するので `Result<VecPartition<.T>, StdErrorKind>` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/field" as *
+//: fn is_even <(i32)->bool> (x):
+//:     eq rem_s x 2 0
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:         |> push 3 |> uwok
+//:     let parts unwrap_ok partition<i32> xs is_even;
+//:     let evens get parts "matched";
+//:     let rest get parts "rest";
+//:     let ok <bool> eq len<i32> &evens 1
+//:     free<i32> evens;
+//:     free<i32> rest;
+//:     if ok 0 1
+//: ```
+fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, StdErrorKind>> (v, p):
+    let src_len <i32> *field::get_ref &v "len"
+    let src_cap <i32> *field::get_ref &v "cap"
+    let src_storage <VecStorageState> *field::get_ref &v "storage"
+    let src_data <MemPtr<.T>> field::get v "data"
+    let mut left_len <i32> 0
+    let mut i <i32> 0
+    while lt i src_len:
+        do:
+            if cond p vec_raw::vec_read_at<.T> src_data i:
+                then set left_len add left_len 1
+                else ()
+            set i add i 1
+    let right_len <i32> sub src_len left_len
+    match vec_storage::with_capacity<.T> left_len:
+        Result::Err e:
+            vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+            Result::Err<VecPartition<.T>, StdErrorKind> e
+        Result::Ok left0:
+            match vec_storage::with_capacity<.T> right_len:
+                Result::Err e:
+                    let left0_cap <i32> *field::get_ref &left0 "cap"
+                    let left0_storage <VecStorageState> *field::get_ref &left0 "storage"
+                    let left0_data <MemPtr<.T>> field::get left0 "data"
+                    vec_storage::vec_free_storage<.T> left0_storage left0_data left0_cap
+                    vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+                    Result::Err<VecPartition<.T>, StdErrorKind> e
+                Result::Ok right0:
+                    let left_cap <i32> *field::get_ref &left0 "cap"
+                    let left_storage <VecStorageState> *field::get_ref &left0 "storage"
+                    let left_data <MemPtr<.T>> field::get left0 "data"
+                    let right_cap <i32> *field::get_ref &right0 "cap"
+                    let right_storage <VecStorageState> *field::get_ref &right0 "storage"
+                    let right_data <MemPtr<.T>> field::get right0 "data"
+                    let mut read_i <i32> 0
+                    let mut left_i <i32> 0
+                    let mut right_i <i32> 0
+                    while lt read_i src_len:
+                        do:
+                            let item <.T> vec_raw::vec_read_at<.T> src_data read_i
+                            if:
+                                cond p item
+                                then:
+                                    vec_raw::vec_write_at<.T> left_data left_i item
+                                    set left_i add left_i 1
+                                else:
+                                    vec_raw::vec_write_at<.T> right_data right_i item
+                                    set right_i add right_i 1
+                            set read_i add read_i 1
+                    vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+                    Result::Ok<VecPartition<.T>, StdErrorKind> VecPartition<.T> (Vec<.T> left_len left_cap left_storage left_data) (Vec<.T> right_len right_cap right_storage right_data)
