@@ -1,41 +1,43 @@
-# NEPLg2 進捗確認及び総レビュー 2026-04-30
+# NEPLg2 進捗確認及び総レビュー
 
-このディレクトリは、2026-04-30 時点の `main` を対象にした NEPLg2 プロジェクト全体レビューの記録である。
-
-## 基準
-
-- 対象 commit: `f108cebd`
-- 作業 branch: `docs/fullreview-20260430`
-- review scope: Rust compiler、selfhost compiler、stdlib、tests、tutorial、tools、web/editor、project governance
-- pull status: review 開始前に `git pull --ff-only origin main` で remote main を取り込み済み
-- test status source: review の test 状況は local 実行ではなく `gh` で取得した GitHub Actions 結果を根拠にする
+このディレクトリは、NEPLg2 プロジェクトの現在状態を改めて確認し、Rust コンパイラ、selfhost コンパイラ、stdlib、テスト、ドキュメント、周辺ツールを横断してレビューするための作業場所です。
 
 ## レビュー方針
 
-このレビューでは、単なる現状列挙ではなく、次の開発方針に照らして進捗と設計妥当性を確認する。
+- レビュー前とレビュー中は、前回レビューの内容を読まず、前回ディレクトリの構成だけを参考にします。
+- 現行ソース、現行ドキュメント、issue、note、commit message、GitHub Actions の結果を一次情報として確認します。
+- レビュー完了後に限り、前回レビューの内容との差分を確認し、作業範囲ごとの進捗を別途報告します。
+- テスト状況は `gh` コマンドで GitHub Actions の結果を取得して確認します。ローカルテストは、レビュー文書の commit 前の軽い検査や、コード変更を伴う場合の確認目的に限定します。
+- ユーザー提示の開発方針を判定基準に含めます。特に、技術的負債を残さないこと、暫定の雑設計を避けること、型安全とメモリ安全を静的検査で必達にすること、enum と match によって検査可能な実装にすることを重視します。
 
-- 技術的負債を残さない。後方互換より正しい設計を優先する。
-- 暫定実装は許容しても、暫定の雑設計は許容しない。
-- 型安全とメモリ安全は必達とする。
-- 数値や文字列の sentinel ではなく、enum により静的検査が効く状態表現を使う。
-- 分岐は `match` による網羅性検査が効く形を優先する。
-- Resource IR、diagnostic code、selfhost 設計は Rust 側の現行改善方針に追従する。
+## 作業手順
 
-## 成果物
+1. remote main を取り込み、レビュー対象の HEAD とブランチ状態を記録する。
+2. ソースコード全体を眺め、レビュー目次を作成する。
+3. 目次に沿って、各領域のレビュー文書を階層的に作成する。
+4. 各 checkpoint で commit し、Discord に `Agent 2` から始まる Markdown report を送る。
+5. 各 checkpoint 後に main へ反映して push する。
+6. 全レビュー完了後、レビュー内容自体の妥当性を再レビューする。
+7. 妥当性確認後、前回レビューとの差分を読み、進捗差分を作業範囲ごとにまとめて報告する。
 
-- [index.md](./index.md): レビュー目次、作業手順、作成予定ファイル
-- [project/](./project/): project 進捗、Actions 状況、risk map
-- [rust-compiler/](./rust-compiler/): Rust compiler pipeline review
-- [stdlib/](./stdlib/): stdlib module review
-- [selfhost/](./selfhost/): selfhost compiler S0-S7 review
-- [tools/](./tools/): CLI、nodesrc、language/LSP、web review
-- [quality/](./quality/): tests、tutorial、examples review
-- [crosscutting/](./crosscutting/): 静的安全性、stdlib readiness、diagnostics/tests/docs の横断 review
-- [summary/](./summary/): 重要 findings と selfhost readiness 最終判定
-- [meta/review-validity.md](./meta/review-validity.md): review 内容自体の再レビュー
+## 主要成果物
 
-## commit 追跡ルール
+- `index.md`: レビュー対象の階層目次と進行順。
+- `project/`: プロジェクト全体、進捗、Actions、リスクの確認。
+- `rust-compiler/`: Rust 実装のコンパイラ本体レビュー。
+- `selfhost/`: `stdlib/neplg2` の selfhost コンパイラレビュー。
+- `neplg3/`: `stdlib/neplg3` と仕様文書の進捗確認。
+- `stdlib/`: core、alloc、std、platforms、nm、kp、stdlib tests のレビュー。
+- `quality/`: examples、tutorial、テスト資産、ドキュメント品質のレビュー。
+- `tools/`: `nodesrc`、web/playground、LSP/editor 周辺のレビュー。
+- `crosscutting/`: 静的安全性、diagnostics、selfhost readiness など横断課題の整理。
+- `meta/`: レビュー方法とレビュー妥当性の確認。
+- `summary/`: 最終サマリ、未解決課題、前回レビューとの差分報告。
 
-- 各レビュー文書には、その文書が確認した対象 commit を明記する。
-- レビュー作業中に remote main が更新された場合は、`git pull --ff-only origin main` または merge で取り込み、影響するレビュー文書の対象 commit と判断を更新する。
-- `meta/review-validity.md` による最終確認が終わった後に入った変更は、この総レビューの追従対象外とする。その後は通常の issue 解決・開発作業へ戻る。
+## 現在の基準
+
+- レビュー開始基準 commit: `281646c7`
+- commit message: `refactor(stdlib): split stdio debug profiles`
+- 作業ブランチ: `review/fullreview-20260430-current`
+
+レビュー中に remote main が更新された場合は、更新内容がレビュー対象に影響するかを確認し、必要なレビュー文書を更新します。レビュー最終確認後に入った変更は、このフルレビューの追従対象外とし、通常開発に戻します。
