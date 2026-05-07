@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T15:36:03.277Z",
+  "generated_at": "2026-05-07T15:38:12.436Z",
   "counts": {
-    "total": 598,
-    "open": 13,
+    "total": 599,
+    "open": 14,
     "resolved": 585,
     "by_area": {
       "core": {
@@ -25,6 +25,11 @@
         "total": 16,
         "open": 1,
         "resolved": 15
+      },
+      "examples": {
+        "total": 17,
+        "open": 1,
+        "resolved": 16
       },
       "tools": {
         "total": 1,
@@ -60,11 +65,6 @@
         "total": 2,
         "open": 0,
         "resolved": 2
-      },
-      "examples": {
-        "total": 16,
-        "open": 0,
-        "resolved": 16
       },
       "nodesrc": {
         "total": 6,
@@ -233,6 +233,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895",
+      "title": "Examples doctests are not run by CI",
+      "area": "examples",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": ".github/workflows/ci.yml, examples/*.nepl, nodesrc/tests.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
