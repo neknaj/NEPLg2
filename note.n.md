@@ -34566,3 +34566,31 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 nm/parser document module split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/nm/parser.nepl` から `Document` source view と document-level JSON serializer を分離した。
+- `parser.nepl` は `parser/document` の public `@merge` re-export と facade doc/doctest だけを持つ構成にした。
+- `parser/document.nepl` は `Document`、`parse_markdown`、`document_to_json`、block scanner loop、`NmJsonSectionState` 利用箇所を所有する。
+- `parser/document` は `parser/scanner`、`parser/json_inline`、`parser/json_section`、`nm/json_escape` を直接 import し、root facade から scanner / serializer 実装依存を外した。
+- `nodesrc/test_stdlib_nm_parser_document_boundary.js` を追加し、root facade に `Document` / `document_to_json` / `StringBuilder` / serializer loop が戻らないことを固定した。
+- nm parser / JSON escape / byte scanner / raw aggregate 関連の source policy を新しい責務境界に合わせて更新した。
+- line count は `parser.nepl` 28、`parser/document.nepl` 221。
+- [検証]:
+  - `node nodesrc/test_stdlib_nm_parser_document_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_block_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_json_inline_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_parser_json_section_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_json_escape_boundary.js`: passed
+  - `node nodesrc/test_stdlib_nm_no_raw_aggregate_detours.js`: passed
+  - `node nodesrc/test_stdlib_byte_scanner_helpers_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/nm/parser.nepl -i stdlib/nm/parser/document.nepl -i stdlib/nm/html_gen.nepl -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-parser-document-split-suite.json -j 1 --dist web/dist`: total=11, passed=11
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check HEAD`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

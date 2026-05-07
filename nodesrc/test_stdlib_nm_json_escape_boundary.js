@@ -11,8 +11,10 @@ function read(relPath) {
 }
 
 const parserPath = 'stdlib/nm/parser.nepl';
+const documentPath = 'stdlib/nm/parser/document.nepl';
 const jsonEscapePath = 'stdlib/nm/json_escape.nepl';
 const parser = read(parserPath);
+const document = read(documentPath);
 const jsonEscape = read(jsonEscapePath);
 
 for (const name of [
@@ -26,6 +28,11 @@ for (const name of [
         new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`, 'm'),
         `${parserPath} must not own ${name}; JSON escaping belongs to ${jsonEscapePath}`
     );
+    assert.doesNotMatch(
+        document,
+        new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`, 'm'),
+        `${documentPath} must not own ${name}; JSON escaping belongs to ${jsonEscapePath}`
+    );
     assert.match(
         jsonEscape,
         new RegExp(`^pub\\s+fn\\s+${name}\\s+`, 'm'),
@@ -34,19 +41,19 @@ for (const name of [
 }
 
 assert.match(
-    parser,
-    /^#import "\.\/json_escape" as json$/m,
-    `${parserPath} must import the dedicated JSON escape module`
+    document,
+    /^#import "\.\.\/json_escape" as json$/m,
+    `${documentPath} must import the dedicated JSON escape module`
 );
 assert.match(
-    parser,
+    document,
     /\bjson::json_escape_into\b/,
-    `${parserPath} must call the JSON escape module for string segments`
+    `${documentPath} must call the JSON escape module for string segments`
 );
 assert.match(
-    parser,
+    document,
     /\bjson::json_escape_builder_into\b/,
-    `${parserPath} must call the JSON escape module for code block builders`
+    `${documentPath} must call the JSON escape module for code block builders`
 );
 
 assert.doesNotMatch(

@@ -16,6 +16,7 @@ const stringSliceTrimSrc = read('stdlib/alloc/string/slice/trim.nepl');
 const scannerSrc = read('stdlib/alloc/string/scanner.nepl');
 const importSpecSrc = read('stdlib/neplg2/core/module/import_spec.nepl');
 const nmParserSrc = read('stdlib/nm/parser.nepl');
+const nmParserDocumentSrc = read('stdlib/nm/parser/document.nepl');
 const nmParserJsonInlineSrc = read('stdlib/nm/parser/json_inline.nepl');
 const nmHtmlSrc = read('stdlib/nm/html_gen.nepl');
 const nmHtmlInlineSrc = read('stdlib/nm/html_inline.nepl');
@@ -28,7 +29,7 @@ assert.doesNotMatch(
 
 for (const [name, src] of [
     ['import_spec', importSpecSrc],
-    ['nm parser', nmParserSrc],
+    ['nm parser document', nmParserDocumentSrc],
     ['nm parser json_inline', nmParserJsonInlineSrc],
     ['nm html_gen', nmHtmlSrc],
     ['nm html_inline', nmHtmlInlineSrc],
@@ -100,6 +101,7 @@ for (const localName of [
     'nm_find_byte',
 ]) {
     assert.doesNotMatch(nmParserSrc, new RegExp(`\\b${localName}\\b`), `nm parser must use alloc/string scanner helpers instead of ${localName}`);
+    assert.doesNotMatch(nmParserDocumentSrc, new RegExp(`\\b${localName}\\b`), `nm parser document must use alloc/string scanner helpers instead of ${localName}`);
     assert.doesNotMatch(nmParserJsonInlineSrc, new RegExp(`\\b${localName}\\b`), `nm parser json_inline must use alloc/string scanner helpers instead of ${localName}`);
     assert.doesNotMatch(nmHtmlSrc, new RegExp(`\\b${localName}\\b`), `nm html_gen must use alloc/string scanner helpers instead of ${localName}`);
     assert.doesNotMatch(nmHtmlInlineSrc, new RegExp(`\\b${localName}\\b`), `nm html_inline must use alloc/string scanner helpers instead of ${localName}`);
@@ -108,7 +110,7 @@ for (const localName of [
 for (const symbol of [
     'str_slice_trim_suffix_cr',
 ]) {
-    assert.match(nmParserSrc, new RegExp(`\\b${symbol}\\b`), `nm parser must call ${symbol}`);
+    assert.match(nmParserDocumentSrc, new RegExp(`\\b${symbol}\\b`), `nm parser document must call ${symbol}`);
     assert.match(nmHtmlSrc, new RegExp(`\\b${symbol}\\b`), `nm html_gen must call ${symbol}`);
 }
 
@@ -116,7 +118,7 @@ for (const symbol of [
     'scanner::str_line_end',
     'scanner::str_next_line_pos',
 ]) {
-    assert.match(nmParserSrc, new RegExp(symbol.replaceAll(':', '\\:')), `nm parser must call ${symbol}`);
+    assert.match(nmParserDocumentSrc, new RegExp(symbol.replaceAll(':', '\\:')), `nm parser document must call ${symbol}`);
 }
 
 for (const symbol of [

@@ -26,6 +26,7 @@ const checks = [
     "nodesrc/test_stdlib_json_doc_no_boilerplate.js",
     "nodesrc/test_stdlib_nm_parser_doc_no_boilerplate.js",
     "nodesrc/test_stdlib_nm_json_escape_boundary.js",
+    "nodesrc/test_stdlib_nm_parser_document_boundary.js",
     "nodesrc/test_stdlib_nm_parser_scanner_boundary.js",
     "nodesrc/test_stdlib_nm_parser_json_inline_boundary.js",
     "nodesrc/test_stdlib_nm_parser_json_section_boundary.js",

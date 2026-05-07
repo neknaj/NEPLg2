@@ -1,76 +1,17 @@
-//: nm/parser: Gloss/Nest Markdown の source view と JSON serializer
+//: nm/parser: Gloss/Nest Markdown parser の公開 facade
 //:
 //: [目的/もくてき]:
-//: - `.n.md` 用の Gloss/Nest Markdown を読み、`Document` と JSON 出力 API を提供します。
-//: - `Document` は source view を保持し、JSON/HTML 変換時に direct serializer が再走査します。
+//: - `.n.md` 用の Gloss/Nest Markdown を読み、`Document` と JSON 出力 API を公開します。
+//: - 実装は `parser/document`、`parser/json_inline`、`parser/json_section`、`parser/scanner` に分け、facade 自体には parser state や serializer 本体を置きません。
 //:
-//: [実装/じっそう]:
-//: - strict move checking に合わせ、`Vec<Inline>` / `Vec<Node>` のような non-Copy AST raw storage を使いません。
-//: - block parser は入力文字列を byte index で走査し、JSON section stack は `parser/json_section` が管理します。
-//: - inline parser は JSON/HTML 文字列を直接構築し、ruby/gloss/math を必要箇所だけ再帰処理します。
+//: [構成/こうせい]:
+//: - `parser/document` は `Document` source view、`parse_markdown`、`document_to_json` を所有します。
+//: - `parser/scanner` は line / delimiter scanner helper を所有します。
+//: - `parser/json_inline` と `parser/json_section` は JSON serializer の inline / section state を所有します。
 //:
 //: [注意/ちゅうい]:
-//: - JSON schema は開発中です。selfhost/doc 生成で必要な安定 API は `parse_markdown` / `document_to_json` / `render_document` です。
-//: - UTF-8 境界は stdlib/string の slice API に従います。ここでは Markdown marker を ASCII byte として扱います。
-//:
-//: [計算量/けいさんりょう]:
-//: - `parse_markdown` は O(1) です。
-//: - `document_to_json` は入力 size と出力 size に対して O(n + m) です。
-//:
-//: neplg2:test[skip]
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| fn main <()*>i32> ():
-//:     ()
-//:     0
-//: ```
-
-#indent 4
-
-#import "alloc/string" as *
-#import "alloc/string/scanner" as scanner
-#import "core/math" as *
-#import "./json_escape" as json
-#import "./parser/json_inline" as json_inline
-#import "./parser/json_section" as *
-#import "./parser/scanner" as scan
-
-//: Document: NM document の source view
-//:
-//: [目的/もくてき]:
-//: - parse 済み document を公開 API の値として運びます。
-//:
-//: [実装/じっそう]:
-//: - 現在は source `str` だけを持つ Copy 可能な view です。
-//: - JSON/HTML は `document_to_json` / `render_document` が source を再走査して生成します。
-//:
-//: [注意/ちゅうい]:
-//: - non-Copy AST container を内部に持たないため、strict move checking の raw storage 制約に抵触しません。
-//:
-//: [計算量/けいさんりょう]:
-//: - 構築は O(1) です。
-pub struct Document:
-    source <str>
-
-impl Clone for Document:
-    fn clone <(&Document)->Document> (doc):
-        *doc
-
-impl Copy for Document:
-    fn copy_mark <(Document)->Document> (doc):
-        doc
-
-//: parse_markdown: 拡張 Markdown 文字列を `Document` source view にする
-//:
-//: [目的/もくてき]:
-//: - nm 系 API の入口として、後段 serializer が再走査できる document 値を返します。
-//:
-//: [実装/じっそう]:
-//: - AST raw storage は作らず、source `str` を Copy view として保持します。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(1)
+//: - selfhost/doc 生成で使う安定 API はこの facade から import します。
+//: - `Document` は non-Copy AST container を持たず、strict move checking と raw storage 制約に合わせた source view です。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -83,148 +24,7 @@ impl Copy for Document:
 //:     let j <str> document_to_json d;
 //:     if and str_starts_with j "{\"t\":\"doc\"" gt len j 0 0 1
 //: ```
-pub fn parse_markdown <(str)->Document> (input):
-    Document input
 
-//: document_to_json: `Document` を JSON 文字列へ変換する
-//:
-//: [目的/もくてき]:
-//: - Document source を再走査し、block / inline 構造を JSON へ直接出力します。
-//:
-//: [実装/じっそう]:
-//: - section stack と comma state は `parser/json_section` の Copy state で保持し、JSON の children array は section close 時に閉じます。
-//: - `Vec<Node>` / `Vec<Inline>` は使わず、StringBuilder だけで出力します。
-//:
-//: [注意/ちゅうい]:
-//: - `---` は `hr` node を出力した後、現在 section を 1 段閉じます。
-//:
-//: [計算量/けいさんりょう]:
-//: - O(n + m)
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target core
-//:| #import "alloc/string" as *
-//:| #import "nm/parser" as *
-//: fn main <()*>i32> ():
-//:     let d <Document> parse_markdown "plain\n";
-//:     let j <str> document_to_json d;
-//:     if str_starts_with j "{\"t\":\"doc\"" 0 1
-//: ```
-pub fn document_to_json <(Document)->str> (doc):
-    let src <str> get doc "source";
-    let mut sb <StringBuilder> string_builder_new;
-    set sb sb_append sb "{\"t\":\"doc\",\"nodes\":[";
-    let n <i32> len src;
-    let mut pos <i32> 0;
-    let mut sections <NmJsonSectionState> nm_json_section_state_new;
+#indent 4
 
-    while lt pos n:
-        do:
-            let line_end <i32> scanner::str_line_end src pos;
-            let raw <str> str_slice_trim_suffix_cr src pos line_end;
-            let t <str> str_trim raw;
-            set pos scanner::str_next_line_pos src line_end;
-            if:
-                eq len t 0
-                then:
-                    ()
-                else:
-                    if:
-                        scan::is_section_break t
-                        then:
-                            if:
-                                gt nm_json_section_current_level sections 0
-                                then:
-                                    set sb sb_append sb "]}";
-                                    set sections nm_json_section_close_current sections
-                                else ()
-                        else:
-                            if:
-                                scan::is_hr t
-                                then:
-                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
-                                    set sections nm_json_section_mark_current_has sections;
-                                    set sb sb_append sb "{\"t\":\"hr\"}";
-                                    if:
-                                        gt nm_json_section_current_level sections 0
-                                        then:
-                                            set sb sb_append sb "]}";
-                                            set sections nm_json_section_close_current sections
-                                        else ()
-                                else:
-                                    if:
-                                        scan::is_fence_start t
-                                        then:
-                                            let info <str> str_trim str_slice t 3 len t;
-                                            let mut code_sb <StringBuilder> string_builder_new;
-                                            let mut done <bool> false;
-                                            while and lt pos n not done:
-                                                do:
-                                                    let cend <i32> scanner::str_line_end src pos;
-                                                    let craw <str> str_slice_trim_suffix_cr src pos cend;
-                                                    let ct <str> str_trim craw;
-                                                    set pos scanner::str_next_line_pos src cend;
-                                                    if:
-                                                        scan::is_fence_start ct
-                                                        then set done true
-                                                        else:
-                                                            set code_sb sb_append code_sb craw;
-                                                            set code_sb sb_append code_sb "\n"
-                                            if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
-                                            set sections nm_json_section_mark_current_has sections;
-                                            set sb sb_append sb "{\"t\":\"code\",\"info\":\"";
-                                            set sb json::json_escape_into sb info;
-                                            set sb sb_append sb "\",\"code\":\"";
-                                            set sb json::json_escape_builder_into sb code_sb;
-                                            set sb sb_append sb "\"}"
-                                        else:
-                                            let hlevel <i32> scan::nm_heading_level t;
-                                            if:
-                                                gt hlevel 0
-                                                then:
-                                                    while ge nm_json_section_current_level sections hlevel:
-                                                        do:
-                                                            set sb sb_append sb "]}";
-                                                            set sections nm_json_section_close_current sections
-                                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
-                                                    set sections nm_json_section_mark_current_has sections;
-                                                    let htext <str> scan::nm_heading_text t hlevel;
-                                                    set sb sb_append sb "{\"t\":\"section\",\"level\":";
-                                                    set sb sb_append_i32 sb hlevel;
-                                                    set sb sb_append sb ",\"heading\":{\"level\":";
-                                                    set sb sb_append_i32 sb hlevel;
-                                                    set sb sb_append sb ",\"inl\":";
-                                                    set sb json_inline::nm_inline_to_json_into sb htext;
-                                                    set sb sb_append sb "},\"children\":[";
-                                                    set sections nm_json_section_open_level sections hlevel
-                                                else:
-                                                    let mut para_sb <StringBuilder> string_builder_new;
-                                                    set para_sb sb_append para_sb raw;
-                                                    let mut done <bool> false;
-                                                    while and lt pos n not done:
-                                                        do:
-                                                            let pend <i32> scanner::str_line_end src pos;
-                                                            let praw <str> str_slice_trim_suffix_cr src pos pend;
-                                                            let pt <str> str_trim praw;
-                                                            if:
-                                                                scan::nm_is_block_boundary pt
-                                                                then set done true
-                                                                else:
-                                                                    set para_sb sb_append para_sb "\n";
-                                                                    set para_sb sb_append para_sb praw;
-                                                                    set pos scanner::str_next_line_pos src pend
-                                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
-                                                    set sections nm_json_section_mark_current_has sections;
-                                                    set sb sb_append sb "{\"t\":\"p\",\"inl\":";
-                                                    let para_text <str> sb_build para_sb;
-                                                    set sb json_inline::nm_inline_to_json_into sb para_text;
-                                                    set sb sb_append sb "}"
-
-    while gt nm_json_section_current_level sections 0:
-        do:
-            set sb sb_append sb "]}";
-            set sections nm_json_section_close_current sections
-    set sb sb_append sb "]}";
-    sb_build sb
+pub #import "./parser/document" as @merge

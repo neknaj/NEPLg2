@@ -6,10 +6,12 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/nm/parser.nepl';
+const documentPath = 'stdlib/nm/parser/document.nepl';
 const jsonInlinePath = 'stdlib/nm/parser/json_inline.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const documentSrc = fs.readFileSync(path.join(repoRoot, documentPath), 'utf8');
 const jsonInlineSrc = fs.readFileSync(path.join(repoRoot, jsonInlinePath), 'utf8');
-const combined = `${src}\n${jsonInlineSrc}`;
+const combined = `${src}\n${documentSrc}\n${jsonInlineSrc}`;
 
 const forbiddenPhrases = [
     ['generic main-use title', '\u4e3b\u306a\u7528\u9014'],

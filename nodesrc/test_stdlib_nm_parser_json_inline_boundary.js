@@ -11,8 +11,10 @@ function read(relPath) {
 }
 
 const parserPath = 'stdlib/nm/parser.nepl';
+const documentPath = 'stdlib/nm/parser/document.nepl';
 const jsonInlinePath = 'stdlib/nm/parser/json_inline.nepl';
 const parser = read(parserPath);
+const document = read(documentPath);
 const jsonInline = read(jsonInlinePath);
 
 assert.match(
@@ -32,19 +34,24 @@ assert.match(
 );
 
 assert.match(
-    parser,
-    /^#import "\.\/parser\/json_inline" as json_inline$/m,
-    `${parserPath} must import the dedicated inline JSON serializer`,
+    document,
+    /^#import "\.\/json_inline" as json_inline$/m,
+    `${documentPath} must import the dedicated inline JSON serializer`,
 );
 assert.match(
-    parser,
+    document,
     /\bjson_inline::nm_inline_to_json_into\b/,
-    `${parserPath} must delegate inline JSON output to json_inline`,
+    `${documentPath} must delegate inline JSON output to json_inline`,
 );
 assert.doesNotMatch(
     parser,
     /\bfn\s+nm_inline_to_json(?:_into)?\b/,
     `${parserPath} must not reintroduce inline JSON serializer ownership`,
+);
+assert.doesNotMatch(
+    document,
+    /\bfn\s+nm_inline_to_json(?:_into)?\b/,
+    `${documentPath} must not reintroduce inline JSON serializer ownership`,
 );
 
 console.log('stdlib nm parser JSON inline boundary regression passed');

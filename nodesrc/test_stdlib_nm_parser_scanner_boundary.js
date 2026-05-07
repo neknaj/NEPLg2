@@ -11,6 +11,7 @@ function read(relPath) {
 }
 
 const parserPath = 'stdlib/nm/parser.nepl';
+const documentPath = 'stdlib/nm/parser/document.nepl';
 const scannerPath = 'stdlib/nm/parser/scanner.nepl';
 const jsonInlinePath = 'stdlib/nm/parser/json_inline.nepl';
 const jsonSectionPath = 'stdlib/nm/parser/json_section.nepl';
@@ -18,6 +19,7 @@ const htmlPath = 'stdlib/nm/html_gen.nepl';
 const htmlInlinePath = 'stdlib/nm/html_inline.nepl';
 const htmlSectionPath = 'stdlib/nm/html_section.nepl';
 const parser = read(parserPath);
+const document = read(documentPath);
 const scanner = read(scannerPath);
 const jsonInline = read(jsonInlinePath);
 const jsonSection = read(jsonSectionPath);
@@ -41,6 +43,11 @@ for (const name of [
         parser,
         new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`, 'm'),
         `${parserPath} must not own ${name}; NM scan helpers belong to ${scannerPath}`
+    );
+    assert.doesNotMatch(
+        document,
+        new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`, 'm'),
+        `${documentPath} must not own ${name}; NM scan helpers belong to ${scannerPath}`
     );
     assert.match(
         scanner,
@@ -76,8 +83,13 @@ for (const name of [
 
 assert.match(
     parser,
-    /^#import "\.\/parser\/scanner" as scan$/m,
-    `${parserPath} must import the dedicated NM parser scanner module`
+    /^pub #import "\.\/parser\/document" as @merge$/m,
+    `${parserPath} must re-export the dedicated document parser module`
+);
+assert.match(
+    document,
+    /^#import "\.\/scanner" as scan$/m,
+    `${documentPath} must import the dedicated NM parser scanner module`
 );
 assert.match(
     jsonInline,
@@ -115,9 +127,9 @@ assert.match(
     `${htmlInlinePath} must use scanner module for gloss slash search`
 );
 assert.match(
-    parser,
+    document,
     /\bscan::nm_heading_level\b/,
-    `${parserPath} must use scanner module for heading classification`
+    `${documentPath} must use scanner module for heading classification`
 );
 assert.match(
     html,

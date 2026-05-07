@@ -11,8 +11,10 @@ function read(relPath) {
 }
 
 const parserPath = 'stdlib/nm/parser.nepl';
+const documentPath = 'stdlib/nm/parser/document.nepl';
 const jsonSectionPath = 'stdlib/nm/parser/json_section.nepl';
 const parser = read(parserPath);
+const document = read(documentPath);
 const jsonSection = read(jsonSectionPath);
 
 assert.match(
@@ -42,9 +44,9 @@ assert.match(
 );
 
 assert.match(
-    parser,
-    /^#import "\.\/parser\/json_section" as \*$/m,
-    `${parserPath} must import the dedicated JSON section state module`,
+    document,
+    /^#import "\.\/json_section" as \*$/m,
+    `${documentPath} must import the dedicated JSON section state module`,
 );
 for (const symbol of [
     'nm_json_section_state_new',
@@ -54,7 +56,7 @@ for (const symbol of [
     'nm_json_section_open_level',
     'nm_json_section_close_current',
 ]) {
-    assert.match(parser, new RegExp(`\\b${symbol}\\b`), `${parserPath} must call ${symbol}`);
+    assert.match(document, new RegExp(`\\b${symbol}\\b`), `${documentPath} must call ${symbol}`);
 }
 
 for (const pattern of [
@@ -66,6 +68,7 @@ for (const pattern of [
     /match\s+current_level:/,
 ]) {
     assert.doesNotMatch(parser, pattern, `${parserPath} must not reintroduce ad hoc JSON section state`);
+    assert.doesNotMatch(document, pattern, `${documentPath} must not reintroduce ad hoc JSON section state`);
 }
 
 console.log('stdlib nm parser JSON section boundary regression passed');
