@@ -79,9 +79,9 @@ for (const pattern of obsoleteVecAccumulator) {
 
 assert.doesNotMatch(code, /struct\s+Checks:/, 'std/test must not keep the old Checks type as the primary report model');
 
-assert.match(rootCode, /pub\s+#import\s+"\.\/test\/types"\s+as\s+\*/, 'std/test root must re-export test types');
-assert.match(rootCode, /pub\s+#import\s+"\.\/test\/assertion"\s+as\s+\*/, 'std/test root must re-export assertion helpers');
-assert.match(rootCode, /pub\s+#import\s+"\.\/test\/report"\s+as\s+\*/, 'std/test root must re-export report helpers');
+assert.match(rootCode, /pub\s+#import\s+"\.\/test\/types"\s+as\s+@merge/, 'std/test root must re-export test types through the facade export surface');
+assert.match(rootCode, /pub\s+#import\s+"\.\/test\/assertion"\s+as\s+@merge/, 'std/test root must re-export assertion helpers through the facade export surface');
+assert.match(rootCode, /pub\s+#import\s+"\.\/test\/report"\s+as\s+@merge/, 'std/test root must re-export report helpers through the facade export surface');
 assert.doesNotMatch(rootCode, /\b(enum|struct|fn)\b/, 'std/test root must remain a facade without implementation bodies');
 
 assert.match(typesCode, /enum\s+AssertionStatus:[\s\S]*Passed[\s\S]*Failed/, 'std/test/types must model assertion status as an enum');

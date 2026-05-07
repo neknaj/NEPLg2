@@ -1,8 +1,8 @@
 #indent 4
 
-pub #import "./test/types" as *
-pub #import "./test/assertion" as *
-pub #import "./test/report" as *
+pub #import "./test/types" as @merge
+pub #import "./test/assertion" as @merge
+pub #import "./test/report" as @merge
 
 //: # test
 //: [標準/ひょうじゅん]ライブラリ[用/よう]の[構造化/こうぞうか]テスト[支援/しえん]

@@ -33888,3 +33888,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `tests/stdlib/pipe_collections.n.md` は current main で selected import / RingBuffer overload の失敗が残る。HashSet module split とは別 issue として扱う。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 std/test selective facade import 修正
+
+- `ISS-20260507T084050995Z-STD-TEST-FACADE-RE-EXPORTS-ARE-INVIS-F9A19F5A` を追加し、fixed/resolved に更新した。
+- `std/test` 分割後、`#import "std/test" as { checks_new, ... }` が facade の re-export 先 `std/test/report` / `std/test/assertion` まで届かず、BTreeMap/BTreeSet focused tests が名前解決で失敗していた。
+- 根本原因は `nepl-core/src/resolve.rs` の unqualified import closure が `All` edge だけを transitive 展開し、`Selected` edge と facade 側の `All` / `Selected` re-export を合成していなかったことだった。
+- `compose_unqualified_import_visibility` を追加し、`All -> next`、`Selected -> All`、`Selected -> Selected` の alias mapping を合成するようにした。未選択 symbol は伝播させない。
+- `nepl-core/tests/resolve.rs` に `import_resolution_expands_selective_facade_reexport` を追加し、facade 経由の selected alias が実体 `DefId` へ解決されることを固定した。
+- `stdlib/std/test.nepl` は `types` / `assertion` / `report` を `pub #import ... as @merge` で公開する facade に揃え、`nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js` もこの境界を検査するよう更新した。
+- `tests/stdlib/pipe_collections.n.md` は selected import 由来の失敗は解消し、残る RingBuffer owner-to-borrow fixture 問題を `ISS-20260507T085551696Z-PIPE-COLLECTIONS-RINGBUFFER-DOCTEST--5893794D` として追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resolve import_resolution_expands_selective_facade_reexport`: passed
+  - `cargo test -p nepl-core --test resolve`: 18 passed
+  - `node nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md --no-tree -o tmp/std-test-selective-import-btree-after-rebase.json -j 1 --dist web/dist`: total=10, passed=10
+  - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-selective-import-rebase.json -j 1 --dist web/dist`: total=8, passed=7, failed=1（RingBuffer fixture 別 issue）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

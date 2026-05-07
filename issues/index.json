@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T08:26:47.083Z",
+  "generated_at": "2026-05-07T08:59:05.964Z",
   "counts": {
-    "total": 567,
-    "open": 10,
-    "resolved": 557,
+    "total": 569,
+    "open": 11,
+    "resolved": 558,
     "by_area": {
       "core": {
-        "total": 283,
+        "total": 284,
         "open": 3,
-        "resolved": 280
+        "resolved": 281
       },
       "stdlib": {
         "total": 159,
@@ -17,8 +17,8 @@
         "resolved": 154
       },
       "TEST": {
-        "total": 14,
-        "open": 1,
+        "total": 15,
+        "open": 2,
         "resolved": 13
       },
       "selfhost": {
@@ -98,7 +98,7 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-27",
-      "updated": "2026-05-06",
+      "updated": "2026-05-07",
       "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md",
       "legacy_id": "",
       "source": "",
@@ -208,6 +208,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260507T085551696Z-PIPE-COLLECTIONS-RINGBUFFER-DOCTEST--5893794D",
+      "title": "pipe_collections RingBuffer doctest passes owner to borrow-only APIs",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "tests/stdlib/pipe_collections.n.md, stdlib/alloc/collections/ringbuffer.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T085551696Z-PIPE-COLLECTIONS-RINGBUFFER-DOCTEST--5893794D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -4318,6 +4333,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T054543555Z-INITIALIZED-EXTERNAL-IO-EFFECT-EXCEE-5C420730.md"
+    },
+    {
+      "id": "ISS-20260507T084050995Z-STD-TEST-FACADE-RE-EXPORTS-ARE-INVIS-F9A19F5A",
+      "title": "std/test facade re-exports are invisible to selective imports",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resolve.rs, nepl-core/tests/resolve.rs, stdlib/std/test.nepl, nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js, stdlib/tests/btreemap.n.md, stdlib/tests/btreeset.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T084050995Z-STD-TEST-FACADE-RE-EXPORTS-ARE-INVIS-F9A19F5A.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

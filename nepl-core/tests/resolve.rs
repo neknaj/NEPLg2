@@ -233,6 +233,66 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn import_resolution_expands_selective_facade_reexport() {
+    const DEP: &str = r#"
+#indent 4
+#no_prelude
+
+pub fn allowed <()->i32> ():
+    41
+
+pub fn hidden <()->i32> ():
+    7
+"#;
+    const FACADE: &str = r#"
+#indent 4
+#no_prelude
+
+pub #import "dep" as @merge
+"#;
+    let main = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "facade" as { allowed as renamed }
+
+fn main <()->i32> ():
+    renamed
+"#;
+    let (module, source_map) =
+        load_virtual_sources(main, &[("dep.nepl", DEP), ("facade.nepl", FACADE)]);
+    let resolution = ImportResolution::from_module(&module, Some(&source_map));
+    let main_file = source_file_id(&source_map, "main.nepl");
+    let dep_file = source_file_id(&source_map, "dep.nepl");
+
+    assert_eq!(
+        resolution.unqualified_lookup_names(main_file, "renamed"),
+        vec![String::from("renamed"), String::from("allowed")]
+    );
+    assert!(resolution.binding_is_visible_unqualified(main_file, "renamed", dep_file, "allowed"));
+    assert!(!resolution.binding_is_visible_unqualified(main_file, "hidden", dep_file, "hidden"));
+
+    let result = nepl_core::typecheck::typecheck(
+        &module,
+        CompileTarget::Wasm,
+        BuildProfile::Debug,
+        Some(&source_map),
+    );
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|d| d.severity != Severity::Error),
+        "unexpected typecheck errors: {:?}",
+        result.diagnostics
+    );
+    let hir = result.module.expect("hir module");
+    let expected = def_id_for_name(&source_map, dep_file, "allowed");
+    assert_eq!(entry_call_def_id(&hir), Some(expected));
+}
+
+#[test]
 fn import_resolution_expands_qualified_merge_facade() {
     const DEP: &str = r#"
 #indent 4
