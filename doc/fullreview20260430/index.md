@@ -151,6 +151,7 @@
 - 目次作成: 完了。
 - project status: 完了。
 - Rust compiler 静的検査 / typecheck / diagnostics: 完了。
-- Rust compiler lexer/parser / loader/resolve / drop/effect / codegen/tests: 作成中。
+- Rust compiler lexer/parser / loader/resolve / drop/effect / codegen/tests: 完了。
+- selfhost compiler: 完了。
 - レビュー妥当性確認: 未着手。
 - 前回との差分確認: 未着手。今回レビュー完了後まで前回レビュー内容は読まない。

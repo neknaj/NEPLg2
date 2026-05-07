@@ -1,76 +1,47 @@
-# Selfhost Compiler Review: CLI
+# selfhost CLI review
 
-対象 commit: `f108cebd`
+確認対象 commit: `31291b37 fix(core): add parser backend responsibility policy`
 
-## 対象
+## 確認対象
 
-- `stdlib/neplg2/cli/args.nepl`
-- `stdlib/neplg2/cli/args/types.nepl`
-- `stdlib/neplg2/cli/args/classify.nepl`
-- `stdlib/neplg2/cli/args/emit.nepl`
-- `stdlib/neplg2/cli/args/options.nepl`
-- `stdlib/neplg2/cli/args/parse.nepl`
+- `stdlib/neplg2/cli/main.nepl`
+- `stdlib/neplg2/cli/driver.nepl`
 - `stdlib/neplg2/cli/file_io.nepl`
 - `stdlib/neplg2/cli/reporter.nepl`
-- `stdlib/neplg2/cli/driver.nepl`
-- `stdlib/neplg2/cli/main.nepl`
-
-## 設計評価
-
-CLI は raw argv provider、pure parser、diagnostic reporter、file I/O、driver に分割されている。これは `core` を filesystem/stdio から切り離す selfhost plan と一致している。
-
-args は `SelfhostCliTarget`、`SelfhostCliEmit`、`SelfhostCliProfile`、`SelfhostCliErrorKind` などを enum で持ち、parse loop は `SelfhostCliArgKind` を `match` する。これは有限 state を enum で管理する方針に沿っている。ただし `classify.nepl` は CLI 文字列を `hash32` で分類している。CLI option は外部入力文字列なので parser の `TokenKind` 問題よりは許容余地があるが、hash 数値 arm の reviewability は低い。stdlib に prefix/equals helper と table lookup が整うなら、より明示的な分類へ寄せたい。
-
-reporter は human diagnostic を stderr、JSON diagnostic を stdout に分ける設計で、`.n.md` stdout report / exit code policy とも整合させやすい。file_io は Result diagnostic へ変換しているが、Actions では fs/string/stdio owner failure の影響を受けている。
-
-## Actions 根拠
-
-Actions run `25157230630` では CLI 周辺に次の failure がある。
-
-- `cli/args/options.nepl::doctest#2`: timeout
-- `cli/args/parse.nepl::doctest#1/#2`: timeout
-- `cli/driver.nepl::doctest#1`: timeout
-- `cli/file_io.nepl::doctest#1`: `fs_open_with_flags...` owner maybe leak
-- `cli/reporter.nepl::doctest#1`: `sb_build_result...` owner maybe leak
-
-この failure は local test ではなく GitHub Actions artifact/log による。
+- `stdlib/neplg2/cli/args/{types,classify,emit,options,predicates,parse}.nepl`
+- `nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`
 
 ## 良い点
 
-- pure args parser と raw argv acquisition が分かれている。
-- CLI option result と compile options 変換が分離されている。
-- reporter は stdout JSON と stderr human を分ける。
-- CLI driver は exit code と diagnostics を構造化している。
-- file_io は source read / artifact write failure を `SelfhostDiagnostic` に写している。
+CLI と compiler core の境界はおおむね正しい。`driver.nepl` は CLI option を core `SelfhostCompileOptions` へ変換し、VFS/pipeline/diagnostic を扱うだけで、filesystem や stdio の責務を core へ漏らしていない。
 
-## 問題
+`args/types.nepl` は `SelfhostCliTarget`、`SelfhostCliEmitKind`、`SelfhostCliProfile`、`SelfhostCliErrorKind` を enum として持ち、CLI 表面の `core` / `std` alias も parse 境界で正規化する。これは「文字列や数値ではなく enum で管理する」方針に合う。
 
-- Actions timeout により args parser / driver doctest が regression gate として安定していない。
-- file_io は std/fs の owner failure に依存して落ちている。
-- reporter は StringBuilder owner failure の影響を受けている。
-- CLI main は stage0 で、WASI argv / filesystem / artifact output までの実 CLI ではない。
-- CLI classification の hash numeric arm は外部文字列分類としては可能だが、source policy とテーブル化で意図を明確にしたい。
+`args/classify.nepl` は hash/key + match + `str_eq` 検証の形で option token を分類している。これは keyword classifier と同じ方向で、有限集合を深い `if` chain へ広げないためのよい local pattern である。
 
-## 必要な設計
+`reporter.nepl` は diagnostic code を `selfhost_diag_code_name` で stable string に変換し、human stderr と JSON stdout を分ける。diagnostic 内部を enum-first にする設計と一致している。
 
-- CLI parser tests は `.n.md` stdout report + exit code policy に移す。
-- CLI driver は compile result、diagnostic rendering、artifact write、exit code を single orchestration にする。
-- reporter は diagnostic JSON schema を Rust 側 redesign 後の stable code と合わせる。
-- file I/O は std/fs の write/create/truncate/read error result API を安全に使い、raw pointer escape を持ち込まない。
-- CLI hash classification は、文字列入力境界に限定し、TokenKind/diagnostic/target/profile など typed enum を hash/string へ戻さない。
+## 問題とリスク
+
+`args/parse.nepl` は `Vec<str>` を消費しないために `VecDataLen<str>` の `data` / `len` を `get_ref` で読み、`mem_ptr_addr` と `load<str>` で argv 要素を読む。これは既存の source policy が固定している回帰対策だが、理想形ではない。
+
+この raw access は現時点では compiler/stdlib の制約に対する実装上の回避であり、selfhost の CLI parser が `core/mem` に直接依存している状態である。根本的には `Vec` 側に owner を動かさない borrowed/indexed read API を用意し、parser は safe surface だけを使うべきである。この方向は open issue `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` の migration 対象として扱う。
+
+`driver.nepl` の compile result は、現段階では root module load と diagnostics reporting までで、check/codegen artifact まで繋がっていない。これは S6 CLI の未実装範囲として妥当だが、`--check` / `--emit` / `--run` の exit code と stdout/stderr contract は Rust CLI と同じ設計に合わせる必要がある。
 
 ## 進捗状況
 
-- `cli/args/types`: 実装中。公開 option 型。
-- `cli/args/classify`: 実装中。外部 argv 文字列分類。
-- `cli/args/emit`: 実装中。emit set 合成。
-- `cli/args/options`: 実装中。CLI options。
-- `cli/args/parse`: 実装中。pure parser だが Actions timeout。
-- `cli/file_io`: 実装中。fs bridge だが owner failure。
-- `cli/reporter`: 実装中。human/JSON rendering だが builder owner failure。
-- `cli/driver`: 初期実装。compile_vfs まで。
-- `cli/main`: 未実装相当。
+| 領域 | 状態 | 判定 |
+|---|---|---|
+| `cli/args/types.nepl` | enum-first option/error model。 | 良い。 |
+| `cli/args/classify.nepl` | hash + match classifier。 | 良い。 |
+| `cli/args/parse.nepl` | pure parserだが `core/mem` / raw load に依存。 | stdlib safe Vec read API への移行が必要。 |
+| `cli/reporter.nepl` | diagnostic enum code を human/JSON へ出力。 | S1/S2 には十分。 |
+| `cli/file_io.nepl` | CLI/WASI 側の file I/O 境界。 | core と分離されている。 |
+| `cli/driver.nepl` | VFS + pipeline load + reporter。 | codegen/check 接続は未実装。 |
 
-## 判定
+## 推奨対応
 
-S6 CLI は部分実装で、設計方向は良い。ただし stdlib fs/stdio/string owner contract と Actions timeout が解消されるまで、bootstrap CLI としては扱えない。まず pure parser / reporter / driver の regression gate を安定させる必要がある。
+- `Vec<str>` borrowed read API を stdlib 側で設計し、`args/parse.nepl` から `core/mem` import を消す。
+- `nodesrc/test_selfhost_cli_args_no_owner_field_reads.js` は、短期的には owner move regression を防ぐが、safe Vec read API が入ったら raw access 禁止 policy へ置き換える。
+- Rust CLI の `--check` が ResourceIR gate を通るようになったため、selfhost CLI の `--check` も typecheck-only shortcut を作らず、pipeline authority を共有する設計にする。

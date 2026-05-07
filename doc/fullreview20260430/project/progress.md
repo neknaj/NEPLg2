@@ -1,13 +1,13 @@
 # プロジェクト進捗レビュー
 
-確認対象 commit: `3742a1a7 fix(cli): run Resource IR gates for check-only`
+確認対象 commit: `31291b37 fix(core): add parser backend responsibility policy`
 
 ## 確認した一次情報
 
 - `plan.md`: NEPLg2 の核となる言語方針。前置記法、式指向、オフサイドルール、型注釈、型推論、`#import` / `#target` / `#indent` など。
 - `note.n.md`: 2026-05-07 の Agent 1 / Agent 2 作業記録。ResourceIR coverage 修正、Vec / string / streamio / nm / stdio debug の module split、examples string import 修正など。
 - `todo.md`: selfhost、NEPLg3、playground、tutorial、2026-04-25 review 由来の未着手作業。
-- `issues/index.json`: issue 集計。現在 `total=594`, `open=12`, `resolved=582`。
+- `issues/index.json`: issue 集計。現在 `total=596`, `open=12`, `resolved=584`。
 - recent commits: ResourceIR 修正と stdlib split/refactor が集中している。
 - `doc/neplg2/self_host_plan.md` / `self_host_execution_plan.md`: selfhost の S0-S7 成功条件、branch/checkpoint/Issue 運用。
 
@@ -21,9 +21,9 @@ NEPLg2 は「既存機能を増やす段階」から、「静的検査・memory 
 
 | 領域 | 状態 | 判定 |
 |---|---|---|
-| Rust compiler `nepl-core` | ResourceIR 関連が大規模に分割され、owner/cell/borrow/raw coverage の regression が継続的に追加されている。`region_ptr` / `region_ptr_at` の non-owning provenance regression も固定された。 | 中核改善中。parser/backend/monomorphize の分割 policy は不足。 |
+| Rust compiler `nepl-core` | ResourceIR 関連が大規模に分割され、owner/cell/borrow/raw coverage の regression が継続的に追加されている。`region_ptr` / `region_ptr_at` の non-owning provenance regression も固定された。public monomorphize API panic は `c58dd6e3` で Result 化され、parser/backend responsibility policy は `31291b37` で追加された。 | 中核改善中。policy は入ったため、次は実分割の継続確認。 |
 | Rust CLI `nepl-cli` | CLI と backend runner は既存構造を維持。`--check` は `3742a1a7` で compile preparation を共有し、ResourceIR gate と drop insertion bridge まで通るよう修正された。 | 良い。artifact emission に入らず safety authority を共有する regression が追加済み。 |
-| selfhost `stdlib/neplg2` | ディレクトリ骨格と S1/S2 周辺の module は存在する。issue 上は `NEPLg2 self-host compiler が部分実装に留まっている` が open。 | S1/S2 は進行可能。S3 以降は静的検査と stdlib owner model の制約を守る必要がある。 |
+| selfhost `stdlib/neplg2` | ディレクトリ骨格と S1/S2 周辺の module は存在する。レビュー中に typed IR sentinel と lexer enum coverage の問題を issue 化した。 | S1/S2 は進行可能。S3 以降は typed absence と ResourceIR/stdlib owner model の制約を守る必要がある。 |
 | NEPLg3 `stdlib/neplg3` | 仕様 doc と placeholder compiler tree がある。NEPLg2 selfhost とは別扱い。 | 今回は進捗確認対象。NEPLg2 selfhost の作業場所として使わない。 |
 | stdlib core/alloc/std | string、Vec、streamio、nm、stdio debug などで facade 化と責務分割が進んだ。open issue は stdlib 5 件。 | 方向は良いが `core/mem`、raw-memory-backed API、collection drop/free、巨大 file split が残る。 |
 | tests / harness | `.n.md` doctest、source policy regression、Rust tests、playground editor tests が広い。n.md stdout/assert 運用は open issue。 | 検証資産は厚いが、test contract はまだ改善途中。 |
@@ -34,18 +34,18 @@ NEPLg2 は「既存機能を増やす段階」から、「静的検査・memory 
 
 `issues/index.json` の現在値:
 
-- total: 594
+- total: 596
 - open: 12
-- resolved: 582
+- resolved: 584
 
 open issue の内訳:
 
 | area | open | 主な内容 |
 |---|---:|---|
-| core | 5 | `core/mem` raw memory bypass、MemPtr/RegionToken owner provenance、ResourceIR/selfhost diagnostic alignment、parser/backend split policy 不足、public monomorphize panic API。 |
+| core | 3 | `core/mem` raw memory bypass、MemPtr/RegionToken owner provenance、ResourceIR/selfhost diagnostic alignment。 |
 | stdlib | 5 | collection free/drop、safe mem API、dealloc obligation、raw-memory-backed API migration、巨大 stdlib file split。 |
 | TEST | 1 | `.n.md` tests が return value に依存し stdout assertion report になっていない。 |
-| selfhost | 1 | selfhost compiler が部分実装に留まっている。 |
+| selfhost | 3 | selfhost compiler が部分実装に留まっている。typed IR sentinel、lexer raw mode/directive classifier の enum coverage 不足。 |
 
 ## selfhost 開始可否
 
@@ -67,5 +67,5 @@ open issue の内訳:
 
 1. `nepl-core/src/resource/**` を中心に Rust 静的検査の authority と残リスクを確認する。
 2. `stdlib/core/mem.nepl`、`stdlib/alloc/string/**`、`stdlib/alloc/collections/**` の owner model と source policy を確認する。
-3. `stdlib/neplg2/**` の selfhost 実装段階と Rust parity の不足を確認する。
+3. `stdlib/core/mem.nepl` と stdlib safe surface の selfhost 影響を確認する。
 4. `tests/**` と `nodesrc/**` の test contract、特に `.n.md` / assert / stdout report を確認する。

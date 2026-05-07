@@ -1,82 +1,64 @@
-# Selfhost Compiler Review: Overview
+# selfhost compiler overview
 
-対象 commit: `f108cebd`
+確認対象 commit: `31291b37 fix(core): add parser backend responsibility policy`
 
-## 結論
+## 確認対象
 
-`stdlib/neplg2/` は S0 の placeholder tree からは明確に前進しており、S1 lexer/parser、S2 in-memory module loader、CLI 境界の一部は実装済みである。ただし、selfhost compiler 全体としてはまだ bootstrap 実装を開始できる段階ではない。S3 型検査、S4 HIR/resource/mono、S5 backend は受け皿と smoke API が中心で、Rust compiler と同等の安全性判定を持っていない。
+- `stdlib/neplg2/README.md`
+- `stdlib/neplg2/index.n.md`
+- `stdlib/neplg2/cli/**`
+- `stdlib/neplg2/core/**`
+- `doc/neplg2/self_host_plan.md`
+- `doc/neplg2/self_host_execution_plan.md`
+- `doc/neplg2/compiler_diagnostics_redesign_plan.md`
+- `issues/index.json`
 
-今すぐ進めてよい範囲は、S1/S2 の Rust parity fixture、typed diagnostic、source map、module graph、CLI I/O 境界である。S3 以降は Rust 側の Resource IR / diagnostic enum / match exhaustiveness 方針を正として、旧 move_check や HIR special-case を selfhost へコピーしないことが必須である。
+前回レビュー本文は参照せず、現行ソース、現行 doc、issue、recent commit のみを根拠に確認した。
 
-## Actions 根拠
+## 全体判定
 
-review の test 状況は local 実行ではなく GitHub Actions を根拠にした。
+`stdlib/neplg2` は self-host compiler の骨格と S1/S2 周辺の実装がかなり揃っている。CLI と core の責務分離、typed diagnostic code、lexer/parser/module graph の段階化は現在の開発方針に合っている。
 
-- Actions run: `25157230630`
-- 対象 commit: `f108cebdf72289251b5d9f90c0fd7de4ca591e6e`
-- 全体 conclusion: failure
-- `stdlib-test`: `415 total / 232 passed / 173 failed / 10 errored`
-- selfhost 関連 failure: `stdlib/neplg2/` で 19 件
-
-selfhost 関連の failure は次の傾向である。
-
-- timeout: `cli/args/options.nepl`, `cli/args/parse.nepl`, `cli/driver.nepl`, `core/module/graph.nepl`, `core/module/loader.nepl`, `core/module/stdlib_map.nepl`, `core/pipeline.nepl`, `core/syntax/parser/module_parser.nepl`
-- owner / Resource IR: `cli/file_io.nepl`, `cli/reporter.nepl`, `core/hir/hir.nepl`, `core/infra/diag.nepl`, `core/module/import_spec.nepl`, `core/resolve/name_resolver.nepl`, `core/ty/ty.nepl`
-
-このため、現状は「selfhost 部品は存在するが CI の stdlib doctest は green ではない」と判断する。
-
-## S0-S7 進捗
-
-| Stage | 判定 | 根拠 |
-|---|---|---|
-| S0 tree / smoke | 実装済み | `stdlib/neplg2/core` と `stdlib/neplg2/cli` が存在し、各 module に stage0 / doctest がある |
-| S1 lexer / parser | 部分実装 | `token.nepl`, `lexer.nepl`, `module_parser.nepl`, `module_ast.nepl` があるが、parser は full expression parser ではない |
-| S2 module loader | 部分実装 | VFS, import spec, stdlib map, module graph があるが Actions では module doctest timeout が残る |
-| S3 type / check | 初期実装 | `ty.nepl` は arena と primitive/function model を持つが `check/checker.nepl` は stage0 smoke に近い |
-| S4 HIR / resource / mono | 初期実装 | HIR flat table と mono key はあるが `resource/move_state.nepl` は未実装相当 |
-| S5 backend | 未着手相当 | `codegen/wasm/binary.nepl` と `codegen/llvm/text.nepl` は marker API の段階 |
-| S6 CLI | 部分実装 | args, reporter, file_io, driver はあるが artifact build / bootstrap compile へは未接続 |
-| S7 bootstrap comparison | 未着手 | Pass A / Pass B 比較 job はない |
+ただし、selfhost 全面実装を開始できる状態ではない。S1 lexer/parser parity と S2 module graph/import resolver は進めてよいが、S3 typecheck 以降は typed absence、ResourceIR、stdlib raw memory boundary、diagnostic taxonomy の未解決設計に強く依存する。とくに `resolve` / `ty` / `hir` / `mono` / `builtins` に数値 sentinel が残っており、静的検査が効く形の再設計が必要である。
 
 ## 進捗状況
 
-- `stdlib/neplg2/core/infra`: typed diagnostic / span / source text / outcome の基盤は実装中。
-- `stdlib/neplg2/core/syntax`: token enum と byte lexer は実装が厚いが、parser は item stream 段階。
-- `stdlib/neplg2/core/module`: VFS / import / path map / graph はあるが、large graph 向け lookup と Actions timeout が残る。
-- `stdlib/neplg2/core/resolve`: name scope の table はあるが、full Rust resolve parity は未達。
-- `stdlib/neplg2/core/ty`: TypeId arena と primitive/function record はあるが、unify / subst / effect / layout は未分離。
-- `stdlib/neplg2/core/check`: checker orchestration は未完成。
-- `stdlib/neplg2/core/hir`: flat HIR table はあるが lowering は未実装。
-- `stdlib/neplg2/core/resource`: move/borrow/drop の authority は未実装。
-- `stdlib/neplg2/core/mono`: instance key model の初期実装。
-- `stdlib/neplg2/core/codegen`: WASM / LLVM backend は未実装相当。
-- `stdlib/neplg2/cli`: pure args parser と reporter 境界はあるが、実 artifact pipeline は未完成。
+| 領域 | 状態 | 判定 |
+|---|---|---|
+| `stdlib/neplg2/cli` | argv parser、typed option、reporter、driver、file I/O 境界がある。 | CLI/core 分離は良い。argv parser の raw Vec access は stdlib API 不足の影響として残る。 |
+| `stdlib/neplg2/core/infra` | span/text/diag/outcome/pipeline/options がある。diagnostic code は enum-first。 | S1/S2 には十分。S3+ 用 code taxonomy は追加が必要。 |
+| `stdlib/neplg2/core/syntax` | token/lexer/module AST/parser がある。char literal、raw block、indent、directive を扱う。 | parity は進むが lexer raw mode が i32 sentinel で、directive 分類も match coverage 外。 |
+| `stdlib/neplg2/core/module` | VFS loader、import spec、stdlib map、module graph がある。 | S2 の基盤として妥当。線形探索と duplicate path 仕様は HashMap/ID 設計前の制約。 |
+| `stdlib/neplg2/core/resolve` | DefId、DefKind、scope binding table がある。 | 名前解決の入口はあるが、DefId invalid sentinel と enum tag 比較が残る。 |
+| `stdlib/neplg2/core/ty` | TypeId、TypeKind、TypeArena、構造比較がある。 | function type model はあるが、invalid TypeId / `first_arg = -1` が残る。 |
+| `stdlib/neplg2/core/hir` | flat HIR module と expression/child/param table がある。 | HIR payload が variant-specific ではなく、invalid ID / empty range sentinel が残る。 |
+| `stdlib/neplg2/core/resource` | move_state placeholder。 | S4 resource check は未実装。Rust ResourceIR 方針への追従が必要。 |
+| `stdlib/neplg2/core/mono` | generic instance key / seed / range model がある。 | key model は前進。invalid instance ID sentinel が残る。 |
+| `stdlib/neplg2/core/codegen` | WASM/LLVM placeholder。 | S5 backend は未着手。 |
 
-## 新規 issue
+## 追加・更新した issue
 
-review 中に、parser が `TokenKind` を文字列化して `hash32` の数値 arm で分岐している問題を確認した。これは enum/match による網羅性検査を捨てる設計なので、次の issue を追加した。
+- `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D`
+  - resolver/type/HIR/mono/builtin の invalid sentinel、enum-to-i32 tag、placeholder `Error` payload を typed absence へ再設計する。
+- `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`
+  - lexer raw mode と directive 分類を enum/match coverage の効く設計へ直す。
 
-- `ISS-20260430T141517141Z-SELF-HOST-PARSER-CLASSIFIES-TOKENKIN-645D236B`
+## selfhost readiness
 
-## selfhost 実装開始可否
+今すぐ進めてよい範囲:
 
-開始してよい作業:
+- Rust/selfhost lexer parity fixture の拡張。
+- module AST と parser item model の拡張。ただし AST/HIR payload は sentinel に戻さない。
+- VFS/module graph/import path map の S2 実装。
+- diagnostic code enum と reporter JSON/human 出力の拡張。
 
-- lexer/parser の Rust token / AST JSON parity
-- source map、diagnostic、module loader、stdlib map、CLI args/reporter の completion
-- `.n.md` 共有 fixture を selfhost stage runner が消費できる形式への整理
-- stdlib string / hash / fs / stdio の selfhost 用不足 API 整備
+まだ進めるべきでない範囲:
 
-まだ開始すべきでない作業:
+- S3 typecheck の本格実装。typed absence と resolver/type/HIR model 再設計が先。
+- ResourceIR / borrow / drop の selfhost 実装。Rust 側 ResourceIR authority と stdlib memory model の最終形を参照する必要がある。
+- non-Copy payload を大量に collection へ置く設計。`collection free` と raw-memory-backed API migration の残件に依存する。
+- codegen backend の本実装。layout/mono/diagnostic/error surface が未確定。
 
-- selfhost S3 以降の独自 typecheck 設計
-- Resource IR を介さない move/borrow/drop checker
-- raw memory helper を前提にした builder / ByteBuf / string backend
-- Rust 側 diagnostic ID redesign と異なる selfhost diag ID 体系
+## 結論
 
-## 優先順
-
-1. Actions 上の selfhost timeout と owner failure を分類し、stdlib 側 owner issue と selfhost 側設計 issueに分離する。
-2. `module_parser` の string/hash dispatch を `TokenKind` direct match へ直す。
-3. parser / module / CLI の stage0 doctest を `.n.md` stdout report policy に合わせる。
-4. S3 以降は Rust Resource IR の最終設計が固まった範囲から移植する。
+selfhost は「開始不可」ではなく「S1/S2 を限定的に進める段階」である。S3 以降を根本から正しく進めるには、現時点の placeholder や sentinel model を温存せず、enum / Option / typed range / variant payload によって静的検査が効く IR model へ再設計する必要がある。

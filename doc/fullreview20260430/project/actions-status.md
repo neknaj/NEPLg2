@@ -1,6 +1,6 @@
 # GitHub Actions 状況
 
-確認対象 commit: `3742a1a7 fix(cli): run Resource IR gates for check-only`
+確認対象 commit: `31291b37 fix(core): add parser backend responsibility policy`
 
 ## 確認方法
 
@@ -16,24 +16,29 @@
 
 | 項目 | 内容 |
 |---|---|
-| run id | `25503574023` |
+| run id | `25504986573` |
 | workflow | `CI (NEPL-g2)` |
 | branch | `main` |
-| head sha | `3742a1a75fde11615376d6cd5fad13a7e3836fd1` |
+| head sha | `31291b3799089c7dbe2ec33a370abc0d03d7154c` |
 | status | pending |
 | conclusion | 未確定 |
-| createdAt | `2026-05-07T14:54:53Z` |
-| updatedAt | `2026-05-07T14:54:55Z` |
+| createdAt | `2026-05-07T15:19:58Z` |
+| updatedAt | `2026-05-07T15:20:00Z` |
 | active job | 未完了 run。job 詳細は次 checkpoint で必要に応じて取得する。 |
 
-この run は `3742a1a7` 取り込み時点では完了していない。したがって、この時点では main の green 判定は未確定である。レビュー進行中に再度 `gh run view` を実行し、完了結果を本ファイルまたは最終 summary に反映する。
+この run は `31291b37` 取り込み時点では完了していない。したがって、この時点では main の green 判定は未確定である。レビュー進行中に再度 `gh run view` を実行し、完了結果を本ファイルまたは最終 summary に反映する。
 
 ## 直近 run の傾向
 
 | head | 状態 | 備考 |
 |---|---|---|
-| `3742a1a7` | pending | 最新 main。CLI `--check` ResourceIR gate 共有修正。 |
-| `d2ba8b8b` | in_progress | Rust compiler follow-up issue 追加。 |
+| `31291b37` | pending | 最新 main。parser/backend responsibility policy 追加。 |
+| `09ddb790` | in_progress | selfhost sentinel issue 更新。 |
+| `e677a4e3` | cancelled | selfhost lexer enum coverage issue 追加。 |
+| `08b58a2e` | cancelled | selfhost typed IR sentinel issue 追加。 |
+| `c58dd6e3` | cancelled | public monomorphize API Result 化。 |
+| `3742a1a7` | cancelled | CLI `--check` ResourceIR gate 共有修正。 |
+| `d2ba8b8b` | cancelled | Rust compiler follow-up issue 追加。 |
 | `cd44312f` | cancelled | ResourceIR `region_ptr_at` non-owning provenance 修正。 |
 | `a97c5343` | cancelled | 次の main push により workflow concurrency で cancel。 |
 | `e8a4e399` | cancelled | 次の main push により workflow concurrency で cancel。 |
@@ -71,4 +76,4 @@ test coverage は Rust compile/run、WASI doctest、`.n.md` doctest、tutorial d
 
 - 最新 main の CI 結果は未確定。
 - 連続 push による cancelled run が多いため、過去 run の conclusion だけで main の健全性を判断しない。
-- 次 checkpoint 以降で `3742a1a7` 以降の run が完了していれば、成功/失敗 job と artifact 有無を追記する。
+- 次 checkpoint 以降で `31291b37` 以降の run が完了していれば、成功/失敗 job と artifact 有無を追記する。

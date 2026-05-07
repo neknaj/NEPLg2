@@ -1,6 +1,6 @@
 # レビュー方法
 
-確認対象 commit: `3742a1a7 fix(cli): run Resource IR gates for check-only`
+確認対象 commit: `31291b37 fix(core): add parser backend responsibility policy`
 
 ## 目的
 
@@ -25,6 +25,9 @@
 8. Rust compiler rest review 開始時に remote main の `cd44312f fix(resource): preserve region_ptr_at non-owning provenance` を取り込み、ResourceIR static review へ `region_ptr_at` regression を追記対象にした。
 9. parser/backend/monomorphize の responsibility split 不足と public monomorphize panic API を確認し、`ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587` と `ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C` を追加した。
 10. Rust compiler rest review の push 前に remote main の `3742a1a7 fix(cli): run Resource IR gates for check-only` を取り込み、`--check` の ResourceIR gate 不足を fixed 扱いへ更新した。
+11. selfhost review 開始時に remote main の `c58dd6e3 fix(monomorphize): return unresolved trait calls` を取り込み、public monomorphize API panic issue を resolved 扱いへ更新した。
+12. selfhost review 中に `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D` と `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B` を追加し、resolver sentinel も同 issue へ追記した。
+13. selfhost review 文書 commit 前に remote main の `31291b37 fix(core): add parser backend responsibility policy` を取り込み、parser/backend policy 不足を fixed 扱いへ更新した。
 
 ## 使用した確認コマンド
 
@@ -52,15 +55,25 @@
 - `Get-Content nodesrc/test_static_check_boundary_responsibility.js`
 - `Get-Content nodesrc/test_diagnostic_code_first_boundary.js`
 - `node nodesrc/issues.js check`
+- `Get-Content stdlib/neplg2/README.md`
+- `Get-Content stdlib/neplg2/core/{pipeline,options}.nepl`
+- `Get-Content stdlib/neplg2/core/infra/{diag,outcome,span,text}.nepl`
+- `Get-Content stdlib/neplg2/core/syntax/{token,lexer}.nepl`
+- `Get-Content stdlib/neplg2/core/syntax/parser/module_parser.nepl`
+- `Get-Content stdlib/neplg2/core/module/{loader,import_spec,stdlib_map,graph}.nepl`
+- `Get-Content stdlib/neplg2/core/resolve/name_resolver.nepl`
+- `Get-Content stdlib/neplg2/core/{ty,hir,mono,builtins}/...`
+- `Get-Content stdlib/neplg2/cli/**`
+- `Get-Content nodesrc/test_selfhost_cli_args_no_owner_field_reads.js`
 - `Get-ChildItem nepl-core/src -File`
 - `Get-Content nepl-core/src/{lexer,parser,loader,module_graph,resolve,target_gate,target_precheck,layout,monomorphize,codegen_wasm,codegen_llvm,wasm_shared,runtime_helpers}.rs`
 - `rg -n "panic!|unwrap\\(|expect\\(" nepl-core/src/...`
 
 ## GitHub Actions 確認方針
 
-レビュー上の test 状況は local test ではなく GitHub Actions の結果を根拠にする。現在の latest run は `d2ba8b8b` の CI run で、Rust compiler rest checkpoint 作成時点では pending である。CI の最終状態は、レビュー進行中に再確認して `project/actions-status.md` と最終 summary へ反映する。
+レビュー上の test 状況は local test ではなく GitHub Actions の結果を根拠にする。現在の latest run は `31291b37` の CI run で、selfhost checkpoint 作成時点では pending である。CI の最終状態は、レビュー進行中に再確認して `project/actions-status.md` と最終 summary へ反映する。
 
-`3742a1a7` で `--check` ResourceIR gate の regression が追加されたため、関連レビュー文書は同 commit を基準に更新した。Actions の最新 run はまだ pending であり、green 判定は後続 checkpoint で引き続き確認する。
+`3742a1a7` で `--check` ResourceIR gate の regression が追加され、`c58dd6e3` で public monomorphize API panic が Result 化され、`31291b37` で parser/backend responsibility policy が追加された。selfhost review はこれらを取り込んだ `31291b37` を基準に更新した。Actions の最新 run はまだ pending であり、green 判定は後続 checkpoint で引き続き確認する。
 
 ## レビュー判断基準
 
@@ -74,7 +87,7 @@
 
 ## 未完了
 
-- selfhost、stdlib、quality、tools の個別レビュー本文。
-- CI run `3742a1a7` 以降の完了結果確認。
+- stdlib、quality、tools の個別レビュー本文。
+- CI run `31291b37` 以降の完了結果確認。
 - レビュー全体の妥当性再確認。
 - 前回レビューとの差分報告。

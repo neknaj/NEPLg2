@@ -38,8 +38,8 @@
 
 - レビュー開始時の基準 commit: `281646c7`
 - 初回目次 checkpoint commit: `97b07bad`
-- 現在のレビュー基準 commit: `3742a1a7`
-- current commit message: `fix(cli): run Resource IR gates for check-only`
-- 作業ブランチ: `review/fullreview-rust-compiler-rest`
+- 現在のレビュー基準 commit: `31291b37`
+- current commit message: `fix(core): add parser backend responsibility policy`
+- 作業ブランチ: `review/fullreview-selfhost-compiler`
 
 レビュー中に remote main が更新された場合は、更新内容がレビュー対象に影響するかを確認し、必要なレビュー文書を更新します。レビュー最終確認後に入った変更は、このフルレビューの追従対象外とし、通常開発に戻します。
