@@ -241,6 +241,7 @@ pub enum AggregateKind {
 pub struct ResourceMatchArm {
     pub pattern: ResourceMatchPattern,
     pub bind_local: Option<Place>,
+    pub bind_source_name: Option<String>,
     pub ops: Vec<ResourceOp>,
     pub value: Place,
     pub span: Span,

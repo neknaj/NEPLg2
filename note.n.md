@@ -33701,3 +33701,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 SHA-256 match payload shadowing 修正
+
+- `ISS-20260507T050025343Z-SHA256-HASH-DOCTEST-FAILS-RESOURCE-I-A4EE25CE` を fixed にした。
+- `stdlib/tests/hash.n.md::doctest#1` の `sha256_rounds_loop` で、`match sha256_k i` の `Result::Err e` が関数引数 `e` を shadow し、Resource IR lowering が payload 初期化対象と arm body の参照 Place を分裂させていた。
+- match payload binding は `ctx.declare_local` の返す固有 Place を Resource IR authority とし、drop elaboration bridge が HIR source binding へ戻るための名前は `ResourceMatchArm::bind_source_name` として分離した。
+- `resource.cell.uninit` の判定は緩めていない。checker が読む Place と lowering が初期化する Place の identity を揃えた。
+- non-Copy payload でも source binding 名が失われないよう、drop elaboration bridge の回帰を追加した。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 4 Resource Check 進捗に追記した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_match_payload_bind_shadow -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/hash.n.md -i stdlib/alloc/hash/sha256.nepl --no-tree --dist web/dist -o tmp/hash_sha256_resource_agent1_after.json -j 1 --assert-io`: total=1, passed=1
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -405,11 +405,22 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
                     .as_ref()
                     .map(dump_place)
                     .unwrap_or_else(|| String::from("<none>"));
+                let bind_source = arm
+                    .bind_source_name
+                    .as_ref()
+                    .filter(|source_name| {
+                        arm.bind_local
+                            .as_ref()
+                            .is_some_and(|place| dump_place(place) != format!("%{source_name}"))
+                    })
+                    .map(|source_name| format!(" source={source_name}"))
+                    .unwrap_or_default();
                 let _ = writeln!(
                     out,
-                    "arm {} bind={} value={}:",
+                    "arm {} bind={}{} value={}:",
                     dump_match_pattern(&arm.pattern),
                     bind,
+                    bind_source,
                     dump_place(&arm.value)
                 );
                 for op in &arm.ops {

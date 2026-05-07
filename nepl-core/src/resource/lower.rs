@@ -500,16 +500,12 @@ pub(super) fn lower_expr_skeleton(
             for arm in arms {
                 ctx.restore_locals(match_locals.clone());
                 let mut arm_ops = Vec::new();
+                let bind_source_name = arm.bind_local.clone();
                 let bind_local = arm
                     .bind_local
                     .as_ref()
                     .zip(arm.bind_ty)
-                    .map(|(name, ty)| Place::local(name.clone(), ty));
-                if let Some(place) = &bind_local {
-                    if let super::model::PlaceRoot::Local(name) = &place.root {
-                        ctx.declare_local(name.clone(), place.ty);
-                    }
-                }
+                    .map(|(name, ty)| ctx.declare_local(name.clone(), ty));
                 let value = lower_expr_skeleton(&arm.body, &mut arm_ops, ctx, env);
                 if let Some(place) = &bind_local {
                     arm_ops.push(ResourceOp::EndScope {
@@ -521,6 +517,7 @@ pub(super) fn lower_expr_skeleton(
                 resource_arms.push(ResourceMatchArm {
                     pattern: lower_match_pattern(&arm.pattern),
                     bind_local,
+                    bind_source_name,
                     ops: arm_ops,
                     value,
                     span: arm.body.span,

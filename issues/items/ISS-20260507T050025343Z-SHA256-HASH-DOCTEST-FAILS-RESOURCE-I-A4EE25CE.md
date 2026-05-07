@@ -15,7 +15,7 @@ target: "stdlib/tests/hash.n.md, stdlib/alloc/hash/sha256.nepl, nepl-core resour
 
 ## 概要
 
-While verifying the hash string access import fix, stdlib/tests/hash.n.md::doctest#1 failed at compile time with resource.cell.uninit in sha256_rounds_loop on local e#0. The failure is independent from the string access import and appears to be a Resource IR / SHA-256 round state tracking mismatch.
+While verifying the hash string access import fix, `stdlib/tests/hash.n.md::doctest#1` failed at compile time with `resource.cell.uninit` in `sha256_rounds_loop` on local `e#0`. The failure was independent from the string access import and was a Resource IR match-payload lowering bug.
 
 ## 対象
 
@@ -23,25 +23,26 @@ While verifying the hash string access import fix, stdlib/tests/hash.n.md::docte
 
 ## 根拠
 
-- 未記入
+- `sha256_rounds_loop` の `match sha256_k i` で arm payload binding `Result::Err e` が関数引数 `e` を shadow していた。
+- Resource IR lowering は arm payload binding の `Place` として `%e` を作った後、body scope には `ctx.declare_local("e", ty)` により `%e#0` を登録していた。
+- initialized checker は payload を `%e` に初期化したが、arm body は `%e#0` を読むため、実際には lowering の同一 binding 内で Place identity が分裂していた。
+- 関連計画: `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 Resource Check。
 
 ## 問題
 
-While verifying the hash string access import fix, stdlib/tests/hash.n.md::doctest#1 failed at compile time with resource.cell.uninit in sha256_rounds_loop on local e#0. The failure is independent from the string access import and appears to be a Resource IR / SHA-256 round state tracking mismatch.
+Match payload binding が外側 local / parameter と同名になると、payload initialization の対象 Place と arm body が参照する Place が一致しなかった。これは SHA-256 固有ではなく、enum payload match 全般で initialized / moved state と drop elaboration bridge の入力を壊す可能性がある。
 
 ## 影響
 
-The canonical SHA-256 known-vector doctest cannot currently be used as a regression for hash stdlib changes, and future changes may avoid this suite even though self-host artifact hashing depends on it.
+The canonical SHA-256 known-vector doctest could not be used as a regression for hash stdlib changes, and future changes could avoid this suite even though self-host artifact hashing depends on it. Non-Copy payload では drop insertion bridge が source binding 名を失うリスクもあった。
 
 ## 修正方針
 
-Investigate whether sha256_rounds_loop violates the current value initialization contract or whether Resource IR loses initialized state for recursive round locals. Fix the root cause and keep the known-vector doctest enabled.
+Resource IR lowering で match payload binding は必ず `ctx.declare_local` が返す固有 Place を authority とする。drop elaboration bridge が HIR source binding へ戻れるよう、`ResourceMatchArm` は checked Place と source binding 名を分離して保持する。checker 側の `resource.cell.uninit` 判定は緩めない。
 
 ## 検証
 
-Run node nodesrc/tests.js -i stdlib/tests/hash.n.md -i stdlib/alloc/hash/sha256.nepl --no-tree with current web/dist and confirm the SHA-256 known-vector doctest passes.
-
-## 2026-05-07 Agent 2 fixed
+### 2026-05-07 Agent 2 stdlib-side mitigation
 
 `sha256_rounds_loop` は working variable として `e` を引数に持つ一方、`sha256_k i` の `Result::Err` arm でも payload を `e` として bind していた。現在の Resource IR ではこの shadowing が `e#0` の initialized state tracking を混乱させ、Err payload の構築と match value で `resource.cell.uninit` を報告していた。
 
@@ -58,3 +59,13 @@ Run node nodesrc/tests.js -i stdlib/tests/hash.n.md -i stdlib/alloc/hash/sha256.
 - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
 - `node nodesrc/issues.js check`: passed
 - `git diff --check`: passed
+
+### 2026-05-07 Agent 1 compiler root-cause fix
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_match_payload_bind_shadow -- --nocapture`: 2 passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_scope_auto_drop_keeps_same_type_shadowed_locals_distinct -- --nocapture`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
+- `trunk build`: passed
+- `node nodesrc/tests.js -i stdlib/tests/hash.n.md -i stdlib/alloc/hash/sha256.nepl --no-tree --dist web/dist -o tmp/hash_sha256_resource_agent1_after.json -j 1 --assert-io`: total=1, passed=1

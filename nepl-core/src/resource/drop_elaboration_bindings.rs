@@ -66,7 +66,15 @@ fn collect_source_bindings_from_ops(
             ResourceOp::Match { arms, .. } => {
                 for arm in arms {
                     if let Some(place) = &arm.bind_local {
-                        if let PlaceRoot::Local(source_name) = &place.root {
+                        let source_name =
+                            arm.bind_source_name.as_ref().or_else(|| match &place.root {
+                                PlaceRoot::Local(name) => Some(name),
+                                PlaceRoot::Temporary(_)
+                                | PlaceRoot::Return
+                                | PlaceRoot::Storage(_)
+                                | PlaceRoot::Unknown => None,
+                            });
+                        if let Some(source_name) = source_name {
                             bindings.push(ResourceDropSourceBinding {
                                 place: place.clone(),
                                 source_name: source_name.clone(),

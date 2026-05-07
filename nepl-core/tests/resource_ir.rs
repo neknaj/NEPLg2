@@ -3699,6 +3699,96 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_match_payload_bind_shadow_uses_declared_place() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+
+enum LocalResult:
+    Ok <i32>
+    Err <i32>
+
+fn make_err <()->LocalResult> ():
+    LocalResult::Err 7
+
+fn forward_shadow <(i32)->LocalResult> (e):
+    match make_err:
+        LocalResult::Err e:
+            LocalResult::Err e
+        LocalResult::Ok value:
+            LocalResult::Ok value
+
+fn main <()->i32> ():
+    match forward_shadow 1:
+        LocalResult::Err code:
+            code
+        LocalResult::Ok value:
+            value
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let dump = resource.dump_text();
+    assert!(
+        dump.contains("bind=%e#0:") && dump.contains("source=e"),
+        "shadowed match payload bind must use the declared Resource IR place:\n{}",
+        dump
+    );
+}
+
+#[test]
+fn resource_ir_match_payload_bind_shadow_keeps_source_name_for_drop_bridge() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#no_prelude
+#import "core/traits/drop" as *
+
+struct Guard:
+    id <i32>
+
+enum GuardResult:
+    Ok <i32>
+    Err <Guard>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
+
+fn make_guard_err <()->GuardResult> ():
+    GuardResult::Err Guard 2
+
+fn run <(Guard)->i32> (g):
+    match make_guard_err:
+        GuardResult::Err g:
+            0
+        GuardResult::Ok value:
+            value
+
+fn main <()->i32> ():
+    run Guard 1
+"#;
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+    let plan = compute_resource_drop_elaboration_plan(&resource, &report)
+        .expect("drop elaboration plan should preserve shadowed match payload source names");
+    nepl_core::resource::validate_resource_drop_elaboration_hir_bridge(&module, &plan)
+        .expect("shadowed match payload drop should bridge through the source bind name");
+    let dump = resource.dump_text();
+    assert!(
+        dump.contains("bind=%g#0:") && dump.contains("source=g"),
+        "shadowed non-Copy match bind should keep source name separately:\n{}",
+        dump
+    );
+}
+
+#[test]
 fn resource_ir_live_auto_drop_points_include_function_parameters() {
     let source = r#"
 #entry main
