@@ -1,0 +1,102 @@
+//: # alloc/collections/hashmap/rehash
+//: HashMap の grow / rehash と constructor helper
+//:
+//: ### [目的/もくてき]
+//: - table capacity の正規化、live entry の再配置、insert 前の grow 判定を API 本体から分離します。
+//: - 旧 storage owner は成功・失敗のどちらでもこの module が閉じます。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/hash_key" as *
+#import "core/traits/hash" as *
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/hashmap/types" as *
+#import "alloc/collections/hashmap/storage" as *
+#import "alloc/collections/hashmap/probe" as *
+
+//: hashmap_rehash_to: live entry だけを新しい storage へ[再配置/さいはいち]する
+//:
+//: ### [目的/もくてき]
+//: - grow または tombstone cleanup のために新しい capacity の table を[作/つく]り、Full entry だけを[移/うつ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]、入力 HashMap はこの[関数/かんすう]が[消費/しょうひ]し、旧 storage を[解放/かいほう]してから Err を[返/かえ]します。
+fn hashmap_rehash_to <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,i32)*>Result<HashMap<.K,.V,.H>, Diag>> (hm, requested_cap):
+    let count0 <i32> *field::get_ref &hm "count"
+    let old_cap <i32> *field::get_ref &hm "cap"
+    let hasher <.H> *field::get_ref &hm "hasher"
+    let old_storage <HashMapStorage<.K,.V>> field::get hm "storage"
+    let new_cap <i32> hashmap_normalize_capacity requested_cap
+    match hashmap_alloc_storage<.K,.V> new_cap:
+        Result::Err d:
+            hashmap_free_storage<.K,.V> old_storage
+            err<HashMap<.K,.V,.H>, Diag> d
+        Result::Ok new_storage:
+            let states <&Vec<HashMapBucketState>> hashmap_storage_states<.K,.V> &old_storage
+            let keys <&Vec<Option<.K>>> hashmap_storage_keys<.K,.V> &old_storage
+            let values <&Vec<Option<.V>>> hashmap_storage_values<.K,.V> &old_storage
+            let mut i <i32> 0
+            while lt i old_cap:
+                do:
+                    match hashmap_state_at states i:
+                        HashMapBucketState::Full:
+                            match hashmap_key_at<.K> keys i:
+                                Option::None:
+                                    ()
+                                Option::Some key:
+                                    match hashmap_value_at<.V> values i:
+                                        Option::None:
+                                            ()
+                                        Option::Some value:
+                                            hashmap_insert_entry_into_storage<.K,.V,.H> &new_storage new_cap hasher key value
+                        HashMapBucketState::Empty:
+                            ()
+                        HashMapBucketState::Tombstone:
+                            ()
+                    set i add i 1
+            hashmap_free_storage<.K,.V> old_storage
+            ok<HashMap<.K,.V,.H>, Diag> HashMap<.K,.V,.H> count0 new_cap 0 new_storage hasher
+
+//: hashmap_prepare_insert: key [追加/ついか]前に必要な grow / rehash を[行/おこな]う
+//:
+//: ### [目的/もくてき]
+//: - 既存 key の更新では容量を変えません。新規 key では count と tombstone を合わせた occupied 数を見て、必要なら同容量 rehash または 2 倍 grow を選びます。
+fn hashmap_prepare_insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K)*>Result<HashMap<.K,.V,.H>, Diag>> (hm, key):
+    let count0 <i32> *field::get_ref &hm "count"
+    let cap0 <i32> *field::get_ref &hm "cap"
+    let tombstones0 <i32> *field::get_ref &hm "tombstones"
+    let hasher <.H> *field::get_ref &hm "hasher"
+    let storage <&HashMapStorage<.K,.V>> field::get_ref &hm "storage"
+    let idx <i32> hashmap_find_present<.K,.V,.H> storage cap0 hasher key
+    if:
+        not lt idx 0
+        then:
+            ok<HashMap<.K,.V,.H>, Diag> hm
+        else:
+            let limit <i32> hashmap_load_limit cap0
+            let occupied_after_insert <i32> add add count0 tombstones0 1
+            if:
+                gt occupied_after_insert limit
+                then:
+                    let count_after_insert <i32> add count0 1
+                    let target_cap <i32> if gt count_after_insert limit then mul cap0 2 else cap0
+                    hashmap_rehash_to<.K,.V,.H> hm target_cap
+                else:
+                    ok<HashMap<.K,.V,.H>, Diag> hm
+
+//: hashmap_new_with_capacity: `new` と `with_capacity` が[共有/きょうゆう]する constructor
+//:
+//: ### [目的/もくてき]
+//: - 公開 API 名の overload 解決に依存せず、容量正規化と storage 初期化を 1 [箇所/かしょ]に[集約/しゅうやく]します。
+fn hashmap_new_with_capacity <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(.H,i32)*>Result<HashMap<.K,.V,.H>, Diag>> (hasher, requested):
+    let cap0 <i32> hashmap_normalize_capacity requested
+    match hashmap_alloc_storage<.K,.V> cap0:
+        Result::Err d:
+            err<HashMap<.K,.V,.H>, Diag> d
+        Result::Ok storage:
+            ok<HashMap<.K,.V,.H>, Diag> HashMap<.K,.V,.H> 0 cap0 0 storage hasher

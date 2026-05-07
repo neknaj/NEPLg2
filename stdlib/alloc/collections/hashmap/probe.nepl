@@ -1,0 +1,103 @@
+//: # alloc/collections/hashmap/probe
+//: HashMap の linear probing と slot search
+//:
+//: ### [目的/もくてき]
+//: - hash bucket の開始位置、probe の進行、既存 key 検索、新規 insert slot 検索を集約します。
+//: - bucket state は `HashMapBucketState` の `match` で分岐し、empty / full / tombstone を数値 tag に戻さないようにします。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/field" as field
+#import "core/traits/hash_key" as *
+#import "core/traits/hash" as *
+#import "core/traits/copy" as *
+#import "alloc/collections/hashmap/types" as *
+#import "alloc/collections/hashmap/storage" as *
+
+//: hashmap_bucket_index: hash から bucket index を[計算/けいさん]する
+//:
+//: ### [実装/じっそう]
+//: - hasher の `hash32` を unsigned remainder として capacity に[収/おさ]めます。
+fn hashmap_bucket_index <.K: HashKey&Copy,.H: Hasher<.K>&Copy> <(i32,.H,.K)->i32> (cap, hasher, key):
+    rem_u hash_with<.K,.H> hasher key cap
+
+//: hashmap_next_slot: linear probing の[次/つぎ]の index を[返/かえ]す
+fn hashmap_next_slot <(i32,i32)->i32> (idx, cap):
+    rem_u add idx 1 cap
+
+//: hashmap_find_present: key が[存在/そんざい]する slot を[探/さが]す
+//:
+//: ### [実装/じっそう]
+//: - hash index から linear probing し、`Empty` で chain 終端、`Tombstone` は[通過/つうか]、`Full` は key equality で[判定/はんてい]します。
+//: - [見/み]つからなければ -1 を[返/かえ]します。
+fn hashmap_find_present <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMapStorage<.K,.V>,i32,.H,.K)->i32> (storage, cap, hasher, key):
+    let states <&Vec<HashMapBucketState>> hashmap_storage_states<.K,.V> storage
+    let keys <&Vec<Option<.K>>> hashmap_storage_keys<.K,.V> storage
+    let start <i32> hashmap_bucket_index<.K,.H> cap hasher key
+    let mut cur <i32> start
+    let mut found <i32> -1
+    let mut done <bool> false
+    while not done:
+        do:
+            match hashmap_state_at states cur:
+                HashMapBucketState::Empty:
+                    set done true
+                HashMapBucketState::Tombstone:
+                    set cur hashmap_next_slot cur cap
+                HashMapBucketState::Full:
+                    match hashmap_key_at<.K> keys cur:
+                        Option::None:
+                            set cur hashmap_next_slot cur cap
+                        Option::Some existing:
+                            if:
+                                hashkey_eq<.K> existing key
+                                then:
+                                    set found cur
+                                    set done true
+                                else:
+                                    set cur hashmap_next_slot cur cap
+    found
+
+//: hashmap_find_insert_slot: 新規 key の[挿入/そうにゅう]先 slot を[探/さが]す
+//:
+//: ### [実装/じっそう]
+//: - 最初の tombstone を[覚/おぼ]えつつ probe し、empty に[到達/とうたつ]したら tombstone 優先で[返/かえ]します。
+fn hashmap_find_insert_slot <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMapStorage<.K,.V>,i32,.H,.K)->HashMapInsertSlot> (storage, cap, hasher, key):
+    let states <&Vec<HashMapBucketState>> hashmap_storage_states<.K,.V> storage
+    let start <i32> hashmap_bucket_index<.K,.H> cap hasher key
+    let mut cur <i32> start
+    let mut first_tomb <i32> -1
+    let mut result_idx <i32> -1
+    let mut result_state <HashMapInsertSlotState> HashMapInsertSlotState::EmptySlot
+    while lt result_idx 0:
+        do:
+            match hashmap_state_at states cur:
+                HashMapBucketState::Empty:
+                    if:
+                        lt first_tomb 0
+                        then:
+                            set result_idx cur
+                            set result_state HashMapInsertSlotState::EmptySlot
+                        else:
+                            set result_idx first_tomb
+                            set result_state HashMapInsertSlotState::TombstoneSlot
+                HashMapBucketState::Tombstone:
+                    if:
+                        lt first_tomb 0
+                        then set first_tomb cur
+                        else ()
+                    set cur hashmap_next_slot cur cap
+                HashMapBucketState::Full:
+                    set cur hashmap_next_slot cur cap
+    HashMapInsertSlot result_idx result_state
+
+//: hashmap_insert_entry_into_storage: rehash [中/ちゅう]の新 table へ key/value を[移/うつ]す
+//:
+//: ### [目的/もくてき]
+//: - 既存 entry を新しい empty storage へ[再配置/さいはいち]します。
+fn hashmap_insert_entry_into_storage <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMapStorage<.K,.V>,i32,.H,.K,.V)*>()> (storage, cap, hasher, key, value):
+    let slot <HashMapInsertSlot> hashmap_find_insert_slot<.K,.V,.H> storage cap hasher key
+    let idx <i32> field::get slot "index"
+    hashmap_store_full<.K,.V> storage idx key value

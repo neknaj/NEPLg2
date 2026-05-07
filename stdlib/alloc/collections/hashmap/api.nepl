@@ -1,0 +1,190 @@
+//: # alloc/collections/hashmap/api
+//: HashMap の公開 API
+//:
+//: ### [目的/もくてき]
+//: - `new` / `with_capacity` / `insert` / `get` / `contains` / `remove` / `len` / `free` を集約します。
+//: - storage / probe / rehash helper を内部利用し、公開 API の owner 移動と borrow API の境界を明確にします。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/hash_key" as *
+#import "core/traits/hash" as *
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "alloc/collections/hashmap/types" as *
+#import "alloc/collections/hashmap/storage" as *
+#import "alloc/collections/hashmap/probe" as *
+#import "alloc/collections/hashmap/rehash" as *
+
+//: ## new
+//: [空/から]の `HashMap<.K, .V, .H>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - hasher [値/あたい]を[受/う]け[取/と]り、[空/から]の hash map を[初期化/しょきか]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(cap)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashmap" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hm <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let ok <i32> if eq len &hm 0 1 0;
+//:     free hm;
+//:     ok
+//: ```
+fn new <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(.H)*>Result<HashMap<.K,.V,.H>, Diag>> (hasher):
+    hashmap_new_with_capacity<.K,.V,.H> hasher 16
+
+//: ## with_capacity
+//: [指定/してい]した[初期容量/しょきようりょう]で `HashMap<.K, .V, .H>` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - self-host compiler の symbol table など、要素数の[見積/みつ]もりがある用途で rehash 回数を[減/へ]らします。
+fn with_capacity <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(.H,i32)*>Result<HashMap<.K,.V,.H>, Diag>> (hasher, requested):
+    hashmap_new_with_capacity<.K,.V,.H> hasher requested
+
+//: ## insert
+//: key に value を[挿入/そうにゅう]または[更新/こうしん]する
+//:
+//: ### [目的/もくてき]
+//: - key が[未登録/みとうろく]なら[追加/ついか]し、[既存/きそん]なら value を[上書/うわが]きします。
+//:
+//: ### [実装/じっそう]
+//: - 必要なら grow / rehash し、linear probing で slot を[探索/たんさく]し、empty か first tombstone に[配置/はいち]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/hashmap" as *
+//:| #import "core/traits/hash" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     let hm0 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hm1 <HashMap<i32, i32, DefaultHash32>> unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> insert hm0 7 70;
+//:     let ok <i32>:
+//:         match get &hm1 7:
+//:             Option::Some x:
+//:                 if eq x 70 1 0
+//:             Option::None:
+//:                 0
+//:     free hm1;
+//:     ok
+//: ```
+fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K,.V)*>Result<HashMap<.K,.V,.H>, Diag>> (hm, key, value):
+    match hashmap_prepare_insert<.K,.V,.H> hm key:
+        Result::Err d:
+            err<HashMap<.K,.V,.H>, Diag> d
+        Result::Ok ready:
+            let count0 <i32> *field::get_ref &ready "count"
+            let cap0 <i32> *field::get_ref &ready "cap"
+            let tombstones0 <i32> *field::get_ref &ready "tombstones"
+            let hasher <.H> *field::get_ref &ready "hasher"
+            let storage <HashMapStorage<.K,.V>> field::get ready "storage"
+            let existing <i32> hashmap_find_present<.K,.V,.H> &storage cap0 hasher key
+            if:
+                not lt existing 0
+                then:
+                    hashmap_store_full<.K,.V> &storage existing key value
+                    ok<HashMap<.K,.V,.H>, Diag> HashMap<.K,.V,.H> count0 cap0 tombstones0 storage hasher
+                else:
+                    let slot <HashMapInsertSlot> hashmap_find_insert_slot<.K,.V,.H> &storage cap0 hasher key
+                    let slot_idx <i32> field::get slot "index"
+                    let slot_state <HashMapInsertSlotState> field::get slot "state"
+                    hashmap_store_full<.K,.V> &storage slot_idx key value
+                    let next_tombstones <i32>:
+                        match slot_state:
+                            HashMapInsertSlotState::EmptySlot:
+                                tombstones0
+                            HashMapInsertSlotState::TombstoneSlot:
+                                sub tombstones0 1
+                    ok<HashMap<.K,.V,.H>, Diag> HashMap<.K,.V,.H> add count0 1 cap0 next_tombstones storage hasher
+
+//: ## get
+//: key に[対応/たいおう]する value を[探/さが]す
+//:
+//: ### [目的/もくてき]
+//: - key に[対応/たいおう]する Copy value を `Option` で[返/かえ]します。
+//: - `&HashMap` を受け取り、table owner を移動せずに値を[読/よ]みます。
+fn get <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V,.H>,.K)->Option<.V>> (hm, key):
+    let cap0 <i32> *field::get_ref hm "cap"
+    let hasher <.H> *field::get_ref hm "hasher"
+    let storage <&HashMapStorage<.K,.V>> field::get_ref hm "storage"
+    let values <&Vec<Option<.V>>> hashmap_storage_values<.K,.V> storage
+    let idx <i32> hashmap_find_present<.K,.V,.H> storage cap0 hasher key
+    if:
+        lt idx 0
+        then none<.V>
+        else hashmap_value_at<.V> values idx
+
+//: ## contains
+//: key の[存在/そんざい]を[確/たし]かめる
+//:
+//: ### [目的/もくてき]
+//: - value [取得/しゅとく]を[行/おこな]わず、key の[存在/そんざい]だけを[判定/はんてい]します。
+fn contains <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V,.H>,.K)->bool> (hm, key):
+    let cap0 <i32> *field::get_ref hm "cap"
+    let hasher <.H> *field::get_ref hm "hasher"
+    let storage <&HashMapStorage<.K,.V>> field::get_ref hm "storage"
+    not lt hashmap_find_present<.K,.V,.H> storage cap0 hasher key 0
+
+//: ## remove
+//: key を[削除/さくじょ]する
+//:
+//: ### [目的/もくてき]
+//: - key が[存在/そんざい]する[場合/ばあい]は bucket を tombstone にし、probe chain を[保/たも]ちます。
+//:
+//: ### [注意/ちゅうい]
+//: - key が[存在/そんざい]しない[場合/ばあい]、入力 HashMap はこの[関数/かんすう]が[消費/しょうひ]して storage を[解放/かいほう]した上で `Err(Diag)` を[返/かえ]します。
+fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K)*>Result<HashMap<.K,.V,.H>, Diag>> (hm, key):
+    let count0 <i32> *field::get_ref &hm "count"
+    let cap0 <i32> *field::get_ref &hm "cap"
+    let tombstones0 <i32> *field::get_ref &hm "tombstones"
+    let hasher <.H> *field::get_ref &hm "hasher"
+    let storage <HashMapStorage<.K,.V>> field::get hm "storage"
+    let idx <i32> hashmap_find_present<.K,.V,.H> &storage cap0 hasher key
+    if:
+        lt idx 0
+        then:
+            hashmap_free_storage<.K,.V> storage
+            diag_err<HashMap<.K,.V,.H>> diag_key_not_found
+        else:
+            hashmap_store_tombstone<.K,.V> &storage idx
+            ok<HashMap<.K,.V,.H>, Diag> HashMap<.K,.V,.H> sub count0 1 cap0 add tombstones0 1 storage hasher
+
+//: ## len
+//: [要素数/ようそすう]を[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `&HashMap` から[現在/げんざい][登録/とうろく]されている key/value [組/くみ]の[個数/こすう]を[返/かえ]します。
+fn len <.K,.V,.H> <(&HashMap<.K,.V,.H>)->i32> (hm):
+    *field::get_ref hm "count"
+
+//: ## free
+//: [内部/ないぶ]メモリを[解放/かいほう]する
+//:
+//: ### [目的/もくてき]
+//: - HashMap が[所有/しょゆう]する storage Vec 群を[解放/かいほう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `.K` / `.V` は Copy 前提のため payload drop traversal は[行/おこな]いません。
+fn free <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>)->()> (hm):
+    let storage <HashMapStorage<.K,.V>> field::get hm "storage"
+    hashmap_free_storage<.K,.V> storage

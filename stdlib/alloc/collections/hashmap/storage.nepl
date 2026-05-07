@@ -1,0 +1,131 @@
+//: # alloc/collections/hashmap/storage
+//: HashMap typed storage の初期化・slot 読み書き・解放 helper
+//:
+//: ### [目的/もくてき]
+//: - `Vec<HashMapBucketState>` / `Vec<Option<K>>` / `Vec<Option<V>>` の 3 owner を扱う処理を集約します。
+//: - raw memory ではなく typed Vec storage を維持し、未初期化 bucket を作らないようにします。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "alloc/collections/hashmap/types" as *
+
+//: hashmap_storage_states: storage の state Vec を borrow する
+fn hashmap_storage_states <.K,.V> <(&HashMapStorage<.K,.V>)->&Vec<HashMapBucketState>> (storage):
+    field::get_ref storage "states"
+
+//: hashmap_storage_keys: storage の key Vec を borrow する
+fn hashmap_storage_keys <.K,.V> <(&HashMapStorage<.K,.V>)->&Vec<Option<.K>>> (storage):
+    field::get_ref storage "keys"
+
+//: hashmap_storage_values: storage の value Vec を borrow する
+fn hashmap_storage_values <.K,.V> <(&HashMapStorage<.K,.V>)->&Vec<Option<.V>>> (storage):
+    field::get_ref storage "values"
+
+//: hashmap_normalize_capacity: hash map の[実容量/じつようりょう]を[下限/かげん]つきで[決/き]める
+fn hashmap_normalize_capacity <(i32)->i32> (requested):
+    if lt requested 4 4 requested
+
+//: hashmap_load_limit: grow / rehash の[閾値/しきいち]を[計算/けいさん]する
+//:
+//: ### [実装/じっそう]
+//: - 75% を[超/こ]える[前/まえ]に rehash するため、`cap * 3 / 4` を[返/かえ]します。
+fn hashmap_load_limit <(i32)->i32> (cap):
+    div_u mul cap 3 4
+
+//: hashmap_state_at: bucket state を[読/よ]み[出/だ]す
+//:
+//: ### [注意/ちゅうい]
+//: - 呼び出し側は `0 <= idx < cap` を[守/まも]る設計です。`Option::None` は不変条件破れの防護として empty に[倒/たお]します。
+fn hashmap_state_at <(&Vec<HashMapBucketState>,i32)->HashMapBucketState> (states, idx):
+    match vec::get<HashMapBucketState> states idx:
+        Option::Some state:
+            state
+        Option::None:
+            HashMapBucketState::Empty
+
+//: hashmap_key_at: key slot を Option として[読/よ]む
+fn hashmap_key_at <.K: Copy> <(&Vec<Option<.K>>,i32)->Option<.K>> (keys, idx):
+    match vec::get<Option<.K>> keys idx:
+        Option::Some key_opt:
+            key_opt
+        Option::None:
+            none<.K>
+
+//: hashmap_value_at: value slot を Option として[読/よ]む
+fn hashmap_value_at <.V: Copy> <(&Vec<Option<.V>>,i32)->Option<.V>> (values, idx):
+    match vec::get<Option<.V>> values idx:
+        Option::Some value_opt:
+            value_opt
+        Option::None:
+            none<.V>
+
+//: hashmap_store_state: state slot を[書/か]き[換/か]える
+fn hashmap_store_state <(&Vec<HashMapBucketState>,i32,HashMapBucketState)*>()> (states, idx, state):
+    vec::replace<HashMapBucketState> states idx state
+
+//: hashmap_store_key: key slot を[書/か]き[換/か]える
+fn hashmap_store_key <.K: Copy> <(&Vec<Option<.K>>,i32,Option<.K>)*>()> (keys, idx, key):
+    vec::replace<Option<.K>> keys idx key
+
+//: hashmap_store_value: value slot を[書/か]き[換/か]える
+fn hashmap_store_value <.V: Copy> <(&Vec<Option<.V>>,i32,Option<.V>)*>()> (values, idx, value):
+    vec::replace<Option<.V>> values idx value
+
+//: hashmap_store_full: slot を Full にして key/value を[格納/かくのう]する
+//:
+//: ### [目的/もくてき]
+//: - state と key/value option を同じ slot index で[同時/どうじ]に[更新/こうしん]します。
+fn hashmap_store_full <.K: Copy,.V: Copy> <(&HashMapStorage<.K,.V>,i32,.K,.V)*>()> (storage, idx, key, value):
+    hashmap_store_key<.K> hashmap_storage_keys<.K,.V> storage idx some<.K> key
+    hashmap_store_value<.V> hashmap_storage_values<.K,.V> storage idx some<.V> value
+    hashmap_store_state hashmap_storage_states<.K,.V> storage idx HashMapBucketState::Full
+
+//: hashmap_store_tombstone: slot を tombstone にして payload を None に[戻/もど]す
+fn hashmap_store_tombstone <.K: Copy,.V: Copy> <(&HashMapStorage<.K,.V>,i32)*>()> (storage, idx):
+    hashmap_store_key<.K> hashmap_storage_keys<.K,.V> storage idx none<.K>
+    hashmap_store_value<.V> hashmap_storage_values<.K,.V> storage idx none<.V>
+    hashmap_store_state hashmap_storage_states<.K,.V> storage idx HashMapBucketState::Tombstone
+
+//: hashmap_free_storage: backing storage を[解放/かいほう]する
+//:
+//: ### [目的/もくてき]
+//: - states / keys / values の 3 本の Vec owner を[閉/と]じます。
+fn hashmap_free_storage <.K: Copy,.V: Copy> <(HashMapStorage<.K,.V>)->()> (storage):
+    let states <Vec<HashMapBucketState>> field::get storage "states"
+    let keys <Vec<Option<.K>>> field::get storage "keys"
+    let values <Vec<Option<.V>>> field::get storage "values"
+    vec::free<HashMapBucketState> states
+    vec::free<Option<.K>> keys
+    vec::free<Option<.V>> values
+
+//: hashmap_alloc_storage: empty storage を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - 全 slot を初期化済み enum / Option として[確保/かくほ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(cap)
+fn hashmap_alloc_storage <.K: Copy,.V: Copy> <(i32)*>Result<HashMapStorage<.K,.V>, Diag>> (cap):
+    match vec::filled<HashMapBucketState> cap HashMapBucketState::Empty:
+        Result::Err _e:
+            diag_err<HashMapStorage<.K,.V>> diag_out_of_memory
+        Result::Ok states:
+            match vec::filled<Option<.K>> cap none<.K>:
+                Result::Err _e:
+                    vec::free<HashMapBucketState> states
+                    diag_err<HashMapStorage<.K,.V>> diag_out_of_memory
+                Result::Ok keys:
+                    match vec::filled<Option<.V>> cap none<.V>:
+                        Result::Err _e:
+                            vec::free<HashMapBucketState> states
+                            vec::free<Option<.K>> keys
+                            diag_err<HashMapStorage<.K,.V>> diag_out_of_memory
+                        Result::Ok values:
+                            ok<HashMapStorage<.K,.V>, Diag> HashMapStorage<.K,.V> states keys values

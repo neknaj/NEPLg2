@@ -33802,3 +33802,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/tests/hash.n.md -i stdlib/alloc/hash/sha256.nepl --no-tree --dist web/dist -o tmp/hash_sha256_resource_agent1_after.json -j 1 --assert-io`: total=1, passed=1
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 HashMap module split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の追加対応として、`stdlib/alloc/collections/hashmap.nepl` を facade 化した。
+- `types` / `storage` / `probe` / `rehash` / `api` に分割し、typed storage、probe state enum、rehash owner transfer、public API の責務を module 単位に分離した。
+- root facade は `pub #import ... as @merge` だけを持つ構成にし、既存の `#import "alloc/collections/hashmap" as *` 利用を維持した。
+- `nodesrc/test_stdlib_hashmap_storage_contract.js` は分割後の全 module を検査し、root に実装本体が戻らないこと、raw memory / unsafe unwrap が戻らないこと、typed storage と borrow read API を固定するよう更新した。
+- [検証]:
+  - `node nodesrc/test_stdlib_hashmap_storage_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl -i stdlib/alloc/collections/hashmap/api.nepl --no-tree -o tmp/hashmap-module-split-doctests.json -j 1 --dist web/dist`: total=3, passed=3
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/hashmap.nepl -i stdlib/alloc/collections/hashmap/types.nepl -i stdlib/alloc/collections/hashmap/storage.nepl -i stdlib/alloc/collections/hashmap/probe.nepl -i stdlib/alloc/collections/hashmap/rehash.nepl -i stdlib/alloc/collections/hashmap/api.nepl -i stdlib/tests/hashmap.n.md -i stdlib/tests/hashmap_str.n.md -i tests/stdlib/hash_collection_rehash.n.md -i tests/stdlib/collections_diag.n.md -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/hashmap-module-split-suite-no-traits-hash.json -j 1 --dist web/dist`: total=22, passed=22
+- [別件として確認]:
+  - `tests/stdlib/traits_hash.n.md` は current main で compile_fail 期待 diag `resource.move.use_moved` と実出力 `resource.cell.moved` がずれて 4/6 passed。HashMap 分割とは別 issue として扱う。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

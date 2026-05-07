@@ -1,0 +1,81 @@
+//: # alloc/collections/hashmap/types
+//: HashMap の型定義と bucket state enum
+//:
+//: ### [目的/もくてき]
+//: - HashMap の storage / table / probing result 型を 1 module に集約します。
+//: - bucket 状態は numeric sentinel ではなく enum として表し、probe logic 側で `match` 網羅性検査を効かせます。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/traits/copy" as *
+#import "alloc/collections/vec" as *
+
+//: ## HashMapBucketState
+//: hash table の 1 bucket の[状態/じょうたい]
+//:
+//: ### [目的/もくてき]
+//: - empty / full / tombstone を enum として[表/あらわ]し、`match` で[分岐/ぶんき]します。
+enum HashMapBucketState:
+    Empty
+    Full
+    Tombstone
+
+impl Clone for HashMapBucketState:
+    fn clone <(&HashMapBucketState)->HashMapBucketState> (state):
+        *state
+
+impl Copy for HashMapBucketState:
+    fn copy_mark <(HashMapBucketState)->HashMapBucketState> (state):
+        state
+
+//: ## HashMapInsertSlotState
+//: insertion 先 slot が empty 由来か tombstone 由来かを[表/あらわ]す
+//:
+//: ### [目的/もくてき]
+//: - tombstone を[再利用/さいりよう]した[場合/ばあい]だけ tombstone count を[減/へ]らせるようにします。
+enum HashMapInsertSlotState:
+    EmptySlot
+    TombstoneSlot
+
+impl Clone for HashMapInsertSlotState:
+    fn clone <(&HashMapInsertSlotState)->HashMapInsertSlotState> (state):
+        *state
+
+impl Copy for HashMapInsertSlotState:
+    fn copy_mark <(HashMapInsertSlotState)->HashMapInsertSlotState> (state):
+        state
+
+//: ## HashMapInsertSlot
+//: insertion 先の index と[状態/じょうたい]
+//:
+//: ### [目的/もくてき]
+//: - linear probing の[結果/けっか]を index と slot state の組として[返/かえ]します。
+struct HashMapInsertSlot:
+    index <i32>
+    state <HashMapInsertSlotState>
+
+//: ## HashMapStorage
+//: HashMap の backing storage
+//:
+//: ### [目的/もくてき]
+//: - 状態配列、key 配列、value 配列の owner を 1 [値/あたい]にまとめます。
+//:
+//: ### [注意/ちゅうい]
+//: - `states.len == keys.len == values.len == cap` を内部不変条件とします。
+struct HashMapStorage<.K,.V>:
+    states <Vec<HashMapBucketState>>
+    keys <Vec<Option<.K>>>
+    values <Vec<Option<.V>>>
+
+//: ## HashMap
+//: hash map [本体/ほんたい]
+//:
+//: ### [目的/もくてき]
+//: - [要素数/ようそすう]・[容量/ようりょう]・tombstone 数・storage・hasher をまとめて[保持/ほじ]します。
+struct HashMap<.K,.V,.H>:
+    count <i32>
+    cap <i32>
+    tombstones <i32>
+    storage <HashMapStorage<.K,.V>>
+    hasher <.H>
