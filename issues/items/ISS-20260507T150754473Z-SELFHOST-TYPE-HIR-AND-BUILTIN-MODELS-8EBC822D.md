@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-07
-updated: 2026-05-07
+updated: 2026-05-08
 target: "stdlib/neplg2/core/ty/ty.nepl, stdlib/neplg2/core/hir/hir.nepl, stdlib/neplg2/core/mono/mono.nepl, stdlib/neplg2/core/builtins/prelude.nepl, stdlib/neplg2/core/resolve/name_resolver.nepl"
 ---
 
@@ -49,5 +49,14 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 - `SelfhostDefId(-1)` / `SelfhostTypeId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
 - `first_arg = -1`、`SelfhostHirChildRange(-1, 0)`、`SelfhostHirParamRange(-1, 0)` の empty range sentinel。
-- builtin fixed arg slots の `SelfhostTypeKind::Error` placeholder。
+- HIR expression payload が kind ごとに所有 field を分離できていないこと。
+
+## 2026-05-08 builtin signature payload 対応
+
+この親 issue のうち、`SelfhostBuiltinFunction` が固定 `arg0` / `arg1` / `arg2` slot と `arg_count` で signature を表し、未使用 slot に `SelfhostTypeKind::Error` を入れていた問題は、[ISS-20260507T153554496Z-SELFHOST-BUILTIN-SIGNATURES-USE-ERRO-AEFFF7D4](./ISS-20260507T153554496Z-SELFHOST-BUILTIN-SIGNATURES-USE-ERRO-AEFFF7D4.md) で分離して解決した。
+
+残件:
+
+- `SelfhostDefId(-1)` / `SelfhostTypeId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
+- `first_arg = -1`、`SelfhostHirChildRange(-1, 0)`、`SelfhostHirParamRange(-1, 0)` の empty range sentinel。
 - HIR expression payload が kind ごとに所有 field を分離できていないこと。

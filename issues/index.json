@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T15:38:12.436Z",
+  "generated_at": "2026-05-07T15:42:45.097Z",
   "counts": {
-    "total": 599,
+    "total": 600,
     "open": 14,
-    "resolved": 585,
+    "resolved": 586,
     "by_area": {
       "core": {
         "total": 301,
@@ -12,9 +12,9 @@
         "resolved": 298
       },
       "selfhost": {
-        "total": 54,
+        "total": 55,
         "open": 3,
-        "resolved": 51
+        "resolved": 52
       },
       "stdlib": {
         "total": 164,
@@ -153,7 +153,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-07",
-      "updated": "2026-05-07",
+      "updated": "2026-05-08",
       "target": "stdlib/neplg2/core/ty/ty.nepl, stdlib/neplg2/core/hir/hir.nepl, stdlib/neplg2/core/mono/mono.nepl, stdlib/neplg2/core/builtins/prelude.nepl, stdlib/neplg2/core/resolve/name_resolver.nepl",
       "legacy_id": "",
       "source": "",
@@ -5378,6 +5378,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T152220930Z-SELFHOST-ENUM-EQUALITY-HELPERS-LOWER-4E1FAA87.md"
+    },
+    {
+      "id": "ISS-20260507T153554496Z-SELFHOST-BUILTIN-SIGNATURES-USE-ERRO-AEFFF7D4",
+      "title": "Selfhost builtin signatures use Error placeholder argument slots",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "stdlib/neplg2/core/builtins/prelude.nepl, nodesrc/test_selfhost_builtin_signature_payload.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T153554496Z-SELFHOST-BUILTIN-SIGNATURES-USE-ERRO-AEFFF7D4.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",

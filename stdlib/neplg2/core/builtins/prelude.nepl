@@ -9,7 +9,7 @@
 //: - resolver / checker が builtin と primitive の registry 定義を重複実装しないよう、有限集合の index lookup API をここへ集約します。
 //:
 //: [実装/じっそう]:
-//: - builtin kind は enum で表し、関数 registry は小さな Copy record と固定 index lookup で表します。
+//: - builtin kind は enum で表し、関数 registry は arity ごとの signature enum payload と固定 index lookup で表します。
 //: - 現時点の Rust builtin function は `alloc` / `dealloc` / `realloc` の 3 件です。
 //: - string-based lookup は `str_addr` / `alloc/string` の RawMemoryLoadCell gate 対応後に追加します。現段階では文字列依存を避け、registry の index と typed metadata を先に固定します。
 //:
@@ -59,23 +59,87 @@ impl Copy for SelfhostBuiltinKind:
     fn copy_mark <(SelfhostBuiltinKind)->SelfhostBuiltinKind> (self):
         self
 
+//: SelfhostBuiltinUnarySignature: 1 引数 builtin function の signature
+//:
+//: [目的/もくてき]:
+//: - 存在する引数だけを payload として保持し、未使用 slot や sentinel type を builtin metadata から排除します。
+struct SelfhostBuiltinUnarySignature:
+    arg0 <SelfhostTypeKind>
+    result <SelfhostTypeKind>
+
+impl Clone for SelfhostBuiltinUnarySignature:
+    fn clone <(&SelfhostBuiltinUnarySignature)->SelfhostBuiltinUnarySignature> (self):
+        *self
+
+impl Copy for SelfhostBuiltinUnarySignature:
+    fn copy_mark <(SelfhostBuiltinUnarySignature)->SelfhostBuiltinUnarySignature> (self):
+        self
+
+//: SelfhostBuiltinBinarySignature: 2 引数 builtin function の signature
+//:
+//: [目的/もくてき]:
+//: - binary builtin の引数列と戻り値を、arity と常に一致する payload として保持します。
+struct SelfhostBuiltinBinarySignature:
+    arg0 <SelfhostTypeKind>
+    arg1 <SelfhostTypeKind>
+    result <SelfhostTypeKind>
+
+impl Clone for SelfhostBuiltinBinarySignature:
+    fn clone <(&SelfhostBuiltinBinarySignature)->SelfhostBuiltinBinarySignature> (self):
+        *self
+
+impl Copy for SelfhostBuiltinBinarySignature:
+    fn copy_mark <(SelfhostBuiltinBinarySignature)->SelfhostBuiltinBinarySignature> (self):
+        self
+
+//: SelfhostBuiltinTernarySignature: 3 引数 builtin function の signature
+//:
+//: [目的/もくてき]:
+//: - ternary builtin の引数列と戻り値を、余分な field を持たない payload として保持します。
+struct SelfhostBuiltinTernarySignature:
+    arg0 <SelfhostTypeKind>
+    arg1 <SelfhostTypeKind>
+    arg2 <SelfhostTypeKind>
+    result <SelfhostTypeKind>
+
+impl Clone for SelfhostBuiltinTernarySignature:
+    fn clone <(&SelfhostBuiltinTernarySignature)->SelfhostBuiltinTernarySignature> (self):
+        *self
+
+impl Copy for SelfhostBuiltinTernarySignature:
+    fn copy_mark <(SelfhostBuiltinTernarySignature)->SelfhostBuiltinTernarySignature> (self):
+        self
+
+//: SelfhostBuiltinSignature: builtin function の arity-specific signature
+//:
+//: [目的/もくてき]:
+//: - builtin signature を固定長 slot ではなく enum payload で表し、arity と引数 payload の不一致を構造上作れないようにします。
+//: - accessor はこの enum を match するため、新しい arity を追加した場合に処理漏れを静的に発見しやすくします。
+enum SelfhostBuiltinSignature:
+    Unary <SelfhostBuiltinUnarySignature>
+    Binary <SelfhostBuiltinBinarySignature>
+    Ternary <SelfhostBuiltinTernarySignature>
+
+impl Clone for SelfhostBuiltinSignature:
+    fn clone <(&SelfhostBuiltinSignature)->SelfhostBuiltinSignature> (self):
+        *self
+
+impl Copy for SelfhostBuiltinSignature:
+    fn copy_mark <(SelfhostBuiltinSignature)->SelfhostBuiltinSignature> (self):
+        self
+
 //: SelfhostBuiltinFunction: builtin function registry の 1 件
 //:
 //: [目的/もくてき]:
-//: - builtin の名前と signature metadata を小さな Copy record として保持します。
+//: - builtin の名前、分類、signature metadata、effect metadata を小さな Copy record として保持します。
 //:
 //: [注意/ちゅうい]:
-//: - `arg0` から `arg2` までは現行 builtin の最大 arity 3 に合わせた固定 slot です。
-//: - `arg_count` 以上の slot は未使用で、`SelfhostTypeKind::Error` を sentinel として入れます。
+//: - 引数列は `SelfhostBuiltinSignature` の payload に集約し、存在しない引数 slot を表現しません。
 //: - `pure` は現行 Rust builtin registry の effect を固定するための field です。Resource IR 側で effect model が変わった場合はこの registry も同時に更新します。
 struct SelfhostBuiltinFunction:
     name <str>
     kind <SelfhostBuiltinKind>
-    arg0 <SelfhostTypeKind>
-    arg1 <SelfhostTypeKind>
-    arg2 <SelfhostTypeKind>
-    arg_count <i32>
-    result <SelfhostTypeKind>
+    signature <SelfhostBuiltinSignature>
     pure <bool>
 
 impl Clone for SelfhostBuiltinFunction:
@@ -171,21 +235,33 @@ fn selfhost_builtin_kind_eq <(SelfhostBuiltinKind,SelfhostBuiltinKind)->bool> (a
                 SelfhostBuiltinKind::MemStoreI32:
                     true
 
+//: selfhost_builtin_signature_unary: 1 引数 builtin signature を[作/つく]る
+fn selfhost_builtin_signature_unary <(SelfhostTypeKind,SelfhostTypeKind)->SelfhostBuiltinSignature> (arg0, result):
+    SelfhostBuiltinSignature::Unary SelfhostBuiltinUnarySignature arg0 result
+
+//: selfhost_builtin_signature_binary: 2 引数 builtin signature を[作/つく]る
+fn selfhost_builtin_signature_binary <(SelfhostTypeKind,SelfhostTypeKind,SelfhostTypeKind)->SelfhostBuiltinSignature> (arg0, arg1, result):
+    SelfhostBuiltinSignature::Binary SelfhostBuiltinBinarySignature arg0 arg1 result
+
+//: selfhost_builtin_signature_ternary: 3 引数 builtin signature を[作/つく]る
+fn selfhost_builtin_signature_ternary <(SelfhostTypeKind,SelfhostTypeKind,SelfhostTypeKind,SelfhostTypeKind)->SelfhostBuiltinSignature> (arg0, arg1, arg2, result):
+    SelfhostBuiltinSignature::Ternary SelfhostBuiltinTernarySignature arg0 arg1 arg2 result
+
 //: selfhost_builtin_function_new: builtin function record を[作/つく]る
-fn selfhost_builtin_function_new <(str,SelfhostBuiltinKind,SelfhostTypeKind,SelfhostTypeKind,SelfhostTypeKind,i32,SelfhostTypeKind,bool)->SelfhostBuiltinFunction> (name, kind, arg0, arg1, arg2, arg_count, result, pure):
-    SelfhostBuiltinFunction name kind arg0 arg1 arg2 arg_count result pure
+fn selfhost_builtin_function_new <(str,SelfhostBuiltinKind,SelfhostBuiltinSignature,bool)->SelfhostBuiltinFunction> (name, kind, signature, pure):
+    SelfhostBuiltinFunction name kind signature pure
 
 //: selfhost_builtin_function_alloc: `alloc(size: i32) -> i32` の metadata を[返/かえ]す
 fn selfhost_builtin_function_alloc <()->SelfhostBuiltinFunction> ():
-    selfhost_builtin_function_new "alloc" SelfhostBuiltinKind::MemAlloc SelfhostTypeKind::I32 SelfhostTypeKind::Error SelfhostTypeKind::Error 1 SelfhostTypeKind::I32 true
+    selfhost_builtin_function_new "alloc" SelfhostBuiltinKind::MemAlloc selfhost_builtin_signature_unary SelfhostTypeKind::I32 SelfhostTypeKind::I32 true
 
 //: selfhost_builtin_function_dealloc: `dealloc(ptr: i32, size: i32) -> unit` の metadata を[返/かえ]す
 fn selfhost_builtin_function_dealloc <()->SelfhostBuiltinFunction> ():
-    selfhost_builtin_function_new "dealloc" SelfhostBuiltinKind::MemDealloc SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::Error 2 SelfhostTypeKind::Unit true
+    selfhost_builtin_function_new "dealloc" SelfhostBuiltinKind::MemDealloc selfhost_builtin_signature_binary SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::Unit true
 
 //: selfhost_builtin_function_realloc: `realloc(ptr: i32, old: i32, new: i32) -> i32` の metadata を[返/かえ]す
 fn selfhost_builtin_function_realloc <()->SelfhostBuiltinFunction> ():
-    selfhost_builtin_function_new "realloc" SelfhostBuiltinKind::MemRealloc SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::I32 3 SelfhostTypeKind::I32 true
+    selfhost_builtin_function_new "realloc" SelfhostBuiltinKind::MemRealloc selfhost_builtin_signature_ternary SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::I32 SelfhostTypeKind::I32 true
 
 //: selfhost_builtin_function_count: registry に登録された builtin function 数を[返/かえ]す
 fn selfhost_builtin_function_count <()->i32> ():
@@ -208,28 +284,51 @@ fn selfhost_builtin_function_at <(i32)->Option<SelfhostBuiltinFunction>> (index)
 
 //: selfhost_builtin_function_arg_count: builtin function の引数数を[返/かえ]す
 fn selfhost_builtin_function_arg_count <(SelfhostBuiltinFunction)->i32> (builtin):
-    builtin.arg_count
+    match builtin.signature:
+        SelfhostBuiltinSignature::Unary _sig:
+            1
+        SelfhostBuiltinSignature::Binary _sig:
+            2
+        SelfhostBuiltinSignature::Ternary _sig:
+            3
 
 //: selfhost_builtin_function_arg_kind: builtin function の指定引数 type kind を[返/かえ]す
 fn selfhost_builtin_function_arg_kind <(SelfhostBuiltinFunction,i32)->Option<SelfhostTypeKind>> (builtin, index):
-    if:
-        or lt index 0 ge index builtin.arg_count
-        then:
-            none<SelfhostTypeKind>
-        else:
+    match builtin.signature:
+        SelfhostBuiltinSignature::Unary sig:
             match index:
                 0:
-                    some<SelfhostTypeKind> builtin.arg0
+                    some<SelfhostTypeKind> sig.arg0
+                _:
+                    none<SelfhostTypeKind>
+        SelfhostBuiltinSignature::Binary sig:
+            match index:
+                0:
+                    some<SelfhostTypeKind> sig.arg0
                 1:
-                    some<SelfhostTypeKind> builtin.arg1
+                    some<SelfhostTypeKind> sig.arg1
+                _:
+                    none<SelfhostTypeKind>
+        SelfhostBuiltinSignature::Ternary sig:
+            match index:
+                0:
+                    some<SelfhostTypeKind> sig.arg0
+                1:
+                    some<SelfhostTypeKind> sig.arg1
                 2:
-                    some<SelfhostTypeKind> builtin.arg2
+                    some<SelfhostTypeKind> sig.arg2
                 _:
                     none<SelfhostTypeKind>
 
 //: selfhost_builtin_function_result_kind: builtin function の戻り値 type kind を[返/かえ]す
 fn selfhost_builtin_function_result_kind <(SelfhostBuiltinFunction)->SelfhostTypeKind> (builtin):
-    builtin.result
+    match builtin.signature:
+        SelfhostBuiltinSignature::Unary sig:
+            sig.result
+        SelfhostBuiltinSignature::Binary sig:
+            sig.result
+        SelfhostBuiltinSignature::Ternary sig:
+            sig.result
 
 //: selfhost_builtin_function_is_pure: builtin function が現行 registry 上 pure か[返/かえ]す
 fn selfhost_builtin_function_is_pure <(SelfhostBuiltinFunction)->bool> (builtin):

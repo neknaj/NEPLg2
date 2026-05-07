@@ -1,3 +1,18 @@
+# 2026-05-08 Agent 1 selfhost builtin signature payload
+
+- `ISS-20260507T153554496Z-SELFHOST-BUILTIN-SIGNATURES-USE-ERRO-AEFFF7D4` を追加し、fixed/resolved に更新した。
+- 根本原因は、`SelfhostBuiltinFunction` が固定 `arg0` / `arg1` / `arg2` slot と `arg_count` で signature を表し、未使用 slot に `SelfhostTypeKind::Error` を入れて invalid state を通常 record に持ち込んでいたことだった。
+- `SelfhostBuiltinSignature` を `Unary` / `Binary` / `Ternary` の enum payload に分け、各 payload struct が存在する引数と戻り値だけを保持する設計にした。
+- `alloc` / `dealloc` / `realloc` の metadata は arity-specific constructor で構築し、placeholder type を使わない。
+- `selfhost_builtin_function_arg_count` / `arg_kind` / `result_kind` は `builtin.signature` の exhaustive match を通す形にし、signature model の変更時に処理漏れが検査されやすい構造にした。
+- `nodesrc/test_selfhost_builtin_signature_payload.js` を追加し、fixed slot、numeric arity storage、`SelfhostTypeKind::Error` placeholder、signature accessor の match 不足を source policy で拒否する。
+- [検証]:
+  - `node nodesrc/test_selfhost_builtin_signature_payload.js`: passed
+  - `node nodesrc/test_selfhost_model_no_numeric_kind_tags.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/builtins/prelude.nepl --no-tree -o tmp/agent1-selfhost-builtin-signature-payload.json -j 1 --dist web/dist`: total=1, passed=1
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 1 selfhost enum equality no numeric tags
 
 - `ISS-20260507T152220930Z-SELFHOST-ENUM-EQUALITY-HELPERS-LOWER-4E1FAA87` を追加し、fixed/resolved に更新した。
