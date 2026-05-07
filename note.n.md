@@ -33290,3 +33290,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/compiler/drop.n.md -i tests/compiler/drop_overwrite.n.md --no-tree --dist web/dist -o tmp/drop_agent1_after_owner_summary_leaf_split.json -j 1 --assert-io`: total=5, passed=5
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 initialized alias flow 責務分割
+
+- `ISS-20260507T011907998Z-RESOURCE-INITIALIZED-ALIAS-FLOW-EXCE-E65684BD` を fixed にした。
+- `initialized_alias_flow.rs` は raw alias summary worklist、value projection propagation、raw address propagation、call summary application、symbolic offset substitution を 1 ファイルに抱えていた。
+- call summary application と symbolic offset substitution を `initialized_alias_flow_apply.rs` に分離した。
+- raw address propagation を `initialized_alias_flow_raw.rs` に分離した。
+- Result 返却に限定した value projection summary propagation を `initialized_alias_flow_value_projection.rs` に分離した。
+- `initialized_alias_flow.rs` は summary record / worklist entry と alias preserve predicate に責務を戻した。
+- 行数は `initialized_alias_flow.rs` 146/550、`initialized_alias_flow_apply.rs` 164/180、`initialized_alias_flow_raw.rs` 298/320、`initialized_alias_flow_value_projection.rs` 472/520。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core resource::initialized_alias_flow::tests:: --lib`: 2 passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `trunk build`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md -i tests/compiler/drop_overwrite.n.md --no-tree --dist web/dist -o tmp/drop_agent1_after_initialized_alias_flow_split.json -j 1 --assert-io`: total=5, passed=5
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
