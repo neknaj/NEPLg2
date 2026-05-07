@@ -1,53 +1,52 @@
-# Tools Review: Web And Playground
+# web playground review
 
-対象 commit: `f108cebd`
+確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
 
-## 対象
+## 確認対象
 
 - `nepl-web/src/lib.rs`
-- `nepl-web-playground/src/lib.rs`
-- `web/src/**`
+- `nepl-web/build.rs`
+- `web/src/main.ts`
+- `web/src/runtime/**`
+- `web/src/workspace/**`
+- `web/src/editor/**`
+- `web/src/editor-core/**`
+- `web/src/language/**`
+- `web/styles.css`
 - `tests/playground_editor/**`
-
-## 概要
-
-web layer は wasm-bindgen compiler API、browser runtime、editor UI、terminal、workspace panel manager、language analysis provider を持つ。`nepl-web/src/lib.rs` は compile / analyze / WAT decoration / error mapping を提供し、`web/src` は TypeScript playground UI を構成する。
-
-CI の Pages jobs は Actions run `25157230630` で success しているため、bundle/deploy 可能な状態は維持されている。ただし test job 全体は stdlib/static-check failure で赤く、playground が表示する compiler behavior もその影響を受ける。
-
-## Actions 根拠
-
-- `pages-fast-bundle`: success
-- `deploy-pages`: success
-- `build`: success。tutorial/doc HTML build と bootstrap artifact upload は成功。
-- web/editor 専用の runtime UI test job は、この workflow では独立した必須 gate としては見えない。
+- `nodesrc/playground_*_test_runner.js`
 
 ## 良い点
 
-- `web/src/editor-core` と `web/src/editor` に editor state / rendering / input handling が分離されている。
-- `web/src/language/neplg2` が NEPLg2 provider を持つ。
-- `web/src/workspace` が panel layout / drag-drop / panel manager に分かれている。
-- playground editor fixtures が `tests/playground_editor` に JSON として存在する。
-- clean checkout 用に `web/examples` / `web/dist_ts` 生成問題は過去 issue で対処済み。
+`nepl-web` は Rust compiler を wasm-bindgen で公開し、compile、WAT generation、VFS stdlib injection、analysis payload、diagnostics rendering を browser 側へ提供している。diagnostic payload は stable code を含み、editor contract と整合している。
 
-## 問題
+`web/src/main.ts` は bundled stdlib と examples を VFS に mount し、workspace UI を起動する。初期ファイルとして `/examples/rpn.nepl` を開くため、examples の品質は playground 第一印象に直結する。
 
-- `nepl-web/src/lib.rs` は約 126KB で、compiler API、analysis transformation、WAT/minify、diagnostic mapping が集中している。
-- `web/src/workspace/panel-manager.ts` は約 48KB で、runtime map、layout persistence、drag/drop、terminal/editor/explorer orchestration が集中している。
-- `web/dist` と `web/dist_ts` は生成物を含み、source と生成物の drift を継続監視する必要がある。
-- Pages deploy は成功しても、compiler/stdout/stderr/runtime failure が多い状態では playground 上の examples 実行信頼性は限定的である。
+`web/src/editor-core` は editor state / reducer / keymap / language-analysis bridge を分けている。`tests/playground_editor` と `nodesrc/playground_editor_test_runner.js` は DOM なしで editor behavior と analysis request を確認できる。
 
-## 必要な設計
+`web/src/language/neplg2/neplg2-provider.ts` は wasm analysis と editor payload bridge を使い、hover、definition、occurrences、completion、diagnostics を供給する。byte offset と JS index の mapping を持つため、UTF-8 / char 変更時の重要境界である。
 
-- `nepl-web/src/lib.rs` は compiler facade、analysis facade、WAT utility、diagnostic conversion に分割する。
-- panel manager は editor/terminal/explorer runtime adapter と layout persistence を分ける。
-- `tests/playground_editor` を CI の明示 job として維持し、diagnostic code / hover / definition が Rust compiler changes に追従しているか確認する。
-- generated artifact drift は source policy または build artifact comparison で検出する。
+## 問題とリスク
+
+`nepl-web/src/lib.rs` は wasm binding、WAT decoration/minify、diagnostic rendering、analysis JSON、VFS merge、compiler invocation を 1 ファイルに持つ大きい境界である。Rust compiler 側の backend 巨大 file 問題と同じく、今後 web API 追加時には binding / diagnostics / analysis / compile outputs を分離する必要がある。
+
+playground は bundled examples を直接ユーザーへ見せるが、examples doctest は CI gate に入っていない。このため `ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895` が playground 品質にも影響する。
+
+analysis bridge は Rust `nepl-language` / `nepl-lsp` と似た責務を TypeScript 側にも持っている。将来的に hover/definition/semantic token logic が二重実装になりすぎると、browser と LSP の挙動差が増える。
 
 ## 進捗状況
 
-- web build/deploy: 通過。
-- editor core: 実装中。
-- playground workspace: 実装中だが巨大 file あり。
-- playground editor fixtures: あり。
-- generated artifact drift guard: 一部あり、継続監視が必要。
+| 領域 | 状態 | 判定 |
+|---|---|---|
+| `nepl-web` compile API | wasm-bindgen で compiler API を公開。 | 良いが lib.rs 分割余地あり。 |
+| bundled stdlib/examples | VFS へ mount。 | 良い。examples CI gap に注意。 |
+| workspace/panels | editor/terminal/file explorer を統合。 | 実用段階。 |
+| editor-core | reducer/state/keymap/analysis bridge。 | 良い。test runner あり。 |
+| NEPLg2 provider | wasm analysis から hover/definition を生成。 | UTF-8 boundary 重要。 |
+| playground tests | CLI snapshot と worker regressions。 | 良い。CI 接続範囲の継続確認が必要。 |
+
+## 推奨対応
+
+- `nepl-web/src/lib.rs` は binding API、diagnostic render、analysis conversion、compile output generation へ段階分割する。
+- examples doctest CI gap を修正し、playground 初期サンプルの regression を main gate に入れる。
+- TypeScript analysis bridge と Rust `nepl-language` の contract を揃え、hover/definition の期待 JSON を共有する。

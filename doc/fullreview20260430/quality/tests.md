@@ -1,63 +1,57 @@
-# Quality Review: Tests
+# tests review
 
-対象 commit: `f108cebd`
+確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
 
-## 対象
+## 確認対象
 
-- `tests/compiler/**`
-- `tests/stdlib/**`
-- `tests/compiler/tree/**`
+- `tests/compiler/*.n.md`
+- `tests/compiler/tree/*.js`
+- `tests/stdlib/*.n.md`
 - `tests/playground_editor/**`
+- `stdlib/**/*.nepl` の `neplg2:test`
+- `tutorials/**/*.n.md`
+- `nodesrc/tests.js`
+- `nodesrc/run_doctest.js`
+- `nodesrc/run_test.js`
 - `.github/workflows/ci.yml`
-
-## Actions 根拠
-
-GitHub Actions run `25157230630` の test 状況:
-
-- `compile-test`: success
-- `llvm-test`: success
-- `rust-test`: failure
-- `wasi-test`: `1034 total / 812 passed / 185 failed / 37 errored`
-- `nmd-doctest`: `1034 total / 812 passed / 185 failed / 37 errored`
-- `stdlib-test`: `415 total / 232 passed / 173 failed / 10 errored`
-- `llvm-dual-test (tests)`: `1945 total / 1515 passed / 393 failed / 37 errored`
-- `llvm-dual-test (stdlib)`: `977 total / 607 passed / 360 failed / 10 errored`
-
-主要 failure code:
-
-- `resource.owner.maybe_leak`
-- `resource.owner.leak`
-- `resource.cell.uninit`
-- `resource.cell.possibly_moved`
-- `effect.pure.calls_impure`
 
 ## 良い点
 
-- compiler tree tests が lex/parse/name/semantics/diagnostic code まである。
-- `.n.md` doctest が tests/tutorials/stdlib に広く配置されている。
-- source policy regression が static-check / stdlib / selfhost / diagnostic / tutorial の設計回帰を監視している。
-- dual backend verification が WASM と LLVM の差分を拾う設計になっている。
+`.n.md` doctest は compiler / stdlib / tutorial を同じ形式で扱う共通資産になっている。`diag_code`、`diag_span`、`stdout`、`stderr`、`ret`、`exit_code`、`argv`、`stdin` を持てるため、Rust compiler と selfhost compiler の将来共通運用へ寄せやすい。
 
-## 問題
+`nodesrc/tests.js` は worker pool、case timeout、changed-only collection、WASM / LLVM / all runner、dual backend strict comparison を持つ。CI でも `tests`、`tutorials`、`stdlib`、LLVM compile-only、LLVM dual backend を分けて実行しており、言語仕様と stdlib public behavior の回帰検出範囲は広い。
 
-- test suite 全体が green ではなく、stdlib/static-check failure が多すぎて新しい回帰が埋もれやすい。
-- `.n.md` は stdout report / exit code policy へ移行中で、open issue が残る。
-- source policy は CI build では warn-only なので、merge readiness の hard gate とは別扱いにする必要がある。
-- dual backend failure の `fail` は runtime mismatch / compile failure が混ざるため、分類の粒度が不足している。
+`nodesrc/run_doctest.js` は focused reproduction の入口として有効である。`run_test.js` は WASI/WASIX fallback、timing metadata、stdout/stderr expectation、exit code metadata を扱い、test result JSON の調査可能性が上がっている。
 
-## 必要な設計
+source policy regression は stdlib / ResourceIR / selfhost / diagnostics / editor contract まで広がっている。これは通常の doctest では見つけにくい「不自然な中間変数」「unsafe unwrap 再導入」「enum/match coverage 退行」「責務境界の肥大化」を検出する補助線になっている。
 
-- `.n.md` を Rust compiler と selfhost compiler で共有する manifest として扱う。
-- expected stdout/stderr/exit code/diagnostic code/span/stage JSON を正規期待値にする。
-- owner/resource failure は open issue に紐付け、known failure と新規回帰を分ける。
-- Actions artifact を自動分類する triage script を nodesrc に正式追加する。
+## 問題とリスク
+
+`.n.md` の assertion suite は、`std/test` の structured report API へ移行済み部分がある一方、`ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` が残っている。return value を exit code 相当に使う運用が残ると、失敗詳細が stdout contract として固定されず、Rust/selfhost 共通 runner の比較単位が曖昧になる。
+
+CI は `node nodesrc/tests.js -i examples` を実行していない。`examples/rpn.nepl` や `examples/rpn_legacy.nepl` は色付き出力と REPL behavior の doctest を持つが、main branch CI では `nm` compile と `counter` emit smoke 以外が直接検査されない。このため `ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895` を追加した。
+
+source policy regressions は CI で `--warn-only` として実行される。これは後続 job を止めない設計としては妥当だが、型安全・メモリ安全・enum/match policy の最終 gate にはならない。安全性に直結する policy は、warn-only の結果を無視せず issue として即時追跡する運用が必須である。
+
+`tests/compiler/tree` の stage-level JS fixture と `.n.md` stage metadata はまだ完全には統合されていない。selfhost parity runner を作るには、tree fixture のうち外部 contract 化できるものを `.n.md` manifest へ寄せ、Rust 内部 API 固有のものだけ JS test に残す線引きが必要である。
 
 ## 進捗状況
 
-- compile gate: 通過。
-- wasm doctest gate: failure。
-- stdlib doctest gate: failure。
-- tutorial doctest gate: failure。
-- LLVM compile-only gate: 通過。
-- dual backend gate: failure。
-- `.n.md` shared operation design: 未完了。
+| 領域 | 状態 | 判定 |
+|---|---|---|
+| `tests/compiler/*.n.md` | 言語仕様、diagnostic、move/resource、LLVM target を広く保持。 | 良い。stage parity metadata への拡張余地あり。 |
+| `tests/compiler/tree` | parser / resolve / semantics の stage JSON を JS で確認。 | 有効だが `.n.md` 共通化計画とは未統合。 |
+| `tests/stdlib/*.n.md` | stdlib public behavior と selfhost library smoke を保持。 | 良い。assert report 移行を継続。 |
+| `stdlib/**/*.nepl` doctest | API 近傍の小さい例を保持。 | 良い。大型 regression は `tests/stdlib` へ置く方針を維持。 |
+| `tutorials/**/*.n.md` | 現行 tutorial の executable docs。 | 良い。CI job あり。 |
+| `examples/*.nepl` doctest | RPN / stdio / nm などが doctest を持つ。 | CI job がないため issue 追加。 |
+| `nodesrc/tests.js` | aggregate runner。 | 機能は十分。expectation logic の共通化は残る。 |
+| `nodesrc/run_doctest.js` | focused runner。 | 良い。aggregate runner との責務共通化を継続。 |
+| GitHub Actions | tests/tutorials/stdlib/LLVM/pages を実行。 | examples job と latest run completion の追跡が必要。 |
+
+## 推奨対応
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` を進め、assertion suite は stdout report + `exit_code` へ移行する。
+- `ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895` を修正し、examples doctest JSON を CI artifact と Pages status に含める。
+- Rust/selfhost 共通 `.n.md` runner は、manifest schema、backend enum、stage JSON canonicalization、skip policy を先に固定する。
+- source policy warning は CI failure でなくても、レビューと issue 運用上は未解決安全リスクとして扱う。

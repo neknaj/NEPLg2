@@ -1,6 +1,6 @@
 # レビュー方法
 
-確認対象 commit: `b350213c docs(review): add selfhost compiler review`
+確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
 
 ## 目的
 
@@ -29,6 +29,22 @@
 12. selfhost review 中に `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D` と `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B` を追加し、resolver sentinel も同 issue へ追記した。
 13. selfhost review 文書 commit 前に remote main の `31291b37 fix(core): add parser backend responsibility policy` を取り込み、parser/backend policy 不足を fixed 扱いへ更新した。
 14. stdlib review では `core/mem`、string、collections、hash/json/diag/io、std I/O/fs/env/test、platforms/TUI、nm、kp、source policy を現行ソースから確認した。
+15. quality / tools / NEPLg3 review 中に remote main の `0fcc4839 fix(selfhost): compare model enums without numeric tags` を取り込み、selfhost enum equality issue を fixed 扱いへ更新した。
+16. 同 review 中に `32e69bf4 docs(issues): track zed build artifacts`、`3951d807 docs(issues): track examples CI coverage gap`、`0ac34132 fix(selfhost): model builtin signatures by arity` を取り込み、Zed artifact issue、examples CI coverage issue、builtin signature arity enum 化をレビュー文書へ反映した。
+17. `gh run view 25506281464 --json ...` で最新 main Actions を確認し、`tutorials-test` failure と run in_progress を `project/actions-status.md` へ記録した。
+18. remote main の `4da7333 fix(selfhost): split type record payloads` を取り込み、selfhost type record payload 分離を fixed 扱いへ更新した。
+19. `gh run view 25506711533 --json ...` で最新 main Actions を確認し、`4da7333` run が in_progress であることを `project/actions-status.md` へ記録した。
+20. remote main の `6277239 fix(selfhost): split hir range payloads` を取り込み、selfhost HIR range payload 分離を fixed 扱いへ更新した。
+21. `gh run list --branch main --limit 5` で `6277239` run `25507054306` が latest であることを確認し、`project/actions-status.md` へ記録した。
+22. remote main の `b9e85f23 fix(selfhost): model mono instance absence with option` を取り込み、selfhost mono instance の未割当表現を `Option<SelfhostMonoInstanceId>` 化済みとしてレビュー文書へ反映した。
+23. `gh run list --branch main --limit 8` と `gh run view 25507326678 --json status,conclusion,updatedAt,jobs` で latest Actions が pending であることを確認した。
+24. remote main の `8ff05570 fix(selfhost): model hir expr id absence with option` を取り込み、HIR expr ID の未割当表現を `Option<SelfhostHirExprId>` 化済みとしてレビュー文書へ反映した。
+25. latest Actions の `tutorials-test` failure を確認し、`ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153` と `ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9` を追加して main へ push した。
+26. `gh run list --branch main --limit 8` で latest main run が `f3a4c60b` の `25507959628` pending であることを確認した。
+27. remote main の `dc6b82bb fix(selfhost): model def id absence with option` を取り込み、resolver DefId の未割当表現を `Option<SelfhostDefId>` 化済みとしてレビュー文書へ反映した。
+28. `gh run list --branch main --limit 5` で latest main run が `dc6b82bb` の `25508091075` in_progress であることを確認した。
+29. remote main の `c5f93163 fix(selfhost): split hir expr payloads` を取り込み、HIR expression flat payload issue が resolved になったことを確認した。
+30. `gh run list --branch main --limit 5` で latest main run が `c5f93163` の `25508600937` in_progress であることを確認した。
 
 ## 使用した確認コマンド
 
@@ -83,9 +99,9 @@
 
 ## GitHub Actions 確認方針
 
-レビュー上の test 状況は local test ではなく GitHub Actions の結果を根拠にする。現在の latest run は `b350213c` の CI run で、stdlib checkpoint 作成時点では in_progress である。CI の最終状態は、レビュー進行中に再確認して `project/actions-status.md` と最終 summary へ反映する。
+レビュー上の test 状況は local test ではなく GitHub Actions の結果を根拠にする。現在の latest run は `c5f93163` の CI run `25508600937` で、quality/tools checkpoint 作成時点では in_progress である。CI の最終状態は、レビュー進行中に再確認して `project/actions-status.md` と最終 summary へ反映する。
 
-`3742a1a7` で `--check` ResourceIR gate の regression が追加され、`c58dd6e3` で public monomorphize API panic が Result 化され、`31291b37` で parser/backend responsibility policy が追加された。stdlib review は selfhost review commit `b350213c` までを基準に更新した。Actions の最新 run はまだ in_progress であり、green 判定は後続 checkpoint で引き続き確認する。
+`3742a1a7` で `--check` ResourceIR gate の regression が追加され、`c58dd6e3` で public monomorphize API panic が Result 化され、`31291b37` で parser/backend responsibility policy が追加された。`0fcc4839` で selfhost enum equality が direct match 化され、`0ac34132` で builtin signature が arity enum 化され、`4da7333` で type record payload が分離され、`6277239` で HIR range payload が分離され、`b9e85f23` で mono instance absence が Option 化され、`8ff05570` で HIR expr id absence が Option 化され、`dc6b82bb` で resolver DefId absence が Option 化され、`c5f93163` で HIR expression payload が variant enum 化された。Actions の最新 run `25508600937` はまだ in_progress であり、completed latest run を後続 checkpoint で確認する。
 
 ## レビュー判断基準
 
@@ -99,7 +115,7 @@
 
 ## 未完了
 
-- quality、tools の個別レビュー本文。
-- CI run `b350213c` 以降の完了結果確認。
+- 横断レビュー本文。
+- CI run `c5f93163` の完了結果確認。
 - レビュー全体の妥当性再確認。
 - 前回レビューとの差分報告。

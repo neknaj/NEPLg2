@@ -1,6 +1,6 @@
 # selfhost compiler overview
 
-確認対象 commit: `31291b37 fix(core): add parser backend responsibility policy`
+確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
 
 ## 確認対象
 
@@ -19,7 +19,7 @@
 
 `stdlib/neplg2` は self-host compiler の骨格と S1/S2 周辺の実装がかなり揃っている。CLI と core の責務分離、typed diagnostic code、lexer/parser/module graph の段階化は現在の開発方針に合っている。
 
-ただし、selfhost 全面実装を開始できる状態ではない。S1 lexer/parser parity と S2 module graph/import resolver は進めてよいが、S3 typecheck 以降は typed absence、ResourceIR、stdlib raw memory boundary、diagnostic taxonomy の未解決設計に強く依存する。とくに `resolve` / `ty` / `hir` / `mono` / `builtins` に数値 sentinel が残っており、静的検査が効く形の再設計が必要である。
+ただし、selfhost 全面実装を開始できる状態ではない。S1 lexer/parser parity と S2 module graph/import resolver は進めてよいが、S3 typecheck 以降は ResourceIR、stdlib raw memory boundary、diagnostic taxonomy の未解決設計に強く依存する。`ty` / `builtins` / HIR range / mono instance absence / HIR expr id absence / resolver DefId absence / HIR expression payload は直近 main で typed payload 化されたため、次の焦点は lexer state、ResourceIR 連携、stdlib owner model へ移る。
 
 ## 進捗状況
 
@@ -29,17 +29,17 @@
 | `stdlib/neplg2/core/infra` | span/text/diag/outcome/pipeline/options がある。diagnostic code は enum-first。 | S1/S2 には十分。S3+ 用 code taxonomy は追加が必要。 |
 | `stdlib/neplg2/core/syntax` | token/lexer/module AST/parser がある。char literal、raw block、indent、directive を扱う。 | parity は進むが lexer raw mode が i32 sentinel で、directive 分類も match coverage 外。 |
 | `stdlib/neplg2/core/module` | VFS loader、import spec、stdlib map、module graph がある。 | S2 の基盤として妥当。線形探索と duplicate path 仕様は HashMap/ID 設計前の制約。 |
-| `stdlib/neplg2/core/resolve` | DefId、DefKind、scope binding table がある。 | 名前解決の入口はあるが、DefId invalid sentinel と enum tag 比較が残る。 |
-| `stdlib/neplg2/core/ty` | TypeId、TypeKind、TypeArena、構造比較がある。 | function type model はあるが、invalid TypeId / `first_arg = -1` が残る。 |
-| `stdlib/neplg2/core/hir` | flat HIR module と expression/child/param table がある。 | HIR payload が variant-specific ではなく、invalid ID / empty range sentinel が残る。 |
+| `stdlib/neplg2/core/resolve` | DefId、DefKind、scope binding table がある。DefId absence は `Option<SelfhostDefId>` 化済み。 | 名前解決の入口はある。parent scope / import / hoist は今後の拡張。 |
+| `stdlib/neplg2/core/ty` | TypeId、TypeKind、TypeArena、構造比較がある。 | function type model と type record payload 分離はある。primitive/function flat field sentinel は fixed。 |
+| `stdlib/neplg2/core/hir` | flat HIR module と expression/child/param table がある。child/param range は `Empty` / `Range`、expr absence は `Option<SelfhostHirExprId>`、expression payload は `SelfhostHirExprPayload` enum へ分離済み。 | expression 追加時に payload enum と match accessor の source policy を維持する必要がある。 |
 | `stdlib/neplg2/core/resource` | move_state placeholder。 | S4 resource check は未実装。Rust ResourceIR 方針への追従が必要。 |
-| `stdlib/neplg2/core/mono` | generic instance key / seed / range model がある。 | key model は前進。invalid instance ID sentinel が残る。 |
+| `stdlib/neplg2/core/mono` | generic instance key / seed / range model がある。instance absence は `Option<SelfhostMonoInstanceId>` 化済み。 | key model は前進。cache 実装時に invalid ID sentinel へ退行しない監視が必要。 |
 | `stdlib/neplg2/core/codegen` | WASM/LLVM placeholder。 | S5 backend は未着手。 |
 
 ## 追加・更新した issue
 
 - `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D`
-  - resolver/type/HIR/mono/builtin の invalid sentinel、enum-to-i32 tag、placeholder `Error` payload を typed absence へ再設計する。
+  - HIR expression payload は `c5f93163` で variant enum 化済み。enum equality、builtin signature、type record、HIR range、mono instance absence、HIR expr id absence、resolver DefId absence も fixed。
 - `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`
   - lexer raw mode と directive 分類を enum/match coverage の効く設計へ直す。
 

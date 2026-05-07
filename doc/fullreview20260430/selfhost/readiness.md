@@ -1,10 +1,12 @@
 # selfhost readiness review
 
-確認対象 commit: `31291b37 fix(core): add parser backend responsibility policy`
+確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
 
 ## 判定
 
-現段階で selfhost の実装を開始できるのは S1/S2 の限定範囲である。S3 以降を全面実装するには、Rust compiler の ResourceIR authority、diagnostic id 再設計、stdlib memory model、typed IR sentinel 排除が揃う必要がある。
+現段階で selfhost の実装を開始できるのは S1/S2 の限定範囲である。S3 以降を全面実装するには、Rust compiler の ResourceIR authority、diagnostic id 再設計、stdlib memory model、lexer state、HIR/AST owner model が揃う必要がある。
+
+remote main の `0fcc4839` により selfhost model の enum equality helper が direct match へ改善された。さらに `0ac34132` で builtin signature は arity enum へ移り、`4da7333` で type record は variant payload へ分離され、`6277239` で HIR child/param range は `Empty` / `Range` enum へ分離され、`b9e85f23` で mono instance absence は `Option<SelfhostMonoInstanceId>` へ移り、`8ff05570` で HIR expr absence は `Option<SelfhostHirExprId>` へ移り、`dc6b82bb` で resolver DefId absence は `Option<SelfhostDefId>` へ移り、`c5f93163` で HIR expression payload は `SelfhostHirExprPayload` enum へ分離された。これは S3 以降の基盤をよくする進捗だが、ResourceIR/stdlib memory model と diagnostics taxonomy がまだ固まり切っていないため、S3/S4 の全面実装開始条件はまだ満たしていない。
 
 ## 開始可能な作業
 
@@ -27,7 +29,15 @@
 
 | blocker | 関連 issue | 内容 |
 |---|---|---|
-| typed IR sentinel | `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D` | resolver/type/HIR/mono/builtin の invalid sentinel と placeholder payload。 |
+| typed IR sentinel / shared payload | `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D` | fixed。enum equality、builtin signature、type record、HIR range payload、mono instance absence、HIR expr id absence、resolver DefId absence、HIR expression payload は fixed。 |
+| enum equality numeric tag | `ISS-20260507T152220930Z-SELFHOST-ENUM-EQUALITY-HELPERS-LOWER-4E1FAA87` | fixed。親 typed IR sentinel issue の一部解決。 |
+| builtin signature placeholder | `ISS-20260507T153554496Z-SELFHOST-BUILTIN-SIGNATURES-USE-ERRO-AEFFF7D4` | fixed。`SelfhostBuiltinSignature` の arity enum 化により fixed slot / `Error` placeholder は解消。 |
+| type record flat payload | `ISS-20260507T154503761Z-SELFHOST-TYPE-RECORDS-USE-INVALID-TY-E984125D` | fixed。`SelfhostTypeRecord` の `Primitive` / `Function` payload 分離により primitive の `first_arg = -1` / invalid result は解消。 |
+| HIR range empty sentinel | `ISS-20260507T155231568Z-SELFHOST-HIR-RANGES-ENCODE-EMPTY-STA-8B562D49` | fixed。`SelfhostHirChildRange` / `SelfhostHirParamRange` の `Empty` / `Range` payload 分離により `(-1, 0)` sentinel は解消。 |
+| mono instance invalid ID | `ISS-20260507T155948337Z-SELFHOST-MONO-INSTANCE-IDS-USE-1-INV-434774DA` | fixed。未割当は `Option<SelfhostMonoInstanceId>::None` となり、`SelfhostMonoInstanceId(-1)` と validity helper は削除済み。 |
+| HIR expr invalid ID | `ISS-20260507T160530818Z-SELFHOST-HIR-EXPRESSION-IDS-USE-1-IN-7A6D6ABC` | fixed。未割当は `Option<SelfhostHirExprId>::None` となり、`SelfhostHirExprId(-1)` と validity helper は削除済み。 |
+| resolver DefId invalid ID | `ISS-20260507T161157719Z-SELFHOST-DEFINITION-IDS-USE-1-INVALI-E74DCE86` | fixed。未割当は `Option<SelfhostDefId>::None` となり、`SelfhostDefId(-1)` と invalid helper は削除済み。 |
+| HIR expression flat payload | `ISS-20260507T161930297Z-SELFHOST-HIR-EXPRESSIONS-STORE-KIND--54E75EE3` | fixed。kind-specific field は `SelfhostHirExprPayload` enum に分離され、accessor は payload match を通す。 |
 | lexer enum coverage | `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B` | raw mode と directive classifier が enum/match coverage 外。 |
 | selfhost partial implementation | `ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD` | S3/S4/S5 が未実装。 |
 | raw memory backed stdlib API | `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` | selfhost CLI/collection/stringが safe surface に乗り切っていない。 |
@@ -43,7 +53,7 @@ selfhost は Rust compiler の完全な移植ではなく、現在の設計方�
 ## 次の順序
 
 1. lexer raw mode と directive classifier を enum/match 化する。
-2. resolver/type/HIR/mono/builtin の sentinel model を typed absence へ再設計する。
+2. HIR expression payload enum の regression policy を維持し、expression kind 追加時に flat field へ戻さない。
 3. module graph と import visibility を HashMap/ModuleId/SourceId table へ移行する。
 4. Rust diagnostic redesign 後の taxonomy を selfhost diagnostic code へ反映する。
 5. S3 typecheck を expression/type/HIR model の分割後に実装する。

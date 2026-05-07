@@ -1,43 +1,46 @@
-# NEPLg3 Review
+# NEPLg3 status review
 
-対象 commit: `f108cebd`
+確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
 
-## 対象
+## 確認対象
 
-- `doc/neplg3/**`
-- `stdlib/neplg3/**`
-
-## 概要
-
-NEPLg3 は現行 NEPLg2.0 selfhost の実装場所ではない。`doc/neplg2/self_host_plan.md` でも、NEPLg2.0 selfhost は `stdlib/neplg2/` を正とし、`doc/neplg3/impl/compiler_structure.md` は分割・依存方向・巨大ファイル分割の参考に限定すると明記されている。
-
-`doc/neplg3/spec` と `doc/neplg3/impl` は次世代仕様の設計文書として厚い。一方で `stdlib/neplg3/` の実装は小さな placeholder module 群で、`neplg2:test[skip]` の skeleton が中心である。
-
-## Actions 根拠
-
-Actions run `25157230630` の `stdlib-test` は `stdlib` 全体を対象にしているが、NEPLg3 は実質 skip doctest の skeleton であり、主要 failure は `stdlib/neplg2`, `stdlib/alloc`, `stdlib/std`, `stdlib/tests` 側である。build job の doc HTML generation は success しているため、`doc/neplg3` は少なくとも docs generation の対象としては破綻していない。
+- `doc/neplg3/README.md`
+- `doc/neplg3/spec/*.md`
+- `doc/neplg3/impl/*.md`
+- `stdlib/neplg3/cli/main.nepl`
+- `stdlib/neplg3/core/{ast,diagnostic,parser,span,typecheck}.nepl`
 
 ## 良い点
 
-- `doc/neplg3/spec` は syntax/types/effects/modules/errors/memory/stdlib/platform など章立てがある。
-- `doc/neplg3/impl/compiler_structure.md` は NEPLg2 selfhost の分割参考として有用。
-- `doc/neplg3/README.md` は NEPLg2.1 検討を NEPLg3 として扱うと明記している。
+NEPLg3 は `doc/neplg3/spec` と `doc/neplg3/impl` に分かれ、言語仕様と実装設計の責務が明確である。spec は syntax、types、declarations、patterns、effects、memory、traits、modules、stdlib、platform、errors、compiler を持ち、設計目標を広く整理している。
 
-## 問題
+`doc/neplg3/spec/compiler.md` は Resource IR、ownership / borrow / region / drop、内部効果と surface effect の分離を明記している。現行 NEPLg2 の ResourceIR 改修と方向性は近く、selfhost / future compiler の静的検査設計で参照できる。
 
-- `stdlib/neplg3/` は実装ではなく placeholder に近い。
-- README や一部説明から、NEPLg2 selfhost と NEPLg3 bootstrap compiler の関係が読み手に混ざりやすい。
-- NEPLg3 仕様は現行 NEPLg2 の後方互換を保証するものではなく、今の selfhost 実装の正にはできない。
+`doc/neplg3/spec/memory.md` と `effects.md` は、GC なし、内部メモリ操作の Pure 畳み込み、Owned / Linear resource、Drop Elaboration、Region Inference を掲げている。ユーザー提示の「型安全・メモリ安全は必達」と整合する。
 
-## 必要な設計
+## 問題とリスク
 
-- NEPLg2 selfhost の正規実装は `stdlib/neplg2/` と明記し続ける。
-- NEPLg3 docs は「参考設計」と「将来仕様」を分けて管理する。
-- `stdlib/neplg3/` placeholder は、実装開始時に skip doctest のまま増やさず、stage/acceptance criteria を明記する。
+`stdlib/neplg3` の実装は placeholder である。`cli/main.nepl`、`core/ast.nepl`、`diagnostic.nepl`、`parser.nepl`、`span.nepl`、`typecheck.nepl` は skip doctest 付きの skeleton で、実際の compiler logic はまだない。NEPLg3 実装を現行 selfhost 進捗として扱ってはいけない。
+
+NEPLg3 spec には、古い表現や未確定 draft が残る。たとえば compiler spec の test requirement に `diag_id` 表現が残り、現行 NEPLg2 の diagnostic code redesign とは用語がずれている。将来実装時は typed diagnostic enum / stable string code へ合わせる必要がある。
+
+NEPLg3 の memory/effect 仕様は理想に近いが、現行 NEPLg2 selfhost はまだ S1/S2 が中心で、S3/S4 type/resource 実装は未成熟である。NEPLg3 仕様を NEPLg2 selfhost にそのまま前倒しするより、現行 ResourceIR と stdlib safety design を完成させる方が優先である。
 
 ## 進捗状況
 
-- `doc/neplg3/spec`: 設計文書あり。
-- `doc/neplg3/impl`: compiler structure あり。
-- `stdlib/neplg3`: placeholder。
-- NEPLg2 selfhost への直接実装: 対象外。
+| 領域 | 状態 | 判定 |
+|---|---|---|
+| `doc/neplg3/spec` | 広い仕様文書あり。 | 方針整理として有効。 |
+| `doc/neplg3/impl` | compiler structure と移行戦略あり。 | 設計文書段階。 |
+| `stdlib/neplg3/cli` | skeleton。 | 未実装。 |
+| `stdlib/neplg3/core/ast` | skeleton。 | 未実装。 |
+| `stdlib/neplg3/core/parser` | skeleton。 | 未実装。 |
+| `stdlib/neplg3/core/typecheck` | skeleton。 | 未実装。 |
+| `stdlib/neplg3/core/diagnostic/span` | skeleton。 | 未実装。 |
+
+## 推奨対応
+
+- NEPLg3 は現時点で仕様・設計文書として扱い、NEPLg2 selfhost の実装進捗と混同しない。
+- NEPLg3 diagnostic 用語を `diag_code` / typed diagnostic enum に更新する。
+- NEPLg3 memory/effect 仕様のうち、現行 NEPLg2 にすぐ役立つ内容は ResourceIR / stdlib safety / selfhost type model の設計レビューへ取り込む。
+- `stdlib/neplg3` skeleton を増やす前に、実装開始条件と CI target を明文化する。

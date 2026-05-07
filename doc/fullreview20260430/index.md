@@ -154,5 +154,7 @@
 - Rust compiler lexer/parser / loader/resolve / drop/effect / codegen/tests: 完了。
 - selfhost compiler: 完了。
 - stdlib: 完了。
+- NEPLg3 / quality / tools: 完了。
+- 横断レビュー: 未着手。
 - レビュー妥当性確認: 未着手。
 - 前回との差分確認: 未着手。今回レビュー完了後まで前回レビュー内容は読まない。

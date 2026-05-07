@@ -1,62 +1,51 @@
-# Tools Review: Node Test And Documentation Tooling
+# nodesrc review
 
-対象 commit: `f108cebd`
+確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
 
-## 対象
+## 確認対象
 
+- `nodesrc/cli.js`
 - `nodesrc/tests.js`
-- `nodesrc/run_test.js`
 - `nodesrc/run_doctest.js`
+- `nodesrc/run_test.js`
+- `nodesrc/parser.ts` / generated `nodesrc/parser.js`
+- `nodesrc/html_gen.ts` / generated `nodesrc/html_gen.js`
 - `nodesrc/run_source_policy_regressions.js`
-- `nodesrc/issues.js`
-- `nodesrc/parser.js` / `nodesrc/parser.ts`
-- `nodesrc/html_gen.js` / `nodesrc/html_gen.ts`
-
-## 概要
-
-`nodesrc` は `.n.md` doctest、stdlib doctest、tutorial doctest、tree tests、HTML generation、issue index、source policy regression をまとめる実質的な project quality layer である。CI の build job では source policy を `--warn-only` で実行し、downstream artifact と test jobs が止まらないようにしている。
-
-test runner は JSON artifact を出力し、今回 review でも Actions artifact の `summary` と `results` を根拠にした。これは local 実行結果ではなく、remote main の状態を確認する運用として妥当である。
-
-## Actions 根拠
-
-Actions run `25157230630` の artifact 集計:
-
-- `nmd-tests`: `1034 total / 812 passed / 185 failed / 37 errored`
-- `wasi-tests`: `1034 total / 812 passed / 185 failed / 37 errored`
-- `tutorials-tests`: `44 total / 21 passed / 23 failed / 0 errored`
-- `stdlib-tests`: `415 total / 232 passed / 173 failed / 10 errored`
-- `llvm-dual-tests`: `1945 total / 1515 passed / 393 failed / 37 errored`
-- `llvm-dual-stdlib`: `977 total / 607 passed / 360 failed / 10 errored`
-
-主要 failure code は `resource.owner.maybe_leak`, `resource.owner.leak`, `resource.cell.uninit`, `resource.cell.possibly_moved` で、runner そのものより compiler/static-check/stdlib contract 側の failure が中心である。
+- `nodesrc/test_*.js`
+- `nodesrc/static/**`
 
 ## 良い点
 
-- `nodesrc/tests.js` は runner mode (`wasm`, `llvm`, `all`) と tree suite を統合している。
-- `run_test.js` は stdout/stderr/return/runtime metadata を JSON 化している。
-- `issues.js` は issue file を正として index/check/new を持つ。
-- source policy runner は多数の regression guard を 1 箇所に集約している。
-- tutorial current-style guard が古い raw memory / unwrap 例の再導入を防いでいる。
+`nodesrc` は NEPLg2 の実運用を支える thin tooling layer として、doctest、HTML generation、source policy、issue tooling、playground editor snapshot、Discord report をまとめている。特に `nodesrc/issues.js` による issue index 生成と `nodesrc/cli.js --discord` は agent 開発ルールに合っている。
 
-## 問題
+`parser.ts` / `html_gen.ts` は TypeScript source を持ち、CI の bootstrap action で `tsc -p nodesrc/tsconfig.json` が実行される。過去の generated artifact drift は `test_doctest_diag_code_metadata.js` / `test_doctest_exit_code_metadata.js` で固定されている。
 
-- `tests.js` は約 58KB で、scan / scheduling / worker / summary / tree integration が集中している。
-- CI source policy が `--warn-only` なので、policy drift は downstream を止めない。これは artifact 確保には有効だが、方針違反を放置しやすい。
-- `.n.md` の運用はまだ stdout report / exit code policy へ完全移行中で、`ISS-20260429T102425370Z...` が open。
-- dual backend の failure は compile/static-check failure と runtime mismatch が混ざる。
+`run_source_policy_regressions.js` は、多数の source policy test を一括実行する入口になっている。ResourceIR、stdlib unsafe unwrap、string boundary、selfhost enum/match、diagnostic code-first、playground editor diagnostic contract など、通常の runtime test では検出しにくい設計退行を監視している。
 
-## 必要な設計
+`tests.js` と `run_test.js` は runner metadata、timing、timeout、WASI/WASIX fallback、LLVM dual backend に対応しており、今後 `.n.md` manifest を Rust/selfhost 共通化する土台として使える。
 
-- `tests.js` は scanner、scheduler、summary writer、tree runner adapter に分割する。
-- source policy は CI では warn-only 継続でも、merge readiness では strict gate を別 job で要求する。
-- `.n.md` は stdout assertion report と exit code を正規 contract にし、selfhost runner と Rust runner で共有する。
-- artifact JSON の failure classification helper を公式化し、review/triage が手作業の one-off script に依存しないようにする。
+## 問題とリスク
+
+`run_source_policy_regressions.js` は CI で `--warn-only` として呼ばれる。これは downstream CI を止めないための運用だが、policy failure を green と同じ扱いにしてはいけない。review / issue / Discord report で warning を追跡する運用を続ける必要がある。
+
+`tests.js` と `run_doctest.js` の expectation logic はまだ完全な単一 module ではない。`shared_nmd_test_plan.md` の通り、Rust/selfhost 共通 runner を作る前に `DoctestCase` schema と expectation application を共通化する必要がある。
+
+`nodesrc/cli.js` は多機能で、HTML generation、playground editor tests、Discord、search、doctest などの入口を持つ。今後も機能追加を続けるなら command dispatcher と mode-specific module を明確に分けないと肥大化する。
 
 ## 進捗状況
 
-- doctest runner: 実用中。
-- issue tooling: 実用中。
-- source policy runner: 実用中だが CI では warn-only。
-- `.n.md` 共通運用: 設計中。
-- runner 分割: 未着手。
+| 領域 | 状態 | 判定 |
+|---|---|---|
+| `nodesrc/cli.js` | docs/test/playground/discord の入口。 | 有用だが肥大化注意。 |
+| `nodesrc/tests.js` | aggregate doctest runner。 | 良い。manifest schema 共通化が次。 |
+| `nodesrc/run_doctest.js` | focused runner。 | 良い。expectation 共通化が次。 |
+| `nodesrc/run_test.js` | WASM/WASI/WASIX/LLVM runner。 | 良い。selfhost backend 追加余地あり。 |
+| `parser.ts/js` | n.md parser。 | drift regression あり。 |
+| `html_gen.ts/js` | doc/html generator。 | nm/htmlgen stdlib と役割が重なるため境界維持が必要。 |
+| source policy | 多数の設計回帰を検出。 | warning 運用の追跡が必須。 |
+
+## 推奨対応
+
+- `DoctestCase` schema と expectation logic を共通 module として切り出す。
+- `run_source_policy_regressions.js --warn-only` の結果を Actions summary と issue 運用で確実に拾う。
+- `cli.js` は新 mode 追加時に mode module へ分離し、top-level dispatcher の肥大化を避ける。
