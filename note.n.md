@@ -34499,3 +34499,29 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 Vec storage module split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/vec/storage.nepl` を責務別 submodule へ分割した。
+- `storage.nepl` は `storage/view`、`storage/alloc`、`storage/cleanup`、`storage/fill` の public `@merge` re-export だけを持つ facade にした。
+- `storage/view.nepl` は raw-free の `vec_empty` / `vec_storage_mem_ptr` を所有する。
+- `storage/alloc.nepl` は `vec_alloc_empty` / `new` / `with_capacity` と direct `alloc_ptr` を所有する。
+- `storage/cleanup.nepl` は `vec_free_storage` と direct `dealloc_raw` を所有する。
+- `storage/fill.nepl` は `filled` と direct `alloc_ptr` / `store` による cell initialization を所有する。
+- `nepl-core/src/loader.rs` の exact raw-memory boundary を root `alloc/collections/vec/storage.nepl` から `storage/alloc.nepl` / `storage/cleanup.nepl` / `storage/fill.nepl` へ移し、storage root / view には capability を付けない設計にした。
+- `nepl-core/tests/effects.rs` と `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` を更新し、raw-free storage module に raw wasm body が戻らないこと、raw capability が direct raw operation module にだけ付くことを固定した。
+- line count は `storage.nepl` 20、`storage/view.nepl` 26、`storage/alloc.nepl` 102、`storage/cleanup.nepl` 26、`storage/fill.nepl` 74。
+- [検証]:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary -- loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries`: passed
+  - `trunk build --release`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/storage.nepl -i stdlib/alloc/collections/vec/storage/view.nepl -i stdlib/alloc/collections/vec/storage/alloc.nepl -i stdlib/alloc/collections/vec/storage/cleanup.nepl -i stdlib/alloc/collections/vec/storage/fill.nepl --no-tree -o tmp/vec-storage-module-split-focused.json -j 1 --dist web/dist`: total=3, passed=3
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/storage.nepl -i stdlib/alloc/collections/vec/storage/view.nepl -i stdlib/alloc/collections/vec/storage/alloc.nepl -i stdlib/alloc/collections/vec/storage/cleanup.nepl -i stdlib/alloc/collections/vec/storage/fill.nepl -i stdlib/tests/vec.n.md -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-storage-module-split-suite.json -j 1 --dist web/dist`: total=12, passed=12
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

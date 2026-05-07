@@ -1,0 +1,29 @@
+//: # vec/storage/cleanup
+//: `Vec` backing storage cleanup
+//:
+//: ### [目的/もくてき]
+//: - storage state に[応/おう]じた backing buffer [解放/かいほう]だけを[所有/しょゆう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は direct `dealloc_raw` を[使/つか]うため exact raw-memory boundary です。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "../types" as *
+
+//: ## vec_free_storage
+//: storage state に[応/おう]じて backing buffer を[解放/かいほう]する
+//:
+//: ### [目的/もくてき]
+//: - empty storage は何もせず、owned storage だけを `dealloc_raw` へ[渡/わた]します。
+//:
+//: ### [注意/ちゅうい]
+//: - non-Copy 要素の drop traversal は collection cleanup issue の対象として分けます。
+fn vec_free_storage <.T> <(VecStorageState,MemPtr<.T>,i32)->()> (storage, data, cap):
+    match storage:
+        VecStorageState::Empty:
+            ()
+        VecStorageState::Owned:
+            dealloc_raw mem_ptr_addr data mul cap size_of<.T>

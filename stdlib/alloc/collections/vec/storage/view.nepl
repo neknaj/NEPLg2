@@ -1,0 +1,30 @@
+//: # vec/storage/view
+//: `Vec` storage state の raw-free view helper
+//:
+//: ### [目的/もくてき]
+//: - allocation を[持/も]たない empty storage と typed pointer view の[変換/へんかん]を[所有/しょゆう]します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "../types" as *
+
+//: ## vec_empty
+//: allocation を[持/も]たない[空/から]の `Vec` を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - OOM fallback など追加 allocation を行えない場面でも、null pointer ではなく `VecStorageState::Empty` で空 storage を[表/あらわ]します。
+fn vec_empty <.T> <()->Vec<.T>> ():
+    Vec<.T> 0 0 VecStorageState::Empty mem_ptr_wrap 0
+
+//: ## vec_storage_mem_ptr
+//: storage state を raw pointer view へ[変換/へんかん]する
+//:
+//: ### [目的/もくてき]
+//: - `VecStorageState::Empty` は owner state としては null pointer を[持/も]ちませんが、legacy raw pointer observer では 0 address view を[返/かえ]します。
+fn vec_storage_mem_ptr <.T> <(VecStorageState,MemPtr<.T>)->MemPtr<.T>> (storage, data):
+    match storage:
+        VecStorageState::Empty:
+            mem_ptr_wrap 0
+        VecStorageState::Owned:
+            data

@@ -9,6 +9,10 @@ const relPaths = [
     'stdlib/alloc/collections/vec.nepl',
     'stdlib/alloc/collections/vec/types.nepl',
     'stdlib/alloc/collections/vec/storage.nepl',
+    'stdlib/alloc/collections/vec/storage/view.nepl',
+    'stdlib/alloc/collections/vec/storage/alloc.nepl',
+    'stdlib/alloc/collections/vec/storage/cleanup.nepl',
+    'stdlib/alloc/collections/vec/storage/fill.nepl',
     'stdlib/alloc/collections/vec/access.nepl',
     'stdlib/alloc/collections/vec/raw.nepl',
     'stdlib/alloc/collections/vec/raw/element.nepl',
@@ -80,7 +84,12 @@ for (const [relPath, code] of codeByPath) {
 
 const vecRootCode = codeByPath.get('stdlib/alloc/collections/vec.nepl');
 const vecTypesCode = codeByPath.get('stdlib/alloc/collections/vec/types.nepl');
-const vecStorageCode = codeByPath.get('stdlib/alloc/collections/vec/storage.nepl');
+const vecStorageRootCode = codeByPath.get('stdlib/alloc/collections/vec/storage.nepl');
+const vecStorageViewCode = codeByPath.get('stdlib/alloc/collections/vec/storage/view.nepl');
+const vecStorageAllocCode = codeByPath.get('stdlib/alloc/collections/vec/storage/alloc.nepl');
+const vecStorageCleanupCode = codeByPath.get('stdlib/alloc/collections/vec/storage/cleanup.nepl');
+const vecStorageFillCode = codeByPath.get('stdlib/alloc/collections/vec/storage/fill.nepl');
+const vecStorageCode = [vecStorageRootCode, vecStorageViewCode, vecStorageAllocCode, vecStorageCleanupCode, vecStorageFillCode].join('\n');
 const vecAccessCode = codeByPath.get('stdlib/alloc/collections/vec/access.nepl');
 const vecRawRootCode = codeByPath.get('stdlib/alloc/collections/vec/raw.nepl');
 const vecRawElementCode = codeByPath.get('stdlib/alloc/collections/vec/raw/element.nepl');
@@ -143,6 +152,18 @@ for (const name of ['VecStorageState', 'Vec', 'VecDataLen', 'VecPop', 'VecPartit
 for (const name of ['vec_empty', 'vec_alloc_empty', 'vec_storage_mem_ptr', 'vec_free_storage', 'new', 'with_capacity', 'filled']) {
     assert.match(vecStorageCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage.nepl must own ${name}`);
 }
+for (const name of ['view', 'alloc', 'cleanup', 'fill']) {
+    assert.match(vecStorageRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/storage\\/${name}"\\s+as\\s+@merge`), `vec/storage.nepl must merge re-export storage/${name}.nepl`);
+}
+assert.doesNotMatch(vecStorageRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/storage.nepl must be a pure facade without implementation bodies');
+for (const name of ['vec_empty', 'vec_storage_mem_ptr']) {
+    assert.match(vecStorageViewCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/view.nepl must own ${name}`);
+}
+for (const name of ['vec_alloc_empty', 'new', 'with_capacity']) {
+    assert.match(vecStorageAllocCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/alloc.nepl must own ${name}`);
+}
+assert.match(vecStorageCleanupCode, /\bfn\s+vec_free_storage\b/, 'vec/storage/cleanup.nepl must own vec_free_storage');
+assert.match(vecStorageFillCode, /\bfn\s+filled\b/, 'vec/storage/fill.nepl must own filled');
 for (const name of ['len', 'cap', 'data_ptr', 'data_mem_ptr', 'data_len', 'is_empty']) {
     assert.match(vecAccessCode, new RegExp(`fn\\s+${name}\\b`), `vec/access.nepl must own ${name}`);
 }
@@ -207,6 +228,8 @@ for (const name of ['clear', 'free']) {
 assert.match(vecCode, /enum\s+VecStorageState:[\s\S]*Empty[\s\S]*Owned/, 'Vec storage owner state must be represented by an enum');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec\.nepl"\]/, 'Vec root facade must not receive raw-memory boundary capability');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"access\.nepl"\]/, 'Vec access module must not receive raw-memory boundary capability because it has no direct raw intrinsic');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"storage\.nepl"\]/, 'Vec storage facade must not receive raw-memory boundary capability');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"storage",\s*"view\.nepl"\]/, 'Vec storage view must not receive raw-memory boundary capability because it has no direct raw intrinsic');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"mutation\.nepl"\]/, 'Vec mutation facade must not receive raw-memory boundary capability');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"mutation",\s*"cleanup\.nepl"\]/, 'Vec mutation cleanup must not receive raw-memory boundary capability because it has no direct raw intrinsic');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"mutation",\s*"pop\.nepl"\]/, 'Vec mutation pop must not receive raw-memory boundary capability because it has no direct raw intrinsic');
@@ -227,7 +250,9 @@ assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"types\
 for (const relPath of [
     /&\["alloc",\s*"collections",\s*"vec",\s*"mutation",\s*"push\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"raw",\s*"element\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"storage\.nepl"\]/,
+    /&\["alloc",\s*"collections",\s*"vec",\s*"storage",\s*"alloc\.nepl"\]/,
+    /&\["alloc",\s*"collections",\s*"vec",\s*"storage",\s*"cleanup\.nepl"\]/,
+    /&\["alloc",\s*"collections",\s*"vec",\s*"storage",\s*"fill\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"common\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge\.nepl"\]/,
 ]) {
