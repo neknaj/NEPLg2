@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T14:43:34.697Z",
+  "generated_at": "2026-05-07T14:47:39.101Z",
   "counts": {
-    "total": 592,
-    "open": 11,
+    "total": 594,
+    "open": 13,
     "resolved": 581,
     "by_area": {
       "core": {
-        "total": 299,
-        "open": 4,
+        "total": 301,
+        "open": 6,
         "resolved": 295
       },
       "stdlib": {
@@ -155,6 +155,21 @@
       "file": "items/ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF.md"
     },
     {
+      "id": "ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C",
+      "title": "Public monomorphize API panics on unresolved trait calls",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/monomorphize.rs, nepl-core/src/compiler.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -228,6 +243,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587",
+      "title": "Rust parser and backend codegen lack responsibility split policy",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/parser.rs, nepl-core/src/codegen_wasm.rs, nepl-core/src/codegen_llvm.rs, nepl-core/src/monomorphize.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
