@@ -1,0 +1,80 @@
+//: # sha256/digest
+//: SHA-256 compression state から digest byte 列を作る
+//:
+//: ### [目的/もくてき]
+//: - final state の 8 word を big-endian の 32 byte `Vec<i32>` へ変換します。
+//: - output allocation と byte append を compression から分離します。
+
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "alloc/hash/sha256/types" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+
+//: sha256_push_byte: digest output に 1 byte を[追加/ついか]する
+//:
+//: [実装/じっそう]:
+//: - `byte` の lower 8 bit を push し、[確保/かくほ][失敗/しっぱい]は `StdErrorKind::OutOfMemory` として[返/かえ]します。
+fn sha256_push_byte <(Vec<i32>,i32)*>Result<Vec<i32>, StdErrorKind>> (out, byte):
+    push<i32> out and byte 255
+
+//: sha256_push_word_be: 32-bit word を big-endian byte として digest output に[追加/ついか]する
+fn sha256_push_word_be <(Vec<i32>,i32)*>Result<Vec<i32>, StdErrorKind>> (out, word):
+    let b0 <i32> and shr_u word 24 255
+    let b1 <i32> and shr_u word 16 255
+    let b2 <i32> and shr_u word 8 255
+    let b3 <i32> and word 255
+    match sha256_push_byte out b0:
+        Result::Err e:
+            Result<Vec<i32>, StdErrorKind>::Err e
+        Result::Ok out1:
+            match sha256_push_byte out1 b1:
+                Result::Err e:
+                    Result<Vec<i32>, StdErrorKind>::Err e
+                Result::Ok out2:
+                    match sha256_push_byte out2 b2:
+                        Result::Err e:
+                            Result<Vec<i32>, StdErrorKind>::Err e
+                        Result::Ok out3:
+                            sha256_push_byte out3 b3
+
+//: sha256_state_to_digest: final state を 32 byte digest へ[変換/へんかん]する
+//:
+//: [実装/じっそう]:
+//: - `h0`..`h7` を big-endian で[連結/れんけつ]します。
+fn sha256_state_to_digest <(Sha256State)*>Result<Vec<i32>, StdErrorKind>> (state):
+    match with_capacity<i32> 32:
+        Result::Err e:
+            Result<Vec<i32>, StdErrorKind>::Err e
+        Result::Ok out0:
+            match sha256_push_word_be out0 field::get state "h0":
+                Result::Err e:
+                    Result<Vec<i32>, StdErrorKind>::Err e
+                Result::Ok out1:
+                    match sha256_push_word_be out1 field::get state "h1":
+                        Result::Err e:
+                            Result<Vec<i32>, StdErrorKind>::Err e
+                        Result::Ok out2:
+                            match sha256_push_word_be out2 field::get state "h2":
+                                Result::Err e:
+                                    Result<Vec<i32>, StdErrorKind>::Err e
+                                Result::Ok out3:
+                                    match sha256_push_word_be out3 field::get state "h3":
+                                        Result::Err e:
+                                            Result<Vec<i32>, StdErrorKind>::Err e
+                                        Result::Ok out4:
+                                            match sha256_push_word_be out4 field::get state "h4":
+                                                Result::Err e:
+                                                    Result<Vec<i32>, StdErrorKind>::Err e
+                                                Result::Ok out5:
+                                                    match sha256_push_word_be out5 field::get state "h5":
+                                                        Result::Err e:
+                                                            Result<Vec<i32>, StdErrorKind>::Err e
+                                                        Result::Ok out6:
+                                                            match sha256_push_word_be out6 field::get state "h6":
+                                                                Result::Err e:
+                                                                    Result<Vec<i32>, StdErrorKind>::Err e
+                                                                Result::Ok out7:
+                                                                    sha256_push_word_be out7 field::get state "h7"

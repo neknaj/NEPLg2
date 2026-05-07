@@ -1,0 +1,63 @@
+//: # sha256/api
+//: SHA-256 incremental public API
+//:
+//: ### [目的/もくてき]
+//: - `new_sha256` / `sha256_update` / `sha256_finalize` を所有します。
+//: - block compression と digest output は専用 module に委譲し、public API の所有権契約を読みやすくします。
+
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "alloc/hash/sha256/compress" as *
+#import "alloc/hash/sha256/digest" as *
+#import "alloc/hash/sha256/padding" as *
+#import "alloc/hash/sha256/types" as *
+#import "core/math" as *
+#import "core/result" as *
+
+//: new_sha256: [空/から]の SHA-256 state を[作/つく]る
+//:
+//: [実装/じっそう]:
+//: - 入力 byte buffer として empty `Vec<i32>` を[確保/かくほ]します。
+fn new_sha256 <()*>Result<Sha256, StdErrorKind>> ():
+    match new<i32>:
+        Result::Err e:
+            Result<Sha256, StdErrorKind>::Err e
+        Result::Ok buf:
+            Result<Sha256, StdErrorKind>::Ok Sha256 buf
+
+//: sha256_update: state に byte を 1 [個/こ][追加/ついか]する
+//:
+//: [実装/じっそう]:
+//: - 入力を 0..255 に[正規化/せいきか]し、内部 buffer へ[追加/ついか]します。
+//:
+//: [注意/ちゅうい]:
+//: - 返された state を[使/つか]って[次/つぎ]の update / finalize を[呼/よ]んでください。
+fn sha256_update <(Sha256, i32)*>Result<Sha256, StdErrorKind>> (ctx, byte):
+    match push<i32> ctx.buffer and byte 255:
+        Result::Err e:
+            Result<Sha256, StdErrorKind>::Err e
+        Result::Ok new_vec:
+            Result<Sha256, StdErrorKind>::Ok Sha256 new_vec
+
+//: sha256_finalize: 32 byte SHA-256 digest を[返/かえ]す
+//:
+//: [実装/じっそう]:
+//: - 入力 buffer を borrow して padding / compression を[行/おこな]い、digest を[作成/さくせい]します。
+//: - digest 作成後、state が[保持/ほじ]していた入力 buffer を[解放/かいほう]します。
+fn sha256_finalize <(Sha256)*>Result<Vec<i32>, StdErrorKind>> (ctx):
+    let buf <Vec<i32>> ctx.buffer
+    let msg_len <i32> len<i32> &buf
+    let total_len <i32> sha256_total_len msg_len
+    match sha256_process_blocks &buf msg_len total_len 0 sha256_initial_state:
+        Result::Err e:
+            free<i32> buf
+            Result<Vec<i32>, StdErrorKind>::Err e
+        Result::Ok final_state:
+            match sha256_state_to_digest final_state:
+                Result::Err e:
+                    free<i32> buf
+                    Result<Vec<i32>, StdErrorKind>::Err e
+                Result::Ok digest:
+                    free<i32> buf
+                    Result<Vec<i32>, StdErrorKind>::Ok digest

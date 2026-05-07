@@ -1,0 +1,124 @@
+//: # sha256/padding
+//: SHA-256 padding と block word 読み取り
+//:
+//: ### [目的/もくてき]
+//: - 入力 buffer を変更せず、padding 後の仮想 byte 列を index から読めるようにします。
+//: - message schedule の先頭 16 word を作るための big-endian word 読み取りを所有します。
+
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "core/cast" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+//: sha256_total_len: padding [後/ご]の byte [数/すう]を[返/かえ]す
+//:
+//: [実装/じっそう]:
+//: - 入力長 + `0x80` + 64-bit length field が 64 byte block 境界に[乗/の]るように[切/き]り[上/あ]げます。
+fn sha256_total_len <(i32)->i32> (msg_len):
+    let base <i32> add msg_len 9
+    let rem <i32> rem_u base 64
+    if:
+        eq rem 0
+        then:
+            base
+        else:
+            add base sub 64 rem
+
+//: sha256_length_shift: 64-bit length field の byte offset から shift 量を[返/かえ]す
+//:
+//: [実装/じっそう]:
+//: - SHA-256 の length field は big-endian なので offset 0 が 56 bit shift です。
+fn sha256_length_shift <(i32)->Result<i64, StdErrorKind>> (offset):
+    match offset:
+        0:
+            Result<i64, StdErrorKind>::Ok <i64> cast 56
+        1:
+            Result<i64, StdErrorKind>::Ok <i64> cast 48
+        2:
+            Result<i64, StdErrorKind>::Ok <i64> cast 40
+        3:
+            Result<i64, StdErrorKind>::Ok <i64> cast 32
+        4:
+            Result<i64, StdErrorKind>::Ok <i64> cast 24
+        5:
+            Result<i64, StdErrorKind>::Ok <i64> cast 16
+        6:
+            Result<i64, StdErrorKind>::Ok <i64> cast 8
+        7:
+            Result<i64, StdErrorKind>::Ok <i64> cast 0
+        _:
+            Result<i64, StdErrorKind>::Err StdErrorKind::InvalidOperation
+
+//: sha256_length_byte: 入力 bit 長の big-endian byte を[返/かえ]す
+//:
+//: [実装/じっそう]:
+//: - `msg_len * 8` を i64 で[計算/けいさん]し、offset に[対応/たいおう]する 1 byte を[取/と]り[出/だ]します。
+fn sha256_length_byte <(i32,i32)->Result<i32, StdErrorKind>> (msg_len, offset):
+    match sha256_length_shift offset:
+        Result::Ok shift:
+            let n64 <i64> cast msg_len
+            let bits <i64> mul n64 <i64> cast 8
+            let shifted <i64> shr_u bits shift
+            let masked <i64> and shifted <i64> cast 255
+            Result<i32, StdErrorKind>::Ok cast masked
+        Result::Err e:
+            Result<i32, StdErrorKind>::Err e
+
+//: sha256_padded_byte_at: padding [後/ご]の仮想 byte を[返/かえ]す
+//:
+//: [実装/じっそう]:
+//: - 元の入力、`0x80`、zero padding、64-bit length field を index から[判定/はんてい]します。
+fn sha256_padded_byte_at <(&Vec<i32>,i32,i32,i32)->Result<i32, StdErrorKind>> (buf, msg_len, total_len, idx):
+    if:
+        lt idx msg_len
+        then:
+            match get<i32> buf idx:
+                Option::Some b:
+                    Result<i32, StdErrorKind>::Ok and b 255
+                Option::None:
+                    Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+        else:
+            if:
+                eq idx msg_len
+                then:
+                    Result<i32, StdErrorKind>::Ok 128
+                else:
+                    let length_start <i32> sub total_len 8
+                    if:
+                        lt idx length_start
+                        then:
+                            Result<i32, StdErrorKind>::Ok 0
+                        else:
+                            sha256_length_byte msg_len sub idx length_start
+
+//: sha256_word_at: padding [後/ご]の block から 32-bit big-endian word を[読/よ]む
+//:
+//: [実装/じっそう]:
+//: - 4 byte を big-endian に[結合/けつごう]して message schedule の先頭 16 word を[作/つく]ります。
+fn sha256_word_at <(&Vec<i32>,i32,i32,i32,i32)->Result<i32, StdErrorKind>> (buf, msg_len, total_len, block_start, j):
+    let base <i32> add block_start mul j 4
+    match sha256_padded_byte_at buf msg_len total_len base:
+        Result::Err e:
+            Result<i32, StdErrorKind>::Err e
+        Result::Ok b0:
+            match sha256_padded_byte_at buf msg_len total_len add base 1:
+                Result::Err e:
+                    Result<i32, StdErrorKind>::Err e
+                Result::Ok b1:
+                    match sha256_padded_byte_at buf msg_len total_len add base 2:
+                        Result::Err e:
+                            Result<i32, StdErrorKind>::Err e
+                        Result::Ok b2:
+                            match sha256_padded_byte_at buf msg_len total_len add base 3:
+                                Result::Err e:
+                                    Result<i32, StdErrorKind>::Err e
+                                Result::Ok b3:
+                                    let w0 <i32> shl b0 24
+                                    let w1 <i32> shl b1 16
+                                    let w2 <i32> shl b2 8
+                                    let hi <i32> or w0 w1
+                                    let lo <i32> or w2 b3
+                                    Result<i32, StdErrorKind>::Ok or hi lo

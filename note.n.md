@@ -1,3 +1,18 @@
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/hash/sha256 module split)
+
+- branch `refactor/sha256-module-split` で `stdlib/alloc/hash/sha256.nepl` を facade 化し、SHA-256 の state、round、padding、schedule、compression、digest、public API を submodule へ分離した。
+- `stdlib/alloc/hash/sha256/types.nepl` は `Sha256` / `Sha256State` / `sha256_initial_state` を所有する。
+- `stdlib/alloc/hash/sha256/round.nepl` は round constant と choose / majority / Sigma word 演算を所有する。
+- `stdlib/alloc/hash/sha256/padding.nepl` は padding 後の仮想 byte 列と big-endian word 読み取りを所有する。
+- `stdlib/alloc/hash/sha256/schedule.nepl` は message schedule 構築を所有し、`compress.nepl` は 64 round と block compression を所有する。
+- `stdlib/alloc/hash/sha256/digest.nepl` は final state から digest byte vector への変換を所有し、`api.nepl` は `new_sha256` / `sha256_update` / `sha256_finalize` だけを所有する。
+- root `sha256.nepl` は public re-export だけになった。line count は root 32、`types` 54、`round` 195、`padding` 124、`schedule` 81、`compress` 93、`digest` 80、`api` 63。
+- `nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js` を分割後の module 一覧へ追従し、root facade に実装本体が戻らないこと、全 submodule が unsafe unwrap / unreachable を使わないこと、`sha256_rounds_loop` の `Result::Err e` shadowing が戻らないことを固定した。
+- 検証は `node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js` と `node nodesrc/tests.js -i stdlib/tests/hash.n.md -i stdlib/alloc/hash/sha256.nepl -i stdlib/alloc/hash/sha256/types.nepl -i stdlib/alloc/hash/sha256/round.nepl -i stdlib/alloc/hash/sha256/padding.nepl -i stdlib/alloc/hash/sha256/schedule.nepl -i stdlib/alloc/hash/sha256/compress.nepl -i stdlib/alloc/hash/sha256/digest.nepl -i stdlib/alloc/hash/sha256/api.nepl --no-tree -o tmp/sha256-module-split-hash-suite.json -j 1 --dist web/dist` が通過した。
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`core/mem.nepl`、`std/fs/path.nepl` / `std/fs/raw.nepl`、selfhost compiler の巨大 file などは残る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T045028757Z KP prefix sum explicit range guards)
 
 - branch `fix/resource-prefixsum-scaled-range` で、KP prefix sum regression の `pref + index * 4` dynamic access に明示 range guard を追加した。

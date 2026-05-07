@@ -1,0 +1,54 @@
+//: # sha256/types
+//: SHA-256 の state 型と初期 hash value
+//:
+//: ### [目的/もくてき]
+//: - public incremental state と block compression state を定義します。
+//: - state 型を algorithm helper から分離し、facade / compression / digest の共通 contract として扱います。
+
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "core/traits/copy" as *
+
+//: Sha256: SHA-256 の incremental state
+//:
+//: [目的/もくてき]:
+//: - finalize までの入力 byte を[蓄積/ちくせき]します。
+//:
+//: [注意/ちゅうい]:
+//: - digest state ではなく入力 buffer です。これは現在の stdlib に mutable byte buffer がないための所有権上の設計です。
+//: - `sha256_finalize` 後に state は[再利用/さいりよう]できません。
+struct Sha256:
+    buffer <Vec<i32>>
+
+//: Sha256State: SHA-256 compression の 8 word state
+//:
+//: [目的/もくてき]:
+//: - `h0`..`h7` の 32-bit word をまとめ、block compression の入力と出力を[明示/めいじ]します。
+//:
+//: [注意/ちゅうい]:
+//: - すべて `i32` の word なので `Copy` として[扱/あつか]えます。
+struct Sha256State:
+    h0 <i32>
+    h1 <i32>
+    h2 <i32>
+    h3 <i32>
+    h4 <i32>
+    h5 <i32>
+    h6 <i32>
+    h7 <i32>
+
+impl Clone for Sha256State:
+    fn clone <(&Sha256State)->Sha256State> (self):
+        *self
+
+impl Copy for Sha256State:
+    fn copy_mark <(Sha256State)->Sha256State> (self):
+        self
+
+//: sha256_initial_state: SHA-256 の[初期/しょき] hash value を[返/かえ]す
+//:
+//: [実装/じっそう]:
+//: - SHA-256 [仕様/しよう]で[定/さだ]められた 8 word の IV を signed i32 literal として[保持/ほじ]します。
+fn sha256_initial_state <()->Sha256State> ():
+    Sha256State 1779033703 -1150833019 1013904242 -1521486534 1359893119 -1694144372 528734635 1541459225

@@ -1,0 +1,81 @@
+//: # sha256/schedule
+//: SHA-256 message schedule builder
+//:
+//: ### [目的/もくてき]
+//: - padded block から 64 word の message schedule を作ります。
+//: - padding byte 読み取りと compression round の間にある schedule recurrence を独立した責務として扱います。
+
+#indent 4
+
+#import "alloc/collections/vec" as *
+#import "alloc/hash/sha256/padding" as *
+#import "alloc/hash/sha256/round" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+//: sha256_schedule_word: 16 word 以降の schedule word を[計算/けいさん]する
+//:
+//: [実装/じっそう]:
+//: - `w[i-16] + sigma0(w[i-15]) + w[i-7] + sigma1(w[i-2])` を 32-bit word として[加算/かさん]します。
+fn sha256_schedule_word <(&Vec<i32>,i32)->Result<i32, StdErrorKind>> (w, i):
+    match get<i32> w sub i 2:
+        Option::None:
+            Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+        Option::Some w2:
+            match get<i32> w sub i 7:
+                Option::None:
+                    Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+                Option::Some w7:
+                    match get<i32> w sub i 15:
+                        Option::None:
+                            Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+                        Option::Some w15:
+                            match get<i32> w sub i 16:
+                                Option::None:
+                                    Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+                                Option::Some w16:
+                                    let s0 <i32> sha256_small_sigma0 w15
+                                    let s1 <i32> sha256_small_sigma1 w2
+                                    let a <i32> add w16 s0
+                                    let b <i32> add a w7
+                                    Result<i32, StdErrorKind>::Ok add b s1
+
+//: sha256_build_schedule_loop: 1 block の 64 word schedule を[作/つく]る
+//:
+//: [実装/じっそう]:
+//: - 先頭 16 word は padded block から[読/よ]み、残りは schedule recurrence で[追加/ついか]します。
+fn sha256_build_schedule_loop <(&Vec<i32>,i32,i32,i32,i32,Vec<i32>)*>Result<Vec<i32>, StdErrorKind>> (buf, msg_len, total_len, block_start, i, w):
+    if:
+        ge i 64
+        then:
+            Result<Vec<i32>, StdErrorKind>::Ok w
+        else:
+            let word_result <Result<i32, StdErrorKind>>:
+                if:
+                    lt i 16
+                    then:
+                        sha256_word_at buf msg_len total_len block_start i
+                    else:
+                        sha256_schedule_word &w i
+            match word_result:
+                Result::Err e:
+                    free<i32> w
+                    Result<Vec<i32>, StdErrorKind>::Err e
+                Result::Ok word:
+                    match push<i32> w word:
+                        Result::Err e:
+                            Result<Vec<i32>, StdErrorKind>::Err e
+                        Result::Ok next_w:
+                            sha256_build_schedule_loop buf msg_len total_len block_start add i 1 next_w
+
+//: sha256_build_schedule: 1 block の message schedule を[初期化/しょきか]する
+//:
+//: [注意/ちゅうい]:
+//: - [返/かえ]った `Vec<i32>` は block compression [後/ご]に `free` してください。
+fn sha256_build_schedule <(&Vec<i32>,i32,i32,i32)*>Result<Vec<i32>, StdErrorKind>> (buf, msg_len, total_len, block_start):
+    match with_capacity<i32> 64:
+        Result::Err e:
+            Result<Vec<i32>, StdErrorKind>::Err e
+        Result::Ok w0:
+            sha256_build_schedule_loop buf msg_len total_len block_start 0 w0
