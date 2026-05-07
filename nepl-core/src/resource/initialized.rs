@@ -472,7 +472,7 @@ impl ResourceCheckEngine<'_> {
                 if self.raw_address_view_source_is_known(cells, raw_aliases, source) {
                     self.copy_raw_address_alias_and_rekey_cells(cells, raw_aliases, source, target);
                 } else {
-                    raw_aliases.clear(target);
+                    raw_aliases.record_raw_address_view_origin(source, target);
                 }
                 pending_reallocs.clear_result(target);
                 variant_initializations.clear_result(target);

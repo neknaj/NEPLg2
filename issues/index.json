@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T01:32:34.259Z",
+  "generated_at": "2026-05-07T01:46:28.214Z",
   "counts": {
-    "total": 550,
+    "total": 551,
     "open": 11,
-    "resolved": 539,
+    "resolved": 540,
     "by_area": {
       "core": {
-        "total": 273,
+        "total": 274,
         "open": 4,
-        "resolved": 269
+        "resolved": 270
       },
       "stdlib": {
         "total": 157,
@@ -4213,6 +4213,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T011907998Z-RESOURCE-INITIALIZED-ALIAS-FLOW-EXCE-E65684BD.md"
+    },
+    {
+      "id": "ISS-20260507T014059777Z-RESOURCE-RAWADDRESSVIEW-GATE-DROPS-Z-FED82745",
+      "title": "Resource RawAddressView gate drops zero-offset first-store origins",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/initialized_alias_origin.rs, nepl-core/src/resource/initialized.rs, nepl-core/tests/resource_ir.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T014059777Z-RESOURCE-RAWADDRESSVIEW-GATE-DROPS-Z-FED82745.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

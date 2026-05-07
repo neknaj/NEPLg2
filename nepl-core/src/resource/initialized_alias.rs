@@ -74,6 +74,13 @@ impl RawCellAddressAliases {
         push_unique_place(&mut group, &self.value_origins.origin_for(target));
         self.union_group(&group);
     }
+    pub(super) fn record_raw_address_view_origin(&mut self, source: &Place, target: &Place) {
+        if source == target {
+            return;
+        }
+        self.clear(target);
+        self.value_origins.record_view_origin(source, target);
+    }
 
     pub(super) fn move_owner_aliases(&mut self, source: &Place, target: &Place) {
         if source == target {

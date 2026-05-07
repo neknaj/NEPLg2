@@ -33329,3 +33329,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/compiler/drop.n.md -i tests/compiler/drop_overwrite.n.md --no-tree --dist web/dist -o tmp/drop_agent1_after_initialized_alias_flow_split.json -j 1 --assert-io`: total=5, passed=5
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 RawAddressView first-store origin 修正
+
+- `ISS-20260507T014059777Z-RESOURCE-RAWADDRESSVIEW-GATE-DROPS-Z-FED82745` を追加して fixed にした。
+- `RawAddressView` gate 後、未証明 view を raw alias group に昇格しない方針は正しいが、`slot_ptr(base, 0)` のような exact zero-offset helper で stable origin まで消していた。
+- `RawValueOrigins` に non-owning view origin だけを保持する経路を追加し、通常 i32 arithmetic は raw alias group に入れず、raw memory operation が address として使った時だけ base/offset へ正規化できるようにした。
+- `tests/compiler/move_effect.n.md` は 101/110 まで改善し、対象だった #28/#29/#30 は解消した。残り 9 件は `field::get` fixture の import 形式が現在の qualified import 規則に合っていない別件。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_untracked_literal_helper_zero_offset_for_first_store -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `trunk build`: passed
+  - `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree --dist web/dist -o tmp/move_effect_agent1_after_raw_view_origin.json -j 1 --assert-io`: total=110, passed=101, failed=9
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -17,6 +17,11 @@ struct ValueOrigin {
 }
 
 impl RawValueOrigins {
+    pub(super) fn record_view_origin(&mut self, source: &Place, target: &Place) {
+        let origin = self.origin_for(source);
+        self.set(target, &origin);
+    }
+
     pub(super) fn copy_stable_origin(&mut self, source: &Place, target: &Place) {
         if !value_origin_copy_is_relevant(source, target) {
             return;
