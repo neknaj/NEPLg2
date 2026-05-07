@@ -1,3 +1,14 @@
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 string float format/parse split)
+
+- branch `refactor/string-float-format-parse-split` で `stdlib/alloc/string/float.nepl` を facade 化し、float formatting と parsing の実装本体を submodule へ分離した。
+- `stdlib/alloc/string/float/format.nepl` は `from_f64_result` / `from_f64` / `from_f32` と fixed-size output allocation を所有する。
+- `stdlib/alloc/string/float/parse.nepl` は `to_f64` / `to_f32` と符号・小数・指数 parsing を所有する。
+- `float.nepl` は `format` / `parse` の public re-export と facade doctest だけになった。
+- `from_f64_result` の raw byte store が `format.nepl` へ移ったため、`nepl-core/src/loader.rs` の exact raw-memory boundary に `alloc/string/float/format.nepl` を追加した。
+- source policy を更新し、float facade が実装本体を持たないこと、format/parse の責務境界、loader boundary を固定した。
+- line count は `float.nepl` 32、`float/format.nepl` 279、`float/parse.nepl` 284。
+- 検証は `trunk build`、string float/unsafe/facade/doc source policies、format/parse/facade/root/string suite doctest、`cargo fmt --check -p nepl-core`、`cargo check -p nepl-core --tests`、`issues.js check` が通過した。source policy regression は既知 open issue `ISS-20260507T032436743Z-RESOURCE-RAW-CELL-RANGE-MODULE-EXCEE-92BDC72B` の warning のみ継続。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 string integer format/parse split)
 
 - branch `refactor/string-integer-parse-format-split` で `stdlib/alloc/string/integer.nepl` を facade 化し、integer formatting と parsing の実装本体を submodule へ分離した。

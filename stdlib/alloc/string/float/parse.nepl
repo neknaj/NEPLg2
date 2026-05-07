@@ -1,0 +1,284 @@
+//: # string/float/parse
+//: string から f32 / f64 への変換
+//:
+//: [目的/もくてき]:
+//: - 10 進表記の str を f64 / f32 として解析します。
+//: - formatting 側の raw allocation boundary と分け、byte scanner と exponent 処理に責務を集中します。
+//:
+//: [注意/ちゅうい]:
+//: - 少なくとも 1 桁の digit が必要です。
+//: - nan / inf などの記号名は解析しません。
+
+#indent 4
+
+#import "core/result" as *
+#import "core/math" as *
+#import "core/cast" as *
+#import "core/char" as *
+#import "alloc/string/access" as *
+
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "alloc/string/float/parse" as *
+//: fn main <()*>i32> ():
+//:     let expected <f64> <f64> cast 125
+//:     let checks0 checks_new
+//:     let checks1 match to_f64 "1.25e2":
+//:         Result::Ok v:
+//:             checks_push checks0 assert_eq_i32 1 cast eq v expected
+//:         Result::Err _:
+//:             checks_push checks0 assert_eq_i32 1 0
+//:     let checks2 match to_f64 ".":
+//:         Result::Ok _:
+//:             checks_push checks1 assert_eq_i32 1 0
+//:         Result::Err _:
+//:             checks_push checks1 assert_eq_i32 1 1
+//:     checks_exit_code checks2
+//: ```
+
+//: to_f64: 10 進浮動小数文字列を f64 として解析する
+//:
+//: [目的/もくてき]:
+//: - `123`、`-1.5`、`1e3` のような文字列を `f64` に変換します。
+//:
+//: [実装/じっそう]:
+//: - 符号、整数部、小数部、指数部を byte 走査で読み取り、10 倍/10 分の 1 を繰り返して値を組み立てます。
+//:
+//: [注意/ちゅうい]:
+//: - 少なくとも 1 桁の digit が必要です。
+//: - `nan` / `inf` などの記号名は解析しません。
+//: - overflow / underflow は backend の `f64` 演算に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n + |exponent|)
+fn to_f64 <(str)->Result<f64,i32>> (s):
+    let n <i32> len s;
+    let mut i <i32> 0;
+    let mut ok <i32> 1;
+    let mut neg <i32> 0;
+    let mut int_part <f64> cast 0;
+    let mut frac_part <f64> cast 0;
+    let mut frac_scale <f64> cast 1;
+    let mut has_digit <i32> 0;
+    let ten <f64> cast 10;
+    let mut out_res <Result<f64,i32>> Result::Err<f64,i32> 1;
+
+    if:
+        eq n 0
+        then:
+            set ok 0;
+        else:
+            let first <i32> string_byte_at_unchecked s 0;
+            if:
+                eq first '-'
+                then:
+                    set neg 1;
+                    set i 1;
+                else:
+                    if:
+                        eq first '+'
+                        then:
+                            set i 1;
+                        else:
+                            ();
+
+            let mut done_int <i32> 0;
+            while and eq ok 1 eq done_int 0:
+                do:
+                    if:
+                        lt i n
+                        then:
+                            let b <i32> string_byte_at_unchecked s i;
+                            let d <i32> sub b '0';
+                            if:
+                                and ge d 0 le d 9
+                                then:
+                                    set has_digit 1;
+                                    let scaled <f64> mul int_part ten;
+                                    let dv <f64> cast d;
+                                    let next_int <f64> add scaled dv;
+                                    set int_part next_int;
+                                    set i add i 1;
+                                else:
+                                    set done_int 1;
+                        else:
+                            set done_int 1;
+
+            let mut has_dot <i32> 0;
+            if:
+                and eq ok 1 lt i n
+                then:
+                    let dot <i32> string_byte_at_unchecked s i;
+                    if:
+                        eq dot '.'
+                        then:
+                            set has_dot 1;
+                        else:
+                            ();
+                else:
+                    ();
+
+            if:
+                eq has_dot 1
+                then:
+                    set i add i 1;
+                    let mut done_frac <i32> 0;
+                    while and eq ok 1 eq done_frac 0:
+                        do:
+                            if:
+                                lt i n
+                                then:
+                                    let b <i32> string_byte_at_unchecked s i;
+                                    let d <i32> sub b '0';
+                                    if:
+                                        and ge d 0 le d 9
+                                        then:
+                                            set has_digit 1;
+                                            let next_scale <f64> div frac_scale ten;
+                                            set frac_scale next_scale;
+                                            let dv <f64> cast d;
+                                            let addv <f64> mul dv frac_scale;
+                                            let next_frac <f64> add frac_part addv;
+                                            set frac_part next_frac;
+                                            set i add i 1;
+                                        else:
+                                            set done_frac 1;
+                                else:
+                                    set done_frac 1;
+                else:
+                    ();
+
+            let mut exp_val <i32> 0;
+            let mut exp_neg <i32> 0;
+            let mut has_exp <i32> 0;
+            if:
+                and eq ok 1 lt i n
+                then:
+                    let eb <i32> string_byte_at_unchecked s i;
+                    if:
+                        or eq eb 'e' eq eb 'E'
+                        then:
+                            set has_exp 1;
+                        else:
+                            ();
+                else:
+                    ();
+
+            if:
+                eq has_exp 1
+                then:
+                    set i add i 1;
+                    if:
+                        lt i n
+                        then:
+                            let sb <i32> string_byte_at_unchecked s i;
+                            if:
+                                eq sb '-'
+                                then:
+                                    set exp_neg 1;
+                                    set i add i 1;
+                                else:
+                                    if:
+                                        eq sb '+'
+                                        then:
+                                            set i add i 1;
+                                        else:
+                                            ();
+                        else:
+                            set ok 0;
+
+                    let mut exp_digits <i32> 0;
+                    let mut done_exp <i32> 0;
+                    while and eq ok 1 eq done_exp 0:
+                        do:
+                            if:
+                                lt i n
+                                then:
+                                    let b <i32> string_byte_at_unchecked s i;
+                                    let d <i32> sub b '0';
+                                    if:
+                                        and ge d 0 le d 9
+                                        then:
+                                            set exp_digits 1;
+                                            set exp_val <i32> add <i32> mul exp_val 10 d;
+                                            set i add i 1;
+                                        else:
+                                            set done_exp 1;
+                                else:
+                                    set done_exp 1;
+                    if:
+                        eq exp_digits 0
+                        then:
+                            set ok 0;
+                        else:
+                            ();
+                else:
+                    ();
+
+            if:
+                ne i n
+                then:
+                    set ok 0;
+                else:
+                    ();
+
+            if:
+                eq has_digit 0
+                then:
+                    set ok 0;
+                else:
+                    ();
+
+            let mut out <f64> add int_part frac_part;
+            let mut k <i32> 0;
+            while and eq ok 1 lt k exp_val:
+                do:
+                    if:
+                        eq exp_neg 1
+                        then:
+                            let next_out <f64> div out ten;
+                            set out next_out;
+                        else:
+                            let next_out <f64> mul out ten;
+                            set out next_out;
+                    set k add k 1;
+
+            if:
+                eq ok 1
+                then:
+                    if:
+                        eq neg 1
+                        then:
+                            let zero <f64> cast 0;
+                            let signed_out <f64> sub zero out;
+                            set out_res Result::Ok<f64,i32> signed_out;
+                        else:
+                            set out_res Result::Ok<f64,i32> out;
+                else:
+                    set out_res Result::Err<f64,i32> 1;
+
+    out_res
+
+//: to_f32: 10 進浮動小数文字列を f32 として解析する
+//:
+//: [目的/もくてき]:
+//: - `to_f64` と同じ表記を受理し、結果を `f32` に縮小します。
+//:
+//: [実装/じっそう]:
+//: - `to_f64` による解析結果を `f32` に cast します。
+//:
+//: [注意/ちゅうい]:
+//: - `f32` への丸めや overflow は backend の cast に従います。
+//:
+//: [計算量/けいさんりょう]:
+//: - `to_f64` に従います。
+fn to_f32 <(str)->Result<f32,i32>> (s):
+    match to_f64 s:
+        Result::Ok v64:
+            Result::Ok<f32,i32> <f32> cast v64
+        Result::Err e:
+            Result::Err<f32,i32> e

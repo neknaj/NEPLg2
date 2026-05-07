@@ -33,6 +33,10 @@ const integerParseRelPath = 'stdlib/alloc/string/integer/parse.nepl';
 const integerParseSrc = fs.readFileSync(path.join(repoRoot, integerParseRelPath), 'utf8');
 const floatRelPath = 'stdlib/alloc/string/float.nepl';
 const floatSrc = fs.readFileSync(path.join(repoRoot, floatRelPath), 'utf8');
+const floatFormatRelPath = 'stdlib/alloc/string/float/format.nepl';
+const floatFormatSrc = fs.readFileSync(path.join(repoRoot, floatFormatRelPath), 'utf8');
+const floatParseRelPath = 'stdlib/alloc/string/float/parse.nepl';
+const floatParseSrc = fs.readFileSync(path.join(repoRoot, floatParseRelPath), 'utf8');
 const concatRelPath = 'stdlib/alloc/string/concat.nepl';
 const concatSrc = fs.readFileSync(path.join(repoRoot, concatRelPath), 'utf8');
 const builderExtRelPath = 'stdlib/alloc/string/builder_ext.nepl';
@@ -52,13 +56,15 @@ const integerCode = stripNeplComments(integerSrc);
 const integerFormatCode = stripNeplComments(integerFormatSrc);
 const integerParseCode = stripNeplComments(integerParseSrc);
 const floatCode = stripNeplComments(floatSrc);
+const floatFormatCode = stripNeplComments(floatFormatSrc);
+const floatParseCode = stripNeplComments(floatParseSrc);
 const concatCode = stripNeplComments(concatSrc);
 const builderExtCode = stripNeplComments(builderExtSrc);
 const findCode = stripNeplComments(findSrc);
 const fromU128Radix = integerFormatCode.match(/fn\s+from_u128_radix[\s\S]*?(?=\nfn\s+from_i128|\n\/\/ from_i128|$)/)?.[0] ?? '';
 const stringFinish = storageCode.match(/fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\nfn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
 const storageCodeWithoutStringFinish = stringFinish ? storageCode.replace(stringFinish, '') : storageCode;
-const fromF64Result = floatCode.match(/fn\s+from_f64_result[\s\S]*?(?=\nfn\s+from_f64\s+<|$)/)?.[0] ?? '';
+const fromF64Result = floatFormatCode.match(/fn\s+from_f64_result[\s\S]*?(?=\nfn\s+from_f64\s+<|$)/)?.[0] ?? '';
 
 const forbidden = [
     /\bunwrap\b/,
@@ -82,6 +88,8 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(integerFormatCode, pattern, `${integerFormatRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(integerParseCode, pattern, `${integerParseRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(floatCode, pattern, `${floatRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(floatFormatCode, pattern, `${floatFormatRelPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(floatParseCode, pattern, `${floatParseRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(concatCode, pattern, `${concatRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(builderExtCode, pattern, `${builderExtRelPath} must not use unsafe unwrap helpers in implementation code`);
     assert.doesNotMatch(findCode, pattern, `${findRelPath} must not use unsafe unwrap helpers in implementation code`);
@@ -99,11 +107,14 @@ assert.match(sliceCode, /fn\s+str_slice_result\s+/, 'alloc/string/slice must kee
 assert.match(builderCode, /fn\s+sb_build_result\s+/, 'StringBuilder build must have a Result-returning path');
 assertStringBuilderOwnerBoundary(builderCode);
 assert.match(code, /pub\s+#import\s+"\.\/string\/float"\s+as\s+\*/, 'alloc/string must re-export float conversion APIs');
-assert.match(floatCode, /fn\s+from_f64_result\s+/, 'from_f64 must have a Result-returning implementation path');
+assert.match(floatCode, /pub\s+#import\s+"\.\/float\/format"\s+as\s+\*/, 'alloc/string/float facade must re-export float formatting APIs');
+assert.match(floatCode, /pub\s+#import\s+"\.\/float\/parse"\s+as\s+\*/, 'alloc/string/float facade must re-export float parsing APIs');
+assert.doesNotMatch(floatCode, /\bfn\s+/, 'alloc/string/float facade must not own implementation function bodies');
+assert.match(floatFormatCode, /fn\s+from_f64_result\s+/, 'from_f64 must have a Result-returning implementation path');
 assert.notEqual(fromF64Result, '', 'from_f64_result body must be available for source policy checks');
 assert.doesNotMatch(fromF64Result, /\b(?:scratch_raw|alloc_ptr<u8>\s+6|string_from_mem_unchecked_result)\b/, 'from_f64_result must not route fractional digits through raw scratch string construction');
-assert.match(floatCode, /fn\s+from_f64_build_fixed_result[\s\S]*string_alloc_region[\s\S]*string_finish/, 'from_f64_result must build output through the fixed-size string storage boundary');
-assert.doesNotMatch(floatCode, /\bstring_builder_with_capacity_result\b/, 'from_f64_result must not route fixed-size output through growable StringBuilder owner chains');
+assert.match(floatFormatCode, /fn\s+from_f64_build_fixed_result[\s\S]*string_alloc_region[\s\S]*string_finish/, 'from_f64_result must build output through the fixed-size string storage boundary');
+assert.doesNotMatch(floatFormatCode, /\bstring_builder_with_capacity_result\b/, 'from_f64_result must not route fixed-size output through growable StringBuilder owner chains');
 assert.doesNotMatch(code, /fn\s+str_split_result\s+<\(str,str\)->Result<Vec<str>,str>>/, 'alloc/string must not expose owned Vec<str> split until element cleanup is typed');
 assert.doesNotMatch(code, /fn\s+str_split_ranges_result\s+<\(str,str\)->Result<Vec<i32>,str>>/, 'alloc/string must not expose allocation-bearing split range vectors while returned Vec owner summaries are incomplete');
 assert.match(code, /pub\s+#import\s+"\.\/string\/split"\s+as\s+\*/, 'alloc/string must re-export allocation-free split scanner APIs');

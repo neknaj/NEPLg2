@@ -25,6 +25,10 @@ const integerParseRelPath = 'stdlib/alloc/string/integer/parse.nepl';
 const integerParseSrc = fs.readFileSync(path.join(repoRoot, integerParseRelPath), 'utf8');
 const floatRelPath = 'stdlib/alloc/string/float.nepl';
 const floatSrc = fs.readFileSync(path.join(repoRoot, floatRelPath), 'utf8');
+const floatFormatRelPath = 'stdlib/alloc/string/float/format.nepl';
+const floatFormatSrc = fs.readFileSync(path.join(repoRoot, floatFormatRelPath), 'utf8');
+const floatParseRelPath = 'stdlib/alloc/string/float/parse.nepl';
+const floatParseSrc = fs.readFileSync(path.join(repoRoot, floatParseRelPath), 'utf8');
 const concatRelPath = 'stdlib/alloc/string/concat.nepl';
 const concatSrc = fs.readFileSync(path.join(repoRoot, concatRelPath), 'utf8');
 const builderExtRelPath = 'stdlib/alloc/string/builder_ext.nepl';
@@ -51,6 +55,8 @@ for (const [sourceRelPath, sourceText] of [
     [integerFormatRelPath, integerFormatSrc],
     [integerParseRelPath, integerParseSrc],
     [floatRelPath, floatSrc],
+    [floatFormatRelPath, floatFormatSrc],
+    [floatParseRelPath, floatParseSrc],
     [concatRelPath, concatSrc],
     [builderExtRelPath, builderExtSrc],
     [findRelPath, findSrc],
@@ -69,7 +75,7 @@ const requiredPhrases = [
     [sliceRelPath, sliceSrc, 'slice UTF-8 boundary contract', 'str_slice_result: UTF-8 \u5883\u754c\u306b\u63c3\u3063\u305f byte \u7bc4\u56f2\u3092\u65b0\u3057\u3044 str \u3068\u3057\u3066\u5207\u308a\u51fa\u3059'],
     [splitRelPath, splitSrc, 'split scanner byte-scan contract', 'str_split_next: allocation \u306a\u3057\u3067\u6b21\u306e split range \u3092\u8fd4\u3059'],
     [integerParseRelPath, integerParseSrc, 'i32 parse overflow contract', 'to_i32: 10 \u9032\u6587\u5b57\u5217\u3092 i32 \u3068\u3057\u3066\u89e3\u6790\u3059\u308b'],
-    [floatRelPath, floatSrc, 'f64 formatting contract', 'from_f64_result: f64 \u3092\u6709\u9650\u5024\u3060\u3051\u6587\u5b57\u5217\u5316\u3059\u308b'],
+    [floatFormatRelPath, floatFormatSrc, 'f64 formatting contract', 'from_f64_result: f64 \u3092\u6709\u9650\u5024\u3060\u3051\u6587\u5b57\u5217\u5316\u3059\u308b'],
     [findRelPath, findSrc, 'find byte-index contract', 'find: \u6700\u521d\u306b\u4e00\u81f4\u3057\u305f byte index \u3092\u8fd4\u3059'],
     [accessRelPath, accessSrc, 'UTF-8 byte-length note', 'UTF-8 \u306e byte \u9577\u3067\u3042\u308a'],
     [builderRelPath, builderSrc, 'allocation failure Result guidance', 'allocation failure \u3092\u6271\u3046\u51e6\u7406\u3067\u306f'],

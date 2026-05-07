@@ -1,0 +1,279 @@
+//: # string/float/format
+//: f32 / f64 から string への変換
+//:
+//: [目的/もくてき]:
+//: - f64 / f32 の固定小数 formatting をまとめます。
+//: - raw byte 書き込みを伴う fixed-size string allocation boundary を parse から分離します。
+//:
+//: [注意/ちゅうい]:
+//: - 現在の formatter は指数表記を生成せず、小数部は最大 6 桁です。
+//: - raw store は string_alloc_region で確保した出力 region の中だけに閉じます。
+
+#indent 4
+
+#import "core/result" as *
+#import "core/math" as *
+#import "core/cast" as *
+#import "core/mem" as *
+#import "core/char" as *
+#import "alloc/string/access" as *
+#import "alloc/string/integer/format" as *
+#import "alloc/string/storage" as *
+
+//: from_f64_fraction_trim_len: 固定 6 桁の小数 digit から出力桁数を決める
+//:
+//: [目的/もくてき]:
+//: - `from_f64_result` が生成した 6 個の小数 digit について、末尾の `0` を除いた有効桁数を返します。
+//:
+//: [実装/じっそう]:
+//: - 最後の digit から先頭へ向かって非 0 を探し、見つかった位置に応じた長さを返します。
+//: - すべて 0 の場合は小数点自体を出力しないため `0` を返します。
+//:
+//: [注意/ちゅうい]:
+//: - digit は `0..9` の範囲で渡される前提です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn from_f64_fraction_trim_len <(i32,i32,i32,i32,i32,i32)->i32> (d0, d1, d2, d3, d4, d5):
+    if:
+        ne d5 0
+        then:
+            6
+        else:
+            if:
+                ne d4 0
+                then:
+                    5
+                else:
+                    if:
+                        ne d3 0
+                        then:
+                            4
+                        else:
+                            if:
+                                ne d2 0
+                                then:
+                                    3
+                                else:
+                                    if:
+                                        ne d1 0
+                                        then:
+                                            2
+                                        else:
+                                            if:
+                                                ne d0 0
+                                                then:
+                                                    1
+                                                else:
+                                                    0
+
+//: from_f64_write_fraction_digits_result: 小数 digit を出力領域へ書き込む
+//:
+//: [目的/もくてき]:
+//: - `from_f64_build_fixed_result` が確保した文字列本文領域へ、trim 済みの小数 digit を書き込みます。
+//:
+//: [実装/じっそう]:
+//: - trim は 0..6 の閉じた集合として `match` で分岐します。
+//: - digit はすべて `0..9` の範囲で計算済みなので、ASCII 数字 byte を順に raw store します。
+//:
+//: [注意/ちゅうい]:
+//: - `base_raw + start` から少なくとも trim byte 書ける領域があることは呼び出し側が保証します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn from_f64_write_fraction_digits_result <(i32,i32,i32,i32,i32,i32,i32,i32,i32)->Result<(),str>> (base_raw, start, trim, d0, d1, d2, d3, d4, d5):
+    match trim:
+        0:
+            Result<(),str>::Ok ()
+        1:
+            store_u8 add base_raw start add '0' d0
+            Result<(),str>::Ok ()
+        2:
+            store_u8 add base_raw start add '0' d0
+            store_u8 add base_raw add start 1 add '0' d1
+            Result<(),str>::Ok ()
+        3:
+            store_u8 add base_raw start add '0' d0
+            store_u8 add base_raw add start 1 add '0' d1
+            store_u8 add base_raw add start 2 add '0' d2
+            Result<(),str>::Ok ()
+        4:
+            store_u8 add base_raw start add '0' d0
+            store_u8 add base_raw add start 1 add '0' d1
+            store_u8 add base_raw add start 2 add '0' d2
+            store_u8 add base_raw add start 3 add '0' d3
+            Result<(),str>::Ok ()
+        5:
+            store_u8 add base_raw start add '0' d0
+            store_u8 add base_raw add start 1 add '0' d1
+            store_u8 add base_raw add start 2 add '0' d2
+            store_u8 add base_raw add start 3 add '0' d3
+            store_u8 add base_raw add start 4 add '0' d4
+            Result<(),str>::Ok ()
+        6:
+            store_u8 add base_raw start add '0' d0
+            store_u8 add base_raw add start 1 add '0' d1
+            store_u8 add base_raw add start 2 add '0' d2
+            store_u8 add base_raw add start 3 add '0' d3
+            store_u8 add base_raw add start 4 add '0' d4
+            store_u8 add base_raw add start 5 add '0' d5
+            Result<(),str>::Ok ()
+        _:
+            Result<(),str>::Err "string.float invalid fraction trim"
+
+//: from_f64_build_fixed_result: 符号、整数部、小数部を 1 つの文字列へ組み立てる
+//:
+//: [目的/もくてき]:
+//: - `from_f64_result` で計算済みの各部品を、1 回だけ確保した `str` 領域へ書き込んで組み立てます。
+//:
+//: [実装/じっそう]:
+//: - 必要 byte 数を先に計算し、`string_alloc_region` で出力領域を確保します。
+//: - 符号、整数部、小数点、小数部を順に raw byte として書き、最後に `string_finish` で `str` として確定します。
+//:
+//: [注意/ちゅうい]:
+//: - fractional digit の一時領域も growable builder も作らず、所有権境界は出力 `RegionToken` 1 つに集約します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(len(int_s) + trim)
+fn from_f64_build_fixed_result <(bool,str,i32,i32,i32,i32,i32,i32,i32)->Result<str,str>> (neg, int_s, trim, d0, d1, d2, d3, d4, d5):
+    let sign_len <i32> if neg:
+        then 1
+        else 0
+    let frac_len <i32> if:
+        gt trim 0
+        then:
+            add 1 trim
+        else:
+            0
+    let total <i32> add add sign_len len int_s frac_len
+    match string_alloc_region total:
+        Result::Err e:
+            Result<str,str>::Err e
+        Result::Ok out_region:
+            let out_data <MemPtr<u8>> string_region_data_ptr &out_region
+            let out_raw <i32> mem_ptr_addr out_data
+            let mut pos <i32> 0
+            if:
+                neg
+                then:
+                    store_u8 out_raw '-'
+                    set pos 1
+                else:
+                    ()
+            let int_len <i32> len int_s
+            mem_copy add out_raw pos mem_ptr_addr string_data_ptr int_s int_len
+            set pos add pos int_len
+            if:
+                gt trim 0
+                then:
+                    store_u8 add out_raw pos '.'
+                    set pos add pos 1
+                else:
+                    ()
+            match from_f64_write_fraction_digits_result out_raw pos trim d0 d1 d2 d3 d4 d5:
+                Result::Err e:
+                    match dealloc_region<u8> out_region:
+                        Result::Ok _:
+                            ()
+                        Result::Err _free:
+                            ()
+                    Result<str,str>::Err e
+                Result::Ok _:
+                    Result<str,str>::Ok string_finish out_region total
+
+//: from_f64_result: f64 を有限値だけ文字列化する
+//:
+//: [目的/もくてき]:
+//: - `f64` を固定小数の表示用 `str` に変換します。
+//: - 失敗を呼び出し側で扱えるように `Result` で返します。
+//:
+//: [実装/じっそう]:
+//: - 整数部は `from_i64_radix` で 10 進文字列化します。
+//: - 小数部は局所 `i32` digit へ最大 6 桁だけ展開し、末尾の `0` を削ってから固定長の出力領域へ書き込みます。
+//:
+//: [注意/ちゅうい]:
+//: - `NaN` は `"nan"` を返します。
+//: - 現在は指数表記を生成せず、小数部は最大 6 桁です。
+//: - `from_f64` は失敗時に `"0"` fallback を返す互換 API です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 整数部の桁数を `d` として O(d)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let one <f64> <f64> cast 1
+//:     let quartered <f64> div <f64> cast 5 <f64> cast 4
+//:     let neg_half <f64> div <f64> cast -1 <f64> cast 2
+//:     let ok0 <bool> str_eq from_f64 one "1"
+//:     let ok1 <bool> str_eq from_f64 quartered "1.25"
+//:     let ok2 <bool> str_eq from_f64 neg_half "-0.5"
+//:     if and ok0 and ok1 ok2 1 0
+//: ```
+fn from_f64_result <(f64)->Result<str,i32>> (x):
+    if:
+        ne x x
+        then:
+            Result::Ok<str,i32> "nan"
+        else:
+            let neg <bool> lt x <f64> cast 0;
+            let absx <f64> if neg:
+                then sub <f64> cast 0 x
+                else x
+            let int_part <i64> cast absx;
+            let int_f <f64> cast int_part;
+            let mut frac <f64> sub absx int_f;
+            match from_i64_radix int_part 10:
+                Result::Err e:
+                    Result::Err<str,i32> e
+                Result::Ok int_s:
+                    set frac mul frac <f64> cast 10
+                    let d0 <i32> cast frac
+                    set frac sub frac <f64> cast d0
+                    set frac mul frac <f64> cast 10
+                    let d1 <i32> cast frac
+                    set frac sub frac <f64> cast d1
+                    set frac mul frac <f64> cast 10
+                    let d2 <i32> cast frac
+                    set frac sub frac <f64> cast d2
+                    set frac mul frac <f64> cast 10
+                    let d3 <i32> cast frac
+                    set frac sub frac <f64> cast d3
+                    set frac mul frac <f64> cast 10
+                    let d4 <i32> cast frac
+                    set frac sub frac <f64> cast d4
+                    set frac mul frac <f64> cast 10
+                    let d5 <i32> cast frac
+                    let trim <i32> from_f64_fraction_trim_len d0 d1 d2 d3 d4 d5
+                    match from_f64_build_fixed_result neg int_s trim d0 d1 d2 d3 d4 d5:
+                        Result::Ok out:
+                            Result::Ok<str,i32> out
+                        Result::Err _e:
+                            Result::Err<str,i32> 12
+
+fn from_f64 <(f64)->str> (x):
+    match from_f64_result x:
+        Result::Ok text:
+            text
+        Result::Err _e:
+            "0"
+
+//: from_f32: f32 を f64 共通経路で文字列化する
+//:
+//: [目的/もくてき]:
+//: - `f32` 値を表示用 `str` へ変換します。
+//:
+//: [実装/じっそう]:
+//: - `f32` を `f64` に拡張し、`from_f64` の formatting に統一します。
+//:
+//: [注意/ちゅうい]:
+//: - 小数桁数や fallback は `from_f64` と同じです。
+//:
+//: [計算量/けいさんりょう]:
+//: - `from_f64` に従います。
+fn from_f32 <(f32)->str> (x):
+    from_f64 <f64> cast x
