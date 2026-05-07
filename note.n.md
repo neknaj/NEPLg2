@@ -34613,3 +34613,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check HEAD`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 streamio scanner number int/float split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/std/streamio/scanner/number.nepl` から整数 parser と浮動小数点 parser を分離した。
+- `number.nepl` は `number/int` と `number/float` の public `@merge` re-export だけを持つ facade にした。
+- `number/int.nepl` は `scan_i32_impl` / `scan_u32_impl` / `scan_u64_impl` / `scan_i64_impl` を所有する。
+- `number/float.nepl` は `scan_f64_impl` / `scan_f32_impl` を所有する。
+- int/float module は raw buffer access を直接行わず、`stream_scanner_byte_at` と scanner state boundary 経由で token を読む設計を維持した。
+- `nodesrc/test_stdlib_streamio_scanner_boundary.js` と `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を更新し、number facade に implementation body が戻らないこと、int/float module の責務と line count を固定した。
+- line count は `number.nepl` 13、`number/int.nepl` 205、`number/float.nepl` 173。
+- [検証]:
+  - `node nodesrc/test_stdlib_streamio_scanner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/scanner/number.nepl -i stdlib/std/streamio/scanner/number/int.nepl -i stdlib/std/streamio/scanner/number/float.nepl -i stdlib/std/streamio/scanner.nepl -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-scanner-number-split-suite.json -j 1 --dist web/dist`: total=15, passed=15
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check HEAD`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

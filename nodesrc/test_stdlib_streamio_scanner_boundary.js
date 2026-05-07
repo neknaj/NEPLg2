@@ -9,11 +9,15 @@ const facadeRelPath = 'stdlib/std/streamio.nepl';
 const scannerRelPath = 'stdlib/std/streamio/scanner.nepl';
 const scannerCursorRelPath = 'stdlib/std/streamio/scanner/cursor.nepl';
 const scannerNumberRelPath = 'stdlib/std/streamio/scanner/number.nepl';
+const scannerNumberIntRelPath = 'stdlib/std/streamio/scanner/number/int.nepl';
+const scannerNumberFloatRelPath = 'stdlib/std/streamio/scanner/number/float.nepl';
 const scannerStateRelPath = 'stdlib/std/streamio/scanner/state.nepl';
 const facade = fs.readFileSync(path.join(repoRoot, facadeRelPath), 'utf8');
 const src = fs.readFileSync(path.join(repoRoot, scannerRelPath), 'utf8');
 const cursorSrc = fs.readFileSync(path.join(repoRoot, scannerCursorRelPath), 'utf8');
 const numberSrc = fs.readFileSync(path.join(repoRoot, scannerNumberRelPath), 'utf8');
+const numberIntSrc = fs.readFileSync(path.join(repoRoot, scannerNumberIntRelPath), 'utf8');
+const numberFloatSrc = fs.readFileSync(path.join(repoRoot, scannerNumberFloatRelPath), 'utf8');
 const stateSrc = fs.readFileSync(path.join(repoRoot, scannerStateRelPath), 'utf8');
 
 const code = src
@@ -32,11 +36,19 @@ const numberCode = numberSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const numberIntCode = numberIntSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const numberFloatCode = numberFloatSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
 const facadeCode = facade
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
-const scannerImplementationCode = `${cursorCode}\n${code}\n${numberCode}`;
+const scannerImplementationCode = `${cursorCode}\n${code}\n${numberCode}\n${numberIntCode}\n${numberFloatCode}`;
 
 assert.match(
     facadeCode,
@@ -116,6 +128,25 @@ for (const pattern of [
     /\bfn\s+scan_u32_impl\b/,
     /\bfn\s+scan_u64_impl\b/,
     /\bfn\s+scan_i64_impl\b/,
+]) {
+    assert.doesNotMatch(
+        code,
+        pattern,
+        'std/streamio/scanner.nepl must not keep scanner number parser implementation bodies',
+    );
+    assert.doesNotMatch(
+        numberCode,
+        pattern,
+        'std/streamio/scanner/number.nepl facade must not keep integer parser implementation bodies',
+    );
+    assert.match(
+        numberIntCode,
+        pattern,
+        'std/streamio/scanner/number/int.nepl must own integer parser implementation bodies',
+    );
+}
+
+for (const pattern of [
     /\bfn\s+scan_f64_impl\b/,
     /\bfn\s+scan_f32_impl\b/,
 ]) {
@@ -124,12 +155,28 @@ for (const pattern of [
         pattern,
         'std/streamio/scanner.nepl must not keep scanner number parser implementation bodies',
     );
-    assert.match(
+    assert.doesNotMatch(
         numberCode,
         pattern,
-        'std/streamio/scanner/number.nepl must own scanner number parser implementation bodies',
+        'std/streamio/scanner/number.nepl facade must not keep float parser implementation bodies',
+    );
+    assert.match(
+        numberFloatCode,
+        pattern,
+        'std/streamio/scanner/number/float.nepl must own float parser implementation bodies',
     );
 }
+
+assert.match(
+    numberCode,
+    /pub\s+#import\s+"\.\/number\/int"\s+as\s+@merge/,
+    'std/streamio/scanner/number.nepl must re-export integer parser implementation',
+);
+assert.match(
+    numberCode,
+    /pub\s+#import\s+"\.\/number\/float"\s+as\s+@merge/,
+    'std/streamio/scanner/number.nepl must re-export float parser implementation',
+);
 
 assert.match(
     stateCode,
