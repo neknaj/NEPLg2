@@ -409,3 +409,35 @@ fn main <()*>()> ():
         Result::Err _e:
             ()
 ```
+
+## helper が返した region_ptr は owner token にできない
+
+neplg2:test[compile_fail]
+diag_code: resource.owner.no_free_obligation
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn borrowed_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (token):
+    region_ptr token
+
+fn forge_region_from_region_ptr <(RegionToken<u8>)*>Result<(), str>> (token):
+    let p <MemPtr<u8>> borrowed_region_ptr &token
+    let forged <RegionToken<u8>> region_new p 1
+    dealloc_region forged
+
+fn main <()*>()> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok token:
+            match forge_region_from_region_ptr token:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+```

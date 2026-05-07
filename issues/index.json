@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T13:56:47.654Z",
+  "generated_at": "2026-05-07T14:24:51.696Z",
   "counts": {
-    "total": 589,
+    "total": 590,
     "open": 10,
-    "resolved": 579,
+    "resolved": 580,
     "by_area": {
       "core": {
-        "total": 296,
+        "total": 297,
         "open": 3,
-        "resolved": 293
+        "resolved": 294
       },
       "stdlib": {
         "total": 164,
@@ -4533,6 +4533,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T134613401Z-RESOURCE-OWNER-SUMMARY-IGNORES-NON-O-9A39F228.md"
+    },
+    {
+      "id": "ISS-20260507T141425548Z-RESOURCE-IR-TRANSPARENT-RETURN-LOSES-4FFB19AA",
+      "title": "Resource IR transparent return region_ptr non-owning view lacked regression coverage",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/lower_raw_address_return.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T141425548Z-RESOURCE-IR-TRANSPARENT-RETURN-LOSES-4FFB19AA.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

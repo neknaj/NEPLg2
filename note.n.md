@@ -34651,3 +34651,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check HEAD`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 Resource IR region_ptr helper owner regression
+
+- `ISS-20260507T141425548Z-RESOURCE-IR-TRANSPARENT-RETURN-LOSES-4FFB19AA` として、`region_ptr` helper return 経由の borrowed `MemPtr` を `region_new` で forged `RegionToken` にして `dealloc_region` する経路を確認した。
+- owner checker 単体では既に `NoFreeObligation` として拒否できていたが、full compiler gate では `region_ptr token` の reference projection coverage が HIR と Resource IR でずれ、`resource.lower.incomplete` が先に出る問題を確認した。
+- `coverage_hir_projection.rs` で `region_ptr` を reference address projection として扱い、`AddrOf` で実体 local に解決できる場合は追加 deref として数えないようにした。
+- `resource_ir.rs` に owner checker と full compiler gate の回帰テストを追加し、`tests/stdlib/memory_safety.n.md` に end-to-end compile_fail doctest を追加した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_helper -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-region-ptr-helper-forge.json -j 1 --dist web/dist`: total=16, passed=16
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

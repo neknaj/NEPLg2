@@ -119,13 +119,10 @@ pub(super) fn compiler_field_load_base_and_offset<'a>(
 }
 
 fn projects_reference_address(name: Option<&str>, args: &[HirExpr], types: &TypeCtx) -> bool {
-    matches!(name, Some("add" | "sub"))
-        && args.first().is_some_and(|arg| {
-            matches!(
-                types.get_ref(types.resolve_named_type_id(types.resolve_id(arg.ty))),
-                TypeKind::Reference(_, _)
-            )
-        })
+    matches!(name, Some("add" | "sub" | "region_ptr"))
+        && args
+            .first()
+            .is_some_and(|arg| expr_requires_reference_deref_for_projection(types, arg))
 }
 
 fn projects_reference_field(
@@ -170,4 +167,15 @@ fn callee_is_raw_load(callee: &FuncRef) -> bool {
         }
         FuncRef::Trait { .. } => false,
     }
+}
+
+fn expr_is_reference(types: &TypeCtx, ty: TypeId) -> bool {
+    matches!(
+        types.get_ref(types.resolve_named_type_id(types.resolve_id(ty))),
+        TypeKind::Reference(_, _)
+    )
+}
+
+fn expr_requires_reference_deref_for_projection(types: &TypeCtx, expr: &HirExpr) -> bool {
+    expr_is_reference(types, expr.ty) && !matches!(expr.kind, HirExprKind::AddrOf(_))
 }
