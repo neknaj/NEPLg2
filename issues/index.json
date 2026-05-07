@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T16:09:35.603Z",
+  "generated_at": "2026-05-07T16:13:17.137Z",
   "counts": {
-    "total": 604,
-    "open": 14,
+    "total": 605,
+    "open": 15,
     "resolved": 590,
     "by_area": {
       "core": {
@@ -25,6 +25,11 @@
         "total": 16,
         "open": 1,
         "resolved": 15
+      },
+      "tutorials": {
+        "total": 2,
+        "open": 1,
+        "resolved": 1
       },
       "examples": {
         "total": 17,
@@ -87,11 +92,6 @@
         "resolved": 5
       },
       "web": {
-        "total": 1,
-        "open": 0,
-        "resolved": 1
-      },
-      "tutorials": {
         "total": 1,
         "open": 0,
         "resolved": 1
@@ -233,6 +233,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153",
+      "title": "getting_started tutorial doctests fail on current main",
+      "area": "tutorials",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "tutorials/getting_started/15_move_and_borrow.n.md, tutorials/getting_started/17_imports_and_modules.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153.md"
     },
     {
       "id": "ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895",
