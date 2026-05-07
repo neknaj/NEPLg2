@@ -29,7 +29,9 @@ fn release_requirement_args(
         RawMemoryOp::Store => alloc::vec![(0, RawCellReleaseRequirementKind::Store)],
         RawMemoryOp::Dealloc => alloc::vec![(0, RawCellReleaseRequirementKind::Dealloc)],
         RawMemoryOp::Realloc => alloc::vec![(0, RawCellReleaseRequirementKind::Realloc)],
-        RawMemoryOp::Fill => alloc::vec![(0, RawCellReleaseRequirementKind::Fill)],
+        RawMemoryOp::FillBytes | RawMemoryOp::Fill => {
+            alloc::vec![(0, RawCellReleaseRequirementKind::Fill)]
+        }
         RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => alloc::vec![
             (0, RawCellReleaseRequirementKind::BulkDestination),
             (1, RawCellReleaseRequirementKind::BulkSource),

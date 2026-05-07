@@ -14,6 +14,7 @@ pub(super) fn should_count_raw_memory_call(
         | RawMemoryOp::Store
         | RawMemoryOp::Dealloc
         | RawMemoryOp::Realloc
+        | RawMemoryOp::FillBytes
         | RawMemoryOp::Fill
         | RawMemoryOp::BulkCopy
         | RawMemoryOp::BulkMove => args

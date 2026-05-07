@@ -2,6 +2,9 @@ use alloc::vec::Vec;
 
 use crate::types::{TypeCtx, TypeId};
 
+use super::cell_state_raw_range::{
+    merge_initialized_raw_byte_ranges, rekey_initialized_raw_byte_ranges, InitializedRawByteRange,
+};
 use super::model::{CellState, CellStateEntry, Place, PlaceProjection};
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, raw_memory_cell_place,
@@ -14,6 +17,7 @@ pub(super) struct CellTable {
     cells: Vec<CellStateEntry>,
     owned_raw_storage_roots: Vec<Place>,
     external_raw_storage_roots: Vec<Place>,
+    pub(super) initialized_raw_byte_ranges: Vec<InitializedRawByteRange>,
 }
 
 impl CellTable {
@@ -156,6 +160,7 @@ impl CellTable {
     pub(super) fn clear_raw_cells_under(&mut self, address: &Place) {
         self.cells
             .retain(|entry| raw_cell_suffix_after_address(&entry.place, address).is_none());
+        self.clear_initialized_raw_byte_ranges_under(address);
     }
 
     pub(super) fn clear_raw_cells_overwritten_by_store(
@@ -194,6 +199,7 @@ impl CellTable {
         self.extend_entries(relocated);
         rekey_raw_storage_roots(&mut self.owned_raw_storage_roots, source, target);
         rekey_raw_storage_roots(&mut self.external_raw_storage_roots, source, target);
+        rekey_initialized_raw_byte_ranges(&mut self.initialized_raw_byte_ranges, source, target);
     }
 
     pub(super) fn live_non_copy_raw_cells_under(
@@ -249,6 +255,7 @@ impl CellTable {
                 push_unique_place(&mut out.external_raw_storage_roots, root);
             }
         }
+        out.initialized_raw_byte_ranges = merge_initialized_raw_byte_ranges(paths);
         for place in places {
             let mut states = paths.iter().map(|path| path.availability_state(&place));
             if let Some(mut merged) = states.next() {
@@ -428,7 +435,7 @@ fn raw_cell_belongs_to_address_cell(cell: &Place, address: &Place) -> bool {
         .is_some_and(|projection| matches!(projection, PlaceProjection::Deref))
 }
 
-fn raw_addresses_overlap(left: &Place, right: &Place) -> bool {
+pub(super) fn raw_addresses_overlap(left: &Place, right: &Place) -> bool {
     place_suffix_after_address_prefix(left, right).is_some()
         || place_suffix_after_address_prefix(right, left).is_some()
 }
@@ -482,7 +489,7 @@ fn raw_address_covers(root: &Place, address: &Place) -> bool {
     place_suffix_after_address_prefix(address, root).is_some()
 }
 
-fn place_suffix_after_address_prefix(
+pub(super) fn place_suffix_after_address_prefix(
     place: &Place,
     prefix: &Place,
 ) -> Option<Vec<PlaceProjection>> {

@@ -214,3 +214,13 @@ fixture では配列全体を `fill_i32 data len 0` で initialized Copy range �
 - `node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree --dist web/dist -o tmp/kp_agent1_after_unique_range_init_default_timeout.json -j 1 --assert-io`: total=7, passed=7, failed=0, errored=0
 
 この親 issue は引き続き open とする。残件は、明示的な fill に依存しない returned header / length field / guard relation をまたぐ dependent initialized range summary を typed model として実装することである。
+
+## 2026-05-07 byte fill range guard 部分対応
+
+`ISS-20260507T015907345Z-RESOURCE-IR-RAW-BYTE-FILL-RANGE-IGNO-1A4AC84B` として、dependent range summary の前段に残っていた raw byte fill の過剰初期化を分離して修正した。
+
+これまで `memset_u8` / `fill_u8` / `fill_i32` はすべて `RawMemoryOp::Fill` に潰され、initialized checker は fill 後に unbounded unknown-offset Copy cell を記録していた。そのため byte buffer の `load_u8 add base i` は `i < len` の証明なしでも initialized とみなされ得た。
+
+今回の対応で `RawMemoryOp::FillBytes` を追加し、byte fill は `address` / `count` / cell type を持つ initialized byte range として記録する。literal offset は `offset < count` を literal fact から確認し、symbolic offset は `0 <= offset` と `offset < count` が Resource IR condition fact から証明できる場合だけ通す。guard なしの symbolic byte load は `resource.cell.uninit` で拒否される。
+
+この親 issue は引き続き open とする。今回の修正は byte-level fill range と branch relation fact の接続であり、`fill_i32` の element-size scaled range、returned header の pointer/len field relation、loop summary をまたぐ dependent initialized range model はまだ残る。

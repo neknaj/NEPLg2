@@ -614,6 +614,7 @@ fn dump_raw_memory_op(operation: &RawMemoryOp) -> String {
         RawMemoryOp::BulkMove => String::from("bulk_move"),
         RawMemoryOp::MemorySize => String::from("memory_size"),
         RawMemoryOp::MemoryGrow => String::from("memory_grow"),
+        RawMemoryOp::FillBytes => String::from("fill_bytes"),
         RawMemoryOp::Fill => String::from("fill"),
     }
 }

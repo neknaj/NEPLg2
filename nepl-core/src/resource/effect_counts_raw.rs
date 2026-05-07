@@ -26,7 +26,7 @@ impl RawMemoryEffectCounts {
             RawMemoryOp::BulkMove => self.bulk_move += 1,
             RawMemoryOp::MemorySize => self.memory_size += 1,
             RawMemoryOp::MemoryGrow => self.memory_grow += 1,
-            RawMemoryOp::Fill => self.fill += 1,
+            RawMemoryOp::FillBytes | RawMemoryOp::Fill => self.fill += 1,
         }
     }
 

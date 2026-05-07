@@ -33356,3 +33356,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree --dist web/dist -o tmp/move_effect_agent1_after_field_imports.json -j 1 --assert-io`: total=110, passed=110, failed=0
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 raw byte fill range guard 修正
+
+- `ISS-20260507T015907345Z-RESOURCE-IR-RAW-BYTE-FILL-RANGE-IGNO-1A4AC84B` を追加して fixed にした。
+- `memset_u8` / `fill_u8` / `fill_i32` が同じ `RawMemoryOp::Fill` に潰れており、byte fill 後に unbounded unknown-offset Copy cell を initialized として扱っていた。
+- `RawMemoryOp::FillBytes` を追加し、`memset_u8` / `fill_u8` / `mem_fill` と `fill_i32` を enum-first で分離した。
+- byte fill は `address` / `count` / cell type を持つ initialized byte range として `CellTable` に保存し、symbolic byte load は `0 <= i` と `i < len` が Resource IR condition facts で証明される場合だけ通す。
+- guard なしの symbolic byte load は `resource.cell.uninit` として拒否する回帰を追加した。
+- fill 固有の initialized-state 遷移は `initialized_raw_fill.rs` へ分離し、`initialized_raw_memory.rs` の責務再集中を避けた。
+- `tests/stdlib/mem_fill.n.md` は raw memory helper 検証であるため、entry function を `()*` effect に更新して現在の `effect.pure.calls_impure` gate に合わせた。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir byte_fill -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_raw_fill_helpers_initialize_copy_cells -- --nocapture`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/mem_fill.n.md --no-tree --dist web/dist -o tmp/mem_fill_agent1_byte_range_guard.json -j 1 --assert-io`: total=3, passed=3
+  - `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree --dist web/dist -o tmp/move_effect_agent1_byte_range_guard.json -j 1 --assert-io`: total=110, passed=110
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
