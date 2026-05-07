@@ -1,3 +1,24 @@
+# 2026-05-08 Agent 2 owner_check expression responsibility split
+
+- `ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E` の再発対応として、`owner_check.rs` の責務分割を追加した。
+- remote main `066afd0d` 取り込み後、`node nodesrc/test_resource_checker_responsibility.js` が `owner_check.rs has 802 lines; responsibility split limit is 800` を検出した。
+- 根本原因は、Resource owner checker 本体が traversal/dispatch だけでなく `ResourceExprKind` による raw alias expression handling も抱え続け、region_new provenance 追加で再び上限を超えたこと。
+- `nepl-core/src/resource/owner_expr.rs` を追加し、literal i32 の raw alias value 記録と expression kind ごとの raw alias clear を分離した。
+- `owner_check.rs` は function/block/op traversal と state table orchestration に集中させた。line count は `owner_check.rs` 759、`owner_expr.rs` 31。
+- `nodesrc/test_resource_checker_responsibility.js` に `owner_expr.rs` の存在、`mod owner_expr;`、`check_expr` の所有 module、line count 上限を追加した。
+- [検証]:
+  - `cargo fmt -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 241 passed
+  - `trunk build`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js index`: total=618, open=10, resolved=608
+  - `node nodesrc/issues.js check`: ok, files=618
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 2 std/text UTF-8 boundary split
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の追加対応として、`stdlib/std/text.nepl` を facade 化した。

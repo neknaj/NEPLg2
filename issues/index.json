@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T19:10:13.177Z",
+  "generated_at": "2026-05-07T19:32:23.962Z",
   "counts": {
     "total": 618,
     "open": 10,
@@ -2653,13 +2653,13 @@
       "id": "ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E",
       "title": "resource owner checker exceeds responsibility split limit",
       "area": "core",
-      "status": "verified",
+      "status": "fixed",
       "resolved": true,
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-04-29",
-      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/summary.rs, nodesrc/test_resource_checker_responsibility.js",
+      "updated": "2026-05-08",
+      "target": "nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_expr.rs, nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/mod.rs, nepl-core/src/resource/summary.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E.md"

@@ -125,6 +125,7 @@ mod owner_alias;
 mod owner_check;
 mod owner_consumption;
 mod owner_control;
+mod owner_expr;
 mod owner_flow;
 mod owner_raw_address;
 mod owner_raw_view;

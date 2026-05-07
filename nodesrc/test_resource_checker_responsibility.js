@@ -72,6 +72,7 @@ for (const moduleName of [
     'cell_state_raw_range_value_alias.rs',
     'owner_check.rs',
     'owner_consumption.rs',
+    'owner_expr.rs',
     'owner_flow.rs',
     'owner_raw_view.rs',
     'owner_raw_view_table.rs',
@@ -201,6 +202,7 @@ for (const moduleDecl of [
     'mod cell_state_raw_range_value_alias;',
     'mod owner_check;',
     'mod owner_consumption;',
+    'mod owner_expr;',
     'mod owner_flow;',
     'mod owner_raw_view;',
     'mod owner_raw_view_table;',
@@ -322,6 +324,7 @@ const borrowCheck = readResource('borrow_check.rs');
 const borrowSummary = readResource('borrow_summary.rs');
 const ownerCheck = readResource('owner_check.rs');
 const ownerConsumption = readResource('owner_consumption.rs');
+const ownerExpr = readResource('owner_expr.rs');
 const ownerSummary = readResource('owner_summary.rs');
 const ownerReturn = readResource('owner_return.rs');
 const ownerReturnApply = readResource('owner_return_apply.rs');
@@ -569,6 +572,14 @@ assertUsesResourceModuleSymbol(
     'ResourceOwnerCheckEngine',
     'owner_return_view.rs',
 );
+assertUsesResourceModuleSymbol(
+    ownerExpr,
+    'owner_check',
+    'ResourceOwnerCheckEngine',
+    'owner_expr.rs',
+);
+assertContains(ownerExpr, 'fn check_expr', 'owner_expr.rs');
+assertNotContains(ownerCheck, 'fn check_expr', 'owner_check.rs');
 assertContains(
     ownerReturnUnknown,
     'apply_unknown_indirect_call_return_owner',
@@ -608,6 +619,7 @@ const maxLines = new Map([
     ['cell_state_raw_range_value_alias.rs', 80],
     ['owner_check.rs', 800],
     ['owner_consumption.rs', 80],
+    ['owner_expr.rs', 80],
     ['owner_flow.rs', 620],
     ['owner_raw_view.rs', 180],
     ['owner_raw_view_table.rs', 160],
