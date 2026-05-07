@@ -1,3 +1,16 @@
+# 2026-05-07 note (ISS-20260507T112048241Z Resource aggregate projection module exceeds responsibility split limit)
+
+- `ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D` を追加した。
+- `9562d4c7` の stdlib/string search 分割後、remote main `cc5d7662` を含む main 上で `node nodesrc/run_source_policy_regressions.js --warn-only` を再実行したところ、別件として `lower_aggregate_projection.rs has 204 lines; responsibility split limit is 180` を検出した。
+- 原因は `cc5d7662` の tuple index selector lowering により、`lower_aggregate_projection.rs` が struct field projection、tuple field projection、selector parsing、coverage/lowering helper を再び集約し始めたことにある。
+- 静的検査 / ResourceIR 周りは別 agent が進めているため、この turn では issue 登録と報告に留める。
+- [検証]:
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: stdlib/string/search 関連は passed。別件として `lower_aggregate_projection.rs has 204 lines; responsibility split limit is 180` warning を確認。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T102231849Z ResourceIR numeric tuple field move)
 
 - branch `fix/resource-tuple-field-move-state` で、`get parts 0` / `get parts 1` が Resource IR 上で tuple field projection ではなく通常 call 引数として `parts` 全体を consume していた問題を修正した。
