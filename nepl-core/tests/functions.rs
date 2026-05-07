@@ -35,7 +35,7 @@ fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
     assert!(
         diags
             .iter()
-            .any(|diag| diag.code == Some(DiagnosticCode::Type(code))),
+            .any(|diag| diag.code == DiagnosticCode::Type(code)),
         "missing type diagnostic {:?}: {:?}",
         code,
         diags

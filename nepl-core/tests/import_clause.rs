@@ -89,9 +89,9 @@ fn expect_compile_err(main: &str) -> Vec<Diagnostic> {
 fn assert_undefined_identifier(diags: &[Diagnostic]) {
     assert!(
         diags.iter().any(|diag| diag.code
-            == Some(DiagnosticCode::Resolve(
+            == DiagnosticCode::Resolve(
                 nepl_core::diagnostic_codes::ResolveDiagnosticCode::IdentifierUndefined
-            ))),
+            )),
         "expected undefined identifier diagnostic, got {:?}",
         diags
     );

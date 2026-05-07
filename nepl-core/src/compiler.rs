@@ -886,10 +886,8 @@ mod tests {
 
             assert_eq!(
                 error.code,
-                Some(DiagnosticCode::Resource(
-                    crate::diagnostic_codes::ResourceDiagnosticCode::Cell(
-                        crate::diagnostic_codes::ResourceCellDiagnosticCode::Moved,
-                    )
+                DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Cell(
+                    crate::diagnostic_codes::ResourceCellDiagnosticCode::Moved,
                 ))
             );
             assert!(error.message.contains("resource ir cell state violation"));
@@ -913,10 +911,8 @@ mod tests {
 
         assert_eq!(
             error.code,
-            Some(DiagnosticCode::Resource(
-                crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
-                    crate::diagnostic_codes::ResourceOwnerDiagnosticCode::DoubleFree,
-                )
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
+                crate::diagnostic_codes::ResourceOwnerDiagnosticCode::DoubleFree,
             ))
         );
         assert!(error
@@ -940,10 +936,8 @@ mod tests {
 
         assert_eq!(
             error.code,
-            Some(DiagnosticCode::Resource(
-                crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
-                    crate::diagnostic_codes::ResourceOwnerDiagnosticCode::Leak,
-                )
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
+                crate::diagnostic_codes::ResourceOwnerDiagnosticCode::Leak,
             ))
         );
         assert!(error.message.contains("resource ir owner obligation leak"));
@@ -966,10 +960,8 @@ mod tests {
 
         assert_eq!(
             error.code,
-            Some(DiagnosticCode::Resource(
-                crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
-                    crate::diagnostic_codes::ResourceOwnerDiagnosticCode::NoFreeObligation,
-                )
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
+                crate::diagnostic_codes::ResourceOwnerDiagnosticCode::NoFreeObligation,
             ))
         );
         assert!(error
@@ -994,10 +986,8 @@ mod tests {
 
         assert_eq!(
             error.code,
-            Some(DiagnosticCode::Resource(
-                crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
-                    crate::diagnostic_codes::ResourceOwnerDiagnosticCode::Reserved,
-                )
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Owner(
+                crate::diagnostic_codes::ResourceOwnerDiagnosticCode::Reserved,
             ))
         );
         assert!(error
@@ -1022,10 +1012,8 @@ mod tests {
 
         assert_eq!(
             error.code,
-            Some(DiagnosticCode::Resource(
-                crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
-                    crate::diagnostic_codes::ResourceBorrowDiagnosticCode::ReturnEscape,
-                )
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Borrow(
+                crate::diagnostic_codes::ResourceBorrowDiagnosticCode::ReturnEscape,
             ))
         );
         assert!(error
@@ -1098,7 +1086,7 @@ mod tests {
             let error = resource_borrow_diagnostic_to_error(&diagnostic)
                 .expect("borrow conflict should become a compiler error");
 
-            assert_eq!(error.code, Some(expected));
+            assert_eq!(error.code, expected);
             assert!(error.message.contains("resource ir borrow conflict"));
         }
     }
@@ -1118,10 +1106,8 @@ mod tests {
 
         assert_eq!(
             error.code,
-            Some(DiagnosticCode::Resource(
-                crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
-                    crate::diagnostic_codes::ResourceRawDiagnosticCode::IdentityEscape,
-                )
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                crate::diagnostic_codes::ResourceRawDiagnosticCode::IdentityEscape,
             ))
         );
         assert!(error.message.contains("returns raw address identity"));
@@ -1140,9 +1126,7 @@ mod tests {
 
         assert_eq!(
             error.code,
-            Some(DiagnosticCode::Effect(
-                EffectDiagnosticCode::PureCallsImpure
-            ))
+            DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure)
         );
         assert!(error.message.contains("impure function value"));
     }
@@ -1160,9 +1144,7 @@ mod tests {
 
         assert_eq!(
             error.code,
-            Some(DiagnosticCode::Effect(
-                EffectDiagnosticCode::PureCallsImpure
-            ))
+            DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure)
         );
         assert!(error.message.contains("unsafe memory operation 'store'"));
     }
@@ -1180,9 +1162,9 @@ mod tests {
 
         assert_eq!(
             error.code,
-            Some(DiagnosticCode::Resource(ResourceDiagnosticCode::Lower(
+            DiagnosticCode::Resource(ResourceDiagnosticCode::Lower(
                 ResourceLowerDiagnosticCode::Incomplete,
-            )))
+            ))
         );
         assert!(error.message.contains("unknown effect"));
         assert!(error.message.contains("test unknown effect"));

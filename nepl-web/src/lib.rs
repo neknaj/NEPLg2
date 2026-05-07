@@ -487,16 +487,12 @@ fn diagnostics_to_js(source: &str, diagnostics: &[Diagnostic]) -> JsValue {
         let _ = Reflect::set(
             &obj,
             &JsValue::from_str("code"),
-            &d.code
-                .map(|code| JsValue::from_str(code.as_str()))
-                .unwrap_or(JsValue::NULL),
+            &JsValue::from_str(d.code.as_str()),
         );
         let _ = Reflect::set(
             &obj,
             &JsValue::from_str("code_message"),
-            &d.code
-                .map(|code| JsValue::from_str(code.message()))
-                .unwrap_or(JsValue::NULL),
+            &JsValue::from_str(d.code.message()),
         );
         let _ = Reflect::set(
             &obj,
@@ -3266,10 +3262,7 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) -> String {
             Severity::Error => ("error", RED),
             Severity::Warning => ("warning", YELLOW),
         };
-        let code_display = d
-            .code
-            .map(|code| format!("[{}]", code.as_str()))
-            .unwrap_or_default();
+        let code_display = format!("[{}]", d.code.as_str());
         let primary = &d.primary;
         let (line, col) = sm
             .line_col(primary.span.file_id, primary.span.start)

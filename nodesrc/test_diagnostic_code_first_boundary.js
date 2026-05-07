@@ -118,17 +118,22 @@ for (const { rel, text } of rustFiles) {
 }
 
 const diagnosticCore = rustFiles.find((item) => item.rel === 'nepl-core/src/diagnostic.rs')?.text ?? '';
-const diagnosticCoreTestModuleStart = diagnosticCore.indexOf('#[cfg(test)]');
+assert.match(
+  diagnosticCore,
+  /pub\s+code:\s+DiagnosticCode\b/,
+  'Diagnostic.code must be a mandatory DiagnosticCode, not an optional post-construction field',
+);
+assert.doesNotMatch(
+  diagnosticCore,
+  /Option\s*<\s*DiagnosticCode\s*>/,
+  'Diagnostic must not permit code-less diagnostics through Option<DiagnosticCode>',
+);
 
 for (const { rel, text } of rustFiles) {
   const codeLessDiagnosticCall = /\bDiagnostic::(?:error|warning)\s*\(/g;
   for (let match = codeLessDiagnosticCall.exec(text); match; match = codeLessDiagnosticCall.exec(text)) {
-    const isDiagnosticCoreUnitTest =
-      rel === 'nepl-core/src/diagnostic.rs'
-      && diagnosticCoreTestModuleStart >= 0
-      && match.index > diagnosticCoreTestModuleStart;
     assert(
-      isDiagnosticCoreUnitTest,
+      false,
       `${rel} must not construct code-less diagnostics with ${match[0]}; use error_with_code/warning_with_code or a typed helper`,
     );
   }

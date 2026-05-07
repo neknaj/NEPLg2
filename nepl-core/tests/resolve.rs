@@ -497,10 +497,9 @@ fn build_visible_map_reports_ambiguous_open() {
     assert_ne!(a_foo, b_foo);
 
     assert!(
-        diags.iter().any(|d| d.code
-            == Some(DiagnosticCode::Resolve(
-                ResolveDiagnosticCode::ImportAmbiguous
-            ))),
+        diags
+            .iter()
+            .any(|d| d.code == DiagnosticCode::Resolve(ResolveDiagnosticCode::ImportAmbiguous)),
         "expected ambiguous import diagnostic, got {:?}",
         diags
     );

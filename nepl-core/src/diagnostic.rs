@@ -34,7 +34,7 @@ pub struct Label {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {
     pub severity: Severity,
-    pub code: Option<DiagnosticCode>,
+    pub code: DiagnosticCode,
     pub message: String,
     pub primary: Label,
     pub secondary: Vec<Label>,
@@ -73,14 +73,14 @@ impl DiagnosticSpec {
     }
 
     pub fn build_with_message(self, message: impl Into<String>, primary_span: Span) -> Diagnostic {
-        Diagnostic::from_parts(self.severity, Some(self.code), message, primary_span)
+        Diagnostic::from_parts(self.severity, self.code, message, primary_span)
     }
 }
 
 impl Diagnostic {
     fn from_parts(
         severity: Severity,
-        code: Option<DiagnosticCode>,
+        code: DiagnosticCode,
         message: impl Into<String>,
         primary_span: Span,
     ) -> Diagnostic {
@@ -98,11 +98,6 @@ impl Diagnostic {
         }
     }
 
-    /// Create a new error diagnostic with a primary span.
-    pub fn error(message: impl Into<String>, primary_span: Span) -> Diagnostic {
-        Diagnostic::from_parts(Severity::Error, None, message, primary_span)
-    }
-
     /// Create a new error diagnostic from a compiler-owned diagnostic code.
     pub fn error_code(code: DiagnosticCode, primary_span: Span) -> Diagnostic {
         DiagnosticSpec::error(code).build(primary_span)
@@ -115,11 +110,6 @@ impl Diagnostic {
         primary_span: Span,
     ) -> Diagnostic {
         DiagnosticSpec::error(code).build_with_message(message, primary_span)
-    }
-
-    /// Create a new warning diagnostic with a primary span.
-    pub fn warning(message: impl Into<String>, primary_span: Span) -> Diagnostic {
-        Diagnostic::from_parts(Severity::Warning, None, message, primary_span)
     }
 
     /// Create a new warning diagnostic from a compiler-owned diagnostic code.
@@ -177,16 +167,20 @@ mod tests {
         let diagnostic = Diagnostic::error_code(code, Span::dummy());
 
         assert_eq!(diagnostic.severity, Severity::Error);
-        assert_eq!(diagnostic.code, Some(code));
+        assert_eq!(diagnostic.code, code);
         assert_eq!(diagnostic.message, code.message());
     }
 
     #[test]
     fn diagnostic_notes_and_helps_are_structured_values() {
-        let diagnostic = Diagnostic::warning("careful", Span::dummy())
+        let code = DiagnosticCode::Resource(ResourceDiagnosticCode::Lower(
+            ResourceLowerDiagnosticCode::Incomplete,
+        ));
+        let diagnostic = Diagnostic::warning_with_code(code, "careful", Span::dummy())
             .with_note("context")
             .with_help("action");
 
+        assert_eq!(diagnostic.code, code);
         assert_eq!(diagnostic.notes, ["context"]);
         assert_eq!(diagnostic.helps, ["action"]);
     }

@@ -16,6 +16,7 @@ NEPLg2 の Rust compiler diagnostic を、現在の型検査、effect 検査、R
 - [ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04](../../issues/items/ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04.md): raw memory effect / ownership boundary。
 - [ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF](../../issues/items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md): `MemPtr` / owner token / initialized cell の分離。
 - [ISS-20260429T100747827Z-WASM-INDIRECT-SIGNATURE-MISSING-DIAG-DBB86ABB](../../issues/items/ISS-20260429T100747827Z-WASM-INDIRECT-SIGNATURE-MISSING-DIAG-DBB86ABB.md): wasm indirect signature missing diagnostic の到達可能性。
+- [ISS-20260507T094645212Z-DIAGNOSTIC-VALUE-STILL-PERMITS-CODEL-3654AAD9](../../issues/items/ISS-20260507T094645212Z-DIAGNOSTIC-VALUE-STILL-PERMITS-CODEL-3654AAD9.md): `Diagnostic` value が code-less 診断を型として許していた。
 - [NEPLg2 静的検査の複雑化解消計画](./static_check_complexity_reduction_plan.md): Stage 4/5 の Resource IR authoritative gate。
 
 ## 現状の問題
@@ -73,12 +74,14 @@ Resource diagnostic はさらに次へ分ける。
 Rust core の `Diagnostic` は次を持つ。
 
 - `severity`
-- `code: Option<DiagnosticCode>`
+- `code: DiagnosticCode`
 - `message`
 - `primary`
 - `secondary`
 
 数値 ID field は持たない。後方互換用の field も置かない。
+
+`code` は必須である。診断が外部へ出る時点だけでなく、compiler 内部の `Diagnostic` value 自体が必ず `DiagnosticCode` を持つ。code-less な `Diagnostic::error(...)` / `Diagnostic::warning(...)` constructor は公開しない。
 
 将来の拡張で note/help/related label を追加する場合も、診断種別は `DiagnosticCode` から導く。補助的な説明文は表示値であり、識別子にしない。
 
@@ -200,8 +203,9 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-04-29: `compiler.rs` の LLVM target が wasm artifact pipeline に渡った場合の境界診断と、生成済み wasm validation failure を code-first constructor へ移行した。validation offset から推定する function body 位置は別 warning ではなく `backend.wasm.validation_failed` diagnostic の note として保持する。併せて typecheck の shadow warning / same-signature callable shadow warning を `ResolveDiagnosticCode` へ分類し、active compiler pass call site からコード無し `Diagnostic::error(...)` / `Diagnostic::warning(...)` / 後付け `.with_code(...)` を除去した。
 - 2026-04-30: `nepl-language` の editor / LSP 解析境界に残っていた target directive diagnostic を code-first constructor へ移行し、`Diagnostic::with_code` API 自体を削除した。これ以降、後付け diagnostic code は Rust の型検査で使えない。code を持つ diagnostic は `error_with_code` / `warning_with_code` または category helper で生成時点に分類を確定する。
 - 2026-04-30: `nepl-web` の wasm analysis 境界に残っていた target directive / loader failure diagnostic も code-first helper へ移行した。`nodesrc/test_diagnostic_code_first_boundary.js` を CI source policy に追加し、`nepl-core` / `nepl-language` / `nepl-lsp` / `nepl-web` に `.with_code(...)` や `Diagnostic::with_code` API が戻らないことを軽量に検査する。
-- 2026-04-30: `nodesrc/test_diagnostic_code_first_boundary.js` の対象を active Rust source tree 全体へ拡張した。`nepl-core/src`、`nepl-language/src`、`nepl-lsp/src`、`nepl-web/src` を再帰走査し、`.with_code(...)` / `fn with_code` の再導入に加えて、compiler pass 側の code-less `Diagnostic::error(...)` / `Diagnostic::warning(...)` も拒否する。`Diagnostic` module の unit test だけは構造化 note/help の低レベル値テストとして例外にする。
+- 2026-04-30: `nodesrc/test_diagnostic_code_first_boundary.js` の対象を active Rust source tree 全体へ拡張した。`nepl-core/src`、`nepl-language/src`、`nepl-lsp/src`、`nepl-web/src` を再帰走査し、`.with_code(...)` / `fn with_code` の再導入に加えて、compiler pass 側の code-less `Diagnostic::error(...)` / `Diagnostic::warning(...)` も拒否する。
 - 2026-05-07: `ALL_DIAGNOSTIC_CODES` が手動 registry であるにもかかわらず、source policy は enum variant と registry の対応を検査していなかった。`TypeDiagnosticCode::CallCaptureArityMismatch` と `ResourceOwnerDiagnosticCode::Reserved` が registry から漏れていたため追加し、`nodesrc/test_diagnostic_code_first_boundary.js` で各 leaf diagnostic enum variant が `ALL_DIAGNOSTIC_CODES` に正確に 1 回登録されることを検査するようにした。
+- 2026-05-07: `Diagnostic.code` を `Option<DiagnosticCode>` から必須 `DiagnosticCode` へ変更し、code-less な `Diagnostic::error(...)` / `Diagnostic::warning(...)` constructor を削除した。`DiagnosticSpec` / code-first constructor 以外では `Diagnostic` を構築できないため、診断 code の欠落は source policy ではなく Rust の型検査でも止まる。`nepl-language` の `EditorDiagnostic.code` も必須 stable string にし、web serialization は `code` / `code_message` を常に出す。
 
 ### Stage D2: Resource IR diagnostic の typed mapping 強化
 

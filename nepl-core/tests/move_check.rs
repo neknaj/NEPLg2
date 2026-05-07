@@ -46,20 +46,17 @@ fn stdlib_root() -> PathBuf {
 
 fn is_raw_cell_possibly_moved(diag: &Diagnostic) -> bool {
     diag.code
-        == Some(DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(
+        == DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(
             ResourceCellDiagnosticCode::PossiblyMoved,
-        )))
+        ))
 }
 
 fn is_move_diag(diag: &Diagnostic, code: ResourceMoveDiagnosticCode) -> bool {
-    diag.code == Some(DiagnosticCode::Resource(ResourceDiagnosticCode::Move(code)))
+    diag.code == DiagnosticCode::Resource(ResourceDiagnosticCode::Move(code))
 }
 
 fn is_borrow_diag(diag: &Diagnostic, code: ResourceBorrowDiagnosticCode) -> bool {
-    diag.code
-        == Some(DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
-            code,
-        )))
+    diag.code == DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(code))
 }
 
 #[test]

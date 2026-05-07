@@ -83,14 +83,14 @@ fn first_error_code(
     let diagnostics = err.expect_err("codegen should return diagnostics");
     diagnostics
         .first()
-        .and_then(|diag| diag.code)
+        .map(|diag| diag.code)
         .expect("diagnostic code should be attached")
 }
 
 fn first_diagnostic_code(diagnostics: Vec<nepl_core::diagnostic::Diagnostic>) -> DiagnosticCode {
     diagnostics
         .first()
-        .and_then(|diag| diag.code)
+        .map(|diag| diag.code)
         .expect("diagnostic code should be attached")
 }
 

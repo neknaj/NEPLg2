@@ -90,9 +90,9 @@ fn assert_compile_resource_source_reports_code(
         panic!("expected diagnostics error");
     };
     assert!(
-        diagnostics.iter().any(|diagnostic| diagnostic
-            .code
-            .is_some_and(|code| code.as_str() == expected_code)),
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code.as_str() == expected_code),
         "expected diagnostic code {expected_code}, diagnostics: {diagnostics:#?}"
     );
 }

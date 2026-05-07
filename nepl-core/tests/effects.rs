@@ -70,7 +70,7 @@ fn check_source_as_core_mem_boundary(
 fn assert_has_diag(result: Result<(), CoreError>, code: DiagnosticCode) {
     match result {
         Err(CoreError::Diagnostics(diags)) => assert!(
-            diags.iter().any(|d| d.code == Some(code)),
+            diags.iter().any(|d| d.code == code),
             "expected diagnostic {:?}, got {:?}",
             code,
             diags

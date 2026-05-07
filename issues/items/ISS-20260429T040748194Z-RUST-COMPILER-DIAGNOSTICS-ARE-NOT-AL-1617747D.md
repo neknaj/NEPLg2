@@ -922,3 +922,11 @@ Resource IR の source-based regression で、`core/math` 系の stdlib 関数 `
 - `node nodesrc/tests.js -i tests/compiler/shadowing.n.md --no-tree -o tmp/agent1-shadow-same-definition-after-trunk.json -j 1`: 27 passed
 - `node nodesrc/issues.js check`: pass
 - `git diff --check`: pass
+
+## 2026-05-07 Stage D1 mandatory DiagnosticCode 追記
+
+`ISS-20260507T094645212Z-DIAGNOSTIC-VALUE-STILL-PERMITS-CODEL-3654AAD9` として、`Diagnostic` value 自体が code-less 診断を型として許していた問題を分離し、修正した。
+
+`Diagnostic.code` は `Option<DiagnosticCode>` ではなく必須 `DiagnosticCode` になった。code-less な `Diagnostic::error(...)` / `Diagnostic::warning(...)` constructor も削除し、診断は `DiagnosticSpec` または `error_with_code` / `warning_with_code` など code-first constructor で生成する。これにより、Resource IR / type / effect diagnostic が code を持たない状態は source policy だけでなく Rust の型検査でも再導入できない。
+
+`nepl-language` の `EditorDiagnostic.code` も必須 stable string にし、`nepl-web` serialization は `code` / `code_message` を常に出す。`nodesrc/test_diagnostic_code_first_boundary.js` は `Option<DiagnosticCode>` と code-less constructor の再導入を拒否する。

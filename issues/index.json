@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T09:46:20.628Z",
+  "generated_at": "2026-05-07T09:56:48.399Z",
   "counts": {
-    "total": 574,
+    "total": 575,
     "open": 12,
-    "resolved": 562,
+    "resolved": 563,
     "by_area": {
       "core": {
-        "total": 285,
+        "total": 286,
         "open": 3,
-        "resolved": 282
+        "resolved": 283
       },
       "stdlib": {
         "total": 163,
@@ -4378,6 +4378,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T085434323Z-RESOURCE-OWNER-CHECKER-LOSES-NON-OWN-344F2372.md"
+    },
+    {
+      "id": "ISS-20260507T094645212Z-DIAGNOSTIC-VALUE-STILL-PERMITS-CODEL-3654AAD9",
+      "title": "Diagnostic value still permits codeless diagnostics",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nodesrc/test_diagnostic_code_first_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T094645212Z-DIAGNOSTIC-VALUE-STILL-PERMITS-CODEL-3654AAD9.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

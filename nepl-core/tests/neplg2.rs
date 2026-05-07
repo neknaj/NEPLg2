@@ -52,7 +52,7 @@ fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
     assert!(
         diags
             .iter()
-            .any(|diag| diag.code == Some(DiagnosticCode::Type(code))),
+            .any(|diag| diag.code == DiagnosticCode::Type(code)),
         "missing type diagnostic {:?}: {:?}",
         code,
         diags
@@ -74,7 +74,7 @@ fn compile_err_type_code_count(src: &str, code: TypeDiagnosticCode) -> usize {
     };
     diags
         .iter()
-        .filter(|diag| diag.code == Some(DiagnosticCode::Type(code)))
+        .filter(|diag| diag.code == DiagnosticCode::Type(code))
         .count()
 }
 
@@ -94,7 +94,7 @@ fn compile_err_has_resolve_code(src: &str, code: ResolveDiagnosticCode) {
     assert!(
         diags
             .iter()
-            .any(|diag| diag.code == Some(DiagnosticCode::Resolve(code))),
+            .any(|diag| diag.code == DiagnosticCode::Resolve(code)),
         "missing resolve diagnostic {:?}: {:?}",
         code,
         diags
@@ -113,7 +113,7 @@ fn compile_err_has_backend_code_with_options(
     assert!(
         diags
             .iter()
-            .any(|diag| diag.code == Some(DiagnosticCode::Backend(code))),
+            .any(|diag| diag.code == DiagnosticCode::Backend(code)),
         "missing backend diagnostic {:?}: {:?}",
         code,
         diags
@@ -129,7 +129,7 @@ fn compile_err_has_loader_code_with_options(
     assert!(
         diags
             .iter()
-            .any(|diag| diag.code == Some(DiagnosticCode::Loader(code))),
+            .any(|diag| diag.code == DiagnosticCode::Loader(code)),
         "missing loader diagnostic {:?}: {:?}",
         code,
         diags
@@ -154,7 +154,7 @@ fn compile_err_loader_code_count_with_options(
 ) -> usize {
     compile_loader_diagnostics_with_options(src, options)
         .iter()
-        .filter(|diag| diag.code == Some(DiagnosticCode::Loader(code)))
+        .filter(|diag| diag.code == DiagnosticCode::Loader(code))
         .count()
 }
 
@@ -248,10 +248,7 @@ fn main <()->i32> ():
     );
     assert!(
         checked.diagnostics.iter().all(|diag| {
-            diag.code
-                != Some(DiagnosticCode::Resolve(
-                    ResolveDiagnosticCode::ShadowSameSignatureCallable,
-                ))
+            diag.code != DiagnosticCode::Resolve(ResolveDiagnosticCode::ShadowSameSignatureCallable)
         }),
         "same source definition must not be reported as callable shadowing: {:?}",
         checked.diagnostics
@@ -289,14 +286,9 @@ fn main <()*>()> ():
     );
     assert!(
         checked.diagnostics.iter().all(|diag| {
-            diag.code
-                != Some(DiagnosticCode::Resolve(
-                    ResolveDiagnosticCode::ItemNameConflict,
-                ))
+            diag.code != DiagnosticCode::Resolve(ResolveDiagnosticCode::ItemNameConflict)
                 && diag.code
-                    != Some(DiagnosticCode::Type(
-                        TypeDiagnosticCode::ImplDuplicateForTraitTarget,
-                    ))
+                    != DiagnosticCode::Type(TypeDiagnosticCode::ImplDuplicateForTraitTarget)
         }),
         "same imported definitions must not be reprocessed as duplicate items or impls: {:?}",
         checked.diagnostics
@@ -801,10 +793,9 @@ fn invalid_ast_char_literal_has_type_code() {
         panic!("expected diagnostics");
     };
     assert!(
-        diags.iter().any(|diag| diag.code
-            == Some(DiagnosticCode::Type(
-                TypeDiagnosticCode::LiteralCharOutOfRange
-            ))),
+        diags.iter().any(
+            |diag| diag.code == DiagnosticCode::Type(TypeDiagnosticCode::LiteralCharOutOfRange)
+        ),
         "missing char literal diagnostic: {:?}",
         diags
     );
@@ -901,9 +892,9 @@ fn main <() -> i32> ():
     };
     assert!(
         diags.iter().any(|diag| diag.code
-            == Some(DiagnosticCode::Loader(
+            == DiagnosticCode::Loader(
                 nepl_core::diagnostic_codes::LoaderDiagnosticCode::ConditionalGateInvalid
-            ))),
+            )),
         "missing invalid conditional gate diagnostic: {:?}",
         diags
     );
@@ -936,9 +927,9 @@ fn main <() -> i32> ():
     };
     assert!(
         diags.iter().any(|diag| diag.code
-            == Some(DiagnosticCode::Loader(
+            == DiagnosticCode::Loader(
                 nepl_core::diagnostic_codes::LoaderDiagnosticCode::ConditionalGateInvalid
-            ))),
+            )),
         "missing invalid conditional gate diagnostic: {:?}",
         diags
     );
@@ -974,9 +965,9 @@ fn main <() -> i32> ():
     };
     assert!(
         diags.iter().any(|diag| diag.code
-            == Some(DiagnosticCode::Loader(
+            == DiagnosticCode::Loader(
                 nepl_core::diagnostic_codes::LoaderDiagnosticCode::ConditionalGateInvalid
-            ))),
+            )),
         "missing invalid conditional gate diagnostic: {:?}",
         diags
     );
@@ -1263,9 +1254,7 @@ fn extern_signature_not_function_has_type_code() {
     };
     assert!(
         diags.iter().any(|diag| diag.code
-            == Some(DiagnosticCode::Type(
-                TypeDiagnosticCode::ExternSignatureNotFunction
-            ))),
+            == DiagnosticCode::Type(TypeDiagnosticCode::ExternSignatureNotFunction)),
         "missing extern signature diagnostic: {:?}",
         diags
     );
@@ -2223,9 +2212,9 @@ fn main <()->i32> ():
     };
     assert!(
         diags.iter().any(|diag| diag.code
-            == Some(DiagnosticCode::Type(
+            == DiagnosticCode::Type(
                 nepl_core::diagnostic_codes::TypeDiagnosticCode::TraitBoundUnsatisfied
-            ))),
+            )),
         "missing trait bound diagnostic code: {:?}",
         diags
     );
@@ -2286,9 +2275,9 @@ fn main <()->i32> ():
         .iter()
         .find(|d| {
             d.code
-                == Some(DiagnosticCode::Type(
+                == DiagnosticCode::Type(
                     nepl_core::diagnostic_codes::TypeDiagnosticCode::ImplTargetNotConcrete,
-                ))
+                )
         })
         .unwrap_or_else(|| panic!("missing concrete impl target diagnostic: {:?}", diags));
     assert_eq!(diag.primary.span.file_id, FileId(0));

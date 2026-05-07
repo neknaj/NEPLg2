@@ -1,3 +1,14 @@
+# 2026-05-07 note (ISS-20260507T094645212Z mandatory DiagnosticCode)
+
+- branch `fix/diagnostic-code-required` で、Rust compiler diagnostic value が code-less 診断を型として許していた問題を修正した。
+- 根本原因は、active call site は code-first へ移行済みでも、`Diagnostic.code` が `Option<DiagnosticCode>` のままで、`Diagnostic::error(...)` / `Diagnostic::warning(...)` が code なし診断を作れる公開 API として残っていたことだった。
+- `Diagnostic.code` を必須 `DiagnosticCode` に変更し、code-less constructor を削除した。`DiagnosticSpec` / `error_with_code` / `warning_with_code` などの code-first API 経由でしか compiler diagnostic を構築できない。
+- `nepl-language` の `EditorDiagnostic.code` も必須 stable string にし、`nepl-web` serialization は `code` / `code_message` を常に出す。既存テストは `Option` 前提をやめ、enum code を直接比較する。
+- `nodesrc/test_diagnostic_code_first_boundary.js` に、`Diagnostic.code` が必須 `DiagnosticCode` であること、`Option<DiagnosticCode>` と code-less constructor が戻らないことを固定する source policy を追加した。
+- `ISS-20260507T094645212Z-DIAGNOSTIC-VALUE-STILL-PERMITS-CODEL-3654AAD9` は fixed/resolved に更新した。親 issue `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` は self-host parity /表示整理の追跡として open のまま維持する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T085434323Z Resource owner aggregate non-owning raw view)
 
 - branch `fix/raw-view-aggregate-owner-propagation` で、`str_addr` 由来の non-owning raw address view が `Result::Ok` payload / match bind / read temporary を通ると non-owning fact を失い、`dealloc_raw` の owner として未検出になる問題を修正した。
