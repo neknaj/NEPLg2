@@ -172,6 +172,7 @@ for (const moduleName of [
     'initialized_summary_variant_requirement.rs',
     'lower_aggregate.rs',
     'lower_aggregate_projection.rs',
+    'lower_aggregate_selector.rs',
     'lower_condition.rs',
 ]) {
     assertFile(moduleName);
@@ -292,6 +293,7 @@ for (const moduleDecl of [
     'mod timing;',
     'mod lower_aggregate;',
     'mod lower_aggregate_projection;',
+    'mod lower_aggregate_selector;',
     'mod lower_condition;',
 ]) {
     assertContains(mod, moduleDecl, 'resource/mod.rs');
@@ -331,6 +333,7 @@ const dropRequirement = readResource('drop_requirement.rs');
 const lower = readResource('lower.rs');
 const lowerAggregate = readResource('lower_aggregate.rs');
 const lowerAggregateProjection = readResource('lower_aggregate_projection.rs');
+const lowerAggregateSelector = readResource('lower_aggregate_selector.rs');
 const lowerRawAddress = readResource('lower_raw_address.rs');
 const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
@@ -501,6 +504,11 @@ assertContains(
     'pub(super) fn aggregate_field_projection_by_name',
     'lower_aggregate_projection.rs',
 );
+assertContains(
+    lowerAggregateSelector,
+    'pub(super) fn aggregate_field_selector',
+    'lower_aggregate_selector.rs',
+);
 assertUsesResourceModuleSymbol(
     borrowSummary,
     'borrow_check',
@@ -604,6 +612,7 @@ const maxLines = new Map([
     ['lower.rs', 1150],
     ['lower_aggregate.rs', 320],
     ['lower_aggregate_projection.rs', 180],
+    ['lower_aggregate_selector.rs', 100],
     ['lower_condition.rs', 140],
     ['lower_raw_address.rs', 620],
     ['lower_raw_address_place.rs', 180],

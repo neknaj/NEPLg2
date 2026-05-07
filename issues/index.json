@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T12:49:42.849Z",
+  "generated_at": "2026-05-07T13:01:36.099Z",
   "counts": {
-    "total": 583,
+    "total": 584,
     "open": 11,
-    "resolved": 572,
+    "resolved": 573,
     "by_area": {
       "core": {
-        "total": 290,
+        "total": 291,
         "open": 4,
-        "resolved": 286
+        "resolved": 287
       },
       "stdlib": {
         "total": 164,
@@ -140,8 +140,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D",
-      "title": "Resource aggregate projection module exceeds responsibility split limit after tuple selector lowering",
+      "id": "ISS-20260507T125821563Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-992DF2EE",
+      "title": "Resource initialized summary model exceeds responsibility split limit again",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -149,10 +149,10 @@
       "type": "architecture",
       "created": "2026-05-07",
       "updated": "2026-05-07",
-      "target": "nepl-core/src/resource/lower_aggregate_projection.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/initialized_summary.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D.md"
+      "file": "items/ISS-20260507T125821563Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-992DF2EE.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4428,6 +4428,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T111447246Z-RESOURCE-IR-LOSES-INITIALIZED-CELL-S-9B6B283B.md"
+    },
+    {
+      "id": "ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D",
+      "title": "Resource aggregate projection module exceeds responsibility split limit after tuple selector lowering",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/lower_aggregate_projection.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D.md"
     },
     {
       "id": "ISS-20260507T121931125Z-RESOURCE-IR-RETURNED-RANGE-SUMMARY-D-AAC77B80",

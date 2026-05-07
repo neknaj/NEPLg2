@@ -11,8 +11,10 @@ use super::lower::{
     LoweringEnvironment,
 };
 use super::lower_aggregate_projection::{
-    aggregate_field_projection, aggregate_field_projection_by_selector, aggregate_field_selector,
-    compiler_field_address_base_and_offset, non_negative_i32_literal, reference_target_type,
+    aggregate_field_projection, aggregate_field_projection_by_selector, reference_target_type,
+};
+use super::lower_aggregate_selector::{
+    aggregate_field_selector, compiler_field_address_base_and_offset, non_negative_i32_literal,
     AggregateFieldSelector,
 };
 use super::lower_raw_address_place::is_named_struct_type;
