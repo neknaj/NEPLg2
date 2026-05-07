@@ -1,0 +1,171 @@
+//: # std/stdio/debug/enabled
+//: debug profile 用の debug output helper を提供する submodule
+//:
+//: ### 目的
+//: - debug profile の出力 helper を `std/stdio/debug` facade から分離します。
+//: - 実際の出力は `std/stdio/print` と `std/stdio/ansi` に委譲し、この module は debug profile の出力仕様だけを持ちます。
+//:
+//: ### 注意
+//: - debug profile では出力します。
+//: - write error は既存の print facade と同じく扱いません。
+
+#indent 4
+
+#import "std/stdio/ansi" as *
+#import "std/stdio/print" as *
+
+#if[profile=debug]
+//: debug: デバッグ出力
+//:
+//: 目的:
+//: - debug ビルド時のみ出力します。
+//:
+//: 実装(アルゴリズム):
+//: - print を呼びます。
+//:
+//: 注意(重要):
+//: - release では no-op です。
+//:
+//: 計算量:
+//: - O(n)
+//: debug: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `debug` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: stdout: "sample"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/stdio" as *
+//: fn main <()*>()> ():
+//:     debug "sample";
+//: ```
+#if[profile=debug]
+fn debug <(str)*>()> (s):
+    print s;
+    ()
+
+//: debug_color: 色付きデバッグ出力
+//:
+//: 目的:
+//: - debug ビルド時のみ色付きで出力します。
+//:
+//: 実装(アルゴリズム):
+//: - print_color を呼びます。
+//:
+//: 注意(重要):
+//: - ANSI 対応端末が必要です。
+//: - release では no-op です。
+//:
+//: 計算量:
+//: - O(n)
+//: debug_color: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `debug_color` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: stdout: "\u001b[31msample\u001b[0m"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/stdio" as *
+//: fn main <()*>()> ():
+//:     debug_color AnsiColor::Red "sample";
+//: ```
+#if[profile=debug]
+fn debug_color <(AnsiColor,str)*>()> (color, s):
+    print_color color s;
+    ()
+
+#if[profile=debug]
+//: debugln: デバッグ出力（改行付き）
+//:
+//: 目的:
+//: - debug ビルド時のみ改行付きで出力します。
+//:
+//: 実装(アルゴリズム):
+//: - println を呼びます。
+//:
+//: 注意(重要):
+//: - release では no-op です。
+//:
+//: 計算量:
+//: - O(n)
+//: debugln: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `debugln` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: stdout: "sample\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/stdio" as *
+//: fn main <()*>()> ():
+//:     debugln "sample";
+//: ```
+#if[profile=debug]
+fn debugln <(str)*>()> (s):
+    println s;
+    ()
+
+//: debugln_color: 色付きデバッグ出力（改行付き）
+//:
+//: 目的:
+//: - debug ビルド時のみ色付きで改行出力します。
+//:
+//: 実装(アルゴリズム):
+//: - println_color を呼びます。
+//:
+//: 注意(重要):
+//: - ANSI 対応端末が必要です。
+//: - release では no-op です。
+//:
+//: 計算量:
+//: - O(n)
+//: debugln_color: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `debugln_color` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: stdout: "\u001b[31msample\u001b[0m\n"
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/stdio" as *
+//: fn main <()*>()> ():
+//:     debugln_color AnsiColor::Red "sample";
+//: ```
+#if[profile=debug]
+fn debugln_color <(AnsiColor,str)*>()> (color, s):
+    println_color color s;
+    ()

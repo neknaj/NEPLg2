@@ -34633,3 +34633,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check HEAD`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 stdio debug profile split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/std/stdio/debug.nepl` から debug profile の出力実装と release profile の no-op 実装を分離した。
+- `debug.nepl` は `debug/enabled` と `debug/disabled` の public `@merge` re-export だけを持つ facade にした。
+- `debug/enabled.nepl` は `profile=debug` の `debug` / `debug_color` / `debugln` / `debugln_color` を所有し、出力は `std/stdio/print` と typed `AnsiColor` API へ委譲する。
+- `debug/disabled.nepl` は `profile=release` の同 API を no-op として所有する。
+- `nodesrc/test_stdlib_stdio_debug_boundary.js` を更新し、root facade と debug facade に function body が戻らないこと、enabled/disabled module の責務と line count を固定した。
+- line count は `debug.nepl` 13、`debug/enabled.nepl` 165、`debug/disabled.nepl` 178。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_debug_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/debug.nepl -i stdlib/std/stdio/debug/enabled.nepl -i stdlib/std/stdio/debug/disabled.nepl -i stdlib/std/stdio.nepl -i tests/stdlib/stdout.n.md --no-tree -o tmp/stdio-debug-profile-split-suite.json -j 1 --dist web/dist`: total=16, passed=16
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check HEAD`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
