@@ -224,3 +224,30 @@ fixture では配列全体を `fill_i32 data len 0` で initialized Copy range �
 今回の対応で `RawMemoryOp::FillBytes` を追加し、byte fill は `address` / `count` / cell type を持つ initialized byte range として記録する。literal offset は `offset < count` を literal fact から確認し、symbolic offset は `0 <= offset` と `offset < count` が Resource IR condition fact から証明できる場合だけ通す。guard なしの symbolic byte load は `resource.cell.uninit` で拒否される。
 
 この親 issue は引き続き open とする。今回の修正は byte-level fill range と branch relation fact の接続であり、`fill_i32` の element-size scaled range、returned header の pointer/len field relation、loop summary をまたぐ dependent initialized range model はまだ残る。
+
+## 2026-05-07 returned byte range summary 部分対応
+
+returned raw header のうち、byte-level initialized range を `return_byte_ranges` summary として関数境界を越えて伝播する実装を追加した。
+
+実装した内容:
+
+- callee の `InitializedRawByteRange { address, count, ty }` から、return value を基準にした address suffix と count suffix を収集する。
+- caller 側では summary の suffix を call output へ再投影し、`output.address_suffix` から `output.count_suffix` 未満の byte range が initialized であることを `CellTable` に登録する。
+- raw store / raw load / local copy / move / assign で byte range の count place を明示的に複写し、length field を header に保存してから読み戻す経路でも relation fact が参照できるようにした。
+- `load_u8 add data i` は caller 側で `0 <= i` と `i < len` が Resource IR relation fact として証明された場合だけ通る。guard のない symbolic byte load は引き続き `RawMemoryLoadCell Uninit` として拒否する。
+
+追加した回帰:
+
+- `resource_ir_cell_check_returned_raw_header_preserves_guarded_byte_range`
+- `resource_ir_cell_check_returned_raw_header_rejects_unguarded_byte_range`
+
+確認結果:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_guarded_byte_range -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_rejects_unguarded_byte_range -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_byte_fill_accepts_symbolic_load_with_range_guard -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_byte_fill_requires_guard_for_symbolic_load -- --nocapture`: passed
+- `cargo test -p nepl-core --test kp -- --nocapture`: passed
+- `cargo check -p nepl-core --tests`: passed
+
+この親 issue は引き続き open とする。今回の対応で returned header の pointer field / len field / guarded byte load は安全に表現できるようになったが、`fd_read` loop / realloc / capacity field / `fill_i32` の element-size scaled range を一体で扱う dependent range model はまだ残っている。

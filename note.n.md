@@ -1,3 +1,13 @@
+# 2026-05-07 note (ISS-20260430T012045983Z returned byte range summary)
+
+- branch `fix/resource-returned-byte-range-summary` で、returned raw header の byte-level initialized range summary を実装した。
+- `RawCellInitializationFunctionSummary` に `return_byte_ranges` を追加し、callee 内で確認済みの `address/count/ty` を return value からの suffix として収集するようにした。
+- caller 側では call output へ address suffix / count suffix を投影し直し、`load_u8 add data i` は `0 <= i` と `i < len` が証明された場合だけ initialized range として扱う。
+- raw store / raw load / local copy / move / assign で byte range の count place を複写し、header の length field を保存して読み戻す経路でも relation fact が使えるようにした。
+- `nepl-core/tests/resource_ir.rs` に guard 付き returned header byte load を通す回帰と、guard なし symbolic load を拒否する回帰を追加した。
+- 検証は returned header 2 件、byte fill guard 2 件、`cargo test -p nepl-core --test kp -- --nocapture`、`cargo check -p nepl-core --tests` が通過した。
+- 親 issue は引き続き open。`fd_read` loop / realloc / capacity field / `fill_i32` の element-size scaled range を一体で扱う dependent range model は残件として継続する。
+
 # 2026-05-07 note (ISS-20260507T023409425Z direct MemPtr initialized-cell regression)
 
 - branch `fix/resource-direct-memptr-summary` で、`RegionToken` 由来 `MemPtr` の direct `store_i32 p` -> direct `load_i32 p` 経路を再監査した。

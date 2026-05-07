@@ -63,6 +63,7 @@ impl ResourceCheckEngine<'_> {
                         cells.mark_raw_cell_moved(&address, output.ty);
                     }
                     cells.mark_initialized(output);
+                    cells.copy_initialized_raw_byte_range_counts(&cell, output);
                     if raw_aliases.value_is_known_raw_address(&cell) {
                         self.copy_raw_alias_and_rekey_cells_preferring_target(
                             cells,
@@ -76,7 +77,7 @@ impl ResourceCheckEngine<'_> {
                         cells.mark_external_raw_storage_root(output);
                         raw_aliases.mark(output);
                     } else {
-                        raw_aliases.clear(output);
+                        raw_aliases.copy_alias_if_tracked(&cell, output);
                     }
                 }
             }
@@ -115,14 +116,11 @@ impl ResourceCheckEngine<'_> {
                 if address_available && cell_available && value_available {
                     if let Some(value) = args.get(1) {
                         let cell = raw_memory_cell_place(&address, value.ty);
-                        let value_is_known_raw_address =
-                            raw_aliases.value_is_known_raw_address(value);
                         cells.clear_raw_cells_overwritten_by_store(&address, value.ty, self.types);
                         cells.mark_initialized(&cell);
+                        cells.copy_initialized_raw_byte_range_counts(value, &cell);
                         raw_aliases.clear(&cell);
-                        if value_is_known_raw_address {
-                            raw_aliases.copy_alias_if_tracked(value, &cell);
-                        }
+                        raw_aliases.copy_alias_if_tracked(value, &cell);
                     }
                     cells.mark_initialized(output);
                     raw_aliases.clear(output);

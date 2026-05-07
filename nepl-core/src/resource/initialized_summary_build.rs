@@ -11,7 +11,8 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummary;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary_cells::{
-    collect_param_initialized_raw_cells, collect_return_initialized_raw_cells,
+    collect_param_initialized_raw_cells, collect_return_initialized_raw_byte_ranges,
+    collect_return_initialized_raw_cells,
 };
 use super::initialized_summary_release_build::collect_param_release_requirements_from_ops;
 use super::initialized_summary_variant_build::collect_variant_param_initialized_raw_cells_from_return;
@@ -57,6 +58,7 @@ fn update_raw_cell_initialization_summary(
     summary: RawCellInitializationFunctionSummary,
 ) -> bool {
     let has_facts = !summary.return_cells.is_empty()
+        || !summary.return_byte_ranges.is_empty()
         || !summary.param_cells.is_empty()
         || !summary.param_release_requirements.is_empty()
         || !summary.variant_param_cells.is_empty()
@@ -115,6 +117,7 @@ fn function_raw_cell_initialization_summary(
     let mut out = RawCellInitializationFunctionSummary {
         function: function.name.clone(),
         return_cells: Vec::new(),
+        return_byte_ranges: Vec::new(),
         param_cells: Vec::new(),
         param_release_requirements: Vec::new(),
         variant_param_cells: Vec::new(),
@@ -122,6 +125,7 @@ fn function_raw_cell_initialization_summary(
         variant_conditions: Vec::new(),
     };
     let mut guaranteed_return_cells = None;
+    let mut guaranteed_return_byte_ranges = None;
     let mut guaranteed_param_cells = None;
     let mut variant_initializations = PendingVariantRawCellInitializations::default();
     for block in &function.blocks {
@@ -148,6 +152,17 @@ fn function_raw_cell_initialization_summary(
                 );
             }
             merge_guaranteed_facts(&mut guaranteed_return_cells, path_return_cells);
+
+            let mut path_return_byte_ranges = Vec::new();
+            if let Some(value) = value {
+                collect_return_initialized_raw_byte_ranges(
+                    &mut path_return_byte_ranges,
+                    &cells,
+                    &raw_aliases,
+                    value,
+                );
+            }
+            merge_guaranteed_facts(&mut guaranteed_return_byte_ranges, path_return_byte_ranges);
 
             let mut path_param_cells = Vec::new();
             collect_param_initialized_raw_cells(
@@ -176,6 +191,7 @@ fn function_raw_cell_initialization_summary(
         }
     }
     out.return_cells = guaranteed_return_cells.unwrap_or_default();
+    out.return_byte_ranges = guaranteed_return_byte_ranges.unwrap_or_default();
     out.param_cells = guaranteed_param_cells.unwrap_or_default();
     out
 }
