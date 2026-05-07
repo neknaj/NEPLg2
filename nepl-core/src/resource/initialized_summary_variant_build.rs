@@ -16,7 +16,7 @@ use super::initialized_summary::{
     RawCellInitializationVariantParamCell, RawCellInitializationVariantParamRequirement,
 };
 use super::initialized_summary_byte_range_model::RawCellInitializationVariantParamByteRange;
-use super::initialized_summary_byte_ranges::collect_param_initialized_raw_byte_ranges;
+use super::initialized_summary_param_byte_ranges::collect_param_initialized_raw_byte_ranges;
 use super::initialized_summary_param_cells::collect_param_initialized_raw_cells;
 use super::initialized_summary_variant_condition::collect_variant_param_condition;
 use super::initialized_summary_variant_requirement::collect_variant_param_required_raw_cells;
