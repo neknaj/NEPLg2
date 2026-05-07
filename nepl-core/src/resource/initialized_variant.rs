@@ -8,9 +8,9 @@ use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::{
-    RawCellInitializationFunctionSummary, RawCellInitializationParamCount,
-    RawCellInitializationVariantCondition,
+    RawCellInitializationFunctionSummary, RawCellInitializationVariantCondition,
 };
+use super::initialized_summary_byte_range_model::RawCellInitializationParamCount;
 use super::model::{Place, ResourceMatchPattern};
 use super::place_utils::projected_place_with_concrete_type;
 use super::report::ResourceCheckOperation;

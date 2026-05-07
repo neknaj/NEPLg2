@@ -91,6 +91,7 @@ mod initialized_summary;
 mod initialized_summary_apply;
 mod initialized_summary_apply_return;
 mod initialized_summary_build;
+mod initialized_summary_byte_range_model;
 mod initialized_summary_byte_ranges;
 mod initialized_summary_cells;
 mod initialized_summary_condition;

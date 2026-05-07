@@ -110,6 +110,24 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 1 initialized summary byte range model split
+
+- `ISS-20260507T125821563Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-992DF2EE` を fixed/resolved に更新した。
+- `initialized_summary.rs` から returned / param / variant param の raw byte range model と `KnownI32` / projection count enum を `initialized_summary_byte_range_model.rs` へ分離した。
+- `initialized_summary.rs` は function summary、raw cell summary、variant requirement / condition contract を担当し、byte range の dependent count model は新 module が担当する。
+- source policy には `initialized_summary_byte_range_model.rs` の存在、`mod initialized_summary_byte_range_model;`、80 lines 上限を追加した。
+- 分割後の行数は `initialized_summary.rs` 70 / 80、`initialized_summary_byte_range_model.rs` 64 / 80。
+- `node nodesrc/test_resource_checker_responsibility.js` は `initialized_summary.rs` 超過を出さなくなり、次の別件として `initialized_summary_apply.rs has 151 lines; responsibility split limit is 130` を検出した。これは `ISS-20260507T130937432Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-7FFA13D6` として追加した。
+- [検証]:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_guarded_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_rejects_unguarded_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_aggregate -- --nocapture`: 2 passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: `initialized_summary.rs` warning は解消。残る warning は `ISS-20260507T130937432Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-7FFA13D6` の `initialized_summary_apply.rs` 超過。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T114726130Z nm json_escape raw traversal removed)
 
 - branch `fix/nm-json-escape-pure-raw-load` で、`stdlib/nm/json_escape.nepl` の public pure raw traversal を削除した。

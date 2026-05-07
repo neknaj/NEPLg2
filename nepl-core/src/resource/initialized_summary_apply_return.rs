@@ -2,9 +2,8 @@ use crate::types::TypeCtx;
 
 use super::cell_state::CellTable;
 use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_summary::{
-    RawCellInitializationFunctionSummary, RawCellInitializationReturnCount,
-};
+use super::initialized_summary::RawCellInitializationFunctionSummary;
+use super::initialized_summary_byte_range_model::RawCellInitializationReturnCount;
 use super::model::Place;
 use super::place_utils::projected_place_with_concrete_type;
 

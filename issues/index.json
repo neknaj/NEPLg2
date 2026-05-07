@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T13:01:36.099Z",
+  "generated_at": "2026-05-07T13:11:01.052Z",
   "counts": {
-    "total": 584,
+    "total": 585,
     "open": 11,
-    "resolved": 573,
+    "resolved": 574,
     "by_area": {
       "core": {
-        "total": 291,
+        "total": 292,
         "open": 4,
-        "resolved": 287
+        "resolved": 288
       },
       "stdlib": {
         "total": 164,
@@ -140,8 +140,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260507T125821563Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-992DF2EE",
-      "title": "Resource initialized summary model exceeds responsibility split limit again",
+      "id": "ISS-20260507T130937432Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-7FFA13D6",
+      "title": "Resource initialized summary apply exceeds responsibility split limit again",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -149,10 +149,10 @@
       "type": "architecture",
       "created": "2026-05-07",
       "updated": "2026-05-07",
-      "target": "nepl-core/src/resource/initialized_summary.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/initialized_summary_apply.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260507T125821563Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-992DF2EE.md"
+      "file": "items/ISS-20260507T130937432Z-RESOURCE-INITIALIZED-SUMMARY-APPLY-E-7FFA13D6.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4458,6 +4458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T121931125Z-RESOURCE-IR-RETURNED-RANGE-SUMMARY-D-AAC77B80.md"
+    },
+    {
+      "id": "ISS-20260507T125821563Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-992DF2EE",
+      "title": "Resource initialized summary model exceeds responsibility split limit again",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/initialized_summary.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T125821563Z-RESOURCE-INITIALIZED-SUMMARY-MODEL-E-992DF2EE.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

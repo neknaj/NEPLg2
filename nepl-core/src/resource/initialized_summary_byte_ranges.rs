@@ -6,7 +6,7 @@ use crate::types::TypeId;
 
 use super::cell_state::{place_suffix_after_address_prefix, CellTable};
 use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_summary::{
+use super::initialized_summary_byte_range_model::{
     RawCellInitializationParamByteRange, RawCellInitializationParamCount,
     RawCellInitializationReturnByteRange, RawCellInitializationReturnCount,
 };

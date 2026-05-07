@@ -2,12 +2,11 @@ use super::cell_state::CellTable;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_summary::{
-    RawCellInitializationFunctionSummary, RawCellInitializationParamCount,
-};
+use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary_apply_return::{
     apply_return_initialization_summary, mark_known_raw_address,
 };
+use super::initialized_summary_byte_range_model::RawCellInitializationParamCount;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{Place, ResourceCallTarget};
 use super::place_utils::projected_place_with_concrete_type;
