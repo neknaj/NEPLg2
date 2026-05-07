@@ -16,7 +16,7 @@
 //:
 //: [目的/もくてき]:
 //: - WASIX の `tty_get` / `tty_set` を使って端末状態を取得・更新します。
-//: - ANSI エスケープシーケンスを用いたカーソル移動・色制御を提供します。
+//: - ANSI エスケープシーケンスを用いたカーソル移動・型付き色制御を提供します。
 //: - 行バッファを使った差分レンダリング機能を提供し、再描画コストを削減します。
 //:
 //: [実装/じっそう]:
@@ -80,16 +80,23 @@ fn tui_push_str <(Vec<str>,str)->TuiStrPushRes> (items, item):
         Result::Err _e:
             TuiStrPushRes tui_empty_str_vec false
 
-fn get_tty_state <()*>i32> ():
+//: get_tty_state_result: WASIX TTY 状態を取得する
+//:
+//: [目的/もくてき]:
+//: - 成功時の raw state pointer と失敗時 errno を `Result` で分け、解放済み pointer と `0` sentinel を同じ `i32` へ混ぜないようにします。
+//:
+//: [注意/ちゅうい]:
+//: - `Result::Ok ptr` の `ptr` は呼び出し側が 24 bytes として `dealloc_raw` する必要があります。
+fn get_tty_state_result <()*>Result<i32,i32>> ():
     let ptr <i32> alloc_raw 24;
     let errno <i32> wasix_tty_get ptr;
     if:
         eq errno 0
         then:
-            ptr
+            Result<i32,i32>::Ok ptr
         else:
             dealloc_raw ptr 24;
-            0
+            Result<i32,i32>::Err errno
 
 fn set_tty_state <(i32)*>i32> (ptr):
     wasix_tty_set ptr
@@ -117,12 +124,10 @@ fn set_line_buffered <(i32,bool)*>()> (ptr, enable):
 //: 注意(重要):
 //: - 返されたポインタは restore_mode に渡して解放する必要があります。
 fn enter_raw_mode <()*>i32> ():
-    let state <i32> get_tty_state;
-    if:
-        ne state 0
-        then:
+    match get_tty_state_result:
+        Result::Ok state:
             let old_state <i32> alloc_raw 24;
-            // Copy state to old_state
+            // 復元用に WASIX TTY state の ABI layout をそのまま保存します。
             let mut i <i32> 0;
             while lt i 24:
                 do:
@@ -140,7 +145,7 @@ fn enter_raw_mode <()*>i32> ():
                 else:
                     dealloc_raw old_state 24;
                     0
-        else:
+        Result::Err _errno:
             0
 
 //: restore_mode: ターミナルの状態を元に戻す
@@ -168,15 +173,13 @@ fn restore_mode <(i32)*>i32> (old_state):
 //: [注意/ちゅうい]:
 //: - 取得に失敗した場合は `TerminalSize 0 0` を返します。
 fn get_terminal_size <()*>TerminalSize> ():
-    let state <i32> get_tty_state;
-    if:
-        ne state 0
-        then:
+    match get_tty_state_result:
+        Result::Ok state:
             let c <i32> get_cols state;
             let r <i32> get_rows state;
             dealloc_raw state 24;
             TerminalSize c r
-        else:
+        Result::Err _errno:
             TerminalSize 0 0
 
 //: --- ANSI 画面制御ヘルパー ---
@@ -215,19 +218,20 @@ fn clear_line <()*>()> ():
     print "\x1b[2K\r";
     ()
 
-//: set_bg_color: 背景色を設定する (0-7: 標準色)
-//: 0=黒 1=赤 2=緑 3=黄 4=青 5=マゼンタ 6=シアン 7=白
-fn set_bg_color <(i32)*>()> (code):
-    print "\x1b[";
-    print_i32 add code 40;
-    print "m";
+//: set_bg_color: 背景色を設定する
+//:
+//: [目的/もくてき]:
+//: - 背景色を `AnsiColor` enum で受け取り、未定義 numeric color code を public API から排除します。
+fn set_bg_color <(AnsiColor)*>()> (color):
+    print ansi_background_color_code color;
     ()
 
-//: set_fg_color: 前景色を設定する (0-7: 標準色)
-fn set_fg_color <(i32)*>()> (code):
-    print "\x1b[";
-    print_i32 add code 30;
-    print "m";
+//: set_fg_color: 前景色を設定する
+//:
+//: [目的/もくてき]:
+//: - 前景色を `AnsiColor` enum で受け取り、`std/stdio/ansi` と同じ網羅的 `match` 変換を使います。
+fn set_fg_color <(AnsiColor)*>()> (color):
+    print ansi_color_code color;
     ()
 
 //: reset_color: 前景色と背景色をリセットする
@@ -713,18 +717,18 @@ fn line_box <(str,i32)*>str> (content, cols):
                     let body <str> line_box_body content inner;
                     concat3 "│" body "│"
 
-//: line_box_styled: 罫線付きの1行を色付き背景で作る
+//: line_box_styled: 罫線付きの1行を typed style 付きで作る
 //:
 //: [目的/もくてき]:
-//: - 行全体の背景色を確実に塗りたい場合に使います。
+//: - 行全体の背景色や前景色を確実に塗りたい場合に使います。
 //:
 //: [実装/じっそう]:
 //: - 先に `content` を内側幅まで切り詰め・パディングし、その結果に `style_text` を適用します。
 //: - `cols <= 0` は空文字列、`cols == 1` は左罫線のみ、`cols == 2` は左右罫線のみを返します。
 //:
 //: [注意/ちゅうい]:
-//: - 罫線（`│`）自体は無色です。内側領域のみ色がつきます。
-fn line_box_styled <(i32,i32,str,i32)*>str> (fg, bg, content, cols):
+//: - 罫線（`│`）自体は無色です。内側領域のみ style がつきます。
+fn line_box_styled <(AnsiTextStyle,str,i32)*>str> (style, content, cols):
     if:
         lt cols 1
         then:
@@ -742,7 +746,7 @@ fn line_box_styled <(i32,i32,str,i32)*>str> (fg, bg, content, cols):
                             "││"
                         else:
                             let body <str> line_box_body content inner;
-                            let styled <str> style_text fg bg body;
+                            let styled <str> style_text style body;
                             concat3 "│" styled "│"
 
 //: line_top: 上枠（`┌──┐`）を作る
@@ -781,24 +785,20 @@ fn line_bottom <(i32)*>str> (cols):
                 else:
                     concat3 "└" repeat_text "─" box_inner_cols cols "┘"
 
-//: style_text: 前景色/背景色を付与した文字列を作る
+//: style_text: typed ANSI style を付与した文字列を作る
 //:
 //: [目的/もくてき]:
 //: - 文字列単位で色付けし、差分レンダリング行に埋め込めるようにします。
 //:
 //: [実装/じっそう]:
-//: - `ESC[<fg>;<bg>m` を前置し、末尾に `ESC[0m` を付加します。
+//: - `std/stdio/ansi` の `AnsiTextStyle` から escape code を生成し、末尾に `ESC[0m` を付加します。
 //:
 //: [注意/ちゅうい]:
-//: - `fg`,`bg` は 0..7（ANSI標準色）を前提とします。
 //: - 色シーケンス自体は `str_display_width` で幅0として扱われます。
-fn style_text <(i32,i32,str)*>str> (fg, bg, s):
-    let c1 <str> from_i32 add fg 30;
-    let c2 <str> from_i32 add bg 40;
-    let p0 <str> concat3 "\x1b[" c1 ";";
-    let p1 <str> concat3 p0 c2 "m";
-    let p2 <str> concat p1 s;
-    concat p2 "\x1b[0m"
+fn style_text <(AnsiTextStyle,str)*>str> (style, s):
+    let prefix <str> ansi_text_style_code style;
+    let p <str> concat prefix s;
+    concat p ansi_reset_code
 
 //: hyperlink_text: OSC8 でハイパーリンク付き文字列を作る
 //:

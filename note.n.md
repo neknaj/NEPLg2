@@ -12,6 +12,26 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 2 WASIX TUI typed color / TTY Result 修正
+
+- `ISS-20260507T065612249Z-WASIX-TUI-COLOR-HELPERS-STILL-ACCEPT-1FD08056` を fixed にした。
+- `stdlib/platforms/wasix/tui.nepl` の color helper は raw `i32` ANSI code を受け取っており、`std/stdio/ansi` の `AnsiColor` / `AnsiTextStyle` と enum `match` による静的検査から外れていた。
+- `std/stdio/ansi.nepl` の `AnsiTextStyle` に foreground/background/weight/decoration を持たせ、背景色も typed style として扱えるようにした。`ansi_background_color_code` と `ansi_text_style_code` は wildcard なしの `match` helper を通る。
+- TUI の `set_fg_color` / `set_bg_color` は `AnsiColor`、`style_text` / `line_box_styled` は `AnsiTextStyle` を受け取るようにした。
+- focused `features_tui` compile で、`get_tty_state` の「成功 pointer / 失敗時 0」sentinel API が Resource owner checker に MaybeFreed と見なされることも確認したため、`get_tty_state_result` の `Result<i32,i32>` に置き換えた。
+- `tests/stdlib/features_tui.n.md` と source policy を更新し、raw `i32` color API と raw pointer sentinel の再導入を防ぐ回帰を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_ansi_boundary.js`: passed
+  - `node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_stdio_debug_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/ansi.nepl --no-tree -o tmp/tui-typed-color-stdio-ansi-after-result.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/std/stdio/debug.nepl --no-tree -o tmp/tui-typed-color-stdio-debug.json -j 1 --dist web/dist`: total=8, passed=8
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md --no-tree -o tmp/tui-typed-color-stdout-after-result.json -j 1 --dist web/dist`: total=7, passed=7
+  - `node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/tui-typed-color-features-after-result.json -j 1 --dist web/dist`: total=5, passed=5
+  - `node nodesrc/tests.js -i stdlib/features/tui.nepl -i tests/stdlib/features_tui.n.md --no-tree -o tmp/tui-typed-color-features-with-facade.json -j 1 --dist web/dist`: total=6, passed=6
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs/path entry/normalize split)
 
 - branch `refactor/fs-path-module-split` で `stdlib/std/fs/path.nepl` を facade 化し、directory entry helper と relative path normalization を submodule へ分離した。

@@ -25,10 +25,15 @@ assert.match(
 );
 
 for (const helper of [
+    'ansi_background_color_style',
+    'ansi_color_pair_style',
+    'ansi_bold_color_pair_style',
     'ansi_color_code',
+    'ansi_background_color_code',
     'ansi_text_weight_code',
     'ansi_text_decoration_code',
     'ansi_reset_code',
+    'ansi_text_style_code',
     'print_style_start',
     'print_style_reset',
     'print_style',
@@ -49,8 +54,8 @@ assert.match(ansiCode, /enum\s+AnsiTextWeight:[\s\S]*Regular[\s\S]*Bold/, 'stdio
 assert.match(ansiCode, /enum\s+AnsiTextDecoration:[\s\S]*Plain[\s\S]*Underline/, 'stdio/ansi must model text decoration as an enum');
 assert.match(
     ansiCode,
-    /struct\s+AnsiTextStyle:[\s\S]*color\s+<AnsiColor>[\s\S]*weight\s+<AnsiTextWeight>[\s\S]*decoration\s+<AnsiTextDecoration>/,
-    'stdio/ansi must model composite text style as typed fields',
+    /struct\s+AnsiTextStyle:[\s\S]*foreground\s+<AnsiColor>[\s\S]*background\s+<AnsiColor>[\s\S]*weight\s+<AnsiTextWeight>[\s\S]*decoration\s+<AnsiTextDecoration>/,
+    'stdio/ansi must model foreground, background, and decorations as typed fields',
 );
 
 const styleCodeMatch = ansiCode.match(
@@ -70,6 +75,25 @@ for (const variant of [
     'Gray',
 ]) {
     assert.match(styleCodeMatch[1], new RegExp(`AnsiColor::${variant}:`), `ansi_color_code must cover ${variant}`);
+}
+
+const backgroundCodeMatch = ansiCode.match(
+    /fn\s+ansi_background_color_code\s+<\(AnsiColor\)->str>\s+\(color\):([\s\S]*?)\nfn\s+ansi_text_weight_code\s+/,
+);
+assert.ok(backgroundCodeMatch, 'ansi_background_color_code body must be found');
+assert.doesNotMatch(backgroundCodeMatch[1], /\n\s*_:/, 'ansi_background_color_code must not use wildcard fallback');
+for (const variant of [
+    'Default',
+    'Red',
+    'Green',
+    'Yellow',
+    'Blue',
+    'Magenta',
+    'Cyan',
+    'White',
+    'Gray',
+]) {
+    assert.match(backgroundCodeMatch[1], new RegExp(`AnsiColor::${variant}:`), `ansi_background_color_code must cover ${variant}`);
 }
 
 const weightCodeMatch = ansiCode.match(
@@ -108,6 +132,18 @@ assert.match(
     printStyleMatch[1],
     /\bprint_style_start\s+style\b[\s\S]*\bprint\s+s\b[\s\S]*\bprint_style_reset\b/,
     'print_style must use typed style start and reset helpers',
+);
+
+assert.match(
+    ansiCode,
+    /fn\s+ansi_text_style_code\s+<\(AnsiTextStyle\)->str>\s+\(style\):[\s\S]*ansi_text_weight_code\s+\*get_ref\s+&style\s+"weight"[\s\S]*ansi_text_decoration_code\s+\*get_ref\s+&style\s+"decoration"[\s\S]*ansi_color_code\s+\*get_ref\s+&style\s+"foreground"[\s\S]*ansi_background_color_code\s+\*get_ref\s+&style\s+"background"/,
+    'ansi_text_style_code must compose typed foreground/background/decorations through enum code helpers',
+);
+
+assert.match(
+    ansiCode,
+    /fn\s+print_style_start\s+<\(AnsiTextStyle\)\*>\(\)>\s+\(style\):[\s\S]*print\s+ansi_text_style_code\s+style/,
+    'print_style_start must use the shared typed style code helper',
 );
 
 assert.match(

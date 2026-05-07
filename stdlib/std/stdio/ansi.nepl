@@ -3,7 +3,7 @@
 //:
 //: ### 目的
 //: - 端末装飾用の escape code を `AnsiColor` / `AnsiTextWeight` / `AnsiTextDecoration` / `AnsiTextStyle` で表し、色指定と文字装飾の両方に静的検査を効かせます。
-//: - 色と太字/下線を 1 個の enum に混ぜず、複合 style を構造体で表すことで `bold + red` のような色付き文字を自然に扱います。
+//: - 前景色、背景色、太字/下線を 1 個の enum に混ぜず、複合 style を構造体で表すことで `bold + red on blue` のような色付き文字を自然に扱います。
 //: - escape code 生成は enum ごとの `match` に集約し、variant 追加時に網羅性検査が働く形にします。
 //:
 //: ### 注意
@@ -15,13 +15,13 @@
 #import "core/traits/copy" as *
 #import "std/stdio/print" as *
 
-//: AnsiColor: ANSI escape code で表せる前景色
+//: AnsiColor: ANSI escape code で表せる色
 //:
 //: [目的/もくてき]:
-//: - color を任意 `str` ではなく enum として受け渡し、typo や未定義 color を型で排除します。
+//: - color を任意 `str` や `i32` ではなく enum として受け渡し、typo や未定義 color を型で排除します。
 //:
 //: [注意/ちゅうい]:
-//: - `Default` は前景色 code を出力しない指定です。明示 reset は `ansi_reset_code` / `print_style_reset` が担当します。
+//: - `Default` は色 code を出力しない指定です。明示 reset は `ansi_reset_code` / `print_style_reset` が担当します。
 enum AnsiColor:
     Default
     Red
@@ -76,18 +76,19 @@ impl Copy for AnsiTextDecoration:
 //: AnsiTextStyle: 色と文字装飾を組み合わせた text style
 //:
 //: [目的/もくてき]:
-//: - 色、太さ、装飾を構造体 field として保持し、`bold + red` のような複合 style を typed value として渡します。
+//: - 前景色、背景色、太さ、装飾を構造体 field として保持し、`bold + red on blue` のような複合 style を typed value として渡します。
 //:
 //: [注意/ちゅうい]:
 //: - field はすべて `Copy` な enum なので `AnsiTextStyle` も軽量値として `Copy` / `Clone` を実装します。
 struct AnsiTextStyle:
-    color <AnsiColor>
+    foreground <AnsiColor>
+    background <AnsiColor>
     weight <AnsiTextWeight>
     decoration <AnsiTextDecoration>
 
 impl Clone for AnsiTextStyle:
     fn clone <(&AnsiTextStyle)->AnsiTextStyle> (style):
-        AnsiTextStyle *get_ref style "color" *get_ref style "weight" *get_ref style "decoration"
+        AnsiTextStyle *get_ref style "foreground" *get_ref style "background" *get_ref style "weight" *get_ref style "decoration"
 
 impl Copy for AnsiTextStyle:
     fn copy_mark <(AnsiTextStyle)->AnsiTextStyle> (style):
@@ -96,47 +97,68 @@ impl Copy for AnsiTextStyle:
 //: ansi_text_style: text style を明示的に構築する
 //:
 //: [実装/じっそう]:
-//: - `AnsiTextStyle` の 3 field をそのまま組み立てます。
+//: - `AnsiTextStyle` の 4 field をそのまま組み立てます。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ansi_text_style <(AnsiColor,AnsiTextWeight,AnsiTextDecoration)->AnsiTextStyle> (color, weight, decoration):
-    AnsiTextStyle color weight decoration
+fn ansi_text_style <(AnsiColor,AnsiColor,AnsiTextWeight,AnsiTextDecoration)->AnsiTextStyle> (foreground, background, weight, decoration):
+    AnsiTextStyle foreground background weight decoration
 
 //: ansi_plain_style: 追加装飾のない既定 style を返す
 //:
 //: [実装/じっそう]:
 //: - `Default` / `Regular` / `Plain` を指定した `AnsiTextStyle` を返します。
 fn ansi_plain_style <()->AnsiTextStyle> ():
-    ansi_text_style AnsiColor::Default AnsiTextWeight::Regular AnsiTextDecoration::Plain
+    ansi_text_style AnsiColor::Default AnsiColor::Default AnsiTextWeight::Regular AnsiTextDecoration::Plain
 
 //: ansi_color_style: 前景色だけを指定した style を返す
 //:
 //: [実装/じっそう]:
 //: - 指定 color と、通常の太さ/装飾なしを合成します。
 fn ansi_color_style <(AnsiColor)->AnsiTextStyle> (color):
-    ansi_text_style color AnsiTextWeight::Regular AnsiTextDecoration::Plain
+    ansi_text_style color AnsiColor::Default AnsiTextWeight::Regular AnsiTextDecoration::Plain
+
+//: ansi_background_color_style: 背景色だけを指定した style を返す
+//:
+//: [実装/じっそう]:
+//: - 既定の前景色と、指定 background color を合成します。
+fn ansi_background_color_style <(AnsiColor)->AnsiTextStyle> (color):
+    ansi_text_style AnsiColor::Default color AnsiTextWeight::Regular AnsiTextDecoration::Plain
+
+//: ansi_color_pair_style: 前景色と背景色を指定した style を返す
+//:
+//: [実装/じっそう]:
+//: - 指定 foreground/background color と、通常の太さ/装飾なしを合成します。
+fn ansi_color_pair_style <(AnsiColor,AnsiColor)->AnsiTextStyle> (foreground, background):
+    ansi_text_style foreground background AnsiTextWeight::Regular AnsiTextDecoration::Plain
 
 //: ansi_bold_style: 太字だけを指定した style を返す
 //:
 //: [実装/じっそう]:
 //: - 既定色と `Bold` を合成します。
 fn ansi_bold_style <()->AnsiTextStyle> ():
-    ansi_text_style AnsiColor::Default AnsiTextWeight::Bold AnsiTextDecoration::Plain
+    ansi_text_style AnsiColor::Default AnsiColor::Default AnsiTextWeight::Bold AnsiTextDecoration::Plain
 
 //: ansi_bold_color_style: 太字と前景色を指定した style を返す
 //:
 //: [実装/じっそう]:
 //: - 指定 color と `Bold` を合成します。
 fn ansi_bold_color_style <(AnsiColor)->AnsiTextStyle> (color):
-    ansi_text_style color AnsiTextWeight::Bold AnsiTextDecoration::Plain
+    ansi_text_style color AnsiColor::Default AnsiTextWeight::Bold AnsiTextDecoration::Plain
+
+//: ansi_bold_color_pair_style: 太字、前景色、背景色を指定した style を返す
+//:
+//: [実装/じっそう]:
+//: - 指定 foreground/background color と `Bold` を合成します。
+fn ansi_bold_color_pair_style <(AnsiColor,AnsiColor)->AnsiTextStyle> (foreground, background):
+    ansi_text_style foreground background AnsiTextWeight::Bold AnsiTextDecoration::Plain
 
 //: ansi_underlined_color_style: 下線と前景色を指定した style を返す
 //:
 //: [実装/じっそう]:
 //: - 指定 color と `Underline` を合成します。
 fn ansi_underlined_color_style <(AnsiColor)->AnsiTextStyle> (color):
-    ansi_text_style color AnsiTextWeight::Regular AnsiTextDecoration::Underline
+    ansi_text_style color AnsiColor::Default AnsiTextWeight::Regular AnsiTextDecoration::Underline
 
 //: ansi_color_code: color enum を前景色 escape code へ変換する
 //:
@@ -165,6 +187,34 @@ fn ansi_color_code <(AnsiColor)->str> (color):
             "\x1b[37m"
         AnsiColor::Gray:
             "\x1b[90m"
+
+//: ansi_background_color_code: color enum を背景色 escape code へ変換する
+//:
+//: [実装/じっそう]:
+//: - 前景色と同じ `AnsiColor` enum を使い、background 用 code へ wildcard なしで変換します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ansi_background_color_code <(AnsiColor)->str> (color):
+    match color:
+        AnsiColor::Default:
+            ""
+        AnsiColor::Red:
+            "\x1b[41m"
+        AnsiColor::Green:
+            "\x1b[42m"
+        AnsiColor::Yellow:
+            "\x1b[43m"
+        AnsiColor::Blue:
+            "\x1b[44m"
+        AnsiColor::Magenta:
+            "\x1b[45m"
+        AnsiColor::Cyan:
+            "\x1b[46m"
+        AnsiColor::White:
+            "\x1b[47m"
+        AnsiColor::Gray:
+            "\x1b[100m"
 
 //: ansi_text_weight_code: weight enum を escape code へ変換する
 //:
@@ -204,6 +254,24 @@ fn ansi_text_decoration_code <(AnsiTextDecoration)->str> (decoration):
 fn ansi_reset_code <()->str> ():
     "\x1b[0m"
 
+//: ansi_text_style_code: style enum/struct を escape code 文字列へ変換する
+//:
+//: [目的/もくてき]:
+//: - 行バッファなど、直接 `print` せず文字列として style を埋め込む API で使います。
+//:
+//: [実装/じっそう]:
+//: - weight、decoration、foreground、background の code を固定順で連結します。
+//: - 各 code は enum `match` helper を通るため、variant 追加時の更新漏れを検出できます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn ansi_text_style_code <(AnsiTextStyle)->str> (style):
+    let weight_code <str> ansi_text_weight_code *get_ref &style "weight";
+    let decoration_code <str> ansi_text_decoration_code *get_ref &style "decoration";
+    let foreground_code <str> ansi_color_code *get_ref &style "foreground";
+    let background_code <str> ansi_background_color_code *get_ref &style "background";
+    concat concat concat weight_code decoration_code foreground_code background_code
+
 //: print_style_start: style を適用する escape code を出力する
 //:
 //: [目的/もくてき]:
@@ -215,9 +283,7 @@ fn ansi_reset_code <()->str> ():
 //: [計算量/けいさんりょう]:
 //: - O(1)
 fn print_style_start <(AnsiTextStyle)*>()> (style):
-    print ansi_text_weight_code *get_ref &style "weight";
-    print ansi_text_decoration_code *get_ref &style "decoration";
-    print ansi_color_code *get_ref &style "color";
+    print ansi_text_style_code style;
     ()
 
 //: print_style_reset: ANSI style を reset する

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T06:49:27.899Z",
+  "generated_at": "2026-05-07T07:11:01.168Z",
   "counts": {
-    "total": 565,
+    "total": 566,
     "open": 11,
-    "resolved": 554,
+    "resolved": 555,
     "by_area": {
       "core": {
         "total": 283,
@@ -12,9 +12,9 @@
         "resolved": 279
       },
       "stdlib": {
-        "total": 158,
+        "total": 159,
         "open": 5,
-        "resolved": 153
+        "resolved": 154
       },
       "TEST": {
         "total": 13,
@@ -8398,6 +8398,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T115339863Z-UTF-8-NEGATIVE-PATH-TESTS-LEAK-OWNED-2057C710.md"
+    },
+    {
+      "id": "ISS-20260507T065612249Z-WASIX-TUI-COLOR-HELPERS-STILL-ACCEPT-1FD08056",
+      "title": "WASIX TUI color helpers still accept raw i32 ANSI codes",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "stdlib/platforms/wasix/tui.nepl, stdlib/std/stdio/ansi.nepl, tests/stdlib/features_tui.n.md, nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T065612249Z-WASIX-TUI-COLOR-HELPERS-STILL-ACCEPT-1FD08056.md"
     },
     {
       "id": "ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7",

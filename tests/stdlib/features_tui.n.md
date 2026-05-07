@@ -92,9 +92,11 @@ ret: 0
 #target wasix
 
 #import "features/tui" as tui
+#import "std/stdio" as *
 #import "std/test" as *
 
 fn main <()*>i32> ():
+    let box_style <AnsiTextStyle> ansi_color_pair_style AnsiColor::Red AnsiColor::Blue;
     let checks:
         checks_new
         |> checks_push assert_str_eq "" tui::line_top 0
@@ -110,7 +112,35 @@ fn main <()*>i32> ():
         |> checks_push assert_str_eq "││" tui::line_box "abc" 2
         |> checks_push assert_str_eq "│a│" tui::line_box "abc" 3
         |> checks_push assert_str_eq "│ab│" tui::line_box "abcd" 4
-        |> checks_push assert_str_eq "││" tui::line_box_styled 1 4 "abc" 2
-        |> checks_push assert_str_eq "│\x1b[31;44ma\x1b[0m│" tui::line_box_styled 1 4 "abc" 3
+        |> checks_push assert_str_eq "││" tui::line_box_styled box_style "abc" 2
+        |> checks_push assert_str_eq "│\x1b[31m\x1b[44ma\x1b[0m│" tui::line_box_styled box_style "abc" 3
     checks_exit_code checks
+```
+
+## features_tui_color_helpers_use_typed_ansi_style
+
+[目的/もくてき]:
+- TUI の色付き文字列 helper が raw `i32` code ではなく `AnsiColor` / `AnsiTextStyle` を使うことを固定します。
+- style 文字列生成と直接出力の両方が `std/stdio/ansi` の enum/match 変換を通ることを確かめます。
+
+neplg2:test
+stdout: "\u001b[31m\u001b[44mx\u001b[0m\n\u001b[32mfg\u001b[44mbg\u001b[0m\n"
+```neplg2
+#entry main
+#indent 4
+#target wasix
+
+#import "features/tui" as tui
+#import "std/stdio" as *
+
+fn main <()*>()> ():
+    let inline_style <AnsiTextStyle> ansi_color_pair_style AnsiColor::Red AnsiColor::Blue;
+    print tui::style_text inline_style "x";
+    println "";
+    tui::set_fg_color AnsiColor::Green;
+    print "fg";
+    tui::set_bg_color AnsiColor::Blue;
+    print "bg";
+    tui::reset_color;
+    println "";
 ```
