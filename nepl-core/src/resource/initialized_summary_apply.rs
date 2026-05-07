@@ -2,7 +2,9 @@ use super::cell_state::CellTable;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_summary::RawCellInitializationFunctionSummary;
+use super::initialized_summary::{
+    RawCellInitializationFunctionSummary, RawCellInitializationParamCount,
+};
 use super::initialized_summary_apply_return::{
     apply_return_initialization_summary, mark_known_raw_address,
 };
@@ -107,9 +109,6 @@ impl ResourceCheckEngine<'_> {
             let Some(address_arg) = args.get(range.address_param_index) else {
                 continue;
             };
-            let Some(count_arg) = args.get(range.count_param_index) else {
-                continue;
-            };
             let address_arg = raw_aliases.canonicalize(address_arg);
             let address = projected_place_with_concrete_type(
                 self.types,
@@ -117,16 +116,36 @@ impl ResourceCheckEngine<'_> {
                 &range.address_suffix,
                 range.address_ty,
             );
-            let count_arg = raw_aliases.canonicalize_scalar(count_arg);
-            let count = projected_place_with_concrete_type(
-                self.types,
-                &count_arg,
-                &range.count_suffix,
-                range.count_ty,
-            );
+            let Some(count) = param_count_source_place(self.types, raw_aliases, args, &range.count)
+            else {
+                continue;
+            };
             let count = raw_aliases.canonicalize_scalar(&count);
             cells.mark_initialized_raw_byte_range(&address, &count, range.unit, range.ty);
         }
         release_requirements_ok
+    }
+}
+
+fn param_count_source_place(
+    types: &crate::types::TypeCtx,
+    raw_aliases: &RawCellAddressAliases,
+    args: &[Place],
+    count: &RawCellInitializationParamCount,
+) -> Option<Place> {
+    match count {
+        RawCellInitializationParamCount::ParamProjection {
+            param_index,
+            suffix,
+            ty,
+        } => {
+            let count_arg = raw_aliases.canonicalize_scalar(args.get(*param_index)?);
+            Some(projected_place_with_concrete_type(
+                types, &count_arg, suffix, *ty,
+            ))
+        }
+        RawCellInitializationParamCount::KnownI32 { value, ty } => {
+            Some(Place::i32_constant(*value, *ty))
+        }
     }
 }

@@ -110,6 +110,6 @@ fn value_origin_copy_is_relevant(source: &Place, target: &Place) -> bool {
 fn value_origin_place_is_stable(place: &Place) -> bool {
     matches!(
         place.root,
-        PlaceRoot::Local(_) | PlaceRoot::Return | PlaceRoot::Storage(_)
+        PlaceRoot::Local(_) | PlaceRoot::I32Constant(_) | PlaceRoot::Return | PlaceRoot::Storage(_)
     )
 }

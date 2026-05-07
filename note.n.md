@@ -44,6 +44,26 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 1 ResourceIR returned range literal count summary
+
+- `ISS-20260507T121931125Z-RESOURCE-IR-RETURNED-RANGE-SUMMARY-D-AAC77B80` を追加し、fixed/resolved に更新した。
+- `resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_pointer` は、callee 内部の `fill_len = 4` が returned initialized range summary の count として表現できず、caller 側で `buf[+4].deref` を `RawMemoryLoadCell Uninit` と誤診断していた。
+- `RawCellInitializationReturnCount` / `RawCellInitializationParamCount` を追加し、projection bound と known i32 bound を enum で分離した。`PlaceRoot::I32Constant(i32)` を追加して literal bound を synthetic local や temporary id sentinel なしで ResourceIR state に保持する。
+- direct ResourceIR fixture の `ResourceOffset::Known` は byte offset 設計なので、i32 の 3 要素目を `Known(8)`、2 要素目を `Known(4)` に修正した。静的検査側の load 判定は緩めていない。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_pointer -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_rekeys_raw_cells_after_loading_raw_address_cell -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_guarded_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_rejects_unguarded_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 217 passed / 11 failed。今回対象の cell / return-summary 2 件は解消し、残りは owner summary 系。
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `trunk build --release`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-return-count-summary-rebased.json -j 1 --dist web/dist`: total=14, passed=14
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-return-count-summary-rebased.json -j 1 --dist web/dist`: total=110, passed=110
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T114726130Z nm json_escape raw traversal removed)
 
 - branch `fix/nm-json-escape-pure-raw-load` で、`stdlib/nm/json_escape.nepl` の public pure raw traversal を削除した。

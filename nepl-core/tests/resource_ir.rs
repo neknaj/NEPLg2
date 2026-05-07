@@ -6566,7 +6566,7 @@ fn resource_ir_cell_check_rekeys_raw_cells_after_loading_raw_address_cell() {
     let store_out = Place::temporary(ResourceId(5), unit_ty);
     let loaded_buf = Place::temporary(ResourceId(6), i32_ty);
     let loaded_cell_address = loaded_buf.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset::Known(2)),
+        PlaceProjection::StorageOffset(ResourceOffset::Known(8)),
         i32_ty,
     );
     let loaded = Place::temporary(ResourceId(7), i32_ty);
@@ -6581,13 +6581,13 @@ fn resource_ir_cell_check_rekeys_raw_cells_after_loading_raw_address_cell() {
                 span,
             },
             ResourceOp::Expr {
-                kind: ResourceExprKind::Literal,
+                kind: ResourceExprKind::LiteralI32(4),
                 output: fill_len.clone(),
                 ty: i32_ty,
                 span,
             },
             ResourceOp::Expr {
-                kind: ResourceExprKind::Literal,
+                kind: ResourceExprKind::LiteralI32(0),
                 output: fill_value.clone(),
                 ty: i32_ty,
                 span,
@@ -6649,7 +6649,7 @@ fn resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_po
     let loaded_buf = Place::temporary(ResourceId(7), i32_ty);
     let buf_local = Place::local("buf".to_string(), i32_ty);
     let loaded_cell_address = buf_local.clone().with_projection(
-        PlaceProjection::StorageOffset(ResourceOffset::Known(1)),
+        PlaceProjection::StorageOffset(ResourceOffset::Known(4)),
         i32_ty,
     );
     let loaded = Place::temporary(ResourceId(8), i32_ty);
@@ -6672,13 +6672,13 @@ fn resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_po
                             span,
                         },
                         ResourceOp::Expr {
-                            kind: ResourceExprKind::Literal,
+                            kind: ResourceExprKind::LiteralI32(4),
                             output: fill_len.clone(),
                             ty: i32_ty,
                             span,
                         },
                         ResourceOp::Expr {
-                            kind: ResourceExprKind::Literal,
+                            kind: ResourceExprKind::LiteralI32(0),
                             output: fill_value.clone(),
                             ty: i32_ty,
                             span,

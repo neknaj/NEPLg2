@@ -8,7 +8,8 @@ use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::{
-    RawCellInitializationFunctionSummary, RawCellInitializationVariantCondition,
+    RawCellInitializationFunctionSummary, RawCellInitializationParamCount,
+    RawCellInitializationVariantCondition,
 };
 use super::model::{Place, ResourceMatchPattern};
 use super::place_utils::projected_place_with_concrete_type;
@@ -41,11 +42,22 @@ struct PendingVariantRawByteRangeInitialization {
     address_arg: Place,
     address_suffix: Vec<super::model::PlaceProjection>,
     address_ty: crate::types::TypeId,
-    count_arg: Place,
-    count_suffix: Vec<super::model::PlaceProjection>,
-    count_ty: crate::types::TypeId,
+    count: PendingVariantRawByteRangeCount,
     unit: InitializedRawRangeUnit,
     ty: crate::types::TypeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PendingVariantRawByteRangeCount {
+    ArgProjection {
+        arg: Place,
+        suffix: Vec<super::model::PlaceProjection>,
+        ty: crate::types::TypeId,
+    },
+    KnownI32 {
+        value: i32,
+        ty: crate::types::TypeId,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,7 +108,7 @@ impl PendingVariantRawCellInitializations {
             let Some(address_arg) = args.get(range.address_param_index) else {
                 continue;
             };
-            let Some(count_arg) = args.get(range.count_param_index) else {
+            let Some(count) = pending_variant_count_source(raw_aliases, args, &range.count) else {
                 continue;
             };
             self.push_unique_byte_range(PendingVariantRawByteRangeInitialization {
@@ -105,9 +117,7 @@ impl PendingVariantRawCellInitializations {
                 address_arg: raw_aliases.canonicalize(address_arg),
                 address_suffix: range.address_suffix.clone(),
                 address_ty: range.address_ty,
-                count_arg: raw_aliases.canonicalize_scalar(count_arg),
-                count_suffix: range.count_suffix.clone(),
-                count_ty: range.count_ty,
+                count,
                 unit: range.unit,
                 ty: range.ty,
             });
@@ -152,13 +162,7 @@ impl PendingVariantRawCellInitializations {
                 &range.address_suffix,
                 range.address_ty,
             );
-            let count_arg = raw_aliases.canonicalize_scalar(&range.count_arg);
-            let count = projected_place_with_concrete_type(
-                engine.types,
-                &count_arg,
-                &range.count_suffix,
-                range.count_ty,
-            );
+            let count = pending_variant_count_place(engine.types, raw_aliases, &range.count);
             let count = raw_aliases.canonicalize_scalar(&count);
             cells.mark_initialized_raw_byte_range(&address, &count, range.unit, range.ty);
         }
@@ -250,9 +254,7 @@ impl PendingVariantRawCellInitializations {
                 address_arg: entry.address_arg.clone(),
                 address_suffix: entry.address_suffix.clone(),
                 address_ty: entry.address_ty,
-                count_arg: entry.count_arg.clone(),
-                count_suffix: entry.count_suffix.clone(),
-                count_ty: entry.count_ty,
+                count: entry.count.clone(),
                 unit: entry.unit,
                 ty: entry.ty,
             })
@@ -397,6 +399,44 @@ impl PendingVariantRawCellInitializations {
             return;
         }
         self.unreachable_variants.push(entry);
+    }
+}
+
+fn pending_variant_count_source(
+    raw_aliases: &RawCellAddressAliases,
+    args: &[Place],
+    count: &RawCellInitializationParamCount,
+) -> Option<PendingVariantRawByteRangeCount> {
+    match count {
+        RawCellInitializationParamCount::ParamProjection {
+            param_index,
+            suffix,
+            ty,
+        } => Some(PendingVariantRawByteRangeCount::ArgProjection {
+            arg: raw_aliases.canonicalize_scalar(args.get(*param_index)?),
+            suffix: suffix.clone(),
+            ty: *ty,
+        }),
+        RawCellInitializationParamCount::KnownI32 { value, ty } => {
+            Some(PendingVariantRawByteRangeCount::KnownI32 {
+                value: *value,
+                ty: *ty,
+            })
+        }
+    }
+}
+
+fn pending_variant_count_place(
+    types: &TypeCtx,
+    raw_aliases: &RawCellAddressAliases,
+    count: &PendingVariantRawByteRangeCount,
+) -> Place {
+    match count {
+        PendingVariantRawByteRangeCount::ArgProjection { arg, suffix, ty } => {
+            let arg = raw_aliases.canonicalize_scalar(arg);
+            projected_place_with_concrete_type(types, &arg, suffix, *ty)
+        }
+        PendingVariantRawByteRangeCount::KnownI32 { value, ty } => Place::i32_constant(*value, *ty),
     }
 }
 

@@ -70,6 +70,7 @@ fn collect_source_bindings_from_ops(
                             arm.bind_source_name.as_ref().or_else(|| match &place.root {
                                 PlaceRoot::Local(name) => Some(name),
                                 PlaceRoot::Temporary(_)
+                                | PlaceRoot::I32Constant(_)
                                 | PlaceRoot::Return
                                 | PlaceRoot::Storage(_)
                                 | PlaceRoot::Unknown => None,

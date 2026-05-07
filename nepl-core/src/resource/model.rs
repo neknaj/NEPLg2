@@ -335,6 +335,7 @@ pub struct Place {
 pub enum PlaceRoot {
     Local(String),
     Temporary(ResourceId),
+    I32Constant(i32),
     Return,
     Storage(StorageId),
     Unknown,
@@ -468,6 +469,14 @@ impl Place {
     pub fn temporary(id: ResourceId, ty: TypeId) -> Self {
         Self {
             root: PlaceRoot::Temporary(id),
+            projections: Vec::new(),
+            ty,
+        }
+    }
+
+    pub fn i32_constant(value: i32, ty: TypeId) -> Self {
+        Self {
+            root: PlaceRoot::I32Constant(value),
             projections: Vec::new(),
             ty,
         }

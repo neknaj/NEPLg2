@@ -82,6 +82,7 @@ fn owner_cell_projection_rank(place: &Place) -> u8 {
 fn canonical_place_rank(place: &Place) -> u8 {
     match &place.root {
         PlaceRoot::Local(_) => 0,
+        PlaceRoot::I32Constant(_) => 0,
         PlaceRoot::Return => 1,
         PlaceRoot::Storage(_) => 2,
         PlaceRoot::Temporary(_) => 3,

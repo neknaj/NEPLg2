@@ -36,10 +36,21 @@ pub(super) struct RawCellInitializationReturnCell {
 pub(super) struct RawCellInitializationReturnByteRange {
     pub(super) address_suffix: Vec<PlaceProjection>,
     pub(super) address_ty: TypeId,
-    pub(super) count_suffix: Vec<PlaceProjection>,
-    pub(super) count_ty: TypeId,
+    pub(super) count: RawCellInitializationReturnCount,
     pub(super) unit: InitializedRawRangeUnit,
     pub(super) ty: TypeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum RawCellInitializationReturnCount {
+    ReturnValueProjection {
+        suffix: Vec<PlaceProjection>,
+        ty: TypeId,
+    },
+    KnownI32 {
+        value: i32,
+        ty: TypeId,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,11 +66,22 @@ pub(super) struct RawCellInitializationParamByteRange {
     pub(super) address_param_index: usize,
     pub(super) address_suffix: Vec<PlaceProjection>,
     pub(super) address_ty: TypeId,
-    pub(super) count_param_index: usize,
-    pub(super) count_suffix: Vec<PlaceProjection>,
-    pub(super) count_ty: TypeId,
+    pub(super) count: RawCellInitializationParamCount,
     pub(super) unit: InitializedRawRangeUnit,
     pub(super) ty: TypeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum RawCellInitializationParamCount {
+    ParamProjection {
+        param_index: usize,
+        suffix: Vec<PlaceProjection>,
+        ty: TypeId,
+    },
+    KnownI32 {
+        value: i32,
+        ty: TypeId,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,9 +99,7 @@ pub(super) struct RawCellInitializationVariantParamByteRange {
     pub(super) address_param_index: usize,
     pub(super) address_suffix: Vec<PlaceProjection>,
     pub(super) address_ty: TypeId,
-    pub(super) count_param_index: usize,
-    pub(super) count_suffix: Vec<PlaceProjection>,
-    pub(super) count_ty: TypeId,
+    pub(super) count: RawCellInitializationParamCount,
     pub(super) unit: InitializedRawRangeUnit,
     pub(super) ty: TypeId,
 }

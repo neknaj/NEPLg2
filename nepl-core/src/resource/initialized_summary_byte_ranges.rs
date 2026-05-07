@@ -7,7 +7,8 @@ use crate::types::TypeId;
 use super::cell_state::{place_suffix_after_address_prefix, CellTable};
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::{
-    RawCellInitializationParamByteRange, RawCellInitializationReturnByteRange,
+    RawCellInitializationParamByteRange, RawCellInitializationParamCount,
+    RawCellInitializationReturnByteRange, RawCellInitializationReturnCount,
 };
 use super::model::{CellState, Place, PlaceProjection, ResourceLocal};
 
@@ -24,17 +25,16 @@ pub(super) fn collect_return_initialized_raw_byte_ranges(
         if address_suffixes.is_empty() {
             continue;
         }
-        let count_suffixes =
-            collect_return_count_suffixes(cells, raw_aliases, range.count(), &return_aliases);
+        let count_sources =
+            collect_return_count_sources(cells, raw_aliases, range.count(), &return_aliases);
         for (address_suffix, address_ty) in &address_suffixes {
-            for (count_suffix, count_ty) in &count_suffixes {
+            for count in &count_sources {
                 push_unique_return_byte_range(
                     out,
                     RawCellInitializationReturnByteRange {
                         address_suffix: address_suffix.clone(),
                         address_ty: *address_ty,
-                        count_suffix: count_suffix.clone(),
-                        count_ty: *count_ty,
+                        count: count.clone(),
                         unit: range.unit(),
                         ty: range.ty(),
                     },
@@ -55,19 +55,16 @@ pub(super) fn collect_param_initialized_raw_byte_ranges(
         if address_suffixes.is_empty() {
             continue;
         }
-        let count_suffixes =
-            collect_param_count_suffixes(cells, raw_aliases, range.count(), params);
+        let count_sources = collect_param_count_sources(cells, raw_aliases, range.count(), params);
         for (address_param_index, address_suffix, address_ty) in &address_suffixes {
-            for (count_param_index, count_suffix, count_ty) in &count_suffixes {
+            for count in &count_sources {
                 push_unique_param_byte_range(
                     out,
                     RawCellInitializationParamByteRange {
                         address_param_index: *address_param_index,
                         address_suffix: address_suffix.clone(),
                         address_ty: *address_ty,
-                        count_param_index: *count_param_index,
-                        count_suffix: count_suffix.clone(),
-                        count_ty: *count_ty,
+                        count: count.clone(),
                         unit: range.unit(),
                         ty: range.ty(),
                     },
@@ -94,14 +91,23 @@ fn collect_return_value_suffixes(
     out
 }
 
-fn collect_return_count_suffixes(
+fn collect_return_count_sources(
     cells: &CellTable,
     raw_aliases: &RawCellAddressAliases,
     count: &Place,
     return_aliases: &[Place],
-) -> Vec<(Vec<PlaceProjection>, TypeId)> {
+) -> Vec<RawCellInitializationReturnCount> {
     let count = raw_aliases.canonicalize_scalar(count);
     let mut out = Vec::new();
+    if let Some(value) = raw_aliases.i32_value(&count) {
+        push_unique_return_count(
+            &mut out,
+            RawCellInitializationReturnCount::KnownI32 {
+                value,
+                ty: count.ty,
+            },
+        );
+    }
     for entry in cells.entries() {
         if !matches!(entry.state, CellState::Initialized(_)) {
             continue;
@@ -115,7 +121,13 @@ fn collect_return_count_suffixes(
                 else {
                     continue;
                 };
-                push_unique_return_suffix(&mut out, suffix, entry_alias.ty);
+                push_unique_return_count(
+                    &mut out,
+                    RawCellInitializationReturnCount::ReturnValueProjection {
+                        suffix,
+                        ty: entry_alias.ty,
+                    },
+                );
             }
         }
     }
@@ -151,14 +163,23 @@ fn collect_param_value_suffixes(
     out
 }
 
-fn collect_param_count_suffixes(
+fn collect_param_count_sources(
     cells: &CellTable,
     raw_aliases: &RawCellAddressAliases,
     count: &Place,
     params: &[ResourceLocal],
-) -> Vec<(usize, Vec<PlaceProjection>, TypeId)> {
+) -> Vec<RawCellInitializationParamCount> {
     let count = raw_aliases.canonicalize_scalar(count);
     let mut out = Vec::new();
+    if let Some(value) = raw_aliases.i32_value(&count) {
+        push_unique_param_count(
+            &mut out,
+            RawCellInitializationParamCount::KnownI32 {
+                value,
+                ty: count.ty,
+            },
+        );
+    }
     for entry in cells.entries() {
         if !matches!(entry.state, CellState::Initialized(_)) {
             continue;
@@ -174,7 +195,14 @@ fn collect_param_count_suffixes(
                     else {
                         continue;
                     };
-                    push_unique_param_suffix(&mut out, param_index, suffix, entry_alias.ty);
+                    push_unique_param_count(
+                        &mut out,
+                        RawCellInitializationParamCount::ParamProjection {
+                            param_index,
+                            suffix,
+                            ty: entry_alias.ty,
+                        },
+                    );
                 }
             }
         }
@@ -204,6 +232,15 @@ fn push_unique_return_suffix(
     }
 }
 
+fn push_unique_return_count(
+    counts: &mut Vec<RawCellInitializationReturnCount>,
+    count: RawCellInitializationReturnCount,
+) {
+    if !counts.iter().any(|existing| existing == &count) {
+        counts.push(count);
+    }
+}
+
 fn push_unique_param_suffix(
     suffixes: &mut Vec<(usize, Vec<PlaceProjection>, TypeId)>,
     param_index: usize,
@@ -217,5 +254,14 @@ fn push_unique_param_suffix(
         })
     {
         suffixes.push((param_index, suffix, ty));
+    }
+}
+
+fn push_unique_param_count(
+    counts: &mut Vec<RawCellInitializationParamCount>,
+    count: RawCellInitializationParamCount,
+) {
+    if !counts.iter().any(|existing| existing == &count) {
+        counts.push(count);
     }
 }

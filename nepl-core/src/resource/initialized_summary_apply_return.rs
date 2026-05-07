@@ -2,7 +2,9 @@ use crate::types::TypeCtx;
 
 use super::cell_state::CellTable;
 use super::initialized_alias::RawCellAddressAliases;
-use super::initialized_summary::RawCellInitializationFunctionSummary;
+use super::initialized_summary::{
+    RawCellInitializationFunctionSummary, RawCellInitializationReturnCount,
+};
 use super::model::Place;
 use super::place_utils::projected_place_with_concrete_type;
 
@@ -30,8 +32,14 @@ pub(super) fn apply_return_initialization_summary(
             &range.address_suffix,
             range.address_ty,
         );
-        let count =
-            projected_place_with_concrete_type(types, output, &range.count_suffix, range.count_ty);
+        let count = match &range.count {
+            RawCellInitializationReturnCount::ReturnValueProjection { suffix, ty } => {
+                projected_place_with_concrete_type(types, output, suffix, *ty)
+            }
+            RawCellInitializationReturnCount::KnownI32 { value, ty } => {
+                Place::i32_constant(*value, *ty)
+            }
+        };
         let count = raw_aliases.canonicalize_scalar(&count);
         cells.mark_initialized_raw_byte_range(&address, &count, range.unit, range.ty);
     }

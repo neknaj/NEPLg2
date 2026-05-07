@@ -548,6 +548,7 @@ fn dump_place(place: &Place) -> String {
     let mut out = match &place.root {
         PlaceRoot::Local(name) => format!("%{}:t{}", name, place.ty.0),
         PlaceRoot::Temporary(id) => format!("tmp{}:t{}", id.0, place.ty.0),
+        PlaceRoot::I32Constant(value) => format!("i32({}):t{}", value, place.ty.0),
         PlaceRoot::Return => format!("return:t{}", place.ty.0),
         PlaceRoot::Storage(id) => format!("storage{}:t{}", id.0, place.ty.0),
         PlaceRoot::Unknown => format!("unknown:t{}", place.ty.0),

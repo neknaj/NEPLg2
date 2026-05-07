@@ -54,6 +54,9 @@ impl RawCellAddressAliases {
     }
 
     pub(super) fn i32_value(&self, place: &Place) -> Option<i32> {
+        if let PlaceRoot::I32Constant(value) = place.root {
+            return Some(value);
+        }
         self.i32_facts
             .value_for_aliases(&self.scalar_aliases_for(place))
     }
@@ -145,6 +148,7 @@ fn scalar_alias_rank(place: &Place) -> (u8, u8, usize) {
 fn scalar_place_rank(place: &Place) -> u8 {
     match &place.root {
         PlaceRoot::Local(_) => 0,
+        PlaceRoot::I32Constant(_) => 0,
         PlaceRoot::Return => 1,
         PlaceRoot::Storage(_) => 2,
         PlaceRoot::Temporary(_) => 3,
