@@ -598,6 +598,17 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 1 selfhost stdlib_map / module graph closeout
+
+- `ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF` を fixed にした。
+- `ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D` の解消後、stdlib_map と module graph の focused doctest が default 60000ms budget で通過することを確認した。
+- これにより、stdlib_map の path mapping 検証と graph doctest は再び CI/local signal として使える状態になった。
+- [検証]:
+  - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/module/stdlib_map.nepl --no-tree --dist web/dist -o tmp/selfhost_stdlib_map_closeout.json -j 1 --assert-io`: 1/1 passed
+  - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl --no-tree --dist web/dist -o tmp/selfhost_graph_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-07 Agent 1 self-host lexer timeout closeout
 
 - `ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D` を fixed にした。

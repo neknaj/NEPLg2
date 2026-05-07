@@ -2,8 +2,8 @@
 id: ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF
 title: "selfhost stdlib_map and module graph doctests time out on current main"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: performance
 created: 2026-05-06
@@ -46,3 +46,14 @@ Selfhost module path mapping and graph regressions can no longer be validated by
 ## 検証
 
 `node nodesrc/tests.js -i stdlib/neplg2/core/module/stdlib_map.nepl --no-tree -o tmp/selfhost-stdlib-map-after-trunk.json -j 1` は passing。`node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl --no-tree -o tmp/selfhost-module-graph-after-trunk.json -j 1` は `ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D` の lexer timeout により継続 blocked。
+
+## 2026-05-07 closeout
+
+`ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D` の closeout 後、current `web/dist` で stdlib_map と module graph の focused doctest を再確認した。
+
+結果として、stdlib_map と graph はどちらも default 60000ms budget で passed になった。stdlib_map 側の recursive scan / doctest verification 問題と、graph 側の lexer timeout blocker は解消済みのため、この issue は fixed とする。
+
+検証:
+
+- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/module/stdlib_map.nepl --no-tree --dist web/dist -o tmp/selfhost_stdlib_map_closeout.json -j 1 --assert-io`: 1/1 passed
+- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl --no-tree --dist web/dist -o tmp/selfhost_graph_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
