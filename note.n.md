@@ -1,3 +1,15 @@
+# 2026-05-08 Agent 2 owner_return responsibility split issue 追加
+
+- `ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737` を追加した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` と `node nodesrc/test_resource_checker_responsibility.js` で、remote main `bf95da31` 由来の別件として `owner_return.rs has 240 lines; responsibility split limit is 220` を確認した。
+- 根本問題は、unknown callback non-owning view 修正で memory-safety-critical な return candidate selection が `owner_return.rs` の orchestration file に戻り、既存の責務分割上限を超えたこと。
+- 修正方針は、上限を緩めず、unknown callback return candidate selection か隣接 helper を dedicated module へ分離し、`owner_return.rs` を orchestration に戻すこと。
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: expected fail, `owner_return.rs has 240 lines; responsibility split limit is 220`
+  - `node nodesrc/issues.js index`: total=617, open=11, resolved=606
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 2 std/stdio read facade split
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の追加対応として、`stdlib/std/stdio/read.nepl` を facade 化した。
