@@ -39,3 +39,14 @@ pub(super) fn relation_implication(
         _ => None,
     }
 }
+
+pub(super) fn relation_holds(left: i32, op: ResourceI32RelationOp, right: i32) -> bool {
+    match op {
+        ResourceI32RelationOp::Eq => left == right,
+        ResourceI32RelationOp::Ne => left != right,
+        ResourceI32RelationOp::Lt => left < right,
+        ResourceI32RelationOp::Le => left <= right,
+        ResourceI32RelationOp::Gt => left > right,
+        ResourceI32RelationOp::Ge => left >= right,
+    }
+}

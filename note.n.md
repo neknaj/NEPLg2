@@ -1,3 +1,13 @@
+# 2026-05-07 note (ISS-20260507T032436743Z Resource range/summary responsibility split)
+
+- branch `refactor/resource-raw-range-module-split` で、Resource IR Stage 4 の raw range / initialized alias / initialized summary proof module の責務集中を分解した。
+- `cell_state_raw_range.rs` は `CellTable` の raw range mutation API に集中させ、range model は `cell_state_raw_range_model.rs`、guarded symbolic offset availability proof は `cell_state_raw_range_cover.rs` へ分離した。
+- `initialized_alias.rs` から relation predicate と regression tests を分離し、scale fact module も source policy の必須 module/line limit 監視に追加した。
+- `initialized_alias_flow_apply.rs` の return summary projection offset substitution は `initialized_alias_flow_projection.rs` へ移し、summary application と alias projection の責務を分けた。
+- `initialized_summary.rs` の release requirement model、`initialized_summary_apply.rs` の returned summary application、`initialized_summary_cells.rs` の param cell / return byte range collection をそれぞれ専用 module へ分離した。
+- source policy は新 module の存在、`mod` 宣言、行数上限を全て固定した。line limit を上げるのではなく、proof の監査単位を小さく保つ方針で解決した。
+- 検証は `node nodesrc/test_resource_checker_responsibility.js`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`cargo check -p nepl-core --tests`、`cargo test -p nepl-core i32_scale -- --nocapture`、`cargo test -p nepl-core element_range_accepts_guarded_scaled_symbolic_offset -- --nocapture`、`cargo test -p nepl-core --test resource_ir resource_ir_cell_check_word_fill -- --nocapture`、`cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header -- --nocapture` が通過した。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 string float format/parse split)
 
 - branch `refactor/string-float-format-parse-split` で `stdlib/alloc/string/float.nepl` を facade 化し、float formatting と parsing の実装本体を submodule へ分離した。

@@ -10,10 +10,9 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummary;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
-use super::initialized_summary_cells::{
-    collect_param_initialized_raw_cells, collect_return_initialized_raw_byte_ranges,
-    collect_return_initialized_raw_cells,
-};
+use super::initialized_summary_byte_ranges::collect_return_initialized_raw_byte_ranges;
+use super::initialized_summary_cells::collect_return_initialized_raw_cells;
+use super::initialized_summary_param_cells::collect_param_initialized_raw_cells;
 use super::initialized_summary_release_build::collect_param_release_requirements_from_ops;
 use super::initialized_summary_variant_build::collect_variant_param_initialized_raw_cells_from_return;
 use super::initialized_variant::PendingVariantRawCellInitializations;

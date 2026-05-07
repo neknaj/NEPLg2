@@ -9,6 +9,7 @@ use super::initialized_alias_rank::{
     owner_alias_place_has_raw_projection, owner_cell_alias_rank, prefer_stable_canonical,
 };
 use super::initialized_alias_relation::I32RelationFacts;
+use super::initialized_alias_relation_op::relation_holds;
 use super::initialized_alias_scalar::I32AliasFacts;
 use super::initialized_alias_scale::I32ScaleFacts;
 use super::model::{I32ValueCondition, Place, ResourceI32RelationOp};
@@ -480,90 +481,6 @@ impl RawCellAddressAliases {
             retained.push(merged);
         }
         self.groups = retained;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::super::model::ResourceId;
-    use super::*;
-    use alloc::string::String;
-    use ResourceI32RelationOp::Lt;
-
-    fn local(name: &str) -> Place {
-        Place::local(String::from(name), TypeId(1))
-    }
-
-    #[test]
-    fn i32_relation_facts_follow_alias_copy() {
-        let source = local("i");
-        let target = local("j");
-        let len = local("len");
-        let mut aliases = RawCellAddressAliases::default();
-
-        aliases.add_i32_relation(&source, Lt, &len);
-        aliases.copy_alias_if_tracked(&source, &target);
-
-        assert_eq!(aliases.i32_relation_truth(&target, Lt, &len), Some(true));
-    }
-
-    #[test]
-    fn i32_scale_facts_follow_stable_value_copies() {
-        let source = local("i");
-        let source_read = Place::temporary(ResourceId(1), source.ty);
-        let scaled_tmp = Place::temporary(ResourceId(2), source.ty);
-        let scaled_local = local("off");
-        let scaled_read = Place::temporary(ResourceId(3), source.ty);
-        let mut aliases = RawCellAddressAliases::default();
-
-        aliases.copy_alias_if_tracked(&source, &source_read);
-        aliases.add_i32_scale(&source_read, &scaled_tmp, 4);
-        aliases.copy_alias_if_tracked(&scaled_tmp, &scaled_local);
-        aliases.copy_alias_if_tracked(&scaled_local, &scaled_read);
-
-        assert_eq!(aliases.i32_scaled_source(&scaled_read), Some((source, 4)));
-    }
-
-    #[test]
-    fn i32_relation_facts_match_stable_value_origin_copies() {
-        let left = local("i");
-        let right = local("len");
-        let right_read = Place::temporary(ResourceId(4), right.ty);
-        let mut aliases = RawCellAddressAliases::default();
-
-        aliases.copy_alias_if_tracked(&right, &right_read);
-        aliases.add_i32_relation(&left, Lt, &right);
-
-        assert_eq!(
-            aliases.i32_relation_truth(&left, Lt, &right_read),
-            Some(true)
-        );
-    }
-
-    #[test]
-    fn i32_relation_merge_keeps_only_path_common_proofs() {
-        let i = local("i");
-        let len = local("len");
-        let mut left = RawCellAddressAliases::default();
-        let right = RawCellAddressAliases::default();
-
-        left.add_i32_relation(&i, Lt, &len);
-        let merged = RawCellAddressAliases::merge_paths(&[left.clone(), right]);
-        assert_eq!(merged.i32_relation_truth(&i, Lt, &len), None);
-
-        let merged = RawCellAddressAliases::merge_paths(&[left.clone(), left]);
-        assert_eq!(merged.i32_relation_truth(&i, Lt, &len), Some(true));
-    }
-}
-
-fn relation_holds(left: i32, op: ResourceI32RelationOp, right: i32) -> bool {
-    match op {
-        ResourceI32RelationOp::Eq => left == right,
-        ResourceI32RelationOp::Ne => left != right,
-        ResourceI32RelationOp::Lt => left < right,
-        ResourceI32RelationOp::Le => left <= right,
-        ResourceI32RelationOp::Gt => left > right,
-        ResourceI32RelationOp::Ge => left >= right,
     }
 }
 

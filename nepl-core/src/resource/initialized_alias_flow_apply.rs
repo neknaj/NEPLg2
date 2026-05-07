@@ -1,17 +1,13 @@
 extern crate alloc;
 
-use alloc::boxed::Box;
-use alloc::vec::Vec;
-
 use crate::types::TypeCtx;
 
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummary;
-use super::model::{AggregateKind, Place, PlaceProjection, ResourceCallTarget, ResourceOffset};
-use super::place_utils::{
-    construct_aggregate_field_place, projected_place_with_concrete_type, replace_place_prefix,
-};
+use super::initialized_alias_flow_projection::substitute_summary_projection_offsets;
+use super::model::{AggregateKind, Place, ResourceCallTarget};
+use super::place_utils::{construct_aggregate_field_place, projected_place_with_concrete_type};
 
 pub(super) fn construct_raw_cell_address_alias_fields(
     raw_aliases: &mut RawCellAddressAliases,
@@ -113,77 +109,4 @@ fn apply_raw_alias_summary(
         applied = true;
     }
     applied
-}
-
-fn substitute_summary_projection_offsets(
-    raw_aliases: &RawCellAddressAliases,
-    projections: &[PlaceProjection],
-    summary: &RawCellAddressReturnSummary,
-    args: &[Place],
-) -> Vec<PlaceProjection> {
-    projections
-        .iter()
-        .map(|projection| match projection {
-            PlaceProjection::StorageOffset(ResourceOffset::Symbolic { place }) => {
-                let actual = substitute_summary_place(place, summary, args);
-                if let Some(actual) = actual {
-                    if let Some(value) = raw_aliases.i32_value(&actual) {
-                        return PlaceProjection::StorageOffset(resource_offset_from_i32(value));
-                    }
-                    return PlaceProjection::StorageOffset(ResourceOffset::Symbolic {
-                        place: Box::new(actual),
-                    });
-                }
-                projection.clone()
-            }
-            PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic { place, scale }) => {
-                let actual = substitute_summary_place(place, summary, args);
-                if let Some(actual) = actual {
-                    if let Some(value) = raw_aliases.i32_value(&actual) {
-                        return PlaceProjection::StorageOffset(resource_offset_from_scaled_i32(
-                            value, *scale,
-                        ));
-                    }
-                    return PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic {
-                        place: Box::new(actual),
-                        scale: *scale,
-                    });
-                }
-                projection.clone()
-            }
-            _ => projection.clone(),
-        })
-        .collect()
-}
-
-fn substitute_summary_place(
-    place: &Place,
-    summary: &RawCellAddressReturnSummary,
-    args: &[Place],
-) -> Option<Place> {
-    for (index, parameter) in summary.parameters.iter().enumerate() {
-        let Some(arg) = args.get(index) else {
-            continue;
-        };
-        if let Some(replaced) = replace_place_prefix(place, parameter, arg) {
-            return Some(replaced);
-        }
-    }
-    None
-}
-
-fn resource_offset_from_i32(value: i32) -> ResourceOffset {
-    usize::try_from(value)
-        .map(ResourceOffset::Known)
-        .unwrap_or(ResourceOffset::Unknown)
-}
-
-fn resource_offset_from_scaled_i32(value: i32, scale: usize) -> ResourceOffset {
-    let Ok(value) = usize::try_from(value) else {
-        return ResourceOffset::Unknown;
-    };
-    value
-        .checked_mul(scale)
-        .map(ResourceOffset::Known)
-        .unwrap_or(ResourceOffset::Unknown)
 }

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T04:05:47.031Z",
+  "generated_at": "2026-05-07T04:26:29.862Z",
   "counts": {
     "total": 556,
-    "open": 12,
-    "resolved": 544,
+    "open": 11,
+    "resolved": 545,
     "by_area": {
       "core": {
         "total": 277,
-        "open": 5,
-        "resolved": 272
+        "open": 4,
+        "resolved": 273
       },
       "stdlib": {
         "total": 157,
@@ -133,21 +133,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260507T032436743Z-RESOURCE-RAW-CELL-RANGE-MODULE-EXCEE-92BDC72B",
-      "title": "Resource raw cell range module exceeds responsibility split limit",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "nepl-core/src/resource/cell_state_raw_range.rs; nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T032436743Z-RESOURCE-RAW-CELL-RANGE-MODULE-EXCEE-92BDC72B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4258,6 +4243,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T015907345Z-RESOURCE-IR-RAW-BYTE-FILL-RANGE-IGNO-1A4AC84B.md"
+    },
+    {
+      "id": "ISS-20260507T032436743Z-RESOURCE-RAW-CELL-RANGE-MODULE-EXCEE-92BDC72B",
+      "title": "Resource range and initialization summary modules exceed responsibility split limits",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/cell_state_raw_range*.rs; nepl-core/src/resource/initialized_alias*.rs; nepl-core/src/resource/initialized_summary*.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T032436743Z-RESOURCE-RAW-CELL-RANGE-MODULE-EXCEE-92BDC72B.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

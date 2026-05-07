@@ -3,6 +3,9 @@ use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
+use super::initialized_summary_apply_return::{
+    apply_return_initialization_summary, mark_known_raw_address,
+};
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{Place, ResourceCallTarget};
 use super::place_utils::projected_place_with_concrete_type;
@@ -87,33 +90,7 @@ impl ResourceCheckEngine<'_> {
 
         variant_initializations.record_call(self.types, raw_aliases, output, args, summary);
 
-        if !summary.return_cells.is_empty() {
-            mark_known_raw_address(raw_aliases, output);
-        }
-        for cell in &summary.return_cells {
-            let place =
-                projected_place_with_concrete_type(self.types, output, &cell.suffix, cell.ty);
-            cells.mark_initialized(&place);
-            if cell.holds_raw_address {
-                mark_known_raw_address(raw_aliases, &place);
-            }
-        }
-        for range in &summary.return_byte_ranges {
-            let address = projected_place_with_concrete_type(
-                self.types,
-                output,
-                &range.address_suffix,
-                range.address_ty,
-            );
-            let count = projected_place_with_concrete_type(
-                self.types,
-                output,
-                &range.count_suffix,
-                range.count_ty,
-            );
-            let count = raw_aliases.canonicalize(&count);
-            cells.mark_initialized_raw_byte_range(&address, &count, range.unit, range.ty);
-        }
+        apply_return_initialization_summary(self.types, cells, raw_aliases, output, summary);
 
         for cell in &summary.param_cells {
             let Some(arg) = args.get(cell.param_index) else {
@@ -127,11 +104,5 @@ impl ResourceCheckEngine<'_> {
             }
         }
         release_requirements_ok
-    }
-}
-
-fn mark_known_raw_address(raw_aliases: &mut RawCellAddressAliases, place: &Place) {
-    if !raw_aliases.contains_exact(place) {
-        raw_aliases.mark(place);
     }
 }

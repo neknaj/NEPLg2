@@ -6,6 +6,9 @@ use alloc::vec::Vec;
 use crate::types::TypeId;
 
 use super::cell_state_raw_range::InitializedRawRangeUnit;
+pub(super) use super::initialized_summary_release_model::{
+    RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
+};
 use super::model::PlaceProjection;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,24 +46,6 @@ pub(super) struct RawCellInitializationParamCell {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
     pub(super) holds_raw_address: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum RawCellReleaseRequirementKind {
-    Store,
-    Dealloc,
-    Realloc,
-    Fill,
-    BulkDestination,
-    BulkSource,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct RawCellReleaseParamRequirement {
-    pub(super) param_index: usize,
-    pub(super) suffix: Vec<PlaceProjection>,
-    pub(super) ty: TypeId,
-    pub(super) kind: RawCellReleaseRequirementKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
