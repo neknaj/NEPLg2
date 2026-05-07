@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T00:44:52.287Z",
+  "generated_at": "2026-05-07T00:52:15.550Z",
   "counts": {
-    "total": 545,
+    "total": 546,
     "open": 12,
-    "resolved": 533,
+    "resolved": 534,
     "by_area": {
       "core": {
         "total": 270,
@@ -17,9 +17,9 @@
         "resolved": 151
       },
       "TEST": {
-        "total": 8,
+        "total": 9,
         "open": 1,
-        "resolved": 7
+        "resolved": 8
       },
       "selfhost": {
         "total": 51,
@@ -6313,6 +6313,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T183933332Z-DOCTEST-TIMEOUT-REPORTS-LACK-COMPILE-9FFADD53.md"
+    },
+    {
+      "id": "ISS-20260507T005013028Z-MEMORY-SAFETY-FIXTURES-STILL-CALL-UN-3C928E60",
+      "title": "memory_safety fixtures still call unsafe memory from pure main",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T005013028Z-MEMORY-SAFETY-FIXTURES-STILL-CALL-UN-3C928E60.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

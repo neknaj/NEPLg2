@@ -33228,3 +33228,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 memory_safety effect boundary fixture 整理
+
+- `ISS-20260507T005013028Z-MEMORY-SAFETY-FIXTURES-STILL-CALL-UN-3C928E60` を追加して fixed にした。
+- `tests/stdlib/memory_safety.n.md` の runtime memory-operation doctest は、Stage 5 Resource IR の unsafe-memory gate 後に pure `main` のままだと `effect.pure.calls_impure` で拒否される古い fixture になっていた。
+- compiler diagnostic は正しく、弱めるべきではないため、runtime 挙動を確認する doctest は `main <()*>i32` に移行した。
+- 代わりに pure 文脈から `MemPtr` overload の `load_i32` / `store_i32` / `fill_u8` を呼ぶ compile_fail を追加し、`effect.pure.calls_impure` を回帰として固定した。
+- [検証]:
+  - `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree --dist web/dist -o tmp/memory_safety_agent1_after_fixture_update.json -j 1 --assert-io`: total=14, passed=14, failed=0, errored=0
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -12,7 +12,7 @@ ret: 123
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc_ptr<i32> 4:
         Result::Err _e:
             0
@@ -47,7 +47,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/option" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <MemPtr<i32>> mem_ptr_wrap 0
     match load_i32 p:
         Option::None:
@@ -68,7 +68,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <MemPtr<i32>> mem_ptr_wrap 0
     match store_i32 p 42:
         Result::Err _e:
@@ -89,7 +89,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc 8:
         Result::Err _e:
             0
@@ -115,7 +115,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match dealloc 0 4:
         Result::Err _e:
             1
@@ -136,7 +136,7 @@ ret: 321
 #import "core/result" as *
 #import "core/option" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -181,7 +181,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -212,7 +212,7 @@ ret: 1
 #import "core/result" as *
 #import "core/option" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     match alloc_region<u8> 16:
         Result::Err _e:
             0
@@ -259,7 +259,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p_u8 <MemPtr<u8>> mem_ptr_wrap 0
     let p_i32 <MemPtr<i32>> mem_ptr_wrap 0
     let a <Result<(),str>> fill_u8 p_u8 4 1
@@ -280,6 +280,54 @@ fn main <()->i32> ():
             1
         else:
             0
+```
+
+## pure から MemPtr load/store を呼ぶと拒否する
+
+neplg2:test[compile_fail]
+diag_code: effect.pure.calls_impure
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    let p <MemPtr<i32>> mem_ptr_wrap 0
+    let v <i32> match load_i32 p:
+        Option::None:
+            0
+        Option::Some x:
+            x
+    match store_i32 p v:
+        Result::Err _e:
+            0
+        Result::Ok _:
+            1
+```
+
+## pure から MemPtr fill を呼ぶと拒否する
+
+neplg2:test[compile_fail]
+diag_code: effect.pure.calls_impure
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()->i32> ():
+    let p <MemPtr<u8>> mem_ptr_wrap 0
+    match fill_u8 p 4 1:
+        Result::Err _e:
+            0
+        Result::Ok _:
+            1
 ```
 
 ## load_i32 は MemPtr<i32> だけを受け付ける
