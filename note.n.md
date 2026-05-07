@@ -33817,3 +33817,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `tests/stdlib/traits_hash.n.md` は current main で compile_fail 期待 diag `resource.move.use_moved` と実出力 `resource.cell.moved` がずれて 4/6 passed。HashMap 分割とは別 issue として扱う。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 traits_hash diag metadata 修正
+
+- `ISS-20260507T080402195Z-TRAITS-HASH-COMPILE-FAIL-FIXTURES-EX-54FAB241` を追加し、fixed/resolved に更新した。
+- `tests/stdlib/traits_hash.n.md` の `hashkey_bound_is_not_copy_bound` / `hasher_bound_is_not_copy_bound` は、現在の Resource IR が正しく `resource.cell.moved` を出しているのに、古い `resource.move.use_moved` を期待していた。
+- fixture 本体は変更せず、`diag_code` だけを `resource.cell.moved` に更新した。HashKey / Hasher bound が Copy を暗黙に与えないことを、現在の diagnostic ID 設計で検証する。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/traits_hash.n.md --no-tree -o tmp/traits-hash-resource-cell-diag.json -j 1 --dist web/dist`: total=6, passed=6
+  - `node nodesrc/tests.js -i stdlib/tests/hashmap.n.md -i stdlib/tests/hashmap_str.n.md -i tests/stdlib/hash_collection_rehash.n.md -i tests/stdlib/traits_hash.n.md -i tests/stdlib/collections_diag.n.md -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/traits-hash-resource-cell-hash-suite.json -j 1 --dist web/dist`: total=25, passed=25
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

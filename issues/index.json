@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T08:00:16.856Z",
+  "generated_at": "2026-05-07T08:10:04.237Z",
   "counts": {
-    "total": 566,
+    "total": 567,
     "open": 11,
-    "resolved": 555,
+    "resolved": 556,
     "by_area": {
       "core": {
         "total": 283,
@@ -17,9 +17,9 @@
         "resolved": 154
       },
       "TEST": {
-        "total": 13,
+        "total": 14,
         "open": 1,
-        "resolved": 12
+        "resolved": 13
       },
       "selfhost": {
         "total": 51,
@@ -6583,6 +6583,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T050025343Z-SHA256-HASH-DOCTEST-FAILS-RESOURCE-I-A4EE25CE.md"
+    },
+    {
+      "id": "ISS-20260507T080402195Z-TRAITS-HASH-COMPILE-FAIL-FIXTURES-EX-54FAB241",
+      "title": "traits_hash compile_fail fixtures expect stale move diagnostic id",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "tests/stdlib/traits_hash.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T080402195Z-TRAITS-HASH-COMPILE-FAIL-FIXTURES-EX-54FAB241.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",
