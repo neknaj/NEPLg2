@@ -96,6 +96,7 @@ pub enum RawMemoryOp {
     BulkMove,
     MemorySize,
     MemoryGrow,
+    FillBytes,
     Fill,
 }
 
@@ -111,6 +112,7 @@ impl RawMemoryOp {
             RawMemoryOp::BulkMove => "bulk_move",
             RawMemoryOp::MemorySize => "memory_size",
             RawMemoryOp::MemoryGrow => "memory_grow",
+            RawMemoryOp::FillBytes => "fill_bytes",
             RawMemoryOp::Fill => "fill",
         }
     }
@@ -314,7 +316,8 @@ pub fn raw_memory_op_from_name(name: &str) -> Option<RawMemoryOp> {
         "store" | "store_i32" | "store_u8" => RawMemoryOp::Store,
         "mem_copy" => RawMemoryOp::BulkCopy,
         "mem_move" => RawMemoryOp::BulkMove,
-        "memset_u8" | "fill_u8" | "fill_i32" | "mem_fill" => RawMemoryOp::Fill,
+        "memset_u8" | "fill_u8" | "mem_fill" => RawMemoryOp::FillBytes,
+        "fill_i32" => RawMemoryOp::Fill,
         "mem_size" => RawMemoryOp::MemorySize,
         "mem_grow" => RawMemoryOp::MemoryGrow,
         _ => return None,
@@ -555,6 +558,7 @@ fn raw_memory_internal_effect(name: &str) -> Option<InternalEffect> {
         | RawMemoryOp::Store
         | RawMemoryOp::BulkCopy
         | RawMemoryOp::BulkMove
+        | RawMemoryOp::FillBytes
         | RawMemoryOp::Fill => Some(InternalEffect::UnsafeMemory { operation }),
     }
 }

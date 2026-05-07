@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T02:07:29.083Z",
+  "generated_at": "2026-05-07T02:20:54.387Z",
   "counts": {
-    "total": 553,
+    "total": 554,
     "open": 12,
-    "resolved": 541,
+    "resolved": 542,
     "by_area": {
       "core": {
-        "total": 274,
+        "total": 275,
         "open": 4,
-        "resolved": 270
+        "resolved": 271
       },
       "stdlib": {
         "total": 157,
@@ -4243,6 +4243,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T014059777Z-RESOURCE-RAWADDRESSVIEW-GATE-DROPS-Z-FED82745.md"
+    },
+    {
+      "id": "ISS-20260507T015907345Z-RESOURCE-IR-RAW-BYTE-FILL-RANGE-IGNO-1A4AC84B",
+      "title": "Resource IR raw byte fill range ignores length guard",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/effects.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/src/resource/cell_state.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/mem_fill.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T015907345Z-RESOURCE-IR-RAW-BYTE-FILL-RANGE-IGNO-1A4AC84B.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

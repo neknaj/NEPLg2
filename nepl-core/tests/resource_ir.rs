@@ -12631,6 +12631,11 @@ fn main <()->i32> ():
 
     let (module, types) = typecheck_resource_source(source);
     let resource = lower_hir_module(&module, &types);
+    assert!(
+        resource.dump_text().contains("raw_memory fill_bytes"),
+        "memset_u8/fill_u8 must remain distinct from fill_i32 in Resource IR:\n{}",
+        resource.dump_text()
+    );
     let report = check_resource_initialized_moves(&resource, &types);
     let fill_diagnostics = report
         .diagnostics
@@ -12648,6 +12653,82 @@ fn main <()->i32> ():
         fill_diagnostics.is_empty(),
         "raw fill helpers must initialize Copy raw cells for caller-visible loads: {:#?}\nresource:\n{}",
         fill_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_byte_fill_requires_guard_for_symbolic_load() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn main <(i32,i32)->i32> (i, len):
+    let p <i32> alloc_raw len
+    memset_u8 p len 0
+    let value <i32> load_u8 add p i
+    dealloc_raw p len
+    value
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Uninit,
+                ..
+            }
+        )),
+        "symbolic byte load after memset_u8 must require a typed range guard: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_byte_fill_accepts_symbolic_load_with_range_guard() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn main <(i32,i32)->i32> (i, len):
+    let p <i32> alloc_raw len
+    memset_u8 p len 0
+    let value <i32> if and ge i 0 lt i len:
+        then:
+            load_u8 add p i
+        else:
+            0
+    dealloc_raw p len
+    value
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "symbolic byte load guarded by 0 <= i && i < len must use the byte fill range fact: {:#?}\nresource:\n{}",
+        main_diagnostics,
         resource.dump_text()
     );
 }

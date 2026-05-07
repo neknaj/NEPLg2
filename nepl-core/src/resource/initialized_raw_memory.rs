@@ -5,7 +5,7 @@ use super::cell_state::CellTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, RawMemoryOp};
-use super::place_utils::{raw_memory_cell_place, raw_memory_unknown_offset_cell_place};
+use super::place_utils::raw_memory_cell_place;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckOperation;
 
@@ -51,6 +51,7 @@ impl ResourceCheckEngine<'_> {
                     .iter()
                     .any(|alias| cells.raw_cell_is_untracked_external(alias));
                 let cell_available = loaded_from_untracked_external
+                    || cells.raw_cell_initialized_by_byte_range(&address, output.ty, raw_aliases)
                     || self.ensure_available(
                         cells,
                         &cell,
@@ -180,35 +181,25 @@ impl ResourceCheckEngine<'_> {
                     pending_reallocs.mark(&address, output);
                 }
             }
+            RawMemoryOp::FillBytes => {
+                self.check_raw_memory_fill_bytes(
+                    cells,
+                    raw_aliases,
+                    pending_reallocs,
+                    output,
+                    args,
+                    span,
+                );
+            }
             RawMemoryOp::Fill => {
-                pending_reallocs.clear_result(output);
-                let Some(address) = args.first() else {
-                    cells.mark_initialized(output);
-                    raw_aliases.clear(output);
-                    return;
-                };
-                let address = raw_aliases.canonicalize(address);
-                let address_available = self.ensure_available(
+                self.check_raw_memory_fill_words(
                     cells,
-                    &address,
-                    ResourceCheckOperation::RawMemoryFillAddress,
+                    raw_aliases,
+                    pending_reallocs,
+                    output,
+                    args,
                     span,
                 );
-                let cells_released = self.ensure_no_live_non_copy_raw_cells(
-                    cells,
-                    &address,
-                    ResourceCheckOperation::RawMemoryFillCell,
-                    span,
-                );
-                if address_available && cells_released {
-                    cells.clear_raw_cells_under(&address);
-                    if let Some(value) = args.get(2) {
-                        let cell = raw_memory_unknown_offset_cell_place(&address, value.ty);
-                        cells.mark_initialized(&cell);
-                    }
-                    cells.mark_initialized(output);
-                    raw_aliases.clear(output);
-                }
             }
             RawMemoryOp::BulkCopy | RawMemoryOp::BulkMove => {
                 pending_reallocs.clear_result(output);
