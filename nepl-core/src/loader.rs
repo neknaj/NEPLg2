@@ -767,3 +767,67 @@ fn normalize_path_lexically(path: &PathBuf) -> PathBuf {
 fn path_to_source_label(path: &PathBuf) -> String {
     path.to_string_lossy().into_owned()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::collections::BTreeSet;
+
+    fn test_loader() -> Loader {
+        Loader::new(PathBuf::from("C:/nepl-test/stdlib"))
+    }
+
+    fn path_from_segments(root: &str, segments: &[&str]) -> PathBuf {
+        segments
+            .iter()
+            .fold(PathBuf::from(root), |path, segment| path.join(segment))
+    }
+
+    #[test]
+    fn raw_memory_boundary_whitelist_paths_are_unique_and_exact() {
+        let loader = test_loader();
+        let mut seen = BTreeSet::new();
+
+        for segments in RAW_MEMORY_BOUNDARY_STDLIB_PATHS {
+            let path = canonicalize_path(&stdlib_path(&loader.stdlib_root, segments));
+            assert!(
+                seen.insert(path.clone()),
+                "duplicate raw memory boundary path: {:?}",
+                path
+            );
+            assert!(
+                loader.configured_raw_memory_boundary_path(&path),
+                "configured stdlib path must receive raw memory boundary capability: {:?}",
+                segments
+            );
+            assert!(
+                loader
+                    .source_capabilities_for_path(&path)
+                    .allows_raw_memory_boundary(),
+                "source capabilities must expose the exact raw memory boundary path: {:?}",
+                segments
+            );
+        }
+    }
+
+    #[test]
+    fn raw_memory_boundary_rejects_same_suffix_outside_configured_stdlib() {
+        let loader = test_loader();
+
+        for segments in RAW_MEMORY_BOUNDARY_STDLIB_PATHS {
+            let path = canonicalize_path(&path_from_segments("C:/nepl-test/user", segments));
+            assert!(
+                !loader.configured_raw_memory_boundary_path(&path),
+                "raw memory boundary must not be granted by suffix match alone: {:?}",
+                path
+            );
+            assert!(
+                !loader
+                    .source_capabilities_for_path(&path)
+                    .allows_raw_memory_boundary(),
+                "source capabilities must reject suffix-matched user path: {:?}",
+                path
+            );
+        }
+    }
+}

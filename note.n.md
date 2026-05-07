@@ -1,3 +1,11 @@
+# 2026-05-07 note (ISS-20260427 core mem raw boundary whitelist coverage)
+
+- branch `test/raw-memory-boundary-whitelist-coverage` で、compiler-owned raw memory boundary capability の whitelist 回帰を追加した。
+- `raw_memory_boundary` は unsafe memory operation の Stage 5 gate を一時的に通す安全境界なので、configured stdlib root 配下の明示 path だけに付く必要がある。
+- loader unit regression で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` 全 entry の exact path 許可、whitelist 重複なし、同じ suffix を持つ user path の拒否、`SourceCapabilities` への反映を固定した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260429 diagnostics registry exhaustiveness)
 
 - branch `fix/diagnostic-registry-exhaustive-policy` で、Rust compiler diagnostic registry の未登録 enum variant と再発防止 policy を修正した。

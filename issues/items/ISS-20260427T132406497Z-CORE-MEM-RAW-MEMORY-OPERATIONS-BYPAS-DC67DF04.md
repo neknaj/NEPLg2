@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: bug
 created: 2026-04-27
-updated: 2026-05-06
+updated: 2026-05-07
 target: "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md"
 ---
 
@@ -430,3 +430,13 @@ Stage 5 の raw identity escape 判定では、pointer value 自体の raw ident
 修正は stdlib 全体や suffix path の一括許可ではない。`Loader` は configured `stdlib_root` から canonical path を計算し、`core/mem.nepl`、`alloc/string.nepl`、`alloc/string/storage.nepl` の exact path だけへ `raw_memory_boundary` を付与する。これにより、string / str の owned storage boundary helper は audited internal raw memory operation として扱われる一方で、user source や任意の同名 path から raw memory gate を迂回する経路は作らない。
 
 `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture` はこの blocker を越えるようになった。ただし、この親 issue の残件はまだ閉じない。Stage 6 では raw-memory-backed stdlib public API を internal/public 境界へ移行し、raw identity と owner token が safe surface へ漏れない最終設計にする必要がある。
+
+## 2026-05-07 Stage 5 raw boundary whitelist coverage 追記
+
+`raw_memory_boundary` capability は unsafe memory operation を pure boundary gate から一時的に除外するため、configured stdlib root 配下の明示 whitelist にだけ付与されなければならない。既存 integration test は代表的な path と suffix 偽装を確認していたが、whitelist 全体の重複なし・exact path 判定・source capability 反映までは直接固定していなかった。
+
+今回の対応で loader unit regression を追加し、`RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の全 entry が configured stdlib root 配下の exact path として capability を受け取ること、同じ suffix を持つ user path では capability を受け取らないこと、whitelist に重複がないことを検査する。これにより Stage 5/6 の移行中許可が suffix match や重複 list で拡大する回帰を防ぐ。
+
+検証:
+
+- `cargo test -p nepl-core loader::tests::raw_memory_boundary -- --nocapture`
