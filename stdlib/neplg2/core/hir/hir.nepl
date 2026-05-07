@@ -464,31 +464,193 @@ fn selfhost_hir_param_range_first <(SelfhostHirParamRange)->i32> (param_range):
 fn selfhost_hir_param_range_count <(SelfhostHirParamRange)->i32> (param_range):
     param_range.param_count
 
-//: selfhost_hir_expr_kind_tag: expression kind を比較用 tag に[変換/へんかん]する
-fn selfhost_hir_expr_kind_tag <(SelfhostHirExprKind)->i32> (kind):
-    match kind:
-        SelfhostHirExprKind::Error:
-            0
-        SelfhostHirExprKind::Unit:
-            1
-        SelfhostHirExprKind::BoolLiteral:
-            2
-        SelfhostHirExprKind::I32Literal:
-            3
-        SelfhostHirExprKind::StrLiteral:
-            4
-        SelfhostHirExprKind::Var:
-            5
-        SelfhostHirExprKind::Call:
-            6
-        SelfhostHirExprKind::Block:
-            7
-        SelfhostHirExprKind::If:
-            8
-
 //: selfhost_hir_expr_kind_eq: expression kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - HIR expression kind を numeric tag に落とさず、variant を直接 match して比較します。
+//: - expression kind 追加時に比較分岐を明示的に更新する形を保ちます。
 fn selfhost_hir_expr_kind_eq <(SelfhostHirExprKind,SelfhostHirExprKind)->bool> (a, b):
-    eq selfhost_hir_expr_kind_tag a selfhost_hir_expr_kind_tag b
+    match a:
+        SelfhostHirExprKind::Error:
+            match b:
+                SelfhostHirExprKind::Error:
+                    true
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::Unit:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    true
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::BoolLiteral:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    true
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::I32Literal:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    true
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::StrLiteral:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    true
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::Var:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    true
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::Call:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    true
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::Block:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    true
+                SelfhostHirExprKind::If:
+                    false
+        SelfhostHirExprKind::If:
+            match b:
+                SelfhostHirExprKind::Error:
+                    false
+                SelfhostHirExprKind::Unit:
+                    false
+                SelfhostHirExprKind::BoolLiteral:
+                    false
+                SelfhostHirExprKind::I32Literal:
+                    false
+                SelfhostHirExprKind::StrLiteral:
+                    false
+                SelfhostHirExprKind::Var:
+                    false
+                SelfhostHirExprKind::Call:
+                    false
+                SelfhostHirExprKind::Block:
+                    false
+                SelfhostHirExprKind::If:
+                    true
 
 //: selfhost_hir_param_new: parameter record を[作/つく]る
 fn selfhost_hir_param_new <(str,SelfhostTypeId,bool,SelfhostSourceSpan)->SelfhostHirParam> (name, ty, mutable, span):

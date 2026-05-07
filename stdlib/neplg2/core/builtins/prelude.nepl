@@ -103,23 +103,73 @@ impl Copy for SelfhostPrimitiveTypeName:
     fn copy_mark <(SelfhostPrimitiveTypeName)->SelfhostPrimitiveTypeName> (self):
         self
 
-//: selfhost_builtin_kind_tag: builtin kind を比較用 tag に[変換/へんかん]する
-fn selfhost_builtin_kind_tag <(SelfhostBuiltinKind)->i32> (kind):
-    match kind:
-        SelfhostBuiltinKind::MemAlloc:
-            0
-        SelfhostBuiltinKind::MemDealloc:
-            1
-        SelfhostBuiltinKind::MemRealloc:
-            2
-        SelfhostBuiltinKind::MemLoadI32:
-            3
-        SelfhostBuiltinKind::MemStoreI32:
-            4
-
 //: selfhost_builtin_kind_eq: builtin kind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - enum を i32 tag に落とさず、variant を直接 match して比較します。
+//: - 新しい builtin kind を追加した場合、比較関数も match の分岐として更新する必要があります。
 fn selfhost_builtin_kind_eq <(SelfhostBuiltinKind,SelfhostBuiltinKind)->bool> (a, b):
-    eq selfhost_builtin_kind_tag a selfhost_builtin_kind_tag b
+    match a:
+        SelfhostBuiltinKind::MemAlloc:
+            match b:
+                SelfhostBuiltinKind::MemAlloc:
+                    true
+                SelfhostBuiltinKind::MemDealloc:
+                    false
+                SelfhostBuiltinKind::MemRealloc:
+                    false
+                SelfhostBuiltinKind::MemLoadI32:
+                    false
+                SelfhostBuiltinKind::MemStoreI32:
+                    false
+        SelfhostBuiltinKind::MemDealloc:
+            match b:
+                SelfhostBuiltinKind::MemAlloc:
+                    false
+                SelfhostBuiltinKind::MemDealloc:
+                    true
+                SelfhostBuiltinKind::MemRealloc:
+                    false
+                SelfhostBuiltinKind::MemLoadI32:
+                    false
+                SelfhostBuiltinKind::MemStoreI32:
+                    false
+        SelfhostBuiltinKind::MemRealloc:
+            match b:
+                SelfhostBuiltinKind::MemAlloc:
+                    false
+                SelfhostBuiltinKind::MemDealloc:
+                    false
+                SelfhostBuiltinKind::MemRealloc:
+                    true
+                SelfhostBuiltinKind::MemLoadI32:
+                    false
+                SelfhostBuiltinKind::MemStoreI32:
+                    false
+        SelfhostBuiltinKind::MemLoadI32:
+            match b:
+                SelfhostBuiltinKind::MemAlloc:
+                    false
+                SelfhostBuiltinKind::MemDealloc:
+                    false
+                SelfhostBuiltinKind::MemRealloc:
+                    false
+                SelfhostBuiltinKind::MemLoadI32:
+                    true
+                SelfhostBuiltinKind::MemStoreI32:
+                    false
+        SelfhostBuiltinKind::MemStoreI32:
+            match b:
+                SelfhostBuiltinKind::MemAlloc:
+                    false
+                SelfhostBuiltinKind::MemDealloc:
+                    false
+                SelfhostBuiltinKind::MemRealloc:
+                    false
+                SelfhostBuiltinKind::MemLoadI32:
+                    false
+                SelfhostBuiltinKind::MemStoreI32:
+                    true
 
 //: selfhost_builtin_function_new: builtin function record を[作/つく]る
 fn selfhost_builtin_function_new <(str,SelfhostBuiltinKind,SelfhostTypeKind,SelfhostTypeKind,SelfhostTypeKind,i32,SelfhostTypeKind,bool)->SelfhostBuiltinFunction> (name, kind, arg0, arg1, arg2, arg_count, result, pure):

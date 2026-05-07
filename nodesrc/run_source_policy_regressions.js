@@ -89,6 +89,7 @@ const checks = [
     "nodesrc/test_selfhost_cli_file_io_boundary.js",
     "nodesrc/test_selfhost_cli_reporter_boundary.js",
     "nodesrc/test_selfhost_diag_code_enum.js",
+    "nodesrc/test_selfhost_model_no_numeric_kind_tags.js",
     "nodesrc/test_selfhost_source_text_no_recursive_line_map.js",
     "nodesrc/test_selfhost_string_helpers_boundary.js",
     "nodesrc/test_selfhost_parser_tokenkind_match.js",

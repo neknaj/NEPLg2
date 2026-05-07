@@ -40,3 +40,14 @@ Redesign these models around typed absence and variant-specific payloads: use Op
 ## 検証
 
 Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty ranges, enum-to-i32 comparison tags, and SelfhostTypeKind::Error placeholder builtin arguments. Add focused .n.md tests for empty ranges, function signatures, invalid lookup rejection, and match-based handling of each payload variant.
+
+## 2026-05-08 enum equality tag helper 対応
+
+この親 issue のうち、`SelfhostTypeKind` / `SelfhostHirExprKind` / `SelfhostBuiltinKind` / `SelfhostDefKind` の equality helper が enum を i32 tag に落として比較していた問題は、[ISS-20260507T152220930Z-SELFHOST-ENUM-EQUALITY-HELPERS-LOWER-4E1FAA87](./ISS-20260507T152220930Z-SELFHOST-ENUM-EQUALITY-HELPERS-LOWER-4E1FAA87.md) で分離して解決した。
+
+残件:
+
+- `SelfhostDefId(-1)` / `SelfhostTypeId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
+- `first_arg = -1`、`SelfhostHirChildRange(-1, 0)`、`SelfhostHirParamRange(-1, 0)` の empty range sentinel。
+- builtin fixed arg slots の `SelfhostTypeKind::Error` placeholder。
+- HIR expression payload が kind ごとに所有 field を分離できていないこと。

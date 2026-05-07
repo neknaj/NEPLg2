@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T15:18:24.673Z",
+  "generated_at": "2026-05-07T15:28:22.098Z",
   "counts": {
-    "total": 596,
+    "total": 597,
     "open": 12,
-    "resolved": 584,
+    "resolved": 585,
     "by_area": {
       "core": {
         "total": 301,
@@ -12,9 +12,9 @@
         "resolved": 298
       },
       "selfhost": {
-        "total": 53,
+        "total": 54,
         "open": 3,
-        "resolved": 50
+        "resolved": 51
       },
       "stdlib": {
         "total": 164,
@@ -5328,6 +5328,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE.md"
+    },
+    {
+      "id": "ISS-20260507T152220930Z-SELFHOST-ENUM-EQUALITY-HELPERS-LOWER-4E1FAA87",
+      "title": "Selfhost enum equality helpers lower variants to numeric tags",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "stdlib/neplg2/core/ty/ty.nepl, stdlib/neplg2/core/hir/hir.nepl, stdlib/neplg2/core/builtins/prelude.nepl, stdlib/neplg2/core/resolve/name_resolver.nepl, nodesrc/test_selfhost_model_no_numeric_kind_tags.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T152220930Z-SELFHOST-ENUM-EQUALITY-HELPERS-LOWER-4E1FAA87.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",

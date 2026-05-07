@@ -1,3 +1,21 @@
+# 2026-05-08 Agent 1 selfhost enum equality no numeric tags
+
+- `ISS-20260507T152220930Z-SELFHOST-ENUM-EQUALITY-HELPERS-LOWER-4E1FAA87` を追加し、fixed/resolved に更新した。
+- `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D` のうち、enum-to-i32 tag equality の問題を子 issue として分離した。
+- 根本原因は、`SelfhostTypeKind` / `SelfhostHirExprKind` / `SelfhostBuiltinKind` / `SelfhostDefKind` の equality helper が enum variant を `*_kind_tag` で i32 に変換し、その numeric tag を `eq` で比較していたことだった。
+- `selfhost_type_kind_tag`、`selfhost_hir_expr_kind_tag`、`selfhost_builtin_kind_tag`、`selfhost_def_kind_tag` を削除した。
+- 各 `*_kind_eq` は左辺・右辺の enum variant を直接 `match` して比較する形にし、数値 tag を内部 authority にしない設計へ戻した。
+- `nodesrc/test_selfhost_model_no_numeric_kind_tags.js` を追加し、kind tag helper と numeric tag 比較の再導入を source policy で拒否する。
+- `nodesrc/run_source_policy_regressions.js` に新 policy を接続した。
+- [検証]:
+  - `node nodesrc/test_selfhost_model_no_numeric_kind_tags.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty.nepl -i stdlib/neplg2/core/hir/hir.nepl -i stdlib/neplg2/core/builtins/prelude.nepl -i stdlib/neplg2/core/resolve/name_resolver.nepl --no-tree -o tmp/agent1-selfhost-enum-kind-eq.json -j 1 --dist web/dist`: total=7, passed=7
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 1 parser/backend responsibility source policy
 
 - `ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587` を fixed/resolved に更新した。

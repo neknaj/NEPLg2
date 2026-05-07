@@ -230,29 +230,157 @@ fn selfhost_def_id_index <(SelfhostDefId)->i32> (def_id):
 fn selfhost_def_id_eq <(SelfhostDefId,SelfhostDefId)->bool> (a, b):
     eq a.index b.index
 
-//: selfhost_def_kind_tag: DefKind を比較用 tag に[変換/へんかん]する
-fn selfhost_def_kind_tag <(SelfhostDefKind)->i32> (kind):
-    match kind:
-        SelfhostDefKind::Function:
-            0
-        SelfhostDefKind::Struct:
-            1
-        SelfhostDefKind::Enum:
-            2
-        SelfhostDefKind::Trait:
-            3
-        SelfhostDefKind::Impl:
-            4
-        SelfhostDefKind::Local:
-            5
-        SelfhostDefKind::Param:
-            6
-        SelfhostDefKind::Builtin:
-            7
-
 //: selfhost_def_kind_eq: DefKind が同じ分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - DefKind を i32 tag に変換せず、名前空間の分類を enum match で直接比較します。
+//: - variant 追加時に比較分岐の更新漏れを見つけやすい形にします。
 fn selfhost_def_kind_eq <(SelfhostDefKind,SelfhostDefKind)->bool> (a, b):
-    eq selfhost_def_kind_tag a selfhost_def_kind_tag b
+    match a:
+        SelfhostDefKind::Function:
+            match b:
+                SelfhostDefKind::Function:
+                    true
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Struct:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    true
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Enum:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    true
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Trait:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    true
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Impl:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    true
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Local:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    true
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Param:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    true
+                SelfhostDefKind::Builtin:
+                    false
+        SelfhostDefKind::Builtin:
+            match b:
+                SelfhostDefKind::Function:
+                    false
+                SelfhostDefKind::Struct:
+                    false
+                SelfhostDefKind::Enum:
+                    false
+                SelfhostDefKind::Trait:
+                    false
+                SelfhostDefKind::Impl:
+                    false
+                SelfhostDefKind::Local:
+                    false
+                SelfhostDefKind::Param:
+                    false
+                SelfhostDefKind::Builtin:
+                    true
 
 //: selfhost_name_binding_new: binding record を[作/つく]る
 fn selfhost_name_binding_new <(str,SelfhostDefId,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, def_id, kind, span):
