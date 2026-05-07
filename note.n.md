@@ -1,3 +1,23 @@
+# 2026-05-07 note (ISS-20260430T012045983Z returned grow scanner capacity range)
+
+- branch `fix/returned-range-full-scanner-regression` で、full scanner-style の `fd_read` loop / `realloc_raw` / returned header capacity field をまたぐ initialized byte range propagation を修正した。
+- 根本原因は、append fill の `sub next_cap cap` を range 合成へ使えないこと、branch/loop merge が raw address alias の異なる range を照合できないこと、range count が raw address view projection と混ざることだった。
+- `I32DifferenceFacts` を追加し、`sub` の typed scalar difference を `memset_u8 add buf cap sub next_cap cap 0` の append range 合成に使うようにした。
+- branch / loop / match merge は raw alias paths を使って initialized raw range を候補正規化し、`buf` / `grown` / temporary が path ごとに違っても同じ range として merge できるようにした。
+- scalar bound は `canonicalize_scalar` で raw address projection から分離し、range count 側に `StorageOffset` / `Deref` が混入しない設計にした。
+- direct call の i32 fact 抽出、raw range merge、alias-aware value copy、i32 fact access は dedicated module に分割し、source policy の module list / line limit 監視へ追加した。
+- `ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38` は fixed/resolved に更新した。guard なし symbolic load を許可する緩和は入れていない。
+- [検証]:
+  - `cargo test -p nepl-core records_i32_difference_result_for_mangled_sub_call -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_growing_scanner_header_preserves_capacity_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_aggregate_preserves_guarded_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test kp local_scanner_grow_loop_returns_header_range -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs/raw wasi/fd_io/llvm split)
 
 - branch `refactor/fs-raw-target-split` で `stdlib/std/fs/raw.nepl` を facade 化し、WASI/bare target ABI、fd scratch helper、LLVM syscall fallback を submodule へ分離した。

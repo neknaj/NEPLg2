@@ -2,13 +2,13 @@
 id: ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38
 title: "Resource IR cannot summarize returned raw headers with length-guarded dynamic ranges"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P2
 type: architecture
 created: 2026-04-30
 updated: 2026-05-07
-target: "nepl-core/src/resource/initialized_summary*.rs, nepl-core/src/resource/initialized_external_io*.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/kp.rs"
+target: "nepl-core/src/resource/cell_state_raw_range*.rs, nepl-core/src/resource/initialized*.rs, nepl-core/tests/resource_ir.rs, nepl-core/tests/kp.rs, nodesrc/test_resource_checker_responsibility.js"
 source: doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行
 ---
 
@@ -346,3 +346,35 @@ returned raw header のうち、byte-level initialized range を `return_byte_ra
 今回の対応で `DeclareLocal` / `Read` / `Assign` / `Move` / branch / match / raw memory `Load` / raw memory `Store` / aggregate `Construct` は、initialized raw range の address と count を value projection として同時に複写する。assignment / raw memory store は overwritten target 配下の古い range fact を消すため、stale fact で unfilled buffer を通さない。guard なしの symbolic load は引き続き拒否し、`0 <= i && i < len` が証明される場合だけ通す。
 
 この親 issue は引き続き open とする。returned aggregate field projection は解消したが、`fd_read` loop / realloc / capacity field を含む full scanner-style dependent range model はまだ全体 issue として残る。
+
+## 2026-05-07 full scanner returned capacity range 解決
+
+full scanner-style の `fd_read` loop / `realloc_raw` / returned header capacity field をまたぐ initialized byte range propagation を実装し、この issue を fixed にした。
+
+原因は、Resource IR の byte range state が次の 3 点で dependent range を失っていたことだった。
+
+- `memset_u8 add buf cap sub next_cap cap 0` のような append fill で、`sub next_cap cap` から「prefix count `cap` と append count の和が `next_cap`」という fact を range 合成に使っていなかった。
+- `realloc_raw` success path と branch/loop merge で、range address が `buf` / `grown` / temporary の alias 間でずれた場合に同じ initialized range として照合できなかった。
+- raw address view の canonicalization を range count にも使っていたため、scalar count と non-owning pointer view の責務が混ざり、count 側へ `StorageOffset` projection が混入し得た。
+
+今回の修正では、`I32DifferenceFacts` を追加して `sub` の typed scalar difference を保存し、append fill 時に既存 prefix range と追加 range を `next_cap` range へ合成するようにした。branch / loop / match merge は raw address aliases を使って initialized range を候補正規化し、別 path で address alias が異なっても同じ initialized range として照合する。一方で range count には `canonicalize_scalar` を使い、raw address projection を持つ non-owning pointer view を scalar bound と混同しない。
+
+`memset_u8 buf cap 0` で初期化した prefix、`realloc_raw` success path で移動した prefix、`fd_read` が追加する bounded payload、grow 時に zero-fill した appended capacity range が loop merge 後も `buf` / `cap` の returned header summary として残るようになった。caller 側では `load_u8 add data i` が `0 <= i && i < len && i < cap` の guard 下で通り、guard のない symbolic load を許可する緩和は入れていない。
+
+責務分割は、direct call の i32 scalar fact 抽出、raw range merge、alias-aware value copy、i32 fact access をそれぞれ dedicated module へ分離し、`nodesrc/test_resource_checker_responsibility.js` の module list / line limit 監視へ追加した。既存 module の行数上限を引き上げる回避はしていない。
+
+追加した回帰:
+
+- `resource_ir_cell_check_returned_growing_scanner_header_preserves_capacity_byte_range`
+- `local_scanner_grow_loop_returns_header_range`
+- `records_i32_difference_result_for_mangled_sub_call`
+
+確認結果:
+
+- `cargo test -p nepl-core records_i32_difference_result_for_mangled_sub_call -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_growing_scanner_header_preserves_capacity_byte_range -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_aggregate_preserves_guarded_byte_range -- --nocapture`: passed
+- `cargo test -p nepl-core --test kp local_scanner_grow_loop_returns_header_range -- --nocapture`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo check -p nepl-core --tests`: passed

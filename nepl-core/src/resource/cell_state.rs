@@ -5,6 +5,8 @@ use crate::types::{TypeCtx, TypeId};
 use super::cell_state_raw_range::{
     merge_initialized_raw_byte_ranges, rekey_initialized_raw_byte_ranges, InitializedRawByteRange,
 };
+use super::cell_state_raw_range_merge::merge_initialized_raw_byte_ranges_with_raw_aliases;
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::{CellState, CellStateEntry, Place, PlaceProjection};
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, raw_memory_cell_place,
@@ -265,6 +267,20 @@ impl CellTable {
                 out.set_state(&place, merged);
             }
         }
+        out
+    }
+
+    pub(super) fn merge_paths_with_raw_aliases(
+        paths: &[CellTable],
+        raw_alias_paths: &[RawCellAddressAliases],
+        merged_raw_aliases: &RawCellAddressAliases,
+    ) -> Self {
+        let mut out = Self::merge_paths(paths);
+        out.initialized_raw_byte_ranges = merge_initialized_raw_byte_ranges_with_raw_aliases(
+            paths,
+            raw_alias_paths,
+            merged_raw_aliases,
+        );
         out
     }
 

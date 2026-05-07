@@ -14211,6 +14211,102 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_returned_growing_scanner_header_preserves_capacity_byte_range() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasi
+#import "core/mem" as *
+#import "std/stdio" as *
+
+fn id <(i32)->i32> (x):
+    x
+
+fn scanner_read_all <()*>i32> ():
+    let mut cap <i32> 4
+    let mut buf <i32> alloc_raw cap
+    memset_u8 buf cap 0
+    let iov <i32> alloc_raw 8
+    let nread_ptr <i32> alloc_raw 4
+    let mut len <i32> 0
+    let mut done <bool> false
+    while not done:
+        do:
+            if le cap len:
+                then:
+                    let next_cap <i32> mul cap 2
+                    let grown <i32> realloc_raw buf cap next_cap
+                    if eq grown 0:
+                        then:
+                            set done true
+                        else:
+                            set buf grown
+                            memset_u8 add buf cap sub next_cap cap 0
+                            set cap next_cap
+                else:
+                    ()
+            if not done:
+                then:
+                    store_i32 iov add buf len
+                    store_i32 add iov 4 sub cap len
+                    store_i32 nread_ptr 0
+                    let errno <i32> fd_read 0 iov 1 nread_ptr
+                    let got <i32> load_i32 nread_ptr
+                    if or ne errno 0 eq got 0:
+                        then:
+                            set done true
+                        else:
+                            set len add len got
+                else:
+                    ()
+    dealloc_raw iov 8
+    dealloc_raw nread_ptr 4
+    let sc <i32> alloc_raw 16
+    store_i32 sc buf
+    store_i32 add sc 4 len
+    store_i32 add sc 8 0
+    store_i32 add sc 12 cap
+    sc
+
+fn main <()*>i32> ():
+    let sc <i32> scanner_read_all
+    let data <i32> load_i32 sc
+    let len <i32> load_i32 add sc 4
+    let cap <i32> load_i32 add sc 12
+    let i <i32> id 2
+    let value <i32> if and and ge i 0 lt i len lt i cap:
+        then:
+            load_u8 add data i
+        else:
+            0
+    dealloc_raw data cap
+    dealloc_raw sc 16
+    value
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "returned grow-loop scanner header must preserve initialized byte range up to returned capacity: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_returned_aggregate_preserves_guarded_byte_range() {
     let source = r#"
 #entry main

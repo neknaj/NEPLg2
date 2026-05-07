@@ -65,13 +65,13 @@ fn collect_return_count_suffixes(
     count: &Place,
     return_aliases: &[Place],
 ) -> Vec<(Vec<PlaceProjection>, TypeId)> {
-    let count = raw_aliases.canonicalize(count);
+    let count = raw_aliases.canonicalize_scalar(count);
     let mut out = Vec::new();
     for entry in cells.entries() {
         if !matches!(entry.state, CellState::Initialized(_)) {
             continue;
         }
-        if raw_aliases.canonicalize(&entry.place) != count {
+        if raw_aliases.canonicalize_scalar(&entry.place) != count {
             continue;
         }
         for entry_alias in raw_aliases.aliases_for(&entry.place) {

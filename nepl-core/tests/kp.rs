@@ -598,3 +598,107 @@ fn main <()*>()> ():
     assert_eq!(b1, 48, "expected '0' at second byte: {out}");
     assert_eq!(b2, 32, "expected space at third byte: {out}");
 }
+
+#[test]
+fn local_scanner_grow_loop_returns_header_range() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasi
+
+#import "core/mem" as *
+#import "std/stdio" as *
+
+fn id <(i32)->i32> (x):
+    x
+
+fn scanner_read_all <()*>i32> ():
+    let mut cap <i32> 4;
+    let mut buf <i32> alloc_raw cap;
+    memset_u8 buf cap 0;
+    let iov <i32> alloc_raw 8;
+    let nread_ptr <i32> alloc_raw 4;
+    let mut len <i32> 0;
+    let mut done <bool> false;
+    while not done:
+        do:
+            if le cap len:
+                then:
+                    let next_cap <i32> mul cap 2;
+                    let grown <i32> realloc_raw buf cap next_cap;
+                    if eq grown 0:
+                        then:
+                            set done true
+                        else:
+                            set buf grown
+                            memset_u8 add buf cap sub next_cap cap 0
+                            set cap next_cap
+                else:
+                    ()
+            if not done:
+                then:
+                    store_i32 iov add buf len
+                    store_i32 add iov 4 sub cap len
+                    store_i32 nread_ptr 0
+                    let errno <i32> fd_read 0 iov 1 nread_ptr;
+                    let got <i32> load_i32 nread_ptr;
+                    if or ne errno 0 eq got 0:
+                        then:
+                            set done true
+                        else:
+                            set len add len got
+                else:
+                    ()
+    dealloc_raw iov 8;
+    dealloc_raw nread_ptr 4;
+    let sc <i32> alloc_raw 16;
+    store_i32 sc buf;
+    store_i32 add sc 4 len;
+    store_i32 add sc 8 0;
+    store_i32 add sc 12 cap;
+    sc
+
+fn main <()*>()> ():
+    let sc <i32> scanner_read_all;
+    let data <i32> load_i32 sc;
+    let len <i32> load_i32 add sc 4;
+    let cap <i32> load_i32 add sc 12;
+    let i0 <i32> id 0;
+    let i4 <i32> id 4;
+    let i8 <i32> id 8;
+    let b0 <i32> if and and ge i0 0 lt i0 len lt i0 cap load_u8 add data i0 -1;
+    let b4 <i32> if and and ge i4 0 lt i4 len lt i4 cap load_u8 add data i4 -1;
+    let b8 <i32> if and and ge i8 0 lt i8 len lt i8 cap load_u8 add data i8 -1;
+    print_i32 len;
+    print " ";
+    print_i32 cap;
+    print " ";
+    print_i32 b0;
+    print " ";
+    print_i32 b4;
+    print " ";
+    print_i32 b8;
+    println "";
+    dealloc_raw data cap;
+    dealloc_raw sc 16;
+"#;
+    let out = run_main_capture_stdout_with_stdin(src, b"abcdefghi\n");
+    let parts: Vec<&str> = out.trim().split(' ').collect();
+    assert_eq!(parts.len(), 5, "unexpected grow scanner format: {out}");
+    let len: i32 = parts[0].parse().expect("len parse");
+    let cap: i32 = parts[1].parse().expect("cap parse");
+    let b0: i32 = parts[2].parse().expect("b0 parse");
+    let b4: i32 = parts[3].parse().expect("b4 parse");
+    let b8: i32 = parts[4].parse().expect("b8 parse");
+    assert_eq!(
+        len, 10,
+        "input length should include trailing newline: {out}"
+    );
+    assert!(
+        cap >= 16,
+        "scanner should grow beyond initial capacity: {out}"
+    );
+    assert_eq!(b0, 97, "expected 'a' at first byte: {out}");
+    assert_eq!(b4, 101, "expected 'e' after first grow boundary: {out}");
+    assert_eq!(b8, 105, "expected 'i' after second grow boundary: {out}");
+}

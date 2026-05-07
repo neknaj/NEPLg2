@@ -24,7 +24,7 @@ impl ResourceCheckEngine<'_> {
         let Some(iov_count) = iov_count else {
             return;
         };
-        if raw_aliases.i32_value(&raw_aliases.canonicalize(iov_count)) != Some(1) {
+        if raw_aliases.i32_value(iov_count) != Some(1) {
             return;
         }
         let Some(nread) = nread else {

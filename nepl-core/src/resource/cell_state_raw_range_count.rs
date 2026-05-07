@@ -15,7 +15,7 @@ impl CellTable {
         raw_aliases: &RawCellAddressAliases,
     ) -> bool {
         let address = raw_aliases.canonicalize(address);
-        let count = raw_aliases.canonicalize(count);
+        let count = raw_aliases.canonicalize_scalar(count);
         self.initialized_raw_byte_ranges.iter().any(|range| {
             range.ty == ty
                 && place_suffix_after_address_prefix(&address, range.address())
@@ -30,7 +30,7 @@ fn initialized_range_count_covers(
     requested: &Place,
     raw_aliases: &RawCellAddressAliases,
 ) -> bool {
-    let available = raw_aliases.canonicalize(range.count());
+    let available = raw_aliases.canonicalize_scalar(range.count());
     if available == *requested {
         return matches!(
             range.unit(),

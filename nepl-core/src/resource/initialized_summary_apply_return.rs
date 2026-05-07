@@ -32,7 +32,7 @@ pub(super) fn apply_return_initialization_summary(
         );
         let count =
             projected_place_with_concrete_type(types, output, &range.count_suffix, range.count_ty);
-        let count = raw_aliases.canonicalize(&count);
+        let count = raw_aliases.canonicalize_scalar(&count);
         cells.mark_initialized_raw_byte_range(&address, &count, range.unit, range.ty);
     }
 }

@@ -2,7 +2,6 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
@@ -15,6 +14,7 @@ use super::initialized_alias_flow::{
     compute_raw_cell_address_return_summaries, construct_raw_cell_address_alias_fields,
     expr_kind_preserves_raw_alias, RawCellAddressReturnSummary,
 };
+use super::initialized_direct_call_scalar::record_direct_call_i32_facts;
 use super::initialized_drop_scope::auto_drop_scope_locals_with_record;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
@@ -211,7 +211,11 @@ impl ResourceCheckEngine<'_> {
                             initializer,
                             place,
                         );
-                        cells.copy_initialized_raw_byte_ranges_through_value(initializer, place);
+                        cells.copy_initialized_raw_byte_ranges_through_value_aliases(
+                            initializer,
+                            place,
+                            raw_aliases,
+                        );
                         function_aliases.copy_alias(initializer, place);
                         pending_reallocs.copy_result(initializer, place);
                         variant_initializations.copy_result(initializer, place);
@@ -245,7 +249,11 @@ impl ResourceCheckEngine<'_> {
                     } else {
                         self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
                     }
-                    cells.copy_initialized_raw_byte_ranges_through_value(source, output);
+                    cells.copy_initialized_raw_byte_ranges_through_value_aliases(
+                        source,
+                        output,
+                        raw_aliases,
+                    );
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);
@@ -275,7 +283,11 @@ impl ResourceCheckEngine<'_> {
                         value,
                         target,
                     );
-                    cells.copy_initialized_raw_byte_ranges_through_value(value, target);
+                    cells.copy_initialized_raw_byte_ranges_through_value_aliases(
+                        value,
+                        target,
+                        raw_aliases,
+                    );
                     function_aliases.copy_alias(value, target);
                     pending_reallocs.copy_result(value, target);
                     variant_initializations.copy_result(value, target);
@@ -315,7 +327,11 @@ impl ResourceCheckEngine<'_> {
                         source,
                         output,
                     );
-                    cells.copy_initialized_raw_byte_ranges_through_value(source, output);
+                    cells.copy_initialized_raw_byte_ranges_through_value_aliases(
+                        source,
+                        output,
+                        raw_aliases,
+                    );
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);
@@ -407,7 +423,7 @@ impl ResourceCheckEngine<'_> {
                         pending_reallocs.clear_result(output);
                         variant_initializations.clear_result(output);
                     } else {
-                        self.record_i32_scale_result(raw_aliases, target, output, args);
+                        record_direct_call_i32_facts(raw_aliases, target, output, args);
                     }
                     pending_reallocs.clear_result(output);
                 }
@@ -500,7 +516,11 @@ impl ResourceCheckEngine<'_> {
                     construct_raw_cell_address_alias_fields(raw_aliases, output, kind, inputs);
                     for (index, input) in inputs.iter().enumerate() {
                         let field = construct_aggregate_field_place(output, kind, index, input);
-                        cells.copy_initialized_raw_byte_ranges_through_value(input, &field);
+                        cells.copy_initialized_raw_byte_ranges_through_value_aliases(
+                            input,
+                            &field,
+                            raw_aliases,
+                        );
                     }
                     construct_function_alias_fields(function_aliases, output, kind, inputs);
                     pending_reallocs.clear_result(output);
@@ -596,26 +616,6 @@ impl ResourceCheckEngine<'_> {
         )
     }
 
-    fn record_i32_scale_result(
-        &self,
-        raw_aliases: &mut RawCellAddressAliases,
-        target: &ResourceCallTarget,
-        output: &Place,
-        args: &[Place],
-    ) {
-        if resource_call_target_base_name(target) != Some("mul") {
-            return;
-        }
-        let [left, right] = args else {
-            return;
-        };
-        if let Some(scale) = positive_i32_value_as_usize(raw_aliases, left) {
-            raw_aliases.add_i32_scale(right, output, scale);
-        } else if let Some(scale) = positive_i32_value_as_usize(raw_aliases, right) {
-            raw_aliases.add_i32_scale(left, output, scale);
-        }
-    }
-
     fn apply_indirect_call_return_raw_alias(
         &self,
         raw_aliases: &mut RawCellAddressAliases,
@@ -686,64 +686,4 @@ fn merge_deferred(target: &mut ResourceCheckDeferred, source: ResourceCheckDefer
     target.branch_merges += source.branch_merges;
     target.loop_merges += source.loop_merges;
     target.match_merges += source.match_merges;
-}
-
-fn resource_call_target_base_name(target: &ResourceCallTarget) -> Option<&str> {
-    match target {
-        ResourceCallTarget::Builtin { name } | ResourceCallTarget::User { name, .. } => {
-            Some(helper_base_name(name))
-        }
-        ResourceCallTarget::Trait { method, .. } => Some(helper_base_name(method)),
-    }
-}
-
-fn positive_i32_value_as_usize(
-    raw_aliases: &RawCellAddressAliases,
-    place: &Place,
-) -> Option<usize> {
-    let value = raw_aliases.i32_value(place)?;
-    usize::try_from(value).ok().filter(|value| *value > 0)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use alloc::string::String;
-
-    use super::super::model::ResourceId;
-
-    #[test]
-    fn records_i32_scale_result_for_mangled_mul_call() {
-        let types = TypeCtx::new();
-        let raw_alias_summaries = Vec::new();
-        let raw_init_summaries = Vec::new();
-        let engine = ResourceCheckEngine {
-            function: "test",
-            types: &types,
-            raw_alias_summaries: &raw_alias_summaries,
-            raw_init_summaries: &raw_init_summaries,
-            diagnostics: Vec::new(),
-            auto_drop_points: Vec::new(),
-            deferred: ResourceCheckDeferred::default(),
-        };
-        let source = Place::local(String::from("i"), types.i32());
-        let source_read = Place::temporary(ResourceId(1), types.i32());
-        let constant = Place::temporary(ResourceId(2), types.i32());
-        let output = Place::temporary(ResourceId(3), types.i32());
-        let mut raw_aliases = RawCellAddressAliases::default();
-
-        raw_aliases.copy_alias_if_tracked(&source, &source_read);
-        raw_aliases.set_i32_value(&constant, 4);
-        engine.record_i32_scale_result(
-            &mut raw_aliases,
-            &ResourceCallTarget::User {
-                name: String::from("mul__i32_i32__i32__pure"),
-                type_args: Vec::new(),
-            },
-            &output,
-            &[source_read, constant],
-        );
-
-        assert_eq!(raw_aliases.i32_scaled_source(&output), Some((source, 4)));
-    }
 }

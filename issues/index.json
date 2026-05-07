@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T08:10:04.237Z",
+  "generated_at": "2026-05-07T08:13:37.705Z",
   "counts": {
     "total": 567,
-    "open": 11,
-    "resolved": 556,
+    "open": 10,
+    "resolved": 557,
     "by_area": {
       "core": {
         "total": 283,
-        "open": 4,
-        "resolved": 279
+        "open": 3,
+        "resolved": 280
       },
       "stdlib": {
         "total": 159,
@@ -208,21 +208,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
-      "title": "Resource IR cannot summarize returned raw headers with length-guarded dynamic ranges",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-04-30",
-      "updated": "2026-05-07",
-      "target": "nepl-core/src/resource/initialized_summary*.rs, nepl-core/src/resource/initialized_external_io*.rs, nepl-core/src/resource/initialized_raw_memory.rs, nepl-core/tests/kp.rs",
-      "legacy_id": "",
-      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
-      "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -7108,6 +7093,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T233013677Z-GENERICS-TESTS-REDEFINE-STDLIB-OPTIO-95B1BFDB.md"
+    },
+    {
+      "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
+      "title": "Resource IR cannot summarize returned raw headers with length-guarded dynamic ranges",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-04-30",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/cell_state_raw_range*.rs, nepl-core/src/resource/initialized*.rs, nepl-core/tests/resource_ir.rs, nepl-core/tests/kp.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
     },
     {
       "id": "ISS-20260430T012746721Z-RESOURCE-IR-INITIALIZED-SUMMARIES-SK-727D49FD",

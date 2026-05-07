@@ -41,12 +41,12 @@ impl ResourceCheckEngine<'_> {
         if address_available && cells_released {
             cells.clear_raw_cells_under(&address);
             if let (Some(count), Some(value)) = (args.get(1), args.get(2)) {
-                let count = raw_aliases.canonicalize(count);
-                cells.mark_initialized_raw_byte_range(
+                cells.mark_initialized_raw_byte_range_extending_appended_difference(
                     &address,
-                    &count,
+                    count,
                     InitializedRawRangeUnit::Bytes,
                     value.ty,
+                    raw_aliases,
                 );
             }
             cells.mark_initialized(output);
@@ -85,10 +85,9 @@ impl ResourceCheckEngine<'_> {
         if address_available && cells_released {
             cells.clear_raw_cells_under(&address);
             if let (Some(count), Some(value)) = (args.get(1), args.get(2)) {
-                let count = raw_aliases.canonicalize(count);
                 cells.mark_initialized_raw_byte_range(
                     &address,
-                    &count,
+                    count,
                     InitializedRawRangeUnit::Elements {
                         stride: storage_size_bytes(self.types, value.ty),
                     },
