@@ -47,8 +47,8 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- `SelfhostDefId(-1)` / `SelfhostTypeId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
-- `first_arg = -1`、`SelfhostHirChildRange(-1, 0)`、`SelfhostHirParamRange(-1, 0)` の empty range sentinel。
+- `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
+- `SelfhostHirChildRange(-1, 0)`、`SelfhostHirParamRange(-1, 0)` の empty range sentinel。
 - HIR expression payload が kind ごとに所有 field を分離できていないこと。
 
 ## 2026-05-08 builtin signature payload 対応
@@ -57,6 +57,16 @@ Add source-policy tests rejecting new _invalid -> -1 helpers, first_* = -1 empty
 
 残件:
 
-- `SelfhostDefId(-1)` / `SelfhostTypeId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
-- `first_arg = -1`、`SelfhostHirChildRange(-1, 0)`、`SelfhostHirParamRange(-1, 0)` の empty range sentinel。
+- `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
+- `SelfhostHirChildRange(-1, 0)`、`SelfhostHirParamRange(-1, 0)` の empty range sentinel。
+- HIR expression payload が kind ごとに所有 field を分離できていないこと。
+
+## 2026-05-08 type record payload 対応
+
+この親 issue のうち、`SelfhostTypeRecord` が primitive/function 共通の flat field を持ち、primitive record に `first_arg = -1` と invalid `TypeId` を入れていた問題は、[ISS-20260507T154503761Z-SELFHOST-TYPE-RECORDS-USE-INVALID-TY-E984125D](./ISS-20260507T154503761Z-SELFHOST-TYPE-RECORDS-USE-INVALID-TY-E984125D.md) で分離して解決した。
+
+残件:
+
+- `SelfhostDefId(-1)` / `SelfhostHirExprId(-1)` / `SelfhostMonoInstanceId(-1)` の invalid sentinel。
+- `SelfhostHirChildRange(-1, 0)`、`SelfhostHirParamRange(-1, 0)` の empty range sentinel。
 - HIR expression payload が kind ごとに所有 field を分離できていないこと。

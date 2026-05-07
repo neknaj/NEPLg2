@@ -53,6 +53,32 @@ impl Copy for SelfhostTypeId:
     fn copy_mark <(SelfhostTypeId)->SelfhostTypeId> (self):
         self
 
+//: SelfhostPrimitiveTypeKind: S3 初期段階で扱う primitive 型の分類
+//:
+//: [目的/もくてき]:
+//: - arena の primitive record に保存できる型だけを enum として表します。
+//: - function type は `SelfhostTypeRecord::Function` が payload を持つため、primitive payload には含めません。
+enum SelfhostPrimitiveTypeKind:
+    Error
+    Unit
+    Bool
+    I32
+    I64
+    U8
+    Char
+    Str
+    F32
+    F64
+    Never
+
+impl Clone for SelfhostPrimitiveTypeKind:
+    fn clone <(&SelfhostPrimitiveTypeKind)->SelfhostPrimitiveTypeKind> (self):
+        *self
+
+impl Copy for SelfhostPrimitiveTypeKind:
+    fn copy_mark <(SelfhostPrimitiveTypeKind)->SelfhostPrimitiveTypeKind> (self):
+        self
+
 //: SelfhostTypeKind: S3 初期段階で扱う型の分類
 enum SelfhostTypeKind:
     Error
@@ -76,16 +102,32 @@ impl Copy for SelfhostTypeKind:
     fn copy_mark <(SelfhostTypeKind)->SelfhostTypeKind> (self):
         self
 
-//: SelfhostTypeRecord: arena に保存する型 record
+//: SelfhostFunctionTypeRecord: function type record の payload
 //:
-//: [注意/ちゅうい]:
-//: - primitive type では `first_arg = -1`, `arg_count = 0`, `result = invalid TypeId` です。
-//: - function type では `first_arg` と `arg_count` が arena の argument table 範囲を指し、`result` が戻り値 TypeId です。
-struct SelfhostTypeRecord:
-    kind <SelfhostTypeKind>
+//: [目的/もくてき]:
+//: - function type だけが持つ argument table 範囲と戻り値 TypeId を保持します。
+//: - primitive type から function-only field を読めないよう、`SelfhostTypeRecord::Function` の payload に閉じ込めます。
+struct SelfhostFunctionTypeRecord:
     first_arg <i32>
     arg_count <i32>
     result <SelfhostTypeId>
+
+impl Clone for SelfhostFunctionTypeRecord:
+    fn clone <(&SelfhostFunctionTypeRecord)->SelfhostFunctionTypeRecord> (self):
+        *self
+
+impl Copy for SelfhostFunctionTypeRecord:
+    fn copy_mark <(SelfhostFunctionTypeRecord)->SelfhostFunctionTypeRecord> (self):
+        self
+
+//: SelfhostTypeRecord: arena に保存する型 record
+//:
+//: [目的/もくてき]:
+//: - primitive type と function type を enum payload で分け、存在しない field を record に持たせません。
+//: - function payload は `SelfhostFunctionTypeRecord` に集約し、accessor は record variant を match してから読む構造にします。
+enum SelfhostTypeRecord:
+    Primitive <SelfhostPrimitiveTypeKind>
+    Function <SelfhostFunctionTypeRecord>
 
 impl Clone for SelfhostTypeRecord:
     fn clone <(&SelfhostTypeRecord)->SelfhostTypeRecord> (self):
@@ -109,10 +151,6 @@ struct SelfhostTypeArenaAlloc:
 fn selfhost_type_id_new <(i32)->SelfhostTypeId> (index):
     SelfhostTypeId index
 
-//: selfhost_type_id_invalid: 未使用 slot 用の invalid TypeId を[返/かえ]す
-fn selfhost_type_id_invalid <()->SelfhostTypeId> ():
-    selfhost_type_id_new -1
-
 //: selfhost_type_id_index: TypeId の arena index を[返/かえ]す
 fn selfhost_type_id_index <(SelfhostTypeId)->i32> (type_id):
     type_id.index
@@ -120,6 +158,35 @@ fn selfhost_type_id_index <(SelfhostTypeId)->i32> (type_id):
 //: selfhost_type_id_eq: TypeId が同じ arena index か[返/かえ]す
 fn selfhost_type_id_eq <(SelfhostTypeId,SelfhostTypeId)->bool> (a, b):
     eq a.index b.index
+
+//: selfhost_primitive_type_kind_to_type_kind: primitive type kind を general type kind へ[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - arena の primitive payload は `SelfhostPrimitiveTypeKind` に限定し、外部 API では従来通り `SelfhostTypeKind` として参照できるようにします。
+fn selfhost_primitive_type_kind_to_type_kind <(SelfhostPrimitiveTypeKind)->SelfhostTypeKind> (kind):
+    match kind:
+        SelfhostPrimitiveTypeKind::Error:
+            SelfhostTypeKind::Error
+        SelfhostPrimitiveTypeKind::Unit:
+            SelfhostTypeKind::Unit
+        SelfhostPrimitiveTypeKind::Bool:
+            SelfhostTypeKind::Bool
+        SelfhostPrimitiveTypeKind::I32:
+            SelfhostTypeKind::I32
+        SelfhostPrimitiveTypeKind::I64:
+            SelfhostTypeKind::I64
+        SelfhostPrimitiveTypeKind::U8:
+            SelfhostTypeKind::U8
+        SelfhostPrimitiveTypeKind::Char:
+            SelfhostTypeKind::Char
+        SelfhostPrimitiveTypeKind::Str:
+            SelfhostTypeKind::Str
+        SelfhostPrimitiveTypeKind::F32:
+            SelfhostTypeKind::F32
+        SelfhostPrimitiveTypeKind::F64:
+            SelfhostTypeKind::F64
+        SelfhostPrimitiveTypeKind::Never:
+            SelfhostTypeKind::Never
 
 //: selfhost_type_kind_eq: TypeKind が同じ分類か[返/かえ]す
 //:
@@ -477,13 +544,13 @@ fn selfhost_type_kind_canonical_name <(SelfhostTypeKind)->Option<str>> (kind):
         SelfhostTypeKind::Function:
             none<str>
 
-//: selfhost_type_record_new: 型 record を[作/つく]る
-fn selfhost_type_record_new <(SelfhostTypeKind,i32,i32,SelfhostTypeId)->SelfhostTypeRecord> (kind, first_arg, arg_count, result):
-    SelfhostTypeRecord kind first_arg arg_count result
-
 //: selfhost_type_record_primitive: primitive type record を[作/つく]る
-fn selfhost_type_record_primitive <(SelfhostTypeKind)->SelfhostTypeRecord> (kind):
-    selfhost_type_record_new kind -1 0 selfhost_type_id_invalid
+fn selfhost_type_record_primitive <(SelfhostPrimitiveTypeKind)->SelfhostTypeRecord> (kind):
+    SelfhostTypeRecord::Primitive kind
+
+//: selfhost_type_record_function: function type record を[作/つく]る
+fn selfhost_type_record_function <(i32,i32,SelfhostTypeId)->SelfhostTypeRecord> (first_arg, arg_count, result):
+    SelfhostTypeRecord::Function SelfhostFunctionTypeRecord first_arg arg_count result
 
 //: selfhost_type_arena_new: [空/から]の TypeArena を[作/つく]る
 fn selfhost_type_arena_new <()*>Result<SelfhostTypeArena, StdErrorKind>> ():
@@ -530,7 +597,7 @@ fn selfhost_type_arena_push_record <(SelfhostTypeArena,SelfhostTypeRecord)*>Resu
             Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
 
 //: selfhost_type_arena_add_primitive: primitive type を arena に[追加/ついか]する
-fn selfhost_type_arena_add_primitive <(SelfhostTypeArena,SelfhostTypeKind)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, kind):
+fn selfhost_type_arena_add_primitive <(SelfhostTypeArena,SelfhostPrimitiveTypeKind)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, kind):
     selfhost_type_arena_push_record arena selfhost_type_record_primitive kind
 
 //: selfhost_type_arena_copy_function_args: function 引数 TypeId を arena argument table に[複製/ふくせい]する
@@ -563,7 +630,7 @@ fn selfhost_type_arena_add_function <(SelfhostTypeArena,Vec<SelfhostTypeId>,Self
     match selfhost_type_arena_copy_function_args function_args &params arg_count 0:
         Result::Ok next_args:
             v::free<SelfhostTypeId> params
-            let record <SelfhostTypeRecord> selfhost_type_record_new SelfhostTypeKind::Function first_arg arg_count result
+            let record <SelfhostTypeRecord> selfhost_type_record_function first_arg arg_count result
             selfhost_type_arena_push_record (SelfhostTypeArena records next_args) record
         Result::Err e:
             v::free<SelfhostTypeRecord> records
@@ -584,7 +651,11 @@ fn selfhost_type_arena_get_record <(&SelfhostTypeArena,SelfhostTypeId)->Option<S
 fn selfhost_type_arena_get_kind <(&SelfhostTypeArena,SelfhostTypeId)->Option<SelfhostTypeKind>> (arena, type_id):
     match selfhost_type_arena_get_record arena type_id:
         Option::Some record:
-            some<SelfhostTypeKind> record.kind
+            match record:
+                SelfhostTypeRecord::Primitive kind:
+                    some<SelfhostTypeKind> selfhost_primitive_type_kind_to_type_kind kind
+                SelfhostTypeRecord::Function _function:
+                    some<SelfhostTypeKind> SelfhostTypeKind::Function
         Option::None:
             none<SelfhostTypeKind>
 
@@ -592,11 +663,11 @@ fn selfhost_type_arena_get_kind <(&SelfhostTypeArena,SelfhostTypeId)->Option<Sel
 fn selfhost_type_arena_function_arg_count <(&SelfhostTypeArena,SelfhostTypeId)->Option<i32>> (arena, type_id):
     match selfhost_type_arena_get_record arena type_id:
         Option::Some record:
-            match record.kind:
-                SelfhostTypeKind::Function:
-                    some<i32> record.arg_count
-                _:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
                     none<i32>
+                SelfhostTypeRecord::Function function:
+                    some<i32> function.arg_count
         Option::None:
             none<i32>
 
@@ -604,17 +675,17 @@ fn selfhost_type_arena_function_arg_count <(&SelfhostTypeArena,SelfhostTypeId)->
 fn selfhost_type_arena_function_arg <(&SelfhostTypeArena,SelfhostTypeId,i32)->Option<SelfhostTypeId>> (arena, type_id, arg_idx):
     match selfhost_type_arena_get_record arena type_id:
         Option::Some record:
-            match record.kind:
-                SelfhostTypeKind::Function:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
+                    none<SelfhostTypeId>
+                SelfhostTypeRecord::Function function:
                     if:
-                        or lt arg_idx 0 ge arg_idx record.arg_count
+                        or lt arg_idx 0 ge arg_idx function.arg_count
                         then:
                             none<SelfhostTypeId>
                         else:
                             let function_args <&Vec<SelfhostTypeId>> field::get_ref arena "function_args"
-                            v::get<SelfhostTypeId> function_args add record.first_arg arg_idx
-                _:
-                    none<SelfhostTypeId>
+                            v::get<SelfhostTypeId> function_args add function.first_arg arg_idx
         Option::None:
             none<SelfhostTypeId>
 
@@ -622,11 +693,11 @@ fn selfhost_type_arena_function_arg <(&SelfhostTypeArena,SelfhostTypeId,i32)->Op
 fn selfhost_type_arena_function_result <(&SelfhostTypeArena,SelfhostTypeId)->Option<SelfhostTypeId>> (arena, type_id):
     match selfhost_type_arena_get_record arena type_id:
         Option::Some record:
-            match record.kind:
-                SelfhostTypeKind::Function:
-                    some<SelfhostTypeId> record.result
-                _:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
                     none<SelfhostTypeId>
+                SelfhostTypeRecord::Function function:
+                    some<SelfhostTypeId> function.result
         Option::None:
             none<SelfhostTypeId>
 
@@ -663,23 +734,28 @@ fn selfhost_type_arena_function_args_equal <(&SelfhostTypeArena,i32,i32,i32,i32)
 //: - primitive type は `SelfhostTypeKind` が一致すれば同形とします。
 //: - function type は arity、各引数 TypeId の構造、戻り値 TypeId の構造を比較します。
 fn selfhost_type_arena_records_equal <(&SelfhostTypeArena,SelfhostTypeRecord,SelfhostTypeRecord)->bool> (arena, a, b):
-    if:
-        not selfhost_type_kind_eq a.kind b.kind
-        then:
-            false
-        else:
-            match a.kind:
-                SelfhostTypeKind::Function:
+    match a:
+        SelfhostTypeRecord::Primitive a_kind:
+            match b:
+                SelfhostTypeRecord::Primitive b_kind:
+                    let a_general <SelfhostTypeKind> selfhost_primitive_type_kind_to_type_kind a_kind
+                    let b_general <SelfhostTypeKind> selfhost_primitive_type_kind_to_type_kind b_kind
+                    selfhost_type_kind_eq a_general b_general
+                SelfhostTypeRecord::Function _b_function:
+                    false
+        SelfhostTypeRecord::Function a_function:
+            match b:
+                SelfhostTypeRecord::Primitive _b_kind:
+                    false
+                SelfhostTypeRecord::Function b_function:
                     if:
-                        ne a.arg_count b.arg_count
+                        ne a_function.arg_count b_function.arg_count
                         then:
                             false
                         else:
                             and:
-                                selfhost_type_arena_function_args_equal arena a.first_arg b.first_arg a.arg_count 0
-                                selfhost_type_arena_types_equal arena a.result b.result
-                _:
-                    true
+                                selfhost_type_arena_function_args_equal arena a_function.first_arg b_function.first_arg a_function.arg_count 0
+                                selfhost_type_arena_types_equal arena a_function.result b_function.result
 
 //: selfhost_type_arena_types_equal: 同じ arena 内の TypeId が構造的に同じ型か[返/かえ]す
 //:
@@ -706,7 +782,7 @@ fn selfhost_type_arena_types_equal <(&SelfhostTypeArena,SelfhostTypeId,SelfhostT
 fn selfhost_ty_stage0 <()*>i32> ():
     match selfhost_type_arena_new:
         Result::Ok arena0:
-            match selfhost_type_arena_add_primitive arena0 SelfhostTypeKind::Unit:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
                 Result::Ok allocated:
                     let unit_id <SelfhostTypeId> field::get allocated "type_id"
                     let arena1 <SelfhostTypeArena> field::get allocated "arena"

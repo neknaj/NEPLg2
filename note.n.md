@@ -1,3 +1,17 @@
+# 2026-05-08 Agent 1 selfhost type record payload
+
+- `ISS-20260507T154503761Z-SELFHOST-TYPE-RECORDS-USE-INVALID-TY-E984125D` を追加し、fixed/resolved に更新した。
+- 根本原因は、`SelfhostTypeRecord` が primitive/function 共通の `kind` / `first_arg` / `arg_count` / `result` を持ち、primitive record に `first_arg = -1` と invalid `TypeId` を入れていたことだった。
+- `SelfhostTypeRecord` を `Primitive <SelfhostPrimitiveTypeKind>` / `Function <SelfhostFunctionTypeRecord>` の enum payload に分け、function-only field は function payload からしか読めない設計にした。
+- `SelfhostPrimitiveTypeKind` を追加し、primitive payload から `Function` を除外した。外部向けの general kind は `selfhost_primitive_type_kind_to_type_kind` で `SelfhostTypeKind` に変換する。
+- `selfhost_type_id_invalid` と flat `selfhost_type_record_new` を削除し、type arena accessor / record equality は `SelfhostTypeRecord` を直接 `match` する形にした。
+- `nodesrc/test_selfhost_type_record_payload.js` を追加し、flat record、invalid TypeId helper、primitive `-1` range、payload match bypass の再導入を source policy で拒否する。
+- [検証]:
+  - `node nodesrc/test_selfhost_type_record_payload.js`: passed
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty.nepl --no-tree -o tmp/agent1-selfhost-type-record-payload.json -j 1 --dist web/dist`: total=1, passed=1
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 1 selfhost builtin signature payload
 
 - `ISS-20260507T153554496Z-SELFHOST-BUILTIN-SIGNATURES-USE-ERRO-AEFFF7D4` を追加し、fixed/resolved に更新した。
