@@ -1,6 +1,6 @@
 # GitHub Actions 状況
 
-確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
+確認対象 commit: `caca505d fix(selfhost): model lexer raw modes with enums`
 
 ## 確認方法
 
@@ -15,20 +15,21 @@
 - `gh run view 25507326678 --json status,conclusion,updatedAt,jobs`
 - `gh run list --branch main --limit 8`
 - `gh run list --branch main --limit 5`
+- `gh run list --limit 6`
 
 ## 最新 run
 
 | 項目 | 内容 |
 |---|---|
-| run id | `25508600937` |
+| run id | `25509824320` |
 | workflow | `CI (NEPL-g2)` |
 | branch | `main` |
-| head sha | `c5f9316336463f2911febfd514110b7c5b8a128a` |
+| head sha | `caca505d` |
 | status | in_progress |
 | conclusion | 未確定 |
-| createdAt | `2026-05-07T16:27:40Z` |
+| createdAt | `2026-05-07T16:51:51Z` |
 
-この run は確認時点では実行中で、latest main の green 判定は未確定である。
+この run は確認時点では in_progress で、latest main の green 判定は未確定である。
 
 ## 直前 run
 
@@ -54,7 +55,9 @@
 
 | head | 状態 | 備考 |
 |---|---|---|
-| `c5f93163` | in_progress | 最新 main。HIR expression payload を variant enum 化。 |
+| `caca505d` | in_progress | 最新 main。lexer raw mode を `SelfhostLexerRawMode` enum 化。 |
+| `9655c078` | waiting | review validity 文書。後続 push により待機。 |
+| `c5f93163` | cancelled | HIR expression payload を variant enum 化。後続 push により古い run。 |
 | `dc6b82bb` | cancelled | resolver DefId absence を Option 化。後続 push により cancel。 |
 | `f3a4c60b` | cancelled | VFS definition path failure issue 追加。後続 push により cancel。 |
 | `00288fb3` | queued / old | getting_started tutorial failure issue 追加。後続 push により古い run。 |
@@ -95,5 +98,5 @@ test coverage は Rust compile/run、WASI doctest、`.n.md` doctest、tutorial d
 ## 現時点の判定
 
 - 最新 main の CI 結果は未確定。
-- `b9e85f23` run の `tutorials-test` / `nm-compile` failure は古い run 内の途中結果として記録し、latest `c5f93163` completed run の結果で再判定する。
+- `b9e85f23` run の `tutorials-test` / `nm-compile` failure は古い run 内の途中結果として記録し、latest `caca505d` completed run の結果で再判定する。
 - review commit 前には `node nodesrc/issues.js check` と `git diff --check` を実施する。

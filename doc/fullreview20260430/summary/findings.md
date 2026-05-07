@@ -7,6 +7,7 @@
 基準 commit:
 
 - `15e51fe0 docs(review): add crosscutting safety review`
+- `caca505d fix(selfhost): model lexer raw modes with enums`
 
 直近の refactor と review checkpoint:
 
@@ -18,8 +19,8 @@
 issue registry:
 
 - total: 608
-- open: 15
-- resolved: 593
+- open: 14
+- resolved: 594
 
 ## 最重要 findings
 
@@ -80,7 +81,6 @@ P2 として進めるべき issue:
 
 - `ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895`
 - `ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD`
-- `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF`
 - `ISS-20260507T153515441Z-ZED-EXTENSION-BUILD-ARTIFACTS-ARE-TR-B7D814F1`
 
@@ -95,7 +95,7 @@ P2 として進めるべき issue:
 | stdlib collections | 分割改善済み、Drop 未完了 | free/drop obligation を P1 で解く |
 | stdlib `core/mem` | 未完了 P1 | safe/raw boundary と provenance を再設計 |
 | stdlib `std/test` | 実装中、方向は良い | `.n.md` stdout report 運用へ統一 |
-| selfhost syntax/model | 実装中、改善あり | lexer raw/directive state を enum 化 |
+| selfhost syntax/model | 実装中、lexer raw mode enum 化済み | numeric sentinel 回帰監視と parity fixture を継続 |
 | selfhost typecheck/resource | 未完成 | Rust 側設計確定後に本格化 |
 | tutorials/examples | 一部未追従 | CI gate と doctest を整備 |
 | tools/editor/web | 実用段階、未整理あり | build artifact と diagnostic code 同期を整理 |

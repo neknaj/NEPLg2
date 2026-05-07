@@ -64,7 +64,7 @@ selfhost はまだ部分実装であり、静的検査の本体が不足して�
 - `.n.md` test を Rust/selfhost 共通に走らせる test harness。
 - raw memory と collection drop semantics が Resource IR で検査できる stdlib API。
 
-また lexer には raw mode と directive state を `i32` で扱う未完了点が残っている。これは selfhost の早い段階で修正できる領域であり、静的検査大規模修正と比較すると干渉は小さい。ただし修正は helper 追加だけでなく、directive/raw mode の enum 化と `match` 化まで行う必要がある。
+また lexer の raw mode と directive state は、レビュー中に remote main へ入った `caca505d` で `SelfhostLexerRawMode` enum と `match` による分岐へ改善された。`#indent` 判定も `str_starts_with_at` を使う形へ移り、この領域は未解決 blocker ではなく回帰監視対象になった。
 
 ## selfhost 実装開始可否
 
@@ -93,7 +93,7 @@ selfhost はまだ部分実装であり、静的検査の本体が不足して�
 | stdlib Vec/collections | 改善済み、Drop 未完了 | module 分割済み。free/drop obligation が P1 |
 | stdlib `core/mem` | 未完了 P1 | raw API と compiler-owned provenance の接続が必要 |
 | stdlib test | 改善済み、移行中 | structured report はある。`.n.md` 運用統一が未完了 |
-| selfhost lexer/parser | 実装中 | lexer raw/directive state は enum 化が必要 |
+| selfhost lexer/parser | 実装中、raw mode enum 化済み | parity fixture と numeric sentinel 回帰監視を継続 |
 | selfhost HIR/type/builtin | 改善済み | `Option` と payload enum 化が進んだ |
 | selfhost diagnostic | 未完了 | Rust 側新設計に合わせる必要がある |
 | selfhost static check | 未着手に近い | Resource IR/checker 実装が必要 |
@@ -107,6 +107,6 @@ stdlib と selfhost は前進しているが、selfhost に必要な土台とし
 
 1. `core/mem` の safe/raw API 境界と Resource IR provenance を設計し直す。
 2. collection drop obligation を API と static check に接続する。
-3. selfhost lexer raw/directive state を enum と `match` に置き換える。
+3. selfhost lexer raw/directive state が numeric sentinel へ戻らないよう source policy を維持する。
 4. selfhost diagnostic enum registry を Rust 側設計に合わせて作る。
 5. selfhost Resource IR lowering/checker の skeleton を、Rust 側 Resource IR と対応する形で設計する。

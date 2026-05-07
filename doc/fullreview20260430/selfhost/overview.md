@@ -1,6 +1,6 @@
 # selfhost compiler overview
 
-確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
+確認対象 commit: `caca505d fix(selfhost): model lexer raw modes with enums`
 
 ## 確認対象
 
@@ -19,7 +19,7 @@
 
 `stdlib/neplg2` は self-host compiler の骨格と S1/S2 周辺の実装がかなり揃っている。CLI と core の責務分離、typed diagnostic code、lexer/parser/module graph の段階化は現在の開発方針に合っている。
 
-ただし、selfhost 全面実装を開始できる状態ではない。S1 lexer/parser parity と S2 module graph/import resolver は進めてよいが、S3 typecheck 以降は ResourceIR、stdlib raw memory boundary、diagnostic taxonomy の未解決設計に強く依存する。`ty` / `builtins` / HIR range / mono instance absence / HIR expr id absence / resolver DefId absence / HIR expression payload は直近 main で typed payload 化されたため、次の焦点は lexer state、ResourceIR 連携、stdlib owner model へ移る。
+ただし、selfhost 全面実装を開始できる状態ではない。S1 lexer/parser parity と S2 module graph/import resolver は進めてよいが、S3 typecheck 以降は ResourceIR、stdlib raw memory boundary、diagnostic taxonomy の未解決設計に強く依存する。`ty` / `builtins` / HIR range / mono instance absence / HIR expr id absence / resolver DefId absence / HIR expression payload は直近 main で typed payload 化された。さらに `caca505d` で lexer raw mode も enum 化されたため、次の焦点は ResourceIR 連携、stdlib owner model、lexer/model の回帰監視へ移る。
 
 ## 進捗状況
 
@@ -27,7 +27,7 @@
 |---|---|---|
 | `stdlib/neplg2/cli` | argv parser、typed option、reporter、driver、file I/O 境界がある。 | CLI/core 分離は良い。argv parser の raw Vec access は stdlib API 不足の影響として残る。 |
 | `stdlib/neplg2/core/infra` | span/text/diag/outcome/pipeline/options がある。diagnostic code は enum-first。 | S1/S2 には十分。S3+ 用 code taxonomy は追加が必要。 |
-| `stdlib/neplg2/core/syntax` | token/lexer/module AST/parser がある。char literal、raw block、indent、directive を扱う。 | parity は進むが lexer raw mode が i32 sentinel で、directive 分類も match coverage 外。 |
+| `stdlib/neplg2/core/syntax` | token/lexer/module AST/parser がある。char literal、raw block、indent、directive を扱う。lexer raw mode は `SelfhostLexerRawMode` enum 化済み。 | parity と numeric sentinel 回帰監視を継続する。 |
 | `stdlib/neplg2/core/module` | VFS loader、import spec、stdlib map、module graph がある。 | S2 の基盤として妥当。線形探索と duplicate path 仕様は HashMap/ID 設計前の制約。 |
 | `stdlib/neplg2/core/resolve` | DefId、DefKind、scope binding table がある。DefId absence は `Option<SelfhostDefId>` 化済み。 | 名前解決の入口はある。parent scope / import / hoist は今後の拡張。 |
 | `stdlib/neplg2/core/ty` | TypeId、TypeKind、TypeArena、構造比較がある。 | function type model と type record payload 分離はある。primitive/function flat field sentinel は fixed。 |
@@ -41,7 +41,7 @@
 - `ISS-20260507T150754473Z-SELFHOST-TYPE-HIR-AND-BUILTIN-MODELS-8EBC822D`
   - HIR expression payload は `c5f93163` で variant enum 化済み。enum equality、builtin signature、type record、HIR range、mono instance absence、HIR expr id absence、resolver DefId absence も fixed。
 - `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`
-  - lexer raw mode と directive 分類を enum/match coverage の効く設計へ直す。
+  - `caca505d` で fixed。lexer raw mode と directive 分類の enum/match coverage を回帰監視する。
 
 ## selfhost readiness
 

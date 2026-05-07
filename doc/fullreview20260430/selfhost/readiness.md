@@ -1,12 +1,12 @@
 # selfhost readiness review
 
-確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
+確認対象 commit: `caca505d fix(selfhost): model lexer raw modes with enums`
 
 ## 判定
 
-現段階で selfhost の実装を開始できるのは S1/S2 の限定範囲である。S3 以降を全面実装するには、Rust compiler の ResourceIR authority、diagnostic id 再設計、stdlib memory model、lexer state、HIR/AST owner model が揃う必要がある。
+現段階で selfhost の実装を開始できるのは S1/S2 の限定範囲である。S3 以降を全面実装するには、Rust compiler の ResourceIR authority、diagnostic id 再設計、stdlib memory model、HIR/AST owner model が揃う必要がある。
 
-remote main の `0fcc4839` により selfhost model の enum equality helper が direct match へ改善された。さらに `0ac34132` で builtin signature は arity enum へ移り、`4da7333` で type record は variant payload へ分離され、`6277239` で HIR child/param range は `Empty` / `Range` enum へ分離され、`b9e85f23` で mono instance absence は `Option<SelfhostMonoInstanceId>` へ移り、`8ff05570` で HIR expr absence は `Option<SelfhostHirExprId>` へ移り、`dc6b82bb` で resolver DefId absence は `Option<SelfhostDefId>` へ移り、`c5f93163` で HIR expression payload は `SelfhostHirExprPayload` enum へ分離された。これは S3 以降の基盤をよくする進捗だが、ResourceIR/stdlib memory model と diagnostics taxonomy がまだ固まり切っていないため、S3/S4 の全面実装開始条件はまだ満たしていない。
+remote main の `0fcc4839` により selfhost model の enum equality helper が direct match へ改善された。さらに `0ac34132` で builtin signature は arity enum へ移り、`4da7333` で type record は variant payload へ分離され、`6277239` で HIR child/param range は `Empty` / `Range` enum へ分離され、`b9e85f23` で mono instance absence は `Option<SelfhostMonoInstanceId>` へ移り、`8ff05570` で HIR expr absence は `Option<SelfhostHirExprId>` へ移り、`dc6b82bb` で resolver DefId absence は `Option<SelfhostDefId>` へ移り、`c5f93163` で HIR expression payload は `SelfhostHirExprPayload` enum へ分離された。`caca505d` では lexer raw mode も `SelfhostLexerRawMode` enum へ移った。これは S3 以降の基盤をよくする進捗だが、ResourceIR/stdlib memory model と diagnostics taxonomy がまだ固まり切っていないため、S3/S4 の全面実装開始条件はまだ満たしていない。
 
 ## 開始可能な作業
 
@@ -38,7 +38,7 @@ remote main の `0fcc4839` により selfhost model の enum equality helper が
 | HIR expr invalid ID | `ISS-20260507T160530818Z-SELFHOST-HIR-EXPRESSION-IDS-USE-1-IN-7A6D6ABC` | fixed。未割当は `Option<SelfhostHirExprId>::None` となり、`SelfhostHirExprId(-1)` と validity helper は削除済み。 |
 | resolver DefId invalid ID | `ISS-20260507T161157719Z-SELFHOST-DEFINITION-IDS-USE-1-INVALI-E74DCE86` | fixed。未割当は `Option<SelfhostDefId>::None` となり、`SelfhostDefId(-1)` と invalid helper は削除済み。 |
 | HIR expression flat payload | `ISS-20260507T161930297Z-SELFHOST-HIR-EXPRESSIONS-STORE-KIND--54E75EE3` | fixed。kind-specific field は `SelfhostHirExprPayload` enum に分離され、accessor は payload match を通す。 |
-| lexer enum coverage | `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B` | raw mode と directive classifier が enum/match coverage 外。 |
+| lexer enum coverage | `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B` fixed | raw mode は `SelfhostLexerRawMode` enum へ移行済み。directive classifier も string helper を利用。 |
 | selfhost partial implementation | `ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD` | S3/S4/S5 が未実装。 |
 | raw memory backed stdlib API | `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` | selfhost CLI/collection/stringが safe surface に乗り切っていない。 |
 | collection free/drop contract | `ISS-20260425T000000Z-RV-STDLIB-004-91534828` | non-Copy payload を AST/HIR/diagnostic buffers に置く前に必要。 |
@@ -52,7 +52,7 @@ selfhost は Rust compiler の完全な移植ではなく、現在の設計方�
 
 ## 次の順序
 
-1. lexer raw mode と directive classifier を enum/match 化する。
+1. lexer raw mode と directive classifier が enum/match から退行しないよう source policy を維持する。
 2. HIR expression payload enum の regression policy を維持し、expression kind 追加時に flat field へ戻さない。
 3. module graph と import visibility を HashMap/ModuleId/SourceId table へ移行する。
 4. Rust diagnostic redesign 後の taxonomy を selfhost diagnostic code へ反映する。

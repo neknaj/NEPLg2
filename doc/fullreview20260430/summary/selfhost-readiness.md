@@ -10,18 +10,18 @@
 
 ### syntax と lexer state
 
-lexer/parser の構文処理は進めてよい。特に raw block mode や directive state を `i32` から enum に変え、`match` の網羅性検査が効くようにする修正は優先してよい。
+lexer/parser の構文処理は進めてよい。レビュー中に remote main へ入った `caca505d` で、raw block mode と pending raw mode は `SelfhostLexerRawMode` enum へ移行し、`match` の網羅性検査が効く形になった。
 
-必要な修正:
+今後必要な確認:
 
-- raw mode を `SelfhostRawMode` のような enum にする。
-- pending raw mode も `Option<SelfhostRawMode>` で扱う。
-- directive recognition を byte 列直書きではなく stdlib string/prefix API と directive enum に寄せる。
-- `lex_raw_kind` と raw branch を `match` で処理する。
+- raw mode が `i32` sentinel へ戻らないこと。
+- pending raw mode が numeric fallback へ戻らないこと。
+- directive recognition が byte 列直書きへ戻らず、stdlib string/prefix API を使うこと。
+- `lex_raw_kind` と raw branch が `match` coverage を維持すること。
 
 関連 issue:
 
-- `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`
+- `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`: fixed
 
 ### HIR と typed model
 
@@ -71,14 +71,14 @@ selfhost で string/Vec/hash map などを大きく使う実装は避けられ�
 | collection Drop obligation | AST/HIR/diagnostic containers の解放が不完全になる | collection free/dealloc と Resource IR drop plan を接続 |
 | diagnostic ID 未同期 | Rust/selfhost の test と report が揃わない | enum registry と stable ID taxonomy を共通方針化 |
 | `.n.md` return-value 運用 | selfhost/Rust 共通 test が弱い | stdout assertion report と exit code に統一 |
-| lexer numeric state | enum/match の静的検査が効かない | raw/directive mode を enum 化 |
+| lexer numeric state | 解決済み、回帰監視 | `SelfhostLexerRawMode` と source policy を維持 |
 
 ## 進捗状況
 
 | selfhost 領域 | 状態 | 次の作業 |
 | --- | --- | --- |
 | `neplg2/cli` | 動く実装あり、継続整理 | diagnostic/reporting と test harness に合わせる |
-| `neplg2/core/syntax` | 実装中 | lexer raw/directive state の enum 化 |
+| `neplg2/core/syntax` | 実装中、raw mode enum 化済み | Rust parity と numeric sentinel 回帰監視 |
 | `neplg2/core/ast` | 実装中 | sentinel と shared payload の有無を継続確認 |
 | `neplg2/core/hir` | 改善済み | payload enum と range enum の回帰を policy で守る |
 | `neplg2/core/ty` | 実装中 | type record variant を増やすときは enum/match を維持 |
@@ -92,7 +92,7 @@ selfhost で string/Vec/hash map などを大きく使う実装は避けられ�
 
 selfhost は次の順番で進めるのが妥当である。
 
-1. lexer/parser/model の enum/match 化を進め、数値 sentinel を減らす。
+1. lexer/parser/model の enum/match 化を維持し、数値 sentinel の再導入を source policy で防ぐ。
 2. selfhost diagnostic enum registry を実装する。
 3. `.n.md` test harness を stdout assertion report 前提に揃える。
 4. Rust Resource IR と stdlib memory design の確定に合わせて selfhost Resource IR skeleton を作る。

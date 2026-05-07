@@ -56,13 +56,13 @@ collections の `free` 系 API が要素の `Drop` を呼ぶ責務を型と静�
 
 ### selfhost lexer の数値状態
 
-`stdlib/neplg2/core/syntax/lexer.nepl` では、raw block mode と pending raw mode が `i32` として関数引数に流れている。`lex_raw_kind`, `lex_token_pending_raw_mode`, `lex_all_loop` などが `raw_mode > 0` や `eq raw_mode 1` に依存しており、追加モードに対して enum の網羅性検査が効かない。
+レビュー中に remote main へ `caca505d fix(selfhost): model lexer raw modes with enums` が入り、raw block mode と pending raw mode は `SelfhostLexerRawMode` enum で扱うように修正された。`lex_raw_kind` と `lex_raw_mode_is_active` は `match` を使い、numeric sentinel に戻らない source policy regression も追加された。
 
-また `lex_starts_with_indent_directive` は `#indent` を byte ごとに比較している。この問題自体は stdlib の文字列比較不足と lexer 状態設計の問題であり、単に局所的な helper に置き換えるだけでは十分ではない。directive 種別、raw block mode、line directive boundary を enum と `match` で扱う再設計が必要である。
+また `lex_starts_with_indent_directive` は `str_starts_with_at` を使う形へ改善され、byte ごとの手書き比較ではなくなった。この領域は未解決 blocker から回帰監視対象へ移った。
 
-関連 open issue:
+関連 issue:
 
-- `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`
+- `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`: fixed
 
 ### Resource IR と selfhost 静的検査の接続
 
@@ -82,7 +82,7 @@ Rust compiler 側の Resource IR は安全性の中核として進んでいる�
 | collections drop obligation | 未完了 P1 | collection free が要素 Drop を保証しない |
 | stdlib string/Vec 分割 | 進行済み、継続レビュー必要 | facade と submodule 分割は進んだ |
 | selfhost HIR payload model | 改善済み | payload enum と `Option` 化が入った |
-| selfhost lexer state | 未完了 P2 | raw mode が `i32` で網羅性検査不可 |
+| selfhost lexer state | 解決済み、回帰監視 | `SelfhostLexerRawMode` enum と `match` 化、source policy 追加済み |
 | selfhost Resource IR/static check | 未着手から設計段階 | Rust 側モデルへの追従が必要 |
 
 ## 判断
@@ -93,6 +93,6 @@ Rust compiler 側の Resource IR は安全性の中核として進んでいる�
 
 1. `MemPtr<T>`/`RegionToken<T>`/raw API の authority を Resource IR に接続する。
 2. collection の `Drop`/free/dealloc obligation を型と Resource IR で表現する。
-3. selfhost lexer の raw/directive state を enum と `match` に置き換える。
+3. selfhost lexer の raw/directive state が numeric sentinel へ戻らないよう source policy を維持する。
 4. selfhost Resource IR と static check のモデルを Rust 側診断 ID 設計と整合させる。
 5. CI の source policy を warn-only から必須 gate へ移行できる状態にする。

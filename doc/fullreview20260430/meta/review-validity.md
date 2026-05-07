@@ -56,7 +56,7 @@
 
 このため、review の「直近 refactor で sentinel/shared payload debt は改善した」という結論は妥当である。
 
-同時に、lexer raw mode は `i32` として残っている。review では selfhost が完全に方針達成済みとはせず、lexer raw/directive state の enum 化を未完了として扱っているため、判断は釣り合っている。
+妥当性確認後に remote main へ入った `caca505d` で、lexer raw mode も `SelfhostLexerRawMode` enum と `match` へ移行した。この更新により、lexer raw/directive state は未完了 issue ではなく回帰監視対象として扱う。
 
 ### CI 状態
 
@@ -78,7 +78,7 @@ GitHub Actions は review 時点で latest run が pending/in_progress であり
 - collection free/drop traversal: `ISS-20260425T000000Z-RV-STDLIB-004-91534828`
 - diagnostic alignment: `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D`
 - `.n.md` stdout assertion report: `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD`
-- selfhost lexer enum/match gap: `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B`
+- selfhost lexer enum/match gap: `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B` は `caca505d` で fixed
 - tutorials/examples CI gaps: `ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153`, `ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895`
 
 新規 issue が必要な未記録問題は、この妥当性再レビューでは見つからなかった。既存 issue の scope が広すぎる場合は、実装着手時に child issue へ分割するのが適切である。

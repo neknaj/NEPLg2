@@ -1,13 +1,13 @@
 # プロジェクト進捗レビュー
 
-確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
+確認対象 commit: `caca505d fix(selfhost): model lexer raw modes with enums`
 
 ## 確認した一次情報
 
 - `plan.md`: NEPLg2 の核となる言語方針。前置記法、式指向、オフサイドルール、型注釈、型推論、`#import` / `#target` / `#indent` など。
 - `note.n.md`: 2026-05-07 の Agent 1 / Agent 2 作業記録。ResourceIR coverage 修正、Vec / string / streamio / nm / stdio debug の module split、examples string import 修正、selfhost enum equality / builtin signature / type record payload / HIR range payload 修正など。
 - `todo.md`: selfhost、NEPLg3、playground、tutorial、2026-04-25 review 由来の未着手作業。
-- `issues/index.json`: issue 集計。現在 `total=608`, `open=15`, `resolved=593`。
+- `issues/index.json`: issue 集計。現在 `total=608`, `open=14`, `resolved=594`。
 - recent commits: ResourceIR 修正、stdlib split/refactor、selfhost enum/match 化が集中している。
 - `doc/neplg2/self_host_plan.md` / `self_host_execution_plan.md`: selfhost の S0-S7 成功条件、branch/checkpoint/Issue 運用。
 
@@ -23,7 +23,7 @@ NEPLg2 は「既存機能を増やす段階」から、「静的検査・memory 
 |---|---|---|
 | Rust compiler `nepl-core` | ResourceIR 関連が大規模に分割され、owner/cell/borrow/raw coverage の regression が継続的に追加されている。`region_ptr` / `region_ptr_at` の non-owning provenance regression も固定された。public monomorphize API panic は `c58dd6e3` で Result 化され、parser/backend responsibility policy は `31291b37` で追加された。 | 中核改善中。policy は入ったため、次は実分割の継続確認。 |
 | Rust CLI `nepl-cli` | CLI と backend runner は既存構造を維持。`--check` は `3742a1a7` で compile preparation を共有し、ResourceIR gate と drop insertion bridge まで通るよう修正された。 | 良い。artifact emission に入らず safety authority を共有する regression が追加済み。 |
-| selfhost `stdlib/neplg2` | ディレクトリ骨格と S1/S2 周辺の module は存在する。`0fcc4839` で enum equality helper が direct match 化され、`0ac34132` で builtin signature が arity enum 化され、`4da7333` で type record payload が `Primitive` / `Function` に分離され、`6277239` で HIR range payload が `Empty` / `Range` に分離され、`b9e85f23` で mono instance absence が `Option<SelfhostMonoInstanceId>` 化され、`8ff05570` で HIR expr absence が `Option<SelfhostHirExprId>` 化され、`dc6b82bb` で resolver DefId absence が `Option<SelfhostDefId>` 化され、`c5f93163` で HIR expression payload が variant enum 化された。lexer enum coverage の問題は issue 化済み。 | S1/S2 は進行可能。S3 以降は ResourceIR/stdlib owner model と HIR payload regression policy の制約を守る必要がある。 |
+| selfhost `stdlib/neplg2` | ディレクトリ骨格と S1/S2 周辺の module は存在する。`0fcc4839` で enum equality helper が direct match 化され、`0ac34132` で builtin signature が arity enum 化され、`4da7333` で type record payload が `Primitive` / `Function` に分離され、`6277239` で HIR range payload が `Empty` / `Range` に分離され、`b9e85f23` で mono instance absence が `Option<SelfhostMonoInstanceId>` 化され、`8ff05570` で HIR expr absence が `Option<SelfhostHirExprId>` 化され、`dc6b82bb` で resolver DefId absence が `Option<SelfhostDefId>` 化され、`c5f93163` で HIR expression payload が variant enum 化された。`caca505d` で lexer raw mode も `SelfhostLexerRawMode` enum へ移行済み。 | S1/S2 は進行可能。S3 以降は ResourceIR/stdlib owner model と HIR payload regression policy の制約を守る必要がある。 |
 | NEPLg3 `stdlib/neplg3` | 仕様 doc と placeholder compiler tree がある。NEPLg2 selfhost とは別扱い。 | 今回は進捗確認対象。NEPLg2 selfhost の作業場所として使わない。 |
 | stdlib core/alloc/std | string、Vec、streamio、nm、stdio debug などで facade 化と責務分割が進んだ。stdlib review で core/mem、collections、string、std I/O、nm/kp/TUIを整理した。open issue は stdlib 5 件。 | 方向は良いが `core/mem`、raw-memory-backed API、collection drop/free、巨大 file split が残る。 |
 | tests / harness | `.n.md` doctest、source policy regression、Rust tests、playground editor tests が広い。n.md stdout/assert 運用は open issue。 | 検証資産は厚いが、test contract はまだ改善途中。 |
@@ -36,9 +36,9 @@ NEPLg2 は「既存機能を増やす段階」から、「静的検査・memory 
 
 `issues/index.json` の現在値:
 
-- total: 607
-- open: 16
-- resolved: 591
+- total: 608
+- open: 14
+- resolved: 594
 
 open issue の内訳:
 
@@ -48,7 +48,7 @@ open issue の内訳:
 | stdlib | 5 | collection free/drop、safe mem API、dealloc obligation、raw-memory-backed API migration、巨大 stdlib file split。 |
 | TEST | 2 | `.n.md` tests が return value に依存し stdout assertion report になっていない。VFS cross-file definition path tree tests が failing。 |
 | tutorials | 1 | getting_started doctest が current main で failing。 |
-| selfhost | 2 | selfhost compiler が部分実装に留まっている。lexer raw mode/directive classifier の enum coverage 不足。 |
+| selfhost | 1 | selfhost compiler が部分実装に留まっている。lexer raw mode は enum 化済みのため回帰監視へ移った。 |
 | examples | 1 | examples / doc examples の doctest が CI runner 対象に入っていない。 |
 | tools | 1 | Zed extension の build artifacts が tracked file として混入している。 |
 

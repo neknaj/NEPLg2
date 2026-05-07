@@ -1,6 +1,6 @@
 # レビュー方法
 
-確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
+確認対象 commit: `caca505d fix(selfhost): model lexer raw modes with enums`
 
 ## 目的
 
@@ -45,6 +45,9 @@
 28. `gh run list --branch main --limit 5` で latest main run が `dc6b82bb` の `25508091075` in_progress であることを確認した。
 29. remote main の `c5f93163 fix(selfhost): split hir expr payloads` を取り込み、HIR expression flat payload issue が resolved になったことを確認した。
 30. `gh run list --branch main --limit 5` で latest main run が `c5f93163` の `25508600937` in_progress であることを確認した。
+31. 独立レビューと妥当性再レビューを完了後、前回レビュー `c6db4213` の本文を参照し、今回との差分調査を開始した。
+32. 差分調査中に remote main の `caca505d fix(selfhost): model lexer raw modes with enums` を取り込み、selfhost lexer raw mode issue が fixed になったことを確認し、レビュー文書を更新した。
+33. `gh run list --limit 6` で latest main run が `caca505d` の `25509824320` pending であることを確認した。
 
 ## 使用した確認コマンド
 

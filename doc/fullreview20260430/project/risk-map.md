@@ -1,6 +1,6 @@
 # プロジェクトリスクマップ
 
-確認対象 commit: `c5f93163 fix(selfhost): split hir expr payloads`
+確認対象 commit: `caca505d fix(selfhost): model lexer raw modes with enums`
 
 ## 重要リスク
 
@@ -20,7 +20,7 @@
 | fixed | selfhost mono instance が `-1` invalid sentinel を使う | monomorphize cache の未割当状態を instance ID 内の `index = -1` で表していた。 | `b9e85f23` で `SelfhostMonoInstanceId` は stable table index に限定され、未割当は `Option<SelfhostMonoInstanceId>::None` へ移った。`ISS-20260507T155948337Z-SELFHOST-MONO-INSTANCE-IDS-USE-1-INV-434774DA` は resolved。 | cache / lookup 実装時に invalid ID helper を再導入しない。 |
 | fixed | selfhost HIR expr ID が `-1` invalid sentinel を使う | HIR expression の未割当状態を expr ID 内の `index = -1` で表していた。 | `8ff05570` で `SelfhostHirExprId` は stable table index に限定され、未割当は `Option<SelfhostHirExprId>::None` へ移った。`ISS-20260507T160530818Z-SELFHOST-HIR-EXPRESSION-IDS-USE-1-IN-7A6D6ABC` は resolved。 | HIR builder / lookup 実装時に invalid ID helper を再導入しない。 |
 | fixed | selfhost resolver DefId が `-1` invalid sentinel を使う | name binding 追加前の未割当状態を DefId 内の `index = -1` で表していた。 | `dc6b82bb` で binding の DefId は `Option<SelfhostDefId>` になり、未割当は `None` へ移った。`ISS-20260507T161157719Z-SELFHOST-DEFINITION-IDS-USE-1-INVALI-E74DCE86` は resolved。 | resolver/import/hoist 実装時に invalid DefId helper を再導入しない。 |
-| P2 | selfhost lexer raw mode が enum coverage 外 | raw mode が `i32` sentinel、directive classifier が deep if chain。 | `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B` を追加。 | enum raw state と classifier source policy。 |
+| fixed | selfhost lexer raw mode が enum coverage 外 | raw mode が `i32` sentinel、directive classifier が deep if chain。 | `caca505d` で `SelfhostLexerRawMode` enum と `lex_raw_mode_is_active` / `lex_raw_kind` の match 化、`str_starts_with_at` 利用、source policy regression を追加し、issue は fixed。 | raw/directive state が numeric sentinel へ戻らないことを監視する。 |
 | P2 | 巨大 stdlib file split の残件 | stdlib 分割は進んだが open issue が残る。 | Vec/string/streamio/nm/stdio debug は分割済み。巨大 module policy warning は継続的に発見されている。 | `stdlib/overview.md` と `stdlib/tests.md`。 |
 | fixed | Rust parser/backend の responsibility policy 不足 | typecheck/resource と違い responsibility source policy がなかった。 | `31291b37` で `parser_backend_responsibility_split_plan.md` と source policy が追加された。 | 実分割の継続確認。 |
 | P2 | CI status 未確定 | latest main run が pending/in_progress で、連続 push による cancel が多い。 | latest `c5f93163` run `25508600937` は in_progress。直前の failure 観測 run では `tutorials-test` / `nm-compile` failure を確認し、tutorial / VFS tree failure は issue 化済み。 | `project/actions-status.md` を更新し、completed latest run の failure を確認する。 |
@@ -45,7 +45,7 @@
 - selfhost mono instance absence が `Option` ではなく `SelfhostMonoInstanceId(-1)` sentinel へ退行する。
 - selfhost HIR expr absence が `Option` ではなく `SelfhostHirExprId(-1)` sentinel へ退行する。
 - selfhost resolver DefId absence が `Option` ではなく `SelfhostDefId(-1)` sentinel へ退行する。
-- lexer/parser state が enum ではなく i32 mode や string sentinel に戻る。
+- lexer/parser state が enum ではなく i32 mode や string sentinel に戻る。`SelfhostLexerRawMode` と `str_starts_with_at` の source policy を維持する。
 - raw-memory-boundary capability が facade root や raw-free helper に戻る。
 - collection observer が owner を値で消費する API に戻る。
 - fallible collection update が error path で collection/item owner を失う。
