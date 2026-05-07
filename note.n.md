@@ -33907,3 +33907,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-selective-import-rebase.json -j 1 --dist web/dist`: total=8, passed=7, failed=1（RingBuffer fixture 別 issue）
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 pipe_collections RingBuffer borrow fixture 修正
+
+- `ISS-20260507T085551696Z-PIPE-COLLECTIONS-RINGBUFFER-DOCTEST--5893794D` を fixed/resolved に更新した。
+- `tests/stdlib/pipe_collections.n.md::pipe_ringbuffer_usage` は `RingBuffer` owner を `len` / `peek` observer に渡していたが、現在の `RingBuffer` API ではどちらも `&RingBuffer<T>` を受け取る borrow-only API である。
+- `len<i32> rb` を `len<i32> &rb`、`rb2 |> peek` を `peek<i32> &rb2` に変更し、観測後に `free<i32> rb` / `free<i32> rb2` で owner を解放するようにした。
+- `nodesrc/test_stdlib_ringbuffer_borrowed_observers.js` に `tests/stdlib/pipe_collections.n.md` を追加し、`rb |> peek` のような owner-to-observer pipe が戻らないことを固定した。
+- [検証]:
+  - `node nodesrc/test_stdlib_ringbuffer_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-ringbuffer-borrow-fix.json -j 1 --dist web/dist`: total=8, passed=8
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

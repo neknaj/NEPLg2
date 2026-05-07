@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T08:59:05.964Z",
+  "generated_at": "2026-05-07T09:12:27.469Z",
   "counts": {
     "total": 569,
-    "open": 11,
-    "resolved": 558,
+    "open": 10,
+    "resolved": 559,
     "by_area": {
       "core": {
         "total": 284,
@@ -18,8 +18,8 @@
       },
       "TEST": {
         "total": 15,
-        "open": 2,
-        "resolved": 13
+        "open": 1,
+        "resolved": 14
       },
       "selfhost": {
         "total": 51,
@@ -113,7 +113,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-05-06",
+      "updated": "2026-05-07",
       "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md",
       "legacy_id": "",
       "source": "",
@@ -208,21 +208,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260507T085551696Z-PIPE-COLLECTIONS-RINGBUFFER-DOCTEST--5893794D",
-      "title": "pipe_collections RingBuffer doctest passes owner to borrow-only APIs",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "tests/stdlib/pipe_collections.n.md, stdlib/alloc/collections/ringbuffer.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T085551696Z-PIPE-COLLECTIONS-RINGBUFFER-DOCTEST--5893794D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -6613,6 +6598,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T080402195Z-TRAITS-HASH-COMPILE-FAIL-FIXTURES-EX-54FAB241.md"
+    },
+    {
+      "id": "ISS-20260507T085551696Z-PIPE-COLLECTIONS-RINGBUFFER-DOCTEST--5893794D",
+      "title": "pipe_collections RingBuffer doctest passes owner to borrow-only APIs",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "tests/stdlib/pipe_collections.n.md, stdlib/alloc/collections/ringbuffer.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T085551696Z-PIPE-COLLECTIONS-RINGBUFFER-DOCTEST--5893794D.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

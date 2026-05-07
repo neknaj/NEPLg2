@@ -293,16 +293,18 @@ fn main <()*>i32> ():
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push 11 |> uwok
         |> push 22 |> uwok
-    let ok0 <bool> eq len<i32> rb 2;
+    let ok0 <bool> eq len<i32> &rb 2;
+    free<i32> rb;
     let rb2 <RingBuffer<i32>>:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push 11 |> uwok
         |> push 22 |> uwok
-    let ok1 <bool> match rb2 |> peek:
+    let ok1 <bool> match peek<i32> &rb2:
         Option::Some v:
             eq v 11
         Option::None:
             false
+    free<i32> rb2;
     if and ok0 ok1 1 0
 ```
 
