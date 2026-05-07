@@ -1,0 +1,139 @@
+//: # platforms/wasix/tui/text/wrap
+//: 表示幅に基づく TUI text wrapping
+//:
+//: ### 目的
+//: - `Vec<str>` owner handling と折り返し走査をこの module に閉じ込めます。
+//: - 文字幅の推定は `text/width` に委譲し、byte range 判定を複数箇所へ重複させません。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "alloc/string" as *
+#import "alloc/collections/vec" as *
+#import "alloc/collections/vec" as v
+#import "./width" as *
+
+//: TuiStrPushRes: `Vec<str>` push の結果
+//:
+//: [目的/もくてき]:
+//: - `text_wrap_lines` の行配列 owner と push 成否を同時に返します。
+struct TuiStrPushRes:
+    items <Vec<str>>
+    ok <bool>
+
+//: tui_empty_str_vec: 空の `Vec<str>` を作る
+//:
+//: [目的/もくてき]:
+//: - allocation failure 時に consumed owner を再利用せず、空の折り返し結果へ切り替えます。
+fn tui_empty_str_vec <()->Vec<str>> ():
+    v::vec_empty<str>
+
+//: tui_push_str: `Vec<str>` push を trap せず結果化する
+fn tui_push_str <(Vec<str>,str)->TuiStrPushRes> (items, item):
+    match v::push<str> items item:
+        Result::Ok next:
+            TuiStrPushRes next true
+        Result::Err _e:
+            TuiStrPushRes tui_empty_str_vec false
+
+//: text_wrap_lines: 表示幅で折り返した行配列を作る
+//:
+//: [目的/もくてき]:
+//: - 長文を端末上で読みやすく表示するため、表示幅単位で複数行へ折り返します。
+//:
+//: [実装/じっそう]:
+//: - 改行文字 `\n` を明示的な行区切りとして扱います。
+//: - それ以外は `tui_text_byte_kind` で UTF-8 先頭 byte を分類し、`cols` を超える前で折り返します。
+//:
+//: [注意/ちゅうい]:
+//: - 幅計算は近似です。結合文字や一部絵文字は端末依存差が出ます。
+//: - `cols <= 0` の場合は空配列を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn text_wrap_lines <(str,i32)*>Vec<str>> (text, cols):
+    let mut out <Vec<str>> tui_empty_str_vec;
+    let mut failed <bool> false;
+    match v::new<str>:
+        Result::Ok out0:
+            set out out0
+        Result::Err _e:
+            set failed true;
+    if:
+        lt cols 1
+        then:
+            out
+        else:
+            let n <i32> len text;
+            let mut i <i32> 0;
+            let mut line_start <i32> 0;
+            let mut line_w <i32> 0;
+            while and lt i n not failed:
+                do:
+                    let b <i32> str_byte_at text i;
+                    if:
+                        eq b '\n'
+                        then:
+                            let ln <str> str_slice text line_start i;
+                            let pushed_out <TuiStrPushRes> tui_push_str out ln;
+                            let pushed_ok <bool> get pushed_out "ok";
+                            set out get pushed_out "items";
+                            if:
+                                pushed_ok
+                                then:
+                                    set i add i 1;
+                                    set line_start i;
+                                    set line_w 0;
+                                else:
+                                    set failed true;
+                                    ()
+                        else:
+                            let kind <TuiTextByteKind> tui_text_byte_kind b;
+                            let ch_len <i32> tui_text_byte_len kind;
+                            let ch_w <i32> tui_text_byte_width kind;
+                            let next_w <i32> add line_w ch_w;
+                            if:
+                                lt cols next_w
+                                then:
+                                    if:
+                                        eq i line_start
+                                        then:
+                                            let ln2 <str> str_slice text line_start add i ch_len;
+                                            let pushed_out2 <TuiStrPushRes> tui_push_str out ln2;
+                                            let pushed_ok2 <bool> get pushed_out2 "ok";
+                                            set out get pushed_out2 "items";
+                                            if:
+                                                pushed_ok2
+                                                then:
+                                                    set i add i ch_len;
+                                                    set line_start i;
+                                                    set line_w 0;
+                                                else:
+                                                    set failed true;
+                                                    ()
+                                        else:
+                                            let ln3 <str> str_slice text line_start i;
+                                            let pushed_out3 <TuiStrPushRes> tui_push_str out ln3;
+                                            let pushed_ok3 <bool> get pushed_out3 "ok";
+                                            set out get pushed_out3 "items";
+                                            if:
+                                                pushed_ok3
+                                                then:
+                                                    set line_start i;
+                                                    set line_w 0;
+                                                else:
+                                                    set failed true;
+                                                    ()
+                                else:
+                                    set i add i ch_len;
+                                    set line_w next_w;
+            if:
+                not failed
+                then:
+                    let tail <str> str_slice text line_start n;
+                    let pushed_tail <TuiStrPushRes> tui_push_str out tail;
+                    set out get pushed_tail "items";
+                    ()
+                else ()
+            out

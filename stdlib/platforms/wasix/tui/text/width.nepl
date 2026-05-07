@@ -1,0 +1,179 @@
+//: # platforms/wasix/tui/text/width
+//: TUI 文字幅の近似計算
+//:
+//: ### 目的
+//: - UTF-8 先頭バイトから文字単位の byte length と表示幅を推定します。
+//: - ANSI CSI と OSC8 hyperlink は幅 0 として読み飛ばし、TUI の box / buffer / wrap が同じ幅仕様を使えるようにします。
+//:
+//: ### 注意
+//: - 厳密な Unicode width 判定ではありません。ASCII は幅 1、有効な非 ASCII UTF-8 先頭バイトは幅 2 として扱います。
+//: - 不正な先頭バイトや continuation byte は 1 byte / 幅 1 として前進し、無限 loop を避けます。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/traits/copy" as *
+#import "alloc/string" as *
+
+//: TuiTextByteKind: TUI text scan が扱う UTF-8 先頭 byte の分類
+//:
+//: [目的/もくてき]:
+//: - byte range を各 call site の nested if に重複させず、match で byte length / width へ変換します。
+enum TuiTextByteKind:
+    Ascii
+    Utf8Len2
+    Utf8Len3
+    Utf8Len4
+    Invalid
+
+impl Clone for TuiTextByteKind:
+    fn clone <(&TuiTextByteKind)->TuiTextByteKind> (kind):
+        *kind
+
+impl Copy for TuiTextByteKind:
+    fn copy_mark <(TuiTextByteKind)->TuiTextByteKind> (kind):
+        kind
+
+fn str_byte_at <(str,i32)*>i32> (s, i):
+    string_byte_at_unchecked s i
+
+//: tui_text_byte_kind: 1 byte を UTF-8 先頭 byte として分類する
+//:
+//: [目的/もくてき]:
+//: - `str_display_width`、`line_clip_to_cols`、`text_wrap_lines`、TUI buffer の char step を同じ分類に揃えます。
+fn tui_text_byte_kind <(i32)->TuiTextByteKind> (b):
+    if:
+        lt b 128
+        then:
+            TuiTextByteKind::Ascii
+        else:
+            if:
+                and not lt b 240 lt b 248
+                then:
+                    TuiTextByteKind::Utf8Len4
+                else:
+                    if:
+                        and not lt b 224 lt b 240
+                        then:
+                            TuiTextByteKind::Utf8Len3
+                        else:
+                            if:
+                                and not lt b 192 lt b 224
+                                then:
+                                    TuiTextByteKind::Utf8Len2
+                                else:
+                                    TuiTextByteKind::Invalid
+
+//: tui_text_byte_len: 分類済み byte kind から次の byte offset へ進む長さを返す
+fn tui_text_byte_len <(TuiTextByteKind)->i32> (kind):
+    match kind:
+        TuiTextByteKind::Ascii:
+            1
+        TuiTextByteKind::Utf8Len2:
+            2
+        TuiTextByteKind::Utf8Len3:
+            3
+        TuiTextByteKind::Utf8Len4:
+            4
+        TuiTextByteKind::Invalid:
+            1
+
+//: tui_text_byte_width: 分類済み byte kind から端末表示幅を返す
+fn tui_text_byte_width <(TuiTextByteKind)->i32> (kind):
+    match kind:
+        TuiTextByteKind::Ascii:
+            1
+        TuiTextByteKind::Utf8Len2:
+            2
+        TuiTextByteKind::Utf8Len3:
+            2
+        TuiTextByteKind::Utf8Len4:
+            2
+        TuiTextByteKind::Invalid:
+            1
+
+fn tui_skip_csi <(str,i32,i32)*>i32> (s, n, i):
+    let mut j <i32> i;
+    let mut done <bool> false;
+    while and lt j n not done:
+        do:
+            let c <i32> str_byte_at s j;
+            let is_final <bool> and ge c 64 lt c 127;
+            if:
+                is_final
+                then:
+                    set done true
+                else:
+                    ();
+            set j add j 1;
+    j
+
+fn tui_skip_osc <(str,i32,i32)*>i32> (s, n, i):
+    let mut j <i32> i;
+    let mut done <bool> false;
+    while and lt j n not done:
+        do:
+            let c <i32> str_byte_at s j;
+            let next <i32> add j 1;
+            let has_next <bool> lt next n;
+            let is_st <bool> and eq c '\x1B' and has_next eq str_byte_at s next '\\';
+            if:
+                is_st
+                then:
+                    set j add j 2;
+                    set done true
+                else:
+                    set j add j 1;
+    j
+
+fn tui_skip_escape_sequence <(str,i32,i32)*>i32> (s, n, i):
+    let next <i32> add i 1;
+    if:
+        lt next n
+        then:
+            let marker <i32> str_byte_at s next;
+            if:
+                eq marker '['
+                then:
+                    tui_skip_csi s n add i 2
+                else:
+                    if:
+                        eq marker ']'
+                        then:
+                            tui_skip_osc s n add i 2
+                        else:
+                            add i 1
+        else:
+            add i 1
+
+//: str_display_width: 文字列の表示幅を概算する
+//:
+//: [目的/もくてき]:
+//: - 行の右パディングを行う際に、日本語を含む表示の崩れを減らします。
+//:
+//: [実装/じっそう]:
+//: - UTF-8 の先頭バイトから文字境界を推定し、ASCII は幅1、非ASCIIは幅2で加算します。
+//: - ANSI CSI（`ESC [`）と OSC8（`ESC ] ... ESC \\`）は幅0としてスキップします。
+//:
+//: [注意/ちゅうい]:
+//: - 厳密な文字幅計算ではなく、端末依存差を含む近似です。
+//: - ゼロ幅結合や一部絵文字の幅は環境ごとに差が出ます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn str_display_width <(str)*>i32> (s):
+    let n <i32> len s;
+    let mut i <i32> 0;
+    let mut w <i32> 0;
+    while lt i n:
+        do:
+            let b <i32> str_byte_at s i;
+            if:
+                eq b '\x1B'
+                then:
+                    set i tui_skip_escape_sequence s n i
+                else:
+                    let kind <TuiTextByteKind> tui_text_byte_kind b;
+                    set i add i tui_text_byte_len kind;
+                    set w add w tui_text_byte_width kind;
+    w

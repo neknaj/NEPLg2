@@ -35223,3 +35223,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-08 Agent 2 WASIX TUI text facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/platforms/wasix/tui/text.nepl` に同居していた repeat / display width / line padding・clipping / wrap owner handling を責務別 submodule に分割した。
+- `stdlib/platforms/wasix/tui/text.nepl` は public facade にし、`text/repeat.nepl`、`text/width.nepl`、`text/line.nepl`、`text/wrap.nepl` を `@merge` re-export するだけの構成にした。
+- `text/width.nepl` に `TuiTextByteKind` enum を追加し、UTF-8 先頭 byte の length / width 変換を `match` に集約した。これにより `line_clip_to_cols`、`text_wrap_lines`、`buffer_set_wrapped_text` に重複していた byte range nested if を共有 helper に寄せた。
+- `text/wrap.nepl` は `TuiStrPushRes`、`tui_empty_str_vec`、`tui_push_str`、`text_wrap_lines` を所有し、`Vec<str>` grow 失敗を trap せず `ok=false` に変換する契約を維持した。
+- `nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js` を更新し、text facade に実装が戻らないこと、width 分類が enum/match であること、buffer/wrap が共有 byte classification helper を使うことを固定した。
+- line count は `text.nepl` 15、`text/repeat.nepl` 34、`text/width.nepl` 166、`text/line.nepl` 73、`text/wrap.nepl` 133。
+- [検証]:
+  - `node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/platforms/wasix/tui.nepl -i stdlib/platforms/wasix/tui/text.nepl -i stdlib/platforms/wasix/tui/text/repeat.nepl -i stdlib/platforms/wasix/tui/text/width.nepl -i stdlib/platforms/wasix/tui/text/line.nepl -i stdlib/platforms/wasix/tui/text/wrap.nepl -i stdlib/platforms/wasix/tui/box.nepl -i stdlib/platforms/wasix/tui/buffer.nepl -i tests/stdlib/features_tui.n.md --no-tree -o tmp/wasix-tui-text-split-focused.json -j 1 --dist web/dist`: total=5, passed=5
+  - `node nodesrc/tests.js -i examples -o tmp/wasix-tui-text-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `trunk build`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

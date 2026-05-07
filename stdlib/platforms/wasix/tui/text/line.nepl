@@ -1,0 +1,77 @@
+//: # platforms/wasix/tui/text/line
+//: TUI の 1 行 padding / clipping helper
+//:
+//: ### 目的
+//: - 表示幅に基づく行の切り詰めと右 padding を、折り返しや box 生成から分離します。
+
+#indent 4
+
+#import "core/math" as *
+#import "alloc/string" as *
+#import "./repeat" as *
+#import "./width" as *
+
+//: line_pad_to_cols: 行文字列を指定表示幅まで右側空白で埋める
+//:
+//: [目的/もくてき]:
+//: - 以前の長い行が残る問題を防ぎ、行更新を安定させます。
+//:
+//: [実装/じっそう]:
+//: - `str_display_width` で現在幅を求め、足りない分だけ空白を連結します。
+//:
+//: [注意/ちゅうい]:
+//: - 入力が指定幅を超える場合は切り詰めず、そのまま返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn line_pad_to_cols <(str,i32)*>str> (s, cols):
+    let w <i32> str_display_width s;
+    if:
+        lt w cols
+        then:
+            concat s repeat_text " " sub cols w
+        else:
+            s
+
+//: line_clip_to_cols: 行文字列を指定表示幅以内に切り詰める
+//:
+//: [目的/もくてき]:
+//: - 横幅制限がある領域へ安全に描画するため、表示幅ベースで文字列を切り詰めます。
+//:
+//: [実装/じっそう]:
+//: - `tui_text_byte_kind` による UTF-8 先頭 byte 分類を使い、1 文字ずつ byte length と概算表示幅を求めます。
+//: - 次の文字を追加すると `cols` を超える時点で切り出しを終了します。
+//:
+//: [注意/ちゅうい]:
+//: - ANSI/OSC8 を含む文字列の厳密処理は対象外です（通常テキスト向け）。
+//: - 幅計算は厳密な East Asian Width 判定ではなく近似です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn line_clip_to_cols <(str,i32)*>str> (s, cols):
+    if:
+        lt cols 1
+        then:
+            ""
+        else:
+            let n <i32> len s;
+            let mut i <i32> 0;
+            let mut end <i32> 0;
+            let mut w <i32> 0;
+            let mut done <bool> false;
+            while and lt i n not done:
+                do:
+                    let b <i32> str_byte_at s i;
+                    let kind <TuiTextByteKind> tui_text_byte_kind b;
+                    let ch_len <i32> tui_text_byte_len kind;
+                    let ch_w <i32> tui_text_byte_width kind;
+                    let next_w <i32> add w ch_w;
+                    if:
+                        lt cols next_w
+                        then:
+                            set done true
+                        else:
+                            set w next_w;
+                            set i add i ch_len;
+                            set end i;
+            str_slice s 0 end

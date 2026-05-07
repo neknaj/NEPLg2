@@ -59,23 +59,9 @@ fn buffer_set_wrapped_text <(i32,i32,i32,i32,str)*>()> (b, start_row, cols, heig
                             set line_w 0;
                             set row_i add row_i 1;
                         else:
-                            let ch_len <i32> if:
-                                lt b0 128
-                                then 1
-                                else:
-                                    if:
-                                        and not lt b0 240 lt b0 248
-                                        then 4
-                                        else:
-                                            if:
-                                                and not lt b0 224 lt b0 240
-                                                then 3
-                                                else:
-                                                    if:
-                                                        and not lt b0 192 lt b0 224
-                                                        then 2
-                                                        else 1
-                            let ch_w <i32> if lt b0 128 1 2;
+                            let kind <TuiTextByteKind> tui_text_byte_kind b0;
+                            let ch_len <i32> tui_text_byte_len kind;
+                            let ch_w <i32> tui_text_byte_width kind;
                             let next_w <i32> add line_w ch_w;
                             if:
                                 lt cols next_w

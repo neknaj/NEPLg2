@@ -1,0 +1,37 @@
+//: # platforms/wasix/tui/text/repeat
+//: TUI 行構築で使う単純な文字列繰り返し helper
+//:
+//: ### 目的
+//: - 罫線や空白など、同じ文字列を繰り返す処理を表示幅処理から分離します。
+
+#indent 4
+
+#import "core/math" as *
+#import "alloc/string" as *
+
+//: repeat_text: 文字列を指定回数だけ連結して返す
+//:
+//: [目的/もくてき]:
+//: - 罫線や空白など、同じ文字列を繰り返す行生成を簡潔に記述します。
+//:
+//: [実装/じっそう]:
+//: - `out` に対して `concat out s` を n 回繰り返します。
+//:
+//: [注意/ちゅうい]:
+//: - `concat` の繰り返しなので、長大文字列ではコストが大きくなります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n^2)（文字列再確保の影響を含む）
+fn repeat_text <(str,i32)*>str> (s, n):
+    if:
+        lt n 1
+        then:
+            ""
+        else:
+            let mut out <str> "";
+            let mut i <i32> 0;
+            while lt i n:
+                do:
+                    set out concat out s;
+                    set i add i 1;
+            out
