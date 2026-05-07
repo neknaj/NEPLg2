@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T03:21:50.189Z",
+  "generated_at": "2026-05-07T03:25:25.356Z",
   "counts": {
-    "total": 555,
-    "open": 11,
+    "total": 556,
+    "open": 12,
     "resolved": 544,
     "by_area": {
       "core": {
-        "total": 276,
-        "open": 4,
+        "total": 277,
+        "open": 5,
         "resolved": 272
       },
       "stdlib": {
@@ -133,6 +133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260507T032436743Z-RESOURCE-RAW-CELL-RANGE-MODULE-EXCEE-92BDC72B",
+      "title": "Resource raw cell range module exceeds responsibility split limit",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/cell_state_raw_range.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T032436743Z-RESOURCE-RAW-CELL-RANGE-MODULE-EXCEE-92BDC72B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",

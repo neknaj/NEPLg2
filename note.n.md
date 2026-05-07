@@ -1,3 +1,9 @@
+# 2026-05-07 note (ISS-20260507T032436743Z Resource raw cell range split limit)
+
+- `refactor/string-integer-common-module` の rebase 後検証で `node nodesrc/run_source_policy_regressions.js --warn-only` を実行したところ、remote main `18768838` 由来の別件として `cell_state_raw_range.rs has 159 lines; responsibility split limit is 140` を検出した。
+- returned byte range summary の cell-state proof module が既に責務境界を超えているため、`ISS-20260507T032436743Z-RESOURCE-RAW-CELL-RANGE-MODULE-EXCEE-92BDC72B` を追加した。
+- これは今回の `alloc/string/integer/common` 分割の回帰ではない。Resource IR 側の line/responsibility split policy debt として、line limit を上げずに range normalization / availability checks / returned-byte-range summary application を分離する方針で追跡する。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 string integer common helper split)
 
 - branch `refactor/string-integer-common-module` で `stdlib/alloc/string/integer.nepl` に残っていた bool / digit / radix / u128/i128 helper を `stdlib/alloc/string/integer/common.nepl` へ分離した。
