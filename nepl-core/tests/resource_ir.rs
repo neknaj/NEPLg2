@@ -12724,6 +12724,138 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_realloc_transfers_initialized_byte_ranges() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn id <(i32)->i32> (x):
+    x
+
+fn checked_realloc_byte_range <()->i32> ():
+    let len <i32> 4
+    let p <i32> alloc_raw len
+    fill_u8 p len 65
+    let grown <i32> realloc_raw p len 8
+    if:
+        lt 0 grown
+        then:
+            let i <i32> id 2
+            let v <i32> if:
+                and ge i 0 lt i len
+                then:
+                    load_u8 add grown i
+                else:
+                    0
+            dealloc_raw grown 8
+            v
+        else:
+            let i <i32> id 2
+            let v <i32> if:
+                and ge i 0 lt i len
+                then:
+                    load_u8 add p i
+                else:
+                    0
+            dealloc_raw p len
+            v
+
+fn main <()->i32> ():
+    checked_realloc_byte_range
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let realloc_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("checked_realloc_byte_range__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        realloc_diagnostics.is_empty(),
+        "checked realloc success must transfer initialized byte ranges and failure must keep the old range: {:#?}\nresource:\n{}",
+        realloc_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_realloc_transfers_initialized_element_ranges() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn id <(i32)->i32> (x):
+    x
+
+fn checked_realloc_element_range <()->i32> ():
+    let len <i32> 4
+    let p <i32> alloc_raw 16
+    fill_i32 p len 42
+    let grown <i32> realloc_raw p 16 32
+    if:
+        lt 0 grown
+        then:
+            let i <i32> id 2
+            let off <i32> mul i 4
+            let v <i32> if:
+                and ge i 0 lt i len
+                then:
+                    load_i32 add grown off
+                else:
+                    0
+            dealloc_raw grown 32
+            v
+        else:
+            let i <i32> id 2
+            let off <i32> mul i 4
+            let v <i32> if:
+                and ge i 0 lt i len
+                then:
+                    load_i32 add p off
+                else:
+                    0
+            dealloc_raw p 16
+            v
+
+fn main <()->i32> ():
+    checked_realloc_element_range
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let realloc_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("checked_realloc_element_range__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        realloc_diagnostics.is_empty(),
+        "checked realloc success must transfer initialized element ranges and failure must keep the old range: {:#?}\nresource:\n{}",
+        realloc_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_raw_fill_helpers_initialize_copy_cells() {
     let source = r#"
 #entry main

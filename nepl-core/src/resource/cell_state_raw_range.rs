@@ -2,14 +2,14 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
-use super::cell_state::{raw_addresses_overlap, CellTable};
+use super::cell_state::{place_suffix_after_address_prefix, raw_addresses_overlap, CellTable};
 use super::cell_state_raw_range_cover::raw_byte_range_address_covers;
 pub(super) use super::cell_state_raw_range_model::{
     InitializedRawByteRange, InitializedRawRangeUnit,
 };
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
-use super::place_utils::replace_place_prefix;
+use super::place_utils::{place_with_suffix, replace_place_prefix};
 
 impl CellTable {
     pub(super) fn initialized_raw_byte_ranges(&self) -> &[InitializedRawByteRange] {
@@ -73,6 +73,36 @@ impl CellTable {
             });
         }
         for range in copied {
+            if !self.initialized_raw_byte_ranges.contains(&range) {
+                self.initialized_raw_byte_ranges.push(range);
+            }
+        }
+    }
+
+    pub(super) fn copy_initialized_raw_byte_ranges_under(
+        &self,
+        source: &Place,
+        target: &Place,
+    ) -> Vec<InitializedRawByteRange> {
+        self.initialized_raw_byte_ranges
+            .iter()
+            .filter_map(|range| {
+                let suffix = place_suffix_after_address_prefix(&range.address, source)?;
+                Some(InitializedRawByteRange {
+                    address: place_with_suffix(target, &suffix, range.address.ty),
+                    count: range.count.clone(),
+                    unit: range.unit,
+                    ty: range.ty,
+                })
+            })
+            .collect()
+    }
+
+    pub(super) fn extend_initialized_raw_byte_ranges(
+        &mut self,
+        ranges: Vec<InitializedRawByteRange>,
+    ) {
+        for range in ranges {
             if !self.initialized_raw_byte_ranges.contains(&range) {
                 self.initialized_raw_byte_ranges.push(range);
             }

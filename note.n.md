@@ -777,6 +777,22 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 1 realloc initialized range 転送修正
+
+- `ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745` を追加して fixed にした。
+- `realloc_raw` success path は ownership と fixed Copy raw cell を new address へ移していたが、`fill_u8` / `fill_i32` が作った `InitializedRawByteRange` は old address に残っていた。
+- `CellTable` に source address 配下の initialized range を result address へ再投影する API を追加した。
+- success path では old range を消して new range を残し、failure path では source 側 range を保持する。
+- `RawMemoryLoadCell` の条件は緩めず、byte range も element-size scaled range も既存どおり `0 <= i` と `i < len` が Resource IR fact で証明される場合だけ使用する。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_realloc_transfers_initialized_byte_ranges -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_realloc_transfers_initialized_element_ranges -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_realloc_transfers_copy_raw_cells -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_guarded_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_rejects_unguarded_byte_range -- --nocapture`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-07 Agent 1 selfhost stdlib_map / module graph closeout
 
 - `ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF` を fixed にした。

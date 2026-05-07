@@ -301,3 +301,19 @@ returned raw header のうち、byte-level initialized range を `return_byte_ra
 - `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 3 --dist web/dist`: passed
 
 この親 issue は引き続き open とする。残件は、明示 guard のある returned header / length field / fd_read loop / realloc / capacity field を一体で表す dependent initialized range summary である。
+
+## 2026-05-07 realloc initialized range 転送部分対応
+
+`ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745` として、`realloc_raw` success path が `InitializedRawByteRange` を新 address へ転送しない問題を分離して修正した。
+
+これまで `realloc` 成功分岐は ownership と fixed Copy raw cell は new pointer へ移せたが、`fill_u8` / `fill_i32` が記録した typed initialized range は old pointer に残っていた。そのため、`i < len` guard がある `load_u8 add grown i` や `load_i32 add grown mul i 4` が `RawMemoryLoadCell Uninit` になる。
+
+今回の対応で、success path は source address 配下の initialized range を result address へ再投影し、failure path は source 側の range を維持する。checker の load 判定は緩めておらず、byte range も element-size scaled range も従来どおり Resource IR の relation fact で guard が証明された場合だけ使用できる。
+
+確認結果:
+
+- `resource_ir_cell_check_realloc_transfers_initialized_byte_ranges`: passed
+- `resource_ir_cell_check_realloc_transfers_initialized_element_ranges`: passed
+- `resource_ir_cell_check_realloc_transfers_copy_raw_cells`: passed
+
+この親 issue は引き続き open とする。今回の対応で `realloc` 後の既存 initialized prefix は保持できるようになったが、`fd_read` loop / capacity field / returned header summary を一体で表す model はまだ残る。

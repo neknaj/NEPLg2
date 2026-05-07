@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T04:55:16.584Z",
+  "generated_at": "2026-05-07T05:04:11.096Z",
   "counts": {
-    "total": 558,
+    "total": 559,
     "open": 11,
-    "resolved": 547,
+    "resolved": 548,
     "by_area": {
       "core": {
-        "total": 278,
+        "total": 279,
         "open": 4,
-        "resolved": 274
+        "resolved": 275
       },
       "stdlib": {
         "total": 157,
@@ -4273,6 +4273,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260507T043123048Z-RESOURCE-EXTERNAL-IO-INITIALIZED-EFF-3792771D.md"
+    },
+    {
+      "id": "ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745",
+      "title": "Resource IR realloc success loses initialized raw range facts",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/cell_state_raw_range.rs, nepl-core/src/resource/initialized_control.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

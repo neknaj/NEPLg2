@@ -383,6 +383,8 @@ impl ResourceCheckEngine<'_> {
                     &pending.result,
                     self.types,
                 );
+                let relocated_ranges =
+                    cells.copy_initialized_raw_byte_ranges_under(&pending.source, &pending.result);
                 cells.clear_raw_cells_under(&pending.source);
                 cells.release_owned_raw_storage_under(&pending.source);
                 cells.mark_initialized(&pending.result);
@@ -390,6 +392,7 @@ impl ResourceCheckEngine<'_> {
                     cells.mark_owned_raw_storage_root(&pending.result);
                 }
                 cells.extend_entries(relocated);
+                cells.extend_initialized_raw_byte_ranges(relocated_ranges);
                 raw_aliases.clear(&pending.source);
                 raw_aliases.mark(&pending.result);
             }
