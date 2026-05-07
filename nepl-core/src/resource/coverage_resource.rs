@@ -443,6 +443,16 @@ fn resource_ops_coverage(
                     diagnostics,
                 );
             }
+            ResourceOp::StorageOrigin { target, span, .. } => {
+                resource_alias_place_coverage(
+                    function,
+                    "storage_origin.target",
+                    target,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
+            }
             ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
         }
     }

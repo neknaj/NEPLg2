@@ -14,7 +14,9 @@ use super::lower_raw_address_place::{
 };
 pub(super) use super::lower_raw_address_return::push_transparent_raw_address_return_projection;
 use super::lower_raw_address_source::{push_raw_address_op, RawAddressOffset, RawAddressSource};
-use super::model::{Place, PlaceProjection, RawAddressViewKind, ResourceOffset, ResourceOp};
+use super::model::{
+    Place, PlaceProjection, RawAddressViewKind, ResourceOffset, ResourceOp, StorageOrigin,
+};
 use super::place_utils::{enum_payload_type, reference_target_place};
 
 pub(super) fn push_core_mem_wrapper_semantics(
@@ -70,9 +72,10 @@ pub(super) fn push_core_mem_wrapper_semantics(
             let Some(ptr) = arg_places.first() else {
                 return;
             };
+            let target = region_token_raw_field_place(output, env.types.i32());
             ops.push(ResourceOp::RawAddressAlias {
                 source: mem_ptr_raw_field_place(ptr, env.types.i32()),
-                target: region_token_raw_field_place(output, env.types.i32()),
+                target,
                 span,
             });
         }
@@ -142,6 +145,23 @@ pub(super) fn push_core_mem_wrapper_semantics(
         }
         _ => {}
     }
+}
+
+pub(super) fn push_core_mem_owner_storage_origin(
+    callee: &FuncRef,
+    output: &Place,
+    ops: &mut Vec<ResourceOp>,
+    env: &LoweringEnvironment,
+    span: Span,
+) {
+    if !matches!(func_ref_base_name(callee), Some("region_new")) {
+        return;
+    }
+    ops.push(ResourceOp::StorageOrigin {
+        target: region_token_raw_field_place(output, env.types.i32()),
+        origin: StorageOrigin::Owned,
+        span,
+    });
 }
 
 pub(super) fn push_named_raw_address_semantics(

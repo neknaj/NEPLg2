@@ -135,6 +135,12 @@ impl ResourceOwnerCheckEngine<'_> {
             }
             Some(OwnerState::NoFreeObligation) | None => {}
         }
+        if matches!(
+            owners.state(&resolved_source),
+            Some(OwnerState::NoFreeObligation) | None
+        ) {
+            storage_origins.move_origin(source, target);
+        }
         for entry in descendants {
             if raw_views.contains(&entry.place) {
                 continue;
@@ -343,10 +349,10 @@ impl ResourceOwnerCheckEngine<'_> {
         place: &Place,
     ) -> bool {
         storage_origins.expects_owned(place)
-            || raw_aliases
-                .aliases_for(place)
-                .iter()
-                .any(|alias| storage_origins.expects_owned(alias))
+            || storage_origins.expects_owned_under(place)
+            || raw_aliases.aliases_for(place).iter().any(|alias| {
+                storage_origins.expects_owned(alias) || storage_origins.expects_owned_under(alias)
+            })
     }
 
     pub(super) fn push_live_owner_diagnostics(&mut self, owners: &OwnerTable, span: Span) {

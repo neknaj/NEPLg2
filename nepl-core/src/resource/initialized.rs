@@ -501,6 +501,7 @@ impl ResourceCheckEngine<'_> {
                 pending_reallocs.clear_result(target);
                 variant_initializations.clear_result(target);
             }
+            ResourceOp::StorageOrigin { .. } => {}
             ResourceOp::Construct {
                 output,
                 kind,

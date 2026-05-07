@@ -309,6 +309,7 @@ fn propagate_value_projection_op(
         | ResourceOp::Borrow { output, .. } => {
             clear_value_projection_aliases(value_aliases, output)
         }
+        ResourceOp::StorageOrigin { .. } => {}
         ResourceOp::Drop { place, .. } => clear_value_projection_aliases(value_aliases, place),
         ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
     }

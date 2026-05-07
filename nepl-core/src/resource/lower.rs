@@ -21,8 +21,8 @@ use super::lower_aggregate::{
 };
 use super::lower_condition::resource_condition_fact;
 use super::lower_raw_address::{
-    push_core_mem_wrapper_semantics, push_named_raw_address_semantics,
-    push_transparent_raw_address_return_projection,
+    push_core_mem_owner_storage_origin, push_core_mem_wrapper_semantics,
+    push_named_raw_address_semantics, push_transparent_raw_address_return_projection,
 };
 use super::lower_raw_address_place::is_named_struct_type;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
@@ -954,6 +954,7 @@ fn push_direct_call_skeleton(
         env,
         expr.span,
     );
+    push_core_mem_owner_storage_origin(callee, &output, ops, env, expr.span);
     if let Some(operation) = raw_memory_op_from_callee(callee)
         .filter(|operation| should_lower_raw_memory_call(operation, args, env))
     {

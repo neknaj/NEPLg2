@@ -1,3 +1,31 @@
+# 2026-05-08 Agent 1 ResourceIR region_new fixed raw MemPtr owner provenance 修正
+
+- `ISS-20260507T185234792Z-REGION-NEW-ACCEPTS-FIXED-RAW-MEMPTR--A0FDF3E7` を追加し、fixed/resolved に更新した。
+- 根本原因は、`region_new` の Resource IR lowering が `MemPtr.raw` から `RegionToken.ptr.raw` への raw address alias だけを作り、`RegionToken.ptr.raw` が owned storage provenance を要求することを Resource IR に残していなかったことだった。
+- さらに `StorageOriginTable` が value 内部の `token.ptr.raw` origin を whole value の move/read に追従させられず、`dealloc_region` の whole `RegionToken` consumption から配下の owned origin を検出できていなかった。
+- `ResourceOp::StorageOrigin { target, origin, span }` を追加し、`region_new` lowering の最後で出力 `RegionToken.ptr.raw` に `StorageOrigin::Owned` を付与するようにした。
+- `StorageOriginTable` は prefix 配下の origin を `replace_place_prefix` で移動・コピーできるようにし、owner checker は whole value 配下に owned origin がある場合も free obligation 要求として扱う。
+- これにより `mem_ptr_wrap 16` 由来の fixed raw `MemPtr` を `region_new` で `RegionToken` にしても、転送可能 owner がなければ `resource.owner.no_free_obligation` で拒否する。
+- [検証]:
+  - `cargo fmt -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_fixed_mem_ptr -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir region_token_forged -- --nocapture`: 5 passed
+  - `cargo test -p nepl-core --test resource_ir region_ptr -- --nocapture`: 11 passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 241 passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - remote main `b9a10e24` rebase 後 `cargo check -p nepl-core`: passed
+  - remote main `b9a10e24` rebase 後 `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_fixed_mem_ptr -- --nocapture`: passed
+  - remote main `b9a10e24` rebase 後 `cargo test -p nepl-core --test resource_ir unknown_callback -- --nocapture`: 5 passed
+  - remote main `b9a10e24` rebase 後 `cargo test -p nepl-core --test resource_ir region_token_forged -- --nocapture`: 5 passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-region-new-fixed-raw-memory-safety.json -j 1 --dist web/dist`: 22 passed
+  - remote main `b9a10e24` rebase 後 `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-region-new-fixed-raw-memory-safety-rebased.json -j 1 --dist web/dist`: 22 passed
+  - `node nodesrc/issues.js index`: total=618, open=10, resolved=608
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 2 owner_return unknown callback split
 
 - `ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737` を fixed/resolved に更新した。

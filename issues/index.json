@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T19:05:52.111Z",
+  "generated_at": "2026-05-07T19:10:13.177Z",
   "counts": {
-    "total": 617,
+    "total": 618,
     "open": 10,
-    "resolved": 607,
+    "resolved": 608,
     "by_area": {
       "core": {
-        "total": 308,
+        "total": 309,
         "open": 3,
-        "resolved": 305
+        "resolved": 306
       },
       "stdlib": {
         "total": 165,
@@ -4703,6 +4703,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T183017038Z-RESOURCE-OWNER-CHECKER-TREATS-NON-OW-95BB68AF.md"
+    },
+    {
+      "id": "ISS-20260507T185234792Z-REGION-NEW-ACCEPTS-FIXED-RAW-MEMPTR--A0FDF3E7",
+      "title": "region_new accepts fixed raw MemPtr without owned provenance",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "nepl-core/src/resource/lower_raw_address.rs, nepl-core/src/resource/model.rs, nepl-core/src/resource/storage_origin.rs, nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/owner_check.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T185234792Z-REGION-NEW-ACCEPTS-FIXED-RAW-MEMPTR--A0FDF3E7.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

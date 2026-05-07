@@ -8,7 +8,7 @@ use core::fmt::Write;
 use super::model::{
     AggregateKind, EffectOp, Place, PlaceProjection, PlaceRoot, RawBodyKind, RawMemoryOp,
     ResourceCallTarget, ResourceConditionFact, ResourceI32RelationOp, ResourceMatchPattern,
-    ResourceModule, ResourceOp, ResourceTerminator,
+    ResourceModule, ResourceOp, ResourceTerminator, StorageOrigin,
 };
 
 impl ResourceModule {
@@ -310,6 +310,21 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
                 span.end
             );
         }
+        ResourceOp::StorageOrigin {
+            target,
+            origin,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "storage_origin {} {} span={}:{}-{}",
+                dump_storage_origin(*origin),
+                dump_place(target),
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
         ResourceOp::Construct {
             output,
             kind,
@@ -437,6 +452,14 @@ fn dump_raw_address_view_kind(kind: super::model::RawAddressViewKind) -> &'stati
     match kind {
         super::model::RawAddressViewKind::Offset => "offset",
         super::model::RawAddressViewKind::NonOwningProjection => "non_owning_projection",
+    }
+}
+
+fn dump_storage_origin(origin: StorageOrigin) -> &'static str {
+    match origin {
+        StorageOrigin::Owned => "owned",
+        StorageOrigin::Unmanaged => "unmanaged",
+        StorageOrigin::Internal => "internal",
     }
 }
 

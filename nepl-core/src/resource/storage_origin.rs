@@ -3,7 +3,9 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::model::{Place, StorageOrigin, StorageOriginEntry};
-use super::place_utils::{place_suffix_after_prefix, push_unique_place, should_track};
+use super::place_utils::{
+    place_suffix_after_prefix, push_unique_place, replace_place_prefix, should_track,
+};
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct StorageOriginTable {
@@ -26,17 +28,29 @@ impl StorageOriginTable {
         matches!(self.origin(place), Some(StorageOrigin::Owned))
     }
 
+    pub(super) fn expects_owned_under(&self, place: &Place) -> bool {
+        self.origins.iter().any(|entry| {
+            matches!(entry.origin, StorageOrigin::Owned)
+                && place_suffix_after_prefix(&entry.place, place).is_some()
+        })
+    }
+
     pub(super) fn mark_owned(&mut self, place: &Place) {
         self.set_origin(place, StorageOrigin::Owned);
+    }
+
+    pub(super) fn mark_origin(&mut self, place: &Place, origin: StorageOrigin) {
+        self.set_origin(place, origin);
     }
 
     pub(super) fn copy_origin(&mut self, source: &Place, target: &Place) {
         if source == target {
             return;
         }
-        match self.origin(source) {
-            Some(origin) => self.set_origin(target, origin),
-            None => self.clear(target),
+        let origins = self.translated_origins(source, target);
+        self.clear(target);
+        for entry in origins {
+            self.set_origin(&entry.place, entry.origin);
         }
     }
 
@@ -44,11 +58,11 @@ impl StorageOriginTable {
         if source == target {
             return;
         }
-        let origin = self.origin(source);
+        let origins = self.translated_origins(source, target);
         self.clear(source);
-        match origin {
-            Some(origin) => self.set_origin(target, origin),
-            None => self.clear(target),
+        self.clear(target);
+        for entry in origins {
+            self.set_origin(&entry.place, entry.origin);
         }
     }
 
@@ -86,6 +100,28 @@ impl StorageOriginTable {
             place: place.clone(),
             origin,
         });
+    }
+
+    fn translated_origins(&self, source: &Place, target: &Place) -> Vec<StorageOriginEntry> {
+        let mut origins = self
+            .origins
+            .iter()
+            .filter_map(|entry| {
+                replace_place_prefix(&entry.place, source, target).map(|place| StorageOriginEntry {
+                    place,
+                    origin: entry.origin,
+                })
+            })
+            .collect::<Vec<_>>();
+        if origins.is_empty() {
+            if let Some(origin) = self.origin(source) {
+                origins.push(StorageOriginEntry {
+                    place: target.clone(),
+                    origin,
+                });
+            }
+        }
+        origins
     }
 }
 

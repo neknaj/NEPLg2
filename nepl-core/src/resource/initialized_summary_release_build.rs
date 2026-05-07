@@ -206,6 +206,7 @@ fn collect_param_release_requirements_from_op(
         | ResourceOp::FunctionValue { .. }
         | ResourceOp::RawAddressAlias { .. }
         | ResourceOp::RawAddressView { .. }
+        | ResourceOp::StorageOrigin { .. }
         | ResourceOp::Construct { .. }
         | ResourceOp::Expr { .. }
         | ResourceOp::EndScope { .. } => {}

@@ -151,6 +151,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                 identities.copy_identity(source, target);
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, target);
             }
+            ResourceOp::StorageOrigin { .. } => {}
             ResourceOp::Assign { target, value, .. } => {
                 identities.copy_identity(value, target);
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, value, target);

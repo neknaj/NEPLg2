@@ -99,6 +99,7 @@ fn collect_source_bindings_from_ops(
             | ResourceOp::RawMemory { .. }
             | ResourceOp::RawAddressAlias { .. }
             | ResourceOp::RawAddressView { .. }
+            | ResourceOp::StorageOrigin { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }

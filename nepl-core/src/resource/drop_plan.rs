@@ -150,6 +150,7 @@ fn collect_drop_points_from_ops(
             | ResourceOp::RawMemory { .. }
             | ResourceOp::RawAddressAlias { .. }
             | ResourceOp::RawAddressView { .. }
+            | ResourceOp::StorageOrigin { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }

@@ -736,6 +736,9 @@ impl ResourceOwnerCheckEngine<'_> {
                 pending_reallocs.clear_result(target);
                 variant_owner_effects.clear_result(target);
             }
+            ResourceOp::StorageOrigin { target, origin, .. } => {
+                storage_origins.mark_origin(target, *origin);
+            }
             ResourceOp::Borrow { source, output, .. } => {
                 let target = reference_target_place(output, source.ty);
                 raw_aliases.copy_alias_if_tracked(source, &target);

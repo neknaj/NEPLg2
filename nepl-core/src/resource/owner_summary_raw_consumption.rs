@@ -106,6 +106,7 @@ fn ops_use_raw_owner_alias(ops: &[ResourceOp], aliases: &mut Vec<Place>) -> bool
             | ResourceOp::FunctionValue { .. }
             | ResourceOp::Call { .. }
             | ResourceOp::IndirectCall { .. }
+            | ResourceOp::StorageOrigin { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }

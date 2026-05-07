@@ -10537,6 +10537,47 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_rejects_region_token_forged_from_fixed_mem_ptr() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/result" as *
+
+fn forge_fixed_region <()* >Result<(), str>> ():
+    let p <MemPtr<u8>> mem_ptr_wrap 16
+    let token <RegionToken<u8>> region_new p 1
+    dealloc_region token
+
+fn main <()*>()> ():
+    match forge_fixed_region:
+        Result::Ok _:
+            ()
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                function,
+                state: OwnerState::NoFreeObligation,
+                ..
+            } if function.starts_with("main__")
+                || function.starts_with("forge_fixed_region__")
+        )),
+        "region_new must not turn a fixed raw MemPtr into a RegionToken owner: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn typecheck_rejects_region_token_struct_constructor_outside_memory_boundary() {
     let source = r#"
 #entry main

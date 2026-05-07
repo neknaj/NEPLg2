@@ -296,3 +296,13 @@ unknown callback 境界で same-type non-owning raw address view argument が返
 今回の対応では、unknown indirect-call return handling が non-owning view candidate を owner transfer より先に評価し、出力を non-owning raw view として伝播する。unknown callback argument consumption でも non-owning view 引数を free obligation owner として消費しない。これにより、borrowed `RegionToken` から作った `MemPtr` を callback parameter 経由で返す正常系は維持しつつ、callback result が non-owning candidate を返し得る場合の `dealloc returned` は `OwnerState::NoFreeObligation` で拒否される。
 
 この対応は `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に含まれる。`MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の最終分離は引き続きこの親 issue の残件である。
+
+## 2026-05-08 Resource IR fixed raw MemPtr region_new 部分対応
+
+固定 raw address を `mem_ptr_wrap` で `MemPtr<u8>` にし、`region_new` で `RegionToken<u8>` へ昇格してから `dealloc_region` へ渡すと、free obligation がないにもかかわらず owner checker が拒否しない問題を `ISS-20260507T185234792Z-REGION-NEW-ACCEPTS-FIXED-RAW-MEMPTR--A0FDF3E7` として修正した。
+
+根本原因は、`region_new` の lowering が raw address alias だけを表し、`RegionToken.ptr.raw` が owned storage provenance を要求することを Resource IR に残していなかったことだった。さらに `StorageOriginTable` が value 内部の origin を prefix 付きで移動・コピーできず、whole `RegionToken` consumption から配下の owned origin を検出できていなかった。
+
+対応では `ResourceOp::StorageOrigin` を追加し、`region_new` の出力 `RegionToken.ptr.raw` へ `StorageOrigin::Owned` を明示的に付与する。`StorageOriginTable` は value move / read / assign で配下 origin を移動・コピーし、owner checker は whole value 配下の owned origin も free obligation 要求として扱う。
+
+この対応は `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に含まれる。`RegionToken` を compiler-issued owner token にする最終設計は残るが、少なくとも固定 raw address から owner-token-shaped value を作って dealloc する経路は `resource.owner.no_free_obligation` で拒否される。

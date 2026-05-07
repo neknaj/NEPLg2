@@ -428,6 +428,31 @@ fn main <()*>()> ():
             ()
 ```
 
+## region_new は固定 raw address 由来の MemPtr を owner token にできない
+
+neplg2:test[compile_fail]
+diag_code: resource.owner.no_free_obligation
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn forge_fixed_region <()* >Result<(), str>> ():
+    let p <MemPtr<u8>> mem_ptr_wrap 16
+    let token <RegionToken<u8>> region_new p 1
+    dealloc_region token
+
+fn main <()*>()> ():
+    match forge_fixed_region:
+        Result::Ok _:
+            ()
+        Result::Err _e:
+            ()
+```
+
 ## RegionToken の直 constructor は memory boundary 外で使えない
 
 neplg2:test[compile_fail]

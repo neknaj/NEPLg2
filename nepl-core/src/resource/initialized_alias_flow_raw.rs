@@ -117,6 +117,7 @@ fn propagate_raw_address_alias_op(
                 raw_aliases.clear(target);
             }
         }
+        ResourceOp::StorageOrigin { .. } => {}
         ResourceOp::Construct {
             output,
             kind,

@@ -207,6 +207,7 @@ pub(super) fn op_kind(op: &ResourceOp) -> ResourceDropPointOpKind {
         | ResourceOp::RawMemory { .. }
         | ResourceOp::RawAddressAlias { .. }
         | ResourceOp::RawAddressView { .. }
+        | ResourceOp::StorageOrigin { .. }
         | ResourceOp::Construct { .. } => ResourceDropPointOpKind::Leaf,
     }
 }
