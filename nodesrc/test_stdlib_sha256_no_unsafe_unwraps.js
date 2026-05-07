@@ -26,4 +26,14 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(code, pattern, `${relPath} must propagate errors without ${pattern}`);
 }
 
+const roundsLoop = code.match(
+    /fn sha256_rounds_loop[\s\S]*?(?=\nfn sha256_compress_block)/
+);
+assert.ok(roundsLoop, 'sha256_rounds_loop must exist');
+assert.doesNotMatch(
+    roundsLoop[0],
+    /Result::Err\s+e:/,
+    'sha256_rounds_loop must not shadow the working variable e with an error payload binding'
+);
+
 console.log('sha256 unsafe unwrap regression passed');

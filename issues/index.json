@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T06:01:57.420Z",
+  "generated_at": "2026-05-07T06:12:52.273Z",
   "counts": {
     "total": 565,
-    "open": 12,
-    "resolved": 553,
+    "open": 11,
+    "resolved": 554,
     "by_area": {
       "core": {
         "total": 283,
@@ -18,8 +18,8 @@
       },
       "TEST": {
         "total": 13,
-        "open": 2,
-        "resolved": 11
+        "open": 1,
+        "resolved": 12
       },
       "selfhost": {
         "total": 51,
@@ -208,21 +208,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260507T050025343Z-SHA256-HASH-DOCTEST-FAILS-RESOURCE-I-A4EE25CE",
-      "title": "sha256 hash doctest fails Resource IR cell state under current checker",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "stdlib/tests/hash.n.md, stdlib/alloc/hash/sha256.nepl, nepl-core resource checker",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T050025343Z-SHA256-HASH-DOCTEST-FAILS-RESOURCE-I-A4EE25CE.md"
     },
     {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
@@ -6583,6 +6568,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260507T045028757Z-KP-PREFIX-SUM-REGRESSION-LACKS-EXPLI-B8A2B29A.md"
+    },
+    {
+      "id": "ISS-20260507T050025343Z-SHA256-HASH-DOCTEST-FAILS-RESOURCE-I-A4EE25CE",
+      "title": "sha256 hash doctest fails Resource IR cell state under current checker",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "stdlib/tests/hash.n.md, stdlib/alloc/hash/sha256.nepl, nepl-core resource checker",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T050025343Z-SHA256-HASH-DOCTEST-FAILS-RESOURCE-I-A4EE25CE.md"
     },
     {
       "id": "ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62",

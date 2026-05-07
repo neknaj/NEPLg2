@@ -33675,6 +33675,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 2 sha256 Resource IR doctest 修正
+
+- `ISS-20260507T050025343Z-SHA256-HASH-DOCTEST-FAILS-RESOURCE-I-A4EE25CE` を fixed/resolved に更新した。
+- `sha256_rounds_loop` の working variable `e` と、`sha256_k i` の `Result::Err e` payload binding が同名になっていたため、Resource IR が `e#0` の initialized state を失っていた。
+- error payload binding を `err` に変更し、working variable と Err payload を分離した。
+- `nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js` に、`sha256_rounds_loop` が `Result::Err e:` を再導入しない regression を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/hash.n.md -i stdlib/alloc/hash/sha256.nepl --no-tree -o tmp/sha256-hash-resource-fix.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-07 Agent 1 cell_state_raw_range split issue 整理
 
 - `ISS-20260507T051545017Z-CELL-STATE-RAW-RANGE-EXCEEDS-SPLIT-L-76536EAC` を fixed にした。

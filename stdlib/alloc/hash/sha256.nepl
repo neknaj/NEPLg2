@@ -447,8 +447,8 @@ fn sha256_rounds_loop <(&Vec<i32>,i32,i32,i32,i32,i32,i32,i32,i32,i32)*>Result<S
                     Result<Sha256State, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
                 Option::Some wi:
                     match sha256_k i:
-                        Result::Err e:
-                            Result<Sha256State, StdErrorKind>::Err e
+                        Result::Err err:
+                            Result<Sha256State, StdErrorKind>::Err err
                         Result::Ok k:
                             let t1a <i32> add h sha256_big_sigma1 e
                             let t1b <i32> add t1a sha256_ch e f g
