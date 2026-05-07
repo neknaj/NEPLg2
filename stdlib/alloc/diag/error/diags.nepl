@@ -1,0 +1,117 @@
+//: diags: [診断群/しんだんぐん]の storage owner [操作/そうさ]
+//:
+//: [目的/もくてき]:
+//: - `Diags` が[所有/しょゆう]する `Vec<Diag>` backing storage の[生成/せいせい]・[追加/ついか]・[観測/かんそく]・[解放/かいほう]を[担当/たんとう]します。
+//: - allocation/grow failure は trap ではなく[空/から] `Diags` sentinel へ[丸/まる]め、呼び出し側の error handling を[保/たも]ちます。
+//:
+//: [注意/ちゅうい]:
+//: - by-value observer は[観測/かんそく]後に `diags_free` で owner を[閉/と]じます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "alloc/diag/error/diag" as *
+//:| #import "alloc/diag/error/diags" as *
+//: fn main <()*>i32> ():
+//:     let d <Diag> diag_error StdErrorKind::EmptyCollection "empty"
+//:     let ds <Diags> diags_one d
+//:     let checks checks_push checks_new assert diags_has_errors ds
+//:     checks_exit_code checks
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "alloc/collections/vec" as v
+#import "alloc/diag/error/types" as *
+#import "alloc/diag/error/diag" as *
+//: diag_empty_diag_vec: [空/から]の `Vec<Diag>` を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `Diags` [構築/こうちく]で allocation failure が[起/お]きても trap せず、[空/から]の[診断群/しんだんぐん]へ[丸/まる]めます。
+fn diag_empty_diag_vec <()->Vec<Diag>> ():
+    v::vec_empty<Diag>
+
+//: diags_new: [空/から]の `Diags` を[作/つく]る
+fn diags_new <()*>Diags> ():
+    let mut items <Vec<Diag>> diag_empty_diag_vec;
+    match v::new<Diag>:
+        Result::Ok items0:
+            set items items0
+        Result::Err _e:
+            ()
+    Diags items
+
+//: diags_one: `Diag` 1 [件/けん]から `Diags` を[作/つく]る
+fn diags_one <(Diag)*>Diags> (d):
+    match v::new<Diag>:
+        Result::Ok items0:
+            match v::push<Diag> items0 d:
+                Result::Ok items:
+                    Diags items
+                Result::Err _e:
+                    Diags diag_empty_diag_vec
+        Result::Err _e:
+            Diags diag_empty_diag_vec
+
+//: diags_push: `Diags` に `Diag` を 1 [件/けん][追加/ついか]する
+fn diags_push <(Diags,Diag)*>Diags> (ds, d):
+    match v::push<Diag> field::get ds "items" d:
+        Result::Ok items:
+            Diags items
+        Result::Err _e:
+            Diags diag_empty_diag_vec
+
+//: diags_len: [診断/しんだん][件数/けんすう]を[返/かえ]す
+fn diags_len <(&Diags)->i32> (ds):
+    let items <&Vec<Diag>> field::get_ref ds "items";
+    v::len<Diag> items
+
+fn diags_len <(Diags)->i32> (ds):
+    let n <i32> diags_len &ds
+    diags_free ds
+    n
+
+//: diags_has_errors: error level の[診断/しんだん]を 1 [件/けん]でも[含/ふく]むか[判定/はんてい]する
+fn diags_has_errors <(&Diags)->bool> (ds):
+    let items <&Vec<Diag>> field::get_ref ds "items";
+    let view <VecDataLen<Diag>> v::data_len<Diag> items;
+    let items_len <i32> field::get view "len";
+    let items_data <i32> mem_ptr_addr field::get view "data";
+    diags_has_errors_loop items_data items_len 0
+
+fn diags_has_errors <(Diags)->bool> (ds):
+    let ok <bool> diags_has_errors &ds
+    diags_free ds
+    ok
+
+fn diags_has_errors_loop <(i32,i32,i32)->bool> (items_data, n, i):
+    if:
+        ge i n
+        then false
+        else:
+            let d <Diag> load<Diag> add items_data mul i size_of<Diag>;
+            let level <DiagLevel> diag_level d;
+            match level:
+                DiagLevel::Error:
+                    true
+                DiagLevel::Log:
+                    diags_has_errors_loop items_data n add i 1
+                DiagLevel::Info:
+                    diags_has_errors_loop items_data n add i 1
+                DiagLevel::Warn:
+                    diags_has_errors_loop items_data n add i 1
+
+//: diags_free: `Diags` が[所有/しょゆう]する[内部/ないぶ] Vec buffer を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - `Diags` を[値/あたい]として[消費/しょうひ]し、`items` の backing storage を[閉/と]じます。
+//: - `Diag` 本体は Copy な text fragment だけを[保持/ほじ]するため、要素ごとの drop traversal は[行/おこな]いません。
+fn diags_free <(Diags)->()> (ds):
+    v::free<Diag> field::get ds "items"

@@ -14,7 +14,7 @@ neplg2:test
 #import "core/traits/hash" as *
 #import "std/test" as *
 #import "alloc/collections/vec" as *
-#import "alloc/string" as string
+#import "alloc/string/access" as string
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *

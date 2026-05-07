@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T05:04:11.096Z",
+  "generated_at": "2026-05-07T05:10:11.012Z",
   "counts": {
-    "total": 559,
-    "open": 11,
-    "resolved": 548,
+    "total": 561,
+    "open": 12,
+    "resolved": 549,
     "by_area": {
       "core": {
         "total": 279,
@@ -12,13 +12,13 @@
         "resolved": 275
       },
       "stdlib": {
-        "total": 157,
+        "total": 158,
         "open": 5,
-        "resolved": 152
+        "resolved": 153
       },
       "TEST": {
-        "total": 12,
-        "open": 1,
+        "total": 13,
+        "open": 2,
         "resolved": 11
       },
       "selfhost": {
@@ -210,6 +210,21 @@
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
     },
     {
+      "id": "ISS-20260507T050025343Z-SHA256-HASH-DOCTEST-FAILS-RESOURCE-I-A4EE25CE",
+      "title": "sha256 hash doctest fails Resource IR cell state under current checker",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "stdlib/tests/hash.n.md, stdlib/alloc/hash/sha256.nepl, nepl-core resource checker",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T050025343Z-SHA256-HASH-DOCTEST-FAILS-RESOURCE-I-A4EE25CE.md"
+    },
+    {
       "id": "ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38",
       "title": "Resource IR cannot summarize returned raw headers with length-guarded dynamic ranges",
       "area": "core",
@@ -249,7 +264,7 @@
       "type": "architecture",
       "created": "2026-04-25",
       "updated": "2026-05-07",
-      "target": "stdlib/core/math.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/alloc/collections/vec.nepl, stdlib/std/streamio.nepl, stdlib/std/stdio.nepl, stdlib/std/fs.nepl, stdlib/std/test.nepl, stdlib/nm/parser.nepl, stdlib/core/mem.nepl, stdlib/neplg2/cli/args.nepl",
+      "target": "stdlib/core/math.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/alloc/diag/error.nepl, stdlib/alloc/collections/vec.nepl, stdlib/std/streamio.nepl, stdlib/std/stdio.nepl, stdlib/std/fs.nepl, stdlib/std/test.nepl, stdlib/nm/parser.nepl, stdlib/core/mem.nepl, stdlib/neplg2/cli/args.nepl",
       "legacy_id": "RV-STDLIB-009",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-009",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-009-01749CCF.md"
@@ -6283,6 +6298,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T165414602Z-IO-BYTEBUF-SOURCE-POLICY-STILL-EXPEC-4096A6A5.md"
+    },
+    {
+      "id": "ISS-20260507T045758591Z-HASH-STRING-HASHING-RELIES-ON-QUALIF-87C90EEF",
+      "title": "hash string hashing relies on qualified alloc/string facade re-export",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "stdlib/alloc/hash/hash32.nepl, stdlib/core/traits/hash.nepl, stdlib/tests/hash.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T045758591Z-HASH-STRING-HASHING-RELIES-ON-QUALIF-87C90EEF.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

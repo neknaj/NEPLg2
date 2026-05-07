@@ -1,0 +1,151 @@
+//: types: [診断/しんだん][値/あたい]モデルの enum と struct
+//:
+//: [目的/もくてき]:
+//: - `DiagLevel`、`Span`、`DiagKind`、`Diag`、`Diags` の[型/かた]を[定義/ていぎ]します。
+//: - [重大度/じゅうだいど]は enum として[保持/ほじ]し、`match` の[網羅性/もうらせい][検査/けんさ]が[効/き]く[形/かたち]にします。
+//:
+//: [注意/ちゅうい]:
+//: - `Diag` の note/help/source は owner-neutral な text fragment として[保持/ほじ]します。
+//: - `Diags` だけが `Vec<Diag>` の backing storage owner を[持/も]ちます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/diag/error/types" as *
+//: fn main <()*>i32> ():
+//:     let checks checks_push checks_new assert_str_eq "warn" diag_level_str DiagLevel::Warn
+//:     checks_exit_code checks
+//: ```
+
+#indent 4
+
+#import "core/option" as *
+#import "core/result" as *
+#import "alloc/collections/vec" as v
+//: DiagLevel: [診断/しんだん]の[大分類/だいぶんるい]
+//:
+//: [目的/もくてき]:
+//: - `log/info/warn/error` の 4 [段階/だんかい]で[報告/ほうこく]の[重/おも]さを[表/あらわ]します。
+//:
+//: [注意/ちゅうい]:
+//: - これは `Result` の `Ok/Err` とは[別軸/べつじく]です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+enum DiagLevel:
+    Log
+    Info
+    Warn
+    Error
+
+impl Clone for DiagLevel:
+    fn clone <(&DiagLevel)->DiagLevel> (level):
+        *level
+
+impl Copy for DiagLevel:
+    fn copy_mark <(DiagLevel)->DiagLevel> (level):
+        level
+
+//: Span: [診断/しんだん][位置/いち]
+//:
+//: [目的/もくてき]:
+//: - file/start/end の 3 [要素/ようそ]で[位置/いち][情報/じょうほう]を[保持/ほじ]します。
+//:
+//: [注意/ちゅうい]:
+//: - `file_id` の[意味/いみ]づけは[呼/よ]び[出/だ]し[側/がわ]が[定義/ていぎ]します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+struct Span:
+    file_id <i32>
+    start <i32>
+    end <i32>
+
+impl Clone for Span:
+    fn clone <(&Span)->Span> (sp):
+        *sp
+
+impl Copy for Span:
+    fn copy_mark <(Span)->Span> (sp):
+        sp
+
+//: DiagKind: [診断/しんだん]の[分類/ぶんるい]
+//:
+//: [目的/もくてき]:
+//: - [共通/きょうつう]の[重大度/じゅうだいど]と stdlib [共通/きょうつう]の error kind、さらに[任意/にんい]の local kind を[束/たば]ねます。
+//:
+//: [注意/ちゅうい]:
+//: - `std_error` と `local_kind` はどちらか[片方/かたほう]だけでも[構/かま]いません。
+//: - [階層/かいそう][識別子/しきべつし]の[言語/げんご][機能/きのう]が[入/はい]るまでは、`local_kind` は `str` として[扱/あつか]います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+struct DiagKind:
+    level <DiagLevel>
+    std_error <Option<StdErrorKind>>
+    local_kind <Option<str>>
+
+impl Clone for DiagKind:
+    fn clone <(&DiagKind)->DiagKind> (kind):
+        *kind
+
+impl Copy for DiagKind:
+    fn copy_mark <(DiagKind)->DiagKind> (kind):
+        kind
+
+//: Diag: [単一/たんいつ]の[診断/しんだん]
+//:
+//: [目的/もくてき]:
+//: - [診断/しんだん] 1 [件/けん]ぶんの[分類/ぶんるい]・[本文/ほんぶん]・[補足/ほそく][情報/じょうほう]をまとめます。
+//:
+//: [実装/じっそう]:
+//: - `notes` と `help` は 1 [件/けん]ぶんの text fragment として[保持/ほじ]し、prefix や[改行/かいぎょう]は renderer が[付/つ]けます。
+//: - `source` は[由来/ゆらい]の[記述/きじゅつ]を[指/さ]す[任意/にんい]の[文字列/もじれつ]です。
+//:
+//: [注意/ちゅうい]:
+//: - `Diag` は[表示/ひょうじ]そのものではなく、[構造化/こうぞうか]された[診断/しんだん][値/あたい]です。
+//:
+//: [計算量/けいさんりょう]:
+//: - [構築/こうちく]は O(1) です。
+struct Diag:
+    kind <DiagKind>
+    message <str>
+    span <Option<Span>>
+    notes <str>
+    help <str>
+    source <Option<str>>
+
+impl Clone for Diag:
+    fn clone <(&Diag)->Diag> (d):
+        *d
+
+impl Copy for Diag:
+    fn copy_mark <(Diag)->Diag> (d):
+        d
+
+//: Diags: [複数/ふくすう]の[診断/しんだん]を[順序/じゅんじょ][付/づ]きで[保持/ほじ]する struct
+//:
+//: [目的/もくてき]:
+//: - `Diag` の[列/れつ]を[単/たん]なる `Vec<Diag>` として[露出/ろしゅつ]せず、[診断群/しんだんぐん]として[扱/あつか]います。
+//:
+//: [実装/じっそう]:
+//: - `items` に `Vec<Diag>` を[保持/ほじ]します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [構築/こうちく]は O(1) です。
+struct Diags:
+    items <Vec<Diag>>
+
+//: diag_level_str: `DiagLevel` を[文字列/もじれつ]へ[変換/へんかん]する
+fn diag_level_str <(DiagLevel)->str> (level):
+    match level:
+        DiagLevel::Log:
+            "log"
+        DiagLevel::Info:
+            "info"
+        DiagLevel::Warn:
+            "warn"
+        DiagLevel::Error:
+            "error"

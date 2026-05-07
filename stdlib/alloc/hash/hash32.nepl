@@ -18,7 +18,7 @@
 
 #import "core/math" as *
 #import "core/cast" as *
-#import "alloc/string" as string
+#import "alloc/string/access" as string
 #import "alloc/hash/fnv1a32" as *
 
 //: ## mix

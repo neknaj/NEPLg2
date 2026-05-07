@@ -38,7 +38,7 @@
 #import "core/traits/hash_key" as *
 #import "alloc/hash/hash32" as *
 #import "alloc/hash/fnv1a32" as *
-#import "alloc/string" as string
+#import "alloc/string/access" as string
 
 fn trait_hash_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
     if:

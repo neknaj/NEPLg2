@@ -793,6 +793,34 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 2 alloc/diag/error facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続として、`stdlib/alloc/diag/error.nepl` を public facade と責務別 submodule へ分割した。
+- `error/types.nepl` は `DiagLevel` / `Span` / `DiagKind` / `Diag` / `Diags` と `diag_level_str` を所有し、重大度は enum + match の網羅性検査が効く形を維持した。
+- `error/diag.nepl` は `DiagKind` / `Diag` constructor と accessor、静的 `StdErrorKind` diagnostic helper を所有する。
+- `error/diags.nepl` は `Vec<Diag>` backing storage owner の構築、push、by-value observer、free を所有し、allocation/grow failure は trap ではなく空 `Diags` sentinel へ丸める。
+- `error/outcome.nepl` は `Outcome<T,E>` と `Diags` owner の置換・消費契約を所有する。
+- `error.nepl` root は 30 行の public re-export facade に縮小した。
+- `nepl-core/src/loader.rs` の raw-memory boundary は root ではなく `alloc/diag/error/diags.nepl` と既存 renderer `alloc/diag/diag.nepl` の exact path に固定した。
+- 検証中に、hash 系が broad `alloc/string` facade の qualified re-export に依存している既存不具合を発見し、`ISS-20260507T045758591Z-HASH-STRING-HASHING-RELIES-ON-QUALIF-87C90EEF` として追加して fixed にした。
+- `stdlib/tests/hash.n.md` は別件の `sha256_rounds_loop` Resource IR cell state failure で full doctest が通らないため、`ISS-20260507T050025343Z-SHA256-HASH-DOCTEST-FAILS-RESOURCE-I-A4EE25CE` として追加した。
+- [検証]:
+  - `trunk build`: passed
+  - `node nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_hash_string_access_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/diag/error.nepl -i stdlib/alloc/diag/error/types.nepl -i stdlib/alloc/diag/error/diag.nepl -i stdlib/alloc/diag/error/diags.nepl -i stdlib/alloc/diag/error/outcome.nepl --no-tree -o tmp/diag-error-module-split-focused.json -j 1 --dist web/dist`: total=7, passed=7
+  - `node nodesrc/tests.js -i stdlib/tests/error.n.md -i stdlib/tests/diag.n.md -i stdlib/alloc/diag/error.nepl -i stdlib/alloc/diag/diag.nepl --no-tree -o tmp/diag-error-module-split-suite.json -j 1 --dist web/dist`: total=6, passed=6
+  - `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/diag-error-module-split-collections-diag-fixed.json -j 1 --dist web/dist`: total=4, passed=4
+  - `node nodesrc/tests.js -i stdlib/alloc/hash/hash32.nepl -i stdlib/core/traits/hash.nepl --no-tree -o tmp/hash-string-access-impl-doctests.json -j 1 --dist web/dist`: total=1, passed=1
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test effects`: 27 passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-07 Agent 1 selfhost stdlib_map / module graph closeout
 
 - `ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF` を fixed にした。
