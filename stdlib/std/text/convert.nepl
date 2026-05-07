@@ -1,0 +1,46 @@
+//: # std/text/convert
+//: checked `ByteBuf -> str` [変換/へんかん]を[担当/たんとう]する submodule
+//:
+//: ### [目的/もくてき]
+//: - file / stdin / binary stream から[得/え]た byte [列/れつ]を、source text [向/む]けに checked `str` へ[変換/へんかん]します。
+//: - UTF-8 validation は `text/validate`、str layout への[詰/つ]め[直/なお]しは `alloc/io` の checked conversion に[委譲/いじょう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - 入力 `ByteBuf` は成功時も失敗時も[消費/しょうひ]されます。
+//: - invalid UTF-8 の[場合/ばあい]は buffer を[解放/かいほう]して `StdErrorKind::InvalidUtf8` を[返/かえ]します。
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "./validate" as *
+
+//: text_bytebuf_to_utf8_str_result: `ByteBuf` を UTF-8 [検証/けんしょう]して `str` へ[変換/へんかん]する
+//:
+//: [実装/じっそう]:
+//: - 先に `text_utf8_validate_mem` で[全体/ぜんたい]を[検査/けんさ]し、成功したときだけ `io_bytebuf_to_str_result` で text layout へ[詰/つ]め[直/なお]します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn text_bytebuf_to_utf8_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
+    let byte_len <i32> get buf "len"
+    match get buf "ptr":
+        Option::None:
+            if:
+                eq byte_len 0
+                then:
+                    Result<str, StdErrorKind>::Ok ""
+                else:
+                    Result<str, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        Option::Some data:
+            match text_utf8_validate_mem data byte_len:
+                Result::Ok _:
+                    io_bytebuf_to_str_result io_bytebuf_from_owned_ptr data byte_len
+                Result::Err e:
+                    match dealloc_ptr<u8> data io_bytebuf_storage_size byte_len:
+                        Result::Ok _:
+                            Result<str, StdErrorKind>::Err e
+                        Result::Err _free:
+                            Result<str, StdErrorKind>::Err e

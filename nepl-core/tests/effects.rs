@@ -816,7 +816,11 @@ fn loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_bounda
             "alloc/string/utf8",
             "alloc_string_utf8_raw_store",
         ),
-        (&["std", "text.nepl"], "std/text", "std_text_raw_store"),
+        (
+            &["std", "text", "validate.nepl"],
+            "std/text/validate",
+            "std_text_validate_raw_store",
+        ),
         (
             &["std", "streamio", "scanner", "state.nepl"],
             "std/streamio/scanner/state",
@@ -902,6 +906,7 @@ fn loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries()
             "alloc/collections/vec/access/header",
             "alloc_collections_vec_access_header_raw_store",
         ),
+        (&["std", "text.nepl"], "std/text", "std_text_raw_store"),
         (
             &["alloc", "collections", "vec", "mutation.nepl"],
             "alloc/collections/vec/mutation",

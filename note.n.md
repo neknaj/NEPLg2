@@ -1,3 +1,28 @@
+# 2026-05-08 Agent 2 std/text UTF-8 boundary split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の追加対応として、`stdlib/std/text.nepl` を facade 化した。
+- 根本原因は、UTF-8 leading byte classification、sequence validation、raw byte decode、char encode、`ByteBuf -> str` conversion が 1 file に同居し、raw-memory boundary と checked conversion の責務境界が保守しにくかったこと。
+- `stdlib/std/text.nepl` は `text/validate`、`text/decode`、`text/convert` の public `@merge` re-export だけを持つ facade にした。
+- `text/validate.nepl` は `TextUtf8LeadKind` と validation、`text/decode.nepl` は `text_utf8_decode_next` / `text_utf8_encode_char`、`text/convert.nepl` は `text_bytebuf_to_utf8_str_result` を所有する。
+- raw-memory boundary capability は root facade ではなく、実際に `load_u8` を持つ `std/text/validate.nepl` だけに移した。
+- `nodesrc/test_stdlib_text_boundary.js` を追加し、root facade に実装が戻らないこと、validate/decode/convert の所有 helper と line count を固定した。
+- line count は `text.nepl` 15、`text/validate.nepl` 201、`text/decode.nepl` 146、`text/convert.nepl` 43。
+- [検証]:
+  - `node nodesrc/test_stdlib_text_boundary.js`: passed
+  - `cargo fmt -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects loader_ -- --nocapture`: 6 passed
+  - `trunk build`: passed
+  - remote main `066afd0d` rebase 後 `cargo fmt --check -p nepl-core`: passed
+  - remote main `066afd0d` rebase 後 `cargo test -p nepl-core --test effects loader_ -- --nocapture`: 6 passed
+  - remote main `066afd0d` rebase 後 `trunk build`: passed
+  - remote main `066afd0d` rebase 後 `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md -i stdlib/std/text.nepl -i stdlib/std/text/validate.nepl -i stdlib/std/text/decode.nepl -i stdlib/std/text/convert.nepl --no-tree -o tmp/std-text-split-focused-final.json -j 1 --dist web/dist`: total=9, passed=9
+  - remote main `066afd0d` rebase 後 `node nodesrc/tests.js -i examples -o tmp/std-text-split-examples-final.json -j 4 --dist web/dist`: total=32, passed=32
+  - remote main `066afd0d` rebase 後 `node nodesrc/run_source_policy_regressions.js --warn-only`: std/text boundary は passed。別件として `owner_check.rs has 802 lines; responsibility split limit is 800` warning を検出したため、ResourceIR responsibility split issue として切り分ける。
+  - remote main `066afd0d` rebase 後 `node nodesrc/issues.js check`: ok, files=618
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 1 ResourceIR region_new fixed raw MemPtr owner provenance 修正
 
 - `ISS-20260507T185234792Z-REGION-NEW-ACCEPTS-FIXED-RAW-MEMPTR--A0FDF3E7` を追加し、fixed/resolved に更新した。
@@ -22,9 +47,6 @@
   - remote main `b9a10e24` rebase 後 `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-region-new-fixed-raw-memory-safety-rebased.json -j 1 --dist web/dist`: 22 passed
   - `node nodesrc/issues.js index`: total=618, open=10, resolved=608
   - `node nodesrc/issues.js check`: passed
-  - `git diff --check`: passed
-- [plan.mdとの差分]:
-  - `plan.md` 自体は変更していない。
 
 # 2026-05-08 Agent 2 owner_return unknown callback split
 

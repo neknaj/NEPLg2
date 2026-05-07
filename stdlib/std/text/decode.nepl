@@ -1,0 +1,153 @@
+//: # std/text/decode
+//: UTF-8 byte [列/れつ]と `char` の[相互/そうご][変換/へんかん]を[担当/たんとう]する submodule
+//:
+//: ### [目的/もくてき]
+//: - raw byte [列/れつ]から 1 scalar value ずつ checked decode し、`char` を UTF-8 `ByteBuf` として encode します。
+//: - UTF-8 validation の byte [分類/ぶんるい]は `text/validate` に[委譲/いじょう]します。
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/char" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "./validate" as *
+
+//: text_is_valid_scalar: i32 code point が Unicode scalar value として[妥当/だとう]か[判定/はんてい]する
+fn text_is_valid_scalar <(i32)->bool> (code):
+    char_is_valid_scalar_code code
+
+fn text_utf8_decode_ok <(char,i32)->Result<CharUtf8Step, StdErrorKind>> (c, next_byte_index):
+    Result<CharUtf8Step, StdErrorKind>::Ok char_utf8_step_new c next_byte_index
+
+fn text_utf8_decode_char_result <(i32,i32)->Result<CharUtf8Step, StdErrorKind>> (code, next_byte_index):
+    match char_from_i32_result code:
+        Result::Err _e:
+            Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+        Result::Ok c:
+            text_utf8_decode_ok c next_byte_index
+
+//: text_utf8_decode_next: raw byte [列/れつ]から UTF-8 の 1 char を decode する
+//:
+//: [目的/もくてき]:
+//: - `ByteBuf` や外部入力を `str` に変換する前でも、1 scalar value ずつ検査しながら読めるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - 戻り値の `CharUtf8Step.value` が `char`、`CharUtf8Step.next` が次の byte offset です。
+fn text_utf8_decode_next <(MemPtr<u8>,i32,i32)->Result<CharUtf8Step, StdErrorKind>> (data, byte_len, i):
+    if:
+        or lt i 0 le byte_len i
+        then:
+            Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+        else:
+            match text_utf8_byte_at data i:
+                Result::Err e:
+                    Result<CharUtf8Step, StdErrorKind>::Err e
+                Result::Ok b0:
+                    if:
+                        le b0 0x7F
+                        then:
+                            text_utf8_decode_char_result b0 add i 1
+                        else:
+                            match text_utf8_lead_kind b0:
+                                TextUtf8LeadKind::Ascii:
+                                    Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                TextUtf8LeadKind::Two:
+                                    if:
+                                        le byte_len add i 1
+                                        then:
+                                            Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                        else:
+                                            match text_utf8_byte_at data add i 1:
+                                                Result::Err e:
+                                                    Result<CharUtf8Step, StdErrorKind>::Err e
+                                                Result::Ok b1:
+                                                    if:
+                                                        text_utf8_is_continuation b1
+                                                        then:
+                                                            let hi <i32> shl and b0 0x1F 6
+                                                            let lo <i32> and b1 0x3F
+                                                            text_utf8_decode_char_result or hi lo add i 2
+                                                        else:
+                                                            Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                TextUtf8LeadKind::Three:
+                                    if:
+                                        le byte_len add i 2
+                                        then:
+                                            Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                        else:
+                                            match text_utf8_byte_at data add i 1:
+                                                Result::Err e:
+                                                    Result<CharUtf8Step, StdErrorKind>::Err e
+                                                Result::Ok b1:
+                                                    match text_utf8_byte_at data add i 2:
+                                                        Result::Err e:
+                                                            Result<CharUtf8Step, StdErrorKind>::Err e
+                                                        Result::Ok b2:
+                                                            let first_ok <bool>:
+                                                                if:
+                                                                    eq b0 0xE0
+                                                                    then:
+                                                                        text_utf8_in_range b1 0xA0 0xBF
+                                                                    else:
+                                                                        if:
+                                                                            eq b0 0xED
+                                                                            then:
+                                                                                text_utf8_in_range b1 0x80 0x9F
+                                                                            else:
+                                                                                text_utf8_is_continuation b1
+                                                            if:
+                                                                and first_ok text_utf8_is_continuation b2
+                                                                then:
+                                                                    let part0 <i32> shl and b0 0x0F 12
+                                                                    let part1 <i32> shl and b1 0x3F 6
+                                                                    let part2 <i32> and b2 0x3F
+                                                                    text_utf8_decode_char_result or part0 or part1 part2 add i 3
+                                                                else:
+                                                                    Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                TextUtf8LeadKind::Four:
+                                    if:
+                                        le byte_len add i 3
+                                        then:
+                                            Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                        else:
+                                            match text_utf8_byte_at data add i 1:
+                                                Result::Err e:
+                                                    Result<CharUtf8Step, StdErrorKind>::Err e
+                                                Result::Ok b1:
+                                                    match text_utf8_byte_at data add i 2:
+                                                        Result::Err e:
+                                                            Result<CharUtf8Step, StdErrorKind>::Err e
+                                                        Result::Ok b2:
+                                                            match text_utf8_byte_at data add i 3:
+                                                                Result::Err e:
+                                                                    Result<CharUtf8Step, StdErrorKind>::Err e
+                                                                Result::Ok b3:
+                                                                    let first_ok <bool>:
+                                                                        if:
+                                                                            eq b0 0xF0
+                                                                            then:
+                                                                                text_utf8_in_range b1 0x90 0xBF
+                                                                            else:
+                                                                                if:
+                                                                                    eq b0 0xF4
+                                                                                    then:
+                                                                                        text_utf8_in_range b1 0x80 0x8F
+                                                                                    else:
+                                                                                        text_utf8_is_continuation b1
+                                                                    if:
+                                                                        and first_ok and text_utf8_is_continuation b2 text_utf8_is_continuation b3
+                                                                        then:
+                                                                            let part0 <i32> shl and b0 0x07 18
+                                                                            let part1 <i32> shl and b1 0x3F 12
+                                                                            let part2 <i32> shl and b2 0x3F 6
+                                                                            let part3 <i32> and b3 0x3F
+                                                                            text_utf8_decode_char_result or part0 or part1 or part2 part3 add i 4
+                                                                        else:
+                                                                            Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                TextUtf8LeadKind::Invalid:
+                                    Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+
+//: text_utf8_encode_char: char 1 つを UTF-8 `ByteBuf` へ encode する
+fn text_utf8_encode_char <(char)*>Result<ByteBuf, StdErrorKind>> (c):
+    io_bytebuf_from_char_utf8_result c
