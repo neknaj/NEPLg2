@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T16:25:54.352Z",
+  "generated_at": "2026-05-07T16:50:18.775Z",
   "counts": {
     "total": 608,
-    "open": 15,
-    "resolved": 593,
+    "open": 14,
+    "resolved": 594,
     "by_area": {
       "core": {
         "total": 301,
@@ -33,8 +33,8 @@
       },
       "selfhost": {
         "total": 61,
-        "open": 2,
-        "resolved": 59
+        "open": 1,
+        "resolved": 60
       },
       "tools": {
         "total": 1,
@@ -278,21 +278,6 @@
       "legacy_id": "RV-STDLIB-008",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-008",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD.md"
-    },
-    {
-      "id": "ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B",
-      "title": "Selfhost lexer raw modes and directives bypass enum match coverage",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "architecture",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib/neplg2_lexer.n.md, nodesrc/test_selfhost_lexer_rust_parity.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-009-01749CCF",
@@ -8153,6 +8138,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260428T234300146Z-SELF-HOST-CLI-ARGS-MIXES-PUBLIC-OPTI-E295567F.md"
+    },
+    {
+      "id": "ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B",
+      "title": "Selfhost lexer raw modes and directives bypass enum match coverage",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, tests/stdlib/neplg2_lexer.n.md, nodesrc/test_selfhost_lexer_rust_parity.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-010-BF35FCBB",

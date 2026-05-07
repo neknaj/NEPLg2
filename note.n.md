@@ -34850,3 +34850,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-08 Agent 1 Selfhost lexer raw mode / directive enum 修正
+
+- `ISS-20260507T151236784Z-SELFHOST-LEXER-RAW-MODES-AND-DIRECTI-B080723B` として、selfhost lexer の raw block state が `0/1/2` の i32 sentinel で管理され、`lex_raw_kind` が `1` 以外を `LlvmIrText` に落とす問題を修正した。
+- `SelfhostLexerRawMode::{None,Wasm,LlvmIr}` を追加し、pending/active raw mode、raw token kind 変換、raw mode active 判定を enum match に統一した。
+- directive token 化は `SelfhostLexerDirectiveKind` に分類してから `lex_directive_token` で全 variant を match する構造に変更し、nested if chain による分類漏れを source-policy で拒否するようにした。
+- `#if[target=...]` / `#if[profile=...]` は directive prefix helper 経由で `str_starts_with_at` facade を使う構造にし、既存の string helper boundary policy も helper 化後の責務に合わせて更新した。
+- [検証]:
+  - `node nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js`: passed
+  - `node nodesrc/test_selfhost_string_helpers_boundary.js`: passed
+  - `node nodesrc/test_selfhost_lexer_rust_parity.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `git diff --check`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/agent1-selfhost-lexer-raw-mode-enum.json -j 1 --dist web/dist`: 13/13 passed。初回 300 秒 timeout は 10/13 passed の進行中で、各 compile が約 39 秒かかるため timeout 設定不足だった。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

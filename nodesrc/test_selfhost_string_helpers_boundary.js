@@ -57,14 +57,20 @@ assert.match(
 
 assert.match(
     lexerSrc,
-    /str_starts_with_at\s+source\s+start\s+"#if\[target="/,
-    'lexer must use str_starts_with_at for #if[target=',
+    /fn\s+lex_directive_kind_if_prefix[\s\S]*str_starts_with_at\s+source\s+start\s+word/,
+    'lexer directive prefix helper must use str_starts_with_at',
 );
 
 assert.match(
     lexerSrc,
-    /str_starts_with_at\s+source\s+start\s+"#if\[profile="/,
-    'lexer must use str_starts_with_at for #if[profile=',
+    /fn\s+lex_directive_kind_if_bucket[\s\S]*lex_directive_kind_if_prefix\s+source\s+start\s+"#if\[target="/,
+    'lexer must classify #if[target= through the directive prefix helper',
+);
+
+assert.match(
+    lexerSrc,
+    /fn\s+lex_directive_kind_if_bucket[\s\S]*lex_directive_kind_if_prefix\s+source\s+start\s+"#if\[profile="/,
+    'lexer must classify #if[profile= through the directive prefix helper',
 );
 
 assert.doesNotMatch(

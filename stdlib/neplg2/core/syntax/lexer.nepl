@@ -52,6 +52,53 @@ impl Copy for LexDiagnostic:
 fn lex_diag_new <(SelfhostLexerDiagnosticCode,SelfhostSourceSpan,str)->LexDiagnostic> (code, span, message):
     LexDiagnostic code span message
 
+//: SelfhostLexerRawMode: raw backend text block の lexer state
+//:
+//: [目的/もくてき]:
+//: - raw block state を i32 sentinel ではなく enum で表し、mode 追加時に match arm の更新漏れを検査できるようにします。
+enum SelfhostLexerRawMode:
+    None
+    Wasm
+    LlvmIr
+
+impl Clone for SelfhostLexerRawMode:
+    fn clone <(&SelfhostLexerRawMode)->SelfhostLexerRawMode> (self):
+        *self
+
+impl Copy for SelfhostLexerRawMode:
+    fn copy_mark <(SelfhostLexerRawMode)->SelfhostLexerRawMode> (self):
+        self
+
+//: SelfhostLexerDirectiveKind: `#` directive の分類
+//:
+//: [目的/もくてき]:
+//: - directive classification を enum に固定し、token 化時に match で網羅させます。
+enum SelfhostLexerDirectiveKind:
+    Entry
+    IndentWidth
+    Target
+    Import
+    Use
+    IfTarget
+    IfProfile
+    Capability
+    Wasm
+    LlvmIr
+    Include
+    Extern
+    Intrinsic
+    Prelude
+    NoPrelude
+    Unknown
+
+impl Clone for SelfhostLexerDirectiveKind:
+    fn clone <(&SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (self):
+        *self
+
+impl Copy for SelfhostLexerDirectiveKind:
+    fn copy_mark <(SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (self):
+        self
+
 //: lex_is_digit: ASCII digit か[返/かえ]す
 fn lex_is_digit <(i32)->bool> (ch):
     and ge ch '0' le ch '9'
@@ -493,86 +540,115 @@ fn lex_hash_bracket_end <(str,i32,i32)->i32> (source, n, idx):
                 _:
                     lex_hash_bracket_end source n add idx 1
 
+//: lex_directive_match_key_at: directive 候補の先頭 2 byte を match key にする
+fn lex_directive_match_key_at <(str,i32,i32)->i32> (source, n, start):
+    if:
+        lt add start 2 n
+        then:
+            let first <i32> string_access::string_byte_at_unchecked source add start 1
+            let second <i32> string_access::string_byte_at_unchecked source add start 2
+            add mul first 256 second
+        else:
+            0
+
+//: lex_directive_kind_if_word: directive 候補を実文字列で検証する
+fn lex_directive_kind_if_word <(str,i32,i32,str,SelfhostLexerDirectiveKind,SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (source, n, start, word, kind, fallback):
+    if:
+        lex_directive_word_at source n start word
+        then:
+            kind
+        else:
+            fallback
+
+//: lex_directive_kind_if_prefix: bracket directive 候補を prefix で検証する
+fn lex_directive_kind_if_prefix <(str,i32,str,SelfhostLexerDirectiveKind,SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (source, start, word, kind, fallback):
+    if:
+        string_search::str_starts_with_at source start word
+        then:
+            kind
+        else:
+            fallback
+
+//: lex_directive_kind_i_bucket: `#i...` directive を分類する
+fn lex_directive_kind_i_bucket <(str,i32,i32)->SelfhostLexerDirectiveKind> (source, n, start):
+    let unknown <SelfhostLexerDirectiveKind> SelfhostLexerDirectiveKind::Unknown
+    let intrinsic <SelfhostLexerDirectiveKind> lex_directive_kind_if_word source n start "#intrinsic" SelfhostLexerDirectiveKind::Intrinsic unknown
+    let include <SelfhostLexerDirectiveKind> lex_directive_kind_if_word source n start "#include" SelfhostLexerDirectiveKind::Include intrinsic
+    lex_directive_kind_if_word source n start "#indent" SelfhostLexerDirectiveKind::IndentWidth include
+
+//: lex_directive_kind_if_bucket: `#if[...]` directive を分類する
+fn lex_directive_kind_if_bucket <(str,i32)->SelfhostLexerDirectiveKind> (source, start):
+    let unknown <SelfhostLexerDirectiveKind> SelfhostLexerDirectiveKind::Unknown
+    let profile <SelfhostLexerDirectiveKind> lex_directive_kind_if_prefix source start "#if[profile=" SelfhostLexerDirectiveKind::IfProfile unknown
+    lex_directive_kind_if_prefix source start "#if[target=" SelfhostLexerDirectiveKind::IfTarget profile
+
+//: lex_directive_kind_at: `#` directive を enum として分類する
+fn lex_directive_kind_at <(str,i32,i32)->SelfhostLexerDirectiveKind> (source, n, start):
+    match lex_directive_match_key_at source n start:
+        25966:
+            lex_directive_kind_if_word source n start "#entry" SelfhostLexerDirectiveKind::Entry SelfhostLexerDirectiveKind::Unknown
+        25976:
+            lex_directive_kind_if_word source n start "#extern" SelfhostLexerDirectiveKind::Extern SelfhostLexerDirectiveKind::Unknown
+        26989:
+            lex_directive_kind_if_word source n start "#import" SelfhostLexerDirectiveKind::Import SelfhostLexerDirectiveKind::Unknown
+        26990:
+            lex_directive_kind_i_bucket source n start
+        26982:
+            lex_directive_kind_if_bucket source start
+        27756:
+            lex_directive_kind_if_word source n start "#llvmir" SelfhostLexerDirectiveKind::LlvmIr SelfhostLexerDirectiveKind::Unknown
+        28271:
+            lex_directive_kind_if_word source n start "#no_prelude" SelfhostLexerDirectiveKind::NoPrelude SelfhostLexerDirectiveKind::Unknown
+        28786:
+            lex_directive_kind_if_word source n start "#prelude" SelfhostLexerDirectiveKind::Prelude SelfhostLexerDirectiveKind::Unknown
+        29793:
+            lex_directive_kind_if_word source n start "#target" SelfhostLexerDirectiveKind::Target SelfhostLexerDirectiveKind::Unknown
+        30067:
+            lex_directive_kind_if_word source n start "#use" SelfhostLexerDirectiveKind::Use SelfhostLexerDirectiveKind::Unknown
+        30561:
+            lex_directive_kind_if_word source n start "#wasm" SelfhostLexerDirectiveKind::Wasm SelfhostLexerDirectiveKind::Unknown
+        25441:
+            lex_directive_kind_if_word source n start "#capability" SelfhostLexerDirectiveKind::Capability SelfhostLexerDirectiveKind::Unknown
+        _:
+            SelfhostLexerDirectiveKind::Unknown
+
 //: lex_directive_token: `#` から始まる directive token を[読/よ]む
 fn lex_directive_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
     let line_end <i32> lex_line_end source n start
-    if:
-        lex_directive_word_at source n start "#entry"
-        then:
+    match lex_directive_kind_at source n start:
+        SelfhostLexerDirectiveKind::Entry:
             let value_start <i32> lex_directive_arg_start source n start 6
             lex_token_slice TokenKind::DirEntry source file_id value_start line_end
-        else:
-            if:
-                lex_directive_word_at source n start "#indent"
-                then:
-                    lex_token_slice TokenKind::DirIndentWidth source file_id start line_end
-                else:
-                    if:
-                        lex_directive_word_at source n start "#target"
-                        then:
-                            lex_token_slice TokenKind::DirTarget source file_id start line_end
-                        else:
-                            if:
-                                lex_directive_word_at source n start "#import"
-                                then:
-                                    lex_token_slice TokenKind::DirImport source file_id start line_end
-                                else:
-                                    if:
-                                        lex_directive_word_at source n start "#use"
-                                        then:
-                                            lex_token_slice TokenKind::DirUse source file_id start line_end
-                                        else:
-                                            if:
-                                                lex_directive_word_at source n start "#capability"
-                                                then:
-                                                    lex_token_slice TokenKind::DirCapability source file_id start line_end
-                                                else:
-                                                    if:
-                                                        lex_directive_word_at source n start "#wasm"
-                                                        then:
-                                                            lex_token_slice TokenKind::DirWasm source file_id start line_end
-                                                        else:
-                                                            if:
-                                                                lex_directive_word_at source n start "#llvmir"
-                                                                then:
-                                                                    lex_token_slice TokenKind::DirLlvmIr source file_id start line_end
-                                                                else:
-                                                                    if:
-                                                                        lex_directive_word_at source n start "#include"
-                                                                        then:
-                                                                            lex_token_slice TokenKind::DirInclude source file_id start line_end
-                                                                        else:
-                                                                            if:
-                                                                                lex_directive_word_at source n start "#extern"
-                                                                                then:
-                                                                                    lex_token_slice TokenKind::DirExtern source file_id start line_end
-                                                                                else:
-                                                                                    if:
-                                                                                        lex_directive_word_at source n start "#intrinsic"
-                                                                                        then:
-                                                                                            lex_token_slice TokenKind::DirIntrinsic source file_id start add start 10
-                                                                                        else:
-                                                                                            if:
-                                                                                                lex_directive_word_at source n start "#prelude"
-                                                                                                then:
-                                                                                                    lex_token_slice TokenKind::DirPrelude source file_id start line_end
-                                                                                                else:
-                                                                                                    if:
-                                                                                                        lex_directive_word_at source n start "#no_prelude"
-                                                                                                        then:
-                                                                                                            lex_token_slice TokenKind::DirNoPrelude source file_id start line_end
-                                                                                                        else:
-                                                                                                            if:
-                                                                                                                string_search::str_starts_with_at source start "#if[target="
-                                                                                                                then:
-                                                                                                                    lex_token_slice TokenKind::DirIfTarget source file_id start lex_hash_bracket_end source n start
-                                                                                                                else:
-                                                                                                                    if:
-                                                                                                                        string_search::str_starts_with_at source start "#if[profile="
-                                                                                                                        then:
-                                                                                                                            lex_token_slice TokenKind::DirIfProfile source file_id start lex_hash_bracket_end source n start
-                                                                                                                        else:
-                                                                                                                            lex_token_slice TokenKind::Unknown source file_id start add start 1
+        SelfhostLexerDirectiveKind::IndentWidth:
+            lex_token_slice TokenKind::DirIndentWidth source file_id start line_end
+        SelfhostLexerDirectiveKind::Target:
+            lex_token_slice TokenKind::DirTarget source file_id start line_end
+        SelfhostLexerDirectiveKind::Import:
+            lex_token_slice TokenKind::DirImport source file_id start line_end
+        SelfhostLexerDirectiveKind::Use:
+            lex_token_slice TokenKind::DirUse source file_id start line_end
+        SelfhostLexerDirectiveKind::IfTarget:
+            lex_token_slice TokenKind::DirIfTarget source file_id start lex_hash_bracket_end source n start
+        SelfhostLexerDirectiveKind::IfProfile:
+            lex_token_slice TokenKind::DirIfProfile source file_id start lex_hash_bracket_end source n start
+        SelfhostLexerDirectiveKind::Capability:
+            lex_token_slice TokenKind::DirCapability source file_id start line_end
+        SelfhostLexerDirectiveKind::Wasm:
+            lex_token_slice TokenKind::DirWasm source file_id start line_end
+        SelfhostLexerDirectiveKind::LlvmIr:
+            lex_token_slice TokenKind::DirLlvmIr source file_id start line_end
+        SelfhostLexerDirectiveKind::Include:
+            lex_token_slice TokenKind::DirInclude source file_id start line_end
+        SelfhostLexerDirectiveKind::Extern:
+            lex_token_slice TokenKind::DirExtern source file_id start line_end
+        SelfhostLexerDirectiveKind::Intrinsic:
+            lex_token_slice TokenKind::DirIntrinsic source file_id start add start 10
+        SelfhostLexerDirectiveKind::Prelude:
+            lex_token_slice TokenKind::DirPrelude source file_id start line_end
+        SelfhostLexerDirectiveKind::NoPrelude:
+            lex_token_slice TokenKind::DirNoPrelude source file_id start line_end
+        SelfhostLexerDirectiveKind::Unknown:
+            lex_token_slice TokenKind::Unknown source file_id start add start 1
 
 //: lex_mlstr_token: `##:` line を token 化する
 fn lex_mlstr_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
@@ -1086,26 +1162,37 @@ fn lex_fail_indent <(Vec<SelfhostToken>,Vec<i32>,i32,i32,str)*>Result<Vec<Selfho
     Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset message
 
 //: lex_token_pending_raw_mode: raw block を開始する directive なら mode を[返/かえ]す
-fn lex_token_pending_raw_mode <(SelfhostToken)->i32> (token):
+fn lex_token_pending_raw_mode <(SelfhostToken)->SelfhostLexerRawMode> (token):
     match field::get token "kind":
         TokenKind::DirWasm:
-            1
+            SelfhostLexerRawMode::Wasm
         TokenKind::DirLlvmIr:
-            2
+            SelfhostLexerRawMode::LlvmIr
         _:
-            0
+            SelfhostLexerRawMode::None
+
+//: lex_raw_mode_is_active: raw block mode が active か[返/かえ]す
+fn lex_raw_mode_is_active <(SelfhostLexerRawMode)->bool> (raw_mode):
+    match raw_mode:
+        SelfhostLexerRawMode::None:
+            false
+        SelfhostLexerRawMode::Wasm:
+            true
+        SelfhostLexerRawMode::LlvmIr:
+            true
 
 //: lex_raw_kind: raw block mode から token kind を[返/かえ]す
-fn lex_raw_kind <(i32)->TokenKind> (raw_mode):
-    if:
-        eq raw_mode 1
-        then:
+fn lex_raw_kind <(SelfhostLexerRawMode)->TokenKind> (raw_mode):
+    match raw_mode:
+        SelfhostLexerRawMode::None:
+            TokenKind::Unknown
+        SelfhostLexerRawMode::Wasm:
             TokenKind::WasmText
-        else:
+        SelfhostLexerRawMode::LlvmIr:
             TokenKind::LlvmIrText
 
 //: lex_raw_token: raw block の 1 行を text token にする
-fn lex_raw_token <(str,i32,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx, raw_mode):
+fn lex_raw_token <(str,i32,i32,i32,SelfhostLexerRawMode)->SelfhostToken> (source, n, file_id, idx, raw_mode):
     let content_start <i32> lex_line_content_start source n idx
     lex_token_slice lex_raw_kind raw_mode source file_id content_start lex_line_end source n idx
 
@@ -1127,7 +1214,7 @@ fn lex_finish_eof <(Vec<SelfhostToken>,Vec<i32>,i32,i32)*>Result<Vec<SelfhostTok
             lex_push_structural tokens TokenKind::Eof file_id offset
 
 //: lex_dedent_to: current line の indent level に合うまで Dedent を[生成/せいせい]する
-fn lex_dedent_to <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,bool,i32,i32,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, target_width, at_line_start, raw_mode, raw_base, pending_raw_mode):
+fn lex_dedent_to <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,bool,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, target_width, at_line_start, raw_mode, raw_base, pending_raw_mode):
     match lex_stack_top_result &stack file_id idx:
         Result::Err diag:
             free<SelfhostToken> tokens
@@ -1153,7 +1240,7 @@ fn lex_dedent_to <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,bool,i32,
                                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
 
 //: lex_line_start: 行頭の offside rule と raw block state を[処理/しょり]する
-fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,i32,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, raw_mode, raw_base, pending_raw_mode):
+fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, raw_mode, raw_base, pending_raw_mode):
     let content_start <i32> lex_line_content_start source n idx
     if:
         lex_line_is_blank_or_comment source n content_start
@@ -1169,7 +1256,7 @@ fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,i32,i32)
                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
                 Result::Ok current:
                     if:
-                        gt pending_raw_mode 0
+                        lex_raw_mode_is_active pending_raw_mode
                         then:
                             if:
                                 lt indent_width add current indent_unit
@@ -1181,7 +1268,7 @@ fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,i32,i32)
                                         Result::Ok next_stack:
                                             match lex_push_structural tokens TokenKind::Indent file_id idx:
                                                 Result::Ok out:
-                                                    lex_all_loop source n file_id idx out next_stack next_indent_unit true true pending_raw_mode expected_base 0
+                                                    lex_all_loop source n file_id idx out next_stack next_indent_unit true true pending_raw_mode expected_base SelfhostLexerRawMode::None
                                                 Result::Err diag:
                                                     free<i32> next_stack
                                                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
@@ -1190,14 +1277,14 @@ fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,i32,i32)
                                             Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory source_span_empty file_id idx "lexer indent stack allocation failed"
                         else:
                             if:
-                                gt raw_mode 0
+                                lex_raw_mode_is_active raw_mode
                                 then:
                                     if:
                                         lt indent_width raw_base
                                         then:
-                                            lex_dedent_to source n file_id idx tokens stack next_indent_unit indent_width true 0 0 0
+                                            lex_dedent_to source n file_id idx tokens stack next_indent_unit indent_width true SelfhostLexerRawMode::None 0 SelfhostLexerRawMode::None
                                         else:
-                                            lex_all_loop source n file_id idx tokens stack next_indent_unit true true raw_mode raw_base 0
+                                            lex_all_loop source n file_id idx tokens stack next_indent_unit true true raw_mode raw_base SelfhostLexerRawMode::None
                                 else:
                                     if:
                                         gt indent_width current
@@ -1209,7 +1296,7 @@ fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,i32,i32)
                                                         Result::Ok next_stack:
                                                             match lex_push_structural tokens TokenKind::Indent file_id idx:
                                                                 Result::Ok out:
-                                                                    lex_all_loop source n file_id idx out next_stack next_indent_unit true true 0 0 0
+                                                                    lex_all_loop source n file_id idx out next_stack next_indent_unit true true SelfhostLexerRawMode::None 0 SelfhostLexerRawMode::None
                                                                 Result::Err diag:
                                                                     free<i32> next_stack
                                                                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
@@ -1222,12 +1309,12 @@ fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,i32,i32)
                                             if:
                                                 lt indent_width current
                                                 then:
-                                                    lex_dedent_to source n file_id idx tokens stack next_indent_unit indent_width true 0 0 0
+                                                    lex_dedent_to source n file_id idx tokens stack next_indent_unit indent_width true SelfhostLexerRawMode::None 0 SelfhostLexerRawMode::None
                                                 else:
-                                                    lex_all_loop source n file_id idx tokens stack next_indent_unit true true 0 0 0
+                                                    lex_all_loop source n file_id idx tokens stack next_indent_unit true true SelfhostLexerRawMode::None 0 SelfhostLexerRawMode::None
 
 //: lex_all_loop: EOF まで token を[集/あつ]め、offside structural token を[挿入/そうにゅう]する
-fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,i32,i32,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, at_line_start, line_checked, raw_mode, raw_base, pending_raw_mode):
+fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, at_line_start, line_checked, raw_mode, raw_base, pending_raw_mode):
     if:
         ge idx n
         then:
@@ -1239,7 +1326,7 @@ fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,i32,
                     lex_line_start source n file_id idx tokens stack indent_unit raw_mode raw_base pending_raw_mode
                 else:
                     if:
-                        and at_line_start gt raw_mode 0
+                        and at_line_start lex_raw_mode_is_active raw_mode
                         then:
                             let raw_token <SelfhostToken> lex_raw_token source n file_id idx raw_mode
                             match lex_push tokens raw_token:
@@ -1264,8 +1351,8 @@ fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,i32,
                                         else:
                                             match lex_push tokens token:
                                                 Result::Ok out:
-                                                    let token_pending <i32> lex_token_pending_raw_mode token
-                                                    let next_pending <i32> if gt token_pending 0 token_pending pending_raw_mode
+                                                    let token_pending <SelfhostLexerRawMode> lex_token_pending_raw_mode token
+                                                    let next_pending <SelfhostLexerRawMode> if lex_raw_mode_is_active token_pending token_pending pending_raw_mode
                                                     if:
                                                         selfhost_token_is_newline token
                                                         then:
@@ -1287,7 +1374,7 @@ fn lex_all_with_file_id <(str,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (s
                 Result::Ok stack0:
                     match push<i32> stack0 0:
                         Result::Ok stack:
-                            lex_all_loop source string_access::len source file_id 0 tokens stack 4 true false 0 0 0
+                            lex_all_loop source string_access::len source file_id 0 tokens stack 4 true false SelfhostLexerRawMode::None 0 SelfhostLexerRawMode::None
                         Result::Err _e:
                             free<SelfhostToken> tokens
                             let span <SelfhostSourceSpan> source_span_empty file_id 0
