@@ -9,6 +9,14 @@
 - line count は `io.nepl` 41、`io/bytebuf.nepl` 295、`io/bytebuilder.nepl` 448、`io/traits.nepl` 91。
 - 検証は `trunk build`、ByteBuf/ByteBuilder/UTF-8 source policies、root/bytebuf/bytebuilder/traits focused doctest、io/streamio/text_utf8 suite、`cargo test -p nepl-core --test effects`、`cargo fmt --check -p nepl-core`、`cargo check -p nepl-core --tests` が通過した。
 
+# 2026-05-07 note (ISS-20260507T043123048Z Resource external IO initialized effect split)
+
+- branch `refactor/resource-external-io-effect-split` で、`initialized_external_io_effect.rs` が `resource/mod.rs` に存在するのに source policy の必須 module 一覧から漏れていた問題を修正した。
+- `initialized_external_io_effect.rs` は fd_read/fd_pread/fd_write などの initialized-effect application に集中させ、iovec descriptor/payload input check は `initialized_external_io_iov.rs`、iovec buffer/length cell の layout helper は `initialized_external_io_iov_layout.rs` へ分離した。
+- `fd_write` の payload check が旧 unknown-offset initialized cell だけを見ていたため、`fill_i32` 由来の typed initialized range と iovec length が対応する場合も受け取れるように `cell_state_raw_range_count.rs` を追加した。これにより typed range model へ移行した後も `fd_write` の入力検査を弱めずに維持する。
+- source policy は新 module の存在、`mod` 宣言、行数上限を固定した。
+- 検証は `node nodesrc/test_resource_checker_responsibility.js`、`cargo check -p nepl-core --tests`、`cargo test -p nepl-core --test resource_ir fd_read -- --nocapture`、`cargo test -p nepl-core --test resource_ir fd_write -- --nocapture` が通過した。
+
 # 2026-05-07 note (ISS-20260507T032436743Z Resource range/summary responsibility split)
 
 - branch `refactor/resource-raw-range-module-split` で、Resource IR Stage 4 の raw range / initialized alias / initialized summary proof module の責務集中を分解した。
