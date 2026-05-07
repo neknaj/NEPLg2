@@ -6369,6 +6369,77 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_accepts_retagged_mem_ptr_after_byte_and_word_fill() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region<u8> 16:
+        Result::Err _e:
+            0
+        Result::Ok token:
+            let p_u8 <MemPtr<u8>> region_ptr &token
+            let p_i32 <MemPtr<i32>> mem_ptr_wrap mem_ptr_addr p_u8
+            match fill_u8 p_u8 16 0:
+                Result::Err _e:
+                    match dealloc_region token:
+                        Result::Err _drop:
+                            0
+                        Result::Ok _:
+                            0
+                Result::Ok _:
+                    match fill_i32 p_i32 4 7:
+                        Result::Err _e:
+                            match dealloc_region token:
+                                Result::Err _drop:
+                                    0
+                                Result::Ok _:
+                                    0
+                        Result::Ok _:
+                            let ok <i32> match load_i32 p_i32:
+                                Option::None:
+                                    0
+                                Option::Some v:
+                                    if eq v 7 1 0
+                            match dealloc_region token:
+                                Result::Err _e:
+                                    0
+                                Result::Ok _:
+                                    ok
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasm);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "retagged MemPtr fill_i32 must initialize the typed cell read by load_i32: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("borrowed region_ptr retag with byte and word fill must compile");
+}
+
+#[test]
 fn resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement() {
     let source = r#"
 #entry main

@@ -1,3 +1,23 @@
+# 2026-05-07 note (ISS-20260507T111447246Z ResourceIR MemPtr retag fill initialized cell)
+
+- branch `fix/resource-retag-fill-initialized-cell` で、`MemPtr<u8>` から `mem_ptr_addr` / `mem_ptr_wrap` で作った `MemPtr<i32>` に `fill_i32` した後の `load_i32` が `resource.cell.uninit` になる問題を修正した。
+- 根本原因は、Resource IR の raw cell initialization summary が direct / variant-gated param cell は扱っていた一方で、`fill_i32` のような `Result::Ok` 成功分岐に紐づく raw byte/element range 初期化を caller へ伝播していなかったことだった。
+- `RawCellInitializationParamByteRange` と `RawCellInitializationVariantParamByteRange` を追加し、address param、count param、range unit、element type を summary と pending variant state に保持するようにした。
+- `load_i32` などの variant-gated raw load requirement は、直接 `CellState::Initialized` だけでなく、同じ raw address を cover する initialized byte/element range でも満たすようにした。`RawMemoryLoadCell` gate は維持し、true load-before-store は引き続き拒否する。
+- `resource_ir_cell_check_accepts_retagged_mem_ptr_after_byte_and_word_fill` を追加し、`fill_u8` 後に retagged `MemPtr<i32>` へ `fill_i32` して `load_i32` する経路を固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_accepts_retagged_mem_ptr_after_byte_and_word_fill -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_borrowed_region_ptr_retag_then_region_dealloc -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_raw_fill_helpers_initialize_copy_cells -- --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `trunk build --release`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/memory_safety.n.md -n 8 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-retag-fill-initialized-cell.json -j 1 --dist web/dist`: total=14, passed=14
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-retag-fill-initialized-cell.json -j 1 --dist web/dist`: total=110, passed=110
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T112048241Z Resource aggregate projection module exceeds responsibility split limit)
 
 - `ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D` を追加した。

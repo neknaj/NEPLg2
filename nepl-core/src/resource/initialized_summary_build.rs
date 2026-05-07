@@ -10,7 +10,9 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummary;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
-use super::initialized_summary_byte_ranges::collect_return_initialized_raw_byte_ranges;
+use super::initialized_summary_byte_ranges::{
+    collect_param_initialized_raw_byte_ranges, collect_return_initialized_raw_byte_ranges,
+};
 use super::initialized_summary_cells::collect_return_initialized_raw_cells;
 use super::initialized_summary_param_cells::collect_param_initialized_raw_cells;
 use super::initialized_summary_release_build::collect_param_release_requirements_from_ops;
@@ -59,8 +61,10 @@ fn update_raw_cell_initialization_summary(
     let has_facts = !summary.return_cells.is_empty()
         || !summary.return_byte_ranges.is_empty()
         || !summary.param_cells.is_empty()
+        || !summary.param_byte_ranges.is_empty()
         || !summary.param_release_requirements.is_empty()
         || !summary.variant_param_cells.is_empty()
+        || !summary.variant_param_byte_ranges.is_empty()
         || !summary.variant_required_param_cells.is_empty()
         || !summary.variant_conditions.is_empty();
     let position = summaries
@@ -118,14 +122,17 @@ fn function_raw_cell_initialization_summary(
         return_cells: Vec::new(),
         return_byte_ranges: Vec::new(),
         param_cells: Vec::new(),
+        param_byte_ranges: Vec::new(),
         param_release_requirements: Vec::new(),
         variant_param_cells: Vec::new(),
+        variant_param_byte_ranges: Vec::new(),
         variant_required_param_cells: Vec::new(),
         variant_conditions: Vec::new(),
     };
     let mut guaranteed_return_cells = None;
     let mut guaranteed_return_byte_ranges = None;
     let mut guaranteed_param_cells = None;
+    let mut guaranteed_param_byte_ranges = None;
     let mut variant_initializations = PendingVariantRawCellInitializations::default();
     for block in &function.blocks {
         collect_param_release_requirements_from_ops(
@@ -171,6 +178,15 @@ fn function_raw_cell_initialization_summary(
                 &function.params,
             );
             merge_guaranteed_facts(&mut guaranteed_param_cells, path_param_cells);
+
+            let mut path_param_byte_ranges = Vec::new();
+            collect_param_initialized_raw_byte_ranges(
+                &mut path_param_byte_ranges,
+                &cells,
+                &raw_aliases,
+                &function.params,
+            );
+            merge_guaranteed_facts(&mut guaranteed_param_byte_ranges, path_param_byte_ranges);
         }
         if let ResourceTerminator::Return {
             value: Some(value), ..
@@ -178,6 +194,7 @@ fn function_raw_cell_initialization_summary(
         {
             collect_variant_param_initialized_raw_cells_from_return(
                 &mut out.variant_param_cells,
+                &mut out.variant_param_byte_ranges,
                 &mut out.variant_required_param_cells,
                 &mut out.variant_conditions,
                 function,
@@ -192,6 +209,7 @@ fn function_raw_cell_initialization_summary(
     out.return_cells = guaranteed_return_cells.unwrap_or_default();
     out.return_byte_ranges = guaranteed_return_byte_ranges.unwrap_or_default();
     out.param_cells = guaranteed_param_cells.unwrap_or_default();
+    out.param_byte_ranges = guaranteed_param_byte_ranges.unwrap_or_default();
     out
 }
 

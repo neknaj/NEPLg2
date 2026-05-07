@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T11:21:32.046Z",
+  "generated_at": "2026-05-07T11:31:28.629Z",
   "counts": {
-    "total": 579,
-    "open": 11,
+    "total": 580,
+    "open": 12,
     "resolved": 568,
     "by_area": {
       "core": {
-        "total": 288,
-        "open": 4,
+        "total": 289,
+        "open": 5,
         "resolved": 284
       },
       "stdlib": {
@@ -133,6 +133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F",
+      "title": "ResourceIR full regression suite fails on origin/main baseline",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F.md"
     },
     {
       "id": "ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D",
@@ -4140,21 +4155,6 @@
       "file": "items/ISS-20260506T215615927Z-RESOURCE-RAWADDRESSVIEW-TREATS-ORDIN-B3C620DA.md"
     },
     {
-      "id": "ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F",
-      "title": "ResourceIR full regression suite fails on origin/main baseline",
-      "area": "core",
-      "status": "fixed",
-      "resolved": true,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-07",
-      "target": "nepl-core/src/resource, nepl-core/tests/resource_ir.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F.md"
-    },
-    {
       "id": "ISS-20260507T003424385Z-RESOURCE-OWNER-SUMMARY-DROPS-RAW-OWN-AE32128E",
       "title": "Resource owner summary drops raw owner carried by Result scalar payload",
       "area": "core",
@@ -4393,6 +4393,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T102231849Z-RESOURCE-CHECKER-TREATS-TUPLE-FIELD--2BB94C3A.md"
+    },
+    {
+      "id": "ISS-20260507T111447246Z-RESOURCE-IR-LOSES-INITIALIZED-CELL-S-9B6B283B",
+      "title": "Resource IR loses initialized cell state after MemPtr retagged fill",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T111447246Z-RESOURCE-IR-LOSES-INITIALIZED-CELL-S-9B6B283B.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

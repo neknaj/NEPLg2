@@ -2,8 +2,8 @@
 id: ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F
 title: "ResourceIR full regression suite fails on origin/main baseline"
 area: core
-status: fixed
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: bug
 created: 2026-05-06
@@ -119,3 +119,33 @@ cargo test -p nepl-core --test resource_ir -- --nocapture must pass on clean ori
 - `cargo test -p nepl-core resource::initialized_alias_flow::tests:: -- --nocapture`: passed
 - `trunk build`: passed
 - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tmp/probe_lex_empty.n.md --no-tree -o tmp/probe_lex_empty_after_trunk_result_value_summary.json -j 1 --assert-io`: timeout せず既知の `resource.owner.maybe_leak` diagnostic で compile fail
+
+## 2026-05-07 Agent 1 再発確認
+
+`fix/resource-retag-fill-initialized-cell` の検証中に `cargo test -p nepl-core --test resource_ir -- --nocapture` を実行し、現在の `main` baseline でも ResourceIR full suite が再び失敗していることを確認した。
+
+切り分けとして WIP を stash し、clean `main` で `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads -- --nocapture` を実行したところ、同じ `RawMemoryLoadCell` / `resource.cell.uninit` で失敗した。したがって今回の `MemPtr` retag fill summary 修正による新規 regression ではない。
+
+現在観測した full suite の状態:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`: 213 passed / 15 failed
+
+失敗テスト:
+
+- `resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads`
+- `resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads`
+- `resource_ir_cell_check_rekeys_raw_cells_after_loading_raw_address_cell`
+- `resource_ir_cell_check_summarizes_initialized_cells_behind_returned_header_pointer`
+- `resource_ir_owner_check_consumes_only_used_aggregate_owner_projection`
+- `resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind`
+- `resource_ir_owner_check_moves_stored_tail_owner_under_new_raw_node`
+- `resource_ir_owner_check_reinitializes_self_update_aggregate_return`
+- `resource_ir_owner_check_reinitializes_self_update_fresh_projection_return`
+- `resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement`
+- `resource_ir_owner_check_rejects_mem_ptr_use_before_realloc_result_refinement`
+- `resource_ir_owner_check_returns_aggregate_with_raw_cell_owner_stored_through_field_alias`
+- `resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_helper`
+- `resource_ir_owner_check_transfers_owner_returned_by_function_value`
+- `resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm`
+
+優先度は P1 のまま維持する。静的検査大規模修正の完了条件として、これらは expected-fail 化せず root cause ごとに解消する必要がある。

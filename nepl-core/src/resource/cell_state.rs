@@ -384,7 +384,7 @@ fn raw_cell_state_flows_to_query(entry: &Place, query: &Place) -> bool {
     raw_cell_suffix_after_address(entry, &query_address).is_some()
 }
 
-fn raw_cell_address_prefix(cell: &Place) -> Option<Place> {
+pub(super) fn raw_cell_address_prefix(cell: &Place) -> Option<Place> {
     let deref_index = cell
         .projections
         .iter()

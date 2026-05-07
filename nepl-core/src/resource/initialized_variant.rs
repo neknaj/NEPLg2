@@ -3,7 +3,8 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use super::cell_state::CellTable;
+use super::cell_state::{raw_cell_address_prefix, CellTable};
+use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::{
@@ -34,6 +35,20 @@ struct PendingVariantRawCellRequirement {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingVariantRawByteRangeInitialization {
+    result: Place,
+    variant: String,
+    address_arg: Place,
+    address_suffix: Vec<super::model::PlaceProjection>,
+    address_ty: crate::types::TypeId,
+    count_arg: Place,
+    count_suffix: Vec<super::model::PlaceProjection>,
+    count_ty: crate::types::TypeId,
+    unit: InitializedRawRangeUnit,
+    ty: crate::types::TypeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct PendingUnreachableVariant {
     result: Place,
     variant: String,
@@ -42,6 +57,7 @@ struct PendingUnreachableVariant {
 #[derive(Debug, Clone, Default)]
 pub(super) struct PendingVariantRawCellInitializations {
     entries: Vec<PendingVariantRawCellInitialization>,
+    byte_ranges: Vec<PendingVariantRawByteRangeInitialization>,
     requirements: Vec<PendingVariantRawCellRequirement>,
     unreachable_variants: Vec<PendingUnreachableVariant>,
 }
@@ -76,6 +92,26 @@ impl PendingVariantRawCellInitializations {
                 holds_raw_address: cell.holds_raw_address,
             });
         }
+        for range in &summary.variant_param_byte_ranges {
+            let Some(address_arg) = args.get(range.address_param_index) else {
+                continue;
+            };
+            let Some(count_arg) = args.get(range.count_param_index) else {
+                continue;
+            };
+            self.push_unique_byte_range(PendingVariantRawByteRangeInitialization {
+                result: output.clone(),
+                variant: normalize_variant_name(&range.variant),
+                address_arg: raw_aliases.canonicalize(address_arg),
+                address_suffix: range.address_suffix.clone(),
+                address_ty: range.address_ty,
+                count_arg: raw_aliases.canonicalize_scalar(count_arg),
+                count_suffix: range.count_suffix.clone(),
+                count_ty: range.count_ty,
+                unit: range.unit,
+                ty: range.ty,
+            });
+        }
         for cell in &summary.variant_required_param_cells {
             let Some(arg) = args.get(cell.param_index) else {
                 continue;
@@ -105,6 +141,27 @@ impl PendingVariantRawCellInitializations {
         if self.variant_is_unreachable(scrutinee, &variant) {
             return;
         }
+        for range in &self.byte_ranges {
+            if range.result != *scrutinee || range.variant != variant {
+                continue;
+            }
+            let address_arg = raw_aliases.canonicalize(&range.address_arg);
+            let address = projected_place_with_concrete_type(
+                engine.types,
+                &address_arg,
+                &range.address_suffix,
+                range.address_ty,
+            );
+            let count_arg = raw_aliases.canonicalize_scalar(&range.count_arg);
+            let count = projected_place_with_concrete_type(
+                engine.types,
+                &count_arg,
+                &range.count_suffix,
+                range.count_ty,
+            );
+            let count = raw_aliases.canonicalize_scalar(&count);
+            cells.mark_initialized_raw_byte_range(&address, &count, range.unit, range.ty);
+        }
         for requirement in &self.requirements {
             if requirement.result != *scrutinee || requirement.variant != variant {
                 continue;
@@ -116,12 +173,18 @@ impl PendingVariantRawCellInitializations {
                 &requirement.suffix,
                 requirement.ty,
             );
-            engine.ensure_available(
-                cells,
-                &place,
-                ResourceCheckOperation::RawMemoryLoadCell,
-                span,
-            );
+            let initialized_by_byte_range =
+                raw_cell_address_prefix(&place).is_some_and(|address| {
+                    cells.raw_cell_initialized_by_byte_range(&address, place.ty, raw_aliases)
+                });
+            if !initialized_by_byte_range {
+                engine.ensure_available(
+                    cells,
+                    &place,
+                    ResourceCheckOperation::RawMemoryLoadCell,
+                    span,
+                );
+            }
         }
         for entry in &self.entries {
             if entry.result != *scrutinee || entry.variant != variant {
@@ -177,6 +240,23 @@ impl PendingVariantRawCellInitializations {
                 ty: entry.ty,
             })
             .collect::<Vec<_>>();
+        let byte_range_copies = self
+            .byte_ranges
+            .iter()
+            .filter(|entry| entry.result == *source)
+            .map(|entry| PendingVariantRawByteRangeInitialization {
+                result: target.clone(),
+                variant: entry.variant.clone(),
+                address_arg: entry.address_arg.clone(),
+                address_suffix: entry.address_suffix.clone(),
+                address_ty: entry.address_ty,
+                count_arg: entry.count_arg.clone(),
+                count_suffix: entry.count_suffix.clone(),
+                count_ty: entry.count_ty,
+                unit: entry.unit,
+                ty: entry.ty,
+            })
+            .collect::<Vec<_>>();
         let unreachable_copies = self
             .unreachable_variants
             .iter()
@@ -193,6 +273,9 @@ impl PendingVariantRawCellInitializations {
         for entry in requirement_copies {
             self.push_unique_requirement(entry);
         }
+        for entry in byte_range_copies {
+            self.push_unique_byte_range(entry);
+        }
         for entry in unreachable_copies {
             self.push_unique_unreachable(entry);
         }
@@ -200,6 +283,7 @@ impl PendingVariantRawCellInitializations {
 
     pub(super) fn clear_result(&mut self, result: &Place) {
         self.entries.retain(|entry| entry.result != *result);
+        self.byte_ranges.retain(|entry| entry.result != *result);
         self.requirements.retain(|entry| entry.result != *result);
         self.unreachable_variants
             .retain(|entry| entry.result != *result);
@@ -226,6 +310,15 @@ impl PendingVariantRawCellInitializations {
                 .all(|path| path.requirements.iter().any(|existing| existing == entry))
             {
                 out.push_unique_requirement(entry.clone());
+            }
+        }
+        for entry in &first.byte_ranges {
+            if paths
+                .iter()
+                .skip(1)
+                .all(|path| path.byte_ranges.iter().any(|existing| existing == entry))
+            {
+                out.push_unique_byte_range(entry.clone());
             }
         }
         for entry in &first.unreachable_variants {
@@ -286,6 +379,13 @@ impl PendingVariantRawCellInitializations {
             return;
         }
         self.requirements.push(entry);
+    }
+
+    fn push_unique_byte_range(&mut self, entry: PendingVariantRawByteRangeInitialization) {
+        if self.byte_ranges.iter().any(|existing| existing == &entry) {
+            return;
+        }
+        self.byte_ranges.push(entry);
     }
 
     fn push_unique_unreachable(&mut self, entry: PendingUnreachableVariant) {

@@ -103,6 +103,30 @@ impl ResourceCheckEngine<'_> {
                 mark_known_raw_address(raw_aliases, &place);
             }
         }
+        for range in &summary.param_byte_ranges {
+            let Some(address_arg) = args.get(range.address_param_index) else {
+                continue;
+            };
+            let Some(count_arg) = args.get(range.count_param_index) else {
+                continue;
+            };
+            let address_arg = raw_aliases.canonicalize(address_arg);
+            let address = projected_place_with_concrete_type(
+                self.types,
+                &address_arg,
+                &range.address_suffix,
+                range.address_ty,
+            );
+            let count_arg = raw_aliases.canonicalize_scalar(count_arg);
+            let count = projected_place_with_concrete_type(
+                self.types,
+                &count_arg,
+                &range.count_suffix,
+                range.count_ty,
+            );
+            let count = raw_aliases.canonicalize_scalar(&count);
+            cells.mark_initialized_raw_byte_range(&address, &count, range.unit, range.ty);
+        }
         release_requirements_ok
     }
 }

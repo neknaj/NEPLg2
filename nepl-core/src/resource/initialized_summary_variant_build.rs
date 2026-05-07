@@ -13,8 +13,10 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummary;
 use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationVariantCondition,
-    RawCellInitializationVariantParamCell, RawCellInitializationVariantParamRequirement,
+    RawCellInitializationVariantParamByteRange, RawCellInitializationVariantParamCell,
+    RawCellInitializationVariantParamRequirement,
 };
+use super::initialized_summary_byte_ranges::collect_param_initialized_raw_byte_ranges;
 use super::initialized_summary_param_cells::collect_param_initialized_raw_cells;
 use super::initialized_summary_variant_condition::collect_variant_param_condition;
 use super::initialized_summary_variant_requirement::collect_variant_param_required_raw_cells;
@@ -29,6 +31,7 @@ use super::report::ResourceCheckDeferred;
 
 pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     out: &mut Vec<RawCellInitializationVariantParamCell>,
+    byte_range_out: &mut Vec<RawCellInitializationVariantParamByteRange>,
     requirement_out: &mut Vec<RawCellInitializationVariantParamRequirement>,
     condition_out: &mut Vec<RawCellInitializationVariantCondition>,
     function: &ResourceFunction,
@@ -76,6 +79,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
             if output == return_value {
                 collect_branch_variant_param_initialized_raw_cells(
                     out,
+                    byte_range_out,
                     requirement_out,
                     condition_out,
                     &engine,
@@ -92,6 +96,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
                 );
                 collect_branch_variant_param_initialized_raw_cells(
                     out,
+                    byte_range_out,
                     requirement_out,
                     condition_out,
                     &engine,
@@ -126,6 +131,7 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
 
 fn collect_branch_variant_param_initialized_raw_cells(
     out: &mut Vec<RawCellInitializationVariantParamCell>,
+    byte_range_out: &mut Vec<RawCellInitializationVariantParamByteRange>,
     requirement_out: &mut Vec<RawCellInitializationVariantParamRequirement>,
     condition_out: &mut Vec<RawCellInitializationVariantCondition>,
     engine: &ResourceCheckEngine<'_>,
@@ -193,6 +199,29 @@ fn collect_branch_variant_param_initialized_raw_cells(
             },
         );
     }
+    let mut path_param_byte_ranges = Vec::new();
+    collect_param_initialized_raw_byte_ranges(
+        &mut path_param_byte_ranges,
+        &path_cells,
+        &path_aliases,
+        params,
+    );
+    for range in path_param_byte_ranges {
+        push_unique_variant_param_byte_range(
+            byte_range_out,
+            RawCellInitializationVariantParamByteRange {
+                variant: normalize_variant_name(&variant),
+                address_param_index: range.address_param_index,
+                address_suffix: range.address_suffix,
+                address_ty: range.address_ty,
+                count_param_index: range.count_param_index,
+                count_suffix: range.count_suffix,
+                count_ty: range.count_ty,
+                unit: range.unit,
+                ty: range.ty,
+            },
+        );
+    }
     collect_variant_param_required_raw_cells(
         requirement_out,
         &variant,
@@ -225,6 +254,15 @@ fn push_unique_variant_param_cell(
 ) {
     if !cells.iter().any(|existing| existing == &cell) {
         cells.push(cell);
+    }
+}
+
+fn push_unique_variant_param_byte_range(
+    ranges: &mut Vec<RawCellInitializationVariantParamByteRange>,
+    range: RawCellInitializationVariantParamByteRange,
+) {
+    if !ranges.iter().any(|existing| existing == &range) {
+        ranges.push(range);
     }
 }
 
