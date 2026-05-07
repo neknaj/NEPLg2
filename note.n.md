@@ -1,3 +1,19 @@
+# 2026-05-08 Agent 2 examples doctest CI 追加
+
+- `ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895` を fixed/resolved に更新した。
+- 根本原因は、CI が `tests` / `tutorials` / `stdlib` の doctest job と JSON artifact を持つ一方で、`examples` は `examples/nm.nepl` compile smoke だけで、doctest root として実行していなかったことだった。
+- `.github/workflows/ci.yml` に `examples-test` job を追加し、bootstrap build artifact を使って `node nodesrc/tests.js -i examples -o examples-tests.json -j 4` を実行するようにした。
+- `examples-tests.json` を artifact upload し、`pages-final-bundle` の `needs` / artifact download / `dist/tests/examples-tests.json` merge / `dist/tests/status.json` の `examples_test` に接続した。
+- `nodesrc/test_ci_examples_doctest_job.js` を追加し、examples doctest job と Pages final summary への集約が消えないよう source-policy regression で固定した。
+- [検証]:
+  - `node nodesrc/test_ci_examples_doctest_job.js`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/examples-ci-final-after-doc.json -j 4 --dist web/dist`: total=32, passed=32
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 2 cliarg raw argv boundary capability 修正
 
 - `ISS-20260507T175704848Z-CLIARG-RAW-ARGV-BOUNDARY-LACKS-RAW-M-C25E93E9` を追加し、fixed/resolved に更新した。

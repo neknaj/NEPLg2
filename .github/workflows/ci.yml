@@ -262,6 +262,32 @@ jobs:
                   path: tutorials-tests.json
                   if-no-files-found: ignore
 
+    examples-test:
+        runs-on: ubuntu-latest
+        needs: build
+        timeout-minutes: 10
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Download bootstrap build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: bootstrap-build
+                  path: .
+
+            - name: Run examples doctests
+              run: timeout --signal=KILL 10m node nodesrc/tests.js -i examples -o examples-tests.json -j 4
+
+            - name: Upload examples test JSON
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: examples-tests
+                  path: examples-tests.json
+                  if-no-files-found: ignore
+
     stdlib-test:
         runs-on: ubuntu-latest
         needs: build
@@ -507,6 +533,7 @@ jobs:
             - wasi-test
             - nmd-doctest
             - tutorials-test
+            - examples-test
             - stdlib-test
             - llvm-test
             - llvm-dual-test
@@ -541,6 +568,13 @@ jobs:
                   name: tutorials-tests
                   path: artifacts/tutorials
 
+            - name: Download examples test artifact
+              continue-on-error: true
+              uses: actions/download-artifact@v4
+              with:
+                  name: examples-tests
+                  path: artifacts/examples
+
             - name: Download stdlib test artifact
               continue-on-error: true
               uses: actions/download-artifact@v4
@@ -569,6 +603,7 @@ jobs:
                   cp -f artifacts/wasi/tests-current.json dist/tests/tests-current.json || true
                   cp -f artifacts/nmd/nmd-tests.json dist/tests/nmd-tests.json || true
                   cp -f artifacts/tutorials/tutorials-tests.json dist/tests/tutorials-tests.json || true
+                  cp -f artifacts/examples/examples-tests.json dist/tests/examples-tests.json || true
                   cp -f artifacts/stdlib/stdlib-tests.json dist/tests/stdlib-tests.json || true
                   cp -f artifacts/llvm/tests-llvm.json dist/tests/tests-llvm.json || true
                   cp -f artifacts/llvm-dual/tests-dual-tests.json dist/tests/tests-dual-tests.json || true
@@ -586,6 +621,7 @@ jobs:
                     "wasi_test": "${{ needs['wasi-test'].result }}",
                     "nmd_doctest": "${{ needs['nmd-doctest'].result }}",
                     "tutorials_test": "${{ needs['tutorials-test'].result }}",
+                    "examples_test": "${{ needs['examples-test'].result }}",
                     "stdlib_test": "${{ needs['stdlib-test'].result }}",
                     "llvm_test": "${{ needs['llvm-test'].result }}",
                     "llvm_dual_test": "${{ needs['llvm-dual-test'].result }}"

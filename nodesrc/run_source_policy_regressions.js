@@ -73,6 +73,7 @@ const checks = [
     "nodesrc/test_stdlib_hashmap_storage_contract.js",
     "nodesrc/test_stdlib_hashset_storage_contract.js",
     "nodesrc/test_stdlib_hash_string_access_boundary.js",
+    "nodesrc/test_ci_examples_doctest_job.js",
     "nodesrc/test_examples_string_direct_imports.js",
     "nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_vec_borrowed_observers.js",

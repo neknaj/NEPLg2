@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T18:01:46.803Z",
+  "generated_at": "2026-05-07T18:11:52.691Z",
   "counts": {
     "total": 614,
-    "open": 11,
-    "resolved": 603,
+    "open": 10,
+    "resolved": 604,
     "by_area": {
       "core": {
         "total": 306,
@@ -17,11 +17,6 @@
         "resolved": 160
       },
       "TEST": {
-        "total": 17,
-        "open": 1,
-        "resolved": 16
-      },
-      "examples": {
         "total": 17,
         "open": 1,
         "resolved": 16
@@ -60,6 +55,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "examples": {
+        "total": 17,
+        "open": 0,
+        "resolved": 17
       },
       "nodesrc": {
         "total": 6,
@@ -218,21 +218,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895",
-      "title": "Examples doctests are not run by CI",
-      "area": "examples",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "test",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": ".github/workflows/ci.yml, examples/*.nepl, nodesrc/tests.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -7898,6 +7883,21 @@
       "legacy_id": "RV-EXAMPLE-004",
       "source": "doc/review20260425/examples.md#rv-example-004",
       "file": "items/ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A.md"
+    },
+    {
+      "id": "ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895",
+      "title": "Examples doctests are not run by CI",
+      "area": "examples",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": ".github/workflows/ci.yml, examples/*.nepl, nodesrc/tests.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T153812328Z-EXAMPLES-DOCTESTS-ARE-NOT-RUN-BY-CI-13ED1895.md"
     },
     {
       "id": "ISS-20260426T052817994Z-COMPILE-RUNNER-REBUILDS-STDLIB-VFS-F-EBC4657B",
