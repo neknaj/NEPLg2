@@ -17,6 +17,17 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 2 ResourceIR tuple field move issue
+
+- `ISS-20260507T102231849Z-RESOURCE-CHECKER-TREATS-TUPLE-FIELD--2BB94C3A` を追加した。
+- Stack observer 検証中に、`tests/compiler/overload.n.md::overload_pair_field_from_generic_result_keeps_tuple_type` が current main で `resource.cell.moved` になることを確認した。
+- `field::get parts 0` のあとに `field::get parts 1` を行うと、ResourceIR は `parts` 全体を moved と扱っている。Tuple/struct owner の field move state を field 単位にするか、全 field を一度に move する destructuring を静的検査対象として設計する必要がある。
+- 静的検査周りは別 agent が進めているため、この turn では issue 化に留める。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-after-stack-primary-observers.json -j 1 --dist web/dist`: total=45, passed=44, failed=1（この issue の既知失敗）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T094645212Z mandatory DiagnosticCode)
 
 - branch `fix/diagnostic-code-required` で、Rust compiler diagnostic value が code-less 診断を型として許していた問題を修正した。

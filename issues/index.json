@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T10:25:32.589Z",
+  "generated_at": "2026-05-07T10:32:26.070Z",
   "counts": {
-    "total": 576,
-    "open": 11,
+    "total": 577,
+    "open": 12,
     "resolved": 565,
     "by_area": {
       "core": {
-        "total": 286,
-        "open": 3,
+        "total": 287,
+        "open": 4,
         "resolved": 283
       },
       "stdlib": {
@@ -133,6 +133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260507T102231849Z-RESOURCE-CHECKER-TREATS-TUPLE-FIELD--2BB94C3A",
+      "title": "Resource checker treats tuple field extraction as moving whole tuple in overload fixture",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "tests/compiler/overload.n.md, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T102231849Z-RESOURCE-CHECKER-TREATS-TUPLE-FIELD--2BB94C3A.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
