@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T01:05:02.979Z",
+  "generated_at": "2026-05-07T01:14:34.582Z",
   "counts": {
-    "total": 547,
-    "open": 12,
-    "resolved": 535,
+    "total": 549,
+    "open": 13,
+    "resolved": 536,
     "by_area": {
       "core": {
-        "total": 270,
-        "open": 4,
-        "resolved": 266
+        "total": 272,
+        "open": 5,
+        "resolved": 267
       },
       "stdlib": {
         "total": 157,
@@ -133,6 +133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE",
+      "title": "Resource owner summary leaf exceeds responsibility split policy",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/owner_summary_leaf.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4183,6 +4198,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T003424385Z-RESOURCE-OWNER-SUMMARY-DROPS-RAW-OWN-AE32128E.md"
+    },
+    {
+      "id": "ISS-20260507T011054993Z-RESOURCE-INITIALIZED-AVAILABILITY-CH-ED41979E",
+      "title": "Resource initialized availability checks exceed responsibility split policy",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/initialized.rs; nepl-core/src/resource/initialized_availability.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T011054993Z-RESOURCE-INITIALIZED-AVAILABILITY-CH-ED41979E.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

@@ -33252,3 +33252,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree --dist web/dist -o tmp/kp_agent1_after_unique_range_init_default_timeout.json -j 1 --assert-io`: total=7, passed=7, failed=0, errored=0
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 Resource initialized availability 責務分割
+
+- `ISS-20260507T011054993Z-RESOURCE-INITIALIZED-AVAILABILITY-CH-ED41979E` を追加して fixed にした。
+- `initialized.rs` が ResourceOp dispatch に availability / consume / unavailable diagnostic helper を抱え込み、source policy の責務分割上限を超えていた。
+- availability / consume helper は raw memory、summary release、variant requirement からも共通利用されるため、`initialized_availability.rs` に分離した。
+- `initialized.rs` は 658/750 行、`initialized_availability.rs` は 108/120 行になり、`nodesrc/test_resource_checker_responsibility.js` に新 module と上限を登録した。
+- 分割後に policy を直接実行したところ、次の未解決問題として `owner_summary_leaf.rs` 387/260 行が露出したため、`ISS-20260507T011238860Z-RESOURCE-OWNER-SUMMARY-LEAF-EXCEEDS--EE0957DE` を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core resource:: --lib`: 10 passed
+  - `trunk build`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: initialized 側は解消、`owner_summary_leaf.rs` 超過のみ warning
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/tests.js -i tests/compiler/drop.n.md -i tests/compiler/drop_overwrite.n.md --no-tree --dist web/dist -o tmp/drop_agent1_after_initialized_availability_split.json -j 1 --assert-io`: total=5, passed=5
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
