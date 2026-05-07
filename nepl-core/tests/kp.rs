@@ -321,6 +321,9 @@ fn wasi_fd_read_raw_iovec_debug() {
 #import "core/mem" as *
 #import "std/stdio" as *
 
+fn id <(i32)->i32> (x):
+    x
+
 fn main <()*>()> ():
     let cap <i32> 64;
     let buf <i32> alloc_raw cap;
@@ -333,26 +336,29 @@ fn main <()*>()> ():
 
     let errno <i32> fd_read 0 iov 1 nread;
     let n <i32> load_i32 nread;
+    let i0 <i32> id 0;
+    let i1 <i32> id 1;
+    let i2 <i32> id 2;
 
     print_i32 errno;
     print " ";
     print_i32 n;
     print " ";
-    if lt 0 n:
+    if and ge i0 0 lt i0 n:
         then:
-            print_i32 load_u8 buf
+            print_i32 load_u8 add buf i0
         else:
             print_i32 -1;
     print " ";
-    if lt 1 n:
+    if and ge i1 0 lt i1 n:
         then:
-            print_i32 load_u8 add buf 1
+            print_i32 load_u8 add buf i1
         else:
             print_i32 -1;
     print " ";
-    if lt 2 n:
+    if and ge i2 0 lt i2 n:
         then:
-            print_i32 load_u8 add buf 2
+            print_i32 load_u8 add buf i2
         else:
             print_i32 -1;
     println "";
@@ -385,6 +391,9 @@ fn wasi_fd_read_raw_iovec_with_dealloc_debug() {
 #import "core/mem" as *
 #import "std/stdio" as *
 
+fn id <(i32)->i32> (x):
+    x
+
 fn main <()*>()> ():
     let cap <i32> 64;
     let buf <i32> alloc_raw cap;
@@ -397,25 +406,28 @@ fn main <()*>()> ():
 
     let errno <i32> fd_read 0 iov 1 nread;
     let n <i32> load_i32 nread;
+    let i0 <i32> id 0;
+    let i1 <i32> id 1;
+    let i2 <i32> id 2;
     print_i32 errno;
     print " ";
     print_i32 n;
     print " ";
-    if lt 0 n:
+    if and ge i0 0 lt i0 n:
         then:
-            print_i32 load_u8 buf
+            print_i32 load_u8 add buf i0
         else:
             print_i32 -1;
     print " ";
-    if lt 1 n:
+    if and ge i1 0 lt i1 n:
         then:
-            print_i32 load_u8 add buf 1
+            print_i32 load_u8 add buf i1
         else:
             print_i32 -1;
     print " ";
-    if lt 2 n:
+    if and ge i2 0 lt i2 n:
         then:
-            print_i32 load_u8 add buf 2
+            print_i32 load_u8 add buf i2
         else:
             print_i32 -1;
     println "";
@@ -448,6 +460,9 @@ fn wasi_fd_read_then_alloc_header_debug() {
 #import "core/mem" as *
 #import "std/stdio" as *
 
+fn id <(i32)->i32> (x):
+    x
+
 fn main <()*>()> ():
     let cap <i32> 64;
     let buf <i32> alloc_raw cap;
@@ -459,6 +474,9 @@ fn main <()*>()> ():
     store_i32 nread 0;
     let errno <i32> fd_read 0 iov 1 nread;
     let n <i32> load_i32 nread;
+    let i0 <i32> id 0;
+    let i1 <i32> id 1;
+    let i2 <i32> id 2;
 
     dealloc_raw iov 8;
     dealloc_raw nread 4;
@@ -476,21 +494,21 @@ fn main <()*>()> ():
     print " ";
     print_i32 buf;
     print " ";
-    if lt 0 n:
+    if and ge i0 0 lt i0 n:
         then:
-            print_i32 load_u8 buf
+            print_i32 load_u8 add buf i0
         else:
             print_i32 -1;
     print " ";
-    if lt 1 n:
+    if and ge i1 0 lt i1 n:
         then:
-            print_i32 load_u8 add buf 1
+            print_i32 load_u8 add buf i1
         else:
             print_i32 -1;
     print " ";
-    if lt 2 n:
+    if and ge i2 0 lt i2 n:
         then:
-            print_i32 load_u8 add buf 2
+            print_i32 load_u8 add buf i2
         else:
             print_i32 -1;
     println "";
@@ -522,15 +540,13 @@ fn local_scanner_new_logic_debug() {
 #indent 4
 #target wasi
 
-#import "core/field" as field
 #import "core/mem" as *
 #import "std/stdio" as *
 
-struct LocalScanner:
-    sc <i32>
-    buf <i32>
+fn id <(i32)->i32> (x):
+    x
 
-fn scanner_new_local <()*>LocalScanner> ():
+fn scanner_new_local <()*>()> ():
     let mut cap <i32> 65536;
     let mut buf <i32> alloc_raw cap;
     memset_u8 buf cap 0;
@@ -540,7 +556,7 @@ fn scanner_new_local <()*>LocalScanner> ():
     store_i32 add iov 4 cap;
     store_i32 nread_ptr 0;
     let errno <i32> fd_read 0 iov 1 nread_ptr;
-    let len <i32> if eq errno 0 load_i32 nread_ptr 0;
+    let len <i32> load_i32 nread_ptr;
 
     dealloc_raw iov 8;
     dealloc_raw nread_ptr 4;
@@ -550,18 +566,12 @@ fn scanner_new_local <()*>LocalScanner> ():
     store_i32 add sc 4 len;
     store_i32 add sc 8 0;
     store_i32 add sc 12 cap;
-    LocalScanner sc buf
-
-fn main <()*>()> ():
-    let scanner <LocalScanner> scanner_new_local;
-    let sc <i32> field::get scanner "sc";
-    let owned_buf <i32> field::get scanner "buf";
-    let buf <i32> load_i32 sc;
-    let len <i32> load_i32 add sc 4;
-    let cap <i32> load_i32 add sc 12;
-    let b0 <i32> if lt 0 len load_u8 buf -1;
-    let b1 <i32> if lt 1 len load_u8 add buf 1 -1;
-    let b2 <i32> if lt 2 len load_u8 add buf 2 -1;
+    let i0 <i32> id 0;
+    let i1 <i32> id 1;
+    let i2 <i32> id 2;
+    let b0 <i32> if and and ge i0 0 lt i0 len lt i0 cap load_u8 add buf i0 -1;
+    let b1 <i32> if and and ge i1 0 lt i1 len lt i1 cap load_u8 add buf i1 -1;
+    let b2 <i32> if and and ge i2 0 lt i2 len lt i2 cap load_u8 add buf i2 -1;
     print_i32 len;
     print " ";
     print_i32 b0;
@@ -570,8 +580,11 @@ fn main <()*>()> ():
     print " ";
     print_i32 b2;
     println "";
-    dealloc_raw owned_buf cap;
+    dealloc_raw buf cap;
     dealloc_raw sc 16;
+
+fn main <()*>()> ():
+    scanner_new_local
 "#;
     let out = run_main_capture_stdout_with_stdin(src, b"10 20 30\n");
     let parts: Vec<&str> = out.trim().split(' ').collect();

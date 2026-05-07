@@ -35,6 +35,16 @@ impl CellTable {
         ty: TypeId,
     ) {
         self.clear_initialized_raw_byte_ranges_under(address);
+        self.add_initialized_raw_byte_range(address, count, unit, ty);
+    }
+
+    pub(super) fn add_initialized_raw_byte_range(
+        &mut self,
+        address: &Place,
+        count: &Place,
+        unit: InitializedRawRangeUnit,
+        ty: TypeId,
+    ) {
         let range = InitializedRawByteRange {
             address: address.clone(),
             count: count.clone(),

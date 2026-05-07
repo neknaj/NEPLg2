@@ -18,10 +18,16 @@ impl ResourceCheckEngine<'_> {
             EffectOp::ExternalIo {
                 operation: ExternalIoOp::FdPread,
             } => {
-                self.apply_iov_read_buffers_initialized(cells, raw_aliases, args.get(1));
                 if let Some(nread) = args.get(4) {
                     self.mark_raw_cell_initialized(cells, raw_aliases, nread, self.types.i32());
                 }
+                self.apply_iov_read_buffers_initialized(
+                    cells,
+                    raw_aliases,
+                    args.get(1),
+                    args.get(2),
+                    args.get(4),
+                );
             }
             EffectOp::ExternalIo {
                 operation: ExternalIoOp::FdWrite,

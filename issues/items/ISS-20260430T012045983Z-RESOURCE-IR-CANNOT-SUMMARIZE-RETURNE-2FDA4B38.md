@@ -317,3 +317,22 @@ returned raw header のうち、byte-level initialized range を `return_byte_ra
 - `resource_ir_cell_check_realloc_transfers_copy_raw_cells`: passed
 
 この親 issue は引き続き open とする。今回の対応で `realloc` 後の既存 initialized prefix は保持できるようになったが、`fd_read` loop / capacity field / returned header summary を一体で表す model はまだ残る。
+
+## 2026-05-07 fd_read bounded payload range 部分対応
+
+`ISS-20260507T050848630Z-RESOURCE-IR-FD-READ-INITIALIZES-IOVE-A43EAA89` として、`fd_read` / `fd_pread` が iovec payload を unknown-offset 全域 initialized として扱っていた問題を分離して修正した。
+
+これまで single-iov read は `raw_memory_unknown_offset_cell_place` を initialized にしていたため、`i < cap` だけで `load_u8 add buf i` が通り得た。実際に host が初期化するのは高々 `nread` byte なので、これは memory safety 上の過剰許可だった。
+
+今回の対応で、single-iov payload は `nread` raw cell を count に持つ byte range として追加される。`load_u8 add buf i` は `0 <= i && i < nread` が Resource IR fact から証明される場合だけ通る。capacity guard のみの load は `RawMemoryLoadCell Uninit` として拒否する。
+
+また、external read は既存 initialized range を破壊せず、書いた prefix range を追加するようにした。これにより `memset_u8 buf cap 0` のような事前初期化 range は維持される。
+
+確認結果:
+
+- `resource_ir_cell_check_fd_read_accepts_payload_load_guarded_by_nread`: passed
+- `resource_ir_cell_check_fd_read_rejects_payload_load_guarded_only_by_capacity`: passed
+- `wasi_fd_read_raw_iovec_debug`: passed
+- `wasi_fd_read_then_alloc_header_debug`: passed
+
+この親 issue は引き続き open とする。今回の対応で `fd_read` payload の過剰初期化は解消したが、returned struct field projection をまたぐ initialized range summary は `ISS-20260507T052014018Z-RESOURCE-IR-RETURNED-AGGREGATE-FIELD-F78CD903` として残る。

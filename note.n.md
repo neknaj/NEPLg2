@@ -777,6 +777,25 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 1 fd_read bounded range 修正
+
+- `ISS-20260507T050848630Z-RESOURCE-IR-FD-READ-INITIALIZES-IOVE-A43EAA89` を追加して fixed にした。
+- `fd_read` / `fd_pread` が iovec payload を unknown-offset 全域 initialized として記録し、`i < cap` だけの load を通してしまう問題を修正した。
+- single-iov payload は `nread` raw cell を count に持つ `InitializedRawByteRange` として追加し、`0 <= i && i < nread` が証明された場合だけ symbolic load を許可する。
+- external read は destructive fill ではないため、既存 initialized range を消さずに prefix range を追加する API を `CellTable` に分けた。
+- `fd_read` debug fixtures は literal offset ではなく明示 index guard を使う形に更新した。
+- returned struct field projection をまたぐ range summary 不足は `ISS-20260507T052014018Z-RESOURCE-IR-RETURNED-AGGREGATE-FIELD-F78CD903` として分離した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_fd_read -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_external_fd_read_initializes_nread_cell -- --nocapture`: passed
+  - `cargo test -p nepl-core --test kp wasi_fd_read_raw_iovec_debug -- --nocapture`: passed
+  - `cargo test -p nepl-core --test kp wasi_fd_read_raw_iovec_with_dealloc_debug -- --nocapture`: passed
+  - `cargo test -p nepl-core --test kp wasi_fd_read_then_alloc_header_debug -- --nocapture`: passed
+  - `cargo test -p nepl-core --test kp local_scanner_new_logic_debug -- --nocapture`: passed
+  - `cargo test -p nepl-core --test kp -- --nocapture`: 14 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-07 Agent 1 realloc initialized range 転送修正
 
 - `ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745` を追加して fixed にした。

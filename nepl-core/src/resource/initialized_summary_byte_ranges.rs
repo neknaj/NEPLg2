@@ -74,11 +74,14 @@ fn collect_return_count_suffixes(
         if raw_aliases.canonicalize(&entry.place) != count {
             continue;
         }
-        for return_alias in return_aliases {
-            let Some(suffix) = place_suffix_after_address_prefix(&entry.place, return_alias) else {
-                continue;
-            };
-            push_unique_return_suffix(&mut out, suffix, entry.place.ty);
+        for entry_alias in raw_aliases.aliases_for(&entry.place) {
+            for return_alias in return_aliases {
+                let Some(suffix) = place_suffix_after_address_prefix(&entry_alias, return_alias)
+                else {
+                    continue;
+                };
+                push_unique_return_suffix(&mut out, suffix, entry_alias.ty);
+            }
         }
     }
     out

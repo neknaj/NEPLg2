@@ -16,9 +16,7 @@ pub(super) fn raw_byte_range_address_covers(
         return false;
     };
     match suffix.as_slice() {
-        [] => raw_aliases
-            .i32_value(range.count())
-            .is_some_and(|count| count > 0),
+        [] => raw_range_count_is_positive(range, raw_aliases),
         [PlaceProjection::StorageOffset(ResourceOffset::Known(offset))] => {
             known_offset_is_in_initialized_range(*offset, range, raw_aliases)
         }
@@ -36,6 +34,16 @@ pub(super) fn raw_byte_range_address_covers(
         }
         _ => false,
     }
+}
+
+fn raw_range_count_is_positive(
+    range: &InitializedRawByteRange,
+    raw_aliases: &RawCellAddressAliases,
+) -> bool {
+    raw_aliases
+        .i32_value(range.count())
+        .is_some_and(|count| count > 0)
+        || raw_aliases.i32_condition_truth(range.count(), I32ValueCondition::Positive) == Some(true)
 }
 
 fn known_offset_is_in_initialized_range(

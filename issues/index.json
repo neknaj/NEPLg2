@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T05:16:09.669Z",
+  "generated_at": "2026-05-07T05:24:27.577Z",
   "counts": {
-    "total": 562,
-    "open": 13,
-    "resolved": 549,
+    "total": 564,
+    "open": 14,
+    "resolved": 550,
     "by_area": {
       "core": {
-        "total": 280,
-        "open": 5,
-        "resolved": 275
+        "total": 282,
+        "open": 6,
+        "resolved": 276
       },
       "stdlib": {
         "total": 158,
@@ -253,6 +253,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260430T012045983Z-RESOURCE-IR-CANNOT-SUMMARIZE-RETURNE-2FDA4B38.md"
+    },
+    {
+      "id": "ISS-20260507T052014018Z-RESOURCE-IR-RETURNED-AGGREGATE-FIELD-F78CD903",
+      "title": "Resource IR returned aggregate fields do not carry initialized raw range summaries",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/initialized_summary_byte_ranges.rs, nepl-core/src/resource/initialized_alias_flow_value_projection.rs, nepl-core/tests/kp.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260507T052014018Z-RESOURCE-IR-RETURNED-AGGREGATE-FIELD-F78CD903.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -4318,6 +4333,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745.md"
+    },
+    {
+      "id": "ISS-20260507T050848630Z-RESOURCE-IR-FD-READ-INITIALIZES-IOVE-A43EAA89",
+      "title": "Resource IR fd_read initializes iovec payloads as unbounded unknown cells",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/initialized_external_io*.rs, nepl-core/src/resource/cell_state_raw_range*.rs, nepl-core/src/resource/initialized_summary_byte_ranges.rs, nepl-core/tests/resource_ir.rs, nepl-core/tests/kp.rs",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260507T050848630Z-RESOURCE-IR-FD-READ-INITIALIZES-IOVE-A43EAA89.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
