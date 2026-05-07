@@ -1,0 +1,159 @@
+//: # vec/query/aggregate
+//: `Vec` の aggregate query
+//:
+//: ### [目的/もくてき]
+//: - count/fold/reduce を query facade から[分離/ぶんり]し、borrowed owner から Copy 要素を[読/よ]む[集約/しゅうやく]処理をこの module に[集約/しゅうやく]します。
+//:
+//: ### [注意/ちゅうい]
+//: - raw storage の読み取りは `vec/raw` helper に[委譲/いじょう]します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "../types" as *
+#import "../storage" as vec_storage
+#import "../raw" as vec_raw
+
+//: count: [条件/じょうけん]を[満/み]たす[要素数/ようそすう]を[数/かぞ]える
+//:
+//: ### [目的/もくてき]
+//: - `xs |> count p` の[形/かたち]で、`p` が true になる[要素/ようそ]の[個数/こすう]を[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - [先頭/せんとう]から[末尾/まつび]まで 1 [回/かい]だけ[走査/そうさ]し、true のたびに[加算/かさん]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//: fn is_even <(i32)->bool> (x):
+//:     eq rem_s x 2 0
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:         |> push 3 |> uwok
+//:         |> push 4 |> uwok
+//:     let ok <bool> eq count<i32> &xs is_even 2
+//:     free<i32> xs;
+//:     if ok 0 1
+//: ```
+fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
+    let src_len <i32> *field::get_ref v "len"
+    let src_storage <VecStorageState> *field::get_ref v "storage"
+    let raw_data <MemPtr<.T>> *field::get_ref v "data"
+    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
+    let mut out <i32> 0
+    let mut i <i32> 0
+    while lt i src_len:
+        do:
+            if cond p vec_raw::vec_read_at<.T> src_data i:
+                then set out add out 1
+                else ()
+            set i add i 1
+    out
+
+//: fold: [左/ひだり]から[順/じゅん]に[畳/たた]み[込/こ]む
+//:
+//: ### [目的/もくてき]
+//: - `xs |> fold init f` の[形/かたち]で、[初期値/しょきち] `init` から[始/はじ]めて[全要素/ぜんようそ]を 1 つの[値/あたい]へ[集約/しゅうやく]します。
+//:
+//: ### [実装/じっそう]
+//: - 0 [番目/ばんめ]から `len - 1` まで[順番/じゅんばん]に `f acc item` を[適用/てきよう]し、[更新後/こうしんご]の acc を[次/つぎ]へ[渡/わた]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [空/から] `Vec` では `init` をそのまま[返/かえ]します。
+//: - `f` は `(.U,.T)->.U` の[純粋/じゅんすい][関数/かんすう]です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//: fn add_acc <(i32,i32)->i32> (acc, x):
+//:     add acc x
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:         |> push 3 |> uwok
+//:     let ok <bool> eq fold<i32,i32> &xs 10 add_acc 16
+//:     free<i32> xs;
+//:     if ok 0 1
+//: ```
+fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
+    let src_len <i32> *field::get_ref v "len"
+    let src_storage <VecStorageState> *field::get_ref v "storage"
+    let raw_data <MemPtr<.T>> *field::get_ref v "data"
+    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
+    vec_raw::vec_fold_impl<.T,.U> src_data src_len 0 acc f
+
+//: reduce: [初期値/しょきち]なしで[集約/しゅうやく]する
+//:
+//: ### [目的/もくてき]
+//: - [非空/ひくう] `Vec` なら[先頭/せんとう][要素/ようそ]を[初期値/しょきち]として[残/のこ]りを[畳/たた]み[込/こ]み、[空/から]なら `None` を[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - 0 [番目/ばんめ]を[初期値/しょきち]として[読/よ]み[出/だ]し、1 [番目/ばんめ]から[残/のこ]りを[左畳/ひだりたた]み[込/こ]みします。
+//:
+//: ### [注意/ちゅうい]
+//: - [空/から] `Vec` では `Option::None` です。
+//: - `f` は `(.T,.T)->.T` の[純粋/じゅんすい][関数/かんすう]です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//: fn add_acc <(i32,i32)->i32> (acc, x):
+//:     add acc x
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 2 |> uwok
+//:         |> push 3 |> uwok
+//:     match reduce<i32> &xs add_acc:
+//:         Option::Some x:
+//:             free<i32> xs;
+//:             if eq x 6 0 1
+//:         Option::None:
+//:             free<i32> xs;
+//:             1
+//: ```
+fn reduce <.T: Copy> <(&Vec<.T>, (.T,.T)->.T)->Option<.T>> (v, f):
+    let src_len <i32> *field::get_ref v "len"
+    let src_storage <VecStorageState> *field::get_ref v "storage"
+    let raw_data <MemPtr<.T>> *field::get_ref v "data"
+    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
+    if:
+        eq src_len 0
+        then none<.T>
+        else:
+            some<.T> vec_raw::vec_reduce_impl<.T> src_data src_len 1 vec_raw::vec_read_at<.T> src_data 0 f

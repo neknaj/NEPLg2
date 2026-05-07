@@ -737,11 +737,6 @@ fn loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_bounda
             "alloc_collections_vec_mutation_raw_store",
         ),
         (
-            &["alloc", "collections", "vec", "query.nepl"],
-            "alloc/collections/vec/query",
-            "alloc_collections_vec_query_raw_store",
-        ),
-        (
             &["alloc", "collections", "vec", "raw.nepl"],
             "alloc/collections/vec/raw",
             "alloc_collections_vec_raw_raw_store",
@@ -890,12 +885,32 @@ fn main <()->i32> ():
 }
 
 #[test]
-fn loader_does_not_mark_split_facades_as_raw_memory_boundaries() {
+fn loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries() {
     let cases: &[(&[&str], &str, &str)] = &[
         (
             &["alloc", "collections", "vec.nepl"],
             "alloc/collections/vec",
             "alloc_collections_vec_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "query.nepl"],
+            "alloc/collections/vec/query",
+            "alloc_collections_vec_query_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "query", "aggregate.nepl"],
+            "alloc/collections/vec/query/aggregate",
+            "alloc_collections_vec_query_aggregate_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "query", "get.nepl"],
+            "alloc/collections/vec/query/get",
+            "alloc_collections_vec_query_get_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "query", "predicate.nepl"],
+            "alloc/collections/vec/query/predicate",
+            "alloc_collections_vec_query_predicate_raw_store",
         ),
         (
             &["alloc", "string", "builder.nepl"],

@@ -1,0 +1,156 @@
+//: # vec/query/predicate
+//: `Vec` の predicate query
+//:
+//: ### [目的/もくてき]
+//: - find/any/all を query facade から[分離/ぶんり]し、predicate による scan 処理をこの module に[集約/しゅうやく]します。
+//:
+//: ### [注意/ちゅうい]
+//: - raw storage の読み取りは `vec/raw` helper に[委譲/いじょう]します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "../types" as *
+#import "../storage" as vec_storage
+#import "../raw" as vec_raw
+
+//: find: [条件/じょうけん]に[合/あ]う[最初/さいしょ]の[要素/ようそ]を[探/さが]す
+//:
+//: ### [目的/もくてき]
+//: - `xs |> find p` の[形/かたち]で、0 [番目/ばんめ]から[順/じゅん]に `p` を[試/ため]し、[最初/さいしょ]に[真/しん]となる[要素/ようそ]を `Some` で[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - [先頭/せんとう]から[順番/じゅんばん]に `p` を[評価/ひょうか]し、[見/み]つかった[時点/じてん]で[即座/そくざ]に[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [見/み]つからなければ `None` です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//: fn gt_two <(i32)->bool> (x):
+//:     gt x 2
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 3 |> uwok
+//:     match find<i32> &xs gt_two:
+//:         Option::Some x:
+//:             free<i32> xs;
+//:             if eq x 3 0 1
+//:         Option::None:
+//:             free<i32> xs;
+//:             1
+//: ```
+fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
+    let src_len <i32> *field::get_ref v "len"
+    let src_storage <VecStorageState> *field::get_ref v "storage"
+    let raw_data <MemPtr<.T>> *field::get_ref v "data"
+    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
+    vec_raw::vec_find_impl<.T> src_data src_len 0 p
+
+//: any: [条件/じょうけん]を[満/み]たす[要素/ようそ]が 1 つでもあるか[判定/はんてい]する
+//:
+//: ### [目的/もくてき]
+//: - `xs |> any p` の[形/かたち]で、`p` を[満/み]たす[要素/ようそ]が 1 つでもあれば `true` を[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - [先頭/せんとう]から[順番/じゅんばん]に `p` を[評価/ひょうか]し、[見/み]つかった[時点/じてん]で `true` を[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - [空/から] `Vec` では `false` です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//: fn gt_two <(i32)->bool> (x):
+//:     gt x 2
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 1 |> uwok
+//:         |> push 3 |> uwok
+//:     let ok <bool> any<i32> &xs gt_two
+//:     free<i32> xs;
+//:     if ok 0 1
+//: ```
+fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
+    let src_len <i32> *field::get_ref v "len"
+    let src_storage <VecStorageState> *field::get_ref v "storage"
+    let raw_data <MemPtr<.T>> *field::get_ref v "data"
+    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
+    let mut out <bool> false
+    let mut i <i32> 0
+    while and lt i src_len not out:
+        do:
+            set out p vec_raw::vec_read_at<.T> src_data i
+            set i add i 1
+    out
+
+//: all: [全要素/ぜんようそ]が[条件/じょうけん]を[満/み]たすか[判定/はんてい]する
+//:
+//: ### [目的/もくてき]
+//: - `xs |> all p` の[形/かたち]で、[全/すべ]ての[要素/ようそ]が `p` を[満/み]たすときだけ `true` を[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - [先頭/せんとう]から[順番/じゅんばん]に `p` を[評価/ひょうか]し、1 [件/けん]でも false が[出/で]たら[即座/そくざ]に[打/う]ち[切/き]ります。
+//:
+//: ### [注意/ちゅうい]
+//: - [空/から] `Vec` では `true` です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/math" as *
+//: fn is_even <(i32)->bool> (x):
+//:     eq rem_s x 2 0
+//: fn main <()*>i32> ():
+//:     let xs <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 2 |> uwok
+//:         |> push 4 |> uwok
+//:     let ok <bool> all<i32> &xs is_even
+//:     free<i32> xs;
+//:     if ok 0 1
+//: ```
+fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
+    let src_len <i32> *field::get_ref v "len"
+    let src_storage <VecStorageState> *field::get_ref v "storage"
+    let raw_data <MemPtr<.T>> *field::get_ref v "data"
+    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
+    let mut out <bool> true
+    let mut i <i32> 0
+    while and lt i src_len out:
+        do:
+            set out p vec_raw::vec_read_at<.T> src_data i
+            set i add i 1
+    out

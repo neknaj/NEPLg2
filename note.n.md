@@ -34285,3 +34285,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 Vec query module split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/vec/query.nepl` を責務別 submodule へ分割した。
+- `query.nepl` は `query/get`、`query/aggregate`、`query/predicate` の public `@merge` re-export だけを持つ facade にした。
+- `query/get.nepl` は `get` の範囲検査と `Option` result、`query/aggregate.nepl` は `count` / `fold` / `reduce`、`query/predicate.nepl` は `find` / `any` / `all` を所有する。
+- query submodule には direct raw intrinsic がなく、raw access は `vec/raw` helper に閉じるため、`nepl-core/src/loader.rs` から `alloc/collections/vec/query.nepl` の raw-memory boundary capability を削除し、新 query submodule にも capability を付けない設計にした。
+- `nepl-core/tests/effects.rs` には query root / query submodule に raw wasm body を置いた場合に `effect.pure.calls_impure` になる regression を追加した。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_vec_borrowed_observers.js` を更新し、query facade に implementation body が戻らないこと、各 query helper の所有 module、query 系 moduleに raw-memory boundary capability が付かないことを固定した。
+- line count は `query.nepl` 19、`query/get.nepl` 67、`query/aggregate.nepl` 154、`query/predicate.nepl` 151。
+- [検証]:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary -- loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query.nepl -i stdlib/alloc/collections/vec/query/get.nepl -i stdlib/alloc/collections/vec/query/aggregate.nepl -i stdlib/alloc/collections/vec/query/predicate.nepl --no-tree -o tmp/vec-query-module-split-focused-pretrunk.json -j 1 --dist web/dist`: total=7, passed=7
+  - `trunk build --release`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/query.nepl -i stdlib/alloc/collections/vec/query/get.nepl -i stdlib/alloc/collections/vec/query/aggregate.nepl -i stdlib/alloc/collections/vec/query/predicate.nepl -i stdlib/tests/vec.n.md -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/vec-query-module-split-suite.json -j 1 --dist web/dist`: total=16, passed=16
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: Vec query 関連は passed。既知 open issue `ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D` の `lower_aggregate_projection.rs has 204 lines; responsibility split limit is 180` warning は継続。
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
