@@ -1,0 +1,119 @@
+//: # std/fs/path/entry
+//: directory entry 名の byte helper
+//:
+//: ### 目的
+//: - directory entry の安定 sort、`.` / `..` 判定、WASI dirent name byte range の UTF-8 検証をまとめます。
+//: - path normalization の component stack とは独立した entry 名処理だけを扱います。
+
+#indent 4
+
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "std/fs/constants" as *
+#import "std/text" as *
+
+//: fs_str_lt: directory entry の安定順を決める byte 辞書順比較
+//:
+//: 目的:
+//: - host の `readdir` 順に依存しないよう、`fs_read_dir` の結果を byte 順で並べ替えます。
+//:
+//: 実装(アルゴリズム):
+//: - 2 つの str を先頭から byte 比較し、共通 prefix の場合は短い方を小さいとみなします。
+//:
+//: 注意(重要):
+//: - locale や Unicode 正規化は扱わず、filesystem discovery 用の安定順だけを提供します。
+//:
+//: 計算量:
+//: - 短い方の長さ m に対して O(m)
+fn fs_str_lt <(str,str)->bool> (a, b):
+    let la <i32> len a
+    let lb <i32> len b
+    let n <i32> if lt la lb then la else lb
+    let mut i <i32> 0
+    let mut done <bool> false
+    let mut answer <bool> false
+    while and not done lt i n:
+        do:
+            let ba <i32> string_byte_at_unchecked a i
+            let bb <i32> string_byte_at_unchecked b i
+            if:
+                lt ba bb
+                then:
+                    set answer true
+                    set done true
+                else:
+                    if:
+                        gt ba bb
+                        then:
+                            set done true
+                        else:
+                            set i add i 1
+    if:
+        done
+        then answer
+        else lt la lb
+
+//: fs_sort_strings: Vec<str> を in-place に安定した byte 順へ並べる
+//:
+//: 目的:
+//: - `fs_read_dir` の戻り値を platform 非依存の順序に揃えます。
+//:
+//: 実装(アルゴリズム):
+//: - entry 数は通常小さいため、追加の heap 確保を避けた insertion sort を使います。
+//:
+//: 注意(重要):
+//: - 要素の所有権は Vec 内に保持したまま、str handle だけを並べ替えます。
+//:
+//: 計算量:
+//: - entry 数 n、名前長比較を含めて最悪 O(n^2)
+fn fs_sort_strings <(i32,i32)*>()> (data, n):
+    let mut i <i32> 1
+    while lt i n:
+        do:
+            let key <str> load<str> add data mul i size_of<str>
+            let mut j <i32> i
+            let mut moving <bool> true
+            while and moving gt j 0:
+                do:
+                    let prev_idx <i32> sub j 1
+                    let prev <str> load<str> add data mul prev_idx size_of<str>
+                    if:
+                        fs_str_lt key prev
+                        then:
+                            store<str> add data mul j size_of<str> prev
+                            set j prev_idx
+                        else:
+                            set moving false
+            store<str> add data mul j size_of<str> key
+            set i add i 1
+    ()
+
+//: fs_string_from_bytes: fd_readdir の name byte range を UTF-8 検証して str へ複製する
+//:
+//: 目的:
+//: - WASI dirent buffer 内の一時 byte 列を、UTF-8 として妥当な場合だけ戻り値として保持できる str に変換します。
+//:
+//: 実装(アルゴリズム):
+//: - `string_utf8_validate_mem` で byte 列を検証し、成功時だけ `string_from_mem_unchecked_result` で複製します。
+//:
+//: 注意(重要):
+//: - invalid UTF-8 の directory entry は errno 84 (ILSEQ 相当) として返します。
+//:
+//: 計算量:
+//: - 名前長 n に対して O(n)
+fn fs_string_from_bytes <(i32,i32)->Result<str,i32>> (src, byte_len):
+    let src_ptr <MemPtr<u8>> mem_ptr_wrap src
+    match string_utf8_validate_mem src_ptr byte_len:
+        Result::Err _e:
+            Result<str,i32>::Err fs_errno_ilseq
+        Result::Ok _:
+            match string_from_mem_unchecked_result src_ptr byte_len:
+                Result::Err _e:
+                    Result<str,i32>::Err 12
+                Result::Ok text:
+                    Result<str,i32>::Ok text
+
+fn fs_dir_name_is_dot <(str)->bool> (name):
+    or str_eq name "." str_eq name ".."

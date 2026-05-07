@@ -1,3 +1,16 @@
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 std/fs/path entry/normalize split)
+
+- branch `refactor/fs-path-module-split` で `stdlib/std/fs/path.nepl` を facade 化し、directory entry helper と relative path normalization を submodule へ分離した。
+- `stdlib/std/fs/path/entry.nepl` は `fs_str_lt` / `fs_sort_strings` / `fs_string_from_bytes` / `fs_dir_name_is_dot` を所有する。
+- `stdlib/std/fs/path/normalize.nepl` は host path byte 検出、component range stack、`fs_normalize_relative_builder`、`fs_normalize_relative` を所有する。
+- root `stdlib/std/fs/path.nepl` は public re-export と facade doctest だけになった。line count は root 43、`path/entry.nepl` 119、`path/normalize.nepl` 280。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` を分割後の module 一覧へ追従し、root facade に実装本体が戻らないこと、entry byte helper と normalization の責務境界を固定した。
+- `nodesrc/test_stdlib_bytebuf_utf8_boundary.js` も `fs_string_from_bytes` の移動先 `path/entry.nepl` を確認するように更新し、directory entry byte range が UTF-8 検証後にだけ `str` へ確定する境界を維持した。
+- 検証は `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`、`node nodesrc/tests.js -i stdlib/std/fs/path.nepl -i stdlib/std/fs/path/entry.nepl -i stdlib/std/fs/path/normalize.nepl -i tests/stdlib/std_fs_path.n.md -i tests/stdlib/fs_path_normalize.n.md --no-tree -o tmp/fs-path-module-split-focused.json -j 1 --dist web/dist`、`node nodesrc/run_source_policy_regressions.js --warn-only` が通過した。
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` は継続中。`std/fs/raw.nepl`、`core/mem.nepl`、selfhost compiler の巨大 file などは残る。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/hash/sha256 module split)
 
 - branch `refactor/sha256-module-split` で `stdlib/alloc/hash/sha256.nepl` を facade 化し、SHA-256 の state、round、padding、schedule、compression、digest、public API を submodule へ分離した。

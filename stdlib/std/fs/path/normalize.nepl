@@ -1,0 +1,280 @@
+//: # std/fs/path/normalize
+//: relative path の検証と正規化
+//:
+//: ### 目的
+//: - `/` 区切りの WASI guest path を preopen root 内の正規形へ畳みます。
+//: - owned substring を作らず、元文字列上の component range stack だけを保持します。
+//:
+//: ### 注意
+//: - absolute path、Windows host path 風の `\` / `:`、preopen root 外へ出る `..` は拒否します。
+
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/fs/constants" as *
+
+//: fs_path_has_forbidden_host_byte: WASI guest path と host path の混同を招く byte を検出する
+//:
+//: 目的:
+//: - `\` や `:` を含む path を、preopen root の外へ出る可能性がある host path 表現として拒否できるようにします。
+//:
+//: 実装(アルゴリズム):
+//: - 文字列を byte 単位で走査し、Windows 区切りや drive prefix に使われる byte を探します。
+//:
+//: 注意(重要):
+//: - std/fs の公開 path API は `/` 区切りの WASI guest path だけを受け付けます。
+//:
+//: 計算量:
+//: - path 長 n に対して O(n)
+fn fs_path_has_forbidden_host_byte <(str)->bool> (path):
+    let n <i32> len path
+    let mut i <i32> 0
+    let mut found <bool> false
+    while and not found lt i n:
+        do:
+            let ch <i32> string_byte_at_unchecked path i
+            if:
+                or eq ch '\\' eq ch ':'
+                then:
+                    set found true
+                else:
+                    set i add i 1
+    found
+
+//: fs_normalize_range_push: component range を stack に積む
+//:
+//: 目的:
+//: - path component の `[start,end)` byte range を Copy な `i32` pair として stack に積みます。
+//:
+//: 実装(アルゴリズム):
+//: - `Vec<i32>` に start/end を順に push します。
+//:
+//: 注意(重要):
+//: - 失敗時は `v::push` が入力 stack owner を消費するため、呼び出し側は sentinel に差し替えます。
+//:
+//: 計算量:
+//: - ならし O(1)
+fn fs_normalize_range_push <(Vec<i32>,i32,i32)->Result<Vec<i32>,i32>> (stack, start, end):
+    match v::push<i32> stack start:
+        Result::Err _e:
+            Result<Vec<i32>,i32>::Err 12
+        Result::Ok with_start:
+            match v::push<i32> with_start end:
+                Result::Err _e:
+                    Result<Vec<i32>,i32>::Err 12
+                Result::Ok with_end:
+                    Result<Vec<i32>,i32>::Ok with_end
+
+//: fs_normalize_range_pop: component range を stack から 1 件捨てる
+//:
+//: 目的:
+//: - `..` component を処理するため、直前の start/end pair を stack から取り除きます。
+//:
+//: 実装(アルゴリズム):
+//: - `Vec<i32>` は `[start0,end0,start1,end1,...]` なので、末尾を 2 回 `pop` します。
+//:
+//: 注意(重要):
+//: - 呼び出し側は stack に少なくとも 1 component、つまり 2 要素あることを確認してから呼びます。
+//:
+//: 計算量:
+//: - O(1)
+fn fs_normalize_range_pop <(Vec<i32>)->Vec<i32>> (stack):
+    let popped_end v::pop<i32> stack
+    let without_end <Vec<i32>> get popped_end "vec"
+    let popped_start v::pop<i32> without_end
+    get popped_start "vec"
+
+//: fs_normalize_build_ranges_builder: range stack から正規 path の builder を組み立てる
+//:
+//: 目的:
+//: - 正規化済み component range stack を `/` で連結し、空なら `"."` を保持する `StringBuilder` を返します。
+//:
+//: 実装(アルゴリズム):
+//: - `StringBuilder` に元 path の byte 範囲を `sb_append_slice_result` で直接 copy します。
+//: - component 間には `/` を挟みます。
+//:
+//: 注意(重要):
+//: - stack は `[start,end]` pair の偶数長であることを前提にします。
+//: - owned `Vec<str>` や一時 substring を作らないため、collection element owner cleanup に依存しません。
+//:
+//: 計算量:
+//: - 出力 byte 数 n に対して O(n)
+fn fs_normalize_build_ranges_builder <(str,&Vec<i32>)->Result<StringBuilder,i32>> (path, stack):
+    let stack_len <i32> v::len<i32> stack
+    match string_builder_new_result:
+        Result::Err _e:
+            Result<StringBuilder,i32>::Err 12
+        Result::Ok sb0:
+            if:
+                eq stack_len 0
+                then:
+                    match sb_append_result sb0 ".":
+                        Result::Err _e:
+                            Result<StringBuilder,i32>::Err 12
+                        Result::Ok dot:
+                            Result<StringBuilder,i32>::Ok dot
+                else:
+                    let mut sb <StringBuilder> sb0
+                    let mut i <i32> 0
+                    let mut part_index <i32> 0
+                    let mut ok <i32> 1
+                    while and eq ok 1 lt i stack_len:
+                        do:
+                            let start_opt <Option<i32>> v::get<i32> stack i
+                            let end_opt <Option<i32>> v::get<i32> stack add i 1
+                            match start_opt:
+                                Option::None:
+                                    set ok 0
+                                Option::Some part_start:
+                                    match end_opt:
+                                        Option::None:
+                                            set ok 0
+                                        Option::Some part_end:
+                                            let sep_added <Result<StringBuilder,str>> if:
+                                                gt part_index 0
+                                                then:
+                                                    sb_append_result sb "/"
+                                                else:
+                                                    Result<StringBuilder,str>::Ok sb
+                                            match sep_added:
+                                                Result::Err _e:
+                                                    set sb string_builder_empty
+                                                    set ok 0
+                                                Result::Ok with_sep:
+                                                    match sb_append_slice_result with_sep path part_start part_end:
+                                                        Result::Err _e:
+                                                            set sb string_builder_empty
+                                                            set ok 0
+                                                        Result::Ok next_sb:
+                                                            set sb next_sb
+                                                            set part_index add part_index 1
+                            set i add i 2
+                    if:
+                        eq ok 1
+                        then:
+                            Result<StringBuilder,i32>::Ok sb
+                        else:
+                            string_builder_free sb
+                            Result<StringBuilder,i32>::Err 12
+
+//: fs_normalize_build_ranges: range stack から正規 path 文字列を組み立てる
+//:
+//: 目的:
+//: - public API 用に、正規化済み component range stack を `str` として返します。
+//:
+//: 実装(アルゴリズム):
+//: - syscall 用途では builder owner のまま使えるよう、実処理は `fs_normalize_build_ranges_builder` に集約します。
+fn fs_normalize_build_ranges <(str,&Vec<i32>)->Result<str,i32>> (path, stack):
+    match fs_normalize_build_ranges_builder path stack:
+        Result::Err e:
+            Result<str,i32>::Err e
+        Result::Ok sb:
+            match sb_build_result sb:
+                Result::Err _e:
+                    Result<str,i32>::Err 12
+                Result::Ok out:
+                    Result<str,i32>::Ok out
+
+//: fs_normalize_relative_builder: 正規 path を builder owner のまま返す
+//:
+//: 目的:
+//: - syscall 境界で一時 path を `str` owner にせず、明示的に `StringBuilder` として解放できるようにします。
+//:
+//: 実装(アルゴリズム):
+//: - `/` で分割し、空 component と `.` を捨て、`..` は stack を 1 つ戻します。
+//: - stack が空の状態で `..` が来た場合は preopen root 外へ出るため拒否します。
+//:
+//: 注意(重要):
+//: - absolute path、Windows host path 風の `\` / `:` を含む path は `Err(76)` にします。
+//: - 空 path は preopen root 自体を表す `"."` に正規化します。
+//: - component 分割や stack 確保に失敗した場合は `Err(12)` を返します。
+//:
+//: 計算量:
+//: - path 長 n に対して O(n)
+fn fs_normalize_relative_builder <(str)->Result<StringBuilder,i32>> (path):
+    let path_len <i32> len path
+    if:
+        fs_path_has_forbidden_host_byte path
+        then:
+            Result<StringBuilder,i32>::Err fs_errno_notcapable
+        else:
+            if:
+                and gt path_len 0 eq string_byte_at_unchecked path 0 47
+                then:
+                    Result<StringBuilder,i32>::Err fs_errno_notcapable
+                else:
+                    match v::with_capacity<i32> path_len:
+                        Result::Err _e:
+                            Result<StringBuilder,i32>::Err 12
+                        Result::Ok stack0:
+                            let mut stack <Vec<i32>> stack0
+                            let mut cursor <i32> 0
+                            let mut done <i32> 0
+                            let mut err <i32> 0
+                            while and eq err 0 eq done 0:
+                                do:
+                                    let step <StrSplitStep> str_split_next path "/" cursor
+                                    match get step "kind":
+                                        StrSplitStepKind::Done:
+                                            set done 1
+                                        StrSplitStepKind::Part:
+                                            let part_start <i32> get step "start"
+                                            let part_end <i32> get step "end"
+                                            if:
+                                                or eq part_start part_end str_range_eq path part_start part_end "."
+                                                then:
+                                                    ()
+                                                else:
+                                                    if:
+                                                        str_range_eq path part_start part_end ".."
+                                                        then:
+                                                            let stack_len <i32> v::len<i32> &stack
+                                                            if:
+                                                                eq stack_len 0
+                                                                then:
+                                                                    set err fs_errno_notcapable
+                                                                else:
+                                                                    set stack fs_normalize_range_pop stack
+                                                        else:
+                                                            match fs_normalize_range_push stack part_start part_end:
+                                                                Result::Ok next_stack:
+                                                                    set stack next_stack
+                                                                Result::Err e:
+                                                                    set stack v::vec_empty<i32>
+                                                                    set err e
+                                            set cursor get step "next"
+                            let result <Result<StringBuilder,i32>> if:
+                                eq err 0
+                                then:
+                                    fs_normalize_build_ranges_builder path &stack
+                                else:
+                                    Result<StringBuilder,i32>::Err err
+                            v::free<i32> stack
+                            result
+
+//: fs_normalize_relative: `/` 区切りの相対 path を preopen root 内の正規形へ畳む
+//:
+//: 目的:
+//: - import 解決や directory traversal が、caller ごとの ad hoc な path 処理に依存しないようにします。
+//:
+//: 実装(アルゴリズム):
+//: - 内部では `StringBuilder` owner として正規形を作り、public API の戻り値だけ `str` に確定します。
+//:
+//: 注意(重要):
+//: - absolute path、Windows host path 風の `\` / `:` を含む path は `Err(76)` にします。
+//: - 空 path は preopen root 自体を表す `"."` に正規化します。
+//: - component 分割や stack 確保に失敗した場合は `Err(12)` を返します。
+fn fs_normalize_relative <(str)->Result<str,i32>> (path):
+    match fs_normalize_relative_builder path:
+        Result::Err e:
+            Result<str,i32>::Err e
+        Result::Ok sb:
+            match sb_build_result sb:
+                Result::Err _e:
+                    Result<str,i32>::Err 12
+                Result::Ok normalized:
+                    Result<str,i32>::Ok normalized
