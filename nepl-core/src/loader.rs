@@ -40,6 +40,7 @@ const RAW_MEMORY_BOUNDARY_STDLIB_PATHS: &[&[&str]] = &[
     &["alloc", "collections", "vec", "types.nepl"],
     &["alloc", "collections", "vec", "sort", "common.nepl"],
     &["alloc", "collections", "vec", "sort", "merge.nepl"],
+    &["alloc", "encoding", "json", "serialize.nepl"],
     &["alloc", "string.nepl"],
     &["alloc", "string", "access.nepl"],
     &["alloc", "string", "builder.nepl"],

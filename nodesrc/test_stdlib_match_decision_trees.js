@@ -57,7 +57,7 @@ function assertScalarKeyMatch({ file, name, scrutinee, literals }) {
 }
 
 assertLiteralMatch({
-    file: 'stdlib/alloc/encoding/json.nepl',
+    file: 'stdlib/alloc/encoding/json/escape.nepl',
     name: 'json_escape_kind',
     scrutinee: 'ch',
     literals: ["'\\\\'", "'\"'", "'\\n'", "'\\r'", "'\\t'", "'\\b'", "'\\f'"],

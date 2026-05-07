@@ -1,0 +1,201 @@
+//: access: JsonValue の variant accessor
+//:
+//: [目的/もくてき]:
+//: - `JsonValue` の variant を match し、期待する payload だけを `Option` として取り出します。
+//: - JSON kind 判定を enum match に集約し、数値 tag や文字列 tag に依存しない形を保ちます。
+//:
+//: [注意/ちゅうい]:
+//: - Array/Object accessor は Vec owner を呼び出し側へ移します。
+
+#indent 4
+
+#import "core/option" as *
+#import "alloc/collections/vec" as *
+#import "./types" as *
+
+//: json_is_null: JSON null かどうかを判定する
+//:
+//: [目的/もくてき]:
+//: - `JsonValue::Null` なら `true`、それ以外なら `false` を返します。
+//:
+//: [実装/じっそう]:
+//: - `JsonValue` を match し、Null variant だけを成功扱いにします。
+//:
+//: [注意/ちゅうい]:
+//: - payload を持つ variant は読み捨てます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn json_is_null <(JsonValue)->bool> (v):
+    match v:
+        JsonValue::Null:
+            true
+        JsonValue::Bool b:
+            false
+        JsonValue::Number n:
+            false
+        JsonValue::String s:
+            false
+        JsonValue::Array a:
+            false
+        JsonValue::Object o:
+            false
+
+//: json_as_bool: JSON Bool payload を取り出す
+//:
+//: [目的/もくてき]:
+//: - `JsonValue::Bool` のときだけ `Option::Some<bool>` を返します。
+//:
+//: [実装/じっそう]:
+//: - Bool payload の i32 を 0 判定し、0 を `false`、0 以外を `true` に変換します。
+//:
+//: [注意/ちゅうい]:
+//: - Bool 以外の variant は `Option::None` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn json_as_bool <(JsonValue)->Option<bool>> (v):
+    match v:
+        JsonValue::Bool b:
+            if:
+                eq b 0
+                then:
+                    some<bool> false
+                else:
+                    some<bool> true
+        JsonValue::Null:
+            none<bool>
+        JsonValue::Number n:
+            none<bool>
+        JsonValue::String s:
+            none<bool>
+        JsonValue::Array a:
+            none<bool>
+        JsonValue::Object o:
+            none<bool>
+
+//: json_as_number: JSON Number payload を取り出す
+//:
+//: [目的/もくてき]:
+//: - `JsonValue::Number` のときだけ `Option::Some<i32>` を返します。
+//:
+//: [実装/じっそう]:
+//: - `JsonValue` を match し、Number payload をそのまま返します。
+//:
+//: [注意/ちゅうい]:
+//: - 現行 JSON Number は i32 のみです。Bool や String からの暗黙変換は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn json_as_number <(JsonValue)->Option<i32>> (v):
+    match v:
+        JsonValue::Number n:
+            some<i32> n
+        JsonValue::Null:
+            none<i32>
+        JsonValue::Bool b:
+            none<i32>
+        JsonValue::String s:
+            none<i32>
+        JsonValue::Array a:
+            none<i32>
+        JsonValue::Object o:
+            none<i32>
+
+//: json_as_string: JSON String payload を取り出す
+//:
+//: [目的/もくてき]:
+//: - `JsonValue::String` のときだけ `Option::Some<str>` を返します。
+//:
+//: [実装/じっそう]:
+//: - `JsonValue` を match し、String payload をそのまま返します。
+//:
+//: [注意/ちゅうい]:
+//: - raw pointer は公開しません。String 以外は `Option::None` を返します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn json_as_string <(JsonValue)->Option<str>> (v):
+    match v:
+        JsonValue::String s:
+            some<str> s
+        JsonValue::Null:
+            none<str>
+        JsonValue::Bool b:
+            none<str>
+        JsonValue::Number n:
+            none<str>
+        JsonValue::Array a:
+            none<str>
+        JsonValue::Object o:
+            none<str>
+
+//: json_as_array: Array を取り出す
+//:
+//: [目的/もくてき]:
+//: - Array のときのみ `Vec<JsonValue>` を返します。
+//:
+//: [実装/じっそう]:
+//: - match で分岐し、Array の payload を返します。
+//:
+//: [注意/ちゅうい]:
+//: - 返った Vec の所有権は呼び出し側へ移ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn json_as_array <(JsonValue)->Option<Vec<JsonValue>>> (v):
+    match v:
+        JsonValue::Array a:
+            some<Vec<JsonValue>> a
+        JsonValue::Null:
+            none<Vec<JsonValue>>
+        JsonValue::Bool b:
+            none<Vec<JsonValue>>
+        JsonValue::Number n:
+            none<Vec<JsonValue>>
+        JsonValue::String s:
+            none<Vec<JsonValue>>
+        JsonValue::Object o:
+            none<Vec<JsonValue>>
+
+//: json_as_object: Object を取り出す
+//:
+//: [目的/もくてき]:
+//: - Object のときのみ `Vec<JsonMember>` を返します。
+//:
+//: [実装/じっそう]:
+//: - match で分岐し、Object の payload を返します。
+//:
+//: [注意/ちゅうい]:
+//: - 返った Vec の所有権は呼び出し側へ移ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn json_as_object <(JsonValue)->Option<Vec<JsonMember>>> (v):
+    match v:
+        JsonValue::Object o:
+            some<Vec<JsonMember>> o
+        JsonValue::Null:
+            none<Vec<JsonMember>>
+        JsonValue::Bool b:
+            none<Vec<JsonMember>>
+        JsonValue::Number n:
+            none<Vec<JsonMember>>
+        JsonValue::String s:
+            none<Vec<JsonMember>>
+        JsonValue::Array a:
+            none<Vec<JsonMember>>
+
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/option" as *
+//:| #import "alloc/encoding/json/builders" as *
+//:| #import "alloc/encoding/json/access" as *
+//: fn main <()*>i32> ():
+//:     let checks0 checks_push checks_new assert json_is_null json_null
+//:     let checks1 checks_push checks0 assert is_some<bool> json_as_bool json_bool true
+//:     checks_exit_code checks1
+//: ```

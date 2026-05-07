@@ -1,0 +1,211 @@
+//: builders: JsonValue と JsonMember の構築 helper
+//:
+//: [目的/もくてき]:
+//: - JSON literal constructor と Array/Object builder を提供します。
+//: - `Vec` の確保失敗を `Result<Vec<...>, StdErrorKind>` として返し、呼び出し側が失敗を見落とさない API にします。
+//:
+//: [注意/ちゅうい]:
+//: - `json_array` / `json_object` は Vec owner を `JsonValue` に移します。呼び出し後の元 Vec は使い回さないでください。
+
+#indent 4
+
+#import "core/result" as *
+#import "alloc/collections/vec" as *
+#import "./types" as *
+
+//: json_null: JSON null 値を作る
+//:
+//: [目的/もくてき]:
+//: - payload を持たない `JsonValue::Null` を返します。
+//:
+//: [実装/じっそう]:
+//: - enum constructor をそのまま返します。
+//:
+//: [注意/ちゅうい]:
+//: - 追加の情報は保持しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn json_null <()->JsonValue> ():
+    JsonValue::Null
+
+//: json_bool: bool 値を JSON Bool に変換する
+//:
+//: [目的/もくてき]:
+//: - NEPL の `bool` を `JsonValue::Bool` として保持します。
+//:
+//: [実装/じっそう]:
+//: - `true` を 1、`false` を 0 の i32 payload に変換します。
+//:
+//: [注意/ちゅうい]:
+//: - serializer は 0 を `false`、0 以外を `true` として出力します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn json_bool <(bool)->JsonValue> (v):
+    if:
+        v
+        then:
+            JsonValue::Bool 1
+        else:
+            JsonValue::Bool 0
+
+//: json_number: i32 を JSON Number として保持する
+//:
+//: [目的/もくてき]:
+//: - i32 を `JsonValue::Number` payload に包みます。
+//:
+//: [実装/じっそう]:
+//: - enum constructor に値を渡します。
+//:
+//: [注意/ちゅうい]:
+//: - 現行実装は実数や i32 を超える整数を扱いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn json_number <(i32)->JsonValue> (n):
+    JsonValue::Number n
+
+//: json_string: str を JSON String として保持する
+//:
+//: [目的/もくてき]:
+//: - `str` を `JsonValue::String` payload に包みます。
+//:
+//: [実装/じっそう]:
+//: - enum constructor に文字列を渡します。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 の妥当性は `str` の作成経路に依存します。serialize 時は `json_escape` を通します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn json_string <(str)->JsonValue> (s):
+    JsonValue::String s
+
+//: json_array_new: 空の JSON array builder を作る
+//:
+//: [目的/もくてき]:
+//: - `JsonValue::Array` に渡す `Vec<JsonValue>` を作ります。
+//:
+//: [実装/じっそう]:
+//: - `Vec<JsonValue>` の `new` に委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - 返値は `Result` です。確保失敗は `StdErrorKind::OutOfMemory` になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn json_array_new <()->Result<Vec<JsonValue>, StdErrorKind>> ():
+    new<JsonValue>
+
+//: json_array_push: JSON array builder へ要素を追加する
+//:
+//: [目的/もくてき]:
+//: - `Vec<JsonValue>` の末尾に value を追加します。
+//:
+//: [実装/じっそう]:
+//: - `Vec<JsonValue>` の `push` に委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - 返った Vec を受け取り直してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - ならし O(1)、再確保時 O(n)
+fn json_array_push <(Vec<JsonValue>,JsonValue)->Result<Vec<JsonValue>, StdErrorKind>> (arr, value):
+    push<JsonValue> arr value
+
+//: json_array: Vec<JsonValue> を JSON Array として保持する
+//:
+//: [目的/もくてき]:
+//: - `json_array_new` / `json_array_push` で作った Vec を `JsonValue::Array` に包みます。
+//:
+//: [実装/じっそう]:
+//: - enum constructor に Vec owner を渡します。
+//:
+//: [注意/ちゅうい]:
+//: - `arr` の所有権は返り値に移ります。呼び出し後は元の Vec を使い回さないでください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn json_array <(Vec<JsonValue>)->JsonValue> (arr):
+    JsonValue::Array arr
+
+//: json_member: object member を作る
+//:
+//: [目的/もくてき]:
+//: - JSON object の key/value pair を型付きで構築します。
+//:
+//: [実装/じっそう]:
+//: - `JsonMember` struct に key と value を詰めます。
+//:
+//: [注意/ちゅうい]:
+//: - key の重複検査は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn json_member <(str,JsonValue)->JsonMember> (key, value):
+    JsonMember key value
+
+//: json_object_new: 空の JSON object builder を作る
+//:
+//: [目的/もくてき]:
+//: - `JsonValue::Object` に渡す `Vec<JsonMember>` を作ります。
+//:
+//: [実装/じっそう]:
+//: - `Vec<JsonMember>` の `new` に委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - 返値は `Result` です。確保失敗は `StdErrorKind::OutOfMemory` になります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn json_object_new <()->Result<Vec<JsonMember>, StdErrorKind>> ():
+    new<JsonMember>
+
+//: json_object_push: JSON object builder へ member を追加する
+//:
+//: [目的/もくてき]:
+//: - key/value を `JsonMember` にして object builder の末尾へ追加します。
+//:
+//: [実装/じっそう]:
+//: - `Vec<JsonMember>` の `push` に委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - 出力時の member 順序は push した順序です。
+//: - 返った Vec を受け取り直してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - ならし O(1)、再確保時 O(n)
+fn json_object_push <(Vec<JsonMember>,str,JsonValue)->Result<Vec<JsonMember>, StdErrorKind>> (obj, key, value):
+    push<JsonMember> obj JsonMember key value
+
+//: json_object: Vec<JsonMember> を JSON Object として保持する
+//:
+//: [目的/もくてき]:
+//: - `json_object_new` / `json_object_push` で作った member Vec を `JsonValue::Object` に包みます。
+//:
+//: [実装/じっそう]:
+//: - enum constructor に Vec owner を渡します。
+//:
+//: [注意/ちゅうい]:
+//: - `obj` の所有権は返り値に移ります。key の重複検査は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+fn json_object <(Vec<JsonMember>)->JsonValue> (obj):
+    JsonValue::Object obj
+
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "alloc/encoding/json/types" as *
+//:| #import "alloc/encoding/json/builders" as *
+//: fn main <()*>i32> ():
+//:     let a <Vec<JsonValue>> unwrap_ok json_array_new
+//:     let a2 <Vec<JsonValue>> unwrap_ok json_array_push a json_number 7
+//:     let _v <JsonValue> json_array a2
+//:     checks_exit_code checks_push checks_new assert true
+//: ```

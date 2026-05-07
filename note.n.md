@@ -796,6 +796,37 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 2 alloc/encoding/json module split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として `stdlib/alloc/encoding/json.nepl` を root facade と責務別 submodule へ分割した。
+- `stdlib/alloc/encoding/json/types.nepl` に `JsonValue` / `JsonMember` / `JsonEscapeKind` を移し、JSON kind と escape kind を enum-first の静的検査対象として維持した。
+- `stdlib/alloc/encoding/json/builders.nepl` に literal constructor と Array/Object builder を移した。
+- `stdlib/alloc/encoding/json/access.nepl` に `json_is_null` / `json_as_*` accessor を移し、variant 判定を `JsonValue` enum の `match` に寄せた。
+- `stdlib/alloc/encoding/json/escape.nepl` に `json_escape_kind` / `json_escape` / `json_quote_string` を移し、escape classifier の char literal `match` を維持した。
+- `stdlib/alloc/encoding/json/serialize.nepl` に `json_serialize_array` / `json_serialize_object` / `json_serialize` と Vec payload traversal の `mem_ptr_addr` / `load` を集約した。
+- `nepl-core/src/loader.rs` の exact raw-memory boundary に `alloc/encoding/json/serialize.nepl` を追加した。
+- `stdlib/std/test/report.nepl` は `json::json_quote_string` だけを qualified call するため、root facade alias ではなく `alloc/encoding/json/escape` を直接 import するようにした。
+- `tests/stdlib/json_typed_values.n.md` の array payload test は `len<JsonValue> &xs` の borrowed observer へ直し、取り出した Vec owner を `free<JsonValue> xs` するようにした。
+- `nodesrc/test_stdlib_json_doc_no_boilerplate.js` を更新し、facade line count、implementation body の逆流、raw Vec payload traversal の serializer 集約、string helper overload の漏出、std/test/report の exact escape import を監視するようにした。
+- `nodesrc/test_stdlib_match_decision_trees.js` は `json_escape_kind` の監視対象を `stdlib/alloc/encoding/json/escape.nepl` に変更した。
+- line count は `json.nepl` 28、`json/types.nepl` 86、`json/builders.nepl` 210、`json/access.nepl` 201、`json/escape.nepl` 119、`json/serialize.nepl` 136。
+- [検証]:
+  - `trunk build`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test effects`: 27 passed
+  - `node nodesrc/test_stdlib_json_doc_no_boilerplate.js`: passed
+  - `node nodesrc/test_stdlib_match_decision_trees.js`: passed
+  - `node nodesrc/test_stdlib_std_test_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/encoding/json.nepl -i stdlib/alloc/encoding/json/types.nepl -i stdlib/alloc/encoding/json/builders.nepl -i stdlib/alloc/encoding/json/access.nepl -i stdlib/alloc/encoding/json/escape.nepl -i stdlib/alloc/encoding/json/serialize.nepl --no-tree -o tmp/json-module-split-focused.json -j 1 --dist web/dist`: total=6, passed=6
+  - `node nodesrc/tests.js -i stdlib/tests/json.n.md -i tests/stdlib/json_typed_values.n.md --no-tree -o tmp/json-module-split-json-suite.json -j 1 --dist web/dist`: total=8, passed=8
+  - `node nodesrc/tests.js -i stdlib/std/test/report.nepl -i stdlib/std/test.nepl -i stdlib/tests/test.n.md --no-tree -o tmp/json-module-split-std-test-suite.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed。latest `origin/main` への rebase 後は JSON 関連 policy に加え、remote main 側で `cell_state_raw_range.rs` / `initialized_external_io_effect.rs` の既知 source-policy warning も解消済み。
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-07 Agent 1 realloc initialized range 転送修正
 
 - `ISS-20260507T050057362Z-RESOURCE-IR-REALLOC-SUCCESS-LOSES-IN-36BCA745` を追加して fixed にした。

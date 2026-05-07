@@ -1,0 +1,119 @@
+//: escape: JSON string literal 用の byte escape
+//:
+//: [目的/もくてき]:
+//: - JSON 文字列の内側に置くために必要な byte escape と quote 付与を提供します。
+//: - escape 分類は `JsonEscapeKind` enum にして、出力分岐は `match` の網羅性検査に乗せます。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 検証は行いません。既存 `str` の byte sequence を保ちます。
+//: - 制御文字は代表的な JSON escape（`\n`, `\r`, `\t`, `\b`, `\f`）のみ扱います。
+
+#indent 4
+
+#import "alloc/string/access" as string
+#import "alloc/string/builder" as sb
+#import "alloc/string/slice" as slice
+#import "./types" as *
+
+//: json_escape_kind: 1 byte を JSON escape 分類へ変換する
+//:
+//: [目的/もくてき]:
+//: - quote / backslash / 改行など、JSON string 内で特殊表記が必要な byte を enum で分類します。
+//:
+//: [実装/じっそう]:
+//: - char literal を scrutinee にした `match` で分類します。
+//:
+//: [注意/ちゅうい]:
+//: - Plain はその byte をそのまま出力することを表します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn json_escape_kind <(i32)->JsonEscapeKind> (ch):
+    match ch:
+        '\\':
+            JsonEscapeKind::Backslash
+        '"':
+            JsonEscapeKind::Quote
+        '\n':
+            JsonEscapeKind::Newline
+        '\r':
+            JsonEscapeKind::CarriageReturn
+        '\t':
+            JsonEscapeKind::Tab
+        '\b':
+            JsonEscapeKind::Backspace
+        '\f':
+            JsonEscapeKind::FormFeed
+        _:
+            JsonEscapeKind::Plain
+
+//: json_escape: JSON string body 用に必要な byte escape を行う
+//:
+//: [目的/もくてき]:
+//: - JSON 文字列の内側に置けるよう、quote / backslash / 改行などを escapeします。
+//:
+//: [実装/じっそう]:
+//: - 入力 byte を先頭から読み、特殊 byte は `\\` 系 escape、それ以外は 1 byte slice として追加します。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 検証は行いません。既存 `str` の byte sequence を保ちます。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn json_escape <(str)->str> (s):
+    let mut out sb::string_builder_new;
+    let n <i32> string::len s;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let ch <i32> string::string_byte_at_unchecked s i;
+            match json_escape_kind ch:
+                JsonEscapeKind::Backslash:
+                    set out sb::sb_append out "\\\\";
+                JsonEscapeKind::Quote:
+                    set out sb::sb_append out "\\\"";
+                JsonEscapeKind::Newline:
+                    set out sb::sb_append out "\\n";
+                JsonEscapeKind::CarriageReturn:
+                    set out sb::sb_append out "\\r";
+                JsonEscapeKind::Tab:
+                    set out sb::sb_append out "\\t";
+                JsonEscapeKind::Backspace:
+                    set out sb::sb_append out "\\b";
+                JsonEscapeKind::FormFeed:
+                    set out sb::sb_append out "\\f";
+                JsonEscapeKind::Plain:
+                    set out sb::sb_append out slice::str_slice s i add i 1;
+            set i add i 1;
+    sb::sb_build out
+
+//: json_quote_string: JSON string literal を作る
+//:
+//: [目的/もくてき]:
+//: - `str` を quote 付き JSON string literal へ変換します。
+//:
+//: [実装/じっそう]:
+//: - `json_escape` した本文を `"` で囲みます。
+//:
+//: [注意/ちゅうい]:
+//: - UTF-8 検証は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n)
+fn json_quote_string <(str)->str> (s):
+    let mut out sb::string_builder_new;
+    set out sb::sb_append out "\"";
+    set out sb::sb_append out json_escape s;
+    set out sb::sb_append out "\"";
+    sb::sb_build out
+
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/encoding/json/escape" as *
+//: fn main <()*>i32> ():
+//:     let checks checks_push checks_new assert_str_eq "\"a\\nb\"" json_quote_string "a\nb"
+//:     checks_exit_code checks
+//: ```

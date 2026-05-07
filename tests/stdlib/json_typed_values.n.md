@@ -41,7 +41,9 @@ fn main <()*>i32> ():
     let arr2 <Vec<JsonValue>> unwrap_ok json_array_push arr1 json_bool true;
     match json_as_array json_array arr2:
         Option::Some xs:
-            len<JsonValue> xs
+            let n <i32> len<JsonValue> &xs;
+            free<JsonValue> xs;
+            n
         Option::None:
             0
 ```

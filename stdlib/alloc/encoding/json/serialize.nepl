@@ -1,0 +1,137 @@
+//: serialize: JsonValue の compact JSON 文字列化
+//:
+//: [目的/もくてき]:
+//: - `JsonValue` を deterministic な compact JSON string へ変換します。
+//: - Vec payload の走査と raw `load` をこの module に集約し、facade や accessor へ raw memory 操作を漏らしません。
+//:
+//: [注意/ちゅうい]:
+//: - Number は現行の `i32` 表現を `from_i32` で出力します。
+//: - Array/Object の要素順は Vec に push された順序を保ちます。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "alloc/collections/vec" as *
+#import "alloc/string/builder" as sb
+#import "alloc/string/integer/format" as int_format
+#import "./types" as *
+#import "./escape" as *
+
+//: json_serialize_array: JSON array を文字列化する
+//:
+//: [目的/もくてき]:
+//: - `Vec<JsonValue>` を `[v0,v1,...]` の JSON 表現へ変換します。
+//:
+//: [実装/じっそう]:
+//: - Vec の内部 data を順に読み、各要素を `json_serialize` で文字列化します。
+//:
+//: [注意/ちゅうい]:
+//: - 要素順は Vec の順序を保ちます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 要素数と出力 byte 数に比例します。
+fn json_serialize_array <(Vec<JsonValue>)->str> (items):
+    let n <i32> get items "len";
+    let data <i32> mem_ptr_addr get items "data";
+    let mut out sb::string_builder_new;
+    set out sb::sb_append out "[";
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            if:
+                lt 0 i
+                then:
+                    set out sb::sb_append out ",";
+                else:
+                    ();
+            let item <JsonValue> load<JsonValue> add data mul i size_of<JsonValue>;
+            set out sb::sb_append out json_serialize item;
+            set i add i 1;
+    set out sb::sb_append out "]";
+    sb::sb_build out
+
+//: json_serialize_object: JSON object を文字列化する
+//:
+//: [目的/もくてき]:
+//: - `Vec<JsonMember>` を `{"k":v,...}` の JSON 表現へ変換します。
+//:
+//: [実装/じっそう]:
+//: - Vec の内部 data を順に読み、key を quote し、value を `json_serialize` で文字列化します。
+//:
+//: [注意/ちゅうい]:
+//: - member 順序は Vec の順序を保ちます。key の重複検査は行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - member 数と出力 byte 数に比例します。
+fn json_serialize_object <(Vec<JsonMember>)->str> (members):
+    let n <i32> get members "len";
+    let data <i32> mem_ptr_addr get members "data";
+    let mut out sb::string_builder_new;
+    set out sb::sb_append out "{";
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            if:
+                lt 0 i
+                then:
+                    set out sb::sb_append out ",";
+                else:
+                    ();
+            let member <JsonMember> load<JsonMember> add data mul i size_of<JsonMember>;
+            set out sb::sb_append out json_quote_string get member "key";
+            set out sb::sb_append out ":";
+            set out sb::sb_append out json_serialize get member "value";
+            set i add i 1;
+    set out sb::sb_append out "}";
+    sb::sb_build out
+
+//: json_serialize: JSON 値を文字列化する
+//:
+//: [目的/もくてき]:
+//: - `JsonValue` を compact JSON string へ変換します。
+//:
+//: [実装/じっそう]:
+//: - enum variant ごとに literal / escape / recursive serialize を選びます。
+//:
+//: [注意/ちゅうい]:
+//: - Number は現行の `i32` 表現を `from_i32` で出力します。
+//: - UTF-8 validation はまだ行いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 値全体の要素数と出力 byte 数に比例します。
+fn json_serialize <(JsonValue)->str> (v):
+    match v:
+        JsonValue::Null:
+            "null"
+        JsonValue::Bool b:
+            if:
+                eq b 0
+                then:
+                    "false"
+                else:
+                    "true"
+        JsonValue::Number n:
+            int_format::from_i32 n
+        JsonValue::String s:
+            json_quote_string s
+        JsonValue::Array a:
+            json_serialize_array a
+        JsonValue::Object o:
+            json_serialize_object o
+
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "alloc/encoding/json/types" as *
+//:| #import "alloc/encoding/json/builders" as *
+//:| #import "alloc/encoding/json/serialize" as *
+//: fn main <()*>i32> ():
+//:     let obj0 <Vec<JsonMember>> unwrap_ok json_object_new
+//:     let obj1 <Vec<JsonMember>> unwrap_ok json_object_push obj0 "n" json_number 4
+//:     let checks checks_push checks_new assert_str_eq "{\"n\":4}" json_serialize json_object obj1
+//:     checks_exit_code checks
+//: ```

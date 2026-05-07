@@ -3,7 +3,7 @@
 #import "core/math" as *
 #import "core/result" as *
 #import "alloc/string" as *
-#import "alloc/encoding/json" as json
+#import "alloc/encoding/json/escape" as json
 #import "std/test/types" as *
 #import "std/test/assertion" as *
 #if[target=std]

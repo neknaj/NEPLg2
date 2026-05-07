@@ -1,0 +1,86 @@
+//: types: JSON 値と escape 分類の型定義
+//:
+//: [目的/もくてき]:
+//: - JSON 値の enum、object member、string escape 分類を定義します。
+//: - 静的検査が効くように JSON kind と escape kind は整数や文字列ではなく enum で管理します。
+//:
+//: [注意/ちゅうい]:
+//: - Number は i32 として保持します（実数や大きな整数は未対応）。
+//: - Array/Object は Vec を所有する値です。値を渡した後は元の Vec を再利用しないでください。
+
+#indent 4
+
+#import "alloc/collections/vec" as *
+
+//: JsonValue: JSON の値表現
+//:
+//: [目的/もくてき]:
+//: - JSON の null / bool / number / string / array / object を型付き payload で表します。
+//:
+//: [実装/じっそう]:
+//: - `String` は `str`、`Array` は `Vec<JsonValue>`、`Object` は `Vec<JsonMember>` を保持します。
+//:
+//: [注意/ちゅうい]:
+//: - Array/Object は所有する Vec を移動して保持します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 定義そのものは O(1) です。
+enum JsonValue:
+    Null
+    Bool <i32>
+    Number <i32>
+    String <str>
+    Array <Vec<JsonValue>>
+    Object <Vec<JsonMember>>
+
+//: JsonMember: JSON object の 1 member
+//:
+//: [目的/もくてき]:
+//: - object の key と value を型付きで保持します。
+//:
+//: [実装/じっそう]:
+//: - key は `str`、value は `JsonValue` です。
+//:
+//: [注意/ちゅうい]:
+//: - key の重複検査や並べ替えは行いません。JSON object の出力順は Vec に push した順序です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+struct JsonMember:
+    key <str>
+    value <JsonValue>
+
+//: JsonEscapeKind: JSON string escape の分類
+//:
+//: [目的/もくてき]:
+//: - 入力 byte が JSON string 内でどの escape 表記に対応するかを enum で表します。
+//:
+//: [実装/じっそう]:
+//: - `json_escape_kind` で byte を分類し、`json_escape` はこの enum を `match` して出力を決めます。
+//:
+//: [注意/ちゅうい]:
+//: - Plain は escape せず入力 byte をそのまま 1 byte slice として出力する分類です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+enum JsonEscapeKind:
+    Backslash
+    Quote
+    Newline
+    CarriageReturn
+    Tab
+    Backspace
+    FormFeed
+    Plain
+
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/encoding/json/types" as *
+//: fn main <()*>i32> ():
+//:     let v <JsonValue> JsonValue::Null
+//:     let checks checks_push checks_new assert true
+//:     checks_exit_code checks
+//: ```

@@ -5,8 +5,23 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const relPath = 'stdlib/alloc/encoding/json.nepl';
-const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const files = {
+    facade: 'stdlib/alloc/encoding/json.nepl',
+    types: 'stdlib/alloc/encoding/json/types.nepl',
+    builders: 'stdlib/alloc/encoding/json/builders.nepl',
+    access: 'stdlib/alloc/encoding/json/access.nepl',
+    escape: 'stdlib/alloc/encoding/json/escape.nepl',
+    serialize: 'stdlib/alloc/encoding/json/serialize.nepl',
+};
+
+function read(relPath) {
+    return fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+}
+
+const srcByFile = Object.fromEntries(Object.entries(files).map(([key, relPath]) => [key, read(relPath)]));
+const combinedSrc = Object.values(srcByFile).join('\n');
+const loaderSrc = read('nepl-core/src/loader.rs');
+const stdTestReportSrc = read('stdlib/std/test/report.nepl');
 
 const forbiddenPhrases = [
     ['generic main-use title', '\u4e3b\u306a\u7528\u9014'],
@@ -17,7 +32,7 @@ const forbiddenPhrases = [
 ];
 
 for (const [label, phrase] of forbiddenPhrases) {
-    assert.equal(src.includes(phrase), false, `${relPath} must not contain generated doc boilerplate: ${label}`);
+    assert.equal(combinedSrc.includes(phrase), false, `json modules must not contain generated doc boilerplate: ${label}`);
 }
 
 const requiredPhrases = [
@@ -32,7 +47,51 @@ const requiredPhrases = [
 ];
 
 for (const [label, phrase] of requiredPhrases) {
-    assert.equal(src.includes(phrase), true, `${relPath} must document ${label}`);
+    assert.equal(combinedSrc.includes(phrase), true, `json modules must document ${label}`);
 }
+
+assert.match(
+    srcByFile.facade,
+    /pub #import "alloc\/encoding\/json\/types" as \*[\s\S]*pub #import "alloc\/encoding\/json\/builders" as \*[\s\S]*pub #import "alloc\/encoding\/json\/access" as \*[\s\S]*pub #import "alloc\/encoding\/json\/escape" as \*[\s\S]*pub #import "alloc\/encoding\/json\/serialize" as \*/,
+    `${files.facade} must stay a public facade over the responsibility modules`
+);
+assert.doesNotMatch(srcByFile.facade, /^(?:fn|enum|struct)\s/m, `${files.facade} must not reintroduce implementation bodies`);
+
+for (const [key, src] of Object.entries(srcByFile)) {
+    const relPath = files[key];
+    const lineCount = src.split(/\r?\n/).length;
+    if (key === 'facade') {
+        assert.ok(lineCount <= 80, `${relPath} facade must stay small`);
+    } else {
+        assert.ok(lineCount <= 240, `${relPath} must stay below the stdlib split review limit`);
+    }
+}
+
+for (const key of ['facade', 'types', 'builders', 'access', 'escape']) {
+    assert.doesNotMatch(
+        srcByFile[key],
+        /\bmem_ptr_addr\b|\bload<[^>]+>/,
+        `${files[key]} must not contain the raw Vec payload traversal boundary`
+    );
+}
+for (const key of ['escape', 'serialize']) {
+    assert.doesNotMatch(
+        srcByFile[key],
+        /#import "alloc\/string\/[^"]+" as \*/,
+        `${files[key]} must not leak string helper overloads through the json facade`
+    );
+}
+assert.match(srcByFile.serialize, /\bmem_ptr_addr\b[\s\S]*\bload<JsonValue>/, `${files.serialize} must own array payload traversal`);
+assert.match(srcByFile.serialize, /\bmem_ptr_addr\b[\s\S]*\bload<JsonMember>/, `${files.serialize} must own object payload traversal`);
+assert.match(
+    loaderSrc,
+    /&\["alloc", "encoding", "json", "serialize\.nepl"\]/,
+    `${files.serialize} must be the exact raw-memory boundary for JSON Vec payload traversal`
+);
+assert.match(
+    stdTestReportSrc,
+    /#import "alloc\/encoding\/json\/escape" as json/,
+    'std/test/report must import the exact JSON escape module for qualified json::json_quote_string calls'
+);
 
 console.log('stdlib json doc boilerplate regression passed');
