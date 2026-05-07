@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T18:11:52.691Z",
+  "generated_at": "2026-05-07T18:15:31.392Z",
   "counts": {
-    "total": 614,
+    "total": 615,
     "open": 10,
-    "resolved": 604,
+    "resolved": 605,
     "by_area": {
       "core": {
-        "total": 306,
+        "total": 307,
         "open": 3,
-        "resolved": 303
+        "resolved": 304
       },
       "stdlib": {
         "total": 165,
@@ -4673,6 +4673,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T174232094Z-RESOLVE-INTEGRATION-TESTS-USE-OBSOLE-5F49A111.md"
+    },
+    {
+      "id": "ISS-20260507T175848360Z-RESOURCE-OWNER-SUMMARY-TREATS-KNOWN--2116E247",
+      "title": "Resource owner summary treats known higher-order non-owning MemPtr return as consumption",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "nepl-core/src/resource/owner_return.rs, nepl-core/src/resource/owner_return_apply.rs, nepl-core/src/resource/owner_return_apply_source.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T175848360Z-RESOURCE-OWNER-SUMMARY-TREATS-KNOWN--2116E247.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

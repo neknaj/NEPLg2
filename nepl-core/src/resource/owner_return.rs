@@ -139,7 +139,7 @@ impl ResourceOwnerCheckEngine<'_> {
         for (index, arg) in args
             .iter()
             .enumerate()
-            .filter(|(_, arg)| arg.ty == output.ty)
+            .filter(|(_, arg)| self.types.same_type(arg.ty, output.ty))
         {
             if !self.place_is_non_owning_raw_address_view(owners, raw_aliases, raw_views, arg)
                 && self.has_transferable_owner(owners, raw_aliases, arg)

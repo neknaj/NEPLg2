@@ -5,11 +5,12 @@ use super::model::{OwnerState, Place};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
+use super::owner_return_apply_source::owner_projection_source_place;
 use super::owner_state::OwnerTable;
 use super::place_utils::place_with_suffix;
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
-use super::summary::{OwnerProjectionReturnSummary, OwnerProjectionSource, OwnerReturnSummary};
+use super::summary::{OwnerProjectionReturnSummary, OwnerReturnSummary};
 
 impl ResourceOwnerCheckEngine<'_> {
     pub(super) fn apply_owner_return_summary(
@@ -29,6 +30,17 @@ impl ResourceOwnerCheckEngine<'_> {
             .iter()
             .filter_map(|index| args.get(*index))
         {
+            if self.try_copy_non_owning_parameter_return(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                arg,
+                output,
+            ) {
+                transferred = true;
+                break;
+            }
             if self.has_returnable_parameter_owner(owners, raw_aliases, raw_views, arg) {
                 self.transfer_owner(
                     owners,
@@ -51,6 +63,17 @@ impl ResourceOwnerCheckEngine<'_> {
             let Some(source_place) = owner_projection_source_place(args, source) else {
                 continue;
             };
+            if self.try_copy_non_owning_parameter_return(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &source_place,
+                output,
+            ) {
+                transferred = true;
+                break;
+            }
             if self.has_returnable_parameter_owner(owners, raw_aliases, raw_views, &source_place) {
                 self.transfer_owner(
                     owners,
@@ -125,7 +148,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
+        raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         output: &Place,
         args: &[Place],
@@ -144,6 +167,17 @@ impl ResourceOwnerCheckEngine<'_> {
             .iter()
             .filter_map(|index| args.get(*index))
         {
+            if self.try_copy_non_owning_parameter_return(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                arg,
+                output,
+            ) {
+                transferred = true;
+                break;
+            }
             if self.has_returnable_parameter_owner(owners, raw_aliases, raw_views, arg) {
                 self.transfer_owner(
                     owners,
@@ -166,6 +200,17 @@ impl ResourceOwnerCheckEngine<'_> {
             let Some(source_place) = owner_projection_source_place(args, source) else {
                 continue;
             };
+            if self.try_copy_non_owning_parameter_return(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &source_place,
+                output,
+            ) {
+                transferred = true;
+                break;
+            }
             if self.has_returnable_parameter_owner(owners, raw_aliases, raw_views, &source_place) {
                 self.transfer_owner(
                     owners,
@@ -190,59 +235,4 @@ impl ResourceOwnerCheckEngine<'_> {
             storage_origins.mark_owned(output);
         }
     }
-
-    fn consume_owner_summary_parameters(
-        &mut self,
-        owners: &mut OwnerTable,
-        raw_aliases: &mut RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
-        storage_origins: &mut StorageOriginTable,
-        args: &[Place],
-        summary: &OwnerReturnSummary,
-        span: Span,
-    ) {
-        for arg in summary
-            .consumed_parameter_indices
-            .iter()
-            .filter_map(|index| args.get(*index))
-        {
-            self.consume_call_argument_owner(
-                owners,
-                raw_aliases,
-                raw_views,
-                storage_origins,
-                arg,
-                span,
-            );
-        }
-        for source in &summary.consumed_parameter_sources {
-            let Some(source_place) = owner_projection_source_place(args, source) else {
-                continue;
-            };
-            self.consume_call_argument_owner(
-                owners,
-                raw_aliases,
-                raw_views,
-                storage_origins,
-                &source_place,
-                span,
-            );
-        }
-    }
-
-    fn has_returnable_parameter_owner(
-        &self,
-        owners: &OwnerTable,
-        raw_aliases: &RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
-        place: &Place,
-    ) -> bool {
-        !self.place_is_non_owning_raw_address_view(owners, raw_aliases, raw_views, place)
-            && self.has_transferable_owner(owners, raw_aliases, place)
-    }
-}
-
-fn owner_projection_source_place(args: &[Place], source: &OwnerProjectionSource) -> Option<Place> {
-    let arg = args.get(source.parameter_index)?;
-    Some(place_with_suffix(arg, &source.suffix, source.ty))
 }

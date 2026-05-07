@@ -35040,3 +35040,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-08 Agent 1 higher-order non-owning MemPtr owner summary 修正
+
+- `ISS-20260507T175848360Z-RESOURCE-OWNER-SUMMARY-TREATS-KNOWN--2116E247` として、`region_ptr` 由来の非所有 `MemPtr` を既知の identity callback 経由で返す higher-order helper が、helper 呼び出し時点で `resource.owner.no_free_obligation` になる false positive を修正した。
+- 根本原因は `apply_unknown_indirect_call_return_owner` が unknown indirect call の返却候補を生の `TypeId` 一致で判定していたこと。同じ `MemPtr<u8>` でも lowering 後に異なる `TypeId` になると、返却 source として記録されず、owner summary が parameter field consumption を残していた。
+- 判定を `TypeCtx::same_type` に変更し、Resource IR の owner summary が型の意味に基づいて返却 source を記録できるようにした。
+- caller 側では、summary の返却 source が非所有 raw address view の場合に owner transfer ではなく non-owning raw view / raw alias / storage origin を出力へ引き継ぐようにした。これにより `MemPtr = non-owning pointer` の責務を維持したまま、所有権を持つ `RegionToken` への forged conversion は引き続き拒否される。
+- `owner_return_apply.rs` が source policy の責務分割上限を超えないよう、summary source 解決・消費適用・非所有返却補助を `owner_return_apply_source.rs` に分割した。
+- `nepl-core/tests/resource_ir.rs` に、既知 identity callback 経由の borrowed `MemPtr` を許可する回帰テストと、その結果を `RegionToken` に forged して `dealloc_region` する経路を拒否する回帰テストを追加した。
+- `tests/stdlib/memory_safety.n.md` に、higher-order callback 経由の `region_ptr` を owner token にできない compile_fail doctest を追加した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_region_ptr_through_known_identity_callback -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_higher_order_region_ptr -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-higher-order-nonowning-memory-safety.json -j 1 --dist web/dist`: total=20, passed=20
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

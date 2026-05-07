@@ -489,6 +489,45 @@ fn main <()*>()> ():
                     ()
 ```
 
+## known callback が返した region_ptr は owner token にできない
+
+neplg2:test[compile_fail]
+diag_code: resource.owner.no_free_obligation
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
+    p
+
+fn apply_ptr <(MemPtr<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (p, f):
+    f p
+
+fn borrowed_region_ptr_via_callback <(&RegionToken<u8>)->MemPtr<u8>> (token):
+    let p <MemPtr<u8>> region_ptr token
+    apply_ptr p @id_ptr
+
+fn forge_region_from_callback_ptr <(RegionToken<u8>)*>Result<(), str>> (token):
+    let p <MemPtr<u8>> borrowed_region_ptr_via_callback &token
+    let forged <RegionToken<u8>> region_new p 1
+    dealloc_region forged
+
+fn main <()*>()> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok token:
+            match forge_region_from_callback_ptr token:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+```
+
 ## region_ptr_at の Ok payload は owner token にできない
 
 neplg2:test[compile_fail]

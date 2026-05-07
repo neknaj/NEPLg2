@@ -10555,6 +10555,148 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_accepts_region_ptr_through_known_identity_callback() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/result" as *
+
+fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
+    p
+
+fn apply_ptr <(MemPtr<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (p, f):
+    f p
+
+fn borrowed_region_ptr_via_callback <(&RegionToken<u8>)->MemPtr<u8>> (token):
+    let p <MemPtr<u8>> region_ptr token
+    apply_ptr p @id_ptr
+
+fn main <()*>()> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok token:
+            let p <MemPtr<u8>> borrowed_region_ptr_via_callback &token
+            store_u8 mem_ptr_addr p 7
+            match dealloc_region token:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("apply_ptr__")
+                || function.starts_with("borrowed_region_ptr_via_callback__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "known identity callback must return the borrowed region_ptr as a non-owning MemPtr without consuming an owner: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("known identity callback should preserve a borrowed MemPtr view");
+}
+
+#[test]
+fn resource_ir_owner_check_rejects_region_token_forged_from_higher_order_region_ptr() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/result" as *
+
+fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
+    p
+
+fn apply_ptr <(MemPtr<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (p, f):
+    f p
+
+fn borrowed_region_ptr_via_callback <(&RegionToken<u8>)->MemPtr<u8>> (token):
+    let p <MemPtr<u8>> region_ptr token
+    apply_ptr p @id_ptr
+
+fn forge_region_from_callback_ptr <(RegionToken<u8>)*>Result<(), str>> (token):
+    let p <MemPtr<u8>> borrowed_region_ptr_via_callback &token
+    let forged <RegionToken<u8>> region_new p 1
+    dealloc_region forged
+
+fn main <()*>()> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok token:
+            match forge_region_from_callback_ptr token:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let apply_span = source
+        .find("apply_ptr p @id_ptr")
+        .expect("test source must contain callback application");
+    let dealloc_span = source
+        .find("dealloc_region forged")
+        .expect("test source must contain forged dealloc");
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                function,
+                state: OwnerState::NoFreeObligation,
+                span,
+                ..
+            } if (function.starts_with("main__")
+                || function.starts_with("forge_region_from_callback_ptr__"))
+                && span.start as usize >= dealloc_span
+        )),
+        "higher-order returned region_ptr must remain non-owning and fail at forged dealloc: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        !report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                state: OwnerState::NoFreeObligation,
+                span,
+                ..
+            } if (span.start as usize) >= apply_span
+                && (span.start as usize) < dealloc_span
+        )),
+        "known identity callback must not be reported as owner consumption before the forged dealloc: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.owner.no_free_obligation",
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_at_ok_payload() {
     let source = r#"
 #entry main
