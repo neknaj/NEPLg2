@@ -8,9 +8,15 @@ use crate::layout::aggregate_fields_with_offsets;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
-use super::lower::LoweringEnvironment;
 use super::model::PlaceProjection;
 use super::type_pattern::field_type_matches_result;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum AggregateFieldSelector<'a> {
+    Index(usize),
+    Name(&'a str),
+    Unsupported,
+}
 
 pub(super) fn non_negative_i32_literal(expr: &HirExpr) -> Option<usize> {
     match expr.kind {
@@ -19,15 +25,20 @@ pub(super) fn non_negative_i32_literal(expr: &HirExpr) -> Option<usize> {
     }
 }
 
-pub(super) fn literal_field_name<'a>(
-    env: &'a LoweringEnvironment,
-    expr: &HirExpr,
-) -> Option<&'a str> {
-    match &expr.kind {
-        HirExprKind::LiteralStr(index) => {
-            env.string_literals.get(*index as usize).map(String::as_str)
-        }
-        _ => None,
+pub(super) fn aggregate_field_selector<'a>(
+    selector: &HirExpr,
+    string_literals: &'a [String],
+) -> AggregateFieldSelector<'a> {
+    if let Some(index) = non_negative_i32_literal(selector) {
+        return AggregateFieldSelector::Index(index);
+    }
+    match &selector.kind {
+        HirExprKind::LiteralStr(index) => string_literals
+            .get(*index as usize)
+            .map(String::as_str)
+            .map(AggregateFieldSelector::Name)
+            .unwrap_or(AggregateFieldSelector::Unsupported),
+        _ => AggregateFieldSelector::Unsupported,
     }
 }
 
@@ -85,13 +96,51 @@ pub(super) fn aggregate_field_projection_by_name(
     field_ty: TypeId,
 ) -> Option<PlaceProjection> {
     let kind = aggregate_projection_kind(types, owner_ty)?;
-    let fields = aggregate_fields_with_offsets(types, owner_ty);
     let index = match kind {
         AggregateProjectionKind::Struct => aggregate_struct_field_names(types, owner_ty)?
             .iter()
             .position(|name| name == field_name)?,
         AggregateProjectionKind::Tuple => field_name.parse::<usize>().ok()?,
     };
+    aggregate_field_projection_by_index_with_kind(types, owner_ty, field_ty, kind, index)
+}
+
+pub(super) fn aggregate_field_projection_by_selector(
+    types: &TypeCtx,
+    owner_ty: TypeId,
+    selector: &HirExpr,
+    field_ty: TypeId,
+    string_literals: &[String],
+) -> Option<PlaceProjection> {
+    match aggregate_field_selector(selector, string_literals) {
+        AggregateFieldSelector::Index(index) => {
+            aggregate_field_projection_by_index(types, owner_ty, index, field_ty)
+        }
+        AggregateFieldSelector::Name(field_name) => {
+            aggregate_field_projection_by_name(types, owner_ty, field_name, field_ty)
+        }
+        AggregateFieldSelector::Unsupported => None,
+    }
+}
+
+fn aggregate_field_projection_by_index(
+    types: &TypeCtx,
+    owner_ty: TypeId,
+    index: usize,
+    field_ty: TypeId,
+) -> Option<PlaceProjection> {
+    let kind = aggregate_projection_kind(types, owner_ty)?;
+    aggregate_field_projection_by_index_with_kind(types, owner_ty, field_ty, kind, index)
+}
+
+fn aggregate_field_projection_by_index_with_kind(
+    types: &TypeCtx,
+    owner_ty: TypeId,
+    field_ty: TypeId,
+    kind: AggregateProjectionKind,
+    index: usize,
+) -> Option<PlaceProjection> {
+    let fields = aggregate_fields_with_offsets(types, owner_ty);
     let field = fields.get(index)?;
     if !field_type_matches_result(types, field.ty, field_ty) {
         return None;

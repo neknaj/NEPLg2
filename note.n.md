@@ -1,3 +1,21 @@
+# 2026-05-07 note (ISS-20260507T102231849Z ResourceIR numeric tuple field move)
+
+- branch `fix/resource-tuple-field-move-state` で、`get parts 0` / `get parts 1` が Resource IR 上で tuple field projection ではなく通常 call 引数として `parts` 全体を consume していた問題を修正した。
+- 根本原因は、Resource IR lowering の `field::get` special case が文字列 field 名だけを projection selector として扱い、tuple の数値 index selector を `get_field` projection として認識していなかったことだった。
+- `AggregateFieldSelector` enum を追加し、数値 index と文字列 field 名を同じ typed selector 経路で `PlaceProjection::TupleField` / `PlaceProjection::Field` に変換するようにした。これにより selector として認識したが無効なものを `RegionToken` fallback で隠さない。
+- `core/field::get` / `get_ref` と `get_field` / `get_field_ref` intrinsic の lowering、HIR coverage gate を同じ selector 判定へ揃えた。
+- `resource_ir_cell_check_moves_numeric_tuple_fields_independently` を追加し、`parts.tuple0` と `parts.tuple1` の独立 move、Resource IR dump 上の明示 projection、full Resource IR pipeline 通過を固定した。
+- commit 前に `origin/main` の `refactor(stdlib): split integer common helpers` を取り込み、issue index を再生成してから再検証した。
+- [検証]:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_moves_numeric_tuple_fields_independently -- --nocapture`: passed
+  - `trunk build --release`: passed
+  - `node nodesrc/run_doctest.js -i tests/compiler/overload.n.md -n 10 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/compiler/overload.n.md --no-tree -o tmp/overload-resource-tuple-field-move-after-sync.json -j 1 --dist web/dist`: total=45, passed=45
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T105015762Z btree array cost borrowed observers)
 
 - branch `fix/btree-array-cost-borrowed-observers` で、BTree observer API 借用化後に `tests/stdlib/btree_array_cost.n.md` が stale になっていた問題を修正した。

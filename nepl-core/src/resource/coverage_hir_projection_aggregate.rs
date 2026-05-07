@@ -9,16 +9,6 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::type_pattern::field_type_matches_result;
 
-pub(super) fn literal_field_name<'a>(
-    string_literals: &'a [String],
-    expr: &HirExpr,
-) -> Option<&'a str> {
-    match &expr.kind {
-        HirExprKind::LiteralStr(index) => string_literals.get(*index as usize).map(String::as_str),
-        _ => None,
-    }
-}
-
 pub(super) fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
     let resolved = types.resolve_named_type_id(types.resolve_id(ty));
     match types.get_ref(resolved) {
@@ -61,20 +51,6 @@ pub(super) fn aggregate_field_exists(
     aggregate_fields_with_offsets(types, owner_ty)
         .iter()
         .any(|field| field.offset == offset && field_type_matches_result(types, field.ty, field_ty))
-}
-
-pub(super) fn aggregate_field_exists_by_name(
-    types: &TypeCtx,
-    owner_ty: TypeId,
-    field_name: &str,
-    field_ty: TypeId,
-) -> bool {
-    let Some(index) = aggregate_field_index(types, owner_ty, field_name) else {
-        return false;
-    };
-    aggregate_fields_with_offsets(types, owner_ty)
-        .get(index)
-        .is_some_and(|field| field_type_matches_result(types, field.ty, field_ty))
 }
 
 pub(super) fn aggregate_field_matches_selector(

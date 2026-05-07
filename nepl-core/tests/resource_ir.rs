@@ -15034,6 +15034,83 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_moves_numeric_tuple_fields_independently() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "alloc/collections/vec" as v
+#import "core/field" as *
+#import "core/math" as *
+#import "core/result" as *
+
+fn pair_with_empty <.T> <(Vec<.T>)->Result<.Pair, StdErrorKind>> (left):
+    let right <Vec<.T>> uwok v::new<.T>;
+    Result::Ok<.Pair, StdErrorKind> Tuple:
+        left
+        right
+
+fn main <()*>i32> ():
+    let xs <Vec<i32>>:
+        v::new<i32>
+        |> uwok
+        |> v::push<i32> 1 |> uwok
+    let parts unwrap_ok pair_with_empty<i32> xs;
+    let evens <Vec<i32>> get parts 0;
+    let rest <Vec<i32>> get parts 1;
+    let n <i32> v::len<i32> &evens;
+    v::free<i32> evens;
+    v::free<i32> rest;
+    if eq n 1 1 0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. } if function == "main"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "numeric tuple get must move only the selected field, not the whole tuple: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+
+    let main = resource
+        .functions
+        .iter()
+        .find(|function| function.name == "main" || function.name.starts_with("main__"))
+        .expect("main function should lower to Resource IR");
+    let main_ops = &main.blocks[main.entry_block.0].ops;
+    for expected_index in [0usize, 1usize] {
+        assert!(
+            main_ops.iter().any(|op| matches!(
+                op,
+                ResourceOp::Read { source, .. }
+                    if matches!(&source.root, PlaceRoot::Local(name) if name == "parts")
+                        && source.projections.iter().any(|projection| matches!(
+                            projection,
+                            PlaceProjection::TupleField { index, .. } if *index == expected_index
+                        ))
+            )),
+            "numeric tuple get must lower to an explicit field read for index {expected_index}:\n{}",
+            resource.dump_text()
+        );
+    }
+
+    compile_resource_source_with_target(source, CompileTarget::Wasm)
+        .expect("numeric tuple field moves should pass the full Resource IR pipeline");
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_result_payload_raw_address_field() {
     let source = r#"
 #entry main

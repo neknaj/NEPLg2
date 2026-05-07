@@ -11,9 +11,9 @@ use super::lower::{
     LoweringEnvironment,
 };
 use super::lower_aggregate_projection::{
-    aggregate_field_projection, aggregate_field_projection_by_name,
-    compiler_field_address_base_and_offset, literal_field_name, non_negative_i32_literal,
-    reference_target_type,
+    aggregate_field_projection, aggregate_field_projection_by_selector, aggregate_field_selector,
+    compiler_field_address_base_and_offset, non_negative_i32_literal, reference_target_type,
+    AggregateFieldSelector,
 };
 use super::lower_raw_address_place::is_named_struct_type;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
@@ -58,8 +58,13 @@ pub(super) fn lower_field_get_call_source(
         return None;
     }
     let owner = args.first()?;
-    let field_name = literal_field_name(env, args.get(1)?)?;
-    let projection = aggregate_field_projection_by_name(env.types, owner.ty, field_name, field_ty)?;
+    let projection = aggregate_field_projection_by_selector(
+        env.types,
+        owner.ty,
+        args.get(1)?,
+        field_ty,
+        env.string_literals,
+    )?;
     if let Some(source) =
         lower_raw_aggregate_field_source(owner, projection.clone(), field_ty, ops, ctx, env)
     {
@@ -98,19 +103,28 @@ pub(super) fn lower_get_field_intrinsic_source(
         return None;
     }
     let owner = args.first()?;
-    let projection =
-        if let Some(field_name) = args.get(1).and_then(|arg| literal_field_name(env, arg)) {
-            aggregate_field_projection_by_name(env.types, owner.ty, field_name, field_ty)?
-        } else if is_named_struct_type(env.types, owner.ty, "RegionToken")
-            && is_named_struct_type(env.types, field_ty, "MemPtr")
-        {
-            PlaceProjection::Field {
-                index: 0,
-                offset_bytes: 0,
-            }
-        } else {
-            return None;
-        };
+    let selector = args.get(1)?;
+    let projection = if let Some(selector) = aggregate_field_projection_by_selector(
+        env.types,
+        owner.ty,
+        selector,
+        field_ty,
+        env.string_literals,
+    ) {
+        selector
+    } else if matches!(
+        aggregate_field_selector(selector, env.string_literals),
+        AggregateFieldSelector::Unsupported
+    ) && is_named_struct_type(env.types, owner.ty, "RegionToken")
+        && is_named_struct_type(env.types, field_ty, "MemPtr")
+    {
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        }
+    } else {
+        return None;
+    };
     if let Some(source) =
         lower_raw_aggregate_field_source(owner, projection.clone(), field_ty, ops, ctx, env)
     {
@@ -168,19 +182,28 @@ fn field_get_ref_source(
     let owner_ref_target = reference_target_type(env.types, owner.ty);
     let owner_ty = owner_ref_target.unwrap_or(owner.ty);
     let field_ty = reference_target_type(env.types, ref_ty)?;
-    let projection =
-        if let Some(field_name) = args.get(1).and_then(|arg| literal_field_name(env, arg)) {
-            aggregate_field_projection_by_name(env.types, owner_ty, field_name, field_ty)?
-        } else if is_named_struct_type(env.types, owner_ty, "RegionToken")
-            && is_named_struct_type(env.types, field_ty, "MemPtr")
-        {
-            PlaceProjection::Field {
-                index: 0,
-                offset_bytes: 0,
-            }
-        } else {
-            return None;
-        };
+    let selector = args.get(1)?;
+    let projection = if let Some(selector) = aggregate_field_projection_by_selector(
+        env.types,
+        owner_ty,
+        selector,
+        field_ty,
+        env.string_literals,
+    ) {
+        selector
+    } else if matches!(
+        aggregate_field_selector(selector, env.string_literals),
+        AggregateFieldSelector::Unsupported
+    ) && is_named_struct_type(env.types, owner_ty, "RegionToken")
+        && is_named_struct_type(env.types, field_ty, "MemPtr")
+    {
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        }
+    } else {
+        return None;
+    };
     let base = if owner_ref_target.is_some() {
         reference_owner_target_place(owner, owner_ty, ops, ctx, env)
     } else {

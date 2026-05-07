@@ -7,8 +7,8 @@ use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::coverage_hir_projection_aggregate::{
-    aggregate_field_exists, aggregate_field_exists_by_name, aggregate_field_matches_selector,
-    compiler_field_address_base_and_offset, literal_field_name, reference_target_type,
+    aggregate_field_exists, aggregate_field_matches_selector,
+    compiler_field_address_base_and_offset, reference_target_type,
 };
 
 pub(super) fn field_get_call_owner<'a>(
@@ -26,8 +26,8 @@ pub(super) fn field_get_call_owner<'a>(
         return None;
     }
     let owner = args.first()?;
-    let field_name = literal_field_name(string_literals, args.get(1)?)?;
-    aggregate_field_exists_by_name(types, owner.ty, field_name, field_ty).then_some(owner)
+    aggregate_field_matches_selector(types, owner.ty, args.get(1)?, field_ty, string_literals)
+        .then_some(owner)
 }
 
 pub(super) fn get_field_intrinsic_owner<'a>(
@@ -41,8 +41,8 @@ pub(super) fn get_field_intrinsic_owner<'a>(
         return None;
     }
     let owner = args.first()?;
-    let field_name = literal_field_name(string_literals, args.get(1)?)?;
-    aggregate_field_exists_by_name(types, owner.ty, field_name, field_ty).then_some(owner)
+    aggregate_field_matches_selector(types, owner.ty, args.get(1)?, field_ty, string_literals)
+        .then_some(owner)
 }
 
 pub(super) fn get_field_ref_intrinsic_owner<'a>(
