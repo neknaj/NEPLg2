@@ -98,6 +98,21 @@ impl ResourceCheckEngine<'_> {
                 mark_known_raw_address(raw_aliases, &place);
             }
         }
+        for range in &summary.return_byte_ranges {
+            let address = projected_place_with_concrete_type(
+                self.types,
+                output,
+                &range.address_suffix,
+                range.address_ty,
+            );
+            let count = projected_place_with_concrete_type(
+                self.types,
+                output,
+                &range.count_suffix,
+                range.count_ty,
+            );
+            cells.mark_initialized_raw_byte_range(&address, &count, range.ty);
+        }
 
         for cell in &summary.param_cells {
             let Some(arg) = args.get(cell.param_index) else {

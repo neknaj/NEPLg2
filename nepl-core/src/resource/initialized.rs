@@ -210,6 +210,7 @@ impl ResourceCheckEngine<'_> {
                             initializer,
                             place,
                         );
+                        cells.copy_initialized_raw_byte_range_counts(initializer, place);
                         function_aliases.copy_alias(initializer, place);
                         pending_reallocs.copy_result(initializer, place);
                         variant_initializations.copy_result(initializer, place);
@@ -243,6 +244,7 @@ impl ResourceCheckEngine<'_> {
                     } else {
                         self.copy_raw_alias_and_rekey_cells(cells, raw_aliases, source, output);
                     }
+                    cells.copy_initialized_raw_byte_range_counts(source, output);
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);
@@ -271,6 +273,7 @@ impl ResourceCheckEngine<'_> {
                         value,
                         target,
                     );
+                    cells.copy_initialized_raw_byte_range_counts(value, target);
                     function_aliases.copy_alias(value, target);
                     pending_reallocs.copy_result(value, target);
                     variant_initializations.copy_result(value, target);
@@ -310,6 +313,7 @@ impl ResourceCheckEngine<'_> {
                         source,
                         output,
                     );
+                    cells.copy_initialized_raw_byte_range_counts(source, output);
                     function_aliases.copy_alias(source, output);
                     pending_reallocs.copy_result(source, output);
                     variant_initializations.copy_result(source, output);

@@ -17,6 +17,10 @@ pub(super) struct InitializedRawByteRange {
 }
 
 impl CellTable {
+    pub(super) fn initialized_raw_byte_ranges(&self) -> &[InitializedRawByteRange] {
+        &self.initialized_raw_byte_ranges
+    }
+
     pub(super) fn raw_cell_initialized_by_byte_range(
         &self,
         address: &Place,
@@ -52,6 +56,43 @@ impl CellTable {
     pub(super) fn clear_initialized_raw_byte_ranges_under(&mut self, address: &Place) {
         self.initialized_raw_byte_ranges
             .retain(|range| !raw_addresses_overlap(&range.address, address));
+    }
+
+    pub(super) fn copy_initialized_raw_byte_range_counts(
+        &mut self,
+        source: &Place,
+        target: &Place,
+    ) {
+        let mut copied = Vec::new();
+        for range in &self.initialized_raw_byte_ranges {
+            let Some(count) = replace_place_prefix(&range.count, source, target) else {
+                continue;
+            };
+            copied.push(InitializedRawByteRange {
+                address: range.address.clone(),
+                count,
+                ty: range.ty,
+            });
+        }
+        for range in copied {
+            if !self.initialized_raw_byte_ranges.contains(&range) {
+                self.initialized_raw_byte_ranges.push(range);
+            }
+        }
+    }
+}
+
+impl InitializedRawByteRange {
+    pub(super) fn address(&self) -> &Place {
+        &self.address
+    }
+
+    pub(super) fn count(&self) -> &Place {
+        &self.count
+    }
+
+    pub(super) fn ty(&self) -> TypeId {
+        self.ty
     }
 }
 
