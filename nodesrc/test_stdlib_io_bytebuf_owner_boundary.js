@@ -5,8 +5,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const relPath = 'stdlib/alloc/io.nepl';
+const rootRelPath = 'stdlib/alloc/io.nepl';
+const rootSrc = fs.readFileSync(path.join(repoRoot, rootRelPath), 'utf8');
+const relPath = 'stdlib/alloc/io/bytebuf.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const byteBuilderRelPath = 'stdlib/alloc/io/bytebuilder.nepl';
+const byteBuilderSrc = fs.readFileSync(path.join(repoRoot, byteBuilderRelPath), 'utf8');
+const traitsRelPath = 'stdlib/alloc/io/traits.nepl';
+const traitsSrc = fs.readFileSync(path.join(repoRoot, traitsRelPath), 'utf8');
+const loaderSrc = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 const fsRelPath = 'stdlib/std/fs/read.nepl';
 const fsSrc = fs.readFileSync(path.join(repoRoot, fsRelPath), 'utf8');
 const fsRawRelPath = 'stdlib/std/fs/raw.nepl';
@@ -16,11 +23,53 @@ const code = src
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const rootCode = rootSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const byteBuilderCode = byteBuilderSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const traitsCode = traitsSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+
+assert.match(rootCode, /pub\s+#import\s+"\.\/io\/bytebuf"\s+as\s+\*/, 'alloc/io root must re-export ByteBuf APIs');
+assert.match(rootCode, /pub\s+#import\s+"\.\/io\/bytebuilder"\s+as\s+\*/, 'alloc/io root must re-export ByteBuilder APIs');
+assert.match(rootCode, /pub\s+#import\s+"\.\/io\/traits"\s+as\s+\*/, 'alloc/io root must re-export stream trait APIs');
+assert.doesNotMatch(rootCode, /\b(?:struct|trait)\s+/, 'alloc/io root facade must not own type or trait definitions');
+assert.doesNotMatch(rootCode, /\bfn\s+/, 'alloc/io root facade must not own implementation function bodies');
 
 assert.match(
     code,
     /\bfn\s+io_bytebuf_alloc_region\s+<\(i32\)->Result<RegionToken<u8>, StdErrorKind>>/,
     'ByteBuf string conversion must allocate through an owning RegionToken boundary',
+);
+
+assert.doesNotMatch(
+    byteBuilderCode,
+    /\bfn\s+io_bytebuf_alloc_region\b/,
+    'ByteBuilder module must not own ByteBuf allocation helpers',
+);
+
+assert.match(
+    byteBuilderCode,
+    /#import\s+"alloc\/io\/bytebuf"\s+as\s+\*/,
+    'ByteBuilder module must depend on the ByteBuf module instead of the alloc/io facade',
+);
+
+assert.match(
+    traitsCode,
+    /\btrait\s+ByteReader:/,
+    'io/traits must own stream trait definitions',
+);
+
+assert.doesNotMatch(
+    traitsCode,
+    /\b(?:alloc_ptr|realloc_ptr|store_u8|load_u8|mem_copy)\b/,
+    'io/traits must remain a raw-memory-free stream abstraction module',
 );
 
 assert.match(
@@ -97,6 +146,24 @@ assert.doesNotMatch(
     code,
     /\bResult<ByteBuf,[^>]+>::Ok\s+ByteBuf\s+(?:buf|ptr|exact|data)\b/,
     'ByteBuf Result return paths must use the centralized owned pointer constructor',
+);
+
+assert.doesNotMatch(
+    loaderSrc,
+    /&\["alloc",\s*"io\.nepl"\]/,
+    'alloc/io root facade must not retain raw-memory boundary capability',
+);
+
+assert.match(
+    loaderSrc,
+    /&\["alloc",\s*"io",\s*"bytebuf\.nepl"\]/,
+    'alloc/io/bytebuf must be an exact raw-memory boundary',
+);
+
+assert.match(
+    loaderSrc,
+    /&\["alloc",\s*"io",\s*"bytebuilder\.nepl"\]/,
+    'alloc/io/bytebuilder must be an exact raw-memory boundary',
 );
 
 const fsReadMatch = fsSrc.match(/fn\s+fs_read_fd_bytes\b([\s\S]*?)\n\/\/: fs_read_to_bytes\b/);

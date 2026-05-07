@@ -13,12 +13,15 @@ function implementation(relPath) {
         .join('\n');
 }
 
-const ioCode = implementation('stdlib/alloc/io.nepl');
+const ioRootCode = implementation('stdlib/alloc/io.nepl');
+const ioCode = implementation('stdlib/alloc/io/bytebuf.nepl');
 const fsCode = implementation('stdlib/std/fs.nepl');
 const fsBytesCode = implementation('stdlib/std/fs/bytes.nepl');
 const fsReadCode = implementation('stdlib/std/fs/read.nepl');
 const fsPathCode = implementation('stdlib/std/fs/path.nepl');
 
+assert.match(ioRootCode, /pub\s+#import\s+"\.\/io\/bytebuf"\s+as\s+\*/, 'alloc/io root must re-export checked ByteBuf APIs');
+assert.doesNotMatch(ioRootCode, /fn\s+io_bytebuf_to_str_result\b/, 'alloc/io root must not own ByteBuf UTF-8 conversion');
 assert.match(ioCode, /fn\s+io_bytebuf_to_str_result\s+<\(ByteBuf\)\*>Result<str,\s*StdErrorKind>>\s+\(buf\):[\s\S]*string_utf8_validate_mem\s+data\s+byte_len/, 'io_bytebuf_to_str_result must validate UTF-8 before constructing str');
 assert.match(ioCode, /Result::Err\s+_e:[\s\S]*io_bytebuf_free\s+buf[\s\S]*Result<str,\s*StdErrorKind>::Err\s+StdErrorKind::InvalidUtf8/, 'io_bytebuf_to_str_result must reject invalid UTF-8 as InvalidUtf8 and consume the buffer');
 assert.match(ioCode, /Result::Ok\s+_:[\s\S]*string_from_mem_unchecked_result\s+data\s+byte_len/, 'io_bytebuf_to_str_result may only call unchecked construction after validation succeeds');

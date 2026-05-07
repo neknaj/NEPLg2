@@ -1,0 +1,295 @@
+//: # io/bytebuf
+//: target 非依存の所有 byte buffer
+//:
+//: [目的/もくてき]:
+//: - binary I/O の媒体になる `ByteBuf` と、その文字列変換境界をまとめます。
+//: - raw byte 領域の所有権は `Option<MemPtr<u8>>` と `RegionToken<u8>` に閉じ、空 buffer と所有 buffer を型で分けます。
+//:
+//: [注意/ちゅうい]:
+//: - `ByteBuf` は所有権を持つので `Copy` / `Clone` を実装しません。
+//: - raw memory capability はこの module の ByteBuf storage 境界だけに必要です。
+
+#indent 4
+
+#import "alloc/diag/error" as *
+#import "alloc/string" as *
+#import "core/field" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main <()*>i32> ():
+//:     let checks0 checks_new
+//:     match io_bytebuf_from_str_result "AB":
+//:         Result::Ok bytes:
+//:             let checks1 checks_push checks0 assert_eq_i32 2 io_bytebuf_len_ref &bytes
+//:             let checks2 match io_bytebuf_byte_at &bytes 1:
+//:                 Option::Some ch:
+//:                     checks_push checks1 assert_eq_i32 66 ch
+//:                 Option::None:
+//:                     checks_push checks1 assert_eq_i32 1 0
+//:             match io_bytebuf_to_str_result bytes:
+//:                 Result::Ok text:
+//:                     checks_exit_code checks_push checks2 assert_str_eq "AB" text
+//:                 Result::Err _e:
+//:                     checks_exit_code checks_push checks2 assert_eq_i32 1 0
+//:         Result::Err _e:
+//:             checks_exit_code checks_push checks0 assert_eq_i32 1 0
+//: ```
+
+//: ## ByteBuf
+//: [連続/れんぞく]した raw byte buffer を[所有/しょゆう]する handle
+//:
+//: ### [目的/もくてき]
+//: - `Vec<u8>` の[内部表現/ないぶひょうげん]に[依存/いそん]せず、binary I/O の[媒体/ばいたい]を[明示的/めいじてき]に[表/あらわ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `ptr` は `Some` のときだけ `len` byte の[所有領域/しょゆうりょういき]を[指/さ]します。
+//: - 空 buffer は `ptr=None` / `len=0` で表し、null pointer を所有 field として混ぜません。
+//: - [使/つか]い[終/お]わったら `io_bytebuf_free` で[解放/かいほう]してください。
+struct ByteBuf:
+    ptr <Option<MemPtr<u8>>>
+    len <i32>
+
+fn io_bytebuf_empty <()->ByteBuf> ():
+    ByteBuf none<MemPtr<u8>> 0
+
+fn io_bytebuf_from_owned_ptr <(MemPtr<u8>,i32)->ByteBuf> (ptr, byte_len):
+    if:
+        le byte_len 0
+        then:
+            io_bytebuf_empty
+        else:
+            ByteBuf some<MemPtr<u8>> ptr byte_len
+
+fn io_bytebuf_len <(ByteBuf)->i32> (buf):
+    get buf "len"
+
+fn io_bytebuf_len_ref <(&ByteBuf)->i32> (buf):
+    *get_ref buf "len"
+
+fn io_bytebuf_ptr_ref <(&ByteBuf)->Option<MemPtr<u8>>> (buf):
+    *get_ref buf "ptr"
+
+fn io_bytebuf_storage_size <(i32)->i32> (byte_len):
+    if:
+        le byte_len 0
+        then:
+            0
+        else:
+            byte_len
+
+fn io_bytebuf_byte_at <(&ByteBuf,i32)->Option<i32>> (buf, idx):
+    let n <i32> io_bytebuf_len_ref buf
+    if:
+        or lt idx 0 ge idx n
+        then:
+            none<i32>
+        else:
+            match *get_ref buf "ptr":
+                Option::Some ptr:
+                    load_u8 mem_ptr_add ptr idx
+                Option::None:
+                    none<i32>
+
+fn io_bytebuf_free <(ByteBuf)->()> (buf):
+    let len <i32> get buf "len"
+    match get buf "ptr":
+        Option::Some ptr:
+            match dealloc_ptr<u8> ptr io_bytebuf_storage_size len:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+        Option::None:
+            ()
+
+//: io_bytebuf_alloc_region: `ByteBuf` 用の byte 領域を確保する
+//:
+//: [目的/もくてき]:
+//: - `ByteBuf` の本文になる領域を `RegionToken<u8>` として確保し、確定前の所有権を token に集約します。
+//:
+//: [実装/じっそう]:
+//: - `alloc_region_bytes<u8>` に必要 byte 数を渡します。`ByteBuf` は header を持たないため、確保 size はそのまま byte 数です。
+//:
+//: [注意/ちゅうい]:
+//: - 空 buffer は `io_bytebuf_empty` を使うため、この helper は正の byte 数に使います。
+//: - 確定前に失敗した場合は `dealloc_region` で token を解放してください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 確保器に依存します。平均 O(1)、free list 探索時は最悪 O(n) です。
+fn io_bytebuf_alloc_region <(i32)->Result<RegionToken<u8>, StdErrorKind>> (byte_len):
+    if:
+        lt byte_len 0
+        then:
+            Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            match alloc_region_bytes<u8> byte_len:
+                Result::Ok region:
+                    Result<RegionToken<u8>, StdErrorKind>::Ok region
+                Result::Err _e:
+                    Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+
+//: io_bytebuf_region_ptr: 確定前 `ByteBuf` 領域の本文 pointer を参照から得る
+//:
+//: [目的/もくてき]:
+//: - `RegionToken` の所有権を動かさず、copy 先として使う `MemPtr<u8>` だけを得ます。
+//:
+//: [実装/じっそう]:
+//: - token の `ptr` field を `get_ref` 経由で読み、`MemPtr` の copy 値を返します。
+//:
+//: [注意/ちゅうい]:
+//: - 返った pointer は領域を所有しません。確定または解放は元の token に対して一度だけ行ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn io_bytebuf_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
+    *get_ref region "ptr"
+
+//: io_bytebuf_finish_region: 確保済み領域を `ByteBuf` として確定する
+//:
+//: [目的/もくてき]:
+//: - `RegionToken` が持つ領域所有権を、公開 I/O buffer 型の `ByteBuf` へ移します。
+//:
+//: [実装/じっそう]:
+//: - token の基底 pointer を取り出し、同じ byte length とともに `ByteBuf` を構築します。
+//:
+//: [注意/ちゅうい]:
+//: - 呼び出し後は token を再利用しません。
+//: - `byte_len` は確保時の size と一致している必要があります。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn io_bytebuf_finish_region <(RegionToken<u8>,i32)->ByteBuf> (region, byte_len):
+    let ptr <MemPtr<u8>> get region "ptr"
+    io_bytebuf_from_owned_ptr ptr byte_len
+
+//: io_bytebuf_from_str_result: `str` を `ByteBuf` へ複製する
+//:
+//: [目的/もくてき]:
+//: - text を binary I/O 用の所有 byte buffer へ変換し、確保失敗を `StdErrorKind::OutOfMemory` として返します。
+//:
+//: [実装/じっそう]:
+//: - 空文字列は確保せず `io_bytebuf_empty` を返します。
+//: - 非空の場合は `io_bytebuf_alloc_region` で本文長ぶんの領域を確保し、参照から得た pointer へ bulk copy します。
+//: - copy 後に `io_bytebuf_finish_region` で領域所有権を `ByteBuf` へ一度だけ移します。
+//:
+//: [注意/ちゅうい]:
+//: - 返った `ByteBuf` は呼び出し側が所有し、使い終わったら `io_bytebuf_free` してください。
+//: - UTF-8 検証や変換は行わず、`str` の byte 表現をそのまま複製します。
+//: - 出力領域の raw address を中間値として保持しません。owner は確定まで `RegionToken` に残します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力長 n に対して O(n) です。
+fn io_bytebuf_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
+    let byte_len <i32> len text
+    if:
+        eq byte_len 0
+        then:
+            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
+        else:
+            match io_bytebuf_alloc_region byte_len:
+                Result::Err e:
+                    Result<ByteBuf, StdErrorKind>::Err e
+                Result::Ok region:
+                    let out_data <MemPtr<u8>> io_bytebuf_region_ptr &region
+                    mem_copy mem_ptr_addr out_data mem_ptr_addr string_data_ptr text byte_len
+                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region byte_len
+
+//: io_bytebuf_from_str: `str` を `ByteBuf` へ複製する互換 facade
+//:
+//: [目的/もくてき]:
+//: - 既存コード向けに `ByteBuf` を直接返す入口を維持します。
+//:
+//: [実装/じっそう]:
+//: - 本体は `io_bytebuf_from_str_result` に委譲し、失敗時だけ空 `ByteBuf` へ丸めます。
+//:
+//: [注意/ちゅうい]:
+//: - 空入力と確保失敗を区別する必要がある場合は `io_bytebuf_from_str_result` を使ってください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力長 n に対して O(n) です。
+fn io_bytebuf_from_str <(str)->ByteBuf> (text):
+    match io_bytebuf_from_str_result text:
+        Result::Ok buf:
+            buf
+        Result::Err _e:
+            io_bytebuf_empty
+
+//: io_bytebuf_to_str_result: `ByteBuf` を UTF-8 検証して `str` へ変換する
+//:
+//: [目的/もくてき]:
+//: - 所有 byte buffer を text helper へ渡せる `str` 表現に詰め直し、invalid UTF-8 と確保失敗を `StdErrorKind` として返します。
+//:
+//: [実装/じっそう]:
+//: - `string_utf8_validate_mem` で UTF-8 として妥当か確認し、成功時だけ `string_from_mem_unchecked_result` で文字列領域を確保して複製します。
+//: - 検証と複製に使う pointer は借用 view から得て、入力 `ByteBuf` の所有権は最後に `io_bytebuf_free` で一度だけ消費します。
+//: - 成功時も失敗時も入力 `ByteBuf` はこの関数が解放します。
+//:
+//: [注意/ちゅうい]:
+//: - raw bytes を保持したい場合は `ByteBuf` のまま扱い、`str` へ変換しないでください。
+//: - 呼び出し後に入力 `ByteBuf` を再利用しないでください。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力長 n に対して O(n) です。
+fn io_bytebuf_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
+    let byte_len <i32> io_bytebuf_len_ref &buf
+    match io_bytebuf_ptr_ref &buf:
+        Option::None:
+            if:
+                eq byte_len 0
+                then:
+                    Result<str, StdErrorKind>::Ok ""
+                else:
+                    io_bytebuf_free buf
+                    Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
+        Option::Some data:
+            if:
+                le mem_ptr_addr data 0
+                then:
+                    io_bytebuf_free buf
+                    Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                else:
+                    match string_utf8_validate_mem data byte_len:
+                        Result::Err _e:
+                            io_bytebuf_free buf
+                            Result<str, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                        Result::Ok _:
+                            match string_from_mem_unchecked_result data byte_len:
+                                Result::Err _e:
+                                    io_bytebuf_free buf
+                                    Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                Result::Ok text:
+                                    io_bytebuf_free buf
+                                    Result<str, StdErrorKind>::Ok text
+
+//: io_bytebuf_to_str: `ByteBuf` を `str` へ変換する互換 facade
+//:
+//: [目的/もくてき]:
+//: - 既存コード向けに `str` を直接返す入口を維持します。
+//:
+//: [実装/じっそう]:
+//: - 本体は `io_bytebuf_to_str_result` に委譲し、失敗時だけ空文字列へ丸めます。
+//:
+//: [注意/ちゅうい]:
+//: - 空 buffer と確保失敗を区別する必要がある場合は `io_bytebuf_to_str_result` を使ってください。
+//: - invalid UTF-8 の場合も空文字列へ丸めるため、入力 validation が必要な箇所では result API を使ってください。
+//: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力長 n に対して O(n) です。
+fn io_bytebuf_to_str <(ByteBuf)*>str> (buf):
+    match io_bytebuf_to_str_result buf:
+        Result::Ok text:
+            text
+        Result::Err _e:
+            ""
+

@@ -1,3 +1,14 @@
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/io bytebuf/bytebuilder/traits split)
+
+- branch `refactor/alloc-io-bytebuf-bytebuilder-split` で `stdlib/alloc/io.nepl` を facade 化し、ByteBuf storage、ByteBuilder storage、stream traits の責務を submodule へ分離した。
+- `stdlib/alloc/io/bytebuf.nepl` は `ByteBuf`、RegionToken 経由の確定境界、str との checked conversion を所有する。
+- `stdlib/alloc/io/bytebuilder.nepl` は `ByteBuilder`、grow/reserve、append、UTF-8 char encoding、LEB128、finish を所有する。
+- `stdlib/alloc/io/traits.nepl` は `ByteReader` / `ByteWriter` / `TextReader` / `TextWriter` / `Flush` / `Close` と delegation facade だけを所有し、raw memory を持たない。
+- `alloc/io.nepl` root は public re-export と facade doctest だけになった。
+- `nepl-core/src/loader.rs` の exact raw-memory boundary は root `alloc/io.nepl` から `alloc/io/bytebuf.nepl` / `alloc/io/bytebuilder.nepl` へ移した。
+- line count は `io.nepl` 41、`io/bytebuf.nepl` 295、`io/bytebuilder.nepl` 448、`io/traits.nepl` 91。
+- 検証は `trunk build`、ByteBuf/ByteBuilder/UTF-8 source policies、root/bytebuf/bytebuilder/traits focused doctest、io/streamio/text_utf8 suite、`cargo test -p nepl-core --test effects`、`cargo fmt --check -p nepl-core`、`cargo check -p nepl-core --tests` が通過した。
+
 # 2026-05-07 note (ISS-20260507T032436743Z Resource range/summary responsibility split)
 
 - branch `refactor/resource-raw-range-module-split` で、Resource IR Stage 4 の raw range / initialized alias / initialized summary proof module の責務集中を分解した。

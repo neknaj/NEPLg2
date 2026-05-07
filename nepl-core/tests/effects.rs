@@ -716,7 +716,16 @@ fn main <()->i32> ():
 #[test]
 fn loader_marks_configured_stdlib_byte_and_scanner_boundaries_as_raw_memory_boundary() {
     let cases: &[(&[&str], &str, &str)] = &[
-        (&["alloc", "io.nepl"], "alloc/io", "alloc_io_raw_store"),
+        (
+            &["alloc", "io", "bytebuf.nepl"],
+            "alloc/io/bytebuf",
+            "alloc_io_bytebuf_raw_store",
+        ),
+        (
+            &["alloc", "io", "bytebuilder.nepl"],
+            "alloc/io/bytebuilder",
+            "alloc_io_bytebuilder_raw_store",
+        ),
         (
             &["alloc", "collections", "vec.nepl"],
             "alloc/collections/vec",
