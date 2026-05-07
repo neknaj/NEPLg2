@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T09:56:48.399Z",
+  "generated_at": "2026-05-07T10:13:48.162Z",
   "counts": {
-    "total": 575,
+    "total": 576,
     "open": 12,
-    "resolved": 563,
+    "resolved": 564,
     "by_area": {
       "core": {
         "total": 286,
@@ -52,9 +52,9 @@
         "resolved": 2
       },
       "examples": {
-        "total": 15,
+        "total": 16,
         "open": 0,
-        "resolved": 15
+        "resolved": 16
       },
       "nodesrc": {
         "total": 6,
@@ -4558,6 +4558,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T021530702Z-EXAMPLES-STILL-CALL-REMOVED-STACK-PU-BC1D5D63.md"
+    },
+    {
+      "id": "ISS-20260507T100459865Z-EXAMPLES-RELY-ON-QUALIFIED-ALLOC-STR-B6D68CEA",
+      "title": "examples rely on qualified alloc/string facade re-exports",
+      "area": "examples",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "examples/rpn.nepl, examples/rpn_legacy.nepl, examples/bf.nepl, nodesrc/test_examples_string_direct_imports.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T100459865Z-EXAMPLES-RELY-ON-QUALIFIED-ALLOC-STR-B6D68CEA.md"
     },
     {
       "id": "ISS-20260428T121641554Z-NODESRC-TESTS-DEFAULT-CASE-TIMEOUT-I-089ABC53",

@@ -33968,3 +33968,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap.nepl -i stdlib/tests/binary_heap.n.md -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/binary-heap-primary-borrowed-observers.json -j 1 --dist web/dist`: total=14, passed=14
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 examples string direct imports
+
+- `ISS-20260507T100459865Z-EXAMPLES-RELY-ON-QUALIFIED-ALLOC-STR-B6D68CEA` を追加し、fixed/resolved に更新した。
+- Stack observer API の検証中に、`examples/rpn.nepl` / `examples/rpn_legacy.nepl` / `examples/bf.nepl` が `#import "alloc/string" as s` から `s::len` / `s::byte_at` / `s::to_i32` などを呼び、current main で `resolve.identifier.undefined` になることを確認した。
+- RPN examples は `alloc/string/access` / `search` / `slice` / `integer/parse` / `integer/format` / `concat` を用途ごとに直接 import するよう修正した。
+- Brainfuck example は `alloc/string/access` を直接 import し、`len` / `byte_at` を実体 module 経由にした。
+- `nodesrc/test_examples_string_direct_imports.js` を追加し、source policy に組み込んだ。
+- [検証]:
+  - `trunk build`: passed
+  - `node nodesrc/test_examples_string_direct_imports.js`: passed
+  - `node nodesrc/tests.js -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl --no-tree -o tmp/examples-string-direct-imports.json -j 1 --dist web/dist`: total=5, passed=5
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

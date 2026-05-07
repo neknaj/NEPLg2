@@ -31,7 +31,12 @@
 #import "core/result" as *
 #import "core/field" as field
 #import "std/stdio" as *
-#import "alloc/string" as s
+#import "alloc/string/access" as string_access
+#import "alloc/string/search" as string_search
+#import "alloc/string/slice" as string_slice
+#import "alloc/string/integer/parse" as string_parse
+#import "alloc/string/integer/format" as string_format
+#import "alloc/string/concat" as string_concat
 #import "alloc/collections/stack" as stk
 #import "alloc/diag/error" as *
 
@@ -104,11 +109,11 @@ fn apply_op <(Stack<i32>,str)*>Result<Stack<i32>,str>> (stack, token):
                         Option::Some a:
                             let res <i32>:
                                 if:
-                                    s::str_eq token "+"
+                                    string_search::str_eq token "+"
                                     then add a b
                                     else:
                                         if:
-                                            s::str_eq token "-"
+                                            string_search::str_eq token "-"
                                             then sub a b
                                             else mul a b
                             push_or_report stack_a res
@@ -126,17 +131,17 @@ fn apply_op <(Stack<i32>,str)*>Result<Stack<i32>,str>> (stack, token):
 //: - 空 token や解析不能 token は、REPL 全体を落とさず値として処理します。
 fn process_token <(Stack<i32>,str)*>Result<Stack<i32>,str>> (stack, token):
     if:
-        s::str_eq token ""
+        string_search::str_eq token ""
         then:
             ok<Stack<i32>,str> stack
         else:
-            let is_op <bool> or or s::str_eq token "+" s::str_eq token "-" s::str_eq token "*";
+            let is_op <bool> or or string_search::str_eq token "+" string_search::str_eq token "-" string_search::str_eq token "*";
             if:
                 is_op
                 then:
                     apply_op stack token
                 else:
-                    match s::to_i32 token:
+                    match string_parse::to_i32 token:
                         Result::Ok val:
                             push_or_report stack val
                         Result::Err _:
@@ -164,8 +169,8 @@ fn token_error_state <(Result<Stack<i32>,str>,str)*>Result<Stack<i32>,str>> (sta
 //: - スペース区切りの RPN 式を評価し、結果または stack 個数エラーを表示します。
 //: - token 配列を作らず、処理中の `Stack<i32>` owner だけを明示的に受け渡します。
 fn eval_line <(str)*>()> (line):
-    let trimmed <str> s::str_trim line;
-    let n <i32> s::len trimmed;
+    let trimmed <str> string_slice::str_trim line;
+    let n <i32> string_access::len trimmed;
 
     match stk::new<i32>:
         Result::Ok stack0:
@@ -180,7 +185,7 @@ fn eval_line <(str)*>()> (line):
                         then:
                             true
                         else:
-                            match s::byte_at trimmed i:
+                            match string_access::byte_at trimmed i:
                                 Option::Some b:
                                     eq b 32
                                 Option::None:
@@ -188,7 +193,7 @@ fn eval_line <(str)*>()> (line):
                     if:
                         is_sep
                         then:
-                            match s::str_slice_result trimmed start i:
+                            match string_slice::str_slice_result trimmed start i:
                                 Result::Ok tok:
                                     set stack_state process_token_state stack_state tok
                                 Result::Err msg:
@@ -219,10 +224,10 @@ fn eval_line <(str)*>()> (line):
                                 then:
                                     stk::free<i32> stack
                                 else:
-                                    print_error s::concat3 "stack has " s::from_i32 sp " values";
+                                    print_error string_concat::concat3 "stack has " string_format::from_i32 sp " values";
                                     stk::free<i32> stack
                 Result::Err msg:
-                    s::len msg;
+                    string_access::len msg;
                     ()
         Result::Err _:
             print_error "out of memory";
@@ -243,7 +248,7 @@ fn main <()*>()> ():
             print_prompt;
             let input <str> read_line;
             if:
-                eq s::len input 0
+                eq string_access::len input 0
                 then:
                     let bye_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Yellow;
                     println_style bye_style "bye";
