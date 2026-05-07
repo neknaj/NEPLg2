@@ -2,13 +2,13 @@
 id: ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF
 title: "CLI --check does not run ResourceIR memory-safety gates"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-07
 updated: 2026-05-07
-target: "nepl-core/src/compiler.rs, nepl-cli/src/main.rs"
+target: "nepl-core/src/compiler.rs, nepl-core/tests/check_pipeline.rs, nepl-cli/src/main.rs"
 ---
 
 # ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF: CLI --check does not run ResourceIR memory-safety gates
@@ -19,7 +19,7 @@ nepl-cli --check calls check_module_with_source_map, and that API currently stop
 
 ## 対象
 
-- `nepl-core/src/compiler.rs, nepl-cli/src/main.rs`
+- `nepl-core/src/compiler.rs, nepl-core/tests/check_pipeline.rs, nepl-cli/src/main.rs`
 
 ## 根拠
 
@@ -43,3 +43,21 @@ Redesign check_module_with_source_map so check-only validation runs the same sta
 ## 検証
 
 Add a CLI --check regression where source compiles through parser/typecheck but fails ResourceIR owner/cell/effect validation, and assert --check returns diagnostics. Keep the deep-HIR stack-overflow regression to prove the shared check phase remains non-recursive and does not enter artifact emission.
+
+## 対応結果
+
+2026-05-07 に修正済み。
+
+- `check_module_with_source_map` は typecheck で止まらず、`prepare_module_for_codegen_with_source_map` を共有して target/profile precheck、typecheck、monomorphize、Resource IR static gate、drop elaboration HIR bridge、resource drop insertion まで実行するようにした。
+- 成果物 emission は引き続き行わないため、`--check` は codegen artifact を生成しない。一方で compile/codegen pipeline と同じ memory/resource safety authority を通る。
+- `nepl-core/tests/check_pipeline.rs` に check-only API が Resource IR effect gate を通す regression を追加した。
+- `nepl-cli/src/main.rs` に CLI `--check` が Resource IR diagnostic で失敗する regression を追加した。
+- 既存の deep prefix regression を通し、check-only が artifact emission へ入らず stack overflow regression を再発させないことを確認した。
+
+検証:
+
+- `cargo test -p nepl-core --test check_pipeline check_module_ -- --nocapture`: passed
+- `cargo test -p nepl-cli check_runs_resource_ir_static_safety_gates -- --nocapture`: passed
+- `cargo test -p nepl-cli check_accepts_deep_prefix_chain_without_codegen_stack_overflow -- --nocapture`: passed
+- `cargo test -p nepl-core --test effects raw_memory_boundary -- --nocapture`: passed
+- `cargo test -p nepl-core --test effects loader_does_not_mark_user_core_mem_path_by_suffix -- --nocapture`: passed

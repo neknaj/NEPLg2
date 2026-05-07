@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T14:47:39.101Z",
+  "generated_at": "2026-05-07T14:53:45.315Z",
   "counts": {
     "total": 594,
-    "open": 13,
-    "resolved": 581,
+    "open": 12,
+    "resolved": 582,
     "by_area": {
       "core": {
         "total": 301,
-        "open": 6,
-        "resolved": 295
+        "open": 5,
+        "resolved": 296
       },
       "stdlib": {
         "total": 164,
@@ -138,21 +138,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF",
-      "title": "CLI --check does not run ResourceIR memory-safety gates",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-07",
-      "updated": "2026-05-07",
-      "target": "nepl-core/src/compiler.rs, nepl-cli/src/main.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF.md"
     },
     {
       "id": "ISS-20260507T144641729Z-PUBLIC-MONOMORPHIZE-API-PANICS-ON-UN-4492668C",
@@ -4608,6 +4593,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T143247279Z-RESOURCE-IR-OWNER-CHECKER-LOSES-NON--66D5734F.md"
+    },
+    {
+      "id": "ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF",
+      "title": "CLI --check does not run ResourceIR memory-safety gates",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/compiler.rs, nepl-core/tests/check_pipeline.rs, nepl-cli/src/main.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

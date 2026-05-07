@@ -2082,6 +2082,39 @@ fn main <()->i32> ():
     }
 
     #[test]
+    fn check_runs_resource_ir_static_safety_gates() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("check_resource_fails.nepl");
+        fs::write(
+            &path,
+            r#"#entry main
+#indent 4
+#target wasm
+
+fn raw_store <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        i32.store
+
+fn main <()->i32> ():
+    raw_store 0 1
+    0
+"#,
+        )
+        .expect("write source");
+
+        let input = path.to_str().expect("path utf8");
+        let cli = Cli::parse_from(["nepl-cli", "--check", "-i", input]);
+        let err = execute(cli).expect_err("--check must fail for Resource IR diagnostics");
+
+        assert!(
+            err.to_string().contains("compilation failed"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
     fn check_accepts_deep_prefix_chain_without_codegen_stack_overflow() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let path = tmp.path().join("check_deep.nepl");

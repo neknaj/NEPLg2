@@ -190,9 +190,11 @@ pub fn compile_module_with_source_map_and_artifact_options(
 /// 解析済みモジュールを診断目的で検証する。
 ///
 /// `--check` のような確認用途では成果物を生成しないため、
-/// codegen / artifact 用の HIR 変換へ進まず、target/profile precheck と typecheck
-/// までを実行する。これにより、深いが正当な HIR を artifact pipeline の再帰処理へ
-/// 渡して native stack overflow させない。
+/// artifact emission へは進まない。ただし静的安全性の authority は artifact pipeline
+/// と同一でなければならないため、target/profile precheck、typecheck、monomorphize、
+/// Resource IR static gate、drop elaboration bridge までを共有 prepare phase で実行する。
+/// これにより、深いが正当な HIR を codegen へ渡して native stack overflow させず、
+/// memory/resource safety diagnostic だけを取りこぼさない。
 pub fn check_module(module: ast::Module, options: CompileOptions) -> Result<(), CoreError> {
     check_module_with_source_map(module, None, options)
 }
@@ -205,15 +207,7 @@ pub fn check_module_with_source_map(
     crate::log::set_verbose(options.verbose);
     let target = resolve_target(&module, options)?;
     let profile = options.profile.unwrap_or(BuildProfile::detect());
-    let precheck_diags =
-        crate::target_precheck::precheck_module_before_codegen(&module, target, profile);
-    if precheck_diags
-        .iter()
-        .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error))
-    {
-        return Err(CoreError::from_diagnostics(precheck_diags));
-    }
-    run_typecheck(&module, target, profile, source_map)?;
+    prepare_module_for_codegen_with_source_map(&module, target, profile, source_map)?;
     Ok(())
 }
 

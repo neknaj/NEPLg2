@@ -34684,3 +34684,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-region-ptr-at-forge.json -j 1 --dist web/dist`: total=17, passed=17
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 CLI check Resource IR gate 修正
+
+- `ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF` として、`nepl-cli --check` が `check_module_with_source_map` 経由で typecheck 後に成功し、Resource IR static gate を通らない問題を修正した。
+- `check_module_with_source_map` は成果物 emission を行わないまま、`prepare_module_for_codegen_with_source_map` の非再帰 prepare phase を共有し、monomorphize / Resource IR lowering coverage / initialized cell / drop plan / borrow / effect / owner / drop bridge gate まで通すようにした。
+- `--check` は wasm/wat/llvm artifact を生成しないが、memory/resource safety の authority は compile/codegen pipeline と一致する。
+- `nepl-core/tests/check_pipeline.rs` に check-only API の Resource IR effect gate regression を追加し、`nepl-cli/src/main.rs` に CLI `--check` regression を追加した。
+- deep prefix regression を再実行し、check-only が artifact emission に入って stack overflow を再発させないことを確認した。
+- [検証]:
+  - `cargo test -p nepl-core --test check_pipeline check_module_ -- --nocapture`: passed
+  - `cargo test -p nepl-cli check_runs_resource_ir_static_safety_gates -- --nocapture`: passed
+  - `cargo test -p nepl-cli check_accepts_deep_prefix_chain_without_codegen_stack_overflow -- --nocapture`: passed
+  - `cargo test -p nepl-core --test effects raw_memory_boundary -- --nocapture`: passed
+  - `cargo test -p nepl-core --test effects loader_does_not_mark_user_core_mem_path_by_suffix -- --nocapture`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

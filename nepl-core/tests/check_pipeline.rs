@@ -1,4 +1,5 @@
 use nepl_core::compiler::prepare_module_for_codegen;
+use nepl_core::diagnostic_codes::{DiagnosticCode, EffectDiagnosticCode};
 use nepl_core::error::CoreError;
 use nepl_core::resource::{ResourceDropElaborationFunction, ResourceDropElaborationPlan};
 use nepl_core::span::FileId;
@@ -194,4 +195,36 @@ fn check_module_reports_type_errors() {
     let err = check_module(module, CompileOptions::default())
         .expect_err("typecheck diagnostics should fail check-only pipeline");
     assert!(matches!(err, CoreError::Diagnostics(_)));
+}
+
+#[test]
+fn check_module_runs_resource_static_safety_gates() {
+    let module = parse_module(
+        r#"#entry main
+#indent 4
+#target wasm
+
+fn raw_store <(i32,i32)->()> (p, v):
+    #wasm:
+        local.get p
+        local.get v
+        i32.store
+
+fn main <()->i32> ():
+    raw_store 0 1
+    0
+"#,
+    );
+
+    let err = check_module(module, CompileOptions::default())
+        .expect_err("check-only pipeline must run Resource IR effect gates");
+    let CoreError::Diagnostics(diagnostics) = err else {
+        panic!("expected diagnostics from Resource IR effect gate");
+    };
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure)
+        }),
+        "expected pure-call-impure diagnostic from Resource IR check, got {diagnostics:?}"
+    );
 }
