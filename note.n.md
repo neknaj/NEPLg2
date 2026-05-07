@@ -598,6 +598,20 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 1 self-host lexer timeout closeout
+
+- `ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D` を fixed にした。
+- `trunk build` 後の current `web/dist` で、empty lexer smoke、module parser、module loader、module graph が default 60000ms budget で通過することを確認した。
+- この issue の根だった `lex_next` / `lex_all` timeout は、compiler static-check timeout、lexer owner flow、Result scalar payload owner summary の修正後に解消している。
+- [検証]:
+  - `trunk build`: passed
+  - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tmp/agent1_probe_lex_empty.n.md --no-tree --dist web/dist -o tmp/selfhost_lex_empty_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
+  - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree --dist web/dist -o tmp/selfhost_module_parser_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
+  - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/module/loader.nepl --no-tree --dist web/dist -o tmp/selfhost_loader_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
+  - `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl --no-tree --dist web/dist -o tmp/selfhost_graph_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-07 Agent 1 Result scalar payload owner summary 修正
 
 - `ISS-20260507T003424385Z-RESOURCE-OWNER-SUMMARY-DROPS-RAW-OWN-AE32128E` を追加し、fixed にした。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T00:37:06.152Z",
+  "generated_at": "2026-05-07T00:43:00.067Z",
   "counts": {
     "total": 545,
-    "open": 14,
-    "resolved": 531,
+    "open": 13,
+    "resolved": 532,
     "by_area": {
       "core": {
         "total": 270,
@@ -13,8 +13,8 @@
       },
       "selfhost": {
         "total": 51,
-        "open": 3,
-        "resolved": 48
+        "open": 2,
+        "resolved": 49
       },
       "stdlib": {
         "total": 157,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T175807290Z-SELFHOST-STDLIB-MAP-AND-MODULE-GRAPH-981662BF.md"
-    },
-    {
-      "id": "ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D",
-      "title": "Self-host lexer lex_next timeout blocks parser loader and module graph doctests",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-07",
-      "target": "stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/module/loader.nepl, stdlib/neplg2/core/module/graph.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4858,6 +4843,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T171738048Z-SELFHOST-MODULE-IMPORT-SPECS-STORES--9975F52D.md"
+    },
+    {
+      "id": "ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D",
+      "title": "Self-host lexer lex_next timeout blocks parser loader and module graph doctests",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/module/loader.nepl, stdlib/neplg2/core/module/graph.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D.md"
     },
     {
       "id": "ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE",

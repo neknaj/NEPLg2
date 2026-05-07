@@ -2,8 +2,8 @@
 id: ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D
 title: "Self-host lexer lex_next timeout blocks parser loader and module graph doctests"
 area: selfhost
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-06
@@ -44,3 +44,17 @@ The compiler-side timeout tracked by `ISS-20260506T203121413Z-COMPILER-STATIC-CH
 ## 検証
 
 Run node nodesrc/tests.js -i tmp/probe_lex_empty.n.md --no-tree -o tmp/probe_lex_empty_after_fix.json -j 1, then stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/module/loader.nepl, and stdlib/neplg2/core/module/graph.nepl focused doctests under the default 60000ms timeout.
+
+## 2026-05-07 closeout
+
+`ISS-20260506T203121413Z-COMPILER-STATIC-CHECKER-TIMES-OUT-ON-5B942F4A`、`ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE`、`ISS-20260507T003424385Z-RESOURCE-OWNER-SUMMARY-DROPS-RAW-OWN-AE32128E` の修正後に、current `main` の compiler bundle を `trunk build` で更新して再検証した。
+
+結果として、empty lexer smoke、module parser、module loader、module graph の各 doctest はすべて default 60000ms budget で passed になった。今回の issue の root blocker だった lex_next / lex_all timeout は解消済みと判断し、この issue は fixed とする。
+
+検証:
+
+- `trunk build`: passed
+- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tmp/agent1_probe_lex_empty.n.md --no-tree --dist web/dist -o tmp/selfhost_lex_empty_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
+- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/syntax/parser/module_parser.nepl --no-tree --dist web/dist -o tmp/selfhost_module_parser_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
+- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/module/loader.nepl --no-tree --dist web/dist -o tmp/selfhost_loader_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
+- `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl --no-tree --dist web/dist -o tmp/selfhost_graph_timeout_closeout.json -j 1 --assert-io`: 1/1 passed
