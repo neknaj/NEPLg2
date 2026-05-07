@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T17:33:30.765Z",
+  "generated_at": "2026-05-07T17:44:54.136Z",
   "counts": {
-    "total": 611,
-    "open": 12,
-    "resolved": 599,
+    "total": 613,
+    "open": 13,
+    "resolved": 600,
     "by_area": {
       "core": {
-        "total": 304,
-        "open": 3,
-        "resolved": 301
+        "total": 306,
+        "open": 4,
+        "resolved": 302
       },
       "stdlib": {
         "total": 164,
@@ -143,6 +143,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260507T174020115Z-SOURCE-CAPABILITIES-KEEP-RAW-MEMORY--41F29FB6",
+      "title": "Source capabilities keep raw memory boundary as ad hoc boolean",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/source_map.rs, nepl-core/src/loader.rs, nepl-core/tests/effects.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T174020115Z-SOURCE-CAPABILITIES-KEEP-RAW-MEMORY--41F29FB6.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4673,6 +4688,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T173212101Z-QUALIFIED-IMPORT-ALIASES-IGNORE-PUB--6A7D10D7.md"
+    },
+    {
+      "id": "ISS-20260507T174232094Z-RESOLVE-INTEGRATION-TESTS-USE-OBSOLE-5F49A111",
+      "title": "resolve integration tests use obsolete qualified import target API",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/tests/resolve.rs, nepl-core/src/resolve.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T174232094Z-RESOLVE-INTEGRATION-TESTS-USE-OBSOLE-5F49A111.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

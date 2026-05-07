@@ -219,10 +219,10 @@ fn main <()->i32> ():
     let main_file = source_file_id(&source_map, "main.nepl");
     let dep_file = source_file_id(&source_map, "dep.nepl");
 
-    let alias_targets = resolution
-        .qualified_targets_for_alias(main_file, "dep")
-        .expect("default alias target");
-    assert!(alias_targets.contains(&dep_file));
+    assert_eq!(
+        resolution.qualified_lookup_names(main_file, "dep", "allowed"),
+        Some(vec![(dep_file, String::from("allowed"))])
+    );
     assert_eq!(
         resolution.unqualified_lookup_names(main_file, "renamed"),
         vec![String::from("renamed"), String::from("allowed")]
@@ -324,11 +324,12 @@ fn main <()->i32> ():
     let dep_file = source_file_id(&source_map, "dep.nepl");
     let facade_file = source_file_id(&source_map, "facade.nepl");
 
-    let facade_targets = resolution
-        .qualified_targets_for_alias(main_file, "facade")
-        .expect("facade alias target");
-    assert!(facade_targets.contains(&facade_file));
-    assert!(facade_targets.contains(&dep_file));
+    let lookups = resolution
+        .qualified_lookup_names(main_file, "facade", "allowed")
+        .expect("facade qualified lookup");
+    assert_eq!(lookups.len(), 2);
+    assert!(lookups.contains(&(facade_file, String::from("allowed"))));
+    assert!(lookups.contains(&(dep_file, String::from("allowed"))));
 }
 
 #[test]

@@ -34961,3 +34961,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-08 Agent 1 resolve integration test qualified lookup API 更新
+
+- `ISS-20260507T174232094Z-RESOLVE-INTEGRATION-TESTS-USE-OBSOLE-5F49A111` として、qualified import 再設計後の integration test compile failure を修正した。
+- `ImportResolution` は target file set を返す旧 API ではなく、member 名に対して visibility rule を適用する `qualified_lookup_names` を正規 contract にしたため、test 側もその contract を直接検査するように更新した。
+- 削除済みの `qualified_targets_for_alias` を戻すと、`All` / `Selected` / public reexport alias の意味を失った file set API が残るため、旧 API 復活ではなく test を現行設計へ合わせた。
+- [検証]:
+  - `cargo test -p nepl-core --test resolve import_resolution -- --nocapture`: 3 passed
+  - `cargo test -p nepl-core --lib source_map::tests -- --nocapture`: 2 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
