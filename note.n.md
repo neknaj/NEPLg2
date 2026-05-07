@@ -1,3 +1,25 @@
+# 2026-05-08 Agent 2 std/stdio read facade split
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の追加対応として、`stdlib/std/stdio/read.nepl` を facade 化した。
+- 根本原因は、`stdio_read_all_bytes_result` の growable byte buffer read、UTF-8 text conversion、`read_line` の 1 byte read loop が 1 file に同居し、byte read 境界と text conversion 境界を個別に保守しにくい状態だったこと。
+- `stdlib/std/stdio/read.nepl` は `read/bytes` と `read/text` の public `@merge` re-export だけを持つ facade にした。
+- `read/bytes.nepl` は `stdio_read_all_bytes_result` / `stdio_read_all_bytes`、`read/text.nepl` は `stdio_read_all_text_result` / `read_all` / `stdio_read_line_result` / `read_line` を所有する。
+- `read/buffer.nepl` は fd read scratch boundary と exact-size buffer finish helper の所有 module のまま維持した。
+- `nodesrc/test_stdlib_stdio_read_boundary.js` を更新し、root facade に implementation body が戻らないこと、byte API / text API / buffer boundary の所有 module を固定した。
+- line count は `read.nepl` 15、`read/bytes.nepl` 129、`read/text.nepl` 220、`read/buffer.nepl` 112。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/read.nepl -i stdlib/std/stdio/read/bytes.nepl -i stdlib/std/stdio/read/text.nepl -i stdlib/std/stdio/read/buffer.nepl -i tests/stdlib/stdout.n.md -i tests/stdlib/io.n.md -i tests/stdlib/streamio.n.md --no-tree -o tmp/stdio-read-split-focused-final.json -j 1 --dist web/dist`: total=29, passed=29
+  - `node nodesrc/tests.js -i examples -o tmp/stdio-read-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - remote main `bf95da31` rebase 後 `trunk build`: passed
+  - remote main `bf95da31` rebase 後 `node nodesrc/tests.js -i stdlib/std/stdio/read.nepl -i stdlib/std/stdio/read/bytes.nepl -i stdlib/std/stdio/read/text.nepl -i stdlib/std/stdio/read/buffer.nepl -i tests/stdlib/stdout.n.md -i tests/stdlib/io.n.md -i tests/stdlib/streamio.n.md --no-tree -o tmp/stdio-read-split-focused-rebased.json -j 1 --dist web/dist`: total=29, passed=29
+  - remote main `bf95da31` rebase 後 `node nodesrc/tests.js -i examples -o tmp/stdio-read-split-examples-rebased.json -j 4 --dist web/dist`: total=32, passed=32
+  - remote main `bf95da31` rebase 後 `node nodesrc/run_source_policy_regressions.js --warn-only`: stdio read boundary は passed。別件として `owner_return.rs has 240 lines; responsibility split limit is 220` warning を検出したため、ResourceIR responsibility split issue として切り分ける。
+  - remote main `bf95da31` rebase 後 `node nodesrc/issues.js check`: ok, files=616
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 1 ResourceIR unknown callback non-owning view 修正
 
 - `ISS-20260507T183017038Z-RESOURCE-OWNER-CHECKER-TREATS-NON-OW-95BB68AF` を追加し、fixed/resolved に更新した。
@@ -14,8 +36,6 @@
   - `trunk build`: passed
   - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-unknown-callback-non-owning-memory-safety.json -j 1 --dist web/dist`: 21 passed
   - `node nodesrc/issues.js check`: passed
-- [plan.mdとの差分]:
-  - `plan.md` 自体は変更していない。
 
 # 2026-05-08 Agent 2 std/stdio ansi facade split
 

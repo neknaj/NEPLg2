@@ -13,6 +13,10 @@ const writeRelPath = 'stdlib/std/stdio/write.nepl';
 const writeSrc = fs.readFileSync(path.join(repoRoot, writeRelPath), 'utf8');
 const readRelPath = 'stdlib/std/stdio/read.nepl';
 const readSrc = fs.readFileSync(path.join(repoRoot, readRelPath), 'utf8');
+const readBytesRelPath = 'stdlib/std/stdio/read/bytes.nepl';
+const readBytesSrc = fs.readFileSync(path.join(repoRoot, readBytesRelPath), 'utf8');
+const readTextRelPath = 'stdlib/std/stdio/read/text.nepl';
+const readTextSrc = fs.readFileSync(path.join(repoRoot, readTextRelPath), 'utf8');
 const readBufferRelPath = 'stdlib/std/stdio/read/buffer.nepl';
 const readBufferSrc = fs.readFileSync(path.join(repoRoot, readBufferRelPath), 'utf8');
 
@@ -29,6 +33,14 @@ const writeCode = writeSrc
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
 const readCode = readSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const readBytesCode = readBytesSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const readTextCode = readTextSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
@@ -126,27 +138,65 @@ for (const helper of [
 ]) {
     assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay below stdio/read`);
     assert.doesNotMatch(readCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/read/buffer`);
+    assert.doesNotMatch(readBytesCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/read/buffer`);
+    assert.doesNotMatch(readTextCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/read/buffer`);
     assert.match(readBufferCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/read/buffer`);
 }
 
 assert.match(
     readCode,
-    /#import\s+"std\/stdio\/read\/buffer"\s+as\s+\*/,
-    'std/stdio/read must depend on read/buffer boundary helpers',
+    /pub\s+#import\s+"\.\/read\/bytes"\s+as\s+@merge/,
+    'std/stdio/read facade must re-export read/bytes',
+);
+assert.match(
+    readCode,
+    /pub\s+#import\s+"\.\/read\/text"\s+as\s+@merge/,
+    'std/stdio/read facade must re-export read/text',
+);
+assert.doesNotMatch(
+    readCode,
+    /\bfn\s+/,
+    'std/stdio/read facade must not keep read implementation bodies',
+);
+assert.match(
+    readBytesCode,
+    /#import\s+"\.\/buffer"\s+as\s+\*/,
+    'std/stdio/read/bytes must depend on read/buffer boundary helpers',
+);
+assert.match(
+    readTextCode,
+    /#import\s+"\.\/buffer"\s+as\s+\*/,
+    'std/stdio/read/text must depend on read/buffer boundary helpers',
+);
+assert.match(
+    readTextCode,
+    /#import\s+"\.\/bytes"\s+as\s+\*/,
+    'std/stdio/read/text must build on read/bytes for read_all text conversion',
 );
 
 for (const helper of [
     'stdio_read_all_bytes_result',
+    'stdio_read_all_bytes',
+]) {
+    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must stay in stdio/read`);
+    assert.doesNotMatch(readCode, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must stay in stdio/read/bytes`);
+    assert.match(readBytesCode, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must exist in stdio/read/bytes`);
+    assert.doesNotMatch(readTextCode, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must not be duplicated in stdio/read/text`);
+}
+
+for (const helper of [
     'stdio_read_all_text_result',
     'read_all',
     'stdio_read_line_result',
     'read_line',
 ]) {
-    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must stay in stdio/read`);
-    assert.match(readCode, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must exist in stdio/read`);
+    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must stay in stdio/read/text`);
+    assert.doesNotMatch(readCode, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must stay in stdio/read/text`);
+    assert.match(readTextCode, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must exist in stdio/read/text`);
+    assert.doesNotMatch(readBytesCode, new RegExp(`\\bfn\\s+(?:noshadow\\s+)?${helper}\\b`), `${helper} must not be duplicated in stdio/read/bytes`);
 }
 
-const readAllMatch = readCode.match(
+const readAllMatch = readBytesCode.match(
     /fn\s+stdio_read_all_bytes_result\s+<\(\)\*>\s*Result<ByteBuf\s*,\s*StdErrorKind>>\s+\(\):([\s\S]*?)\nfn\s+stdio_read_all_bytes\s+/,
 );
 assert.ok(readAllMatch, 'stdio_read_all_bytes_result body must be found');
@@ -161,7 +211,13 @@ assert.match(
     'read_all must return an exact-size ByteBuf through stdio_finish_read_buffer',
 );
 
-const readLineMatch = readCode.match(
+assert.match(
+    readTextCode,
+    /fn\s+stdio_read_all_text_result\s+<\(\)\*>\s*Result<str\s*,\s*StdErrorKind>>\s+\(\):[\s\S]*stdio_read_all_bytes_result[\s\S]*text_bytebuf_to_utf8_str_result/,
+    'stdio_read_all_text_result must convert the read/bytes result through std/text',
+);
+
+const readLineMatch = readTextCode.match(
     /fn\s+noshadow\s+read_line\s+<\(\)\*>\s*str>\s+\(\):([\s\S]*?)$/,
 );
 assert.ok(readLineMatch, 'read_line body must be found');
