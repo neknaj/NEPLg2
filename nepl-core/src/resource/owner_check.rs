@@ -462,7 +462,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         ) {
                             raw_aliases.copy_alias_if_tracked(&cell, output);
                             storage_origins.copy_origin(&cell, output);
-                            raw_views.mark(output);
+                            raw_views.mark_non_owning(output);
                         } else {
                             self.transfer_owner(
                                 owners,
@@ -688,6 +688,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 inputs,
                 span,
             } => {
+                raw_views.clear(output);
                 if !self.reject_reserved_call_arguments(
                     owners,
                     raw_aliases,
@@ -707,7 +708,6 @@ impl ResourceOwnerCheckEngine<'_> {
                     );
                 }
                 construct_function_alias_fields(function_aliases, output, kind, inputs);
-                raw_views.clear(output);
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);
             }

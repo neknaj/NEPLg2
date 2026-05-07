@@ -217,3 +217,16 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_alloc_ptr_raw_owner_return -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_raw_owner_through_str_from_addr -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_str_addr_helper_parameter_raw_load -- --nocapture`: passed
+
+## 2026-05-07 Resource IR aggregate payload non-owning view 部分対応
+
+`str_addr` の non-owning raw view を `Result::Ok` payload に包み、caller 側で match bind した後に `dealloc_raw` へ渡すと、direct view では拒否できる free bypass が再発する問題を `ISS-20260507T085434323Z-RESOURCE-OWNER-CHECKER-LOSES-NON-OWN-344F2372` として修正した。
+
+根本原因は、Resource IR owner summary が payload projection marker を生成しているにもかかわらず、construct / branch / match / call return summary / read の value-preserving flow が non-owning raw view fact を統一的にコピーしていなかったことだった。対応では `RawAddressViewTable` で通常 raw address view と non-owning raw address view を分け、aggregate / branch / match / call return summary では non-owning fact だけを伝播する。`OwnerState::NoFreeObligation` は汎用 owner marker のまま維持し、pointer authority には流用しない。
+
+この対応は `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に含まれる。direct `str_addr` と aggregate payload 経由の `str_addr` はどちらも owner ではないため `dealloc_raw` / `realloc_raw` では `OwnerUnavailable` になり、`mem_ptr_addr` / `str_from_addr_unchecked` の raw owner transfer 経路とは分離したまま維持する。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_dealloc_through_result_wrapped_str_addr_view -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir str_addr -- --nocapture`: passed

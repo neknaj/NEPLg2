@@ -120,6 +120,7 @@ mod owner_control;
 mod owner_flow;
 mod owner_raw_address;
 mod owner_raw_view;
+mod owner_raw_view_table;
 mod owner_return;
 mod owner_return_apply;
 mod owner_return_view;

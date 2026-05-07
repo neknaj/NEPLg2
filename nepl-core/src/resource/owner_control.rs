@@ -127,6 +127,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::BranchValue,
                     span,
                 );
+                then_raw_views.copy_non_owning(then_value, output);
                 then_pending_reallocs.copy_result(then_value, output);
                 then_variant_owner_effects.copy_result(then_value, output);
             }
@@ -166,6 +167,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::BranchValue,
                     span,
                 );
+                else_raw_views.copy_non_owning(else_value, output);
                 else_pending_reallocs.copy_result(else_value, output);
                 else_variant_owner_effects.copy_result(else_value, output);
             }
@@ -446,6 +448,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         ResourceOwnerOperation::MatchValue,
                         span,
                     );
+                    arm_raw_views.copy_non_owning(&arm.value, output);
                     arm_pending_reallocs.copy_result(&arm.value, output);
                     arm_variant_owner_effects.copy_result(&arm.value, output);
                 }

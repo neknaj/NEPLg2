@@ -1,67 +1,12 @@
-use alloc::vec::Vec;
-
 use crate::types::{TypeId, TypeKind};
 
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place, RawAddressViewKind};
 use super::owner_check::ResourceOwnerCheckEngine;
+pub(super) use super::owner_raw_view_table::RawAddressViewTable;
 use super::owner_state::OwnerTable;
-use super::place_utils::{
-    place_suffix_after_prefix, push_unique_place, raw_address_view_candidate_bases,
-    replace_place_prefix,
-};
+use super::place_utils::raw_address_view_candidate_bases;
 use super::storage_origin::StorageOriginTable;
-
-#[derive(Clone, Default)]
-pub(super) struct RawAddressViewTable {
-    places: Vec<Place>,
-}
-
-impl RawAddressViewTable {
-    pub(super) fn mark(&mut self, place: &Place) {
-        self.clear(place);
-        self.places.push(place.clone());
-    }
-
-    pub(super) fn copy(&mut self, source: &Place, target: &Place) {
-        let copied = self
-            .places
-            .iter()
-            .filter_map(|place| replace_place_prefix(place, source, target))
-            .collect::<Vec<_>>();
-        self.clear(target);
-        for place in copied {
-            push_unique_place(&mut self.places, &place);
-        }
-    }
-
-    pub(super) fn clear(&mut self, place: &Place) {
-        self.places
-            .retain(|entry| place_suffix_after_prefix(entry, place).is_none());
-    }
-
-    pub(super) fn contains(&self, place: &Place) -> bool {
-        self.places.iter().any(|entry| entry == place)
-    }
-
-    pub(super) fn contains_under(&self, prefix: &Place) -> bool {
-        self.places
-            .iter()
-            .any(|entry| place_suffix_after_prefix(entry, prefix).is_some())
-    }
-
-    pub(super) fn merge_paths(paths: &[RawAddressViewTable]) -> Self {
-        let mut out = RawAddressViewTable::default();
-        for path in paths {
-            for place in &path.places {
-                if !out.contains(place) {
-                    out.places.push(place.clone());
-                }
-            }
-        }
-        out
-    }
-}
 
 impl ResourceOwnerCheckEngine<'_> {
     pub(super) fn apply_raw_address_view(
@@ -83,7 +28,11 @@ impl ResourceOwnerCheckEngine<'_> {
             raw_aliases.clear(target);
             storage_origins.clear(target);
         }
-        if source_is_known || matches!(kind, RawAddressViewKind::NonOwningProjection) {
+        if matches!(kind, RawAddressViewKind::NonOwningProjection)
+            || raw_views.contains_non_owning(source)
+        {
+            raw_views.mark_non_owning(target);
+        } else if source_is_known {
             raw_views.mark(target);
         } else {
             raw_views.clear(target);
@@ -132,9 +81,10 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_views: &RawAddressViewTable,
         value: &Place,
     ) -> bool {
-        self.types.resolve_id(value.ty) == self.types.i32()
-            && raw_views.contains(value)
-            && !owners.has_transferable_owner(value)
+        (self.types.resolve_id(value.ty) == self.types.i32()
+            || raw_views.contains_non_owning(value))
+            && raw_views.contains_non_owning(value)
+            && !self.has_transferable_owner(owners, raw_aliases, value)
             && !owners.has_tracked_state_under(value)
             && raw_aliases
                 .aliases_for(value)

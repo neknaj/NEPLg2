@@ -16,7 +16,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
+        raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         output: &Place,
         args: &[Place],
@@ -74,6 +74,9 @@ impl ResourceOwnerCheckEngine<'_> {
             raw_aliases.mark(output);
             storage_origins.mark_owned(output);
         }
+        if summary.returns_non_owning_raw_view {
+            raw_views.mark_non_owning(output);
+        }
         for projection in &summary.projection_returns {
             let output_projection = place_with_suffix(output, &projection.suffix, projection.ty);
             self.apply_owner_projection_return_summary(
@@ -92,6 +95,10 @@ impl ResourceOwnerCheckEngine<'_> {
             if owners.state(&marker_place).is_none() {
                 owners.set_state(&marker_place, OwnerState::NoFreeObligation);
             }
+        }
+        for marker in &summary.non_owning_raw_view_projection_markers {
+            let marker_place = place_with_suffix(output, &marker.suffix, marker.ty);
+            raw_views.mark_non_owning(&marker_place);
         }
         self.consume_owner_summary_parameters(
             owners,

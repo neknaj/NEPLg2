@@ -1,3 +1,13 @@
+# 2026-05-07 note (ISS-20260507T085434323Z Resource owner aggregate non-owning raw view)
+
+- branch `fix/raw-view-aggregate-owner-propagation` で、`str_addr` 由来の non-owning raw address view が `Result::Ok` payload / match bind / read temporary を通ると non-owning fact を失い、`dealloc_raw` の owner として未検出になる問題を修正した。
+- 根本原因は Resource IR owner summary ではなく、construct / branch / match / call return summary / read の value-preserving owner-flow が non-owning raw view fact を一貫してコピーしていなかったことだった。
+- `RawAddressViewTable` を通常 raw address view と non-owning raw address view に分け、aggregate / branch / match / summary return では non-owning fact だけを伝播するようにした。`OwnerState::NoFreeObligation` は enum payload などの汎用 owner marker として維持し、non-owning pointer authority とは混ぜない。
+- `resource_ir_owner_check_rejects_dealloc_through_result_wrapped_str_addr_view` を追加し、payload 経由の `str_addr` free bypass が `OwnerUnavailable` で拒否されることを固定した。
+- `ISS-20260507T085434323Z-RESOURCE-OWNER-CHECKER-LOSES-NON-OWN-344F2372` は fixed/resolved に更新した。親 issue `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` は `MemPtr = non-owning pointer` / `OwnedRegion = free obligation owner` の最終分離として open のまま維持する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260427 MemPtr/RegionToken str_addr non-owning view)
 
 - branch `fix/non-owning-str-addr-owner-view` で、`str_addr` helper の raw address が owner alias として dealloc 可能になる Resource IR owner/provenance の不備を修正した。

@@ -10218,6 +10218,50 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_rejects_dealloc_through_result_wrapped_str_addr_view() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/string" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn string_addr <(str)->i32> (s):
+    #intrinsic "str_addr" <> (s)
+
+fn string_addr_result <(str)->Result<i32,str>> (s):
+    let addr <i32> string_addr s
+    Result<i32,str>::Ok addr
+
+fn main <()*>()> ():
+    match concat_result "a" "b":
+        Result::Ok s:
+            match string_addr_result s:
+                Result::Ok addr:
+                    dealloc_raw addr len s
+                Result::Err _e:
+                    ()
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                if function == "main" || function.starts_with("main__")
+        )),
+        "a non-owning str_addr view wrapped in Result::Ok must not become a raw owner: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_accepts_concat_result_output_region_transfer() {
     let source = r#"
 #entry main

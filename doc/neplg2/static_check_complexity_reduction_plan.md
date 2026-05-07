@@ -285,6 +285,8 @@ commit 単位:
 
 - 2026-05-07: `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` の部分対応として、`str_addr` と borrowed `region_ptr` の lowering を `RawAddressViewKind::NonOwningProjection` として表現するようにした。`RawAddressViewKind::Offset` と分けることで、通常 i32 arithmetic の raw pointer proof gate は維持しつつ、仕様上 non-owning な pointer projection は source 未解決でも dealloc / realloc の owner として扱わない。`mem_ptr_addr` と `str_from_addr_unchecked` の owner transfer 経路は残しており、静的検査を緩めずに `str_addr` helper 経由の free bypass を拒否する。Stage 4 の残件は、`MemPtr = non-owning pointer` と `OwnedRegion/Storage = free obligation owner` の最終分離である。
 
+- 2026-05-07: `ISS-20260507T085434323Z-RESOURCE-OWNER-CHECKER-LOSES-NON-OWN-344F2372` を解決した。`str_addr` 由来の non-owning raw address view は direct local では owner として拒否されていたが、`Result::Ok` などの aggregate payload に入れてから match bind / read を通ると non-owning raw view fact が落ちていた。Resource IR owner summary は payload projection に non-owning raw view marker を生成できるため、summary 生成を緩めるのではなく、`RawAddressViewTable` で通常 raw address view と non-owning raw address view を分け、construct / branch / match / call return summary / read の value-preserving owner-flow に non-owning fact copy を接続した。これにより `OwnerState::NoFreeObligation` を pointer authority として流用せず、`MemPtr = non-owning pointer` と `OwnedRegion/Storage = free obligation owner` の分離方針を弱めず、payload 経由の `dealloc_raw` / `realloc_raw` も `OwnerUnavailable` で拒否する。Stage 4 の残件は、Resource IR authority path の full review / regression と、stdlib public API 側の owner token 分離である。
+
 ### Stage 5: effect model の拡張
 
 目的: raw memory を safe surface から閉じつつ、stdlib 内部の正当な allocation を表現する。

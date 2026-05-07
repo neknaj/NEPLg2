@@ -90,8 +90,10 @@ fn function_owner_return_summary(
     let mut parameter_sources = Vec::new();
     let mut returns_fresh_owner = false;
     let mut returns_maybe_owner = false;
+    let mut returns_non_owning_raw_view = false;
     let mut projection_returns = Vec::new();
     let mut projection_markers = Vec::new();
+    let mut non_owning_raw_view_projection_markers = Vec::new();
     let mut variant_consumed_parameter_indices = Vec::new();
     let mut variant_consumed_parameter_sources = Vec::new();
     let mut variant_projection_returns = Vec::new();
@@ -259,6 +261,19 @@ fn function_owner_return_summary(
                     OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed => {}
                 }
             }
+            for raw_view in raw_views.non_owning_entries() {
+                if let Some(suffix) = place_suffix_after_prefix(raw_view, &resolved_value) {
+                    if suffix.is_empty() {
+                        returns_non_owning_raw_view = true;
+                    } else {
+                        record_projection_marker(
+                            &mut non_owning_raw_view_projection_markers,
+                            suffix,
+                            raw_view.ty,
+                        );
+                    }
+                }
+            }
         }
     }
 
@@ -279,10 +294,12 @@ fn function_owner_return_summary(
         resolved_parameter_variants,
         variant_conditions,
         variant_payload_conditions,
+        returns_non_owning_raw_view,
         returns_fresh_owner,
         returns_maybe_owner,
         projection_returns,
         projection_markers,
+        non_owning_raw_view_projection_markers,
     }
 }
 

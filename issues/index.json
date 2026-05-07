@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T09:31:14.064Z",
+  "generated_at": "2026-05-07T09:39:26.544Z",
   "counts": {
-    "total": 573,
+    "total": 574,
     "open": 13,
-    "resolved": 560,
+    "resolved": 561,
     "by_area": {
       "core": {
-        "total": 284,
+        "total": 285,
         "open": 3,
-        "resolved": 281
+        "resolved": 282
       },
       "stdlib": {
         "total": 163,
@@ -4378,6 +4378,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T084050995Z-STD-TEST-FACADE-RE-EXPORTS-ARE-INVIS-F9A19F5A.md"
+    },
+    {
+      "id": "ISS-20260507T085434323Z-RESOURCE-OWNER-CHECKER-LOSES-NON-OWN-344F2372",
+      "title": "Resource owner checker loses non-owning raw address views through aggregate payloads",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/owner_raw_view.rs, nepl-core/src/resource/owner_raw_view_table.rs, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_control.rs, nepl-core/src/resource/owner_flow.rs, nepl-core/src/resource/owner_return_apply.rs, nepl-core/src/resource/owner_return_view.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T085434323Z-RESOURCE-OWNER-CHECKER-LOSES-NON-OWN-344F2372.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

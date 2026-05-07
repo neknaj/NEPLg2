@@ -20,7 +20,7 @@ impl ResourceOwnerCheckEngine<'_> {
         &mut self,
         owners: &mut OwnerTable,
         raw_aliases: &mut RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
+        raw_views: &mut RawAddressViewTable,
         storage_origins: &mut StorageOriginTable,
         output: &Place,
         kind: &AggregateKind,
@@ -39,6 +39,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 ResourceOwnerOperation::ConstructInput,
                 span,
             );
+            raw_views.copy_non_owning(input, &field);
             if matches!(kind, AggregateKind::Enum { .. }) && owners.state(&field).is_none() {
                 owners.set_state(&field, OwnerState::NoFreeObligation);
             }

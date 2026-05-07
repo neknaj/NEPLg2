@@ -32,6 +32,7 @@ pub(super) fn update_owner_return_summary(
 fn owner_return_summary_has_facts(summary: &OwnerReturnSummary) -> bool {
     summary.returns_fresh_owner
         || summary.returns_maybe_owner
+        || summary.returns_non_owning_raw_view
         || !summary.parameter_indices.is_empty()
         || !summary.parameter_sources.is_empty()
         || !summary.consumed_parameter_indices.is_empty()
@@ -44,4 +45,5 @@ fn owner_return_summary_has_facts(summary: &OwnerReturnSummary) -> bool {
         || !summary.variant_payload_conditions.is_empty()
         || !summary.projection_returns.is_empty()
         || !summary.projection_markers.is_empty()
+        || !summary.non_owning_raw_view_projection_markers.is_empty()
 }

@@ -26,10 +26,12 @@ pub(super) struct OwnerReturnSummary {
     pub(super) resolved_parameter_variants: Vec<OwnerResolvedParameterVariant>,
     pub(super) variant_conditions: Vec<OwnerVariantCondition>,
     pub(super) variant_payload_conditions: Vec<OwnerVariantPayloadCondition>,
+    pub(super) returns_non_owning_raw_view: bool,
     pub(super) returns_fresh_owner: bool,
     pub(super) returns_maybe_owner: bool,
     pub(super) projection_returns: Vec<OwnerProjectionReturnSummary>,
     pub(super) projection_markers: Vec<OwnerProjectionMarker>,
+    pub(super) non_owning_raw_view_projection_markers: Vec<OwnerProjectionMarker>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

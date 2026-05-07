@@ -12,10 +12,11 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_views: &RawAddressViewTable,
         place: &Place,
     ) -> bool {
-        self.types.resolve_id(place.ty) == self.types.i32()
-            && !owners.has_transferable_owner(place)
+        (self.types.resolve_id(place.ty) == self.types.i32()
+            || raw_views.contains_non_owning(place))
+            && !self.has_transferable_owner(owners, raw_aliases, place)
             && !owners.has_tracked_state_under(place)
-            && (raw_views.contains(place)
+            && (raw_views.contains_non_owning(place)
                 || raw_aliases
                     .aliases_for(place)
                     .iter()
