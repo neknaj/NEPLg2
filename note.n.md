@@ -1,3 +1,15 @@
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 Vec mutation/query facade split)
+
+- branch `refactor/vec-mutation-query-facade` で `stdlib/alloc/collections/vec.nepl` に残っていた基本 mutation / cleanup と `get` を submodule へ分離した。
+- `stdlib/alloc/collections/vec/mutation.nepl` は `push` / `replace` / `pop` / `clear` / `free` を所有する。
+- `get` は `stdlib/alloc/collections/vec/query.nepl` に移し、borrowed Copy read の責務を query module に揃えた。
+- mutation module の read/write は direct offset 計算を持たず、`vec/raw::vec_read_at` / `vec/raw::vec_write_at` に委譲する。
+- root `vec.nepl` は mutation/query API について root namespace 互換 wrapper だけを持ち、`vec_mutation::` / `vec_query::` に委譲する。
+- `nepl-core/src/loader.rs` の exact raw-memory boundary に `alloc/collections/vec/mutation.nepl` を追加した。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` を更新し、mutation 実装が root に戻らないこと、`get` が `vec/query` にあること、root wrapper が submodule へ委譲すること、loader boundary が分割先を含むことを固定した。
+- `vec.nepl` root は 360 行まで縮小した。`vec/mutation.nepl` は 266 行、`vec/query.nepl` は 356 行。
+- focused doctest は mutation 5/5、query 7/7、root 3/3、Vec suite 9/9 が通過した。
+
 # 2026-05-07 note (ISS-20260507T023409425Z direct MemPtr initialized-cell regression)
 
 - branch `fix/resource-direct-memptr-summary` で、`RegionToken` 由来 `MemPtr` の direct `store_i32 p` -> direct `load_i32 p` 経路を再監査した。

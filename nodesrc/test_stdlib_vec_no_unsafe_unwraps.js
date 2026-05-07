@@ -13,6 +13,7 @@ const relPaths = [
     'stdlib/alloc/collections/vec/raw.nepl',
     'stdlib/alloc/collections/vec/transform.nepl',
     'stdlib/alloc/collections/vec/query.nepl',
+    'stdlib/alloc/collections/vec/mutation.nepl',
     'stdlib/alloc/collections/vec/sort.nepl',
     'stdlib/alloc/collections/vec/sort/common.nepl',
     'stdlib/alloc/collections/vec/sort/simple.nepl',
@@ -70,7 +71,8 @@ const vecAccessCode = codeByPath.get('stdlib/alloc/collections/vec/access.nepl')
 const vecRawCode = codeByPath.get('stdlib/alloc/collections/vec/raw.nepl');
 const vecTransformCode = codeByPath.get('stdlib/alloc/collections/vec/transform.nepl');
 const vecQueryCode = codeByPath.get('stdlib/alloc/collections/vec/query.nepl');
-const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecRawCode, vecTransformCode, vecQueryCode, vecRootCode].join('\n');
+const vecMutationCode = codeByPath.get('stdlib/alloc/collections/vec/mutation.nepl');
+const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecRawCode, vecTransformCode, vecMutationCode, vecQueryCode, vecRootCode].join('\n');
 const sortMergeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge.nepl');
 const loaderCode = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 
@@ -82,10 +84,10 @@ function between(code, start, end) {
     return code.slice(startIdx, endIdx);
 }
 
-const pushSection = between(vecCode, 'fn push ', 'fn get ');
+const pushSection = between(vecCode, 'fn push ', 'fn replace ');
 const withCapacitySection = between(vecCode, 'fn with_capacity ', 'fn filled ');
 const popSection = between(vecCode, 'fn pop ', 'fn clear ');
-const clearSection = between(vecCode, 'fn clear ', 'fn vec_read_at ');
+const clearSection = between(vecCode, 'fn clear ', 'fn free ');
 const mapSection = between(vecCode, 'fn map ', 'fn filter ');
 const countSection = between(vecCode, 'fn count ', 'fn fold ');
 const foldSection = between(vecCode, 'fn fold ', 'fn reduce ');
@@ -103,6 +105,7 @@ assert.match(vecRootCode, /#import\s+"\.\/vec\/access"\s+as\s+vec_access/, 'Vec 
 assert.match(vecRootCode, /#import\s+"\.\/vec\/raw"\s+as\s+vec_raw/, 'Vec root must delegate raw storage helpers to vec/raw.nepl');
 assert.match(vecRootCode, /#import\s+"\.\/vec\/transform"\s+as\s+vec_transform/, 'Vec root must delegate transform helpers to vec/transform.nepl');
 assert.match(vecRootCode, /#import\s+"\.\/vec\/query"\s+as\s+vec_query/, 'Vec root must delegate query helpers to vec/query.nepl');
+assert.match(vecRootCode, /#import\s+"\.\/vec\/mutation"\s+as\s+vec_mutation/, 'Vec root must delegate mutation helpers to vec/mutation.nepl');
 for (const name of ['VecStorageState', 'Vec', 'VecDataLen', 'VecPop', 'VecPartition']) {
     assert.doesNotMatch(vecRootCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `Vec root must not own ${name}; it belongs in vec/types.nepl`);
     assert.match(vecTypesCode, new RegExp(`(?:enum|struct)\\s+${name}\\b`), `vec/types.nepl must own ${name}`);
@@ -119,8 +122,11 @@ for (const name of ['vec_read_at', 'vec_write_at', 'vec_fold_impl', 'vec_reduce_
 for (const name of ['map', 'filter', 'partition', 'take_while', 'drop_while']) {
     assert.match(vecTransformCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform.nepl must own ${name}`);
 }
-for (const name of ['count', 'fold', 'reduce', 'find', 'any', 'all']) {
+for (const name of ['get', 'count', 'fold', 'reduce', 'find', 'any', 'all']) {
     assert.match(vecQueryCode, new RegExp(`fn\\s+${name}\\b`), `vec/query.nepl must own ${name}`);
+}
+for (const name of ['push', 'replace', 'pop', 'clear', 'free']) {
+    assert.match(vecMutationCode, new RegExp(`fn\\s+${name}\\b`), `vec/mutation.nepl must own ${name}`);
 }
 for (const [name, target] of [
     ['vec_empty', 'vec_storage::vec_empty<\\.T>'],
@@ -164,6 +170,16 @@ for (const [name, target] of [
     assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin transform facade wrapper`);
 }
 for (const [name, target] of [
+    ['push', 'vec_mutation::push<\\.T>\\s+v\\s+item'],
+    ['replace', 'vec_mutation::replace<\\.T>\\s+v\\s+idx\\s+item'],
+    ['pop', 'vec_mutation::pop<\\.T>\\s+v'],
+    ['clear', 'vec_mutation::clear<\\.T>\\s+v'],
+    ['free', 'vec_mutation::free<\\.T>\\s+v'],
+]) {
+    assert.match(vecRootCode, new RegExp(`fn\\s+${name}\\b[\\s\\S]*?${target}`), `Vec root ${name} must be a thin mutation facade wrapper`);
+}
+for (const [name, target] of [
+    ['get', 'vec_query::get<\\.T>\\s+v\\s+idx'],
     ['count', 'vec_query::count<\\.T>\\s+v\\s+p'],
     ['fold', 'vec_query::fold<\\.T,\\.U>\\s+v\\s+acc\\s+f'],
     ['reduce', 'vec_query::reduce<\\.T>\\s+v\\s+f'],
@@ -177,6 +193,7 @@ assert.match(vecCode, /enum\s+VecStorageState:[\s\S]*Empty[\s\S]*Owned/, 'Vec st
 for (const relPath of [
     /&\["alloc",\s*"collections",\s*"vec\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"access\.nepl"\]/,
+    /&\["alloc",\s*"collections",\s*"vec",\s*"mutation\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"query\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"raw\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"storage\.nepl"\]/,

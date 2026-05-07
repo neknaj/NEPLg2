@@ -2,8 +2,8 @@
 //: `Vec` の borrowed query helper
 //:
 //: ### [目的/もくてき]
-//: - root `Vec` module から count/fold/reduce/find/any/all を[分離/ぶんり]します。
-//: - query は `&Vec<T>` から storage view を作り、Copy 要素だけを読み取る API に限定します。
+//: - root `Vec` module から get/count/fold/reduce/find/any/all を[分離/ぶんり]します。
+//: - query は `&Vec<T>` から storage view を作り、Copy 要素だけを読み取る API に限定します。`get` もこの borrowed query 境界が所有します。
 //:
 //: ### [注意/ちゅうい]
 //: - raw storage の読み取りは `vec/raw` helper に委譲します。現行 storage model では exact raw-memory boundary として扱います。
@@ -18,6 +18,59 @@
 #import "./types" as *
 #import "./storage" as vec_storage
 #import "./raw" as vec_raw
+
+//: ## get
+//: [要素/ようそ]を[取得/しゅとく]する
+//:
+//: ### [目的/もくてき]
+//: - `idx` が[範囲内/はんいない]なら `Option::Some`、[範囲外/はんいがい]なら `Option::None` を[返/かえ]します。
+//:
+//: ### [実装/じっそう]
+//: - `idx` の[範囲/はんい]を[判定/はんてい]し、[妥当/だとう]な[場合/ばあい]だけ `vec/raw` の typed read helper に[委譲/いじょう]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `idx` が[負/ふ]でも `Option::None` です。
+//: - [失敗/しっぱい]を trap ではなく `Option` で[返/かえ]す[設計/せっけい]です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+//:
+//: ### [使用例/しようれい]
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
+//:     let v1 <Vec<i32>> unwrap_ok push v0 9;
+//:     match get<i32> &v1 0:
+//:         Option::Some x:
+//:             free<i32> v1;
+//:             if eq x 9 0 1
+//:         Option::None:
+//:             free<i32> v1;
+//:             1
+//: ```
+fn get <.T: Copy> <(&Vec<.T>,i32)->Option<.T>> (v, idx):
+    let v_len <i32> *field::get_ref v "len"
+    let v_storage <VecStorageState> *field::get_ref v "storage"
+    let v_data <MemPtr<.T>> *field::get_ref v "data"
+    if:
+        lt idx 0
+        then none<.T>
+        else:
+            if:
+                le v_len idx
+                then none<.T>
+                else:
+                    match v_storage:
+                        VecStorageState::Empty:
+                            none<.T>
+                        VecStorageState::Owned:
+                            some<.T> vec_raw::vec_read_at<.T> v_data idx
 
 //: ## count
 //: [条件/じょうけん]を[満/み]たす[要素数/ようそすう]を[数/かぞ]える
