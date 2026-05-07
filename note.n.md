@@ -598,6 +598,24 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 1 Result scalar payload owner summary 修正
+
+- `ISS-20260507T003424385Z-RESOURCE-OWNER-SUMMARY-DROPS-RAW-OWN-AE32128E` を追加し、fixed にした。
+- 直前の scalar owner leaf tightening により root の bare `i32` を owner と誤認しなくなった一方で、`Result::Ok<i32>` payload に格納された実 raw owner まで `unwrap_ok` summary から落ちていた。
+- root scalar / struct scalar field は引き続き owner seed しない。enum payload の `i32` だけを summary source に戻し、caller 側に実 owner state がある場合だけ transfer するようにした。
+- これにより `unwrap_ok alloc` / `unwrap_ok dealloc` の checked raw owner flow を回復しつつ、ordinary span / flag / scalar identity helper の false positive は戻さない。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_resolves_unwrap_ok_raw_dealloc_consumption -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_does_not_treat_plain_i32_identity_as_owner_return -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_does_not_treat -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_ -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/issues.js check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-06 note (ISS-20260425T000000Z-RV-STDLIB-009 alloc/string float conversion boundary split)
 
 - [同期]:

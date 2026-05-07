@@ -358,13 +358,20 @@ fn enum_owner_leaf_projections(
         let projection = PlaceProjection::EnumPayload {
             variant: variant.name.clone(),
         };
-        push_nested_owner_leaf_projections(
-            &mut out,
-            projection,
-            owner_leaf_projections_mapped(types, payload_ty, mapping, seen),
-        );
+        let mut payload_leaves = owner_leaf_projections_mapped(types, payload_ty, mapping, seen);
+        if payload_leaves.is_empty() && scalar_enum_payload_can_carry_owner(types, payload_ty) {
+            payload_leaves.push(OwnerLeafProjection {
+                suffix: Vec::new(),
+                ty: payload_ty,
+            });
+        }
+        push_nested_owner_leaf_projections(&mut out, projection, payload_leaves);
     }
     out
+}
+
+fn scalar_enum_payload_can_carry_owner(types: &TypeCtx, ty: TypeId) -> bool {
+    matches!(types.get_ref(types.resolve_id(ty)), TypeKind::I32)
 }
 
 fn push_nested_owner_leaf_projections(

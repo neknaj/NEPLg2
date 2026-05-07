@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-06T23:56:45.277Z",
+  "generated_at": "2026-05-07T00:37:06.152Z",
   "counts": {
-    "total": 544,
-    "open": 15,
-    "resolved": 529,
+    "total": 545,
+    "open": 14,
+    "resolved": 531,
     "by_area": {
       "core": {
-        "total": 269,
+        "total": 270,
         "open": 4,
-        "resolved": 265
+        "resolved": 266
       },
       "selfhost": {
         "total": 51,
-        "open": 4,
-        "resolved": 47
+        "open": 3,
+        "resolved": 48
       },
       "stdlib": {
         "total": 157,
@@ -163,21 +163,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T193839798Z-SELF-HOST-LEXER-LEX-NEXT-TIMEOUT-BLO-6B2FE67D.md"
-    },
-    {
-      "id": "ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE",
-      "title": "Self-host lexer owner flow fails after raw alias timeout fix",
-      "area": "selfhost",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-06",
-      "updated": "2026-05-06",
-      "target": "stdlib/neplg2/core/syntax/lexer.nepl, nepl-core/src/resource",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4215,6 +4200,21 @@
       "file": "items/ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F.md"
     },
     {
+      "id": "ISS-20260507T003424385Z-RESOURCE-OWNER-SUMMARY-DROPS-RAW-OWN-AE32128E",
+      "title": "Resource owner summary drops raw owner carried by Result scalar payload",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/owner_summary_leaf.rs, nepl-core/tests/resource_ir.rs, nepl-core/tests/kp.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T003424385Z-RESOURCE-OWNER-SUMMARY-DROPS-RAW-OWN-AE32128E.md"
+    },
+    {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
       "title": "getting_started tutorial needs full rewrite for current NEPLg2",
       "area": "doc",
@@ -4858,6 +4858,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260506T171738048Z-SELFHOST-MODULE-IMPORT-SPECS-STORES--9975F52D.md"
+    },
+    {
+      "id": "ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE",
+      "title": "Self-host lexer owner flow fails after raw alias timeout fix",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-06",
+      "updated": "2026-05-07",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260506T224618064Z-SELF-HOST-LEXER-OWNER-FLOW-FAILS-AFT-23CB5BBE.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",
