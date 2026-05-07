@@ -20,6 +20,9 @@ use super::initialized_summary_param_byte_ranges::collect_param_initialized_raw_
 use super::initialized_summary_param_cells::collect_param_initialized_raw_cells;
 use super::initialized_summary_variant_condition::collect_variant_param_condition;
 use super::initialized_summary_variant_requirement::collect_variant_param_required_raw_cells;
+use super::initialized_summary_variant_unique::{
+    push_unique_variant_param_byte_range, push_unique_variant_param_cell,
+};
 use super::initialized_variant::{normalize_variant_name, PendingVariantRawCellInitializations};
 use super::model::{
     AggregateKind, Place, ResourceBlockId, ResourceConditionFact, ResourceFunction, ResourceLocal,
@@ -244,24 +247,6 @@ fn construct_variant_for_value(ops: &[ResourceOp], value: &Place) -> Option<Stri
         }
     }
     None
-}
-
-fn push_unique_variant_param_cell(
-    cells: &mut Vec<RawCellInitializationVariantParamCell>,
-    cell: RawCellInitializationVariantParamCell,
-) {
-    if !cells.iter().any(|existing| existing == &cell) {
-        cells.push(cell);
-    }
-}
-
-fn push_unique_variant_param_byte_range(
-    ranges: &mut Vec<RawCellInitializationVariantParamByteRange>,
-    range: RawCellInitializationVariantParamByteRange,
-) {
-    if !ranges.iter().any(|existing| existing == &range) {
-        ranges.push(range);
-    }
 }
 
 fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {

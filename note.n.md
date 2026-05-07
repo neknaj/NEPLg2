@@ -166,6 +166,24 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 1 initialized summary variant uniqueness split
+
+- `ISS-20260507T132339456Z-RESOURCE-INITIALIZED-SUMMARY-VARIANT-32AEE691` を fixed/resolved に更新した。
+- `initialized_summary_variant_build.rs` から variant param cell / byte range の dedup helper を `initialized_summary_variant_unique.rs` へ分離した。
+- `initialized_summary_variant_build.rs` は variant return path traversal、path-local ResourceIR check、variant-gated param cell / byte range / requirement / condition construction を担当する。
+- `initialized_summary_variant_unique.rs` は variant param cell と variant param byte range の uniqueness enforcement を担当する。
+- 分割後の行数は `initialized_summary_variant_build.rs` 258 / 260、`initialized_summary_variant_unique.rs` 24 / 80。
+- [検証]:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_preserves_guarded_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_raw_header_rejects_unguarded_byte_range -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_returned_aggregate -- --nocapture`: 2 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T114726130Z nm json_escape raw traversal removed)
 
 - branch `fix/nm-json-escape-pure-raw-load` で、`stdlib/nm/json_escape.nepl` の public pure raw traversal を削除した。

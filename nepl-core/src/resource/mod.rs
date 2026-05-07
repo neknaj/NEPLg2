@@ -108,6 +108,7 @@ mod initialized_summary_return_byte_ranges;
 mod initialized_summary_variant_build;
 mod initialized_summary_variant_condition;
 mod initialized_summary_variant_requirement;
+mod initialized_summary_variant_unique;
 mod initialized_variant;
 mod lower;
 mod lower_aggregate;
