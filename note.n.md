@@ -1,3 +1,21 @@
+# 2026-05-07 note (ISS-20260429T155343006Z List typed Vec storage)
+
+## 作業内容
+
+- `origin/main` `9e38e253` を取り込み後、`stdlib/tests/list.n.md` / `tests/stdlib/list_collections.n.md` が `free__List...` / `get__List...` の pure 関数内 raw `load` で Stage 5 effect gate に拒否されることを確認した。
+- 根本原因は `List<T>` が `ptr: i32` の raw node chain を public owner state として持ち、`tail` の共有 semantics と `free` の destructive raw dealloc が同居していたこと。
+- `stdlib/alloc/collections/list.nepl` を `items: Vec<T>` storage へ再実装した。論理先頭は `Vec` 末尾に置き、`cons` / `push` は `vec::push`、`tail` は `vec::pop`、`reverse` は `Vec` slot swap で実装する。
+- by-value observer (`len` / `head` / `get` / `fold` / `reduce` / `find` / `any` / `all`) は入力 `List` owner を閉じる。`map` / `filter` は入力 storage と部分 output owner の cleanup を明示する。
+- `nodesrc/test_stdlib_list_no_unsafe_unwraps.js` を新設計に合わせ、List が `MemPtr` / `alloc_ptr` / `dealloc_raw` / `load_i32` / `store_i32` / `ptr <i32>` を再導入しないことを固定した。
+- `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` と `doc/neplg2/static_check_design_verification_20260430.md` の List 現状を raw node 残件から typed Vec storage 済みに更新した。
+- `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` は List typed storage 完了により fixed とした。`Vec` の `OwnedBuffer` 化、non-Copy payload drop traversal、`core/mem` owner token 化は別 issue で継続する。
+
+## 検証
+
+- `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: passed
+- `node nodesrc/tests.js -i stdlib/tests/list.n.md -i tests/stdlib/list_collections.n.md --no-tree -o tmp/list-typed-storage-focused.json -j 1 --dist web/dist`: total=5, passed=5
+- `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md -i tests/compiler/neplg2.n.md --no-tree -o tmp/list-typed-storage-related.json -j 1 --dist web/dist`: List 関連 doctest は passed。`tests/stdlib/pipe_collections.n.md` の selected import / hash string helper / RingBuffer 由来の既存失敗はこの List 修正とは別件。
+
 # 2026-05-07 note (ISS-20260506T222921266Z ResourceIR full baseline)
 
 ## 作業内容

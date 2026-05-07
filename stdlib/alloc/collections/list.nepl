@@ -1,960 +1,360 @@
 //: # list
-//: [単方向/たんほうこう][連結/れんけつ]リストを[扱/あつか]うライブラリ
+//: `Vec` storage を[用/もち]いた[単純/たんじゅん]な list API
 //:
 //: ### [目的/もくてき]
-//: - `new` / `cons` / `push` / `head` / `tail` / `get` / `reverse` など、[単方向/たんほうこう][連結/れんけつ]リストの[基本/きほん] API を[提供/ていきょう]します。
-//: - [範囲外/はんいがい][参照/さんしょう]は `Option`、[確保/かくほ][失敗/しっぱい]は `Result` として[分離/ぶんり]し、[値/あたい]で[安全/あんぜん]に[扱/あつか]います。
+//: - `new` / `cons` / `push` / `head` / `tail` / `get` / `reverse` など、list として[使/つか]うための[基本/きほん] API を[提供/ていきょう]します。
+//: - 旧実装の raw node chain と `ptr = 0` sentinel をやめ、内部 storage は `Vec<T>` owner として[保持/ほじ]します。
 //:
 //: ### [実装/じっそう]
-//: - ノードは `[value:.T][next:i32]` レイアウトでヒープ[確保/かくほ]します。
-//: - [空/から]リストは `ptr = 0` で[表現/ひょうげん]し、`new` はこの[空/から]リストを `Result::Ok` で[返/かえ]します。
-//: - `reverse` は[元/もと]のノードを[再利用/さいりよう]し、next pointer を[反転/はんてん]して owner を[移動/いどう]します。
+//: - `push` / `cons` は `Vec` の末尾へ value を[追加/ついか]します。
+//: - 論理上の先頭は storage の末尾です。これにより先頭追加と `tail` は O(1) になります。
+//: - `reverse` は storage を in-place に swap し、追加 allocation なしで論理順序を[反転/はんてん]します。
 //:
 //: ### [注意/ちゅうい]
-//: - `cons` / `push` / `map` / `filter` は[内部/ないぶ]でノード[確保/かくほ]を[行/おこな]うため、`Result<..., Diag>` を[返/かえ]します。
-//: - `get` は[範囲外/はんいがい]や[負/ふ] index で `Option::None` を[返/かえ]します。
-//: - `free` は[循環/じゅんかん]リストを[想定/そうてい]していません。
+//: - 要素の観測・変換 API は `.T: Copy` を[要求/ようきゅう]します。現行 stdlib の collection 全体で non-Copy payload drop traversal が未完成なためです。
+//: - `len` / `head` / `get` / `fold` などの by-value observer は入力 `List` owner を[消費/しょうひ]し、内部 `Vec` storage を[閉/と]じます。
+//: - owner を保持したまま観測する API が必要な場合は、別 issue で `*_ref` API と borrow contract を追加します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - `new` / `head` / `tail` / `is_empty` は O(1) です。
-//: - `cons` / `push` は O(1) です。
-//: - `len` / `get` / `free` / `reverse` は O(n) です。
-//:
-//: 追加の使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//:| #import "core/traits/eq" as *
-//:| #import "core/option" as *
-//:| #import "alloc/string" as *
-//: fn main <()*>i32> ():
-//:     let base0 <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 3 |> uwok
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     let ok0 if eq len<i32> base0 3 1 0;
-//:     let base1 <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 3 |> uwok
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     let ok1 match head<i32> base1:
-//:         Option::Some x:
-//:             if eq x 1 1 0
-//:         Option::None:
-//:             0
-//:     let base2 <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 3 |> uwok
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     let ok2 match get<i32> base2 1:
-//:         Option::Some x:
-//:             if eq x 2 1 0
-//:         Option::None:
-//:             0
-//:     let base3 <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 3 |> uwok
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     let ok3 match tail<i32> base3:
-//:         Option::Some t:
-//:             if eq len<i32> t 2 1 0
-//:         Option::None:
-//:             0
-//:     let s01 <i32> add ok0 ok1;
-//:     let s23 <i32> add ok2 ok3;
-//:     add s01 s23
-//: ```
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//:| #import "core/traits/eq" as *
-//:| #import "core/option" as *
-//: fn main <()*>i32> ():
-//:     let src0 <List<str>>:
-//:         unwrap_ok<List<str>, Diag> new<str>
-//:         |> push<str> "c" |> uwok
-//:         |> push<str> "b" |> uwok
-//:         |> push<str> "a" |> uwok
-//:     let ra <List<str>> reverse<str> src0;
-//:     let ok0 match head<str> ra:
-//:         Option::Some x:
-//:             if str_eq x "c" 1 0
-//:         Option::None:
-//:             0
-//:     let src1 <List<str>>:
-//:         unwrap_ok<List<str>, Diag> new<str>
-//:         |> push<str> "c" |> uwok
-//:         |> push<str> "b" |> uwok
-//:         |> push<str> "a" |> uwok
-//:     let rb <List<str>> reverse<str> src1;
-//:     let ok1 match get<str> rb 2:
-//:         Option::Some x:
-//:             if str_eq x "a" 1 0
-//:         Option::None:
-//:             0
-//:     let src2 <List<str>>:
-//:         unwrap_ok<List<str>, Diag> new<str>
-//:         |> push<str> "c" |> uwok
-//:         |> push<str> "b" |> uwok
-//:         |> push<str> "a" |> uwok
-//:     let rc <List<str>> reverse<str> src2;
-//:     let ok2 if is_none<str> get<str> rc 3 1 0;
-//:     let s01 <i32> add ok0 ok1;
-//:     add s01 ok2
-//: ```
+//: - `cons` / `push` は[償却/しょうきゃく] O(1) です。
+//: - `get` / `reverse` / `map` / `filter` / `fold` / `reduce` / `find` / `any` / `all` は O(n) です。
 
 #indent 4
 
-#import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
+#import "core/traits/copy" as *
 #import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
 
 //: ## List
-//: [単方向/たんほうこう][連結/れんけつ]リストの[先頭/せんとう]ポインタを[隠蔽/いんぺい]する[所有者/しょゆうしゃ]
+//: list の storage owner
 //:
 //: ### [目的/もくてき]
-//: - ノード[列/れつ]の[先頭/せんとう]アドレスを `ptr` field に[保持/ほじ]し、[公開/こうかい] API から raw pointer を[隠/かく]します。
+//: - raw node pointer ではなく `Vec<T>` を[保持/ほじ]し、storage owner state を `VecStorageState` 側へ[集約/しゅうやく]します。
 //:
-//: ### [注意/ちゅうい]
-//: - `ptr == 0` は[空/から]リストを[表/あらわ]します。
-//: - [値/あたい]を move すると[所有権/しょゆうけん]も move します。
+//: ### [不変条件/ふへんじょうけん]
+//: - `items` の末尾が論理上の先頭です。
+//: - `items` は `List` が[所有/しょゆう]し、`free` または by-value observer が[閉/と]じます。
 struct List<.T>:
-    ptr <i32>
+    items <Vec<.T>>
 
-//: ## list_alloc_node
-//: [単一/たんいつ]ノードを[確保/かくほ]して value と next を[初期化/しょきか]する
-//:
-//: ### [目的/もくてき]
-//: - `cons` と `reverse` が[同/おな]じノード layout を[共有/きょうゆう]できるようにします。
+//: list_diag_from_vec_error: Vec storage の error を list API の Diag に[変換/へんかん]する
+fn list_diag_from_vec_error <(StdErrorKind)*>Diag> (kind):
+    diag_error kind "list storage operation failed"
+
+//: list_physical_index: 論理 index を storage index に[変換/へんかん]する
+fn list_physical_index <(i32,i32)->i32> (len0, idx):
+    sub sub len0 1 idx
+
+//: list_free_items: List から storage owner を[取/と]り[出/だ]して[解放/かいほう]する
+fn list_free_items <.T> <(List<.T>)->()> (lst):
+    let items <Vec<.T>> field::get lst "items"
+    vec::free<.T> items
+
+//: new: [空/から] list を[作/つく]る
 //:
 //: ### [実装/じっそう]
-//: - `size_of<.T> + 4` byte を[確保/かくほ]し、先頭に `head`、末尾 4 byte に `tail_ptr` を[格納/かくのう]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [確保/かくほ][失敗/しっぱい]では `StdErrorKind::OutOfMemory` の `Diag` を `Err` で[返/かえ]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-fn list_alloc_node <.T> <(.T,i32)*>Result<i32, Diag>> (head, tail_ptr):
-    let node_size <i32> add size_of<.T> 4
-    match alloc_ptr<u8> node_size:
-        Result::Err _e:
-            diag_err<i32> diag_out_of_memory
-        Result::Ok node_ptr:
-            let node <i32> mem_ptr_addr node_ptr
-            store<.T> node head
-            store_i32 add node size_of<.T> tail_ptr
-            ok<i32, Diag> node
-
-//: ## new
-//: [空/から]リストを `Result::Ok` で[返/かえ]す
-//:
-//: ### [目的/もくてき]
-//: - [他/ほか]の collection と[同/おな]じ `Result` [方針/ほうしん]に[揃/そろ]えつつ、[空/から]リストを[作成/さくせい]します。
-//:
-//: ### [実装/じっそう]
-//: - [空/から]リストは `ptr = 0` で[表現/ひょうげん]できるため、[追加/ついか]の[確保/かくほ]は[行/おこな]わず `ok` を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [確保/かくほ]は[行/おこな]いませんが、API [一貫性/いっかんせい]のため `Result<List<.T>, Diag>` を[返/かえ]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     if is_empty<i32> unwrap_ok<List<i32>, Diag> new<i32> 0 1
-//: ```
+//: - `Vec.new` で backing storage を[作/つく]り、`List` owner として[包/つつ]みます。
 fn new <.T> <()*>Result<List<.T>, Diag>> ():
-    ok<List<.T>, Diag> List 0
-
-//: ## cons
-//: [先頭/せんとう]に[要素/ようそ]を[追加/ついか]して[新/あたら]しいリストを[作/つく]る
-//:
-//: ### [目的/もくてき]
-//: - `head` を[値/あたい]として[保持/ほじ]する[新/あたら]しいノードを[確保/かくほ]し、`tail` を next に[接続/せつぞく]したリストを[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - `size_of<.T> + 4` byte のノード[領域/りょういき]を[確保/かくほ]し、`[value][next]` を[順番/じゅんばん]に[格納/かくのう]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [確保/かくほ][失敗/しっぱい]では `diag_out_of_memory` を[返/かえ]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let l0 <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-//:     let l <List<i32>> uwok cons<i32> 5 l0;
-//:     if is_empty<i32> l 1 0
-//: ```
-fn cons <.T> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
-    let tail_ptr <i32> field::get tail "ptr"
-    match list_alloc_node<.T> head tail_ptr:
-        Result::Ok node:
-            ok<List<.T>, Diag> List node
+    match vec::new<.T>:
+        Result::Ok items:
+            ok<List<.T>, Diag> List<.T> items
         Result::Err e:
-            err<List<.T>, Diag> e
+            diag_err<List<.T>> list_diag_from_vec_error e
 
-//: ## list_cons_owned
-//: [既存/きそん]の tail owner を[消費/しょうひ]して[先頭/せんとう]へ node を[追加/ついか]する[内部/ないぶ][関数/かんすう]
-//:
-//: ### [目的/もくてき]
-//: - `map` / `filter` の accumulator [構築/こうちく]で、tail の[所有権/しょゆうけん]を[明示/めいじ]して[先頭/せんとう][追加/ついか]します。
+//: cons: [先頭/せんとう]に[要素/ようそ]を[追加/ついか]する
 //:
 //: ### [実装/じっそう]
-//: - node [確保/かくほ]に[成功/せいこう]したら、tail の raw pointer を next に[保持/ほじ]する `List` を[返/かえ]します。
-//: - node [確保/かくほ]に[失敗/しっぱい]したら、[受/う]け[取/と]った tail owner を[解放/かいほう]してから `Diag` を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [公開/こうかい] API の `cons` と[違/ちが]い、失敗時に tail を[消費/しょうひ]します。
-//: - [呼/よ]び[出/だ]し[側/がわ]は `Result::Err` [後/ご]に tail を[再利用/さいりよう]してはいけません。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-fn list_cons_owned <.T> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
-    let tail_ptr <i32> field::get tail "ptr"
-    match list_alloc_node<.T> head tail_ptr:
-        Result::Ok node:
-            ok<List<.T>, Diag> List node
+//: - 論理先頭は storage 末尾なので、`Vec.push` だけで先頭追加になります。
+fn cons <.T: Copy> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
+    let items <Vec<.T>> field::get tail "items"
+    match vec::push<.T> items head:
+        Result::Ok next_items:
+            ok<List<.T>, Diag> List<.T> next_items
         Result::Err e:
-            free<.T> tail
-            err<List<.T>, Diag> e
+            diag_err<List<.T>> list_diag_from_vec_error e
 
-//: ## push
-//: pipe [向/む]けに[先頭/せんとう][追加/ついか]する
-//:
-//: ### [目的/もくてき]
-//: - `xs |> push v |> uwok` の[形/かたち]で、[先頭/せんとう][追加/ついか]を[自然/しぜん]に[書/か]けるようにします。
-//:
-//: ### [実装/じっそう]
-//: - [引数順/ひきすうじゅん]だけを pipe [向/む]けに[並/なら]べ[替/か]え、`cons` を[呼/よ]びます。
-//:
-//: ### [注意/ちゅうい]
-//: - [結果/けっか]は `Result<List<.T>, Diag>` です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-fn push <.T> <(List<.T>,.T)*>Result<List<.T>, Diag>> (lst, head):
+//: push: pipe [向/む]けに[先頭/せんとう][追加/ついか]する
+fn push <.T: Copy> <(List<.T>,.T)*>Result<List<.T>, Diag>> (lst, head):
     cons<.T> head lst
 
-//: ## head
-//: [先頭/せんとう][要素/ようそ]を[取得/しゅとく]する
-//:
-//: ### [目的/もくてき]
-//: - [空/から]なら `None`、[非空/ひくう]なら[先頭/せんとう]の[値/あたい]を `Some` で[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - `ptr == 0` を[判定/はんてい]し、[非空/ひくう]ならノード[先頭/せんとう]の value を `load` します。
-//:
-//: ### [注意/ちゅうい]
-//: - [空/から]リストでは `None` を[返/かえ]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "core/result" as *
-//:| #import "core/option" as *
-//: fn main <()*>i32> ():
-//:     let l0 <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-//:     let l <List<i32>> uwok cons<i32> 8 l0;
-//:     match head<i32> l:
-//:         Option::Some x:
-//:             if eq x 8 0 1
-//:         Option::None:
-//:             1
-//: ```
-fn head <.T> <(List<.T>)->Option<.T>> (lst):
-    let lst_ptr <i32> field::get lst "ptr"
-    if:
-        cond:
-            eq lst_ptr 0
-        then:
-            none<.T>
-        else:
-            some<.T> load<.T> lst_ptr
+//: len: list を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
+fn len <.T> <(List<.T>)->i32> (lst):
+    let items <Vec<.T>> field::get lst "items"
+    let n <i32> vec::len<.T> &items
+    vec::free<.T> items
+    n
 
-//: ## tail
-//: [先頭/せんとう]を[除/のぞ]いた[残/のこ]りを[取得/しゅとく]する
-//:
-//: ### [目的/もくてき]
-//: - [空/から]なら `None`、[非空/ひくう]なら next ポインタを[包/つつ]んだ `List<.T>` を `Some` で[返/かえ]します。
+//: is_empty: list を[消費/しょうひ]して[空/から]かどうかを[返/かえ]す
+fn is_empty <.T> <(List<.T>)->bool> (lst):
+    eq len<.T> lst 0
+
+//: get: list を[消費/しょうひ]して[指定位置/していいち]の[要素/ようそ]を[返/かえ]す
 //:
 //: ### [実装/じっそう]
-//: - `ptr == 0` を[判定/はんてい]し、[非空/ひくう]なら next [欄/らん]を `load_i32` して `List` に[包/つつ]みます。
+//: - 論理 index 0 は storage 末尾なので、`len - 1 - idx` へ[変換/へんかん]して `Vec.get` します。
+fn get <.T: Copy> <(List<.T>,i32)->Option<.T>> (lst, idx):
+    let items <Vec<.T>> field::get lst "items"
+    let n <i32> vec::len<.T> &items
+    let result <Option<.T>>:
+        if:
+            or lt idx 0 le n idx
+            then:
+                none<.T>
+            else:
+                vec::get<.T> &items list_physical_index n idx
+    vec::free<.T> items
+    result
+
+//: head: list を[消費/しょうひ]して[先頭/せんとう][要素/ようそ]を[返/かえ]す
+fn head <.T: Copy> <(List<.T>)->Option<.T>> (lst):
+    get<.T> lst 0
+
+//: tail: list を[消費/しょうひ]して[先頭/せんとう]を[除/のぞ]いた list を[返/かえ]す
 //:
-//: ### [注意/ちゅうい]
-//: - [返/かえ]る `List<.T>` は[元/もと]のノード[列/れつ]を[共有/きょうゆう]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/option" as *
-//:| #import "core/traits/eq" as *
-//: fn main <()*>i32> ():
-//:     let l2 <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     match tail<i32> l2:
-//:         Option::Some t:
-//:             if eq len<i32> t 1 0 1
-//:         Option::None:
-//:             1
-//: ```
-fn tail <.T> <(List<.T>)->Option<List<.T>>> (lst):
-    let lst_ptr <i32> field::get lst "ptr"
+//: ### [実装/じっそう]
+//: - 論理先頭は storage 末尾なので、`Vec.pop` で先頭を[取/と]り[除/のぞ]きます。
+fn tail <.T: Copy> <(List<.T>)->Option<List<.T>>> (lst):
+    let items <Vec<.T>> field::get lst "items"
     if:
-        cond:
-            eq lst_ptr 0
+        eq vec::len<.T> &items 0
         then:
+            vec::free<.T> items
             none<List<.T>>
         else:
-            some<List<.T>> List load_i32 add lst_ptr size_of<.T>
+            let popped <VecPop<.T>> vec::pop<.T> items
+            let item <Option<.T>> field::get popped "item"
+            let next_items <Vec<.T>> field::get popped "vec"
+            match item:
+                Option::Some _head:
+                    some<List<.T>> List<.T> next_items
+                Option::None:
+                    vec::free<.T> next_items
+                    none<List<.T>>
 
-//: ## is_empty
-//: [空/から]リストか[判定/はんてい]する
-//:
-//: ### [目的/もくてき]
-//: - `lst` が[空/から]なら `true` を[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - `ptr == 0` を[判定/はんてい]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [空/から]リストは `ptr = 0` で[表現/ひょうげん]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(1)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     if is_empty<i32> unwrap_ok<List<i32>, Diag> new<i32> 0 1
-//: ```
-fn is_empty <.T> <(List<.T>)->bool> (lst):
-    eq field::get lst "ptr" 0
-
-//: ## len
-//: [要素数/ようそすう]を[数/かぞ]える
-//:
-//: ### [目的/もくてき]
-//: - リストの[要素数/ようそすう]を `i32` で[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - next を[再帰的/さいきてき]にたどりながら[個数/こすう]を[足/た]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [循環/じゅんかん]リストに[対/たい]しては[停止/ていし]しません。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(n)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//:| #import "core/traits/eq" as *
-//: fn main <()*>i32> ():
-//:     let l3 <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 3 |> uwok
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     if eq len<i32> l3 3 0 1
-//: ```
-fn len <.T> <(List<.T>)->i32> (lst):
-    let lst_ptr <i32> field::get lst "ptr"
-    if:
-        cond:
-            eq lst_ptr 0
-        then:
-            0
-        else:
-            add 1 len<.T> List load_i32 add lst_ptr size_of<.T>
-
-//: ## get
-//: [指定位置/していいち]の[要素/ようそ]を[取得/しゅとく]する
-//:
-//: ### [目的/もくてき]
-//: - `idx` が[範囲内/はんいない]なら `Some(value)`、[範囲外/はんいがい]なら `None` を[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - [先頭/せんとう]から `idx` [回/かい] next をたどり、[到達/とうたつ]したノードの value を[返/かえ]します。
-//: - [途中/とちゅう]で `null` に[到達/とうたつ]したら `None` を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `idx` が[負/ふ]のときも `None` です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(n)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//:| #import "core/option" as *
-//:| #import "core/traits/eq" as *
-//: fn main <()*>i32> ():
-//:     let l3 <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 3 |> uwok
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     match get<i32> l3 1:
-//:         Option::Some x:
-//:             if eq x 2 0 1
-//:         Option::None:
-//:             1
-//: ```
-fn get <.T> <(List<.T>,i32)->Option<.T>> (lst, idx):
-    let lst_ptr <i32> field::get lst "ptr"
-    if:
-        cond:
-            lt idx 0
-        then:
-            none<.T>
-        else:
-            if:
-                cond:
-                    eq lst_ptr 0
-                then:
-                    none<.T>
-                else:
-                    if:
-                        cond:
-                            eq idx 0
-                        then:
-                            some<.T> load<.T> lst_ptr
-                        else:
-                            get<.T> List load_i32 add lst_ptr size_of<.T> sub idx 1
-
-//: ## free
-//: リスト[全体/ぜんたい]を[解放/かいほう]する
-//:
-//: ### [目的/もくてき]
-//: - [単方向/たんほうこう][連結/れんけつ]リストの[全/すべ]てのノードを[順番/じゅんばん]に[解放/かいほう]します。
-//:
-//: ### [実装/じっそう]
-//: - next を[退避/たいひ]してから[現在/げんざい]ノードを `dealloc_raw` し、[順/じゅん]に[進/すす]みます。
-//:
-//: ### [注意/ちゅうい]
-//: - [循環/じゅんかん]リストには[対応/たいおう]していません。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(n)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let l0 <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-//:     let l1 <List<i32>> uwok cons<i32> 1 l0;
-//:     free<i32> l1;
-//:     0
-//: ```
+//: free: list storage owner を[閉/と]じる
 fn free <.T> <(List<.T>)->()> (lst):
-    let node_size <i32> add size_of<.T> 4
-    let mut cur <i32> field::get lst "ptr"
-    while ne cur 0:
+    list_free_items<.T> lst
+
+//: list_reverse_items: storage 順序を in-place に[反転/はんてん]する
+fn list_reverse_items <.T: Copy> <(&Vec<.T>,i32,i32)*>()> (items, left0, right0):
+    let mut left <i32> left0
+    let mut right <i32> right0
+    while lt left right:
         do:
-            set cur block:
-                let next <i32> load_i32 add cur size_of<.T>;
-                dealloc_raw cur node_size;
-                next
+            match vec::get<.T> items left:
+                Option::Some left_value:
+                    match vec::get<.T> items right:
+                        Option::Some right_value:
+                            vec::replace<.T> items left right_value
+                            vec::replace<.T> items right left_value
+                        Option::None:
+                            ()
+                Option::None:
+                    ()
+            set left add left 1
+            set right sub right 1
 
-//: ## reverse
-//: リストを[消費/しょうひ]し、ノードを[再利用/さいりよう]して[逆順/ぎゃくじゅん]にする
-//:
-//: ### [目的/もくてき]
-//: - [元/もと]の[順序/じゅんじょ]を[逆/さか]さまにしたリストを[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - [先頭/せんとう]から[走査/そうさ]しながら、各 node の next pointer を[前/まえ]の node へ[付/つ]け[替/か]えます。
-//: - 新しい node は[確保/かくほ]せず、入力 `List` が[所有/しょゆう]していた node owner を[結果/けっか]の `List` へ[移/うつ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `reverse` は入力 list を[消費/しょうひ]します。呼び出し後に[元/もと]の list owner は[使/つか]えません。
-//: - node [確保/かくほ]を[行/おこな]わないため、allocation failure は[発生/はっせい]しません。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(n)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//:| #import "core/option" as *
-//:| #import "core/traits/eq" as *
-//: fn main <()*>i32> ():
-//:     let l3 <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 3 |> uwok
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     let r <List<i32>> reverse<i32> l3;
-//:     match head<i32> r:
-//:         Option::Some x:
-//:             if eq x 3 0 1
-//:         Option::None:
-//:             1
-//: ```
-fn reverse <.T> <(List<.T>)*>List<.T>> (lst):
-    let mut prev <i32> 0
-    let mut cur <i32> field::get lst "ptr"
-    while ne cur 0:
-        do:
-            let next_ptr <i32> load_i32 add cur size_of<.T>
-            store_i32 add cur size_of<.T> prev
-            set prev cur
-            set cur next_ptr
-    List prev
+//: reverse: list を[消費/しょうひ]して[論理順序/ろんりじゅんじょ]を[反転/はんてん]する
+fn reverse <.T: Copy> <(List<.T>)*>List<.T>> (lst):
+    let items <Vec<.T>> field::get lst "items"
+    let n <i32> vec::len<.T> &items
+    list_reverse_items<.T> &items 0 sub n 1
+    List<.T> items
 
-fn list_map_impl <.T: Copy,.U: Copy> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, f):
-    let node_size <i32> add size_of<.T> 4
-    let mut cur <i32> field::get lst "ptr"
-    let mut acc <List<.U>> List<.U> 0
-    let mut failed <bool> false
-    while and ne cur 0 not failed:
-        do:
-            let next_ptr <i32> load_i32 add cur size_of<.T>
-            let mapped_head <.U> f load<.T> cur
-            match list_cons_owned<.U> mapped_head acc:
-                Result::Ok next_acc:
-                    dealloc_raw cur node_size
-                    set acc next_acc
-                    set cur next_ptr
-                Result::Err _e:
-                    dealloc_raw cur node_size
-                    free<.T> List<.T> next_ptr
-                    set acc List<.U> 0
-                    set failed true
-                    set cur 0
-    if:
-        cond:
-            failed
-        then:
-            free<.U> acc
-            diag_err<List<.U>> diag_out_of_memory
-        else:
-            let out <List<.U>> reverse<.U> acc
-            set acc List<.U> 0
-            ok<List<.U>, Diag> out
-
-fn list_filter_impl <.T: Copy> <(List<.T>, (.T)->bool)*>Result<List<.T>, Diag>> (lst, p):
-    let node_size <i32> add size_of<.T> 4
-    let mut cur <i32> field::get lst "ptr"
-    let mut acc <List<.T>> List<.T> 0
-    let mut failed <bool> false
-    while and ne cur 0 not failed:
-        do:
-            let next_ptr <i32> load_i32 add cur size_of<.T>
-            let value <.T> load<.T> cur
-            let keep <bool> p value
-            if:
-                cond:
-                    keep
-                then:
-                    match list_cons_owned<.T> value acc:
-                        Result::Ok next_acc:
-                            dealloc_raw cur node_size
-                            set acc next_acc
-                            set cur next_ptr
-                        Result::Err _e:
-                            dealloc_raw cur node_size
-                            free<.T> List<.T> next_ptr
-                            set acc List<.T> 0
-                            set failed true
-                            set cur 0
-                else:
-                    dealloc_raw cur node_size
-                    set cur next_ptr
-    if:
-        cond:
-            failed
-        then:
-            free<.T> acc
-            diag_err<List<.T>> diag_out_of_memory
-        else:
-            let out <List<.T>> reverse<.T> acc
-            set acc List<.T> 0
-            ok<List<.T>, Diag> out
-
-fn list_fold_impl <.T,.U> <(i32, .U, (.U,.T)->.U)->.U> (lst_ptr, acc, f):
-    if:
-        cond:
-            eq lst_ptr 0
-        then:
-            acc
-        else:
-            let next_ptr <i32> load_i32 add lst_ptr size_of<.T>
-            let next_acc <.U> f acc load<.T> lst_ptr
-            list_fold_impl<.T,.U> next_ptr next_acc f
-
-fn list_reduce_impl <.T> <(i32, (.T,.T)->.T)->Option<.T>> (lst_ptr, f):
-    if:
-        cond:
-            eq lst_ptr 0
-        then:
-            none<.T>
-        else:
-            let first <.T> load<.T> lst_ptr
-            let next_ptr <i32> load_i32 add lst_ptr size_of<.T>
-            some<.T> list_fold_impl<.T,.T> next_ptr first f
-
-fn list_find_impl <.T> <(i32, (.T)->bool)->Option<.T>> (lst_ptr, p):
-    if:
-        cond:
-            eq lst_ptr 0
-        then:
-            none<.T>
-        else:
-            if:
-                cond:
-                    p load<.T> lst_ptr
-                then:
-                    some<.T> load<.T> lst_ptr
-                else:
-                    let next_ptr <i32> load_i32 add lst_ptr size_of<.T>
-                    list_find_impl<.T> next_ptr p
-
-fn list_any_impl <.T> <(i32, (.T)->bool)->bool> (lst_ptr, p):
-    if:
-        cond:
-            eq lst_ptr 0
-        then:
-            false
-        else:
-            if:
-                cond:
-                    p load<.T> lst_ptr
-                then:
-                    true
-                else:
-                    let next_ptr <i32> load_i32 add lst_ptr size_of<.T>
-                    list_any_impl<.T> next_ptr p
-
-fn list_all_impl <.T> <(i32, (.T)->bool)->bool> (lst_ptr, p):
-    if:
-        cond:
-            eq lst_ptr 0
-        then:
-            true
-        else:
-            if:
-                cond:
-                    p load<.T> lst_ptr
-                then:
-                    let next_ptr <i32> load_i32 add lst_ptr size_of<.T>
-                    list_all_impl<.T> next_ptr p
-                else:
-                    false
-
-//: ## map
-//: [各要素/かくようそ]を[同/おな]じ[規則/きそく]で[変換/へんかん]する
-//:
-//: ### [目的/もくてき]
-//: - `xs |> map f` の[形/かたち]で、[単方向/たんほうこう][連結/れんけつ]リストの[全要素/ぜんようそ]へ[同/おな]じ[純粋/じゅんすい][関数/かんすう]を[適用/てきよう]します。
-//: - [元/もと]の[順序/じゅんじょ]を[保/たも]ったまま、[新/あたら]しい `List<.U>` を[作成/さくせい]します。
-//:
-//: ### [実装/じっそう]
-//: - 入力 node を[先頭/せんとう]から[消費/しょうひ]し、変換後の値を accumulator の[先頭/せんとう]へ[追加/ついか]します。
-//: - 走査後に accumulator を `reverse` して[元/もと]の[順序/じゅんじょ]へ[戻/もど]します。
-//: - node [確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は、入力の残りと accumulator を `free` してから `Err` を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [各要素/かくようそ]ごとに[新/あら]しいノードを[確保/かくほ]するため `Result<List<.U>, Diag>` を[返/かえ]します。
-//: - `.T` / `.U` は `Copy` を[要求/ようきゅう]します。現行 List は payload drop traversal をまだ[持/も]たないため、非 Copy payload は[扱/あつか]いません。
-//: - `f` は `(.T)->.U` の[純粋/じゅんすい][関数/かんすう]です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(n)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//:| #import "core/option" as *
-//:| #import "core/traits/eq" as *
-//:| #import "core/math" as *
-//: fn inc <(i32)->i32> (x):
-//:     add x 1
-//: fn main <()*>i32> ():
-//:     let xs <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 3 |> uwok
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     let ys <List<i32>> uwok map<i32,i32> xs inc;
-//:     match get<i32> ys 1:
-//:         Option::Some x:
-//:             if eq x 3 0 1
-//:         Option::None:
-//:             1
-//: ```
+//: map: 各要素へ[関数/かんすう]を[適用/てきよう]して[新/あたら]しい list を[返/かえ]す
 fn map <.T: Copy,.U: Copy> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, f):
-    list_map_impl<.T,.U> lst f
+    let items <Vec<.T>> field::get lst "items"
+    let n <i32> vec::len<.T> &items
+    match vec::with_capacity<.U> n:
+        Result::Err e:
+            vec::free<.T> items
+            diag_err<List<.U>> list_diag_from_vec_error e
+        Result::Ok out0:
+            let mut out <Vec<.U>> out0
+            let mut i <i32> 0
+            let mut failed <bool> false
+            let mut failure <StdErrorKind> StdErrorKind::OutOfMemory
+            while and lt i n not failed:
+                do:
+                    match vec::get<.T> &items i:
+                        Option::Some value:
+                            let mapped <.U> f value
+                            match vec::push<.U> out mapped:
+                                Result::Ok next_out:
+                                    set out next_out
+                                    set i add i 1
+                                Result::Err e:
+                                    set out vec::vec_empty<.U>
+                                    set failure e
+                                    set failed true
+                        Option::None:
+                            vec::free<.U> out
+                            set out vec::vec_empty<.U>
+                            set failure StdErrorKind::InvalidOperation
+                            set failed true
+            vec::free<.T> items
+            if:
+                failed
+                then:
+                    vec::free<.U> out
+                    diag_err<List<.U>> list_diag_from_vec_error failure
+                else:
+                    ok<List<.U>, Diag> List<.U> out
 
-//: ## filter
-//: [条件/じょうけん]を[満/み]たす[要素/ようそ]だけを[残/のこ]す
-//:
-//: ### [目的/もくてき]
-//: - `xs |> filter p` の[形/かたち]で、[条件/じょうけん] `p` を[満/み]たす[要素/ようそ]だけを[残/のこ]した[新/あたら]しいリストを[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - 入力 node を[先頭/せんとう]から[消費/しょうひ]し、条件を[満/み]たす値だけを accumulator の[先頭/せんとう]へ[追加/ついか]します。
-//: - 走査後に accumulator を `reverse` して[元/もと]の[順序/じゅんじょ]へ[戻/もど]します。
-//: - node [確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]は、入力の残りと accumulator を `free` してから `Err` を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [残/のこ]す[要素/ようそ]だけを[新規/しんき][確保/かくほ]するため `Result<List<.T>, Diag>` を[返/かえ]します。
-//: - `.T` は `Copy` を[要求/ようきゅう]します。現行 List は payload drop traversal をまだ[持/も]たないため、非 Copy payload は[扱/あつか]いません。
-//: - `p` は `(.T)->bool` の[純粋/じゅんすい][関数/かんすう]です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(n)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//:| #import "core/option" as *
-//:| #import "core/traits/eq" as *
-//:| #import "core/math" as *
-//: fn is_even <(i32)->bool> (x):
-//:     eq rem_s x 2 0
-//: fn main <()*>i32> ():
-//:     let xs <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 4 |> uwok
-//:         |> push<i32> 3 |> uwok
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     let ys <List<i32>> uwok filter<i32> xs is_even;
-//:     if eq len<i32> ys 2 0 1
-//: ```
+//: filter: 条件を[満/み]たす[要素/ようそ]だけを[残/のこ]す
 fn filter <.T: Copy> <(List<.T>, (.T)->bool)*>Result<List<.T>, Diag>> (lst, p):
-    list_filter_impl<.T> lst p
+    let items <Vec<.T>> field::get lst "items"
+    let n <i32> vec::len<.T> &items
+    match vec::with_capacity<.T> n:
+        Result::Err e:
+            vec::free<.T> items
+            diag_err<List<.T>> list_diag_from_vec_error e
+        Result::Ok out0:
+            let mut out <Vec<.T>> out0
+            let mut i <i32> 0
+            let mut failed <bool> false
+            let mut failure <StdErrorKind> StdErrorKind::OutOfMemory
+            while and lt i n not failed:
+                do:
+                    match vec::get<.T> &items i:
+                        Option::Some value:
+                            if:
+                                p value
+                                then:
+                                    match vec::push<.T> out value:
+                                        Result::Ok next_out:
+                                            set out next_out
+                                        Result::Err e:
+                                            set out vec::vec_empty<.T>
+                                            set failure e
+                                            set failed true
+                                else:
+                                    ()
+                            set i add i 1
+                        Option::None:
+                            vec::free<.T> out
+                            set out vec::vec_empty<.T>
+                            set failure StdErrorKind::InvalidOperation
+                            set failed true
+            vec::free<.T> items
+            if:
+                failed
+                then:
+                    vec::free<.T> out
+                    diag_err<List<.T>> list_diag_from_vec_error failure
+                else:
+                    ok<List<.T>, Diag> List<.T> out
 
-//: ## fold
-//: [左/ひだり]から[順/じゅん]に[畳/たた]み[込/こ]む
-//:
-//: ### [目的/もくてき]
-//: - `xs |> fold init f` の[形/かたち]で、[初期値/しょきち] `init` から[始/はじ]めて[全要素/ぜんようそ]を 1 つの[値/あたい]へ[集約/しゅうやく]します。
-//:
-//: ### [実装/じっそう]
-//: - [先頭/せんとう]から[順番/じゅんばん]に `f acc value` を[適用/てきよう]し、[更新後/こうしんご]の acc を[次/つぎ]の[再帰/さいき]へ[渡/わた]します。
-//:
-//: ### [注意/ちゅうい]
-//: - `f` は `(.U,.T)->.U` の[純粋/じゅんすい][関数/かんすう]です。
-//: - [空/から]リストでは `init` をそのまま[返/かえ]します。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(n)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//:| #import "core/traits/eq" as *
-//:| #import "core/math" as *
-//: fn add_acc <(i32,i32)->i32> (acc, x):
-//:     add acc x
-//: fn main <()*>i32> ():
-//:     let xs <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 3 |> uwok
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     if eq fold<i32,i32> xs 0 add_acc 6 0 1
-//: ```
-fn fold <.T,.U> <(List<.T>, .U, (.U,.T)->.U)->.U> (lst, acc, f):
-    list_fold_impl<.T,.U> field::get lst "ptr" acc f
+//: fold: list を[消費/しょうひ]して[左/ひだり]から[畳/たた]み[込/こ]む
+fn fold <.T: Copy,.U> <(List<.T>, .U, (.U,.T)->.U)->.U> (lst, acc, f):
+    let items <Vec<.T>> field::get lst "items"
+    let mut remaining <i32> vec::len<.T> &items
+    let mut out <.U> acc
+    while gt remaining 0:
+        do:
+            set remaining sub remaining 1
+            match vec::get<.T> &items remaining:
+                Option::Some value:
+                    set out f out value
+                Option::None:
+                    set remaining 0
+    vec::free<.T> items
+    out
 
-//: ## reduce
-//: [初期値/しょきち]なしで[集約/しゅうやく]する
-//:
-//: ### [目的/もくてき]
-//: - [非空/ひくう]リストなら[先頭/せんとう][要素/ようそ]を[初期値/しょきち]として[残/のこ]りを[畳/たた]み[込/こ]み、[空/から]なら `None` を[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - [先頭/せんとう]ノードを[初期値/しょきち]として[読/よ]み[出/だ]し、[残/のこ]りは `fold` と[同/おな]じ[左畳/ひだりたた]み[込/こ]みで[集約/しゅうやく]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [空/から]リストでは `Option::None` を[返/かえ]します。
-//: - `f` は `(.T,.T)->.T` の[純粋/じゅんすい][関数/かんすう]です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(n)
-//:
-//: 使い方:
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "alloc/collections/list" as *
-//:| #import "alloc/diag/error" as *
-//:| #import "core/result" as *
-//:| #import "core/option" as *
-//:| #import "core/traits/eq" as *
-//:| #import "core/math" as *
-//: fn add_pair <(i32,i32)->i32> (a, b):
-//:     add a b
-//: fn main <()*>i32> ():
-//:     let xs <List<i32>>:
-//:         unwrap_ok<List<i32>, Diag> new<i32>
-//:         |> push<i32> 3 |> uwok
-//:         |> push<i32> 2 |> uwok
-//:         |> push<i32> 1 |> uwok
-//:     match reduce<i32> xs add_pair:
-//:         Option::Some x:
-//:             if eq x 6 0 1
-//:         Option::None:
-//:             1
-//: ```
-fn reduce <.T> <(List<.T>, (.T,.T)->.T)->Option<.T>> (lst, f):
-    list_reduce_impl<.T> field::get lst "ptr" f
+//: reduce: list を[消費/しょうひ]して[初期値/しょきち]なしで[畳/たた]み[込/こ]む
+fn reduce <.T: Copy> <(List<.T>, (.T,.T)->.T)->Option<.T>> (lst, f):
+    let items <Vec<.T>> field::get lst "items"
+    let n <i32> vec::len<.T> &items
+    if:
+        eq n 0
+        then:
+            vec::free<.T> items
+            none<.T>
+        else:
+            match vec::get<.T> &items sub n 1:
+                Option::None:
+                    vec::free<.T> items
+                    none<.T>
+                Option::Some first:
+                    let mut remaining <i32> sub n 1
+                    let mut out <.T> first
+                    while gt remaining 0:
+                        do:
+                            set remaining sub remaining 1
+                            match vec::get<.T> &items remaining:
+                                Option::Some value:
+                                    set out f out value
+                                Option::None:
+                                    set remaining 0
+                    vec::free<.T> items
+                    some<.T> out
 
-//: ## find
-//: [条件/じょうけん]に[合/あ]う[最初/さいしょ]の[要素/ようそ]を[探/さが]す
-//:
-//: ### [目的/もくてき]
-//: - `xs |> find p` の[形/かたち]で、[先頭/せんとう]から[順/じゅん]に `p` を[試/ため]し、[最初/さいしょ]に[真/しん]となる[要素/ようそ]を `Some` で[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - [先頭/せんとう]から[順番/じゅんばん]に `p` を[評価/ひょうか]し、[見/み]つかった[時点/じてん]で[即座/そくざ]に[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [見/み]つからなければ `None` です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(n)
-fn find <.T> <(List<.T>, (.T)->bool)->Option<.T>> (lst, p):
-    list_find_impl<.T> field::get lst "ptr" p
+//: find: 条件に[合/あ]う[最初/さいしょ]の[要素/ようそ]を[返/かえ]す
+fn find <.T: Copy> <(List<.T>, (.T)->bool)->Option<.T>> (lst, p):
+    let items <Vec<.T>> field::get lst "items"
+    let mut remaining <i32> vec::len<.T> &items
+    let mut found <Option<.T>> none<.T>
+    let mut done <bool> false
+    while and gt remaining 0 not done:
+        do:
+            set remaining sub remaining 1
+            match vec::get<.T> &items remaining:
+                Option::Some value:
+                    if:
+                        p value
+                        then:
+                            set found some<.T> value
+                            set done true
+                        else:
+                            ()
+                Option::None:
+                    set done true
+    vec::free<.T> items
+    found
 
-//: ## any
-//: [条件/じょうけん]を[満/み]たす[要素/ようそ]が 1 つでもあるか[判定/はんてい]する
-//:
-//: ### [目的/もくてき]
-//: - `xs |> any p` の[形/かたち]で、`p` を[満/み]たす[要素/ようそ]が 1 つでもあれば `true` を[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - `find` と[同/おな]じ[順序/じゅんじょ]で[探索/たんさく]し、[見/み]つかった[時点/じてん]で `true` を[返/かえ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [空/から]リストでは `false` です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(n)
-fn any <.T> <(List<.T>, (.T)->bool)->bool> (lst, p):
-    list_any_impl<.T> field::get lst "ptr" p
+//: any: 条件を[満/み]たす[要素/ようそ]が 1 つでもあるか[返/かえ]す
+fn any <.T: Copy> <(List<.T>, (.T)->bool)->bool> (lst, p):
+    let items <Vec<.T>> field::get lst "items"
+    let mut remaining <i32> vec::len<.T> &items
+    let mut result <bool> false
+    while and gt remaining 0 not result:
+        do:
+            set remaining sub remaining 1
+            match vec::get<.T> &items remaining:
+                Option::Some value:
+                    if:
+                        p value
+                        then:
+                            set result true
+                        else:
+                            ()
+                Option::None:
+                    set remaining 0
+    vec::free<.T> items
+    result
 
-//: ## all
-//: [全要素/ぜんようそ]が[条件/じょうけん]を[満/み]たすか[判定/はんてい]する
-//:
-//: ### [目的/もくてき]
-//: - `xs |> all p` の[形/かたち]で、[全/すべ]ての[要素/ようそ]が `p` を[満/み]たすときだけ `true` を[返/かえ]します。
-//:
-//: ### [実装/じっそう]
-//: - [先頭/せんとう]から[順番/じゅんばん]に `p` を[評価/ひょうか]し、1 つでも `false` が[出/で]たら[即座/そくざ]に[打/う]ち[切/き]ります。
-//:
-//: ### [注意/ちゅうい]
-//: - [空/から]リストでは `true` です。
-//:
-//: ### [計算量/けいさんりょう]
-//: - O(n)
-fn all <.T> <(List<.T>, (.T)->bool)->bool> (lst, p):
-    list_all_impl<.T> field::get lst "ptr" p
+//: all: 全要素が条件を[満/み]たすか[返/かえ]す
+fn all <.T: Copy> <(List<.T>, (.T)->bool)->bool> (lst, p):
+    let items <Vec<.T>> field::get lst "items"
+    let mut remaining <i32> vec::len<.T> &items
+    let mut result <bool> true
+    while and gt remaining 0 result:
+        do:
+            set remaining sub remaining 1
+            match vec::get<.T> &items remaining:
+                Option::Some value:
+                    if:
+                        p value
+                        then:
+                            ()
+                        else:
+                            set result false
+                Option::None:
+                    set result false
+    vec::free<.T> items
+    result

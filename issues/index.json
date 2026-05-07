@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T01:30:02.545Z",
+  "generated_at": "2026-05-07T01:32:34.259Z",
   "counts": {
     "total": 550,
-    "open": 12,
-    "resolved": 538,
+    "open": 11,
+    "resolved": 539,
     "by_area": {
       "core": {
         "total": 273,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 157,
-        "open": 6,
-        "resolved": 151
+        "open": 5,
+        "resolved": 152
       },
       "TEST": {
         "total": 10,
@@ -193,21 +193,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749",
-      "title": "collection storage states use numeric/null sentinels instead of enum owner state",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-29",
-      "updated": "2026-05-06",
-      "target": "stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl, stdlib/alloc/collections/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -5713,6 +5698,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T152700553Z-SCANNER-FROM-BYTES-BYPASSES-BYTEBUF--F57931B8.md"
+    },
+    {
+      "id": "ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749",
+      "title": "collection storage states use numeric/null sentinels instead of enum owner state",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-05-07",
+      "target": "stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl, stdlib/alloc/collections/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749.md"
     },
     {
       "id": "ISS-20260429T160211032Z-STD-TEST-REPORT-AGGREGATES-RELY-ON-S-D01462BB",

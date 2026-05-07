@@ -2,12 +2,12 @@
 id: ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749
 title: "collection storage states use numeric/null sentinels instead of enum owner state"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-05-06
+updated: 2026-05-07
 target: "stdlib/alloc/collections/hashmap.nepl, stdlib/alloc/collections/hashset.nepl, stdlib/alloc/collections/**"
 ---
 
@@ -650,3 +650,26 @@ Fenwick / SegmentTree / DisjointSet の numeric storage read helper は `vec::ge
 残件:
 
 - List node storage、bloom / adjacency matrix / Fenwick / SegmentTree / DisjointSet などの raw byte/numeric storage owner は引き続き typed owner state / OwnedBuffer 設計へ移す余地がある。
+
+## 2026-05-07 List typed Vec storage 完了
+
+`stdlib/alloc/collections/list.nepl` は raw node chain と `ptr = 0` owner sentinel を廃止し、`List<T>` 本体が `items: Vec<T>` を保持する typed storage へ移行した。
+
+進捗:
+
+- `List<T>` は raw node address を public owner state として持たず、storage owner を `Vec<T>` に集約した。
+- 論理上の先頭を `Vec` 末尾に置き、`cons` / `push` は `vec::push`、`tail` は `vec::pop` で owner を移動する。
+- `reverse` は raw next pointer relink ではなく `Vec` slot の in-place swap で実装し、`load_i32` / `store_i32` / `dealloc_raw` を List 実装から排除した。
+- `len` / `head` / `get` / `fold` / `reduce` / `find` / `any` / `all` は by-value observer として入力 `List` owner を閉じる。
+- `map` / `filter` は typed `Vec` output を作り、成功時は `List` owner として返し、失敗時は入力 storage と部分 output を閉じて `Diag` を返す。
+- `nodesrc/test_stdlib_list_no_unsafe_unwraps.js` を更新し、List が raw node storage / raw pointer sentinel へ戻らないことを source policy で固定した。
+
+検証:
+
+- `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: passed
+- `node nodesrc/tests.js -i stdlib/tests/list.n.md -i tests/stdlib/list_collections.n.md --no-tree -o tmp/list-typed-storage-focused.json -j 1 --dist web/dist`: total=5, passed=5
+- `node nodesrc/tests.js -i tests/compiler/list_dot_map.n.md -i tests/compiler/neplg2.n.md --no-tree -o tmp/list-typed-storage-related.json -j 1 --dist web/dist`: List 関連 doctest は passed
+
+この issue が対象にしていた「collection の public owner state が数値 / null / raw header / raw node に残る」問題は、HashMap / HashSet / Stack / Queue / Deque / RingBuffer / BinaryHeap / BTreeMap / BTreeSet / BitSet / SparseSet / Fenwick / SegmentTree / DisjointSet / AdjacencyMatrix / BloomFilter / CountingBloomFilter / List の typed storage 移行により完了とする。
+
+残る `Vec<T>` の `OwnedBuffer<T>` 化、`core/mem` の owner token 化、non-Copy payload の drop traversal / fallible update owner contract は、この issue ではなく `ISS-20260425T000000Z-RV-STDLIB-004-91534828`、`ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47`、`ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF`、`ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` で継続する。
