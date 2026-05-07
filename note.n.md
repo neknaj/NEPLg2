@@ -64,6 +64,35 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-07 Agent 1 structured i32 owner projection summary
+
+- `ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5` を追加し、fixed/resolved に更新した。
+- 根本原因は、root の裸 `i32` を owner seed しない修正後に、struct / tuple / enum payload aggregate の内側にある実 raw-owner `i32` projection まで owner summary leaf から落としていたことだった。
+- 裸 `i32` identity helper を raw owner authority に戻すと ordinary scalar と raw pointer proof が再び混ざるため、そこは戻していない。aggregate field leaf 収集で field 型が `i32` かつ通常 owner leaf がない場合だけ structured scalar owner leaf を追加した。
+- これにより `Result<Boxed>` の match bind、`Pair.left` consume / `Pair.right` return、function value 経由の aggregate owner return、stored raw-cell owner tail/self-update aggregate return が summary で証明できるようになった。
+- `resource_ir_owner_check_transfers_owner_returned_by_function_value` は current design に合わせ、裸 `i32` ではなく `Wrapper { ptr }` の owner projection を function value / indirect call 経由で移す regression に更新した。
+- `dealloc_ptr` / `realloc_ptr` result refinement の regression は、reserved owner への違反が `mem_ptr_addr p` の read 段階で捕捉される現在の ResourceIR authority に合わせて検査した。
+- `ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F` は `cargo test -p nepl-core --test resource_ir -- --nocapture` が 228 passed / 0 failed になったため fixed/resolved に更新した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_consumes_only_used_aggregate_owner_projection -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_aggregate_owner_returned_by_function_value -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_does_not_treat_plain_i32_identity_as_owner_return -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_does_not_treat_plain_i32_struct_fields_as_owners -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_mem_ptr_use_before_realloc_result_refinement -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 228 passed / 0 failed（remote main `c30f8858` 同期後も再確認）
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core`: passed
+  - `trunk build --release`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-structured-owner-summary-after-rebase.json -j 1 --dist web/dist`: total=14, passed=14
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/move-effect-structured-owner-summary-after-rebase.json -j 1 --dist web/dist`: total=110, passed=110
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: failed due known open `ISS-20260507T112048241Z-RESOURCE-AGGREGATE-PROJECTION-MODULE-595EC35D` (`lower_aggregate_projection.rs` 204 lines / limit 180)。今回変更した `owner_summary_leaf.rs` は 251 lines / limit 260。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T114726130Z nm json_escape raw traversal removed)
 
 - branch `fix/nm-json-escape-pure-raw-load` で、`stdlib/nm/json_escape.nepl` の public pure raw traversal を削除した。

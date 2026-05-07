@@ -2,8 +2,8 @@
 id: ISS-20260506T222921266Z-RESOURCEIR-FULL-REGRESSION-SUITE-FAI-FCEF9B4F
 title: "ResourceIR full regression suite fails on origin/main baseline"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-06
@@ -23,7 +23,8 @@ On clean origin/main 3ba24e72, cargo test -p nepl-core --test resource_ir -- --n
 
 ## 根拠
 
-- 未記入
+- 2026-05-07 時点で full ResourceIR suite は段階的に 217 passed / 11 failed まで縮小していたが、owner summary 系の残件により green ではなかった。
+- `ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5` の修正後、`cargo test -p nepl-core --test resource_ir -- --nocapture` は 228 passed / 0 failed になった。
 
 ## 問題
 
@@ -218,3 +219,25 @@ cargo test -p nepl-core --test resource_ir -- --nocapture must pass on clean ori
 - `resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm`
 
 残件は owner / returned raw cell summary / result refinement に集中しており、dynamic raw range scalar proof とは別 root cause として扱う。
+
+## 2026-05-07 Agent 1 full ResourceIR suite green
+
+`ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5` で structured `i32` raw owner projection summary を修正し、stale regression を現在の ResourceIR authority に合わせた。これにより 2026-05-07 時点の full ResourceIR regression suite は全件通過した。
+
+解消した残り失敗:
+
+- `resource_ir_owner_check_consumes_only_used_aggregate_owner_projection`
+- `resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind`
+- `resource_ir_owner_check_moves_stored_tail_owner_under_new_raw_node`
+- `resource_ir_owner_check_reinitializes_self_update_aggregate_return`
+- `resource_ir_owner_check_reinitializes_self_update_fresh_projection_return`
+- `resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement`
+- `resource_ir_owner_check_rejects_mem_ptr_use_before_realloc_result_refinement`
+- `resource_ir_owner_check_returns_aggregate_with_raw_cell_owner_stored_through_field_alias`
+- `resource_ir_owner_check_transfers_aggregate_owner_descendants_returned_by_helper`
+- `resource_ir_owner_check_transfers_owner_returned_by_function_value` は current design に合わせて `resource_ir_owner_check_transfers_aggregate_owner_returned_by_function_value` へ更新
+- `resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm`
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir -- --nocapture`: 228 passed / 0 failed

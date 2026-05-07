@@ -6481,12 +6481,12 @@ fn main <()*>()> ():
         main_diagnostics.iter().any(|diagnostic| matches!(
             diagnostic,
             ResourceOwnerDiagnostic::OwnerUnavailable {
-                operation: ResourceOwnerOperation::Dealloc,
+                operation: ResourceOwnerOperation::Read | ResourceOwnerOperation::Dealloc,
                 state: OwnerState::Reserved { .. },
                 ..
             }
         )),
-        "dealloc_ptr result must reserve p until Result is matched: {:#?}\nresource:\n{}",
+        "dealloc_ptr result must reserve p against use until Result is matched: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
     );
@@ -6538,12 +6538,12 @@ fn main <()*>()> ():
         main_diagnostics.iter().any(|diagnostic| matches!(
             diagnostic,
             ResourceOwnerDiagnostic::OwnerUnavailable {
-                operation: ResourceOwnerOperation::Dealloc,
+                operation: ResourceOwnerOperation::Read | ResourceOwnerOperation::Dealloc,
                 state: OwnerState::Reserved { .. },
                 ..
             }
         )),
-        "realloc_ptr result must reserve p until Result is matched: {:#?}\nresource:\n{}",
+        "realloc_ptr result must reserve p against use until Result is matched: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
     );
@@ -8796,27 +8796,45 @@ fn resource_ir_owner_check_reports_function_value_stored_in_aggregate_field_allo
 }
 
 #[test]
-fn resource_ir_owner_check_transfers_owner_returned_by_function_value() {
-    let types = TypeCtx::new();
+fn resource_ir_owner_check_transfers_aggregate_owner_returned_by_function_value() {
+    let mut types = TypeCtx::new();
     let unit_ty = types.unit();
     let i32_ty = types.i32();
+    let wrapper_ty = types.register_named(
+        "Wrapper".to_string(),
+        TypeKind::Struct {
+            doc: None,
+            name: "Wrapper".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty],
+            field_names: vec!["ptr".to_string()],
+        },
+    );
     let span = Span::dummy();
-    let helper_param = Place::local("p".to_string(), i32_ty);
+    let helper_param = Place::local("w".to_string(), wrapper_ty);
     let p = Place::temporary(ResourceId(0), i32_ty);
-    let callee = Place::temporary(ResourceId(1), i32_ty);
-    let returned = Place::temporary(ResourceId(2), i32_ty);
+    let wrapper = Place::temporary(ResourceId(1), wrapper_ty);
+    let callee = Place::temporary(ResourceId(2), i32_ty);
+    let returned = Place::temporary(ResourceId(3), wrapper_ty);
+    let returned_field = returned.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
     let resource = ResourceModule {
         functions: vec![
             ResourceFunction {
-                name: "owner_id".to_string(),
-                origin_name: "owner_id".to_string(),
+                name: "owner_wrapper_id".to_string(),
+                origin_name: "owner_wrapper_id".to_string(),
                 params: vec![ResourceLocal {
-                    name: "p".to_string(),
-                    ty: i32_ty,
+                    name: "w".to_string(),
+                    ty: wrapper_ty,
                     mutable: false,
                     place: helper_param.clone(),
                 }],
-                result: i32_ty,
+                result: wrapper_ty,
                 effect: Effect::Pure,
                 entry_block: ResourceBlockId(0),
                 blocks: vec![ResourceBlock {
@@ -8846,11 +8864,20 @@ fn resource_ir_owner_check_transfers_owner_returned_by_function_value() {
                             args: vec![],
                             span,
                         },
+                        ResourceOp::Construct {
+                            output: wrapper.clone(),
+                            kind: AggregateKind::Struct {
+                                name: "Wrapper".to_string(),
+                                field_offsets: vec![0],
+                            },
+                            inputs: vec![p],
+                            span,
+                        },
                         ResourceOp::FunctionValue {
                             output: callee.clone(),
-                            name: "owner_id".to_string(),
+                            name: "owner_wrapper_id".to_string(),
                             effect: EffectOp::UserCall {
-                                name: "owner_id".to_string(),
+                                name: "owner_wrapper_id".to_string(),
                                 effect: Effect::Pure,
                             },
                             span,
@@ -8858,19 +8885,19 @@ fn resource_ir_owner_check_transfers_owner_returned_by_function_value() {
                         ResourceOp::IndirectCall {
                             output: returned.clone(),
                             callee,
-                            params: vec![i32_ty],
-                            result: i32_ty,
-                            args: vec![p],
+                            params: vec![wrapper_ty],
+                            result: wrapper_ty,
+                            args: vec![wrapper],
                             effect: EffectOp::UserCall {
-                                name: "owner_id".to_string(),
+                                name: "owner_wrapper_id".to_string(),
                                 effect: Effect::Pure,
                             },
                             span,
                         },
                         ResourceOp::RawMemory {
                             operation: RawMemoryOp::Dealloc,
-                            output: Place::temporary(ResourceId(3), unit_ty),
-                            args: vec![returned],
+                            output: Place::temporary(ResourceId(4), unit_ty),
+                            args: vec![returned_field],
                             span,
                         },
                     ],

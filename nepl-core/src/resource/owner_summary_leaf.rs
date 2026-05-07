@@ -142,11 +142,13 @@ fn aggregate_owner_leaf_projections(
                 offset_bytes: field.offset,
             },
         };
-        push_nested_owner_leaf_projections(
-            &mut out,
-            projection,
-            owner_leaf_projections_mapped(types, field.ty, mapping, seen),
-        );
+        let mut children = owner_leaf_projections_mapped(types, field.ty, mapping, seen);
+        if children.is_empty() {
+            if let Some(leaf) = scalar_i32_owner_leaf_projection(types, field.ty, mapping) {
+                children.push(leaf);
+            }
+        }
+        push_nested_owner_leaf_projections(&mut out, projection, children);
     }
     out
 }
@@ -221,6 +223,20 @@ fn apply_owner_leaf_projections(
             ty: mapped_type_id(types, base, mapping),
         }],
     }
+}
+
+fn scalar_i32_owner_leaf_projection(
+    types: &TypeCtx,
+    ty: TypeId,
+    mapping: &BTreeMap<TypeId, TypeId>,
+) -> Option<OwnerLeafProjection> {
+    let mapped = mapped_type_id(types, ty, mapping);
+    matches!(types.get_ref(types.resolve_id(mapped)), TypeKind::I32).then_some(
+        OwnerLeafProjection {
+            suffix: Vec::new(),
+            ty: mapped,
+        },
+    )
 }
 
 pub(super) fn push_nested_owner_leaf_projections(
