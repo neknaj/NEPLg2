@@ -34664,3 +34664,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-region-ptr-helper-forge.json -j 1 --dist web/dist`: total=16, passed=16
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 1 Resource IR region_ptr_at Ok payload owner forge 修正
+
+- `ISS-20260507T143247279Z-RESOURCE-IR-OWNER-CHECKER-LOSES-NON--66D5734F` として、`region_ptr_at` の `Result::Ok(MemPtr<U>)` payload を `region_new` に詰め直して forged `RegionToken` owner にできる経路を確認した。
+- direct `region_ptr` は non-owning projection として下がっていたが、`region_ptr_at` は `region_token_ptr_ref` / `mem_ptr_addr` / `mem_ptr_wrap` / `Result::Ok` を経由するため Ok payload の raw view fact が owner summary に残らなかった。
+- `region_ptr_at` の Ok payload raw field を Resource IR lowering で `RawAddressViewKind::NonOwningProjection` として明示し、borrowed `region_token_ptr_ref` の raw field も non-owning view として扱うようにした。
+- coverage gate は `region_ptr_at` / `region_token_ptr_ref` の reference projection を HIR 側でも数え、`RawAddressView` の target は alias metadata として扱うようにして、coverage を弱めずに lowering の意味と一致させた。
+- `region_ptr_at` 由来 pointer を通常の読み書き用 `MemPtr` として使い、元 `RegionToken` を dealloc する正常系は維持した。Ok payload を owner token に昇格する経路だけを `resource.owner.no_free_obligation` で拒否する。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_at_ok_payload -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_helper -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_borrowed_region_ptr_at_then_region_dealloc -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_borrowed_region_ptr_at_known_offset_alias -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_rejects_borrowed_region_ptr_at_unknown_offset_dealloc_with_live_cell -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_borrow_and_deref_places -- --nocapture`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-region-ptr-at-forge.json -j 1 --dist web/dist`: total=17, passed=17
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

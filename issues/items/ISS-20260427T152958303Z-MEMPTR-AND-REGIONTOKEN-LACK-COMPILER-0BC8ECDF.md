@@ -245,3 +245,17 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_str_addr_view -- --nocapture`: passed
 - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-region-forge.json -j 1 --dist web/dist`: 15 passed
+
+## 2026-05-07 Resource IR region_ptr_at Ok payload non-owning view 部分対応
+
+`region_ptr_at<T,U>` の `Result::Ok(MemPtr<U>)` payload を `region_new` へ詰め直すと、borrowed `RegionToken` projection が free obligation owner に偽装される問題を `ISS-20260507T143247279Z-RESOURCE-IR-OWNER-CHECKER-LOSES-NON--66D5734F` として修正した。
+
+根本原因は、direct `region_ptr` は non-owning projection として下げていた一方で、`region_ptr_at` の実装が `region_token_ptr_ref` / `mem_ptr_addr` / `mem_ptr_wrap` / `Result::Ok` を経由するため、Ok payload の raw view fact が owner summary に残らなかったことだった。対応では `region_ptr_at` の Ok payload raw field を Resource IR lowering で明示的な `NonOwningProjection` にし、borrowed `region_token_ptr_ref` の raw field も non-owning view として扱う。
+
+この対応により、bounds-checked projection は読み書き用の `MemPtr` としては使えるが、`region_new` で owner token に昇格して `dealloc_region` する経路は `resource.owner.no_free_obligation` で拒否される。`region_ptr_at` で取得した pointer を使って元の `RegionToken` を解放する正常系は維持する。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_at_ok_payload -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_borrowed_region_ptr_at_then_region_dealloc -- --nocapture`: passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-region-ptr-at-forge.json -j 1 --dist web/dist`: 17 passed

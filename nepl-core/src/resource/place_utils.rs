@@ -306,7 +306,11 @@ fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
     }
 }
 
-fn enum_payload_type(types: &TypeCtx, enum_ty: TypeId, variant_name: &str) -> Option<TypeId> {
+pub(super) fn enum_payload_type(
+    types: &TypeCtx,
+    enum_ty: TypeId,
+    variant_name: &str,
+) -> Option<TypeId> {
     let resolved = types.resolve_id(enum_ty);
     match types.get_ref(resolved) {
         TypeKind::Enum { variants, .. } => variants

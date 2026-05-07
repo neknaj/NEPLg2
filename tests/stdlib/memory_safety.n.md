@@ -441,3 +441,35 @@ fn main <()*>()> ():
                 Result::Err _e:
                     ()
 ```
+
+## region_ptr_at の Ok payload は owner token にできない
+
+neplg2:test[compile_fail]
+diag_code: resource.owner.no_free_obligation
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn forge_region_from_region_ptr_at <(RegionToken<u8>)*>Result<(), str>> (token):
+    match region_ptr_at<u8,u8> &token 0:
+        Result::Err e:
+            Result<(), str>::Err e
+        Result::Ok p:
+            let forged <RegionToken<u8>> region_new p 1
+            dealloc_region forged
+
+fn main <()*>()> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok token:
+            match forge_region_from_region_ptr_at token:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+```

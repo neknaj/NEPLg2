@@ -10458,6 +10458,59 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_at_ok_payload() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/result" as *
+
+fn forge_region_from_region_ptr_at <(RegionToken<u8>)*>Result<(), str>> (token):
+    match region_ptr_at<u8,u8> &token 0:
+        Result::Err e:
+            Result<(), str>::Err e
+        Result::Ok p:
+            let forged <RegionToken<u8>> region_new p 1
+            dealloc_region forged
+
+fn main <()*>()> ():
+    match alloc_region<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok token:
+            match forge_region_from_region_ptr_at token:
+                Result::Ok _:
+                    ()
+                Result::Err _e:
+                    ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                function,
+                state: OwnerState::NoFreeObligation,
+                ..
+            } if function.starts_with("main__")
+                || function.starts_with("forge_region_from_region_ptr_at__")
+        )),
+        "region_ptr_at Ok payload must remain a non-owning projection and cannot be forged into a RegionToken owner: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "resource.owner.no_free_obligation",
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_accepts_concat_result_output_region_transfer() {
     let source = r#"
 #entry main

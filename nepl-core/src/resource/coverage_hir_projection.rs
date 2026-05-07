@@ -119,10 +119,12 @@ pub(super) fn compiler_field_load_base_and_offset<'a>(
 }
 
 fn projects_reference_address(name: Option<&str>, args: &[HirExpr], types: &TypeCtx) -> bool {
-    matches!(name, Some("add" | "sub" | "region_ptr"))
-        && args
-            .first()
-            .is_some_and(|arg| expr_requires_reference_deref_for_projection(types, arg))
+    matches!(
+        name,
+        Some("add" | "sub" | "region_ptr" | "region_ptr_at" | "region_token_ptr_ref")
+    ) && args
+        .first()
+        .is_some_and(|arg| expr_requires_reference_deref_for_projection(types, arg))
 }
 
 fn projects_reference_field(

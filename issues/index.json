@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T14:38:50.475Z",
+  "generated_at": "2026-05-07T14:43:34.697Z",
   "counts": {
-    "total": 591,
+    "total": 592,
     "open": 11,
-    "resolved": 580,
+    "resolved": 581,
     "by_area": {
       "core": {
-        "total": 298,
+        "total": 299,
         "open": 4,
-        "resolved": 294
+        "resolved": 295
       },
       "stdlib": {
         "total": 164,
@@ -4563,6 +4563,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T141425548Z-RESOURCE-IR-TRANSPARENT-RETURN-LOSES-4FFB19AA.md"
+    },
+    {
+      "id": "ISS-20260507T143247279Z-RESOURCE-IR-OWNER-CHECKER-LOSES-NON--66D5734F",
+      "title": "Resource IR owner checker loses non-owning region_ptr_at Ok payload provenance",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "nepl-core/src/resource/lower_raw_address.rs, nepl-core/src/resource/coverage_hir_projection.rs, nepl-core/src/resource/coverage_resource.rs, nepl-core/src/resource/place_utils.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T143247279Z-RESOURCE-IR-OWNER-CHECKER-LOSES-NON--66D5734F.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

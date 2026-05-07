@@ -434,7 +434,7 @@ fn resource_ops_coverage(
                     counts,
                     diagnostics,
                 );
-                resource_place_coverage(
+                resource_alias_place_coverage(
                     function,
                     "raw_address_view.target",
                     target,
