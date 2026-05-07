@@ -1,3 +1,12 @@
+# 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 string integer common helper split)
+
+- branch `refactor/string-integer-common-module` で `stdlib/alloc/string/integer.nepl` に残っていた bool / digit / radix / u128/i128 helper を `stdlib/alloc/string/integer/common.nepl` へ分離した。
+- `integer/common.nepl` は `from_bool` / `to_bool`、digit conversion、radix validation、`U128DivRem`、u128/i128 bit/helper 演算を所有する。
+- `integer.nepl` は `./integer/common` を public re-export し、`from_i32_radix` / `to_u128_radix` などの public conversion API 本体に集中させた。
+- `nodesrc/test_stdlib_string_integer_boundary.js` を更新し、common helper が root や `integer.nepl` 本体に戻らないこと、public conversion API が `integer.nepl` に残ること、line count boundary を固定した。
+- `integer.nepl` は 581 行、`integer/common.nepl` は 481 行になった。numeric conversion の parse/format 分離は今後の分割対象として残る。
+- focused doctest は common 2/2、integer 1/1、root `alloc/string` 1/1、既存 string suite 9/9 が通過した。
+
 # 2026-05-07 note (ISS-20260425T000000Z-RV-STDLIB-009 Vec mutation/query facade split)
 
 - branch `refactor/vec-mutation-query-facade` で `stdlib/alloc/collections/vec.nepl` に残っていた基本 mutation / cleanup と `get` を submodule へ分離した。
