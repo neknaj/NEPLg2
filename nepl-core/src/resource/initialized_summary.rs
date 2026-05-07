@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
+use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::model::PlaceProjection;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,6 +33,7 @@ pub(super) struct RawCellInitializationReturnByteRange {
     pub(super) address_ty: TypeId,
     pub(super) count_suffix: Vec<PlaceProjection>,
     pub(super) count_ty: TypeId,
+    pub(super) unit: InitializedRawRangeUnit,
     pub(super) ty: TypeId,
 }
 

@@ -1,10 +1,11 @@
+use crate::layout::storage_size_bytes;
 use crate::span::Span;
 
 use super::cell_state::CellTable;
+use super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::Place;
-use super::place_utils::raw_memory_unknown_offset_cell_place;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckOperation;
 
@@ -40,7 +41,13 @@ impl ResourceCheckEngine<'_> {
         if address_available && cells_released {
             cells.clear_raw_cells_under(&address);
             if let (Some(count), Some(value)) = (args.get(1), args.get(2)) {
-                cells.mark_initialized_raw_byte_range(&address, count, value.ty);
+                let count = raw_aliases.canonicalize(count);
+                cells.mark_initialized_raw_byte_range(
+                    &address,
+                    &count,
+                    InitializedRawRangeUnit::Bytes,
+                    value.ty,
+                );
             }
             cells.mark_initialized(output);
             raw_aliases.clear(output);
@@ -77,9 +84,16 @@ impl ResourceCheckEngine<'_> {
         );
         if address_available && cells_released {
             cells.clear_raw_cells_under(&address);
-            if let Some(value) = args.get(2) {
-                let cell = raw_memory_unknown_offset_cell_place(&address, value.ty);
-                cells.mark_initialized(&cell);
+            if let (Some(count), Some(value)) = (args.get(1), args.get(2)) {
+                let count = raw_aliases.canonicalize(count);
+                cells.mark_initialized_raw_byte_range(
+                    &address,
+                    &count,
+                    InitializedRawRangeUnit::Elements {
+                        stride: storage_size_bytes(self.types, value.ty),
+                    },
+                    value.ty,
+                );
             }
             cells.mark_initialized(output);
             raw_aliases.clear(output);

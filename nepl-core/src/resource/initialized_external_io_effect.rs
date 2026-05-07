@@ -241,7 +241,9 @@ fn add_static_offset(place: &mut Place, bytes: usize) {
             *existing = existing.saturating_add(bytes);
         }
         Some(PlaceProjection::StorageOffset(
-            ResourceOffset::Symbolic { .. } | ResourceOffset::Unknown,
+            ResourceOffset::Symbolic { .. }
+            | ResourceOffset::ScaledSymbolic { .. }
+            | ResourceOffset::Unknown,
         )) => {}
         _ => place
             .projections

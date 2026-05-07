@@ -577,6 +577,9 @@ fn dump_projection(projection: &PlaceProjection) -> String {
             super::model::ResourceOffset::Symbolic { place } => {
                 format!("[+{}]", dump_place(place))
             }
+            super::model::ResourceOffset::ScaledSymbolic { place, scale } => {
+                format!("[+{}*{}]", dump_place(place), scale)
+            }
             super::model::ResourceOffset::Unknown => String::from("[+?]"),
         },
     }

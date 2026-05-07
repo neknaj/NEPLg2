@@ -6633,7 +6633,11 @@ fn main <()->i32> ():
     let im1 <i32> sub i 1
     let prev_off <i32> mul im1 4
     let prev_ptr <i32> add pref prev_off
-    let prev <i32> load_i32 prev_ptr
+    let prev <i32> if and ge im1 0 lt im1 pref_len:
+        then:
+            load_i32 prev_ptr
+        else:
+            0
     prev
 "#;
 
@@ -6653,7 +6657,7 @@ fn main <()->i32> ():
         .collect::<Vec<_>>();
     assert!(
         main_diagnostics.is_empty(),
-        "dynamic fill through one local read must initialize dynamic loads through later reads of the same raw address: {:#?}\nresource:\n{}",
+        "dynamic fill through one local read must initialize guarded scaled dynamic loads through later reads of the same raw address: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
     );
@@ -6685,9 +6689,14 @@ fn main <()*>i32> ():
     let right_off <i32> mul r1 4
     let left_ptr <i32> add pref left_off
     let right_ptr <i32> add pref right_off
-    let left <i32> load_i32 left_ptr
-    let right <i32> load_i32 right_ptr
-    let diff <i32> sub right left
+    let diff <i32> if:
+        and and ge l 0 lt l pref_len and ge r1 0 lt r1 pref_len
+        then:
+            let left <i32> load_i32 left_ptr
+            let right <i32> load_i32 right_ptr
+            sub right left
+        else:
+            0
     diff
 "#;
 
@@ -6707,7 +6716,7 @@ fn main <()*>i32> ():
         .collect::<Vec<_>>();
     assert!(
         main_diagnostics.is_empty(),
-        "impure i32-producing calls must not erase initialized Copy facts for unrelated raw buffers: {:#?}\nresource:\n{}",
+        "impure i32-producing calls must not erase guarded initialized Copy facts for unrelated raw buffers: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
     );
@@ -12841,6 +12850,84 @@ fn main <(i32,i32)->i32> (i, len):
     assert!(
         main_diagnostics.is_empty(),
         "symbolic byte load guarded by 0 <= i && i < len must use the byte fill range fact: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_word_fill_requires_guard_for_scaled_symbolic_load() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn main <(i32,i32)->i32> (i, len):
+    let p <i32> alloc_raw mul len 4
+    fill_i32 p len 0
+    let off <i32> mul i 4
+    let value <i32> load_i32 add p off
+    dealloc_raw p mul len 4
+    value
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceCheckDiagnostic::CellUnavailable {
+                operation: ResourceCheckOperation::RawMemoryLoadCell,
+                state: CellState::Uninit,
+                ..
+            }
+        )),
+        "symbolic i32 load after fill_i32 must require a typed element range guard: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_cell_check_word_fill_accepts_scaled_symbolic_load_with_range_guard() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn main <(i32,i32)->i32> (i, len):
+    let p <i32> alloc_raw mul len 4
+    fill_i32 p len 0
+    let off <i32> mul i 4
+    let value <i32> if and ge i 0 lt i len:
+        then:
+            load_i32 add p off
+        else:
+            0
+    dealloc_raw p mul len 4
+    value
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_initialized_moves(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceCheckDiagnostic::CellUnavailable { function, .. }
+                    if function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "scaled symbolic i32 load guarded by 0 <= i && i < len must use the fill_i32 element range fact: {:#?}\nresource:\n{}",
         main_diagnostics,
         resource.dump_text()
     );

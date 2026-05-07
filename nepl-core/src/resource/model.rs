@@ -345,6 +345,7 @@ pub enum PlaceProjection {
 pub enum ResourceOffset {
     Known(usize),
     Symbolic { place: Box<Place> },
+    ScaledSymbolic { place: Box<Place>, scale: usize },
     Unknown,
 }
 

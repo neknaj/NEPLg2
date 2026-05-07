@@ -111,7 +111,8 @@ impl ResourceCheckEngine<'_> {
                 &range.count_suffix,
                 range.count_ty,
             );
-            cells.mark_initialized_raw_byte_range(&address, &count, range.ty);
+            let count = raw_aliases.canonicalize(&count);
+            cells.mark_initialized_raw_byte_range(&address, &count, range.unit, range.ty);
         }
 
         for cell in &summary.param_cells {

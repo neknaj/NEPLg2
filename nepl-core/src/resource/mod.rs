@@ -56,6 +56,7 @@ mod initialized_alias_relation;
 mod initialized_alias_relation_flow;
 mod initialized_alias_relation_op;
 mod initialized_alias_scalar;
+mod initialized_alias_scale;
 mod initialized_availability;
 mod initialized_control;
 mod initialized_drop_assignment;
