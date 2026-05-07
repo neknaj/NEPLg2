@@ -1,12 +1,13 @@
 # プロジェクトリスクマップ
 
-確認対象 commit: `545d2ab0 fix(resource): align region_ptr reference coverage`
+確認対象 commit: `e8a4e399 docs(review): add check ResourceIR gate issue`
 
 ## 重要リスク
 
 | 優先度 | リスク | 根本原因 | 現在の状態 | 次の確認 |
 |---|---|---|---|---|
 | P1 | 静的検査 authority が過渡期 | legacy move/drop と ResourceIR の責務統合がまだ完了していない。 | ResourceIR regression は増えているが、最終 authority の確認が必要。 | `rust-compiler/static-resource-check.md` で pass 順序と gate を確認する。 |
+| P1 | `--check` が ResourceIR gate を通らない | check-only API が過去の stack overflow 回避として typecheck-only に分離されたまま残っている。 | `ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF` を追加。 | shared prepare/check phase の設計が必要。 |
 | P1 | `MemPtr` / `RegionToken` の owner model が未完 | pointer projection と storage owner が型レベルで完全分離されていない。 | open issue が core/stdlib に残る。最新 commit も region_ptr forged token 周辺の regression。 | `stdlib/core.md` と `crosscutting/static-safety.md` で扱う。 |
 | P1 | stdlib raw-memory-backed API migration | raw memory capability が移行中の exact boundary として残る。 | Vec/string/io で module split が進むが、public safe API と internal raw API の最終分離は未完。 | `stdlib/alloc-string.md`、`stdlib/alloc-collections.md`、`stdlib/std-io-fs-env-test.md`。 |
 | P1 | `.n.md` test / assert contract | main return value に依存した test は失敗時の情報が不足する。 | open issue `ISS-20260429T102425370Z...` が残る。 | `quality/tests.md` と `crosscutting/diagnostics-tests-docs.md`。 |
@@ -24,6 +25,7 @@
 ## 監視すべき regression
 
 - ResourceIR coverage が diagnostic を覆い隠し、owner/cell/borrow の根本違反が別エラーになる。
+- `--check` が typecheck-only のまま残り、`resource.*` diagnostic の回帰監視に使えない。
 - raw-memory-boundary capability が facade root や raw-free helper に戻る。
 - collection observer が owner を値で消費する API に戻る。
 - fallible collection update が error path で collection/item owner を失う。

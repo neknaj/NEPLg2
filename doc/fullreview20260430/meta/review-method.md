@@ -1,6 +1,6 @@
 # レビュー方法
 
-確認対象 commit: `545d2ab0 fix(resource): align region_ptr reference coverage`
+確認対象 commit: `e8a4e399 docs(review): add check ResourceIR gate issue`
 
 ## 目的
 
@@ -21,6 +21,7 @@
 4. 現行ツリーのファイル一覧、主要ディレクトリ、`plan.md`、`note.n.md`、`todo.md`、issue index、recent commit message を確認した。
 5. `doc/fullreview20260430/README.md` と `index.md` を目次 checkpoint として更新し、`97b07bad docs(review): refresh full review index` を main に push した。
 6. project レビュー開始後、remote main に `545d2ab0 fix(resource): align region_ptr reference coverage` が入ったため、`review/fullreview-project-status` を `origin/main` に rebase した。
+7. Rust compiler review 中に `nepl-cli --check` が ResourceIR gate を通らないことを確認し、`ISS-20260507T143850332Z-CLI-CHECK-DOES-NOT-RUN-RESOURCEIR-ME-D1F139FF` を追加した。
 
 ## 使用した確認コマンド
 
@@ -37,10 +38,20 @@
 - `node -e "...issues/index.json..."`
 - `gh run list --limit 12 --json ...`
 - `gh run view <run-id> --json ...`
+- `Get-Content nepl-core/src/compiler.rs`
+- `Get-Content nepl-cli/src/main.rs`
+- `Get-Content nepl-core/src/resource/mod.rs`
+- `Get-Content nepl-core/src/resource/model.rs`
+- `Get-Content nepl-core/src/typecheck/match_check.rs`
+- `Get-Content nepl-core/src/diagnostic_codes.rs`
+- `Get-Content nodesrc/test_resource_gate_order.js`
+- `Get-Content nodesrc/test_static_check_boundary_responsibility.js`
+- `Get-Content nodesrc/test_diagnostic_code_first_boundary.js`
+- `node nodesrc/issues.js check`
 
 ## GitHub Actions 確認方針
 
-レビュー上の test 状況は local test ではなく GitHub Actions の結果を根拠にする。現在の latest run は `545d2ab0` の CI run で、project checkpoint 作成時点では queued である。CI の最終状態は、レビュー進行中に再確認して `project/actions-status.md` と最終 summary へ反映する。
+レビュー上の test 状況は local test ではなく GitHub Actions の結果を根拠にする。現在の latest run は `e8a4e399` の CI run で、Rust compiler checkpoint 作成時点では pending / in_progress の可能性がある。CI の最終状態は、レビュー進行中に再確認して `project/actions-status.md` と最終 summary へ反映する。
 
 ## レビュー判断基準
 
@@ -54,7 +65,7 @@
 
 ## 未完了
 
-- Rust compiler、selfhost、stdlib、quality、tools の個別レビュー本文。
-- CI run `545d2ab0` の完了結果確認。
+- selfhost、stdlib、quality、tools の個別レビュー本文。
+- CI run `e8a4e399` 以降の完了結果確認。
 - レビュー全体の妥当性再確認。
 - 前回レビューとの差分報告。

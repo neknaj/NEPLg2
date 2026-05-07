@@ -149,6 +149,7 @@
 ## checkpoint 進捗
 
 - 目次作成: 完了。
-- 領域別レビュー: 未着手。
+- project status: 完了。
+- Rust compiler 静的検査 / typecheck / diagnostics: 作成中。
 - レビュー妥当性確認: 未着手。
 - 前回との差分確認: 未着手。今回レビュー完了後まで前回レビュー内容は読まない。
