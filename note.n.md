@@ -33919,3 +33919,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-ringbuffer-borrow-fix.json -j 1 --dist web/dist`: total=8, passed=8
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-07 Agent 2 Queue/Deque primary borrowed observers
+
+- `ISS-20260507T091737456Z-QUEUE-AND-DEQUE-KEEP-DUPLICATE-BY-VA-48ACFE57` を追加し、fixed/resolved に更新した。
+- `Queue` / `Deque` は借用 observer を持っていたが、primary observer 名が by-value のまま残り、`*_ref` が owner-preserving 版として併存していた。
+- `Queue.len` / `Queue.is_empty` / `Queue.peek` を `&Queue<T>` receiver に統一し、`len_ref` / `is_empty_ref` / `peek_ref` を削除した。
+- `Deque.len` / `Deque.cap` / `Deque.is_empty` / `Deque.peek_front` / `Deque.peek_back` を `&Deque<T>` receiver に統一し、`len_ref` / `cap_ref` / `is_empty_ref` / `peek_front_ref` / `peek_back_ref` を削除した。
+- `stdlib/tests/queue.n.md`、`stdlib/tests/deque.n.md`、`tests/stdlib/queue_collections.n.md`、`tests/stdlib/deque_collections.n.md`、`tests/stdlib/pipe_collections.n.md` を primary observer 名と明示 borrow/free へ更新した。
+- `nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js` は by-value observer と `*_ref` surface の再導入を拒否する regression に拡張した。
+- 同種の残件として BinaryHeap、BTreeMap/BTreeSet、Stack の duplicate observer issue を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/deque.nepl -i stdlib/tests/queue.n.md -i stdlib/tests/deque.n.md -i tests/stdlib/queue_collections.n.md -i tests/stdlib/deque_collections.n.md -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/queue-deque-borrowed-primary-observers.json -j 1 --dist web/dist`: total=18, passed=18
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -23,18 +23,20 @@ fn main <()*>i32> ():
         |> unwrap_ok<Queue<i32>, Diag>
         |> push<i32> 2
         |> unwrap_ok<Queue<i32>, Diag>
-    let ok0 <bool> eq len<i32> q0 2;
+    let ok0 <bool> eq len<i32> &q0 2;
+    free<i32> q0;
     let q1 <Queue<i32>>:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push<i32> 1
         |> unwrap_ok<Queue<i32>, Diag>
         |> push<i32> 2
         |> unwrap_ok<Queue<i32>, Diag>
-    let ok1 <bool> match peek<i32> q1:
+    let ok1 <bool> match peek<i32> &q1:
         Option::Some v:
             eq v 1
         Option::None:
             false
+    free<i32> q1;
     let q2 <Queue<i32>>:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push<i32> 5
@@ -58,9 +60,9 @@ fn main <()*>i32> ():
             false
     let q4 <Queue<i32>> field::get p0 "queue"
     let ok4 <bool>:
-        match peek_ref<i32> &q4:
+        match peek<i32> &q4:
             Option::Some v:
-                and eq len_ref<i32> &q4 1 eq v 8
+                and eq len<i32> &q4 1 eq v 8
             Option::None:
                 false
     free<i32> q4;

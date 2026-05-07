@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T09:12:27.469Z",
+  "generated_at": "2026-05-07T09:31:14.064Z",
   "counts": {
-    "total": 569,
-    "open": 10,
-    "resolved": 559,
+    "total": 573,
+    "open": 13,
+    "resolved": 560,
     "by_area": {
       "core": {
         "total": 284,
@@ -12,9 +12,9 @@
         "resolved": 281
       },
       "stdlib": {
-        "total": 159,
-        "open": 5,
-        "resolved": 154
+        "total": 163,
+        "open": 8,
+        "resolved": 155
       },
       "TEST": {
         "total": 15,
@@ -193,6 +193,51 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260507T092629042Z-BINARYHEAP-KEEPS-DUPLICATE-BY-VALUE--31161123",
+      "title": "BinaryHeap keeps duplicate by-value and *_ref observer APIs",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "stdlib/alloc/collections/binary_heap.nepl, stdlib/tests/binary_heap.n.md, tests/stdlib/binary_heap_collections.n.md, nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T092629042Z-BINARYHEAP-KEEPS-DUPLICATE-BY-VALUE--31161123.md"
+    },
+    {
+      "id": "ISS-20260507T092629151Z-BTREEMAP-AND-BTREESET-KEEP-DUPLICATE-CEEF7344",
+      "title": "BTreeMap and BTreeSet keep duplicate by-value and *_ref observer APIs",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "stdlib/alloc/collections/btreemap.nepl, stdlib/alloc/collections/btreeset.nepl, stdlib/tests/btreemap.n.md, stdlib/tests/btreeset.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T092629151Z-BTREEMAP-AND-BTREESET-KEEP-DUPLICATE-CEEF7344.md"
+    },
+    {
+      "id": "ISS-20260507T092629164Z-STACK-KEEPS-DUPLICATE-BY-VALUE-AND-R-B8BF2270",
+      "title": "Stack keeps duplicate by-value and *_ref observer APIs",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "stdlib/alloc/collections/stack.nepl, stdlib/tests/stack.n.md, tests/stdlib/stack_collections.n.md, examples/rpn.nepl, examples/bf.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T092629164Z-STACK-KEEPS-DUPLICATE-BY-VALUE-AND-R-B8BF2270.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -6343,6 +6388,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T045758591Z-HASH-STRING-HASHING-RELIES-ON-QUALIF-87C90EEF.md"
+    },
+    {
+      "id": "ISS-20260507T091737456Z-QUEUE-AND-DEQUE-KEEP-DUPLICATE-BY-VA-48ACFE57",
+      "title": "Queue and Deque keep duplicate by-value and *_ref observer APIs",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-07",
+      "updated": "2026-05-07",
+      "target": "stdlib/alloc/collections/queue.nepl, stdlib/alloc/collections/deque.nepl, stdlib/tests/queue.n.md, stdlib/tests/deque.n.md, tests/stdlib/queue_collections.n.md, tests/stdlib/deque_collections.n.md, tests/stdlib/pipe_collections.n.md, nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T091737456Z-QUEUE-AND-DEQUE-KEEP-DUPLICATE-BY-VA-48ACFE57.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

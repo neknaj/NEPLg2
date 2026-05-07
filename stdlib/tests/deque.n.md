@@ -21,25 +21,28 @@ fn main <()*>i32> ():
         |> push_back 10 |> uwok
         |> push_front 5 |> uwok
         |> push_back 20 |> uwok
-    let ok0 <bool> eq len dq0 3;
+    let ok0 <bool> eq len<i32> &dq0 3;
+    free<i32> dq0;
     let dq1 <Deque<i32>>:
         unwrap_ok<Deque<i32>, Diag> new<i32>
         |> push_back 10 |> uwok
         |> push_front 5 |> uwok
-    let ok1 <bool> match peek_front dq1:
+    let ok1 <bool> match peek_front<i32> &dq1:
         Option::Some v:
             eq v 5
         Option::None:
             false
+    free<i32> dq1;
     let dq2 <Deque<i32>>:
         unwrap_ok<Deque<i32>, Diag> new<i32>
         |> push_back 10 |> uwok
         |> push_back 20 |> uwok
-    let ok2 <bool> match peek_back dq2:
+    let ok2 <bool> match peek_back<i32> &dq2:
         Option::Some v:
             eq v 20
         Option::None:
             false
+    free<i32> dq2;
     if and ok0 and ok1 ok2 1 0
 ```
 

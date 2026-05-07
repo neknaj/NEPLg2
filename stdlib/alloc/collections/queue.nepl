@@ -12,11 +12,12 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には queue payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
-//: - `len` / `is_empty` / `peek` / `pop` は `Queue` を[値/あたい]で[消費/しょうひ]し、内部 storage を[閉/と]じます。owner を[残/のこ]したまま[観測/かんそく]する場合は `len_ref` / `is_empty_ref` / `peek_ref` を[使/つか]います。
+//: - `len` / `is_empty` / `peek` は `Queue` を[借用/しゃくよう]して[観測/かんそく]します。観測後の owner は caller が `free` または更新 API で[閉/と]じます。
+//: - `pop` は terminal API として `Queue` owner を[消費/しょうひ]し、内部 storage を[閉/と]じて[値/あたい]だけを[返/かえ]します。
 //: - `free` [後/ご]の[再利用/さいりよう]は[禁止/きんし]です。
 //:
 //: ### [計算量/けいさんりょう]
-//: - `len_ref` / `is_empty_ref` / `peek_ref` / `pop` は O(1) です。
+//: - `len` / `is_empty` / `peek` / `pop` は O(1) です。
 //: - `push` は[償却/しょうきゃく] O(1)、grow 時は O(n) です。
 
 #indent 4
@@ -119,28 +120,14 @@ fn with_capacity <.T: Copy> <(i32)*>Result<Queue<.T>, Diag>> (cap):
             ok<Queue<.T>, Diag> Queue<.T> 0 cap0 0 items
 
 //: ## len
-//: queue を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
-fn len <.T> <(Queue<.T>)->i32> (q):
-    let n <i32> *field::get_ref &q "len"
-    free<.T> q
-    n
-
-//: ## len_ref
 //: `Queue` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
-fn len_ref <.T> <(&Queue<.T>)->i32> (q):
+fn len <.T> <(&Queue<.T>)->i32> (q):
     *field::get_ref q "len"
 
 //: ## is_empty
-//: queue を[消費/しょうひ]して[空/から]かどうかを[返/かえ]す
-fn is_empty <.T> <(Queue<.T>)->bool> (q):
-    let ok <bool> is_empty_ref<.T> &q
-    free<.T> q
-    ok
-
-//: ## is_empty_ref
 //: `Queue` を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
-fn is_empty_ref <.T> <(&Queue<.T>)->bool> (q):
-    eq len_ref<.T> q 0
+fn is_empty <.T> <(&Queue<.T>)->bool> (q):
+    eq len<.T> q 0
 
 //: ## push
 //: [末尾/まつび]へ[追加/ついか]する
@@ -196,15 +183,8 @@ fn pop <.T: Copy> <(Queue<.T>)*>Option<.T>> (q):
     item
 
 //: ## peek
-//: queue を[消費/しょうひ]して[先頭/せんとう]を[読/よ]む
-fn peek <.T: Copy> <(Queue<.T>)->Option<.T>> (q):
-    let item <Option<.T>> peek_ref<.T> &q
-    free<.T> q
-    item
-
-//: ## peek_ref
 //: `Queue` を[移動/いどう]せずに[先頭/せんとう]を[読/よ]む
-fn peek_ref <.T: Copy> <(&Queue<.T>)->Option<.T>> (q):
+fn peek <.T: Copy> <(&Queue<.T>)->Option<.T>> (q):
     let len0 <i32> *field::get_ref q "len"
     if:
         eq len0 0

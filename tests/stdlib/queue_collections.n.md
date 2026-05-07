@@ -32,7 +32,7 @@ fn main <()*>i32> ():
         |> uwok
         |> push<i32> 8
         |> uwok
-    let ok0 <bool> eq len_ref<i32> &q 2;
+    let ok0 <bool> eq len<i32> &q 2;
     let ok1 <bool> match q |> pop<i32>:
         Option::Some v:
             eq v 7
@@ -64,14 +64,14 @@ fn main <()*>i32> ():
     let q0 <Queue<i32>> unwrap_ok<Queue<i32>, Diag> with_capacity<i32> 1;
     let q1 <Queue<i32>> unwrap_ok<Queue<i32>, Diag> push<i32> q0 10;
     let q2 <Queue<i32>> unwrap_ok<Queue<i32>, Diag> push<i32> q1 20;
-    let ok_len <bool> eq len_ref<i32> &q2 2;
-    let ok_peek <bool> match peek_ref<i32> &q2:
+    let ok_len <bool> eq len<i32> &q2 2;
+    let ok_peek <bool> match peek<i32> &q2:
         Option::Some v:
             eq v 10
         Option::None:
             false
     let q3 <Queue<i32>> clear<i32> q2;
-    let ok_clear <bool> is_empty_ref<i32> &q3;
+    let ok_clear <bool> is_empty<i32> &q3;
     free<i32> q3;
     if and ok_len and ok_peek ok_clear 1 0
 ```

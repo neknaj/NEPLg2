@@ -328,15 +328,17 @@ fn main <()*>i32> ():
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let ok0 <bool> eq len<i32> q 2;
+    let ok0 <bool> eq len<i32> &q 2;
+    free<i32> q;
     let q2 <Queue<i32>>:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let ok1 <bool> match q2 |> peek:
+    let ok1 <bool> match peek<i32> &q2:
         Option::Some v:
             eq v 3
         Option::None:
             false
+    free<i32> q2;
     if and ok0 ok1 1 0
 ```

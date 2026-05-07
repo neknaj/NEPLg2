@@ -12,11 +12,11 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には deque payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
-//: - `len` / `cap` / `is_empty` / `peek_front` / `peek_back` / `pop_front` / `pop_back` は `Deque` を[値/あたい]で[消費/しょうひ]し、内部 storage を[閉/と]じます。
-//: - owner を[残/のこ]したまま[観測/かんそく]する場合は `len_ref` / `cap_ref` / `is_empty_ref` / `peek_front_ref` / `peek_back_ref` を[使/つか]います。
+//: - `len` / `cap` / `is_empty` / `peek_front` / `peek_back` は `Deque` を[借用/しゃくよう]して[観測/かんそく]します。
+//: - `pop_front` / `pop_back` は terminal API として `Deque` owner を[消費/しょうひ]し、内部 storage を[閉/と]じて[値/あたい]だけを[返/かえ]します。
 //:
 //: ### [計算量/けいさんりょう]
-//: - `len_ref` / `cap_ref` / `is_empty_ref` / `peek_front_ref` / `peek_back_ref` / terminal pop は O(1) です。
+//: - `len` / `cap` / `is_empty` / `peek_front` / `peek_back` / terminal pop は O(1) です。
 //: - `push_front` / `push_back` は[償却/しょうきゃく] O(1)、grow 時は O(n) です。
 
 #indent 4
@@ -110,7 +110,9 @@ fn deque_copy_live_slots <.T: Copy> <(&Vec<Option<.T>>,&Vec<Option<.T>>,i32,i32,
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let dq <Deque<i32>> unwrap_ok<Deque<i32>, Diag> new<i32>;
-//:     if eq len dq 0 1 0
+//:     let ok <bool> eq len<i32> &dq 0
+//:     free<i32> dq
+//:     if ok 1 0
 //: ```
 fn new <.T: Copy> <()*>Result<Deque<.T>, Diag>> ():
     with_capacity<.T> 8
@@ -127,7 +129,9 @@ fn new <.T: Copy> <()*>Result<Deque<.T>, Diag>> ():
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let dq <Deque<i32>> unwrap_ok<Deque<i32>, Diag> with_capacity<i32> 16;
-//:     if eq cap dq 16 1 0
+//:     let ok <bool> eq cap<i32> &dq 16
+//:     free<i32> dq
+//:     if ok 1 0
 //: ```
 fn with_capacity <.T: Copy> <(i32)*>Result<Deque<.T>, Diag>> (cap):
     let cap0 <i32> deque_normalize_capacity cap
@@ -138,40 +142,19 @@ fn with_capacity <.T: Copy> <(i32)*>Result<Deque<.T>, Diag>> (cap):
             ok<Deque<.T>, Diag> Deque<.T> 0 cap0 0 items
 
 //: ## len
-//: deque を[消費/しょうひ]して[要素数/ようそすう]を[返/かえ]す
-fn len <.T> <(Deque<.T>)->i32> (dq):
-    let n <i32> *field::get_ref &dq "len"
-    free<.T> dq
-    n
-
-//: ## len_ref
 //: `Deque` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
-fn len_ref <.T> <(&Deque<.T>)->i32> (dq):
+fn len <.T> <(&Deque<.T>)->i32> (dq):
     *field::get_ref dq "len"
 
 //: ## cap
-//: deque を[消費/しょうひ]して[容量/ようりょう]を[返/かえ]す
-fn cap <.T> <(Deque<.T>)->i32> (dq):
-    let n <i32> *field::get_ref &dq "cap"
-    free<.T> dq
-    n
-
-//: ## cap_ref
 //: `Deque` を[移動/いどう]せずに[容量/ようりょう]を[返/かえ]す
-fn cap_ref <.T> <(&Deque<.T>)->i32> (dq):
+fn cap <.T> <(&Deque<.T>)->i32> (dq):
     *field::get_ref dq "cap"
 
 //: ## is_empty
-//: deque を[消費/しょうひ]して[空/から]かどうかを[返/かえ]す
-fn is_empty <.T> <(Deque<.T>)->bool> (dq):
-    let ok <bool> is_empty_ref<.T> &dq
-    free<.T> dq
-    ok
-
-//: ## is_empty_ref
 //: `Deque` を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
-fn is_empty_ref <.T> <(&Deque<.T>)->bool> (dq):
-    eq len_ref<.T> dq 0
+fn is_empty <.T> <(&Deque<.T>)->bool> (dq):
+    eq len<.T> dq 0
 
 //: ## push_front
 //: [先頭/せんとう]へ[追加/ついか]する
@@ -226,27 +209,20 @@ fn push_back <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, Diag>> (dq, item):
 //: ## pop_front
 //: deque を[消費/しょうひ]して[先頭/せんとう]の[値/あたい]だけを[返/かえ]す
 fn pop_front <.T: Copy> <(Deque<.T>)*>Option<.T>> (dq):
-    let item <Option<.T>> peek_front_ref<.T> &dq
+    let item <Option<.T>> peek_front<.T> &dq
     free<.T> dq
     item
 
 //: ## pop_back
 //: deque を[消費/しょうひ]して[末尾/まつび]の[値/あたい]だけを[返/かえ]す
 fn pop_back <.T: Copy> <(Deque<.T>)*>Option<.T>> (dq):
-    let item <Option<.T>> peek_back_ref<.T> &dq
+    let item <Option<.T>> peek_back<.T> &dq
     free<.T> dq
     item
 
 //: ## peek_front
-//: deque を[消費/しょうひ]して[先頭/せんとう]を[読/よ]む
-fn peek_front <.T: Copy> <(Deque<.T>)->Option<.T>> (dq):
-    let item <Option<.T>> peek_front_ref<.T> &dq
-    free<.T> dq
-    item
-
-//: ## peek_front_ref
 //: `Deque` を[移動/いどう]せずに[先頭/せんとう]を[読/よ]む
-fn peek_front_ref <.T: Copy> <(&Deque<.T>)->Option<.T>> (dq):
+fn peek_front <.T: Copy> <(&Deque<.T>)->Option<.T>> (dq):
     let len0 <i32> *field::get_ref dq "len"
     if:
         eq len0 0
@@ -258,15 +234,8 @@ fn peek_front_ref <.T: Copy> <(&Deque<.T>)->Option<.T>> (dq):
             deque_item_at<.T> items head0
 
 //: ## peek_back
-//: deque を[消費/しょうひ]して[末尾/まつび]を[読/よ]む
-fn peek_back <.T: Copy> <(Deque<.T>)->Option<.T>> (dq):
-    let item <Option<.T>> peek_back_ref<.T> &dq
-    free<.T> dq
-    item
-
-//: ## peek_back_ref
 //: `Deque` を[移動/いどう]せずに[末尾/まつび]を[読/よ]む
-fn peek_back_ref <.T: Copy> <(&Deque<.T>)->Option<.T>> (dq):
+fn peek_back <.T: Copy> <(&Deque<.T>)->Option<.T>> (dq):
     let len0 <i32> *field::get_ref dq "len"
     if:
         eq len0 0
