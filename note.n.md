@@ -34943,3 +34943,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-08 Agent 1 qualified import public reexport 修正
+
+- `ISS-20260507T173212101Z-QUALIFIED-IMPORT-ALIASES-IGNORE-PUB--6A7D10D7` として、qualified alias import が `pub #import ... as *` の公開再exportを辿れない compiler 側の問題を修正した。
+- remote main では `core/math` facade を `as @merge` に変えることで tutorial failure は解消済みだったが、それだけでは user/stdlib の通常 facade が `pub #import ... as *` を使った場合に `facade::member` が解決できない resolver model の弱点が残る。
+- `QualifiedImportTargets` を target file set ではなく target file ごとの `UnqualifiedImportVisibility` rule に変更し、direct target と public reexport visibility を同じ alias target に合成するようにした。
+- qualified lookup は requested member を `All` / `Selected` rule へ照合して binding name と target file を得るため、`as *` の公開再exportと `as { foo as bar }` の alias 公開を同じ構造で扱える。
+- 非 `pub` の transitive open import は qualified alias から見えないまま維持し、既存 `@merge` facade の qualified lookup も保持した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test import_clause -- --nocapture`: 13 passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tutorials/getting_started/15_move_and_borrow.n.md -i tutorials/getting_started/17_imports_and_modules.n.md --no-tree -o tmp/agent1-getting-started-after-main-sync.json -j 1 --dist web/dist`: total=2, passed=2
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

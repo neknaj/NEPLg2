@@ -30,7 +30,8 @@ use crate::diagnostic_codes::{DiagnosticCode, ResolveDiagnosticCode};
 #[cfg(not(target_os = "none"))]
 use crate::module_graph::{ExportTable, ModuleGraph, ModuleId};
 
-pub type QualifiedImportTargets = BTreeMap<u32, BTreeMap<String, BTreeSet<u32>>>;
+type QualifiedImportVisibilityMap = BTreeMap<u32, UnqualifiedImportVisibility>;
+pub type QualifiedImportTargets = BTreeMap<u32, BTreeMap<String, QualifiedImportVisibilityMap>>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnqualifiedImportVisibility {
@@ -58,14 +59,31 @@ impl ImportResolution {
         }
     }
 
-    pub fn qualified_targets_for_alias(
+    pub fn qualified_lookup_names(
         &self,
         source_file: u32,
         alias: &str,
-    ) -> Option<&BTreeSet<u32>> {
-        self.qualified_targets
+        member: &str,
+    ) -> Option<Vec<(u32, String)>> {
+        let targets = self
+            .qualified_targets
             .get(&source_file)
-            .and_then(|aliases| aliases.get(alias))
+            .and_then(|aliases| aliases.get(alias))?;
+        let mut out = Vec::new();
+        for (target_file, visibility) in targets {
+            match visibility {
+                UnqualifiedImportVisibility::Hidden => {}
+                UnqualifiedImportVisibility::All => {
+                    out.push((*target_file, member.to_string()));
+                }
+                UnqualifiedImportVisibility::Selected(selected) => {
+                    if let Some(target_name) = selected.get(member) {
+                        out.push((*target_file, target_name.clone()));
+                    }
+                }
+            }
+        }
+        Some(out)
     }
 
     pub fn has_qualified_targets(&self) -> bool {
@@ -401,6 +419,8 @@ pub fn build_qualified_import_targets(
         }
     }
     let merge_import_targets = build_merge_import_targets(&directives, source_map);
+    let public_reexports =
+        build_public_reexport_visibility(&directives, source_map, &merge_import_targets);
     let mut out: QualifiedImportTargets = BTreeMap::new();
     for directive in directives {
         let Directive::Import {
@@ -428,12 +448,74 @@ pub fn build_qualified_import_targets(
         }
         let file_aliases = out.entry(span.file_id.0).or_default();
         for alias in aliases {
-            file_aliases
-                .entry(alias)
-                .or_default()
-                .extend(target_files.iter().copied());
+            let alias_targets = file_aliases.entry(alias).or_default();
+            for target_file in &target_files {
+                merge_qualified_import_visibility(
+                    alias_targets,
+                    *target_file,
+                    UnqualifiedImportVisibility::All,
+                );
+                if let Some(reexports) = public_reexports.get(target_file) {
+                    for (reexport_file, visibility) in reexports {
+                        merge_qualified_import_visibility(
+                            alias_targets,
+                            *reexport_file,
+                            visibility.clone(),
+                        );
+                    }
+                }
+            }
         }
     }
+    out
+}
+
+fn merge_qualified_import_visibility(
+    targets: &mut QualifiedImportVisibilityMap,
+    target_file: u32,
+    visibility: UnqualifiedImportVisibility,
+) {
+    targets
+        .entry(target_file)
+        .and_modify(|current| {
+            let _ = merge_unqualified_import_visibility(current, visibility.clone());
+        })
+        .or_insert(visibility);
+}
+
+fn build_public_reexport_visibility(
+    directives: &[&Directive],
+    source_map: &SourceMap,
+    merge_import_targets: &BTreeMap<u32, BTreeSet<u32>>,
+) -> UnqualifiedImportVisibilityMap {
+    let mut out = BTreeMap::new();
+    for (file_id, _) in source_map.iter_paths() {
+        out.entry(file_id.0).or_insert_with(BTreeMap::new);
+    }
+    for directive in directives {
+        let Directive::Import {
+            path,
+            clause,
+            span,
+            vis,
+        } = directive
+        else {
+            continue;
+        };
+        if *vis != crate::ast::Visibility::Pub {
+            continue;
+        }
+        insert_unqualified_import_visibility(
+            &mut out,
+            span.file_id.0,
+            expand_files_through_merge_imports(
+                import_target_files(source_map, path),
+                merge_import_targets,
+            ),
+            import_clause_unqualified_visibility(clause),
+        );
+    }
+    expand_unqualified_import_visibility(&mut out);
     out
 }
 

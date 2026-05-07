@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-07T17:24:10.548Z",
+  "generated_at": "2026-05-07T17:33:30.765Z",
   "counts": {
-    "total": 610,
+    "total": 611,
     "open": 12,
-    "resolved": 598,
+    "resolved": 599,
     "by_area": {
       "core": {
-        "total": 303,
+        "total": 304,
         "open": 3,
-        "resolved": 300
+        "resolved": 301
       },
       "stdlib": {
         "total": 164,
@@ -4658,6 +4658,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T171425909Z-MEMPTR-STRUCT-CONSTRUCTOR-IS-FORGEAB-7EC211C1.md"
+    },
+    {
+      "id": "ISS-20260507T173212101Z-QUALIFIED-IMPORT-ALIASES-IGNORE-PUB--6A7D10D7",
+      "title": "qualified import aliases ignore pub open reexports",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-08",
+      "target": "nepl-core/src/resolve.rs, nepl-core/src/typecheck/name_lookup.rs, nepl-core/tests/import_clause.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T173212101Z-QUALIFIED-IMPORT-ALIASES-IGNORE-PUB--6A7D10D7.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

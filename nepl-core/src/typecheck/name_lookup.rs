@@ -1,3 +1,4 @@
+use alloc::collections::BTreeSet;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
@@ -14,16 +15,27 @@ impl<'a> BlockChecker<'a> {
         if self.enums.contains_key(ns) || self.traits.contains_key(ns) {
             return None;
         }
-        let target_files = self
-            .import_resolution
-            .qualified_targets_for_alias(id.span.file_id.0, ns)?;
-        let bindings = self
-            .env
-            .lookup_all_any_defined(member)
-            .into_iter()
-            .filter(|b| target_files.contains(&b.span.file_id.0))
-            .cloned()
-            .collect::<Vec<_>>();
+        let lookup_targets =
+            self.import_resolution
+                .qualified_lookup_names(id.span.file_id.0, ns, member)?;
+        let mut seen = BTreeSet::new();
+        let mut bindings = Vec::new();
+        for (target_file, target_name) in lookup_targets {
+            for binding in self.env.lookup_all_any_defined(&target_name) {
+                if binding.span.file_id.0 != target_file {
+                    continue;
+                }
+                let key = (
+                    binding.span.file_id.0,
+                    binding.span.start,
+                    binding.span.end,
+                    binding.name.clone(),
+                );
+                if seen.insert(key) {
+                    bindings.push(binding.clone());
+                }
+            }
+        }
         Some((member.to_string(), bindings))
     }
 

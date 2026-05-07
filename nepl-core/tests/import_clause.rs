@@ -33,6 +33,20 @@ const FACADE: &str = r#"
 #import "dep" as @merge
 "#;
 
+const PUB_OPEN_FACADE: &str = r#"
+#indent 4
+#no_prelude
+
+pub #import "dep2" as *
+"#;
+
+const PUB_SELECTIVE_FACADE: &str = r#"
+#indent 4
+#no_prelude
+
+pub #import "dep2" as { leaked as exposed }
+"#;
+
 fn compile_with_dep(main: &str) -> Result<(), CoreError> {
     compile_with_virtual_sources(
         main,
@@ -40,6 +54,8 @@ fn compile_with_dep(main: &str) -> Result<(), CoreError> {
             ("dep.nepl", DEP),
             ("dep2.nepl", DEP2),
             ("facade.nepl", FACADE),
+            ("pub_open_facade.nepl", PUB_OPEN_FACADE),
+            ("pub_selective_facade.nepl", PUB_SELECTIVE_FACADE),
         ],
     )
 }
@@ -150,6 +166,63 @@ fn main <()->i32> ():
     facade::leaked
 "#;
     let diags = expect_compile_err(non_merge_transitive);
+    assert_undefined_identifier(&diags);
+}
+
+#[test]
+fn alias_import_follows_pub_open_reexports_for_qualified_access() {
+    let reexported = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "pub_open_facade" as facade
+
+fn main <()->i32> ():
+    facade::leaked
+"#;
+    compile_with_dep(reexported).expect("qualified alias import should expose pub open reexports");
+
+    let private_transitive = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "dep" as dep
+
+fn main <()->i32> ():
+    dep::leaked
+"#;
+    let diags = expect_compile_err(private_transitive);
+    assert_undefined_identifier(&diags);
+}
+
+#[test]
+fn alias_import_preserves_pub_selective_reexport_aliases() {
+    let aliased = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "pub_selective_facade" as facade
+
+fn main <()->i32> ():
+    facade::exposed
+"#;
+    compile_with_dep(aliased)
+        .expect("qualified alias import should expose selected pub reexport aliases");
+
+    let original = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "pub_selective_facade" as facade
+
+fn main <()->i32> ():
+    facade::leaked
+"#;
+    let diags = expect_compile_err(original);
     assert_undefined_identifier(&diags);
 }
 
