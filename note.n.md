@@ -1,3 +1,15 @@
+# 2026-05-07 note (ISS-20260507T114726130Z nm json_escape_mem_into pure raw load)
+
+- `ISS-20260507T114726130Z-NM-JSON-ESCAPE-MEM-INTO-IS-REJECTED--0F849F57` を追加した。
+- `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-json-escape-pure-raw-current-issue.json -j 1 --dist web/dist` で `total=5, passed=4, failed=1` を確認した。
+- 失敗は `tests\stdlib\nm.n.md::doctest#1` の `error[effect.pure.calls_impure]: pure function 'json_escape_mem_into__StringBuilder_MemPtr_T_u8_i32__StringBuilder__pure' uses unsafe memory operation 'load'`。
+- 根本原因は `stdlib/nm/json_escape.nepl` の `json_escape_mem_into` が `MemPtr<u8>` を raw `load` する低レベル helper なのに、public pure helper として露出していること。
+- 広域の raw-memory-backed stdlib API 移行は `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` で追跡中だが、nm suite の具体的な赤として分離した。
+- [検証]:
+  - `node nodesrc/tests.js -i tests/stdlib/nm.n.md --no-tree -o tmp/nm-json-escape-pure-raw-current-issue.json -j 1 --dist web/dist`: total=5, passed=4, failed=1 を確認。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-07 note (ISS-20260507T111447246Z ResourceIR MemPtr retag fill initialized cell)
 
 - branch `fix/resource-retag-fill-initialized-cell` で、`MemPtr<u8>` から `mem_ptr_addr` / `mem_ptr_wrap` で作った `MemPtr<i32>` に `fill_i32` した後の `load_i32` が `resource.cell.uninit` になる問題を修正した。
