@@ -172,9 +172,22 @@ impl TraitBound {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) struct TypeParamId(TypeId);
+
+impl TypeParamId {
+    pub(super) fn new(type_id: TypeId) -> Self {
+        Self(type_id)
+    }
+
+    pub(super) fn type_id(self) -> TypeId {
+        self.0
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub(super) struct BoundEnv {
-    bounds: BTreeMap<TypeId, Vec<TraitBound>>,
+    bounds: BTreeMap<TypeParamId, Vec<TraitBound>>,
 }
 
 impl BoundEnv {
@@ -188,12 +201,14 @@ impl BoundEnv {
         self.bounds.is_empty()
     }
 
-    pub(super) fn insert(&mut self, type_param: TypeId, bounds: Vec<TraitBound>) {
+    pub(super) fn insert(&mut self, type_param: TypeParamId, bounds: Vec<TraitBound>) {
         self.bounds.insert(type_param, bounds);
     }
 
-    pub(super) fn iter(&self) -> impl Iterator<Item = (&TypeId, &Vec<TraitBound>)> {
-        self.bounds.iter()
+    pub(super) fn iter(&self) -> impl Iterator<Item = (TypeParamId, &[TraitBound])> {
+        self.bounds
+            .iter()
+            .map(|(type_param, bounds)| (*type_param, bounds.as_slice()))
     }
 
     pub(super) fn has_trait_application_bound(
@@ -208,12 +223,12 @@ impl BoundEnv {
                 .matches_parts(ctx, trait_base_name, trait_args)
         };
         let resolved = ctx.resolve_id(ty);
-        if let Some(bounds) = self.bounds.get(&resolved) {
+        if let Some(bounds) = self.bounds.get(&TypeParamId::new(resolved)) {
             return bounds.iter().any(matches_bound);
         }
-        self.bounds
-            .iter()
-            .any(|(tp, bounds)| ctx.resolve_id(*tp) == resolved && bounds.iter().any(matches_bound))
+        self.bounds.iter().any(|(tp, bounds)| {
+            ctx.resolve_id(tp.type_id()) == resolved && bounds.iter().any(matches_bound)
+        })
     }
 }
 
@@ -292,7 +307,7 @@ pub(super) fn collect_type_params(
         }
         ctx.set_var_capabilities(id, copy_cap, clone_cap, drop_cap);
         if !bounds.is_empty() {
-            bounds_map.insert(id, bounds.clone());
+            bounds_map.insert(TypeParamId::new(id), bounds.clone());
         }
         bounds_vec.push(bounds);
         tps.push(id);

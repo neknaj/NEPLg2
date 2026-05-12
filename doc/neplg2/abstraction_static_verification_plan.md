@@ -41,9 +41,10 @@ NEPLg2 の抽象化機能、特に generics、trait、trait bound、overload、m
    - `ImplInfo` は `trait_name: Option<String>`、`trait_base_name: Option<String>`、`trait_args: Vec<TypeId>`、`trait_self_ty: Option<TypeId>` を持つ。
    - inherent impl、trait impl、trait application の有無が enum で分かれず、field combination の妥当性を compiler が保証しにくい。
 
-3. type parameter bound identity が `TypeId` と label fallback に依存している。
-   - `type_param_bounds: BTreeMap<TypeId, Vec<TraitBound>>` は resolve 後 ID や label 同一性の fallback を必要としている。
-   - これは type parameter の stable identity が境界として弱いことを示す。
+3. type parameter bound identity は `BoundEnv` と `TypeParamId` に移行済みである。
+   - 2026-05-12 時点で、公開境界の raw `BTreeMap<TypeId, Vec<TraitBound>>` と label fallback は削除済みである。
+   - 2026-05-12 時点で、`BoundEnv` 内部 key も `TypeParamId` になり、call site は type parameter declaration identity を明示して挿入する。
+   - 残る監査対象は、今後 `TraitId` / `TraitMethodId` を導入するときに同じ newtype 境界を崩さないことである。
 
 4. pending trait check が tuple で保持されている。
    - `pending_trait_bound_checks: Vec<(TraitBound, TypeId, Span)>` は field の意味が型名だけでは読み取りにくい。
@@ -214,7 +215,8 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `type_param_has_trait_application_bound` から `TypeKind::Var` label 文字列が一致する別 `TypeId` を同一 bound とみなす fallback を削除した。
 - 2026-05-12: `ISS-20260512T172241782Z-TRAIT-TYPE-PARAMETER-BOUNDS-STILL-EX-09CE8755` を追加し、verified にした。
 - 2026-05-12: `BoundEnv` を追加し、type parameter trait bounds の raw `BTreeMap<TypeId, Vec<TraitBound>>` を `BlockChecker` / `BindingKind` / `check_function` の境界から外した。bound lookup は `BoundEnv::has_trait_application_bound` に閉じ込めた。
-- 残件: `TypeParamId` の導入は未完了。現時点では `BoundEnv` 内部で exact / resolved `TypeId` と call-site substitution mapping を authority とし、label 文字列は bound lookup の根拠にしない。
+- 2026-05-12: `ISS-20260512T173702516Z-BOUNDENV-STILL-KEYS-TYPE-PARAMETER-B-792D9BA4` を追加し、`TypeParamId` を導入した。`BoundEnv` は `BTreeMap<TypeParamId, Vec<TraitBound>>` を保持し、`insert` / `iter` の境界でも raw `TypeId` を受け取らない。
+- 2026-05-12: nested function check と top-level driver の type parameter bound collection は `TypeParamId::new(*p_id)` を明示して `BoundEnv` へ渡す形にし、source policy で raw `TypeId` key の再導入を拒否する。
 
 ### Stage 4: trait method resolution の構造化
 

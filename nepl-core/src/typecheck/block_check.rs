@@ -14,7 +14,7 @@ use super::binding_rules::{
 use super::diagnostics::{resolve_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::gate_allows;
-use super::traits::{BoundEnv, TraitApplication, TraitBound};
+use super::traits::{BoundEnv, TraitApplication, TraitBound, TypeParamId};
 use super::type_expr::type_from_expr;
 use super::{check_function, BlockChecker, StackEntry};
 
@@ -437,7 +437,7 @@ impl<'a> BlockChecker<'a> {
                                     }
                                 }
                                 if !bounds.is_empty() {
-                                    nested_bounds.insert(*p_id, bounds);
+                                    nested_bounds.insert(TypeParamId::new(*p_id), bounds);
                                 }
                             }
                         }

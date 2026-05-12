@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T17:31:22.044Z",
+  "generated_at": "2026-05-12T17:43:15.582Z",
   "counts": {
-    "total": 665,
+    "total": 666,
     "open": 13,
-    "resolved": 652,
+    "resolved": 653,
     "by_area": {
       "core": {
-        "total": 347,
+        "total": 348,
         "open": 5,
-        "resolved": 342
+        "resolved": 343
       },
       "stdlib": {
         "total": 168,
@@ -5268,6 +5268,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T172241782Z-TRAIT-TYPE-PARAMETER-BOUNDS-STILL-EX-09CE8755.md"
+    },
+    {
+      "id": "ISS-20260512T173702516Z-BOUNDENV-STILL-KEYS-TYPE-PARAMETER-B-792D9BA4",
+      "title": "BoundEnv still keys type parameter bounds by raw TypeId",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/block_check.rs; nepl-core/src/typecheck/driver.rs; nepl-core/src/typecheck/trait_bound_apply.rs; nepl-core/src/typecheck/trait_check.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T173702516Z-BOUNDENV-STILL-KEYS-TYPE-PARAMETER-B-792D9BA4.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

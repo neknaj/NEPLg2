@@ -47,6 +47,7 @@ Introduce BoundEnv as the only typecheck-side container for type parameter trait
 - `BlockChecker`、`BindingKind::Func`、`check_function`、nested function check、selected callable application、trait bound application を `BoundEnv` 経由に移行した。
 - `type_param_has_trait_application_bound` は raw map を受け取らず、`BoundEnv` の lookup authority へ委譲する形にした。
 - `nodesrc/test_abstraction_static_verification_policy.js` に `BoundEnv` 必須化と raw `BTreeMap<TypeId, Vec<TraitBound>>` 境界再導入禁止を追加した。
+- 後続の `ISS-20260512T173702516Z-BOUNDENV-STILL-KEYS-TYPE-PARAMETER-B-792D9BA4` で、`BoundEnv` 内部 key も `TypeParamId` newtype へ移行し、raw `TypeId` key は source policy で禁止した。
 
 ## 検証
 

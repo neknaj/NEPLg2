@@ -36637,3 +36637,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `BoundEnv` を追加し、type parameter trait bounds を raw `BTreeMap<TypeId, Vec<TraitBound>>` ではなく typed container として扱うようにした。
 - `BlockChecker` / `BindingKind::Func` / `check_function` / selected callable / nested function check / trait bound application を `BoundEnv` 経由に移行した。
 - source policy に `BoundEnv` 必須化と raw bound map 境界再導入禁止を追加した。
+
+## 2026-05-13 Agent 1 BoundEnv TypeParamId key model
+
+- `a8dd24f6` push 後に remote main を pull し、merge 済みの `agent1/bound-env-map-model` branch を削除した。
+- `agent1/type-param-id-bound-env` branch を作成し、Stage 3 の `ISS-20260512T173702516Z-BOUNDENV-STILL-KEYS-TYPE-PARAMETER-B-792D9BA4` を追加した。
+- `TypeParamId` newtype を追加し、`BoundEnv` 内部 key を raw `TypeId` から `BTreeMap<TypeParamId, Vec<TraitBound>>` へ移行した。
+- `BoundEnv::insert` は `TypeParamId` だけを受け取り、`iter` は `TypeParamId` を返すため、trait bound apply / trait check は `.type_id()` で明示的に unwrap する。
+- nested function check と top-level driver の bound collection は `TypeParamId::new(*p_id)` を通して挿入し、source policy で raw `TypeId` key の再導入を禁止した。

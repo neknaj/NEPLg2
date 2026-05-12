@@ -96,7 +96,20 @@ assert(traits.includes("TraitCapability::Copy"), "TraitCapability::Copy match co
 assert(traits.includes("TraitCapability::Clone"), "TraitCapability::Clone match coverage must remain visible");
 assert(traits.includes("TraitCapability::Drop"), "TraitCapability::Drop match coverage must remain visible");
 assert(traits.includes("pub(super) struct TraitApplication"), "TraitApplication must be a typed model");
+assert(traits.includes("pub(super) struct TypeParamId"), "type parameter declaration identity must use TypeParamId");
 assert(traits.includes("pub(super) struct BoundEnv"), "type parameter bounds must use BoundEnv");
+assert(
+    traits.includes("bounds: BTreeMap<TypeParamId, Vec<TraitBound>>"),
+    "BoundEnv must key bounds by TypeParamId",
+);
+assert(
+    !traits.includes("bounds: BTreeMap<TypeId, Vec<TraitBound>>"),
+    "BoundEnv must not key bounds by raw TypeId",
+);
+assert(
+    !traits.includes("fn insert(&mut self, type_param: TypeId"),
+    "BoundEnv insertion must require TypeParamId",
+);
 assert(
     traits.includes("fn has_trait_application_bound("),
     "BoundEnv must own trait application bound lookup",
@@ -152,12 +165,15 @@ assert(
 const functionCheck = read(FUNCTION_CHECK);
 const context = read(path.join(TYPECHECK_DIR, "context.rs"));
 const traitBoundApply = read(path.join(TYPECHECK_DIR, "trait_bound_apply.rs"));
+const blockCheck = read(path.join(TYPECHECK_DIR, "block_check.rs"));
+const driver = read(path.join(TYPECHECK_DIR, "driver.rs"));
 const env = read(path.join(TYPECHECK_DIR, "env.rs"));
 const selectedCallApply = read(SELECTED_CALL_APPLY);
 const hir = read(HIR);
 const monomorphize = read(MONOMORPHIZE);
 const resourceModel = read(RESOURCE_MODEL);
 for (const [name, text] of [
+    ["traits.rs", traits],
     ["context.rs", context],
     ["env.rs", env],
     ["function_check.rs", functionCheck],
@@ -167,6 +183,23 @@ for (const [name, text] of [
     assert(
         !text.includes("BTreeMap<TypeId, Vec<TraitBound>>"),
         `${name} must not expose raw type parameter bound maps`,
+    );
+}
+assert(
+    !traits.includes("bounds_map.insert(id, bounds.clone())"),
+    "collect_type_params must insert bounds with TypeParamId",
+);
+for (const [name, text] of [
+    ["block_check.rs", blockCheck],
+    ["driver.rs", driver],
+]) {
+    assert(
+        !text.includes("insert(*p_id, bounds)"),
+        `${name} must not insert raw TypeId into BoundEnv`,
+    );
+    assert(
+        text.includes("TypeParamId::new(*p_id)"),
+        `${name} must wrap type parameter declarations as TypeParamId`,
     );
 }
 assert(

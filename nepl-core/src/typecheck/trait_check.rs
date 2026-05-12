@@ -96,7 +96,7 @@ impl<'a> BlockChecker<'a> {
             }) {
                 continue;
             }
-            let resolved = self.ctx.resolve_id(*tp);
+            let resolved = self.ctx.resolve_id(tp.type_id());
             match matched {
                 None => matched = Some(resolved),
                 Some(prev) if self.ctx.same_type(prev, resolved) => {}

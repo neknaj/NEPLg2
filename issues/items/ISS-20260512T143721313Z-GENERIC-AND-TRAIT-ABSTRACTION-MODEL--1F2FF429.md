@@ -60,6 +60,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T164311083Z-MONOMORPHIZE-TRAIT-LOOKUP-KEYS-STILL-DA66AC14` で、monomorphize の trait lookup key を tuple から `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行し、重複していた `impl_entry_index` を削除した。
 - `ISS-20260512T165852784Z-HIR-TRAIT-CALLS-STILL-SPLIT-TRAIT-AP-405A462B` で、HIR 境界の `FuncRef::Trait` / `HirImpl` を `HirTraitApplication` へ移行し、trait identity の split string fields を削除した。
 - `ISS-20260512T171317751Z-RESOURCE-IR-TRAIT-CALL-TARGET-STILL--6B70AE36` で、Resource IR の `ResourceCallTarget::Trait` を `ResourceTraitApplication` へ移行し、dump/report 境界でも trait application を named model として保持するようにした。
+- `ISS-20260512T173702516Z-BOUNDENV-STILL-KEYS-TYPE-PARAMETER-B-792D9BA4` で、`BoundEnv` 内部 key を raw `TypeId` から `TypeParamId` newtype へ移行した。type parameter declaration identity は `BoundEnv::insert` / `iter` の境界でも明示され、source policy は raw `TypeId` key の再導入を拒否する。
 
 ## 検証
 

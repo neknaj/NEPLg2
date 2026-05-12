@@ -39,7 +39,8 @@ impl<'a> BlockChecker<'a> {
             return;
         }
         for (tp, bounds) in type_param_bounds.iter() {
-            let Some(raw_arg) = type_arg_mapping.get(tp) else {
+            let tp_type_id = tp.type_id();
+            let Some(raw_arg) = type_arg_mapping.get(&tp_type_id) else {
                 continue;
             };
             let resolved_arg = self.ctx.resolve_id(*raw_arg);
@@ -61,7 +62,7 @@ impl<'a> BlockChecker<'a> {
                     trait_bound_apply_log!(
                         "trait-bound debug: callee='{}' tp={} raw_arg={} resolved_arg={} bound={} current_bounds={}",
                         callee_name,
-                        self.ctx.type_to_string(*tp),
+                        self.ctx.type_to_string(tp_type_id),
                         self.ctx.type_to_string(*raw_arg),
                         self.ctx.type_to_string(resolved_arg),
                         substituted_bound.display_name(self.ctx),
@@ -70,7 +71,7 @@ impl<'a> BlockChecker<'a> {
                             .map(|(bound_tp, bs)| {
                                 format!(
                                     "{}:[{}]",
-                                    self.ctx.type_to_string(*bound_tp),
+                                    self.ctx.type_to_string(bound_tp.type_id()),
                                     bs.iter()
                                         .map(|bb| bb.display_name(self.ctx))
                                         .collect::<Vec<_>>()
@@ -86,8 +87,9 @@ impl<'a> BlockChecker<'a> {
                 {
                     continue;
                 }
-                let inferred_arg = infer_instantiated_type_arg(self.ctx, binding_ty, inst_ty, *tp)
-                    .unwrap_or(resolved_arg);
+                let inferred_arg =
+                    infer_instantiated_type_arg(self.ctx, binding_ty, inst_ty, tp_type_id)
+                        .unwrap_or(resolved_arg);
                 if self.trait_bound_satisfied(&substituted_bound, inferred_arg) {
                     continue;
                 }

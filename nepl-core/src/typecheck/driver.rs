@@ -32,6 +32,7 @@ use super::syntax_helpers::gate_allows;
 use super::traits::{
     collect_type_params, format_trait_ref_name, insert_substitution_mapping, BoundEnv, ImplInfo,
     ImplKind, TraitApplication, TraitBound, TraitCapability, TraitInfo, TraitSemantics,
+    TypeParamId,
 };
 use super::type_expr::{type_from_expr, LabelEnv, StringTable};
 
@@ -1307,7 +1308,7 @@ pub fn typecheck(
                             }
                         }
                         if !bounds.is_empty() {
-                            type_param_bounds.insert(*p_id, bounds);
+                            type_param_bounds.insert(TypeParamId::new(*p_id), bounds);
                         }
                     }
                 }
