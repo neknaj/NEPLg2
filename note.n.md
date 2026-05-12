@@ -36587,3 +36587,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `type_param_has_trait_application_bound` から `TypeKind::Var` の label 文字列一致を bound lookup 成功扱いにする fallback を削除した。
 - source policy に typed helper 内の `same_label` と `v.label.as_deref` 再導入禁止を追加した。
 - `BoundEnv` / `TypeParamId` は引き続き残件だが、bound lookup の authority は exact / resolved `TypeId` と explicit substitution mapping に寄せた。
+
+## 2026-05-13 Agent 1 trait method resolution enum
+
+- `41e0de95` push 後に remote main を pull し、`agent1/trait-method-resolution-enum` branch を作成した。
+- Stage 4 の `ISS-20260512T161908521Z-TRAIT-METHOD-RESOLUTION-STILL-RETURN-21525B05` を追加した。
+- `TraitMethodResolution` enum と `TraitMethodCall` model を追加し、selected callable / unbound trait method call の receiver inference と trait application inference を共通 resolver に集約した。
+- 旧 `infer_selected_trait_method_callee -> Option<FuncRef>` は削除し、`selected_call_apply.rs` 側は `TraitMethodResolution` を明示的に match するようにした。
+- `apply_unbound_trait_method_call` は `MissingSelfType` / `UnsatisfiedBound` / `PureCallsImpure` の typed failure variant から diagnostic を生成する。
+- source policy に `TraitMethodResolution` variants と旧 optional helper 再導入禁止を追加した。
+- `nepl-core/tests/neplg2.rs` に pure 関数から impure trait method を呼ぶ回帰テストを追加し、`EffectDiagnosticCode::PureCallsImpure` が維持されることを確認した。

@@ -231,6 +231,12 @@ struct MonoTraitLookupKey {
 - pure calls impure trait method。
 - receiver / expected self type なしの診断。
 
+進捗:
+
+- 2026-05-12: `ISS-20260512T161908521Z-TRAIT-METHOD-RESOLUTION-STILL-RETURN-21525B05` を追加し、verified にした。
+- 2026-05-12: `TraitMethodResolution` enum と `TraitMethodCall` model を追加し、selected callable / unbound trait method call の receiver inference と trait application inference を共通 resolver に集約した。
+- 2026-05-12: `infer_selected_trait_method_callee -> Option<FuncRef>` は削除した。selected callable 側は `TraitMethodResolution` を match し、unbound 側は typed failure variant から diagnostic を生成する。
+
 ### Stage 5: monomorphize lookup key typed 化
 
 目的: typecheck と monomorphize が同じ trait application identity を共有する。

@@ -13,6 +13,7 @@ use super::diagnostics::{effect_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::field_apply::FieldAccessorApplyResult;
 use super::signature::type_contains_unbound_var;
+use super::trait_call_apply::TraitMethodResolution;
 use super::traits::{infer_instantiated_type_arg, insert_substitution_mapping};
 use super::{BlockChecker, StackEntry};
 
@@ -209,7 +210,7 @@ impl<'a> BlockChecker<'a> {
             ConstructorApplyResult::NotHandled => {}
         }
 
-        let trait_callee = self.infer_selected_trait_method_callee(
+        let trait_resolution = self.resolve_selected_trait_method_call(
             name,
             &args,
             user_params,
@@ -219,24 +220,30 @@ impl<'a> BlockChecker<'a> {
         );
         let callee = if selected_builtin.is_some() {
             FuncRef::Builtin(selected_symbol.clone())
-        } else if let Some(tc) = trait_callee {
-            tc
         } else {
-            if !resolved_args.is_empty()
-                && resolved_args
-                    .iter()
-                    .all(|t| !type_contains_unbound_var(self.ctx, *t))
-            {
-                self.instantiations
-                    .entry(selected_symbol.clone())
-                    .or_insert_with(Vec::new)
-                    .push(resolved_args.clone());
+            match trait_resolution {
+                TraitMethodResolution::Resolved(call) => call.into_func_ref(),
+                TraitMethodResolution::NotTraitMethod
+                | TraitMethodResolution::MissingSelfType
+                | TraitMethodResolution::UnsatisfiedBound { .. }
+                | TraitMethodResolution::PureCallsImpure => {
+                    if !resolved_args.is_empty()
+                        && resolved_args
+                            .iter()
+                            .all(|t| !type_contains_unbound_var(self.ctx, *t))
+                    {
+                        self.instantiations
+                            .entry(selected_symbol.clone())
+                            .or_insert_with(Vec::new)
+                            .push(resolved_args.clone());
+                    }
+                    FuncRef::User(
+                        selected_symbol.clone(),
+                        resolved_args.clone(),
+                        selected_def_id,
+                    )
+                }
             }
-            FuncRef::User(
-                selected_symbol.clone(),
-                resolved_args.clone(),
-                selected_def_id,
-            )
         };
         let mut final_args: Vec<HirExpr> = Vec::new();
         for (cap_name, cap_ty) in captures.iter() {

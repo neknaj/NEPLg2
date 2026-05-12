@@ -7,6 +7,7 @@ const path = require("node:path");
 const ROOT = path.resolve(__dirname, "..");
 const TYPECHECK_DIR = path.join(ROOT, "nepl-core", "src", "typecheck");
 const FUNCTION_CHECK = path.join(TYPECHECK_DIR, "function_check.rs");
+const SELECTED_CALL_APPLY = path.join(TYPECHECK_DIR, "selected_call_apply.rs");
 const MONOMORPHIZE = path.join(ROOT, "nepl-core", "src", "monomorphize.rs");
 const PLAN = path.join(ROOT, "doc", "neplg2", "abstraction_static_verification_plan.md");
 const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
@@ -149,6 +150,8 @@ assert(
     "deferred function-level trait checks must not use rendered bound names as authority",
 );
 const traitCheck = read(path.join(TYPECHECK_DIR, "trait_check.rs"));
+const traitCallApply = read(path.join(TYPECHECK_DIR, "trait_call_apply.rs"));
+const selectedCallApply = read(SELECTED_CALL_APPLY);
 assert(
     !traitCheck.includes("type_param_has_bound_ref"),
     "old type_param_has_bound_ref helper must not be reintroduced",
@@ -164,11 +167,37 @@ assert(
 for (const [name, text] of [
     ["function_check.rs", functionCheck],
     ["trait_check.rs", traitCheck],
-    ["trait_call_apply.rs", read(path.join(TYPECHECK_DIR, "trait_call_apply.rs"))],
+    ["trait_call_apply.rs", traitCallApply],
 ]) {
     assert(!text.includes("imp.trait_base_name"), `${name} must not inspect split impl trait base names`);
     assert(!text.includes("imp.trait_args"), `${name} must not inspect split impl trait args`);
 }
+assert(
+    traitCallApply.includes("pub(super) enum TraitMethodResolution"),
+    "trait method resolution must use a typed enum",
+);
+for (const variant of [
+    "TraitMethodResolution::NotTraitMethod",
+    "TraitMethodResolution::Resolved",
+    "TraitMethodResolution::MissingSelfType",
+    "TraitMethodResolution::UnsatisfiedBound",
+    "TraitMethodResolution::PureCallsImpure",
+]) {
+    assert(traitCallApply.includes(variant), `trait_call_apply.rs must handle ${variant}`);
+    assert(selectedCallApply.includes(variant), `selected_call_apply.rs must handle ${variant}`);
+}
+assert(
+    !traitCallApply.includes("Option<FuncRef>"),
+    "trait method resolution must not collapse resolution state into Option<FuncRef>",
+);
+assert(
+    !traitCallApply.includes("infer_selected_trait_method_callee"),
+    "selected trait method resolution must not use the old optional callee helper",
+);
+assert(
+    selectedCallApply.includes("match trait_resolution"),
+    "selected callable trait resolution must match TraitMethodResolution explicitly",
+);
 
 const typedLookup = traits.match(
     /pub\(super\) fn type_param_has_trait_application_bound[\s\S]*?\npub\(super\) fn merge_inferred_instantiation/,

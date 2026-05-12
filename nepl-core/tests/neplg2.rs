@@ -1,7 +1,7 @@
 use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_codes::{
-    BackendDiagnosticCode, DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode,
-    TypeDiagnosticCode,
+    BackendDiagnosticCode, DiagnosticCode, EffectDiagnosticCode, LoaderDiagnosticCode,
+    ResolveDiagnosticCode, TypeDiagnosticCode,
 };
 use nepl_core::error::CoreError;
 use nepl_core::loader::Loader;
@@ -54,6 +54,29 @@ fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
             .iter()
             .any(|diag| diag.code == DiagnosticCode::Type(code)),
         "missing type diagnostic {:?}: {:?}",
+        code,
+        diags
+    );
+}
+
+fn compile_err_has_effect_code(src: &str, code: EffectDiagnosticCode) {
+    let result = compile_wasm(
+        FileId(0),
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    );
+    let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags
+            .iter()
+            .any(|diag| diag.code == DiagnosticCode::Effect(code)),
+        "missing effect diagnostic {:?}: {:?}",
         code,
         diags
     );
@@ -1679,6 +1702,29 @@ fn main <()->i32> ():
     Show::show 1
 "#;
     compile_ok(src);
+}
+
+#[test]
+fn pure_function_calling_impure_trait_method_has_effect_code() {
+    let src = r#"
+#entry main
+#indent 4
+
+struct Cell:
+    value <i32>
+
+trait Touch:
+    fn touch <(Self)*>i32> (x):
+        1
+
+impl Touch for Cell:
+    fn touch <(Cell)*>i32> (x):
+        1
+
+fn main <()->i32> ():
+    Touch::touch Cell 1
+"#;
+    compile_err_has_effect_code(src, EffectDiagnosticCode::PureCallsImpure);
 }
 
 #[test]

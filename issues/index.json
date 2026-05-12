@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T16:13:30.376Z",
+  "generated_at": "2026-05-12T16:28:37.478Z",
   "counts": {
-    "total": 659,
+    "total": 660,
     "open": 13,
-    "resolved": 646,
+    "resolved": 647,
     "by_area": {
       "core": {
-        "total": 341,
+        "total": 342,
         "open": 5,
-        "resolved": 336
+        "resolved": 337
       },
       "stdlib": {
         "total": 168,
@@ -5178,6 +5178,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T160950280Z-TRAIT-BOUND-LOOKUP-STILL-ACCEPTS-SAM-C03A85E0.md"
+    },
+    {
+      "id": "ISS-20260512T161908521Z-TRAIT-METHOD-RESOLUTION-STILL-RETURN-21525B05",
+      "title": "Trait method resolution still returns raw optional FuncRef",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/typecheck/trait_call_apply.rs; nepl-core/src/typecheck/selected_call_apply.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T161908521Z-TRAIT-METHOD-RESOLUTION-STILL-RETURN-21525B05.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
