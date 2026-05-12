@@ -36782,3 +36782,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` を再確認し、compiler core 側の raw memory effect / ownership bypass は Resource IR gate と回帰テストで閉じていると判断した。
 - `tests/compiler/move_effect.n.md` は 110/110 pass、`tests/stdlib/memory_safety.n.md` は 23/23 pass で、pure raw memory bypass と owner/cell violation の compile_fail 期待が維持されている。
 - 残る作業は stdlib Stage 6 の internal/public API 移行であり、`ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` などの stdlib issue へ分離して継続する。
+
+## 2026-05-13 Agent 1 non-owning raw view owner policy
+
+- `3a3bdc61` pull 済みの main から `agent1/non-owning-view-owner-policy` branch を作成した。
+- `ISS-20260512T202418246Z-RESOURCE-OWNER-POLICY-DOES-NOT-GUARD-2B46D8D5` を追加し、Stage 4 の `NonOwningProjection` 所有権境界が source policy で固定されていない問題を切り出した。
+- `nodesrc/test_resource_checker_responsibility.js` に brace block 単位の検査を追加し、`RawAddressViewKind::NonOwningProjection` が owner alias を転送しないことを wildcard なしの match contract として監視する。
+- return summary 側でも `RawAddressViewOwnership::NonOwningProjection` が `OwnerNonOwningRawViewKind::ProjectionView` として保持されることを監視し、通常 alias view と混同しないようにした。

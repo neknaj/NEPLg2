@@ -39,6 +39,26 @@ function assertNotContains(text, needle, source) {
     assert(!text.includes(needle), `${source} must not contain ${needle}`);
 }
 
+function braceBlock(text, signature, source) {
+    const start = text.indexOf(signature);
+    assert(start >= 0, `${source} must contain ${signature}`);
+    const open = text.indexOf('{', start);
+    assert(open >= 0, `${source} must contain ${signature} body`);
+    let depth = 0;
+    for (let i = open; i < text.length; i += 1) {
+        const ch = text[i];
+        if (ch === '{') {
+            depth += 1;
+        } else if (ch === '}') {
+            depth -= 1;
+            if (depth === 0) {
+                return text.slice(open + 1, i);
+            }
+        }
+    }
+    throw new Error(`${source} has unterminated body for ${signature}`);
+}
+
 function escapeRegExp(text) {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -421,6 +441,8 @@ const ownerDrop = readResource('owner_drop.rs');
 const ownerExpr = readResource('owner_expr.rs');
 const ownerRawViewModel = readResource('owner_raw_view_model.rs');
 const ownerSummary = readResource('owner_summary.rs');
+const ownerSummaryRawTransfer = readResource('owner_summary_raw_transfer.rs');
+const ownerSummaryRawViewReturn = readResource('owner_summary_raw_view_return.rs');
 const ownerReturn = readResource('owner_return.rs');
 const ownerReturnApply = readResource('owner_return_apply.rs');
 const ownerReturnUnknown = readResource('owner_return_unknown.rs');
@@ -731,6 +753,56 @@ assertContains(
     ownerRawViewModel,
     'enum RawAddressViewOwnership',
     'owner_raw_view_model.rs',
+);
+const rawOwnerAliasPolicy = braceBlock(
+    ownerSummaryRawTransfer,
+    'fn raw_address_view_carries_owner_alias',
+    'owner_summary_raw_transfer.rs',
+);
+assertContains(
+    ownerSummaryRawTransfer,
+    'if !raw_address_view_carries_owner_alias(kind) {',
+    'owner_summary_raw_transfer.rs',
+);
+assertContains(
+    rawOwnerAliasPolicy,
+    'RawAddressViewKind::Offset => true',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertContains(
+    rawOwnerAliasPolicy,
+    'RawAddressViewKind::NonOwningProjection => false',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+assertNotContains(
+    rawOwnerAliasPolicy,
+    '_ =>',
+    'owner_summary_raw_transfer.rs raw owner alias policy',
+);
+const rawViewReturnKindPolicy = braceBlock(
+    ownerSummaryRawViewReturn,
+    'fn non_owning_raw_view_return_kind',
+    'owner_summary_raw_view_return.rs',
+);
+assertContains(
+    rawViewReturnKindPolicy,
+    'RawAddressViewOwnership::NonOwning => OwnerNonOwningRawViewKind::AliasView',
+    'owner_summary_raw_view_return.rs raw view return policy',
+);
+assertContains(
+    rawViewReturnKindPolicy,
+    'RawAddressViewOwnership::NonOwningProjection => OwnerNonOwningRawViewKind::ProjectionView',
+    'owner_summary_raw_view_return.rs raw view return policy',
+);
+assertContains(
+    rawViewReturnKindPolicy,
+    'RawAddressViewOwnership::AddressView => OwnerNonOwningRawViewKind::AliasView',
+    'owner_summary_raw_view_return.rs raw view return policy',
+);
+assertNotContains(
+    rawViewReturnKindPolicy,
+    '_ =>',
+    'owner_summary_raw_view_return.rs raw view return policy',
 );
 assertContains(
     ownerReturnUnknown,
