@@ -36682,3 +36682,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `MonoTraitId` newtype を追加し、`MonoTraitApplication` / `MonoTraitMethodKey` の trait identity field を typed id に変更した。
 - `MonoTraitId` / `MonoTraitMethodId` は `monomorphize/trait_identity.rs` に分離し、`trait_lookup.rs` の責務分割 line limit は上げずに維持した。
 - source policy に raw trait `String` field の再導入禁止と identity module 境界を追加した。
+
+## 2026-05-13 Agent 1 typecheck TraitId
+
+- `df14088c` push 後に remote main を pull し、`agent1/typecheck-trait-id` branch を作成した。
+- `ISS-20260512T185123437Z-TYPECHECK-TRAITAPPLICATION-STILL-STO-F6F9CDD1` を追加し、Stage 1 の `TraitApplication` 内に raw `String` trait identity が残る問題を切り出した。
+- `TraitId` newtype を追加し、`TraitApplication` は `trait_id: TraitId` と `args` を持つ形に変更した。
+- `BoundEnv` / impl matching / trait method inference は `TraitId` を受け取り、表示名文字列は diagnostic/display 境界に限定した。
+- source policy に `TraitId` 必須化と `TraitApplication.base_name: String` 再導入禁止を追加した。

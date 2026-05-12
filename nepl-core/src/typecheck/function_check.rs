@@ -225,20 +225,17 @@ pub(super) fn check_function(
             ctx,
             &type_param_bounds,
             target_ty,
-            &bound.application.base_name,
+            &bound.application.trait_id,
             &bound.application.args,
         ) || type_param_has_trait_application_bound(
             ctx,
             &type_param_bounds,
             resolved,
-            &bound.application.base_name,
+            &bound.application.trait_id,
             &bound.application.args,
         ) || impls.iter().any(|imp| {
-            imp.matches_trait_application(
-                ctx,
-                &bound.application.base_name,
-                &bound.application.args,
-            ) && ctx.type_pattern_matches(imp.target_ty, resolved)
+            imp.matches_trait_application(ctx, &bound.application.trait_id, &bound.application.args)
+                && ctx.type_pattern_matches(imp.target_ty, resolved)
         });
         if !satisfied {
             diag_out.push(type_error(

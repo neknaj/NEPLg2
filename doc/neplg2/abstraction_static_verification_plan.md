@@ -159,6 +159,7 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `TraitBoundRef` を `TraitBound` に改名し、表示名 field を削除した。診断と verbose log は `TraitBound::display_name` で境界生成する。
 - 2026-05-12: `TraitApplication` を追加し、`TraitBound` は `application: TraitApplication` と `trait_self_ty` を持つ形にした。type parameter bound の trait identity は split field ではなく typed value になった。
 - 2026-05-12: typecheck 側の impl matching も `TraitApplication` helper へ寄せた。`function_check.rs` / `trait_check.rs` / `trait_call_apply.rs` は `imp.trait_base_name` / `imp.trait_args` を直接読まず、`ImplInfo::matches_trait_application` を使う。
+- 2026-05-13: `ISS-20260512T185123437Z-TYPECHECK-TRAITAPPLICATION-STILL-STO-F6F9CDD1` を追加し、typecheck-side `TraitApplication` の trait identity を `TraitId` newtype へ移行した。`BoundEnv` / impl matching / trait method inference は raw `&str` ではなく `TraitId` を受け取り、文字列化は diagnostic/display 境界に限定する。
 
 検証:
 
@@ -292,7 +293,7 @@ struct MonoTraitLookupKey {
 
 ## 進捗状況
 
-- `typecheck/traits.rs`: Stage 1/2 は進行済み。TraitCapability enum、TraitApplication、TraitBound、ImplKind が存在する。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みで、type parameter bound は `TraitApplication` に集約済み。ImplInfo は `ImplKind` を持ち、optional string model ではない。
+- `typecheck/traits.rs`: Stage 1/2 は進行済み。TraitCapability enum、TraitId、TraitApplication、TraitBound、ImplKind が存在する。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みで、type parameter bound は `TraitApplication` に集約済み。ImplInfo は `ImplKind` を持ち、optional string model ではない。
 - `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存、split impl field 参照、duplicate label fallback 実装は削除済み。
 - `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
 - `typecheck/trait_call_apply.rs`: 実装済みだが再設計対象。split impl field 参照は削除済みだが、trait method resolution result enum が必要。

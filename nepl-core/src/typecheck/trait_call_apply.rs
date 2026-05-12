@@ -10,6 +10,7 @@ use crate::types::TypeId;
 
 use super::diagnostics::{effect_error, type_error};
 use super::syntax_helpers::split_qualified_name;
+use super::traits::TraitId;
 use super::{BlockChecker, StackEntry};
 
 pub(super) enum TraitMethodApplyResult {
@@ -111,12 +112,13 @@ impl<'a> BlockChecker<'a> {
                     let _ = self.ctx.unify(result, expected);
                 }
                 let resolved_hint = self.ctx.resolve_id(self_hint);
+                let trait_id = TraitId::from_name(trait_name);
                 inferred_self_ty = self
-                    .infer_unique_type_param_for_trait_ref(trait_name, &applied_trait_args)
+                    .infer_unique_type_param_for_trait_ref(&trait_id, &applied_trait_args)
                     .or_else(|| {
                         if self.type_param_has_trait_application_bound(
                             resolved_hint,
-                            trait_name,
+                            &trait_id,
                             &applied_trait_args,
                         ) {
                             Some(resolved_hint)
@@ -232,9 +234,10 @@ impl<'a> BlockChecker<'a> {
         trait_name: &str,
         applied_trait_args: &[TypeId],
     ) -> bool {
-        self.type_param_has_trait_application_bound(candidate, trait_name, applied_trait_args)
+        let trait_id = TraitId::from_name(trait_name);
+        self.type_param_has_trait_application_bound(candidate, &trait_id, applied_trait_args)
             || self.impls.iter().any(|imp| {
-                imp.matches_trait_application(self.ctx, trait_name, applied_trait_args)
+                imp.matches_trait_application(self.ctx, &trait_id, applied_trait_args)
                     && self.ctx.type_pattern_matches(imp.target_ty, candidate)
             })
     }

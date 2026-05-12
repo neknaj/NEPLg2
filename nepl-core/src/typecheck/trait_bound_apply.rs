@@ -53,7 +53,7 @@ impl<'a> BlockChecker<'a> {
                     .collect::<Vec<_>>();
                 let substituted_bound = TraitBound {
                     application: TraitApplication {
-                        base_name: b.application.base_name.clone(),
+                        trait_id: b.application.trait_id.clone(),
                         args: substituted_trait_args,
                     },
                     trait_self_ty: self.ctx.substitute(b.trait_self_ty, type_arg_mapping),

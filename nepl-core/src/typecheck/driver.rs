@@ -31,7 +31,7 @@ use super::signature::{
 use super::syntax_helpers::gate_allows;
 use super::traits::{
     collect_type_params, format_trait_ref_name, insert_substitution_mapping, BoundEnv, ImplInfo,
-    ImplKind, TraitApplication, TraitBound, TraitCapability, TraitInfo, TraitSemantics,
+    ImplKind, TraitApplication, TraitBound, TraitCapability, TraitId, TraitInfo, TraitSemantics,
     TypeParamId,
 };
 use super::type_expr::{type_from_expr, LabelEnv, StringTable};
@@ -685,7 +685,7 @@ pub fn typecheck(
                 .map(|arg| type_from_expr(&mut ctx, &mut f_labels, arg))
                 .collect();
             let trait_application = TraitApplication {
-                base_name: trait_name,
+                trait_id: TraitId::from_name(&trait_name),
                 args: trait_args,
             };
             f_labels.insert(String::from("Self"), target_ty);
@@ -1300,7 +1300,7 @@ pub fn typecheck(
                                     .collect();
                                 bounds.push(TraitBound {
                                     application: TraitApplication {
-                                        base_name: b.name.name.clone(),
+                                        trait_id: TraitId::from_name(&b.name.name),
                                         args: arg_tys,
                                     },
                                     trait_self_ty: info.self_ty,

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T18:44:29.920Z",
+  "generated_at": "2026-05-12T18:59:26.857Z",
   "counts": {
-    "total": 670,
+    "total": 671,
     "open": 12,
-    "resolved": 658,
+    "resolved": 659,
     "by_area": {
       "core": {
-        "total": 352,
+        "total": 353,
         "open": 4,
-        "resolved": 348
+        "resolved": 349
       },
       "stdlib": {
         "total": 168,
@@ -5343,6 +5343,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T183111826Z-MONOMORPHIZE-TRAIT-APPLICATION-STILL-835C27CF.md"
+    },
+    {
+      "id": "ISS-20260512T185123437Z-TYPECHECK-TRAITAPPLICATION-STILL-STO-F6F9CDD1",
+      "title": "Typecheck TraitApplication still stores trait identity as raw String",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/driver.rs; nepl-core/src/typecheck/block_check.rs; nepl-core/src/typecheck/prefix_check.rs; nepl-core/src/typecheck/trait_check.rs; nepl-core/src/typecheck/trait_bound_apply.rs; nepl-core/src/typecheck/trait_call_apply.rs; nepl-core/src/typecheck/function_check.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T185123437Z-TYPECHECK-TRAITAPPLICATION-STILL-STO-F6F9CDD1.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

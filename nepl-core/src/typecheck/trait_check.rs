@@ -6,7 +6,7 @@ use crate::types::{TypeId, TypeKind};
 use super::signature::type_contains_unbound_var;
 use super::traits::{
     format_trait_ref_name, infer_type_param_from_instantiated_pair, merge_inferred_instantiation,
-    type_param_has_trait_application_bound, TraitBound, TraitInfo,
+    type_param_has_trait_application_bound, TraitBound, TraitId, TraitInfo,
 };
 use super::{BlockChecker, StackEntry};
 
@@ -31,14 +31,14 @@ impl<'a> BlockChecker<'a> {
     pub(super) fn type_param_has_trait_application_bound(
         &self,
         ty: TypeId,
-        trait_base_name: &str,
+        trait_id: &TraitId,
         trait_args: &[TypeId],
     ) -> bool {
         type_param_has_trait_application_bound(
             self.ctx,
             &self.type_param_bounds,
             ty,
-            trait_base_name,
+            trait_id,
             trait_args,
         )
     }
@@ -47,7 +47,7 @@ impl<'a> BlockChecker<'a> {
         if !self.is_concrete_type(ty) {
             return self.type_param_has_trait_application_bound(
                 ty,
-                &bound.application.base_name,
+                &bound.application.trait_id,
                 &bound.application.args,
             );
         }
@@ -62,7 +62,7 @@ impl<'a> BlockChecker<'a> {
             for imp in self.impls.iter().filter(|imp| {
                 imp.matches_trait_application(
                     self.ctx,
-                    &bound.application.base_name,
+                    &bound.application.trait_id,
                     &bound.application.args,
                 )
             }) {
@@ -77,7 +77,7 @@ impl<'a> BlockChecker<'a> {
         self.impls.iter().any(|imp| {
             imp.matches_trait_application(
                 self.ctx,
-                &bound.application.base_name,
+                &bound.application.trait_id,
                 &bound.application.args,
             ) && self.ctx.type_pattern_matches(imp.target_ty, ty)
         })
@@ -85,15 +85,15 @@ impl<'a> BlockChecker<'a> {
 
     pub(super) fn infer_unique_type_param_for_trait_ref(
         &self,
-        trait_base_name: &str,
+        trait_id: &TraitId,
         trait_args: &[TypeId],
     ) -> Option<TypeId> {
         let mut matched: Option<TypeId> = None;
         for (tp, bounds) in self.type_param_bounds.iter() {
-            if !bounds.iter().any(|b| {
-                b.application
-                    .matches_parts(self.ctx, trait_base_name, trait_args)
-            }) {
+            if !bounds
+                .iter()
+                .any(|b| b.application.matches_parts(self.ctx, trait_id, trait_args))
+            {
                 continue;
             }
             let resolved = self.ctx.resolve_id(tp.type_id());

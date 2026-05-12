@@ -90,19 +90,32 @@ impl TraitSemantics {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) struct TraitId(String);
+
+impl TraitId {
+    pub(super) fn from_name(name: &str) -> Self {
+        Self(String::from(name))
+    }
+
+    pub(super) fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct TraitApplication {
-    pub(super) base_name: String,
+    pub(super) trait_id: TraitId,
     pub(super) args: Vec<TypeId>,
 }
 
 impl TraitApplication {
     pub(super) fn display_name(&self, ctx: &TypeCtx) -> String {
-        format_trait_ref_name(&self.base_name, &self.args, ctx)
+        format_trait_ref_name(self.trait_id.as_str(), &self.args, ctx)
     }
 
-    pub(super) fn matches_parts(&self, ctx: &TypeCtx, base_name: &str, args: &[TypeId]) -> bool {
-        trait_application_matches(ctx, &self.base_name, &self.args, base_name, args)
+    pub(super) fn matches_parts(&self, ctx: &TypeCtx, trait_id: &TraitId, args: &[TypeId]) -> bool {
+        trait_application_matches(ctx, &self.trait_id, &self.args, trait_id, args)
     }
 }
 
@@ -132,12 +145,12 @@ impl ImplInfo {
     pub(super) fn matches_trait_application(
         &self,
         ctx: &TypeCtx,
-        base_name: &str,
+        trait_id: &TraitId,
         args: &[TypeId],
     ) -> bool {
         match &self.kind {
             ImplKind::Inherent => false,
-            ImplKind::Trait { application, .. } => application.matches_parts(ctx, base_name, args),
+            ImplKind::Trait { application, .. } => application.matches_parts(ctx, trait_id, args),
         }
     }
 
@@ -154,7 +167,7 @@ impl ImplInfo {
                 self_ty: existing_self_ty,
             } => {
                 *existing_self_ty == self_ty
-                    && existing.matches_parts(ctx, &application.base_name, &application.args)
+                    && existing.matches_parts(ctx, &application.trait_id, &application.args)
             }
         }
     }
@@ -215,13 +228,10 @@ impl BoundEnv {
         &self,
         ctx: &TypeCtx,
         ty: TypeId,
-        trait_base_name: &str,
+        trait_id: &TraitId,
         trait_args: &[TypeId],
     ) -> bool {
-        let matches_bound = |b: &TraitBound| {
-            b.application
-                .matches_parts(ctx, trait_base_name, trait_args)
-        };
+        let matches_bound = |b: &TraitBound| b.application.matches_parts(ctx, trait_id, trait_args);
         let resolved = ctx.resolve_id(ty);
         if let Some(bounds) = self.bounds.get(&TypeParamId::new(resolved)) {
             return bounds.iter().any(matches_bound);
@@ -285,7 +295,7 @@ pub(super) fn collect_type_params(
                     .collect();
                 bounds.push(TraitBound {
                     application: TraitApplication {
-                        base_name: b.name.name.clone(),
+                        trait_id: TraitId::from_name(&b.name.name),
                         args: arg_tys,
                     },
                     trait_self_ty: info.self_ty,
@@ -333,12 +343,12 @@ pub(super) fn format_trait_ref_name(base: &str, args: &[TypeId], ctx: &TypeCtx) 
 
 pub(super) fn trait_application_matches(
     ctx: &TypeCtx,
-    base_name: &str,
+    trait_id: &TraitId,
     args: &[TypeId],
-    other_base_name: &str,
+    other_trait_id: &TraitId,
     other_args: &[TypeId],
 ) -> bool {
-    if base_name != other_base_name || args.len() != other_args.len() {
+    if trait_id != other_trait_id || args.len() != other_args.len() {
         return false;
     }
     args.iter().zip(other_args.iter()).all(|(lhs, rhs)| {
@@ -352,10 +362,10 @@ pub(super) fn type_param_has_trait_application_bound(
     ctx: &TypeCtx,
     type_param_bounds: &BoundEnv,
     ty: TypeId,
-    trait_base_name: &str,
+    trait_id: &TraitId,
     trait_args: &[TypeId],
 ) -> bool {
-    type_param_bounds.has_trait_application_bound(ctx, ty, trait_base_name, trait_args)
+    type_param_bounds.has_trait_application_bound(ctx, ty, trait_id, trait_args)
 }
 
 pub(super) fn merge_inferred_instantiation(
