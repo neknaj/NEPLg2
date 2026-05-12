@@ -3,6 +3,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::fmt;
 
 use crate::ast::Effect;
 pub use crate::effects::{ExternalIoOp, NondetOp, RawMemoryOp};
@@ -378,7 +379,42 @@ pub enum EffectOp {
     UnsafeMemory { operation: RawMemoryOp },
     ExternalIo { operation: ExternalIoOp },
     Nondet { operation: NondetOp },
-    Unknown { reason: String },
+    Unknown { reason: UnknownEffectReason },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnknownEffectReason {
+    FunctionValueWithoutKnownEffect,
+    AssignedCallbackWithoutKnownEffect,
+    FunctionParameterWithoutKnownEffect,
+    CallbackParameterWithoutKnownEffect,
+    SyntheticTestFixture,
+}
+
+impl UnknownEffectReason {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            UnknownEffectReason::FunctionValueWithoutKnownEffect => {
+                "function_value_without_known_effect"
+            }
+            UnknownEffectReason::AssignedCallbackWithoutKnownEffect => {
+                "assigned_callback_without_known_effect"
+            }
+            UnknownEffectReason::FunctionParameterWithoutKnownEffect => {
+                "function_parameter_without_known_effect"
+            }
+            UnknownEffectReason::CallbackParameterWithoutKnownEffect => {
+                "callback_parameter_without_known_effect"
+            }
+            UnknownEffectReason::SyntheticTestFixture => "synthetic_test_fixture",
+        }
+    }
+}
+
+impl fmt::Display for UnknownEffectReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

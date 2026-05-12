@@ -10,7 +10,9 @@ use super::effect_counts::ResourceEffectCounts;
 use super::effect_summary::{
     compute_raw_identity_return_summaries, compute_raw_pointer_return_summaries,
 };
-use super::model::{ExternalIoOp, NondetOp, Place, RawMemoryOp, ResourceModule};
+use super::model::{
+    ExternalIoOp, NondetOp, Place, RawMemoryOp, ResourceModule, UnknownEffectReason,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceEffectBoundaryReport {
@@ -43,7 +45,7 @@ pub enum ResourceEffectBoundaryDiagnostic {
     },
     UnknownEffect {
         function: String,
-        reason: String,
+        reason: UnknownEffectReason,
         span: Span,
     },
 }

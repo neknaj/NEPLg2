@@ -36175,3 +36175,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 Resource IR unknown effect reason enum 化
+
+- `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` の Stage D2 継続対応として、Resource IR の `EffectOp::Unknown` / `UnknownEffect` diagnostic reason を自由文字列から `UnknownEffectReason` enum に変更した。
+- unknown effect は Resource IR lowering incompleteness として `resource.lower.incomplete` に写像される hard diagnostic なので、原因分類を任意文字列に逃がさず、typed enum と exhaustive `match` で保持する方針に揃えた。
+- manual Resource IR tests で使う unknown effect fixture も typed variant を指定する形に更新し、文字列比較で diagnostic reason を確認する経路を削除した。
+- [検証]:
+  - `cargo test -p nepl-core compiler::tests::resource_effect_gate_maps_unknown_effect_to_lower_incomplete_code -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_reports_unknown_effect_as_lowering_incomplete -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir unknown_callback -- --nocapture`: 5 passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

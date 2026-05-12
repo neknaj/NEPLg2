@@ -21,6 +21,7 @@ use nepl_core::resource::{
     ResourceEffectCallKind, ResourceExprKind, ResourceFunction, ResourceFunctionCheck,
     ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp,
     ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator, StorageOrigin,
+    UnknownEffectReason,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -1965,7 +1966,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_function_value_call
                             result: i32_ty,
                             args: vec![raw],
                             effect: EffectOp::Unknown {
-                                reason: "test function value".to_string(),
+                                reason: UnknownEffectReason::FunctionValueWithoutKnownEffect,
                             },
                             span,
                         },
@@ -2441,7 +2442,7 @@ fn resource_ir_effect_check_clears_stale_function_alias_on_assignment() {
                             result: i32_ty,
                             args: vec![raw],
                             effect: EffectOp::Unknown {
-                                reason: "assigned unknown callback".to_string(),
+                                reason: UnknownEffectReason::AssignedCallbackWithoutKnownEffect,
                             },
                             span,
                         },
@@ -2512,7 +2513,7 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_higher_order_helper
                         result: i32_ty,
                         args: vec![apply_p],
                         effect: EffectOp::Unknown {
-                            reason: "function parameter".to_string(),
+                            reason: UnknownEffectReason::FunctionParameterWithoutKnownEffect,
                         },
                         span,
                     }],
@@ -2773,7 +2774,7 @@ fn resource_ir_effect_check_reports_unknown_effect_as_lowering_incomplete() {
         span,
         vec![ResourceOp::CallEffect {
             effect: EffectOp::Unknown {
-                reason: "test unknown effect".to_string(),
+                reason: UnknownEffectReason::SyntheticTestFixture,
             },
             span,
         }],
@@ -2782,12 +2783,12 @@ fn resource_ir_effect_check_reports_unknown_effect_as_lowering_incomplete() {
     let report = check_resource_effect_boundaries(&resource);
     assert_eq!(report.functions[0].counts.unknown_ops, 1);
     assert!(report.diagnostics.iter().any(|diagnostic| matches!(
-        diagnostic,
+    diagnostic,
         ResourceEffectBoundaryDiagnostic::UnknownEffect {
             function,
             reason,
             ..
-        } if function == "main" && reason == "test unknown effect"
+        } if function == "main" && *reason == UnknownEffectReason::SyntheticTestFixture
     )));
 }
 
@@ -9005,7 +9006,7 @@ fn resource_ir_owner_check_transfers_owner_returned_by_unknown_callback() {
                 result: i32_ty,
                 args: vec![p],
                 effect: EffectOp::Unknown {
-                    reason: "callback parameter".to_string(),
+                    reason: UnknownEffectReason::CallbackParameterWithoutKnownEffect,
                 },
                 span,
             },
@@ -9055,7 +9056,7 @@ fn resource_ir_owner_check_preserves_non_owning_arg_to_unknown_callback() {
                 result: i32_ty,
                 args: vec![view],
                 effect: EffectOp::Unknown {
-                    reason: "callback parameter".to_string(),
+                    reason: UnknownEffectReason::CallbackParameterWithoutKnownEffect,
                 },
                 span,
             },
@@ -9118,7 +9119,7 @@ fn resource_ir_owner_check_rejects_unknown_callback_return_with_non_owning_candi
                 result: i32_ty,
                 args: vec![owned_return_candidate, view],
                 effect: EffectOp::Unknown {
-                    reason: "callback parameter".to_string(),
+                    reason: UnknownEffectReason::CallbackParameterWithoutKnownEffect,
                 },
                 span,
             },
@@ -13304,7 +13305,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_unknown_callback() 
                         result: i32_ty,
                         args: vec![shared],
                         effect: EffectOp::Unknown {
-                            reason: "callback parameter".to_string(),
+                            reason: UnknownEffectReason::CallbackParameterWithoutKnownEffect,
                         },
                         span,
                     },
@@ -13367,7 +13368,7 @@ fn resource_ir_borrow_check_does_not_return_unknown_callback_token_with_mismatch
                         result: bool_ty,
                         args: vec![shared],
                         effect: EffectOp::Unknown {
-                            reason: "callback parameter".to_string(),
+                            reason: UnknownEffectReason::CallbackParameterWithoutKnownEffect,
                         },
                         span,
                     },
@@ -13442,7 +13443,7 @@ fn resource_ir_borrow_check_clears_stale_function_alias_on_assignment() {
                         result: i32_ty,
                         args: vec![shared],
                         effect: EffectOp::Unknown {
-                            reason: "assigned unknown callback".to_string(),
+                            reason: UnknownEffectReason::AssignedCallbackWithoutKnownEffect,
                         },
                         span,
                     },

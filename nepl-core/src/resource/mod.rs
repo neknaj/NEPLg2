@@ -235,7 +235,7 @@ pub use model::{
     ResourceBlockId, ResourceCallTarget, ResourceConditionFact, ResourceExprKind, ResourceFunction,
     ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern,
     ResourceModule, ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId,
-    StorageOrigin, StorageOriginEntry,
+    StorageOrigin, StorageOriginEntry, UnknownEffectReason,
 };
 pub use owner_check::check_resource_owner_obligations;
 pub use report::{

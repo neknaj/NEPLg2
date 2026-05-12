@@ -598,7 +598,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                 self.diagnostics
                     .push(ResourceEffectBoundaryDiagnostic::UnknownEffect {
                         function: String::from(self.function),
-                        reason: reason.clone(),
+                        reason: *reason,
                         span,
                     });
             }

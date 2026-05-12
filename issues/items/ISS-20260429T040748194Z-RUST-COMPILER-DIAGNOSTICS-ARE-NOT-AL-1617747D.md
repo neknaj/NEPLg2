@@ -956,3 +956,15 @@ Resource IR gate の compiler diagnostic 変換で、owner / borrow / effect bou
 - `cargo check -p nepl-core --tests`: passed
 - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
 - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-12 Stage D2 unknown effect reason enum 化
+
+Resource IR の `EffectOp::Unknown` と `ResourceEffectBoundaryDiagnostic::UnknownEffect` が、lowering incompleteness の原因を自由文字列 `reason: String` として保持していた。現行 main では production lowering からの利用は限定的だが、IR 型として任意文字列を許すと、unknown effect の分類が message 文字列に逃げ、diagnostic 再設計方針である enum-first / exhaustive `match` に反する。
+
+対応では `UnknownEffectReason` enum を導入し、function value / assigned callback / function parameter / callback parameter / synthetic fixture の原因を typed variant として保持するようにした。compiler diagnostic への写像は引き続き `resource.lower.incomplete` だが、原因分類は enum の `Display` / `as_str()` を通じて表示され、Resource IR / effect boundary 側の分岐は文字列比較に依存しない。
+
+検証:
+
+- `cargo test -p nepl-core compiler::tests::resource_effect_gate_maps_unknown_effect_to_lower_incomplete_code -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_reports_unknown_effect_as_lowering_incomplete -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir unknown_callback -- --nocapture`: 5 passed

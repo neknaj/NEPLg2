@@ -1134,7 +1134,7 @@ mod tests {
     fn resource_effect_gate_maps_unknown_effect_to_lower_incomplete_code() {
         let diagnostic = ResourceEffectBoundaryDiagnostic::UnknownEffect {
             function: String::from("main"),
-            reason: String::from("test unknown effect"),
+            reason: crate::resource::UnknownEffectReason::SyntheticTestFixture,
             span: Span::dummy(),
         };
 
@@ -1147,7 +1147,7 @@ mod tests {
             ))
         );
         assert!(error.message.contains("unknown effect"));
-        assert!(error.message.contains("test unknown effect"));
+        assert!(error.message.contains("synthetic_test_fixture"));
     }
 }
 
