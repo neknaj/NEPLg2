@@ -11565,6 +11565,117 @@ fn main <()* >()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_forwards_byte_builder_owner_through_leb32_loop() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/io" as *
+#import "core/result" as *
+
+fn main <()* >()> ():
+    match byte_builder_new:
+        Result::Ok b0:
+            match byte_builder_push_leb_u32 b0 624485:
+                Result::Ok b1:
+                    match byte_builder_finish b1:
+                        Result::Ok bytes:
+                            io_bytebuf_free bytes
+                        Result::Err _e:
+                            ()
+                Result::Err _e:
+                    ()
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                    | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. }
+                    if function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "ByteBuilder owner returned through LEB32 loop must be consumable by finish: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_keeps_byte_builder_source_ref_deallocatable() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/io" as *
+#import "core/mem" as *
+#import "core/result" as *
+
+fn free_src <(MemPtr<u8>)* >()> (src):
+    match dealloc_ptr<u8> src 10:
+        Result::Ok _:
+            ()
+        Result::Err _:
+            dealloc_raw mem_ptr_addr src 10
+
+fn main <()* >()> ():
+    match alloc_ptr<u8> 10:
+        Result::Err _e:
+            ()
+        Result::Ok src:
+            match byte_builder_with_capacity 2:
+                Result::Err _e:
+                    free_src src
+                Result::Ok b0:
+                    match byte_builder_push_bytes_ref b0 &src 10:
+                        Result::Err _e:
+                            free_src src
+                        Result::Ok b1:
+                            free_src src
+                            match byte_builder_finish b1:
+                                Result::Ok bytes:
+                                    io_bytebuf_free bytes
+                                Result::Err _e:
+                                    ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                    | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                    | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. }
+                    if function.starts_with("main__") || function.starts_with("free_src__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "borrowed ByteBuilder source MemPtr must remain deallocatable by the caller: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view() {
     let source = r#"
 #entry main

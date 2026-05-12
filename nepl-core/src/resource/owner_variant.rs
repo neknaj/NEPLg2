@@ -830,14 +830,32 @@ impl PendingVariantOwnerEffects {
         args: &[Place],
         conditions: &[OwnerVariantCondition],
     ) {
+        let mut variants = Vec::new();
         for condition in conditions {
-            if matches!(
-                owner_value_condition_truth(raw_aliases, args, &condition.condition),
-                Some(false)
-            ) {
+            if !variants.iter().any(|variant| variant == &condition.variant) {
+                variants.push(condition.variant.clone());
+            }
+        }
+        for variant in variants {
+            let mut saw_condition = false;
+            let mut all_conditions_false = true;
+            for condition in conditions
+                .iter()
+                .filter(|condition| condition.variant == variant)
+            {
+                saw_condition = true;
+                match owner_value_condition_truth(raw_aliases, args, &condition.condition) {
+                    Some(false) => {}
+                    Some(true) | None => {
+                        all_conditions_false = false;
+                        break;
+                    }
+                }
+            }
+            if saw_condition && all_conditions_false {
                 self.push_unique_unreachable(PendingUnreachableVariant {
                     result: output.clone(),
-                    variant: normalize_variant_name(&condition.variant),
+                    variant: normalize_variant_name(&variant),
                 });
             }
         }

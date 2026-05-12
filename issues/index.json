@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T21:32:57.547Z",
+  "generated_at": "2026-05-12T23:08:26.090Z",
   "counts": {
-    "total": 684,
+    "total": 685,
     "open": 9,
-    "resolved": 675,
+    "resolved": 676,
     "by_area": {
       "core": {
-        "total": 364,
+        "total": 365,
         "open": 1,
-        "resolved": 363
+        "resolved": 364
       },
       "stdlib": {
         "total": 168,
@@ -5523,6 +5523,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T205049685Z-COMPILE-FAIL-DOCTESTS-LACK-STABLE-DI-326AA82A.md"
+    },
+    {
+      "id": "ISS-20260512T230732771Z-RESOURCE-OWNER-SUMMARY-TREATS-VARIAN-0C3269E3",
+      "title": "Resource owner summary treats variant path conditions as global unreachable facts",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/owner_variant.rs; nepl-core/src/resource/owner_summary_variant_conditions.rs; nepl-core/src/resource/owner_summary_variant_paths.rs; stdlib/alloc/io/bytebuilder.nepl; tests/stdlib/byte_builder.n.md",
+      "legacy_id": "",
+      "source": "Agent 1 ResourceIR owner summary review 2026-05-13",
+      "file": "items/ISS-20260512T230732771Z-RESOURCE-OWNER-SUMMARY-TREATS-VARIAN-0C3269E3.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

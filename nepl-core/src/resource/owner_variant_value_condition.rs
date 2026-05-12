@@ -20,6 +20,7 @@ pub(super) struct PendingVariantValueCondition {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum PendingValueCondition {
+    Always,
     Fact {
         place: Place,
         condition: I32ValueCondition,
@@ -86,6 +87,7 @@ impl PendingVariantValueCondition {
 impl PendingValueCondition {
     fn apply_definite_facts(&self, raw_aliases: &mut RawCellAddressAliases) {
         match self {
+            PendingValueCondition::Always => {}
             PendingValueCondition::Fact { place, condition } => {
                 raw_aliases.add_i32_condition(place, *condition);
             }
@@ -104,6 +106,7 @@ impl PendingValueCondition {
         parameter_condition_sources: &[OwnerParameterConditionSource],
     ) -> Option<OwnerValueCondition> {
         match self {
+            PendingValueCondition::Always => Some(OwnerValueCondition::Always),
             PendingValueCondition::Fact { place, condition } => pending_fact_owner_value_condition(
                 raw_aliases,
                 parameter_condition_sources,
@@ -134,6 +137,7 @@ fn pending_value_condition(
     condition: &OwnerValueCondition,
 ) -> Option<PendingValueCondition> {
     match condition {
+        OwnerValueCondition::Always => Some(PendingValueCondition::Always),
         OwnerValueCondition::Param { source, condition } => {
             let arg = args.get(source.parameter_index)?;
             let place = owner_projection_source_place_for_arg(arg, source);

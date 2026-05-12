@@ -82,6 +82,7 @@ pub(super) struct OwnerVariantCondition {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum OwnerValueCondition {
+    Always,
     Param {
         source: OwnerProjectionSource,
         condition: I32ValueCondition,

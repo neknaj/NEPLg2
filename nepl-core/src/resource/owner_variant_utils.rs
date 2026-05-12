@@ -140,6 +140,7 @@ pub(super) fn owner_value_condition_truth(
     condition: &OwnerValueCondition,
 ) -> Option<bool> {
     match condition {
+        OwnerValueCondition::Always => Some(true),
         OwnerValueCondition::Param { source, condition } => {
             let arg = args.get(source.parameter_index)?;
             let place = owner_projection_source_place_for_arg(arg, source);

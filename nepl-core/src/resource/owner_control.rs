@@ -8,6 +8,7 @@ use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place, ResourceConditionFact, ResourceMatchArm, ResourceOp};
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_match_payload::retire_inactive_enum_payload_owners;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
@@ -323,28 +324,14 @@ impl ResourceOwnerCheckEngine<'_> {
             let mut arm_pending_reallocs = pending_reallocs.clone();
             let mut arm_variant_owner_effects = variant_owner_effects.clone();
             if let Some(selected_variant) = match_arm_variant_payload_name(arm) {
-                let mut inactive_payloads =
-                    arm_owners.sibling_enum_payload_places(scrutinee, &selected_variant);
-                let resolved_scrutinee = super::owner_alias::resolve_owner_alias_place(
-                    &arm_owners,
-                    &arm_raw_aliases,
+                retire_inactive_enum_payload_owners(
+                    &mut arm_owners,
+                    &mut arm_raw_aliases,
+                    &mut arm_raw_views,
+                    &mut arm_storage_origins,
                     scrutinee,
+                    &selected_variant,
                 );
-                if resolved_scrutinee != *scrutinee {
-                    for inactive_payload in arm_owners
-                        .sibling_enum_payload_places(&resolved_scrutinee, &selected_variant)
-                    {
-                        if !inactive_payloads.contains(&inactive_payload) {
-                            inactive_payloads.push(inactive_payload);
-                        }
-                    }
-                }
-                for inactive_payload in inactive_payloads {
-                    arm_owners.set_state(&inactive_payload, OwnerState::NoFreeObligation);
-                    arm_raw_aliases.clear(&inactive_payload);
-                    arm_raw_views.clear(&inactive_payload);
-                    arm_storage_origins.clear(&inactive_payload);
-                }
             }
             arm_variant_owner_effects.apply_match_arm_returns(
                 self,

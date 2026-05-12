@@ -15,22 +15,26 @@ pub(super) use super::owner_summary_variant_payload_conditions::{
     collect_owner_variant_known_payload_conditions, collect_owner_variant_payload_conditions,
 };
 
-pub(super) fn collect_owner_variant_condition(
-    out: &mut Vec<OwnerVariantCondition>,
-    variant: &str,
+pub(super) fn owner_variant_condition_from_fact(
     condition_fact: &ResourceConditionFact,
     truthy_path: bool,
     raw_aliases: &RawCellAddressAliases,
     parameter_condition_sources: &[OwnerParameterConditionSource],
-) {
-    let Some(condition) = owner_value_condition(
+) -> Option<OwnerValueCondition> {
+    owner_value_condition(
         condition_fact,
         truthy_path,
         raw_aliases,
         parameter_condition_sources,
-    ) else {
-        return;
-    };
+    )
+}
+
+pub(super) fn push_owner_variant_path_condition(
+    out: &mut Vec<OwnerVariantCondition>,
+    variant: &str,
+    conditions: Vec<OwnerValueCondition>,
+) {
+    let condition = combined_path_condition(conditions);
     push_unique_variant_condition(
         out,
         OwnerVariantCondition {
@@ -40,29 +44,26 @@ pub(super) fn collect_owner_variant_condition(
     );
 }
 
-pub(super) fn collect_owner_variant_known_conditions(
-    out: &mut Vec<OwnerVariantCondition>,
-    variant: &str,
+pub(super) fn owner_variant_known_conditions(
     raw_aliases: &RawCellAddressAliases,
     parameter_condition_sources: &[OwnerParameterConditionSource],
-) {
+) -> Vec<OwnerValueCondition> {
+    let mut out = Vec::new();
     for source in parameter_condition_sources {
         for condition in SUMMARY_I32_CONDITIONS {
             if !raw_aliases.i32_condition_is_known_true(&source.place, condition) {
                 continue;
             }
-            push_unique_variant_condition(
-                out,
-                OwnerVariantCondition {
-                    variant: normalize_variant_name(variant),
-                    condition: OwnerValueCondition::Param {
-                        source: source.source.clone(),
-                        condition,
-                    },
+            push_unique_owner_value_condition(
+                &mut out,
+                OwnerValueCondition::Param {
+                    source: source.source.clone(),
+                    condition,
                 },
             );
         }
     }
+    out
 }
 
 fn owner_value_condition(
@@ -181,5 +182,34 @@ fn push_unique_variant_condition(
 ) {
     if !out.iter().any(|existing| existing == &entry) {
         out.push(entry);
+    }
+}
+
+fn combined_path_condition(conditions: Vec<OwnerValueCondition>) -> OwnerValueCondition {
+    let mut out = Vec::new();
+    for condition in conditions {
+        match condition {
+            OwnerValueCondition::Always => {}
+            OwnerValueCondition::All(conditions) => {
+                for condition in conditions {
+                    push_unique_owner_value_condition(&mut out, condition);
+                }
+            }
+            condition => push_unique_owner_value_condition(&mut out, condition),
+        }
+    }
+    match out.len() {
+        0 => OwnerValueCondition::Always,
+        1 => out.pop().unwrap_or(OwnerValueCondition::Always),
+        _ => OwnerValueCondition::All(out),
+    }
+}
+
+fn push_unique_owner_value_condition(
+    out: &mut Vec<OwnerValueCondition>,
+    condition: OwnerValueCondition,
+) {
+    if !out.iter().any(|existing| existing == &condition) {
+        out.push(condition);
     }
 }

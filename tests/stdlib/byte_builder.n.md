@@ -177,23 +177,23 @@ fn main <()*>i32> ():
                         Result::Ok _:
                             ()
                         Result::Err _:
-                            ()
+                            dealloc_raw mem_ptr_addr src 10
                     set checks checks_push checks Result<(),str>::Err "builder alloc failed"
                 Result::Ok b0:
-                    match byte_builder_push_bytes_ref b0 src 10:
+                    match byte_builder_push_bytes_ref b0 &src 10:
                         Result::Err _e:
                             match dealloc_ptr<u8> src 10:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
-                                    ()
+                                    dealloc_raw mem_ptr_addr src 10
                             set checks checks_push checks Result<(),str>::Err "push bytes failed"
                         Result::Ok b1:
                             match dealloc_ptr<u8> src 10:
                                 Result::Ok _:
                                     ()
                                 Result::Err _:
-                                    ()
+                                    dealloc_raw mem_ptr_addr src 10
                             match byte_builder_finish b1:
                                 Result::Err _e:
                                     set checks checks_push checks Result<(),str>::Err "finish failed"

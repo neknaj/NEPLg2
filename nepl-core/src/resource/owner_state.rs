@@ -152,7 +152,7 @@ impl OwnerTable {
                 .filter_map(|path| path.state_for_variant_merge(&place));
             if let Some(mut merged) = states.next() {
                 for state in states {
-                    merged = merge_owner_states(merged, state);
+                    merged = merge_owner_states(merged, state, &mut out.next_storage);
                 }
                 out.set_state(&place, merged);
             }
@@ -181,7 +181,9 @@ impl OwnerTable {
                 entry.place.clone()
             };
             let state = match out.state(&place) {
-                Some(existing) => merge_owner_states(existing, entry.state.clone()),
+                Some(existing) => {
+                    merge_owner_states(existing, entry.state.clone(), &mut out.next_storage)
+                }
                 None => entry.state.clone(),
             };
             out.set_state(&place, state);
@@ -245,7 +247,7 @@ fn place_has_raw_owner_projection(place: &Place) -> bool {
     })
 }
 
-fn merge_owner_states(left: OwnerState, right: OwnerState) -> OwnerState {
+fn merge_owner_states(left: OwnerState, right: OwnerState, next_storage: &mut usize) -> OwnerState {
     if left == right {
         return left;
     }
@@ -273,6 +275,11 @@ fn merge_owner_states(left: OwnerState, right: OwnerState) -> OwnerState {
         ) if left_storage == right_storage => OwnerState::Live {
             storage: left_storage,
         },
+        (OwnerState::Live { .. }, OwnerState::Live { .. }) => {
+            let storage = StorageId(*next_storage);
+            *next_storage += 1;
+            OwnerState::Live { storage }
+        }
         (OwnerState::NoFreeObligation, OwnerState::Freed)
         | (OwnerState::Freed, OwnerState::NoFreeObligation)
         | (OwnerState::NoFreeObligation, OwnerState::Moved)
@@ -330,7 +337,6 @@ fn merge_owner_states(left: OwnerState, right: OwnerState) -> OwnerState {
         }
         (OwnerState::Moved, OwnerState::Moved) => OwnerState::Moved,
         (OwnerState::Freed, OwnerState::Freed) => OwnerState::Freed,
-        _ => OwnerState::MaybeFreed { storage: None },
     }
 }
 

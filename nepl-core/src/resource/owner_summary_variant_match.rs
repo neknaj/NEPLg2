@@ -4,10 +4,11 @@ use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, ResourceMatchArm};
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_match_payload::retire_inactive_enum_payload_owners;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
-use super::place_utils::match_bind_payload_place;
+use super::place_utils::{match_arm_variant_payload_name, match_bind_payload_place};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
@@ -29,6 +30,16 @@ pub(super) fn apply_match_arm_entry(
     };
     if !path_variant_owner_effects.match_arm_reachable(scrutinee, &arm.pattern) {
         return;
+    }
+    if let Some(selected_variant) = match_arm_variant_payload_name(arm) {
+        retire_inactive_enum_payload_owners(
+            path_owners,
+            path_raw_aliases,
+            path_raw_views,
+            path_storage_origins,
+            scrutinee,
+            &selected_variant,
+        );
     }
     path_variant_owner_effects.apply_match_arm_returns(
         path_engine,

@@ -1,3 +1,24 @@
+# 2026-05-13 Agent 1 Resource owner variant path condition 修正
+
+- `ISS-20260512T230732771Z-RESOURCE-OWNER-SUMMARY-TREATS-VARIAN-0C3269E3` に対応した。
+- 根本原因は、owner summary の `variant_conditions` が同一 variant の path alternatives であるにもかかわらず、caller 側が 1 条件でも false なら variant 全体を到達不能として扱っていたこと。
+- `OwnerValueCondition::Always` と path 単位の `All(...)` を導入し、同一 variant の全 alternatives が確定 false の場合だけ unreachable とするようにした。
+- inactive enum payload owner の retirement を helper 化し、通常 checker と summary path entry の match arm 状態遷移を共有した。
+- `byte_builder_push_bytes_ref` は source owner を消費しない borrow API とし、owned `ByteBuf` source は copy 後に `byte_builder_dealloc_owned_u8` で閉じる。
+- 検証:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_byte_builder_source_ref_deallocatable -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_forwards_byte_builder_owner_through_leb32_loop -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_forwards_nested_byte_builder_result_owner -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_forwards_byte_builder_owner_through_text_result_mapping -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_mem_ptr_dealloc_consumption -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/byte_builder.n.md --no-tree -o tmp/agent1-byte-builder-owner-after-variant-conditions.json -j 1 --dist web/dist`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner summary / variant condition correctness に沿った修正。
+
 # 2026-05-13 Agent 1 monomorphize trait resolver typed 化
 
 - `ISS-20260512T195620903Z-MONOMORPHIZE-TRAIT-RESOLUTION-STILL--0481CA39` に対応した。

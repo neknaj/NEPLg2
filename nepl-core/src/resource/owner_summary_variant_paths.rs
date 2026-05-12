@@ -11,10 +11,10 @@ use super::owner_state::OwnerTable;
 use super::owner_summary_consumed::consumed_owner_parameters;
 use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
 use super::owner_summary_variant_conditions::{
-    collect_owner_variant_condition, collect_owner_variant_known_conditions,
     collect_owner_variant_known_payload_conditions, collect_owner_variant_payload_conditions,
 };
 use super::owner_summary_variant_construct::construct_variant_for_value;
+use super::owner_summary_variant_path_conditions::record_owner_variant_path_condition;
 use super::owner_summary_variant_return::{
     record_variant_projection_returns, returned_owner_returns_for_value,
 };
@@ -270,26 +270,6 @@ fn collect_variant_consumed_owner_parameters_from_path(
         );
         return;
     };
-    if let Some((condition_fact, truthy_path)) = branch_condition {
-        collect_owner_variant_condition(
-            condition_out,
-            &constructed_variant.variant,
-            condition_fact,
-            truthy_path,
-            &path_raw_aliases,
-            parameter_condition_sources,
-        );
-    }
-    if let Some((scrutinee, arm, _span)) = match_arm {
-        variant_owner_effects.collect_match_arm_value_condition_summaries(
-            condition_out,
-            raw_aliases,
-            parameter_condition_sources,
-            &constructed_variant.variant,
-            scrutinee,
-            &arm.pattern,
-        );
-    }
     path_engine.check_ops(
         &mut path_owners,
         &mut path_function_aliases,
@@ -300,11 +280,15 @@ fn collect_variant_consumed_owner_parameters_from_path(
         &mut path_variant_owner_effects,
         path_ops,
     );
-    collect_owner_variant_known_conditions(
+    record_owner_variant_path_condition(
         condition_out,
-        &constructed_variant.variant,
-        &path_raw_aliases,
+        variant_owner_effects,
         parameter_condition_sources,
+        &constructed_variant.variant,
+        raw_aliases,
+        &path_raw_aliases,
+        branch_condition,
+        match_arm,
     );
     if let Some((condition_fact, truthy_path)) = branch_condition {
         collect_owner_variant_payload_conditions(
