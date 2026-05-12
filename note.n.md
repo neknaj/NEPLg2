@@ -1,3 +1,14 @@
+# 2026-05-13 Agent 1 import visibility / core mem public surface 監査
+
+- `ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573` を追加した。
+- `core/mem` の raw API を internal module へ移すだけでは不十分で、typecheck の `Binding` が item visibility を持たないため、imported private definition を safe source から隠せないことを確認した。
+- `parser` / `module_graph` には `pub` / private の概念と host-side export test があるが、実 compile pipeline の name lookup は `Visibility::Pub` を binding authority にしていない。このため Stage 6 の `core/mem` internal/public 分離の前提 blocker として扱う。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` と `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` に blocker へのリンクを追加し、`ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D` にも raw address escape の前提として追記した。
+- 検証:
+  - `node nodesrc/issues.js check --dir issues`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 6 の実装順序を明確化する issue/doc 整理。
+
 # 2026-05-13 Agent 1 MemPtr raw address view lowering 修正
 
 - `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D` の Stage 5/6 境界に関係する Resource IR lowering を修正した。

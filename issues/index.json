@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T23:19:04.769Z",
+  "generated_at": "2026-05-12T23:53:55.333Z",
   "counts": {
-    "total": 685,
-    "open": 8,
+    "total": 686,
+    "open": 9,
     "resolved": 677,
     "by_area": {
+      "core": {
+        "total": 366,
+        "open": 1,
+        "resolved": 365
+      },
       "stdlib": {
         "total": 168,
         "open": 6,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 365,
-        "open": 0,
-        "resolved": 365
       },
       "resource": {
         "total": 2,
@@ -110,6 +110,21 @@
   },
   "issues": [
     {
+      "id": "ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573",
+      "title": "Import visibility does not enforce pub private item boundaries",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resolve.rs, nepl-core/src/typecheck/env.rs, nepl-core/src/typecheck/name_lookup.rs, stdlib/core/mem.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -133,7 +148,7 @@
       "priority": "P1",
       "type": "security",
       "created": "2026-04-27",
-      "updated": "2026-04-28",
+      "updated": "2026-05-13",
       "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, tests/stdlib/memory_safety.n.md",
       "legacy_id": "",
       "source": "",

@@ -106,3 +106,11 @@ safe import だけでは `mem_ptr_addr` / `mem_ptr_wrap` / raw `load<T>` / raw `
 - `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --no-tree -o tmp/agent1-memptr-view-reference-codegen.json -j 1 --dist web/dist`: 3 passed
 - `node nodesrc/tests.js -i tests/compiler/prelude_copy.n.md --no-tree -o tmp/agent1-memptr-view-prelude-copy.json -j 1 --dist web/dist`: 4 passed
 - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-13 import visibility blocker 追記
+
+`core/mem` の raw address escape を public surface から閉じるには、stdlib file 分割だけでなく compiler の import visibility enforcement が先に必要であることを確認した。
+
+現状の parser / module graph には `pub` / private の概念があるが、typecheck の `Binding` は item visibility を保持していない。そのため flat loader representation では、imported file の private item も `as *` / qualified lookup から選択され得る。`mem_ptr_addr` / `mem_ptr_wrap` / raw allocator / raw load-store を internal module へ移しても、compiler が `Visibility::Pub` を binding authority にしなければ safe source から隠せない。
+
+この blocker は `ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573` として分離した。この issue の完了条件である「safe import から raw address escape を構成できないこと」は、同 blocker の解決後に `core/mem` public facade / internal raw-memory-boundary module 分割として進める。

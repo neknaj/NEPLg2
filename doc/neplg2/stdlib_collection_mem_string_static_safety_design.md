@@ -281,6 +281,7 @@ Resource IR / typecheck / match check は次を必須にする。
 
 ### Stage B: `core/mem` の internal/public 分離
 
+- 前提として、typecheck の import visibility が `pub` / private item boundary を binding authority として扱う必要がある。現状の blocker は [ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573](../../issues/items/ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573.md) で追跡する。
 - raw `i32` allocator / load/store は internal raw module に移す。
 - public API は `MemPtr` view、`OwnedRegion` owner、initialized cell 操作を分ける。
 - `region_new` のような token forging API を廃止する。
