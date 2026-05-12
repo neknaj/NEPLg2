@@ -279,8 +279,12 @@ struct MonoTraitLookupKey {
 
 - `parse_trait_ref_name` baseline は 0 済みであり、再導入禁止を維持する。
 - `TraitBoundRef` 旧 model baseline は 0 済みであり、再導入禁止を維持する。
-- `ImplInfo` optional string baseline は 2026-05-12 に typecheck-side `ImplKind` 導入で 1 まで下げた。残る 1 件は `TraitInfo.doc` であり、`ImplInfo` 由来ではない。
+- `ImplInfo` optional field baseline は 2026-05-12 に typecheck-side `ImplKind` 導入で 0 済みであり、source policy は `ImplInfo` struct body だけを検査する。`TraitInfo.doc` の `Option<String>` は documentation data であり、impl identity policy の baseline には数えない。
 - source policy を「増加禁止」から「再導入禁止」へ変更する。
+
+進捗:
+
+- 2026-05-12: `ISS-20260512T174845757Z-ABSTRACTION-POLICY-COUNTS-TRAITINFO--FE3DB746` を追加し、`ImplInfo` optional field の policy を `traits.rs` 全体の `Option<String>` 数ではなく `ImplInfo` struct body 直接検査へ変更した。これにより `ImplInfo` は optional field 0 件を baseline ではなく完了条件として監視する。
 
 ## 進捗状況
 
@@ -290,4 +294,4 @@ struct MonoTraitLookupKey {
 - `typecheck/trait_call_apply.rs`: 実装済みだが再設計対象。split impl field 参照は削除済みだが、trait method resolution result enum が必要。
 - `hir.rs`: Stage 5 は進行済み。`HirTraitApplication` を追加し、`FuncRef::Trait` / `HirImpl` は typed trait application を保持する。
 - `monomorphize.rs`: Stage 5 は進行中。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。HIR からは `HirTraitApplication` を受け取り、monomorphize phase 内の resolved key へ変換する。
-- `nodesrc/test_abstraction_static_verification_policy.js`: Stage 0 baseline policy として追加。
+- `nodesrc/test_abstraction_static_verification_policy.js`: Stage 0 baseline policy として追加済み。Stage 6 として `ImplInfo` optional field は struct 単位で 0 件を要求する。

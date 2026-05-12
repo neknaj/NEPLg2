@@ -61,6 +61,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T165852784Z-HIR-TRAIT-CALLS-STILL-SPLIT-TRAIT-AP-405A462B` で、HIR 境界の `FuncRef::Trait` / `HirImpl` を `HirTraitApplication` へ移行し、trait identity の split string fields を削除した。
 - `ISS-20260512T171317751Z-RESOURCE-IR-TRAIT-CALL-TARGET-STILL--6B70AE36` で、Resource IR の `ResourceCallTarget::Trait` を `ResourceTraitApplication` へ移行し、dump/report 境界でも trait application を named model として保持するようにした。
 - `ISS-20260512T173702516Z-BOUNDENV-STILL-KEYS-TYPE-PARAMETER-B-792D9BA4` で、`BoundEnv` 内部 key を raw `TypeId` から `TypeParamId` newtype へ移行した。type parameter declaration identity は `BoundEnv::insert` / `iter` の境界でも明示され、source policy は raw `TypeId` key の再導入を拒否する。
+- `ISS-20260512T174845757Z-ABSTRACTION-POLICY-COUNTS-TRAITINFO--FE3DB746` で、Stage 6 の source policy baseline を整理した。`ImplInfo` optional field は `traits.rs` 全体の `Option<String>` 数ではなく `ImplInfo` struct body を直接検査し、0 件を必須にした。
 
 ## 検証
 

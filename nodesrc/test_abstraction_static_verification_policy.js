@@ -19,7 +19,6 @@ const BASELINE = {
     formatTraitRefName: 6,
     traitBoundRef: 0,
     traitLookupCache: 6,
-    implInfoOptionString: 1,
 };
 
 function assert(condition, message) {
@@ -71,6 +70,8 @@ assert(
     "source policy runner must include abstraction static verification policy",
 );
 
+const traits = read(path.join(TYPECHECK_DIR, "traits.rs"));
+const implInfoStruct = traits.match(/pub\(super\) struct ImplInfo\s*\{[\s\S]*?\n\}/);
 const files = walkRustFiles(TYPECHECK_DIR).concat([MONOMORPHIZE]);
 const counts = {
     parseTraitRefName: countAll(files, "parse_trait_ref_name"),
@@ -78,7 +79,7 @@ const counts = {
     traitBoundRef: countAll(files, "TraitBoundRef"),
     implInfo: countAll(files, "ImplInfo"),
     traitLookupCache: countAll(files, "trait_lookup_cache"),
-    implInfoOptionString: countOccurrences(read(path.join(TYPECHECK_DIR, "traits.rs")), "Option<String>"),
+    implInfoOptionalFields: implInfoStruct ? countOccurrences(implInfoStruct[0], "Option<") : 0,
 };
 
 assert(counts.parseTraitRefName <= BASELINE.parseTraitRefName, "trait ref string parser usage must not grow");
@@ -86,11 +87,10 @@ assert(counts.formatTraitRefName <= BASELINE.formatTraitRefName, "trait ref stri
 assert(counts.traitBoundRef <= BASELINE.traitBoundRef, "TraitBoundRef old model must not be reintroduced");
 assert(counts.traitLookupCache <= BASELINE.traitLookupCache, "string-keyed trait lookup cache usage must not grow");
 assert(
-    counts.implInfoOptionString <= BASELINE.implInfoOptionString,
-    "ImplInfo optional string model must not gain new optional string fields",
+    counts.implInfoOptionalFields === 0,
+    "ImplInfo optional field model must not be reintroduced",
 );
 
-const traits = read(path.join(TYPECHECK_DIR, "traits.rs"));
 assert(traits.includes("pub(super) enum TraitCapability"), "TraitCapability must remain an enum");
 assert(traits.includes("TraitCapability::Copy"), "TraitCapability::Copy match coverage must remain visible");
 assert(traits.includes("TraitCapability::Clone"), "TraitCapability::Clone match coverage must remain visible");
@@ -131,7 +131,6 @@ assert(
     traits.includes("self_ty: TypeId"),
     "trait impl identity must store trait self TypeId explicitly",
 );
-const implInfoStruct = traits.match(/pub\(super\) struct ImplInfo\s*\{[\s\S]*?\n\}/);
 assert(implInfoStruct, "ImplInfo struct body must be visible to source policy");
 assert(implInfoStruct[0].includes("kind: ImplKind"), "ImplInfo must own ImplKind");
 assert(!implInfoStruct[0].includes("trait_name"), "ImplInfo must not store rendered trait names");

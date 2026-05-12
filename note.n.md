@@ -36645,3 +36645,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `TypeParamId` newtype を追加し、`BoundEnv` 内部 key を raw `TypeId` から `BTreeMap<TypeParamId, Vec<TraitBound>>` へ移行した。
 - `BoundEnv::insert` は `TypeParamId` だけを受け取り、`iter` は `TypeParamId` を返すため、trait bound apply / trait check は `.type_id()` で明示的に unwrap する。
 - nested function check と top-level driver の bound collection は `TypeParamId::new(*p_id)` を通して挿入し、source policy で raw `TypeId` key の再導入を禁止した。
+
+## 2026-05-13 Agent 1 abstraction policy ImplInfo baseline
+
+- `db766338` push 後に remote main を pull し、merge 済みの `agent1/type-param-id-bound-env` branch を削除した。
+- `agent1/abstraction-policy-implinfo-baseline` branch を作成し、Stage 6 の `ISS-20260512T174845757Z-ABSTRACTION-POLICY-COUNTS-TRAITINFO--FE3DB746` を追加した。
+- `nodesrc/test_abstraction_static_verification_policy.js` の `implInfoOptionString` global baseline を削除し、`ImplInfo` struct body 内の optional field 数を直接 0 件として検査するようにした。
+- `TraitInfo.doc` の `Option<String>` は documentation data であり、impl identity / enum-first policy の metric から切り離した。
