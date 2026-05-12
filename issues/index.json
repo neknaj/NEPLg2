@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T14:17:35.372Z",
+  "generated_at": "2026-05-12T14:34:47.956Z",
   "counts": {
-    "total": 649,
-    "open": 10,
+    "total": 650,
+    "open": 11,
     "resolved": 639,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 329
       },
       "stdlib": {
-        "total": 167,
-        "open": 5,
+        "total": 168,
+        "open": 6,
         "resolved": 162
       },
       "TEST": {
@@ -213,6 +213,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841",
+      "title": "Stdlib documentation contract is not globally enforced",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "stdlib/**/*.nepl; nodesrc/test_stdlib_documentation_contract.js; doc/neplg2/stdlib_documentation_contract_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",

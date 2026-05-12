@@ -36466,3 +36466,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - 作業区切り後に generics / trait / abstraction mechanism の設計と実装を監査し、不足があれば `doc/` に再設計・実装計画を作成して issue に紐づける。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 stdlib documentation contract 監査
+
+- `ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841` として、stdlib 全体の module / declaration documentation と doctest 方針を監査した。
+- `stdlib/core`、`stdlib/alloc`、`stdlib/std` の 385 file はすべて module doc を持っているが、module doctest missing 309、declaration doc missing 547、declaration doctest missing 1032 を確認した。
+- したがって、現状は「全関数・module・enum・struct・trait に十分な documentation と doctest が整っている」とは言えない。
+- `doc/neplg2/stdlib_documentation_contract_plan.md` を追加し、documentation を削って file size を抑えることを禁止し、module split と documentation 維持を両立する方針を明文化した。
+- `nodesrc/test_stdlib_documentation_contract.js` を追加し、現在の不足数を baseline として固定して、これ以上の悪化を source policy で拒否するようにした。
+- `nodesrc/run_source_policy_regressions.js` に documentation contract policy を追加した。baseline は最終状態ではなく、今後 stage ごとに missing 数を 0 へ下げる。
+- [検証予定]:
+  - `node nodesrc/test_stdlib_documentation_contract.js`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - `node nodesrc/issues.js index --dir issues`
+  - `node nodesrc/issues.js check --dir issues`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -1,0 +1,55 @@
+---
+id: ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841
+title: "Stdlib documentation contract is not globally enforced"
+area: stdlib
+status: open
+resolved: false
+priority: P1
+type: doc
+created: 2026-05-12
+updated: 2026-05-12
+target: "stdlib/**/*.nepl; nodesrc/test_stdlib_documentation_contract.js; doc/neplg2/stdlib_documentation_contract_plan.md"
+---
+
+# ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841: Stdlib documentation contract is not globally enforced
+
+## 概要
+
+Stdlib policy requires sufficiently detailed Japanese documentation and doctests for modules, functions, enums, structs, and traits, but there is no global source policy that measures this contract. A scan of stdlib/core, stdlib/alloc, and stdlib/std found 385 module files with module docs, but 309 module docs without doctest, 547 declarations without adjacent doc comments, and 1032 declarations without adjacent doctests.
+
+## 対象
+
+- `stdlib/**/*.nepl; nodesrc/test_stdlib_documentation_contract.js; doc/neplg2/stdlib_documentation_contract_plan.md`
+
+## 根拠
+
+- AGENTS.md の stdlib コメント方針は、ファイル先頭に module documentation を置き、各関数の前に目的・アルゴリズム・注意点・計算量・制約を丁寧に書くことを要求している。
+- 2026-05-12 の監査で、`stdlib/core`、`stdlib/alloc`、`stdlib/std` の 385 file は全て module doc を持つ一方、module doctest missing 309、declaration doc missing 547、declaration doctest missing 1032 を確認した。
+- 既存の source policy は個別 module の unsafe unwrap や facade 分割を監視しているが、stdlib 全体の documentation contract を測定する global policy はなかった。
+- 詳細計画: [NEPLg2 stdlib documentation contract plan](../../doc/neplg2/stdlib_documentation_contract_plan.md)
+
+## 問題
+
+Stdlib policy requires sufficiently detailed Japanese documentation and doctests for modules, functions, enums, structs, and traits, but there is no global source policy that measures this contract. A scan of stdlib/core, stdlib/alloc, and stdlib/std found 385 module files with module docs, but 309 module docs without doctest, 547 declarations without adjacent doc comments, and 1032 declarations without adjacent doctests.
+
+## 影響
+
+Documentation can silently regress or be removed to keep files small, violating the stdlib maintenance contract and weakening executable API examples. Users and selfhost work lose reliable behavior examples near the code.
+
+## 修正方針
+
+Add a stdlib documentation contract plan and a nodesrc source policy that freezes the current audit baseline, rejects module docs disappearing, rejects documentation coverage getting worse, and provides a staged path to reduce missing declaration docs/doctests to zero without deleting documentation to shrink files.
+
+## 対応記録
+
+- `doc/neplg2/stdlib_documentation_contract_plan.md` を追加し、module / declaration documentation と doctest の必須契約、禁止事項、baseline、stage 別実装計画を明文化した。
+- `nodesrc/test_stdlib_documentation_contract.js` を追加し、現時点の不足数を baseline として固定した。これは最終状態ではなく、documentation を削って悪化させる退行を拒否する凍結線である。
+- `nodesrc/run_source_policy_regressions.js` に documentation contract policy を追加した。
+- 残る 309 module doctest gap、547 declaration doc gap、1032 declaration doctest gap は計画に沿って段階的に 0 へ下げる。
+
+## 検証
+
+- `node nodesrc/test_stdlib_documentation_contract.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `node nodesrc/issues.js index --dir issues`
+- `node nodesrc/issues.js check --dir issues`
