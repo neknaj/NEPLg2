@@ -1800,7 +1800,7 @@ fn lower_hir_expr(
                         format!(
                             "unresolved trait call {}::{} reached llvm codegen",
                             application.display_name(types),
-                            method
+                            method.as_str()
                         ),
                         expr.span,
                         DiagnosticCode::Backend(

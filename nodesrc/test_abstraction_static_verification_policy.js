@@ -25,6 +25,7 @@ const MONOMORPHIZE_TRAIT_IDENTITY = path.join(
     "trait_identity.rs",
 );
 const RESOURCE_MODEL = path.join(ROOT, "nepl-core", "src", "resource", "model.rs");
+const RESOURCE_TRAIT_IDENTITY = path.join(ROOT, "nepl-core", "src", "resource", "trait_identity.rs");
 const PLAN = path.join(ROOT, "doc", "neplg2", "abstraction_static_verification_plan.md");
 const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
 
@@ -198,6 +199,7 @@ const monomorphize = read(MONOMORPHIZE);
 const monomorphizeTraitLookup = read(MONOMORPHIZE_TRAIT_LOOKUP);
 const monomorphizeTraitIdentity = read(MONOMORPHIZE_TRAIT_IDENTITY);
 const resourceModel = read(RESOURCE_MODEL);
+const resourceTraitIdentity = read(RESOURCE_TRAIT_IDENTITY);
 for (const [name, text] of [
     ["traits.rs", traits],
     ["context.rs", context],
@@ -306,6 +308,7 @@ assert(
 );
 assert(hir.includes("pub struct HirTraitApplication"), "HIR must define HirTraitApplication");
 assert(hir.includes("pub struct HirTraitId"), "HIR trait application must use HirTraitId");
+assert(hir.includes("pub struct HirTraitMethodId"), "HIR trait method identity must use HirTraitMethodId");
 const hirTraitApplicationStruct = hir.match(/pub struct HirTraitApplication\s*\{[\s\S]*?\n\}/);
 assert(hirTraitApplicationStruct, "HirTraitApplication struct body must be visible to source policy");
 assert(
@@ -321,6 +324,14 @@ assert(funcRefEnum, "FuncRef enum body must be visible to source policy");
 assert(
     funcRefEnum[0].includes("application: HirTraitApplication"),
     "FuncRef::Trait must store a HirTraitApplication",
+);
+assert(
+    funcRefEnum[0].includes("method: HirTraitMethodId"),
+    "FuncRef::Trait must store trait method identity as HirTraitMethodId",
+);
+assert(
+    !funcRefEnum[0].includes("method: String"),
+    "FuncRef::Trait must not store trait method identity as raw String",
 );
 assert(
     !funcRefEnum[0].includes("trait_name: String"),
@@ -340,14 +351,18 @@ for (const oldField of ["trait_name:", "trait_base_name:", "trait_args:"]) {
     assert(!hirImplStruct[0].includes(oldField), `HirImpl must not store ${oldField}`);
 }
 assert(
-    resourceModel.includes("pub struct ResourceTraitApplication"),
+    resourceTraitIdentity.includes("pub struct ResourceTraitApplication"),
     "Resource IR must define ResourceTraitApplication",
 );
 assert(
-    resourceModel.includes("pub struct ResourceTraitId"),
+    resourceTraitIdentity.includes("pub struct ResourceTraitId"),
     "Resource IR trait application must use ResourceTraitId",
 );
-const resourceTraitApplicationStruct = resourceModel.match(
+assert(
+    resourceTraitIdentity.includes("pub struct ResourceTraitMethodId"),
+    "Resource IR trait method identity must use ResourceTraitMethodId",
+);
+const resourceTraitApplicationStruct = resourceTraitIdentity.match(
     /pub struct ResourceTraitApplication\s*\{[\s\S]*?\n\}/,
 );
 assert(
@@ -367,6 +382,14 @@ assert(resourceCallTarget, "ResourceCallTarget enum body must be visible to sour
 assert(
     resourceCallTarget[0].includes("application: ResourceTraitApplication"),
     "ResourceCallTarget::Trait must store ResourceTraitApplication",
+);
+assert(
+    resourceCallTarget[0].includes("method: ResourceTraitMethodId"),
+    "ResourceCallTarget::Trait must store trait method identity as ResourceTraitMethodId",
+);
+assert(
+    !resourceCallTarget[0].includes("method: String"),
+    "ResourceCallTarget::Trait must not store trait method identity as raw String",
 );
 assert(
     !resourceCallTarget[0].includes("trait_name: String"),

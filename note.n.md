@@ -1,3 +1,20 @@
+# 2026-05-13 Agent 1 HIR / Resource trait method identity typed 化
+
+- `ISS-20260512T191325765Z-HIR-AND-RESOURCE-TRAIT-METHOD-IDENTI-78952D7B` に対応した。
+- Stage 5 の trait identity typed 化で trait application は HIR / Resource IR まで到達していたが、method identity は `FuncRef::Trait.method` と `ResourceCallTarget::Trait.method` に raw `String` として残っていた。
+- `HirTraitMethodId` と `ResourceTraitMethodId` を追加し、typecheck trait call lowering、drop insertion、monomorphize unresolved report、Resource lowering / dump / i32 helper facts、LLVM/WASM codegen diagnostic を `as_str()` 表示境界へ追従した。
+- Resource IR 側の trait identity type は `resource/trait_identity.rs` へ分離し、`resource/model.rs` の責務分割 policy も維持した。
+- `nodesrc/test_abstraction_static_verification_policy.js` に HIR / Resource IR の method identity newtype と raw `method: String` 再導入禁止を追加した。
+- `doc/neplg2/abstraction_static_verification_plan.md` Stage 5 と親 issue に進捗を追記した。
+- 検証:
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test neplg2 trait -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 generic -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/abstraction_static_verification_plan.md` Stage 5 の typed trait / method identity 方針に沿った compiler core の静的検査 authority 整理。
+
 # 2026-05-12 Agent 1 Resource coverage module split
 
 - `ISS-20260512T111921719Z-RESOURCE-COVERAGE-MODULE-EXCEEDS-RES-2FFC6C86` に対応した。

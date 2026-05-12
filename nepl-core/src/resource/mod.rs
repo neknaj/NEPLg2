@@ -190,6 +190,7 @@ mod summary;
 mod summary_dependency;
 mod summary_worklist;
 mod timing;
+mod trait_identity;
 mod type_pattern;
 mod variant_name;
 

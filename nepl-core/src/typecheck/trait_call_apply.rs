@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::diagnostic_codes::{EffectDiagnosticCode, TypeDiagnosticCode};
-use crate::hir::{FuncRef, HirExpr, HirExprKind, HirTraitApplication};
+use crate::hir::{FuncRef, HirExpr, HirExprKind, HirTraitApplication, HirTraitMethodId};
 use crate::span::Span;
 use crate::types::TypeId;
 
@@ -31,7 +31,7 @@ pub(super) enum TraitMethodResolution {
 pub(super) struct TraitMethodCall {
     trait_name: alloc::string::String,
     trait_args: Vec<TypeId>,
-    method: alloc::string::String,
+    method: HirTraitMethodId,
     self_ty: TypeId,
 }
 
@@ -158,7 +158,7 @@ impl<'a> BlockChecker<'a> {
         TraitMethodResolution::Resolved(TraitMethodCall {
             trait_name: trait_name.to_string(),
             trait_args: applied_trait_args,
-            method: method_name.to_string(),
+            method: HirTraitMethodId::from_name(method_name.to_string()),
             self_ty,
         })
     }

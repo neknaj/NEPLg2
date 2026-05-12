@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T19:10:29.297Z",
+  "generated_at": "2026-05-12T19:33:37.798Z",
   "counts": {
-    "total": 672,
+    "total": 673,
     "open": 12,
-    "resolved": 660,
+    "resolved": 661,
     "by_area": {
       "core": {
-        "total": 354,
+        "total": 355,
         "open": 4,
-        "resolved": 350
+        "resolved": 351
       },
       "stdlib": {
         "total": 168,
@@ -5373,6 +5373,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T190305376Z-HIR-AND-RESOURCE-TRAIT-APPLICATIONS--0B41B202.md"
+    },
+    {
+      "id": "ISS-20260512T191325765Z-HIR-AND-RESOURCE-TRAIT-METHOD-IDENTI-78952D7B",
+      "title": "HIR and Resource trait method identity still uses raw String",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/hir.rs; nepl-core/src/resource/model.rs; nepl-core/src/resource/trait_identity.rs; nepl-core/src/typecheck/trait_call_apply.rs; nepl-core/src/typecheck/driver.rs; nepl-core/src/passes/drop_insertion.rs; nepl-core/src/monomorphize.rs; nepl-core/src/resource/lower.rs; nepl-core/src/resource/dump.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T191325765Z-HIR-AND-RESOURCE-TRAIT-METHOD-IDENTI-78952D7B.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

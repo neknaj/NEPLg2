@@ -296,7 +296,7 @@ impl<'a> Monomorphizer<'a> {
                                 "{} :: {}::{} [self={}]",
                                 func.name,
                                 application.display_name(self.ctx),
-                                method,
+                                method.as_str(),
                                 self.ctx.type_to_string(*self_ty),
                             ),
                             span: expr.span,
@@ -1383,7 +1383,7 @@ mod tests {
                                         String::from("Show"),
                                         Vec::new(),
                                     ),
-                                    method: String::from("show"),
+                                    method: HirTraitMethodId::from_name(String::from("show")),
                                     self_ty: i32_ty,
                                 },
                                 args: vec![HirExpr {
