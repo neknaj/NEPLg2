@@ -1,0 +1,22 @@
+//: # queue/index
+//: circular queue の index 計算
+//:
+//: ### [目的/もくてき]
+//: - capacity 正規化、tail、next index を API 本体から[分/わ]けます。
+//: - `Queue` と `RingBuffer` のような ring storage で発生しやすい off-by-one を局所化します。
+
+#indent 4
+
+#import "core/math" as *
+
+//: queue_normalize_capacity: 1 [以上/いじょう]の capacity に[正規化/せいきか]する
+fn queue_normalize_capacity <(i32)->i32> (cap):
+    if lt cap 1 1 cap
+
+//: queue_tail_index: `head + len` の circular tail index を[返/かえ]す
+fn queue_tail_index <(i32,i32,i32)->i32> (head, len, cap):
+    rem_u add head len cap
+
+//: queue_next_index: circular buffer の[次/つぎ]の index を[返/かえ]す
+fn queue_next_index <(i32,i32)->i32> (idx, cap):
+    rem_u add idx 1 cap

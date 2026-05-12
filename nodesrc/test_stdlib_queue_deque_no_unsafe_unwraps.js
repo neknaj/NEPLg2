@@ -7,6 +7,10 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const relPaths = [
     'stdlib/alloc/collections/queue.nepl',
+    'stdlib/alloc/collections/queue/types.nepl',
+    'stdlib/alloc/collections/queue/index.nepl',
+    'stdlib/alloc/collections/queue/storage.nepl',
+    'stdlib/alloc/collections/queue/api.nepl',
     'stdlib/alloc/collections/deque.nepl',
 ];
 
@@ -34,7 +38,17 @@ for (const relPath of relPaths) {
     }
 }
 
-const queue = implementationCode('stdlib/alloc/collections/queue.nepl');
+const queueRoot = implementationCode('stdlib/alloc/collections/queue.nepl');
+assert.match(queueRoot, /pub\s+#import\s+"\.\.\/?queue\/types"|pub\s+#import\s+"\.\/queue\/types"/, 'Queue root must re-export types from a submodule');
+assert.match(queueRoot, /pub\s+#import\s+"\.\.\/?queue\/api"|pub\s+#import\s+"\.\/queue\/api"/, 'Queue root must re-export API from a submodule');
+assert.doesNotMatch(queueRoot, /\b(?:struct|fn)\s+/, 'Queue root must remain a public facade without implementation bodies');
+
+const queue = [
+    'stdlib/alloc/collections/queue/types.nepl',
+    'stdlib/alloc/collections/queue/index.nepl',
+    'stdlib/alloc/collections/queue/storage.nepl',
+    'stdlib/alloc/collections/queue/api.nepl',
+].map(implementationCode).join('\n');
 assert.match(queue, /struct\s+Queue<\.T>:[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*head\s+<i32>[\s\S]*items\s+<Vec<Option<\.T>>>/, 'Queue must keep typed Vec<Option<T>> storage in its public owner struct');
 assert.match(queue, /struct\s+QueuePop<\.T>:[\s\S]*queue\s+<Queue<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Queue must expose an owner-preserving pop result');
 assert.match(queue, /fn\s+len\s+<\.T>\s+<\(&Queue<\.T>\)->i32>\s+\(q\):/, 'Queue.len must borrow the owner');

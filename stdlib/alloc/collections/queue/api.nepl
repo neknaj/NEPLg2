@@ -1,0 +1,127 @@
+//: # queue/api
+//: FIFO queue の public 操作
+//:
+//: ### [目的/もくてき]
+//: - `new` / `with_capacity` / `len` / `is_empty` / `push` / `pop_front` / `pop` / `peek` / `clear` / `free` を[提供/ていきょう]します。
+//: - owner を[更新/こうしん]する API と、owner を[借用/しゃくよう]して[観測/かんそく]する API を[分/わ]けます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `len` / `is_empty` / `peek` / `pop` は O(1) です。
+//: - `push` は[償却/しょうきゃく] O(1)、grow 時は O(n) です。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "./types" as *
+#import "./index" as *
+#import "./storage" as *
+
+//: ## new
+//: [空/から]の queue を[作/つく]る
+fn new <.T: Copy> <()*>Result<Queue<.T>, Diag>> ():
+    with_capacity<.T> 8
+
+//: ## with_capacity
+//: [初期/しょき][容量/ようりょう]を[指定/してい]して queue を[作/つく]る
+fn with_capacity <.T: Copy> <(i32)*>Result<Queue<.T>, Diag>> (cap):
+    let cap0 <i32> queue_normalize_capacity cap
+    match queue_alloc_slots<.T> cap0:
+        Result::Err d:
+            err<Queue<.T>, Diag> d
+        Result::Ok items:
+            ok<Queue<.T>, Diag> Queue<.T> 0 cap0 0 items
+
+//: ## len
+//: `Queue` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
+fn len <.T> <(&Queue<.T>)->i32> (q):
+    *field::get_ref q "len"
+
+//: ## is_empty
+//: `Queue` を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
+fn is_empty <.T> <(&Queue<.T>)->bool> (q):
+    eq len<.T> q 0
+
+//: ## push
+//: [末尾/まつび]へ[追加/ついか]する
+fn push <.T: Copy> <(Queue<.T>,.T)*>Result<Queue<.T>, Diag>> (q, item):
+    let len0 <i32> *field::get_ref &q "len"
+    let cap0 <i32> *field::get_ref &q "cap"
+    let head0 <i32> *field::get_ref &q "head"
+    let items <Vec<Option<.T>>> field::get q "items"
+    if:
+        eq len0 cap0
+        then:
+            let new_cap <i32> mul cap0 2
+            match queue_alloc_slots<.T> new_cap:
+                Result::Err d:
+                    vec::free<Option<.T>> items
+                    err<Queue<.T>, Diag> d
+                Result::Ok new_items:
+                    queue_copy_live_slots<.T> &items &new_items cap0 head0 len0
+                    queue_store_slot<.T> &new_items len0 some<.T> item
+                    vec::free<Option<.T>> items
+                    ok<Queue<.T>, Diag> Queue<.T> add len0 1 new_cap 0 new_items
+        else:
+            let tail <i32> queue_tail_index head0 len0 cap0
+            queue_store_slot<.T> &items tail some<.T> item
+            ok<Queue<.T>, Diag> Queue<.T> add len0 1 cap0 head0 items
+
+//: ## pop_front
+//: [先頭/せんとう]を[取/と]り[出/だ]し、[更新後/こうしんご]の queue と[値/あたい]を[返/かえ]す
+fn pop_front <.T: Copy> <(Queue<.T>)*>QueuePop<.T>> (q):
+    let len0 <i32> *field::get_ref &q "len"
+    let cap0 <i32> *field::get_ref &q "cap"
+    let head0 <i32> *field::get_ref &q "head"
+    let items <Vec<Option<.T>>> field::get q "items"
+    if:
+        eq len0 0
+        then:
+            let next_q <Queue<.T>> Queue<.T> 0 cap0 head0 items
+            QueuePop<.T> next_q none<.T>
+        else:
+            let item <Option<.T>> queue_item_at<.T> &items head0
+            queue_store_slot<.T> &items head0 none<.T>
+            let next_len <i32> sub len0 1
+            let next_head <i32> queue_next_index head0 cap0
+            let next_q <Queue<.T>> Queue<.T> next_len cap0 next_head items
+            QueuePop<.T> next_q item
+
+//: ## pop
+//: queue を[消費/しょうひ]して[先頭/せんとう]の[値/あたい]だけを[返/かえ]す
+fn pop <.T: Copy> <(Queue<.T>)*>Option<.T>> (q):
+    let p <QueuePop<.T>> pop_front<.T> q
+    let item <Option<.T>> *field::get_ref &p "item"
+    free<.T> field::get p "queue"
+    item
+
+//: ## peek
+//: `Queue` を[移動/いどう]せずに[先頭/せんとう]を[読/よ]む
+fn peek <.T: Copy> <(&Queue<.T>)->Option<.T>> (q):
+    let len0 <i32> *field::get_ref q "len"
+    if:
+        eq len0 0
+        then:
+            none<.T>
+        else:
+            let head0 <i32> *field::get_ref q "head"
+            let items <&Vec<Option<.T>>> field::get_ref q "items"
+            queue_item_at<.T> items head0
+
+//: ## clear
+//: [内容/ないよう]を[空/から]にする
+fn clear <.T: Copy> <(Queue<.T>)*>Queue<.T>> (q):
+    let cap0 <i32> *field::get_ref &q "cap"
+    let items <Vec<Option<.T>>> field::get q "items"
+    queue_clear_slots_loop<.T> &items cap0 0
+    Queue<.T> 0 cap0 0 items
+
+//: ## free
+//: queue が[所有/しょゆう]する backing storage を[解放/かいほう]する
+fn free <.T> <(Queue<.T>)->()> (q):
+    vec::free<Option<.T>> field::get q "items"

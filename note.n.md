@@ -19,6 +19,23 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-12 Agent 2 queue facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/queue.nepl` に同居していた型定義、circular index 計算、typed slot storage、grow 時 copy、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/queue.nepl` は public facade にし、`queue/types.nepl`、`queue/api.nepl` を `@merge` re-export するだけの構成にした。
+- `queue/types.nepl` は `Queue<T>` / `QueuePop<T>` と `Vec<Option<T>>` storage invariant を所有する。
+- `queue/index.nepl` は capacity 正規化、tail index、next index を所有する。
+- `queue/storage.nepl` は slot read / replace、allocation、clear、grow 時 live slot copy を所有する。
+- `queue/api.nepl` は `new` / `with_capacity` / `len` / `is_empty` / `push` / `pop_front` / `pop` / `peek` / `clear` / `free` を所有し、borrowed observer と typed storage cleanup の契約を維持する。
+- `nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js` を更新し、Queue root facade、typed `Vec<Option<T>>` storage、borrowed observer、owner-preserving `QueuePop`、raw memory 非使用を固定した。
+- line count は `queue.nepl` 16、`queue/types.nepl` 36、`queue/index.nepl` 22、`queue/storage.nepl` 61、`queue/api.nepl` 127。
+- [検証]:
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/queue.nepl -i stdlib/alloc/collections/queue/types.nepl -i stdlib/alloc/collections/queue/index.nepl -i stdlib/alloc/collections/queue/storage.nepl -i stdlib/alloc/collections/queue/api.nepl -i stdlib/tests/queue.n.md -i tests/stdlib/queue_collections.n.md --no-tree -o tmp/queue-split-focused.json -j 1 --dist web/dist`: total=4, passed=4
+  - `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-queue-split.json -j 1 --dist web/dist`: total=8, passed=3, failed=5（Queue doctest は passed。失敗は stale List fixture と remote main 由来 resource owner summary 問題）
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-12 Agent 2 examples owner summary regression issue
 
 - `origin/main` の `99433272` 取り込み後、Fenwick 分割 branch の再検証で `node nodesrc/tests.js -i examples -o tmp/fenwick-split-examples-after-rebase.json -j 4 --dist web/dist` が `resource.owner.maybe_leak` で失敗した。
