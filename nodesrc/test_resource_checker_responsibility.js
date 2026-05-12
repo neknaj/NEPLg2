@@ -406,6 +406,7 @@ const ownerReturn = readResource('owner_return.rs');
 const ownerReturnApply = readResource('owner_return_apply.rs');
 const ownerReturnUnknown = readResource('owner_return_unknown.rs');
 const ownerReturnView = readResource('owner_return_view.rs');
+const placeUtils = readResource('place_utils.rs');
 const summary = readResource('summary.rs');
 const effect = readResource('effect.rs');
 const effectCheck = readResource('effect_check.rs');
@@ -718,6 +719,29 @@ assertUsesResourceModuleSymbol(
     'effect_check',
     'ResourceEffectBoundaryEngine',
     'effect_summary.rs',
+);
+assertUsesResourceModuleSymbol(
+    placeUtils,
+    'variant_name',
+    'normalize_variant_name',
+    'place_utils.rs',
+);
+assertUsesResourceModuleSymbol(
+    placeUtils,
+    'variant_name',
+    'match_pattern_variant_name',
+    'place_utils.rs',
+);
+assertUsesResourceModuleSymbol(
+    placeUtils,
+    'variant_name',
+    'variant_names_match',
+    'place_utils.rs',
+);
+assertNotContains(
+    placeUtils,
+    'fn canonical_variant_name',
+    'place_utils.rs',
 );
 
 const maxLines = new Map([

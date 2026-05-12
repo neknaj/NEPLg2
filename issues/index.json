@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T12:28:50.049Z",
+  "generated_at": "2026-05-12T12:42:54.817Z",
   "counts": {
-    "total": 639,
+    "total": 640,
     "open": 10,
-    "resolved": 629,
+    "resolved": 630,
     "by_area": {
       "core": {
-        "total": 322,
+        "total": 323,
         "open": 3,
-        "resolved": 319
+        "resolved": 320
       },
       "stdlib": {
         "total": 167,
@@ -4893,6 +4893,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T122547229Z-RESOURCE-SUPPORT-MODULES-ARE-MISSING-8F8975DB.md"
+    },
+    {
+      "id": "ISS-20260512T123449359Z-RESOURCE-PLACE-UTILITIES-DUPLICATE-V-60D49720",
+      "title": "Resource place utilities duplicate variant name normalization",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/place_utils.rs; nepl-core/src/resource/variant_name.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T123449359Z-RESOURCE-PLACE-UTILITIES-DUPLICATE-V-60D49720.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

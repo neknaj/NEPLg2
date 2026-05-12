@@ -36295,3 +36295,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 Resource place_utils variant name utility 統一
+
+- `ISS-20260512T123449359Z-RESOURCE-PLACE-UTILITIES-DUPLICATE-V-60D49720` として、`place_utils.rs` に残っていた enum payload variant 名の local canonicalization を削除した。
+- `construct_aggregate_field_place` は `variant_name::normalize_variant_name` を使って enum payload projection を作るようにした。
+- `match_arm_variant_payload_name` は `variant_name::match_pattern_variant_name` を通すようにし、`match_bind_payload_place` と owner inactive sibling payload 判定が同じ canonical name を使うようにした。
+- enum payload type lookup の variant 比較も `variant_name::variant_names_match` に移し、`place_utils.rs` から local variant 名正規化 / 比較規則を取り除いた。
+- `nodesrc/test_resource_checker_responsibility.js` に `place_utils.rs` の shared variant utility 使用と local `canonical_variant_name` 禁止を追加した。
+- これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離作業で、enum payload place を cell / owner / raw alias / raw view の共通 key として一貫させるための整理である。
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_result_payload_raw_address_field -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir variant_owner -- --nocapture`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -401,3 +401,13 @@ raw `i32` owner seed は raw owner を消費する関数、または aggregate �
 - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 38 --dist web/dist`: passed
 - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-move-effect-region-token-fixture.json -j 1 --dist web/dist`: 110 passed
 - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-move-effect-region-token-memory-safety.json -j 1 --dist web/dist`: 23 passed
+
+## 2026-05-12 Resource IR place_utils variant 名 canonicalization 統一
+
+`ISS-20260512T123449359Z-RESOURCE-PLACE-UTILITIES-DUPLICATE-V-60D49720` として、Resource IR の enum payload place 生成が local `canonical_variant_name` を持っていた問題を修正した。
+
+根本原因は、initialized / owner / owner summary の variant 判定を `variant_name.rs` に集約した後も、`place_utils.rs` の aggregate payload projection と match arm payload bind が file-local `rsplit("::")` を残していたことだった。Resource IR の place は cell state、owner state、raw address alias、raw view、storage origin の共通 key なので、variant 名 canonicalization が複数規則になると enum payload 配下の memory safety fact が module 間でずれる。
+
+対応では `construct_aggregate_field_place` を `normalize_variant_name` へ移行し、`match_arm_variant_payload_name` も `match_pattern_variant_name` を返す形にした。さらに enum payload type lookup の variant 比較を `variant_names_match` に寄せ、`place_utils.rs` から variant 名の local 正規化 / 比較規則を取り除いた。`owner_control.rs` は selected variant を文字列所有値として受け、inactive sibling payload 除外時に同じ canonical name を参照する。
+
+`nodesrc/test_resource_checker_responsibility.js` には `place_utils.rs` が `variant_name` module を使うことと、local `canonical_variant_name` を再導入しないことを追加した。これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に含まれる。

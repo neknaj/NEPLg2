@@ -8,6 +8,9 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 use super::model::{
     AggregateKind, Place, PlaceProjection, PlaceRoot, ResourceMatchArm, ResourceMatchPattern,
 };
+use super::variant_name::{
+    match_pattern_variant_name, normalize_variant_name, variant_names_match,
+};
 
 pub(super) fn should_track(place: &Place) -> bool {
     !matches!(place.root, PlaceRoot::Unknown)
@@ -200,7 +203,7 @@ pub(super) fn construct_aggregate_field_place(
         }
         AggregateKind::Enum { variant, .. } => {
             place.projections.push(PlaceProjection::EnumPayload {
-                variant: canonical_variant_name(variant),
+                variant: normalize_variant_name(variant),
             });
             if index > 0 {
                 place.projections.push(PlaceProjection::TupleField {
@@ -321,7 +324,7 @@ pub(super) fn enum_payload_type(
     match types.get_ref(resolved) {
         TypeKind::Enum { variants, .. } => variants
             .iter()
-            .find(|variant| variant_name_matches(&variant.name, variant_name))
+            .find(|variant| variant_names_match(&variant.name, variant_name))
             .and_then(|variant| variant.payload)
             .map(|payload| normalize_projection_type(types, payload)),
         TypeKind::Apply { base, args } => {
@@ -337,7 +340,7 @@ pub(super) fn enum_payload_type(
             let mapping = extend_type_mapping(types, &BTreeMap::new(), type_params, args);
             variants
                 .iter()
-                .find(|variant| variant_name_matches(&variant.name, variant_name))
+                .find(|variant| variant_names_match(&variant.name, variant_name))
                 .and_then(|variant| variant.payload)
                 .map(|payload| mapped_type_id(types, payload, &mapping))
         }
@@ -360,14 +363,6 @@ pub(super) fn enum_payload_type(
     }
 }
 
-fn variant_name_matches(defined: &str, projected: &str) -> bool {
-    defined == projected || projected.rsplit("::").next() == Some(defined)
-}
-
-fn canonical_variant_name(variant: &str) -> String {
-    String::from(variant.rsplit("::").next().unwrap_or(variant))
-}
-
 fn normalize_projection_type(types: &TypeCtx, ty: TypeId) -> TypeId {
     types.resolve_named_type_id(types.resolve_id(ty))
 }
@@ -378,19 +373,18 @@ pub(super) fn match_bind_payload_place(
     bind_local: &Place,
 ) -> Option<Place> {
     let variant = match_arm_variant_payload_name(arm)?;
-    Some(scrutinee.clone().with_projection(
-        PlaceProjection::EnumPayload {
-            variant: String::from(variant),
-        },
-        bind_local.ty,
-    ))
+    Some(
+        scrutinee
+            .clone()
+            .with_projection(PlaceProjection::EnumPayload { variant }, bind_local.ty),
+    )
 }
 
-pub(super) fn match_arm_variant_payload_name(arm: &ResourceMatchArm) -> Option<&str> {
-    let ResourceMatchPattern::Variant(variant) = &arm.pattern else {
+pub(super) fn match_arm_variant_payload_name(arm: &ResourceMatchArm) -> Option<String> {
+    let ResourceMatchPattern::Variant(_) = &arm.pattern else {
         return None;
     };
-    Some(variant.rsplit("::").next().unwrap_or(variant))
+    match_pattern_variant_name(&arm.pattern)
 }
 
 pub(super) fn push_unique_place(places: &mut Vec<Place>, place: &Place) {

@@ -324,7 +324,7 @@ impl ResourceOwnerCheckEngine<'_> {
             let mut arm_variant_owner_effects = variant_owner_effects.clone();
             if let Some(selected_variant) = match_arm_variant_payload_name(arm) {
                 let mut inactive_payloads =
-                    arm_owners.sibling_enum_payload_places(scrutinee, selected_variant);
+                    arm_owners.sibling_enum_payload_places(scrutinee, &selected_variant);
                 let resolved_scrutinee = super::owner_alias::resolve_owner_alias_place(
                     &arm_owners,
                     &arm_raw_aliases,
@@ -332,7 +332,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 );
                 if resolved_scrutinee != *scrutinee {
                     for inactive_payload in arm_owners
-                        .sibling_enum_payload_places(&resolved_scrutinee, selected_variant)
+                        .sibling_enum_payload_places(&resolved_scrutinee, &selected_variant)
                     {
                         if !inactive_payloads.contains(&inactive_payload) {
                             inactive_payloads.push(inactive_payload);
