@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T20:31:19.318Z",
+  "generated_at": "2026-05-12T20:35:43.405Z",
   "counts": {
-    "total": 679,
+    "total": 680,
     "open": 10,
-    "resolved": 669,
+    "resolved": 670,
     "by_area": {
       "core": {
-        "total": 361,
+        "total": 362,
         "open": 2,
-        "resolved": 359
+        "resolved": 360
       },
       "stdlib": {
         "total": 168,
@@ -5478,6 +5478,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T202946482Z-TYPECHECK-CONSTRUCTOR-CAPABILITY-BOU-14965EAB.md"
+    },
+    {
+      "id": "ISS-20260512T203408880Z-LANGUAGE-AND-LSP-DIAGNOSTICS-DROP-RE-8AFBCCD3",
+      "title": "Language and LSP diagnostics drop registry code messages",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-language/src/lib.rs; nepl-lsp/src/main.rs; nodesrc/test_diagnostic_code_first_boundary.js; doc/neplg2/compiler_diagnostics_redesign_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T203408880Z-LANGUAGE-AND-LSP-DIAGNOSTICS-DROP-RE-8AFBCCD3.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -41,6 +41,7 @@ pub struct TextRange {
 pub struct EditorDiagnostic {
     pub severity: Severity,
     pub code: &'static str,
+    pub code_message: &'static str,
     pub message: String,
     pub notes: Vec<String>,
     pub helps: Vec<String>,
@@ -841,6 +842,7 @@ fn diagnostics_to_editor(
         .map(|diagnostic| EditorDiagnostic {
             severity: diagnostic.severity,
             code: diagnostic.code.as_str(),
+            code_message: diagnostic.code.message(),
             message: diagnostic.message.clone(),
             notes: diagnostic.notes.clone(),
             helps: diagnostic.helps.clone(),
@@ -1707,7 +1709,10 @@ fn main <()->i32> ():
             unknown
                 .diagnostics
                 .iter()
-                .any(|diagnostic| diagnostic.code == "loader.target.unknown"),
+                .any(|diagnostic| {
+                    diagnostic.code == "loader.target.unknown"
+                        && diagnostic.code_message == "unknown target in #target"
+                }),
             "{:?}",
             unknown.diagnostics
         );
@@ -1719,7 +1724,10 @@ fn main <()->i32> ():
             duplicate
                 .diagnostics
                 .iter()
-                .any(|diagnostic| { diagnostic.code == "loader.target.multiple_directive" }),
+                .any(|diagnostic| {
+                    diagnostic.code == "loader.target.multiple_directive"
+                        && diagnostic.code_message == "multiple #target directives are not allowed"
+                }),
             "{:?}",
             duplicate.diagnostics
         );

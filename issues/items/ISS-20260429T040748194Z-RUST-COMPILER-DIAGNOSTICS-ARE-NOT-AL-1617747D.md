@@ -896,6 +896,18 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `node nodesrc/test_diagnostic_code_first_boundary.js`
 - `node nodesrc/cli.js -i tests/playground_editor -o json=tmp/agent1-editor-diagnostic-code-contract-playground.json --playground-editor-tests`
 
+## 2026-05-13 Stage D3 language / LSP code_message contract 追記
+
+`nepl-web` は `code_message` を出していた一方で、`nepl-language` の `EditorDiagnostic` と `nepl-lsp` の publishDiagnostics data は stable code だけを持ち、`DiagnosticCode::message()` 由来の canonical message を落としていた。
+
+今回の対応で [Language and LSP diagnostics drop registry code messages](./ISS-20260512T203408880Z-LANGUAGE-AND-LSP-DIAGNOSTICS-DROP-RE-8AFBCCD3.md) を追加・解決した。`EditorDiagnostic.code_message` は `DiagnosticCode::message()` から生成し、LSP diagnostic の `data.code_message` へ転送する。`nodesrc/test_diagnostic_code_first_boundary.js` で language / LSP 側の contract も監視する。
+
+検証:
+
+- `node nodesrc/test_diagnostic_code_first_boundary.js`
+- `cargo test -p nepl-language target_directive_diagnostics_keep_loader_codes`
+- `cargo check -p nepl-language -p nepl-lsp --tests`
+
 ## 2026-04-30 Stage D1 source policy recursion 追記
 
 `nodesrc/test_diagnostic_code_first_boundary.js` は `.with_code(...)` の復活を検出するために追加していたが、固定された境界ファイルだけを読む実装だった。そのため、active compiler pass の別 file に code-less `Diagnostic::error(...)` / `Diagnostic::warning(...)` が戻っても CI で検出できない監視漏れがあった。

@@ -215,4 +215,23 @@ assert.match(
   'nepl-web loader diagnostics must use a LoaderDiagnosticCode helper',
 );
 
+const language = rustFiles.find((item) => item.rel === 'nepl-language/src/lib.rs')?.text ?? '';
+assert.match(
+  language,
+  /pub\s+code_message:\s+&'static\s+str/,
+  'nepl-language EditorDiagnostic must expose the enum-derived diagnostic code message',
+);
+assert.match(
+  language,
+  /code_message:\s+diagnostic\.code\.message\(\)/,
+  'nepl-language diagnostics_to_editor must derive code_message from DiagnosticCode::message()',
+);
+
+const lsp = rustFiles.find((item) => item.rel === 'nepl-lsp/src/main.rs')?.text ?? '';
+assert.match(
+  lsp,
+  /"code_message":\s+diagnostic\.code_message/,
+  'nepl-lsp diagnostic data must forward the enum-derived diagnostic code message',
+);
+
 console.log('diagnostic code-first boundary regression passed');

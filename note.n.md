@@ -36796,3 +36796,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260512T202946482Z-TYPECHECK-CONSTRUCTOR-CAPABILITY-BOU-14965EAB` を追加し、`MemPtr` / `RegionToken` direct constructor restriction が source policy にない問題を切り出した。
 - `nodesrc/test_static_check_boundary_responsibility.js` で `StructConstructorPolicy` / `RestrictedStructConstructor` enum、`MemPtr => RawPointer`、`RegionToken => OwnerToken` の raw-memory-boundary 分類を監視する。
 - `apply_struct_constructor` が `RawMemoryBoundaryOnly` gate を通し、`OwnerTokenConstructorRestricted` と `RawPointerConstructorRestricted` を別 diagnostic として出すことも policy にした。
+
+## 2026-05-13 Agent 1 language/LSP diagnostic code message
+
+- `3676acf1` push 後に remote main を pull し、`agent1/language-lsp-diagnostic-code-message` branch を作成した。
+- `ISS-20260512T203408880Z-LANGUAGE-AND-LSP-DIAGNOSTICS-DROP-RE-8AFBCCD3` を追加し、Stage D3 で `nepl-language` / `nepl-lsp` が enum-derived `code_message` を落としている問題を切り出した。
+- `EditorDiagnostic` に `code_message` を追加し、`diagnostics_to_editor` で `DiagnosticCode::message()` から生成するようにした。
+- LSP publishDiagnostics の `data.code_message` に同じ値を転送し、source policy と focused Rust test で stable code と canonical message の両方を監視する。
