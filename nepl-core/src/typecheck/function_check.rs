@@ -227,11 +227,11 @@ pub(super) fn check_function(
             &bound.application.base_name,
             &bound.application.args,
         ) || impls.iter().any(|imp| {
-            imp.trait_base_name
-                .as_deref()
-                .map(|base| bound.application.matches_parts(ctx, base, &imp.trait_args))
-                .unwrap_or(false)
-                && ctx.type_pattern_matches(imp.target_ty, resolved)
+            imp.matches_trait_application(
+                ctx,
+                &bound.application.base_name,
+                &bound.application.args,
+            ) && ctx.type_pattern_matches(imp.target_ty, resolved)
         });
         if !satisfied {
             diag_out.push(type_error(

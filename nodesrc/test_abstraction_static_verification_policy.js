@@ -15,9 +15,8 @@ const BASELINE = {
     parseTraitRefName: 0,
     formatTraitRefName: 7,
     traitBoundRef: 0,
-    implInfo: 8,
     traitLookupCache: 7,
-    implInfoOptionString: 3,
+    implInfoOptionString: 1,
 };
 
 function assert(condition, message) {
@@ -82,7 +81,6 @@ const counts = {
 assert(counts.parseTraitRefName <= BASELINE.parseTraitRefName, "trait ref string parser usage must not grow");
 assert(counts.formatTraitRefName <= BASELINE.formatTraitRefName, "trait ref string formatting usage must not grow");
 assert(counts.traitBoundRef <= BASELINE.traitBoundRef, "TraitBoundRef old model must not be reintroduced");
-assert(counts.implInfo <= BASELINE.implInfo, "ImplInfo old model usage must not grow");
 assert(counts.traitLookupCache <= BASELINE.traitLookupCache, "string-keyed trait lookup cache usage must not grow");
 assert(
     counts.implInfoOptionString <= BASELINE.implInfoOptionString,
@@ -95,6 +93,24 @@ assert(traits.includes("TraitCapability::Copy"), "TraitCapability::Copy match co
 assert(traits.includes("TraitCapability::Clone"), "TraitCapability::Clone match coverage must remain visible");
 assert(traits.includes("TraitCapability::Drop"), "TraitCapability::Drop match coverage must remain visible");
 assert(traits.includes("pub(super) struct TraitApplication"), "TraitApplication must be a typed model");
+assert(traits.includes("pub(super) enum ImplKind"), "ImplKind must model impl identity as an enum");
+assert(traits.includes("ImplKind::Inherent"), "ImplKind::Inherent match branch must remain visible");
+assert(traits.includes("ImplKind::Trait"), "ImplKind::Trait match branch must remain visible");
+assert(
+    traits.includes("application: TraitApplication"),
+    "trait impl identity must store a typed TraitApplication",
+);
+assert(
+    traits.includes("self_ty: TypeId"),
+    "trait impl identity must store trait self TypeId explicitly",
+);
+const implInfoStruct = traits.match(/pub\(super\) struct ImplInfo\s*\{[\s\S]*?\n\}/);
+assert(implInfoStruct, "ImplInfo struct body must be visible to source policy");
+assert(implInfoStruct[0].includes("kind: ImplKind"), "ImplInfo must own ImplKind");
+assert(!implInfoStruct[0].includes("trait_name"), "ImplInfo must not store rendered trait names");
+assert(!implInfoStruct[0].includes("trait_base_name"), "ImplInfo must not store split trait base names");
+assert(!implInfoStruct[0].includes("trait_args"), "ImplInfo must not store split trait args");
+assert(!implInfoStruct[0].includes("Option<"), "ImplInfo must not encode kind through optional fields");
 assert(traits.includes("pub(super) struct TraitBound"), "typed trait bound model must be named TraitBound");
 assert(
     !traits.includes("pub(super) struct TraitBoundRef"),
@@ -132,6 +148,14 @@ assert(
     !functionCheck.includes("&bound.name"),
     "deferred function-level trait checks must not use rendered bound names as authority",
 );
+for (const [name, text] of [
+    ["function_check.rs", functionCheck],
+    ["trait_check.rs", read(path.join(TYPECHECK_DIR, "trait_check.rs"))],
+    ["trait_call_apply.rs", read(path.join(TYPECHECK_DIR, "trait_call_apply.rs"))],
+]) {
+    assert(!text.includes("imp.trait_base_name"), `${name} must not inspect split impl trait base names`);
+    assert(!text.includes("imp.trait_args"), `${name} must not inspect split impl trait args`);
+}
 
 const typedLookup = traits.match(
     /pub\(super\) fn type_param_has_trait_application_bound[\s\S]*?\npub\(super\) fn merge_inferred_instantiation/,

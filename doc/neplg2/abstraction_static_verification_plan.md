@@ -157,6 +157,7 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `prefix_check.rs` の trait method self inference は、表示名を作って `infer_unique_type_param_for_trait` で parse し直す経路から、`infer_trait_application_args` の `TypeId` 列を直接 `infer_unique_type_param_for_trait_ref` へ渡す経路へ移行した。これにより `parse_trait_ref_name` は削除済みになった。
 - 2026-05-12: `TraitBoundRef` を `TraitBound` に改名し、表示名 field を削除した。診断と verbose log は `TraitBound::display_name` で境界生成する。
 - 2026-05-12: `TraitApplication` を追加し、`TraitBound` は `application: TraitApplication` と `trait_self_ty` を持つ形にした。type parameter bound の trait identity は split field ではなく typed value になった。
+- 2026-05-12: typecheck 側の impl matching も `TraitApplication` helper へ寄せた。`function_check.rs` / `trait_check.rs` / `trait_call_apply.rs` は `imp.trait_base_name` / `imp.trait_args` を直接読まず、`ImplInfo::matches_trait_application` を使う。
 
 検証:
 
@@ -181,6 +182,13 @@ struct MonoTraitLookupKey {
 - generic impl trait args。
 - generic target rejection。
 - capability trait impl validation。
+
+進捗:
+
+- 2026-05-12: `ISS-20260512T153756004Z-IMPLINFO-STILL-ENCODES-TRAIT-IMPL-ID-A4ECD77B` を追加し、verified にした。
+- 2026-05-12: `ImplKind` を追加し、`ImplInfo` を `kind: ImplKind` と `target_ty` の形へ移行した。trait impl identity は `ImplKind::Trait { application: TraitApplication, self_ty: TypeId }` に集約し、optional string field の組み合わせからは切り離した。
+- 2026-05-12: duplicate impl / deferred trait check / trait bound satisfaction / trait method application は、split field ではなく `ImplInfo` helper 経由で trait application を照合する。
+- 残件: final `HirImpl` と `monomorphize.rs` は Stage 5 の typed monomorphize lookup で対応する。ここでは typecheck-side static verification authority の enum 化を完了対象にした。
 
 ### Stage 3: BoundEnv と type parameter identity
 
@@ -240,14 +248,14 @@ struct MonoTraitLookupKey {
 
 - `parse_trait_ref_name` baseline は 0 済みであり、再導入禁止を維持する。
 - `TraitBoundRef` 旧 model baseline は 0 済みであり、再導入禁止を維持する。
-- `ImplInfo` optional string baseline を 0 にする。
+- `ImplInfo` optional string baseline は 2026-05-12 に typecheck-side `ImplKind` 導入で 1 まで下げた。残る 1 件は `TraitInfo.doc` であり、`ImplInfo` 由来ではない。
 - source policy を「増加禁止」から「再導入禁止」へ変更する。
 
 ## 進捗状況
 
-- `typecheck/traits.rs`: 実装済みだが再設計対象。TraitCapability enum は良い。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みで、type parameter bound は `TraitApplication` に集約済み。
-- `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存は削除済みだが、bound satisfaction の label fallback は残る。
+- `typecheck/traits.rs`: Stage 1/2 は進行済み。TraitCapability enum、TraitApplication、TraitBound、ImplKind が存在する。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みで、type parameter bound は `TraitApplication` に集約済み。ImplInfo は `ImplKind` を持ち、optional string model ではない。
+- `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存と split impl field 参照は削除済みだが、bound satisfaction の label fallback は残る。
 - `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
-- `typecheck/trait_call_apply.rs`: 実装済みだが再設計対象。trait method resolution result enum が必要。
+- `typecheck/trait_call_apply.rs`: 実装済みだが再設計対象。split impl field 参照は削除済みだが、trait method resolution result enum が必要。
 - `monomorphize.rs`: 実装済みだが再設計対象。trait lookup cache / impl indexes を typed key にする必要がある。
 - `nodesrc/test_abstraction_static_verification_policy.js`: Stage 0 baseline policy として追加。

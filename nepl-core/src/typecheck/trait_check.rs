@@ -86,14 +86,11 @@ impl<'a> BlockChecker<'a> {
                 self.ctx.resolve_id(ty),
             );
             for imp in self.impls.iter().filter(|imp| {
-                imp.trait_base_name
-                    .as_deref()
-                    .map(|base| {
-                        bound
-                            .application
-                            .matches_parts(self.ctx, base, &imp.trait_args)
-                    })
-                    .unwrap_or(false)
+                imp.matches_trait_application(
+                    self.ctx,
+                    &bound.application.base_name,
+                    &bound.application.args,
+                )
             }) {
                 trait_check_log!(
                     "  impl candidate target={} ({:?}) same_type={}",
@@ -104,15 +101,11 @@ impl<'a> BlockChecker<'a> {
             }
         }
         self.impls.iter().any(|imp| {
-            imp.trait_base_name
-                .as_deref()
-                .map(|base| {
-                    bound
-                        .application
-                        .matches_parts(self.ctx, base, &imp.trait_args)
-                })
-                .unwrap_or(false)
-                && self.ctx.type_pattern_matches(imp.target_ty, ty)
+            imp.matches_trait_application(
+                self.ctx,
+                &bound.application.base_name,
+                &bound.application.args,
+            ) && self.ctx.type_pattern_matches(imp.target_ty, ty)
         })
     }
 

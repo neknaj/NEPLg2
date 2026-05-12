@@ -30,7 +30,7 @@ use super::signature::{
 };
 use super::syntax_helpers::gate_allows;
 use super::traits::{
-    collect_type_params, format_trait_ref_name, insert_substitution_mapping, ImplInfo,
+    collect_type_params, format_trait_ref_name, insert_substitution_mapping, ImplInfo, ImplKind,
     TraitApplication, TraitBound, TraitCapability, TraitInfo, TraitSemantics,
 };
 use super::type_expr::{type_from_expr, LabelEnv, StringTable};
@@ -623,29 +623,38 @@ pub fn typecheck(
             }
         }
         if let Stmt::Impl(i) = item {
-            if i.trait_ref.is_none() {
-                diagnostics.push(type_error(
-                    TypeDiagnosticCode::ImplInherentUnsupported,
-                    "inherent impl is not supported yet",
-                    i.span,
-                ));
-                rejected_impl_spans.insert(span_key(i.span));
-                continue;
-            }
-            let trait_name = i.trait_ref.as_ref().map(|tr| tr.name.name.clone());
-            let mut trait_self_ty = None;
-            if let Some(tn) = &trait_name {
-                if !traits.contains_key(tn) {
+            let trait_ref = match i.trait_ref.as_ref() {
+                Some(trait_ref) => trait_ref,
+                None => {
+                    let impl_kind = ImplKind::Inherent;
+                    match impl_kind {
+                        ImplKind::Inherent => {
+                            diagnostics.push(type_error(
+                                TypeDiagnosticCode::ImplInherentUnsupported,
+                                "inherent impl is not supported yet",
+                                i.span,
+                            ));
+                            rejected_impl_spans.insert(span_key(i.span));
+                            continue;
+                        }
+                        ImplKind::Trait { .. } => continue,
+                    }
+                }
+            };
+            let trait_name = trait_ref.name.name.clone();
+            let trait_info = match traits.get(&trait_name) {
+                Some(info) => info,
+                None => {
                     diagnostics.push(type_error(
                         TypeDiagnosticCode::TraitUnknown,
-                        format!("unknown trait '{}'", tn),
+                        format!("unknown trait '{}'", trait_name),
                         i.span,
                     ));
                     rejected_impl_spans.insert(span_key(i.span));
                     continue;
                 }
-                trait_self_ty = traits.get(tn).map(|info| info.self_ty);
-            }
+            };
+            let trait_self_ty = trait_info.self_ty;
             let mut f_labels = LabelEnv::new();
             let (_tps, _bounds_vec, _impl_bounds_map) = collect_type_params(
                 &mut ctx,
@@ -655,37 +664,35 @@ pub fn typecheck(
                 &mut diagnostics,
             );
             let target_ty = type_from_expr(&mut ctx, &mut f_labels, &i.target_ty);
-            let applied_trait_name = if let Some(trait_ref) = &i.trait_ref {
-                let trait_info = traits.get(&trait_ref.name.name).unwrap();
-                if trait_info.type_params.len() != trait_ref.args.len() {
-                    diagnostics.push(type_error(
-                        TypeDiagnosticCode::TraitTypeParamsUnsupported,
-                        format!(
-                            "trait '{}' expects {} type arguments, found {}",
-                            trait_ref.name.name,
-                            trait_info.type_params.len(),
-                            trait_ref.args.len()
-                        ),
-                        trait_ref.name.span,
-                    ));
-                    rejected_impl_spans.insert(span_key(i.span));
-                    continue;
-                }
-                let trait_args: Vec<TypeId> = trait_ref
-                    .args
-                    .iter()
-                    .map(|arg| type_from_expr(&mut ctx, &mut f_labels, arg))
-                    .collect();
-                format_trait_ref_name(&trait_ref.name.name, &trait_args, &ctx)
-            } else {
-                trait_name.clone().unwrap_or_default()
+            if trait_info.type_params.len() != trait_ref.args.len() {
+                diagnostics.push(type_error(
+                    TypeDiagnosticCode::TraitTypeParamsUnsupported,
+                    format!(
+                        "trait '{}' expects {} type arguments, found {}",
+                        trait_ref.name.name,
+                        trait_info.type_params.len(),
+                        trait_ref.args.len()
+                    ),
+                    trait_ref.name.span,
+                ));
+                rejected_impl_spans.insert(span_key(i.span));
+                continue;
+            }
+            let trait_args: Vec<TypeId> = trait_ref
+                .args
+                .iter()
+                .map(|arg| type_from_expr(&mut ctx, &mut f_labels, arg))
+                .collect();
+            let trait_application = TraitApplication {
+                base_name: trait_name,
+                args: trait_args,
             };
             f_labels.insert(String::from("Self"), target_ty);
             let generic_impl_target = type_contains_unbound_var(&ctx, target_ty);
             if generic_impl_target
-                && !trait_semantics.has_copy_capability(trait_self_ty)
-                && !trait_semantics.has_clone_capability(trait_self_ty)
-                && !trait_semantics.has_drop_capability(trait_self_ty)
+                && !trait_semantics.has_copy_capability(Some(trait_self_ty))
+                && !trait_semantics.has_clone_capability(Some(trait_self_ty))
+                && !trait_semantics.has_drop_capability(Some(trait_self_ty))
             {
                 diagnostics.push(type_error(
                     TypeDiagnosticCode::ImplTargetNotConcrete,
@@ -695,7 +702,7 @@ pub fn typecheck(
                 rejected_impl_spans.insert(span_key(i.span));
                 continue;
             }
-            if trait_semantics.has_copy_capability(trait_self_ty) {
+            if trait_semantics.has_copy_capability(Some(trait_self_ty)) {
                 if !ctx.is_copy_impl_eligible(target_ty) {
                     diagnostics.push(type_error(
                         TypeDiagnosticCode::CopyImplTargetNotCopy,
@@ -709,8 +716,7 @@ pub fn typecheck(
                 pending_copy_clone_checks.push((target_ty, i.span));
             }
             if impls.iter().any(|imp| {
-                imp.trait_name.as_ref() == Some(&applied_trait_name)
-                    && imp.trait_self_ty == trait_self_ty
+                imp.matches_same_trait_impl(&ctx, &trait_application, trait_self_ty)
                     && (ctx.type_pattern_matches(imp.target_ty, target_ty)
                         || ctx.type_pattern_matches(target_ty, imp.target_ty))
             }) {
@@ -724,25 +730,17 @@ pub fn typecheck(
             }
 
             impls.push(ImplInfo {
-                trait_name: Some(applied_trait_name),
-                trait_base_name: trait_name,
-                trait_args: if let Some(trait_ref) = &i.trait_ref {
-                    trait_ref
-                        .args
-                        .iter()
-                        .map(|arg| type_from_expr(&mut ctx, &mut f_labels, arg))
-                        .collect()
-                } else {
-                    Vec::new()
+                kind: ImplKind::Trait {
+                    application: trait_application,
+                    self_ty: trait_self_ty,
                 },
-                trait_self_ty,
                 target_ty,
             });
         }
     }
     for (target_ty, span) in pending_copy_clone_checks {
         let has_clone_impl = impls.iter().any(|imp| {
-            trait_semantics.has_clone_capability(imp.trait_self_ty)
+            trait_semantics.has_clone_capability(imp.trait_self_ty())
                 && (ctx.type_pattern_matches(imp.target_ty, target_ty)
                     || ctx.type_pattern_matches(target_ty, imp.target_ty))
         });
@@ -757,16 +755,16 @@ pub fn typecheck(
         }
     }
     impls.retain(|imp| {
-        if !trait_semantics.has_copy_capability(imp.trait_self_ty) {
+        if !trait_semantics.has_copy_capability(imp.trait_self_ty()) {
             return true;
         }
         !contains_same_type(&ctx, &rejected_copy_targets, imp.target_ty)
     });
     for imp in impls.iter() {
-        if trait_semantics.has_copy_capability(imp.trait_self_ty) {
+        if trait_semantics.has_copy_capability(imp.trait_self_ty()) {
             ctx.register_copy_impl_target(imp.target_ty);
         }
-        if trait_semantics.has_drop_capability(imp.trait_self_ty) {
+        if trait_semantics.has_drop_capability(imp.trait_self_ty()) {
             ctx.register_drop_impl_target(imp.target_ty);
         }
     }

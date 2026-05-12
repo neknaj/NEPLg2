@@ -10,7 +10,6 @@ use crate::types::TypeId;
 
 use super::diagnostics::{effect_error, type_error};
 use super::syntax_helpers::split_qualified_name;
-use super::traits::trait_application_matches;
 use super::{BlockChecker, StackEntry};
 
 pub(super) enum TraitMethodApplyResult {
@@ -197,15 +196,7 @@ impl<'a> BlockChecker<'a> {
     ) -> bool {
         self.type_param_has_bound_ref(candidate, trait_name, applied_trait_args)
             || self.impls.iter().any(|imp| {
-                imp.trait_base_name.as_deref() == Some(trait_name)
-                    && imp.trait_args.len() == applied_trait_args.len()
-                    && trait_application_matches(
-                        self.ctx,
-                        trait_name,
-                        applied_trait_args,
-                        trait_name,
-                        &imp.trait_args,
-                    )
+                imp.matches_trait_application(self.ctx, trait_name, applied_trait_args)
                     && self.ctx.type_pattern_matches(imp.target_ty, candidate)
             })
     }

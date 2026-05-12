@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T15:30:52.429Z",
+  "generated_at": "2026-05-12T15:54:10.955Z",
   "counts": {
-    "total": 655,
-    "open": 12,
-    "resolved": 643,
+    "total": 657,
+    "open": 13,
+    "resolved": 644,
     "by_area": {
       "core": {
-        "total": 337,
-        "open": 4,
-        "resolved": 333
+        "total": 339,
+        "open": 5,
+        "resolved": 334
       },
       "stdlib": {
         "total": 168,
@@ -168,6 +168,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429.md"
+    },
+    {
+      "id": "ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB",
+      "title": "Generic trait probe regression fixture uses raw memory in a pure helper",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/tests/neplg2.rs; nepl-core/src/typecheck/effects.rs; doc/neplg2/compiler_diagnostics_redesign_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -5118,6 +5133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T152402849Z-TRAITBOUND-STILL-STORES-TRAIT-APPLIC-B9D13982.md"
+    },
+    {
+      "id": "ISS-20260512T153756004Z-IMPLINFO-STILL-ENCODES-TRAIT-IMPL-ID-A4ECD77B",
+      "title": "ImplInfo still encodes trait impl identity with optional fields",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/driver.rs; nepl-core/src/typecheck/function_check.rs; nepl-core/src/typecheck/trait_check.rs; nepl-core/src/typecheck/trait_call_apply.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T153756004Z-IMPLINFO-STILL-ENCODES-TRAIT-IMPL-ID-A4ECD77B.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

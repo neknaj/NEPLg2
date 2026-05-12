@@ -91,15 +91,6 @@ impl TraitSemantics {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct ImplInfo {
-    pub(super) trait_name: Option<String>,
-    pub(super) trait_base_name: Option<String>,
-    pub(super) trait_args: Vec<TypeId>,
-    pub(super) trait_self_ty: Option<TypeId>,
-    pub(super) target_ty: TypeId,
-}
-
-#[derive(Debug, Clone)]
 pub(super) struct TraitApplication {
     pub(super) base_name: String,
     pub(super) args: Vec<TypeId>,
@@ -112,6 +103,60 @@ impl TraitApplication {
 
     pub(super) fn matches_parts(&self, ctx: &TypeCtx, base_name: &str, args: &[TypeId]) -> bool {
         trait_application_matches(ctx, &self.base_name, &self.args, base_name, args)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(super) enum ImplKind {
+    Inherent,
+    Trait {
+        application: TraitApplication,
+        self_ty: TypeId,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct ImplInfo {
+    pub(super) kind: ImplKind,
+    pub(super) target_ty: TypeId,
+}
+
+impl ImplInfo {
+    pub(super) fn trait_self_ty(&self) -> Option<TypeId> {
+        match &self.kind {
+            ImplKind::Inherent => None,
+            ImplKind::Trait { self_ty, .. } => Some(*self_ty),
+        }
+    }
+
+    pub(super) fn matches_trait_application(
+        &self,
+        ctx: &TypeCtx,
+        base_name: &str,
+        args: &[TypeId],
+    ) -> bool {
+        match &self.kind {
+            ImplKind::Inherent => false,
+            ImplKind::Trait { application, .. } => application.matches_parts(ctx, base_name, args),
+        }
+    }
+
+    pub(super) fn matches_same_trait_impl(
+        &self,
+        ctx: &TypeCtx,
+        application: &TraitApplication,
+        self_ty: TypeId,
+    ) -> bool {
+        match &self.kind {
+            ImplKind::Inherent => false,
+            ImplKind::Trait {
+                application: existing,
+                self_ty: existing_self_ty,
+            } => {
+                *existing_self_ty == self_ty
+                    && existing.matches_parts(ctx, &application.base_name, &application.args)
+            }
+        }
     }
 }
 

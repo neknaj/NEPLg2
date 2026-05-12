@@ -36561,3 +36561,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+## 2026-05-13 Agent 1 ImplKind typecheck identity
+
+- `origin/main` の `8c861744` と一致する clean な main から `agent1/impl-kind-trait-info` branch を作成した。
+- `ISS-20260512T153756004Z-IMPLINFO-STILL-ENCODES-TRAIT-IMPL-ID-A4ECD77B` を追加し、abstraction static verification plan Stage 2 の `ImplKind` 導入として対応した。
+- `ImplInfo` から `trait_name: Option<String>` / `trait_base_name: Option<String>` / `trait_args` / `trait_self_ty: Option<TypeId>` を外し、`ImplKind::Trait { application: TraitApplication, self_ty: TypeId }` を持つ model に変更した。
+- `function_check.rs` / `trait_check.rs` / `trait_call_apply.rs` は impl の split field を直接読まず、`ImplInfo::matches_trait_application` と `matches_same_trait_impl` で照合する。
+- `nodesrc/test_abstraction_static_verification_policy.js` を更新し、`ImplInfo` optional field model と `imp.trait_base_name` / `imp.trait_args` 直読みの再導入を拒否するようにした。
+- focused trait regression 実行中に `generic_store_after_generic_trait_probe_preserves_struct` が `PureCallsImpure` で失敗することを確認した。`origin/main` の別 worktree でも同じ失敗だったため、`ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB` として別 issue 化した。
+- plan.md は変更していない。compiler static verification の enum/match 方針を進める変更であり、stdlib の挙動変更は含まない。
