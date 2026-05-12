@@ -1,3 +1,22 @@
+# 2026-05-12 Agent 2 disjoint_set API facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/disjoint_set/api.nepl` に同居していた診断生成、構築、借用 query、owner-consuming update、cleanup を責務別 submodule に分割した。
+- `disjoint_set/api.nepl` は public facade にし、`api/diagnostic.nepl`、`api/create.nepl`、`api/observer.nepl`、`api/mutation.nepl`、`api/cleanup.nepl` を `@merge` re-export するだけの構成にした。
+- `api/diagnostic.nepl` は length / index error の `Diag` constructor を所有する。
+- `api/create.nepl` は `new` と typed `Vec<i32>` 初期化を所有する。
+- `api/observer.nepl` は `len` / `find` / `same` / `size` を owner を消費しない query API として所有する。
+- `api/mutation.nepl` は owner-consuming `union` を所有し、失敗時に `DisjointSetUpdateError` で owner を返す契約を維持する。
+- `api/cleanup.nepl` は `free` と parent / sizes の `Vec<i32>` owner cleanup を所有する。
+- `nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_disjoint_set_borrowed_observers.js`、`nodesrc/test_stdlib_disjoint_set_union_error_owner.js` を更新し、API facade に implementation body が戻らないことと submodule の所有境界を固定した。
+- line count は `api.nepl` 12、`api/diagnostic.nepl` 12、`api/create.nepl` 53、`api/observer.nepl` 145、`api/mutation.nepl` 93、`api/cleanup.nepl` 37。
+- [検証]:
+  - `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_union_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl -i stdlib/alloc/collections/disjoint_set/types.nepl -i stdlib/alloc/collections/disjoint_set/storage.nepl -i stdlib/alloc/collections/disjoint_set/query.nepl -i stdlib/alloc/collections/disjoint_set/api.nepl -i stdlib/alloc/collections/disjoint_set/api/diagnostic.nepl -i stdlib/alloc/collections/disjoint_set/api/create.nepl -i stdlib/alloc/collections/disjoint_set/api/observer.nepl -i stdlib/alloc/collections/disjoint_set/api/mutation.nepl -i stdlib/alloc/collections/disjoint_set/api/cleanup.nepl -i stdlib/tests/disjoint_set.n.md -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/disjoint-set-api-split-focused.json -j 1 --dist web/dist`: total=13, passed=13
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-12 Agent 2 vec simple sort facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/vec/sort/simple.nepl` に同居していた 7 種類の simple sort 実装をアルゴリズム分類ごとに分割した。

@@ -1,0 +1,16 @@
+//: # disjoint_set/api/diagnostic
+//: `DisjointSet` API が返す診断 constructor
+//:
+//: ### [目的/もくてき]
+//: - length / index error の `Diag` 生成を 1 箇所に集約します。
+//: - public 操作 module が同じ診断種別と message を共有できるようにします。
+
+#indent 4
+
+#import "alloc/diag/error" as *
+
+fn dsu_diag_len <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid disjoint set length"
+
+fn dsu_diag_index <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "disjoint set index out of bounds"

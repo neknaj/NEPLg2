@@ -1,0 +1,40 @@
+//: # disjoint_set/api/cleanup
+//: `DisjointSet` owner の cleanup API
+//:
+//: ### [目的/もくてき]
+//: - `DisjointSet` が所有する parent / sizes の 2 本の `Vec<i32>` を閉じます。
+//: - 解放処理を API facade や query/update module から分離します。
+
+#indent 4
+
+#import "core/field" as field
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+
+//: ## free
+//: [内部配列/ないぶはいれつ]を[解放/かいほう]する
+//:
+//: ### [実装/じっそう]
+//: - `parent` と `sizes` は `new` が `Vec<i32>` として[確保/かくほ]し、`DisjointSet` が[単独/たんどく]で[所有/しょゆう]します。
+//: - owner invariant に[基/もと]づき、内部 cleanup は 2 [本/ほん]の `Vec<i32>` owner を[閉/と]じます。
+//:
+//: ### [注意/ちゅうい]
+//: - [解放後/かいほうご]に `dsu` を[再利用/さいりよう]してはいけません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/disjoint_set" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let dsu <DisjointSet> unwrap_ok<DisjointSet, Diag> new 3;
+//:     free dsu;
+//:     0
+//: ```
+fn free <(DisjointSet)->()> (dsu):
+    let parent <Vec<i32>> field::get dsu "parent"
+    let sizes <Vec<i32>> field::get dsu "sizes"
+    vec::free<i32> parent
+    vec::free<i32> sizes

@@ -1,0 +1,56 @@
+//: # disjoint_set/api/create
+//: `DisjointSet` の構築 API
+//:
+//: ### [目的/もくてき]
+//: - typed `Vec<i32>` storage の初期化と root parent 書き込みを構築処理に閉じ込めます。
+//: - 負の長さや allocation failure を typed `Diag` として返します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../storage" as *
+#import "./diagnostic" as *
+
+//: ## new
+//: [長/なが]さ `n` の[素集合/そしゅうごう]を[作/つく]る
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/disjoint_set" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let dsu <DisjointSet> unwrap_ok<DisjointSet, Diag> new 5;
+//:     let ok <bool> eq len &dsu 5;
+//:     free dsu
+//:     if ok 1 0
+//: ```
+fn new <(i32)*>Result<DisjointSet, Diag>> (n):
+    if:
+        lt n 0
+        then diag_err<DisjointSet> dsu_diag_len
+        else:
+            match vec::filled<i32> n 0:
+                Result::Err _e:
+                    diag_err<DisjointSet> diag_out_of_memory
+                Result::Ok parent:
+                    match vec::filled<i32> n 1:
+                        Result::Err _e:
+                            vec::free<i32> parent
+                            diag_err<DisjointSet> diag_out_of_memory
+                        Result::Ok sizes:
+                            let mut i <i32> 0
+                            while lt i n:
+                                do:
+                                    dsu_store_owned &parent i i
+                                    set i add i 1
+                            ok<DisjointSet, Diag> DisjointSet n parent sizes

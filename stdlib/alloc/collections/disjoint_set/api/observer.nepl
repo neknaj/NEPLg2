@@ -1,0 +1,151 @@
+//: # disjoint_set/api/observer
+//: `DisjointSet` の借用 query API
+//:
+//: ### [目的/もくてき]
+//: - `len` / `find` / `same` / `size` を owner を消費しない API として提供します。
+//: - path compression は行わず、pure query として parent / size storage を読み取ります。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../query" as *
+#import "./diagnostic" as *
+
+//: ## len
+//: [保持/ほじ]している[要素数/ようそすう]を[返/かえ]す
+//:
+//: ### [仕様/しよう]
+//: - `DisjointSet` owner は[消費/しょうひ]しません。
+//: - caller は `len` [後/ご]も同じ `DisjointSet` を[使/つか]い、不要になったら `free` できます。
+fn len <(&DisjointSet)->i32> (dsu):
+    *field::get_ref dsu "n"
+
+//: ## find
+//: `idx` の[代表元/だいひょうげん]を[返/かえ]す
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(log n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/disjoint_set" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
+//:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu0 0 1;
+//:     let root0 <i32> unwrap_ok<i32, Diag> find &dsu1 0;
+//:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
+//:     let dsu3 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu2 0 1;
+//:     let root1 <i32> unwrap_ok<i32, Diag> find &dsu3 1;
+//:     free dsu1
+//:     free dsu3
+//:     if eq root0 root1 1 0
+//: ```
+fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
+    let n <i32> *field::get_ref dsu "n"
+    if:
+        and le 0 idx lt idx n
+        then:
+            let parent <&Vec<i32>> field::get_ref dsu "parent"
+            match dsu_root_storage parent idx:
+                Option::Some root:
+                    ok<i32, Diag> root
+                Option::None:
+                    diag_err<i32> dsu_diag_index
+        else:
+            let d <Diag> dsu_diag_index
+            err<i32, Diag> d
+
+//: ## same
+//: 2 [要素/ようそ]が[同/おな]じ[集合/しゅうごう]に[属/ぞく]するかを[返/かえ]す
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(log n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/disjoint_set" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
+//:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu0 0 1;
+//:     let ok0 <bool> unwrap_ok<bool, Diag> same &dsu1 0 1;
+//:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
+//:     let dsu3 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu2 0 1;
+//:     let ok1 <bool> unwrap_ok<bool, Diag> same &dsu3 0 2;
+//:     free dsu1
+//:     free dsu3
+//:     let ok2 <bool> if ok1 false true;
+//:     if and ok0 ok2 1 0
+//: ```
+fn same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
+    let n <i32> *field::get_ref dsu "n"
+    if:
+        and and le 0 a lt a n and le 0 b lt b n
+        then:
+            let parent <&Vec<i32>> field::get_ref dsu "parent"
+            match dsu_root_storage parent a:
+                Option::Some ra:
+                    match dsu_root_storage parent b:
+                        Option::Some rb:
+                            ok<bool, Diag> eq ra rb
+                        Option::None:
+                            diag_err<bool> dsu_diag_index
+                Option::None:
+                    diag_err<bool> dsu_diag_index
+        else:
+            let d <Diag> dsu_diag_index
+            err<bool, Diag> d
+
+//: ## size
+//: `idx` の[属/ぞく]する[集合/しゅうごう]の[大/おお]きさを[返/かえ]す
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(log n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/disjoint_set" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 5;
+//:     let dsu1 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu0 0 1;
+//:     let dsu2 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu1 1 2;
+//:     let s <i32> unwrap_ok<i32, Diag> size &dsu2 2;
+//:     free dsu2
+//:     if eq s 3 1 0
+//: ```
+fn size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
+    let n <i32> *field::get_ref dsu "n"
+    if:
+        and le 0 idx lt idx n
+        then:
+            let parent <&Vec<i32>> field::get_ref dsu "parent"
+            let sizes <&Vec<i32>> field::get_ref dsu "sizes"
+            match dsu_root_storage parent idx:
+                Option::Some root:
+                    match dsu_size_storage sizes root:
+                        Option::Some out:
+                            ok<i32, Diag> out
+                        Option::None:
+                            diag_err<i32> dsu_diag_index
+                Option::None:
+                    diag_err<i32> dsu_diag_index
+        else:
+            let d <Diag> dsu_diag_index
+            err<i32, Diag> d
