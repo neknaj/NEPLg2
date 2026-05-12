@@ -1,3 +1,17 @@
+# 2026-05-12 Agent 2 adjacency_matrix API facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/adjacency_matrix/api.nepl` に残っていた診断生成、構築、borrowed observer、owner-consuming update、bulk reset、cleanup を責務別 submodule に分割した。
+- `api.nepl` は `api/diagnostic`、`api/create`、`api/observer`、`api/update`、`api/bulk`、`api/cleanup` の public `@merge` re-export だけを持つ facade にした。
+- `insert` / `remove` の重複していた validation と owner-preserving error 生成は `adjacency_matrix_update` に集約した。
+- `clear` の byte fill 処理は `adjacency_matrix_fill_value` に集約した。
+- `nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_adjacency_matrix_borrowed_observers.js`、`nodesrc/test_stdlib_adjacency_matrix_update_error_owner.js` を更新し、API facade に implementation body が戻らないこと、observer / update / bulk / cleanup の責務境界、owner-preserving update error、raw memory 非使用を固定した。
+- line count は `api.nepl` 14、`api/diagnostic.nepl` 12、`api/create.nepl` 42、`api/observer.nepl` 59、`api/update.nepl` 88、`api/bulk.nepl` 39、`api/cleanup.nepl` 33。
+- 検証:
+  - `node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_adjacency_matrix_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_adjacency_matrix_update_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl -i stdlib/alloc/collections/adjacency_matrix/types.nepl -i stdlib/alloc/collections/adjacency_matrix/layout.nepl -i stdlib/alloc/collections/adjacency_matrix/storage.nepl -i stdlib/alloc/collections/adjacency_matrix/mutation.nepl -i stdlib/alloc/collections/adjacency_matrix/api.nepl -i stdlib/alloc/collections/adjacency_matrix/api/diagnostic.nepl -i stdlib/alloc/collections/adjacency_matrix/api/create.nepl -i stdlib/alloc/collections/adjacency_matrix/api/observer.nepl -i stdlib/alloc/collections/adjacency_matrix/api/update.nepl -i stdlib/alloc/collections/adjacency_matrix/api/bulk.nepl -i stdlib/alloc/collections/adjacency_matrix/api/cleanup.nepl -i stdlib/tests/adjacency_matrix.n.md -i tests/stdlib/adjacency_matrix_collections.n.md --no-tree -o tmp/adjacency-matrix-api-split-focused.json -j 1 --dist web/dist`: total=13, passed=13
+
 # 2026-05-12 Agent 2 binary_heap API facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/binary_heap/api.nepl` に残っていた構築、borrowed observer、push grow、pop、cleanup を責務別 submodule に分割した。

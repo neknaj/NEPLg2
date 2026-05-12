@@ -1,0 +1,63 @@
+//: # adjacency_matrix/api/observer
+//: `AdjacencyMatrix` の借用 observer API
+//:
+//: ### [目的/もくてき]
+//: - `len` / `contains` を `AdjacencyMatrix` owner を消費しない read-only API として提供します。
+//: - edge validation と typed byte read を通し、raw pointer を public API に漏らしません。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../layout" as *
+#import "../storage" as *
+#import "./diagnostic" as *
+
+//: ## len
+//: [頂点数/ちょうてんすう]を[返/かえ]す
+//:
+//: ### [仕様/しよう]
+//: - `AdjacencyMatrix` owner は[消費/しょうひ]しません。
+//: - caller は `len` [後/ご]も同じ `AdjacencyMatrix` を[使/つか]い、不要になったら `free` できます。
+fn len <(&AdjacencyMatrix)->i32> (g):
+    *field::get_ref g "nverts"
+
+//: ## contains
+//: edge の[有無/うむ]を[返/かえ]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/adjacency_matrix" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let g <AdjacencyMatrix>:
+//:         unwrap_ok<AdjacencyMatrix, Diag> new 4
+//:         |> insert 1 3 |> uwok
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &g 1 3;
+//:     free g
+//:     if ok 1 0
+//: ```
+fn contains <(&AdjacencyMatrix,i32,i32)*>Result<bool, Diag>> (g, from, to):
+    let nverts <i32> *field::get_ref g "nverts"
+    if:
+        adjacency_matrix_valid_edge nverts from to
+        then:
+            let bits <&Vec<u8>> field::get_ref g "bits"
+            let bit_idx <i32> adjacency_matrix_bit_index nverts from to
+            let byte_idx <i32> adjacency_matrix_byte_index bit_idx
+            let mask <i32> adjacency_matrix_mask bit_idx
+            match adjacency_matrix_byte_at bits byte_idx:
+                Option::Some cur:
+                    ok<bool, Diag> ne and cur mask 0
+                Option::None:
+                    diag_err<bool> adjacency_matrix_vertex_diag
+        else:
+            diag_err<bool> adjacency_matrix_vertex_diag

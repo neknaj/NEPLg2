@@ -7,13 +7,21 @@ const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
 const apiPath = "stdlib/alloc/collections/adjacency_matrix/api.nepl";
+const observerPath = "stdlib/alloc/collections/adjacency_matrix/api/observer.nepl";
 const apiSrc = fs.readFileSync(path.join(repoRoot, apiPath), "utf8");
+const observerSrc = fs.readFileSync(path.join(repoRoot, observerPath), "utf8");
 
-const code = apiSrc
+const apiCode = apiSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join("\n");
+const code = observerSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join("\n");
 
+assert.match(apiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, "AdjacencyMatrix api facade must re-export borrowed observers through api/observer");
+assert.doesNotMatch(apiCode, /\bfn\s+/, "AdjacencyMatrix api facade must not keep duplicate observer wrappers");
 assert.match(code, /fn\s+len\s+<\(&AdjacencyMatrix\)->i32>\s+\(g\):/, "AdjacencyMatrix.len must borrow the owner");
 assert.doesNotMatch(code, /fn\s+len\s+<\(AdjacencyMatrix\)->i32>/, "AdjacencyMatrix.len must not consume the owner");
 

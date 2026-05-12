@@ -1,0 +1,45 @@
+//: # adjacency_matrix/api/create
+//: `AdjacencyMatrix` の構築 API
+//:
+//: ### [目的/もくてき]
+//: - 頂点数から matrix byte 長を計算し、初期化済み typed byte storage を確保します。
+//: - invalid length / allocation failure は `Diag` として返し、trap にしません。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "alloc/diag/error" as *
+#import "../types" as *
+#import "../layout" as *
+#import "../storage" as *
+#import "./diagnostic" as *
+
+//: ## new
+//: [空/から]の[隣接行列/りんせつぎょうれつ]を[作/つく]る
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/adjacency_matrix" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let g <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 5;
+//:     let ok <bool> eq len &g 5;
+//:     free g
+//:     if ok 1 0
+//: ```
+fn new <(i32)*>Result<AdjacencyMatrix, Diag>> (nverts):
+    if:
+        le nverts 0
+        then:
+            diag_err<AdjacencyMatrix> adjacency_matrix_invalid_len_diag
+        else:
+            let nbytes <i32> adjacency_matrix_byte_len nverts
+            match adjacency_matrix_alloc_bits nbytes 0:
+                Result::Err d:
+                    err<AdjacencyMatrix, Diag> d
+                Result::Ok bits:
+                    ok<AdjacencyMatrix, Diag> AdjacencyMatrix nverts nbytes bits

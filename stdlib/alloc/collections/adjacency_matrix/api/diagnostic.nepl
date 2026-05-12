@@ -1,0 +1,16 @@
+//: # adjacency_matrix/api/diagnostic
+//: `AdjacencyMatrix` public API の診断生成
+//:
+//: ### [目的/もくてき]
+//: - 頂点数不正と vertex 範囲外の `Diag` 生成を 1 箇所に集約します。
+//: - observer と update が同じ診断 kind/message を返すようにします。
+
+#indent 4
+
+#import "alloc/diag/error" as *
+
+fn adjacency_matrix_invalid_len_diag <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid adjacency matrix vertex length"
+
+fn adjacency_matrix_vertex_diag <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "adjacency matrix vertex out of bounds"
