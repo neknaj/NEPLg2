@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T14:34:47.956Z",
+  "generated_at": "2026-05-12T14:48:24.324Z",
   "counts": {
-    "total": 650,
-    "open": 11,
+    "total": 651,
+    "open": 12,
     "resolved": 639,
     "by_area": {
       "core": {
-        "total": 332,
-        "open": 3,
+        "total": 333,
+        "open": 4,
         "resolved": 329
       },
       "stdlib": {
@@ -153,6 +153,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429",
+      "title": "Generic and trait abstraction model still uses string-rendered trait references",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/trait_check.rs; nepl-core/src/typecheck/trait_bound_apply.rs; nepl-core/src/typecheck/trait_call_apply.rs; nepl-core/src/monomorphize.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",

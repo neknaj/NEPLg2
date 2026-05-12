@@ -36475,8 +36475,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `doc/neplg2/stdlib_documentation_contract_plan.md` を追加し、documentation を削って file size を抑えることを禁止し、module split と documentation 維持を両立する方針を明文化した。
 - `nodesrc/test_stdlib_documentation_contract.js` を追加し、現在の不足数を baseline として固定して、これ以上の悪化を source policy で拒否するようにした。
 - `nodesrc/run_source_policy_regressions.js` に documentation contract policy を追加した。baseline は最終状態ではなく、今後 stage ごとに missing 数を 0 へ下げる。
-- [検証予定]:
+- [検証]:
   - `node nodesrc/test_stdlib_documentation_contract.js`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - `node nodesrc/issues.js index --dir issues`
+  - `node nodesrc/issues.js check --dir issues`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 abstraction static verification 監査
+
+- `ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429` として、generics / trait / trait bound / overload / monomorphize の抽象化機能を静的検証方針から監査した。
+- 現状は tests と module split はあるが、trait application identity が `TraitBoundRef.name`、`format_trait_ref_name`、`parse_trait_ref_name`、string-keyed monomorphize map に残っている。
+- `parse_trait_ref_name` は primitive type しか復元できないため、struct / enum / nested apply / type parameter を含む trait application を静的検査の authority として扱う設計には不十分である。
+- `ImplInfo` は `Option<String>` field の組み合わせで inherent impl / trait impl を表しており、`ImplKind` enum による網羅的分岐へ置き換える必要がある。
+- `doc/neplg2/abstraction_static_verification_plan.md` を追加し、`TraitApplication`、`ImplKind`、`PendingTraitCheck`、`MonoTraitLookupKey` へ段階的に移行する計画を記述した。
+- `nodesrc/test_abstraction_static_verification_policy.js` を追加し、string-based trait reference authority の現行 baseline を固定して悪化を拒否するようにした。
+- [検証予定]:
+  - `node nodesrc/test_abstraction_static_verification_policy.js`
   - `node nodesrc/run_source_policy_regressions.js --warn-only`
   - `node nodesrc/issues.js index --dir issues`
   - `node nodesrc/issues.js check --dir issues`
