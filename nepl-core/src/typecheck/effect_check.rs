@@ -1,5 +1,4 @@
 use alloc::format;
-use alloc::string::String;
 
 use crate::ast::{Block, Effect, Stmt};
 use crate::diagnostic_codes::EffectDiagnosticCode;
@@ -22,7 +21,7 @@ impl<'a> BlockChecker<'a> {
             if !memory_ops.is_empty() && !self.raw_body_memory_operations_allowed(span) {
                 let op = memory_ops
                     .first()
-                    .map(String::as_str)
+                    .map(|operation| operation.as_str())
                     .unwrap_or("raw memory operation");
                 self.diagnostics.push(effect_error(
                     EffectDiagnosticCode::PureCallsImpure,

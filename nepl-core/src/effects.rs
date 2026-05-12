@@ -125,6 +125,97 @@ impl fmt::Display for RawMemoryOp {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum RawBodyMemoryOp {
+    Wasm(WasmRawBodyMemoryOp),
+    Llvm(LlvmRawBodyMemoryOp),
+}
+
+impl RawBodyMemoryOp {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            RawBodyMemoryOp::Wasm(operation) => operation.as_str(),
+            RawBodyMemoryOp::Llvm(operation) => operation.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for RawBodyMemoryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum WasmRawBodyMemoryOp {
+    Load,
+    Store,
+    MemorySize,
+    MemoryGrow,
+    MemoryCopy,
+    MemoryFill,
+    MemoryInit,
+    DataDrop,
+    Memory,
+}
+
+impl WasmRawBodyMemoryOp {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            WasmRawBodyMemoryOp::Load => "wasm.load",
+            WasmRawBodyMemoryOp::Store => "wasm.store",
+            WasmRawBodyMemoryOp::MemorySize => "wasm.memory.size",
+            WasmRawBodyMemoryOp::MemoryGrow => "wasm.memory.grow",
+            WasmRawBodyMemoryOp::MemoryCopy => "wasm.memory.copy",
+            WasmRawBodyMemoryOp::MemoryFill => "wasm.memory.fill",
+            WasmRawBodyMemoryOp::MemoryInit => "wasm.memory.init",
+            WasmRawBodyMemoryOp::DataDrop => "wasm.data.drop",
+            WasmRawBodyMemoryOp::Memory => "wasm.memory",
+        }
+    }
+}
+
+impl fmt::Display for WasmRawBodyMemoryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum LlvmRawBodyMemoryOp {
+    Alloca,
+    Load,
+    Store,
+    AtomicRmw,
+    Cmpxchg,
+    Fence,
+    Memcpy,
+    Memmove,
+    Memset,
+}
+
+impl LlvmRawBodyMemoryOp {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            LlvmRawBodyMemoryOp::Alloca => "llvm.alloca",
+            LlvmRawBodyMemoryOp::Load => "llvm.load",
+            LlvmRawBodyMemoryOp::Store => "llvm.store",
+            LlvmRawBodyMemoryOp::AtomicRmw => "llvm.atomicrmw",
+            LlvmRawBodyMemoryOp::Cmpxchg => "llvm.cmpxchg",
+            LlvmRawBodyMemoryOp::Fence => "llvm.fence",
+            LlvmRawBodyMemoryOp::Memcpy => "llvm.memcpy",
+            LlvmRawBodyMemoryOp::Memmove => "llvm.memmove",
+            LlvmRawBodyMemoryOp::Memset => "llvm.memset",
+        }
+    }
+}
+
+impl fmt::Display for LlvmRawBodyMemoryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ExternalIoOp {
     FdRead,
     FdWrite,
@@ -429,7 +520,7 @@ pub fn raw_body_direct_callees(body: &HirBody) -> Vec<String> {
     out
 }
 
-pub fn raw_body_memory_operations(body: &HirBody) -> Vec<String> {
+pub fn raw_body_memory_operations(body: &HirBody) -> Vec<RawBodyMemoryOp> {
     let lines = match body {
         HirBody::Wasm(w) => &w.lines,
         HirBody::LlvmIr(l) => &l.lines,
@@ -468,18 +559,30 @@ fn strip_wasm_comment(line: &str) -> &str {
     }
 }
 
-fn wasm_memory_operation(line: &str) -> Option<String> {
+fn wasm_memory_operation(line: &str) -> Option<RawBodyMemoryOp> {
     let code = strip_wasm_comment(line).trim();
     let op = code.split_whitespace().next()?;
-    if wasm_op_is_memory_effect(op) {
-        Some(String::from(op))
-    } else {
-        None
-    }
+    wasm_memory_op_from_opcode(op).map(RawBodyMemoryOp::Wasm)
 }
 
-fn wasm_op_is_memory_effect(op: &str) -> bool {
-    op.starts_with("memory.") || op == "data.drop" || op.contains(".load") || op.contains(".store")
+fn wasm_memory_op_from_opcode(op: &str) -> Option<WasmRawBodyMemoryOp> {
+    if op.contains(".load") {
+        return Some(WasmRawBodyMemoryOp::Load);
+    }
+    if op.contains(".store") {
+        return Some(WasmRawBodyMemoryOp::Store);
+    }
+    let operation = match op {
+        "memory.size" => WasmRawBodyMemoryOp::MemorySize,
+        "memory.grow" => WasmRawBodyMemoryOp::MemoryGrow,
+        "memory.copy" => WasmRawBodyMemoryOp::MemoryCopy,
+        "memory.fill" => WasmRawBodyMemoryOp::MemoryFill,
+        "memory.init" => WasmRawBodyMemoryOp::MemoryInit,
+        "data.drop" => WasmRawBodyMemoryOp::DataDrop,
+        _ if op.starts_with("memory.") => WasmRawBodyMemoryOp::Memory,
+        _ => return None,
+    };
+    Some(operation)
 }
 
 fn llvm_direct_callee(line: &str) -> Option<String> {
@@ -507,22 +610,18 @@ fn parse_llvm_symbol(text: &str) -> Option<&str> {
     }
 }
 
-fn llvm_memory_operation(line: &str) -> Option<String> {
+fn llvm_memory_operation(line: &str) -> Option<RawBodyMemoryOp> {
     let code = line.split(';').next().unwrap_or(line).trim();
     if code.is_empty() {
         return None;
     }
     if let Some(callee) = llvm_direct_callee(line) {
-        if llvm_callee_is_memory_effect(&callee) {
-            return Some(callee);
+        if let Some(operation) = llvm_memory_op_from_callee(&callee) {
+            return Some(RawBodyMemoryOp::Llvm(operation));
         }
     }
     let op = llvm_instruction_opcode(code)?;
-    if llvm_op_is_memory_effect(op) {
-        Some(String::from(op))
-    } else {
-        None
-    }
+    llvm_memory_op_from_opcode(op).map(RawBodyMemoryOp::Llvm)
 }
 
 fn llvm_instruction_opcode(code: &str) -> Option<&str> {
@@ -533,17 +632,30 @@ fn llvm_instruction_opcode(code: &str) -> Option<&str> {
     text.split_whitespace().next()
 }
 
-fn llvm_op_is_memory_effect(op: &str) -> bool {
-    matches!(
-        op,
-        "alloca" | "load" | "store" | "atomicrmw" | "cmpxchg" | "fence"
-    )
+fn llvm_memory_op_from_opcode(op: &str) -> Option<LlvmRawBodyMemoryOp> {
+    let operation = match op {
+        "alloca" => LlvmRawBodyMemoryOp::Alloca,
+        "load" => LlvmRawBodyMemoryOp::Load,
+        "store" => LlvmRawBodyMemoryOp::Store,
+        "atomicrmw" => LlvmRawBodyMemoryOp::AtomicRmw,
+        "cmpxchg" => LlvmRawBodyMemoryOp::Cmpxchg,
+        "fence" => LlvmRawBodyMemoryOp::Fence,
+        _ => return None,
+    };
+    Some(operation)
 }
 
-fn llvm_callee_is_memory_effect(callee: &str) -> bool {
-    callee.starts_with("llvm.memcpy")
-        || callee.starts_with("llvm.memmove")
-        || callee.starts_with("llvm.memset")
+fn llvm_memory_op_from_callee(callee: &str) -> Option<LlvmRawBodyMemoryOp> {
+    if callee.starts_with("llvm.memcpy") {
+        return Some(LlvmRawBodyMemoryOp::Memcpy);
+    }
+    if callee.starts_with("llvm.memmove") {
+        return Some(LlvmRawBodyMemoryOp::Memmove);
+    }
+    if callee.starts_with("llvm.memset") {
+        return Some(LlvmRawBodyMemoryOp::Memset);
+    }
+    None
 }
 
 fn raw_memory_internal_effect(name: &str) -> Option<InternalEffect> {

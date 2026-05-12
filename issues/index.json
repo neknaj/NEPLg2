@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T13:37:45.178Z",
+  "generated_at": "2026-05-12T13:52:18.134Z",
   "counts": {
-    "total": 645,
+    "total": 646,
     "open": 10,
-    "resolved": 635,
+    "resolved": 636,
     "by_area": {
       "core": {
-        "total": 328,
+        "total": 329,
         "open": 3,
-        "resolved": 325
+        "resolved": 326
       },
       "stdlib": {
         "total": 167,
@@ -4968,6 +4968,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T132905089Z-QUALIFIED-ENUM-MEMBER-SPLITTING-REMA-AC5CC034.md"
+    },
+    {
+      "id": "ISS-20260512T134505293Z-RAW-BODY-MEMORY-OPERATIONS-REMAIN-ST-0EE9AFB4",
+      "title": "Raw body memory operations remain stringly typed",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/effects.rs; nepl-core/src/typecheck/effect_check.rs; nepl-core/tests/effects.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T134505293Z-RAW-BODY-MEMORY-OPERATIONS-REMAIN-ST-0EE9AFB4.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

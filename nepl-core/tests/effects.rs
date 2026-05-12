@@ -3,14 +3,17 @@ use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_codes::DiagnosticCode;
 use nepl_core::effects::{
     external_io_op_from_name, internal_effect_surface_fold, intrinsic_effect, nondet_op_from_name,
-    raw_callee_internal_effect, raw_memory_callee_internal_effect, raw_memory_op_from_name,
-    ExternalIoOp, InternalEffect, NondetOp, RawMemoryOp,
+    raw_body_memory_operations, raw_callee_internal_effect, raw_memory_callee_internal_effect,
+    raw_memory_op_from_name, ExternalIoOp, InternalEffect, LlvmRawBodyMemoryOp, NondetOp,
+    RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp,
 };
 use nepl_core::error::CoreError;
+use nepl_core::hir::HirBody;
 use nepl_core::loader::Loader;
 use nepl_core::source_map::{SourceCapabilities, SourceMap};
-use nepl_core::span::FileId;
+use nepl_core::span::{FileId, Span};
 use nepl_core::{
+    ast::{LlvmIrBlock, WasmBlock},
     check_module, check_module_with_source_map, compile_wasm, lexer, parser, CompileOptions,
     CompileTarget,
 };
@@ -135,6 +138,51 @@ fn all_raw_memory_effect_markers_have_typed_operations() {
             marker
         );
     }
+}
+
+#[test]
+fn raw_body_memory_operations_are_typed_by_backend() {
+    let wasm = HirBody::Wasm(WasmBlock {
+        lines: vec![
+            String::from("i32.load"),
+            String::from("i64.store"),
+            String::from("memory.grow"),
+            String::from("memory.copy"),
+            String::from("data.drop"),
+        ],
+        span: Span::dummy(),
+    });
+    assert_eq!(
+        raw_body_memory_operations(&wasm),
+        vec![
+            RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::Load),
+            RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::Store),
+            RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::MemoryGrow),
+            RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::MemoryCopy),
+            RawBodyMemoryOp::Wasm(WasmRawBodyMemoryOp::DataDrop),
+        ]
+    );
+
+    let llvm = HirBody::LlvmIr(LlvmIrBlock {
+        lines: vec![
+            String::from("%p = alloca i32"),
+            String::from("%v = load i32, ptr %p"),
+            String::from("store i32 1, ptr %p"),
+            String::from("fence seq_cst"),
+            String::from("call void @llvm.memcpy.p0.p0.i64(ptr %p, ptr %q, i64 4, i1 false)"),
+        ],
+        span: Span::dummy(),
+    });
+    assert_eq!(
+        raw_body_memory_operations(&llvm),
+        vec![
+            RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Alloca),
+            RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Load),
+            RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Store),
+            RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Fence),
+            RawBodyMemoryOp::Llvm(LlvmRawBodyMemoryOp::Memcpy),
+        ]
+    );
 }
 
 #[test]

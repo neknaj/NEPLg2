@@ -36405,3 +36405,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo fmt --check -p nepl-core`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 raw body memory operation enum 化
+
+- `ISS-20260512T134505293Z-RAW-BODY-MEMORY-OPERATIONS-REMAIN-ST-0EE9AFB4` として、raw body memory instruction scan が `Vec<String>` を返していた問題を修正した。
+- `RawBodyMemoryOp`、`WasmRawBodyMemoryOp`、`LlvmRawBodyMemoryOp` を追加し、Wasm / LLVM raw body の memory instruction を backend 別 enum として分類するようにした。
+- `typecheck/effect_check.rs` の pure raw body 診断は enum を表示文字列へ変換するだけにし、検査入力は typed operation collection にした。
+- `nepl-core/tests/effects.rs` に Wasm / LLVM の typed raw body memory operation regression を追加した。
+- `nodesrc/test_static_check_boundary_responsibility.js` に、raw body memory operation scan が `Vec<String>` / `Option<String>` へ戻らない source policy を追加した。
+- これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 の effect boundary enum-first 方針を raw body instruction scan まで徹底する修正である。
+- [検証]:
+  - `cargo test -p nepl-core --test effects raw_body_memory_operations_are_typed_by_backend -- --nocapture`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+- [追加で発見した問題]:
+  - `cargo test -p nepl-core --test effects -- --nocapture` は `loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary` で、facade 化済みの `alloc/collections/vec/sort/merge.nepl` に raw-memory-boundary capability を期待する stale test により失敗する。これは次 issue として分離して対応する。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

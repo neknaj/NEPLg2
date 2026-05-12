@@ -9,6 +9,7 @@ const TYPECHECK_ROOT = path.join(CORE_SRC, 'typecheck.rs');
 const TYPECHECK_DIR = path.join(CORE_SRC, 'typecheck');
 const RESOURCE_ROOT = path.join(CORE_SRC, 'resource', 'mod.rs');
 const COMPILER = path.join(CORE_SRC, 'compiler.rs');
+const EFFECTS = path.join(CORE_SRC, 'effects.rs');
 const PASSES_MOD = path.join(CORE_SRC, 'passes', 'mod.rs');
 const DROP_INSERTION = path.join(CORE_SRC, 'passes', 'drop_insertion.rs');
 const MOVE_CHECK_ROOT = path.join(CORE_SRC, 'passes', 'move_check.rs');
@@ -70,6 +71,7 @@ function walkRustFiles(dir) {
 const typecheckRoot = assertFile(TYPECHECK_ROOT, 'typecheck.rs');
 const resourceRoot = assertFile(RESOURCE_ROOT, 'resource/mod.rs');
 const compiler = assertFile(COMPILER, 'compiler.rs');
+const effects = assertFile(EFFECTS, 'effects.rs');
 const passesMod = assertFile(PASSES_MOD, 'passes/mod.rs');
 const dropInsertion = assertFile(DROP_INSERTION, 'passes/drop_insertion.rs');
 const typecheckMatchCheck = assertFile(
@@ -128,6 +130,21 @@ assertNotContains(typecheckMatchCheck, 'find("::")', 'typecheck/match_check.rs')
 assertContains(typecheckSyntaxHelpers, 'fn split_qualified_name', 'typecheck/syntax_helpers.rs');
 assertContains(typecheckSyntaxHelpers, 'fn variant_member_tail', 'typecheck/syntax_helpers.rs');
 assertNotContains(typecheckSyntaxHelpers, 'parse_variant_name', 'typecheck/syntax_helpers.rs');
+assertContains(effects, 'pub enum RawBodyMemoryOp', 'effects.rs');
+assertContains(effects, 'pub enum WasmRawBodyMemoryOp', 'effects.rs');
+assertContains(effects, 'pub enum LlvmRawBodyMemoryOp', 'effects.rs');
+assertContains(
+    effects,
+    'pub fn raw_body_memory_operations(body: &HirBody) -> Vec<RawBodyMemoryOp>',
+    'effects.rs',
+);
+assertNotContains(
+    effects,
+    'pub fn raw_body_memory_operations(body: &HirBody) -> Vec<String>',
+    'effects.rs',
+);
+assertNotContains(effects, 'fn wasm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
+assertNotContains(effects, 'fn llvm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
 
 for (const filePath of walkRustFiles(CORE_SRC)) {
     const rel = toPosixPath(filePath);
