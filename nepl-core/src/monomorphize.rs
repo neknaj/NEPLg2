@@ -55,31 +55,34 @@ fn monomorphize_internal(
     ctx: &mut TypeCtx,
     module: HirModule,
 ) -> (HirModule, Vec<UnresolvedTraitCall>) {
-    let mut impl_map: BTreeMap<(String, String, TypeId), usize> = BTreeMap::new();
-    let mut impl_method_index: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
+    let mut impl_map: BTreeMap<MonoTraitLookupKey, usize> = BTreeMap::new();
+    let mut impl_method_index: BTreeMap<MonoTraitMethodKey, Vec<usize>> = BTreeMap::new();
     let mut impl_entries: Vec<TraitImplEntry> = Vec::new();
-    let mut impl_entry_index: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
     for imp in &module.impls {
         let ty = ctx.resolve_id(imp.target_ty);
+        let trait_base_name = imp
+            .trait_base_name
+            .as_ref()
+            .unwrap_or(&imp.trait_name)
+            .clone();
+        let application = MonoTraitApplication::resolved(ctx, trait_base_name, &imp.trait_args);
         for m in &imp.methods {
             let entry_index = impl_entries.len();
             impl_entries.push(TraitImplEntry {
-                trait_args: imp.trait_args.clone(),
+                application: application.clone(),
                 type_args: imp.type_args.clone(),
                 target_ty: ty,
                 func_name: m.func.name.clone(),
             });
-            impl_map.insert((imp.trait_name.clone(), m.name.clone(), ty), entry_index);
+            let method_key = MonoTraitMethodKey::new(application.base_name.clone(), m.name.clone());
+            impl_map.insert(
+                MonoTraitLookupKey::new(application.clone(), m.name.clone(), ty),
+                entry_index,
+            );
             impl_method_index
-                .entry((imp.trait_name.clone(), m.name.clone()))
+                .entry(method_key)
                 .or_default()
                 .push(entry_index);
-            if let Some(base) = &imp.trait_base_name {
-                impl_entry_index
-                    .entry((base.clone(), m.name.clone()))
-                    .or_default()
-                    .push(entry_index);
-            }
         }
     }
     let mut mono = Monomorphizer {
@@ -91,7 +94,6 @@ fn monomorphize_internal(
         impl_map,
         impl_method_index,
         impl_entries,
-        impl_entry_index,
         trait_lookup_cache: BTreeMap::new(),
     };
 
@@ -190,17 +192,66 @@ struct Monomorphizer<'a> {
     specialized: BTreeMap<String, HirFunction>,
     worklist: Vec<(String, Vec<TypeId>)>,
     queued: BTreeSet<String>,
-    impl_map: BTreeMap<(String, String, TypeId), usize>,
-    impl_method_index: BTreeMap<(String, String), Vec<usize>>,
+    impl_map: BTreeMap<MonoTraitLookupKey, usize>,
+    impl_method_index: BTreeMap<MonoTraitMethodKey, Vec<usize>>,
     impl_entries: Vec<TraitImplEntry>,
-    impl_entry_index: BTreeMap<(String, String), Vec<usize>>,
-    trait_lookup_cache:
-        BTreeMap<(String, String, Vec<TypeId>, TypeId), Option<TraitImplResolution>>,
+    trait_lookup_cache: BTreeMap<MonoTraitLookupKey, Option<TraitImplResolution>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct MonoTraitApplication {
+    base_name: String,
+    args: Vec<TypeId>,
+}
+
+impl MonoTraitApplication {
+    fn resolved(ctx: &TypeCtx, base_name: String, args: &[TypeId]) -> Self {
+        Self {
+            base_name,
+            args: args.iter().map(|arg| ctx.resolve_id(*arg)).collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct MonoTraitMethodKey {
+    trait_base_name: String,
+    method: String,
+}
+
+impl MonoTraitMethodKey {
+    fn new(trait_base_name: String, method: String) -> Self {
+        Self {
+            trait_base_name,
+            method,
+        }
+    }
+
+    fn from_names(trait_base_name: &str, method: &str) -> Self {
+        Self::new(String::from(trait_base_name), String::from(method))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct MonoTraitLookupKey {
+    application: MonoTraitApplication,
+    method: String,
+    self_ty: TypeId,
+}
+
+impl MonoTraitLookupKey {
+    fn new(application: MonoTraitApplication, method: String, self_ty: TypeId) -> Self {
+        Self {
+            application,
+            method,
+            self_ty,
+        }
+    }
 }
 
 #[derive(Clone)]
 struct TraitImplEntry {
-    trait_args: Vec<TypeId>,
+    application: MonoTraitApplication,
     type_args: Vec<TypeId>,
     target_ty: TypeId,
     func_name: String,
@@ -511,52 +562,28 @@ impl<'a> Monomorphizer<'a> {
         method: &str,
         resolved_self_ty: TypeId,
     ) -> Option<TraitImplResolution> {
-        let resolved_trait_args = trait_args
-            .iter()
-            .map(|arg| self.ctx.resolve_id(*arg))
-            .collect::<Vec<_>>();
+        let application =
+            MonoTraitApplication::resolved(self.ctx, String::from(trait_name), trait_args);
         let resolved_self_ty = self.ctx.resolve_id(resolved_self_ty);
-        let cache_key = (
-            String::from(trait_name),
-            String::from(method),
-            resolved_trait_args.clone(),
-            resolved_self_ty,
-        );
+        let cache_key =
+            MonoTraitLookupKey::new(application.clone(), String::from(method), resolved_self_ty);
         if let Some(cached) = self.trait_lookup_cache.get(&cache_key) {
             return cached.clone();
         }
-        let key = (
-            String::from(trait_name),
-            String::from(method),
-            resolved_self_ty,
-        );
+        let key =
+            MonoTraitLookupKey::new(application.clone(), String::from(method), resolved_self_ty);
         if let Some(entry_index) = self.impl_map.get(&key).copied() {
             let found =
-                self.resolve_trait_impl_entry(entry_index, &resolved_trait_args, resolved_self_ty);
+                self.resolve_trait_impl_entry(entry_index, &application.args, resolved_self_ty);
             self.trait_lookup_cache.insert(cache_key, found.clone());
             return found;
         }
-        let method_key = (String::from(trait_name), String::from(method));
+        let method_key = MonoTraitMethodKey::from_names(trait_name, method);
         if let Some(candidates) = self.impl_method_index.get(&method_key).cloned() {
             for entry_index in candidates {
-                if let Some(found_resolution) = self.resolve_trait_impl_entry(
-                    entry_index,
-                    &resolved_trait_args,
-                    resolved_self_ty,
-                ) {
-                    let found = Some(found_resolution);
-                    self.trait_lookup_cache.insert(cache_key, found.clone());
-                    return found;
-                }
-            }
-        }
-        if let Some(candidate_indexes) = self.impl_entry_index.get(&method_key).cloned() {
-            for entry_index in candidate_indexes {
-                if let Some(found_resolution) = self.resolve_trait_impl_entry(
-                    entry_index,
-                    &resolved_trait_args,
-                    resolved_self_ty,
-                ) {
+                if let Some(found_resolution) =
+                    self.resolve_trait_impl_entry(entry_index, &application.args, resolved_self_ty)
+                {
                     let found = Some(found_resolution);
                     self.trait_lookup_cache.insert(cache_key, found.clone());
                     return found;
@@ -574,7 +601,7 @@ impl<'a> Monomorphizer<'a> {
         resolved_self_ty: TypeId,
     ) -> Option<TraitImplResolution> {
         let entry = self.impl_entries.get(entry_index)?.clone();
-        if entry.trait_args.len() != resolved_trait_args.len() {
+        if entry.application.args.len() != resolved_trait_args.len() {
             return None;
         }
         if !self
@@ -583,7 +610,12 @@ impl<'a> Monomorphizer<'a> {
         {
             return None;
         }
-        for (impl_arg, call_arg) in entry.trait_args.iter().zip(resolved_trait_args.iter()) {
+        for (impl_arg, call_arg) in entry
+            .application
+            .args
+            .iter()
+            .zip(resolved_trait_args.iter())
+        {
             let impl_arg = self.ctx.resolve_id(*impl_arg);
             if !self.ctx.type_pattern_matches(impl_arg, *call_arg) {
                 return None;
@@ -593,7 +625,7 @@ impl<'a> Monomorphizer<'a> {
             &entry.type_args,
             entry.target_ty,
             resolved_self_ty,
-            &entry.trait_args,
+            &entry.application.args,
             resolved_trait_args,
         )?;
         Some(TraitImplResolution {

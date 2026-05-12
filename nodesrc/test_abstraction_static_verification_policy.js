@@ -14,9 +14,9 @@ const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
 
 const BASELINE = {
     parseTraitRefName: 0,
-    formatTraitRefName: 7,
+    formatTraitRefName: 6,
     traitBoundRef: 0,
-    traitLookupCache: 7,
+    traitLookupCache: 6,
     implInfoOptionString: 1,
 };
 
@@ -145,6 +145,7 @@ assert(
 const functionCheck = read(FUNCTION_CHECK);
 const context = read(path.join(TYPECHECK_DIR, "context.rs"));
 const traitBoundApply = read(path.join(TYPECHECK_DIR, "trait_bound_apply.rs"));
+const monomorphize = read(MONOMORPHIZE);
 assert(
     !context.includes("Vec<(TraitBound, TypeId, Span)>"),
     "BlockChecker pending trait checks must not use positional tuple state",
@@ -222,6 +223,39 @@ assert(
     selectedCallApply.includes("match trait_resolution"),
     "selected callable trait resolution must match TraitMethodResolution explicitly",
 );
+for (const marker of [
+    "struct MonoTraitApplication",
+    "struct MonoTraitMethodKey",
+    "struct MonoTraitLookupKey",
+]) {
+    assert(monomorphize.includes(marker), `monomorphize.rs must define ${marker}`);
+}
+assert(
+    monomorphize.includes("impl_map: BTreeMap<MonoTraitLookupKey, usize>"),
+    "monomorphize exact impl lookup must use MonoTraitLookupKey",
+);
+assert(
+    monomorphize.includes("impl_method_index: BTreeMap<MonoTraitMethodKey, Vec<usize>>"),
+    "monomorphize impl candidate index must use MonoTraitMethodKey",
+);
+assert(
+    monomorphize.includes("trait_lookup_cache: BTreeMap<MonoTraitLookupKey, Option<TraitImplResolution>>"),
+    "monomorphize trait lookup cache must use MonoTraitLookupKey",
+);
+assert(
+    !monomorphize.includes("impl_entry_index"),
+    "monomorphize must not keep a duplicate tuple-style impl_entry_index",
+);
+for (const tupleKey of [
+    "BTreeMap<(String, String, TypeId), usize>",
+    "BTreeMap<(String, String), Vec<usize>>",
+    "BTreeMap<(String, String, Vec<TypeId>, TypeId), Option<TraitImplResolution>>",
+]) {
+    assert(
+        !monomorphize.includes(tupleKey),
+        `monomorphize.rs must not use positional tuple key ${tupleKey}`,
+    );
+}
 
 const typedLookup = traits.match(
     /pub\(super\) fn type_param_has_trait_application_bound[\s\S]*?\npub\(super\) fn merge_inferred_instantiation/,

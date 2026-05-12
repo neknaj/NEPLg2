@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T16:37:18.202Z",
+  "generated_at": "2026-05-12T16:53:57.010Z",
   "counts": {
-    "total": 661,
+    "total": 662,
     "open": 13,
-    "resolved": 648,
+    "resolved": 649,
     "by_area": {
       "core": {
-        "total": 343,
+        "total": 344,
         "open": 5,
-        "resolved": 338
+        "resolved": 339
       },
       "stdlib": {
         "total": 168,
@@ -178,7 +178,7 @@
       "priority": "P1",
       "type": "test",
       "created": "2026-05-12",
-      "updated": "2026-05-12",
+      "updated": "2026-05-13",
       "target": "nepl-core/tests/neplg2.rs; nepl-core/src/typecheck/effects.rs; doc/neplg2/compiler_diagnostics_redesign_plan.md",
       "legacy_id": "",
       "source": "",
@@ -5208,6 +5208,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T163228542Z-PENDING-TRAIT-CHECKS-STILL-USE-POSIT-FB7F1082.md"
+    },
+    {
+      "id": "ISS-20260512T164311083Z-MONOMORPHIZE-TRAIT-LOOKUP-KEYS-STILL-DA66AC14",
+      "title": "Monomorphize trait lookup keys still use positional tuple state",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/monomorphize.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T164311083Z-MONOMORPHIZE-TRAIT-LOOKUP-KEYS-STILL-DA66AC14.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
