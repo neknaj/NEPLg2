@@ -19,6 +19,13 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-12 Agent 2 examples owner summary regression issue
+
+- `origin/main` の `99433272` 取り込み後、Fenwick 分割 branch の再検証で `node nodesrc/tests.js -i examples -o tmp/fenwick-split-examples-after-rebase.json -j 4 --dist web/dist` が `resource.owner.maybe_leak` で失敗した。
+- Fenwick 差分由来か切り分けるため main 単体で `node nodesrc/tests.js -i examples -o tmp/examples-main-after-resource-owner-summary.json -j 4 --dist web/dist` を実行し、同じ 32 total / 21 passed / 11 failed を確認した。
+- 代表 failure は `ansi_text_style_code__AnsiTextStyle__str__pure` と `print_i32__i32__unit__imp` の `resource ir owner obligation may leak`。
+- Fenwick 分割とは独立した remote main 由来の resource checker / stdio owner summary 問題として `ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9` を追加した。
+
 ## 2026-05-12 Agent 2 counting_bloom_filter facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/counting_bloom_filter.nepl` に同居していた型定義、hash/probe 計算、typed counter storage、counter mutation、public API を責務別 submodule に分割した。
