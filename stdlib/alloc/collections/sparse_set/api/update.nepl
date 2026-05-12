@@ -1,0 +1,117 @@
+//: # sparse_set/api/update
+//: `SparseSet` の owner-consuming update API
+//:
+//: ### [目的/もくてき]
+//: - `insert` / `remove` の index validation、storage mutation、owner-preserving error 生成を集約します。
+//: - update 失敗時は `SparseSetUpdateError` に元 owner を入れて返し、caller が cleanup できるようにします。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../membership" as *
+#import "../mutation" as *
+#import "./diagnostic" as *
+
+//: ## sparse_set_update_ok
+//: update [後/ご]の[長/なが]さで `SparseSet` owner を[再構築/さいこうちく]する
+fn sparse_set_update_ok <(SparseSet,i32)->Result<SparseSet, SparseSetUpdateError>> (s, next_len):
+    let n <i32> field::get s "n"
+    let dense <Vec<i32>> field::get s "dense"
+    let sparse <Vec<i32>> field::get s "sparse"
+    ok<SparseSet, SparseSetUpdateError> SparseSet n next_len dense sparse
+
+//: ## sparse_set_update_err
+//: update [失敗/しっぱい]を owner-preserving error に[変換/へんかん]する
+fn sparse_set_update_err <(SparseSet,Diag)->Result<SparseSet, SparseSetUpdateError>> (s, d):
+    let e <SparseSetUpdateError> SparseSetUpdateError s d
+    err<SparseSet, SparseSetUpdateError> e
+
+//: ## insert
+//: value を 1 [個/こ][追加/ついか]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let s <SparseSet>:
+//:         unwrap_ok<SparseSet, Diag> new 8
+//:         |> insert 3 |> uwok
+//:         |> insert 5 |> uwok
+//:     let ok <bool> eq len &s 2;
+//:     free s
+//:     if ok 1 0
+//: ```
+fn insert <(SparseSet,i32)*>Result<SparseSet, SparseSetUpdateError>> (s, value):
+    let n <i32> *field::get_ref &s "n"
+    let len0 <i32> *field::get_ref &s "len0"
+    if:
+        not sparse_set_valid_index value n
+        then:
+            let d <Diag> sparse_set_diag_index
+            sparse_set_update_err s d
+        else:
+            let result <Result<i32, Diag>> block:
+                let dense <&Vec<i32>> field::get_ref &s "dense"
+                let sparse <&Vec<i32>> field::get_ref &s "sparse"
+                match sparse_set_insert_storage n dense sparse len0 value:
+                    Option::Some next_len:
+                        ok<i32, Diag> next_len
+                    Option::None:
+                        diag_err<i32> sparse_set_diag_index
+            match result:
+                Result::Ok next_len:
+                    sparse_set_update_ok s next_len
+                Result::Err d:
+                    sparse_set_update_err s d
+
+//: ## remove
+//: value を 1 [個/こ][削除/さくじょ]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let s <SparseSet>:
+//:         unwrap_ok<SparseSet, Diag> new 8
+//:         |> insert 3 |> uwok
+//:         |> insert 5 |> uwok
+//:         |> remove 3 |> uwok
+//:     let ok <bool> eq len &s 1;
+//:     free s
+//:     if ok 1 0
+//: ```
+fn remove <(SparseSet,i32)*>Result<SparseSet, SparseSetUpdateError>> (s, value):
+    let n <i32> *field::get_ref &s "n"
+    let len0 <i32> *field::get_ref &s "len0"
+    if:
+        not sparse_set_valid_index value n
+        then:
+            let d <Diag> sparse_set_diag_index
+            sparse_set_update_err s d
+        else:
+            let result <Result<i32, Diag>> block:
+                let dense <&Vec<i32>> field::get_ref &s "dense"
+                let sparse <&Vec<i32>> field::get_ref &s "sparse"
+                match sparse_set_remove_storage n dense sparse len0 value:
+                    Option::Some next_len:
+                        ok<i32, Diag> next_len
+                    Option::None:
+                        diag_err<i32> sparse_set_diag_index
+            match result:
+                Result::Ok next_len:
+                    sparse_set_update_ok s next_len
+                Result::Err d:
+                    sparse_set_update_err s d

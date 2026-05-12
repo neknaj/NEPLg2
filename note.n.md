@@ -1,3 +1,16 @@
+# 2026-05-12 Agent 2 sparse_set API facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/sparse_set/api.nepl` に残っていた診断生成、構築、borrowed observer、owner-consuming update、bulk reset、cleanup を責務別 submodule に分割した。
+- `api.nepl` は `api/diagnostic`、`api/create`、`api/observer`、`api/update`、`api/bulk`、`api/cleanup` の public `@merge` re-export だけを持つ facade にした。
+- `insert` / `remove` の owner 再構築と owner-preserving error 生成は `sparse_set_update_ok` / `sparse_set_update_err` に集約した。
+- `nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_sparse_set_borrowed_observers.js`、`nodesrc/test_stdlib_sparse_set_update_error_owner.js` を更新し、API facade に implementation body が戻らないこと、observer / update / bulk / cleanup の責務境界、owner-preserving update error、raw memory 非使用を固定した。
+- line count は `api.nepl` 14、`api/diagnostic.nepl` 12、`api/create.nepl` 46、`api/observer.nepl` 65、`api/update.nepl` 111、`api/bulk.nepl` 34、`api/cleanup.nepl` 37。
+- 検証:
+  - `node nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_sparse_set_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_sparse_set_update_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/sparse_set.nepl -i stdlib/alloc/collections/sparse_set/types.nepl -i stdlib/alloc/collections/sparse_set/storage.nepl -i stdlib/alloc/collections/sparse_set/membership.nepl -i stdlib/alloc/collections/sparse_set/mutation.nepl -i stdlib/alloc/collections/sparse_set/api.nepl -i stdlib/alloc/collections/sparse_set/api/diagnostic.nepl -i stdlib/alloc/collections/sparse_set/api/create.nepl -i stdlib/alloc/collections/sparse_set/api/observer.nepl -i stdlib/alloc/collections/sparse_set/api/update.nepl -i stdlib/alloc/collections/sparse_set/api/bulk.nepl -i stdlib/alloc/collections/sparse_set/api/cleanup.nepl -i stdlib/tests/sparse_set.n.md -i tests/stdlib/sparse_set_collections.n.md --no-tree -o tmp/sparse-set-api-split-focused.json -j 1 --dist web/dist`: total=12, passed=12
+
 # 2026-05-12 Agent 2 bitset API facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/bitset/api.nepl` に残っていた診断生成、構築、borrowed observer、owner-consuming update、bulk reset、cleanup を責務別 submodule に分割した。

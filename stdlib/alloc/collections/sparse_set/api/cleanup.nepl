@@ -1,0 +1,40 @@
+//: # sparse_set/api/cleanup
+//: `SparseSet` owner の cleanup API
+//:
+//: ### [目的/もくてき]
+//: - `SparseSet` owner から dense/sparse storage owner を取り出し、2 本とも閉じます。
+//: - cleanup を observer / update から分離し、free obligation の境界を明確にします。
+
+#indent 4
+
+#import "core/field" as field
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../storage" as *
+
+//: ## free
+//: dense/sparse [配列/はいれつ]を[解放/かいほう]する
+//:
+//: ### [実装/じっそう]
+//: - dense/sparse はそれぞれ `Vec<i32>` として `new` が[確保/かくほ]し、`SparseSet` が[所有/しょゆう]します。
+//: - owner invariant に[基/もと]づき、内部 cleanup は `vec::free` で[行/おこな]います。
+//:
+//: ### [注意/ちゅうい]
+//: - [解放後/かいほうご]に `s` を[再利用/さいりよう]してはいけません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let s <SparseSet> unwrap_ok<SparseSet, Diag> new 8;
+//:     free s
+//:     0
+//: ```
+fn free <(SparseSet)->()> (s):
+    let dense <Vec<i32>> field::get s "dense"
+    let sparse <Vec<i32>> field::get s "sparse"
+    sparse_set_free_arrays dense sparse

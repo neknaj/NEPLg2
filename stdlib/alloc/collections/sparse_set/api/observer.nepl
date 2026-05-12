@@ -1,0 +1,70 @@
+//: # sparse_set/api/observer
+//: `SparseSet` の借用 observer API
+//:
+//: ### [目的/もくてき]
+//: - `len` / `universe_len` / `contains` を `SparseSet` owner を消費しない read-only API として提供します。
+//: - dense/sparse storage を借用で読み、membership 判定は `membership` module に委譲します。
+
+#indent 4
+
+#import "core/result" as *
+#import "core/field" as field
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../membership" as *
+#import "./diagnostic" as *
+
+//: ## len
+//: [現/げん]在[入/はい]っている[要素数/ようそすう]を[返/かえ]す
+fn len <(&SparseSet)->i32> (s):
+    *field::get_ref s "len0"
+
+//: ## universe_len
+//: [扱/あつか]える整数 domain の[長/なが]さを[返/かえ]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let s <SparseSet> unwrap_ok<SparseSet, Diag> new 8;
+//:     let ok <bool> eq universe_len &s 8;
+//:     free s
+//:     if ok 1 0
+//: ```
+fn universe_len <(&SparseSet)->i32> (s):
+    *field::get_ref s "n"
+
+//: ## contains
+//: value が[含/ふく]まれているかを[返/かえ]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/sparse_set" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let s <SparseSet>:
+//:         unwrap_ok<SparseSet, Diag> new 8
+//:         |> insert 3 |> uwok
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &s 3;
+//:     free s
+//:     if ok 1 0
+//: ```
+fn contains <(&SparseSet,i32)*>Result<bool, Diag>> (s, value):
+    let n <i32> *field::get_ref s "n"
+    let len0 <i32> *field::get_ref s "len0"
+    let dense <&Vec<i32>> field::get_ref s "dense"
+    let sparse <&Vec<i32>> field::get_ref s "sparse"
+    if:
+        sparse_set_valid_index value n
+        then:
+            ok<bool, Diag> sparse_set_contains_raw n dense sparse len0 value
+        else:
+            diag_err<bool> sparse_set_diag_index

@@ -6,14 +6,22 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
-const relPath = "stdlib/alloc/collections/sparse_set/api.nepl";
-const src = fs.readFileSync(path.join(repoRoot, relPath), "utf8");
+const apiPath = "stdlib/alloc/collections/sparse_set/api.nepl";
+const observerPath = "stdlib/alloc/collections/sparse_set/api/observer.nepl";
+const apiSrc = fs.readFileSync(path.join(repoRoot, apiPath), "utf8");
+const observerSrc = fs.readFileSync(path.join(repoRoot, observerPath), "utf8");
 
-const code = src
+const apiCode = apiSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join("\n");
+const code = observerSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join("\n");
 
+assert.match(apiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, "SparseSet api facade must re-export borrowed observers through api/observer");
+assert.doesNotMatch(apiCode, /\bfn\s+/, "SparseSet api facade must not keep duplicate observer wrappers");
 assert.match(code, /fn\s+len\s+<\(&SparseSet\)->i32>\s+\(s\):/, "SparseSet.len must borrow the owner");
 assert.doesNotMatch(code, /fn\s+len\s+<\(SparseSet\)->i32>/, "SparseSet.len must not consume the owner");
 
