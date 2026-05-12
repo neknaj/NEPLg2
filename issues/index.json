@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T18:05:36.911Z",
+  "generated_at": "2026-05-12T18:15:32.462Z",
   "counts": {
     "total": 668,
-    "open": 13,
-    "resolved": 655,
+    "open": 12,
+    "resolved": 656,
     "by_area": {
       "core": {
         "total": 350,
-        "open": 5,
-        "resolved": 345
+        "open": 4,
+        "resolved": 346
       },
       "stdlib": {
         "total": 168,
@@ -163,26 +163,11 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-12",
-      "updated": "2026-05-12",
+      "updated": "2026-05-13",
       "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/trait_check.rs; nepl-core/src/typecheck/trait_bound_apply.rs; nepl-core/src/typecheck/trait_call_apply.rs; nepl-core/src/monomorphize.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429.md"
-    },
-    {
-      "id": "ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB",
-      "title": "Generic trait probe regression fixture uses raw memory in a pure helper",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-05-12",
-      "updated": "2026-05-13",
-      "target": "nepl-core/tests/neplg2.rs; nepl-core/src/typecheck/effects.rs; doc/neplg2/compiler_diagnostics_redesign_plan.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -5148,6 +5133,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T153756004Z-IMPLINFO-STILL-ENCODES-TRAIT-IMPL-ID-A4ECD77B.md"
+    },
+    {
+      "id": "ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB",
+      "title": "Generic trait probe regression fixture uses raw memory in a pure helper",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/tests/neplg2.rs; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB.md"
     },
     {
       "id": "ISS-20260512T160137255Z-TRAIT-BOUND-LOOKUP-DUPLICATES-TYPEID-1694BE55",

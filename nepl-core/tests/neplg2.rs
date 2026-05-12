@@ -1849,7 +1849,7 @@ struct Point:
     x <i32>
     y <i32>
 
-fn roundtrip <.T> <(.T)->.T> (x):
+fn roundtrip <.T> <(.T)*>.T> (x):
     let p <i32> alloc_raw size_of<.T>;
     store<.T> p x;
     let out <.T> load<.T> p;
@@ -1898,7 +1898,7 @@ impl Copy for Point:
     fn copy_mark <(Point)->Point> (self):
         self
 
-fn same_after_store <.T: HashKey> <(.T,.T)->bool> (a, b):
+fn same_after_store <.T: HashKey> <(.T,.T)*>bool> (a, b):
     let p <i32> alloc_raw size_of<.T>;
     store<.T> p a;
     let saved <.T> load<.T> p;
@@ -1946,7 +1946,7 @@ impl Copy for Point:
     fn copy_mark <(Point)->Point> (self):
         self
 
-fn hash_then_store <.T: HashKey&Copy> <(.T)->.T> (x):
+fn hash_then_store <.T: HashKey&Copy> <(.T)*>.T> (x):
     let _h <i32> hashkey_hash32 x;
     let p <i32> alloc_raw size_of<.T>;
     store<.T> p x;
@@ -2180,7 +2180,7 @@ impl Copy for Point:
 fn probe <.T: HashKey&Copy> <(.T)->bool> (key):
     hashkey_eq key key
 
-fn write_after_probe <.T: HashKey&Copy,.V> <(.T,.V)->.T> (key, value):
+fn write_after_probe <.T: HashKey&Copy,.V> <(.T,.V)*>.T> (key, value):
     let _ok <bool> probe<.T> key;
     let p <i32> alloc_raw add size_of<.T> size_of<.V>;
     store<.T> p key;
@@ -2213,7 +2213,7 @@ struct Point:
 fn slot_ptr <.T,.V> <(i32,i32)->i32> (base, idx):
     add base mul idx add size_of<.T> size_of<.V>
 
-fn write_nested <.T,.V> <(.T,.V)->.T> (key, value):
+fn write_nested <.T,.V> <(.T,.V)*>.T> (key, value):
     let p <i32> alloc_raw add size_of<.T> size_of<.V>;
     store<.T> slot_ptr<.T,.V> p 0 key;
     store<.V> add p size_of<.T> value;

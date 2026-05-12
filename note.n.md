@@ -36660,3 +36660,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `node nodesrc/test_parser_backend_responsibility_policy.js` が `monomorphize.rs` の freeze limit 超過を検出したため、line limit を上げずに `monomorphize/trait_lookup.rs` を追加した。
 - `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` / `TraitImplEntry` / `TraitImplResolution` を新 module へ移し、root `monomorphize.rs` は orchestration / specialization logic に戻した。
 - source policy に新 module の存在、`mod trait_lookup;`、root 1425 lines、新 module 90 lines の上限を追加した。
+
+## 2026-05-13 Agent 1 generic raw-memory fixture effect contract
+
+- `aa812e1e` push 後に remote main を pull し、`agent1/generic-trait-probe-effect-fixture` branch を作成した。
+- `ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB` の調査で、`generic_store_after_generic_trait_probe_preserves_struct` だけでなく、同じ raw-memory helper pattern を持つ generic fixture 5 件が `PureCallsImpure` で失敗していることを確認した。
+- effect checker は正しく失敗していたため、`PureCallsImpure` を弱めず、`roundtrip` / `same_after_store` / `hash_then_store` / `write_after_probe` / `write_nested` を impure signature に修正した。
+- `probe` と `slot_ptr` は raw memory を直接呼ばないため pure のまま維持し、trait/generic abstraction regression の意図を残した。

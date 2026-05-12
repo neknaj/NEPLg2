@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-12
-updated: 2026-05-12
+updated: 2026-05-13
 target: "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/trait_check.rs; nepl-core/src/typecheck/trait_bound_apply.rs; nepl-core/src/typecheck/trait_call_apply.rs; nepl-core/src/monomorphize.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md"
 ---
 
@@ -63,6 +63,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T173702516Z-BOUNDENV-STILL-KEYS-TYPE-PARAMETER-B-792D9BA4` で、`BoundEnv` 内部 key を raw `TypeId` から `TypeParamId` newtype へ移行した。type parameter declaration identity は `BoundEnv::insert` / `iter` の境界でも明示され、source policy は raw `TypeId` key の再導入を拒否する。
 - `ISS-20260512T174845757Z-ABSTRACTION-POLICY-COUNTS-TRAITINFO--FE3DB746` で、Stage 6 の source policy baseline を整理した。`ImplInfo` optional field は `traits.rs` 全体の `Option<String>` 数ではなく `ImplInfo` struct body を直接検査し、0 件を必須にした。
 - `ISS-20260512T175900768Z-MONOMORPHIZE-TRAIT-LOOKUP-MODEL-EXCE-55B52B7E` で、monomorphize trait lookup key/model を `monomorphize/trait_lookup.rs` へ分離した。typed key model は維持し、abstraction policy は新 module を監視する。
+- `ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB` で、Stage 5 の trait/generic regression fixtures を修正した。raw memory を直接呼ぶ helper は impure signature にし、`PureCallsImpure` を弱めずに regression suite を復旧した。
 
 ## 検証
 
