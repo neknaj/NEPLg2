@@ -13,8 +13,8 @@ const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
 
 const BASELINE = {
     parseTraitRefName: 0,
-    formatTraitRefName: 12,
-    traitBoundRef: 23,
+    formatTraitRefName: 7,
+    traitBoundRef: 0,
     implInfo: 8,
     traitLookupCache: 7,
     implInfoOptionString: 3,
@@ -81,7 +81,7 @@ const counts = {
 
 assert(counts.parseTraitRefName <= BASELINE.parseTraitRefName, "trait ref string parser usage must not grow");
 assert(counts.formatTraitRefName <= BASELINE.formatTraitRefName, "trait ref string formatting usage must not grow");
-assert(counts.traitBoundRef <= BASELINE.traitBoundRef, "TraitBoundRef old model usage must not grow");
+assert(counts.traitBoundRef <= BASELINE.traitBoundRef, "TraitBoundRef old model must not be reintroduced");
 assert(counts.implInfo <= BASELINE.implInfo, "ImplInfo old model usage must not grow");
 assert(counts.traitLookupCache <= BASELINE.traitLookupCache, "string-keyed trait lookup cache usage must not grow");
 assert(
@@ -94,6 +94,17 @@ assert(traits.includes("pub(super) enum TraitCapability"), "TraitCapability must
 assert(traits.includes("TraitCapability::Copy"), "TraitCapability::Copy match coverage must remain visible");
 assert(traits.includes("TraitCapability::Clone"), "TraitCapability::Clone match coverage must remain visible");
 assert(traits.includes("TraitCapability::Drop"), "TraitCapability::Drop match coverage must remain visible");
+assert(traits.includes("pub(super) struct TraitBound"), "typed trait bound model must be named TraitBound");
+assert(
+    !traits.includes("pub(super) struct TraitBoundRef"),
+    "old TraitBoundRef model must not be reintroduced",
+);
+const traitBoundStruct = traits.match(/pub\(super\) struct TraitBound\s*\{[\s\S]*?\n\}/);
+assert(traitBoundStruct, "TraitBound struct body must be visible to source policy");
+assert(
+    !/\n\s*pub\(super\) name:\s*String/.test(traitBoundStruct[0]),
+    "TraitBound must not store rendered diagnostic names",
+);
 
 const functionCheck = read(FUNCTION_CHECK);
 assert(

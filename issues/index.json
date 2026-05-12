@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T15:06:50.137Z",
+  "generated_at": "2026-05-12T15:21:07.702Z",
   "counts": {
-    "total": 653,
+    "total": 654,
     "open": 12,
-    "resolved": 641,
+    "resolved": 642,
     "by_area": {
       "core": {
-        "total": 335,
+        "total": 336,
         "open": 4,
-        "resolved": 331
+        "resolved": 332
       },
       "stdlib": {
         "total": 168,
@@ -5088,6 +5088,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T150308333Z-TRAIT-METHOD-SELF-INFERENCE-REPARSES-FAE05801.md"
+    },
+    {
+      "id": "ISS-20260512T151045280Z-TRAITBOUNDREF-STORES-RENDERED-DISPLA-644F8E6A",
+      "title": "TraitBoundRef stores rendered display names",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/function_check.rs; nepl-core/src/typecheck/trait_check.rs; nepl-core/src/typecheck/trait_bound_apply.rs; nepl-core/src/typecheck/block_check.rs; nepl-core/src/typecheck/driver.rs; nodesrc/test_abstraction_static_verification_policy.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T151045280Z-TRAITBOUNDREF-STORES-RENDERED-DISPLA-644F8E6A.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

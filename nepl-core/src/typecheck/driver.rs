@@ -30,8 +30,8 @@ use super::signature::{
 };
 use super::syntax_helpers::gate_allows;
 use super::traits::{
-    collect_type_params, format_trait_ref_name, insert_substitution_mapping, ImplInfo,
-    TraitBoundRef, TraitCapability, TraitInfo, TraitSemantics,
+    collect_type_params, format_trait_ref_name, insert_substitution_mapping, ImplInfo, TraitBound,
+    TraitCapability, TraitInfo, TraitSemantics,
 };
 use super::type_expr::{type_from_expr, LabelEnv, StringTable};
 
@@ -1299,8 +1299,7 @@ pub fn typecheck(
                                     .iter()
                                     .map(|arg| type_from_expr(&mut ctx, &mut label_env, arg))
                                     .collect();
-                                bounds.push(TraitBoundRef {
-                                    name: format_trait_ref_name(&b.name.name, &arg_tys, &ctx),
+                                bounds.push(TraitBound {
                                     trait_base_name: b.name.name.clone(),
                                     trait_args: arg_tys,
                                     trait_self_ty: info.self_ty,

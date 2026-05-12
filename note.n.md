@@ -36529,3 +36529,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 trait bound display boundary
+
+- `ISS-20260512T151045280Z-TRAITBOUNDREF-STORES-RENDERED-DISPLA-644F8E6A` に対応した。
+- `TraitBoundRef` を `TraitBound` に改名し、旧 model 名を Rust 実装から削除した。
+- `TraitBound` から rendered display name field を削除し、`trait_base_name` / `trait_args` / `trait_self_ty` だけを保持する形にした。
+- 診断と verbose log では `TraitBound::display_name(ctx)` で表示名を境界生成する。
+- `nodesrc/test_abstraction_static_verification_policy.js` の `TraitBoundRef` baseline を 0 に下げ、`TraitBound` に rendered diagnostic name field が戻らないことを固定した。
+- [検証]:
+  - `cargo test -p nepl-core generics -- --nocapture`
+  - `node nodesrc/tests.js -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/generics.n.md --no-tree -o tmp/trait-bound-display-boundary-generics.json -j 1 --dist web/dist`
+  - `node nodesrc/test_abstraction_static_verification_policy.js`
+  - `cargo check -p nepl-core --tests`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -6,7 +6,7 @@ use crate::types::{TypeId, TypeKind};
 use super::signature::type_contains_unbound_var;
 use super::traits::{
     format_trait_ref_name, infer_type_param_from_instantiated_pair, merge_inferred_instantiation,
-    trait_application_matches, TraitBoundRef, TraitInfo,
+    trait_application_matches, TraitBound, TraitInfo,
 };
 use super::{BlockChecker, StackEntry};
 
@@ -34,7 +34,7 @@ impl<'a> BlockChecker<'a> {
         trait_base_name: &str,
         trait_args: &[TypeId],
     ) -> bool {
-        let matches_bound = |b: &TraitBoundRef| {
+        let matches_bound = |b: &TraitBound| {
             trait_application_matches(
                 self.ctx,
                 trait_base_name,
@@ -74,14 +74,14 @@ impl<'a> BlockChecker<'a> {
         })
     }
 
-    pub(super) fn trait_bound_satisfied_by_ref(&self, bound: &TraitBoundRef, ty: TypeId) -> bool {
+    pub(super) fn trait_bound_satisfied(&self, bound: &TraitBound, ty: TypeId) -> bool {
         if !self.is_concrete_type(ty) {
             return self.type_param_has_bound_ref(ty, &bound.trait_base_name, &bound.trait_args);
         }
         if crate::log::is_verbose() {
             trait_check_log!(
-                "trait_bound_satisfied_by_ref: bound={} trait_self_ty={:?} ty={} ({:?})",
-                bound.name,
+                "trait_bound_satisfied: bound={} trait_self_ty={:?} ty={} ({:?})",
+                bound.display_name(self.ctx),
                 bound.trait_self_ty,
                 self.ctx.type_to_string(ty),
                 self.ctx.resolve_id(ty),

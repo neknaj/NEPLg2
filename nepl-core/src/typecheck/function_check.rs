@@ -19,7 +19,7 @@ use super::hir_finalize::resolve_type_ids_in_function;
 use super::model::{CheckedFunction, EnumInfo, StructInfo};
 use super::signature::{mangle_function_symbol, type_contains_unbound_var};
 use super::traits::{
-    trait_application_matches, type_param_has_trait_application_bound, ImplInfo, TraitBoundRef,
+    trait_application_matches, type_param_has_trait_application_bound, ImplInfo, TraitBound,
     TraitInfo,
 };
 use super::type_expr::{LabelEnv, StringTable};
@@ -69,7 +69,7 @@ pub(super) fn check_function(
     enums: &BTreeMap<String, EnumInfo>,
     structs: &BTreeMap<String, StructInfo>,
     instantiations: &mut BTreeMap<String, Vec<Vec<TypeId>>>,
-    type_param_bounds: BTreeMap<TypeId, Vec<TraitBoundRef>>,
+    type_param_bounds: BTreeMap<TypeId, Vec<TraitBound>>,
     traits: &BTreeMap<String, TraitInfo>,
     impls: &Vec<ImplInfo>,
     generated_functions: &mut Vec<HirFunction>,
@@ -247,7 +247,10 @@ pub(super) fn check_function(
         if !satisfied {
             diag_out.push(type_error(
                 TypeDiagnosticCode::TraitBoundUnsatisfied,
-                format!("type does not satisfy trait bound '{}'", bound.name),
+                format!(
+                    "type does not satisfy trait bound '{}'",
+                    bound.display_name(ctx)
+                ),
                 span,
             ));
         }

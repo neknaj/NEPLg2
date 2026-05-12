@@ -100,11 +100,16 @@ pub(super) struct ImplInfo {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct TraitBoundRef {
-    pub(super) name: String,
+pub(super) struct TraitBound {
     pub(super) trait_base_name: String,
     pub(super) trait_args: Vec<TypeId>,
     pub(super) trait_self_ty: TypeId,
+}
+
+impl TraitBound {
+    pub(super) fn display_name(&self, ctx: &TypeCtx) -> String {
+        format_trait_ref_name(&self.trait_base_name, &self.trait_args, ctx)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -122,8 +127,8 @@ pub(super) fn collect_type_params(
     diags: &mut Vec<Diagnostic>,
 ) -> (
     Vec<TypeId>,
-    Vec<Vec<TraitBoundRef>>,
-    BTreeMap<TypeId, Vec<TraitBoundRef>>,
+    Vec<Vec<TraitBound>>,
+    BTreeMap<TypeId, Vec<TraitBound>>,
 ) {
     let mut tps = Vec::new();
     let mut bounds_vec = Vec::new();
@@ -155,8 +160,7 @@ pub(super) fn collect_type_params(
                     .iter()
                     .map(|arg| type_from_expr(ctx, labels, arg))
                     .collect();
-                bounds.push(TraitBoundRef {
-                    name: format_trait_ref_name(&b.name.name, &arg_tys, ctx),
+                bounds.push(TraitBound {
                     trait_base_name: b.name.name.clone(),
                     trait_args: arg_tys,
                     trait_self_ty: info.self_ty,
@@ -221,12 +225,12 @@ pub(super) fn trait_application_matches(
 
 pub(super) fn type_param_has_trait_application_bound(
     ctx: &TypeCtx,
-    type_param_bounds: &BTreeMap<TypeId, Vec<TraitBoundRef>>,
+    type_param_bounds: &BTreeMap<TypeId, Vec<TraitBound>>,
     ty: TypeId,
     trait_base_name: &str,
     trait_args: &[TypeId],
 ) -> bool {
-    let matches_bound = |b: &TraitBoundRef| {
+    let matches_bound = |b: &TraitBound| {
         trait_application_matches(
             ctx,
             trait_base_name,

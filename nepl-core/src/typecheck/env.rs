@@ -10,7 +10,7 @@ use crate::span::Span;
 use crate::types::{TypeCtx, TypeId};
 
 use super::signature::{mangle_function_symbol_for_def, same_function_signature};
-use super::{FieldAccessorKind, TraitBoundRef};
+use super::{FieldAccessorKind, TraitBound};
 // ---------------------------------------------------------------------
 // Environment
 // ---------------------------------------------------------------------
@@ -36,7 +36,7 @@ pub(super) enum BindingKind {
         arity: usize,
         builtin: Option<BuiltinKind>,
         field_accessor: Option<FieldAccessorKind>,
-        type_param_bounds: BTreeMap<TypeId, Vec<TraitBoundRef>>,
+        type_param_bounds: BTreeMap<TypeId, Vec<TraitBound>>,
         captures: Vec<(String, TypeId)>,
     },
 }

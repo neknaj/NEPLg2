@@ -7,7 +7,7 @@ use crate::span::Span;
 use crate::types::TypeId;
 
 use super::diagnostics::type_error;
-use super::traits::{format_trait_ref_name, infer_instantiated_type_arg, TraitBoundRef};
+use super::traits::{infer_instantiated_type_arg, TraitBound};
 use super::BlockChecker;
 
 macro_rules! trait_bound_apply_log {
@@ -29,7 +29,7 @@ impl<'a> BlockChecker<'a> {
         callee_name: &str,
         binding_ty: TypeId,
         inst_ty: TypeId,
-        type_param_bounds: &BTreeMap<TypeId, Vec<TraitBoundRef>>,
+        type_param_bounds: &BTreeMap<TypeId, Vec<TraitBound>>,
         type_arg_mapping: &BTreeMap<TypeId, TypeId>,
         span: Span,
     ) {
@@ -47,12 +47,7 @@ impl<'a> BlockChecker<'a> {
                     .iter()
                     .map(|arg| self.ctx.substitute(*arg, type_arg_mapping))
                     .collect::<Vec<_>>();
-                let substituted_bound = TraitBoundRef {
-                    name: format_trait_ref_name(
-                        &b.trait_base_name,
-                        &substituted_trait_args,
-                        self.ctx,
-                    ),
+                let substituted_bound = TraitBound {
                     trait_base_name: b.trait_base_name.clone(),
                     trait_args: substituted_trait_args,
                     trait_self_ty: self.ctx.substitute(b.trait_self_ty, type_arg_mapping),
@@ -64,7 +59,7 @@ impl<'a> BlockChecker<'a> {
                         self.ctx.type_to_string(*tp),
                         self.ctx.type_to_string(*raw_arg),
                         self.ctx.type_to_string(resolved_arg),
-                        substituted_bound.name,
+                        substituted_bound.display_name(self.ctx),
                         self.type_param_bounds
                             .iter()
                             .map(|(bound_tp, bs)| {
@@ -72,7 +67,7 @@ impl<'a> BlockChecker<'a> {
                                     "{}:[{}]",
                                     self.ctx.type_to_string(*bound_tp),
                                     bs.iter()
-                                        .map(|bb| bb.name.clone())
+                                        .map(|bb| bb.display_name(self.ctx))
                                         .collect::<Vec<_>>()
                                         .join("|")
                                 )
@@ -81,14 +76,14 @@ impl<'a> BlockChecker<'a> {
                             .join(", ")
                     );
                 }
-                if self.trait_bound_satisfied_by_ref(&substituted_bound, *raw_arg)
-                    || self.trait_bound_satisfied_by_ref(&substituted_bound, resolved_arg)
+                if self.trait_bound_satisfied(&substituted_bound, *raw_arg)
+                    || self.trait_bound_satisfied(&substituted_bound, resolved_arg)
                 {
                     continue;
                 }
                 let inferred_arg = infer_instantiated_type_arg(self.ctx, binding_ty, inst_ty, *tp)
                     .unwrap_or(resolved_arg);
-                if self.trait_bound_satisfied_by_ref(&substituted_bound, inferred_arg) {
+                if self.trait_bound_satisfied(&substituted_bound, inferred_arg) {
                     continue;
                 }
                 if self.is_concrete_type(inferred_arg) {
@@ -96,7 +91,7 @@ impl<'a> BlockChecker<'a> {
                         TypeDiagnosticCode::TraitBoundUnsatisfied,
                         format!(
                             "type does not satisfy trait bound '{}'",
-                            substituted_bound.name
+                            substituted_bound.display_name(self.ctx)
                         ),
                         span,
                     ));

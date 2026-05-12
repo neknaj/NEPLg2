@@ -33,20 +33,20 @@ NEPLg2 の抽象化機能、特に generics、trait、trait bound、overload、m
 現行実装は基本機能を持つが、設計としては十分ではない。
 
 1. trait application identity がまだ一部文字列に寄っている。
-   - `TraitBoundRef.name` は `format_trait_ref_name` で作った表示名を保持する。
    - 2026-05-12 時点で、表示文字列から trait argument を復元する `parse_trait_ref_name` は削除済みである。
-   - ただし `TraitBoundRef.name` 自体は残っているため、diagnostic/display 用の文字列と compiler identity を構造上分離しきれていない。
+   - `TraitBoundRef.name` は削除済みであり、type parameter bound は `TraitBound` として `trait_base_name` / `trait_args` / `trait_self_ty` だけを保持する。
+   - ただし `format_trait_ref_name` は diagnostic/display helper として残っており、今後は `TraitApplication` へ field を集約して identity と display の境界をさらに明確にする必要がある。
 
 2. impl model が optional string field に寄っている。
    - `ImplInfo` は `trait_name: Option<String>`、`trait_base_name: Option<String>`、`trait_args: Vec<TypeId>`、`trait_self_ty: Option<TypeId>` を持つ。
    - inherent impl、trait impl、trait application の有無が enum で分かれず、field combination の妥当性を compiler が保証しにくい。
 
 3. type parameter bound identity が `TypeId` と label fallback に依存している。
-   - `type_param_bounds: BTreeMap<TypeId, Vec<TraitBoundRef>>` は resolve 後 ID や label 同一性の fallback を必要としている。
+   - `type_param_bounds: BTreeMap<TypeId, Vec<TraitBound>>` は resolve 後 ID や label 同一性の fallback を必要としている。
    - これは type parameter の stable identity が境界として弱いことを示す。
 
 4. pending trait check が tuple で保持されている。
-   - `pending_trait_bound_checks: Vec<(TraitBoundRef, TypeId, Span)>` は field の意味が型名だけでは読み取りにくい。
+   - `pending_trait_bound_checks: Vec<(TraitBound, TypeId, Span)>` は field の意味が型名だけでは読み取りにくい。
    - 診断や deferred check の分類を enum / named struct にすべきである。
 
 5. monomorphize trait lookup が string-keyed map へ寄っている。
@@ -136,7 +136,7 @@ struct MonoTraitLookupKey {
 
 作業:
 
-- `nodesrc/test_abstraction_static_verification_policy.js` を追加し、`format_trait_ref_name`、`TraitBoundRef`、`ImplInfo`、`trait_lookup_cache` の current baseline を固定する。
+- `nodesrc/test_abstraction_static_verification_policy.js` を追加し、`format_trait_ref_name`、`TraitBound`、`ImplInfo`、`trait_lookup_cache` の current baseline を固定する。
 - `parse_trait_ref_name` は Stage 1 の作業で 0 baseline になっており、再導入禁止にした。
 - baseline は最終状態ではない。今後の stage で残りの表示名 field / string key の数を下げる。
 
@@ -155,6 +155,7 @@ struct MonoTraitLookupKey {
 
 - 2026-05-12: `function_check.rs` の deferred trait bound check は、`TraitBoundRef.name` の表示文字列を `parse_trait_ref_name` で復元する経路から、`trait_base_name` / `trait_args` を直接比較する typed lookup へ移行した。
 - 2026-05-12: `prefix_check.rs` の trait method self inference は、表示名を作って `infer_unique_type_param_for_trait` で parse し直す経路から、`infer_trait_application_args` の `TypeId` 列を直接 `infer_unique_type_param_for_trait_ref` へ渡す経路へ移行した。これにより `parse_trait_ref_name` は削除済みになった。
+- 2026-05-12: `TraitBoundRef` を `TraitBound` に改名し、表示名 field を削除した。診断と verbose log は `TraitBound::display_name` で境界生成する。
 
 検証:
 
@@ -237,13 +238,13 @@ struct MonoTraitLookupKey {
 作業:
 
 - `parse_trait_ref_name` baseline は 0 済みであり、再導入禁止を維持する。
-- `TraitBoundRef` 旧 model baseline を 0 にする。
+- `TraitBoundRef` 旧 model baseline は 0 済みであり、再導入禁止を維持する。
 - `ImplInfo` optional string baseline を 0 にする。
 - source policy を「増加禁止」から「再導入禁止」へ変更する。
 
 ## 進捗状況
 
-- `typecheck/traits.rs`: 実装済みだが再設計対象。TraitCapability enum は良い。function-level deferred check の string parsing は除去済みだが、TraitBoundRef と一部 string formatting/parsing は残る。
+- `typecheck/traits.rs`: 実装済みだが再設計対象。TraitCapability enum は良い。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みだが、`TraitApplication` struct への集約は未完了。
 - `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存は削除済みだが、bound satisfaction の label fallback は残る。
 - `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
 - `typecheck/trait_call_apply.rs`: 実装済みだが再設計対象。trait method resolution result enum が必要。

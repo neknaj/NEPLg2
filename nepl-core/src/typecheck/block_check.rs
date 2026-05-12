@@ -15,7 +15,7 @@ use super::binding_rules::{
 use super::diagnostics::{resolve_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::gate_allows;
-use super::traits::{format_trait_ref_name, TraitBoundRef};
+use super::traits::TraitBound;
 use super::type_expr::type_from_expr;
 use super::{check_function, BlockChecker, StackEntry};
 
@@ -428,12 +428,7 @@ impl<'a> BlockChecker<'a> {
                                                 type_from_expr(self.ctx, &mut self.labels, arg)
                                             })
                                             .collect();
-                                        bounds.push(TraitBoundRef {
-                                            name: format_trait_ref_name(
-                                                &b.name.name,
-                                                &arg_tys,
-                                                self.ctx,
-                                            ),
+                                        bounds.push(TraitBound {
                                             trait_base_name: b.name.name.clone(),
                                             trait_args: arg_tys,
                                             trait_self_ty: info.self_ty,
