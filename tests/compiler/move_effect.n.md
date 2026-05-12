@@ -907,12 +907,18 @@ fn token_id <(i32)->i32> (x):
     x
 
 fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let token <RegionToken<LocalToken>> region_new<LocalToken> p size_of<LocalToken>
-    store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> mem_ptr_addr p
-    let r <Result<(),str>> dealloc_region<LocalToken> token
-    0
+    match alloc_region<LocalToken> 1:
+        Result::Err _e:
+            1
+        Result::Ok token:
+            let p <MemPtr<LocalToken>> region_ptr &token
+            store<LocalToken> mem_ptr_addr p LocalToken @token_id
+            let a <LocalToken> load<LocalToken> mem_ptr_addr p
+            match dealloc_region<LocalToken> token:
+                Result::Err _e:
+                    1
+                Result::Ok _:
+                    0
 ```
 
 ## region_ptr_at の Ok bind は RegionToken raw place として扱う

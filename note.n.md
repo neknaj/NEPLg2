@@ -36133,3 +36133,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-result-ok-dealloc-owner.json -j 1 --dist web/dist`: total=23, passed=23
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 move_effect RegionToken fixture 整理
+
+- `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` の継続対応として、`tests/compiler/move_effect.n.md::doctest#38` の RegionToken fixture を現行の owner/provenance 方針へ合わせた。
+- 失敗原因は compiler の過剰拒否ではなく、fixture が `mem_ptr_wrap 16` 由来の fixed raw address から `region_new` で token を作り、free obligation owner のように扱っていたことだった。
+- Resource IR owner checker は緩めず、`alloc_region` で発行された正当な token から `region_ptr` を取り、non-Copy payload を `load` で move out した後に `dealloc_region` する正常系へ更新した。
+- fixed raw address や borrowed pointer から owner token を forge する経路は `tests/stdlib/memory_safety.n.md` 側の拒否回帰で維持した。
+- [検証]:
+  - `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 38 --dist web/dist`: passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-move-effect-region-token-fixture.json -j 1 --dist web/dist`: total=110, passed=110
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-move-effect-region-token-memory-safety.json -j 1 --dist web/dist`: total=23, passed=23
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

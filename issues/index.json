@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T09:47:41.214Z",
+  "generated_at": "2026-05-12T10:09:43.225Z",
   "counts": {
     "total": 633,
     "open": 10,
@@ -134,7 +134,7 @@
       "type": "architecture",
       "created": "2026-04-27",
       "updated": "2026-05-12",
-      "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md",
+      "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, tests/compiler/move_effect.n.md, doc/compare/memory_model.md",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"

@@ -8,7 +8,7 @@ priority: P1
 type: architecture
 created: 2026-04-27
 updated: 2026-05-12
-target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md"
+target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, tests/compiler/move_effect.n.md, doc/compare/memory_model.md"
 ---
 
 # ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF: MemPtr and RegionToken lack compiler owned provenance model
@@ -19,7 +19,7 @@ target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passe
 
 ## 対象
 
-- `stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md`
+- `stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, tests/compiler/move_effect.n.md, doc/compare/memory_model.md`
 
 ## 根拠
 
@@ -355,3 +355,17 @@ raw `i32` owner seed は raw owner を消費する関数、または aggregate �
 - `cargo test -p nepl-core --test resource_ir owner_return -- --nocapture`: 8 passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_dealloc_through_result_wrapped_str_addr_view -- --nocapture`: passed
+
+## 2026-05-12 move_effect RegionToken fixture 整理
+
+`tests/compiler/move_effect.n.md::doctest#38` が `resource.owner.no_free_obligation` で失敗することを確認した。原因は compiler の誤拒否ではなく、fixture が `mem_ptr_wrap 16` 由来の fixed raw address から `region_new` で `RegionToken` を作り、free obligation owner のように扱っていたことだった。
+
+現行の `MemPtr = non-owning pointer` / `RegionToken = free obligation owner wrapper` の分離方針では、fixed raw address 由来 token は解放責務を持たないため、`dealloc_region` が拒否するのが正しい。したがって Resource IR owner checker は緩めず、fixture の目的を「non-Copy payload を `load` で move out した後なら、正当に発行された region owner を dealloc できる」ことに限定し、`alloc_region` で発行された token を使う形へ更新した。
+
+この整理により、固定 raw address からの owner token 偽造を拒否する既存回帰を維持したまま、move effect の正常系は正当な provenance を持つ入力だけで検証する。
+
+検証:
+
+- `node nodesrc/run_doctest.js -i tests/compiler/move_effect.n.md -n 38 --dist web/dist`: passed
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-move-effect-region-token-fixture.json -j 1 --dist web/dist`: 110 passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-move-effect-region-token-memory-safety.json -j 1 --dist web/dist`: 23 passed
