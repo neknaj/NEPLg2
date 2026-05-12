@@ -15,7 +15,6 @@ use super::owner_summary_variant_conditions::{
     collect_owner_variant_known_payload_conditions, collect_owner_variant_payload_conditions,
 };
 use super::owner_summary_variant_construct::{construct_variant_for_value, normalize_variant_name};
-use super::owner_summary_variant_match::apply_match_arm_entry;
 use super::owner_summary_variant_return::{
     record_variant_projection_returns, returned_owner_returns_for_value,
 };
@@ -238,7 +237,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     let mut path_function_aliases = function_aliases.clone();
     let mut path_pending_reallocs = pending_reallocs.clone();
     let mut path_variant_owner_effects = variant_owner_effects.clone();
-    apply_match_arm_entry(
+    super::owner_summary_variant_match::apply_match_arm_entry(
         &mut path_engine,
         &mut path_owners,
         &mut path_raw_aliases,

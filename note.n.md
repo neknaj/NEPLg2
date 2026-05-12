@@ -1,3 +1,19 @@
+# 2026-05-12 Agent 2 owner summary variant conditions split
+
+- `ISS-20260512T062230660Z-RESOURCE-OWNER-SUMMARY-VARIANT-CONDI-F79EFC3E` に対応した。
+- `owner_summary_variant_conditions.rs` から payload condition collection と shared i32 condition set を分離した。
+- `owner_summary_variant_i32_conditions.rs` は `SUMMARY_I32_CONDITIONS` を所有する。
+- `owner_summary_variant_payload_conditions.rs` は payload condition collection、input/output payload leaf matching、payload condition uniqueness を所有する。
+- `owner_summary_variant_conditions.rs` は value condition 変換と `extend_owner_projection_source` に集中し、payload collector は re-export して `owner_summary_variant_paths.rs` の call site 責務を増やさない構成にした。
+- line count は `owner_summary_variant_conditions.rs` 185、`owner_summary_variant_payload_conditions.rs` 113、`owner_summary_variant_i32_conditions.rs` 10、`owner_summary_variant_paths.rs` 379。
+- 検証:
+  - `cargo fmt -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: variant condition / paths blocker は解消。次の別件として `initialized_alias.rs has 524 lines; responsibility split limit is 520` に到達。
+- 新規 issue:
+  - `ISS-20260512T063440093Z-RESOURCE-INITIALIZED-ALIAS-EXCEEDS-S-EB6E18E5` を追加し、initialized alias 再分割は次の独立 commit で扱う。
+
 # 2026-05-12 Agent 2 owner_check utility split
 
 - `ISS-20260512T061533036Z-RESOURCE-OWNER-CHECK-EXCEEDS-RESPONS-687898EE` に対応した。
