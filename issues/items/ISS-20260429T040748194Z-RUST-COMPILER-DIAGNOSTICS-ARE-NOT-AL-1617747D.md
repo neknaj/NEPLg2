@@ -968,3 +968,17 @@ Resource IR の `EffectOp::Unknown` と `ResourceEffectBoundaryDiagnostic::Unkno
 - `cargo test -p nepl-core compiler::tests::resource_effect_gate_maps_unknown_effect_to_lower_incomplete_code -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check_reports_unknown_effect_as_lowering_incomplete -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir unknown_callback -- --nocapture`: 5 passed
+
+## 2026-05-12 Stage D2 Resource IR diagnostic code ownership
+
+D2 の実装計画では Resource IR diagnostic kind ごとに `DiagnosticCode` を返す関数を持たせることを求めているが、cell / owner / borrow / effect boundary の stable code 写像はまだ `compiler.rs` の private helper に集中していた。この状態では Resource IR diagnostic enum と stable code taxonomy の対応が compiler gate の実装詳細になり、diagnostic kind を追加した時に Resource IR 側の型境界だけでは更新漏れを検出しにくい。
+
+対応では `ResourceCheckDiagnostic`、`ResourceOwnerDiagnostic`、`ResourceBorrowDiagnostic`、`ResourceEffectBoundaryDiagnostic` に `diagnostic_code()` を追加し、`CellState` / `OwnerState` / `BorrowState` / effect diagnostic variant から stable `DiagnosticCode` へ写像する責務を diagnostic 型側へ移した。compiler gate は allow 判定と dynamic message 生成だけを担当し、分類は Resource IR diagnostic enum の exhaustive `match` で決まる。
+
+検証:
+
+- `cargo test -p nepl-core compiler::tests::resource_ -- --nocapture`: 11 passed
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+- `node nodesrc/issues.js check --dir issues`: passed

@@ -8,10 +8,8 @@ use crate::ast;
 use crate::codegen_wasm;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{
-    BackendDiagnosticCode, DiagnosticCode, EffectDiagnosticCode, LoaderDiagnosticCode,
-    ResolveDiagnosticCode, ResourceBorrowDiagnosticCode, ResourceCellDiagnosticCode,
-    ResourceDiagnosticCode, ResourceLowerDiagnosticCode, ResourceOwnerDiagnosticCode,
-    ResourceRawDiagnosticCode, WasmDiagnosticCode,
+    BackendDiagnosticCode, DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode,
+    ResourceDiagnosticCode, ResourceLowerDiagnosticCode, WasmDiagnosticCode,
 };
 use crate::error::CoreError;
 use crate::lexer;
@@ -576,12 +574,6 @@ fn resource_lower_incomplete_code() -> DiagnosticCode {
     ))
 }
 
-fn resource_raw_identity_escape_code() -> DiagnosticCode {
-    DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
-        ResourceRawDiagnosticCode::IdentityEscape,
-    ))
-}
-
 fn run_resource_cell_gate(
     report: &crate::resource::ResourceCheckReport,
     diagnostics: &mut Vec<Diagnostic>,
@@ -616,7 +608,7 @@ fn resource_cell_diagnostic_to_error(
             state,
             span,
         } => Diagnostic::error_with_code(
-            resource_cell_diagnostic_code(state),
+            diagnostic.diagnostic_code(),
             format!(
                 "resource ir cell state violation in function '{}': {:?} on {:?} found {:?}",
                 function, operation, place, state
@@ -624,19 +616,6 @@ fn resource_cell_diagnostic_to_error(
             *span,
         ),
     }
-}
-
-fn resource_cell_diagnostic_code(state: &crate::resource::CellState) -> DiagnosticCode {
-    let code = match state {
-        crate::resource::CellState::Uninit => ResourceCellDiagnosticCode::Uninit,
-        crate::resource::CellState::Initialized(_) => {
-            ResourceCellDiagnosticCode::InitializedConflict
-        }
-        crate::resource::CellState::Moved => ResourceCellDiagnosticCode::Moved,
-        crate::resource::CellState::Dropped => ResourceCellDiagnosticCode::Dropped,
-        crate::resource::CellState::MaybeMoved => ResourceCellDiagnosticCode::PossiblyMoved,
-    };
-    DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(code))
 }
 
 fn run_resource_owner_obligation_gate(
@@ -682,7 +661,7 @@ fn resource_owner_diagnostic_to_error(
             state,
             span,
         } => Diagnostic::error_with_code(
-            resource_owner_state_diagnostic_code(state),
+            diagnostic.diagnostic_code(),
             format!(
                 "resource ir owner obligation violation in function '{}': {:?} on {:?} found {:?}",
                 function, operation, place, state
@@ -695,9 +674,7 @@ fn resource_owner_diagnostic_to_error(
             storage,
             span,
         } => Diagnostic::error_with_code(
-            DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
-                ResourceOwnerDiagnosticCode::Leak,
-            )),
+            diagnostic.diagnostic_code(),
             format!(
                 "resource ir owner obligation leak in function '{}': {:?} still owns {:?}",
                 function, place, storage
@@ -709,9 +686,7 @@ fn resource_owner_diagnostic_to_error(
             place,
             span,
         } => Diagnostic::error_with_code(
-            DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
-                ResourceOwnerDiagnosticCode::MaybeLeak,
-            )),
+            diagnostic.diagnostic_code(),
             format!(
                 "resource ir owner obligation may leak in function '{}': {:?}",
                 function, place
@@ -719,20 +694,6 @@ fn resource_owner_diagnostic_to_error(
             *span,
         ),
     }
-}
-
-fn resource_owner_state_diagnostic_code(state: &crate::resource::OwnerState) -> DiagnosticCode {
-    let code = match state {
-        crate::resource::OwnerState::NoFreeObligation => {
-            ResourceOwnerDiagnosticCode::NoFreeObligation
-        }
-        crate::resource::OwnerState::Live { .. } => ResourceOwnerDiagnosticCode::Unavailable,
-        crate::resource::OwnerState::Reserved { .. } => ResourceOwnerDiagnosticCode::Reserved,
-        crate::resource::OwnerState::Moved => ResourceOwnerDiagnosticCode::UseAfterMove,
-        crate::resource::OwnerState::Freed => ResourceOwnerDiagnosticCode::DoubleFree,
-        crate::resource::OwnerState::MaybeFreed { .. } => ResourceOwnerDiagnosticCode::MaybeFreed,
-    };
-    DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(code))
 }
 
 fn run_resource_borrow_lifetime_gate(
@@ -761,7 +722,7 @@ fn resource_borrow_diagnostic_to_error(
             active,
             span,
         } => Diagnostic::error_with_code(
-            resource_borrow_conflict_diagnostic_code(*operation, active),
+            diagnostic.diagnostic_code(),
             resource_borrow_conflict_message(function, *operation, place, active),
             *span,
         ),
@@ -786,66 +747,10 @@ fn resource_borrow_conflict_message(
     }
 }
 
-fn resource_borrow_conflict_diagnostic_code(
-    operation: crate::resource::ResourceBorrowOperation,
-    active: &crate::resource::BorrowState,
-) -> DiagnosticCode {
-    match operation {
-        crate::resource::ResourceBorrowOperation::ReturnValue => DiagnosticCode::Resource(
-            ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::ReturnEscape),
-        ),
-        crate::resource::ResourceBorrowOperation::SharedBorrow => DiagnosticCode::Resource(
-            ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::BorrowDuringUnique),
-        ),
-        crate::resource::ResourceBorrowOperation::UniqueBorrow => match active {
-            crate::resource::BorrowState::Shared { .. } => DiagnosticCode::Resource(
-                ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::UniqueDuringShared),
-            ),
-            crate::resource::BorrowState::Unique { .. }
-            | crate::resource::BorrowState::Unborrowed
-            | crate::resource::BorrowState::Released => DiagnosticCode::Resource(
-                ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::BorrowDuringUnique),
-            ),
-        },
-        crate::resource::ResourceBorrowOperation::Read => DiagnosticCode::Resource(
-            ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::UseDuringUnique),
-        ),
-        crate::resource::ResourceBorrowOperation::Move => match active {
-            crate::resource::BorrowState::Shared { .. } => DiagnosticCode::Resource(
-                ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::MoveFromShared),
-            ),
-            crate::resource::BorrowState::Unique { .. }
-            | crate::resource::BorrowState::Unborrowed
-            | crate::resource::BorrowState::Released => DiagnosticCode::Resource(
-                ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::UseDuringUnique),
-            ),
-        },
-        crate::resource::ResourceBorrowOperation::Assign => match active {
-            crate::resource::BorrowState::Shared { .. } => DiagnosticCode::Resource(
-                ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::AssignDuringShared),
-            ),
-            crate::resource::BorrowState::Unique { .. }
-            | crate::resource::BorrowState::Unborrowed
-            | crate::resource::BorrowState::Released => DiagnosticCode::Resource(
-                ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::AssignDuringUnique),
-            ),
-        },
-        crate::resource::ResourceBorrowOperation::Drop => match active {
-            crate::resource::BorrowState::Shared { .. } => DiagnosticCode::Resource(
-                ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::DropDuringShared),
-            ),
-            crate::resource::BorrowState::Unique { .. }
-            | crate::resource::BorrowState::Unborrowed
-            | crate::resource::BorrowState::Released => DiagnosticCode::Resource(
-                ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::DropDuringUnique),
-            ),
-        },
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::diagnostic_codes::EffectDiagnosticCode;
     use crate::resource::{
         BorrowState, CellState, OwnerState, Place, RawMemoryOp, ResourceBorrowDiagnostic,
         ResourceBorrowOperation, ResourceCheckDiagnostic, ResourceCheckOperation,
@@ -1218,6 +1123,7 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
 fn resource_effect_boundary_diagnostic_to_error(
     diagnostic: &crate::resource::ResourceEffectBoundaryDiagnostic,
 ) -> Diagnostic {
+    let code = diagnostic.diagnostic_code();
     match diagnostic {
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction {
             function,
@@ -1239,7 +1145,7 @@ fn resource_effect_boundary_diagnostic_to_error(
                 }
             };
             Diagnostic::error_with_code(
-                DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure),
+                code,
                 format!("pure function '{}' calls {}", function, call_description),
                 *span,
             )
@@ -1249,7 +1155,7 @@ fn resource_effect_boundary_diagnostic_to_error(
             operation,
             span,
         } => Diagnostic::error_with_code(
-            DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure),
+            code,
             format!(
                 "pure function '{}' uses unsafe memory operation '{}'",
                 function, operation
@@ -1261,7 +1167,7 @@ fn resource_effect_boundary_diagnostic_to_error(
             span,
             ..
         } => Diagnostic::error_with_code(
-            resource_raw_identity_escape_code(),
+            code,
             format!(
                 "pure function '{}' returns raw address identity from internal allocation",
                 function
@@ -1273,7 +1179,7 @@ fn resource_effect_boundary_diagnostic_to_error(
             reason,
             span,
         } => Diagnostic::error_with_code(
-            resource_lower_incomplete_code(),
+            code,
             format!(
                 "resource ir effect lowering kept unknown effect in function '{}': {}",
                 function, reason

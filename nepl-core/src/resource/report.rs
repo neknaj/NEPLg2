@@ -1,6 +1,10 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use crate::diagnostic_codes::{
+    DiagnosticCode, ResourceBorrowDiagnosticCode, ResourceCellDiagnosticCode,
+    ResourceDiagnosticCode, ResourceOwnerDiagnosticCode,
+};
 use crate::span::Span;
 
 use super::coverage::ResourceLoweringCoverage;
@@ -112,6 +116,27 @@ pub enum ResourceCheckOperation {
     IndirectCallee,
 }
 
+impl ResourceCheckDiagnostic {
+    pub fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            ResourceCheckDiagnostic::CellUnavailable { state, .. } => {
+                resource_cell_state_diagnostic_code(state)
+            }
+        }
+    }
+}
+
+fn resource_cell_state_diagnostic_code(state: &CellState) -> DiagnosticCode {
+    let code = match state {
+        CellState::Uninit => ResourceCellDiagnosticCode::Uninit,
+        CellState::Initialized(_) => ResourceCellDiagnosticCode::InitializedConflict,
+        CellState::Moved => ResourceCellDiagnosticCode::Moved,
+        CellState::Dropped => ResourceCellDiagnosticCode::Dropped,
+        CellState::MaybeMoved => ResourceCellDiagnosticCode::PossiblyMoved,
+    };
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(code))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceOwnerCheckReport {
     pub functions: Vec<ResourceOwnerFunctionCheck>,
@@ -173,6 +198,34 @@ pub enum ResourceOwnerOperation {
     ConstructInput,
 }
 
+impl ResourceOwnerDiagnostic {
+    pub fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            ResourceOwnerDiagnostic::OwnerUnavailable { state, .. } => {
+                resource_owner_state_diagnostic_code(state)
+            }
+            ResourceOwnerDiagnostic::OwnerLeaked { .. } => DiagnosticCode::Resource(
+                ResourceDiagnosticCode::Owner(ResourceOwnerDiagnosticCode::Leak),
+            ),
+            ResourceOwnerDiagnostic::OwnerMaybeLeaked { .. } => DiagnosticCode::Resource(
+                ResourceDiagnosticCode::Owner(ResourceOwnerDiagnosticCode::MaybeLeak),
+            ),
+        }
+    }
+}
+
+fn resource_owner_state_diagnostic_code(state: &OwnerState) -> DiagnosticCode {
+    let code = match state {
+        OwnerState::NoFreeObligation => ResourceOwnerDiagnosticCode::NoFreeObligation,
+        OwnerState::Live { .. } => ResourceOwnerDiagnosticCode::Unavailable,
+        OwnerState::Reserved { .. } => ResourceOwnerDiagnosticCode::Reserved,
+        OwnerState::Moved => ResourceOwnerDiagnosticCode::UseAfterMove,
+        OwnerState::Freed => ResourceOwnerDiagnosticCode::DoubleFree,
+        OwnerState::MaybeFreed { .. } => ResourceOwnerDiagnosticCode::MaybeFreed,
+    };
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(code))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceBorrowCheckReport {
     pub functions: Vec<ResourceBorrowFunctionCheck>,
@@ -214,4 +267,71 @@ pub enum ResourceBorrowOperation {
     Assign,
     Drop,
     ReturnValue,
+}
+
+impl ResourceBorrowDiagnostic {
+    pub fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            ResourceBorrowDiagnostic::BorrowConflict {
+                operation, active, ..
+            } => resource_borrow_conflict_diagnostic_code(*operation, active),
+        }
+    }
+}
+
+fn resource_borrow_conflict_diagnostic_code(
+    operation: ResourceBorrowOperation,
+    active: &BorrowState,
+) -> DiagnosticCode {
+    match operation {
+        ResourceBorrowOperation::ReturnValue => DiagnosticCode::Resource(
+            ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::ReturnEscape),
+        ),
+        ResourceBorrowOperation::SharedBorrow => DiagnosticCode::Resource(
+            ResourceDiagnosticCode::Borrow(ResourceBorrowDiagnosticCode::BorrowDuringUnique),
+        ),
+        ResourceBorrowOperation::UniqueBorrow => match active {
+            BorrowState::Shared { .. } => DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
+                ResourceBorrowDiagnosticCode::UniqueDuringShared,
+            )),
+            BorrowState::Unique { .. } | BorrowState::Unborrowed | BorrowState::Released => {
+                DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
+                    ResourceBorrowDiagnosticCode::BorrowDuringUnique,
+                ))
+            }
+        },
+        ResourceBorrowOperation::Read => DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
+            ResourceBorrowDiagnosticCode::UseDuringUnique,
+        )),
+        ResourceBorrowOperation::Move => match active {
+            BorrowState::Shared { .. } => DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
+                ResourceBorrowDiagnosticCode::MoveFromShared,
+            )),
+            BorrowState::Unique { .. } | BorrowState::Unborrowed | BorrowState::Released => {
+                DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
+                    ResourceBorrowDiagnosticCode::UseDuringUnique,
+                ))
+            }
+        },
+        ResourceBorrowOperation::Assign => match active {
+            BorrowState::Shared { .. } => DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
+                ResourceBorrowDiagnosticCode::AssignDuringShared,
+            )),
+            BorrowState::Unique { .. } | BorrowState::Unborrowed | BorrowState::Released => {
+                DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
+                    ResourceBorrowDiagnosticCode::AssignDuringUnique,
+                ))
+            }
+        },
+        ResourceBorrowOperation::Drop => match active {
+            BorrowState::Shared { .. } => DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
+                ResourceBorrowDiagnosticCode::DropDuringShared,
+            )),
+            BorrowState::Unique { .. } | BorrowState::Unborrowed | BorrowState::Released => {
+                DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
+                    ResourceBorrowDiagnosticCode::DropDuringUnique,
+                ))
+            }
+        },
+    }
 }

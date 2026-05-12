@@ -36187,3 +36187,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir unknown_callback -- --nocapture`: 5 passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 Resource IR diagnostic code ownership
+
+- `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` の Stage D2 継続対応として、Resource IR diagnostic 型自身が stable `DiagnosticCode` を返す `diagnostic_code()` を持つ構造へ寄せた。
+- 対象は `ResourceCheckDiagnostic`、`ResourceOwnerDiagnostic`、`ResourceBorrowDiagnostic`、`ResourceEffectBoundaryDiagnostic`。
+- これまで `compiler.rs` 側にあった cell / owner / borrow / effect boundary の code 分類 helper を Resource IR diagnostic enum 側へ移し、compiler gate は raw-memory-boundary allow 判定と dynamic message 生成に集中させた。
+- `CellState`、`OwnerState`、`BorrowState`、effect diagnostic variant の分類は exhaustive `match` で保持されるため、診断分類の更新漏れを Rust の型検査で拾いやすくなる。
+- [検証]:
+  - `cargo test -p nepl-core compiler::tests::resource_ -- --nocapture`: 11 passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

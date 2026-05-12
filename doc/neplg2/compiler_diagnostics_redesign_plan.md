@@ -226,6 +226,7 @@ Resource IR の diagnostic は、compiler.rs の ad-hoc な番号写像ではな
 - 2026-05-06: `ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction` は Resource IR compiler gate から `Effect(PureCallsImpure)` / `effect.pure.calls_impure` へ error として写像する。Stage 6 まで残る移行中許可は、`stdlib/core/mem.nepl` など compiler-owned raw-memory-boundary capability を持つ source に限定する。
 - 2026-04-30: `ResourceDiagnosticCode::Cell(...)` と `ResourceDiagnosticCode::Owner(...)` を追加し、Resource IR の `CellState` / `OwnerState` 診断を `resource.raw.ownership_violation` bucket へ潰さないようにした。raw-memory-backed 旧 move checker の non-Copy raw cell diagnostics も `resource.cell.*` へ移行したため、`resource.raw.*` は raw identity escape など raw provenance / unsafe boundary そのものへ限定する。
 - 2026-05-12: `EffectOp::Unknown` と `ResourceEffectBoundaryDiagnostic::UnknownEffect` の理由を自由文字列から `UnknownEffectReason` enum へ移行した。unknown effect は `resource.lower.incomplete` へ写像される lowering incompleteness であり、原因分類は message 文字列ではなく typed enum / exhaustive match で保持する。
+- 2026-05-12: cell / owner / borrow / effect boundary の Resource IR diagnostic 型に `diagnostic_code()` を持たせ、compiler gate 側の private helper ではなく diagnostic kind 自身が stable `DiagnosticCode` への写像を所有する形へ寄せた。compiler gate は dynamic message と allow 判定だけを担当し、分類は Resource IR diagnostic enum の exhaustive `match` で決まる。
 
 2026-04-30 追記:
 

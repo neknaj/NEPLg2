@@ -3,6 +3,10 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use crate::diagnostic_codes::{
+    DiagnosticCode, EffectDiagnosticCode, ResourceDiagnosticCode, ResourceLowerDiagnosticCode,
+    ResourceRawDiagnosticCode,
+};
 use crate::span::Span;
 
 use super::effect_check::ResourceEffectBoundaryEngine;
@@ -56,6 +60,25 @@ pub enum ResourceEffectCallKind {
     ExternalIo { operation: ExternalIoOp },
     Nondet { operation: NondetOp },
     Indirect,
+}
+
+impl ResourceEffectBoundaryDiagnostic {
+    pub fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. }
+            | ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction { .. } => {
+                DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure)
+            }
+            ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc { .. } => {
+                DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
+                    ResourceRawDiagnosticCode::IdentityEscape,
+                ))
+            }
+            ResourceEffectBoundaryDiagnostic::UnknownEffect { .. } => DiagnosticCode::Resource(
+                ResourceDiagnosticCode::Lower(ResourceLowerDiagnosticCode::Incomplete),
+            ),
+        }
+    }
 }
 
 pub fn check_resource_effect_boundaries(module: &ResourceModule) -> ResourceEffectBoundaryReport {
