@@ -6,7 +6,7 @@ use crate::types::{TypeId, TypeKind};
 use super::signature::type_contains_unbound_var;
 use super::traits::{
     format_trait_ref_name, infer_type_param_from_instantiated_pair, merge_inferred_instantiation,
-    parse_trait_ref_name, trait_application_matches, TraitBoundRef, TraitInfo,
+    trait_application_matches, TraitBoundRef, TraitInfo,
 };
 use super::{BlockChecker, StackEntry};
 
@@ -151,13 +151,6 @@ impl<'a> BlockChecker<'a> {
             }
         }
         matched
-    }
-
-    pub(super) fn infer_unique_type_param_for_trait(&self, trait_name: &str) -> Option<TypeId> {
-        if let Some((base, args)) = parse_trait_ref_name(trait_name, self.ctx) {
-            return self.infer_unique_type_param_for_trait_ref(&base, &args);
-        }
-        self.infer_unique_type_param_for_trait_ref(trait_name, &[])
     }
 
     pub(super) fn infer_trait_application_name(

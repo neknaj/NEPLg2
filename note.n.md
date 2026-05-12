@@ -36513,3 +36513,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo fmt --check -p nepl-core`
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 trait method self inference typed args
+
+- `ISS-20260512T150308333Z-TRAIT-METHOD-SELF-INFERENCE-REPARSES-FAE05801` に対応した。
+- `prefix_check.rs` の trait method self inference が、trait application 表示名を作って `infer_unique_type_param_for_trait` で parse し直す経路を除去した。
+- `infer_trait_application_args` で得た `TypeId` 列を直接 `infer_unique_type_param_for_trait_ref` に渡すようにした。
+- `trait_check.rs` から `infer_unique_type_param_for_trait`、`traits.rs` から `parse_trait_ref_name` を削除した。
+- `nodesrc/test_abstraction_static_verification_policy.js` の `parse_trait_ref_name` baseline を 0 に下げ、再導入禁止を固定した。
+- [検証]:
+  - `cargo test -p nepl-core generics -- --nocapture`
+  - `node nodesrc/tests.js -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/generics.n.md --no-tree -o tmp/typed-trait-method-self-inference-generics.json -j 1 --dist web/dist`
+  - `node nodesrc/test_abstraction_static_verification_policy.js`
+  - `cargo check -p nepl-core --tests`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

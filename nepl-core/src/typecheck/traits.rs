@@ -261,34 +261,6 @@ pub(super) fn type_param_has_trait_application_bound(
     })
 }
 
-pub(super) fn parse_trait_ref_name(name: &str, ctx: &TypeCtx) -> Option<(String, Vec<TypeId>)> {
-    let lt = name.find('<')?;
-    let gt = name.rfind('>')?;
-    if gt <= lt {
-        return None;
-    }
-    let base = name[..lt].to_string();
-    let inner = &name[lt + 1..gt];
-    if inner.trim().is_empty() {
-        return Some((base, Vec::new()));
-    }
-    let mut args = Vec::new();
-    for part in inner.split(',') {
-        let ty_name = part.trim();
-        let ty = match ty_name {
-            "i32" => Some(ctx.i32()),
-            "u8" => Some(ctx.u8()),
-            "f32" => Some(ctx.f32()),
-            "bool" => Some(ctx.bool()),
-            "char" => Some(ctx.char()),
-            "str" => Some(ctx.str()),
-            _ => None,
-        }?;
-        args.push(ty);
-    }
-    Some((base, args))
-}
-
 pub(super) fn merge_inferred_instantiation(
     ctx: &TypeCtx,
     current: Option<TypeId>,

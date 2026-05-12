@@ -12,7 +12,7 @@ const PLAN = path.join(ROOT, "doc", "neplg2", "abstraction_static_verification_p
 const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
 
 const BASELINE = {
-    parseTraitRefName: 3,
+    parseTraitRefName: 0,
     formatTraitRefName: 12,
     traitBoundRef: 23,
     implInfo: 8,
@@ -110,9 +110,9 @@ assert(
 );
 
 const typedLookup = traits.match(
-    /pub\(super\) fn type_param_has_trait_application_bound[\s\S]*?\npub\(super\) fn parse_trait_ref_name/,
+    /pub\(super\) fn type_param_has_trait_application_bound[\s\S]*?\npub\(super\) fn merge_inferred_instantiation/,
 );
-assert(typedLookup, "typed trait application bound lookup must exist before display parser boundary");
+assert(typedLookup, "typed trait application bound lookup must exist before inference helper boundary");
 assert(
     !typedLookup[0].includes("parse_trait_ref_name("),
     "typed trait application bound lookup must not parse rendered trait names",
@@ -120,6 +120,10 @@ assert(
 assert(
     !typedLookup[0].includes("b.name"),
     "typed trait application bound lookup must not compare rendered bound names",
+);
+assert(
+    !traits.includes("parse_trait_ref_name"),
+    "rendered trait application parser must not be reintroduced",
 );
 
 console.log("abstraction static verification policy baseline ok");

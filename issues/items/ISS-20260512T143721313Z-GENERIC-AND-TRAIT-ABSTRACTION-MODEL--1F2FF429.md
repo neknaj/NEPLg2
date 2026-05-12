@@ -48,6 +48,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `nodesrc/run_source_policy_regressions.js` に abstraction static verification policy を追加した。
 - 現時点の baseline は最終状態ではなく、今後 `TraitApplication` / `ImplKind` / `PendingTraitCheck` / `MonoTraitLookupKey` 導入に合わせて 0 へ下げる。
 - `ISS-20260512T145319534Z-DEFERRED-TRAIT-BOUND-CHECKS-REPARSE--38D11F7C` で、function-level deferred trait bound check が `bound.name` の表示文字列を authority として使う経路を除去した。`parse_trait_ref_name` baseline は 4 から 3 へ下げた。
+- `ISS-20260512T150308333Z-TRAIT-METHOD-SELF-INFERENCE-REPARSES-FAE05801` で、trait method self inference が表示名を生成して parse し直す経路を除去した。`parse_trait_ref_name` は削除し、baseline は 0 にした。
 
 ## 検証
 

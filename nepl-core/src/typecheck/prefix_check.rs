@@ -792,17 +792,17 @@ impl<'a> BlockChecker<'a> {
                                             return None;
                                         }
                                         if let Some(sig) = trait_info.methods.get(method_name) {
-                                            let applied_trait_name = self
-                                                .infer_trait_application_name(
-                                                    trait_name,
+                                            let applied_trait_args = self
+                                                .infer_trait_application_args(
                                                     trait_info,
                                                     *sig,
                                                     &[],
                                                     None,
                                                 );
                                             let method_self = self
-                                                .infer_unique_type_param_for_trait(
-                                                    &applied_trait_name,
+                                                .infer_unique_type_param_for_trait_ref(
+                                                    trait_name,
+                                                    &applied_trait_args,
                                                 )
                                                 .unwrap_or_else(|| {
                                                     self.ctx.fresh_var(Some(String::from("Self")))
