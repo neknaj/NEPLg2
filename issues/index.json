@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T10:17:28.029Z",
+  "generated_at": "2026-05-12T11:19:21.827Z",
   "counts": {
-    "total": 634,
-    "open": 10,
+    "total": 635,
+    "open": 11,
     "resolved": 624,
     "by_area": {
       "core": {
-        "total": 317,
-        "open": 3,
+        "total": 318,
+        "open": 4,
         "resolved": 314
       },
       "stdlib": {
@@ -148,11 +148,26 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-05-07",
+      "updated": "2026-05-12",
       "target": "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
+    },
+    {
+      "id": "ISS-20260512T111921719Z-RESOURCE-COVERAGE-MODULE-EXCEEDS-RES-2FFC6C86",
+      "title": "Resource coverage module exceeds responsibility limit after operation enum migration",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/coverage.rs, nepl-core/src/resource/coverage_operation.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T111921719Z-RESOURCE-COVERAGE-MODULE-EXCEEDS-RES-2FFC6C86.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",

@@ -1,18 +1,11 @@
 extern crate alloc;
 
-use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::span::Span;
-
-use super::coverage::{
-    ResourceCoverageCounts, ResourceCoverageDiagnostic,
-    ResourceCoveragePlaceOperation as CoveragePlaceOp,
-};
-use super::model::{
-    Place, PlaceProjection, PlaceRoot, ResourceBlock, ResourceFunction, ResourceOp,
-    ResourceTerminator,
-};
+use super::coverage::{ResourceCoverageCounts, ResourceCoverageDiagnostic};
+use super::coverage_operation::ResourceCoveragePlaceOperation as CoveragePlaceOp;
+use super::coverage_resource_place::{resource_alias_place_coverage, resource_place_coverage};
+use super::model::{ResourceBlock, ResourceFunction, ResourceOp, ResourceTerminator};
 
 pub(super) fn resource_function_coverage(
     function: &str,
@@ -479,48 +472,5 @@ fn resource_ops_coverage(
             }
             ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
         }
-    }
-}
-
-fn resource_alias_place_coverage(
-    function: &str,
-    operation: CoveragePlaceOp,
-    place: &Place,
-    span: Span,
-    counts: &mut ResourceCoverageCounts,
-    diagnostics: &mut Vec<ResourceCoverageDiagnostic>,
-) {
-    if matches!(place.root, PlaceRoot::Unknown) {
-        counts.unknown_places += 1;
-        diagnostics.push(ResourceCoverageDiagnostic::UnknownPlace {
-            function: String::from(function),
-            operation,
-            place: place.clone(),
-            span,
-        });
-    }
-}
-
-fn resource_place_coverage(
-    function: &str,
-    operation: CoveragePlaceOp,
-    place: &Place,
-    span: Span,
-    counts: &mut ResourceCoverageCounts,
-    diagnostics: &mut Vec<ResourceCoverageDiagnostic>,
-) {
-    counts.deref_projections += place
-        .projections
-        .iter()
-        .filter(|projection| matches!(projection, PlaceProjection::Deref))
-        .count();
-    if matches!(place.root, PlaceRoot::Unknown) {
-        counts.unknown_places += 1;
-        diagnostics.push(ResourceCoverageDiagnostic::UnknownPlace {
-            function: String::from(function),
-            operation,
-            place: place.clone(),
-            span,
-        });
     }
 }

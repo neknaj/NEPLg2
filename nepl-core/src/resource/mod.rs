@@ -30,7 +30,10 @@ mod coverage_hir_projection;
 mod coverage_hir_projection_aggregate;
 mod coverage_hir_raw;
 mod coverage_hir_scope;
+mod coverage_kind;
+mod coverage_operation;
 mod coverage_resource;
+mod coverage_resource_place;
 mod drop_elaboration;
 mod drop_elaboration_bindings;
 mod drop_elaboration_hir_bridge;
@@ -191,9 +194,10 @@ mod type_pattern;
 pub use borrow_check::check_resource_borrow_lifetimes;
 pub use coverage::{
     compare_hir_resource_lowering, compare_hir_resource_lowering_typed, ResourceCoverageCounts,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceCoveragePlaceOperation,
-    ResourceFunctionCoverage, ResourceLoweringCoverage,
+    ResourceCoverageDiagnostic, ResourceFunctionCoverage, ResourceLoweringCoverage,
 };
+pub use coverage_kind::ResourceCoverageKind;
+pub use coverage_operation::ResourceCoveragePlaceOperation;
 pub use drop_elaboration::{
     compute_resource_drop_elaboration_plan, ResourceDropElaborationDrop,
     ResourceDropElaborationFunction, ResourceDropElaborationPlan, ResourceDropElaborationPlanError,

@@ -122,7 +122,10 @@ for (const moduleName of [
     'coverage_hir_projection_aggregate.rs',
     'coverage_hir_raw.rs',
     'coverage_hir_scope.rs',
+    'coverage_kind.rs',
+    'coverage_operation.rs',
     'coverage_resource.rs',
+    'coverage_resource_place.rs',
     'drop_elaboration.rs',
     'drop_elaboration_bindings.rs',
     'drop_elaboration_validate.rs',
@@ -268,7 +271,10 @@ for (const moduleDecl of [
     'mod coverage_hir_projection_aggregate;',
     'mod coverage_hir_raw;',
     'mod coverage_hir_scope;',
+    'mod coverage_kind;',
+    'mod coverage_operation;',
     'mod coverage_resource;',
+    'mod coverage_resource_place;',
     'mod drop_elaboration;',
     'mod drop_elaboration_bindings;',
     'mod drop_elaboration_validate;',
@@ -380,7 +386,10 @@ const coverageHirProjection = readResource('coverage_hir_projection.rs');
 const coverageHirProjectionAggregate = readResource('coverage_hir_projection_aggregate.rs');
 const coverageHirRaw = readResource('coverage_hir_raw.rs');
 const coverageHirScope = readResource('coverage_hir_scope.rs');
+const coverageKind = readResource('coverage_kind.rs');
+const coverageOperation = readResource('coverage_operation.rs');
 const coverageResource = readResource('coverage_resource.rs');
+const coverageResourcePlace = readResource('coverage_resource_place.rs');
 const dropElaboration = readResource('drop_elaboration.rs');
 const dropElaborationBindings = readResource('drop_elaboration_bindings.rs');
 const dropElaborationValidate = readResource('drop_elaboration_validate.rs');
@@ -440,10 +449,31 @@ assertContains(
     'struct HirCoverageContext',
     'coverage_hir_scope.rs',
 );
+assertContains(coverageKind, 'pub enum ResourceCoverageKind', 'coverage_kind.rs');
+assertContains(
+    coverageOperation,
+    'pub enum ResourceCoveragePlaceOperation',
+    'coverage_operation.rs',
+);
+assertContains(
+    coverageOperation,
+    'pub fn as_str(self)',
+    'coverage_operation.rs',
+);
 assertContains(
     coverageResource,
     'pub(super) fn resource_function_coverage',
     'coverage_resource.rs',
+);
+assertContains(
+    coverageResourcePlace,
+    'pub(super) fn resource_place_coverage',
+    'coverage_resource_place.rs',
+);
+assertContains(
+    coverageResourcePlace,
+    'pub(super) fn resource_alias_place_coverage',
+    'coverage_resource_place.rs',
 );
 assertContains(
     dropElaboration,
@@ -728,7 +758,10 @@ const maxLines = new Map([
     ['coverage_hir_projection_aggregate.rs', 180],
     ['coverage_hir_raw.rs', 80],
     ['coverage_hir_scope.rs', 100],
+    ['coverage_kind.rs', 80],
+    ['coverage_operation.rs', 100],
     ['coverage_resource.rs', 520],
+    ['coverage_resource_place.rs', 100],
     ['drop_elaboration.rs', 220],
     ['drop_elaboration_bindings.rs', 140],
     ['drop_elaboration_validate.rs', 120],

@@ -1,3 +1,14 @@
+# 2026-05-12 Agent 1 Resource coverage module split
+
+- `ISS-20260512T111921719Z-RESOURCE-COVERAGE-MODULE-EXCEEDS-RES-2FFC6C86` に対応した。
+- 直前の diagnostic D2 対応で `ResourceCoveragePlaceOperation` を enum 化した結果、`coverage.rs` が責務分割 policy の 280 行 limit を超えたため、limit を上げずに分割した。
+- `ResourceCoveragePlaceOperation` を `coverage_operation.rs`、`ResourceCoverageKind` を `coverage_kind.rs`、place-level unknown-place diagnostic helper を `coverage_resource_place.rs` へ分離した。
+- `nodesrc/test_resource_checker_responsibility.js` に新 module の存在、`mod` 登録、責務 marker、line budget を追加し、coverage taxonomy / place diagnostic helper が再び coverage 本体へ戻らないようにした。
+- 検証:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+- plan.md との差分:
+  - plan.md は変更していない。今回の変更は Resource IR proof module の責務分割維持。
+
 # 2026-05-12 Agent 1 Resource lower/drop/coverage diagnostic ownership
 
 - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` の Stage D2 継続として、lowering coverage / drop elaboration plan / HIR bridge の diagnostic code 所有を Resource IR 側へ移した。
