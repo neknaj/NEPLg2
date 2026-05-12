@@ -1,0 +1,121 @@
+//: # segment_tree/api/update
+//: `SegmentTree` の owner-consuming update API
+//:
+//: ### [目的/もくてき]
+//: - `replace` / `add` の index validation、storage invariant check、owner-preserving error 生成を集約します。
+//: - update 失敗時は `SegmentTreeUpdateError` に元 owner を入れて返し、caller が cleanup できるようにします。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../layout" as *
+#import "../mutation" as *
+#import "./diagnostic" as *
+
+//: ## seg_update_ok
+//: 更新に[成功/せいこう]した `SegmentTree` owner を `Result::Ok` へ[包/つつ]む
+fn seg_update_ok <(SegmentTree)->Result<SegmentTree, SegmentTreeUpdateError>> (st):
+    ok<SegmentTree, SegmentTreeUpdateError> st
+
+//: ## seg_update_err
+//: update [失敗/しっぱい]を owner-preserving error に[変換/へんかん]する
+fn seg_update_err <(SegmentTree,Diag)->Result<SegmentTree, SegmentTreeUpdateError>> (st, d):
+    let e <SegmentTreeUpdateError> SegmentTreeUpdateError st d
+    err<SegmentTree, SegmentTreeUpdateError> e
+
+//: ## replace
+//: `idx` の[値/あたい]を `value` に[置/お]き[換/か]える
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let st0 <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
+//:     let st1 <SegmentTree> unwrap_ok<SegmentTree, SegmentTreeUpdateError> replace st0 1 5;
+//:     let total <i32> unwrap_ok<i32, Diag> sum_range &st1 0 4;
+//:     free st1
+//:     if eq total 5 1 0
+//: ```
+fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> (st, idx, value):
+    let n <i32> *field::get_ref &st "n"
+    let base <i32> *field::get_ref &st "base"
+    if:
+        and le 0 idx lt idx n
+        then:
+            let result <Result<(), Diag>> block:
+                let data <&Vec<i32>> field::get_ref &st "data"
+                if:
+                    not seg_storage_has_expected_len data base
+                    then:
+                        diag_err<()> seg_diag_index
+                    else:
+                        if:
+                            seg_replace_storage data base idx value
+                            then:
+                                ok<(), Diag> ()
+                            else:
+                                diag_err<()> seg_diag_index
+            match result:
+                Result::Ok _unit:
+                    seg_update_ok st
+                Result::Err d:
+                    seg_update_err st d
+        else:
+            let d <Diag> seg_diag_index
+            seg_update_err st d
+
+//: ## add
+//: `idx` に `delta` を[加算/かさん]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let st <SegmentTree>:
+//:         unwrap_ok<SegmentTree, Diag> new 4
+//:         |> add 0 2 |> uwok
+//:         |> add 3 5 |> uwok
+//:     let total <i32> unwrap_ok<i32, Diag> sum_range &st 0 4;
+//:     free st
+//:     if eq total 7 1 0
+//: ```
+fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> (st, idx, delta):
+    let n <i32> *field::get_ref &st "n"
+    let base <i32> *field::get_ref &st "base"
+    if:
+        and le 0 idx lt idx n
+        then:
+            let result <Result<(), Diag>> block:
+                let data <&Vec<i32>> field::get_ref &st "data"
+                if:
+                    not seg_storage_has_expected_len data base
+                    then:
+                        diag_err<()> seg_diag_index
+                    else:
+                        if:
+                            seg_add_storage data base idx delta
+                            then:
+                                ok<(), Diag> ()
+                            else:
+                                diag_err<()> seg_diag_index
+            match result:
+                Result::Ok _unit:
+                    seg_update_ok st
+                Result::Err d:
+                    seg_update_err st d
+        else:
+            let d <Diag> seg_diag_index
+            seg_update_err st d

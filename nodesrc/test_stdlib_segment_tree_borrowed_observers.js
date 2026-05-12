@@ -7,13 +7,25 @@ const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
 const apiPath = "stdlib/alloc/collections/segment_tree/api.nepl";
+const observerPath = "stdlib/alloc/collections/segment_tree/api/observer.nepl";
+const queryPath = "stdlib/alloc/collections/segment_tree/api/query.nepl";
 const apiSrc = fs.readFileSync(path.join(repoRoot, apiPath), "utf8");
+const observerSrc = fs.readFileSync(path.join(repoRoot, observerPath), "utf8");
+const querySrc = fs.readFileSync(path.join(repoRoot, queryPath), "utf8");
 
-const code = apiSrc
+const apiCode = apiSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join("\n");
+const code = [observerSrc, querySrc]
+    .join("\n")
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join("\n");
 
+assert.match(apiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, "SegmentTree api facade must re-export len through api/observer");
+assert.match(apiSrc, /pub\s+#import\s+"\.\/api\/query"\s+as\s+@merge/, "SegmentTree api facade must re-export borrowed queries through api/query");
+assert.doesNotMatch(apiCode, /\bfn\s+/, "SegmentTree api facade must not keep duplicate observer wrappers");
 assert.match(code, /fn\s+len\s+<\(&SegmentTree\)->i32>\s+\(st\):/, "SegmentTree.len must borrow the owner");
 assert.doesNotMatch(code, /fn\s+len\s+<\(SegmentTree\)->i32>/, "SegmentTree.len must not consume the owner");
 assert.doesNotMatch(code, /fn\s+len_ref\s+<\(&SegmentTree\)->i32>/, "SegmentTree must not keep a duplicate len_ref observer");

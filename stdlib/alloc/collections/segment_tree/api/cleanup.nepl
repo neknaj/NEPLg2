@@ -1,0 +1,38 @@
+//: # segment_tree/api/cleanup
+//: `SegmentTree` owner の cleanup API
+//:
+//: ### [目的/もくてき]
+//: - `SegmentTree` owner から internal storage owner を取り出し、`Vec<i32>` として閉じます。
+//: - cleanup を observer / update / query から分離し、free obligation の境界を明確にします。
+
+#indent 4
+
+#import "core/field" as field
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+
+//: ## free
+//: [内部配列/ないぶはいれつ]を[解放/かいほう]する
+//:
+//: ### [実装/じっそう]
+//: - `data` は `new` が `2 * base` 要素の `Vec<i32>` として[確保/かくほ]し、`SegmentTree` が[単独/たんどく]で[所有/しょゆう]します。
+//: - owner invariant に[基/もと]づき、内部 cleanup は `Vec<i32>` owner を[閉/と]じます。
+//:
+//: ### [注意/ちゅうい]
+//: - [解放後/かいほうご]に `st` を[再利用/さいりよう]してはいけません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let st <SegmentTree> unwrap_ok<SegmentTree, Diag> new 3;
+//:     free st;
+//:     0
+//: ```
+fn free <(SegmentTree)->()> (st):
+    let data <Vec<i32>> field::get st "data"
+    vec::free<i32> data

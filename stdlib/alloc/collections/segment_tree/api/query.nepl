@@ -1,0 +1,61 @@
+//: # segment_tree/api/query
+//: `SegmentTree` の借用 query API
+//:
+//: ### [目的/もくてき]
+//: - `sum_range` を `SegmentTree` owner を消費しない read-only API として提供します。
+//: - range validation と storage invariant check を API boundary に置き、traversal は `range` module に委譲します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../layout" as *
+#import "../range" as *
+#import "./diagnostic" as *
+
+//: ## sum_range
+//: [区間/くかん] `[l, r)` の[和/わ]を[返/かえ]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/segment_tree" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let st <SegmentTree>:
+//:         unwrap_ok<SegmentTree, Diag> new 5
+//:         |> replace 0 1 |> uwok
+//:         |> replace 1 2 |> uwok
+//:         |> replace 2 3 |> uwok
+//:         |> replace 3 4 |> uwok
+//:     let total <i32> unwrap_ok<i32, Diag> sum_range &st 1 4;
+//:     free st
+//:     if eq total 9 1 0
+//: ```
+fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
+    let n <i32> *field::get_ref st "n"
+    let base <i32> *field::get_ref st "base"
+    if:
+        and and le 0 l le l r le r n
+        then:
+            let data <&Vec<i32>> field::get_ref st "data"
+            if:
+                not seg_storage_has_expected_len data base
+                then:
+                    diag_err<i32> seg_diag_range
+                else:
+                    match seg_sum_range_storage data base l r:
+                        Option::Some total:
+                            ok<i32, Diag> total
+                        Option::None:
+                            diag_err<i32> seg_diag_range
+        else:
+            let d <Diag> seg_diag_range
+            err<i32, Diag> d

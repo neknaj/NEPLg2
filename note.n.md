@@ -1,3 +1,17 @@
+# 2026-05-12 Agent 2 segment_tree API facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/segment_tree/api.nepl` に残っていた診断生成、構築、borrowed observer、owner-consuming update、区間 query、cleanup を責務別 submodule に分割した。
+- `api.nepl` は `api/diagnostic`、`api/create`、`api/observer`、`api/update`、`api/query`、`api/cleanup` の public `@merge` re-export だけを持つ facade にした。
+- `replace` / `add` の owner-preserving success / error 生成は `seg_update_ok` / `seg_update_err` に集約した。
+- `sum_range` は borrowed query として `api/query.nepl` に分離した。
+- `nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_segment_tree_borrowed_observers.js`、`nodesrc/test_stdlib_segment_tree_update_error_owner.js` を更新し、API facade に implementation body が戻らないこと、observer / update / query / cleanup の責務境界、owner-preserving update error、raw memory 非使用を固定した。
+- line count は `api.nepl` 14、`api/diagnostic.nepl` 14、`api/create.nepl` 42、`api/observer.nepl` 16、`api/update.nepl` 115、`api/query.nepl` 58、`api/cleanup.nepl` 35。
+- 検証:
+  - `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_update_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl -i stdlib/alloc/collections/segment_tree/types.nepl -i stdlib/alloc/collections/segment_tree/storage.nepl -i stdlib/alloc/collections/segment_tree/layout.nepl -i stdlib/alloc/collections/segment_tree/mutation.nepl -i stdlib/alloc/collections/segment_tree/range.nepl -i stdlib/alloc/collections/segment_tree/api.nepl -i stdlib/alloc/collections/segment_tree/api/diagnostic.nepl -i stdlib/alloc/collections/segment_tree/api/create.nepl -i stdlib/alloc/collections/segment_tree/api/observer.nepl -i stdlib/alloc/collections/segment_tree/api/update.nepl -i stdlib/alloc/collections/segment_tree/api/query.nepl -i stdlib/alloc/collections/segment_tree/api/cleanup.nepl -i stdlib/tests/segment_tree.n.md -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-api-split-focused.json -j 1 --dist web/dist`: total=11, passed=11
+
 # 2026-05-12 Agent 2 adjacency_matrix API facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/adjacency_matrix/api.nepl` に残っていた診断生成、構築、borrowed observer、owner-consuming update、bulk reset、cleanup を責務別 submodule に分割した。
