@@ -36283,3 +36283,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind -- --nocapture`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 Resource support module policy coverage 追加
+
+- `ISS-20260512T122547229Z-RESOURCE-SUPPORT-MODULES-ARE-MISSING-8F8975DB` として、Resource IR support module の一部が責務分割 policy から漏れていた問題を修正した。
+- `nodesrc/test_resource_checker_responsibility.js` の必須 module 一覧と行数上限に、`borrow_state.rs`、`cell_state.rs`、`dump.rs`、`initialized_control.rs`、`initialized_variant.rs`、`model.rs`、`owner_control.rs`、`owner_drop_scope.rs`、`owner_state.rs`、`place_utils.rs`、`storage_origin.rs` を追加した。
+- 現時点で 220 行超かつ policy 未登録の `nepl-core/src/resource/*.rs` は 0 件であることを確認した。
+- これは checker semantics を変更せず、Stage 4 Resource IR authority の support state / control-flow module が無制限に肥大化する回帰を防ぐための source policy 強化である。
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

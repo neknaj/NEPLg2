@@ -242,6 +242,14 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 
 この変更は Stage 4 の owner/provenance 分離を直接変えるものではないが、`Result::Ok` / `Err` payload や qualified enum variant を扱う memory-safety gate が module ごとに別規則へ分岐するリスクを減らす。
 
+## 2026-05-12 Resource support module policy coverage 追加
+
+`ISS-20260512T122547229Z-RESOURCE-SUPPORT-MODULES-ARE-MISSING-8F8975DB` として、Resource IR support module の一部が責務分割 policy から漏れていた問題を修正した。
+
+`borrow_state.rs`、`cell_state.rs`、`initialized_control.rs`、`initialized_variant.rs`、`owner_control.rs`、`owner_state.rs`、`storage_origin.rs` などを `nodesrc/test_resource_checker_responsibility.js` の必須 module / 行数上限に追加した。
+
+これにより、owner/provenance 分離の中核だけでなく、cell / borrow / storage-origin support state が旧 monolithic checker 化する回帰も source policy で検出する。
+
 ## 2026-05-12 Result payload owner summary 部分対応
 
 `ISS-20260512T033056386Z-RESOURCE-OWNER-SUMMARIES-MATERIALIZE-BAE331D3` として、Resource IR owner summary が `Result` payload owner を unconditional projection return として扱い、runtime 上同時に存在しない `Ok` / `Err` payload owner を caller 側で materialize し得る問題を修正した。

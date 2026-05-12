@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T12:22:39.436Z",
+  "generated_at": "2026-05-12T12:28:50.049Z",
   "counts": {
-    "total": 638,
+    "total": 639,
     "open": 10,
-    "resolved": 628,
+    "resolved": 629,
     "by_area": {
       "core": {
-        "total": 321,
+        "total": 322,
         "open": 3,
-        "resolved": 318
+        "resolved": 319
       },
       "stdlib": {
         "total": 167,
@@ -4878,6 +4878,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T121408373Z-RESOURCE-VARIANT-NAME-NORMALIZATION--30049A9F.md"
+    },
+    {
+      "id": "ISS-20260512T122547229Z-RESOURCE-SUPPORT-MODULES-ARE-MISSING-8F8975DB",
+      "title": "Resource support modules are missing responsibility policy coverage",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/*.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T122547229Z-RESOURCE-SUPPORT-MODULES-ARE-MISSING-8F8975DB.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
