@@ -6,12 +6,13 @@ const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
 const TYPECHECK_DIR = path.join(ROOT, "nepl-core", "src", "typecheck");
+const FUNCTION_CHECK = path.join(TYPECHECK_DIR, "function_check.rs");
 const MONOMORPHIZE = path.join(ROOT, "nepl-core", "src", "monomorphize.rs");
 const PLAN = path.join(ROOT, "doc", "neplg2", "abstraction_static_verification_plan.md");
 const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
 
 const BASELINE = {
-    parseTraitRefName: 4,
+    parseTraitRefName: 3,
     formatTraitRefName: 12,
     traitBoundRef: 23,
     implInfo: 8,
@@ -93,6 +94,33 @@ assert(traits.includes("pub(super) enum TraitCapability"), "TraitCapability must
 assert(traits.includes("TraitCapability::Copy"), "TraitCapability::Copy match coverage must remain visible");
 assert(traits.includes("TraitCapability::Clone"), "TraitCapability::Clone match coverage must remain visible");
 assert(traits.includes("TraitCapability::Drop"), "TraitCapability::Drop match coverage must remain visible");
+
+const functionCheck = read(FUNCTION_CHECK);
+assert(
+    functionCheck.includes("type_param_has_trait_application_bound"),
+    "deferred function-level trait checks must use typed trait application lookup",
+);
+assert(
+    !functionCheck.includes("type_param_has_trait_bound("),
+    "deferred function-level trait checks must not call rendered-name trait bound lookup",
+);
+assert(
+    !functionCheck.includes("&bound.name"),
+    "deferred function-level trait checks must not use rendered bound names as authority",
+);
+
+const typedLookup = traits.match(
+    /pub\(super\) fn type_param_has_trait_application_bound[\s\S]*?\npub\(super\) fn parse_trait_ref_name/,
+);
+assert(typedLookup, "typed trait application bound lookup must exist before display parser boundary");
+assert(
+    !typedLookup[0].includes("parse_trait_ref_name("),
+    "typed trait application bound lookup must not parse rendered trait names",
+);
+assert(
+    !typedLookup[0].includes("b.name"),
+    "typed trait application bound lookup must not compare rendered bound names",
+);
 
 console.log("abstraction static verification policy baseline ok");
 console.log(JSON.stringify(counts, null, 2));

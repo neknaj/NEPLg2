@@ -19,7 +19,8 @@ use super::hir_finalize::resolve_type_ids_in_function;
 use super::model::{CheckedFunction, EnumInfo, StructInfo};
 use super::signature::{mangle_function_symbol, type_contains_unbound_var};
 use super::traits::{
-    trait_application_matches, type_param_has_trait_bound, ImplInfo, TraitBoundRef, TraitInfo,
+    trait_application_matches, type_param_has_trait_application_bound, ImplInfo, TraitBoundRef,
+    TraitInfo,
 };
 use super::type_expr::{LabelEnv, StringTable};
 use super::BlockChecker;
@@ -216,23 +217,33 @@ pub(super) fn check_function(
     };
     for (bound, ty, span) in pending_trait_checks {
         let resolved = ctx.resolve_id(ty);
-        let satisfied = type_param_has_trait_bound(ctx, &type_param_bounds, ty, &bound.name)
-            || type_param_has_trait_bound(ctx, &type_param_bounds, resolved, &bound.name)
-            || impls.iter().any(|imp| {
-                imp.trait_base_name
-                    .as_deref()
-                    .map(|base| {
-                        trait_application_matches(
-                            ctx,
-                            &bound.trait_base_name,
-                            &bound.trait_args,
-                            base,
-                            &imp.trait_args,
-                        )
-                    })
-                    .unwrap_or(false)
-                    && ctx.type_pattern_matches(imp.target_ty, resolved)
-            });
+        let satisfied = type_param_has_trait_application_bound(
+            ctx,
+            &type_param_bounds,
+            ty,
+            &bound.trait_base_name,
+            &bound.trait_args,
+        ) || type_param_has_trait_application_bound(
+            ctx,
+            &type_param_bounds,
+            resolved,
+            &bound.trait_base_name,
+            &bound.trait_args,
+        ) || impls.iter().any(|imp| {
+            imp.trait_base_name
+                .as_deref()
+                .map(|base| {
+                    trait_application_matches(
+                        ctx,
+                        &bound.trait_base_name,
+                        &bound.trait_args,
+                        base,
+                        &imp.trait_args,
+                    )
+                })
+                .unwrap_or(false)
+                && ctx.type_pattern_matches(imp.target_ty, resolved)
+        });
         if !satisfied {
             diag_out.push(type_error(
                 TypeDiagnosticCode::TraitBoundUnsatisfied,

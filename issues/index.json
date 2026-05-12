@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T14:48:24.324Z",
+  "generated_at": "2026-05-12T14:59:24.015Z",
   "counts": {
-    "total": 651,
+    "total": 652,
     "open": 12,
-    "resolved": 639,
+    "resolved": 640,
     "by_area": {
       "core": {
-        "total": 333,
+        "total": 334,
         "open": 4,
-        "resolved": 329
+        "resolved": 330
       },
       "stdlib": {
         "total": 168,
@@ -5058,6 +5058,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T140927972Z-RESOURCE-RAW-MEMORY-CALL-FILTERING-I-FFEED338.md"
+    },
+    {
+      "id": "ISS-20260512T145319534Z-DEFERRED-TRAIT-BOUND-CHECKS-REPARSE--38D11F7C",
+      "title": "Deferred trait bound checks reparse rendered trait names",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/function_check.rs; nodesrc/test_abstraction_static_verification_policy.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T145319534Z-DEFERRED-TRAIT-BOUND-CHECKS-REPARSE--38D11F7C.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

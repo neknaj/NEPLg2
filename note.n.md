@@ -36498,3 +36498,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 deferred trait bound typed lookup
+
+- `ISS-20260512T145319534Z-DEFERRED-TRAIT-BOUND-CHECKS-REPARSE--38D11F7C` に対応した。
+- `function_check.rs` の deferred trait bound check が `TraitBoundRef.name` の表示文字列を `parse_trait_ref_name` で復元していた経路を除去した。
+- `type_param_has_trait_bound` を `type_param_has_trait_application_bound` に置き換え、`trait_base_name` と `trait_args` を `trait_application_matches` で直接比較する形にした。
+- `nodesrc/test_abstraction_static_verification_policy.js` の `parse_trait_ref_name` baseline を 4 から 3 に下げ、`function_check.rs` が `&bound.name` を静的検査の根拠に使わないことを固定した。
+- `doc/neplg2/abstraction_static_verification_plan.md` の Stage 1 進捗を更新した。
+- [検証]:
+  - `cargo test -p nepl-core generics -- --nocapture`
+  - `node nodesrc/tests.js -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/generics.n.md --no-tree -o tmp/typed-trait-bound-check-generics.json -j 1 --dist web/dist`
+  - `node nodesrc/test_abstraction_static_verification_policy.js`
+  - `cargo fmt --check -p nepl-core`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

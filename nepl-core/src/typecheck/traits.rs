@@ -219,20 +219,21 @@ pub(super) fn trait_application_matches(
     })
 }
 
-pub(super) fn type_param_has_trait_bound(
+pub(super) fn type_param_has_trait_application_bound(
     ctx: &TypeCtx,
     type_param_bounds: &BTreeMap<TypeId, Vec<TraitBoundRef>>,
     ty: TypeId,
-    trait_name: &str,
+    trait_base_name: &str,
+    trait_args: &[TypeId],
 ) -> bool {
     let matches_bound = |b: &TraitBoundRef| {
-        if b.name == trait_name {
-            return true;
-        }
-        if let Some((base, args)) = parse_trait_ref_name(trait_name, ctx) {
-            return trait_application_matches(ctx, &base, &args, &b.trait_base_name, &b.trait_args);
-        }
-        false
+        trait_application_matches(
+            ctx,
+            trait_base_name,
+            trait_args,
+            &b.trait_base_name,
+            &b.trait_args,
+        )
     };
     let resolved = ctx.resolve_id(ty);
     if let Some(bounds) = type_param_bounds.get(&resolved) {

@@ -150,6 +150,10 @@ struct MonoTraitLookupKey {
 - `format_trait_ref_name` は diagnostic/display helper へ移動し、静的検査の分岐から外す。
 - `parse_trait_ref_name` を削除する。
 
+進捗:
+
+- 2026-05-12: `function_check.rs` の deferred trait bound check は、`TraitBoundRef.name` の表示文字列を `parse_trait_ref_name` で復元する経路から、`trait_base_name` / `trait_args` を直接比較する typed lookup へ移行した。これは Stage 1 の入口であり、`TraitBoundRef` 全体の `TraitBound` 化と `parse_trait_ref_name` 削除は未完了。
+
 検証:
 
 - generic trait argument regression。
@@ -237,7 +241,7 @@ struct MonoTraitLookupKey {
 
 ## 進捗状況
 
-- `typecheck/traits.rs`: 実装済みだが再設計対象。TraitCapability enum は良いが、TraitBoundRef と string formatting/parsing が残る。
+- `typecheck/traits.rs`: 実装済みだが再設計対象。TraitCapability enum は良い。function-level deferred check の string parsing は除去済みだが、TraitBoundRef と一部 string formatting/parsing は残る。
 - `typecheck/trait_check.rs`: 実装済みだが再設計対象。bound satisfaction が label fallback と parse_trait_ref_name に依存する。
 - `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
 - `typecheck/trait_call_apply.rs`: 実装済みだが再設計対象。trait method resolution result enum が必要。
