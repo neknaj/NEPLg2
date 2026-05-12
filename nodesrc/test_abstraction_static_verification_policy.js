@@ -31,7 +31,7 @@ const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
 
 const BASELINE = {
     parseTraitRefName: 0,
-    formatTraitRefName: 4,
+    formatTraitRefName: 2,
     traitBoundRef: 0,
     traitLookupCache: 6,
 };
@@ -230,6 +230,18 @@ for (const [name, text] of [
         `${name} must wrap type parameter declarations as TypeParamId`,
     );
 }
+assert(
+    !driver.includes("format_trait_ref_name"),
+    "driver.rs must not carry rendered trait application names as impl lowering authority",
+);
+assert(
+    !driver.includes("applied_trait_name"),
+    "driver.rs must not keep applied trait names as split display payloads",
+);
+assert(
+    driver.includes("trait_application.display_name(&ctx)"),
+    "driver.rs may derive trait display names only at the symbol-mangling boundary",
+);
 assert(
     !context.includes("Vec<(TraitBound, TypeId, Span)>"),
     "BlockChecker pending trait checks must not use positional tuple state",

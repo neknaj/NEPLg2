@@ -277,6 +277,7 @@ struct MonoTraitLookupKey {
 - 2026-05-13: `ISS-20260512T182144401Z-MONOMORPHIZE-TRAIT-LOOKUP-METHOD-IDE-99EBBCAC` を追加し、`MonoTraitMethodId` newtype を導入した。`MonoTraitMethodKey` / `MonoTraitLookupKey` は method identity を raw `String` ではなく typed id として保持する。
 - 2026-05-13: `ISS-20260512T183111826Z-MONOMORPHIZE-TRAIT-APPLICATION-STILL-835C27CF` を追加し、monomorphize trait identity も `MonoTraitId` newtype へ移行した。`MonoTraitApplication` / `MonoTraitMethodKey` は trait identity を raw `String` ではなく typed id として保持し、identity type は `monomorphize/trait_identity.rs` へ分離した。
 - 2026-05-13: `ISS-20260512T191325765Z-HIR-AND-RESOURCE-TRAIT-METHOD-IDENTI-78952D7B` を追加し、HIR / Resource IR の trait method identity も `HirTraitMethodId` / `ResourceTraitMethodId` newtype へ移行した。`FuncRef::Trait` / `ResourceCallTarget::Trait` は raw `String` method field を持たず、文字列化は lowering / dump / diagnostic 境界の `as_str()` に限定する。Resource IR 側の trait identity type は `resource/trait_identity.rs` へ分離し、`resource/model.rs` の責務上限も維持する。
+- 2026-05-13: `ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5` を追加し、impl method lowering pass も `TraitApplication` payload を持つ形へ移行した。method symbol mangle の境界だけで `display_name` を作り、final `HirImpl` は typed application から HIR application へ変換する。
 - 残件: Stage 5 の typed trait / method identity は typecheck / HIR / monomorphize / Resource IR call target まで到達した。次は policy baseline を整理し、BoundEnv / TypeParamId 残件と Resource IR 側の安全検査 issue に戻る。
 
 ### Stage 6: policy baseline を 0 に下げる
@@ -294,6 +295,7 @@ struct MonoTraitLookupKey {
 
 - 2026-05-12: `ISS-20260512T174845757Z-ABSTRACTION-POLICY-COUNTS-TRAITINFO--FE3DB746` を追加し、`ImplInfo` optional field の policy を `traits.rs` 全体の `Option<String>` 数ではなく `ImplInfo` struct body 直接検査へ変更した。これにより `ImplInfo` は optional field 0 件を baseline ではなく完了条件として監視する。
 - 2026-05-13: `ISS-20260512T193917855Z-TRAIT-METHOD-RESOLUTION-STILL-CARRIE-0BFEEFA9` により、trait method resolution result の split `trait_name` / `trait_args` / `applied_trait_name` payload 再導入禁止を source policy に追加した。`format_trait_ref_name` baseline は 6 から 4 に下げた。
+- 2026-05-13: `ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5` により、impl lowering pass の direct `format_trait_ref_name` と `applied_trait_name` payload 再導入禁止を source policy に追加した。`format_trait_ref_name` baseline は 4 から 2 に下げた。
 
 ## 進捗状況
 
@@ -301,6 +303,7 @@ struct MonoTraitLookupKey {
 - `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存、split impl field 参照、duplicate label fallback 実装は削除済み。
 - `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
 - `typecheck/trait_call_apply.rs`: Stage 4/5 は進行済み。trait method resolution は `TraitMethodResolution` enum を match し、resolution payload は `TraitApplication` と `HirTraitMethodId` を保持する。診断表示名は failure diagnostic を作る境界だけで生成する。
+- `typecheck/driver.rs`: Stage 5 は進行済み。impl collection と impl method lowering は `TraitApplication` を保持し、表示名は method symbol mangle の境界でのみ生成する。
 - `hir.rs`: Stage 5 は進行済み。`HirTraitId` / `HirTraitApplication` / `HirTraitMethodId` を追加し、`FuncRef::Trait` / `HirImpl` は typed trait application と typed method identity を保持する。
 - `monomorphize.rs`: Stage 5 は進行中。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。HIR からは `HirTraitId` を持つ `HirTraitApplication` を受け取り、monomorphize phase 内の `MonoTraitId` / `MonoTraitMethodId` を含む resolved key へ変換する。
 - `resource/model.rs`: Stage 5 は実装済み。`ResourceTraitId` / `ResourceTraitApplication` / `ResourceTraitMethodId` により Resource IR call target の trait identity と method identity を typed field として保持する。
