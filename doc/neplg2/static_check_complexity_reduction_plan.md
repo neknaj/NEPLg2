@@ -326,6 +326,7 @@ commit 単位:
 - 2026-05-06: remote main の integer conversion split 後、`alloc/string/integer.nepl` の `from_u128_radix` が raw `store_u8` で文字列 buffer を構築するにもかかわらず exact raw-memory-boundary capability に追従していなかった。`ISS-20260506T150445017Z-STRING-INTEGER-SPLIT-LOSES-RAW-MEMOR-36A59D71` として `alloc/string/integer.nepl` を loader の exact boundary table に追加した。併せて `alloc/string/float.nepl` は直接 raw memory 操作を持たず `StringBuilder` / integer conversion へ委譲していることを確認し、過剰な raw boundary capability は付与しない。
 - 2026-05-06: KP doctest の次 blocker として、`alloc/string/builder.nepl` の `sb_append_result` / `sb_append_byte_result` / `sb_build_result` が raw `store_u8` / `mem_copy` を使うにもかかわらず exact raw-memory-boundary capability に追従していないことを確認した。`ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4` として `alloc/string/builder.nepl` を loader の exact boundary table に追加した。StringBuilder は owned byte buffer の内部構築境界であり、Stage 6 の owner-token API 移行が完了するまでは safe public surface ではなく compiler-owned internal boundary として扱う。
 - 残件は、raw-memory-backed stdlib public API を Stage 6 で internal/public 境界へ分け、raw identity と owner token が safe surface へ漏れない最終 API に移行することである。
+- 2026-05-13: `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` を core compiler 側では verified / resolved とした。`UnsafeMemoryInPureFunction` hard gate、Resource IR raw identity / cell / owner gate、exact raw-memory-boundary capability regression が揃っており、user source から raw memory operation を pure bypass する元の問題は閉じている。Stage 6 の stdlib internal/public API 移行は引き続き stdlib issue 側で追跡する。
 
 ### Stage 6: stdlib memory API の段階移行
 
@@ -367,7 +368,7 @@ commit 単位:
 |---|---|---|
 | `RV-CORE-002` | Stage 1 の親 issue。module 境界と責務分離を追跡する。 | `typecheck.rs` / `move_check.rs` の主要責務が module 化され、focused regression が維持される。 |
 | `RV-CORE-009` | Stage 2-4 の親 issue。Resource IR と resource check を追跡する。 | Resource IR 上で move/borrow/lifetime/drop obligation を検査し、旧 checker 依存を除去する。 |
-| `CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS` | Stage 5 の親 issue。raw memory effect / ownership boundary を追跡する。 | raw memory primitive が public pure surface から閉じ、Resource IR で ownership event として扱われる。 |
+| `CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS` | Stage 5 の compiler-core issue。raw memory effect / ownership boundary を追跡した。 | 2026-05-13 に core 側は verified / resolved。stdlib public API migration は Stage 6 の stdlib issue へ分離する。 |
 | `MEMPTR-AND-REGIONTOKEN` | Stage 3/6 の設計 issue。`MemPtr` / owner token / initialized cell の分離を追跡する。 | `MemPtr` が non-owning pointer に限定され、free obligation は compiler-issued owner token へ移る。 |
 | `CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE` | Stage 5/6 の stdlib public API issue。 | safe import から raw address escape を呼べない。 |
 | `CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE` | Stage 4/6 の drop obligation issue。 | initialized payload を残した storage-only free が拒否される。 |

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T20:16:47.777Z",
+  "generated_at": "2026-05-12T20:20:50.395Z",
   "counts": {
     "total": 677,
-    "open": 11,
-    "resolved": 666,
+    "open": 10,
+    "resolved": 667,
     "by_area": {
       "core": {
         "total": 359,
-        "open": 3,
-        "resolved": 356
+        "open": 2,
+        "resolved": 357
       },
       "stdlib": {
         "total": 168,
@@ -109,21 +109,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04",
-      "title": "core/mem raw memory operations bypass effect and ownership checks",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-05-07",
-      "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04.md"
-    },
     {
       "id": "ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF",
       "title": "MemPtr and RegionToken lack compiler owned provenance model",
@@ -1323,6 +1308,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T222120121Z-MATCH-PAYLOAD-BINDING-LOSES-BORROW-O-14A71629.md"
+    },
+    {
+      "id": "ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04",
+      "title": "core/mem raw memory operations bypass effect and ownership checks",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04.md"
     },
     {
       "id": "ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E",
