@@ -30,9 +30,8 @@ use super::signature::{
 };
 use super::syntax_helpers::gate_allows;
 use super::traits::{
-    collect_type_params, format_trait_ref_name, insert_substitution_mapping, BoundEnv, ImplInfo,
-    ImplKind, TraitApplication, TraitBound, TraitCapability, TraitId, TraitInfo, TraitSemantics,
-    TypeParamId,
+    collect_type_params, insert_substitution_mapping, BoundEnv, ImplInfo, ImplKind,
+    TraitApplication, TraitBound, TraitCapability, TraitId, TraitInfo, TraitSemantics, TypeParamId,
 };
 use super::type_expr::{type_from_expr, LabelEnv, StringTable};
 
@@ -1444,7 +1443,10 @@ pub fn typecheck(
                 .iter()
                 .map(|arg| type_from_expr(&mut ctx, &mut f_labels, arg))
                 .collect();
-            let applied_trait_name = format_trait_ref_name(&trait_name, &trait_args, &ctx);
+            let trait_application = TraitApplication {
+                trait_id: TraitId::from_name(&trait_name),
+                args: trait_args,
+            };
             if type_contains_unbound_var(&ctx, target_ty)
                 && !trait_semantics.has_copy_capability(Some(trait_info.self_ty))
                 && !trait_semantics.has_clone_capability(Some(trait_info.self_ty))
@@ -1502,7 +1504,11 @@ pub fn typecheck(
                     ctx.resolve_id(trait_info.self_ty),
                     ctx.resolve_id(target_ty),
                 );
-                for (tp, arg) in trait_info.type_params.iter().zip(trait_args.iter()) {
+                for (tp, arg) in trait_info
+                    .type_params
+                    .iter()
+                    .zip(trait_application.args.iter())
+                {
                     insert_substitution_mapping(&ctx, &mut mapping, *tp, *arg);
                 }
                 let expected_sig = ctx.substitute(trait_sig, &mapping);
@@ -1554,8 +1560,9 @@ pub fn typecheck(
                 };
                 diagnostics.extend(checked.diagnostics);
                 let mut func = checked.function;
+                let trait_display_name = trait_application.display_name(&ctx);
                 let mangled =
-                    mangle_impl_method(&applied_trait_name, &m.name.name, target_ty, &ctx);
+                    mangle_impl_method(&trait_display_name, &m.name.name, target_ty, &ctx);
                 func.name = mangled.clone();
                 functions.push(func.clone());
                 functions.extend(nested_functions);
@@ -1586,7 +1593,10 @@ pub fn typecheck(
 
             final_impls.push(HirImpl {
                 doc: i.doc.clone(),
-                trait_application: HirTraitApplication::new(trait_name.clone(), trait_args.clone()),
+                trait_application: HirTraitApplication::new(
+                    String::from(trait_application.trait_id.as_str()),
+                    trait_application.args.clone(),
+                ),
                 type_args: tps,
                 target_ty,
                 methods: impl_methods,

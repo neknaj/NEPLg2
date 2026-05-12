@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T19:45:27.869Z",
+  "generated_at": "2026-05-12T19:53:38.510Z",
   "counts": {
-    "total": 674,
+    "total": 675,
     "open": 12,
-    "resolved": 662,
+    "resolved": 663,
     "by_area": {
       "core": {
-        "total": 356,
+        "total": 357,
         "open": 4,
-        "resolved": 352
+        "resolved": 353
       },
       "stdlib": {
         "total": 168,
@@ -5403,6 +5403,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T193917855Z-TRAIT-METHOD-RESOLUTION-STILL-CARRIE-0BFEEFA9.md"
+    },
+    {
+      "id": "ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5",
+      "title": "Impl method lowering still keeps rendered trait application name",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/typecheck/driver.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

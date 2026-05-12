@@ -1,3 +1,18 @@
+# 2026-05-13 Agent 1 impl method lowering trait application typed 化
+
+- `ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5` に対応した。
+- 2 回目の impl lowering pass は `ImplInfo` の typed identity とは別に `applied_trait_name` を表示文字列として作り、method mangle と final `HirImpl` 構築の手前で保持していた。
+- impl lowering pass でも `TraitApplication` を構築し、method symbol mangle の境界だけで `trait_application.display_name(&ctx)` を呼ぶ形にした。
+- final `HirImpl` の `HirTraitApplication` は typed `TraitApplication` から変換する。
+- `nodesrc/test_abstraction_static_verification_policy.js` に `driver.rs` の direct `format_trait_ref_name` / `applied_trait_name` 再導入禁止を追加し、`format_trait_ref_name` baseline を 4 から 2 へ下げた。
+- 検証:
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test neplg2 trait -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 generic -- --nocapture`: passed
+  - `node nodesrc/test_abstraction_static_verification_policy.js`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/abstraction_static_verification_plan.md` Stage 5/6 の impl lowering typed identity 方針に沿った compiler core の静的検査 authority 整理。
+
 # 2026-05-13 Agent 1 trait method resolution payload typed 化
 
 - `ISS-20260512T193917855Z-TRAIT-METHOD-RESOLUTION-STILL-CARRIE-0BFEEFA9` に対応した。
