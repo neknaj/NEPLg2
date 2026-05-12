@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T06:59:26.652Z",
+  "generated_at": "2026-05-12T07:13:35.236Z",
   "counts": {
-    "total": 631,
+    "total": 632,
     "open": 11,
-    "resolved": 620,
+    "resolved": 621,
     "by_area": {
       "core": {
         "total": 317,
@@ -82,9 +82,9 @@
         "resolved": 1
       },
       "test": {
-        "total": 5,
+        "total": 6,
         "open": 0,
-        "resolved": 5
+        "resolved": 6
       },
       "tutorials": {
         "total": 2,
@@ -9403,6 +9403,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T210219258Z-TESTS-JS-CONCURRENT-RUNS-CAN-LEAVE-P-77B8E3E7.md"
+    },
+    {
+      "id": "ISS-20260512T070310096Z-VEC-SOURCE-POLICY-REJECTS-RUSTFMT-RA-74A5475B",
+      "title": "Vec source policy rejects rustfmt raw boundary path arrays",
+      "area": "test",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nodesrc/test_stdlib_vec_no_unsafe_unwraps.js, nepl-core/src/loader.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T070310096Z-VEC-SOURCE-POLICY-REJECTS-RUSTFMT-RA-74A5475B.md"
     },
     {
       "id": "ISS-20260507T153515441Z-ZED-EXTENSION-BUILD-ARTIFACTS-ARE-TR-B7D814F1",

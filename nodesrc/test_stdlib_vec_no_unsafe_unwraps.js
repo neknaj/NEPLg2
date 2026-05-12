@@ -71,6 +71,15 @@ function walkNeplFiles(dir, out = []) {
     return out;
 }
 
+function escapeRegExp(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function rawBoundaryPathPattern(...segments) {
+    const quotedSegments = segments.map((segment) => `"${escapeRegExp(segment)}"`);
+    return new RegExp(String.raw`&\[\s*${quotedSegments.join(String.raw`\s*,\s*`)}\s*,?\s*\]`);
+}
+
 for (const relPath of relPaths) {
     codeByPath.set(relPath, readImplementation(relPath));
 }
@@ -251,42 +260,46 @@ for (const name of ['clear', 'free']) {
     assert.match(vecMutationCleanupCode, new RegExp(`fn\\s+${name}\\b`), `vec/mutation/cleanup.nepl must own ${name}`);
 }
 assert.match(vecCode, /enum\s+VecStorageState:[\s\S]*Empty[\s\S]*Owned/, 'Vec storage owner state must be represented by an enum');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec\.nepl"\]/, 'Vec root facade must not receive raw-memory boundary capability');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"access\.nepl"\]/, 'Vec access module must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"access",\s*"data\.nepl"\]/, 'Vec access data module must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"access",\s*"header\.nepl"\]/, 'Vec access header module must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"storage\.nepl"\]/, 'Vec storage facade must not receive raw-memory boundary capability');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"storage",\s*"view\.nepl"\]/, 'Vec storage view must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"mutation\.nepl"\]/, 'Vec mutation facade must not receive raw-memory boundary capability');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"mutation",\s*"cleanup\.nepl"\]/, 'Vec mutation cleanup must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"mutation",\s*"pop\.nepl"\]/, 'Vec mutation pop must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"mutation",\s*"replace\.nepl"\]/, 'Vec mutation replace must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"query\.nepl"\]/, 'Vec query facade must not receive raw-memory boundary capability');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"query",\s*"aggregate\.nepl"\]/, 'Vec query aggregate must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"query",\s*"get\.nepl"\]/, 'Vec query get must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"query",\s*"predicate\.nepl"\]/, 'Vec query predicate must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"raw\.nepl"\]/, 'Vec raw facade must not receive raw-memory boundary capability');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"raw",\s*"aggregate\.nepl"\]/, 'Vec raw aggregate must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"raw",\s*"predicate\.nepl"\]/, 'Vec raw predicate must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"raw",\s*"prefix\.nepl"\]/, 'Vec raw prefix must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"transform\.nepl"\]/, 'Vec transform facade must not receive raw-memory boundary capability');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"transform",\s*"filter\.nepl"\]/, 'Vec transform filter must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"transform",\s*"map\.nepl"\]/, 'Vec transform map must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"transform",\s*"prefix\.nepl"\]/, 'Vec transform prefix must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"types\.nepl"\]/, 'Vec types module must not receive raw-memory boundary capability because it has no direct raw intrinsic');
-assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge\.nepl"\]/, 'Vec sort/merge facade must not receive raw-memory boundary capability');
-for (const relPath of [
-    /&\["alloc",\s*"collections",\s*"vec",\s*"mutation",\s*"push\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"raw",\s*"element\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"storage",\s*"alloc\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"storage",\s*"cleanup\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"storage",\s*"fill\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"common\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge",\s*"api\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge",\s*"buffer\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge",\s*"range\.nepl"\]/,
+for (const { path: relPath, message } of [
+    { path: ['alloc', 'collections', 'vec.nepl'], message: 'Vec root facade must not receive raw-memory boundary capability' },
+    { path: ['alloc', 'collections', 'vec', 'access.nepl'], message: 'Vec access module must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'access', 'data.nepl'], message: 'Vec access data module must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'access', 'header.nepl'], message: 'Vec access header module must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'storage.nepl'], message: 'Vec storage facade must not receive raw-memory boundary capability' },
+    { path: ['alloc', 'collections', 'vec', 'storage', 'view.nepl'], message: 'Vec storage view must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'mutation.nepl'], message: 'Vec mutation facade must not receive raw-memory boundary capability' },
+    { path: ['alloc', 'collections', 'vec', 'mutation', 'cleanup.nepl'], message: 'Vec mutation cleanup must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'mutation', 'pop.nepl'], message: 'Vec mutation pop must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'mutation', 'replace.nepl'], message: 'Vec mutation replace must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'query.nepl'], message: 'Vec query facade must not receive raw-memory boundary capability' },
+    { path: ['alloc', 'collections', 'vec', 'query', 'aggregate.nepl'], message: 'Vec query aggregate must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'query', 'get.nepl'], message: 'Vec query get must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'query', 'predicate.nepl'], message: 'Vec query predicate must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'raw.nepl'], message: 'Vec raw facade must not receive raw-memory boundary capability' },
+    { path: ['alloc', 'collections', 'vec', 'raw', 'aggregate.nepl'], message: 'Vec raw aggregate must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'raw', 'predicate.nepl'], message: 'Vec raw predicate must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'raw', 'prefix.nepl'], message: 'Vec raw prefix must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'transform.nepl'], message: 'Vec transform facade must not receive raw-memory boundary capability' },
+    { path: ['alloc', 'collections', 'vec', 'transform', 'filter.nepl'], message: 'Vec transform filter must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'transform', 'map.nepl'], message: 'Vec transform map must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'transform', 'prefix.nepl'], message: 'Vec transform prefix must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'types.nepl'], message: 'Vec types module must not receive raw-memory boundary capability because it has no direct raw intrinsic' },
+    { path: ['alloc', 'collections', 'vec', 'sort', 'merge.nepl'], message: 'Vec sort/merge facade must not receive raw-memory boundary capability' },
 ]) {
-    assert.match(loaderCode, relPath, 'loader raw-memory boundary must include exact Vec implementation submodule stdlib paths');
+    assert.doesNotMatch(loaderCode, rawBoundaryPathPattern(...relPath), message);
+}
+for (const relPath of [
+    ['alloc', 'collections', 'vec', 'mutation', 'push.nepl'],
+    ['alloc', 'collections', 'vec', 'raw', 'element.nepl'],
+    ['alloc', 'collections', 'vec', 'storage', 'alloc.nepl'],
+    ['alloc', 'collections', 'vec', 'storage', 'cleanup.nepl'],
+    ['alloc', 'collections', 'vec', 'storage', 'fill.nepl'],
+    ['alloc', 'collections', 'vec', 'sort', 'common.nepl'],
+    ['alloc', 'collections', 'vec', 'sort', 'merge', 'api.nepl'],
+    ['alloc', 'collections', 'vec', 'sort', 'merge', 'buffer.nepl'],
+    ['alloc', 'collections', 'vec', 'sort', 'merge', 'range.nepl'],
+]) {
+    assert.match(loaderCode, rawBoundaryPathPattern(...relPath), 'loader raw-memory boundary must include exact Vec implementation submodule stdlib paths');
 }
 assert.match(vecCode, /struct\s+Vec<\.T>:[\s\S]*storage\s+<VecStorageState>[\s\S]*data\s+<MemPtr<\.T>>/, 'Vec must separate enum owner state from the raw pointer field so Resource IR can track memory cells');
 assert.match(vecCode, /fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>[\s\S]*Vec<\.T>\s+0\s+0\s+VecStorageState::Empty\s+mem_ptr_wrap\s+0/, 'Vec.empty must construct typed Empty storage');
