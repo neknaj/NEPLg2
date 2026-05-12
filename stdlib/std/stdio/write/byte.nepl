@@ -1,0 +1,47 @@
+//: # std/stdio/write/byte
+//: 1 byte stdout output helper
+//:
+//: ### 目的
+//: - `print_byte` の 1 byte scratch buffer を text / ByteBuf adapter から分離します。
+//: - 実際の partial write 処理は `write/fd` の `stdio_write_mem` に委譲します。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/result" as *
+#import "./fd" as *
+
+//: print_byte: 1 byte を stdout へ出力する
+//:
+//: [目的/もくてき]:
+//: - binary/VM 系の処理で、`str` を組み立てずに 1 byte だけを stdout へ書き出します。
+//:
+//: [実装/じっそう]:
+//: - 1 byte の一時 buffer を確保して値を書き、`stdio_write_mem` で出力してから解放します。
+//: - buffer はこの関数内だけの private scratch なので、`alloc_ptr` 成功後の owner invariant に基づいて raw store / raw dealloc を行います。
+//:
+//: [注意/ちゅうい]:
+//: - `b` の下位 8 bit が出力されます。
+//: - UTF-8 文字列としての妥当性は検証しません。text 出力には `print` / `println` を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+//:
+//: neplg2:test[normalize_newlines]
+//: stdout: "A"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/stdio/write" as *
+//: fn main <()*>()> ():
+//:     print_byte 'A'
+//: ```
+fn print_byte <(i32)*>()> (b):
+    match alloc_ptr<u8> 1:
+        Result::Err _e:
+            ()
+        Result::Ok out:
+            let out_raw <i32> mem_ptr_addr out;
+            store_u8 out_raw b;
+            stdio_write_mem out 1;
+            dealloc_raw out_raw 1

@@ -11,6 +11,14 @@ const rawRelPath = 'stdlib/std/stdio/raw.nepl';
 const rawSrc = fs.readFileSync(path.join(repoRoot, rawRelPath), 'utf8');
 const writeRelPath = 'stdlib/std/stdio/write.nepl';
 const writeSrc = fs.readFileSync(path.join(repoRoot, writeRelPath), 'utf8');
+const writeFdRelPath = 'stdlib/std/stdio/write/fd.nepl';
+const writeFdSrc = fs.readFileSync(path.join(repoRoot, writeFdRelPath), 'utf8');
+const writeTextRelPath = 'stdlib/std/stdio/write/text.nepl';
+const writeTextSrc = fs.readFileSync(path.join(repoRoot, writeTextRelPath), 'utf8');
+const writeBytesRelPath = 'stdlib/std/stdio/write/bytes.nepl';
+const writeBytesSrc = fs.readFileSync(path.join(repoRoot, writeBytesRelPath), 'utf8');
+const writeByteRelPath = 'stdlib/std/stdio/write/byte.nepl';
+const writeByteSrc = fs.readFileSync(path.join(repoRoot, writeByteRelPath), 'utf8');
 const readRelPath = 'stdlib/std/stdio/read.nepl';
 const readSrc = fs.readFileSync(path.join(repoRoot, readRelPath), 'utf8');
 const readBytesRelPath = 'stdlib/std/stdio/read/bytes.nepl';
@@ -29,6 +37,22 @@ const rawCode = rawSrc
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
 const writeCode = writeSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const writeFdCode = writeFdSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const writeTextCode = writeTextSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const writeBytesCode = writeBytesSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const writeByteCode = writeByteSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
@@ -101,13 +125,47 @@ for (const helper of [
     'stdio_write_fd_mem_result',
     'stdio_write_mem_result',
     'stdio_write_stderr_mem_result',
+    'stdio_write_mem',
+    'stdio_write_stderr_mem',
+]) {
+    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay below stdio/write`);
+    assert.doesNotMatch(writeCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/write/fd`);
+    assert.match(writeFdCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/write/fd`);
+}
+for (const helper of [
+    'stdio_write_str_result',
+    'stdio_write_stderr_str_result',
+]) {
+    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay below stdio/write`);
+    assert.doesNotMatch(writeCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/write/text`);
+    assert.match(writeTextCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/write/text`);
+}
+for (const helper of [
     'stdio_write_bytes_result',
+    'stdio_write_stderr_bytes_result',
+    'stdio_write_bytes',
+    'stdio_write_stderr_bytes',
+]) {
+    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay below stdio/write`);
+    assert.doesNotMatch(writeCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/write/bytes`);
+    assert.match(writeBytesCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/write/bytes`);
+}
+for (const helper of [
     'print_byte',
 ]) {
-    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/write`);
-    assert.match(writeCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/write`);
+    assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay below stdio/write`);
+    assert.doesNotMatch(writeCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay in stdio/write/byte`);
+    assert.match(writeByteCode, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must exist in stdio/write/byte`);
 }
-const writeFdMatch = writeCode.match(
+for (const submodule of ['fd', 'text', 'bytes', 'byte']) {
+    assert.match(
+        writeCode,
+        new RegExp(`pub\\s+#import\\s+"\\.\\/write\\/${submodule}"\\s+as\\s+@merge`),
+        `std/stdio/write facade must re-export write/${submodule}`,
+    );
+}
+assert.doesNotMatch(writeCode, /\bfn\s+/, 'std/stdio/write facade must not keep write implementation bodies');
+const writeFdMatch = writeFdCode.match(
     /fn\s+stdio_write_fd_mem_result\s+<\(i32,MemPtr<u8>,i32\)\*>\s*Result<\(\),\s*StdErrorKind>>\s+\(fd,\s*data,\s*data_len\):([\s\S]*?)\nfn\s+stdio_write_mem_result\s+/,
 );
 assert.ok(writeFdMatch, 'stdio_write_fd_mem_result body must be found');

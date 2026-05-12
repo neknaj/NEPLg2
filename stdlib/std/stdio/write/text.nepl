@@ -1,0 +1,22 @@
+//: # std/stdio/write/text
+//: `str` を stdout / stderr へ書き出す adapter
+//:
+//: ### 目的
+//: - `str` の data pointer と length を取り出す処理を fd write 境界から分けます。
+//: - stdout / stderr の fd 差分は `write/fd` の `stdio_write_*_mem_result` に委譲します。
+
+#indent 4
+
+#import "alloc/string" as *
+#import "core/result" as *
+#import "./fd" as *
+
+//: ## stdio_write_str_result
+//: `str` を stdout へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+fn stdio_write_str_result <(str)*>Result<(), StdErrorKind>> (s):
+    stdio_write_mem_result string_data_ptr s len s
+
+//: ## stdio_write_stderr_str_result
+//: `str` を stderr へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+fn stdio_write_stderr_str_result <(str)*>Result<(), StdErrorKind>> (s):
+    stdio_write_stderr_mem_result string_data_ptr s len s

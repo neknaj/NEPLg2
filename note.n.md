@@ -35262,3 +35262,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 stdio write facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/std/stdio/write.nepl` に同居していた fd write scratch、`str` adapter、`ByteBuf` owner cleanup、1 byte output helper を責務別 submodule に分割した。
+- `stdlib/std/stdio/write.nepl` は public facade にし、`write/fd.nepl`、`write/text.nepl`、`write/bytes.nepl`、`write/byte.nepl` を `@merge` re-export するだけの構成にした。
+- `write/fd.nepl` は WASI `fd_write` の iovec / `nwritten` scratch、partial write retry、stdout/stderr fd 差分を所有する。
+- `write/text.nepl` は `str` の `string_data_ptr` / `len` 取り出しだけを所有し、fd 境界へ委譲する。
+- `write/bytes.nepl` は `ByteBuf` の所有権消費と成功/失敗にかかわらない storage cleanup を所有し、binary write と text write の境界を分けた。
+- `write/byte.nepl` は `print_byte` の 1 byte scratch buffer だけを所有し、partial write policy は `write/fd` に委譲する。
+- `nodesrc/test_stdlib_stdio_read_boundary.js` を更新し、`std/stdio/write` facade に実装本体が戻らないこと、fd/text/bytes/byte の各 helper が正しい submodule にあることを固定した。
+- line count は `write.nepl` 15、`write/fd.nepl` 131、`write/text.nepl` 18、`write/bytes.nepl` 80、`write/byte.nepl` 44。
+- [検証]:
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup -- --nocapture`: passed
+  - `node nodesrc/tests.js -i stdlib/std/stdio/write.nepl -i stdlib/std/stdio/write/fd.nepl -i stdlib/std/stdio/write/text.nepl -i stdlib/std/stdio/write/bytes.nepl -i stdlib/std/stdio/write/byte.nepl -i tests/stdlib/stdout.n.md -i tests/stdlib/streamio.n.md -i tests/stdlib/io.n.md --no-tree -o tmp/stdio-write-split-focused.json -j 4 --dist web/dist`: total=28, passed=28
+  - `node nodesrc/tests.js -i examples -o tmp/stdio-write-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -1,0 +1,138 @@
+//: # std/stdio/write/fd
+//: stdout / stderr の fd write scratch 境界
+//:
+//: ### 目的
+//: - WASI `fd_write` が要求する iovec / nwritten scratch と partial write 吸収をこの module に閉じ込めます。
+//: - text / ByteBuf / print_byte adapter はこの fd 境界に委譲します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "std/stdio/raw" as *
+
+//: ## stdio_write_fd_mem_result
+//: fd を[指定/してい]して byte span を[書/か]き[出/だ]す
+//:
+//: ### [目的/もくてき]
+//: - stdout / stderr などの fd [差/さ]だけを[分/わ]け、partial write [吸収/きゅうしゅう]と error [返却/へんきゃく]を 1 [箇所/かしょ]へ[集約/しゅうやく]します。
+//:
+//: ### [実装/じっそう]
+//: - WASI `fd_write(fd, iov, 1, nwritten)` を[呼/よ]び、`nwritten` が[残/のこ]り byte [数/すう]より[小/ちい]さい[場合/ばあい]は offset を[進/すす]めて[再試行/さいしこう]します。
+//: - `fd_write` error、`nwritten == 0`、iov [確保/かくほ][失敗/しっぱい]は `StdErrorKind::IoError` へ[正規化/せいきか]します。
+//: - `iov` / `nwritten` はこの関数だけが所有する scratch 領域です。`alloc_ptr` 成功後の owner invariant に基づき、終了前に `dealloc_raw` で必ず解放します。
+//:
+//: ### [注意/ちゅうい]
+//: - `data` の[所有権/しょゆうけん]は[受/う]け[取/と]りません。呼び出し側が lifetime と解放を[管理/かんり]します。
+//: - fd の[妥当性/だとうせい]は host WASI runtime に[委/ゆだ]ね、invalid fd は `Err(IoError)` として[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
+fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (fd, data, data_len):
+    let data_ptr <i32> mem_ptr_addr data;
+    if:
+        le data_len 0
+        then:
+            Result<(), StdErrorKind>::Ok ()
+        else:
+            match alloc_ptr<u8> 8:
+                Result::Err _:
+                    Result<(), StdErrorKind>::Err StdErrorKind::IoError
+                Result::Ok iov:
+                    let iov_raw <i32> mem_ptr_addr iov;
+                    match alloc_ptr<u8> 4:
+                        Result::Err _:
+                            dealloc_raw iov_raw 8;
+                            Result<(), StdErrorKind>::Err StdErrorKind::IoError
+                        Result::Ok nwritten:
+                            let nwritten_raw <i32> mem_ptr_addr nwritten;
+                            let mut off <i32> 0;
+                            let mut done <i32> 0;
+                            let mut failed <i32> 0;
+                            while eq done 0:
+                                do:
+                                    if:
+                                        ge off data_len
+                                        then:
+                                            set done 1;
+                                            ()
+                                        else:
+                                            store_i32 iov_raw add data_ptr off;
+                                            store_i32 add iov_raw 4 sub data_len off;
+                                            store_i32 nwritten_raw 0;
+                                            let errno <i32> stdio_fd_write_mem fd iov 1 nwritten;
+                                            if:
+                                                ne errno 0
+                                                then:
+                                                    set failed 1;
+                                                    set done 1;
+                                                    ()
+                                                else:
+                                                    let n <i32> load_i32 nwritten_raw;
+                                                    if:
+                                                        le n 0
+                                                        then:
+                                                            set failed 1;
+                                                            set done 1;
+                                                            ()
+                                                        else:
+                                                            set off add off n;
+                                                            ();
+                            dealloc_raw nwritten_raw 4;
+                            dealloc_raw iov_raw 8;
+                            if:
+                                eq failed 0
+                                then:
+                                    Result<(), StdErrorKind>::Ok ()
+                                else:
+                                    Result<(), StdErrorKind>::Err StdErrorKind::IoError
+
+//: ## stdio_write_mem_result
+//: byte span を stdout へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - `print` より[低水準/ていすいじゅん]で、stdout write [失敗/しっぱい]を caller が[検出/けんしゅつ]できるようにします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
+fn stdio_write_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (data, data_len):
+    stdio_write_fd_mem_result 1 data data_len
+
+//: ## stdio_write_stderr_mem_result
+//: byte span を stderr へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - diagnostic 出力を stdout と[分離/ぶんり]し、stderr write [失敗/しっぱい]を caller が[扱/あつか]えるようにします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
+fn stdio_write_stderr_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (data, data_len):
+    stdio_write_fd_mem_result 2 data data_len
+
+//: ## stdio_write_mem
+//: byte span を stdout へ[書/か]き[出/だ]す互換 facade
+//:
+//: ### [目的/もくてき]
+//: - 既存の `print` / `print_byte` が unit API のまま[使/つか]えるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - error は[呼/よ]び[出/だ]し[側/がわ]へ[返/かえ]しません。新しい code は `stdio_write_mem_result` を[使/つか]います。
+fn stdio_write_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
+    match stdio_write_mem_result data data_len:
+        Result::Ok _:
+            ()
+        Result::Err _:
+            ()
+
+//: ## stdio_write_stderr_mem
+//: byte span を stderr へ[書/か]き[出/だ]す互換 facade
+//:
+//: ### [注意/ちゅうい]
+//: - error は[呼/よ]び[出/だ]し[側/がわ]へ[返/かえ]しません。diagnostic caller は `stdio_write_stderr_mem_result` を[使/つか]います。
+fn stdio_write_stderr_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
+    match stdio_write_stderr_mem_result data data_len:
+        Result::Ok _:
+            ()
+        Result::Err _:
+            ()
