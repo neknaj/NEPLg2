@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T06:41:46.839Z",
+  "generated_at": "2026-05-12T06:52:39.785Z",
   "counts": {
-    "total": 630,
+    "total": 631,
     "open": 12,
-    "resolved": 618,
+    "resolved": 619,
     "by_area": {
       "core": {
-        "total": 316,
+        "total": 317,
         "open": 4,
-        "resolved": 312
+        "resolved": 313
       },
       "stdlib": {
         "total": 167,
@@ -150,21 +150,6 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260512T064001916Z-RESOURCE-INITIALIZED-ALIAS-I32-FACTS-4C84FD0F",
-      "title": "Resource initialized alias i32 facts exceeds split limit",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-12",
-      "updated": "2026-05-12",
-      "target": "nepl-core/src/resource/initialized_alias_i32_facts.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260512T064001916Z-RESOURCE-INITIALIZED-ALIAS-I32-FACTS-4C84FD0F.md"
-    },
-    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -253,6 +238,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260512T065044708Z-RESOURCE-INITIALIZED-ALIAS-TESTS-EXC-3A0BF130",
+      "title": "Resource initialized alias tests exceeds split limit",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/initialized_alias_tests.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T065044708Z-RESOURCE-INITIALIZED-ALIAS-TESTS-EXC-3A0BF130.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -4828,6 +4828,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T063440093Z-RESOURCE-INITIALIZED-ALIAS-EXCEEDS-S-EB6E18E5.md"
+    },
+    {
+      "id": "ISS-20260512T064001916Z-RESOURCE-INITIALIZED-ALIAS-I32-FACTS-4C84FD0F",
+      "title": "Resource initialized alias i32 facts exceeds split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/initialized_alias_i32_facts.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T064001916Z-RESOURCE-INITIALIZED-ALIAS-I32-FACTS-4C84FD0F.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

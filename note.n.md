@@ -35947,3 +35947,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 Resource initialized alias i32 条件推論分割
+
+- `ISS-20260512T064001916Z-RESOURCE-INITIALIZED-ALIAS-I32-FACTS-4C84FD0F` を修正した。
+- `nepl-core/src/resource/initialized_alias_i32_facts.rs` から i32 条件真偽の派生推論を分離し、`initialized_alias_i32_condition.rs` を追加した。
+- `initialized_alias_i32_facts.rs` は scalar canonicalization、i32 fact 記録、relation/difference/scale の問い合わせに集中し、条件推論は relation / scale / contradiction を辿る専用 module に閉じた。
+- `nodesrc/test_resource_checker_responsibility.js` に新 module を登録し、`initialized_alias_i32_facts.rs` 145 行、`initialized_alias_i32_condition.rs` 176 行で責務分割上限内に収めた。
+- 同テストの次の未対応問題として `initialized_alias_tests.rs` 139 行 > 120 行を検出し、`ISS-20260512T065044708Z-RESOURCE-INITIALIZED-ALIAS-TESTS-EXC-3A0BF130` を追加して Discord 報告した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `git diff --check`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: `initialized_alias_i32_facts.rs` の違反は解消、次 issue の `initialized_alias_tests.rs` 超過で停止
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

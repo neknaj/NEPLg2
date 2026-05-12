@@ -62,6 +62,7 @@ mod initialized_alias_flow_projection;
 mod initialized_alias_flow_raw;
 mod initialized_alias_flow_value_projection;
 mod initialized_alias_i32;
+mod initialized_alias_i32_condition;
 mod initialized_alias_i32_facts;
 mod initialized_alias_origin;
 mod initialized_alias_rank;
