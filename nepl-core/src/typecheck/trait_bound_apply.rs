@@ -7,7 +7,7 @@ use crate::span::Span;
 use crate::types::TypeId;
 
 use super::diagnostics::type_error;
-use super::traits::{infer_instantiated_type_arg, TraitBound};
+use super::traits::{infer_instantiated_type_arg, TraitApplication, TraitBound};
 use super::BlockChecker;
 
 macro_rules! trait_bound_apply_log {
@@ -43,13 +43,16 @@ impl<'a> BlockChecker<'a> {
             let resolved_arg = self.ctx.resolve_id(*raw_arg);
             for b in bounds {
                 let substituted_trait_args = b
-                    .trait_args
+                    .application
+                    .args
                     .iter()
                     .map(|arg| self.ctx.substitute(*arg, type_arg_mapping))
                     .collect::<Vec<_>>();
                 let substituted_bound = TraitBound {
-                    trait_base_name: b.trait_base_name.clone(),
-                    trait_args: substituted_trait_args,
+                    application: TraitApplication {
+                        base_name: b.application.base_name.clone(),
+                        args: substituted_trait_args,
+                    },
                     trait_self_ty: self.ctx.substitute(b.trait_self_ty, type_arg_mapping),
                 };
                 if crate::log::is_verbose() {

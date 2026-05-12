@@ -94,6 +94,7 @@ assert(traits.includes("pub(super) enum TraitCapability"), "TraitCapability must
 assert(traits.includes("TraitCapability::Copy"), "TraitCapability::Copy match coverage must remain visible");
 assert(traits.includes("TraitCapability::Clone"), "TraitCapability::Clone match coverage must remain visible");
 assert(traits.includes("TraitCapability::Drop"), "TraitCapability::Drop match coverage must remain visible");
+assert(traits.includes("pub(super) struct TraitApplication"), "TraitApplication must be a typed model");
 assert(traits.includes("pub(super) struct TraitBound"), "typed trait bound model must be named TraitBound");
 assert(
     !traits.includes("pub(super) struct TraitBoundRef"),
@@ -102,8 +103,20 @@ assert(
 const traitBoundStruct = traits.match(/pub\(super\) struct TraitBound\s*\{[\s\S]*?\n\}/);
 assert(traitBoundStruct, "TraitBound struct body must be visible to source policy");
 assert(
+    traitBoundStruct[0].includes("application: TraitApplication"),
+    "TraitBound must own a typed TraitApplication",
+);
+assert(
     !/\n\s*pub\(super\) name:\s*String/.test(traitBoundStruct[0]),
     "TraitBound must not store rendered diagnostic names",
+);
+assert(
+    !traitBoundStruct[0].includes("trait_base_name"),
+    "TraitBound must not split trait application base name out of TraitApplication",
+);
+assert(
+    !traitBoundStruct[0].includes("trait_args"),
+    "TraitBound must not split trait application args out of TraitApplication",
 );
 
 const functionCheck = read(FUNCTION_CHECK);

@@ -6,7 +6,7 @@ use crate::types::{TypeId, TypeKind};
 use super::signature::type_contains_unbound_var;
 use super::traits::{
     format_trait_ref_name, infer_type_param_from_instantiated_pair, merge_inferred_instantiation,
-    trait_application_matches, TraitBound, TraitInfo,
+    TraitBound, TraitInfo,
 };
 use super::{BlockChecker, StackEntry};
 
@@ -35,13 +35,8 @@ impl<'a> BlockChecker<'a> {
         trait_args: &[TypeId],
     ) -> bool {
         let matches_bound = |b: &TraitBound| {
-            trait_application_matches(
-                self.ctx,
-                trait_base_name,
-                trait_args,
-                &b.trait_base_name,
-                &b.trait_args,
-            )
+            b.application
+                .matches_parts(self.ctx, trait_base_name, trait_args)
         };
         let resolved = self.ctx.resolve_id(ty);
         if let Some(bounds) = self.type_param_bounds.get(&resolved) {
@@ -76,7 +71,11 @@ impl<'a> BlockChecker<'a> {
 
     pub(super) fn trait_bound_satisfied(&self, bound: &TraitBound, ty: TypeId) -> bool {
         if !self.is_concrete_type(ty) {
-            return self.type_param_has_bound_ref(ty, &bound.trait_base_name, &bound.trait_args);
+            return self.type_param_has_bound_ref(
+                ty,
+                &bound.application.base_name,
+                &bound.application.args,
+            );
         }
         if crate::log::is_verbose() {
             trait_check_log!(
@@ -90,13 +89,9 @@ impl<'a> BlockChecker<'a> {
                 imp.trait_base_name
                     .as_deref()
                     .map(|base| {
-                        trait_application_matches(
-                            self.ctx,
-                            &bound.trait_base_name,
-                            &bound.trait_args,
-                            base,
-                            &imp.trait_args,
-                        )
+                        bound
+                            .application
+                            .matches_parts(self.ctx, base, &imp.trait_args)
                     })
                     .unwrap_or(false)
             }) {
@@ -112,13 +107,9 @@ impl<'a> BlockChecker<'a> {
             imp.trait_base_name
                 .as_deref()
                 .map(|base| {
-                    trait_application_matches(
-                        self.ctx,
-                        &bound.trait_base_name,
-                        &bound.trait_args,
-                        base,
-                        &imp.trait_args,
-                    )
+                    bound
+                        .application
+                        .matches_parts(self.ctx, base, &imp.trait_args)
                 })
                 .unwrap_or(false)
                 && self.ctx.type_pattern_matches(imp.target_ty, ty)
@@ -133,13 +124,8 @@ impl<'a> BlockChecker<'a> {
         let mut matched: Option<TypeId> = None;
         for (tp, bounds) in &self.type_param_bounds {
             if !bounds.iter().any(|b| {
-                trait_application_matches(
-                    self.ctx,
-                    trait_base_name,
-                    trait_args,
-                    &b.trait_base_name,
-                    &b.trait_args,
-                )
+                b.application
+                    .matches_parts(self.ctx, trait_base_name, trait_args)
             }) {
                 continue;
             }

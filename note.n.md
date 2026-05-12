@@ -36545,3 +36545,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 TraitApplication bound model
+
+- `ISS-20260512T152402849Z-TRAITBOUND-STILL-STORES-TRAIT-APPLIC-B9D13982` に対応した。
+- `TraitApplication` を追加し、trait base name と type argument list を typed value としてまとめた。
+- `TraitBound` は `application: TraitApplication` と `trait_self_ty` を保持する形にした。
+- `function_check.rs` / `trait_check.rs` / `trait_bound_apply.rs` の bound matching と display は `TraitApplication` / `TraitBound` の method 経由に寄せた。
+- `nodesrc/test_abstraction_static_verification_policy.js` に `TraitApplication` の存在、`TraitBound.application`、split field 再導入禁止を追加した。
+- [検証]:
+  - `cargo test -p nepl-core generics -- --nocapture`
+  - `node nodesrc/tests.js -i tests/compiler/generic_impl_trait_args.n.md -i tests/compiler/generics.n.md --no-tree -o tmp/trait-application-struct-bound-generics.json -j 1 --dist web/dist`
+  - `node nodesrc/test_abstraction_static_verification_policy.js`
+  - `cargo check -p nepl-core --tests`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

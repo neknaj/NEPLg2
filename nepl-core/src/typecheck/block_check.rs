@@ -15,7 +15,7 @@ use super::binding_rules::{
 use super::diagnostics::{resolve_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::gate_allows;
-use super::traits::TraitBound;
+use super::traits::{TraitApplication, TraitBound};
 use super::type_expr::type_from_expr;
 use super::{check_function, BlockChecker, StackEntry};
 
@@ -429,8 +429,10 @@ impl<'a> BlockChecker<'a> {
                                             })
                                             .collect();
                                         bounds.push(TraitBound {
-                                            trait_base_name: b.name.name.clone(),
-                                            trait_args: arg_tys,
+                                            application: TraitApplication {
+                                                base_name: b.name.name.clone(),
+                                                args: arg_tys,
+                                            },
                                             trait_self_ty: info.self_ty,
                                         });
                                     }

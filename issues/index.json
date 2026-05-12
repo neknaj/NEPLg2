@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T15:21:07.702Z",
+  "generated_at": "2026-05-12T15:30:52.429Z",
   "counts": {
-    "total": 654,
+    "total": 655,
     "open": 12,
-    "resolved": 642,
+    "resolved": 643,
     "by_area": {
       "core": {
-        "total": 336,
+        "total": 337,
         "open": 4,
-        "resolved": 332
+        "resolved": 333
       },
       "stdlib": {
         "total": 168,
@@ -5103,6 +5103,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T151045280Z-TRAITBOUNDREF-STORES-RENDERED-DISPLA-644F8E6A.md"
+    },
+    {
+      "id": "ISS-20260512T152402849Z-TRAITBOUND-STILL-STORES-TRAIT-APPLIC-B9D13982",
+      "title": "TraitBound still stores trait application as split fields",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/function_check.rs; nepl-core/src/typecheck/trait_check.rs; nepl-core/src/typecheck/trait_bound_apply.rs; nodesrc/test_abstraction_static_verification_policy.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T152402849Z-TRAITBOUND-STILL-STORES-TRAIT-APPLIC-B9D13982.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

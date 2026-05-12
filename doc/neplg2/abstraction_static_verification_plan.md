@@ -34,8 +34,8 @@ NEPLg2 の抽象化機能、特に generics、trait、trait bound、overload、m
 
 1. trait application identity がまだ一部文字列に寄っている。
    - 2026-05-12 時点で、表示文字列から trait argument を復元する `parse_trait_ref_name` は削除済みである。
-   - `TraitBoundRef.name` は削除済みであり、type parameter bound は `TraitBound` として `trait_base_name` / `trait_args` / `trait_self_ty` だけを保持する。
-   - ただし `format_trait_ref_name` は diagnostic/display helper として残っており、今後は `TraitApplication` へ field を集約して identity と display の境界をさらに明確にする必要がある。
+   - `TraitBoundRef.name` は削除済みであり、type parameter bound は `TraitApplication` を持つ `TraitBound` として保持する。
+   - ただし `format_trait_ref_name` は diagnostic/display helper として残っており、今後は impl / monomorphize 側にも同じ identity model を広げる必要がある。
 
 2. impl model が optional string field に寄っている。
    - `ImplInfo` は `trait_name: Option<String>`、`trait_base_name: Option<String>`、`trait_args: Vec<TypeId>`、`trait_self_ty: Option<TypeId>` を持つ。
@@ -156,6 +156,7 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `function_check.rs` の deferred trait bound check は、`TraitBoundRef.name` の表示文字列を `parse_trait_ref_name` で復元する経路から、`trait_base_name` / `trait_args` を直接比較する typed lookup へ移行した。
 - 2026-05-12: `prefix_check.rs` の trait method self inference は、表示名を作って `infer_unique_type_param_for_trait` で parse し直す経路から、`infer_trait_application_args` の `TypeId` 列を直接 `infer_unique_type_param_for_trait_ref` へ渡す経路へ移行した。これにより `parse_trait_ref_name` は削除済みになった。
 - 2026-05-12: `TraitBoundRef` を `TraitBound` に改名し、表示名 field を削除した。診断と verbose log は `TraitBound::display_name` で境界生成する。
+- 2026-05-12: `TraitApplication` を追加し、`TraitBound` は `application: TraitApplication` と `trait_self_ty` を持つ形にした。type parameter bound の trait identity は split field ではなく typed value になった。
 
 検証:
 
@@ -244,7 +245,7 @@ struct MonoTraitLookupKey {
 
 ## 進捗状況
 
-- `typecheck/traits.rs`: 実装済みだが再設計対象。TraitCapability enum は良い。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みだが、`TraitApplication` struct への集約は未完了。
+- `typecheck/traits.rs`: 実装済みだが再設計対象。TraitCapability enum は良い。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みで、type parameter bound は `TraitApplication` に集約済み。
 - `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存は削除済みだが、bound satisfaction の label fallback は残る。
 - `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
 - `typecheck/trait_call_apply.rs`: 実装済みだが再設計対象。trait method resolution result enum が必要。

@@ -100,15 +100,30 @@ pub(super) struct ImplInfo {
 }
 
 #[derive(Debug, Clone)]
+pub(super) struct TraitApplication {
+    pub(super) base_name: String,
+    pub(super) args: Vec<TypeId>,
+}
+
+impl TraitApplication {
+    pub(super) fn display_name(&self, ctx: &TypeCtx) -> String {
+        format_trait_ref_name(&self.base_name, &self.args, ctx)
+    }
+
+    pub(super) fn matches_parts(&self, ctx: &TypeCtx, base_name: &str, args: &[TypeId]) -> bool {
+        trait_application_matches(ctx, &self.base_name, &self.args, base_name, args)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub(super) struct TraitBound {
-    pub(super) trait_base_name: String,
-    pub(super) trait_args: Vec<TypeId>,
+    pub(super) application: TraitApplication,
     pub(super) trait_self_ty: TypeId,
 }
 
 impl TraitBound {
     pub(super) fn display_name(&self, ctx: &TypeCtx) -> String {
-        format_trait_ref_name(&self.trait_base_name, &self.trait_args, ctx)
+        self.application.display_name(ctx)
     }
 }
 
@@ -161,8 +176,10 @@ pub(super) fn collect_type_params(
                     .map(|arg| type_from_expr(ctx, labels, arg))
                     .collect();
                 bounds.push(TraitBound {
-                    trait_base_name: b.name.name.clone(),
-                    trait_args: arg_tys,
+                    application: TraitApplication {
+                        base_name: b.name.name.clone(),
+                        args: arg_tys,
+                    },
                     trait_self_ty: info.self_ty,
                 });
                 for cap in info.capabilities.iter().copied() {
@@ -231,13 +248,8 @@ pub(super) fn type_param_has_trait_application_bound(
     trait_args: &[TypeId],
 ) -> bool {
     let matches_bound = |b: &TraitBound| {
-        trait_application_matches(
-            ctx,
-            trait_base_name,
-            trait_args,
-            &b.trait_base_name,
-            &b.trait_args,
-        )
+        b.application
+            .matches_parts(ctx, trait_base_name, trait_args)
     };
     let resolved = ctx.resolve_id(ty);
     if let Some(bounds) = type_param_bounds.get(&resolved) {
