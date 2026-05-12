@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T20:26:31.664Z",
+  "generated_at": "2026-05-12T20:31:19.318Z",
   "counts": {
-    "total": 678,
+    "total": 679,
     "open": 10,
-    "resolved": 668,
+    "resolved": 669,
     "by_area": {
       "core": {
-        "total": 360,
+        "total": 361,
         "open": 2,
-        "resolved": 358
+        "resolved": 359
       },
       "stdlib": {
         "total": 168,
@@ -5463,6 +5463,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T202418246Z-RESOURCE-OWNER-POLICY-DOES-NOT-GUARD-2B46D8D5.md"
+    },
+    {
+      "id": "ISS-20260512T202946482Z-TYPECHECK-CONSTRUCTOR-CAPABILITY-BOU-14965EAB",
+      "title": "Typecheck constructor capability boundary is not guarded by source policy",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nodesrc/test_static_check_boundary_responsibility.js; nepl-core/src/typecheck/model.rs; nepl-core/src/typecheck/driver.rs; nepl-core/src/typecheck/constructor_apply.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T202946482Z-TYPECHECK-CONSTRUCTOR-CAPABILITY-BOU-14965EAB.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

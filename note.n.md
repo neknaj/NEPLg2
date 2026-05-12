@@ -36789,3 +36789,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260512T202418246Z-RESOURCE-OWNER-POLICY-DOES-NOT-GUARD-2B46D8D5` を追加し、Stage 4 の `NonOwningProjection` 所有権境界が source policy で固定されていない問題を切り出した。
 - `nodesrc/test_resource_checker_responsibility.js` に brace block 単位の検査を追加し、`RawAddressViewKind::NonOwningProjection` が owner alias を転送しないことを wildcard なしの match contract として監視する。
 - return summary 側でも `RawAddressViewOwnership::NonOwningProjection` が `OwnerNonOwningRawViewKind::ProjectionView` として保持されることを監視し、通常 alias view と混同しないようにした。
+
+## 2026-05-13 Agent 1 typecheck constructor capability policy
+
+- `cf9f879e` push 後に remote main を pull し、`agent1/typecheck-constructor-boundary-policy` branch を作成した。
+- `ISS-20260512T202946482Z-TYPECHECK-CONSTRUCTOR-CAPABILITY-BOU-14965EAB` を追加し、`MemPtr` / `RegionToken` direct constructor restriction が source policy にない問題を切り出した。
+- `nodesrc/test_static_check_boundary_responsibility.js` で `StructConstructorPolicy` / `RestrictedStructConstructor` enum、`MemPtr => RawPointer`、`RegionToken => OwnerToken` の raw-memory-boundary 分類を監視する。
+- `apply_struct_constructor` が `RawMemoryBoundaryOnly` gate を通し、`OwnerTokenConstructorRestricted` と `RawPointerConstructorRestricted` を別 diagnostic として出すことも policy にした。

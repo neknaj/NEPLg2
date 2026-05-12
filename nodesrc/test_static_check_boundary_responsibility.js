@@ -46,6 +46,10 @@ function assertNotContains(text, needle, label) {
     assert(!text.includes(needle), `${label} must not contain ${needle}`);
 }
 
+function assertMatches(text, pattern, label) {
+    assert(pattern.test(text), `${label} must match ${pattern}`);
+}
+
 function assertLineLimit(filePath, label, limit) {
     const lines = lineCount(assertFile(filePath, label));
     assert(lines <= limit, `${label} has ${lines} lines; responsibility split limit is ${limit}`);
@@ -77,6 +81,18 @@ const dropInsertion = assertFile(DROP_INSERTION, 'passes/drop_insertion.rs');
 const typecheckMatchCheck = assertFile(
     path.join(TYPECHECK_DIR, 'match_check.rs'),
     'typecheck/match_check.rs',
+);
+const typecheckModel = assertFile(
+    path.join(TYPECHECK_DIR, 'model.rs'),
+    'typecheck/model.rs',
+);
+const typecheckDriver = assertFile(
+    path.join(TYPECHECK_DIR, 'driver.rs'),
+    'typecheck/driver.rs',
+);
+const typecheckConstructorApply = assertFile(
+    path.join(TYPECHECK_DIR, 'constructor_apply.rs'),
+    'typecheck/constructor_apply.rs',
 );
 const typecheckSyntaxHelpers = assertFile(
     path.join(TYPECHECK_DIR, 'syntax_helpers.rs'),
@@ -130,6 +146,62 @@ assertNotContains(typecheckMatchCheck, 'find("::")', 'typecheck/match_check.rs')
 assertContains(typecheckSyntaxHelpers, 'fn split_qualified_name', 'typecheck/syntax_helpers.rs');
 assertContains(typecheckSyntaxHelpers, 'fn variant_member_tail', 'typecheck/syntax_helpers.rs');
 assertNotContains(typecheckSyntaxHelpers, 'parse_variant_name', 'typecheck/syntax_helpers.rs');
+assertContains(typecheckModel, 'pub(super) enum StructConstructorPolicy', 'typecheck/model.rs');
+assertContains(typecheckModel, 'RawMemoryBoundaryOnly(RestrictedStructConstructor)', 'typecheck/model.rs');
+assertContains(typecheckModel, 'pub(super) enum RestrictedStructConstructor', 'typecheck/model.rs');
+assertContains(typecheckModel, 'OwnerToken', 'typecheck/model.rs');
+assertContains(typecheckModel, 'RawPointer', 'typecheck/model.rs');
+assertContains(
+    typecheckModel,
+    'pub(super) constructor_policy: StructConstructorPolicy',
+    'typecheck/model.rs',
+);
+assertContains(typecheckDriver, 'fn struct_constructor_policy', 'typecheck/driver.rs');
+assertContains(
+    typecheckDriver,
+    'raw_memory_boundary_allowed(span.file_id)',
+    'typecheck/driver.rs',
+);
+assertMatches(
+    typecheckDriver,
+    /"MemPtr"\s+if\s+raw_memory_boundary\s*=>\s*\{\s*StructConstructorPolicy::RawMemoryBoundaryOnly\(RestrictedStructConstructor::RawPointer\)\s*\}/,
+    'typecheck/driver.rs MemPtr constructor policy',
+);
+assertMatches(
+    typecheckDriver,
+    /"RegionToken"\s+if\s+raw_memory_boundary\s*=>\s*\{\s*StructConstructorPolicy::RawMemoryBoundaryOnly\(RestrictedStructConstructor::OwnerToken\)\s*\}/,
+    'typecheck/driver.rs RegionToken constructor policy',
+);
+assertContains(
+    typecheckDriver,
+    '_ => StructConstructorPolicy::Public',
+    'typecheck/driver.rs',
+);
+assertContains(
+    typecheckConstructorApply,
+    'match info.constructor_policy',
+    'typecheck/constructor_apply.rs',
+);
+assertMatches(
+    typecheckConstructorApply,
+    /StructConstructorPolicy::RawMemoryBoundaryOnly\(restricted\)\s*=>\s*\{\s*if\s+!self\.raw_memory_boundary_allowed\(span\)/,
+    'typecheck/constructor_apply.rs constructor capability gate',
+);
+assertMatches(
+    typecheckConstructorApply,
+    /RestrictedStructConstructor::OwnerToken\s*=>\s*\(\s*TypeDiagnosticCode::OwnerTokenConstructorRestricted/,
+    'typecheck/constructor_apply.rs owner token diagnostic branch',
+);
+assertMatches(
+    typecheckConstructorApply,
+    /RestrictedStructConstructor::RawPointer\s*=>\s*\(\s*TypeDiagnosticCode::RawPointerConstructorRestricted/,
+    'typecheck/constructor_apply.rs raw pointer diagnostic branch',
+);
+assertNotContains(
+    typecheckConstructorApply,
+    'RestrictedStructConstructor::_',
+    'typecheck/constructor_apply.rs',
+);
 assertContains(effects, 'pub enum RawBodyMemoryOp', 'effects.rs');
 assertContains(effects, 'pub enum WasmRawBodyMemoryOp', 'effects.rs');
 assertContains(effects, 'pub enum LlvmRawBodyMemoryOp', 'effects.rs');
