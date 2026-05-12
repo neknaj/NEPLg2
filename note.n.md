@@ -1,3 +1,22 @@
+# 2026-05-12 Agent 2 vec/sort/merge facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/vec/sort/merge.nepl` に残っていた scratch buffer raw access、recursive range merge、public API / allocation を責務別 submodule に分割した。
+- `merge.nepl` は `merge/buffer`、`merge/range`、`merge/api` の public re-export だけを持つ facade にした。
+- `merge/buffer.nepl` は `sort_buf_get` / `sort_buf_set` を所有し、typed scratch buffer の raw load/store を閉じ込める。
+- `merge/range.nepl` は `sort_merge_range_data` を所有し、range traversal と stable merge の制御だけに集中する。
+- `merge/api.nepl` は `sort_merge` / `sort_merge_ret` と scratch buffer allocation / cleanup を所有する。
+- `nepl-core/src/loader.rs` の raw memory boundary は root `sort/merge.nepl` から外し、`sort/merge/api.nepl`、`sort/merge/buffer.nepl`、`sort/merge/range.nepl` へ exact path で移した。`range.nepl` は直接 load/store しないが、`MemPtr` を受け渡して raw traversal を構成するため Resource IR 上の raw boundary として必要。
+- `nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_vec_sort_module_split.js`、`nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_vec_borrowed_observers.js` を新 submodule 構成と exact raw boundary に追従させた。
+- line count は `merge.nepl` 14、`merge/buffer.nepl` 39、`merge/range.nepl` 88、`merge/api.nepl` 96。
+- 検証:
+  - `node nodesrc/test_stdlib_sort_merge_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_sort_module_split.js`: passed
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort/common.nepl -i stdlib/alloc/collections/vec/sort/merge.nepl -i stdlib/alloc/collections/vec/sort/merge/buffer.nepl -i stdlib/alloc/collections/vec/sort/merge/range.nepl -i stdlib/alloc/collections/vec/sort/merge/api.nepl -i stdlib/alloc/collections/vec/sort.nepl -i tests/stdlib/sort.n.md --no-tree -o tmp/vec-sort-merge-split-sort-focused.json -j 4 --dist web/dist`: total=25, passed=25
+  - remote main の `3487e386` 取り込み後も、広めの suite `tmp/vec-sort-merge-split-focused-after-rebase.json` は total=34, passed=29, failed=5。失敗は `stdlib/tests/vec.n.md` の `all` / `count` / `partition` / `vec_take_while_len_impl` の `resource.owner.no_free_obligation` で、merge sort とは別問題として `ISS-20260512T060310380Z-VEC-STDLIB-DOCTESTS-FAIL-RESOURCE-OW-D1622B99` を追加した。
+
 # 2026-05-12 Agent 2 fenwick API facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/fenwick/api.nepl` に残っていた診断生成、構築、borrowed observer、owner-consuming update、prefix/range query、cleanup を責務別 submodule に分割した。

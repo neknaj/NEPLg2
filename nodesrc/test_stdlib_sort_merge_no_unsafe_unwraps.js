@@ -5,9 +5,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const relPath = 'stdlib/alloc/collections/vec/sort/merge.nepl';
-const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
-const lines = src.split(/\r?\n/);
+const facadePath = 'stdlib/alloc/collections/vec/sort/merge.nepl';
+const apiPath = 'stdlib/alloc/collections/vec/sort/merge/api.nepl';
+const facadeSrc = sourceWithoutComments(facadePath);
+const apiSrc = sourceWithoutComments(apiPath);
+const lines = apiSrc.split(/\r?\n/);
 
 function extractFunction(name) {
     const start = lines.findIndex((line) => line.startsWith(`fn ${name} `));
@@ -39,4 +41,20 @@ for (const name of ['sort_merge', 'sort_merge_ret']) {
     }
 }
 
+assert.doesNotMatch(facadeSrc, /\bfn\s+/, 'sort/merge facade must not keep implementation bodies');
+for (const submodule of ['buffer', 'range', 'api']) {
+    assert.match(
+        facadeSrc,
+        new RegExp(`pub\\s+#import\\s+"\\.\\/merge\\/${submodule}"\\s+as\\s+\\*`),
+        `sort/merge facade must re-export merge/${submodule}`,
+    );
+}
+
 console.log('sort merge unsafe unwrap regression passed');
+
+function sourceWithoutComments(file) {
+    return fs.readFileSync(path.join(repoRoot, file), 'utf8')
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*\/\//.test(line))
+        .join('\n');
+}

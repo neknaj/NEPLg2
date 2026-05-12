@@ -41,6 +41,9 @@ const files = {
     quick: "stdlib/alloc/collections/vec/sort/quick.nepl",
     heap: "stdlib/alloc/collections/vec/sort/heap.nepl",
     merge: "stdlib/alloc/collections/vec/sort/merge.nepl",
+    mergeBuffer: "stdlib/alloc/collections/vec/sort/merge/buffer.nepl",
+    mergeRange: "stdlib/alloc/collections/vec/sort/merge/range.nepl",
+    mergeApi: "stdlib/alloc/collections/vec/sort/merge/api.nepl",
 };
 
 const sources = Object.fromEntries(Object.entries(files).map(([key, relPath]) => [key, read(relPath)]));
@@ -53,10 +56,16 @@ for (const moduleName of ["common", "simple", "quick", "heap", "merge"]) {
 
 assert.doesNotMatch(impl.facade, /\bfn\s+/, "vec/sort facade must not own sort implementations");
 assert.doesNotMatch(impl.simple, /\bfn\s+/, "vec/sort/simple facade must not own sort implementations");
+assert.doesNotMatch(impl.merge, /\bfn\s+/, "vec/sort/merge facade must not own merge sort implementations");
 
 for (const moduleName of ["insertion", "selection", "exchange", "gap"]) {
     const pattern = new RegExp(`pub\\s+#import\\s+"\\./simple/${moduleName}"\\s+as\\s+\\*`);
     assert.match(sources.simple, pattern, `vec/sort/simple facade must re-export simple/${moduleName}`);
+}
+
+for (const moduleName of ["buffer", "range", "api"]) {
+    const pattern = new RegExp(`pub\\s+#import\\s+"\\./merge/${moduleName}"\\s+as\\s+\\*`);
+    assert.match(sources.merge, pattern, `vec/sort/merge facade must re-export merge/${moduleName}`);
 }
 
 for (const [key, limit] of [
@@ -69,7 +78,10 @@ for (const [key, limit] of [
     ["simpleGap", 150],
     ["quick", 240],
     ["heap", 190],
-    ["merge", 280],
+    ["merge", 80],
+    ["mergeBuffer", 80],
+    ["mergeRange", 140],
+    ["mergeApi", 140],
 ]) {
     assert.ok(lineCount(sources[key]) <= limit, `${files[key]} must stay below ${limit} lines`);
 }
@@ -122,14 +134,17 @@ for (const name of ["sort_heap_sift_down_data", "sort_heap", "sort_heap_ret"]) {
     assertNotOwns(impl.facade, name, files.facade);
 }
 
-for (const name of [
-    "sort_buf_get",
-    "sort_buf_set",
-    "sort_merge_range_data",
-    "sort_merge",
-    "sort_merge_ret",
-]) {
-    assertOwns(impl.merge, name, files.merge);
+for (const name of ["sort_buf_get", "sort_buf_set"]) {
+    assertOwns(impl.mergeBuffer, name, files.mergeBuffer);
+    assertNotOwns(impl.merge, name, files.merge);
+    assertNotOwns(impl.facade, name, files.facade);
+}
+assertOwns(impl.mergeRange, "sort_merge_range_data", files.mergeRange);
+assertNotOwns(impl.merge, "sort_merge_range_data", files.merge);
+assertNotOwns(impl.facade, "sort_merge_range_data", files.facade);
+for (const name of ["sort_merge", "sort_merge_ret"]) {
+    assertOwns(impl.mergeApi, name, files.mergeApi);
+    assertNotOwns(impl.merge, name, files.merge);
     assertNotOwns(impl.facade, name, files.facade);
 }
 

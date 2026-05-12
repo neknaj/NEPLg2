@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T06:00:33.873Z",
+  "generated_at": "2026-05-12T06:10:56.986Z",
   "counts": {
-    "total": 624,
-    "open": 11,
+    "total": 626,
+    "open": 13,
     "resolved": 613,
     "by_area": {
       "core": {
-        "total": 311,
-        "open": 3,
+        "total": 312,
+        "open": 4,
         "resolved": 308
       },
       "static-check": {
@@ -17,8 +17,8 @@
         "resolved": 2
       },
       "stdlib": {
-        "total": 166,
-        "open": 5,
+        "total": 167,
+        "open": 6,
         "resolved": 161
       },
       "TEST": {
@@ -225,6 +225,21 @@
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
     },
     {
+      "id": "ISS-20260512T060310380Z-VEC-STDLIB-DOCTESTS-FAIL-RESOURCE-OW-D1622B99",
+      "title": "Vec stdlib doctests fail resource owner checks in query helpers",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "stdlib/alloc/collections/vec/query.nepl, stdlib/alloc/collections/vec/transform/prefix.nepl, stdlib/tests/vec.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T060310380Z-VEC-STDLIB-DOCTESTS-FAIL-RESOURCE-OW-D1622B99.md"
+    },
+    {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
       "title": ".n.md tests rely on return values instead of stdout assertion reports",
       "area": "TEST",
@@ -238,6 +253,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260512T061056848Z-RESOURCE-CHECKER-POLICY-EXPECTS-RENA-E8F94116",
+      "title": "Resource checker policy expects renamed i32 facts module",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/mod.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T061056848Z-RESOURCE-CHECKER-POLICY-EXPECTS-RENA-E8F94116.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

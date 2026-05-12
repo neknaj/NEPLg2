@@ -1,0 +1,39 @@
+//: merge/buffer: merge sort scratch buffer raw access
+//:
+//: [目的/もくてき]:
+//: - merge sort の一時 buffer に対する typed load/store を集約します。
+//: - raw memory access をこの file に閉じ、range merge と public API から直接 raw load/store を分離します。
+//:
+//: [注意/ちゅうい]:
+//: - `buf` は `.T` の配列として有効である必要があります。
+//: - `idx` の境界確認は caller 側で行います。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+
+//: ## sort_buf_get
+//: merge sort 用の作業 buffer から値を読む
+//:
+//: ### [実装/じっそう]
+//: - `idx * size_of<.T>` で byte offset を計算し、buffer 先頭から `load<.T>` します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+fn sort_buf_get <.T> <(MemPtr<.T>,i32)->.T> (buf, idx):
+    let off <i32> mul idx size_of<.T>
+    load<.T> add mem_ptr_addr buf off
+
+//: ## sort_buf_set
+//: merge sort 用の作業 buffer へ値を書き込む
+//:
+//: ### [実装/じっそう]
+//: - `idx * size_of<.T>` を求め、buffer 先頭から `store<.T>` します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(1)
+fn sort_buf_set <.T> <(MemPtr<.T>,i32,.T)->()> (buf, idx, val):
+    let off <i32> mul idx size_of<.T>
+    store<.T> add mem_ptr_addr buf off val;
+    ()

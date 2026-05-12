@@ -1,0 +1,88 @@
+//: merge/range: merge sort range traversal
+//:
+//: [目的/もくてき]:
+//: - `[l, r)` の再帰分割と stable merge traversal を所有します。
+//: - raw access の実体は `sort/common` と `merge/buffer` に委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - `data_ptr` と `buf` は `.T` を `r` 個分まで安全に読み書きできる領域である必要があります。
+//: - `l <= r` と十分な容量は caller 側の責務です。
+
+#indent 4
+
+#import "core/mem" as *
+#import "core/math" as *
+#import "core/traits/ord" as *
+#import "../common" as *
+#import "./buffer" as *
+
+//: ## sort_merge_range_data
+//: merge sort の 1 区間を再帰的に統合する
+//:
+//: ### [実装/じっそう]
+//: - 中央 `mid` で 2 分割し、左右を再帰的に sort します。
+//: - `buf` に現在の内容を退避してから 2 本の読み取り位置で stable merge します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 時間計算量は O(n log n)、追加空間計算量は O(n) です。
+fn sort_merge_range_data <.T: Ord> <(MemPtr<.T>,MemPtr<.T>,i32,i32)->()> (data_ptr, buf, l, r):
+    let width <i32> sub r l;
+    if:
+        le width 1
+        then ()
+        else:
+            let lr_sum <i32> add l r;
+            let mid <i32> div_s lr_sum 2;
+            sort_merge_range_data<.T> data_ptr buf l mid;
+            sort_merge_range_data<.T> data_ptr buf mid r;
+
+            let mut i0 <i32> l;
+            while lt i0 r:
+                do:
+                    let x <.T> sort_get_unchecked_data<.T> data_ptr i0;
+                    sort_buf_set<.T> buf i0 x;
+                    set i0 add i0 1;
+
+            let mut i <i32> l;
+            let mut j <i32> mid;
+            let mut k <i32> l;
+
+            let mut done_merge <i32> 0;
+            while eq done_merge 0:
+                do:
+                    let left_open <bool> lt i mid;
+                    let right_open <bool> lt j r;
+                    if:
+                        and left_open right_open
+                        then:
+                            let a <.T> sort_buf_get<.T> buf i;
+                            let b <.T> sort_buf_get<.T> buf j;
+                            if:
+                                sort_lt<.T> b a
+                                then:
+                                    sort_set_unchecked_data<.T> data_ptr k b;
+                                    set j add j 1;
+                                    ()
+                                else:
+                                    sort_set_unchecked_data<.T> data_ptr k a;
+                                    set i add i 1;
+                                    ();
+                            set k add k 1;
+                            ()
+                        else set done_merge 1
+
+            while lt i mid:
+                do:
+                    let a <.T> sort_buf_get<.T> buf i;
+                    sort_set_unchecked_data<.T> data_ptr k a;
+                    set i add i 1;
+                    set k add k 1;
+
+            while lt j r:
+                do:
+                    let b <.T> sort_buf_get<.T> buf j;
+                    sort_set_unchecked_data<.T> data_ptr k b;
+                    set j add j 1;
+                    set k add k 1;
+
+            ()

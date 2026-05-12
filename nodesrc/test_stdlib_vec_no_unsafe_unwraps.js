@@ -44,6 +44,9 @@ const relPaths = [
     'stdlib/alloc/collections/vec/sort/quick.nepl',
     'stdlib/alloc/collections/vec/sort/heap.nepl',
     'stdlib/alloc/collections/vec/sort/merge.nepl',
+    'stdlib/alloc/collections/vec/sort/merge/buffer.nepl',
+    'stdlib/alloc/collections/vec/sort/merge/range.nepl',
+    'stdlib/alloc/collections/vec/sort/merge/api.nepl',
 ];
 
 const codeByPath = new Map();
@@ -123,7 +126,10 @@ const vecMutationPopCode = codeByPath.get('stdlib/alloc/collections/vec/mutation
 const vecMutationCleanupCode = codeByPath.get('stdlib/alloc/collections/vec/mutation/cleanup.nepl');
 const vecMutationCode = [vecMutationRootCode, vecMutationPushCode, vecMutationReplaceCode, vecMutationPopCode, vecMutationCleanupCode].join('\n');
 const vecCode = [vecTypesCode, vecStorageCode, vecAccessCode, vecRawCode, vecTransformCode, vecQueryCode, vecMutationCode, vecRootCode].join('\n');
-const sortMergeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge.nepl');
+const sortMergeRootCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge.nepl');
+const sortMergeBufferCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/buffer.nepl');
+const sortMergeRangeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/range.nepl');
+const sortMergeApiCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/api.nepl');
 const loaderCode = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 
 function between(code, start, end) {
@@ -268,6 +274,7 @@ assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"transf
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"transform",\s*"map\.nepl"\]/, 'Vec transform map must not receive raw-memory boundary capability because it has no direct raw intrinsic');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"transform",\s*"prefix\.nepl"\]/, 'Vec transform prefix must not receive raw-memory boundary capability because it has no direct raw intrinsic');
 assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"types\.nepl"\]/, 'Vec types module must not receive raw-memory boundary capability because it has no direct raw intrinsic');
+assert.doesNotMatch(loaderCode, /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge\.nepl"\]/, 'Vec sort/merge facade must not receive raw-memory boundary capability');
 for (const relPath of [
     /&\["alloc",\s*"collections",\s*"vec",\s*"mutation",\s*"push\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"raw",\s*"element\.nepl"\]/,
@@ -275,7 +282,9 @@ for (const relPath of [
     /&\["alloc",\s*"collections",\s*"vec",\s*"storage",\s*"cleanup\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"storage",\s*"fill\.nepl"\]/,
     /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"common\.nepl"\]/,
-    /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge\.nepl"\]/,
+    /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge",\s*"api\.nepl"\]/,
+    /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge",\s*"buffer\.nepl"\]/,
+    /&\["alloc",\s*"collections",\s*"vec",\s*"sort",\s*"merge",\s*"range\.nepl"\]/,
 ]) {
     assert.match(loaderCode, relPath, 'loader raw-memory boundary must include exact Vec implementation submodule stdlib paths');
 }
@@ -316,7 +325,14 @@ for (const [name, section] of [
 ]) {
     assert.doesNotMatch(section, /field::get_ref\s+&v\s+"data"/, `Vec.${name} must not consume Vec just to read backing storage`);
 }
-assert.match(sortMergeCode, /fn\s+sort_merge\s+<\.T:\s+Ord>[\s\S]*dealloc_raw\s+mem_ptr_addr\s+buf\s+mul\s+n\s+size_of<\.T>[\s\S]*Result<\(\),\s*StdErrorKind>::Ok\s+\(\)/, 'sort_merge must release scratch buffer with raw owner cleanup');
-assert.match(sortMergeCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord>[\s\S]*let\s+storage\s+<VecStorageState>\s+get\s+v\s+"storage"[\s\S]*let\s+data_ptr\s+<MemPtr<\.T>>\s+get\s+v\s+"data"[\s\S]*dealloc_raw\s+mem_ptr_addr\s+buf\s+mul\s+n\s+size_of<\.T>[\s\S]*Result<Vec<\.T>,\s*StdErrorKind>::Ok\s+Vec<\.T>\s+n\s+cap\s+storage\s+data_ptr/, 'sort_merge_ret must release scratch buffer and return the original Vec storage state and data owner');
+for (const name of ['buffer', 'range', 'api']) {
+    assert.match(sortMergeRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/merge\\/${name}"\\s+as\\s+\\*`), `sort/merge.nepl must re-export merge/${name}.nepl`);
+}
+assert.doesNotMatch(sortMergeRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'sort/merge.nepl must be a pure facade without implementation bodies');
+assert.match(sortMergeBufferCode, /fn\s+sort_buf_get\s+<\.T>/, 'sort/merge/buffer.nepl must own scratch buffer loads');
+assert.match(sortMergeBufferCode, /fn\s+sort_buf_set\s+<\.T>/, 'sort/merge/buffer.nepl must own scratch buffer stores');
+assert.match(sortMergeRangeCode, /fn\s+sort_merge_range_data\s+<\.T:\s+Ord>[\s\S]*sort_buf_set<\.T>[\s\S]*sort_buf_get<\.T>/, 'sort/merge/range.nepl must own range traversal and delegate scratch access');
+assert.match(sortMergeApiCode, /fn\s+sort_merge\s+<\.T:\s+Ord>[\s\S]*dealloc_raw\s+mem_ptr_addr\s+buf\s+mul\s+n\s+size_of<\.T>[\s\S]*Result<\(\),\s*StdErrorKind>::Ok\s+\(\)/, 'sort_merge must release scratch buffer with raw owner cleanup');
+assert.match(sortMergeApiCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord>[\s\S]*let\s+storage\s+<VecStorageState>\s+get\s+v\s+"storage"[\s\S]*let\s+data_ptr\s+<MemPtr<\.T>>\s+get\s+v\s+"data"[\s\S]*dealloc_raw\s+mem_ptr_addr\s+buf\s+mul\s+n\s+size_of<\.T>[\s\S]*Result<Vec<\.T>,\s*StdErrorKind>::Ok\s+Vec<\.T>\s+n\s+cap\s+storage\s+data_ptr/, 'sort_merge_ret must release scratch buffer and return the original Vec storage state and data owner');
 
 console.log('vec unsafe unwrap regression passed');
