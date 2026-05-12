@@ -107,6 +107,37 @@
   - remote main `066afd0d` rebase 後 `node nodesrc/run_source_policy_regressions.js --warn-only`: std/text boundary は passed。別件として `owner_check.rs has 802 lines; responsibility split limit is 800` warning を検出したため、ResourceIR responsibility split issue として切り分ける。
   - remote main `066afd0d` rebase 後 `node nodesrc/issues.js check`: ok, files=618
   - `git diff --check`: passed
+# 2026-05-12 Agent 1 ResourceIR returned RegionToken storage origin 修正
+
+- `ISS-20260507T191618061Z-RESOURCE-OWNER-SUMMARY-DROPS-STORAGE-DAB6ECA2` を追加し、fixed/resolved に更新した。
+- 根本原因は、helper が返す `RegionToken.ptr.raw` の `StorageOrigin::Owned` が callee 内 Resource IR には存在しても、`OwnerReturnSummary` が returned value 配下の storage origin を表現しておらず caller 側で復元されなかったことだった。
+- 調査中に、`variant_projection_returns` が parameter source だけを表す設計だったため、`alloc_ptr` / `alloc_region` の `Result::Ok` payload に入る fresh owner / maybe owner も caller 側へ伝播できないことを確認した。
+- `OwnerReturnSummary` に `storage_origin_markers` を追加し、returned aggregate 配下の storage origin を call output projection へ復元するようにした。
+- `OwnerVariantProjectionReturn` は `OwnerProjectionReturnOwner::{Parameter,Fresh,Maybe}` を持つ enum 設計に変更し、variant payload owner propagation を exhaustive `match` で扱うようにした。
+- `RawAddressAlias` が raw owner を wrapper 内のより深い projection へ入れる場合のみ owner state を移動し、`mem_ptr_addr` のような raw scalar view 取得とは分離した。
+- `StorageOriginTable` に copy origin の source place を保持させ、`read local -> tmp -> return` のような by-value projection return を owner 複製ではなく origin source として扱うようにした。
+- `EndScope` の自動 drop は、returned value 配下の origin source と重なる local owner を drop しない。これにより aggregate identity helper と `TestReport` stdout path が returned owner を保持できる。
+- `BorrowKind::Shared` は owner / storage origin alias を作らず non-owning raw view だけを伝播する。共有参照からの field read が元 aggregate owner を消費扱いにしないようにした。
+- raw `i32` owner seed は raw owner 消費または aggregate raw i32 leaf return に限定し、裸の `i32 -> i32` identity を owner transfer と誤認しないようにした。
+- variant condition tracking を owner seed と分離し、通常 `i32` parameter / leaf も caller 側 condition source として扱えるようにした。
+- remote main の `owner_expr.rs` 分割を取り込んだ後、Resource IR responsibility gate が再発したため、上限を緩めず `owner_raw_view.rs` / `owner_raw_view_model.rs` / `owner_consumption.rs` / `owner_drop.rs` へ helper と enum model を分離した。
+- returned summary の責務集中も同時に解消し、consumed parameter、parameter seed、raw i32 leaf、raw owner alias walk、non-owning view return、storage origin marker、variant projection source 整理を dedicated module へ分割した。
+- fixed raw `MemPtr` 由来の returned `RegionToken` は helper return を跨いでも `resource.owner.no_free_obligation` で拒否し、`alloc_region` 由来の正当な returned `RegionToken` は caller 側で `dealloc_region` 可能なことを対の回帰テストで固定した。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reinitializes_self_update -- --nocapture`: 5 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_returned_allocated_region_token -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_returned_region_token_forged_from_fixed_mem_ptr -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_dealloc_through_result_wrapped_str_addr_view -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir region_token_forged -- --nocapture`: 6 passed
+  - `cargo test -p nepl-core --test resource_ir alloc_ptr -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir variant_owner -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir owner_return -- --nocapture`: 8 passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-return-storage-origin-memory-safety.json -j 1 --dist web/dist`: 23 passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 

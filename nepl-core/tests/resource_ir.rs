@@ -10578,6 +10578,82 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_rejects_returned_region_token_forged_from_fixed_mem_ptr() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/result" as *
+
+fn forge_fixed_region <()* >RegionToken<u8>> ():
+    let p <MemPtr<u8>> mem_ptr_wrap 16
+    region_new p 1
+
+fn main <()*>()> ():
+    let token <RegionToken<u8>> forge_fixed_region
+    match dealloc_region token:
+        Result::Ok _:
+            ()
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                function,
+                state: OwnerState::NoFreeObligation,
+                ..
+            } if function.starts_with("main__")
+        )),
+        "returned region_new token from fixed raw MemPtr must carry its owned storage obligation to the caller: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_accepts_returned_allocated_region_token() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/result" as *
+
+fn make_region <()* >RegionToken<u8>> ():
+    match alloc_region<u8> 1:
+        Result::Ok token:
+            token
+        Result::Err _e:
+            #intrinsic "unreachable" <> ()
+
+fn main <()*>()> ():
+    let token <RegionToken<u8>> make_region
+    match dealloc_region token:
+        Result::Ok _:
+            ()
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "returned allocated RegionToken owner must remain deallocatable by the caller: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn typecheck_rejects_region_token_struct_constructor_outside_memory_boundary() {
     let source = r#"
 #entry main

@@ -1,3 +1,5 @@
+use crate::types::TypeKind;
+
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, PlaceProjection};
 use super::owner_check::ResourceOwnerCheckEngine;
@@ -12,15 +14,23 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_views: &RawAddressViewTable,
         place: &Place,
     ) -> bool {
-        (self.types.resolve_id(place.ty) == self.types.i32()
-            || raw_views.contains_non_owning(place))
+        let is_raw_address = matches!(
+            self.types.get_ref(self.types.resolve_id(place.ty)),
+            TypeKind::I32
+        );
+        if is_raw_address
+            && raw_views.contains_non_owning_projection(place)
+            && !owners.has_transferable_owner(place)
+        {
+            return true;
+        }
+        is_raw_address
             && !self.has_transferable_owner(owners, raw_aliases, place)
             && !owners.has_tracked_state_under(place)
-            && (raw_views.contains_non_owning(place)
-                || raw_aliases
-                    .aliases_for(place)
-                    .iter()
-                    .any(|alias| alias != place && place_has_raw_address_projection(alias)))
+            && raw_aliases
+                .aliases_for(place)
+                .iter()
+                .any(|alias| alias != place && place_has_raw_address_projection(alias))
     }
 }
 

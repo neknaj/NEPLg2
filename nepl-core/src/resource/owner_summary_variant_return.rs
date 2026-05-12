@@ -11,7 +11,8 @@ use super::owner_summary_record::{
 };
 use super::place_utils::place_suffix_after_prefix;
 use super::summary::{
-    OwnerProjectionReturnSummary, OwnerProjectionSource, OwnerVariantProjectionReturnSource,
+    OwnerProjectionReturnOwner, OwnerProjectionReturnSummary, OwnerProjectionSource,
+    OwnerVariantProjectionReturn,
 };
 
 pub(super) fn returned_owner_returns_for_value(
@@ -85,7 +86,7 @@ pub(super) fn returned_owner_returns_for_value(
 }
 
 pub(super) fn record_variant_projection_returns(
-    out: &mut Vec<OwnerVariantProjectionReturnSource>,
+    out: &mut Vec<OwnerVariantProjectionReturn>,
     variant: &str,
     projection_returns: &[OwnerProjectionReturnSummary],
     parameter_storage_sources: &[OwnerParameterStorageSource],
@@ -102,22 +103,44 @@ pub(super) fn record_variant_projection_returns(
             };
             push_unique_variant_projection_return(
                 out,
-                OwnerVariantProjectionReturnSource {
+                OwnerVariantProjectionReturn {
                     variant: variant.clone(),
                     suffix: projection.suffix.clone(),
                     ty: projection.ty,
-                    source,
+                    owner: OwnerProjectionReturnOwner::Parameter(source),
                 },
             );
         }
         for source in &projection.parameter_sources {
             push_unique_variant_projection_return(
                 out,
-                OwnerVariantProjectionReturnSource {
+                OwnerVariantProjectionReturn {
                     variant: variant.clone(),
                     suffix: projection.suffix.clone(),
                     ty: projection.ty,
-                    source: source.clone(),
+                    owner: OwnerProjectionReturnOwner::Parameter(source.clone()),
+                },
+            );
+        }
+        if projection.returns_fresh_owner {
+            push_unique_variant_projection_return(
+                out,
+                OwnerVariantProjectionReturn {
+                    variant: variant.clone(),
+                    suffix: projection.suffix.clone(),
+                    ty: projection.ty,
+                    owner: OwnerProjectionReturnOwner::Fresh,
+                },
+            );
+        }
+        if projection.returns_maybe_owner {
+            push_unique_variant_projection_return(
+                out,
+                OwnerVariantProjectionReturn {
+                    variant: variant.clone(),
+                    suffix: projection.suffix.clone(),
+                    ty: projection.ty,
+                    owner: OwnerProjectionReturnOwner::Maybe,
                 },
             );
         }
@@ -151,8 +174,8 @@ fn normalize_variant_name(variant: &str) -> String {
 }
 
 fn push_unique_variant_projection_return(
-    out: &mut Vec<OwnerVariantProjectionReturnSource>,
-    entry: OwnerVariantProjectionReturnSource,
+    out: &mut Vec<OwnerVariantProjectionReturn>,
+    entry: OwnerVariantProjectionReturn,
 ) {
     if !out.iter().any(|existing| existing == &entry) {
         out.push(entry);

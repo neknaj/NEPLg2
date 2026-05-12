@@ -6,7 +6,10 @@ use crate::layout::{aggregate_fields_with_offsets, extend_type_mapping, mapped_t
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::model::{Place, PlaceProjection, ResourceFunction};
-use super::owner_summary_raw_consumption::function_has_raw_owner_consumption;
+use super::owner_summary_i32_leaf::raw_i32_owner_leaf_places;
+use super::owner_summary_raw_consumption::{
+    function_consumes_raw_owner_from, function_returns_raw_owner_from,
+};
 use super::owner_summary_variant_leaf::enum_owner_leaf_projections;
 use super::place_utils::place_with_suffix;
 
@@ -32,11 +35,17 @@ pub(super) fn owner_seed_leaf_places(
     base: &Place,
 ) -> Vec<OwnerLeafPlace> {
     let mut leaves = owner_leaf_places(types, base);
-    if types.resolve_id(base.ty) == types.i32() && function_has_raw_owner_consumption(function) {
-        leaves.push(OwnerLeafPlace {
-            place: base.clone(),
-            suffix: Vec::new(),
-        });
+    for leaf in raw_i32_owner_leaf_places(types, base) {
+        let consumes_raw_owner = function_consumes_raw_owner_from(function, &leaf.place);
+        let returns_aggregate_raw_owner =
+            !leaf.suffix.is_empty() && function_returns_raw_owner_from(function, &leaf.place);
+        if (consumes_raw_owner || returns_aggregate_raw_owner)
+            && !leaves
+                .iter()
+                .any(|existing| existing.place == leaf.place && existing.suffix == leaf.suffix)
+        {
+            leaves.push(leaf);
+        }
     }
     leaves
 }
@@ -115,7 +124,7 @@ pub(super) fn owner_leaf_projections_mapped(
 }
 
 #[derive(Clone, Copy)]
-enum AggregateProjectionKind {
+pub(super) enum AggregateProjectionKind {
     Struct,
     Tuple,
 }
@@ -142,12 +151,7 @@ fn aggregate_owner_leaf_projections(
                 offset_bytes: field.offset,
             },
         };
-        let mut children = owner_leaf_projections_mapped(types, field.ty, mapping, seen);
-        if children.is_empty() {
-            if let Some(leaf) = scalar_i32_owner_leaf_projection(types, field.ty, mapping) {
-                children.push(leaf);
-            }
-        }
+        let children = owner_leaf_projections_mapped(types, field.ty, mapping, seen);
         push_nested_owner_leaf_projections(&mut out, projection, children);
     }
     out
@@ -223,20 +227,6 @@ fn apply_owner_leaf_projections(
             ty: mapped_type_id(types, base, mapping),
         }],
     }
-}
-
-fn scalar_i32_owner_leaf_projection(
-    types: &TypeCtx,
-    ty: TypeId,
-    mapping: &BTreeMap<TypeId, TypeId>,
-) -> Option<OwnerLeafProjection> {
-    let mapped = mapped_type_id(types, ty, mapping);
-    matches!(types.get_ref(types.resolve_id(mapped)), TypeKind::I32).then_some(
-        OwnerLeafProjection {
-            suffix: Vec::new(),
-            ty: mapped,
-        },
-    )
 }
 
 pub(super) fn push_nested_owner_leaf_projections(

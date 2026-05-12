@@ -1,7 +1,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use super::model::{I32ValueCondition, PlaceProjection};
+use super::model::{I32ValueCondition, PlaceProjection, StorageOrigin};
 use crate::types::TypeId;
 
 pub(super) use super::borrow_summary::compute_borrow_token_return_summaries;
@@ -22,16 +22,16 @@ pub(super) struct OwnerReturnSummary {
     pub(super) consumed_parameter_sources: Vec<OwnerProjectionSource>,
     pub(super) variant_consumed_parameter_indices: Vec<OwnerVariantParameterIndex>,
     pub(super) variant_consumed_parameter_sources: Vec<OwnerVariantProjectionSource>,
-    pub(super) variant_projection_returns: Vec<OwnerVariantProjectionReturnSource>,
+    pub(super) variant_projection_returns: Vec<OwnerVariantProjectionReturn>,
     pub(super) resolved_parameter_variants: Vec<OwnerResolvedParameterVariant>,
     pub(super) variant_conditions: Vec<OwnerVariantCondition>,
     pub(super) variant_payload_conditions: Vec<OwnerVariantPayloadCondition>,
-    pub(super) returns_non_owning_raw_view: bool,
+    pub(super) non_owning_raw_view_returns: Vec<OwnerNonOwningRawViewReturn>,
     pub(super) returns_fresh_owner: bool,
     pub(super) returns_maybe_owner: bool,
     pub(super) projection_returns: Vec<OwnerProjectionReturnSummary>,
     pub(super) projection_markers: Vec<OwnerProjectionMarker>,
-    pub(super) non_owning_raw_view_projection_markers: Vec<OwnerProjectionMarker>,
+    pub(super) storage_origin_markers: Vec<OwnerStorageOriginMarker>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,11 +54,18 @@ pub(super) struct OwnerVariantProjectionSource {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct OwnerVariantProjectionReturnSource {
+pub(super) struct OwnerVariantProjectionReturn {
     pub(super) variant: String,
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
-    pub(super) source: OwnerProjectionSource,
+    pub(super) owner: OwnerProjectionReturnOwner,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum OwnerProjectionReturnOwner {
+    Parameter(OwnerProjectionSource),
+    Fresh,
+    Maybe,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,6 +102,26 @@ pub(super) struct OwnerVariantPayloadCondition {
 pub(super) struct OwnerProjectionMarker {
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerNonOwningRawViewReturn {
+    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) ty: TypeId,
+    pub(super) kind: OwnerNonOwningRawViewKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum OwnerNonOwningRawViewKind {
+    AliasView,
+    ProjectionView,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerStorageOriginMarker {
+    pub(super) suffix: Vec<PlaceProjection>,
+    pub(super) ty: TypeId,
+    pub(super) origin: StorageOrigin,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

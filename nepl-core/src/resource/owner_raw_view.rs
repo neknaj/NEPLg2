@@ -28,9 +28,11 @@ impl ResourceOwnerCheckEngine<'_> {
             raw_aliases.clear(target);
             storage_origins.clear(target);
         }
-        if matches!(kind, RawAddressViewKind::NonOwningProjection)
-            || raw_views.contains_non_owning(source)
-        {
+        if matches!(kind, RawAddressViewKind::NonOwningProjection) {
+            raw_views.mark_non_owning_projection(target);
+        } else if raw_views.contains_non_owning_projection(source) {
+            raw_views.mark_non_owning_projection(target);
+        } else if raw_views.contains_non_owning(source) {
             raw_views.mark_non_owning(target);
         } else if source_is_known {
             raw_views.mark(target);
@@ -81,8 +83,10 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_views: &RawAddressViewTable,
         value: &Place,
     ) -> bool {
-        (self.types.resolve_id(value.ty) == self.types.i32()
-            || raw_views.contains_non_owning(value))
+        (matches!(
+            self.types.get_ref(self.types.resolve_id(value.ty)),
+            TypeKind::I32
+        ) || raw_views.contains_non_owning(value))
             && raw_views.contains_non_owning(value)
             && !self.has_transferable_owner(owners, raw_aliases, value)
             && !owners.has_tracked_state_under(value)
@@ -90,5 +94,29 @@ impl ResourceOwnerCheckEngine<'_> {
                 .aliases_for(value)
                 .iter()
                 .any(|alias| alias != value)
+    }
+
+    pub(super) fn initializer_is_non_owning_raw_alias_view(
+        &self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        source: &Place,
+        target: &Place,
+    ) -> bool {
+        if !matches!(
+            self.types.get_ref(self.types.resolve_id(source.ty)),
+            TypeKind::I32
+        ) || !matches!(
+            self.types.get_ref(self.types.resolve_id(target.ty)),
+            TypeKind::I32
+        ) || owners.has_transferable_owner(source)
+            || owners.has_tracked_state_under(source)
+        {
+            return false;
+        }
+        raw_aliases
+            .aliases_for(source)
+            .iter()
+            .any(|alias| alias != source)
     }
 }

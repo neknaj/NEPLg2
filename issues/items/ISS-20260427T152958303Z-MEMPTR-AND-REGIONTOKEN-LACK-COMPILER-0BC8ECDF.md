@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-08
+updated: 2026-05-12
 target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md"
 ---
 
@@ -306,3 +306,44 @@ unknown callback 境界で same-type non-owning raw address view argument が返
 対応では `ResourceOp::StorageOrigin` を追加し、`region_new` の出力 `RegionToken.ptr.raw` へ `StorageOrigin::Owned` を明示的に付与する。`StorageOriginTable` は value move / read / assign で配下 origin を移動・コピーし、owner checker は whole value 配下の owned origin も free obligation 要求として扱う。
 
 この対応は `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に含まれる。`RegionToken` を compiler-issued owner token にする最終設計は残るが、少なくとも固定 raw address から owner-token-shaped value を作って dealloc する経路は `resource.owner.no_free_obligation` で拒否される。
+
+## 2026-05-12 Resource IR returned RegionToken storage origin 部分対応
+
+helper が `mem_ptr_wrap 16` 由来の `RegionToken` を返し、caller 側で `dealloc_region` すると、callee 内には `RegionToken.ptr.raw` の `StorageOrigin::Owned` が存在するにもかかわらず、return summary 境界で storage origin が落ちる問題を `ISS-20260507T191618061Z-RESOURCE-OWNER-SUMMARY-DROPS-STORAGE-DAB6ECA2` として修正した。
+
+根本原因は 2 つあった。第一に `OwnerReturnSummary` が returned value 配下の `StorageOrigin` を表現しておらず、`region_new` が要求する owned storage provenance を caller 側へ復元できなかった。第二に `variant_projection_returns` が parameter source だけを表す設計だったため、`alloc_ptr` / `alloc_region` の `Result::Ok` payload に入る fresh owner / maybe owner も caller 側へ網羅的に伝播できなかった。
+
+対応では `OwnerReturnSummary` に `storage_origin_markers` を追加し、returned aggregate 配下の storage origin を call output の対応 projection へ復元するようにした。あわせて `OwnerVariantProjectionReturn` は `OwnerProjectionReturnOwner::{Parameter,Fresh,Maybe}` を持つ enum 設計に変更し、variant payload に入った owner source を exhaustive `match` で処理する。`RawAddressAlias` が raw owner を wrapper 内のより深い projection へ移す `mem_ptr_wrap` / `region_new` 境界では、transferable owner がある場合だけ owner state を移動し、`mem_ptr_addr` のような scalar view 取得とは分離した。
+
+この対応は `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に含まれる。fixed raw 由来の returned `RegionToken` は helper return を跨いでも `resource.owner.no_free_obligation` で拒否され、`alloc_region` 由来の正当な returned `RegionToken` は caller 側で `dealloc_region` 可能なまま維持される。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_returned_allocated_region_token -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_returned_region_token_forged_from_fixed_mem_ptr -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir region_token_forged -- --nocapture`: 6 passed
+- `cargo test -p nepl-core --test resource_ir alloc_ptr -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir variant_owner -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir owner_return -- --nocapture`: 8 passed
+- `cargo fmt --check -p nepl-core`: passed
+- `trunk build`: passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-return-storage-origin-memory-safety.json -j 1 --dist web/dist`: 23 passed
+
+## 2026-05-12 Resource IR returned owner provenance 追加補強
+
+`ISS-20260507T191618061Z-RESOURCE-OWNER-SUMMARY-DROPS-STORAGE-DAB6ECA2` の調査中に、returned `RegionToken` の storage origin だけでなく、戻り値と元 local owner の対応、shared borrow からの read、variant condition の source 判定が同じ owner summary 経路に混在していることを確認した。
+
+対応では `StorageOriginTable` に copy origin の source place を保持させ、`read local -> tmp -> return` のような by-value projection return で owner state を複製せず「戻り値が元 owner を保存している」ことを summary / `EndScope` で判定できるようにした。`EndScope` の自動 drop は戻り値配下の origin source と重なる local owner を drop しないため、aggregate identity helper や `TestReport` stdout path が returned owner を失わない。
+
+また `BorrowKind::Shared` は owner / storage origin alias を作らず non-owning raw view だけを伝播するように分離した。共有参照から `str` field を読む処理が元 aggregate の string owner を消費扱いにしないため、borrow projection と free obligation owner の責務が混ざらない。
+
+raw `i32` owner seed は raw owner を消費する関数、または aggregate 内 raw i32 leaf を返す関数に限定した。裸の `i32 -> i32` identity を owner transfer と誤認しない一方、`Boxed { ptr: i32 } -> Boxed` のような aggregate owner return は保持する。variant condition tracking はこの owner seed と分離し、`dealloc(ptr, size)` の `size < 0` のような通常 i32 parameter 条件も caller 側へ伝播する。
+
+この追加補強も `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に含まれる。ただし `MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の最終分離はこの親 issue の残件である。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reinitializes_self_update -- --nocapture`: 5 passed
+- `cargo test -p nepl-core --test resource_ir owner_return -- --nocapture`: 8 passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_dealloc_through_result_wrapped_str_addr_view -- --nocapture`: passed

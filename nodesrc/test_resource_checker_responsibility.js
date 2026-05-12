@@ -72,11 +72,17 @@ for (const moduleName of [
     'cell_state_raw_range_value_alias.rs',
     'owner_check.rs',
     'owner_consumption.rs',
+    'owner_drop.rs',
     'owner_expr.rs',
     'owner_flow.rs',
     'owner_raw_view.rs',
+    'owner_raw_view_model.rs',
     'owner_raw_view_table.rs',
     'owner_summary.rs',
+    'owner_summary_consumed.rs',
+    'owner_summary_i32_leaf.rs',
+    'owner_summary_parameters.rs',
+    'owner_summary_raw_alias.rs',
     'owner_summary_variant_build.rs',
     'owner_summary_variant_conditions.rs',
     'owner_summary_variant_construct.rs',
@@ -86,8 +92,12 @@ for (const moduleName of [
     'owner_summary_update.rs',
     'owner_summary_leaf.rs',
     'owner_summary_raw_consumption.rs',
+    'owner_summary_raw_use.rs',
+    'owner_summary_raw_view_return.rs',
     'owner_summary_record.rs',
+    'owner_summary_storage_origin.rs',
     'owner_summary_variant_leaf.rs',
+    'owner_summary_variant_projection.rs',
     'owner_return.rs',
     'owner_return_apply.rs',
     'owner_return_unknown.rs',
@@ -202,14 +212,22 @@ for (const moduleDecl of [
     'mod cell_state_raw_range_value_alias;',
     'mod owner_check;',
     'mod owner_consumption;',
+    'mod owner_drop;',
     'mod owner_expr;',
     'mod owner_flow;',
     'mod owner_raw_view;',
+    'mod owner_raw_view_model;',
     'mod owner_raw_view_table;',
     'mod owner_summary;',
+    'mod owner_summary_consumed;',
+    'mod owner_summary_i32_leaf;',
+    'mod owner_summary_parameters;',
+    'mod owner_summary_raw_alias;',
     'mod owner_summary_update;',
     'mod owner_summary_variant_build;',
     'mod owner_summary_raw_consumption;',
+    'mod owner_summary_raw_use;',
+    'mod owner_summary_raw_view_return;',
     'mod owner_summary_variant_conditions;',
     'mod owner_summary_variant_construct;',
     'mod owner_summary_variant_leaf;',
@@ -218,6 +236,8 @@ for (const moduleDecl of [
     'mod owner_summary_variant_return;',
     'mod owner_summary_leaf;',
     'mod owner_summary_record;',
+    'mod owner_summary_storage_origin;',
+    'mod owner_summary_variant_projection;',
     'mod owner_return;',
     'mod owner_return_apply;',
     'mod owner_return_unknown;',
@@ -324,7 +344,9 @@ const borrowCheck = readResource('borrow_check.rs');
 const borrowSummary = readResource('borrow_summary.rs');
 const ownerCheck = readResource('owner_check.rs');
 const ownerConsumption = readResource('owner_consumption.rs');
+const ownerDrop = readResource('owner_drop.rs');
 const ownerExpr = readResource('owner_expr.rs');
+const ownerRawViewModel = readResource('owner_raw_view_model.rs');
 const ownerSummary = readResource('owner_summary.rs');
 const ownerReturn = readResource('owner_return.rs');
 const ownerReturnApply = readResource('owner_return_apply.rs');
@@ -543,6 +565,12 @@ assertUsesResourceModuleSymbol(
     'owner_consumption.rs',
 );
 assertUsesResourceModuleSymbol(
+    ownerDrop,
+    'owner_check',
+    'ResourceOwnerCheckEngine',
+    'owner_drop.rs',
+);
+assertUsesResourceModuleSymbol(
     ownerSummary,
     'owner_check',
     'ResourceOwnerCheckEngine',
@@ -580,6 +608,17 @@ assertUsesResourceModuleSymbol(
 );
 assertContains(ownerExpr, 'fn check_expr', 'owner_expr.rs');
 assertNotContains(ownerCheck, 'fn check_expr', 'owner_check.rs');
+assertContains(
+    ownerDrop,
+    'fn auto_drop_scope_owner_obligations',
+    'owner_drop.rs',
+);
+assertContains(ownerDrop, 'fn drop_owner_obligation', 'owner_drop.rs');
+assertContains(
+    ownerRawViewModel,
+    'enum RawAddressViewOwnership',
+    'owner_raw_view_model.rs',
+);
 assertContains(
     ownerReturnUnknown,
     'apply_unknown_indirect_call_return_owner',
@@ -619,11 +658,17 @@ const maxLines = new Map([
     ['cell_state_raw_range_value_alias.rs', 80],
     ['owner_check.rs', 800],
     ['owner_consumption.rs', 80],
+    ['owner_drop.rs', 180],
     ['owner_expr.rs', 80],
     ['owner_flow.rs', 620],
     ['owner_raw_view.rs', 180],
+    ['owner_raw_view_model.rs', 60],
     ['owner_raw_view_table.rs', 160],
     ['owner_summary.rs', 380],
+    ['owner_summary_consumed.rs', 80],
+    ['owner_summary_i32_leaf.rs', 220],
+    ['owner_summary_parameters.rs', 100],
+    ['owner_summary_raw_alias.rs', 140],
     ['owner_summary_variant_build.rs', 360],
     ['owner_summary_variant_conditions.rs', 260],
     ['owner_summary_variant_construct.rs', 140],
@@ -633,8 +678,12 @@ const maxLines = new Map([
     ['owner_summary_update.rs', 100],
     ['owner_summary_leaf.rs', 260],
     ['owner_summary_raw_consumption.rs', 140],
+    ['owner_summary_raw_use.rs', 160],
+    ['owner_summary_raw_view_return.rs', 90],
     ['owner_summary_record.rs', 260],
+    ['owner_summary_storage_origin.rs', 60],
     ['owner_summary_variant_leaf.rs', 80],
+    ['owner_summary_variant_projection.rs', 100],
     ['owner_return.rs', 220],
     ['owner_return_apply.rs', 280],
     ['owner_return_unknown.rs', 180],

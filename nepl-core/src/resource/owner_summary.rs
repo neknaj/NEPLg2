@@ -9,21 +9,28 @@ use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_p
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
-use super::owner_summary_leaf::owner_seed_leaf_places;
+use super::owner_summary_consumed::consumed_owner_parameters;
+use super::owner_summary_parameters::seed_owner_summary_parameters;
+use super::owner_summary_raw_view_return::{
+    record_non_owning_raw_view_returns, returned_projection_is_non_owning_raw_view,
+};
 use super::owner_summary_record::{
-    owner_source_for_storage, push_unique_owner_projection_source, record_projection_marker,
-    record_projection_maybe_owner_return, record_projection_owner_return, record_root_owner_return,
-    OwnerParameterStorageSource,
+    owner_source_for_storage, record_projection_marker, record_projection_maybe_owner_return,
+    record_projection_owner_return, record_root_owner_return,
 };
 use super::owner_summary_resolved_variant::collect_resolved_parameter_variants_from_return;
+use super::owner_summary_storage_origin::record_storage_origin_marker;
 use super::owner_summary_update::update_owner_return_summary;
 use super::owner_summary_variant_build::collect_variant_consumed_owner_parameters_from_return;
+use super::owner_summary_variant_projection::{
+    record_variant_projection_return_sources, remove_variant_projection_return_sources,
+};
 use super::owner_variant::PendingVariantOwnerEffects;
-use super::place_utils::{place_suffix_after_prefix, push_unique_usize};
+use super::place_utils::place_suffix_after_prefix;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
-use super::summary::{OwnerProjectionSource, OwnerReturnSummary};
+use super::summary::OwnerReturnSummary;
 use super::summary_worklist::SummaryWorklist;
 
 pub(super) fn compute_owner_return_summaries(
@@ -66,34 +73,22 @@ fn function_owner_return_summary(
     let mut raw_aliases = RawCellAddressAliases::default();
     let mut raw_views = RawAddressViewTable::default();
     let mut storage_origins = StorageOriginTable::default();
-    let mut parameter_storage_sources = Vec::new();
-    for (index, param) in function.params.iter().enumerate() {
-        for leaf in owner_seed_leaf_places(types, function, index, &param.place) {
-            owners.allocate(&leaf.place);
-            raw_aliases.mark(&leaf.place);
-            storage_origins.mark_owned(&leaf.place);
-            if let Some(OwnerState::Live { storage }) = owners.state(&leaf.place) {
-                parameter_storage_sources.push(OwnerParameterStorageSource {
-                    storage,
-                    source: OwnerProjectionSource {
-                        parameter_index: index,
-                        suffix: leaf.suffix,
-                        ty: leaf.place.ty,
-                    },
-                    place: leaf.place,
-                });
-            }
-        }
-    }
+    let (parameter_storage_sources, parameter_condition_sources) = seed_owner_summary_parameters(
+        types,
+        function,
+        &mut owners,
+        &mut raw_aliases,
+        &mut storage_origins,
+    );
 
     let mut parameter_indices = Vec::new();
     let mut parameter_sources = Vec::new();
     let mut returns_fresh_owner = false;
     let mut returns_maybe_owner = false;
-    let mut returns_non_owning_raw_view = false;
+    let mut non_owning_raw_view_returns = Vec::new();
     let mut projection_returns = Vec::new();
     let mut projection_markers = Vec::new();
-    let mut non_owning_raw_view_projection_markers = Vec::new();
+    let mut storage_origin_markers = Vec::new();
     let mut variant_consumed_parameter_indices = Vec::new();
     let mut variant_consumed_parameter_sources = Vec::new();
     let mut variant_projection_returns = Vec::new();
@@ -128,6 +123,7 @@ fn function_owner_return_summary(
                 types,
                 summaries,
                 &parameter_storage_sources,
+                &parameter_condition_sources,
                 &block.ops,
                 value,
                 &mut variant_projection_returns,
@@ -141,45 +137,55 @@ fn function_owner_return_summary(
             );
 
             let resolved_value = resolve_owner_alias_place(&owners, &raw_aliases, value);
-            match owners.state(&resolved_value) {
-                Some(OwnerState::Live { storage }) => {
-                    if let Some(source) =
-                        owner_source_for_storage(storage, &parameter_storage_sources)
-                    {
-                        record_root_owner_return(
-                            &mut parameter_indices,
-                            &mut parameter_sources,
-                            &mut returned_sources,
-                            source,
-                        );
-                    } else {
-                        returns_fresh_owner = true;
+            if !returned_projection_is_non_owning_raw_view(&raw_views, value, &[], value.ty) {
+                match owners.state(&resolved_value) {
+                    Some(OwnerState::Live { storage }) => {
+                        if let Some(source) =
+                            owner_source_for_storage(storage, &parameter_storage_sources)
+                        {
+                            record_root_owner_return(
+                                &mut parameter_indices,
+                                &mut parameter_sources,
+                                &mut returned_sources,
+                                source,
+                            );
+                        } else {
+                            returns_fresh_owner = true;
+                        }
                     }
-                }
-                Some(OwnerState::MaybeFreed { storage }) => {
-                    if let Some(source) = storage.and_then(|storage| {
-                        owner_source_for_storage(storage, &parameter_storage_sources)
-                    }) {
-                        record_root_owner_return(
-                            &mut parameter_indices,
-                            &mut parameter_sources,
-                            &mut returned_sources,
-                            source,
-                        );
-                    } else {
-                        returns_maybe_owner = true;
+                    Some(OwnerState::MaybeFreed { storage }) => {
+                        if let Some(source) = storage.and_then(|storage| {
+                            owner_source_for_storage(storage, &parameter_storage_sources)
+                        }) {
+                            record_root_owner_return(
+                                &mut parameter_indices,
+                                &mut parameter_sources,
+                                &mut returned_sources,
+                                source,
+                            );
+                        } else {
+                            returns_maybe_owner = true;
+                        }
                     }
+                    Some(
+                        OwnerState::NoFreeObligation
+                        | OwnerState::Reserved { .. }
+                        | OwnerState::Moved
+                        | OwnerState::Freed,
+                    )
+                    | None => {}
                 }
-                Some(
-                    OwnerState::NoFreeObligation
-                    | OwnerState::Reserved { .. }
-                    | OwnerState::Moved
-                    | OwnerState::Freed,
-                )
-                | None => {}
             }
             for entry in owners.descendant_entries(&resolved_value) {
                 if let Some(suffix) = place_suffix_after_prefix(&entry.place, &resolved_value) {
+                    if returned_projection_is_non_owning_raw_view(
+                        &raw_views,
+                        value,
+                        &suffix,
+                        entry.place.ty,
+                    ) {
+                        continue;
+                    }
                     match entry.state {
                         OwnerState::Live { storage } => {
                             record_projection_owner_return(
@@ -222,6 +228,14 @@ fn function_owner_return_summary(
             }
             for aliased in aliased_owner_descendant_entries(&owners, &raw_aliases, &resolved_value)
             {
+                if returned_projection_is_non_owning_raw_view(
+                    &raw_views,
+                    value,
+                    &aliased.suffix,
+                    aliased.entry.place.ty,
+                ) {
+                    continue;
+                }
                 match aliased.entry.state {
                     OwnerState::Live { storage } => {
                         record_projection_owner_return(
@@ -261,17 +275,76 @@ fn function_owner_return_summary(
                     OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed => {}
                 }
             }
-            for raw_view in raw_views.non_owning_entries() {
-                if let Some(suffix) = place_suffix_after_prefix(raw_view, &resolved_value) {
-                    if suffix.is_empty() {
-                        returns_non_owning_raw_view = true;
-                    } else {
-                        record_projection_marker(
-                            &mut non_owning_raw_view_projection_markers,
-                            suffix,
-                            raw_view.ty,
-                        );
+            record_non_owning_raw_view_returns(&raw_views, value, &mut non_owning_raw_view_returns);
+            if resolved_value != *value {
+                record_non_owning_raw_view_returns(
+                    &raw_views,
+                    &resolved_value,
+                    &mut non_owning_raw_view_returns,
+                );
+            }
+            for entry in storage_origins.entries_under(&resolved_value) {
+                if let Some(suffix) = place_suffix_after_prefix(&entry.place, &resolved_value) {
+                    if returned_projection_is_non_owning_raw_view(
+                        &raw_views,
+                        value,
+                        &suffix,
+                        entry.place.ty,
+                    ) {
+                        continue;
                     }
+                    let origin_place = storage_origins
+                        .origin_source(&entry.place)
+                        .unwrap_or_else(|| entry.place.clone());
+                    let resolved_origin_place =
+                        resolve_owner_alias_place(&owners, &raw_aliases, &origin_place);
+                    match owners.state(&resolved_origin_place) {
+                        Some(OwnerState::Live { storage }) => {
+                            record_projection_owner_return(
+                                &mut projection_returns,
+                                suffix,
+                                entry.place.ty,
+                                storage,
+                                &parameter_storage_sources,
+                                &mut returned_sources,
+                            );
+                            continue;
+                        }
+                        Some(OwnerState::MaybeFreed {
+                            storage: Some(storage),
+                        }) => {
+                            record_projection_owner_return(
+                                &mut projection_returns,
+                                suffix,
+                                entry.place.ty,
+                                storage,
+                                &parameter_storage_sources,
+                                &mut returned_sources,
+                            );
+                            continue;
+                        }
+                        Some(OwnerState::MaybeFreed { storage: None }) => {
+                            record_projection_maybe_owner_return(
+                                &mut projection_returns,
+                                suffix,
+                                entry.place.ty,
+                            );
+                            continue;
+                        }
+                        Some(
+                            OwnerState::NoFreeObligation
+                            | OwnerState::Reserved { .. }
+                            | OwnerState::Moved
+                            | OwnerState::Freed,
+                        )
+                        | None => {}
+                    }
+                    record_storage_origin_marker(
+                        &mut storage_origin_markers,
+                        suffix,
+                        entry.place.ty,
+                        entry.origin,
+                    );
                 }
             }
         }
@@ -294,86 +367,11 @@ fn function_owner_return_summary(
         resolved_parameter_variants,
         variant_conditions,
         variant_payload_conditions,
-        returns_non_owning_raw_view,
+        non_owning_raw_view_returns,
         returns_fresh_owner,
         returns_maybe_owner,
         projection_returns,
         projection_markers,
-        non_owning_raw_view_projection_markers,
-    }
-}
-
-pub(super) fn consumed_owner_parameters(
-    owners: &OwnerTable,
-    parameter_storage_sources: &[OwnerParameterStorageSource],
-    returned_sources: &[OwnerProjectionSource],
-) -> (Vec<usize>, Vec<OwnerProjectionSource>) {
-    let mut indices = Vec::new();
-    let mut sources = Vec::new();
-    for entry in parameter_storage_sources {
-        let source = &entry.source;
-        if returned_sources.iter().any(|returned| returned == source) {
-            continue;
-        }
-        match owners.state(&entry.place) {
-            Some(OwnerState::Moved | OwnerState::Freed) => {
-                if source.suffix.is_empty() {
-                    push_unique_usize(&mut indices, source.parameter_index);
-                } else {
-                    push_unique_owner_projection_source(&mut sources, source);
-                }
-            }
-            Some(OwnerState::NoFreeObligation) => {
-                if source.suffix.is_empty() {
-                    push_unique_usize(&mut indices, source.parameter_index);
-                } else {
-                    push_unique_owner_projection_source(&mut sources, source);
-                }
-            }
-            Some(
-                OwnerState::Live { .. }
-                | OwnerState::Reserved { .. }
-                | OwnerState::MaybeFreed { .. },
-            )
-            | None => {}
-        }
-    }
-    (indices, sources)
-}
-
-fn remove_variant_projection_return_sources(
-    projection_returns: &mut Vec<super::summary::OwnerProjectionReturnSummary>,
-    variant_returns: &[super::summary::OwnerVariantProjectionReturnSource],
-) {
-    for projection in projection_returns.iter_mut() {
-        for variant_return in variant_returns
-            .iter()
-            .filter(|entry| entry.suffix == projection.suffix && entry.ty == projection.ty)
-        {
-            if variant_return.source.suffix.is_empty() {
-                projection
-                    .parameter_indices
-                    .retain(|index| *index != variant_return.source.parameter_index);
-            } else {
-                projection
-                    .parameter_sources
-                    .retain(|source| source != &variant_return.source);
-            }
-        }
-    }
-    projection_returns.retain(|projection| {
-        projection.returns_fresh_owner
-            || projection.returns_maybe_owner
-            || !projection.parameter_indices.is_empty()
-            || !projection.parameter_sources.is_empty()
-    });
-}
-
-fn record_variant_projection_return_sources(
-    returned_sources: &mut Vec<OwnerProjectionSource>,
-    variant_returns: &[super::summary::OwnerVariantProjectionReturnSource],
-) {
-    for variant_return in variant_returns {
-        push_unique_owner_projection_source(returned_sources, &variant_return.source);
+        storage_origin_markers,
     }
 }

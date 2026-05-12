@@ -2,14 +2,13 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use crate::span::Span;
 use crate::types::TypeCtx;
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
-    EffectOp, OwnerState, OwnerStateEntry, Place, RawMemoryOp, ResourceBlock, ResourceFunction,
-    ResourceModule, ResourceOp, ResourceTerminator,
+    BorrowKind, EffectOp, OwnerState, OwnerStateEntry, Place, RawMemoryOp, ResourceBlock,
+    ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
@@ -177,48 +176,6 @@ impl ResourceOwnerCheckEngine<'_> {
                 op,
             );
         }
-    }
-
-    fn initializer_is_non_owning_raw_alias_view(
-        &self,
-        owners: &OwnerTable,
-        raw_aliases: &RawCellAddressAliases,
-        source: &Place,
-        target: &Place,
-    ) -> bool {
-        if self.types.resolve_id(source.ty) != self.types.i32()
-            || self.types.resolve_id(target.ty) != self.types.i32()
-            || owners.has_transferable_owner(source)
-            || owners.has_tracked_state_under(source)
-        {
-            return false;
-        }
-        raw_aliases
-            .aliases_for(source)
-            .iter()
-            .any(|alias| alias != source)
-    }
-
-    fn reject_reserved_call_arguments(
-        &mut self,
-        owners: &OwnerTable,
-        raw_aliases: &RawCellAddressAliases,
-        variant_owner_effects: &PendingVariantOwnerEffects,
-        args: &[Place],
-        span: Span,
-    ) -> bool {
-        let mut rejected = false;
-        for arg in args {
-            rejected |= variant_owner_effects.reject_reserved_source_use(
-                self,
-                owners,
-                raw_aliases,
-                arg,
-                ResourceOwnerOperation::CallArgument,
-                span,
-            );
-        }
-        rejected
     }
 
     fn check_op(
@@ -711,7 +668,25 @@ impl ResourceOwnerCheckEngine<'_> {
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);
             }
-            ResourceOp::RawAddressAlias { source, target, .. } => {
+            ResourceOp::RawAddressAlias {
+                source,
+                target,
+                span,
+            } => {
+                if raw_owner_alias_moves_into_wrapper(source, target)
+                    && self.has_transferable_owner(owners, raw_aliases, source)
+                {
+                    self.transfer_owner(
+                        owners,
+                        raw_aliases,
+                        raw_views,
+                        storage_origins,
+                        source,
+                        target,
+                        ResourceOwnerOperation::Move,
+                        *span,
+                    );
+                }
                 raw_aliases.copy_explicit_raw_address_alias(source, target);
                 storage_origins.copy_origin(source, target);
                 raw_views.copy(source, target);
@@ -739,22 +714,66 @@ impl ResourceOwnerCheckEngine<'_> {
             ResourceOp::StorageOrigin { target, origin, .. } => {
                 storage_origins.mark_origin(target, *origin);
             }
-            ResourceOp::Borrow { source, output, .. } => {
+            ResourceOp::Borrow {
+                source,
+                output,
+                kind,
+                ..
+            } => {
                 let target = reference_target_place(output, source.ty);
-                raw_aliases.copy_alias_if_tracked(source, &target);
-                storage_origins.copy_origin(source, &target);
-                raw_views.copy(source, &target);
+                match kind {
+                    BorrowKind::Shared => {
+                        raw_aliases.clear(&target);
+                        storage_origins.clear(&target);
+                        raw_views.copy_non_owning(source, &target);
+                    }
+                    BorrowKind::Unique => {
+                        raw_aliases.copy_alias_if_tracked(source, &target);
+                        storage_origins.copy_origin(source, &target);
+                        raw_views.copy(source, &target);
+                    }
+                }
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);
             }
             ResourceOp::Expr { output, kind, .. } => {
                 self.check_expr(raw_aliases, *kind, output);
             }
-            ResourceOp::Drop { .. }
-            | ResourceOp::CallEffect { .. }
-            | ResourceOp::EndScope { .. } => {}
+            ResourceOp::Drop { place, span } => {
+                self.drop_owner_obligation(
+                    owners,
+                    raw_aliases,
+                    raw_views,
+                    storage_origins,
+                    pending_reallocs,
+                    place,
+                    *span,
+                );
+                variant_owner_effects.clear_result(place);
+            }
+            ResourceOp::EndScope {
+                locals,
+                result,
+                span,
+            } => {
+                self.auto_drop_scope_owner_obligations(
+                    owners,
+                    raw_aliases,
+                    raw_views,
+                    storage_origins,
+                    pending_reallocs,
+                    locals,
+                    result.as_ref(),
+                    *span,
+                );
+            }
+            ResourceOp::CallEffect { .. } => {}
         }
     }
+}
+
+fn raw_owner_alias_moves_into_wrapper(source: &Place, target: &Place) -> bool {
+    target.projections.len() > source.projections.len()
 }
 
 fn merge_owner_deferred(

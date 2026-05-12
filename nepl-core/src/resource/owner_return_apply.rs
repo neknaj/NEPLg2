@@ -10,7 +10,7 @@ use super::owner_state::OwnerTable;
 use super::place_utils::place_with_suffix;
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
-use super::summary::{OwnerProjectionReturnSummary, OwnerReturnSummary};
+use super::summary::{OwnerNonOwningRawViewKind, OwnerProjectionReturnSummary, OwnerReturnSummary};
 
 impl ResourceOwnerCheckEngine<'_> {
     pub(super) fn apply_owner_return_summary(
@@ -97,8 +97,14 @@ impl ResourceOwnerCheckEngine<'_> {
             raw_aliases.mark(output);
             storage_origins.mark_owned(output);
         }
-        if summary.returns_non_owning_raw_view {
-            raw_views.mark_non_owning(output);
+        for marker in &summary.non_owning_raw_view_returns {
+            let marker_place = place_with_suffix(output, &marker.suffix, marker.ty);
+            match marker.kind {
+                OwnerNonOwningRawViewKind::AliasView => raw_views.mark_non_owning(&marker_place),
+                OwnerNonOwningRawViewKind::ProjectionView => {
+                    raw_views.mark_non_owning_projection(&marker_place)
+                }
+            }
         }
         for projection in &summary.projection_returns {
             let output_projection = place_with_suffix(output, &projection.suffix, projection.ty);
@@ -119,9 +125,9 @@ impl ResourceOwnerCheckEngine<'_> {
                 owners.set_state(&marker_place, OwnerState::NoFreeObligation);
             }
         }
-        for marker in &summary.non_owning_raw_view_projection_markers {
+        for marker in &summary.storage_origin_markers {
             let marker_place = place_with_suffix(output, &marker.suffix, marker.ty);
-            raw_views.mark_non_owning(&marker_place);
+            storage_origins.mark_origin(&marker_place, marker.origin);
         }
         self.consume_owner_summary_parameters(
             owners,

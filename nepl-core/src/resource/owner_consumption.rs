@@ -5,6 +5,7 @@ use super::model::{OwnerState, Place};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::owner_variant::PendingVariantOwnerEffects;
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 
@@ -44,5 +45,27 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             );
         }
+    }
+
+    pub(super) fn reject_reserved_call_arguments(
+        &mut self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        variant_owner_effects: &PendingVariantOwnerEffects,
+        args: &[Place],
+        span: Span,
+    ) -> bool {
+        let mut rejected = false;
+        for arg in args {
+            rejected |= variant_owner_effects.reject_reserved_source_use(
+                self,
+                owners,
+                raw_aliases,
+                arg,
+                ResourceOwnerOperation::CallArgument,
+                span,
+            );
+        }
+        rejected
     }
 }

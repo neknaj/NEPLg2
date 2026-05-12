@@ -17,9 +17,9 @@ use super::place_utils::{place_with_suffix, places_overlap};
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
-    OwnerProjectionSource, OwnerResolvedParameterVariant, OwnerReturnSummary, OwnerValueCondition,
-    OwnerVariantCondition, OwnerVariantParameterIndex, OwnerVariantProjectionReturnSource,
-    OwnerVariantProjectionSource,
+    OwnerProjectionReturnOwner, OwnerProjectionSource, OwnerResolvedParameterVariant,
+    OwnerReturnSummary, OwnerValueCondition, OwnerVariantCondition, OwnerVariantParameterIndex,
+    OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,9 +37,18 @@ struct PendingVariantOwnerReturn {
     variant: String,
     target_suffix: Vec<super::model::PlaceProjection>,
     target_ty: TypeId,
-    arg: Place,
-    source_suffix: Vec<super::model::PlaceProjection>,
-    source_ty: TypeId,
+    source: PendingVariantOwnerReturnSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PendingVariantOwnerReturnSource {
+    Parameter {
+        arg: Place,
+        source_suffix: Vec<super::model::PlaceProjection>,
+        source_ty: TypeId,
+    },
+    Fresh,
+    Maybe,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -133,17 +142,26 @@ impl PendingVariantOwnerEffects {
             });
         }
         for entry in &summary.variant_projection_returns {
-            let Some(arg) = args.get(entry.source.parameter_index) else {
-                continue;
+            let source = match &entry.owner {
+                OwnerProjectionReturnOwner::Parameter(source) => {
+                    let Some(arg) = args.get(source.parameter_index) else {
+                        continue;
+                    };
+                    PendingVariantOwnerReturnSource::Parameter {
+                        arg: raw_aliases.canonicalize(arg),
+                        source_suffix: source.suffix.clone(),
+                        source_ty: source.ty,
+                    }
+                }
+                OwnerProjectionReturnOwner::Fresh => PendingVariantOwnerReturnSource::Fresh,
+                OwnerProjectionReturnOwner::Maybe => PendingVariantOwnerReturnSource::Maybe,
             };
             self.push_unique_return(PendingVariantOwnerReturn {
                 result: output.clone(),
                 variant: normalize_variant_name(&entry.variant),
                 target_suffix: entry.suffix.clone(),
                 target_ty: entry.ty,
-                arg: raw_aliases.canonicalize(arg),
-                source_suffix: entry.source.suffix.clone(),
-                source_ty: entry.source.ty,
+                source,
             });
         }
         for entry in &summary.variant_payload_conditions {
@@ -178,20 +196,16 @@ impl PendingVariantOwnerEffects {
             if entry.result != *scrutinee || entry.variant != variant {
                 continue;
             }
-            let arg = raw_aliases.canonicalize(&entry.arg);
-            let source = place_with_suffix(&arg, &entry.source_suffix, entry.source_ty);
-            let target = place_with_suffix(scrutinee, &entry.target_suffix, entry.target_ty);
-            engine.transfer_owner(
+            apply_pending_variant_owner_return(
+                engine,
                 owners,
                 raw_aliases,
                 raw_views,
                 storage_origins,
-                &source,
-                &target,
-                ResourceOwnerOperation::ReturnValue,
+                entry,
+                scrutinee,
                 span,
             );
-            raw_views.clear(&target);
         }
     }
 
@@ -218,8 +232,10 @@ impl PendingVariantOwnerEffects {
             .iter()
             .filter(|entry| entry.result == *scrutinee && entry.variant == variant)
         {
-            let source = pending_return_source(entry, raw_aliases);
-            push_unique_source(&mut handled_sources, source, Vec::new(), entry.source_ty);
+            if let Some(source) = pending_return_source(entry, raw_aliases) {
+                let ty = source.ty;
+                push_unique_source(&mut handled_sources, source, Vec::new(), ty);
+            }
         }
         for entry in &self.consumptions {
             if entry.result != *scrutinee || entry.variant != variant {
@@ -282,20 +298,19 @@ impl PendingVariantOwnerEffects {
     ) {
         let mut handled_sources = Vec::new();
         for entry in self.returns.iter().filter(|entry| entry.result == *result) {
-            let source = pending_return_source(entry, raw_aliases);
-            let target = place_with_suffix(result, &entry.target_suffix, entry.target_ty);
-            engine.transfer_owner(
+            if let Some(source) = apply_pending_variant_owner_return(
+                engine,
                 owners,
                 raw_aliases,
                 raw_views,
                 storage_origins,
-                &source,
-                &target,
-                ResourceOwnerOperation::ReturnValue,
+                entry,
+                result,
                 span,
-            );
-            raw_views.clear(&target);
-            push_unique_source(&mut handled_sources, source, Vec::new(), entry.source_ty);
+            ) {
+                let ty = source.ty;
+                push_unique_source(&mut handled_sources, source, Vec::new(), ty);
+            }
         }
         for entry in self
             .consumptions
@@ -330,7 +345,7 @@ impl PendingVariantOwnerEffects {
         parameter_storage_sources: &[OwnerParameterStorageSource],
         index_out: &mut Vec<OwnerVariantParameterIndex>,
         source_out: &mut Vec<OwnerVariantProjectionSource>,
-        return_out: &mut Vec<OwnerVariantProjectionReturnSource>,
+        return_out: &mut Vec<OwnerVariantProjectionReturn>,
     ) {
         for entry in self
             .consumptions
@@ -353,26 +368,58 @@ impl PendingVariantOwnerEffects {
             }
         }
         for entry in self.returns.iter().filter(|entry| entry.result == *result) {
-            let source = pending_return_source(entry, raw_aliases);
-            if engine.place_is_non_owning_raw_address_view(owners, raw_aliases, raw_views, &source)
-            {
-                continue;
-            }
-            for parameter_source in owner_projection_sources_for_place(
-                owners,
-                raw_aliases,
-                &source,
-                parameter_storage_sources,
-            ) {
-                push_unique_variant_projection_return(
-                    return_out,
-                    OwnerVariantProjectionReturnSource {
-                        variant: normalize_variant_name(&entry.variant),
-                        suffix: entry.target_suffix.clone(),
-                        ty: entry.target_ty,
-                        source: parameter_source,
-                    },
-                );
+            match &entry.source {
+                PendingVariantOwnerReturnSource::Parameter { .. } => {
+                    let Some(source) = pending_return_source(entry, raw_aliases) else {
+                        continue;
+                    };
+                    if engine.place_is_non_owning_raw_address_view(
+                        owners,
+                        raw_aliases,
+                        raw_views,
+                        &source,
+                    ) {
+                        continue;
+                    }
+                    for parameter_source in owner_projection_sources_for_place(
+                        owners,
+                        raw_aliases,
+                        &source,
+                        parameter_storage_sources,
+                    ) {
+                        push_unique_variant_projection_return(
+                            return_out,
+                            OwnerVariantProjectionReturn {
+                                variant: normalize_variant_name(&entry.variant),
+                                suffix: entry.target_suffix.clone(),
+                                ty: entry.target_ty,
+                                owner: OwnerProjectionReturnOwner::Parameter(parameter_source),
+                            },
+                        );
+                    }
+                }
+                PendingVariantOwnerReturnSource::Fresh => {
+                    push_unique_variant_projection_return(
+                        return_out,
+                        OwnerVariantProjectionReturn {
+                            variant: normalize_variant_name(&entry.variant),
+                            suffix: entry.target_suffix.clone(),
+                            ty: entry.target_ty,
+                            owner: OwnerProjectionReturnOwner::Fresh,
+                        },
+                    );
+                }
+                PendingVariantOwnerReturnSource::Maybe => {
+                    push_unique_variant_projection_return(
+                        return_out,
+                        OwnerVariantProjectionReturn {
+                            variant: normalize_variant_name(&entry.variant),
+                            suffix: entry.target_suffix.clone(),
+                            ty: entry.target_ty,
+                            owner: OwnerProjectionReturnOwner::Maybe,
+                        },
+                    );
+                }
             }
         }
     }
@@ -427,20 +474,19 @@ impl PendingVariantOwnerEffects {
             .iter()
             .filter(|entry| entry.result == *result && entry.variant == variant)
         {
-            let source = pending_return_source(entry, raw_aliases);
-            let target = place_with_suffix(result, &entry.target_suffix, entry.target_ty);
-            engine.transfer_owner(
+            if let Some(source) = apply_pending_variant_owner_return(
+                engine,
                 owners,
                 raw_aliases,
                 raw_views,
                 storage_origins,
-                &source,
-                &target,
-                ResourceOwnerOperation::ReturnValue,
+                entry,
+                result,
                 span,
-            );
-            raw_views.clear(&target);
-            push_unique_source(&mut handled_sources, source, Vec::new(), entry.source_ty);
+            ) {
+                let ty = source.ty;
+                push_unique_source(&mut handled_sources, source, Vec::new(), ty);
+            }
         }
         for entry in self
             .consumptions
@@ -501,9 +547,7 @@ impl PendingVariantOwnerEffects {
                 variant: entry.variant.clone(),
                 target_suffix: entry.target_suffix.clone(),
                 target_ty: entry.target_ty,
-                arg: entry.arg.clone(),
-                source_suffix: entry.source_suffix.clone(),
-                source_ty: entry.source_ty,
+                source: entry.source.clone(),
             })
             .collect::<Vec<_>>();
         let unreachable_copies = self
@@ -566,25 +610,37 @@ impl PendingVariantOwnerEffects {
             );
         }
         for entry in self.returns.iter().filter(|entry| entry.result == *result) {
-            push_unique_source(
-                &mut resolved_sources,
-                entry.arg.clone(),
-                entry.source_suffix.clone(),
-                entry.source_ty,
-            );
+            if let PendingVariantOwnerReturnSource::Parameter {
+                arg,
+                source_suffix,
+                source_ty,
+            } = &entry.source
+            {
+                push_unique_source(
+                    &mut resolved_sources,
+                    arg.clone(),
+                    source_suffix.clone(),
+                    *source_ty,
+                );
+            }
         }
         self.consumptions.retain(|entry| {
             entry.result != *result
                 && !source_list_contains(&resolved_sources, &entry.arg, &entry.suffix, entry.ty)
         });
         self.returns.retain(|entry| {
-            entry.result != *result
-                && !source_list_contains(
-                    &resolved_sources,
-                    &entry.arg,
-                    &entry.source_suffix,
-                    entry.source_ty,
-                )
+            if entry.result == *result {
+                return false;
+            }
+            let PendingVariantOwnerReturnSource::Parameter {
+                arg,
+                source_suffix,
+                source_ty,
+            } = &entry.source
+            else {
+                return true;
+            };
+            !source_list_contains(&resolved_sources, arg, source_suffix, *source_ty)
         });
         self.unreachable_variants
             .retain(|entry| entry.result != *result);
@@ -607,7 +663,9 @@ impl PendingVariantOwnerEffects {
             }
         }
         for entry in &self.returns {
-            let source = pending_return_source(entry, raw_aliases);
+            let Some(source) = pending_return_source(entry, raw_aliases) else {
+                continue;
+            };
             let resolved_source = resolve_owner_alias_place(owners, raw_aliases, &source);
             if places_overlap(&resolved_place, &resolved_source) {
                 return Some(resolved_source);
@@ -734,9 +792,60 @@ fn pending_consumption_source(
 fn pending_return_source(
     entry: &PendingVariantOwnerReturn,
     raw_aliases: &RawCellAddressAliases,
-) -> Place {
-    let arg = raw_aliases.canonicalize(&entry.arg);
-    place_with_suffix(&arg, &entry.source_suffix, entry.source_ty)
+) -> Option<Place> {
+    let PendingVariantOwnerReturnSource::Parameter {
+        arg,
+        source_suffix,
+        source_ty,
+    } = &entry.source
+    else {
+        return None;
+    };
+    let arg = raw_aliases.canonicalize(arg);
+    Some(place_with_suffix(&arg, source_suffix, *source_ty))
+}
+
+fn apply_pending_variant_owner_return(
+    engine: &mut ResourceOwnerCheckEngine<'_>,
+    owners: &mut OwnerTable,
+    raw_aliases: &mut RawCellAddressAliases,
+    raw_views: &mut RawAddressViewTable,
+    storage_origins: &mut StorageOriginTable,
+    entry: &PendingVariantOwnerReturn,
+    result: &Place,
+    span: Span,
+) -> Option<Place> {
+    let target = place_with_suffix(result, &entry.target_suffix, entry.target_ty);
+    let source = match &entry.source {
+        PendingVariantOwnerReturnSource::Parameter { .. } => {
+            let source = pending_return_source(entry, raw_aliases)?;
+            engine.transfer_owner(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                &source,
+                &target,
+                ResourceOwnerOperation::ReturnValue,
+                span,
+            );
+            Some(source)
+        }
+        PendingVariantOwnerReturnSource::Fresh => {
+            owners.allocate(&target);
+            raw_aliases.mark(&target);
+            storage_origins.mark_owned(&target);
+            None
+        }
+        PendingVariantOwnerReturnSource::Maybe => {
+            owners.set_state(&target, OwnerState::MaybeFreed { storage: None });
+            raw_aliases.mark(&target);
+            storage_origins.mark_owned(&target);
+            None
+        }
+    };
+    raw_views.clear(&target);
+    source
 }
 
 fn reserved_owner_state(owners: &OwnerTable, source: &Place) -> OwnerState {
@@ -828,8 +937,8 @@ fn push_unique_variant_consumed_source(
 }
 
 fn push_unique_variant_projection_return(
-    out: &mut Vec<OwnerVariantProjectionReturnSource>,
-    entry: OwnerVariantProjectionReturnSource,
+    out: &mut Vec<OwnerVariantProjectionReturn>,
+    entry: OwnerVariantProjectionReturn,
 ) {
     if !out.iter().any(|existing| existing == &entry) {
         out.push(entry);

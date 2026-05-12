@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T03:03:37.119Z",
+  "generated_at": "2026-05-12T03:05:58.492Z",
   "counts": {
-    "total": 618,
+    "total": 619,
     "open": 10,
-    "resolved": 608,
+    "resolved": 609,
     "by_area": {
       "core": {
-        "total": 309,
+        "total": 310,
         "open": 3,
-        "resolved": 306
+        "resolved": 307
       },
       "stdlib": {
         "total": 165,
@@ -123,7 +123,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-05-08",
+      "updated": "2026-05-12",
       "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, doc/compare/memory_model.md",
       "legacy_id": "",
       "source": "",
@@ -4718,6 +4718,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T185234792Z-REGION-NEW-ACCEPTS-FIXED-RAW-MEMPTR--A0FDF3E7.md"
+    },
+    {
+      "id": "ISS-20260507T191618061Z-RESOURCE-OWNER-SUMMARY-DROPS-STORAGE-DAB6ECA2",
+      "title": "Resource owner summary drops StorageOrigin on returned RegionToken",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-07",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/summary.rs, nepl-core/src/resource/owner_return_apply.rs, nepl-core/src/resource/storage_origin.rs, nepl-core/src/resource/owner_drop.rs, nepl-core/src/resource/owner_consumption.rs, nepl-core/src/resource/owner_raw_view.rs, nepl-core/src/resource/owner_raw_view_model.rs, nepl-core/src/resource/owner_summary_consumed.rs, nepl-core/src/resource/owner_summary_i32_leaf.rs, nepl-core/src/resource/owner_summary_parameters.rs, nepl-core/src/resource/owner_summary_raw_alias.rs, nepl-core/src/resource/owner_summary_raw_use.rs, nepl-core/src/resource/owner_summary_raw_view_return.rs, nepl-core/src/resource/owner_summary_storage_origin.rs, nepl-core/src/resource/owner_summary_variant_projection.rs, nepl-core/src/resource/owner_variant.rs, nepl-core/src/resource/owner_summary_variant_return.rs, nepl-core/src/resource/owner_summary_variant_conditions.rs, nepl-core/src/resource/owner_check.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md, nodesrc/test_resource_checker_responsibility.js, doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260507T191618061Z-RESOURCE-OWNER-SUMMARY-DROPS-STORAGE-DAB6ECA2.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

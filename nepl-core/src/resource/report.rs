@@ -162,6 +162,7 @@ pub enum ResourceOwnerOperation {
     Move,
     AssignValue,
     ReturnValue,
+    Drop,
     Dealloc,
     ReallocInput,
     RawMemoryLoadCell,

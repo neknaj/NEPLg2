@@ -112,6 +112,11 @@ pub(super) struct OwnerParameterStorageSource {
     pub(super) place: Place,
 }
 
+pub(super) struct OwnerParameterConditionSource {
+    pub(super) source: OwnerProjectionSource,
+    pub(super) place: Place,
+}
+
 fn record_projection_owner_source(
     summary: &mut OwnerProjectionReturnSummary,
     returned_sources: &mut Vec<OwnerProjectionSource>,

@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use super::condition_fact::simple_condition_value_constraint;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{I32ValueCondition, Place, ResourceConditionFact};
-use super::owner_summary_record::OwnerParameterStorageSource;
+use super::owner_summary_record::OwnerParameterConditionSource;
 use super::owner_summary_variant_construct::{normalize_variant_name, ConstructedVariant};
 use super::place_utils::{place_suffix_after_prefix, place_with_suffix};
 use super::summary::{
@@ -16,13 +16,13 @@ pub(super) fn collect_owner_variant_condition(
     condition_fact: &ResourceConditionFact,
     truthy_path: bool,
     raw_aliases: &RawCellAddressAliases,
-    parameter_storage_sources: &[OwnerParameterStorageSource],
+    parameter_condition_sources: &[OwnerParameterConditionSource],
 ) {
     let Some(condition) = owner_value_condition(
         condition_fact,
         truthy_path,
         raw_aliases,
-        parameter_storage_sources,
+        parameter_condition_sources,
     ) else {
         return;
     };
@@ -67,7 +67,7 @@ fn owner_value_condition(
     condition_fact: &ResourceConditionFact,
     truthy_path: bool,
     raw_aliases: &RawCellAddressAliases,
-    parameter_storage_sources: &[OwnerParameterStorageSource],
+    parameter_condition_sources: &[OwnerParameterConditionSource],
 ) -> Option<OwnerValueCondition> {
     if let Some((place, condition)) = simple_condition_value_constraint(condition_fact, truthy_path)
     {
@@ -75,7 +75,7 @@ fn owner_value_condition(
             place,
             condition,
             raw_aliases,
-            parameter_storage_sources,
+            parameter_condition_sources,
         );
     }
     match (condition_fact, truthy_path) {
@@ -86,7 +86,7 @@ fn owner_value_condition(
                     fact,
                     truthy_path,
                     raw_aliases,
-                    parameter_storage_sources,
+                    parameter_condition_sources,
                 )?);
             }
             Some(OwnerValueCondition::Any(conditions))
@@ -98,7 +98,7 @@ fn owner_value_condition(
                     fact,
                     truthy_path,
                     raw_aliases,
-                    parameter_storage_sources,
+                    parameter_condition_sources,
                 )?);
             }
             Some(OwnerValueCondition::All(conditions))
@@ -110,7 +110,7 @@ fn owner_value_condition(
                     fact,
                     truthy_path,
                     raw_aliases,
-                    parameter_storage_sources,
+                    parameter_condition_sources,
                 )?);
             }
             Some(OwnerValueCondition::All(conditions))
@@ -122,7 +122,7 @@ fn owner_value_condition(
                     fact,
                     truthy_path,
                     raw_aliases,
-                    parameter_storage_sources,
+                    parameter_condition_sources,
                 )?);
             }
             Some(OwnerValueCondition::Any(conditions))
@@ -141,10 +141,10 @@ fn owner_param_value_condition(
     place: &Place,
     condition: I32ValueCondition,
     raw_aliases: &RawCellAddressAliases,
-    parameter_storage_sources: &[OwnerParameterStorageSource],
+    parameter_condition_sources: &[OwnerParameterConditionSource],
 ) -> Option<OwnerValueCondition> {
     for place_alias in raw_aliases.aliases_for(place) {
-        for source in parameter_storage_sources {
+        for source in parameter_condition_sources {
             for param_alias in raw_aliases.aliases_for(&source.place) {
                 let Some(suffix) = place_suffix_after_prefix(&place_alias, &param_alias) else {
                     continue;

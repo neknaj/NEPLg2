@@ -9,7 +9,7 @@ use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_summary_leaf::owner_seed_leaf_places;
-use super::owner_summary_record::OwnerParameterStorageSource;
+use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
 use super::owner_summary_variant_paths::collect_variant_consumed_owner_parameters_from_nested_return;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::raw_realloc::PendingRawReallocs;
@@ -17,7 +17,7 @@ use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
     OwnerReturnSummary, OwnerVariantCondition, OwnerVariantParameterIndex,
-    OwnerVariantPayloadCondition, OwnerVariantProjectionReturnSource, OwnerVariantProjectionSource,
+    OwnerVariantPayloadCondition, OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 
 pub(super) fn collect_variant_consumed_owner_parameters_from_return(
@@ -29,9 +29,10 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
     types: &TypeCtx,
     summaries: &[OwnerReturnSummary],
     parameter_storage_sources: &[OwnerParameterStorageSource],
+    parameter_condition_sources: &[OwnerParameterConditionSource],
     ops: &[ResourceOp],
     return_value: &Place,
-    return_out: &mut Vec<OwnerVariantProjectionReturnSource>,
+    return_out: &mut Vec<OwnerVariantProjectionReturn>,
 ) {
     let engine = ResourceOwnerCheckEngine {
         function: function.name.as_str(),
@@ -69,6 +70,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
         &pending_reallocs,
         &variant_owner_effects,
         parameter_storage_sources,
+        parameter_condition_sources,
         ops,
         return_value,
         return_out,

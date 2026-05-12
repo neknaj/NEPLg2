@@ -8,8 +8,8 @@ use super::model::{Place, ResourceConditionFact, ResourceMatchArm, ResourceOp};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
-use super::owner_summary::consumed_owner_parameters;
-use super::owner_summary_record::OwnerParameterStorageSource;
+use super::owner_summary_consumed::consumed_owner_parameters;
+use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
 use super::owner_summary_variant_conditions::{
     collect_owner_variant_condition, collect_owner_variant_payload_conditions,
 };
@@ -24,7 +24,7 @@ use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
     OwnerVariantCondition, OwnerVariantParameterIndex, OwnerVariantPayloadCondition,
-    OwnerVariantProjectionReturnSource, OwnerVariantProjectionSource,
+    OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 
 pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
@@ -41,9 +41,10 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     pending_reallocs: &PendingRawReallocs,
     variant_owner_effects: &PendingVariantOwnerEffects,
     parameter_storage_sources: &[OwnerParameterStorageSource],
+    parameter_condition_sources: &[OwnerParameterConditionSource],
     ops: &[ResourceOp],
     return_value: &Place,
-    return_out: &mut Vec<OwnerVariantProjectionReturnSource>,
+    return_out: &mut Vec<OwnerVariantProjectionReturn>,
 ) {
     let mut engine = ResourceOwnerCheckEngine {
         function: engine.function,
@@ -99,6 +100,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     &then_pending_reallocs,
                     &variant_owner_effects,
                     parameter_storage_sources,
+                    parameter_condition_sources,
                     then_ops,
                     then_value,
                     condition_fact.as_ref().map(|fact| (fact, true)),
@@ -133,6 +135,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     &else_pending_reallocs,
                     &variant_owner_effects,
                     parameter_storage_sources,
+                    parameter_condition_sources,
                     else_ops,
                     else_value,
                     condition_fact.as_ref().map(|fact| (fact, false)),
@@ -164,6 +167,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                         &pending_reallocs,
                         &variant_owner_effects,
                         parameter_storage_sources,
+                        parameter_condition_sources,
                         &arm.ops,
                         &arm.value,
                         None,
@@ -212,11 +216,12 @@ fn collect_variant_consumed_owner_parameters_from_path(
     pending_reallocs: &PendingRawReallocs,
     variant_owner_effects: &PendingVariantOwnerEffects,
     parameter_storage_sources: &[OwnerParameterStorageSource],
+    parameter_condition_sources: &[OwnerParameterConditionSource],
     path_ops: &[ResourceOp],
     path_value: &Place,
     branch_condition: Option<(&ResourceConditionFact, bool)>,
     match_arm: Option<(&Place, &ResourceMatchArm, Span)>,
-    return_out: &mut Vec<OwnerVariantProjectionReturnSource>,
+    return_out: &mut Vec<OwnerVariantProjectionReturn>,
 ) {
     let mut path_engine = ResourceOwnerCheckEngine {
         function: engine.function,
@@ -258,6 +263,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
             &path_pending_reallocs,
             &path_variant_owner_effects,
             parameter_storage_sources,
+            parameter_condition_sources,
             path_ops,
             path_value,
             return_out,
@@ -271,7 +277,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
             condition_fact,
             truthy_path,
             &path_raw_aliases,
-            parameter_storage_sources,
+            parameter_condition_sources,
         );
     }
     path_engine.check_ops(
