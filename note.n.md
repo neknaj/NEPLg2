@@ -24,6 +24,11 @@
 - Queue 分割検証中に `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-queue-split.json -j 1 --dist web/dist` を実行し、`pipe_list_alias_chain` が `type.overload.no_match` で失敗することを確認した。
 - 根本原因は `List` observer が borrowed API に修正済みなのに、`tests/stdlib/pipe_collections.n.md` の List fixture が `len<i32> xs0` / `get<i32> xs1 1` の by-value 形式を残していること。
 - Queue 分割とは独立した stale fixture 問題として `ISS-20260512T034125476Z-PIPE-COLLECTIONS-LIST-DOCTEST-STILL--8AA21971` を追加した。
+- `tests/stdlib/pipe_collections.n.md::pipe_list_alias_chain` を `len<i32> &xs0` / `get<i32> &xs1 1` に修正し、観測後に `free<i32> xs0` / `free<i32> xs1` で owner を閉じるようにした。
+- `nodesrc/test_stdlib_list_no_unsafe_unwraps.js` に `pipe_list_alias_chain` の監視を追加し、by-value observer call と free 漏れの再発を防ぐ。
+- [検証]:
+  - `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 1 --dist web/dist`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 

@@ -2,8 +2,8 @@
 id: ISS-20260512T034125476Z-PIPE-COLLECTIONS-LIST-DOCTEST-STILL--8AA21971
 title: "pipe_collections List doctest still calls borrowed observers by value"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-12
@@ -42,3 +42,14 @@ Rewrite the List pipe doctest to call len/get through explicit borrows, free obs
 ## 検証
 
 Run node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 1 --dist web/dist and node nodesrc/test_stdlib_list_no_unsafe_unwraps.js.
+
+## 対応結果
+
+`tests/stdlib/pipe_collections.n.md::pipe_list_alias_chain` の `len<i32> xs0` / `get<i32> xs1 1` を `len<i32> &xs0` / `get<i32> &xs1 1` に修正し、観測後に `free<i32> xs0` / `free<i32> xs1` で owner を閉じるようにした。
+
+`nodesrc/test_stdlib_list_no_unsafe_unwraps.js` に `pipe_list_alias_chain` の監視を追加し、List pipe fixture が by-value observer call に戻らないこと、観測後に owner を解放することを固定した。
+
+検証:
+
+- `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: passed
+- `node nodesrc/run_doctest.js -i tests/stdlib/pipe_collections.n.md -n 1 --dist web/dist`: passed

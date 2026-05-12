@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T03:42:14.932Z",
+  "generated_at": "2026-05-12T03:45:51.908Z",
   "counts": {
     "total": 621,
-    "open": 12,
-    "resolved": 609,
+    "open": 11,
+    "resolved": 610,
     "by_area": {
       "core": {
         "total": 310,
@@ -18,8 +18,8 @@
       },
       "stdlib": {
         "total": 166,
-        "open": 6,
-        "resolved": 160
+        "open": 5,
+        "resolved": 161
       },
       "TEST": {
         "total": 17,
@@ -223,21 +223,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260512T034125476Z-PIPE-COLLECTIONS-LIST-DOCTEST-STILL--8AA21971",
-      "title": "pipe_collections List doctest still calls borrowed observers by value",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-12",
-      "updated": "2026-05-12",
-      "target": "tests/stdlib/pipe_collections.n.md, stdlib/alloc/collections/list.nepl, nodesrc/test_stdlib_list_no_unsafe_unwraps.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260512T034125476Z-PIPE-COLLECTIONS-LIST-DOCTEST-STILL--8AA21971.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -7033,6 +7018,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T175704848Z-CLIARG-RAW-ARGV-BOUNDARY-LACKS-RAW-M-C25E93E9.md"
+    },
+    {
+      "id": "ISS-20260512T034125476Z-PIPE-COLLECTIONS-LIST-DOCTEST-STILL--8AA21971",
+      "title": "pipe_collections List doctest still calls borrowed observers by value",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "tests/stdlib/pipe_collections.n.md, stdlib/alloc/collections/list.nepl, nodesrc/test_stdlib_list_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T034125476Z-PIPE-COLLECTIONS-LIST-DOCTEST-STILL--8AA21971.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

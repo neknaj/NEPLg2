@@ -21,17 +21,19 @@ fn main <()*>i32> ():
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
-    let ok0 <bool> eq len<i32> xs0 3;
+    let ok0 <bool> eq len<i32> &xs0 3;
+    free<i32> xs0;
     let xs1 <List<i32>>:
         unwrap_ok<List<i32>, Diag> new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
-    let ok1 <bool> match get<i32> xs1 1:
+    let ok1 <bool> match get<i32> &xs1 1:
         Option::Some v:
             eq v 2
         Option::None:
             false
+    free<i32> xs1;
     if and ok0 ok1 1 0
 ```
 

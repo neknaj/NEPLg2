@@ -137,6 +137,16 @@ for (const testPath of ['stdlib/tests/list.n.md', 'tests/stdlib/list_collections
     assert.match(testSrc, /\bfree<i32>\s+/, `${testPath} must explicitly free observed List owners`);
 }
 
+const pipeCollections = fs.readFileSync(path.join(repoRoot, 'tests/stdlib/pipe_collections.n.md'), 'utf8');
+const pipeListSection = pipeCollections.match(/## pipe_list_alias_chain[\s\S]*?(?=\n## |$)/);
+assert.ok(pipeListSection, 'pipe_collections must keep a List pipe fixture');
+assert.match(pipeListSection[0], /\blen<i32>\s+&xs0\b/, 'pipe List fixture must borrow for len');
+assert.match(pipeListSection[0], /\bget<i32>\s+&xs1\s+1\b/, 'pipe List fixture must borrow for get');
+assert.match(pipeListSection[0], /\bfree<i32>\s+xs0\b/, 'pipe List fixture must free xs0 after observation');
+assert.match(pipeListSection[0], /\bfree<i32>\s+xs1\b/, 'pipe List fixture must free xs1 after observation');
+assert.doesNotMatch(pipeListSection[0], /\blen<i32>\s+xs\d+\b/, 'pipe List fixture must not call len by value');
+assert.doesNotMatch(pipeListSection[0], /\bget<i32>\s+xs\d+\s+/, 'pipe List fixture must not call get by value');
+
 console.log('list unsafe unwrap regression passed');
 
 function sourceWithoutComments(file) {
