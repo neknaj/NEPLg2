@@ -1,0 +1,106 @@
+//: # std/fs/path/normalize/build
+//: component range stack から正規 path を組み立てる helper
+//:
+//: ### 目的
+//: - scan 済みの `[start,end)` stack を、owned substring を挟まず `StringBuilder` へ copy します。
+//:
+//: ### 注意
+//: - stack は `[start,end]` pair の偶数長であることを前提にします。
+
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+//: fs_normalize_build_ranges_builder: range stack から正規 path の builder を組み立てる
+//:
+//: 目的:
+//: - 正規化済み component range stack を `/` で連結し、空なら `"."` を保持する `StringBuilder` を返します。
+//:
+//: 実装(アルゴリズム):
+//: - `StringBuilder` に元 path の byte 範囲を `sb_append_slice_result` で直接 copy します。
+//: - component 間には `/` を挟みます。
+//:
+//: 注意(重要):
+//: - owned `Vec<str>` や一時 substring を作らないため、collection element owner cleanup に依存しません。
+//:
+//: 計算量:
+//: - 出力 byte 数 n に対して O(n)
+fn fs_normalize_build_ranges_builder <(str,&Vec<i32>)->Result<StringBuilder,i32>> (path, stack):
+    let stack_len <i32> v::len<i32> stack
+    match string_builder_new_result:
+        Result::Err _e:
+            Result<StringBuilder,i32>::Err 12
+        Result::Ok sb0:
+            if:
+                eq stack_len 0
+                then:
+                    match sb_append_result sb0 ".":
+                        Result::Err _e:
+                            Result<StringBuilder,i32>::Err 12
+                        Result::Ok dot:
+                            Result<StringBuilder,i32>::Ok dot
+                else:
+                    let mut sb <StringBuilder> sb0
+                    let mut i <i32> 0
+                    let mut part_index <i32> 0
+                    let mut ok <i32> 1
+                    while and eq ok 1 lt i stack_len:
+                        do:
+                            let start_opt <Option<i32>> v::get<i32> stack i
+                            let end_opt <Option<i32>> v::get<i32> stack add i 1
+                            match start_opt:
+                                Option::None:
+                                    set ok 0
+                                Option::Some part_start:
+                                    match end_opt:
+                                        Option::None:
+                                            set ok 0
+                                        Option::Some part_end:
+                                            let sep_added <Result<StringBuilder,str>> if:
+                                                gt part_index 0
+                                                then:
+                                                    sb_append_result sb "/"
+                                                else:
+                                                    Result<StringBuilder,str>::Ok sb
+                                            match sep_added:
+                                                Result::Err _e:
+                                                    set sb string_builder_empty
+                                                    set ok 0
+                                                Result::Ok with_sep:
+                                                    match sb_append_slice_result with_sep path part_start part_end:
+                                                        Result::Err _e:
+                                                            set sb string_builder_empty
+                                                            set ok 0
+                                                        Result::Ok next_sb:
+                                                            set sb next_sb
+                                                            set part_index add part_index 1
+                            set i add i 2
+                    if:
+                        eq ok 1
+                        then:
+                            Result<StringBuilder,i32>::Ok sb
+                        else:
+                            string_builder_free sb
+                            Result<StringBuilder,i32>::Err 12
+
+//: fs_normalize_build_ranges: range stack から正規 path 文字列を組み立てる
+//:
+//: 目的:
+//: - 検証や内部利用向けに、正規化済み component range stack を `str` として返します。
+//:
+//: 実装(アルゴリズム):
+//: - syscall 用途では builder owner のまま使えるよう、実処理は `fs_normalize_build_ranges_builder` に集約します。
+fn fs_normalize_build_ranges <(str,&Vec<i32>)->Result<str,i32>> (path, stack):
+    match fs_normalize_build_ranges_builder path stack:
+        Result::Err e:
+            Result<str,i32>::Err e
+        Result::Ok sb:
+            match sb_build_result sb:
+                Result::Err _e:
+                    Result<str,i32>::Err 12
+                Result::Ok out:
+                    Result<str,i32>::Ok out

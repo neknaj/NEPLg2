@@ -175,6 +175,23 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-12 Agent 2 std/fs path normalize 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/std/fs/path/normalize.nepl` に同居していた host path byte 検証、component range stack owner 操作、range stack からの output builder 構築、public 正規化 API を責務別 submodule に分離した。
+- `stdlib/std/fs/path/normalize.nepl` は `fs_normalize_relative_builder` / `fs_normalize_relative` と allocation-free component scan の制御に集中させた。
+- `stdlib/std/fs/path/normalize/validate.nepl` は `fs_path_has_forbidden_host_byte` を所有する。
+- `stdlib/std/fs/path/normalize/range_stack.nepl` は `fs_normalize_range_push` / `fs_normalize_range_pop` と `Vec<i32>` range stack owner 操作を所有する。
+- `stdlib/std/fs/path/normalize/build.nepl` は `fs_normalize_build_ranges_builder` / `fs_normalize_build_ranges` と `StringBuilder` output 構築境界を所有する。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` を更新し、root `normalize.nepl` に helper 本体が戻らないこと、allocation-free split step と `Vec<i32>` range stack 設計が維持されることを固定した。
+- line count は `normalize.nepl` 117、`normalize/validate.nepl` 38、`normalize/range_stack.nepl` 53、`normalize/build.nepl` 102。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/path.nepl -i stdlib/std/fs/path/normalize.nepl -i stdlib/std/fs/path/normalize/build.nepl -i stdlib/std/fs/path/normalize/range_stack.nepl -i stdlib/std/fs/path/normalize/validate.nepl -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-path-normalize-module-split-focused.json -j 1 --dist web/dist`: total=9, passed=9
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl -i stdlib/std/fs/path.nepl -i stdlib/std/fs/read.nepl -i stdlib/std/fs/write.nepl -i stdlib/std/fs/dir.nepl -i stdlib/std/fs/stat.nepl -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-path-normalize-module-split-fs-suite.json -j 1 --dist web/dist`: total=16, passed=16
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-12 Agent 2 btreemap API facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/btreemap/api.nepl` に同居していた構築、borrowed observer、挿入、削除、cleanup を責務別 submodule に分割した。

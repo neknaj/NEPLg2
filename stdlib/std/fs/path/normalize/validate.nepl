@@ -1,0 +1,41 @@
+//: # std/fs/path/normalize/validate
+//: path normalization の入力検証 helper
+//:
+//: ### 目的
+//: - WASI guest path と host path 表現が混ざらないよう、正規化前の byte 検査を分離します。
+//:
+//: ### 注意
+//: - `std/fs` の公開 path API は `/` 区切りの WASI guest path だけを受け付けます。
+
+#indent 4
+
+#import "alloc/string" as *
+#import "core/math" as *
+
+//: fs_path_has_forbidden_host_byte: WASI guest path と host path の混同を招く byte を検出する
+//:
+//: 目的:
+//: - `\` や `:` を含む path を、preopen root の外へ出る可能性がある host path 表現として拒否できるようにします。
+//:
+//: 実装(アルゴリズム):
+//: - 文字列を byte 単位で走査し、Windows 区切りや drive prefix に使われる byte を探します。
+//:
+//: 注意(重要):
+//: - この関数は host path byte の有無だけを判定します。absolute path や `..` escape は呼び出し側で検査します。
+//:
+//: 計算量:
+//: - path 長 n に対して O(n)
+fn fs_path_has_forbidden_host_byte <(str)->bool> (path):
+    let n <i32> len path
+    let mut i <i32> 0
+    let mut found <bool> false
+    while and not found lt i n:
+        do:
+            let ch <i32> string_byte_at_unchecked path i
+            if:
+                or eq ch '\\' eq ch ':'
+                then:
+                    set found true
+                else:
+                    set i add i 1
+    found
