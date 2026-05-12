@@ -419,3 +419,11 @@ raw `i32` owner seed は raw owner を消費する関数、または aggregate �
 根本原因は、`borrow_usage.rs` が match arm payload へ borrow token tree を伝播する際に pattern variant を file-local `rsplit("::")` で canonicalize し、`owner_summary_variant_ambiguous.rs` も ambiguous enum projection return の variant dedupe で同じ local 比較を持っていたことだった。これにより、Resource IR の enum payload place を cell / owner / borrow / raw alias / raw view の共通 key として扱う方針に対し、borrow と owner summary の一部だけ別規則が残っていた。
 
 対応では `borrow_usage.rs` を `match_pattern_variant_name` へ移行し、`owner_summary_variant_ambiguous.rs` を `variant_names_match` へ移行した。加えて responsibility policy で `variant_name.rs` 以外の Resource IR module に `rsplit("::")` が残ることを禁止した。これは Stage 4 の Resource IR owner/provenance 分離と lifetime/borrow token propagation の一貫性補強である。
+
+## 2026-05-12 Resource IR variant 比較の allocation 削減
+
+`ISS-20260512T125509232Z-RESOURCE-VARIANT-COMPARISON-ALLOCATE-30C96E24` として、`variant_names_match` が比較のたびに owned `String` を 2 つ作る設計を修正した。
+
+根本原因は、owned `PlaceProjection::EnumPayload` key を作るための `normalize_variant_name` と、比較だけを行う `variant_names_match` が同じ owned 正規化を使っていたことだった。owner summary / payload lookup / variant path scan では比較が hot path になるため、allocation を前提にした helper は compile-time memory churn を増やす。
+
+対応では `variant_name_tail` を追加し、比較は borrowed `&str` tail 同士で行うようにした。owned `String` 化は place key を構築する `normalize_variant_name` と match pattern extraction に限定する。

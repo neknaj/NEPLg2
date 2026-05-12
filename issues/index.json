@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T12:50:43.985Z",
+  "generated_at": "2026-05-12T12:58:23.821Z",
   "counts": {
-    "total": 641,
+    "total": 642,
     "open": 10,
-    "resolved": 631,
+    "resolved": 632,
     "by_area": {
       "core": {
-        "total": 324,
+        "total": 325,
         "open": 3,
-        "resolved": 321
+        "resolved": 322
       },
       "stdlib": {
         "total": 167,
@@ -8238,6 +8238,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T065044708Z-RESOURCE-INITIALIZED-ALIAS-TESTS-EXC-3A0BF130.md"
+    },
+    {
+      "id": "ISS-20260512T125509232Z-RESOURCE-VARIANT-COMPARISON-ALLOCATE-30C96E24",
+      "title": "Resource variant comparison allocates normalized strings on hot paths",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "performance",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/variant_name.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T125509232Z-RESOURCE-VARIANT-COMPARISON-ALLOCATE-30C96E24.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

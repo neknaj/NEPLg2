@@ -36332,3 +36332,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 Resource variant comparison allocation 削減
+
+- `ISS-20260512T125509232Z-RESOURCE-VARIANT-COMPARISON-ALLOCATE-30C96E24` として、`variant_name::variant_names_match` が比較のたびに owned `String` を作る問題を修正した。
+- `variant_name_tail` を追加し、`::` 区切りの末尾 variant 名を borrowed `&str` として返すようにした。
+- `normalize_variant_name` は `PlaceProjection::EnumPayload` の owned key が必要な場合だけ `String` 化し、`variant_names_match` は borrowed tail 同士を比較する。
+- `variant_name.rs` に canonical tail と qualified variant comparison の unit test を追加した。
+- これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に伴い、variant path / owner summary scans の compile-time allocation を抑える整理である。
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core resource::variant_name::tests -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir owner_return -- --nocapture`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
