@@ -1,0 +1,95 @@
+//: # std/fs/write/path
+//: path-based file write helper
+//:
+//: ### 目的
+//: - path open/close と fd write helper の組み合わせを、fd write loop から分離します。
+//: - `str` から `ByteBuf` への複製と binary write API の関係を同じ場所で確認できるようにします。
+//:
+//: ### 注意
+//: - `fs_write_to_bytes` は open 失敗時も含めて入力 `ByteBuf` を消費します。
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/result" as *
+#import "std/fs/bytes" as *
+#import "std/fs/fd" as *
+#import "std/fs/read" as *
+#import "std/fs/write/fd" as *
+
+//: fs_write_to_bytes: path へ `ByteBuf` を create/truncate して書き込む
+//:
+//: 目的:
+//: - path に binary artifact を保存します。
+//:
+//: 実装(アルゴリズム):
+//: - `fs_open_write` → `fs_write_fd_bytes` → `fs_close` の順に処理します。
+//:
+//: 注意(重要):
+//: - 入力 `ByteBuf` は open 失敗時も含めてこの関数が解放します。
+//: - write 成功後に close が失敗した場合は close の errno を返します。
+//:
+//: 計算量:
+//: - 書き込み byte 数 n に対して O(n)
+fn fs_write_to_bytes <(str,ByteBuf)*>Result<(),i32>> (path, bytes):
+    match fs_open_write path:
+        Result::Err e:
+            io_bytebuf_free bytes
+            Result<(),i32>::Err e
+        Result::Ok fd:
+            match fs_write_fd_bytes fd bytes:
+                Result::Ok _:
+                    fs_close fd
+                Result::Err e:
+                    match fs_close fd:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            ()
+                    Result<(),i32>::Err e
+
+//: fs_write_to_string: path へ str を create/truncate して書き込む
+//:
+//: 目的:
+//: - text artifact を file として保存します。
+//:
+//: 実装(アルゴリズム):
+//: - `io_bytebuf_from_str_result` で byte buffer へ複製し、`fs_write_to_bytes` に委譲します。
+//:
+//: 注意(重要):
+//: - UTF-8 検証や改行変換は行わず、str の byte 表現をそのまま保存します。
+//:
+//: 計算量:
+//: - 入力長 n に対して O(n)
+//: fs_write_to_string: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `fs_write_to_string` で作ったファイルを `fs_read_to_string` で読み戻せることを確認します。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/fs/write" as *
+//:| #import "std/fs/read" as *
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_write_to_string "tmp/fs_write_to_string_doctest.txt" "fs write":
+//:         Result::Err _e:
+//:             1
+//:         Result::Ok _:
+//:             match fs_read_to_string "tmp/fs_write_to_string_doctest.txt":
+//:                 Result::Ok text:
+//:                     if str_eq text "fs write" 0 2
+//:                 Result::Err _e:
+//:                     3
+//: ```
+fn fs_write_to_string <(str,str)*>Result<(),i32>> (path, text):
+    match io_bytebuf_from_str_result text:
+        Result::Ok bytes:
+            fs_write_to_bytes path bytes
+        Result::Err e:
+            Result<(),i32>::Err fs_std_error_to_errno e

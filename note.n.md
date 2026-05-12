@@ -36036,3 +36036,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 std/fs write fd/path 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/std/fs/write.nepl` に同居していた fd raw/scratch write loop、`ByteBuf` owner 消費、path open/close、`str` から `ByteBuf` への複製を `write/fd` と `write/path` に分離した。
+- `stdlib/std/fs/write.nepl` は public facade にし、`std/fs/write/fd` と `std/fs/write/path` を re-export するだけの構成にした。
+- `stdlib/std/fs/write/fd.nepl` は `fs_write_fd_mem_result` / `fs_write_fd_bytes` を所有し、scratch buffer cleanup と `ByteBuf` owner consumption を fd write loop に閉じた。
+- `stdlib/std/fs/write/path.nepl` は `fs_write_to_bytes` / `fs_write_to_string` を所有し、fd write helper の利用と `str` から `ByteBuf` への複製を担当する。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` を更新し、root facade に実装本体が戻らないこと、fd write loop が `write/fd` に閉じること、path/string write API が `write/path` に閉じることを固定した。
+- line count は `write.nepl` 34、`write/fd.nepl` 120、`write/path.nepl` 91。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/write.nepl -i stdlib/std/fs/write/fd.nepl -i stdlib/std/fs/write/path.nepl --no-tree -o tmp/fs-write-module-split-write-only.json -j 1 --dist web/dist`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-write-module-split-fs-md.json -j 1 --dist web/dist`: total=7, passed=7
+  - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/fs-write-module-split-text-utf8.json -j 1 --dist web/dist`: total=9, passed=9
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl -i stdlib/std/fs/write.nepl -i stdlib/std/fs/write/fd.nepl -i stdlib/std/fs/write/path.nepl -i stdlib/std/fs/read.nepl -i stdlib/std/fs/read/fd.nepl -i stdlib/std/fs/read/path.nepl -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-write-module-split-fs-suite.json -j 1 --dist web/dist`: total=14, passed=14
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -1,0 +1,124 @@
+//: # std/fs/write/fd
+//: fd へ `ByteBuf` を書き込む helper
+//:
+//: ### 目的
+//: - raw fd write loop と scratch buffer cleanup を path-based API から分離します。
+//: - `ByteBuf` owner の消費責務を fd write 境界へ閉じ込めます。
+//:
+//: ### 注意
+//: - fd の open/close は呼び出し側の責務です。
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/fs/bytes" as *
+#import "std/fs/raw" as *
+
+//: fs_write_fd_mem_result: fd へ raw memory range をすべて書き込む
+//:
+//: 目的:
+//: - `ByteBuf` の storage を確定した後、partial write を処理しながら全 byte を書き込みます。
+//:
+//: 実装(アルゴリズム):
+//: - 1 要素 iovec を使って `fd_write` を呼び、partial write の場合は offset を進めて再試行します。
+//: - `nwritten <= 0` は進捗不能な I/O failure として errno 5 に丸めます。
+//:
+//: 注意(重要):
+//: - この関数は raw memory range を借りて書き込むだけで、data owner は解放しません。
+//:
+//: 計算量:
+//: - 書き込み byte 数 n に対して O(n)
+fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data_len):
+    if:
+        le data_len 0
+        then:
+            Result<(),i32>::Ok ()
+        else:
+            match alloc_ptr<u8> 8:
+                Result::Err _e:
+                    Result<(),i32>::Err 12
+                Result::Ok iov_buf:
+                    match alloc_ptr<u8> 4:
+                        Result::Err _e:
+                            match dealloc_ptr<u8> iov_buf 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            Result<(),i32>::Err 12
+                        Result::Ok nwritten_buf:
+                            let mut off <i32> 0
+                            let mut done <i32> 0
+                            let mut err <i32> 0
+                            while eq done 0:
+                                do:
+                                    if:
+                                        ge off data_len
+                                        then:
+                                            set done 1
+                                        else:
+                                            match fs_fd_write_from_result fd iov_buf nwritten_buf mem_ptr_add data off sub data_len off:
+                                                Result::Ok n:
+                                                    if:
+                                                        le n 0
+                                                        then:
+                                                            set err 5
+                                                            set done 1
+                                                        else:
+                                                            set off add off n
+                                                Result::Err e:
+                                                    set err e
+                                                    set done 1
+                            match dealloc_ptr<u8> nwritten_buf 4:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            match dealloc_ptr<u8> iov_buf 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            if:
+                                eq err 0
+                                then:
+                                    Result<(),i32>::Ok ()
+                                else:
+                                    Result<(),i32>::Err err
+
+//: fs_write_fd_bytes: fd へ `ByteBuf` をすべて書き込む
+//:
+//: 目的:
+//: - 既に開いている fd に所有 byte buffer の内容を最後まで書き込みます。
+//:
+//: 実装(アルゴリズム):
+//: - `ByteBuf` の empty / non-empty storage を判定し、non-empty の場合は `fs_write_fd_mem_result` に委譲します。
+//:
+//: 注意(重要):
+//: - 入力 `ByteBuf` は成功時も失敗時もこの関数が解放します。
+//: - fd の妥当性と host 側の権限は WASI runtime に委ねます。
+//:
+//: 計算量:
+//: - 書き込み byte 数 n に対して O(n)
+fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
+    let data_len <i32> field::get bytes "len"
+    match field::get bytes "ptr":
+        Option::None:
+            if:
+                eq data_len 0
+                then:
+                    Result<(),i32>::Ok ()
+                else:
+                    Result<(),i32>::Err 22
+        Option::Some data:
+            let result <Result<(),i32>> fs_write_fd_mem_result fd data data_len
+            match dealloc_ptr<u8> data io_bytebuf_storage_size data_len:
+                Result::Ok _:
+                    result
+                Result::Err _:
+                    result
