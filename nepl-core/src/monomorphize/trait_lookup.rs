@@ -25,7 +25,7 @@ impl MonoTraitApplication {
     pub(super) fn from_hir(ctx: &TypeCtx, application: &HirTraitApplication) -> Self {
         Self::resolved(
             ctx,
-            MonoTraitId::from_name(&application.base_name),
+            MonoTraitId::from_name(application.trait_id.as_str()),
             &application.args,
         )
     }

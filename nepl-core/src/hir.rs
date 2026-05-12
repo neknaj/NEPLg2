@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::ast::TraitCapability;
@@ -149,21 +149,37 @@ pub enum HirExprKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HirTraitId(String);
+
+impl HirTraitId {
+    pub fn from_name(name: String) -> Self {
+        Self(name)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HirTraitApplication {
-    pub base_name: String,
+    pub trait_id: HirTraitId,
     pub args: Vec<TypeId>,
 }
 
 impl HirTraitApplication {
     pub fn new(base_name: String, args: Vec<TypeId>) -> Self {
-        Self { base_name, args }
+        Self {
+            trait_id: HirTraitId::from_name(base_name),
+            args,
+        }
     }
 
     pub fn display_name(&self, ctx: &TypeCtx) -> String {
         if self.args.is_empty() {
-            return self.base_name.clone();
+            return self.trait_id.as_str().to_string();
         }
-        let mut name = self.base_name.clone();
+        let mut name = self.trait_id.as_str().to_string();
         name.push('<');
         for (index, arg) in self.args.iter().enumerate() {
             if index > 0 {

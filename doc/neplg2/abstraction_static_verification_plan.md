@@ -271,6 +271,7 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `HirTraitApplication` を追加し、`FuncRef::Trait` と `HirImpl` の trait identity を split string fields ではなく typed application で保持する形へ移行した。
 - 2026-05-12: `ISS-20260512T171317751Z-RESOURCE-IR-TRAIT-CALL-TARGET-STILL--6B70AE36` を追加し、verified にした。
 - 2026-05-12: `ResourceTraitApplication` を追加し、`ResourceCallTarget::Trait` も split fields ではなく typed application を保持する形へ移行した。
+- 2026-05-13: `ISS-20260512T190305376Z-HIR-AND-RESOURCE-TRAIT-APPLICATIONS--0B41B202` を追加し、HIR / Resource IR の trait application identity を `HirTraitId` / `ResourceTraitId` newtype へ移行した。monomorphize と Resource lowering は `as_str()` 境界でのみ文字列化する。
 - 2026-05-13: `ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB` を verified にした。Stage 5 の trait/generic regression は、`PureCallsImpure` を弱めず、raw memory を直接呼ぶ generic helper を impure signature に直すことで復旧した。
 - 2026-05-13: `ISS-20260512T182144401Z-MONOMORPHIZE-TRAIT-LOOKUP-METHOD-IDE-99EBBCAC` を追加し、`MonoTraitMethodId` newtype を導入した。`MonoTraitMethodKey` / `MonoTraitLookupKey` は method identity を raw `String` ではなく typed id として保持する。
 - 2026-05-13: `ISS-20260512T183111826Z-MONOMORPHIZE-TRAIT-APPLICATION-STILL-835C27CF` を追加し、monomorphize trait identity も `MonoTraitId` newtype へ移行した。`MonoTraitApplication` / `MonoTraitMethodKey` は trait identity を raw `String` ではなく typed id として保持し、identity type は `monomorphize/trait_identity.rs` へ分離した。
@@ -297,7 +298,8 @@ struct MonoTraitLookupKey {
 - `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存、split impl field 参照、duplicate label fallback 実装は削除済み。
 - `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
 - `typecheck/trait_call_apply.rs`: 実装済みだが再設計対象。split impl field 参照は削除済みだが、trait method resolution result enum が必要。
-- `hir.rs`: Stage 5 は進行済み。`HirTraitApplication` を追加し、`FuncRef::Trait` / `HirImpl` は typed trait application を保持する。
-- `monomorphize.rs`: Stage 5 は進行中。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。HIR からは `HirTraitApplication` を受け取り、monomorphize phase 内の `MonoTraitId` / `MonoTraitMethodId` を含む resolved key へ変換する。
+- `hir.rs`: Stage 5 は進行済み。`HirTraitId` / `HirTraitApplication` を追加し、`FuncRef::Trait` / `HirImpl` は typed trait application を保持する。
+- `monomorphize.rs`: Stage 5 は進行中。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。HIR からは `HirTraitId` を持つ `HirTraitApplication` を受け取り、monomorphize phase 内の `MonoTraitId` / `MonoTraitMethodId` を含む resolved key へ変換する。
+- `resource/model.rs`: Stage 5 は実装済み。`ResourceTraitId` / `ResourceTraitApplication` により Resource IR call target の trait identity も typed field として保持する。
 - `monomorphize/trait_identity.rs`: Stage 5 は実装済み。monomorphize 内部の trait / method identity newtype をここに集約し、lookup key module から raw string identity field を排除している。
 - `nodesrc/test_abstraction_static_verification_policy.js`: Stage 0 baseline policy として追加済み。Stage 6 として `ImplInfo` optional field は struct 単位で 0 件を要求する。

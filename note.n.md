@@ -36690,3 +36690,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `TraitId` newtype を追加し、`TraitApplication` は `trait_id: TraitId` と `args` を持つ形に変更した。
 - `BoundEnv` / impl matching / trait method inference は `TraitId` を受け取り、表示名文字列は diagnostic/display 境界に限定した。
 - source policy に `TraitId` 必須化と `TraitApplication.base_name: String` 再導入禁止を追加した。
+
+## 2026-05-13 Agent 1 HIR / Resource TraitId
+
+- `b261c47d` push 後に remote main を pullし、`agent1/hir-resource-trait-id` branch を作成した。
+- `ISS-20260512T190305376Z-HIR-AND-RESOURCE-TRAIT-APPLICATIONS--0B41B202` を追加し、HIR / Resource IR trait application 内に raw `String` trait identity が残る問題を切り出した。
+- `HirTraitId` / `ResourceTraitId` newtype を追加し、`HirTraitApplication` / `ResourceTraitApplication` は typed trait id と args を持つ形へ変更した。
+- monomorphize と Resource lowering / dump は `as_str()` 境界でのみ trait name 文字列へ変換する。
+- source policy に HIR / Resource trait application の raw `base_name: String` 再導入禁止を追加した。

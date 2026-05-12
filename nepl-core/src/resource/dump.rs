@@ -662,7 +662,7 @@ fn dump_call_target(target: &ResourceCallTarget) -> String {
             self_ty,
         } => format!(
             "trait({}<{}>::{} self=t{})",
-            application.base_name,
+            application.trait_id.as_str(),
             dump_type_list(&application.args),
             method,
             self_ty.0
