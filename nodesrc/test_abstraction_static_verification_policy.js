@@ -515,6 +515,14 @@ assert(
     "monomorphize trait lookup cache must use MonoTraitLookupKey",
 );
 assert(
+    !monomorphize.includes("resolve_trait_impl_name"),
+    "monomorphize must not resolve trait impls through split trait name parameters",
+);
+assert(
+    /fn resolve_trait_impl\(\s*&mut self,\s*application: &HirTraitApplication,\s*method: &HirTraitMethodId,/m.test(monomorphize),
+    "monomorphize trait impl resolver must accept typed HIR trait application and method identity",
+);
+assert(
     !monomorphize.includes("impl_entry_index"),
     "monomorphize must not keep a duplicate tuple-style impl_entry_index",
 );

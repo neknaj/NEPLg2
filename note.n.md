@@ -1,3 +1,17 @@
+# 2026-05-13 Agent 1 monomorphize trait resolver typed 化
+
+- `ISS-20260512T195620903Z-MONOMORPHIZE-TRAIT-RESOLUTION-STILL--0481CA39` に対応した。
+- HIR call target と monomorphize lookup key は typed 化済みだったが、resolver 入口だけが `resolve_trait_impl_name(trait_name, trait_args, method, ...)` として split string/args を再受け取りしていた。
+- `resolve_trait_impl` は `&HirTraitApplication` と `&HirTraitMethodId` を直接受け取り、内部で `MonoTraitApplication::from_hir` / `MonoTraitMethodId` へ変換する形にした。
+- call site の `application.trait_id.as_str()` / `method.as_str()` 分解を削除し、source policy で旧 `resolve_trait_impl_name` の再導入を拒否する。
+- 検証:
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test neplg2 trait -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 generic -- --nocapture`: passed
+  - `node nodesrc/test_abstraction_static_verification_policy.js`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/abstraction_static_verification_plan.md` Stage 5 の monomorphize typed identity 方針に沿った compiler core の静的検査 authority 整理。
+
 # 2026-05-13 Agent 1 impl method lowering trait application typed 化
 
 - `ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5` に対応した。

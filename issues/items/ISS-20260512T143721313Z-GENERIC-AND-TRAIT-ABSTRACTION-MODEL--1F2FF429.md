@@ -71,6 +71,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T190305376Z-HIR-AND-RESOURCE-TRAIT-APPLICATIONS--0B41B202` で、HIR / Resource IR の trait application identity を `HirTraitId` / `ResourceTraitId` newtype へ移行した。monomorphize と Resource lowering は `as_str()` 境界でのみ文字列化する。
 - `ISS-20260512T191325765Z-HIR-AND-RESOURCE-TRAIT-METHOD-IDENTI-78952D7B` で、HIR / Resource IR の trait method identity を `HirTraitMethodId` / `ResourceTraitMethodId` newtype へ移行した。`FuncRef::Trait` / `ResourceCallTarget::Trait` は raw `String` method field を持たない。
 - `ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5` で、impl method lowering pass も `TraitApplication` payload へ移行し、method symbol mangle 境界以外で rendered trait application name を保持しない形にした。
+- `ISS-20260512T195620903Z-MONOMORPHIZE-TRAIT-RESOLUTION-STILL--0481CA39` で、monomorphize trait resolver の入口も `HirTraitApplication` / `HirTraitMethodId` を直接受け取る形にし、call site で trait name / method string へ分解する旧 `resolve_trait_impl_name` を削除した。
 
 ## 検証
 

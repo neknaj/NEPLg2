@@ -15,7 +15,7 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 mod trait_identity;
 mod trait_lookup;
 
-use trait_identity::{MonoTraitId, MonoTraitMethodId};
+use trait_identity::MonoTraitMethodId;
 use trait_lookup::{
     MonoTraitApplication, MonoTraitLookupKey, MonoTraitMethodKey, TraitImplEntry,
     TraitImplResolution,
@@ -406,12 +406,9 @@ impl<'a> Monomorphizer<'a> {
                             _ => resolved,
                         };
                         *self_ty = dispatch_self_ty;
-                        if let Some(resolution) = self.resolve_trait_impl_name(
-                            application.trait_id.as_str(),
-                            &application.args,
-                            method.as_str(),
-                            dispatch_self_ty,
-                        ) {
+                        if let Some(resolution) =
+                            self.resolve_trait_impl(application, method, dispatch_self_ty)
+                        {
                             *callee = FuncRef::User(
                                 self.request_instantiation(
                                     resolution.func_name,
@@ -488,20 +485,15 @@ impl<'a> Monomorphizer<'a> {
         }
     }
 
-    fn resolve_trait_impl_name(
+    fn resolve_trait_impl(
         &mut self,
-        trait_name: &str,
-        trait_args: &[TypeId],
-        method: &str,
+        application: &HirTraitApplication,
+        method: &HirTraitMethodId,
         resolved_self_ty: TypeId,
     ) -> Option<TraitImplResolution> {
-        let application = MonoTraitApplication::resolved(
-            self.ctx,
-            MonoTraitId::from_name(trait_name),
-            trait_args,
-        );
+        let application = MonoTraitApplication::from_hir(self.ctx, application);
         let resolved_self_ty = self.ctx.resolve_id(resolved_self_ty);
-        let method_id = MonoTraitMethodId::from_name(method);
+        let method_id = MonoTraitMethodId::from_name(method.as_str());
         let cache_key =
             MonoTraitLookupKey::new(application.clone(), method_id.clone(), resolved_self_ty);
         if let Some(cached) = self.trait_lookup_cache.get(&cache_key) {
@@ -514,7 +506,7 @@ impl<'a> Monomorphizer<'a> {
             self.trait_lookup_cache.insert(cache_key, found.clone());
             return found;
         }
-        let method_key = MonoTraitMethodKey::new(MonoTraitId::from_name(trait_name), method_id);
+        let method_key = MonoTraitMethodKey::new(application.trait_id.clone(), method_id);
         if let Some(candidates) = self.impl_method_index.get(&method_key).cloned() {
             for entry_index in candidates {
                 if let Some(found_resolution) =
@@ -1165,12 +1157,9 @@ impl<'a> Monomorphizer<'a> {
                             _ => resolved,
                         };
                         *self_ty = dispatch_self_ty;
-                        if let Some(resolution) = self.resolve_trait_impl_name(
-                            application.trait_id.as_str(),
-                            &application.args,
-                            method.as_str(),
-                            dispatch_self_ty,
-                        ) {
+                        if let Some(resolution) =
+                            self.resolve_trait_impl(application, method, dispatch_self_ty)
+                        {
                             let inst = self
                                 .request_instantiation(resolution.func_name, resolution.type_args);
                             *callee = FuncRef::User(inst, Vec::new(), None);
