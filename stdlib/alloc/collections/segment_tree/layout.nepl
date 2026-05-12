@@ -1,0 +1,23 @@
+//: # segment_tree/layout
+//: Segment Tree の base / storage length 計算
+//:
+//: ### [目的/もくてき]
+//: - `base` の 2 冪丸めと `2 * base` storage invariant を 1 箇所に集めます。
+
+#indent 4
+
+#import "core/math" as *
+#import "alloc/collections/vec" as vec
+
+fn seg_next_pow2 <(i32)->i32> (n):
+    let mut x <i32> 1
+    while lt x n:
+        do:
+            set x mul x 2
+    x
+
+fn seg_expected_cells <(i32)->i32> (base):
+    mul base 2
+
+fn seg_storage_has_expected_len <(&Vec<i32>,i32)->bool> (data, base):
+    eq vec::len<i32> data seg_expected_cells base

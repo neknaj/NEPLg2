@@ -35364,3 +35364,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 segment_tree facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/segment_tree.nepl` に同居していた型定義、owner 返却つき update error、typed storage 操作、layout 計算、point update、range query、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/segment_tree.nepl` は public facade にし、`segment_tree/types.nepl`、`segment_tree/api.nepl` を `@merge` re-export するだけの構成にした。
+- `segment_tree/types.nepl` は `SegmentTree` / `SegmentTreeUpdateError` と、診断参照 accessor / owner 回収 accessor を所有する。
+- `segment_tree/storage.nepl` は tree cell の `Vec<i32>` read / replace と sibling pair sum を所有する。
+- `segment_tree/layout.nepl` は `base` の 2 冪丸め、`2 * base` cell count、storage length invariant check を所有する。
+- `segment_tree/mutation.nepl` は `replace` / `add` に重複していた leaf 更新後の親ノード再計算を `seg_rebuild_parents` に集約し、API 層の重複を削除した。
+- `segment_tree/range.nepl` は `[l, r)` iterative range traversal を所有する。
+- `segment_tree/api.nepl` は `new` / `len` / `replace` / `add` / `sum_range` / `free` を所有し、borrowed observer と owner-preserving `SegmentTreeUpdateError` の契約を維持する。
+- `nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_segment_tree_borrowed_observers.js`、`nodesrc/test_stdlib_segment_tree_update_error_owner.js` を更新し、root facade に実装本体が戻らないこと、typed `Vec<i32>` storage、layout / mutation / range の責務境界、borrowed query、owner-carrying error、raw memory 非使用を固定した。
+- line count は `segment_tree.nepl` 13、`segment_tree/types.nepl` 39、`segment_tree/storage.nepl` 28、`segment_tree/layout.nepl` 18、`segment_tree/mutation.nepl` 36、`segment_tree/range.nepl` 53、`segment_tree/api.nepl` 219。
+- [検証]:
+  - `node nodesrc/test_stdlib_segment_tree_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_segment_tree_update_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/segment_tree.nepl -i stdlib/alloc/collections/segment_tree/types.nepl -i stdlib/alloc/collections/segment_tree/storage.nepl -i stdlib/alloc/collections/segment_tree/layout.nepl -i stdlib/alloc/collections/segment_tree/mutation.nepl -i stdlib/alloc/collections/segment_tree/range.nepl -i stdlib/alloc/collections/segment_tree/api.nepl -i stdlib/tests/segment_tree.n.md -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/segment-tree-split-focused-after-build.json -j 4 --dist web/dist`: total=11, passed=11
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/segment-tree-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -1,0 +1,56 @@
+//: # segment_tree/range
+//: Segment Tree の区間和 query
+//:
+//: ### [目的/もくてき]
+//: - `[l, r)` query の iterative traversal を public API から分離します。
+//: - storage cell の欠損は `Option::None` として API 層へ返します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "./storage" as *
+
+fn seg_sum_range_storage <(&Vec<i32>,i32,i32,i32)->Option<i32>> (data, base, l, r):
+    let mut left <i32> add base l
+    let mut right <i32> add base r
+    let mut acc_l <i32> 0
+    let mut acc_r <i32> 0
+    let mut valid <bool> true
+    while and lt left right valid:
+        do:
+            if:
+                eq rem_s left 2 1
+                then:
+                    match seg_load_owned data left:
+                        Option::Some v:
+                            set acc_l add acc_l v
+                            set left add left 1
+                        Option::None:
+                            set valid false
+                else:
+                    ()
+            if:
+                and valid eq rem_s right 2 1
+                then:
+                    set right sub right 1
+                    match seg_load_owned data right:
+                        Option::Some v:
+                            set acc_r add v acc_r
+                        Option::None:
+                            set valid false
+                else:
+                    ()
+            if:
+                valid
+                then:
+                    set left div_s left 2
+                    set right div_s right 2
+                else:
+                    ()
+    if:
+        valid
+        then:
+            some<i32> add acc_l acc_r
+        else:
+            none<i32>

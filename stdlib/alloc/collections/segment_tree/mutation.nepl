@@ -1,0 +1,41 @@
+//: # segment_tree/mutation
+//: Segment Tree の point update と親ノード再計算
+//:
+//: ### [目的/もくてき]
+//: - `replace` と `add` に共通する leaf 更新後の親ノード再計算を集約します。
+//: - storage cell の欠損は `false` として API 層へ返し、API 層が owner-preserving error へ変換します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "./storage" as *
+
+fn seg_rebuild_parents <(&Vec<i32>,i32)*>bool> (data, leaf):
+    let mut pos <i32> leaf
+    let mut valid <bool> true
+    while and lt 1 pos valid:
+        do:
+            set pos div_s pos 2
+            let left <i32> mul pos 2
+            let right <i32> add left 1
+            match seg_pair_sum data left right:
+                Option::Some total:
+                    seg_store_owned data pos total
+                Option::None:
+                    set valid false
+    valid
+
+fn seg_replace_storage <(&Vec<i32>,i32,i32,i32)*>bool> (data, base, idx, value):
+    let leaf <i32> add base idx
+    seg_store_owned data leaf value
+    seg_rebuild_parents data leaf
+
+fn seg_add_storage <(&Vec<i32>,i32,i32,i32)*>bool> (data, base, idx, delta):
+    let leaf <i32> add base idx
+    match seg_load_owned data leaf:
+        Option::Some cur:
+            seg_store_owned data leaf add cur delta
+            seg_rebuild_parents data leaf
+        Option::None:
+            false
