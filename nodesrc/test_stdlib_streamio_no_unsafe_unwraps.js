@@ -11,6 +11,9 @@ const writerStateRelPath = 'stdlib/std/streamio/writer/state.nepl';
 const writerAppendRelPath = 'stdlib/std/streamio/writer/append.nepl';
 const inputRelPath = 'stdlib/std/streamio/input.nepl';
 const outputRelPath = 'stdlib/std/streamio/output.nepl';
+const outputTypesRelPath = 'stdlib/std/streamio/output/types.nepl';
+const outputStdoutRelPath = 'stdlib/std/streamio/output/stdout.nepl';
+const outputStderrRelPath = 'stdlib/std/streamio/output/stderr.nepl';
 const bytesRelPath = 'stdlib/std/streamio/bytes.nepl';
 const scannerRelPath = 'stdlib/std/streamio/scanner.nepl';
 const scannerCursorRelPath = 'stdlib/std/streamio/scanner/cursor.nepl';
@@ -24,6 +27,9 @@ const writerStateSrc = fs.readFileSync(path.join(repoRoot, writerStateRelPath), 
 const writerAppendSrc = fs.readFileSync(path.join(repoRoot, writerAppendRelPath), 'utf8');
 const inputSrc = fs.readFileSync(path.join(repoRoot, inputRelPath), 'utf8');
 const outputSrc = fs.readFileSync(path.join(repoRoot, outputRelPath), 'utf8');
+const outputTypesSrc = fs.readFileSync(path.join(repoRoot, outputTypesRelPath), 'utf8');
+const outputStdoutSrc = fs.readFileSync(path.join(repoRoot, outputStdoutRelPath), 'utf8');
+const outputStderrSrc = fs.readFileSync(path.join(repoRoot, outputStderrRelPath), 'utf8');
 const bytesSrc = fs.readFileSync(path.join(repoRoot, bytesRelPath), 'utf8');
 const scannerSrc = fs.readFileSync(path.join(repoRoot, scannerRelPath), 'utf8');
 const scannerCursorSrc = fs.readFileSync(path.join(repoRoot, scannerCursorRelPath), 'utf8');
@@ -56,6 +62,18 @@ const outputCode = outputSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
+const outputTypesCode = outputTypesSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const outputStdoutCode = outputStdoutSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const outputStderrCode = outputStderrSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
 const bytesCode = bytesSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
@@ -84,12 +102,15 @@ const scannerNumberFloatCode = scannerNumberFloatSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
-const code = `${facadeCode}\n${inputCode}\n${outputCode}\n${writerCode}\n${writerStateCode}\n${writerAppendCode}\n${bytesCode}\n${scannerCode}\n${scannerCursorCode}\n${scannerNumberCode}\n${scannerNumberIntCode}\n${scannerNumberFloatCode}\n${scannerStateCode}`;
+const code = `${facadeCode}\n${inputCode}\n${outputCode}\n${outputTypesCode}\n${outputStdoutCode}\n${outputStderrCode}\n${writerCode}\n${writerStateCode}\n${writerAppendCode}\n${bytesCode}\n${scannerCode}\n${scannerCursorCode}\n${scannerNumberCode}\n${scannerNumberIntCode}\n${scannerNumberFloatCode}\n${scannerStateCode}`;
 
 for (const [modulePath, srcText, maxLines] of [
     [relPath, src, 90],
     [inputRelPath, inputSrc, 220],
-    [outputRelPath, outputSrc, 280],
+    [outputRelPath, outputSrc, 80],
+    [outputTypesRelPath, outputTypesSrc, 90],
+    [outputStdoutRelPath, outputStdoutSrc, 180],
+    [outputStderrRelPath, outputStderrSrc, 180],
     [scannerNumberRelPath, scannerNumberSrc, 80],
     [scannerNumberIntRelPath, scannerNumberIntSrc, 240],
     [scannerNumberFloatRelPath, scannerNumberFloatSrc, 220],
@@ -107,6 +128,56 @@ assert.match(
     facadeCode,
     /pub\s+#import\s+"\.\/streamio\/output"\s+as\s+\*/,
     `${relPath} must re-export the output stream module`,
+);
+assert.match(
+    outputCode,
+    /pub\s+#import\s+"std\/streamio\/output\/types"\s+as\s+\*/,
+    `${outputRelPath} must re-export the output stream types module`,
+);
+assert.match(
+    outputCode,
+    /pub\s+#import\s+"std\/streamio\/output\/stdout"\s+as\s+\*/,
+    `${outputRelPath} must re-export the stdout stream module`,
+);
+assert.match(
+    outputCode,
+    /pub\s+#import\s+"std\/streamio\/output\/stderr"\s+as\s+\*/,
+    `${outputRelPath} must re-export the stderr stream module`,
+);
+assert.doesNotMatch(
+    outputCode,
+    /^\s*(struct|trait|impl|fn)\s/m,
+    `${outputRelPath} must stay a facade without output implementation bodies`,
+);
+assert.match(
+    outputTypesCode,
+    /struct\s+StdoutStream:[\s\S]*impl\s+Copy\s+for\s+StdoutStream[\s\S]*struct\s+StderrStream:[\s\S]*impl\s+Copy\s+for\s+StderrStream/,
+    `${outputTypesRelPath} must own lightweight output handle types`,
+);
+assert.doesNotMatch(
+    outputTypesCode,
+    /\b(?:stdio_write_bytes_result|stdio_write_stderr_bytes_result|io_write_str)\b/,
+    `${outputTypesRelPath} must not own stdout/stderr write behavior`,
+);
+assert.match(
+    outputStdoutCode,
+    /impl\s+ByteWriter\s+for\s+StdoutStream:[\s\S]*trait\s+StdoutWritable:[\s\S]*fn\s+write\s+<\.T:\s+StdoutWritable>[\s\S]*fn\s+writeln\s+<\(StdoutStream,\s*str\)/,
+    `${outputStdoutRelPath} must own StdoutStream writer behavior and convenience overloads`,
+);
+assert.doesNotMatch(
+    outputStdoutCode,
+    /\bStderrStream\b/,
+    `${outputStdoutRelPath} must not own stderr behavior`,
+);
+assert.match(
+    outputStderrCode,
+    /impl\s+ByteWriter\s+for\s+StderrStream:[\s\S]*trait\s+StderrWritable:[\s\S]*fn\s+write\s+<\.T:\s+StderrWritable>[\s\S]*fn\s+writeln\s+<\(StderrStream,\s*str\)/,
+    `${outputStderrRelPath} must own StderrStream writer behavior and convenience overloads`,
+);
+assert.doesNotMatch(
+    outputStderrCode,
+    /\bStdoutStream\b/,
+    `${outputStderrRelPath} must not own stdout behavior`,
 );
 assert.match(
     facadeCode,

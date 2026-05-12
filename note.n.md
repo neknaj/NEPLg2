@@ -1,3 +1,23 @@
+# 2026-05-12 Agent 2 std/streamio/output facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/std/streamio/output.nepl` に同居していた stdout/stderr handle 型、stdout writer 実装、stderr writer 実装を責務別 submodule に分割した。
+- `output.nepl` は `output/types`、`output/stdout`、`output/stderr` の public re-export と facade doctest だけを持つ構成にした。
+- `output/types.nepl` は `StdoutStream` / `StderrStream` と `Copy` / `Clone` 実装だけを所有する。
+- `output/stdout.nepl` は stdout の trait 実装、`StdoutWritable`、`write` / `writeln` / `flush` / `close` overload を所有する。
+- `output/stderr.nepl` は stderr の trait 実装、`StderrWritable`、`write` / `writeln` / `flush` / `close` overload を所有する。
+- `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を更新し、root facade に実装本体が戻らないこと、types/stdout/stderr の責務境界、line count boundary を固定した。
+- line count は `output.nepl` 26、`output/types.nepl` 40、`output/stdout.nepl` 87、`output/stderr.nepl` 87。
+- 検証:
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/output.nepl -i stdlib/std/streamio/output/types.nepl -i stdlib/std/streamio/output/stdout.nepl -i stdlib/std/streamio/output/stderr.nepl --no-tree -o tmp/streamio-output-split-output-only.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-output-split-streamio-md.json -j 1 --dist web/dist`: total=14, passed=14
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl -i stdlib/std/streamio/output.nepl -i stdlib/std/streamio/output/types.nepl -i stdlib/std/streamio/output/stdout.nepl -i stdlib/std/streamio/output/stderr.nepl --no-tree -o tmp/streamio-output-split-streamio-focused.json -j 1 --dist web/dist`: total=2, passed=2
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は stdlib の streamio output module を selfhost 前提で追いやすい責務境界へ分割するもの。
+
 # 2026-05-12 Agent 2 initialized_alias helper split
 
 - `ISS-20260512T063440093Z-RESOURCE-INITIALIZED-ALIAS-EXCEEDS-S-EB6E18E5` に対応した。

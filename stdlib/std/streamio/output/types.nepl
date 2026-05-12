@@ -1,0 +1,48 @@
+//: # streamio/output/types
+//: stdout / stderr stream handle 型
+//:
+//: ### [目的/もくてき]
+//: - output adapter の軽量 handle 型を stdout/stderr の実装本体から分離します。
+//: - 内部状態を持たない handle であることを Copy / Clone 実装で明示します。
+
+#indent 4
+
+#import "core/traits/copy" as *
+
+//: ## StdoutStream
+//: [標準出力/ひょうじゅんしゅつりょく]を[表/あらわ]す[軽量/けいりょう] handle
+//:
+//: ### [目的/もくてき]
+//: - `alloc/io` の write / flush / close trait [群/ぐん]に stdout を[載/の]せるための[具体型/ぐたいかた]を[与/あた]えます。
+//:
+//: ### [注意/ちゅうい]
+//: - [内部/ないぶ][状態/じょうたい]を[持/も]たないので `Copy` / `Clone` を[実装/じっそう]します。
+struct StdoutStream:
+    marker <()>
+
+impl Copy for StdoutStream:
+    fn copy_mark <(StdoutStream)->StdoutStream> (stream):
+        stream
+
+impl Clone for StdoutStream:
+    fn clone <(&StdoutStream)->StdoutStream> (stream):
+        *stream
+
+//: ## StderrStream
+//: [標準エラー/ひょうじゅんえらー]を[表/あらわ]す[軽量/けいりょう] handle
+//:
+//: ### [目的/もくてき]
+//: - diagnostic や progress log を stdout の artifact / JSON と[分離/ぶんり]して[書/か]けるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - [内部/ないぶ][状態/じょうたい]を[持/も]たないので `Copy` / `Clone` を[実装/じっそう]します。
+struct StderrStream:
+    marker <()>
+
+impl Copy for StderrStream:
+    fn copy_mark <(StderrStream)->StderrStream> (stream):
+        stream
+
+impl Clone for StderrStream:
+    fn clone <(&StderrStream)->StderrStream> (stream):
+        *stream
