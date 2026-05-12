@@ -12,6 +12,13 @@ use crate::runtime_helpers::{find_runtime_helper_key, RuntimeHelperKind};
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
+mod trait_lookup;
+
+use trait_lookup::{
+    MonoTraitApplication, MonoTraitLookupKey, MonoTraitMethodKey, TraitImplEntry,
+    TraitImplResolution,
+};
+
 macro_rules! mono_log {
     ($($arg:tt)*) => {{
         #[cfg(target_os = "none")]
@@ -191,75 +198,6 @@ struct Monomorphizer<'a> {
     impl_method_index: BTreeMap<MonoTraitMethodKey, Vec<usize>>,
     impl_entries: Vec<TraitImplEntry>,
     trait_lookup_cache: BTreeMap<MonoTraitLookupKey, Option<TraitImplResolution>>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct MonoTraitApplication {
-    base_name: String,
-    args: Vec<TypeId>,
-}
-
-impl MonoTraitApplication {
-    fn resolved(ctx: &TypeCtx, base_name: String, args: &[TypeId]) -> Self {
-        Self {
-            base_name,
-            args: args.iter().map(|arg| ctx.resolve_id(*arg)).collect(),
-        }
-    }
-
-    fn from_hir(ctx: &TypeCtx, application: &HirTraitApplication) -> Self {
-        Self::resolved(ctx, application.base_name.clone(), &application.args)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct MonoTraitMethodKey {
-    trait_base_name: String,
-    method: String,
-}
-
-impl MonoTraitMethodKey {
-    fn new(trait_base_name: String, method: String) -> Self {
-        Self {
-            trait_base_name,
-            method,
-        }
-    }
-
-    fn from_names(trait_base_name: &str, method: &str) -> Self {
-        Self::new(String::from(trait_base_name), String::from(method))
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct MonoTraitLookupKey {
-    application: MonoTraitApplication,
-    method: String,
-    self_ty: TypeId,
-}
-
-impl MonoTraitLookupKey {
-    fn new(application: MonoTraitApplication, method: String, self_ty: TypeId) -> Self {
-        Self {
-            application,
-            method,
-            self_ty,
-        }
-    }
-}
-
-#[derive(Clone)]
-struct TraitImplEntry {
-    application: MonoTraitApplication,
-    type_args: Vec<TypeId>,
-    target_ty: TypeId,
-    func_name: String,
-}
-
-#[derive(Clone)]
-struct TraitImplResolution {
-    func_name: String,
-    type_args: Vec<TypeId>,
 }
 
 impl<'a> Monomorphizer<'a> {

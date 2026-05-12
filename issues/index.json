@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T17:53:07.733Z",
+  "generated_at": "2026-05-12T18:05:36.911Z",
   "counts": {
-    "total": 667,
+    "total": 668,
     "open": 13,
-    "resolved": 654,
+    "resolved": 655,
     "by_area": {
       "core": {
-        "total": 349,
+        "total": 350,
         "open": 5,
-        "resolved": 344
+        "resolved": 345
       },
       "stdlib": {
         "total": 168,
@@ -5298,6 +5298,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T174845757Z-ABSTRACTION-POLICY-COUNTS-TRAITINFO--FE3DB746.md"
+    },
+    {
+      "id": "ISS-20260512T175900768Z-MONOMORPHIZE-TRAIT-LOOKUP-MODEL-EXCE-55B52B7E",
+      "title": "Monomorphize trait lookup model exceeds responsibility freeze",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/monomorphize.rs; nepl-core/src/monomorphize/trait_lookup.rs; nodesrc/test_parser_backend_responsibility_policy.js; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/parser_backend_responsibility_split_plan.md; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T175900768Z-MONOMORPHIZE-TRAIT-LOOKUP-MODEL-EXCE-55B52B7E.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

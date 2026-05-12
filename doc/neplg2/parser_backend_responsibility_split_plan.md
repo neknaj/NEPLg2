@@ -108,7 +108,12 @@
 ### M1: trait impl index
 
 - `monomorphize/impl_index.rs`: impl entry collection と lookup。
+- `monomorphize/trait_lookup.rs`: trait application key、trait method key、impl entry / resolution model。
 - `monomorphize/runtime_helper.rs`: helper specialization key selection。
+
+進捗:
+
+- 2026-05-12: `ISS-20260512T175900768Z-MONOMORPHIZE-TRAIT-LOOKUP-MODEL-EXCE-55B52B7E` を追加し、`MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` / `TraitImplEntry` / `TraitImplResolution` を `monomorphize/trait_lookup.rs` へ分離した。root `monomorphize.rs` の line limit は 1455 から 1425 へ下げ、新 module も 90 lines 上限で監視する。
 
 ### M2: specialization engine
 
@@ -127,6 +132,7 @@
 - この計画 document が存在し、P/B/M stage と関連 issue を含む。
 - `parser.rs` の重複 module doc が戻らない。
 - parser/backend/monomorphize の baseline line count を超えて責務を追加しない。
+- `monomorphize/trait_lookup.rs` が存在し、trait lookup model が root `monomorphize.rs` へ戻らない。
 - `run_source_policy_regressions.js` から policy が実行される。
 
 今後、実際の分割で module が追加されたら、line limit は新 module へ移し、root file の limit を段階的に下げる。limit を上げて問題を隠すことは禁止する。

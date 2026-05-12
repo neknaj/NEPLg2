@@ -58,7 +58,11 @@ assert(
 assertLineLimit("nepl-core/src/parser.rs", 4234);
 assertLineLimit("nepl-core/src/codegen_wasm.rs", 2574);
 assertLineLimit("nepl-core/src/codegen_llvm.rs", 4189);
-assertLineLimit("nepl-core/src/monomorphize.rs", 1455);
+assertLineLimit("nepl-core/src/monomorphize.rs", 1425);
+assertLineLimit("nepl-core/src/monomorphize/trait_lookup.rs", 90);
+
+const monomorphizeRoot = read(path.join(CORE_SRC, "monomorphize.rs"));
+assertContains(monomorphizeRoot, "mod trait_lookup;", "monomorphize root");
 
 const runner = read(RUNNER);
 assertContains(

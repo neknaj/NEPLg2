@@ -10,6 +10,13 @@ const FUNCTION_CHECK = path.join(TYPECHECK_DIR, "function_check.rs");
 const SELECTED_CALL_APPLY = path.join(TYPECHECK_DIR, "selected_call_apply.rs");
 const HIR = path.join(ROOT, "nepl-core", "src", "hir.rs");
 const MONOMORPHIZE = path.join(ROOT, "nepl-core", "src", "monomorphize.rs");
+const MONOMORPHIZE_TRAIT_LOOKUP = path.join(
+    ROOT,
+    "nepl-core",
+    "src",
+    "monomorphize",
+    "trait_lookup.rs",
+);
 const RESOURCE_MODEL = path.join(ROOT, "nepl-core", "src", "resource", "model.rs");
 const PLAN = path.join(ROOT, "doc", "neplg2", "abstraction_static_verification_plan.md");
 const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
@@ -170,6 +177,7 @@ const env = read(path.join(TYPECHECK_DIR, "env.rs"));
 const selectedCallApply = read(SELECTED_CALL_APPLY);
 const hir = read(HIR);
 const monomorphize = read(MONOMORPHIZE);
+const monomorphizeTraitLookup = read(MONOMORPHIZE_TRAIT_LOOKUP);
 const resourceModel = read(RESOURCE_MODEL);
 for (const [name, text] of [
     ["traits.rs", traits],
@@ -324,8 +332,12 @@ for (const marker of [
     "struct MonoTraitMethodKey",
     "struct MonoTraitLookupKey",
 ]) {
-    assert(monomorphize.includes(marker), `monomorphize.rs must define ${marker}`);
+    assert(monomorphizeTraitLookup.includes(marker), `monomorphize/trait_lookup.rs must define ${marker}`);
 }
+assert(
+    monomorphize.includes("mod trait_lookup;"),
+    "monomorphize.rs must keep trait lookup model in a dedicated module",
+);
 assert(
     monomorphize.includes("impl_map: BTreeMap<MonoTraitLookupKey, usize>"),
     "monomorphize exact impl lookup must use MonoTraitLookupKey",
@@ -348,8 +360,8 @@ for (const tupleKey of [
     "BTreeMap<(String, String, Vec<TypeId>, TypeId), Option<TraitImplResolution>>",
 ]) {
     assert(
-        !monomorphize.includes(tupleKey),
-        `monomorphize.rs must not use positional tuple key ${tupleKey}`,
+        !monomorphize.includes(tupleKey) && !monomorphizeTraitLookup.includes(tupleKey),
+        `monomorphize trait lookup must not use positional tuple key ${tupleKey}`,
     );
 }
 

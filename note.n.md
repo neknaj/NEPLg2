@@ -36652,3 +36652,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `agent1/abstraction-policy-implinfo-baseline` branch を作成し、Stage 6 の `ISS-20260512T174845757Z-ABSTRACTION-POLICY-COUNTS-TRAITINFO--FE3DB746` を追加した。
 - `nodesrc/test_abstraction_static_verification_policy.js` の `implInfoOptionString` global baseline を削除し、`ImplInfo` struct body 内の optional field 数を直接 0 件として検査するようにした。
 - `TraitInfo.doc` の `Option<String>` は documentation data であり、impl identity / enum-first policy の metric から切り離した。
+
+## 2026-05-13 Agent 1 monomorphize trait lookup module
+
+- `6fe32a0e` push 後に remote main を pull し、merge 済みの `agent1/abstraction-policy-implinfo-baseline` branch を削除した。
+- `agent1/monomorphize-trait-lookup-module` branch を作成し、`ISS-20260512T175900768Z-MONOMORPHIZE-TRAIT-LOOKUP-MODEL-EXCE-55B52B7E` を追加した。
+- `node nodesrc/test_parser_backend_responsibility_policy.js` が `monomorphize.rs` の freeze limit 超過を検出したため、line limit を上げずに `monomorphize/trait_lookup.rs` を追加した。
+- `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` / `TraitImplEntry` / `TraitImplResolution` を新 module へ移し、root `monomorphize.rs` は orchestration / specialization logic に戻した。
+- source policy に新 module の存在、`mod trait_lookup;`、root 1425 lines、新 module 90 lines の上限を追加した。
