@@ -19,6 +19,23 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-12 Agent 2 ringbuffer facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/ringbuffer.nepl` に同居していた型定義、circular index 計算、typed slot storage、grow 時 copy、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/ringbuffer.nepl` は public facade にし、`ringbuffer/types.nepl`、`ringbuffer/api.nepl` を `@merge` re-export するだけの構成にした。
+- `ringbuffer/types.nepl` は `RingBuffer<T>` / `RingBufferPop<T>` と `Vec<Option<T>>` storage invariant を所有する。
+- `ringbuffer/index.nepl` は capacity 正規化、tail index、next index を所有する。
+- `ringbuffer/storage.nepl` は slot read / replace、allocation、clear、grow 時 live slot copy を所有する。
+- `ringbuffer/api.nepl` は `new` / `with_capacity` / `len` / `cap` / `is_empty` / `push` / `pop_front` / `pop` / `peek` / `clear` / `free` を所有し、borrowed observer と typed storage cleanup の契約を維持する。
+- `nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_ringbuffer_borrowed_observers.js` を更新し、root facade、typed `Vec<Option<T>>` storage、borrowed observer、owner-preserving `RingBufferPop`、raw memory 非使用を固定した。
+- line count は `ringbuffer.nepl` 16、`ringbuffer/types.nepl` 33、`ringbuffer/index.nepl` 22、`ringbuffer/storage.nepl` 61、`ringbuffer/api.nepl` 146。
+- [検証]:
+  - `node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_ringbuffer_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/ringbuffer.nepl -i stdlib/alloc/collections/ringbuffer/types.nepl -i stdlib/alloc/collections/ringbuffer/index.nepl -i stdlib/alloc/collections/ringbuffer/storage.nepl -i stdlib/alloc/collections/ringbuffer/api.nepl -i stdlib/tests/ringbuffer.n.md -i tests/stdlib/ringbuffer_collections.n.md --no-tree -o tmp/ringbuffer-split-focused.json -j 1 --dist web/dist`: total=5, passed=5
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-12 Agent 2 pipe_collections List borrowed observer fixture issue
 
 - Queue 分割検証中に `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-queue-split.json -j 1 --dist web/dist` を実行し、`pipe_list_alias_chain` が `type.overload.no_match` で失敗することを確認した。

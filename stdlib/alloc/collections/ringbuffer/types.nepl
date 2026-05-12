@@ -1,0 +1,33 @@
+//: # ringbuffer/types
+//: FIFO ring buffer の owner 型と pop 結果型
+//:
+//: ### [目的/もくてき]
+//: - ring buffer state と backing storage owner を struct field として[表/あらわ]します。
+//: - raw header / raw element buffer ではなく、初期化済み `Vec<Option<T>>` で slot state を[表/あらわ]します。
+//:
+//: ### [不変条件/ふへんじょうけん]
+//: - `0 <= len <= cap`
+//: - `0 <= head < cap`
+//: - `items.len == cap`
+
+#indent 4
+
+#import "core/option" as *
+#import "alloc/collections/vec" as vec
+
+//: ## RingBuffer
+//: FIFO ring buffer の owner
+struct RingBuffer<.T>:
+    len <i32>
+    cap <i32>
+    head <i32>
+    items <Vec<Option<.T>>>
+
+//: ## RingBufferPop
+//: `pop_front` の[結果/けっか]
+//:
+//: ### [目的/もくてき]
+//: - [更新後/こうしんご]の buffer owner と[取/と]り[出/だ]した[値/あたい]を[同時/どうじ]に[返/かえ]します。
+struct RingBufferPop<.T>:
+    buffer <RingBuffer<.T>>
+    item <Option<.T>>

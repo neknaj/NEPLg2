@@ -7,12 +7,21 @@ const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/alloc/collections/ringbuffer.nepl";
-const src = fs.readFileSync(path.join(repoRoot, relPath), "utf8");
+const apiPath = "stdlib/alloc/collections/ringbuffer/api.nepl";
+const rootSrc = fs.readFileSync(path.join(repoRoot, relPath), "utf8");
+const apiSrc = fs.readFileSync(path.join(repoRoot, apiPath), "utf8");
 
-const code = src
+const rootCode = rootSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join("\n");
+const code = apiSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join("\n");
+
+assert.match(rootCode, /pub\s+#import\s+"\.\/ringbuffer\/api"\s+as\s+@merge/, "RingBuffer root must re-export API from a submodule");
+assert.doesNotMatch(rootCode, /\bfn\s+/, "RingBuffer root facade must not keep observer bodies");
 
 for (const [name, resultTy] of [
     ["len", "i32"],
