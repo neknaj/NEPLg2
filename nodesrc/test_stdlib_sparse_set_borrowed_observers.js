@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
-const relPath = "stdlib/alloc/collections/sparse_set.nepl";
+const relPath = "stdlib/alloc/collections/sparse_set/api.nepl";
 const src = fs.readFileSync(path.join(repoRoot, relPath), "utf8");
 
 const code = src

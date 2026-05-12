@@ -134,7 +134,9 @@ fn main <()*>i32> ():
             false
         Result::Ok s0:
             match insert s0 1:
-                Result::Err _e:
+                Result::Err e:
+                    let recovered <SparseSet> sparse_set_update_error_owner e
+                    free recovered
                     false
                 Result::Ok s1:
                     let r <Result<bool, Diag>> contains &s1 1;

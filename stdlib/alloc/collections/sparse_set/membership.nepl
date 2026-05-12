@@ -1,0 +1,37 @@
+//: # sparse_set/membership
+//: `SparseSet` の index validation と membership 判定
+//:
+//: ### [目的/もくてき]
+//: - `[0, n)` の domain 判定と dense/sparse invariant に基づく membership 判定を API から分離します。
+//: - storage 欠損は `false` として扱い、更新 API では mutation layer が owner-preserving error に変換できるようにします。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "alloc/collections/vec" as vec
+#import "./storage" as *
+
+fn sparse_set_valid_index <(i32,i32)->bool> (idx, n):
+    and le 0 idx lt idx n
+
+fn sparse_set_contains_raw <(i32,&Vec<i32>,&Vec<i32>,i32,i32)->bool> (n, dense, sparse, len0, value):
+    if:
+        not sparse_set_valid_index value n
+        then:
+            false
+        else:
+            match sparse_set_load_owned sparse value:
+                Option::Some idx:
+                    if:
+                        and le 0 idx lt idx len0
+                        then:
+                            match sparse_set_load_owned dense idx:
+                                Option::Some actual:
+                                    eq actual value
+                                Option::None:
+                                    false
+                        else:
+                            false
+                Option::None:
+                    false

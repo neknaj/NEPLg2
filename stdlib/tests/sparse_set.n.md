@@ -45,12 +45,26 @@ fn main <()*>i32> ():
     let s0 <SparseSet> unwrap_ok<SparseSet, Diag> new 6;
     let r0 <Result<bool, Diag>> contains &s0 8;
     let s1 <SparseSet> unwrap_ok<SparseSet, Diag> new 6;
-    let r1 <Result<SparseSet, Diag>> insert s1 8;
+    let ok1 <bool> match insert s1 8:
+        Result::Ok bad:
+            free bad
+            false
+        Result::Err e:
+            let _d <Diag> sparse_set_update_error_diag &e
+            let recovered <SparseSet> sparse_set_update_error_owner e
+            free recovered
+            true
     let s2 <SparseSet> unwrap_ok<SparseSet, Diag> new 6;
-    let r2 <Result<SparseSet, Diag>> remove s2 8;
+    let ok2 <bool> match remove s2 8:
+        Result::Ok bad:
+            free bad
+            false
+        Result::Err e:
+            let _d <Diag> sparse_set_update_error_diag &e
+            let recovered <SparseSet> sparse_set_update_error_owner e
+            free recovered
+            true
     let ok0 <bool> is_err<bool, Diag> r0;
-    let ok1 <bool> is_err<SparseSet, Diag> r1;
-    let ok2 <bool> is_err<SparseSet, Diag> r2;
     free s0
     if and ok0 and ok1 ok2 1 0
 ```

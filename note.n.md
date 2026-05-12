@@ -19,6 +19,29 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-12 Agent 2 sparse_set facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/sparse_set.nepl` に同居していた型定義、dense/sparse storage、membership 判定、insert/remove 更新、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/sparse_set.nepl` は public facade にし、`sparse_set/types.nepl`、`sparse_set/api.nepl` を `@merge` re-export するだけの構成にした。
+- `sparse_set/types.nepl` は `SparseSet` / `SparseSetUpdateError` と、診断参照 accessor / owner 回収 accessor を所有する。
+- `sparse_set/storage.nepl` は `Vec<i32>` cell read / replace、dense/sparse owner cleanup、固定長 allocation を所有する。
+- `sparse_set/membership.nepl` は index validation と dense/sparse invariant に基づく membership 判定を所有する。
+- `sparse_set/mutation.nepl` は insert/remove の dense/sparse 更新を集約し、更新前の cell 存在検査を `Option` で行うことで、`Vec.replace` の範囲外無視に依存しない契約にした。
+- `sparse_set/api.nepl` は `new` / `len` / `universe_len` / `contains` / `insert` / `remove` / `clear` / `free` を所有し、borrowed observer と owner-preserving `SparseSetUpdateError` の契約へ統一した。
+- `stdlib/tests/sparse_set.n.md` と `tests/stdlib/sparse_set_collections.n.md` は invalid update の `Err` から owner を回収して `free` する回帰テストへ更新した。
+- `nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_sparse_set_borrowed_observers.js`、`nodesrc/test_stdlib_sparse_set_update_error_owner.js` を更新 / 追加し、root facade、typed `Vec<i32>` storage、Option-aware read、borrowed observer、owner-carrying error、raw memory 非使用を固定した。
+- line count は `sparse_set.nepl` 13、`sparse_set/types.nepl` 42、`sparse_set/storage.nepl` 24、`sparse_set/membership.nepl` 33、`sparse_set/mutation.nepl` 56、`sparse_set/api.nepl` 245。
+- [検証]:
+  - `node nodesrc/test_stdlib_sparse_set_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_sparse_set_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_sparse_set_update_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/sparse_set.nepl -i stdlib/alloc/collections/sparse_set/types.nepl -i stdlib/alloc/collections/sparse_set/storage.nepl -i stdlib/alloc/collections/sparse_set/membership.nepl -i stdlib/alloc/collections/sparse_set/mutation.nepl -i stdlib/alloc/collections/sparse_set/api.nepl -i stdlib/tests/sparse_set.n.md -i tests/stdlib/sparse_set_collections.n.md --no-tree -o tmp/sparse-set-split-focused-after-build.json -j 4 --dist web/dist`: total=12, passed=12
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/sparse-set-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 2 std/text UTF-8 boundary split
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の追加対応として、`stdlib/std/text.nepl` を facade 化した。

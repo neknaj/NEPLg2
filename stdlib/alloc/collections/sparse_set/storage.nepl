@@ -1,0 +1,30 @@
+//: # sparse_set/storage
+//: `SparseSet` の typed `Vec<i32>` storage 操作
+//:
+//: ### [目的/もくてき]
+//: - dense/sparse cell の読み書き、2 本の owner cleanup、固定長 array allocation を集約します。
+//: - public API が raw pointer や null sentinel を扱わない構成を保ちます。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/result" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+
+fn sparse_set_load_owned <(&Vec<i32>,i32)->Option<i32>> (base, idx):
+    vec::get<i32> base idx
+
+fn sparse_set_store_owned <(&Vec<i32>,i32,i32)*>()> (base, idx, value):
+    vec::replace<i32> base idx value
+
+fn sparse_set_free_arrays <(Vec<i32>,Vec<i32>)->()> (dense, sparse):
+    vec::free<i32> dense
+    vec::free<i32> sparse
+
+fn sparse_set_alloc_array <(i32)*>Result<Vec<i32>, Diag>> (n):
+    match vec::filled<i32> n 0:
+        Result::Ok items:
+            ok<Vec<i32>, Diag> items
+        Result::Err _e:
+            diag_err<Vec<i32>> diag_out_of_memory
