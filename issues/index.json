@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T04:31:45.510Z",
+  "generated_at": "2026-05-12T04:45:42.180Z",
   "counts": {
-    "total": 623,
-    "open": 11,
+    "total": 624,
+    "open": 12,
     "resolved": 612,
     "by_area": {
       "core": {
@@ -12,8 +12,8 @@
         "resolved": 308
       },
       "static-check": {
-        "total": 2,
-        "open": 1,
+        "total": 3,
+        "open": 2,
         "resolved": 1
       },
       "stdlib": {
@@ -163,6 +163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T041752474Z-RESOURCE-OWNER-SUMMARY-REPORTS-CLIAR-97FEDA3D.md"
+    },
+    {
+      "id": "ISS-20260512T044438272Z-RESOURCE-OWNER-SUMMARY-REPORTS-TESTR-03F3C18F",
+      "title": "Resource owner summary reports TestReport print machine result as maybe leak",
+      "area": "static-check",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "stdlib/std/test/report.nepl, nepl-core/src/resource, stdlib/tests/btreemap.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T044438272Z-RESOURCE-OWNER-SUMMARY-REPORTS-TESTR-03F3C18F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",

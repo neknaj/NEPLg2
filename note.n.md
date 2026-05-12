@@ -1,3 +1,11 @@
+# 2026-05-12 Agent 2 TestReport owner leak issue 追加
+
+- BTreeMap API 分割の検証中に、`stdlib/tests/btreemap.n.md` が current main 相当でも `checks_print_machine__TestReport__TestReport__imp` の `resource.owner.maybe_leak` で 5/5 compile failure になることを確認した。
+- BTreeMap API 分割差分を `git stash` で退避した状態で `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md --no-tree -o tmp/btreemap-main-testreport-owner-repro.json -j 1 --dist web/dist` を実行し、total=5, passed=0, failed=5 を再現した。
+- 失敗関数は `print_i32` / ANSI ではなく `std/test/report` の `checks_print_machine` であり、既存の stdio/ANSI issue とは別の TestReport owner-flow 問題として `ISS-20260512T044438272Z-RESOURCE-OWNER-SUMMARY-REPORTS-TESTR-03F3C18F` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-12 Agent 2 disjoint_set API facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/disjoint_set/api.nepl` に同居していた診断生成、構築、借用 query、owner-consuming update、cleanup を責務別 submodule に分割した。
