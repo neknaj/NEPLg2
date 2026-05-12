@@ -6,46 +6,40 @@ use alloc::vec::Vec;
 use crate::hir::HirTraitApplication;
 use crate::types::{TypeCtx, TypeId};
 
+use super::trait_identity::{MonoTraitId, MonoTraitMethodId};
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct MonoTraitApplication {
-    pub(super) base_name: String,
+    pub(super) trait_id: MonoTraitId,
     pub(super) args: Vec<TypeId>,
 }
 
 impl MonoTraitApplication {
-    pub(super) fn resolved(ctx: &TypeCtx, base_name: String, args: &[TypeId]) -> Self {
+    pub(super) fn resolved(ctx: &TypeCtx, trait_id: MonoTraitId, args: &[TypeId]) -> Self {
         Self {
-            base_name,
+            trait_id,
             args: args.iter().map(|arg| ctx.resolve_id(*arg)).collect(),
         }
     }
 
     pub(super) fn from_hir(ctx: &TypeCtx, application: &HirTraitApplication) -> Self {
-        Self::resolved(ctx, application.base_name.clone(), &application.args)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) struct MonoTraitMethodId(String);
-
-impl MonoTraitMethodId {
-    pub(super) fn from_name(name: &str) -> Self {
-        Self(String::from(name))
+        Self::resolved(
+            ctx,
+            MonoTraitId::from_name(&application.base_name),
+            &application.args,
+        )
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct MonoTraitMethodKey {
-    trait_base_name: String,
+    trait_id: MonoTraitId,
     method: MonoTraitMethodId,
 }
 
 impl MonoTraitMethodKey {
-    pub(super) fn new(trait_base_name: String, method: MonoTraitMethodId) -> Self {
-        Self {
-            trait_base_name,
-            method,
-        }
+    pub(super) fn new(trait_id: MonoTraitId, method: MonoTraitMethodId) -> Self {
+        Self { trait_id, method }
     }
 }
 

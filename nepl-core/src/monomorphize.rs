@@ -12,11 +12,13 @@ use crate::runtime_helpers::{find_runtime_helper_key, RuntimeHelperKind};
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
+mod trait_identity;
 mod trait_lookup;
 
+use trait_identity::{MonoTraitId, MonoTraitMethodId};
 use trait_lookup::{
-    MonoTraitApplication, MonoTraitLookupKey, MonoTraitMethodId, MonoTraitMethodKey,
-    TraitImplEntry, TraitImplResolution,
+    MonoTraitApplication, MonoTraitLookupKey, MonoTraitMethodKey, TraitImplEntry,
+    TraitImplResolution,
 };
 
 macro_rules! mono_log {
@@ -78,7 +80,7 @@ fn monomorphize_internal(
                 func_name: m.func.name.clone(),
             });
             let method_key =
-                MonoTraitMethodKey::new(application.base_name.clone(), method_id.clone());
+                MonoTraitMethodKey::new(application.trait_id.clone(), method_id.clone());
             impl_map.insert(
                 MonoTraitLookupKey::new(application.clone(), method_id, ty),
                 entry_index,
@@ -493,8 +495,11 @@ impl<'a> Monomorphizer<'a> {
         method: &str,
         resolved_self_ty: TypeId,
     ) -> Option<TraitImplResolution> {
-        let application =
-            MonoTraitApplication::resolved(self.ctx, String::from(trait_name), trait_args);
+        let application = MonoTraitApplication::resolved(
+            self.ctx,
+            MonoTraitId::from_name(trait_name),
+            trait_args,
+        );
         let resolved_self_ty = self.ctx.resolve_id(resolved_self_ty);
         let method_id = MonoTraitMethodId::from_name(method);
         let cache_key =
@@ -509,7 +514,7 @@ impl<'a> Monomorphizer<'a> {
             self.trait_lookup_cache.insert(cache_key, found.clone());
             return found;
         }
-        let method_key = MonoTraitMethodKey::new(String::from(trait_name), method_id);
+        let method_key = MonoTraitMethodKey::new(MonoTraitId::from_name(trait_name), method_id);
         if let Some(candidates) = self.impl_method_index.get(&method_key).cloned() {
             for entry_index in candidates {
                 if let Some(found_resolution) =

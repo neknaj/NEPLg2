@@ -17,6 +17,13 @@ const MONOMORPHIZE_TRAIT_LOOKUP = path.join(
     "monomorphize",
     "trait_lookup.rs",
 );
+const MONOMORPHIZE_TRAIT_IDENTITY = path.join(
+    ROOT,
+    "nepl-core",
+    "src",
+    "monomorphize",
+    "trait_identity.rs",
+);
 const RESOURCE_MODEL = path.join(ROOT, "nepl-core", "src", "resource", "model.rs");
 const PLAN = path.join(ROOT, "doc", "neplg2", "abstraction_static_verification_plan.md");
 const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
@@ -178,6 +185,7 @@ const selectedCallApply = read(SELECTED_CALL_APPLY);
 const hir = read(HIR);
 const monomorphize = read(MONOMORPHIZE);
 const monomorphizeTraitLookup = read(MONOMORPHIZE_TRAIT_LOOKUP);
+const monomorphizeTraitIdentity = read(MONOMORPHIZE_TRAIT_IDENTITY);
 const resourceModel = read(RESOURCE_MODEL);
 for (const [name, text] of [
     ["traits.rs", traits],
@@ -328,17 +336,50 @@ assert(
     "ResourceCallTarget::Trait must not store split trait_args",
 );
 for (const marker of [
-    "struct MonoTraitApplication",
+    "struct MonoTraitId",
     "struct MonoTraitMethodId",
+]) {
+    assert(monomorphizeTraitIdentity.includes(marker), `monomorphize/trait_identity.rs must define ${marker}`);
+}
+assert(
+    !monomorphizeTraitLookup.includes("struct MonoTraitId"),
+    "monomorphize/trait_lookup.rs must not own trait identity type definitions",
+);
+assert(
+    !monomorphizeTraitLookup.includes("struct MonoTraitMethodId"),
+    "monomorphize/trait_lookup.rs must not own trait method identity type definitions",
+);
+for (const marker of [
+    "struct MonoTraitApplication",
     "struct MonoTraitMethodKey",
     "struct MonoTraitLookupKey",
 ]) {
     assert(monomorphizeTraitLookup.includes(marker), `monomorphize/trait_lookup.rs must define ${marker}`);
 }
+const monoTraitApplicationStruct = monomorphizeTraitLookup.match(
+    /struct MonoTraitApplication\s*\{[\s\S]*?\n\}/,
+);
+assert(monoTraitApplicationStruct, "MonoTraitApplication struct body must be visible to source policy");
+assert(
+    monoTraitApplicationStruct[0].includes("trait_id: MonoTraitId"),
+    "MonoTraitApplication must use typed MonoTraitId",
+);
+assert(
+    !monoTraitApplicationStruct[0].includes("base_name: String"),
+    "MonoTraitApplication must not store trait identity as raw String",
+);
 const monoTraitMethodKeyStruct = monomorphizeTraitLookup.match(
     /struct MonoTraitMethodKey\s*\{[\s\S]*?\n\}/,
 );
 assert(monoTraitMethodKeyStruct, "MonoTraitMethodKey struct body must be visible to source policy");
+assert(
+    monoTraitMethodKeyStruct[0].includes("trait_id: MonoTraitId"),
+    "MonoTraitMethodKey must use typed MonoTraitId",
+);
+assert(
+    !monoTraitMethodKeyStruct[0].includes("trait_base_name: String"),
+    "MonoTraitMethodKey must not store trait identity as raw String",
+);
 assert(
     monoTraitMethodKeyStruct[0].includes("method: MonoTraitMethodId"),
     "MonoTraitMethodKey must use typed MonoTraitMethodId",
@@ -362,6 +403,10 @@ assert(
 assert(
     monomorphize.includes("mod trait_lookup;"),
     "monomorphize.rs must keep trait lookup model in a dedicated module",
+);
+assert(
+    monomorphize.includes("mod trait_identity;"),
+    "monomorphize.rs must keep trait identity model in a dedicated module",
 );
 assert(
     monomorphize.includes("impl_map: BTreeMap<MonoTraitLookupKey, usize>"),

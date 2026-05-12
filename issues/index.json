@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T18:28:12.010Z",
+  "generated_at": "2026-05-12T18:44:29.920Z",
   "counts": {
-    "total": 669,
+    "total": 670,
     "open": 12,
-    "resolved": 657,
+    "resolved": 658,
     "by_area": {
       "core": {
-        "total": 351,
+        "total": 352,
         "open": 4,
-        "resolved": 347
+        "resolved": 348
       },
       "stdlib": {
         "total": 168,
@@ -5328,6 +5328,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T182144401Z-MONOMORPHIZE-TRAIT-LOOKUP-METHOD-IDE-99EBBCAC.md"
+    },
+    {
+      "id": "ISS-20260512T183111826Z-MONOMORPHIZE-TRAIT-APPLICATION-STILL-835C27CF",
+      "title": "Monomorphize trait application still exposes trait identity as raw String",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/monomorphize/trait_identity.rs; nepl-core/src/monomorphize/trait_lookup.rs; nepl-core/src/monomorphize.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T183111826Z-MONOMORPHIZE-TRAIT-APPLICATION-STILL-835C27CF.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
