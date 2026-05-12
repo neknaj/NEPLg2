@@ -589,7 +589,8 @@ fn main <()* >i32> ():
 ## list_get_out_of_bounds_err
 
 以前はコンパイル確認のみでした。
-`get` が範囲外アクセスで `None` を返す（= match の None 側に落ち、0 になる）ことを実行結果で確認するため、`ret: 0` を追加しました。
+`get` が範囲外アクセスで `None` を返す（= match の None 側に落ち、0 になる）ことを実行結果で確認します。
+現在の List observer は owner を消費しない `&List` API なので、borrowed read の後に caller 側で `free` します。
 
 neplg2:test
 ret: 0
@@ -603,12 +604,15 @@ ret: 0
 fn main <()* >i32> ():
     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
     let lst uwok cons<i32> 1 lst;
-    let r get<i32> lst 10;
-    match r:
-        Some v:
-            v
-        None:
-            0
+    let r get<i32> &lst 10;
+    let out <i32>:
+        match r:
+            Some v:
+                v
+            None:
+                0
+    free<i32> lst;
+    out
 ```
 
 ## non_exhaustive_match_is_error

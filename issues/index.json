@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T21:26:23.554Z",
+  "generated_at": "2026-05-12T21:32:57.547Z",
   "counts": {
     "total": 684,
-    "open": 10,
-    "resolved": 674,
+    "open": 9,
+    "resolved": 675,
     "by_area": {
       "core": {
         "total": 364,
@@ -18,8 +18,8 @@
       },
       "TEST": {
         "total": 18,
-        "open": 2,
-        "resolved": 16
+        "open": 1,
+        "resolved": 17
       },
       "selfhost": {
         "total": 62,
@@ -213,21 +213,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5",
-      "title": "collection compiler fixtures fail after stdlib API and layout changes",
-      "area": "TEST",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-12",
-      "updated": "2026-05-12",
-      "target": "tests/compiler/neplg2.n.md, tests/compiler/sizeof.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -8208,6 +8193,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T161416607Z-VFS-CROSS-FILE-DEFINITION-PATH-TREE--CCFBA9F9.md"
+    },
+    {
+      "id": "ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5",
+      "title": "collection compiler fixtures fail after stdlib API and layout changes",
+      "area": "TEST",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "tests/compiler/neplg2.n.md, tests/compiler/sizeof.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5.md"
     },
     {
       "id": "ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153",

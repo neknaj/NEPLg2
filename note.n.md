@@ -36834,3 +36834,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260512T212421953Z-SELFHOST-DIAGNOSTIC-CODE-ENUM-POLICY-656F8C6E` を追加し、D5 self-host diagnostic parity の source policy が leaf enum mapping を検査していない問題を切り出した。
 - `nodesrc/test_selfhost_diag_code_enum.js` で `Selfhost*DiagnosticCode` leaf enum variant を列挙し、対応する `selfhost_*_diag_code_name` に exactly once で現れることを検査するようにした。
 - leaf conversion function の wildcard arm と stage prefix drift も拒否し、self-host 側の stable diagnostic string 境界を enum-first / exhaustive-match 方針で監視する。
+
+## 2026-05-13 Agent 1 collection compiler fixture cleanup
+
+- `4d2590e2` push 後に remote main を pull し、`agent1/collection-compiler-fixtures` branch を作成した。
+- `ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5` を解決した。
+- `tests/compiler/neplg2.n.md` の List get fixture は現在の borrowed observer API に合わせて `get<i32> &lst 10` とし、read 後に `free<i32> lst` で owner を閉じるようにした。
+- `tests/compiler/sizeof.n.md` の collection layout fixture は旧固定値ではなく、`VecStorageState` / `MemPtr` / `Vec<Option<i32>>` から現在の layout expected size を計算する形へ更新した。
+- `HashMap` / `HashSet` は現在の hasher parameter 付き型を使うようにした。

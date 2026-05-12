@@ -206,22 +206,26 @@ ret: 0
 #indent 4
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/option" as *
+#import "core/traits/hash" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/stack" as *
 #import "alloc/collections/hashmap" as *
 #import "alloc/collections/hashset" as *
 
 fn main <()->i32> ():
+    let vec_expected <i32> add (add 4 4) (add size_of<VecStorageState> size_of<MemPtr<i32>>);
+    let stack_expected <i32> add (add 4 4) size_of<Vec<Option<i32>>>;
     if:
-        eq size_of<Vec<i32>> 12
+        eq size_of<Vec<i32>> vec_expected
         then:
             if:
-                eq size_of<Stack<i32>> 8
+                eq size_of<Stack<i32>> stack_expected
                 then:
                     if:
-                        gt size_of<HashMap<i32>> 0
+                        gt size_of<HashMap<i32, i32, DefaultHash32>> 0
                         then:
-                            if gt size_of<HashSet> 0 0 4
+                            if gt size_of<HashSet<i32, DefaultHash32>> 0 0 4
                         else:
                             3
                 else:
