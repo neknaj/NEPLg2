@@ -1,0 +1,78 @@
+//: # list/basic
+//: `List` の構築、先頭操作、反転、解放
+//:
+//: ### [目的/もくてき]
+//: - owner を消費して storage を作る/更新する基本操作を提供します。
+//: - observer は `query` module に分離し、owner 消費と borrow query を混在させません。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "./types" as *
+#import "./storage" as *
+
+//: new: [空/から] list を[作/つく]る
+//:
+//: ### [実装/じっそう]
+//: - `Vec.new` で backing storage を[作/つく]り、`List` owner として[包/つつ]みます。
+fn new <.T> <()*>Result<List<.T>, Diag>> ():
+    match vec::new<.T>:
+        Result::Ok items:
+            ok<List<.T>, Diag> List<.T> items
+        Result::Err e:
+            diag_err<List<.T>> list_diag_from_vec_error e
+
+//: cons: [先頭/せんとう]に[要素/ようそ]を[追加/ついか]する
+//:
+//: ### [実装/じっそう]
+//: - 論理先頭は storage 末尾なので、`Vec.push` だけで先頭追加になります。
+fn cons <.T: Copy> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
+    let items <Vec<.T>> field::get tail "items"
+    match vec::push<.T> items head:
+        Result::Ok next_items:
+            ok<List<.T>, Diag> List<.T> next_items
+        Result::Err e:
+            diag_err<List<.T>> list_diag_from_vec_error e
+
+//: push: pipe [向/む]けに[先頭/せんとう][追加/ついか]する
+fn push <.T: Copy> <(List<.T>,.T)*>Result<List<.T>, Diag>> (lst, head):
+    cons<.T> head lst
+
+//: tail: list を[消費/しょうひ]して[先頭/せんとう]を[除/のぞ]いた list を[返/かえ]す
+//:
+//: ### [実装/じっそう]
+//: - 論理先頭は storage 末尾なので、`Vec.pop` で先頭を[取/と]り[除/のぞ]きます。
+fn tail <.T: Copy> <(List<.T>)->Option<List<.T>>> (lst):
+    let items <Vec<.T>> field::get lst "items"
+    if:
+        eq vec::len<.T> &items 0
+        then:
+            vec::free<.T> items
+            none<List<.T>>
+        else:
+            let popped <VecPop<.T>> vec::pop<.T> items
+            let item <Option<.T>> field::get popped "item"
+            let next_items <Vec<.T>> field::get popped "vec"
+            match item:
+                Option::Some _head:
+                    some<List<.T>> List<.T> next_items
+                Option::None:
+                    vec::free<.T> next_items
+                    none<List<.T>>
+
+//: reverse: list を[消費/しょうひ]して[論理順序/ろんりじゅんじょ]を[反転/はんてん]する
+fn reverse <.T: Copy> <(List<.T>)*>List<.T>> (lst):
+    let items <Vec<.T>> field::get lst "items"
+    let n <i32> vec::len<.T> &items
+    list_reverse_items<.T> &items 0 sub n 1
+    List<.T> items
+
+//: free: list storage owner を[閉/と]じる
+fn free <.T> <(List<.T>)->()> (lst):
+    list_free_items<.T> lst

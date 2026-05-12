@@ -28,22 +28,24 @@ fn main <()*>i32> ():
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
     let first_rev <List<i32>> reverse<i32> src_first;
-    let first_ok <bool> match get<i32> first_rev 0:
+    let first_ok <bool> match get<i32> &first_rev 0:
         Option::Some x:
             eq x 3
         Option::None:
             false
+    free<i32> first_rev;
     let src_last <List<i32>>:
         unwrap_ok<List<i32>, Diag> new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
     let last_rev <List<i32>> reverse<i32> src_last;
-    let last_ok <bool> match get<i32> last_rev 2:
+    let last_ok <bool> match get<i32> &last_rev 2:
         Option::Some x:
             eq x 1
         Option::None:
             false
+    free<i32> last_rev;
     if and first_ok last_ok 1 0
 ```
 
@@ -71,7 +73,8 @@ ret: 1
 fn main <()*>i32> ():
     let empty <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
     let rev <List<i32>> reverse<i32> empty;
-    let ok <bool> is_empty<i32> rev
+    let ok <bool> is_empty<i32> &rev
+    free<i32> rev
     if ok 1 0
 ```
 
@@ -114,11 +117,13 @@ fn main <()*>i32> ():
         Result::Err _e:
             false
         Result::Ok mapped:
-            match get<i32> mapped 1:
+            let ok <bool> match get<i32> &mapped 1:
                 Option::Some x:
                     eq x 3
                 Option::None:
                     false
+            free<i32> mapped
+            ok
     let filter_src <List<i32>>:
         unwrap_ok<List<i32>, Diag> new<i32>
         |> push<i32> 4 |> uwok
@@ -129,6 +134,8 @@ fn main <()*>i32> ():
         Result::Err _e:
             false
         Result::Ok filtered:
-            eq len<i32> filtered 2
+            let ok <bool> eq len<i32> &filtered 2
+            free<i32> filtered
+            ok
     if and map_ok filter_ok 1 0
 ```

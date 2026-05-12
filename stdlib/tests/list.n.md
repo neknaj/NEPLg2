@@ -25,82 +25,97 @@ fn mk <()*>List<i32>> ():
 fn main <()*>i32> ():
     let mut checks checks_new;
     let l0 <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-    set checks checks_push checks check_eq_i32 0 len<i32> l0;
+    set checks checks_push checks check_eq_i32 0 len<i32> &l0;
+    free<i32> l0;
 
     let l0a <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
     let l1 <List<i32>> uwok cons<i32> 10 l0a;
-    set checks checks_push checks check_eq_i32 1 len<i32> l1;
+    set checks checks_push checks check_eq_i32 1 len<i32> &l1;
+    free<i32> l1;
 
     let l0b <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
     let l1b <List<i32>> uwok cons<i32> 10 l0b;
     let l2 <List<i32>> uwok cons<i32> 20 l1b;
-    set checks checks_push checks check_eq_i32 2 len<i32> l2;
+    set checks checks_push checks check_eq_i32 2 len<i32> &l2;
+    free<i32> l2;
 
     let l3 <List<i32>> mk;
-    set checks checks_push checks check_eq_i32 3 len<i32> l3;
+    set checks checks_push checks check_eq_i32 3 len<i32> &l3;
+    free<i32> l3;
 
     let l3_0 <List<i32>> mk;
-    let l3_1 <List<i32>> mk;
-    let l3_2 <List<i32>> mk;
-    match get<i32> l3_0 0:
+    match get<i32> &l3_0 0:
         Option::Some x:
             set checks checks_push checks check_eq_i32 30 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "get 0 returned None";
+    free<i32> l3_0;
 
-    match get<i32> l3_1 1:
+    let l3_1 <List<i32>> mk;
+    match get<i32> &l3_1 1:
         Option::Some x:
             set checks checks_push checks check_eq_i32 20 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "get 1 returned None";
+    free<i32> l3_1;
 
-    match get<i32> l3_2 2:
+    let l3_2 <List<i32>> mk;
+    match get<i32> &l3_2 2:
         Option::Some x:
             set checks checks_push checks check_eq_i32 10 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "get 2 returned None";
+    free<i32> l3_2;
 
     let l3_3 <List<i32>> mk;
+    set checks checks_push checks check is_none<i32> get<i32> &l3_3 3;
+    free<i32> l3_3;
+
     let l3_100 <List<i32>> mk;
-    set checks checks_push checks check is_none<i32> get<i32> l3_3 3;
-    set checks checks_push checks check is_none<i32> get<i32> l3_100 100;
+    set checks checks_push checks check is_none<i32> get<i32> &l3_100 100;
+    free<i32> l3_100;
 
     let l3_n1 <List<i32>> mk;
-    set checks checks_push checks check is_none<i32> get<i32> l3_n1 -1;
+    set checks checks_push checks check is_none<i32> get<i32> &l3_n1 -1;
+    free<i32> l3_n1;
 
     let l3h <List<i32>> mk;
-    match head<i32> l3h:
+    match head<i32> &l3h:
         Option::Some x:
             set checks checks_push checks check_eq_i32 30 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "head returned None";
+    free<i32> l3h;
 
     let l3t <List<i32>> mk;
     match tail<i32> l3t:
         Option::Some l3_tail:
-            match head<i32> l3_tail:
+            match head<i32> &l3_tail:
                 Option::Some x:
                     set checks checks_push checks check_eq_i32 20 x
                 Option::None:
                     set checks checks_push checks Result<(),str>::Err "head tail returned None";
+            free<i32> l3_tail
         Option::None:
             set checks checks_push checks Result<(),str>::Err "tail returned None";
 
     let l3r0 <List<i32>> mk;
     let l_rev <List<i32>> reverse<i32> l3r0;
-    match get<i32> l_rev 0:
+    match get<i32> &l_rev 0:
         Option::Some x:
             set checks checks_push checks check_eq_i32 10 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "get reverse 0 returned None";
+    free<i32> l_rev;
 
     let l3r1 <List<i32>> mk;
     let l_rev2 <List<i32>> reverse<i32> l3r1;
-    match get<i32> l_rev2 2:
+    match get<i32> &l_rev2 2:
         Option::Some x:
             set checks checks_push checks check_eq_i32 30 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "get reverse 2 returned None";
+    free<i32> l_rev2;
 
     let lf <List<i32>> mk;
     free<i32> lf;
@@ -151,62 +166,72 @@ fn main <()*>i32> ():
 
     let mapped_src0 <List<i32>> mk;
     let mapped0 <List<i32>> uwok map<i32,i32> mapped_src0 inc;
-    match get<i32> mapped0 0:
+    match get<i32> &mapped0 0:
         Option::Some x:
             set checks checks_push checks check_eq_i32 2 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "map get 0 returned None";
+    free<i32> mapped0;
 
     let mapped_src3 <List<i32>> mk;
     let mapped3 <List<i32>> uwok map<i32,i32> mapped_src3 inc;
-    match get<i32> mapped3 3:
+    match get<i32> &mapped3 3:
         Option::Some x:
             set checks checks_push checks check_eq_i32 5 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "map get 3 returned None";
+    free<i32> mapped3;
 
     let filtered_len_src <List<i32>> mk;
     let filtered_len_list <List<i32>> uwok filter<i32> filtered_len_src is_even;
-    set checks checks_push checks check_eq_i32 2 len<i32> filtered_len_list;
+    set checks checks_push checks check_eq_i32 2 len<i32> &filtered_len_list;
+    free<i32> filtered_len_list;
 
     let filtered_src0 <List<i32>> mk;
     let filtered0 <List<i32>> uwok filter<i32> filtered_src0 is_even;
-    match get<i32> filtered0 0:
+    match get<i32> &filtered0 0:
         Option::Some x:
             set checks checks_push checks check_eq_i32 2 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "filter get 0 returned None";
+    free<i32> filtered0;
 
     let filtered_src1 <List<i32>> mk;
     let filtered1 <List<i32>> uwok filter<i32> filtered_src1 is_even;
-    match get<i32> filtered1 1:
+    match get<i32> &filtered1 1:
         Option::Some x:
             set checks checks_push checks check_eq_i32 4 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "filter get 1 returned None";
+    free<i32> filtered1;
 
     let folded_src <List<i32>> mk;
-    set checks checks_push checks check_eq_i32 10 fold<i32,i32> folded_src 0 add_acc;
+    set checks checks_push checks check_eq_i32 10 fold<i32,i32> &folded_src 0 add_acc;
+    free<i32> folded_src;
 
     let reduced_src <List<i32>> mk;
-    match reduce<i32> reduced_src add_acc:
+    match reduce<i32> &reduced_src add_acc:
         Option::Some x:
             set checks checks_push checks check_eq_i32 10 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "reduce returned None";
+    free<i32> reduced_src;
 
     let find_src <List<i32>> mk;
-    match find<i32> find_src gt_two:
+    match find<i32> &find_src gt_two:
         Option::Some x:
             set checks checks_push checks check_eq_i32 3 x
         Option::None:
             set checks checks_push checks Result<(),str>::Err "find returned None";
+    free<i32> find_src;
 
     let any_src <List<i32>> mk;
-    set checks checks_push checks check any<i32> any_src gt_two;
+    set checks checks_push checks check any<i32> &any_src gt_two;
+    free<i32> any_src;
 
     let all_src <List<i32>> mk;
-    set checks checks_push checks check not all<i32> all_src is_even;
+    set checks checks_push checks check not all<i32> &all_src is_even;
+    free<i32> all_src;
 
     let shown checks_print_report checks;
     checks_exit_code shown

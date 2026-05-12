@@ -1,0 +1,145 @@
+//: # list/query
+//: `List` の borrowed observer
+//:
+//: ### [目的/もくてき]
+//: - owner を消費せずに長さ、要素、畳み込み、探索を行います。
+//: - caller は observer 呼び出し後も同じ `List` owner を保持し、最後に `free` します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/collections/vec" as vec
+#import "./types" as *
+#import "./storage" as *
+
+//: len: list を[借用/しゃくよう]して[要素数/ようそすう]を[返/かえ]す
+fn len <.T> <(&List<.T>)->i32> (lst):
+    let items <&Vec<.T>> field::get_ref lst "items"
+    vec::len<.T> items
+
+//: is_empty: list を[借用/しゃくよう]して[空/から]かどうかを[返/かえ]す
+fn is_empty <.T> <(&List<.T>)->bool> (lst):
+    eq len<.T> lst 0
+
+//: get: list を[借用/しゃくよう]して[指定位置/していいち]の[要素/ようそ]を[返/かえ]す
+//:
+//: ### [実装/じっそう]
+//: - 論理 index 0 は storage 末尾なので、`len - 1 - idx` へ[変換/へんかん]して `Vec.get` します。
+fn get <.T: Copy> <(&List<.T>,i32)->Option<.T>> (lst, idx):
+    let items <&Vec<.T>> field::get_ref lst "items"
+    let n <i32> vec::len<.T> items
+    if:
+        or lt idx 0 le n idx
+        then:
+            none<.T>
+        else:
+            vec::get<.T> items list_physical_index n idx
+
+//: head: list を[借用/しゃくよう]して[先頭/せんとう][要素/ようそ]を[返/かえ]す
+fn head <.T: Copy> <(&List<.T>)->Option<.T>> (lst):
+    get<.T> lst 0
+
+//: fold: list を[借用/しゃくよう]して[左/ひだり]から[畳/たた]み[込/こ]む
+fn fold <.T: Copy,.U> <(&List<.T>, .U, (.U,.T)->.U)->.U> (lst, acc, f):
+    let items <&Vec<.T>> field::get_ref lst "items"
+    let mut remaining <i32> vec::len<.T> items
+    let mut out <.U> acc
+    while gt remaining 0:
+        do:
+            set remaining sub remaining 1
+            match vec::get<.T> items remaining:
+                Option::Some value:
+                    set out f out value
+                Option::None:
+                    set remaining 0
+    out
+
+//: reduce: list を[借用/しゃくよう]して[初期値/しょきち]なしで[畳/たた]み[込/こ]む
+fn reduce <.T: Copy> <(&List<.T>, (.T,.T)->.T)->Option<.T>> (lst, f):
+    let items <&Vec<.T>> field::get_ref lst "items"
+    let n <i32> vec::len<.T> items
+    if:
+        eq n 0
+        then:
+            none<.T>
+        else:
+            match vec::get<.T> items sub n 1:
+                Option::None:
+                    none<.T>
+                Option::Some first:
+                    let mut remaining <i32> sub n 1
+                    let mut out <.T> first
+                    while gt remaining 0:
+                        do:
+                            set remaining sub remaining 1
+                            match vec::get<.T> items remaining:
+                                Option::Some value:
+                                    set out f out value
+                                Option::None:
+                                    set remaining 0
+                    some<.T> out
+
+//: find: 条件に[合/あ]う[最初/さいしょ]の[要素/ようそ]を[返/かえ]す
+fn find <.T: Copy> <(&List<.T>, (.T)->bool)->Option<.T>> (lst, p):
+    let items <&Vec<.T>> field::get_ref lst "items"
+    let mut remaining <i32> vec::len<.T> items
+    let mut found <Option<.T>> none<.T>
+    let mut done <bool> false
+    while and gt remaining 0 not done:
+        do:
+            set remaining sub remaining 1
+            match vec::get<.T> items remaining:
+                Option::Some value:
+                    if:
+                        p value
+                        then:
+                            set found some<.T> value
+                            set done true
+                        else:
+                            ()
+                Option::None:
+                    set done true
+    found
+
+//: any: 条件を[満/み]たす[要素/ようそ]が 1 つでもあるか[返/かえ]す
+fn any <.T: Copy> <(&List<.T>, (.T)->bool)->bool> (lst, p):
+    let items <&Vec<.T>> field::get_ref lst "items"
+    let mut remaining <i32> vec::len<.T> items
+    let mut result <bool> false
+    while and gt remaining 0 not result:
+        do:
+            set remaining sub remaining 1
+            match vec::get<.T> items remaining:
+                Option::Some value:
+                    if:
+                        p value
+                        then:
+                            set result true
+                        else:
+                            ()
+                Option::None:
+                    set remaining 0
+    result
+
+//: all: 全要素が条件を[満/み]たすか[返/かえ]す
+fn all <.T: Copy> <(&List<.T>, (.T)->bool)->bool> (lst, p):
+    let items <&Vec<.T>> field::get_ref lst "items"
+    let mut remaining <i32> vec::len<.T> items
+    let mut result <bool> true
+    while and gt remaining 0 result:
+        do:
+            set remaining sub remaining 1
+            match vec::get<.T> items remaining:
+                Option::Some value:
+                    if:
+                        p value
+                        then:
+                            ()
+                        else:
+                            set result false
+                Option::None:
+                    set result false
+    result

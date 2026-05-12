@@ -35387,3 +35387,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 list facade 分割と borrowed observer 化
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/list.nepl` に同居していた型定義、Vec storage helper、構築/先頭操作、observer、map/filter を責務別 submodule に分割した。
+- `stdlib/alloc/collections/list.nepl` は public facade にし、`list/types.nepl`、`list/basic.nepl`、`list/query.nepl`、`list/transform.nepl` を `@merge` re-export するだけの構成にした。
+- `list/types.nepl` は `List<T>` と `Vec<T>` owner storage invariant を所有する。
+- `list/storage.nepl` は Vec error 変換、論理 index から物理 index への変換、storage owner free、in-place reverse swap を所有する。
+- `list/basic.nepl` は `new` / `cons` / `push` / `tail` / `reverse` / `free` を所有し、owner を消費する基本操作だけに集中させた。
+- `list/query.nepl` は `len` / `is_empty` / `get` / `head` / `fold` / `reduce` / `find` / `any` / `all` を borrowed observer として所有し、observer が storage を閉じない契約へ変更した。
+- `list/transform.nepl` は `map` / `filter` を所有し、input owner を消費し output `Vec` を構築する責務だけに分離した。
+- `stdlib/tests/list.n.md` と `tests/stdlib/list_collections.n.md` は borrowed observer 呼び出しと明示 `free` に更新した。
+- `nodesrc/test_stdlib_list_no_unsafe_unwraps.js` を更新し、root facade に実装本体が戻らないこと、typed `Vec<T>` storage、borrowed observer、明示 `free` test、raw memory 非使用を固定した。
+- line count は `list.nepl` 15、`list/types.nepl` 18、`list/storage.nepl` 42、`list/basic.nepl` 70、`list/query.nepl` 134、`list/transform.nepl` 98。
+- [検証]:
+  - `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/list.nepl -i stdlib/alloc/collections/list/types.nepl -i stdlib/alloc/collections/list/storage.nepl -i stdlib/alloc/collections/list/basic.nepl -i stdlib/alloc/collections/list/query.nepl -i stdlib/alloc/collections/list/transform.nepl -i stdlib/tests/list.n.md -i tests/stdlib/list_collections.n.md --no-tree -o tmp/list-split-focused-after-build.json -j 4 --dist web/dist`: total=5, passed=5
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/list-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
