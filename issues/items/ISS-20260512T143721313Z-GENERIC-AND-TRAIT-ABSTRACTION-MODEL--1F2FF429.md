@@ -68,6 +68,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T183111826Z-MONOMORPHIZE-TRAIT-APPLICATION-STILL-835C27CF` で、monomorphize trait lookup の trait identity を `MonoTraitId` newtype へ移行した。`MonoTraitApplication` / `MonoTraitMethodKey` は raw trait `String` field を持たず、identity type は `monomorphize/trait_identity.rs` に分離した。
 - `ISS-20260512T185123437Z-TYPECHECK-TRAITAPPLICATION-STILL-STO-F6F9CDD1` で、typecheck-side `TraitApplication` の trait identity を `TraitId` newtype へ移行した。`BoundEnv` / impl matching / trait method inference は `TraitId` を受け取り、表示文字列は diagnostic/display 境界に限定した。
 - `ISS-20260512T190305376Z-HIR-AND-RESOURCE-TRAIT-APPLICATIONS--0B41B202` で、HIR / Resource IR の trait application identity を `HirTraitId` / `ResourceTraitId` newtype へ移行した。monomorphize と Resource lowering は `as_str()` 境界でのみ文字列化する。
+- `ISS-20260512T191325765Z-HIR-AND-RESOURCE-TRAIT-METHOD-IDENTI-78952D7B` で、HIR / Resource IR の trait method identity を `HirTraitMethodId` / `ResourceTraitMethodId` newtype へ移行した。`FuncRef::Trait` / `ResourceCallTarget::Trait` は raw `String` method field を持たない。
 
 ## 検証
 

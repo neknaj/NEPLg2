@@ -4226,7 +4226,7 @@ fn resource_drop_insertion_consumes_checked_scope_and_assignment_points() {
             HirExprKind::Call { callee, args } => {
                 let own = usize::from(matches!(
                     callee,
-                    FuncRef::Trait { method, .. } if method == "drop"
+                    FuncRef::Trait { method, .. } if method.as_str() == "drop"
                 ));
                 own + args.iter().map(count_trait_drop_calls).sum::<usize>()
             }

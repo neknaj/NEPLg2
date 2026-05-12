@@ -10,6 +10,8 @@ pub use crate::effects::{ExternalIoOp, NondetOp, RawMemoryOp};
 use crate::span::Span;
 use crate::types::TypeId;
 
+pub use super::trait_identity::{ResourceTraitApplication, ResourceTraitMethodId};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ResourceId(pub usize);
 
@@ -219,34 +221,6 @@ pub enum ResourceExprKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResourceTraitId(String);
-
-impl ResourceTraitId {
-    pub fn from_name(name: String) -> Self {
-        Self(name)
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResourceTraitApplication {
-    pub trait_id: ResourceTraitId,
-    pub args: Vec<TypeId>,
-}
-
-impl ResourceTraitApplication {
-    pub fn new(base_name: String, args: Vec<TypeId>) -> Self {
-        Self {
-            trait_id: ResourceTraitId::from_name(base_name),
-            args,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResourceCallTarget {
     Builtin {
         name: String,
@@ -257,7 +231,7 @@ pub enum ResourceCallTarget {
     },
     Trait {
         application: ResourceTraitApplication,
-        method: String,
+        method: ResourceTraitMethodId,
         self_ty: TypeId,
     },
 }

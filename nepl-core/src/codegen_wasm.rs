@@ -764,7 +764,7 @@ fn missing_direct_call_name(ctx: &TypeCtx, callee: &FuncRef) -> String {
         } => {
             let mut s = application.display_name(ctx);
             s.push_str("::");
-            s.push_str(method);
+            s.push_str(method.as_str());
             s.push_str(" [self=");
             s.push_str(&ctx.type_to_string(*self_ty));
             s.push(']');

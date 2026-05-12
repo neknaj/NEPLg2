@@ -54,7 +54,7 @@ fn resource_call_target_base_name(target: &ResourceCallTarget) -> Option<&str> {
         ResourceCallTarget::Builtin { name } | ResourceCallTarget::User { name, .. } => {
             Some(helper_base_name(name))
         }
-        ResourceCallTarget::Trait { method, .. } => Some(helper_base_name(method)),
+        ResourceCallTarget::Trait { method, .. } => Some(helper_base_name(method.as_str())),
     }
 }
 

@@ -664,7 +664,7 @@ fn dump_call_target(target: &ResourceCallTarget) -> String {
             "trait({}<{}>::{} self=t{})",
             application.trait_id.as_str(),
             dump_type_list(&application.args),
-            method,
+            method.as_str(),
             self_ty.0
         ),
     }

@@ -162,6 +162,19 @@ impl HirTraitId {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HirTraitMethodId(String);
+
+impl HirTraitMethodId {
+    pub fn from_name(name: String) -> Self {
+        Self(name)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HirTraitApplication {
     pub trait_id: HirTraitId,
     pub args: Vec<TypeId>,
@@ -198,7 +211,7 @@ pub enum FuncRef {
     User(String, Vec<TypeId>, Option<DefId>),
     Trait {
         application: HirTraitApplication,
-        method: String,
+        method: HirTraitMethodId,
         self_ty: TypeId,
     },
 }

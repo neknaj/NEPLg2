@@ -33,7 +33,7 @@ use super::model::{
     AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, ResourceBlock, ResourceBlockId,
     ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
     ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
-    ResourceTraitApplication,
+    ResourceTraitApplication, ResourceTraitMethodId,
 };
 
 pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
@@ -1022,7 +1022,7 @@ fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) -> EffectOp
             method,
             ..
         } => EffectOp::UserCall {
-            name: alloc::format!("{}::{}", application.trait_id.as_str(), method),
+            name: alloc::format!("{}::{}", application.trait_id.as_str(), method.as_str()),
             effect: Effect::Pure,
         },
     }
@@ -1062,7 +1062,7 @@ fn lower_call_target(callee: &FuncRef) -> ResourceCallTarget {
                 application.trait_id.as_str().to_string(),
                 application.args.clone(),
             ),
-            method: method.clone(),
+            method: ResourceTraitMethodId::from_name(method.as_str().to_string()),
             self_ty: *self_ty,
         },
     }
