@@ -42,6 +42,22 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-12 Agent 2 deque facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/deque.nepl` に同居していた型定義、両端 circular index 計算、typed slot storage、grow 時 copy、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/deque.nepl` は public facade にし、`deque/types.nepl`、`deque/api.nepl` を `@merge` re-export するだけの構成にした。
+- `deque/types.nepl` は `Deque<T>` と `Vec<Option<T>>` storage invariant を所有する。
+- `deque/index.nepl` は capacity 正規化、prev index、tail index、back index を所有する。旧 root の未使用 `deque_next_index` は残していない。
+- `deque/storage.nepl` は slot read / replace、allocation、clear、grow 時 live slot copy を所有する。
+- `deque/api.nepl` は `new` / `with_capacity` / `len` / `cap` / `is_empty` / `push_front` / `push_back` / `pop_front` / `pop_back` / `peek_front` / `peek_back` / `clear` / `free` を所有し、borrowed observer と typed storage cleanup の契約を維持する。
+- `nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js` を更新し、root facade、typed `Vec<Option<T>>` storage、borrowed observer、raw memory 非使用を固定した。
+- line count は `deque.nepl` 16、`deque/types.nepl` 24、`deque/index.nepl` 26、`deque/storage.nepl` 62、`deque/api.nepl` 186。
+- [検証]:
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/deque.nepl -i stdlib/alloc/collections/deque/types.nepl -i stdlib/alloc/collections/deque/index.nepl -i stdlib/alloc/collections/deque/storage.nepl -i stdlib/alloc/collections/deque/api.nepl -i stdlib/tests/deque.n.md -i tests/stdlib/deque_collections.n.md --no-tree -o tmp/deque-split-focused.json -j 1 --dist web/dist`: total=6, passed=6
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-12 Agent 2 stack facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/stack.nepl` に同居していた型定義、capacity 正規化、typed slot storage、grow 時 copy、public API を責務別 submodule に分割した。

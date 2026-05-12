@@ -1,0 +1,62 @@
+//: # deque/storage
+//: `Vec<Option<T>>` による deque slot storage 操作
+//:
+//: ### [目的/もくてき]
+//: - slot の[読/よ]み[出/だ]し、置換、初期化、clear、grow 時 copy を API 本体から[分/わ]けます。
+//: - raw pointer や数値 sentinel ではなく、`Option<T>` の `Some` / `None` を slot state として[使/つか]います。
+//:
+//: ### [注意/ちゅうい]
+//: - `.T` は `Copy` です。非 Copy payload の drop traversal は collection-wide drop 設計で扱います。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+
+//: deque_item_at: slot の `Option<T>` を[読/よ]み[出/だ]す
+fn deque_item_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (items, idx):
+    match vec::get<Option<.T>> items idx:
+        Option::Some item:
+            item
+        Option::None:
+            none<.T>
+
+//: deque_store_slot: slot state を[更新/こうしん]する
+fn deque_store_slot <.T: Copy> <(&Vec<Option<.T>>,i32,Option<.T>)*>()> (items, idx, item):
+    vec::replace<Option<.T>> items idx item
+
+//: deque_alloc_slots: `None` で[初期化/しょきか]した slot storage を[確保/かくほ]する
+fn deque_alloc_slots <.T: Copy> <(i32)*>Result<Vec<Option<.T>>, Diag>> (cap):
+    match vec::filled<Option<.T>> cap none<.T>:
+        Result::Ok items:
+            ok<Vec<Option<.T>>, Diag> items
+        Result::Err _e:
+            diag_err<Vec<Option<.T>>> diag_out_of_memory
+
+//: deque_clear_slots_loop: 全 slot を `None` に[戻/もど]す
+fn deque_clear_slots_loop <.T: Copy> <(&Vec<Option<.T>>,i32,i32)*>()> (items, cap, i):
+    if:
+        lt i cap
+        then:
+            deque_store_slot<.T> items i none<.T>
+            deque_clear_slots_loop<.T> items cap add i 1
+        else:
+            ()
+
+//: deque_copy_live_slots: live slot を[論理順/ろんりじゅん]に[新/あたら]しい storage へ[写/うつ]す
+fn deque_copy_live_slots <.T: Copy> <(&Vec<Option<.T>>,&Vec<Option<.T>>,i32,i32,i32,i32)*>()> (src, dst, cap, head, len, dst_start):
+    let mut i <i32> 0
+    while lt i len:
+        do:
+            let src_idx <i32> rem_u add head i cap
+            let dst_idx <i32> add dst_start i
+            match deque_item_at<.T> src src_idx:
+                Option::Some item:
+                    deque_store_slot<.T> dst dst_idx some<.T> item
+                Option::None:
+                    ()
+            set i add i 1

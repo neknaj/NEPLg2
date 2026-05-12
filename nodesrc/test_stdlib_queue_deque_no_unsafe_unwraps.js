@@ -12,6 +12,10 @@ const relPaths = [
     'stdlib/alloc/collections/queue/storage.nepl',
     'stdlib/alloc/collections/queue/api.nepl',
     'stdlib/alloc/collections/deque.nepl',
+    'stdlib/alloc/collections/deque/types.nepl',
+    'stdlib/alloc/collections/deque/index.nepl',
+    'stdlib/alloc/collections/deque/storage.nepl',
+    'stdlib/alloc/collections/deque/api.nepl',
 ];
 
 const forbidden = [
@@ -63,7 +67,17 @@ assert.match(queue, /fn\s+pop_front\s+<\.T:\s*Copy>\s+<\(Queue<\.T>\)\*>QueuePop
 assert.match(queue, /fn\s+free\s+<\.T>\s+<\(Queue<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+q\s+"items"/, 'Queue.free must close the Vec<Option<T>> owner');
 assert.doesNotMatch(queue, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b/, 'Queue must not reintroduce raw header or raw element storage');
 
-const deque = implementationCode('stdlib/alloc/collections/deque.nepl');
+const dequeRoot = implementationCode('stdlib/alloc/collections/deque.nepl');
+assert.match(dequeRoot, /pub\s+#import\s+"\.\/deque\/types"\s+as\s+@merge/, 'Deque root must re-export types from a submodule');
+assert.match(dequeRoot, /pub\s+#import\s+"\.\/deque\/api"\s+as\s+@merge/, 'Deque root must re-export API from a submodule');
+assert.doesNotMatch(dequeRoot, /\b(?:struct|fn)\s+/, 'Deque root must remain a public facade without implementation bodies');
+
+const deque = [
+    'stdlib/alloc/collections/deque/types.nepl',
+    'stdlib/alloc/collections/deque/index.nepl',
+    'stdlib/alloc/collections/deque/storage.nepl',
+    'stdlib/alloc/collections/deque/api.nepl',
+].map(implementationCode).join('\n');
 assert.match(deque, /struct\s+Deque<\.T>:[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*head\s+<i32>[\s\S]*items\s+<Vec<Option<\.T>>>/, 'Deque must keep typed Vec<Option<T>> storage in its public owner struct');
 assert.match(deque, /fn\s+len\s+<\.T>\s+<\(&Deque<\.T>\)->i32>\s+\(dq\):/, 'Deque.len must borrow the owner');
 assert.match(deque, /fn\s+cap\s+<\.T>\s+<\(&Deque<\.T>\)->i32>\s+\(dq\):/, 'Deque.cap must borrow the owner');
