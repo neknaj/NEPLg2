@@ -6,12 +6,22 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/alloc/collections/stack.nepl';
-const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const modulePaths = [
+    relPath,
+    'stdlib/alloc/collections/stack/types.nepl',
+    'stdlib/alloc/collections/stack/storage.nepl',
+    'stdlib/alloc/collections/stack/api.nepl',
+];
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+function implementationCode(file) {
+    return fs.readFileSync(path.join(repoRoot, file), 'utf8')
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*\/\//.test(line))
+        .join('\n');
+}
+
+const rootCode = implementationCode(relPath);
+const code = modulePaths.map(implementationCode).join('\n');
 
 const forbidden = [
     /\bunwrap\b/,
@@ -26,6 +36,9 @@ for (const pattern of forbidden) {
     assert.doesNotMatch(code, pattern, `${relPath} must not use unsafe unwrap helpers in implementation code`);
 }
 
+assert.match(rootCode, /pub\s+#import\s+"\.\/stack\/types"\s+as\s+@merge/, 'Stack root must re-export types from a submodule');
+assert.match(rootCode, /pub\s+#import\s+"\.\/stack\/api"\s+as\s+@merge/, 'Stack root must re-export API from a submodule');
+assert.doesNotMatch(rootCode, /\b(?:struct|fn)\s+/, 'Stack root must remain a public facade without implementation bodies');
 assert.match(code, /struct\s+Stack<\.T>:[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*items\s+<Vec<Option<\.T>>>/, 'Stack must keep typed Vec<Option<T>> storage in its public owner struct');
 assert.match(code, /struct\s+StackPop<\.T>:[\s\S]*stack\s+<Stack<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Stack must expose an owner-preserving pop result');
 assert.match(code, /fn\s+stack_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32\)->Option<\.T>>/, 'Stack must read initialized slot state through Option<T>');

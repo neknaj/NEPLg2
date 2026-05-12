@@ -1,0 +1,28 @@
+//: # stack/types
+//: LIFO stack の owner 型と pop 結果型
+//:
+//: ### [目的/もくてき]
+//: - stack state と backing storage owner を struct field として[表/あらわ]します。
+//: - raw header / raw element buffer ではなく、初期化済み `Vec<Option<T>>` で slot state を[表/あらわ]します。
+//:
+//: ### [不変条件/ふへんじょうけん]
+//: - `0 <= len <= cap`
+//: - `items.len == cap`
+
+#indent 4
+
+#import "core/option" as *
+#import "alloc/collections/vec" as vec
+
+//: ## Stack
+//: LIFO stack の owner
+struct Stack<.T>:
+    len <i32>
+    cap <i32>
+    items <Vec<Option<.T>>>
+
+//: ## StackPop
+//: `pop_top` の[結果/けっか]
+struct StackPop<.T>:
+    stack <Stack<.T>>
+    item <Option<.T>>

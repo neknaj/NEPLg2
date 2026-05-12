@@ -1,0 +1,138 @@
+//: # stack/api
+//: LIFO stack の public 操作
+//:
+//: ### [目的/もくてき]
+//: - `new` / `with_capacity` / `push` / `pop_top` / `pop` / `peek` / `get` / `len` / `is_empty` / `clear` / `free` を[提供/ていきょう]します。
+//: - owner を[更新/こうしん]する API と、owner を[借用/しゃくよう]して[観測/かんそく]する API を[分/わ]けます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `len` / `is_empty` / `peek` / `get` / `pop_top` は O(1) です。
+//: - `push` は[償却/しょうきゃく] O(1)、grow 時は O(n) です。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "./types" as *
+#import "./storage" as *
+
+//: ## new
+//: [既定/きてい][容量/ようりょう]の[空/から] stack を[作/つく]る
+fn new <.T: Copy> <()*>Result<Stack<.T>, Diag>> ():
+    with_capacity<.T> 8
+
+//: ## with_capacity
+//: [容量/ようりょう]を[指定/してい]して[空/から] stack を[作/つく]る
+fn with_capacity <.T: Copy> <(i32)*>Result<Stack<.T>, Diag>> (cap):
+    let cap0 <i32> stack_normalize_capacity cap
+    match stack_alloc_slots<.T> cap0:
+        Result::Err d:
+            err<Stack<.T>, Diag> d
+        Result::Ok items:
+            ok<Stack<.T>, Diag> Stack<.T> 0 cap0 items
+
+//: ## push
+//: [末尾/まつび]へ[積/つ]む
+fn push <.T: Copy> <(Stack<.T>,.T)*>Result<Stack<.T>, Diag>> (stk, item):
+    let len0 <i32> *field::get_ref &stk "len"
+    let cap0 <i32> *field::get_ref &stk "cap"
+    let items <Vec<Option<.T>>> field::get stk "items"
+    if:
+        eq len0 cap0
+        then:
+            let new_cap <i32> mul cap0 2
+            match stack_alloc_slots<.T> new_cap:
+                Result::Err d:
+                    vec::free<Option<.T>> items
+                    err<Stack<.T>, Diag> d
+                Result::Ok new_items:
+                    stack_copy_live_slots<.T> &items &new_items len0
+                    stack_store_slot<.T> &new_items len0 some<.T> item
+                    vec::free<Option<.T>> items
+                    ok<Stack<.T>, Diag> Stack<.T> add len0 1 new_cap new_items
+        else:
+            stack_store_slot<.T> &items len0 some<.T> item
+            ok<Stack<.T>, Diag> Stack<.T> add len0 1 cap0 items
+
+//: ## pop_top
+//: [末尾/まつび]を[取/と]り[出/だ]し、[更新後/こうしんご]の stack と[値/あたい]を[返/かえ]す
+fn pop_top <.T: Copy> <(Stack<.T>)*>StackPop<.T>> (stk):
+    let len0 <i32> *field::get_ref &stk "len"
+    let cap0 <i32> *field::get_ref &stk "cap"
+    let items <Vec<Option<.T>>> field::get stk "items"
+    if:
+        eq len0 0
+        then:
+            let next_st <Stack<.T>> Stack<.T> 0 cap0 items
+            StackPop<.T> next_st none<.T>
+        else:
+            let next_len <i32> sub len0 1
+            let item <Option<.T>> stack_item_at<.T> &items next_len
+            stack_store_slot<.T> &items next_len none<.T>
+            let next_st <Stack<.T>> Stack<.T> next_len cap0 items
+            StackPop<.T> next_st item
+
+//: ## pop
+//: stack を[消費/しょうひ]して[末尾/まつび]の[値/あたい]だけを[返/かえ]す
+fn pop <.T: Copy> <(Stack<.T>)*>Option<.T>> (stk):
+    let p <StackPop<.T>> pop_top<.T> stk
+    let item <Option<.T>> *field::get_ref &p "item"
+    free<.T> field::get p "stack"
+    item
+
+//: ## peek
+//: `Stack` を[移動/いどう]せずに[末尾/まつび]を[読/よ]む
+fn peek <.T: Copy> <(&Stack<.T>)->Option<.T>> (stk):
+    let len0 <i32> *field::get_ref stk "len"
+    if:
+        eq len0 0
+        then:
+            none<.T>
+        else:
+            let items <&Vec<Option<.T>>> field::get_ref stk "items"
+            stack_item_at<.T> items sub len0 1
+
+//: ## get
+//: `Stack` を[移動/いどう]せずに index の[値/あたい]を[読/よ]む
+fn get <.T: Copy> <(&Stack<.T>,i32)->Option<.T>> (stk, idx):
+    let len0 <i32> *field::get_ref stk "len"
+    if:
+        lt idx 0
+        then:
+            none<.T>
+        else:
+            if:
+                le len0 idx
+                then:
+                    none<.T>
+                else:
+                    let items <&Vec<Option<.T>>> field::get_ref stk "items"
+                    stack_item_at<.T> items idx
+
+//: ## len
+//: `Stack` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
+fn len <.T> <(&Stack<.T>)->i32> (stk):
+    *field::get_ref stk "len"
+
+//: ## is_empty
+//: `Stack` を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
+fn is_empty <.T> <(&Stack<.T>)->bool> (stk):
+    eq len<.T> stk 0
+
+//: ## clear
+//: [内容/ないよう]を[空/から]にする
+fn clear <.T: Copy> <(Stack<.T>)*>Stack<.T>> (stk):
+    let cap0 <i32> *field::get_ref &stk "cap"
+    let items <Vec<Option<.T>>> field::get stk "items"
+    stack_clear_slots_loop<.T> &items cap0 0
+    Stack<.T> 0 cap0 items
+
+//: ## free
+//: stack が[所有/しょゆう]する backing storage を[解放/かいほう]する
+fn free <.T> <(Stack<.T>)->()> (stk):
+    vec::free<Option<.T>> field::get stk "items"

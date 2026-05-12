@@ -42,6 +42,21 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-12 Agent 2 stack facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/stack.nepl` に同居していた型定義、capacity 正規化、typed slot storage、grow 時 copy、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/stack.nepl` は public facade にし、`stack/types.nepl`、`stack/api.nepl` を `@merge` re-export するだけの構成にした。
+- `stack/types.nepl` は `Stack<T>` / `StackPop<T>` と `Vec<Option<T>>` storage invariant を所有する。
+- `stack/storage.nepl` は capacity 正規化、slot read / replace、allocation、clear、grow 時 live slot copy を所有する。
+- `stack/api.nepl` は `new` / `with_capacity` / `push` / `pop_top` / `pop` / `peek` / `get` / `len` / `is_empty` / `clear` / `free` を所有し、borrowed observer と typed storage cleanup の契約を維持する。
+- `nodesrc/test_stdlib_stack_no_unsafe_unwraps.js` を更新し、root facade、typed `Vec<Option<T>>` storage、borrowed observer、owner-preserving `StackPop`、raw memory 非使用を固定した。
+- line count は `stack.nepl` 16、`stack/types.nepl` 28、`stack/storage.nepl` 64、`stack/api.nepl` 138。
+- [検証]:
+  - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/stack.nepl -i stdlib/alloc/collections/stack/types.nepl -i stdlib/alloc/collections/stack/storage.nepl -i stdlib/alloc/collections/stack/api.nepl -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/stack-split-focused.json -j 1 --dist web/dist`: total=18, passed=18
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-12 Agent 2 ringbuffer facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/ringbuffer.nepl` に同居していた型定義、circular index 計算、typed slot storage、grow 時 copy、public API を責務別 submodule に分割した。
