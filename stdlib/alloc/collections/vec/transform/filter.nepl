@@ -5,17 +5,21 @@
 //: - `filter` / `partition` を transform facade から[分離/ぶんり]し、predicate で[要素/ようそ]を[選別/せんべつ]する owner-consuming 処理をこの module に[集約/しゅうやく]します。
 //:
 //: ### [注意/ちゅうい]
-//: - raw storage の読み書きは `vec/raw` helper に[委譲/いじょう]します。
+//: - 入力要素は `get<T: Copy>` を[通/とお]して読み、raw load の結果を callback や出力 storage に直接[渡/わた]しません。
 
 #indent 4
 
 #import "core/mem" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
+#import "core/traits/copy" as *
 #import "../types" as *
 #import "../storage" as vec_storage
+#import "../mutation/cleanup" as vec_cleanup
 #import "../raw" as vec_raw
+#import "../query/get" as vec_get
 
 //: filter: [条件/じょうけん]を[満/み]たす[要素/ようそ]だけを[残/のこ]す
 //:
@@ -56,22 +60,23 @@
 //:     free<i32> zs;
 //:     if ok 0 1
 //: ```
-fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
+fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
-    let src_cap <i32> *field::get_ref &v "cap"
-    let src_storage <VecStorageState> *field::get_ref &v "storage"
-    let src_data <MemPtr<.T>> field::get v "data"
     let mut keep_len <i32> 0
     let mut i <i32> 0
     while lt i src_len:
         do:
-            if cond p vec_raw::vec_read_at<.T> src_data i:
-                then set keep_len add keep_len 1
-                else ()
+            match vec_get::get<.T> &v i:
+                Option::Some item:
+                    if cond p item:
+                        then set keep_len add keep_len 1
+                        else ()
+                Option::None:
+                    ()
             set i add i 1
     match vec_storage::with_capacity<.T> keep_len:
         Result::Err e:
-            vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+            vec_cleanup::free<.T> v
             Result::Err<Vec<.T>, StdErrorKind> e
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
@@ -81,15 +86,18 @@ fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
             let mut write_i <i32> 0
             while lt read_i src_len:
                 do:
-                    let item <.T> vec_raw::vec_read_at<.T> src_data read_i
-                    if:
-                        cond p item
-                        then:
-                            vec_raw::vec_write_at<.T> out_data write_i item
-                            set write_i add write_i 1
-                        else ()
+                    match vec_get::get<.T> &v read_i:
+                        Option::Some item:
+                            if:
+                                cond p item
+                                then:
+                                    vec_raw::vec_write_at<.T> out_data write_i item
+                                    set write_i add write_i 1
+                                else ()
+                        Option::None:
+                            ()
                     set read_i add read_i 1
-            vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+            vec_cleanup::free<.T> v
             Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> keep_len out_cap out_storage out_data
 
 //: partition: [条件/じょうけん]で 2 [群/ぐん]に[分/わ]ける
@@ -133,32 +141,30 @@ fn filter <.T> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
 //:     free<i32> rest;
 //:     if ok 0 1
 //: ```
-fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, StdErrorKind>> (v, p):
+fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
-    let src_cap <i32> *field::get_ref &v "cap"
-    let src_storage <VecStorageState> *field::get_ref &v "storage"
-    let src_data <MemPtr<.T>> field::get v "data"
     let mut left_len <i32> 0
     let mut i <i32> 0
     while lt i src_len:
         do:
-            if cond p vec_raw::vec_read_at<.T> src_data i:
-                then set left_len add left_len 1
-                else ()
+            match vec_get::get<.T> &v i:
+                Option::Some item:
+                    if cond p item:
+                        then set left_len add left_len 1
+                        else ()
+                Option::None:
+                    ()
             set i add i 1
     let right_len <i32> sub src_len left_len
     match vec_storage::with_capacity<.T> left_len:
         Result::Err e:
-            vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+            vec_cleanup::free<.T> v
             Result::Err<VecPartition<.T>, StdErrorKind> e
         Result::Ok left0:
             match vec_storage::with_capacity<.T> right_len:
                 Result::Err e:
-                    let left0_cap <i32> *field::get_ref &left0 "cap"
-                    let left0_storage <VecStorageState> *field::get_ref &left0 "storage"
-                    let left0_data <MemPtr<.T>> field::get left0 "data"
-                    vec_storage::vec_free_storage<.T> left0_storage left0_data left0_cap
-                    vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+                    vec_cleanup::free<.T> left0
+                    vec_cleanup::free<.T> v
                     Result::Err<VecPartition<.T>, StdErrorKind> e
                 Result::Ok right0:
                     let left_cap <i32> *field::get_ref &left0 "cap"
@@ -172,15 +178,18 @@ fn partition <.T> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, StdErrorKind>
                     let mut right_i <i32> 0
                     while lt read_i src_len:
                         do:
-                            let item <.T> vec_raw::vec_read_at<.T> src_data read_i
-                            if:
-                                cond p item
-                                then:
-                                    vec_raw::vec_write_at<.T> left_data left_i item
-                                    set left_i add left_i 1
-                                else:
-                                    vec_raw::vec_write_at<.T> right_data right_i item
-                                    set right_i add right_i 1
+                            match vec_get::get<.T> &v read_i:
+                                Option::Some item:
+                                    if:
+                                        cond p item
+                                        then:
+                                            vec_raw::vec_write_at<.T> left_data left_i item
+                                            set left_i add left_i 1
+                                        else:
+                                            vec_raw::vec_write_at<.T> right_data right_i item
+                                            set right_i add right_i 1
+                                Option::None:
+                                    ()
                             set read_i add read_i 1
-                    vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+                    vec_cleanup::free<.T> v
                     Result::Ok<VecPartition<.T>, StdErrorKind> VecPartition<.T> (Vec<.T> left_len left_cap left_storage left_data) (Vec<.T> right_len right_cap right_storage right_data)

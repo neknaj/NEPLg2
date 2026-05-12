@@ -5,17 +5,21 @@
 //: - `map` を transform facade から[分離/ぶんり]し、element type 変換の owner-consuming 処理をこの module に[閉/と]じます。
 //:
 //: ### [注意/ちゅうい]
-//: - raw storage の読み書きは `vec/raw` helper に[委譲/いじょう]します。
+//: - 入力要素は `get<T: Copy>` を[通/とお]して読み、raw load の結果を callback に直接[渡/わた]しません。
 
 #indent 4
 
 #import "core/mem" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
+#import "core/traits/copy" as *
 #import "../types" as *
 #import "../storage" as vec_storage
+#import "../mutation/cleanup" as vec_cleanup
 #import "../raw" as vec_raw
+#import "../query/get" as vec_get
 
 //: map: [各要素/かくようそ]を[同/おな]じ[規則/きそく]で[変換/へんかん]する
 //:
@@ -60,14 +64,11 @@
 //:             free<i32> ys;
 //:             1
 //: ```
-fn map <.T,.U> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
+fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
     let src_len <i32> *field::get_ref &v "len"
-    let src_cap <i32> *field::get_ref &v "cap"
-    let src_storage <VecStorageState> *field::get_ref &v "storage"
-    let src_data <MemPtr<.T>> field::get v "data"
     match vec_storage::with_capacity<.U> src_len:
         Result::Err e:
-            vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+            vec_cleanup::free<.T> v
             Result::Err<Vec<.U>, StdErrorKind> e
         Result::Ok out0:
             let out_cap <i32> *field::get_ref &out0 "cap"
@@ -76,7 +77,11 @@ fn map <.T,.U> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
             let mut i <i32> 0
             while lt i src_len:
                 do:
-                    vec_raw::vec_write_at<.U> out_data i f vec_raw::vec_read_at<.T> src_data i
+                    match vec_get::get<.T> &v i:
+                        Option::Some item:
+                            vec_raw::vec_write_at<.U> out_data i f item
+                        Option::None:
+                            ()
                     set i add i 1
-            vec_storage::vec_free_storage<.T> src_storage src_data src_cap
+            vec_cleanup::free<.T> v
             Result::Ok<Vec<.U>, StdErrorKind> Vec<.U> src_len out_cap out_storage out_data

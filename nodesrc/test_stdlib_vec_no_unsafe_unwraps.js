@@ -18,9 +18,6 @@ const relPaths = [
     'stdlib/alloc/collections/vec/access/data.nepl',
     'stdlib/alloc/collections/vec/raw.nepl',
     'stdlib/alloc/collections/vec/raw/element.nepl',
-    'stdlib/alloc/collections/vec/raw/aggregate.nepl',
-    'stdlib/alloc/collections/vec/raw/predicate.nepl',
-    'stdlib/alloc/collections/vec/raw/prefix.nepl',
     'stdlib/alloc/collections/vec/transform.nepl',
     'stdlib/alloc/collections/vec/transform/map.nepl',
     'stdlib/alloc/collections/vec/transform/filter.nepl',
@@ -114,10 +111,7 @@ const vecAccessDataCode = codeByPath.get('stdlib/alloc/collections/vec/access/da
 const vecAccessCode = [vecAccessRootCode, vecAccessHeaderCode, vecAccessDataCode].join('\n');
 const vecRawRootCode = codeByPath.get('stdlib/alloc/collections/vec/raw.nepl');
 const vecRawElementCode = codeByPath.get('stdlib/alloc/collections/vec/raw/element.nepl');
-const vecRawAggregateCode = codeByPath.get('stdlib/alloc/collections/vec/raw/aggregate.nepl');
-const vecRawPredicateCode = codeByPath.get('stdlib/alloc/collections/vec/raw/predicate.nepl');
-const vecRawPrefixCode = codeByPath.get('stdlib/alloc/collections/vec/raw/prefix.nepl');
-const vecRawCode = [vecRawRootCode, vecRawElementCode, vecRawAggregateCode, vecRawPredicateCode, vecRawPrefixCode].join('\n');
+const vecRawCode = [vecRawRootCode, vecRawElementCode].join('\n');
 const vecTransformRootCode = codeByPath.get('stdlib/alloc/collections/vec/transform.nepl');
 const vecTransformMapCode = codeByPath.get('stdlib/alloc/collections/vec/transform/map.nepl');
 const vecTransformFilterCode = codeByPath.get('stdlib/alloc/collections/vec/transform/filter.nepl');
@@ -201,22 +195,19 @@ for (const name of ['len', 'cap', 'is_empty']) {
 for (const name of ['data_ptr', 'data_mem_ptr', 'data_len']) {
     assert.match(vecAccessDataCode, new RegExp(`fn\\s+${name}\\b`), `vec/access/data.nepl must own ${name}`);
 }
-for (const name of ['vec_read_at', 'vec_write_at', 'vec_fold_impl', 'vec_reduce_impl', 'vec_find_impl', 'vec_take_while_len_impl', 'vec_write_prefix_impl']) {
+for (const name of ['vec_read_at', 'vec_write_at']) {
     assert.match(vecRawCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw facade closure must expose ${name}`);
 }
-for (const name of ['element', 'aggregate', 'predicate', 'prefix']) {
+for (const name of ['element']) {
     assert.match(vecRawRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/raw\\/${name}"\\s+as\\s+@merge`), `vec/raw.nepl must merge re-export raw/${name}.nepl`);
+}
+for (const name of ['aggregate', 'predicate', 'prefix']) {
+    assert.doesNotMatch(vecRawRootCode, new RegExp(`\\.\\/raw\\/${name}`), `vec/raw.nepl must not re-export raw ${name} callback helpers`);
+    assert.equal(fs.existsSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw', `${name}.nepl`)), false, `vec/raw/${name}.nepl must not keep unsafe raw callback helpers`);
 }
 assert.doesNotMatch(vecRawRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/raw.nepl must be a pure facade without implementation bodies');
 for (const name of ['vec_read_at', 'vec_write_at']) {
     assert.match(vecRawElementCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw/element.nepl must own ${name}`);
-}
-for (const name of ['vec_fold_impl', 'vec_reduce_impl']) {
-    assert.match(vecRawAggregateCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw/aggregate.nepl must own ${name}`);
-}
-assert.match(vecRawPredicateCode, /\bfn\s+vec_find_impl\b/, 'vec/raw/predicate.nepl must own vec_find_impl');
-for (const name of ['vec_take_while_len_impl', 'vec_write_prefix_impl']) {
-    assert.match(vecRawPrefixCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw/prefix.nepl must own ${name}`);
 }
 for (const name of ['map', 'filter', 'partition', 'take_while', 'drop_while']) {
     assert.match(vecTransformCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform facade closure must expose ${name}`);
@@ -320,14 +311,21 @@ assert.match(clearSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_r
 assert.match(freeSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"[\s\S]*vec_free_storage<\.T>\s+v_storage\s+v_data\s+v_cap/, 'Vec.free must explicitly move data before freeing through VecStorageState');
 assert.match(mapSection, /let\s+out_storage\s+<VecStorageState>\s+\*field::get_ref\s+&out0\s+"storage"[\s\S]*let\s+out_data\s+<MemPtr<\.U>>\s+field::get\s+out0\s+"data"/, 'Vec.map must explicitly move the output data owner from the allocated Vec into the returned Vec');
 assert.match(vecCode, /fn\s+push\s+<\.T>\s+<\(Vec<\.T>,\.T\)->Result<Vec<\.T>,\s*StdErrorKind>>\s+\(v,\s*item\):[\s\S]*match\s+realloc_ptr<\.T>\s+v_data\s+old_bytes\s+new_bytes:[\s\S]*Result::Err\s+_e:[\s\S]*dealloc_raw\s+mem_ptr_addr\s+v_data\s+old_bytes[\s\S]*Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::OutOfMemory/, 'Vec.push must release the consumed old buffer when grow fails');
-assert.match(vecCode, /vec_free_storage<\.T>\s+left0_storage\s+left0_data\s+left0_cap/, 'Vec.partition cleanup must use VecStorageState cleanup for the left buffer after right allocation failure');
-assert.match(vecCode, /fn\s+partition\s+<\.T>\s+<\(Vec<\.T>,\s*\(\.T\)->bool\)->Result<VecPartition<\.T>,\s*StdErrorKind>>/, 'Vec.partition must return named VecPartition instead of anonymous owner pairs');
+assert.match(vecCode, /Result::Err\s+e:[\s\S]*vec_cleanup::free<\.T>\s+left0[\s\S]*vec_cleanup::free<\.T>\s+v[\s\S]*Result::Err<VecPartition<\.T>,\s*StdErrorKind>\s+e/, 'Vec.partition right allocation failure must free whole Vec owners instead of splitting storage fields at the call site');
+assert.doesNotMatch(vecTransformFilterCode, /\bleft0_(?:cap|storage|data)\b/, 'Vec.partition must not reintroduce left0 storage field splitting for cleanup');
+assert.match(vecCode, /fn\s+partition\s+<\.T:\s*Copy>\s+<\(Vec<\.T>,\s*\(\.T\)->bool\)->Result<VecPartition<\.T>,\s*StdErrorKind>>/, 'Vec.partition must return named VecPartition and require Copy elements for safe predicate scans');
 assert.match(countSection, /fn\s+count\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T\)->bool\)->i32>/, 'Vec.count must be a borrowed observer so callers retain and free the Vec owner');
 assert.match(foldSection, /fn\s+fold\s+<\.T:\s+Copy,\s*\.U>\s+<\(&Vec<\.T>,\s*\.U,\s*\(\.U,\.T\)->\.U\)->\.U>/, 'Vec.fold must borrow the Vec owner and copy elements into the reducer');
 assert.match(reduceSection, /fn\s+reduce\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T,\.T\)->\.T\)->Option<\.T>>/, 'Vec.reduce must borrow the Vec owner and require Copy elements');
 assert.match(findSection, /fn\s+find\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T\)->bool\)->Option<\.T>>/, 'Vec.find must borrow the Vec owner and require Copy elements');
 assert.match(anySection, /fn\s+any\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T\)->bool\)->bool>/, 'Vec.any must borrow the Vec owner and require Copy elements');
 assert.match(allSection, /fn\s+all\s+<\.T:\s+Copy>\s+<\(&Vec<\.T>,\s*\(\.T\)->bool\)->bool>/, 'Vec.all must borrow the Vec owner and require Copy elements');
+assert.match(mapSection, /fn\s+map\s+<\.T:\s*Copy,\s*\.U:\s*Copy>/, 'Vec.map must require Copy input and output elements until non-Copy element drop traversal exists');
+assert.match(vecTransformFilterCode, /fn\s+filter\s+<\.T:\s*Copy>/, 'Vec.filter must require Copy elements for predicate scans and output copy');
+assert.match(vecTransformPrefixCode, /fn\s+take_while\s+<\.T:\s*Copy>/, 'Vec.take_while must require Copy elements for prefix scans and output copy');
+assert.match(vecTransformPrefixCode, /fn\s+drop_while\s+<\.T:\s*Copy>/, 'Vec.drop_while must require Copy elements for prefix scans and output copy');
+assert.doesNotMatch(vecQueryCode, /vec_raw::vec_read_at<\.T>[\s\S]{0,80}\b(?:p|f)\b|\b(?:p|f)\s+vec_raw::vec_read_at<\.T>/, 'Vec query helpers must not pass raw-loaded elements directly to callbacks');
+assert.doesNotMatch(vecTransformCode, /(?:p|f)\s+vec_raw::vec_read_at<\.T>|vec_raw::vec_write_at<\.[TU]>[\s\S]{0,80}vec_raw::vec_read_at<\.T>/, 'Vec transform helpers must not pass raw-loaded elements directly to callbacks or output storage');
 for (const [name, section] of [
     ['count', countSection],
     ['fold', foldSection],

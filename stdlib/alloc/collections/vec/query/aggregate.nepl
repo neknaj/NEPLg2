@@ -5,18 +5,16 @@
 //: - count/fold/reduce を query facade から[分離/ぶんり]し、borrowed owner から Copy 要素を[読/よ]む[集約/しゅうやく]処理をこの module に[集約/しゅうやく]します。
 //:
 //: ### [注意/ちゅうい]
-//: - raw storage の読み取りは `vec/raw` helper に[委譲/いじょう]します。
+//: - 要素の読み取りは `get<T: Copy>` を[通/とお]し、raw load の結果を callback に直接[渡/わた]しません。
 
 #indent 4
 
-#import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "../types" as *
-#import "../storage" as vec_storage
-#import "../raw" as vec_raw
+#import "./get" as vec_get
 
 //: count: [条件/じょうけん]を[満/み]たす[要素数/ようそすう]を[数/かぞ]える
 //:
@@ -52,16 +50,17 @@
 //: ```
 fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
     let src_len <i32> *field::get_ref v "len"
-    let src_storage <VecStorageState> *field::get_ref v "storage"
-    let raw_data <MemPtr<.T>> *field::get_ref v "data"
-    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
     let mut out <i32> 0
     let mut i <i32> 0
     while lt i src_len:
         do:
-            if cond p vec_raw::vec_read_at<.T> src_data i:
-                then set out add out 1
-                else ()
+            match vec_get::get<.T> v i:
+                Option::Some item:
+                    if cond p item:
+                        then set out add out 1
+                        else ()
+                Option::None:
+                    ()
             set i add i 1
     out
 
@@ -102,10 +101,17 @@ fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
 //: ```
 fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
     let src_len <i32> *field::get_ref v "len"
-    let src_storage <VecStorageState> *field::get_ref v "storage"
-    let raw_data <MemPtr<.T>> *field::get_ref v "data"
-    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
-    vec_raw::vec_fold_impl<.T,.U> src_data src_len 0 acc f
+    let mut out <.U> acc
+    let mut i <i32> 0
+    while lt i src_len:
+        do:
+            match vec_get::get<.T> v i:
+                Option::Some item:
+                    set out f out item
+                Option::None:
+                    ()
+            set i add i 1
+    out
 
 //: reduce: [初期値/しょきち]なしで[集約/しゅうやく]する
 //:
@@ -149,11 +155,22 @@ fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
 //: ```
 fn reduce <.T: Copy> <(&Vec<.T>, (.T,.T)->.T)->Option<.T>> (v, f):
     let src_len <i32> *field::get_ref v "len"
-    let src_storage <VecStorageState> *field::get_ref v "storage"
-    let raw_data <MemPtr<.T>> *field::get_ref v "data"
-    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
     if:
         eq src_len 0
         then none<.T>
         else:
-            some<.T> vec_raw::vec_reduce_impl<.T> src_data src_len 1 vec_raw::vec_read_at<.T> src_data 0 f
+            match vec_get::get<.T> v 0:
+                Option::None:
+                    none<.T>
+                Option::Some first:
+                    let mut out <.T> first
+                    let mut i <i32> 1
+                    while lt i src_len:
+                        do:
+                            match vec_get::get<.T> v i:
+                                Option::Some item:
+                                    set out f out item
+                                Option::None:
+                                    ()
+                            set i add i 1
+                    some<.T> out

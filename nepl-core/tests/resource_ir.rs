@@ -11583,6 +11583,58 @@ fn main <()* >()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_vec_partition_returns_named_vec_owners() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+#import "core/math" as *
+
+fn is_even <(i32)->bool> (x):
+    eq rem_s x 2 0
+
+fn main <()*>i32> ():
+    let xs <Vec<i32>>:
+        new<i32>
+        |> uwok
+        |> push<i32> 1 |> uwok
+        |> push<i32> 2 |> uwok
+        |> push<i32> 3 |> uwok
+    let parts unwrap_ok partition<i32> xs is_even
+    let evens <Vec<i32>> field::get parts "matched"
+    let rest <Vec<i32>> field::get parts "rest"
+    let ok <bool> and eq len<i32> &evens 1 eq len<i32> &rest 2
+    free<i32> evens
+    free<i32> rest
+    if ok 0 1
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("partition__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Vec.partition must return both named Vec owners without leaking intermediate storage: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_reports_leaked_conditional_owner_return() {
     let source = r#"
 #entry main

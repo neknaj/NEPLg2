@@ -35977,3 +35977,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo check -p nepl-core --tests`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 Vec query / transform Resource owner 修正
+
+- `ISS-20260512T060310380Z-VEC-STDLIB-DOCTESTS-FAIL-RESOURCE-OW-D1622B99` を修正した。
+- `all` / `count` / `find` / `fold` / `reduce` / prefix helper が raw storage load の結果を callback へ直接渡していた問題を、borrowed `Vec` と `get<T: Copy>` を経由する設計へ戻した。
+- `vec/raw/{aggregate,predicate,prefix}.nepl` は raw callback helper としての責務が不適切だったため削除し、`vec/raw.nepl` は raw element helper の facade に限定した。
+- `map` / `filter` / `partition` / `take_while` / `drop_while` は `T: Copy` 境界を明示し、predicate scan と output copy を Resource IR が追跡できる形へ統一した。
+- owner-consuming transform の source cleanup は `Vec` field を呼び出し側で分解せず、`vec_cleanup::free` へ Vec owner を丸ごと渡す形にした。特に `partition` の右側 allocation failure path は `left0` と `v` を `free` で回収し、storage enum と data owner の対応を分断しない。
+- `partition` の成功 path は `VecPartition` を直接構築し、不要な `left_vec` / `right_vec` 中間束縛を置かない形にした。
+- `nepl-core/tests/resource_ir.rs` に `Vec.partition` が named `VecPartition` 経由で 2 本の Vec owner を返しても intermediate storage owner を漏らさない回帰を追加した。
+- [検証]:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_vec_partition_returns_named_vec_owners -- --nocapture`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/vec-stdlib-resource-owner-after-direct-partition.json -j 1 --dist web/dist`: total=6, passed=6
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort/common.nepl -i stdlib/alloc/collections/vec/sort/simple.nepl -i stdlib/alloc/collections/vec/sort/quick.nepl -i stdlib/alloc/collections/vec/sort/heap.nepl -i stdlib/alloc/collections/vec/sort/merge.nepl -i stdlib/alloc/collections/vec/sort/merge/buffer.nepl -i stdlib/alloc/collections/vec/sort/merge/range.nepl -i stdlib/alloc/collections/vec/sort/merge/api.nepl -i stdlib/alloc/collections/vec/sort.nepl -i stdlib/alloc/collections/vec.nepl -i tests/stdlib/sort.n.md -i stdlib/tests/vec.n.md --no-tree -o tmp/vec-sort-merge-split-focused-after-vec-fix.json -j 4 --dist web/dist`: total=34, passed=34
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

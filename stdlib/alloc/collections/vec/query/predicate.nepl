@@ -5,18 +5,16 @@
 //: - find/any/all を query facade から[分離/ぶんり]し、predicate による scan 処理をこの module に[集約/しゅうやく]します。
 //:
 //: ### [注意/ちゅうい]
-//: - raw storage の読み取りは `vec/raw` helper に[委譲/いじょう]します。
+//: - 要素の読み取りは `get<T: Copy>` を[通/とお]し、raw load の結果を callback に直接[渡/わた]しません。
 
 #indent 4
 
-#import "core/mem" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "../types" as *
-#import "../storage" as vec_storage
-#import "../raw" as vec_raw
+#import "./get" as vec_get
 
 //: find: [条件/じょうけん]に[合/あ]う[最初/さいしょ]の[要素/ようそ]を[探/さが]す
 //:
@@ -58,10 +56,24 @@
 //: ```
 fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
     let src_len <i32> *field::get_ref v "len"
-    let src_storage <VecStorageState> *field::get_ref v "storage"
-    let raw_data <MemPtr<.T>> *field::get_ref v "data"
-    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
-    vec_raw::vec_find_impl<.T> src_data src_len 0 p
+    let mut out <Option<.T>> none<.T>
+    let mut active <bool> true
+    let mut i <i32> 0
+    while and active lt i src_len:
+        do:
+            match vec_get::get<.T> v i:
+                Option::Some item:
+                    if:
+                        cond p item
+                        then:
+                            set out some<.T> item
+                            set active false
+                        else:
+                            ()
+                Option::None:
+                    set active false
+            set i add i 1
+    out
 
 //: any: [条件/じょうけん]を[満/み]たす[要素/ようそ]が 1 つでもあるか[判定/はんてい]する
 //:
@@ -98,14 +110,15 @@ fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
 //: ```
 fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
     let src_len <i32> *field::get_ref v "len"
-    let src_storage <VecStorageState> *field::get_ref v "storage"
-    let raw_data <MemPtr<.T>> *field::get_ref v "data"
-    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
     let mut out <bool> false
     let mut i <i32> 0
     while and lt i src_len not out:
         do:
-            set out p vec_raw::vec_read_at<.T> src_data i
+            match vec_get::get<.T> v i:
+                Option::Some item:
+                    set out p item
+                Option::None:
+                    set out false
             set i add i 1
     out
 
@@ -144,13 +157,14 @@ fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
 //: ```
 fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
     let src_len <i32> *field::get_ref v "len"
-    let src_storage <VecStorageState> *field::get_ref v "storage"
-    let raw_data <MemPtr<.T>> *field::get_ref v "data"
-    let src_data <MemPtr<.T>> vec_storage::vec_storage_mem_ptr<.T> src_storage raw_data
     let mut out <bool> true
     let mut i <i32> 0
     while and lt i src_len out:
         do:
-            set out p vec_raw::vec_read_at<.T> src_data i
+            match vec_get::get<.T> v i:
+                Option::Some item:
+                    set out p item
+                Option::None:
+                    set out false
             set i add i 1
     out

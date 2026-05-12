@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T07:13:35.236Z",
+  "generated_at": "2026-05-12T07:59:50.182Z",
   "counts": {
     "total": 632,
-    "open": 11,
-    "resolved": 621,
+    "open": 10,
+    "resolved": 622,
     "by_area": {
       "core": {
         "total": 317,
@@ -13,8 +13,8 @@
       },
       "stdlib": {
         "total": 167,
-        "open": 6,
-        "resolved": 161
+        "open": 5,
+        "resolved": 162
       },
       "TEST": {
         "total": 17,
@@ -208,21 +208,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260512T060310380Z-VEC-STDLIB-DOCTESTS-FAIL-RESOURCE-OW-D1622B99",
-      "title": "Vec stdlib doctests fail resource owner checks in query helpers",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-12",
-      "updated": "2026-05-12",
-      "target": "stdlib/alloc/collections/vec/query.nepl, stdlib/alloc/collections/vec/transform/prefix.nepl, stdlib/tests/vec.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260512T060310380Z-VEC-STDLIB-DOCTESTS-FAIL-RESOURCE-OW-D1622B99.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -7153,6 +7138,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T034125476Z-PIPE-COLLECTIONS-LIST-DOCTEST-STILL--8AA21971.md"
+    },
+    {
+      "id": "ISS-20260512T060310380Z-VEC-STDLIB-DOCTESTS-FAIL-RESOURCE-OW-D1622B99",
+      "title": "Vec stdlib doctests fail resource owner checks in query helpers",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "stdlib/alloc/collections/vec/query.nepl, stdlib/alloc/collections/vec/transform/prefix.nepl, stdlib/tests/vec.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T060310380Z-VEC-STDLIB-DOCTESTS-FAIL-RESOURCE-OW-D1622B99.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
