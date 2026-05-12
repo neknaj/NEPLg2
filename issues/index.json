@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T20:09:38.978Z",
+  "generated_at": "2026-05-12T20:16:47.777Z",
   "counts": {
-    "total": 676,
+    "total": 677,
     "open": 11,
-    "resolved": 665,
+    "resolved": 666,
     "by_area": {
       "core": {
-        "total": 358,
+        "total": 359,
         "open": 3,
-        "resolved": 355
+        "resolved": 356
       },
       "stdlib": {
         "total": 168,
@@ -5433,6 +5433,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T195620903Z-MONOMORPHIZE-TRAIT-RESOLUTION-STILL--0481CA39.md"
+    },
+    {
+      "id": "ISS-20260512T201359246Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-E382D3AB",
+      "title": "Resource checker responsibility policy misses newer Resource IR modules",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nodesrc/test_resource_checker_responsibility.js; nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T201359246Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-E382D3AB.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

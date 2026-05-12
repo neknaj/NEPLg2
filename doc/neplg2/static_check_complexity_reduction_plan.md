@@ -441,7 +441,7 @@ self-host 実装側の禁止事項:
 
 2026-05-06 の Stage 5 追記として、host effect operation と raw/host effect count は enum-first の Resource IR 表現へ移行済みである。`ExternalIo` / `Nondet` / `UnsafeMemory` は pure function 境界で Resource IR diagnostic から compiler error へ接続される。残件は、raw-memory-backed stdlib の public API を Stage 6 で internal/public 境界へ分け、raw identity と owner token を safe surface へ漏らさない形へ移行することである。
 
-Resource checker の責務分割 policy も確認し、`initialized_summary_variant_build.rs` が監視対象から漏れていたため `ISS-20260430T062912063Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-CC55287A` で修正した。今後 Resource IR module を分割した場合は、実装だけでなく `nodesrc/test_resource_checker_responsibility.js` の必須 module 一覧と行数上限も同時に更新する。
+Resource checker の責務分割 policy も確認し、`initialized_summary_variant_build.rs` が監視対象から漏れていたため `ISS-20260430T062912063Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-CC55287A` で修正した。2026-05-13 には `ISS-20260512T201359246Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-E382D3AB` として、後続 Stage 4/5 で追加された Resource IR module も全て行数上限と宣言検査の対象へ入れた。今後 Resource IR module を分割した場合は、実装だけでなく `nodesrc/test_resource_checker_responsibility.js` の責務上限も同時に更新しなければ source policy が失敗する。
 
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 

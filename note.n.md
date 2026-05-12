@@ -36767,3 +36767,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_abstraction_static_verification_policy.js` を baseline 増加抑止ではなく final contract 検査へ変更した。
 - `format_trait_ref_name` は `traits.rs` の display boundary に限定し、`trait_lookup_cache` は出現数ではなく `MonoTraitLookupKey` typed key model で直接監視する。
 - `doc/neplg2/abstraction_static_verification_plan.md` の現状評価と進捗を実装済み状態へ更新し、parent issue を verified / resolved にした。
+
+## 2026-05-13 Agent 1 Resource checker responsibility policy coverage
+
+- `34012652` push 後に remote main を pull し、`agent1/resource-policy-module-coverage` branch を作成した。
+- `ISS-20260512T201359246Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-E382D3AB` を追加し、Stage 4/5 で追加された Resource IR helper module が responsibility policy の行数上限から漏れている問題を切り出した。
+- `nodesrc/test_resource_checker_responsibility.js` に全 `nepl-core/src/resource/*.rs` module が line limit を持つことを検査する総当たり guard を追加した。
+- `condition_fact.rs`、`drop_elaboration_hir_bridge.rs`、`lower_raw_address_source.rs`、`owner_transfer.rs`、`trait_identity.rs` など未監視 module を line limit に追加した。
+- `#[path = "..."]` で親 module から読み込む test module も宣言済みとして扱うようにし、`initialized_alias_flow_tests.rs` のような分割 test module も監視対象に含めた。
