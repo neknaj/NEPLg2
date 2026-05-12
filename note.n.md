@@ -36423,3 +36423,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test effects -- --nocapture` は `loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary` で、facade 化済みの `alloc/collections/vec/sort/merge.nepl` に raw-memory-boundary capability を期待する stale test により失敗する。これは次 issue として分離して対応する。
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 effects loader raw boundary test 追従
+
+- `ISS-20260512T135519913Z-EFFECTS-LOADER-TEST-STILL-EXPECTS-VE-5E14E725` として、`nepl-core/tests/effects.rs` が facade 化済みの `alloc/collections/vec/sort/merge.nepl` に raw-memory-boundary capability を期待し続けていた問題を修正した。
+- `loader.rs` の exact capability table は変更せず、テスト側を現行の `merge/api.nepl`、`merge/buffer.nepl`、`merge/range.nepl` に追従させた。
+- facade に raw memory capability を戻すと Stage 5/6 の「exact implementation boundary だけを許可する」方針を崩すため、test expectation を修正するのが根本対応である。
+- [検証]:
+  - `cargo test -p nepl-core --test effects loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_boundary -- --nocapture`: passed
+  - `cargo test -p nepl-core --test effects -- --nocapture`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

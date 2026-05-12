@@ -805,9 +805,26 @@ fn loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_bounda
             "alloc_collections_vec_sort_common_raw_store",
         ),
         (
-            &["alloc", "collections", "vec", "sort", "merge.nepl"],
-            "alloc/collections/vec/sort/merge",
-            "alloc_collections_vec_sort_merge_raw_store",
+            &["alloc", "collections", "vec", "sort", "merge", "api.nepl"],
+            "alloc/collections/vec/sort/merge/api",
+            "alloc_collections_vec_sort_merge_api_raw_store",
+        ),
+        (
+            &[
+                "alloc",
+                "collections",
+                "vec",
+                "sort",
+                "merge",
+                "buffer.nepl",
+            ],
+            "alloc/collections/vec/sort/merge/buffer",
+            "alloc_collections_vec_sort_merge_buffer_raw_store",
+        ),
+        (
+            &["alloc", "collections", "vec", "sort", "merge", "range.nepl"],
+            "alloc/collections/vec/sort/merge/range",
+            "alloc_collections_vec_sort_merge_range_raw_store",
         ),
         (
             &["alloc", "string", "access.nepl"],
