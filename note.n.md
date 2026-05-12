@@ -1,3 +1,17 @@
+# 2026-05-12 Agent 2 initialized_alias helper split
+
+- `ISS-20260512T063440093Z-RESOURCE-INITIALIZED-ALIAS-EXCEEDS-S-EB6E18E5` に対応した。
+- `initialized_alias.rs` 末尾に残っていた `groups_overlap`、`push_unique_projected_alias`、`place_without_suffix` を `initialized_alias_utils.rs` へ分離した。
+- `initialized_alias.rs` は alias state と fact propagation の本体に集中し、line count を 524 から 495 へ下げた。
+- `mod.rs` と `nodesrc/test_resource_checker_responsibility.js` に `initialized_alias_utils.rs` を登録し、80 行 budget を source policy で固定した。
+- 検証:
+  - `cargo fmt -p nepl-core`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: `initialized_alias.rs` blocker は解消。次の別件として `initialized_alias_i32_facts.rs has 318 lines; responsibility split limit is 180` に到達。
+- 新規 issue:
+  - `ISS-20260512T064001916Z-RESOURCE-INITIALIZED-ALIAS-I32-FACTS-4C84FD0F` を追加し、i32 facts module の再分割は次の独立 commit で扱う。
+
 # 2026-05-12 Agent 2 owner summary variant conditions split
 
 - `ISS-20260512T062230660Z-RESOURCE-OWNER-SUMMARY-VARIANT-CONDI-F79EFC3E` に対応した。

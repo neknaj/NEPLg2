@@ -12,6 +12,9 @@ use super::initialized_alias_rank::{
 use super::initialized_alias_relation::I32RelationFacts;
 use super::initialized_alias_scalar::I32AliasFacts;
 use super::initialized_alias_scale::I32ScaleFacts;
+use super::initialized_alias_utils::{
+    groups_overlap, place_without_suffix, push_unique_projected_alias,
+};
 use super::model::Place;
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, replace_place_prefix,
@@ -489,35 +492,4 @@ impl RawCellAddressAliases {
         }
         self.groups = retained;
     }
-}
-
-fn groups_overlap(left: &[Place], right: &[Place]) -> bool {
-    left.iter().any(|place| right.contains(place))
-}
-
-fn push_unique_projected_alias(
-    aliases: &mut Vec<ProjectedRawCellAddressAlias>,
-    alias: ProjectedRawCellAddressAlias,
-) {
-    if !aliases.iter().any(|existing| existing == &alias) {
-        aliases.push(alias);
-    }
-}
-
-fn place_without_suffix(
-    place: &Place,
-    suffix: &[super::model::PlaceProjection],
-    ty: TypeId,
-) -> Option<Place> {
-    if suffix.len() > place.projections.len() {
-        return None;
-    }
-    let prefix_len = place.projections.len() - suffix.len();
-    if place.projections[prefix_len..] != *suffix {
-        return None;
-    }
-    let mut out = place.clone();
-    out.projections.truncate(prefix_len);
-    out.ty = ty;
-    Some(out)
 }

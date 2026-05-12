@@ -73,6 +73,7 @@ mod initialized_alias_scalar;
 mod initialized_alias_scale;
 #[cfg(test)]
 mod initialized_alias_tests;
+mod initialized_alias_utils;
 mod initialized_availability;
 mod initialized_control;
 mod initialized_drop_assignment;
