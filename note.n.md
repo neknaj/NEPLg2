@@ -1,3 +1,13 @@
+# 2026-05-12 Agent 2 resource checker policy i32 facts rename 追従
+
+- `ISS-20260512T061056848Z-RESOURCE-CHECKER-POLICY-EXPECTS-RENA-E8F94116` に対応した。
+- remote main `3487e386` で `initialized_direct_call_scalar.rs` が `i32_call_facts.rs` に rename されていたため、`nodesrc/test_resource_checker_responsibility.js` の module list / `mod` list / line budget を新 file 名へ追従した。
+- direct-call i32 facts の責務境界は維持し、`i32_call_facts.rs` は 180 行 budget とした。
+- 検証:
+  - `node nodesrc/test_resource_checker_responsibility.js`: stale file/module name failure は解消。次の別件として `owner_check.rs has 813 lines; responsibility split limit is 800` に到達。
+- 新規 issue:
+  - `ISS-20260512T061533036Z-RESOURCE-OWNER-CHECK-EXCEEDS-RESPONS-687898EE` を追加し、`owner_check.rs` 再肥大化は次の独立 commit で扱う。
+
 # 2026-05-12 Agent 2 vec/sort/merge facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/vec/sort/merge.nepl` に残っていた scratch buffer raw access、recursive range merge、public API / allocation を責務別 submodule に分割した。

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T06:14:14.487Z",
+  "generated_at": "2026-05-12T06:17:59.512Z",
   "counts": {
-    "total": 626,
+    "total": 627,
     "open": 12,
-    "resolved": 614,
+    "resolved": 615,
     "by_area": {
       "core": {
-        "total": 312,
+        "total": 313,
         "open": 4,
-        "resolved": 308
+        "resolved": 309
       },
       "stdlib": {
         "total": 167,
@@ -150,6 +150,21 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
+      "id": "ISS-20260512T061533036Z-RESOURCE-OWNER-CHECK-EXCEEDS-RESPONS-687898EE",
+      "title": "Resource owner_check exceeds responsibility split limit after i32 fact changes",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/owner_check.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T061533036Z-RESOURCE-OWNER-CHECK-EXCEEDS-RESPONS-687898EE.md"
+    },
+    {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
       "area": "stdlib",
@@ -238,21 +253,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260512T061056848Z-RESOURCE-CHECKER-POLICY-EXPECTS-RENA-E8F94116",
-      "title": "Resource checker policy expects renamed i32 facts module",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "test",
-      "created": "2026-05-12",
-      "updated": "2026-05-12",
-      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/mod.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260512T061056848Z-RESOURCE-CHECKER-POLICY-EXPECTS-RENA-E8F94116.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -8038,6 +8038,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T144627703Z-RUST-PARSER-AND-BACKEND-CODEGEN-LACK-11798587.md"
+    },
+    {
+      "id": "ISS-20260512T061056848Z-RESOURCE-CHECKER-POLICY-EXPECTS-RENA-E8F94116",
+      "title": "Resource checker policy expects renamed i32 facts module",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/mod.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T061056848Z-RESOURCE-CHECKER-POLICY-EXPECTS-RENA-E8F94116.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",
