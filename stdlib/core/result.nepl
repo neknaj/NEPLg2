@@ -33,6 +33,7 @@
 //: ```
 //:
 //: neplg2:test[compile_fail]
+//: diag_codes: type.annotation.mismatch, type.return.mismatch
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -166,6 +167,7 @@ enum Result<.T, .E>:
 //: ```
 //:
 //: neplg2:test[compile_fail]
+//: diag_codes: resource.cell.moved, resource.cell.uninit
 //: ```neplg2
 //:| #entry main
 //:| #target core

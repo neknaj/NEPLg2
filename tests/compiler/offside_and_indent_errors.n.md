@@ -11,6 +11,7 @@ plan.md では、`block:` の直下は 1 段深いインデントが必要であ
 plan.md の「改行した次の行ではインデントが 1 つ増える」「インデントの不正はエラー」より、コンパイルエラーを期待します。
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.expected
 ```neplg2
 #entry main
 #indent 4
@@ -28,6 +29,7 @@ fn main <()->i32> ():
 インデント段数の不整合はエラーになるべきです。
 
 neplg2:test[compile_fail]
+diag_codes: lexer.indent.width_mismatch
 ```neplg2
 #entry main
 #indent 4
@@ -45,6 +47,7 @@ fn main <()->i32> ():
 2 個目の引数だけ深いインデントになっているため、エラーを期待します。
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 #entry main
 #indent 4
@@ -64,6 +67,7 @@ plan.md では `block:` の後ろには「空白とコメントしか使えな�
 同一行に式を続けた場合はエラーを期待します（単行ブロックは `block <...>` の形式で書くべきです）。
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.expected
 ```neplg2
 #entry main
 #indent 4
@@ -80,6 +84,7 @@ plan.md の例では、`block:` の中で 1 行に 2 文（= 2 つの式）を�
 このケースでは `add 1 2` の直後に `add 3 4` が同一行に続いており、明示的な区切り（改行 or `;`）がないためエラーを期待します。
 
 neplg2:test[compile_fail]
+diag_codes: type.stack.extra_values
 ```neplg2
 #entry main
 #indent 4
@@ -99,6 +104,7 @@ fn main <()->i32> ():
 `|>` を 1 段深くしているためエラーを期待します。
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 #entry main
 #indent 4
@@ -118,6 +124,7 @@ fn main <()->i32> ():
 単行ブロックの中で複行ブロックを開始しているためエラーを期待します。
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 #entry main
 #indent 4

@@ -242,6 +242,7 @@ fn main <()* >()> ():
 接頭辞のない行を混在させた場合は、パース時にエラーになることを固定します。
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 #entry main
 #indent 4
@@ -269,6 +270,7 @@ fn main <()->i32> ():
 ## test_str_to_string_implicit_conversion
 
 neplg2:test[compile_fail]
+diag_codes: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
@@ -296,6 +298,7 @@ fn main <()->i32> ():
 ## test_str_to_string_explicit_conversion
 
 neplg2:test[compile_fail]
+diag_codes: type.annotation.mismatch, type.overload.no_match
 ```neplg2
 #entry main
 #indent 4

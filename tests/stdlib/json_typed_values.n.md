@@ -93,6 +93,7 @@ fn main <()*>i32> ():
 ## json_string_rejects_raw_handle_at_compile_time
 
 neplg2:test[compile_fail]
+diag_codes: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
@@ -108,6 +109,7 @@ fn main <()*>i32> ():
 ## json_object_rejects_raw_handle_at_compile_time
 
 neplg2:test[compile_fail]
+diag_codes: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
@@ -123,6 +125,7 @@ fn main <()*>i32> ():
 ## json_array_rejects_raw_handle_at_compile_time
 
 neplg2:test[compile_fail]
+diag_codes: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4

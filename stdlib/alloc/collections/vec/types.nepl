@@ -52,6 +52,7 @@ impl Copy for VecStorageState:
 //: - struct [自体/じたい]の[読/よ]み[書/か]きは O(1) です。
 //:
 //: neplg2:test[compile_fail]
+//: diag_codes: resource.cell.moved, resource.cell.uninit
 //: ```neplg2
 //:| #entry main
 //:| #target std

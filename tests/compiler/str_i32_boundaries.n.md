@@ -3,6 +3,7 @@
 ## str_annotation_rejects_raw_i32
 
 neplg2:test[compile_fail]
+diag_codes: type.annotation.mismatch
 ```neplg2
 #entry main
 #indent 4
@@ -16,6 +17,7 @@ fn main <()->i32> ():
 ## raw_i32_annotation_rejects_string_literal
 
 neplg2:test[compile_fail]
+diag_codes: type.annotation.mismatch, type.return.mismatch
 ```neplg2
 #entry main
 #indent 4

@@ -856,6 +856,7 @@ fn main <()->i32> ():
 ## reserved_cond_cannot_be_identifier
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.reserved_keyword
 ```neplg2
 
 #entry main
@@ -870,6 +871,7 @@ fn main <()->i32> ():
 ## reserved_then_cannot_be_function_name
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.reserved_keyword, parser.token.unexpected
 ```neplg2
 
 #entry main
@@ -886,6 +888,7 @@ fn main <()->i32> ():
 ## reserved_let_fn_cannot_be_identifier
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.reserved_keyword
 ```neplg2
 
 #entry main
@@ -901,6 +904,7 @@ fn main <()->i32> ():
 ## reserved_else_do_cannot_be_identifier
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.reserved_keyword
 ```neplg2
 
 #entry main
@@ -952,6 +956,7 @@ fn main <()->i32> ():
 ## if_layout_marker_order_error_then_before_cond
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 
 #entry main
@@ -969,6 +974,7 @@ fn main <()->i32> ():
 ## if_layout_then_marker_duplicate_error
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 
 #entry main
@@ -986,6 +992,7 @@ fn main <()->i32> ():
 ## if_layout_cond_marker_duplicate_error
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 
 #entry main
@@ -1004,6 +1011,7 @@ fn main <()->i32> ():
 ## if_layout_missing_else_error
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.expected
 ```neplg2
 
 #entry main
@@ -1021,6 +1029,7 @@ fn main <()->i32> ():
 ## if_layout_missing_then_error
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.expected
 ```neplg2
 
 #entry main
@@ -1038,6 +1047,7 @@ fn main <()->i32> ():
 ## if_layout_missing_then_error_2
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.expected
 ```neplg2
 
 #entry main
@@ -1054,6 +1064,7 @@ fn main <()->i32> ():
 ## if_layout_invalid_marker_order_reports_diag_code
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 
 #entry main
@@ -1175,6 +1186,7 @@ fn main <()->i32> ():
 ## if_then_semicolon_turns_branch_into_unit_compile_fail
 
 neplg2:test[compile_fail]
+diag_codes: type.annotation.mismatch, type.return.mismatch
 ```neplg2
 #entry main
 #indent 4

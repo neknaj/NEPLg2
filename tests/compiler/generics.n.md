@@ -93,6 +93,7 @@ fn main <()->i32> ():
 ## generics_param_requires_dot
 
 neplg2:test[compile_fail]
+diag_codes: parser.type_expr.invalid
 ```neplg2
 
 #entry main
@@ -110,6 +111,7 @@ fn main <()->i32> ():
 ## generics_enum_param_requires_dot
 
 neplg2:test[compile_fail]
+diag_codes: parser.type_expr.invalid
 ```neplg2
 
 #entry main
@@ -128,6 +130,7 @@ fn main <()->i32> ():
 ## generics_struct_param_requires_dot
 
 neplg2:test[compile_fail]
+diag_codes: parser.type_expr.invalid
 ```neplg2
 
 #entry main
@@ -503,6 +506,7 @@ fn main <()->i32> ():
 ## generics_ascription_mismatch_is_error
 
 neplg2:test[compile_fail]
+diag_codes: type.annotation.mismatch
 ```neplg2
 
 #entry main
@@ -522,6 +526,7 @@ fn main <()->i32> ():
 ## generics_same_type_param_mismatch_is_error
 
 neplg2:test[compile_fail]
+diag_codes: type.overload.no_match, type.return.mismatch
 ```neplg2
 
 #entry main
@@ -539,6 +544,7 @@ fn main <()->i32> ():
 ## generics_enum_payload_mismatch_is_error
 
 neplg2:test[compile_fail]
+diag_codes: type.annotation.mismatch
 ```neplg2
 
 #entry main
@@ -558,6 +564,7 @@ fn main <()->i32> ():
 ## generics_nested_apply_payload_mismatch_is_error
 
 neplg2:test[compile_fail]
+diag_codes: type.annotation.mismatch
 ```neplg2
 
 #entry main
@@ -580,6 +587,7 @@ fn main <()->i32> ():
 ## generics_wrong_arg_count_is_error
 
 neplg2:test[compile_fail]
+diag_codes: type.annotation.mismatch
 ```neplg2
 
 #entry main

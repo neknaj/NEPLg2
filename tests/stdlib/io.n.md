@@ -118,6 +118,7 @@ fn main <()*>i32> ():
 ## io_read_rejects_write_target_at_compile_time
 
 neplg2:test[compile_fail]
+diag_codes: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
@@ -133,6 +134,7 @@ fn main <()*>i32> ():
 ## io_write_rejects_read_target_at_compile_time
 
 neplg2:test[compile_fail]
+diag_codes: type.overload.no_match, type.match.scrutinee_not_enum, type.return.mismatch
 ```neplg2
 #entry main
 #indent 4

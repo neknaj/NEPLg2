@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { parseNmdText, parseNeplText } = require('./parser');
+const { parseFile, parseNmdText, parseNeplText } = require('./parser');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -157,6 +157,52 @@ fn main <()->i32> ():
     assert.match(aggregateBadJson.results[0].error, /compile_fail diagnostic code mismatch/);
     assert.match(aggregateBadJson.results[0].error, /parser\.token\.unexpected/);
     assert.match(aggregateBadJson.results[0].compile_error, /type\.return\.mismatch/);
+}
+
+function walkDoctestFiles(root, output = []) {
+    if (!fs.existsSync(root)) {
+        return output;
+    }
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+        const child = path.join(root, entry.name);
+        if (entry.isDirectory()) {
+            if (entry.name === 'node_modules' || entry.name === 'target' || entry.name === 'tmp') {
+                continue;
+            }
+            walkDoctestFiles(child, output);
+        } else if (entry.isFile() && (entry.name.endsWith('.n.md') || entry.name.endsWith('.nepl'))) {
+            output.push(child);
+        }
+    }
+    return output;
+}
+
+{
+    const roots = ['tests', 'stdlib/tests', 'doc', 'stdlib'].map((rel) => path.join(repoRoot, rel));
+    const missing = [];
+    let compileFailCount = 0;
+    for (const file of roots.flatMap((root) => walkDoctestFiles(root))) {
+        const rel = path.relative(repoRoot, file);
+        const parsed = parseFile(file);
+        parsed.doctests.forEach((dt, index) => {
+            if (!dt.tags.includes('compile_fail')) {
+                return;
+            }
+            compileFailCount += 1;
+            if (dt.diag_codes.length === 0) {
+                missing.push(`${rel}::doctest#${index + 1}`);
+            }
+        });
+    }
+    assert(
+        compileFailCount > 0,
+        'diagnostic metadata coverage policy must scan active compile_fail doctests',
+    );
+    assert.deepEqual(
+        missing,
+        [],
+        `compile_fail doctests must pin stable diag_code metadata:\n${missing.join('\n')}`,
+    );
 }
 
 console.log('doctest diag_code metadata regression passed');

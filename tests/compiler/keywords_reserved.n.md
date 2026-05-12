@@ -3,6 +3,7 @@
 ## reserved_cond_cannot_be_identifier
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.reserved_keyword
 ```neplg2
 #entry main
 #indent 4
@@ -16,6 +17,7 @@ fn main <()->i32> ():
 ## reserved_then_cannot_be_identifier
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.reserved_keyword
 ```neplg2
 #entry main
 #indent 4
@@ -29,6 +31,7 @@ fn main <()->i32> ():
 ## reserved_else_cannot_be_identifier
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.reserved_keyword
 ```neplg2
 #entry main
 #indent 4
@@ -42,6 +45,7 @@ fn main <()->i32> ():
 ## reserved_do_cannot_be_identifier
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.reserved_keyword
 ```neplg2
 #entry main
 #indent 4
@@ -55,6 +59,7 @@ fn main <()->i32> ():
 ## reserved_let_cannot_be_fn_name
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.reserved_keyword, parser.token.unexpected, parser.identifier.expected
 ```neplg2
 #entry main
 #indent 4
@@ -70,6 +75,7 @@ fn main <()->i32> ():
 ## reserved_fn_cannot_be_parameter
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.reserved_keyword, parser.token.unexpected
 ```neplg2
 #entry main
 #indent 4

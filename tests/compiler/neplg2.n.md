@@ -43,6 +43,7 @@ fn main <() -> i32> ():
 ## set_type_mismatch_is_error
 
 neplg2:test[compile_fail]
+diag_codes: type.assignment.mismatch
 ```neplg2
 
 #entry main
@@ -54,6 +55,7 @@ fn main <() -> ()> ():
 ## pure_cannot_call_impure
 
 neplg2:test[compile_fail]
+diag_codes: effect.pure.calls_impure, type.return.mismatch
 ```neplg2
 
 #entry main
@@ -130,6 +132,7 @@ fn main <() -> i32> ():
 ## wasm_stack_mismatch_is_error
 
 neplg2:test[compile_fail]
+diag_codes: backend.wasm.validation_failed
 ```neplg2
 
 #entry main
@@ -192,6 +195,7 @@ fn main <() -> i32> ():
 1 つ目の `fn` 式は条件でスキップされますが、2 つ目は無条件で評価されるため、未定義識別子によりコンパイル失敗する必要があります。
 
 neplg2:test[compile_fail]
+diag_codes: resolve.identifier.undefined, type.return.mismatch
 ```neplg2
 #entry main
 #target core
@@ -399,6 +403,7 @@ fn main <()->i32> ():
 ## pipe_requires_callable_target
 
 neplg2:test[compile_fail]
+diag_codes: type.pipe.invalid, type.stack.extra_values
 ```neplg2
 
 #entry main
@@ -447,6 +452,7 @@ fn main <()->i32> ():
 ## pipe_target_missing_after_annotation_is_error
 
 neplg2:test[compile_fail]
+diag_codes: type.pipe.invalid, type.stack.extra_values
 ```neplg2
 
 #entry main
@@ -537,6 +543,7 @@ fn main <()->i32> ():
 ターゲットを `#target core` と明示し、`compile_fail` として検証します。
 
 neplg2:test[compile_fail, wasm_only]
+diag_codes: resolve.identifier.undefined, type.stack.extra_values, effect.pure.calls_impure
 ```neplg2
 #entry main
 #indent 4
@@ -799,6 +806,7 @@ fn main <()->i32> ():
 ## trait_method_arity_mismatch_is_error
 
 neplg2:test[compile_fail]
+diag_codes: type.stack.extra_values
 ```neplg2
 
 #entry main
@@ -819,6 +827,7 @@ fn main <()->i32> ():
 ## unknown_trait_bound_is_error
 
 neplg2:test[compile_fail]
+diag_codes: type.trait_bound.unknown
 ```neplg2
 
 #entry main

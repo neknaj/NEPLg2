@@ -919,6 +919,21 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `cargo test -p nepl-language target_directive_diagnostics_keep_loader_codes`
 - `node nodesrc/test_diagnostic_code_first_boundary.js`
 
+## 2026-05-13 Stage D4 compile_fail diag_code coverage 追記
+
+`compile_fail` doctest が compile error を期待していても `diag_code` / `diag_codes` を持たなければ、diagnostic の stable code が別 category へ崩れても regression が通ってしまう。これは Stage D4 の「active compile_fail tests は stable code を期待値にする」条件に反していた。
+
+今回の対応で [compile_fail doctests lack stable diagnostic code coverage](./ISS-20260512T205049685Z-COMPILE-FAIL-DOCTESTS-LACK-STABLE-DI-326AA82A.md) を追加・解決した。active doctest tree では 310 件の `compile_fail` のうち 67 件が metadata 未固定だったため、実際の compiler 出力から stable code を採取して `diag_codes` を追加した。
+
+`nodesrc/test_doctest_diag_code_metadata.js` は `tests`、`stdlib/tests`、`doc`、`stdlib` 配下の `.n.md` / `.nepl` を走査し、新しい `compile_fail` に `diag_code` / `diag_codes` が無い場合に失敗する。D4 の主な残件は、既存の affected suite で露出した collection fixture 2 件を別 issue で解消し、full compiler doctest を clean に戻すことである。
+
+検証:
+
+- `node nodesrc/test_doctest_diag_code_metadata.js`: passed
+- `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+- `node nodesrc/test_selfhost_diag_code_enum.js`: passed
+- affected suite は 254 total / 252 passed / 2 failed。失敗は変更前から存在した collection fixture 2 件のみで、`diag_codes` mismatch は発生していない。
+
 ## 2026-04-30 Stage D1 source policy recursion 追記
 
 `nodesrc/test_diagnostic_code_first_boundary.js` は `.with_code(...)` の復活を検出するために追加していたが、固定された境界ファイルだけを読む実装だった。そのため、active compiler pass の別 file に code-less `Diagnostic::error(...)` / `Diagnostic::warning(...)` が戻っても CI で検出できない監視漏れがあった。

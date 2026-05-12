@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T20:47:23.057Z",
+  "generated_at": "2026-05-12T21:09:27.740Z",
   "counts": {
-    "total": 681,
-    "open": 9,
-    "resolved": 672,
+    "total": 683,
+    "open": 10,
+    "resolved": 673,
     "by_area": {
       "core": {
-        "total": 363,
+        "total": 364,
         "open": 1,
-        "resolved": 362
+        "resolved": 363
       },
       "stdlib": {
         "total": 168,
@@ -17,8 +17,8 @@
         "resolved": 162
       },
       "TEST": {
-        "total": 17,
-        "open": 1,
+        "total": 18,
+        "open": 2,
         "resolved": 16
       },
       "selfhost": {
@@ -213,6 +213,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
+    },
+    {
+      "id": "ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5",
+      "title": "collection compiler fixtures fail after stdlib API and layout changes",
+      "area": "TEST",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "tests/compiler/neplg2.n.md, tests/compiler/sizeof.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -5508,6 +5523,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T203824412Z-EDITOR-TARGET-ANALYSIS-REPORTS-UNKNO-222401C9.md"
+    },
+    {
+      "id": "ISS-20260512T205049685Z-COMPILE-FAIL-DOCTESTS-LACK-STABLE-DI-326AA82A",
+      "title": "compile_fail doctests lack stable diagnostic code coverage",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "tests/compiler/*.n.md, nodesrc/test_doctest_diag_code_metadata.js, doc/neplg2/compiler_diagnostics_redesign_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T205049685Z-COMPILE-FAIL-DOCTESTS-LACK-STABLE-DI-326AA82A.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -87,6 +87,7 @@ fn main <()->i32> ():
 ここでは `skip` を外し、未定義シンボル参照で確実にコンパイルエラーになるケースを置いて `compile_fail` を検証します。
 
 neplg2:test[compile_fail]
+diag_codes: resolve.identifier.undefined, type.return.mismatch
 ```neplg2
 #entry main
 #indent 4

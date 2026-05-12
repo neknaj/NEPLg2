@@ -36818,3 +36818,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - fixed raw address、borrowed `RegionToken` projection、`region_ptr_at` Ok payload、unknown callback、helper return / consumption を跨ぐ forged owner 経路は代表回帰で拒否されている。
 - `doc/neplg2/static_check_complexity_reduction_plan.md` の Issue 整理方針を更新し、残る `core/mem` public API / collection / string / self-host buffer の safe public discipline は Stage 6 stdlib issue に分離して追跡する。
 - 検証として `memory_safety.n.md` 23/23、`move_effect.n.md` 110/110、`region_token_forged` 6/6、Resource/source policy を確認した。
+
+## 2026-05-13 Agent 1 diagnostic compile_fail code coverage
+
+- `a499eca0` push 後に remote main を pull し、`agent1/compile-fail-diag-code-coverage` branch を作成した。
+- `ISS-20260512T205049685Z-COMPILE-FAIL-DOCTESTS-LACK-STABLE-DI-326AA82A` を追加し、Stage D4 の active compile_fail diagnostic code coverage が未完だったことを切り出した。
+- active doctest tree の `compile_fail` 310 件を parser ベースで監査し、67 件に `diag_code` / `diag_codes` が無いことを確認した。
+- 実際の compiler 出力から stable code を採取し、対象 doctest に `diag_codes` を追加した。
+- `nodesrc/test_doctest_diag_code_metadata.js` に coverage policy を追加し、今後 `compile_fail` が stable diagnostic code を持たない場合は source policy で失敗する。
+- affected suite の既存失敗 2 件は `ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5` として分離した。

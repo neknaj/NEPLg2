@@ -276,6 +276,7 @@ fn main <()->i32> ():
 ## sizeof_generic_param_requires_dot
 
 neplg2:test[compile_fail]
+diag_codes: parser.type_expr.invalid
 ```neplg2
 #target std
 #entry main

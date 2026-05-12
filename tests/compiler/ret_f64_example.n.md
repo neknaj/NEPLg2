@@ -5,6 +5,7 @@ f64 の戻り値を `ret:` で検査できることを確認するための最�
 ## return_f64
 
 neplg2:test[compile_fail]
+diag_codes: type.annotation.mismatch, type.return.mismatch
 ```neplg2
 #entry main
 #indent 4

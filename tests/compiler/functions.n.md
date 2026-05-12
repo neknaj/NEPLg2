@@ -408,6 +408,7 @@ fn main <()->i32> ():
 ## function_value_capture_not_supported_without_at
 
 neplg2:test[compile_fail]
+diag_codes: type.overload.no_match, type.return.mismatch
 ```neplg2
 
 #entry main
@@ -428,6 +429,7 @@ fn main <()->i32> ():
 ## function_purity_check_pure_calls_impure
 
 neplg2:test[compile_fail]
+diag_codes: effect.pure.calls_impure, type.return.mismatch
 ```neplg2
 
 #entry main

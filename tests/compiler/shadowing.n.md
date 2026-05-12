@@ -251,6 +251,7 @@ fn main <()->i32> ():
 ## hoist_mut_let_disallows_forward_reference
 
 neplg2:test[compile_fail]
+diag_codes: resolve.identifier.undefined, type.stack.extra_values, type.return.mismatch
 ```neplg2
 #entry main
 #indent 4
@@ -464,6 +465,7 @@ fn main <()->i32> ():
 ## let_mut_noshadow_is_invalid
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 #entry main
 #indent 4

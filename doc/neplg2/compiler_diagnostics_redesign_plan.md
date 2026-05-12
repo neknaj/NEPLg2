@@ -270,6 +270,10 @@ D2 の完了条件は次の通り。
 - active compile_fail tests は stable code を期待値にする。
 - 新規 Resource IR / effect / owner / borrow regression は code を必須にする。
 
+進捗:
+
+- 2026-05-13: `ISS-20260512T205049685Z-COMPILE-FAIL-DOCTESTS-LACK-STABLE-DI-326AA82A` を解決した。active doctest tree の `compile_fail` 310 件を parser ベースで監査し、`diag_code` / `diag_codes` が無かった 67 件へ実際の compiler 出力から採取した stable code を追加した。`nodesrc/test_doctest_diag_code_metadata.js` は `tests`、`stdlib/tests`、`doc`、`stdlib` 配下の `.n.md` / `.nepl` を走査し、今後 `compile_fail` が stable diagnostic code を持たない場合に失敗する。affected suite の既存失敗 2 件は `ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5` として別 issue に分離した。
+
 ### Stage D5: self-host parity
 
 目的: Rust core と NEPLg2 self-host compiler が同じ diagnostic contract を使う。

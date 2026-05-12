@@ -5,6 +5,7 @@
 ## old_tuple_literal_call_is_rejected
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 
 #entry main
@@ -21,6 +22,7 @@ fn main <()->i32> ():
 ## old_tuple_literal_construct_is_rejected
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 
 #entry main
@@ -35,6 +37,7 @@ fn main <()->i32> ():
 ## old_tuple_type_annotation_is_rejected
 
 neplg2:test[compile_fail]
+diag_codes: parser.token.unexpected
 ```neplg2
 
 #entry main
@@ -51,6 +54,7 @@ fn main <()->i32> ():
 ## old_tuple_field_access_dot_index_is_rejected
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.expected, parser.token.unexpected
 ```neplg2
 
 #entry main
@@ -67,6 +71,7 @@ fn main <()->i32> ():
 ## old_tuple_field_access_dot_index_nested_is_rejected
 
 neplg2:test[compile_fail]
+diag_codes: parser.identifier.expected
 ```neplg2
 
 #entry main
