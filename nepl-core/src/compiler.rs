@@ -652,9 +652,7 @@ fn run_resource_owner_obligation_gate(
         {
             continue;
         }
-        if let Some(error) = resource_owner_diagnostic_to_error(diagnostic) {
-            owner_errors.push(error);
-        }
+        owner_errors.push(resource_owner_diagnostic_to_error(diagnostic));
     }
     if owner_errors.is_empty() {
         return Ok(());
@@ -675,7 +673,7 @@ fn resource_owner_diagnostic_span(
 
 fn resource_owner_diagnostic_to_error(
     diagnostic: &crate::resource::ResourceOwnerDiagnostic,
-) -> Option<Diagnostic> {
+) -> Diagnostic {
     match diagnostic {
         crate::resource::ResourceOwnerDiagnostic::OwnerUnavailable {
             function,
@@ -683,20 +681,20 @@ fn resource_owner_diagnostic_to_error(
             place,
             state,
             span,
-        } => Some(Diagnostic::error_with_code(
+        } => Diagnostic::error_with_code(
             resource_owner_state_diagnostic_code(state),
             format!(
                 "resource ir owner obligation violation in function '{}': {:?} on {:?} found {:?}",
                 function, operation, place, state
             ),
             *span,
-        )),
+        ),
         crate::resource::ResourceOwnerDiagnostic::OwnerLeaked {
             function,
             place,
             storage,
             span,
-        } => Some(Diagnostic::error_with_code(
+        } => Diagnostic::error_with_code(
             DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
                 ResourceOwnerDiagnosticCode::Leak,
             )),
@@ -705,12 +703,12 @@ fn resource_owner_diagnostic_to_error(
                 function, place, storage
             ),
             *span,
-        )),
+        ),
         crate::resource::ResourceOwnerDiagnostic::OwnerMaybeLeaked {
             function,
             place,
             span,
-        } => Some(Diagnostic::error_with_code(
+        } => Diagnostic::error_with_code(
             DiagnosticCode::Resource(ResourceDiagnosticCode::Owner(
                 ResourceOwnerDiagnosticCode::MaybeLeak,
             )),
@@ -719,7 +717,7 @@ fn resource_owner_diagnostic_to_error(
                 function, place
             ),
             *span,
-        )),
+        ),
     }
 }
 
@@ -743,9 +741,7 @@ fn run_resource_borrow_lifetime_gate(
 ) -> Result<(), CoreError> {
     let mut borrow_errors = Vec::new();
     for diagnostic in &report.diagnostics {
-        if let Some(error) = resource_borrow_diagnostic_to_error(diagnostic) {
-            borrow_errors.push(error);
-        }
+        borrow_errors.push(resource_borrow_diagnostic_to_error(diagnostic));
     }
     if borrow_errors.is_empty() {
         return Ok(());
@@ -756,7 +752,7 @@ fn run_resource_borrow_lifetime_gate(
 
 fn resource_borrow_diagnostic_to_error(
     diagnostic: &crate::resource::ResourceBorrowDiagnostic,
-) -> Option<Diagnostic> {
+) -> Diagnostic {
     match diagnostic {
         crate::resource::ResourceBorrowDiagnostic::BorrowConflict {
             function,
@@ -764,11 +760,11 @@ fn resource_borrow_diagnostic_to_error(
             place,
             active,
             span,
-        } => Some(Diagnostic::error_with_code(
+        } => Diagnostic::error_with_code(
             resource_borrow_conflict_diagnostic_code(*operation, active),
             resource_borrow_conflict_message(function, *operation, place, active),
             *span,
-        )),
+        ),
     }
 }
 
@@ -900,8 +896,7 @@ mod tests {
             span: Span::dummy(),
         };
 
-        let error = resource_owner_diagnostic_to_error(&diagnostic)
-            .expect("owner unavailable diagnostic should become a compiler error");
+        let error = resource_owner_diagnostic_to_error(&diagnostic);
 
         assert_eq!(
             error.code,
@@ -925,8 +920,7 @@ mod tests {
             span: Span::dummy(),
         };
 
-        let error = resource_owner_diagnostic_to_error(&diagnostic)
-            .expect("owner leak diagnostic should become a compiler error");
+        let error = resource_owner_diagnostic_to_error(&diagnostic);
 
         assert_eq!(
             error.code,
@@ -949,8 +943,7 @@ mod tests {
             span: Span::dummy(),
         };
 
-        let error = resource_owner_diagnostic_to_error(&diagnostic)
-            .expect("owned-storage no-free diagnostic should become a compiler error");
+        let error = resource_owner_diagnostic_to_error(&diagnostic);
 
         assert_eq!(
             error.code,
@@ -975,8 +968,7 @@ mod tests {
             span: Span::dummy(),
         };
 
-        let error = resource_owner_diagnostic_to_error(&diagnostic)
-            .expect("reserved owner diagnostic should become a compiler error");
+        let error = resource_owner_diagnostic_to_error(&diagnostic);
 
         assert_eq!(
             error.code,
@@ -1001,8 +993,7 @@ mod tests {
             span: Span::dummy(),
         };
 
-        let error = resource_borrow_diagnostic_to_error(&diagnostic)
-            .expect("borrow return escape should become a compiler error");
+        let error = resource_borrow_diagnostic_to_error(&diagnostic);
 
         assert_eq!(
             error.code,
@@ -1077,8 +1068,7 @@ mod tests {
                 span: Span::dummy(),
             };
 
-            let error = resource_borrow_diagnostic_to_error(&diagnostic)
-                .expect("borrow conflict should become a compiler error");
+            let error = resource_borrow_diagnostic_to_error(&diagnostic);
 
             assert_eq!(error.code, expected);
             assert!(error.message.contains("resource ir borrow conflict"));
@@ -1095,8 +1085,7 @@ mod tests {
             span: Span::dummy(),
         };
 
-        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic)
-            .expect("raw identity escape should become a compiler error");
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic);
 
         assert_eq!(
             error.code,
@@ -1115,8 +1104,7 @@ mod tests {
             span: Span::dummy(),
         };
 
-        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic)
-            .expect("impure indirect call should become a compiler error");
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic);
 
         assert_eq!(
             error.code,
@@ -1133,8 +1121,7 @@ mod tests {
             span: Span::dummy(),
         };
 
-        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic)
-            .expect("unsafe memory in a pure function should become a compiler error");
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic);
 
         assert_eq!(
             error.code,
@@ -1151,8 +1138,7 @@ mod tests {
             span: Span::dummy(),
         };
 
-        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic)
-            .expect("unknown resource effect should become a compiler error");
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic);
 
         assert_eq!(
             error.code,
@@ -1175,9 +1161,7 @@ fn run_resource_effect_boundary_gate(
         if resource_effect_boundary_diagnostic_is_raw_boundary_allowed(diagnostic, source_map) {
             continue;
         }
-        if let Some(error) = resource_effect_boundary_diagnostic_to_error(diagnostic) {
-            effect_errors.push(error);
-        }
+        effect_errors.push(resource_effect_boundary_diagnostic_to_error(diagnostic));
     }
     if effect_errors.is_empty() {
         return Ok(());
@@ -1233,7 +1217,7 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
 
 fn resource_effect_boundary_diagnostic_to_error(
     diagnostic: &crate::resource::ResourceEffectBoundaryDiagnostic,
-) -> Option<Diagnostic> {
+) -> Diagnostic {
     match diagnostic {
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction {
             function,
@@ -1254,48 +1238,48 @@ fn resource_effect_boundary_diagnostic_to_error(
                     String::from("impure function value")
                 }
             };
-            Some(Diagnostic::error_with_code(
+            Diagnostic::error_with_code(
                 DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure),
                 format!("pure function '{}' calls {}", function, call_description),
                 *span,
-            ))
+            )
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
             function,
             operation,
             span,
-        } => Some(Diagnostic::error_with_code(
+        } => Diagnostic::error_with_code(
             DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure),
             format!(
                 "pure function '{}' uses unsafe memory operation '{}'",
                 function, operation
             ),
             *span,
-        )),
+        ),
         crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             function,
             span,
             ..
-        } => Some(Diagnostic::error_with_code(
+        } => Diagnostic::error_with_code(
             resource_raw_identity_escape_code(),
             format!(
                 "pure function '{}' returns raw address identity from internal allocation",
                 function
             ),
             *span,
-        )),
+        ),
         crate::resource::ResourceEffectBoundaryDiagnostic::UnknownEffect {
             function,
             reason,
             span,
-        } => Some(Diagnostic::error_with_code(
+        } => Diagnostic::error_with_code(
             resource_lower_incomplete_code(),
             format!(
                 "resource ir effect lowering kept unknown effect in function '{}': {}",
                 function, reason
             ),
             *span,
-        )),
+        ),
     }
 }
 

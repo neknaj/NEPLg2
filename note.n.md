@@ -36158,3 +36158,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 Resource IR diagnostic mapper non-optional 化
+
+- `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` の Stage D1 継続対応として、Resource IR gate の owner / borrow / effect boundary diagnostic mapper を `Option<Diagnostic>` 返却から必ず `Diagnostic` を返す形へ変更した。
+- 既存実装は全 variant を `Some(Diagnostic)` へ変換していたが、gate 側が `None` を黙って無視できる型になっており、diagnostic 再設計方針の enum-first / exhaustive match / hard gate として弱かった。
+- raw-memory-boundary capability による移行中許可は mapper の外側に残し、診断変換そのものには optional skip 経路を残さない構造にした。
+- unit test も optional mapper を unwrap する形から、直接 `Diagnostic` を検査する形へ更新した。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo test -p nepl-core compiler::tests::resource_owner_gate_maps -- --nocapture`: 4 passed
+  - `cargo test -p nepl-core compiler::tests::resource_borrow_gate_maps -- --nocapture`: 2 passed
+  - `cargo test -p nepl-core compiler::tests::resource_effect_gate_maps -- --nocapture`: 4 passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

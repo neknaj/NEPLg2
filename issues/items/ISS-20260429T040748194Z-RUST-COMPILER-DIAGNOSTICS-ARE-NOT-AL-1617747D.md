@@ -938,3 +938,21 @@ Resource IR の source-based regression で、`core/math` 系の stdlib 関数 `
 `Diagnostic.code` は `Option<DiagnosticCode>` ではなく必須 `DiagnosticCode` になった。code-less な `Diagnostic::error(...)` / `Diagnostic::warning(...)` constructor も削除し、診断は `DiagnosticSpec` または `error_with_code` / `warning_with_code` など code-first constructor で生成する。これにより、Resource IR / type / effect diagnostic が code を持たない状態は source policy だけでなく Rust の型検査でも再導入できない。
 
 `nepl-language` の `EditorDiagnostic.code` も必須 stable string にし、`nepl-web` serialization は `code` / `code_message` を常に出す。`nodesrc/test_diagnostic_code_first_boundary.js` は `Option<DiagnosticCode>` と code-less constructor の再導入を拒否する。
+
+## 2026-05-12 Stage D1 Resource IR diagnostic mapper non-optional 化
+
+Resource IR gate の compiler diagnostic 変換で、owner / borrow / effect boundary mapper が全 variant を `Diagnostic` へ変換しているにもかかわらず `Option<Diagnostic>` を返し、gate 側が `None` を黙って無視できる形になっていた。
+
+これは現状では `None` を返す arm がなく即時の false negative ではないが、diagnostic 再設計の方針である「enum と exhaustive `match` で診断化を強制する」形としては弱い。特に Resource IR diagnostic は static check hard gate の出力であり、mapper が optional である必要はない。
+
+対応では `resource_owner_diagnostic_to_error`、`resource_borrow_diagnostic_to_error`、`resource_effect_boundary_diagnostic_to_error` を `Diagnostic` 返却へ変更し、gate も必ず push する形へ戻した。raw-memory-boundary capability による許可は mapper の外側の明示的な allow 判定として維持し、診断変換そのものに「無視できる None」を残さない。
+
+検証:
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo test -p nepl-core compiler::tests::resource_owner_gate_maps -- --nocapture`: 4 passed
+- `cargo test -p nepl-core compiler::tests::resource_borrow_gate_maps -- --nocapture`: 2 passed
+- `cargo test -p nepl-core compiler::tests::resource_effect_gate_maps -- --nocapture`: 4 passed
+- `cargo check -p nepl-core --tests`: passed
+- `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+- `node nodesrc/issues.js check --dir issues`: passed
