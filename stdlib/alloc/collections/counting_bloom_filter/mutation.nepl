@@ -1,0 +1,42 @@
+//: # counting_bloom_filter/mutation
+//: `CountingBloomFilter` の counter read/write
+//:
+//: ### [目的/もくてき]
+//: - 飽和 increment、0 [下限/かげん]つき decrement、nonzero test を集約し、API 層が counter storage details を直接扱わないようにします。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "./storage" as *
+
+fn counting_bloom_counter_inc <(&Vec<u8>,i32)*>()> (counters, idx):
+    match counting_bloom_counter_at counters idx:
+        Option::Some cur:
+            if:
+                lt cur 255
+                then:
+                    counting_bloom_store_counter counters idx add cur 1
+                else:
+                    ()
+        Option::None:
+            ()
+
+fn counting_bloom_counter_dec <(&Vec<u8>,i32)*>()> (counters, idx):
+    match counting_bloom_counter_at counters idx:
+        Option::Some cur:
+            if:
+                lt 0 cur
+                then:
+                    counting_bloom_store_counter counters idx sub cur 1
+                else:
+                    ()
+        Option::None:
+            ()
+
+fn counting_bloom_counter_nonzero <(&Vec<u8>,i32)->bool> (counters, idx):
+    match counting_bloom_counter_at counters idx:
+        Option::Some cur:
+            lt 0 cur
+        Option::None:
+            false

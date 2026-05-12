@@ -19,6 +19,27 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-12 Agent 2 counting_bloom_filter facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/counting_bloom_filter.nepl` に同居していた型定義、hash/probe 計算、typed counter storage、counter mutation、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/counting_bloom_filter.nepl` は public facade にし、`counting_bloom_filter/types.nepl`、`counting_bloom_filter/api.nepl` を `@merge` re-export するだけの構成にした。
+- `counting_bloom_filter/types.nepl` は `CountingBloomFilter<T,H>` と `Vec<u8>` counter storage invariant を所有する。
+- `counting_bloom_filter/hash.nepl` は primary hash、secondary hash、probe index 計算を所有する。
+- `counting_bloom_filter/storage.nepl` は `Vec<u8>` counter read / replace、fill、allocation、cleanup を所有する。
+- `counting_bloom_filter/mutation.nepl` は飽和 increment、0 下限つき decrement、nonzero test を所有する。
+- `counting_bloom_filter/api.nepl` は `new` / `len` / `insert` / `remove` / `contains` / `clear` / `free` を所有し、borrowed observer と typed storage cleanup の契約を維持する。
+- `nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_counting_bloom_filter_borrowed_observers.js` を更新し、root facade、typed `Vec<u8>` storage、hash/storage/mutation 境界、borrowed observer、raw memory 非使用を固定した。
+- line count は `counting_bloom_filter.nepl` 12、`counting_bloom_filter/types.nepl` 17、`counting_bloom_filter/hash.nepl` 19、`counting_bloom_filter/storage.nepl` 38、`counting_bloom_filter/mutation.nepl` 37、`counting_bloom_filter/api.nepl` 205。
+- [検証]:
+  - `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_counting_bloom_filter_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/counting_bloom_filter.nepl -i stdlib/alloc/collections/counting_bloom_filter/types.nepl -i stdlib/alloc/collections/counting_bloom_filter/hash.nepl -i stdlib/alloc/collections/counting_bloom_filter/storage.nepl -i stdlib/alloc/collections/counting_bloom_filter/mutation.nepl -i stdlib/alloc/collections/counting_bloom_filter/api.nepl -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/counting-bloom-filter-split-focused-after-build.json -j 4 --dist web/dist`: total=11, passed=11
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/counting-bloom-filter-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-12 Agent 2 bloom_filter facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/bloom_filter.nepl` に同居していた型定義、hash/probe 計算、bit layout、typed byte storage、bit read/write、public API を責務別 submodule に分割した。

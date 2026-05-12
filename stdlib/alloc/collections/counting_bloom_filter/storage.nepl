@@ -1,0 +1,45 @@
+//: # counting_bloom_filter/storage
+//: `CountingBloomFilter` の typed counter storage 操作
+//:
+//: ### [目的/もくてき]
+//: - `Vec<u8>` counter の読み書き、全 counter 初期化、allocation、cleanup を集約します。
+//: - public API が raw pointer や raw byte load/store を扱わない構成を保ちます。
+
+#indent 4
+
+#import "core/cast" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+
+fn counting_bloom_counter_at <(&Vec<u8>,i32)->Option<i32>> (counters, idx):
+    match vec::get<u8> counters idx:
+        Option::Some counter:
+            let value <i32> cast counter
+            some<i32> value
+        Option::None:
+            none<i32>
+
+fn counting_bloom_store_counter <(&Vec<u8>,i32,i32)*>()> (counters, idx, value):
+    let counter <u8> cast value
+    vec::replace<u8> counters idx counter
+
+fn counting_bloom_fill_counters <(&Vec<u8>,i32,i32)*>()> (counters, nslots, value):
+    let mut i <i32> 0
+    while lt i nslots:
+        do:
+            counting_bloom_store_counter counters i value
+            set i add i 1
+
+fn counting_bloom_alloc_counters <(i32,i32)*>Result<Vec<u8>, Diag>> (nslots, value):
+    let counter <u8> cast value
+    match vec::filled<u8> nslots counter:
+        Result::Ok counters:
+            ok<Vec<u8>, Diag> counters
+        Result::Err _e:
+            diag_err<Vec<u8>> diag_out_of_memory
+
+fn counting_bloom_free_counters <(Vec<u8>)->()> (counters):
+    vec::free<u8> counters
