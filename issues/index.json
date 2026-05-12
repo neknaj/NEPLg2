@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T17:06:56.492Z",
+  "generated_at": "2026-05-12T17:17:13.643Z",
   "counts": {
-    "total": 663,
+    "total": 664,
     "open": 13,
-    "resolved": 650,
+    "resolved": 651,
     "by_area": {
       "core": {
-        "total": 345,
+        "total": 346,
         "open": 5,
-        "resolved": 340
+        "resolved": 341
       },
       "stdlib": {
         "total": 168,
@@ -5238,6 +5238,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T165852784Z-HIR-TRAIT-CALLS-STILL-SPLIT-TRAIT-AP-405A462B.md"
+    },
+    {
+      "id": "ISS-20260512T171317751Z-RESOURCE-IR-TRAIT-CALL-TARGET-STILL--6B70AE36",
+      "title": "Resource IR trait call target still splits trait application identity",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/model.rs; nepl-core/src/resource/lower.rs; nepl-core/src/resource/dump.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T171317751Z-RESOURCE-IR-TRAIT-CALL-TARGET-STILL--6B70AE36.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

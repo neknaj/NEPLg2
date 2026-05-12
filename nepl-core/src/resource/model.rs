@@ -219,6 +219,18 @@ pub enum ResourceExprKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResourceTraitApplication {
+    pub base_name: String,
+    pub args: Vec<TypeId>,
+}
+
+impl ResourceTraitApplication {
+    pub fn new(base_name: String, args: Vec<TypeId>) -> Self {
+        Self { base_name, args }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResourceCallTarget {
     Builtin {
         name: String,
@@ -228,8 +240,7 @@ pub enum ResourceCallTarget {
         type_args: Vec<TypeId>,
     },
     Trait {
-        trait_name: String,
-        trait_args: Vec<TypeId>,
+        application: ResourceTraitApplication,
         method: String,
         self_ty: TypeId,
     },

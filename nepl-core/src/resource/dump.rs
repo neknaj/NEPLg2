@@ -657,14 +657,13 @@ fn dump_call_target(target: &ResourceCallTarget) -> String {
             format!("user({}<{}>)", name, dump_type_list(type_args))
         }
         ResourceCallTarget::Trait {
-            trait_name,
-            trait_args,
+            application,
             method,
             self_ty,
         } => format!(
             "trait({}<{}>::{} self=t{})",
-            trait_name,
-            dump_type_list(trait_args),
+            application.base_name,
+            dump_type_list(&application.args),
             method,
             self_ty.0
         ),

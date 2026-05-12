@@ -10,6 +10,7 @@ const FUNCTION_CHECK = path.join(TYPECHECK_DIR, "function_check.rs");
 const SELECTED_CALL_APPLY = path.join(TYPECHECK_DIR, "selected_call_apply.rs");
 const HIR = path.join(ROOT, "nepl-core", "src", "hir.rs");
 const MONOMORPHIZE = path.join(ROOT, "nepl-core", "src", "monomorphize.rs");
+const RESOURCE_MODEL = path.join(ROOT, "nepl-core", "src", "resource", "model.rs");
 const PLAN = path.join(ROOT, "doc", "neplg2", "abstraction_static_verification_plan.md");
 const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
 
@@ -148,6 +149,7 @@ const context = read(path.join(TYPECHECK_DIR, "context.rs"));
 const traitBoundApply = read(path.join(TYPECHECK_DIR, "trait_bound_apply.rs"));
 const hir = read(HIR);
 const monomorphize = read(MONOMORPHIZE);
+const resourceModel = read(RESOURCE_MODEL);
 assert(
     !context.includes("Vec<(TraitBound, TypeId, Span)>"),
     "BlockChecker pending trait checks must not use positional tuple state",
@@ -249,6 +251,24 @@ assert(
 for (const oldField of ["trait_name:", "trait_base_name:", "trait_args:"]) {
     assert(!hirImplStruct[0].includes(oldField), `HirImpl must not store ${oldField}`);
 }
+assert(
+    resourceModel.includes("pub struct ResourceTraitApplication"),
+    "Resource IR must define ResourceTraitApplication",
+);
+const resourceCallTarget = resourceModel.match(/pub enum ResourceCallTarget\s*\{[\s\S]*?\n\}/);
+assert(resourceCallTarget, "ResourceCallTarget enum body must be visible to source policy");
+assert(
+    resourceCallTarget[0].includes("application: ResourceTraitApplication"),
+    "ResourceCallTarget::Trait must store ResourceTraitApplication",
+);
+assert(
+    !resourceCallTarget[0].includes("trait_name: String"),
+    "ResourceCallTarget::Trait must not store split trait_name",
+);
+assert(
+    !resourceCallTarget[0].includes("trait_args: Vec<TypeId>"),
+    "ResourceCallTarget::Trait must not store split trait_args",
+);
 for (const marker of [
     "struct MonoTraitApplication",
     "struct MonoTraitMethodKey",

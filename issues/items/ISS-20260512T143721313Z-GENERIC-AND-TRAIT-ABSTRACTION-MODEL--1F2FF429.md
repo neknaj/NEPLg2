@@ -58,6 +58,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T163228542Z-PENDING-TRAIT-CHECKS-STILL-USE-POSIT-FB7F1082` で、pending trait bound check を tuple から `PendingTraitCheck { bound, target_ty, span }` へ移行した。
 - `ISS-20260512T164311083Z-MONOMORPHIZE-TRAIT-LOOKUP-KEYS-STILL-DA66AC14` で、monomorphize の trait lookup key を tuple から `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行し、重複していた `impl_entry_index` を削除した。
 - `ISS-20260512T165852784Z-HIR-TRAIT-CALLS-STILL-SPLIT-TRAIT-AP-405A462B` で、HIR 境界の `FuncRef::Trait` / `HirImpl` を `HirTraitApplication` へ移行し、trait identity の split string fields を削除した。
+- `ISS-20260512T171317751Z-RESOURCE-IR-TRAIT-CALL-TARGET-STILL--6B70AE36` で、Resource IR の `ResourceCallTarget::Trait` を `ResourceTraitApplication` へ移行し、dump/report 境界でも trait application を named model として保持するようにした。
 
 ## 検証
 

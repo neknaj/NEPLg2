@@ -263,7 +263,9 @@ struct MonoTraitLookupKey {
 - 2026-05-12: 旧 `impl_entry_index` は `impl_method_index` と同じ candidate set を二重に保持していたため削除し、trait base name + method の候補 index に統合した。
 - 2026-05-12: `ISS-20260512T165852784Z-HIR-TRAIT-CALLS-STILL-SPLIT-TRAIT-AP-405A462B` を追加し、verified にした。
 - 2026-05-12: `HirTraitApplication` を追加し、`FuncRef::Trait` と `HirImpl` の trait identity を split string fields ではなく typed application で保持する形へ移行した。
-- 残件: Resource IR の `ResourceCallTarget::Trait` は dump / report 用に split field を持つ。HIR と monomorphize の authority は typed model に移ったため、Resource IR 側の表示/監査 model は別 issue で扱う。
+- 2026-05-12: `ISS-20260512T171317751Z-RESOURCE-IR-TRAIT-CALL-TARGET-STILL--6B70AE36` を追加し、verified にした。
+- 2026-05-12: `ResourceTraitApplication` を追加し、`ResourceCallTarget::Trait` も split fields ではなく typed application を保持する形へ移行した。
+- 残件: Stage 5 の typed identity は HIR / monomorphize / Resource IR call target まで到達した。次は policy baseline を整理し、BoundEnv / TypeParamId 残件と Resource IR 側の安全検査 issue に戻る。
 
 ### Stage 6: policy baseline を 0 に下げる
 

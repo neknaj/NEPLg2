@@ -36621,3 +36621,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `HirTraitApplication { base_name, args }` を追加し、`FuncRef::Trait` と `HirImpl` の trait identity を split string fields から typed application に移行した。
 - typecheck / monomorphize / Resource IR lowering / drop insertion / WASM・LLVM diagnostics を `HirTraitApplication` 経由に更新した。
 - source policy に HIR trait application model と旧 split field 再導入禁止を追加した。
+
+## 2026-05-13 Agent 1 Resource IR trait application model
+
+- `b99083b9` push 後に remote main を pull し、merge 済みの `agent1/hir-trait-application-model` branch を削除した。
+- `agent1/resource-trait-application-model` branch を作成し、Stage 5 の `ISS-20260512T171317751Z-RESOURCE-IR-TRAIT-CALL-TARGET-STILL--6B70AE36` を追加した。
+- `ResourceTraitApplication { base_name, args }` を追加し、`ResourceCallTarget::Trait` の trait identity を split fields から typed application に移行した。
+- `resource/lower.rs` と `resource/dump.rs` を新 model に追従させた。
+- source policy に Resource IR trait call target の split field 再導入禁止を追加した。

@@ -33,6 +33,7 @@ use super::model::{
     AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, ResourceBlock, ResourceBlockId,
     ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
     ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
+    ResourceTraitApplication,
 };
 
 pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
@@ -1057,8 +1058,10 @@ fn lower_call_target(callee: &FuncRef) -> ResourceCallTarget {
             method,
             self_ty,
         } => ResourceCallTarget::Trait {
-            trait_name: application.base_name.clone(),
-            trait_args: application.args.clone(),
+            application: ResourceTraitApplication::new(
+                application.base_name.clone(),
+                application.args.clone(),
+            ),
             method: method.clone(),
             self_ty: *self_ty,
         },
