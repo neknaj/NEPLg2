@@ -1,0 +1,153 @@
+//: # btreemap/storage
+//: `BTreeMap` の backing storage 操作
+//:
+//: ### [目的/もくてき]
+//: - key/value slot の読み書き、shift、grow、storage 解放を所有します。
+//: - public API が key/value storage layout を直接扱わないようにします。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "./types" as *
+
+fn btreemap_storage_keys <.K,.V> <(&BTreeMapStorage<.K,.V>)->&Vec<Option<.K>>> (storage):
+    field::get_ref storage "keys"
+
+fn btreemap_storage_values <.K,.V> <(&BTreeMapStorage<.K,.V>)->&Vec<Option<.V>>> (storage):
+    field::get_ref storage "values"
+
+fn btreemap_key_at <.K: Copy> <(&Vec<Option<.K>>,i32)->Option<.K>> (keys, idx):
+    match vec::get<Option<.K>> keys idx:
+        Option::Some key_opt:
+            key_opt
+        Option::None:
+            none<.K>
+
+fn btreemap_value_at <.V: Copy> <(&Vec<Option<.V>>,i32)->Option<.V>> (values, idx):
+    match vec::get<Option<.V>> values idx:
+        Option::Some value_opt:
+            value_opt
+        Option::None:
+            none<.V>
+
+fn btreemap_store_key <.K: Copy> <(&Vec<Option<.K>>,i32,Option<.K>)*>()> (keys, idx, key):
+    vec::replace<Option<.K>> keys idx key
+
+fn btreemap_store_value <.V: Copy> <(&Vec<Option<.V>>,i32,Option<.V>)*>()> (values, idx, value):
+    vec::replace<Option<.V>> values idx value
+
+fn btreemap_key_slot <.K: Copy,.V> <(&BTreeMapStorage<.K,.V>,i32)->Option<.K>> (storage, idx):
+    btreemap_key_at<.K> btreemap_storage_keys<.K,.V> storage idx
+
+fn btreemap_value_slot <.K,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32)->Option<.V>> (storage, idx):
+    btreemap_value_at<.V> btreemap_storage_values<.K,.V> storage idx
+
+fn btreemap_store_key_slot <.K: Copy,.V> <(&BTreeMapStorage<.K,.V>,i32,Option<.K>)*>()> (storage, idx, key):
+    btreemap_store_key<.K> btreemap_storage_keys<.K,.V> storage idx key
+
+fn btreemap_store_value_slot <.K,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,Option<.V>)*>()> (storage, idx, value):
+    btreemap_store_value<.V> btreemap_storage_values<.K,.V> storage idx value
+
+fn btreemap_free_storage <.K,.V> <(BTreeMapStorage<.K,.V>)->()> (storage):
+    let keys <Vec<Option<.K>>> field::get storage "keys"
+    let values <Vec<Option<.V>>> field::get storage "values"
+    vec::free<Option<.K>> keys
+    vec::free<Option<.V>> values
+
+fn btreemap_alloc_storage <.K: Copy,.V: Copy> <(i32)*>Result<BTreeMapStorage<.K,.V>, Diag>> (cap):
+    match vec::filled<Option<.K>> cap none<.K>:
+        Result::Err _e:
+            diag_err<BTreeMapStorage<.K,.V>> diag_out_of_memory
+        Result::Ok keys:
+            match vec::filled<Option<.V>> cap none<.V>:
+                Result::Err _e:
+                    vec::free<Option<.K>> keys
+                    diag_err<BTreeMapStorage<.K,.V>> diag_out_of_memory
+                Result::Ok values:
+                    ok<BTreeMapStorage<.K,.V>, Diag> BTreeMapStorage<.K,.V> keys values
+
+fn btreemap_copy_live_slots <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,&BTreeMapStorage<.K,.V>,i32)*>()> (src, dst, len0):
+    let src_keys <&Vec<Option<.K>>> btreemap_storage_keys<.K,.V> src
+    let src_values <&Vec<Option<.V>>> btreemap_storage_values<.K,.V> src
+    let dst_keys <&Vec<Option<.K>>> btreemap_storage_keys<.K,.V> dst
+    let dst_values <&Vec<Option<.V>>> btreemap_storage_values<.K,.V> dst
+    let mut i <i32> 0
+    while lt i len0:
+        do:
+            match btreemap_key_at<.K> src_keys i:
+                Option::Some key:
+                    btreemap_store_key<.K> dst_keys i some<.K> key
+                Option::None:
+                    ()
+            match btreemap_value_at<.V> src_values i:
+                Option::Some value:
+                    btreemap_store_value<.V> dst_values i some<.V> value
+                Option::None:
+                    ()
+            set i add i 1
+
+fn btreemap_clear_slots <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32)*>()> (storage, end, i):
+    if:
+        lt i end
+        then:
+            btreemap_store_key<.K> btreemap_storage_keys<.K,.V> storage i none<.K>
+            btreemap_store_value<.V> btreemap_storage_values<.K,.V> storage i none<.V>
+            btreemap_clear_slots<.K,.V> storage end add i 1
+        else:
+            ()
+
+fn btreemap_shift_right <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32)*>()> (storage, idx, len0):
+    let mut i <i32> len0
+    while gt i idx:
+        do:
+            let from <i32> sub i 1
+            match btreemap_key_slot<.K,.V> storage from:
+                Option::Some saved_key:
+                    btreemap_store_key_slot<.K,.V> storage i some<.K> saved_key
+                Option::None:
+                    btreemap_store_key_slot<.K,.V> storage i none<.K>
+            match btreemap_value_slot<.K,.V> storage from:
+                Option::Some saved_value:
+                    btreemap_store_value_slot<.K,.V> storage i some<.V> saved_value
+                Option::None:
+                    btreemap_store_value_slot<.K,.V> storage i none<.V>
+            set i from
+
+fn btreemap_shift_left_after_remove <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32)*>()> (storage, idx, len0):
+    let last <i32> sub len0 1
+    let mut i <i32> idx
+    while lt i last:
+        do:
+            let nxt <i32> add i 1
+            match btreemap_key_slot<.K,.V> storage nxt:
+                Option::Some saved_key:
+                    btreemap_store_key_slot<.K,.V> storage i some<.K> saved_key
+                Option::None:
+                    btreemap_store_key_slot<.K,.V> storage i none<.K>
+            match btreemap_value_slot<.K,.V> storage nxt:
+                Option::Some saved_value:
+                    btreemap_store_value_slot<.K,.V> storage i some<.V> saved_value
+                Option::None:
+                    btreemap_store_value_slot<.K,.V> storage i none<.V>
+            set i nxt
+    btreemap_store_key_slot<.K,.V> storage last none<.K>
+    btreemap_store_value_slot<.K,.V> storage last none<.V>
+
+fn btreemap_grow <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)*>Result<BTreeMap<.K,.V>, Diag>> (hm):
+    let len0 <i32> *field::get_ref &hm "len"
+    let cap0 <i32> *field::get_ref &hm "cap"
+    let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"
+    let cap1 <i32> mul cap0 2
+    match btreemap_alloc_storage<.K,.V> cap1:
+        Result::Err d:
+            btreemap_free_storage<.K,.V> storage
+            err<BTreeMap<.K,.V>, Diag> d
+        Result::Ok next_storage:
+            btreemap_copy_live_slots<.K,.V> &storage &next_storage len0
+            btreemap_free_storage<.K,.V> storage
+            ok<BTreeMap<.K,.V>, Diag> BTreeMap<.K,.V> len0 cap1 next_storage

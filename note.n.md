@@ -35303,3 +35303,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 btreemap facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/btreemap.nepl` に同居していた型定義、key/value storage 操作、検索、public API、sorted-array alias を責務別 submodule に分割した。
+- `stdlib/alloc/collections/btreemap.nepl` は public facade にし、`btreemap/types.nepl`、`btreemap/api.nepl`、`btreemap/alias.nepl` を `@merge` re-export するだけの構成にした。
+- `btreemap/types.nepl` は `BTreeMapStorage` / `BTreeMap` の型定義と key/value storage invariant を所有する。
+- `btreemap/storage.nepl` は key/value slot 読み書き、shift、grow、storage free を所有する。内部 helper の `grow` は `btreemap_grow` に改名し、汎用名を避けた。
+- `btreemap/search.nepl` は `Ord` に基づく lower_bound / equality / slot 判定を所有する。
+- `btreemap/api.nepl` は `new` / `len` / `contains` / `get` / `insert` / `remove` / `clear` / `free` を所有し、borrowed observer と grow error propagation の契約を維持する。
+- `btreemap/alias.nepl` は sorted-array map alias だけを所有する。
+- `nodesrc/test_stdlib_btree_borrowed_observers.js` と `nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js` を更新し、root facade に実装本体が戻らないこと、borrowed observer、grow error propagation、typed `Vec<Option<K>>` / `Vec<Option<V>>` storage を固定した。
+- line count は `btreemap.nepl` 15、`btreemap/types.nepl` 34、`btreemap/storage.nepl` 134、`btreemap/search.nepl` 43、`btreemap/api.nepl` 257、`btreemap/alias.nepl` 56。
+- [検証]:
+  - `node nodesrc/test_stdlib_btree_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreemap.nepl -i stdlib/alloc/collections/btreemap/types.nepl -i stdlib/alloc/collections/btreemap/storage.nepl -i stdlib/alloc/collections/btreemap/search.nepl -i stdlib/alloc/collections/btreemap/api.nepl -i stdlib/alloc/collections/btreemap/alias.nepl -i stdlib/tests/btreemap.n.md -i tests/stdlib/btree_array_cost.n.md -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/btreemap-split-focused.json -j 4 --dist web/dist`: total=27, passed=27
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/btreemap-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

@@ -1,0 +1,50 @@
+//: # btreemap/search
+//: `BTreeMap` の lower_bound / slot 判定
+//:
+//: ### [目的/もくてき]
+//: - `Ord` に基づく key 検索と一致判定を storage 操作から分離します。
+//: - public API は検索方針をこの module に委譲し、更新処理だけを組み立てます。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/traits/ord" as *
+#import "core/traits/copy" as *
+#import "alloc/collections/vec" as vec
+#import "./types" as *
+#import "./storage" as *
+
+fn btreemap_key_eq <.K: Ord> <(.K,.K)->bool> (a, b):
+    and not ord_lt a b not ord_lt b a
+
+fn btreemap_lower_bound <.K: Ord&Copy> <(&Vec<Option<.K>>,.K,i32,i32)->i32> (keys, key, low, high):
+    if:
+        lt low high
+        then:
+            let mid <i32> div_s add low high 2
+            match btreemap_key_at<.K> keys mid:
+                Option::Some saved:
+                    if:
+                        ord_lt saved key
+                        then btreemap_lower_bound<.K> keys key add mid 1 high
+                        else btreemap_lower_bound<.K> keys key low mid
+                Option::None:
+                    mid
+        else low
+
+fn btreemap_is_at <.K: Ord&Copy> <(&Vec<Option<.K>>,i32,i32,.K)->bool> (keys, len0, idx, key):
+    if:
+        lt idx len0
+        then:
+            match btreemap_key_at<.K> keys idx:
+                Option::Some saved:
+                    btreemap_key_eq<.K> saved key
+                Option::None:
+                    false
+        else false
+
+fn btreemap_lower_bound_storage <.K: Ord&Copy,.V> <(&BTreeMapStorage<.K,.V>,.K,i32,i32)->i32> (storage, key, low, high):
+    btreemap_lower_bound<.K> btreemap_storage_keys<.K,.V> storage key low high
+
+fn btreemap_is_at_storage <.K: Ord&Copy,.V> <(&BTreeMapStorage<.K,.V>,i32,i32,.K)->bool> (storage, len0, idx, key):
+    btreemap_is_at<.K> btreemap_storage_keys<.K,.V> storage len0 idx key
