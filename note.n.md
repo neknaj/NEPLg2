@@ -19,6 +19,14 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-12 Agent 2 pipe_collections List borrowed observer fixture issue
+
+- Queue 分割検証中に `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/pipe-collections-after-queue-split.json -j 1 --dist web/dist` を実行し、`pipe_list_alias_chain` が `type.overload.no_match` で失敗することを確認した。
+- 根本原因は `List` observer が borrowed API に修正済みなのに、`tests/stdlib/pipe_collections.n.md` の List fixture が `len<i32> xs0` / `get<i32> xs1 1` の by-value 形式を残していること。
+- Queue 分割とは独立した stale fixture 問題として `ISS-20260512T034125476Z-PIPE-COLLECTIONS-LIST-DOCTEST-STILL--8AA21971` を追加した。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-12 Agent 2 queue facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/queue.nepl` に同居していた型定義、circular index 計算、typed slot storage、grow 時 copy、public API を責務別 submodule に分割した。
