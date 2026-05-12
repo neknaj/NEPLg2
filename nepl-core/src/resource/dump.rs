@@ -6,9 +6,9 @@ use alloc::vec::Vec;
 use core::fmt::Write;
 
 use super::model::{
-    AggregateKind, EffectOp, Place, PlaceProjection, PlaceRoot, RawBodyKind, RawMemoryOp,
-    ResourceCallTarget, ResourceConditionFact, ResourceI32RelationOp, ResourceMatchPattern,
-    ResourceModule, ResourceOp, ResourceTerminator, StorageOrigin,
+    AggregateKind, EffectOp, Place, PlaceProjection, PlaceRoot, RawBodyKind, ResourceCallTarget,
+    ResourceConditionFact, ResourceI32RelationOp, ResourceMatchPattern, ResourceModule, ResourceOp,
+    ResourceTerminator, StorageOrigin,
 };
 
 impl ResourceModule {
@@ -270,7 +270,7 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
             let _ = writeln!(
                 out,
                 "raw_memory {} out={} args=[{}] span={}:{}-{}",
-                dump_raw_memory_op(operation),
+                operation,
                 dump_place(output),
                 dump_place_list(args),
                 span.file_id.0,
@@ -647,22 +647,6 @@ fn dump_construct_kind(kind: &AggregateKind) -> String {
         AggregateKind::Enum { name, variant } => format!("enum({}::{})", name, variant),
         AggregateKind::Struct { name, .. } => format!("struct({})", name),
         AggregateKind::Tuple { .. } => String::from("tuple"),
-    }
-}
-
-fn dump_raw_memory_op(operation: &RawMemoryOp) -> String {
-    match operation {
-        RawMemoryOp::Alloc => String::from("alloc"),
-        RawMemoryOp::Dealloc => String::from("dealloc"),
-        RawMemoryOp::Realloc => String::from("realloc"),
-        RawMemoryOp::Load => String::from("load"),
-        RawMemoryOp::Store => String::from("store"),
-        RawMemoryOp::BulkCopy => String::from("bulk_copy"),
-        RawMemoryOp::BulkMove => String::from("bulk_move"),
-        RawMemoryOp::MemorySize => String::from("memory_size"),
-        RawMemoryOp::MemoryGrow => String::from("memory_grow"),
-        RawMemoryOp::FillBytes => String::from("fill_bytes"),
-        RawMemoryOp::Fill => String::from("fill"),
     }
 }
 

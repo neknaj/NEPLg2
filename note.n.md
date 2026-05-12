@@ -36434,3 +36434,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test effects -- --nocapture`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 Resource IR dump RawMemoryOp 表示統一
+
+- `ISS-20260512T140149223Z-RESOURCE-IR-DUMP-DUPLICATES-RAWMEMOR-61AE6F81` として、Resource IR dump が `RawMemoryOp` の文字列表現を `effects.rs` と重複して持っていた問題を修正した。
+- `ResourceOp::RawMemory` の dump 出力は `RawMemoryOp` の `Display` を直接使うようにし、dump-local `dump_raw_memory_op` を削除した。
+- `nodesrc/test_resource_checker_responsibility.js` に、`dump_raw_memory_op` を再導入しない source policy を追加した。
+- これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 5 の raw memory operation enum-first 方針を Resource IR dump / review tools 側にも徹底する整理である。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_raw_memory_operations -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

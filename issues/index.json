@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T13:57:15.231Z",
+  "generated_at": "2026-05-12T14:05:24.324Z",
   "counts": {
-    "total": 647,
+    "total": 648,
     "open": 10,
-    "resolved": 637,
+    "resolved": 638,
     "by_area": {
       "core": {
-        "total": 330,
+        "total": 331,
         "open": 3,
-        "resolved": 327
+        "resolved": 328
       },
       "stdlib": {
         "total": 167,
@@ -4998,6 +4998,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T135519913Z-EFFECTS-LOADER-TEST-STILL-EXPECTS-VE-5E14E725.md"
+    },
+    {
+      "id": "ISS-20260512T140149223Z-RESOURCE-IR-DUMP-DUPLICATES-RAWMEMOR-61AE6F81",
+      "title": "Resource IR dump duplicates RawMemoryOp string mapping",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/dump.rs; nepl-core/src/effects.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T140149223Z-RESOURCE-IR-DUMP-DUPLICATES-RAWMEMOR-61AE6F81.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

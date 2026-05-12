@@ -411,6 +411,7 @@ const summary = readResource('summary.rs');
 const effect = readResource('effect.rs');
 const effectCheck = readResource('effect_check.rs');
 const effectSummary = readResource('effect_summary.rs');
+const resourceDump = readResource('dump.rs');
 const coverage = readResource('coverage.rs');
 const coverageHir = readResource('coverage_hir.rs');
 const coverageHirProjection = readResource('coverage_hir_projection.rs');
@@ -453,6 +454,7 @@ assertContains(effectCheck, 'struct ResourceEffectBoundaryEngine', 'effect_check
 
 assertNotContains(effect, 'struct ResourceEffectBoundaryEngine', 'effect.rs');
 assertContains(effect, 'pub fn check_resource_effect_boundaries', 'effect.rs');
+assertNotContains(resourceDump, 'fn dump_raw_memory_op', 'dump.rs');
 assertContains(coverage, 'pub fn compare_hir_resource_lowering_typed', 'coverage.rs');
 assertContains(coverageHir, 'pub(super) fn hir_function_coverage', 'coverage_hir.rs');
 assertContains(
