@@ -36597,3 +36597,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `apply_unbound_trait_method_call` は `MissingSelfType` / `UnsatisfiedBound` / `PureCallsImpure` の typed failure variant から diagnostic を生成する。
 - source policy に `TraitMethodResolution` variants と旧 optional helper 再導入禁止を追加した。
 - `nepl-core/tests/neplg2.rs` に pure 関数から impure trait method を呼ぶ回帰テストを追加し、`EffectDiagnosticCode::PureCallsImpure` が維持されることを確認した。
+
+## 2026-05-13 Agent 1 pending trait check model
+
+- `b4bb99f5` push 後に remote main を pull し、merge 済みの `agent1/trait-method-resolution-enum` branch を削除した。
+- `agent1/pending-trait-check-model` branch を作成し、`ISS-20260512T163228542Z-PENDING-TRAIT-CHECKS-STILL-USE-POSIT-FB7F1082` を追加した。
+- `PendingTraitCheck { bound, target_ty, span }` を追加し、`BlockChecker::pending_trait_bound_checks` を tuple ではなく named struct の `Vec` に変更した。
+- `trait_bound_apply.rs` の enqueue と `function_check.rs` の pending check 消費を named field に移行した。
+- source policy に `Vec<(TraitBound, TypeId, Span)>` と tuple push 再導入禁止を追加した。

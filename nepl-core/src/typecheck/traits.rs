@@ -172,6 +172,13 @@ impl TraitBound {
     }
 }
 
+#[derive(Debug, Clone)]
+pub(super) struct PendingTraitCheck {
+    pub(super) bound: TraitBound,
+    pub(super) target_ty: TypeId,
+    pub(super) span: Span,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum TraitCapability {
     Copy,

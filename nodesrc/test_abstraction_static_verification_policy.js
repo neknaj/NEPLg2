@@ -94,6 +94,12 @@ assert(traits.includes("TraitCapability::Copy"), "TraitCapability::Copy match co
 assert(traits.includes("TraitCapability::Clone"), "TraitCapability::Clone match coverage must remain visible");
 assert(traits.includes("TraitCapability::Drop"), "TraitCapability::Drop match coverage must remain visible");
 assert(traits.includes("pub(super) struct TraitApplication"), "TraitApplication must be a typed model");
+assert(traits.includes("pub(super) struct PendingTraitCheck"), "pending trait checks must be named state");
+const pendingTraitCheckStruct = traits.match(/pub\(super\) struct PendingTraitCheck\s*\{[\s\S]*?\n\}/);
+assert(pendingTraitCheckStruct, "PendingTraitCheck struct body must be visible to source policy");
+assert(pendingTraitCheckStruct[0].includes("bound: TraitBound"), "PendingTraitCheck must name its bound");
+assert(pendingTraitCheckStruct[0].includes("target_ty: TypeId"), "PendingTraitCheck must name its target type");
+assert(pendingTraitCheckStruct[0].includes("span: Span"), "PendingTraitCheck must name its diagnostic span");
 assert(traits.includes("pub(super) enum ImplKind"), "ImplKind must model impl identity as an enum");
 assert(traits.includes("ImplKind::Inherent"), "ImplKind::Inherent match branch must remain visible");
 assert(traits.includes("ImplKind::Trait"), "ImplKind::Trait match branch must remain visible");
@@ -137,6 +143,24 @@ assert(
 );
 
 const functionCheck = read(FUNCTION_CHECK);
+const context = read(path.join(TYPECHECK_DIR, "context.rs"));
+const traitBoundApply = read(path.join(TYPECHECK_DIR, "trait_bound_apply.rs"));
+assert(
+    !context.includes("Vec<(TraitBound, TypeId, Span)>"),
+    "BlockChecker pending trait checks must not use positional tuple state",
+);
+assert(
+    context.includes("Vec<PendingTraitCheck>"),
+    "BlockChecker pending trait checks must use PendingTraitCheck",
+);
+assert(
+    !traitBoundApply.includes(".push((substituted_bound, inferred_arg, span))"),
+    "trait_bound_apply.rs must not enqueue positional pending trait check tuples",
+);
+assert(
+    traitBoundApply.includes("PendingTraitCheck {"),
+    "trait_bound_apply.rs must enqueue named PendingTraitCheck values",
+);
 assert(
     functionCheck.includes("type_param_has_trait_application_bound"),
     "deferred function-level trait checks must use typed trait application lookup",

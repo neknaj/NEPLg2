@@ -236,6 +236,8 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `ISS-20260512T161908521Z-TRAIT-METHOD-RESOLUTION-STILL-RETURN-21525B05` を追加し、verified にした。
 - 2026-05-12: `TraitMethodResolution` enum と `TraitMethodCall` model を追加し、selected callable / unbound trait method call の receiver inference と trait application inference を共通 resolver に集約した。
 - 2026-05-12: `infer_selected_trait_method_callee -> Option<FuncRef>` は削除した。selected callable 側は `TraitMethodResolution` を match し、unbound 側は typed failure variant から diagnostic を生成する。
+- 2026-05-12: `ISS-20260512T163228542Z-PENDING-TRAIT-CHECKS-STILL-USE-POSIT-FB7F1082` を追加し、verified にした。
+- 2026-05-12: `pending_trait_bound_checks: Vec<(TraitBound, TypeId, Span)>` を `Vec<PendingTraitCheck>` へ移行し、pending check の `bound` / `target_ty` / `span` を名前付き field として保持するようにした。
 
 ### Stage 5: monomorphize lookup key typed 化
 

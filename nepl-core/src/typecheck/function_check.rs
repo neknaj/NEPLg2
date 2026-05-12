@@ -18,7 +18,9 @@ use super::env::{Binding, BindingKind, Env};
 use super::hir_finalize::resolve_type_ids_in_function;
 use super::model::{CheckedFunction, EnumInfo, StructInfo};
 use super::signature::{mangle_function_symbol, type_contains_unbound_var};
-use super::traits::{type_param_has_trait_application_bound, ImplInfo, TraitBound, TraitInfo};
+use super::traits::{
+    type_param_has_trait_application_bound, ImplInfo, PendingTraitCheck, TraitBound, TraitInfo,
+};
 use super::type_expr::{LabelEnv, StringTable};
 use super::BlockChecker;
 
@@ -212,12 +214,17 @@ pub(super) fn check_function(
             checker.pending_trait_bound_checks,
         )
     };
-    for (bound, ty, span) in pending_trait_checks {
-        let resolved = ctx.resolve_id(ty);
+    for PendingTraitCheck {
+        bound,
+        target_ty,
+        span,
+    } in pending_trait_checks
+    {
+        let resolved = ctx.resolve_id(target_ty);
         let satisfied = type_param_has_trait_application_bound(
             ctx,
             &type_param_bounds,
-            ty,
+            target_ty,
             &bound.application.base_name,
             &bound.application.args,
         ) || type_param_has_trait_application_bound(

@@ -8,12 +8,11 @@ use crate::diagnostic::Diagnostic;
 use crate::hir::HirFunction;
 use crate::resolve::ImportResolution;
 use crate::source_map::SourceMap;
-use crate::span::Span;
 use crate::types::{TypeCtx, TypeId};
 
 use super::env::Env;
 use super::model::{EnumInfo, StructInfo};
-use super::traits::{ImplInfo, TraitBound, TraitInfo};
+use super::traits::{ImplInfo, PendingTraitCheck, TraitBound, TraitInfo};
 use super::type_expr::{LabelEnv, StringTable};
 // ---------------------------------------------------------------------
 // Block checker
@@ -25,7 +24,7 @@ pub(super) struct BlockChecker<'a> {
     pub(super) labels: &'a mut LabelEnv,
     pub(super) string_table: &'a mut StringTable,
     pub(super) diagnostics: Vec<Diagnostic>,
-    pub(super) pending_trait_bound_checks: Vec<(TraitBound, TypeId, Span)>,
+    pub(super) pending_trait_bound_checks: Vec<PendingTraitCheck>,
     pub(super) current_effect: Effect,
     pub(super) enums: &'a BTreeMap<String, EnumInfo>,
     pub(super) structs: &'a BTreeMap<String, StructInfo>,

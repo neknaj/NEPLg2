@@ -7,7 +7,7 @@ use crate::span::Span;
 use crate::types::TypeId;
 
 use super::diagnostics::type_error;
-use super::traits::{infer_instantiated_type_arg, TraitApplication, TraitBound};
+use super::traits::{infer_instantiated_type_arg, PendingTraitCheck, TraitApplication, TraitBound};
 use super::BlockChecker;
 
 macro_rules! trait_bound_apply_log {
@@ -99,8 +99,11 @@ impl<'a> BlockChecker<'a> {
                         span,
                     ));
                 } else {
-                    self.pending_trait_bound_checks
-                        .push((substituted_bound, inferred_arg, span));
+                    self.pending_trait_bound_checks.push(PendingTraitCheck {
+                        bound: substituted_bound,
+                        target_ty: inferred_arg,
+                        span,
+                    });
                 }
             }
         }

@@ -55,6 +55,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T160137255Z-TRAIT-BOUND-LOOKUP-DUPLICATES-TYPEID-1694BE55` で、`trait_check.rs` の duplicate type parameter bound lookup を削除し、BlockChecker から `traits.rs` の typed helper へ委譲する形にした。
 - `ISS-20260512T160950280Z-TRAIT-BOUND-LOOKUP-STILL-ACCEPTS-SAM-C03A85E0` で、typed helper 内の same-label `TypeId` fallback を削除し、bound lookup は exact / resolved `TypeId` と explicit substitution mapping に寄せた。
 - `ISS-20260512T161908521Z-TRAIT-METHOD-RESOLUTION-STILL-RETURN-21525B05` で、trait method resolution を `TraitMethodResolution` enum と `TraitMethodCall` model に移し、selected callable / unbound call の分岐を enum match にした。
+- `ISS-20260512T163228542Z-PENDING-TRAIT-CHECKS-STILL-USE-POSIT-FB7F1082` で、pending trait bound check を tuple から `PendingTraitCheck { bound, target_ty, span }` へ移行した。
 
 ## 検証
 
