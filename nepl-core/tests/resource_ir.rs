@@ -9647,6 +9647,45 @@ fn main <()* >i32> ():
 }
 
 #[test]
+fn resource_ir_owner_check_accepts_checks_print_machine_report_return() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "std/test" as *
+
+fn main <()* >i32> ():
+    let mut report checks_new
+    set report checks_push report assert "initial" true
+    let shown checks_print_machine report
+    checks_exit_code shown
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("checks_print_machine__") || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "checks_print_machine must return the same live TestReport owner without leaking temporary projections: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_reinitializes_self_update_multi_str_projection_return() {
     let source = r#"
 #entry main
