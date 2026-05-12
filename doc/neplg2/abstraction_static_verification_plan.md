@@ -241,6 +241,7 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `ISS-20260512T161908521Z-TRAIT-METHOD-RESOLUTION-STILL-RETURN-21525B05` を追加し、verified にした。
 - 2026-05-12: `TraitMethodResolution` enum と `TraitMethodCall` model を追加し、selected callable / unbound trait method call の receiver inference と trait application inference を共通 resolver に集約した。
 - 2026-05-12: `infer_selected_trait_method_callee -> Option<FuncRef>` は削除した。selected callable 側は `TraitMethodResolution` を match し、unbound 側は typed failure variant から diagnostic を生成する。
+- 2026-05-13: `ISS-20260512T193917855Z-TRAIT-METHOD-RESOLUTION-STILL-CARRIE-0BFEEFA9` を追加し、`TraitMethodCall` と `TraitMethodResolution::UnsatisfiedBound` の payload も `TraitApplication` へ移行した。trait method resolution の途中で表示名を作る `infer_trait_application_name` は削除し、diagnostic 境界だけで `display_name` を呼ぶ。
 - 2026-05-12: `ISS-20260512T163228542Z-PENDING-TRAIT-CHECKS-STILL-USE-POSIT-FB7F1082` を追加し、verified にした。
 - 2026-05-12: `pending_trait_bound_checks: Vec<(TraitBound, TypeId, Span)>` を `Vec<PendingTraitCheck>` へ移行し、pending check の `bound` / `target_ty` / `span` を名前付き field として保持するようにした。
 
@@ -292,13 +293,14 @@ struct MonoTraitLookupKey {
 進捗:
 
 - 2026-05-12: `ISS-20260512T174845757Z-ABSTRACTION-POLICY-COUNTS-TRAITINFO--FE3DB746` を追加し、`ImplInfo` optional field の policy を `traits.rs` 全体の `Option<String>` 数ではなく `ImplInfo` struct body 直接検査へ変更した。これにより `ImplInfo` は optional field 0 件を baseline ではなく完了条件として監視する。
+- 2026-05-13: `ISS-20260512T193917855Z-TRAIT-METHOD-RESOLUTION-STILL-CARRIE-0BFEEFA9` により、trait method resolution result の split `trait_name` / `trait_args` / `applied_trait_name` payload 再導入禁止を source policy に追加した。`format_trait_ref_name` baseline は 6 から 4 に下げた。
 
 ## 進捗状況
 
 - `typecheck/traits.rs`: Stage 1/2 は進行済み。TraitCapability enum、TraitId、TraitApplication、TraitBound、ImplKind が存在する。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みで、type parameter bound は `TraitApplication` に集約済み。ImplInfo は `ImplKind` を持ち、optional string model ではない。
 - `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存、split impl field 参照、duplicate label fallback 実装は削除済み。
 - `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
-- `typecheck/trait_call_apply.rs`: Stage 4/5 は進行済み。trait method resolution は `TraitMethodResolution` enum を match し、HIR call target へ渡す method identity は `HirTraitMethodId` として保持する。
+- `typecheck/trait_call_apply.rs`: Stage 4/5 は進行済み。trait method resolution は `TraitMethodResolution` enum を match し、resolution payload は `TraitApplication` と `HirTraitMethodId` を保持する。診断表示名は failure diagnostic を作る境界だけで生成する。
 - `hir.rs`: Stage 5 は進行済み。`HirTraitId` / `HirTraitApplication` / `HirTraitMethodId` を追加し、`FuncRef::Trait` / `HirImpl` は typed trait application と typed method identity を保持する。
 - `monomorphize.rs`: Stage 5 は進行中。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。HIR からは `HirTraitId` を持つ `HirTraitApplication` を受け取り、monomorphize phase 内の `MonoTraitId` / `MonoTraitMethodId` を含む resolved key へ変換する。
 - `resource/model.rs`: Stage 5 は実装済み。`ResourceTraitId` / `ResourceTraitApplication` / `ResourceTraitMethodId` により Resource IR call target の trait identity と method identity を typed field として保持する。

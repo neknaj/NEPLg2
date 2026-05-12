@@ -1,11 +1,10 @@
-use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::types::{TypeId, TypeKind};
 
 use super::signature::type_contains_unbound_var;
 use super::traits::{
-    format_trait_ref_name, infer_type_param_from_instantiated_pair, merge_inferred_instantiation,
+    infer_type_param_from_instantiated_pair, merge_inferred_instantiation,
     type_param_has_trait_application_bound, TraitBound, TraitId, TraitInfo,
 };
 use super::{BlockChecker, StackEntry};
@@ -104,18 +103,6 @@ impl<'a> BlockChecker<'a> {
             }
         }
         matched
-    }
-
-    pub(super) fn infer_trait_application_name(
-        &self,
-        trait_name: &str,
-        trait_info: &TraitInfo,
-        sig: TypeId,
-        args: &[StackEntry],
-        expected_ret: Option<TypeId>,
-    ) -> String {
-        let inferred = self.infer_trait_application_args(trait_info, sig, args, expected_ret);
-        format_trait_ref_name(trait_name, &inferred, self.ctx)
     }
 
     pub(super) fn infer_trait_application_args(

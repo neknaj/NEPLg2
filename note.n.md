@@ -1,3 +1,18 @@
+# 2026-05-13 Agent 1 trait method resolution payload typed 化
+
+- `ISS-20260512T193917855Z-TRAIT-METHOD-RESOLUTION-STILL-CARRIE-0BFEEFA9` に対応した。
+- `TraitMethodResolution` は enum 化済みだったが、成功 payload の `TraitMethodCall` は `trait_name` / `trait_args` を split field として持ち、`UnsatisfiedBound` は `applied_trait_name` の表示文字列を保持していた。
+- `TraitMethodCall` と `UnsatisfiedBound` を `TraitApplication` payload へ移行し、diagnostic を生成する境界でだけ `display_name` を呼ぶ形にした。
+- `infer_trait_application_name` を削除し、trait method resolution の途中で表示名を作る経路をなくした。
+- `nodesrc/test_abstraction_static_verification_policy.js` に typed payload と split field 再導入禁止を追加し、`format_trait_ref_name` baseline を 6 から 4 へ下げた。
+- 検証:
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test neplg2 trait -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 generic -- --nocapture`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/abstraction_static_verification_plan.md` Stage 4/5/6 の trait method resolution typed 化に沿った compiler core の静的検査 authority 整理。
+
 # 2026-05-13 Agent 1 HIR / Resource trait method identity typed 化
 
 - `ISS-20260512T191325765Z-HIR-AND-RESOURCE-TRAIT-METHOD-IDENTI-78952D7B` に対応した。

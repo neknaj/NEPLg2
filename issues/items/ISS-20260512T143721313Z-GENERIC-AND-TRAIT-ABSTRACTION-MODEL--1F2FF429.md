@@ -56,6 +56,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T160950280Z-TRAIT-BOUND-LOOKUP-STILL-ACCEPTS-SAM-C03A85E0` で、typed helper 内の same-label `TypeId` fallback を削除し、bound lookup は exact / resolved `TypeId` と explicit substitution mapping に寄せた。
 - `ISS-20260512T172241782Z-TRAIT-TYPE-PARAMETER-BOUNDS-STILL-EX-09CE8755` で、type parameter trait bounds を raw `BTreeMap<TypeId, Vec<TraitBound>>` ではなく `BoundEnv` に閉じ込め、`BlockChecker` / `BindingKind` / `check_function` の境界から raw map を削除した。
 - `ISS-20260512T161908521Z-TRAIT-METHOD-RESOLUTION-STILL-RETURN-21525B05` で、trait method resolution を `TraitMethodResolution` enum と `TraitMethodCall` model に移し、selected callable / unbound call の分岐を enum match にした。
+- `ISS-20260512T193917855Z-TRAIT-METHOD-RESOLUTION-STILL-CARRIE-0BFEEFA9` で、`TraitMethodCall` / `UnsatisfiedBound` の payload も `TraitApplication` へ移行し、trait method resolution 中に表示名を保持する経路を削除した。
 - `ISS-20260512T163228542Z-PENDING-TRAIT-CHECKS-STILL-USE-POSIT-FB7F1082` で、pending trait bound check を tuple から `PendingTraitCheck { bound, target_ty, span }` へ移行した。
 - `ISS-20260512T164311083Z-MONOMORPHIZE-TRAIT-LOOKUP-KEYS-STILL-DA66AC14` で、monomorphize の trait lookup key を tuple から `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行し、重複していた `impl_entry_index` を削除した。
 - `ISS-20260512T165852784Z-HIR-TRAIT-CALLS-STILL-SPLIT-TRAIT-AP-405A462B` で、HIR 境界の `FuncRef::Trait` / `HirImpl` を `HirTraitApplication` へ移行し、trait identity の split string fields を削除した。
