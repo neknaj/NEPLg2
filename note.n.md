@@ -36827,3 +36827,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 実際の compiler 出力から stable code を採取し、対象 doctest に `diag_codes` を追加した。
 - `nodesrc/test_doctest_diag_code_metadata.js` に coverage policy を追加し、今後 `compile_fail` が stable diagnostic code を持たない場合は source policy で失敗する。
 - affected suite の既存失敗 2 件は `ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5` として分離した。
+
+## 2026-05-13 Agent 1 self-host diagnostic leaf policy
+
+- `65540397` push 後に remote main を pull し、`agent1/selfhost-diag-leaf-policy` branch を作成した。
+- `ISS-20260512T212421953Z-SELFHOST-DIAGNOSTIC-CODE-ENUM-POLICY-656F8C6E` を追加し、D5 self-host diagnostic parity の source policy が leaf enum mapping を検査していない問題を切り出した。
+- `nodesrc/test_selfhost_diag_code_enum.js` で `Selfhost*DiagnosticCode` leaf enum variant を列挙し、対応する `selfhost_*_diag_code_name` に exactly once で現れることを検査するようにした。
+- leaf conversion function の wildcard arm と stage prefix drift も拒否し、self-host 側の stable diagnostic string 境界を enum-first / exhaustive-match 方針で監視する。

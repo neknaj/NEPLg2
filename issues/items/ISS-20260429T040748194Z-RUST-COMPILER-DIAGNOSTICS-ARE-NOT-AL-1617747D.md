@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-05-12
+updated: 2026-05-13
 target: "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md"
 ---
 
@@ -933,6 +933,14 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
 - `node nodesrc/test_selfhost_diag_code_enum.js`: passed
 - affected suite は 254 total / 252 passed / 2 failed。失敗は変更前から存在した collection fixture 2 件のみで、`diag_codes` mismatch は発生していない。
+
+## 2026-05-13 Stage D5 self-host leaf diagnostic policy 追記
+
+`SelfhostDiagnosticCode` は typed enum 化済みだったが、source policy は top-level category と raw string constructor 禁止を確認するだけで、leaf enum variant と stable string conversion の対応までは検査していなかった。そのため self-host parser / resolver / checker / Resource / backend の diagnostic variant を追加する時に、`selfhost_*_diag_code_name` の更新漏れや wildcard fallback が入り込んでも、D5 parity の不備として検出できない余地があった。
+
+今回の対応で [Selfhost diagnostic code enum policy does not verify leaf mappings](./ISS-20260512T212421953Z-SELFHOST-DIAGNOSTIC-CODE-ENUM-POLICY-656F8C6E.md) を追加・解決した。`nodesrc/test_selfhost_diag_code_enum.js` は `SelfhostLoaderDiagnosticCode`、`SelfhostLexerDiagnosticCode`、`SelfhostParserDiagnosticCode`、`SelfhostResolveDiagnosticCode`、`SelfhostCliDiagnosticCode` の variant を列挙し、対応する stable string conversion function に exactly once で現れること、wildcard arm を使わないこと、stage prefix が drift しないことを検査する。
+
+これにより self-host 側も、Rust core と同じく enum variant の追加時に stable string 境界の更新漏れを source policy で検出できる。親 issue は self-host の S3 以降で Type / Effect / Resource / Backend diagnostic category を追加し、Rust registry と parity fixture を拡張するため open のまま維持する。
 
 ## 2026-04-30 Stage D1 source policy recursion 追記
 

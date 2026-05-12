@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T21:09:27.740Z",
+  "generated_at": "2026-05-12T21:26:23.554Z",
   "counts": {
-    "total": 683,
+    "total": 684,
     "open": 10,
-    "resolved": 673,
+    "resolved": 674,
     "by_area": {
       "core": {
         "total": 364,
@@ -22,9 +22,9 @@
         "resolved": 16
       },
       "selfhost": {
-        "total": 61,
+        "total": 62,
         "open": 1,
-        "resolved": 60
+        "resolved": 61
       },
       "cli": {
         "total": 19,
@@ -118,7 +118,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-05-12",
+      "updated": "2026-05-13",
       "target": "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md",
       "legacy_id": "",
       "source": "",
@@ -6408,6 +6408,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T161930297Z-SELFHOST-HIR-EXPRESSIONS-STORE-KIND--54E75EE3.md"
+    },
+    {
+      "id": "ISS-20260512T212421953Z-SELFHOST-DIAGNOSTIC-CODE-ENUM-POLICY-656F8C6E",
+      "title": "Selfhost diagnostic code enum policy does not verify leaf mappings",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nodesrc/test_selfhost_diag_code_enum.js, stdlib/neplg2/core/infra/diag.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T212421953Z-SELFHOST-DIAGNOSTIC-CODE-ENUM-POLICY-656F8C6E.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",

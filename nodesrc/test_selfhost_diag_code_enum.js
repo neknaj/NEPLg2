@@ -8,6 +8,65 @@ function read(rel) {
   return fs.readFileSync(path.join(root, rel), 'utf8');
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function declarationBody(src, declarationPattern, label) {
+  const match = declarationPattern.exec(src);
+  assert(match, `${label} declaration must exist`);
+  const bodyStart = src.indexOf('\n', match.index) + 1;
+  const rest = src.slice(bodyStart);
+  const nextDeclaration = rest.search(/^(?:#import|\/\/:|enum\s|impl\s|struct\s|fn\s)/m);
+  return nextDeclaration < 0 ? rest : rest.slice(0, nextDeclaration);
+}
+
+function enumVariants(enumName) {
+  const body = declarationBody(
+    diag,
+    new RegExp(`^enum\\s+${escapeRegExp(enumName)}:\\s*$`, 'm'),
+    enumName,
+  );
+  return body
+    .split(/\r?\n/)
+    .map((line) => line.match(/^\s{4}([A-Za-z][A-Za-z0-9_]*)(?:\s|$)/)?.[1])
+    .filter(Boolean);
+}
+
+function functionBody(fnName) {
+  return declarationBody(
+    diag,
+    new RegExp(`^fn\\s+${escapeRegExp(fnName)}\\b`, 'm'),
+    fnName,
+  );
+}
+
+function assertLeafCodeMapping({ enumName, functionName, prefix }) {
+  const variants = enumVariants(enumName);
+  assert(variants.length > 0, `${enumName} must declare diagnostic variants`);
+  const body = functionBody(functionName);
+  assert.match(body, /^\s{4}match\s+code:/m, `${functionName} must match on code`);
+  assert.doesNotMatch(body, /^\s{8}_:/m, `${functionName} must not use a wildcard arm`);
+  for (const variant of variants) {
+    const references = body.match(
+      new RegExp(`${escapeRegExp(enumName)}::${escapeRegExp(variant)}\\s*:`, 'g'),
+    ) ?? [];
+    assert.equal(
+      references.length,
+      1,
+      `${functionName} must map ${enumName}::${variant} exactly once`,
+    );
+  }
+  const stringCodes = [...body.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  assert(stringCodes.length > 0, `${functionName} must return stable string codes`);
+  for (const code of stringCodes) {
+    assert(
+      code.startsWith(prefix),
+      `${functionName} returned ${code}; expected ${prefix} prefix`,
+    );
+  }
+}
+
 const diag = read('stdlib/neplg2/core/infra/diag.nepl');
 const reporter = read('stdlib/neplg2/cli/reporter.nepl');
 const lexer = read('stdlib/neplg2/core/syntax/lexer.nepl');
@@ -31,6 +90,11 @@ assert.match(
   /enum\s+SelfhostDiagnosticCode:[\s\S]*Loader\s+<SelfhostLoaderDiagnosticCode>[\s\S]*Lexer\s+<SelfhostLexerDiagnosticCode>[\s\S]*Parser\s+<SelfhostParserDiagnosticCode>[\s\S]*Resolve\s+<SelfhostResolveDiagnosticCode>[\s\S]*Cli\s+<SelfhostCliDiagnosticCode>/,
   'SelfhostDiagnosticCode must be a hierarchical enum',
 );
+assert.deepEqual(
+  enumVariants('SelfhostDiagnosticCode'),
+  ['Loader', 'Lexer', 'Parser', 'Resolve', 'Cli'],
+  'SelfhostDiagnosticCode category additions must update the self-host diagnostic policy',
+);
 assert.match(diag, /code\s+<SelfhostDiagnosticCode>/, 'SelfhostDiagnostic.code must be typed');
 assert.doesNotMatch(diag, /code\s+<str>/, 'SelfhostDiagnostic.code must not be a raw string');
 assert.doesNotMatch(
@@ -48,6 +112,33 @@ assert.doesNotMatch(
   /^\s*_:/m,
   'SelfhostDiagnosticCode string conversion must not use a wildcard arm',
 );
+[
+  {
+    enumName: 'SelfhostLoaderDiagnosticCode',
+    functionName: 'selfhost_loader_diag_code_name',
+    prefix: 'loader.',
+  },
+  {
+    enumName: 'SelfhostLexerDiagnosticCode',
+    functionName: 'selfhost_lexer_diag_code_name',
+    prefix: 'lexer.',
+  },
+  {
+    enumName: 'SelfhostParserDiagnosticCode',
+    functionName: 'selfhost_parser_diag_code_name',
+    prefix: 'parser.',
+  },
+  {
+    enumName: 'SelfhostResolveDiagnosticCode',
+    functionName: 'selfhost_resolve_diag_code_name',
+    prefix: 'resolve.',
+  },
+  {
+    enumName: 'SelfhostCliDiagnosticCode',
+    functionName: 'selfhost_cli_diag_code_name',
+    prefix: 'cli.',
+  },
+].forEach(assertLeafCodeMapping);
 assert.match(
   reporter,
   /selfhost_diag_code_name\s+field::get\s+diag\s+"code"/,
