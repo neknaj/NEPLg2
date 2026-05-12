@@ -1,0 +1,63 @@
+//: # binary_heap/api/observer
+//: `BinaryHeap` の借用 observer API
+//:
+//: ### [目的/もくてき]
+//: - `len` / `cap` / `is_empty` / `peek` を heap owner を消費しない read-only API として提供します。
+//: - root slot の読み取りは `heap_item_at` に委譲し、slot 表現を observer に閉じ込めます。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../storage" as *
+
+//: ## len
+//: heap を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
+fn len <.T> <(&BinaryHeap<.T>)->i32> (hp):
+    *field::get_ref hp "len"
+
+//: ## cap
+//: heap を[移動/いどう]せずに[容量/ようりょう]を[返/かえ]す
+fn cap <.T> <(&BinaryHeap<.T>)->i32> (hp):
+    *field::get_ref hp "cap"
+
+//: ## is_empty
+//: heap を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
+fn is_empty <.T> <(&BinaryHeap<.T>)->bool> (hp):
+    eq len<.T> hp 0
+
+//: ## peek
+//: heap を[移動/いどう]せずに[最大/さいだい][要素/ようそ]を[読/よ]む
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
+//:     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp0 4;
+//:     let hp2 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp1 9;
+//:     let ok <bool> match peek<i32> &hp2:
+//:         Option::Some v:
+//:             eq v 9
+//:         Option::None:
+//:             false
+//:     free<i32> hp2
+//:     if ok 1 0
+//: ```
+fn peek <.T: Copy> <(&BinaryHeap<.T>)->Option<.T>> (hp):
+    let len0 <i32> *field::get_ref hp "len"
+    if:
+        eq len0 0
+        then none<.T>
+        else:
+            let items <&Vec<Option<.T>>> field::get_ref hp "items"
+            heap_item_at<.T> items 0

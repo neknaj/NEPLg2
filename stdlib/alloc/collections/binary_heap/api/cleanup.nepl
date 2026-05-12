@@ -1,0 +1,30 @@
+//: # binary_heap/api/cleanup
+//: `BinaryHeap` owner の cleanup API
+//:
+//: ### [目的/もくてき]
+//: - heap owner から backing slot storage owner を取り出し、`Vec<Option<T>>` として閉じます。
+//: - cleanup を observer / push / pop から分離し、free obligation の境界を明確にします。
+
+#indent 4
+
+#import "core/field" as field
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+
+//: ## free
+//: heap が[所有/しょゆう]する backing storage を[解放/かいほう]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hp <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
+//:     free hp;
+//:     0
+//: ```
+fn free <.T> <(BinaryHeap<.T>)->()> (hp):
+    vec::free<Option<.T>> field::get hp "items"

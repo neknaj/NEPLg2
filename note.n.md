@@ -1,3 +1,14 @@
+# 2026-05-12 Agent 2 binary_heap API facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/binary_heap/api.nepl` に残っていた構築、borrowed observer、push grow、pop、cleanup を責務別 submodule に分割した。
+- `api.nepl` は `api/create`、`api/observer`、`api/push`、`api/pop`、`api/cleanup` の public `@merge` re-export だけを持つ facade にした。
+- `api/push.nepl` は grow allocation failure で旧 `Vec<Option<T>>` owner を閉じる契約を保持し、`api/pop.nepl` は `pop_max` の owner-preserving result と `pop` の cleanup を所有する。
+- `nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js` を更新し、API facade に implementation body が戻らないこと、create / observer / push / pop / cleanup の責務境界、borrowed observer、raw memory 非使用を固定した。
+- line count は `api.nepl` 13、`api/create.nepl` 54、`api/observer.nepl` 57、`api/push.nepl` 65、`api/pop.nepl` 76、`api/cleanup.nepl` 27。
+- 検証:
+  - `node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap.nepl -i stdlib/alloc/collections/binary_heap/types.nepl -i stdlib/alloc/collections/binary_heap/storage.nepl -i stdlib/alloc/collections/binary_heap/order.nepl -i stdlib/alloc/collections/binary_heap/api.nepl -i stdlib/alloc/collections/binary_heap/api/create.nepl -i stdlib/alloc/collections/binary_heap/api/observer.nepl -i stdlib/alloc/collections/binary_heap/api/push.nepl -i stdlib/alloc/collections/binary_heap/api/pop.nepl -i stdlib/alloc/collections/binary_heap/api/cleanup.nepl -i stdlib/tests/binary_heap.n.md -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/binary-heap-api-split-focused.json -j 1 --dist web/dist`: total=14, passed=14
+
 # 2026-05-12 Agent 2 sparse_set API facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/sparse_set/api.nepl` に残っていた診断生成、構築、borrowed observer、owner-consuming update、bulk reset、cleanup を責務別 submodule に分割した。
