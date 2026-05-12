@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T12:58:23.821Z",
+  "generated_at": "2026-05-12T13:13:48.068Z",
   "counts": {
-    "total": 642,
+    "total": 643,
     "open": 10,
-    "resolved": 632,
+    "resolved": 633,
     "by_area": {
       "core": {
-        "total": 325,
+        "total": 326,
         "open": 3,
-        "resolved": 322
+        "resolved": 323
       },
       "stdlib": {
         "total": 167,
@@ -4923,6 +4923,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T124702911Z-RESOURCE-BORROW-AND-OWNER-SUMMARY-ST-DAA86E59.md"
+    },
+    {
+      "id": "ISS-20260512T130429682Z-TYPECHECK-ENUM-MATCH-ARMS-USE-FIRST--86646860",
+      "title": "Typecheck enum match arms use first namespace separator for variant names",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/typecheck/match_check.rs; nepl-core/src/typecheck/syntax_helpers.rs; nepl-core/tests/import_clause.rs; nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T130429682Z-TYPECHECK-ENUM-MATCH-ARMS-USE-FIRST--86646860.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

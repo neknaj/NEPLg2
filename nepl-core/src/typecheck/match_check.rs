@@ -11,7 +11,7 @@ use crate::types::{EnumVariantInfo, TypeId, TypeKind};
 use super::binding_rules::emit_shadow_warning;
 use super::diagnostics::type_error;
 use super::env::{Binding, BindingKind};
-use super::syntax_helpers::parse_i32_literal;
+use super::syntax_helpers::{parse_i32_literal, variant_member_tail};
 use super::{BlockChecker, ScalarMatchKind};
 
 impl<'a> BlockChecker<'a> {
@@ -146,11 +146,7 @@ impl<'a> BlockChecker<'a> {
                     continue;
                 }
             };
-            let arm_var_name = if let Some(pos) = variant.name.find("::") {
-                &variant.name[pos + 2..]
-            } else {
-                &variant.name
-            };
+            let arm_var_name = variant_member_tail(&variant.name);
             if !seen.insert(arm_var_name.to_string()) {
                 self.diagnostics.push(type_error(
                     TypeDiagnosticCode::MatchDuplicateArm,

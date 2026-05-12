@@ -8,6 +8,10 @@ pub(super) fn parse_variant_name(name: &str) -> Option<(&str, &str)> {
     Some((a, b))
 }
 
+pub(super) fn variant_member_tail(name: &str) -> &str {
+    name.rsplit("::").next().unwrap_or(name)
+}
+
 pub(super) fn parse_i32_literal(text: &str) -> Option<i32> {
     let (neg, digits) = if let Some(rest) = text.strip_prefix('-') {
         (true, rest)
@@ -27,6 +31,18 @@ pub(super) fn parse_i32_literal(text: &str) -> Option<i32> {
     let unsigned = i128::from_str_radix(digits, radix).ok()?;
     let signed = if neg { -unsigned } else { unsigned };
     i32::try_from(signed).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn variant_member_tail_uses_last_separator() {
+        assert_eq!(variant_member_tail("Result::Ok"), "Ok");
+        assert_eq!(variant_member_tail("module::Result::Ok"), "Ok");
+        assert_eq!(variant_member_tail("Ok"), "Ok");
+    }
 }
 
 pub(super) fn gate_allows(

@@ -262,6 +262,38 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn alias_qualified_enum_match_arm_uses_variant_member_tail() {
+    let dependency = r#"
+#indent 4
+#no_prelude
+
+enum E:
+    A <i32>
+    B
+
+fn make <()->E> ():
+    E::A 42
+"#;
+    let main = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "enum_dep" as dep
+
+fn main <()->i32> ():
+    let value dep::make
+    match value:
+        dep::E::A v:
+            v
+        dep::E::B:
+            0
+"#;
+    compile_with_virtual_sources(main, &[("enum_dep.nepl", dependency)])
+        .expect("alias-qualified enum match arms should resolve by variant member tail");
+}
+
+#[test]
 fn default_import_hides_unqualified_symbols_but_keeps_default_alias() {
     let unqualified = r#"
 #entry main

@@ -55,6 +55,10 @@ const resourceRoot = assertFile(RESOURCE_ROOT, 'resource/mod.rs');
 const compiler = assertFile(COMPILER, 'compiler.rs');
 const passesMod = assertFile(PASSES_MOD, 'passes/mod.rs');
 const dropInsertion = assertFile(DROP_INSERTION, 'passes/drop_insertion.rs');
+const typecheckMatchCheck = assertFile(
+    path.join(TYPECHECK_DIR, 'match_check.rs'),
+    'typecheck/match_check.rs',
+);
 
 assertLineLimit(TYPECHECK_ROOT, 'typecheck.rs', 90);
 
@@ -98,6 +102,8 @@ for (const moduleName of [
 }
 
 assertContains(typecheckRoot, 'pub use driver::{typecheck, TypeCheckResult};', 'typecheck.rs');
+assertContains(typecheckMatchCheck, 'variant_member_tail', 'typecheck/match_check.rs');
+assertNotContains(typecheckMatchCheck, 'find("::")', 'typecheck/match_check.rs');
 
 for (const [moduleName, limit] of [
     ['driver.rs', 1700],

@@ -36349,3 +36349,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 typecheck enum match variant tail 統一
+
+- `ISS-20260512T130429682Z-TYPECHECK-ENUM-MATCH-ARMS-USE-FIRST--86646860` として、typecheck の enum match arm 判定だけが first `::` で variant 名を切り出していた問題を修正中。
+- `typecheck/syntax_helpers.rs` に `variant_member_tail` を追加し、`match_check.rs` の duplicate / unknown / exhaustive 判定を tail-based に統一した。
+- alias import 越しの `dep::E::A` / `dep::E::B` match arm が型検査を通る regression を `import_clause.rs` に追加した。
+- `nodesrc/test_static_check_boundary_responsibility.js` に、`match_check.rs` が `variant_member_tail` を使い、`find("::")` を再導入しない source policy を追加した。
+- これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 1/4 の module boundary と Resource IR authority の補強で、enum payload 名の解釈を typecheck と Resource IR で揃えるための修正である。
+- [検証]:
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `cargo test -p nepl-core --test import_clause alias_qualified_enum_match_arm_uses_variant_member_tail -- --nocapture`: passed
+  - `cargo test -p nepl-core typecheck::syntax_helpers::tests::variant_member_tail_uses_last_separator -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/issues.js index --dir issues`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
