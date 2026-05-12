@@ -1,3 +1,18 @@
+# 2026-05-13 Agent 1 stdlib documentation contract 回帰修正
+
+- `ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841` の baseline regression に対応した。
+- 根本原因は、直近で追加された `byte_builder_dealloc_owned_u8` が所有 byte storage の解放責務を持つ新 helper であるにもかかわらず、関数 doctest を持たず `declarationNoDoctest` が 1032 から 1033 へ悪化していたこと。
+- doc コメントを削るのではなく、`alloc_ptr<u8>` で得た所有 pointer を `byte_builder_dealloc_owned_u8` が閉じる正常系 doctest を追加した。
+- 同じ helper に残っていた `unreachable` は stdlib unsafe helper policy に反し、`dealloc_ptr` の Err 分岐は Resource IR owner checker 上も maybe leak になるため、raw-memory-boundary 内の所有 pointer cleanup として `dealloc_raw mem_ptr_addr ptr size` に直接下げた。
+- 検証:
+  - `node nodesrc/test_stdlib_documentation_contract.js`: passed
+  - `node nodesrc/test_stdlib_no_unsafe_helpers.js`: passed
+  - `node nodesrc/test_stdlib_builder_owner_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuilder.nepl --no-tree -o tmp/agent1-bytebuilder-doc-contract.json -j 1 --dist web/dist`: 2 passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は stdlib documentation contract の退行防止と `ByteBuilder` owner cleanup helper の executable documentation 整備。
+
 # 2026-05-13 Agent 1 diagnostic 親 issue 完了監査
 
 - `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` を完了状態に更新した。

@@ -53,3 +53,19 @@ Add a stdlib documentation contract plan and a nodesrc source policy that freeze
 - `node nodesrc/run_source_policy_regressions.js --warn-only`
 - `node nodesrc/issues.js index --dir issues`
 - `node nodesrc/issues.js check --dir issues`
+
+## 2026-05-13 bytebuilder helper doctest regression 修正
+
+`stdlib/alloc/io/bytebuilder.nepl` に `byte_builder_dealloc_owned_u8` が追加された際、関数 doc はあるが関数 doctest が無く、documentation contract の `declarationNoDoctest` baseline が `1032 -> 1033` へ悪化していた。
+
+この helper は `ByteBuilder` / `ByteBuf` が所有する byte storage の解放責務を集約する内部境界であり、doc を削って baseline に合わせるべきではない。`alloc_ptr<u8>` で得た所有 pointer を `byte_builder_dealloc_owned_u8` が閉じる正常系 doctest を追加し、source policy の悪化を解消した。
+
+あわせて `byte_builder_dealloc_owned_u8` が `dealloc_ptr` の Err 分岐を `unreachable` で潰していた点も修正した。Resource IR は Err 分岐で owner が解放されない可能性を正しく検出するため、この helper は raw-memory-boundary 内の所有 pointer invariant 済み storage-only cleanup として、direct `dealloc_raw mem_ptr_addr ptr size` に下げる。これにより unsafe helper policy と owner obligation check の両方に沿う。
+
+検証:
+
+- `node nodesrc/test_stdlib_documentation_contract.js`
+- `node nodesrc/test_stdlib_no_unsafe_helpers.js`
+- `node nodesrc/test_stdlib_builder_owner_boundary.js`
+- `node nodesrc/tests.js -i stdlib/alloc/io/bytebuilder.nepl --no-tree -o tmp/agent1-bytebuilder-doc-contract.json -j 1 --dist web/dist`
+- `node nodesrc/run_source_policy_regressions.js`

@@ -130,13 +130,26 @@ fn byte_builder_len <(ByteBuilder)->i32> (builder):
 //: - `ByteBuilder` / `ByteBuf` から取り出した所有 pointer の解放責務をここに集約します。
 //:
 //: [注意/ちゅうい]:
-//: - 所有 pointer と size は builder invariant から来るため、`dealloc_ptr` の失敗は回復不能な内部不整合として扱います。
+//: - 所有 pointer と size は builder invariant から来るため、この raw-memory-boundary 内で storage-only dealloc へ直接下げます。
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main <()*>i32> ():
+//:     let checks0 checks_new
+//:     match alloc_ptr<u8> 4:
+//:         Result::Ok ptr:
+//:             byte_builder_dealloc_owned_u8 ptr 4
+//:             checks_exit_code checks_push checks0 assert_eq_i32 1 1
+//:         Result::Err _e:
+//:             checks_exit_code checks_push checks0 assert_eq_i32 1 0
+//: ```
 fn byte_builder_dealloc_owned_u8 <(MemPtr<u8>,i32)->()> (ptr, size):
-    match dealloc_ptr<u8> ptr size:
-        Result::Ok _:
-            ()
-        Result::Err _e:
-            #intrinsic "unreachable" <> ()
+    dealloc_raw mem_ptr_addr ptr size
 
 fn byte_builder_free <(ByteBuilder)->()> (builder):
     let cap <i32> get builder "cap"
