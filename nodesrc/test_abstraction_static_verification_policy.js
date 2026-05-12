@@ -26,15 +26,9 @@ const MONOMORPHIZE_TRAIT_IDENTITY = path.join(
 );
 const RESOURCE_MODEL = path.join(ROOT, "nepl-core", "src", "resource", "model.rs");
 const RESOURCE_TRAIT_IDENTITY = path.join(ROOT, "nepl-core", "src", "resource", "trait_identity.rs");
+const TRAITS = path.join(TYPECHECK_DIR, "traits.rs");
 const PLAN = path.join(ROOT, "doc", "neplg2", "abstraction_static_verification_plan.md");
 const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
-
-const BASELINE = {
-    parseTraitRefName: 0,
-    formatTraitRefName: 2,
-    traitBoundRef: 0,
-    traitLookupCache: 6,
-};
 
 function assert(condition, message) {
     if (!condition) {
@@ -85,7 +79,7 @@ assert(
     "source policy runner must include abstraction static verification policy",
 );
 
-const traits = read(path.join(TYPECHECK_DIR, "traits.rs"));
+const traits = read(TRAITS);
 const implInfoStruct = traits.match(/pub\(super\) struct ImplInfo\s*\{[\s\S]*?\n\}/);
 const files = walkRustFiles(TYPECHECK_DIR).concat([MONOMORPHIZE]);
 const counts = {
@@ -97,13 +91,18 @@ const counts = {
     implInfoOptionalFields: implInfoStruct ? countOccurrences(implInfoStruct[0], "Option<") : 0,
 };
 
-assert(counts.parseTraitRefName <= BASELINE.parseTraitRefName, "trait ref string parser usage must not grow");
-assert(counts.formatTraitRefName <= BASELINE.formatTraitRefName, "trait ref string formatting usage must not grow");
-assert(counts.traitBoundRef <= BASELINE.traitBoundRef, "TraitBoundRef old model must not be reintroduced");
-assert(counts.traitLookupCache <= BASELINE.traitLookupCache, "string-keyed trait lookup cache usage must not grow");
+assert(counts.parseTraitRefName === 0, "trait ref string parser must not be reintroduced");
+assert(counts.traitBoundRef === 0, "TraitBoundRef old model must not be reintroduced");
 assert(
     counts.implInfoOptionalFields === 0,
     "ImplInfo optional field model must not be reintroduced",
+);
+const formatTraitRefAuthorityFiles = files.filter(
+    (filePath) => filePath !== TRAITS && read(filePath).includes("format_trait_ref_name"),
+);
+assert(
+    formatTraitRefAuthorityFiles.length === 0,
+    `format_trait_ref_name must stay in traits.rs display boundary: ${formatTraitRefAuthorityFiles.join(", ")}`,
 );
 
 assert(traits.includes("pub(super) enum TraitCapability"), "TraitCapability must remain an enum");
@@ -562,5 +561,5 @@ assert(
     "rendered trait application parser must not be reintroduced",
 );
 
-console.log("abstraction static verification policy baseline ok");
+console.log("abstraction static verification policy final contract ok");
 console.log(JSON.stringify(counts, null, 2));

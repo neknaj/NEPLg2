@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T19:59:48.846Z",
+  "generated_at": "2026-05-12T20:09:38.978Z",
   "counts": {
     "total": 676,
-    "open": 12,
-    "resolved": 664,
+    "open": 11,
+    "resolved": 665,
     "by_area": {
       "core": {
         "total": 358,
-        "open": 4,
-        "resolved": 354
+        "open": 3,
+        "resolved": 355
       },
       "stdlib": {
         "total": 168,
@@ -153,21 +153,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429",
-      "title": "Generic and trait abstraction model still uses string-rendered trait references",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-12",
-      "updated": "2026-05-13",
-      "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/trait_check.rs; nepl-core/src/typecheck/trait_bound_apply.rs; nepl-core/src/typecheck/trait_call_apply.rs; nepl-core/src/monomorphize.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -5058,6 +5043,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T140927972Z-RESOURCE-RAW-MEMORY-CALL-FILTERING-I-FFEED338.md"
+    },
+    {
+      "id": "ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429",
+      "title": "Generic and trait abstraction model still uses string-rendered trait references",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/trait_check.rs; nepl-core/src/typecheck/trait_bound_apply.rs; nepl-core/src/typecheck/trait_call_apply.rs; nepl-core/src/monomorphize.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429.md"
     },
     {
       "id": "ISS-20260512T145319534Z-DEFERRED-TRAIT-BOUND-CHECKS-REPARSE--38D11F7C",

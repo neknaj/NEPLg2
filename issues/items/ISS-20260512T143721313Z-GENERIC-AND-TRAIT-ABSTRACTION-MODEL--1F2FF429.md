@@ -2,8 +2,8 @@
 id: ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429
 title: "Generic and trait abstraction model still uses string-rendered trait references"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-12
@@ -46,7 +46,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `doc/neplg2/abstraction_static_verification_plan.md` を追加し、現状評価、目標設計、Stage 0-6 の再設計計画を整理した。
 - `nodesrc/test_abstraction_static_verification_policy.js` を追加し、`parse_trait_ref_name` / `format_trait_ref_name` / `TraitBoundRef` / `ImplInfo` / `trait_lookup_cache` の現行 baseline を固定した。
 - `nodesrc/run_source_policy_regressions.js` に abstraction static verification policy を追加した。
-- 現時点の baseline は最終状態ではなく、今後 `TraitApplication` / `ImplKind` / `PendingTraitCheck` / `MonoTraitLookupKey` 導入に合わせて 0 へ下げる。
+- 初期 baseline は最終状態ではなく、`TraitApplication` / `ImplKind` / `PendingTraitCheck` / `MonoTraitLookupKey` 導入に合わせて段階的に下げる前提で固定した。
 - `ISS-20260512T145319534Z-DEFERRED-TRAIT-BOUND-CHECKS-REPARSE--38D11F7C` で、function-level deferred trait bound check が `bound.name` の表示文字列を authority として使う経路を除去した。`parse_trait_ref_name` baseline は 4 から 3 へ下げた。
 - `ISS-20260512T150308333Z-TRAIT-METHOD-SELF-INFERENCE-REPARSES-FAE05801` で、trait method self inference が表示名を生成して parse し直す経路を除去した。`parse_trait_ref_name` は削除し、baseline は 0 にした。
 - `ISS-20260512T151045280Z-TRAITBOUNDREF-STORES-RENDERED-DISPLA-644F8E6A` で、`TraitBoundRef` を `TraitBound` に改名し、rendered display name field を削除した。`TraitBoundRef` baseline は 0 にした。
@@ -72,6 +72,16 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T191325765Z-HIR-AND-RESOURCE-TRAIT-METHOD-IDENTI-78952D7B` で、HIR / Resource IR の trait method identity を `HirTraitMethodId` / `ResourceTraitMethodId` newtype へ移行した。`FuncRef::Trait` / `ResourceCallTarget::Trait` は raw `String` method field を持たない。
 - `ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5` で、impl method lowering pass も `TraitApplication` payload へ移行し、method symbol mangle 境界以外で rendered trait application name を保持しない形にした。
 - `ISS-20260512T195620903Z-MONOMORPHIZE-TRAIT-RESOLUTION-STILL--0481CA39` で、monomorphize trait resolver の入口も `HirTraitApplication` / `HirTraitMethodId` を直接受け取る形にし、call site で trait name / method string へ分解する旧 `resolve_trait_impl_name` を削除した。
+- 2026-05-13 の最終確認で、`nodesrc/test_abstraction_static_verification_policy.js` を baseline 増加抑止から final contract 検査へ変更した。`format_trait_ref_name` は `traits.rs` の display boundary に限定し、`trait_lookup_cache` は出現数ではなく `MonoTraitLookupKey` typed key model を直接検査する。
+
+## 解決状態
+
+- Stage 1: `TraitApplication` / `TraitId` / `TraitBound` への移行完了。`parse_trait_ref_name` と `TraitBoundRef` は再導入禁止。
+- Stage 2: `ImplInfo` は `ImplKind` enum を持つ形へ移行完了。optional string field による impl 種別表現は再導入禁止。
+- Stage 3: `BoundEnv` / `TypeParamId` による type parameter bound identity 移行完了。
+- Stage 4: `TraitMethodResolution` / `TraitMethodCall` / `PendingTraitCheck` による named typed state 移行完了。
+- Stage 5: HIR / Resource IR / monomorphize の trait application と method identity typed 化完了。
+- Stage 6: source policy を final contract 化し、旧 string authority model の再導入を構造的に拒否する。
 
 ## 検証
 
