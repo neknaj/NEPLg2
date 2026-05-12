@@ -1,3 +1,27 @@
+# 2026-05-12 Agent 2 vec simple sort facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/vec/sort/simple.nepl` に同居していた 7 種類の simple sort 実装をアルゴリズム分類ごとに分割した。
+- `vec/sort/simple.nepl` は public facade にし、`simple/insertion.nepl`、`simple/selection.nepl`、`simple/exchange.nepl`、`simple/gap.nepl` を再 export するだけの構成にした。
+- `simple/insertion.nepl` は `sort_insertion` / `sort_gnome` を所有する。
+- `simple/selection.nepl` は `sort_selection` を所有する。
+- `simple/exchange.nepl` は `sort_bubble` / `sort_cocktail` を所有する。
+- `simple/gap.nepl` は `sort_shell` / `sort_comb` を所有する。
+- `nodesrc/test_stdlib_vec_sort_module_split.js` を更新し、`simple.nepl` に実装本体が戻らないこと、simple submodule の所有関数と line count 境界を固定した。
+- `tests/stdlib/sort_simple.n.md` を追加し、public `alloc/collections/vec/sort` facade 経由で 7 種類の simple sort が解決・実行されることを固定した。
+- line count は `sort/simple.nepl` 16、`sort/simple/insertion.nepl` 77、`sort/simple/selection.nepl` 46、`sort/simple/exchange.nepl` 104、`sort/simple/gap.nepl` 107。
+- [検証]:
+  - `node nodesrc/test_stdlib_vec_sort_module_split.js`: passed
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/sort_simple.n.md --no-tree -o tmp/vec-simple-sort-split-simple.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl -i stdlib/alloc/collections/vec/sort/simple.nepl -i stdlib/alloc/collections/vec/sort/simple/insertion.nepl -i stdlib/alloc/collections/vec/sort/simple/selection.nepl -i stdlib/alloc/collections/vec/sort/simple/exchange.nepl -i stdlib/alloc/collections/vec/sort/simple/gap.nepl -i tests/stdlib/sort.n.md -i tests/stdlib/sort_simple.n.md --no-tree -o tmp/vec-simple-sort-split-focused.json -j 1 --dist web/dist`: total=25, passed=25
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/vec-simple-sort-split-examples.json -j 4 --dist web/dist`: total=32, passed=21, failed=11。失敗は main 単体でも再現する `ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9` の `ansi_text_style_code` / `print_i32` owner summary 既知別件であり、`vec/sort/simple` 分割とは切り分ける。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-12 Agent 1 ResourceIR Result payload owner summary 修正
 
 - `ISS-20260512T033056386Z-RESOURCE-OWNER-SUMMARIES-MATERIALIZE-BAE331D3` を追加し、fixed/resolved に更新した。

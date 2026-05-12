@@ -1,0 +1,82 @@
+//: insertion: insertion 系の simple in-place sort algorithms
+//:
+//: [目的/もくてき]:
+//: - 隣接移動で局所的な逆転を解消する insertion / gnome sort を提供します。
+//: - ほぼ整列済みの入力で不要な交換を抑えやすい stable sort をまとめます。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/traits/ord" as *
+#import "alloc/collections/vec" as *
+#import "alloc/collections/vec/sort/common" as *
+
+//: sort_insertion: insertion sort で in-place 整列する
+//:
+//: [目的/もくてき]:
+//: - 小さい `Vec` やほぼ整列済みの入力を単純な in-place algorithm で昇順にします。
+//:
+//: [実装/じっそう]:
+//: - 左側を整列済み prefix とみなし、現在要素を左へずらしながら挿入位置へ移動します。
+//:
+//: [注意/ちゅうい]:
+//: - 追加 allocation はありません。実装上は equal element を追い越さないため stable です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 平均 / 最悪 O(n^2)、ほぼ整列済みでは O(n) に近づきます。
+fn sort_insertion <.T: Ord> <(&Vec<.T>)->()> (v):
+    let n <i32> len<.T> v
+    if:
+        le n 1
+        then ()
+        else:
+            let mut i <i32> 1
+            while lt i n:
+                do:
+                    let key <.T> sort_get_unchecked<.T> v i;
+                    let mut j <i32> sub i 1;
+
+                    let mut done <i32> 0;
+                    while eq done 0:
+                        do:
+                            if:
+                                and le 0 j sort_lt<.T> key sort_get_unchecked<.T> v j
+                                then:
+                                    let x <.T> sort_get_unchecked<.T> v j;
+                                    sort_set_unchecked<.T> v add j 1 x;
+                                    set j sub j 1;
+                                else set done 1
+                    sort_set_unchecked<.T> v add j 1 key;
+                    set i add i 1;
+            ()
+
+//: sort_gnome: gnome sort で in-place 整列する
+//:
+//: [目的/もくてき]:
+//: - 隣接要素を見ながら、逆順 pair を交換して左へ戻る単純な insertion 系 sort を提供します。
+//:
+//: [実装/じっそう]:
+//: - 現在位置が正しい順序なら右へ進み、逆順なら隣接交換して左へ 1 つ戻ります。
+//:
+//: [注意/ちゅうい]:
+//: - equal element は `sort_le` で通過するため stable です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 平均 / 最悪 O(n^2)
+fn sort_gnome <.T: Ord> <(&Vec<.T>)->()> (v):
+    let n <i32> len<.T> v
+    if:
+        le n 1
+        then ()
+        else:
+            let mut i <i32> 1;
+            while lt i n:
+                do:
+                    if:
+                        or eq i 0 sort_le<.T> sort_get_unchecked<.T> v sub i 1 sort_get_unchecked<.T> v i
+                        then set i add i 1
+                        else:
+                            sort_swap<.T> v i sub i 1;
+                            set i sub i 1;
+                    ();
+            ()

@@ -1,0 +1,114 @@
+//: exchange: 隣接交換系の simple in-place sort algorithms
+//:
+//: [目的/もくてき]:
+//: - bubble / cocktail sort のように隣接交換で境界へ要素を送る algorithms を提供します。
+//: - 安定性と早期終了の扱いを gap 系 sort から分離します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/traits/ord" as *
+#import "alloc/collections/vec" as *
+#import "alloc/collections/vec/sort/common" as *
+
+//: sort_bubble: bubble sort で in-place 整列する
+//:
+//: [目的/もくてき]:
+//: - 隣接交換だけで大きい要素を右端へ送る単純な sort を提供します。
+//:
+//: [実装/じっそう]:
+//: - `[0, end]` を走査し、右要素が左要素より小さい pair を交換して `end` を縮めます。
+//:
+//: [注意/ちゅうい]:
+//: - equal element は交換しないため stable です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n^2)
+fn sort_bubble <.T: Ord> <(&Vec<.T>)->()> (v):
+    let n <i32> len<.T> v
+    if:
+        le n 1
+        then ()
+        else:
+            let mut end <i32> sub n 1;
+            while lt 0 end:
+                do:
+                    let mut i <i32> 0;
+                    while lt i end:
+                        do:
+                            let a <.T> sort_get_unchecked<.T> v i;
+                            let b <.T> sort_get_unchecked<.T> v add i 1;
+                            if:
+                                sort_lt<.T> b a
+                                then sort_swap<.T> v i add i 1
+                                else ()
+                            set i add i 1;
+                    set end sub end 1;
+            ()
+
+//: sort_cocktail: cocktail shaker sort で in-place 整列する
+//:
+//: [目的/もくてき]:
+//: - 左右両方向の bubble pass で、小さい要素と大きい要素を同時に端へ寄せます。
+//:
+//: [実装/じっそう]:
+//: - forward pass で最大側を右へ、backward pass で最小側を左へ送ります。
+//: - 交換が起きなければ残り区間は整列済みとして終了します。
+//:
+//: [注意/ちゅうい]:
+//: - equal element は交換しないため stable です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 平均 / 最悪 O(n^2)
+fn sort_cocktail <.T: Ord> <(&Vec<.T>)->()> (v):
+    let n <i32> len<.T> v
+    if:
+        le n 1
+        then ()
+        else:
+            let mut start <i32> 0;
+            let mut end <i32> sub n 1;
+            let mut swapped <i32> 1;
+
+            while and eq swapped 1 lt start end:
+                do:
+                    set swapped 0;
+
+                    let mut i <i32> start;
+                    while lt i end:
+                        do:
+                            let a <.T> sort_get_unchecked<.T> v i;
+                            let b <.T> sort_get_unchecked<.T> v add i 1;
+                            if:
+                                sort_lt<.T> b a
+                                then:
+                                    sort_swap<.T> v i add i 1;
+                                    set swapped 1;
+                                    ()
+                                else ()
+                            set i add i 1;
+
+                    set end sub end 1;
+
+                    if:
+                        eq swapped 0
+                        then set start end
+                        else:
+                            set swapped 0;
+
+                    let mut j <i32> end;
+                    while lt start j:
+                        do:
+                            let a <.T> sort_get_unchecked<.T> v sub j 1;
+                            let b <.T> sort_get_unchecked<.T> v j;
+                            if:
+                                sort_lt<.T> b a
+                                then:
+                                    sort_swap<.T> v sub j 1 j;
+                                    set swapped 1;
+                                    ()
+                                else ()
+                            set j sub j 1;
+
+                    set start add start 1;
+            ()

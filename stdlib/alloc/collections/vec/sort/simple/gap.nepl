@@ -1,0 +1,117 @@
+//: gap: gap を使う simple in-place sort algorithms
+//:
+//: [目的/もくてき]:
+//: - shell / comb sort のように離れた要素の逆転を先に解消する algorithms を提供します。
+//: - gap の縮小規則を持つ sort を隣接交換系から分離します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/traits/ord" as *
+#import "alloc/collections/vec" as *
+#import "alloc/collections/vec/sort/common" as *
+
+//: sort_shell: shell sort で in-place 整列する
+//:
+//: [目的/もくてき]:
+//: - gap insertion sort を繰り返し、単純 insertion sort より少ない移動で広い逆転を先に解消します。
+//:
+//: [実装/じっそう]:
+//: - gap を `n / 2` から始め、各 pass 後に半分へ縮めます。
+//: - 各 gap pass は gap ごとの insertion sort として動きます。
+//:
+//: [注意/ちゅうい]:
+//: - gap 越しの移動で equal element の相対順が崩れるため stable ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - gap 列に依存します。この実装では最悪 O(n^2)、追加領域 O(1) です。
+fn sort_shell <.T: Ord> <(&Vec<.T>)->()> (v):
+    let n <i32> len<.T> v
+    if:
+        le n 1
+        then ()
+        else:
+            let mut gap <i32> div_s n 2;
+
+            while lt 0 gap:
+                do:
+                    let mut i <i32> gap;
+                    while lt i n:
+                        do:
+                            let temp <.T> sort_get_unchecked<.T> v i;
+                            let mut j <i32> i;
+
+                            let mut done <i32> 0;
+                            while eq done 0:
+                                do:
+                                    if:
+                                        and le gap j sort_lt<.T> temp sort_get_unchecked<.T> v sub j gap
+                                        then:
+                                            let x <.T> sort_get_unchecked<.T> v sub j gap;
+                                            sort_set_unchecked<.T> v j x;
+                                            set j sub j gap;
+                                        else set done 1
+
+                            sort_set_unchecked<.T> v j temp;
+                            set i add i 1;
+                    set gap div_s gap 2;
+            ()
+
+//: sort_comb: comb sort で in-place 整列する
+//:
+//: [目的/もくてき]:
+//: - bubble sort の gap を広げた variant として、遠い逆転を先に解消します。
+//:
+//: [実装/じっそう]:
+//: - gap を `gap * 10 / 13` で縮め、gap 1 で交換がなくなるまで走査します。
+//:
+//: [注意/ちゅうい]:
+//: - gap 越しに交換するため stable ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 平均は bubble sort より改善しますが、最悪 O(n^2) です。
+fn sort_comb <.T: Ord> <(&Vec<.T>)->()> (v):
+    let n <i32> len<.T> v
+    if:
+        le n 1
+        then ()
+        else:
+            let mut gap <i32> n;
+            let mut sorted <i32> 0;
+
+            while eq sorted 0:
+                do:
+                    let scaled_gap <i32> mul gap 10;
+                    let reduced_gap <i32> div_s scaled_gap 13;
+                    set gap reduced_gap;
+                    if:
+                        lt gap 1
+                        then set gap 1
+                        else ()
+
+                    if:
+                        eq gap 1
+                        then set sorted 1
+                        else ()
+
+                    let mut i <i32> 0;
+                    let mut done_scan <i32> 0;
+                    while eq done_scan 0:
+                        do:
+                            let next_i <i32> add i gap;
+                            if:
+                                lt next_i n
+                                then:
+                                    let a <.T> sort_get_unchecked<.T> v i;
+                                    let b <.T> sort_get_unchecked<.T> v next_i;
+                                    if:
+                                        sort_lt<.T> b a
+                                        then:
+                                            sort_swap<.T> v i next_i;
+                                            set sorted 0;
+                                            ()
+                                        else ()
+                                    set i add i 1;
+                                    ()
+                                else set done_scan 1
+            ()

@@ -34,6 +34,10 @@ const files = {
     facade: "stdlib/alloc/collections/vec/sort.nepl",
     common: "stdlib/alloc/collections/vec/sort/common.nepl",
     simple: "stdlib/alloc/collections/vec/sort/simple.nepl",
+    simpleInsertion: "stdlib/alloc/collections/vec/sort/simple/insertion.nepl",
+    simpleSelection: "stdlib/alloc/collections/vec/sort/simple/selection.nepl",
+    simpleExchange: "stdlib/alloc/collections/vec/sort/simple/exchange.nepl",
+    simpleGap: "stdlib/alloc/collections/vec/sort/simple/gap.nepl",
     quick: "stdlib/alloc/collections/vec/sort/quick.nepl",
     heap: "stdlib/alloc/collections/vec/sort/heap.nepl",
     merge: "stdlib/alloc/collections/vec/sort/merge.nepl",
@@ -48,11 +52,21 @@ for (const moduleName of ["common", "simple", "quick", "heap", "merge"]) {
 }
 
 assert.doesNotMatch(impl.facade, /\bfn\s+/, "vec/sort facade must not own sort implementations");
+assert.doesNotMatch(impl.simple, /\bfn\s+/, "vec/sort/simple facade must not own sort implementations");
+
+for (const moduleName of ["insertion", "selection", "exchange", "gap"]) {
+    const pattern = new RegExp(`pub\\s+#import\\s+"\\./simple/${moduleName}"\\s+as\\s+\\*`);
+    assert.match(sources.simple, pattern, `vec/sort/simple facade must re-export simple/${moduleName}`);
+}
 
 for (const [key, limit] of [
     ["facade", 90],
     ["common", 240],
-    ["simple", 380],
+    ["simple", 80],
+    ["simpleInsertion", 130],
+    ["simpleSelection", 80],
+    ["simpleExchange", 150],
+    ["simpleGap", 150],
     ["quick", 240],
     ["heap", 190],
     ["merge", 280],
@@ -77,17 +91,17 @@ for (const name of [
     assertNotOwns(impl.facade, name, files.facade);
 }
 
-for (const name of [
-    "sort_insertion",
-    "sort_selection",
-    "sort_bubble",
-    "sort_cocktail",
-    "sort_gnome",
-    "sort_shell",
-    "sort_comb",
+for (const [moduleKey, names] of [
+    ["simpleInsertion", ["sort_insertion", "sort_gnome"]],
+    ["simpleSelection", ["sort_selection"]],
+    ["simpleExchange", ["sort_bubble", "sort_cocktail"]],
+    ["simpleGap", ["sort_shell", "sort_comb"]],
 ]) {
-    assertOwns(impl.simple, name, files.simple);
-    assertNotOwns(impl.facade, name, files.facade);
+    for (const name of names) {
+        assertOwns(impl[moduleKey], name, files[moduleKey]);
+        assertNotOwns(impl.simple, name, files.simple);
+        assertNotOwns(impl.facade, name, files.facade);
+    }
 }
 
 for (const name of [

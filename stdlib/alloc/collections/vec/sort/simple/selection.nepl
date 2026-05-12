@@ -1,0 +1,49 @@
+//: selection: selection 系の simple in-place sort algorithm
+//:
+//: [目的/もくてき]:
+//: - 未整列 suffix から選んだ要素を確定位置へ置く selection sort を提供します。
+//: - 交換回数が高々 O(n) で済む simple sort を他の隣接交換系から分離します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/traits/ord" as *
+#import "alloc/collections/vec" as *
+#import "alloc/collections/vec/sort/common" as *
+
+//: sort_selection: selection sort で in-place 整列する
+//:
+//: [目的/もくてき]:
+//: - 未整列 suffix から最小要素を選び、先頭へ交換しながら昇順にします。
+//:
+//: [実装/じっそう]:
+//: - 各位置 `i` について `[i, n)` の最小 index を探し、`i` と交換します。
+//:
+//: [注意/ちゅうい]:
+//: - 交換で equal element の相対順が崩れるため stable ではありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 比較 O(n^2)、追加領域 O(1)
+fn sort_selection <.T: Ord> <(&Vec<.T>)->()> (v):
+    let n <i32> len<.T> v
+    if:
+        le n 1
+        then ()
+        else:
+            let mut i <i32> 0
+            while lt i n:
+                do:
+                    let mut min_idx <i32> i;
+                    let mut j <i32> add i 1;
+                    while lt j n:
+                        do:
+                            let a <.T> sort_get_unchecked<.T> v j;
+                            let b <.T> sort_get_unchecked<.T> v min_idx;
+                            if:
+                                sort_lt<.T> a b
+                                then set min_idx j
+                                else ()
+                            set j add j 1;
+                    sort_swap<.T> v i min_idx;
+                    set i add i 1;
+            ()
