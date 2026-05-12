@@ -14,6 +14,7 @@ use super::initialized_summary_byte_range_model::RawCellInitializationParamCount
 use super::model::{Place, ResourceMatchPattern};
 use super::place_utils::projected_place_with_concrete_type;
 use super::report::ResourceCheckOperation;
+use super::variant_name::{match_pattern_variant_name, normalize_variant_name};
 use crate::types::TypeCtx;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -438,17 +439,6 @@ fn pending_variant_count_place(
         }
         PendingVariantRawByteRangeCount::KnownI32 { value, ty } => Place::i32_constant(*value, *ty),
     }
-}
-
-pub(super) fn normalize_variant_name(variant: &str) -> String {
-    String::from(variant.rsplit("::").next().unwrap_or(variant))
-}
-
-fn match_pattern_variant_name(pattern: &ResourceMatchPattern) -> Option<String> {
-    let ResourceMatchPattern::Variant(variant) = pattern else {
-        return None;
-    };
-    Some(normalize_variant_name(variant))
 }
 
 fn mark_known_raw_address(raw_aliases: &mut RawCellAddressAliases, place: &Place) {

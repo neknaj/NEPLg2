@@ -234,6 +234,14 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 
 この変更は owner/provenance の検査意味論を変えないが、Stage 4 の `MemPtr = non-owning pointer` と `OwnedRegion/Storage = free obligation owner` 分離を進める際に、variant owner summary 周辺が旧 monolithic checker 化する回帰を防ぐ。
 
+## 2026-05-12 Resource variant name utility 統一
+
+`ISS-20260512T121408373Z-RESOURCE-VARIANT-NAME-NORMALIZATION--30049A9F` として、initialized / owner / owner summary の variant name normalization が重複していた問題を修正した。
+
+`variant_name.rs` を Resource IR 共通 utility とし、`normalize_variant_name` と `match_pattern_variant_name` を一箇所に統一した。これにより enum payload の initialized state、owner transfer、variant reachability が同じ variant 選択規則を使う。
+
+この変更は Stage 4 の owner/provenance 分離を直接変えるものではないが、`Result::Ok` / `Err` payload や qualified enum variant を扱う memory-safety gate が module ごとに別規則へ分岐するリスクを減らす。
+
 ## 2026-05-12 Result payload owner summary 部分対応
 
 `ISS-20260512T033056386Z-RESOURCE-OWNER-SUMMARIES-MATERIALIZE-BAE331D3` として、Resource IR owner summary が `Result` payload owner を unconditional projection return として扱い、runtime 上同時に存在しない `Ok` / `Err` payload owner を caller 側で materialize し得る問題を修正した。

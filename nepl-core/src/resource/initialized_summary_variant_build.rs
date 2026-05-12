@@ -23,7 +23,7 @@ use super::initialized_summary_variant_requirement::collect_variant_param_requir
 use super::initialized_summary_variant_unique::{
     push_unique_variant_param_byte_range, push_unique_variant_param_cell,
 };
-use super::initialized_variant::{normalize_variant_name, PendingVariantRawCellInitializations};
+use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{
     AggregateKind, Place, ResourceBlockId, ResourceConditionFact, ResourceFunction, ResourceLocal,
     ResourceOp,
@@ -31,6 +31,7 @@ use super::model::{
 use super::place_utils::reference_target_place;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
+use super::variant_name::normalize_variant_name;
 
 pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
     out: &mut Vec<RawCellInitializationVariantParamCell>,

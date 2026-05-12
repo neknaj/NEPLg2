@@ -1,4 +1,3 @@
-use alloc::string::String;
 use alloc::vec::Vec;
 
 use super::initialized_alias::RawCellAddressAliases;
@@ -14,6 +13,7 @@ use super::summary::{
     OwnerProjectionReturnOwner, OwnerProjectionReturnSummary, OwnerProjectionSource,
     OwnerVariantProjectionReturn,
 };
+use super::variant_name::normalize_variant_name;
 
 pub(super) fn returned_owner_returns_for_value(
     owners: &OwnerTable,
@@ -167,10 +167,6 @@ fn root_parameter_source(
             entry.source.parameter_index == parameter_index && entry.source.suffix.is_empty()
         })
         .map(|entry| entry.source.clone())
-}
-
-fn normalize_variant_name(variant: &str) -> String {
-    String::from(variant.rsplit("::").next().unwrap_or(variant))
 }
 
 fn push_unique_variant_projection_return(

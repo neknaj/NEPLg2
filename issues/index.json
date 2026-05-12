@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T12:09:21.789Z",
+  "generated_at": "2026-05-12T12:22:39.436Z",
   "counts": {
-    "total": 637,
+    "total": 638,
     "open": 10,
-    "resolved": 627,
+    "resolved": 628,
     "by_area": {
       "core": {
-        "total": 320,
+        "total": 321,
         "open": 3,
-        "resolved": 317
+        "resolved": 318
       },
       "stdlib": {
         "total": 167,
@@ -4863,6 +4863,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T120108353Z-RESOURCE-OWNER-VARIANT-MODULE-IS-MIS-1E0B66E3.md"
+    },
+    {
+      "id": "ISS-20260512T121408373Z-RESOURCE-VARIANT-NAME-NORMALIZATION--30049A9F",
+      "title": "Resource variant name normalization is duplicated across static checks",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/initialized_variant.rs, nepl-core/src/resource/owner_variant_utils.rs, nepl-core/src/resource/owner_summary_variant_*.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T121408373Z-RESOURCE-VARIANT-NAME-NORMALIZATION--30049A9F.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -191,6 +191,7 @@ mod summary_dependency;
 mod summary_worklist;
 mod timing;
 mod type_pattern;
+mod variant_name;
 
 pub use borrow_check::check_resource_borrow_lifetimes;
 pub use coverage::{

@@ -6,10 +6,10 @@ use super::condition_fact::simple_condition_value_constraint;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{I32ValueCondition, Place, PlaceProjection, ResourceConditionFact};
 use super::owner_summary_record::OwnerParameterConditionSource;
-use super::owner_summary_variant_construct::normalize_variant_name;
 use super::owner_summary_variant_i32_conditions::SUMMARY_I32_CONDITIONS;
 use super::place_utils::place_suffix_after_prefix;
 use super::summary::{OwnerProjectionSource, OwnerValueCondition, OwnerVariantCondition};
+use super::variant_name::normalize_variant_name;
 
 pub(super) use super::owner_summary_variant_payload_conditions::{
     collect_owner_variant_known_payload_conditions, collect_owner_variant_payload_conditions,

@@ -36266,3 +36266,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 Resource variant name utility 統一
+
+- `ISS-20260512T121408373Z-RESOURCE-VARIANT-NAME-NORMALIZATION--30049A9F` として、initialized / owner / owner summary の variant name normalization が重複していた問題を修正した。
+- `variant_name.rs` を追加し、`normalize_variant_name` と `match_pattern_variant_name` を Resource IR の共有 utility とした。
+- `initialized_variant.rs`、initialized summary variant modules、owner variant effect、owner summary variant condition / payload condition / return / resolved parameter variant を同じ utility へ移行した。
+- これにより enum payload の initialized state、owner transfer、variant reachability が module ごとに別規則へ分岐するリスクを減らす。
+- `nodesrc/test_resource_checker_responsibility.js` に `variant_name.rs` を登録し、共有 utility の存在と行数上限を監視する。
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir variant_owner -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_result_payload_raw_address_field -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind -- --nocapture`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

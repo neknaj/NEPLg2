@@ -5,8 +5,9 @@ use alloc::vec::Vec;
 
 use crate::types::{TypeCtx, TypeKind};
 
-use super::model::{Place, ResourceExprKind, ResourceFunction, ResourceMatchPattern, ResourceOp};
+use super::model::{Place, ResourceExprKind, ResourceFunction, ResourceOp};
 use super::summary::OwnerResolvedParameterVariant;
+use super::variant_name::match_pattern_variant_name;
 
 pub(super) fn collect_resolved_parameter_variants_from_return(
     out: &mut Vec<OwnerResolvedParameterVariant>,
@@ -187,13 +188,6 @@ fn parameter_index_for_place(function: &ResourceFunction, place: &Place) -> Opti
         .params
         .iter()
         .position(|param| param.place == *place)
-}
-
-fn match_pattern_variant_name(pattern: &ResourceMatchPattern) -> Option<String> {
-    let ResourceMatchPattern::Variant(variant) = pattern else {
-        return None;
-    };
-    Some(String::from(variant.rsplit("::").next().unwrap_or(variant)))
 }
 
 fn push_unique_resolved_variant_name(out: &mut Vec<String>, variant: String) {

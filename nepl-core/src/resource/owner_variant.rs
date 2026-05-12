@@ -17,10 +17,9 @@ use super::owner_return_apply_source::{
 use super::owner_state::OwnerTable;
 use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
 use super::owner_variant_utils::{
-    match_pattern_variant_name, normalize_variant_name, owner_projection_sources_for_place,
-    owner_value_condition_truth, payload_bind_suffix, push_unique_owner_variant_condition,
-    push_unique_source, push_unique_variant_consumed_source, push_unique_variant_projection_return,
-    source_list_contains,
+    owner_projection_sources_for_place, owner_value_condition_truth, payload_bind_suffix,
+    push_unique_owner_variant_condition, push_unique_source, push_unique_variant_consumed_source,
+    push_unique_variant_projection_return, source_list_contains,
 };
 use super::owner_variant_value_condition::PendingVariantValueCondition;
 use super::place_utils::{place_with_suffix, places_overlap};
@@ -31,6 +30,7 @@ use super::summary::{
     OwnerVariantCondition, OwnerVariantParameterIndex, OwnerVariantProjectionReturn,
     OwnerVariantProjectionSource,
 };
+use super::variant_name::{match_pattern_variant_name, normalize_variant_name};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PendingVariantOwnerConsumption {

@@ -5,9 +5,9 @@ use alloc::vec::Vec;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::RawCellInitializationVariantCondition;
 use super::initialized_summary_condition::RawCellValueCondition;
-use super::initialized_variant::normalize_variant_name;
 use super::model::{Place, ResourceConditionFact, ResourceLocal};
 use super::place_utils::place_suffix_after_prefix;
+use super::variant_name::normalize_variant_name;
 
 pub(super) fn collect_variant_param_condition(
     out: &mut Vec<RawCellInitializationVariantCondition>,

@@ -56,7 +56,3 @@ pub(super) fn construct_variant_for_value(
     }
     None
 }
-
-pub(super) fn normalize_variant_name(variant: &str) -> String {
-    String::from(variant.rsplit("::").next().unwrap_or(variant))
-}

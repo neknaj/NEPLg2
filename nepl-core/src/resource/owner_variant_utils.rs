@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use crate::types::TypeId;
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{OwnerState, Place, PlaceProjection, ResourceMatchPattern};
+use super::model::{OwnerState, Place, PlaceProjection};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_return_apply_source::owner_projection_source_place_for_arg;
 use super::owner_state::OwnerTable;
@@ -15,6 +15,7 @@ use super::summary::{
     OwnerProjectionSource, OwnerValueCondition, OwnerVariantCondition, OwnerVariantParameterIndex,
     OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
+use super::variant_name::normalize_variant_name;
 
 pub(super) fn owner_projection_sources_for_place(
     owners: &OwnerTable,
@@ -193,15 +194,4 @@ pub(super) fn payload_bind_suffix<'a>(
     } else {
         suffix
     }
-}
-
-pub(super) fn normalize_variant_name(variant: &str) -> String {
-    variant.split("::").last().unwrap_or(variant).into()
-}
-
-pub(super) fn match_pattern_variant_name(pattern: &ResourceMatchPattern) -> Option<String> {
-    let ResourceMatchPattern::Variant(variant) = pattern else {
-        return None;
-    };
-    Some(normalize_variant_name(variant))
 }

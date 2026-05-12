@@ -5,9 +5,9 @@ use alloc::vec::Vec;
 use super::cell_state::raw_cell_suffix_after_address;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::RawCellInitializationVariantParamRequirement;
-use super::initialized_variant::normalize_variant_name;
 use super::model::{RawMemoryOp, ResourceLocal, ResourceOp};
 use super::place_utils::raw_memory_cell_place;
+use super::variant_name::normalize_variant_name;
 
 pub(super) fn collect_variant_param_required_raw_cells(
     out: &mut Vec<RawCellInitializationVariantParamRequirement>,

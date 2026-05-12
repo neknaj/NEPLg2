@@ -14,7 +14,7 @@ use super::owner_summary_variant_conditions::{
     collect_owner_variant_condition, collect_owner_variant_known_conditions,
     collect_owner_variant_known_payload_conditions, collect_owner_variant_payload_conditions,
 };
-use super::owner_summary_variant_construct::{construct_variant_for_value, normalize_variant_name};
+use super::owner_summary_variant_construct::construct_variant_for_value;
 use super::owner_summary_variant_return::{
     record_variant_projection_returns, returned_owner_returns_for_value,
 };
@@ -339,7 +339,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     );
     let (indices, sources) =
         consumed_owner_parameters(&path_owners, parameter_storage_sources, &returned_sources);
-    let variant = normalize_variant_name(&constructed_variant.variant);
+    let variant = super::variant_name::normalize_variant_name(&constructed_variant.variant);
     for parameter_index in indices {
         push_unique_variant_parameter_index(
             index_out,
