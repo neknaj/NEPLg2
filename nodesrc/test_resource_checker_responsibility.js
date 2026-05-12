@@ -455,6 +455,13 @@ assertContains(effectCheck, 'struct ResourceEffectBoundaryEngine', 'effect_check
 assertNotContains(effect, 'struct ResourceEffectBoundaryEngine', 'effect.rs');
 assertContains(effect, 'pub fn check_resource_effect_boundaries', 'effect.rs');
 assertNotContains(resourceDump, 'fn dump_raw_memory_op', 'dump.rs');
+assertContains(
+    lowerRawMemory,
+    'pub(super) fn raw_memory_call_uses_direct_raw_address',
+    'lower_raw_memory.rs',
+);
+assertNotContains(lower, 'fn should_lower_raw_memory_call', 'lower.rs');
+assertNotContains(coverageHirRaw, 'is_named_struct_type', 'coverage_hir_raw.rs');
 assertContains(coverage, 'pub fn compare_hir_resource_lowering_typed', 'coverage.rs');
 assertContains(coverageHir, 'pub(super) fn hir_function_coverage', 'coverage_hir.rs');
 assertContains(

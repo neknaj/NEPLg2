@@ -24,14 +24,15 @@ use super::lower_raw_address::{
     push_core_mem_owner_storage_origin, push_core_mem_wrapper_semantics,
     push_named_raw_address_semantics, push_transparent_raw_address_return_projection,
 };
-use super::lower_raw_address_place::is_named_struct_type;
-use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
+use super::lower_raw_memory::{
+    raw_memory_call_uses_direct_raw_address, raw_memory_op_from_callee,
+    raw_memory_op_from_intrinsic,
+};
 use super::lower_temporary_scope::push_line_copy_state_only_temporary_scope;
 use super::model::{
-    AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, RawMemoryOp, ResourceBlock,
-    ResourceBlockId, ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceId,
-    ResourceLocal, ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp,
-    ResourceTerminator,
+    AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, ResourceBlock, ResourceBlockId,
+    ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
+    ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
 };
 
 pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
@@ -960,7 +961,7 @@ fn push_direct_call_skeleton(
     );
     push_core_mem_owner_storage_origin(callee, &output, ops, env, expr.span);
     if let Some(operation) = raw_memory_op_from_callee(callee)
-        .filter(|operation| should_lower_raw_memory_call(operation, args, env))
+        .filter(|operation| raw_memory_call_uses_direct_raw_address(operation, args, env.types))
     {
         ops.push(ResourceOp::RawMemory {
             operation,
@@ -982,27 +983,6 @@ fn push_direct_call_skeleton(
         span: expr.span,
     });
     output
-}
-
-fn should_lower_raw_memory_call(
-    operation: &RawMemoryOp,
-    args: &[HirExpr],
-    env: &LoweringEnvironment,
-) -> bool {
-    match operation {
-        RawMemoryOp::Load
-        | RawMemoryOp::Store
-        | RawMemoryOp::Dealloc
-        | RawMemoryOp::Realloc
-        | RawMemoryOp::FillBytes
-        | RawMemoryOp::Fill
-        | RawMemoryOp::BulkCopy
-        | RawMemoryOp::BulkMove => args
-            .first()
-            .map(|arg| !is_named_struct_type(env.types, arg.ty, "MemPtr"))
-            .unwrap_or(true),
-        RawMemoryOp::Alloc | RawMemoryOp::MemorySize | RawMemoryOp::MemoryGrow => true,
-    }
 }
 
 fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {

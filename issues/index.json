@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T14:05:24.324Z",
+  "generated_at": "2026-05-12T14:17:35.372Z",
   "counts": {
-    "total": 648,
+    "total": 649,
     "open": 10,
-    "resolved": 638,
+    "resolved": 639,
     "by_area": {
       "core": {
-        "total": 331,
+        "total": 332,
         "open": 3,
-        "resolved": 328
+        "resolved": 329
       },
       "stdlib": {
         "total": 167,
@@ -5013,6 +5013,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T140149223Z-RESOURCE-IR-DUMP-DUPLICATES-RAWMEMOR-61AE6F81.md"
+    },
+    {
+      "id": "ISS-20260512T140927972Z-RESOURCE-RAW-MEMORY-CALL-FILTERING-I-FFEED338",
+      "title": "Resource raw memory call filtering is duplicated between lowering and coverage",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/lower.rs; nepl-core/src/resource/coverage_hir_raw.rs; nepl-core/src/resource/lower_raw_memory.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T140927972Z-RESOURCE-RAW-MEMORY-CALL-FILTERING-I-FFEED338.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -36448,3 +36448,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo fmt --check -p nepl-core`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 Resource raw memory call filter 共通化
+
+- `ISS-20260512T140927972Z-RESOURCE-RAW-MEMORY-CALL-FILTERING-I-FFEED338` として、Resource IR lowering と HIR coverage が MemPtr wrapper overload 除外条件を重複実装していた問題を修正した。
+- `lower_raw_memory.rs` に `raw_memory_call_uses_direct_raw_address` を追加し、`RawMemoryOp` ごとの direct raw-address requirement を enum match の単一 authority にした。
+- `lower.rs` と `coverage_hir_raw.rs` はこの helper を共有し、Resource IR lowering と coverage gate が同じ operation set を見るようにした。
+- `nodesrc/test_resource_checker_responsibility.js` に、`lower.rs` 側の local filter と coverage 側の direct `is_named_struct_type` 判定を再導入しない source policy を追加した。
+- これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 3 の raw memory operation lowering / coverage agreement と Stage 5 の raw memory enum-first 方針を補強する整理である。
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_raw_memory_operations -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_borrow_and_deref_places -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+- [次の監査予定]:
+  - 作業区切り後に generics / trait / abstraction mechanism の設計と実装を監査し、不足があれば `doc/` に再設計・実装計画を作成して issue に紐づける。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
