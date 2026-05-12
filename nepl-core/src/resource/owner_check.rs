@@ -8,8 +8,11 @@ use super::function_alias::{construct_function_alias_fields, FunctionAliasTable}
 use super::i32_call_facts::record_direct_call_i32_facts;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
-    BorrowKind, EffectOp, OwnerState, OwnerStateEntry, Place, RawMemoryOp, ResourceBlock,
+    BorrowKind, EffectOp, OwnerState, OwnerStateEntry, RawMemoryOp, ResourceBlock,
     ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
+};
+use super::owner_check_utils::{
+    direct_raw_memory_effect, merge_owner_deferred, raw_owner_alias_moves_into_wrapper,
 };
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
@@ -789,24 +792,4 @@ impl ResourceOwnerCheckEngine<'_> {
             ResourceOp::CallEffect { .. } => {}
         }
     }
-}
-
-fn raw_owner_alias_moves_into_wrapper(source: &Place, target: &Place) -> bool {
-    target.projections.len() > source.projections.len()
-}
-
-fn merge_owner_deferred(
-    target: &mut ResourceOwnerCheckDeferred,
-    source: ResourceOwnerCheckDeferred,
-) {
-    target.branch_merges += source.branch_merges;
-    target.loop_merges += source.loop_merges;
-    target.match_merges += source.match_merges;
-}
-
-fn direct_raw_memory_effect(effect: &EffectOp) -> bool {
-    matches!(
-        effect,
-        EffectOp::InternalAlloc { .. } | EffectOp::UnsafeMemory { .. }
-    )
 }

@@ -124,6 +124,7 @@ mod lower_temporary_scope;
 mod model;
 mod owner_alias;
 mod owner_check;
+mod owner_check_utils;
 mod owner_consumption;
 mod owner_control;
 mod owner_drop;

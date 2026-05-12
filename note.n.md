@@ -1,3 +1,18 @@
+# 2026-05-12 Agent 2 owner_check utility split
+
+- `ISS-20260512T061533036Z-RESOURCE-OWNER-CHECK-EXCEEDS-RESPONS-687898EE` に対応した。
+- `owner_check.rs` 末尾に残っていた `raw_owner_alias_moves_into_wrapper`、`merge_owner_deferred`、`direct_raw_memory_effect` を `owner_check_utils.rs` へ分離した。
+- `owner_check.rs` は function/block/op traversal と dispatch に戻し、line count を 813 から 795 へ下げて 800 行 policy 内に戻した。
+- `nepl-core/src/resource/mod.rs` と `nodesrc/test_resource_checker_responsibility.js` に `owner_check_utils.rs` を登録し、utility module の存在と 80 行 budget を source policy で固定した。
+- 検証:
+  - `cargo fmt -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: `owner_check.rs` blocker は解消。次の別件として `owner_summary_variant_conditions.rs has 295 lines; responsibility split limit is 260` に到達。
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- 新規 issue:
+  - `ISS-20260512T062230660Z-RESOURCE-OWNER-SUMMARY-VARIANT-CONDI-F79EFC3E` を追加し、variant condition summary module の再分割は次の独立 commit で扱う。
+
 # 2026-05-12 Agent 2 resource checker policy i32 facts rename 追従
 
 - `ISS-20260512T061056848Z-RESOURCE-CHECKER-POLICY-EXPECTS-RENA-E8F94116` に対応した。

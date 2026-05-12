@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T06:17:59.512Z",
+  "generated_at": "2026-05-12T06:25:17.944Z",
   "counts": {
-    "total": 627,
+    "total": 628,
     "open": 12,
-    "resolved": 615,
+    "resolved": 616,
     "by_area": {
       "core": {
-        "total": 313,
+        "total": 314,
         "open": 4,
-        "resolved": 309
+        "resolved": 310
       },
       "stdlib": {
         "total": 167,
@@ -150,8 +150,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260512T061533036Z-RESOURCE-OWNER-CHECK-EXCEEDS-RESPONS-687898EE",
-      "title": "Resource owner_check exceeds responsibility split limit after i32 fact changes",
+      "id": "ISS-20260512T062230660Z-RESOURCE-OWNER-SUMMARY-VARIANT-CONDI-F79EFC3E",
+      "title": "Resource owner summary variant conditions exceeds split limit",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -159,10 +159,10 @@
       "type": "architecture",
       "created": "2026-05-12",
       "updated": "2026-05-12",
-      "target": "nepl-core/src/resource/owner_check.rs, nodesrc/test_resource_checker_responsibility.js",
+      "target": "nepl-core/src/resource/owner_summary_variant_conditions.rs, nodesrc/test_resource_checker_responsibility.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260512T061533036Z-RESOURCE-OWNER-CHECK-EXCEEDS-RESPONS-687898EE.md"
+      "file": "items/ISS-20260512T062230660Z-RESOURCE-OWNER-SUMMARY-VARIANT-CONDI-F79EFC3E.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4783,6 +4783,21 @@
       "legacy_id": "",
       "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
       "file": "items/ISS-20260512T033056386Z-RESOURCE-OWNER-SUMMARIES-MATERIALIZE-BAE331D3.md"
+    },
+    {
+      "id": "ISS-20260512T061533036Z-RESOURCE-OWNER-CHECK-EXCEEDS-RESPONS-687898EE",
+      "title": "Resource owner_check exceeds responsibility split limit after i32 fact changes",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/owner_check.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T061533036Z-RESOURCE-OWNER-CHECK-EXCEEDS-RESPONS-687898EE.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
