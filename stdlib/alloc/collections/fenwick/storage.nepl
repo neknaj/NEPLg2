@@ -1,0 +1,29 @@
+//: # fenwick/storage
+//: `Fenwick` の typed `Vec<i32>` storage 操作
+//:
+//: ### [目的/もくてき]
+//: - 1-indexed `bit` cell の読み書き、allocation、cleanup を集約します。
+//: - public API が raw pointer や raw i32 load/store を扱わない構成を保ちます。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/result" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+
+fn fenwick_load_owned <(&Vec<i32>,i32)->Option<i32>> (bit, idx):
+    vec::get<i32> bit idx
+
+fn fenwick_store_owned <(&Vec<i32>,i32,i32)*>()> (bit, idx, value):
+    vec::replace<i32> bit idx value
+
+fn fenwick_alloc_bit <(i32)*>Result<Vec<i32>, Diag>> (bit_len):
+    match vec::filled<i32> bit_len 0:
+        Result::Err _e:
+            diag_err<Vec<i32>> diag_out_of_memory
+        Result::Ok bit:
+            ok<Vec<i32>, Diag> bit
+
+fn fenwick_free_bit <(Vec<i32>)->()> (bit):
+    vec::free<i32> bit

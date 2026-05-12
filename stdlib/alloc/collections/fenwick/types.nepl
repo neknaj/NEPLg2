@@ -1,0 +1,39 @@
+//: # fenwick/types
+//: `Fenwick` の型定義と update error 型
+//:
+//: ### [目的/もくてき]
+//: - 1-indexed internal tree owner と、`add` 失敗時に owner を返す error 型を定義します。
+
+#indent 4
+
+#import "core/field" as field
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+
+//: ## Fenwick
+//: [点更新/てんこうしん]と[累積和/るいせきわ]クエリを[保持/ほじ]する[所有者/しょゆうしゃ]
+//:
+//: ### [注意/ちゅうい]
+//: - `bit` は 1-indexed [内部配列/ないぶはいれつ]です。
+//: - `Fenwick` は[内部/ないぶ]メモリの[所有権/しょゆうけん]を[持/も]つので、[不要/ふよう]になったら `free` します。
+struct Fenwick:
+    n <i32>
+    bit <Vec<i32>>
+
+//: ## FenwickAddError
+//: `add` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
+//:
+//: ### [目的/もくてき]
+//: - `add` は[更新/こうしん] API なので `Fenwick` owner を[受/う]け[取/と]ります。
+//: - [範囲外/はんいがい] index では[内部/ないぶ]配列を[変更/へんこう]せず、caller が cleanup できるように元の `Fenwick` owner を `tree` に[戻/もど]します。
+struct FenwickAddError:
+    tree <Fenwick>
+    diag <Diag>
+
+//: add_error_diag: `add` [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
+fn add_error_diag <(&FenwickAddError)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: add_error_tree: `add` [失敗/しっぱい]で[戻/もど]された `Fenwick` owner を[取/と]り[出/だ]す
+fn add_error_tree <(FenwickAddError)->Fenwick> (e):
+    field::get e "tree"

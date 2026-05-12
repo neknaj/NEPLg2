@@ -1,0 +1,29 @@
+//: # fenwick/query
+//: `Fenwick` の prefix sum traversal
+//:
+//: ### [目的/もくてき]
+//: - `[0, r)` prefix sum の 1-indexed traversal を API から分離します。
+//: - storage 欠損は `Option::None` として API 層へ返し、query error に変換します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "alloc/collections/vec" as vec
+#import "./storage" as *
+
+fn fenwick_sum_prefix_storage <(&Vec<i32>,i32)->Option<i32>> (bit, r):
+    let mut i <i32> r
+    let mut acc <i32> 0
+    let mut valid <bool> true
+    while and lt 0 i valid:
+        do:
+            match fenwick_load_owned bit i:
+                Option::Some v:
+                    set acc add acc v
+                    let neg_i <i32> sub 0 i
+                    let lb <i32> and i neg_i
+                    set i sub i lb
+                Option::None:
+                    set valid false
+    if valid some<i32> acc none<i32>

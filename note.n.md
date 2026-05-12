@@ -26,6 +26,28 @@
 - 代表 failure は `ansi_text_style_code__AnsiTextStyle__str__pure` と `print_i32__i32__unit__imp` の `resource ir owner obligation may leak`。
 - Fenwick 分割とは独立した remote main 由来の resource checker / stdio owner summary 問題として `ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9` を追加した。
 
+## 2026-05-12 Agent 2 fenwick facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/fenwick.nepl` に同居していた型定義、owner 返却つき add error、typed storage、point update traversal、prefix/range query、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/fenwick.nepl` は public facade にし、`fenwick/types.nepl`、`fenwick/api.nepl` を `@merge` re-export するだけの構成にした。
+- `fenwick/types.nepl` は `Fenwick` / `FenwickAddError` と、診断参照 accessor / owner 回収 accessor を所有する。
+- `fenwick/storage.nepl` は 1-indexed `bit` cell の `Vec<i32>` read / replace、allocation、cleanup を所有する。
+- `fenwick/mutation.nepl` は `add` の point update traversal を所有する。
+- `fenwick/query.nepl` は prefix sum traversal を所有する。
+- `fenwick/api.nepl` は `new` / `add` / `sum_prefix` / `sum_range` / `len` / `free` を所有し、borrowed query と owner-preserving `FenwickAddError` の契約を維持する。
+- `nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_fenwick_borrowed_queries.js`、`nodesrc/test_stdlib_fenwick_add_error_owner.js` を更新し、root facade、typed `Vec<i32>` storage、mutation/query 境界、borrowed query、owner-carrying add error、raw memory 非使用を固定した。
+- line count は `fenwick.nepl` 13、`fenwick/types.nepl` 33、`fenwick/storage.nepl` 23、`fenwick/mutation.nepl` 25、`fenwick/query.nepl` 26、`fenwick/api.nepl` 219。
+- [検証]:
+  - `node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_fenwick_borrowed_queries.js`: passed
+  - `node nodesrc/test_stdlib_fenwick_add_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/fenwick/types.nepl -i stdlib/alloc/collections/fenwick/storage.nepl -i stdlib/alloc/collections/fenwick/mutation.nepl -i stdlib/alloc/collections/fenwick/query.nepl -i stdlib/alloc/collections/fenwick/api.nepl -i stdlib/tests/fenwick.n.md -i tests/stdlib/fenwick_collections.n.md --no-tree -o tmp/fenwick-split-focused-after-build.json -j 4 --dist web/dist`: total=11, passed=11
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/fenwick-split-examples-after-rebase.json -j 4 --dist web/dist`: total=32, passed=21, failed=11（main 単体でも再現する `ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9` の既知別件）
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-12 Agent 2 counting_bloom_filter facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/counting_bloom_filter.nepl` に同居していた型定義、hash/probe 計算、typed counter storage、counter mutation、public API を責務別 submodule に分割した。

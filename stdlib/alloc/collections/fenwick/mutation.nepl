@@ -1,0 +1,28 @@
+//: # fenwick/mutation
+//: `Fenwick` の point update traversal
+//:
+//: ### [目的/もくてき]
+//: - `add` の 1-indexed traversal と cell 更新を API から分離します。
+//: - storage 欠損は `false` として API 層へ返し、API 層が owner-preserving error へ変換します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "alloc/collections/vec" as vec
+#import "./storage" as *
+
+fn fenwick_add_storage <(&Vec<i32>,i32,i32,i32)*>bool> (bit, n, idx, delta):
+    let mut i <i32> add idx 1
+    let mut valid <bool> true
+    while and le i n valid:
+        do:
+            match fenwick_load_owned bit i:
+                Option::Some cur:
+                    fenwick_store_owned bit i add cur delta
+                    let neg_i <i32> sub 0 i
+                    let lb <i32> and i neg_i
+                    set i add i lb
+                Option::None:
+                    set valid false
+    valid
