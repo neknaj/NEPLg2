@@ -1,0 +1,74 @@
+//: # btreeset/api/remove
+//: `BTreeSet` の削除 API
+//:
+//: ### [目的/もくてき]
+//: - key 単位の削除と全要素 clear を、owner-consuming mutation として提供します。
+//: - sorted storage の left shift と slot clear は storage helper に委譲します。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/field" as field
+#import "core/traits/ord" as *
+#import "core/traits/copy" as *
+#import "../types" as *
+#import "../storage" as *
+#import "../search" as *
+
+//: ## remove
+//: key を[集合/しゅうごう]から[削除/さくじょ]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let s <BTreeSet<i32>>:
+//:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+//:         |> insert 7 |> uwok
+//:         |> remove 7
+//:     let ok <bool> eq len<i32> &s 0
+//:     free<i32> s
+//:     if ok 1 0
+//: ```
+fn remove <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set0, key):
+    let len0 <i32> *field::get_ref &set0 "len"
+    let cap0 <i32> *field::get_ref &set0 "cap"
+    let storage <BTreeSetStorage<.T>> field::get set0 "storage"
+    let idx <i32> btreeset_lower_bound_storage<.T> &storage key 0 len0
+    if:
+        not btreeset_is_at_storage<.T> &storage len0 idx key
+        then BTreeSet<.T> len0 cap0 storage
+        else:
+            let last <i32> sub len0 1
+            btreeset_shift_left_after_remove<.T> &storage idx len0
+            BTreeSet<.T> last cap0 storage
+
+//: ## clear
+//: [全要素/ぜんようそ]を[削除/さくじょ]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let s <BTreeSet<i32>>:
+//:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+//:         |> insert 7 |> uwok
+//:         |> clear
+//:     let ok <bool> eq len<i32> &s 0
+//:     free<i32> s
+//:     if ok 1 0
+//: ```
+fn clear <.T: Copy> <(BTreeSet<.T>)*>BTreeSet<.T>> (set0):
+    let len0 <i32> *field::get_ref &set0 "len"
+    let cap0 <i32> *field::get_ref &set0 "cap"
+    let storage <BTreeSetStorage<.T>> field::get set0 "storage"
+    btreeset_clear_slots<.T> &storage len0 0
+    BTreeSet<.T> 0 cap0 storage

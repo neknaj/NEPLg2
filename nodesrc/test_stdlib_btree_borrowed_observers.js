@@ -10,12 +10,14 @@ const mapApiSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/
 const mapObserverSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreemap/api/observer.nepl'), 'utf8');
 const setRootSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreeset.nepl'), 'utf8');
 const setApiSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreeset/api.nepl'), 'utf8');
+const setObserverSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreeset/api/observer.nepl'), 'utf8');
 
 const mapRootCode = stripComments(mapRootSrc);
 const mapApiCode = stripComments(mapApiSrc);
 const mapCode = stripComments(mapObserverSrc);
 const setRootCode = stripComments(setRootSrc);
-const setCode = stripComments(setApiSrc);
+const setApiCode = stripComments(setApiSrc);
+const setCode = stripComments(setObserverSrc);
 
 assert.match(mapApiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, 'BTreeMap api facade must re-export borrowed observers through api/observer');
 assert.doesNotMatch(mapApiCode, /\bfn\s+/, 'BTreeMap api facade must not keep duplicate observer wrappers');
@@ -35,6 +37,8 @@ for (const submodule of ['types', 'api', 'alias']) {
 
 assert.match(setCode, /fn\s+len\s+<\.T>\s+<\(&BTreeSet<\.T>\)->i32>\s+\(set0\):/, 'BTreeSet.len must borrow the owner');
 assert.match(setCode, /fn\s+contains\s+<\.T:\s*Ord&Copy>\s+<\(&BTreeSet<\.T>,\.T\)->bool>\s+\(set0,\s*key\):/, 'BTreeSet.contains must borrow the owner');
+assert.match(setApiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, 'BTreeSet api facade must re-export borrowed observers through api/observer');
+assert.doesNotMatch(setApiCode, /\bfn\s+/, 'BTreeSet api facade must not keep duplicate observer wrappers');
 assert.doesNotMatch(setCode, /fn\s+(?:len_ref|contains_ref)\b/, 'BTreeSet must not keep duplicate *_ref observers');
 assert.doesNotMatch(setCode, /fn\s+(?:len|contains)\s+<[^>]+>\s+<\(BTreeSet<\.T>/, 'BTreeSet read-only observers must not consume the owner');
 assert.doesNotMatch(setRootCode, /\bfn\s+/, 'BTreeSet root facade must not keep implementation bodies');

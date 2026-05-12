@@ -1,3 +1,22 @@
+# 2026-05-12 Agent 2 btreeset API facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/btreeset/api.nepl` に同居していた構築、borrowed observer、挿入、削除、cleanup を責務別 submodule に分割した。
+- `btreeset/api.nepl` は public facade にし、`api/create.nepl`、`api/observer.nepl`、`api/insert.nepl`、`api/remove.nepl`、`api/cleanup.nepl` を `@merge` re-export するだけの構成にした。
+- `api/create.nepl` は `new` と初期 storage allocation を所有する。
+- `api/observer.nepl` は `len` / `contains` を owner を消費しない read-only API として所有する。
+- `api/insert.nepl` は grow-aware `insert` と `btreeset_insert_ready` を所有し、grow error を `Result::Err` として返す契約を維持する。
+- `api/remove.nepl` は `remove` / `clear` を owner-consuming mutation として所有する。
+- `api/cleanup.nepl` は `free` と storage owner cleanup を所有する。
+- `nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js` と `nodesrc/test_stdlib_btree_borrowed_observers.js` を更新し、BTreeSet API facade に実装本体が戻らないこと、insert/observer の所有先を固定した。
+- line count は `api.nepl` 12、`api/create.nepl` 35、`api/observer.nepl` 60、`api/insert.nepl` 78、`api/remove.nepl` 70、`api/cleanup.nepl` 28。
+- [検証]:
+  - `node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_btree_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreeset.nepl -i stdlib/alloc/collections/btreeset/types.nepl -i stdlib/alloc/collections/btreeset/storage.nepl -i stdlib/alloc/collections/btreeset/search.nepl -i stdlib/alloc/collections/btreeset/api.nepl -i stdlib/alloc/collections/btreeset/api/create.nepl -i stdlib/alloc/collections/btreeset/api/observer.nepl -i stdlib/alloc/collections/btreeset/api/insert.nepl -i stdlib/alloc/collections/btreeset/api/remove.nepl -i stdlib/alloc/collections/btreeset/api/cleanup.nepl -i stdlib/alloc/collections/btreeset/alias.nepl -i tests/stdlib/btree_array_cost.n.md --no-tree -o tmp/btreeset-api-split-focused-no-stdlib-tests.json -j 1 --dist web/dist`: total=13, passed=13
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreeset.nepl -i stdlib/alloc/collections/btreeset/types.nepl -i stdlib/alloc/collections/btreeset/storage.nepl -i stdlib/alloc/collections/btreeset/search.nepl -i stdlib/alloc/collections/btreeset/api.nepl -i stdlib/alloc/collections/btreeset/api/create.nepl -i stdlib/alloc/collections/btreeset/api/observer.nepl -i stdlib/alloc/collections/btreeset/api/insert.nepl -i stdlib/alloc/collections/btreeset/api/remove.nepl -i stdlib/alloc/collections/btreeset/api/cleanup.nepl -i stdlib/alloc/collections/btreeset/alias.nepl -i stdlib/tests/btreeset.n.md -i tests/stdlib/btree_array_cost.n.md --no-tree -o tmp/btreeset-api-split-focused.json -j 1 --dist web/dist`: total=18, passed=13, failed=5。失敗は `ISS-20260512T044438272Z-RESOURCE-OWNER-SUMMARY-REPORTS-TESTR-03F3C18F` の `checks_print_machine__TestReport__TestReport__imp` owner leak 既知別件。
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-12 Agent 2 btreemap API facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/btreemap/api.nepl` に同居していた構築、borrowed observer、挿入、削除、cleanup を責務別 submodule に分割した。

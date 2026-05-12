@@ -1,0 +1,31 @@
+//: # btreeset/api/cleanup
+//: `BTreeSet` owner の cleanup API
+//:
+//: ### [目的/もくてき]
+//: - set owner から internal storage owner を取り出し、storage helper で閉じます。
+//: - cleanup を observer / mutation から分離します。
+
+#indent 4
+
+#import "core/field" as field
+#import "../types" as *
+#import "../storage" as *
+
+//: ## free
+//: [内部/ないぶ] storage を[解放/かいほう]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/btreeset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let s <BTreeSet<i32>> unwrap_ok<BTreeSet<i32>, Diag> new<i32>;
+//:     free s;
+//:     0
+//: ```
+fn free <.T> <(BTreeSet<.T>)->()> (set0):
+    let storage <BTreeSetStorage<.T>> field::get set0 "storage"
+    btreeset_free_storage<.T> storage
