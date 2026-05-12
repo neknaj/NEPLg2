@@ -738,6 +738,11 @@ assertUsesResourceModuleSymbol(
     'variant_names_match',
     'place_utils.rs',
 );
+assertContains(
+    readResource('variant_name.rs'),
+    'crate::qualified_name::member_tail',
+    'variant_name.rs',
+);
 assertNotContains(
     placeUtils,
     'fn canonical_variant_name',

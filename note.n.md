@@ -36387,3 +36387,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 qualified name helper 共通化
+
+- `ISS-20260512T132905089Z-QUALIFIED-ENUM-MEMBER-SPLITTING-REMA-AC5CC034` として、qualified enum member / helper name の `::` 分解規則が typecheck、Resource IR、wasm/LLVM backend、runtime helper に分散していた問題を修正した。
+- `nepl-core/src/qualified_name.rs` を追加し、leading qualifier split、member tail、member prefix/tail split を crate 内の単一責務 helper として定義した。
+- typecheck の `split_qualified_name` / `variant_member_tail`、Resource IR の `variant_name_tail`、backend の enum tag/payload lookup、runtime helper base name stripping、match arm expected type inference を共通 helper に移行した。
+- `nodesrc/test_static_check_boundary_responsibility.js` に、`qualified_name.rs` 以外で `rfind("::")` / `rsplit("::")` / `splitn(2, "::")` を再導入しない source policy を追加した。
+- これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 1 の module boundary と Stage 4 の Resource IR authority / backend agreement を補強する整理である。
+- [検証]:
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo test -p nepl-core qualified_name::tests -- --nocapture`: passed
+  - `cargo test -p nepl-core typecheck::syntax_helpers::tests -- --nocapture`: passed
+  - `cargo test -p nepl-core --test import_clause alias_qualified_enum_match_arm_uses_variant_member_tail -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

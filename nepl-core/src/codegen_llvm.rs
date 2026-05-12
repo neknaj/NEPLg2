@@ -3783,11 +3783,7 @@ fn resolve_symbol_name<'a>(
 }
 
 fn enum_variant_tag(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> i32 {
-    let name = if let Some(pos) = variant.rfind("::") {
-        &variant[pos + 2..]
-    } else {
-        variant
-    };
+    let name = crate::qualified_name::member_tail(variant);
     let enum_ty = ctx.resolve_named_type_id(enum_ty);
     match ctx.get(enum_ty) {
         TypeKind::Enum { variants, .. } => {
@@ -3813,11 +3809,7 @@ fn is_enum_type(ctx: &TypeCtx, ty: TypeId) -> bool {
 }
 
 fn enum_variant_payload(ctx: &TypeCtx, enum_ty: TypeId, variant: &str) -> Option<TypeId> {
-    let name = if let Some(pos) = variant.rfind("::") {
-        &variant[pos + 2..]
-    } else {
-        variant
-    };
+    let name = crate::qualified_name::member_tail(variant);
     let enum_ty = ctx.resolve_named_type_id(enum_ty);
     match ctx.get(enum_ty) {
         TypeKind::Enum { variants, .. } => variants

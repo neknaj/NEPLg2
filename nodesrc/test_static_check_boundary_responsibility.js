@@ -50,6 +50,23 @@ function assertLineLimit(filePath, label, limit) {
     assert(lines <= limit, `${label} has ${lines} lines; responsibility split limit is ${limit}`);
 }
 
+function toPosixPath(filePath) {
+    return path.relative(ROOT, filePath).split(path.sep).join('/');
+}
+
+function walkRustFiles(dir) {
+    const files = [];
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const child = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...walkRustFiles(child));
+        } else if (entry.isFile() && entry.name.endsWith('.rs')) {
+            files.push(child);
+        }
+    }
+    return files;
+}
+
 const typecheckRoot = assertFile(TYPECHECK_ROOT, 'typecheck.rs');
 const resourceRoot = assertFile(RESOURCE_ROOT, 'resource/mod.rs');
 const compiler = assertFile(COMPILER, 'compiler.rs');
@@ -111,6 +128,17 @@ assertNotContains(typecheckMatchCheck, 'find("::")', 'typecheck/match_check.rs')
 assertContains(typecheckSyntaxHelpers, 'fn split_qualified_name', 'typecheck/syntax_helpers.rs');
 assertContains(typecheckSyntaxHelpers, 'fn variant_member_tail', 'typecheck/syntax_helpers.rs');
 assertNotContains(typecheckSyntaxHelpers, 'parse_variant_name', 'typecheck/syntax_helpers.rs');
+
+for (const filePath of walkRustFiles(CORE_SRC)) {
+    const rel = toPosixPath(filePath);
+    if (rel === 'nepl-core/src/qualified_name.rs') {
+        continue;
+    }
+    const text = read(filePath);
+    assertNotContains(text, 'rfind("::")', rel);
+    assertNotContains(text, 'rsplit("::")', rel);
+    assertNotContains(text, 'splitn(2, "::")', rel);
+}
 
 for (const [moduleName, limit] of [
     ['driver.rs', 1700],

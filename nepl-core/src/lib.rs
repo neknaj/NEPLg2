@@ -37,6 +37,7 @@ pub mod monomorphize;
 pub mod nm;
 pub mod parser;
 pub mod passes;
+mod qualified_name;
 pub mod resolve;
 pub mod resource;
 pub mod runtime_helpers;

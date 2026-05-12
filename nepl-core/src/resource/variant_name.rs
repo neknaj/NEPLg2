@@ -5,7 +5,7 @@ use alloc::string::String;
 use super::model::ResourceMatchPattern;
 
 pub(super) fn variant_name_tail(variant: &str) -> &str {
-    variant.rsplit("::").next().unwrap_or(variant)
+    crate::qualified_name::member_tail(variant)
 }
 
 pub(super) fn normalize_variant_name(variant: &str) -> String {

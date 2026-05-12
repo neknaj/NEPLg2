@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T13:24:55.212Z",
+  "generated_at": "2026-05-12T13:37:45.178Z",
   "counts": {
-    "total": 644,
+    "total": 645,
     "open": 10,
-    "resolved": 634,
+    "resolved": 635,
     "by_area": {
       "core": {
-        "total": 327,
+        "total": 328,
         "open": 3,
-        "resolved": 324
+        "resolved": 325
       },
       "stdlib": {
         "total": 167,
@@ -4953,6 +4953,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T131952514Z-TYPECHECK-HELPER-NAME-HIDES-FIRST-QU-16B7D3ED.md"
+    },
+    {
+      "id": "ISS-20260512T132905089Z-QUALIFIED-ENUM-MEMBER-SPLITTING-REMA-AC5CC034",
+      "title": "Qualified enum member splitting remains duplicated across compiler stages",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/qualified_name.rs; nepl-core/src/typecheck/syntax_helpers.rs; nepl-core/src/resource/variant_name.rs; nepl-core/src/codegen_wasm.rs; nepl-core/src/codegen_llvm.rs; nepl-core/src/runtime_helpers.rs; nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T132905089Z-QUALIFIED-ENUM-MEMBER-SPLITTING-REMA-AC5CC034.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

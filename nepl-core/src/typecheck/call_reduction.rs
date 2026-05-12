@@ -444,10 +444,8 @@ impl<'a> BlockChecker<'a> {
                 MatchPattern::Variant { name, .. } => &name.name,
                 _ => continue,
             };
-            // "EnumName::VariantName" → "EnumName"
-            let enum_name = if let Some(idx) = variant_name.rfind("::") {
-                &variant_name[..idx]
-            } else {
+            let Some((enum_name, _)) = crate::qualified_name::split_member_tail(variant_name)
+            else {
                 continue;
             };
             let enum_info = self.enums.get(enum_name)?;

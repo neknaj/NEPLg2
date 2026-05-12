@@ -37,11 +37,7 @@ pub fn runtime_abi_name(kind: RuntimeHelperKind) -> &'static str {
 }
 
 pub fn helper_base_name(name: &str) -> &str {
-    let tail = if let Some(pos) = name.rfind("::") {
-        &name[pos + 2..]
-    } else {
-        name
-    };
+    let tail = crate::qualified_name::member_tail(name);
     let suffix_pos = [ALLOC_RUNTIME_ABI, DEALLOC_RUNTIME_ABI, REALLOC_RUNTIME_ABI]
         .iter()
         .find_map(|abi| {

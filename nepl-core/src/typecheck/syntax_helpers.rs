@@ -2,14 +2,11 @@ use crate::ast::Directive;
 use crate::compiler::{BuildProfile, CompileTarget};
 
 pub(super) fn split_qualified_name(name: &str) -> Option<(&str, &str)> {
-    let mut parts = name.splitn(2, "::");
-    let a = parts.next()?;
-    let b = parts.next()?;
-    Some((a, b))
+    crate::qualified_name::split_leading_qualifier(name)
 }
 
 pub(super) fn variant_member_tail(name: &str) -> &str {
-    name.rsplit("::").next().unwrap_or(name)
+    crate::qualified_name::member_tail(name)
 }
 
 pub(super) fn parse_i32_literal(text: &str) -> Option<i32> {
