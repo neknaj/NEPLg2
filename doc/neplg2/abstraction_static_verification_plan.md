@@ -272,6 +272,7 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `ResourceTraitApplication` を追加し、`ResourceCallTarget::Trait` も split fields ではなく typed application を保持する形へ移行した。
 - 2026-05-13: `ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB` を verified にした。Stage 5 の trait/generic regression は、`PureCallsImpure` を弱めず、raw memory を直接呼ぶ generic helper を impure signature に直すことで復旧した。
 - 2026-05-13: `ISS-20260512T182144401Z-MONOMORPHIZE-TRAIT-LOOKUP-METHOD-IDE-99EBBCAC` を追加し、`MonoTraitMethodId` newtype を導入した。`MonoTraitMethodKey` / `MonoTraitLookupKey` は method identity を raw `String` ではなく typed id として保持する。
+- 2026-05-13: `ISS-20260512T183111826Z-MONOMORPHIZE-TRAIT-APPLICATION-STILL-835C27CF` を追加し、monomorphize trait identity も `MonoTraitId` newtype へ移行した。`MonoTraitApplication` / `MonoTraitMethodKey` は trait identity を raw `String` ではなく typed id として保持し、identity type は `monomorphize/trait_identity.rs` へ分離した。
 - 残件: Stage 5 の typed identity は HIR / monomorphize / Resource IR call target まで到達した。次は policy baseline を整理し、BoundEnv / TypeParamId 残件と Resource IR 側の安全検査 issue に戻る。
 
 ### Stage 6: policy baseline を 0 に下げる
@@ -296,5 +297,6 @@ struct MonoTraitLookupKey {
 - `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
 - `typecheck/trait_call_apply.rs`: 実装済みだが再設計対象。split impl field 参照は削除済みだが、trait method resolution result enum が必要。
 - `hir.rs`: Stage 5 は進行済み。`HirTraitApplication` を追加し、`FuncRef::Trait` / `HirImpl` は typed trait application を保持する。
-- `monomorphize.rs`: Stage 5 は進行中。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。HIR からは `HirTraitApplication` を受け取り、monomorphize phase 内の resolved key へ変換する。
+- `monomorphize.rs`: Stage 5 は進行中。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。HIR からは `HirTraitApplication` を受け取り、monomorphize phase 内の `MonoTraitId` / `MonoTraitMethodId` を含む resolved key へ変換する。
+- `monomorphize/trait_identity.rs`: Stage 5 は実装済み。monomorphize 内部の trait / method identity newtype をここに集約し、lookup key module から raw string identity field を排除している。
 - `nodesrc/test_abstraction_static_verification_policy.js`: Stage 0 baseline policy として追加済み。Stage 6 として `ImplInfo` optional field は struct 単位で 0 件を要求する。

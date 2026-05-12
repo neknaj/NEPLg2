@@ -65,6 +65,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T175900768Z-MONOMORPHIZE-TRAIT-LOOKUP-MODEL-EXCE-55B52B7E` で、monomorphize trait lookup key/model を `monomorphize/trait_lookup.rs` へ分離した。typed key model は維持し、abstraction policy は新 module を監視する。
 - `ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB` で、Stage 5 の trait/generic regression fixtures を修正した。raw memory を直接呼ぶ helper は impure signature にし、`PureCallsImpure` を弱めずに regression suite を復旧した。
 - `ISS-20260512T182144401Z-MONOMORPHIZE-TRAIT-LOOKUP-METHOD-IDE-99EBBCAC` で、monomorphize trait lookup の method identity を `MonoTraitMethodId` newtype へ移行した。`MonoTraitMethodKey` / `MonoTraitLookupKey` は raw `String` method field を持たない。
+- `ISS-20260512T183111826Z-MONOMORPHIZE-TRAIT-APPLICATION-STILL-835C27CF` で、monomorphize trait lookup の trait identity を `MonoTraitId` newtype へ移行した。`MonoTraitApplication` / `MonoTraitMethodKey` は raw trait `String` field を持たず、identity type は `monomorphize/trait_identity.rs` に分離した。
 
 ## 検証
 

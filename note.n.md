@@ -36674,3 +36674,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260512T182144401Z-MONOMORPHIZE-TRAIT-LOOKUP-METHOD-IDE-99EBBCAC` を追加し、Stage 5 の monomorphize lookup key 内に raw `String` method identity が残る問題を切り出した。
 - `MonoTraitMethodId` newtype を追加し、`MonoTraitMethodKey` / `MonoTraitLookupKey` の `method` field を `String` から typed id に変更した。
 - source policy に raw `method: String` field の再導入禁止を追加した。
+
+## 2026-05-13 Agent 1 monomorphize trait id
+
+- `9206b0ac` push 後に remote main を pull し、`agent1/monomorphize-trait-id` branch を作成した。
+- `ISS-20260512T183111826Z-MONOMORPHIZE-TRAIT-APPLICATION-STILL-835C27CF` を追加し、Stage 5 の monomorphize lookup key 内に raw `String` trait identity が残る問題を切り出した。
+- `MonoTraitId` newtype を追加し、`MonoTraitApplication` / `MonoTraitMethodKey` の trait identity field を typed id に変更した。
+- `MonoTraitId` / `MonoTraitMethodId` は `monomorphize/trait_identity.rs` に分離し、`trait_lookup.rs` の責務分割 line limit は上げずに維持した。
+- source policy に raw trait `String` field の再導入禁止と identity module 境界を追加した。
