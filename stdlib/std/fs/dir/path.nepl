@@ -1,0 +1,43 @@
+//: # std/fs/dir/path
+//: path-based directory listing helper
+//:
+//: ### 目的
+//: - directory path open/close と fd read helper の組み合わせを、fd_readdir 変換から分離します。
+//:
+//: ### 注意
+//: - 戻り値は entry 名だけです。親 path との結合は caller が行います。
+
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "core/result" as *
+#import "std/fs/dir/open" as *
+#import "std/fs/dir/read_fd" as *
+#import "std/fs/fd" as *
+
+//: fs_read_dir: directory entry 名を安定順で返す
+//:
+//: 目的:
+//: - self-host compiler の stdlib discovery と import root scanning に必要な directory traversal を提供します。
+//:
+//: 実装(アルゴリズム):
+//: - path を正規化して directory fd を開き、`fd_readdir` の結果を `Vec<str>` に変換して sort します。
+//:
+//: 注意(重要):
+//: - 戻り値は entry 名だけです。親 path との結合は caller が `/` 区切りで行います。
+//: - `..` による preopen root 外への escape は `Err(76)` です。
+//:
+//: 計算量:
+//: - entry 総 byte 数 n と sort の O(k^2)
+fn fs_read_dir <(str)*>Result<Vec<str>,i32>> (path):
+    match fs_open_dir path:
+        Result::Err e:
+            Result<Vec<str>,i32>::Err e
+        Result::Ok fd:
+            let res <Result<Vec<str>,i32>> fs_read_dir_fd fd
+            match fs_close fd:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    ()
+            res

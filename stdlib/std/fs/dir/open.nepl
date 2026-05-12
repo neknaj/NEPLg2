@@ -1,0 +1,35 @@
+//: # std/fs/dir/open
+//: directory fd open helper
+//:
+//: ### 目的
+//: - directory traversal 用 fd の open 権限指定を `fd_readdir` の実処理から分離します。
+//:
+//: ### 注意
+//: - path escape は open 前に `fs_normalize_relative` で拒否します。
+
+#indent 4
+
+#import "core/result" as *
+#import "std/fs/constants" as *
+#import "std/fs/fd" as *
+#import "std/fs/path" as *
+
+//: fs_open_dir: directory を fd_readdir 用に開く
+//:
+//: 目的:
+//: - `fs_read_dir` と将来の directory iterator が同じ権限指定で fd を取得できるようにします。
+//:
+//: 実装(アルゴリズム):
+//: - path を正規化してから、WASI fd_readdir right だけで `path_open` を呼びます。
+//:
+//: 注意(重要):
+//: - path escape は open 前に `fs_normalize_relative` で拒否します。
+//:
+//: 計算量:
+//: - path 正規化 O(n) と host open 1 回
+fn fs_open_dir <(str)*>Result<i32,i32>> (path):
+    match fs_normalize_relative path:
+        Result::Err e:
+            Result<i32,i32>::Err e
+        Result::Ok normalized:
+            fs_open_with_flags normalized fs_oflags_directory fs_right_fd_readdir

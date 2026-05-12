@@ -36054,3 +36054,21 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 std/fs dir open/read_fd/path 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/std/fs/dir.nepl` に同居していた directory open、`fd_readdir` raw dirent parsing、path-based directory listing API を `dir/open`、`dir/read_fd`、`dir/path` に分離した。
+- `stdlib/std/fs/dir.nepl` は public facade にし、`std/fs/dir/open`、`std/fs/dir/read_fd`、`std/fs/dir/path` を re-export するだけの構成にした。
+- `stdlib/std/fs/dir/open.nepl` は `fs_open_dir` を所有し、path 正規化と `fs_right_fd_readdir` 権限指定に集中させた。
+- `stdlib/std/fs/dir/read_fd.nepl` は `fs_read_dir_fd` を所有し、raw dirent parsing、`.` / `..` 除外、entry accumulation、byte sort に集中させた。
+- `stdlib/std/fs/dir/path.nepl` は `fs_read_dir` を所有し、directory open/close と fd reader の組み合わせを担当する。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js` を更新し、root facade に実装本体が戻らないこと、open/read_fd/path の責務境界、`Vec<str>` push failure の errno 12 mapping、path API に raw dirent conversion が混入しないことを固定した。
+- line count は `dir.nepl` 34、`dir/open.nepl` 32、`dir/read_fd.nepl` 137、`dir/path.nepl` 40。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/dir.nepl -i stdlib/std/fs/dir/open.nepl -i stdlib/std/fs/dir/read_fd.nepl -i stdlib/std/fs/dir/path.nepl --no-tree -o tmp/fs-dir-module-split-dir-only.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-dir-module-split-fs-md.json -j 1 --dist web/dist`: total=7, passed=7
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl -i stdlib/std/fs/dir.nepl -i stdlib/std/fs/dir/open.nepl -i stdlib/std/fs/dir/read_fd.nepl -i stdlib/std/fs/dir/path.nepl -i stdlib/std/fs/read.nepl -i stdlib/std/fs/write.nepl -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-dir-module-split-fs-suite.json -j 1 --dist web/dist`: total=11, passed=11
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

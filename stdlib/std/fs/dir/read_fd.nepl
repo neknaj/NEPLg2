@@ -1,0 +1,140 @@
+//: # std/fs/dir/read_fd
+//: directory fd から entry 名を読み出す helper
+//:
+//: ### 目的
+//: - `fd_readdir` の raw dirent 配列を `Vec<str>` に変換する処理を path API から分離します。
+//:
+//: ### 注意
+//: - fd の open/close は呼び出し側の責務です。
+//: - 戻り値は entry 名だけです。親 path との結合は caller が行います。
+
+#indent 4
+
+#import "alloc/collections/vec" as v
+#import "alloc/string" as *
+#import "core/cast" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "std/fs/constants" as *
+#import "std/fs/path" as *
+#import "std/fs/raw" as *
+
+//: fs_read_dir_fd: directory fd から entry 名を読み出す
+//:
+//: 目的:
+//: - `fd_readdir` の raw dirent 配列を `Vec<str>` に変換し、`fs_read_dir` の本体処理を分離します。
+//:
+//: 実装(アルゴリズム):
+//: - 64KiB buffer で `fd_readdir` を繰り返し、dirent header と name byte 列を順に読みます。
+//: - `.` / `..` を除外してから byte 辞書順に sort します。
+//: - directory entry name の蓄積で確保に失敗した場合は `Err(12)` を返します。
+//:
+//: 注意(重要):
+//: - WASI cookie は通常の directory 規模を想定し、dirent の `d_next` low 32 bit を次回 cookie として使います。
+//:
+//: 計算量:
+//: - entry 総 byte 数 n と sort の O(k^2)
+fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
+    match v::new<str>:
+        Result::Err _e:
+            Result<Vec<str>,i32>::Err 12
+        Result::Ok entries0:
+            let mut entries <Vec<str>> entries0
+            let buf_len <i32> fs_readdir_buf_size
+            match alloc_ptr<u8> buf_len:
+                Result::Err _e:
+                    v::free<str> entries
+                    Result<Vec<str>,i32>::Err 12
+                Result::Ok buf:
+                    match alloc_ptr<u8> 4:
+                        Result::Err _e:
+                            match dealloc_ptr<u8> buf buf_len:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            v::free<str> entries
+                            Result<Vec<str>,i32>::Err 12
+                        Result::Ok used_buf:
+                            let mut cookie <i64> <i64> cast 0
+                            let mut err <i32> 0
+                            let mut done <bool> false
+                            let buf_raw <i32> mem_ptr_addr buf
+                            let used_raw <i32> mem_ptr_addr used_buf
+                            while and not done eq err 0:
+                                do:
+                                    store_i32 used_raw 0
+                                    let errno <i32> wasi_fd_readdir fd buf_raw buf_len cookie used_raw
+                                    if:
+                                        ne errno 0
+                                        then:
+                                            set err errno
+                                        else:
+                                            let used <i32> load_i32 used_raw
+                                            if:
+                                                eq used 0
+                                                then:
+                                                    set done true
+                                                else:
+                                                    let mut off <i32> 0
+                                                    while and eq err 0 lt off used:
+                                                        do:
+                                                            let header_end <i32> add off fs_dirent_header_size
+                                                            if:
+                                                                gt header_end used
+                                                                then:
+                                                                    set err fs_errno_inval
+                                                                else:
+                                                                    let rec <i32> add buf_raw off
+                                                                    let next_cookie_low <i32> load_i32 rec
+                                                                    let name_len <i32> load_i32 add rec 16
+                                                                    let name_off <i32> add header_end name_len
+                                                                    if:
+                                                                        or lt name_len 0 or lt name_off header_end gt name_off used
+                                                                        then:
+                                                                            set err fs_errno_inval
+                                                                        else:
+                                                                            match fs_string_from_bytes add rec fs_dirent_header_size name_len:
+                                                                                Result::Err e:
+                                                                                    set err e
+                                                                                Result::Ok name:
+                                                                                    if:
+                                                                                        fs_dir_name_is_dot name
+                                                                                        then:
+                                                                                            ()
+                                                                                        else:
+                                                                                            match v::push<str> entries name:
+                                                                                                Result::Ok next_entries:
+                                                                                                    set entries next_entries
+                                                                                                Result::Err _e:
+                                                                                                    set entries v::vec_empty<str>
+                                                                                                    set err 12
+                                                                            set cookie <i64> cast next_cookie_low
+                                                                            set off name_off
+                                                    if:
+                                                        lt used buf_len
+                                                        then:
+                                                            set done true
+                                                        else:
+                                                            ()
+                            match dealloc_ptr<u8> used_buf 4:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            match dealloc_ptr<u8> buf buf_len:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    ()
+                            if:
+                                eq err 0
+                                then:
+                                    let entries_len <i32> get entries "len"
+                                    let entries_data <i32> mem_ptr_addr get entries "data"
+                                    fs_sort_strings entries_data entries_len
+                                    Result<Vec<str>,i32>::Ok entries
+                                else:
+                                    v::free<str> entries
+                                    Result<Vec<str>,i32>::Err err
