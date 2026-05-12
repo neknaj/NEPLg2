@@ -21,9 +21,9 @@
 
 ### metadata parser drift
 
-`nodesrc/parser.ts` は `diag_code:` / `diag_codes:` を扱うが、実行時に Node が読む `nodesrc/parser.js` は古い `diag_id:` / `diag_ids:` を扱っている。この drift は `ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79` として分離済みである。
+`nodesrc/parser.ts` と実行時に Node が読む `nodesrc/parser.js` は `diag_code:` / `diag_codes:` を扱う。旧 `diag_id:` / `diag_ids:` 実装との drift は `ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79` で解決済みである。
 
-stdout / exit code 運用の実装前に、metadata parser の source of truth と生成物 drift を CI で固定する。
+`nodesrc/test_doctest_diag_code_metadata.js` が metadata parser の source of truth と generated runtime parser の contract を CI で固定する。
 
 ### test fixture の分布
 

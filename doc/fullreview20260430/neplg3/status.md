@@ -22,7 +22,7 @@ NEPLg3 は `doc/neplg3/spec` と `doc/neplg3/impl` に分かれ、言語仕様�
 
 `stdlib/neplg3` の実装は placeholder である。`cli/main.nepl`、`core/ast.nepl`、`diagnostic.nepl`、`parser.nepl`、`span.nepl`、`typecheck.nepl` は skip doctest 付きの skeleton で、実際の compiler logic はまだない。NEPLg3 実装を現行 selfhost 進捗として扱ってはいけない。
 
-NEPLg3 spec には、古い表現や未確定 draft が残る。たとえば compiler spec の test requirement に `diag_id` 表現が残り、現行 NEPLg2 の diagnostic code redesign とは用語がずれている。将来実装時は typed diagnostic enum / stable string code へ合わせる必要がある。
+NEPLg3 spec は、compiler spec の test requirement を `diag_code` / `diag_codes` へ更新し、現行 NEPLg2 の diagnostic code redesign と同じ typed diagnostic enum / stable string code contract に揃えた。将来実装時も数値 ID や自由文字列 code を内部主キーに戻してはならない。
 
 NEPLg3 の memory/effect 仕様は理想に近いが、現行 NEPLg2 selfhost はまだ S1/S2 が中心で、S3/S4 type/resource 実装は未成熟である。NEPLg3 仕様を NEPLg2 selfhost にそのまま前倒しするより、現行 ResourceIR と stdlib safety design を完成させる方が優先である。
 
@@ -41,6 +41,6 @@ NEPLg3 の memory/effect 仕様は理想に近いが、現行 NEPLg2 selfhost �
 ## 推奨対応
 
 - NEPLg3 は現時点で仕様・設計文書として扱い、NEPLg2 selfhost の実装進捗と混同しない。
-- NEPLg3 diagnostic 用語を `diag_code` / typed diagnostic enum に更新する。
+- NEPLg3 diagnostic の追加仕様は `diag_code` / typed diagnostic enum contract に沿って記述する。
 - NEPLg3 memory/effect 仕様のうち、現行 NEPLg2 にすぐ役立つ内容は ResourceIR / stdlib safety / selfhost type model の設計レビューへ取り込む。
 - `stdlib/neplg3` skeleton を増やす前に、実装開始条件と CI target を明文化する。

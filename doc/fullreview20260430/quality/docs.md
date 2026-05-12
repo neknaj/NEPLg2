@@ -27,7 +27,7 @@
 
 `doc/testing.md` の `std/test` 節は、まだ `assert` / `assert_eq_i32` / `test_checked` / `test_fail` など旧説明が残っている。`nmd_assert_output_plan.md` の structured report API 実装状況とずれており、読者が古い assertion style を採用する危険がある。
 
-NEPLg3 仕様には `diag_id` という旧表現が残る箇所がある。現行 NEPLg2 では diagnostic code redesign が進んでいるため、NEPLg3 仕様側も `diag_code` / typed diagnostic enum へ用語を揃える必要がある。
+NEPLg3 仕様は `diag_code` / typed diagnostic enum へ用語を揃えた状態に更新済みである。今後の追加文書でも数値 ID や自由文字列 code へ戻さず、Rust core / selfhost と同じ stable diagnostic code contract を使う必要がある。
 
 `doc/neplg2/README.md` は主要計画文書への入口としては機能しているが、`shared_nmd_test_plan.md`、`nmd_assert_output_plan.md`、`compiler_diagnostics_redesign_plan.md`、`stdlib_collection_mem_string_static_safety_design.md` が一覧に入っていない。実装判断で参照される重要文書が入口から辿りにくい。
 
@@ -46,4 +46,4 @@ NEPLg3 仕様には `diag_id` という旧表現が残る箇所がある。現�
 
 - `doc/testing.md` の `std/test` 節を structured `TestReport` / stdout report / `exit_code` 方針へ更新する。
 - `doc/neplg2/README.md` に共通 `.n.md`、assert report、diagnostics redesign、stdlib static safety design を追加する。
-- NEPLg3 仕様の diagnostic 用語を `diag_code` / typed diagnostic enum へ揃える issue を必要に応じて追加する。
+- NEPLg3 仕様に diagnostic 関連の追記を行う場合は、`diag_code` / typed diagnostic enum contract から外れていないか確認する。

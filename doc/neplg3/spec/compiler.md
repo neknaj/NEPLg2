@@ -173,4 +173,4 @@ io_close h
 - `tests/move_effect.n.md`: pure から I/O 呼び出しが拒否されること / pure からメモリ操作が許可されること
 - `tests/memory_safety.n.md`: OOB / UAF / double free の検出
 - `tests/overload.n.md`: type annotation と overload が move / effect と両立すること
-- `compile_fail` テストでは `diag_id` で固定検証する
+- `compile_fail` テストでは `diag_code` / `diag_codes` で stable diagnostic code を固定検証する

@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T23:08:26.090Z",
+  "generated_at": "2026-05-12T23:19:04.769Z",
   "counts": {
     "total": 685,
-    "open": 9,
-    "resolved": 676,
+    "open": 8,
+    "resolved": 677,
     "by_area": {
-      "core": {
-        "total": 365,
-        "open": 1,
-        "resolved": 364
-      },
       "stdlib": {
         "total": 168,
         "open": 6,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 365,
+        "open": 0,
+        "resolved": 365
       },
       "resource": {
         "total": 2,
@@ -109,21 +109,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D",
-      "title": "Rust compiler diagnostics are not aligned with Resource IR and self-host model",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-29",
-      "updated": "2026-05-13",
-      "target": "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -2793,6 +2778,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T034515729Z-RESOURCE-BORROW-NON-RETURN-CONFLICTS-12A5A5E4.md"
+    },
+    {
+      "id": "ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D",
+      "title": "Rust compiler diagnostics are not aligned with Resource IR and self-host model",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-29",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
       "id": "ISS-20260429T054411082Z-RESOURCE-EFFECT-CHECKER-KEEPS-RAW-ID-F3C413F2",

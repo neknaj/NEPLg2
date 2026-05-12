@@ -288,6 +288,7 @@ D2 の完了条件は次の通り。
 
 - 2026-04-29: self-host 側に `SelfhostDiagnosticCode` 階層 enum を導入し、`SelfhostDiagnostic.code` を自由文字列から typed code へ移行した。stable string は `selfhost_diag_code_name` の match 変換だけで生成し、reporter / JSON はその表示値を使う。lexer、parser、loader、module graph、module path、CLI driver/file_io の既存 diagnostic 生成箇所は typed constructor へ移行済み。parser / resolver / checker の Rust parity をさらに詰める作業は、各 stage 実装時の diagnostic variant 追加と parity fixture で継続する。
 - 2026-05-13: `ISS-20260512T212421953Z-SELFHOST-DIAGNOSTIC-CODE-ENUM-POLICY-656F8C6E` を解決した。`nodesrc/test_selfhost_diag_code_enum.js` は self-host diagnostic の leaf enum variant と stable string conversion を対応付け、各 `Selfhost*DiagnosticCode` variant が対応する `selfhost_*_diag_code_name` の exhaustive `match` に exactly once で現れることを検査する。leaf conversion の wildcard arm と stage prefix drift も拒否するため、self-host 側で新しい parser / resolver / checker / Resource / backend diagnostic を追加する時も enum-first contract の更新漏れを source policy で検出できる。
+- 2026-05-13: 親 issue `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` の完了監査を行い、Rust core / CLI / language / LSP / web / selfhost / `.n.md` metadata の active diagnostic contract が enum-first / code-first 方針に揃っていることを確認した。NEPLg3 仕様と full review 文書に残っていた旧 `diag_id` / `diagnostic_ids.rs` 表現も `diag_code` / `diagnostic_codes.rs` / typed diagnostic enum へ更新した。
 
 ## 静的検査大規模修正との関係
 
@@ -309,3 +310,5 @@ D2 の完了条件は次の通り。
 4. Resource IR diagnostic が move / borrow / raw / lowering / effect の意味分類を失わない。
 5. CLI / web / nodesrc test が enum 由来の stable string code を主識別子として扱う。
 6. self-host `SelfhostDiagnostic` と Rust core diagnostic が同じ code contract で比較できる。
+
+2026-05-13 時点で、この文書の完了条件は満たされている。今後の diagnostic 追加は、ここで定めた enum-first / code-first / stable string boundary を前提として個別 issue で扱う。

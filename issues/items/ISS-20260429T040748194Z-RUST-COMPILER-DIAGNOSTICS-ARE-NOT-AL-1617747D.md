@@ -2,8 +2,8 @@
 id: ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D
 title: "Rust compiler diagnostics are not aligned with Resource IR and self-host model"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-29
@@ -48,6 +48,8 @@ Introduce a diagnostics redesign plan: hierarchical enum diagnostic codes inside
 
 Add registry consistency tests, CLI rendering tests, doctest support for diagnostic codes, and focused Resource IR diagnostic mapping regressions.
 
+2026-05-13 時点で Stage D0-D5 の完了条件を再監査し、active Rust / CLI / language / LSP / web / selfhost diagnostic contract と `.n.md` diagnostic code metadata は enum-first / code-first 方針に揃っていることを確認した。以後に新しい parser / resolver / checker / Resource / backend diagnostic を追加する場合も、この issue で確立した contract を前提に個別 issue として扱う。
+
 ## 対応結果
 
 2026-04-29 の Stage D0 実装で、Rust core の診断主識別子を `DiagnosticCode` と下位 enum へ移行した。`diagnostic_ids.rs`、数値 ID field、`with_id`、自由文字列を受け取る `with_code` は active code path から削除した。
@@ -67,7 +69,9 @@ enum 化により、`#indent xx` が parser の generic token error として分
 - `node nodesrc/test_llvm_runner_return_value.js`
 - `node nodesrc/issues.js check`
 
-この issue はまだ open のままとする。Stage D1 以降で builder、note/help、Resource IR typed mapping、self-host parity を続けて追跡する。
+この時点では Stage D1 以降で builder、note/help、Resource IR typed mapping、self-host parity を続けて追跡する必要があった。
+
+2026-05-13 追記: 以降の D1-D5 follow-up が完了したため、上記の open 継続条件は解消済みである。
 
 ## 2026-05-07 Stage D1 registry exhaustiveness policy 追記
 
@@ -86,7 +90,9 @@ GitHub Actions run `25498880571` の build job で、`nepl-cli/src/main.rs` が 
 
 `nepl-cli` の renderer は `d.code.as_str()` を直接表示するよう修正した。併せて `nodesrc/test_diagnostic_code_first_boundary.js` の Rust source root に `nepl-cli/src` を追加し、`.code.map(...)` を source policy で拒否する。これにより、CLI / web / language / LSP の外部境界すべてで `Diagnostic.code` が mandatory enum である前提を維持する。
 
-この具体的な CI blocker は [CLI diagnostic renderer still treats DiagnosticCode as optional](./ISS-20260507T133214452Z-CLI-DIAGNOSTIC-RENDERER-STILL-TREATS-DE19F24C.md) として fixed にした。親 issue は D3 以降の表示整理、note/help、self-host parity を追跡するため open のまま維持する。
+この具体的な CI blocker は [CLI diagnostic renderer still treats DiagnosticCode as optional](./ISS-20260507T133214452Z-CLI-DIAGNOSTIC-RENDERER-STILL-TREATS-DE19F24C.md) として fixed にした。当時の親 issue は D3 以降の表示整理、note/help、self-host parity を追跡するため継続していた。
+
+2026-05-13 追記: D3 表示整理、test migration、self-host enum policy は完了済みである。
 
 ## 2026-04-29 Stage D2 raw identity escape code 追記
 
@@ -111,7 +117,9 @@ Resource IR の `RawAddressEscapeFromInternalAlloc` が ordinary な `effect.pur
 - `stdlib/core/mem.nepl` など compiler-owned raw-memory-boundary capability を持つ source だけが、Stage 6 の stdlib migration 完了まで限定許可される。
 - raw identity escape は引き続き `Resource(Raw(IdentityEscape))` / `resource.raw.identity_escape` で分離し、ordinary impure call や unsafe memory pure-boundary violation と混同しない。
 
-この追記は [diagnostics plan still describes unsafe memory gate as shadow-only](./ISS-20260506T000648028Z-DIAGNOSTICS-PLAN-STILL-DESCRIBES-UNS-748EBB08.md) の対応として行った。親 issue は D3 以降の表示整理、test migration、self-host parity を追跡するため open のまま維持する。
+この追記は [diagnostics plan still describes unsafe memory gate as shadow-only](./ISS-20260506T000648028Z-DIAGNOSTICS-PLAN-STILL-DESCRIBES-UNS-748EBB08.md) の対応として行った。当時の親 issue は D3 以降の表示整理、test migration、self-host parity を追跡するため継続していた。
+
+2026-05-13 追記: D3-D5 の残件は完了済みである。
 
 ## 2026-04-30 静的検査設計確認追記
 
@@ -136,7 +144,9 @@ D2 の残件として、次を明確にする。
 - legacy raw-memory move checker の non-Copy raw cell diagnostics も `resource.cell.*` へ移行し、`ResourceRawDiagnosticCode::OwnershipViolation` は削除した。
 - `tests/compiler/move_effect.n.md` の regression は、旧 raw bucket ではなく実際の cell state code を期待するように更新した。
 
-これにより `resource.raw.*` は raw identity escape など raw provenance / unsafe boundary そのものを表す category に限定される。issue は self-host parity、note/help/related label contract、未移行の diagnostic display 整理を追跡する親 issue として open のまま維持する。
+これにより `resource.raw.*` は raw identity escape など raw provenance / unsafe boundary そのものを表す category に限定される。当時は self-host parity、note/help/related label contract、未移行の diagnostic display 整理を親 issue で追跡していた。
+
+2026-05-13 追記: self-host parity の enum contract と diagnostic display contract は source policy で固定済みである。
 
 ## 2026-04-29 Stage D0 nepl-language/LSP 追記
 
@@ -159,7 +169,9 @@ GitHub Actions run `25091893184` の bootstrap build で、`nepl-language/src/li
 
 代表移行として、Resource IR gate の lowering coverage、raw cell ownership、owner obligation、borrow conflict、raw identity escape の compiler diagnostic 変換を `error_with_code` へ移行した。Resource IR の typed diagnostic が compiler diagnostic へ入る境界では、code が構築時に必ず決まる形になった。
 
-この issue はまだ open のままとする。D1 follow-up で lexer/parser/typecheck の代表診断も builder へ移行し、D3 で JSON 表示の note/help contract をさらに固定する。
+この時点では D1 follow-up で lexer/parser/typecheck の代表診断も builder へ移行し、D3 で JSON 表示の note/help contract をさらに固定する必要があった。
+
+2026-05-13 追記: lexer/parser/typecheck 代表診断と JSON/web/language/LSP 表示 contract は移行済みである。
 
 検証:
 
@@ -410,7 +422,7 @@ parser には layout block、type expression、extern signature など 42 箇所
 
 今回の対応で module-local `effect_error(...)` helper を追加し、pure context が impure function / raw memory helper / raw memory instruction へ到達する診断を生成時点で `EffectDiagnosticCode::PureCallsImpure` に固定した。raw body が wasm / llvm の複数 active body を持つ場合も `EffectDiagnosticCode::RawBodyMultipleActive` を必ず持つ。
 
-これにより effect checker boundary から `.with_code(...)` は消え、raw body の安全境界エラーがコード無し診断として外部へ漏れない。typecheck 全体には call application / match / prefix / driver などの D1 残件が残るため、この issue は open のまま継続する。
+これにより effect checker boundary から `.with_code(...)` は消え、raw body の安全境界エラーがコード無し診断として外部へ漏れない。当時は typecheck 全体に call application / match / prefix / driver などの D1 残件が残っていたため、親 issue で継続追跡していた。
 
 検証:
 
@@ -443,7 +455,7 @@ typecheck の call application 周辺には、`function_apply.rs` / `selected_ca
 
 今回の対応で `match_check.rs` は既存の typecheck shared helper `type_error(...)` を使うようにした。`MatchScrutineeNotEnum`、`MatchWildcardNotLast`、`MatchDuplicateArm`、`MatchVariantUnknown`、`MatchPayloadBindingInvalid`、`MatchNonExhaustive`、`MatchPatternUnsupported`、`MatchArmsMismatch` は、診断生成時点で `TypeDiagnosticCode` として確定する。
 
-これにより match checker boundary から直接 `.with_code(...)` と `Diagnostic::error(...)` は消えた。typecheck 全体では `prefix_check.rs` / `driver.rs` / `block_check.rs` などの D1 残件が残るため、この issue は open のまま継続する。
+これにより match checker boundary から直接 `.with_code(...)` と `Diagnostic::error(...)` は消えた。当時は typecheck 全体で `prefix_check.rs` / `driver.rs` / `block_check.rs` などの D1 残件が残っていたため、親 issue で継続追跡していた。
 
 検証:
 
@@ -940,7 +952,7 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 
 今回の対応で [Selfhost diagnostic code enum policy does not verify leaf mappings](./ISS-20260512T212421953Z-SELFHOST-DIAGNOSTIC-CODE-ENUM-POLICY-656F8C6E.md) を追加・解決した。`nodesrc/test_selfhost_diag_code_enum.js` は `SelfhostLoaderDiagnosticCode`、`SelfhostLexerDiagnosticCode`、`SelfhostParserDiagnosticCode`、`SelfhostResolveDiagnosticCode`、`SelfhostCliDiagnosticCode` の variant を列挙し、対応する stable string conversion function に exactly once で現れること、wildcard arm を使わないこと、stage prefix が drift しないことを検査する。
 
-これにより self-host 側も、Rust core と同じく enum variant の追加時に stable string 境界の更新漏れを source policy で検出できる。親 issue は self-host の S3 以降で Type / Effect / Resource / Backend diagnostic category を追加し、Rust registry と parity fixture を拡張するため open のまま維持する。
+これにより self-host 側も、Rust core と同じく enum variant の追加時に stable string 境界の更新漏れを source policy で検出できる。S3 以降で Type / Effect / Resource / Backend diagnostic category を追加する場合は、Rust registry と parity fixture の拡張を個別 issue として扱う。
 
 ## 2026-04-30 Stage D1 source policy recursion 追記
 
@@ -1042,3 +1054,23 @@ D2 の実装計画では Resource IR diagnostic kind ごとに `DiagnosticCode` 
 - `cargo test -p nepl-core --test resource_ir resource_lowering_diagnostics_own_lower_incomplete_code -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_borrow_and_deref_places -- --nocapture`: passed
 - `cargo test -p nepl-core compiler::tests::resource_ -- --nocapture`: 11 passed
+
+## 2026-05-13 親 issue 完了監査
+
+Stage D0-D5 の完了条件を再監査した。
+
+- Rust core / CLI / language / LSP / web の active source policy は `.with_code(...)`、code-less `Diagnostic::error(...)` / `warning(...)`、optional `Diagnostic.code`、旧数値 ID API の再導入を拒否している。
+- `DiagnosticCode` と selfhost `SelfhostDiagnosticCode` は leaf enum variant と stable string conversion の対応を source policy で検査している。
+- Resource IR diagnostic は cell / owner / borrow / raw / lower / effect の意味分類を `diagnostic_code()` で所有し、compiler gate の粗い bucket に潰さない。
+- `.n.md` / `.nepl` の `compile_fail` は `diag_code` / `diag_codes` metadata を必須とし、旧 `diag_id` / `diag_ids` は active contract として扱わない。
+- NEPLg3 仕様と full review 文書に残っていた旧 diagnostic 用語を `diag_code` / `diagnostic_codes.rs` / typed diagnostic enum contract へ更新した。
+
+検証:
+
+- `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+- `node nodesrc/test_selfhost_diag_code_enum.js`: passed
+- `node nodesrc/test_doctest_diag_code_metadata.js`: passed
+- `node nodesrc/issues.js check`: passed
+- `rg` による active source 検索で旧 `diag_id` / `diagnostic_ids.rs` / code-less diagnostic constructor / optional diagnostic code の再導入なしを確認。
+
+この親 issue の範囲は完了とする。今後、selfhost S3 以降で Type / Effect / Resource / Backend diagnostic category を拡張する場合は、既存の enum-first / stable code contract を前提に個別 issue として扱う。

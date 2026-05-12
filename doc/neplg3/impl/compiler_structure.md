@@ -441,7 +441,7 @@ NEPLg3 ワークスペースには `nepl-core-g3` / `nepl-cli` 以外にも次�
 | 現行（nepl-core/src/） | NEPLg3（nepl-core-g3/src/） | 変更内容 |
 |---|---|---|
 | `span.rs` | `infra/span.rs` | 移動のみ |
-| `diagnostic.rs` + `diagnostic_ids.rs` | `infra/diag/diag.rs` + `ids.rs` | 統合・Outcome 追加 |
+| `diagnostic.rs` + `diagnostic_codes.rs` | `infra/diag/diag.rs` + `codes.rs` | 階層 enum code と Outcome へ統合 |
 | `error.rs` | `infra/diag/diag.rs` に統合 | CoreError → Diagnostic に一本化 |
 | `log.rs` | 廃止（eprintln! → Diag emitter へ） | 11 行のみ、不要 |
 | `lexer.rs` | `syntax/lexer.rs` | 移動のみ |

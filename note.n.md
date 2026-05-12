@@ -1,3 +1,17 @@
+# 2026-05-13 Agent 1 diagnostic 親 issue 完了監査
+
+- `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` を完了状態に更新した。
+- `nodesrc/test_diagnostic_code_first_boundary.js` と `nodesrc/test_selfhost_diag_code_enum.js` で、Rust core / CLI / language / LSP / web / selfhost の diagnostic code が enum-first / code-first contract に乗っていることを確認した。
+- `nodesrc/parser.js` / `parser.ts` / doctest runner は `diag_code` / `diag_codes` を active contract として扱い、旧 `diag_id` / `diag_ids` drift は解決済みであることを doc に反映した。
+- NEPLg3 仕様と実装構造表に残っていた `diag_id` / `diagnostic_ids.rs` 表現を、`diag_code` / `diagnostic_codes.rs` / typed diagnostic enum 表現へ更新した。
+- 検証:
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
+  - `node nodesrc/test_selfhost_diag_code_enum.js`: passed
+  - `node nodesrc/test_doctest_diag_code_metadata.js`: passed
+  - `node nodesrc/issues.js check`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/compiler_diagnostics_redesign_plan.md` の Stage D0-D5 完了監査と doc contract 整理。
+
 # 2026-05-13 Agent 1 Resource owner variant path condition 修正
 
 - `ISS-20260512T230732771Z-RESOURCE-OWNER-SUMMARY-TREATS-VARIAN-0C3269E3` に対応した。

@@ -47,9 +47,9 @@ NEPLg2.0 の仕様回帰は、Rust integration test と `.n.md` doctest に分�
 
 `ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79` を追加した。
 
-`nodesrc/parser.ts` は `diag_code:` / `diag_codes:` を扱うが、実行時に Node が読む `nodesrc/parser.js` は古い `diag_id:` / `diag_ids:` 実装のままである。`nodesrc/tests.js` と `nodesrc/run_doctest.js` は `dt.diag_codes` を期待しているため、現状では `.n.md` の `diag_code:` が期待値として渡らない。
+この blocker は 2026-04-29 に解決済みである。`nodesrc/parser.ts` と実行時に Node が読む `nodesrc/parser.js` は `diag_code:` / `diag_codes:` を `diag_codes` 配列として返し、旧 `diag_id:` / `diag_ids:` は active contract として扱わない。
 
-この issue は共通テスト運用の前提 blocker である。Rust/selfhost 共通化を始める前に、metadata parser の source-of-truth と生成物 drift を CI で固定する。
+`nodesrc/test_doctest_diag_code_metadata.js` が metadata parser と focused / aggregate runner の contract を固定する。Rust/selfhost 共通化では、この `diag_codes` manifest を診断比較の正とする。
 
 ## stdout report と exit code
 
