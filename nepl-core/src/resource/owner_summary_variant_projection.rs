@@ -1,10 +1,28 @@
 use alloc::vec::Vec;
 
-use super::owner_summary_record::push_unique_owner_projection_source;
+use super::owner_summary_record::{
+    push_unique_owner_projection_source, OwnerParameterStorageSource,
+};
+use super::owner_summary_variant_ambiguous::record_ambiguous_enum_projection_returns_as_variant_returns;
 use super::summary::{
     OwnerProjectionReturnOwner, OwnerProjectionReturnSummary, OwnerProjectionSource,
     OwnerVariantProjectionReturn,
 };
+
+pub(super) fn finalize_variant_projection_returns(
+    projection_returns: &mut Vec<OwnerProjectionReturnSummary>,
+    returned_sources: &mut Vec<OwnerProjectionSource>,
+    variant_returns: &mut Vec<OwnerVariantProjectionReturn>,
+    parameter_storage_sources: &[OwnerParameterStorageSource],
+) {
+    record_ambiguous_enum_projection_returns_as_variant_returns(
+        variant_returns,
+        projection_returns,
+        parameter_storage_sources,
+    );
+    remove_variant_projection_return_sources(projection_returns, variant_returns);
+    record_variant_projection_return_sources(returned_sources, variant_returns);
+}
 
 pub(super) fn remove_variant_projection_return_sources(
     projection_returns: &mut Vec<OwnerProjectionReturnSummary>,

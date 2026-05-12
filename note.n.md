@@ -1,3 +1,26 @@
+# 2026-05-12 Agent 1 ResourceIR Result payload owner summary 修正
+
+- `ISS-20260512T033056386Z-RESOURCE-OWNER-SUMMARIES-MATERIALIZE-BAE331D3` を追加し、fixed/resolved に更新した。
+- 根本原因は、Resource IR owner summary が `Result::Ok` / `Result::Err` payload owner を通常 `projection_returns` に残し、caller 側で runtime 不可能な payload owner まで unconditional に materialize していたことだった。
+- さらに raw i32 owner seed 用の軽量 alias walk が `read %r -> tmp`、branch output、match payload bind で projection suffix を潰し、`Result::Ok.field0` のような raw owner leaf を parameter source として seed できていなかった。
+- `owner_summary_raw_alias.rs` / `owner_summary_raw_use.rs` は projection-preserving な transfer alias 伝播へ変更し、`DeclareLocal` と match bind でも payload source から bind local へ owner leaf suffix を写すようにした。
+- `owner_summary_raw_use.rs` は `RawMemoryOp::Store` の value 側を raw owner consumption として扱い、raw node field に格納した owner が callee summary の consumed parameter source から漏れないようにした。
+- `owner_summary_variant_projection.rs` は複数 variant payload が混在する enum projection return だけを `OwnerVariantProjectionReturn` へ正規化し、resolved `Result` variant と組み合わせて必要な payload owner だけを materialize するようにした。
+- `owner_drop.rs` / `owner_drop_scope.rs` は `str` などの状態所有 leaf は scope end で落としつつ、`i32` raw address / `MemPtr` のような非所有 pointer を `StateOnly` として自動消費しない。実 drop code が存在しない raw allocation owner leak を checker 内部で隠さない。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: passed
+  - `cargo test -p nepl-core --test effects -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reports_leaked_alloc -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_resolves_unwrap_ok_raw_dealloc_consumption -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_forwards_nested_byte_builder_result_owner -- --nocapture`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 # 2026-05-08 Agent 2 owner_check expression responsibility split
 
 - `ISS-20260429T020330179Z-RESOURCE-OWNER-CHECKER-EXCEEDS-RESPO-AB6E0E0E` の再発対応として、`owner_check.rs` の責務分割を追加した。

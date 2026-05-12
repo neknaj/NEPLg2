@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T03:53:06.414Z",
+  "generated_at": "2026-05-12T03:59:19.008Z",
   "counts": {
-    "total": 621,
+    "total": 622,
     "open": 11,
-    "resolved": 610,
+    "resolved": 611,
     "by_area": {
       "core": {
-        "total": 310,
+        "total": 311,
         "open": 3,
-        "resolved": 307
+        "resolved": 308
       },
       "static-check": {
         "total": 1,
@@ -4753,6 +4753,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T191618061Z-RESOURCE-OWNER-SUMMARY-DROPS-STORAGE-DAB6ECA2.md"
+    },
+    {
+      "id": "ISS-20260512T033056386Z-RESOURCE-OWNER-SUMMARIES-MATERIALIZE-BAE331D3",
+      "title": "Resource owner summaries materialize Result payload owners unconditionally",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "doc/neplg2/static_check_complexity_reduction_plan.md#stage-4-resource-check-への移行",
+      "file": "items/ISS-20260512T033056386Z-RESOURCE-OWNER-SUMMARIES-MATERIALIZE-BAE331D3.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",

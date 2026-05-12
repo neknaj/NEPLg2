@@ -22,9 +22,7 @@ use super::owner_summary_resolved_variant::collect_resolved_parameter_variants_f
 use super::owner_summary_storage_origin::record_storage_origin_marker;
 use super::owner_summary_update::update_owner_return_summary;
 use super::owner_summary_variant_build::collect_variant_consumed_owner_parameters_from_return;
-use super::owner_summary_variant_projection::{
-    record_variant_projection_return_sources, remove_variant_projection_return_sources,
-};
+use super::owner_summary_variant_projection::finalize_variant_projection_returns;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::place_suffix_after_prefix;
 use super::raw_realloc::PendingRawReallocs;
@@ -350,8 +348,12 @@ fn function_owner_return_summary(
         }
     }
 
-    remove_variant_projection_return_sources(&mut projection_returns, &variant_projection_returns);
-    record_variant_projection_return_sources(&mut returned_sources, &variant_projection_returns);
+    finalize_variant_projection_returns(
+        &mut projection_returns,
+        &mut returned_sources,
+        &mut variant_projection_returns,
+        &parameter_storage_sources,
+    );
 
     let (consumed_parameter_indices, consumed_parameter_sources) =
         consumed_owner_parameters(&owners, &parameter_storage_sources, &returned_sources);

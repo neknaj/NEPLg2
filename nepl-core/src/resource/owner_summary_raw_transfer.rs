@@ -1,0 +1,53 @@
+use alloc::vec::Vec;
+
+use super::model::Place;
+use super::place_utils::{place_suffix_after_prefix, place_with_suffix, push_unique_place};
+
+pub(super) fn push_transferred_aliases(
+    aliases: &mut Vec<Place>,
+    source: &Place,
+    target: &Place,
+) -> bool {
+    let transferred = transferred_aliases(source, target, aliases);
+    let has_transferred = !transferred.is_empty();
+    for alias in transferred {
+        push_unique_place(aliases, &alias);
+    }
+    has_transferred
+}
+
+pub(super) fn push_transferred_aliases_from(
+    aliases: &mut Vec<Place>,
+    source: &Place,
+    target: &Place,
+    source_aliases: &[Place],
+) -> bool {
+    let transferred = transferred_aliases(source, target, source_aliases);
+    let has_transferred = !transferred.is_empty();
+    for alias in transferred {
+        push_unique_place(aliases, &alias);
+    }
+    has_transferred
+}
+
+pub(super) fn place_matches_any_alias(place: &Place, aliases: &[Place]) -> bool {
+    aliases.iter().any(|alias| {
+        place == alias
+            || place_suffix_after_prefix(place, alias).is_some()
+            || place_suffix_after_prefix(alias, place).is_some()
+    })
+}
+
+fn transferred_aliases(source: &Place, target: &Place, aliases: &[Place]) -> Vec<Place> {
+    let mut out = Vec::new();
+    for alias in aliases {
+        if alias == source {
+            push_unique_place(&mut out, target);
+        } else if let Some(suffix) = place_suffix_after_prefix(alias, source) {
+            push_unique_place(&mut out, &place_with_suffix(target, &suffix, alias.ty));
+        } else if place_suffix_after_prefix(source, alias).is_some() {
+            push_unique_place(&mut out, target);
+        }
+    }
+    out
+}

@@ -1,9 +1,8 @@
 use alloc::vec::Vec;
 
 use super::model::{Place, ResourceOp};
-use super::place_utils::{
-    construct_aggregate_field_place, place_suffix_after_prefix, push_unique_place,
-};
+use super::owner_summary_raw_transfer::{push_transferred_aliases, push_transferred_aliases_from};
+use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
 
 pub(super) fn collect_raw_owner_aliases(ops: &[ResourceOp], aliases: &mut Vec<Place>) {
     for op in ops {
@@ -20,14 +19,17 @@ pub(super) fn collect_raw_owner_aliases(ops: &[ResourceOp], aliases: &mut Vec<Pl
                 target: output,
                 ..
             } => {
-                if place_matches_any_alias(source, aliases) {
-                    push_unique_place(aliases, output);
-                }
+                push_transferred_aliases(aliases, source, output);
             }
             ResourceOp::Assign { target, value, .. } => {
-                if place_matches_any_alias(value, aliases) {
-                    push_unique_place(aliases, target);
-                }
+                push_transferred_aliases(aliases, value, target);
+            }
+            ResourceOp::DeclareLocal {
+                place,
+                initializer: Some(initializer),
+                ..
+            } => {
+                push_transferred_aliases(aliases, initializer, place);
             }
             ResourceOp::Construct {
                 output,
@@ -36,12 +38,8 @@ pub(super) fn collect_raw_owner_aliases(ops: &[ResourceOp], aliases: &mut Vec<Pl
                 ..
             } => {
                 for (index, input) in inputs.iter().enumerate() {
-                    if place_matches_any_alias(input, aliases) {
-                        push_unique_place(
-                            aliases,
-                            &construct_aggregate_field_place(output, kind, index, input),
-                        );
-                    }
+                    let field = construct_aggregate_field_place(output, kind, index, input);
+                    push_transferred_aliases(aliases, input, &field);
                 }
             }
             ResourceOp::Branch {
@@ -56,11 +54,8 @@ pub(super) fn collect_raw_owner_aliases(ops: &[ResourceOp], aliases: &mut Vec<Pl
                 collect_raw_owner_aliases(then_ops, &mut then_aliases);
                 let mut else_aliases = aliases.clone();
                 collect_raw_owner_aliases(else_ops, &mut else_aliases);
-                if place_matches_any_alias(then_value, &then_aliases)
-                    || place_matches_any_alias(else_value, &else_aliases)
-                {
-                    push_unique_place(aliases, output);
-                }
+                push_transferred_aliases_from(aliases, then_value, output, &then_aliases);
+                push_transferred_aliases_from(aliases, else_value, output, &else_aliases);
             }
             ResourceOp::Loop {
                 condition_ops,
@@ -70,19 +65,27 @@ pub(super) fn collect_raw_owner_aliases(ops: &[ResourceOp], aliases: &mut Vec<Pl
                 collect_raw_owner_aliases(condition_ops, aliases);
                 collect_raw_owner_aliases(body_ops, aliases);
             }
-            ResourceOp::Match { output, arms, .. } => {
-                let mut output_alias = false;
+            ResourceOp::Match {
+                output,
+                scrutinee,
+                arms,
+                ..
+            } => {
                 for arm in arms {
                     let mut arm_aliases = aliases.clone();
+                    if let Some(bind_local) = &arm.bind_local {
+                        if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
+                            push_transferred_aliases(&mut arm_aliases, &source, bind_local);
+                        }
+                    }
                     collect_raw_owner_aliases(&arm.ops, &mut arm_aliases);
-                    output_alias |= place_matches_any_alias(&arm.value, &arm_aliases);
-                }
-                if output_alias {
-                    push_unique_place(aliases, output);
+                    push_transferred_aliases_from(aliases, &arm.value, output, &arm_aliases);
                 }
             }
             ResourceOp::Expr { .. }
-            | ResourceOp::DeclareLocal { .. }
+            | ResourceOp::DeclareLocal {
+                initializer: None, ..
+            }
             | ResourceOp::Borrow { .. }
             | ResourceOp::Drop { .. }
             | ResourceOp::EndScope { .. }
@@ -94,12 +97,4 @@ pub(super) fn collect_raw_owner_aliases(ops: &[ResourceOp], aliases: &mut Vec<Pl
             | ResourceOp::StorageOrigin { .. } => {}
         }
     }
-}
-
-pub(super) fn place_matches_any_alias(place: &Place, aliases: &[Place]) -> bool {
-    aliases.iter().any(|alias| {
-        place == alias
-            || place_suffix_after_prefix(place, alias).is_some()
-            || place_suffix_after_prefix(alias, place).is_some()
-    })
 }

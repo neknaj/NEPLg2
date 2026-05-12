@@ -1,7 +1,8 @@
 use alloc::vec;
 
 use super::model::{Place, ResourceFunction, ResourceTerminator};
-use super::owner_summary_raw_alias::{collect_raw_owner_aliases, place_matches_any_alias};
+use super::owner_summary_raw_alias::collect_raw_owner_aliases;
+use super::owner_summary_raw_transfer::place_matches_any_alias;
 use super::owner_summary_raw_use::ops_use_raw_owner_alias;
 
 pub(super) fn function_consumes_raw_owner_from(function: &ResourceFunction, place: &Place) -> bool {

@@ -218,6 +218,14 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_raw_owner_through_str_from_addr -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_str_addr_helper_parameter_raw_load -- --nocapture`: passed
 
+## 2026-05-12 Result payload owner summary 部分対応
+
+`ISS-20260512T033056386Z-RESOURCE-OWNER-SUMMARIES-MATERIALIZE-BAE331D3` として、Resource IR owner summary が `Result` payload owner を unconditional projection return として扱い、runtime 上同時に存在しない `Ok` / `Err` payload owner を caller 側で materialize し得る問題を修正した。
+
+今回の対応では、複数 variant payload が混在する enum payload projection return だけを `OwnerVariantProjectionReturn` へ正規化し、`unwrap_ok` / `unwrap_box` のような resolved variant summary と組み合わせて、選択された variant の owner だけを materialize する。あわせて raw owner summary alias walk は `DeclareLocal` / match bind / raw store value consumption でも projection suffix を保持し、`Result::Ok.field0` や raw node field に移した raw i32 owner seed を失わないようにした。
+
+この対応は `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の owner token / free obligation summary 精度向上に含まれる。`MemPtr = non-owning pointer`、`OwnedRegion/Storage = free obligation owner`、`InitializedCell/Resource IR = initialized/moved/drop state` の最終分離は引き続きこの親 issue の残件である。
+
 ## 2026-05-07 Resource IR aggregate payload non-owning view 部分対応
 
 `str_addr` の non-owning raw view を `Result::Ok` payload に包み、caller 側で match bind した後に `dealloc_raw` へ渡すと、direct view では拒否できる free bypass が再発する問題を `ISS-20260507T085434323Z-RESOURCE-OWNER-CHECKER-LOSES-NON-OWN-344F2372` として修正した。
