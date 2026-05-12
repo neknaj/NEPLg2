@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T11:19:21.827Z",
+  "generated_at": "2026-05-12T11:51:19.017Z",
   "counts": {
-    "total": 635,
-    "open": 11,
-    "resolved": 624,
+    "total": 636,
+    "open": 10,
+    "resolved": 626,
     "by_area": {
       "core": {
-        "total": 318,
-        "open": 4,
-        "resolved": 314
+        "total": 319,
+        "open": 3,
+        "resolved": 316
       },
       "stdlib": {
         "total": 167,
@@ -153,21 +153,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260512T111921719Z-RESOURCE-COVERAGE-MODULE-EXCEEDS-RES-2FFC6C86",
-      "title": "Resource coverage module exceeds responsibility limit after operation enum migration",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-12",
-      "updated": "2026-05-12",
-      "target": "nepl-core/src/resource/coverage.rs, nepl-core/src/resource/coverage_operation.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260512T111921719Z-RESOURCE-COVERAGE-MODULE-EXCEEDS-RES-2FFC6C86.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -4833,6 +4818,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T064001916Z-RESOURCE-INITIALIZED-ALIAS-I32-FACTS-4C84FD0F.md"
+    },
+    {
+      "id": "ISS-20260512T111921719Z-RESOURCE-COVERAGE-MODULE-EXCEEDS-RES-2FFC6C86",
+      "title": "Resource coverage module exceeds responsibility limit after operation enum migration",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/coverage.rs, nepl-core/src/resource/coverage_kind.rs, nepl-core/src/resource/coverage_operation.rs, nepl-core/src/resource/coverage_resource_place.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T111921719Z-RESOURCE-COVERAGE-MODULE-EXCEEDS-RES-2FFC6C86.md"
+    },
+    {
+      "id": "ISS-20260512T114530848Z-RESOURCE-OWNER-SUMMARY-PRE-SCAN-TREA-A21564CA",
+      "title": "Resource owner summary pre-scan treats non-owning raw views as owner aliases",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/owner_summary_raw_alias.rs, nepl-core/src/resource/owner_summary_raw_use.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T114530848Z-RESOURCE-OWNER-SUMMARY-PRE-SCAN-TREA-A21564CA.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

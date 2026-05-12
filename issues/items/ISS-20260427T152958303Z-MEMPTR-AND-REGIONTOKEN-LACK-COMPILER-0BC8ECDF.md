@@ -218,6 +218,14 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_transfers_raw_owner_through_str_from_addr -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_cell_check_preserves_str_addr_helper_parameter_raw_load -- --nocapture`: passed
 
+## 2026-05-12 owner summary raw view scan 分離
+
+`ISS-20260512T114530848Z-RESOURCE-OWNER-SUMMARY-PRE-SCAN-TREA-A21564CA` として、owner summary の raw-owner pre-scan が `ResourceOp::RawAddressView` を kind なしで owner alias として扱っていた箇所を修正した。
+
+`RawAddressViewKind::Offset` は owner-carrying pointer の offset projection になり得るため raw owner alias discovery に残す。一方で `RawAddressViewKind::NonOwningProjection` は borrowed `RegionToken` / `str_addr` 由来の non-owning pointer view なので、free obligation owner の return / consume summary へ混ぜない。
+
+これにより、`MemPtr = non-owning pointer`、`Storage/OwnedRegion = free obligation owner` の分離を summary pre-scan の段階でも enum-first に維持する。既存の `region_ptr` / `str_addr` forged owner rejection と `alloc_ptr` owner return regression は維持した。
+
 ## 2026-05-12 Result payload owner summary 部分対応
 
 `ISS-20260512T033056386Z-RESOURCE-OWNER-SUMMARIES-MATERIALIZE-BAE331D3` として、Resource IR owner summary が `Result` payload owner を unconditional projection return として扱い、runtime 上同時に存在しない `Ok` / `Err` payload owner を caller 側で materialize し得る問題を修正した。

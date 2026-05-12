@@ -36226,3 +36226,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/issues.js check --dir issues`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 owner summary non-owning raw view scan 分離
+
+- `ISS-20260512T114530848Z-RESOURCE-OWNER-SUMMARY-PRE-SCAN-TREA-A21564CA` として、Resource IR owner summary の raw-owner pre-scan が `RawAddressViewKind::NonOwningProjection` を owner alias として扱える構造を修正した。
+- 根本原因は、`owner_summary_raw_alias.rs` / `owner_summary_raw_use.rs` が `ResourceOp::RawAddressView` を `RawAddressAlias` と同じ arm で伝播し、view kind を見ていなかったことだった。
+- `owner_summary_raw_transfer.rs` に `push_transferred_raw_owner_view_aliases` を追加し、`RawAddressViewKind::Offset` だけを raw owner alias discovery へ伝播、`NonOwningProjection` は borrowed pointer view として伝播しない形にした。
+- これにより `MemPtr = non-owning pointer`、`Storage/OwnedRegion = free obligation owner` の分離が summary pre-scan でも enum-first / exhaustive match で維持される。
+- [検証]:
+  - `cargo test -p nepl-core owner_summary_raw_transfer -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_region_token_forged_from_str_addr_view -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_rejects_dealloc_through_result_wrapped_str_addr_view -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_alloc_ptr_raw_owner_return -- --nocapture`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-non-owning-raw-view-summary-memory-safety.json -j 1 --dist web/dist`: total=23, passed=23
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

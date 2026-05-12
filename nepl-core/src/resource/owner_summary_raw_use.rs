@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use super::model::{Place, RawMemoryOp, ResourceOp};
 use super::owner_summary_raw_transfer::{
     place_matches_any_alias, push_transferred_aliases, push_transferred_aliases_from,
+    push_transferred_raw_owner_view_aliases,
 };
 use super::place_utils::{construct_aggregate_field_place, match_bind_payload_place};
 
@@ -15,13 +16,16 @@ pub(super) fn ops_use_raw_owner_alias(ops: &[ResourceOp], aliases: &mut Vec<Plac
                 source,
                 target: output,
                 ..
-            }
-            | ResourceOp::RawAddressView {
-                source,
-                target: output,
-                ..
             } => {
                 push_transferred_aliases(aliases, source, output);
+            }
+            ResourceOp::RawAddressView {
+                source,
+                target: output,
+                kind,
+                ..
+            } => {
+                push_transferred_raw_owner_view_aliases(aliases, source, output, *kind);
             }
             ResourceOp::Assign { target, value, .. } => {
                 push_transferred_aliases(aliases, value, target);
