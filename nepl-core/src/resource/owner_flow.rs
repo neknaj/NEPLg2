@@ -29,6 +29,7 @@ impl ResourceOwnerCheckEngine<'_> {
     ) {
         for (index, input) in inputs.iter().enumerate() {
             let field = construct_aggregate_field_place(output, kind, index, input);
+            raw_aliases.copy_scalar_facts_if_tracked(input, &field);
             self.transfer_owner(
                 owners,
                 raw_aliases,

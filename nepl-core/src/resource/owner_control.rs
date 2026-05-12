@@ -117,6 +117,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 ResourceOwnerOperation::BranchValue,
                 span,
             ) {
+                then_raw_aliases.copy_scalar_facts_if_tracked(then_value, output);
                 self.transfer_owner(
                     &mut then_owners,
                     &mut then_raw_aliases,
@@ -157,6 +158,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 ResourceOwnerOperation::BranchValue,
                 span,
             ) {
+                else_raw_aliases.copy_scalar_facts_if_tracked(else_value, output);
                 self.transfer_owner(
                     &mut else_owners,
                     &mut else_raw_aliases,
@@ -354,6 +356,11 @@ impl ResourceOwnerCheckEngine<'_> {
                 &arm.pattern,
                 span,
             );
+            arm_variant_owner_effects.apply_match_arm_value_conditions(
+                &mut arm_raw_aliases,
+                scrutinee,
+                &arm.pattern,
+            );
             if let Some(bind_local) = &arm.bind_local {
                 if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
                     if !arm_variant_owner_effects.reject_reserved_source_use(
@@ -364,6 +371,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         ResourceOwnerOperation::MatchValue,
                         span,
                     ) {
+                        arm_raw_aliases.copy_scalar_facts_if_tracked(&source, bind_local);
                         self.transfer_owner(
                             &mut arm_owners,
                             &mut arm_raw_aliases,
@@ -438,6 +446,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::MatchValue,
                     span,
                 ) {
+                    arm_raw_aliases.copy_scalar_facts_if_tracked(&arm.value, output);
                     self.transfer_owner(
                         &mut arm_owners,
                         &mut arm_raw_aliases,

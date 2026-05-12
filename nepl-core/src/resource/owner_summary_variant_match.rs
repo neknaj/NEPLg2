@@ -40,8 +40,14 @@ pub(super) fn apply_match_arm_entry(
         &arm.pattern,
         span,
     );
+    path_variant_owner_effects.apply_match_arm_value_conditions(
+        path_raw_aliases,
+        scrutinee,
+        &arm.pattern,
+    );
     if let Some(bind_local) = &arm.bind_local {
         if let Some(source) = match_bind_payload_place(scrutinee, arm, bind_local) {
+            path_raw_aliases.copy_scalar_facts_if_tracked(&source, bind_local);
             path_engine.transfer_owner(
                 path_owners,
                 path_raw_aliases,

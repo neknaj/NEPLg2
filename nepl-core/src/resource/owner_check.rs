@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use crate::types::TypeCtx;
 
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
+use super::i32_call_facts::record_direct_call_i32_facts;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
     BorrowKind, EffectOp, OwnerState, OwnerStateEntry, Place, RawMemoryOp, ResourceBlock,
@@ -208,25 +209,28 @@ impl ResourceOwnerCheckEngine<'_> {
                         raw_aliases.clear(place);
                         raw_views.clear(place);
                         storage_origins.clear(place);
-                    } else if self.initializer_is_non_owning_raw_alias_view(
-                        owners,
-                        raw_aliases,
-                        initializer,
-                        place,
-                    ) {
-                        raw_aliases.copy_alias_if_tracked(initializer, place);
-                        storage_origins.copy_origin(initializer, place);
                     } else {
-                        self.transfer_owner(
+                        raw_aliases.copy_scalar_facts_if_tracked(initializer, place);
+                        if self.initializer_is_non_owning_raw_alias_view(
                             owners,
                             raw_aliases,
-                            raw_views,
-                            storage_origins,
                             initializer,
                             place,
-                            ResourceOwnerOperation::DeclareInitializer,
-                            *span,
-                        );
+                        ) {
+                            raw_aliases.copy_alias_if_tracked(initializer, place);
+                            storage_origins.copy_origin(initializer, place);
+                        } else {
+                            self.transfer_owner(
+                                owners,
+                                raw_aliases,
+                                raw_views,
+                                storage_origins,
+                                initializer,
+                                place,
+                                ResourceOwnerOperation::DeclareInitializer,
+                                *span,
+                            );
+                        }
                     }
                     function_aliases.copy_alias(initializer, place);
                     raw_views.copy(initializer, place);
@@ -277,25 +281,28 @@ impl ResourceOwnerCheckEngine<'_> {
                     raw_aliases.clear(target);
                     raw_views.clear(target);
                     storage_origins.clear(target);
-                } else if self.initializer_is_non_owning_raw_alias_view(
-                    owners,
-                    raw_aliases,
-                    value,
-                    target,
-                ) {
-                    raw_aliases.copy_alias_if_tracked(value, target);
-                    storage_origins.copy_origin(value, target);
                 } else {
-                    self.transfer_owner(
+                    raw_aliases.copy_scalar_facts_if_tracked(value, target);
+                    if self.initializer_is_non_owning_raw_alias_view(
                         owners,
                         raw_aliases,
-                        raw_views,
-                        storage_origins,
                         value,
                         target,
-                        ResourceOwnerOperation::AssignValue,
-                        *span,
-                    );
+                    ) {
+                        raw_aliases.copy_alias_if_tracked(value, target);
+                        storage_origins.copy_origin(value, target);
+                    } else {
+                        self.transfer_owner(
+                            owners,
+                            raw_aliases,
+                            raw_views,
+                            storage_origins,
+                            value,
+                            target,
+                            ResourceOwnerOperation::AssignValue,
+                            *span,
+                        );
+                    }
                 }
                 function_aliases.copy_alias(value, target);
                 raw_views.copy(value, target);
@@ -315,6 +322,7 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::Move,
                     *span,
                 ) {
+                    raw_aliases.copy_scalar_facts_if_tracked(source, output);
                     self.transfer_owner(
                         owners,
                         raw_aliases,
@@ -421,6 +429,7 @@ impl ResourceOwnerCheckEngine<'_> {
                             storage_origins.copy_origin(&cell, output);
                             raw_views.mark_non_owning(output);
                         } else {
+                            raw_aliases.copy_scalar_facts_if_tracked(&cell, output);
                             self.transfer_owner(
                                 owners,
                                 raw_aliases,
@@ -472,9 +481,11 @@ impl ResourceOwnerCheckEngine<'_> {
                                 value,
                             )
                         {
+                            raw_aliases.copy_scalar_facts_if_tracked(value, &cell);
                             raw_aliases.copy_alias_if_tracked(value, &cell);
                             storage_origins.copy_origin(value, &cell);
                         } else if !value_reserved {
+                            raw_aliases.copy_scalar_facts_if_tracked(value, &cell);
                             self.transfer_owner(
                                 owners,
                                 raw_aliases,
@@ -607,6 +618,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         );
                     }
                 }
+                record_direct_call_i32_facts(raw_aliases, target, output, args);
             }
             ResourceOp::IndirectCall {
                 output,
@@ -673,9 +685,12 @@ impl ResourceOwnerCheckEngine<'_> {
                 target,
                 span,
             } => {
-                if raw_owner_alias_moves_into_wrapper(source, target)
-                    && self.has_transferable_owner(owners, raw_aliases, source)
-                {
+                let moves_into_owner_wrapper = raw_owner_alias_moves_into_wrapper(source, target);
+                let source_transfers_owner = moves_into_owner_wrapper
+                    && self.has_transferable_owner(owners, raw_aliases, source);
+                let target_already_owns = moves_into_owner_wrapper
+                    && self.has_transferable_owner(owners, raw_aliases, target);
+                if source_transfers_owner {
                     self.transfer_owner(
                         owners,
                         raw_aliases,
@@ -687,7 +702,11 @@ impl ResourceOwnerCheckEngine<'_> {
                         *span,
                     );
                 }
-                raw_aliases.copy_explicit_raw_address_alias(source, target);
+                if source_transfers_owner || target_already_owns {
+                    raw_aliases.copy_explicit_raw_address_alias_preserving_target(source, target);
+                } else {
+                    raw_aliases.copy_explicit_raw_address_alias(source, target);
+                }
                 storage_origins.copy_origin(source, target);
                 raw_views.copy(source, target);
                 pending_reallocs.copy_result(source, target);

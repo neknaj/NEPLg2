@@ -47,6 +47,44 @@ impl RawCellAddressAliases {
     /// Copies an existing raw-address alias group and scalar facts without treating ordinary
     /// i32 value copies as raw-address aliases.
     pub(super) fn copy_alias_if_tracked(&mut self, source: &Place, target: &Place) {
+        self.copy_alias_if_tracked_with_mode(source, target, true);
+    }
+
+    pub(super) fn copy_alias_if_tracked_preserving_target(
+        &mut self,
+        source: &Place,
+        target: &Place,
+    ) {
+        self.copy_alias_if_tracked_with_mode(source, target, false);
+    }
+
+    /// Copies stable scalar-value facts without creating a raw-address owner alias.
+    pub(super) fn copy_scalar_facts_if_tracked(&mut self, source: &Place, target: &Place) {
+        if source == target {
+            return;
+        }
+        let fact_copies = self.i32_facts.facts_with_replaced_prefix(source, target);
+        let difference_copies = self
+            .i32_differences
+            .facts_with_replaced_prefix(source, target);
+        let relation_copies = self
+            .i32_relations
+            .facts_with_replaced_prefix(source, target);
+        let scale_copies = self.i32_scales.facts_with_replaced_prefix(source, target);
+        self.clear_scalar_metadata(target);
+        self.i32_facts.extend(fact_copies);
+        self.i32_differences.extend(difference_copies);
+        self.i32_relations.extend(relation_copies);
+        self.i32_scales.extend(scale_copies);
+        self.scalar_origins.copy_stable_origin(source, target);
+    }
+
+    fn copy_alias_if_tracked_with_mode(
+        &mut self,
+        source: &Place,
+        target: &Place,
+        clear_target: bool,
+    ) {
         if source == target {
             return;
         }
@@ -59,7 +97,9 @@ impl RawCellAddressAliases {
             .facts_with_replaced_prefix(source, target);
         let scale_copies = self.i32_scales.facts_with_replaced_prefix(source, target);
         let groups = self.groups_with_replaced_prefix(source, target);
-        self.clear(target);
+        if clear_target {
+            self.clear(target);
+        }
         for group in groups {
             self.union_group(&group);
         }
@@ -79,6 +119,24 @@ impl RawCellAddressAliases {
             return;
         }
         self.copy_alias_if_tracked(source, target);
+        let mut group = Vec::new();
+        push_unique_place(&mut group, source);
+        push_unique_place(&mut group, target);
+        push_unique_place(&mut group, &self.raw_view_origins.origin_for(source));
+        push_unique_place(&mut group, &self.raw_view_origins.origin_for(target));
+        self.union_group(&group);
+    }
+
+    pub(super) fn copy_explicit_raw_address_alias_preserving_target(
+        &mut self,
+        source: &Place,
+        target: &Place,
+    ) {
+        if source == target {
+            self.mark(target);
+            return;
+        }
+        self.copy_alias_if_tracked_preserving_target(source, target);
         let mut group = Vec::new();
         push_unique_place(&mut group, source);
         push_unique_place(&mut group, target);
@@ -273,6 +331,10 @@ impl RawCellAddressAliases {
 
     pub(super) fn clear(&mut self, place: &Place) {
         self.clear_raw_address_metadata(place);
+        self.clear_scalar_metadata(place);
+    }
+
+    fn clear_scalar_metadata(&mut self, place: &Place) {
         self.scalar_origins.clear_prefix(place);
         self.i32_facts.clear_prefix(place);
         self.i32_differences.clear_prefix(place);

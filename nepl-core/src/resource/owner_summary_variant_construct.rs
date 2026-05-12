@@ -14,6 +14,7 @@ pub(super) struct ConstructedVariant {
 
 #[derive(Debug, Clone)]
 pub(super) struct ConstructedVariantPayload {
+    pub(super) input: Place,
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
 }
@@ -43,6 +44,7 @@ pub(super) fn construct_variant_for_value(
             let payload = construct_aggregate_field_place(output, kind, index, input);
             let suffix = place_suffix_after_prefix(&payload, output).unwrap_or_default();
             payloads.push(ConstructedVariantPayload {
+                input: input.clone(),
                 suffix,
                 ty: input.ty,
             });

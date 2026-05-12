@@ -12,7 +12,10 @@ use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
-use super::owner_summary_record::{owner_source_for_storage, OwnerParameterStorageSource};
+use super::owner_summary_record::{
+    owner_source_for_storage, OwnerParameterConditionSource, OwnerParameterStorageSource,
+};
+use super::owner_variant_value_condition::PendingVariantValueCondition;
 use super::place_utils::{place_with_suffix, places_overlap};
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
@@ -72,6 +75,7 @@ pub(super) struct PendingVariantOwnerEffects {
     returns: Vec<PendingVariantOwnerReturn>,
     unreachable_variants: Vec<PendingUnreachableVariant>,
     payload_conditions: Vec<PendingVariantPayloadValueCondition>,
+    value_conditions: Vec<PendingVariantValueCondition>,
 }
 
 impl PendingVariantOwnerEffects {
@@ -101,6 +105,19 @@ impl PendingVariantOwnerEffects {
     ) {
         self.clear_result(output);
         self.record_unreachable_variants(raw_aliases, output, args, &summary.variant_conditions);
+        for entry in &summary.variant_conditions {
+            let variant = normalize_variant_name(&entry.variant);
+            let Some(condition) = PendingVariantValueCondition::from_summary_condition(
+                raw_aliases,
+                output,
+                args,
+                variant,
+                entry,
+            ) else {
+                continue;
+            };
+            self.push_unique_value_condition(condition);
+        }
         for entry in &summary.variant_consumed_parameter_indices {
             if summary
                 .consumed_parameter_indices
@@ -280,9 +297,61 @@ impl PendingVariantOwnerEffects {
             raw_aliases.add_i32_condition(&source, entry.condition);
             if let Some(bind_local) = bind_local {
                 let bind_suffix = payload_bind_suffix(&entry.suffix, &variant);
-                let target = place_with_suffix(bind_local, bind_suffix, entry.ty);
+                let bind_ty = if bind_suffix.is_empty() {
+                    bind_local.ty
+                } else {
+                    entry.ty
+                };
+                let target = place_with_suffix(bind_local, bind_suffix, bind_ty);
                 raw_aliases.add_i32_condition(&target, entry.condition);
             }
+        }
+    }
+
+    pub(super) fn apply_match_arm_value_conditions(
+        &self,
+        raw_aliases: &mut RawCellAddressAliases,
+        scrutinee: &Place,
+        pattern: &ResourceMatchPattern,
+    ) {
+        let Some(variant) = match_pattern_variant_name(pattern) else {
+            return;
+        };
+        if self.variant_is_unreachable(scrutinee, &variant) {
+            return;
+        }
+        for entry in &self.value_conditions {
+            entry.apply_if_selected(raw_aliases, scrutinee, &variant);
+        }
+    }
+
+    pub(super) fn collect_match_arm_value_condition_summaries(
+        &self,
+        out: &mut Vec<OwnerVariantCondition>,
+        raw_aliases: &RawCellAddressAliases,
+        parameter_condition_sources: &[OwnerParameterConditionSource],
+        output_variant: &str,
+        scrutinee: &Place,
+        pattern: &ResourceMatchPattern,
+    ) {
+        let Some(selected_variant) = match_pattern_variant_name(pattern) else {
+            return;
+        };
+        if self.variant_is_unreachable(scrutinee, &selected_variant) {
+            return;
+        }
+        let output_variant = normalize_variant_name(output_variant);
+        for entry in &self.value_conditions {
+            let Some(condition) = entry.selected_summary_condition(
+                raw_aliases,
+                parameter_condition_sources,
+                scrutinee,
+                &selected_variant,
+                output_variant.clone(),
+            ) else {
+                continue;
+            };
+            push_unique_owner_variant_condition(out, condition);
         }
     }
 
@@ -571,6 +640,12 @@ impl PendingVariantOwnerEffects {
                 condition: entry.condition,
             })
             .collect::<Vec<_>>();
+        let value_condition_copies = self
+            .value_conditions
+            .iter()
+            .filter(|entry| entry.result == *source)
+            .map(|entry| entry.with_result(target.clone()))
+            .collect::<Vec<_>>();
         self.clear_result(target);
         for entry in copies {
             self.push_unique_consumption(entry);
@@ -584,6 +659,9 @@ impl PendingVariantOwnerEffects {
         for entry in payload_condition_copies {
             self.push_unique_payload_condition(entry);
         }
+        for entry in value_condition_copies {
+            self.push_unique_value_condition(entry);
+        }
     }
 
     pub(super) fn clear_result(&mut self, result: &Place) {
@@ -592,6 +670,8 @@ impl PendingVariantOwnerEffects {
         self.unreachable_variants
             .retain(|entry| entry.result != *result);
         self.payload_conditions
+            .retain(|entry| entry.result != *result);
+        self.value_conditions
             .retain(|entry| entry.result != *result);
     }
 
@@ -645,6 +725,8 @@ impl PendingVariantOwnerEffects {
         self.unreachable_variants
             .retain(|entry| entry.result != *result);
         self.payload_conditions
+            .retain(|entry| entry.result != *result);
+        self.value_conditions
             .retain(|entry| entry.result != *result);
     }
 
@@ -715,6 +797,15 @@ impl PendingVariantOwnerEffects {
                 out.push_unique_payload_condition(entry.clone());
             }
         }
+        for entry in &first.value_conditions {
+            if paths.iter().skip(1).all(|path| {
+                path.value_conditions
+                    .iter()
+                    .any(|existing| existing == entry)
+            }) {
+                out.push_unique_value_condition(entry.clone());
+            }
+        }
         out
     }
 
@@ -779,6 +870,17 @@ impl PendingVariantOwnerEffects {
         }
         self.payload_conditions.push(entry);
     }
+
+    fn push_unique_value_condition(&mut self, entry: PendingVariantValueCondition) {
+        if self
+            .value_conditions
+            .iter()
+            .any(|existing| existing == &entry)
+        {
+            return;
+        }
+        self.value_conditions.push(entry);
+    }
 }
 
 fn pending_consumption_source(
@@ -819,6 +921,7 @@ fn apply_pending_variant_owner_return(
     let source = match &entry.source {
         PendingVariantOwnerReturnSource::Parameter { .. } => {
             let source = pending_return_source(entry, raw_aliases)?;
+            raw_aliases.copy_scalar_facts_if_tracked(&source, &target);
             engine.transfer_owner(
                 owners,
                 raw_aliases,
@@ -939,6 +1042,15 @@ fn push_unique_variant_consumed_source(
 fn push_unique_variant_projection_return(
     out: &mut Vec<OwnerVariantProjectionReturn>,
     entry: OwnerVariantProjectionReturn,
+) {
+    if !out.iter().any(|existing| existing == &entry) {
+        out.push(entry);
+    }
+}
+
+fn push_unique_owner_variant_condition(
+    out: &mut Vec<OwnerVariantCondition>,
+    entry: OwnerVariantCondition,
 ) {
     if !out.iter().any(|existing| existing == &entry) {
         out.push(entry);

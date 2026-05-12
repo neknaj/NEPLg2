@@ -219,8 +219,14 @@ pub(super) fn replace_place_prefix(
     prefix: &Place,
     replacement: &Place,
 ) -> Option<Place> {
-    place_suffix_after_prefix(place, prefix)
-        .map(|suffix| place_with_suffix(replacement, &suffix, place.ty))
+    place_suffix_after_prefix(place, prefix).map(|suffix| {
+        let ty = if suffix.is_empty() {
+            replacement.ty
+        } else {
+            place.ty
+        };
+        place_with_suffix(replacement, &suffix, ty)
+    })
 }
 
 pub(super) fn places_overlap(left: &Place, right: &Place) -> bool {

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T04:45:42.180Z",
+  "generated_at": "2026-05-12T06:00:33.873Z",
   "counts": {
     "total": 624,
-    "open": 12,
-    "resolved": 612,
+    "open": 11,
+    "resolved": 613,
     "by_area": {
       "core": {
         "total": 311,
@@ -13,8 +13,8 @@
       },
       "static-check": {
         "total": 3,
-        "open": 2,
-        "resolved": 1
+        "open": 1,
+        "resolved": 2
       },
       "stdlib": {
         "total": 166,
@@ -148,21 +148,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
-    },
-    {
-      "id": "ISS-20260512T041752474Z-RESOURCE-OWNER-SUMMARY-REPORTS-CLIAR-97FEDA3D",
-      "title": "Resource owner summary reports cliarg raw argv scratch owners as maybe leaks",
-      "area": "static-check",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-12",
-      "updated": "2026-05-12",
-      "target": "stdlib/std/env/cliarg.nepl, nepl-core/src/resource, examples/nm.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260512T041752474Z-RESOURCE-OWNER-SUMMARY-REPORTS-CLIAR-97FEDA3D.md"
     },
     {
       "id": "ISS-20260512T044438272Z-RESOURCE-OWNER-SUMMARY-REPORTS-TESTR-03F3C18F",
@@ -5653,6 +5638,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9.md"
+    },
+    {
+      "id": "ISS-20260512T041752474Z-RESOURCE-OWNER-SUMMARY-REPORTS-CLIAR-97FEDA3D",
+      "title": "Resource owner summary reports cliarg raw argv scratch owners as maybe leaks",
+      "area": "static-check",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "stdlib/std/env/cliarg.nepl, nepl-core/src/resource, examples/nm.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T041752474Z-RESOURCE-OWNER-SUMMARY-REPORTS-CLIAR-97FEDA3D.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",

@@ -57,6 +57,18 @@ impl I32RelationFacts {
         truth
     }
 
+    pub(super) fn relations_touching_aliases(&self, aliases: &[Place]) -> Vec<I32RelationFact> {
+        self.relations
+            .iter()
+            .filter(|fact| {
+                aliases
+                    .iter()
+                    .any(|alias| alias == &fact.left || alias == &fact.right)
+            })
+            .cloned()
+            .collect()
+    }
+
     pub(super) fn extend(&mut self, facts: I32RelationFacts) {
         for fact in facts.relations {
             self.push_relation_fact(fact);

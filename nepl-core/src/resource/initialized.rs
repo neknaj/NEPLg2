@@ -8,13 +8,13 @@ use super::cell_state::CellTable;
 use super::drop_model::ResourceDropPoint;
 use super::drop_point_path::{ResourceDropPointPath, ResourceDropPointStep};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
+use super::i32_call_facts::record_direct_call_i32_facts;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::{
     apply_direct_call_raw_alias_summary, apply_indirect_call_raw_alias_summary,
     compute_raw_cell_address_return_summaries, construct_raw_cell_address_alias_fields,
     expr_kind_preserves_raw_alias, RawCellAddressReturnSummary,
 };
-use super::initialized_direct_call_scalar::record_direct_call_i32_facts;
 use super::initialized_drop_scope::auto_drop_scope_locals_with_record;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;

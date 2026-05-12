@@ -11,7 +11,8 @@ use super::owner_state::OwnerTable;
 use super::owner_summary_consumed::consumed_owner_parameters;
 use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
 use super::owner_summary_variant_conditions::{
-    collect_owner_variant_condition, collect_owner_variant_payload_conditions,
+    collect_owner_variant_condition, collect_owner_variant_known_conditions,
+    collect_owner_variant_known_payload_conditions, collect_owner_variant_payload_conditions,
 };
 use super::owner_summary_variant_construct::{construct_variant_for_value, normalize_variant_name};
 use super::owner_summary_variant_match::apply_match_arm_entry;
@@ -280,6 +281,16 @@ fn collect_variant_consumed_owner_parameters_from_path(
             parameter_condition_sources,
         );
     }
+    if let Some((scrutinee, arm, _span)) = match_arm {
+        variant_owner_effects.collect_match_arm_value_condition_summaries(
+            condition_out,
+            raw_aliases,
+            parameter_condition_sources,
+            &constructed_variant.variant,
+            scrutinee,
+            &arm.pattern,
+        );
+    }
     path_engine.check_ops(
         &mut path_owners,
         &mut path_function_aliases,
@@ -290,9 +301,16 @@ fn collect_variant_consumed_owner_parameters_from_path(
         &mut path_variant_owner_effects,
         path_ops,
     );
+    collect_owner_variant_known_conditions(
+        condition_out,
+        &constructed_variant.variant,
+        &path_raw_aliases,
+        parameter_condition_sources,
+    );
     if let Some((condition_fact, truthy_path)) = branch_condition {
         collect_owner_variant_payload_conditions(
             payload_condition_out,
+            path_engine.types,
             &constructed_variant,
             path_value,
             condition_fact,
@@ -300,6 +318,13 @@ fn collect_variant_consumed_owner_parameters_from_path(
             &path_raw_aliases,
         );
     }
+    collect_owner_variant_known_payload_conditions(
+        payload_condition_out,
+        path_engine.types,
+        &constructed_variant,
+        path_value,
+        &path_raw_aliases,
+    );
 
     let (projection_returns, returned_sources) = returned_owner_returns_for_value(
         &path_owners,

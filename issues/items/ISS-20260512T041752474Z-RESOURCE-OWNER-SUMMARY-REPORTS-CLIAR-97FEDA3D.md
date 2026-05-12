@@ -2,8 +2,8 @@
 id: ISS-20260512T041752474Z-RESOURCE-OWNER-SUMMARY-REPORTS-CLIAR-97FEDA3D
 title: "Resource owner summary reports cliarg raw argv scratch owners as maybe leaks"
 area: static-check
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-12
@@ -40,6 +40,19 @@ examples cannot reach a fully passing state, and WASI argv helpers do not prove 
 
 Trace Resource IR owner flow for cliarg metadata and argv buffers through cli_args_sizes_result, cli_args_get_result, load/cstr conversion, and dealloc. Fix owner summary/storage-origin propagation so the actual free obligation owner is consumed by the checked cleanup path without weakening resource.owner.maybe_leak or treating non-owning MemPtr/i32 values as owners.
 
+## 解決内容
+
+Resource IR owner summary の false positive は、owner obligation と i32 scalar fact の伝播が同じ raw-address alias 経路に寄りすぎていたことが原因だった。`argv_size = argc * 4` のような通常の i32 value copy は free obligation を持たないため、`DeclareLocal` / `Assign` / branch / match / aggregate construct / raw memory load-store の owner transfer 経路では scalar relation / scale fact が消え、checked `dealloc_ptr` の `Err` variant が到達不能であることを証明できなかった。
+
+`RawCellAddressAliases` に raw-address owner alias を作らない scalar fact copy を分離し、値コピーとして成立する経路で i32 value / condition / relation / scale facts を伝播するようにした。あわせて、`idx >= 0` と `idx < argc` から `argc * 4` の `NonNegative` を導き、`Negative` を false として扱えるように i32 条件推論を補強した。
+
+owner summary 生成中の known condition 収集では false 証明が不要なので、true 専用の軽量問い合わせに分離した。これにより一時的に発生した `examples/nm.nepl` の compile timeout は解消し、`resource_owner_summaries` は `NEPL_COMPILE_STAGE_TIMING=1` で約 183 秒から約 3.4 秒まで戻った。
+
 ## 検証
 
-trunk build; node nodesrc/tests.js -i examples -o tmp/examples-cliarg-owner-fixed.json -j 4 --dist web/dist --no-tree; focused cliarg doctests and Resource IR owner regression.
+- `cargo fmt`
+- `cargo test -p nepl-core i32_scaled_relation_condition_derives_checked_size_non_negative -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_proves_checked_dealloc_err_unreachable_for_computed_alloc_size -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_mem_ptr_dealloc_consumption -- --nocapture`: passed
+- `trunk build`: passed
+- `node nodesrc/tests.js -i examples/nm.nepl -o tmp/agent1-cliarg-owner-nm-after.json -j 1 --dist web/dist --no-tree`: total=1, passed=1

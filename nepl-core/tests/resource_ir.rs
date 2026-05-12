@@ -6173,6 +6173,70 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_proves_checked_dealloc_err_unreachable_for_computed_alloc_size() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn release_arg_vector <(i32,i32)->i32> (idx, argc):
+    if lt idx 0:
+        then:
+            0
+        else:
+            if ge idx argc:
+                then:
+                    0
+                else:
+                    let argv_size <i32> mul argc 4
+                    match alloc_ptr<u8> argv_size:
+                        Result::Err _e:
+                            0
+                        Result::Ok argv:
+                            match dealloc_ptr<u8> argv argv_size:
+                                Result::Ok _:
+                                    1
+                                Result::Err _:
+                                    2
+
+fn main <()->i32> ():
+    release_arg_vector 0 1
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let mono = nepl_core::monomorphize::monomorphize(&mut types, module);
+    let (module, unresolved_trait_calls) = mono.into_parts();
+    assert!(
+        unresolved_trait_calls.is_empty(),
+        "unresolved trait calls: {:#?}",
+        unresolved_trait_calls
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function == "release_arg_vector" || function.starts_with("release_arg_vector__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "Result::Ok from alloc_ptr must carry enough scalar facts to prove checked dealloc_ptr Err unreachable for the same computed size: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption() {
     let source = r#"
 #entry main
