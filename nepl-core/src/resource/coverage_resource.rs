@@ -5,7 +5,10 @@ use alloc::vec::Vec;
 
 use crate::span::Span;
 
-use super::coverage::{ResourceCoverageCounts, ResourceCoverageDiagnostic};
+use super::coverage::{
+    ResourceCoverageCounts, ResourceCoverageDiagnostic,
+    ResourceCoveragePlaceOperation as CoveragePlaceOp,
+};
 use super::model::{
     Place, PlaceProjection, PlaceRoot, ResourceBlock, ResourceFunction, ResourceOp,
     ResourceTerminator,
@@ -35,7 +38,14 @@ fn resource_block_coverage(
         span,
     } = &block.terminator
     {
-        resource_place_coverage(function, "return", place, *span, counts, diagnostics);
+        resource_place_coverage(
+            function,
+            CoveragePlaceOp::ReturnValue,
+            place,
+            *span,
+            counts,
+            diagnostics,
+        );
     }
 }
 
@@ -51,7 +61,7 @@ fn resource_ops_coverage(
                 counts.function_values += 1;
                 resource_place_coverage(
                     function,
-                    "function_value.output",
+                    CoveragePlaceOp::FunctionValueOutput,
                     output,
                     *span,
                     counts,
@@ -64,14 +74,21 @@ fn resource_ops_coverage(
                 counts.direct_calls += 1;
                 resource_place_coverage(
                     function,
-                    "call.output",
+                    CoveragePlaceOp::CallOutput,
                     output,
                     *span,
                     counts,
                     diagnostics,
                 );
                 for arg in args {
-                    resource_place_coverage(function, "call.arg", arg, *span, counts, diagnostics);
+                    resource_place_coverage(
+                        function,
+                        CoveragePlaceOp::CallArgument,
+                        arg,
+                        *span,
+                        counts,
+                        diagnostics,
+                    );
                 }
             }
             ResourceOp::IndirectCall {
@@ -84,7 +101,7 @@ fn resource_ops_coverage(
                 counts.indirect_calls += 1;
                 resource_place_coverage(
                     function,
-                    "indirect_call.output",
+                    CoveragePlaceOp::IndirectCallOutput,
                     output,
                     *span,
                     counts,
@@ -92,7 +109,7 @@ fn resource_ops_coverage(
                 );
                 resource_place_coverage(
                     function,
-                    "indirect_call.callee",
+                    CoveragePlaceOp::IndirectCallCallee,
                     callee,
                     *span,
                     counts,
@@ -101,7 +118,7 @@ fn resource_ops_coverage(
                 for arg in args {
                     resource_place_coverage(
                         function,
-                        "indirect_call.arg",
+                        CoveragePlaceOp::IndirectCallArgument,
                         arg,
                         *span,
                         counts,
@@ -115,7 +132,7 @@ fn resource_ops_coverage(
                 counts.raw_memory_ops += 1;
                 resource_place_coverage(
                     function,
-                    "raw_memory.output",
+                    CoveragePlaceOp::RawMemoryOutput,
                     output,
                     *span,
                     counts,
@@ -124,7 +141,7 @@ fn resource_ops_coverage(
                 for arg in args {
                     resource_place_coverage(
                         function,
-                        "raw_memory.arg",
+                        CoveragePlaceOp::RawMemoryArgument,
                         arg,
                         *span,
                         counts,
@@ -144,7 +161,7 @@ fn resource_ops_coverage(
             } => {
                 resource_place_coverage(
                     function,
-                    "branch.output",
+                    CoveragePlaceOp::BranchOutput,
                     output,
                     *span,
                     counts,
@@ -152,7 +169,7 @@ fn resource_ops_coverage(
                 );
                 resource_place_coverage(
                     function,
-                    "branch.condition",
+                    CoveragePlaceOp::BranchCondition,
                     condition,
                     *span,
                     counts,
@@ -161,7 +178,7 @@ fn resource_ops_coverage(
                 resource_ops_coverage(function, then_ops, counts, diagnostics);
                 resource_place_coverage(
                     function,
-                    "branch.then_value",
+                    CoveragePlaceOp::BranchThenValue,
                     then_value,
                     *span,
                     counts,
@@ -170,7 +187,7 @@ fn resource_ops_coverage(
                 resource_ops_coverage(function, else_ops, counts, diagnostics);
                 resource_place_coverage(
                     function,
-                    "branch.else_value",
+                    CoveragePlaceOp::BranchElseValue,
                     else_value,
                     *span,
                     counts,
@@ -187,7 +204,7 @@ fn resource_ops_coverage(
                 resource_ops_coverage(function, condition_ops, counts, diagnostics);
                 resource_place_coverage(
                     function,
-                    "loop.condition",
+                    CoveragePlaceOp::LoopCondition,
                     condition,
                     *span,
                     counts,
@@ -203,7 +220,7 @@ fn resource_ops_coverage(
             } => {
                 resource_place_coverage(
                     function,
-                    "match.output",
+                    CoveragePlaceOp::MatchOutput,
                     output,
                     *span,
                     counts,
@@ -211,7 +228,7 @@ fn resource_ops_coverage(
                 );
                 resource_place_coverage(
                     function,
-                    "match.scrutinee",
+                    CoveragePlaceOp::MatchScrutinee,
                     scrutinee,
                     *span,
                     counts,
@@ -221,7 +238,7 @@ fn resource_ops_coverage(
                     if let Some(bind_local) = &arm.bind_local {
                         resource_place_coverage(
                             function,
-                            "match.bind_local",
+                            CoveragePlaceOp::MatchBindLocal,
                             bind_local,
                             *span,
                             counts,
@@ -231,7 +248,7 @@ fn resource_ops_coverage(
                     resource_ops_coverage(function, &arm.ops, counts, diagnostics);
                     resource_place_coverage(
                         function,
-                        "match.arm_value",
+                        CoveragePlaceOp::MatchArmValue,
                         &arm.value,
                         *span,
                         counts,
@@ -242,7 +259,7 @@ fn resource_ops_coverage(
             ResourceOp::Expr { output, span, .. } => {
                 resource_place_coverage(
                     function,
-                    "expr.output",
+                    CoveragePlaceOp::ExprOutput,
                     output,
                     *span,
                     counts,
@@ -258,7 +275,7 @@ fn resource_ops_coverage(
                 counts.declares += 1;
                 resource_place_coverage(
                     function,
-                    "declare.place",
+                    CoveragePlaceOp::DeclarePlace,
                     place,
                     *span,
                     counts,
@@ -267,7 +284,7 @@ fn resource_ops_coverage(
                 if let Some(initializer) = initializer {
                     resource_place_coverage(
                         function,
-                        "declare.initializer",
+                        CoveragePlaceOp::DeclareInitializer,
                         initializer,
                         *span,
                         counts,
@@ -283,7 +300,7 @@ fn resource_ops_coverage(
                 counts.reads += 1;
                 resource_place_coverage(
                     function,
-                    "read.source",
+                    CoveragePlaceOp::ReadSource,
                     source,
                     *span,
                     counts,
@@ -291,7 +308,7 @@ fn resource_ops_coverage(
                 );
                 resource_place_coverage(
                     function,
-                    "read.output",
+                    CoveragePlaceOp::ReadOutput,
                     output,
                     *span,
                     counts,
@@ -306,7 +323,7 @@ fn resource_ops_coverage(
                 counts.moves += 1;
                 resource_place_coverage(
                     function,
-                    "move.source",
+                    CoveragePlaceOp::MoveSource,
                     source,
                     *span,
                     counts,
@@ -314,7 +331,7 @@ fn resource_ops_coverage(
                 );
                 resource_place_coverage(
                     function,
-                    "move.output",
+                    CoveragePlaceOp::MoveOutput,
                     output,
                     *span,
                     counts,
@@ -329,7 +346,7 @@ fn resource_ops_coverage(
                 counts.assigns += 1;
                 resource_place_coverage(
                     function,
-                    "assign.target",
+                    CoveragePlaceOp::AssignTarget,
                     target,
                     *span,
                     counts,
@@ -337,7 +354,7 @@ fn resource_ops_coverage(
                 );
                 resource_place_coverage(
                     function,
-                    "assign.value",
+                    CoveragePlaceOp::AssignValue,
                     value,
                     *span,
                     counts,
@@ -353,7 +370,7 @@ fn resource_ops_coverage(
                 counts.borrows += 1;
                 resource_place_coverage(
                     function,
-                    "borrow.source",
+                    CoveragePlaceOp::BorrowSource,
                     source,
                     *span,
                     counts,
@@ -361,7 +378,7 @@ fn resource_ops_coverage(
                 );
                 resource_place_coverage(
                     function,
-                    "borrow.output",
+                    CoveragePlaceOp::BorrowOutput,
                     output,
                     *span,
                     counts,
@@ -370,7 +387,14 @@ fn resource_ops_coverage(
             }
             ResourceOp::Drop { place, span } => {
                 counts.drops += 1;
-                resource_place_coverage(function, "drop.place", place, *span, counts, diagnostics);
+                resource_place_coverage(
+                    function,
+                    CoveragePlaceOp::DropPlace,
+                    place,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
             }
             ResourceOp::Construct {
                 output,
@@ -381,7 +405,7 @@ fn resource_ops_coverage(
                 counts.constructs += 1;
                 resource_place_coverage(
                     function,
-                    "construct.output",
+                    CoveragePlaceOp::ConstructOutput,
                     output,
                     *span,
                     counts,
@@ -390,7 +414,7 @@ fn resource_ops_coverage(
                 for input in inputs {
                     resource_place_coverage(
                         function,
-                        "construct.input",
+                        CoveragePlaceOp::ConstructInput,
                         input,
                         *span,
                         counts,
@@ -405,7 +429,7 @@ fn resource_ops_coverage(
             } => {
                 resource_alias_place_coverage(
                     function,
-                    "raw_address_alias.source",
+                    CoveragePlaceOp::RawAddressAliasSource,
                     source,
                     *span,
                     counts,
@@ -413,7 +437,7 @@ fn resource_ops_coverage(
                 );
                 resource_alias_place_coverage(
                     function,
-                    "raw_address_alias.target",
+                    CoveragePlaceOp::RawAddressAliasTarget,
                     target,
                     *span,
                     counts,
@@ -428,7 +452,7 @@ fn resource_ops_coverage(
             } => {
                 resource_place_coverage(
                     function,
-                    "raw_address_view.source",
+                    CoveragePlaceOp::RawAddressViewSource,
                     source,
                     *span,
                     counts,
@@ -436,7 +460,7 @@ fn resource_ops_coverage(
                 );
                 resource_alias_place_coverage(
                     function,
-                    "raw_address_view.target",
+                    CoveragePlaceOp::RawAddressViewTarget,
                     target,
                     *span,
                     counts,
@@ -446,7 +470,7 @@ fn resource_ops_coverage(
             ResourceOp::StorageOrigin { target, span, .. } => {
                 resource_alias_place_coverage(
                     function,
-                    "storage_origin.target",
+                    CoveragePlaceOp::StorageOriginTarget,
                     target,
                     *span,
                     counts,
@@ -460,7 +484,7 @@ fn resource_ops_coverage(
 
 fn resource_alias_place_coverage(
     function: &str,
-    operation: &str,
+    operation: CoveragePlaceOp,
     place: &Place,
     span: Span,
     counts: &mut ResourceCoverageCounts,
@@ -470,7 +494,7 @@ fn resource_alias_place_coverage(
         counts.unknown_places += 1;
         diagnostics.push(ResourceCoverageDiagnostic::UnknownPlace {
             function: String::from(function),
-            operation: String::from(operation),
+            operation,
             place: place.clone(),
             span,
         });
@@ -479,7 +503,7 @@ fn resource_alias_place_coverage(
 
 fn resource_place_coverage(
     function: &str,
-    operation: &str,
+    operation: CoveragePlaceOp,
     place: &Place,
     span: Span,
     counts: &mut ResourceCoverageCounts,
@@ -494,7 +518,7 @@ fn resource_place_coverage(
         counts.unknown_places += 1;
         diagnostics.push(ResourceCoverageDiagnostic::UnknownPlace {
             function: String::from(function),
-            operation: String::from(operation),
+            operation,
             place: place.clone(),
             span,
         });

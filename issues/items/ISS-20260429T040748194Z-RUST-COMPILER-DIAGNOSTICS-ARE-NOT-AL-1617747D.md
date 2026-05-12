@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-05-07
+updated: 2026-05-12
 target: "nepl-core/src/diagnostic.rs, nepl-core/src/diagnostic_codes.rs, nepl-core/src/compiler.rs, nepl-cli/src/main.rs, nodesrc/tests.js, stdlib/neplg2/core/infra/diag.nepl, doc/neplg2/compiler_diagnostics_redesign_plan.md"
 ---
 
@@ -982,3 +982,17 @@ D2 の実装計画では Resource IR diagnostic kind ごとに `DiagnosticCode` 
 - `cargo check -p nepl-core --tests`: passed
 - `node nodesrc/test_diagnostic_code_first_boundary.js`: passed
 - `node nodesrc/issues.js check --dir issues`: passed
+
+## 2026-05-12 Stage D2 lower/drop/coverage diagnostic ownership
+
+前回の対応後も、lowering coverage、drop elaboration plan、HIR bridge の diagnostic code 写像は `compiler.rs` の private helper `resource_lower_incomplete_code()` に残っていた。さらに `ResourceCoverageDiagnostic::UnknownPlace` の `operation` は `"borrow.source"` のような自由文字列であり、coverage の unknown-place 原因分類が Rust の enum 網羅性検査に乗っていなかった。
+
+対応では `ResourceCoverageDiagnostic`、`ResourceDropElaborationPlanError`、`ResourceDropElaborationHirBridgeError` に `diagnostic_code()` を追加し、lowering incompleteness の stable code 所有を Resource IR diagnostic 型へ移した。`compiler.rs` は dynamic message と gate だけを担当し、分類は Resource 側の exhaustive `match` で決まる。
+
+併せて `ResourceCoveragePlaceOperation` enum を追加し、coverage_resource の unknown-place 発生箇所をすべて typed variant へ置き換えた。表示用の `"borrow.source"` などは `as_str()` 境界でのみ生成し、coverage の内部分類や regression は enum variant を比較する。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir resource_lowering_diagnostics_own_lower_incomplete_code -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_borrow_and_deref_places -- --nocapture`: passed
+- `cargo test -p nepl-core compiler::tests::resource_ -- --nocapture`: 11 passed

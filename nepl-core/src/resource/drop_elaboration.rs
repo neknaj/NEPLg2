@@ -2,6 +2,9 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use crate::diagnostic_codes::{
+    DiagnosticCode, ResourceDiagnosticCode, ResourceLowerDiagnosticCode,
+};
 use crate::span::Span;
 
 use super::drop_elaboration_bindings::{function_source_bindings, source_name_for_place};
@@ -78,6 +81,28 @@ pub enum ResourceDropElaborationPlanError {
         place: Place,
         span: Span,
     },
+}
+
+impl ResourceDropElaborationPlanError {
+    pub fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            ResourceDropElaborationPlanError::DuplicateFunctionCheck { .. }
+            | ResourceDropElaborationPlanError::MissingFunctionCheck { .. }
+            | ResourceDropElaborationPlanError::MissingResourceFunction { .. }
+            | ResourceDropElaborationPlanError::InvalidDropPointPath { .. }
+            | ResourceDropElaborationPlanError::DropPlaceOutsideEndScope { .. }
+            | ResourceDropElaborationPlanError::DropPlaceDoesNotMatchAssignmentTarget { .. }
+            | ResourceDropElaborationPlanError::MissingDropBinding { .. } => {
+                resource_lower_incomplete_code()
+            }
+        }
+    }
+}
+
+fn resource_lower_incomplete_code() -> DiagnosticCode {
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Lower(
+        ResourceLowerDiagnosticCode::Incomplete,
+    ))
 }
 
 pub fn compute_resource_drop_elaboration_plan(

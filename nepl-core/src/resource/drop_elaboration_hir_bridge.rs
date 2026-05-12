@@ -4,6 +4,9 @@ use alloc::collections::BTreeSet;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use crate::diagnostic_codes::{
+    DiagnosticCode, ResourceDiagnosticCode, ResourceLowerDiagnosticCode,
+};
 use crate::hir::{HirBlock, HirExpr, HirExprKind, HirFunction, HirMatchArm, HirModule};
 use crate::span::Span;
 
@@ -21,6 +24,23 @@ pub enum ResourceDropElaborationHirBridgeError {
         source_name: String,
         span: Span,
     },
+}
+
+impl ResourceDropElaborationHirBridgeError {
+    pub fn diagnostic_code(&self) -> DiagnosticCode {
+        match self {
+            ResourceDropElaborationHirBridgeError::MissingSourceFunction { .. }
+            | ResourceDropElaborationHirBridgeError::MissingSourceBinding { .. } => {
+                resource_lower_incomplete_code()
+            }
+        }
+    }
+}
+
+fn resource_lower_incomplete_code() -> DiagnosticCode {
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Lower(
+        ResourceLowerDiagnosticCode::Incomplete,
+    ))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

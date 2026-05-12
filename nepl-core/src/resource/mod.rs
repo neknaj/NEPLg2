@@ -191,8 +191,8 @@ mod type_pattern;
 pub use borrow_check::check_resource_borrow_lifetimes;
 pub use coverage::{
     compare_hir_resource_lowering, compare_hir_resource_lowering_typed, ResourceCoverageCounts,
-    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceFunctionCoverage,
-    ResourceLoweringCoverage,
+    ResourceCoverageDiagnostic, ResourceCoverageKind, ResourceCoveragePlaceOperation,
+    ResourceFunctionCoverage, ResourceLoweringCoverage,
 };
 pub use drop_elaboration::{
     compute_resource_drop_elaboration_plan, ResourceDropElaborationDrop,

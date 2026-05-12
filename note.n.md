@@ -1,3 +1,16 @@
+# 2026-05-12 Agent 1 Resource lower/drop/coverage diagnostic ownership
+
+- `ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D` の Stage D2 継続として、lowering coverage / drop elaboration plan / HIR bridge の diagnostic code 所有を Resource IR 側へ移した。
+- `ResourceCoverageDiagnostic`、`ResourceDropElaborationPlanError`、`ResourceDropElaborationHirBridgeError` に `diagnostic_code()` を追加し、`compiler.rs` の private `resource_lower_incomplete_code()` helper を削除した。
+- `ResourceCoverageDiagnostic::UnknownPlace.operation` を自由文字列から `ResourceCoveragePlaceOperation` enum へ変更した。coverage_resource 内の `"borrow.source"` などの分類文字列は typed variant に置き換え、表示文字列は `as_str()` 境界でのみ生成する。
+- 回帰として `resource_lowering_diagnostics_own_lower_incomplete_code` を追加し、coverage / drop plan / HIR bridge diagnostic が `resource.lower.incomplete` を Resource 側の method から返すこと、coverage operation の表示名が enum 由来であることを固定した。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_lowering_diagnostics_own_lower_incomplete_code -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_coverage_guards_borrow_and_deref_places -- --nocapture`: passed
+  - `cargo test -p nepl-core compiler::tests::resource_ -- --nocapture`: 11 passed
+- plan.md との差分:
+  - plan.md は変更していない。今回の変更は既存の diagnostic redesign / static check plan に沿った Resource IR diagnostic 境界の整理。
+
 # 2026-05-12 Agent 2 std/streamio/writer/append facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/std/streamio/writer/append.nepl` に同居していた text append、`ByteBuf` append、整数 format、浮動小数 format を責務別 submodule に分割した。

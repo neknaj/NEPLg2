@@ -1,4 +1,7 @@
 use nepl_core::ast::Effect;
+use nepl_core::diagnostic_codes::{
+    DiagnosticCode, ResourceDiagnosticCode, ResourceLowerDiagnosticCode,
+};
 use nepl_core::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule, HirParam,
 };
@@ -15,13 +18,13 @@ use nepl_core::resource::{
     ResourceAutoDropKind, ResourceBlock, ResourceBlockId, ResourceBorrowDiagnostic,
     ResourceBorrowOperation, ResourceCallTarget, ResourceCheckDeferred, ResourceCheckDiagnostic,
     ResourceCheckOperation, ResourceCheckReport, ResourceConditionFact, ResourceCoverageDiagnostic,
-    ResourceCoverageKind, ResourceDropElaborationHirBridgeError, ResourceDropElaborationPlanError,
-    ResourceDropPoint, ResourceDropPointPath, ResourceDropPointResolutionError,
-    ResourceDropPointStep, ResourceDropRequirement, ResourceEffectBoundaryDiagnostic,
-    ResourceEffectCallKind, ResourceExprKind, ResourceFunction, ResourceFunctionCheck,
-    ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp,
-    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator, StorageOrigin,
-    UnknownEffectReason,
+    ResourceCoverageKind, ResourceCoveragePlaceOperation, ResourceDropElaborationHirBridgeError,
+    ResourceDropElaborationPlanError, ResourceDropPoint, ResourceDropPointPath,
+    ResourceDropPointResolutionError, ResourceDropPointStep, ResourceDropRequirement,
+    ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceExprKind, ResourceFunction,
+    ResourceFunctionCheck, ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceModule,
+    ResourceOffset, ResourceOp, ResourceOwnerDiagnostic, ResourceOwnerOperation,
+    ResourceTerminator, StorageOrigin, UnknownEffectReason,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -644,7 +647,9 @@ fn resource_ir_lowering_coverage_guards_borrow_and_deref_places() {
                 operation,
                 span: diagnostic_span,
                 ..
-            } if function == "main" && operation == "borrow.source" && *diagnostic_span == span
+            } if function == "main"
+                && *operation == ResourceCoveragePlaceOperation::BorrowSource
+                && *diagnostic_span == span
         )));
     assert!(broken_coverage
         .diagnostics
@@ -660,6 +665,38 @@ fn resource_ir_lowering_coverage_guards_borrow_and_deref_places() {
                 ..
             } if function == "main" && *diagnostic_span == span
         )));
+}
+
+#[test]
+fn resource_lowering_diagnostics_own_lower_incomplete_code() {
+    let expected = DiagnosticCode::Resource(ResourceDiagnosticCode::Lower(
+        ResourceLowerDiagnosticCode::Incomplete,
+    ));
+    let span = Span::dummy();
+
+    let coverage = ResourceCoverageDiagnostic::CountMismatch {
+        function: "main".to_string(),
+        kind: ResourceCoverageKind::Borrow,
+        hir: 1,
+        resource: 0,
+        span,
+    };
+    assert_eq!(coverage.diagnostic_code(), expected);
+    assert_eq!(
+        ResourceCoveragePlaceOperation::BorrowSource.as_str(),
+        "borrow.source"
+    );
+
+    let plan_error = ResourceDropElaborationPlanError::MissingFunctionCheck {
+        function: "main".to_string(),
+    };
+    assert_eq!(plan_error.diagnostic_code(), expected);
+
+    let bridge_error = ResourceDropElaborationHirBridgeError::MissingSourceFunction {
+        function: "main$T".to_string(),
+        origin_name: "main".to_string(),
+    };
+    assert_eq!(bridge_error.diagnostic_code(), expected);
 }
 
 #[test]

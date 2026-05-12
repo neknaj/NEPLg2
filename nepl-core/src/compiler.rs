@@ -9,7 +9,7 @@ use crate::codegen_wasm;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{
     BackendDiagnosticCode, DiagnosticCode, LoaderDiagnosticCode, ResolveDiagnosticCode,
-    ResourceDiagnosticCode, ResourceLowerDiagnosticCode, WasmDiagnosticCode,
+    WasmDiagnosticCode,
 };
 use crate::error::CoreError;
 use crate::lexer;
@@ -379,7 +379,7 @@ fn resource_drop_elaboration_plan_error_to_error(
     match error {
         crate::resource::ResourceDropElaborationPlanError::DuplicateFunctionCheck { function } => {
             Diagnostic::error_with_code(
-                resource_lower_incomplete_code(),
+                error.diagnostic_code(),
                 format!(
                     "resource drop elaboration found duplicate initialized-state check for function '{}'",
                     function
@@ -389,7 +389,7 @@ fn resource_drop_elaboration_plan_error_to_error(
         }
         crate::resource::ResourceDropElaborationPlanError::MissingFunctionCheck { function } => {
             Diagnostic::error_with_code(
-                resource_lower_incomplete_code(),
+                error.diagnostic_code(),
                 format!(
                     "resource drop elaboration is missing initialized-state check for function '{}'",
                     function
@@ -399,7 +399,7 @@ fn resource_drop_elaboration_plan_error_to_error(
         }
         crate::resource::ResourceDropElaborationPlanError::MissingResourceFunction { function } => {
             Diagnostic::error_with_code(
-                resource_lower_incomplete_code(),
+                error.diagnostic_code(),
                 format!(
                     "resource drop elaboration check references missing function '{}'",
                     function
@@ -411,12 +411,12 @@ fn resource_drop_elaboration_plan_error_to_error(
             function,
             path,
             span,
-            error,
+            error: path_error,
         } => Diagnostic::error_with_code(
-            resource_lower_incomplete_code(),
+            error.diagnostic_code(),
             format!(
                 "resource drop elaboration point in function '{}' does not resolve to its required insertion point: {:?} (path {:?})",
-                function, error, path
+                function, path_error, path
             ),
             *span,
         ),
@@ -426,7 +426,7 @@ fn resource_drop_elaboration_plan_error_to_error(
             place,
             span,
         } => Diagnostic::error_with_code(
-            resource_lower_incomplete_code(),
+            error.diagnostic_code(),
             format!(
                 "resource drop elaboration point in function '{}' references place {:?} outside its EndScope locals (path {:?})",
                 function, place, path
@@ -440,7 +440,7 @@ fn resource_drop_elaboration_plan_error_to_error(
             target,
             span,
         } => Diagnostic::error_with_code(
-            resource_lower_incomplete_code(),
+            error.diagnostic_code(),
             format!(
                 "resource drop elaboration point in function '{}' references overwrite place {:?}, but assignment target is {:?} (path {:?})",
                 function, place, target, path
@@ -453,7 +453,7 @@ fn resource_drop_elaboration_plan_error_to_error(
             place,
             span,
         } => Diagnostic::error_with_code(
-            resource_lower_incomplete_code(),
+            error.diagnostic_code(),
             format!(
                 "resource drop elaboration point in function '{}' references place {:?} without a source binding name (path {:?})",
                 function, place, path
@@ -489,7 +489,7 @@ fn resource_drop_elaboration_hir_bridge_error_to_error(
             function,
             origin_name,
         } => Diagnostic::error_with_code(
-            resource_lower_incomplete_code(),
+            error.diagnostic_code(),
             format!(
                 "resource drop elaboration function '{}' with origin '{}' has no source HIR function",
                 function, origin_name
@@ -502,7 +502,7 @@ fn resource_drop_elaboration_hir_bridge_error_to_error(
             source_name,
             span,
         } => Diagnostic::error_with_code(
-            resource_lower_incomplete_code(),
+            error.diagnostic_code(),
             format!(
                 "resource drop elaboration function '{}' with origin '{}' references source binding '{}' that is not available at the HIR insertion point",
                 function, origin_name, source_name
@@ -533,7 +533,7 @@ fn resource_coverage_diagnostic_to_error(
     match diagnostic {
         crate::resource::ResourceCoverageDiagnostic::MissingFunction { name, span } => {
             Diagnostic::error_with_code(
-                resource_lower_incomplete_code(),
+                diagnostic.diagnostic_code(),
                 format!("resource ir lowering did not produce function '{}'", name),
                 *span,
             )
@@ -545,7 +545,7 @@ fn resource_coverage_diagnostic_to_error(
             resource,
             span,
         } => Diagnostic::error_with_code(
-            resource_lower_incomplete_code(),
+            diagnostic.diagnostic_code(),
             format!(
                 "resource ir lowering lost {:?} coverage in function '{}' (HIR={}, ResourceIR={})",
                 kind, function, hir, resource
@@ -558,20 +558,16 @@ fn resource_coverage_diagnostic_to_error(
             place,
             span,
         } => Diagnostic::error_with_code(
-            resource_lower_incomplete_code(),
+            diagnostic.diagnostic_code(),
             format!(
                 "resource ir lowering produced unknown place for {} in function '{}': {:?}",
-                operation, function, place
+                operation.as_str(),
+                function,
+                place
             ),
             *span,
         ),
     }
-}
-
-fn resource_lower_incomplete_code() -> DiagnosticCode {
-    DiagnosticCode::Resource(ResourceDiagnosticCode::Lower(
-        ResourceLowerDiagnosticCode::Incomplete,
-    ))
 }
 
 fn run_resource_cell_gate(
@@ -1047,8 +1043,8 @@ mod tests {
 
         assert_eq!(
             error.code,
-            DiagnosticCode::Resource(ResourceDiagnosticCode::Lower(
-                ResourceLowerDiagnosticCode::Incomplete,
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Lower(
+                crate::diagnostic_codes::ResourceLowerDiagnosticCode::Incomplete,
             ))
         );
         assert!(error.message.contains("unknown effect"));
