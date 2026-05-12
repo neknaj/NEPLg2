@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T10:09:43.225Z",
+  "generated_at": "2026-05-12T10:17:28.029Z",
   "counts": {
-    "total": 633,
+    "total": 634,
     "open": 10,
-    "resolved": 623,
+    "resolved": 624,
     "by_area": {
       "core": {
         "total": 317,
@@ -57,9 +57,9 @@
         "resolved": 2
       },
       "docs": {
-        "total": 2,
+        "total": 3,
         "open": 0,
-        "resolved": 2
+        "resolved": 3
       },
       "examples": {
         "total": 17,
@@ -8148,6 +8148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958.md"
+    },
+    {
+      "id": "ISS-20260512T101613486Z-STATIC-CHECK-PLAN-STILL-SAYS-HIR-INS-7F765C9B",
+      "title": "Static check plan still says HIR insert_drops remains after Resource IR drop consumer",
+      "area": "docs",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "doc/neplg2/static_check_complexity_reduction_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T101613486Z-STATIC-CHECK-PLAN-STILL-SAYS-HIR-INS-7F765C9B.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",

@@ -36146,3 +36146,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-move-effect-region-token-memory-safety.json -j 1 --dist web/dist`: total=23, passed=23
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 static check plan drop authority 記述更新
+
+- `ISS-20260512T101613486Z-STATIC-CHECK-PLAN-STILL-SAYS-HIR-INS-7F765C9B` として、`doc/neplg2/static_check_complexity_reduction_plan.md` の 2026-04-30 設計確認に残っていた古い drop authority 記述を整理した。
+- 同 document の Stage 4 進捗では、2026-05-06 に checked `ResourceDropElaborationPlan` を `passes::insert_resource_drops` が消費し、旧 HIR `passes::insert_drops` 呼び出しを削除済みであることが記録されていた。
+- しかし末尾の設計確認では、drop elaboration がまだ HIR `passes::insert_drops` に残るという古い説明が残っていたため、現行実装と矛盾していた。
+- 文書を現在の状態へ合わせ、旧 `passes::move_check::run` fallback と旧 `passes::insert_drops` は削除済み、残件は Stage 4 authority path の full review/regression と Stage 5/6 の raw-memory-backed stdlib public API / owner token / collection storage state 移行であることを明記した。
+- [検証]:
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

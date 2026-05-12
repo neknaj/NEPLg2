@@ -432,18 +432,18 @@ self-host 実装側の禁止事項:
 判定は次の通り。
 
 - Resource IR の data model、coverage gate、CellState / OwnerState / BorrowState gate、enum-first diagnostic の方向性は妥当である。
-- 現行 pipeline は Resource IR check を HIR `passes::insert_drops` より前に実行する。Resource IR の入力は drop 未挿入 source semantics を monomorphize した reachable HIR であり、生成 drop が source violation を隠すことは避ける。ただし、drop elaboration 自体はまだ HIR `passes::insert_drops` に残るため、drop obligation の最終設計は完了していない。旧 `passes::move_check::run` fallback は 2026-05-06 に削除済みである。
+- 現行 pipeline は drop 未挿入 source semantics を monomorphize した reachable HIR を Resource IR check に渡し、checked `ResourceDropElaborationPlan` を生成する。実 drop call 生成は `passes::insert_resource_drops` がこの plan を消費して行うため、旧 `passes::move_check::run` fallback と旧 HIR `passes::insert_drops` 呼び出しはいずれも 2026-05-06 に削除済みである。生成 drop が source violation を隠さないよう、Resource IR gate は drop 挿入前の HIR に対して実行する。
 - `ResourceCheckDiagnostic::CellUnavailable` と `ResourceOwnerDiagnostic::*` は compiler diagnostic で `resource.cell.*` と `resource.owner.*` に分離済みである。今後も D3100 相当の粗い raw bucket に戻さず、原因分類を enum-first で維持する。
 - `UnsafeMemoryInPureFunction` は 2026-05-06 時点で Resource IR gate から `effect.pure.calls_impure` へ error 化済みである。ただし、configured stdlib の `core/mem.nepl`、`alloc/string.nepl`、`alloc/string/storage.nepl` など compiler-owned raw-memory-boundary capability を持つ source では、Stage 6 の stdlib migration が完了するまで移行中許可を維持する。この許可は loader の configured `stdlib_root` から計算した exact path に限定し、任意の同名 suffix path は許可しない。
 - self-host の S1/S2 は進められるが、S3 以降の typecheck / Resource IR / diagnostic aggregation では raw header collection や `MemPtr` owner discipline を中核に持ち込まない。
 
-追加精査で、`ResourceDiagnosticCode` 自体は `Move` / `Borrow` / `Cell` / `Owner` / `Raw` / `Lower` に分離済みであることを確認した。設計上の未完了点は、Cell / Owner category の追加ではなく、HIR `insert_drops` がまだ drop elaboration authority として残っていること、raw-memory-boundary capability による stdlib 移行中許可が残っていること、stdlib の owner token / collection storage state が compiler-issued capability に揃い切っていないことである。
+追加精査で、`ResourceDiagnosticCode` 自体は `Move` / `Borrow` / `Cell` / `Owner` / `Raw` / `Lower` に分離済みであることを確認した。2026-05-06 時点で drop elaboration authority も checked Resource IR plan に統合済みであり、旧 HIR scope walker を維持する方針は残さない。設計上の未完了点は、raw-memory-boundary capability による stdlib 移行中許可が残っていること、stdlib の owner token / collection storage state が compiler-issued capability に揃い切っていないこと、Stage 4 authority path の full review / regression を継続することである。
 
 2026-05-06 の Stage 5 追記として、host effect operation と raw/host effect count は enum-first の Resource IR 表現へ移行済みである。`ExternalIo` / `Nondet` / `UnsafeMemory` は pure function 境界で Resource IR diagnostic から compiler error へ接続される。残件は、raw-memory-backed stdlib の public API を Stage 6 で internal/public 境界へ分け、raw identity と owner token を safe surface へ漏らさない形へ移行することである。
 
 Resource checker の責務分割 policy も確認し、`initialized_summary_variant_build.rs` が監視対象から漏れていたため `ISS-20260430T062912063Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-CC55287A` で修正した。今後 Resource IR module を分割した場合は、実装だけでなく `nodesrc/test_resource_checker_responsibility.js` の必須 module 一覧と行数上限も同時に更新する。
 
-したがって、この計画の完了条件は変更しない。旧 checker の special-case を増やして現状維持するのではなく、drop elaboration、owner/cell state authority、stdlib collection owner state を Resource IR / enum / match の設計へ移す。
+したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
 ## 完了条件
 
