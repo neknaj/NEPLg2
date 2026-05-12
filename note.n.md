@@ -1,3 +1,23 @@
+# 2026-05-13 Agent 1 MemPtr raw address view lowering 修正
+
+- `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D` の Stage 5/6 境界に関係する Resource IR lowering を修正した。
+- 根本原因は、`MemPtr<T>` は non-owning pointer として扱う方針なのに、`mem_ptr_addr` の Resource IR lowering が `RawAddressAlias` として表現され、owner / raw view 分離を型付き IR 上で明示できていなかったこと。
+- `mem_ptr_addr` は `RawAddressViewKind::NonOwningProjection` を持つ `RawAddressView` として下げるようにし、`MemPtr.raw` の抽出が free obligation transfer ではなく non-owning projection であることを Resource IR に記録する。
+- `nepl-core/tests/resource_ir.rs` に lowering 回帰テストを追加し、`nodesrc/test_resource_checker_responsibility.js` に source policy を追加して、`mem_ptr_addr` が単なる raw alias に戻らないようにした。
+- 検証:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_marks_mem_ptr_addr_as_non_owning_projection -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view -- --nocapture`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/run_source_policy_regressions.js`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memptr-view-memory-safety.json -j 1 --dist web/dist`: 23 passed
+  - `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --no-tree -o tmp/agent1-memptr-view-reference-codegen.json -j 1 --dist web/dist`: 3 passed
+  - `node nodesrc/tests.js -i tests/compiler/prelude_copy.n.md --no-tree -o tmp/agent1-memptr-view-prelude-copy.json -j 1 --dist web/dist`: 4 passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査の複雑化解消計画における `MemPtr = non-owning pointer` 方針の Resource IR lowering 側の補強。
+
 # 2026-05-13 Agent 1 stdlib documentation contract 回帰修正
 
 - `ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841` の baseline regression に対応した。

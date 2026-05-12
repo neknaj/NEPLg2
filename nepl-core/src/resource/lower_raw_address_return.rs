@@ -67,7 +67,7 @@ pub(super) fn push_transparent_raw_address_return_projection(
 }
 
 fn function_has_dedicated_raw_address_lowering(name: &str) -> bool {
-    matches!(helper_base_name(name), "region_ptr")
+    matches!(helper_base_name(name), "mem_ptr_addr" | "region_ptr")
 }
 
 fn function_return_expr(function: &HirFunction) -> Option<&HirExpr> {
@@ -197,7 +197,11 @@ fn raw_address_source_from_return_named_call(
                 &args[1], function, hir_args, arg_places, env,
             ))
         }),
-        "mem_ptr_addr" | "mem_ptr_wrap" | "str_from_addr_unchecked" if args.len() == 1 => {
+        "mem_ptr_addr" if args.len() == 1 => raw_address_source_from_return_operand_expr(
+            &args[0], function, hir_args, arg_places, env,
+        )
+        .map(RawAddressSource::into_non_owning_view),
+        "mem_ptr_wrap" | "str_from_addr_unchecked" if args.len() == 1 => {
             raw_address_source_from_return_operand_expr(
                 &args[0], function, hir_args, arg_places, env,
             )

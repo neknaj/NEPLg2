@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: security
 created: 2026-04-27
-updated: 2026-04-28
+updated: 2026-05-13
 target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, tests/stdlib/memory_safety.n.md"
 ---
 
@@ -85,3 +85,24 @@ safe import だけでは `mem_ptr_addr` / `mem_ptr_wrap` / raw `load<T>` / raw `
 - `cargo test -p nepl-core --test resource_ir typecheck_rejects_mem_ptr_struct_constructor_outside_memory_boundary -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir typecheck_allows_user_struct_named_mem_ptr -- --nocapture`: passed
 - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memptr-constructor-boundary.json -j 1 --dist web/dist`: 19 passed
+
+## 2026-05-13 MemPtr raw address view lowering 部分対応
+
+`MemPtr<T>` を non-owning pointer として扱う方針に対して、compiler Resource IR lowering が `mem_ptr_addr` を単なる `RawAddressAlias` として表現していた。これでは `MemPtr.raw` を raw `i32` として取り出した値が owner transfer ではなく non-owning projection であることを、後段の owner / raw view policy が enum-first に判別しにくい。
+
+対応として `mem_ptr_addr` の lowering を `RawAddressViewKind::NonOwningProjection` の `RawAddressView` に変更した。これにより `mem_ptr_addr` は free obligation を移動させる alias ではなく、既存 storage への non-owning raw projection として Resource IR 上に明示される。
+
+この対応は raw address public API を完全に閉じる最終対応ではない。`mem_ptr_wrap` / `mem_ptr_addr` の safe surface migration、stdlib raw-memory-boundary の縮小、`OwnedRegion` / `Storage` 型への移行は引き続きこの親 issue の残件として維持する。
+
+検証:
+
+- `cargo fmt -p nepl-core --check`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_lowering_marks_mem_ptr_addr_as_non_owning_projection -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view -- --nocapture`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
+- `node nodesrc/run_source_policy_regressions.js`: passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memptr-view-memory-safety.json -j 1 --dist web/dist`: 23 passed
+- `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --no-tree -o tmp/agent1-memptr-view-reference-codegen.json -j 1 --dist web/dist`: 3 passed
+- `node nodesrc/tests.js -i tests/compiler/prelude_copy.n.md --no-tree -o tmp/agent1-memptr-view-prelude-copy.json -j 1 --dist web/dist`: 4 passed
+- `node nodesrc/issues.js check --dir issues`: passed

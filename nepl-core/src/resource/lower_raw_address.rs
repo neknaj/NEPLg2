@@ -43,11 +43,13 @@ pub(super) fn push_core_mem_wrapper_semantics(
             let Some(ptr) = arg_places.first() else {
                 return;
             };
-            ops.push(ResourceOp::RawAddressAlias {
-                source: mem_ptr_raw_field_place(ptr, output.ty),
-                target: output.clone(),
+            push_raw_address_op(
+                mem_ptr_raw_field_place(ptr, output.ty),
+                output.clone(),
+                Some(RawAddressViewKind::NonOwningProjection),
+                ops,
                 span,
-            });
+            );
         }
         Some("mem_ptr_add") => {
             let Some(ptr) = arg_places.first() else {
@@ -240,7 +242,11 @@ fn raw_address_source_from_actual_named_expr(
                 ))
             })
         }
-        "mem_ptr_addr" | "mem_ptr_wrap" if args.len() == 1 && arg_places.len() == 1 => {
+        "mem_ptr_addr" if args.len() == 1 && arg_places.len() == 1 => {
+            raw_address_source_from_actual_arg(0, args, arg_places, env)
+                .map(RawAddressSource::into_non_owning_view)
+        }
+        "mem_ptr_wrap" if args.len() == 1 && arg_places.len() == 1 => {
             raw_address_source_from_actual_arg(0, args, arg_places, env)
         }
         "str_addr" if args.len() == 1 && arg_places.len() == 1 => {

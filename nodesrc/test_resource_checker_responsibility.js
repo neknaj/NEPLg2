@@ -39,6 +39,10 @@ function assertNotContains(text, needle, source) {
     assert(!text.includes(needle), `${source} must not contain ${needle}`);
 }
 
+function assertMatches(text, pattern, source) {
+    assert(pattern.test(text), `${source} must match ${pattern}`);
+}
+
 function braceBlock(text, signature, source) {
     const start = text.indexOf(signature);
     assert(start >= 0, `${source} must contain ${signature}`);
@@ -620,6 +624,11 @@ assertContains(
     'pub(super) fn push_named_raw_address_semantics',
     'lower_raw_address.rs',
 );
+assertMatches(
+    lowerRawAddress,
+    /Some\("mem_ptr_addr"\)\s*=>\s*\{[\s\S]*push_raw_address_op\([\s\S]*Some\(RawAddressViewKind::NonOwningProjection\)[\s\S]*\}\s*Some\("mem_ptr_add"\)/,
+    'lower_raw_address.rs mem_ptr_addr non-owning projection policy',
+);
 assertContains(
     lowerRawAddressPlace,
     'pub(super) fn raw_address_place_from_actual_argument',
@@ -629,6 +638,11 @@ assertContains(
     lowerRawAddressReturn,
     'pub(super) fn push_transparent_raw_address_return_projection',
     'lower_raw_address_return.rs',
+);
+assertMatches(
+    lowerRawAddressReturn,
+    /fn function_has_dedicated_raw_address_lowering[\s\S]*"mem_ptr_addr"\s*\|\s*"region_ptr"/,
+    'lower_raw_address_return.rs dedicated wrapper policy',
 );
 assertContains(
     lowerRawMemory,

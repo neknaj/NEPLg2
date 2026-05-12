@@ -2259,6 +2259,70 @@ fn main <(i32)->i32> (idx):
 }
 
 #[test]
+fn resource_ir_lowering_marks_mem_ptr_addr_as_non_owning_projection() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+
+#import "core/mem" as *
+
+fn ptr_addr <(MemPtr<u8>)->i32> (p):
+    mem_ptr_addr p
+
+fn main <()->i32> ():
+    ptr_addr mem_ptr_wrap<u8> 32
+"#;
+    let (hir, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&hir, &types);
+    let ptr_addr = resource
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "ptr_addr")
+        .expect("ptr_addr resource function");
+    let has_non_owning_view = ptr_addr
+        .blocks
+        .iter()
+        .flat_map(|block| block.ops.iter())
+        .any(|op| {
+            matches!(
+                op,
+                ResourceOp::RawAddressView {
+                    kind: RawAddressViewKind::NonOwningProjection,
+                    source,
+                    ..
+                } if source.projections.iter().any(|projection| {
+                    matches!(projection, PlaceProjection::Field { index: 0, .. })
+                })
+            )
+        });
+    let has_plain_alias = ptr_addr
+        .blocks
+        .iter()
+        .flat_map(|block| block.ops.iter())
+        .any(|op| {
+            matches!(
+                op,
+                ResourceOp::RawAddressAlias { source, .. }
+                    if source.projections.iter().any(|projection| {
+                        matches!(projection, PlaceProjection::Field { index: 0, .. })
+                    })
+            )
+        });
+
+    assert!(
+        has_non_owning_view,
+        "mem_ptr_addr must lower MemPtr.raw extraction as a non-owning projection view:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        !has_plain_alias,
+        "mem_ptr_addr must not lower MemPtr.raw extraction as a transferable raw alias:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_effect_check_uses_known_function_alias_stored_in_aggregate_field() {
     let mut types = TypeCtx::new();
     let i32_ty = types.i32();
