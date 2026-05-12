@@ -7,14 +7,18 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const mapRootSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreemap.nepl'), 'utf8');
 const mapApiSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreemap/api.nepl'), 'utf8');
+const mapObserverSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreemap/api/observer.nepl'), 'utf8');
 const setRootSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreeset.nepl'), 'utf8');
 const setApiSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreeset/api.nepl'), 'utf8');
 
 const mapRootCode = stripComments(mapRootSrc);
-const mapCode = stripComments(mapApiSrc);
+const mapApiCode = stripComments(mapApiSrc);
+const mapCode = stripComments(mapObserverSrc);
 const setRootCode = stripComments(setRootSrc);
 const setCode = stripComments(setApiSrc);
 
+assert.match(mapApiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, 'BTreeMap api facade must re-export borrowed observers through api/observer');
+assert.doesNotMatch(mapApiCode, /\bfn\s+/, 'BTreeMap api facade must not keep duplicate observer wrappers');
 assert.match(mapCode, /fn\s+len\s+<\.K,\.V>\s+<\(&BTreeMap<\.K,\.V>\)->i32>\s+\(hm\):/, 'BTreeMap.len must borrow the owner');
 assert.match(mapCode, /fn\s+contains\s+<\.K:\s*Ord&Copy,\.V:\s*Copy>\s+<\(&BTreeMap<\.K,\.V>,\.K\)->bool>\s+\(hm,\s*key\):/, 'BTreeMap.contains must borrow the owner');
 assert.match(mapCode, /fn\s+get\s+<\.K:\s*Ord&Copy,\.V:\s*Copy>\s+<\(&BTreeMap<\.K,\.V>,\.K\)->Option<\.V>>\s+\(hm,\s*key\):/, 'BTreeMap.get must borrow the owner');

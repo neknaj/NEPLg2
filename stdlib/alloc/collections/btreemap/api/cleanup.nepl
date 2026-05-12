@@ -1,0 +1,31 @@
+//: # btreemap/api/cleanup
+//: `BTreeMap` owner の cleanup API
+//:
+//: ### [目的/もくてき]
+//: - map owner から internal storage owner を取り出し、storage helper で閉じます。
+//: - cleanup を observer / mutation から分離します。
+
+#indent 4
+
+#import "core/field" as field
+#import "../types" as *
+#import "../storage" as *
+
+//: ## free
+//: [内部/ないぶ] storage を[解放/かいほう]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/btreemap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hm <BTreeMap<i32, i32>> unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>;
+//:     free hm;
+//:     0
+//: ```
+fn free <.K,.V> <(BTreeMap<.K,.V>)->()> (hm):
+    let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"
+    btreemap_free_storage<.K,.V> storage

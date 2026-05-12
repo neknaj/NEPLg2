@@ -1,0 +1,98 @@
+//: # btreemap/api/observer
+//: `BTreeMap` の借用 observer API
+//:
+//: ### [目的/もくてき]
+//: - `len` / `contains` / `get` を map owner を消費しない read-only API として提供します。
+//: - sorted key storage の lower_bound だけを使い、payload は `Copy` value として返します。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/field" as field
+#import "core/traits/ord" as *
+#import "core/traits/copy" as *
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../storage" as *
+#import "../search" as *
+
+//: ## len
+//: map を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/btreemap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hm <BTreeMap<i32, i32>>:
+//:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
+//:         |> insert 3 30 |> uwok
+//:         |> insert 7 70 |> uwok
+//:     let ok <bool> eq len<i32, i32> &hm 2
+//:     free<i32, i32> hm
+//:     if ok 1 0
+//: ```
+fn len <.K,.V> <(&BTreeMap<.K,.V>)->i32> (hm):
+    *field::get_ref hm "len"
+
+//: ## contains
+//: map を[移動/いどう]せずに key の[存在/そんざい]を[確/たし]かめる
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/btreemap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hm <BTreeMap<i32, i32>>:
+//:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
+//:         |> insert 7 70 |> uwok
+//:     let ok <bool> contains<i32, i32> &hm 7
+//:     free<i32, i32> hm
+//:     if ok 1 0
+//: ```
+fn contains <.K: Ord&Copy,.V: Copy> <(&BTreeMap<.K,.V>,.K)->bool> (hm, key):
+    let len0 <i32> *field::get_ref hm "len"
+    let storage <&BTreeMapStorage<.K,.V>> field::get_ref hm "storage"
+    let keys <&Vec<Option<.K>>> btreemap_storage_keys<.K,.V> storage
+    let idx <i32> btreemap_lower_bound<.K> keys key 0 len0
+    btreemap_is_at<.K> keys len0 idx key
+
+//: ## get
+//: map を[移動/いどう]せずに key に[対応/たいおう]する Copy value を[返/かえ]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/btreemap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hm <BTreeMap<i32, i32>>:
+//:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
+//:         |> insert 7 70 |> uwok
+//:     let ok <bool> match get<i32, i32> &hm 7:
+//:         Option::Some v:
+//:             eq v 70
+//:         Option::None:
+//:             false
+//:     free<i32, i32> hm
+//:     if ok 1 0
+//: ```
+fn get <.K: Ord&Copy,.V: Copy> <(&BTreeMap<.K,.V>,.K)->Option<.V>> (hm, key):
+    let len0 <i32> *field::get_ref hm "len"
+    let storage <&BTreeMapStorage<.K,.V>> field::get_ref hm "storage"
+    let keys <&Vec<Option<.K>>> btreemap_storage_keys<.K,.V> storage
+    let values <&Vec<Option<.V>>> btreemap_storage_values<.K,.V> storage
+    let idx <i32> btreemap_lower_bound<.K> keys key 0 len0
+    if:
+        btreemap_is_at<.K> keys len0 idx key
+        then btreemap_value_at<.V> values idx
+        else none<.V>

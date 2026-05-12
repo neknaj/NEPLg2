@@ -53,6 +53,11 @@ function assertNoUnsafeUnwraps(file, names) {
 }
 
 const btreeMapApiFile = 'stdlib/alloc/collections/btreemap/api.nepl';
+const btreeMapCreateFile = 'stdlib/alloc/collections/btreemap/api/create.nepl';
+const btreeMapObserverFile = 'stdlib/alloc/collections/btreemap/api/observer.nepl';
+const btreeMapInsertFile = 'stdlib/alloc/collections/btreemap/api/insert.nepl';
+const btreeMapRemoveFile = 'stdlib/alloc/collections/btreemap/api/remove.nepl';
+const btreeMapCleanupFile = 'stdlib/alloc/collections/btreemap/api/cleanup.nepl';
 const btreeMapTypesFile = 'stdlib/alloc/collections/btreemap/types.nepl';
 const btreeMapStorageFile = 'stdlib/alloc/collections/btreemap/storage.nepl';
 const btreeMapRootSource = sourceWithoutComments('stdlib/alloc/collections/btreemap.nepl');
@@ -64,12 +69,21 @@ for (const submodule of ['types', 'api', 'alias']) {
         `BTreeMap root facade must re-export btreemap/${submodule}`,
     );
 }
+const btreeMapApiSource = sourceWithoutComments(btreeMapApiFile);
+assert.doesNotMatch(btreeMapApiSource, /\bfn\s+/, 'BTreeMap api facade must not keep implementation bodies');
+for (const submodule of ['create', 'observer', 'insert', 'remove', 'cleanup']) {
+    assert.match(
+        btreeMapApiSource,
+        new RegExp(`pub\\s+#import\\s+"\\.\\/api\\/${submodule}"\\s+as\\s+@merge`),
+        `BTreeMap api facade must re-export api/${submodule}`,
+    );
+}
 
-const btreeMapInsert = functionBlock(btreeMapApiFile, 'insert');
+const btreeMapInsert = functionBlock(btreeMapInsertFile, 'insert');
 assert.match(btreeMapInsert, /match\s+btreemap_grow<\.K,\.V>\s+hm:/, 'BTreeMap.insert must match grow result');
 assert.match(btreeMapInsert, /Result::Err\s+d:/, 'BTreeMap.insert must keep an Err arm');
 assert.match(btreeMapInsert, /err<BTreeMap<\.K,\.V>,\s*Diag>\s+d/, 'BTreeMap.insert must return grow Err');
-assertNoUnsafeUnwraps(btreeMapApiFile, ['insert', 'btreemap_insert_ready']);
+assertNoUnsafeUnwraps(btreeMapInsertFile, ['insert', 'btreemap_insert_ready']);
 
 const btreeSetApiFile = 'stdlib/alloc/collections/btreeset/api.nepl';
 const btreeSetTypesFile = 'stdlib/alloc/collections/btreeset/types.nepl';
@@ -97,7 +111,12 @@ const btreeMapSource = [
     btreeMapTypesSource,
     btreeMapStorageSource,
     sourceWithoutComments('stdlib/alloc/collections/btreemap/search.nepl'),
-    sourceWithoutComments(btreeMapApiFile),
+    btreeMapApiSource,
+    sourceWithoutComments(btreeMapCreateFile),
+    sourceWithoutComments(btreeMapObserverFile),
+    sourceWithoutComments(btreeMapInsertFile),
+    sourceWithoutComments(btreeMapRemoveFile),
+    sourceWithoutComments(btreeMapCleanupFile),
     sourceWithoutComments('stdlib/alloc/collections/btreemap/alias.nepl'),
 ].join('\n');
 assert.match(btreeMapSource, /struct BTreeMapStorage<\.K,\.V>:/, 'BTreeMap must keep typed storage wrapper');

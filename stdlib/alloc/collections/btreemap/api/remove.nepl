@@ -1,0 +1,74 @@
+//: # btreemap/api/remove
+//: `BTreeMap` の削除 API
+//:
+//: ### [目的/もくてき]
+//: - key 単位の削除と全要素 clear を、owner-consuming mutation として提供します。
+//: - sorted storage の left shift と slot clear は storage helper に委譲します。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/field" as field
+#import "core/traits/ord" as *
+#import "core/traits/copy" as *
+#import "../types" as *
+#import "../storage" as *
+#import "../search" as *
+
+//: ## remove
+//: key を[削除/さくじょ]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/btreemap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hm <BTreeMap<i32, i32>>:
+//:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
+//:         |> insert 7 70 |> uwok
+//:         |> remove 7
+//:     let ok <bool> eq len<i32, i32> &hm 0
+//:     free<i32, i32> hm
+//:     if ok 1 0
+//: ```
+fn remove <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K)*>BTreeMap<.K,.V>> (hm, key):
+    let len0 <i32> *field::get_ref &hm "len"
+    let cap0 <i32> *field::get_ref &hm "cap"
+    let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"
+    let idx <i32> btreemap_lower_bound_storage<.K,.V> &storage key 0 len0
+    if:
+        not btreemap_is_at_storage<.K,.V> &storage len0 idx key
+        then BTreeMap<.K,.V> len0 cap0 storage
+        else:
+            let last <i32> sub len0 1
+            btreemap_shift_left_after_remove<.K,.V> &storage idx len0
+            BTreeMap<.K,.V> last cap0 storage
+
+//: ## clear
+//: [全要素/ぜんようそ]を[削除/さくじょ]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/btreemap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hm <BTreeMap<i32, i32>>:
+//:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
+//:         |> insert 7 70 |> uwok
+//:         |> clear
+//:     let ok <bool> eq len<i32, i32> &hm 0
+//:     free<i32, i32> hm
+//:     if ok 1 0
+//: ```
+fn clear <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)*>BTreeMap<.K,.V>> (hm):
+    let len0 <i32> *field::get_ref &hm "len"
+    let cap0 <i32> *field::get_ref &hm "cap"
+    let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"
+    btreemap_clear_slots<.K,.V> &storage len0 0
+    BTreeMap<.K,.V> 0 cap0 storage
