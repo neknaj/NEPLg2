@@ -1,0 +1,27 @@
+//: # adjacency_matrix/layout
+//: vertex pair から bit / byte offset への変換
+//:
+//: ### [目的/もくてき]
+//: - edge validation と matrix bit layout 計算を 1 箇所に集約します。
+
+#indent 4
+
+#import "core/math" as *
+
+fn adjacency_matrix_bit_index <(i32,i32,i32)->i32> (nverts, from, to):
+    add mul from nverts to
+
+fn adjacency_matrix_byte_index <(i32)->i32> (bit_idx):
+    div_s bit_idx 8
+
+fn adjacency_matrix_mask <(i32)->i32> (bit_idx):
+    shl 1 rem_s bit_idx 8
+
+fn adjacency_matrix_valid_vertex <(i32,i32)->bool> (idx, nverts):
+    and le 0 idx lt idx nverts
+
+fn adjacency_matrix_valid_edge <(i32,i32,i32)->bool> (nverts, from, to):
+    and adjacency_matrix_valid_vertex from nverts adjacency_matrix_valid_vertex to nverts
+
+fn adjacency_matrix_byte_len <(i32)->i32> (nverts):
+    div_s add mul nverts nverts 7 8

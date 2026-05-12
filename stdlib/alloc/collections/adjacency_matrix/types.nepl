@@ -1,0 +1,46 @@
+//: # adjacency_matrix/types
+//: `AdjacencyMatrix` の型定義と update error 型
+//:
+//: ### [目的/もくてき]
+//: - directed graph の fixed-length edge matrix owner と、更新失敗時に owner を返す error 型を定義します。
+
+#indent 4
+
+#import "core/field" as field
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+
+//: ## AdjacencyMatrix
+//: [隣接行列/りんせつぎょうれつ] byte [配列/はいれつ]を[所有/しょゆう]する graph container
+//:
+//: ### [目的/もくてき]
+//: - [頂点数/ちょうてんすう]と byte [長/ちょう]と data pointer を 1 [値/あたい]として[受/う]け[渡/わた]せるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - `free` しないかぎり[内部/ないぶ] byte [配列/はいれつ]の[所有権/しょゆうけん]を[保持/ほじ]します。
+struct AdjacencyMatrix:
+    nverts <i32>
+    nbytes <i32>
+    bits <Vec<u8>>
+
+//: ## AdjacencyMatrixUpdateError
+//: `insert` / `remove` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
+//:
+//: ### [目的/もくてき]
+//: - `insert` / `remove` は[更新/こうしん] API なので `AdjacencyMatrix` owner を[受/う]け[取/と]ります。
+//: - [範囲外/はんいがい] vertex では matrix storage を[変更/へんこう]せず、caller が cleanup できるように元の owner を `owner` に[戻/もど]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `Result::Err` を[受/う]け[取/と]った caller は `adjacency_matrix_update_error_owner` で owner を[回収/かいしゅう]し、[不要/ふよう]なら `free` します。
+//: - `diag` は `Diag` の Copy [値/あたい]で、`adjacency_matrix_update_error_diag` から owner を[動/うご]かさず[確認/かくにん]できます。
+struct AdjacencyMatrixUpdateError:
+    owner <AdjacencyMatrix>
+    diag <Diag>
+
+//: adjacency_matrix_update_error_diag: update [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
+fn adjacency_matrix_update_error_diag <(&AdjacencyMatrixUpdateError)->Diag> (e):
+    *field::get_ref e "diag"
+
+//: adjacency_matrix_update_error_owner: update [失敗/しっぱい]で[戻/もど]された owner を[取/と]り[出/だ]す
+fn adjacency_matrix_update_error_owner <(AdjacencyMatrixUpdateError)->AdjacencyMatrix> (e):
+    field::get e "owner"

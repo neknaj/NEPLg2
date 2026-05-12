@@ -35430,3 +35430,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 adjacency_matrix facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/adjacency_matrix.nepl` に同居していた型定義、owner 返却つき update error、edge bit layout 計算、typed byte storage、byte read-modify-write、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/adjacency_matrix.nepl` は public facade にし、`adjacency_matrix/types.nepl`、`adjacency_matrix/api.nepl` を `@merge` re-export するだけの構成にした。
+- `adjacency_matrix/types.nepl` は `AdjacencyMatrix` / `AdjacencyMatrixUpdateError` と、診断参照 accessor / owner 回収 accessor を所有する。
+- `adjacency_matrix/layout.nepl` は edge bit index、byte index、bit mask、valid vertex / edge、byte length rounding を所有する。
+- `adjacency_matrix/storage.nepl` は `Vec<u8>` の byte read / replace、全 byte fill、allocation を所有する。
+- `adjacency_matrix/mutation.nepl` は `insert` / `remove` に共通する byte read-modify-write を `adjacency_matrix_write_masked` に集約した。
+- `adjacency_matrix/api.nepl` は `new` / `len` / `contains` / `insert` / `remove` / `clear` / `free` を所有し、borrowed observer と owner-preserving `AdjacencyMatrixUpdateError` の契約を維持する。
+- `contains` の範囲外 error 分岐に残っていた冗長な nested if は、診断種別が同じで意味を持たなかったため単一の `diag_err` に整理した。
+- `nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_adjacency_matrix_borrowed_observers.js`、`nodesrc/test_stdlib_adjacency_matrix_update_error_owner.js` を更新し、root facade に実装本体が戻らないこと、typed `Vec<u8>` storage、layout / mutation の責務境界、borrowed observer、owner-carrying error、raw memory 非使用を固定した。
+- line count は `adjacency_matrix.nepl` 13、`adjacency_matrix/types.nepl` 40、`adjacency_matrix/layout.nepl` 19、`adjacency_matrix/storage.nepl` 36、`adjacency_matrix/mutation.nepl` 18、`adjacency_matrix/api.nepl` 226。
+- [検証]:
+  - `node nodesrc/test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_adjacency_matrix_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_adjacency_matrix_update_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix.nepl -i stdlib/alloc/collections/adjacency_matrix/types.nepl -i stdlib/alloc/collections/adjacency_matrix/layout.nepl -i stdlib/alloc/collections/adjacency_matrix/storage.nepl -i stdlib/alloc/collections/adjacency_matrix/mutation.nepl -i stdlib/alloc/collections/adjacency_matrix/api.nepl -i stdlib/tests/adjacency_matrix.n.md -i tests/stdlib/adjacency_matrix_collections.n.md --no-tree -o tmp/adjacency-matrix-split-focused-after-build.json -j 4 --dist web/dist`: total=13, passed=13
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/adjacency-matrix-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

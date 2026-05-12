@@ -1,0 +1,21 @@
+//: # adjacency_matrix/mutation
+//: `AdjacencyMatrix` の edge bit 更新
+//:
+//: ### [目的/もくてき]
+//: - `insert` / `remove` に共通する byte read-modify-write を集約します。
+//: - storage 欠損は `false` として API 層へ返し、API 層が owner-preserving error へ変換します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "./storage" as *
+
+fn adjacency_matrix_write_masked <(&Vec<u8>,i32,i32,bool)*>bool> (bits, byte_idx, mask, set_bit):
+    match adjacency_matrix_byte_at bits byte_idx:
+        Option::Some cur:
+            let next <i32> if set_bit or cur mask and cur xor mask 255
+            adjacency_matrix_store_byte bits byte_idx next
+            true
+        Option::None:
+            false

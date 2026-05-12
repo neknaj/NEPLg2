@@ -6,12 +6,19 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/alloc/collections/adjacency_matrix.nepl';
-const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const typesPath = 'stdlib/alloc/collections/adjacency_matrix/types.nepl';
+const layoutPath = 'stdlib/alloc/collections/adjacency_matrix/layout.nepl';
+const storagePath = 'stdlib/alloc/collections/adjacency_matrix/storage.nepl';
+const mutationPath = 'stdlib/alloc/collections/adjacency_matrix/mutation.nepl';
+const apiPath = 'stdlib/alloc/collections/adjacency_matrix/api.nepl';
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+const rootCode = sourceWithoutComments(relPath);
+const typesCode = sourceWithoutComments(typesPath);
+const layoutCode = sourceWithoutComments(layoutPath);
+const storageCode = sourceWithoutComments(storagePath);
+const mutationCode = sourceWithoutComments(mutationPath);
+const apiCode = sourceWithoutComments(apiPath);
+const code = [rootCode, typesCode, layoutCode, storageCode, mutationCode, apiCode].join('\n');
 
 const forbidden = [
     /\bunwrap\b/,
@@ -23,15 +30,40 @@ const forbidden = [
 ];
 
 for (const pattern of forbidden) {
-    assert.doesNotMatch(code, pattern, `${relPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(code, pattern, 'AdjacencyMatrix split modules must not use unsafe unwrap helpers in implementation code');
 }
 
-assert.match(code, /#import\s+"alloc\/collections\/vec"\s+as\s+vec/, 'AdjacencyMatrix must use typed Vec storage');
-assert.match(code, /struct\s+AdjacencyMatrix:\s+[\s\S]*\bnverts\s+<i32>[\s\S]*\bnbytes\s+<i32>[\s\S]*\bbits\s+<Vec<u8>>/, 'AdjacencyMatrix must store matrix bytes as a typed Vec<u8> owner');
-assert.match(code, /fn\s+adjacency_matrix_alloc_bits\s+<\(i32,i32\)\*>Result<Vec<u8>,\s*Diag>>[\s\S]*vec::filled<u8>\s+nbytes\s+byte/, 'AdjacencyMatrix must allocate initialized byte storage through Vec.filled');
-assert.match(code, /fn\s+adjacency_matrix_byte_at\s+<\(&Vec<u8>,i32\)->Option<i32>>[\s\S]*vec::get<u8>[\s\S]*Option::None:[\s\S]*none<i32>/, 'AdjacencyMatrix must read matrix bytes through Vec.get and expose missing bytes as Option');
-assert.match(code, /fn\s+adjacency_matrix_store_byte\s+<\(&Vec<u8>,i32,i32\)\*>\(\)>[\s\S]*vec::replace<u8>/, 'AdjacencyMatrix must update matrix bytes through Vec.replace');
-assert.match(code, /fn\s+free\s+<\(AdjacencyMatrix\)->\(\)>[\s\S]*vec::free<u8>\s+bits/, 'AdjacencyMatrix.free must close typed Vec<u8> storage');
+assert.doesNotMatch(rootCode, /\bfn\s+/, 'AdjacencyMatrix root facade must not keep implementation bodies');
+for (const submodule of ['types', 'api']) {
+    assert.match(
+        rootCode,
+        new RegExp(`pub\\s+#import\\s+"\\.\\/adjacency_matrix\\/${submodule}"\\s+as\\s+@merge`),
+        `AdjacencyMatrix root facade must re-export adjacency_matrix/${submodule}`,
+    );
+}
+
+assert.match(typesCode, /#import\s+"alloc\/collections\/vec"\s+as\s+vec/, 'AdjacencyMatrix types must use typed Vec storage');
+assert.match(typesCode, /struct\s+AdjacencyMatrix:\s+[\s\S]*\bnverts\s+<i32>[\s\S]*\bnbytes\s+<i32>[\s\S]*\bbits\s+<Vec<u8>>/, 'AdjacencyMatrix must store matrix bytes as a typed Vec<u8> owner');
+assert.match(typesCode, /struct\s+AdjacencyMatrixUpdateError:\s+[\s\S]*owner\s+<AdjacencyMatrix>[\s\S]*diag\s+<Diag>/, 'AdjacencyMatrix update errors must carry the original owner and diagnostic');
+assert.match(typesCode, /fn\s+adjacency_matrix_update_error_diag\s+<\(&AdjacencyMatrixUpdateError\)->Diag>/, 'AdjacencyMatrix update diagnostics must be readable without moving the owner');
+assert.match(typesCode, /fn\s+adjacency_matrix_update_error_owner\s+<\(AdjacencyMatrixUpdateError\)->AdjacencyMatrix>/, 'AdjacencyMatrix update error owner recovery helper is required');
+assert.match(layoutCode, /fn\s+adjacency_matrix_bit_index\s+<\(i32,i32,i32\)->i32>[\s\S]*add\s+mul\s+from\s+nverts\s+to/, 'AdjacencyMatrix layout module must own edge bit index calculation');
+assert.match(layoutCode, /fn\s+adjacency_matrix_byte_index\s+<\(i32\)->i32>[\s\S]*div_s\s+bit_idx\s+8/, 'AdjacencyMatrix layout module must own byte index calculation');
+assert.match(layoutCode, /fn\s+adjacency_matrix_mask\s+<\(i32\)->i32>[\s\S]*shl\s+1\s+rem_s\s+bit_idx\s+8/, 'AdjacencyMatrix layout module must own bit mask calculation');
+assert.match(layoutCode, /fn\s+adjacency_matrix_byte_len\s+<\(i32\)->i32>[\s\S]*div_s\s+add\s+mul\s+nverts\s+nverts\s+7\s+8/, 'AdjacencyMatrix layout module must own byte length rounding');
+assert.match(storageCode, /fn\s+adjacency_matrix_alloc_bits\s+<\(i32,i32\)\*>Result<Vec<u8>,\s*Diag>>[\s\S]*vec::filled<u8>\s+nbytes\s+byte/, 'AdjacencyMatrix must allocate initialized byte storage through Vec.filled');
+assert.match(storageCode, /fn\s+adjacency_matrix_byte_at\s+<\(&Vec<u8>,i32\)->Option<i32>>[\s\S]*vec::get<u8>[\s\S]*Option::None:[\s\S]*none<i32>/, 'AdjacencyMatrix must read matrix bytes through Vec.get and expose missing bytes as Option');
+assert.match(storageCode, /fn\s+adjacency_matrix_store_byte\s+<\(&Vec<u8>,i32,i32\)\*>\(\)>[\s\S]*vec::replace<u8>/, 'AdjacencyMatrix must update matrix bytes through Vec.replace');
+assert.match(mutationCode, /fn\s+adjacency_matrix_write_masked\s+<\(&Vec<u8>,i32,i32,bool\)\*>bool>[\s\S]*adjacency_matrix_byte_at[\s\S]*adjacency_matrix_store_byte/, 'AdjacencyMatrix mutation module must centralize byte read-modify-write');
+assert.match(apiCode, /fn\s+new\s+<\(i32\)\*>Result<AdjacencyMatrix,\s*Diag>>[\s\S]*adjacency_matrix_byte_len\s+nverts[\s\S]*adjacency_matrix_alloc_bits\s+nbytes\s+0/, 'AdjacencyMatrix.new must use layout and storage helpers');
+assert.match(apiCode, /fn\s+len\s+<\(&AdjacencyMatrix\)->i32>\s+\(g\):/, 'AdjacencyMatrix.len must borrow the owner');
+assert.match(apiCode, /fn\s+contains\s+<\(&AdjacencyMatrix,i32,i32\)\*>Result<bool,\s*Diag>>\s+\(g,\s*from,\s*to\):/, 'AdjacencyMatrix.contains must borrow the owner');
+assert.match(apiCode, /fn\s+insert\s+<\(AdjacencyMatrix,i32,i32\)\*>Result<AdjacencyMatrix,\s*AdjacencyMatrixUpdateError>>\s+\(g,\s*from,\s*to\):[\s\S]*adjacency_matrix_write_masked\s+bits\s+byte_idx\s+mask\s+true/, 'AdjacencyMatrix.insert must use the mutation helper');
+assert.match(apiCode, /fn\s+remove\s+<\(AdjacencyMatrix,i32,i32\)\*>Result<AdjacencyMatrix,\s*AdjacencyMatrixUpdateError>>\s+\(g,\s*from,\s*to\):[\s\S]*adjacency_matrix_write_masked\s+bits\s+byte_idx\s+mask\s+false/, 'AdjacencyMatrix.remove must use the mutation helper');
+assert.doesNotMatch(apiCode, /fn\s+(?:insert|remove)\s+<\(AdjacencyMatrix,i32,i32\)\*>Result<AdjacencyMatrix,\s*Diag>>/, 'AdjacencyMatrix mutating APIs must not lose the owner through Err(Diag)');
+assert.match(apiCode, /let\s+e\s+<AdjacencyMatrixUpdateError>\s+AdjacencyMatrixUpdateError\s+g\s+d[\s\S]*err<AdjacencyMatrix,\s*AdjacencyMatrixUpdateError>\s+e/, 'AdjacencyMatrix mutating Err paths must return the input owner in AdjacencyMatrixUpdateError');
+assert.match(apiCode, /fn\s+free\s+<\(AdjacencyMatrix\)->\(\)>[\s\S]*field::get\s+g\s+"bits"[\s\S]*vec::free<u8>\s+bits/, 'AdjacencyMatrix.free must consume and close typed Vec<u8> storage');
+
 assert.doesNotMatch(code, /\bMemPtr\b/, 'AdjacencyMatrix must not expose raw MemPtr storage');
 assert.doesNotMatch(code, /\bmem_ptr_wrap\b/, 'AdjacencyMatrix must not use raw pointer arithmetic');
 assert.doesNotMatch(code, /\bmem_ptr_addr\b/, 'AdjacencyMatrix must not recover raw addresses for matrix storage');
@@ -42,3 +74,10 @@ assert.doesNotMatch(code, /\bdealloc_raw\b/, 'AdjacencyMatrix must not deallocat
 assert.doesNotMatch(code, /fn\s+free\s+<\(AdjacencyMatrix\)->\(\)>[\s\S]*dealloc_ptr/, 'AdjacencyMatrix.free must not unwrap checked deallocation for owned storage');
 
 console.log('adjacency matrix unsafe unwrap regression passed');
+
+function sourceWithoutComments(file) {
+    return fs.readFileSync(path.join(repoRoot, file), 'utf8')
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*\/\//.test(line))
+        .join('\n');
+}
