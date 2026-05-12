@@ -7,8 +7,8 @@ resolved: true
 priority: P1
 type: bug
 created: 2026-04-30
-updated: 2026-04-30
-target: "nepl-core/src/resource/condition_fact.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_summary_variant_paths.rs, nepl-core/src/resource/owner_variant.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md"
+updated: 2026-05-12
+target: "nepl-core/src/resource/condition_fact.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_return_apply_source.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_summary_variant_paths.rs, nepl-core/src/resource/owner_variant.rs, nepl-core/src/resource/owner_variant_value_condition.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md"
 ---
 
 # ISS-20260430T083411167Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-D35A0DAD: Resource IR lacks Result::Ok-gated owner consumption for checked raw dealloc
@@ -62,3 +62,21 @@ Add Resource IR regression for alloc -> checked dealloc where Ok consumes the ra
 - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/memory-safety-owner-variant-value-conditions.json -j 1 --dist web/dist`: 12 total / 9 passed / 3 failed
 
 `memory_safety.n.md::doctest#4` は本修正で pass した。残る doctest#6/#7/#8 は `RegionToken` / `MemPtr` の owner model 分離の残件として、`ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` に追記した。
+
+## 2026-05-12 回帰修正
+
+- 現行 main で `resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption` と `tests/stdlib/memory_safety.n.md` が再び `resource.owner.maybe_leak` を出していた。
+- 調査の結果、summary そのものは `alloc` の Ok payload に `Positive` / `NonNegative` を持ち、`dealloc` の Err/Ok variant condition も保持していた。
+- 回帰の根本原因は、caller へ summary source を適用するときに、suffix が空の `OwnerProjectionSource` でも summary 側の抽象 `TypeId` へ置き換えていたことだった。
+- `Place` と raw i32 condition の照合は型込みで行われるため、monomorphized caller の `p` / `tmp` に保持されている `Positive` fact を検索できず、`dealloc` の Err arm を到達不能と証明できなかった。
+- `owner_projection_source_place_for_arg` / `summary_projection_place` を導入し、空 suffix では caller 側 `Place.ty` を保持し、非空 suffix では projection summary type を使う規則へ統一した。
+- Result variant の owner consumption / owner return / payload condition / value condition truth / pending result resolution を同じ規則へ寄せ、Result::Ok-gated owner consumption が monomorphized type ID 差で欠落しないようにした。
+
+## 2026-05-12 回帰検証
+
+- `cargo fmt --check -p nepl-core`: passed
+- `cargo check -p nepl-core`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_resolves_unwrap_ok_raw_dealloc_consumption -- --nocapture`: passed
+- `trunk build`: passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-result-ok-dealloc-owner.json -j 1 --dist web/dist`: total=23, passed=23

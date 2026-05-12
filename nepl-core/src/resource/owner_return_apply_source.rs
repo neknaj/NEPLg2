@@ -1,7 +1,9 @@
 use crate::span::Span;
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::Place;
+use crate::types::TypeId;
+
+use super::model::{Place, PlaceProjection};
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
@@ -88,5 +90,21 @@ pub(super) fn owner_projection_source_place(
     source: &OwnerProjectionSource,
 ) -> Option<Place> {
     let arg = args.get(source.parameter_index)?;
-    Some(place_with_suffix(arg, &source.suffix, source.ty))
+    Some(owner_projection_source_place_for_arg(arg, source))
+}
+
+pub(super) fn owner_projection_source_place_for_arg(
+    arg: &Place,
+    source: &OwnerProjectionSource,
+) -> Place {
+    summary_projection_place(arg, &source.suffix, source.ty)
+}
+
+pub(super) fn summary_projection_place(
+    base: &Place,
+    suffix: &[PlaceProjection],
+    ty: TypeId,
+) -> Place {
+    let ty = if suffix.is_empty() { base.ty } else { ty };
+    place_with_suffix(base, suffix, ty)
 }

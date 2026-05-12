@@ -5,10 +5,10 @@ use alloc::vec::Vec;
 
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{I32ValueCondition, Place};
+use super::owner_return_apply_source::owner_projection_source_place_for_arg;
 use super::owner_summary_record::OwnerParameterConditionSource;
 use super::owner_summary_variant_conditions::extend_owner_projection_source;
 use super::place_utils::place_suffix_after_prefix;
-use super::place_utils::place_with_suffix;
 use super::summary::{OwnerValueCondition, OwnerVariantCondition};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -136,7 +136,7 @@ fn pending_value_condition(
     match condition {
         OwnerValueCondition::Param { source, condition } => {
             let arg = args.get(source.parameter_index)?;
-            let place = place_with_suffix(arg, &source.suffix, source.ty);
+            let place = owner_projection_source_place_for_arg(arg, source);
             Some(PendingValueCondition::Fact {
                 place: raw_aliases.canonicalize(&place),
                 condition: *condition,

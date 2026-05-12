@@ -36092,3 +36092,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 Result::Ok raw dealloc owner 回帰修正
+
+- `ISS-20260430T083411167Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-D35A0DAD` の再発を修正した。
+- Resource IR summary は `alloc` Ok payload の正値条件と `dealloc` Err/Ok 条件を保持していたが、caller へ `OwnerProjectionSource` を適用するときに空 suffix でも summary 側 `TypeId` へ置換していた。
+- `Place` と raw i32 condition の照合は型込みで行われるため、monomorphized caller 側の `p` / temporary にある `Positive` fact を見失い、`dealloc` Err arm を到達不能と証明できず、Ok arm の owner consumption が leak 診断に負けていた。
+- `owner_projection_source_place_for_arg` / `summary_projection_place` を導入し、空 suffix は caller 側 type を保持、非空 suffix は projection summary type を使う規則に統一した。
+- Result variant の owner consumption / return / value condition / pending resolution を同じ helper へ寄せ、Resource IR の summary 適用が monomorphized type ID 差で不安定にならないようにした。
+- [検証]:
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_resolves_unwrap_ok_raw_dealloc_consumption -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-result-ok-dealloc-owner.json -j 1 --dist web/dist`: total=23, passed=23
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

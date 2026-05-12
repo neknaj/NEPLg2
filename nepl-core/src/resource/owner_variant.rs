@@ -11,6 +11,9 @@ use super::model::{OwnerState, Place, ResourceMatchPattern, StorageId};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
+use super::owner_return_apply_source::{
+    owner_projection_source_place_for_arg, summary_projection_place,
+};
 use super::owner_state::OwnerTable;
 use super::owner_summary_record::{
     owner_source_for_storage, OwnerParameterConditionSource, OwnerParameterStorageSource,
@@ -150,12 +153,13 @@ impl PendingVariantOwnerEffects {
             let Some(arg) = args.get(entry.source.parameter_index) else {
                 continue;
             };
+            let source_place = owner_projection_source_place_for_arg(arg, &entry.source);
             self.push_unique_consumption(PendingVariantOwnerConsumption {
                 result: output.clone(),
                 variant: normalize_variant_name(&entry.variant),
                 arg: raw_aliases.canonicalize(arg),
                 suffix: entry.source.suffix.clone(),
-                ty: entry.source.ty,
+                ty: source_place.ty,
             });
         }
         for entry in &summary.variant_projection_returns {
@@ -167,7 +171,7 @@ impl PendingVariantOwnerEffects {
                     PendingVariantOwnerReturnSource::Parameter {
                         arg: raw_aliases.canonicalize(arg),
                         source_suffix: source.suffix.clone(),
-                        source_ty: source.ty,
+                        source_ty: summary_projection_place(arg, &source.suffix, source.ty).ty,
                     }
                 }
                 OwnerProjectionReturnOwner::Fresh => PendingVariantOwnerReturnSource::Fresh,
@@ -177,7 +181,7 @@ impl PendingVariantOwnerEffects {
                 result: output.clone(),
                 variant: normalize_variant_name(&entry.variant),
                 target_suffix: entry.suffix.clone(),
-                target_ty: entry.ty,
+                target_ty: summary_projection_place(output, &entry.suffix, entry.ty).ty,
                 source,
             });
         }
@@ -259,8 +263,8 @@ impl PendingVariantOwnerEffects {
                 continue;
             }
             let arg = raw_aliases.canonicalize(&entry.arg);
-            let place = place_with_suffix(&arg, &entry.suffix, entry.ty);
-            if source_list_contains(&handled_sources, &place, &[], entry.ty) {
+            let place = summary_projection_place(&arg, &entry.suffix, entry.ty);
+            if source_list_contains(&handled_sources, &place, &[], place.ty) {
                 continue;
             }
             engine.move_owner_out(
@@ -293,7 +297,7 @@ impl PendingVariantOwnerEffects {
             if entry.result != *scrutinee || entry.variant != variant {
                 continue;
             }
-            let source = place_with_suffix(scrutinee, &entry.suffix, entry.ty);
+            let source = summary_projection_place(scrutinee, &entry.suffix, entry.ty);
             raw_aliases.add_i32_condition(&source, entry.condition);
             if let Some(bind_local) = bind_local {
                 let bind_suffix = payload_bind_suffix(&entry.suffix, &variant);
@@ -387,7 +391,8 @@ impl PendingVariantOwnerEffects {
             .filter(|entry| entry.result == *result)
         {
             let source = pending_consumption_source(entry, raw_aliases);
-            if source_list_contains(&handled_sources, &source, &[], entry.ty) {
+            let ty = source.ty;
+            if source_list_contains(&handled_sources, &source, &[], ty) {
                 continue;
             }
             engine.move_owner_out(
@@ -399,7 +404,7 @@ impl PendingVariantOwnerEffects {
                 span,
             );
             raw_views.clear(&source);
-            push_unique_source(&mut handled_sources, source, Vec::new(), entry.ty);
+            push_unique_source(&mut handled_sources, source, Vec::new(), ty);
         }
         self.resolve_result(result);
     }
@@ -563,7 +568,8 @@ impl PendingVariantOwnerEffects {
             .filter(|entry| entry.result == *result && entry.variant == variant)
         {
             let source = pending_consumption_source(entry, raw_aliases);
-            if source_list_contains(&handled_sources, &source, &[], entry.ty) {
+            let ty = source.ty;
+            if source_list_contains(&handled_sources, &source, &[], ty) {
                 continue;
             }
             engine.move_owner_out(
@@ -575,7 +581,7 @@ impl PendingVariantOwnerEffects {
                 span,
             );
             raw_views.clear(&source);
-            push_unique_source(&mut handled_sources, source, Vec::new(), entry.ty);
+            push_unique_source(&mut handled_sources, source, Vec::new(), ty);
         }
         self.resolve_result(result);
     }
@@ -682,11 +688,12 @@ impl PendingVariantOwnerEffects {
             .iter()
             .filter(|entry| entry.result == *result)
         {
+            let ty = summary_projection_place(&entry.arg, &entry.suffix, entry.ty).ty;
             push_unique_source(
                 &mut resolved_sources,
                 entry.arg.clone(),
                 entry.suffix.clone(),
-                entry.ty,
+                ty,
             );
         }
         for entry in self.returns.iter().filter(|entry| entry.result == *result) {
@@ -696,17 +703,19 @@ impl PendingVariantOwnerEffects {
                 source_ty,
             } = &entry.source
             {
+                let ty = summary_projection_place(arg, source_suffix, *source_ty).ty;
                 push_unique_source(
                     &mut resolved_sources,
                     arg.clone(),
                     source_suffix.clone(),
-                    *source_ty,
+                    ty,
                 );
             }
         }
         self.consumptions.retain(|entry| {
+            let ty = summary_projection_place(&entry.arg, &entry.suffix, entry.ty).ty;
             entry.result != *result
-                && !source_list_contains(&resolved_sources, &entry.arg, &entry.suffix, entry.ty)
+                && !source_list_contains(&resolved_sources, &entry.arg, &entry.suffix, ty)
         });
         self.returns.retain(|entry| {
             if entry.result == *result {
@@ -720,7 +729,8 @@ impl PendingVariantOwnerEffects {
             else {
                 return true;
             };
-            !source_list_contains(&resolved_sources, arg, source_suffix, *source_ty)
+            let ty = summary_projection_place(arg, source_suffix, *source_ty).ty;
+            !source_list_contains(&resolved_sources, arg, source_suffix, ty)
         });
         self.unreachable_variants
             .retain(|entry| entry.result != *result);
@@ -888,7 +898,7 @@ fn pending_consumption_source(
     raw_aliases: &RawCellAddressAliases,
 ) -> Place {
     let arg = raw_aliases.canonicalize(&entry.arg);
-    place_with_suffix(&arg, &entry.suffix, entry.ty)
+    summary_projection_place(&arg, &entry.suffix, entry.ty)
 }
 
 fn pending_return_source(
@@ -904,7 +914,7 @@ fn pending_return_source(
         return None;
     };
     let arg = raw_aliases.canonicalize(arg);
-    Some(place_with_suffix(&arg, source_suffix, *source_ty))
+    Some(summary_projection_place(&arg, source_suffix, *source_ty))
 }
 
 fn apply_pending_variant_owner_return(
@@ -917,7 +927,7 @@ fn apply_pending_variant_owner_return(
     result: &Place,
     span: Span,
 ) -> Option<Place> {
-    let target = place_with_suffix(result, &entry.target_suffix, entry.target_ty);
+    let target = summary_projection_place(result, &entry.target_suffix, entry.target_ty);
     let source = match &entry.source {
         PendingVariantOwnerReturnSource::Parameter { .. } => {
             let source = pending_return_source(entry, raw_aliases)?;
@@ -1098,7 +1108,7 @@ fn owner_value_condition_truth(
     match condition {
         OwnerValueCondition::Param { source, condition } => {
             let arg = args.get(source.parameter_index)?;
-            let place = place_with_suffix(arg, &source.suffix, source.ty);
+            let place = owner_projection_source_place_for_arg(arg, source);
             let place = raw_aliases.canonicalize(&place);
             raw_aliases.i32_condition_truth(&place, *condition)
         }

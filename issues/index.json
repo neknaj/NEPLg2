@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T09:10:02.531Z",
+  "generated_at": "2026-05-12T09:47:41.214Z",
   "counts": {
     "total": 633,
     "open": 10,
@@ -3208,8 +3208,8 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-30",
-      "updated": "2026-04-30",
-      "target": "nepl-core/src/resource/condition_fact.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_summary_variant_paths.rs, nepl-core/src/resource/owner_variant.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/condition_fact.rs, nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_return_apply_source.rs, nepl-core/src/resource/owner_summary.rs, nepl-core/src/resource/owner_summary_variant_paths.rs, nepl-core/src/resource/owner_variant.rs, nepl-core/src/resource/owner_variant_value_condition.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/memory_safety.n.md",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T083411167Z-RESOURCE-IR-LACKS-RESULT-OK-GATED-OW-D35A0DAD.md"
