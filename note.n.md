@@ -35408,3 +35408,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 bitset facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/bitset.nepl` に同居していた型定義、owner 返却つき update error、bit layout 計算、typed byte storage、byte read-modify-write、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/bitset.nepl` は public facade にし、`bitset/types.nepl`、`bitset/api.nepl` を `@merge` re-export するだけの構成にした。
+- `bitset/types.nepl` は `BitSet` / `BitSetUpdateError` と、診断参照 accessor / owner 回収 accessor を所有する。
+- `bitset/layout.nepl` は byte index、bit mask、valid index、byte length rounding を所有する。
+- `bitset/storage.nepl` は `Vec<u8>` の byte read / replace、全 byte fill、allocation を所有する。
+- `bitset/mutation.nepl` は `insert` / `remove` に共通する byte read-modify-write を `bitset_write_masked` に集約した。
+- `bitset/api.nepl` は `new` / `len` / `contains` / `insert` / `remove` / `clear` / `fill` / `free` を所有し、borrowed observer と owner-preserving `BitSetUpdateError` の契約を維持する。
+- `nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_bitset_borrowed_observers.js`、`nodesrc/test_stdlib_bitset_update_error_owner.js` を更新し、root facade に実装本体が戻らないこと、typed `Vec<u8>` storage、layout / mutation の責務境界、borrowed observer、owner-carrying error、raw memory 非使用を固定した。
+- line count は `bitset.nepl` 13、`bitset/types.nepl` 40、`bitset/layout.nepl` 15、`bitset/storage.nepl` 36、`bitset/mutation.nepl` 18、`bitset/api.nepl` 245。
+- [検証]:
+  - `node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_bitset_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_bitset_update_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl -i stdlib/alloc/collections/bitset/types.nepl -i stdlib/alloc/collections/bitset/layout.nepl -i stdlib/alloc/collections/bitset/storage.nepl -i stdlib/alloc/collections/bitset/mutation.nepl -i stdlib/alloc/collections/bitset/api.nepl -i stdlib/tests/bitset.n.md -i tests/stdlib/bitset_collections.n.md --no-tree -o tmp/bitset-split-focused-after-build.json -j 4 --dist web/dist`: total=13, passed=13
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/bitset-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

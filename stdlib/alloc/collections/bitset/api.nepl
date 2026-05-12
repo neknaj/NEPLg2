@@ -1,0 +1,257 @@
+//: # bitset/api
+//: `BitSet` の public 操作
+//:
+//: ### [目的/もくてき]
+//: - `new` / `len` / `contains` / `insert` / `remove` / `clear` / `fill` / `free` を提供します。
+//: - update API は owner を消費して返し、query API は owner を借用して読み取ります。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "./types" as *
+#import "./layout" as *
+#import "./storage" as *
+#import "./mutation" as *
+
+fn bitset_invalid_len_diag <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid bitset length"
+
+fn bitset_index_diag <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "bitset index out of bounds"
+
+//: ## new
+//: [空/から] bitset を[作/つく]る
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 64;
+//:     let ok <bool> eq len &bs 64;
+//:     free bs
+//:     if ok 1 0
+//: ```
+fn new <(i32)*>Result<BitSet, Diag>> (nbits):
+    if:
+        le nbits 0
+        then:
+            diag_err<BitSet> bitset_invalid_len_diag
+        else:
+            let nbytes <i32> bitset_byte_len nbits
+            match bitset_alloc_bits nbytes 0:
+                Result::Err d:
+                    err<BitSet, Diag> d
+                Result::Ok bits:
+                    ok<BitSet, Diag> BitSet nbits nbytes bits
+
+//: ## len
+//: [保持可能/ほじかのう]な bit [長/ちょう]を[返/かえ]す
+//:
+//: ### [仕様/しよう]
+//: - `BitSet` owner は[消費/しょうひ]しません。
+//: - caller は `len` [後/ご]も同じ `BitSet` を[使/つか]い、不要になったら `free` できます。
+fn len <(&BitSet)->i32> (bs):
+    *field::get_ref bs "nbits"
+
+//: ## contains
+//: bit が[立/た]っているかを[返/かえ]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let bs <BitSet>:
+//:         unwrap_ok<BitSet, Diag> new 32
+//:         |> insert 5 |> uwok
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs 5;
+//:     free bs
+//:     if ok 1 0
+//: ```
+fn contains <(&BitSet,i32)*>Result<bool, Diag>> (bs, idx):
+    let nbits <i32> *field::get_ref bs "nbits"
+    if:
+        bitset_valid_index idx nbits
+        then:
+            let bits <&Vec<u8>> field::get_ref bs "bits"
+            let byte_idx <i32> bitset_byte_index idx
+            let mask <i32> bitset_mask idx
+            match bitset_byte_at bits byte_idx:
+                Option::Some cur:
+                    ok<bool, Diag> ne and cur mask 0
+                Option::None:
+                    diag_err<bool> bitset_index_diag
+        else:
+            diag_err<bool> bitset_index_diag
+
+//: ## insert
+//: bit を 1 に[設定/せってい]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 16;
+//:     let bs1 <BitSet> unwrap_ok<BitSet, BitSetUpdateError> insert bs 3;
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs1 3;
+//:     free bs1
+//:     if ok 1 0
+//: ```
+fn insert <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
+    let nbits <i32> *field::get_ref &bs "nbits"
+    if:
+        bitset_valid_index idx nbits
+        then:
+            let result <Result<(), Diag>> block:
+                let bits <&Vec<u8>> field::get_ref &bs "bits"
+                let byte_idx <i32> bitset_byte_index idx
+                let mask <i32> bitset_mask idx
+                if:
+                    bitset_write_masked bits byte_idx mask true
+                    then:
+                        ok<(), Diag> ()
+                    else:
+                        diag_err<()> bitset_index_diag
+            match result:
+                Result::Ok _unit:
+                    ok<BitSet, BitSetUpdateError> bs
+                Result::Err d:
+                    let e <BitSetUpdateError> BitSetUpdateError bs d
+                    err<BitSet, BitSetUpdateError> e
+        else:
+            let d <Diag> bitset_index_diag
+            let e <BitSetUpdateError> BitSetUpdateError bs d
+            err<BitSet, BitSetUpdateError> e
+
+//: ## remove
+//: bit を 0 に[戻/もど]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let bs <BitSet>:
+//:         unwrap_ok<BitSet, Diag> new 16
+//:         |> insert 3 |> uwok
+//:         |> remove 3 |> uwok
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs 3;
+//:     free bs
+//:     if not ok 1 0
+//: ```
+fn remove <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
+    let nbits <i32> *field::get_ref &bs "nbits"
+    if:
+        bitset_valid_index idx nbits
+        then:
+            let result <Result<(), Diag>> block:
+                let bits <&Vec<u8>> field::get_ref &bs "bits"
+                let byte_idx <i32> bitset_byte_index idx
+                let mask <i32> bitset_mask idx
+                if:
+                    bitset_write_masked bits byte_idx mask false
+                    then:
+                        ok<(), Diag> ()
+                    else:
+                        diag_err<()> bitset_index_diag
+            match result:
+                Result::Ok _unit:
+                    ok<BitSet, BitSetUpdateError> bs
+                Result::Err d:
+                    let e <BitSetUpdateError> BitSetUpdateError bs d
+                    err<BitSet, BitSetUpdateError> e
+        else:
+            let d <Diag> bitset_index_diag
+            let e <BitSetUpdateError> BitSetUpdateError bs d
+            err<BitSet, BitSetUpdateError> e
+
+//: ## clear
+//: [全/すべ]ての bit を 0 に[戻/もど]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let bs <BitSet>:
+//:         unwrap_ok<BitSet, Diag> new 16
+//:         |> insert 2 |> uwok
+//:         |> clear
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs 2;
+//:     free bs
+//:     if not ok 1 0
+//: ```
+fn clear <(BitSet)*>BitSet> (bs):
+    let nbytes <i32> *field::get_ref &bs "nbytes"
+    let bits <&Vec<u8>> field::get_ref &bs "bits"
+    bitset_fill_bytes bits nbytes 0
+    bs
+
+//: ## fill
+//: [全/すべ]ての bit を 1 に[設定/せってい]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 10;
+//:     let bs1 <BitSet> fill bs;
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs1 9;
+//:     free bs1
+//:     if ok 1 0
+//: ```
+fn fill <(BitSet)*>BitSet> (bs):
+    let nbytes <i32> *field::get_ref &bs "nbytes"
+    let bits <&Vec<u8>> field::get_ref &bs "bits"
+    bitset_fill_bytes bits nbytes 255
+    bs
+
+//: ## free
+//: [内部/ないぶ] byte [配列/はいれつ]を[解放/かいほう]する
+//:
+//: ### [仕様/しよう]
+//: - `BitSet` は `new` が[確保/かくほ]した `Vec<u8>` bit storage を[所有/しょゆう]します。
+//: - `free` はその owner invariant に[基/もと]づき、`vec::free` で[解放/かいほう]します。
+//: - caller は `free` [後/ご]の `BitSet` を[再利用/さいりよう]してはいけません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 16;
+//:     free bs
+//:     0
+//: ```
+fn free <(BitSet)->()> (bs):
+    let bits <Vec<u8>> field::get bs "bits"
+    vec::free<u8> bits

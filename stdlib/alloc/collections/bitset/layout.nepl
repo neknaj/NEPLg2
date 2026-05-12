@@ -1,0 +1,21 @@
+//: # bitset/layout
+//: bit index から byte offset / mask への変換
+//:
+//: ### [目的/もくてき]
+//: - index validation と bit layout 計算を 1 箇所に集約します。
+
+#indent 4
+
+#import "core/math" as *
+
+fn bitset_byte_index <(i32)->i32> (bit_idx):
+    div_s bit_idx 8
+
+fn bitset_mask <(i32)->i32> (bit_idx):
+    shl 1 rem_s bit_idx 8
+
+fn bitset_valid_index <(i32,i32)->bool> (idx, nbits):
+    and le 0 idx lt idx nbits
+
+fn bitset_byte_len <(i32)->i32> (nbits):
+    div_s add nbits 7 8
