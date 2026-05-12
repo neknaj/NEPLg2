@@ -1,0 +1,42 @@
+//: # disjoint_set/query
+//: `DisjointSet` の root / size 探索 helper
+//:
+//: ### [目的/もくてき]
+//: - path compression を行わない pure query として parent traversal を分離します。
+//: - storage corruption や範囲外 cell を `Option::None` として API 層へ返します。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "alloc/collections/vec" as vec
+#import "./storage" as *
+
+fn dsu_root_storage <(&Vec<i32>,i32)->Option<i32>> (parent, idx):
+    let mut cur <i32> idx
+    let mut done <bool> false
+    let mut valid <bool> true
+    let mut steps <i32> 0
+    let limit <i32> vec::len<i32> parent
+    while and and not done valid lt steps limit:
+        do:
+            match dsu_load_owned parent cur:
+                Option::Some next:
+                    if:
+                        eq next cur
+                        then:
+                            set done true
+                        else:
+                            set cur next
+                    set steps add steps 1
+                Option::None:
+                    set valid false
+    if:
+        and valid done
+        then:
+            some<i32> cur
+        else:
+            none<i32>
+
+fn dsu_size_storage <(&Vec<i32>,i32)->Option<i32>> (sizes, root):
+    dsu_load_owned sizes root

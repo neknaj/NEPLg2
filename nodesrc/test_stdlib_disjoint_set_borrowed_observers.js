@@ -6,10 +6,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
-const relPath = "stdlib/alloc/collections/disjoint_set.nepl";
-const src = fs.readFileSync(path.join(repoRoot, relPath), "utf8");
+const apiPath = "stdlib/alloc/collections/disjoint_set/api.nepl";
+const apiSrc = fs.readFileSync(path.join(repoRoot, apiPath), "utf8");
 
-const code = src
+const code = apiSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join("\n");

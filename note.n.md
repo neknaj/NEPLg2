@@ -35343,3 +35343,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 disjoint_set facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/disjoint_set.nepl` に同居していた型定義、owner 返却つき update error、typed storage 操作、root / size 探索、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/disjoint_set.nepl` は public facade にし、`disjoint_set/types.nepl`、`disjoint_set/api.nepl` を `@merge` re-export するだけの構成にした。
+- `disjoint_set/types.nepl` は `DisjointSet` / `DisjointSetUpdateError` と、診断参照 accessor / owner 回収 accessor を所有する。
+- `disjoint_set/storage.nepl` は parent / size cell の `Vec<i32>` read / replace を所有し、raw pointer や sentinel を public API から完全に分離する。
+- `disjoint_set/query.nepl` は path compression なしの bounded root traversal と size lookup を所有する。
+- `disjoint_set/api.nepl` は `new` / `len` / `find` / `union` / `same` / `size` / `free` を所有し、borrowed observer と owner-preserving `DisjointSetUpdateError` の契約を維持する。
+- `nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_disjoint_set_borrowed_observers.js`、`nodesrc/test_stdlib_disjoint_set_union_error_owner.js` を更新し、root facade に実装本体が戻らないこと、typed `Vec<i32>` storage、borrowed query、owner-carrying error、raw memory 非使用を固定した。
+- line count は `disjoint_set.nepl` 13、`disjoint_set/types.nepl` 41、`disjoint_set/storage.nepl` 17、`disjoint_set/query.nepl` 38、`disjoint_set/api.nepl` 291。
+- [検証]:
+  - `node nodesrc/test_stdlib_disjoint_set_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_disjoint_set_union_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/disjoint_set.nepl -i stdlib/alloc/collections/disjoint_set/types.nepl -i stdlib/alloc/collections/disjoint_set/storage.nepl -i stdlib/alloc/collections/disjoint_set/query.nepl -i stdlib/alloc/collections/disjoint_set/api.nepl -i stdlib/tests/disjoint_set.n.md -i tests/stdlib/disjoint_set_collections.n.md --no-tree -o tmp/disjoint-set-split-focused-after-build.json -j 4 --dist web/dist`: total=13, passed=13
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/disjoint-set-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
