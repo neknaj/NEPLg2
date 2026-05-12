@@ -1,0 +1,28 @@
+//: # streamio/writer/append/text
+//: `StreamWriter` へ `str` を byte 列として追記する helper
+//:
+//: ### [目的/もくてき]
+//: - writer state の flush/buffer 管理から、文字列 byte 走査の責務を分離します。
+//: - 文字列の内部表現へ raw pointer で入らず、`alloc/string` の byte access helper を通します。
+
+#indent 4
+
+#import "alloc/string" as *
+#import "std/streamio/writer/state" as *
+
+//: ## append_str_impl
+//: `str` を buffered sink へ[追記/ついき]する
+//:
+//: ### [注意/ちゅうい]
+//: - `str` は `[len][bytes]` [形式/けいしき]なので、byte access helper で 1 byte ずつ[読/よ]みます。
+//: - writer buffer の capacity を[超/こ]える文字列でも、1 byte ずつ `push_u8_impl` に通して flush 境界を保ちます。
+fn append_str_impl <(StreamWriter,str)*>StreamWriter> (w, s):
+    let n <i32> len s;
+    let mut ww <StreamWriter> w;
+    let mut i <i32> 0;
+    while lt i n:
+        do:
+            let ch <i32> string_byte_at_unchecked s i;
+            set ww push_u8_impl ww ch;
+            set i add i 1;
+    ww

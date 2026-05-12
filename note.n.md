@@ -1,3 +1,27 @@
+# 2026-05-12 Agent 2 std/streamio/writer/append facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/std/streamio/writer/append.nepl` に同居していた text append、`ByteBuf` append、整数 format、浮動小数 format を責務別 submodule に分割した。
+- `append.nepl` は `append/text`、`append/bytebuf`、`append/integer`、`append/float` の public re-export だけを持つ facade にした。
+- `append/text.nepl` は `append_str_impl` を所有し、`alloc/string` の byte access helper 経由で `str` を `push_u8_impl` へ流す。
+- `append/bytebuf.nepl` は borrowed `ByteBuf` byte access helper と `append_bytebuf_impl` を所有し、copy 後の owner cleanup 契約を閉じ込める。
+- `append/integer.nepl` は i32/u32/i64/u64 の digit helper と append helper を所有し、全 digit が `push_u8_impl` を通る境界を維持する。
+- `append/float.nepl` は f32/f64 fixed format helper を所有し、整数部は `append_u64_impl` を再利用する。
+- `nodesrc/test_stdlib_streamio_writer_boundary.js` と `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` を更新し、append facade に実装本体が戻らないこと、text/bytebuf/integer/float の責務境界、line count boundary を固定した。
+- line count は `append.nepl` 11、`append/text.nepl` 25、`append/bytebuf.nepl` 42、`append/integer.nepl` 114、`append/float.nepl` 67。
+- 検証:
+  - `node nodesrc/test_stdlib_streamio_writer_boundary.js`: passed
+  - `node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/streamio/writer.nepl -i stdlib/std/streamio/writer/append.nepl -i stdlib/std/streamio/writer/append/text.nepl -i stdlib/std/streamio/writer/append/bytebuf.nepl -i stdlib/std/streamio/writer/append/integer.nepl -i stdlib/std/streamio/writer/append/float.nepl --no-tree -o tmp/streamio-writer-append-split-writer-focused.json -j 1 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/std/streamio.nepl -i stdlib/std/streamio/writer.nepl -i stdlib/std/streamio/writer/append.nepl -i stdlib/std/streamio/writer/append/text.nepl -i stdlib/std/streamio/writer/append/bytebuf.nepl -i stdlib/std/streamio/writer/append/integer.nepl -i stdlib/std/streamio/writer/append/float.nepl --no-tree -o tmp/streamio-writer-append-split-streamio-focused.json -j 1 --dist web/dist`: total=2, passed=2
+  - `node nodesrc/tests.js -i tests/stdlib/streamio.n.md --no-tree -o tmp/streamio-writer-append-split-streamio-md.json -j 1 --dist web/dist`: total=14, passed=14
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は streamio writer append module の責務分割であり、公開 API の仕様変更ではない。
+- 備考:
+  - ユーザー指示により、この commit を remote main に同期した後、ファイル肥大化改良はいったん中断する。
+
 # 2026-05-12 Agent 2 std/streamio/output facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/std/streamio/output.nepl` に同居していた stdout/stderr handle 型、stdout writer 実装、stderr writer 実装を責務別 submodule に分割した。

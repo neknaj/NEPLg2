@@ -9,10 +9,18 @@ const facadeRelPath = 'stdlib/std/streamio.nepl';
 const writerRelPath = 'stdlib/std/streamio/writer.nepl';
 const stateRelPath = 'stdlib/std/streamio/writer/state.nepl';
 const appendRelPath = 'stdlib/std/streamio/writer/append.nepl';
+const appendTextRelPath = 'stdlib/std/streamio/writer/append/text.nepl';
+const appendByteBufRelPath = 'stdlib/std/streamio/writer/append/bytebuf.nepl';
+const appendIntegerRelPath = 'stdlib/std/streamio/writer/append/integer.nepl';
+const appendFloatRelPath = 'stdlib/std/streamio/writer/append/float.nepl';
 const facade = fs.readFileSync(path.join(repoRoot, facadeRelPath), 'utf8');
 const rootSrc = fs.readFileSync(path.join(repoRoot, writerRelPath), 'utf8');
 const stateSrc = fs.readFileSync(path.join(repoRoot, stateRelPath), 'utf8');
 const appendSrc = fs.readFileSync(path.join(repoRoot, appendRelPath), 'utf8');
+const appendTextSrc = fs.readFileSync(path.join(repoRoot, appendTextRelPath), 'utf8');
+const appendByteBufSrc = fs.readFileSync(path.join(repoRoot, appendByteBufRelPath), 'utf8');
+const appendIntegerSrc = fs.readFileSync(path.join(repoRoot, appendIntegerRelPath), 'utf8');
+const appendFloatSrc = fs.readFileSync(path.join(repoRoot, appendFloatRelPath), 'utf8');
 
 function stripComments(src) {
     return src
@@ -24,7 +32,11 @@ function stripComments(src) {
 const rootCode = stripComments(rootSrc);
 const stateCode = stripComments(stateSrc);
 const appendCode = stripComments(appendSrc);
-const code = [rootCode, stateCode, appendCode].join('\n');
+const appendTextCode = stripComments(appendTextSrc);
+const appendByteBufCode = stripComments(appendByteBufSrc);
+const appendIntegerCode = stripComments(appendIntegerSrc);
+const appendFloatCode = stripComments(appendFloatSrc);
+const code = [rootCode, stateCode, appendCode, appendTextCode, appendByteBufCode, appendIntegerCode, appendFloatCode].join('\n');
 const facadeCode = facade
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
@@ -33,7 +45,11 @@ const facadeCode = facade
 for (const [relPath, src, maxLines] of [
     [writerRelPath, rootSrc, 180],
     [stateRelPath, stateSrc, 240],
-    [appendRelPath, appendSrc, 320],
+    [appendRelPath, appendSrc, 80],
+    [appendTextRelPath, appendTextSrc, 80],
+    [appendByteBufRelPath, appendByteBufSrc, 110],
+    [appendIntegerRelPath, appendIntegerSrc, 180],
+    [appendFloatRelPath, appendFloatSrc, 130],
 ]) {
     const lineCount = src.split(/\r?\n/).length;
     assert.ok(lineCount <= maxLines, `${relPath} must stay within its responsibility boundary (${lineCount}/${maxLines})`);
@@ -69,6 +85,33 @@ assert.match(
     rootCode,
     /#import\s+"std\/streamio\/writer\/append"\s+as\s+\*/,
     'streamio/writer root must import the writer append submodule',
+);
+
+assert.match(
+    appendCode,
+    /pub\s+#import\s+"std\/streamio\/writer\/append\/text"\s+as\s+\*/,
+    'streamio/writer/append facade must re-export text append helpers',
+);
+assert.match(
+    appendCode,
+    /pub\s+#import\s+"std\/streamio\/writer\/append\/bytebuf"\s+as\s+\*/,
+    'streamio/writer/append facade must re-export ByteBuf append helpers',
+);
+assert.match(
+    appendCode,
+    /pub\s+#import\s+"std\/streamio\/writer\/append\/integer"\s+as\s+\*/,
+    'streamio/writer/append facade must re-export integer append helpers',
+);
+assert.match(
+    appendCode,
+    /pub\s+#import\s+"std\/streamio\/writer\/append\/float"\s+as\s+\*/,
+    'streamio/writer/append facade must re-export float append helpers',
+);
+
+assert.doesNotMatch(
+    appendCode,
+    /^\s*(struct|trait|impl|fn)\s/m,
+    'streamio/writer/append facade must not keep implementation bodies',
 );
 
 for (const pattern of [
@@ -139,7 +182,7 @@ assert.doesNotMatch(
     'WriteStream open must not keep the owning writer result in an intermediate raw local',
 );
 
-const appendStrMatch = appendCode.match(/fn\s+append_str_impl\b([\s\S]*?)\nfn\s+append_bytebuf_impl\b/);
+const appendStrMatch = appendTextCode.match(/fn\s+append_str_impl\b([\s\S]*)$/);
 assert.ok(appendStrMatch, 'append_str_impl body must be found');
 assert.match(
     appendStrMatch[1],
@@ -152,7 +195,7 @@ assert.doesNotMatch(
     'append_str_impl must not directly load from string_data_ptr',
 );
 
-const appendByteBufMatch = appendCode.match(/fn\s+append_bytebuf_impl\b([\s\S]*?)\nfn\s+append_i32_digits_impl\b/);
+const appendByteBufMatch = appendByteBufCode.match(/fn\s+append_bytebuf_impl\b([\s\S]*)$/);
 assert.ok(appendByteBufMatch, 'append_bytebuf_impl body must be found');
 assert.match(
     appendByteBufMatch[1],
@@ -163,6 +206,36 @@ assert.doesNotMatch(
     appendByteBufMatch[1],
     /\bload_u8\s+mem_ptr_add\s+src\s+i\b/,
     'append_bytebuf_impl must not directly load from the ByteBuf pointer',
+);
+
+assert.doesNotMatch(
+    appendTextCode,
+    /\bByteBuf\b/,
+    'text append module must not own ByteBuf behavior',
+);
+
+assert.doesNotMatch(
+    appendByteBufCode,
+    /\bappend_i32_impl\b/,
+    'ByteBuf append module must not own numeric formatting behavior',
+);
+
+assert.match(
+    appendIntegerCode,
+    /fn\s+append_i32_impl\b[\s\S]*fn\s+append_i64_impl\b/,
+    'integer append module must own signed and unsigned integer formatting helpers',
+);
+
+assert.doesNotMatch(
+    appendIntegerCode,
+    /\bappend_f64_impl\b/,
+    'integer append module must not own floating-point formatting behavior',
+);
+
+assert.match(
+    appendFloatCode,
+    /#import\s+"std\/streamio\/writer\/append\/integer"\s+as\s+\*[\s\S]*fn\s+append_f64_fixed_impl\b[\s\S]*append_u64_impl/,
+    'float append module must reuse integer append for the integral part',
 );
 
 console.log('stdlib streamio writer boundary regression passed');

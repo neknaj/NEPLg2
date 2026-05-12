@@ -9,6 +9,10 @@ const relPath = 'stdlib/std/streamio.nepl';
 const writerRelPath = 'stdlib/std/streamio/writer.nepl';
 const writerStateRelPath = 'stdlib/std/streamio/writer/state.nepl';
 const writerAppendRelPath = 'stdlib/std/streamio/writer/append.nepl';
+const writerAppendTextRelPath = 'stdlib/std/streamio/writer/append/text.nepl';
+const writerAppendByteBufRelPath = 'stdlib/std/streamio/writer/append/bytebuf.nepl';
+const writerAppendIntegerRelPath = 'stdlib/std/streamio/writer/append/integer.nepl';
+const writerAppendFloatRelPath = 'stdlib/std/streamio/writer/append/float.nepl';
 const inputRelPath = 'stdlib/std/streamio/input.nepl';
 const outputRelPath = 'stdlib/std/streamio/output.nepl';
 const outputTypesRelPath = 'stdlib/std/streamio/output/types.nepl';
@@ -25,6 +29,10 @@ const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
 const writerSrc = fs.readFileSync(path.join(repoRoot, writerRelPath), 'utf8');
 const writerStateSrc = fs.readFileSync(path.join(repoRoot, writerStateRelPath), 'utf8');
 const writerAppendSrc = fs.readFileSync(path.join(repoRoot, writerAppendRelPath), 'utf8');
+const writerAppendTextSrc = fs.readFileSync(path.join(repoRoot, writerAppendTextRelPath), 'utf8');
+const writerAppendByteBufSrc = fs.readFileSync(path.join(repoRoot, writerAppendByteBufRelPath), 'utf8');
+const writerAppendIntegerSrc = fs.readFileSync(path.join(repoRoot, writerAppendIntegerRelPath), 'utf8');
+const writerAppendFloatSrc = fs.readFileSync(path.join(repoRoot, writerAppendFloatRelPath), 'utf8');
 const inputSrc = fs.readFileSync(path.join(repoRoot, inputRelPath), 'utf8');
 const outputSrc = fs.readFileSync(path.join(repoRoot, outputRelPath), 'utf8');
 const outputTypesSrc = fs.readFileSync(path.join(repoRoot, outputTypesRelPath), 'utf8');
@@ -51,6 +59,22 @@ const writerStateCode = writerStateSrc
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
 const writerAppendCode = writerAppendSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const writerAppendTextCode = writerAppendTextSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const writerAppendByteBufCode = writerAppendByteBufSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const writerAppendIntegerCode = writerAppendIntegerSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n');
+const writerAppendFloatCode = writerAppendFloatSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
@@ -102,7 +126,7 @@ const scannerNumberFloatCode = scannerNumberFloatSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
-const code = `${facadeCode}\n${inputCode}\n${outputCode}\n${outputTypesCode}\n${outputStdoutCode}\n${outputStderrCode}\n${writerCode}\n${writerStateCode}\n${writerAppendCode}\n${bytesCode}\n${scannerCode}\n${scannerCursorCode}\n${scannerNumberCode}\n${scannerNumberIntCode}\n${scannerNumberFloatCode}\n${scannerStateCode}`;
+const code = `${facadeCode}\n${inputCode}\n${outputCode}\n${outputTypesCode}\n${outputStdoutCode}\n${outputStderrCode}\n${writerCode}\n${writerStateCode}\n${writerAppendCode}\n${writerAppendTextCode}\n${writerAppendByteBufCode}\n${writerAppendIntegerCode}\n${writerAppendFloatCode}\n${bytesCode}\n${scannerCode}\n${scannerCursorCode}\n${scannerNumberCode}\n${scannerNumberIntCode}\n${scannerNumberFloatCode}\n${scannerStateCode}`;
 
 for (const [modulePath, srcText, maxLines] of [
     [relPath, src, 90],
@@ -111,6 +135,11 @@ for (const [modulePath, srcText, maxLines] of [
     [outputTypesRelPath, outputTypesSrc, 90],
     [outputStdoutRelPath, outputStdoutSrc, 180],
     [outputStderrRelPath, outputStderrSrc, 180],
+    [writerAppendRelPath, writerAppendSrc, 80],
+    [writerAppendTextRelPath, writerAppendTextSrc, 80],
+    [writerAppendByteBufRelPath, writerAppendByteBufSrc, 110],
+    [writerAppendIntegerRelPath, writerAppendIntegerSrc, 180],
+    [writerAppendFloatRelPath, writerAppendFloatSrc, 130],
     [scannerNumberRelPath, scannerNumberSrc, 80],
     [scannerNumberIntRelPath, scannerNumberIntSrc, 240],
     [scannerNumberFloatRelPath, scannerNumberFloatSrc, 220],
@@ -193,6 +222,31 @@ assert.match(
     writerCode,
     /#import\s+"std\/streamio\/writer\/append"\s+as\s+\*/,
     `${writerRelPath} must import the writer append module`,
+);
+assert.match(
+    writerAppendCode,
+    /pub\s+#import\s+"std\/streamio\/writer\/append\/text"\s+as\s+\*/,
+    `${writerAppendRelPath} must re-export text append helpers`,
+);
+assert.match(
+    writerAppendCode,
+    /pub\s+#import\s+"std\/streamio\/writer\/append\/bytebuf"\s+as\s+\*/,
+    `${writerAppendRelPath} must re-export ByteBuf append helpers`,
+);
+assert.match(
+    writerAppendCode,
+    /pub\s+#import\s+"std\/streamio\/writer\/append\/integer"\s+as\s+\*/,
+    `${writerAppendRelPath} must re-export integer append helpers`,
+);
+assert.match(
+    writerAppendCode,
+    /pub\s+#import\s+"std\/streamio\/writer\/append\/float"\s+as\s+\*/,
+    `${writerAppendRelPath} must re-export float append helpers`,
+);
+assert.doesNotMatch(
+    writerAppendCode,
+    /^\s*(struct|trait|impl|fn)\s/m,
+    `${writerAppendRelPath} must stay a facade without append implementation bodies`,
 );
 assert.match(
     facadeCode,
