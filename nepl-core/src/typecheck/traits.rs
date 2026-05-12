@@ -306,20 +306,7 @@ pub(super) fn type_param_has_trait_application_bound(
     {
         return true;
     }
-    let label = match ctx.get(resolved) {
-        TypeKind::Var(v) => v.label.clone(),
-        _ => None,
-    };
-    let Some(label) = label else {
-        return false;
-    };
-    type_param_bounds.iter().any(|(tp, bounds)| {
-        let same_label = match ctx.get(ctx.resolve_id(*tp)) {
-            TypeKind::Var(v) => v.label.as_deref() == Some(label.as_str()),
-            _ => false,
-        };
-        same_label && bounds.iter().any(matches_bound)
-    })
+    false
 }
 
 pub(super) fn merge_inferred_instantiation(

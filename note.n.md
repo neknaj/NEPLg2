@@ -36579,3 +36579,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `trait_call_apply.rs` の call sites は旧名 `type_param_has_bound_ref` から `type_param_has_trait_application_bound` へ更新した。
 - `nodesrc/test_abstraction_static_verification_policy.js` に、旧 helper 名と `trait_check.rs` 側の duplicate `same_label` fallback 再導入禁止を追加した。
 - `BoundEnv` / `TypeParamId` 自体は未実装。次の issue で lookup authority が一箇所に寄った状態から identity model を置き換える。
+
+## 2026-05-13 Agent 1 trait bound label fallback 削除
+
+- `0f7c9f08` push 後に remote main を pull し、merge 済みの `agent1/bound-env-type-param-identity` branch を削除した。
+- `agent1/remove-trait-bound-label-fallback` branch を作成し、Stage 3 の `ISS-20260512T160950280Z-TRAIT-BOUND-LOOKUP-STILL-ACCEPTS-SAM-C03A85E0` を追加した。
+- `type_param_has_trait_application_bound` から `TypeKind::Var` の label 文字列一致を bound lookup 成功扱いにする fallback を削除した。
+- source policy に typed helper 内の `same_label` と `v.label.as_deref` 再導入禁止を追加した。
+- `BoundEnv` / `TypeParamId` は引き続き残件だが、bound lookup の authority は exact / resolved `TypeId` と explicit substitution mapping に寄せた。

@@ -183,6 +183,14 @@ assert(
     "typed trait application bound lookup must not compare rendered bound names",
 );
 assert(
+    !typedLookup[0].includes("same_label"),
+    "typed trait application bound lookup must not accept same-label TypeId fallback",
+);
+assert(
+    !typedLookup[0].includes("v.label.as_deref"),
+    "typed trait application bound lookup must not inspect TypeVar labels as identity",
+);
+assert(
     !traits.includes("parse_trait_ref_name"),
     "rendered trait application parser must not be reintroduced",
 );
