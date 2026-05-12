@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T19:53:38.510Z",
+  "generated_at": "2026-05-12T19:59:48.846Z",
   "counts": {
-    "total": 675,
+    "total": 676,
     "open": 12,
-    "resolved": 663,
+    "resolved": 664,
     "by_area": {
       "core": {
-        "total": 357,
+        "total": 358,
         "open": 4,
-        "resolved": 353
+        "resolved": 354
       },
       "stdlib": {
         "total": 168,
@@ -5418,6 +5418,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5.md"
+    },
+    {
+      "id": "ISS-20260512T195620903Z-MONOMORPHIZE-TRAIT-RESOLUTION-STILL--0481CA39",
+      "title": "Monomorphize trait resolution still accepts split trait names",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/monomorphize.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T195620903Z-MONOMORPHIZE-TRAIT-RESOLUTION-STILL--0481CA39.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
