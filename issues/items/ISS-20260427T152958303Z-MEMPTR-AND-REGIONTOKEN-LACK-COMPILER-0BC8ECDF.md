@@ -2,12 +2,12 @@
 id: ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF
 title: "MemPtr and RegionToken lack compiler owned provenance model"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-12
+updated: 2026-05-13
 target: "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, tests/compiler/move_effect.n.md, doc/compare/memory_model.md"
 ---
 
@@ -427,3 +427,31 @@ raw `i32` owner seed は raw owner を消費する関数、または aggregate �
 根本原因は、owned `PlaceProjection::EnumPayload` key を作るための `normalize_variant_name` と、比較だけを行う `variant_names_match` が同じ owned 正規化を使っていたことだった。owner summary / payload lookup / variant path scan では比較が hot path になるため、allocation を前提にした helper は compile-time memory churn を増やす。
 
 対応では `variant_name_tail` を追加し、比較は borrowed `&str` tail 同士で行うようにした。owned `String` 化は place key を構築する `normalize_variant_name` と match pattern extraction に限定する。
+
+## 2026-05-13 compiler core 側完了判定
+
+この issue が追跡していた compiler core 側の `MemPtr` / `RegionToken` provenance と free obligation の欠落は、Stage 4 Resource IR owner/provenance model と typecheck capability boundary で解決済みとする。
+
+完了判定の根拠は次の通り。
+
+- `MemPtr` / `RegionToken` の direct struct constructor は raw-memory-boundary capability 内に限定され、safe user source は `MemPtr raw` / `RegionToken p size` を直接構成できない。
+- `str_addr`、borrowed `region_ptr`、`region_ptr_at` の `Ok(MemPtr)` payload、unknown callback 経由の pointer は `RawAddressViewKind::NonOwningProjection` として扱われ、free obligation owner へ昇格しない。
+- `region_new` の出力は `StorageOrigin::Owned` を要求し、fixed raw address や non-owning projection から作った token は helper return / helper parameter consumption / dealloc boundary を跨いでも `resource.owner.no_free_obligation` で拒否される。
+- returned aggregate / returned `RegionToken` は `OwnerReturnSummary.storage_origin_markers` と source-origin tracking により、正当な allocator 由来 owner だけを caller 側へ復元する。
+- initialized / moved / dropped cell state は Resource IR cell state が authority であり、旧 HIR move checker や旧 HIR drop walker へ戻していない。
+- `nodesrc/test_resource_checker_responsibility.js` と `nodesrc/test_static_check_boundary_responsibility.js` が、non-owning raw view と owner transfer の混同、constructor capability boundary の後退を source policy として監視している。
+
+残る `core/mem` public API の internal/public 分離、`Vec` / `StringBuilder` / collection drop contract、self-host buffer の safe wrapper 化は compiler core issue ではなく Stage 6 stdlib migration の問題である。これらは次の issue で継続する。
+
+- [ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84](./ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md)
+- [ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D](./ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D.md)
+- [ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47](./ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47.md)
+- [ISS-20260425T000000Z-RV-STDLIB-004-91534828](./ISS-20260425T000000Z-RV-STDLIB-004-91534828.md)
+
+検証:
+
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memptr-parent-final-memory-safety.json -j 1 --dist web/dist`: 23 passed
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-memptr-parent-final-move-effect.json -j 1 --dist web/dist`: 110 passed
+- `cargo test -p nepl-core --test resource_ir region_token_forged -- --nocapture`: 6 passed
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
+- `node nodesrc/test_static_check_boundary_responsibility.js`: passed

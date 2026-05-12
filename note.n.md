@@ -36810,3 +36810,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260512T203824412Z-EDITOR-TARGET-ANALYSIS-REPORTS-UNKNO-222401C9` を追加し、unknown `#target` が language analysis で 2 回報告される問題を切り出した。
 - `nepl-language` / `nepl-web` の `resolve_target_for_analysis` で `found` と別に `saw_target_directive` を持ち、unknown target を見た場合も fallback root scan を止めるようにした。
 - `loader.target.unknown` が 1 件だけ出ることを focused test で固定し、source policy でも language / web の fallback 条件を監視する。
+
+## 2026-05-13 Agent 1 MemPtr / RegionToken compiler core issue closure
+
+- `db2069b4` push 後に remote main を pull し、`agent1/resolve-memptr-regiontoken-core-parent` branch を作成した。
+- `ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF` を再確認し、compiler core 側の `MemPtr = non-owning pointer` / owner token / initialized cell 分離は Resource IR と typecheck boundary で成立していると判断した。
+- fixed raw address、borrowed `RegionToken` projection、`region_ptr_at` Ok payload、unknown callback、helper return / consumption を跨ぐ forged owner 経路は代表回帰で拒否されている。
+- `doc/neplg2/static_check_complexity_reduction_plan.md` の Issue 整理方針を更新し、残る `core/mem` public API / collection / string / self-host buffer の safe public discipline は Stage 6 stdlib issue に分離して追跡する。
+- 検証として `memory_safety.n.md` 23/23、`move_effect.n.md` 110/110、`region_token_forged` 6/6、Resource/source policy を確認した。

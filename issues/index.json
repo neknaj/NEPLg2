@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T20:40:05.986Z",
+  "generated_at": "2026-05-12T20:47:23.057Z",
   "counts": {
     "total": 681,
-    "open": 10,
-    "resolved": 671,
+    "open": 9,
+    "resolved": 672,
     "by_area": {
       "core": {
         "total": 363,
-        "open": 2,
-        "resolved": 361
+        "open": 1,
+        "resolved": 362
       },
       "stdlib": {
         "total": 168,
@@ -109,21 +109,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF",
-      "title": "MemPtr and RegionToken lack compiler owned provenance model",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-04-27",
-      "updated": "2026-05-12",
-      "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, tests/compiler/move_effect.n.md, doc/compare/memory_model.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
-    },
     {
       "id": "ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D",
       "title": "Rust compiler diagnostics are not aligned with Resource IR and self-host model",
@@ -1338,6 +1323,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152951013Z-RUNTIME-ALLOCATOR-HELPER-LOOKUP-DEPE-D070168E.md"
+    },
+    {
+      "id": "ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF",
+      "title": "MemPtr and RegionToken lack compiler owned provenance model",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-04-27",
+      "updated": "2026-05-13",
+      "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, tests/compiler/move_effect.n.md, doc/compare/memory_model.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T152958303Z-MEMPTR-AND-REGIONTOKEN-LACK-COMPILER-0BC8ECDF.md"
     },
     {
       "id": "ISS-20260427T160936494Z-RAW-MEMORY-INTRINSICS-ARE-TREATED-AS-C0657AB6",
