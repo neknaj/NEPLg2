@@ -1,0 +1,18 @@
+//: # bloom_filter/layout
+//: `BloomFilter` の bit/byte layout 計算
+//:
+//: ### [目的/もくてき]
+//: - bit index から byte index と bit mask を[求/もと]める計算、bit [長/ちょう]から byte [長/ちょう]への丸めを所有します。
+
+#indent 4
+
+#import "core/math" as *
+
+fn bloom_byte_len <(i32)->i32> (nbits):
+    div_s add nbits 7 8
+
+fn bloom_byte_index <(i32)->i32> (bit_idx):
+    div_s bit_idx 8
+
+fn bloom_bit_mask <(i32)->i32> (bit_idx):
+    shl 1 rem_s bit_idx 8

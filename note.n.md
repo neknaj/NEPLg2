@@ -19,6 +19,28 @@
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 
+## 2026-05-12 Agent 2 bloom_filter facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/bloom_filter.nepl` に同居していた型定義、hash/probe 計算、bit layout、typed byte storage、bit read/write、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/bloom_filter.nepl` は public facade にし、`bloom_filter/types.nepl`、`bloom_filter/api.nepl` を `@merge` re-export するだけの構成にした。
+- `bloom_filter/types.nepl` は `BloomFilter<T,H>` と `Vec<u8>` bit storage invariant を所有する。
+- `bloom_filter/hash.nepl` は primary hash、secondary hash、probe index 計算を所有する。
+- `bloom_filter/layout.nepl` は byte length 丸め、byte index、bit mask 計算を所有する。
+- `bloom_filter/storage.nepl` は `Vec<u8>` byte read / replace、fill、allocation、cleanup を所有する。
+- `bloom_filter/mutation.nepl` は bit set と bit test の read-modify-write を所有する。
+- `bloom_filter/api.nepl` は `new` / `len` / `insert` / `contains` / `clear` / `free` を所有し、borrowed observer と typed storage cleanup の契約を維持する。
+- `nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_bloom_filter_borrowed_observers.js` を更新し、root facade、typed `Vec<u8>` storage、hash/layout/storage/mutation 境界、borrowed observer、raw memory 非使用を固定した。
+- line count は `bloom_filter.nepl` 12、`bloom_filter/types.nepl` 18、`bloom_filter/hash.nepl` 19、`bloom_filter/layout.nepl` 13、`bloom_filter/storage.nepl` 38、`bloom_filter/mutation.nepl` 26、`bloom_filter/api.nepl` 198。
+- [検証]:
+  - `node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_bloom_filter_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bloom_filter.nepl -i stdlib/alloc/collections/bloom_filter/types.nepl -i stdlib/alloc/collections/bloom_filter/hash.nepl -i stdlib/alloc/collections/bloom_filter/layout.nepl -i stdlib/alloc/collections/bloom_filter/storage.nepl -i stdlib/alloc/collections/bloom_filter/mutation.nepl -i stdlib/alloc/collections/bloom_filter/api.nepl -i stdlib/tests/bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md --no-tree -o tmp/bloom-filter-split-focused-after-build.json -j 4 --dist web/dist`: total=10, passed=10
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/bloom-filter-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
+
 ## 2026-05-12 Agent 2 sparse_set facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/sparse_set.nepl` に同居していた型定義、dense/sparse storage、membership 判定、insert/remove 更新、public API を責務別 submodule に分割した。

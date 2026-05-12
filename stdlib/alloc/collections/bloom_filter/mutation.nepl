@@ -1,0 +1,30 @@
+//: # bloom_filter/mutation
+//: `BloomFilter` の bit read/write
+//:
+//: ### [目的/もくてき]
+//: - byte read-modify-write と bit test を集約し、API 層が byte layout と storage details を直接扱わないようにします。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "./layout" as *
+#import "./storage" as *
+
+fn bloom_set_bit <(&Vec<u8>,i32)*>()> (bits, bit_idx):
+    let byte_idx <i32> bloom_byte_index bit_idx
+    let mask <i32> bloom_bit_mask bit_idx
+    match bloom_byte_at bits byte_idx:
+        Option::Some cur:
+            bloom_store_byte bits byte_idx or cur mask
+        Option::None:
+            ()
+
+fn bloom_test_bit <(&Vec<u8>,i32)->bool> (bits, bit_idx):
+    let byte_idx <i32> bloom_byte_index bit_idx
+    let mask <i32> bloom_bit_mask bit_idx
+    match bloom_byte_at bits byte_idx:
+        Option::Some cur:
+            ne and cur mask 0
+        Option::None:
+            false
