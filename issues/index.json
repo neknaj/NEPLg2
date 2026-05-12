@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T18:59:26.857Z",
+  "generated_at": "2026-05-12T19:10:29.297Z",
   "counts": {
-    "total": 671,
+    "total": 672,
     "open": 12,
-    "resolved": 659,
+    "resolved": 660,
     "by_area": {
       "core": {
-        "total": 353,
+        "total": 354,
         "open": 4,
-        "resolved": 349
+        "resolved": 350
       },
       "stdlib": {
         "total": 168,
@@ -5358,6 +5358,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T185123437Z-TYPECHECK-TRAITAPPLICATION-STILL-STO-F6F9CDD1.md"
+    },
+    {
+      "id": "ISS-20260512T190305376Z-HIR-AND-RESOURCE-TRAIT-APPLICATIONS--0B41B202",
+      "title": "HIR and Resource trait applications still store trait identity as raw String",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/hir.rs; nepl-core/src/resource/model.rs; nepl-core/src/monomorphize.rs; nepl-core/src/monomorphize/trait_lookup.rs; nepl-core/src/resource/lower.rs; nepl-core/src/resource/dump.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T190305376Z-HIR-AND-RESOURCE-TRAIT-APPLICATIONS--0B41B202.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -407,7 +407,7 @@ impl<'a> Monomorphizer<'a> {
                         };
                         *self_ty = dispatch_self_ty;
                         if let Some(resolution) = self.resolve_trait_impl_name(
-                            application.base_name.as_str(),
+                            application.trait_id.as_str(),
                             &application.args,
                             method.as_str(),
                             dispatch_self_ty,
@@ -1166,7 +1166,7 @@ impl<'a> Monomorphizer<'a> {
                         };
                         *self_ty = dispatch_self_ty;
                         if let Some(resolution) = self.resolve_trait_impl_name(
-                            application.base_name.as_str(),
+                            application.trait_id.as_str(),
                             &application.args,
                             method.as_str(),
                             dispatch_self_ty,

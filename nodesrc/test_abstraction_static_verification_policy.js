@@ -305,6 +305,17 @@ assert(
     "selected callable trait resolution must match TraitMethodResolution explicitly",
 );
 assert(hir.includes("pub struct HirTraitApplication"), "HIR must define HirTraitApplication");
+assert(hir.includes("pub struct HirTraitId"), "HIR trait application must use HirTraitId");
+const hirTraitApplicationStruct = hir.match(/pub struct HirTraitApplication\s*\{[\s\S]*?\n\}/);
+assert(hirTraitApplicationStruct, "HirTraitApplication struct body must be visible to source policy");
+assert(
+    hirTraitApplicationStruct[0].includes("trait_id: HirTraitId"),
+    "HirTraitApplication must store trait identity as HirTraitId",
+);
+assert(
+    !hirTraitApplicationStruct[0].includes("base_name: String"),
+    "HirTraitApplication must not store trait identity as raw String",
+);
 const funcRefEnum = hir.match(/pub enum FuncRef\s*\{[\s\S]*?\n\}/);
 assert(funcRefEnum, "FuncRef enum body must be visible to source policy");
 assert(
@@ -331,6 +342,25 @@ for (const oldField of ["trait_name:", "trait_base_name:", "trait_args:"]) {
 assert(
     resourceModel.includes("pub struct ResourceTraitApplication"),
     "Resource IR must define ResourceTraitApplication",
+);
+assert(
+    resourceModel.includes("pub struct ResourceTraitId"),
+    "Resource IR trait application must use ResourceTraitId",
+);
+const resourceTraitApplicationStruct = resourceModel.match(
+    /pub struct ResourceTraitApplication\s*\{[\s\S]*?\n\}/,
+);
+assert(
+    resourceTraitApplicationStruct,
+    "ResourceTraitApplication struct body must be visible to source policy",
+);
+assert(
+    resourceTraitApplicationStruct[0].includes("trait_id: ResourceTraitId"),
+    "ResourceTraitApplication must store trait identity as ResourceTraitId",
+);
+assert(
+    !resourceTraitApplicationStruct[0].includes("base_name: String"),
+    "ResourceTraitApplication must not store trait identity as raw String",
 );
 const resourceCallTarget = resourceModel.match(/pub enum ResourceCallTarget\s*\{[\s\S]*?\n\}/);
 assert(resourceCallTarget, "ResourceCallTarget enum body must be visible to source policy");

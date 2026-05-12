@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use alloc::collections::BTreeMap;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
@@ -1022,7 +1022,7 @@ fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) -> EffectOp
             method,
             ..
         } => EffectOp::UserCall {
-            name: alloc::format!("{}::{}", application.base_name, method),
+            name: alloc::format!("{}::{}", application.trait_id.as_str(), method),
             effect: Effect::Pure,
         },
     }
@@ -1059,7 +1059,7 @@ fn lower_call_target(callee: &FuncRef) -> ResourceCallTarget {
             self_ty,
         } => ResourceCallTarget::Trait {
             application: ResourceTraitApplication::new(
-                application.base_name.clone(),
+                application.trait_id.as_str().to_string(),
                 application.args.clone(),
             ),
             method: method.clone(),
