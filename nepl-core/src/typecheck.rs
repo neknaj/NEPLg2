@@ -39,6 +39,6 @@ mod type_expr;
 use context::BlockChecker;
 use function_check::check_function;
 use model::{AssignKind, FieldAccessorKind, FieldIdx, ScalarMatchKind, StackEntry};
-use traits::TraitBound;
+use traits::BoundEnv;
 
 pub use driver::{typecheck, TypeCheckResult};

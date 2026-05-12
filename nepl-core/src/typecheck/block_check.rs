@@ -1,4 +1,3 @@
-use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::vec::Vec;
 
@@ -15,7 +14,7 @@ use super::binding_rules::{
 use super::diagnostics::{resolve_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::gate_allows;
-use super::traits::{TraitApplication, TraitBound};
+use super::traits::{BoundEnv, TraitApplication, TraitBound};
 use super::type_expr::type_from_expr;
 use super::{check_function, BlockChecker, StackEntry};
 
@@ -256,7 +255,7 @@ impl<'a> BlockChecker<'a> {
                             arity: f.params.len(),
                             builtin: None,
                             field_accessor: detect_field_accessor_fn(f),
-                            type_param_bounds: BTreeMap::new(),
+                            type_param_bounds: BoundEnv::new(),
                             captures,
                         },
                     });
@@ -400,7 +399,7 @@ impl<'a> BlockChecker<'a> {
                         ));
                         continue;
                     }
-                    let mut nested_bounds = BTreeMap::new();
+                    let mut nested_bounds = BoundEnv::new();
                     if let TypeKind::Function { type_params, .. } = self.ctx.get(f_ty) {
                         for (p_node, p_id) in f.type_params.iter().zip(type_params.iter()) {
                             self.labels.insert(p_node.name.name.clone(), *p_id);

@@ -30,8 +30,8 @@ use super::signature::{
 };
 use super::syntax_helpers::gate_allows;
 use super::traits::{
-    collect_type_params, format_trait_ref_name, insert_substitution_mapping, ImplInfo, ImplKind,
-    TraitApplication, TraitBound, TraitCapability, TraitInfo, TraitSemantics,
+    collect_type_params, format_trait_ref_name, insert_substitution_mapping, BoundEnv, ImplInfo,
+    ImplKind, TraitApplication, TraitBound, TraitCapability, TraitInfo, TraitSemantics,
 };
 use super::type_expr::{type_from_expr, LabelEnv, StringTable};
 
@@ -201,7 +201,7 @@ pub fn typecheck(
                         arity: params.len(),
                         builtin: None,
                         field_accessor: None,
-                        type_param_bounds: BTreeMap::new(),
+                        type_param_bounds: BoundEnv::new(),
                         captures: Vec::new(),
                     },
                 });
@@ -360,7 +360,7 @@ pub fn typecheck(
                             arity: params.len(),
                             builtin: None,
                             field_accessor: None,
-                            type_param_bounds: BTreeMap::new(),
+                            type_param_bounds: BoundEnv::new(),
                             captures: Vec::new(),
                         },
                     });
@@ -380,7 +380,7 @@ pub fn typecheck(
                             arity: params.len(),
                             builtin: None,
                             field_accessor: None,
-                            type_param_bounds: BTreeMap::new(),
+                            type_param_bounds: BoundEnv::new(),
                             captures: Vec::new(),
                         },
                     });
@@ -461,7 +461,7 @@ pub fn typecheck(
                         arity: if is_tag_unit_struct { 0 } else { fs.len() },
                         builtin: None,
                         field_accessor: None,
-                        type_param_bounds: BTreeMap::new(),
+                        type_param_bounds: BoundEnv::new(),
                         captures: Vec::new(),
                     },
                 });
@@ -590,7 +590,7 @@ pub fn typecheck(
                         arity: params.len(),
                         builtin: None,
                         field_accessor: None,
-                        type_param_bounds: BTreeMap::new(),
+                        type_param_bounds: BoundEnv::new(),
                         captures: Vec::new(),
                     },
                 });
@@ -790,7 +790,7 @@ pub fn typecheck(
                     arity: info.fields.len(),
                     builtin: None,
                     field_accessor: None,
-                    type_param_bounds: BTreeMap::new(),
+                    type_param_bounds: BoundEnv::new(),
                     captures: Vec::new(),
                 },
             });
@@ -1271,7 +1271,7 @@ pub fn typecheck(
                     }
                 }
             };
-            let mut type_param_bounds = BTreeMap::new();
+            let mut type_param_bounds = BoundEnv::new();
             if let TypeKind::Function { type_params, .. } = ctx.get(f_ty) {
                 for (p_node, p_id) in f.type_params.iter().zip(type_params.iter()) {
                     label_env.insert(p_node.name.name.clone(), *p_id);

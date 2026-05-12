@@ -36629,3 +36629,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ResourceTraitApplication { base_name, args }` を追加し、`ResourceCallTarget::Trait` の trait identity を split fields から typed application に移行した。
 - `resource/lower.rs` と `resource/dump.rs` を新 model に追従させた。
 - source policy に Resource IR trait call target の split field 再導入禁止を追加した。
+
+## 2026-05-13 Agent 1 BoundEnv type parameter bounds model
+
+- `115d6467` push 後に remote main を pull し、merge 済みの `agent1/resource-trait-application-model` branch を削除した。
+- `agent1/bound-env-map-model` branch を作成し、Stage 3 の `ISS-20260512T172241782Z-TRAIT-TYPE-PARAMETER-BOUNDS-STILL-EX-09CE8755` を追加した。
+- `BoundEnv` を追加し、type parameter trait bounds を raw `BTreeMap<TypeId, Vec<TraitBound>>` ではなく typed container として扱うようにした。
+- `BlockChecker` / `BindingKind::Func` / `check_function` / selected callable / nested function check / trait bound application を `BoundEnv` 経由に移行した。
+- source policy に `BoundEnv` 必須化と raw bound map 境界再導入禁止を追加した。

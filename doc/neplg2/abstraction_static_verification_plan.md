@@ -212,7 +212,9 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `trait_check.rs` の `BlockChecker::type_param_has_bound_ref` が `traits.rs` の `type_param_has_trait_application_bound` と同じ TypeId / label fallback lookup を再実装していたため、duplicate 実装を削除し、BlockChecker 側は typed helper へ委譲する薄い method にした。
 - 2026-05-12: `ISS-20260512T160950280Z-TRAIT-BOUND-LOOKUP-STILL-ACCEPTS-SAM-C03A85E0` を追加し、verified にした。
 - 2026-05-12: `type_param_has_trait_application_bound` から `TypeKind::Var` label 文字列が一致する別 `TypeId` を同一 bound とみなす fallback を削除した。
-- 残件: `BoundEnv` / `TypeParamId` の導入は未完了。現時点では exact / resolved `TypeId` と call-site substitution mapping だけを authority とし、label 文字列は bound lookup の根拠にしない。
+- 2026-05-12: `ISS-20260512T172241782Z-TRAIT-TYPE-PARAMETER-BOUNDS-STILL-EX-09CE8755` を追加し、verified にした。
+- 2026-05-12: `BoundEnv` を追加し、type parameter trait bounds の raw `BTreeMap<TypeId, Vec<TraitBound>>` を `BlockChecker` / `BindingKind` / `check_function` の境界から外した。bound lookup は `BoundEnv::has_trait_application_bound` に閉じ込めた。
+- 残件: `TypeParamId` の導入は未完了。現時点では `BoundEnv` 内部で exact / resolved `TypeId` と call-site substitution mapping を authority とし、label 文字列は bound lookup の根拠にしない。
 
 ### Stage 4: trait method resolution の構造化
 

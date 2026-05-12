@@ -96,6 +96,11 @@ assert(traits.includes("TraitCapability::Copy"), "TraitCapability::Copy match co
 assert(traits.includes("TraitCapability::Clone"), "TraitCapability::Clone match coverage must remain visible");
 assert(traits.includes("TraitCapability::Drop"), "TraitCapability::Drop match coverage must remain visible");
 assert(traits.includes("pub(super) struct TraitApplication"), "TraitApplication must be a typed model");
+assert(traits.includes("pub(super) struct BoundEnv"), "type parameter bounds must use BoundEnv");
+assert(
+    traits.includes("fn has_trait_application_bound("),
+    "BoundEnv must own trait application bound lookup",
+);
 assert(traits.includes("pub(super) struct PendingTraitCheck"), "pending trait checks must be named state");
 const pendingTraitCheckStruct = traits.match(/pub\(super\) struct PendingTraitCheck\s*\{[\s\S]*?\n\}/);
 assert(pendingTraitCheckStruct, "PendingTraitCheck struct body must be visible to source policy");
@@ -147,9 +152,23 @@ assert(
 const functionCheck = read(FUNCTION_CHECK);
 const context = read(path.join(TYPECHECK_DIR, "context.rs"));
 const traitBoundApply = read(path.join(TYPECHECK_DIR, "trait_bound_apply.rs"));
+const env = read(path.join(TYPECHECK_DIR, "env.rs"));
+const selectedCallApply = read(SELECTED_CALL_APPLY);
 const hir = read(HIR);
 const monomorphize = read(MONOMORPHIZE);
 const resourceModel = read(RESOURCE_MODEL);
+for (const [name, text] of [
+    ["context.rs", context],
+    ["env.rs", env],
+    ["function_check.rs", functionCheck],
+    ["trait_bound_apply.rs", traitBoundApply],
+    ["selected_call_apply.rs", selectedCallApply],
+]) {
+    assert(
+        !text.includes("BTreeMap<TypeId, Vec<TraitBound>>"),
+        `${name} must not expose raw type parameter bound maps`,
+    );
+}
 assert(
     !context.includes("Vec<(TraitBound, TypeId, Span)>"),
     "BlockChecker pending trait checks must not use positional tuple state",
@@ -180,7 +199,6 @@ assert(
 );
 const traitCheck = read(path.join(TYPECHECK_DIR, "trait_check.rs"));
 const traitCallApply = read(path.join(TYPECHECK_DIR, "trait_call_apply.rs"));
-const selectedCallApply = read(SELECTED_CALL_APPLY);
 assert(
     !traitCheck.includes("type_param_has_bound_ref"),
     "old type_param_has_bound_ref helper must not be reintroduced",

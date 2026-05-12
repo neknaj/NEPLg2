@@ -19,7 +19,7 @@ use super::hir_finalize::resolve_type_ids_in_function;
 use super::model::{CheckedFunction, EnumInfo, StructInfo};
 use super::signature::{mangle_function_symbol, type_contains_unbound_var};
 use super::traits::{
-    type_param_has_trait_application_bound, ImplInfo, PendingTraitCheck, TraitBound, TraitInfo,
+    type_param_has_trait_application_bound, BoundEnv, ImplInfo, PendingTraitCheck, TraitInfo,
 };
 use super::type_expr::{LabelEnv, StringTable};
 use super::BlockChecker;
@@ -68,7 +68,7 @@ pub(super) fn check_function(
     enums: &BTreeMap<String, EnumInfo>,
     structs: &BTreeMap<String, StructInfo>,
     instantiations: &mut BTreeMap<String, Vec<Vec<TypeId>>>,
-    type_param_bounds: BTreeMap<TypeId, Vec<TraitBound>>,
+    type_param_bounds: BoundEnv,
     traits: &BTreeMap<String, TraitInfo>,
     impls: &Vec<ImplInfo>,
     generated_functions: &mut Vec<HirFunction>,

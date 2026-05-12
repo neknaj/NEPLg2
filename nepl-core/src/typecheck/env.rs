@@ -1,4 +1,3 @@
-use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -10,7 +9,7 @@ use crate::span::Span;
 use crate::types::{TypeCtx, TypeId};
 
 use super::signature::{mangle_function_symbol_for_def, same_function_signature};
-use super::{FieldAccessorKind, TraitBound};
+use super::{BoundEnv, FieldAccessorKind};
 // ---------------------------------------------------------------------
 // Environment
 // ---------------------------------------------------------------------
@@ -36,7 +35,7 @@ pub(super) enum BindingKind {
         arity: usize,
         builtin: Option<BuiltinKind>,
         field_accessor: Option<FieldAccessorKind>,
-        type_param_bounds: BTreeMap<TypeId, Vec<TraitBound>>,
+        type_param_bounds: BoundEnv,
         captures: Vec<(String, TypeId)>,
     },
 }

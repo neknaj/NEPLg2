@@ -172,6 +172,51 @@ impl TraitBound {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub(super) struct BoundEnv {
+    bounds: BTreeMap<TypeId, Vec<TraitBound>>,
+}
+
+impl BoundEnv {
+    pub(super) fn new() -> Self {
+        Self {
+            bounds: BTreeMap::new(),
+        }
+    }
+
+    pub(super) fn is_empty(&self) -> bool {
+        self.bounds.is_empty()
+    }
+
+    pub(super) fn insert(&mut self, type_param: TypeId, bounds: Vec<TraitBound>) {
+        self.bounds.insert(type_param, bounds);
+    }
+
+    pub(super) fn iter(&self) -> impl Iterator<Item = (&TypeId, &Vec<TraitBound>)> {
+        self.bounds.iter()
+    }
+
+    pub(super) fn has_trait_application_bound(
+        &self,
+        ctx: &TypeCtx,
+        ty: TypeId,
+        trait_base_name: &str,
+        trait_args: &[TypeId],
+    ) -> bool {
+        let matches_bound = |b: &TraitBound| {
+            b.application
+                .matches_parts(ctx, trait_base_name, trait_args)
+        };
+        let resolved = ctx.resolve_id(ty);
+        if let Some(bounds) = self.bounds.get(&resolved) {
+            return bounds.iter().any(matches_bound);
+        }
+        self.bounds
+            .iter()
+            .any(|(tp, bounds)| ctx.resolve_id(*tp) == resolved && bounds.iter().any(matches_bound))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct PendingTraitCheck {
     pub(super) bound: TraitBound,
@@ -192,14 +237,10 @@ pub(super) fn collect_type_params(
     params: &[TypeParam],
     traits: &BTreeMap<String, TraitInfo>,
     diags: &mut Vec<Diagnostic>,
-) -> (
-    Vec<TypeId>,
-    Vec<Vec<TraitBound>>,
-    BTreeMap<TypeId, Vec<TraitBound>>,
-) {
+) -> (Vec<TypeId>, Vec<Vec<TraitBound>>, BoundEnv) {
     let mut tps = Vec::new();
     let mut bounds_vec = Vec::new();
-    let mut bounds_map = BTreeMap::new();
+    let mut bounds_map = BoundEnv::new();
     for p in params {
         let id = ctx.fresh_var(Some(p.name.name.clone()));
         labels.insert(p.name.name.clone(), id);
@@ -294,26 +335,12 @@ pub(super) fn trait_application_matches(
 
 pub(super) fn type_param_has_trait_application_bound(
     ctx: &TypeCtx,
-    type_param_bounds: &BTreeMap<TypeId, Vec<TraitBound>>,
+    type_param_bounds: &BoundEnv,
     ty: TypeId,
     trait_base_name: &str,
     trait_args: &[TypeId],
 ) -> bool {
-    let matches_bound = |b: &TraitBound| {
-        b.application
-            .matches_parts(ctx, trait_base_name, trait_args)
-    };
-    let resolved = ctx.resolve_id(ty);
-    if let Some(bounds) = type_param_bounds.get(&resolved) {
-        return bounds.iter().any(matches_bound);
-    }
-    if type_param_bounds
-        .iter()
-        .any(|(tp, bounds)| ctx.resolve_id(*tp) == resolved && bounds.iter().any(matches_bound))
-    {
-        return true;
-    }
-    false
+    type_param_bounds.has_trait_application_bound(ctx, ty, trait_base_name, trait_args)
 }
 
 pub(super) fn merge_inferred_instantiation(

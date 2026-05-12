@@ -12,7 +12,7 @@ use crate::types::{TypeCtx, TypeId};
 
 use super::env::Env;
 use super::model::{EnumInfo, StructInfo};
-use super::traits::{ImplInfo, PendingTraitCheck, TraitBound, TraitInfo};
+use super::traits::{BoundEnv, ImplInfo, PendingTraitCheck, TraitInfo};
 use super::type_expr::{LabelEnv, StringTable};
 // ---------------------------------------------------------------------
 // Block checker
@@ -29,7 +29,7 @@ pub(super) struct BlockChecker<'a> {
     pub(super) enums: &'a BTreeMap<String, EnumInfo>,
     pub(super) structs: &'a BTreeMap<String, StructInfo>,
     pub(super) instantiations: &'a mut BTreeMap<String, Vec<Vec<TypeId>>>,
-    pub(super) type_param_bounds: BTreeMap<TypeId, Vec<TraitBound>>,
+    pub(super) type_param_bounds: BoundEnv,
     pub(super) import_resolution: &'a ImportResolution,
     pub(super) traits: &'a BTreeMap<String, TraitInfo>,
     pub(super) impls: &'a Vec<ImplInfo>,

@@ -89,7 +89,7 @@ impl<'a> BlockChecker<'a> {
         trait_args: &[TypeId],
     ) -> Option<TypeId> {
         let mut matched: Option<TypeId> = None;
-        for (tp, bounds) in &self.type_param_bounds {
+        for (tp, bounds) in self.type_param_bounds.iter() {
             if !bounds.iter().any(|b| {
                 b.application
                     .matches_parts(self.ctx, trait_base_name, trait_args)

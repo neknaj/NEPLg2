@@ -7,7 +7,9 @@ use crate::span::Span;
 use crate::types::TypeId;
 
 use super::diagnostics::type_error;
-use super::traits::{infer_instantiated_type_arg, PendingTraitCheck, TraitApplication, TraitBound};
+use super::traits::{
+    infer_instantiated_type_arg, BoundEnv, PendingTraitCheck, TraitApplication, TraitBound,
+};
 use super::BlockChecker;
 
 macro_rules! trait_bound_apply_log {
@@ -29,7 +31,7 @@ impl<'a> BlockChecker<'a> {
         callee_name: &str,
         binding_ty: TypeId,
         inst_ty: TypeId,
-        type_param_bounds: &BTreeMap<TypeId, Vec<TraitBound>>,
+        type_param_bounds: &BoundEnv,
         type_arg_mapping: &BTreeMap<TypeId, TypeId>,
         span: Span,
     ) {

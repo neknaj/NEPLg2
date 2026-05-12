@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T17:17:13.643Z",
+  "generated_at": "2026-05-12T17:31:22.044Z",
   "counts": {
-    "total": 664,
+    "total": 665,
     "open": 13,
-    "resolved": 651,
+    "resolved": 652,
     "by_area": {
       "core": {
-        "total": 346,
+        "total": 347,
         "open": 5,
-        "resolved": 341
+        "resolved": 342
       },
       "stdlib": {
         "total": 168,
@@ -5253,6 +5253,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T171317751Z-RESOURCE-IR-TRAIT-CALL-TARGET-STILL--6B70AE36.md"
+    },
+    {
+      "id": "ISS-20260512T172241782Z-TRAIT-TYPE-PARAMETER-BOUNDS-STILL-EX-09CE8755",
+      "title": "Trait type parameter bounds still expose raw BTreeMap state",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/context.rs; nepl-core/src/typecheck/env.rs; nepl-core/src/typecheck/function_check.rs; nepl-core/src/typecheck/trait_bound_apply.rs; nepl-core/src/typecheck/trait_check.rs; nepl-core/src/typecheck/selected_call_apply.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T172241782Z-TRAIT-TYPE-PARAMETER-BOUNDS-STILL-EX-09CE8755.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -14,7 +14,7 @@ use super::env::{Binding, BindingKind};
 use super::field_apply::FieldAccessorApplyResult;
 use super::signature::type_contains_unbound_var;
 use super::trait_call_apply::TraitMethodResolution;
-use super::traits::{infer_instantiated_type_arg, insert_substitution_mapping};
+use super::traits::{infer_instantiated_type_arg, insert_substitution_mapping, BoundEnv};
 use super::{BlockChecker, StackEntry};
 
 impl<'a> BlockChecker<'a> {
@@ -47,7 +47,7 @@ impl<'a> BlockChecker<'a> {
             BindingKind::Func {
                 type_param_bounds, ..
             } => type_param_bounds.clone(),
-            _ => BTreeMap::new(),
+            _ => BoundEnv::new(),
         };
         let selected_type_snapshot = (!explicit_type_args.is_empty())
             .then(|| self.ctx.snapshot_type_var_bindings(binding.ty));
