@@ -1,0 +1,50 @@
+//: # btreeset/search
+//: `BTreeSet` の lower_bound / slot 判定
+//:
+//: ### [目的/もくてき]
+//: - `Ord` に基づく検索と一致判定を storage 操作から分離します。
+//: - public API は検索方針をこの module に委譲し、更新処理だけを組み立てます。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/traits/ord" as *
+#import "core/traits/copy" as *
+#import "alloc/collections/vec" as vec
+#import "./types" as *
+#import "./storage" as *
+
+fn btreeset_key_eq <.T: Ord> <(.T,.T)->bool> (a, b):
+    and not ord_lt a b not ord_lt b a
+
+fn btreeset_lower_bound <.T: Ord&Copy> <(&Vec<Option<.T>>,.T,i32,i32)->i32> (keys, key, low, high):
+    if:
+        lt low high
+        then:
+            let mid <i32> div_s add low high 2
+            match btreeset_key_at<.T> keys mid:
+                Option::Some saved:
+                    if:
+                        ord_lt saved key
+                        then btreeset_lower_bound<.T> keys key add mid 1 high
+                        else btreeset_lower_bound<.T> keys key low mid
+                Option::None:
+                    mid
+        else low
+
+fn btreeset_is_at <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32,.T)->bool> (keys, len0, idx, key):
+    if:
+        lt idx len0
+        then:
+            match btreeset_key_at<.T> keys idx:
+                Option::Some saved:
+                    btreeset_key_eq<.T> saved key
+                Option::None:
+                    false
+        else false
+
+fn btreeset_lower_bound_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,.T,i32,i32)->i32> (storage, key, low, high):
+    btreeset_lower_bound<.T> btreeset_storage_keys<.T> storage key low high
+
+fn btreeset_is_at_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,i32,i32,.T)->bool> (storage, len0, idx, key):
+    btreeset_is_at<.T> btreeset_storage_keys<.T> storage len0 idx key

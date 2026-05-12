@@ -35282,3 +35282,24 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 btreeset facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/btreeset.nepl` に同居していた型定義、storage 操作、検索、public API、sorted-array alias を責務別 submodule に分割した。
+- `stdlib/alloc/collections/btreeset.nepl` は public facade にし、`btreeset/types.nepl`、`btreeset/api.nepl`、`btreeset/alias.nepl` を `@merge` re-export するだけの構成にした。
+- `btreeset/types.nepl` は `BTreeSetStorage` / `BTreeSet` の型定義と storage invariant を所有する。
+- `btreeset/storage.nepl` は key slot 読み書き、shift、grow、storage free を所有する。public API は raw slot 操作を直接持たない。
+- `btreeset/search.nepl` は `Ord` に基づく lower_bound / equality / slot 判定を所有する。
+- `btreeset/api.nepl` は `new` / `len` / `contains` / `insert` / `remove` / `clear` / `free` を所有し、borrowed observer と grow error propagation の契約を維持する。
+- `btreeset/alias.nepl` は sorted-array set alias だけを所有する。
+- `nodesrc/test_stdlib_btree_borrowed_observers.js` と `nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js` を更新し、root facade に実装本体が戻らないこと、borrowed observer、grow error propagation、typed `Vec<Option<T>>` storage を固定した。
+- line count は `btreeset.nepl` 15、`btreeset/types.nepl` 30、`btreeset/storage.nepl` 94、`btreeset/search.nepl` 43、`btreeset/api.nepl` 221、`btreeset/alias.nepl` 50。
+- [検証]:
+  - `node nodesrc/test_stdlib_btree_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/btreeset.nepl -i stdlib/alloc/collections/btreeset/types.nepl -i stdlib/alloc/collections/btreeset/storage.nepl -i stdlib/alloc/collections/btreeset/search.nepl -i stdlib/alloc/collections/btreeset/api.nepl -i stdlib/alloc/collections/btreeset/alias.nepl -i stdlib/tests/btreeset.n.md -i tests/stdlib/btree_array_cost.n.md -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/btreeset-split-focused.json -j 4 --dist web/dist`: total=26, passed=26
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/btreeset-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

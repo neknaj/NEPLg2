@@ -1,0 +1,108 @@
+//: # btreeset/storage
+//: `BTreeSet` の backing storage 操作
+//:
+//: ### [目的/もくてき]
+//: - key slot の読み書き、shift、grow、storage 解放を所有します。
+//: - public API が raw storage layout を直接扱わないようにします。
+
+#indent 4
+
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "./types" as *
+
+fn btreeset_storage_keys <.T> <(&BTreeSetStorage<.T>)->&Vec<Option<.T>>> (storage):
+    field::get_ref storage "keys"
+
+fn btreeset_key_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (keys, idx):
+    match vec::get<Option<.T>> keys idx:
+        Option::Some key_opt:
+            key_opt
+        Option::None:
+            none<.T>
+
+fn btreeset_store_key <.T: Copy> <(&Vec<Option<.T>>,i32,Option<.T>)*>()> (keys, idx, key):
+    vec::replace<Option<.T>> keys idx key
+
+fn btreeset_key_slot <.T: Copy> <(&BTreeSetStorage<.T>,i32)->Option<.T>> (storage, idx):
+    btreeset_key_at<.T> btreeset_storage_keys<.T> storage idx
+
+fn btreeset_store_key_slot <.T: Copy> <(&BTreeSetStorage<.T>,i32,Option<.T>)*>()> (storage, idx, key):
+    btreeset_store_key<.T> btreeset_storage_keys<.T> storage idx key
+
+fn btreeset_free_storage <.T> <(BTreeSetStorage<.T>)->()> (storage):
+    let keys <Vec<Option<.T>>> field::get storage "keys"
+    vec::free<Option<.T>> keys
+
+fn btreeset_alloc_storage <.T: Copy> <(i32)*>Result<BTreeSetStorage<.T>, Diag>> (cap):
+    match vec::filled<Option<.T>> cap none<.T>:
+        Result::Err _e:
+            diag_err<BTreeSetStorage<.T>> diag_out_of_memory
+        Result::Ok keys:
+            ok<BTreeSetStorage<.T>, Diag> BTreeSetStorage<.T> keys
+
+fn btreeset_copy_live_slots <.T: Copy> <(&BTreeSetStorage<.T>,&BTreeSetStorage<.T>,i32)*>()> (src, dst, len0):
+    let src_keys <&Vec<Option<.T>>> btreeset_storage_keys<.T> src
+    let dst_keys <&Vec<Option<.T>>> btreeset_storage_keys<.T> dst
+    let mut i <i32> 0
+    while lt i len0:
+        do:
+            match btreeset_key_at<.T> src_keys i:
+                Option::Some key:
+                    btreeset_store_key<.T> dst_keys i some<.T> key
+                Option::None:
+                    ()
+            set i add i 1
+
+fn btreeset_clear_slots <.T: Copy> <(&BTreeSetStorage<.T>,i32,i32)*>()> (storage, end, i):
+    if:
+        lt i end
+        then:
+            btreeset_store_key<.T> btreeset_storage_keys<.T> storage i none<.T>
+            btreeset_clear_slots<.T> storage end add i 1
+        else:
+            ()
+
+fn btreeset_shift_right <.T: Copy> <(&BTreeSetStorage<.T>,i32,i32)*>()> (storage, idx, len0):
+    let mut i <i32> len0
+    while gt i idx:
+        do:
+            let from <i32> sub i 1
+            match btreeset_key_slot<.T> storage from:
+                Option::Some saved_key:
+                    btreeset_store_key_slot<.T> storage i some<.T> saved_key
+                Option::None:
+                    btreeset_store_key_slot<.T> storage i none<.T>
+            set i from
+
+fn btreeset_shift_left_after_remove <.T: Copy> <(&BTreeSetStorage<.T>,i32,i32)*>()> (storage, idx, len0):
+    let last <i32> sub len0 1
+    let mut i <i32> idx
+    while lt i last:
+        do:
+            let nxt <i32> add i 1
+            match btreeset_key_slot<.T> storage nxt:
+                Option::Some saved_key:
+                    btreeset_store_key_slot<.T> storage i some<.T> saved_key
+                Option::None:
+                    btreeset_store_key_slot<.T> storage i none<.T>
+            set i nxt
+    btreeset_store_key_slot<.T> storage last none<.T>
+
+fn btreeset_grow <.T: Copy> <(BTreeSet<.T>)*>Result<BTreeSet<.T>, Diag>> (set0):
+    let len0 <i32> *field::get_ref &set0 "len"
+    let cap0 <i32> *field::get_ref &set0 "cap"
+    let storage <BTreeSetStorage<.T>> field::get set0 "storage"
+    let cap1 <i32> mul cap0 2
+    match btreeset_alloc_storage<.T> cap1:
+        Result::Err d:
+            btreeset_free_storage<.T> storage
+            err<BTreeSet<.T>, Diag> d
+        Result::Ok next_storage:
+            btreeset_copy_live_slots<.T> &storage &next_storage len0
+            btreeset_free_storage<.T> storage
+            ok<BTreeSet<.T>, Diag> BTreeSet<.T> len0 cap1 next_storage

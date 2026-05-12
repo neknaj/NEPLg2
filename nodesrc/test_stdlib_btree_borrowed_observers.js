@@ -6,10 +6,12 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const mapSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreemap.nepl'), 'utf8');
-const setSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreeset.nepl'), 'utf8');
+const setRootSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreeset.nepl'), 'utf8');
+const setApiSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreeset/api.nepl'), 'utf8');
 
 const mapCode = stripComments(mapSrc);
-const setCode = stripComments(setSrc);
+const setRootCode = stripComments(setRootSrc);
+const setCode = stripComments(setApiSrc);
 
 assert.match(mapCode, /fn\s+len\s+<\.K,\.V>\s+<\(&BTreeMap<\.K,\.V>\)->i32>\s+\(hm\):/, 'BTreeMap.len must borrow the owner');
 assert.match(mapCode, /fn\s+contains\s+<\.K:\s*Ord&Copy,\.V:\s*Copy>\s+<\(&BTreeMap<\.K,\.V>,\.K\)->bool>\s+\(hm,\s*key\):/, 'BTreeMap.contains must borrow the owner');
@@ -21,6 +23,14 @@ assert.match(setCode, /fn\s+len\s+<\.T>\s+<\(&BTreeSet<\.T>\)->i32>\s+\(set0\):/
 assert.match(setCode, /fn\s+contains\s+<\.T:\s*Ord&Copy>\s+<\(&BTreeSet<\.T>,\.T\)->bool>\s+\(set0,\s*key\):/, 'BTreeSet.contains must borrow the owner');
 assert.doesNotMatch(setCode, /fn\s+(?:len_ref|contains_ref)\b/, 'BTreeSet must not keep duplicate *_ref observers');
 assert.doesNotMatch(setCode, /fn\s+(?:len|contains)\s+<[^>]+>\s+<\(BTreeSet<\.T>/, 'BTreeSet read-only observers must not consume the owner');
+assert.doesNotMatch(setRootCode, /\bfn\s+/, 'BTreeSet root facade must not keep implementation bodies');
+for (const submodule of ['types', 'api', 'alias']) {
+    assert.match(
+        setRootCode,
+        new RegExp(`pub\\s+#import\\s+"\\.\\/btreeset\\/${submodule}"\\s+as\\s+@merge`),
+        `BTreeSet root facade must re-export btreeset/${submodule}`,
+    );
+}
 
 for (const testPath of [
     'stdlib/tests/btreemap.n.md',

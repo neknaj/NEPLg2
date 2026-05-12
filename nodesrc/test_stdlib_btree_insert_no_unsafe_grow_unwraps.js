@@ -58,11 +58,24 @@ assert.match(btreeMapInsert, /Result::Err\s+d:/, 'BTreeMap.insert must keep an E
 assert.match(btreeMapInsert, /err<BTreeMap<\.K,\.V>,\s*Diag>\s+d/, 'BTreeMap.insert must return grow Err');
 assertNoUnsafeUnwraps('stdlib/alloc/collections/btreemap.nepl', ['insert', 'btreemap_insert_ready']);
 
-const btreeSetInsert = functionBlock('stdlib/alloc/collections/btreeset.nepl', 'insert');
+const btreeSetApiFile = 'stdlib/alloc/collections/btreeset/api.nepl';
+const btreeSetTypesFile = 'stdlib/alloc/collections/btreeset/types.nepl';
+const btreeSetStorageFile = 'stdlib/alloc/collections/btreeset/storage.nepl';
+const btreeSetRootSource = sourceWithoutComments('stdlib/alloc/collections/btreeset.nepl');
+assert.doesNotMatch(btreeSetRootSource, /\bfn\s+/, 'BTreeSet root facade must not keep implementation bodies');
+for (const submodule of ['types', 'api', 'alias']) {
+    assert.match(
+        btreeSetRootSource,
+        new RegExp(`pub\\s+#import\\s+"\\.\\/btreeset\\/${submodule}"\\s+as\\s+@merge`),
+        `BTreeSet root facade must re-export btreeset/${submodule}`,
+    );
+}
+
+const btreeSetInsert = functionBlock(btreeSetApiFile, 'insert');
 assert.match(btreeSetInsert, /match\s+btreeset_grow<\.T>\s+set0:/, 'BTreeSet.insert must match grow result');
 assert.match(btreeSetInsert, /Result::Err\s+d:/, 'BTreeSet.insert must keep an Err arm');
 assert.match(btreeSetInsert, /err<BTreeSet<\.T>,\s*Diag>\s+d/, 'BTreeSet.insert must return grow Err');
-assertNoUnsafeUnwraps('stdlib/alloc/collections/btreeset.nepl', ['insert', 'btreeset_insert_ready']);
+assertNoUnsafeUnwraps(btreeSetApiFile, ['insert', 'btreeset_insert_ready']);
 
 const btreeMapSource = sourceWithoutComments('stdlib/alloc/collections/btreemap.nepl');
 assert.match(btreeMapSource, /struct BTreeMapStorage<\.K,\.V>:/, 'BTreeMap must keep typed storage wrapper');
@@ -70,10 +83,19 @@ assert.match(btreeMapSource, /keys\s+<Vec<Option<\.K>>>/, 'BTreeMap keys must us
 assert.match(btreeMapSource, /values\s+<Vec<Option<\.V>>>/, 'BTreeMap values must use Vec<Option<V>> storage');
 assert.match(btreeMapSource, /match\s+btreemap_key_at<\.K>/, 'BTreeMap must branch on Option key slots');
 
-const btreeSetSource = sourceWithoutComments('stdlib/alloc/collections/btreeset.nepl');
+const btreeSetTypesSource = sourceWithoutComments(btreeSetTypesFile);
+const btreeSetStorageSource = sourceWithoutComments(btreeSetStorageFile);
+const btreeSetSource = [
+    btreeSetRootSource,
+    btreeSetTypesSource,
+    btreeSetStorageSource,
+    sourceWithoutComments('stdlib/alloc/collections/btreeset/search.nepl'),
+    sourceWithoutComments(btreeSetApiFile),
+    sourceWithoutComments('stdlib/alloc/collections/btreeset/alias.nepl'),
+].join('\n');
 assert.match(btreeSetSource, /struct BTreeSetStorage<\.T>:/, 'BTreeSet must keep typed storage wrapper');
 assert.match(btreeSetSource, /keys\s+<Vec<Option<\.T>>>/, 'BTreeSet keys must use Vec<Option<T>> storage');
-assert.match(btreeSetSource, /match\s+btreeset_key_at<\.T>/, 'BTreeSet must branch on Option key slots');
+assert.match(btreeSetStorageSource, /match\s+btreeset_key_at<\.T>/, 'BTreeSet storage must branch on Option key slots');
 
 const rawStoragePatterns = [
     /\bMemPtr\b/,
