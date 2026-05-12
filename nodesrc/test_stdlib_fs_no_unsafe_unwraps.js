@@ -23,6 +23,8 @@ const relPaths = [
     'stdlib/std/fs/dir.nepl',
     'stdlib/std/fs/bytes.nepl',
     'stdlib/std/fs/read.nepl',
+    'stdlib/std/fs/read/fd.nepl',
+    'stdlib/std/fs/read/path.nepl',
     'stdlib/std/fs/write.nepl',
 ];
 
@@ -46,6 +48,9 @@ const rawCode = codeByPath.get('stdlib/std/fs/raw.nepl');
 const rawFdIoCode = codeByPath.get('stdlib/std/fs/raw/fd_io.nepl');
 const rawLlvmCode = codeByPath.get('stdlib/std/fs/raw/llvm.nepl');
 const dirCode = codeByPath.get('stdlib/std/fs/dir.nepl');
+const readCode = codeByPath.get('stdlib/std/fs/read.nepl');
+const readFdCode = codeByPath.get('stdlib/std/fs/read/fd.nepl');
+const readPathCode = codeByPath.get('stdlib/std/fs/read/path.nepl');
 
 const forbidden = [
     /\bunwrap\b/,
@@ -87,6 +92,14 @@ assert.doesNotMatch(facadeCode, /\bfn\s+fs_read_fd_bytes\b/, 'std/fs facade must
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_read_to_bytes\b/, 'std/fs facade must not inline path read helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_write_fd_bytes\b/, 'std/fs facade must not inline fd write helpers');
 assert.doesNotMatch(facadeCode, /\bfn\s+fs_write_to_bytes\b/, 'std/fs facade must not inline path write helpers');
+
+assert.match(readCode, /pub\s+#import\s+"std\/fs\/read\/fd"\s+as\s+\*/, 'std/fs/read facade must re-export fd read helper submodule');
+assert.match(readCode, /pub\s+#import\s+"std\/fs\/read\/path"\s+as\s+\*/, 'std/fs/read facade must re-export path read helper submodule');
+assert.doesNotMatch(readCode, /^\s*(fn|struct|impl)\s/m, 'std/fs/read root must stay a facade without implementation bodies');
+assert.match(readFdCode, /\bfn\s+fs_read_fd_bytes\b[\s\S]*\bfs_fd_read_into_result\b[\s\S]*\bfs_finish_read_buffer\s+buf\s+cap\s+read_len\b/, 'fd read loop must stay in std/fs/read/fd');
+assert.match(readPathCode, /\bfn\s+fs_read_to_bytes\b[\s\S]*\bfs_open_read\s+path[\s\S]*\bfs_read_fd_bytes\s+fd[\s\S]*\bfs_close\s+fd/, 'path read API must stay in std/fs/read/path');
+assert.match(readPathCode, /\bfn\s+fs_read_to_string\b[\s\S]*\bfs_bytes_to_string_result\s+bytes/, 'path text read API must use checked ByteBuf conversion in std/fs/read/path');
+assert.doesNotMatch(readPathCode, /\b(?:alloc_ptr|realloc_ptr|dealloc_raw|fs_fd_read_into_result)\b/, 'std/fs/read/path must not own fd scratch raw read loop');
 
 assert.match(pathCode, /pub\s+#import\s+"std\/fs\/path\/entry"\s+as\s+\*/, 'std/fs/path facade must re-export entry helper submodule');
 assert.match(pathCode, /pub\s+#import\s+"std\/fs\/path\/normalize"\s+as\s+\*/, 'std/fs/path facade must re-export normalize submodule');

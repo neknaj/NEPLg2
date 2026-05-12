@@ -14,7 +14,7 @@ const byteBuilderSrc = fs.readFileSync(path.join(repoRoot, byteBuilderRelPath), 
 const traitsRelPath = 'stdlib/alloc/io/traits.nepl';
 const traitsSrc = fs.readFileSync(path.join(repoRoot, traitsRelPath), 'utf8');
 const loaderSrc = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
-const fsRelPath = 'stdlib/std/fs/read.nepl';
+const fsRelPath = 'stdlib/std/fs/read/fd.nepl';
 const fsSrc = fs.readFileSync(path.join(repoRoot, fsRelPath), 'utf8');
 const fsRawRelPath = 'stdlib/std/fs/raw/fd_io.nepl';
 const fsRawSrc = fs.readFileSync(path.join(repoRoot, fsRawRelPath), 'utf8');
@@ -166,7 +166,7 @@ assert.match(
     'alloc/io/bytebuilder must be an exact raw-memory boundary',
 );
 
-const fsReadMatch = fsSrc.match(/fn\s+fs_read_fd_bytes\b([\s\S]*?)\n\/\/: fs_read_to_bytes\b/);
+const fsReadMatch = fsSrc.match(/fn\s+fs_read_fd_bytes\b([\s\S]*)/);
 assert.ok(fsReadMatch, 'fs_read_fd_bytes body must be found');
 const fsRead = fsReadMatch[1];
 const fsFinishMatch = fsRawSrc.match(/fn\s+fs_finish_read_buffer\b([\s\S]*)/);

@@ -1,0 +1,134 @@
+//: # std/fs/read/fd
+//: fd から `ByteBuf` を構築する read helper
+//:
+//: ### 目的
+//: - raw fd read loop と scratch buffer cleanup を path-based API から分離します。
+//: - `ByteBuf` owner の確定は `fs_finish_read_buffer` に集約します。
+//:
+//: ### 注意
+//: - fd の open/close は呼び出し側の責務です。
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/result" as *
+#import "std/fs/bytes" as *
+#import "std/fs/raw" as *
+
+//: fs_read_fd_bytes: fd から全て読み込んで `ByteBuf` を返す
+//:
+//: 目的:
+//: - fd の内容をすべて読み込み、バイト列として返します。
+//:
+//: 実装(アルゴリズム):
+//: - 64KiB から開始する連続 buffer を必要に応じて再確保し、EOF まで `fd_read` を繰り返します。
+//:
+//: 注意(重要):
+//: - 途中でエラーが出た場合は Err(errno) を返します。
+//:
+//: 計算量:
+//: - O(n)
+//: fs_read_fd_bytes: 使い方の最小例
+//:
+//: [目的/もくてき]:
+//: - `fs_read_fd_bytes` の典型的な使い方を最小構成で示します。
+//: - 値を返す関数は結果の受け取り方も合わせて確認できます。
+//:
+//: [注意/ちゅうい]:
+//: - 例は用途が伝わる最短の呼び出しに絞っています。
+//: - 境界条件や詳細な正当性検証は専用テストで扱います。
+//:
+//: neplg2:test
+//: stdin: "fd bytes"
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "std/fs/read" as *
+//:| #import "std/fs/bytes" as *
+//:| #import "alloc/string" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match fs_read_fd_bytes 0:
+//:         Result::Ok bytes:
+//:             let text <str> fs_bytes_to_string bytes;
+//:             if str_eq text "fd bytes" 0 1
+//:         Result::Err _e:
+//:             1
+//: ```
+fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
+    let mut cap <i32> 65536;
+    match alloc_ptr<u8> cap:
+        Result::Err _e:
+            Result<ByteBuf,i32>::Err 12
+        Result::Ok buf0:
+            let mut buf <MemPtr<u8>> buf0;
+            match alloc_ptr<u8> 8:
+                Result::Err _e:
+                    dealloc_raw mem_ptr_addr buf cap;
+                    Result<ByteBuf,i32>::Err 12
+                Result::Ok iov_buf:
+                    let iov_raw <i32> mem_ptr_addr iov_buf;
+                    match alloc_ptr<u8> 4:
+                        Result::Err _e:
+                            dealloc_raw iov_raw 8;
+                            dealloc_raw mem_ptr_addr buf cap;
+                            Result<ByteBuf,i32>::Err 12
+                        Result::Ok nread_buf:
+                            let nread_raw <i32> mem_ptr_addr nread_buf;
+                            let mut read_len <i32> 0;
+                            let mut done <i32> 0;
+                            let mut err <i32> 0;
+                            let mut alloc_failed <i32> 0;
+
+                            while eq done 0:
+                                do:
+                                    if:
+                                        eq read_len cap
+                                        then:
+                                            let new_cap <i32> mul cap 2;
+                                            match realloc_ptr<u8> buf cap new_cap:
+                                                Result::Ok new_buf:
+                                                    set buf new_buf;
+                                                    set cap new_cap;
+                                                Result::Err _e:
+                                                    set alloc_failed 1;
+                                                    set done 1;
+                                        else:
+                                            ();
+                                    if:
+                                        eq done 0
+                                        then:
+                                            match fs_fd_read_into_result fd iov_buf nread_buf mem_ptr_add buf read_len sub cap read_len:
+                                                Result::Ok n:
+                                                    if:
+                                                        eq n 0
+                                                        then:
+                                                            set done 1
+                                                        else:
+                                                            set read_len add read_len n
+                                                Result::Err e:
+                                                    set err e;
+                                                    set done 1
+                                        else:
+                                            ()
+
+                            let res <Result<ByteBuf,i32>> if:
+                                eq alloc_failed 1
+                                then:
+                                    dealloc_raw mem_ptr_addr buf cap;
+                                    Result<ByteBuf,i32>::Err 12
+                                else:
+                                    if:
+                                        eq err 0
+                                        then:
+                                            fs_finish_read_buffer buf cap read_len
+                                        else:
+                                            dealloc_raw mem_ptr_addr buf cap;
+                                            Result<ByteBuf,i32>::Err err
+                            dealloc_raw nread_raw 4;
+                            dealloc_raw iov_raw 8;
+                            res

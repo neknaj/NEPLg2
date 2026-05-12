@@ -17,7 +17,7 @@ const ioRootCode = implementation('stdlib/alloc/io.nepl');
 const ioCode = implementation('stdlib/alloc/io/bytebuf.nepl');
 const fsCode = implementation('stdlib/std/fs.nepl');
 const fsBytesCode = implementation('stdlib/std/fs/bytes.nepl');
-const fsReadCode = implementation('stdlib/std/fs/read.nepl');
+const fsReadCode = implementation('stdlib/std/fs/read/path.nepl');
 const fsPathCode = implementation('stdlib/std/fs/path.nepl');
 const fsPathEntryCode = implementation('stdlib/std/fs/path/entry.nepl');
 

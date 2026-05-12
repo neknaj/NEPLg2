@@ -36016,3 +36016,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 std/fs read fd/path 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/std/fs/read.nepl` に同居していた fd raw/scratch read loop、path open/close、binary/text read API、UTF-8 conversion 境界を `read/fd` と `read/path` に分離した。
+- `stdlib/std/fs/read.nepl` は public facade にし、`std/fs/read/fd` と `std/fs/read/path` を re-export するだけの構成にした。
+- `stdlib/std/fs/read/fd.nepl` は `fs_read_fd_bytes` を所有し、scratch buffer cleanup と `fs_finish_read_buffer` への `ByteBuf` owner 確定を fd read loop に閉じた。
+- `stdlib/std/fs/read/path.nepl` は `fs_read_to_bytes` / `fs_read_to_string` / `fs_read_to_string_checked` を所有し、fd read helper の利用と checked text conversion を担当する。
+- `nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_bytebuf_utf8_boundary.js`、`nodesrc/test_stdlib_io_bytebuf_owner_boundary.js` を更新し、root facade に実装本体が戻らないこと、fd read loop が `read/fd` に閉じること、text read が checked `ByteBuf` conversion を使うことを固定した。
+- line count は `read.nepl` 32、`read/fd.nepl` 129、`read/path.nepl` 141。
+- [検証]:
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_bytebuf_utf8_boundary.js`: passed
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/tests.js -i stdlib/std/fs/read.nepl -i stdlib/std/fs/read/fd.nepl -i stdlib/std/fs/read/path.nepl --no-tree -o tmp/fs-read-module-split-read-only.json -j 1 --dist web/dist`: total=4, passed=4
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-read-module-split-fs-md.json -j 1 --dist web/dist`: total=7, passed=7
+  - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/fs-read-module-split-text-utf8.json -j 1 --dist web/dist`: total=9, passed=9
+  - `node nodesrc/tests.js -i stdlib/std/fs.nepl -i stdlib/std/fs/read.nepl -i stdlib/std/fs/read/fd.nepl -i stdlib/std/fs/read/path.nepl -i stdlib/std/fs/write.nepl -i stdlib/std/fs/dir.nepl -i stdlib/std/fs/stat.nepl -i tests/stdlib/fs.n.md --no-tree -o tmp/fs-read-module-split-fs-suite.json -j 1 --dist web/dist`: total=15, passed=15
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
