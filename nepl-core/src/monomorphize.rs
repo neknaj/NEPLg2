@@ -60,12 +60,7 @@ fn monomorphize_internal(
     let mut impl_entries: Vec<TraitImplEntry> = Vec::new();
     for imp in &module.impls {
         let ty = ctx.resolve_id(imp.target_ty);
-        let trait_base_name = imp
-            .trait_base_name
-            .as_ref()
-            .unwrap_or(&imp.trait_name)
-            .clone();
-        let application = MonoTraitApplication::resolved(ctx, trait_base_name, &imp.trait_args);
+        let application = MonoTraitApplication::from_hir(ctx, &imp.trait_application);
         for m in &imp.methods {
             let entry_index = impl_entries.len();
             impl_entries.push(TraitImplEntry {
@@ -211,6 +206,10 @@ impl MonoTraitApplication {
             args: args.iter().map(|arg| ctx.resolve_id(*arg)).collect(),
         }
     }
+
+    fn from_hir(ctx: &TypeCtx, application: &HirTraitApplication) -> Self {
+        Self::resolved(ctx, application.base_name.clone(), &application.args)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -345,23 +344,16 @@ impl<'a> Monomorphizer<'a> {
                         stack.push(arg);
                     }
                     if let FuncRef::Trait {
-                        trait_name,
-                        trait_args,
+                        application,
                         method,
                         self_ty,
                     } = callee
                     {
-                        let rendered_args = trait_args
-                            .iter()
-                            .map(|ty| self.ctx.type_to_string(*ty))
-                            .collect::<Vec<_>>()
-                            .join(", ");
                         out.push(UnresolvedTraitCall {
                             description: format!(
-                                "{} :: {}<{}>::{} [self={}]",
+                                "{} :: {}::{} [self={}]",
                                 func.name,
-                                trait_name,
-                                rendered_args,
+                                application.display_name(self.ctx),
                                 method,
                                 self.ctx.type_to_string(*self_ty),
                             ),
@@ -455,13 +447,12 @@ impl<'a> Monomorphizer<'a> {
             match &mut expr.kind {
                 HirExprKind::Call { callee, args } => {
                     if let FuncRef::Trait {
-                        trait_name,
-                        trait_args,
+                        application,
                         method,
                         self_ty,
                     } = callee
                     {
-                        for trait_arg in trait_args.iter_mut() {
+                        for trait_arg in application.args.iter_mut() {
                             *trait_arg = self.ctx.resolve_id(*trait_arg);
                         }
                         let resolved = self.ctx.resolve_id(*self_ty);
@@ -474,8 +465,8 @@ impl<'a> Monomorphizer<'a> {
                         };
                         *self_ty = dispatch_self_ty;
                         if let Some(resolution) = self.resolve_trait_impl_name(
-                            trait_name.as_str(),
-                            trait_args,
+                            application.base_name.as_str(),
+                            &application.args,
                             method.as_str(),
                             dispatch_self_ty,
                         ) {
@@ -936,11 +927,11 @@ impl<'a> Monomorphizer<'a> {
                             type_args.clear();
                         }
                         FuncRef::Trait {
-                            trait_args,
+                            application,
                             self_ty,
                             ..
                         } => {
-                            for trait_arg in trait_args.iter_mut() {
+                            for trait_arg in application.args.iter_mut() {
                                 *trait_arg = self.ctx.resolve_id(*trait_arg);
                             }
                             *self_ty = self.ctx.resolve_id(*self_ty);
@@ -1211,12 +1202,11 @@ impl<'a> Monomorphizer<'a> {
                         type_args.clear(); // Call site in WASM doesn't need type_args anymore
                     }
                     FuncRef::Trait {
-                        trait_name,
-                        trait_args,
+                        application,
                         method,
                         self_ty,
                     } => {
-                        for trait_arg in trait_args.iter_mut() {
+                        for trait_arg in application.args.iter_mut() {
                             *trait_arg = self.ctx.substitute(*trait_arg, mapping);
                             *trait_arg = self.ctx.resolve_id(*trait_arg);
                         }
@@ -1231,8 +1221,8 @@ impl<'a> Monomorphizer<'a> {
                         };
                         *self_ty = dispatch_self_ty;
                         if let Some(resolution) = self.resolve_trait_impl_name(
-                            trait_name.as_str(),
-                            trait_args,
+                            application.base_name.as_str(),
+                            &application.args,
                             method.as_str(),
                             dispatch_self_ty,
                         ) {
@@ -1444,8 +1434,10 @@ mod tests {
                             ty: i32_ty,
                             kind: HirExprKind::Call {
                                 callee: FuncRef::Trait {
-                                    trait_name: String::from("Show"),
-                                    trait_args: Vec::new(),
+                                    application: HirTraitApplication::new(
+                                        String::from("Show"),
+                                        Vec::new(),
+                                    ),
                                     method: String::from("show"),
                                     self_ty: i32_ty,
                                 },

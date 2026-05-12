@@ -1017,9 +1017,11 @@ fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) -> EffectOp
             }
         }
         FuncRef::Trait {
-            trait_name, method, ..
+            application,
+            method,
+            ..
         } => EffectOp::UserCall {
-            name: alloc::format!("{}::{}", trait_name, method),
+            name: alloc::format!("{}::{}", application.base_name, method),
             effect: Effect::Pure,
         },
     }
@@ -1051,13 +1053,12 @@ fn lower_call_target(callee: &FuncRef) -> ResourceCallTarget {
             type_args: type_args.clone(),
         },
         FuncRef::Trait {
-            trait_name,
-            trait_args,
+            application,
             method,
             self_ty,
         } => ResourceCallTarget::Trait {
-            trait_name: trait_name.clone(),
-            trait_args: trait_args.clone(),
+            trait_name: application.base_name.clone(),
+            trait_args: application.args.clone(),
             method: method.clone(),
             self_ty: *self_ty,
         },

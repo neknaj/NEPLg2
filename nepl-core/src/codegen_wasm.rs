@@ -758,12 +758,11 @@ fn missing_direct_call_name(ctx: &TypeCtx, callee: &FuncRef) -> String {
     match callee {
         FuncRef::Builtin(n) | FuncRef::User(n, _, _) => n.clone(),
         FuncRef::Trait {
-            trait_name,
-            trait_args: _,
+            application,
             method,
             self_ty,
         } => {
-            let mut s = trait_name.clone();
+            let mut s = application.display_name(ctx);
             s.push_str("::");
             s.push_str(method);
             s.push_str(" [self=");

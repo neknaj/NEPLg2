@@ -8,6 +8,7 @@ const ROOT = path.resolve(__dirname, "..");
 const TYPECHECK_DIR = path.join(ROOT, "nepl-core", "src", "typecheck");
 const FUNCTION_CHECK = path.join(TYPECHECK_DIR, "function_check.rs");
 const SELECTED_CALL_APPLY = path.join(TYPECHECK_DIR, "selected_call_apply.rs");
+const HIR = path.join(ROOT, "nepl-core", "src", "hir.rs");
 const MONOMORPHIZE = path.join(ROOT, "nepl-core", "src", "monomorphize.rs");
 const PLAN = path.join(ROOT, "doc", "neplg2", "abstraction_static_verification_plan.md");
 const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
@@ -145,6 +146,7 @@ assert(
 const functionCheck = read(FUNCTION_CHECK);
 const context = read(path.join(TYPECHECK_DIR, "context.rs"));
 const traitBoundApply = read(path.join(TYPECHECK_DIR, "trait_bound_apply.rs"));
+const hir = read(HIR);
 const monomorphize = read(MONOMORPHIZE);
 assert(
     !context.includes("Vec<(TraitBound, TypeId, Span)>"),
@@ -223,6 +225,30 @@ assert(
     selectedCallApply.includes("match trait_resolution"),
     "selected callable trait resolution must match TraitMethodResolution explicitly",
 );
+assert(hir.includes("pub struct HirTraitApplication"), "HIR must define HirTraitApplication");
+const funcRefEnum = hir.match(/pub enum FuncRef\s*\{[\s\S]*?\n\}/);
+assert(funcRefEnum, "FuncRef enum body must be visible to source policy");
+assert(
+    funcRefEnum[0].includes("application: HirTraitApplication"),
+    "FuncRef::Trait must store a HirTraitApplication",
+);
+assert(
+    !funcRefEnum[0].includes("trait_name: String"),
+    "FuncRef::Trait must not store split trait_name",
+);
+assert(
+    !funcRefEnum[0].includes("trait_args: Vec<TypeId>"),
+    "FuncRef::Trait must not store split trait_args",
+);
+const hirImplStruct = hir.match(/pub struct HirImpl\s*\{[\s\S]*?\n\}/);
+assert(hirImplStruct, "HirImpl struct body must be visible to source policy");
+assert(
+    hirImplStruct[0].includes("trait_application: HirTraitApplication"),
+    "HirImpl must store HirTraitApplication",
+);
+for (const oldField of ["trait_name:", "trait_base_name:", "trait_args:"]) {
+    assert(!hirImplStruct[0].includes(oldField), `HirImpl must not store ${oldField}`);
+}
 for (const marker of [
     "struct MonoTraitApplication",
     "struct MonoTraitMethodKey",

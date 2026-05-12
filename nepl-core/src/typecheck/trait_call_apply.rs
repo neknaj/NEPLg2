@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::diagnostic_codes::{EffectDiagnosticCode, TypeDiagnosticCode};
-use crate::hir::{FuncRef, HirExpr, HirExprKind};
+use crate::hir::{FuncRef, HirExpr, HirExprKind, HirTraitApplication};
 use crate::span::Span;
 use crate::types::TypeId;
 
@@ -37,8 +37,7 @@ pub(super) struct TraitMethodCall {
 impl TraitMethodCall {
     pub(super) fn into_func_ref(self) -> FuncRef {
         FuncRef::Trait {
-            trait_name: self.trait_name,
-            trait_args: self.trait_args,
+            application: HirTraitApplication::new(self.trait_name, self.trait_args),
             method: self.method,
             self_ty: self.self_ty,
         }

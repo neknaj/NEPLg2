@@ -57,6 +57,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T161908521Z-TRAIT-METHOD-RESOLUTION-STILL-RETURN-21525B05` で、trait method resolution を `TraitMethodResolution` enum と `TraitMethodCall` model に移し、selected callable / unbound call の分岐を enum match にした。
 - `ISS-20260512T163228542Z-PENDING-TRAIT-CHECKS-STILL-USE-POSIT-FB7F1082` で、pending trait bound check を tuple から `PendingTraitCheck { bound, target_ty, span }` へ移行した。
 - `ISS-20260512T164311083Z-MONOMORPHIZE-TRAIT-LOOKUP-KEYS-STILL-DA66AC14` で、monomorphize の trait lookup key を tuple から `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行し、重複していた `impl_entry_index` を削除した。
+- `ISS-20260512T165852784Z-HIR-TRAIT-CALLS-STILL-SPLIT-TRAIT-AP-405A462B` で、HIR 境界の `FuncRef::Trait` / `HirImpl` を `HirTraitApplication` へ移行し、trait identity の split string fields を削除した。
 
 ## 検証
 

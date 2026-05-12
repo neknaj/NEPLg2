@@ -261,7 +261,9 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `ISS-20260512T164311083Z-MONOMORPHIZE-TRAIT-LOOKUP-KEYS-STILL-DA66AC14` を追加し、verified にした。
 - 2026-05-12: `monomorphize.rs` の `impl_map` / `impl_method_index` / `trait_lookup_cache` を positional tuple key から `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行した。
 - 2026-05-12: 旧 `impl_entry_index` は `impl_method_index` と同じ candidate set を二重に保持していたため削除し、trait base name + method の候補 index に統合した。
-- 残件: `HirImpl` / `FuncRef::Trait` 自体はまだ surface HIR の文字列 field を持つ。monomorphize 内部 key の構造化は完了したが、HIR trait identity の typed model 化は別 stage / 別 issue で扱う。
+- 2026-05-12: `ISS-20260512T165852784Z-HIR-TRAIT-CALLS-STILL-SPLIT-TRAIT-AP-405A462B` を追加し、verified にした。
+- 2026-05-12: `HirTraitApplication` を追加し、`FuncRef::Trait` と `HirImpl` の trait identity を split string fields ではなく typed application で保持する形へ移行した。
+- 残件: Resource IR の `ResourceCallTarget::Trait` は dump / report 用に split field を持つ。HIR と monomorphize の authority は typed model に移ったため、Resource IR 側の表示/監査 model は別 issue で扱う。
 
 ### Stage 6: policy baseline を 0 に下げる
 
@@ -280,5 +282,6 @@ struct MonoTraitLookupKey {
 - `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存、split impl field 参照、duplicate label fallback 実装は削除済み。
 - `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
 - `typecheck/trait_call_apply.rs`: 実装済みだが再設計対象。split impl field 参照は削除済みだが、trait method resolution result enum が必要。
-- `monomorphize.rs`: Stage 5 は進行中。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。残る対象は `HirImpl` / `FuncRef::Trait` の surface HIR identity model。
+- `hir.rs`: Stage 5 は進行済み。`HirTraitApplication` を追加し、`FuncRef::Trait` / `HirImpl` は typed trait application を保持する。
+- `monomorphize.rs`: Stage 5 は進行中。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。HIR からは `HirTraitApplication` を受け取り、monomorphize phase 内の resolved key へ変換する。
 - `nodesrc/test_abstraction_static_verification_policy.js`: Stage 0 baseline policy として追加。

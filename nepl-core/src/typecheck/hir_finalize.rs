@@ -36,11 +36,11 @@ pub(super) fn resolve_type_ids_in_expr(ctx: &TypeCtx, expr: &mut HirExpr) {
                         }
                     }
                     FuncRef::Trait {
-                        trait_args,
+                        application,
                         self_ty,
                         ..
                     } => {
-                        for ty in trait_args {
+                        for ty in &mut application.args {
                             *ty = ctx.resolve_id(*ty);
                         }
                         *self_ty = ctx.resolve_id(*self_ty);

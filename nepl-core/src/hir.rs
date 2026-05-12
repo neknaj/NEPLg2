@@ -8,7 +8,7 @@ use crate::ast::TraitCapability;
 use crate::ast::{Effect, LlvmIrBlock, WasmBlock};
 use crate::resolve::DefId;
 use crate::span::Span;
-use crate::types::TypeId;
+use crate::types::{TypeCtx, TypeId};
 
 #[derive(Debug, Clone)]
 pub struct HirModule {
@@ -148,13 +148,40 @@ pub enum HirExprKind {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HirTraitApplication {
+    pub base_name: String,
+    pub args: Vec<TypeId>,
+}
+
+impl HirTraitApplication {
+    pub fn new(base_name: String, args: Vec<TypeId>) -> Self {
+        Self { base_name, args }
+    }
+
+    pub fn display_name(&self, ctx: &TypeCtx) -> String {
+        if self.args.is_empty() {
+            return self.base_name.clone();
+        }
+        let mut name = self.base_name.clone();
+        name.push('<');
+        for (index, arg) in self.args.iter().enumerate() {
+            if index > 0 {
+                name.push(',');
+            }
+            name.push_str(&ctx.type_to_string(*arg));
+        }
+        name.push('>');
+        name
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum FuncRef {
     Builtin(String),
     User(String, Vec<TypeId>, Option<DefId>),
     Trait {
-        trait_name: String,
-        trait_args: Vec<TypeId>,
+        application: HirTraitApplication,
         method: String,
         self_ty: TypeId,
     },
@@ -188,9 +215,7 @@ pub struct HirTrait {
 #[derive(Debug, Clone)]
 pub struct HirImpl {
     pub doc: Option<String>,
-    pub trait_name: String,
-    pub trait_base_name: Option<String>,
-    pub trait_args: Vec<TypeId>,
+    pub trait_application: HirTraitApplication,
     pub type_args: Vec<TypeId>,
     pub target_ty: TypeId,
     pub methods: Vec<HirImplMethod>,

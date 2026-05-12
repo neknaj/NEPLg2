@@ -10,7 +10,7 @@ use alloc::vec::Vec;
 use crate::ast::TraitCapability;
 use crate::hir::{
     FuncRef, HirBlock, HirExpr, HirExprKind, HirFunction, HirLine, HirMatchArm, HirMatchPattern,
-    HirModule,
+    HirModule, HirTraitApplication,
 };
 use crate::layout::{extend_type_mapping, mapped_type_id};
 use crate::resource::{
@@ -567,8 +567,7 @@ fn drop_call_expr(
         ty: plan.unit_ty,
         kind: HirExprKind::Call {
             callee: FuncRef::Trait {
-                trait_name: plan.trait_name.clone(),
-                trait_args: Vec::new(),
+                application: HirTraitApplication::new(plan.trait_name.clone(), Vec::new()),
                 method: plan.method_name.clone(),
                 self_ty: ty,
             },
@@ -628,8 +627,7 @@ fn drop_field_call_expr(
         ty: plan.unit_ty,
         kind: HirExprKind::Call {
             callee: FuncRef::Trait {
-                trait_name: plan.trait_name.clone(),
-                trait_args: Vec::new(),
+                application: HirTraitApplication::new(plan.trait_name.clone(), Vec::new()),
                 method: plan.method_name.clone(),
                 self_ty: field_ty,
             },

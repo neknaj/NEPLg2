@@ -36613,3 +36613,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `monomorphize.rs` に `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` を追加し、trait lookup の exact map と cache を named key model へ移行した。
 - `impl_entry_index` は `impl_method_index` と同じ候補集合を二重管理していたため削除し、trait base name + method の候補 index に統合した。
 - source policy に monomorphize tuple key と `impl_entry_index` の再導入禁止を追加し、`format_trait_ref_name` / `trait_lookup_cache` baseline を現状値へ下げた。
+
+## 2026-05-13 Agent 1 HIR trait application model
+
+- `70e2eecf` push 後に remote main を pull し、merge 済みの `agent1/monomorphize-trait-lookup-keys` branch を削除した。
+- `agent1/hir-trait-application-model` branch を作成し、Stage 5 の `ISS-20260512T165852784Z-HIR-TRAIT-CALLS-STILL-SPLIT-TRAIT-AP-405A462B` を追加した。
+- `HirTraitApplication { base_name, args }` を追加し、`FuncRef::Trait` と `HirImpl` の trait identity を split string fields から typed application に移行した。
+- typecheck / monomorphize / Resource IR lowering / drop insertion / WASM・LLVM diagnostics を `HirTraitApplication` 経由に更新した。
+- source policy に HIR trait application model と旧 split field 再導入禁止を追加した。

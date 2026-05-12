@@ -1585,9 +1585,7 @@ pub fn typecheck(
 
             final_impls.push(HirImpl {
                 doc: i.doc.clone(),
-                trait_name: applied_trait_name,
-                trait_base_name: Some(trait_name.clone()),
-                trait_args: trait_args.clone(),
+                trait_application: HirTraitApplication::new(trait_name.clone(), trait_args.clone()),
                 type_args: tps,
                 target_ty,
                 methods: impl_methods,

@@ -1792,12 +1792,15 @@ fn lower_hir_expr(
             let callee_name = match callee {
                 FuncRef::Builtin(name) | FuncRef::User(name, _, _) => name.as_str(),
                 FuncRef::Trait {
-                    trait_name, method, ..
+                    application,
+                    method,
+                    ..
                 } => {
                     return Err(llvm_codegen_error(
                         format!(
                             "unresolved trait call {}::{} reached llvm codegen",
-                            trait_name, method
+                            application.display_name(types),
+                            method
                         ),
                         expr.span,
                         DiagnosticCode::Backend(
