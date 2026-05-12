@@ -36368,3 +36368,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 typecheck qualifier splitter 命名整理
+
+- `ISS-20260512T131952514Z-TYPECHECK-HELPER-NAME-HIDES-FIRST-QU-16B7D3ED` として、`parse_variant_name` が実際には first `::` で leading qualifier を分割する helper だった問題を修正中。
+- helper 名を `split_qualified_name` へ変更し、constructor application、qualified import lookup、trait method lookup、prefix lookup の call site を移行した。
+- `syntax_helpers.rs` の unit test で `split_qualified_name` は first separator、`variant_member_tail` は last separator を使うことを明示した。
+- `nodesrc/test_static_check_boundary_responsibility.js` に、`split_qualified_name` / `variant_member_tail` の役割分離と旧 `parse_variant_name` 名の再導入禁止を追加した。
+- これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 1 の typecheck module boundary と Stage 4 の Resource IR authority への接続を補強する整理である。
+- [検証]:
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `cargo test -p nepl-core typecheck::syntax_helpers::tests -- --nocapture`: passed
+  - `cargo test -p nepl-core --test import_clause alias_qualified_enum_match_arm_uses_variant_member_tail -- --nocapture`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/issues.js index --dir issues`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `git diff --check`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

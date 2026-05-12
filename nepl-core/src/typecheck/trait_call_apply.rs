@@ -9,7 +9,7 @@ use crate::span::Span;
 use crate::types::TypeId;
 
 use super::diagnostics::{effect_error, type_error};
-use super::syntax_helpers::parse_variant_name;
+use super::syntax_helpers::split_qualified_name;
 use super::traits::trait_application_matches;
 use super::{BlockChecker, StackEntry};
 
@@ -28,7 +28,7 @@ impl<'a> BlockChecker<'a> {
         result: TypeId,
         expected_ret: Option<TypeId>,
     ) -> Option<FuncRef> {
-        let (trait_name, method_name) = parse_variant_name(callee_name)?;
+        let (trait_name, method_name) = split_qualified_name(callee_name)?;
         let trait_info = self.traits.get(trait_name)?;
         let sig = *trait_info.methods.get(method_name)?;
         let applied_trait_args =
@@ -93,7 +93,7 @@ impl<'a> BlockChecker<'a> {
         expected_ret: Option<TypeId>,
         span: Span,
     ) -> TraitMethodApplyResult {
-        let Some((trait_name, method_name)) = parse_variant_name(name) else {
+        let Some((trait_name, method_name)) = split_qualified_name(name) else {
             return TraitMethodApplyResult::NotHandled;
         };
         let Some(trait_info) = self.traits.get(trait_name) else {

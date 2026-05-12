@@ -6,12 +6,12 @@ use crate::ast::Ident;
 
 use super::env::Binding;
 use super::signature::same_function_signature;
-use super::syntax_helpers::parse_variant_name;
+use super::syntax_helpers::split_qualified_name;
 use super::BlockChecker;
 
 impl<'a> BlockChecker<'a> {
     pub(super) fn lookup_qualified_bindings(&self, id: &Ident) -> Option<(String, Vec<Binding>)> {
-        let (ns, member) = parse_variant_name(&id.name)?;
+        let (ns, member) = split_qualified_name(&id.name)?;
         if self.enums.contains_key(ns) || self.traits.contains_key(ns) {
             return None;
         }

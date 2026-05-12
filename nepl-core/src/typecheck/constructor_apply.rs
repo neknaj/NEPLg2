@@ -10,7 +10,7 @@ use crate::types::{TypeId, TypeKind};
 
 use super::diagnostics::type_error;
 use super::model::{RestrictedStructConstructor, StructConstructorPolicy};
-use super::syntax_helpers::parse_variant_name;
+use super::syntax_helpers::split_qualified_name;
 use super::{BlockChecker, StackEntry};
 
 pub(super) enum ConstructorApplyResult {
@@ -42,7 +42,7 @@ impl<'a> BlockChecker<'a> {
         c_result: TypeId,
         span: Span,
     ) -> ConstructorApplyResult {
-        if let Some((enm, var)) = parse_variant_name(name) {
+        if let Some((enm, var)) = split_qualified_name(name) {
             if let Some(result) = self.apply_enum_constructor(
                 enm,
                 var,

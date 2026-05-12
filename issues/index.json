@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T13:13:48.068Z",
+  "generated_at": "2026-05-12T13:24:55.212Z",
   "counts": {
-    "total": 643,
+    "total": 644,
     "open": 10,
-    "resolved": 633,
+    "resolved": 634,
     "by_area": {
       "core": {
-        "total": 326,
+        "total": 327,
         "open": 3,
-        "resolved": 323
+        "resolved": 324
       },
       "stdlib": {
         "total": 167,
@@ -4938,6 +4938,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T130429682Z-TYPECHECK-ENUM-MATCH-ARMS-USE-FIRST--86646860.md"
+    },
+    {
+      "id": "ISS-20260512T131952514Z-TYPECHECK-HELPER-NAME-HIDES-FIRST-QU-16B7D3ED",
+      "title": "Typecheck helper name hides first-qualifier split semantics",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/typecheck/syntax_helpers.rs; nepl-core/src/typecheck/*.rs; nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T131952514Z-TYPECHECK-HELPER-NAME-HIDES-FIRST-QU-16B7D3ED.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

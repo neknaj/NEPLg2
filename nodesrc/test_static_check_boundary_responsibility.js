@@ -59,6 +59,10 @@ const typecheckMatchCheck = assertFile(
     path.join(TYPECHECK_DIR, 'match_check.rs'),
     'typecheck/match_check.rs',
 );
+const typecheckSyntaxHelpers = assertFile(
+    path.join(TYPECHECK_DIR, 'syntax_helpers.rs'),
+    'typecheck/syntax_helpers.rs',
+);
 
 assertLineLimit(TYPECHECK_ROOT, 'typecheck.rs', 90);
 
@@ -104,6 +108,9 @@ for (const moduleName of [
 assertContains(typecheckRoot, 'pub use driver::{typecheck, TypeCheckResult};', 'typecheck.rs');
 assertContains(typecheckMatchCheck, 'variant_member_tail', 'typecheck/match_check.rs');
 assertNotContains(typecheckMatchCheck, 'find("::")', 'typecheck/match_check.rs');
+assertContains(typecheckSyntaxHelpers, 'fn split_qualified_name', 'typecheck/syntax_helpers.rs');
+assertContains(typecheckSyntaxHelpers, 'fn variant_member_tail', 'typecheck/syntax_helpers.rs');
+assertNotContains(typecheckSyntaxHelpers, 'parse_variant_name', 'typecheck/syntax_helpers.rs');
 
 for (const [moduleName, limit] of [
     ['driver.rs', 1700],

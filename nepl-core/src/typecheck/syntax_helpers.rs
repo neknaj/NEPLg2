@@ -1,7 +1,7 @@
 use crate::ast::Directive;
 use crate::compiler::{BuildProfile, CompileTarget};
 
-pub(super) fn parse_variant_name(name: &str) -> Option<(&str, &str)> {
+pub(super) fn split_qualified_name(name: &str) -> Option<(&str, &str)> {
     let mut parts = name.splitn(2, "::");
     let a = parts.next()?;
     let b = parts.next()?;
@@ -36,6 +36,16 @@ pub(super) fn parse_i32_literal(text: &str) -> Option<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn split_qualified_name_uses_first_separator() {
+        assert_eq!(split_qualified_name("Result::Ok"), Some(("Result", "Ok")));
+        assert_eq!(
+            split_qualified_name("dep::Result::Ok"),
+            Some(("dep", "Result::Ok"))
+        );
+        assert_eq!(split_qualified_name("Ok"), None);
+    }
 
     #[test]
     fn variant_member_tail_uses_last_separator() {

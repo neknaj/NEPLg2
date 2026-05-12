@@ -14,7 +14,7 @@ use crate::types::{TypeId, TypeKind};
 use super::binding_rules::{emit_shadow_warning, shadow_blocked_by_nonshadow};
 use super::diagnostics::{effect_error, resolve_error, type_error};
 use super::env::{Binding, BindingKind};
-use super::syntax_helpers::{parse_i32_literal, parse_variant_name};
+use super::syntax_helpers::{parse_i32_literal, split_qualified_name};
 use super::type_expr::type_from_expr;
 use super::{AssignKind, BlockChecker, FieldIdx, StackEntry};
 
@@ -406,7 +406,7 @@ impl<'a> BlockChecker<'a> {
                                     && qualified_bindings.is_none()
                                     && !self.import_resolution.has_qualified_targets()
                                 {
-                                    if let Some((ns, member)) = parse_variant_name(&id.name) {
+                                    if let Some((ns, member)) = split_qualified_name(&id.name) {
                                         if !self.enums.contains_key(ns)
                                             && !self.traits.contains_key(ns)
                                         {
@@ -780,7 +780,7 @@ impl<'a> BlockChecker<'a> {
                                         last_expr = Some(stack.last().unwrap().expr.clone());
                                     }
                                 } else if let Some((trait_name, method_name)) =
-                                    parse_variant_name(&id.name)
+                                    split_qualified_name(&id.name)
                                 {
                                     if let Some(trait_info) = self.traits.get(trait_name) {
                                         if !type_args.is_empty() {
