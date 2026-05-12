@@ -43,6 +43,25 @@ function escapeRegExp(text) {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function moduleNameFromFile(name) {
+    return name.replace(/\.rs$/, '');
+}
+
+function assertModuleDeclared(modText, fileName) {
+    const moduleName = escapeRegExp(moduleNameFromFile(fileName));
+    const declaration = new RegExp(`(^|\\n)(#\\[cfg\\(test\\)\\]\\n)?mod ${moduleName};`);
+    const pathDeclaration = fs
+        .readdirSync(RESOURCE_DIR)
+        .filter((resourceFileName) => resourceFileName.endsWith('.rs'))
+        .some((resourceFileName) =>
+            readResource(resourceFileName).includes(`#[path = "${fileName}"]`),
+        );
+    assert(
+        declaration.test(modText) || pathDeclaration,
+        `resource/mod.rs or a resource test module must declare ${fileName}`,
+    );
+}
+
 function assertUsesResourceModuleSymbol(text, moduleName, symbolName, source) {
     const directImport = `super::${moduleName}::${symbolName}`;
     const groupedImport = new RegExp(
@@ -773,6 +792,7 @@ const maxLines = new Map([
     ['effect_counts.rs', 80],
     ['effect_counts_host.rs', 220],
     ['effect_counts_raw.rs', 80],
+    ['effect_identity.rs', 420],
     ['initialized.rs', 750],
     ['borrow_call.rs', 120],
     ['borrow_check.rs', 550],
@@ -790,12 +810,15 @@ const maxLines = new Map([
     ['cell_state_raw_range_model.rs', 80],
     ['cell_state_raw_range_value.rs', 80],
     ['cell_state_raw_range_value_alias.rs', 80],
+    ['condition_fact.rs', 180],
     ['owner_check.rs', 800],
     ['owner_check_utils.rs', 80],
+    ['owner_alias.rs', 180],
     ['owner_consumption.rs', 80],
     ['owner_drop.rs', 180],
     ['owner_expr.rs', 80],
     ['owner_flow.rs', 620],
+    ['owner_raw_address.rs', 40],
     ['owner_raw_view.rs', 180],
     ['owner_raw_view_model.rs', 60],
     ['owner_raw_view_table.rs', 160],
@@ -804,7 +827,10 @@ const maxLines = new Map([
     ['owner_summary_i32_leaf.rs', 220],
     ['owner_summary_parameters.rs', 100],
     ['owner_summary_raw_alias.rs', 140],
+    ['owner_summary_raw_transfer.rs', 150],
     ['owner_summary_variant_build.rs', 360],
+    ['owner_summary_resolved_variant.rs', 260],
+    ['owner_summary_variant_ambiguous.rs', 80],
     ['owner_summary_variant_conditions.rs', 260],
     ['owner_summary_variant_construct.rs', 140],
     ['owner_summary_variant_i32_conditions.rs', 40],
@@ -823,8 +849,10 @@ const maxLines = new Map([
     ['owner_summary_variant_projection.rs', 100],
     ['owner_return.rs', 220],
     ['owner_return_apply.rs', 280],
+    ['owner_return_apply_source.rs', 140],
     ['owner_return_unknown.rs', 180],
     ['owner_return_view.rs', 80],
+    ['owner_transfer.rs', 120],
     ['owner_variant.rs', 1050],
     ['owner_variant_utils.rs', 220],
     ['owner_variant_value_condition.rs', 220],
@@ -832,9 +860,12 @@ const maxLines = new Map([
     ['summary_dependency.rs', 220],
     ['summary_worklist.rs', 100],
     ['timing.rs', 80],
+    ['trait_identity.rs', 80],
+    ['type_pattern.rs', 120],
     ['effect_check.rs', 700],
     ['summary.rs', 300],
     ['effect_summary.rs', 250],
+    ['function_alias.rs', 140],
     ['coverage.rs', 280],
     ['coverage_hir.rs', 240],
     ['coverage_hir_place.rs', 120],
@@ -849,6 +880,7 @@ const maxLines = new Map([
     ['dump.rs', 720],
     ['drop_elaboration.rs', 220],
     ['drop_elaboration_bindings.rs', 140],
+    ['drop_elaboration_hir_bridge.rs', 260],
     ['drop_elaboration_validate.rs', 120],
     ['drop_model.rs', 80],
     ['drop_plan.rs', 160],
@@ -865,18 +897,24 @@ const maxLines = new Map([
     ['lower_raw_address.rs', 620],
     ['lower_raw_address_place.rs', 180],
     ['lower_raw_address_return.rs', 430],
+    ['lower_raw_address_source.rs', 180],
     ['lower_raw_memory.rs', 120],
     ['lower_temporary_scope.rs', 100],
+    ['raw_realloc.rs', 160],
+    ['report.rs', 380],
+    ['shadow.rs', 60],
     ['initialized_alias.rs', 520],
     ['initialized_alias_difference.rs', 80],
     ['initialized_alias_difference_flow.rs', 120],
     ['initialized_alias_flow.rs', 550],
+    ['initialized_alias_flow_tests.rs', 180],
     ['initialized_alias_i32_condition.rs', 200],
     ['initialized_alias_i32_condition_tests.rs', 80],
     ['initialized_alias_i32_facts.rs', 180],
     ['initialized_alias_i32.rs', 80],
     ['initialized_alias_origin.rs', 160],
     ['initialized_alias_rank.rs', 120],
+    ['initialized_alias_raw_view.rs', 40],
     ['initialized_alias_raw_view_tests.rs', 80],
     ['initialized_alias_relation.rs', 100],
     ['initialized_alias_relation_flow.rs', 100],
@@ -899,6 +937,7 @@ const maxLines = new Map([
     ['initialized_external_io_payload.rs', 90],
     ['initialized_raw_fill.rs', 120],
     ['initialized_raw_memory.rs', 300],
+    ['initialized_raw_view.rs', 60],
     ['initialized_rekey.rs', 160],
     ['initialized_summary.rs', 80],
     ['initialized_alias_flow_apply.rs', 180],
@@ -935,7 +974,19 @@ const maxLines = new Map([
     ['storage_origin.rs', 320],
 ]);
 
+const monitoredResourceFiles = new Set(maxLines.keys());
+for (const resourceFileName of fs.readdirSync(RESOURCE_DIR)) {
+    if (!resourceFileName.endsWith('.rs') || resourceFileName === 'mod.rs') {
+        continue;
+    }
+    assert(
+        monitoredResourceFiles.has(resourceFileName),
+        `${resourceFileName} must be monitored by resource responsibility line limits`,
+    );
+}
+
 for (const [name, limit] of maxLines) {
+    assertModuleDeclared(mod, name);
     const lines = lineCount(readResource(name));
     assert(lines <= limit, `${name} has ${lines} lines; responsibility split limit is ${limit}`);
 }
