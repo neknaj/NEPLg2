@@ -28,34 +28,32 @@ NEPLg2 の抽象化機能、特に generics、trait、trait bound、overload、m
 - `monomorphize` public API は unresolved trait call を panic せず `MonomorphizeResult` で返す。
 - `tests/compiler/generics.n.md`、`tests/compiler/overload.n.md`、`tests/compiler/generic_impl_trait_args.n.md`、`tests/compiler/trait_capability_copy.n.md`、`tutorials/getting_started/18_generics.n.md`、`19_traits_and_bounds.n.md` が抽象化機能の利用例と regression を持つ。
 
-### 不十分な点
+### 対応状況
 
-現行実装は基本機能を持つが、設計としては十分ではない。
+2026-05-13 時点で、当初の不足点は Stage 1-6 の作業で解消済みである。
 
-1. trait application identity がまだ一部文字列に寄っている。
-   - 2026-05-12 時点で、表示文字列から trait argument を復元する `parse_trait_ref_name` は削除済みである。
-   - `TraitBoundRef.name` は削除済みであり、type parameter bound は `TraitApplication` を持つ `TraitBound` として保持する。
-   - ただし `format_trait_ref_name` は diagnostic/display helper として残っており、今後は impl / monomorphize 側にも同じ identity model を広げる必要がある。
+1. trait application identity は typed model に移行済みである。
+   - `parse_trait_ref_name` と `TraitBoundRef.name` は削除済みであり、表示文字列を authority として trait argument を復元しない。
+   - typecheck は `TraitApplication { trait_id: TraitId, args }`、HIR は `HirTraitApplication`、Resource IR は `ResourceTraitApplication`、monomorphize は `MonoTraitApplication` を保持する。
+   - `format_trait_ref_name` は `traits.rs` の diagnostic/display helper としてだけ残し、impl lowering / monomorphize lookup / Resource IR の判断材料には使わない。
 
-2. impl model が optional string field に寄っている。
-   - `ImplInfo` は `trait_name: Option<String>`、`trait_base_name: Option<String>`、`trait_args: Vec<TypeId>`、`trait_self_ty: Option<TypeId>` を持つ。
-   - inherent impl、trait impl、trait application の有無が enum で分かれず、field combination の妥当性を compiler が保証しにくい。
+2. impl model は `ImplKind` enum に移行済みである。
+   - `ImplInfo` は `kind: ImplKind` を持ち、trait impl identity は `ImplKind::Trait { application, self_ty }` に集約した。
+   - `trait_name: Option<String>` や `trait_base_name: Option<String>` のような optional field combination は再導入禁止にした。
 
 3. type parameter bound identity は `BoundEnv` と `TypeParamId` に移行済みである。
-   - 2026-05-12 時点で、公開境界の raw `BTreeMap<TypeId, Vec<TraitBound>>` と label fallback は削除済みである。
-   - 2026-05-12 時点で、`BoundEnv` 内部 key も `TypeParamId` になり、call site は type parameter declaration identity を明示して挿入する。
-   - 残る監査対象は、今後 `TraitId` / `TraitMethodId` を導入するときに同じ newtype 境界を崩さないことである。
+   - 公開境界の raw `BTreeMap<TypeId, Vec<TraitBound>>` と label fallback は削除済みである。
+   - `BoundEnv` 内部 key も `TypeParamId` になり、call site は type parameter declaration identity を明示して挿入する。
 
-4. pending trait check が tuple で保持されている。
-   - `pending_trait_bound_checks: Vec<(TraitBound, TypeId, Span)>` は field の意味が型名だけでは読み取りにくい。
-   - 診断や deferred check の分類を enum / named struct にすべきである。
+4. pending trait check は named model に移行済みである。
+   - `pending_trait_bound_checks` は `Vec<PendingTraitCheck>` で保持し、`bound` / `target_ty` / `span` の意味を型と field 名で固定する。
 
-5. monomorphize trait lookup が string-keyed map へ寄っている。
-   - `impl_map`、`impl_method_index`、`impl_entry_index`、`trait_lookup_cache` は trait name / method name の `String` を key にする。
-   - display name と compiler identity が同じ層に混ざり、typecheck と monomorphize の agreement を型で保証できない。
+5. monomorphize trait lookup は typed key に移行済みである。
+   - `impl_map`、`impl_method_index`、`trait_lookup_cache` は `MonoTraitLookupKey` / `MonoTraitMethodKey` を key にする。
+   - `impl_entry_index` は重複 index として削除済みであり、trait name / method string tuple key には戻さない。
 
-6. source policy は abstraction contract を直接監視していなかった。
-   - typecheck file split と monomorphize panic policy はあるが、trait reference string authority の拡大を止める専用 policy はなかった。
+6. source policy は final contract として監視済みである。
+   - `nodesrc/test_abstraction_static_verification_policy.js` は baseline 増加抑止ではなく、typed model / enum model / named state / typed lookup key の存在と旧 model 再導入禁止を直接検査する。
 
 ## 目標設計
 
@@ -140,6 +138,10 @@ struct MonoTraitLookupKey {
 - `nodesrc/test_abstraction_static_verification_policy.js` を追加し、`format_trait_ref_name`、`TraitBound`、`ImplInfo`、`trait_lookup_cache` の current baseline を固定する。
 - `parse_trait_ref_name` は Stage 1 の作業で 0 baseline になっており、再導入禁止にした。
 - baseline は最終状態ではない。今後の stage で残りの表示名 field / string key の数を下げる。
+
+完了状態:
+
+- 2026-05-13: Stage 6 の完了により、baseline 凍結は final contract へ移行した。`parse_trait_ref_name` / `TraitBoundRef` / `ImplInfo` optional field / split HIR・Resource・monomorphize lookup field の再導入禁止は構造検査で固定する。
 
 ### Stage 1: typed TraitApplication 導入
 
@@ -297,17 +299,18 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `ISS-20260512T174845757Z-ABSTRACTION-POLICY-COUNTS-TRAITINFO--FE3DB746` を追加し、`ImplInfo` optional field の policy を `traits.rs` 全体の `Option<String>` 数ではなく `ImplInfo` struct body 直接検査へ変更した。これにより `ImplInfo` は optional field 0 件を baseline ではなく完了条件として監視する。
 - 2026-05-13: `ISS-20260512T193917855Z-TRAIT-METHOD-RESOLUTION-STILL-CARRIE-0BFEEFA9` により、trait method resolution result の split `trait_name` / `trait_args` / `applied_trait_name` payload 再導入禁止を source policy に追加した。`format_trait_ref_name` baseline は 6 から 4 に下げた。
 - 2026-05-13: `ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5` により、impl lowering pass の direct `format_trait_ref_name` と `applied_trait_name` payload 再導入禁止を source policy に追加した。`format_trait_ref_name` baseline は 4 から 2 に下げた。
+- 2026-05-13: `ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429` の最終確認で、source policy を baseline 増加抑止から final contract 検査へ変更した。`format_trait_ref_name` は `traits.rs` の display boundary に限定し、`trait_lookup_cache` は出現数ではなく `BTreeMap<MonoTraitLookupKey, Option<TraitImplResolution>>` という typed key model を直接検査する。
 
 ## 進捗状況
 
 - `typecheck/traits.rs`: Stage 1/2 は進行済み。TraitCapability enum、TraitId、TraitApplication、TraitBound、ImplKind が存在する。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みで、type parameter bound は `TraitApplication` に集約済み。ImplInfo は `ImplKind` を持ち、optional string model ではない。
-- `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存、split impl field 参照、duplicate label fallback 実装は削除済み。
-- `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
+- `typecheck/trait_check.rs`: Stage 3/4 実装済み。trait application parse 依存、split impl field 参照、duplicate label fallback 実装は削除済み。
+- `typecheck/trait_bound_apply.rs`: Stage 4 実装済み。pending check は `PendingTraitCheck` named model を使い、tuple state には戻さない。
 - `typecheck/trait_call_apply.rs`: Stage 4/5 は進行済み。trait method resolution は `TraitMethodResolution` enum を match し、resolution payload は `TraitApplication` と `HirTraitMethodId` を保持する。診断表示名は failure diagnostic を作る境界だけで生成する。
 - `typecheck/driver.rs`: Stage 5 は進行済み。impl collection と impl method lowering は `TraitApplication` を保持し、表示名は method symbol mangle の境界でのみ生成する。
 - `hir.rs`: Stage 5 は進行済み。`HirTraitId` / `HirTraitApplication` / `HirTraitMethodId` を追加し、`FuncRef::Trait` / `HirImpl` は typed trait application と typed method identity を保持する。
-- `monomorphize.rs`: Stage 5 は進行中。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。Resolver 入口は `HirTraitApplication` / `HirTraitMethodId` を直接受け取り、monomorphize phase 内の `MonoTraitId` / `MonoTraitMethodId` を含む resolved key へ変換する。
+- `monomorphize.rs`: Stage 5 実装済み。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。Resolver 入口は `HirTraitApplication` / `HirTraitMethodId` を直接受け取り、monomorphize phase 内の `MonoTraitId` / `MonoTraitMethodId` を含む resolved key へ変換する。
 - `resource/model.rs`: Stage 5 は実装済み。`ResourceTraitId` / `ResourceTraitApplication` / `ResourceTraitMethodId` により Resource IR call target の trait identity と method identity を typed field として保持する。
 - `resource/trait_identity.rs`: Stage 5 は実装済み。Resource IR の trait / method identity newtype と application payload をここに集約し、`resource/model.rs` の call target model から identity helper 実装を分離している。
 - `monomorphize/trait_identity.rs`: Stage 5 は実装済み。monomorphize 内部の trait / method identity newtype をここに集約し、lookup key module から raw string identity field を排除している。
-- `nodesrc/test_abstraction_static_verification_policy.js`: Stage 0 baseline policy として追加済み。Stage 6 として `ImplInfo` optional field は struct 単位で 0 件を要求する。
+- `nodesrc/test_abstraction_static_verification_policy.js`: Stage 6 final contract policy として更新済み。typed model / enum model / named state / typed lookup key の存在と旧 string authority model の再導入禁止を直接検査する。

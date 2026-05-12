@@ -36759,3 +36759,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `HirTraitId` / `ResourceTraitId` newtype を追加し、`HirTraitApplication` / `ResourceTraitApplication` は typed trait id と args を持つ形へ変更した。
 - monomorphize と Resource lowering / dump は `as_str()` 境界でのみ trait name 文字列へ変換する。
 - source policy に HIR / Resource trait application の raw `base_name: String` 再導入禁止を追加した。
+
+## 2026-05-13 Agent 1 abstraction static verification final contract
+
+- `d6537886` push 後に remote main を pull し、`agent1/abstraction-policy-final-contract` branch を作成した。
+- `ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429` を最終確認し、Stage 1-6 の typed 化と policy 監視が揃っていることを確認した。
+- `nodesrc/test_abstraction_static_verification_policy.js` を baseline 増加抑止ではなく final contract 検査へ変更した。
+- `format_trait_ref_name` は `traits.rs` の display boundary に限定し、`trait_lookup_cache` は出現数ではなく `MonoTraitLookupKey` typed key model で直接監視する。
+- `doc/neplg2/abstraction_static_verification_plan.md` の現状評価と進捗を実装済み状態へ更新し、parent issue を verified / resolved にした。
