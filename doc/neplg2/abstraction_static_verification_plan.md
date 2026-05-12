@@ -206,6 +206,12 @@ struct MonoTraitLookupKey {
 - nested generic function unsupported diagnostic。
 - generic function calls generic。
 
+進捗:
+
+- 2026-05-12: `ISS-20260512T160137255Z-TRAIT-BOUND-LOOKUP-DUPLICATES-TYPEID-1694BE55` を追加し、verified にした。
+- 2026-05-12: `trait_check.rs` の `BlockChecker::type_param_has_bound_ref` が `traits.rs` の `type_param_has_trait_application_bound` と同じ TypeId / label fallback lookup を再実装していたため、duplicate 実装を削除し、BlockChecker 側は typed helper へ委譲する薄い method にした。
+- 残件: `BoundEnv` / `TypeParamId` の導入と label fallback 自体の削除は未完了。今回の変更は、次の identity 置換で lookup authority が二重に残らないようにする前段である。
+
 ### Stage 4: trait method resolution の構造化
 
 目的: trait method call result を raw `FuncRef::Trait` 生成に直接落とさず、resolution result enum を経由させる。
@@ -254,7 +260,7 @@ struct MonoTraitLookupKey {
 ## 進捗状況
 
 - `typecheck/traits.rs`: Stage 1/2 は進行済み。TraitCapability enum、TraitApplication、TraitBound、ImplKind が存在する。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みで、type parameter bound は `TraitApplication` に集約済み。ImplInfo は `ImplKind` を持ち、optional string model ではない。
-- `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存と split impl field 参照は削除済みだが、bound satisfaction の label fallback は残る。
+- `typecheck/trait_check.rs`: 実装済みだが再設計対象。trait application parse 依存、split impl field 参照、duplicate label fallback 実装は削除済みだが、`traits.rs` 側の bound lookup はまだ `BoundEnv` / `TypeParamId` へ移行していない。
 - `typecheck/trait_bound_apply.rs`: 実装済みだが再設計対象。pending check と substituted bound を named typed model へ移す必要がある。
 - `typecheck/trait_call_apply.rs`: 実装済みだが再設計対象。split impl field 参照は削除済みだが、trait method resolution result enum が必要。
 - `monomorphize.rs`: 実装済みだが再設計対象。trait lookup cache / impl indexes を typed key にする必要がある。

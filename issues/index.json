@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T15:54:10.955Z",
+  "generated_at": "2026-05-12T16:05:48.504Z",
   "counts": {
-    "total": 657,
+    "total": 658,
     "open": 13,
-    "resolved": 644,
+    "resolved": 645,
     "by_area": {
       "core": {
-        "total": 339,
+        "total": 340,
         "open": 5,
-        "resolved": 334
+        "resolved": 335
       },
       "stdlib": {
         "total": 168,
@@ -5148,6 +5148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T153756004Z-IMPLINFO-STILL-ENCODES-TRAIT-IMPL-ID-A4ECD77B.md"
+    },
+    {
+      "id": "ISS-20260512T160137255Z-TRAIT-BOUND-LOOKUP-DUPLICATES-TYPEID-1694BE55",
+      "title": "Trait bound lookup duplicates TypeId label fallback outside the typed helper",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/typecheck/traits.rs; nepl-core/src/typecheck/trait_check.rs; nepl-core/src/typecheck/trait_call_apply.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T160137255Z-TRAIT-BOUND-LOOKUP-DUPLICATES-TYPEID-1694BE55.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

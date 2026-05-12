@@ -6,7 +6,7 @@ use crate::types::{TypeId, TypeKind};
 use super::signature::type_contains_unbound_var;
 use super::traits::{
     format_trait_ref_name, infer_type_param_from_instantiated_pair, merge_inferred_instantiation,
-    TraitBound, TraitInfo,
+    type_param_has_trait_application_bound, TraitBound, TraitInfo,
 };
 use super::{BlockChecker, StackEntry};
 
@@ -28,50 +28,24 @@ impl<'a> BlockChecker<'a> {
         !type_contains_unbound_var(self.ctx, ty)
     }
 
-    pub(super) fn type_param_has_bound_ref(
+    pub(super) fn type_param_has_trait_application_bound(
         &self,
         ty: TypeId,
         trait_base_name: &str,
         trait_args: &[TypeId],
     ) -> bool {
-        let matches_bound = |b: &TraitBound| {
-            b.application
-                .matches_parts(self.ctx, trait_base_name, trait_args)
-        };
-        let resolved = self.ctx.resolve_id(ty);
-        if let Some(bounds) = self.type_param_bounds.get(&resolved) {
-            return bounds.iter().any(matches_bound);
-        }
-
-        // 型変数が他の型変数へ束縛された場合、resolve 後の TypeId が
-        // 直接 type_param_bounds に存在しないことがあるため、正規化後 ID でも照合する。
-        if self.type_param_bounds.iter().any(|(tp, bounds)| {
-            self.ctx.resolve_id(*tp) == resolved && bounds.iter().any(matches_bound)
-        }) {
-            return true;
-        }
-
-        // `.T` の明示型引数が同一スコープの別 TypeId として現れる経路があるため、
-        // 型変数ラベルが一致する場合も同じ境界として扱う。
-        let label = match self.ctx.get(resolved) {
-            TypeKind::Var(v) => v.label.clone(),
-            _ => None,
-        };
-        let Some(label) = label else {
-            return false;
-        };
-        self.type_param_bounds.iter().any(|(tp, bounds)| {
-            let same_label = match self.ctx.get(self.ctx.resolve_id(*tp)) {
-                TypeKind::Var(v) => v.label.as_deref() == Some(label.as_str()),
-                _ => false,
-            };
-            same_label && bounds.iter().any(matches_bound)
-        })
+        type_param_has_trait_application_bound(
+            self.ctx,
+            &self.type_param_bounds,
+            ty,
+            trait_base_name,
+            trait_args,
+        )
     }
 
     pub(super) fn trait_bound_satisfied(&self, bound: &TraitBound, ty: TypeId) -> bool {
         if !self.is_concrete_type(ty) {
-            return self.type_param_has_bound_ref(
+            return self.type_param_has_trait_application_bound(
                 ty,
                 &bound.application.base_name,
                 &bound.application.args,

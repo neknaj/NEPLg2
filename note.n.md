@@ -36570,3 +36570,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_abstraction_static_verification_policy.js` を更新し、`ImplInfo` optional field model と `imp.trait_base_name` / `imp.trait_args` 直読みの再導入を拒否するようにした。
 - focused trait regression 実行中に `generic_store_after_generic_trait_probe_preserves_struct` が `PureCallsImpure` で失敗することを確認した。`origin/main` の別 worktree でも同じ失敗だったため、`ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB` として別 issue 化した。
 - plan.md は変更していない。compiler static verification の enum/match 方針を進める変更であり、stdlib の挙動変更は含まない。
+
+## 2026-05-13 Agent 1 trait bound lookup authority
+
+- `445062bc` push 後に remote main を pull し、merge 済みの `agent1/impl-kind-trait-info` branch を削除した。
+- `agent1/bound-env-type-param-identity` branch を作成し、Stage 3 の前段として `ISS-20260512T160137255Z-TRAIT-BOUND-LOOKUP-DUPLICATES-TYPEID-1694BE55` を追加した。
+- `trait_check.rs` の `BlockChecker::type_param_has_bound_ref` は `traits.rs` の `type_param_has_trait_application_bound` と同じ TypeId / label fallback lookup を再実装していたため、duplicate 実装を削除し、BlockChecker 側は typed helper への委譲にした。
+- `trait_call_apply.rs` の call sites は旧名 `type_param_has_bound_ref` から `type_param_has_trait_application_bound` へ更新した。
+- `nodesrc/test_abstraction_static_verification_policy.js` に、旧 helper 名と `trait_check.rs` 側の duplicate `same_label` fallback 再導入禁止を追加した。
+- `BoundEnv` / `TypeParamId` 自体は未実装。次の issue で lookup authority が一箇所に寄った状態から identity model を置き換える。

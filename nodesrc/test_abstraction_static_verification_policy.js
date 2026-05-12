@@ -148,9 +148,22 @@ assert(
     !functionCheck.includes("&bound.name"),
     "deferred function-level trait checks must not use rendered bound names as authority",
 );
+const traitCheck = read(path.join(TYPECHECK_DIR, "trait_check.rs"));
+assert(
+    !traitCheck.includes("type_param_has_bound_ref"),
+    "old type_param_has_bound_ref helper must not be reintroduced",
+);
+assert(
+    !traitCheck.includes("same_label"),
+    "BlockChecker trait bound lookup must not duplicate label fallback outside the typed helper",
+);
+assert(
+    traitCheck.includes("type_param_has_trait_application_bound("),
+    "BlockChecker trait bound lookup must delegate to the typed helper",
+);
 for (const [name, text] of [
     ["function_check.rs", functionCheck],
-    ["trait_check.rs", read(path.join(TYPECHECK_DIR, "trait_check.rs"))],
+    ["trait_check.rs", traitCheck],
     ["trait_call_apply.rs", read(path.join(TYPECHECK_DIR, "trait_call_apply.rs"))],
 ]) {
     assert(!text.includes("imp.trait_base_name"), `${name} must not inspect split impl trait base names`);

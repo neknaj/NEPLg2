@@ -52,6 +52,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T151045280Z-TRAITBOUNDREF-STORES-RENDERED-DISPLA-644F8E6A` で、`TraitBoundRef` を `TraitBound` に改名し、rendered display name field を削除した。`TraitBoundRef` baseline は 0 にした。
 - `ISS-20260512T152402849Z-TRAITBOUND-STILL-STORES-TRAIT-APPLIC-B9D13982` で、`TraitApplication` を追加し、`TraitBound` が split fields ではなく typed application を持つようにした。
 - `ISS-20260512T153756004Z-IMPLINFO-STILL-ENCODES-TRAIT-IMPL-ID-A4ECD77B` で、typecheck-side `ImplInfo` を `ImplKind` enum へ移行し、trait impl identity を `TraitApplication` と trait self `TypeId` で保持する形にした。`function_check.rs` / `trait_check.rs` / `trait_call_apply.rs` は `imp.trait_base_name` / `imp.trait_args` を直接読まない。
+- `ISS-20260512T160137255Z-TRAIT-BOUND-LOOKUP-DUPLICATES-TYPEID-1694BE55` で、`trait_check.rs` の duplicate type parameter bound lookup を削除し、BlockChecker から `traits.rs` の typed helper へ委譲する形にした。
 
 ## 検証
 

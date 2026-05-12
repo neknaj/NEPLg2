@@ -55,7 +55,7 @@ impl<'a> BlockChecker<'a> {
                 inferred_self_ty = self
                     .infer_unique_type_param_for_trait_ref(trait_name, &applied_trait_args)
                     .or_else(|| {
-                        if self.type_param_has_bound_ref(
+                        if self.type_param_has_trait_application_bound(
                             resolved_hint,
                             trait_name,
                             &applied_trait_args,
@@ -129,7 +129,7 @@ impl<'a> BlockChecker<'a> {
                 inferred_self_ty = self
                     .infer_unique_type_param_for_trait_ref(trait_name, &applied_trait_args)
                     .or_else(|| {
-                        if self.type_param_has_bound_ref(
+                        if self.type_param_has_trait_application_bound(
                             resolved_hint,
                             trait_name,
                             &applied_trait_args,
@@ -194,7 +194,7 @@ impl<'a> BlockChecker<'a> {
         trait_name: &str,
         applied_trait_args: &[TypeId],
     ) -> bool {
-        self.type_param_has_bound_ref(candidate, trait_name, applied_trait_args)
+        self.type_param_has_trait_application_bound(candidate, trait_name, applied_trait_args)
             || self.impls.iter().any(|imp| {
                 imp.matches_trait_application(self.ctx, trait_name, applied_trait_args)
                     && self.ctx.type_pattern_matches(imp.target_ty, candidate)
