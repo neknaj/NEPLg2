@@ -35962,3 +35962,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_resource_checker_responsibility.js`: `initialized_alias_i32_facts.rs` の違反は解消、次 issue の `initialized_alias_tests.rs` 超過で停止
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 Resource initialized alias tests 分割
+
+- `ISS-20260512T065044708Z-RESOURCE-INITIALIZED-ALIAS-TESTS-EXC-3A0BF130` を修正した。
+- `initialized_alias_tests.rs` に同居していた relation/scale propagation、raw address view origin、i32 condition derivation の回帰テストを責務別 module に分割した。
+- 共通の `local` helper は `initialized_alias_test_support.rs` へ分離し、各 test module の重複と目的の混在を抑えた。
+- `initialized_alias_tests.rs` は i32 relation/scale propagation と path merge proof に集中させた。
+- `initialized_alias_raw_view_tests.rs` は raw address view origin が scalar value origin を置換しないことを確認する回帰に集中させた。
+- `initialized_alias_i32_condition_tests.rs` は scale/relation 由来の i32 condition derivation に集中させた。
+- line count は `initialized_alias_tests.rs` 66、`initialized_alias_raw_view_tests.rs` 39、`initialized_alias_i32_condition_tests.rs` 32、`initialized_alias_test_support.rs` 11。
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo check -p nepl-core --tests`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。

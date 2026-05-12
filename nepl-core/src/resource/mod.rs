@@ -63,15 +63,21 @@ mod initialized_alias_flow_raw;
 mod initialized_alias_flow_value_projection;
 mod initialized_alias_i32;
 mod initialized_alias_i32_condition;
+#[cfg(test)]
+mod initialized_alias_i32_condition_tests;
 mod initialized_alias_i32_facts;
 mod initialized_alias_origin;
 mod initialized_alias_rank;
 mod initialized_alias_raw_view;
+#[cfg(test)]
+mod initialized_alias_raw_view_tests;
 mod initialized_alias_relation;
 mod initialized_alias_relation_flow;
 mod initialized_alias_relation_op;
 mod initialized_alias_scalar;
 mod initialized_alias_scale;
+#[cfg(test)]
+mod initialized_alias_test_support;
 #[cfg(test)]
 mod initialized_alias_tests;
 mod initialized_alias_utils;

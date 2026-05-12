@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T06:52:39.785Z",
+  "generated_at": "2026-05-12T06:59:26.652Z",
   "counts": {
     "total": 631,
-    "open": 12,
-    "resolved": 619,
+    "open": 11,
+    "resolved": 620,
     "by_area": {
       "core": {
         "total": 317,
-        "open": 4,
-        "resolved": 313
+        "open": 3,
+        "resolved": 314
       },
       "stdlib": {
         "total": 167,
@@ -238,21 +238,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD.md"
-    },
-    {
-      "id": "ISS-20260512T065044708Z-RESOURCE-INITIALIZED-ALIAS-TESTS-EXC-3A0BF130",
-      "title": "Resource initialized alias tests exceeds split limit",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P2",
-      "type": "test",
-      "created": "2026-05-12",
-      "updated": "2026-05-12",
-      "target": "nepl-core/src/resource/initialized_alias_tests.rs, nodesrc/test_resource_checker_responsibility.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260512T065044708Z-RESOURCE-INITIALIZED-ALIAS-TESTS-EXC-3A0BF130.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -8113,6 +8098,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T061056848Z-RESOURCE-CHECKER-POLICY-EXPECTS-RENA-E8F94116.md"
+    },
+    {
+      "id": "ISS-20260512T065044708Z-RESOURCE-INITIALIZED-ALIAS-TESTS-EXC-3A0BF130",
+      "title": "Resource initialized alias tests exceeds split limit",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/initialized_alias_tests.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T065044708Z-RESOURCE-INITIALIZED-ALIAS-TESTS-EXC-3A0BF130.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",
