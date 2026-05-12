@@ -1,0 +1,30 @@
+//: # binary_heap/types
+//: `BinaryHeap` の型定義
+//:
+//: ### [目的/もくてき]
+//: - heap 本体と owner-preserving pop result の型を定義します。
+//: - heap storage invariant を 1 [箇所/かしょ]で確認できるようにします。
+
+#indent 4
+
+#import "core/option" as *
+#import "alloc/collections/vec" as vec
+
+//: ## BinaryHeap
+//: [最大値/さいだいち]を root に[保/たも]つ priority queue の[所有者/しょゆうしゃ]
+//:
+//: ### [不変条件/ふへんじょうけん]
+//: - `0 <= len <= cap`
+//: - `items.len == cap`
+//: - `0 <= i < len` の slot は `Some`
+//: - `len <= i < cap` の slot は `None`
+struct BinaryHeap<.T>:
+    len <i32>
+    cap <i32>
+    items <Vec<Option<.T>>>
+
+//: ## BinaryHeapPop
+//: `pop_max` の[結果/けっか]
+struct BinaryHeapPop<.T>:
+    heap <BinaryHeap<.T>>
+    item <Option<.T>>

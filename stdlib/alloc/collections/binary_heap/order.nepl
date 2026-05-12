@@ -1,0 +1,113 @@
+//: # binary_heap/order
+//: `BinaryHeap` の heap ordering 操作
+//:
+//: ### [目的/もくてき]
+//: - index 計算、slot swap、sift-up / sift-down を public API から分離します。
+//: - ordering は `Ord` と `Vec<Option<T>>` slot state の `match` に基づき、未初期化 slot を数値 sentinel で扱わないようにします。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/ord" as *
+#import "core/traits/copy" as *
+#import "alloc/collections/vec" as vec
+#import "./storage" as *
+
+fn heap_parent <(i32)->i32> (idx):
+    div_s sub idx 1 2
+
+fn heap_left <(i32)->i32> (idx):
+    add mul idx 2 1
+
+fn heap_right <(i32)->i32> (idx):
+    add mul idx 2 2
+
+fn heap_swap_slots <.T: Copy> <(&Vec<Option<.T>>,i32,i32)*>()> (items, a, b):
+    let av <Option<.T>> heap_item_at<.T> items a
+    let bv <Option<.T>> heap_item_at<.T> items b
+    heap_store_slot<.T> items a bv
+    heap_store_slot<.T> items b av
+
+fn heap_sift_up <.T: Ord&Copy> <(&Vec<Option<.T>>,i32)*>()> (items, start):
+    let mut idx <i32> start
+    let mut done <bool> false
+    while and lt 0 idx not done:
+        do:
+            let parent <i32> heap_parent idx
+            match heap_item_at<.T> items parent:
+                Option::Some pv:
+                    match heap_item_at<.T> items idx:
+                        Option::Some cv:
+                            if:
+                                ord_lt pv cv
+                                then:
+                                    heap_swap_slots<.T> items parent idx
+                                    set idx parent
+                                else:
+                                    set done true
+                        Option::None:
+                            set done true
+                Option::None:
+                    set done true
+
+fn heap_sift_down <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32)*>()> (items, len0, start):
+    let mut idx <i32> start
+    let mut done <bool> false
+    while and lt idx len0 not done:
+        do:
+            let left <i32> heap_left idx
+            if:
+                le len0 left
+                then:
+                    set done true
+                else:
+                    match heap_item_at<.T> items idx:
+                        Option::None:
+                            set done true
+                        Option::Some current:
+                            match heap_item_at<.T> items left:
+                                Option::None:
+                                    set done true
+                                Option::Some left_value:
+                                    let right <i32> heap_right idx
+                                    if:
+                                        lt right len0
+                                        then:
+                                            match heap_item_at<.T> items right:
+                                                Option::Some right_value:
+                                                    if:
+                                                        ord_lt current left_value
+                                                        then:
+                                                            if:
+                                                                ord_lt left_value right_value
+                                                                then:
+                                                                    heap_swap_slots<.T> items idx right
+                                                                    set idx right
+                                                                else:
+                                                                    heap_swap_slots<.T> items idx left
+                                                                    set idx left
+                                                        else:
+                                                            if:
+                                                                ord_lt current right_value
+                                                                then:
+                                                                    heap_swap_slots<.T> items idx right
+                                                                    set idx right
+                                                                else:
+                                                                    set done true
+                                                Option::None:
+                                                    if:
+                                                        ord_lt current left_value
+                                                        then:
+                                                            heap_swap_slots<.T> items idx left
+                                                            set idx left
+                                                        else:
+                                                            set done true
+                                        else:
+                                            if:
+                                                ord_lt current left_value
+                                                then:
+                                                    heap_swap_slots<.T> items idx left
+                                                    set idx left
+                                                else:
+                                                    set done true

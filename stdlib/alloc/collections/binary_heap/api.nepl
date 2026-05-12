@@ -1,0 +1,239 @@
+//: # binary_heap/api
+//: `BinaryHeap` の public 操作
+//:
+//: ### [目的/もくてき]
+//: - `new` / `with_capacity` / `push` / `peek` / `pop_max` / `pop` / observers / `free` を提供します。
+//: - allocation failure は `Diag` として返し、heap owner を失う経路では storage owner を明示的に閉じます。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "core/traits/ord" as *
+#import "core/traits/copy" as *
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "./types" as *
+#import "./storage" as *
+#import "./order" as *
+
+//: ## new
+//: [空/から]の heap を[作/つく]る
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hp <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
+//:     let ok <bool> eq len<i32> &hp 0
+//:     free<i32> hp
+//:     if ok 1 0
+//: ```
+fn new <.T: Copy> <()*>Result<BinaryHeap<.T>, Diag>> ():
+    with_capacity<.T> 8
+
+//: ## with_capacity
+//: [初期/しょき][容量/ようりょう]を[指定/してい]して heap を[作/つく]る
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 16;
+//:     let ok0 <bool> eq len<i32> &hp0 0;
+//:     let ok1 <bool> eq cap<i32> &hp0 16;
+//:     free<i32> hp0;
+//:     if and ok0 ok1 1 0
+//: ```
+fn with_capacity <.T: Copy> <(i32)*>Result<BinaryHeap<.T>, Diag>> (cap):
+    let cap0 <i32> heap_normalize_capacity cap
+    match heap_alloc_slots<.T> cap0:
+        Result::Ok items:
+            ok<BinaryHeap<.T>, Diag> BinaryHeap<.T> 0 cap0 items
+        Result::Err e:
+            err<BinaryHeap<.T>, Diag> e
+
+//: ## len
+//: heap を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
+fn len <.T> <(&BinaryHeap<.T>)->i32> (hp):
+    *field::get_ref hp "len"
+
+//: ## cap
+//: heap を[移動/いどう]せずに[容量/ようりょう]を[返/かえ]す
+fn cap <.T> <(&BinaryHeap<.T>)->i32> (hp):
+    *field::get_ref hp "cap"
+
+//: ## is_empty
+//: heap を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
+fn is_empty <.T> <(&BinaryHeap<.T>)->bool> (hp):
+    eq len<.T> hp 0
+
+//: ## push
+//: [要素/ようそ]を[追加/ついか]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
+//:     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp0 2;
+//:     let hp2 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp1 7;
+//:     let hp3 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp2 5;
+//:     let ok <bool> match peek<i32> &hp3:
+//:         Option::Some v:
+//:             eq v 7
+//:         Option::None:
+//:             false
+//:     free<i32> hp3
+//:     if ok 1 0
+//: ```
+fn push <.T: Ord&Copy> <(BinaryHeap<.T>,.T)*>Result<BinaryHeap<.T>, Diag>> (hp, item):
+    let len0 <i32> *field::get_ref &hp "len"
+    let cap0 <i32> *field::get_ref &hp "cap"
+    let items <Vec<Option<.T>>> field::get hp "items"
+    if:
+        eq len0 cap0
+        then:
+            let grown_cap <i32> mul cap0 2
+            match heap_alloc_slots<.T> grown_cap:
+                Result::Err e:
+                    vec::free<Option<.T>> items
+                    err<BinaryHeap<.T>, Diag> e
+                Result::Ok next_items:
+                    heap_copy_live_slots<.T> &items &next_items len0
+                    heap_store_slot<.T> &next_items len0 some<.T> item
+                    heap_sift_up<.T> &next_items len0
+                    vec::free<Option<.T>> items
+                    ok<BinaryHeap<.T>, Diag> BinaryHeap<.T> add len0 1 grown_cap next_items
+        else:
+            heap_store_slot<.T> &items len0 some<.T> item
+            heap_sift_up<.T> &items len0
+            ok<BinaryHeap<.T>, Diag> BinaryHeap<.T> add len0 1 cap0 items
+
+//: ## peek
+//: heap を[移動/いどう]せずに[最大/さいだい][要素/ようそ]を[読/よ]む
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
+//:     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp0 4;
+//:     let hp2 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp1 9;
+//:     let ok <bool> match peek<i32> &hp2:
+//:         Option::Some v:
+//:             eq v 9
+//:         Option::None:
+//:             false
+//:     free<i32> hp2
+//:     if ok 1 0
+//: ```
+fn peek <.T: Copy> <(&BinaryHeap<.T>)->Option<.T>> (hp):
+    let len0 <i32> *field::get_ref hp "len"
+    if:
+        eq len0 0
+        then none<.T>
+        else:
+            let items <&Vec<Option<.T>>> field::get_ref hp "items"
+            heap_item_at<.T> items 0
+
+//: ## pop_max
+//: [最大/さいだい][要素/ようそ]を[取/と]り[出/だ]し、[更新後/こうしんご]の heap と[値/あたい]を[返/かえ]す
+fn pop_max <.T: Ord&Copy> <(BinaryHeap<.T>)*>BinaryHeapPop<.T>> (hp):
+    let len0 <i32> *field::get_ref &hp "len"
+    let cap0 <i32> *field::get_ref &hp "cap"
+    let items <Vec<Option<.T>>> field::get hp "items"
+    if:
+        eq len0 0
+        then:
+            let next_hp <BinaryHeap<.T>> BinaryHeap<.T> 0 cap0 items
+            BinaryHeapPop<.T> next_hp none<.T>
+        else:
+            let root <Option<.T>> heap_item_at<.T> &items 0
+            if:
+                eq len0 1
+                then:
+                    heap_store_slot<.T> &items 0 none<.T>
+                    let next_hp <BinaryHeap<.T>> BinaryHeap<.T> 0 cap0 items
+                    BinaryHeapPop<.T> next_hp root
+                else:
+                    let last_idx <i32> sub len0 1
+                    let last <Option<.T>> heap_item_at<.T> &items last_idx
+                    heap_store_slot<.T> &items last_idx none<.T>
+                    match last:
+                        Option::Some value:
+                            heap_store_slot<.T> &items 0 some<.T> value
+                        Option::None:
+                            heap_store_slot<.T> &items 0 none<.T>
+                    heap_sift_down<.T> &items last_idx 0
+                    let next_hp <BinaryHeap<.T>> BinaryHeap<.T> last_idx cap0 items
+                    BinaryHeapPop<.T> next_hp root
+
+//: ## pop
+//: heap を[消費/しょうひ]して[最大/さいだい][要素/ようそ]だけを[返/かえ]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "core/option" as *
+//: fn main <()*>i32> ():
+//:     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
+//:     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp0 4;
+//:     let hp2 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp1 9;
+//:     let hp3 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> push<i32> hp2 1;
+//:     match pop<i32> hp3:
+//:         Option::Some v:
+//:             if eq v 9 1 0
+//:         Option::None:
+//:             0
+//: ```
+fn pop <.T: Ord&Copy> <(BinaryHeap<.T>)*>Option<.T>> (hp):
+    let p <BinaryHeapPop<.T>> pop_max<.T> hp
+    let item <Option<.T>> *field::get_ref &p "item"
+    free<.T> field::get p "heap"
+    item
+
+//: ## free
+//: heap が[所有/しょゆう]する backing storage を[解放/かいほう]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/binary_heap" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let hp <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
+//:     free hp;
+//:     0
+//: ```
+fn free <.T> <(BinaryHeap<.T>)->()> (hp):
+    vec::free<Option<.T>> field::get hp "items"

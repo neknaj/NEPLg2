@@ -6,12 +6,17 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/alloc/collections/binary_heap.nepl';
-const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+const typesPath = 'stdlib/alloc/collections/binary_heap/types.nepl';
+const storagePath = 'stdlib/alloc/collections/binary_heap/storage.nepl';
+const orderPath = 'stdlib/alloc/collections/binary_heap/order.nepl';
+const apiPath = 'stdlib/alloc/collections/binary_heap/api.nepl';
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+const rootCode = sourceWithoutComments(relPath);
+const typesCode = sourceWithoutComments(typesPath);
+const storageCode = sourceWithoutComments(storagePath);
+const orderCode = sourceWithoutComments(orderPath);
+const apiCode = sourceWithoutComments(apiPath);
+const code = [rootCode, typesCode, storageCode, orderCode, apiCode].join('\n');
 
 const forbidden = [
     /\bunwrap\b/,
@@ -23,23 +28,33 @@ const forbidden = [
 ];
 
 for (const pattern of forbidden) {
-    assert.doesNotMatch(code, pattern, `${relPath} must not use unsafe unwrap helpers in implementation code`);
+    assert.doesNotMatch(code, pattern, 'BinaryHeap split modules must not use unsafe unwrap helpers in implementation code');
 }
 
-assert.match(code, /struct\s+BinaryHeap<\.T>:[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*items\s+<Vec<Option<\.T>>>/, 'BinaryHeap must keep typed Vec<Option<T>> storage in its public owner struct');
-assert.match(code, /struct\s+BinaryHeapPop<\.T>:[\s\S]*heap\s+<BinaryHeap<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'BinaryHeap must expose an owner-preserving pop result');
-assert.match(code, /fn\s+heap_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32\)->Option<\.T>>/, 'BinaryHeap must read initialized slot state through Option<T>');
-assert.match(code, /fn\s+heap_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>\(\)>[\s\S]*vec::replace<Option<\.T>>/, 'BinaryHeap must update slot state through Vec<Option<T>> replacement');
-assert.match(code, /fn\s+heap_alloc_slots\s+<\.T:\s*Copy>\s+<\(i32\)\*>Result<Vec<Option<\.T>>, Diag>>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'BinaryHeap allocation must initialize every slot as None and report allocation failure as Diag');
-assert.match(code, /fn\s+new\s+<\.T:\s*Copy>\s+<\(\)\*>Result<BinaryHeap<\.T>, Diag>>/, 'BinaryHeap.new must expose allocation as an impure Result<BinaryHeap<T>, Diag>');
-assert.match(code, /fn\s+push\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>,\.T\)\*>Result<BinaryHeap<\.T>, Diag>>/, 'BinaryHeap.push must expose heap mutation as an impure Result<BinaryHeap<T>, Diag>');
-assert.match(code, /fn\s+len\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.len must borrow the owner');
-assert.match(code, /fn\s+cap\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.cap must borrow the owner');
-assert.match(code, /fn\s+is_empty\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->bool>\s+\(hp\):/, 'BinaryHeap.is_empty must borrow the owner');
-assert.match(code, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&BinaryHeap<\.T>\)->Option<\.T>>\s+\(hp\):/, 'BinaryHeap.peek must borrow the owner');
-assert.doesNotMatch(code, /fn\s+(?:len_ref|cap_ref|is_empty_ref|peek_ref)\b/, 'BinaryHeap must not keep duplicate *_ref observer surfaces');
-assert.doesNotMatch(code, /fn\s+(?:len|cap|is_empty|peek)\s+<[^>]+>\s+<\(BinaryHeap<\.T>\)/, 'BinaryHeap observers must not consume the owner');
-assert.match(code, /fn\s+free\s+<\.T>\s+<\(BinaryHeap<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+hp\s+"items"/, 'BinaryHeap.free must close the Vec<Option<T>> owner');
+assert.doesNotMatch(rootCode, /\bfn\s+/, 'BinaryHeap root facade must not keep implementation bodies');
+for (const submodule of ['types', 'api']) {
+    assert.match(
+        rootCode,
+        new RegExp(`pub\\s+#import\\s+"\\.\\/binary_heap\\/${submodule}"\\s+as\\s+@merge`),
+        `BinaryHeap root facade must re-export binary_heap/${submodule}`,
+    );
+}
+assert.match(typesCode, /struct\s+BinaryHeap<\.T>:[\s\S]*len\s+<i32>[\s\S]*cap\s+<i32>[\s\S]*items\s+<Vec<Option<\.T>>>/, 'BinaryHeap must keep typed Vec<Option<T>> storage in its public owner struct');
+assert.match(typesCode, /struct\s+BinaryHeapPop<\.T>:[\s\S]*heap\s+<BinaryHeap<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'BinaryHeap must expose an owner-preserving pop result');
+assert.match(storageCode, /fn\s+heap_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32\)->Option<\.T>>/, 'BinaryHeap must read initialized slot state through Option<T>');
+assert.match(storageCode, /fn\s+heap_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>\(\)>[\s\S]*vec::replace<Option<\.T>>/, 'BinaryHeap must update slot state through Vec<Option<T>> replacement');
+assert.match(storageCode, /fn\s+heap_alloc_slots\s+<\.T:\s*Copy>\s+<\(i32\)\*>Result<Vec<Option<\.T>>, Diag>>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'BinaryHeap allocation must initialize every slot as None and report allocation failure as Diag');
+assert.match(orderCode, /fn\s+heap_sift_up\s+<\.T:\s*Ord&Copy>/, 'BinaryHeap order module must own sift-up');
+assert.match(orderCode, /fn\s+heap_sift_down\s+<\.T:\s*Ord&Copy>/, 'BinaryHeap order module must own sift-down');
+assert.match(apiCode, /fn\s+new\s+<\.T:\s*Copy>\s+<\(\)\*>Result<BinaryHeap<\.T>, Diag>>/, 'BinaryHeap.new must expose allocation as an impure Result<BinaryHeap<T>, Diag>');
+assert.match(apiCode, /fn\s+push\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>,\.T\)\*>Result<BinaryHeap<\.T>, Diag>>/, 'BinaryHeap.push must expose heap mutation as an impure Result<BinaryHeap<T>, Diag>');
+assert.match(apiCode, /fn\s+len\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.len must borrow the owner');
+assert.match(apiCode, /fn\s+cap\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.cap must borrow the owner');
+assert.match(apiCode, /fn\s+is_empty\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->bool>\s+\(hp\):/, 'BinaryHeap.is_empty must borrow the owner');
+assert.match(apiCode, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&BinaryHeap<\.T>\)->Option<\.T>>\s+\(hp\):/, 'BinaryHeap.peek must borrow the owner');
+assert.doesNotMatch(apiCode, /fn\s+(?:len_ref|cap_ref|is_empty_ref|peek_ref)\b/, 'BinaryHeap must not keep duplicate *_ref observer surfaces');
+assert.doesNotMatch(apiCode, /fn\s+(?:len|cap|is_empty|peek)\s+<[^>]+>\s+<\(BinaryHeap<\.T>\)/, 'BinaryHeap observers must not consume the owner');
+assert.match(apiCode, /fn\s+free\s+<\.T>\s+<\(BinaryHeap<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+hp\s+"items"/, 'BinaryHeap.free must close the Vec<Option<T>> owner');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\brealloc_ptr\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'BinaryHeap must not reintroduce raw header or raw element storage');
 
 for (const testPath of [
@@ -53,3 +68,10 @@ for (const testPath of [
 }
 
 console.log('binary heap unsafe unwrap regression passed');
+
+function sourceWithoutComments(file) {
+    return fs.readFileSync(path.join(repoRoot, file), 'utf8')
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*\/\//.test(line))
+        .join('\n');
+}

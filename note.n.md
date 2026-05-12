@@ -35324,3 +35324,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 2 binary_heap facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/binary_heap.nepl` に同居していた型定義、slot storage、heap ordering、public API を責務別 submodule に分割した。
+- `stdlib/alloc/collections/binary_heap.nepl` は public facade にし、`binary_heap/types.nepl`、`binary_heap/api.nepl` を `@merge` re-export するだけの構成にした。
+- `binary_heap/types.nepl` は `BinaryHeap` / `BinaryHeapPop` の型定義と heap storage invariant を所有する。
+- `binary_heap/storage.nepl` は capacity 正規化、`Vec<Option<T>>` slot 読み書き、確保、live slot copy を所有する。
+- `binary_heap/order.nepl` は index 計算、slot swap、sift-up / sift-down を所有し、`Ord` と `Option<T>` match に基づく ordering を維持する。
+- `binary_heap/api.nepl` は `new` / `with_capacity` / `push` / `peek` / `pop_max` / `pop` / `len` / `cap` / `is_empty` / `free` を所有し、borrowed observer と owner-preserving `BinaryHeapPop` の契約を維持する。
+- `nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js` を更新し、root facade に実装本体が戻らないこと、typed `Vec<Option<T>>` storage、heap ordering helper、borrowed observer、raw memory 非使用を固定した。
+- line count は `binary_heap.nepl` 14、`binary_heap/types.nepl` 26、`binary_heap/storage.nepl` 40、`binary_heap/order.nepl` 105、`binary_heap/api.nepl` 227。
+- [検証]:
+  - `node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/binary_heap.nepl -i stdlib/alloc/collections/binary_heap/types.nepl -i stdlib/alloc/collections/binary_heap/storage.nepl -i stdlib/alloc/collections/binary_heap/order.nepl -i stdlib/alloc/collections/binary_heap/api.nepl -i stdlib/tests/binary_heap.n.md -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/binary-heap-split-focused.json -j 4 --dist web/dist`: total=14, passed=14
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/tests.js -i examples -o tmp/binary-heap-split-examples.json -j 4 --dist web/dist`: total=32, passed=32
+  - `trunk build`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
