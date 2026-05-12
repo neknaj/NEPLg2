@@ -66,6 +66,7 @@ Introduce typed TraitApplication/TraitId/ImplKind/PendingTraitCheck/MonoTraitLoo
 - `ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB` で、Stage 5 の trait/generic regression fixtures を修正した。raw memory を直接呼ぶ helper は impure signature にし、`PureCallsImpure` を弱めずに regression suite を復旧した。
 - `ISS-20260512T182144401Z-MONOMORPHIZE-TRAIT-LOOKUP-METHOD-IDE-99EBBCAC` で、monomorphize trait lookup の method identity を `MonoTraitMethodId` newtype へ移行した。`MonoTraitMethodKey` / `MonoTraitLookupKey` は raw `String` method field を持たない。
 - `ISS-20260512T183111826Z-MONOMORPHIZE-TRAIT-APPLICATION-STILL-835C27CF` で、monomorphize trait lookup の trait identity を `MonoTraitId` newtype へ移行した。`MonoTraitApplication` / `MonoTraitMethodKey` は raw trait `String` field を持たず、identity type は `monomorphize/trait_identity.rs` に分離した。
+- `ISS-20260512T185123437Z-TYPECHECK-TRAITAPPLICATION-STILL-STO-F6F9CDD1` で、typecheck-side `TraitApplication` の trait identity を `TraitId` newtype へ移行した。`BoundEnv` / impl matching / trait method inference は `TraitId` を受け取り、表示文字列は diagnostic/display 境界に限定した。
 
 ## 検証
 

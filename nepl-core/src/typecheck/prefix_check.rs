@@ -15,6 +15,7 @@ use super::binding_rules::{emit_shadow_warning, shadow_blocked_by_nonshadow};
 use super::diagnostics::{effect_error, resolve_error, type_error};
 use super::env::{Binding, BindingKind};
 use super::syntax_helpers::{parse_i32_literal, split_qualified_name};
+use super::traits::TraitId;
 use super::type_expr::type_from_expr;
 use super::{AssignKind, BlockChecker, FieldIdx, StackEntry};
 
@@ -799,9 +800,10 @@ impl<'a> BlockChecker<'a> {
                                                     &[],
                                                     None,
                                                 );
+                                            let trait_id = TraitId::from_name(trait_name);
                                             let method_self = self
                                                 .infer_unique_type_param_for_trait_ref(
-                                                    trait_name,
+                                                    &trait_id,
                                                     &applied_trait_args,
                                                 )
                                                 .unwrap_or_else(|| {

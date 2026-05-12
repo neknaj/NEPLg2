@@ -110,6 +110,17 @@ assert(traits.includes("TraitCapability::Copy"), "TraitCapability::Copy match co
 assert(traits.includes("TraitCapability::Clone"), "TraitCapability::Clone match coverage must remain visible");
 assert(traits.includes("TraitCapability::Drop"), "TraitCapability::Drop match coverage must remain visible");
 assert(traits.includes("pub(super) struct TraitApplication"), "TraitApplication must be a typed model");
+assert(traits.includes("pub(super) struct TraitId"), "TraitApplication must use a typed TraitId");
+const traitApplicationStruct = traits.match(/pub\(super\) struct TraitApplication\s*\{[\s\S]*?\n\}/);
+assert(traitApplicationStruct, "TraitApplication struct body must be visible to source policy");
+assert(
+    traitApplicationStruct[0].includes("trait_id: TraitId"),
+    "TraitApplication must store trait identity as TraitId",
+);
+assert(
+    !traitApplicationStruct[0].includes("base_name: String"),
+    "TraitApplication must not store trait identity as raw String",
+);
 assert(traits.includes("pub(super) struct TypeParamId"), "type parameter declaration identity must use TypeParamId");
 assert(traits.includes("pub(super) struct BoundEnv"), "type parameter bounds must use BoundEnv");
 assert(
