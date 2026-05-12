@@ -1,3 +1,21 @@
+# 2026-05-12 Agent 2 fenwick API facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/fenwick/api.nepl` に残っていた診断生成、構築、borrowed observer、owner-consuming update、prefix/range query、cleanup を責務別 submodule に分割した。
+- `api.nepl` は `api/diagnostic`、`api/create`、`api/observer`、`api/update`、`api/query`、`api/cleanup` の public `@merge` re-export だけを持つ facade にした。
+- `add` の owner-preserving success / error 生成は `fenwick_add_ok` / `fenwick_add_err` に集約し、`Err` 経路で `FenwickAddError` に元 owner を返す契約を維持した。
+- `len` は `api/observer.nepl`、`sum_prefix` / `sum_range` は `api/query.nepl` に分離し、borrowed observer と owner-consuming update の境界を明確にした。
+- `free` は `api/cleanup.nepl` に分離し、`Fenwick` owner から `Vec<i32>` owner を取り出して閉じる責務を cleanup API に限定した。
+- `nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_fenwick_borrowed_queries.js`、`nodesrc/test_stdlib_fenwick_add_error_owner.js` を更新し、API facade に implementation body が戻らないこと、observer / update / query / cleanup の責務境界、owner-preserving add error、raw memory 非使用を固定した。
+- line count は `api.nepl` 16、`api/diagnostic.nepl` 19、`api/create.nepl` 51、`api/observer.nepl` 15、`api/update.nepl` 76、`api/query.nepl` 102、`api/cleanup.nepl` 39。
+- 検証:
+  - `node nodesrc/test_stdlib_fenwick_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_fenwick_borrowed_queries.js`: passed
+  - `node nodesrc/test_stdlib_fenwick_add_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/fenwick.nepl -i stdlib/alloc/collections/fenwick/types.nepl -i stdlib/alloc/collections/fenwick/storage.nepl -i stdlib/alloc/collections/fenwick/mutation.nepl -i stdlib/alloc/collections/fenwick/query.nepl -i stdlib/alloc/collections/fenwick/api.nepl -i stdlib/alloc/collections/fenwick/api/diagnostic.nepl -i stdlib/alloc/collections/fenwick/api/create.nepl -i stdlib/alloc/collections/fenwick/api/observer.nepl -i stdlib/alloc/collections/fenwick/api/update.nepl -i stdlib/alloc/collections/fenwick/api/query.nepl -i stdlib/alloc/collections/fenwick/api/cleanup.nepl -i stdlib/tests/fenwick.n.md -i tests/stdlib/fenwick_collections.n.md --no-tree -o tmp/fenwick-api-split-focused.json -j 1 --dist web/dist`: total=11, passed=11
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `git diff --check`: passed
+
 # 2026-05-12 Agent 2 segment_tree API facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/segment_tree/api.nepl` に残っていた診断生成、構築、borrowed observer、owner-consuming update、区間 query、cleanup を責務別 submodule に分割した。

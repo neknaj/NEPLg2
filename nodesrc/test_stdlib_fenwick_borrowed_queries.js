@@ -6,22 +6,22 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
-const relPath = "stdlib/alloc/collections/fenwick/api.nepl";
-const src = fs.readFileSync(path.join(repoRoot, relPath), "utf8");
+const apiCode = sourceWithoutComments("stdlib/alloc/collections/fenwick/api.nepl");
+const observerCode = sourceWithoutComments("stdlib/alloc/collections/fenwick/api/observer.nepl");
+const queryCode = sourceWithoutComments("stdlib/alloc/collections/fenwick/api/query.nepl");
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join("\n");
+assert.match(apiCode, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, "Fenwick api facade must re-export borrowed observer APIs through api/observer");
+assert.match(apiCode, /pub\s+#import\s+"\.\/api\/query"\s+as\s+@merge/, "Fenwick api facade must re-export borrowed query APIs through api/query");
+assert.doesNotMatch(apiCode, /\bfn\s+/, "Fenwick api facade must not keep duplicate borrowed wrappers");
 
-assert.match(code, /fn\s+len\s+<\(&Fenwick\)->i32>\s+\(fw\):/, "Fenwick.len must borrow the owner");
-assert.doesNotMatch(code, /fn\s+len\s+<\(Fenwick\)->i32>/, "Fenwick.len must not consume the owner");
+assert.match(observerCode, /fn\s+len\s+<\(&Fenwick\)->i32>\s+\(fw\):/, "Fenwick.len must borrow the owner");
+assert.doesNotMatch(observerCode, /fn\s+len\s+<\(Fenwick\)->i32>/, "Fenwick.len must not consume the owner");
 
-assert.match(code, /fn\s+sum_prefix\s+<\(&Fenwick,i32\)\*>Result<i32,\s*Diag>>\s+\(fw,\s*r\):/, "Fenwick.sum_prefix must borrow the owner");
-assert.doesNotMatch(code, /fn\s+sum_prefix\s+<\(Fenwick,i32\)\*>Result<i32,\s*Diag>>/, "Fenwick.sum_prefix must not consume the owner");
+assert.match(queryCode, /fn\s+sum_prefix\s+<\(&Fenwick,i32\)\*>Result<i32,\s*Diag>>\s+\(fw,\s*r\):/, "Fenwick.sum_prefix must borrow the owner");
+assert.doesNotMatch(queryCode, /fn\s+sum_prefix\s+<\(Fenwick,i32\)\*>Result<i32,\s*Diag>>/, "Fenwick.sum_prefix must not consume the owner");
 
-assert.match(code, /fn\s+sum_range\s+<\(&Fenwick,i32,i32\)\*>Result<i32,\s*Diag>>\s+\(fw,\s*l,\s*r\):/, "Fenwick.sum_range must borrow the owner");
-assert.doesNotMatch(code, /fn\s+sum_range\s+<\(Fenwick,i32,i32\)\*>Result<i32,\s*Diag>>/, "Fenwick.sum_range must not consume the owner");
+assert.match(queryCode, /fn\s+sum_range\s+<\(&Fenwick,i32,i32\)\*>Result<i32,\s*Diag>>\s+\(fw,\s*l,\s*r\):/, "Fenwick.sum_range must borrow the owner");
+assert.doesNotMatch(queryCode, /fn\s+sum_range\s+<\(Fenwick,i32,i32\)\*>Result<i32,\s*Diag>>/, "Fenwick.sum_range must not consume the owner");
 
 for (const testPath of ["stdlib/tests/fenwick.n.md", "tests/stdlib/fenwick_collections.n.md"]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testPath), "utf8");
@@ -35,3 +35,10 @@ for (const testPath of ["stdlib/tests/fenwick.n.md", "tests/stdlib/fenwick_colle
 }
 
 console.log("fenwick borrowed query regression passed");
+
+function sourceWithoutComments(file) {
+    return fs.readFileSync(path.join(repoRoot, file), "utf8")
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*\/\//.test(line))
+        .join("\n");
+}

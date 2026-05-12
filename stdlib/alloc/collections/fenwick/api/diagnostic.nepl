@@ -1,0 +1,19 @@
+//: # fenwick/api/diagnostic
+//: `Fenwick` public API の診断生成
+//:
+//: ### [目的/もくてき]
+//: - 長さ不正、index 範囲外、range 範囲外の `Diag` 生成を 1 箇所に集約します。
+//: - update と query が同じ診断 kind/message を返すようにします。
+
+#indent 4
+
+#import "alloc/diag/error" as *
+
+fn fenwick_diag_len <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid fenwick length"
+
+fn fenwick_diag_index <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "fenwick index out of bounds"
+
+fn fenwick_diag_range <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "fenwick range out of bounds"

@@ -1,0 +1,15 @@
+//: # fenwick/api/observer
+//: `Fenwick` の借用 observer API
+//:
+//: ### [目的/もくてき]
+//: - `len` を `Fenwick` owner を消費しない read-only API として提供します。
+
+#indent 4
+
+#import "core/field" as field
+#import "../types" as *
+
+//: ## len
+//: [保持/ほじ]している[長/なが]さを[返/かえ]す
+fn len <(&Fenwick)->i32> (fw):
+    *field::get_ref fw "n"

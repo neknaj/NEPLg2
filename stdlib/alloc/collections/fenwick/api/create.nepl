@@ -1,0 +1,51 @@
+//: # fenwick/api/create
+//: `Fenwick` の構築 API
+//:
+//: ### [目的/もくてき]
+//: - logical length から 1-indexed internal storage 長を計算し、初期化済み `Vec<i32>` を確保します。
+//: - invalid length / allocation failure は `Diag` として返し、trap にしません。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "alloc/diag/error" as *
+#import "../types" as *
+#import "../storage" as *
+#import "./diagnostic" as *
+
+//: ## new
+//: [長/なが]さ `n` の Fenwick Tree を[作/つく]る
+//:
+//: ### [目的/もくてき]
+//: - [全要素/ぜんようそ] 0 の Fenwick Tree を[確保/かくほ]して[返/かえ]します。
+//: - `n < 0` は[不正/ふせい]な[長/なが]さとして `Diag` にします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/fenwick" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let fw <Fenwick> unwrap_ok<Fenwick, Diag> new 5;
+//:     let ok <bool> eq len &fw 5;
+//:     free fw
+//:     if ok 1 0
+//: ```
+fn new <(i32)*>Result<Fenwick, Diag>> (n):
+    if:
+        lt n 0
+        then:
+            diag_err<Fenwick> fenwick_diag_len
+        else:
+            let bit_len <i32> add n 1
+            match fenwick_alloc_bit bit_len:
+                Result::Err d:
+                    err<Fenwick, Diag> d
+                Result::Ok bit:
+                    ok<Fenwick, Diag> Fenwick n bit
