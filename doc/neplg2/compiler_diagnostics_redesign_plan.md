@@ -258,6 +258,7 @@ D2 の完了条件は次の通り。
 
 - 2026-04-30: `nepl-web` の wasm analysis object は `code` / `code_message` を出していたが、playground editor の `EditorUpdatePayload` が `code` を落としていたため、`web/src/editor-core/language-analysis.ts` の `EditorDiagnostic` に `code` / `codeMessage` を追加した。analysis snapshot から editor payload、差分 remap 後の payload まで stable code を保持する。`nodesrc/test_editor_diagnostic_code_contract.js` を CI source policy に追加し、web 側表示 contract が code を失わないことを固定する。
 - 2026-05-13: `nepl-language` / `nepl-lsp` 側の editor diagnostic も `code_message` を保持するようにした。`EditorDiagnostic.code_message` は `DiagnosticCode::message()` から生成し、LSP diagnostic の `data.code_message` へ転送する。これにより web / language / LSP の外部境界で stable code と enum-derived canonical message の両方を保持する。`nodesrc/test_diagnostic_code_first_boundary.js` でこの contract を監視する。
+- 2026-05-13: `nepl-language` / `nepl-web` の editor analysis target resolver で、unknown `#target` が `module.directives` と `module.root.items` の両方から二重診断される問題を修正した。fallback root scan は valid target の有無ではなく `saw_target_directive` の有無で判断する。`loader.target.unknown` は単一 source violation につき 1 件だけ出るため、Stage D3 の diagnostic event count と stable code regression が信頼できる。
 
 ### Stage D4: test migration
 

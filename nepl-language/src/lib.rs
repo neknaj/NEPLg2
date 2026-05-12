@@ -1541,10 +1541,12 @@ fn collect_semantic_expr(
 
 fn resolve_target_for_analysis(module: &Module) -> (CompileTarget, Vec<Diagnostic>) {
     let mut found: Option<(CompileTarget, Span)> = None;
+    let mut saw_target_directive = false;
     let mut diagnostics = Vec::new();
 
     for directive in &module.directives {
         if let Directive::Target { target, span } = directive {
+            saw_target_directive = true;
             let parsed = parse_target_name(target);
             if let Some(target) = parsed {
                 if let Some((_, prev_span)) = found {
@@ -1569,7 +1571,7 @@ fn resolve_target_for_analysis(module: &Module) -> (CompileTarget, Vec<Diagnosti
         }
     }
 
-    if found.is_none() {
+    if !saw_target_directive {
         for item in &module.root.items {
             if let Stmt::Directive(Directive::Target { target, span }) = item {
                 let parsed = parse_target_name(target);
@@ -1709,10 +1711,12 @@ fn main <()->i32> ():
             unknown
                 .diagnostics
                 .iter()
-                .any(|diagnostic| {
+                .filter(|diagnostic| {
                     diagnostic.code == "loader.target.unknown"
                         && diagnostic.code_message == "unknown target in #target"
-                }),
+                })
+                .count()
+                == 1,
             "{:?}",
             unknown.diagnostics
         );

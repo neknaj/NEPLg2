@@ -36803,3 +36803,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260512T203408880Z-LANGUAGE-AND-LSP-DIAGNOSTICS-DROP-RE-8AFBCCD3` を追加し、Stage D3 で `nepl-language` / `nepl-lsp` が enum-derived `code_message` を落としている問題を切り出した。
 - `EditorDiagnostic` に `code_message` を追加し、`diagnostics_to_editor` で `DiagnosticCode::message()` から生成するようにした。
 - LSP publishDiagnostics の `data.code_message` に同じ値を転送し、source policy と focused Rust test で stable code と canonical message の両方を監視する。
+
+## 2026-05-13 Agent 1 editor target diagnostic dedup
+
+- `5fe7c365` push 後に remote main を pull し、`agent1/analysis-target-diagnostic-dedup` branch を作成した。
+- `ISS-20260512T203824412Z-EDITOR-TARGET-ANALYSIS-REPORTS-UNKNO-222401C9` を追加し、unknown `#target` が language analysis で 2 回報告される問題を切り出した。
+- `nepl-language` / `nepl-web` の `resolve_target_for_analysis` で `found` と別に `saw_target_directive` を持ち、unknown target を見た場合も fallback root scan を止めるようにした。
+- `loader.target.unknown` が 1 件だけ出ることを focused test で固定し、source policy でも language / web の fallback 条件を監視する。

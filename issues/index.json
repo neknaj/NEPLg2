@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T20:35:43.405Z",
+  "generated_at": "2026-05-12T20:40:05.986Z",
   "counts": {
-    "total": 680,
+    "total": 681,
     "open": 10,
-    "resolved": 670,
+    "resolved": 671,
     "by_area": {
       "core": {
-        "total": 362,
+        "total": 363,
         "open": 2,
-        "resolved": 360
+        "resolved": 361
       },
       "stdlib": {
         "total": 168,
@@ -5493,6 +5493,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T203408880Z-LANGUAGE-AND-LSP-DIAGNOSTICS-DROP-RE-8AFBCCD3.md"
+    },
+    {
+      "id": "ISS-20260512T203824412Z-EDITOR-TARGET-ANALYSIS-REPORTS-UNKNO-222401C9",
+      "title": "Editor target analysis reports unknown target directives twice",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-language/src/lib.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_diagnostics_redesign_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T203824412Z-EDITOR-TARGET-ANALYSIS-REPORTS-UNKNO-222401C9.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -1940,10 +1940,12 @@ fn collect_semantic_expr(
 
 fn resolve_target_for_analysis(module: &nepl_core::ast::Module) -> (CompileTarget, Vec<Diagnostic>) {
     let mut found: Option<(CompileTarget, Span)> = None;
+    let mut saw_target_directive = false;
     let mut diags = Vec::new();
 
     for d in &module.directives {
         if let Directive::Target { target, span } = d {
+            saw_target_directive = true;
             let parsed = parse_target_name(target);
             if let Some(t) = parsed {
                 if let Some((_, prev_span)) = found {
@@ -1968,7 +1970,7 @@ fn resolve_target_for_analysis(module: &nepl_core::ast::Module) -> (CompileTarge
         }
     }
 
-    if found.is_none() {
+    if !saw_target_directive {
         for it in &module.root.items {
             if let Stmt::Directive(Directive::Target { target, span }) = it {
                 let parsed = parse_target_name(target);

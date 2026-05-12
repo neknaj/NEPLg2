@@ -214,6 +214,11 @@ assert.match(
   /fn\s+loader_error\s*\([^)]*LoaderDiagnosticCode[\s\S]*Diagnostic::error_with_code\s*\(\s*DiagnosticCode::Loader\s*\(\s*code\s*\)/,
   'nepl-web loader diagnostics must use a LoaderDiagnosticCode helper',
 );
+assert.match(
+  web,
+  /let\s+mut\s+saw_target_directive\s*=\s*false[\s\S]*saw_target_directive\s*=\s*true[\s\S]*if\s+!saw_target_directive\s*\{/,
+  'nepl-web target analysis must not rescan root directives after seeing an unknown #target',
+);
 
 const language = rustFiles.find((item) => item.rel === 'nepl-language/src/lib.rs')?.text ?? '';
 assert.match(
@@ -225,6 +230,11 @@ assert.match(
   language,
   /code_message:\s+diagnostic\.code\.message\(\)/,
   'nepl-language diagnostics_to_editor must derive code_message from DiagnosticCode::message()',
+);
+assert.match(
+  language,
+  /let\s+mut\s+saw_target_directive\s*=\s*false[\s\S]*saw_target_directive\s*=\s*true[\s\S]*if\s+!saw_target_directive\s*\{/,
+  'nepl-language target analysis must not rescan root directives after seeing an unknown #target',
 );
 
 const lsp = rustFiles.find((item) => item.rel === 'nepl-lsp/src/main.rs')?.text ?? '';

@@ -908,6 +908,17 @@ Rust regression は `move_in_loop` で message 部分ではなく `DiagnosticCod
 - `cargo test -p nepl-language target_directive_diagnostics_keep_loader_codes`
 - `cargo check -p nepl-language -p nepl-lsp --tests`
 
+## 2026-05-13 Stage D3 editor target diagnostic duplicate 修正
+
+`nepl-language` の focused test 中に、unknown `#target` が `loader.target.unknown` を 2 件出すことを確認した。原因は editor/web analysis の `resolve_target_for_analysis` が `found valid target` を fallback root scan 条件にしており、unknown target directive を見ても `module.root.items` を再走査していたことだった。
+
+[Editor target analysis reports unknown target directives twice](./ISS-20260512T203824412Z-EDITOR-TARGET-ANALYSIS-REPORTS-UNKNO-222401C9.md) として切り出し、`saw_target_directive` と `found` を分離した。unknown を含む `#target` を見た時点で fallback root scan は実行しない。これにより単一 source violation が単一 stable diagnostic event に対応する Stage D3 contract を editor/web analysis でも維持する。
+
+検証:
+
+- `cargo test -p nepl-language target_directive_diagnostics_keep_loader_codes`
+- `node nodesrc/test_diagnostic_code_first_boundary.js`
+
 ## 2026-04-30 Stage D1 source policy recursion 追記
 
 `nodesrc/test_diagnostic_code_first_boundary.js` は `.with_code(...)` の復活を検出するために追加していたが、固定された境界ファイルだけを読む実装だった。そのため、active compiler pass の別 file に code-less `Diagnostic::error(...)` / `Diagnostic::warning(...)` が戻っても CI で検出できない監視漏れがあった。
