@@ -743,6 +743,16 @@ assertNotContains(
     'fn canonical_variant_name',
     'place_utils.rs',
 );
+for (const resourceFileName of fs.readdirSync(RESOURCE_DIR)) {
+    if (!resourceFileName.endsWith('.rs') || resourceFileName === 'variant_name.rs') {
+        continue;
+    }
+    assertNotContains(
+        readResource(resourceFileName),
+        'rsplit("::")',
+        resourceFileName,
+    );
+}
 
 const maxLines = new Map([
     ['effect.rs', 160],

@@ -1,7 +1,5 @@
 extern crate alloc;
 
-use alloc::string::String;
-
 use crate::types::TypeId;
 
 use super::borrow_state::{BorrowBinding, BorrowTable};
@@ -10,6 +8,7 @@ use super::model::{
     ResourceTerminator,
 };
 use super::place_utils::places_overlap;
+use super::variant_name::match_pattern_variant_name;
 
 pub(super) enum BorrowBindingFuture {
     Keep,
@@ -100,24 +99,16 @@ pub(super) fn propagate_match_bind_borrow_token(
     let ResourceOp::Match { scrutinee, .. } = op else {
         return;
     };
-    let ResourceMatchPattern::Variant(variant) = pattern else {
+    let Some(payload_variant) = match_pattern_variant_name(pattern) else {
         return;
     };
-    let payload_variant = enum_payload_variant_name(variant);
     let payload = scrutinee.clone().with_projection(
         PlaceProjection::EnumPayload {
-            variant: String::from(payload_variant),
+            variant: payload_variant,
         },
         bind_local.ty,
     );
     borrows.copy_or_move_token_tree(&payload, bind_local, false);
-}
-
-fn enum_payload_variant_name(pattern_variant: &str) -> &str {
-    pattern_variant
-        .rsplit("::")
-        .next()
-        .unwrap_or(pattern_variant)
 }
 
 fn resource_op_uses_place(op: &ResourceOp, place: &Place) -> bool {

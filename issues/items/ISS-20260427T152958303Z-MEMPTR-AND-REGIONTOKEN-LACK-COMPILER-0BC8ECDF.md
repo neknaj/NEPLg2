@@ -411,3 +411,11 @@ raw `i32` owner seed は raw owner を消費する関数、または aggregate �
 対応では `construct_aggregate_field_place` を `normalize_variant_name` へ移行し、`match_arm_variant_payload_name` も `match_pattern_variant_name` を返す形にした。さらに enum payload type lookup の variant 比較を `variant_names_match` に寄せ、`place_utils.rs` から variant 名の local 正規化 / 比較規則を取り除いた。`owner_control.rs` は selected variant を文字列所有値として受け、inactive sibling payload 除外時に同じ canonical name を参照する。
 
 `nodesrc/test_resource_checker_responsibility.js` には `place_utils.rs` が `variant_name` module を使うことと、local `canonical_variant_name` を再導入しないことを追加した。これは `doc/neplg2/static_check_complexity_reduction_plan.md` Stage 4 の Resource IR owner/provenance 分離に含まれる。
+
+## 2026-05-12 Resource IR borrow / owner summary variant 名 canonicalization 統一
+
+`ISS-20260512T124702911Z-RESOURCE-BORROW-AND-OWNER-SUMMARY-ST-DAA86E59` として、borrow token propagation と owner summary ambiguous variant return collection に残っていた local variant 名正規化を修正した。
+
+根本原因は、`borrow_usage.rs` が match arm payload へ borrow token tree を伝播する際に pattern variant を file-local `rsplit("::")` で canonicalize し、`owner_summary_variant_ambiguous.rs` も ambiguous enum projection return の variant dedupe で同じ local 比較を持っていたことだった。これにより、Resource IR の enum payload place を cell / owner / borrow / raw alias / raw view の共通 key として扱う方針に対し、borrow と owner summary の一部だけ別規則が残っていた。
+
+対応では `borrow_usage.rs` を `match_pattern_variant_name` へ移行し、`owner_summary_variant_ambiguous.rs` を `variant_names_match` へ移行した。加えて responsibility policy で `variant_name.rs` 以外の Resource IR module に `rsplit("::")` が残ることを禁止した。これは Stage 4 の Resource IR owner/provenance 分離と lifetime/borrow token propagation の一貫性補強である。

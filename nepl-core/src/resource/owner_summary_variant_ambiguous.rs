@@ -4,6 +4,7 @@ use super::model::PlaceProjection;
 use super::owner_summary_record::OwnerParameterStorageSource;
 use super::owner_summary_variant_return::record_variant_projection_returns;
 use super::summary::{OwnerProjectionReturnSummary, OwnerVariantProjectionReturn};
+use super::variant_name::variant_names_match;
 
 pub(super) fn record_ambiguous_enum_projection_returns_as_variant_returns(
     variant_returns: &mut Vec<OwnerVariantProjectionReturn>,
@@ -34,14 +35,10 @@ fn ambiguous_projection_variants<'a>(
         };
         if !variants
             .iter()
-            .any(|existing| same_variant(*existing, variant))
+            .any(|existing| variant_names_match(existing, variant))
         {
             variants.push(variant.as_str());
         }
     }
     variants
-}
-
-fn same_variant(left: &str, right: &str) -> bool {
-    left.rsplit("::").next().unwrap_or(left) == right.rsplit("::").next().unwrap_or(right)
 }
