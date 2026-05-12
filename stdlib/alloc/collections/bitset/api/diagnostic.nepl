@@ -1,0 +1,16 @@
+//: # bitset/api/diagnostic
+//: `BitSet` public API の診断生成
+//:
+//: ### [目的/もくてき]
+//: - 長さ不正と index 範囲外の `Diag` 生成を 1 箇所に集約します。
+//: - observer と update が同じ診断 kind/message を返すようにします。
+
+#indent 4
+
+#import "alloc/diag/error" as *
+
+fn bitset_invalid_len_diag <()*>Diag> ():
+    diag_error StdErrorKind::CapacityExceeded "invalid bitset length"
+
+fn bitset_index_diag <()*>Diag> ():
+    diag_error StdErrorKind::IndexOutOfBounds "bitset index out of bounds"

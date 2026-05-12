@@ -1,0 +1,62 @@
+//: # bitset/api/observer
+//: `BitSet` の借用 observer API
+//:
+//: ### [目的/もくてき]
+//: - `len` / `contains` を `BitSet` owner を消費しない read-only API として提供します。
+//: - index validation と typed byte read を通し、raw pointer を public API に漏らしません。
+
+#indent 4
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/field" as field
+#import "alloc/diag/error" as *
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../layout" as *
+#import "../storage" as *
+#import "./diagnostic" as *
+
+//: ## len
+//: [保持可能/ほじかのう]な bit [長/ちょう]を[返/かえ]す
+//:
+//: ### [仕様/しよう]
+//: - `BitSet` owner は[消費/しょうひ]しません。
+//: - caller は `len` [後/ご]も同じ `BitSet` を[使/つか]い、不要になったら `free` できます。
+fn len <(&BitSet)->i32> (bs):
+    *field::get_ref bs "nbits"
+
+//: ## contains
+//: bit が[立/た]っているかを[返/かえ]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let bs <BitSet>:
+//:         unwrap_ok<BitSet, Diag> new 32
+//:         |> insert 5 |> uwok
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs 5;
+//:     free bs
+//:     if ok 1 0
+//: ```
+fn contains <(&BitSet,i32)*>Result<bool, Diag>> (bs, idx):
+    let nbits <i32> *field::get_ref bs "nbits"
+    if:
+        bitset_valid_index idx nbits
+        then:
+            let bits <&Vec<u8>> field::get_ref bs "bits"
+            let byte_idx <i32> bitset_byte_index idx
+            let mask <i32> bitset_mask idx
+            match bitset_byte_at bits byte_idx:
+                Option::Some cur:
+                    ok<bool, Diag> ne and cur mask 0
+                Option::None:
+                    diag_err<bool> bitset_index_diag
+        else:
+            diag_err<bool> bitset_index_diag

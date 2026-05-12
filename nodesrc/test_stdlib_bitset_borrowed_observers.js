@@ -7,13 +7,21 @@ const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
 const apiPath = "stdlib/alloc/collections/bitset/api.nepl";
+const observerPath = "stdlib/alloc/collections/bitset/api/observer.nepl";
 const apiSrc = fs.readFileSync(path.join(repoRoot, apiPath), "utf8");
+const observerSrc = fs.readFileSync(path.join(repoRoot, observerPath), "utf8");
 
-const code = apiSrc
+const apiCode = apiSrc
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join("\n");
+const code = observerSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join("\n");
 
+assert.match(apiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, "BitSet api facade must re-export borrowed observers through api/observer");
+assert.doesNotMatch(apiCode, /\bfn\s+/, "BitSet api facade must not keep duplicate observer wrappers");
 assert.match(code, /fn\s+len\s+<\(&BitSet\)->i32>\s+\(bs\):/, "BitSet.len must borrow the BitSet owner");
 assert.doesNotMatch(code, /fn\s+len\s+<\(BitSet\)->i32>/, "BitSet.len must not consume the BitSet owner");
 

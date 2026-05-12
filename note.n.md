@@ -1,3 +1,17 @@
+# 2026-05-12 Agent 2 bitset API facade 分割
+
+- `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/bitset/api.nepl` に残っていた診断生成、構築、borrowed observer、owner-consuming update、bulk reset、cleanup を責務別 submodule に分割した。
+- `api.nepl` は `api/diagnostic`、`api/create`、`api/observer`、`api/update`、`api/bulk`、`api/cleanup` の public `@merge` re-export だけを持つ facade にした。
+- `insert` / `remove` の重複していた validation と owner-preserving error 生成は `bitset_update` に集約した。
+- `clear` / `fill` の重複していた byte fill 処理は `bitset_fill_value` に集約した。
+- `nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_bitset_borrowed_observers.js`、`nodesrc/test_stdlib_bitset_update_error_owner.js` を更新し、API facade に implementation body が戻らないこと、observer / update / bulk / cleanup の責務境界、owner-preserving update error、raw memory 非使用を固定した。
+- line count は `api.nepl` 14、`api/diagnostic.nepl` 12、`api/create.nepl` 42、`api/observer.nepl` 58、`api/update.nepl` 87、`api/bulk.nepl` 58、`api/cleanup.nepl` 33。
+- 検証:
+  - `node nodesrc/test_stdlib_bitset_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_bitset_borrowed_observers.js`: passed
+  - `node nodesrc/test_stdlib_bitset_update_error_owner.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/bitset.nepl -i stdlib/alloc/collections/bitset/types.nepl -i stdlib/alloc/collections/bitset/layout.nepl -i stdlib/alloc/collections/bitset/storage.nepl -i stdlib/alloc/collections/bitset/mutation.nepl -i stdlib/alloc/collections/bitset/api.nepl -i stdlib/alloc/collections/bitset/api/diagnostic.nepl -i stdlib/alloc/collections/bitset/api/create.nepl -i stdlib/alloc/collections/bitset/api/observer.nepl -i stdlib/alloc/collections/bitset/api/update.nepl -i stdlib/alloc/collections/bitset/api/bulk.nepl -i stdlib/alloc/collections/bitset/api/cleanup.nepl -i stdlib/tests/bitset.n.md -i tests/stdlib/bitset_collections.n.md --no-tree -o tmp/bitset-api-split-focused.json -j 1 --dist web/dist`: total=13, passed=13
+
 # 2026-05-12 Agent 2 btreeset API facade 分割
 
 - `ISS-20260425T000000Z-RV-STDLIB-009-01749CCF` の継続対応として、`stdlib/alloc/collections/btreeset/api.nepl` に同居していた構築、borrowed observer、挿入、削除、cleanup を責務別 submodule に分割した。

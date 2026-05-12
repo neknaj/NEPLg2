@@ -1,0 +1,36 @@
+//: # bitset/api/cleanup
+//: `BitSet` owner の cleanup API
+//:
+//: ### [目的/もくてき]
+//: - `BitSet` owner から typed byte storage owner を取り出し、`Vec` として閉じます。
+//: - cleanup を observer / update から分離し、free obligation の境界を明確にします。
+
+#indent 4
+
+#import "core/field" as field
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+
+//: ## free
+//: [内部/ないぶ] byte [配列/はいれつ]を[解放/かいほう]する
+//:
+//: ### [仕様/しよう]
+//: - `BitSet` は `new` が[確保/かくほ]した `Vec<u8>` bit storage を[所有/しょゆう]します。
+//: - `free` はその owner invariant に[基/もと]づき、`vec::free` で[解放/かいほう]します。
+//: - caller は `free` [後/ご]の `BitSet` を[再利用/さいりよう]してはいけません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 16;
+//:     free bs
+//:     0
+//: ```
+fn free <(BitSet)->()> (bs):
+    let bits <Vec<u8>> field::get bs "bits"
+    vec::free<u8> bits

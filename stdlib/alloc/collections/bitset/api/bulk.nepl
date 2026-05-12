@@ -1,0 +1,63 @@
+//: # bitset/api/bulk
+//: `BitSet` 全体を更新する API
+//:
+//: ### [目的/もくてき]
+//: - `clear` / `fill` に共通する全 byte fill を 1 箇所に集約します。
+//: - owner を受け取り、同じ owner を返す bulk update として observer / cleanup から分離します。
+
+#indent 4
+
+#import "core/field" as field
+#import "alloc/collections/vec" as vec
+#import "../types" as *
+#import "../storage" as *
+
+//: ## bitset_fill_value
+//: [内部/ないぶ] byte storage を[指定/してい] byte で[埋/う]める
+fn bitset_fill_value <(BitSet,i32)*>BitSet> (bs, byte_value):
+    let nbytes <i32> *field::get_ref &bs "nbytes"
+    let bits <&Vec<u8>> field::get_ref &bs "bits"
+    bitset_fill_bytes bits nbytes byte_value
+    bs
+
+//: ## clear
+//: [全/すべ]ての bit を 0 に[戻/もど]す
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let bs <BitSet>:
+//:         unwrap_ok<BitSet, Diag> new 16
+//:         |> insert 2 |> uwok
+//:         |> clear
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs 2;
+//:     free bs
+//:     if not ok 1 0
+//: ```
+fn clear <(BitSet)*>BitSet> (bs):
+    bitset_fill_value bs 0
+
+//: ## fill
+//: [全/すべ]ての bit を 1 に[設定/せってい]する
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/bitset" as *
+//:| #import "alloc/diag/error" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 10;
+//:     let bs1 <BitSet> fill bs;
+//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs1 9;
+//:     free bs1
+//:     if ok 1 0
+//: ```
+fn fill <(BitSet)*>BitSet> (bs):
+    bitset_fill_value bs 255
