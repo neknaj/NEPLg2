@@ -10,7 +10,7 @@ use crate::types::TypeId;
 
 use super::diagnostics::{effect_error, type_error};
 use super::syntax_helpers::split_qualified_name;
-use super::traits::TraitId;
+use super::traits::{TraitApplication, TraitId};
 use super::{BlockChecker, StackEntry};
 
 pub(super) enum TraitMethodApplyResult {
@@ -22,23 +22,21 @@ pub(super) enum TraitMethodResolution {
     NotTraitMethod,
     Resolved(TraitMethodCall),
     MissingSelfType,
-    UnsatisfiedBound {
-        applied_trait_name: alloc::string::String,
-    },
+    UnsatisfiedBound { application: TraitApplication },
     PureCallsImpure,
 }
 
 pub(super) struct TraitMethodCall {
-    trait_name: alloc::string::String,
-    trait_args: Vec<TypeId>,
+    application: TraitApplication,
     method: HirTraitMethodId,
     self_ty: TypeId,
 }
 
 impl TraitMethodCall {
     pub(super) fn into_func_ref(self) -> FuncRef {
+        let TraitApplication { trait_id, args } = self.application;
         FuncRef::Trait {
-            application: HirTraitApplication::new(self.trait_name, self.trait_args),
+            application: HirTraitApplication::new(trait_id.as_str().to_string(), args),
             method: self.method,
             self_ty: self.self_ty,
         }
@@ -88,10 +86,10 @@ impl<'a> BlockChecker<'a> {
             return TraitMethodResolution::NotTraitMethod;
         };
 
-        let applied_trait_name =
-            self.infer_trait_application_name(trait_name, trait_info, sig, args, expected_ret);
-        let applied_trait_args =
-            self.infer_trait_application_args(trait_info, sig, args, expected_ret);
+        let application = TraitApplication {
+            trait_id: TraitId::from_name(trait_name),
+            args: self.infer_trait_application_args(trait_info, sig, args, expected_ret),
+        };
         let mut inferred_self_ty = None;
         if let (Some(self_hint), Some(first_param), Some(arg)) = (
             type_args.first().copied(),
@@ -100,8 +98,7 @@ impl<'a> BlockChecker<'a> {
         ) {
             if self.ctx.same_type(first_param, self_hint) {
                 let candidate = self.ctx.resolve_id(arg.ty);
-                if self.type_satisfies_trait_application(candidate, trait_name, &applied_trait_args)
-                {
+                if self.type_satisfies_trait_application(candidate, &application) {
                     inferred_self_ty = Some(candidate);
                 }
             }
@@ -112,14 +109,13 @@ impl<'a> BlockChecker<'a> {
                     let _ = self.ctx.unify(result, expected);
                 }
                 let resolved_hint = self.ctx.resolve_id(self_hint);
-                let trait_id = TraitId::from_name(trait_name);
                 inferred_self_ty = self
-                    .infer_unique_type_param_for_trait_ref(&trait_id, &applied_trait_args)
+                    .infer_unique_type_param_for_trait_ref(&application.trait_id, &application.args)
                     .or_else(|| {
                         if self.type_param_has_trait_application_bound(
                             resolved_hint,
-                            &trait_id,
-                            &applied_trait_args,
+                            &application.trait_id,
+                            &application.args,
                         ) {
                             Some(resolved_hint)
                         } else {
@@ -142,8 +138,8 @@ impl<'a> BlockChecker<'a> {
             };
         };
 
-        if !self.type_satisfies_trait_application(self_ty, trait_name, &applied_trait_args) {
-            return TraitMethodResolution::UnsatisfiedBound { applied_trait_name };
+        if !self.type_satisfies_trait_application(self_ty, &application) {
+            return TraitMethodResolution::UnsatisfiedBound { application };
         }
 
         if effect
@@ -156,8 +152,7 @@ impl<'a> BlockChecker<'a> {
         }
 
         TraitMethodResolution::Resolved(TraitMethodCall {
-            trait_name: trait_name.to_string(),
-            trait_args: applied_trait_args,
+            application,
             method: HirTraitMethodId::from_name(method_name.to_string()),
             self_ty,
         })
@@ -194,10 +189,13 @@ impl<'a> BlockChecker<'a> {
                 ));
                 return TraitMethodApplyResult::Handled(None);
             }
-            TraitMethodResolution::UnsatisfiedBound { applied_trait_name } => {
+            TraitMethodResolution::UnsatisfiedBound { application } => {
                 self.diagnostics.push(type_error(
                     TypeDiagnosticCode::TraitBoundUnsatisfied,
-                    format!("type does not satisfy trait bound '{}'", applied_trait_name),
+                    format!(
+                        "type does not satisfy trait bound '{}'",
+                        application.display_name(self.ctx)
+                    ),
                     span,
                 ));
                 return TraitMethodApplyResult::Handled(None);
@@ -231,14 +229,15 @@ impl<'a> BlockChecker<'a> {
     fn type_satisfies_trait_application(
         &self,
         candidate: TypeId,
-        trait_name: &str,
-        applied_trait_args: &[TypeId],
+        application: &TraitApplication,
     ) -> bool {
-        let trait_id = TraitId::from_name(trait_name);
-        self.type_param_has_trait_application_bound(candidate, &trait_id, applied_trait_args)
-            || self.impls.iter().any(|imp| {
-                imp.matches_trait_application(self.ctx, &trait_id, applied_trait_args)
-                    && self.ctx.type_pattern_matches(imp.target_ty, candidate)
-            })
+        self.type_param_has_trait_application_bound(
+            candidate,
+            &application.trait_id,
+            &application.args,
+        ) || self.impls.iter().any(|imp| {
+            imp.matches_trait_application(self.ctx, &application.trait_id, &application.args)
+                && self.ctx.type_pattern_matches(imp.target_ty, candidate)
+        })
     }
 }

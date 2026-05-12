@@ -31,7 +31,7 @@ const RUNNER = path.join(ROOT, "nodesrc", "run_source_policy_regressions.js");
 
 const BASELINE = {
     parseTraitRefName: 0,
-    formatTraitRefName: 6,
+    formatTraitRefName: 4,
     traitBoundRef: 0,
     traitLookupCache: 6,
 };
@@ -294,6 +294,24 @@ for (const variant of [
     assert(traitCallApply.includes(variant), `trait_call_apply.rs must handle ${variant}`);
     assert(selectedCallApply.includes(variant), `selected_call_apply.rs must handle ${variant}`);
 }
+assert(
+    traitCallApply.includes("UnsatisfiedBound { application: TraitApplication }"),
+    "trait method unsatisfied-bound diagnostics must carry typed TraitApplication",
+);
+const traitMethodCallStruct = traitCallApply.match(/pub\(super\) struct TraitMethodCall\s*\{[\s\S]*?\n\}/);
+assert(traitMethodCallStruct, "TraitMethodCall struct body must be visible to source policy");
+assert(
+    traitMethodCallStruct[0].includes("application: TraitApplication"),
+    "TraitMethodCall must carry typed TraitApplication",
+);
+for (const oldField of ["trait_name", "trait_args", "applied_trait_name"]) {
+    assert(!traitMethodCallStruct[0].includes(oldField), `TraitMethodCall must not carry ${oldField}`);
+    assert(!traitCallApply.includes(`${oldField}:`), `trait_call_apply.rs must not carry ${oldField} as field`);
+}
+assert(
+    !traitCallApply.includes("infer_trait_application_name"),
+    "trait method resolution must not derive rendered trait application names before diagnostics",
+);
 assert(
     !traitCallApply.includes("Option<FuncRef>"),
     "trait method resolution must not collapse resolution state into Option<FuncRef>",
