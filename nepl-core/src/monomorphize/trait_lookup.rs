@@ -26,33 +26,42 @@ impl MonoTraitApplication {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) struct MonoTraitMethodId(String);
+
+impl MonoTraitMethodId {
+    pub(super) fn from_name(name: &str) -> Self {
+        Self(String::from(name))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct MonoTraitMethodKey {
     trait_base_name: String,
-    method: String,
+    method: MonoTraitMethodId,
 }
 
 impl MonoTraitMethodKey {
-    pub(super) fn new(trait_base_name: String, method: String) -> Self {
+    pub(super) fn new(trait_base_name: String, method: MonoTraitMethodId) -> Self {
         Self {
             trait_base_name,
             method,
         }
-    }
-
-    pub(super) fn from_names(trait_base_name: &str, method: &str) -> Self {
-        Self::new(String::from(trait_base_name), String::from(method))
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct MonoTraitLookupKey {
     application: MonoTraitApplication,
-    method: String,
+    method: MonoTraitMethodId,
     self_ty: TypeId,
 }
 
 impl MonoTraitLookupKey {
-    pub(super) fn new(application: MonoTraitApplication, method: String, self_ty: TypeId) -> Self {
+    pub(super) fn new(
+        application: MonoTraitApplication,
+        method: MonoTraitMethodId,
+        self_ty: TypeId,
+    ) -> Self {
         Self {
             application,
             method,

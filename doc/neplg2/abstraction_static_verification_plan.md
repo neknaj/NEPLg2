@@ -271,6 +271,7 @@ struct MonoTraitLookupKey {
 - 2026-05-12: `ISS-20260512T171317751Z-RESOURCE-IR-TRAIT-CALL-TARGET-STILL--6B70AE36` を追加し、verified にした。
 - 2026-05-12: `ResourceTraitApplication` を追加し、`ResourceCallTarget::Trait` も split fields ではなく typed application を保持する形へ移行した。
 - 2026-05-13: `ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB` を verified にした。Stage 5 の trait/generic regression は、`PureCallsImpure` を弱めず、raw memory を直接呼ぶ generic helper を impure signature に直すことで復旧した。
+- 2026-05-13: `ISS-20260512T182144401Z-MONOMORPHIZE-TRAIT-LOOKUP-METHOD-IDE-99EBBCAC` を追加し、`MonoTraitMethodId` newtype を導入した。`MonoTraitMethodKey` / `MonoTraitLookupKey` は method identity を raw `String` ではなく typed id として保持する。
 - 残件: Stage 5 の typed identity は HIR / monomorphize / Resource IR call target まで到達した。次は policy baseline を整理し、BoundEnv / TypeParamId 残件と Resource IR 側の安全検査 issue に戻る。
 
 ### Stage 6: policy baseline を 0 に下げる

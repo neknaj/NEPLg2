@@ -15,8 +15,8 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 mod trait_lookup;
 
 use trait_lookup::{
-    MonoTraitApplication, MonoTraitLookupKey, MonoTraitMethodKey, TraitImplEntry,
-    TraitImplResolution,
+    MonoTraitApplication, MonoTraitLookupKey, MonoTraitMethodId, MonoTraitMethodKey,
+    TraitImplEntry, TraitImplResolution,
 };
 
 macro_rules! mono_log {
@@ -69,6 +69,7 @@ fn monomorphize_internal(
         let ty = ctx.resolve_id(imp.target_ty);
         let application = MonoTraitApplication::from_hir(ctx, &imp.trait_application);
         for m in &imp.methods {
+            let method_id = MonoTraitMethodId::from_name(&m.name);
             let entry_index = impl_entries.len();
             impl_entries.push(TraitImplEntry {
                 application: application.clone(),
@@ -76,9 +77,10 @@ fn monomorphize_internal(
                 target_ty: ty,
                 func_name: m.func.name.clone(),
             });
-            let method_key = MonoTraitMethodKey::new(application.base_name.clone(), m.name.clone());
+            let method_key =
+                MonoTraitMethodKey::new(application.base_name.clone(), method_id.clone());
             impl_map.insert(
-                MonoTraitLookupKey::new(application.clone(), m.name.clone(), ty),
+                MonoTraitLookupKey::new(application.clone(), method_id, ty),
                 entry_index,
             );
             impl_method_index
@@ -494,20 +496,20 @@ impl<'a> Monomorphizer<'a> {
         let application =
             MonoTraitApplication::resolved(self.ctx, String::from(trait_name), trait_args);
         let resolved_self_ty = self.ctx.resolve_id(resolved_self_ty);
+        let method_id = MonoTraitMethodId::from_name(method);
         let cache_key =
-            MonoTraitLookupKey::new(application.clone(), String::from(method), resolved_self_ty);
+            MonoTraitLookupKey::new(application.clone(), method_id.clone(), resolved_self_ty);
         if let Some(cached) = self.trait_lookup_cache.get(&cache_key) {
             return cached.clone();
         }
-        let key =
-            MonoTraitLookupKey::new(application.clone(), String::from(method), resolved_self_ty);
+        let key = MonoTraitLookupKey::new(application.clone(), method_id.clone(), resolved_self_ty);
         if let Some(entry_index) = self.impl_map.get(&key).copied() {
             let found =
                 self.resolve_trait_impl_entry(entry_index, &application.args, resolved_self_ty);
             self.trait_lookup_cache.insert(cache_key, found.clone());
             return found;
         }
-        let method_key = MonoTraitMethodKey::from_names(trait_name, method);
+        let method_key = MonoTraitMethodKey::new(String::from(trait_name), method_id);
         if let Some(candidates) = self.impl_method_index.get(&method_key).cloned() {
             for entry_index in candidates {
                 if let Some(found_resolution) =

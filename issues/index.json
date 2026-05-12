@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T18:15:32.462Z",
+  "generated_at": "2026-05-12T18:28:12.010Z",
   "counts": {
-    "total": 668,
+    "total": 669,
     "open": 12,
-    "resolved": 656,
+    "resolved": 657,
     "by_area": {
       "core": {
-        "total": 350,
+        "total": 351,
         "open": 4,
-        "resolved": 346
+        "resolved": 347
       },
       "stdlib": {
         "total": 168,
@@ -5313,6 +5313,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T175900768Z-MONOMORPHIZE-TRAIT-LOOKUP-MODEL-EXCE-55B52B7E.md"
+    },
+    {
+      "id": "ISS-20260512T182144401Z-MONOMORPHIZE-TRAIT-LOOKUP-METHOD-IDE-99EBBCAC",
+      "title": "Monomorphize trait lookup method identity still uses raw String",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/monomorphize/trait_lookup.rs; nepl-core/src/monomorphize.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T182144401Z-MONOMORPHIZE-TRAIT-LOOKUP-METHOD-IDE-99EBBCAC.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

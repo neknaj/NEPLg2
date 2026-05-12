@@ -329,11 +329,36 @@ assert(
 );
 for (const marker of [
     "struct MonoTraitApplication",
+    "struct MonoTraitMethodId",
     "struct MonoTraitMethodKey",
     "struct MonoTraitLookupKey",
 ]) {
     assert(monomorphizeTraitLookup.includes(marker), `monomorphize/trait_lookup.rs must define ${marker}`);
 }
+const monoTraitMethodKeyStruct = monomorphizeTraitLookup.match(
+    /struct MonoTraitMethodKey\s*\{[\s\S]*?\n\}/,
+);
+assert(monoTraitMethodKeyStruct, "MonoTraitMethodKey struct body must be visible to source policy");
+assert(
+    monoTraitMethodKeyStruct[0].includes("method: MonoTraitMethodId"),
+    "MonoTraitMethodKey must use typed MonoTraitMethodId",
+);
+assert(
+    !monoTraitMethodKeyStruct[0].includes("method: String"),
+    "MonoTraitMethodKey must not store method identity as raw String",
+);
+const monoTraitLookupKeyStruct = monomorphizeTraitLookup.match(
+    /struct MonoTraitLookupKey\s*\{[\s\S]*?\n\}/,
+);
+assert(monoTraitLookupKeyStruct, "MonoTraitLookupKey struct body must be visible to source policy");
+assert(
+    monoTraitLookupKeyStruct[0].includes("method: MonoTraitMethodId"),
+    "MonoTraitLookupKey must use typed MonoTraitMethodId",
+);
+assert(
+    !monoTraitLookupKeyStruct[0].includes("method: String"),
+    "MonoTraitLookupKey must not store method identity as raw String",
+);
 assert(
     monomorphize.includes("mod trait_lookup;"),
     "monomorphize.rs must keep trait lookup model in a dedicated module",

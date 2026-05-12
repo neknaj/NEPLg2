@@ -36667,3 +36667,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260512T155153362Z-GENERIC-TRAIT-PROBE-REGRESSION-FIXTU-65BB07DB` の調査で、`generic_store_after_generic_trait_probe_preserves_struct` だけでなく、同じ raw-memory helper pattern を持つ generic fixture 5 件が `PureCallsImpure` で失敗していることを確認した。
 - effect checker は正しく失敗していたため、`PureCallsImpure` を弱めず、`roundtrip` / `same_after_store` / `hash_then_store` / `write_after_probe` / `write_nested` を impure signature に修正した。
 - `probe` と `slot_ptr` は raw memory を直接呼ばないため pure のまま維持し、trait/generic abstraction regression の意図を残した。
+
+## 2026-05-13 Agent 1 monomorphize trait method id
+
+- `c39be11b` push 後に remote main を pull し、`agent1/monomorphize-trait-method-id` branch を作成した。
+- `ISS-20260512T182144401Z-MONOMORPHIZE-TRAIT-LOOKUP-METHOD-IDE-99EBBCAC` を追加し、Stage 5 の monomorphize lookup key 内に raw `String` method identity が残る問題を切り出した。
+- `MonoTraitMethodId` newtype を追加し、`MonoTraitMethodKey` / `MonoTraitLookupKey` の `method` field を `String` から typed id に変更した。
+- source policy に raw `method: String` field の再導入禁止を追加した。
