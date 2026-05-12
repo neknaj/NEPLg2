@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T11:51:19.017Z",
+  "generated_at": "2026-05-12T12:09:21.789Z",
   "counts": {
-    "total": 636,
+    "total": 637,
     "open": 10,
-    "resolved": 626,
+    "resolved": 627,
     "by_area": {
       "core": {
-        "total": 319,
+        "total": 320,
         "open": 3,
-        "resolved": 316
+        "resolved": 317
       },
       "stdlib": {
         "total": 167,
@@ -4848,6 +4848,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T114530848Z-RESOURCE-OWNER-SUMMARY-PRE-SCAN-TREA-A21564CA.md"
+    },
+    {
+      "id": "ISS-20260512T120108353Z-RESOURCE-OWNER-VARIANT-MODULE-IS-MIS-1E0B66E3",
+      "title": "Resource owner variant module is missing responsibility policy coverage",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/owner_variant.rs, nepl-core/src/resource/owner_variant_utils.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T120108353Z-RESOURCE-OWNER-VARIANT-MODULE-IS-MIS-1E0B66E3.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

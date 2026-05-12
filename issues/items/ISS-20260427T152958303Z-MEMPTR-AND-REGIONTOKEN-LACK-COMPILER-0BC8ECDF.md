@@ -226,6 +226,14 @@ raw place alias tracking による既存回帰の防壁は維持するが、追�
 
 これにより、`MemPtr = non-owning pointer`、`Storage/OwnedRegion = free obligation owner` の分離を summary pre-scan の段階でも enum-first に維持する。既存の `region_ptr` / `str_addr` forged owner rejection と `alloc_ptr` owner return regression は維持した。
 
+## 2026-05-12 owner variant responsibility policy 追加
+
+`ISS-20260512T120108353Z-RESOURCE-OWNER-VARIANT-MODULE-IS-MIS-1E0B66E3` として、Resource IR owner variant effect の中核 file が責務分割 policy から漏れていた問題を修正した。
+
+`owner_variant.rs` は enum payload owner consumption / owner return / variant condition を扱う memory-safety authority であるため、`owner_variant_utils.rs` に source/condition utility を分離し、`nodesrc/test_resource_checker_responsibility.js` で `owner_variant.rs` / `owner_variant_utils.rs` / `owner_variant_value_condition.rs` の行数上限を監視する。
+
+この変更は owner/provenance の検査意味論を変えないが、Stage 4 の `MemPtr = non-owning pointer` と `OwnedRegion/Storage = free obligation owner` 分離を進める際に、variant owner summary 周辺が旧 monolithic checker 化する回帰を防ぐ。
+
 ## 2026-05-12 Result payload owner summary 部分対応
 
 `ISS-20260512T033056386Z-RESOURCE-OWNER-SUMMARIES-MATERIALIZE-BAE331D3` として、Resource IR owner summary が `Result` payload owner を unconditional projection return として扱い、runtime 上同時に存在しない `Ok` / `Err` payload owner を caller 側で materialize し得る問題を修正した。

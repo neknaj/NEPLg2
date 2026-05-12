@@ -36246,3 +36246,23 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `git diff --check`: passed
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
+
+## 2026-05-12 Agent 1 owner variant responsibility policy 追加
+
+- `ISS-20260512T120108353Z-RESOURCE-OWNER-VARIANT-MODULE-IS-MIS-1E0B66E3` として、Resource IR owner variant effect の中核 file が責務分割 policy から漏れていた問題を修正した。
+- `owner_variant.rs` から owner projection source collection、variant condition truth evaluation、payload bind suffix、variant名 normalization、unique push helper を `owner_variant_utils.rs` に分離した。
+- `owner_variant.rs` は pending variant owner effect state と match / resolved variant / materialization への適用処理を持つ module に戻した。
+- `nodesrc/test_resource_checker_responsibility.js` に `owner_variant.rs`、`owner_variant_utils.rs`、`owner_variant_value_condition.rs` の存在確認と行数上限を追加し、owner/provenance 修正時に variant owner summary 周辺が再び monolithic checker 化する回帰を防ぐ。
+- 分割後の行数:
+  - `owner_variant.rs`: 988 行
+  - `owner_variant_utils.rs`: 207 行
+  - `owner_variant_value_condition.rs`: 200 行
+- [検証]:
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir variant_owner -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir owner_return -- --nocapture`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+- [plan.mdとの差分]:
+  - `plan.md` 自体は変更していない。
