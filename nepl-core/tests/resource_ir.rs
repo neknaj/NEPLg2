@@ -20,7 +20,7 @@ use nepl_core::resource::{
     ResourceDropPointStep, ResourceDropRequirement, ResourceEffectBoundaryDiagnostic,
     ResourceEffectCallKind, ResourceExprKind, ResourceFunction, ResourceFunctionCheck,
     ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceModule, ResourceOffset, ResourceOp,
-    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator,
+    ResourceOwnerDiagnostic, ResourceOwnerOperation, ResourceTerminator, StorageOrigin,
 };
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{TypeCtx, TypeId, TypeKind};
@@ -11629,6 +11629,104 @@ fn main <()*>i32> ():
     assert!(
         diagnostics.is_empty(),
         "Vec.partition must return both named Vec owners without leaking intermediate storage: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_does_not_treat_raw_cell_payload_as_storage_owner() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    types.register_copy_impl_target(types.bool());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let bool_ty = types.bool();
+    let predicate_ty = types.function(vec![], vec![i32_ty], bool_ty, Effect::Pure);
+    let span = Span::dummy();
+    let predicate = Place::local("predicate".to_string(), predicate_ty);
+    let owner_raw = Place::temporary(ResourceId(0), i32_ty);
+    let loaded_value = Place::temporary(ResourceId(1), i32_ty);
+    let predicate_result = Place::temporary(ResourceId(2), bool_ty);
+    let dealloc_result = Place::temporary(ResourceId(3), unit_ty);
+    let resource = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "main".to_string(),
+            origin_name: "main".to_string(),
+            params: vec![ResourceLocal {
+                name: "predicate".to_string(),
+                ty: predicate_ty,
+                mutable: false,
+                place: predicate.clone(),
+            }],
+            result: unit_ty,
+            effect: Effect::Impure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Alloc,
+                        output: owner_raw.clone(),
+                        args: vec![],
+                        span,
+                    },
+                    ResourceOp::StorageOrigin {
+                        target: owner_raw.clone(),
+                        origin: StorageOrigin::Owned,
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Load,
+                        output: loaded_value.clone(),
+                        args: vec![owner_raw.clone()],
+                        span,
+                    },
+                    ResourceOp::IndirectCall {
+                        output: predicate_result,
+                        callee: predicate,
+                        params: vec![i32_ty],
+                        result: bool_ty,
+                        args: vec![loaded_value],
+                        effect: EffectOp::IndirectCall {
+                            effect: Effect::Pure,
+                        },
+                        span,
+                    },
+                    ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Dealloc,
+                        output: dealloc_result,
+                        args: vec![owner_raw],
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return { value: None, span },
+                span,
+            }],
+            span,
+        }],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, operation, .. }
+                    if function == "main"
+                        && matches!(operation, ResourceOwnerOperation::CallArgument)
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "raw cell payload reads must not inherit the storage owner's free obligation across Deref: {:#?}\nresource:\n{}",
         diagnostics,
         resource.dump_text()
     );

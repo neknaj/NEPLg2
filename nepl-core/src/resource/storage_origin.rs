@@ -2,7 +2,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use super::model::{Place, StorageOrigin, StorageOriginEntry};
+use super::model::{Place, PlaceProjection, StorageOrigin, StorageOriginEntry};
 use super::place_utils::{
     place_suffix_after_prefix, place_with_suffix, push_unique_place, replace_place_prefix,
     should_track,
@@ -32,6 +32,7 @@ impl StorageOriginTable {
             .iter()
             .filter_map(|entry| {
                 place_suffix_after_prefix(place, &entry.place)
+                    .filter(|suffix| storage_origin_suffix_preserves_owner_identity(suffix))
                     .map(|_| (entry.origin, entry.place.projections.len()))
             })
             .max_by_key(|(_, projection_len)| *projection_len)
@@ -45,7 +46,8 @@ impl StorageOriginTable {
     pub(super) fn expects_owned_under(&self, place: &Place) -> bool {
         self.origins.iter().any(|entry| {
             matches!(entry.origin, StorageOrigin::Owned)
-                && place_suffix_after_prefix(&entry.place, place).is_some()
+                && place_suffix_after_prefix(&entry.place, place)
+                    .is_some_and(|suffix| storage_origin_suffix_preserves_owner_identity(&suffix))
         })
     }
 
@@ -61,7 +63,8 @@ impl StorageOriginTable {
             if entry.place == *place {
                 continue;
             }
-            if place_suffix_after_prefix(&entry.place, place).is_some()
+            if place_suffix_after_prefix(&entry.place, place)
+                .is_some_and(|suffix| storage_origin_suffix_preserves_owner_identity(&suffix))
                 && !entries.iter().any(|existing| existing.place == entry.place)
             {
                 entries.push(entry.clone());
@@ -74,12 +77,14 @@ impl StorageOriginTable {
         self.origin_sources
             .iter()
             .filter_map(|entry| {
-                place_suffix_after_prefix(place, &entry.place).map(|suffix| {
-                    (
-                        place_with_suffix(&entry.source, &suffix, place.ty),
-                        entry.place.projections.len(),
-                    )
-                })
+                place_suffix_after_prefix(place, &entry.place)
+                    .filter(|suffix| storage_origin_suffix_preserves_owner_identity(suffix))
+                    .map(|suffix| {
+                        (
+                            place_with_suffix(&entry.source, &suffix, place.ty),
+                            entry.place.projections.len(),
+                        )
+                    })
             })
             .max_by_key(|(_, projection_len)| *projection_len)
             .map(|(source, _)| source)
@@ -87,7 +92,8 @@ impl StorageOriginTable {
 
     pub(super) fn has_origin_source_under(&self, place: &Place, source: &Place) -> bool {
         self.origin_sources.iter().any(|entry| {
-            place_suffix_after_prefix(&entry.place, place).is_some()
+            place_suffix_after_prefix(&entry.place, place)
+                .is_some_and(|suffix| storage_origin_suffix_preserves_owner_identity(&suffix))
                 && places_overlap_source(&entry.source, source)
         })
     }
@@ -116,7 +122,7 @@ impl StorageOriginTable {
         if source == target {
             return;
         }
-        let origins = self.translated_origins(source, target);
+        let origins = self.translated_origins_with_sources(source, target);
         self.clear(source);
         self.clear(target);
         for entry in origins {
@@ -177,28 +183,6 @@ impl StorageOriginTable {
         });
     }
 
-    fn translated_origins(&self, source: &Place, target: &Place) -> Vec<StorageOriginEntry> {
-        let mut origins = self
-            .origins
-            .iter()
-            .filter_map(|entry| {
-                replace_place_prefix(&entry.place, source, target).map(|place| StorageOriginEntry {
-                    place,
-                    origin: entry.origin,
-                })
-            })
-            .collect::<Vec<_>>();
-        if origins.is_empty() {
-            if let Some(origin) = self.origin(source) {
-                origins.push(StorageOriginEntry {
-                    place: target.clone(),
-                    origin,
-                });
-            }
-        }
-        origins
-    }
-
     fn translated_origins_with_sources(
         &self,
         source: &Place,
@@ -208,16 +192,20 @@ impl StorageOriginTable {
             .origins
             .iter()
             .filter_map(|entry| {
-                replace_place_prefix(&entry.place, source, target).map(|place| {
-                    let source = self
-                        .origin_source(&entry.place)
-                        .unwrap_or_else(|| entry.place.clone());
-                    TranslatedStorageOrigin {
-                        place,
-                        origin: entry.origin,
-                        source,
-                    }
-                })
+                let suffix = place_suffix_after_prefix(&entry.place, source)?;
+                storage_origin_suffix_preserves_owner_identity(&suffix)
+                    .then(|| replace_place_prefix(&entry.place, source, target))
+                    .flatten()
+                    .map(|place| {
+                        let source = self
+                            .origin_source(&entry.place)
+                            .unwrap_or_else(|| entry.place.clone());
+                        TranslatedStorageOrigin {
+                            place,
+                            origin: entry.origin,
+                            source,
+                        }
+                    })
             })
             .collect::<Vec<_>>();
         if origins.is_empty() {
@@ -231,6 +219,12 @@ impl StorageOriginTable {
         }
         origins
     }
+}
+
+fn storage_origin_suffix_preserves_owner_identity(suffix: &[PlaceProjection]) -> bool {
+    !suffix
+        .iter()
+        .any(|projection| matches!(projection, PlaceProjection::Deref))
 }
 
 fn places_overlap_source(left: &Place, right: &Place) -> bool {

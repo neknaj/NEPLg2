@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T07:59:50.182Z",
+  "generated_at": "2026-05-12T09:10:02.531Z",
   "counts": {
-    "total": 632,
+    "total": 633,
     "open": 10,
-    "resolved": 622,
+    "resolved": 623,
     "by_area": {
       "core": {
         "total": 317,
@@ -45,6 +45,11 @@
         "total": 3,
         "open": 0,
         "resolved": 3
+      },
+      "core/resource": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "doc": {
         "total": 2,
@@ -4813,6 +4818,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T064001916Z-RESOURCE-INITIALIZED-ALIAS-I32-FACTS-4C84FD0F.md"
+    },
+    {
+      "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
+      "title": "Resource owner storage origin crosses raw deref into Copy cell payloads",
+      "area": "core/resource",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "nepl-core/src/resource/storage_origin.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED.md"
     },
     {
       "id": "ISS-20260428T005509048Z-GETTING-STARTED-TUTORIAL-NEEDS-FULL--A70253F2",
