@@ -16602,3 +16602,26 @@ fn main <()*>()> ():
         resource.dump_text()
     );
 }
+
+#[test]
+fn resource_ir_compiler_accepts_stdio_string_temporaries() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "std/stdio" as *
+#import "alloc/string/integer/format" as string_integer
+
+fn main <()*>()> ():
+    print_i32 12;
+    let text <str> string_integer::from_i32 34;
+    print text;
+    print text;
+    let style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Green;
+    print ansi_text_style_code style;
+    ()
+"#;
+
+    compile_resource_source_with_target(source, CompileTarget::Wasi)
+        .expect("stdio string temporaries must compile under Resource IR owner gate");
+}

@@ -134,6 +134,7 @@ for (const moduleName of [
     'lower_raw_address_place.rs',
     'lower_raw_address_return.rs',
     'lower_raw_memory.rs',
+    'lower_temporary_scope.rs',
     'report.rs',
     'shadow.rs',
     'initialized_alias.rs',
@@ -271,6 +272,7 @@ for (const moduleDecl of [
     'mod lower_raw_address_place;',
     'mod lower_raw_address_return;',
     'mod lower_raw_memory;',
+    'mod lower_temporary_scope;',
     'mod report;',
     'mod shadow;',
     'mod initialized_alias;',
@@ -381,6 +383,7 @@ const lowerRawAddress = readResource('lower_raw_address.rs');
 const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
 const lowerRawMemory = readResource('lower_raw_memory.rs');
+const lowerTemporaryScope = readResource('lower_temporary_scope.rs');
 const initializedAliasOrigin = readResource('initialized_alias_origin.rs');
 const initializedAliasRelation = readResource('initialized_alias_relation.rs');
 const initializedAliasRelationFlow = readResource('initialized_alias_relation_flow.rs');
@@ -500,6 +503,11 @@ assertContains(
     lowerRawMemory,
     'pub(super) fn raw_memory_op_from_name',
     'lower_raw_memory.rs',
+);
+assertContains(
+    lowerTemporaryScope,
+    'pub(super) fn push_line_copy_state_only_temporary_scope',
+    'lower_temporary_scope.rs',
 );
 assertContains(
     initializedAliasOrigin,
@@ -721,6 +729,7 @@ const maxLines = new Map([
     ['lower_raw_address_place.rs', 180],
     ['lower_raw_address_return.rs', 430],
     ['lower_raw_memory.rs', 120],
+    ['lower_temporary_scope.rs', 100],
     ['initialized_alias.rs', 520],
     ['initialized_alias_difference.rs', 80],
     ['initialized_alias_difference_flow.rs', 120],

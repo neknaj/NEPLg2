@@ -38,6 +38,26 @@
   - `node nodesrc/issues.js check`: passed
   - `git diff --check`: passed
   - `node nodesrc/tests.js -i examples -o tmp/vec-simple-sort-split-examples.json -j 4 --dist web/dist`: total=32, passed=21, failed=11。失敗は main 単体でも再現する `ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9` の `ansi_text_style_code` / `print_i32` owner summary 既知別件であり、`vec/sort/simple` 分割とは切り分ける。
+# 2026-05-12 Agent 1 ResourceIR stdio 文字列 temporary lifetime 修正
+
+- `ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9` を fixed/resolved に更新した。
+- 根本原因は stdio / ANSI helper が `str` を消費すべきということではなく、Resource IR lowering が allocation-returning Copy `str` temporary の statement lifetime を `EndScope` として表現していなかったことだった。
+- `nepl-core/src/resource/lower.rs` は HIR block の各 line で生成された top-level op を確認し、Copy だが state-only owner scoping が必要な `str` temporary に line-end `ResourceOp::EndScope` を追加する。
+- temporary scope の分類は `nepl-core/src/resource/lower_temporary_scope.rs` へ分離し、`lower.rs` に HIR traversal と temporary policy の両方を集中させないようにした。
+- 非 dropped line result は `EndScope.result` に残すため、block result / function return を一緒に消費しない。
+- `print` / `concat` / ANSI helper の `str` 引数を consuming owner にする回避は採用していない。`resource.owner.maybe_leak` は実 raw owner leak を隠さないまま維持する。
+- `nepl-core/tests/resource_ir.rs` に `resource_ir_compiler_accepts_stdio_string_temporaries` を追加し、`print_i32`、ANSI style code 生成、`from_i32` で得た `str` を local に束縛して 2 回出力するケースを compile pipeline の Resource IR owner gate で固定した。
+- `node nodesrc/tests.js -i examples -o tmp/agent1-stdio-summary-examples-after.json -j 4 --dist web/dist --no-tree` は stdio/ANSI false positive 解消後 `total=12, passed=11, failed=1`。残る `examples/nm.nepl` の `cliarg_count` / `cliarg_get` raw argv scratch owner leak は別件として `ISS-20260512T041752474Z-RESOURCE-OWNER-SUMMARY-REPORTS-CLIAR-97FEDA3D` を追加した。
+- 静的検査大規模修正の stage 別進捗と今回の見通しは Discord に臨時報告済み。
+- [検証]:
+  - `cargo test -p nepl-core --test resource_ir -- --nocapture`: 244 passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_compiler_accepts_stdio_string_temporaries -- --nocapture`: passed
+  - `cargo fmt --check -p nepl-core`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+  - `node nodesrc/issues.js check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdout.n.md -i tests/stdlib/features_tui.n.md -o tmp/agent1-stdio-summary-stdout-final.json -j 4 --dist web/dist --no-tree`: total=12, passed=12
+  - `node nodesrc/tests.js -i examples -o tmp/agent1-stdio-summary-examples-final.json -j 4 --dist web/dist --no-tree`: total=12, passed=11, failed=1 (`ISS-20260512T041752474Z-RESOURCE-OWNER-SUMMARY-REPORTS-CLIAR-97FEDA3D`)
 - [plan.mdとの差分]:
   - `plan.md` 自体は変更していない。
 

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-12T04:11:46.060Z",
+  "generated_at": "2026-05-12T04:31:45.510Z",
   "counts": {
-    "total": 622,
+    "total": 623,
     "open": 11,
-    "resolved": 611,
+    "resolved": 612,
     "by_area": {
       "core": {
         "total": 311,
@@ -12,9 +12,9 @@
         "resolved": 308
       },
       "static-check": {
-        "total": 1,
+        "total": 2,
         "open": 1,
-        "resolved": 0
+        "resolved": 1
       },
       "stdlib": {
         "total": 166,
@@ -150,8 +150,8 @@
       "file": "items/ISS-20260429T040748194Z-RUST-COMPILER-DIAGNOSTICS-ARE-NOT-AL-1617747D.md"
     },
     {
-      "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",
-      "title": "Resource owner summary reports stdio/ANSI string temporaries as maybe leaks",
+      "id": "ISS-20260512T041752474Z-RESOURCE-OWNER-SUMMARY-REPORTS-CLIAR-97FEDA3D",
+      "title": "Resource owner summary reports cliarg raw argv scratch owners as maybe leaks",
       "area": "static-check",
       "status": "open",
       "resolved": false,
@@ -159,10 +159,10 @@
       "type": "bug",
       "created": "2026-05-12",
       "updated": "2026-05-12",
-      "target": "stdlib/std/stdio.nepl, stdlib/platforms/wasix/tui.nepl, nepl-core/src/resource, examples",
+      "target": "stdlib/std/env/cliarg.nepl, nepl-core/src/resource, examples/nm.nepl",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9.md"
+      "file": "items/ISS-20260512T041752474Z-RESOURCE-OWNER-SUMMARY-REPORTS-CLIAR-97FEDA3D.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -5623,6 +5623,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T161930297Z-SELFHOST-HIR-EXPRESSIONS-STORE-KIND--54E75EE3.md"
+    },
+    {
+      "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",
+      "title": "Resource owner summary reports stdio/ANSI string temporaries as maybe leaks",
+      "area": "static-check",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "stdlib/std/stdio.nepl, stdlib/platforms/wasix/tui.nepl, nepl-core/src/resource, examples",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9.md"
     },
     {
       "id": "ISS-20260429T102809685Z-STDLIB-ASSERT-API-MIXES-ASSERTION-RE-0F17011A",

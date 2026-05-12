@@ -26,6 +26,7 @@ use super::lower_raw_address::{
 };
 use super::lower_raw_address_place::is_named_struct_type;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
+use super::lower_temporary_scope::push_line_copy_state_only_temporary_scope;
 use super::model::{
     AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, RawMemoryOp, ResourceBlock,
     ResourceBlockId, ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceId,
@@ -293,7 +294,10 @@ fn lower_block_skeleton(
     ctx.push_scope();
     let mut last = block_output;
     for line in &block.lines {
+        let op_start = ops.len();
         let value = lower_expr_skeleton(&line.expr, ops, ctx, env);
+        let result = (!line.drop_result).then(|| value.clone());
+        push_line_copy_state_only_temporary_scope(env.types, ops, op_start, result, line.expr.span);
         if !line.drop_result {
             last = value;
         }
