@@ -2,12 +2,12 @@
 id: ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04
 title: "core/mem raw memory operations bypass effect and ownership checks"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-27
-updated: 2026-05-07
+updated: 2026-05-13
 target: "nepl-core/src/effects.rs, nepl-core/src/typecheck.rs, nepl-core/src/passes/move_check.rs, nepl-core/src/passes/drop_insertion.rs, stdlib/core/mem.nepl, tests/compiler/move_effect.n.md"
 ---
 
@@ -440,3 +440,11 @@ Stage 5 の raw identity escape 判定では、pointer value 自体の raw ident
 検証:
 
 - `cargo test -p nepl-core loader::tests::raw_memory_boundary -- --nocapture`
+
+## 2026-05-13 core 側解決確認
+
+この issue は「compiler core が raw memory operation を effect / ownership / Resource IR の検査 authority に接続していない」問題として verified / resolved にする。現時点で user source から raw memory operation を pure context に通す元の bypass は、typecheck の raw body gate、Resource IR `UnsafeMemoryInPureFunction` hard gate、raw identity escape、CellState / OwnerState / RawMemoryOp enum によって拒否される。
+
+検証では `tests/compiler/move_effect.n.md` が 110/110 pass、`tests/stdlib/memory_safety.n.md` が 23/23 pass であり、compile_fail 期待の `effect.pure.calls_impure` / `resource.cell.*` / `resource.owner.*` が維持されている。`raw_memory_boundary` capability は configured stdlib root 配下の exact internal implementation path に限定され、arbitrary suffix path へは広がらない。
+
+残る作業は compiler core の bypass ではなく Stage 6 の stdlib API migration である。raw-memory-backed stdlib public API、`core/mem` internal/public 境界、collection drop contract、safe owner token wrapper は `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84`、`ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D`、`ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47` で継続する。

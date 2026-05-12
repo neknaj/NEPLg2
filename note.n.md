@@ -36775,3 +36775,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_resource_checker_responsibility.js` に全 `nepl-core/src/resource/*.rs` module が line limit を持つことを検査する総当たり guard を追加した。
 - `condition_fact.rs`、`drop_elaboration_hir_bridge.rs`、`lower_raw_address_source.rs`、`owner_transfer.rs`、`trait_identity.rs` など未監視 module を line limit に追加した。
 - `#[path = "..."]` で親 module から読み込む test module も宣言済みとして扱うようにし、`initialized_alias_flow_tests.rs` のような分割 test module も監視対象に含めた。
+
+## 2026-05-13 Agent 1 core raw memory boundary issue closure
+
+- `ebb9167c` push 後に remote main を pull し、`agent1/resolve-core-raw-memory-boundary` branch を作成した。
+- `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` を再確認し、compiler core 側の raw memory effect / ownership bypass は Resource IR gate と回帰テストで閉じていると判断した。
+- `tests/compiler/move_effect.n.md` は 110/110 pass、`tests/stdlib/memory_safety.n.md` は 23/23 pass で、pure raw memory bypass と owner/cell violation の compile_fail 期待が維持されている。
+- 残る作業は stdlib Stage 6 の internal/public API 移行であり、`ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` などの stdlib issue へ分離して継続する。
