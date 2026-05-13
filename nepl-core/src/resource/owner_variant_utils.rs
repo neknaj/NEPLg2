@@ -8,11 +8,10 @@ use crate::types::TypeId;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place, PlaceProjection};
 use super::owner_alias::resolve_owner_alias_place;
-use super::owner_return_apply_source::owner_projection_source_place_for_arg;
 use super::owner_state::OwnerTable;
 use super::owner_summary_record::{owner_source_for_storage, OwnerParameterStorageSource};
 use super::summary::{
-    OwnerProjectionSource, OwnerValueCondition, OwnerVariantCondition, OwnerVariantParameterIndex,
+    OwnerProjectionSource, OwnerVariantCondition, OwnerVariantParameterIndex,
     OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 use super::variant_name::normalize_variant_name;
@@ -173,52 +172,6 @@ pub(super) fn source_list_contains(
         .any(|(existing_arg, existing_suffix, existing_ty)| {
             existing_arg == arg && existing_suffix == suffix && *existing_ty == ty
         })
-}
-
-pub(super) fn owner_value_condition_truth(
-    raw_aliases: &RawCellAddressAliases,
-    args: &[Place],
-    condition: &OwnerValueCondition,
-) -> Option<bool> {
-    match condition {
-        OwnerValueCondition::Always => Some(true),
-        OwnerValueCondition::Param { source, condition } => {
-            let arg = args.get(source.parameter_index)?;
-            let place = owner_projection_source_place_for_arg(arg, source);
-            let place = raw_aliases.canonicalize(&place);
-            raw_aliases.i32_condition_truth(&place, *condition)
-        }
-        OwnerValueCondition::Any(conditions) => {
-            let mut has_unknown = false;
-            for condition in conditions {
-                match owner_value_condition_truth(raw_aliases, args, condition) {
-                    Some(true) => return Some(true),
-                    Some(false) => {}
-                    None => has_unknown = true,
-                }
-            }
-            if has_unknown {
-                None
-            } else {
-                Some(false)
-            }
-        }
-        OwnerValueCondition::All(conditions) => {
-            let mut has_unknown = false;
-            for condition in conditions {
-                match owner_value_condition_truth(raw_aliases, args, condition) {
-                    Some(true) => {}
-                    Some(false) => return Some(false),
-                    None => has_unknown = true,
-                }
-            }
-            if has_unknown {
-                None
-            } else {
-                Some(true)
-            }
-        }
-    }
 }
 
 pub(super) fn payload_bind_suffix<'a>(

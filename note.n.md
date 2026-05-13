@@ -37634,3 +37634,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - self-host string helper policy が古い `lex_stack_drop_top` 実装を正として扱い、`Vec.data` raw storage field の直接 read と手動 `Vec` 再構成を要求していたため、Stage 6 の memory-safety 方針と矛盾していた。
 - policy を `drop_last<i32>` public owner API の使用要求に切り替え、direct `field::get/get stack "data"` を拒否する negative assertion を追加した。
 - `node nodesrc/test_selfhost_string_helpers_boundary.js`、`node nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回対象を含めて完走したが、別件として `owner_summary_variant_return.rs has 301 lines; responsibility split limit is 280` warning が残る。
+
+## 2026-05-13 Agent 1 Resource owner variant return responsibility split
+
+- `work/resource-owner-variant-return-sources-split` で `ISS-20260513T230312662Z-RESOURCE-OWNER-VARIANT-RETURN-MODULE-817EC208` を追加して解決した。
+- `owner_summary_variant_return.rs` から returned value / descendant / alias descendant の owner source collection を `owner_summary_variant_return_sources.rs` へ分離した。
+- `owner_summary_variant_return.rs` は variant payload projection return の materialization と同一 target owner merge policy に集中する形へ戻した。
+- 分割後に `owner_variant_utils.rs` の隠れた line limit 超過が露出したため、`OwnerValueCondition` truth evaluation を `owner_variant_condition_truth.rs` へ分離した。
+- Resource checker responsibility policy に新 module 2 件の存在確認と line limit を追加し、line limit を緩めずに `node nodesrc/test_resource_checker_responsibility.js` を pass に戻した。

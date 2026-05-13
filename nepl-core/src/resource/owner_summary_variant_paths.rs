@@ -15,9 +15,8 @@ use super::owner_summary_variant_conditions::{
 };
 use super::owner_summary_variant_construct::construct_variant_for_value;
 use super::owner_summary_variant_path_conditions::record_owner_variant_path_condition;
-use super::owner_summary_variant_return::{
-    record_variant_projection_returns, returned_owner_returns_for_value,
-};
+use super::owner_summary_variant_return::record_variant_projection_returns;
+use super::owner_summary_variant_return_sources::returned_owner_returns_for_value;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;

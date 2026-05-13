@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T23:00:11.116Z",
+  "generated_at": "2026-05-13T23:08:24.589Z",
   "counts": {
-    "total": 740,
+    "total": 741,
     "open": 5,
-    "resolved": 735,
+    "resolved": 736,
     "by_area": {
       "stdlib": {
         "total": 185,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 390,
+        "total": 391,
         "open": 0,
-        "resolved": 390
+        "resolved": 391
       },
       "resource": {
         "total": 3,
@@ -5873,6 +5873,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T161115125Z-RESOURCE-OWNER-CHECKER-CANNOT-PROVE--0A41590B.md"
+    },
+    {
+      "id": "ISS-20260513T230312662Z-RESOURCE-OWNER-VARIANT-RETURN-MODULE-817EC208",
+      "title": "Resource owner variant return module exceeds responsibility split limit after Vec owner fix",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/owner_summary_variant_return.rs, nepl-core/src/resource/owner_summary_variant_return_sources.rs, nepl-core/src/resource/owner_summary_variant_paths.rs, nepl-core/src/resource/owner_variant_utils.rs, nepl-core/src/resource/owner_variant_condition_truth.rs, nepl-core/src/resource/owner_variant_record.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T230312662Z-RESOURCE-OWNER-VARIANT-RETURN-MODULE-817EC208.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

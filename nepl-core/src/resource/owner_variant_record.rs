@@ -13,7 +13,7 @@ use super::owner_variant::{
     PendingVariantOwnerExtentRequirement, PendingVariantOwnerReturn,
     PendingVariantOwnerReturnSource, PendingVariantPayloadValueCondition,
 };
-use super::owner_variant_utils::owner_value_condition_truth;
+use super::owner_variant_condition_truth::owner_value_condition_truth;
 use super::owner_variant_value_condition::PendingVariantValueCondition;
 use super::summary::{
     OwnerProjectionReturnOwner, OwnerProjectionSource, OwnerReturnSummary, OwnerVariantCondition,
