@@ -346,3 +346,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\hashset.n.md --no-tree -o tmp\agent1-hashset-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
 
 この issue はまだ open のまま継続する。HashSet 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 HashMap stdout report migration
+
+`stdlib/tests/hashmap.n.md` の HashMap focused doctest 1 件を、stdout 期待なしの `checks_*` report から canonical `std/test` report + manifest stdout expectation へ移行した。
+
+移行内容:
+
+- doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `len` / `contains` / `get` / update / remove / missing remove / free-after-insert の観測結果を assertion label として stdout に残すようにした。
+- 旧 `checks_*` API への集約をやめ、`test_report_new` / `test_report_push` / `test_report_print_stdout` / `test_report_exit_code` に統一した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\hashmap.n.md --no-tree -o tmp\agent1-hashmap-report-tests.json -j 1 --assert-io --dist web/dist`: total=1, passed=1
+
+この issue はまだ open のまま継続する。HashMap 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

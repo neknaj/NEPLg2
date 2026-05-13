@@ -37649,3 +37649,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - HashSet の main / free smoke doctest を `ret:` 依存から `neplg2:test[stdio, normalize_newlines]`、`exit_code:`、deterministic `stdout:` 期待へ移行した。
 - `len` / `contains` / duplicate insert / remove / missing remove / free-after-insert の観測結果を `std/test` の `test_report_*` API に集約し、stdout diff だけで assertion 内容が追える形にした。
 - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md --no-tree -o tmp/agent1-hashset-report-tests.json -j 1 --assert-io --dist web/dist` は total=2, passed=2。
+
+## 2026-05-14 Agent 1 HashMap stdout report doctest migration
+
+- `work/hashmap-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `stdlib/tests/hashmap.n.md` を更新した。
+- HashMap の focused doctest を stdout 期待なしの `checks_*` report から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- `len` / `contains` / `get` / update / remove / missing remove / free-after-insert の観測結果を 14 個の assertion label として stdout に固定した。
+- `node nodesrc/tests.js -i stdlib/tests/hashmap.n.md --no-tree -o tmp/agent1-hashmap-report-tests.json -j 1 --assert-io --dist web/dist` は total=1, passed=1。
