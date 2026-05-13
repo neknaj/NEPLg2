@@ -37009,3 +37009,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260513T012944397Z-NEPL-WEB-TOKEN-EXPORT-MISSES-EXTERN--187E6F29` を解決した。
 - `TokenKind::DirExtern` の `vis` field 追加に合わせ、web token export の pattern と detail string を更新した。
 - `cargo check --manifest-path nepl-web\Cargo.toml` と `trunk build` で web target が再構築できることを確認する。
+
+## 2026-05-13 Agent 1 pure raw internal allocation boundary
+
+- `a1affdf4` の main から `agent1-core-mem-raw-address-escape` branch を作成し、remote main と一致していることを確認した。
+- `ISS-20260513T021019225Z-RESOURCE-EFFECT-GATE-ALLOWS-PURE-RAW-AF3B03BF` を追加して解決した。
+- Resource IR effect boundary で `InternalAlloc` を一律 pure fold せず、`alloc_raw` だけを raw identity escape 検査に委ね、`dealloc_raw` / `realloc_raw` / `mem_size` / `mem_grow` は pure 関数内で `UnsafeMemoryInPureFunction` に送るようにした。
+- `RawMemoryOp` の `match` で列挙することで、raw operation 追加時に静的な網羅性検査が効く形を維持した。
+- `tests/compiler/move_effect.n.md` に pure dealloc / realloc / mem_size の compile_fail を追加し、`move_effect` focused doctest 113/113 と `cargo check -p nepl-core --tests` が通ることを確認した。

@@ -550,6 +550,17 @@ impl ResourceEffectBoundaryEngine<'_> {
         match effect {
             EffectOp::InternalAlloc { operation } => {
                 self.counts.internal_memory_ops.record(*operation);
+                if matches!(self.effect, Effect::Pure)
+                    && internal_alloc_operation_requires_pure_boundary_diagnostic(*operation)
+                {
+                    self.diagnostics.push(
+                        ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
+                            function: String::from(self.function),
+                            operation: *operation,
+                            span,
+                        },
+                    );
+                }
             }
             EffectOp::UnsafeMemory { operation } => {
                 self.counts.unsafe_memory_ops.record(*operation);
@@ -615,5 +626,21 @@ impl ResourceEffectBoundaryEngine<'_> {
                     span,
                 });
         }
+    }
+}
+
+fn internal_alloc_operation_requires_pure_boundary_diagnostic(operation: RawMemoryOp) -> bool {
+    match operation {
+        RawMemoryOp::Alloc => false,
+        RawMemoryOp::Dealloc
+        | RawMemoryOp::Realloc
+        | RawMemoryOp::MemorySize
+        | RawMemoryOp::MemoryGrow => true,
+        RawMemoryOp::Load
+        | RawMemoryOp::Store
+        | RawMemoryOp::BulkCopy
+        | RawMemoryOp::BulkMove
+        | RawMemoryOp::FillBytes
+        | RawMemoryOp::Fill => false,
     }
 }

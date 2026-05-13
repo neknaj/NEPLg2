@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T01:55:06.200Z",
+  "generated_at": "2026-05-13T02:15:38.689Z",
   "counts": {
-    "total": 689,
+    "total": 690,
     "open": 8,
-    "resolved": 681,
+    "resolved": 682,
     "by_area": {
       "stdlib": {
         "total": 168,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 367,
+        "total": 368,
         "open": 0,
-        "resolved": 367
+        "resolved": 368
       },
       "resource": {
         "total": 2,
@@ -5568,6 +5568,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T003230273Z-EXTERN-DECLARATIONS-IGNORE-IMPORT-VI-FA18F3C6.md"
+    },
+    {
+      "id": "ISS-20260513T021019225Z-RESOURCE-EFFECT-GATE-ALLOWS-PURE-RAW-AF3B03BF",
+      "title": "Resource effect gate allows pure raw dealloc without unsafe memory diagnostic",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/effect_check.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T021019225Z-RESOURCE-EFFECT-GATE-ALLOWS-PURE-RAW-AF3B03BF.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

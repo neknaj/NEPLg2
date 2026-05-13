@@ -23,6 +23,60 @@ fn main <()->i32> ():
     compute
 ```
 
+## pure から dealloc_raw で allocator state を変更できない
+
+neplg2:test[compile_fail]
+diag_code: effect.pure.calls_impure
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn release_external <(i32)->i32> (p):
+    dealloc_raw p 4
+    0
+
+fn main <()->i32> ():
+    release_external 16
+```
+
+## pure から realloc_raw で allocator state を変更できない
+
+neplg2:test[compile_fail]
+diag_code: effect.pure.calls_impure
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn resize_external <(i32)->i32> (p):
+    let q <i32> realloc_raw p 4 8
+    dealloc_raw q 8
+    0
+
+fn main <()->i32> ():
+    resize_external 16
+```
+
+## pure から mem_size で線形メモリ状態を観測できない
+
+neplg2:test[compile_fail]
+diag_code: effect.pure.calls_impure
+```neplg2
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+
+fn observe_memory <()->i32> ():
+    mem_size
+
+fn main <()->i32> ():
+    observe_memory
+```
+
 ## pure から alloc_raw の raw address を返せない
 
 neplg2:test[compile_fail]
