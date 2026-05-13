@@ -32,6 +32,7 @@ pub fn check_resource_owner_obligations(
             summaries: &summaries,
             diagnostics: Vec::new(),
             deferred: ResourceOwnerCheckDeferred::default(),
+            owner_extent_requirements: Vec::new(),
         };
         let final_owners: Vec<OwnerStateEntry> = engine.check_function(function);
         merge_owner_deferred(&mut deferred, engine.deferred);

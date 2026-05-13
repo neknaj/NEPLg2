@@ -4,7 +4,7 @@ use crate::types::TypeKind;
 use super::cell_state::CellTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{Place, RawMemoryOp};
+use super::model::{OwnerStorageExtent, Place, RawMemoryOp};
 use super::place_utils::raw_memory_cell_place;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckOperation;
@@ -193,7 +193,7 @@ impl ResourceCheckEngine<'_> {
                 if address_available && cells_released {
                     cells.mark_initialized(output);
                     raw_aliases.mark(output);
-                    pending_reallocs.mark(&address, output);
+                    pending_reallocs.mark(&address, output, OwnerStorageExtent::Unknown);
                 }
             }
             RawMemoryOp::FillBytes => {

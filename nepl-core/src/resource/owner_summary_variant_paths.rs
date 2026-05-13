@@ -23,13 +23,14 @@ use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
-    OwnerVariantCondition, OwnerVariantParameterIndex, OwnerVariantPayloadCondition,
-    OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
+    OwnerVariantCondition, OwnerVariantConsumedExtentRequirement, OwnerVariantParameterIndex,
+    OwnerVariantPayloadCondition, OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 
 pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     index_out: &mut Vec<OwnerVariantParameterIndex>,
     source_out: &mut Vec<OwnerVariantProjectionSource>,
+    extent_out: &mut Vec<OwnerVariantConsumedExtentRequirement>,
     condition_out: &mut Vec<OwnerVariantCondition>,
     payload_condition_out: &mut Vec<OwnerVariantPayloadCondition>,
     engine: &ResourceOwnerCheckEngine<'_>,
@@ -52,6 +53,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         summaries: engine.summaries,
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),
+        owner_extent_requirements: engine.owner_extent_requirements.clone(),
     };
     let mut owners = owners.clone();
     let mut raw_aliases = raw_aliases.clone();
@@ -89,6 +91,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 collect_variant_consumed_owner_parameters_from_path(
                     index_out,
                     source_out,
+                    extent_out,
                     condition_out,
                     payload_condition_out,
                     &engine,
@@ -124,6 +127,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                 collect_variant_consumed_owner_parameters_from_path(
                     index_out,
                     source_out,
+                    extent_out,
                     condition_out,
                     payload_condition_out,
                     &engine,
@@ -156,6 +160,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
                     collect_variant_consumed_owner_parameters_from_path(
                         index_out,
                         source_out,
+                        extent_out,
                         condition_out,
                         payload_condition_out,
                         &engine,
@@ -196,8 +201,10 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         &raw_views,
         return_value,
         parameter_storage_sources,
+        parameter_condition_sources,
         index_out,
         source_out,
+        extent_out,
         return_out,
     );
 }
@@ -205,6 +212,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
 fn collect_variant_consumed_owner_parameters_from_path(
     index_out: &mut Vec<OwnerVariantParameterIndex>,
     source_out: &mut Vec<OwnerVariantProjectionSource>,
+    extent_out: &mut Vec<OwnerVariantConsumedExtentRequirement>,
     condition_out: &mut Vec<OwnerVariantCondition>,
     payload_condition_out: &mut Vec<OwnerVariantPayloadCondition>,
     engine: &ResourceOwnerCheckEngine<'_>,
@@ -229,6 +237,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
         summaries: engine.summaries,
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),
+        owner_extent_requirements: engine.owner_extent_requirements.clone(),
     };
     let mut path_owners = owners.clone();
     let mut path_raw_aliases = raw_aliases.clone();
@@ -252,6 +261,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
         collect_variant_consumed_owner_parameters_from_nested_return(
             index_out,
             source_out,
+            extent_out,
             condition_out,
             payload_condition_out,
             &path_engine,
@@ -314,6 +324,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
         &path_raw_aliases,
         path_value,
         parameter_storage_sources,
+        parameter_condition_sources,
     );
     record_variant_projection_returns(
         return_out,
@@ -323,6 +334,14 @@ fn collect_variant_consumed_owner_parameters_from_path(
     );
     let (indices, sources) =
         consumed_owner_parameters(&path_owners, parameter_storage_sources, &returned_sources);
+    let extent_requirements = super::owner_extent::summarize_consumed_extent_requirements(
+        &path_raw_aliases,
+        parameter_storage_sources,
+        parameter_condition_sources,
+        &path_engine.owner_extent_requirements,
+        &indices,
+        &sources,
+    );
     let variant = super::variant_name::normalize_variant_name(&constructed_variant.variant);
     for parameter_index in indices {
         push_unique_variant_parameter_index(
@@ -339,6 +358,17 @@ fn collect_variant_consumed_owner_parameters_from_path(
             OwnerVariantProjectionSource {
                 variant: variant.clone(),
                 source,
+            },
+        );
+    }
+    for requirement in extent_requirements {
+        push_or_merge_variant_extent_requirement(
+            extent_out,
+            OwnerVariantConsumedExtentRequirement {
+                variant: variant.clone(),
+                owner: requirement.owner,
+                extent: requirement.extent,
+                operation: requirement.operation,
             },
         );
     }
@@ -360,4 +390,22 @@ fn push_unique_variant_projection_source(
     if !out.iter().any(|existing| existing == &entry) {
         out.push(entry);
     }
+}
+
+fn push_or_merge_variant_extent_requirement(
+    out: &mut Vec<OwnerVariantConsumedExtentRequirement>,
+    entry: OwnerVariantConsumedExtentRequirement,
+) {
+    if let Some(existing) = out.iter_mut().find(|existing| {
+        existing.variant == entry.variant
+            && existing.owner == entry.owner
+            && existing.operation == entry.operation
+    }) {
+        existing.extent = super::owner_extent::merge_owner_extent_summaries(
+            existing.extent.clone(),
+            entry.extent,
+        );
+        return;
+    }
+    out.push(entry);
 }

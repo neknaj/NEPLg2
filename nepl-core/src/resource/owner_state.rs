@@ -1,7 +1,9 @@
 use alloc::vec::Vec;
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{OwnerState, OwnerStateEntry, Place, PlaceProjection, StorageId};
+use super::model::{
+    OwnerState, OwnerStateEntry, OwnerStorageExtent, Place, PlaceProjection, StorageId,
+};
 use super::place_utils::{place_suffix_after_prefix, replace_place_prefix, should_track};
 
 #[derive(Debug, Clone, Default)]
@@ -26,10 +28,35 @@ impl OwnerTable {
             .map(|entry| entry.state.clone())
     }
 
+    pub(super) fn live_extent(&self, place: &Place) -> Option<OwnerStorageExtent> {
+        match self.state(place) {
+            Some(OwnerState::Live { extent, .. }) => Some(extent),
+            Some(
+                OwnerState::NoFreeObligation
+                | OwnerState::Reserved { .. }
+                | OwnerState::Moved
+                | OwnerState::Freed
+                | OwnerState::MaybeFreed { .. },
+            )
+            | None => None,
+        }
+    }
+
     pub(super) fn allocate(&mut self, place: &Place) {
+        self.allocate_with_extent(place, OwnerStorageExtent::Unknown);
+    }
+
+    pub(super) fn allocate_with_extent(&mut self, place: &Place, extent: OwnerStorageExtent) {
         let storage = StorageId(self.next_storage);
         self.next_storage += 1;
-        self.set_state(place, OwnerState::Live { storage });
+        self.set_state(place, OwnerState::Live { storage, extent });
+    }
+
+    pub(super) fn set_live_extent(&mut self, place: &Place, extent: OwnerStorageExtent) {
+        let Some(OwnerState::Live { storage, .. }) = self.state(place) else {
+            return;
+        };
+        self.set_state(place, OwnerState::Live { storage, extent });
     }
 
     pub(super) fn set_state(&mut self, place: &Place, state: OwnerState) {
@@ -268,17 +295,23 @@ fn merge_owner_states(left: OwnerState, right: OwnerState, next_storage: &mut us
         (
             OwnerState::Live {
                 storage: left_storage,
+                extent: left_extent,
             },
             OwnerState::Live {
                 storage: right_storage,
+                extent: right_extent,
             },
         ) if left_storage == right_storage => OwnerState::Live {
             storage: left_storage,
+            extent: merge_owner_extents(left_extent, right_extent),
         },
         (OwnerState::Live { .. }, OwnerState::Live { .. }) => {
             let storage = StorageId(*next_storage);
             *next_storage += 1;
-            OwnerState::Live { storage }
+            OwnerState::Live {
+                storage,
+                extent: OwnerStorageExtent::Unknown,
+            }
         }
         (OwnerState::NoFreeObligation, OwnerState::Freed)
         | (OwnerState::Freed, OwnerState::NoFreeObligation)
@@ -286,12 +319,12 @@ fn merge_owner_states(left: OwnerState, right: OwnerState, next_storage: &mut us
         | (OwnerState::Moved, OwnerState::NoFreeObligation)
         | (OwnerState::Moved, OwnerState::Freed)
         | (OwnerState::Freed, OwnerState::Moved) => OwnerState::NoFreeObligation,
-        (OwnerState::Live { storage }, OwnerState::NoFreeObligation)
-        | (OwnerState::NoFreeObligation, OwnerState::Live { storage })
-        | (OwnerState::Live { storage }, OwnerState::Moved)
-        | (OwnerState::Moved, OwnerState::Live { storage })
-        | (OwnerState::Live { storage }, OwnerState::Freed)
-        | (OwnerState::Freed, OwnerState::Live { storage }) => OwnerState::MaybeFreed {
+        (OwnerState::Live { storage, .. }, OwnerState::NoFreeObligation)
+        | (OwnerState::NoFreeObligation, OwnerState::Live { storage, .. })
+        | (OwnerState::Live { storage, .. }, OwnerState::Moved)
+        | (OwnerState::Moved, OwnerState::Live { storage, .. })
+        | (OwnerState::Live { storage, .. }, OwnerState::Freed)
+        | (OwnerState::Freed, OwnerState::Live { storage, .. }) => OwnerState::MaybeFreed {
             storage: Some(storage),
         },
         (
@@ -322,10 +355,10 @@ fn merge_owner_states(left: OwnerState, right: OwnerState, next_storage: &mut us
             OwnerState::MaybeFreed {
                 storage: maybe_storage,
             },
-            OwnerState::Live { storage },
+            OwnerState::Live { storage, .. },
         )
         | (
-            OwnerState::Live { storage },
+            OwnerState::Live { storage, .. },
             OwnerState::MaybeFreed {
                 storage: maybe_storage,
             },
@@ -344,5 +377,13 @@ fn merge_maybe_storage(left: Option<StorageId>, right: Option<StorageId>) -> Opt
     match (left, right) {
         (Some(left), Some(right)) if left == right => Some(left),
         _ => None,
+    }
+}
+
+fn merge_owner_extents(left: OwnerStorageExtent, right: OwnerStorageExtent) -> OwnerStorageExtent {
+    if left == right {
+        left
+    } else {
+        OwnerStorageExtent::Unknown
     }
 }

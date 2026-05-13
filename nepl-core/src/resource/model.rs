@@ -470,11 +470,32 @@ pub enum StorageOrigin {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OwnerState {
     NoFreeObligation,
-    Live { storage: StorageId },
-    Reserved { storage: Option<StorageId> },
+    Live {
+        storage: StorageId,
+        extent: OwnerStorageExtent,
+    },
+    Reserved {
+        storage: Option<StorageId>,
+    },
     Moved,
     Freed,
-    MaybeFreed { storage: Option<StorageId> },
+    MaybeFreed {
+        storage: Option<StorageId>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OwnerStorageExtent {
+    Unknown,
+    PayloadBytes { bytes: Box<Place> },
+}
+
+impl OwnerStorageExtent {
+    pub fn payload_bytes(bytes: &Place) -> Self {
+        Self::PayloadBytes {
+            bytes: Box::new(bytes.clone()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

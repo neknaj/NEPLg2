@@ -2,6 +2,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use super::model::{I32ValueCondition, PlaceProjection, StorageOrigin};
+use super::report::ResourceOwnerOperation;
 use crate::types::TypeId;
 
 pub(super) use super::borrow_summary::compute_borrow_token_return_summaries;
@@ -18,16 +19,20 @@ pub(super) struct OwnerReturnSummary {
     pub(super) function: String,
     pub(super) parameter_indices: Vec<usize>,
     pub(super) parameter_sources: Vec<OwnerProjectionSource>,
+    pub(super) parameter_return_extents: Vec<OwnerParameterReturnExtent>,
     pub(super) consumed_parameter_indices: Vec<usize>,
     pub(super) consumed_parameter_sources: Vec<OwnerProjectionSource>,
+    pub(super) consumed_extent_requirements: Vec<OwnerConsumedExtentRequirement>,
     pub(super) variant_consumed_parameter_indices: Vec<OwnerVariantParameterIndex>,
     pub(super) variant_consumed_parameter_sources: Vec<OwnerVariantProjectionSource>,
+    pub(super) variant_consumed_extent_requirements: Vec<OwnerVariantConsumedExtentRequirement>,
     pub(super) variant_projection_returns: Vec<OwnerVariantProjectionReturn>,
     pub(super) resolved_parameter_variants: Vec<OwnerResolvedParameterVariant>,
     pub(super) variant_conditions: Vec<OwnerVariantCondition>,
     pub(super) variant_payload_conditions: Vec<OwnerVariantPayloadCondition>,
     pub(super) non_owning_raw_view_returns: Vec<OwnerNonOwningRawViewReturn>,
     pub(super) returns_fresh_owner: bool,
+    pub(super) returns_fresh_owner_extent: OwnerExtentSummary,
     pub(super) returns_maybe_owner: bool,
     pub(super) projection_returns: Vec<OwnerProjectionReturnSummary>,
     pub(super) projection_markers: Vec<OwnerProjectionMarker>,
@@ -39,6 +44,34 @@ pub(super) struct OwnerProjectionSource {
     pub(super) parameter_index: usize,
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum OwnerExtentSummary {
+    Unknown,
+    PayloadBytesParameter(OwnerProjectionSource),
+    PayloadBytesI32Constant { value: i32, ty: TypeId },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerConsumedExtentRequirement {
+    pub(super) owner: OwnerProjectionSource,
+    pub(super) extent: OwnerExtentSummary,
+    pub(super) operation: ResourceOwnerOperation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerParameterReturnExtent {
+    pub(super) source: OwnerProjectionSource,
+    pub(super) extent: OwnerExtentSummary,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct OwnerVariantConsumedExtentRequirement {
+    pub(super) variant: String,
+    pub(super) owner: OwnerProjectionSource,
+    pub(super) extent: OwnerExtentSummary,
+    pub(super) operation: ResourceOwnerOperation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,8 +96,13 @@ pub(super) struct OwnerVariantProjectionReturn {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum OwnerProjectionReturnOwner {
-    Parameter(OwnerProjectionSource),
-    Fresh,
+    Parameter {
+        source: OwnerProjectionSource,
+        returned_extent: OwnerExtentSummary,
+    },
+    Fresh {
+        extent: OwnerExtentSummary,
+    },
     Maybe,
 }
 
@@ -131,6 +169,8 @@ pub(super) struct OwnerProjectionReturnSummary {
     pub(super) ty: TypeId,
     pub(super) parameter_indices: Vec<usize>,
     pub(super) parameter_sources: Vec<OwnerProjectionSource>,
+    pub(super) parameter_return_extents: Vec<OwnerParameterReturnExtent>,
     pub(super) returns_fresh_owner: bool,
+    pub(super) returns_fresh_owner_extent: OwnerExtentSummary,
     pub(super) returns_maybe_owner: bool,
 }

@@ -499,6 +499,7 @@ impl ResourceOwnerCheckEngine<'_> {
                             ResourceOwnerOperation::ReallocInput,
                             span,
                         );
+                        owners.set_live_extent(&pending.result, pending.new_extent);
                         return;
                     }
                 }

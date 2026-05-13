@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::span::Span;
 
 use super::initialized_alias::RawCellAddressAliases;
@@ -5,11 +7,12 @@ use crate::types::TypeId;
 
 use super::model::{Place, PlaceProjection};
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_extent::instantiate_owner_extent_summary;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::place_utils::place_with_suffix;
 use super::storage_origin::StorageOriginTable;
-use super::summary::{OwnerProjectionSource, OwnerReturnSummary};
+use super::summary::{OwnerConsumedExtentRequirement, OwnerProjectionSource, OwnerReturnSummary};
 
 impl ResourceOwnerCheckEngine<'_> {
     pub(super) fn consume_owner_summary_parameters(
@@ -25,14 +28,22 @@ impl ResourceOwnerCheckEngine<'_> {
         for arg in summary
             .consumed_parameter_indices
             .iter()
-            .filter_map(|index| args.get(*index))
+            .filter_map(|index| args.get(*index).map(|arg| (*index, arg)))
         {
-            self.consume_call_argument_owner(
+            let source = OwnerProjectionSource {
+                parameter_index: arg.0,
+                suffix: Vec::new(),
+                ty: arg.1.ty,
+            };
+            self.consume_summary_argument_owner(
                 owners,
                 raw_aliases,
                 raw_views,
                 storage_origins,
-                arg,
+                arg.1,
+                &source,
+                &summary.consumed_extent_requirements,
+                args,
                 span,
             );
         }
@@ -40,12 +51,15 @@ impl ResourceOwnerCheckEngine<'_> {
             let Some(source_place) = owner_projection_source_place(args, source) else {
                 continue;
             };
-            self.consume_call_argument_owner(
+            self.consume_summary_argument_owner(
                 owners,
                 raw_aliases,
                 raw_views,
                 storage_origins,
                 &source_place,
+                source,
+                &summary.consumed_extent_requirements,
+                args,
                 span,
             );
         }
@@ -82,6 +96,45 @@ impl ResourceOwnerCheckEngine<'_> {
             raw_views.mark_non_owning(output);
         }
         true
+    }
+
+    fn consume_summary_argument_owner(
+        &mut self,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        arg: &Place,
+        source: &OwnerProjectionSource,
+        requirements: &[OwnerConsumedExtentRequirement],
+        args: &[Place],
+        span: Span,
+    ) {
+        let requirement = requirements
+            .iter()
+            .find(|requirement| &requirement.owner == source);
+        if let Some(requirement) = requirement {
+            let extent = instantiate_owner_extent_summary(args, &requirement.extent);
+            self.consume_call_argument_owner_with_extent(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                arg,
+                &extent,
+                requirement.operation,
+                span,
+            );
+        } else {
+            self.consume_call_argument_owner(
+                owners,
+                raw_aliases,
+                raw_views,
+                storage_origins,
+                arg,
+                span,
+            );
+        }
     }
 }
 

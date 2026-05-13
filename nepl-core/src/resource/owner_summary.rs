@@ -7,6 +7,10 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, ResourceFunction, ResourceModule, ResourceTerminator};
 use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_place};
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_extent::{
+    merge_owner_extent_summaries, summarize_consumed_extent_requirements,
+    summarize_owner_storage_extent,
+};
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_summary_consumed::consumed_owner_parameters;
@@ -28,6 +32,7 @@ use super::place_utils::place_suffix_after_prefix;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
 use super::storage_origin::StorageOriginTable;
+use super::summary::OwnerExtentSummary;
 use super::summary::OwnerReturnSummary;
 use super::summary_worklist::SummaryWorklist;
 
@@ -66,6 +71,7 @@ fn function_owner_return_summary(
         summaries,
         diagnostics: Vec::new(),
         deferred: ResourceOwnerCheckDeferred::default(),
+        owner_extent_requirements: Vec::new(),
     };
     let mut owners = OwnerTable::default();
     let mut raw_aliases = RawCellAddressAliases::default();
@@ -81,6 +87,7 @@ fn function_owner_return_summary(
 
     let mut parameter_indices = Vec::new();
     let mut parameter_sources = Vec::new();
+    let mut parameter_return_extents = Vec::new();
     let mut returns_fresh_owner = false;
     let mut returns_maybe_owner = false;
     let mut non_owning_raw_view_returns = Vec::new();
@@ -89,11 +96,13 @@ fn function_owner_return_summary(
     let mut storage_origin_markers = Vec::new();
     let mut variant_consumed_parameter_indices = Vec::new();
     let mut variant_consumed_parameter_sources = Vec::new();
+    let mut variant_consumed_extent_requirements = Vec::new();
     let mut variant_projection_returns = Vec::new();
     let mut resolved_parameter_variants = Vec::new();
     let mut variant_conditions = Vec::new();
     let mut variant_payload_conditions = Vec::new();
     let mut returned_sources = Vec::new();
+    let mut returns_fresh_owner_extent = OwnerExtentSummary::Unknown;
     let mut function_aliases = FunctionAliasTable::default();
     let mut pending_reallocs = PendingRawReallocs::default();
     let mut variant_owner_effects = PendingVariantOwnerEffects::default();
@@ -115,6 +124,7 @@ fn function_owner_return_summary(
             collect_variant_consumed_owner_parameters_from_return(
                 &mut variant_consumed_parameter_indices,
                 &mut variant_consumed_parameter_sources,
+                &mut variant_consumed_extent_requirements,
                 &mut variant_conditions,
                 &mut variant_payload_conditions,
                 function,
@@ -137,18 +147,37 @@ fn function_owner_return_summary(
             let resolved_value = resolve_owner_alias_place(&owners, &raw_aliases, value);
             if !returned_projection_is_non_owning_raw_view(&raw_views, value, &[], value.ty) {
                 match owners.state(&resolved_value) {
-                    Some(OwnerState::Live { storage }) => {
+                    Some(OwnerState::Live { storage, extent }) => {
                         if let Some(source) =
                             owner_source_for_storage(storage, &parameter_storage_sources)
                         {
                             record_root_owner_return(
                                 &mut parameter_indices,
                                 &mut parameter_sources,
+                                &mut parameter_return_extents,
                                 &mut returned_sources,
                                 source,
+                                summarize_owner_storage_extent(
+                                    &raw_aliases,
+                                    &parameter_condition_sources,
+                                    &extent,
+                                ),
                             );
                         } else {
-                            returns_fresh_owner = true;
+                            let extent_summary = summarize_owner_storage_extent(
+                                &raw_aliases,
+                                &parameter_condition_sources,
+                                &extent,
+                            );
+                            if returns_fresh_owner {
+                                returns_fresh_owner_extent = merge_owner_extent_summaries(
+                                    returns_fresh_owner_extent,
+                                    extent_summary,
+                                );
+                            } else {
+                                returns_fresh_owner = true;
+                                returns_fresh_owner_extent = extent_summary;
+                            }
                         }
                     }
                     Some(OwnerState::MaybeFreed { storage }) => {
@@ -158,8 +187,10 @@ fn function_owner_return_summary(
                             record_root_owner_return(
                                 &mut parameter_indices,
                                 &mut parameter_sources,
+                                &mut parameter_return_extents,
                                 &mut returned_sources,
                                 source,
+                                OwnerExtentSummary::Unknown,
                             );
                         } else {
                             returns_maybe_owner = true;
@@ -185,12 +216,17 @@ fn function_owner_return_summary(
                         continue;
                     }
                     match entry.state {
-                        OwnerState::Live { storage } => {
+                        OwnerState::Live { storage, extent } => {
                             record_projection_owner_return(
                                 &mut projection_returns,
                                 suffix,
                                 entry.place.ty,
                                 storage,
+                                summarize_owner_storage_extent(
+                                    &raw_aliases,
+                                    &parameter_condition_sources,
+                                    &extent,
+                                ),
                                 &parameter_storage_sources,
                                 &mut returned_sources,
                             );
@@ -209,6 +245,7 @@ fn function_owner_return_summary(
                                     suffix,
                                     entry.place.ty,
                                     storage,
+                                    OwnerExtentSummary::Unknown,
                                     &parameter_storage_sources,
                                     &mut returned_sources,
                                 );
@@ -235,12 +272,17 @@ fn function_owner_return_summary(
                     continue;
                 }
                 match aliased.entry.state {
-                    OwnerState::Live { storage } => {
+                    OwnerState::Live { storage, extent } => {
                         record_projection_owner_return(
                             &mut projection_returns,
                             aliased.suffix,
                             aliased.entry.place.ty,
                             storage,
+                            summarize_owner_storage_extent(
+                                &raw_aliases,
+                                &parameter_condition_sources,
+                                &extent,
+                            ),
                             &parameter_storage_sources,
                             &mut returned_sources,
                         );
@@ -259,6 +301,7 @@ fn function_owner_return_summary(
                                 aliased.suffix,
                                 aliased.entry.place.ty,
                                 storage,
+                                OwnerExtentSummary::Unknown,
                                 &parameter_storage_sources,
                                 &mut returned_sources,
                             );
@@ -297,12 +340,17 @@ fn function_owner_return_summary(
                     let resolved_origin_place =
                         resolve_owner_alias_place(&owners, &raw_aliases, &origin_place);
                     match owners.state(&resolved_origin_place) {
-                        Some(OwnerState::Live { storage }) => {
+                        Some(OwnerState::Live { storage, extent }) => {
                             record_projection_owner_return(
                                 &mut projection_returns,
                                 suffix,
                                 entry.place.ty,
                                 storage,
+                                summarize_owner_storage_extent(
+                                    &raw_aliases,
+                                    &parameter_condition_sources,
+                                    &extent,
+                                ),
                                 &parameter_storage_sources,
                                 &mut returned_sources,
                             );
@@ -316,6 +364,7 @@ fn function_owner_return_summary(
                                 suffix,
                                 entry.place.ty,
                                 storage,
+                                OwnerExtentSummary::Unknown,
                                 &parameter_storage_sources,
                                 &mut returned_sources,
                             );
@@ -357,20 +406,32 @@ fn function_owner_return_summary(
 
     let (consumed_parameter_indices, consumed_parameter_sources) =
         consumed_owner_parameters(&owners, &parameter_storage_sources, &returned_sources);
+    let consumed_extent_requirements = summarize_consumed_extent_requirements(
+        &raw_aliases,
+        &parameter_storage_sources,
+        &parameter_condition_sources,
+        &engine.owner_extent_requirements,
+        &consumed_parameter_indices,
+        &consumed_parameter_sources,
+    );
     OwnerReturnSummary {
         function: function.name.clone(),
         parameter_indices,
         parameter_sources,
+        parameter_return_extents,
         consumed_parameter_indices,
         consumed_parameter_sources,
+        consumed_extent_requirements,
         variant_consumed_parameter_indices,
         variant_consumed_parameter_sources,
+        variant_consumed_extent_requirements,
         variant_projection_returns,
         resolved_parameter_variants,
         variant_conditions,
         variant_payload_conditions,
         non_owning_raw_view_returns,
         returns_fresh_owner,
+        returns_fresh_owner_extent,
         returns_maybe_owner,
         projection_returns,
         projection_markers,

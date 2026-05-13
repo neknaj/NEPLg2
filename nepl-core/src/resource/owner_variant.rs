@@ -10,6 +10,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place, ResourceMatchPattern, StorageId};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_extent::{instantiate_owner_extent_summary, summarize_owner_storage_extent};
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_return_apply_source::{
     owner_projection_source_place_for_arg, summary_projection_place,
@@ -26,9 +27,10 @@ use super::place_utils::{place_with_suffix, places_overlap};
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
-    OwnerProjectionReturnOwner, OwnerResolvedParameterVariant, OwnerReturnSummary,
-    OwnerVariantCondition, OwnerVariantParameterIndex, OwnerVariantProjectionReturn,
-    OwnerVariantProjectionSource,
+    OwnerExtentSummary, OwnerProjectionReturnOwner, OwnerProjectionSource,
+    OwnerResolvedParameterVariant, OwnerReturnSummary, OwnerVariantCondition,
+    OwnerVariantConsumedExtentRequirement, OwnerVariantParameterIndex,
+    OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 use super::variant_name::{match_pattern_variant_name, normalize_variant_name};
 
@@ -39,6 +41,7 @@ struct PendingVariantOwnerConsumption {
     arg: Place,
     suffix: Vec<super::model::PlaceProjection>,
     ty: TypeId,
+    extent: Option<PendingVariantOwnerExtentRequirement>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,9 +59,19 @@ enum PendingVariantOwnerReturnSource {
         arg: Place,
         source_suffix: Vec<super::model::PlaceProjection>,
         source_ty: TypeId,
+        extent_requirement: Option<PendingVariantOwnerExtentRequirement>,
+        returned_extent: super::model::OwnerStorageExtent,
     },
-    Fresh,
+    Fresh {
+        extent: super::model::OwnerStorageExtent,
+    },
     Maybe,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingVariantOwnerExtentRequirement {
+    expected: super::model::OwnerStorageExtent,
+    operation: ResourceOwnerOperation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,12 +148,24 @@ impl PendingVariantOwnerEffects {
             let Some(arg) = args.get(entry.parameter_index) else {
                 continue;
             };
+            let source = OwnerProjectionSource {
+                parameter_index: entry.parameter_index,
+                suffix: Vec::new(),
+                ty: arg.ty,
+            };
             self.push_unique_consumption(PendingVariantOwnerConsumption {
                 result: output.clone(),
                 variant: normalize_variant_name(&entry.variant),
                 arg: raw_aliases.canonicalize(arg),
                 suffix: Vec::new(),
                 ty: arg.ty,
+                extent: pending_variant_extent_requirement_for_source(
+                    raw_aliases,
+                    args,
+                    &summary.variant_consumed_extent_requirements,
+                    &entry.variant,
+                    &source,
+                ),
             });
         }
         for entry in &summary.variant_consumed_parameter_sources {
@@ -164,11 +189,21 @@ impl PendingVariantOwnerEffects {
                 arg: raw_aliases.canonicalize(arg),
                 suffix: entry.source.suffix.clone(),
                 ty: source_place.ty,
+                extent: pending_variant_extent_requirement_for_source(
+                    raw_aliases,
+                    args,
+                    &summary.variant_consumed_extent_requirements,
+                    &entry.variant,
+                    &entry.source,
+                ),
             });
         }
         for entry in &summary.variant_projection_returns {
             let source = match &entry.owner {
-                OwnerProjectionReturnOwner::Parameter(source) => {
+                OwnerProjectionReturnOwner::Parameter {
+                    source,
+                    returned_extent,
+                } => {
                     let Some(arg) = args.get(source.parameter_index) else {
                         continue;
                     };
@@ -176,9 +211,21 @@ impl PendingVariantOwnerEffects {
                         arg: raw_aliases.canonicalize(arg),
                         source_suffix: source.suffix.clone(),
                         source_ty: summary_projection_place(arg, &source.suffix, source.ty).ty,
+                        extent_requirement: pending_variant_extent_requirement_for_source(
+                            raw_aliases,
+                            args,
+                            &summary.variant_consumed_extent_requirements,
+                            &entry.variant,
+                            source,
+                        ),
+                        returned_extent: instantiate_owner_extent_summary(args, returned_extent),
                     }
                 }
-                OwnerProjectionReturnOwner::Fresh => PendingVariantOwnerReturnSource::Fresh,
+                OwnerProjectionReturnOwner::Fresh { extent } => {
+                    PendingVariantOwnerReturnSource::Fresh {
+                        extent: instantiate_owner_extent_summary(args, extent),
+                    }
+                }
                 OwnerProjectionReturnOwner::Maybe => PendingVariantOwnerReturnSource::Maybe,
             };
             self.push_unique_return(PendingVariantOwnerReturn {
@@ -271,15 +318,17 @@ impl PendingVariantOwnerEffects {
             if source_list_contains(&handled_sources, &place, &[], place.ty) {
                 continue;
             }
-            engine.move_owner_out(
+            if consume_pending_variant_owner(
+                engine,
                 owners,
                 raw_aliases,
                 storage_origins,
+                entry,
                 &place,
-                ResourceOwnerOperation::CallArgument,
                 span,
-            );
-            raw_views.clear(&place);
+            ) {
+                raw_views.clear(&place);
+            }
         }
         self.resolve_result(scrutinee);
     }
@@ -399,30 +448,34 @@ impl PendingVariantOwnerEffects {
             if source_list_contains(&handled_sources, &source, &[], ty) {
                 continue;
             }
-            engine.move_owner_out(
+            if consume_pending_variant_owner(
+                engine,
                 owners,
                 raw_aliases,
                 storage_origins,
+                entry,
                 &source,
-                ResourceOwnerOperation::CallArgument,
                 span,
-            );
-            raw_views.clear(&source);
-            push_unique_source(&mut handled_sources, source, Vec::new(), ty);
+            ) {
+                raw_views.clear(&source);
+                push_unique_source(&mut handled_sources, source, Vec::new(), ty);
+            }
         }
         self.resolve_result(result);
     }
 
     pub(super) fn collect_result_owner_effect_summaries(
         &self,
-        engine: &ResourceOwnerCheckEngine<'_>,
+        _engine: &ResourceOwnerCheckEngine<'_>,
         owners: &OwnerTable,
         raw_aliases: &RawCellAddressAliases,
-        raw_views: &RawAddressViewTable,
+        _raw_views: &RawAddressViewTable,
         result: &Place,
         parameter_storage_sources: &[OwnerParameterStorageSource],
+        parameter_condition_sources: &[OwnerParameterConditionSource],
         index_out: &mut Vec<OwnerVariantParameterIndex>,
         source_out: &mut Vec<OwnerVariantProjectionSource>,
+        extent_out: &mut Vec<OwnerVariantConsumedExtentRequirement>,
         return_out: &mut Vec<OwnerVariantProjectionReturn>,
     ) {
         for entry in self
@@ -444,6 +497,28 @@ impl PendingVariantOwnerEffects {
                     parameter_source,
                 );
             }
+            if let Some(requirement) = &entry.extent {
+                for consumed in owner_projection_sources_for_place(
+                    owners,
+                    raw_aliases,
+                    &source,
+                    parameter_storage_sources,
+                ) {
+                    push_or_merge_variant_extent_requirement(
+                        extent_out,
+                        OwnerVariantConsumedExtentRequirement {
+                            variant: normalize_variant_name(&entry.variant),
+                            owner: consumed,
+                            extent: summarize_owner_storage_extent(
+                                raw_aliases,
+                                parameter_condition_sources,
+                                &requirement.expected,
+                            ),
+                            operation: requirement.operation,
+                        },
+                    );
+                }
+            }
         }
         for entry in self.returns.iter().filter(|entry| entry.result == *result) {
             match &entry.source {
@@ -451,39 +526,72 @@ impl PendingVariantOwnerEffects {
                     let Some(source) = pending_return_source(entry, raw_aliases) else {
                         continue;
                     };
-                    if engine.place_is_non_owning_raw_address_view(
-                        owners,
-                        raw_aliases,
-                        raw_views,
-                        &source,
-                    ) {
-                        continue;
-                    }
                     for parameter_source in owner_projection_sources_for_place(
                         owners,
                         raw_aliases,
                         &source,
                         parameter_storage_sources,
                     ) {
+                        if let PendingVariantOwnerReturnSource::Parameter {
+                            extent_requirement: Some(requirement),
+                            ..
+                        } = &entry.source
+                        {
+                            push_or_merge_variant_extent_requirement(
+                                extent_out,
+                                OwnerVariantConsumedExtentRequirement {
+                                    variant: normalize_variant_name(&entry.variant),
+                                    owner: parameter_source.clone(),
+                                    extent: summarize_owner_storage_extent(
+                                        raw_aliases,
+                                        parameter_condition_sources,
+                                        &requirement.expected,
+                                    ),
+                                    operation: requirement.operation,
+                                },
+                            );
+                        }
                         push_unique_variant_projection_return(
                             return_out,
                             OwnerVariantProjectionReturn {
                                 variant: normalize_variant_name(&entry.variant),
                                 suffix: entry.target_suffix.clone(),
                                 ty: entry.target_ty,
-                                owner: OwnerProjectionReturnOwner::Parameter(parameter_source),
+                                owner: OwnerProjectionReturnOwner::Parameter {
+                                    returned_extent: match &entry.source {
+                                        PendingVariantOwnerReturnSource::Parameter {
+                                            returned_extent,
+                                            ..
+                                        } => summarize_owner_storage_extent(
+                                            raw_aliases,
+                                            parameter_condition_sources,
+                                            returned_extent,
+                                        ),
+                                        PendingVariantOwnerReturnSource::Fresh { .. }
+                                        | PendingVariantOwnerReturnSource::Maybe => {
+                                            OwnerExtentSummary::Unknown
+                                        }
+                                    },
+                                    source: parameter_source,
+                                },
                             },
                         );
                     }
                 }
-                PendingVariantOwnerReturnSource::Fresh => {
+                PendingVariantOwnerReturnSource::Fresh { extent } => {
                     push_unique_variant_projection_return(
                         return_out,
                         OwnerVariantProjectionReturn {
                             variant: normalize_variant_name(&entry.variant),
                             suffix: entry.target_suffix.clone(),
                             ty: entry.target_ty,
-                            owner: OwnerProjectionReturnOwner::Fresh,
+                            owner: OwnerProjectionReturnOwner::Fresh {
+                                extent: summarize_owner_storage_extent(
+                                    raw_aliases,
+                                    parameter_condition_sources,
+                                    extent,
+                                ),
+                            },
                         },
                     );
                 }
@@ -576,16 +684,18 @@ impl PendingVariantOwnerEffects {
             if source_list_contains(&handled_sources, &source, &[], ty) {
                 continue;
             }
-            engine.move_owner_out(
+            if consume_pending_variant_owner(
+                engine,
                 owners,
                 raw_aliases,
                 storage_origins,
+                entry,
                 &source,
-                ResourceOwnerOperation::CallArgument,
                 span,
-            );
-            raw_views.clear(&source);
-            push_unique_source(&mut handled_sources, source, Vec::new(), ty);
+            ) {
+                raw_views.clear(&source);
+                push_unique_source(&mut handled_sources, source, Vec::new(), ty);
+            }
         }
         self.resolve_result(result);
     }
@@ -615,6 +725,7 @@ impl PendingVariantOwnerEffects {
                 arg: entry.arg.clone(),
                 suffix: entry.suffix.clone(),
                 ty: entry.ty,
+                extent: entry.extent.clone(),
             })
             .collect::<Vec<_>>();
         let return_copies = self
@@ -705,6 +816,7 @@ impl PendingVariantOwnerEffects {
                 arg,
                 source_suffix,
                 source_ty,
+                ..
             } = &entry.source
             {
                 let ty = summary_projection_place(arg, source_suffix, *source_ty).ty;
@@ -729,6 +841,7 @@ impl PendingVariantOwnerEffects {
                 arg,
                 source_suffix,
                 source_ty,
+                ..
             } = &entry.source
             else {
                 return true;
@@ -923,6 +1036,65 @@ fn pending_consumption_source(
     summary_projection_place(&arg, &entry.suffix, entry.ty)
 }
 
+fn pending_variant_extent_requirement_for_source(
+    _raw_aliases: &RawCellAddressAliases,
+    args: &[Place],
+    requirements: &[OwnerVariantConsumedExtentRequirement],
+    variant: &str,
+    source: &OwnerProjectionSource,
+) -> Option<PendingVariantOwnerExtentRequirement> {
+    let variant = normalize_variant_name(variant);
+    let requirement = requirements
+        .iter()
+        .find(|requirement| requirement.variant == variant && requirement.owner == *source)?;
+    let expected = instantiate_owner_extent_summary(args, &requirement.extent);
+    if matches!(expected, super::model::OwnerStorageExtent::Unknown) {
+        return None;
+    }
+    Some(PendingVariantOwnerExtentRequirement {
+        expected,
+        operation: requirement.operation,
+    })
+}
+
+fn consume_pending_variant_owner(
+    engine: &mut ResourceOwnerCheckEngine<'_>,
+    owners: &mut OwnerTable,
+    raw_aliases: &mut RawCellAddressAliases,
+    storage_origins: &mut StorageOriginTable,
+    entry: &PendingVariantOwnerConsumption,
+    source: &Place,
+    span: Span,
+) -> bool {
+    if let Some(requirement) = &entry.extent {
+        if !engine.ensure_owner_extent_matches_summary(
+            owners,
+            raw_aliases,
+            source,
+            &requirement.expected,
+            requirement.operation,
+            span,
+        ) {
+            engine.push_unavailable(
+                requirement.operation,
+                source,
+                owners.state(source).unwrap_or(OwnerState::NoFreeObligation),
+                span,
+            );
+            return false;
+        }
+    }
+    engine.move_owner_out(
+        owners,
+        raw_aliases,
+        storage_origins,
+        source,
+        ResourceOwnerOperation::CallArgument,
+        span,
+    );
+    true
+}
+
 fn pending_return_source(
     entry: &PendingVariantOwnerReturn,
     raw_aliases: &RawCellAddressAliases,
@@ -931,6 +1103,7 @@ fn pending_return_source(
         arg,
         source_suffix,
         source_ty,
+        ..
     } = &entry.source
     else {
         return None;
@@ -951,8 +1124,32 @@ fn apply_pending_variant_owner_return(
 ) -> Option<Place> {
     let target = summary_projection_place(result, &entry.target_suffix, entry.target_ty);
     let source = match &entry.source {
-        PendingVariantOwnerReturnSource::Parameter { .. } => {
+        PendingVariantOwnerReturnSource::Parameter {
+            extent_requirement,
+            returned_extent,
+            ..
+        } => {
             let source = pending_return_source(entry, raw_aliases)?;
+            if let Some(requirement) = extent_requirement {
+                if !engine.ensure_owner_extent_matches_summary(
+                    owners,
+                    raw_aliases,
+                    &source,
+                    &requirement.expected,
+                    requirement.operation,
+                    span,
+                ) {
+                    engine.push_unavailable(
+                        requirement.operation,
+                        &source,
+                        owners
+                            .state(&source)
+                            .unwrap_or(OwnerState::NoFreeObligation),
+                        span,
+                    );
+                    return None;
+                }
+            }
             raw_aliases.copy_scalar_facts_if_tracked(&source, &target);
             engine.transfer_owner_from_summary_effect(
                 owners,
@@ -964,10 +1161,13 @@ fn apply_pending_variant_owner_return(
                 ResourceOwnerOperation::ReturnValue,
                 span,
             );
+            if !matches!(returned_extent, super::model::OwnerStorageExtent::Unknown) {
+                owners.set_live_extent(&target, returned_extent.clone());
+            }
             Some(source)
         }
-        PendingVariantOwnerReturnSource::Fresh => {
-            owners.allocate(&target);
+        PendingVariantOwnerReturnSource::Fresh { extent } => {
+            owners.allocate_with_extent(&target, extent.clone());
             raw_aliases.mark(&target);
             storage_origins.mark_owned(&target);
             None
@@ -985,7 +1185,7 @@ fn apply_pending_variant_owner_return(
 
 fn reserved_owner_state(owners: &OwnerTable, source: &Place) -> OwnerState {
     let storage = match owners.state(source) {
-        Some(OwnerState::Live { storage }) => Some(storage),
+        Some(OwnerState::Live { storage, .. }) => Some(storage),
         Some(OwnerState::MaybeFreed { storage } | OwnerState::Reserved { storage }) => storage,
         Some(OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed) | None => {
             first_storage_under(owners, source)
@@ -999,8 +1199,29 @@ fn first_storage_under(owners: &OwnerTable, source: &Place) -> Option<StorageId>
         .live_entries_under(source)
         .into_iter()
         .find_map(|entry| match entry.state {
-            OwnerState::Live { storage } => Some(storage),
+            OwnerState::Live { storage, .. } => Some(storage),
             OwnerState::MaybeFreed { storage } | OwnerState::Reserved { storage } => storage,
             OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed => None,
         })
+}
+
+fn push_or_merge_variant_extent_requirement(
+    out: &mut Vec<OwnerVariantConsumedExtentRequirement>,
+    entry: OwnerVariantConsumedExtentRequirement,
+) {
+    if matches!(entry.extent, OwnerExtentSummary::Unknown) {
+        return;
+    }
+    if let Some(existing) = out.iter_mut().find(|existing| {
+        existing.variant == entry.variant
+            && existing.owner == entry.owner
+            && existing.operation == entry.operation
+    }) {
+        existing.extent = super::owner_extent::merge_owner_extent_summaries(
+            existing.extent.clone(),
+            entry.extent,
+        );
+        return;
+    }
+    out.push(entry);
 }

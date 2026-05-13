@@ -45,7 +45,7 @@ fn owner_projection_source_for_owner_state(
     parameter_storage_sources: &[OwnerParameterStorageSource],
 ) -> Option<OwnerProjectionSource> {
     let storage = match state {
-        Some(OwnerState::Live { storage }) => storage,
+        Some(OwnerState::Live { storage, .. }) => storage,
         Some(OwnerState::MaybeFreed {
             storage: Some(storage),
         }) => storage,

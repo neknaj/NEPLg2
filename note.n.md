@@ -1,3 +1,23 @@
+# 2026-05-13 Agent 1 owner extent proof / realloc summary 修正
+
+- `ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD` を解決した。
+- 根本原因は、Resource IR の owner state が free obligation の payload byte extent を保持せず、`dealloc_raw` / `realloc_raw` の size / old_size が確保時 extent と一致することを compiler summary に保存できなかったこと。
+- `OwnerState::Live` に extent を追加し、`alloc_raw` の size を owner extent として保持した。`dealloc_raw` / `realloc_raw` は owner extent と size 引数の一致を証明し、証明不能な関数境界では summary requirement として呼び出し側へ伝播する。
+- `realloc` は旧 owner の old_size 前提と返却後 owner の new_size extent が別の性質であるため、parameter-return summary に返却後 extent を追加した。これにより `realloc_ptr` 成功後の `MemPtr` owner は旧 extent ではなく new_size extent を持つ。
+- nested `Result::Ok` path summary で `owner_extent_requirements` を空にしていたため、`realloc_raw` の旧サイズ前提が wrapper summary から落ちていた。親 path の extent requirements を引き継ぐようにした。
+- 既存の realloc branch refinement 回帰テストは `core/math` import 不足で停止していたため、該当 test source を現在の stdlib import 形に合わせた。
+- 検証:
+  - `cargo check -p nepl-core`: passed
+  - `cargo test -p nepl-core --test resource_ir raw_dealloc_extent -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir raw_realloc_old_extent -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir dealloc_ptr_extent -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir realloc_ptr_old_extent -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_deallocated_alloc -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reports_double_dealloc -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_refines_realloc_result_branches -- --nocapture`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 4 の Resource IR owner/free obligation 証明を、allocator extent に対して実効化するもの。
+
 # 2026-05-13 Agent 1 nepl-language extern visibility token export 修正
 
 - `ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553` を追加して修正した。

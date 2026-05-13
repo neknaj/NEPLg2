@@ -38,7 +38,7 @@ pub(super) fn seed_owner_summary_parameters(
             owners.allocate(&leaf.place);
             raw_aliases.mark(&leaf.place);
             storage_origins.mark_owned(&leaf.place);
-            if let Some(OwnerState::Live { storage }) = owners.state(&leaf.place) {
+            if let Some(OwnerState::Live { storage, .. }) = owners.state(&leaf.place) {
                 parameter_storage_sources.push(OwnerParameterStorageSource {
                     storage,
                     source: OwnerProjectionSource {

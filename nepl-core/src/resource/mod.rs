@@ -142,6 +142,7 @@ mod owner_drop;
 mod owner_drop_scope;
 mod owner_entry;
 mod owner_expr;
+mod owner_extent;
 mod owner_flow;
 mod owner_match_payload;
 mod owner_raw_address;
@@ -240,12 +241,12 @@ pub use initialized::check_resource_initialized_moves;
 pub use lower::{lower_hir_module, lower_hir_module_skeleton};
 pub use model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp,
-    ExternalIoOp, NondetOp, OwnerState, OwnerStateEntry, Place, PlaceProjection, PlaceRoot,
-    PointerProvenance, RawAddressViewKind, RawBodyKind, RawMemoryOp, ResourceBlock,
-    ResourceBlockId, ResourceCallTarget, ResourceConditionFact, ResourceExprKind, ResourceFunction,
-    ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchPattern,
-    ResourceModule, ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId,
-    StorageOrigin, StorageOriginEntry, UnknownEffectReason,
+    ExternalIoOp, NondetOp, OwnerState, OwnerStateEntry, OwnerStorageExtent, Place,
+    PlaceProjection, PlaceRoot, PointerProvenance, RawAddressViewKind, RawBodyKind, RawMemoryOp,
+    ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceConditionFact, ResourceExprKind,
+    ResourceFunction, ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceMatchArm,
+    ResourceMatchPattern, ResourceModule, ResourceOffset, ResourceOp, ResourceState,
+    ResourceTerminator, StorageId, StorageOrigin, StorageOriginEntry, UnknownEffectReason,
 };
 pub use owner_entry::check_resource_owner_obligations;
 pub use report::{

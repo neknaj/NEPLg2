@@ -34,18 +34,28 @@ pub(super) fn remove_variant_projection_return_sources(
             .filter(|entry| entry.suffix == projection.suffix && entry.ty == projection.ty)
         {
             match &variant_return.owner {
-                OwnerProjectionReturnOwner::Parameter(source) if source.suffix.is_empty() => {
+                OwnerProjectionReturnOwner::Parameter { source, .. }
+                    if source.suffix.is_empty() =>
+                {
                     projection
                         .parameter_indices
                         .retain(|index| *index != source.parameter_index);
+                    projection
+                        .parameter_return_extents
+                        .retain(|extent| extent.source != *source);
                 }
-                OwnerProjectionReturnOwner::Parameter(source) => {
+                OwnerProjectionReturnOwner::Parameter { source, .. } => {
                     projection
                         .parameter_sources
                         .retain(|projection_source| projection_source != source);
+                    projection
+                        .parameter_return_extents
+                        .retain(|extent| extent.source != *source);
                 }
-                OwnerProjectionReturnOwner::Fresh => {
+                OwnerProjectionReturnOwner::Fresh { .. } => {
                     projection.returns_fresh_owner = false;
+                    projection.returns_fresh_owner_extent =
+                        super::summary::OwnerExtentSummary::Unknown;
                 }
                 OwnerProjectionReturnOwner::Maybe => {
                     projection.returns_maybe_owner = false;
@@ -58,6 +68,7 @@ pub(super) fn remove_variant_projection_return_sources(
             || projection.returns_maybe_owner
             || !projection.parameter_indices.is_empty()
             || !projection.parameter_sources.is_empty()
+            || !projection.parameter_return_extents.is_empty()
     });
 }
 
@@ -66,7 +77,7 @@ pub(super) fn record_variant_projection_return_sources(
     variant_returns: &[OwnerVariantProjectionReturn],
 ) {
     for variant_return in variant_returns {
-        if let OwnerProjectionReturnOwner::Parameter(source) = &variant_return.owner {
+        if let OwnerProjectionReturnOwner::Parameter { source, .. } = &variant_return.owner {
             push_unique_owner_projection_source(returned_sources, source);
         }
     }

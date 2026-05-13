@@ -2,8 +2,8 @@
 id: ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD
 title: "dealloc and realloc size arguments need owner extent proof"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P0
 type: architecture
 created: 2026-05-13
@@ -44,6 +44,22 @@ If stdlib simply accepts arbitrary size arguments, an invalid size can corrupt a
 
 Extend Resource IR owner metadata to carry allocation extents or a checked dealloc-size proof, then update dealloc/realloc wrappers to reject mismatched or overflowing sizes without creating maybe-leak false positives. Keep allocator allocation overflow checks separate until this proof exists.
 
+## 対応内容
+
+- `OwnerState::Live` に allocation extent を持たせ、`alloc_raw` の size 引数を owner の payload byte extent として記録した。
+- `dealloc_raw` / `realloc_raw` は、free obligation の owner extent と渡された size / old_size が一致することを Resource IR で証明してから owner を解放または再確保するようにした。
+- 証明不能な関数境界では、owner summary に extent requirement を保存し、`dealloc_ptr` / `realloc_ptr` などの wrapper 越しでも呼び出し側の owner extent と照合するようにした。
+- `realloc` 成功時は旧 owner の extent requirement と返却後 owner の new_size extent を分離し、parameter-return summary が返却後 extent を明示的に持つ設計へ変更した。
+- variant path summary の再帰処理で `owner_extent_requirements` を破棄していた問題を修正し、`realloc_raw` の旧サイズ前提が nested `Result::Ok` 構築まで届くようにした。
+- 既存の `realloc` 分岐 refinement 回帰テストが `lt` import 不足で停止していたため、Resource IR owner 回帰として実行できるように test source import を補った。
+
 ## 検証
 
-Add compile_fail tests for dealloc/realloc with mismatched or overflowing size arguments, and focused stdlib memory_safety tests showing valid allocations still deallocate without owner leaks.
+- `cargo check -p nepl-core`
+- `cargo test -p nepl-core --test resource_ir raw_dealloc_extent -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir raw_realloc_old_extent -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir dealloc_ptr_extent -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir realloc_ptr_old_extent -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_deallocated_alloc -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reports_double_dealloc -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_refines_realloc_result_branches -- --nocapture`

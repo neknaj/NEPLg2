@@ -8066,6 +8066,203 @@ fn resource_ir_owner_check_accepts_deallocated_alloc() {
 }
 
 #[test]
+fn resource_ir_owner_check_rejects_raw_dealloc_extent_mismatch() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/math" as *
+
+fn main <()*>()> ():
+    let p <i32> alloc_raw 4
+    dealloc_raw p 8
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::DeallocExtent,
+                state: OwnerState::Live { .. },
+                ..
+            }
+        )),
+        "raw dealloc must prove that the size argument matches the allocation extent: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_rejects_raw_realloc_old_extent_mismatch() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/math" as *
+
+fn main <()*>()> ():
+    let p <i32> alloc_raw 4
+    let q <i32> realloc_raw p 8 16
+    if:
+        lt 0 q
+        then:
+            dealloc_raw q 16
+        else:
+            dealloc_raw p 4
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::ReallocExtent,
+                state: OwnerState::Live { .. },
+                ..
+            }
+        )),
+        "raw realloc must prove that old_size matches the current allocation extent: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_accepts_symbolic_raw_dealloc_extent_match() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/math" as *
+
+fn main <(i32)*>()> (len):
+    let bytes <i32> mul len 4
+    let p <i32> alloc_raw bytes
+    dealloc_raw p bytes
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let main_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function == "main" || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        main_diagnostics.is_empty(),
+        "same symbolic byte extent must remain provable through local reads: {:#?}\nresource:\n{}",
+        main_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_rejects_dealloc_ptr_extent_mismatch_through_summary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/result" as *
+
+fn main <()*>()> ():
+    match alloc_ptr<i32> 4:
+        Result::Err _e:
+            ()
+        Result::Ok p:
+            match dealloc_ptr<i32> p 8:
+                Result::Ok _:
+                    ()
+                Result::Err _drop:
+                    dealloc_raw mem_ptr_addr p 4
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::DeallocExtent,
+                state: OwnerState::Live { .. },
+                ..
+            }
+        )),
+        "dealloc_ptr summary must preserve the allocation extent requirement: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_rejects_realloc_ptr_old_extent_mismatch_through_summary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/result" as *
+
+fn main <()*>()> ():
+    match alloc_ptr<i32> 4:
+        Result::Err _e:
+            ()
+        Result::Ok p:
+            match realloc_ptr<i32> p 8 16:
+                Result::Ok q:
+                    match dealloc_ptr<i32> q 16:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            dealloc_raw mem_ptr_addr q 16
+                Result::Err _:
+                    dealloc_raw mem_ptr_addr p 4
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                operation: ResourceOwnerOperation::ReallocExtent,
+                state: OwnerState::Live { .. },
+                ..
+            }
+        )),
+        "realloc_ptr summary must preserve the old-size extent requirement: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_allows_raw_pointer_read_before_dealloc() {
     let types = TypeCtx::new();
     let unit_ty = types.unit();
@@ -10138,6 +10335,7 @@ fn resource_ir_owner_check_refines_realloc_result_branches() {
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
+#import "core/math" as *
 
 fn checked_realloc_load <()->i32> ():
     let p <i32> alloc_raw 4

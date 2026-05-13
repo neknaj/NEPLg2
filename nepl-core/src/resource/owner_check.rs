@@ -8,10 +8,11 @@ use super::function_alias::{construct_function_alias_fields, FunctionAliasTable}
 use super::i32_call_facts::record_direct_call_i32_facts;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
-    BorrowKind, EffectOp, OwnerState, OwnerStateEntry, RawMemoryOp, ResourceBlock,
-    ResourceFunction, ResourceOp, ResourceTerminator,
+    BorrowKind, EffectOp, OwnerState, OwnerStateEntry, OwnerStorageExtent, RawMemoryOp,
+    ResourceBlock, ResourceFunction, ResourceOp, ResourceTerminator,
 };
 use super::owner_check_utils::{direct_raw_memory_effect, raw_owner_alias_moves_into_wrapper};
+use super::owner_extent::PendingOwnerExtentRequirement;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
@@ -30,6 +31,7 @@ pub(super) struct ResourceOwnerCheckEngine<'a> {
     pub(super) summaries: &'a [OwnerReturnSummary],
     pub(super) diagnostics: Vec<ResourceOwnerDiagnostic>,
     pub(super) deferred: ResourceOwnerCheckDeferred,
+    pub(super) owner_extent_requirements: Vec<PendingOwnerExtentRequirement>,
 }
 
 impl ResourceOwnerCheckEngine<'_> {
@@ -315,7 +317,11 @@ impl ResourceOwnerCheckEngine<'_> {
                 RawMemoryOp::Alloc => {
                     pending_reallocs.clear_result(output);
                     variant_owner_effects.clear_result(output);
-                    owners.allocate(output);
+                    let extent = args
+                        .first()
+                        .map(OwnerStorageExtent::payload_bytes)
+                        .unwrap_or(OwnerStorageExtent::Unknown);
+                    owners.allocate_with_extent(output, extent);
                     raw_aliases.mark(output);
                     raw_views.clear(output);
                     storage_origins.mark_owned(output);
@@ -323,7 +329,28 @@ impl ResourceOwnerCheckEngine<'_> {
                 RawMemoryOp::Dealloc => {
                     pending_reallocs.clear_result(output);
                     variant_owner_effects.clear_result(output);
-                    if let Some(ptr) = args.first() {
+                    if let [ptr, size, ..] = args.as_slice() {
+                        if !variant_owner_effects.reject_reserved_source_use(
+                            self,
+                            owners,
+                            raw_aliases,
+                            ptr,
+                            ResourceOwnerOperation::Dealloc,
+                            *span,
+                        ) {
+                            self.release_owner_with_extent(
+                                owners,
+                                raw_aliases,
+                                raw_views,
+                                storage_origins,
+                                ptr,
+                                size,
+                                ResourceOwnerOperation::Dealloc,
+                                ResourceOwnerOperation::DeallocExtent,
+                                *span,
+                            );
+                        }
+                    } else if let Some(ptr) = args.first() {
                         if !variant_owner_effects.reject_reserved_source_use(
                             self,
                             owners,
@@ -347,7 +374,35 @@ impl ResourceOwnerCheckEngine<'_> {
                 RawMemoryOp::Realloc => {
                     pending_reallocs.clear_result(output);
                     variant_owner_effects.clear_result(output);
-                    if let Some(ptr) = args.first() {
+                    if let [ptr, old_size, new_size, ..] = args.as_slice() {
+                        if !variant_owner_effects.reject_reserved_source_use(
+                            self,
+                            owners,
+                            raw_aliases,
+                            ptr,
+                            ResourceOwnerOperation::ReallocInput,
+                            *span,
+                        ) && self.ensure_owner_available_with_extent(
+                            owners,
+                            raw_aliases,
+                            raw_views,
+                            storage_origins,
+                            ptr,
+                            old_size,
+                            ResourceOwnerOperation::ReallocInput,
+                            ResourceOwnerOperation::ReallocExtent,
+                            *span,
+                        ) {
+                            owners.set_state(output, OwnerState::MaybeFreed { storage: None });
+                            raw_aliases.mark(output);
+                            raw_views.clear(output);
+                            pending_reallocs.mark(
+                                ptr,
+                                output,
+                                OwnerStorageExtent::payload_bytes(new_size),
+                            );
+                        }
+                    } else if let Some(ptr) = args.first() {
                         if !variant_owner_effects.reject_reserved_source_use(
                             self,
                             owners,
@@ -367,7 +422,7 @@ impl ResourceOwnerCheckEngine<'_> {
                             owners.set_state(output, OwnerState::MaybeFreed { storage: None });
                             raw_aliases.mark(output);
                             raw_views.clear(output);
-                            pending_reallocs.mark(ptr, output);
+                            pending_reallocs.mark(ptr, output, OwnerStorageExtent::Unknown);
                         }
                     }
                 }

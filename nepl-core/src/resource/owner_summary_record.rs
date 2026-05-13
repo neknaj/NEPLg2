@@ -3,14 +3,19 @@ use alloc::vec::Vec;
 use crate::types::TypeId;
 
 use super::model::{Place, PlaceProjection, StorageId};
+use super::owner_extent::merge_owner_extent_summaries;
 use super::place_utils::push_unique_usize;
-use super::summary::{OwnerProjectionMarker, OwnerProjectionReturnSummary, OwnerProjectionSource};
+use super::summary::{
+    OwnerExtentSummary, OwnerParameterReturnExtent, OwnerProjectionMarker,
+    OwnerProjectionReturnSummary, OwnerProjectionSource,
+};
 
 pub(super) fn record_projection_owner_return(
     projection_returns: &mut Vec<OwnerProjectionReturnSummary>,
     suffix: Vec<PlaceProjection>,
     ty: TypeId,
     storage: StorageId,
+    fresh_extent: OwnerExtentSummary,
     parameter_storage_sources: &[OwnerParameterStorageSource],
     returned_sources: &mut Vec<OwnerProjectionSource>,
 ) {
@@ -23,7 +28,9 @@ pub(super) fn record_projection_owner_return(
                 ty,
                 parameter_indices: Vec::new(),
                 parameter_sources: Vec::new(),
+                parameter_return_extents: Vec::new(),
                 returns_fresh_owner: false,
+                returns_fresh_owner_extent: OwnerExtentSummary::Unknown,
                 returns_maybe_owner: false,
             });
             projection_returns.len() - 1
@@ -33,9 +40,21 @@ pub(super) fn record_projection_owner_return(
             &mut projection_returns[entry_index],
             returned_sources,
             source,
+            fresh_extent,
         );
     } else {
-        projection_returns[entry_index].returns_fresh_owner = true;
+        if projection_returns[entry_index].returns_fresh_owner {
+            projection_returns[entry_index].returns_fresh_owner_extent =
+                merge_owner_extent_summaries(
+                    projection_returns[entry_index]
+                        .returns_fresh_owner_extent
+                        .clone(),
+                    fresh_extent,
+                );
+        } else {
+            projection_returns[entry_index].returns_fresh_owner = true;
+            projection_returns[entry_index].returns_fresh_owner_extent = fresh_extent;
+        }
     }
 }
 
@@ -53,7 +72,9 @@ pub(super) fn record_projection_maybe_owner_return(
                 ty,
                 parameter_indices: Vec::new(),
                 parameter_sources: Vec::new(),
+                parameter_return_extents: Vec::new(),
                 returns_fresh_owner: false,
+                returns_fresh_owner_extent: OwnerExtentSummary::Unknown,
                 returns_maybe_owner: false,
             });
             projection_returns.len() - 1
@@ -77,14 +98,23 @@ pub(super) fn record_projection_marker(
 pub(super) fn record_root_owner_return(
     parameter_indices: &mut Vec<usize>,
     parameter_sources: &mut Vec<OwnerProjectionSource>,
+    parameter_return_extents: &mut Vec<OwnerParameterReturnExtent>,
     returned_sources: &mut Vec<OwnerProjectionSource>,
     source: &OwnerProjectionSource,
+    returned_extent: OwnerExtentSummary,
 ) {
     if source.suffix.is_empty() {
         push_unique_usize(parameter_indices, source.parameter_index);
     } else {
         push_unique_owner_projection_source(parameter_sources, source);
     }
+    push_or_merge_parameter_return_extent(
+        parameter_return_extents,
+        OwnerParameterReturnExtent {
+            source: source.clone(),
+            extent: returned_extent,
+        },
+    );
     push_unique_owner_projection_source(returned_sources, source);
 }
 
@@ -121,11 +151,42 @@ fn record_projection_owner_source(
     summary: &mut OwnerProjectionReturnSummary,
     returned_sources: &mut Vec<OwnerProjectionSource>,
     source: &OwnerProjectionSource,
+    returned_extent: OwnerExtentSummary,
 ) {
     if source.suffix.is_empty() {
         push_unique_usize(&mut summary.parameter_indices, source.parameter_index);
     } else {
         push_unique_owner_projection_source(&mut summary.parameter_sources, source);
     }
+    push_or_merge_parameter_return_extent(
+        &mut summary.parameter_return_extents,
+        OwnerParameterReturnExtent {
+            source: source.clone(),
+            extent: returned_extent,
+        },
+    );
     push_unique_owner_projection_source(returned_sources, source);
+}
+
+pub(super) fn parameter_return_extent_for_source<'a>(
+    extents: &'a [OwnerParameterReturnExtent],
+    source: &OwnerProjectionSource,
+) -> Option<&'a OwnerExtentSummary> {
+    extents
+        .iter()
+        .find_map(|entry| (&entry.source == source).then_some(&entry.extent))
+}
+
+pub(super) fn push_or_merge_parameter_return_extent(
+    out: &mut Vec<OwnerParameterReturnExtent>,
+    entry: OwnerParameterReturnExtent,
+) {
+    if let Some(existing) = out
+        .iter_mut()
+        .find(|existing| existing.source == entry.source)
+    {
+        existing.extent = merge_owner_extent_summaries(existing.extent.clone(), entry.extent);
+        return;
+    }
+    out.push(entry);
 }

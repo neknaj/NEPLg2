@@ -2,9 +2,12 @@ use crate::span::Span;
 use alloc::string::String;
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{AggregateKind, OwnerState, Place};
+use super::model::{AggregateKind, OwnerState, OwnerStorageExtent, Place};
 use super::owner_alias::{aliased_owner_descendant_entries, resolve_owner_alias_place};
 use super::owner_check::ResourceOwnerCheckEngine;
+use super::owner_extent::{
+    prove_owner_extent_matches_argument, OwnerExtentProof, PendingOwnerExtentRequirement,
+};
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_transfer::{free_owner_state, move_owner_state_out, transfer_owner_state};
@@ -64,7 +67,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 continue;
             }
             match entry.state {
-                OwnerState::Live { storage } => {
+                OwnerState::Live { storage, .. } => {
                     self.diagnostics.push(ResourceOwnerDiagnostic::OwnerLeaked {
                         function: String::from(self.function),
                         place: entry.place.clone(),
@@ -361,6 +364,74 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
+    pub(super) fn release_owner_with_extent(
+        &mut self,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
+        storage_origins: &mut StorageOriginTable,
+        place: &Place,
+        expected_extent: &Place,
+        operation: ResourceOwnerOperation,
+        extent_operation: ResourceOwnerOperation,
+        span: Span,
+    ) -> bool {
+        if !self.ensure_owner_extent_matches_argument(
+            owners,
+            raw_aliases,
+            place,
+            expected_extent,
+            extent_operation,
+            span,
+        ) {
+            self.push_extent_unavailable(owners, raw_aliases, place, extent_operation, span);
+            return false;
+        }
+        self.release_owner(
+            owners,
+            raw_aliases,
+            raw_views,
+            storage_origins,
+            place,
+            operation,
+            span,
+        )
+    }
+
+    pub(super) fn ensure_owner_available_with_extent(
+        &mut self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        raw_views: &RawAddressViewTable,
+        storage_origins: &StorageOriginTable,
+        place: &Place,
+        expected_extent: &Place,
+        operation: ResourceOwnerOperation,
+        extent_operation: ResourceOwnerOperation,
+        span: Span,
+    ) -> bool {
+        if !self.ensure_owner_extent_matches_argument(
+            owners,
+            raw_aliases,
+            place,
+            expected_extent,
+            extent_operation,
+            span,
+        ) {
+            self.push_extent_unavailable(owners, raw_aliases, place, extent_operation, span);
+            return false;
+        }
+        self.ensure_owner_available(
+            owners,
+            raw_aliases,
+            raw_views,
+            storage_origins,
+            place,
+            operation,
+            span,
+        )
+    }
+
     pub(super) fn ensure_owner_available(
         &mut self,
         owners: &OwnerTable,
@@ -410,7 +481,7 @@ impl ResourceOwnerCheckEngine<'_> {
     pub(super) fn push_live_owner_diagnostics(&mut self, owners: &OwnerTable, span: Span) {
         for entry in owners.live_entries() {
             match entry.state {
-                OwnerState::Live { storage } => {
+                OwnerState::Live { storage, .. } => {
                     self.diagnostics.push(ResourceOwnerDiagnostic::OwnerLeaked {
                         function: String::from(self.function),
                         place: entry.place,
@@ -455,6 +526,72 @@ impl ResourceOwnerCheckEngine<'_> {
                 span,
             });
     }
+
+    pub(super) fn ensure_owner_extent_matches_argument(
+        &mut self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        place: &Place,
+        actual_extent: &Place,
+        operation: ResourceOwnerOperation,
+        _span: Span,
+    ) -> bool {
+        let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
+        let extent = owners
+            .live_extent(&resolved_place)
+            .unwrap_or(OwnerStorageExtent::Unknown);
+        match prove_owner_extent_matches_argument(raw_aliases, &extent, actual_extent) {
+            OwnerExtentProof::Proven => true,
+            OwnerExtentProof::Unknown => {
+                self.owner_extent_requirements
+                    .push(PendingOwnerExtentRequirement {
+                        owner: resolved_place,
+                        expected: OwnerStorageExtent::payload_bytes(actual_extent),
+                        operation,
+                    });
+                true
+            }
+            OwnerExtentProof::Mismatch => false,
+        }
+    }
+
+    pub(super) fn ensure_owner_extent_matches_summary(
+        &mut self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        place: &Place,
+        expected_extent: &OwnerStorageExtent,
+        operation: ResourceOwnerOperation,
+        span: Span,
+    ) -> bool {
+        match expected_extent {
+            OwnerStorageExtent::Unknown => true,
+            OwnerStorageExtent::PayloadBytes { bytes } => self
+                .ensure_owner_extent_matches_argument(
+                    owners,
+                    raw_aliases,
+                    place,
+                    bytes,
+                    operation,
+                    span,
+                ),
+        }
+    }
+
+    fn push_extent_unavailable(
+        &mut self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        place: &Place,
+        operation: ResourceOwnerOperation,
+        span: Span,
+    ) {
+        let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
+        let state = owners
+            .state(&resolved_place)
+            .unwrap_or(OwnerState::NoFreeObligation);
+        self.push_unavailable(operation, &resolved_place, state, span);
+    }
 }
 
 fn replacement_preserves_live_storage(
@@ -474,9 +611,11 @@ fn replacement_preserves_live_storage(
         (
             OwnerState::Live {
                 storage: overwritten_storage,
+                ..
             },
             Some(OwnerState::Live {
                 storage: replacement_storage,
+                ..
             }),
         ) if *overwritten_storage == replacement_storage
     )

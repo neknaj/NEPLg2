@@ -1,12 +1,13 @@
 use alloc::vec::Vec;
 
-use super::model::{Place, ResourceConditionFact};
+use super::model::{OwnerStorageExtent, Place, ResourceConditionFact};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct PendingRawRealloc {
     pub(super) origin: Place,
     pub(super) source: Place,
     pub(super) result: Place,
+    pub(super) new_extent: OwnerStorageExtent,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -15,12 +16,13 @@ pub(super) struct PendingRawReallocs {
 }
 
 impl PendingRawReallocs {
-    pub(super) fn mark(&mut self, source: &Place, result: &Place) {
+    pub(super) fn mark(&mut self, source: &Place, result: &Place, new_extent: OwnerStorageExtent) {
         self.remove_origin(result);
         self.entries.push(PendingRawRealloc {
             origin: result.clone(),
             source: source.clone(),
             result: result.clone(),
+            new_extent,
         });
     }
 
@@ -36,6 +38,7 @@ impl PendingRawReallocs {
                 origin: entry.origin.clone(),
                 source: entry.source.clone(),
                 result: target.clone(),
+                new_extent: entry.new_extent.clone(),
             })
             .collect::<Vec<_>>();
         self.remove_result(target);
