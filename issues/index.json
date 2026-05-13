@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T12:01:18.535Z",
+  "generated_at": "2026-05-13T12:12:39.142Z",
   "counts": {
-    "total": 716,
+    "total": 717,
     "open": 5,
-    "resolved": 711,
+    "resolved": 712,
     "by_area": {
       "stdlib": {
         "total": 182,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 377,
+        "total": 378,
         "open": 0,
-        "resolved": 377
+        "resolved": 378
       },
       "resource": {
         "total": 2,
@@ -5703,6 +5703,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T095201685Z-RAW-MEMORY-SOURCE-CAPABILITY-TREATS--389248CD.md"
+    },
+    {
+      "id": "ISS-20260513T121049229Z-COMPILER-INTRINSIC-FIXTURES-STILL-US-004161B4",
+      "title": "compiler intrinsic fixtures still use pure raw-memory entries",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "tests/compiler/intrinsic.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T121049229Z-COMPILER-INTRINSIC-FIXTURES-STILL-US-004161B4.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

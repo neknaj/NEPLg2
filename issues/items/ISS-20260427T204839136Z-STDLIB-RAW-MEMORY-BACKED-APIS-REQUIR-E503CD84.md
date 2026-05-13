@@ -146,6 +146,16 @@ Stage 6 の現段階で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の module allowlist 
 
 この親 issue は引き続き open とする。source capability proof の spelling false positive は閉じたが、raw-memory-backed stdlib public API の owner token / `OwnedBuffer<T>` / safe wrapper 移行は Stage 6 の残件である。
 
+## 2026-05-13 Agent 1 compiler intrinsic fixture drift 追記
+
+`ISS-20260513T121049229Z-COMPILER-INTRINSIC-FIXTURES-STILL-US-004161B4` で、`tests/compiler/intrinsic.n.md` の古い raw memory fixture を現在の Resource IR effect boundary に合わせた。
+
+- raw `load` / `store` / `dealloc_raw` を直接検証する runtime tests は `fn main <()*>i32> ():` に変更し、pure function から unsafe memory operation を呼ぶ形を残さない。
+- raw memory を使わない size/layout tests は pure のまま維持し、`size_of` / `align_of` は現在の public layout API である `core/mem` を直接 import する。
+- `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --no-tree -o tmp/agent1-intrinsic-fixtures-after.json -j 1 --dist web/dist`: total=8, passed=8。
+
+この修正は effect checker を緩めるものではなく、Stage 5/6 の unsafe memory boundary を正しく fixture に表現したものである。親 issue は collection owner model / safe public wrapper の残件があるため open のまま継続する。
+
 ## 2026-05-13 Agent 1 Vec raw data observer 境界追記
 
 `ISS-20260513T115656872Z-VEC-DATA-OBSERVERS-EXPOSE-RAW-POINTE-674F1AFF` で、`Vec` の raw data observer が non-Copy payload に対して raw address / `MemPtr<T>` view を返せる入口を閉じた。

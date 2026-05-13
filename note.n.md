@@ -37177,6 +37177,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - root facade の doctest は allocator metadata を直接読む形から `alloc_ptr` / `dealloc_ptr` の public wrapper 契約確認へ変更した。
 - `CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE` はまだ open。raw helper の public re-export 閉鎖と safe public API migration は次の Stage 6 作業として継続する。
 
+## 2026-05-13 Agent 1 compiler intrinsic fixture effect boundary
+
+- remote main 同期後に `work/intrinsic-fixtures-effect-boundary` branch を作成した。
+- `ISS-20260513T121049229Z-COMPILER-INTRINSIC-FIXTURES-STILL-US-004161B4` を追加して解決した。
+- `tests/compiler/intrinsic.n.md` の raw `load` / `store` / `dealloc_raw` runtime tests を impure entry に変更し、現在の Resource IR effect boundary と fixture を一致させた。
+- raw memory を使わない size/layout tests は pure のまま維持し、`size_of` / `align_of` は `core/mem` を直接 import する形に更新した。
+- focused test は `tests/compiler/intrinsic.n.md` 8/8 pass。`effect.pure.calls_impure` は維持し、古い fixture のために checker を弱める変更はしていない。
+
 ## 2026-05-13 Agent 1 Copy-only collection cleanup contract
 
 - `154c3da9` の main から `agent1-collection-drop-contract` branch を作成し、remote main と一致していることを確認した。

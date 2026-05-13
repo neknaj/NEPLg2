@@ -43,7 +43,7 @@ ret: 0
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> alloc_raw 8;
     let v <i64> add <i64> cast 12345 <i64> cast 67890;
     store<i64> p v;
@@ -66,7 +66,7 @@ ret: 0
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p <i32> alloc_raw 8;
     let v <f64> cast 42;
     store<f64> p v;
@@ -109,7 +109,7 @@ ret: 0
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let high <i64> mul <i64> cast 65536 <i64> cast 65536;
     let v <i64> add high <i64> cast 7;
     let r <Result<(),i64>> Result<(),i64>::Err v;
@@ -140,7 +140,7 @@ ret: 0
 struct Z:
     tag <()>
 
-fn main <()->i32> ():
+fn main <()*>i32> ():
     let p0 <i32> alloc_raw 16;
     store_i32 p0 123;
     let z <Z> Z;
@@ -175,6 +175,7 @@ ret: 0
 #entry main
 #indent 4
 #import "core/math" as *
+#import "core/mem" as *
 
 struct Pair:
     a <i32>
