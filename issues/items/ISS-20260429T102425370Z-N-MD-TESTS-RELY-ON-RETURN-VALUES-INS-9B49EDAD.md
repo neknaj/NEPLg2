@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-05-13
+updated: 2026-05-14
 target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl"
 ---
 
@@ -330,3 +330,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\stdlib\list_collections.n.md --no-tree -o tmp\agent1-list-collections-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
 
 この issue はまだ open のまま継続する。List collections 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 HashSet stdout report migration
+
+`stdlib/tests/hashset.n.md` の HashSet focused doctest 2 件を、`ret: 0` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `len` / `contains` / duplicate insert / remove / missing remove / free-after-insert の観測結果を assertion label として stdout に残すようにした。
+- length check は `assert_eq_i32` で expected / actual を stdout に固定し、bool check は `assert` で成功条件を report へ集約した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\hashset.n.md --no-tree -o tmp\agent1-hashset-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
+
+この issue はまだ open のまま継続する。HashSet 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

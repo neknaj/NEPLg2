@@ -37642,3 +37642,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `owner_summary_variant_return.rs` は variant payload projection return の materialization と同一 target owner merge policy に集中する形へ戻した。
 - 分割後に `owner_variant_utils.rs` の隠れた line limit 超過が露出したため、`OwnerValueCondition` truth evaluation を `owner_variant_condition_truth.rs` へ分離した。
 - Resource checker responsibility policy に新 module 2 件の存在確認と line limit を追加し、line limit を緩めずに `node nodesrc/test_resource_checker_responsibility.js` を pass に戻した。
+
+## 2026-05-14 Agent 1 HashSet stdout report doctest migration
+
+- `work/hashset-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `stdlib/tests/hashset.n.md` を更新した。
+- HashSet の main / free smoke doctest を `ret:` 依存から `neplg2:test[stdio, normalize_newlines]`、`exit_code:`、deterministic `stdout:` 期待へ移行した。
+- `len` / `contains` / duplicate insert / remove / missing remove / free-after-insert の観測結果を `std/test` の `test_report_*` API に集約し、stdout diff だけで assertion 内容が追える形にした。
+- `node nodesrc/tests.js -i stdlib/tests/hashset.n.md --no-tree -o tmp/agent1-hashset-report-tests.json -j 1 --assert-io --dist web/dist` は total=2, passed=2。
