@@ -28,7 +28,7 @@
 //:
 //: ### [実装/じっそう]
 //: - `p` が true の間だけ index を[進/すす]め、最初の false または `len` に[到達/とうたつ]した位置を[返/かえ]します。
-fn vec_take_while_len <.T: Copy> <(&Vec<.T>, i32, (.T)->bool)->i32> (v, len0, p):
+pub fn vec_take_while_len <.T: Copy> <(&Vec<.T>, i32, (.T)->bool)->i32> (v, len0, p):
     let mut i <i32> 0
     let mut active <bool> true
     while and active lt i len0:
@@ -49,7 +49,7 @@ fn vec_take_while_len <.T: Copy> <(&Vec<.T>, i32, (.T)->bool)->i32> (v, len0, p)
 //:
 //: ### [目的/もくてき]
 //: - prefix / suffix copy を `get<T: Copy>` と `vec_write_at` の組み合わせに[限定/げんてい]し、raw load の結果を owner-producing API へ直接[渡/わた]さないようにします。
-fn vec_copy_range_to_raw <.T: Copy> <(&Vec<.T>, MemPtr<.T>, i32, i32)->()> (src, out_data, src_from, count):
+pub fn vec_copy_range_to_raw <.T: Copy> <(&Vec<.T>, MemPtr<.T>, i32, i32)->()> (src, out_data, src_from, count):
     let mut i <i32> 0
     while lt i count:
         do:
@@ -95,7 +95,7 @@ fn vec_copy_range_to_raw <.T: Copy> <(&Vec<.T>, MemPtr<.T>, i32, i32)->()> (src,
 //:     free<i32> ys;
 //:     if ok 0 1
 //: ```
-fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
+pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let keep_len <i32> vec_take_while_len<.T> &v src_len p
     match vec_storage::with_capacity<.T> keep_len:
@@ -150,7 +150,7 @@ fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> 
 //:             free<i32> ys;
 //:             1
 //: ```
-fn drop_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
+pub fn drop_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let drop_len <i32> vec_take_while_len<.T> &v src_len p
     let keep_len <i32> sub src_len drop_len

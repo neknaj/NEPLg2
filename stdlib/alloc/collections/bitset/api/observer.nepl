@@ -24,7 +24,7 @@
 //: ### [仕様/しよう]
 //: - `BitSet` owner は[消費/しょうひ]しません。
 //: - caller は `len` [後/ご]も同じ `BitSet` を[使/つか]い、不要になったら `free` できます。
-fn len <(&BitSet)->i32> (bs):
+pub fn len <(&BitSet)->i32> (bs):
     *field::get_ref bs "nbits"
 
 //: ## contains
@@ -45,7 +45,7 @@ fn len <(&BitSet)->i32> (bs):
 //:     free bs
 //:     if ok 1 0
 //: ```
-fn contains <(&BitSet,i32)*>Result<bool, Diag>> (bs, idx):
+pub fn contains <(&BitSet,i32)*>Result<bool, Diag>> (bs, idx):
     let nbits <i32> *field::get_ref bs "nbits"
     if:
         bitset_valid_index idx nbits

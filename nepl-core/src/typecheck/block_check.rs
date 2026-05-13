@@ -1,7 +1,7 @@
 use alloc::format;
 use alloc::vec::Vec;
 
-use crate::ast::{Block, PrefixExpr, PrefixItem, Stmt, Symbol};
+use crate::ast::{Block, PrefixExpr, PrefixItem, Stmt, Symbol, Visibility};
 use crate::diagnostic_codes::{ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::hir::{HirBlock, HirExpr, HirExprKind, HirLine};
 use crate::resolve::DefId;
@@ -113,6 +113,7 @@ impl<'a> BlockChecker<'a> {
                     let _ = self.env.insert_local(Binding {
                         name: name.name.clone(),
                         ty,
+                        visibility: Visibility::Private,
                         mutable: false,
                         no_shadow: *no_shadow,
                         defined: false,
@@ -244,6 +245,7 @@ impl<'a> BlockChecker<'a> {
                     let _ = self.env.insert_local(Binding {
                         name: f.name.name.clone(),
                         ty,
+                        visibility: Visibility::Private,
                         mutable: false,
                         no_shadow: f.no_shadow,
                         defined: true,

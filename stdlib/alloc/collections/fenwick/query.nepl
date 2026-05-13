@@ -12,7 +12,7 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
-fn fenwick_sum_prefix_storage <(&Vec<i32>,i32)->Option<i32>> (bit, r):
+pub fn fenwick_sum_prefix_storage <(&Vec<i32>,i32)->Option<i32>> (bit, r):
     let mut i <i32> r
     let mut acc <i32> 0
     let mut valid <bool> true

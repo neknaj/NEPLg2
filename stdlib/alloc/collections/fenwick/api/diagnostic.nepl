@@ -9,11 +9,11 @@
 
 #import "alloc/diag/error" as *
 
-fn fenwick_diag_len <()*>Diag> ():
+pub fn fenwick_diag_len <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "invalid fenwick length"
 
-fn fenwick_diag_index <()*>Diag> ():
+pub fn fenwick_diag_index <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "fenwick index out of bounds"
 
-fn fenwick_diag_range <()*>Diag> ():
+pub fn fenwick_diag_range <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "fenwick range out of bounds"

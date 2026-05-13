@@ -59,7 +59,7 @@ trait Serialize:
 //:
 //: ### [計算量/けいさんりょう]
 //: - impl に[依存/いそん]します。
-fn serialize <.T: Serialize> <(.T)->str> (x):
+pub fn serialize <.T: Serialize> <(.T)->str> (x):
     Serialize::serialize x
 
 impl Serialize for str:

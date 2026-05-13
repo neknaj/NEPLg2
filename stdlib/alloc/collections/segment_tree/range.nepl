@@ -11,7 +11,7 @@
 #import "core/option" as *
 #import "./storage" as *
 
-fn seg_sum_range_storage <(&Vec<i32>,i32,i32,i32)->Option<i32>> (data, base, l, r):
+pub fn seg_sum_range_storage <(&Vec<i32>,i32,i32,i32)->Option<i32>> (data, base, l, r):
     let mut left <i32> add base l
     let mut right <i32> add base r
     let mut acc_l <i32> 0

@@ -20,7 +20,7 @@
 
 //: ## pop_max
 //: [最大/さいだい][要素/ようそ]を[取/と]り[出/だ]し、[更新後/こうしんご]の heap と[値/あたい]を[返/かえ]す
-fn pop_max <.T: Ord&Copy> <(BinaryHeap<.T>)*>BinaryHeapPop<.T>> (hp):
+pub fn pop_max <.T: Ord&Copy> <(BinaryHeap<.T>)*>BinaryHeapPop<.T>> (hp):
     let len0 <i32> *field::get_ref &hp "len"
     let cap0 <i32> *field::get_ref &hp "cap"
     let items <Vec<Option<.T>>> field::get hp "items"
@@ -73,7 +73,7 @@ fn pop_max <.T: Ord&Copy> <(BinaryHeap<.T>)*>BinaryHeapPop<.T>> (hp):
 //:         Option::None:
 //:             0
 //: ```
-fn pop <.T: Ord&Copy> <(BinaryHeap<.T>)*>Option<.T>> (hp):
+pub fn pop <.T: Ord&Copy> <(BinaryHeap<.T>)*>Option<.T>> (hp):
     let p <BinaryHeapPop<.T>> pop_max<.T> hp
     let item <Option<.T>> *field::get_ref &p "item"
     free<.T> field::get p "heap"

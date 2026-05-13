@@ -55,7 +55,7 @@
 //:     let r1 <i64> add a b;
 //:     assert eq r1 b;
 //: ```
-fn add <(i64,i64)->i64> (a,b):
+pub fn add <(i64,i64)->i64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -100,7 +100,7 @@ fn add <(i64,i64)->i64> (a,b):
 //:     let r1 <i64> sub z one;
 //:     assert lt r1 z;
 //: ```
-fn sub <(i64,i64)->i64> (a,b):
+pub fn sub <(i64,i64)->i64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -145,7 +145,7 @@ fn sub <(i64,i64)->i64> (a,b):
 //:     let r1 <i64> mul z n;
 //:     assert eq r1 z;
 //: ```
-fn mul <(i64,i64)->i64> (a,b):
+pub fn mul <(i64,i64)->i64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -191,7 +191,7 @@ fn mul <(i64,i64)->i64> (a,b):
 //:     assert eq p <i64> cast -3;
 //:     assert eq q <i64> cast -3;
 //: ```
-fn div_s <(i64,i64)->i64> (a,b):
+pub fn div_s <(i64,i64)->i64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -236,7 +236,7 @@ fn div_s <(i64,i64)->i64> (a,b):
 //:     let r1 <i64> div_u a b;
 //:     assert eq r1 <i64> cast 0;
 //: ```
-fn div_u <(i64,i64)->i64> (a,b):
+pub fn div_u <(i64,i64)->i64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -281,7 +281,7 @@ fn div_u <(i64,i64)->i64> (a,b):
 //:     assert eq a <i64> cast -1;
 //:     assert eq b <i64> cast 1;
 //: ```
-fn rem_s <(i64,i64)->i64> (a,b):
+pub fn rem_s <(i64,i64)->i64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -326,7 +326,7 @@ fn rem_s <(i64,i64)->i64> (a,b):
 //:     let r1 <i64> rem_u a b;
 //:     assert eq r1 a;
 //: ```
-fn rem_u <(i64,i64)->i64> (a,b):
+pub fn rem_u <(i64,i64)->i64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a

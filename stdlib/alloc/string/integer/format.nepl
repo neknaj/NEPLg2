@@ -51,7 +51,7 @@
 //:     let ok <bool> and ok0 ok1;
 //:     if ok 1 0
 //: ```
-fn from_i32 <(i32)->str> (x):
+pub fn from_i32 <(i32)->str> (x):
     match from_i32_radix x 10:
         Result::Ok s:
             s
@@ -74,7 +74,7 @@ fn from_i32 <(i32)->str> (x):
 //
 // 計算量:
 // - O(d)  (d は指定基数での桁数)
-fn from_i32_radix <(i32,i32)->Result<str,i32>> (x, radix):
+pub fn from_i32_radix <(i32,i32)->Result<str,i32>> (x, radix):
     from_i64_radix <i64> cast x radix
 
 //: from_i64: i64 を符号付き 10 進文字列へ変換する
@@ -91,7 +91,7 @@ fn from_i32_radix <(i32,i32)->Result<str,i32>> (x, radix):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(d)
-fn from_i64 <(i64)->str> (x):
+pub fn from_i64 <(i64)->str> (x):
     match from_i64_radix x 10:
         Result::Ok s:
             s
@@ -114,7 +114,7 @@ fn from_i64 <(i64)->str> (x):
 //
 // 計算量:
 // - O(d)  (d は指定基数での桁数)
-fn from_i64_radix <(i64,i32)->Result<str,i32>> (x, radix):
+pub fn from_i64_radix <(i64,i32)->Result<str,i32>> (x, radix):
     from_i128_radix <i128> cast x radix
 
 // from_u128: u128 を 10 進文字列へ変換する
@@ -130,7 +130,7 @@ fn from_i64_radix <(i64,i32)->Result<str,i32>> (x, radix):
 //
 // 計算量:
 // - O(d)
-fn from_u128 <(u128)->str> (v):
+pub fn from_u128 <(u128)->str> (v):
     match from_u128_radix v 10:
         Result::Ok s:
             s
@@ -152,7 +152,7 @@ fn from_u128 <(u128)->str> (v):
 //
 // 計算量:
 // - O(128 * d) だが 128 は固定幅なので、桁数 d に対して実質 O(d)
-fn from_u128_radix <(u128,i32)->Result<str,i32>> (v, radix):
+pub fn from_u128_radix <(u128,i32)->Result<str,i32>> (v, radix):
     match validate_radix radix:
         Result::Err e:
             Result::Err<str,i32> e
@@ -198,7 +198,7 @@ fn from_u128_radix <(u128,i32)->Result<str,i32>> (v, radix):
 //
 // 計算量:
 // - O(d)
-fn from_i128 <(i128)->str> (v):
+pub fn from_i128 <(i128)->str> (v):
     match from_i128_radix v 10:
         Result::Ok s:
             s
@@ -219,7 +219,7 @@ fn from_i128 <(i128)->str> (v):
 //
 // 計算量:
 // - O(d)
-fn from_i128_radix <(i128,i32)->Result<str,i32>> (v, radix):
+pub fn from_i128_radix <(i128,i32)->Result<str,i32>> (v, radix):
     let neg <bool> i128_is_negative v;
     let mag <u128> i128_abs_u128 v;
     match from_u128_radix mag radix:

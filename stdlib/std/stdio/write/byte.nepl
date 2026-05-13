@@ -36,7 +36,7 @@
 //: fn main <()*>()> ():
 //:     print_byte 'A'
 //: ```
-fn print_byte <(i32)*>()> (b):
+pub fn print_byte <(i32)*>()> (b):
     match alloc_ptr<u8> 1:
         Result::Err _e:
             ()

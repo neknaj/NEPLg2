@@ -17,7 +17,7 @@
 
 //: ## Deque
 //: [両端/りょうたん] queue の owner
-struct Deque<.T>:
+pub struct Deque<.T>:
     len <i32>
     cap <i32>
     head <i32>

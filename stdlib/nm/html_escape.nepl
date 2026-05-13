@@ -40,7 +40,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-enum HtmlEscapeKind:
+pub enum HtmlEscapeKind:
     Amp
     Lt
     Gt

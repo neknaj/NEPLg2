@@ -42,7 +42,7 @@
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-fn vec_read_at <.T> <(MemPtr<.T>, i32)->.T> (data, idx):
+pub fn vec_read_at <.T> <(MemPtr<.T>, i32)->.T> (data, idx):
     load<.T> add mem_ptr_addr data mul idx size_of<.T>
 
 //: vec_write_at: `MemPtr<.T>` の[添字/そえじ][位置/いち]へ[要素/ようそ]を[書/か]く[内部/ないぶ] helper
@@ -74,5 +74,5 @@ fn vec_read_at <.T> <(MemPtr<.T>, i32)->.T> (data, idx):
 //:     free<i32> v0;
 //:     if ok 0 1
 //: ```
-fn vec_write_at <.T> <(MemPtr<.T>, i32, .T)->()> (data, idx, item):
+pub fn vec_write_at <.T> <(MemPtr<.T>, i32, .T)->()> (data, idx, item):
     store<.T> add mem_ptr_addr data mul idx size_of<.T> item

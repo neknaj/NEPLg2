@@ -33,7 +33,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(end - start)
-fn str_slice_result <(str,i32,i32)->Result<str,str>> (s, start, end):
+pub fn str_slice_result <(str,i32,i32)->Result<str,str>> (s, start, end):
     let n <i32> len s;
     let mut s0 <i32> start;
     let mut e0 <i32> end;
@@ -57,7 +57,7 @@ fn str_slice_result <(str,i32,i32)->Result<str,str>> (s, start, end):
         else:
             Result<str,str>::Err "string.slice invalid utf8 boundary"
 
-fn str_slice <(str,i32,i32)->str> (s, start, end):
+pub fn str_slice <(str,i32,i32)->str> (s, start, end):
     match str_slice_result s start end:
         Result::Ok out:
             out

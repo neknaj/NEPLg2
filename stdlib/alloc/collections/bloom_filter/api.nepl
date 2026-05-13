@@ -21,7 +21,7 @@
 #import "./storage" as *
 #import "./mutation" as *
 
-fn bloom_invalid_len_diag <()*>Diag> ():
+pub fn bloom_invalid_len_diag <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "invalid bloom filter bit length"
 
 //: ## new
@@ -44,7 +44,7 @@ fn bloom_invalid_len_diag <()*>Diag> ():
 //:     free bf
 //:     if ok 1 0
 //: ```
-fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<BloomFilter<.T,.H>, Diag>> (hasher, nbits):
+pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<BloomFilter<.T,.H>, Diag>> (hasher, nbits):
     if:
         le nbits 0
         then:
@@ -74,7 +74,7 @@ fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<BloomFilter<.T,.
 //:     free bf
 //:     if ok 1 0
 //: ```
-fn len <.T,.H> <(&BloomFilter<.T,.H>)->i32> (bf):
+pub fn len <.T,.H> <(&BloomFilter<.T,.H>)->i32> (bf):
     *field::get_ref bf "nbits"
 
 //: ## insert
@@ -99,7 +99,7 @@ fn len <.T,.H> <(&BloomFilter<.T,.H>)->i32> (bf):
 //:     free bf1
 //:     if ok 1 0
 //: ```
-fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)*>BloomFilter<.T,.H>> (bf, key):
+pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)*>BloomFilter<.T,.H>> (bf, key):
     let nbits <i32> *field::get_ref &bf "nbits"
     let bits <&Vec<u8>> field::get_ref &bf "bits"
     let hasher <.H> *field::get_ref &bf "hasher"
@@ -138,7 +138,7 @@ fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)*>Bloom
 //:     free bf2
 //:     if ok 1 0
 //: ```
-fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&BloomFilter<.T,.H>,.T)->bool> (bf, key):
+pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&BloomFilter<.T,.H>,.T)->bool> (bf, key):
     let nbits <i32> *field::get_ref bf "nbits"
     let bits <&Vec<u8>> field::get_ref bf "bits"
     let hasher <.H> *field::get_ref bf "hasher"
@@ -175,7 +175,7 @@ fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&BloomFilter<.T,.H>,.T)->bo
 //:     free bf2
 //:     if ok 0 1
 //: ```
-fn clear <.T,.H> <(BloomFilter<.T,.H>)*>BloomFilter<.T,.H>> (bf):
+pub fn clear <.T,.H> <(BloomFilter<.T,.H>)*>BloomFilter<.T,.H>> (bf):
     let nbytes <i32> *field::get_ref &bf "nbytes"
     let bits <&Vec<u8>> field::get_ref &bf "bits"
     bloom_fill_bytes bits nbytes 0
@@ -202,6 +202,6 @@ fn clear <.T,.H> <(BloomFilter<.T,.H>)*>BloomFilter<.T,.H>> (bf):
 //:     free bf;
 //:     0
 //: ```
-fn free <.T,.H> <(BloomFilter<.T,.H>)->()> (bf):
+pub fn free <.T,.H> <(BloomFilter<.T,.H>)->()> (bf):
     let bits <Vec<u8>> field::get bf "bits"
     bloom_free_bits bits

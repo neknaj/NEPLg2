@@ -36,7 +36,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(end - start)
-fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder,str>> (sb, s, start, end):
+pub fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder,str>> (sb, s, start, end):
     let n <i32> len s
     let mut s0 <i32> start
     let mut e0 <i32> end
@@ -97,14 +97,14 @@ fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder,str
 //:
 //: [計算量/けいさんりょう]:
 //: - O(d) + builder append の cost です。`d` は 10 進桁数です。
-fn sb_append_i32_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, v):
+pub fn sb_append_i32_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, v):
     match from_i32_radix v 10:
         Result::Ok text:
             sb_append_result sb text
         Result::Err _e:
             Result<StringBuilder,str>::Err "string.builder append_i32 conversion failed"
 
-fn sb_append_i32 <(StringBuilder,i32)->StringBuilder> (sb, v):
+pub fn sb_append_i32 <(StringBuilder,i32)->StringBuilder> (sb, v):
     match sb_append_i32_result sb v:
         Result::Ok next:
             next

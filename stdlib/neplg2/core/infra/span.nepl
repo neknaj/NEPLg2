@@ -32,7 +32,7 @@
 //:
 //: [目的/もくてき]:
 //: - `file_id` と `[start, end)` を[保持/ほじ]し、diagnostic label と token span の[共通/きょうつう]表現にします。
-struct SelfhostSourceSpan:
+pub struct SelfhostSourceSpan:
     file_id <i32>
     start <i32>
     end <i32>
@@ -49,25 +49,25 @@ impl Copy for SelfhostSourceSpan:
 //:
 //: [注意/ちゅうい]:
 //: - `start <= end` の[検査/けんさ]は `source_span_is_valid` で[行/おこな]います。
-fn source_span_new <(i32,i32,i32)->SelfhostSourceSpan> (file_id, start, end):
+pub fn source_span_new <(i32,i32,i32)->SelfhostSourceSpan> (file_id, start, end):
     SelfhostSourceSpan file_id start end
 
 //: source_span_empty: 0 byte range を[作/つく]る
-fn source_span_empty <(i32,i32)->SelfhostSourceSpan> (file_id, offset):
+pub fn source_span_empty <(i32,i32)->SelfhostSourceSpan> (file_id, offset):
     source_span_new file_id offset offset
 
 //: source_span_len: byte range の[長/なが]さを[返/かえ]す
-fn source_span_len <(SelfhostSourceSpan)->i32> (span):
+pub fn source_span_len <(SelfhostSourceSpan)->i32> (span):
     sub field::get span "end" field::get span "start"
 
 //: source_span_is_valid: range が[負/ふ]でなく[逆転/ぎゃくてん]していないか[返/かえ]す
-fn source_span_is_valid <(SelfhostSourceSpan)->bool> (span):
+pub fn source_span_is_valid <(SelfhostSourceSpan)->bool> (span):
     let start <i32> field::get span "start"
     let end <i32> field::get span "end"
     and ge start 0 ge end start
 
 //: source_span_contains: byte offset が range [内/ない]か[返/かえ]す
-fn source_span_contains <(SelfhostSourceSpan,i32)->bool> (span, offset):
+pub fn source_span_contains <(SelfhostSourceSpan,i32)->bool> (span, offset):
     let start <i32> field::get span "start"
     let end <i32> field::get span "end"
     and le start offset lt offset end
@@ -76,7 +76,7 @@ fn source_span_contains <(SelfhostSourceSpan,i32)->bool> (span, offset):
 //:
 //: [注意/ちゅうい]:
 //: - `file_id` は左側の span を[採用/さいよう]します。異なる file の join は parser [側/がわ]で[避/さ]けます。
-fn source_span_join <(SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostSourceSpan> (left, right):
+pub fn source_span_join <(SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostSourceSpan> (left, right):
     let file_id <i32> field::get left "file_id"
     let left_start <i32> field::get left "start"
     let left_end <i32> field::get left "end"
@@ -90,6 +90,6 @@ fn source_span_join <(SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostSourceSpan
 //:
 //: [目的/もくてき]:
 //: - 既存の Stage 0 doctest import 経路を[保/たも]ちながら、実 span 実装が[動/うご]くことも[確認/かくにん]します。
-fn selfhost_span_stage0 <()->i32> ():
+pub fn selfhost_span_stage0 <()->i32> ():
     let s <SelfhostSourceSpan> source_span_new 0 1 3
     if source_span_is_valid s 0 1

@@ -60,7 +60,7 @@ impl Copy for NmHtmlSectionState:
     fn copy_mark <(NmHtmlSectionState)->NmHtmlSectionState> (self):
         self
 
-fn nm_section_state_make <(i32,bool,bool,bool,bool,bool,bool)->NmHtmlSectionState> (current_level, open1, open2, open3, open4, open5, open6):
+pub fn nm_section_state_make <(i32,bool,bool,bool,bool,bool,bool)->NmHtmlSectionState> (current_level, open1, open2, open3, open4, open5, open6):
     NmHtmlSectionState current_level open1 open2 open3 open4 open5 open6
 
 //: nm_section_state_new: 空の section stack を[作/つく]る

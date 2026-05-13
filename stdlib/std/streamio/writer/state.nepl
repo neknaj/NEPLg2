@@ -24,14 +24,14 @@
 //: - [使/つか]い[終/お]わったら `close` で[解放/かいほう]してください。`flush` は[出力/しゅつりょく]のみを[行/おこな]い、[所有権/しょゆうけん]は[維持/いじ]します。
 //: - target kind は stdout/stderr を[保持/ほじ]し、flush [時/じ]に[対応/たいおう]する fd へ[流/なが]します。
 //: - [各/かく] writer は[独立/どくりつ]した buffer を[持/も]つため、[複数/ふくすう]の reader / writer を[同時/どうじ]に[保持/ほじ]できます。
-struct StreamWriter:
+pub struct StreamWriter:
     buf <MemPtr<u8>>
     cap <i32>
     write_len <i32>
     target <StreamWriterTargetKind>
     marker <(i32)->i32>
 
-enum StreamWriterTargetKind:
+pub enum StreamWriterTargetKind:
     Stdout
     Stderr
 
@@ -43,10 +43,10 @@ impl Copy for StreamWriterTargetKind:
     fn copy_mark <(StreamWriterTargetKind)->StreamWriterTargetKind> (target):
         target
 
-fn stream_writer_noncopy_marker <(i32)->i32> (x):
+pub fn stream_writer_noncopy_marker <(i32)->i32> (x):
     x
 
-fn stream_writer_try_free_ptr <.T> <(MemPtr<.T>,i32)*>()> (ptr, size):
+pub fn stream_writer_try_free_ptr <.T> <(MemPtr<.T>,i32)*>()> (ptr, size):
     match dealloc_ptr<.T> ptr size:
         Result::Ok _:
             ()
@@ -59,7 +59,7 @@ fn stream_writer_try_free_ptr <.T> <(MemPtr<.T>,i32)*>()> (ptr, size):
 //: ### [目的/もくてき]
 //: - `StreamWriter` は非 Copy の owning struct として buffer pointer / capacity / pending length / target enum を直接保持します。
 //: - scanner のような共有 cursor ではないため raw header を持たず、所有権は struct field として静的検査に見える形で管理します。
-fn stream_writer_new <(StreamWriterTargetKind)*>Result<StreamWriter,str>> (target):
+pub fn stream_writer_new <(StreamWriterTargetKind)*>Result<StreamWriter,str>> (target):
     match alloc_ptr<u8> 4096:
         Result::Ok buf:
             Result<StreamWriter,str>::Ok StreamWriter buf 4096 0 target @stream_writer_noncopy_marker
@@ -71,7 +71,7 @@ fn stream_writer_new <(StreamWriterTargetKind)*>Result<StreamWriter,str>> (targe
 //:
 //: ### [注意/ちゅうい]
 //: - 未 flush の[内容/ないよう]は[捨/す]てられます。[必要/ひつよう]なら[先/さき]に `flush` を[呼/よ]んでください。
-fn close <(StreamWriter)*>()> (w):
+pub fn close <(StreamWriter)*>()> (w):
     let cap <i32> *get_ref &w "cap";
     let buf <MemPtr<u8>> get w "buf";
     stream_writer_try_free_ptr<u8> buf cap
@@ -85,7 +85,7 @@ fn close <(StreamWriter)*>()> (w):
 //:
 //: ### [計算量/けいさんりょう]
 //: - [現在/げんざい]の[書/か]き[込/こ]み[長/なが]さを n として O(n) です。
-fn drain_impl <(StreamWriter)*>StreamWriter> (w):
+pub fn drain_impl <(StreamWriter)*>StreamWriter> (w):
     let write_len <i32> *get_ref &w "write_len";
     if:
         le write_len 0
@@ -106,7 +106,7 @@ fn drain_impl <(StreamWriter)*>StreamWriter> (w):
 //:
 //: ### [注意/ちゅうい]
 //: - need が capacity を[超/こ]える case は[呼/よ]び[出/だ]し[側/がわ]で[避/さ]けてください。この[版/ばん]では buffer [拡張/かくちょう]ではなく flush を[選/えら]びます。
-fn reserve_impl <(StreamWriter,i32)*>StreamWriter> (w, need):
+pub fn reserve_impl <(StreamWriter,i32)*>StreamWriter> (w, need):
     let cap <i32> *get_ref &w "cap";
     let write_len <i32> *get_ref &w "write_len";
     let required <i32> add write_len need;
@@ -122,7 +122,7 @@ fn reserve_impl <(StreamWriter,i32)*>StreamWriter> (w, need):
 //:
 //: ### [計算量/けいさんりょう]
 //: - [通常/つうじょう]は O(1) で、flush が[入/はい]ると O(len) です。
-fn push_u8_impl <(StreamWriter,i32)*>StreamWriter> (w, b):
+pub fn push_u8_impl <(StreamWriter,i32)*>StreamWriter> (w, b):
     let cap0 <i32> *get_ref &w "cap";
     if:
         le cap0 0
@@ -141,5 +141,5 @@ fn push_u8_impl <(StreamWriter,i32)*>StreamWriter> (w, b):
 
 //: ## push_newline_impl
 //: [改行/かいぎょう] `\n` を 1 byte [出力/しゅつりょく]する
-fn push_newline_impl <(StreamWriter)*>StreamWriter> (w):
+pub fn push_newline_impl <(StreamWriter)*>StreamWriter> (w):
     push_u8_impl w 10

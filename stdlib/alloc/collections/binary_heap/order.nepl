@@ -14,22 +14,22 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
-fn heap_parent <(i32)->i32> (idx):
+pub fn heap_parent <(i32)->i32> (idx):
     div_s sub idx 1 2
 
-fn heap_left <(i32)->i32> (idx):
+pub fn heap_left <(i32)->i32> (idx):
     add mul idx 2 1
 
-fn heap_right <(i32)->i32> (idx):
+pub fn heap_right <(i32)->i32> (idx):
     add mul idx 2 2
 
-fn heap_swap_slots <.T: Copy> <(&Vec<Option<.T>>,i32,i32)*>()> (items, a, b):
+pub fn heap_swap_slots <.T: Copy> <(&Vec<Option<.T>>,i32,i32)*>()> (items, a, b):
     let av <Option<.T>> heap_item_at<.T> items a
     let bv <Option<.T>> heap_item_at<.T> items b
     heap_store_slot<.T> items a bv
     heap_store_slot<.T> items b av
 
-fn heap_sift_up <.T: Ord&Copy> <(&Vec<Option<.T>>,i32)*>()> (items, start):
+pub fn heap_sift_up <.T: Ord&Copy> <(&Vec<Option<.T>>,i32)*>()> (items, start):
     let mut idx <i32> start
     let mut done <bool> false
     while and lt 0 idx not done:
@@ -51,7 +51,7 @@ fn heap_sift_up <.T: Ord&Copy> <(&Vec<Option<.T>>,i32)*>()> (items, start):
                 Option::None:
                     set done true
 
-fn heap_sift_down <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32)*>()> (items, len0, start):
+pub fn heap_sift_down <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32)*>()> (items, len0, start):
     let mut idx <i32> start
     let mut done <bool> false
     while and lt idx len0 not done:

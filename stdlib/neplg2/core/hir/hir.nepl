@@ -253,7 +253,7 @@
 #import "neplg2/core/ty/ty" as *
 
 //: SelfhostHirFunctionId: HIR module 内の function table index
-struct SelfhostHirFunctionId:
+pub struct SelfhostHirFunctionId:
     index <i32>
 
 impl Clone for SelfhostHirFunctionId:
@@ -265,7 +265,7 @@ impl Copy for SelfhostHirFunctionId:
         self
 
 //: SelfhostHirExprId: HIR module 内の expression table index
-struct SelfhostHirExprId:
+pub struct SelfhostHirExprId:
     index <i32>
 
 impl Clone for SelfhostHirExprId:
@@ -280,7 +280,7 @@ impl Copy for SelfhostHirExprId:
 //:
 //: [目的/もくてき]:
 //: - child を持つ expression だけが child table の開始 index と個数を保持します。
-struct SelfhostHirChildRangeItems:
+pub struct SelfhostHirChildRangeItems:
     first_child <i32>
     child_count <i32>
 
@@ -296,7 +296,7 @@ impl Copy for SelfhostHirChildRangeItems:
 //:
 //: [目的/もくてき]:
 //: - 空範囲を `-1` sentinel ではなく `Empty` variant として表し、payload の有無を match で確定します。
-enum SelfhostHirChildRange:
+pub enum SelfhostHirChildRange:
     Empty
     Range <SelfhostHirChildRangeItems>
 
@@ -312,7 +312,7 @@ impl Copy for SelfhostHirChildRange:
 //:
 //: [目的/もくてき]:
 //: - parameter を持つ function だけが parameter table の開始 index と個数を保持します。
-struct SelfhostHirParamRangeItems:
+pub struct SelfhostHirParamRangeItems:
     first_param <i32>
     param_count <i32>
 
@@ -328,7 +328,7 @@ impl Copy for SelfhostHirParamRangeItems:
 //:
 //: [目的/もくてき]:
 //: - 空範囲を `-1` sentinel ではなく `Empty` variant として表し、payload の有無を match で確定します。
-enum SelfhostHirParamRange:
+pub enum SelfhostHirParamRange:
     Empty
     Range <SelfhostHirParamRangeItems>
 
@@ -341,7 +341,7 @@ impl Copy for SelfhostHirParamRange:
         self
 
 //: SelfhostHirExprKind: S4 初期段階で扱う HIR expression の分類
-enum SelfhostHirExprKind:
+pub enum SelfhostHirExprKind:
     Error
     Unit
     BoolLiteral
@@ -364,7 +364,7 @@ impl Copy for SelfhostHirExprKind:
 //:
 //: [目的/もくてき]:
 //: - checker が確定した parameter name / type / mutability を function table から参照できるようにします。
-struct SelfhostHirParam:
+pub struct SelfhostHirParam:
     name <str>
     ty <SelfhostTypeId>
     mutable <bool>
@@ -386,7 +386,7 @@ impl Copy for SelfhostHirParam:
 //: [注意/ちゅうい]:
 //: - child range や literal 値は `SelfhostHirExprPayload` を match した後でだけ読めます。
 //: - 後続の symbol table / string table 導入までは、Var / Call / StrLiteral payload に `str` を直接保持します。
-struct SelfhostHirCallExpr:
+pub struct SelfhostHirCallExpr:
     name <str>
     args <SelfhostHirChildRange>
 
@@ -398,7 +398,7 @@ impl Copy for SelfhostHirCallExpr:
     fn copy_mark <(SelfhostHirCallExpr)->SelfhostHirCallExpr> (self):
         self
 
-enum SelfhostHirExprPayload:
+pub enum SelfhostHirExprPayload:
     Error
     Unit
     BoolLiteral <bool>
@@ -417,7 +417,7 @@ impl Copy for SelfhostHirExprPayload:
     fn copy_mark <(SelfhostHirExprPayload)->SelfhostHirExprPayload> (self):
         self
 
-struct SelfhostHirExpr:
+pub struct SelfhostHirExpr:
     ty <SelfhostTypeId>
     span <SelfhostSourceSpan>
     payload <SelfhostHirExprPayload>
@@ -434,7 +434,7 @@ impl Copy for SelfhostHirExpr:
 //:
 //: [目的/もくてき]:
 //: - function name、戻り値型、span、root expression、parameter table 範囲を保持します。
-struct SelfhostHirFunction:
+pub struct SelfhostHirFunction:
     name <str>
     result <SelfhostTypeId>
     span <SelfhostSourceSpan>
@@ -451,66 +451,66 @@ impl Copy for SelfhostHirFunction:
         self
 
 //: SelfhostHirModule: HIR stage の arena root
-struct SelfhostHirModule:
+pub struct SelfhostHirModule:
     functions <Vec<SelfhostHirFunction>>
     params <Vec<SelfhostHirParam>>
     exprs <Vec<SelfhostHirExpr>>
     expr_children <Vec<SelfhostHirExprId>>
 
 //: SelfhostHirModuleExprAlloc: expression 追加結果
-struct SelfhostHirModuleExprAlloc:
+pub struct SelfhostHirModuleExprAlloc:
     module <SelfhostHirModule>
     expr_id <SelfhostHirExprId>
 
 //: SelfhostHirModuleFunctionAlloc: function 追加結果
-struct SelfhostHirModuleFunctionAlloc:
+pub struct SelfhostHirModuleFunctionAlloc:
     module <SelfhostHirModule>
     function_id <SelfhostHirFunctionId>
 
 //: SelfhostHirModuleChildRangeAlloc: child range 追加結果
-struct SelfhostHirModuleChildRangeAlloc:
+pub struct SelfhostHirModuleChildRangeAlloc:
     module <SelfhostHirModule>
     child_range <SelfhostHirChildRange>
 
 //: SelfhostHirModuleParamRangeAlloc: parameter range 追加結果
-struct SelfhostHirModuleParamRangeAlloc:
+pub struct SelfhostHirModuleParamRangeAlloc:
     module <SelfhostHirModule>
     param_range <SelfhostHirParamRange>
 
 //: selfhost_hir_function_id_new: function id を[作/つく]る
-fn selfhost_hir_function_id_new <(i32)->SelfhostHirFunctionId> (index):
+pub fn selfhost_hir_function_id_new <(i32)->SelfhostHirFunctionId> (index):
     SelfhostHirFunctionId index
 
 //: selfhost_hir_function_id_index: function id の index を[返/かえ]す
-fn selfhost_hir_function_id_index <(SelfhostHirFunctionId)->i32> (function_id):
+pub fn selfhost_hir_function_id_index <(SelfhostHirFunctionId)->i32> (function_id):
     function_id.index
 
 //: selfhost_hir_expr_id_new: expression id を[作/つく]る
-fn selfhost_hir_expr_id_new <(i32)->SelfhostHirExprId> (index):
+pub fn selfhost_hir_expr_id_new <(i32)->SelfhostHirExprId> (index):
     SelfhostHirExprId index
 
 //: selfhost_hir_expr_id_pending: expression id がまだ設定されていない状態を[返/かえ]す
-fn selfhost_hir_expr_id_pending <()->Option<SelfhostHirExprId>> ():
+pub fn selfhost_hir_expr_id_pending <()->Option<SelfhostHirExprId>> ():
     none<SelfhostHirExprId>
 
 //: selfhost_hir_expr_id_assigned: expression id を Option に[包/つつ]む
-fn selfhost_hir_expr_id_assigned <(SelfhostHirExprId)->Option<SelfhostHirExprId>> (expr_id):
+pub fn selfhost_hir_expr_id_assigned <(SelfhostHirExprId)->Option<SelfhostHirExprId>> (expr_id):
     some<SelfhostHirExprId> expr_id
 
 //: selfhost_hir_expr_id_index: expression id の index を[返/かえ]す
-fn selfhost_hir_expr_id_index <(SelfhostHirExprId)->i32> (expr_id):
+pub fn selfhost_hir_expr_id_index <(SelfhostHirExprId)->i32> (expr_id):
     expr_id.index
 
 //: selfhost_hir_child_range_new: child table 範囲を[作/つく]る
-fn selfhost_hir_child_range_new <(i32,i32)->SelfhostHirChildRange> (first_child, child_count):
+pub fn selfhost_hir_child_range_new <(i32,i32)->SelfhostHirChildRange> (first_child, child_count):
     SelfhostHirChildRange::Range SelfhostHirChildRangeItems first_child child_count
 
 //: selfhost_hir_child_range_empty: child を持たない範囲を[返/かえ]す
-fn selfhost_hir_child_range_empty <()->SelfhostHirChildRange> ():
+pub fn selfhost_hir_child_range_empty <()->SelfhostHirChildRange> ():
     SelfhostHirChildRange::Empty
 
 //: selfhost_hir_child_range_first: child table の開始 index を[返/かえ]す
-fn selfhost_hir_child_range_first <(SelfhostHirChildRange)->i32> (child_range):
+pub fn selfhost_hir_child_range_first <(SelfhostHirChildRange)->i32> (child_range):
     match child_range:
         SelfhostHirChildRange::Empty:
             0
@@ -518,7 +518,7 @@ fn selfhost_hir_child_range_first <(SelfhostHirChildRange)->i32> (child_range):
             range.first_child
 
 //: selfhost_hir_child_range_count: child 数を[返/かえ]す
-fn selfhost_hir_child_range_count <(SelfhostHirChildRange)->i32> (child_range):
+pub fn selfhost_hir_child_range_count <(SelfhostHirChildRange)->i32> (child_range):
     match child_range:
         SelfhostHirChildRange::Empty:
             0
@@ -526,15 +526,15 @@ fn selfhost_hir_child_range_count <(SelfhostHirChildRange)->i32> (child_range):
             range.child_count
 
 //: selfhost_hir_param_range_new: parameter table 範囲を[作/つく]る
-fn selfhost_hir_param_range_new <(i32,i32)->SelfhostHirParamRange> (first_param, param_count):
+pub fn selfhost_hir_param_range_new <(i32,i32)->SelfhostHirParamRange> (first_param, param_count):
     SelfhostHirParamRange::Range SelfhostHirParamRangeItems first_param param_count
 
 //: selfhost_hir_param_range_empty: parameter を持たない範囲を[返/かえ]す
-fn selfhost_hir_param_range_empty <()->SelfhostHirParamRange> ():
+pub fn selfhost_hir_param_range_empty <()->SelfhostHirParamRange> ():
     SelfhostHirParamRange::Empty
 
 //: selfhost_hir_param_range_first: parameter table の開始 index を[返/かえ]す
-fn selfhost_hir_param_range_first <(SelfhostHirParamRange)->i32> (param_range):
+pub fn selfhost_hir_param_range_first <(SelfhostHirParamRange)->i32> (param_range):
     match param_range:
         SelfhostHirParamRange::Empty:
             0
@@ -542,7 +542,7 @@ fn selfhost_hir_param_range_first <(SelfhostHirParamRange)->i32> (param_range):
             range.first_param
 
 //: selfhost_hir_param_range_count: parameter 数を[返/かえ]す
-fn selfhost_hir_param_range_count <(SelfhostHirParamRange)->i32> (param_range):
+pub fn selfhost_hir_param_range_count <(SelfhostHirParamRange)->i32> (param_range):
     match param_range:
         SelfhostHirParamRange::Empty:
             0
@@ -554,7 +554,7 @@ fn selfhost_hir_param_range_count <(SelfhostHirParamRange)->i32> (param_range):
 //: [目的/もくてき]:
 //: - HIR expression kind を numeric tag に落とさず、variant を直接 match して比較します。
 //: - expression kind 追加時に比較分岐を明示的に更新する形を保ちます。
-fn selfhost_hir_expr_kind_eq <(SelfhostHirExprKind,SelfhostHirExprKind)->bool> (a, b):
+pub fn selfhost_hir_expr_kind_eq <(SelfhostHirExprKind,SelfhostHirExprKind)->bool> (a, b):
     match a:
         SelfhostHirExprKind::Error:
             match b:
@@ -738,51 +738,51 @@ fn selfhost_hir_expr_kind_eq <(SelfhostHirExprKind,SelfhostHirExprKind)->bool> (
                     true
 
 //: selfhost_hir_param_new: parameter record を[作/つく]る
-fn selfhost_hir_param_new <(str,SelfhostTypeId,bool,SelfhostSourceSpan)->SelfhostHirParam> (name, ty, mutable, span):
+pub fn selfhost_hir_param_new <(str,SelfhostTypeId,bool,SelfhostSourceSpan)->SelfhostHirParam> (name, ty, mutable, span):
     SelfhostHirParam name ty mutable span
 
 //: selfhost_hir_expr_new: expression record を[作/つく]る
-fn selfhost_hir_expr_new <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprPayload)->SelfhostHirExpr> (ty, span, payload):
+pub fn selfhost_hir_expr_new <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprPayload)->SelfhostHirExpr> (ty, span, payload):
     SelfhostHirExpr ty span payload
 
 //: selfhost_hir_expr_error: error expression record を[作/つく]る
-fn selfhost_hir_expr_error <(SelfhostTypeId,SelfhostSourceSpan)->SelfhostHirExpr> (ty, span):
+pub fn selfhost_hir_expr_error <(SelfhostTypeId,SelfhostSourceSpan)->SelfhostHirExpr> (ty, span):
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::Error
 
 //: selfhost_hir_expr_unit: unit expression record を[作/つく]る
-fn selfhost_hir_expr_unit <(SelfhostTypeId,SelfhostSourceSpan)->SelfhostHirExpr> (ty, span):
+pub fn selfhost_hir_expr_unit <(SelfhostTypeId,SelfhostSourceSpan)->SelfhostHirExpr> (ty, span):
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::Unit
 
 //: selfhost_hir_expr_bool_literal: bool literal expression record を[作/つく]る
-fn selfhost_hir_expr_bool_literal <(SelfhostTypeId,SelfhostSourceSpan,bool)->SelfhostHirExpr> (ty, span, value):
+pub fn selfhost_hir_expr_bool_literal <(SelfhostTypeId,SelfhostSourceSpan,bool)->SelfhostHirExpr> (ty, span, value):
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::BoolLiteral value
 
 //: selfhost_hir_expr_i32_literal: i32 literal expression record を[作/つく]る
-fn selfhost_hir_expr_i32_literal <(SelfhostTypeId,SelfhostSourceSpan,i32)->SelfhostHirExpr> (ty, span, value):
+pub fn selfhost_hir_expr_i32_literal <(SelfhostTypeId,SelfhostSourceSpan,i32)->SelfhostHirExpr> (ty, span, value):
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::I32Literal value
 
 //: selfhost_hir_expr_str_literal: str literal expression record を[作/つく]る
-fn selfhost_hir_expr_str_literal <(SelfhostTypeId,SelfhostSourceSpan,str)->SelfhostHirExpr> (ty, span, value):
+pub fn selfhost_hir_expr_str_literal <(SelfhostTypeId,SelfhostSourceSpan,str)->SelfhostHirExpr> (ty, span, value):
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::StrLiteral value
 
 //: selfhost_hir_expr_var: variable reference expression record を[作/つく]る
-fn selfhost_hir_expr_var <(SelfhostTypeId,SelfhostSourceSpan,str)->SelfhostHirExpr> (ty, span, name):
+pub fn selfhost_hir_expr_var <(SelfhostTypeId,SelfhostSourceSpan,str)->SelfhostHirExpr> (ty, span, name):
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::Var name
 
 //: selfhost_hir_expr_call: call expression record を[作/つく]る
-fn selfhost_hir_expr_call <(SelfhostTypeId,SelfhostSourceSpan,str,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, name, args):
+pub fn selfhost_hir_expr_call <(SelfhostTypeId,SelfhostSourceSpan,str,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, name, args):
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::Call SelfhostHirCallExpr name args
 
 //: selfhost_hir_expr_block: block expression record を[作/つく]る
-fn selfhost_hir_expr_block <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, children):
+pub fn selfhost_hir_expr_block <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, children):
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::Block children
 
 //: selfhost_hir_expr_if: if expression record を[作/つく]る
-fn selfhost_hir_expr_if <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, branches):
+pub fn selfhost_hir_expr_if <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, branches):
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::If branches
 
 //: selfhost_hir_expr_kind: expression record の kind を[返/かえ]す
-fn selfhost_hir_expr_kind <(&SelfhostHirExpr)->SelfhostHirExprKind> (expr):
+pub fn selfhost_hir_expr_kind <(&SelfhostHirExpr)->SelfhostHirExprKind> (expr):
     match *field::get_ref expr "payload":
         SelfhostHirExprPayload::Error:
             SelfhostHirExprKind::Error
@@ -804,7 +804,7 @@ fn selfhost_hir_expr_kind <(&SelfhostHirExpr)->SelfhostHirExprKind> (expr):
             SelfhostHirExprKind::If
 
 //: selfhost_hir_expr_child_range: expression record の child 範囲を[返/かえ]す
-fn selfhost_hir_expr_child_range <(&SelfhostHirExpr)->SelfhostHirChildRange> (expr):
+pub fn selfhost_hir_expr_child_range <(&SelfhostHirExpr)->SelfhostHirChildRange> (expr):
     match *field::get_ref expr "payload":
         SelfhostHirExprPayload::Error:
             selfhost_hir_child_range_empty
@@ -826,17 +826,17 @@ fn selfhost_hir_expr_child_range <(&SelfhostHirExpr)->SelfhostHirChildRange> (ex
             branches
 
 //: selfhost_hir_function_new: function record を[作/つく]る
-fn selfhost_hir_function_new <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,i32,i32)->SelfhostHirFunction> (name, result, span, root, first_param, param_count):
+pub fn selfhost_hir_function_new <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,i32,i32)->SelfhostHirFunction> (name, result, span, root, first_param, param_count):
     SelfhostHirFunction name result span root first_param param_count
 
 //: selfhost_hir_function_with_params: parameter range を持つ function record を[作/つく]る
-fn selfhost_hir_function_with_params <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,SelfhostHirParamRange)->SelfhostHirFunction> (name, result, span, root, param_range):
+pub fn selfhost_hir_function_with_params <(str,SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprId,SelfhostHirParamRange)->SelfhostHirFunction> (name, result, span, root, param_range):
     let first_param <i32> selfhost_hir_param_range_first param_range
     let param_count <i32> selfhost_hir_param_range_count param_range
     selfhost_hir_function_new name result span root first_param param_count
 
 //: selfhost_hir_function_param_range: function record の parameter 範囲を[返/かえ]す
-fn selfhost_hir_function_param_range <(SelfhostHirFunction)->SelfhostHirParamRange> (func):
+pub fn selfhost_hir_function_param_range <(SelfhostHirFunction)->SelfhostHirParamRange> (func):
     if:
         eq func.param_count 0
         then:
@@ -845,7 +845,7 @@ fn selfhost_hir_function_param_range <(SelfhostHirFunction)->SelfhostHirParamRan
             selfhost_hir_param_range_new func.first_param func.param_count
 
 //: selfhost_hir_module_new: [空/から]の HIR module を[作/つく]る
-fn selfhost_hir_module_new <()*>Result<SelfhostHirModule, StdErrorKind>> ():
+pub fn selfhost_hir_module_new <()*>Result<SelfhostHirModule, StdErrorKind>> ():
     match v::new<SelfhostHirFunction>:
         Result::Ok functions:
             match v::new<SelfhostHirParam>:
@@ -871,50 +871,50 @@ fn selfhost_hir_module_new <()*>Result<SelfhostHirModule, StdErrorKind>> ():
             Result<SelfhostHirModule, StdErrorKind>::Err e
 
 //: selfhost_hir_module_free: HIR module が所有する table を[解放/かいほう]する
-fn selfhost_hir_module_free <(SelfhostHirModule)*>()> (module):
+pub fn selfhost_hir_module_free <(SelfhostHirModule)*>()> (module):
     v::free<SelfhostHirFunction> field::get module "functions"
     v::free<SelfhostHirParam> field::get module "params"
     v::free<SelfhostHirExpr> field::get module "exprs"
     v::free<SelfhostHirExprId> field::get module "expr_children"
 
 //: selfhost_hir_module_function_len: function table の要素数を[返/かえ]す
-fn selfhost_hir_module_function_len <(&SelfhostHirModule)->i32> (module):
+pub fn selfhost_hir_module_function_len <(&SelfhostHirModule)->i32> (module):
     let functions <&Vec<SelfhostHirFunction>> field::get_ref module "functions"
     v::len<SelfhostHirFunction> functions
 
 //: selfhost_hir_module_param_len: parameter table の要素数を[返/かえ]す
-fn selfhost_hir_module_param_len <(&SelfhostHirModule)->i32> (module):
+pub fn selfhost_hir_module_param_len <(&SelfhostHirModule)->i32> (module):
     let params <&Vec<SelfhostHirParam>> field::get_ref module "params"
     v::len<SelfhostHirParam> params
 
 //: selfhost_hir_module_expr_len: expression table の要素数を[返/かえ]す
-fn selfhost_hir_module_expr_len <(&SelfhostHirModule)->i32> (module):
+pub fn selfhost_hir_module_expr_len <(&SelfhostHirModule)->i32> (module):
     let exprs <&Vec<SelfhostHirExpr>> field::get_ref module "exprs"
     v::len<SelfhostHirExpr> exprs
 
 //: selfhost_hir_module_child_len: expression child table の要素数を[返/かえ]す
-fn selfhost_hir_module_child_len <(&SelfhostHirModule)->i32> (module):
+pub fn selfhost_hir_module_child_len <(&SelfhostHirModule)->i32> (module):
     let expr_children <&Vec<SelfhostHirExprId>> field::get_ref module "expr_children"
     v::len<SelfhostHirExprId> expr_children
 
 //: selfhost_hir_module_add_expr_alloc_new: expression 追加結果を[作/つく]る
-fn selfhost_hir_module_add_expr_alloc_new <(SelfhostHirModule,SelfhostHirExprId)*>SelfhostHirModuleExprAlloc> (module, expr_id):
+pub fn selfhost_hir_module_add_expr_alloc_new <(SelfhostHirModule,SelfhostHirExprId)*>SelfhostHirModuleExprAlloc> (module, expr_id):
     SelfhostHirModuleExprAlloc module expr_id
 
 //: selfhost_hir_module_add_function_alloc_new: function 追加結果を[作/つく]る
-fn selfhost_hir_module_add_function_alloc_new <(SelfhostHirModule,SelfhostHirFunctionId)*>SelfhostHirModuleFunctionAlloc> (module, function_id):
+pub fn selfhost_hir_module_add_function_alloc_new <(SelfhostHirModule,SelfhostHirFunctionId)*>SelfhostHirModuleFunctionAlloc> (module, function_id):
     SelfhostHirModuleFunctionAlloc module function_id
 
 //: selfhost_hir_module_add_child_range_alloc_new: child range 追加結果を[作/つく]る
-fn selfhost_hir_module_add_child_range_alloc_new <(SelfhostHirModule,SelfhostHirChildRange)*>SelfhostHirModuleChildRangeAlloc> (module, child_range):
+pub fn selfhost_hir_module_add_child_range_alloc_new <(SelfhostHirModule,SelfhostHirChildRange)*>SelfhostHirModuleChildRangeAlloc> (module, child_range):
     SelfhostHirModuleChildRangeAlloc module child_range
 
 //: selfhost_hir_module_add_param_range_alloc_new: parameter range 追加結果を[作/つく]る
-fn selfhost_hir_module_add_param_range_alloc_new <(SelfhostHirModule,SelfhostHirParamRange)*>SelfhostHirModuleParamRangeAlloc> (module, param_range):
+pub fn selfhost_hir_module_add_param_range_alloc_new <(SelfhostHirModule,SelfhostHirParamRange)*>SelfhostHirModuleParamRangeAlloc> (module, param_range):
     SelfhostHirModuleParamRangeAlloc module param_range
 
 //: selfhost_hir_module_copy_params: parameter record 列を parameter table に[複製/ふくせい]する
-fn selfhost_hir_module_copy_params <(Vec<SelfhostHirParam>,&Vec<SelfhostHirParam>,i32,i32)*>Result<Vec<SelfhostHirParam>, StdErrorKind>> (out, params, n, idx):
+pub fn selfhost_hir_module_copy_params <(Vec<SelfhostHirParam>,&Vec<SelfhostHirParam>,i32,i32)*>Result<Vec<SelfhostHirParam>, StdErrorKind>> (out, params, n, idx):
     if:
         ge idx n
         then:
@@ -932,7 +932,7 @@ fn selfhost_hir_module_copy_params <(Vec<SelfhostHirParam>,&Vec<SelfhostHirParam
                     Result<Vec<SelfhostHirParam>, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
 
 //: selfhost_hir_module_copy_expr_children: child id 列を expression child table に[複製/ふくせい]する
-fn selfhost_hir_module_copy_expr_children <(Vec<SelfhostHirExprId>,&Vec<SelfhostHirExprId>,i32,i32)*>Result<Vec<SelfhostHirExprId>, StdErrorKind>> (out, children, n, idx):
+pub fn selfhost_hir_module_copy_expr_children <(Vec<SelfhostHirExprId>,&Vec<SelfhostHirExprId>,i32,i32)*>Result<Vec<SelfhostHirExprId>, StdErrorKind>> (out, children, n, idx):
     if:
         ge idx n
         then:
@@ -953,7 +953,7 @@ fn selfhost_hir_module_copy_expr_children <(Vec<SelfhostHirExprId>,&Vec<Selfhost
 //:
 //: [注意/ちゅうい]:
 //: - 失敗時、入力 module の owner はこの関数が消費し、残り table を解放してから `Err` を返します。
-fn selfhost_hir_module_add_expr <(SelfhostHirModule,SelfhostHirExpr)*>Result<SelfhostHirModuleExprAlloc, StdErrorKind>> (module, expr):
+pub fn selfhost_hir_module_add_expr <(SelfhostHirModule,SelfhostHirExpr)*>Result<SelfhostHirModuleExprAlloc, StdErrorKind>> (module, expr):
     let expr_id <SelfhostHirExprId> selfhost_hir_expr_id_new selfhost_hir_module_expr_len &module
     let functions <Vec<SelfhostHirFunction>> field::get module "functions"
     let params <Vec<SelfhostHirParam>> field::get module "params"
@@ -972,7 +972,7 @@ fn selfhost_hir_module_add_expr <(SelfhostHirModule,SelfhostHirExpr)*>Result<Sel
 //:
 //: [注意/ちゅうい]:
 //: - 失敗時、入力 module の owner はこの関数が消費し、残り table を解放してから `Err` を返します。
-fn selfhost_hir_module_add_function <(SelfhostHirModule,SelfhostHirFunction)*>Result<SelfhostHirModuleFunctionAlloc, StdErrorKind>> (module, func):
+pub fn selfhost_hir_module_add_function <(SelfhostHirModule,SelfhostHirFunction)*>Result<SelfhostHirModuleFunctionAlloc, StdErrorKind>> (module, func):
     let function_id <SelfhostHirFunctionId> selfhost_hir_function_id_new selfhost_hir_module_function_len &module
     let functions <Vec<SelfhostHirFunction>> field::get module "functions"
     let params <Vec<SelfhostHirParam>> field::get module "params"
@@ -995,7 +995,7 @@ fn selfhost_hir_module_add_function <(SelfhostHirModule,SelfhostHirFunction)*>Re
 //: [注意/ちゅうい]:
 //: - `params_to_add` はこの関数が消費し、成功・失敗どちらでも解放します。
 //: - 失敗時、入力 module の owner はこの関数が消費し、残り table を解放してから `Err` を返します。
-fn selfhost_hir_module_add_param_range <(SelfhostHirModule,Vec<SelfhostHirParam>)*>Result<SelfhostHirModuleParamRangeAlloc, StdErrorKind>> (module, params_to_add):
+pub fn selfhost_hir_module_add_param_range <(SelfhostHirModule,Vec<SelfhostHirParam>)*>Result<SelfhostHirModuleParamRangeAlloc, StdErrorKind>> (module, params_to_add):
     let param_count <i32> v::len<SelfhostHirParam> &params_to_add
     if:
         eq param_count 0
@@ -1028,7 +1028,7 @@ fn selfhost_hir_module_add_param_range <(SelfhostHirModule,Vec<SelfhostHirParam>
 //: [注意/ちゅうい]:
 //: - `children` はこの関数が消費し、成功・失敗どちらでも解放します。
 //: - 失敗時、入力 module の owner はこの関数が消費し、残り table を解放してから `Err` を返します。
-fn selfhost_hir_module_add_child_range <(SelfhostHirModule,Vec<SelfhostHirExprId>)*>Result<SelfhostHirModuleChildRangeAlloc, StdErrorKind>> (module, children):
+pub fn selfhost_hir_module_add_child_range <(SelfhostHirModule,Vec<SelfhostHirExprId>)*>Result<SelfhostHirModuleChildRangeAlloc, StdErrorKind>> (module, children):
     let child_count <i32> v::len<SelfhostHirExprId> &children
     if:
         eq child_count 0
@@ -1054,7 +1054,7 @@ fn selfhost_hir_module_add_child_range <(SelfhostHirModule,Vec<SelfhostHirExprId
                     Result<SelfhostHirModuleChildRangeAlloc, StdErrorKind>::Err e
 
 //: selfhost_hir_module_get_function: function id の record を[返/かえ]す
-fn selfhost_hir_module_get_function <(&SelfhostHirModule,SelfhostHirFunctionId)->Option<SelfhostHirFunction>> (module, function_id):
+pub fn selfhost_hir_module_get_function <(&SelfhostHirModule,SelfhostHirFunctionId)->Option<SelfhostHirFunction>> (module, function_id):
     if:
         lt function_id.index 0
         then:
@@ -1064,7 +1064,7 @@ fn selfhost_hir_module_get_function <(&SelfhostHirModule,SelfhostHirFunctionId)-
             v::get<SelfhostHirFunction> functions function_id.index
 
 //: selfhost_hir_module_get_expr: expression id の record を[返/かえ]す
-fn selfhost_hir_module_get_expr <(&SelfhostHirModule,SelfhostHirExprId)->Option<SelfhostHirExpr>> (module, expr_id):
+pub fn selfhost_hir_module_get_expr <(&SelfhostHirModule,SelfhostHirExprId)->Option<SelfhostHirExpr>> (module, expr_id):
     if:
         lt expr_id.index 0
         then:
@@ -1074,7 +1074,7 @@ fn selfhost_hir_module_get_expr <(&SelfhostHirModule,SelfhostHirExprId)->Option<
             v::get<SelfhostHirExpr> exprs expr_id.index
 
 //: selfhost_hir_module_get_param: parameter range 内の parameter record を[返/かえ]す
-fn selfhost_hir_module_get_param <(&SelfhostHirModule,SelfhostHirParamRange,i32)->Option<SelfhostHirParam>> (module, param_range, idx):
+pub fn selfhost_hir_module_get_param <(&SelfhostHirModule,SelfhostHirParamRange,i32)->Option<SelfhostHirParam>> (module, param_range, idx):
     match param_range:
         SelfhostHirParamRange::Empty:
             none<SelfhostHirParam>
@@ -1088,7 +1088,7 @@ fn selfhost_hir_module_get_param <(&SelfhostHirModule,SelfhostHirParamRange,i32)
                     v::get<SelfhostHirParam> params add range.first_param idx
 
 //: selfhost_hir_module_get_child: child range 内の expression id を[返/かえ]す
-fn selfhost_hir_module_get_child <(&SelfhostHirModule,SelfhostHirChildRange,i32)->Option<SelfhostHirExprId>> (module, child_range, idx):
+pub fn selfhost_hir_module_get_child <(&SelfhostHirModule,SelfhostHirChildRange,i32)->Option<SelfhostHirExprId>> (module, child_range, idx):
     match child_range:
         SelfhostHirChildRange::Empty:
             none<SelfhostHirExprId>
@@ -1102,7 +1102,7 @@ fn selfhost_hir_module_get_child <(&SelfhostHirModule,SelfhostHirChildRange,i32)
                     v::get<SelfhostHirExprId> expr_children add range.first_child idx
 
 //: selfhost_hir_stage0: HIR module の smoke API
-fn selfhost_hir_stage0 <()*>i32> ():
+pub fn selfhost_hir_stage0 <()*>i32> ():
     match selfhost_hir_module_new:
         Result::Ok module:
             let n <i32> selfhost_hir_module_function_len &module

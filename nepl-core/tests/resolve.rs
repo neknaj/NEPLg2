@@ -197,7 +197,7 @@ fn import_resolution_filters_alias_selective_and_open_visibility() {
 #indent 4
 #no_prelude
 
-fn allowed <()->i32> ():
+pub fn allowed <()->i32> ():
     41
 
 fn hidden <()->i32> ():
@@ -298,7 +298,7 @@ fn import_resolution_expands_qualified_merge_facade() {
 #indent 4
 #no_prelude
 
-fn allowed <()->i32> ():
+pub fn allowed <()->i32> ():
     41
 "#;
     const FACADE: &str = r#"
@@ -338,7 +338,7 @@ fn hir_user_call_keeps_def_id_for_qualified_import() {
 #indent 4
 #no_prelude
 
-fn allowed <()->i32> ():
+pub fn allowed <()->i32> ():
     41
 "#;
     let main = r#"

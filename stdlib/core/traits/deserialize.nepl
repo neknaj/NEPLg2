@@ -85,10 +85,10 @@ trait Deserialize:
 //:
 //: ### [計算量/けいさんりょう]
 //: - impl に[依存/いそん]します。
-fn deserialize <.T: Deserialize> <(str)->Result<.T, StdErrorKind>> (s):
+pub fn deserialize <.T: Deserialize> <(str)->Result<.T, StdErrorKind>> (s):
     Deserialize::deserialize s
 
-fn parse_err_to_std <.T> <(Result<.T, i32>)->Result<.T, StdErrorKind>> (r):
+pub fn parse_err_to_std <.T> <(Result<.T, i32>)->Result<.T, StdErrorKind>> (r):
     match r:
         Result::Ok v:
             Result::Ok<.T, StdErrorKind> v

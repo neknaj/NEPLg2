@@ -30,7 +30,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn reinterpret_i32_to_f32 <(i32)->f32> (a):
+pub fn reinterpret_i32_to_f32 <(i32)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -56,7 +56,7 @@ fn reinterpret_i32_to_f32 <(i32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn reinterpret_f32_to_i32 <(f32)->i32> (a):
+pub fn reinterpret_f32_to_i32 <(f32)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -82,7 +82,7 @@ fn reinterpret_f32_to_i32 <(f32)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn reinterpret_i64_to_f64 <(i64)->f64> (a):
+pub fn reinterpret_i64_to_f64 <(i64)->f64> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -108,7 +108,7 @@ fn reinterpret_i64_to_f64 <(i64)->f64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn reinterpret_f64_to_i64 <(f64)->i64> (a):
+pub fn reinterpret_f64_to_i64 <(f64)->i64> (a):
     #if[target=wasm]
     #wasm:
         local.get $a

@@ -2,7 +2,7 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::ast::Effect;
+use crate::ast::{Effect, Visibility};
 use crate::builtins::BuiltinKind;
 use crate::resolve::DefId;
 use crate::span::Span;
@@ -18,6 +18,7 @@ use super::{BoundEnv, FieldAccessorKind};
 pub(super) struct Binding {
     pub(super) name: String,
     pub(super) ty: TypeId,
+    pub(super) visibility: Visibility,
     pub(super) mutable: bool,
     pub(super) no_shadow: bool,
     pub(super) defined: bool,

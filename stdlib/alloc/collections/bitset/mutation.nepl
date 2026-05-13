@@ -11,7 +11,7 @@
 #import "core/option" as *
 #import "./storage" as *
 
-fn bitset_write_masked <(&Vec<u8>,i32,i32,bool)*>bool> (bits, byte_idx, mask, set_bit):
+pub fn bitset_write_masked <(&Vec<u8>,i32,i32,bool)*>bool> (bits, byte_idx, mask, set_bit):
     match bitset_byte_at bits byte_idx:
         Option::Some cur:
             let next <i32> if set_bit or cur mask and cur xor mask 255

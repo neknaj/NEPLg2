@@ -23,14 +23,14 @@
 #import "core/mem" as *
 #import "core/result" as *
 
-fn stdio_fd_read_mem <(i32,MemPtr<u8>,i32,MemPtr<u8>)*>i32> (fd, iov, iovcnt, nread):
+pub fn stdio_fd_read_mem <(i32,MemPtr<u8>,i32,MemPtr<u8>)*>i32> (fd, iov, iovcnt, nread):
     fd_read fd mem_ptr_addr iov iovcnt mem_ptr_addr nread
 
-fn stdio_fd_write_mem <(i32,MemPtr<u8>,i32,MemPtr<u8>)*>i32> (fd, iov, iovcnt, nwritten):
+pub fn stdio_fd_write_mem <(i32,MemPtr<u8>,i32,MemPtr<u8>)*>i32> (fd, iov, iovcnt, nwritten):
     fd_write fd mem_ptr_addr iov iovcnt mem_ptr_addr nwritten
 
 #if[target=llvm]
-fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
+pub fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
     #llvmir:
         define i64 @__linux_syscall_rw(i32 %nr, i32 %fd, i32 %ptr, i32 %len) {
         entry:
@@ -45,7 +45,7 @@ fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
         }
 
 #if[target=llvm]
-fn fd_write <(i32,i32,i32,i32)*>i32> (_fd,iovs,iovs_len,nwritten_ptr):
+pub fn fd_write <(i32,i32,i32,i32)*>i32> (_fd,iovs,iovs_len,nwritten_ptr):
     let mut total <i32> 0;
     let mut iov_idx <i32> 0;
     let mut err <i32> 0;
@@ -84,7 +84,7 @@ fn fd_write <(i32,i32,i32,i32)*>i32> (_fd,iovs,iovs_len,nwritten_ptr):
     err
 
 #if[target=llvm]
-fn fd_read <(i32,i32,i32,i32)*>i32> (_fd,iovs,iovs_len,nread_ptr):
+pub fn fd_read <(i32,i32,i32,i32)*>i32> (_fd,iovs,iovs_len,nread_ptr):
     let mut total <i32> 0;
     let mut iov_idx <i32> 0;
     let mut err <i32> 0;

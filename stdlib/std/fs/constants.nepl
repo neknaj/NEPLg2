@@ -22,49 +22,49 @@
 #import "core/cast" as *
 
 //: fs_right_fd_read: WASI rights_base の fd_read bit を返す
-fn fs_right_fd_read <()->i64> ():
+pub fn fs_right_fd_read <()->i64> ():
     <i64> cast 2
 
 //: fs_right_fd_write: WASI rights_base の fd_write bit を返す
-fn fs_right_fd_write <()->i64> ():
+pub fn fs_right_fd_write <()->i64> ():
     <i64> cast 64
 
 //: fs_right_fd_readdir: WASI rights_base の fd_readdir bit を返す
-fn fs_right_fd_readdir <()->i64> ():
+pub fn fs_right_fd_readdir <()->i64> ():
     <i64> cast 16384
 
 //: fs_oflags_create_truncate: WASI oflags の create + truncate bit を返す
-fn fs_oflags_create_truncate <()->i32> ():
+pub fn fs_oflags_create_truncate <()->i32> ():
     9
 
 //: fs_oflags_directory: WASI oflags の directory bit を返す
-fn fs_oflags_directory <()->i32> ():
+pub fn fs_oflags_directory <()->i32> ():
     2
 
 //: fs_errno_inval: WASI EINVAL 相当の errno を返す
-fn fs_errno_inval <()->i32> ():
+pub fn fs_errno_inval <()->i32> ():
     28
 
 //: fs_errno_notcapable: WASI ENOTCAPABLE 相当の errno を返す
-fn fs_errno_notcapable <()->i32> ():
+pub fn fs_errno_notcapable <()->i32> ():
     76
 
 //: fs_errno_ilseq: WASI EILSEQ 相当の errno を返す
-fn fs_errno_ilseq <()->i32> ():
+pub fn fs_errno_ilseq <()->i32> ():
     84
 
 //: fs_filetype_directory: WASI directory filetype を返す
-fn fs_filetype_directory <()->i32> ():
+pub fn fs_filetype_directory <()->i32> ():
     3
 
 //: fs_filetype_regular_file: WASI regular file filetype を返す
-fn fs_filetype_regular_file <()->i32> ():
+pub fn fs_filetype_regular_file <()->i32> ():
     4
 
 //: fs_dirent_header_size: WASI dirent header size を返す
-fn fs_dirent_header_size <()->i32> ():
+pub fn fs_dirent_header_size <()->i32> ():
     24
 
 //: fs_readdir_buf_size: fd_readdir の作業 buffer size を返す
-fn fs_readdir_buf_size <()->i32> ():
+pub fn fs_readdir_buf_size <()->i32> ():
     65536

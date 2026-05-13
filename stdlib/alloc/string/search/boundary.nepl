@@ -29,7 +29,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn str_utf8_is_boundary <(str,i32)->bool> (s, idx):
+pub fn str_utf8_is_boundary <(str,i32)->bool> (s, idx):
     let n <i32> len s;
     if:
         lt idx 0

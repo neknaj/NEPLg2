@@ -22,7 +22,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n^2)（文字列再確保の影響を含む）
-fn repeat_text <(str,i32)*>str> (s, n):
+pub fn repeat_text <(str,i32)*>str> (s, n):
     if:
         lt n 1
         then:

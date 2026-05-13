@@ -40,7 +40,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn eq_u8 <(u8,u8)->bool> (a,b):
+pub fn eq_u8 <(u8,u8)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -68,7 +68,7 @@ fn eq_u8 <(u8,u8)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ne_u8 <(u8,u8)->bool> (a,b):
+pub fn ne_u8 <(u8,u8)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -96,7 +96,7 @@ fn ne_u8 <(u8,u8)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn lt_u_u8 <(u8,u8)->bool> (a,b):
+pub fn lt_u_u8 <(u8,u8)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -124,7 +124,7 @@ fn lt_u_u8 <(u8,u8)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn le_u_u8 <(u8,u8)->bool> (a,b):
+pub fn le_u_u8 <(u8,u8)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -152,7 +152,7 @@ fn le_u_u8 <(u8,u8)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn gt_u_u8 <(u8,u8)->bool> (a,b):
+pub fn gt_u_u8 <(u8,u8)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -180,7 +180,7 @@ fn gt_u_u8 <(u8,u8)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ge_u_u8 <(u8,u8)->bool> (a,b):
+pub fn ge_u_u8 <(u8,u8)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -196,25 +196,25 @@ fn ge_u_u8 <(u8,u8)->bool> (a,b):
         }
 
 //: eq: u8 の等値比較
-fn eq <(u8,u8)->bool> (a,b):
+pub fn eq <(u8,u8)->bool> (a,b):
     eq_u8 a b
 
 //: ne: u8 の非等値比較
-fn ne <(u8,u8)->bool> (a,b):
+pub fn ne <(u8,u8)->bool> (a,b):
     ne_u8 a b
 
 //: lt_u: u8 の符号なし小なり比較
-fn lt_u <(u8,u8)->bool> (a,b):
+pub fn lt_u <(u8,u8)->bool> (a,b):
     lt_u_u8 a b
 
 //: le_u: u8 の符号なし以下比較
-fn le_u <(u8,u8)->bool> (a,b):
+pub fn le_u <(u8,u8)->bool> (a,b):
     le_u_u8 a b
 
 //: gt_u: u8 の符号なし大なり比較
-fn gt_u <(u8,u8)->bool> (a,b):
+pub fn gt_u <(u8,u8)->bool> (a,b):
     gt_u_u8 a b
 
 //: ge_u: u8 の符号なし以上比較
-fn ge_u <(u8,u8)->bool> (a,b):
+pub fn ge_u <(u8,u8)->bool> (a,b):
     ge_u_u8 a b

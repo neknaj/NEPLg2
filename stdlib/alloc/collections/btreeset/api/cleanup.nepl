@@ -26,6 +26,6 @@
 //:     free s;
 //:     0
 //: ```
-fn free <.T> <(BTreeSet<.T>)->()> (set0):
+pub fn free <.T> <(BTreeSet<.T>)->()> (set0):
     let storage <BTreeSetStorage<.T>> field::get set0 "storage"
     btreeset_free_storage<.T> storage

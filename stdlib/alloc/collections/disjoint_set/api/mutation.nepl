@@ -42,7 +42,7 @@
 //:     free dsu2
 //:     if ok 1 0
 //: ```
-fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, DisjointSetUpdateError>> (dsu, a, b):
+pub fn union <(DisjointSet,i32,i32)*>Result<DisjointSet, DisjointSetUpdateError>> (dsu, a, b):
     let n <i32> *field::get_ref &dsu "n"
     if:
         and and le 0 a lt a n and le 0 b lt b n

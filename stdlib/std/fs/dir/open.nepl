@@ -27,7 +27,7 @@
 //:
 //: 計算量:
 //: - path 正規化 O(n) と host open 1 回
-fn fs_open_dir <(str)*>Result<i32,i32>> (path):
+pub fn fs_open_dir <(str)*>Result<i32,i32>> (path):
     match fs_normalize_relative path:
         Result::Err e:
             Result<i32,i32>::Err e

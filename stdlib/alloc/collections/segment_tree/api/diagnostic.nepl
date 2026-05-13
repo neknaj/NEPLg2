@@ -9,11 +9,11 @@
 
 #import "alloc/diag/error" as *
 
-fn seg_diag_len <()*>Diag> ():
+pub fn seg_diag_len <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "invalid segment tree length"
 
-fn seg_diag_index <()*>Diag> ():
+pub fn seg_diag_index <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "segment tree index out of bounds"
 
-fn seg_diag_range <()*>Diag> ():
+pub fn seg_diag_range <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "segment tree range out of bounds"

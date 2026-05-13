@@ -14,7 +14,7 @@
 //:
 //: [目的/もくてき]:
 //: - BOM 後の NUL と ASCII 空白を、decimal code ではなく文字として明示します。
-fn stream_scanner_is_leading_skip_byte <(i32)->bool> (byte):
+pub fn stream_scanner_is_leading_skip_byte <(i32)->bool> (byte):
     match byte:
         '\0':
             true
@@ -30,7 +30,7 @@ fn stream_scanner_is_leading_skip_byte <(i32)->bool> (byte):
             false
 
 //: stream_scanner_is_token_separator: token を区切る ASCII 空白か判定する
-fn stream_scanner_is_token_separator <(i32)->bool> (byte):
+pub fn stream_scanner_is_token_separator <(i32)->bool> (byte):
     match byte:
         ' ':
             true
@@ -44,15 +44,15 @@ fn stream_scanner_is_token_separator <(i32)->bool> (byte):
             false
 
 //: stream_scanner_is_ascii_digit: ASCII digit か判定する
-fn stream_scanner_is_ascii_digit <(i32)->bool> (byte):
+pub fn stream_scanner_is_ascii_digit <(i32)->bool> (byte):
     and ge byte '0' le byte '9'
 
 //: stream_scanner_digit_value: ASCII digit byte を 0..9 の値へ変換する
-fn stream_scanner_digit_value <(i32)->i32> (byte):
+pub fn stream_scanner_digit_value <(i32)->i32> (byte):
     sub byte '0'
 
 //: stream_scanner_is_exponent_marker: 浮動小数点 token の指数 marker か判定する
-fn stream_scanner_is_exponent_marker <(i32)->bool> (byte):
+pub fn stream_scanner_is_exponent_marker <(i32)->bool> (byte):
     match byte:
         'e':
             true
@@ -61,7 +61,7 @@ fn stream_scanner_is_exponent_marker <(i32)->bool> (byte):
         _:
             false
 
-fn stream_scanner_skip_ws_header <(MemPtr<u8>)*>()> (header):
+pub fn stream_scanner_skip_ws_header <(MemPtr<u8>)*>()> (header):
     let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
     let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;
     let mut p <i32> stream_scanner_load_header header StreamScannerHeaderField::Pos;

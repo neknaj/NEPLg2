@@ -80,7 +80,7 @@ pub fn selfhost_cli_string_match_key <(str)->i32> (value):
 //:
 //: [目的/もくてき]:
 //: - hash dispatch で既知 option に当たらなかった場合、`-` prefix の有無だけで unknown option と positional input を分けます。
-fn selfhost_cli_arg_kind_fallback <(str)->SelfhostCliArgKind> (arg):
+pub fn selfhost_cli_arg_kind_fallback <(str)->SelfhostCliArgKind> (arg):
     match str_starts_with arg "-":
         true:
             SelfhostCliArgKind::UnknownOption
@@ -91,7 +91,7 @@ fn selfhost_cli_arg_kind_fallback <(str)->SelfhostCliArgKind> (arg):
 //:
 //: [目的/もくてき]:
 //: - hash key の衝突で別文字列が同じ arm に入っても、`str_eq` が一致した場合だけ既知 option として扱います。
-fn selfhost_cli_arg_kind_if_eq <(str,str,SelfhostCliArgKind)->SelfhostCliArgKind> (arg, expected, kind):
+pub fn selfhost_cli_arg_kind_if_eq <(str,str,SelfhostCliArgKind)->SelfhostCliArgKind> (arg, expected, kind):
     match str_eq arg expected:
         true:
             kind
@@ -143,7 +143,7 @@ pub fn selfhost_cli_arg_kind <(str)->SelfhostCliArgKind> (arg):
             selfhost_cli_arg_kind_fallback arg
 
 //: selfhost_cli_parse_target_if_eq: target hash arm の候補を実文字列で検証する
-fn selfhost_cli_parse_target_if_eq <(str,str,SelfhostCliTarget)->Result<SelfhostCliTarget,SelfhostCliErrorKind>> (value, expected, target):
+pub fn selfhost_cli_parse_target_if_eq <(str,str,SelfhostCliTarget)->Result<SelfhostCliTarget,SelfhostCliErrorKind>> (value, expected, target):
     match str_eq value expected:
         true:
             ok<SelfhostCliTarget,SelfhostCliErrorKind> target
@@ -176,7 +176,7 @@ pub fn selfhost_cli_parse_target_value <(str)->Result<SelfhostCliTarget,Selfhost
             err<SelfhostCliTarget,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidTarget
 
 //: selfhost_cli_parse_emit_if_eq: emit hash arm の候補を実文字列で検証する
-fn selfhost_cli_parse_emit_if_eq <(str,str,SelfhostCliEmit)->Result<SelfhostCliEmit,SelfhostCliErrorKind>> (value, expected, emit):
+pub fn selfhost_cli_parse_emit_if_eq <(str,str,SelfhostCliEmit)->Result<SelfhostCliEmit,SelfhostCliErrorKind>> (value, expected, emit):
     match str_eq value expected:
         true:
             ok<SelfhostCliEmit,SelfhostCliErrorKind> emit
@@ -206,7 +206,7 @@ pub fn selfhost_cli_parse_emit_value <(str)->Result<SelfhostCliEmit,SelfhostCliE
             err<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
 
 //: selfhost_cli_parse_profile_if_eq: profile hash arm の候補を実文字列で検証する
-fn selfhost_cli_parse_profile_if_eq <(str,str,SelfhostCliProfile)->Result<SelfhostCliProfile,SelfhostCliErrorKind>> (value, expected, profile):
+pub fn selfhost_cli_parse_profile_if_eq <(str,str,SelfhostCliProfile)->Result<SelfhostCliProfile,SelfhostCliErrorKind>> (value, expected, profile):
     match str_eq value expected:
         true:
             ok<SelfhostCliProfile,SelfhostCliErrorKind> profile

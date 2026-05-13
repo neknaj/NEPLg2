@@ -48,7 +48,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - file read [失敗/しっぱい]や[確保/かくほ][失敗/しっぱい]は `Result::Err` に[丸/まる]めます。
-fn open <(ReadStream)*>Result<StreamScanner,str>> (target):
+pub fn open <(ReadStream)*>Result<StreamScanner,str>> (target):
     match target:
         ReadStream::Stdio:
             scanner_from_bytes stdio_read_all_bytes
@@ -69,19 +69,19 @@ fn open <(ReadStream)*>Result<StreamScanner,str>> (target):
 
 //: ## skip_ws
 //: ASCII [空白/くうはく]と[先頭/せんとう] BOM を[飛/と]ばす
-fn skip_ws <(StreamScanner)*>()> (sc):
+pub fn skip_ws <(StreamScanner)*>()> (sc):
     stream_scanner_skip_ws_header get sc "header"
 
 //: ## is_eof
 //: token が[残/のこ]っていないか[確認/かくにん]する
-fn is_eof <(StreamScanner)*>bool> (sc):
+pub fn is_eof <(StreamScanner)*>bool> (sc):
     let header <MemPtr<u8>> get sc "header";
     stream_scanner_skip_ws_header header;
     ge stream_scanner_load_header header StreamScannerHeaderField::Pos stream_scanner_load_header header StreamScannerHeaderField::Len
 
 //: ## skip
 //: [現在/げんざい] token を 1 [個/こ][消費/しょうひ]する
-fn skip <(StreamScanner)*>()> (sc):
+pub fn skip <(StreamScanner)*>()> (sc):
     let header <MemPtr<u8>> get sc "header";
     stream_scanner_skip_ws_header header;
     let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
@@ -106,7 +106,7 @@ fn skip <(StreamScanner)*>()> (sc):
 
 //: ## scan_token_impl
 //: [次/つぎ]の token を `str` として[読/よ]む
-fn scan_token_impl <(StreamScanner)*>str> (sc):
+pub fn scan_token_impl <(StreamScanner)*>str> (sc):
     let header <MemPtr<u8>> get sc "header";
     stream_scanner_skip_ws_header header;
     let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
@@ -150,30 +150,30 @@ fn scan_token_impl <(StreamScanner)*>str> (sc):
 //:
 //: ### [注意/ちゅうい]
 //: - [受/う]け[側/がわ]の[型注釈/かたちゅうしゃく]または式の期待型で[読/よ]む[型/かた]を[決/き]めます。
-fn read <(StreamScanner)*>str> (sc):
+pub fn read <(StreamScanner)*>str> (sc):
     scan_token_impl sc
 
-fn read <(StreamScanner)*>i32> (sc):
+pub fn read <(StreamScanner)*>i32> (sc):
     scan_i32_impl sc
 
-fn read <(StreamScanner)*>i64> (sc):
+pub fn read <(StreamScanner)*>i64> (sc):
     scan_i64_impl sc
 
-fn read <(StreamScanner)*>u32> (sc):
+pub fn read <(StreamScanner)*>u32> (sc):
     scan_u32_impl sc
 
-fn read <(StreamScanner)*>u64> (sc):
+pub fn read <(StreamScanner)*>u64> (sc):
     scan_u64_impl sc
 
-fn read <(StreamScanner)*>f64> (sc):
+pub fn read <(StreamScanner)*>f64> (sc):
     scan_f64_impl sc
 
-fn read <(StreamScanner)*>f32> (sc):
+pub fn read <(StreamScanner)*>f32> (sc):
     scan_f32_impl sc
 
 //: ## close
 //: `StreamScanner` を[閉/と]じて[内部/ないぶ] buffer を[解放/かいほう]する
-fn close <(StreamScanner)*>()> (sc):
+pub fn close <(StreamScanner)*>()> (sc):
     let header <MemPtr<u8>> get sc "header";
     let buf_addr <i32> stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
     let len <i32> stream_scanner_load_header header StreamScannerHeaderField::Len;

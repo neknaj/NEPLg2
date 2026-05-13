@@ -35,7 +35,7 @@
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
-fn len <.K,.V> <(&BTreeMap<.K,.V>)->i32> (hm):
+pub fn len <.K,.V> <(&BTreeMap<.K,.V>)->i32> (hm):
     *field::get_ref hm "len"
 
 //: ## contains
@@ -56,7 +56,7 @@ fn len <.K,.V> <(&BTreeMap<.K,.V>)->i32> (hm):
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
-fn contains <.K: Ord&Copy,.V: Copy> <(&BTreeMap<.K,.V>,.K)->bool> (hm, key):
+pub fn contains <.K: Ord&Copy,.V: Copy> <(&BTreeMap<.K,.V>,.K)->bool> (hm, key):
     let len0 <i32> *field::get_ref hm "len"
     let storage <&BTreeMapStorage<.K,.V>> field::get_ref hm "storage"
     let keys <&Vec<Option<.K>>> btreemap_storage_keys<.K,.V> storage
@@ -86,7 +86,7 @@ fn contains <.K: Ord&Copy,.V: Copy> <(&BTreeMap<.K,.V>,.K)->bool> (hm, key):
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
-fn get <.K: Ord&Copy,.V: Copy> <(&BTreeMap<.K,.V>,.K)->Option<.V>> (hm, key):
+pub fn get <.K: Ord&Copy,.V: Copy> <(&BTreeMap<.K,.V>,.K)->Option<.V>> (hm, key):
     let len0 <i32> *field::get_ref hm "len"
     let storage <&BTreeMapStorage<.K,.V>> field::get_ref hm "storage"
     let keys <&Vec<Option<.K>>> btreemap_storage_keys<.K,.V> storage

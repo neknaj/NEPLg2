@@ -47,7 +47,7 @@ trait Debug:
 //:
 //: [計算量/けいさんりょう]:
 //: - impl に[依存/いぞん]します。
-fn debug_string <.T: Debug> <(.T)->str> (x):
+pub fn debug_string <.T: Debug> <(.T)->str> (x):
     Debug::debug_string x
 
 impl Debug for str:

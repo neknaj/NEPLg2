@@ -16,7 +16,7 @@
 //:
 //: ### [目的/もくてき]
 //: - empty / full / tombstone を enum として[表/あらわ]し、`match` で[分岐/ぶんき]します。
-enum HashSetBucketState:
+pub enum HashSetBucketState:
     Empty
     Full
     Tombstone
@@ -34,7 +34,7 @@ impl Copy for HashSetBucketState:
 //:
 //: ### [目的/もくてき]
 //: - tombstone を[再利用/さいりよう]した[場合/ばあい]だけ tombstone count を[減/へ]らせるようにします。
-enum HashSetInsertSlotState:
+pub enum HashSetInsertSlotState:
     EmptySlot
     TombstoneSlot
 
@@ -51,7 +51,7 @@ impl Copy for HashSetInsertSlotState:
 //:
 //: ### [目的/もくてき]
 //: - linear probing の[結果/けっか]を index と slot state の組として[返/かえ]します。
-struct HashSetInsertSlot:
+pub struct HashSetInsertSlot:
     index <i32>
     state <HashSetInsertSlotState>
 
@@ -63,7 +63,7 @@ struct HashSetInsertSlot:
 //:
 //: ### [注意/ちゅうい]
 //: - `states.len == keys.len == cap` を内部不変条件とします。
-struct HashSetStorage<.T>:
+pub struct HashSetStorage<.T>:
     states <Vec<HashSetBucketState>>
     keys <Vec<Option<.T>>>
 
@@ -72,7 +72,7 @@ struct HashSetStorage<.T>:
 //:
 //: ### [目的/もくてき]
 //: - [要素数/ようそすう]・[容量/ようりょう]・tombstone 数・storage・hasher をまとめて[保持/ほじ]します。
-struct HashSet<.T,.H>:
+pub struct HashSet<.T,.H>:
     count <i32>
     cap <i32>
     tombstones <i32>

@@ -46,7 +46,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [未対応/みたいおう] target は `Result::Err` を[返/かえ]します。
-fn open <(WriteStream)*>Result<StreamWriter,str>> (target):
+pub fn open <(WriteStream)*>Result<StreamWriter,str>> (target):
     match target:
         WriteStream::Stdio:
             match stream_writer_new StreamWriterTargetKind::Stdout:
@@ -106,27 +106,27 @@ impl StreamWritable for f32:
 //:
 //: ### [目的/もくてき]
 //: - `StreamWriter` の text / [数値/すうち][出力/しゅつりょく]を trait dispatch で 1 [個/こ]の `write` へ[集約/しゅうやく]し、公開面に型 suffix を[残/のこ]しません。
-fn write <.T: StreamWritable> <(StreamWriter,.T)*>StreamWriter> (w, value):
+pub fn write <.T: StreamWritable> <(StreamWriter,.T)*>StreamWriter> (w, value):
     StreamWritable::append w value
 
 //: ## write
 //: pipe [終端/しゅうたん]から `StreamWriter` へ[追記/ついき]する overload
-fn write <.T: StreamWritable> <(.T,StreamWriter)*>StreamWriter> (value, w):
+pub fn write <.T: StreamWritable> <(.T,StreamWriter)*>StreamWriter> (value, w):
     StreamWritable::append w value
 
 //: ## writeln
 //: `StreamWriter` へ[追記/ついき]して[改行/かいぎょう]する
-fn writeln <.T: StreamWritable> <(StreamWriter,.T)*>StreamWriter> (w, value):
+pub fn writeln <.T: StreamWritable> <(StreamWriter,.T)*>StreamWriter> (w, value):
     let w1 <StreamWriter> StreamWritable::append w value;
     push_newline_impl w1
 
 //: ## writeln
 //: pipe [終端/しゅうたん]から `StreamWriter` へ[追記/ついき]して[改行/かいぎょう]する overload
-fn writeln <.T: StreamWritable> <(.T,StreamWriter)*>StreamWriter> (value, w):
+pub fn writeln <.T: StreamWritable> <(.T,StreamWriter)*>StreamWriter> (value, w):
     let w1 <StreamWriter> StreamWritable::append w value;
     push_newline_impl w1
 
 //: ## flush
 //: `StreamWriter` の[保留中/ほりゅうちゅう][出力/しゅつりょく]を[反映/はんえい]する[共通名/きょうつうめい] overload
-fn flush <(StreamWriter)*>StreamWriter> (w):
+pub fn flush <(StreamWriter)*>StreamWriter> (w):
     drain_impl w

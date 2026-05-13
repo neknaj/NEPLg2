@@ -22,5 +22,5 @@
 //: fn main <()->i32> ():
 //:     selfhost_checker_stage0
 //: ```
-fn selfhost_checker_stage0 <()->i32> ():
+pub fn selfhost_checker_stage0 <()->i32> ():
     0

@@ -31,7 +31,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32, StdErrorKind>> (fd, iov, nread, data, data_len):
+pub fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32, StdErrorKind>> (fd, iov, nread, data, data_len):
     if:
         lt data_len 0
         then:
@@ -76,7 +76,7 @@ fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result
 //:
 //: [計算量/けいさんりょう]:
 //: - allocator の shrink に依存します。copy が発生する場合は O(data_len) です。
-fn stdio_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf, StdErrorKind>> (buf, cap, data_len):
+pub fn stdio_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf, StdErrorKind>> (buf, cap, data_len):
     if:
         or or lt cap 0 lt data_len 0 gt data_len cap
         then:

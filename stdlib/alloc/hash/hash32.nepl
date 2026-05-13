@@ -26,7 +26,7 @@
 //:
 //: ### [目的/もくてき]
 //: - hash の[下位/かい] bit まで[偏/かたよ]りを[散/ちら]し、bucket [選択/せんたく]での[偏在/へんざい]を[減/へ]らします。
-fn mix <(i32)->i32> (x):
+pub fn mix <(i32)->i32> (x):
     let x_s16 <i32> shr_u x 16
     let h1 <i32> xor x x_s16
     let h2 <i32> mul h1 -2048144789
@@ -36,7 +36,7 @@ fn mix <(i32)->i32> (x):
     let h4_s16 <i32> shr_u h4 16
     xor h4 h4_s16
 
-fn hash_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
+pub fn hash_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
     if:
         ge idx n
         then h
@@ -48,24 +48,24 @@ fn hash_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
 
 //: ## hash32
 //: `bool` を 32-bit ハッシュへ[変換/へんかん]する
-fn hash32 <(bool)->i32> (key):
+pub fn hash32 <(bool)->i32> (key):
     let k <i32> cast key
     mix xor k -1640531527
 
 //: ## hash32
 //: `i32` を 32-bit ハッシュへ[変換/へんかん]する
-fn hash32 <(i32)->i32> (key):
+pub fn hash32 <(i32)->i32> (key):
     mix xor key -1640531527
 
 //: ## hash32
 //: `u8` を 32-bit ハッシュへ[変換/へんかん]する
-fn hash32 <(u8)->i32> (key):
+pub fn hash32 <(u8)->i32> (key):
     let k <i32> cast key
     mix xor k -1640531527
 
 //: ## hash32
 //: `i64` を 32-bit ハッシュへ[変換/へんかん]する
-fn hash32 <(i64)->i32> (key):
+pub fn hash32 <(i64)->i32> (key):
     let lo <i32> cast key
     let hi64 <i64> shr_u key <i64> cast 32
     let hi <i32> cast hi64
@@ -74,7 +74,7 @@ fn hash32 <(i64)->i32> (key):
 
 //: ## hash32
 //: `str` を 32-bit ハッシュへ[変換/へんかん]する
-fn hash32 <(str)->i32> (s):
+pub fn hash32 <(str)->i32> (s):
     let n <i32> string::len s
     let h0 <Fnv1a32> new_fnv1a32
     let h1 <Fnv1a32> hash_bytes_loop s n 0 h0

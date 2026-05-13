@@ -21,7 +21,7 @@
 //: - `cap = 0` の empty storage と、実際に[確保/かくほ]された buffer owner を enum として[分/わ]けます。
 //: - `mem_ptr_wrap 0` を owner sentinel として[使/つか]わず、`match` の[網羅性/もうらせい]で storage state を[扱/あつか]います。
 //: - backing pointer は `Vec.data` field として[保持/ほじ]し、Resource IR が raw memory cell を[追跡/ついせき]できる[形/かたち]を[保/たも]ちます。
-enum VecStorageState:
+pub enum VecStorageState:
     Empty
     Owned
 
@@ -64,7 +64,7 @@ impl Copy for VecStorageState:
 //:     free<i32> moved;
 //:     0
 //: ```
-struct Vec<.T>:
+pub struct Vec<.T>:
     len <i32>
     cap <i32>
     storage <VecStorageState>
@@ -86,7 +86,7 @@ struct Vec<.T>:
 //:
 //: ### [計算量/けいさんりょう]
 //: - struct [自体/じたい]の[生成/せいせい]と field [読/よ]み[取/と]りは O(1) です。
-struct VecDataLen<.T>:
+pub struct VecDataLen<.T>:
     data <MemPtr<.T>>
     len <i32>
 
@@ -96,7 +96,7 @@ struct VecDataLen<.T>:
 //: ### [目的/もくてき]
 //: - `.Pair` の数値 field ではなく、`vec` と `item` を名前付き field として Resource IR に渡します。
 //: - 返却された `vec` owner を呼び出し側が明示的に回収できます。
-struct VecPop<.T>:
+pub struct VecPop<.T>:
     vec <Vec<.T>>
     item <Option<.T>>
 
@@ -106,6 +106,6 @@ struct VecPop<.T>:
 //: ### [目的/もくてき]
 //: - `matched` は predicate が true の[要素/ようそ]、`rest` は false の[要素/ようそ]を[保持/ほじ]します。
 //: - `.Pair` の位置番号ではなく名前付き field にして、owner の[解放/かいほう]漏れを静的検査で[見/み]える形にします。
-struct VecPartition<.T>:
+pub struct VecPartition<.T>:
     matched <Vec<.T>>
     rest <Vec<.T>>

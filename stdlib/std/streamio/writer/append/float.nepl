@@ -17,7 +17,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `NaN` / `inf` は[未対応/みたいおう]です。
-fn append_f64_fixed_impl <(StreamWriter,f64,i32)*>StreamWriter> (w, v, precision):
+pub fn append_f64_fixed_impl <(StreamWriter,f64,i32)*>StreamWriter> (w, v, precision):
     let mut x <f64> v;
     let zero <f64> cast 0;
     let is_neg <bool> lt x zero;
@@ -60,16 +60,16 @@ fn append_f64_fixed_impl <(StreamWriter,f64,i32)*>StreamWriter> (w, v, precision
 
 //: ## append_f64_impl
 //: `f64` を[小数点以下/しょうすうてんいか] 6 [桁/けた]で[追記/ついき]する
-fn append_f64_impl <(StreamWriter,f64)*>StreamWriter> (w, v):
+pub fn append_f64_impl <(StreamWriter,f64)*>StreamWriter> (w, v):
     append_f64_fixed_impl w v 6
 
 //: ## append_f32_fixed_impl
 //: `f32` を[固定/こてい][小数点/しょうすうてん]で[追記/ついき]する
-fn append_f32_fixed_impl <(StreamWriter,f32,i32)*>StreamWriter> (w, v, precision):
+pub fn append_f32_fixed_impl <(StreamWriter,f32,i32)*>StreamWriter> (w, v, precision):
     let v64 <f64> cast v;
     append_f64_fixed_impl w v64 precision
 
 //: ## append_f32_impl
 //: `f32` を[小数点以下/しょうすうてんいか] 6 [桁/けた]で[追記/ついき]する
-fn append_f32_impl <(StreamWriter,f32)*>StreamWriter> (w, v):
+pub fn append_f32_impl <(StreamWriter,f32)*>StreamWriter> (w, v):
     append_f32_fixed_impl w v 6

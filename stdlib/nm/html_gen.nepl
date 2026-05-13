@@ -51,7 +51,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n + m)
-fn nm_render_source_html <(str)->str> (src):
+pub fn nm_render_source_html <(str)->str> (src):
     let mut sb <StringBuilder> string_builder_new;
     let n <i32> len src;
     let mut pos <i32> 0;

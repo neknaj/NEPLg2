@@ -32,7 +32,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn eq <(f64,f64)->bool> (a,b):
+pub fn eq <(f64,f64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -60,7 +60,7 @@ fn eq <(f64,f64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ne <(f64,f64)->bool> (a,b):
+pub fn ne <(f64,f64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -88,7 +88,7 @@ fn ne <(f64,f64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn lt <(f64,f64)->bool> (a,b):
+pub fn lt <(f64,f64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -116,7 +116,7 @@ fn lt <(f64,f64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn le <(f64,f64)->bool> (a,b):
+pub fn le <(f64,f64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -144,7 +144,7 @@ fn le <(f64,f64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn gt <(f64,f64)->bool> (a,b):
+pub fn gt <(f64,f64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -172,7 +172,7 @@ fn gt <(f64,f64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ge <(f64,f64)->bool> (a,b):
+pub fn ge <(f64,f64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a

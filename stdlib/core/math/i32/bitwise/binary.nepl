@@ -34,7 +34,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn and <(i32,i32)->i32> (a,b):
+pub fn and <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -61,7 +61,7 @@ fn and <(i32,i32)->i32> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn or <(i32,i32)->i32> (a,b):
+pub fn or <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -88,7 +88,7 @@ fn or <(i32,i32)->i32> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn xor <(i32,i32)->i32> (a,b):
+pub fn xor <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a

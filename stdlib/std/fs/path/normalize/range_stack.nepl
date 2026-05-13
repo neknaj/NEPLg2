@@ -26,7 +26,7 @@
 //:
 //: 計算量:
 //: - ならし O(1)
-fn fs_normalize_range_push <(Vec<i32>,i32,i32)->Result<Vec<i32>,i32>> (stack, start, end):
+pub fn fs_normalize_range_push <(Vec<i32>,i32,i32)->Result<Vec<i32>,i32>> (stack, start, end):
     match v::push<i32> stack start:
         Result::Err _e:
             Result<Vec<i32>,i32>::Err 12
@@ -50,7 +50,7 @@ fn fs_normalize_range_push <(Vec<i32>,i32,i32)->Result<Vec<i32>,i32>> (stack, st
 //:
 //: 計算量:
 //: - O(1)
-fn fs_normalize_range_pop <(Vec<i32>)->Vec<i32>> (stack):
+pub fn fs_normalize_range_pop <(Vec<i32>)->Vec<i32>> (stack):
     let popped_end v::pop<i32> stack
     let without_end <Vec<i32>> field::get popped_end "vec"
     let popped_start v::pop<i32> without_end

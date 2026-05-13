@@ -50,7 +50,7 @@ trait Eq:
 //:
 //: [計算量/けいさんりょう]:
 //: - impl に[依存/いぞん]します。
-fn eq_by_trait <.T: Eq> <(.T,.T)->bool> (a, b):
+pub fn eq_by_trait <.T: Eq> <(.T,.T)->bool> (a, b):
     Eq::eq a b
 
 //: ne_by_trait: trait [経由/けいゆ]の[非等値/ひとうち]比較
@@ -63,7 +63,7 @@ fn eq_by_trait <.T: Eq> <(.T,.T)->bool> (a, b):
 //:
 //: [計算量/けいさんりょう]:
 //: - impl に[依存/いぞん]します。
-fn ne_by_trait <.T: Eq> <(.T,.T)->bool> (a, b):
+pub fn ne_by_trait <.T: Eq> <(.T,.T)->bool> (a, b):
     not Eq::eq a b
 
 impl Eq for bool:

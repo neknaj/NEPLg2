@@ -35,7 +35,7 @@
 //:
 //: 計算量:
 //: - entry 総 byte 数 n と sort の O(k^2)
-fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
+pub fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
     match v::new<str>:
         Result::Err _e:
             Result<Vec<str>,i32>::Err 12

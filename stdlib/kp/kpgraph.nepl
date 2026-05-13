@@ -66,7 +66,7 @@
 //:
 //: [実装/じっそう]:
 //: - `mat` は長さ `n*n` の `u8` 配列（0: 辺なし, 1: 辺あり）です。
-struct DenseGraph:
+pub struct DenseGraph:
     n <i32>
     mat <i32>
 
@@ -74,7 +74,7 @@ struct DenseGraph:
 //:
 //: [目的/もくてき]:
 //: - BFS 結果 Vec の owner と push 成否を同時に返します。
-struct KpI32PushRes:
+pub struct KpI32PushRes:
     items <Vec<i32>>
     ok <bool>
 
@@ -82,11 +82,11 @@ struct KpI32PushRes:
 //:
 //: [目的/もくてき]:
 //: - allocation failure 時に consumed owner を再利用せず、空の BFS 結果へ切り替えます。
-fn kp_i32_empty_vec <()->Vec<i32>> ():
+pub fn kp_i32_empty_vec <()->Vec<i32>> ():
     v::vec_empty<i32>
 
 //: kp_push_i32: `Vec<i32>` push を trap せず結果化する
-fn kp_push_i32 <(Vec<i32>,i32)->KpI32PushRes> (items, item):
+pub fn kp_push_i32 <(Vec<i32>,i32)->KpI32PushRes> (items, item):
     match v::push<i32> items item:
         Result::Ok next:
             KpI32PushRes next true
@@ -97,7 +97,7 @@ fn kp_push_i32 <(Vec<i32>,i32)->KpI32PushRes> (items, item):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n^2)
-fn dense_graph_new <(i32)*>DenseGraph> (n):
+pub fn dense_graph_new <(i32)*>DenseGraph> (n):
     let size <i32> mul n n;
     let mat <i32> alloc_raw size;
     let mut i <i32> 0;
@@ -111,7 +111,7 @@ fn dense_graph_new <(i32)*>DenseGraph> (n):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn dense_graph_free <(DenseGraph)*>()> (g):
+pub fn dense_graph_free <(DenseGraph)*>()> (g):
     let n <i32> get g "n";
     let mat <i32> get g "mat";
     dealloc_raw mat mul n n
@@ -123,7 +123,7 @@ fn dense_graph_free <(DenseGraph)*>()> (g):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn dense_graph_add_undirected <(DenseGraph,i32,i32)*>()> (g, u, v):
+pub fn dense_graph_add_undirected <(DenseGraph,i32,i32)*>()> (g, u, v):
     let n <i32> get g "n";
     let mat <i32> get g "mat";
     let uv <i32> add mul u n v;
@@ -144,7 +144,7 @@ fn dense_graph_add_undirected <(DenseGraph,i32,i32)*>()> (g, u, v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n^2 + m)
-fn dense_graph_read_undirected_1indexed <(StreamScanner)*>DenseGraph> (sc):
+pub fn dense_graph_read_undirected_1indexed <(StreamScanner)*>DenseGraph> (sc):
     let n <i32> read sc;
     let m <i32> read sc;
     let size <i32> mul n n;
@@ -182,7 +182,7 @@ fn dense_graph_read_undirected_1indexed <(StreamScanner)*>DenseGraph> (sc):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n^2)（密行列の隣接走査）
-fn dense_graph_bfs_dist_raw <(i32,i32,i32)*>Vec<i32>> (n, mat, start):
+pub fn dense_graph_bfs_dist_raw <(i32,i32,i32)*>Vec<i32>> (n, mat, start):
     let dist <i32> alloc_raw mul n 4;
     let mut i0 <i32> 0;
     while lt i0 n:

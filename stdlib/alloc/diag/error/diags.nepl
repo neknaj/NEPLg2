@@ -35,11 +35,11 @@
 //:
 //: [目的/もくてき]:
 //: - `Diags` [構築/こうちく]で allocation failure が[起/お]きても trap せず、[空/から]の[診断群/しんだんぐん]へ[丸/まる]めます。
-fn diag_empty_diag_vec <()->Vec<Diag>> ():
+pub fn diag_empty_diag_vec <()->Vec<Diag>> ():
     v::vec_empty<Diag>
 
 //: diags_new: [空/から]の `Diags` を[作/つく]る
-fn diags_new <()*>Diags> ():
+pub fn diags_new <()*>Diags> ():
     let mut items <Vec<Diag>> diag_empty_diag_vec;
     match v::new<Diag>:
         Result::Ok items0:
@@ -49,7 +49,7 @@ fn diags_new <()*>Diags> ():
     Diags items
 
 //: diags_one: `Diag` 1 [件/けん]から `Diags` を[作/つく]る
-fn diags_one <(Diag)*>Diags> (d):
+pub fn diags_one <(Diag)*>Diags> (d):
     match v::new<Diag>:
         Result::Ok items0:
             match v::push<Diag> items0 d:
@@ -61,7 +61,7 @@ fn diags_one <(Diag)*>Diags> (d):
             Diags diag_empty_diag_vec
 
 //: diags_push: `Diags` に `Diag` を 1 [件/けん][追加/ついか]する
-fn diags_push <(Diags,Diag)*>Diags> (ds, d):
+pub fn diags_push <(Diags,Diag)*>Diags> (ds, d):
     match v::push<Diag> field::get ds "items" d:
         Result::Ok items:
             Diags items
@@ -69,29 +69,29 @@ fn diags_push <(Diags,Diag)*>Diags> (ds, d):
             Diags diag_empty_diag_vec
 
 //: diags_len: [診断/しんだん][件数/けんすう]を[返/かえ]す
-fn diags_len <(&Diags)->i32> (ds):
+pub fn diags_len <(&Diags)->i32> (ds):
     let items <&Vec<Diag>> field::get_ref ds "items";
     v::len<Diag> items
 
-fn diags_len <(Diags)->i32> (ds):
+pub fn diags_len <(Diags)->i32> (ds):
     let n <i32> diags_len &ds
     diags_free ds
     n
 
 //: diags_has_errors: error level の[診断/しんだん]を 1 [件/けん]でも[含/ふく]むか[判定/はんてい]する
-fn diags_has_errors <(&Diags)->bool> (ds):
+pub fn diags_has_errors <(&Diags)->bool> (ds):
     let items <&Vec<Diag>> field::get_ref ds "items";
     let view <VecDataLen<Diag>> v::data_len<Diag> items;
     let items_len <i32> field::get view "len";
     let items_data <i32> mem_ptr_addr field::get view "data";
     diags_has_errors_loop items_data items_len 0
 
-fn diags_has_errors <(Diags)->bool> (ds):
+pub fn diags_has_errors <(Diags)->bool> (ds):
     let ok <bool> diags_has_errors &ds
     diags_free ds
     ok
 
-fn diags_has_errors_loop <(i32,i32,i32)->bool> (items_data, n, i):
+pub fn diags_has_errors_loop <(i32,i32,i32)->bool> (items_data, n, i):
     if:
         ge i n
         then false
@@ -113,5 +113,5 @@ fn diags_has_errors_loop <(i32,i32,i32)->bool> (items_data, n, i):
 //: [目的/もくてき]:
 //: - `Diags` を[値/あたい]として[消費/しょうひ]し、`items` の backing storage を[閉/と]じます。
 //: - `Diag` 本体は Copy な text fragment だけを[保持/ほじ]するため、要素ごとの drop traversal は[行/おこな]いません。
-fn diags_free <(Diags)->()> (ds):
+pub fn diags_free <(Diags)->()> (ds):
     v::free<Diag> field::get ds "items"

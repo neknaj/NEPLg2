@@ -31,6 +31,6 @@
 //:     free bs
 //:     0
 //: ```
-fn free <(BitSet)->()> (bs):
+pub fn free <(BitSet)->()> (bs):
     let bits <Vec<u8>> field::get bs "bits"
     vec::free<u8> bits

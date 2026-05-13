@@ -17,7 +17,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ][状態/じょうたい]を[持/も]たないので `Copy` / `Clone` を[実装/じっそう]します。
-struct StdoutStream:
+pub struct StdoutStream:
     marker <()>
 
 impl Copy for StdoutStream:
@@ -36,7 +36,7 @@ impl Clone for StdoutStream:
 //:
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ][状態/じょうたい]を[持/も]たないので `Copy` / `Clone` を[実装/じっそう]します。
-struct StderrStream:
+pub struct StderrStream:
     marker <()>
 
 impl Copy for StderrStream:

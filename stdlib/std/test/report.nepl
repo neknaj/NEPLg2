@@ -17,27 +17,27 @@
 //: - 旧 `checks_*` API は `TestReport` へ委譲し、`Result<(),str>` の raw accumulator へ戻さないようにします。
 
 //: test_report_new: [空/から] report を[作/つく]る
-fn test_report_new <(str)->TestReport> (name):
+pub fn test_report_new <(str)->TestReport> (name):
     TestReport name 0 0 "" "[" ""
 
-fn test_report_default <()->TestReport> ():
+pub fn test_report_default <()->TestReport> ():
     test_report_new "checks"
 
-fn test_assertion_from_result <(str,Result<(),str>)->TestAssertion> (label, r):
+pub fn test_assertion_from_result <(str,Result<(),str>)->TestAssertion> (label, r):
     match r:
         Result::Ok v:
             test_assertion_ok label
         Result::Err e:
             test_assertion_fail label e
 
-fn test_report_legacy_status <(&TestAssertion)->str> (a):
+pub fn test_report_legacy_status <(&TestAssertion)->str> (a):
     match *get_ref a "status":
         AssertionStatus::Passed:
             "ok"
         AssertionStatus::Failed:
             concat "err " *get_ref a "message"
 
-fn test_report_assertion_line <(i32,&TestAssertion)->str> (idx, a):
+pub fn test_report_assertion_line <(i32,&TestAssertion)->str> (idx, a):
     let idx_text <str> from_i32 idx
     let status_text <str> assertion_status_name *get_ref a "status"
     let kind_text <str> assertion_kind_name *get_ref a "kind"
@@ -61,7 +61,7 @@ fn test_report_assertion_line <(i32,&TestAssertion)->str> (idx, a):
     concat l12 "\n"
 
 //: test_report_push: report に assertion を[追加/ついか]する
-fn test_report_push <(TestReport,TestAssertion)*>TestReport> (report, assertion):
+pub fn test_report_push <(TestReport,TestAssertion)*>TestReport> (report, assertion):
     let name0 <str> get report "name"
     let count0 <i32> get report "count"
     let failed0 <i32> get report "failed_count"
@@ -88,11 +88,11 @@ fn test_report_push <(TestReport,TestAssertion)*>TestReport> (report, assertion)
     test_assertion_release assertion
     TestReport name0 add count0 1 failed1 lines1 legacy_summary1 legacy_human1
 
-fn test_report_push <(TestReport,Result<(),str>)*>TestReport> (report, r):
+pub fn test_report_push <(TestReport,Result<(),str>)*>TestReport> (report, r):
     test_report_push report test_assertion_from_result "result" r
 
 //: test_report_render: report を canonical stdout [文字列/もじれつ]へ[整形/せいけい]する
-fn test_report_render <(&TestReport)->str> (report):
+pub fn test_report_render <(&TestReport)->str> (report):
     let name_text <str> json::json_quote_string *get_ref report "name"
     let count_text <str> from_i32 *get_ref report "count"
     let failed_text <str> from_i32 *get_ref report "failed_count"
@@ -109,15 +109,15 @@ fn test_report_render <(&TestReport)->str> (report):
 //: [注意/ちゅうい]:
 //: - stdout を[出/だ]す canonical API はこの関数だけです。
 #if[target=std]
-fn test_report_print_stdout <(TestReport)*>TestReport> (report):
+pub fn test_report_print_stdout <(TestReport)*>TestReport> (report):
     print test_report_render &report
     report
 
-fn test_report_has_failure <(&TestReport)->bool> (report):
+pub fn test_report_has_failure <(&TestReport)->bool> (report):
     gt *get_ref report "failed_count" 0
 
 //: test_report_exit_code: report を 0/1 の[終了/しゅうりょう] code へ[変換/へんかん]する
-fn test_report_exit_code <(TestReport)->i32> (report):
+pub fn test_report_exit_code <(TestReport)->i32> (report):
     let code <i32> if:
         test_report_has_failure &report
         then:
@@ -127,33 +127,33 @@ fn test_report_exit_code <(TestReport)->i32> (report):
     test_report_release report
     code
 
-fn test_report_legacy_summary_text <(&TestReport)->str> (report):
+pub fn test_report_legacy_summary_text <(&TestReport)->str> (report):
     concat *get_ref report "legacy_summary" "]"
 
 //: checks_new: `TestReport` の[短/みじか]い[作成/さくせい]入口
-fn checks_new <()*>TestReport> ():
+pub fn checks_new <()*>TestReport> ():
     test_report_default
 
-fn checks_empty <()->TestReport> ():
+pub fn checks_empty <()->TestReport> ():
     test_report_default
 
-fn checks_single_error <(str)*>TestReport> (msg):
+pub fn checks_single_error <(str)*>TestReport> (msg):
     test_report_push test_report_default test_assertion_fail "result" msg
 
-fn checks_push <(TestReport,TestAssertion)*>TestReport> (report, assertion):
+pub fn checks_push <(TestReport,TestAssertion)*>TestReport> (report, assertion):
     test_report_push report assertion
 
-fn checks_push <(TestReport,Result<(),str>)*>TestReport> (report, r):
+pub fn checks_push <(TestReport,Result<(),str>)*>TestReport> (report, r):
     test_report_push report r
 
-fn checks_has_err <(&TestReport)->bool> (report):
+pub fn checks_has_err <(&TestReport)->bool> (report):
     test_report_has_failure report
 
-fn checks_summary <(&TestReport)->str> (report):
+pub fn checks_summary <(&TestReport)->str> (report):
     test_report_legacy_summary_text report
 
 #if[target=std]
-fn checks_print_machine <(TestReport)*>TestReport> (report):
+pub fn checks_print_machine <(TestReport)*>TestReport> (report):
     let summary <str> test_report_legacy_summary_text &report
     if:
         test_report_has_failure &report
@@ -164,17 +164,17 @@ fn checks_print_machine <(TestReport)*>TestReport> (report):
     report
 
 #if[target=std]
-fn checks_print_human <(TestReport)*>TestReport> (report):
+pub fn checks_print_human <(TestReport)*>TestReport> (report):
     print *get_ref &report "legacy_human"
     report
 
 #if[target=std]
-fn checks_print_report <(TestReport)*>TestReport> (report):
+pub fn checks_print_report <(TestReport)*>TestReport> (report):
     report
     |> checks_print_machine
     |> checks_print_human
 
-fn finish_checks <(TestReport)*>Result<(),str>> (report):
+pub fn finish_checks <(TestReport)*>Result<(),str>> (report):
     let failed <bool> test_report_has_failure &report
     if:
         failed
@@ -186,7 +186,7 @@ fn finish_checks <(TestReport)*>Result<(),str>> (report):
             test_report_release report
             Result<(),str>::Ok ()
 
-fn result_exit_code <(Result<(),str>)->i32> (r):
+pub fn result_exit_code <(Result<(),str>)->i32> (r):
     match r:
         Result::Ok v:
             0
@@ -194,7 +194,7 @@ fn result_exit_code <(Result<(),str>)->i32> (r):
             test_consume_str e
             1
 
-fn test_assertion_exit_code <(TestAssertion)->i32> (assertion):
+pub fn test_assertion_exit_code <(TestAssertion)->i32> (assertion):
     let code <i32> match *get_ref &assertion "status":
         AssertionStatus::Passed:
             0
@@ -203,5 +203,5 @@ fn test_assertion_exit_code <(TestAssertion)->i32> (assertion):
     test_assertion_release assertion
     code
 
-fn checks_exit_code <(TestReport)*>i32> (report):
+pub fn checks_exit_code <(TestReport)*>i32> (report):
     test_report_exit_code report

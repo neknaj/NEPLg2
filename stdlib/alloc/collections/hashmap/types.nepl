@@ -16,7 +16,7 @@
 //:
 //: ### [目的/もくてき]
 //: - empty / full / tombstone を enum として[表/あらわ]し、`match` で[分岐/ぶんき]します。
-enum HashMapBucketState:
+pub enum HashMapBucketState:
     Empty
     Full
     Tombstone
@@ -34,7 +34,7 @@ impl Copy for HashMapBucketState:
 //:
 //: ### [目的/もくてき]
 //: - tombstone を[再利用/さいりよう]した[場合/ばあい]だけ tombstone count を[減/へ]らせるようにします。
-enum HashMapInsertSlotState:
+pub enum HashMapInsertSlotState:
     EmptySlot
     TombstoneSlot
 
@@ -51,7 +51,7 @@ impl Copy for HashMapInsertSlotState:
 //:
 //: ### [目的/もくてき]
 //: - linear probing の[結果/けっか]を index と slot state の組として[返/かえ]します。
-struct HashMapInsertSlot:
+pub struct HashMapInsertSlot:
     index <i32>
     state <HashMapInsertSlotState>
 
@@ -63,7 +63,7 @@ struct HashMapInsertSlot:
 //:
 //: ### [注意/ちゅうい]
 //: - `states.len == keys.len == values.len == cap` を内部不変条件とします。
-struct HashMapStorage<.K,.V>:
+pub struct HashMapStorage<.K,.V>:
     states <Vec<HashMapBucketState>>
     keys <Vec<Option<.K>>>
     values <Vec<Option<.V>>>
@@ -73,7 +73,7 @@ struct HashMapStorage<.K,.V>:
 //:
 //: ### [目的/もくてき]
 //: - [要素数/ようそすう]・[容量/ようりょう]・tombstone 数・storage・hasher をまとめて[保持/ほじ]します。
-struct HashMap<.K,.V,.H>:
+pub struct HashMap<.K,.V,.H>:
     count <i32>
     cap <i32>
     tombstones <i32>

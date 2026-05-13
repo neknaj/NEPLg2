@@ -43,7 +43,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - index は self-host compiler 内の arena-local 値です。Rust compiler の global DefId とは混ぜないでください。
-struct SelfhostMonoDefId:
+pub struct SelfhostMonoDefId:
     module_index <i32>
     function_index <i32>
 
@@ -62,7 +62,7 @@ impl Copy for SelfhostMonoDefId:
 //:
 //: [注意/ちゅうい]:
 //: - `arg_count = 0` の場合も canonical empty range として `first_arg = 0` を使います。
-struct SelfhostMonoTypeArgRange:
+pub struct SelfhostMonoTypeArgRange:
     first_arg <i32>
     arg_count <i32>
 
@@ -78,7 +78,7 @@ impl Copy for SelfhostMonoTypeArgRange:
 //:
 //: [目的/もくてき]:
 //: - 元 function と type argument 範囲を 1 つの key にまとめ、cache / name mangling / codegen が同じ identity を共有できるようにします。
-struct SelfhostMonoInstanceKey:
+pub struct SelfhostMonoInstanceKey:
     def <SelfhostMonoDefId>
     type_args <SelfhostMonoTypeArgRange>
 
@@ -91,7 +91,7 @@ impl Copy for SelfhostMonoInstanceKey:
         self
 
 //: SelfhostMonoInstanceId: monomorphize instance table 内の stable index
-struct SelfhostMonoInstanceId:
+pub struct SelfhostMonoInstanceId:
     index <i32>
 
 impl Clone for SelfhostMonoInstanceId:
@@ -103,35 +103,35 @@ impl Copy for SelfhostMonoInstanceId:
         self
 
 //: selfhost_mono_def_id_new: 元 function 定義 ID を作る
-fn selfhost_mono_def_id_new <(i32,i32)->SelfhostMonoDefId> (module_index, function_index):
+pub fn selfhost_mono_def_id_new <(i32,i32)->SelfhostMonoDefId> (module_index, function_index):
     SelfhostMonoDefId module_index function_index
 
 //: selfhost_mono_def_id_is_valid: 元 function 定義 ID が有効範囲か判定する
-fn selfhost_mono_def_id_is_valid <(SelfhostMonoDefId)->bool> (def):
+pub fn selfhost_mono_def_id_is_valid <(SelfhostMonoDefId)->bool> (def):
     and ge def.module_index 0 ge def.function_index 0
 
 //: selfhost_mono_type_arg_range_new: type argument table 範囲を作る
-fn selfhost_mono_type_arg_range_new <(i32,i32)->SelfhostMonoTypeArgRange> (first_arg, arg_count):
+pub fn selfhost_mono_type_arg_range_new <(i32,i32)->SelfhostMonoTypeArgRange> (first_arg, arg_count):
     SelfhostMonoTypeArgRange first_arg arg_count
 
 //: selfhost_mono_type_arg_range_empty: canonical empty type argument 範囲を返す
-fn selfhost_mono_type_arg_range_empty <()->SelfhostMonoTypeArgRange> ():
+pub fn selfhost_mono_type_arg_range_empty <()->SelfhostMonoTypeArgRange> ():
     selfhost_mono_type_arg_range_new 0 0
 
 //: selfhost_mono_type_arg_range_is_valid: type argument table 範囲が有効か判定する
-fn selfhost_mono_type_arg_range_is_valid <(SelfhostMonoTypeArgRange)->bool> (range):
+pub fn selfhost_mono_type_arg_range_is_valid <(SelfhostMonoTypeArgRange)->bool> (range):
     and ge range.first_arg 0 ge range.arg_count 0
 
 //: selfhost_mono_instance_key_new: generic instance key を作る
-fn selfhost_mono_instance_key_new <(SelfhostMonoDefId,SelfhostMonoTypeArgRange)->SelfhostMonoInstanceKey> (def, type_args):
+pub fn selfhost_mono_instance_key_new <(SelfhostMonoDefId,SelfhostMonoTypeArgRange)->SelfhostMonoInstanceKey> (def, type_args):
     SelfhostMonoInstanceKey def type_args
 
 //: selfhost_mono_instance_key_is_valid: instance key が有効な index 範囲だけを持つか判定する
-fn selfhost_mono_instance_key_is_valid <(SelfhostMonoInstanceKey)->bool> (key):
+pub fn selfhost_mono_instance_key_is_valid <(SelfhostMonoInstanceKey)->bool> (key):
     and selfhost_mono_def_id_is_valid key.def selfhost_mono_type_arg_range_is_valid key.type_args
 
 //: selfhost_mono_instance_key_eq: instance key の完全一致を判定する
-fn selfhost_mono_instance_key_eq <(SelfhostMonoInstanceKey,SelfhostMonoInstanceKey)->bool> (a, b):
+pub fn selfhost_mono_instance_key_eq <(SelfhostMonoInstanceKey,SelfhostMonoInstanceKey)->bool> (a, b):
     let a_def <SelfhostMonoDefId> a.def
     let b_def <SelfhostMonoDefId> b.def
     let a_args <SelfhostMonoTypeArgRange> a.type_args
@@ -141,25 +141,25 @@ fn selfhost_mono_instance_key_eq <(SelfhostMonoInstanceKey,SelfhostMonoInstanceK
         and eq a_args.first_arg b_args.first_arg eq a_args.arg_count b_args.arg_count
 
 //: selfhost_mono_instance_id_new: instance table ID を作る
-fn selfhost_mono_instance_id_new <(i32)->SelfhostMonoInstanceId> (index):
+pub fn selfhost_mono_instance_id_new <(i32)->SelfhostMonoInstanceId> (index):
     SelfhostMonoInstanceId index
 
 //: selfhost_mono_instance_id_index: instance table index を返す
-fn selfhost_mono_instance_id_index <(SelfhostMonoInstanceId)->i32> (instance_id):
+pub fn selfhost_mono_instance_id_index <(SelfhostMonoInstanceId)->i32> (instance_id):
     instance_id.index
 
 //: selfhost_mono_instance_id_pending: instance がまだ割り当てられていない状態を返す
 //:
 //: [目的/もくてき]:
 //: - 未割り当てを `SelfhostMonoInstanceId(-1)` ではなく `Option::None` として表します。
-fn selfhost_mono_instance_id_pending <()->Option<SelfhostMonoInstanceId>> ():
+pub fn selfhost_mono_instance_id_pending <()->Option<SelfhostMonoInstanceId>> ():
     none<SelfhostMonoInstanceId>
 
 //: selfhost_mono_instance_id_assigned: 割り当て済み instance ID を Option に包む
 //:
 //: [目的/もくてき]:
 //: - cache lookup の結果が存在する場合だけ `SelfhostMonoInstanceId` を payload として保持します。
-fn selfhost_mono_instance_id_assigned <(SelfhostMonoInstanceId)->Option<SelfhostMonoInstanceId>> (instance_id):
+pub fn selfhost_mono_instance_id_assigned <(SelfhostMonoInstanceId)->Option<SelfhostMonoInstanceId>> (instance_id):
     some<SelfhostMonoInstanceId> instance_id
 
 //: selfhost_mono_seed_mix: mangle seed 用の 32-bit mixing step
@@ -169,7 +169,7 @@ fn selfhost_mono_instance_id_assigned <(SelfhostMonoInstanceId)->Option<Selfhost
 //:
 //: [注意/ちゅうい]:
 //: - 非暗号 hash です。identity 判定には必ず full key comparison を使ってください。
-fn selfhost_mono_seed_mix <(i32,i32)->i32> (seed, value):
+pub fn selfhost_mono_seed_mix <(i32,i32)->i32> (seed, value):
     let h0 <i32> xor seed add value -1640531527
     let h1 <i32> mul h0 -2048144789
     let h2 <i32> xor h1 shr_u h1 13
@@ -177,7 +177,7 @@ fn selfhost_mono_seed_mix <(i32,i32)->i32> (seed, value):
     xor h3 shr_u h3 16
 
 //: selfhost_mono_instance_key_seed: instance key から deterministic mangle seed を作る
-fn selfhost_mono_instance_key_seed <(SelfhostMonoInstanceKey)->i32> (key):
+pub fn selfhost_mono_instance_key_seed <(SelfhostMonoInstanceKey)->i32> (key):
     let def <SelfhostMonoDefId> key.def
     let args <SelfhostMonoTypeArgRange> key.type_args
     let s0 <i32> selfhost_mono_seed_mix -2128831035 def.module_index
@@ -186,7 +186,7 @@ fn selfhost_mono_instance_key_seed <(SelfhostMonoInstanceKey)->i32> (key):
     selfhost_mono_seed_mix s2 args.arg_count
 
 //: selfhost_mono_stage0: mono key model の smoke API
-fn selfhost_mono_stage0 <()->i32> ():
+pub fn selfhost_mono_stage0 <()->i32> ():
     let def0 <SelfhostMonoDefId> selfhost_mono_def_id_new 2 5
     let range0 <SelfhostMonoTypeArgRange> selfhost_mono_type_arg_range_new 9 3
     let key0 <SelfhostMonoInstanceKey> selfhost_mono_instance_key_new def0 range0

@@ -20,10 +20,10 @@
 #import "alloc/string/char_offsets" as *
 #import "./byte" as *
 
-fn str_next_char_ok <(char,i32)->Result<CharUtf8Step,str>> (c, next_byte_index):
+pub fn str_next_char_ok <(char,i32)->Result<CharUtf8Step,str>> (c, next_byte_index):
     Result<CharUtf8Step,str>::Ok char_utf8_step_new c next_byte_index
 
-fn str_decode_char_result <(i32,i32)->Result<CharUtf8Step,str>> (code, next_byte_index):
+pub fn str_decode_char_result <(i32,i32)->Result<CharUtf8Step,str>> (code, next_byte_index):
     match char_from_i32_result code:
         Result::Err _e:
             Result<CharUtf8Step,str>::Err "string.char invalid scalar"
@@ -41,7 +41,7 @@ fn str_decode_char_result <(i32,i32)->Result<CharUtf8Step,str>> (code, next_byte
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn str_next_char_result <(str,i32)->Result<CharUtf8Step,str>> (s, byte_index):
+pub fn str_next_char_result <(str,i32)->Result<CharUtf8Step,str>> (s, byte_index):
     let n <i32> len s
     if:
         or lt byte_index 0 le n byte_index
@@ -147,7 +147,7 @@ fn str_next_char_result <(str,i32)->Result<CharUtf8Step,str>> (s, byte_index):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
-fn str_char_count <(str)->i32> (s):
+pub fn str_char_count <(str)->i32> (s):
     let n <i32> len s
     let mut byte_i <i32> 0
     let mut char_count <i32> 0
@@ -174,7 +174,7 @@ fn str_char_count <(str)->i32> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
-fn str_char_byte_index_result <(str,i32)->Result<i32,str>> (s, char_index):
+pub fn str_char_byte_index_result <(str,i32)->Result<i32,str>> (s, char_index):
     let n <i32> len s
     let mut byte_i <i32> 0
     let mut char_i <i32> 0
@@ -205,7 +205,7 @@ fn str_char_byte_index_result <(str,i32)->Result<i32,str>> (s, char_index):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
-fn str_char_at_result <(str,i32)->Result<char,str>> (s, char_index):
+pub fn str_char_at_result <(str,i32)->Result<char,str>> (s, char_index):
     match str_char_byte_index_result s char_index:
         Result::Err e:
             Result<char,str>::Err e
@@ -229,7 +229,7 @@ fn str_char_at_result <(str,i32)->Result<char,str>> (s, char_index):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len + slice_byte_len)
-fn str_slice_chars_result <(str,i32,i32)->Result<str,str>> (s, start_char, end_char):
+pub fn str_slice_chars_result <(str,i32,i32)->Result<str,str>> (s, start_char, end_char):
     match str_char_slice_offsets_result s start_char end_char:
         Result::Err e:
             Result<str,str>::Err e
@@ -239,7 +239,7 @@ fn str_slice_chars_result <(str,i32,i32)->Result<str,str>> (s, start_char, end_c
             str_slice_result s start_byte end_byte
 
 //: str_starts_with_char: `str` が指定 char で始まるか判定する
-fn str_starts_with_char <(str,char)->bool> (s, c):
+pub fn str_starts_with_char <(str,char)->bool> (s, c):
     if:
         eq len s 0
         then:
@@ -256,7 +256,7 @@ fn str_starts_with_char <(str,char)->bool> (s, c):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
-fn str_contains_char <(str,char)->bool> (s, c):
+pub fn str_contains_char <(str,char)->bool> (s, c):
     let target <i32> char_to_i32 c
     let n <i32> len s
     let mut byte_i <i32> 0

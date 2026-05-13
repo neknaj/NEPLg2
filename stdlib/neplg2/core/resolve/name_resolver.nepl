@@ -151,7 +151,7 @@
 //:
 //: [目的/もくてき]:
 //: - HIR / check / diagnostic が raw name ではなく安定 id で定義を参照できるようにします。
-struct SelfhostDefId:
+pub struct SelfhostDefId:
     index <i32>
 
 impl Clone for SelfhostDefId:
@@ -166,7 +166,7 @@ impl Copy for SelfhostDefId:
 //:
 //: [目的/もくてき]:
 //: - 同じ名前で見つかった定義が value / type / trait などどの名前空間に属するかを後続 stage が判定できるようにします。
-enum SelfhostDefKind:
+pub enum SelfhostDefKind:
     Function
     Struct
     Enum
@@ -188,7 +188,7 @@ impl Copy for SelfhostDefKind:
 //:
 //: [目的/もくてき]:
 //: - scope 内の宣言順、定義分類、宣言位置を 1 record にまとめます。
-struct SelfhostNameBinding:
+pub struct SelfhostNameBinding:
     name <str>
     def_id <Option<SelfhostDefId>>
     kind <SelfhostDefKind>
@@ -206,32 +206,32 @@ impl Copy for SelfhostNameBinding:
 //:
 //: [注意/ちゅうい]:
 //: - `bindings` は insertion order で保持され、検索は末尾から行うことで後勝ち shadowing を表します。
-struct SelfhostNameScope:
+pub struct SelfhostNameScope:
     bindings <Vec<SelfhostNameBinding>>
 
 //: SelfhostNameScopeAddResult: binding 追加後の scope と割り当てた DefId
-struct SelfhostNameScopeAddResult:
+pub struct SelfhostNameScopeAddResult:
     scope <SelfhostNameScope>
     def_id <SelfhostDefId>
 
 //: selfhost_def_id_new: DefId を[作/つく]る
-fn selfhost_def_id_new <(i32)->SelfhostDefId> (index):
+pub fn selfhost_def_id_new <(i32)->SelfhostDefId> (index):
     SelfhostDefId index
 
 //: selfhost_def_id_pending: DefId がまだ割り当てられていない状態を[返/かえ]す
-fn selfhost_def_id_pending <()->Option<SelfhostDefId>> ():
+pub fn selfhost_def_id_pending <()->Option<SelfhostDefId>> ():
     none<SelfhostDefId>
 
 //: selfhost_def_id_assigned: DefId を Option に[包/つつ]む
-fn selfhost_def_id_assigned <(SelfhostDefId)->Option<SelfhostDefId>> (def_id):
+pub fn selfhost_def_id_assigned <(SelfhostDefId)->Option<SelfhostDefId>> (def_id):
     some<SelfhostDefId> def_id
 
 //: selfhost_def_id_index: DefId の index を[返/かえ]す
-fn selfhost_def_id_index <(SelfhostDefId)->i32> (def_id):
+pub fn selfhost_def_id_index <(SelfhostDefId)->i32> (def_id):
     def_id.index
 
 //: selfhost_def_id_eq: DefId が同じ index か[返/かえ]す
-fn selfhost_def_id_eq <(SelfhostDefId,SelfhostDefId)->bool> (a, b):
+pub fn selfhost_def_id_eq <(SelfhostDefId,SelfhostDefId)->bool> (a, b):
     eq a.index b.index
 
 //: selfhost_def_kind_eq: DefKind が同じ分類か[返/かえ]す
@@ -239,7 +239,7 @@ fn selfhost_def_id_eq <(SelfhostDefId,SelfhostDefId)->bool> (a, b):
 //: [目的/もくてき]:
 //: - DefKind を i32 tag に変換せず、名前空間の分類を enum match で直接比較します。
 //: - variant 追加時に比較分岐の更新漏れを見つけやすい形にします。
-fn selfhost_def_kind_eq <(SelfhostDefKind,SelfhostDefKind)->bool> (a, b):
+pub fn selfhost_def_kind_eq <(SelfhostDefKind,SelfhostDefKind)->bool> (a, b):
     match a:
         SelfhostDefKind::Function:
             match b:
@@ -387,15 +387,15 @@ fn selfhost_def_kind_eq <(SelfhostDefKind,SelfhostDefKind)->bool> (a, b):
                     true
 
 //: selfhost_name_binding_new: binding record を[作/つく]る
-fn selfhost_name_binding_new <(str,Option<SelfhostDefId>,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, def_id, kind, span):
+pub fn selfhost_name_binding_new <(str,Option<SelfhostDefId>,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, def_id, kind, span):
     SelfhostNameBinding name def_id kind span
 
 //: selfhost_name_binding_pending: scope table 追加前の binding record を[作/つく]る
-fn selfhost_name_binding_pending <(str,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, kind, span):
+pub fn selfhost_name_binding_pending <(str,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, kind, span):
     selfhost_name_binding_new name selfhost_def_id_pending kind span
 
 //: selfhost_name_binding_def_id_eq: binding の DefId が指定 id と同じか[返/かえ]す
-fn selfhost_name_binding_def_id_eq <(SelfhostNameBinding,SelfhostDefId)->bool> (binding, def_id):
+pub fn selfhost_name_binding_def_id_eq <(SelfhostNameBinding,SelfhostDefId)->bool> (binding, def_id):
     match binding.def_id:
         Option::Some actual:
             selfhost_def_id_eq actual def_id
@@ -403,7 +403,7 @@ fn selfhost_name_binding_def_id_eq <(SelfhostNameBinding,SelfhostDefId)->bool> (
             false
 
 //: selfhost_name_scope_new: [空/から]の scope を[作/つく]る
-fn selfhost_name_scope_new <()*>Result<SelfhostNameScope, StdErrorKind>> ():
+pub fn selfhost_name_scope_new <()*>Result<SelfhostNameScope, StdErrorKind>> ():
     match v::new<SelfhostNameBinding>:
         Result::Ok bindings:
             Result<SelfhostNameScope, StdErrorKind>::Ok SelfhostNameScope bindings
@@ -411,16 +411,16 @@ fn selfhost_name_scope_new <()*>Result<SelfhostNameScope, StdErrorKind>> ():
             Result<SelfhostNameScope, StdErrorKind>::Err e
 
 //: selfhost_name_scope_free: scope の binding table を[解放/かいほう]する
-fn selfhost_name_scope_free <(SelfhostNameScope)*>()> (scope):
+pub fn selfhost_name_scope_free <(SelfhostNameScope)*>()> (scope):
     v::free<SelfhostNameBinding> field::get scope "bindings"
 
 //: selfhost_name_scope_len: scope 内の binding 数を[返/かえ]す
-fn selfhost_name_scope_len <(&SelfhostNameScope)->i32> (scope):
+pub fn selfhost_name_scope_len <(&SelfhostNameScope)->i32> (scope):
     let bindings <&Vec<SelfhostNameBinding>> field::get_ref scope "bindings"
     v::len<SelfhostNameBinding> bindings
 
 //: selfhost_name_scope_add_result_new: add result を[作/つく]る
-fn selfhost_name_scope_add_result_new <(SelfhostNameScope,SelfhostDefId)*>SelfhostNameScopeAddResult> (scope, def_id):
+pub fn selfhost_name_scope_add_result_new <(SelfhostNameScope,SelfhostDefId)*>SelfhostNameScopeAddResult> (scope, def_id):
     SelfhostNameScopeAddResult scope def_id
 
 //: selfhost_name_scope_add_binding: scope に binding を 1 件[追加/ついか]する
@@ -430,7 +430,7 @@ fn selfhost_name_scope_add_result_new <(SelfhostNameScope,SelfhostDefId)*>Selfho
 //:
 //: [注意/ちゅうい]:
 //: - 失敗時、入力 scope の owner はこの関数が消費します。`Vec::push` の失敗時は入力 buffer が解放済みです。
-fn selfhost_name_scope_add_binding <(SelfhostNameScope,SelfhostNameBinding)*>Result<SelfhostNameScopeAddResult, StdErrorKind>> (scope, binding):
+pub fn selfhost_name_scope_add_binding <(SelfhostNameScope,SelfhostNameBinding)*>Result<SelfhostNameScopeAddResult, StdErrorKind>> (scope, binding):
     let def_id <SelfhostDefId> selfhost_def_id_new selfhost_name_scope_len &scope
     let bindings <Vec<SelfhostNameBinding>> field::get scope "bindings"
     let item <SelfhostNameBinding> selfhost_name_binding_new binding.name selfhost_def_id_assigned def_id binding.kind binding.span
@@ -441,7 +441,7 @@ fn selfhost_name_scope_add_binding <(SelfhostNameScope,SelfhostNameBinding)*>Res
             Result<SelfhostNameScopeAddResult, StdErrorKind>::Err e
 
 //: selfhost_name_scope_get: DefId の binding record を[返/かえ]す
-fn selfhost_name_scope_get <(&SelfhostNameScope,SelfhostDefId)->Option<SelfhostNameBinding>> (scope, def_id):
+pub fn selfhost_name_scope_get <(&SelfhostNameScope,SelfhostDefId)->Option<SelfhostNameBinding>> (scope, def_id):
     if:
         lt def_id.index 0
         then:
@@ -454,7 +454,7 @@ fn selfhost_name_scope_get <(&SelfhostNameScope,SelfhostDefId)->Option<SelfhostN
 //:
 //: [実装/じっそう]:
 //: - 同一 scope 内の shadowing は後から追加された binding が優先されるため、末尾から線形探索します。
-fn selfhost_name_scope_find_loop <(&SelfhostNameScope,str,i32)->Option<SelfhostNameBinding>> (scope, name, idx):
+pub fn selfhost_name_scope_find_loop <(&SelfhostNameScope,str,i32)->Option<SelfhostNameBinding>> (scope, name, idx):
     if:
         lt idx 0
         then:
@@ -471,7 +471,7 @@ fn selfhost_name_scope_find_loop <(&SelfhostNameScope,str,i32)->Option<SelfhostN
                     none<SelfhostNameBinding>
 
 //: selfhost_name_scope_find: 指定名の最新 binding を[返/かえ]す
-fn selfhost_name_scope_find <(&SelfhostNameScope,str)->Option<SelfhostNameBinding>> (scope, name):
+pub fn selfhost_name_scope_find <(&SelfhostNameScope,str)->Option<SelfhostNameBinding>> (scope, name):
     selfhost_name_scope_find_loop scope name sub selfhost_name_scope_len scope 1
 
 //: selfhost_name_scope_find_kind_loop: 指定名かつ指定 kind の binding を末尾から[探/さが]す
@@ -479,7 +479,7 @@ fn selfhost_name_scope_find <(&SelfhostNameScope,str)->Option<SelfhostNameBindin
 //: [実装/じっそう]:
 //: - 名前と `SelfhostDefKind` の両方が一致する binding だけを返します。
 //: - value / type / trait のような名前空間を呼び出し側で分けたいときに使います。
-fn selfhost_name_scope_find_kind_loop <(&SelfhostNameScope,str,SelfhostDefKind,i32)->Option<SelfhostNameBinding>> (scope, name, kind, idx):
+pub fn selfhost_name_scope_find_kind_loop <(&SelfhostNameScope,str,SelfhostDefKind,i32)->Option<SelfhostNameBinding>> (scope, name, kind, idx):
     if:
         lt idx 0
         then:
@@ -496,14 +496,14 @@ fn selfhost_name_scope_find_kind_loop <(&SelfhostNameScope,str,SelfhostDefKind,i
                     none<SelfhostNameBinding>
 
 //: selfhost_name_scope_find_kind: 指定名かつ指定 kind の最新 binding を[返/かえ]す
-fn selfhost_name_scope_find_kind <(&SelfhostNameScope,str,SelfhostDefKind)->Option<SelfhostNameBinding>> (scope, name, kind):
+pub fn selfhost_name_scope_find_kind <(&SelfhostNameScope,str,SelfhostDefKind)->Option<SelfhostNameBinding>> (scope, name, kind):
     selfhost_name_scope_find_kind_loop scope name kind sub selfhost_name_scope_len scope 1
 
 //: selfhost_name_resolver_stage0: Stage 0 marker 互換の smoke API
 //:
 //: [目的/もくてき]:
 //: - 既存の Stage 0 doctest import 経路を[保/たも]ちながら、scope table の最小実装も[確認/かくにん]します。
-fn selfhost_name_resolver_stage0 <()*>i32> ():
+pub fn selfhost_name_resolver_stage0 <()*>i32> ():
     match selfhost_name_scope_new:
         Result::Ok scope0:
             let binding <SelfhostNameBinding> selfhost_name_binding_pending "main" SelfhostDefKind::Function source_span_empty 0 0

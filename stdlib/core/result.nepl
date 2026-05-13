@@ -107,7 +107,7 @@
 //:
 //: 計算量:
 //: - O(1)
-enum StdErrorKind:
+pub enum StdErrorKind:
     Failure
     OutOfMemory
     EmptyCollection
@@ -142,7 +142,7 @@ impl Copy for StdErrorKind:
 //:
 //: 計算量:
 //: - O(1)
-enum Result<.T, .E>:
+pub enum Result<.T, .E>:
     Ok <.T>
     Err <.E>
 
@@ -206,7 +206,7 @@ impl<.T: Copy, .E: Copy> Copy for Result<.T, .E>:
 //:
 //: 計算量:
 //: - O(1)
-fn ok <.T, .E> <(.T)->Result<.T, .E>> (v):
+pub fn ok <.T, .E> <(.T)->Result<.T, .E>> (v):
     Result<.T, .E>::Ok v
 
 //: err: 失敗値を包む
@@ -222,7 +222,7 @@ fn ok <.T, .E> <(.T)->Result<.T, .E>> (v):
 //:
 //: 計算量:
 //: - O(1)
-fn err <.T, .E> <(.E)->Result<.T, .E>> (e):
+pub fn err <.T, .E> <(.E)->Result<.T, .E>> (e):
     Result<.T, .E>::Err e
 
 //: is_ok: 成功か判定する
@@ -238,7 +238,7 @@ fn err <.T, .E> <(.E)->Result<.T, .E>> (e):
 //:
 //: 計算量:
 //: - O(1)
-fn is_ok <.T, .E> <(Result<.T, .E>)->bool> (r):
+pub fn is_ok <.T, .E> <(Result<.T, .E>)->bool> (r):
     match r:
         Result::Ok v:
             true
@@ -258,7 +258,7 @@ fn is_ok <.T, .E> <(Result<.T, .E>)->bool> (r):
 //:
 //: 計算量:
 //: - O(1)
-fn is_err <.T, .E> <(Result<.T, .E>)->bool> (r):
+pub fn is_err <.T, .E> <(Result<.T, .E>)->bool> (r):
     match r:
         Result::Ok v:
             false
@@ -278,7 +278,7 @@ fn is_err <.T, .E> <(Result<.T, .E>)->bool> (r):
 //:
 //: 計算量:
 //: - O(1)
-fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
+pub fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
     match r:
         Result::Ok v:
             v
@@ -311,7 +311,7 @@ fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
 //:
 //: ### [計算量/けいさんりょう]
 //: - `unwrap_ok` と[同/おな]じです。
-fn uwok unwrap_ok;
+pub fn uwok unwrap_ok;
 
 //: unwrap_err: Err の中身を取り出す（Ok は到達不能）
 //:
@@ -326,7 +326,7 @@ fn uwok unwrap_ok;
 //:
 //: 計算量:
 //: - O(1)
-fn unwrap_err <.T, .E> <(Result<.T, .E>)->.E> (r):
+pub fn unwrap_err <.T, .E> <(Result<.T, .E>)->.E> (r):
     match r:
         Result::Err e:
             e
@@ -347,7 +347,7 @@ fn unwrap_err <.T, .E> <(Result<.T, .E>)->.E> (r):
 //:
 //: ### [計算量/けいさんりょう]
 //: - `unwrap_err` と[同/おな]じです。
-fn uwerr unwrap_err;
+pub fn uwerr unwrap_err;
 
 //: unwrap_or: 失敗時のデフォルトを返す
 //:
@@ -362,7 +362,7 @@ fn uwerr unwrap_err;
 //:
 //: 計算量:
 //: - O(1)
-fn unwrap_or <.T, .E> <(Result<.T, .E>, .T)->.T> (r, default):
+pub fn unwrap_or <.T, .E> <(Result<.T, .E>, .T)->.T> (r, default):
     match r:
         Result::Ok v:
             v
@@ -379,7 +379,7 @@ fn unwrap_or <.T, .E> <(Result<.T, .E>, .T)->.T> (r, default):
 //:
 //: 計算量:
 //: - O(1)
-fn std_error_kind_str <(StdErrorKind)->str> (kind):
+pub fn std_error_kind_str <(StdErrorKind)->str> (kind):
     match kind:
         StdErrorKind::Failure:
             "Failure"
@@ -417,7 +417,7 @@ fn std_error_kind_str <(StdErrorKind)->str> (kind):
 //:
 //: 計算量:
 //: - O(1)
-fn map <.T, .U, .E> <(Result<.T, .E>, (.T)->.U)->Result<.U, .E>> (r, f):
+pub fn map <.T, .U, .E> <(Result<.T, .E>, (.T)->.U)->Result<.U, .E>> (r, f):
     match r:
         Result::Ok v:
             ok<.U, .E> (f v)
@@ -437,7 +437,7 @@ fn map <.T, .U, .E> <(Result<.T, .E>, (.T)->.U)->Result<.U, .E>> (r, f):
 //:
 //: 計算量:
 //: - O(1)
-fn map_err <.T, .E, .F> <(Result<.T, .E>, (.E)->.F)->Result<.T, .F>> (r, f):
+pub fn map_err <.T, .E, .F> <(Result<.T, .E>, (.E)->.F)->Result<.T, .F>> (r, f):
     match r:
         Result::Ok v:
             ok<.T, .F> v
@@ -457,7 +457,7 @@ fn map_err <.T, .E, .F> <(Result<.T, .E>, (.E)->.F)->Result<.T, .F>> (r, f):
 //:
 //: 計算量:
 //: - O(1)
-fn and_then <.T, .U, .E> <(Result<.T, .E>, (.T)->Result<.U, .E>)->Result<.U, .E>> (r, f):
+pub fn and_then <.T, .U, .E> <(Result<.T, .E>, (.T)->Result<.U, .E>)->Result<.U, .E>> (r, f):
     match r:
         Result::Ok v:
             f v

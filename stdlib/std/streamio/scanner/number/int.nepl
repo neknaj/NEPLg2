@@ -15,7 +15,7 @@
 
 //: ## scan_i32_impl
 //: [次/つぎ]の token を `i32` として[読/よ]む
-fn scan_i32_impl <(StreamScanner)*>i32> (sc):
+pub fn scan_i32_impl <(StreamScanner)*>i32> (sc):
     let header <MemPtr<u8>> get sc "header";
     stream_scanner_skip_ws_header header;
     let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
@@ -61,7 +61,7 @@ fn scan_i32_impl <(StreamScanner)*>i32> (sc):
 
 //: ## scan_u32_impl
 //: [次/つぎ]の token を `u32` として[読/よ]む
-fn scan_u32_impl <(StreamScanner)*>u32> (sc):
+pub fn scan_u32_impl <(StreamScanner)*>u32> (sc):
     let header <MemPtr<u8>> get sc "header";
     stream_scanner_skip_ws_header header;
     let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
@@ -106,7 +106,7 @@ fn scan_u32_impl <(StreamScanner)*>u32> (sc):
 
 //: ## scan_u64_impl
 //: [次/つぎ]の token を `u64` として[読/よ]む
-fn scan_u64_impl <(StreamScanner)*>u64> (sc):
+pub fn scan_u64_impl <(StreamScanner)*>u64> (sc):
     let header <MemPtr<u8>> get sc "header";
     stream_scanner_skip_ws_header header;
     let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
@@ -153,7 +153,7 @@ fn scan_u64_impl <(StreamScanner)*>u64> (sc):
 
 //: ## scan_i64_impl
 //: [次/つぎ]の token を `i64` として[読/よ]む
-fn scan_i64_impl <(StreamScanner)*>i64> (sc):
+pub fn scan_i64_impl <(StreamScanner)*>i64> (sc):
     let header <MemPtr<u8>> get sc "header";
     stream_scanner_skip_ws_header header;
     let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;

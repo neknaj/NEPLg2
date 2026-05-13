@@ -31,7 +31,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn str_utf8_step_width_at <(str,i32)->i32> (s, byte_index):
+pub fn str_utf8_step_width_at <(str,i32)->i32> (s, byte_index):
     let n <i32> len s
     let b0 <i32> string_byte_at_unchecked s byte_index
     match string_utf8_lead_kind b0:
@@ -110,11 +110,11 @@ fn str_utf8_step_width_at <(str,i32)->i32> (s, byte_index):
 //:
 //: [目的/もくてき]:
 //: - `str_slice_chars_result` が 1 回の走査で求めた start/end byte offset をまとめて返します。
-struct StrCharSliceOffsets:
+pub struct StrCharSliceOffsets:
     start <i32>
     end <i32>
 
-fn str_char_slice_offsets_new <(i32,i32)->StrCharSliceOffsets> (start_byte, end_byte):
+pub fn str_char_slice_offsets_new <(i32,i32)->StrCharSliceOffsets> (start_byte, end_byte):
     StrCharSliceOffsets start_byte end_byte
 
 //: str_char_slice_offsets_result: char index 範囲を byte offset 範囲へ変換する
@@ -128,7 +128,7 @@ fn str_char_slice_offsets_new <(i32,i32)->StrCharSliceOffsets> (start_byte, end_
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
-fn str_char_slice_offsets_result <(str,i32,i32)->Result<StrCharSliceOffsets,str>> (s, start_char, end_char):
+pub fn str_char_slice_offsets_result <(str,i32,i32)->Result<StrCharSliceOffsets,str>> (s, start_char, end_char):
     let n <i32> len s
     let mut byte_i <i32> 0
     let mut char_i <i32> 0

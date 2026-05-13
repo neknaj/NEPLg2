@@ -29,7 +29,7 @@
 #import "std/stdio" as *
 
 //: kind_str: `Diag` の kind を[人間/にんげん]向けの[短/みじか]い[識別子/しきべつし]へ[変換/へんかん]する
-fn kind_str <(&Diag)->str> (d):
+pub fn kind_str <(&Diag)->str> (d):
     let k <&DiagKind> field::get_ref d "kind";
     let level_name <str> diag_level_str *field::get_ref k "level";
     match *field::get_ref k "std_error":
@@ -47,11 +47,11 @@ fn kind_str <(&Diag)->str> (d):
                 Option::None:
                     level_name
 
-fn kind_str <(Diag)->str> (d):
+pub fn kind_str <(Diag)->str> (d):
     kind_str &d
 
 //: span_to_string: `Span` を `file:start-end` へ[整形/せいけい]する
-fn span_to_string <(Span)->str> (sp):
+pub fn span_to_string <(Span)->str> (sp):
     let fid <str> from_i32 get sp "file_id";
     let s <str> from_i32 get sp "start";
     let e <str> from_i32 get sp "end";
@@ -61,7 +61,7 @@ fn span_to_string <(Span)->str> (sp):
     concat t2 e
 
 //: diag_to_string: `Diag` を[表示/ひょうじ]しやすい[文字列/もじれつ]へ[変換/へんかん]する
-fn diag_to_string <(&Diag)->str> (d):
+pub fn diag_to_string <(&Diag)->str> (d):
     let ks <str> kind_str d;
     let h0 <str> concat ks ": ";
     let message <str> *field::get_ref d "message";
@@ -103,22 +103,22 @@ fn diag_to_string <(&Diag)->str> (d):
             concat s1 "\n"
         Option::None:
             out
-fn diag_to_string <(Diag)->str> (d):
+pub fn diag_to_string <(Diag)->str> (d):
     diag_to_string &d
 //: diags_to_string: `Diags` を[改行/かいぎょう][区切/くぎ]りで[連結/れんけつ]する
-fn diags_to_string <(&Diags)->str> (ds):
+pub fn diags_to_string <(&Diags)->str> (ds):
     let items <&Vec<Diag>> field::get_ref ds "items";
     let items_view <VecDataLen<Diag>> data_len<Diag> items;
     let items_len <i32> field::get items_view "len";
     let items_data <i32> mem_ptr_addr field::get items_view "data";
     diags_to_string_loop items_data items_len 0 ""
 
-fn diags_to_string <(Diags)->str> (ds):
+pub fn diags_to_string <(Diags)->str> (ds):
     let s <str> diags_to_string &ds
     diags_free ds
     s
 
-fn diags_to_string_loop <(i32,i32,i32,str)->str> (items_data, n, i, acc):
+pub fn diags_to_string_loop <(i32,i32,i32,str)->str> (items_data, n, i, acc):
     if:
         ge i n
         then acc
@@ -129,21 +129,21 @@ fn diags_to_string_loop <(i32,i32,i32,str)->str> (items_data, n, i, acc):
             diags_to_string_loop items_data n add i 1 next
 
 #if[target=std]
-fn diag_print <(Diag)*>()> (d):
+pub fn diag_print <(Diag)*>()> (d):
     let s <str> diag_to_string d;
     print s
 
 #if[target=std]
-fn diag_println <(Diag)*>()> (d):
+pub fn diag_println <(Diag)*>()> (d):
     let s <str> diag_to_string d;
     println s
 
 #if[target=std]
-fn diags_print <(Diags)*>()> (ds):
+pub fn diags_print <(Diags)*>()> (ds):
     let s <str> diags_to_string ds;
     print s
 
 #if[target=std]
-fn diags_println <(Diags)*>()> (ds):
+pub fn diags_println <(Diags)*>()> (ds):
     let s <str> diags_to_string ds;
     println s

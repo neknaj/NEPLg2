@@ -39,7 +39,7 @@
 //:     free st
 //:     if eq total 9 1 0
 //: ```
-fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
+pub fn sum_range <(&SegmentTree,i32,i32)*>Result<i32, Diag>> (st, l, r):
     let n <i32> *field::get_ref st "n"
     let base <i32> *field::get_ref st "base"
     if:

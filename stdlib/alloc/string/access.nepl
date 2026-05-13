@@ -29,7 +29,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn len <(str)->i32> (s):
+pub fn len <(str)->i32> (s):
     load_i32 string_addr s
 
 //: str_byte_len: `str` の byte 長を明示名で返す
@@ -39,7 +39,7 @@ fn len <(str)->i32> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn str_byte_len <(str)->i32> (s):
+pub fn str_byte_len <(str)->i32> (s):
     len s
 
 //: byte_at: 文字列の指定 byte を読む
@@ -78,7 +78,7 @@ fn str_byte_len <(str)->i32> (s):
 //:             false
 //:     if and ok0 and ok1 is_none<i32> byte_at "AZ" 2 0 1
 //: ```
-fn byte_at <(str,i32)->Option<i32>> (s, idx):
+pub fn byte_at <(str,i32)->Option<i32>> (s, idx):
     let n <i32> len s
     if:
         lt idx 0
@@ -105,5 +105,5 @@ fn byte_at <(str,i32)->Option<i32>> (s, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_byte_at_unchecked <(str,i32)->i32> (s, idx):
+pub fn string_byte_at_unchecked <(str,i32)->i32> (s, idx):
     load_u8 <i32> add string_addr s <i32> add 4 idx

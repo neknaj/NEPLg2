@@ -46,7 +46,7 @@
 #import "neplg2/core/infra/span" as *
 
 //: SelfhostDiagSeverity: diagnostic の[重大度/じゅうだいど]
-enum SelfhostDiagSeverity:
+pub enum SelfhostDiagSeverity:
     Info
     Warning
     Error
@@ -64,7 +64,7 @@ impl Copy for SelfhostDiagSeverity:
 //: [目的/もくてき]:
 //: - Rust compiler diagnostic redesign と[同/おな]じく、内部では[数値/すうち]や[自由/じゆう]文字列ではなく[階層/かいそう] enum を[保持/ほじ]します。
 //: - stable string は `selfhost_diag_code_name` の exhaustive match でだけ[作/つく]り、JSON / human reporter がそれを[使/つか]います。
-enum SelfhostDiagnosticCode:
+pub enum SelfhostDiagnosticCode:
     Loader <SelfhostLoaderDiagnosticCode>
     Lexer <SelfhostLexerDiagnosticCode>
     Parser <SelfhostParserDiagnosticCode>
@@ -80,7 +80,7 @@ impl Copy for SelfhostDiagnosticCode:
         self
 
 //: SelfhostLoaderDiagnosticCode: source loading / artifact I/O diagnostic の[分類/ぶんるい]
-enum SelfhostLoaderDiagnosticCode:
+pub enum SelfhostLoaderDiagnosticCode:
     FileNotFound
     SourceReadFailed
     ArtifactWriteFailed
@@ -95,7 +95,7 @@ impl Copy for SelfhostLoaderDiagnosticCode:
         self
 
 //: SelfhostLexerDiagnosticCode: self-host lexer diagnostic の[分類/ぶんるい]
-enum SelfhostLexerDiagnosticCode:
+pub enum SelfhostLexerDiagnosticCode:
     TokenUnknown
     CharInvalid
     StringUnterminated
@@ -111,7 +111,7 @@ impl Copy for SelfhostLexerDiagnosticCode:
         self
 
 //: SelfhostParserDiagnosticCode: self-host parser / directive parser diagnostic の[分類/ぶんるい]
-enum SelfhostParserDiagnosticCode:
+pub enum SelfhostParserDiagnosticCode:
     RawBlockExpectedIndent
     RawTextOutsideBlock
     TokenIndex
@@ -134,7 +134,7 @@ impl Copy for SelfhostParserDiagnosticCode:
         self
 
 //: SelfhostResolveDiagnosticCode: import path / module graph resolve diagnostic の[分類/ぶんるい]
-enum SelfhostResolveDiagnosticCode:
+pub enum SelfhostResolveDiagnosticCode:
     ModulePathOutOfMemory
     ModulePathInvalidImport
     ModulePathEscapeRoot
@@ -152,7 +152,7 @@ impl Copy for SelfhostResolveDiagnosticCode:
         self
 
 //: SelfhostCliDiagnosticCode: CLI option / usage diagnostic の[分類/ぶんるい]
-enum SelfhostCliDiagnosticCode:
+pub enum SelfhostCliDiagnosticCode:
     MissingInput
 
 impl Clone for SelfhostCliDiagnosticCode:
@@ -164,7 +164,7 @@ impl Copy for SelfhostCliDiagnosticCode:
         self
 
 //: SelfhostDiagnosticLabel: primary label の span と[説明/せつめい]
-struct SelfhostDiagnosticLabel:
+pub struct SelfhostDiagnosticLabel:
     span <SelfhostSourceSpan>
     message <str>
 
@@ -177,7 +177,7 @@ impl Copy for SelfhostDiagnosticLabel:
         self
 
 //: SelfhostDiagnostic: compiler stage を[横断/おうだん]して[運/はこ]ぶ diagnostic
-struct SelfhostDiagnostic:
+pub struct SelfhostDiagnostic:
     severity <SelfhostDiagSeverity>
     code <SelfhostDiagnosticCode>
     message <str>
@@ -193,11 +193,11 @@ impl Copy for SelfhostDiagnostic:
         self
 
 //: SelfhostDiagnostics: diagnostic [列/れつ]の owning collection
-struct SelfhostDiagnostics:
+pub struct SelfhostDiagnostics:
     items <Vec<SelfhostDiagnostic>>
 
 //: selfhost_diag_severity_name: severity の[安定/あんてい]した[名前/なまえ]を[返/かえ]す
-fn selfhost_diag_severity_name <(SelfhostDiagSeverity)->str> (severity):
+pub fn selfhost_diag_severity_name <(SelfhostDiagSeverity)->str> (severity):
     match severity:
         SelfhostDiagSeverity::Info:
             "info"
@@ -207,7 +207,7 @@ fn selfhost_diag_severity_name <(SelfhostDiagSeverity)->str> (severity):
             "error"
 
 //: selfhost_loader_diag_code_name: loader diagnostic code の stable string を[返/かえ]す
-fn selfhost_loader_diag_code_name <(SelfhostLoaderDiagnosticCode)->str> (code):
+pub fn selfhost_loader_diag_code_name <(SelfhostLoaderDiagnosticCode)->str> (code):
     match code:
         SelfhostLoaderDiagnosticCode::FileNotFound:
             "loader.source.file_not_found"
@@ -219,7 +219,7 @@ fn selfhost_loader_diag_code_name <(SelfhostLoaderDiagnosticCode)->str> (code):
             "loader.vfs.build_failed"
 
 //: selfhost_lexer_diag_code_name: lexer diagnostic code の stable string を[返/かえ]す
-fn selfhost_lexer_diag_code_name <(SelfhostLexerDiagnosticCode)->str> (code):
+pub fn selfhost_lexer_diag_code_name <(SelfhostLexerDiagnosticCode)->str> (code):
     match code:
         SelfhostLexerDiagnosticCode::TokenUnknown:
             "lexer.token.unknown"
@@ -233,7 +233,7 @@ fn selfhost_lexer_diag_code_name <(SelfhostLexerDiagnosticCode)->str> (code):
             "lexer.out_of_memory"
 
 //: selfhost_parser_diag_code_name: parser diagnostic code の stable string を[返/かえ]す
-fn selfhost_parser_diag_code_name <(SelfhostParserDiagnosticCode)->str> (code):
+pub fn selfhost_parser_diag_code_name <(SelfhostParserDiagnosticCode)->str> (code):
     match code:
         SelfhostParserDiagnosticCode::RawBlockExpectedIndent:
             "parser.raw_block.expected_indent"
@@ -261,7 +261,7 @@ fn selfhost_parser_diag_code_name <(SelfhostParserDiagnosticCode)->str> (code):
             "parser.import.ast_index"
 
 //: selfhost_resolve_diag_code_name: resolve diagnostic code の stable string を[返/かえ]す
-fn selfhost_resolve_diag_code_name <(SelfhostResolveDiagnosticCode)->str> (code):
+pub fn selfhost_resolve_diag_code_name <(SelfhostResolveDiagnosticCode)->str> (code):
     match code:
         SelfhostResolveDiagnosticCode::ModulePathOutOfMemory:
             "resolve.import_path.out_of_memory"
@@ -279,7 +279,7 @@ fn selfhost_resolve_diag_code_name <(SelfhostResolveDiagnosticCode)->str> (code)
             "resolve.import_graph.internal"
 
 //: selfhost_cli_diag_code_name: CLI diagnostic code の stable string を[返/かえ]す
-fn selfhost_cli_diag_code_name <(SelfhostCliDiagnosticCode)->str> (code):
+pub fn selfhost_cli_diag_code_name <(SelfhostCliDiagnosticCode)->str> (code):
     match code:
         SelfhostCliDiagnosticCode::MissingInput:
             "cli.input.missing"
@@ -289,7 +289,7 @@ fn selfhost_cli_diag_code_name <(SelfhostCliDiagnosticCode)->str> (code):
 //: [目的/もくてき]:
 //: - 内部 enum を CLI / JSON / doctest 用の[安定/あんてい]した文字列へ変換します。
 //: - ここでは wildcard arm を使わず、category と下位 code の match 網羅性を[効/き]かせます。
-fn selfhost_diag_code_name <(SelfhostDiagnosticCode)->str> (code):
+pub fn selfhost_diag_code_name <(SelfhostDiagnosticCode)->str> (code):
     match code:
         SelfhostDiagnosticCode::Loader loader_code:
             selfhost_loader_diag_code_name loader_code
@@ -303,35 +303,35 @@ fn selfhost_diag_code_name <(SelfhostDiagnosticCode)->str> (code):
             selfhost_cli_diag_code_name cli_code
 
 //: selfhost_diag_label_new: primary label [値/あたい]を[作/つく]る
-fn selfhost_diag_label_new <(SelfhostSourceSpan,str)->SelfhostDiagnosticLabel> (span, message):
+pub fn selfhost_diag_label_new <(SelfhostSourceSpan,str)->SelfhostDiagnosticLabel> (span, message):
     SelfhostDiagnosticLabel span message
 
 //: selfhost_diag_new: diagnostic [値/あたい]を[作/つく]る
-fn selfhost_diag_new <(SelfhostDiagSeverity,SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (severity, code, message):
+pub fn selfhost_diag_new <(SelfhostDiagSeverity,SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (severity, code, message):
     SelfhostDiagnostic severity code message none<SelfhostDiagnosticLabel> none<str>
 
 //: selfhost_diag_info: info diagnostic を[作/つく]る
-fn selfhost_diag_info <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
+pub fn selfhost_diag_info <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
     selfhost_diag_new SelfhostDiagSeverity::Info code message
 
 //: selfhost_diag_warning: warning diagnostic を[作/つく]る
-fn selfhost_diag_warning <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
+pub fn selfhost_diag_warning <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
     selfhost_diag_new SelfhostDiagSeverity::Warning code message
 
 //: selfhost_diag_error: error diagnostic を[作/つく]る
-fn selfhost_diag_error <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
+pub fn selfhost_diag_error <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
     selfhost_diag_new SelfhostDiagSeverity::Error code message
 
 //: selfhost_diag_with_primary_label: diagnostic に primary label を[付/つ]ける
-fn selfhost_diag_with_primary_label <(SelfhostDiagnostic,SelfhostDiagnosticLabel)->SelfhostDiagnostic> (diag, label):
+pub fn selfhost_diag_with_primary_label <(SelfhostDiagnostic,SelfhostDiagnosticLabel)->SelfhostDiagnostic> (diag, label):
     SelfhostDiagnostic field::get diag "severity" field::get diag "code" field::get diag "message" some<SelfhostDiagnosticLabel> label field::get diag "note"
 
 //: selfhost_diag_with_note: diagnostic に note を[付/つ]ける
-fn selfhost_diag_with_note <(SelfhostDiagnostic,str)->SelfhostDiagnostic> (diag, note):
+pub fn selfhost_diag_with_note <(SelfhostDiagnostic,str)->SelfhostDiagnostic> (diag, note):
     SelfhostDiagnostic field::get diag "severity" field::get diag "code" field::get diag "message" field::get diag "primary_label" some<str> note
 
 //: selfhost_diag_is_error: error severity か[返/かえ]す
-fn selfhost_diag_is_error <(SelfhostDiagnostic)->bool> (diag):
+pub fn selfhost_diag_is_error <(SelfhostDiagnostic)->bool> (diag):
     match field::get diag "severity":
         SelfhostDiagSeverity::Error:
             true
@@ -341,7 +341,7 @@ fn selfhost_diag_is_error <(SelfhostDiagnostic)->bool> (diag):
             false
 
 //: selfhost_diagnostics_new: [空/から]の diagnostic collection を[作/つく]る
-fn selfhost_diagnostics_new <()->Result<SelfhostDiagnostics, StdErrorKind>> ():
+pub fn selfhost_diagnostics_new <()->Result<SelfhostDiagnostics, StdErrorKind>> ():
     match v::new<SelfhostDiagnostic>:
         Result::Ok items:
             Result<SelfhostDiagnostics, StdErrorKind>::Ok SelfhostDiagnostics items
@@ -349,7 +349,7 @@ fn selfhost_diagnostics_new <()->Result<SelfhostDiagnostics, StdErrorKind>> ():
             Result<SelfhostDiagnostics, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
 //: selfhost_diagnostics_one: diagnostic 1 [件/けん]から collection を[作/つく]る
-fn selfhost_diagnostics_one <(SelfhostDiagnostic)->Result<SelfhostDiagnostics, StdErrorKind>> (diag):
+pub fn selfhost_diagnostics_one <(SelfhostDiagnostic)->Result<SelfhostDiagnostics, StdErrorKind>> (diag):
     match selfhost_diagnostics_new:
         Result::Ok ds:
             selfhost_diagnostics_push ds diag
@@ -357,7 +357,7 @@ fn selfhost_diagnostics_one <(SelfhostDiagnostic)->Result<SelfhostDiagnostics, S
             Result<SelfhostDiagnostics, StdErrorKind>::Err e
 
 //: selfhost_diagnostics_push: diagnostic を 1 [件/けん][追加/ついか]する
-fn selfhost_diagnostics_push <(SelfhostDiagnostics,SelfhostDiagnostic)->Result<SelfhostDiagnostics, StdErrorKind>> (diagnostics, diag):
+pub fn selfhost_diagnostics_push <(SelfhostDiagnostics,SelfhostDiagnostic)->Result<SelfhostDiagnostics, StdErrorKind>> (diagnostics, diag):
     match v::push<SelfhostDiagnostic> field::get diagnostics "items" diag:
         Result::Ok items:
             Result<SelfhostDiagnostics, StdErrorKind>::Ok SelfhostDiagnostics items
@@ -365,17 +365,17 @@ fn selfhost_diagnostics_push <(SelfhostDiagnostics,SelfhostDiagnostic)->Result<S
             Result<SelfhostDiagnostics, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
 //: selfhost_diagnostics_len: diagnostic [件数/けんすう]を[返/かえ]す
-fn selfhost_diagnostics_len <(&SelfhostDiagnostics)->i32> (diagnostics):
+pub fn selfhost_diagnostics_len <(&SelfhostDiagnostics)->i32> (diagnostics):
     let items <&Vec<SelfhostDiagnostic>> field::get_ref diagnostics "items"
     v::len<SelfhostDiagnostic> items
 
 //: selfhost_diagnostics_get: index の diagnostic を[返/かえ]す
-fn selfhost_diagnostics_get <(&SelfhostDiagnostics,i32)->Option<SelfhostDiagnostic>> (diagnostics, idx):
+pub fn selfhost_diagnostics_get <(&SelfhostDiagnostics,i32)->Option<SelfhostDiagnostic>> (diagnostics, idx):
     let items <&Vec<SelfhostDiagnostic>> field::get_ref diagnostics "items"
     v::get<SelfhostDiagnostic> items idx
 
 //: selfhost_diagnostics_has_errors_loop: error diagnostic を[探/さが]す
-fn selfhost_diagnostics_has_errors_loop <(&SelfhostDiagnostics,i32,i32)->bool> (diagnostics, n, idx):
+pub fn selfhost_diagnostics_has_errors_loop <(&SelfhostDiagnostics,i32,i32)->bool> (diagnostics, n, idx):
     if:
         ge idx n
         then:
@@ -393,16 +393,16 @@ fn selfhost_diagnostics_has_errors_loop <(&SelfhostDiagnostics,i32,i32)->bool> (
                     false
 
 //: selfhost_diagnostics_has_errors: error severity を[含/ふく]むか[返/かえ]す
-fn selfhost_diagnostics_has_errors <(&SelfhostDiagnostics)->bool> (diagnostics):
+pub fn selfhost_diagnostics_has_errors <(&SelfhostDiagnostics)->bool> (diagnostics):
     let n <i32> selfhost_diagnostics_len diagnostics
     selfhost_diagnostics_has_errors_loop diagnostics n 0
 
 //: selfhost_diagnostics_free: diagnostic collection の[内部/ないぶ] buffer を[解放/かいほう]する
-fn selfhost_diagnostics_free <(SelfhostDiagnostics)->()> (diagnostics):
+pub fn selfhost_diagnostics_free <(SelfhostDiagnostics)->()> (diagnostics):
     v::free<SelfhostDiagnostic> field::get diagnostics "items"
 
 //: selfhost_diag_stage0: diagnostic [基盤/きばん]の smoke API
-fn selfhost_diag_stage0 <()*>i32> ():
+pub fn selfhost_diag_stage0 <()*>i32> ():
     let diag <SelfhostDiagnostic> selfhost_diag_warning SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "warning"
     match selfhost_diagnostics_one diag:
         Result::Ok ds:

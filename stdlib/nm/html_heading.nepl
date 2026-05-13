@@ -43,7 +43,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-enum HtmlHeadingKind:
+pub enum HtmlHeadingKind:
     H1
     H2
     H3

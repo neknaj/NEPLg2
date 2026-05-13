@@ -26,7 +26,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(sep_len)
-fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
+pub fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
     let mut i <i32> 0;
     let mut ok <i32> 1;
     while lt i sep_len:
@@ -74,7 +74,7 @@ fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
 //:         |> checks_push check_eq_i32 -1 str_find "ab" "abc"
 //:     checks_exit_code checks
 //: ```
-fn str_find <(str,str)->i32> (s, pat):
+pub fn str_find <(str,str)->i32> (s, pat):
     let s_len <i32> len s
     let pat_len <i32> len pat
     if:

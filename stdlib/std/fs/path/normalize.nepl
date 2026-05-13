@@ -36,7 +36,7 @@
 //:
 //: 計算量:
 //: - path 長 n に対して O(n)
-fn fs_normalize_relative_builder <(str)->Result<StringBuilder,i32>> (path):
+pub fn fs_normalize_relative_builder <(str)->Result<StringBuilder,i32>> (path):
     let path_len <i32> len path
     if:
         normalize_validate::fs_path_has_forbidden_host_byte path
@@ -109,7 +109,7 @@ fn fs_normalize_relative_builder <(str)->Result<StringBuilder,i32>> (path):
 //: - absolute path、Windows host path 風の `\` / `:` を含む path は `Err(76)` にします。
 //: - 空 path は preopen root 自体を表す `"."` に正規化します。
 //: - component 分割や stack 確保に失敗した場合は `Err(12)` を返します。
-fn fs_normalize_relative <(str)->Result<str,i32>> (path):
+pub fn fs_normalize_relative <(str)->Result<str,i32>> (path):
     match fs_normalize_relative_builder path:
         Result::Err e:
             Result<str,i32>::Err e

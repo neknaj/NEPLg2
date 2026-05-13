@@ -26,7 +26,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn str_eq <(str,str)->bool> (a,b):
+pub fn str_eq <(str,str)->bool> (a,b):
     let la <i32> len a;
     let lb <i32> len b;
     if:
@@ -47,7 +47,7 @@ fn str_eq <(str,str)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,n,i):
+pub fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,n,i):
     if:
         eq i n
         then:
@@ -73,7 +73,7 @@ fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,n,i):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn str_is_space <(i32)->bool> (b):
+pub fn str_is_space <(i32)->bool> (b):
     match b:
         ' ':
             true
@@ -99,7 +99,7 @@ fn str_is_space <(i32)->bool> (b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(prefix))
-fn str_starts_with <(str,str)->bool> (s, prefix):
+pub fn str_starts_with <(str,str)->bool> (s, prefix):
     let ls <i32> len s;
     let lp <i32> len prefix;
     if:
@@ -120,7 +120,7 @@ fn str_starts_with <(str,str)->bool> (s, prefix):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
+pub fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
     if:
         eq i n
         then true
@@ -167,7 +167,7 @@ fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
 //:         |> checks_push assert not str_starts_with_at "abc" 4 ""
 //:     checks_exit_code checks
 //: ```
-fn str_starts_with_at <(str,i32,str)->bool> (s, start, prefix):
+pub fn str_starts_with_at <(str,i32,str)->bool> (s, start, prefix):
     let ls <i32> len s;
     let lp <i32> len prefix;
     if:
@@ -200,7 +200,7 @@ fn str_starts_with_at <(str,i32,str)->bool> (s, start, prefix):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(suffix))
-fn str_ends_with <(str,str)->bool> (s, suffix):
+pub fn str_ends_with <(str,str)->bool> (s, suffix):
     let ls <i32> len s;
     let lp <i32> len suffix;
     if:
@@ -223,7 +223,7 @@ fn str_ends_with <(str,str)->bool> (s, suffix):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(pat))
-fn str_range_eq <(str,i32,i32,str)->bool> (s, start, end, pat):
+pub fn str_range_eq <(str,i32,i32,str)->bool> (s, start, end, pat):
     let n <i32> len s
     let pat_len <i32> len pat
     if:

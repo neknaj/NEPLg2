@@ -3,7 +3,7 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::ast::{FnBody, FnDef};
+use crate::ast::{FnBody, FnDef, Visibility};
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::TypeDiagnosticCode;
@@ -118,6 +118,7 @@ pub(super) fn check_function(
         let _ = env.insert_local(Binding {
             name: name.clone(),
             ty: *ty,
+            visibility: Visibility::Private,
             mutable: false,
             no_shadow: false,
             defined: true,
@@ -134,6 +135,7 @@ pub(super) fn check_function(
         let _ = env.insert_local(Binding {
             name: param.name.clone(),
             ty: *ty,
+            visibility: Visibility::Private,
             mutable: false,
             no_shadow: false,
             defined: true,

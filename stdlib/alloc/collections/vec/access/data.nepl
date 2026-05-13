@@ -41,7 +41,7 @@
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-fn data_ptr <.T> <(&Vec<.T>)->i32> (v):
+pub fn data_ptr <.T> <(&Vec<.T>)->i32> (v):
     let v_storage <VecStorageState> *field::get_ref v "storage"
     let v_data <MemPtr<.T>> *field::get_ref v "data"
     mem_ptr_addr vec_storage_mem_ptr<.T> v_storage v_data
@@ -76,7 +76,7 @@ fn data_ptr <.T> <(&Vec<.T>)->i32> (v):
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-fn data_mem_ptr <.T> <(&Vec<.T>)->MemPtr<.T>> (v):
+pub fn data_mem_ptr <.T> <(&Vec<.T>)->MemPtr<.T>> (v):
     let v_storage <VecStorageState> *field::get_ref v "storage"
     let v_data <MemPtr<.T>> *field::get_ref v "data"
     vec_storage_mem_ptr<.T> v_storage v_data
@@ -111,7 +111,7 @@ fn data_mem_ptr <.T> <(&Vec<.T>)->MemPtr<.T>> (v):
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
-fn data_len <.T> <(&Vec<.T>)->VecDataLen<.T>> (v):
+pub fn data_len <.T> <(&Vec<.T>)->VecDataLen<.T>> (v):
     let v_len <i32> *field::get_ref v "len"
     let v_storage <VecStorageState> *field::get_ref v "storage"
     let raw_data <MemPtr<.T>> *field::get_ref v "data"

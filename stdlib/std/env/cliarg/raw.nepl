@@ -21,11 +21,11 @@
 #import "core/option" as *
 #import "core/result" as *
 
-struct CliArgSizes:
+pub struct CliArgSizes:
     argc <i32>
     buf_size <i32>
 
-fn cli_args_sizes_result <(MemPtr<u8>)*>Result<CliArgSizes,i32>> (meta):
+pub fn cli_args_sizes_result <(MemPtr<u8>)*>Result<CliArgSizes,i32>> (meta):
     let meta_raw <i32> mem_ptr_addr meta
     if:
         le meta_raw 0
@@ -49,7 +49,7 @@ fn cli_args_sizes_result <(MemPtr<u8>)*>Result<CliArgSizes,i32>> (meta):
                         else:
                             Result<CliArgSizes,i32>::Ok CliArgSizes argc buf_size
 
-fn cli_zero_u8_buffer_result <(MemPtr<u8>,i32)->Result<(),i32>> (buf, size):
+pub fn cli_zero_u8_buffer_result <(MemPtr<u8>,i32)->Result<(),i32>> (buf, size):
     if:
         lt size 0
         then:
@@ -72,7 +72,7 @@ fn cli_zero_u8_buffer_result <(MemPtr<u8>,i32)->Result<(),i32>> (buf, size):
                 else:
                     Result<(),i32>::Err err
 
-fn cli_zero_i32_slots_result <(MemPtr<u8>,i32)->Result<(),i32>> (base, byte_size):
+pub fn cli_zero_i32_slots_result <(MemPtr<u8>,i32)->Result<(),i32>> (base, byte_size):
     let raw <i32> mem_ptr_addr base
     if:
         or le raw 0 lt byte_size 0
@@ -86,7 +86,7 @@ fn cli_zero_i32_slots_result <(MemPtr<u8>,i32)->Result<(),i32>> (base, byte_size
                     set off add off 4
             Result<(),i32>::Ok ()
 
-fn cli_load_u8_result <(MemPtr<u8>,i32)->Result<i32,i32>> (base, off):
+pub fn cli_load_u8_result <(MemPtr<u8>,i32)->Result<i32,i32>> (base, off):
     match load_u8 mem_ptr_add base off:
         Option::Some b:
             Result<i32,i32>::Ok b
@@ -94,7 +94,7 @@ fn cli_load_u8_result <(MemPtr<u8>,i32)->Result<i32,i32>> (base, off):
             Result<i32,i32>::Err 1
 
 #if[target=llvm]
-fn __cli_copy_to_cstr <(str)*>Result<MemPtr<u8>,i32>> (s):
+pub fn __cli_copy_to_cstr <(str)*>Result<MemPtr<u8>,i32>> (s):
     let byte_len <i32> len s;
     let src <i32> mem_ptr_addr string_data_ptr s;
     let size <i32> add byte_len 1;
@@ -119,7 +119,7 @@ fn __cli_copy_to_cstr <(str)*>Result<MemPtr<u8>,i32>> (s):
             Result<MemPtr<u8>,i32>::Ok dst
 
 #if[target=llvm]
-fn __cli_open_cmdline <()*>i32> ():
+pub fn __cli_open_cmdline <()*>i32> ():
     let path <str> "/proc/self/cmdline";
     match __cli_copy_to_cstr path:
         Result::Err _:
@@ -138,7 +138,7 @@ fn __cli_open_cmdline <()*>i32> ():
                 else <i32> cast fd64
 
 #if[target=llvm]
-fn __cli_read_cmdline <(MemPtr<u8>,i32)*>i32> (buf, cap):
+pub fn __cli_read_cmdline <(MemPtr<u8>,i32)*>i32> (buf, cap):
     let fd <i32> __cli_open_cmdline;
     if:
         cond:
@@ -155,7 +155,7 @@ fn __cli_read_cmdline <(MemPtr<u8>,i32)*>i32> (buf, cap):
                 else <i32> cast n64
 
 #if[target=llvm]
-fn args_sizes_get <(i32,i32)*>i32> (argc_ptr, buf_ptr):
+pub fn args_sizes_get <(i32,i32)*>i32> (argc_ptr, buf_ptr):
     let cap <i32> 65536;
     match alloc_ptr<u8> cap:
         Result::Err _:
@@ -202,7 +202,7 @@ fn args_sizes_get <(i32,i32)*>i32> (argc_ptr, buf_ptr):
                     if eq err 0 0 err
 
 #if[target=llvm]
-fn args_get <(i32,i32)*>i32> (argv_ptr, argv_buf):
+pub fn args_get <(i32,i32)*>i32> (argv_ptr, argv_buf):
     let cap <i32> 65536;
     match alloc_ptr<u8> cap:
         Result::Err _:

@@ -60,7 +60,7 @@
 //:     free<i32> zs;
 //:     if ok 0 1
 //: ```
-fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
+pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let mut keep_len <i32> 0
     let mut i <i32> 0
@@ -141,7 +141,7 @@ fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> (v, 
 //:     free<i32> rest;
 //:     if ok 0 1
 //: ```
-fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, StdErrorKind>> (v, p):
+pub fn partition <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<VecPartition<.T>, StdErrorKind>> (v, p):
     let src_len <i32> *field::get_ref &v "len"
     let mut left_len <i32> 0
     let mut i <i32> 0

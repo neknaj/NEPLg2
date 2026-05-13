@@ -22,7 +22,7 @@
 //: - `cap > 0` の[空/から] `Vec` に対して、`VecStorageState::Owned` の backing storage を[確保/かくほ]します。
 //:
 //: ### [実装/じっそう]
-fn vec_alloc_empty <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_cap):
+pub fn vec_alloc_empty <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_cap):
     if:
         le requested_cap 0
         then:
@@ -65,7 +65,7 @@ fn vec_alloc_empty <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_cap):
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
+pub fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
     vec_alloc_empty<.T> 8
 
 //: ## with_capacity
@@ -98,7 +98,7 @@ fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-fn with_capacity <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (cap):
+pub fn with_capacity <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (cap):
     if:
         lt cap 0
         then:

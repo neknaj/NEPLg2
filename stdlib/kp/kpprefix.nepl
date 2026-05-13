@@ -43,7 +43,7 @@
 //: ```
 
 //: prefix_build_i32: `data[0..n)` の累積和配列 `pref[0..n]` を作る
-fn prefix_build_i32 <(i32,i32)*>i32> (data, n):
+pub fn prefix_build_i32 <(i32,i32)*>i32> (data, n):
     let pref_len <i32> add n 1;
     let pref <i32> alloc_raw mul pref_len 4;
     store_i32 pref 0;
@@ -57,7 +57,7 @@ fn prefix_build_i32 <(i32,i32)*>i32> (data, n):
     pref
 
 //: prefix_range_sum_i32: 半開区間 `[l, r)` の和を返す
-fn prefix_range_sum_i32 <(i32,i32,i32)->i32> (pref, l, r):
+pub fn prefix_range_sum_i32 <(i32,i32,i32)->i32> (pref, l, r):
     sub load_i32 add pref mul r 4 load_i32 add pref mul l 4
 
 //: PrefixI32: i32 用累積和の安全ハンドル
@@ -67,7 +67,7 @@ fn prefix_range_sum_i32 <(i32,i32,i32)->i32> (pref, l, r):
 //:
 //: [注意/ちゅうい]:
 //: - pointer と長さだけを[持/も]つ[軽量/けいりょう] handle なので `Copy` / `Clone` を[実装/じっそう]します。
-struct PrefixI32:
+pub struct PrefixI32:
     ptr <i32>
     len <i32>
 
@@ -83,7 +83,7 @@ impl Clone for PrefixI32:
 //:
 //: [実装/じっそう]:
 //: - `data_len` で data pointer と長さを 1 回で[取/と]り[出/だ]してから、raw prefix builder へ[委譲/いじょう]します。
-fn prefix_build_vec_i32 <(Vec<i32>)*>PrefixI32> (v):
+pub fn prefix_build_vec_i32 <(Vec<i32>)*>PrefixI32> (v):
     let info <VecDataLen<i32>> data_len<i32> v
     let n <i32> get info "len"
     let data <i32> mem_ptr_addr get info "data"
@@ -91,11 +91,11 @@ fn prefix_build_vec_i32 <(Vec<i32>)*>PrefixI32> (v):
     PrefixI32 pref_ptr n
 
 //: prefix_sum_i32: ハンドルから半開区間 `[l,r)` の和を返す
-fn prefix_sum_i32 <(PrefixI32,i32,i32)*>i32> (pref, l, r):
+pub fn prefix_sum_i32 <(PrefixI32,i32,i32)*>i32> (pref, l, r):
     prefix_range_sum_i32 get pref "ptr" l r
 
 //: prefix_free_i32: 累積和ハンドルのメモリを解放する
-fn prefix_free_i32 <(PrefixI32)*>()> (pref):
+pub fn prefix_free_i32 <(PrefixI32)*>()> (pref):
     let n <i32> get pref "len"
     dealloc_raw get pref "ptr" mul add n 1 4
 

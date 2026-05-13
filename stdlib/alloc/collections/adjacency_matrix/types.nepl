@@ -18,7 +18,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `free` しないかぎり[内部/ないぶ] byte [配列/はいれつ]の[所有権/しょゆうけん]を[保持/ほじ]します。
-struct AdjacencyMatrix:
+pub struct AdjacencyMatrix:
     nverts <i32>
     nbytes <i32>
     bits <Vec<u8>>
@@ -33,14 +33,14 @@ struct AdjacencyMatrix:
 //: ### [注意/ちゅうい]
 //: - `Result::Err` を[受/う]け[取/と]った caller は `adjacency_matrix_update_error_owner` で owner を[回収/かいしゅう]し、[不要/ふよう]なら `free` します。
 //: - `diag` は `Diag` の Copy [値/あたい]で、`adjacency_matrix_update_error_diag` から owner を[動/うご]かさず[確認/かくにん]できます。
-struct AdjacencyMatrixUpdateError:
+pub struct AdjacencyMatrixUpdateError:
     owner <AdjacencyMatrix>
     diag <Diag>
 
 //: adjacency_matrix_update_error_diag: update [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
-fn adjacency_matrix_update_error_diag <(&AdjacencyMatrixUpdateError)->Diag> (e):
+pub fn adjacency_matrix_update_error_diag <(&AdjacencyMatrixUpdateError)->Diag> (e):
     *field::get_ref e "diag"
 
 //: adjacency_matrix_update_error_owner: update [失敗/しっぱい]で[戻/もど]された owner を[取/と]り[出/だ]す
-fn adjacency_matrix_update_error_owner <(AdjacencyMatrixUpdateError)->AdjacencyMatrix> (e):
+pub fn adjacency_matrix_update_error_owner <(AdjacencyMatrixUpdateError)->AdjacencyMatrix> (e):
     field::get e "owner"

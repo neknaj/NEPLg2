@@ -37,7 +37,7 @@
 //:     free fw
 //:     if ok 1 0
 //: ```
-fn new <(i32)*>Result<Fenwick, Diag>> (n):
+pub fn new <(i32)*>Result<Fenwick, Diag>> (n):
     if:
         lt n 0
         then:

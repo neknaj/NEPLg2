@@ -37,7 +37,7 @@
 //:     let ok <bool> and ok0 ok1;
 //:     if ok 1 0
 //: ```
-fn from_bool <(bool)->str> (b):
+pub fn from_bool <(bool)->str> (b):
     if:
         b
         then:
@@ -83,7 +83,7 @@ fn from_bool <(bool)->str> (b):
 //:             checks_push checks1 assert_eq_i32 1 0
 //:     checks_exit_code checks2
 //: ```
-fn to_bool <(str)->Result<bool,i32>> (s):
+pub fn to_bool <(str)->Result<bool,i32>> (s):
     if:
         str_eq s "true"
         then:

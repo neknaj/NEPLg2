@@ -44,7 +44,7 @@
 //:     free hm;
 //:     ok
 //: ```
-fn new <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(.H)*>Result<HashMap<.K,.V,.H>, Diag>> (hasher):
+pub fn new <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(.H)*>Result<HashMap<.K,.V,.H>, Diag>> (hasher):
     hashmap_new_with_capacity<.K,.V,.H> hasher 16
 
 //: ## with_capacity
@@ -52,7 +52,7 @@ fn new <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(.H)*>Result<HashMap<.K,
 //:
 //: ### [目的/もくてき]
 //: - self-host compiler の symbol table など、要素数の[見積/みつ]もりがある用途で rehash 回数を[減/へ]らします。
-fn with_capacity <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(.H,i32)*>Result<HashMap<.K,.V,.H>, Diag>> (hasher, requested):
+pub fn with_capacity <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(.H,i32)*>Result<HashMap<.K,.V,.H>, Diag>> (hasher, requested):
     hashmap_new_with_capacity<.K,.V,.H> hasher requested
 
 //: ## insert
@@ -88,7 +88,7 @@ fn with_capacity <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(.H,i32)*>Resu
 //:     free hm1;
 //:     ok
 //: ```
-fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K,.V)*>Result<HashMap<.K,.V,.H>, Diag>> (hm, key, value):
+pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K,.V)*>Result<HashMap<.K,.V,.H>, Diag>> (hm, key, value):
     match hashmap_prepare_insert<.K,.V,.H> hm key:
         Result::Err d:
             err<HashMap<.K,.V,.H>, Diag> d
@@ -123,7 +123,7 @@ fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K
 //: ### [目的/もくてき]
 //: - key に[対応/たいおう]する Copy value を `Option` で[返/かえ]します。
 //: - `&HashMap` を受け取り、table owner を移動せずに値を[読/よ]みます。
-fn get <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V,.H>,.K)->Option<.V>> (hm, key):
+pub fn get <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V,.H>,.K)->Option<.V>> (hm, key):
     let cap0 <i32> *field::get_ref hm "cap"
     let hasher <.H> *field::get_ref hm "hasher"
     let storage <&HashMapStorage<.K,.V>> field::get_ref hm "storage"
@@ -139,7 +139,7 @@ fn get <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V,.H>,.K)-
 //:
 //: ### [目的/もくてき]
 //: - value [取得/しゅとく]を[行/おこな]わず、key の[存在/そんざい]だけを[判定/はんてい]します。
-fn contains <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V,.H>,.K)->bool> (hm, key):
+pub fn contains <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V,.H>,.K)->bool> (hm, key):
     let cap0 <i32> *field::get_ref hm "cap"
     let hasher <.H> *field::get_ref hm "hasher"
     let storage <&HashMapStorage<.K,.V>> field::get_ref hm "storage"
@@ -153,7 +153,7 @@ fn contains <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(&HashMap<.K,.V,.H>
 //:
 //: ### [注意/ちゅうい]
 //: - key が[存在/そんざい]しない[場合/ばあい]、入力 HashMap はこの[関数/かんすう]が[消費/しょうひ]して storage を[解放/かいほう]した上で `Err(Diag)` を[返/かえ]します。
-fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K)*>Result<HashMap<.K,.V,.H>, Diag>> (hm, key):
+pub fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K)*>Result<HashMap<.K,.V,.H>, Diag>> (hm, key):
     let count0 <i32> *field::get_ref &hm "count"
     let cap0 <i32> *field::get_ref &hm "cap"
     let tombstones0 <i32> *field::get_ref &hm "tombstones"
@@ -174,7 +174,7 @@ fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>,.K
 //:
 //: ### [目的/もくてき]
 //: - `&HashMap` から[現在/げんざい][登録/とうろく]されている key/value [組/くみ]の[個数/こすう]を[返/かえ]します。
-fn len <.K,.V,.H> <(&HashMap<.K,.V,.H>)->i32> (hm):
+pub fn len <.K,.V,.H> <(&HashMap<.K,.V,.H>)->i32> (hm):
     *field::get_ref hm "count"
 
 //: ## free
@@ -185,6 +185,6 @@ fn len <.K,.V,.H> <(&HashMap<.K,.V,.H>)->i32> (hm):
 //:
 //: ### [注意/ちゅうい]
 //: - `.K` / `.V` は Copy 前提のため payload drop traversal は[行/おこな]いません。
-fn free <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>)->()> (hm):
+pub fn free <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMap<.K,.V,.H>)->()> (hm):
     let storage <HashMapStorage<.K,.V>> field::get hm "storage"
     hashmap_free_storage<.K,.V> storage

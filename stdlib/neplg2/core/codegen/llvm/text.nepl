@@ -22,5 +22,5 @@
 //: fn main <()->i32> ():
 //:     selfhost_llvm_text_stage0
 //: ```
-fn selfhost_llvm_text_stage0 <()->i32> ():
+pub fn selfhost_llvm_text_stage0 <()->i32> ():
     0

@@ -18,7 +18,7 @@
 #import "./storage" as *
 
 //: map: 各要素へ[関数/かんすう]を[適用/てきよう]して[新/あたら]しい list を[返/かえ]す
-fn map <.T: Copy,.U: Copy> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, f):
+pub fn map <.T: Copy,.U: Copy> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, f):
     let items <Vec<.T>> field::get lst "items"
     let n <i32> vec::len<.T> &items
     match vec::with_capacity<.U> n:
@@ -58,7 +58,7 @@ fn map <.T: Copy,.U: Copy> <(List<.T>, (.T)->.U)*>Result<List<.U>, Diag>> (lst, 
                     ok<List<.U>, Diag> List<.U> out
 
 //: filter: 条件を[満/み]たす[要素/ようそ]だけを[残/のこ]す
-fn filter <.T: Copy> <(List<.T>, (.T)->bool)*>Result<List<.T>, Diag>> (lst, p):
+pub fn filter <.T: Copy> <(List<.T>, (.T)->bool)*>Result<List<.T>, Diag>> (lst, p):
     let items <Vec<.T>> field::get lst "items"
     let n <i32> vec::len<.T> &items
     match vec::with_capacity<.T> n:

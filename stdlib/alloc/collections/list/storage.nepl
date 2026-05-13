@@ -16,20 +16,20 @@
 #import "./types" as *
 
 //: list_diag_from_vec_error: Vec storage の error を list API の Diag に[変換/へんかん]する
-fn list_diag_from_vec_error <(StdErrorKind)*>Diag> (kind):
+pub fn list_diag_from_vec_error <(StdErrorKind)*>Diag> (kind):
     diag_error kind "list storage operation failed"
 
 //: list_physical_index: 論理 index を storage index に[変換/へんかん]する
-fn list_physical_index <(i32,i32)->i32> (len0, idx):
+pub fn list_physical_index <(i32,i32)->i32> (len0, idx):
     sub sub len0 1 idx
 
 //: list_free_items: List から storage owner を[取/と]り[出/だ]して[解放/かいほう]する
-fn list_free_items <.T> <(List<.T>)->()> (lst):
+pub fn list_free_items <.T> <(List<.T>)->()> (lst):
     let items <Vec<.T>> field::get lst "items"
     vec::free<.T> items
 
 //: list_reverse_items: storage 順序を in-place に[反転/はんてん]する
-fn list_reverse_items <.T: Copy> <(&Vec<.T>,i32,i32)*>()> (items, left0, right0):
+pub fn list_reverse_items <.T: Copy> <(&Vec<.T>,i32,i32)*>()> (items, left0, right0):
     let mut left <i32> left0
     let mut right <i32> right0
     while lt left right:

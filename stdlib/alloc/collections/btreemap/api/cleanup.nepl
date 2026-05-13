@@ -26,6 +26,6 @@
 //:     free hm;
 //:     0
 //: ```
-fn free <.K,.V> <(BTreeMap<.K,.V>)->()> (hm):
+pub fn free <.K,.V> <(BTreeMap<.K,.V>)->()> (hm):
     let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"
     btreemap_free_storage<.K,.V> storage

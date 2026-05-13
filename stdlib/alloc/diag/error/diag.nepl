@@ -27,90 +27,90 @@
 #import "core/result" as *
 #import "alloc/diag/error/types" as *
 //: diag_kind_new: `DiagKind` を[構築/こうちく]する
-fn diag_kind_new <(DiagLevel,Option<StdErrorKind>,Option<str>)->DiagKind> (level, std_error, local_kind):
+pub fn diag_kind_new <(DiagLevel,Option<StdErrorKind>,Option<str>)->DiagKind> (level, std_error, local_kind):
     DiagKind level std_error local_kind
 
 //: std_error_kind: `StdErrorKind` を[持/も]つ error [診断/しんだん][分類/ぶんるい]を[作/つく]る
-fn std_error_diag_kind <(StdErrorKind)->DiagKind> (kind):
+pub fn std_error_diag_kind <(StdErrorKind)->DiagKind> (kind):
     diag_kind_new DiagLevel::Error some<StdErrorKind> kind none<str>
 
 //: log_kind: local kind [付/つ]きの log [分類/ぶんるい]を[作/つく]る
-fn log_diag_kind <(str)->DiagKind> (local_kind):
+pub fn log_diag_kind <(str)->DiagKind> (local_kind):
     diag_kind_new DiagLevel::Log none<StdErrorKind> some<str> local_kind
 
 //: info_kind: local kind [付/つ]きの info [分類/ぶんるい]を[作/つく]る
-fn info_diag_kind <(str)->DiagKind> (local_kind):
+pub fn info_diag_kind <(str)->DiagKind> (local_kind):
     diag_kind_new DiagLevel::Info none<StdErrorKind> some<str> local_kind
 
 //: warn_kind: local kind [付/つ]きの warn [分類/ぶんるい]を[作/つく]る
-fn warn_diag_kind <(str)->DiagKind> (local_kind):
+pub fn warn_diag_kind <(str)->DiagKind> (local_kind):
     diag_kind_new DiagLevel::Warn none<StdErrorKind> some<str> local_kind
 
 //: diag_new: [診断/しんだん] 1 [件/けん]を[構築/こうちく]する
-fn diag_new <(DiagKind,str)*>Diag> (kind, message):
+pub fn diag_new <(DiagKind,str)*>Diag> (kind, message):
     Diag kind message none<Span> "" "" none<str>
 
 //: diag_log: log [診断/しんだん]を[作/つく]る
-fn diag_log <(str)*>Diag> (message):
+pub fn diag_log <(str)*>Diag> (message):
     let kind <DiagKind> log_diag_kind "log";
     diag_new kind message
 
 //: diag_info: info [診断/しんだん]を[作/つく]る
-fn diag_info <(str)*>Diag> (message):
+pub fn diag_info <(str)*>Diag> (message):
     let kind <DiagKind> info_diag_kind "info";
     diag_new kind message
 
 //: diag_warn: warn [診断/しんだん]を[作/つく]る
-fn diag_warn <(str)*>Diag> (message):
+pub fn diag_warn <(str)*>Diag> (message):
     let kind <DiagKind> warn_diag_kind "warn";
     diag_new kind message
 
 //: diag_error: `StdErrorKind` [付/つ]き error [診断/しんだん]を[作/つく]る
-fn diag_error <(StdErrorKind,str)*>Diag> (kind, message):
+pub fn diag_error <(StdErrorKind,str)*>Diag> (kind, message):
     let dk <DiagKind> std_error_diag_kind kind;
     diag_new dk message
 
 //: diag_with_span: [位置/いち][情報/じょうほう]を[付与/ふよ]する
-fn diag_with_span <(Diag,Span)->Diag> (d, sp):
+pub fn diag_with_span <(Diag,Span)->Diag> (d, sp):
     Diag *field::get_ref &d "kind" *field::get_ref &d "message" some<Span> sp *field::get_ref &d "notes" *field::get_ref &d "help" *field::get_ref &d "source"
 
 //: diag_with_source: [由来/ゆらい][情報/じょうほう]を[付与/ふよ]する
-fn diag_with_source <(Diag,str)->Diag> (d, src):
+pub fn diag_with_source <(Diag,str)->Diag> (d, src):
     Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" *field::get_ref &d "notes" *field::get_ref &d "help" some<str> src
 
 //: diag_add_note: note を 1 [件/けん][追加/ついか]する
-fn diag_add_note <(Diag,str)*>Diag> (d, note):
+pub fn diag_add_note <(Diag,str)*>Diag> (d, note):
     Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" note *field::get_ref &d "help" *field::get_ref &d "source"
 
 //: diag_add_help: help を 1 [件/けん][追加/ついか]する
-fn diag_add_help <(Diag,str)*>Diag> (d, help_item):
+pub fn diag_add_help <(Diag,str)*>Diag> (d, help_item):
     Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" *field::get_ref &d "notes" help_item *field::get_ref &d "source"
 
 //: diag_level: [重大度/じゅうだいど]を[取/と]り[出/だ]す
-fn diag_level <(&Diag)->DiagLevel> (d):
+pub fn diag_level <(&Diag)->DiagLevel> (d):
     let kind <&DiagKind> field::get_ref d "kind";
     *field::get_ref kind "level"
 
-fn diag_level <(Diag)->DiagLevel> (d):
+pub fn diag_level <(Diag)->DiagLevel> (d):
     diag_level &d
 
 //: diag_std_error_kind: `StdErrorKind` を[取/と]り[出/だ]す
-fn diag_std_error_kind <(&Diag)->Option<StdErrorKind>> (d):
+pub fn diag_std_error_kind <(&Diag)->Option<StdErrorKind>> (d):
     let kind <&DiagKind> field::get_ref d "kind";
     *field::get_ref kind "std_error"
 
-fn diag_std_error_kind <(Diag)->Option<StdErrorKind>> (d):
+pub fn diag_std_error_kind <(Diag)->Option<StdErrorKind>> (d):
     diag_std_error_kind &d
 
 //: diag_std_error_kind_str: `StdErrorKind` の[文字列/もじれつ][名/めい]を[取/と]り[出/だ]す
-fn diag_std_error_kind_str <(&Diag)->str> (d):
+pub fn diag_std_error_kind_str <(&Diag)->str> (d):
     match diag_std_error_kind d:
         Option::Some k:
             std_error_kind_str k
         Option::None:
             "None"
 
-fn diag_std_error_kind_str <(Diag)->str> (d):
+pub fn diag_std_error_kind_str <(Diag)->str> (d):
     match diag_std_error_kind d:
         Option::Some k:
             std_error_kind_str k
@@ -118,21 +118,21 @@ fn diag_std_error_kind_str <(Diag)->str> (d):
             "None"
 
 //: diag_err: `Diag` を `Result::Err` に[包/つつ]む
-fn diag_err <.T> <(Diag)->Result<.T, Diag>> (d):
+pub fn diag_err <.T> <(Diag)->Result<.T, Diag>> (d):
     err<.T, Diag> d
 
 //: diag_out_of_memory: [確保/かくほ][失敗/しっぱい]を[表/あらわ]す error [診断/しんだん]を[作/つく]る
-fn diag_out_of_memory <()*>Diag> ():
+pub fn diag_out_of_memory <()*>Diag> ():
     diag_error StdErrorKind::OutOfMemory "allocation failed"
 
 //: diag_empty_collection: [空/から]コレクション[操作/そうさ]の error [診断/しんだん]を[作/つく]る
-fn diag_empty_collection <()*>Diag> ():
+pub fn diag_empty_collection <()*>Diag> ():
     diag_error StdErrorKind::EmptyCollection "collection is empty"
 
 //: diag_capacity_exceeded: [容量/ようりょう][超過/ちょうか]の error [診断/しんだん]を[作/つく]る
-fn diag_capacity_exceeded <()*>Diag> ():
+pub fn diag_capacity_exceeded <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "capacity exceeded"
 
 //: diag_key_not_found: [欠落/けつらく] key の error [診断/しんだん]を[作/つく]る
-fn diag_key_not_found <()*>Diag> ():
+pub fn diag_key_not_found <()*>Diag> ():
     diag_error StdErrorKind::KeyNotFound "key not found"

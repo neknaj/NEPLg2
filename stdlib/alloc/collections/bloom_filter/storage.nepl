@@ -14,7 +14,7 @@
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
 
-fn bloom_byte_at <(&Vec<u8>,i32)->Option<i32>> (bits, byte_idx):
+pub fn bloom_byte_at <(&Vec<u8>,i32)->Option<i32>> (bits, byte_idx):
     match vec::get<u8> bits byte_idx:
         Option::Some byte:
             let value <i32> cast byte
@@ -22,18 +22,18 @@ fn bloom_byte_at <(&Vec<u8>,i32)->Option<i32>> (bits, byte_idx):
         Option::None:
             none<i32>
 
-fn bloom_store_byte <(&Vec<u8>,i32,i32)*>()> (bits, byte_idx, byte_value):
+pub fn bloom_store_byte <(&Vec<u8>,i32,i32)*>()> (bits, byte_idx, byte_value):
     let byte <u8> cast byte_value
     vec::replace<u8> bits byte_idx byte
 
-fn bloom_fill_bytes <(&Vec<u8>,i32,i32)*>()> (bits, nbytes, byte_value):
+pub fn bloom_fill_bytes <(&Vec<u8>,i32,i32)*>()> (bits, nbytes, byte_value):
     let mut i <i32> 0
     while lt i nbytes:
         do:
             bloom_store_byte bits i byte_value
             set i add i 1
 
-fn bloom_alloc_bits <(i32,i32)*>Result<Vec<u8>, Diag>> (nbytes, byte_value):
+pub fn bloom_alloc_bits <(i32,i32)*>Result<Vec<u8>, Diag>> (nbytes, byte_value):
     let byte <u8> cast byte_value
     match vec::filled<u8> nbytes byte:
         Result::Ok bits:
@@ -41,5 +41,5 @@ fn bloom_alloc_bits <(i32,i32)*>Result<Vec<u8>, Diag>> (nbytes, byte_value):
         Result::Err _e:
             diag_err<Vec<u8>> diag_out_of_memory
 
-fn bloom_free_bits <(Vec<u8>)->()> (bits):
+pub fn bloom_free_bits <(Vec<u8>)->()> (bits):
     vec::free<u8> bits

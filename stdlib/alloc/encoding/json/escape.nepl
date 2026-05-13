@@ -28,7 +28,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn json_escape_kind <(i32)->JsonEscapeKind> (ch):
+pub fn json_escape_kind <(i32)->JsonEscapeKind> (ch):
     match ch:
         '\\':
             JsonEscapeKind::Backslash
@@ -60,7 +60,7 @@ fn json_escape_kind <(i32)->JsonEscapeKind> (ch):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn json_escape <(str)->str> (s):
+pub fn json_escape <(str)->str> (s):
     let mut out sb::string_builder_new;
     let n <i32> string::len s;
     let mut i <i32> 0;
@@ -100,7 +100,7 @@ fn json_escape <(str)->str> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn json_quote_string <(str)->str> (s):
+pub fn json_quote_string <(str)->str> (s):
     let mut out sb::string_builder_new;
     set out sb::sb_append out "\"";
     set out sb::sb_append out json_escape s;

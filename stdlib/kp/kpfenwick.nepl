@@ -35,7 +35,7 @@
 //: ```
 
 //: fenwick_new: 長さ `n` の Fenwick Tree を作る
-fn fenwick_new <(i32)*>i32> (n):
+pub fn fenwick_new <(i32)*>i32> (n):
     let bit_len <i32> add n 1;
     let bit <i32> alloc_raw mul bit_len 4;
     let mut i <i32> 0;
@@ -51,7 +51,7 @@ fn fenwick_new <(i32)*>i32> (n):
     f
 
 //: fenwick_free: Fenwick Tree の内部領域を解放する
-fn fenwick_free <(i32)*>()> (f):
+pub fn fenwick_free <(i32)*>()> (f):
     let n <i32> load_i32 f;
     let bit <i32> load_i32 add f 4;
     let bit_len <i32> add n 1;
@@ -60,7 +60,7 @@ fn fenwick_free <(i32)*>()> (f):
     dealloc_raw f 8
 
 //: fenwick_add: `idx` に `delta` を加算する
-fn fenwick_add <(i32,i32,i32)*>()> (f, idx, delta):
+pub fn fenwick_add <(i32,i32,i32)*>()> (f, idx, delta):
     let n <i32> load_i32 f;
     let bit <i32> load_i32 add f 4;
     let mut i <i32> add idx 1;
@@ -74,7 +74,7 @@ fn fenwick_add <(i32,i32,i32)*>()> (f, idx, delta):
             set i add i lb;
 
 //: fenwick_sum_prefix: 区間 `[0, r)` の和を返す
-fn fenwick_sum_prefix <(i32,i32)*>i32> (f, r):
+pub fn fenwick_sum_prefix <(i32,i32)*>i32> (f, r):
     let bit <i32> load_i32 add f 4;
     let mut i <i32> r;
     let mut acc <i32> 0;
@@ -90,5 +90,5 @@ fn fenwick_sum_prefix <(i32,i32)*>i32> (f, r):
     acc
 
 //: fenwick_sum_range: 区間 `[l, r)` の和を返す
-fn fenwick_sum_range <(i32,i32,i32)*>i32> (f, l, r):
+pub fn fenwick_sum_range <(i32,i32,i32)*>i32> (f, l, r):
     sub fenwick_sum_prefix f r fenwick_sum_prefix f l

@@ -39,7 +39,7 @@
 //:     free<i32> v1;
 //:     if ok 0 1
 //: ```
-fn len <.T> <(&Vec<.T>)->i32> (v):
+pub fn len <.T> <(&Vec<.T>)->i32> (v):
     *field::get_ref v "len"
 
 //: ## cap
@@ -70,7 +70,7 @@ fn len <.T> <(&Vec<.T>)->i32> (v):
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-fn cap <.T> <(&Vec<.T>)->i32> (v):
+pub fn cap <.T> <(&Vec<.T>)->i32> (v):
     *field::get_ref v "cap"
 
 //: ## is_empty
@@ -101,5 +101,5 @@ fn cap <.T> <(&Vec<.T>)->i32> (v):
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-fn is_empty <.T> <(&Vec<.T>)->bool> (v):
+pub fn is_empty <.T> <(&Vec<.T>)->bool> (v):
     eq len<.T> v 0

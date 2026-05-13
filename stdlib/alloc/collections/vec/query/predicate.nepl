@@ -54,7 +54,7 @@
 //:             free<i32> xs;
 //:             1
 //: ```
-fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
+pub fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
     let src_len <i32> *field::get_ref v "len"
     let mut out <Option<.T>> none<.T>
     let mut active <bool> true
@@ -108,7 +108,7 @@ fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
 //:     free<i32> xs;
 //:     if ok 0 1
 //: ```
-fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
+pub fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
     let src_len <i32> *field::get_ref v "len"
     let mut out <bool> false
     let mut i <i32> 0
@@ -155,7 +155,7 @@ fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
 //:     free<i32> xs;
 //:     if ok 0 1
 //: ```
-fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
+pub fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
     let src_len <i32> *field::get_ref v "len"
     let mut out <bool> true
     let mut i <i32> 0

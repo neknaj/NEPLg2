@@ -14,7 +14,7 @@
 //: ### [注意/ちゅうい]
 //: - counter [領域/りょういき]の[所有権/しょゆうけん]を[持/も]つので、[不要/ふよう]になったら `free` します。
 //: - key 型 `.T` と hasher 型 `.H` は、複数 probe の[計算/けいさん]で[繰/く]り[返/かえ]し[読/よ]むため標準 `Copy` を impl する[必要/ひつよう]があります。
-struct CountingBloomFilter<.T,.H>:
+pub struct CountingBloomFilter<.T,.H>:
     nslots <i32>
     counters <Vec<u8>>
     hasher <.H>

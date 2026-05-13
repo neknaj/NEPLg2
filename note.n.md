@@ -1,3 +1,23 @@
+# 2026-05-13 Agent 1 import visibility enforcement 実装
+
+- `ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573` を修正した。
+- 根本原因は、parser / module_graph には `pub` / private がある一方で、typecheck の `Binding` が item visibility を保持せず、compile pipeline の実 lookup が private top-level definition を imported binding として選択できていたこと。
+- `Binding` / `EnumInfo` / `StructInfo` に `Visibility` を持たせ、`driver.rs` で top-level `fn` / alias / enum variant constructor / struct constructor の visibility を登録するようにした。local binding は cross-file export ではないため private とした。
+- `name_lookup.rs` の unqualified / qualified lookup で、参照元 file と binding file が異なる場合は `Visibility::Pub` を要求するようにした。同一 file 内 private helper は従来どおり参照できる。
+- strict visibility により既存 stdlib の暗黙公開 surface が private 化されるため、compiler 側を緩めず、stdlib `.nepl` の top-level `fn` / `enum` / `struct` を明示 `pub` に移行した。raw memory API は既存 surface として残し、Stage 6 の `core/mem` facade / internal boundary split で別途隠蔽する。
+- private qualified / open / selective import の compile-fail regression を `import_clause.rs` に追加し、resolve HIR def-id fixture も public imported item 前提へ更新した。
+- `std/stdio` ResourceIR owner failure は main clean worktree でも再現したため、この commit の新規退行ではない。別 issue として追跡する。
+- 検証:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test import_clause -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resolve -- --nocapture`: passed
+  - `cargo test -p nepl-core --test functions function_basic_def_and_call -- --nocapture`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 6 の import visibility authority を compiler core に実装し、stdlib の公開 surface を明示化したもの。
+
 # 2026-05-13 Agent 1 import visibility / core mem public surface 監査
 
 - `ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573` を追加した。

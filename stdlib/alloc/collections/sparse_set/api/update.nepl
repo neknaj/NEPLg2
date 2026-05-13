@@ -19,7 +19,7 @@
 
 //: ## sparse_set_update_ok
 //: update [後/ご]の[長/なが]さで `SparseSet` owner を[再構築/さいこうちく]する
-fn sparse_set_update_ok <(SparseSet,i32)->Result<SparseSet, SparseSetUpdateError>> (s, next_len):
+pub fn sparse_set_update_ok <(SparseSet,i32)->Result<SparseSet, SparseSetUpdateError>> (s, next_len):
     let n <i32> field::get s "n"
     let dense <Vec<i32>> field::get s "dense"
     let sparse <Vec<i32>> field::get s "sparse"
@@ -27,7 +27,7 @@ fn sparse_set_update_ok <(SparseSet,i32)->Result<SparseSet, SparseSetUpdateError
 
 //: ## sparse_set_update_err
 //: update [失敗/しっぱい]を owner-preserving error に[変換/へんかん]する
-fn sparse_set_update_err <(SparseSet,Diag)->Result<SparseSet, SparseSetUpdateError>> (s, d):
+pub fn sparse_set_update_err <(SparseSet,Diag)->Result<SparseSet, SparseSetUpdateError>> (s, d):
     let e <SparseSetUpdateError> SparseSetUpdateError s d
     err<SparseSet, SparseSetUpdateError> e
 
@@ -50,7 +50,7 @@ fn sparse_set_update_err <(SparseSet,Diag)->Result<SparseSet, SparseSetUpdateErr
 //:     free s
 //:     if ok 1 0
 //: ```
-fn insert <(SparseSet,i32)*>Result<SparseSet, SparseSetUpdateError>> (s, value):
+pub fn insert <(SparseSet,i32)*>Result<SparseSet, SparseSetUpdateError>> (s, value):
     let n <i32> *field::get_ref &s "n"
     let len0 <i32> *field::get_ref &s "len0"
     if:
@@ -93,7 +93,7 @@ fn insert <(SparseSet,i32)*>Result<SparseSet, SparseSetUpdateError>> (s, value):
 //:     free s
 //:     if ok 1 0
 //: ```
-fn remove <(SparseSet,i32)*>Result<SparseSet, SparseSetUpdateError>> (s, value):
+pub fn remove <(SparseSet,i32)*>Result<SparseSet, SparseSetUpdateError>> (s, value):
     let n <i32> *field::get_ref &s "n"
     let len0 <i32> *field::get_ref &s "len0"
     if:

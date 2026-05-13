@@ -9,8 +9,8 @@
 
 #import "alloc/diag/error" as *
 
-fn bitset_invalid_len_diag <()*>Diag> ():
+pub fn bitset_invalid_len_diag <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "invalid bitset length"
 
-fn bitset_index_diag <()*>Diag> ():
+pub fn bitset_index_diag <()*>Diag> ():
     diag_error StdErrorKind::IndexOutOfBounds "bitset index out of bounds"

@@ -16,7 +16,7 @@
 
 //: ## ReadStream
 //: [読/よ]み[側/がわ]に[使/つか]える stream source を[表/あらわ]す enum
-enum ReadStream:
+pub enum ReadStream:
     Stdio
     Fs <str>
     Text <str>
@@ -24,7 +24,7 @@ enum ReadStream:
 
 //: ## WriteStream
 //: [書/か]き[側/がわ]に[使/つか]える stream sink を[表/あらわ]す enum
-enum WriteStream:
+pub enum WriteStream:
     Stdio
     Stderr
     Fs

@@ -34,6 +34,6 @@
 //:     free fw;
 //:     1
 //: ```
-fn free <(Fenwick)*>()> (fw):
+pub fn free <(Fenwick)*>()> (fw):
     let bit <Vec<i32>> field::get fw "bit"
     fenwick_free_bit bit

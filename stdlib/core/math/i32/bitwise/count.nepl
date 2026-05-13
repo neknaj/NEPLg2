@@ -34,7 +34,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn clz <(i32)->i32> (a):
+pub fn clz <(i32)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -61,7 +61,7 @@ fn clz <(i32)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ctz <(i32)->i32> (a):
+pub fn ctz <(i32)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -88,7 +88,7 @@ fn ctz <(i32)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn popcnt <(i32)->i32> (a):
+pub fn popcnt <(i32)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a

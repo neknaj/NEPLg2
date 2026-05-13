@@ -33,7 +33,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn promote_f32_to_f64 <(f32)->f64> (a):
+pub fn promote_f32_to_f64 <(f32)->f64> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -59,7 +59,7 @@ fn promote_f32_to_f64 <(f32)->f64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn demote_f64_to_f32 <(f64)->f32> (a):
+pub fn demote_f64_to_f32 <(f64)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a

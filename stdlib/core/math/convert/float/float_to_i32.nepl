@@ -32,7 +32,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn trunc_s_f32_to_i32 <(f32)->i32> (a):
+pub fn trunc_s_f32_to_i32 <(f32)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -58,7 +58,7 @@ fn trunc_s_f32_to_i32 <(f32)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn trunc_u_f32_to_i32 <(f32)->i32> (a):
+pub fn trunc_u_f32_to_i32 <(f32)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -85,7 +85,7 @@ fn trunc_u_f32_to_i32 <(f32)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn trunc_sat_s_f32_to_i32 <(f32)->i32> (a):
+pub fn trunc_sat_s_f32_to_i32 <(f32)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -112,7 +112,7 @@ fn trunc_sat_s_f32_to_i32 <(f32)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn trunc_sat_u_f32_to_i32 <(f32)->i32> (a):
+pub fn trunc_sat_u_f32_to_i32 <(f32)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -138,7 +138,7 @@ fn trunc_sat_u_f32_to_i32 <(f32)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn trunc_s_f64_to_i32 <(f64)->i32> (a):
+pub fn trunc_s_f64_to_i32 <(f64)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -164,7 +164,7 @@ fn trunc_s_f64_to_i32 <(f64)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn trunc_u_f64_to_i32 <(f64)->i32> (a):
+pub fn trunc_u_f64_to_i32 <(f64)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -191,7 +191,7 @@ fn trunc_u_f64_to_i32 <(f64)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn trunc_sat_s_f64_to_i32 <(f64)->i32> (a):
+pub fn trunc_sat_s_f64_to_i32 <(f64)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -218,7 +218,7 @@ fn trunc_sat_s_f64_to_i32 <(f64)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn trunc_sat_u_f64_to_i32 <(f64)->i32> (a):
+pub fn trunc_sat_u_f64_to_i32 <(f64)->i32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a

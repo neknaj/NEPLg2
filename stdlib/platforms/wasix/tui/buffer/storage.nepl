@@ -24,7 +24,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - 返り値は `buffer_free` で解放してください。
-fn buffer_new <(i32,i32)*>i32> (cols, rows):
+pub fn buffer_new <(i32,i32)*>i32> (cols, rows):
     let curr <i32> alloc_raw mul rows 4;
     let prev <i32> alloc_raw mul rows 4;
     let mut i <i32> 0;
@@ -45,7 +45,7 @@ fn buffer_new <(i32,i32)*>i32> (cols, rows):
 //:
 //: [目的/もくてき]:
 //: - `buffer_new` で確保したメモリを解放します。
-fn buffer_free <(i32)*>()> (b):
+pub fn buffer_free <(i32)*>()> (b):
     let rows <i32> load_i32 add b 4;
     let curr <i32> load_i32 add b 8;
     let prev <i32> load_i32 add b 12;
@@ -61,7 +61,7 @@ fn buffer_free <(i32)*>()> (b):
 //:
 //: [注意/ちゅうい]:
 //: - 行番号が範囲外の場合は何もしません。
-fn buffer_set_line <(i32,i32,str)*>()> (b, row, line):
+pub fn buffer_set_line <(i32,i32,str)*>()> (b, row, line):
     let rows <i32> load_i32 add b 4;
     let row_max_excl <i32> add rows 1;
     if:

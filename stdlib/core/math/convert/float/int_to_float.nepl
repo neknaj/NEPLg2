@@ -32,7 +32,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn convert_s_i32_to_f32 <(i32)->f32> (a):
+pub fn convert_s_i32_to_f32 <(i32)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -58,7 +58,7 @@ fn convert_s_i32_to_f32 <(i32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn convert_u_i32_to_f32 <(i32)->f32> (a):
+pub fn convert_u_i32_to_f32 <(i32)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -84,7 +84,7 @@ fn convert_u_i32_to_f32 <(i32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn convert_s_i64_to_f32 <(i64)->f32> (a):
+pub fn convert_s_i64_to_f32 <(i64)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -110,7 +110,7 @@ fn convert_s_i64_to_f32 <(i64)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn convert_u_i64_to_f32 <(i64)->f32> (a):
+pub fn convert_u_i64_to_f32 <(i64)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -136,7 +136,7 @@ fn convert_u_i64_to_f32 <(i64)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn convert_s_i32_to_f64 <(i32)->f64> (a):
+pub fn convert_s_i32_to_f64 <(i32)->f64> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -162,7 +162,7 @@ fn convert_s_i32_to_f64 <(i32)->f64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn convert_u_i32_to_f64 <(i32)->f64> (a):
+pub fn convert_u_i32_to_f64 <(i32)->f64> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -188,7 +188,7 @@ fn convert_u_i32_to_f64 <(i32)->f64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn convert_s_i64_to_f64 <(i64)->f64> (a):
+pub fn convert_s_i64_to_f64 <(i64)->f64> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -214,7 +214,7 @@ fn convert_s_i64_to_f64 <(i64)->f64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn convert_u_i64_to_f64 <(i64)->f64> (a):
+pub fn convert_u_i64_to_f64 <(i64)->f64> (a):
     #if[target=wasm]
     #wasm:
         local.get $a

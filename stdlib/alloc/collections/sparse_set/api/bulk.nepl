@@ -30,7 +30,7 @@
 //:     free s
 //:     if ok 1 0
 //: ```
-fn clear <(SparseSet)->SparseSet> (s):
+pub fn clear <(SparseSet)->SparseSet> (s):
     let n <i32> field::get s "n"
     let dense <Vec<i32>> field::get s "dense"
     let sparse <Vec<i32>> field::get s "sparse"

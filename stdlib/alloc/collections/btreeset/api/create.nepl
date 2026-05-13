@@ -29,7 +29,7 @@
 //:     free<i32> s
 //:     if ok 1 0
 //: ```
-fn new <.T: Copy> <()*>Result<BTreeSet<.T>, Diag>> ():
+pub fn new <.T: Copy> <()*>Result<BTreeSet<.T>, Diag>> ():
     let cap <i32> 8
     match btreeset_alloc_storage<.T> cap:
         Result::Err d:

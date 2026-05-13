@@ -25,7 +25,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
-enum JsonValue:
+pub enum JsonValue:
     Null
     Bool <i32>
     Number <i32>
@@ -46,7 +46,7 @@ enum JsonValue:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-struct JsonMember:
+pub struct JsonMember:
     key <str>
     value <JsonValue>
 
@@ -63,7 +63,7 @@ struct JsonMember:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-enum JsonEscapeKind:
+pub enum JsonEscapeKind:
     Backslash
     Quote
     Newline

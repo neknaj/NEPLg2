@@ -19,20 +19,20 @@
 //:
 //: [目的/もくてき]:
 //: - UTF-8 検証の分岐を enum と `match` にし、if の深いネストに戻らないようにします。
-enum StringUtf8LeadKind:
+pub enum StringUtf8LeadKind:
     Ascii
     Two
     Three
     Four
     Invalid
 
-fn string_utf8_in_range <(i32,i32,i32)->bool> (b, lo, hi):
+pub fn string_utf8_in_range <(i32,i32,i32)->bool> (b, lo, hi):
     and ge b lo le b hi
 
-fn string_utf8_is_continuation <(i32)->bool> (b):
+pub fn string_utf8_is_continuation <(i32)->bool> (b):
     string_utf8_in_range b 128 191
 
-fn string_utf8_lead_kind <(i32)->StringUtf8LeadKind> (b):
+pub fn string_utf8_lead_kind <(i32)->StringUtf8LeadKind> (b):
     if:
         le b 127
         then:
@@ -55,14 +55,14 @@ fn string_utf8_lead_kind <(i32)->StringUtf8LeadKind> (b):
                                 else:
                                     StringUtf8LeadKind::Invalid
 
-fn string_utf8_byte_at <(MemPtr<u8>,i32)->Result<i32,str>> (data, idx):
+pub fn string_utf8_byte_at <(MemPtr<u8>,i32)->Result<i32,str>> (data, idx):
     match load_u8 mem_ptr_add data idx:
         Option::Some b:
             Result<i32,str>::Ok b
         Option::None:
             Result<i32,str>::Err "string.utf8 invalid pointer"
 
-fn string_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(),str>> (data, i, byte_len):
+pub fn string_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(),str>> (data, i, byte_len):
     if:
         gt add i 2 byte_len
         then:
@@ -79,7 +79,7 @@ fn string_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(),str>> (data, i, byt
                         else:
                             Result<(),str>::Err "string.utf8 invalid continuation"
 
-fn string_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
+pub fn string_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
     if:
         gt add i 3 byte_len
         then:
@@ -112,7 +112,7 @@ fn string_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, 
                                 else:
                                     Result<(),str>::Err "string.utf8 invalid three-byte sequence"
 
-fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
+pub fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
     if:
         gt add i 4 byte_len
         then:
@@ -162,7 +162,7 @@ fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
-fn string_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(),str>> (data, byte_len):
+pub fn string_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(),str>> (data, byte_len):
     if:
         lt byte_len 0
         then:

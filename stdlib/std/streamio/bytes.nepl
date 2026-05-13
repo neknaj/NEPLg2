@@ -32,7 +32,7 @@
 //: ### [目的/もくてき]
 //: - text helper と binary helper の[橋渡/はしわた]しとして、`str` を[連続/れんぞく] byte buffer へ[複製/ふくせい]します。
 //: - buffer 確保失敗を `StdErrorKind::OutOfMemory` として呼び出し側へ返します。
-fn stream_bytes_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
+pub fn stream_bytes_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
     io_bytebuf_from_str_result text
 
 //: ## stream_bytes_from_str
@@ -43,7 +43,7 @@ fn stream_bytes_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
 //:
 //: ### [注意/ちゅうい]
 //: - 空入力と確保失敗を区別する場合は `stream_bytes_from_str_result` を使ってください。
-fn stream_bytes_from_str <(str)->ByteBuf> (text):
+pub fn stream_bytes_from_str <(str)->ByteBuf> (text):
     io_bytebuf_from_str text
 
 //: ## stream_bytes_to_str_result
@@ -56,7 +56,7 @@ fn stream_bytes_from_str <(str)->ByteBuf> (text):
 //: ### [実装/じっそう]
 //: - UTF-8 [検証/けんしょう]は[行/おこな]わず、byte [列/れつ]をそのまま `str` [表現/ひょうげん]へ[移/うつ]します。
 //: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
-fn stream_bytes_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (bytes):
+pub fn stream_bytes_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (bytes):
     io_bytebuf_to_str_result bytes
 
 //: ## stream_bytes_to_str
@@ -68,5 +68,5 @@ fn stream_bytes_to_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (bytes):
 //: ### [注意/ちゅうい]
 //: - 空 buffer と確保失敗を区別する場合は `stream_bytes_to_str_result` を使ってください。
 //: - 入力 `ByteBuf` は成功時も失敗時も消費されます。
-fn stream_bytes_to_str <(ByteBuf)*>str> (bytes):
+pub fn stream_bytes_to_str <(ByteBuf)*>str> (bytes):
     io_bytebuf_to_str bytes

@@ -11,7 +11,7 @@
 #import "core/option" as *
 #import "./storage" as *
 
-fn seg_rebuild_parents <(&Vec<i32>,i32)*>bool> (data, leaf):
+pub fn seg_rebuild_parents <(&Vec<i32>,i32)*>bool> (data, leaf):
     let mut pos <i32> leaf
     let mut valid <bool> true
     while and lt 1 pos valid:
@@ -26,12 +26,12 @@ fn seg_rebuild_parents <(&Vec<i32>,i32)*>bool> (data, leaf):
                     set valid false
     valid
 
-fn seg_replace_storage <(&Vec<i32>,i32,i32,i32)*>bool> (data, base, idx, value):
+pub fn seg_replace_storage <(&Vec<i32>,i32,i32,i32)*>bool> (data, base, idx, value):
     let leaf <i32> add base idx
     seg_store_owned data leaf value
     seg_rebuild_parents data leaf
 
-fn seg_add_storage <(&Vec<i32>,i32,i32,i32)*>bool> (data, base, idx, delta):
+pub fn seg_add_storage <(&Vec<i32>,i32,i32,i32)*>bool> (data, base, idx, delta):
     let leaf <i32> add base idx
     match seg_load_owned data leaf:
         Option::Some cur:

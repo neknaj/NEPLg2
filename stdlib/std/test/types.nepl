@@ -15,7 +15,7 @@
 //:
 //: [目的/もくてき]:
 //: - 成功/失敗を bool や文字列ではなく enum として[保持/ほじ]します。
-enum AssertionStatus:
+pub enum AssertionStatus:
     Passed
     Failed
 
@@ -31,7 +31,7 @@ impl Copy for AssertionStatus:
 //:
 //: [目的/もくてき]:
 //: - bool、i32 等値、文字列等値などの[種類/しゅるい]を enum で[表/あらわ]し、renderer の分岐を `match` に[閉/と]じます。
-enum AssertionKind:
+pub enum AssertionKind:
     Bool
     EqI32
     NeBool
@@ -53,7 +53,7 @@ impl Copy for AssertionKind:
 //: [目的/もくてき]:
 //: - kind、status、label、expected、actual、message を[分離/ぶんり]して[保持/ほじ]します。
 //: - stdout 用の整形は renderer に[任/まか]せ、この値を[作/つく]る関数は print しません。
-struct TestAssertion:
+pub struct TestAssertion:
     kind <AssertionKind>
     status <AssertionStatus>
     label <str>
@@ -70,7 +70,7 @@ struct TestAssertion:
 //: [実装/じっそう]:
 //: - `lines` は新しい canonical stdout report 用の本文です。
 //: - `legacy_summary` / `legacy_human` は、移行中の既存 doctest が使う `checks_print_report` の安定出力を同じ構造化 assertion から生成するための文字列です。
-struct TestReport:
+pub struct TestReport:
     name <str>
     count <i32>
     failed_count <i32>
@@ -79,7 +79,7 @@ struct TestReport:
     legacy_human <str>
 
 //: assertion_status_name: status を stable な[名前/なまえ]へ[変換/へんかん]する
-fn assertion_status_name <(AssertionStatus)->str> (status):
+pub fn assertion_status_name <(AssertionStatus)->str> (status):
     match status:
         AssertionStatus::Passed:
             "ok"
@@ -87,7 +87,7 @@ fn assertion_status_name <(AssertionStatus)->str> (status):
             "fail"
 
 //: assertion_kind_name: kind を stable な[名前/なまえ]へ[変換/へんかん]する
-fn assertion_kind_name <(AssertionKind)->str> (kind):
+pub fn assertion_kind_name <(AssertionKind)->str> (kind):
     match kind:
         AssertionKind::Bool:
             "bool"
@@ -105,19 +105,19 @@ fn assertion_kind_name <(AssertionKind)->str> (kind):
             "manual"
 
 //: test_assertion_passed: [成功/せいこう] assertion を[作/つく]る
-fn test_assertion_passed <(AssertionKind,str,str,str)->TestAssertion> (kind, label, expected, actual):
+pub fn test_assertion_passed <(AssertionKind,str,str,str)->TestAssertion> (kind, label, expected, actual):
     TestAssertion kind AssertionStatus::Passed label expected actual ""
 
 //: test_assertion_failed: [失敗/しっぱい] assertion を[作/つく]る
-fn test_assertion_failed <(AssertionKind,str,str,str,str)->TestAssertion> (kind, label, expected, actual, message):
+pub fn test_assertion_failed <(AssertionKind,str,str,str,str)->TestAssertion> (kind, label, expected, actual, message):
     TestAssertion kind AssertionStatus::Failed label expected actual message
 
 //: test_assertion_ok: [手動/しゅどう]の[成功/せいこう] assertion を[作/つく]る
-fn test_assertion_ok <(str)->TestAssertion> (label):
+pub fn test_assertion_ok <(str)->TestAssertion> (label):
     test_assertion_passed AssertionKind::Manual label "ok" "ok"
 
 //: test_assertion_fail: [手動/しゅどう]の[失敗/しっぱい] assertion を[作/つく]る
-fn test_assertion_fail <(str,str)->TestAssertion> (label, message):
+pub fn test_assertion_fail <(str,str)->TestAssertion> (label, message):
     test_assertion_failed AssertionKind::Manual label "ok" "fail" message
 
 //: test_consume_str: report 内部の文字列 owner を最終境界で消費する
@@ -125,21 +125,21 @@ fn test_assertion_fail <(str,str)->TestAssertion> (label, message):
 //: [目的/もくてき]:
 //: - `TestAssertion` / `TestReport` は表示用の `str` を保持するため、exit code へ変換する最終境界では保持していた文字列を明示的に消費します。
 //: - 参照で観測する helper と、所有値を終端する helper を分け、浅い `Copy` に依存しない線形な流れにします。
-fn test_consume_str <(str)->()> (s):
+pub fn test_consume_str <(str)->()> (s):
     len s
     ()
 
-fn test_consume_i32 <(i32)->()> (n):
+pub fn test_consume_i32 <(i32)->()> (n):
     add n 0
     ()
 
-fn test_assertion_release <(TestAssertion)->()> (a):
+pub fn test_assertion_release <(TestAssertion)->()> (a):
     test_consume_str get a "label"
     test_consume_str get a "expected"
     test_consume_str get a "actual"
     test_consume_str get a "message"
 
-fn test_report_release <(TestReport)->()> (report):
+pub fn test_report_release <(TestReport)->()> (report):
     test_consume_str get report "name"
     test_consume_i32 get report "count"
     test_consume_i32 get report "failed_count"

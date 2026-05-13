@@ -17,7 +17,7 @@
 //:
 //: [実装/じっそう]:
 //: - 入力長 + `0x80` + 64-bit length field が 64 byte block 境界に[乗/の]るように[切/き]り[上/あ]げます。
-fn sha256_total_len <(i32)->i32> (msg_len):
+pub fn sha256_total_len <(i32)->i32> (msg_len):
     let base <i32> add msg_len 9
     let rem <i32> rem_u base 64
     if:
@@ -31,7 +31,7 @@ fn sha256_total_len <(i32)->i32> (msg_len):
 //:
 //: [実装/じっそう]:
 //: - SHA-256 の length field は big-endian なので offset 0 が 56 bit shift です。
-fn sha256_length_shift <(i32)->Result<i64, StdErrorKind>> (offset):
+pub fn sha256_length_shift <(i32)->Result<i64, StdErrorKind>> (offset):
     match offset:
         0:
             Result<i64, StdErrorKind>::Ok <i64> cast 56
@@ -56,7 +56,7 @@ fn sha256_length_shift <(i32)->Result<i64, StdErrorKind>> (offset):
 //:
 //: [実装/じっそう]:
 //: - `msg_len * 8` を i64 で[計算/けいさん]し、offset に[対応/たいおう]する 1 byte を[取/と]り[出/だ]します。
-fn sha256_length_byte <(i32,i32)->Result<i32, StdErrorKind>> (msg_len, offset):
+pub fn sha256_length_byte <(i32,i32)->Result<i32, StdErrorKind>> (msg_len, offset):
     match sha256_length_shift offset:
         Result::Ok shift:
             let n64 <i64> cast msg_len
@@ -71,7 +71,7 @@ fn sha256_length_byte <(i32,i32)->Result<i32, StdErrorKind>> (msg_len, offset):
 //:
 //: [実装/じっそう]:
 //: - 元の入力、`0x80`、zero padding、64-bit length field を index から[判定/はんてい]します。
-fn sha256_padded_byte_at <(&Vec<i32>,i32,i32,i32)->Result<i32, StdErrorKind>> (buf, msg_len, total_len, idx):
+pub fn sha256_padded_byte_at <(&Vec<i32>,i32,i32,i32)->Result<i32, StdErrorKind>> (buf, msg_len, total_len, idx):
     if:
         lt idx msg_len
         then:
@@ -98,7 +98,7 @@ fn sha256_padded_byte_at <(&Vec<i32>,i32,i32,i32)->Result<i32, StdErrorKind>> (b
 //:
 //: [実装/じっそう]:
 //: - 4 byte を big-endian に[結合/けつごう]して message schedule の先頭 16 word を[作/つく]ります。
-fn sha256_word_at <(&Vec<i32>,i32,i32,i32,i32)->Result<i32, StdErrorKind>> (buf, msg_len, total_len, block_start, j):
+pub fn sha256_word_at <(&Vec<i32>,i32,i32,i32,i32)->Result<i32, StdErrorKind>> (buf, msg_len, total_len, block_start, j):
     let base <i32> add block_start mul j 4
     match sha256_padded_byte_at buf msg_len total_len base:
         Result::Err e:

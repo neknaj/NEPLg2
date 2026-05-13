@@ -34,7 +34,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-enum DiagLevel:
+pub enum DiagLevel:
     Log
     Info
     Warn
@@ -58,7 +58,7 @@ impl Copy for DiagLevel:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-struct Span:
+pub struct Span:
     file_id <i32>
     start <i32>
     end <i32>
@@ -82,7 +82,7 @@ impl Copy for Span:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-struct DiagKind:
+pub struct DiagKind:
     level <DiagLevel>
     std_error <Option<StdErrorKind>>
     local_kind <Option<str>>
@@ -109,7 +109,7 @@ impl Copy for DiagKind:
 //:
 //: [計算量/けいさんりょう]:
 //: - [構築/こうちく]は O(1) です。
-struct Diag:
+pub struct Diag:
     kind <DiagKind>
     message <str>
     span <Option<Span>>
@@ -135,11 +135,11 @@ impl Copy for Diag:
 //:
 //: [計算量/けいさんりょう]:
 //: - [構築/こうちく]は O(1) です。
-struct Diags:
+pub struct Diags:
     items <Vec<Diag>>
 
 //: diag_level_str: `DiagLevel` を[文字列/もじれつ]へ[変換/へんかん]する
-fn diag_level_str <(DiagLevel)->str> (level):
+pub fn diag_level_str <(DiagLevel)->str> (level):
     match level:
         DiagLevel::Log:
             "log"

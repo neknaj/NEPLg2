@@ -12,7 +12,7 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
-fn dsu_root_storage <(&Vec<i32>,i32)->Option<i32>> (parent, idx):
+pub fn dsu_root_storage <(&Vec<i32>,i32)->Option<i32>> (parent, idx):
     let mut cur <i32> idx
     let mut done <bool> false
     let mut valid <bool> true
@@ -38,5 +38,5 @@ fn dsu_root_storage <(&Vec<i32>,i32)->Option<i32>> (parent, idx):
         else:
             none<i32>
 
-fn dsu_size_storage <(&Vec<i32>,i32)->Option<i32>> (sizes, root):
+pub fn dsu_size_storage <(&Vec<i32>,i32)->Option<i32>> (sizes, root):
     dsu_load_owned sizes root

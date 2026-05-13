@@ -190,6 +190,7 @@ pub fn typecheck(
                 env.insert_global(Binding {
                     name: func.name.clone(),
                     ty,
+                    visibility: Visibility::Private,
                     mutable: false,
                     no_shadow: false,
                     defined: true,
@@ -327,6 +328,7 @@ pub fn typecheck(
                     e.name.name.clone(),
                     EnumInfo {
                         ty,
+                        visibility: e.vis,
                         type_params: tps.clone(),
                         variants: vars.clone(),
                     },
@@ -349,6 +351,7 @@ pub fn typecheck(
                     env.insert_global(Binding {
                         name: v.name.clone(),
                         ty: func_ty,
+                        visibility: e.vis,
                         mutable: false,
                         no_shadow: false,
                         defined: true,
@@ -369,6 +372,7 @@ pub fn typecheck(
                     env.insert_global(Binding {
                         name: format!("{}::{}", e.name.name, v.name),
                         ty: func_ty,
+                        visibility: e.vis,
                         mutable: false,
                         no_shadow: false,
                         defined: true,
@@ -450,6 +454,7 @@ pub fn typecheck(
                 env.insert_global(Binding {
                     name: s.name.name.clone(),
                     ty: constructor_ty,
+                    visibility: s.vis,
                     mutable: false,
                     no_shadow: false,
                     defined: true,
@@ -471,6 +476,7 @@ pub fn typecheck(
                     s.name.name.clone(),
                     StructInfo {
                         ty,
+                        visibility: s.vis,
                         type_params: tps,
                         fields: fs,
                         field_names: f_names,
@@ -579,6 +585,7 @@ pub fn typecheck(
                 env.insert_global(Binding {
                     name: vname.clone(),
                     ty: func_ty,
+                    visibility: info.visibility,
                     mutable: false,
                     no_shadow: false,
                     defined: true,
@@ -779,6 +786,7 @@ pub fn typecheck(
             env.insert_global(Binding {
                 name: name.clone(),
                 ty: func_ty,
+                visibility: info.visibility,
                 mutable: false,
                 no_shadow: false,
                 defined: true,
@@ -994,6 +1002,7 @@ pub fn typecheck(
                 env.insert_global(Binding {
                     name: f.name.name.clone(),
                     ty,
+                    visibility: f.vis,
                     mutable: false,
                     no_shadow: f.no_shadow,
                     defined: true,
@@ -1176,6 +1185,7 @@ pub fn typecheck(
             env.insert_global(Binding {
                 name: alias.name.name.clone(),
                 ty,
+                visibility: alias.vis,
                 mutable: false,
                 no_shadow: alias.no_shadow,
                 defined: true,

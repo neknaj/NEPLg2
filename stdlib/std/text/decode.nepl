@@ -14,13 +14,13 @@
 #import "./validate" as *
 
 //: text_is_valid_scalar: i32 code point が Unicode scalar value として[妥当/だとう]か[判定/はんてい]する
-fn text_is_valid_scalar <(i32)->bool> (code):
+pub fn text_is_valid_scalar <(i32)->bool> (code):
     char_is_valid_scalar_code code
 
-fn text_utf8_decode_ok <(char,i32)->Result<CharUtf8Step, StdErrorKind>> (c, next_byte_index):
+pub fn text_utf8_decode_ok <(char,i32)->Result<CharUtf8Step, StdErrorKind>> (c, next_byte_index):
     Result<CharUtf8Step, StdErrorKind>::Ok char_utf8_step_new c next_byte_index
 
-fn text_utf8_decode_char_result <(i32,i32)->Result<CharUtf8Step, StdErrorKind>> (code, next_byte_index):
+pub fn text_utf8_decode_char_result <(i32,i32)->Result<CharUtf8Step, StdErrorKind>> (code, next_byte_index):
     match char_from_i32_result code:
         Result::Err _e:
             Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
@@ -34,7 +34,7 @@ fn text_utf8_decode_char_result <(i32,i32)->Result<CharUtf8Step, StdErrorKind>> 
 //:
 //: [注意/ちゅうい]:
 //: - 戻り値の `CharUtf8Step.value` が `char`、`CharUtf8Step.next` が次の byte offset です。
-fn text_utf8_decode_next <(MemPtr<u8>,i32,i32)->Result<CharUtf8Step, StdErrorKind>> (data, byte_len, i):
+pub fn text_utf8_decode_next <(MemPtr<u8>,i32,i32)->Result<CharUtf8Step, StdErrorKind>> (data, byte_len, i):
     if:
         or lt i 0 le byte_len i
         then:
@@ -149,5 +149,5 @@ fn text_utf8_decode_next <(MemPtr<u8>,i32,i32)->Result<CharUtf8Step, StdErrorKin
                                     Result<CharUtf8Step, StdErrorKind>::Err StdErrorKind::InvalidUtf8
 
 //: text_utf8_encode_char: char 1 つを UTF-8 `ByteBuf` へ encode する
-fn text_utf8_encode_char <(char)*>Result<ByteBuf, StdErrorKind>> (c):
+pub fn text_utf8_encode_char <(char)*>Result<ByteBuf, StdErrorKind>> (c):
     io_bytebuf_from_char_utf8_result c

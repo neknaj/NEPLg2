@@ -24,7 +24,7 @@
 //: ### [仕様/しよう]
 //: - `AdjacencyMatrix` owner は[消費/しょうひ]しません。
 //: - caller は `len` [後/ご]も同じ `AdjacencyMatrix` を[使/つか]い、不要になったら `free` できます。
-fn len <(&AdjacencyMatrix)->i32> (g):
+pub fn len <(&AdjacencyMatrix)->i32> (g):
     *field::get_ref g "nverts"
 
 //: ## contains
@@ -45,7 +45,7 @@ fn len <(&AdjacencyMatrix)->i32> (g):
 //:     free g
 //:     if ok 1 0
 //: ```
-fn contains <(&AdjacencyMatrix,i32,i32)*>Result<bool, Diag>> (g, from, to):
+pub fn contains <(&AdjacencyMatrix,i32,i32)*>Result<bool, Diag>> (g, from, to):
     let nverts <i32> *field::get_ref g "nverts"
     if:
         adjacency_matrix_valid_edge nverts from to

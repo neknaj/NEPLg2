@@ -30,15 +30,15 @@
 #import "./types" as *
 
 //: new: hi/lo から u128 値を構築する
-fn new <(i64,i64)->u128> (hi, lo):
+pub fn new <(i64,i64)->u128> (hi, lo):
     u128 hi lo
 
 //: to_u128: u64 値から u128 値を作る
-fn to_u128 <(i64)->u128> (v):
+pub fn to_u128 <(i64)->u128> (v):
     u128 extend_s_i32_to_i64 0 v
 
 //: add: u128 の加算（mod 2^128）
-fn add <(u128,u128)->u128> (a, b):
+pub fn add <(u128,u128)->u128> (a, b):
     let a_hi <i64> get a "hi";
     let a_lo <i64> get a "lo";
     let b_hi <i64> get b "hi";
@@ -52,7 +52,7 @@ fn add <(u128,u128)->u128> (a, b):
     u128 hi lo
 
 //: sub: u128 の減算（mod 2^128）
-fn sub <(u128,u128)->u128> (a, b):
+pub fn sub <(u128,u128)->u128> (a, b):
     let a_hi <i64> get a "hi";
     let a_lo <i64> get a "lo";
     let b_hi <i64> get b "hi";
@@ -66,7 +66,7 @@ fn sub <(u128,u128)->u128> (a, b):
     u128 hi lo
 
 //: lt: u128 の大小比較（a < b）
-fn lt <(u128,u128)->bool> (a, b):
+pub fn lt <(u128,u128)->bool> (a, b):
     let a_hi <i64> get a "hi";
     let b_hi <i64> get b "hi";
     let a_lo <i64> get a "lo";
@@ -93,7 +93,7 @@ fn lt <(u128,u128)->bool> (a, b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn mul_wide <(i64,i64)->u128> (a, b):
+pub fn mul_wide <(i64,i64)->u128> (a, b):
     let mask32 <i64> extend_s_i32_to_i64 -1;
     let sh32 <i64> extend_s_i32_to_i64 32;
 

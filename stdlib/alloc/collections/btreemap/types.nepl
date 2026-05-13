@@ -20,7 +20,7 @@
 //: - `keys.len == values.len == cap`
 //: - `0 <= i < len` の slot は key/value とも `Some`
 //: - `len <= i < cap` の slot は key/value とも `None`
-struct BTreeMapStorage<.K,.V>:
+pub struct BTreeMapStorage<.K,.V>:
     keys <Vec<Option<.K>>>
     values <Vec<Option<.V>>>
 
@@ -32,7 +32,7 @@ struct BTreeMapStorage<.K,.V>:
 //:
 //: ### [注意/ちゅうい]
 //: - [本物/ほんもの]の B-tree node [分割/ぶんかつ]は[持/も]たず、lower_bound と shift で[動/うご]く[単純/たんじゅん][実装/じっそう]です。
-struct BTreeMap<.K,.V>:
+pub struct BTreeMap<.K,.V>:
     len <i32>
     cap <i32>
     storage <BTreeMapStorage<.K,.V>>

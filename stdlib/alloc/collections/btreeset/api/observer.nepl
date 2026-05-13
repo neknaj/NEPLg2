@@ -35,7 +35,7 @@
 //:     free<i32> s
 //:     if ok 1 0
 //: ```
-fn len <.T> <(&BTreeSet<.T>)->i32> (set0):
+pub fn len <.T> <(&BTreeSet<.T>)->i32> (set0):
     *field::get_ref set0 "len"
 
 //: ## contains
@@ -56,7 +56,7 @@ fn len <.T> <(&BTreeSet<.T>)->i32> (set0):
 //:     free<i32> s
 //:     if ok 1 0
 //: ```
-fn contains <.T: Ord&Copy> <(&BTreeSet<.T>,.T)->bool> (set0, key):
+pub fn contains <.T: Ord&Copy> <(&BTreeSet<.T>,.T)->bool> (set0, key):
     let len0 <i32> *field::get_ref set0 "len"
     let storage <&BTreeSetStorage<.T>> field::get_ref set0 "storage"
     let keys <&Vec<Option<.T>>> btreeset_storage_keys<.T> storage

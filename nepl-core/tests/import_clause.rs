@@ -11,7 +11,7 @@ const DEP: &str = r#"
 
 #import "dep2" as *
 
-fn allowed <()->i32> ():
+pub fn allowed <()->i32> ():
     41
 
 fn hidden <()->i32> ():
@@ -22,7 +22,7 @@ const DEP2: &str = r#"
 #indent 4
 #no_prelude
 
-fn leaked <()->i32> ():
+pub fn leaked <()->i32> ():
     99
 "#;
 
@@ -139,6 +139,19 @@ fn main <()->i32> ():
     dep::allowed
 "#;
     compile_with_dep(qualified).expect("qualified alias import should compile");
+
+    let private_qualified = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "dep" as dep
+
+fn main <()->i32> ():
+    dep::hidden
+"#;
+    let diags = expect_compile_err(private_qualified);
+    assert_undefined_identifier(&diags);
 }
 
 #[test]
@@ -232,7 +245,7 @@ fn alias_qualified_call_survives_same_name_facade_wrapper() {
 #indent 4
 #no_prelude
 
-fn scan <(i32)->i32> (x):
+pub fn scan <(i32)->i32> (x):
     x
 "#;
     let facade = r#"
@@ -241,7 +254,7 @@ fn scan <(i32)->i32> (x):
 
 #import "impls" as impls
 
-fn scan <(i32)->i32> (x):
+pub fn scan <(i32)->i32> (x):
     impls::scan x
 "#;
     let main = r#"
@@ -267,11 +280,11 @@ fn alias_qualified_enum_match_arm_uses_variant_member_tail() {
 #indent 4
 #no_prelude
 
-enum E:
+pub enum E:
     A <i32>
     B
 
-fn make <()->E> ():
+pub fn make <()->E> ():
     E::A 42
 "#;
     let main = r#"
@@ -350,6 +363,22 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn selective_import_rejects_private_source_symbols() {
+    let hidden = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "dep" as { hidden }
+
+fn main <()->i32> ():
+    hidden
+"#;
+    let diags = expect_compile_err(hidden);
+    assert_undefined_identifier(&diags);
+}
+
+#[test]
 fn selective_import_does_not_leak_transitive_open_imports() {
     let leaked = r#"
 #entry main
@@ -403,7 +432,7 @@ fn selective_import_glob_follows_module_graph_open_semantics() {
 #import "dep" as { allowed::* }
 
 fn main <()->i32> ():
-    hidden
+    allowed
 "#;
     compile_with_dep(src).expect("selective glob import should expose imported symbols");
 }
@@ -421,6 +450,22 @@ fn main <()->i32> ():
     allowed
 "#;
     compile_with_dep(src).expect("open import should expose unqualified symbols");
+}
+
+#[test]
+fn open_import_does_not_expose_private_symbols() {
+    let src = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "dep" as *
+
+fn main <()->i32> ():
+    hidden
+"#;
+    let diags = expect_compile_err(src);
+    assert_undefined_identifier(&diags);
 }
 
 #[test]
@@ -447,7 +492,7 @@ fn transitive_open_import_follows_long_chain() {
 #indent 4
 #no_prelude
 
-fn leaf <()->i32> ():
+pub fn leaf <()->i32> ():
     123
 "#;
     let main = r#"
@@ -490,7 +535,7 @@ fn transitive_open_import_preserves_selected_aliases() {
 #indent 4
 #no_prelude
 
-fn leaf <()->i32> ():
+pub fn leaf <()->i32> ():
     77
 "#;
     let aliased = r#"

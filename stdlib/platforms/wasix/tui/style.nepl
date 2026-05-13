@@ -20,7 +20,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - 色シーケンス自体は `str_display_width` で幅0として扱われます。
-fn style_text <(AnsiTextStyle,str)*>str> (style, s):
+pub fn style_text <(AnsiTextStyle,str)*>str> (style, s):
     let prefix <str> ansi_text_style_code style;
     let p <str> concat prefix s;
     concat p ansi_reset_code
@@ -35,7 +35,7 @@ fn style_text <(AnsiTextStyle,str)*>str> (style, s):
 //:
 //: [注意/ちゅうい]:
 //: - OSC8 非対応端末ではリンクとして機能しません。
-fn hyperlink_text <(str,str)*>str> (url, text):
+pub fn hyperlink_text <(str,str)*>str> (url, text):
     let open <str> concat3 "\x1b]8;;" url "\x1b\\";
     let close <str> "\x1b]8;;\x1b\\";
     let t <str> concat open text;

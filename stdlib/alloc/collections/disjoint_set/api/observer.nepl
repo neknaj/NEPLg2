@@ -23,7 +23,7 @@
 //: ### [仕様/しよう]
 //: - `DisjointSet` owner は[消費/しょうひ]しません。
 //: - caller は `len` [後/ご]も同じ `DisjointSet` を[使/つか]い、不要になったら `free` できます。
-fn len <(&DisjointSet)->i32> (dsu):
+pub fn len <(&DisjointSet)->i32> (dsu):
     *field::get_ref dsu "n"
 
 //: ## find
@@ -50,7 +50,7 @@ fn len <(&DisjointSet)->i32> (dsu):
 //:     free dsu3
 //:     if eq root0 root1 1 0
 //: ```
-fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
+pub fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
     let n <i32> *field::get_ref dsu "n"
     if:
         and le 0 idx lt idx n
@@ -90,7 +90,7 @@ fn find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
 //:     let ok2 <bool> if ok1 false true;
 //:     if and ok0 ok2 1 0
 //: ```
-fn same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
+pub fn same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
     let n <i32> *field::get_ref dsu "n"
     if:
         and and le 0 a lt a n and le 0 b lt b n
@@ -130,7 +130,7 @@ fn same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
 //:     free dsu2
 //:     if eq s 3 1 0
 //: ```
-fn size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
+pub fn size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, idx):
     let n <i32> *field::get_ref dsu "n"
     if:
         and le 0 idx lt idx n

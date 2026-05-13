@@ -57,7 +57,7 @@
 //:         |> checks_push assert is_none<i32> find "ab" "abc"
 //:     checks_exit_code checks
 //: ```
-fn find <(str,str)->Option<i32>> (s, pat):
+pub fn find <(str,str)->Option<i32>> (s, pat):
     let s_len <i32> len s;
     let pat_len <i32> len pat;
     if:

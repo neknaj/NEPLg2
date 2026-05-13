@@ -50,7 +50,7 @@
 //:     free<i32> v1;
 //:     if ok 0 1
 //: ```
-fn push <.T> <(Vec<.T>,.T)->Result<Vec<.T>, StdErrorKind>> (v, item):
+pub fn push <.T> <(Vec<.T>,.T)->Result<Vec<.T>, StdErrorKind>> (v, item):
     let v_len <i32> *field::get_ref &v "len"
     let v_cap <i32> *field::get_ref &v "cap"
     let v_storage <VecStorageState> *field::get_ref &v "storage"

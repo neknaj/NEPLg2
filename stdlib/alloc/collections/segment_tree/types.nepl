@@ -17,7 +17,7 @@
 //: ### [注意/ちゅうい]
 //: - `data` は `2 * base` [個/こ]の `i32` を[保持/ほじ]します。
 //: - [不要/ふよう]になったら `free` します。
-struct SegmentTree:
+pub struct SegmentTree:
     n <i32>
     base <i32>
     data <Vec<i32>>
@@ -32,14 +32,14 @@ struct SegmentTree:
 //: ### [注意/ちゅうい]
 //: - `Result::Err` を[受/う]け[取/と]った caller は `segment_tree_update_error_owner` で owner を[回収/かいしゅう]し、[不要/ふよう]なら `free` します。
 //: - `diag` は `Diag` の Copy [値/あたい]で、`segment_tree_update_error_diag` から owner を[動/うご]かさず[確認/かくにん]できます。
-struct SegmentTreeUpdateError:
+pub struct SegmentTreeUpdateError:
     owner <SegmentTree>
     diag <Diag>
 
 //: segment_tree_update_error_diag: update [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
-fn segment_tree_update_error_diag <(&SegmentTreeUpdateError)->Diag> (e):
+pub fn segment_tree_update_error_diag <(&SegmentTreeUpdateError)->Diag> (e):
     *field::get_ref e "diag"
 
 //: segment_tree_update_error_owner: update [失敗/しっぱい]で[戻/もど]された `SegmentTree` owner を[取/と]り[出/だ]す
-fn segment_tree_update_error_owner <(SegmentTreeUpdateError)->SegmentTree> (e):
+pub fn segment_tree_update_error_owner <(SegmentTreeUpdateError)->SegmentTree> (e):
     field::get e "owner"

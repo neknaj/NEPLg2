@@ -80,7 +80,7 @@ pub struct SelfhostCliDriverResult:
     diagnostics <SelfhostDiagnostics>
 
 //: selfhost_cli_driver_result_new: driver result を[作/つく]る
-fn selfhost_cli_driver_result_new <(i32,SelfhostDiagnostics)->SelfhostCliDriverResult> (exit_code, diagnostics):
+pub fn selfhost_cli_driver_result_new <(i32,SelfhostDiagnostics)->SelfhostCliDriverResult> (exit_code, diagnostics):
     SelfhostCliDriverResult exit_code diagnostics
 
 //: selfhost_cli_driver_result_exit_code: driver result の exit code を[返/かえ]す
@@ -99,7 +99,7 @@ pub fn selfhost_cli_driver_result_free <(SelfhostCliDriverResult)*>()> (result):
 //:
 //: [目的/もくてき]:
 //: - parser は「引数列として正しいが input が無い」状態を許すため、driver が compile 実行時の usage error として診断化します。
-fn selfhost_cli_driver_missing_input_diag <()->SelfhostDiagnostic> ():
+pub fn selfhost_cli_driver_missing_input_diag <()->SelfhostDiagnostic> ():
     let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "input source file is required"
     selfhost_diag_with_note diag "pass -i/--input or a positional input path"
 
@@ -118,7 +118,7 @@ pub fn selfhost_cli_driver_request_from_options <(SelfhostCliOptions)->Result<Se
             Result<SelfhostCompileRequest, SelfhostDiagnostic>::Err selfhost_cli_driver_missing_input_diag
 
 //: selfhost_cli_driver_error_result: diagnostic 1 件から失敗 result を[作/つく]る
-fn selfhost_cli_driver_error_result <(SelfhostDiagnostic)*>Result<SelfhostCliDriverResult, StdErrorKind>> (diag):
+pub fn selfhost_cli_driver_error_result <(SelfhostDiagnostic)*>Result<SelfhostCliDriverResult, StdErrorKind>> (diag):
     match selfhost_diagnostics_one diag:
         Result::Err e:
             Result<SelfhostCliDriverResult, StdErrorKind>::Err e
@@ -126,7 +126,7 @@ fn selfhost_cli_driver_error_result <(SelfhostDiagnostic)*>Result<SelfhostCliDri
             Result<SelfhostCliDriverResult, StdErrorKind>::Ok selfhost_cli_driver_result_new 1 diagnostics
 
 //: selfhost_cli_driver_success_result: 成功 result を[作/つく]る
-fn selfhost_cli_driver_success_result <()*>Result<SelfhostCliDriverResult, StdErrorKind>> ():
+pub fn selfhost_cli_driver_success_result <()*>Result<SelfhostCliDriverResult, StdErrorKind>> ():
     match selfhost_diagnostics_new:
         Result::Err e:
             Result<SelfhostCliDriverResult, StdErrorKind>::Err e

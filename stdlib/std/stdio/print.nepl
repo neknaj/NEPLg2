@@ -48,7 +48,7 @@
 //: fn main <()*>()> ():
 //:     print "sample";
 //: ```
-fn noshadow print <(str)*>()> (s):
+pub fn noshadow print <(str)*>()> (s):
     stdio_write_mem string_data_ptr s len s
 
 //: println: 改行付き出力
@@ -84,7 +84,7 @@ fn noshadow print <(str)*>()> (s):
 //: fn main <()*>()> ():
 //:     println "sample";
 //: ```
-fn noshadow println <(str)*>()> (s):
+pub fn noshadow println <(str)*>()> (s):
     print s;
     print "\n";
     ()
@@ -122,7 +122,7 @@ fn noshadow println <(str)*>()> (s):
 //: fn main <()*>()> ():
 //:     print_i32 42;
 //: ```
-fn noshadow print_i32 <(i32)*>()> (v):
+pub fn noshadow print_i32 <(i32)*>()> (v):
     print string_integer::from_i32 v;
     ()
 
@@ -159,6 +159,6 @@ fn noshadow print_i32 <(i32)*>()> (v):
 //: fn main <()*>()> ():
 //:     println_i32 42;
 //: ```
-fn noshadow println_i32 <(i32)*>()> (v):
+pub fn noshadow println_i32 <(i32)*>()> (v):
     print_i32 v;
     print "\n";

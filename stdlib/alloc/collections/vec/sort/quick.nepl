@@ -29,7 +29,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(hi - lo + 1)
-fn sort_quick_partition_data <.T: Ord> <(MemPtr<.T>,i32,i32)->i32> (data_ptr, lo, hi):
+pub fn sort_quick_partition_data <.T: Ord> <(MemPtr<.T>,i32,i32)->i32> (data_ptr, lo, hi):
     let pivot <.T> sort_get_unchecked_data<.T> data_ptr hi
     let mut i <i32> lo;
     let mut j <i32> lo;
@@ -62,7 +62,7 @@ fn sort_quick_partition_data <.T: Ord> <(MemPtr<.T>,i32,i32)->i32> (data_ptr, lo
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 O(n log n)、最悪 O(n^2)
-fn sort_quick_range_data <.T: Ord> <(MemPtr<.T>,i32,i32)->()> (data_ptr, lo, hi):
+pub fn sort_quick_range_data <.T: Ord> <(MemPtr<.T>,i32,i32)->()> (data_ptr, lo, hi):
     if:
         lt lo hi
         then:
@@ -86,7 +86,7 @@ fn sort_quick_range_data <.T: Ord> <(MemPtr<.T>,i32,i32)->()> (data_ptr, lo, hi)
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 O(n log n)、最悪 O(n^2)、追加領域は recursion stack です。
-fn sort_quick <.T: Ord> <(&Vec<.T>)->()> (v):
+pub fn sort_quick <.T: Ord> <(&Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
     if:
@@ -115,7 +115,7 @@ fn sort_quick <.T: Ord> <(&Vec<.T>)->()> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 O(n log n), 最悪 O(n^2)
-fn sort_slice_quick <.T: Ord> <(MemPtr<.T>,i32)->()> (data_ptr, len):
+pub fn sort_slice_quick <.T: Ord> <(MemPtr<.T>,i32)->()> (data_ptr, len):
     if:
         le len 1
         then ()
@@ -136,7 +136,7 @@ fn sort_slice_quick <.T: Ord> <(MemPtr<.T>,i32)->()> (data_ptr, len):
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 O(n log n), 最悪 O(n^2)
-fn sort_i32 <(MemPtr<i32>,i32)->()> (data_ptr, n):
+pub fn sort_i32 <(MemPtr<i32>,i32)->()> (data_ptr, n):
     sort_slice_quick<i32> data_ptr n
 
 //: sort_quick_ret: quick sort 後の Vec を返す
@@ -152,7 +152,7 @@ fn sort_i32 <(MemPtr<i32>,i32)->()> (data_ptr, n):
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_quick` と同じです。
-fn sort_quick_ret <.T: Ord> <(Vec<.T>)->Vec<.T>> (v):
+pub fn sort_quick_ret <.T: Ord> <(Vec<.T>)->Vec<.T>> (v):
     let n <i32> get v "len"
     let cap <i32> get v "cap"
     let storage <VecStorageState> get v "storage"
@@ -180,5 +180,5 @@ fn sort_quick_ret <.T: Ord> <(Vec<.T>)->Vec<.T>> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_quick` と同じです。
-fn sort <.T: Ord> <(&Vec<.T>)->()> (v):
+pub fn sort <.T: Ord> <(&Vec<.T>)->()> (v):
     sort_quick<.T> v

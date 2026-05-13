@@ -35,7 +35,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
-struct Fnv1a32:
+pub struct Fnv1a32:
     hash <i32>
 
 //: new_fnv1a32: FNV-1a offset basis で state を作る
@@ -48,7 +48,7 @@ struct Fnv1a32:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn new_fnv1a32 <()->Fnv1a32> ():
+pub fn new_fnv1a32 <()->Fnv1a32> ():
     Fnv1a32 -2128831035
 
 //: fnv1a32_update: 1 byte を FNV-1a state に混ぜる
@@ -65,7 +65,7 @@ fn new_fnv1a32 <()->Fnv1a32> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn fnv1a32_update <(Fnv1a32, i32)->Fnv1a32> (h, byte):
+pub fn fnv1a32_update <(Fnv1a32, i32)->Fnv1a32> (h, byte):
     let prime <i32> 16777619
     let current <i32> h.hash
     let x <i32> xor current byte
@@ -82,5 +82,5 @@ fn fnv1a32_update <(Fnv1a32, i32)->Fnv1a32> (h, byte):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn fnv1a32_finalize <(Fnv1a32)->i32> (h):
+pub fn fnv1a32_finalize <(Fnv1a32)->i32> (h):
     h.hash

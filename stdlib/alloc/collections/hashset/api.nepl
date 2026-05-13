@@ -43,7 +43,7 @@
 //:     free hs;
 //:     ok
 //: ```
-fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H)*>Result<HashSet<.T,.H>, Diag>> (hasher):
+pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H)*>Result<HashSet<.T,.H>, Diag>> (hasher):
     hashset_new_with_capacity<.T,.H> hasher 16
 
 //: ## with_capacity
@@ -51,7 +51,7 @@ fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H)*>Result<HashSet<.T,.H>, Diag
 //:
 //: ### [目的/もくてき]
 //: - self-host compiler の visited set など、要素数の[見積/みつ]もりがある用途で rehash 回数を[減/へ]らします。
-fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
+pub fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
     hashset_new_with_capacity<.T,.H> hasher requested
 
 //: ## insert
@@ -81,7 +81,7 @@ fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSe
 //:     free hs1;
 //:     ok
 //: ```
-fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
+pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
     match hashset_prepare_insert<.T,.H> hs key:
         Result::Err d:
             err<HashSet<.T,.H>, Diag> d
@@ -118,7 +118,7 @@ fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<Ha
 //:
 //: ### [計算量/けいさんりょう]
 //: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
-fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>,.T)->bool> (hs, key):
+pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>,.T)->bool> (hs, key):
     let cap0 <i32> *field::get_ref hs "cap"
     let hasher <.H> *field::get_ref hs "hasher"
     let storage <&HashSetStorage<.T>> field::get_ref hs "storage"
@@ -135,7 +135,7 @@ fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>,.T)->bool> 
 //:
 //: ### [計算量/けいさんりょう]
 //: - [平均/へいきん] O(1)、[最悪/さいあく] O(n)
-fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
+pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
     let count0 <i32> *field::get_ref &hs "count"
     let cap0 <i32> *field::get_ref &hs "cap"
     let tombstones0 <i32> *field::get_ref &hs "tombstones"
@@ -159,7 +159,7 @@ fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<Ha
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
-fn len <.T,.H> <(&HashSet<.T,.H>)->i32> (hs):
+pub fn len <.T,.H> <(&HashSet<.T,.H>)->i32> (hs):
     *field::get_ref hs "count"
 
 //: ## free
@@ -173,6 +173,6 @@ fn len <.T,.H> <(&HashSet<.T,.H>)->i32> (hs):
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(cap)
-fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>)->()> (hs):
+pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>)->()> (hs):
     let storage <HashSetStorage<.T>> field::get hs "storage"
     hashset_free_storage<.T> storage

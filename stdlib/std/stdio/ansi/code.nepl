@@ -17,7 +17,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ansi_color_code <(AnsiColor)->str> (color):
+pub fn ansi_color_code <(AnsiColor)->str> (color):
     match color:
         AnsiColor::Default:
             ""
@@ -45,7 +45,7 @@ fn ansi_color_code <(AnsiColor)->str> (color):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ansi_background_color_code <(AnsiColor)->str> (color):
+pub fn ansi_background_color_code <(AnsiColor)->str> (color):
     match color:
         AnsiColor::Default:
             ""
@@ -73,7 +73,7 @@ fn ansi_background_color_code <(AnsiColor)->str> (color):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ansi_text_weight_code <(AnsiTextWeight)->str> (weight):
+pub fn ansi_text_weight_code <(AnsiTextWeight)->str> (weight):
     match weight:
         AnsiTextWeight::Regular:
             ""
@@ -87,7 +87,7 @@ fn ansi_text_weight_code <(AnsiTextWeight)->str> (weight):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ansi_text_decoration_code <(AnsiTextDecoration)->str> (decoration):
+pub fn ansi_text_decoration_code <(AnsiTextDecoration)->str> (decoration):
     match decoration:
         AnsiTextDecoration::Plain:
             ""
@@ -101,7 +101,7 @@ fn ansi_text_decoration_code <(AnsiTextDecoration)->str> (decoration):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ansi_reset_code <()->str> ():
+pub fn ansi_reset_code <()->str> ():
     "\x1b[0m"
 
 //: ansi_text_style_code: style enum/struct を escape code 文字列へ変換する
@@ -115,7 +115,7 @@ fn ansi_reset_code <()->str> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ansi_text_style_code <(AnsiTextStyle)->str> (style):
+pub fn ansi_text_style_code <(AnsiTextStyle)->str> (style):
     let weight_code <str> ansi_text_weight_code *get_ref &style "weight";
     let decoration_code <str> ansi_text_decoration_code *get_ref &style "decoration";
     let foreground_code <str> ansi_color_code *get_ref &style "foreground";

@@ -19,7 +19,7 @@
 //:
 //: [実装/じっそう]:
 //: - `cols <= 2` では内側幅を 0 に丸め、負の繰り返し回数や呼び出し側ごとの分岐を避けます。
-fn box_inner_cols <(i32)->i32> (cols):
+pub fn box_inner_cols <(i32)->i32> (cols):
     if:
         lt cols 3
         then:
@@ -34,7 +34,7 @@ fn box_inner_cols <(i32)->i32> (cols):
 //:
 //: [実装/じっそう]:
 //: - 表示幅ベースで `inner` 以内に切り詰め、その後右側空白で `inner` 幅まで埋めます。
-fn line_box_body <(str,i32)*>str> (content, inner):
+pub fn line_box_body <(str,i32)*>str> (content, inner):
     line_pad_to_cols line_clip_to_cols content inner inner
 
 //: line_box: 罫線付きの1行（`│ ... │`）を作る
@@ -48,7 +48,7 @@ fn line_box_body <(str,i32)*>str> (content, inner):
 //:
 //: [注意/ちゅうい]:
 //: - ANSI/OSC8 を含む `content` の厳密な切り詰めは対象外です。
-fn line_box <(str,i32)*>str> (content, cols):
+pub fn line_box <(str,i32)*>str> (content, cols):
     if:
         lt cols 1
         then:
@@ -74,7 +74,7 @@ fn line_box <(str,i32)*>str> (content, cols):
 //:
 //: [注意/ちゅうい]:
 //: - 罫線（`│`）自体は無色です。内側領域のみ style がつきます。
-fn line_box_styled <(AnsiTextStyle,str,i32)*>str> (style, content, cols):
+pub fn line_box_styled <(AnsiTextStyle,str,i32)*>str> (style, content, cols):
     if:
         lt cols 1
         then:
@@ -100,7 +100,7 @@ fn line_box_styled <(AnsiTextStyle,str,i32)*>str> (style, content, cols):
 //: [目的/もくてき]:
 //: - ボックス描画の先頭行を生成します。
 //: - `cols <= 0` は空文字列、`cols == 1` は左上罫線のみを返します。
-fn line_top <(i32)*>str> (cols):
+pub fn line_top <(i32)*>str> (cols):
     if:
         lt cols 1
         then:
@@ -118,7 +118,7 @@ fn line_top <(i32)*>str> (cols):
 //: [目的/もくてき]:
 //: - ボックス描画の最終行を生成します。
 //: - `cols <= 0` は空文字列、`cols == 1` は左下罫線のみを返します。
-fn line_bottom <(i32)*>str> (cols):
+pub fn line_bottom <(i32)*>str> (cols):
     if:
         lt cols 1
         then:

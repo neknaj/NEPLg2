@@ -31,7 +31,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(a) + len(b))
-fn concat_result <(str,str)->Result<str,str>> (a,b):
+pub fn concat_result <(str,str)->Result<str,str>> (a,b):
     let la <i32> len a;
     let lb <i32> len b;
     let total <i32> add la lb;
@@ -44,7 +44,7 @@ fn concat_result <(str,str)->Result<str,str>> (a,b):
             mem_copy add mem_ptr_addr out_data la mem_ptr_addr string_data_ptr b lb;
             Result<str,str>::Ok string_finish out_region total
 
-fn concat <(str,str)->str> (a,b):
+pub fn concat <(str,str)->str> (a,b):
     match concat_result a b:
         Result::Ok s:
             s
@@ -66,6 +66,6 @@ fn concat <(str,str)->str> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(a) + len(b) + len(c)) ですが、中間 copy が 1 回追加で発生します。
-fn concat3 <(str,str,str)->str> (a,b,c):
+pub fn concat3 <(str,str,str)->str> (a,b,c):
     let ab <str> concat a b;
     concat ab c

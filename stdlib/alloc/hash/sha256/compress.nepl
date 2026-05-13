@@ -20,7 +20,7 @@
 //:
 //: [実装/じっそう]:
 //: - working variables `a`..`h` を[再帰/さいき]で[更新/こうしん]し、64 round [後/ご]の値を `Sha256State` として[返/かえ]します。
-fn sha256_rounds_loop <(&Vec<i32>,i32,i32,i32,i32,i32,i32,i32,i32,i32)*>Result<Sha256State, StdErrorKind>> (w, i, a, b, c, d, e, f, g, h):
+pub fn sha256_rounds_loop <(&Vec<i32>,i32,i32,i32,i32,i32,i32,i32,i32,i32)*>Result<Sha256State, StdErrorKind>> (w, i, a, b, c, d, e, f, g, h):
     if:
         ge i 64
         then:
@@ -47,7 +47,7 @@ fn sha256_rounds_loop <(&Vec<i32>,i32,i32,i32,i32,i32,i32,i32,i32,i32)*>Result<S
 //:
 //: [実装/じっそう]:
 //: - schedule を[作成/さくせい]し、64 round の working variables を state に[加算/かさん]します。
-fn sha256_compress_block <(&Vec<i32>,i32,i32,i32,Sha256State)*>Result<Sha256State, StdErrorKind>> (buf, msg_len, total_len, block_start, state):
+pub fn sha256_compress_block <(&Vec<i32>,i32,i32,i32,Sha256State)*>Result<Sha256State, StdErrorKind>> (buf, msg_len, total_len, block_start, state):
     match sha256_build_schedule buf msg_len total_len block_start:
         Result::Err e:
             Result<Sha256State, StdErrorKind>::Err e
@@ -80,7 +80,7 @@ fn sha256_compress_block <(&Vec<i32>,i32,i32,i32,Sha256State)*>Result<Sha256Stat
 //:
 //: [実装/じっそう]:
 //: - `block_start` を 64 byte ずつ[進/すす]め、全 block を[処理/しょり]した state を[返/かえ]します。
-fn sha256_process_blocks <(&Vec<i32>,i32,i32,i32,Sha256State)*>Result<Sha256State, StdErrorKind>> (buf, msg_len, total_len, block_start, state):
+pub fn sha256_process_blocks <(&Vec<i32>,i32,i32,i32,Sha256State)*>Result<Sha256State, StdErrorKind>> (buf, msg_len, total_len, block_start, state):
     if:
         ge block_start total_len
         then:

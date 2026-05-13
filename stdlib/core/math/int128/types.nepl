@@ -22,11 +22,11 @@
 #indent 4
 
 //: u128: u128 相当（上位/下位 64-bit）
-struct u128:
+pub struct u128:
     hi <i64>
     lo <i64>
 
 //: i128: i128 相当（上位/下位 64-bit, 2 の補数）
-struct i128:
+pub struct i128:
     hi <i64>
     lo <i64>

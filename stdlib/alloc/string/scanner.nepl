@@ -56,36 +56,36 @@
 //:
 //: [目的/もくてき]:
 //: - `alloc/string` 本体に依存せず、scanner module が循環 import なしで `str` の byte header を読めるようにします。
-fn scanner_string_addr <(str)->i32> (s):
+pub fn scanner_string_addr <(str)->i32> (s):
     #intrinsic "str_addr" <> (s)
 
 //: scanner_str_byte_len: scanner 用の byte length 取得 helper
 //:
 //: [目的/もくてき]:
 //: - `str` layout の先頭 4 byte にある長さ header を読み、range 丸めの上限として使います。
-fn scanner_str_byte_len <(str)->i32> (s):
+pub fn scanner_str_byte_len <(str)->i32> (s):
     load_i32 scanner_string_addr s
 
 //: scanner_string_byte_at_unchecked: 範囲確認済み index の byte を読む
 //:
 //: [注意/ちゅうい]:
 //: - `idx` は必ず `0 <= idx < scanner_str_byte_len(s)` を満たす前提です。
-fn scanner_string_byte_at_unchecked <(str,i32)->i32> (s, idx):
+pub fn scanner_string_byte_at_unchecked <(str,i32)->i32> (s, idx):
     load_u8 <i32> add scanner_string_addr s <i32> add 4 idx
 
-fn scanner_byte_is_ascii_digit <(i32)->bool> (b):
+pub fn scanner_byte_is_ascii_digit <(i32)->bool> (b):
     and ge b '0' le b '9'
 
-fn scanner_byte_is_ascii_upper <(i32)->bool> (b):
+pub fn scanner_byte_is_ascii_upper <(i32)->bool> (b):
     and ge b 'A' le b 'Z'
 
-fn scanner_byte_is_ascii_lower <(i32)->bool> (b):
+pub fn scanner_byte_is_ascii_lower <(i32)->bool> (b):
     and ge b 'a' le b 'z'
 
-fn scanner_byte_is_ascii_alpha <(i32)->bool> (b):
+pub fn scanner_byte_is_ascii_alpha <(i32)->bool> (b):
     or scanner_byte_is_ascii_upper b scanner_byte_is_ascii_lower b
 
-fn scanner_byte_is_ascii_inline_space <(i32)->bool> (b):
+pub fn scanner_byte_is_ascii_inline_space <(i32)->bool> (b):
     match b:
         ' ':
             true

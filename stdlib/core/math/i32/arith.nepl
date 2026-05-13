@@ -47,7 +47,7 @@
 //:     assert_eq_i32 42 add 40 2;
 //:     assert_eq_i32 0 add -1 1;
 //: ```
-fn add <(i32,i32)->i32> (a,b):
+pub fn add <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -86,7 +86,7 @@ fn add <(i32,i32)->i32> (a,b):
 //:     assert_eq_i32 5 sub 9 4;
 //:     assert_eq_i32 -5 sub 4 9;
 //: ```
-fn sub <(i32,i32)->i32> (a,b):
+pub fn sub <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -125,7 +125,7 @@ fn sub <(i32,i32)->i32> (a,b):
 //:     assert_eq_i32 42 mul 6 7;
 //:     assert_eq_i32 0 mul 0 12345;
 //: ```
-fn mul <(i32,i32)->i32> (a,b):
+pub fn mul <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -164,7 +164,7 @@ fn mul <(i32,i32)->i32> (a,b):
 //:     assert_eq_i32 -3 div_s -9 3;
 //:     assert_eq_i32 -3 div_s 10 -3;
 //: ```
-fn div_s <(i32,i32)->i32> (a,b):
+pub fn div_s <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -203,7 +203,7 @@ fn div_s <(i32,i32)->i32> (a,b):
 //:     assert_eq_i32 3 div_u 11 3;
 //:     assert_eq_i32 2147483647 div_u -1 2;
 //: ```
-fn div_u <(i32,i32)->i32> (a,b):
+pub fn div_u <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -242,7 +242,7 @@ fn div_u <(i32,i32)->i32> (a,b):
 //:     assert_eq_i32 1 rem_s 10 3;
 //:     assert_eq_i32 -1 rem_s -10 3;
 //: ```
-fn rem_s <(i32,i32)->i32> (a,b):
+pub fn rem_s <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -257,7 +257,7 @@ fn rem_s <(i32,i32)->i32> (a,b):
         }
 
 //: mod_s: i32 の符号付き剰余（`rem_s` の別名）
-fn mod_s <(i32,i32)->i32> (a,b):
+pub fn mod_s <(i32,i32)->i32> (a,b):
     rem_s a b
 
 //: rem_u: i32 の符号なし剰余
@@ -285,7 +285,7 @@ fn mod_s <(i32,i32)->i32> (a,b):
 //:     assert_eq_i32 2 rem_u 11 3;
 //:     assert_eq_i32 5 rem_u -1 10;
 //: ```
-fn rem_u <(i32,i32)->i32> (a,b):
+pub fn rem_u <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a

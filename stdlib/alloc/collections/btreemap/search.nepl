@@ -14,10 +14,10 @@
 #import "./types" as *
 #import "./storage" as *
 
-fn btreemap_key_eq <.K: Ord> <(.K,.K)->bool> (a, b):
+pub fn btreemap_key_eq <.K: Ord> <(.K,.K)->bool> (a, b):
     and not ord_lt a b not ord_lt b a
 
-fn btreemap_lower_bound <.K: Ord&Copy> <(&Vec<Option<.K>>,.K,i32,i32)->i32> (keys, key, low, high):
+pub fn btreemap_lower_bound <.K: Ord&Copy> <(&Vec<Option<.K>>,.K,i32,i32)->i32> (keys, key, low, high):
     if:
         lt low high
         then:
@@ -32,7 +32,7 @@ fn btreemap_lower_bound <.K: Ord&Copy> <(&Vec<Option<.K>>,.K,i32,i32)->i32> (key
                     mid
         else low
 
-fn btreemap_is_at <.K: Ord&Copy> <(&Vec<Option<.K>>,i32,i32,.K)->bool> (keys, len0, idx, key):
+pub fn btreemap_is_at <.K: Ord&Copy> <(&Vec<Option<.K>>,i32,i32,.K)->bool> (keys, len0, idx, key):
     if:
         lt idx len0
         then:
@@ -43,8 +43,8 @@ fn btreemap_is_at <.K: Ord&Copy> <(&Vec<Option<.K>>,i32,i32,.K)->bool> (keys, le
                     false
         else false
 
-fn btreemap_lower_bound_storage <.K: Ord&Copy,.V> <(&BTreeMapStorage<.K,.V>,.K,i32,i32)->i32> (storage, key, low, high):
+pub fn btreemap_lower_bound_storage <.K: Ord&Copy,.V> <(&BTreeMapStorage<.K,.V>,.K,i32,i32)->i32> (storage, key, low, high):
     btreemap_lower_bound<.K> btreemap_storage_keys<.K,.V> storage key low high
 
-fn btreemap_is_at_storage <.K: Ord&Copy,.V> <(&BTreeMapStorage<.K,.V>,i32,i32,.K)->bool> (storage, len0, idx, key):
+pub fn btreemap_is_at_storage <.K: Ord&Copy,.V> <(&BTreeMapStorage<.K,.V>,i32,i32,.K)->bool> (storage, len0, idx, key):
     btreemap_is_at<.K> btreemap_storage_keys<.K,.V> storage len0 idx key

@@ -20,7 +20,7 @@
 //:
 //: ### [目的/もくてき]
 //: - queue state と backing storage owner を 1 [値/あたい]として[移動/いどう]します。
-struct Queue<.T>:
+pub struct Queue<.T>:
     len <i32>
     cap <i32>
     head <i32>
@@ -31,6 +31,6 @@ struct Queue<.T>:
 //:
 //: ### [目的/もくてき]
 //: - [更新後/こうしんご]の queue owner と[取/と]り[出/だ]した[値/あたい]を[同時/どうじ]に[返/かえ]します。
-struct QueuePop<.T>:
+pub struct QueuePop<.T>:
     queue <Queue<.T>>
     item <Option<.T>>

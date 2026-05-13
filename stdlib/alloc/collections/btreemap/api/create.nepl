@@ -29,7 +29,7 @@
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
-fn new <.K: Copy,.V: Copy> <()*>Result<BTreeMap<.K,.V>, Diag>> ():
+pub fn new <.K: Copy,.V: Copy> <()*>Result<BTreeMap<.K,.V>, Diag>> ():
     let cap <i32> 8
     match btreemap_alloc_storage<.K,.V> cap:
         Result::Err d:

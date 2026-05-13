@@ -35,7 +35,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn get <.T,.I,.R> <(.T,.I)->.R> (obj,idx):
+pub fn get <.T,.I,.R> <(.T,.I)->.R> (obj,idx):
     #intrinsic "get_field" <> (obj,idx)
 
 // get_ref: [参照/さんしょう]からフィールドへの[参照/さんしょう]を[取得/しゅとく]します
@@ -55,7 +55,7 @@ fn get <.T,.I,.R> <(.T,.I)->.R> (obj,idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn get_ref <.T,.I,.R> <(&.T,.I)->&.R> (obj,idx):
+pub fn get_ref <.T,.I,.R> <(&.T,.I)->&.R> (obj,idx):
     #intrinsic "get_field_ref" <> (obj,idx)
 
 //: put: aggregate field を書き換える
@@ -73,5 +73,5 @@ fn get_ref <.T,.I,.R> <(&.T,.I)->&.R> (obj,idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn put <.T,.I,.V> <(.T,.I,.V)->()> (obj,idx,val):
+pub fn put <.T,.I,.V> <(.T,.I,.V)->()> (obj,idx,val):
     #intrinsic "set_field" <> (obj,idx,val)

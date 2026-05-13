@@ -5,7 +5,7 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::ast::{Effect, Ident, Literal, PrefixExpr, PrefixItem, Symbol};
+use crate::ast::{Effect, Ident, Literal, PrefixExpr, PrefixItem, Symbol, Visibility};
 use crate::diagnostic_codes::{EffectDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::effects::intrinsic_effect;
 use crate::hir::{HirExpr, HirExprKind};
@@ -924,6 +924,7 @@ impl<'a> BlockChecker<'a> {
                             let _ = self.env.insert_local(Binding {
                                 name: name.name.clone(),
                                 ty: t,
+                                visibility: Visibility::Private,
                                 mutable: *mutable,
                                 no_shadow: *no_shadow,
                                 defined: false,

@@ -31,7 +31,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn stdio_read_all_text_result <()*>Result<str, StdErrorKind>> ():
+pub fn stdio_read_all_text_result <()*>Result<str, StdErrorKind>> ():
     match stdio_read_all_bytes_result:
         Result::Ok bytes:
             text_bytebuf_to_utf8_str_result bytes
@@ -73,7 +73,7 @@ fn stdio_read_all_text_result <()*>Result<str, StdErrorKind>> ():
 //: fn main <()*>()> ():
 //:     print read_all;
 //: ```
-fn read_all <()*>str> ():
+pub fn read_all <()*>str> ():
     match stdio_read_all_text_result:
         Result::Ok text:
             text
@@ -95,7 +95,7 @@ fn read_all <()*>str> ():
 //:
 //: 計算量:
 //: - O(n)
-fn stdio_read_line_result <()*>Result<str, StdErrorKind>> ():
+pub fn stdio_read_line_result <()*>Result<str, StdErrorKind>> ():
     let cap <i32> 1024;
     match alloc_ptr<u8> cap:
         Result::Err _e:
@@ -212,7 +212,7 @@ fn stdio_read_line_result <()*>Result<str, StdErrorKind>> ():
 //: fn main <()*>()> ():
 //:     print read_line;
 //: ```
-fn noshadow read_line <()*>str> ():
+pub fn noshadow read_line <()*>str> ():
     match stdio_read_line_result:
         Result::Ok text:
             text

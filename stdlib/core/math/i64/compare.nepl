@@ -53,7 +53,7 @@
 //:     assert lt c d;
 //:     assert gt_u a b;
 //: ```
-fn eq <(i64,i64)->bool> (a,b):
+pub fn eq <(i64,i64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -81,7 +81,7 @@ fn eq <(i64,i64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ne <(i64,i64)->bool> (a,b):
+pub fn ne <(i64,i64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -109,7 +109,7 @@ fn ne <(i64,i64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn lt <(i64,i64)->bool> (a,b):
+pub fn lt <(i64,i64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -137,7 +137,7 @@ fn lt <(i64,i64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn lt_u <(i64,i64)->bool> (a,b):
+pub fn lt_u <(i64,i64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -165,7 +165,7 @@ fn lt_u <(i64,i64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn le <(i64,i64)->bool> (a,b):
+pub fn le <(i64,i64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -193,7 +193,7 @@ fn le <(i64,i64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn le_u <(i64,i64)->bool> (a,b):
+pub fn le_u <(i64,i64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -221,7 +221,7 @@ fn le_u <(i64,i64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn gt <(i64,i64)->bool> (a,b):
+pub fn gt <(i64,i64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -249,7 +249,7 @@ fn gt <(i64,i64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn gt_u <(i64,i64)->bool> (a,b):
+pub fn gt_u <(i64,i64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -277,7 +277,7 @@ fn gt_u <(i64,i64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ge <(i64,i64)->bool> (a,b):
+pub fn ge <(i64,i64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -305,7 +305,7 @@ fn ge <(i64,i64)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ge_u <(i64,i64)->bool> (a,b):
+pub fn ge_u <(i64,i64)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a

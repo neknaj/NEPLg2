@@ -2,13 +2,13 @@
 id: ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573
 title: "Import visibility does not enforce pub private item boundaries"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-13
 updated: 2026-05-13
-target: "nepl-core/src/resolve.rs, nepl-core/src/typecheck/env.rs, nepl-core/src/typecheck/name_lookup.rs, stdlib/core/mem.nepl"
+target: "nepl-core/src/typecheck/env.rs, nepl-core/src/typecheck/name_lookup.rs, nepl-core/src/typecheck/driver.rs, stdlib"
 ---
 
 # ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573: Import visibility does not enforce pub private item boundaries
@@ -52,7 +52,29 @@ Make visibility part of the typecheck binding authority. Imported cross-file bin
 
 ## 検証
 
-Add compiler tests proving a private function in an imported module is not callable through as * or qualified import, while pub re-exports remain callable. Add core/mem migration tests proving raw helper access is limited to internal raw-memory-boundary sources.
+Add compiler tests proving a private function in an imported module is not callable through as * or qualified import, while pub re-exports remain callable. The later `core/mem` migration tests proving raw helper access is limited to internal raw-memory-boundary sources belong to Stage 6 public-facade/internal-boundary work tracked by `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` and `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84`; this issue supplies the required import visibility authority for that split.
+
+## 2026-05-13 修正
+
+`Binding` / `EnumInfo` / `StructInfo` に `Visibility` を保持させ、top-level item の `pub` / private を typecheck の binding authority に接続した。local binding は同一 scope 内の名前であり cross-file export ではないため `Visibility::Private` として登録する。
+
+`name_lookup` の unqualified / qualified lookup は、binding が参照元と別 file に属する場合に `Visibility::Pub` を要求する。同一 file 内の private helper 参照は維持しつつ、`#import "dep" as *`、`#import "dep" as dep`、selective import から private top-level definition を選べないようにした。
+
+この変更により、これまで暗黙に import 可能だった stdlib の top-level definition は明示 `pub` が必要になった。compiler 側を緩めるのではなく、既存 stdlib `.nepl` の current public surface を構文上の `pub fn` / `pub enum` / `pub struct` へ機械的に移行した。raw memory API は現時点では既存 public surface として残し、Stage 6 の `core/mem` public facade / internal raw-memory-boundary module 分割で改めて public API から外す。
+
+回帰として `nepl-core/tests/import_clause.rs` に private qualified access、private open import、private selective import の compile-fail test を追加し、既存 import / re-export fixture は public API と private helper を明示的に分けた。`nepl-core/tests/resolve.rs` の HIR def-id fixture も public imported item 前提に更新した。
+
+追加で `cargo test -p nepl-core --test functions function_purity_check_impure_calls_pure -- --nocapture` を main の clean worktree で再実行し、`stdio_write_fd_mem_result` の Resource IR owner failure がこの visibility change 由来ではなく既存 main でも再現することを確認した。同失敗は別 issue として追跡する。
+
+検証:
+
+- `cargo fmt -p nepl-core --check`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test import_clause -- --nocapture`: passed
+- `cargo test -p nepl-core --test resolve -- --nocapture`: passed
+- `cargo test -p nepl-core --test functions function_basic_def_and_call -- --nocapture`: passed
+- `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+- `node nodesrc/test_resource_checker_responsibility.js`: passed
 
 関連:
 

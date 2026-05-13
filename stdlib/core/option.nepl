@@ -95,7 +95,7 @@
 //:
 //: 計算量:
 //: - O(1)
-enum Option<.T>:
+pub enum Option<.T>:
     None
     Some <.T>
 
@@ -127,7 +127,7 @@ impl<.T: Copy> Copy for Option<.T>:
 //:
 //: 計算量:
 //: - O(1)
-fn none <.T> <()->Option<.T>> ():
+pub fn none <.T> <()->Option<.T>> ():
     Option<.T>::None
 
 //: some: 値を包んで返す
@@ -143,7 +143,7 @@ fn none <.T> <()->Option<.T>> ():
 //:
 //: 計算量:
 //: - O(1)
-fn some <.T> <(.T)->Option<.T>> (v):
+pub fn some <.T> <(.T)->Option<.T>> (v):
     Option<.T>::Some v
 
 //: is_some: 値があるか判定する
@@ -159,7 +159,7 @@ fn some <.T> <(.T)->Option<.T>> (v):
 //:
 //: 計算量:
 //: - O(1)
-fn is_some <.T> <(Option<.T>)->bool> (o):
+pub fn is_some <.T> <(Option<.T>)->bool> (o):
     match o:
         Option::Some v:
             true
@@ -179,7 +179,7 @@ fn is_some <.T> <(Option<.T>)->bool> (o):
 //:
 //: 計算量:
 //: - O(1)
-fn is_none <.T> <(Option<.T>)->bool> (o):
+pub fn is_none <.T> <(Option<.T>)->bool> (o):
     match o:
         Option::Some v:
             false
@@ -199,7 +199,7 @@ fn is_none <.T> <(Option<.T>)->bool> (o):
 //:
 //: 計算量:
 //: - O(1)
-fn unwrap <.T> <(Option<.T>)->.T> (o):
+pub fn unwrap <.T> <(Option<.T>)->.T> (o):
     match o:
         Option::Some v:
             v
@@ -219,7 +219,7 @@ fn unwrap <.T> <(Option<.T>)->.T> (o):
 //:
 //: 計算量:
 //: - O(1)
-fn unwrap_or <.T> <(Option<.T>,.T)->.T> (o, default):
+pub fn unwrap_or <.T> <(Option<.T>,.T)->.T> (o, default):
     match o:
         Option::Some v:
             v
@@ -239,7 +239,7 @@ fn unwrap_or <.T> <(Option<.T>,.T)->.T> (o, default):
 //:
 //: 計算量:
 //: - O(1)
-fn map <.T,.U> <(Option<.T>, (.T)->.U)->Option<.U>> (o, f):
+pub fn map <.T,.U> <(Option<.T>, (.T)->.U)->Option<.U>> (o, f):
     match o:
         Option::Some v:
             some<.U> f v
@@ -259,7 +259,7 @@ fn map <.T,.U> <(Option<.T>, (.T)->.U)->Option<.U>> (o, f):
 //:
 //: 計算量:
 //: - O(1)
-fn and_then <.T,.U> <(Option<.T>, (.T)->Option<.U>)->Option<.U>> (o, f):
+pub fn and_then <.T,.U> <(Option<.T>, (.T)->Option<.U>)->Option<.U>> (o, f):
     match o:
         Option::Some v:
             f v

@@ -17,7 +17,7 @@
 //: ### [目的/もくてき]
 //: - `append_bytebuf_impl` が `ByteBuf` owner を消費前に保持したまま、範囲内 byte だけを読めるようにします。
 //: - `ByteBuf` の field を `get_ref` で読むため、append loop 中に buffer owner を移動しません。
-fn stream_writer_bytebuf_byte_at <(&ByteBuf,i32)->Option<i32>> (bytes, idx):
+pub fn stream_writer_bytebuf_byte_at <(&ByteBuf,i32)->Option<i32>> (bytes, idx):
     io_bytebuf_byte_at bytes idx
 
 //: ## append_bytebuf_impl
@@ -29,7 +29,7 @@ fn stream_writer_bytebuf_byte_at <(&ByteBuf,i32)->Option<i32>> (bytes, idx):
 //: ### [注意/ちゅうい]
 //: - `ByteBuf` の[所有権/しょゆうけん]を[受/う]け[取/と]り、copy [後/ご]に[解放/かいほう]します。
 //: - writer の[内部/ないぶ] capacity を[超/こ]える入力でも、1 byte [単位/たんい]で必要に応じて flush するため overflow しません。
-fn append_bytebuf_impl <(StreamWriter,ByteBuf)*>StreamWriter> (w, bytes):
+pub fn append_bytebuf_impl <(StreamWriter,ByteBuf)*>StreamWriter> (w, bytes):
     let n <i32> get bytes "len";
     let mut ww <StreamWriter> w;
     let mut i <i32> 0;

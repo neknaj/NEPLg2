@@ -12,7 +12,7 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
-fn fenwick_add_storage <(&Vec<i32>,i32,i32,i32)*>bool> (bit, n, idx, delta):
+pub fn fenwick_add_storage <(&Vec<i32>,i32,i32,i32)*>bool> (bit, n, idx, delta):
     let mut i <i32> add idx 1
     let mut valid <bool> true
     while and le i n valid:

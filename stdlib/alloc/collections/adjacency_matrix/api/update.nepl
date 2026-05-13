@@ -23,7 +23,7 @@
 //: ### [目的/もくてき]
 //: - `insert` と `remove` の共通本体です。
 //: - storage 欠損や vertex 範囲外は owner-preserving error に変換します。
-fn adjacency_matrix_update <(AdjacencyMatrix,i32,i32,bool)*>Result<AdjacencyMatrix, AdjacencyMatrixUpdateError>> (g, from, to, set_edge):
+pub fn adjacency_matrix_update <(AdjacencyMatrix,i32,i32,bool)*>Result<AdjacencyMatrix, AdjacencyMatrixUpdateError>> (g, from, to, set_edge):
     let nverts <i32> *field::get_ref &g "nverts"
     if:
         adjacency_matrix_valid_edge nverts from to
@@ -67,7 +67,7 @@ fn adjacency_matrix_update <(AdjacencyMatrix,i32,i32,bool)*>Result<AdjacencyMatr
 //:     free g1
 //:     if ok 1 0
 //: ```
-fn insert <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, AdjacencyMatrixUpdateError>> (g, from, to):
+pub fn insert <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, AdjacencyMatrixUpdateError>> (g, from, to):
     adjacency_matrix_update g from to true
 
 //: ## remove
@@ -89,5 +89,5 @@ fn insert <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, AdjacencyMatrixUpd
 //:     free g
 //:     if not ok 1 0
 //: ```
-fn remove <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, AdjacencyMatrixUpdateError>> (g, from, to):
+pub fn remove <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, AdjacencyMatrixUpdateError>> (g, from, to):
     adjacency_matrix_update g from to false

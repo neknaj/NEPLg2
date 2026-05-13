@@ -32,7 +32,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(total_bytes)
-fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
+pub fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
     let len0 <i32> get sb "len";
     let cap0 <i32> get sb "cap";
     if:
@@ -76,7 +76,7 @@ fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
                                             ()
                                     Result<str,str>::Err "string.builder build copy failed"
 
-fn sb_build <(StringBuilder)->str> (sb):
+pub fn sb_build <(StringBuilder)->str> (sb):
     match sb_build_result sb:
         Result::Ok out:
             out

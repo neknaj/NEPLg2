@@ -19,7 +19,7 @@
 //:
 //: [目的/もくてき]:
 //: - byte range を各 call site の nested if に重複させず、match で byte length / width へ変換します。
-enum TuiTextByteKind:
+pub enum TuiTextByteKind:
     Ascii
     Utf8Len2
     Utf8Len3
@@ -34,14 +34,14 @@ impl Copy for TuiTextByteKind:
     fn copy_mark <(TuiTextByteKind)->TuiTextByteKind> (kind):
         kind
 
-fn str_byte_at <(str,i32)*>i32> (s, i):
+pub fn str_byte_at <(str,i32)*>i32> (s, i):
     string_byte_at_unchecked s i
 
 //: tui_text_byte_kind: 1 byte を UTF-8 先頭 byte として分類する
 //:
 //: [目的/もくてき]:
 //: - `str_display_width`、`line_clip_to_cols`、`text_wrap_lines`、TUI buffer の char step を同じ分類に揃えます。
-fn tui_text_byte_kind <(i32)->TuiTextByteKind> (b):
+pub fn tui_text_byte_kind <(i32)->TuiTextByteKind> (b):
     if:
         lt b 128
         then:
@@ -65,7 +65,7 @@ fn tui_text_byte_kind <(i32)->TuiTextByteKind> (b):
                                     TuiTextByteKind::Invalid
 
 //: tui_text_byte_len: 分類済み byte kind から次の byte offset へ進む長さを返す
-fn tui_text_byte_len <(TuiTextByteKind)->i32> (kind):
+pub fn tui_text_byte_len <(TuiTextByteKind)->i32> (kind):
     match kind:
         TuiTextByteKind::Ascii:
             1
@@ -79,7 +79,7 @@ fn tui_text_byte_len <(TuiTextByteKind)->i32> (kind):
             1
 
 //: tui_text_byte_width: 分類済み byte kind から端末表示幅を返す
-fn tui_text_byte_width <(TuiTextByteKind)->i32> (kind):
+pub fn tui_text_byte_width <(TuiTextByteKind)->i32> (kind):
     match kind:
         TuiTextByteKind::Ascii:
             1
@@ -92,7 +92,7 @@ fn tui_text_byte_width <(TuiTextByteKind)->i32> (kind):
         TuiTextByteKind::Invalid:
             1
 
-fn tui_skip_csi <(str,i32,i32)*>i32> (s, n, i):
+pub fn tui_skip_csi <(str,i32,i32)*>i32> (s, n, i):
     let mut j <i32> i;
     let mut done <bool> false;
     while and lt j n not done:
@@ -108,7 +108,7 @@ fn tui_skip_csi <(str,i32,i32)*>i32> (s, n, i):
             set j add j 1;
     j
 
-fn tui_skip_osc <(str,i32,i32)*>i32> (s, n, i):
+pub fn tui_skip_osc <(str,i32,i32)*>i32> (s, n, i):
     let mut j <i32> i;
     let mut done <bool> false;
     while and lt j n not done:
@@ -126,7 +126,7 @@ fn tui_skip_osc <(str,i32,i32)*>i32> (s, n, i):
                     set j add j 1;
     j
 
-fn tui_skip_escape_sequence <(str,i32,i32)*>i32> (s, n, i):
+pub fn tui_skip_escape_sequence <(str,i32,i32)*>i32> (s, n, i):
     let next <i32> add i 1;
     if:
         lt next n
@@ -161,7 +161,7 @@ fn tui_skip_escape_sequence <(str,i32,i32)*>i32> (s, n, i):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn str_display_width <(str)*>i32> (s):
+pub fn str_display_width <(str)*>i32> (s):
     let n <i32> len s;
     let mut i <i32> 0;
     let mut w <i32> 0;

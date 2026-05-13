@@ -33,7 +33,7 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - [読/よ]み[込/こ]んだ byte [数/すう]を n として O(n) です。
-fn stdio_read_all_bytes_result <()*>Result<ByteBuf, StdErrorKind>> ():
+pub fn stdio_read_all_bytes_result <()*>Result<ByteBuf, StdErrorKind>> ():
     let mut cap <i32> 65536;
     match alloc_ptr<u8> cap:
         Result::Err _e:
@@ -121,7 +121,7 @@ fn stdio_read_all_bytes_result <()*>Result<ByteBuf, StdErrorKind>> ():
 
 //: ## stdio_read_all_bytes
 //: stdin の[残/のこ]りを `ByteBuf` として[読/よ]み[込/こ]む互換 facade
-fn stdio_read_all_bytes <()*>ByteBuf> ():
+pub fn stdio_read_all_bytes <()*>ByteBuf> ():
     match stdio_read_all_bytes_result:
         Result::Ok bytes:
             bytes

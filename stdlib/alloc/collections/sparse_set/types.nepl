@@ -19,7 +19,7 @@
 //: ### [注意/ちゅうい]
 //: - `n = 0` のとき dense/sparse は empty `Vec` で、null pointer sentinel を owner state として[使/つか]いません。
 //: - [不要/ふよう]になったら `free` で dense / sparse owner を[閉/と]じます。
-struct SparseSet:
+pub struct SparseSet:
     n <i32>
     len0 <i32>
     dense <Vec<i32>>
@@ -35,14 +35,14 @@ struct SparseSet:
 //: ### [注意/ちゅうい]
 //: - `Result::Err` を[受/う]け[取/と]った caller は `sparse_set_update_error_owner` で owner を[回収/かいしゅう]し、[不要/ふよう]なら `free` します。
 //: - `diag` は `Diag` の Copy [値/あたい]で、`sparse_set_update_error_diag` から owner を[動/うご]かさず[確認/かくにん]できます。
-struct SparseSetUpdateError:
+pub struct SparseSetUpdateError:
     owner <SparseSet>
     diag <Diag>
 
 //: sparse_set_update_error_diag: update [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
-fn sparse_set_update_error_diag <(&SparseSetUpdateError)->Diag> (e):
+pub fn sparse_set_update_error_diag <(&SparseSetUpdateError)->Diag> (e):
     *field::get_ref e "diag"
 
 //: sparse_set_update_error_owner: update [失敗/しっぱい]で[戻/もど]された owner を[取/と]り[出/だ]す
-fn sparse_set_update_error_owner <(SparseSetUpdateError)->SparseSet> (e):
+pub fn sparse_set_update_error_owner <(SparseSetUpdateError)->SparseSet> (e):
     field::get e "owner"

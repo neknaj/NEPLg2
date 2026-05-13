@@ -24,7 +24,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(log n)
-fn sort_heap_sift_down_data <.T: Ord> <(MemPtr<.T>,i32,i32)->()> (data_ptr, start, end):
+pub fn sort_heap_sift_down_data <.T: Ord> <(MemPtr<.T>,i32,i32)->()> (data_ptr, start, end):
     let mut root <i32> start;
     let mut done <i32> 0;
 
@@ -82,7 +82,7 @@ fn sort_heap_sift_down_data <.T: Ord> <(MemPtr<.T>,i32,i32)->()> (data_ptr, star
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n log n)、追加領域 O(1)
-fn sort_heap <.T: Ord> <(&Vec<.T>)->()> (v):
+pub fn sort_heap <.T: Ord> <(&Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
     if:
@@ -122,7 +122,7 @@ fn sort_heap <.T: Ord> <(&Vec<.T>)->()> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_heap` と同じです。
-fn sort_heap_ret <.T: Ord> <(Vec<.T>)->Vec<.T>> (v):
+pub fn sort_heap_ret <.T: Ord> <(Vec<.T>)->Vec<.T>> (v):
     let n <i32> get v "len"
     let cap <i32> get v "cap"
     let storage <VecStorageState> get v "storage"

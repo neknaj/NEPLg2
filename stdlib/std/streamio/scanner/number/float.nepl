@@ -15,7 +15,7 @@
 
 //: ## scan_f64_impl
 //: [次/つぎ]の token を `f64` として[読/よ]む
-fn scan_f64_impl <(StreamScanner)*>f64> (sc):
+pub fn scan_f64_impl <(StreamScanner)*>f64> (sc):
     let header <MemPtr<u8>> get sc "header";
     stream_scanner_skip_ws_header header;
     let buf <MemPtr<u8>> mem_ptr_wrap stream_scanner_load_header header StreamScannerHeaderField::BufPtr;
@@ -173,5 +173,5 @@ fn scan_f64_impl <(StreamScanner)*>f64> (sc):
 
 //: ## scan_f32_impl
 //: [次/つぎ]の token を `f32` として[読/よ]む
-fn scan_f32_impl <(StreamScanner)*>f32> (sc):
+pub fn scan_f32_impl <(StreamScanner)*>f32> (sc):
     <f32> cast scan_f64_impl sc

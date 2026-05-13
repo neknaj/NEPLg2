@@ -29,7 +29,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - state access は O(1) です。
-struct StringBuilder:
+pub struct StringBuilder:
     data <Option<MemPtr<u8>>>
     len <i32>
     cap <i32>
@@ -47,7 +47,7 @@ struct StringBuilder:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_builder_empty <()->StringBuilder> ():
+pub fn string_builder_empty <()->StringBuilder> ():
     StringBuilder none<MemPtr<u8>> 0 0
 
 //: string_builder_from_owned_ptr: 所有 byte 領域を `StringBuilder` に包む
@@ -61,7 +61,7 @@ fn string_builder_empty <()->StringBuilder> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_builder_from_owned_ptr <(MemPtr<u8>,i32,i32)->StringBuilder> (data, len0, cap0):
+pub fn string_builder_from_owned_ptr <(MemPtr<u8>,i32,i32)->StringBuilder> (data, len0, cap0):
     StringBuilder some<MemPtr<u8>> data len0 cap0
 
 //: string_builder_with_len: builder の storage owner を保ったまま length だけ更新する
@@ -74,7 +74,7 @@ fn string_builder_from_owned_ptr <(MemPtr<u8>,i32,i32)->StringBuilder> (data, le
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_builder_with_len <(StringBuilder,i32)->StringBuilder> (sb, new_len):
+pub fn string_builder_with_len <(StringBuilder,i32)->StringBuilder> (sb, new_len):
     let cap0 <i32> get sb "cap";
     StringBuilder get sb "data" new_len cap0
 
@@ -92,7 +92,7 @@ fn string_builder_with_len <(StringBuilder,i32)->StringBuilder> (sb, new_len):
 //:
 //: [計算量/けいさんりょう]:
 //: - allocator に依存します。
-fn string_builder_free <(StringBuilder)->()> (sb):
+pub fn string_builder_free <(StringBuilder)->()> (sb):
     let cap0 <i32> get sb "cap";
     match get sb "data":
         Option::Some data:

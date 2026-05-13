@@ -48,7 +48,7 @@
 //:     free<i32> xs;
 //:     if ok 0 1
 //: ```
-fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
+pub fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
     let src_len <i32> *field::get_ref v "len"
     let mut out <i32> 0
     let mut i <i32> 0
@@ -99,7 +99,7 @@ fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
 //:     free<i32> xs;
 //:     if ok 0 1
 //: ```
-fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
+pub fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
     let src_len <i32> *field::get_ref v "len"
     let mut out <.U> acc
     let mut i <i32> 0
@@ -153,7 +153,7 @@ fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
 //:             free<i32> xs;
 //:             1
 //: ```
-fn reduce <.T: Copy> <(&Vec<.T>, (.T,.T)->.T)->Option<.T>> (v, f):
+pub fn reduce <.T: Copy> <(&Vec<.T>, (.T,.T)->.T)->Option<.T>> (v, f):
     let src_len <i32> *field::get_ref v "len"
     if:
         eq src_len 0

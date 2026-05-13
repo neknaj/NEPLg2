@@ -26,7 +26,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-fn json_null <()->JsonValue> ():
+pub fn json_null <()->JsonValue> ():
     JsonValue::Null
 
 //: json_bool: bool 値を JSON Bool に変換する
@@ -42,7 +42,7 @@ fn json_null <()->JsonValue> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-fn json_bool <(bool)->JsonValue> (v):
+pub fn json_bool <(bool)->JsonValue> (v):
     if:
         v
         then:
@@ -63,7 +63,7 @@ fn json_bool <(bool)->JsonValue> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-fn json_number <(i32)->JsonValue> (n):
+pub fn json_number <(i32)->JsonValue> (n):
     JsonValue::Number n
 
 //: json_string: str を JSON String として保持する
@@ -79,7 +79,7 @@ fn json_number <(i32)->JsonValue> (n):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-fn json_string <(str)->JsonValue> (s):
+pub fn json_string <(str)->JsonValue> (s):
     JsonValue::String s
 
 //: json_array_new: 空の JSON array builder を作る
@@ -95,7 +95,7 @@ fn json_string <(str)->JsonValue> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn json_array_new <()->Result<Vec<JsonValue>, StdErrorKind>> ():
+pub fn json_array_new <()->Result<Vec<JsonValue>, StdErrorKind>> ():
     new<JsonValue>
 
 //: json_array_push: JSON array builder へ要素を追加する
@@ -111,7 +111,7 @@ fn json_array_new <()->Result<Vec<JsonValue>, StdErrorKind>> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - ならし O(1)、再確保時 O(n)
-fn json_array_push <(Vec<JsonValue>,JsonValue)->Result<Vec<JsonValue>, StdErrorKind>> (arr, value):
+pub fn json_array_push <(Vec<JsonValue>,JsonValue)->Result<Vec<JsonValue>, StdErrorKind>> (arr, value):
     push<JsonValue> arr value
 
 //: json_array: Vec<JsonValue> を JSON Array として保持する
@@ -127,7 +127,7 @@ fn json_array_push <(Vec<JsonValue>,JsonValue)->Result<Vec<JsonValue>, StdErrorK
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-fn json_array <(Vec<JsonValue>)->JsonValue> (arr):
+pub fn json_array <(Vec<JsonValue>)->JsonValue> (arr):
     JsonValue::Array arr
 
 //: json_member: object member を作る
@@ -143,7 +143,7 @@ fn json_array <(Vec<JsonValue>)->JsonValue> (arr):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn json_member <(str,JsonValue)->JsonMember> (key, value):
+pub fn json_member <(str,JsonValue)->JsonMember> (key, value):
     JsonMember key value
 
 //: json_object_new: 空の JSON object builder を作る
@@ -159,7 +159,7 @@ fn json_member <(str,JsonValue)->JsonMember> (key, value):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn json_object_new <()->Result<Vec<JsonMember>, StdErrorKind>> ():
+pub fn json_object_new <()->Result<Vec<JsonMember>, StdErrorKind>> ():
     new<JsonMember>
 
 //: json_object_push: JSON object builder へ member を追加する
@@ -176,7 +176,7 @@ fn json_object_new <()->Result<Vec<JsonMember>, StdErrorKind>> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - ならし O(1)、再確保時 O(n)
-fn json_object_push <(Vec<JsonMember>,str,JsonValue)->Result<Vec<JsonMember>, StdErrorKind>> (obj, key, value):
+pub fn json_object_push <(Vec<JsonMember>,str,JsonValue)->Result<Vec<JsonMember>, StdErrorKind>> (obj, key, value):
     push<JsonMember> obj JsonMember key value
 
 //: json_object: Vec<JsonMember> を JSON Object として保持する
@@ -192,7 +192,7 @@ fn json_object_push <(Vec<JsonMember>,str,JsonValue)->Result<Vec<JsonMember>, St
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-fn json_object <(Vec<JsonMember>)->JsonValue> (obj):
+pub fn json_object <(Vec<JsonMember>)->JsonValue> (obj):
     JsonValue::Object obj
 
 //: neplg2:test

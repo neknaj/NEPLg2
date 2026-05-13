@@ -54,7 +54,7 @@ trait Stringify:
 //:
 //: [計算量/けいさんりょう]:
 //: - impl に[依存/いぞん]します。
-fn stringify <.T: Stringify> <(.T)->str> (x):
+pub fn stringify <.T: Stringify> <(.T)->str> (x):
     Stringify::stringify x
 
 impl Stringify for str:

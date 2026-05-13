@@ -11,17 +11,17 @@
 #import "core/option" as *
 #import "alloc/collections/vec" as vec
 
-fn seg_load_owned <(&Vec<i32>,i32)->Option<i32>> (data, idx):
+pub fn seg_load_owned <(&Vec<i32>,i32)->Option<i32>> (data, idx):
     match vec::get<i32> data idx:
         Option::Some v:
             some<i32> v
         Option::None:
             none<i32>
 
-fn seg_store_owned <(&Vec<i32>,i32,i32)*>()> (data, idx, value):
+pub fn seg_store_owned <(&Vec<i32>,i32,i32)*>()> (data, idx, value):
     vec::replace<i32> data idx value
 
-fn seg_pair_sum <(&Vec<i32>,i32,i32)->Option<i32>> (data, left, right):
+pub fn seg_pair_sum <(&Vec<i32>,i32,i32)->Option<i32>> (data, left, right):
     match seg_load_owned data left:
         Option::Some lv:
             match seg_load_owned data right:

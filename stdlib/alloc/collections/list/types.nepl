@@ -17,5 +17,5 @@
 //: ### [不変条件/ふへんじょうけん]
 //: - `items` の末尾が論理上の先頭です。
 //: - `items` は `List` が[所有/しょゆう]し、不要になったら `free` で[閉/と]じます。
-struct List<.T>:
+pub struct List<.T>:
     items <Vec<.T>>

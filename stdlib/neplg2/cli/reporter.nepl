@@ -61,7 +61,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - line/column 変換が未接続の間は byte offset をそのまま出します。
-fn selfhost_cli_append_human_label <(StringBuilder,SelfhostDiagnosticLabel)->StringBuilder> (sb, label):
+pub fn selfhost_cli_append_human_label <(StringBuilder,SelfhostDiagnosticLabel)->StringBuilder> (sb, label):
     let span <SelfhostSourceSpan> field::get label "span"
     let mut out <StringBuilder> sb
     set out sb_append out "  --> file "
@@ -77,7 +77,7 @@ fn selfhost_cli_append_human_label <(StringBuilder,SelfhostDiagnosticLabel)->Str
     out
 
 //: selfhost_cli_append_human_note: human diagnostic に note 行を追加する
-fn selfhost_cli_append_human_note <(StringBuilder,str)->StringBuilder> (sb, note):
+pub fn selfhost_cli_append_human_note <(StringBuilder,str)->StringBuilder> (sb, note):
     let mut out <StringBuilder> sb
     set out sb_append out "  = note: "
     set out sb_append out note
@@ -110,7 +110,7 @@ pub fn selfhost_cli_render_diagnostic_human <(SelfhostDiagnostic)->str> (diag):
     sb_build sb
 
 //: selfhost_cli_append_json_label: JSON diagnostic object に primary label field を追加する
-fn selfhost_cli_append_json_label <(StringBuilder,Option<SelfhostDiagnosticLabel>)->StringBuilder> (sb, maybe_label):
+pub fn selfhost_cli_append_json_label <(StringBuilder,Option<SelfhostDiagnosticLabel>)->StringBuilder> (sb, maybe_label):
     let mut out <StringBuilder> sb
     set out sb_append out "\"primary_label\":"
     match maybe_label:
@@ -130,7 +130,7 @@ fn selfhost_cli_append_json_label <(StringBuilder,Option<SelfhostDiagnosticLabel
     out
 
 //: selfhost_cli_append_json_note: JSON diagnostic object に note field を追加する
-fn selfhost_cli_append_json_note <(StringBuilder,Option<str>)->StringBuilder> (sb, maybe_note):
+pub fn selfhost_cli_append_json_note <(StringBuilder,Option<str>)->StringBuilder> (sb, maybe_note):
     let mut out <StringBuilder> sb
     set out sb_append out "\"note\":"
     match maybe_note:

@@ -36,7 +36,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn shl <(i32,i32)->i32> (a,b):
+pub fn shl <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -63,7 +63,7 @@ fn shl <(i32,i32)->i32> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn shr_s <(i32,i32)->i32> (a,b):
+pub fn shr_s <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -90,7 +90,7 @@ fn shr_s <(i32,i32)->i32> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn shr_u <(i32,i32)->i32> (a,b):
+pub fn shr_u <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -117,7 +117,7 @@ fn shr_u <(i32,i32)->i32> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn rotl <(i32,i32)->i32> (a,b):
+pub fn rotl <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -145,7 +145,7 @@ fn rotl <(i32,i32)->i32> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn rotr <(i32,i32)->i32> (a,b):
+pub fn rotr <(i32,i32)->i32> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a

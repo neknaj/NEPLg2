@@ -12,10 +12,10 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
-fn sparse_set_valid_index <(i32,i32)->bool> (idx, n):
+pub fn sparse_set_valid_index <(i32,i32)->bool> (idx, n):
     and le 0 idx lt idx n
 
-fn sparse_set_contains_raw <(i32,&Vec<i32>,&Vec<i32>,i32,i32)->bool> (n, dense, sparse, len0, value):
+pub fn sparse_set_contains_raw <(i32,&Vec<i32>,&Vec<i32>,i32,i32)->bool> (n, dense, sparse, len0, value):
     if:
         not sparse_set_valid_index value n
         then:

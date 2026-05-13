@@ -24,7 +24,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn text_bytebuf_to_utf8_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
+pub fn text_bytebuf_to_utf8_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
     let byte_len <i32> get buf "len"
     match get buf "ptr":
         Option::None:

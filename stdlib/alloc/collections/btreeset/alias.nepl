@@ -14,46 +14,46 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - `new` と[同/おな]じです。
-fn sorted_array_set_new new;
+pub fn sorted_array_set_new new;
 
 //: ## sorted_array_set_insert
 //: sorted-array set として `insert` を[呼/よ]ぶ[別名/べつめい]
 //:
 //: ### [注意/ちゅうい]
 //: - 挿入位置以降を shift するため O(n) です。大量の逐次 insert には[使/つか]わないでください。
-fn sorted_array_set_insert insert;
+pub fn sorted_array_set_insert insert;
 
 //: ## sorted_array_set_contains
 //: sorted-array set として `contains` を[呼/よ]ぶ[別名/べつめい]
 //:
 //: ### [計算量/けいさんりょう]
 //: - lower_bound により O(log n) です。
-fn sorted_array_set_contains contains;
+pub fn sorted_array_set_contains contains;
 
 //: ## sorted_array_set_remove
 //: sorted-array set として `remove` を[呼/よ]ぶ[別名/べつめい]
 //:
 //: ### [注意/ちゅうい]
 //: - 削除位置以降を shift するため O(n) です。
-fn sorted_array_set_remove remove;
+pub fn sorted_array_set_remove remove;
 
 //: ## sorted_array_set_len
 //: sorted-array set として `len` を[呼/よ]ぶ[別名/べつめい]
 //:
 //: ### [計算量/けいさんりょう]
 //: - `len` と[同/おな]じ O(1) です。
-fn sorted_array_set_len len;
+pub fn sorted_array_set_len len;
 
 //: ## sorted_array_set_clear
 //: sorted-array set として `clear` を[呼/よ]ぶ[別名/べつめい]
 //:
 //: ### [計算量/けいさんりょう]
 //: - `clear` と[同/おな]じ O(n) です。
-fn sorted_array_set_clear clear;
+pub fn sorted_array_set_clear clear;
 
 //: ## sorted_array_set_free
 //: sorted-array set として `free` を[呼/よ]ぶ[別名/べつめい]
 //:
 //: ### [注意/ちゅうい]
 //: - `free` と[同/おな]じく、内部 key [配列/はいれつ]を[解放/かいほう]します。
-fn sorted_array_set_free free;
+pub fn sorted_array_set_free free;

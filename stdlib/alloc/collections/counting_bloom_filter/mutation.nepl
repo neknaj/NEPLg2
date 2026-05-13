@@ -10,7 +10,7 @@
 #import "core/option" as *
 #import "./storage" as *
 
-fn counting_bloom_counter_inc <(&Vec<u8>,i32)*>()> (counters, idx):
+pub fn counting_bloom_counter_inc <(&Vec<u8>,i32)*>()> (counters, idx):
     match counting_bloom_counter_at counters idx:
         Option::Some cur:
             if:
@@ -22,7 +22,7 @@ fn counting_bloom_counter_inc <(&Vec<u8>,i32)*>()> (counters, idx):
         Option::None:
             ()
 
-fn counting_bloom_counter_dec <(&Vec<u8>,i32)*>()> (counters, idx):
+pub fn counting_bloom_counter_dec <(&Vec<u8>,i32)*>()> (counters, idx):
     match counting_bloom_counter_at counters idx:
         Option::Some cur:
             if:
@@ -34,7 +34,7 @@ fn counting_bloom_counter_dec <(&Vec<u8>,i32)*>()> (counters, idx):
         Option::None:
             ()
 
-fn counting_bloom_counter_nonzero <(&Vec<u8>,i32)->bool> (counters, idx):
+pub fn counting_bloom_counter_nonzero <(&Vec<u8>,i32)->bool> (counters, idx):
     match counting_bloom_counter_at counters idx:
         Option::Some cur:
             lt 0 cur

@@ -19,7 +19,7 @@
 //:
 //: [実装/じっそう]:
 //: - 入力 byte buffer として empty `Vec<i32>` を[確保/かくほ]します。
-fn new_sha256 <()*>Result<Sha256, StdErrorKind>> ():
+pub fn new_sha256 <()*>Result<Sha256, StdErrorKind>> ():
     match new<i32>:
         Result::Err e:
             Result<Sha256, StdErrorKind>::Err e
@@ -33,7 +33,7 @@ fn new_sha256 <()*>Result<Sha256, StdErrorKind>> ():
 //:
 //: [注意/ちゅうい]:
 //: - 返された state を[使/つか]って[次/つぎ]の update / finalize を[呼/よ]んでください。
-fn sha256_update <(Sha256, i32)*>Result<Sha256, StdErrorKind>> (ctx, byte):
+pub fn sha256_update <(Sha256, i32)*>Result<Sha256, StdErrorKind>> (ctx, byte):
     match push<i32> ctx.buffer and byte 255:
         Result::Err e:
             Result<Sha256, StdErrorKind>::Err e
@@ -45,7 +45,7 @@ fn sha256_update <(Sha256, i32)*>Result<Sha256, StdErrorKind>> (ctx, byte):
 //: [実装/じっそう]:
 //: - 入力 buffer を borrow して padding / compression を[行/おこな]い、digest を[作成/さくせい]します。
 //: - digest 作成後、state が[保持/ほじ]していた入力 buffer を[解放/かいほう]します。
-fn sha256_finalize <(Sha256)*>Result<Vec<i32>, StdErrorKind>> (ctx):
+pub fn sha256_finalize <(Sha256)*>Result<Vec<i32>, StdErrorKind>> (ctx):
     let buf <Vec<i32>> ctx.buffer
     let msg_len <i32> len<i32> &buf
     let total_len <i32> sha256_total_len msg_len

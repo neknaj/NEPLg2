@@ -24,7 +24,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn line_pad_to_cols <(str,i32)*>str> (s, cols):
+pub fn line_pad_to_cols <(str,i32)*>str> (s, cols):
     let w <i32> str_display_width s;
     if:
         lt w cols
@@ -48,7 +48,7 @@ fn line_pad_to_cols <(str,i32)*>str> (s, cols):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn line_clip_to_cols <(str,i32)*>str> (s, cols):
+pub fn line_clip_to_cols <(str,i32)*>str> (s, cols):
     if:
         lt cols 1
         then:

@@ -42,7 +42,7 @@
 //:     free<i32> v1;
 //:     0
 //: ```
-fn replace <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
+pub fn replace <.T: Copy> <(&Vec<.T>,i32,.T)*>()> (v, idx, item):
     let v_len <i32> *field::get_ref v "len"
     let v_storage <VecStorageState> *field::get_ref v "storage"
     let v_data <MemPtr<.T>> *field::get_ref v "data"

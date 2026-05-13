@@ -57,7 +57,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn to_i32 <(str)->Result<i32,i32>> (s):
+pub fn to_i32 <(str)->Result<i32,i32>> (s):
     match to_i32_radix s 10:
         Result::Ok v:
             Result::Ok<i32,i32> v
@@ -80,7 +80,7 @@ fn to_i32 <(str)->Result<i32,i32>> (s):
 //
 // 計算量:
 // - O(n)  (n は入力文字列長)
-fn to_i32_radix <(str,i32)->Result<i32,i32>> (s, radix):
+pub fn to_i32_radix <(str,i32)->Result<i32,i32>> (s, radix):
     match to_i64_radix s radix:
         Result::Ok v64:
             if:
@@ -106,7 +106,7 @@ fn to_i32_radix <(str,i32)->Result<i32,i32>> (s, radix):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn to_i64 <(str)->Result<i64,i32>> (s):
+pub fn to_i64 <(str)->Result<i64,i32>> (s):
     to_i64_radix s 10
 
 // i128_fits_i64: i128 が i64 の表現域に収まるかを判定する
@@ -123,7 +123,7 @@ fn to_i64 <(str)->Result<i64,i32>> (s):
 //
 // 計算量:
 // - O(1)
-fn i128_fits_i64 <(i128)->bool> (v):
+pub fn i128_fits_i64 <(i128)->bool> (v):
     let hi <i64> get v "hi";
     let lo <i64> get v "lo";
     if:
@@ -155,7 +155,7 @@ fn i128_fits_i64 <(i128)->bool> (v):
 //
 // 計算量:
 // - O(n)  (n は入力文字列長)
-fn to_i64_radix <(str,i32)->Result<i64,i32>> (s, radix):
+pub fn to_i64_radix <(str,i32)->Result<i64,i32>> (s, radix):
     match to_i128_radix s radix:
         Result::Ok v128:
             if:
@@ -180,7 +180,7 @@ fn to_i64_radix <(str,i32)->Result<i64,i32>> (s, radix):
 //
 // 計算量:
 // - O(n)
-fn to_u128 <(str)->Result<u128,i32>> (s):
+pub fn to_u128 <(str)->Result<u128,i32>> (s):
     to_u128_radix s 10
 
 // to_u128_radix: 指定基数の文字列を u128 に変換する
@@ -199,7 +199,7 @@ fn to_u128 <(str)->Result<u128,i32>> (s):
 //
 // 計算量:
 // - O(n)
-fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
+pub fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
     match validate_radix radix:
         Result::Err e:
             Result::Err<u128,i32> e
@@ -264,7 +264,7 @@ fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
 //
 // 計算量:
 // - O(1)
-fn i128_positive_magnitude_allowed <(u128)->bool> (mag):
+pub fn i128_positive_magnitude_allowed <(u128)->bool> (mag):
     not lt get mag "hi" <i64> cast 0
 
 // i128_negative_magnitude_allowed: 負 i128 として許される大きさかを判定する
@@ -281,7 +281,7 @@ fn i128_positive_magnitude_allowed <(u128)->bool> (mag):
 //
 // 計算量:
 // - O(1)
-fn i128_negative_magnitude_allowed <(u128)->bool> (mag):
+pub fn i128_negative_magnitude_allowed <(u128)->bool> (mag):
     if:
         not lt get mag "hi" <i64> cast 0
         then:
@@ -303,7 +303,7 @@ fn i128_negative_magnitude_allowed <(u128)->bool> (mag):
 //
 // 計算量:
 // - O(1)
-fn i128_magnitude_allowed <(u128,bool)->bool> (mag, neg):
+pub fn i128_magnitude_allowed <(u128,bool)->bool> (mag, neg):
     if:
         neg
         then:
@@ -324,7 +324,7 @@ fn i128_magnitude_allowed <(u128,bool)->bool> (mag, neg):
 //
 // 計算量:
 // - O(n)
-fn to_i128 <(str)->Result<i128,i32>> (s):
+pub fn to_i128 <(str)->Result<i128,i32>> (s):
     to_i128_radix s 10
 
 // to_i128_radix: 指定基数の文字列を i128 に変換する
@@ -343,7 +343,7 @@ fn to_i128 <(str)->Result<i128,i32>> (s):
 //
 // 計算量:
 // - O(n)
-fn to_i128_radix <(str,i32)->Result<i128,i32>> (s, radix):
+pub fn to_i128_radix <(str,i32)->Result<i128,i32>> (s, radix):
     let n <i32> len s;
     if:
         eq n 0

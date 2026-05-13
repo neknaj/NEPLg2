@@ -19,7 +19,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - `Default` は色 code を出力しない指定です。明示 reset は `ansi_reset_code` / `print_style_reset` が担当します。
-enum AnsiColor:
+pub enum AnsiColor:
     Default
     Red
     Green
@@ -42,7 +42,7 @@ impl Copy for AnsiColor:
 //:
 //: [目的/もくてき]:
 //: - 太字指定を color と分離し、`AnsiTextStyle` で色と合成できるようにします。
-enum AnsiTextWeight:
+pub enum AnsiTextWeight:
     Regular
     Bold
 
@@ -58,7 +58,7 @@ impl Copy for AnsiTextWeight:
 //:
 //: [目的/もくてき]:
 //: - 下線指定を color と分離し、`AnsiTextStyle` で色と合成できるようにします。
-enum AnsiTextDecoration:
+pub enum AnsiTextDecoration:
     Plain
     Underline
 
@@ -77,7 +77,7 @@ impl Copy for AnsiTextDecoration:
 //:
 //: [注意/ちゅうい]:
 //: - field はすべて `Copy` な enum なので `AnsiTextStyle` も軽量値として `Copy` / `Clone` を実装します。
-struct AnsiTextStyle:
+pub struct AnsiTextStyle:
     foreground <AnsiColor>
     background <AnsiColor>
     weight <AnsiTextWeight>
@@ -98,61 +98,61 @@ impl Copy for AnsiTextStyle:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ansi_text_style <(AnsiColor,AnsiColor,AnsiTextWeight,AnsiTextDecoration)->AnsiTextStyle> (foreground, background, weight, decoration):
+pub fn ansi_text_style <(AnsiColor,AnsiColor,AnsiTextWeight,AnsiTextDecoration)->AnsiTextStyle> (foreground, background, weight, decoration):
     AnsiTextStyle foreground background weight decoration
 
 //: ansi_plain_style: 追加装飾のない既定 style を返す
 //:
 //: [実装/じっそう]:
 //: - `Default` / `Regular` / `Plain` を指定した `AnsiTextStyle` を返します。
-fn ansi_plain_style <()->AnsiTextStyle> ():
+pub fn ansi_plain_style <()->AnsiTextStyle> ():
     ansi_text_style AnsiColor::Default AnsiColor::Default AnsiTextWeight::Regular AnsiTextDecoration::Plain
 
 //: ansi_color_style: 前景色だけを指定した style を返す
 //:
 //: [実装/じっそう]:
 //: - 指定 color と、通常の太さ/装飾なしを合成します。
-fn ansi_color_style <(AnsiColor)->AnsiTextStyle> (color):
+pub fn ansi_color_style <(AnsiColor)->AnsiTextStyle> (color):
     ansi_text_style color AnsiColor::Default AnsiTextWeight::Regular AnsiTextDecoration::Plain
 
 //: ansi_background_color_style: 背景色だけを指定した style を返す
 //:
 //: [実装/じっそう]:
 //: - 既定の前景色と、指定 background color を合成します。
-fn ansi_background_color_style <(AnsiColor)->AnsiTextStyle> (color):
+pub fn ansi_background_color_style <(AnsiColor)->AnsiTextStyle> (color):
     ansi_text_style AnsiColor::Default color AnsiTextWeight::Regular AnsiTextDecoration::Plain
 
 //: ansi_color_pair_style: 前景色と背景色を指定した style を返す
 //:
 //: [実装/じっそう]:
 //: - 指定 foreground/background color と、通常の太さ/装飾なしを合成します。
-fn ansi_color_pair_style <(AnsiColor,AnsiColor)->AnsiTextStyle> (foreground, background):
+pub fn ansi_color_pair_style <(AnsiColor,AnsiColor)->AnsiTextStyle> (foreground, background):
     ansi_text_style foreground background AnsiTextWeight::Regular AnsiTextDecoration::Plain
 
 //: ansi_bold_style: 太字だけを指定した style を返す
 //:
 //: [実装/じっそう]:
 //: - 既定色と `Bold` を合成します。
-fn ansi_bold_style <()->AnsiTextStyle> ():
+pub fn ansi_bold_style <()->AnsiTextStyle> ():
     ansi_text_style AnsiColor::Default AnsiColor::Default AnsiTextWeight::Bold AnsiTextDecoration::Plain
 
 //: ansi_bold_color_style: 太字と前景色を指定した style を返す
 //:
 //: [実装/じっそう]:
 //: - 指定 color と `Bold` を合成します。
-fn ansi_bold_color_style <(AnsiColor)->AnsiTextStyle> (color):
+pub fn ansi_bold_color_style <(AnsiColor)->AnsiTextStyle> (color):
     ansi_text_style color AnsiColor::Default AnsiTextWeight::Bold AnsiTextDecoration::Plain
 
 //: ansi_bold_color_pair_style: 太字、前景色、背景色を指定した style を返す
 //:
 //: [実装/じっそう]:
 //: - 指定 foreground/background color と `Bold` を合成します。
-fn ansi_bold_color_pair_style <(AnsiColor,AnsiColor)->AnsiTextStyle> (foreground, background):
+pub fn ansi_bold_color_pair_style <(AnsiColor,AnsiColor)->AnsiTextStyle> (foreground, background):
     ansi_text_style foreground background AnsiTextWeight::Bold AnsiTextDecoration::Plain
 
 //: ansi_underlined_color_style: 下線と前景色を指定した style を返す
 //:
 //: [実装/じっそう]:
 //: - 指定 color と `Underline` を合成します。
-fn ansi_underlined_color_style <(AnsiColor)->AnsiTextStyle> (color):
+pub fn ansi_underlined_color_style <(AnsiColor)->AnsiTextStyle> (color):
     ansi_text_style color AnsiColor::Default AnsiTextWeight::Regular AnsiTextDecoration::Underline

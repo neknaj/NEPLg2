@@ -16,19 +16,19 @@
 #import "./storage" as *
 
 //: len: list を[借用/しゃくよう]して[要素数/ようそすう]を[返/かえ]す
-fn len <.T> <(&List<.T>)->i32> (lst):
+pub fn len <.T> <(&List<.T>)->i32> (lst):
     let items <&Vec<.T>> field::get_ref lst "items"
     vec::len<.T> items
 
 //: is_empty: list を[借用/しゃくよう]して[空/から]かどうかを[返/かえ]す
-fn is_empty <.T> <(&List<.T>)->bool> (lst):
+pub fn is_empty <.T> <(&List<.T>)->bool> (lst):
     eq len<.T> lst 0
 
 //: get: list を[借用/しゃくよう]して[指定位置/していいち]の[要素/ようそ]を[返/かえ]す
 //:
 //: ### [実装/じっそう]
 //: - 論理 index 0 は storage 末尾なので、`len - 1 - idx` へ[変換/へんかん]して `Vec.get` します。
-fn get <.T: Copy> <(&List<.T>,i32)->Option<.T>> (lst, idx):
+pub fn get <.T: Copy> <(&List<.T>,i32)->Option<.T>> (lst, idx):
     let items <&Vec<.T>> field::get_ref lst "items"
     let n <i32> vec::len<.T> items
     if:
@@ -39,11 +39,11 @@ fn get <.T: Copy> <(&List<.T>,i32)->Option<.T>> (lst, idx):
             vec::get<.T> items list_physical_index n idx
 
 //: head: list を[借用/しゃくよう]して[先頭/せんとう][要素/ようそ]を[返/かえ]す
-fn head <.T: Copy> <(&List<.T>)->Option<.T>> (lst):
+pub fn head <.T: Copy> <(&List<.T>)->Option<.T>> (lst):
     get<.T> lst 0
 
 //: fold: list を[借用/しゃくよう]して[左/ひだり]から[畳/たた]み[込/こ]む
-fn fold <.T: Copy,.U> <(&List<.T>, .U, (.U,.T)->.U)->.U> (lst, acc, f):
+pub fn fold <.T: Copy,.U> <(&List<.T>, .U, (.U,.T)->.U)->.U> (lst, acc, f):
     let items <&Vec<.T>> field::get_ref lst "items"
     let mut remaining <i32> vec::len<.T> items
     let mut out <.U> acc
@@ -58,7 +58,7 @@ fn fold <.T: Copy,.U> <(&List<.T>, .U, (.U,.T)->.U)->.U> (lst, acc, f):
     out
 
 //: reduce: list を[借用/しゃくよう]して[初期値/しょきち]なしで[畳/たた]み[込/こ]む
-fn reduce <.T: Copy> <(&List<.T>, (.T,.T)->.T)->Option<.T>> (lst, f):
+pub fn reduce <.T: Copy> <(&List<.T>, (.T,.T)->.T)->Option<.T>> (lst, f):
     let items <&Vec<.T>> field::get_ref lst "items"
     let n <i32> vec::len<.T> items
     if:
@@ -83,7 +83,7 @@ fn reduce <.T: Copy> <(&List<.T>, (.T,.T)->.T)->Option<.T>> (lst, f):
                     some<.T> out
 
 //: find: 条件に[合/あ]う[最初/さいしょ]の[要素/ようそ]を[返/かえ]す
-fn find <.T: Copy> <(&List<.T>, (.T)->bool)->Option<.T>> (lst, p):
+pub fn find <.T: Copy> <(&List<.T>, (.T)->bool)->Option<.T>> (lst, p):
     let items <&Vec<.T>> field::get_ref lst "items"
     let mut remaining <i32> vec::len<.T> items
     let mut found <Option<.T>> none<.T>
@@ -105,7 +105,7 @@ fn find <.T: Copy> <(&List<.T>, (.T)->bool)->Option<.T>> (lst, p):
     found
 
 //: any: 条件を[満/み]たす[要素/ようそ]が 1 つでもあるか[返/かえ]す
-fn any <.T: Copy> <(&List<.T>, (.T)->bool)->bool> (lst, p):
+pub fn any <.T: Copy> <(&List<.T>, (.T)->bool)->bool> (lst, p):
     let items <&Vec<.T>> field::get_ref lst "items"
     let mut remaining <i32> vec::len<.T> items
     let mut result <bool> false
@@ -125,7 +125,7 @@ fn any <.T: Copy> <(&List<.T>, (.T)->bool)->bool> (lst, p):
     result
 
 //: all: 全要素が条件を[満/み]たすか[返/かえ]す
-fn all <.T: Copy> <(&List<.T>, (.T)->bool)->bool> (lst, p):
+pub fn all <.T: Copy> <(&List<.T>, (.T)->bool)->bool> (lst, p):
     let items <&Vec<.T>> field::get_ref lst "items"
     let mut remaining <i32> vec::len<.T> items
     let mut result <bool> true

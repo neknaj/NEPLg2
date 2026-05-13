@@ -51,7 +51,7 @@
 //:     assert eq x three;
 //:     assert eq y six;
 //: ```
-fn add <(f64,f64)->f64> (a,b):
+pub fn add <(f64,f64)->f64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -78,7 +78,7 @@ fn add <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn sub <(f64,f64)->f64> (a,b):
+pub fn sub <(f64,f64)->f64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -105,7 +105,7 @@ fn sub <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn mul <(f64,f64)->f64> (a,b):
+pub fn mul <(f64,f64)->f64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -132,7 +132,7 @@ fn mul <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn div <(f64,f64)->f64> (a,b):
+pub fn div <(f64,f64)->f64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -159,7 +159,7 @@ fn div <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn min <(f64,f64)->f64> (a,b):
+pub fn min <(f64,f64)->f64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -186,7 +186,7 @@ fn min <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn max <(f64,f64)->f64> (a,b):
+pub fn max <(f64,f64)->f64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -213,7 +213,7 @@ fn max <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn copysign <(f64,f64)->f64> (a,b):
+pub fn copysign <(f64,f64)->f64> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a

@@ -51,7 +51,7 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - 時間計算量は O(n log n)、追加空間計算量は O(n) です。
-fn sort_merge <.T: Ord> <(&Vec<.T>)*>Result<(), StdErrorKind>> (v):
+pub fn sort_merge <.T: Ord> <(&Vec<.T>)*>Result<(), StdErrorKind>> (v):
     let n <i32> len<.T> v
     let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
     if:
@@ -78,7 +78,7 @@ fn sort_merge <.T: Ord> <(&Vec<.T>)*>Result<(), StdErrorKind>> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_merge` と同じです。
-fn sort_merge_ret <.T: Ord> <(Vec<.T>)*>Result<Vec<.T>, StdErrorKind>> (v):
+pub fn sort_merge_ret <.T: Ord> <(Vec<.T>)*>Result<Vec<.T>, StdErrorKind>> (v):
     let n <i32> get v "len"
     let cap <i32> get v "cap"
     let storage <VecStorageState> get v "storage"

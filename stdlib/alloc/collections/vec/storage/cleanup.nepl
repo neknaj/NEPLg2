@@ -21,7 +21,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - non-Copy 要素の drop traversal は collection cleanup issue の対象として分けます。
-fn vec_free_storage <.T> <(VecStorageState,MemPtr<.T>,i32)->()> (storage, data, cap):
+pub fn vec_free_storage <.T> <(VecStorageState,MemPtr<.T>,i32)->()> (storage, data, cap):
     match storage:
         VecStorageState::Empty:
             ()

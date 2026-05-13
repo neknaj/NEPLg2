@@ -30,7 +30,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 確保器に依存します。平均 O(1)、free list 探索時は最悪 O(n) です。
-fn string_alloc_region <(i32)->Result<RegionToken<u8>,str>> (byte_len):
+pub fn string_alloc_region <(i32)->Result<RegionToken<u8>,str>> (byte_len):
     if:
         lt byte_len 0
         then:
@@ -51,7 +51,7 @@ fn string_alloc_region <(i32)->Result<RegionToken<u8>,str>> (byte_len):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_region_len_ptr <(&RegionToken<u8>)->MemPtr<i32>> (region):
+pub fn string_region_len_ptr <(&RegionToken<u8>)->MemPtr<i32>> (region):
     mem_ptr_wrap mem_ptr_addr *get_ref region "ptr"
 
 //: string_region_data_ptr: 文字列本文先頭への型付きポインタを得る
@@ -67,7 +67,7 @@ fn string_region_len_ptr <(&RegionToken<u8>)->MemPtr<i32>> (region):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_region_data_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
+pub fn string_region_data_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
     mem_ptr_add *get_ref region "ptr" 4
 
 //: string_addr: `str` の内部アドレスを低レベル処理用に取り出す
@@ -83,7 +83,7 @@ fn string_region_data_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_addr <(str)->i32> (s):
+pub fn string_addr <(str)->i32> (s):
     #intrinsic "str_addr" <> (s)
 
 //: string_data_ptr: 既存文字列の本文先頭を型付きポインタとして扱う
@@ -99,7 +99,7 @@ fn string_addr <(str)->i32> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_data_ptr <(str)->MemPtr<u8>> (s):
+pub fn string_data_ptr <(str)->MemPtr<u8>> (s):
     mem_ptr_wrap add string_addr s 4
 
 //: string_finish: 文字列領域を `str` として確定する
@@ -116,7 +116,7 @@ fn string_data_ptr <(str)->MemPtr<u8>> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_finish <(RegionToken<u8>,i32)->str> (region, byte_len):
+pub fn string_finish <(RegionToken<u8>,i32)->str> (region, byte_len):
     let base <MemPtr<u8>> get region "ptr"
     string_finish_base base byte_len
 
@@ -133,7 +133,7 @@ fn string_finish <(RegionToken<u8>,i32)->str> (region, byte_len):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_from_addr_unchecked <(i32)->str> (addr):
+pub fn string_from_addr_unchecked <(i32)->str> (addr):
     #intrinsic "str_from_addr_unchecked" <> (addr)
 
 //: string_finish_base: 文字列先頭ポインタを `str` として確定する
@@ -150,7 +150,7 @@ fn string_from_addr_unchecked <(i32)->str> (addr):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_finish_base <(MemPtr<u8>,i32)->str> (base, byte_len):
+pub fn string_finish_base <(MemPtr<u8>,i32)->str> (base, byte_len):
     store_i32 mem_ptr_addr base byte_len
     string_from_addr_unchecked mem_ptr_addr base
 
@@ -169,7 +169,7 @@ fn string_finish_base <(MemPtr<u8>,i32)->str> (base, byte_len):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
-fn string_from_mem_unchecked_result <(MemPtr<u8>,i32)->Result<str,str>> (src, byte_len):
+pub fn string_from_mem_unchecked_result <(MemPtr<u8>,i32)->Result<str,str>> (src, byte_len):
     if:
         lt byte_len 0
         then:
@@ -202,7 +202,7 @@ fn string_from_mem_unchecked_result <(MemPtr<u8>,i32)->Result<str,str>> (src, by
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
-fn string_from_utf8_mem_result <(MemPtr<u8>,i32)->Result<str,str>> (src, byte_len):
+pub fn string_from_utf8_mem_result <(MemPtr<u8>,i32)->Result<str,str>> (src, byte_len):
     match string_utf8_validate_mem src byte_len:
         Result::Err e:
             Result<str,str>::Err e

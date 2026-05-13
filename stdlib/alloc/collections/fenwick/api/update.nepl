@@ -18,12 +18,12 @@
 
 //: ## fenwick_add_ok
 //: 更新に[成功/せいこう]した `Fenwick` owner を `Result::Ok` へ[包/つつ]む
-fn fenwick_add_ok <(Fenwick)->Result<Fenwick, FenwickAddError>> (fw):
+pub fn fenwick_add_ok <(Fenwick)->Result<Fenwick, FenwickAddError>> (fw):
     ok<Fenwick, FenwickAddError> fw
 
 //: ## fenwick_add_err
 //: update [失敗/しっぱい]を owner-preserving error に[変換/へんかん]する
-fn fenwick_add_err <(Fenwick,Diag)->Result<Fenwick, FenwickAddError>> (fw, d):
+pub fn fenwick_add_err <(Fenwick,Diag)->Result<Fenwick, FenwickAddError>> (fw, d):
     let e <FenwickAddError> FenwickAddError fw d
     err<Fenwick, FenwickAddError> e
 
@@ -53,7 +53,7 @@ fn fenwick_add_err <(Fenwick,Diag)->Result<Fenwick, FenwickAddError>> (fw, d):
 //:     free fw
 //:     if eq total 7 1 0
 //: ```
-fn add <(Fenwick,i32,i32)*>Result<Fenwick, FenwickAddError>> (fw, idx, delta):
+pub fn add <(Fenwick,i32,i32)*>Result<Fenwick, FenwickAddError>> (fw, idx, delta):
     let n <i32> *field::get_ref &fw "n"
     if:
         and le 0 idx lt idx n

@@ -33,6 +33,6 @@
 //:     free st;
 //:     0
 //: ```
-fn free <(SegmentTree)->()> (st):
+pub fn free <(SegmentTree)->()> (st):
     let data <Vec<i32>> field::get st "data"
     vec::free<i32> data

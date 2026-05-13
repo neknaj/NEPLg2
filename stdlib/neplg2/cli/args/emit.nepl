@@ -37,7 +37,7 @@
 //:             2
 //: ```
 
-fn selfhost_cli_emit_set_new <(bool,bool,bool,bool,bool)->SelfhostCliEmitSet> (wasm, wat, wat_min, llvm, llvm_min):
+pub fn selfhost_cli_emit_set_new <(bool,bool,bool,bool,bool)->SelfhostCliEmitSet> (wasm, wat, wat_min, llvm, llvm_min):
     SelfhostCliEmitSet wasm wat wat_min llvm llvm_min
 
 //: selfhost_cli_emit_set_default: CLI の既定 artifact set を返す
@@ -47,13 +47,13 @@ fn selfhost_cli_emit_set_new <(bool,bool,bool,bool,bool)->SelfhostCliEmitSet> (w
 pub fn selfhost_cli_emit_set_default <()->SelfhostCliEmitSet> ():
     selfhost_cli_emit_set_new true false false false false
 
-fn selfhost_cli_emit_set_empty <()->SelfhostCliEmitSet> ():
+pub fn selfhost_cli_emit_set_empty <()->SelfhostCliEmitSet> ():
     selfhost_cli_emit_set_new false false false false false
 
-fn selfhost_cli_emit_set_all <()->SelfhostCliEmitSet> ():
+pub fn selfhost_cli_emit_set_all <()->SelfhostCliEmitSet> ():
     selfhost_cli_emit_set_new true true true true true
 
-fn selfhost_cli_emit_set_add <(SelfhostCliEmitSet,SelfhostCliEmit)->SelfhostCliEmitSet> (emit_set, emit):
+pub fn selfhost_cli_emit_set_add <(SelfhostCliEmitSet,SelfhostCliEmit)->SelfhostCliEmitSet> (emit_set, emit):
     match emit:
         SelfhostCliEmit::Wasm:
             selfhost_cli_emit_set_new true get emit_set "wat" get emit_set "wat_min" get emit_set "llvm" get emit_set "llvm_min"
@@ -72,7 +72,7 @@ fn selfhost_cli_emit_set_add <(SelfhostCliEmitSet,SelfhostCliEmit)->SelfhostCliE
 //:
 //: [目的/もくてき]:
 //: - comma 区切り parser から呼び、`all` は全 artifact set へ展開します。
-fn selfhost_cli_parse_emit_part <(SelfhostCliEmitSet,str)->Result<SelfhostCliEmitSet,SelfhostCliErrorKind>> (emit_set, part):
+pub fn selfhost_cli_parse_emit_part <(SelfhostCliEmitSet,str)->Result<SelfhostCliEmitSet,SelfhostCliErrorKind>> (emit_set, part):
     match selfhost_cli_parse_emit_value part:
         Result::Err e:
             err<SelfhostCliEmitSet,SelfhostCliErrorKind> e

@@ -31,7 +31,7 @@
 //:
 //: [実装/じっそう]:
 //: - `#intrinsic \"unreachable\"` を呼び出して停止します。
-fn test_fail <(str)->()> (_msg):
+pub fn test_fail <(str)->()> (_msg):
     #intrinsic "unreachable" <> ()
 
 //: assert: 条件が真であることを検証する
@@ -39,7 +39,7 @@ fn test_fail <(str)->()> (_msg):
 //: [目的/もくてき]:
 //: - `ok` が true の場合は何もしません。
 //: - false の場合は異常終了します。
-fn assert <(bool)->()> (ok):
+pub fn assert <(bool)->()> (ok):
     if:
         cond ok
         then ()
@@ -53,7 +53,7 @@ fn assert <(bool)->()> (ok):
 //:
 //: [実装/じっそう]:
 //: - `core/math` の `eq` を使って比較し、偽なら異常終了します。
-fn assert_eq_i32 <(i32,i32)->()> (expected, actual):
+pub fn assert_eq_i32 <(i32,i32)->()> (expected, actual):
     if:
         cond eq expected actual
         then ()

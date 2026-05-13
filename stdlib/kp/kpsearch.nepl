@@ -43,7 +43,7 @@
 //: ```
 
 //: lower_bound_i32: `x` 以上が最初に現れる位置を返す
-fn lower_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
+pub fn lower_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
     let mut lo <i32> 0;
     let mut hi <i32> len;
     while lt lo hi:
@@ -61,7 +61,7 @@ fn lower_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
     lo
 
 //: upper_bound_i32: `x` より大きい値が最初に現れる位置を返す
-fn upper_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
+pub fn upper_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
     let mut lo <i32> 0;
     let mut hi <i32> len;
     while lt lo hi:
@@ -79,7 +79,7 @@ fn upper_bound_i32 <(i32,i32,i32)*>i32> (data, len, x):
     lo
 
 //: contains_i32: 値 `x` が存在するか判定する
-fn contains_i32 <(i32,i32,i32)*>bool> (data, len, x):
+pub fn contains_i32 <(i32,i32,i32)*>bool> (data, len, x):
     let idx <i32> lower_bound_i32 data len x;
     if ge idx len:
         then false
@@ -123,7 +123,7 @@ fn contains_i32 <(i32,i32,i32)*>bool> (data, len, x):
 //:     println_i32 count_equal_range_i32 data len 2;
 //:     dealloc_raw data mul len 4
 //: ```
-fn count_equal_range_i32 <(i32,i32,i32)*>i32> (data, len, x):
+pub fn count_equal_range_i32 <(i32,i32,i32)*>i32> (data, len, x):
     let lb <i32> lower_bound_i32 data len x;
     let ub <i32> upper_bound_i32 data len x;
     sub ub lb
@@ -176,7 +176,7 @@ fn count_equal_range_i32 <(i32,i32,i32)*>i32> (data, len, x):
 //:     println "";
 //:     dealloc_raw data mul len 4
 //: ```
-fn unique_sorted_i32 <(i32,i32)*>i32> (data, len):
+pub fn unique_sorted_i32 <(i32,i32)*>i32> (data, len):
     if:
         le len 1
         then len
@@ -203,7 +203,7 @@ fn unique_sorted_i32 <(i32,i32)*>i32> (data, len):
             write
 
 //: lower_bound_vec_i32: Vec<i32> を対象に lower_bound を返す
-fn lower_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
+pub fn lower_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
     let data <i32> data_ptr<i32> &v;
     let n <i32> len<i32> &v;
     let out <i32> lower_bound_i32 data n x;
@@ -211,7 +211,7 @@ fn lower_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
     out
 
 //: upper_bound_vec_i32: Vec<i32> を対象に upper_bound を返す
-fn upper_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
+pub fn upper_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
     let data <i32> data_ptr<i32> &v;
     let n <i32> len<i32> &v;
     let out <i32> upper_bound_i32 data n x;
@@ -219,7 +219,7 @@ fn upper_bound_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
     out
 
 //: contains_vec_i32: Vec<i32> に値 x が存在するか判定する
-fn contains_vec_i32 <(Vec<i32>,i32)*>bool> (v, x):
+pub fn contains_vec_i32 <(Vec<i32>,i32)*>bool> (v, x):
     let data <i32> data_ptr<i32> &v;
     let n <i32> len<i32> &v;
     let out <bool> contains_i32 data n x;
@@ -227,7 +227,7 @@ fn contains_vec_i32 <(Vec<i32>,i32)*>bool> (v, x):
     out
 
 //: count_equal_range_vec_i32: Vec<i32> における x の個数を返す
-fn count_equal_range_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
+pub fn count_equal_range_vec_i32 <(Vec<i32>,i32)*>i32> (v, x):
     let data <i32> data_ptr<i32> &v;
     let n <i32> len<i32> &v;
     let out <i32> count_equal_range_i32 data n x;

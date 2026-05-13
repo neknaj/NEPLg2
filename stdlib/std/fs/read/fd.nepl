@@ -59,7 +59,7 @@
 //:         Result::Err _e:
 //:             1
 //: ```
-fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
+pub fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
     let mut cap <i32> 65536;
     match alloc_ptr<u8> cap:
         Result::Err _e:

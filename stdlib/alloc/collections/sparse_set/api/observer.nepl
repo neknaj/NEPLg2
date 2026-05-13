@@ -17,7 +17,7 @@
 
 //: ## len
 //: [現/げん]在[入/はい]っている[要素数/ようそすう]を[返/かえ]す
-fn len <(&SparseSet)->i32> (s):
+pub fn len <(&SparseSet)->i32> (s):
     *field::get_ref s "len0"
 
 //: ## universe_len
@@ -36,7 +36,7 @@ fn len <(&SparseSet)->i32> (s):
 //:     free s
 //:     if ok 1 0
 //: ```
-fn universe_len <(&SparseSet)->i32> (s):
+pub fn universe_len <(&SparseSet)->i32> (s):
     *field::get_ref s "n"
 
 //: ## contains
@@ -57,7 +57,7 @@ fn universe_len <(&SparseSet)->i32> (s):
 //:     free s
 //:     if ok 1 0
 //: ```
-fn contains <(&SparseSet,i32)*>Result<bool, Diag>> (s, value):
+pub fn contains <(&SparseSet,i32)*>Result<bool, Diag>> (s, value):
     let n <i32> *field::get_ref s "n"
     let len0 <i32> *field::get_ref s "len0"
     let dense <&Vec<i32>> field::get_ref s "dense"

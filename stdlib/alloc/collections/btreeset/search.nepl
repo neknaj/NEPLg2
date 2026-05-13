@@ -14,10 +14,10 @@
 #import "./types" as *
 #import "./storage" as *
 
-fn btreeset_key_eq <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn btreeset_key_eq <.T: Ord> <(.T,.T)->bool> (a, b):
     and not ord_lt a b not ord_lt b a
 
-fn btreeset_lower_bound <.T: Ord&Copy> <(&Vec<Option<.T>>,.T,i32,i32)->i32> (keys, key, low, high):
+pub fn btreeset_lower_bound <.T: Ord&Copy> <(&Vec<Option<.T>>,.T,i32,i32)->i32> (keys, key, low, high):
     if:
         lt low high
         then:
@@ -32,7 +32,7 @@ fn btreeset_lower_bound <.T: Ord&Copy> <(&Vec<Option<.T>>,.T,i32,i32)->i32> (key
                     mid
         else low
 
-fn btreeset_is_at <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32,.T)->bool> (keys, len0, idx, key):
+pub fn btreeset_is_at <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32,.T)->bool> (keys, len0, idx, key):
     if:
         lt idx len0
         then:
@@ -43,8 +43,8 @@ fn btreeset_is_at <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32,.T)->bool> (keys, le
                     false
         else false
 
-fn btreeset_lower_bound_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,.T,i32,i32)->i32> (storage, key, low, high):
+pub fn btreeset_lower_bound_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,.T,i32,i32)->i32> (storage, key, low, high):
     btreeset_lower_bound<.T> btreeset_storage_keys<.T> storage key low high
 
-fn btreeset_is_at_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,i32,i32,.T)->bool> (storage, len0, idx, key):
+pub fn btreeset_is_at_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,i32,i32,.T)->bool> (storage, len0, idx, key):
     btreeset_is_at<.T> btreeset_storage_keys<.T> storage len0 idx key

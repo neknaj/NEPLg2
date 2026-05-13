@@ -31,7 +31,7 @@
 //:     free g
 //:     if ok 1 0
 //: ```
-fn new <(i32)*>Result<AdjacencyMatrix, Diag>> (nverts):
+pub fn new <(i32)*>Result<AdjacencyMatrix, Diag>> (nverts):
     if:
         le nverts 0
         then:

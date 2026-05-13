@@ -18,7 +18,7 @@
 //:
 //: [実装/じっそう]:
 //: - `w[i-16] + sigma0(w[i-15]) + w[i-7] + sigma1(w[i-2])` を 32-bit word として[加算/かさん]します。
-fn sha256_schedule_word <(&Vec<i32>,i32)->Result<i32, StdErrorKind>> (w, i):
+pub fn sha256_schedule_word <(&Vec<i32>,i32)->Result<i32, StdErrorKind>> (w, i):
     match get<i32> w sub i 2:
         Option::None:
             Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
@@ -45,7 +45,7 @@ fn sha256_schedule_word <(&Vec<i32>,i32)->Result<i32, StdErrorKind>> (w, i):
 //:
 //: [実装/じっそう]:
 //: - 先頭 16 word は padded block から[読/よ]み、残りは schedule recurrence で[追加/ついか]します。
-fn sha256_build_schedule_loop <(&Vec<i32>,i32,i32,i32,i32,Vec<i32>)*>Result<Vec<i32>, StdErrorKind>> (buf, msg_len, total_len, block_start, i, w):
+pub fn sha256_build_schedule_loop <(&Vec<i32>,i32,i32,i32,i32,Vec<i32>)*>Result<Vec<i32>, StdErrorKind>> (buf, msg_len, total_len, block_start, i, w):
     if:
         ge i 64
         then:
@@ -73,7 +73,7 @@ fn sha256_build_schedule_loop <(&Vec<i32>,i32,i32,i32,i32,Vec<i32>)*>Result<Vec<
 //:
 //: [注意/ちゅうい]:
 //: - [返/かえ]った `Vec<i32>` は block compression [後/ご]に `free` してください。
-fn sha256_build_schedule <(&Vec<i32>,i32,i32,i32)*>Result<Vec<i32>, StdErrorKind>> (buf, msg_len, total_len, block_start):
+pub fn sha256_build_schedule <(&Vec<i32>,i32,i32,i32)*>Result<Vec<i32>, StdErrorKind>> (buf, msg_len, total_len, block_start):
     match with_capacity<i32> 64:
         Result::Err e:
             Result<Vec<i32>, StdErrorKind>::Err e

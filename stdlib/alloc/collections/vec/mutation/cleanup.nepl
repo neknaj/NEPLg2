@@ -41,7 +41,7 @@
 //:     free<i32> v2;
 //:     if ok 0 1
 //: ```
-fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
+pub fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
     let v_cap <i32> *field::get_ref &v "cap"
     let v_storage <VecStorageState> *field::get_ref &v "storage"
     let v_data <MemPtr<.T>> field::get v "data"
@@ -75,7 +75,7 @@ fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
 //:     free<i32> v;
 //:     0
 //: ```
-fn free <.T> <(Vec<.T>)->()> (v):
+pub fn free <.T> <(Vec<.T>)->()> (v):
     let v_cap <i32> *field::get_ref &v "cap"
     let v_storage <VecStorageState> *field::get_ref &v "storage"
     let v_data <MemPtr<.T>> field::get v "data"

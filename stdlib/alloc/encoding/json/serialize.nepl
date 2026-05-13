@@ -31,7 +31,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 要素数と出力 byte 数に比例します。
-fn json_serialize_array <(Vec<JsonValue>)->str> (items):
+pub fn json_serialize_array <(Vec<JsonValue>)->str> (items):
     let n <i32> get items "len";
     let data <i32> mem_ptr_addr get items "data";
     let mut out sb::string_builder_new;
@@ -64,7 +64,7 @@ fn json_serialize_array <(Vec<JsonValue>)->str> (items):
 //:
 //: [計算量/けいさんりょう]:
 //: - member 数と出力 byte 数に比例します。
-fn json_serialize_object <(Vec<JsonMember>)->str> (members):
+pub fn json_serialize_object <(Vec<JsonMember>)->str> (members):
     let n <i32> get members "len";
     let data <i32> mem_ptr_addr get members "data";
     let mut out sb::string_builder_new;
@@ -100,7 +100,7 @@ fn json_serialize_object <(Vec<JsonMember>)->str> (members):
 //:
 //: [計算量/けいさんりょう]:
 //: - 値全体の要素数と出力 byte 数に比例します。
-fn json_serialize <(JsonValue)->str> (v):
+pub fn json_serialize <(JsonValue)->str> (v):
     match v:
         JsonValue::Null:
             "null"

@@ -15,51 +15,51 @@
 #import "alloc/collections/vec" as vec
 #import "./types" as *
 
-fn btreemap_storage_keys <.K,.V> <(&BTreeMapStorage<.K,.V>)->&Vec<Option<.K>>> (storage):
+pub fn btreemap_storage_keys <.K,.V> <(&BTreeMapStorage<.K,.V>)->&Vec<Option<.K>>> (storage):
     field::get_ref storage "keys"
 
-fn btreemap_storage_values <.K,.V> <(&BTreeMapStorage<.K,.V>)->&Vec<Option<.V>>> (storage):
+pub fn btreemap_storage_values <.K,.V> <(&BTreeMapStorage<.K,.V>)->&Vec<Option<.V>>> (storage):
     field::get_ref storage "values"
 
-fn btreemap_key_at <.K: Copy> <(&Vec<Option<.K>>,i32)->Option<.K>> (keys, idx):
+pub fn btreemap_key_at <.K: Copy> <(&Vec<Option<.K>>,i32)->Option<.K>> (keys, idx):
     match vec::get<Option<.K>> keys idx:
         Option::Some key_opt:
             key_opt
         Option::None:
             none<.K>
 
-fn btreemap_value_at <.V: Copy> <(&Vec<Option<.V>>,i32)->Option<.V>> (values, idx):
+pub fn btreemap_value_at <.V: Copy> <(&Vec<Option<.V>>,i32)->Option<.V>> (values, idx):
     match vec::get<Option<.V>> values idx:
         Option::Some value_opt:
             value_opt
         Option::None:
             none<.V>
 
-fn btreemap_store_key <.K: Copy> <(&Vec<Option<.K>>,i32,Option<.K>)*>()> (keys, idx, key):
+pub fn btreemap_store_key <.K: Copy> <(&Vec<Option<.K>>,i32,Option<.K>)*>()> (keys, idx, key):
     vec::replace<Option<.K>> keys idx key
 
-fn btreemap_store_value <.V: Copy> <(&Vec<Option<.V>>,i32,Option<.V>)*>()> (values, idx, value):
+pub fn btreemap_store_value <.V: Copy> <(&Vec<Option<.V>>,i32,Option<.V>)*>()> (values, idx, value):
     vec::replace<Option<.V>> values idx value
 
-fn btreemap_key_slot <.K: Copy,.V> <(&BTreeMapStorage<.K,.V>,i32)->Option<.K>> (storage, idx):
+pub fn btreemap_key_slot <.K: Copy,.V> <(&BTreeMapStorage<.K,.V>,i32)->Option<.K>> (storage, idx):
     btreemap_key_at<.K> btreemap_storage_keys<.K,.V> storage idx
 
-fn btreemap_value_slot <.K,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32)->Option<.V>> (storage, idx):
+pub fn btreemap_value_slot <.K,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32)->Option<.V>> (storage, idx):
     btreemap_value_at<.V> btreemap_storage_values<.K,.V> storage idx
 
-fn btreemap_store_key_slot <.K: Copy,.V> <(&BTreeMapStorage<.K,.V>,i32,Option<.K>)*>()> (storage, idx, key):
+pub fn btreemap_store_key_slot <.K: Copy,.V> <(&BTreeMapStorage<.K,.V>,i32,Option<.K>)*>()> (storage, idx, key):
     btreemap_store_key<.K> btreemap_storage_keys<.K,.V> storage idx key
 
-fn btreemap_store_value_slot <.K,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,Option<.V>)*>()> (storage, idx, value):
+pub fn btreemap_store_value_slot <.K,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,Option<.V>)*>()> (storage, idx, value):
     btreemap_store_value<.V> btreemap_storage_values<.K,.V> storage idx value
 
-fn btreemap_free_storage <.K,.V> <(BTreeMapStorage<.K,.V>)->()> (storage):
+pub fn btreemap_free_storage <.K,.V> <(BTreeMapStorage<.K,.V>)->()> (storage):
     let keys <Vec<Option<.K>>> field::get storage "keys"
     let values <Vec<Option<.V>>> field::get storage "values"
     vec::free<Option<.K>> keys
     vec::free<Option<.V>> values
 
-fn btreemap_alloc_storage <.K: Copy,.V: Copy> <(i32)*>Result<BTreeMapStorage<.K,.V>, Diag>> (cap):
+pub fn btreemap_alloc_storage <.K: Copy,.V: Copy> <(i32)*>Result<BTreeMapStorage<.K,.V>, Diag>> (cap):
     match vec::filled<Option<.K>> cap none<.K>:
         Result::Err _e:
             diag_err<BTreeMapStorage<.K,.V>> diag_out_of_memory
@@ -71,7 +71,7 @@ fn btreemap_alloc_storage <.K: Copy,.V: Copy> <(i32)*>Result<BTreeMapStorage<.K,
                 Result::Ok values:
                     ok<BTreeMapStorage<.K,.V>, Diag> BTreeMapStorage<.K,.V> keys values
 
-fn btreemap_copy_live_slots <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,&BTreeMapStorage<.K,.V>,i32)*>()> (src, dst, len0):
+pub fn btreemap_copy_live_slots <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,&BTreeMapStorage<.K,.V>,i32)*>()> (src, dst, len0):
     let src_keys <&Vec<Option<.K>>> btreemap_storage_keys<.K,.V> src
     let src_values <&Vec<Option<.V>>> btreemap_storage_values<.K,.V> src
     let dst_keys <&Vec<Option<.K>>> btreemap_storage_keys<.K,.V> dst
@@ -91,7 +91,7 @@ fn btreemap_copy_live_slots <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,&BTree
                     ()
             set i add i 1
 
-fn btreemap_clear_slots <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32)*>()> (storage, end, i):
+pub fn btreemap_clear_slots <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32)*>()> (storage, end, i):
     if:
         lt i end
         then:
@@ -101,7 +101,7 @@ fn btreemap_clear_slots <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32)*>
         else:
             ()
 
-fn btreemap_shift_right <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32)*>()> (storage, idx, len0):
+pub fn btreemap_shift_right <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32)*>()> (storage, idx, len0):
     let mut i <i32> len0
     while gt i idx:
         do:
@@ -118,7 +118,7 @@ fn btreemap_shift_right <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32)*>
                     btreemap_store_value_slot<.K,.V> storage i none<.V>
             set i from
 
-fn btreemap_shift_left_after_remove <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32)*>()> (storage, idx, len0):
+pub fn btreemap_shift_left_after_remove <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32)*>()> (storage, idx, len0):
     let last <i32> sub len0 1
     let mut i <i32> idx
     while lt i last:
@@ -138,7 +138,7 @@ fn btreemap_shift_left_after_remove <.K: Copy,.V: Copy> <(&BTreeMapStorage<.K,.V
     btreemap_store_key_slot<.K,.V> storage last none<.K>
     btreemap_store_value_slot<.K,.V> storage last none<.V>
 
-fn btreemap_grow <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)*>Result<BTreeMap<.K,.V>, Diag>> (hm):
+pub fn btreemap_grow <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)*>Result<BTreeMap<.K,.V>, Diag>> (hm):
     let len0 <i32> *field::get_ref &hm "len"
     let cap0 <i32> *field::get_ref &hm "cap"
     let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"

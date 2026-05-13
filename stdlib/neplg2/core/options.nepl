@@ -92,7 +92,7 @@ impl Copy for SelfhostCompileOptions:
         self
 
 //: selfhost_compile_options_new: compile option record を[作/つく]る
-fn selfhost_compile_options_new <(Option<SelfhostCompileTarget>,bool,Option<SelfhostBuildProfile>)->SelfhostCompileOptions> (target, verbose, profile):
+pub fn selfhost_compile_options_new <(Option<SelfhostCompileTarget>,bool,Option<SelfhostBuildProfile>)->SelfhostCompileOptions> (target, verbose, profile):
     SelfhostCompileOptions target verbose profile
 
 //: selfhost_compile_options_default: 既定の compile option を[返/かえ]す
@@ -187,7 +187,7 @@ pub fn selfhost_build_profile_is_release <(SelfhostBuildProfile)->bool> (profile
         _:
             false
 
-fn selfhost_options_stage0 <()->i32> ():
+pub fn selfhost_options_stage0 <()->i32> ():
     let options <SelfhostCompileOptions> selfhost_compile_options_default
     let target <SelfhostCompileTarget> selfhost_compile_resolve_target options none<SelfhostCompileTarget>
     if selfhost_compile_target_is_wasm target 0 1

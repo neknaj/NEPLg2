@@ -31,6 +31,6 @@
 //:     free g
 //:     0
 //: ```
-fn free <(AdjacencyMatrix)->()> (g):
+pub fn free <(AdjacencyMatrix)->()> (g):
     let bits <Vec<u8>> field::get g "bits"
     vec::free<u8> bits

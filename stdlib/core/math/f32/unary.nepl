@@ -34,7 +34,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn sqrt <(f32)->f32> (a):
+pub fn sqrt <(f32)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -61,7 +61,7 @@ fn sqrt <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn abs <(f32)->f32> (a):
+pub fn abs <(f32)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -89,7 +89,7 @@ fn abs <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn neg <(f32)->f32> (a):
+pub fn neg <(f32)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -115,7 +115,7 @@ fn neg <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn ceil <(f32)->f32> (a):
+pub fn ceil <(f32)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -141,7 +141,7 @@ fn ceil <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn floor <(f32)->f32> (a):
+pub fn floor <(f32)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -167,7 +167,7 @@ fn floor <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn trunc <(f32)->f32> (a):
+pub fn trunc <(f32)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -193,7 +193,7 @@ fn trunc <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn nearest <(f32)->f32> (a):
+pub fn nearest <(f32)->f32> (a):
     #if[target=wasm]
     #wasm:
         local.get $a

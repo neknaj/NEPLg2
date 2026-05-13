@@ -29,7 +29,7 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
-fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (fd, data, data_len):
+pub fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (fd, data, data_len):
     let data_ptr <i32> mem_ptr_addr data;
     if:
         le data_len 0
@@ -96,7 +96,7 @@ fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (f
 //:
 //: ### [計算量/けいさんりょう]
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
-fn stdio_write_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (data, data_len):
+pub fn stdio_write_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (data, data_len):
     stdio_write_fd_mem_result 1 data data_len
 
 //: ## stdio_write_stderr_mem_result
@@ -107,7 +107,7 @@ fn stdio_write_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (data, da
 //:
 //: ### [計算量/けいさんりょう]
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
-fn stdio_write_stderr_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (data, data_len):
+pub fn stdio_write_stderr_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (data, data_len):
     stdio_write_fd_mem_result 2 data data_len
 
 //: ## stdio_write_mem
@@ -118,7 +118,7 @@ fn stdio_write_stderr_mem_result <(MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (d
 //:
 //: ### [注意/ちゅうい]
 //: - error は[呼/よ]び[出/だ]し[側/がわ]へ[返/かえ]しません。新しい code は `stdio_write_mem_result` を[使/つか]います。
-fn stdio_write_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
+pub fn stdio_write_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
     match stdio_write_mem_result data data_len:
         Result::Ok _:
             ()
@@ -130,7 +130,7 @@ fn stdio_write_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
 //:
 //: ### [注意/ちゅうい]
 //: - error は[呼/よ]び[出/だ]し[側/がわ]へ[返/かえ]しません。diagnostic caller は `stdio_write_stderr_mem_result` を[使/つか]います。
-fn stdio_write_stderr_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
+pub fn stdio_write_stderr_mem <(MemPtr<u8>,i32)*>()> (data, data_len):
     match stdio_write_stderr_mem_result data data_len:
         Result::Ok _:
             ()

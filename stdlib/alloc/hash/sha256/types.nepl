@@ -18,7 +18,7 @@
 //: [注意/ちゅうい]:
 //: - digest state ではなく入力 buffer です。これは現在の stdlib に mutable byte buffer がないための所有権上の設計です。
 //: - `sha256_finalize` 後に state は[再利用/さいりよう]できません。
-struct Sha256:
+pub struct Sha256:
     buffer <Vec<i32>>
 
 //: Sha256State: SHA-256 compression の 8 word state
@@ -28,7 +28,7 @@ struct Sha256:
 //:
 //: [注意/ちゅうい]:
 //: - すべて `i32` の word なので `Copy` として[扱/あつか]えます。
-struct Sha256State:
+pub struct Sha256State:
     h0 <i32>
     h1 <i32>
     h2 <i32>
@@ -50,5 +50,5 @@ impl Copy for Sha256State:
 //:
 //: [実装/じっそう]:
 //: - SHA-256 [仕様/しよう]で[定/さだ]められた 8 word の IV を signed i32 literal として[保持/ほじ]します。
-fn sha256_initial_state <()->Sha256State> ():
+pub fn sha256_initial_state <()->Sha256State> ():
     Sha256State 1779033703 -1150833019 1013904242 -1521486534 1359893119 -1694144372 528734635 1541459225

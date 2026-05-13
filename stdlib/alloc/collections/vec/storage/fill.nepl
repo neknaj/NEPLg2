@@ -58,7 +58,7 @@
 //:         Result::Err _:
 //:             1
 //: ```
-fn filled <.T: Copy> <(i32,.T)->Result<Vec<.T>, StdErrorKind>> (n, value):
+pub fn filled <.T: Copy> <(i32,.T)->Result<Vec<.T>, StdErrorKind>> (n, value):
     if:
         le n 0
         then:

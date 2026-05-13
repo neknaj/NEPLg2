@@ -72,20 +72,20 @@ trait Close:
     fn close <(Self)*>Result<(), StdErrorKind>> (stream):
         Result::Err StdErrorKind::IoError
 
-fn io_read_all_bytes <.T: ByteReader> <(.T)*>Result<ByteBuf, StdErrorKind>> (stream):
+pub fn io_read_all_bytes <.T: ByteReader> <(.T)*>Result<ByteBuf, StdErrorKind>> (stream):
     ByteReader::read_all_bytes stream
 
-fn io_write_bytes <.T: ByteWriter> <(.T, ByteBuf)*>Result<.T, StdErrorKind>> (stream, bytes):
+pub fn io_write_bytes <.T: ByteWriter> <(.T, ByteBuf)*>Result<.T, StdErrorKind>> (stream, bytes):
     ByteWriter::write_bytes stream bytes
 
-fn io_read_all_text <.T: TextReader> <(.T)*>Result<str, StdErrorKind>> (stream):
+pub fn io_read_all_text <.T: TextReader> <(.T)*>Result<str, StdErrorKind>> (stream):
     TextReader::read_all_text stream
 
-fn io_write_str <.T: TextWriter> <(.T, str)*>Result<.T, StdErrorKind>> (stream, text):
+pub fn io_write_str <.T: TextWriter> <(.T, str)*>Result<.T, StdErrorKind>> (stream, text):
     TextWriter::write_str stream text
 
-fn io_flush <.T: Flush> <(.T)*>Result<.T, StdErrorKind>> (stream):
+pub fn io_flush <.T: Flush> <(.T)*>Result<.T, StdErrorKind>> (stream):
     Flush::flush stream
 
-fn io_close <.T: Close> <(.T)*>Result<(), StdErrorKind>> (stream):
+pub fn io_close <.T: Close> <(.T)*>Result<(), StdErrorKind>> (stream):
     Close::close stream

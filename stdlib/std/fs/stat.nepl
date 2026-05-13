@@ -42,7 +42,7 @@
 //:
 //: 計算量:
 //: - path 正規化 O(n) と host stat 1 回
-fn fs_path_filetype <(str)*>Result<i32,i32>> (path):
+pub fn fs_path_filetype <(str)*>Result<i32,i32>> (path):
     match fs_normalize_relative_builder path:
         Result::Err e:
             Result<i32,i32>::Err e
@@ -93,7 +93,7 @@ fn fs_path_filetype <(str)*>Result<i32,i32>> (path):
 //:
 //: 計算量:
 //: - host stat 1 回
-fn fs_exists <(str)*>bool> (path):
+pub fn fs_exists <(str)*>bool> (path):
     match fs_path_filetype path:
         Result::Ok _kind:
             true
@@ -110,7 +110,7 @@ fn fs_exists <(str)*>bool> (path):
 //:
 //: 計算量:
 //: - host stat 1 回
-fn fs_is_file <(str)*>bool> (path):
+pub fn fs_is_file <(str)*>bool> (path):
     match fs_path_filetype path:
         Result::Ok kind:
             eq kind fs_filetype_regular_file
@@ -127,7 +127,7 @@ fn fs_is_file <(str)*>bool> (path):
 //:
 //: 計算量:
 //: - host stat 1 回
-fn fs_is_dir <(str)*>bool> (path):
+pub fn fs_is_dir <(str)*>bool> (path):
     match fs_path_filetype path:
         Result::Ok kind:
             eq kind fs_filetype_directory

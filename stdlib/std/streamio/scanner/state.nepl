@@ -29,7 +29,7 @@
 //: - copy / clone は[同/おな]じ cursor と buffer を[共有/きょうゆう]する alias です。`read` を[進/すす]めると、ほかの alias から[見/み]える[位置/いち]も[進/すす]みます。
 //: - buffer の[解放/かいほう]は `close` が[担当/たんとう]するので、alias を[作/つく]った[場合/ばあい]でも `close` は[最後/さいご]に 1 [回/かい]だけ[呼/よ]んでください。
 //: - [別々/べつべつ]に `open` した scanner [同士/どうし]は[状態/じょうたい]を[共有/きょうゆう]しないので、[複数/ふくすう]の stream を[同時/どうじ]に[維持/いじ]できます。
-struct StreamScanner:
+pub struct StreamScanner:
     header <MemPtr<u8>>
 
 impl Copy for StreamScanner:
@@ -40,15 +40,15 @@ impl Clone for StreamScanner:
     fn clone <(&StreamScanner)->StreamScanner> (sc):
         *sc
 
-enum StreamScannerHeaderField:
+pub enum StreamScannerHeaderField:
     BufPtr
     Len
     Pos
 
-fn stream_scanner_wrap <(MemPtr<u8>)->StreamScanner> (raw):
+pub fn stream_scanner_wrap <(MemPtr<u8>)->StreamScanner> (raw):
     StreamScanner raw
 
-fn stream_scanner_header_off <(StreamScannerHeaderField)->i32> (field):
+pub fn stream_scanner_header_off <(StreamScannerHeaderField)->i32> (field):
     match field:
         StreamScannerHeaderField::BufPtr:
             0
@@ -63,7 +63,7 @@ fn stream_scanner_header_off <(StreamScannerHeaderField)->i32> (field):
 //: ### [目的/もくてき]
 //: - `StreamScanner` の共有 cursor state を保持する header から field を読み、invalid header を `Result` として呼び出し側へ返します。
 //: - scanner の公開 facade が失敗を sentinel へ丸める前に、内部初期化では失敗を検出できるようにします。
-fn stream_scanner_load_header_result <(MemPtr<u8>,StreamScannerHeaderField)->Result<i32,str>> (header, field):
+pub fn stream_scanner_load_header_result <(MemPtr<u8>,StreamScannerHeaderField)->Result<i32,str>> (header, field):
     let raw <i32> mem_ptr_addr header
     if:
         le raw 0
@@ -78,7 +78,7 @@ fn stream_scanner_load_header_result <(MemPtr<u8>,StreamScannerHeaderField)->Res
 //: ### [注意/ちゅうい]
 //: - 既存の scanner API は `Result` を返さないため、header が壊れている場合は 0 に丸めます。
 //: - 初期化など失敗を区別すべき箇所では `stream_scanner_load_header_result` を使います。
-fn stream_scanner_load_header <(MemPtr<u8>,StreamScannerHeaderField)->i32> (header, field):
+pub fn stream_scanner_load_header <(MemPtr<u8>,StreamScannerHeaderField)->i32> (header, field):
     match stream_scanner_load_header_result header field:
         Result::Ok v:
             v
@@ -91,7 +91,7 @@ fn stream_scanner_load_header <(MemPtr<u8>,StreamScannerHeaderField)->i32> (head
 //: ### [目的/もくてき]
 //: - `StreamScanner` の共有 cursor state を保持する header へ field を書き、invalid header を `Result` として呼び出し側へ返します。
 //: - scanner 初期化時に header 設定失敗を握りつぶさず、buffer と header を解放して失敗できます。
-fn stream_scanner_store_header_result <(MemPtr<u8>,StreamScannerHeaderField,i32)->Result<(),str>> (header, field, v):
+pub fn stream_scanner_store_header_result <(MemPtr<u8>,StreamScannerHeaderField,i32)->Result<(),str>> (header, field, v):
     let raw <i32> mem_ptr_addr header
     if:
         le raw 0
@@ -107,7 +107,7 @@ fn stream_scanner_store_header_result <(MemPtr<u8>,StreamScannerHeaderField,i32)
 //: ### [注意/ちゅうい]
 //: - 既存の scanner API は `Result` を返さないため、失敗時は状態を進めず no-op にします。
 //: - 初期化など失敗を区別すべき箇所では `stream_scanner_store_header_result` を使います。
-fn stream_scanner_store_header <(MemPtr<u8>,StreamScannerHeaderField,i32)->()> (header, field, v):
+pub fn stream_scanner_store_header <(MemPtr<u8>,StreamScannerHeaderField,i32)->()> (header, field, v):
     match stream_scanner_store_header_result header field v:
         Result::Ok _:
             ()
@@ -120,7 +120,7 @@ fn stream_scanner_store_header <(MemPtr<u8>,StreamScannerHeaderField,i32)->()> (
 //: ### [目的/もくてき]
 //: - scanner header に保存された buffer pointer を `MemPtr<u8>` として扱い、tokenizer が直接 raw address を読まないようにします。
 //: - 呼び出し側の境界確認漏れや低レベル load 失敗は byte `0` として扱い、scanner の sentinel と同じ意味に丸めます。
-fn stream_scanner_byte_at <(MemPtr<u8>,i32,i32)->i32> (buf, len, pos):
+pub fn stream_scanner_byte_at <(MemPtr<u8>,i32,i32)->i32> (buf, len, pos):
     if:
         or lt pos 0 ge pos len
         then:
@@ -132,7 +132,7 @@ fn stream_scanner_byte_at <(MemPtr<u8>,i32,i32)->i32> (buf, len, pos):
                 Option::None:
                     0
 
-fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
+pub fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
     let len <i32> get bytes "len";
     match get bytes "ptr":
         Option::None:

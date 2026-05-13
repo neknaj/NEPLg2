@@ -13,7 +13,7 @@
 #import "./membership" as *
 #import "./storage" as *
 
-fn sparse_set_insert_storage <(i32,&Vec<i32>,&Vec<i32>,i32,i32)*>Option<i32>> (n, dense, sparse, len0, value):
+pub fn sparse_set_insert_storage <(i32,&Vec<i32>,&Vec<i32>,i32,i32)*>Option<i32>> (n, dense, sparse, len0, value):
     if:
         sparse_set_contains_raw n dense sparse len0 value
         then:
@@ -31,7 +31,7 @@ fn sparse_set_insert_storage <(i32,&Vec<i32>,&Vec<i32>,i32,i32)*>Option<i32>> (n
                             sparse_set_store_owned sparse value len0
                             some<i32> add len0 1
 
-fn sparse_set_remove_storage <(i32,&Vec<i32>,&Vec<i32>,i32,i32)*>Option<i32>> (n, dense, sparse, len0, value):
+pub fn sparse_set_remove_storage <(i32,&Vec<i32>,&Vec<i32>,i32,i32)*>Option<i32>> (n, dense, sparse, len0, value):
     if:
         not sparse_set_contains_raw n dense sparse len0 value
         then:

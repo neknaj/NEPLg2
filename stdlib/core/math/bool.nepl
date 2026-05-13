@@ -37,7 +37,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn and <(bool,bool)->bool> (a,b):
+pub fn and <(bool,bool)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -65,7 +65,7 @@ fn and <(bool,bool)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn or <(bool,bool)->bool> (a,b):
+pub fn or <(bool,bool)->bool> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -93,7 +93,7 @@ fn or <(bool,bool)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn not <(bool)->bool> (a):
+pub fn not <(bool)->bool> (a):
     #if[target=wasm]
     #wasm:
         local.get $a

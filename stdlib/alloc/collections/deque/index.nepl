@@ -10,17 +10,17 @@
 #import "core/math" as *
 
 //: deque_normalize_capacity: 1 [以上/いじょう]の capacity に[正規化/せいきか]する
-fn deque_normalize_capacity <(i32)->i32> (cap):
+pub fn deque_normalize_capacity <(i32)->i32> (cap):
     if lt cap 1 1 cap
 
 //: deque_prev_index: circular buffer の[前/まえ]の index を[返/かえ]す
-fn deque_prev_index <(i32,i32)->i32> (idx, cap):
+pub fn deque_prev_index <(i32,i32)->i32> (idx, cap):
     rem_u add sub idx 1 cap cap
 
 //: deque_tail_index: `head + len` の circular tail index を[返/かえ]す
-fn deque_tail_index <(i32,i32,i32)->i32> (head, len, cap):
+pub fn deque_tail_index <(i32,i32,i32)->i32> (head, len, cap):
     rem_u add head len cap
 
 //: deque_back_index: live range の[末尾/まつび] index を[返/かえ]す
-fn deque_back_index <(i32,i32,i32)->i32> (head, len, cap):
+pub fn deque_back_index <(i32,i32,i32)->i32> (head, len, cap):
     rem_u add head sub len 1 cap

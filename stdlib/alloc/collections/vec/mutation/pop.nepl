@@ -47,7 +47,7 @@
 //:     free<i32> next;
 //:     0
 //: ```
-fn pop <.T> <(Vec<.T>)->VecPop<.T>> (v):
+pub fn pop <.T> <(Vec<.T>)->VecPop<.T>> (v):
     let v_len <i32> *field::get_ref &v "len"
     let v_cap <i32> *field::get_ref &v "cap"
     let v_storage <VecStorageState> *field::get_ref &v "storage"

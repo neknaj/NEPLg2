@@ -18,7 +18,7 @@
 //:
 //: [目的/もくてき]:
 //: - 文字単位差分時に、ANSI/OSC8 を含む行を安全に全行更新へフォールバックするために使います。
-fn line_has_escape <(str)*>bool> (s):
+pub fn line_has_escape <(str)*>bool> (s):
     let n <i32> len s;
     let mut i <i32> 0;
     let mut found <bool> false;
@@ -48,7 +48,7 @@ fn line_has_escape <(str)*>bool> (s):
 //: [注意/ちゅうい]:
 //: - UTF-8 文字幅は `str_display_width` による近似です。
 //: - 差分開始位置はバイト基準で探索し、カーソル列は表示幅換算で計算します。
-fn buffer_present_diff <(i32)*>()> (b):
+pub fn buffer_present_diff <(i32)*>()> (b):
     let cols <i32> load_i32 b;
     let rows <i32> load_i32 add b 4;
     let curr <i32> load_i32 add b 8;

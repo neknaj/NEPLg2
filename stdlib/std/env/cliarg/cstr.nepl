@@ -26,7 +26,7 @@
 //:
 //: 計算量:
 //: - O(n)
-fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
+pub fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
     let mut i <i32> 0
     let mut done <i32> 0
     let mut ok <i32> 1
@@ -96,7 +96,7 @@ fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
 //:             ()
 //:     if eq n 3 0 1
 //: ```
-fn cstr_len <(MemPtr<u8>)*>i32> (p):
+pub fn cstr_len <(MemPtr<u8>)*>i32> (p):
     match cstr_len_result p:
         Result::Ok n:
             n
@@ -152,7 +152,7 @@ fn cstr_len <(MemPtr<u8>)*>i32> (p):
 //:             ()
 //:     if str_eq s "nep" 0 1
 //: ```
-fn cstr_to_str <(MemPtr<u8>)*>str> (p):
+pub fn cstr_to_str <(MemPtr<u8>)*>str> (p):
     match cstr_len_result p:
         Result::Err _e:
             ""

@@ -64,7 +64,7 @@ impl Copy for NmJsonSectionState:
     fn copy_mark <(NmJsonSectionState)->NmJsonSectionState> (self):
         self
 
-fn nm_json_section_state_make <(i32,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool)->NmJsonSectionState> (current_level, open1, open2, open3, open4, open5, open6, root_has, has1, has2, has3, has4, has5, has6):
+pub fn nm_json_section_state_make <(i32,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool)->NmJsonSectionState> (current_level, open1, open2, open3, open4, open5, open6, root_has, has1, has2, has3, has4, has5, has6):
     NmJsonSectionState current_level open1 open2 open3 open4 open5 open6 root_has has1 has2 has3 has4 has5 has6
 
 //: nm_json_section_state_new: 空の JSON section state を[作/つく]る

@@ -29,7 +29,7 @@
 //:
 //: 計算量:
 //: - 出力 byte 数 n に対して O(n)
-fn fs_normalize_build_ranges_builder <(str,&Vec<i32>)->Result<StringBuilder,i32>> (path, stack):
+pub fn fs_normalize_build_ranges_builder <(str,&Vec<i32>)->Result<StringBuilder,i32>> (path, stack):
     let stack_len <i32> v::len<i32> stack
     match string_builder_new_result:
         Result::Err _e:
@@ -94,7 +94,7 @@ fn fs_normalize_build_ranges_builder <(str,&Vec<i32>)->Result<StringBuilder,i32>
 //:
 //: 実装(アルゴリズム):
 //: - syscall 用途では builder owner のまま使えるよう、実処理は `fs_normalize_build_ranges_builder` に集約します。
-fn fs_normalize_build_ranges <(str,&Vec<i32>)->Result<str,i32>> (path, stack):
+pub fn fs_normalize_build_ranges <(str,&Vec<i32>)->Result<str,i32>> (path, stack):
     match fs_normalize_build_ranges_builder path stack:
         Result::Err e:
             Result<str,i32>::Err e

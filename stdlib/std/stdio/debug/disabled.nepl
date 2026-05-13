@@ -50,7 +50,7 @@
 //:     0
 //: ```
 #if[profile=release]
-fn debug <(str)*>()> (_s):
+pub fn debug <(str)*>()> (_s):
     ()
 
 //: debug_color: 色付きデバッグ出力（release では無効）
@@ -93,7 +93,7 @@ fn debug <(str)*>()> (_s):
 //:     0
 //: ```
 #if[profile=release]
-fn debug_color <(AnsiColor,str)*>()> (_color, _s):
+pub fn debug_color <(AnsiColor,str)*>()> (_color, _s):
     ()
 
 #if[profile=release]
@@ -137,7 +137,7 @@ fn debug_color <(AnsiColor,str)*>()> (_color, _s):
 //:     0
 //: ```
 #if[profile=release]
-fn debugln <(str)*>()> (_s):
+pub fn debugln <(str)*>()> (_s):
     ()
 
 //: debugln_color: 色付きデバッグ出力（release では無効）
@@ -180,5 +180,5 @@ fn debugln <(str)*>()> (_s):
 //:     0
 //: ```
 #if[profile=release]
-fn debugln_color <(AnsiColor,str)*>()> (_color, _s):
+pub fn debugln_color <(AnsiColor,str)*>()> (_color, _s):
     ()

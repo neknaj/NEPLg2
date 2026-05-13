@@ -26,7 +26,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]、入力 HashSet はこの[関数/かんすう]が[消費/しょうひ]し、旧 storage を[解放/かいほう]してから Err を[返/かえ]します。
-fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,i32)*>Result<HashSet<.T,.H>, Diag>> (hs, requested_cap):
+pub fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,i32)*>Result<HashSet<.T,.H>, Diag>> (hs, requested_cap):
     let count0 <i32> *field::get_ref &hs "count"
     let old_cap <i32> *field::get_ref &hs "cap"
     let hasher <.H> *field::get_ref &hs "hasher"
@@ -61,7 +61,7 @@ fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,i32
 //:
 //: ### [目的/もくてき]
 //: - 既存 key では容量を変えません。新規 key では count と tombstone を合わせた occupied 数を見て、必要なら同容量 rehash または 2 倍 grow を選びます。
-fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
+pub fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, Diag>> (hs, key):
     let count0 <i32> *field::get_ref &hs "count"
     let cap0 <i32> *field::get_ref &hs "cap"
     let tombstones0 <i32> *field::get_ref &hs "tombstones"
@@ -88,7 +88,7 @@ fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H
 //:
 //: ### [目的/もくてき]
 //: - 公開 API 名の overload 解決に依存せず、容量正規化と storage 初期化を 1 [箇所/かしょ]に[集約/しゅうやく]します。
-fn hashset_new_with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
+pub fn hashset_new_with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
     let cap0 <i32> hashset_normalize_capacity requested
     match hashset_alloc_storage<.T> cap0:
         Result::Err d:

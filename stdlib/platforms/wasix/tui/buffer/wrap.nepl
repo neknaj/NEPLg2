@@ -28,7 +28,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n + h) （n: テキスト長, h: 描画高さ）
-fn buffer_set_wrapped_text <(i32,i32,i32,i32,str)*>()> (b, start_row, cols, height, text):
+pub fn buffer_set_wrapped_text <(i32,i32,i32,i32,str)*>()> (b, start_row, cols, height, text):
     if:
         and gt height 0 gt cols 0
         then:

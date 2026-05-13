@@ -18,20 +18,20 @@
 #import "core/result" as *
 
 //: UTF-8 leading byte の[種類/しゅるい]
-enum TextUtf8LeadKind:
+pub enum TextUtf8LeadKind:
     Ascii
     Two
     Three
     Four
     Invalid
 
-fn text_utf8_in_range <(i32,i32,i32)->bool> (b, lo, hi):
+pub fn text_utf8_in_range <(i32,i32,i32)->bool> (b, lo, hi):
     and ge b lo le b hi
 
-fn text_utf8_is_continuation <(i32)->bool> (b):
+pub fn text_utf8_is_continuation <(i32)->bool> (b):
     text_utf8_in_range b 128 191
 
-fn text_utf8_lead_kind <(i32)->TextUtf8LeadKind> (b):
+pub fn text_utf8_lead_kind <(i32)->TextUtf8LeadKind> (b):
     if:
         le b 127
         then:
@@ -54,14 +54,14 @@ fn text_utf8_lead_kind <(i32)->TextUtf8LeadKind> (b):
                                 else:
                                     TextUtf8LeadKind::Invalid
 
-fn text_utf8_byte_at <(MemPtr<u8>,i32)->Result<i32, StdErrorKind>> (data, idx):
+pub fn text_utf8_byte_at <(MemPtr<u8>,i32)->Result<i32, StdErrorKind>> (data, idx):
     match load_u8 mem_ptr_add data idx:
         Option::Some b:
             Result<i32, StdErrorKind>::Ok b
         Option::None:
             Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
 
-fn text_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(), StdErrorKind>> (data, i, byte_len):
+pub fn text_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(), StdErrorKind>> (data, i, byte_len):
     if:
         gt add i 2 byte_len
         then:
@@ -78,7 +78,7 @@ fn text_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(), StdErrorKind>> (data
                         else:
                             Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
 
-fn text_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(), StdErrorKind>> (data, i, byte_len, b0):
+pub fn text_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(), StdErrorKind>> (data, i, byte_len, b0):
     if:
         gt add i 3 byte_len
         then:
@@ -111,7 +111,7 @@ fn text_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(), StdErrorKind>>
                                 else:
                                     Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
 
-fn text_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(), StdErrorKind>> (data, i, byte_len, b0):
+pub fn text_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(), StdErrorKind>> (data, i, byte_len, b0):
     if:
         gt add i 4 byte_len
         then:
@@ -161,7 +161,7 @@ fn text_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(), StdErrorKind>> 
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn text_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(), StdErrorKind>> (data, byte_len):
+pub fn text_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(), StdErrorKind>> (data, byte_len):
     if:
         lt byte_len 0
         then:

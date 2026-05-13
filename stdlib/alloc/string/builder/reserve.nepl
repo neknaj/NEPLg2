@@ -30,7 +30,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(log needed)
-fn string_builder_next_capacity <(i32,i32)->Result<i32,str>> (cap, needed):
+pub fn string_builder_next_capacity <(i32,i32)->Result<i32,str>> (cap, needed):
     let mut next <i32>:
         if:
             le cap 0
@@ -63,7 +63,7 @@ fn string_builder_next_capacity <(i32,i32)->Result<i32,str>> (cap, needed):
 //:
 //: [計算量/けいさんりょう]:
 //: - allocator に依存します。
-fn string_builder_with_capacity_result <(i32)->Result<StringBuilder,str>> (capacity):
+pub fn string_builder_with_capacity_result <(i32)->Result<StringBuilder,str>> (capacity):
     if:
         lt capacity 0
         then:
@@ -95,7 +95,7 @@ fn string_builder_with_capacity_result <(i32)->Result<StringBuilder,str>> (capac
 //:
 //: [計算量/けいさんりょう]:
 //: - grow なしなら O(1)、grow ありなら allocator / realloc に依存します。
-fn string_builder_reserve_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, additional):
+pub fn string_builder_reserve_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, additional):
     let len0 <i32> get sb "len";
     let cap0 <i32> get sb "cap";
     if:
@@ -168,10 +168,10 @@ fn string_builder_reserve_result <(StringBuilder,i32)->Result<StringBuilder,str>
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_builder_new_result <()->Result<StringBuilder,str>> ():
+pub fn string_builder_new_result <()->Result<StringBuilder,str>> ():
     string_builder_with_capacity_result 64
 
-fn string_builder_new <()->StringBuilder> ():
+pub fn string_builder_new <()->StringBuilder> ():
     match string_builder_new_result:
         Result::Ok sb:
             sb

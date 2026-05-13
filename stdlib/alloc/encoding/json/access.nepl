@@ -26,7 +26,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-fn json_is_null <(JsonValue)->bool> (v):
+pub fn json_is_null <(JsonValue)->bool> (v):
     match v:
         JsonValue::Null:
             true
@@ -54,7 +54,7 @@ fn json_is_null <(JsonValue)->bool> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-fn json_as_bool <(JsonValue)->Option<bool>> (v):
+pub fn json_as_bool <(JsonValue)->Option<bool>> (v):
     match v:
         JsonValue::Bool b:
             if:
@@ -87,7 +87,7 @@ fn json_as_bool <(JsonValue)->Option<bool>> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-fn json_as_number <(JsonValue)->Option<i32>> (v):
+pub fn json_as_number <(JsonValue)->Option<i32>> (v):
     match v:
         JsonValue::Number n:
             some<i32> n
@@ -115,7 +115,7 @@ fn json_as_number <(JsonValue)->Option<i32>> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-fn json_as_string <(JsonValue)->Option<str>> (v):
+pub fn json_as_string <(JsonValue)->Option<str>> (v):
     match v:
         JsonValue::String s:
             some<str> s
@@ -143,7 +143,7 @@ fn json_as_string <(JsonValue)->Option<str>> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn json_as_array <(JsonValue)->Option<Vec<JsonValue>>> (v):
+pub fn json_as_array <(JsonValue)->Option<Vec<JsonValue>>> (v):
     match v:
         JsonValue::Array a:
             some<Vec<JsonValue>> a
@@ -171,7 +171,7 @@ fn json_as_array <(JsonValue)->Option<Vec<JsonValue>>> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn json_as_object <(JsonValue)->Option<Vec<JsonMember>>> (v):
+pub fn json_as_object <(JsonValue)->Option<Vec<JsonMember>>> (v):
     match v:
         JsonValue::Object o:
             some<Vec<JsonMember>> o

@@ -45,28 +45,28 @@ trait Ord:
 //:     assert not ord_lt 3 3;
 //:     0
 //: ```
-fn ord_lt <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn ord_lt <.T: Ord> <(.T,.T)->bool> (a, b):
     Ord::lt a b
 
 //: ord_le: trait [経由/けいゆ]で `a <= b` を[構成/こうせい]する
 //:
 //: [実装/じっそう]:
 //: - `not (b < a)` として[求/もと]めます。
-fn ord_le <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn ord_le <.T: Ord> <(.T,.T)->bool> (a, b):
     not Ord::lt b a
 
 //: ord_gt: trait [経由/けいゆ]で `a > b` を[構成/こうせい]する
 //:
 //: [実装/じっそう]:
 //: - `b < a` として[求/もと]めます。
-fn ord_gt <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn ord_gt <.T: Ord> <(.T,.T)->bool> (a, b):
     Ord::lt b a
 
 //: ord_ge: trait [経由/けいゆ]で `a >= b` を[構成/こうせい]する
 //:
 //: [実装/じっそう]:
 //: - `not (a < b)` として[求/もと]めます。
-fn ord_ge <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn ord_ge <.T: Ord> <(.T,.T)->bool> (a, b):
     not Ord::lt a b
 
 impl Ord for i32:

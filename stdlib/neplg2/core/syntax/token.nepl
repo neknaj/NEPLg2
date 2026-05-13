@@ -37,7 +37,7 @@
 //: [目的/もくてき]:
 //: - Rust `nepl-core::lexer::TokenKind` の公開 JSON kind と同じ分類を self-host 側へ持ちます。
 //: - `Unterminated*` / `Unknown` は self-host lexer 内部の diagnostic 化用 token です。
-enum TokenKind:
+pub enum TokenKind:
     Indent
     Dedent
     Newline
@@ -121,7 +121,7 @@ impl Copy for TokenKind:
 //:
 //: [注意/ちゅうい]:
 //: - token は `Vec<SelfhostToken>` に[格納/かくのう]される Copy 値です。owned `str` を field に[持/も]たせず、lexeme は source text と span から必要な境界でだけ[切/き]り[出/だ]します。
-struct SelfhostToken:
+pub struct SelfhostToken:
     kind <TokenKind>
     span <SelfhostSourceSpan>
 
@@ -134,7 +134,7 @@ impl Copy for SelfhostToken:
         self
 
 //: selfhost_token_new: token を[構築/こうちく]する
-fn selfhost_token_new <(TokenKind,SelfhostSourceSpan)->SelfhostToken> (kind, span):
+pub fn selfhost_token_new <(TokenKind,SelfhostSourceSpan)->SelfhostToken> (kind, span):
     SelfhostToken kind span
 
 //: selfhost_token_lexeme: source text と token span から lexeme を[切/き]り[出/だ]す
@@ -144,12 +144,12 @@ fn selfhost_token_new <(TokenKind,SelfhostSourceSpan)->SelfhostToken> (kind, spa
 //:
 //: [注意/ちゅうい]:
 //: - 返された `str` は呼び出し側の assertion / parser / resolver などの消費境界へ渡してください。
-fn selfhost_token_lexeme <(str,SelfhostToken)->str> (source, token):
+pub fn selfhost_token_lexeme <(str,SelfhostToken)->str> (source, token):
     let span <SelfhostSourceSpan> field::get token "span"
     string_slice::str_slice source field::get span "start" field::get span "end"
 
 //: token_kind_name: Rust `analyze_lex` JSON と同じ token kind [名/めい]を[返/かえ]す
-fn token_kind_name <(TokenKind)->str> (kind):
+pub fn token_kind_name <(TokenKind)->str> (kind):
     match kind:
         TokenKind::Indent:
             "Indent"
@@ -293,7 +293,7 @@ fn token_kind_name <(TokenKind)->str> (kind):
             "Unknown"
 
 //: selfhost_token_is_eof: EOF token か[返/かえ]す
-fn selfhost_token_is_eof <(SelfhostToken)->bool> (token):
+pub fn selfhost_token_is_eof <(SelfhostToken)->bool> (token):
     match field::get token "kind":
         TokenKind::Indent:
             false
@@ -437,7 +437,7 @@ fn selfhost_token_is_eof <(SelfhostToken)->bool> (token):
             false
 
 //: selfhost_token_is_error: lexical error token か[返/かえ]す
-fn selfhost_token_is_error <(SelfhostToken)->bool> (token):
+pub fn selfhost_token_is_error <(SelfhostToken)->bool> (token):
     match field::get token "kind":
         TokenKind::Indent:
             false
@@ -581,7 +581,7 @@ fn selfhost_token_is_error <(SelfhostToken)->bool> (token):
             true
 
 //: selfhost_token_is_newline: newline token か[返/かえ]す
-fn selfhost_token_is_newline <(SelfhostToken)->bool> (token):
+pub fn selfhost_token_is_newline <(SelfhostToken)->bool> (token):
     match field::get token "kind":
         TokenKind::Indent:
             false
@@ -725,7 +725,7 @@ fn selfhost_token_is_newline <(SelfhostToken)->bool> (token):
             false
 
 //: selfhost_token_is_expr_start: prefix expression の[先頭/せんとう]候補か[返/かえ]す
-fn selfhost_token_is_expr_start <(SelfhostToken)->bool> (token):
+pub fn selfhost_token_is_expr_start <(SelfhostToken)->bool> (token):
     match field::get token "kind":
         TokenKind::Indent:
             false
@@ -869,11 +869,11 @@ fn selfhost_token_is_expr_start <(SelfhostToken)->bool> (token):
             false
 
 //: selfhost_token_end: token span の end offset を[返/かえ]す
-fn selfhost_token_end <(SelfhostToken)->i32> (token):
+pub fn selfhost_token_end <(SelfhostToken)->i32> (token):
     let span <SelfhostSourceSpan> field::get token "span"
     field::get span "end"
 
 //: selfhost_token_stage0: Stage 0 marker 互換の smoke API
-fn selfhost_token_stage0 <()->i32> ():
+pub fn selfhost_token_stage0 <()->i32> ():
     let token <SelfhostToken> selfhost_token_new TokenKind::Ident source_span_new 0 1 3
     if selfhost_token_is_expr_start token 0 1

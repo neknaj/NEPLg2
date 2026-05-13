@@ -31,7 +31,7 @@
 //:     free st
 //:     if ok 1 0
 //: ```
-fn new <(i32)*>Result<SegmentTree, Diag>> (n):
+pub fn new <(i32)*>Result<SegmentTree, Diag>> (n):
     if:
         lt n 0
         then diag_err<SegmentTree> seg_diag_len

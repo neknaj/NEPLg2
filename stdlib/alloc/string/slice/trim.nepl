@@ -39,7 +39,7 @@
 //:                 else 1
 //:         else 1
 //: ```
-fn str_trim_suffix_cr <(str)->str> (s):
+pub fn str_trim_suffix_cr <(str)->str> (s):
     let n <i32> len s
     if:
         and gt n 0 eq string_byte_at_unchecked s sub n 1 '\r'
@@ -59,7 +59,7 @@ fn str_trim_suffix_cr <(str)->str> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(end - start)
-fn str_slice_trim_suffix_cr <(str,i32,i32)->str> (s, start, end):
+pub fn str_slice_trim_suffix_cr <(str,i32,i32)->str> (s, start, end):
     let n <i32> len s
     let mut s0 <i32> start
     let mut e0 <i32> end
@@ -95,7 +95,7 @@ fn str_slice_trim_suffix_cr <(str,i32,i32)->str> (s, start, end):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn str_trim <(str)->str> (s):
+pub fn str_trim <(str)->str> (s):
     let n <i32> len s;
     let mut start <i32> 0;
     let mut end <i32> n;

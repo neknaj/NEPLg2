@@ -55,7 +55,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n + |exponent|)
-fn to_f64 <(str)->Result<f64,i32>> (s):
+pub fn to_f64 <(str)->Result<f64,i32>> (s):
     let n <i32> len s;
     let mut i <i32> 0;
     let mut ok <i32> 1;
@@ -276,7 +276,7 @@ fn to_f64 <(str)->Result<f64,i32>> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - `to_f64` に従います。
-fn to_f32 <(str)->Result<f32,i32>> (s):
+pub fn to_f32 <(str)->Result<f32,i32>> (s):
     match to_f64 s:
         Result::Ok v64:
             Result::Ok<f32,i32> <f32> cast v64

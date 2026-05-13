@@ -61,7 +61,7 @@
 //:         Result::Err _e:
 //:             2
 //: ```
-fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
+pub fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
     match fs_open_read path:
         Result::Ok fd:
             let res <Result<ByteBuf,i32>> fs_read_fd_bytes fd;
@@ -117,7 +117,7 @@ fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
 //:         Result::Err _e:
 //:             2
 //: ```
-fn fs_read_to_string <(str)*>Result<str,i32>> (path):
+pub fn fs_read_to_string <(str)*>Result<str,i32>> (path):
     match fs_read_to_bytes path:
         Result::Ok bytes:
             fs_bytes_to_string_result bytes
@@ -138,7 +138,7 @@ fn fs_read_to_string <(str)*>Result<str,i32>> (path):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn fs_read_to_string_checked <(str)*>Result<str,i32>> (path):
+pub fn fs_read_to_string_checked <(str)*>Result<str,i32>> (path):
     match fs_read_to_bytes path:
         Result::Ok bytes:
             fs_bytes_to_utf8_string_result bytes

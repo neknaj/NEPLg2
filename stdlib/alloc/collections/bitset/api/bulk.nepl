@@ -14,7 +14,7 @@
 
 //: ## bitset_fill_value
 //: [内部/ないぶ] byte storage を[指定/してい] byte で[埋/う]める
-fn bitset_fill_value <(BitSet,i32)*>BitSet> (bs, byte_value):
+pub fn bitset_fill_value <(BitSet,i32)*>BitSet> (bs, byte_value):
     let nbytes <i32> *field::get_ref &bs "nbytes"
     let bits <&Vec<u8>> field::get_ref &bs "bits"
     bitset_fill_bytes bits nbytes byte_value
@@ -39,7 +39,7 @@ fn bitset_fill_value <(BitSet,i32)*>BitSet> (bs, byte_value):
 //:     free bs
 //:     if not ok 1 0
 //: ```
-fn clear <(BitSet)*>BitSet> (bs):
+pub fn clear <(BitSet)*>BitSet> (bs):
     bitset_fill_value bs 0
 
 //: ## fill
@@ -59,5 +59,5 @@ fn clear <(BitSet)*>BitSet> (bs):
 //:     free bs1
 //:     if ok 1 0
 //: ```
-fn fill <(BitSet)*>BitSet> (bs):
+pub fn fill <(BitSet)*>BitSet> (bs):
     bitset_fill_value bs 255

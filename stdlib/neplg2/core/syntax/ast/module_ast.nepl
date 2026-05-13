@@ -53,7 +53,7 @@
 //: [目的/もくてき]:
 //: - self-host parser の初期段階で、宣言開始 token と compiler directive を安定した enum に写します。
 //: - raw backend body は開始 directive と本文行を別 item にし、後続 parser が block として再構成できるようにします。
-enum SelfhostModuleItemKind:
+pub enum SelfhostModuleItemKind:
     DocComment
     MlstrLine
     EntryDirective
@@ -89,7 +89,7 @@ impl Copy for SelfhostModuleItemKind:
 //: [目的/もくてき]:
 //: - item kind、source span、元 lexeme をまとめて保持します。
 //: - raw text 行も通常 item と同じ形にして、AST JSON parity の比較を単純にします。
-struct SelfhostModuleItem:
+pub struct SelfhostModuleItem:
     kind <SelfhostModuleItemKind>
     span <SelfhostSourceSpan>
     lexeme <str>
@@ -103,15 +103,15 @@ impl Copy for SelfhostModuleItem:
         self
 
 //: SelfhostModuleAst: module item [列/れつ]を所有する AST root
-struct SelfhostModuleAst:
+pub struct SelfhostModuleAst:
     items <Vec<SelfhostModuleItem>>
 
 //: selfhost_module_item_new: module item を[構築/こうちく]する
-fn selfhost_module_item_new <(SelfhostModuleItemKind,SelfhostSourceSpan,str)->SelfhostModuleItem> (kind, span, lexeme):
+pub fn selfhost_module_item_new <(SelfhostModuleItemKind,SelfhostSourceSpan,str)->SelfhostModuleItem> (kind, span, lexeme):
     SelfhostModuleItem kind span lexeme
 
 //: selfhost_module_item_kind_name: item kind の安定名を[返/かえ]す
-fn selfhost_module_item_kind_name <(SelfhostModuleItemKind)->str> (kind):
+pub fn selfhost_module_item_kind_name <(SelfhostModuleItemKind)->str> (kind):
     match kind:
         SelfhostModuleItemKind::DocComment:
             "DocComment"
@@ -157,7 +157,7 @@ fn selfhost_module_item_kind_name <(SelfhostModuleItemKind)->str> (kind):
             "ImplDecl"
 
 //: selfhost_module_ast_new: [空/から]の module AST を[作/つく]る
-fn selfhost_module_ast_new <()*>Result<SelfhostModuleAst, StdErrorKind>> ():
+pub fn selfhost_module_ast_new <()*>Result<SelfhostModuleAst, StdErrorKind>> ():
     match v::new<SelfhostModuleItem>:
         Result::Ok items:
             Result<SelfhostModuleAst, StdErrorKind>::Ok SelfhostModuleAst items
@@ -165,7 +165,7 @@ fn selfhost_module_ast_new <()*>Result<SelfhostModuleAst, StdErrorKind>> ():
             Result<SelfhostModuleAst, StdErrorKind>::Err e
 
 //: selfhost_module_ast_push: module item を 1 件[追加/ついか]する
-fn selfhost_module_ast_push <(SelfhostModuleAst,SelfhostModuleItem)*>Result<SelfhostModuleAst, StdErrorKind>> (ast, item):
+pub fn selfhost_module_ast_push <(SelfhostModuleAst,SelfhostModuleItem)*>Result<SelfhostModuleAst, StdErrorKind>> (ast, item):
     match v::push<SelfhostModuleItem> field::get ast "items" item:
         Result::Ok items:
             Result<SelfhostModuleAst, StdErrorKind>::Ok SelfhostModuleAst items
@@ -173,21 +173,21 @@ fn selfhost_module_ast_push <(SelfhostModuleAst,SelfhostModuleItem)*>Result<Self
             Result<SelfhostModuleAst, StdErrorKind>::Err e
 
 //: selfhost_module_ast_len: module item [数/すう]を[返/かえ]す
-fn selfhost_module_ast_len <(&SelfhostModuleAst)->i32> (ast):
+pub fn selfhost_module_ast_len <(&SelfhostModuleAst)->i32> (ast):
     let items <&Vec<SelfhostModuleItem>> field::get_ref ast "items"
     v::len<SelfhostModuleItem> items
 
 //: selfhost_module_ast_get: index の module item を[返/かえ]す
-fn selfhost_module_ast_get <(&SelfhostModuleAst,i32)->Option<SelfhostModuleItem>> (ast, idx):
+pub fn selfhost_module_ast_get <(&SelfhostModuleAst,i32)->Option<SelfhostModuleItem>> (ast, idx):
     let items <&Vec<SelfhostModuleItem>> field::get_ref ast "items"
     v::get<SelfhostModuleItem> items idx
 
 //: selfhost_module_ast_free: module AST が所有する item buffer を[解放/かいほう]する
-fn selfhost_module_ast_free <(SelfhostModuleAst)*>()> (ast):
+pub fn selfhost_module_ast_free <(SelfhostModuleAst)*>()> (ast):
     v::free<SelfhostModuleItem> field::get ast "items"
 
 //: selfhost_module_ast_stage0: AST root の smoke API
-fn selfhost_module_ast_stage0 <()*>i32> ():
+pub fn selfhost_module_ast_stage0 <()*>i32> ():
     match selfhost_module_ast_new:
         Result::Ok ast:
             let n <i32> selfhost_module_ast_len &ast

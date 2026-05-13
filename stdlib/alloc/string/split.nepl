@@ -26,7 +26,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - n を `s` の byte 長、m を `sep` の byte 長として O(n * m) です。
-fn str_split_count <(str,str,i32,i32)->i32> (s, sep, s_len, sep_len):
+pub fn str_split_count <(str,str,i32,i32)->i32> (s, sep, s_len, sep_len):
     if:
         eq sep_len 0
         then:
@@ -55,7 +55,7 @@ fn str_split_count <(str,str,i32,i32)->i32> (s, sep, s_len, sep_len):
 //:
 //: [注意/ちゅうい]:
 //: - 呼び出し側は `match` で `Part` / `Done` を明示的に扱います。
-enum StrSplitStepKind:
+pub enum StrSplitStepKind:
     Part
     Done
 
@@ -74,7 +74,7 @@ impl Copy for StrSplitStepKind:
 //:
 //: [注意/ちゅうい]:
 //: - `kind` が `Done` の場合、start/end/next は 0 です。
-struct StrSplitStep:
+pub struct StrSplitStep:
     kind <StrSplitStepKind>
     start <i32>
     end <i32>
@@ -87,7 +87,7 @@ struct StrSplitStep:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn str_split_done_step <()->StrSplitStep> ():
+pub fn str_split_done_step <()->StrSplitStep> ():
     StrSplitStep StrSplitStepKind::Done 0 0 0
 
 //: str_split_next: allocation なしで次の split range を返す
@@ -106,7 +106,7 @@ fn str_split_done_step <()->StrSplitStep> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - n を残り byte 長、m を `sep` の byte 長として O(n * m) です。
-fn str_split_next <(str,str,i32)->StrSplitStep> (s, sep, cursor):
+pub fn str_split_next <(str,str,i32)->StrSplitStep> (s, sep, cursor):
     let s_len <i32> len s
     let sep_len <i32> len sep
     if:

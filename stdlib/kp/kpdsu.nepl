@@ -36,7 +36,7 @@
 //: ```
 
 //: dsu_new: `n` 頂点の DSU を作る
-fn dsu_new <(i32)*>i32> (n):
+pub fn dsu_new <(i32)*>i32> (n):
     let parent <i32> alloc_raw mul n 4;
     let size <i32> alloc_raw mul n 4;
     let mut i <i32> 0;
@@ -52,7 +52,7 @@ fn dsu_new <(i32)*>i32> (n):
     d
 
 //: dsu_free: DSU の内部領域を解放する
-fn dsu_free <(i32)*>()> (d):
+pub fn dsu_free <(i32)*>()> (d):
     let n <i32> load_i32 d;
     let parent <i32> load_i32 add d 4;
     let size <i32> load_i32 add d 8;
@@ -61,7 +61,7 @@ fn dsu_free <(i32)*>()> (d):
     dealloc_raw d 12
 
 //: dsu_find: 要素 `x` の代表元を返す
-fn dsu_find <(i32,i32)*>i32> (d, x):
+pub fn dsu_find <(i32,i32)*>i32> (d, x):
     let parent <i32> load_i32 add d 4;
     let mut r <i32> x;
     let mut p <i32> load_i32 add parent mul r 4;
@@ -81,11 +81,11 @@ fn dsu_find <(i32,i32)*>i32> (d, x):
     root
 
 //: dsu_same: `a` と `b` が同じ連結成分か判定する
-fn dsu_same <(i32,i32,i32)*>bool> (d, a, b):
+pub fn dsu_same <(i32,i32,i32)*>bool> (d, a, b):
     eq dsu_find d a dsu_find d b
 
 //: dsu_unite: `a` と `b` の成分を併合する（既に同じなら何もしない）
-fn dsu_unite <(i32,i32,i32)*>()> (d, a, b):
+pub fn dsu_unite <(i32,i32,i32)*>()> (d, a, b):
     let size <i32> load_i32 add d 8;
     let mut ra <i32> dsu_find d a;
     let mut rb <i32> dsu_find d b;
@@ -105,7 +105,7 @@ fn dsu_unite <(i32,i32,i32)*>()> (d, a, b):
         else ()
 
 //: dsu_size: `x` が属する成分サイズを返す
-fn dsu_size <(i32,i32)*>i32> (d, x):
+pub fn dsu_size <(i32,i32)*>i32> (d, x):
     let size <i32> load_i32 add d 8;
     let r <i32> dsu_find d x;
     load_i32 add size mul r 4

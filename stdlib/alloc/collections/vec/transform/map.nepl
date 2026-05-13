@@ -64,7 +64,7 @@
 //:             free<i32> ys;
 //:             1
 //: ```
-fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
+pub fn map <.T: Copy,.U: Copy> <(Vec<.T>, (.T)->.U)->Result<Vec<.U>, StdErrorKind>> (v, f):
     let src_len <i32> *field::get_ref &v "len"
     match vec_storage::with_capacity<.U> src_len:
         Result::Err e:

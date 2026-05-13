@@ -23,7 +23,7 @@
 #import "alloc/hash/fnv1a32" as *
 #import "alloc/string" as *
 
-fn hashkey_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
+pub fn hashkey_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
     if:
         ge idx n
         then h
@@ -44,12 +44,12 @@ trait HashKey:
 
 //: ## hashkey_eq
 //: `HashKey` trait [経由/けいゆ]で key [比較/ひかく]する
-fn hashkey_eq <.T: HashKey> <(.T,.T)->bool> (a, b):
+pub fn hashkey_eq <.T: HashKey> <(.T,.T)->bool> (a, b):
     HashKey::eq a b
 
 //: ## hashkey_hash32
 //: `HashKey` trait [経由/けいゆ]で 32-bit hash を[得/え]る
-fn hashkey_hash32 <.T: HashKey> <(.T)->i32> (x):
+pub fn hashkey_hash32 <.T: HashKey> <(.T)->i32> (x):
     HashKey::hash32 x
 
 impl HashKey for bool:

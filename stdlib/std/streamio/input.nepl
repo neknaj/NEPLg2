@@ -39,7 +39,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ][状態/じょうたい]を[持/も]たないので `Copy` / `Clone` を[実装/じっそう]します。
-struct StdinStream:
+pub struct StdinStream:
     marker <()>
 
 impl Copy for StdinStream:
@@ -58,7 +58,7 @@ impl Clone for StdinStream:
 //:
 //: ### [注意/ちゅうい]
 //: - [現在/げんざい]は[全読込/ぜんよみこみ] helper だけを[想定/そうてい]した in-memory source です。
-struct TextInputStream:
+pub struct TextInputStream:
     text <str>
 
 //: ## ByteInputStream
@@ -69,7 +69,7 @@ struct TextInputStream:
 //:
 //: ### [注意/ちゅうい]
 //: - `bytes` は stream [内部/ないぶ]へ[所有権/しょゆうけん]ごと[移動/いどう]します。
-struct ByteInputStream:
+pub struct ByteInputStream:
     bytes <ByteBuf>
 
 impl ByteReader for StdinStream:
@@ -142,30 +142,30 @@ impl StreamReadableResult for str:
 
 //: ## read
 //: `StdinStream` を[指定/してい]した[型/かた]として[読/よ]む
-fn read <.T: StreamReadableResult> <(StdinStream)*>Result<.T, StdErrorKind>> (stream):
+pub fn read <.T: StreamReadableResult> <(StdinStream)*>Result<.T, StdErrorKind>> (stream):
     StreamReadableResult::read_from_stdin stream
 
 //: ## read
 //: in-memory text stream を[指定/してい]した[型/かた]として[読/よ]む
-fn read <.T: StreamReadableResult> <(TextInputStream)*>Result<.T, StdErrorKind>> (stream):
+pub fn read <.T: StreamReadableResult> <(TextInputStream)*>Result<.T, StdErrorKind>> (stream):
     StreamReadableResult::read_from_text_stream stream
 
 //: ## read
 //: in-memory byte stream を[指定/してい]した[型/かた]として[読/よ]む
-fn read <.T: StreamReadableResult> <(ByteInputStream)*>Result<.T, StdErrorKind>> (stream):
+pub fn read <.T: StreamReadableResult> <(ByteInputStream)*>Result<.T, StdErrorKind>> (stream):
     StreamReadableResult::read_from_byte_stream stream
 
 //: ## close
 //: `StdinStream` を[閉/と]じる
-fn close <(StdinStream)*>Result<(), StdErrorKind>> (stream):
+pub fn close <(StdinStream)*>Result<(), StdErrorKind>> (stream):
     io_close stream
 
 //: ## close
 //: `TextInputStream` を[閉/と]じる
-fn close <(TextInputStream)*>Result<(), StdErrorKind>> (stream):
+pub fn close <(TextInputStream)*>Result<(), StdErrorKind>> (stream):
     io_close stream
 
 //: ## close
 //: `ByteInputStream` を[閉/と]じる
-fn close <(ByteInputStream)*>Result<(), StdErrorKind>> (stream):
+pub fn close <(ByteInputStream)*>Result<(), StdErrorKind>> (stream):
     io_close stream

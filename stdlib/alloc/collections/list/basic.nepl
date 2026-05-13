@@ -21,7 +21,7 @@
 //:
 //: ### [実装/じっそう]
 //: - `Vec.new` で backing storage を[作/つく]り、`List` owner として[包/つつ]みます。
-fn new <.T> <()*>Result<List<.T>, Diag>> ():
+pub fn new <.T> <()*>Result<List<.T>, Diag>> ():
     match vec::new<.T>:
         Result::Ok items:
             ok<List<.T>, Diag> List<.T> items
@@ -32,7 +32,7 @@ fn new <.T> <()*>Result<List<.T>, Diag>> ():
 //:
 //: ### [実装/じっそう]
 //: - 論理先頭は storage 末尾なので、`Vec.push` だけで先頭追加になります。
-fn cons <.T: Copy> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
+pub fn cons <.T: Copy> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
     let items <Vec<.T>> field::get tail "items"
     match vec::push<.T> items head:
         Result::Ok next_items:
@@ -41,14 +41,14 @@ fn cons <.T: Copy> <(.T,List<.T>)*>Result<List<.T>, Diag>> (head, tail):
             diag_err<List<.T>> list_diag_from_vec_error e
 
 //: push: pipe [向/む]けに[先頭/せんとう][追加/ついか]する
-fn push <.T: Copy> <(List<.T>,.T)*>Result<List<.T>, Diag>> (lst, head):
+pub fn push <.T: Copy> <(List<.T>,.T)*>Result<List<.T>, Diag>> (lst, head):
     cons<.T> head lst
 
 //: tail: list を[消費/しょうひ]して[先頭/せんとう]を[除/のぞ]いた list を[返/かえ]す
 //:
 //: ### [実装/じっそう]
 //: - 論理先頭は storage 末尾なので、`Vec.pop` で先頭を[取/と]り[除/のぞ]きます。
-fn tail <.T: Copy> <(List<.T>)->Option<List<.T>>> (lst):
+pub fn tail <.T: Copy> <(List<.T>)->Option<List<.T>>> (lst):
     let items <Vec<.T>> field::get lst "items"
     if:
         eq vec::len<.T> &items 0
@@ -67,12 +67,12 @@ fn tail <.T: Copy> <(List<.T>)->Option<List<.T>>> (lst):
                     none<List<.T>>
 
 //: reverse: list を[消費/しょうひ]して[論理順序/ろんりじゅんじょ]を[反転/はんてん]する
-fn reverse <.T: Copy> <(List<.T>)*>List<.T>> (lst):
+pub fn reverse <.T: Copy> <(List<.T>)*>List<.T>> (lst):
     let items <Vec<.T>> field::get lst "items"
     let n <i32> vec::len<.T> &items
     list_reverse_items<.T> &items 0 sub n 1
     List<.T> items
 
 //: free: list storage owner を[閉/と]じる
-fn free <.T> <(List<.T>)->()> (lst):
+pub fn free <.T> <(List<.T>)->()> (lst):
     list_free_items<.T> lst

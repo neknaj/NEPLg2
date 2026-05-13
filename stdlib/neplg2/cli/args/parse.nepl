@@ -43,7 +43,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - `data` は呼び出し元の Vec の内部 pointer なので、parser 中に Vec を変更してはいけません。
-fn selfhost_cli_arg_at <(i32,i32,i32)->Option<str>> (data, count, idx):
+pub fn selfhost_cli_arg_at <(i32,i32,i32)->Option<str>> (data, count, idx):
     if:
         lt idx 0
         then:
@@ -63,7 +63,7 @@ fn selfhost_cli_arg_at <(i32,i32,i32)->Option<str>> (data, count, idx):
 //:
 //: [注意/ちゅうい]:
 //: - 値が `-` で始まるかどうかはここでは判定しません。path や値として許可する余地を残します。
-fn selfhost_cli_next_value <(i32,i32,i32)->Result<str,SelfhostCliErrorKind>> (data, count, i):
+pub fn selfhost_cli_next_value <(i32,i32,i32)->Result<str,SelfhostCliErrorKind>> (data, count, i):
     match selfhost_cli_arg_at data count add i 1:
         Option::Some value:
             ok<str,SelfhostCliErrorKind> value
@@ -74,7 +74,7 @@ fn selfhost_cli_next_value <(i32,i32,i32)->Result<str,SelfhostCliErrorKind>> (da
 //:
 //: [目的/もくてき]:
 //: - positional input と `-i/--input` を同じ重複規則で処理します。
-fn selfhost_cli_set_input <(Option<str>,str)->Result<Option<str>,SelfhostCliErrorKind>> (current, value):
+pub fn selfhost_cli_set_input <(Option<str>,str)->Result<Option<str>,SelfhostCliErrorKind>> (current, value):
     match current:
         Option::Some _old:
             err<Option<str>,SelfhostCliErrorKind> SelfhostCliErrorKind::MultipleInput
@@ -82,7 +82,7 @@ fn selfhost_cli_set_input <(Option<str>,str)->Result<Option<str>,SelfhostCliErro
             ok<Option<str>,SelfhostCliErrorKind> some<str> value
 
 //: selfhost_cli_finish: 走査済み state を success result にする
-fn selfhost_cli_finish <(Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmitSet,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool,Option<i32>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose, run_args_start):
+pub fn selfhost_cli_finish <(Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmitSet,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool,Option<i32>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose, run_args_start):
     ok<SelfhostCliOptions,SelfhostCliErrorKind> selfhost_cli_options_new check run attach_source lib verbose emit target profile stdlib_root output input run_args_start
 
 //: selfhost_cli_parse_loop: argv parser の本体
@@ -96,7 +96,7 @@ fn selfhost_cli_finish <(Option<str>,Option<str>,Option<str>,Option<SelfhostCliT
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmitSet,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (data, count, i, input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose):
+pub fn selfhost_cli_parse_loop <(i32,i32,i32,Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmitSet,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (data, count, i, input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose):
     if:
         le count i
         then:

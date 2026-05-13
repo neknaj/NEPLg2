@@ -3,6 +3,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::ast::Ident;
+use crate::ast::Visibility;
 
 use super::env::Binding;
 use super::signature::same_function_signature;
@@ -25,6 +26,9 @@ impl<'a> BlockChecker<'a> {
                 if binding.span.file_id.0 != target_file {
                     continue;
                 }
+                if binding.visibility != Visibility::Pub {
+                    continue;
+                }
                 let key = (
                     binding.span.file_id.0,
                     binding.span.start,
@@ -45,6 +49,9 @@ impl<'a> BlockChecker<'a> {
     }
 
     pub(super) fn binding_is_visible_unqualified(&self, id: &Ident, binding: &Binding) -> bool {
+        if binding.span.file_id != id.span.file_id && binding.visibility != Visibility::Pub {
+            return false;
+        }
         self.import_resolution.binding_is_visible_unqualified(
             id.span.file_id.0,
             &id.name,

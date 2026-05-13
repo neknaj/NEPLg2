@@ -44,7 +44,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn add_u8 <(u8,u8)->u8> (a,b):
+pub fn add_u8 <(u8,u8)->u8> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -74,7 +74,7 @@ fn add_u8 <(u8,u8)->u8> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn sub_u8 <(u8,u8)->u8> (a,b):
+pub fn sub_u8 <(u8,u8)->u8> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -104,7 +104,7 @@ fn sub_u8 <(u8,u8)->u8> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn mul_u8 <(u8,u8)->u8> (a,b):
+pub fn mul_u8 <(u8,u8)->u8> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -134,7 +134,7 @@ fn mul_u8 <(u8,u8)->u8> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn div_u_u8 <(u8,u8)->u8> (a,b):
+pub fn div_u_u8 <(u8,u8)->u8> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -161,7 +161,7 @@ fn div_u_u8 <(u8,u8)->u8> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn rem_u_u8 <(u8,u8)->u8> (a,b):
+pub fn rem_u_u8 <(u8,u8)->u8> (a,b):
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -176,21 +176,21 @@ fn rem_u_u8 <(u8,u8)->u8> (a,b):
         }
 
 //: add: u8 の加算（mod 2^8）
-fn add <(u8,u8)->u8> (a,b):
+pub fn add <(u8,u8)->u8> (a,b):
     add_u8 a b
 
 //: sub: u8 の減算（mod 2^8）
-fn sub <(u8,u8)->u8> (a,b):
+pub fn sub <(u8,u8)->u8> (a,b):
     sub_u8 a b
 
 //: mul: u8 の乗算（mod 2^8）
-fn mul <(u8,u8)->u8> (a,b):
+pub fn mul <(u8,u8)->u8> (a,b):
     mul_u8 a b
 
 //: div_u: u8 の符号なし除算
-fn div_u <(u8,u8)->u8> (a,b):
+pub fn div_u <(u8,u8)->u8> (a,b):
     div_u_u8 a b
 
 //: rem_u: u8 の符号なし剰余
-fn rem_u <(u8,u8)->u8> (a,b):
+pub fn rem_u <(u8,u8)->u8> (a,b):
     rem_u_u8 a b

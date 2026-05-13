@@ -31,7 +31,7 @@
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-fn fs_write_to_bytes <(str,ByteBuf)*>Result<(),i32>> (path, bytes):
+pub fn fs_write_to_bytes <(str,ByteBuf)*>Result<(),i32>> (path, bytes):
     match fs_open_write path:
         Result::Err e:
             io_bytebuf_free bytes
@@ -87,7 +87,7 @@ fn fs_write_to_bytes <(str,ByteBuf)*>Result<(),i32>> (path, bytes):
 //:                 Result::Err _e:
 //:                     3
 //: ```
-fn fs_write_to_string <(str,str)*>Result<(),i32>> (path, text):
+pub fn fs_write_to_string <(str,str)*>Result<(),i32>> (path, text):
     match io_bytebuf_from_str_result text:
         Result::Ok bytes:
             fs_write_to_bytes path bytes

@@ -44,7 +44,7 @@
 //:     free<i32> hp3
 //:     if ok 1 0
 //: ```
-fn push <.T: Ord&Copy> <(BinaryHeap<.T>,.T)*>Result<BinaryHeap<.T>, Diag>> (hp, item):
+pub fn push <.T: Ord&Copy> <(BinaryHeap<.T>,.T)*>Result<BinaryHeap<.T>, Diag>> (hp, item):
     let len0 <i32> *field::get_ref &hp "len"
     let cap0 <i32> *field::get_ref &hp "cap"
     let items <Vec<Option<.T>>> field::get hp "items"

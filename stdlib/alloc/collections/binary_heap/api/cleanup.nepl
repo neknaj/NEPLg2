@@ -26,5 +26,5 @@
 //:     free hp;
 //:     0
 //: ```
-fn free <.T> <(BinaryHeap<.T>)->()> (hp):
+pub fn free <.T> <(BinaryHeap<.T>)->()> (hp):
     vec::free<Option<.T>> field::get hp "items"

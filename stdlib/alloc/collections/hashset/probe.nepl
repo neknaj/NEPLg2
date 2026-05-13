@@ -20,11 +20,11 @@
 //:
 //: ### [実装/じっそう]
 //: - hasher の `hash32` を unsigned remainder として capacity に[収/おさ]めます。
-fn hashset_bucket_index <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(i32,.H,.T)->i32> (cap, hasher, key):
+pub fn hashset_bucket_index <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(i32,.H,.T)->i32> (cap, hasher, key):
     rem_u hash_with<.T,.H> hasher key cap
 
 //: hashset_next_slot: linear probing の[次/つぎ]の index を[返/かえ]す
-fn hashset_next_slot <(i32,i32)->i32> (idx, cap):
+pub fn hashset_next_slot <(i32,i32)->i32> (idx, cap):
     rem_u add idx 1 cap
 
 //: hashset_find_present: key が[存在/そんざい]する slot を[探/さが]す
@@ -32,7 +32,7 @@ fn hashset_next_slot <(i32,i32)->i32> (idx, cap):
 //: ### [実装/じっそう]
 //: - hash index から linear probing し、`Empty` で chain 終端、`Tombstone` は[通過/つうか]、`Full` は key equality で[判定/はんてい]します。
 //: - [見/み]つからなければ -1 を[返/かえ]します。
-fn hashset_find_present <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetStorage<.T>,i32,.H,.T)->i32> (storage, cap, hasher, key):
+pub fn hashset_find_present <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetStorage<.T>,i32,.H,.T)->i32> (storage, cap, hasher, key):
     let states <&Vec<HashSetBucketState>> hashset_storage_states<.T> storage
     let keys <&Vec<Option<.T>>> hashset_storage_keys<.T> storage
     let start <i32> hashset_bucket_index<.T,.H> cap hasher key
@@ -64,7 +64,7 @@ fn hashset_find_present <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetStorage
 //:
 //: ### [実装/じっそう]
 //: - 最初の tombstone を[覚/おぼ]えつつ probe し、empty に[到達/とうたつ]したら tombstone 優先で[返/かえ]します。
-fn hashset_find_insert_slot <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetStorage<.T>,i32,.H,.T)->HashSetInsertSlot> (storage, cap, hasher, key):
+pub fn hashset_find_insert_slot <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetStorage<.T>,i32,.H,.T)->HashSetInsertSlot> (storage, cap, hasher, key):
     let states <&Vec<HashSetBucketState>> hashset_storage_states<.T> storage
     let start <i32> hashset_bucket_index<.T,.H> cap hasher key
     let mut cur <i32> start
@@ -97,7 +97,7 @@ fn hashset_find_insert_slot <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetSto
 //:
 //: ### [目的/もくてき]
 //: - 既存 key を新しい empty storage へ[再配置/さいはいち]します。
-fn hashset_insert_entry_into_storage <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetStorage<.T>,i32,.H,.T)*>()> (storage, cap, hasher, key):
+pub fn hashset_insert_entry_into_storage <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSetStorage<.T>,i32,.H,.T)*>()> (storage, cap, hasher, key):
     let slot <HashSetInsertSlot> hashset_find_insert_slot<.T,.H> storage cap hasher key
     let idx <i32> field::get slot "index"
     hashset_store_full<.T> storage idx key

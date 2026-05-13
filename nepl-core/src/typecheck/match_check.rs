@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 
-use crate::ast::{MatchArm, MatchExpr, MatchPattern};
+use crate::ast::{MatchArm, MatchExpr, MatchPattern, Visibility};
 use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::hir::{HirExpr, HirExprKind, HirMatchArm, HirMatchPattern};
 use crate::span::Span;
@@ -179,6 +179,7 @@ impl<'a> BlockChecker<'a> {
                     let _ = self.env.insert_local(Binding {
                         name: bind.name.clone(),
                         ty: pty,
+                        visibility: Visibility::Private,
                         mutable: false,
                         no_shadow: false,
                         defined: true,

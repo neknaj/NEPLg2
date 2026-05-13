@@ -34,7 +34,7 @@
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
-fn remove <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K)*>BTreeMap<.K,.V>> (hm, key):
+pub fn remove <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K)*>BTreeMap<.K,.V>> (hm, key):
     let len0 <i32> *field::get_ref &hm "len"
     let cap0 <i32> *field::get_ref &hm "cap"
     let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"
@@ -66,7 +66,7 @@ fn remove <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K)*>BTreeMap<.K,.V>> (hm, k
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
-fn clear <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)*>BTreeMap<.K,.V>> (hm):
+pub fn clear <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)*>BTreeMap<.K,.V>> (hm):
     let len0 <i32> *field::get_ref &hm "len"
     let cap0 <i32> *field::get_ref &hm "cap"
     let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"

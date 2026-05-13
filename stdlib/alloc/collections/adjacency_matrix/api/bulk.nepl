@@ -14,7 +14,7 @@
 
 //: ## adjacency_matrix_fill_value
 //: [内部/ないぶ] byte storage を[指定/してい] byte で[埋/う]める
-fn adjacency_matrix_fill_value <(AdjacencyMatrix,i32)*>AdjacencyMatrix> (g, byte_value):
+pub fn adjacency_matrix_fill_value <(AdjacencyMatrix,i32)*>AdjacencyMatrix> (g, byte_value):
     let nbytes <i32> *field::get_ref &g "nbytes"
     let bits <&Vec<u8>> field::get_ref &g "bits"
     adjacency_matrix_fill_bytes bits nbytes byte_value
@@ -39,5 +39,5 @@ fn adjacency_matrix_fill_value <(AdjacencyMatrix,i32)*>AdjacencyMatrix> (g, byte
 //:     free g
 //:     if not ok 1 0
 //: ```
-fn clear <(AdjacencyMatrix)*>AdjacencyMatrix> (g):
+pub fn clear <(AdjacencyMatrix)*>AdjacencyMatrix> (g):
     adjacency_matrix_fill_value g 0

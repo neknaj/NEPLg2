@@ -35,7 +35,7 @@
 #import "neplg2/core/syntax/token" as *
 
 //: LexDiagnostic: lexer error を[構造化/こうぞうか]して[返/かえ]す値
-struct LexDiagnostic:
+pub struct LexDiagnostic:
     code <SelfhostLexerDiagnosticCode>
     span <SelfhostSourceSpan>
     message <str>
@@ -49,14 +49,14 @@ impl Copy for LexDiagnostic:
         self
 
 //: lex_diag_new: lexer diagnostic を[構築/こうちく]する
-fn lex_diag_new <(SelfhostLexerDiagnosticCode,SelfhostSourceSpan,str)->LexDiagnostic> (code, span, message):
+pub fn lex_diag_new <(SelfhostLexerDiagnosticCode,SelfhostSourceSpan,str)->LexDiagnostic> (code, span, message):
     LexDiagnostic code span message
 
 //: SelfhostLexerRawMode: raw backend text block の lexer state
 //:
 //: [目的/もくてき]:
 //: - raw block state を i32 sentinel ではなく enum で表し、mode 追加時に match arm の更新漏れを検査できるようにします。
-enum SelfhostLexerRawMode:
+pub enum SelfhostLexerRawMode:
     None
     Wasm
     LlvmIr
@@ -73,7 +73,7 @@ impl Copy for SelfhostLexerRawMode:
 //:
 //: [目的/もくてき]:
 //: - directive classification を enum に固定し、token 化時に match で網羅させます。
-enum SelfhostLexerDirectiveKind:
+pub enum SelfhostLexerDirectiveKind:
     Entry
     IndentWidth
     Target
@@ -100,25 +100,25 @@ impl Copy for SelfhostLexerDirectiveKind:
         self
 
 //: lex_is_digit: ASCII digit か[返/かえ]す
-fn lex_is_digit <(i32)->bool> (ch):
+pub fn lex_is_digit <(i32)->bool> (ch):
     and ge ch '0' le ch '9'
 
 //: lex_is_alpha: ASCII alphabet か[返/かえ]す
-fn lex_is_alpha <(i32)->bool> (ch):
+pub fn lex_is_alpha <(i32)->bool> (ch):
     let upper <bool> and ge ch 'A' le ch 'Z'
     let lower <bool> and ge ch 'a' le ch 'z'
     or upper lower
 
 //: lex_is_ident_start: identifier [先頭/せんとう] byte か[返/かえ]す
-fn lex_is_ident_start <(i32)->bool> (ch):
+pub fn lex_is_ident_start <(i32)->bool> (ch):
     or lex_is_alpha ch eq ch '_'
 
 //: lex_is_ident_continue: identifier [継続/けいぞく] byte か[返/かえ]す
-fn lex_is_ident_continue <(i32)->bool> (ch):
+pub fn lex_is_ident_continue <(i32)->bool> (ch):
     or lex_is_ident_start ch lex_is_digit ch
 
 //: lex_skip_line_comment: comment の[終/お]わり、または EOF offset を[返/かえ]す
-fn lex_skip_line_comment <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_skip_line_comment <(str,i32,i32)->i32> (source, n, idx):
     if:
         ge idx n
         then:
@@ -132,7 +132,7 @@ fn lex_skip_line_comment <(str,i32,i32)->i32> (source, n, idx):
                     lex_skip_line_comment source n add idx 1
 
 //: lex_is_doc_comment_at: doc comment prefix が指定 offset にあるか[返/かえ]す
-fn lex_is_doc_comment_at <(str,i32,i32)->bool> (source, n, idx):
+pub fn lex_is_doc_comment_at <(str,i32,i32)->bool> (source, n, idx):
     if:
         lt n add idx 3
         then:
@@ -163,7 +163,7 @@ fn lex_is_doc_comment_at <(str,i32,i32)->bool> (source, n, idx):
 //: [注意/ちゅうい]:
 //: - newline は token として[残/のこ]すため、ここでは[飛/と]ばしません。
 //: - doc comment は token として[残/のこ]すため、通常 comment とは分けます。
-fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
     if:
         ge idx n
         then:
@@ -199,7 +199,7 @@ fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
                     idx
 
 //: lex_ident_end: identifier の end offset を[返/かえ]す
-fn lex_ident_end <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_ident_end <(str,i32,i32)->i32> (source, n, idx):
     if:
         ge idx n
         then:
@@ -214,14 +214,14 @@ fn lex_ident_end <(str,i32,i32)->i32> (source, n, idx):
                     idx
 
 //: lex_is_hex_digit: ASCII hexadecimal digit か[返/かえ]す
-fn lex_is_hex_digit <(i32)->bool> (ch):
+pub fn lex_is_hex_digit <(i32)->bool> (ch):
     let digit <bool> lex_is_digit ch
     let lower <bool> and ge ch 'a' le ch 'f'
     let upper <bool> and ge ch 'A' le ch 'F'
     or digit or lower upper
 
 //: lex_hex_int_end: hexadecimal integer literal の end offset を[返/かえ]す
-fn lex_hex_int_end <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_hex_int_end <(str,i32,i32)->i32> (source, n, idx):
     if:
         ge idx n
         then:
@@ -236,7 +236,7 @@ fn lex_hex_int_end <(str,i32,i32)->i32> (source, n, idx):
                     idx
 
 //: lex_number_end_loop: decimal integer / float literal の end offset を[返/かえ]す
-fn lex_number_end_loop <(str,i32,i32,bool)->i32> (source, n, idx, seen_dot):
+pub fn lex_number_end_loop <(str,i32,i32,bool)->i32> (source, n, idx, seen_dot):
     if:
         ge idx n
         then:
@@ -260,7 +260,7 @@ fn lex_number_end_loop <(str,i32,i32,bool)->i32> (source, n, idx, seen_dot):
                             idx
 
 //: lex_range_has_dot: byte range に `.` が含まれるか[返/かえ]す
-fn lex_range_has_dot <(str,i32,i32)->bool> (source, idx, end):
+pub fn lex_range_has_dot <(str,i32,i32)->bool> (source, idx, end):
     if:
         ge idx end
         then:
@@ -279,7 +279,7 @@ fn lex_range_has_dot <(str,i32,i32)->bool> (source, idx, end):
 //: [注意/ちゅうい]:
 //: - 見つからない場合は -1 を[返/かえ]します。
 //: - `\"` は string 内の escaped quote として[扱/あつか]います。
-fn lex_string_end <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_string_end <(str,i32,i32)->i32> (source, n, idx):
     if:
         ge idx n
         then:
@@ -305,7 +305,7 @@ fn lex_string_end <(str,i32,i32)->i32> (source, n, idx):
 //: - 見つからない場合は -1 を[返/かえ]します。
 //: - `\'` は char 内の escaped quote として[扱/あつか]います。
 //: - 1 scalar かどうかの検査は parser / literal lowering の責務です。
-fn lex_char_end <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_char_end <(str,i32,i32)->i32> (source, n, idx):
     if:
         ge idx n
         then:
@@ -328,15 +328,15 @@ fn lex_char_end <(str,i32,i32)->i32> (source, n, idx):
                     lex_char_end source n add idx 1
 
 //: lex_token_slice: source range を span とする token を[作/つく]る
-fn lex_token_slice <(TokenKind,str,i32,i32,i32)->SelfhostToken> (kind, source, file_id, start, end):
+pub fn lex_token_slice <(TokenKind,str,i32,i32,i32)->SelfhostToken> (kind, source, file_id, start, end):
     selfhost_token_new kind source_span_new file_id start end
 
 //: lex_structural_token: offside rule の 0 byte token を[作/つく]る
-fn lex_structural_token <(TokenKind,i32,i32)->SelfhostToken> (kind, file_id, offset):
+pub fn lex_structural_token <(TokenKind,i32,i32)->SelfhostToken> (kind, file_id, offset):
     selfhost_token_new kind source_span_empty file_id offset
 
 //: lex_line_indent_width: line start から content までの indent 幅を[返/かえ]す
-fn lex_line_indent_width <(str,i32,i32,i32,i32)->i32> (source, n, idx, indent_unit, width):
+pub fn lex_line_indent_width <(str,i32,i32,i32,i32)->i32> (source, n, idx, indent_unit, width):
     if:
         ge idx n
         then:
@@ -354,7 +354,7 @@ fn lex_line_indent_width <(str,i32,i32,i32,i32)->i32> (source, n, idx, indent_un
                     width
 
 //: lex_line_content_start: line start から最初の非 horizontal whitespace offset を[返/かえ]す
-fn lex_line_content_start <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_line_content_start <(str,i32,i32)->i32> (source, n, idx):
     if:
         ge idx n
         then:
@@ -372,7 +372,7 @@ fn lex_line_content_start <(str,i32,i32)->i32> (source, n, idx):
                     idx
 
 //: lex_line_end: 現在行の newline 直前、または EOF offset を[返/かえ]す
-fn lex_line_end <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_line_end <(str,i32,i32)->i32> (source, n, idx):
     if:
         ge idx n
         then:
@@ -386,7 +386,7 @@ fn lex_line_end <(str,i32,i32)->i32> (source, n, idx):
                     lex_line_end source n add idx 1
 
 //: lex_line_is_blank_or_comment: offside stack を[変/か]えない行か[返/かえ]す
-fn lex_line_is_blank_or_comment <(str,i32,i32)->bool> (source, n, content_start):
+pub fn lex_line_is_blank_or_comment <(str,i32,i32)->bool> (source, n, content_start):
     if:
         ge content_start n
         then:
@@ -407,7 +407,7 @@ fn lex_line_is_blank_or_comment <(str,i32,i32)->bool> (source, n, content_start)
                     false
 
 //: lex_directive_boundary: `#indent` の後続 byte が directive 境界か[返/かえ]す
-fn lex_directive_boundary <(str,i32,i32)->bool> (source, n, idx):
+pub fn lex_directive_boundary <(str,i32,i32)->bool> (source, n, idx):
     if:
         ge idx n
         then:
@@ -429,13 +429,13 @@ fn lex_directive_boundary <(str,i32,i32)->bool> (source, n, idx):
                     false
 
 //: lex_starts_with_indent_directive: line content が `#indent` で[始/はじ]まるか[返/かえ]す
-fn lex_starts_with_indent_directive <(str,i32,i32)->bool> (source, n, start):
+pub fn lex_starts_with_indent_directive <(str,i32,i32)->bool> (source, n, start):
     let directive <str> "#indent"
     let directive_len <i32> string_access::len directive
     and string_search::str_starts_with_at source start directive lex_directive_boundary source n add start directive_len
 
 //: lex_skip_horizontal: 同じ行の horizontal whitespace を[読/よ]み[飛/と]ばす
-fn lex_skip_horizontal <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_skip_horizontal <(str,i32,i32)->i32> (source, n, idx):
     if:
         ge idx n
         then:
@@ -453,7 +453,7 @@ fn lex_skip_horizontal <(str,i32,i32)->i32> (source, n, idx):
                     idx
 
 //: lex_parse_indent_digits: `#indent` の数値引数を[読/よ]む
-fn lex_parse_indent_digits <(str,i32,i32,i32,bool)->i32> (source, n, idx, acc, seen):
+pub fn lex_parse_indent_digits <(str,i32,i32,i32,bool)->i32> (source, n, idx, acc, seen):
     if:
         ge idx n
         then:
@@ -469,7 +469,7 @@ fn lex_parse_indent_digits <(str,i32,i32,i32,bool)->i32> (source, n, idx, acc, s
                     if seen acc -1
 
 //: lex_indent_directive_unit: `#indent N` があれば offside 幅を[更新/こうしん]する
-fn lex_indent_directive_unit <(str,i32,i32,i32)->i32> (source, n, content_start, current_unit):
+pub fn lex_indent_directive_unit <(str,i32,i32,i32)->i32> (source, n, content_start, current_unit):
     if:
         lex_starts_with_indent_directive source n content_start
         then:
@@ -485,7 +485,7 @@ fn lex_indent_directive_unit <(str,i32,i32,i32)->i32> (source, n, content_start,
             current_unit
 
 //: lex_stack_top_result: indent stack の末尾を[読/よ]む
-fn lex_stack_top_result <(&Vec<i32>,i32,i32)->Result<i32,LexDiagnostic>> (stack, file_id, offset):
+pub fn lex_stack_top_result <(&Vec<i32>,i32,i32)->Result<i32,LexDiagnostic>> (stack, file_id, offset):
     let stack_len <i32> len<i32> stack
     if:
         le stack_len 0
@@ -499,7 +499,7 @@ fn lex_stack_top_result <(&Vec<i32>,i32,i32)->Result<i32,LexDiagnostic>> (stack,
                     Result<i32,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset "lexer indent stack top is unavailable"
 
 //: lex_stack_drop_top: indent stack の末尾 level を[捨/す]てた Vec を[返/かえ]す
-fn lex_stack_drop_top <(Vec<i32>)->Vec<i32>> (stack):
+pub fn lex_stack_drop_top <(Vec<i32>)->Vec<i32>> (stack):
     let stack_len <i32> *field::get_ref &stack "len"
     let stack_cap <i32> *field::get_ref &stack "cap"
     let stack_storage <VecStorageState> *field::get_ref &stack "storage"
@@ -507,7 +507,7 @@ fn lex_stack_drop_top <(Vec<i32>)->Vec<i32>> (stack):
     Vec<i32> sub stack_len 1 stack_cap stack_storage stack_data
 
 //: lex_indent_aligned: indent 幅が offside unit に[揃/そろ]っているか[返/かえ]す
-fn lex_indent_aligned <(i32,i32)->bool> (indent_width, indent_unit):
+pub fn lex_indent_aligned <(i32,i32)->bool> (indent_width, indent_unit):
     if:
         le indent_unit 0
         then:
@@ -516,16 +516,16 @@ fn lex_indent_aligned <(i32,i32)->bool> (indent_width, indent_unit):
             eq rem_s indent_width indent_unit 0
 
 //: lex_directive_word_at: 指定位置から directive word が始まり、後続が directive 境界か[返/かえ]す
-fn lex_directive_word_at <(str,i32,i32,str)->bool> (source, n, start, word):
+pub fn lex_directive_word_at <(str,i32,i32,str)->bool> (source, n, start, word):
     let word_len <i32> string_access::len word
     and string_search::str_starts_with_at source start word lex_directive_boundary source n add start word_len
 
 //: lex_directive_arg_start: directive 名の後ろの argument 開始 offset を[返/かえ]す
-fn lex_directive_arg_start <(str,i32,i32,i32)->i32> (source, n, start, name_len):
+pub fn lex_directive_arg_start <(str,i32,i32,i32)->i32> (source, n, start, name_len):
     lex_skip_horizontal source n add start name_len
 
 //: lex_hash_bracket_end: `#if[...]` directive の `]` 直後 offset を[返/かえ]す
-fn lex_hash_bracket_end <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_hash_bracket_end <(str,i32,i32)->i32> (source, n, idx):
     if:
         ge idx n
         then:
@@ -541,7 +541,7 @@ fn lex_hash_bracket_end <(str,i32,i32)->i32> (source, n, idx):
                     lex_hash_bracket_end source n add idx 1
 
 //: lex_directive_match_key_at: directive 候補の先頭 2 byte を match key にする
-fn lex_directive_match_key_at <(str,i32,i32)->i32> (source, n, start):
+pub fn lex_directive_match_key_at <(str,i32,i32)->i32> (source, n, start):
     if:
         lt add start 2 n
         then:
@@ -552,7 +552,7 @@ fn lex_directive_match_key_at <(str,i32,i32)->i32> (source, n, start):
             0
 
 //: lex_directive_kind_if_word: directive 候補を実文字列で検証する
-fn lex_directive_kind_if_word <(str,i32,i32,str,SelfhostLexerDirectiveKind,SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (source, n, start, word, kind, fallback):
+pub fn lex_directive_kind_if_word <(str,i32,i32,str,SelfhostLexerDirectiveKind,SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (source, n, start, word, kind, fallback):
     if:
         lex_directive_word_at source n start word
         then:
@@ -561,7 +561,7 @@ fn lex_directive_kind_if_word <(str,i32,i32,str,SelfhostLexerDirectiveKind,Selfh
             fallback
 
 //: lex_directive_kind_if_prefix: bracket directive 候補を prefix で検証する
-fn lex_directive_kind_if_prefix <(str,i32,str,SelfhostLexerDirectiveKind,SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (source, start, word, kind, fallback):
+pub fn lex_directive_kind_if_prefix <(str,i32,str,SelfhostLexerDirectiveKind,SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (source, start, word, kind, fallback):
     if:
         string_search::str_starts_with_at source start word
         then:
@@ -570,20 +570,20 @@ fn lex_directive_kind_if_prefix <(str,i32,str,SelfhostLexerDirectiveKind,Selfhos
             fallback
 
 //: lex_directive_kind_i_bucket: `#i...` directive を分類する
-fn lex_directive_kind_i_bucket <(str,i32,i32)->SelfhostLexerDirectiveKind> (source, n, start):
+pub fn lex_directive_kind_i_bucket <(str,i32,i32)->SelfhostLexerDirectiveKind> (source, n, start):
     let unknown <SelfhostLexerDirectiveKind> SelfhostLexerDirectiveKind::Unknown
     let intrinsic <SelfhostLexerDirectiveKind> lex_directive_kind_if_word source n start "#intrinsic" SelfhostLexerDirectiveKind::Intrinsic unknown
     let include <SelfhostLexerDirectiveKind> lex_directive_kind_if_word source n start "#include" SelfhostLexerDirectiveKind::Include intrinsic
     lex_directive_kind_if_word source n start "#indent" SelfhostLexerDirectiveKind::IndentWidth include
 
 //: lex_directive_kind_if_bucket: `#if[...]` directive を分類する
-fn lex_directive_kind_if_bucket <(str,i32)->SelfhostLexerDirectiveKind> (source, start):
+pub fn lex_directive_kind_if_bucket <(str,i32)->SelfhostLexerDirectiveKind> (source, start):
     let unknown <SelfhostLexerDirectiveKind> SelfhostLexerDirectiveKind::Unknown
     let profile <SelfhostLexerDirectiveKind> lex_directive_kind_if_prefix source start "#if[profile=" SelfhostLexerDirectiveKind::IfProfile unknown
     lex_directive_kind_if_prefix source start "#if[target=" SelfhostLexerDirectiveKind::IfTarget profile
 
 //: lex_directive_kind_at: `#` directive を enum として分類する
-fn lex_directive_kind_at <(str,i32,i32)->SelfhostLexerDirectiveKind> (source, n, start):
+pub fn lex_directive_kind_at <(str,i32,i32)->SelfhostLexerDirectiveKind> (source, n, start):
     match lex_directive_match_key_at source n start:
         25966:
             lex_directive_kind_if_word source n start "#entry" SelfhostLexerDirectiveKind::Entry SelfhostLexerDirectiveKind::Unknown
@@ -613,7 +613,7 @@ fn lex_directive_kind_at <(str,i32,i32)->SelfhostLexerDirectiveKind> (source, n,
             SelfhostLexerDirectiveKind::Unknown
 
 //: lex_directive_token: `#` から始まる directive token を[読/よ]む
-fn lex_directive_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
+pub fn lex_directive_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
     let line_end <i32> lex_line_end source n start
     match lex_directive_kind_at source n start:
         SelfhostLexerDirectiveKind::Entry:
@@ -651,11 +651,11 @@ fn lex_directive_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, s
             lex_token_slice TokenKind::Unknown source file_id start add start 1
 
 //: lex_mlstr_token: `##:` line を token 化する
-fn lex_mlstr_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
+pub fn lex_mlstr_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
     lex_token_slice TokenKind::MlstrLine source file_id start lex_line_end source n start
 
 //: lex_doc_comment_token: doc comment line を token 化する
-fn lex_doc_comment_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
+pub fn lex_doc_comment_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
     lex_token_slice TokenKind::DocComment source file_id start lex_line_end source n start
 
 //: lex_keyword_match_key: keyword 候補の先頭 2 byte を scalar `match` 用の key にする
@@ -667,7 +667,7 @@ fn lex_doc_comment_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id,
 //: [注意/ちゅうい]:
 //: - 先に byte length bucket で 2 byte 以上の候補に絞ってから呼びます。
 //: - key 値は lexer の内部実装です。同じ prefix の非 keyword は equality check で `None` に戻します。
-fn lex_keyword_match_key <(str)->i32> (lexeme):
+pub fn lex_keyword_match_key <(str)->i32> (lexeme):
     let first <i32> string_access::string_byte_at_unchecked lexeme 0
     let second <i32> string_access::string_byte_at_unchecked lexeme 1
     add mul first 256 second
@@ -676,7 +676,7 @@ fn lex_keyword_match_key <(str)->i32> (lexeme):
 //:
 //: [目的/もくてき]:
 //: - key の衝突で別 identifier が同じ arm に入っても、`str_eq` が一致した場合だけ keyword として扱います。
-fn lex_keyword_kind_if_eq <(str,str,TokenKind)->Option<TokenKind>> (lexeme, expected, kind):
+pub fn lex_keyword_kind_if_eq <(str,str,TokenKind)->Option<TokenKind>> (lexeme, expected, kind):
     match string_search::str_eq lexeme expected:
         true:
             Option<TokenKind>::Some kind
@@ -688,7 +688,7 @@ fn lex_keyword_kind_if_eq <(str,str,TokenKind)->Option<TokenKind>> (lexeme, expe
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 2 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - arm body では必ず実文字列を検証し、prefix だけが同じ identifier は `None` にします。
-fn lex_keyword_kind_len2 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len2 <(str)->Option<TokenKind>> (lexeme):
     match lex_keyword_match_key lexeme:
         26222:
             lex_keyword_kind_if_eq lexeme "fn" TokenKind::KwFn
@@ -704,7 +704,7 @@ fn lex_keyword_kind_len2 <(str)->Option<TokenKind>> (lexeme):
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 3 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - arm body では必ず実文字列を検証し、prefix だけが同じ identifier は `None` にします。
-fn lex_keyword_kind_len3 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len3 <(str)->Option<TokenKind>> (lexeme):
     match lex_keyword_match_key lexeme:
         27749:
             lex_keyword_kind_if_eq lexeme "let" TokenKind::KwLet
@@ -724,7 +724,7 @@ fn lex_keyword_kind_len3 <(str)->Option<TokenKind>> (lexeme):
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 4 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - `else` と `enum`、`then` と `true` のような同じ長さの prefix 近接候補も、実文字列検証で最終判定します。
-fn lex_keyword_kind_len4 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len4 <(str)->Option<TokenKind>> (lexeme):
     match lex_keyword_match_key lexeme:
         25455:
             lex_keyword_kind_if_eq lexeme "cond" TokenKind::KwCond
@@ -746,7 +746,7 @@ fn lex_keyword_kind_len4 <(str)->Option<TokenKind>> (lexeme):
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 5 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - arm body では必ず実文字列を検証し、prefix だけが同じ identifier は `None` にします。
-fn lex_keyword_kind_len5 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len5 <(str)->Option<TokenKind>> (lexeme):
     match lex_keyword_match_key lexeme:
         30568:
             lex_keyword_kind_if_eq lexeme "while" TokenKind::KwWhile
@@ -768,7 +768,7 @@ fn lex_keyword_kind_len5 <(str)->Option<TokenKind>> (lexeme):
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 6 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - `struct` / `trait` は token kind が異なるため、key arm 単位で実文字列を検証します。
-fn lex_keyword_kind_len6 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len6 <(str)->Option<TokenKind>> (lexeme):
     match lex_keyword_match_key lexeme:
         29556:
             lex_keyword_kind_if_eq lexeme "struct" TokenKind::KwStruct
@@ -782,7 +782,7 @@ fn lex_keyword_kind_len6 <(str)->Option<TokenKind>> (lexeme):
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 8 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - 現在は `noshadow` のみですが、他の 8 byte keyword を追加する場合も arm 単位で増やします。
-fn lex_keyword_kind_len8 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len8 <(str)->Option<TokenKind>> (lexeme):
     match lex_keyword_match_key lexeme:
         28271:
             lex_keyword_kind_if_eq lexeme "noshadow" TokenKind::KwNoShadow
@@ -800,7 +800,7 @@ fn lex_keyword_kind_len8 <(str)->Option<TokenKind>> (lexeme):
 //:
 //: [計算量/けいさんりょう]:
 //: - lexeme 長を n として O(n) 時間、追加領域は O(1) です。
-fn lex_keyword_kind <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind <(str)->Option<TokenKind>> (lexeme):
     match string_access::len lexeme:
         2:
             lex_keyword_kind_len2 lexeme
@@ -821,7 +821,7 @@ fn lex_keyword_kind <(str)->Option<TokenKind>> (lexeme):
 //:
 //: [目的/もくてき]:
 //: - keyword 判定用に切り出した一時文字列を `SelfhostToken` へ保存しないため、判定後に所有境界を閉じます。
-fn lex_consume_temp_str <(str)->()> (s):
+pub fn lex_consume_temp_str <(str)->()> (s):
     string_access::len s
     ()
 
@@ -829,7 +829,7 @@ fn lex_consume_temp_str <(str)->()> (s):
 //:
 //: [目的/もくてき]:
 //: - keyword 判定には一時 `str` を使いますが、token buffer には owner を持たない range-only token だけを保存します。
-fn lex_ident_or_keyword_token <(str,i32,i32,i32)->SelfhostToken> (source, file_id, start, end):
+pub fn lex_ident_or_keyword_token <(str,i32,i32,i32)->SelfhostToken> (source, file_id, start, end):
     let lexeme <str> string_slice::str_slice source start end
     let kind <TokenKind> match lex_keyword_kind lexeme:
         Option::Some keyword:
@@ -840,7 +840,7 @@ fn lex_ident_or_keyword_token <(str,i32,i32,i32)->SelfhostToken> (source, file_i
     lex_token_slice kind source file_id start end
 
 //: lex_next: 指定 offset 以降の 1 token を[返/かえ]す
-fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
+pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
     let start <i32> lex_skip_trivia source n idx
     if:
         ge start n
@@ -998,7 +998,7 @@ fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                                     lex_token_slice TokenKind::Unknown source file_id start add start 1
 
 //: lex_error_for_token: error token を diagnostic へ[変換/へんかん]する
-fn lex_error_for_token <(SelfhostToken)->LexDiagnostic> (token):
+pub fn lex_error_for_token <(SelfhostToken)->LexDiagnostic> (token):
     let span <SelfhostSourceSpan> field::get token "span"
     match field::get token "kind":
         TokenKind::Indent:
@@ -1143,7 +1143,7 @@ fn lex_error_for_token <(SelfhostToken)->LexDiagnostic> (token):
             lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
 
 //: lex_push: token を token buffer へ[追加/ついか]する
-fn lex_push <(Vec<SelfhostToken>,SelfhostToken)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, token):
+pub fn lex_push <(Vec<SelfhostToken>,SelfhostToken)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, token):
     match push<SelfhostToken> tokens token:
         Result::Ok out:
             Result<Vec<SelfhostToken>,LexDiagnostic>::Ok out
@@ -1152,17 +1152,17 @@ fn lex_push <(Vec<SelfhostToken>,SelfhostToken)*>Result<Vec<SelfhostToken>,LexDi
             Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer token buffer allocation failed"
 
 //: lex_push_structural: `Indent` / `Dedent` / EOF などの structural token を[追加/ついか]する
-fn lex_push_structural <(Vec<SelfhostToken>,TokenKind,i32,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, kind, file_id, offset):
+pub fn lex_push_structural <(Vec<SelfhostToken>,TokenKind,i32,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, kind, file_id, offset):
     lex_push tokens lex_structural_token kind file_id offset
 
 //: lex_fail_indent: indent stack と token buffer を[解放/かいほう]して indent diagnostic を[返/かえ]す
-fn lex_fail_indent <(Vec<SelfhostToken>,Vec<i32>,i32,i32,str)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, stack, file_id, offset, message):
+pub fn lex_fail_indent <(Vec<SelfhostToken>,Vec<i32>,i32,i32,str)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, stack, file_id, offset, message):
     free<SelfhostToken> tokens
     free<i32> stack
     Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset message
 
 //: lex_token_pending_raw_mode: raw block を開始する directive なら mode を[返/かえ]す
-fn lex_token_pending_raw_mode <(SelfhostToken)->SelfhostLexerRawMode> (token):
+pub fn lex_token_pending_raw_mode <(SelfhostToken)->SelfhostLexerRawMode> (token):
     match field::get token "kind":
         TokenKind::DirWasm:
             SelfhostLexerRawMode::Wasm
@@ -1172,7 +1172,7 @@ fn lex_token_pending_raw_mode <(SelfhostToken)->SelfhostLexerRawMode> (token):
             SelfhostLexerRawMode::None
 
 //: lex_raw_mode_is_active: raw block mode が active か[返/かえ]す
-fn lex_raw_mode_is_active <(SelfhostLexerRawMode)->bool> (raw_mode):
+pub fn lex_raw_mode_is_active <(SelfhostLexerRawMode)->bool> (raw_mode):
     match raw_mode:
         SelfhostLexerRawMode::None:
             false
@@ -1182,7 +1182,7 @@ fn lex_raw_mode_is_active <(SelfhostLexerRawMode)->bool> (raw_mode):
             true
 
 //: lex_raw_kind: raw block mode から token kind を[返/かえ]す
-fn lex_raw_kind <(SelfhostLexerRawMode)->TokenKind> (raw_mode):
+pub fn lex_raw_kind <(SelfhostLexerRawMode)->TokenKind> (raw_mode):
     match raw_mode:
         SelfhostLexerRawMode::None:
             TokenKind::Unknown
@@ -1192,12 +1192,12 @@ fn lex_raw_kind <(SelfhostLexerRawMode)->TokenKind> (raw_mode):
             TokenKind::LlvmIrText
 
 //: lex_raw_token: raw block の 1 行を text token にする
-fn lex_raw_token <(str,i32,i32,i32,SelfhostLexerRawMode)->SelfhostToken> (source, n, file_id, idx, raw_mode):
+pub fn lex_raw_token <(str,i32,i32,i32,SelfhostLexerRawMode)->SelfhostToken> (source, n, file_id, idx, raw_mode):
     let content_start <i32> lex_line_content_start source n idx
     lex_token_slice lex_raw_kind raw_mode source file_id content_start lex_line_end source n idx
 
 //: lex_finish_eof: EOF 前に残った indent level を Dedent で[閉/と]じる
-fn lex_finish_eof <(Vec<SelfhostToken>,Vec<i32>,i32,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, stack, file_id, offset):
+pub fn lex_finish_eof <(Vec<SelfhostToken>,Vec<i32>,i32,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, stack, file_id, offset):
     let stack_len <i32> len<i32> &stack
     if:
         gt stack_len 1
@@ -1214,7 +1214,7 @@ fn lex_finish_eof <(Vec<SelfhostToken>,Vec<i32>,i32,i32)*>Result<Vec<SelfhostTok
             lex_push_structural tokens TokenKind::Eof file_id offset
 
 //: lex_dedent_to: current line の indent level に合うまで Dedent を[生成/せいせい]する
-fn lex_dedent_to <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,bool,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, target_width, at_line_start, raw_mode, raw_base, pending_raw_mode):
+pub fn lex_dedent_to <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,bool,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, target_width, at_line_start, raw_mode, raw_base, pending_raw_mode):
     match lex_stack_top_result &stack file_id idx:
         Result::Err diag:
             free<SelfhostToken> tokens
@@ -1240,7 +1240,7 @@ fn lex_dedent_to <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,bool,Self
                                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
 
 //: lex_line_start: 行頭の offside rule と raw block state を[処理/しょり]する
-fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, raw_mode, raw_base, pending_raw_mode):
+pub fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, raw_mode, raw_base, pending_raw_mode):
     let content_start <i32> lex_line_content_start source n idx
     if:
         lex_line_is_blank_or_comment source n content_start
@@ -1314,7 +1314,7 @@ fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,SelfhostLexe
                                                     lex_all_loop source n file_id idx tokens stack next_indent_unit true true SelfhostLexerRawMode::None 0 SelfhostLexerRawMode::None
 
 //: lex_all_loop: EOF まで token を[集/あつ]め、offside structural token を[挿入/そうにゅう]する
-fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, at_line_start, line_checked, raw_mode, raw_base, pending_raw_mode):
+pub fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, at_line_start, line_checked, raw_mode, raw_base, pending_raw_mode):
     if:
         ge idx n
         then:
@@ -1367,7 +1367,7 @@ fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,Self
 //:
 //: [注意/ちゅうい]:
 //: - 成功時の `Vec<SelfhostToken>` は caller が `free<SelfhostToken>` してください。
-fn lex_all_with_file_id <(str,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, file_id):
+pub fn lex_all_with_file_id <(str,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, file_id):
     match new<SelfhostToken>:
         Result::Ok tokens:
             match new<i32>:
@@ -1391,5 +1391,5 @@ fn lex_all_with_file_id <(str,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (s
 //:
 //: [注意/ちゅうい]:
 //: - single-source 互換の wrapper です。複数 file loader からは `lex_all_with_file_id` を[使/つか]ってください。
-fn lex_all <(str)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source):
+pub fn lex_all <(str)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source):
     lex_all_with_file_id source 0

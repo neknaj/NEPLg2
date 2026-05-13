@@ -34,7 +34,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn from_f64_fraction_trim_len <(i32,i32,i32,i32,i32,i32)->i32> (d0, d1, d2, d3, d4, d5):
+pub fn from_f64_fraction_trim_len <(i32,i32,i32,i32,i32,i32)->i32> (d0, d1, d2, d3, d4, d5):
     if:
         ne d5 0
         then:
@@ -81,7 +81,7 @@ fn from_f64_fraction_trim_len <(i32,i32,i32,i32,i32,i32)->i32> (d0, d1, d2, d3, 
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn from_f64_write_fraction_digits_result <(i32,i32,i32,i32,i32,i32,i32,i32,i32)->Result<(),str>> (base_raw, start, trim, d0, d1, d2, d3, d4, d5):
+pub fn from_f64_write_fraction_digits_result <(i32,i32,i32,i32,i32,i32,i32,i32,i32)->Result<(),str>> (base_raw, start, trim, d0, d1, d2, d3, d4, d5):
     match trim:
         0:
             Result<(),str>::Ok ()
@@ -135,7 +135,7 @@ fn from_f64_write_fraction_digits_result <(i32,i32,i32,i32,i32,i32,i32,i32,i32)-
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(int_s) + trim)
-fn from_f64_build_fixed_result <(bool,str,i32,i32,i32,i32,i32,i32,i32)->Result<str,str>> (neg, int_s, trim, d0, d1, d2, d3, d4, d5):
+pub fn from_f64_build_fixed_result <(bool,str,i32,i32,i32,i32,i32,i32,i32)->Result<str,str>> (neg, int_s, trim, d0, d1, d2, d3, d4, d5):
     let sign_len <i32> if neg:
         then 1
         else 0
@@ -214,7 +214,7 @@ fn from_f64_build_fixed_result <(bool,str,i32,i32,i32,i32,i32,i32,i32)->Result<s
 //:     let ok2 <bool> str_eq from_f64 neg_half "-0.5"
 //:     if and ok0 and ok1 ok2 1 0
 //: ```
-fn from_f64_result <(f64)->Result<str,i32>> (x):
+pub fn from_f64_result <(f64)->Result<str,i32>> (x):
     if:
         ne x x
         then:
@@ -255,7 +255,7 @@ fn from_f64_result <(f64)->Result<str,i32>> (x):
                         Result::Err _e:
                             Result::Err<str,i32> 12
 
-fn from_f64 <(f64)->str> (x):
+pub fn from_f64 <(f64)->str> (x):
     match from_f64_result x:
         Result::Ok text:
             text
@@ -275,5 +275,5 @@ fn from_f64 <(f64)->str> (x):
 //:
 //: [計算量/けいさんりょう]:
 //: - `from_f64` に従います。
-fn from_f32 <(f32)->str> (x):
+pub fn from_f32 <(f32)->str> (x):
     from_f64 <f64> cast x

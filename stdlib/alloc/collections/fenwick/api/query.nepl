@@ -43,7 +43,7 @@
 //:     free fw
 //:     if eq total 6 1 0
 //: ```
-fn sum_prefix <(&Fenwick,i32)*>Result<i32, Diag>> (fw, r):
+pub fn sum_prefix <(&Fenwick,i32)*>Result<i32, Diag>> (fw, r):
     let n <i32> *field::get_ref fw "n"
     if:
         and le 0 r le r n
@@ -82,7 +82,7 @@ fn sum_prefix <(&Fenwick,i32)*>Result<i32, Diag>> (fw, r):
 //:     free fw
 //:     if eq total 9 1 0
 //: ```
-fn sum_range <(&Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
+pub fn sum_range <(&Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
     let n <i32> *field::get_ref fw "n"
     if:
         and and le 0 l le l r le r n

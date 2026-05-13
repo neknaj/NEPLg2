@@ -27,7 +27,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn sort_lt <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn sort_lt <.T: Ord> <(.T,.T)->bool> (a, b):
     ord_lt a b
 
 //: sort_le: sort 内部の less-or-equal predicate
@@ -40,7 +40,7 @@ fn sort_lt <.T: Ord> <(.T,.T)->bool> (a, b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn sort_le <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn sort_le <.T: Ord> <(.T,.T)->bool> (a, b):
     ord_le a b
 
 //: sort_gt: sort 内部の greater-than predicate
@@ -53,7 +53,7 @@ fn sort_le <.T: Ord> <(.T,.T)->bool> (a, b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn sort_gt <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn sort_gt <.T: Ord> <(.T,.T)->bool> (a, b):
     ord_gt a b
 
 //: sort_ge: sort 内部の greater-or-equal predicate
@@ -66,7 +66,7 @@ fn sort_gt <.T: Ord> <(.T,.T)->bool> (a, b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn sort_ge <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn sort_ge <.T: Ord> <(.T,.T)->bool> (a, b):
     ord_ge a b
 
 
@@ -84,7 +84,7 @@ fn sort_ge <.T: Ord> <(.T,.T)->bool> (a, b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn sort_get_unchecked <.T> <(&Vec<.T>,i32)->.T> (v, idx):
+pub fn sort_get_unchecked <.T> <(&Vec<.T>,i32)->.T> (v, idx):
     let data <i32> data_ptr<.T> v
     let off <i32> mul idx size_of<.T>
     load<.T> add data off
@@ -102,25 +102,25 @@ fn sort_get_unchecked <.T> <(&Vec<.T>,i32)->.T> (v, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn sort_set_unchecked <.T> <(&Vec<.T>,i32,.T)->()> (v, idx, val):
+pub fn sort_set_unchecked <.T> <(&Vec<.T>,i32,.T)->()> (v, idx, val):
     let data <i32> data_ptr<.T> v
     let off <i32> mul idx size_of<.T>
     store<.T> add data off val;
     ()
 
 // sort_get_unchecked_data: data ポインタ版の取得
-fn sort_get_unchecked_data <.T> <(MemPtr<.T>,i32)->.T> (data_ptr, idx):
+pub fn sort_get_unchecked_data <.T> <(MemPtr<.T>,i32)->.T> (data_ptr, idx):
     let off <i32> mul idx size_of<.T>
     load<.T> add mem_ptr_addr data_ptr off
 
 // sort_set_unchecked_data: data ポインタ版の設定
-fn sort_set_unchecked_data <.T> <(MemPtr<.T>,i32,.T)->()> (data_ptr, idx, val):
+pub fn sort_set_unchecked_data <.T> <(MemPtr<.T>,i32,.T)->()> (data_ptr, idx, val):
     let off <i32> mul idx size_of<.T>
     store<.T> add mem_ptr_addr data_ptr off val;
     ()
 
 // sort_swap_data: data ポインタ版の交換
-fn sort_swap_data <.T> <(MemPtr<.T>,i32,i32)->()> (data_ptr, i, j):
+pub fn sort_swap_data <.T> <(MemPtr<.T>,i32,i32)->()> (data_ptr, i, j):
     if:
         eq i j
         then ()
@@ -146,7 +146,7 @@ fn sort_swap_data <.T> <(MemPtr<.T>,i32,i32)->()> (data_ptr, i, j):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn sort_swap <.T> <(&Vec<.T>,i32,i32)->()> (v, i, j):
+pub fn sort_swap <.T> <(&Vec<.T>,i32,i32)->()> (v, i, j):
     if:
         eq i j
         then ()
@@ -171,7 +171,7 @@ fn sort_swap <.T> <(&Vec<.T>,i32,i32)->()> (v, i, j):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-fn sort_is_sorted <.T: Ord> <(&Vec<.T>)->bool> (v):
+pub fn sort_is_sorted <.T: Ord> <(&Vec<.T>)->bool> (v):
     let n <i32> len<.T> v
     let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
     if:

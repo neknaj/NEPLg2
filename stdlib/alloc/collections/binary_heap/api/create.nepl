@@ -29,7 +29,7 @@
 //:     free<i32> hp
 //:     if ok 1 0
 //: ```
-fn new <.T: Copy> <()*>Result<BinaryHeap<.T>, Diag>> ():
+pub fn new <.T: Copy> <()*>Result<BinaryHeap<.T>, Diag>> ():
     with_capacity<.T> 8
 
 //: ## with_capacity
@@ -49,7 +49,7 @@ fn new <.T: Copy> <()*>Result<BinaryHeap<.T>, Diag>> ():
 //:     free<i32> hp0;
 //:     if and ok0 ok1 1 0
 //: ```
-fn with_capacity <.T: Copy> <(i32)*>Result<BinaryHeap<.T>, Diag>> (cap):
+pub fn with_capacity <.T: Copy> <(i32)*>Result<BinaryHeap<.T>, Diag>> (cap):
     let cap0 <i32> heap_normalize_capacity cap
     match heap_alloc_slots<.T> cap0:
         Result::Ok items:

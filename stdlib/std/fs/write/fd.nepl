@@ -33,7 +33,7 @@
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data_len):
+pub fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data_len):
     if:
         le data_len 0
         then:
@@ -105,7 +105,7 @@ fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
+pub fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
     let data_len <i32> field::get bytes "len"
     match field::get bytes "ptr":
         Option::None:

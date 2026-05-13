@@ -10,13 +10,13 @@
 #import "core/math" as *
 
 //: ringbuffer_normalize_capacity: 1 [以上/いじょう]の capacity に[正規化/せいきか]する
-fn ringbuffer_normalize_capacity <(i32)->i32> (cap):
+pub fn ringbuffer_normalize_capacity <(i32)->i32> (cap):
     if lt cap 1 1 cap
 
 //: ringbuffer_tail_index: `head + len` の circular tail index を[返/かえ]す
-fn ringbuffer_tail_index <(i32,i32,i32)->i32> (head, len, cap):
+pub fn ringbuffer_tail_index <(i32,i32,i32)->i32> (head, len, cap):
     rem_u add head len cap
 
 //: ringbuffer_next_index: circular buffer の[次/つぎ]の index を[返/かえ]す
-fn ringbuffer_next_index <(i32,i32)->i32> (idx, cap):
+pub fn ringbuffer_next_index <(i32,i32)->i32> (idx, cap):
     rem_u add idx 1 cap

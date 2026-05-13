@@ -16,7 +16,7 @@
 //: ### [注意/ちゅうい]
 //: - `str` は `[len][bytes]` [形式/けいしき]なので、byte access helper で 1 byte ずつ[読/よ]みます。
 //: - writer buffer の capacity を[超/こ]える文字列でも、1 byte ずつ `push_u8_impl` に通して flush 境界を保ちます。
-fn append_str_impl <(StreamWriter,str)*>StreamWriter> (w, s):
+pub fn append_str_impl <(StreamWriter,str)*>StreamWriter> (w, s):
     let n <i32> len s;
     let mut ww <StreamWriter> w;
     let mut i <i32> 0;
