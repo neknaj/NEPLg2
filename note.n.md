@@ -1,3 +1,19 @@
+# 2026-05-14 Agent 1 generic raw-memory fixture boundary 明示化
+
+- `ISS-20260513T160802076Z-GENERIC-RAW-MEMORY-REGRESSION-FIXTUR-1F871A8E` を追加して解決した。
+- `cargo test -p nepl-core --test neplg2 generic_intrinsic_store_load_struct_preserves_fields -- --nocapture` が `Resource(Raw(MemoryOutsideBoundary))` で失敗することを確認した。
+- 根本原因は、generic aggregate raw load/store の回帰テストが `core/mem/raw` を使うのに、通常 user inline source と同じ `run_main_wasi_i32` 経路で実行されていたこと。
+- compiler の raw-memory-boundary gate は正しく拒否していたため、gate を緩めず、テストハーネス側に `compile_src_with_options_and_entry_capabilities` と `run_main_wasi_i32_raw_memory_boundary` を追加した。
+- raw memory を直接扱う5つの generic fixture だけを明示 raw boundary helper に移し、通常 `run_main_wasi_i32` が capability を与えないことを source policy で固定した。
+- 修正後 `cargo test -p nepl-core --test neplg2 generic -- --nocapture` は `8 passed; 2 failed` まで進み、raw boundary 欠落は解消した。残る2件は owner extent equality proof の別問題として `ISS-20260513T161115125Z-RESOURCE-OWNER-CHECKER-CANNOT-PROVE--0A41590B` を追加した。
+- 検証:
+  - `cargo fmt --package nepl-core --check`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/test_abstraction_static_verification_policy.js`: passed
+  - `cargo test -p nepl-core --test neplg2 generic -- --nocapture`: `8 passed; 2 failed`（残りは上記別 issue）
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 5/6 の raw-memory-boundary source capability 方針にテストハーネスを同期するもの。
+
 # 2026-05-14 Agent 1 generic trait lookup fixture 明示import修正
 
 - `ISS-20260513T160056481Z-GENERIC-TRAIT-LOOKUP-REGRESSION-FIXT-21C1894C` を追加して解決した。

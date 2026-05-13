@@ -8,7 +8,10 @@ use nepl_core::loader::Loader;
 use nepl_core::span::FileId;
 use nepl_core::{check_module, compile_wasm, BuildProfile, CompileOptions, CompileTarget};
 mod harness;
-use harness::{compile_src_with_options, run_main_i32, run_main_wasi_i32};
+use harness::{
+    compile_src_with_options, run_main_i32, run_main_wasi_i32,
+    run_main_wasi_i32_raw_memory_boundary,
+};
 
 fn compile_ok(src: &str) {
     let result = compile_wasm(
@@ -1870,7 +1873,7 @@ fn main <()*>i32> ():
     let p <Point> roundtrip<Point> Point 10 20;
     add mul field::get p "x" 100 field::get p "y"
 "#;
-    assert_eq!(run_main_wasi_i32(src), 1020);
+    assert_eq!(run_main_wasi_i32_raw_memory_boundary(src), 1020);
 }
 
 #[test]
@@ -1920,7 +1923,7 @@ fn same_after_store <.T: HashKey> <(.T,.T)*>bool> (a, b):
 fn main <()*>i32> ():
     if same_after_store<Point> (Point 10 20) (Point 10 20) 1 0
 "#;
-    assert_eq!(run_main_wasi_i32(src), 1);
+    assert_eq!(run_main_wasi_i32_raw_memory_boundary(src), 1);
 }
 
 #[test]
@@ -1972,7 +1975,7 @@ fn main <()*>i32> ():
     let p <Point> hash_then_store<Point> Point 10 20;
     add mul field::get p "x" 100 field::get p "y"
 "#;
-    assert_eq!(run_main_wasi_i32(src), 1020);
+    assert_eq!(run_main_wasi_i32_raw_memory_boundary(src), 1020);
 }
 
 #[test]
@@ -2209,7 +2212,7 @@ fn main <()*>i32> ():
     let p <Point> write_after_probe<Point,i32> (Point 10 20) 99;
     add mul field::get p "x" 100 field::get p "y"
 "#;
-    assert_eq!(run_main_wasi_i32(src), 1020);
+    assert_eq!(run_main_wasi_i32_raw_memory_boundary(src), 1020);
 }
 
 #[test]
@@ -2243,7 +2246,7 @@ fn main <()*>i32> ():
     let p <Point> write_nested<Point,i32> (Point 10 20) 99;
     add mul field::get p "x" 100 field::get p "y"
 "#;
-    assert_eq!(run_main_wasi_i32(src), 1020);
+    assert_eq!(run_main_wasi_i32_raw_memory_boundary(src), 1020);
 }
 
 #[test]

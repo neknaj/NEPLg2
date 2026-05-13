@@ -29,6 +29,8 @@ const DROP_INSERTION = path.join(CORE_SRC, 'passes', 'drop_insertion.rs');
 const MOVE_CHECK_ROOT = path.join(CORE_SRC, 'passes', 'move_check.rs');
 const MOVE_CHECK_DIR = path.join(CORE_SRC, 'passes', 'move_check');
 const RESOURCE_IR_TESTS = path.join(ROOT, 'nepl-core', 'tests', 'resource_ir.rs');
+const TEST_HARNESS = path.join(ROOT, 'nepl-core', 'tests', 'harness.rs');
+const NEPLG2_TESTS = path.join(ROOT, 'nepl-core', 'tests', 'neplg2.rs');
 
 function read(filePath) {
     return fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
@@ -109,6 +111,8 @@ const sourceCapabilityRawMemoryScope = assertFile(
 const passesMod = assertFile(PASSES_MOD, 'passes/mod.rs');
 const dropInsertion = assertFile(DROP_INSERTION, 'passes/drop_insertion.rs');
 const resourceIrTests = assertFile(RESOURCE_IR_TESTS, 'nepl-core/tests/resource_ir.rs');
+const testHarness = assertFile(TEST_HARNESS, 'nepl-core/tests/harness.rs');
+const neplg2Tests = assertFile(NEPLG2_TESTS, 'nepl-core/tests/neplg2.rs');
 const typecheckMatchCheck = assertFile(
     path.join(TYPECHECK_DIR, 'match_check.rs'),
     'typecheck/match_check.rs',
@@ -343,6 +347,41 @@ assertNotContains(loader, 'configured_raw_memory_boundary_path', 'loader.rs');
 assertContains(loader, 'configured_stdlib_source_path', 'loader.rs');
 assertContains(loader, 'module_has_raw_memory_boundary_evidence', 'loader.rs');
 assertContains(loader, 'module_compiler_memory_type_definitions', 'loader.rs');
+assertContains(
+    testHarness,
+    'pub fn compile_src_with_options_and_entry_capabilities',
+    'nepl-core/tests/harness.rs',
+);
+assertContains(
+    testHarness,
+    'pub fn run_main_wasi_i32_raw_memory_boundary',
+    'nepl-core/tests/harness.rs',
+);
+assertMatches(
+    testHarness,
+    /pub fn run_main_wasi_i32\(src: &str\) -> i32 \{[\s\S]*?compile_src_with_options\([\s\S]*?run_wasi_wasm_i32\(&wasm\)\s*\}/,
+    'ordinary WASI test harness must not grant raw-memory-boundary capability',
+);
+assertMatches(
+    testHarness,
+    /pub fn run_main_wasi_i32_raw_memory_boundary\(src: &str\) -> i32 \{[\s\S]*?SourceCapabilities::raw_memory_boundary\(\)[\s\S]*?run_wasi_wasm_i32\(&wasm\)\s*\}/,
+    'raw-memory fixture harness must grant the capability explicitly',
+);
+for (const testName of [
+    'generic_intrinsic_store_load_struct_preserves_fields',
+    'generic_hashkey_eq_after_load_uses_concrete_impl',
+    'generic_hashkey_value_survives_hash_before_store',
+    'generic_store_after_generic_trait_probe_preserves_struct',
+    'generic_store_uses_nested_address_call_without_stealing_value_arg',
+]) {
+    const testBody = neplg2Tests.match(new RegExp(`fn ${testName}\\(\\) \\{[\\s\\S]*?\\n\\}`));
+    assert(testBody, `nepl-core/tests/neplg2.rs must define ${testName}`);
+    assertContains(
+        testBody[0],
+        'run_main_wasi_i32_raw_memory_boundary',
+        `${testName} must use the explicit raw-memory-boundary harness`,
+    );
+}
 
 assertMatches(
     compiler,
