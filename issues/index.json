@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T21:08:12.209Z",
+  "generated_at": "2026-05-13T21:17:11.601Z",
   "counts": {
-    "total": 732,
+    "total": 733,
     "open": 5,
-    "resolved": 727,
+    "resolved": 728,
     "by_area": {
       "stdlib": {
         "total": 183,
@@ -32,9 +32,9 @@
         "resolved": 390
       },
       "resource": {
-        "total": 2,
+        "total": 3,
         "open": 0,
-        "resolved": 2
+        "resolved": 3
       },
       "RESOURCE": {
         "total": 2,
@@ -9698,6 +9698,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260426T072648414Z-NODESRC-TESTS-LEGACY-RUNNER-OVERFLOW-B0D364B2.md"
+    },
+    {
+      "id": "ISS-20260513T211012476Z-RESOURCE-LOWERING-CALL-HELPERS-EXCEE-EA8A33C1",
+      "title": "Resource lowering and initialized drop helpers exceed responsibility boundaries",
+      "area": "resource",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/lower.rs; nepl-core/src/resource/lower_call.rs; nepl-core/src/resource/initialized_drop_scope.rs; nepl-core/src/resource/initialized_drop_requirement.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T211012476Z-RESOURCE-LOWERING-CALL-HELPERS-EXCEE-EA8A33C1.md"
     },
     {
       "id": "ISS-20260426T010006Z-CLIARG-TESTED-ARGS-A8D0E229",

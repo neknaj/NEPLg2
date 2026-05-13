@@ -1,11 +1,11 @@
 extern crate alloc;
 
 use alloc::collections::BTreeMap;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
-use crate::effects::{intrinsic_internal_effect, raw_callee_internal_effect, InternalEffect};
+use crate::effects::raw_callee_internal_effect;
 use crate::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchPattern, HirModule,
     HirParam,
@@ -18,6 +18,10 @@ use super::lower_aggregate::{
     lower_compiler_field_load_source, lower_field_get_call_source, lower_field_get_ref_call_source,
     lower_get_field_intrinsic_source, lower_get_field_ref_intrinsic_source,
     lower_reference_address_projection_source,
+};
+use super::lower_call::{
+    call_effect_skeleton, func_ref_base_name, function_value_effect, intrinsic_effect_skeleton,
+    lower_call_target, resource_effect_from_internal,
 };
 use super::lower_condition::resource_condition_fact;
 use super::lower_layout_intrinsic::{
@@ -34,9 +38,8 @@ use super::lower_raw_memory::{
 use super::lower_temporary_scope::push_line_copy_state_only_temporary_scope;
 use super::model::{
     AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, ResourceBlock, ResourceBlockId,
-    ResourceCallTarget, ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal,
-    ResourceMatchArm, ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
-    ResourceTraitApplication, ResourceTraitMethodId,
+    ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal, ResourceMatchArm,
+    ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
 };
 
 pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
@@ -91,14 +94,14 @@ impl<'a> LoweringEnvironment<'a> {
         }
     }
 
-    fn function_effect(&self, name: &str) -> Effect {
+    pub(super) fn function_effect(&self, name: &str) -> Effect {
         self.function_effects
             .get(name)
             .copied()
             .unwrap_or(Effect::Pure)
     }
 
-    fn known_function_value_effect(&self, name: &str) -> Option<EffectOp> {
+    pub(super) fn known_function_value_effect(&self, name: &str) -> Option<EffectOp> {
         if let Some(effect) = raw_callee_internal_effect(name) {
             Some(resource_effect_from_internal(effect))
         } else if self.function_effects.contains_key(name) {
@@ -738,10 +741,9 @@ pub(super) fn lower_expr_skeleton(
             }
             let arg_places = lower_args_skeleton(args, ops, ctx, env);
             let raw_operation = raw_memory_op_from_intrinsic(name);
-            let internal_effect = intrinsic_internal_effect(name);
-            if !matches!(internal_effect, InternalEffect::Pure) {
+            if let Some(effect) = intrinsic_effect_skeleton(name) {
                 ops.push(ResourceOp::CallEffect {
-                    effect: resource_effect_from_internal(internal_effect),
+                    effect,
                     span: expr.span,
                 });
             }
@@ -1031,86 +1033,6 @@ fn lower_match_pattern(pattern: &HirMatchPattern) -> ResourceMatchPattern {
         HirMatchPattern::IntLiteral(value) => ResourceMatchPattern::IntLiteral(*value),
         HirMatchPattern::BoolLiteral(value) => ResourceMatchPattern::BoolLiteral(*value),
         HirMatchPattern::Wildcard => ResourceMatchPattern::Wildcard,
-    }
-}
-
-fn call_effect_skeleton(callee: &FuncRef, env: &LoweringEnvironment) -> EffectOp {
-    match callee {
-        FuncRef::Builtin(name) => {
-            if let Some(effect) = raw_callee_internal_effect(name.as_str()) {
-                resource_effect_from_internal(effect)
-            } else {
-                EffectOp::UserCall {
-                    name: name.clone(),
-                    effect: Effect::Pure,
-                }
-            }
-        }
-        FuncRef::User(name, _, _) => {
-            if let Some(effect) = raw_callee_internal_effect(name.as_str()) {
-                resource_effect_from_internal(effect)
-            } else {
-                EffectOp::UserCall {
-                    name: name.clone(),
-                    effect: env.function_effect(name),
-                }
-            }
-        }
-        FuncRef::Trait {
-            application,
-            method,
-            ..
-        } => EffectOp::UserCall {
-            name: alloc::format!("{}::{}", application.trait_id.as_str(), method.as_str()),
-            effect: Effect::Pure,
-        },
-    }
-}
-
-fn function_value_effect(name: &str, env: &LoweringEnvironment) -> EffectOp {
-    env.known_function_value_effect(name)
-        .unwrap_or_else(|| EffectOp::UserCall {
-            name: String::from(name),
-            effect: env.function_effect(name),
-        })
-}
-
-fn resource_effect_from_internal(effect: InternalEffect) -> EffectOp {
-    match effect {
-        InternalEffect::Pure => EffectOp::Pure,
-        InternalEffect::InternalAlloc { operation } => EffectOp::InternalAlloc { operation },
-        InternalEffect::UnsafeMemory { operation } => EffectOp::UnsafeMemory { operation },
-        InternalEffect::ExternalIo { operation } => EffectOp::ExternalIo { operation },
-        InternalEffect::Nondet { operation } => EffectOp::Nondet { operation },
-    }
-}
-
-fn lower_call_target(callee: &FuncRef) -> ResourceCallTarget {
-    match callee {
-        FuncRef::Builtin(name) => ResourceCallTarget::Builtin { name: name.clone() },
-        FuncRef::User(name, type_args, _) => ResourceCallTarget::User {
-            name: name.clone(),
-            type_args: type_args.clone(),
-        },
-        FuncRef::Trait {
-            application,
-            method,
-            self_ty,
-        } => ResourceCallTarget::Trait {
-            application: ResourceTraitApplication::new(
-                application.trait_id.as_str().to_string(),
-                application.args.clone(),
-            ),
-            method: ResourceTraitMethodId::from_name(method.as_str().to_string()),
-            self_ty: *self_ty,
-        },
-    }
-}
-
-pub(super) fn func_ref_base_name(callee: &FuncRef) -> Option<&str> {
-    match callee {
-        FuncRef::Builtin(name) | FuncRef::User(name, _, _) => Some(helper_base_name(name)),
-        FuncRef::Trait { .. } => None,
     }
 }
 

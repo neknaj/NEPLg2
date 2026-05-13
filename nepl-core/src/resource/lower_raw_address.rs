@@ -8,6 +8,7 @@ use crate::span::Span;
 use crate::types::TypeId;
 
 use super::lower::LoweringEnvironment;
+use super::lower_call::func_ref_base_name;
 use super::lower_raw_address_place::{
     mem_ptr_raw_field_place, raw_address_alias_target, raw_address_place_from_actual_argument,
     reference_target_type, region_token_place_from_actual_arg, region_token_raw_field_place,
@@ -396,12 +397,5 @@ pub(super) fn i32_const_from_size_of_call(
             }
         }
         _ => None,
-    }
-}
-
-pub(super) fn func_ref_base_name(callee: &FuncRef) -> Option<&str> {
-    match callee {
-        FuncRef::Builtin(name) | FuncRef::User(name, _, _) => Some(helper_base_name(name)),
-        FuncRef::Trait { .. } => None,
     }
 }

@@ -223,6 +223,7 @@ for (const moduleName of [
     'initialized_control.rs',
     'initialized_availability.rs',
     'initialized_drop_assignment.rs',
+    'initialized_drop_requirement.rs',
     'initialized_drop_scope.rs',
     'i32_call_facts.rs',
     'initialized_external_io.rs',
@@ -262,6 +263,7 @@ for (const moduleName of [
     'initialized_summary_variant_requirement.rs',
     'initialized_summary_variant_unique.rs',
     'initialized_variant.rs',
+    'lower_call.rs',
     'lower_aggregate.rs',
     'lower_aggregate_projection.rs',
     'lower_aggregate_selector.rs',
@@ -397,6 +399,7 @@ for (const moduleDecl of [
     'mod initialized_control;',
     'mod initialized_availability;',
     'mod initialized_drop_assignment;',
+    'mod initialized_drop_requirement;',
     'mod initialized_drop_scope;',
     'mod i32_call_facts;',
     'mod initialized_external_io;',
@@ -439,6 +442,7 @@ for (const moduleDecl of [
     'mod summary_dependency;',
     'mod summary_worklist;',
     'mod timing;',
+    'mod lower_call;',
     'mod lower_aggregate;',
     'mod lower_aggregate_projection;',
     'mod lower_aggregate_selector;',
@@ -498,6 +502,7 @@ const dropPointResolve = readResource('drop_point_resolve.rs');
 const dropPointResolveAssignment = readResource('drop_point_resolve_assignment.rs');
 const dropRequirement = readResource('drop_requirement.rs');
 const lower = readResource('lower.rs');
+const lowerCall = readResource('lower_call.rs');
 const lowerAggregate = readResource('lower_aggregate.rs');
 const lowerAggregateProjection = readResource('lower_aggregate_projection.rs');
 const lowerAggregateSelector = readResource('lower_aggregate_selector.rs');
@@ -506,6 +511,7 @@ const lowerRawAddressPlace = readResource('lower_raw_address_place.rs');
 const lowerRawAddressReturn = readResource('lower_raw_address_return.rs');
 const lowerRawMemory = readResource('lower_raw_memory.rs');
 const lowerTemporaryScope = readResource('lower_temporary_scope.rs');
+const initializedDropRequirement = readResource('initialized_drop_requirement.rs');
 const initializedAliasOrigin = readResource('initialized_alias_origin.rs');
 const initializedAliasRelation = readResource('initialized_alias_relation.rs');
 const initializedAliasRelationFlow = readResource('initialized_alias_relation_flow.rs');
@@ -525,7 +531,22 @@ assertContains(
     'pub(super) fn raw_memory_call_uses_direct_raw_address',
     'lower_raw_memory.rs',
 );
+assertContains(lowerCall, 'pub(super) fn call_effect_skeleton', 'lower_call.rs');
+assertContains(lowerCall, 'pub(super) fn lower_call_target', 'lower_call.rs');
+assertContains(lowerCall, 'pub(super) fn func_ref_base_name', 'lower_call.rs');
+assertNotContains(lower, 'fn call_effect_skeleton', 'lower.rs');
+assertNotContains(lower, 'fn lower_call_target', 'lower.rs');
 assertNotContains(lower, 'fn should_lower_raw_memory_call', 'lower.rs');
+assertContains(
+    initializedDropRequirement,
+    'pub(super) fn partial_drop_requirement_for_initialized_descendants',
+    'initialized_drop_requirement.rs',
+);
+assertNotContains(
+    readResource('initialized_drop_scope.rs'),
+    'fn partial_drop_requirement_inner',
+    'initialized_drop_scope.rs',
+);
 assertNotContains(coverageHirRaw, 'is_named_struct_type', 'coverage_hir_raw.rs');
 assertContains(coverage, 'pub fn compare_hir_resource_lowering_typed', 'coverage.rs');
 assertContains(coverageHir, 'pub(super) fn hir_function_coverage', 'coverage_hir.rs');
@@ -1005,6 +1026,7 @@ const maxLines = new Map([
     ['drop_point_resolve_assignment.rs', 80],
     ['drop_requirement.rs', 220],
     ['lower.rs', 1150],
+    ['lower_call.rs', 120],
     ['lower_aggregate.rs', 320],
     ['lower_aggregate_projection.rs', 180],
     ['lower_aggregate_selector.rs', 100],
@@ -1043,6 +1065,7 @@ const maxLines = new Map([
     ['initialized_availability.rs', 120],
     ['initialized_control.rs', 560],
     ['initialized_drop_assignment.rs', 100],
+    ['initialized_drop_requirement.rs', 220],
     ['initialized_drop_scope.rs', 80],
     ['i32_call_facts.rs', 180],
     ['initialized_external_io.rs', 140],

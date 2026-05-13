@@ -7,8 +7,7 @@ use crate::runtime_helpers::helper_base_name;
 use crate::types::TypeId;
 
 use super::lower::{
-    func_ref_base_name, lower_expr_skeleton, place_from_expr_skeleton, LoweringContext,
-    LoweringEnvironment,
+    lower_expr_skeleton, place_from_expr_skeleton, LoweringContext, LoweringEnvironment,
 };
 use super::lower_aggregate_projection::{
     aggregate_field_projection, aggregate_field_projection_by_selector, reference_target_type,
@@ -17,6 +16,7 @@ use super::lower_aggregate_selector::{
     aggregate_field_selector, compiler_field_address_base_and_offset, non_negative_i32_literal,
     AggregateFieldSelector,
 };
+use super::lower_call::func_ref_base_name;
 use super::lower_raw_address_place::is_named_struct_type;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
 use super::model::{Place, PlaceProjection, RawMemoryOp, ResourceOp};

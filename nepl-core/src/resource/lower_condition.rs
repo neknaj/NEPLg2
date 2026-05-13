@@ -5,7 +5,8 @@ use alloc::vec::Vec;
 
 use crate::hir::{HirExpr, HirExprKind};
 
-use super::lower::{func_ref_base_name, place_from_expr_skeleton, LoweringContext};
+use super::lower::{place_from_expr_skeleton, LoweringContext};
+use super::lower_call::func_ref_base_name;
 use super::model::{Place, PlaceRoot, ResourceConditionFact, ResourceI32RelationOp};
 
 pub(super) fn resource_condition_fact(

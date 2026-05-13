@@ -9,9 +9,8 @@ use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
 use super::lower::LoweringEnvironment;
-use super::lower_raw_address::{
-    func_ref_base_name, i32_const_from_actual_arg, i32_const_from_size_of_call,
-};
+use super::lower_call::func_ref_base_name;
+use super::lower_raw_address::{i32_const_from_actual_arg, i32_const_from_size_of_call};
 use super::lower_raw_address_place::{
     is_named_struct_type, raw_address_alias_target, raw_address_place_from_actual_argument,
     region_token_place_from_actual_arg, region_token_raw_field_place,

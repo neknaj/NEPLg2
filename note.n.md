@@ -37564,3 +37564,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - capability category の選択は `TraitCapability` enum の `match` に集約し、抽象化機能でも数値・文字列ではなく typed identity と網羅性検査が効く形に揃えた。
 - `nodesrc/test_abstraction_static_verification_policy.js` と `doc/neplg2/abstraction_static_verification_plan.md` を更新し、raw name capability authority の再導入を policy で拒否する。
 - `cargo fmt --package nepl-core --check`、`node nodesrc/test_abstraction_static_verification_policy.js`、`cargo test -p nepl-core --test neplg2 trait -- --nocapture` は pass した。
+
+## 2026-05-13 Agent 1 Resource responsibility policy hidden violations
+
+- `work/resource-lower-responsibility-limit` で `ISS-20260513T211012476Z-RESOURCE-LOWERING-CALL-HELPERS-EXCEE-EA8A33C1` を追加して解決した。
+- aggregate source policy で `lower.rs` の line limit 超過が見つかり、call effect / intrinsic effect / function value effect / `ResourceCallTarget` lowering / `FuncRef` base-name helper を `lower_call.rs` へ分離した。
+- `lower.rs` から call helper を抜いた後、同じ policy が `initialized_drop_scope.rs` の隠れた超過を露出したため、partial structural drop-requirement proof を `initialized_drop_requirement.rs` へ分離した。
+- `initialized_drop_scope.rs` は EndScope の live cell state cleanup、alias cleanup、auto-drop record 生成に集中する形へ戻した。
+- Resource checker responsibility policy に新 module の存在、`mod` 宣言、line limit、責務移動検査を追加した。
+- `cargo check -p nepl-core --tests`、Resource checker responsibility policy、aggregate source policy regression は pass した。
