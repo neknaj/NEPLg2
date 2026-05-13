@@ -2,8 +2,9 @@
 
 ## deque_push_front_back
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"deque_push_front_back\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"deque len\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"front item\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"back item\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -14,6 +15,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let dq0 <Deque<i32>>:
@@ -21,7 +23,7 @@ fn main <()*>i32> ():
         |> push_back 10 |> uwok
         |> push_front 5 |> uwok
         |> push_back 20 |> uwok
-    let ok0 <bool> eq len<i32> &dq0 3;
+    let size <i32> len<i32> &dq0;
     free<i32> dq0;
     let dq1 <Deque<i32>>:
         unwrap_ok<Deque<i32>, Diag> new<i32>
@@ -43,13 +45,20 @@ fn main <()*>i32> ():
         Option::None:
             false
     free<i32> dq2;
-    if and ok0 and ok1 ok2 1 0
+    let report:
+        test_report_new "deque_push_front_back"
+        |> test_report_push assert_eq_i32 "deque len" 3 size
+        |> test_report_push assert "front item" ok1
+        |> test_report_push assert "back item" ok2
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## deque_pop_both_ends
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"deque_pop_both_ends\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"pop_front returns front\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"pop_back returns back\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -60,6 +69,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let dq_front <Deque<i32>>:
@@ -80,5 +90,10 @@ fn main <()*>i32> ():
             eq v 20
         Option::None:
             false
-    if and ok0 ok1 1 0
+    let report:
+        test_report_new "deque_pop_both_ends"
+        |> test_report_push assert "pop_front returns front" ok0
+        |> test_report_push assert "pop_back returns back" ok1
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

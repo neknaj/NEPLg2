@@ -37155,3 +37155,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の部分対応として、Queue doctest 4 件を `ret: 1` 依存から `stdout:` + `exit_code:` へ移行した。
 - `stdlib/tests/queue.n.md` と `tests/stdlib/queue_collections.n.md` は `std/test` の canonical `test_report_*` API を使い、push / len / peek / pop / pop_front / grow / clear / empty pop を stdout report に固定する。
 - aggregate `nodesrc\tests.js` 実行は total=4, passed=4。issue は他 fixture の移行と stdout report 省略検出 policy が残るため open のまま継続する。
+
+## 2026-05-13 Agent 1 Deque .n.md stdout report migration
+
+- `376148ed` push 後に remote main を pull し、`agent1-nmd-deque-report` branch を作成した。
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の部分対応として、Deque doctest 4 件を `ret: 1` 依存から `stdout:` + `exit_code:` へ移行した。
+- `stdlib/tests/deque.n.md` と `tests/stdlib/deque_collections.n.md` は `std/test` の canonical `test_report_*` API を使い、push_front / push_back / peek_front / peek_back / pop_front / pop_back / grow / clear を stdout report に固定する。
+- aggregate `nodesrc\tests.js` 実行は total=4, passed=4。issue は他 fixture の移行と stdout report 省略検出 policy が残るため open のまま継続する。

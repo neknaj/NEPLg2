@@ -13,8 +13,9 @@
 - `peek_back`
 - `uwok`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"deque_pipe_usage\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"deque len\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"front item\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"back item\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -25,6 +26,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let dq0 <Deque<i32>>:
@@ -32,7 +34,7 @@ fn main <()*>i32> ():
         |> push_back 7 |> uwok
         |> push_front 5 |> uwok
         |> push_back 9 |> uwok
-    let ok0 <bool> eq len<i32> &dq0 3;
+    let size <i32> len<i32> &dq0;
     let ok1 <bool> match peek_front<i32> &dq0:
         Option::Some v:
             eq v 5
@@ -43,9 +45,14 @@ fn main <()*>i32> ():
             eq v 9
         Option::None:
             false
-    let result <i32> if and ok0 and ok1 ok2 1 0
     free<i32> dq0
-    result
+    let report:
+        test_report_new "deque_pipe_usage"
+        |> test_report_push assert_eq_i32 "deque len" 3 size
+        |> test_report_push assert "front item" ok1
+        |> test_report_push assert "back item" ok2
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## deque_grow_clear_and_free
@@ -54,8 +61,9 @@ fn main <()*>i32> ():
 - capacity 1 から `push_front` / `push_back` の grow 経路を[通/とお]り、old buffer cleanup と header 更新のあとも[両端/りょうたん]の[順序/じゅんじょ]を[保/たも]つことを[確認/かくにん]します。
 - `clear` と `free` が通常 cleanup として trap しないことを[確認/かくにん]します。
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"deque_grow_clear_and_free\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"len after grow\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"front after grow\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"back after grow\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"clear empties deque\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -66,13 +74,14 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let dq0 <Deque<i32>> unwrap_ok<Deque<i32>, Diag> with_capacity<i32> 1;
     let dq1 <Deque<i32>> unwrap_ok<Deque<i32>, Diag> push_back<i32> dq0 10;
     let dq2 <Deque<i32>> unwrap_ok<Deque<i32>, Diag> push_front<i32> dq1 5;
     let dq3 <Deque<i32>> unwrap_ok<Deque<i32>, Diag> push_back<i32> dq2 20;
-    let ok_len <bool> eq len<i32> &dq3 3;
+    let size <i32> len<i32> &dq3;
     let ok_front <bool> match peek_front<i32> &dq3:
         Option::Some v:
             eq v 5
@@ -86,5 +95,12 @@ fn main <()*>i32> ():
     let dq4 <Deque<i32>> clear<i32> dq3;
     let ok_clear <bool> is_empty<i32> &dq4;
     free<i32> dq4;
-    if and ok_len and ok_front and ok_back ok_clear 1 0
+    let report:
+        test_report_new "deque_grow_clear_and_free"
+        |> test_report_push assert_eq_i32 "len after grow" 3 size
+        |> test_report_push assert "front after grow" ok_front
+        |> test_report_push assert "back after grow" ok_back
+        |> test_report_push assert "clear empties deque" ok_clear
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

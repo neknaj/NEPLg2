@@ -218,3 +218,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\queue.n.md -i tests\stdlib\queue_collections.n.md --no-tree -o tmp\agent1-queue-report-tests.json -j 2 --assert-io`: total=4, passed=4
 
 この issue はまだ open のまま継続する。Queue 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-13 Deque stdout report migration
+
+`stdlib/tests/deque.n.md` と `tests/stdlib/deque_collections.n.md` の Deque focused doctest 4 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- push_front / push_back / peek_front / peek_back / pop_front / pop_back / grow / clear の観測結果を assertion label として stdout に残すようにした。
+- length checks は `assert_eq_i32` で expected / actual を stdout に固定した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\deque.n.md -i tests\stdlib\deque_collections.n.md --no-tree -o tmp\agent1-deque-report-tests.json -j 2 --assert-io`: total=4, passed=4
+
+この issue はまだ open のまま継続する。Deque 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
