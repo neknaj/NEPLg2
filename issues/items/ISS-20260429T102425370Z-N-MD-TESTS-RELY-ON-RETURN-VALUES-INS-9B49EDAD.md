@@ -362,3 +362,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\hashmap.n.md --no-tree -o tmp\agent1-hashmap-report-tests.json -j 1 --assert-io --dist web/dist`: total=1, passed=1
 
 この issue はまだ open のまま継続する。HashMap 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 string-key HashMap/HashSet stdout report migration
+
+`stdlib/tests/hashmap_str.n.md` と `stdlib/tests/hashset_str.n.md` の string-key collection focused doctest 4 件を、戻り値コードだけで assertion failure を表す形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `len` / `contains` / `get` / update / remove / missing remove / free-after-string-insert の観測結果を assertion label として stdout に残すようにした。
+- `HashMap<str, i32>` と `HashSet<str>` の concat key lookup を expected / actual または bool label として固定し、string key equality の典型例を runner output で検証できるようにした。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\hashmap_str.n.md -i stdlib\tests\hashset_str.n.md --no-tree -o tmp\agent1-hash-string-report-tests.json -j 1 --assert-io --dist web/dist`: total=4, passed=4
+
+この issue はまだ open のまま継続する。string-key HashMap/HashSet 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

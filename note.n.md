@@ -37656,3 +37656,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - HashMap の focused doctest を stdout 期待なしの `checks_*` report から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
 - `len` / `contains` / `get` / update / remove / missing remove / free-after-insert の観測結果を 14 個の assertion label として stdout に固定した。
 - `node nodesrc/tests.js -i stdlib/tests/hashmap.n.md --no-tree -o tmp/agent1-hashmap-report-tests.json -j 1 --assert-io --dist web/dist` は total=1, passed=1。
+
+## 2026-05-14 Agent 1 string-key HashMap/HashSet stdout report doctest migration
+
+- `work/hash-string-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `stdlib/tests/hashmap_str.n.md` と `stdlib/tests/hashset_str.n.md` を更新した。
+- string-key collection の戻り値コード依存をやめ、`test_report_*` API と deterministic `stdout:` expectation に移行した。
+- concat で作った別インスタンスの `str` key lookup、update、remove、missing remove、free smoke を assertion label として stdout に固定した。
+- `node nodesrc/tests.js -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/agent1-hash-string-report-tests.json -j 1 --assert-io --dist web/dist` は total=4, passed=4。

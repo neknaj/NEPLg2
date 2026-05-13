@@ -2,7 +2,9 @@
 
 ## hashmap_str_main
 
-neplg2:test
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"hashmap_str_main\" count=11 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"empty len\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"empty missing foo\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"empty get none\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"unique len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"contains foo\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"contains bar\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"missing baz\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"concat key get\" expected=\"30\" actual=\"30\" message=\"\"\nassertion index=8 status=ok kind=eq_i32 label=\"update get foo\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"remove clears bar\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"missing remove returns error\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 
 #entry main
@@ -17,6 +19,7 @@ neplg2:test
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "std/test" as *
 
 fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,DefaultHash32>> (r):
     match r:
@@ -26,103 +29,64 @@ fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,Def
             #intrinsic "unreachable" <> ()
 
 fn main <()*> i32> ():
-    let mut code <i32> 0;
     let hm0 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm0_len <i32> len &hm0;
-    if:
-        ne hm0_len 0
-        then set code 10
-        else ()
     free hm0;
 
     let hm1 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm1_has <bool> contains &hm1 "foo";
-    if:
-        and eq code 0 hm1_has
-        then set code 20
-        else ()
     free hm1;
 
     let hm2 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm2_got <Option<i32>> get &hm2 "foo";
     let hm2_none <bool> is_none<i32> hm2_got;
-    if:
-        and eq code 0 not hm2_none
-        then set code 30
-        else ()
     free hm2;
 
     let hm3 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm3 <HashMap<str,i32,DefaultHash32>> must_hms insert hm3 "foo" 10;
     let hm3 <HashMap<str,i32,DefaultHash32>> must_hms insert hm3 "bar" 20;
     let hm3_len <i32> len &hm3;
-    if:
-        and eq code 0 ne hm3_len 2
-        then set code 40
-        else ()
     free hm3;
 
     let hm3a <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm3a <HashMap<str,i32,DefaultHash32>> must_hms insert hm3a "foo" 10;
     let hm3a <HashMap<str,i32,DefaultHash32>> must_hms insert hm3a "bar" 20;
     let hm3a_has <bool> contains &hm3a "foo";
-    if:
-        and eq code 0 not hm3a_has
-        then set code 50
-        else ()
     free hm3a;
 
     let hm3b <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm3b <HashMap<str,i32,DefaultHash32>> must_hms insert hm3b "foo" 10;
     let hm3b <HashMap<str,i32,DefaultHash32>> must_hms insert hm3b "bar" 20;
     let hm3b_has <bool> contains &hm3b "bar";
-    if:
-        and eq code 0 not hm3b_has
-        then set code 60
-        else ()
     free hm3b;
 
     let hm3c <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm3c <HashMap<str,i32,DefaultHash32>> must_hms insert hm3c "foo" 10;
     let hm3c <HashMap<str,i32,DefaultHash32>> must_hms insert hm3c "bar" 20;
     let hm3c_has <bool> contains &hm3c "baz";
-    if:
-        and eq code 0 hm3c_has
-        then set code 70
-        else ()
     free hm3c;
 
     let s1 <str> concat "a" "b";
     let s2 <str> concat "a" "b";
     let hm4 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm4 <HashMap<str,i32,DefaultHash32>> must_hms insert hm4 s1 30;
+    let mut hm4_value <i32> -1;
     match get &hm4 s2:
         Option::Some v:
-            if:
-                and eq code 0 ne v 30
-                then set code 80
-                else ()
+            set hm4_value v
         Option::None:
-            if:
-                eq code 0
-                then set code 90
-                else ()
+            ()
     free hm4;
 
     let hm5 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm5 <HashMap<str,i32,DefaultHash32>> must_hms insert hm5 "foo" 10;
     let hm5 <HashMap<str,i32,DefaultHash32>> must_hms insert hm5 "foo" 11;
+    let mut hm5_value <i32> -1;
     match get &hm5 "foo":
         Option::Some v:
-            if:
-                and eq code 0 ne v 11
-                then set code 100
-                else ()
+            set hm5_value v
         Option::None:
-            if:
-                eq code 0
-                then set code 110
-                else ()
+            ()
     free hm5;
 
     let hm6 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
@@ -130,27 +94,35 @@ fn main <()*> i32> ():
     let hm6 <HashMap<str,i32,DefaultHash32>> must_hms insert hm6 "bar" 20;
     let hm6 <HashMap<str,i32,DefaultHash32>> must_hms remove hm6 "bar";
     let hm6_has <bool> contains &hm6 "bar";
-    if:
-        and eq code 0 hm6_has
-        then set code 120
-        else ()
     free hm6;
 
     let hm7 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hm7 <HashMap<str,i32,DefaultHash32>> must_hms insert hm7 "foo" 10;
     let hm7_er <Result<HashMap<str,i32,DefaultHash32>, Diag>> remove hm7 "zzz";
     let hm7_is_err <bool> is_err<HashMap<str,i32,DefaultHash32>, Diag> hm7_er;
-    if:
-        and eq code 0 not hm7_is_err
-        then set code 130
-        else ()
-    code
+
+    let report:
+        test_report_new "hashmap_str_main"
+        |> test_report_push assert_eq_i32 "empty len" 0 hm0_len
+        |> test_report_push assert "empty missing foo" not hm1_has
+        |> test_report_push assert "empty get none" hm2_none
+        |> test_report_push assert_eq_i32 "unique len" 2 hm3_len
+        |> test_report_push assert "contains foo" hm3a_has
+        |> test_report_push assert "contains bar" hm3b_has
+        |> test_report_push assert "missing baz" not hm3c_has
+        |> test_report_push assert_eq_i32 "concat key get" 30 hm4_value
+        |> test_report_push assert_eq_i32 "update get foo" 11 hm5_value
+        |> test_report_push assert "remove clears bar" not hm6_has
+        |> test_report_push assert "missing remove returns error" hm7_is_err
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## hashmap_str_free_smoke
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"hashmap_str_free_smoke\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"free after string insert completes\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 
 #entry main
@@ -161,6 +133,7 @@ ret: 0
 #import "core/traits/hash" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,DefaultHash32>> (r):
     match r:
@@ -173,5 +146,9 @@ fn main <()*> i32> ():
     let hmf <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
     let hmf <HashMap<str,i32,DefaultHash32>> must_hms insert hmf "x" 1;
     free hmf;
-    0
+    let report:
+        test_report_new "hashmap_str_free_smoke"
+        |> test_report_push assert "free after string insert completes" true
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
