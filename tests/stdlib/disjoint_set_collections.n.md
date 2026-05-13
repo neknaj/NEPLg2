@@ -13,8 +13,9 @@
 - `size`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"disjoint_set_pipe_usage\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"0 and 3 connected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"disjoint set len\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"component size\" expected=\"4\" actual=\"4\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -24,6 +25,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let dsu0 <DisjointSet>:
@@ -32,19 +34,22 @@ fn main <()*>i32> ():
         |> union 3 4 |> uwok
         |> union 1 4 |> uwok
     let ok0 <bool> unwrap_ok<bool, Diag> same &dsu0 0 3;
-    let ok_len <bool> eq len &dsu0 5;
+    let dsu_len <i32> len &dsu0;
     free dsu0
     let dsu1 <DisjointSet>:
         unwrap_ok<DisjointSet, Diag> new 5
         |> union 0 1 |> uwok
         |> union 3 4 |> uwok
         |> union 1 4 |> uwok
-    let sz <i32> unwrap_ok<i32, Diag> size &dsu1 4;
+    let component_size <i32> unwrap_ok<i32, Diag> size &dsu1 4;
     free dsu1
-    let ok1 <bool> eq sz 4;
-    let ok01 <bool> and ok0 ok1;
-    let ok <bool> and ok_len ok01;
-    if ok 1 0
+    let report:
+        test_report_new "disjoint_set_pipe_usage"
+        |> test_report_push assert "0 and 3 connected" ok0
+        |> test_report_push assert_eq_i32 "disjoint set len" 5 dsu_len
+        |> test_report_push assert_eq_i32 "component size" 4 component_size
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## disjoint_set_union_free_reallocates
@@ -58,8 +63,9 @@ fn main <()*>i32> ():
 - `free`
 - `same`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"disjoint_set_union_free_reallocates\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"same after realloc\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -68,6 +74,7 @@ ret: 1
 #import "alloc/collections/disjoint_set" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let dsu_free <DisjointSet>:
@@ -81,7 +88,11 @@ fn main <()*>i32> ():
         |> union 0 3 |> uwok
     let ok0 <bool> unwrap_ok<bool, Diag> same &dsu0 0 3;
     free dsu0
-    if ok0 1 0
+    let report:
+        test_report_new "disjoint_set_union_free_reallocates"
+        |> test_report_push assert "same after realloc" ok0
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## disjoint_set_new_zero_is_empty
@@ -96,8 +107,9 @@ fn main <()*>i32> ():
 - `free`
 - [再確保/さいかくほ]
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"disjoint_set_new_zero_is_empty\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"zero len\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"empty find rejects index\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"free empty succeeds\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"realloc root is zero\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -107,6 +119,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let len_ok <bool> match new 0:
@@ -142,7 +155,14 @@ fn main <()*>i32> ():
                     false
             free dsu
             ok
-    if and and len_ok find_err_ok and free_ok realloc_ok 1 0
+    let report:
+        test_report_new "disjoint_set_new_zero_is_empty"
+        |> test_report_push assert "zero len" len_ok
+        |> test_report_push assert "empty find rejects index" find_err_ok
+        |> test_report_push assert "free empty succeeds" free_ok
+        |> test_report_push assert "realloc root is zero" realloc_ok
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## disjoint_set_union_error_returns_owner
@@ -156,8 +176,9 @@ fn main <()*>i32> ():
 - `len`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"disjoint_set_union_error_returns_owner\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"union error returns owner len\" expected=\"4\" actual=\"4\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -167,6 +188,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let dsu <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
@@ -176,9 +198,13 @@ fn main <()*>i32> ():
             0
         Result::Err e:
             let recovered <DisjointSet> disjoint_set_update_error_owner e
-            let ok <bool> eq len &recovered 4
+            let recovered_len <i32> len &recovered
             free recovered
-            if ok 1 0
+            let report:
+                test_report_new "disjoint_set_union_error_returns_owner"
+                |> test_report_push assert_eq_i32 "union error returns owner len" 4 recovered_len
+            let shown test_report_print_stdout report
+            test_report_exit_code shown
 ```
 
 ## disjoint_set_negative_length_rejected
@@ -190,8 +216,9 @@ fn main <()*>i32> ():
 - `new`
 - `StdErrorKind::CapacityExceeded`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"disjoint_set_negative_length_rejected\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"negative length error\" expected=\"CapacityExceeded\" actual=\"CapacityExceeded\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -202,6 +229,7 @@ ret: 1
 #import "alloc/string" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let neg <i32> sub 0 1
@@ -211,5 +239,9 @@ fn main <()*>i32> ():
             0
         Result::Err d:
             let name <str> diag_std_error_kind_str d
-            if str_eq name "CapacityExceeded" 1 0
+            let report:
+                test_report_new "disjoint_set_negative_length_rejected"
+                |> test_report_push assert_str_eq "negative length error" "CapacityExceeded" name
+            let shown test_report_print_stdout report
+            test_report_exit_code shown
 ```

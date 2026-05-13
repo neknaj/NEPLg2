@@ -168,3 +168,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\sparse_set.n.md -i tests\stdlib\sparse_set_collections.n.md --no-tree -o tmp\agent1-sparse-set-report-tests.json -j 2 --assert-io`: total=5, passed=5
 
 この issue はまだ open のまま継続する。SparseSet 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-13 DisjointSet stdout report migration
+
+`stdlib/tests/disjoint_set.n.md` と `tests/stdlib/disjoint_set_collections.n.md` の DisjointSet focused doctest 7 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `same` / `len` / `size` / zero-length creation / invalid index / free-after-union / owner recovery の観測結果を assertion label として stdout に残すようにした。
+- `len` と component size は `assert_eq_i32` で expected / actual を stdout に固定した。
+- negative length の diagnostic check は `assert_str_eq` で `CapacityExceeded` の expected / actual を stdout に固定した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\disjoint_set.n.md -i tests\stdlib\disjoint_set_collections.n.md --no-tree -o tmp\agent1-disjoint-set-report-tests.json -j 2 --assert-io`: total=7, passed=7
+
+この issue はまだ open のまま継続する。DisjointSet 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
