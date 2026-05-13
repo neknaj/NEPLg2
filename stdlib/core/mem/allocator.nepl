@@ -41,14 +41,29 @@ pub fn mem_block_end <(i32)->i32> (blk):
 //:
 //: 注意(重要):
 //: - size<=0 の場合は 0 を返します。
+//: - `size + header` の整列計算が i32 範囲を超える場合も 0 を返し、wrap した block size を作りません。
 //: - 返り値 0 は失敗を意味します。
 //:
 //: 計算量:
 //: - 平均 O(1) / 最悪 O(n)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem/allocator" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc 2147483633:
+//:         Result::Err _:
+//:             1
+//:         Result::Ok _p:
+//:             #intrinsic "unreachable" <> ()
+//: ```
 pub fn alloc_raw <(i32)->i32> (size):
     if:
         cond:
-            le size 0
+            or le size 0 not alloc_payload_fits size
         then:
             0
         else:

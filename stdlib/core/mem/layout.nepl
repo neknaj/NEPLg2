@@ -46,6 +46,58 @@ pub fn align8 <(i32)->i32> (n):
     let q <i32> div_s t 8
     mul q 8
 
+//: max_alloc_payload_bytes: allocator payload として安全に整列計算できる最大 byte 数
+//:
+//: 目的:
+//: - allocator が `align8(size + header)` を計算するとき、i32 加算が wrap しない payload 上限を返します。
+//:
+//: 実装(アルゴリズム):
+//: - header 8 byte と align8 の `+7` を考慮し、`i32::MAX - 15` を上限にします。
+//:
+//: 注意(重要):
+//: - これは runtime memory の空き容量ではなく、allocator metadata 計算を安全に行える整数上限です。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if eq max_alloc_payload_bytes 2147483632 1 0
+//: ```
+pub fn max_alloc_payload_bytes <()->i32> ():
+    2147483632
+
+//: alloc_payload_fits: allocator payload byte 数が整列計算可能か判定する
+//:
+//: 目的:
+//: - allocator に渡す payload byte 数が、負数ではなく `max_alloc_payload_bytes` 以下であることを確認します。
+//:
+//: 実装(アルゴリズム):
+//: - `0 <= bytes <= max_alloc_payload_bytes` を比較だけで判定します。
+//:
+//: 注意(重要):
+//: - `bytes == 0` は整数上は安全ですが、実際の allocation 成功条件は allocator API が別途決めます。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if and alloc_payload_fits 2147483632 not alloc_payload_fits 2147483633 1 0
+//: ```
+pub fn alloc_payload_fits <(i32)->bool> (bytes):
+    and ge bytes 0 le bytes max_alloc_payload_bytes
+
 //: size_of: 型のサイズを取得する
 //:
 //: 目的:

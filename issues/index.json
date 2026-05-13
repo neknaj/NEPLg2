@@ -1,15 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T10:06:45.163Z",
+  "generated_at": "2026-05-13T10:18:34.593Z",
   "counts": {
-    "total": 708,
-    "open": 5,
-    "resolved": 703,
+    "total": 710,
+    "open": 6,
+    "resolved": 704,
     "by_area": {
+      "core": {
+        "total": 377,
+        "open": 1,
+        "resolved": 376
+      },
       "stdlib": {
-        "total": 175,
+        "total": 176,
         "open": 3,
-        "resolved": 172
+        "resolved": 173
       },
       "TEST": {
         "total": 18,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 376,
-        "open": 0,
-        "resolved": 376
       },
       "resource": {
         "total": 2,
@@ -109,6 +109,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD",
+      "title": "dealloc and realloc size arguments need owner extent proof",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "architecture",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/**, stdlib/core/mem/allocator.nepl, tests/compiler/*.n.md, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -588,6 +603,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T100047236Z-REGION-PTR-AT-RETURNS-TYPED-MEMPTR-W-39BD1C91.md"
+    },
+    {
+      "id": "ISS-20260513T101054155Z-CORE-MEM-ALLOCATION-BYTE-COUNTS-CAN--9B7BDEA4",
+      "title": "core/mem allocation byte counts can overflow before allocator bounds",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/core/mem/layout.nepl, stdlib/core/mem/allocator.nepl, stdlib/core/mem/pointer/region.nepl, tests/stdlib/memory_safety.n.md, nodesrc/test_stdlib_core_mem_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T101054155Z-CORE-MEM-ALLOCATION-BYTE-COUNTS-CAN--9B7BDEA4.md"
     },
     {
       "id": "ISS-20260430T015534910Z-SOURCE-POLICY-REGRESSIONS-BLOCK-DOWN-33545524",

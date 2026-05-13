@@ -153,3 +153,11 @@ Stage 6 の現段階で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の module allowlist 
 今回の修正により、`region_ptr_at` は `size_of<U>` による `off..off+size_of<U>` の範囲検査に加え、`align_of<U>` による実 address `base + off` の alignment 検査を同じ owner boundary で行う。typed pointer projection の前提を呼び出し側や後続 wrapper へ委譲せず、`RegionToken` から `MemPtr<U>` を得る時点で memory/type safety 条件を閉じる。
 
 これは `MemPtr = non-owning pointer` / `RegionToken = free obligation owner` の分離を維持する修正であり、`MemPtr` に owner proof を追加するものではない。`OwnedBuffer<T>` / collection element drop traversal / raw-memory-backed public API migration は Stage 6 の残件として継続する。
+
+## 2026-05-13 Agent 1 allocation payload size proof 追記
+
+`ISS-20260513T101054155Z-CORE-MEM-ALLOCATION-BYTE-COUNTS-CAN--9B7BDEA4` で、allocator payload byte 数の overflow proof を追加した。
+
+`alloc_raw` は `align8(size + header)` の前に `alloc_payload_fits` で `size + 8 + 7 <= i32::MAX` を満たすことを確認する。`alloc_region` は `count * size_of<T>` を実行する前に `max_alloc_payload_bytes / size_of<T>` から最大 count を求め、wrap した byte 数を allocator へ渡さない。
+
+この作業中に、`dealloc` / `realloc` の size 引数を runtime check だけで強化すると Resource IR owner summary が正しく maybe leak を報告することを確認した。これは dealloc size と allocation extent の compiler-level proof が不足している別問題なので、`ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD` として分離した。

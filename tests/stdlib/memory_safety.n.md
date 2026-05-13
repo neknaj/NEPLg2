@@ -251,6 +251,54 @@ fn main <()*>i32> ():
                     ok
 ```
 
+## alloc_region は byte 数乗算 overflow を Err にする
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region<i32> 536870909:
+        Result::Err _e:
+            1
+        Result::Ok token:
+            match dealloc_region token:
+                Result::Err _drop:
+                    0
+                Result::Ok _:
+                    0
+```
+
+## alloc_region_bytes は allocator payload 上限超過を Err にする
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region_bytes<u8> 2147483633:
+        Result::Err _e:
+            1
+        Result::Ok token:
+            match dealloc_region token:
+                Result::Err _drop:
+                    0
+                Result::Ok _:
+                    0
+```
+
 ## MemPtr fill_i32/fill_u8 の安全オーバーロード
 
 neplg2:test

@@ -126,7 +126,7 @@ pub fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (
 //: - allocator から得た storage owner を `RegionToken<T>` として束ねます。
 //:
 //: 実装(アルゴリズム):
-//: - `bytes` が負なら `Err` を返します。
+//: - `bytes` が負、または allocator payload 上限を超える場合は `Err` を返します。
 //: - `alloc_ptr<T>` により storage を確保し、成功時だけ internal boundary の `region_new` で owner token を作ります。
 //:
 //: 注意(重要):
@@ -157,7 +157,7 @@ pub fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (
 //: ```
 pub fn alloc_region_bytes <.T> <(i32)->Result<RegionToken<.T>,str>> (bytes):
     if:
-        lt bytes 0
+        not alloc_payload_fits bytes
         then:
             Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes invalid size"
         else:
@@ -173,11 +173,11 @@ pub fn alloc_region_bytes <.T> <(i32)->Result<RegionToken<.T>,str>> (bytes):
 //: - `.T` の `count` 個ぶんの storage を確保し、owner token として返します。
 //:
 //: 実装(アルゴリズム):
-//: - `count * size_of<T>` を byte 数に変換して `alloc_region_bytes` へ委譲します。
+//: - `count` と `size_of<T>` から乗算前に最大 count を計算し、overflow しない場合だけ byte 数へ変換します。
 //:
 //: 注意(重要):
-//: - `count` が負の場合は `Err` を返します。
-//: - 乗算 overflow は現行 i32 演算の範囲に従います。大きな allocation は allocator / runtime 側で失敗します。
+//: - `count <= 0` の場合は `Err` を返します。
+//: - `count * size_of<T>` が allocator payload 上限を超える場合は、wrap した byte 数を作らず `Err` を返します。
 //:
 //: 計算量:
 //: - allocator の free list 探索に依存し、最悪 O(n) です。
@@ -201,14 +201,39 @@ pub fn alloc_region_bytes <.T> <(i32)->Result<RegionToken<.T>,str>> (bytes):
 //:         Result::Err _:
 //:             0
 //: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<i32> 536870909:
+//:         Result::Err _:
+//:             1
+//:         Result::Ok region:
+//:             match dealloc_region<i32> region:
+//:                 Result::Ok _:
+//:                     0
+//:                 Result::Err _:
+//:                     0
+//: ```
 pub fn alloc_region <.T> <(i32)->Result<RegionToken<.T>,str>> (count):
+    let elem_size <i32> size_of<.T>
     if:
-        lt count 0
+        or le count 0 le elem_size 0
         then:
             Result<RegionToken<.T>,str>::Err "mem.alloc_region invalid count"
         else:
-            let bytes <i32> mul count size_of<.T>
-            alloc_region_bytes<.T> bytes
+            let max_count <i32> div_s max_alloc_payload_bytes elem_size
+            if:
+                gt count max_count
+                then:
+                    Result<RegionToken<.T>,str>::Err "mem.alloc_region size overflow"
+                else:
+                    let bytes <i32> mul count elem_size
+                    alloc_region_bytes<.T> bytes
 
 //: dealloc_region: RegionToken が所有する storage を解放する
 //:

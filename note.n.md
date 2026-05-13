@@ -37176,3 +37176,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `region_ptr_at` は `RegionToken` の byte bounds だけでなく、`align_of<U>` による実 address `base + off` の alignment も検査してから `MemPtr<U>` を返すようにした。
 - 旧コメントの「alignment は呼び出し側で検査する」方針を削除し、typed pointer projection の safety proof を owner boundary 内で閉じる契約に更新した。
 - `tests/stdlib/memory_safety.n.md` と `stdlib/core/mem/pointer/region.nepl` の doctest に unaligned `RegionToken<u8>` -> `MemPtr<i32>` projection が `Err` になる regression を追加し、`nodesrc/test_stdlib_core_mem_boundary.js` で source policy 化した。
+
+## 2026-05-13 Agent 1 allocation payload size proof
+
+- `work/stage6-region-allocation-size-proof` で `ISS-20260513T101054155Z-CORE-MEM-ALLOCATION-BYTE-COUNTS-CAN--9B7BDEA4` を追加して解決した。
+- `max_alloc_payload_bytes` / `alloc_payload_fits` を `core/mem/layout` に追加し、allocator metadata の `size + header + align padding` が i32 範囲を超えない上限を一箇所に集約した。
+- `alloc_raw` は整列計算前に payload 上限を検査し、`alloc_region` は `count * size_of<T>` の前に `max_alloc_payload_bytes / size_of<T>` で overflow しないことを証明する。
+- 修正中に `dealloc` / `realloc` の size 引数は runtime check だけでは Resource IR owner summary と衝突することを確認し、`ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD` として分離した。
