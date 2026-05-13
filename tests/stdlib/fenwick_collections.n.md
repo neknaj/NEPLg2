@@ -13,32 +13,37 @@
 - `sum_range`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"fenwick_pipe_usage\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"fenwick len\" expected=\"6\" actual=\"6\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"prefix sum 0..5\" expected=\"14\" actual=\"14\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"range sum 2..5\" expected=\"12\" actual=\"12\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
 #target std
 
-#import "alloc/collections/fenwick" as *
+#import "alloc/collections/fenwick" as fw
 #import "alloc/diag/error" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let fw <Fenwick>:
-        unwrap_ok<Fenwick, Diag> new 6
-        |> add 0 2 |> uwok
-        |> add 2 5 |> uwok
-        |> add 4 7 |> uwok
-    let ok_len <bool> eq len &fw 6;
-    let prefix5 <i32> unwrap_ok<i32, Diag> sum_prefix &fw 5;
-    let ok0 <bool> eq prefix5 14;
-    let range_2_5 <i32> unwrap_ok<i32, Diag> sum_range &fw 2 5;
-    let ok1 <bool> eq range_2_5 12;
-    free fw
-    let ok <bool> and ok_len and ok0 ok1;
-    if ok 1 0
+        unwrap_ok<Fenwick, Diag> fw::new 6
+        |> fw::add 0 2 |> uwok
+        |> fw::add 2 5 |> uwok
+        |> fw::add 4 7 |> uwok
+    let size <i32> fw::len &fw;
+    let prefix5 <i32> unwrap_ok<i32, Diag> fw::sum_prefix &fw 5;
+    let range_2_5 <i32> unwrap_ok<i32, Diag> fw::sum_range &fw 2 5;
+    fw::free fw
+    let report:
+        test_report_new "fenwick_pipe_usage"
+        |> test_report_push assert_eq_i32 "fenwick len" 6 size
+        |> test_report_push assert_eq_i32 "prefix sum 0..5" 14 prefix5
+        |> test_report_push assert_eq_i32 "range sum 2..5" 12 range_2_5
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## fenwick_free_releases_owned_storage
@@ -51,28 +56,34 @@ fn main <()*>i32> ():
 - `new`
 - `add`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"fenwick_free_releases_owned_storage\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"free permits later allocation\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
 #target std
 
-#import "alloc/collections/fenwick" as *
+#import "alloc/collections/fenwick" as fw
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let fw0 <Fenwick>:
-        unwrap_ok<Fenwick, Diag> new 6
-        |> add 1 3 |> uwok
-    free fw0
+        unwrap_ok<Fenwick, Diag> fw::new 6
+        |> fw::add 1 3 |> uwok
+    fw::free fw0
     let fw1 <Fenwick>:
-        unwrap_ok<Fenwick, Diag> new 6
-        |> add 2 5 |> uwok
-    free fw1
-    1
+        unwrap_ok<Fenwick, Diag> fw::new 6
+        |> fw::add 2 5 |> uwok
+    fw::free fw1
+    let report:
+        test_report_new "fenwick_free_releases_owned_storage"
+        |> test_report_push assert "free permits later allocation" true
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## fenwick_add_error_returns_owner
@@ -85,29 +96,35 @@ fn main <()*>i32> ():
 - `add_error_tree`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"fenwick_add_error_returns_owner\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"add error recovers owner len\" expected=\"4\" actual=\"4\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
 #target std
 
-#import "alloc/collections/fenwick" as *
+#import "alloc/collections/fenwick" as fw
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
-    let fw <Fenwick> unwrap_ok<Fenwick, Diag> new 4;
-    match add fw 8 3:
+    let fw <Fenwick> unwrap_ok<Fenwick, Diag> fw::new 4;
+    match fw::add fw 8 3:
         Result::Ok next:
-            free next
+            fw::free next
             0
         Result::Err e:
-            let recovered <Fenwick> add_error_tree e
-            let ok <bool> eq len &recovered 4
-            free recovered
-            if ok 1 0
+            let recovered <Fenwick> fw::add_error_tree e
+            let size <i32> fw::len &recovered
+            fw::free recovered
+            let report:
+                test_report_new "fenwick_add_error_returns_owner"
+                |> test_report_push assert_eq_i32 "add error recovers owner len" 4 size
+            let shown test_report_print_stdout report
+            test_report_exit_code shown
 ```
 
 ## fenwick_negative_length_rejected
@@ -119,26 +136,32 @@ fn main <()*>i32> ():
 - `new`
 - `StdErrorKind::CapacityExceeded`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"fenwick_negative_length_rejected\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"negative length error\" expected=\"CapacityExceeded\" actual=\"CapacityExceeded\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
 #target std
 
-#import "alloc/collections/fenwick" as *
+#import "alloc/collections/fenwick" as fw
 #import "alloc/diag/error" as *
 #import "alloc/string" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let neg <i32> sub 0 1
-    match new neg:
+    match fw::new neg:
         Result::Ok fw:
-            free fw
+            fw::free fw
             0
         Result::Err d:
             let name <str> diag_std_error_kind_str d
-            if str_eq name "CapacityExceeded" 1 0
+            let report:
+                test_report_new "fenwick_negative_length_rejected"
+                |> test_report_push assert_str_eq "negative length error" "CapacityExceeded" name
+            let shown test_report_print_stdout report
+            test_report_exit_code shown
 ```

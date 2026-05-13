@@ -135,3 +135,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\adjacency_matrix.n.md -i tests\stdlib\adjacency_matrix_collections.n.md --no-tree -o tmp\agent1-adjacency-report-tests.json -j 2 --assert-io`: total=7, passed=7
 
 この issue はまだ open のまま継続する。AdjacencyMatrix 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-13 Fenwick stdout report migration
+
+`stdlib/tests/fenwick.n.md` と `tests/stdlib/fenwick_collections.n.md` の Fenwick focused doctest 6 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `len` / `sum_prefix` / `sum_range` / `free` / add error owner recovery の観測結果を assertion label として stdout に残すようにした。
+- negative length の diagnostic check は `assert_str_eq` で `CapacityExceeded` の expected / actual を stdout に固定した。
+- Fenwick の public `add` API が `std/test` / `std/stdio` 内部 arithmetic を汚染しないよう、Fenwick API は `fw::...` の qualified call として使う形にした。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\fenwick.n.md -i tests\stdlib\fenwick_collections.n.md --no-tree -o tmp\agent1-fenwick-report-tests.json -j 2 --assert-io`: total=6, passed=6
+
+この issue はまだ open のまま継続する。Fenwick 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

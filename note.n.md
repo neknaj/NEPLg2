@@ -37119,3 +37119,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `std/test/report.nepl`、`std/stdio/write/fd.nepl`、`std/stdio/read/buffer.nepl` の arithmetic を `math::...` へ明示化し、利用者側の collection API 名に内部実装が汚染されないようにした。
 - `tests/stdlib/std_test_namespace_resolution.n.md` を追加し、Fenwick `fw::add` と `std/test` stdout report を同じ doctest で使えることを固定した。
 - `tests/stdlib/std_test_collect.n.md` の `concat` 利用は `std/test` 内部 import への便乗だったため、doctest 自身が `alloc/string` を直接 import する形へ修正した。
+
+## 2026-05-13 Agent 1 Fenwick .n.md stdout report migration
+
+- `c8819fb2` push 後に remote main を pull し、`agent1-nmd-fenwick-report` branch を作り直した。
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の部分対応として、Fenwick doctest 6 件を `ret: 1` 依存から `stdout:` + `exit_code:` へ移行した。
+- `stdlib/tests/fenwick.n.md` と `tests/stdlib/fenwick_collections.n.md` は `std/test` の canonical `test_report_*` API を使い、len / prefix sum / range sum / free / owner recovery / diagnostic kind を stdout report に固定する。
+- Fenwick の public `add` と stdio/std-test 内部 arithmetic の名前衝突を避けるため、Fenwick API は `fw::...` の qualified call として利用する。
+- aggregate `nodesrc\tests.js` 実行は total=6, passed=6。issue は他 fixture の移行と stdout report 省略検出 policy が残るため open のまま継続する。
