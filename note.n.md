@@ -1,3 +1,14 @@
+# 2026-05-14 Agent 1 generic trait lookup fixture 明示import修正
+
+- `ISS-20260513T160056481Z-GENERIC-TRAIT-LOOKUP-REGRESSION-FIXT-21C1894C` を追加して解決した。
+- 抽象化機能の監査中に、`generic_trait_impl_method_resolves_by_trait_args` が `IdentifierUndefined` で失敗していることを確認した。
+- 根本原因は trait lookup ではなく、fixture が `eq` を使うのに `core/math` を import していない古い前提だった。現在のNEPLg2では暗黙preludeに依存せず、使用するmoduleを明示する方針なので、fixtureに `#import "core/math" as *` を追加した。
+- これにより、テストの主目的である `Hasher<.K>` generic trait impl resolution を再び直接検証できるようになった。
+- 検証:
+  - `cargo test -p nepl-core --test neplg2 generic_trait_impl_method_resolves_by_trait_args -- --nocapture`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は抽象化機能の回帰テストを現行の明示import方針に同期するもの。
+
 # 2026-05-14 Agent 1 partial move auto-drop 再発修正
 
 - `ISS-20260429T231116550Z-AUTO-DROP-SKIPS-REMAINING-STRUCT-FIE-67E6E6C5` の再発を修正した。

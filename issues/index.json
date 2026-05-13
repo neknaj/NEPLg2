@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T15:56:30.506Z",
+  "generated_at": "2026-05-13T16:01:29.879Z",
   "counts": {
-    "total": 728,
+    "total": 729,
     "open": 5,
-    "resolved": 723,
+    "resolved": 724,
     "by_area": {
       "stdlib": {
         "total": 183,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 386,
+        "total": 387,
         "open": 0,
-        "resolved": 386
+        "resolved": 387
       },
       "resource": {
         "total": 2,
@@ -9548,6 +9548,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T125509232Z-RESOURCE-VARIANT-COMPARISON-ALLOCATE-30C96E24.md"
+    },
+    {
+      "id": "ISS-20260513T160056481Z-GENERIC-TRAIT-LOOKUP-REGRESSION-FIXT-21C1894C",
+      "title": "generic trait lookup regression fixture relies on implicit math import",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "test",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/tests/neplg2.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T160056481Z-GENERIC-TRAIT-LOOKUP-REGRESSION-FIXT-21C1894C.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",

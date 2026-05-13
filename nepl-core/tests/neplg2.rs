@@ -1797,6 +1797,7 @@ fn generic_trait_impl_method_resolves_by_trait_args() {
     let src = r#"
 #entry main
 #indent 4
+#import "core/math" as *
 
 trait HashKey:
     #capability clone
