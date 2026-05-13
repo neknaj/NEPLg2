@@ -3,7 +3,10 @@ use crate::diagnostic::Severity;
 use crate::error::CoreError;
 use crate::lexer;
 use crate::parser;
-use crate::source_capability::module_has_raw_memory_boundary_evidence;
+use crate::source_capability::{
+    module_compiler_memory_type_definitions, module_has_raw_memory_boundary_evidence,
+};
+use crate::source_map::SourceCapability;
 use crate::span::FileId;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
@@ -690,13 +693,16 @@ impl Loader {
         canon: &PathBuf,
         module: &Module,
     ) -> SourceCapabilities {
-        if self.configured_stdlib_source_path(canon)
-            && module_has_raw_memory_boundary_evidence(module)
-        {
-            SourceCapabilities::raw_memory_boundary()
-        } else {
-            SourceCapabilities::none()
+        let mut capabilities = SourceCapabilities::none();
+        if self.configured_stdlib_source_path(canon) {
+            if module_has_raw_memory_boundary_evidence(module) {
+                capabilities.insert(SourceCapability::RawMemoryBoundary);
+            }
+            for memory_type in module_compiler_memory_type_definitions(module) {
+                capabilities.insert(SourceCapability::CompilerMemoryTypeDefinition(memory_type));
+            }
         }
+        capabilities
     }
 
     fn configured_stdlib_source_path(&self, canon: &PathBuf) -> bool {
@@ -832,6 +838,64 @@ mod tests {
             raw.allows_raw_memory_boundary(),
             "configured raw boundary candidate with raw helper evidence must receive capability"
         );
+    }
+
+    #[test]
+    fn compiler_memory_type_definitions_use_source_shape_not_raw_boundary_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "types.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            concat!(
+                "pub struct MemPtr<.T>:\n",
+                "    raw <i32>\n\n",
+                "pub struct RegionToken<.T>:\n",
+                "    ptr <MemPtr<.T>>\n",
+                "    size <i32>\n",
+            ),
+        );
+
+        assert!(
+            !capabilities.allows_raw_memory_boundary(),
+            "compiler-owned memory type definitions are not raw operation authority"
+        );
+        assert!(capabilities.allows_compiler_memory_type_definition(
+            crate::source_map::CompilerMemoryType::RawPointer
+        ));
+        assert!(capabilities.allows_compiler_memory_type_definition(
+            crate::source_map::CompilerMemoryType::OwnerToken
+        ));
+    }
+
+    #[test]
+    fn compiler_memory_type_definition_requires_configured_stdlib_source_path() {
+        let loader = test_loader();
+        let path = canonicalize_path(&PathBuf::from("C:/nepl-user/types.nepl"));
+        let capabilities =
+            load_source_capabilities(&loader, path, "pub struct MemPtr<.T>:\n    raw <i32>\n");
+
+        assert!(!capabilities.allows_compiler_memory_type_definition(
+            crate::source_map::CompilerMemoryType::RawPointer
+        ));
+    }
+
+    #[test]
+    fn compiler_memory_type_definition_requires_exact_struct_shape() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "future_types.nepl"],
+        ));
+        let capabilities =
+            load_source_capabilities(&loader, path, "pub struct MemPtr<.T>:\n    raw <u8>\n");
+
+        assert!(!capabilities.allows_compiler_memory_type_definition(
+            crate::source_map::CompilerMemoryType::RawPointer
+        ));
     }
 
     #[test]

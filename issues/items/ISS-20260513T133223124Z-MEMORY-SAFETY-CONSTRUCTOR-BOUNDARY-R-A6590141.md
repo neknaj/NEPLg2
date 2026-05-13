@@ -2,13 +2,13 @@
 id: ISS-20260513T133223124Z-MEMORY-SAFETY-CONSTRUCTOR-BOUNDARY-R-A6590141
 title: "memory_safety constructor boundary regressions no longer prove typecheck rejection"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-13
 updated: 2026-05-13
-target: "nepl-core/src/typecheck/constructor_apply.rs; tests/stdlib/memory_safety.n.md"
+target: "nepl-core/src/source_capability/memory_type_definition.rs; nepl-core/src/typecheck/driver.rs; tests/stdlib/memory_safety.n.md"
 ---
 
 # ISS-20260513T133223124Z-MEMORY-SAFETY-CONSTRUCTOR-BOUNDARY-R-A6590141: memory_safety constructor boundary regressions no longer prove typecheck rejection
@@ -42,4 +42,21 @@ Audit raw pointer and owner token constructor restriction against reachable and 
 
 ## 検証
 
-Run cargo test -p nepl-core constructor_restricted, trunk build, node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree --dist web/dist -j 1, and node nodesrc/issues.js check --dir issues.
+- `cargo check -p nepl-core --tests`
+- `cargo test -p nepl-core --test resource_ir struct_constructor -- --nocapture`
+- `cargo test -p nepl-core compiler_memory_type_definition -- --nocapture`
+- `cargo test -p nepl-core source_capabilities -- --nocapture`
+- `cargo test -p nepl-core source_map_keeps_capabilities_per_file -- --nocapture`
+- `node nodesrc/test_static_check_boundary_responsibility.js`
+- `node nodesrc/issues.js check --dir issues`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `trunk build`
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-constructor-boundary.json -j 1 --dist web/dist`
+
+## 解決内容
+
+- `RawMemoryBoundary` capability と compiler-owned memory type definition capability を分離した。
+- `MemPtr` / `RegionToken` の constructor policy は、定義元 file が raw-memory-boundary かどうかではなく、stdlib 配下の source が AST 上で compiler memory type の構造を満たすかで判定する。
+- `MemPtr` は `pub struct MemPtr<.T>: raw <i32>`、`RegionToken` は `pub struct RegionToken<.T>: ptr <MemPtr<.T>>, size <i32>` の形を満たす場合だけ compiler-owned memory type として扱う。
+- direct constructor の利用許可は従来どおり use-site の raw-memory-boundary capability で検査し、通常利用者による pointer / owner token forging は typecheck で拒否する。
+- 同名の user-defined struct は stdlib source capability を持たないため public constructor のまま扱われる既存 regression を維持した。

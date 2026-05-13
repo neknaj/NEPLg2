@@ -11,7 +11,13 @@ const RESOURCE_ROOT = path.join(CORE_SRC, 'resource', 'mod.rs');
 const COMPILER = path.join(CORE_SRC, 'compiler.rs');
 const EFFECTS = path.join(CORE_SRC, 'effects.rs');
 const LOADER = path.join(CORE_SRC, 'loader.rs');
+const SOURCE_MAP = path.join(CORE_SRC, 'source_map.rs');
 const SOURCE_CAPABILITY = path.join(CORE_SRC, 'source_capability.rs');
+const SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION = path.join(
+    CORE_SRC,
+    'source_capability',
+    'memory_type_definition.rs',
+);
 const SOURCE_CAPABILITY_RAW_MEMORY = path.join(CORE_SRC, 'source_capability', 'raw_memory.rs');
 const SOURCE_CAPABILITY_RAW_MEMORY_SCOPE = path.join(
     CORE_SRC,
@@ -86,7 +92,12 @@ const resourceRoot = assertFile(RESOURCE_ROOT, 'resource/mod.rs');
 const compiler = assertFile(COMPILER, 'compiler.rs');
 const effects = assertFile(EFFECTS, 'effects.rs');
 const loader = assertFile(LOADER, 'loader.rs');
+const sourceMap = assertFile(SOURCE_MAP, 'source_map.rs');
 const sourceCapability = assertFile(SOURCE_CAPABILITY, 'source_capability.rs');
+const sourceCapabilityMemoryTypeDefinition = assertFile(
+    SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION,
+    'source_capability/memory_type_definition.rs',
+);
 const sourceCapabilityRawMemory = assertFile(
     SOURCE_CAPABILITY_RAW_MEMORY,
     'source_capability/raw_memory.rs',
@@ -179,22 +190,19 @@ assertContains(
 assertContains(typecheckDriver, 'fn struct_constructor_policy', 'typecheck/driver.rs');
 assertContains(
     typecheckDriver,
-    'raw_memory_boundary_allowed(span.file_id)',
+    'compiler_memory_type_from_constructor_name(name)',
     'typecheck/driver.rs',
-);
-assertMatches(
-    typecheckDriver,
-    /"MemPtr"\s+if\s+raw_memory_boundary\s*=>\s*\{\s*StructConstructorPolicy::RawMemoryBoundaryOnly\(RestrictedStructConstructor::RawPointer\)\s*\}/,
-    'typecheck/driver.rs MemPtr constructor policy',
-);
-assertMatches(
-    typecheckDriver,
-    /"RegionToken"\s+if\s+raw_memory_boundary\s*=>\s*\{\s*StructConstructorPolicy::RawMemoryBoundaryOnly\(RestrictedStructConstructor::OwnerToken\)\s*\}/,
-    'typecheck/driver.rs RegionToken constructor policy',
 );
 assertContains(
     typecheckDriver,
-    '_ => StructConstructorPolicy::Public',
+    'compiler_memory_type_definition_allowed(span.file_id, memory_type)',
+    'typecheck/driver.rs',
+);
+assertContains(typecheckDriver, 'CompilerMemoryType::RawPointer', 'typecheck/driver.rs');
+assertContains(typecheckDriver, 'CompilerMemoryType::OwnerToken', 'typecheck/driver.rs');
+assertContains(
+    typecheckDriver,
+    'return StructConstructorPolicy::Public',
     'typecheck/driver.rs',
 );
 assertContains(
@@ -238,8 +246,23 @@ assertNotContains(
 assertNotContains(effects, 'fn wasm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
 assertNotContains(effects, 'fn llvm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
 assertLineLimit(SOURCE_CAPABILITY, 'source_capability.rs', 40);
+assertLineLimit(
+    SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION,
+    'source_capability/memory_type_definition.rs',
+    100,
+);
 assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 220);
 assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY_SCOPE, 'source_capability/raw_memory_scope.rs', 100);
+assertContains(sourceMap, 'pub enum SourceCapability', 'source_map.rs');
+assertContains(sourceMap, 'CompilerMemoryTypeDefinition(CompilerMemoryType)', 'source_map.rs');
+assertContains(sourceMap, 'pub enum CompilerMemoryType', 'source_map.rs');
+assertContains(sourceMap, 'RawPointer', 'source_map.rs');
+assertContains(sourceMap, 'OwnerToken', 'source_map.rs');
+assertContains(
+    sourceMap,
+    'compiler_memory_type_definition_allowed',
+    'source_map.rs',
+);
 assertContains(
     sourceCapabilityRawMemory,
     'enum RawMemoryBoundaryEvidence',
@@ -249,6 +272,46 @@ assertContains(
     sourceCapabilityRawMemory,
     'pub(crate) fn module_has_raw_memory_boundary_evidence',
     'source_capability/raw_memory.rs',
+);
+assertContains(
+    sourceCapability,
+    'mod memory_type_definition;',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapability,
+    'compiler_memory_type_from_constructor_name',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapability,
+    'module_compiler_memory_type_definitions',
+    'source_capability.rs',
+);
+assertContains(
+    sourceCapabilityMemoryTypeDefinition,
+    'pub(crate) fn compiler_memory_type_from_constructor_name',
+    'source_capability/memory_type_definition.rs',
+);
+assertContains(
+    sourceCapabilityMemoryTypeDefinition,
+    'match name',
+    'source_capability/memory_type_definition.rs',
+);
+assertContains(
+    sourceCapabilityMemoryTypeDefinition,
+    'pub(crate) fn module_compiler_memory_type_definitions',
+    'source_capability/memory_type_definition.rs',
+);
+assertContains(
+    sourceCapabilityMemoryTypeDefinition,
+    'is_mem_ptr_definition',
+    'source_capability/memory_type_definition.rs',
+);
+assertContains(
+    sourceCapabilityMemoryTypeDefinition,
+    'is_region_token_definition',
+    'source_capability/memory_type_definition.rs',
 );
 assertContains(
     sourceCapability,
@@ -279,6 +342,7 @@ assertNotContains(loader, 'RAW_MEMORY_BOUNDARY_STDLIB_PATHS', 'loader.rs');
 assertNotContains(loader, 'configured_raw_memory_boundary_path', 'loader.rs');
 assertContains(loader, 'configured_stdlib_source_path', 'loader.rs');
 assertContains(loader, 'module_has_raw_memory_boundary_evidence', 'loader.rs');
+assertContains(loader, 'module_compiler_memory_type_definitions', 'loader.rs');
 
 assertMatches(
     compiler,

@@ -9,7 +9,8 @@ use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::hir::*;
 use crate::resolve::{DefId, ImportResolution};
-use crate::source_map::SourceMap;
+use crate::source_capability::compiler_memory_type_from_constructor_name;
+use crate::source_map::{CompilerMemoryType, SourceMap};
 use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
 
@@ -1649,16 +1650,23 @@ fn struct_constructor_policy(
     span: Span,
     source_map: Option<&SourceMap>,
 ) -> StructConstructorPolicy {
-    let raw_memory_boundary = source_map
-        .map(|source_map| source_map.raw_memory_boundary_allowed(span.file_id))
-        .unwrap_or(false);
-    match name {
-        "MemPtr" if raw_memory_boundary => {
+    let Some(memory_type) = compiler_memory_type_from_constructor_name(name) else {
+        return StructConstructorPolicy::Public;
+    };
+    if !source_map
+        .map(|source_map| {
+            source_map.compiler_memory_type_definition_allowed(span.file_id, memory_type)
+        })
+        .unwrap_or(false)
+    {
+        return StructConstructorPolicy::Public;
+    }
+    match memory_type {
+        CompilerMemoryType::RawPointer => {
             StructConstructorPolicy::RawMemoryBoundaryOnly(RestrictedStructConstructor::RawPointer)
         }
-        "RegionToken" if raw_memory_boundary => {
+        CompilerMemoryType::OwnerToken => {
             StructConstructorPolicy::RawMemoryBoundaryOnly(RestrictedStructConstructor::OwnerToken)
         }
-        _ => StructConstructorPolicy::Public,
     }
 }

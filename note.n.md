@@ -37337,3 +37337,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `initialized_raw_memory.rs` は 299 行から 175 行へ縮小し、raw memory operation dispatch と fill/bulk/dealloc/realloc routingへ責務を戻した。新規 `initialized_raw_memory_access.rs` は 149 行。
 - Resource checker responsibility policy に access module の存在確認、`mod` declaration 確認、行数上限 160 を追加し、`initialized_raw_memory.rs` の上限を 190 行へ下げた。
 - `tests/stdlib/memory_safety.n.md` の全体実行で constructor boundary fixture 2 件が失敗したため、`ISS-20260513T133223124Z-MEMORY-SAFETY-CONSTRUCTOR-BOUNDARY-R-A6590141` として分離した。今回の分離範囲は `cargo test -p nepl-core --test resource_ir raw_memory` 3/3、`tests/compiler/move_effect.n.md` 113/113、source policy regression で確認した。
+
+## 2026-05-13 Agent 1 Memory constructor boundary source proof
+
+- `work/memory-safety-constructor-boundary` で `ISS-20260513T133223124Z-MEMORY-SAFETY-CONSTRUCTOR-BOUNDARY-R-A6590141` を解決した。
+- `MemPtr` / `RegionToken` の direct constructor restriction は、定義 file が raw-memory-boundary capability を持つかではなく、stdlib 配下 source が compiler-owned memory type の AST shape を満たすかで判定するようにした。
+- `SourceCapability::CompilerMemoryTypeDefinition(CompilerMemoryType)` を追加し、raw operation authority と compiler-owned type definition authority を分離した。
+- `source_capability/memory_type_definition.rs` に `MemPtr` / `RegionToken` の構造証明を集約し、typecheck の constructor policy は `CompilerMemoryType` enum の match で `RawPointer` / `OwnerToken` を網羅する。
+- `tests/stdlib/memory_safety.n.md` は total=29, passed=29 に戻り、direct constructor forging は Resource IR owner gate より前の typecheck gate で拒否される。

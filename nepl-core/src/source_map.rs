@@ -64,6 +64,13 @@ impl fmt::Display for SourcePathDisplay<'_> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SourceCapability {
     RawMemoryBoundary,
+    CompilerMemoryTypeDefinition(CompilerMemoryType),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum CompilerMemoryType {
+    RawPointer,
+    OwnerToken,
 }
 
 /// Compiler-owned privileges attached to a source file.
@@ -83,10 +90,18 @@ impl SourceCapabilities {
         Self::with(SourceCapability::RawMemoryBoundary)
     }
 
+    pub fn compiler_memory_type_definition(memory_type: CompilerMemoryType) -> Self {
+        Self::with(SourceCapability::CompilerMemoryTypeDefinition(memory_type))
+    }
+
     pub fn with(capability: SourceCapability) -> Self {
         let mut capabilities = BTreeSet::new();
         capabilities.insert(capability);
         Self { capabilities }
+    }
+
+    pub fn insert(&mut self, capability: SourceCapability) {
+        self.capabilities.insert(capability);
     }
 
     pub fn allows(&self, capability: SourceCapability) -> bool {
@@ -95,6 +110,10 @@ impl SourceCapabilities {
 
     pub fn allows_raw_memory_boundary(&self) -> bool {
         self.allows(SourceCapability::RawMemoryBoundary)
+    }
+
+    pub fn allows_compiler_memory_type_definition(&self, memory_type: CompilerMemoryType) -> bool {
+        self.allows(SourceCapability::CompilerMemoryTypeDefinition(memory_type))
     }
 }
 
@@ -135,6 +154,15 @@ impl SourceMap {
 
     pub fn raw_memory_boundary_allowed(&self, id: FileId) -> bool {
         self.capabilities(id).allows_raw_memory_boundary()
+    }
+
+    pub fn compiler_memory_type_definition_allowed(
+        &self,
+        id: FileId,
+        memory_type: CompilerMemoryType,
+    ) -> bool {
+        self.capabilities(id)
+            .allows_compiler_memory_type_definition(memory_type)
     }
 
     pub fn iter_paths(&self) -> impl Iterator<Item = (FileId, &SourcePath)> {
@@ -202,16 +230,24 @@ impl SourceMap {
 mod tests {
     use alloc::string::String;
 
-    use super::{SourceCapabilities, SourceCapability, SourceMap};
+    use super::{CompilerMemoryType, SourceCapabilities, SourceCapability, SourceMap};
 
     #[test]
     fn source_capabilities_are_enum_keyed() {
         let none = SourceCapabilities::none();
         assert!(!none.allows(SourceCapability::RawMemoryBoundary));
+        assert!(!none.allows(SourceCapability::CompilerMemoryTypeDefinition(
+            CompilerMemoryType::RawPointer,
+        )));
 
         let raw_boundary = SourceCapabilities::with(SourceCapability::RawMemoryBoundary);
         assert!(raw_boundary.allows(SourceCapability::RawMemoryBoundary));
         assert!(raw_boundary.allows_raw_memory_boundary());
+
+        let memory_type =
+            SourceCapabilities::compiler_memory_type_definition(CompilerMemoryType::OwnerToken);
+        assert!(memory_type.allows_compiler_memory_type_definition(CompilerMemoryType::OwnerToken));
+        assert!(!memory_type.allows_compiler_memory_type_definition(CompilerMemoryType::RawPointer));
     }
 
     #[test]
@@ -226,5 +262,14 @@ mod tests {
 
         assert!(!source_map.raw_memory_boundary_allowed(plain));
         assert!(source_map.raw_memory_boundary_allowed(raw));
+
+        source_map.set_capabilities(
+            plain,
+            SourceCapabilities::compiler_memory_type_definition(CompilerMemoryType::RawPointer),
+        );
+        assert!(source_map
+            .compiler_memory_type_definition_allowed(plain, CompilerMemoryType::RawPointer));
+        assert!(!source_map
+            .compiler_memory_type_definition_allowed(raw, CompilerMemoryType::RawPointer));
     }
 }
