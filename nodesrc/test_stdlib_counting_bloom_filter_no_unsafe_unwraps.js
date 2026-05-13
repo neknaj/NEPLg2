@@ -45,7 +45,9 @@ for (const submodule of ['types', 'api']) {
 assert.match(typesCode, /#import\s+"alloc\/collections\/vec"\s+as\s+vec/, 'CountingBloomFilter types must use typed Vec storage');
 assert.match(typesCode, /struct\s+CountingBloomFilter<\.T,\.H>:\s+[\s\S]*\bnslots\s+<i32>[\s\S]*\bcounters\s+<Vec<u8>>[\s\S]*\bhasher\s+<\.H>/, 'CountingBloomFilter must store counter bytes as a typed Vec<u8> owner');
 assert.doesNotMatch(typesCode, /\bnbytes\s+<i32>/, 'CountingBloomFilter must not keep a duplicate nbytes field for u8 counters');
+assert.match(hashCode, /#import\s+"alloc\/hash\/hash32"\s+as\s+hash32/, 'CountingBloomFilter hash module must import hash32 explicitly');
 assert.match(hashCode, /fn\s+counting_bloom_hash0\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>/, 'CountingBloomFilter hash module must own primary hash calculation');
+assert.match(hashCode, /hash32::mix\s+xor\s+h0\s+hk/, 'CountingBloomFilter secondary hash must call hash32::mix through a qualified dependency');
 assert.match(hashCode, /fn\s+counting_bloom_hash1\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[\s\S]*hashkey_hash32\s+key[\s\S]*if\s+eq\s+mixed\s+0\s+1\s+mixed/, 'CountingBloomFilter hash module must own non-zero secondary hash calculation');
 assert.match(hashCode, /fn\s+counting_bloom_probe_index\s+<\(i32,i32,i32\)->i32>[\s\S]*rem_u\s+add\s+h0\s+h1\s+nslots/, 'CountingBloomFilter hash module must own probe index calculation');
 assert.match(storageCode, /fn\s+counting_bloom_alloc_counters\s+<\(i32,i32\)\*>Result<Vec<u8>,\s*Diag>>[\s\S]*vec::filled<u8>\s+nslots\s+counter/, 'CountingBloomFilter must allocate initialized counter storage through Vec.filled');

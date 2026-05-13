@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T14:42:21.977Z",
+  "generated_at": "2026-05-13T14:50:16.913Z",
   "counts": {
-    "total": 724,
+    "total": 725,
     "open": 5,
-    "resolved": 719,
+    "resolved": 720,
     "by_area": {
       "stdlib": {
-        "total": 182,
+        "total": 183,
         "open": 3,
-        "resolved": 179
+        "resolved": 180
       },
       "TEST": {
         "total": 18,
@@ -8463,6 +8463,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T115656872Z-VEC-DATA-OBSERVERS-EXPOSE-RAW-POINTE-674F1AFF.md"
+    },
+    {
+      "id": "ISS-20260513T144754414Z-BLOOM-FILTER-HASH-MODULES-RELY-ON-TR-52B8FBB4",
+      "title": "Bloom filter hash modules rely on transitive hash32 mix import",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/alloc/collections/bloom_filter/hash.nepl, stdlib/alloc/collections/counting_bloom_filter/hash.nepl, nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js, nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T144754414Z-BLOOM-FILTER-HASH-MODULES-RELY-ON-TR-52B8FBB4.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

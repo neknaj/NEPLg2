@@ -46,7 +46,9 @@ for (const submodule of ['types', 'api']) {
 
 assert.match(typesCode, /#import\s+"alloc\/collections\/vec"\s+as\s+vec/, 'BloomFilter types must use typed Vec storage');
 assert.match(typesCode, /struct\s+BloomFilter<\.T,\.H>:\s+[\s\S]*\bnbits\s+<i32>[\s\S]*\bnbytes\s+<i32>[\s\S]*\bbits\s+<Vec<u8>>/, 'BloomFilter must store bit array bytes as a typed Vec<u8> owner');
+assert.match(hashCode, /#import\s+"alloc\/hash\/hash32"\s+as\s+hash32/, 'BloomFilter hash module must import hash32 explicitly');
 assert.match(hashCode, /fn\s+bloom_hash0\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>/, 'BloomFilter hash module must own primary hash calculation');
+assert.match(hashCode, /hash32::mix\s+xor\s+h0\s+hk/, 'BloomFilter secondary hash must call hash32::mix through a qualified dependency');
 assert.match(hashCode, /fn\s+bloom_hash1\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[\s\S]*hashkey_hash32\s+key[\s\S]*if\s+eq\s+mixed\s+0\s+1\s+mixed/, 'BloomFilter hash module must own non-zero secondary hash calculation');
 assert.match(hashCode, /fn\s+bloom_probe_index\s+<\(i32,i32,i32\)->i32>[\s\S]*rem_u\s+add\s+h0\s+h1\s+nbits/, 'BloomFilter hash module must own probe index calculation');
 assert.match(layoutCode, /fn\s+bloom_byte_len\s+<\(i32\)->i32>[\s\S]*div_s\s+add\s+nbits\s+7\s+8/, 'BloomFilter layout module must own byte length rounding');

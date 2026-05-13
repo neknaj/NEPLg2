@@ -1,3 +1,18 @@
+# 2026-05-13 Agent 1 BloomFilter hash submodule explicit dependency 修正
+
+- `ISS-20260513T144754414Z-BLOOM-FILTER-HASH-MODULES-RELY-ON-TR-52B8FBB4` を追加して解決した。
+- 根本原因は、`bloom_filter/hash.nepl` と `counting_bloom_filter/hash.nepl` が `mix` を定義元の `alloc/hash/hash32` から直接 import せず、`core/traits/hash` の private import に依存していたこと。
+- `std/test` を focused doctest に追加したことで import 解決の前提が変わり、`mix` が `resolve.identifier.undefined` として露出した。
+- 両 hash submodule は `alloc/hash/hash32` を `hash32` alias で明示 import し、`hash32::mix` として qualified call するようにした。
+- source policy には、BloomFilter / CountingBloomFilter の hash submodule が `hash32` を明示 import し qualified call することを固定する回帰検査を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_bloom_filter_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/tests/bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md --no-tree -o tmp/agent1-bloom-filter-report-tests.json -j 1 --assert-io --dist web/dist`: total=4, passed=4
+  - `node nodesrc/tests.js -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/agent1-counting-bloom-filter-hash-import-tests.json -j 1 --dist web/dist`: total=5, passed=5
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は stdlib submodule 分割後の責務境界を、caller import に依存しない明示 dependency と source policy で固定するもの。
+
 # 2026-05-13 Agent 1 BinaryHeap stdout report migration
 
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として、`stdlib/tests/binary_heap.n.md` と `tests/stdlib/binary_heap_collections.n.md` の BinaryHeap focused doctest 8 件を stdout report 形式へ移行した。
