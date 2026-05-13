@@ -1,3 +1,21 @@
+# 2026-05-14 Agent 1 Resource owner extent proof 修正
+
+- `ISS-20260513T161115125Z-RESOURCE-OWNER-CHECKER-CANNOT-PROVE--0A41590B` を解決した。
+- raw-memory-boundary fixture 修正後に、`generic_store_after_generic_trait_probe_preserves_struct` と `generic_store_uses_nested_address_call_without_stealing_value_arg` が `Resource(Owner(Unavailable))` / `Resource(Owner(Leak))` で失敗していた。
+- 根本原因は、`add size_of<Point> size_of<i32>` が Resource IR 上では `LiteralI32(8)` と `LiteralI32(4)` の加算まで下がっているにもかかわらず、`add` に付随する `raw_address_view offset` が source を既知 raw address と証明できない場合に `raw_aliases.clear(target)` を呼び、i32 scalar fact まで消していたこと。
+- `record_direct_call_i32_facts` は `add` / `sub` / `mul` の既知 i32 定数結果を記録するようにした。
+- `RawCellAddressAliases::clear_raw_address_facts` を追加し、`apply_raw_address_view` は raw-address metadata だけを消すように変更した。これにより scalar fact は保持され、allocation/deallocation extent の同一 payload byte count を証明できる。
+- deallocation check は緩めていない。unknown extent や mismatch を許可せず、既知 i32 fact に基づく proof を増やしただけ。
+- 検証:
+  - `cargo fmt --package nepl-core --check`: passed
+  - `cargo test -p nepl-core i32_call_facts -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 generic_store -- --nocapture`: passed
+  - `cargo test -p nepl-core --test neplg2 generic -- --nocapture`: `10 passed`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/test_abstraction_static_verification_policy.js`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 5/6 の Resource owner extent proof と generic abstraction regression の正確性を改善するもの。
+
 # 2026-05-14 Agent 1 generic raw-memory fixture boundary 明示化
 
 - `ISS-20260513T160802076Z-GENERIC-RAW-MEMORY-REGRESSION-FIXTUR-1F871A8E` を追加して解決した。

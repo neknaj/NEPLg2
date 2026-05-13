@@ -337,6 +337,10 @@ impl RawCellAddressAliases {
         self.clear_scalar_metadata(place);
     }
 
+    pub(super) fn clear_raw_address_facts(&mut self, place: &Place) {
+        self.clear_raw_address_metadata(place);
+    }
+
     fn clear_scalar_metadata(&mut self, place: &Place) {
         self.scalar_origins.clear_prefix(place);
         self.i32_facts.clear_prefix(place);

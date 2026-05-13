@@ -11,8 +11,33 @@ pub(super) fn record_direct_call_i32_facts(
     output: &Place,
     args: &[Place],
 ) {
+    record_i32_constant_result(raw_aliases, target, output, args);
     record_i32_scale_result(raw_aliases, target, output, args);
     record_i32_difference_result(raw_aliases, target, output, args);
+}
+
+fn record_i32_constant_result(
+    raw_aliases: &mut RawCellAddressAliases,
+    target: &ResourceCallTarget,
+    output: &Place,
+    args: &[Place],
+) {
+    let [left, right] = args else {
+        return;
+    };
+    let (Some(left), Some(right)) = (raw_aliases.i32_value(left), raw_aliases.i32_value(right))
+    else {
+        return;
+    };
+    let Some(value) = (match resource_call_target_base_name(target) {
+        Some("add") => Some(left.wrapping_add(right)),
+        Some("sub") => Some(left.wrapping_sub(right)),
+        Some("mul") => Some(left.wrapping_mul(right)),
+        _ => None,
+    }) else {
+        return;
+    };
+    raw_aliases.set_i32_value(output, value);
 }
 
 fn record_i32_scale_result(
@@ -75,6 +100,29 @@ mod tests {
     use super::super::initialized_alias::RawCellAddressAliases;
     use super::super::model::{Place, ResourceCallTarget, ResourceId};
     use super::record_direct_call_i32_facts;
+
+    #[test]
+    fn records_i32_constant_result_for_mangled_add_call() {
+        let types = TypeCtx::new();
+        let left = Place::temporary(ResourceId(1), types.i32());
+        let right = Place::temporary(ResourceId(2), types.i32());
+        let output = Place::temporary(ResourceId(3), types.i32());
+        let mut raw_aliases = RawCellAddressAliases::default();
+
+        raw_aliases.set_i32_value(&left, 12);
+        raw_aliases.set_i32_value(&right, 30);
+        record_direct_call_i32_facts(
+            &mut raw_aliases,
+            &ResourceCallTarget::User {
+                name: String::from("add__i32_i32__i32__pure"),
+                type_args: Vec::new(),
+            },
+            &output,
+            &[left, right],
+        );
+
+        assert_eq!(raw_aliases.i32_value(&output), Some(42));
+    }
 
     #[test]
     fn records_i32_scale_result_for_mangled_mul_call() {

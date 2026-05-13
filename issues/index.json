@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T16:12:16.567Z",
+  "generated_at": "2026-05-13T16:22:52.764Z",
   "counts": {
     "total": 731,
-    "open": 6,
-    "resolved": 725,
+    "open": 5,
+    "resolved": 726,
     "by_area": {
-      "core": {
-        "total": 389,
-        "open": 1,
-        "resolved": 388
-      },
       "stdlib": {
         "total": 183,
         "open": 3,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 389,
+        "open": 0,
+        "resolved": 389
       },
       "resource": {
         "total": 2,
@@ -114,21 +114,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260513T161115125Z-RESOURCE-OWNER-CHECKER-CANNOT-PROVE--0A41590B",
-      "title": "resource owner checker cannot prove repeated generic allocation extents equal",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-13",
-      "updated": "2026-05-13",
-      "target": "nepl-core/tests/neplg2.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260513T161115125Z-RESOURCE-OWNER-CHECKER-CANNOT-PROVE--0A41590B.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -5873,6 +5858,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T154226197Z-DROP-INSERTION-PLAN-STILL-CARRIES-RA-EF658B47.md"
+    },
+    {
+      "id": "ISS-20260513T161115125Z-RESOURCE-OWNER-CHECKER-CANNOT-PROVE--0A41590B",
+      "title": "resource owner checker cannot prove repeated generic allocation extents equal",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/tests/neplg2.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T161115125Z-RESOURCE-OWNER-CHECKER-CANNOT-PROVE--0A41590B.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

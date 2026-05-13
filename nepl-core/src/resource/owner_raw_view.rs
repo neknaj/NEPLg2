@@ -25,7 +25,7 @@ impl ResourceOwnerCheckEngine<'_> {
             raw_aliases.copy_explicit_raw_address_alias(source, target);
             storage_origins.copy_origin(source, target);
         } else {
-            raw_aliases.clear(target);
+            raw_aliases.clear_raw_address_facts(target);
             storage_origins.clear(target);
         }
         if matches!(kind, RawAddressViewKind::NonOwningProjection) {
