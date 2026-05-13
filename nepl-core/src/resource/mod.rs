@@ -187,6 +187,7 @@ mod owner_summary_variant_projection;
 mod owner_summary_variant_return;
 mod owner_transfer;
 mod owner_variant;
+mod owner_variant_lifecycle;
 mod owner_variant_record;
 mod owner_variant_utils;
 mod owner_variant_value_condition;

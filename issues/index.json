@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T13:10:47.014Z",
+  "generated_at": "2026-05-13T13:23:26.496Z",
   "counts": {
-    "total": 720,
+    "total": 721,
     "open": 5,
-    "resolved": 715,
+    "resolved": 716,
     "by_area": {
       "stdlib": {
         "total": 182,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 381,
+        "total": 382,
         "open": 0,
-        "resolved": 381
+        "resolved": 382
       },
       "resource": {
         "total": 2,
@@ -5763,6 +5763,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T125403348Z-RESOURCE-OWNER-EXTENT-PROOF-DOES-NOT-510A15F8.md"
+    },
+    {
+      "id": "ISS-20260513T131452642Z-RESOURCE-OWNER-VARIANT-LIFECYCLE-REM-1A524C29",
+      "title": "Resource owner variant lifecycle remains coupled to apply logic",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/owner_variant.rs; nepl-core/src/resource/owner_variant_lifecycle.rs; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T131452642Z-RESOURCE-OWNER-VARIANT-LIFECYCLE-REM-1A524C29.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

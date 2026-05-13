@@ -37321,3 +37321,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 早期 return で `DirectCall` coverage を落とす設計は破棄し、coverage gate と owner extent proof の両方が効く形へ修正した。
 - layout intrinsic constant extraction は `lower_layout_intrinsic.rs` へ分離し、`lower.rs` の responsibility line limit を超えないようにした。
 - `trunk build` 後の `tests/compiler/move_effect.n.md` は total=113, passed=113 に戻った。
+
+## 2026-05-13 Agent 1 Resource owner variant lifecycle split
+
+- `work/resource-owner-variant-lifecycle` で `ISS-20260513T131452642Z-RESOURCE-OWNER-VARIANT-LIFECYCLE-REM-1A524C29` を追加して解決した。
+- `owner_variant.rs` に残っていた pending variant owner effects の result lifecycle、path merge、dedupe を `owner_variant_lifecycle.rs` へ分離した。
+- `owner_variant.rs` は 1037 行から 783 行へ縮小し、match/materialization への owner effect 適用に集中させた。新規 `owner_variant_lifecycle.rs` は 269 行。
+- Resource checker responsibility policy に lifecycle module の存在確認、`mod` declaration 確認、行数上限 280 を追加し、`owner_variant.rs` の上限を 840 行へ下げた。
+- `cargo check -p nepl-core --tests`、`trunk build`、`tests/compiler/move_effect.n.md` total=113 passed=113、Resource checker responsibility policy、source policy regression は pass した。
