@@ -1,3 +1,14 @@
+# 2026-05-13 Agent 1 CountingBloomFilter stdout report migration
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として、`stdlib/tests/counting_bloom_filter.n.md` と `tests/stdlib/counting_bloom_filter_collections.n.md` の CountingBloomFilter focused doctest 5 件を stdout report 形式へ移行した。
+- 根本原因は、CountingBloomFilter doctest が `main` の `ret: 1` だけで複数 assertion の成否を畳み込み、selfhost runner / Rust runner 間で assertion detail と report format を比較できないこと。
+- 各 doctest は `std/test` の `TestReport` を生成し、`test_report_print_stdout` と `test_report_exit_code` で stdout の詳細報告と exit code を分離する形にした。
+- `insert` / `remove` / `contains` / `len` / `clear` / `free` / non-positive length rejection の観測を assertion label に残し、length check は `assert_eq_i32` で expected / actual を stdout に固定した。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/agent1-counting-bloom-filter-report-tests.json -j 1 --assert-io --dist web/dist`: total=5, passed=5
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `.n.md` テストの exit code / stdout report 分離方針に沿い、既存 CountingBloomFilter 挙動をより観測可能な regression に固定するもの。
+
 # 2026-05-13 Agent 1 BloomFilter stdout report migration
 
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として、`stdlib/tests/bloom_filter.n.md` と `tests/stdlib/bloom_filter_collections.n.md` の BloomFilter focused doctest 4 件を stdout report 形式へ移行した。
