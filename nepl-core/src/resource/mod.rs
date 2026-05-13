@@ -96,6 +96,7 @@ mod initialized_external_io_iov_layout;
 mod initialized_external_io_payload;
 mod initialized_raw_fill;
 mod initialized_raw_memory;
+mod initialized_raw_memory_access;
 mod initialized_raw_view;
 mod initialized_rekey;
 mod initialized_summary;

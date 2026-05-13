@@ -37329,3 +37329,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `owner_variant.rs` は 1037 行から 783 行へ縮小し、match/materialization への owner effect 適用に集中させた。新規 `owner_variant_lifecycle.rs` は 269 行。
 - Resource checker responsibility policy に lifecycle module の存在確認、`mod` declaration 確認、行数上限 280 を追加し、`owner_variant.rs` の上限を 840 行へ下げた。
 - `cargo check -p nepl-core --tests`、`trunk build`、`tests/compiler/move_effect.n.md` total=113 passed=113、Resource checker responsibility policy、source policy regression は pass した。
+
+## 2026-05-13 Agent 1 Resource initialized raw access split
+
+- `work/resource-initialized-raw-access` で `ISS-20260513T132627504Z-RESOURCE-INITIALIZED-RAW-ACCESS-TRAN-27F78AB6` を追加して解決した。
+- `initialized_raw_memory.rs` に残っていた `RawMemoryOp::Load` / `RawMemoryOp::Store` の initialized-cell / raw alias / byte range transition を `initialized_raw_memory_access.rs` へ分離した。
+- `initialized_raw_memory.rs` は 299 行から 175 行へ縮小し、raw memory operation dispatch と fill/bulk/dealloc/realloc routingへ責務を戻した。新規 `initialized_raw_memory_access.rs` は 149 行。
+- Resource checker responsibility policy に access module の存在確認、`mod` declaration 確認、行数上限 160 を追加し、`initialized_raw_memory.rs` の上限を 190 行へ下げた。
+- `tests/stdlib/memory_safety.n.md` の全体実行で constructor boundary fixture 2 件が失敗したため、`ISS-20260513T133223124Z-MEMORY-SAFETY-CONSTRUCTOR-BOUNDARY-R-A6590141` として分離した。今回の分離範囲は `cargo test -p nepl-core --test resource_ir raw_memory` 3/3、`tests/compiler/move_effect.n.md` 113/113、source policy regression で確認した。
