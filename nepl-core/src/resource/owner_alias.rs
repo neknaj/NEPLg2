@@ -28,33 +28,80 @@ pub(super) fn resolve_owner_alias_place(
     if !owners.descendant_entries(place).is_empty() {
         return place.clone();
     }
-    for alias in raw_aliases.aliases_for(place) {
-        match owners.state(&alias) {
-            Some(OwnerState::Live { .. })
-            | Some(OwnerState::Reserved { .. })
-            | Some(OwnerState::Moved)
-            | Some(OwnerState::Freed)
-            | Some(OwnerState::MaybeFreed { .. }) => return alias,
-            Some(OwnerState::NoFreeObligation) | None => {}
-        }
+    let aliases = raw_aliases.aliases_for(place);
+    if let Some(alias) = best_available_owner_state_alias(owners, &aliases) {
+        return alias;
+    }
+    let mut unavailable_alias = None;
+    for alias in &aliases {
         if owners.has_tracked_state_under(&alias) {
-            return alias;
+            return alias.clone();
+        }
+        if unavailable_alias.is_none() {
+            unavailable_alias = unavailable_owner_state_alias(owners, alias);
         }
     }
-    for alias in raw_aliases.prefix_aliases_for(place) {
-        match owners.state(&alias) {
-            Some(OwnerState::Live { .. })
-            | Some(OwnerState::Reserved { .. })
-            | Some(OwnerState::Moved)
-            | Some(OwnerState::Freed)
-            | Some(OwnerState::MaybeFreed { .. }) => return alias,
-            Some(OwnerState::NoFreeObligation) | None => {}
-        }
+    if let Some(alias) = unavailable_alias {
+        return alias;
+    }
+    let prefix_aliases = raw_aliases.prefix_aliases_for(place);
+    if let Some(alias) = best_available_owner_state_alias(owners, &prefix_aliases) {
+        return alias;
+    }
+    let mut unavailable_prefix_alias = None;
+    for alias in &prefix_aliases {
         if owners.has_tracked_state_under(&alias) {
-            return alias;
+            return alias.clone();
         }
+        if unavailable_prefix_alias.is_none() {
+            unavailable_prefix_alias = unavailable_owner_state_alias(owners, alias);
+        }
+    }
+    if let Some(alias) = unavailable_prefix_alias {
+        return alias;
     }
     place.clone()
+}
+
+fn best_available_owner_state_alias(owners: &OwnerTable, aliases: &[Place]) -> Option<Place> {
+    let mut best: Option<(u8, usize, Place)> = None;
+    for (index, alias) in aliases.iter().enumerate() {
+        let Some(rank) = owners
+            .state(alias)
+            .as_ref()
+            .and_then(available_owner_state_alias_rank)
+        else {
+            continue;
+        };
+        if best
+            .as_ref()
+            .is_none_or(|(best_rank, best_index, _)| (rank, index) < (*best_rank, *best_index))
+        {
+            best = Some((rank, index, alias.clone()));
+        }
+    }
+    best.map(|(_, _, alias)| alias)
+}
+
+fn available_owner_state_alias_rank(state: &OwnerState) -> Option<u8> {
+    match state {
+        OwnerState::Live { .. } | OwnerState::MaybeFreed { .. } => Some(0),
+        OwnerState::Reserved { .. } => Some(1),
+        OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed => None,
+    }
+}
+
+fn unavailable_owner_state_alias(owners: &OwnerTable, alias: &Place) -> Option<Place> {
+    match owners.state(alias) {
+        Some(OwnerState::Moved | OwnerState::Freed) => Some(alias.clone()),
+        Some(
+            OwnerState::NoFreeObligation
+            | OwnerState::Live { .. }
+            | OwnerState::Reserved { .. }
+            | OwnerState::MaybeFreed { .. },
+        )
+        | None => None,
+    }
 }
 
 pub(super) fn aliased_owner_descendant_entries(

@@ -1,3 +1,21 @@
+# 2026-05-14 Agent 1 Resource variant owner return materialization 修正
+
+- `ISS-20260513T151511232Z-RESOURCE-OWNER-ALIAS-RESOLUTION-CAN--CB5B7B73` を解決した。
+- 根本原因は、`Result::Ok` payload の owner が Resource IR の通常の transfer で既に戻り値 payload に materialize された後でも、`PendingVariantOwnerEffects` が同じ variant owner return を関数 return 時に再適用し、元の `MemPtr` source を二重に move しようとしていたこと。
+- `apply_pending_variant_owner_return` は target payload に既に transferable owner がある場合、その variant owner return を materialized 済みとして扱い、source を再消費しない。source は handled として返すため、同じ source に対する paired variant consumption も実行しない。
+- raw-address alias fallback は `Live` / `MaybeFreed` / `Reserved` を `Moved` / `Freed` より優先するようにし、stale alias が live payload owner を隠さないようにした。直接 moved place を使う場合の use-after-move 診断は維持している。
+- 回帰テストとして、成功時に owner を `Result::Ok` payload へ返し、失敗時に同じ source を消費する helper の結果を local 経由で返す Resource IR test を追加した。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_prefers_live_return_owner_over_moved_source_alias -- --nocapture`: passed
+  - `cargo fmt --package nepl-core --check`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md --no-tree -o tmp/agent1-stdio-read-all-owner-alias-fix.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
+- 追加確認:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_branch_result -- --nocapture` は、この branch 作成前の clean main でも失敗していた既存問題として引き続き失敗する。内容は古い `dealloc_raw mem_ptr_addr` 前提の branch-result regression で、今回の `stdio_read_all` / `fs_read_fd_bytes` false positive とは別 issue として扱う。
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 4/Resource IR owner summary の正確性を、stdlib 関数名の許可リストではなく関数本体から導出した variant owner-return proof に基づいて修正するもの。
+
 # 2026-05-14 Agent 1 List collections stdout report migration
 
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として、`tests/stdlib/list_collections.n.md` の List focused doctest 3 件を stdout report 形式へ移行した。

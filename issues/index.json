@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T15:02:48.352Z",
+  "generated_at": "2026-05-13T15:32:50.842Z",
   "counts": {
-    "total": 725,
+    "total": 726,
     "open": 5,
-    "resolved": 720,
+    "resolved": 721,
     "by_area": {
       "stdlib": {
         "total": 183,
@@ -35,6 +35,11 @@
         "total": 2,
         "open": 0,
         "resolved": 2
+      },
+      "RESOURCE": {
+        "total": 1,
+        "open": 0,
+        "resolved": 1
       },
       "ci": {
         "total": 4,
@@ -483,6 +488,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5.md"
+    },
+    {
+      "id": "ISS-20260513T151511232Z-RESOURCE-OWNER-ALIAS-RESOLUTION-CAN--CB5B7B73",
+      "title": "Resource variant owner return can reconsume moved source after payload owner is materialized",
+      "area": "RESOURCE",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-14",
+      "target": "nepl-core/src/resource/owner_alias.rs; nepl-core/src/resource/owner_variant.rs; nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T151511232Z-RESOURCE-OWNER-ALIAS-RESOLUTION-CAN--CB5B7B73.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-001-CDADB88A",

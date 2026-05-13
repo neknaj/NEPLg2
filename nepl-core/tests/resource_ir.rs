@@ -10849,6 +10849,76 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_prefers_live_return_owner_over_moved_source_alias() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/diag/error" as *
+#import "alloc/io" as *
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/result" as *
+
+fn finish_or_error <(MemPtr<u8>,i32,bool)*>Result<ByteBuf, StdErrorKind>> (ptr, len, ok_flag):
+    if:
+        cond:
+            ok_flag
+        then:
+            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr ptr len
+        else:
+            match dealloc_ptr<u8> ptr len:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
+
+fn make_helper_result <(bool)*>Result<ByteBuf, StdErrorKind>> (ok_flag):
+    match alloc_ptr<u8> 3:
+        Result::Err _e:
+            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+        Result::Ok out:
+            let res <Result<ByteBuf, StdErrorKind>> finish_or_error out 3 ok_flag;
+            res
+
+fn main <()*>()> ():
+    match make_helper_result true:
+        Result::Ok bytes:
+            io_bytebuf_free bytes
+        Result::Err _e:
+            ()
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("finish_or_error__")
+                || function.starts_with("make_helper_result__")
+                || function.starts_with("io_bytebuf_free__")
+                || function.starts_with("main__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "returned owner aliases must resolve to the live Result::Ok payload, not the moved source handle: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_does_not_reconsume_unconditional_variant_argument() {
     let source = r#"
 #entry main

@@ -685,6 +685,9 @@ fn apply_pending_variant_owner_return(
             ..
         } => {
             let source = pending_return_source(entry, raw_aliases)?;
+            if owners.has_transferable_owner(&target) {
+                return Some(source);
+            }
             if let Some(requirement) = extent_requirement {
                 if !engine.ensure_owner_extent_matches_summary(
                     owners,
@@ -722,12 +725,18 @@ fn apply_pending_variant_owner_return(
             Some(source)
         }
         PendingVariantOwnerReturnSource::Fresh { extent } => {
+            if owners.has_transferable_owner(&target) {
+                return None;
+            }
             owners.allocate_with_extent(&target, extent.clone());
             raw_aliases.mark(&target);
             storage_origins.mark_owned(&target);
             None
         }
         PendingVariantOwnerReturnSource::Maybe => {
+            if owners.has_transferable_owner(&target) {
+                return None;
+            }
             owners.set_state(&target, OwnerState::MaybeFreed { storage: None });
             raw_aliases.mark(&target);
             storage_origins.mark_owned(&target);
