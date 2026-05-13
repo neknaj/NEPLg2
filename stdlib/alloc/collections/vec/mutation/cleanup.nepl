@@ -12,6 +12,7 @@
 #import "../storage" as vec_storage
 #import "core/field" as *
 #import "core/math" as *
+#import "core/traits/copy" as *
 
 //: ## clear
 //: [要素/ようそ]をすべて[削除/さくじょ]する
@@ -24,6 +25,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ]メモリは[解放/かいほう]しません。
+//: - 要素ごとの Drop traversal はまだ[実装/じっそう]されていないため、`.T: Copy` の Vec だけを[対象/たいしょう]にします。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -45,7 +47,7 @@
 //:     free<i32> v2;
 //:     if ok 0 1
 //: ```
-pub fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
+pub fn clear <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
     let v_cap <i32> *field::get_ref &v "cap"
     let v_storage <VecStorageState> *field::get_ref &v "storage"
     let v_data <MemPtr<.T>> field::get v "data"
@@ -63,6 +65,7 @@ pub fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
 //: ### [注意/ちゅうい]
 //: - `Vec` [自体/じたい]は[値/あたい]なので[追加/ついか]の[解放/かいほう]は[不要/ふよう]です。
 //: - `cap = 0` の[空/から]ベクタでも[呼/よ]べます。
+//: - 現行実装は storage-only dealloc です。`OwnedBuffer<T>` と initialized prefix traversal が[入/はい]るまで、要素 Drop を[必要/ひつよう]としない `.T: Copy` だけを[受/う]け[付/つ]けます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -80,7 +83,7 @@ pub fn clear <.T> <(Vec<.T>)->Vec<.T>> (v):
 //:     free<i32> v;
 //:     0
 //: ```
-pub fn free <.T> <(Vec<.T>)->()> (v):
+pub fn free <.T: Copy> <(Vec<.T>)->()> (v):
     let v_cap <i32> *field::get_ref &v "cap"
     let v_storage <VecStorageState> *field::get_ref &v "storage"
     let v_data <MemPtr<.T>> field::get v "data"

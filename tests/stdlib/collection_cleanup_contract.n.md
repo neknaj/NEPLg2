@@ -20,9 +20,17 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/queue" as *
 #import "alloc/collections/ringbuffer" as *
 #import "alloc/collections/stack" as *
+#import "alloc/collections/vec" as *
 
 struct CleanupPayload:
     value <i32>
+
+fn close_vec_clear <(Vec<CleanupPayload>)->()> (v):
+    let next <Vec<CleanupPayload>> clear<CleanupPayload> v
+    ()
+
+fn close_vec_free <(Vec<CleanupPayload>)->()> (v):
+    free<CleanupPayload> v
 
 fn close_stack <(Stack<CleanupPayload>)->()> (s):
     free<CleanupPayload> s

@@ -174,6 +174,7 @@ for (const name of ['vec_alloc_empty', 'new', 'with_capacity']) {
     assert.match(vecStorageAllocCode, new RegExp(`fn\\s+${name}\\b`), `vec/storage/alloc.nepl must own ${name}`);
 }
 assert.match(vecStorageCleanupCode, /\bfn\s+vec_free_storage\b/, 'vec/storage/cleanup.nepl must own vec_free_storage');
+assert.match(vecStorageCleanupCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>\s+<\(VecStorageState,MemPtr<\.T>,i32\)->\(\)>/, 'vec/storage/cleanup.nepl storage-only cleanup must remain Copy-only until element drop traversal exists');
 assert.match(vecStorageFillCode, /\bfn\s+filled\b/, 'vec/storage/fill.nepl must own filled');
 for (const name of ['len', 'cap', 'data_ptr', 'data_mem_ptr', 'data_len', 'is_empty']) {
     assert.match(vecAccessCode, new RegExp(`fn\\s+${name}\\b`), `vec/access.nepl must own ${name}`);
@@ -285,7 +286,7 @@ for (const relPath of [
 assert.match(vecCode, /struct\s+Vec<\.T>:[\s\S]*storage\s+<VecStorageState>[\s\S]*data\s+<MemPtr<\.T>>/, 'Vec must separate enum owner state from the raw pointer field so Resource IR can track memory cells');
 assert.match(vecCode, /fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>[\s\S]*Vec<\.T>\s+0\s+0\s+VecStorageState::Empty\s+mem_ptr_wrap\s+0/, 'Vec.empty must construct typed Empty storage');
 assert.match(vecCode, /fn\s+vec_alloc_empty\s+<\.T>\s+<\(i32\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*le\s+requested_cap\s+0[\s\S]*vec_empty<\.T>[\s\S]*VecStorageState::Owned\s+data/, 'Vec empty construction must use Empty for zero capacity and Owned for allocated storage');
-assert.match(vecCode, /fn\s+vec_free_storage\s+<\.T>[\s\S]*match\s+storage:[\s\S]*VecStorageState::Empty:[\s\S]*\(\)[\s\S]*VecStorageState::Owned:[\s\S]*match\s+dealloc_ptr<\.T>\s+data\s+mul\s+cap\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*\(\)[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'Vec.free must deallocate through exhaustive VecStorageState matching and typed owner-consuming cleanup');
+assert.match(vecCode, /fn\s+vec_free_storage\s+<\.T:\s*Copy>[\s\S]*match\s+storage:[\s\S]*VecStorageState::Empty:[\s\S]*\(\)[\s\S]*VecStorageState::Owned:[\s\S]*match\s+dealloc_ptr<\.T>\s+data\s+mul\s+cap\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*\(\)[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'Vec.free must deallocate through exhaustive VecStorageState matching and Copy-only typed owner-consuming cleanup');
 assert.match(withCapacitySection, /vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must delegate empty storage allocation to vec_alloc_empty');
 assert.doesNotMatch(vecCode, /(?:->|Result<)\.Pair\b|Tuple:/, 'Vec must not return owner-carrying Vec pairs through anonymous .Pair/Tuple values');
 assert.match(vecCode, /struct\s+VecPop<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Vec.pop result must be a named struct with an owned Vec field');
@@ -297,7 +298,9 @@ assert.match(pushSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_re
 assert.match(pushSection, /match\s+v_storage:[\s\S]*VecStorageState::Empty:[\s\S]*alloc_ptr<\.T>\s+new_bytes[\s\S]*VecStorageState::Owned\s+grown_data[\s\S]*VecStorageState::Owned:[\s\S]*realloc_ptr<\.T>\s+v_data\s+old_bytes\s+new_bytes/, 'Vec.push must use match over Empty/Owned storage when growing');
 assert.match(popSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.pop must move the data owner and typed storage state into the returned Vec');
 assert.match(popSection, /fn\s+pop\s+<\.T>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, 'Vec.pop must return named VecPop so callers can free the returned Vec owner');
+assert.match(clearSection, /fn\s+clear\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->Vec<\.T>>/, 'Vec.clear must remain Copy-only until initialized element drop traversal exists');
 assert.match(clearSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.clear must explicitly move the data owner into the returned Vec with its storage state');
+assert.match(freeSection, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->\(\)>/, 'Vec.free must remain Copy-only until initialized element drop traversal exists');
 assert.match(freeSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"[\s\S]*vec_free_storage<\.T>\s+v_storage\s+v_data\s+v_cap/, 'Vec.free must explicitly move data before freeing through VecStorageState');
 assert.match(mapSection, /let\s+out_storage\s+<VecStorageState>\s+\*field::get_ref\s+&out0\s+"storage"[\s\S]*let\s+out_data\s+<MemPtr<\.U>>\s+field::get\s+out0\s+"data"/, 'Vec.map must explicitly move the output data owner from the allocated Vec into the returned Vec');
 assert.match(vecCode, /fn\s+push\s+<\.T>\s+<\(Vec<\.T>,\.T\)->Result<Vec<\.T>,\s*StdErrorKind>>\s+\(v,\s*item\):[\s\S]*match\s+realloc_ptr<\.T>\s+v_data\s+old_bytes\s+new_bytes:[\s\S]*Result::Err\s+_e:[\s\S]*match\s+dealloc_ptr<\.T>\s+v_data\s+old_bytes:[\s\S]*Result::Ok\s+_:[\s\S]*\(\)[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"[\s\S]*Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::OutOfMemory/, 'Vec.push must release the consumed old buffer through typed owner cleanup when grow fails');
