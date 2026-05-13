@@ -112,3 +112,26 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\run_doctest.js -i tests\stdlib\bitset_collections.n.md -n 3`: pass
 
 この issue はまだ open のまま継続する。BitSet 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-13 AdjacencyMatrix stdout report migration
+
+`stdlib/tests/adjacency_matrix.n.md` と `tests/stdlib/adjacency_matrix_collections.n.md` の AdjacencyMatrix focused doctest 7 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `insert` / `remove` / `contains` / `clear` / `free` / update error owner recovery の観測結果を assertion label として stdout に残すようにした。
+- non-positive length の diagnostic check は `assert_str_eq` で `CapacityExceeded` の expected / actual を stdout に固定した。
+
+検証:
+
+- `node nodesrc\run_doctest.js -i stdlib\tests\adjacency_matrix.n.md -n 1`: pass
+- `node nodesrc\run_doctest.js -i stdlib\tests\adjacency_matrix.n.md -n 2`: pass
+- `node nodesrc\run_doctest.js -i stdlib\tests\adjacency_matrix.n.md -n 3`: pass
+- `node nodesrc\run_doctest.js -i tests\stdlib\adjacency_matrix_collections.n.md -n 1`: pass
+- `node nodesrc\run_doctest.js -i tests\stdlib\adjacency_matrix_collections.n.md -n 2`: pass
+- `node nodesrc\run_doctest.js -i tests\stdlib\adjacency_matrix_collections.n.md -n 3`: pass
+- `node nodesrc\run_doctest.js -i tests\stdlib\adjacency_matrix_collections.n.md -n 4`: pass
+- `node nodesrc\tests.js -i stdlib\tests\adjacency_matrix.n.md -i tests\stdlib\adjacency_matrix_collections.n.md --no-tree -o tmp\agent1-adjacency-report-tests.json -j 2 --assert-io`: total=7, passed=7
+
+この issue はまだ open のまま継続する。AdjacencyMatrix 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

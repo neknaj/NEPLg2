@@ -12,8 +12,9 @@
 - `clear`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"adjacency_matrix_pipe_usage\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"edge 1->3 present\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"removed edge absent\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"matrix len\" expected=\"6\" actual=\"6\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"clear removes edge\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -23,6 +24,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let g0 <AdjacencyMatrix>:
@@ -33,7 +35,7 @@ fn main <()*>i32> ():
         |> remove 3 5 |> uwok
     let ok0 <bool> unwrap_ok<bool, Diag> contains &g0 1 3;
     let ok1 <bool> not unwrap_ok<bool, Diag> contains &g0 3 5;
-    let ok2 <bool> eq len &g0 6;
+    let size <i32> len &g0;
     free g0
     let g2 <AdjacencyMatrix>:
         unwrap_ok<AdjacencyMatrix, Diag> new 6
@@ -43,7 +45,14 @@ fn main <()*>i32> ():
         |> clear
     let ok3 <bool> not unwrap_ok<bool, Diag> contains &g2 5 1;
     free g2
-    if and ok0 and ok1 and ok2 ok3 1 0
+    let report:
+        test_report_new "adjacency_matrix_pipe_usage"
+        |> test_report_push assert "edge 1->3 present" ok0
+        |> test_report_push assert "removed edge absent" ok1
+        |> test_report_push assert_eq_i32 "matrix len" 6 size
+        |> test_report_push assert "clear removes edge" ok3
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## adjacency_matrix_free_releases_owned_storage
@@ -56,8 +65,9 @@ fn main <()*>i32> ():
 - `new`
 - `insert`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"adjacency_matrix_free_releases_owned_storage\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"free permits later allocation\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -66,6 +76,7 @@ ret: 1
 #import "alloc/collections/adjacency_matrix" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let g0 <AdjacencyMatrix>:
@@ -76,7 +87,11 @@ fn main <()*>i32> ():
         unwrap_ok<AdjacencyMatrix, Diag> new 6
         |> insert 2 4 |> uwok
     free g1
-    1
+    let report:
+        test_report_new "adjacency_matrix_free_releases_owned_storage"
+        |> test_report_push assert "free permits later allocation" true
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## adjacency_matrix_update_error_recovers_owner
@@ -90,8 +105,9 @@ fn main <()*>i32> ():
 - `adjacency_matrix_update_error_owner`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"adjacency_matrix_update_error_recovers_owner\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"insert error recovers owner\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"remove error recovers owner\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -101,6 +117,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let g0 <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 6;
@@ -125,7 +142,12 @@ fn main <()*>i32> ():
                 let ok <bool> eq len &recovered 6
                 free recovered
                 ok
-    if and ok0 ok1 1 0
+    let report:
+        test_report_new "adjacency_matrix_update_error_recovers_owner"
+        |> test_report_push assert "insert error recovers owner" ok0
+        |> test_report_push assert "remove error recovers owner" ok1
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## adjacency_matrix_non_positive_length_rejected
@@ -137,8 +159,9 @@ fn main <()*>i32> ():
 - `new`
 - `StdErrorKind::CapacityExceeded`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"adjacency_matrix_non_positive_length_rejected\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"non-positive length error\" expected=\"CapacityExceeded\" actual=\"CapacityExceeded\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -148,6 +171,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "alloc/string" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     match new 0:
@@ -156,5 +180,9 @@ fn main <()*>i32> ():
             0
         Result::Err d:
             let name <str> diag_std_error_kind_str d
-            if str_eq name "CapacityExceeded" 1 0
+            let report:
+                test_report_new "adjacency_matrix_non_positive_length_rejected"
+                |> test_report_push assert_str_eq "non-positive length error" "CapacityExceeded" name
+            let shown test_report_print_stdout report
+            test_report_exit_code shown
 ```
