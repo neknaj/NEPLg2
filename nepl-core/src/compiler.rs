@@ -974,7 +974,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_effect_gate_never_suppresses_raw_identity_escape_in_raw_boundary() {
+    fn resource_effect_gate_allows_raw_identity_escape_inside_raw_boundary() {
         let types = crate::types::TypeCtx::new();
         let mut source_map = SourceMap::new();
         let raw_file = source_map.add_with_capabilities(
@@ -988,12 +988,10 @@ mod tests {
             span: Span::new(raw_file, 0, 1),
         };
 
-        assert!(
-            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
-                &diagnostic,
-                Some(&source_map),
-            )
-        );
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &diagnostic,
+            Some(&source_map),
+        ));
     }
 
     #[test]
@@ -1109,7 +1107,14 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             ..
-        } => false,
+        } => {
+            let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
+                return false;
+            };
+            source_map
+                .map(|map| map.raw_memory_boundary_allowed(span.file_id))
+                .unwrap_or(false)
+        }
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. } => false,
         crate::resource::ResourceEffectBoundaryDiagnostic::UnknownEffect { .. } => false,
     }

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T05:50:02.547Z",
+  "generated_at": "2026-05-13T06:05:01.057Z",
   "counts": {
-    "total": 699,
+    "total": 700,
     "open": 6,
-    "resolved": 693,
+    "resolved": 694,
     "by_area": {
       "core": {
-        "total": 373,
+        "total": 374,
         "open": 1,
-        "resolved": 372
+        "resolved": 373
       },
       "stdlib": {
         "total": 171,
@@ -110,8 +110,8 @@
   },
   "issues": [
     {
-      "id": "ISS-20260513T054944970Z-ALLOCATOR-RUNTIME-ABI-IS-DECLARED-PU-4C2B8794",
-      "title": "Allocator runtime ABI is declared pure while returning internal raw identities",
+      "id": "ISS-20260513T060220120Z-RESOURCE-CELL-ALIASES-MISS-MEMPTR-RA-DA8C864C",
+      "title": "Resource cell aliases miss MemPtr raw identity through aggregates and returns",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -119,10 +119,10 @@
       "type": "bug",
       "created": "2026-05-13",
       "updated": "2026-05-13",
-      "target": "stdlib/core/mem/allocator.nepl",
+      "target": "nepl-core/src/resource",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260513T054944970Z-ALLOCATOR-RUNTIME-ABI-IS-DECLARED-PU-4C2B8794.md"
+      "file": "items/ISS-20260513T060220120Z-RESOURCE-CELL-ALIASES-MISS-MEMPTR-RA-DA8C864C.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
@@ -438,6 +438,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T054043692Z-RESOURCE-CELL-GATE-NEEDS-STATIC-RAW--EDAE05BC.md"
+    },
+    {
+      "id": "ISS-20260513T054944970Z-ALLOCATOR-RUNTIME-ABI-IS-DECLARED-PU-4C2B8794",
+      "title": "Allocator runtime raw identity returns need static summaries",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T054944970Z-ALLOCATOR-RUNTIME-ABI-IS-DECLARED-PU-4C2B8794.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",

@@ -11,6 +11,7 @@ use super::model::{Place, ResourceFunction, ResourceModule, ResourceTerminator};
 pub(super) struct RawIdentityReturnSummary {
     pub(super) function: String,
     pub(super) parameter_indices: Vec<usize>,
+    pub(super) returns_internal_alloc: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,10 +41,13 @@ pub(super) fn compute_raw_identity_return_summaries(
                     parameter_indices.push(index);
                 }
             }
-            if !parameter_indices.is_empty() {
+            let returns_internal_alloc =
+                function_returns_internal_alloc_identity(function, &summaries, pointer_summaries);
+            if !parameter_indices.is_empty() || returns_internal_alloc {
                 next.push(RawIdentityReturnSummary {
                     function: function.name.clone(),
                     parameter_indices,
+                    returns_internal_alloc,
                 });
             }
         }
@@ -55,18 +59,37 @@ pub(super) fn compute_raw_identity_return_summaries(
     summaries
 }
 
+fn function_returns_internal_alloc_identity(
+    function: &ResourceFunction,
+    summaries: &[RawIdentityReturnSummary],
+    pointer_summaries: &[RawPointerReturnSummary],
+) -> bool {
+    let identities = RawIdentityTable::default();
+    function_returns_identity_with_engine(function, identities, summaries, pointer_summaries, true)
+}
+
 fn function_returns_marked_identity(
+    function: &ResourceFunction,
+    identities: RawIdentityTable,
+    summaries: &[RawIdentityReturnSummary],
+    pointer_summaries: &[RawPointerReturnSummary],
+) -> bool {
+    function_returns_identity_with_engine(function, identities, summaries, pointer_summaries, false)
+}
+
+fn function_returns_identity_with_engine(
     function: &ResourceFunction,
     mut identities: RawIdentityTable,
     summaries: &[RawIdentityReturnSummary],
     pointer_summaries: &[RawPointerReturnSummary],
+    track_alloc_identities: bool,
 ) -> bool {
     let mut engine = ResourceEffectBoundaryEngine {
         function: function.name.as_str(),
         effect: function.effect,
         summaries,
         pointer_summaries,
-        track_alloc_identities: false,
+        track_alloc_identities,
         diagnostics: Vec::new(),
         counts: ResourceEffectCounts::default(),
     };

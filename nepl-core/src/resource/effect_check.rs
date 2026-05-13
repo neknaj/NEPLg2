@@ -381,6 +381,9 @@ impl ResourceEffectBoundaryEngine<'_> {
         else {
             return;
         };
+        if summary.returns_internal_alloc {
+            identities.mark(output);
+        }
         if summary
             .parameter_indices
             .iter()
@@ -412,11 +415,12 @@ impl ResourceEffectBoundaryEngine<'_> {
                 .iter()
                 .find(|summary| summary.function == function.as_str())
                 .is_some_and(|summary| {
-                    summary
-                        .parameter_indices
-                        .iter()
-                        .filter_map(|index| args.get(*index))
-                        .any(|arg| identities.contains(arg))
+                    summary.returns_internal_alloc
+                        || summary
+                            .parameter_indices
+                            .iter()
+                            .filter_map(|index| args.get(*index))
+                            .any(|arg| identities.contains(arg))
                 })
             {
                 identities.mark(output);
