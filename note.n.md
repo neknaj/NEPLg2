@@ -37296,3 +37296,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `max_alloc_payload_bytes` / `alloc_payload_fits` を `core/mem/layout` に追加し、allocator metadata の `size + header + align padding` が i32 範囲を超えない上限を一箇所に集約した。
 - `alloc_raw` は整列計算前に payload 上限を検査し、`alloc_region` は `count * size_of<T>` の前に `max_alloc_payload_bytes / size_of<T>` で overflow しないことを証明する。
 - 修正中に `dealloc` / `realloc` の size 引数は runtime check だけでは Resource IR owner summary と衝突することを確認し、`ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD` として分離した。
+
+## 2026-05-13 Agent 1 Resource owner extent responsibility policy
+
+- `work/resource-owner-extent-policy` で `ISS-20260513T121745489Z-RESOURCE-OWNER-EXTENT-MODULE-IS-MISS-EC5F756B` を追加して解決した。
+- `owner_extent.rs` を Resource checker responsibility policy の mandatory module / `mod` declaration / line limit 監視に追加し、owner extent proof が source policy の外で肥大化しないようにした。
+- `owner_check.rs` の raw memory operation handling を `owner_raw_memory.rs`、`owner_consumption.rs` の extent-aware call argument consumption を `owner_consumption_extent.rs`、`owner_flow.rs` の owner extent proof bridge を `owner_extent_check.rs` へ分離した。
+- 既存 owner summary / owner variant 系の大型 module は今回の分割対象外だが、source policy が常時 warning にならないよう現状値に近い tight baseline へ校正し、今後の増加を検出できる状態に戻した。
+- `cargo check -p nepl-core --tests`、Resource IR raw extent regression、Resource checker responsibility policy、source policy regression はすべて pass した。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T12:12:39.142Z",
+  "generated_at": "2026-05-13T12:27:21.901Z",
   "counts": {
-    "total": 717,
+    "total": 718,
     "open": 5,
-    "resolved": 712,
+    "resolved": 713,
     "by_area": {
       "stdlib": {
         "total": 182,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 378,
+        "total": 379,
         "open": 0,
-        "resolved": 378
+        "resolved": 379
       },
       "resource": {
         "total": 2,
@@ -5718,6 +5718,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T121049229Z-COMPILER-INTRINSIC-FIXTURES-STILL-US-004161B4.md"
+    },
+    {
+      "id": "ISS-20260513T121745489Z-RESOURCE-OWNER-EXTENT-MODULE-IS-MISS-EC5F756B",
+      "title": "resource owner extent module is missing responsibility policy coverage",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nodesrc/test_resource_checker_responsibility.js, nepl-core/src/resource/owner_extent.rs, nepl-core/src/resource/owner_raw_memory.rs, nepl-core/src/resource/owner_consumption_extent.rs, nepl-core/src/resource/owner_extent_check.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T121745489Z-RESOURCE-OWNER-EXTENT-MODULE-IS-MISS-EC5F756B.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
