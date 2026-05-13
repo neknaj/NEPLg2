@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T10:18:34.593Z",
+  "generated_at": "2026-05-13T11:25:07.286Z",
   "counts": {
-    "total": 710,
-    "open": 6,
-    "resolved": 704,
+    "total": 711,
+    "open": 5,
+    "resolved": 706,
     "by_area": {
-      "core": {
-        "total": 377,
-        "open": 1,
-        "resolved": 376
-      },
       "stdlib": {
-        "total": 176,
+        "total": 177,
         "open": 3,
-        "resolved": 173
+        "resolved": 174
       },
       "TEST": {
         "total": 18,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 377,
+        "open": 0,
+        "resolved": 377
       },
       "resource": {
         "total": 2,
@@ -109,21 +109,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD",
-      "title": "dealloc and realloc size arguments need owner extent proof",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "architecture",
-      "created": "2026-05-13",
-      "updated": "2026-05-13",
-      "target": "nepl-core/src/resource/**, stdlib/core/mem/allocator.nepl, tests/compiler/*.n.md, tests/stdlib/memory_safety.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -468,6 +453,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T060220120Z-RESOURCE-CELL-ALIASES-MISS-MEMPTR-RA-DA8C864C.md"
+    },
+    {
+      "id": "ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD",
+      "title": "dealloc and realloc size arguments need owner extent proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "architecture",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/**, stdlib/core/mem/allocator.nepl, tests/compiler/*.n.md, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",
@@ -8253,6 +8253,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T092818532Z-VEC-CLEANUP-FREE-ACCEPT-NON-COPY-PAY-497499BC.md"
+    },
+    {
+      "id": "ISS-20260513T112020733Z-VEC-PUSH-ACCEPTS-NON-COPY-PAYLOAD-WH-FDEED72B",
+      "title": "Vec push accepts non-Copy payload while failure paths cannot preserve owners",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/alloc/collections/vec/mutation/push.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T112020733Z-VEC-PUSH-ACCEPTS-NON-COPY-PAYLOAD-WH-FDEED72B.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

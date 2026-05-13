@@ -1,3 +1,18 @@
+# 2026-05-13 Agent 1 Vec push Copy-only boundary 修正
+
+- `ISS-20260513T112020733Z-VEC-PUSH-ACCEPTS-NON-COPY-PAYLOAD-WH-FDEED72B` を追加して解決した。
+- 根本原因は、現行 `Vec.push<T>` が `Result<Vec<T>, StdErrorKind>` を返す API であるため、allocation failure 時に non-Copy payload の入力 `Vec` owner と `item` owner を型として返せないこと。`OwnedBuffer<T>` / owner-preserving `PushResult` がない状態で non-Copy payload を受け入れると、owner safety が caller discipline に漏れる。
+- `Vec.push` を `.T: Copy` に限定し、doc comment と root facade の注意書きで current boundary を明示した。
+- `Vec<NonCopyPayload>` の `push` が `type.trait_bound.unsatisfied` で拒否される compile-fail doctest を追加した。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` は `push` が Copy-only 境界であることを監視するように更新した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation/push.nepl --no-tree -o tmp/agent1-vec-push-copy-bound-push.json -j 1 --dist web/dist`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec --no-tree -o tmp/agent1-vec-push-copy-bound-vec.json -j 4 --dist web/dist`: total=33, passed=33
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` の Stage D に沿い、non-Copy `Vec` の完成実装前に unsafe な fallible update 入口を閉じるもの。
+
 # 2026-05-13 Agent 1 owner extent proof / realloc summary 修正
 
 - `ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD` を解決した。
