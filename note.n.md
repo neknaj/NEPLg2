@@ -37603,3 +37603,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - style guide では、日本語の自然さ、nm ruby、見出し、計算機科学的な正確性、所有権/effect/raw memory/target/計算量の書き方、doctest と `tests/` の責務分離を整理した。
 - `kp` など performance layer の doc は、入力制約、計算量、raw boundary、cleanup、一般 stdlib へ昇格する時の修正点を明記する方針にした。
 - `doc/neplg2/stdlib_documentation_contract_plan.md` と `doc/stdlib_doc_comment_policy.md` から新 style guide へ接続した。
+
+## 2026-05-13 Agent 1 BTree key equality Copy-only boundary
+
+- `work/btree-key-eq-copy-bound` で `ISS-20260513T214506607Z-BTREE-KEY-EQUALITY-HELPERS-ACCEPT-OR-BFADC667` を追加して解決した。
+- `BTreeMap` / `BTreeSet` の `key_eq` helper は by-value `ord_lt` を 2 回呼ぶため、borrowed key comparison と `OwnedBuffer<T>` / initialized cell based non-Copy collection が入るまでは `.K: Ord&Copy` / `.T: Ord&Copy` に限定した。
+- `nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js` に source policy を追加し、BTree key equality helper が `Ord` のみへ戻る退行を検出する。
+- これは Stage 6 の Copy-only collection 境界を helper から迂回できないようにする修正であり、non-Copy key/value の owner-preserving BTree API は引き続き `OwnedBuffer<T>` 設計後の残件である。

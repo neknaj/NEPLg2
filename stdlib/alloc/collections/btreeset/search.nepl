@@ -15,7 +15,15 @@
 #import "./storage" as *
 #import "core/math" as *
 
-pub fn btreeset_key_eq <.T: Ord> <(.T,.T)->bool> (a, b):
+//: btreeset_key_eq: Copy key の順序比較から同値性を判定する
+//:
+//: ### [目的/もくてき]
+//: - `a < b` と `b < a` がどちらも false なら、集合上は同じ key とみなします。
+//:
+//: ### [注意/ちゅうい]
+//: - 現行の `Ord` 比較は key を値渡しし、同値判定では `ord_lt` を 2 回呼びます。
+//: - borrowed comparison と non-Copy key 用の `OwnedBuffer` / initialized cell 設計が入るまでは、二重消費を避けるため `.T: Copy` に限定します。
+pub fn btreeset_key_eq <.T: Ord&Copy> <(.T,.T)->bool> (a, b):
     and not ord_lt a b not ord_lt b a
 
 pub fn btreeset_lower_bound <.T: Ord&Copy> <(&Vec<Option<.T>>,.T,i32,i32)->i32> (keys, key, low, high):

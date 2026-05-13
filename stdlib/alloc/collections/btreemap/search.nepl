@@ -15,7 +15,15 @@
 #import "./storage" as *
 #import "core/math" as *
 
-pub fn btreemap_key_eq <.K: Ord> <(.K,.K)->bool> (a, b):
+//: btreemap_key_eq: Copy key の順序比較から同値性を判定する
+//:
+//: ### [目的/もくてき]
+//: - `a < b` と `b < a` がどちらも false なら、map 上は同じ key とみなします。
+//:
+//: ### [注意/ちゅうい]
+//: - 現行の `Ord` 比較は key を値渡しし、同値判定では `ord_lt` を 2 回呼びます。
+//: - borrowed comparison と non-Copy key 用の `OwnedBuffer` / initialized cell 設計が入るまでは、二重消費を避けるため `.K: Copy` に限定します。
+pub fn btreemap_key_eq <.K: Ord&Copy> <(.K,.K)->bool> (a, b):
     and not ord_lt a b not ord_lt b a
 
 pub fn btreemap_lower_bound <.K: Ord&Copy> <(&Vec<Option<.K>>,.K,i32,i32)->i32> (keys, key, low, high):

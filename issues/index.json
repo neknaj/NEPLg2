@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T21:38:52.785Z",
+  "generated_at": "2026-05-13T21:48:22.938Z",
   "counts": {
-    "total": 736,
+    "total": 737,
     "open": 5,
-    "resolved": 731,
+    "resolved": 732,
     "by_area": {
       "stdlib": {
-        "total": 183,
+        "total": 184,
         "open": 3,
-        "resolved": 180
+        "resolved": 181
       },
       "TEST": {
         "total": 18,
@@ -8588,6 +8588,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T144754414Z-BLOOM-FILTER-HASH-MODULES-RELY-ON-TR-52B8FBB4.md"
+    },
+    {
+      "id": "ISS-20260513T214506607Z-BTREE-KEY-EQUALITY-HELPERS-ACCEPT-OR-BFADC667",
+      "title": "BTree key equality helpers accept Ord keys without Copy",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/alloc/collections/btreemap/search.nepl, stdlib/alloc/collections/btreeset/search.nepl, nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T214506607Z-BTREE-KEY-EQUALITY-HELPERS-ACCEPT-OR-BFADC667.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -61,6 +61,7 @@ const btreeMapRemoveFile = 'stdlib/alloc/collections/btreemap/api/remove.nepl';
 const btreeMapCleanupFile = 'stdlib/alloc/collections/btreemap/api/cleanup.nepl';
 const btreeMapTypesFile = 'stdlib/alloc/collections/btreemap/types.nepl';
 const btreeMapStorageFile = 'stdlib/alloc/collections/btreemap/storage.nepl';
+const btreeMapSearchFile = 'stdlib/alloc/collections/btreemap/search.nepl';
 const btreeMapRootSource = sourceWithoutComments('stdlib/alloc/collections/btreemap.nepl');
 assert.doesNotMatch(btreeMapRootSource, /\bfn\s+/, 'BTreeMap root facade must not keep implementation bodies');
 for (const submodule of ['types', 'api', 'alias']) {
@@ -94,6 +95,7 @@ const btreeSetRemoveFile = 'stdlib/alloc/collections/btreeset/api/remove.nepl';
 const btreeSetCleanupFile = 'stdlib/alloc/collections/btreeset/api/cleanup.nepl';
 const btreeSetTypesFile = 'stdlib/alloc/collections/btreeset/types.nepl';
 const btreeSetStorageFile = 'stdlib/alloc/collections/btreeset/storage.nepl';
+const btreeSetSearchFile = 'stdlib/alloc/collections/btreeset/search.nepl';
 const btreeSetRootSource = sourceWithoutComments('stdlib/alloc/collections/btreeset.nepl');
 assert.doesNotMatch(btreeSetRootSource, /\bfn\s+/, 'BTreeSet root facade must not keep implementation bodies');
 for (const submodule of ['types', 'api', 'alias']) {
@@ -121,11 +123,12 @@ assertNoUnsafeUnwraps(btreeSetInsertFile, ['insert', 'btreeset_insert_ready']);
 
 const btreeMapTypesSource = sourceWithoutComments(btreeMapTypesFile);
 const btreeMapStorageSource = sourceWithoutComments(btreeMapStorageFile);
+const btreeMapSearchSource = sourceWithoutComments(btreeMapSearchFile);
 const btreeMapSource = [
     btreeMapRootSource,
     btreeMapTypesSource,
     btreeMapStorageSource,
-    sourceWithoutComments('stdlib/alloc/collections/btreemap/search.nepl'),
+    btreeMapSearchSource,
     btreeMapApiSource,
     sourceWithoutComments(btreeMapCreateFile),
     sourceWithoutComments(btreeMapObserverFile),
@@ -138,16 +141,19 @@ assert.match(btreeMapSource, /struct BTreeMapStorage<\.K,\.V>:/, 'BTreeMap must 
 assert.match(btreeMapSource, /keys\s+<Vec<Option<\.K>>>/, 'BTreeMap keys must use Vec<Option<K>> storage');
 assert.match(btreeMapSource, /values\s+<Vec<Option<\.V>>>/, 'BTreeMap values must use Vec<Option<V>> storage');
 assert.match(btreeMapStorageSource, /match\s+btreemap_key_at<\.K>/, 'BTreeMap storage must branch on Option key slots');
+assert.match(btreeMapSearchSource, /fn\s+btreemap_key_eq\s+<\.K:\s*Ord&Copy>\s+<\(\.K,\.K\)->bool>/, 'BTreeMap key equality must remain Copy-only until borrowed key comparison exists');
+assert.doesNotMatch(btreeMapSearchSource, /fn\s+btreemap_key_eq\s+<\.K:\s*Ord>\s+<\(\.K,\.K\)->bool>/, 'BTreeMap key equality must not accept non-Copy Ord keys by value');
 assert.match(btreeMapStorageSource, /fn\s+btreemap_free_storage\s+<\.K:\s*Copy,\.V:\s*Copy>\s+<\(BTreeMapStorage<\.K,\.V>\)->\(\)>/, 'BTreeMap storage cleanup must remain Copy-only until OwnedBuffer element drop traversal exists');
 assert.match(sourceWithoutComments(btreeMapCleanupFile), /fn\s+free\s+<\.K:\s*Copy,\.V:\s*Copy>\s+<\(BTreeMap<\.K,\.V>\)->\(\)>/, 'BTreeMap.free must expose the same Copy-only cleanup contract as its storage');
 
 const btreeSetTypesSource = sourceWithoutComments(btreeSetTypesFile);
 const btreeSetStorageSource = sourceWithoutComments(btreeSetStorageFile);
+const btreeSetSearchSource = sourceWithoutComments(btreeSetSearchFile);
 const btreeSetSource = [
     btreeSetRootSource,
     btreeSetTypesSource,
     btreeSetStorageSource,
-    sourceWithoutComments('stdlib/alloc/collections/btreeset/search.nepl'),
+    btreeSetSearchSource,
     btreeSetApiSource,
     sourceWithoutComments(btreeSetCreateFile),
     sourceWithoutComments(btreeSetObserverFile),
@@ -159,6 +165,8 @@ const btreeSetSource = [
 assert.match(btreeSetSource, /struct BTreeSetStorage<\.T>:/, 'BTreeSet must keep typed storage wrapper');
 assert.match(btreeSetSource, /keys\s+<Vec<Option<\.T>>>/, 'BTreeSet keys must use Vec<Option<T>> storage');
 assert.match(btreeSetStorageSource, /match\s+btreeset_key_at<\.T>/, 'BTreeSet storage must branch on Option key slots');
+assert.match(btreeSetSearchSource, /fn\s+btreeset_key_eq\s+<\.T:\s*Ord&Copy>\s+<\(\.T,\.T\)->bool>/, 'BTreeSet key equality must remain Copy-only until borrowed key comparison exists');
+assert.doesNotMatch(btreeSetSearchSource, /fn\s+btreeset_key_eq\s+<\.T:\s*Ord>\s+<\(\.T,\.T\)->bool>/, 'BTreeSet key equality must not accept non-Copy Ord keys by value');
 assert.match(btreeSetStorageSource, /fn\s+btreeset_free_storage\s+<\.T:\s*Copy>\s+<\(BTreeSetStorage<\.T>\)->\(\)>/, 'BTreeSet storage cleanup must remain Copy-only until OwnedBuffer element drop traversal exists');
 assert.match(sourceWithoutComments(btreeSetCleanupFile), /fn\s+free\s+<\.T:\s*Copy>\s+<\(BTreeSet<\.T>\)->\(\)>/, 'BTreeSet.free must expose the same Copy-only cleanup contract as its storage');
 
