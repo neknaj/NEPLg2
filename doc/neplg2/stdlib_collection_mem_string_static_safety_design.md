@@ -279,6 +279,12 @@ Resource IR / typecheck / match check は次を必須にする。
 - null pointer owner、direct `Result::Ok Vec ... mem_ptr_wrap 0`、bucket status magic number の監査テストを追加する。
 - 既存の `ByteBuf` / builder owner boundary 回帰テストは維持する。
 
+2026-05-13 追記:
+
+- `nodesrc/test_stdlib_memptr_owner_field_policy.js` を追加し、stdlib 全体の `struct` field に直接現れる `MemPtr` / `Option<MemPtr>` を集約して監視する。
+- この policy は `MemPtr` field を安全証明として認めるものではない。現時点で残る `RegionToken.ptr`、`Vec.data`、`VecDataLen.data`、`ByteBuf.ptr`、`ByteBuilder.ptr`、`StringBuilder.data`、`StreamScanner.header`、`StreamWriter.buf` を Stage C/D/F の移行対象として固定し、それ以外の新規 `MemPtr` owner-like field を禁止する。
+- source policy runner に組み込み、module 個別 policy の外で raw-memory-backed owner field が増える退行を検出する。
+
 ### Stage B: `core/mem` の internal/public 分離
 
 - 前提として、typecheck の import visibility が `pub` / private item boundary を binding authority として扱う必要がある。現状の blocker は [ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573](../../issues/items/ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573.md) で追跡する。
@@ -346,6 +352,7 @@ Resource IR / typecheck / match check は次を必須にする。
 | `ISS-20260429T155343006Z-COLLECTION-STORAGE-STATES-USE-NUMERI-E4B3A749` | collection の数値/null storage state を enum owner state へ移す新規 issue。 |
 | `ISS-20260428T223953830Z-VEC-ELEMENT-LOADS-LOSE-BACKING-STORA-E811458B` | Vec backing storage と Resource IR raw cell alias の修正済み回帰。 |
 | `ISS-20260429T083822053Z-SELF-HOST-DIAGNOSTICS-USE-STRING-COD-1040C21E` | self-host diagnostics も enum-first diagnostic id に合わせる。 |
+| `ISS-20260513T212118060Z-MEMPTR-OWNER-FIELD-MIGRATION-LACKS-G-7E2612E2` | Stage A の `MemPtr` owner-like field 増殖禁止 source policy。 |
 
 ## 判定
 

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T21:17:11.601Z",
+  "generated_at": "2026-05-13T21:24:31.659Z",
   "counts": {
-    "total": 733,
+    "total": 734,
     "open": 5,
-    "resolved": 728,
+    "resolved": 729,
     "by_area": {
       "stdlib": {
         "total": 183,
@@ -72,9 +72,9 @@
         "resolved": 17
       },
       "nodesrc": {
-        "total": 9,
+        "total": 10,
         "open": 0,
-        "resolved": 9
+        "resolved": 10
       },
       "SELFHOST-DIAG": {
         "total": 1,
@@ -6173,6 +6173,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T063212027Z-SOURCE-POLICY-RESOURCE-GATE-ORDER-ST-ED44ABFD.md"
+    },
+    {
+      "id": "ISS-20260513T212118060Z-MEMPTR-OWNER-FIELD-MIGRATION-LACKS-G-7E2612E2",
+      "title": "MemPtr owner field migration lacks global source policy",
+      "area": "nodesrc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nodesrc/test_stdlib_memptr_owner_field_policy.js, nodesrc/run_source_policy_regressions.js, doc/neplg2/stdlib_collection_mem_string_static_safety_design.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T212118060Z-MEMPTR-OWNER-FIELD-MIGRATION-LACKS-G-7E2612E2.md"
     },
     {
       "id": "ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737",

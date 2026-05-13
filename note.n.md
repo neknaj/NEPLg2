@@ -37573,3 +37573,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `initialized_drop_scope.rs` は EndScope の live cell state cleanup、alias cleanup、auto-drop record 生成に集中する形へ戻した。
 - Resource checker responsibility policy に新 module の存在、`mod` 宣言、line limit、責務移動検査を追加した。
 - `cargo check -p nepl-core --tests`、Resource checker responsibility policy、aggregate source policy regression は pass した。
+
+## 2026-05-13 Agent 1 MemPtr owner field migration policy
+
+- `work/memptr-owner-field-policy` で `ISS-20260513T212118060Z-MEMPTR-OWNER-FIELD-MIGRATION-LACKS-G-7E2612E2` を追加して解決した。
+- `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` の Stage A が要求していた、`MemPtr` owner-like field の新規増殖禁止 policy を `nodesrc/test_stdlib_memptr_owner_field_policy.js` として追加した。
+- policy は stdlib 全体の `struct` field を走査し、現在残る 8 個の `MemPtr` / `Option<MemPtr>` field だけを migration debt として固定する。これは安全性の allowlist ではなく、`OwnedRegion` / `OwnedBuffer` / typed scanner state への移行対象を増やさないための監視である。
+- stale exception も失敗にするため、将来 `OwnedBuffer` 化などで field が消えた場合は policy 側の transitional entry も削除される。
+- 新規 policy、Vec / builder / ByteBuf / streamio writer の関連 policy、aggregate source policy regression は pass した。
