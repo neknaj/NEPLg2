@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T15:46:20.155Z",
+  "generated_at": "2026-05-13T15:56:30.506Z",
   "counts": {
     "total": 728,
     "open": 5,
@@ -3108,8 +3108,8 @@
       "priority": "P1",
       "type": "bug",
       "created": "2026-04-29",
-      "updated": "2026-04-30",
-      "target": "nepl-core/tests/drop.rs, nepl-core/src/passes/drop_insertion.rs",
+      "updated": "2026-05-14",
+      "target": "nepl-core/tests/drop.rs, nepl-core/tests/resource_ir.rs, nepl-core/src/resource/lower.rs, nepl-core/src/resource/initialized_drop_scope.rs, nepl-core/src/passes/drop_insertion.rs",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260429T231116550Z-AUTO-DROP-SKIPS-REMAINING-STRUCT-FIE-67E6E6C5.md"

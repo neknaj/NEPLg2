@@ -144,19 +144,47 @@ fn insert_effect(function_effects: &mut BTreeMap<String, Effect>, name: String, 
 pub(super) struct LoweringContext {
     next_resource: usize,
     next_local: usize,
-    local_scopes: Vec<BTreeMap<String, Place>>,
+    local_scopes: Vec<LocalScope>,
+}
+
+#[derive(Clone, Default)]
+struct LocalScope {
+    by_name: BTreeMap<String, Place>,
+    declarations: Vec<Place>,
+}
+
+impl LocalScope {
+    fn with_params(params: &[ResourceLocal]) -> Self {
+        let mut scope = Self::default();
+        for param in params {
+            scope
+                .by_name
+                .insert(param.name.clone(), param.place.clone());
+            scope.declarations.push(param.place.clone());
+        }
+        scope
+    }
+
+    fn declare(&mut self, name: String, place: Place) {
+        self.by_name.insert(name, place.clone());
+        self.declarations.push(place);
+    }
+
+    fn place_for_name(&self, name: &str) -> Option<Place> {
+        self.by_name.get(name).cloned()
+    }
+
+    fn into_declarations(self) -> Vec<Place> {
+        self.declarations
+    }
 }
 
 impl LoweringContext {
     fn new(params: &[ResourceLocal]) -> Self {
-        let mut root_scope = BTreeMap::new();
-        for param in params {
-            root_scope.insert(param.name.clone(), param.place.clone());
-        }
         Self {
             next_resource: 0,
             next_local: 0,
-            local_scopes: alloc::vec![root_scope],
+            local_scopes: alloc::vec![LocalScope::with_params(params)],
         }
     }
 
@@ -167,16 +195,14 @@ impl LoweringContext {
     }
 
     fn push_scope(&mut self) {
-        self.local_scopes.push(BTreeMap::new());
+        self.local_scopes.push(LocalScope::default());
     }
 
     fn pop_scope(&mut self) -> Vec<Place> {
         self.local_scopes
             .pop()
             .unwrap_or_default()
-            .into_iter()
-            .map(|(_, place)| place)
-            .collect()
+            .into_declarations()
     }
 
     fn declare_local(&mut self, name: String, ty: TypeId) -> Place {
@@ -189,7 +215,7 @@ impl LoweringContext {
         };
         let place = Place::local(local_name, ty);
         if let Some(scope) = self.local_scopes.last_mut() {
-            scope.insert(name, place.clone());
+            scope.declare(name, place.clone());
         }
         place
     }
@@ -203,14 +229,14 @@ impl LoweringContext {
         self.local_scopes
             .iter()
             .rev()
-            .find_map(|scope| scope.get(name).cloned())
+            .find_map(|scope| scope.place_for_name(name))
     }
 
-    fn snapshot_locals(&self) -> Vec<BTreeMap<String, Place>> {
+    fn snapshot_locals(&self) -> Vec<LocalScope> {
         self.local_scopes.clone()
     }
 
-    fn restore_locals(&mut self, local_scopes: Vec<BTreeMap<String, Place>>) {
+    fn restore_locals(&mut self, local_scopes: Vec<LocalScope>) {
         self.local_scopes = local_scopes;
     }
 }

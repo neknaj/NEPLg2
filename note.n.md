@@ -1,3 +1,20 @@
+# 2026-05-14 Agent 1 partial move auto-drop 再発修正
+
+- `ISS-20260429T231116550Z-AUTO-DROP-SKIPS-REMAINING-STRUCT-FIE-67E6E6C5` の再発を修正した。
+- clean `main` で `auto_drop_partially_moved_struct_drops_remaining_fields` が `[1]` になり、部分move後の残存 `p.right` がdropされていないことを再確認した。
+- 根本原因は2つあった。Resource initialized check が root local の availability だけでauto-drop可否を判断し、`p.left` move後の `p.right` の初期化状態をdrop requirementに戻していなかった。また lowering が scope local を `BTreeMap` から取り出していたため、`EndScope.locals` が宣言順ではなく名前順になり、LIFO auto-drop順序を壊していた。
+- `LoweringContext` は名前解決用mapと宣言順listを分離し、`EndScope.locals` を宣言順で生成するようにした。
+- `auto_drop_scope_locals_with_record` は部分move済みrootに対して、型レイアウトと `CellTable` に基づいて初期化済みdescendantのみの `ResourceDropRequirement::Structural` を構成するようにした。
+- 回帰テストとして既存の partial move drop trace を復旧し、さらに Resource IR lowering の scope local 宣言順を直接固定するテストを追加した。
+- 検証:
+  - `cargo fmt --package nepl-core --check`: passed
+  - `cargo test -p nepl-core --test drop auto_drop_partially_moved_struct_drops_remaining_fields -- --nocapture`: passed
+  - `cargo test -p nepl-core --test drop -- --nocapture`: `17 passed`
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_preserves_scope_local_declaration_order -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_drop_insertion_consumes_checked_scope_and_assignment_points -- --nocapture`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正の Resource IR / initialized cell state / auto-drop 正確性を改善するもの。
+
 # 2026-05-14 Agent 1 DropPlan typed trait identity 修正
 
 - `ISS-20260513T154226197Z-DROP-INSERTION-PLAN-STILL-CARRIES-RA-EF658B47` を追加して解決した。

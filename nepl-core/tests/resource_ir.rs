@@ -202,6 +202,81 @@ fn resource_ir_lowering_skeleton_tracks_locals_and_dump() {
 }
 
 #[test]
+fn resource_ir_lowering_preserves_scope_local_declaration_order() {
+    let unit_ty = TypeId(0);
+    let i32_ty = TypeId(1);
+    let span = Span::dummy();
+    let let_i32 = |name: &str, value: i32| HirLine {
+        expr: HirExpr {
+            ty: unit_ty,
+            kind: HirExprKind::Let {
+                name: name.to_string(),
+                mutable: false,
+                value: Box::new(HirExpr {
+                    ty: i32_ty,
+                    kind: HirExprKind::LiteralI32(value),
+                    span,
+                }),
+            },
+            span,
+        },
+        drop_result: true,
+    };
+    let module = HirModule {
+        functions: vec![HirFunction {
+            doc: None,
+            name: "main".to_string(),
+            origin_name: "main".to_string(),
+            func_ty: TypeId(2),
+            params: vec![],
+            result: i32_ty,
+            effect: Effect::Pure,
+            body: HirBody::Block(HirBlock {
+                lines: vec![
+                    let_i32("p", 1),
+                    let_i32("left", 2),
+                    HirLine {
+                        expr: HirExpr {
+                            ty: i32_ty,
+                            kind: HirExprKind::Var("left".to_string()),
+                            span,
+                        },
+                        drop_result: false,
+                    },
+                ],
+                ty: i32_ty,
+                span,
+            }),
+            span,
+        }],
+        entry: Some("main".to_string()),
+        externs: vec![],
+        string_literals: vec![],
+        traits: vec![],
+        impls: vec![],
+    };
+
+    let resource = lower_hir_module_skeleton(&module);
+    let locals = resource.functions[0].blocks[0]
+        .ops
+        .iter()
+        .find_map(|op| match op {
+            ResourceOp::EndScope { locals, .. } if !locals.is_empty() => Some(locals),
+            _ => None,
+        })
+        .expect("block end_scope should contain declared locals");
+    let names = locals
+        .iter()
+        .map(|place| match &place.root {
+            PlaceRoot::Local(name) => name.as_str(),
+            other => panic!("expected local place, got {other:?}"),
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(names, vec!["p", "left"]);
+}
+
+#[test]
 fn resource_ir_lowering_preserves_aggregate_and_branch_structure() {
     let unit_ty = TypeId(0);
     let i32_ty = TypeId(1);
