@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T03:39:06.998Z",
+  "generated_at": "2026-05-13T03:44:17.078Z",
   "counts": {
-    "total": 691,
+    "total": 692,
     "open": 6,
-    "resolved": 685,
+    "resolved": 686,
     "by_area": {
       "stdlib": {
         "total": 168,
@@ -91,6 +91,11 @@
         "open": 0,
         "resolved": 6
       },
+      "tools": {
+        "total": 2,
+        "open": 0,
+        "resolved": 2
+      },
       "tutorials": {
         "total": 2,
         "open": 0,
@@ -100,11 +105,6 @@
         "total": 2,
         "open": 0,
         "resolved": 2
-      },
-      "tools": {
-        "total": 1,
-        "open": 0,
-        "resolved": 1
       }
     }
   },
@@ -8298,6 +8298,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5.md"
+    },
+    {
+      "id": "ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553",
+      "title": "nepl-language token export misses extern visibility field",
+      "area": "tools",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-language/src/lib.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553.md"
     },
     {
       "id": "ISS-20260507T161156205Z-GETTING-STARTED-TUTORIAL-DOCTESTS-FA-A0324153",

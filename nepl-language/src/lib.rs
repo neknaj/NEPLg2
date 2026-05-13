@@ -1165,12 +1165,13 @@ fn token_value(kind: &TokenKind) -> Option<String> {
         TokenKind::Arrow(effect) => Some(format!("{:?}", effect)),
         TokenKind::DirIndentWidth(value) => Some(value.to_string()),
         TokenKind::DirExtern {
+            vis,
             module,
             name,
             func,
             signature,
         } => Some(format!(
-            "module={module}, name={name}, func={func}, signature={signature}"
+            "vis={vis:?}, module={module}, name={name}, func={func}, signature={signature}"
         )),
         _ => None,
     }

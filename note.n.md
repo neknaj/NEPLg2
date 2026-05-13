@@ -1,3 +1,15 @@
+# 2026-05-13 Agent 1 nepl-language extern visibility token export 修正
+
+- `ISS-20260513T034303470Z-NEPL-LANGUAGE-TOKEN-EXPORT-MISSES-EX-521E1553` を追加して修正した。
+- GitHub Actions run `25776828197` の `Shared bootstrap build` が `nepl-language/src/lib.rs` の `TokenKind::DirExtern` pattern で `vis` field を列挙していないため停止した。
+- 根本原因は、`pub #extern` で `TokenKind::DirExtern` に visibility が追加された後、`nepl-web` の token export は追従したが `nepl-language` の editor/language token detail が同じ AST/token contract に追従していなかったこと。
+- `vis: _` や `..` で捨てず、`vis` を明示的に受けて token detail string へ含めた。これにより extern visibility が tooling 境界でも失われず、今後の field 追加も Rust の pattern exhaustiveness で検出できる。
+- 検証:
+  - `cargo check -p nepl-language`: passed
+  - `cargo build`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は CI bootstrap build を復旧し、extern visibility の compiler/tooling contract を揃えるもの。
+
 # 2026-05-13 Agent 1 core/mem public safe facade 完了
 
 - `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D` を修正した。
