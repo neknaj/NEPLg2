@@ -664,6 +664,7 @@ impl Parser {
                 }))
             }
             TokenKind::DirExtern {
+                vis,
                 module,
                 name,
                 func,
@@ -672,6 +673,7 @@ impl Parser {
                 let span = self.next().unwrap().span;
                 let sig = parse_type_expr_str(&signature, span, &mut self.diagnostics)?;
                 Some(Stmt::Directive(Directive::Extern {
+                    vis,
                     module: module.to_string(),
                     name: name.to_string(),
                     func: Ident {

@@ -162,6 +162,7 @@ pub fn typecheck(
         if let Directive::Entry { name } = d {
             entry = Some((name.name.clone(), name.span));
         } else if let Directive::Extern {
+            vis,
             module: m,
             name: n,
             func,
@@ -190,7 +191,7 @@ pub fn typecheck(
                 env.insert_global(Binding {
                     name: func.name.clone(),
                     ty,
-                    visibility: Visibility::Private,
+                    visibility: *vis,
                     mutable: false,
                     no_shadow: false,
                     defined: true,

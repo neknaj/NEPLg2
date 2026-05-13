@@ -307,6 +307,58 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn extern_visibility_controls_imported_abi_symbols() {
+    let extern_dep = r#"
+#indent 4
+#no_prelude
+
+#extern "env" "hidden_tick" fn hidden_tick <()->i32>
+pub #extern "env" "public_tick" fn public_tick <()->i32>
+"#;
+    let facade = r#"
+#indent 4
+#no_prelude
+
+pub #import "extern_dep" as *
+"#;
+    let public_main = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "extern_facade" as abi
+
+fn main <()->i32> ():
+    abi::public_tick
+"#;
+    compile_with_virtual_sources(
+        public_main,
+        &[
+            ("extern_dep.nepl", extern_dep),
+            ("extern_facade.nepl", facade),
+        ],
+    )
+    .expect("pub #extern should be visible through pub import facades");
+
+    let private_main = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "extern_dep" as abi
+
+fn main <()->i32> ():
+    abi::hidden_tick
+"#;
+    let Err(CoreError::Diagnostics(diags)) =
+        compile_with_virtual_sources(private_main, &[("extern_dep.nepl", extern_dep)])
+    else {
+        panic!("expected private extern to remain hidden across imports");
+    };
+    assert_undefined_identifier(&diags);
+}
+
+#[test]
 fn default_import_hides_unqualified_symbols_but_keeps_default_alias() {
     let unqualified = r#"
 #entry main

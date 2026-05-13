@@ -1226,6 +1226,7 @@ fn extern_signature_not_function_has_type_code() {
         directives: vec![
             nepl_core::ast::Directive::Entry { name: main.clone() },
             nepl_core::ast::Directive::Extern {
+                vis: nepl_core::ast::Visibility::Private,
                 module: "env".to_string(),
                 name: "bad".to_string(),
                 func: bad,

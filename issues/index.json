@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T00:18:14.730Z",
+  "generated_at": "2026-05-13T00:35:45.760Z",
   "counts": {
-    "total": 686,
+    "total": 687,
     "open": 9,
-    "resolved": 677,
+    "resolved": 678,
     "by_area": {
       "core": {
-        "total": 366,
+        "total": 367,
         "open": 1,
-        "resolved": 365
+        "resolved": 366
       },
       "stdlib": {
         "total": 168,
@@ -5553,6 +5553,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573.md"
+    },
+    {
+      "id": "ISS-20260513T003230273Z-EXTERN-DECLARATIONS-IGNORE-IMPORT-VI-FA18F3C6",
+      "title": "extern declarations ignore import visibility and break raw syscall facades",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/lexer.rs, nepl-core/src/ast.rs, nepl-core/src/typecheck/driver.rs, stdlib/std/fs/raw/wasi.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T003230273Z-EXTERN-DECLARATIONS-IGNORE-IMPORT-VI-FA18F3C6.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

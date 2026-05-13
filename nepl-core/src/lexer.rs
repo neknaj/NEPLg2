@@ -7,7 +7,7 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::ast::Effect;
+use crate::ast::{Effect, Visibility};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{DiagnosticCode, LexerDiagnosticCode, ParserDiagnosticCode};
 use crate::span::{FileId, Span};
@@ -91,6 +91,7 @@ pub enum TokenKind {
     DirIndentWidth(usize),
     DirInclude(String),
     DirExtern {
+        vis: Visibility,
         module: String,
         name: String,
         func: String,
@@ -355,6 +356,13 @@ impl LexState {
                             } else {
                                 directive_text = Some(format!("#import pub {}", tail));
                             }
+                        } else if after_pub_trim.starts_with("#extern") {
+                            let tail = after_pub_trim.trim_start_matches("#extern").trim_start();
+                            if tail.is_empty() {
+                                directive_text = Some("#extern pub".to_string());
+                            } else {
+                                directive_text = Some(format!("#extern pub {}", tail));
+                            }
                         } else {
                             let span = Span::new(
                                 self.file_id,
@@ -363,7 +371,7 @@ impl LexState {
                             );
                             self.diagnostics.push(lexer_error(
                                 LexerDiagnosticCode::PubPrefixInvalid,
-                                "pub prefix is only allowed for #import",
+                                "pub prefix is only allowed for #import or #extern",
                                 span,
                             ));
                             directive_text = Some(after_pub_trim.to_string());
@@ -624,22 +632,27 @@ impl LexState {
                 span,
             });
         } else if body.starts_with("extern") {
-            // format: extern "env" "sym" fn name <signature>
+            // format: extern ["pub"] "env" "sym" fn name <signature>
             let span = Span::new(
                 self.file_id,
                 line_offset as u32,
                 (line_offset + body.len()) as u32,
             );
-            let parts: Vec<&str> = body.split_whitespace().collect();
-            if parts.len() >= 5
-                && parts[0] == "extern"
-                && parts[2].starts_with('"')
+            let mut rest = body.strip_prefix("extern").unwrap().trim();
+            let mut vis = Visibility::Private;
+            if rest == "pub" || rest.starts_with("pub ") {
+                vis = Visibility::Pub;
+                rest = rest.strip_prefix("pub").unwrap().trim_start();
+            }
+            let parts: Vec<&str> = rest.split_whitespace().collect();
+            if parts.len() >= 4
+                && parts[0].starts_with('"')
                 && parts[1].starts_with('"')
-                && parts[3] == "fn"
+                && parts[2] == "fn"
             {
-                let module = parts[1].trim_matches('"').to_string();
-                let name = parts[2].trim_matches('"').to_string();
-                let func = parts[4].to_string();
+                let module = parts[0].trim_matches('"').to_string();
+                let name = parts[1].trim_matches('"').to_string();
+                let func = parts[3].to_string();
                 let sig_start = body.find('<');
                 let sig = if let Some(idx) = sig_start {
                     body[idx..].to_string()
@@ -648,6 +661,7 @@ impl LexState {
                 };
                 self.tokens.push(Token {
                     kind: TokenKind::DirExtern {
+                        vis,
                         module,
                         name,
                         func,

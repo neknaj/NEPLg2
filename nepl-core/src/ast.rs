@@ -274,6 +274,7 @@ pub enum Directive {
         span: Span,
     },
     Extern {
+        vis: Visibility,
         module: String,
         name: String,
         func: Ident,

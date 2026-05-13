@@ -1,3 +1,18 @@
+# 2026-05-13 Agent 1 #extern visibility 修正
+
+- `ISS-20260513T003230273Z-EXTERN-DECLARATIONS-IGNORE-IMPORT-VI-FA18F3C6` を追加して修正した。
+- 根本原因は、import visibility enforcement が `fn` / `enum` / `struct` の公開性を型検査 binding に持たせた一方で、`#extern` は AST / token / typecheck binding に visibility を持たず常に private として登録されていたこと。
+- `pub #extern` を `pub #import` と同じ prefix directive として受理し、`Directive::Extern` / `TokenKind::DirExtern` / extern binding 登録へ `Visibility` を通すようにした。
+- `stdlib/std/fs/raw/wasi.nepl` の facade 経由で利用する WASI syscall ABI だけを `pub #extern` にした。`std/stdio/raw` や LLVM syscall fallback の内部実装詳細は private のまま維持した。
+- `resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup` は `wasi_path_open` / `wasi_fd_read` / `wasi_fd_write` / `wasi_fd_close` の undefined identifier では停止しなくなり、残りは既存の fs/stdio scratch owner issue に切り分けた。
+- 検証:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test import_clause extern_visibility_controls_imported_abi_symbols -- --nocapture`: passed
+  - `cargo test -p nepl-core --test import_clause -- --nocapture`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は import visibility の公開性 authority を extern ABI declaration にも通し、静的検査前段の module boundary を一貫させるもの。
+
 # 2026-05-13 Agent 1 stdio ResourceIR owner regression issue 再オープン
 
 - `ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4` を再オープンした。
