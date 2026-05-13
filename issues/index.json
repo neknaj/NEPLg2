@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T09:34:01.354Z",
+  "generated_at": "2026-05-13T09:54:32.108Z",
   "counts": {
-    "total": 706,
+    "total": 707,
     "open": 5,
-    "resolved": 701,
+    "resolved": 702,
     "by_area": {
       "stdlib": {
         "total": 174,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 375,
+        "total": 376,
         "open": 0,
-        "resolved": 375
+        "resolved": 376
       },
       "resource": {
         "total": 2,
@@ -5643,6 +5643,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T062000411Z-RAW-MEMORY-BOUNDARY-CAPABILITY-REMAI-7C67C7C9.md"
+    },
+    {
+      "id": "ISS-20260513T095201685Z-RAW-MEMORY-SOURCE-CAPABILITY-TREATS--389248CD",
+      "title": "Raw memory source capability treats shadowed helper names as evidence",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/source_capability/**, nepl-core/src/loader.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T095201685Z-RAW-MEMORY-SOURCE-CAPABILITY-TREATS--389248CD.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

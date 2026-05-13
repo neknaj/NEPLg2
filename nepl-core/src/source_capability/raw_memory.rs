@@ -4,6 +4,7 @@ use crate::effects::{
 };
 use crate::hir::HirBody;
 use crate::runtime_helpers::helper_base_name;
+use crate::source_capability::raw_memory_scope::RawMemoryBoundaryScope;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RawMemoryBoundaryEvidence {
@@ -87,34 +88,55 @@ impl RawMemoryBoundaryEvidence {
 }
 
 pub(crate) fn module_has_raw_memory_boundary_evidence(module: &Module) -> bool {
-    block_raw_memory_boundary_evidence(&module.root).is_some()
+    let scope = RawMemoryBoundaryScope::from_module(module);
+    block_raw_memory_boundary_evidence(&module.root, &scope).is_some()
 }
 
-fn block_raw_memory_boundary_evidence(block: &Block) -> Option<RawMemoryBoundaryEvidence> {
-    block
-        .items
-        .iter()
-        .find_map(stmt_raw_memory_boundary_evidence)
+fn block_raw_memory_boundary_evidence(
+    block: &Block,
+    scope: &RawMemoryBoundaryScope,
+) -> Option<RawMemoryBoundaryEvidence> {
+    let mut block_scope = scope.clone();
+    for stmt in &block.items {
+        if let Some(evidence) = stmt_raw_memory_boundary_evidence(stmt, &block_scope) {
+            return Some(evidence);
+        }
+        block_scope.bind_stmt_locals(stmt);
+    }
+    None
 }
 
-fn stmt_raw_memory_boundary_evidence(stmt: &Stmt) -> Option<RawMemoryBoundaryEvidence> {
+fn stmt_raw_memory_boundary_evidence(
+    stmt: &Stmt,
+    scope: &RawMemoryBoundaryScope,
+) -> Option<RawMemoryBoundaryEvidence> {
     match stmt {
-        Stmt::FnDef(def) => fn_body_raw_memory_boundary_evidence(&def.body),
-        Stmt::Impl(def) => def
-            .methods
-            .iter()
-            .find_map(|method| fn_body_raw_memory_boundary_evidence(&method.body)),
-        Stmt::FnAlias(alias) => RawMemoryBoundaryEvidence::from_symbol(alias.target.name.as_str()),
+        Stmt::FnDef(def) => {
+            let fn_scope = scope.with_params(&def.params);
+            fn_body_raw_memory_boundary_evidence(&def.body, &fn_scope)
+        }
+        Stmt::Impl(def) => def.methods.iter().find_map(|method| {
+            let method_scope = scope.with_params(&method.params);
+            fn_body_raw_memory_boundary_evidence(&method.body, &method_scope)
+        }),
+        Stmt::FnAlias(alias) => (!scope.shadows(alias.target.name.as_str()))
+            .then(|| RawMemoryBoundaryEvidence::from_symbol(alias.target.name.as_str()))
+            .flatten(),
         Stmt::Wasm(body) => raw_body_evidence(HirBody::Wasm(body.clone())),
         Stmt::LlvmIr(body) => raw_body_evidence(HirBody::LlvmIr(body.clone())),
-        Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => expr_raw_memory_boundary_evidence(expr),
+        Stmt::Expr(expr) | Stmt::ExprSemi(expr, _) => {
+            expr_raw_memory_boundary_evidence(expr, scope)
+        }
         Stmt::Directive(_) | Stmt::StructDef(_) | Stmt::EnumDef(_) | Stmt::Trait(_) => None,
     }
 }
 
-fn fn_body_raw_memory_boundary_evidence(body: &FnBody) -> Option<RawMemoryBoundaryEvidence> {
+fn fn_body_raw_memory_boundary_evidence(
+    body: &FnBody,
+    scope: &RawMemoryBoundaryScope,
+) -> Option<RawMemoryBoundaryEvidence> {
     match body {
-        FnBody::Parsed(block) => block_raw_memory_boundary_evidence(block),
+        FnBody::Parsed(block) => block_raw_memory_boundary_evidence(block, scope),
         FnBody::Wasm(body) => raw_body_evidence(HirBody::Wasm(body.clone())),
         FnBody::LlvmIr(body) => raw_body_evidence(HirBody::LlvmIr(body.clone())),
     }
@@ -132,17 +154,21 @@ fn raw_body_evidence(body: HirBody) -> Option<RawMemoryBoundaryEvidence> {
     }
 }
 
-fn expr_raw_memory_boundary_evidence(expr: &PrefixExpr) -> Option<RawMemoryBoundaryEvidence> {
+fn expr_raw_memory_boundary_evidence(
+    expr: &PrefixExpr,
+    scope: &RawMemoryBoundaryScope,
+) -> Option<RawMemoryBoundaryEvidence> {
     expr.items
         .iter()
-        .find_map(prefix_item_raw_memory_boundary_evidence)
+        .find_map(|item| prefix_item_raw_memory_boundary_evidence(item, scope))
 }
 
 fn prefix_item_raw_memory_boundary_evidence(
     item: &PrefixItem,
+    scope: &RawMemoryBoundaryScope,
 ) -> Option<RawMemoryBoundaryEvidence> {
     match item {
-        PrefixItem::Symbol(Symbol::Ident(ident, _, _)) => {
+        PrefixItem::Symbol(Symbol::Ident(ident, _, _)) if !scope.shadows(&ident.name) => {
             RawMemoryBoundaryEvidence::from_symbol(ident.name.as_str())
         }
         PrefixItem::Intrinsic(intrinsic, _) => {
@@ -154,17 +180,23 @@ fn prefix_item_raw_memory_boundary_evidence(
                 intrinsic
                     .args
                     .iter()
-                    .find_map(expr_raw_memory_boundary_evidence)
+                    .find_map(|expr| expr_raw_memory_boundary_evidence(expr, scope))
             }
         }
-        PrefixItem::Block(block, _) => block_raw_memory_boundary_evidence(block),
-        PrefixItem::Match(m, _) => m
-            .arms
+        PrefixItem::Block(block, _) => block_raw_memory_boundary_evidence(block, scope),
+        PrefixItem::Match(m, _) => {
+            expr_raw_memory_boundary_evidence(&m.scrutinee, scope).or_else(|| {
+                m.arms.iter().find_map(|arm| {
+                    let mut arm_scope = scope.clone();
+                    arm_scope.bind_match_pattern(&arm.pattern);
+                    block_raw_memory_boundary_evidence(&arm.body, &arm_scope)
+                })
+            })
+        }
+        PrefixItem::Tuple(items, _) => items
             .iter()
-            .find_map(|arm| block_raw_memory_boundary_evidence(&arm.body))
-            .or_else(|| expr_raw_memory_boundary_evidence(&m.scrutinee)),
-        PrefixItem::Tuple(items, _) => items.iter().find_map(expr_raw_memory_boundary_evidence),
-        PrefixItem::Group(inner, _) => expr_raw_memory_boundary_evidence(inner),
+            .find_map(|expr| expr_raw_memory_boundary_evidence(expr, scope)),
+        PrefixItem::Group(inner, _) => expr_raw_memory_boundary_evidence(inner, scope),
         PrefixItem::Literal(_, _)
         | PrefixItem::TypeAnnotation(_, _)
         | PrefixItem::Pipe(_)

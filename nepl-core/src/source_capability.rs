@@ -4,5 +4,6 @@
 //! are attached only when the parsed source contains typed evidence.
 
 mod raw_memory;
+mod raw_memory_scope;
 
 pub(crate) use raw_memory::module_has_raw_memory_boundary_evidence;

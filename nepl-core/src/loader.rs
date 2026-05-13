@@ -835,6 +835,60 @@ mod tests {
     }
 
     #[test]
+    fn raw_memory_boundary_ignores_shadowed_parameter_names() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "safe_shadow.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(i32)->i32> (mem_ptr_addr):\n    mem_ptr_addr\n",
+        );
+        assert!(
+            !capabilities.allows_raw_memory_boundary(),
+            "parameter names that match raw helpers are not source evidence"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_ignores_shadowed_local_names() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "safe_local_shadow.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <()->i32> ():\n    let alloc_ptr <i32> 1;\n    alloc_ptr\n",
+        );
+        assert!(
+            !capabilities.allows_raw_memory_boundary(),
+            "local names that match raw owner helpers are not source evidence"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_ignores_same_module_safe_helper_names() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "safe_module_shadow.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn load_i32 <()->i32> ():\n    1\n\nfn helper <()->i32> ():\n    load_i32\n",
+        );
+        assert!(
+            !capabilities.allows_raw_memory_boundary(),
+            "same-module safe definitions with raw helper names are not source evidence"
+        );
+    }
+
+    #[test]
     fn raw_memory_boundary_accepts_restricted_constructor_evidence() {
         let loader = test_loader();
         let path = canonicalize_path(&stdlib_path(
