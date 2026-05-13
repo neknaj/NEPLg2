@@ -97,12 +97,16 @@ assertNoMatch(
 );
 assertNoMatch(
     loader,
+    /&\["core",\s*"mem",\s*"types\.nepl"\]/,
+    "raw-memory-boundary capability must not remain on mem/types because it only owns public layouts and safe field observers",
+);
+assertNoMatch(
+    loader,
     /&\["core",\s*"mem",\s*"pointer\.nepl"\]/,
     "raw-memory-boundary capability must not remain on mem/pointer facade",
 );
 
 for (const rel of [
-    '"core", "mem", "types.nepl"',
     '"core", "mem", "internal.nepl"',
     '"core", "mem", "raw.nepl"',
     '"core", "mem", "allocator.nepl"',

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T06:15:51.893Z",
+  "generated_at": "2026-05-13T06:23:15.826Z",
   "counts": {
-    "total": 700,
+    "total": 701,
     "open": 5,
-    "resolved": 695,
+    "resolved": 696,
     "by_area": {
       "stdlib": {
         "total": 171,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 374,
+        "total": 375,
         "open": 0,
-        "resolved": 374
+        "resolved": 375
       },
       "resource": {
         "total": 2,
@@ -5628,6 +5628,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T052650416Z-RESOURCE-EFFECT-GATE-SUPPRESSES-RAW--A163584F.md"
+    },
+    {
+      "id": "ISS-20260513T062000411Z-RAW-MEMORY-BOUNDARY-CAPABILITY-REMAI-7C67C7C9",
+      "title": "Raw memory boundary capability remains on facade-only modules",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/loader.rs, nodesrc/test_stdlib_string_facade_boundary.js, nodesrc/test_stdlib_core_mem_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T062000411Z-RAW-MEMORY-BOUNDARY-CAPABILITY-REMAI-7C67C7C9.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

@@ -25,7 +25,6 @@ macro_rules! loader_log {
 }
 
 const RAW_MEMORY_BOUNDARY_STDLIB_PATHS: &[&[&str]] = &[
-    &["core", "mem", "types.nepl"],
     &["core", "mem", "internal.nepl"],
     &["core", "mem", "raw.nepl"],
     &["core", "mem", "allocator.nepl"],
@@ -54,7 +53,6 @@ const RAW_MEMORY_BOUNDARY_STDLIB_PATHS: &[&[&str]] = &[
     ],
     &["alloc", "collections", "vec", "sort", "merge", "range.nepl"],
     &["alloc", "encoding", "json", "serialize.nepl"],
-    &["alloc", "string.nepl"],
     &["alloc", "string", "access.nepl"],
     &["alloc", "string", "builder", "append.nepl"],
     &["alloc", "string", "builder", "build.nepl"],
@@ -63,9 +61,7 @@ const RAW_MEMORY_BOUNDARY_STDLIB_PATHS: &[&[&str]] = &[
     &["alloc", "string", "builder_ext.nepl"],
     &["alloc", "string", "concat.nepl"],
     &["alloc", "string", "float", "format.nepl"],
-    &["alloc", "string", "float.nepl"],
     &["alloc", "string", "integer", "format.nepl"],
-    &["alloc", "string", "integer.nepl"],
     &["alloc", "string", "scanner.nepl"],
     &["alloc", "string", "storage.nepl"],
     &["alloc", "string", "utf8.nepl"],

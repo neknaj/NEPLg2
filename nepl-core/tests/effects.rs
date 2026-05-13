@@ -620,7 +620,7 @@ fn raw_store <(i32,i32)->()> (p, v):
 }
 
 #[test]
-fn loader_marks_configured_stdlib_core_mem_as_raw_memory_boundary() {
+fn loader_does_not_mark_configured_stdlib_core_mem_facade_as_raw_memory_boundary() {
     let temp = tempfile::tempdir().expect("tempdir");
     let stdlib_root = temp.path().join("stdlib");
     std::fs::create_dir_all(stdlib_root.join("core")).expect("create stdlib core dir");
@@ -630,7 +630,7 @@ fn loader_marks_configured_stdlib_core_mem_as_raw_memory_boundary() {
 #indent 4
 #target wasm
 
-fn raw_store <(i32,i32)->()> (p, v):
+pub fn raw_store <(i32,i32)->()> (p, v):
     #wasm:
         local.get p
         local.get v
@@ -648,8 +648,6 @@ fn raw_store <(i32,i32)->()> (p, v):
 #no_prelude
 
 #import "core/mem" as *
-#import "core/mem/allocator" as *
-#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     raw_store 0 1;
@@ -660,16 +658,19 @@ fn main <()->i32> ():
 
     let mut loader = Loader::new(stdlib_root);
     let loaded = loader.load(&entry).expect("load");
-    check_module_with_source_map(
+    let result = check_module_with_source_map(
         loaded.module,
         Some(&loaded.source_map),
         options(CompileTarget::Wasm),
-    )
-    .expect("configured stdlib core/mem has raw memory capability");
+    );
+    assert_has_diag(
+        result,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
+    );
 }
 
 #[test]
-fn loader_marks_configured_stdlib_alloc_string_as_raw_memory_boundary() {
+fn loader_does_not_mark_configured_stdlib_alloc_string_facade_as_raw_memory_boundary() {
     let temp = tempfile::tempdir().expect("tempdir");
     let stdlib_root = temp.path().join("stdlib");
     std::fs::create_dir_all(stdlib_root.join("alloc")).expect("create stdlib alloc dir");
@@ -679,7 +680,7 @@ fn loader_marks_configured_stdlib_alloc_string_as_raw_memory_boundary() {
 #indent 4
 #target wasm
 
-fn string_raw_store <(i32,i32)->()> (p, v):
+pub fn string_raw_store <(i32,i32)->()> (p, v):
     #wasm:
         local.get p
         local.get v
@@ -707,12 +708,15 @@ fn main <()->i32> ():
 
     let mut loader = Loader::new(stdlib_root);
     let loaded = loader.load(&entry).expect("load");
-    check_module_with_source_map(
+    let result = check_module_with_source_map(
         loaded.module,
         Some(&loaded.source_map),
         options(CompileTarget::Wasm),
-    )
-    .expect("configured stdlib alloc/string has raw memory capability");
+    );
+    assert_has_diag(
+        result,
+        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
+    );
 }
 
 #[test]
@@ -727,7 +731,7 @@ fn loader_marks_configured_stdlib_alloc_string_storage_as_raw_memory_boundary() 
 #indent 4
 #target wasm
 
-fn string_storage_raw_store <(i32,i32)->()> (p, v):
+pub fn string_storage_raw_store <(i32,i32)->()> (p, v):
     #wasm:
         local.get p
         local.get v
@@ -864,16 +868,6 @@ fn loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_bounda
             "alloc_string_concat_raw_store",
         ),
         (
-            &["alloc", "string", "float.nepl"],
-            "alloc/string/float",
-            "alloc_string_float_raw_store",
-        ),
-        (
-            &["alloc", "string", "integer.nepl"],
-            "alloc/string/integer",
-            "alloc_string_integer_raw_store",
-        ),
-        (
             &["alloc", "string", "scanner.nepl"],
             "alloc/string/scanner",
             "alloc_string_scanner_raw_store",
@@ -910,7 +904,7 @@ fn loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_bounda
 #indent 4
 #target wasm
 
-fn {function_name} <(i32,i32)->()> (p, v):
+pub fn {function_name} <(i32,i32)->()> (p, v):
     #wasm:
         local.get p
         local.get v
@@ -1074,6 +1068,21 @@ fn loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries()
             "alloc/string/builder",
             "alloc_string_builder_raw_store",
         ),
+        (
+            &["core", "mem", "types.nepl"],
+            "core/mem/types",
+            "core_mem_types_raw_store",
+        ),
+        (
+            &["alloc", "string", "float.nepl"],
+            "alloc/string/float",
+            "alloc_string_float_raw_store",
+        ),
+        (
+            &["alloc", "string", "integer.nepl"],
+            "alloc/string/integer",
+            "alloc_string_integer_raw_store",
+        ),
     ];
 
     for (segments, import_spec, function_name) in cases {
@@ -1091,7 +1100,7 @@ fn loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries()
 #indent 4
 #target wasm
 
-fn {function_name} <(i32,i32)->()> (p, v):
+pub fn {function_name} <(i32,i32)->()> (p, v):
     #wasm:
         local.get p
         local.get v

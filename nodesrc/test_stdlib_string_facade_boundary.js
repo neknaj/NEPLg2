@@ -65,7 +65,6 @@ for (const modulePath of [
     '&["alloc", "string", "concat.nepl"]',
     '&["alloc", "string", "builder_ext.nepl"]',
     '&["alloc", "string", "integer", "format.nepl"]',
-    '&["alloc", "string", "integer.nepl"]',
     '&["alloc", "string", "float", "format.nepl"]',
 ]) {
     assert.equal(loaderSrc.includes(modulePath), true, `loader raw-memory boundary must include ${modulePath}`);
@@ -76,6 +75,17 @@ assert.equal(
     false,
     'loader raw-memory boundary must not grant capability to the builder facade',
 );
+for (const modulePath of [
+    '&["alloc", "string.nepl"]',
+    '&["alloc", "string", "integer.nepl"]',
+    '&["alloc", "string", "float.nepl"]',
+]) {
+    assert.equal(
+        loaderSrc.includes(modulePath),
+        false,
+        `loader raw-memory boundary must not grant capability to facade-only module ${modulePath}`,
+    );
+}
 
 for (const relPath of selfhostStringQualifiedFiles) {
     const source = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
