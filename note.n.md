@@ -37017,3 +37017,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - Resource IR effect boundary で `InternalAlloc` を一律 pure fold せず、`alloc_raw` だけを raw identity escape 検査に委ね、`dealloc_raw` / `realloc_raw` / `mem_size` / `mem_grow` は pure 関数内で `UnsafeMemoryInPureFunction` に送るようにした。
 - `RawMemoryOp` の `match` で列挙することで、raw operation 追加時に静的な網羅性検査が効く形を維持した。
 - `tests/compiler/move_effect.n.md` に pure dealloc / realloc / mem_size の compile_fail を追加し、`move_effect` focused doctest 113/113 と `cargo check -p nepl-core --tests` が通ることを確認した。
+
+## 2026-05-13 Agent 1 dealloc obligation core issue closure
+
+- `b7b3e063` の main から `agent1-dealloc-initialized-region-gate` branch を作成し、remote main と一致していることを確認した。
+- `ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47` を再確認し、compiler core 側の storage-only free gate は Resource IR の initialized cell / owner obligation 分離で成立していると判断した。
+- `RawMemoryOp::Dealloc` / `RawMemoryOp::Realloc` は `ensure_no_live_non_copy_raw_cells` を通り、raw place / `MemPtr<T>` / `RegionToken<T>` に initialized non-Copy payload が残る場合は `resource.cell.initialized_conflict` で拒否される。
+- owner obligation は `OwnerState` 側で別に検査され、`dealloc` / `realloc` だけが free obligation を消費するため、payload state と storage owner state は混同されていない。
+- stdlib collection element cleanup と raw-memory-backed public API migration は `RV-STDLIB-004` / `STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR` / `CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE` に分離して継続する。
+- 検証として `resource_ir raw_storage`、`move_effect.n.md` 113/113、`memory_safety.n.md` 23/23 が通ることを確認した。

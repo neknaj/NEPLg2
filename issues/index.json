@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T02:15:38.689Z",
+  "generated_at": "2026-05-13T02:26:39.520Z",
   "counts": {
     "total": 690,
-    "open": 8,
-    "resolved": 682,
+    "open": 7,
+    "resolved": 683,
     "by_area": {
       "stdlib": {
-        "total": 168,
-        "open": 6,
+        "total": 167,
+        "open": 5,
         "resolved": 162
       },
       "TEST": {
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 368,
+        "total": 369,
         "open": 0,
-        "resolved": 368
+        "resolved": 369
       },
       "resource": {
         "total": 2,
@@ -138,21 +138,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D.md"
-    },
-    {
-      "id": "ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47",
-      "title": "core mem dealloc APIs do not encode drop obligations for initialized storage",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-04-27",
-      "updated": "2026-04-28",
-      "target": "stdlib/core/mem.nepl, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/passes/move_check.rs, stdlib/alloc/collections/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47.md"
     },
     {
       "id": "ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84",
@@ -1383,6 +1368,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T164425727Z-CORE-MEM-RAW-BODY-PRIVILEGE-IS-GRANT-043DAD95.md"
+    },
+    {
+      "id": "ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47",
+      "title": "core mem dealloc APIs do not encode drop obligations for initialized storage",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-04-27",
+      "updated": "2026-05-13",
+      "target": "stdlib/core/mem.nepl, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/passes/move_check.rs, stdlib/alloc/collections/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47.md"
     },
     {
       "id": "ISS-20260427T172347729Z-MOVE-CHECK-RUST-HARNESS-DROPS-LOADER-AA922EEB",

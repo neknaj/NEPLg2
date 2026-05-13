@@ -1,13 +1,13 @@
 ---
 id: ISS-20260427T164432612Z-CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE--204F1F47
 title: "core mem dealloc APIs do not encode drop obligations for initialized storage"
-area: stdlib
-status: open
-resolved: false
+area: core
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-04-27
-updated: 2026-04-28
+updated: 2026-05-13
 target: "stdlib/core/mem.nepl, nepl-core/src/passes/drop_insertion.rs, nepl-core/src/passes/move_check.rs, stdlib/alloc/collections/**"
 ---
 
@@ -85,3 +85,23 @@ collection 固有の element cleanup API は `ISS-20260425T000000Z-RV-STDLIB-004
 これはこの issue の完了条件である `Storage<T>` / `OwnedRegion<T>` / `InitializedCell<T>` の API 分離そのものではないが、Resource IR 側で「payload obligation が残る region」と「storage-only region」を区別するための Stage 4 実装である。stdlib public API と owner token 化は引き続きこの issue の残件として扱う。
 
 回帰テストでは、`alloc_raw` 後に `dealloc_raw` する正常系、未解放 allocation の leak、二重 dealloc の owner moved 診断を `nepl-core/tests/resource_ir.rs` に固定した。
+
+## 2026-05-13 compiler core 完了判定
+
+この issue の compiler core 側の完了条件である「initialized payload を含む storage」と「payload consume/drop 後の storage-only region」の区別は、現行 Resource IR で成立していると判断した。
+
+`nepl-core/src/resource/initialized_raw_memory.rs` では、`RawMemoryOp::Dealloc` / `RawMemoryOp::Realloc` が `ensure_no_live_non_copy_raw_cells` を必ず通る。これにより、`store<T>` で initialized non-Copy cell が残っている raw place / `MemPtr<T>` / `RegionToken<T>` を storage-only free で消す経路は `resource.cell.initialized_conflict` になる。一方、`load<T>` によって non-Copy payload を consume 済みにした後の dealloc は通る。
+
+また `nepl-core/src/resource/owner_check.rs` は、free obligation を `OwnerState` として initialized cell とは別に扱い、`dealloc` / `realloc` でのみ owner を消費する。したがって、payload obligation と storage owner obligation は Resource IR 上で分離され、`MemPtr` を owner として拡張し続ける設計には戻っていない。
+
+この判定で閉じるのは compiler core の storage-only free gate であり、stdlib public API の移行は次の issue に分離して継続する。
+
+- `ISS-20260425T000000Z-RV-STDLIB-004-91534828`: collection element drop / borrowed read / owned remove-pop / container drop の API 分離。
+- `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84`: raw-memory-backed stdlib implementation の safe public discipline への Stage 6 migration。
+- `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D`: safe import から raw address escape を露出しない public boundary 整理。
+
+検証:
+
+- `cargo test -p nepl-core --test resource_ir raw_storage -- --nocapture`: pass。`RawMemoryDeallocCell` / `RawMemoryReallocCell` が live non-Copy cell を拒否する。
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-dealloc-obligation-move-effect.json -j 1 --dist web/dist`: total=113, passed=113。
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-dealloc-obligation-memory-safety.json -j 1 --dist web/dist`: total=23, passed=23。

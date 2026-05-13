@@ -376,7 +376,7 @@ commit 単位:
 | `CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS` | Stage 5 の compiler-core issue。raw memory effect / ownership boundary を追跡した。 | 2026-05-13 に core 側は verified / resolved。stdlib public API migration は Stage 6 の stdlib issue へ分離する。 |
 | `MEMPTR-AND-REGIONTOKEN` | Stage 3/4 の compiler-core issue。`MemPtr` / owner token / initialized cell の compiler 側分離を追跡した。 | 2026-05-13 に core 側は fixed / resolved。stdlib public API と collection/string/self-host buffer の移行は Stage 6 の stdlib issue へ分離する。 |
 | `CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE` | Stage 5/6 の stdlib public API issue。 | safe import から raw address escape を呼べない。 |
-| `CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE` | Stage 4/6 の drop obligation issue。 | initialized payload を残した storage-only free が拒否される。 |
+| `CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE` | Stage 4 の compiler-core drop obligation issue。 | 2026-05-13 に core 側は fixed / resolved。initialized payload を残した storage-only free は拒否され、collection element cleanup と raw-memory-backed public API migration は Stage 6 の stdlib issue へ分離する。 |
 | `STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR` | Stage 6 の stdlib migration parent。 | raw-memory-backed implementation が safe public discipline を漏らさない。 |
 | `RV-STDLIB-004` | Stage 6 の collection API issue。 | collection drop / remove / borrowed read / Copy read の責務が分離される。 |
 
