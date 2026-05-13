@@ -12,8 +12,9 @@
 - `pop`
 - `uwok`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"binary_heap_pipe_usage\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"peek sees max\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"pop returns max\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -24,6 +25,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let hp0 <BinaryHeap<i32>>:
@@ -47,7 +49,12 @@ fn main <()*>i32> ():
             eq v 8
         Option::None:
             false
-    if and ok0 ok1 1 0
+    let report:
+        test_report_new "binary_heap_pipe_usage"
+        |> test_report_push assert "peek sees max" ok0
+        |> test_report_push assert "pop returns max" ok1
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## binary_heap_zero_capacity_free
@@ -55,8 +62,9 @@ fn main <()*>i32> ():
 [目的/もくてき]:
 - `with_capacity 0` で[作/つく]った heap の `free` が data pointer 0 を[解放/かいほう]しようとして trap しないことを[確認/かくにん]します。
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"binary_heap_zero_capacity_free\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"free zero capacity succeeds\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -65,11 +73,16 @@ ret: 1
 #import "alloc/collections/binary_heap" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let hp <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 0;
     free<i32> hp;
-    1
+    let report:
+        test_report_new "binary_heap_zero_capacity_free"
+        |> test_report_push assert "free zero capacity succeeds" true
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## binary_heap_push_from_zero_capacity
@@ -77,8 +90,9 @@ fn main <()*>i32> ():
 [目的/もくてき]:
 - capacity 0 の heap が[初回/しょかい] `push` で data [領域/りょういき]を[確保/かくほ]し、通常の heap [不変条件/ふへんじょうけん]を[満/み]たすことを[確認/かくにん]します。
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"binary_heap_push_from_zero_capacity\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"push from zero capacity stores item\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -89,6 +103,7 @@ ret: 1
 #import "core/option" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 0;
@@ -99,5 +114,9 @@ fn main <()*>i32> ():
         Option::None:
             false
     free<i32> hp1;
-    if ok 1 0
+    let report:
+        test_report_new "binary_heap_push_from_zero_capacity"
+        |> test_report_push assert "push from zero capacity stores item" ok
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

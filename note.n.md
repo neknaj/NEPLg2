@@ -1,3 +1,14 @@
+# 2026-05-13 Agent 1 BinaryHeap stdout report migration
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として、`stdlib/tests/binary_heap.n.md` と `tests/stdlib/binary_heap_collections.n.md` の BinaryHeap focused doctest 8 件を stdout report 形式へ移行した。
+- 根本原因は、BinaryHeap の doctest が `main` の `ret: 1` だけで複数 assertion の成否を畳み込み、selfhost runner / Rust runner 間で assertion detail と report format を比較できないこと。
+- 各 doctest は `std/test` の `TestReport` を生成し、`test_report_print_stdout` と `test_report_exit_code` で stdout の詳細報告と exit code を分離する形にした。
+- `push` / `peek` / `pop` / `pop_max` / borrowed observer / grow / zero-capacity cleanup の観測を assertion label に残し、length check は `assert_eq_i32` で expected / actual を stdout に固定した。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/tests/binary_heap.n.md -i tests/stdlib/binary_heap_collections.n.md --no-tree -o tmp/agent1-binary-heap-report-tests.json -j 1 --assert-io --dist web/dist`: total=8, passed=8
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `.n.md` テストの exit code / stdout report 分離方針に沿い、既存 BinaryHeap 挙動をより観測可能な regression に固定するもの。
+
 # 2026-05-13 Agent 1 raw memory boundary direct operation 修正
 
 - `ISS-20260513T140241561Z-UNSAFE-MEMORY-HELPERS-ARE-CALLABLE-F-10C0B276` を追加して解決した。

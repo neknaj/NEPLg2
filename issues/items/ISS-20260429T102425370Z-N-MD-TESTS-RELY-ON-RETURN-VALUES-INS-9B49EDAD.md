@@ -250,3 +250,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\ringbuffer.n.md -i tests\stdlib\ringbuffer_collections.n.md --no-tree -o tmp\agent1-ringbuffer-report-tests.json -j 2 --assert-io`: total=4, passed=4
 
 この issue はまだ open のまま継続する。RingBuffer 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-13 BinaryHeap stdout report migration
+
+`stdlib/tests/binary_heap.n.md` と `tests/stdlib/binary_heap_collections.n.md` の BinaryHeap focused doctest 8 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `push` / `peek` / `pop` / `pop_max` / borrowed observer / grow / zero-capacity cleanup の観測結果を assertion label として stdout に残すようにした。
+- length check は `assert_eq_i32` で expected / actual を stdout に固定した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\binary_heap.n.md -i tests\stdlib\binary_heap_collections.n.md --no-tree -o tmp\agent1-binary-heap-report-tests.json -j 1 --assert-io --dist web/dist`: total=8, passed=8
+
+この issue はまだ open のまま継続する。BinaryHeap 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

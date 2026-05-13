@@ -2,8 +2,9 @@
 
 ## binary_heap_push_peek_pop
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"binary_heap_push_peek_pop\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"len after push\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"peek sees max\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"pop returns max\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -14,6 +15,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let hp0 <BinaryHeap<i32>>:
@@ -22,7 +24,7 @@ fn main <()*>i32> ():
         |> push 9 |> uwok
         |> push 1 |> uwok
         |> push 7 |> uwok
-    let ok0 <bool> eq len<i32> &hp0 4;
+    let size0 <i32> len<i32> &hp0;
     free<i32> hp0;
     let hp1 <BinaryHeap<i32>>:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
@@ -46,13 +48,20 @@ fn main <()*>i32> ():
             eq v 9
         Option::None:
             false
-    if and ok0 and ok1 ok2 1 0
+    let report:
+        test_report_new "binary_heap_push_peek_pop"
+        |> test_report_push assert_eq_i32 "len after push" 4 size0
+        |> test_report_push assert "peek sees max" ok1
+        |> test_report_push assert "pop returns max" ok2
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## binary_heap_empty_and_capacity
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"binary_heap_empty_and_capacity\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"with_capacity heap is empty\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"empty pop returns none\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -63,6 +72,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 8;
@@ -74,13 +84,19 @@ fn main <()*>i32> ():
             false
         Option::None:
             true
-    if and ok0 ok1 1 0
+    let report:
+        test_report_new "binary_heap_empty_and_capacity"
+        |> test_report_push assert "with_capacity heap is empty" ok0
+        |> test_report_push assert "empty pop returns none" ok1
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## binary_heap_borrowed_reads_preserve_owner
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"binary_heap_borrowed_reads_preserve_owner\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"borrowed len sees live heap\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"borrowed peek sees max\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -91,6 +107,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let hp <BinaryHeap<i32>>:
@@ -105,13 +122,19 @@ fn main <()*>i32> ():
         Option::None:
             false
     free<i32> hp;
-    if and ok_len ok_peek 1 0
+    let report:
+        test_report_new "binary_heap_borrowed_reads_preserve_owner"
+        |> test_report_push assert "borrowed len sees live heap" ok_len
+        |> test_report_push assert "borrowed peek sees max" ok_peek
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## binary_heap_pop_max_returns_owner
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"binary_heap_pop_max_returns_owner\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"pop_max item is max\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"pop_max returns shortened heap\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"remaining heap next max\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -124,6 +147,7 @@ ret: 1
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let hp0 <BinaryHeap<i32>>:
@@ -146,13 +170,20 @@ fn main <()*>i32> ():
         Option::None:
             false
     free<i32> hp1;
-    if and ok_item and ok_len ok_peek 1 0
+    let report:
+        test_report_new "binary_heap_pop_max_returns_owner"
+        |> test_report_push assert "pop_max item is max" ok_item
+        |> test_report_push assert "pop_max returns shortened heap" ok_len
+        |> test_report_push assert "remaining heap next max" ok_peek
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## binary_heap_grow_preserves_order
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"binary_heap_grow_preserves_order\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"first pop after grow\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"second pop after grow\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -165,6 +196,7 @@ ret: 1
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let hp0 <BinaryHeap<i32>>:
@@ -190,5 +222,10 @@ fn main <()*>i32> ():
         Option::None:
             false
     free<i32> hp2;
-    if and ok0 ok1 1 0
+    let report:
+        test_report_new "binary_heap_grow_preserves_order"
+        |> test_report_push assert "first pop after grow" ok0
+        |> test_report_push assert "second pop after grow" ok1
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
