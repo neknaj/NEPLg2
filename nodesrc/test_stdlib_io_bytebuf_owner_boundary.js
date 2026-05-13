@@ -9,8 +9,13 @@ const rootRelPath = 'stdlib/alloc/io.nepl';
 const rootSrc = fs.readFileSync(path.join(repoRoot, rootRelPath), 'utf8');
 const relPath = 'stdlib/alloc/io/bytebuf.nepl';
 const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
-const byteBuilderRelPath = 'stdlib/alloc/io/bytebuilder.nepl';
-const byteBuilderSrc = fs.readFileSync(path.join(repoRoot, byteBuilderRelPath), 'utf8');
+const byteBuilderSources = [
+    'stdlib/alloc/io/bytebuilder.nepl',
+    'stdlib/alloc/io/bytebuilder/types.nepl',
+    'stdlib/alloc/io/bytebuilder/storage.nepl',
+    'stdlib/alloc/io/bytebuilder/append.nepl',
+    'stdlib/alloc/io/bytebuilder/build.nepl',
+].map((relPath) => fs.readFileSync(path.join(repoRoot, relPath), 'utf8'));
 const traitsRelPath = 'stdlib/alloc/io/traits.nepl';
 const traitsSrc = fs.readFileSync(path.join(repoRoot, traitsRelPath), 'utf8');
 const loaderSrc = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
@@ -27,7 +32,7 @@ const rootCode = rootSrc
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
-const byteBuilderCode = byteBuilderSrc
+const byteBuilderCode = byteBuilderSources.join('\n')
     .split(/\r?\n/)
     .filter((line) => !/^\s*\/\//.test(line))
     .join('\n');
@@ -160,11 +165,19 @@ assert.match(
     'alloc/io/bytebuf must be an exact raw-memory boundary',
 );
 
-assert.match(
+assert.doesNotMatch(
     loaderSrc,
     /&\["alloc",\s*"io",\s*"bytebuilder\.nepl"\]/,
-    'alloc/io/bytebuilder must be an exact raw-memory boundary',
+    'alloc/io/bytebuilder facade must not retain raw-memory boundary capability',
 );
+
+for (const modulePath of [
+    /&\["alloc",\s*"io",\s*"bytebuilder",\s*"storage\.nepl"\]/,
+    /&\["alloc",\s*"io",\s*"bytebuilder",\s*"append\.nepl"\]/,
+    /&\["alloc",\s*"io",\s*"bytebuilder",\s*"build\.nepl"\]/,
+]) {
+    assert.match(loaderSrc, modulePath, `ByteBuilder implementation module must be an exact raw-memory boundary: ${modulePath}`);
+}
 
 const fsReadMatch = fsSrc.match(/(?:pub\s+)?fn\s+fs_read_fd_bytes\b([\s\S]*)/);
 assert.ok(fsReadMatch, 'fs_read_fd_bytes body must be found');

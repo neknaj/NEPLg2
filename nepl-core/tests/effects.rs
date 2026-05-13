@@ -776,9 +776,19 @@ fn loader_marks_configured_stdlib_implementation_boundaries_as_raw_memory_bounda
             "alloc_io_bytebuf_raw_store",
         ),
         (
-            &["alloc", "io", "bytebuilder.nepl"],
-            "alloc/io/bytebuilder",
-            "alloc_io_bytebuilder_raw_store",
+            &["alloc", "io", "bytebuilder", "storage.nepl"],
+            "alloc/io/bytebuilder/storage",
+            "alloc_io_bytebuilder_storage_raw_store",
+        ),
+        (
+            &["alloc", "io", "bytebuilder", "append.nepl"],
+            "alloc/io/bytebuilder/append",
+            "alloc_io_bytebuilder_append_raw_store",
+        ),
+        (
+            &["alloc", "io", "bytebuilder", "build.nepl"],
+            "alloc/io/bytebuilder/build",
+            "alloc_io_bytebuilder_build_raw_store",
         ),
         (
             &["alloc", "collections", "vec", "mutation", "push.nepl"],
@@ -1067,6 +1077,16 @@ fn loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries()
             &["alloc", "string", "builder.nepl"],
             "alloc/string/builder",
             "alloc_string_builder_raw_store",
+        ),
+        (
+            &["alloc", "io", "bytebuilder.nepl"],
+            "alloc/io/bytebuilder",
+            "alloc_io_bytebuilder_raw_store",
+        ),
+        (
+            &["alloc", "io", "bytebuilder", "types.nepl"],
+            "alloc/io/bytebuilder/types",
+            "alloc_io_bytebuilder_types_raw_store",
         ),
         (
             &["core", "mem", "types.nepl"],

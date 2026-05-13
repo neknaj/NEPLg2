@@ -11,7 +11,11 @@ const {
 
 const repoRoot = path.resolve(__dirname, '..');
 const ioRootSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/io.nepl'), 'utf8');
-const ioByteBuilderSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/io/bytebuilder.nepl'), 'utf8');
+const ioByteBuilderFacadeSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/io/bytebuilder.nepl'), 'utf8');
+const ioByteBuilderTypesSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/io/bytebuilder/types.nepl'), 'utf8');
+const ioByteBuilderStorageSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/io/bytebuilder/storage.nepl'), 'utf8');
+const ioByteBuilderAppendSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/io/bytebuilder/append.nepl'), 'utf8');
+const ioByteBuilderBuildSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/io/bytebuilder/build.nepl'), 'utf8');
 const stringRootSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string.nepl'), 'utf8');
 const stringBuilderSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder.nepl'), 'utf8');
 const stringBuilderTypesSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder/types.nepl'), 'utf8');
@@ -20,7 +24,13 @@ const stringBuilderAppendSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc
 const stringBuilderBuildSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/string/builder/build.nepl'), 'utf8');
 
 const ioRootCode = stripNeplComments(ioRootSrc);
-const ioByteBuilderCode = stripNeplComments(ioByteBuilderSrc);
+const ioByteBuilderFacadeCode = stripNeplComments(ioByteBuilderFacadeSrc);
+const ioByteBuilderCode = stripNeplComments([
+    ioByteBuilderTypesSrc,
+    ioByteBuilderStorageSrc,
+    ioByteBuilderAppendSrc,
+    ioByteBuilderBuildSrc,
+].join('\n'));
 const stringRootCode = stripNeplComments(stringRootSrc);
 const stringBuilderCode = stripNeplComments([
     stringBuilderTypesSrc,
@@ -33,8 +43,17 @@ assert.match(ioRootCode, /pub\s+#import\s+"\.\/io\/bytebuilder"\s+as\s+\*/, 'all
 assert.doesNotMatch(ioRootCode, /struct\s+ByteBuilder:/, 'alloc/io root must not own ByteBuilder storage state');
 assert.doesNotMatch(ioRootCode, /fn\s+byte_builder_reserve\b/, 'alloc/io root must not own ByteBuilder grow logic');
 assert.doesNotMatch(ioRootCode, /fn\s+byte_builder_finish\b/, 'alloc/io root must not own ByteBuilder finalization logic');
+assert.match(ioByteBuilderFacadeSrc, /pub\s+#import\s+"\.\/bytebuilder\/types"\s+as\s+@merge/, 'alloc/io/bytebuilder facade must merge ByteBuilder type APIs');
+assert.match(ioByteBuilderFacadeSrc, /pub\s+#import\s+"\.\/bytebuilder\/storage"\s+as\s+@merge/, 'alloc/io/bytebuilder facade must merge storage APIs');
+assert.match(ioByteBuilderFacadeSrc, /pub\s+#import\s+"\.\/bytebuilder\/append"\s+as\s+@merge/, 'alloc/io/bytebuilder facade must merge append APIs');
+assert.match(ioByteBuilderFacadeSrc, /pub\s+#import\s+"\.\/bytebuilder\/build"\s+as\s+@merge/, 'alloc/io/bytebuilder facade must merge build APIs');
+assert.doesNotMatch(ioByteBuilderFacadeCode, /\b(?:fn|struct|enum)\s+/, 'alloc/io/bytebuilder facade must not own implementation bodies');
 assertByteBuilderOwnerBoundary(ioByteBuilderCode);
-assert.ok(ioByteBuilderSrc.split(/\r?\n/).length <= 460, 'alloc/io/bytebuilder should stay narrowly scoped');
+assert.ok(ioByteBuilderFacadeSrc.split(/\r?\n/).length <= 35, 'alloc/io/bytebuilder facade should stay small');
+assert.ok(ioByteBuilderTypesSrc.split(/\r?\n/).length <= 90, 'alloc/io/bytebuilder/types should stay narrowly scoped');
+assert.ok(ioByteBuilderStorageSrc.split(/\r?\n/).length <= 210, 'alloc/io/bytebuilder/storage should stay narrowly scoped');
+assert.ok(ioByteBuilderAppendSrc.split(/\r?\n/).length <= 250, 'alloc/io/bytebuilder/append should stay narrowly scoped');
+assert.ok(ioByteBuilderBuildSrc.split(/\r?\n/).length <= 90, 'alloc/io/bytebuilder/build should stay narrowly scoped');
 assert.match(stringRootCode, /pub\s+#import\s+"\.\/string\/builder"\s+as\s+\*/, 'alloc/string root must re-export StringBuilder APIs');
 assert.doesNotMatch(stringRootCode, /struct\s+StringBuilder:/, 'alloc/string root must not own StringBuilder storage state');
 assert.doesNotMatch(stringRootCode, /fn\s+string_builder_reserve_result\b/, 'alloc/string root must not own StringBuilder grow logic');

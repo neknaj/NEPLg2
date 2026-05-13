@@ -1,0 +1,213 @@
+//: # io/bytebuilder/append
+//: ByteBuilder の append 系 API
+//:
+//: [目的/もくてき]:
+//: - byte、ASCII、UTF-8 char、既存 byte buffer、LEB128 integer を builder 末尾へ追加します。
+//: - capacity grow は `storage`、owner state は `types` に委譲します。
+//:
+//: [注意/ちゅうい]:
+//: - 失敗時は入力 builder を解放し、owner を残しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match byte_builder_new:
+//:         Result::Ok b0:
+//:             match byte_builder_push_ascii b0 'A':
+//:                 Result::Ok b1:
+//:                     byte_builder_free b1
+//:                     1
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
+
+#indent 4
+
+#import "alloc/diag/error" as *
+#import "alloc/io/bytebuf" as *
+#import "core/char" as *
+#import "core/field" as *
+#import "core/mem" as *
+#import "core/mem/raw" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/math" as *
+#import "./types" as *
+#import "./storage" as *
+
+//: byte_builder_push_u8: 1 byte を[末尾/まつび]へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - capacity を確保してから `store_u8` で末尾へ 1 byte 書き込みます。
+pub fn byte_builder_push_u8 <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, byte):
+    match byte_builder_reserve builder 1:
+        Result::Err e:
+            Result<ByteBuilder, StdErrorKind>::Err e
+        Result::Ok reserved:
+            let len0 <i32> get reserved "len"
+            match *get_ref &reserved "ptr":
+                Option::None:
+                    byte_builder_free reserved
+                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                Option::Some ptr:
+                    match store_u8 mem_ptr_add ptr len0 byte:
+                        Result::Ok _:
+                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_with_len reserved add len0 1
+                        Result::Err _e:
+                            byte_builder_free reserved
+                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+
+//: byte_builder_push_ascii: ASCII char を 1 byte として[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - text magic や delimiter など、意味が文字である byte を `char` として受け取ります。
+//:
+//: [注意/ちゅうい]:
+//: - 非 ASCII char は `InvalidOperation` です。失敗時は builder を[解放/かいほう]します。
+pub fn byte_builder_push_ascii <(ByteBuilder,char)*>Result<ByteBuilder, StdErrorKind>> (builder, c):
+    if:
+        char_is_ascii c
+        then:
+            byte_builder_push_u8 builder char_to_i32 c
+        else:
+            byte_builder_free builder
+            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+
+//: byte_builder_push_utf8_tail: UTF-8 の後続 byte を追加する
+//:
+//: [目的/もくてき]:
+//: - `byte_builder_push_char_utf8` が先頭 byte を書いたあと、文字長に応じて残りの byte を追加します。
+//:
+//: [注意/ちゅうい]:
+//: - `count` は `char_utf8_len` から来る値を想定します。
+pub fn byte_builder_push_utf8_tail <(ByteBuilder,char,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, c, count):
+    if:
+        eq count 1
+        then:
+            Result<ByteBuilder, StdErrorKind>::Ok builder
+        else:
+            match byte_builder_push_u8 builder char_utf8_byte1 c:
+                Result::Err e:
+                    Result<ByteBuilder, StdErrorKind>::Err e
+                Result::Ok b1:
+                    if:
+                        eq count 2
+                        then:
+                            Result<ByteBuilder, StdErrorKind>::Ok b1
+                        else:
+                            match byte_builder_push_u8 b1 char_utf8_byte2 c:
+                                Result::Err e:
+                                    Result<ByteBuilder, StdErrorKind>::Err e
+                                Result::Ok b2:
+                                    if:
+                                        eq count 3
+                                        then:
+                                            Result<ByteBuilder, StdErrorKind>::Ok b2
+                                        else:
+                                            byte_builder_push_u8 b2 char_utf8_byte3 c
+
+//: byte_builder_push_char_utf8: char を UTF-8 bytes として[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `StringBuilder` ではなく binary `ByteBuilder` に text character を追加したい場合の共通入口です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。capacity grow が発生した場合は allocator / realloc に依存します。
+pub fn byte_builder_push_char_utf8 <(ByteBuilder,char)*>Result<ByteBuilder, StdErrorKind>> (builder, c):
+    let count <i32> char_utf8_len c
+    match byte_builder_push_u8 builder char_utf8_byte0 c:
+        Result::Err e:
+            Result<ByteBuilder, StdErrorKind>::Err e
+        Result::Ok b0:
+            byte_builder_push_utf8_tail b0 c count
+
+//: byte_builder_push_bytes_ref: 参照 byte [列/れつ]を[末尾/まつび]へ[複製/ふくせい]する
+//:
+//: [目的/もくてき]:
+//: - 既存 buffer の slice や固定 header を builder に[追加/ついか]します。
+//:
+//: [注意/ちゅうい]:
+//: - source の[所有権/しょゆうけん]は[移動/いどう]しません。
+pub fn byte_builder_push_bytes_ref <(ByteBuilder,&MemPtr<u8>,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, src, data_len):
+    if:
+        lt data_len 0
+        then:
+            byte_builder_free builder
+            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        else:
+            if:
+                eq data_len 0
+                then:
+                    Result<ByteBuilder, StdErrorKind>::Ok builder
+                else:
+                    match byte_builder_reserve builder data_len:
+                        Result::Err e:
+                            Result<ByteBuilder, StdErrorKind>::Err e
+                        Result::Ok reserved:
+                            let len0 <i32> get reserved "len"
+                            match *get_ref &reserved "ptr":
+                                Option::None:
+                                    byte_builder_free reserved
+                                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                                Option::Some ptr:
+                                    let dst <MemPtr<u8>> mem_ptr_add ptr len0
+                                    match mem_copy<u8> dst *src data_len:
+                                        Result::Ok _:
+                                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_with_len reserved add len0 data_len
+                                        Result::Err _e:
+                                            byte_builder_free reserved
+                                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+
+//: byte_builder_push_bytebuf: `ByteBuf` の[内容/ないよう]を[追加/ついか]して入力 buffer を[解放/かいほう]する
+//:
+//: [目的/もくてき]:
+//: - owned `ByteBuf` の payload を builder へコピーし、入力 buffer の解放責務も閉じます。
+pub fn byte_builder_push_bytebuf <(ByteBuilder,ByteBuf)*>Result<ByteBuilder, StdErrorKind>> (builder, bytes):
+    let data_len <i32> get bytes "len"
+    match get bytes "ptr":
+        Option::None:
+            if:
+                eq data_len 0
+                then:
+                    Result<ByteBuilder, StdErrorKind>::Ok builder
+                else:
+                    byte_builder_free builder
+                    Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+        Option::Some src:
+            let res <Result<ByteBuilder, StdErrorKind>> byte_builder_push_bytes_ref builder &src data_len
+            byte_builder_dealloc_owned_u8 src io_bytebuf_storage_size data_len
+            res
+
+//: byte_builder_push_leb_u32: u32 LEB128 を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - WASM binary の section size、index、integer immediate を unsigned LEB128 で[書/か]き[込/こ]みます。
+//:
+//: [実装/じっそう]:
+//: - 下位 7 bit を[出力/しゅつりょく]し、残りを unsigned shift で 7 bit ずつ[進/すす]めます。
+pub fn byte_builder_push_leb_u32 <(ByteBuilder,i32)*>Result<ByteBuilder, StdErrorKind>> (builder, value):
+    let low <i32> and value 127
+    let rest <i32> shr_u value 7
+    let out <i32>:
+        if:
+            eq rest 0
+            then:
+                low
+            else:
+                or low 128
+    match byte_builder_push_u8 builder out:
+        Result::Err e:
+            Result<ByteBuilder, StdErrorKind>::Err e
+        Result::Ok next:
+            if:
+                eq rest 0
+                then:
+                    Result<ByteBuilder, StdErrorKind>::Ok next
+                else:
+                    byte_builder_push_leb_u32 next rest

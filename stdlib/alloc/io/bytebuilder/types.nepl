@@ -1,0 +1,84 @@
+//: # io/bytebuilder/types
+//: ByteBuilder の型と owner-preserving helper
+//:
+//: [目的/もくてき]:
+//: - growable byte builder の public state 型を定義します。
+//: - storage owner を取り出して包み直さずに field 全体で移す helper をここへ集約します。
+//:
+//: [注意/ちゅうい]:
+//: - 空 storage は `Option::None`、所有 storage は `Option::Some(ptr)` で表します。
+//: - この module は raw memory operation を直接持ちません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/io/bytebuilder" as *
+//:| #import "core/math" as *
+//: fn main <()->i32> ():
+//:     if eq byte_builder_len byte_builder_empty 0 1 0
+//: ```
+
+#indent 4
+
+#import "core/field" as *
+#import "core/mem" as *
+#import "core/option" as *
+
+//: ## ByteBuilder
+//: growable な[所有/しょゆう] byte buffer builder
+//:
+//: ### [目的/もくてき]
+//: - WASM binary emitter のように byte を[順番/じゅんばん]に[追加/ついか]する処理を、raw pointer や `Vec` [内部表現/ないぶひょうげん]へ[直接/ちょくせつ][依存/いそん]せずに[書/か]けるようにします。
+//: - `finish` で `ByteBuf` を[返/かえ]し、`fs_write_to_bytes` や `stdio_write_bytes_result` へそのまま[渡/わた]せます。
+//:
+//: ### [注意/ちゅうい]
+//: - `ByteBuilder` は[所有権/しょゆうけん]を[持/も]つので `Copy` / `Clone` を[実装/じっそう]しません。
+//: - `push_*` / `reserve` / `finish` は builder を[消費/しょうひ]し、成功時は[新/あたら]しい builder または `ByteBuf` を[返/かえ]します。
+//: - 失敗時は builder 内部 buffer を[解放/かいほう]してから `Err` を[返/かえ]します。
+pub struct ByteBuilder:
+    ptr <Option<MemPtr<u8>>>
+    len <i32>
+    cap <i32>
+
+//: byte_builder_empty: storage を持たない空 builder を返す
+//:
+//: [目的/もくてき]:
+//: - `Option::None` によって「解放責務が無い」空 storage を型に明示します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)。
+pub fn byte_builder_empty <()->ByteBuilder> ():
+    ByteBuilder none<MemPtr<u8>> 0 0
+
+//: byte_builder_from_owned_ptr: 所有 byte 領域を `ByteBuilder` に包む
+//:
+//: [目的/もくてき]:
+//: - `alloc_ptr` / `realloc_ptr` で得た所有 pointer を、空/非空が型に現れる builder 表現へ集約します。
+//:
+//: [注意/ちゅうい]:
+//: - `cap0` は正でなければなりません。空 builder は `byte_builder_empty` を使ってください。
+//: - 呼び出し後、`ptr` は返った builder が所有します。
+pub fn byte_builder_from_owned_ptr <(MemPtr<u8>,i32,i32)->ByteBuilder> (ptr, len0, cap0):
+    ByteBuilder some<MemPtr<u8>> ptr len0 cap0
+
+//: byte_builder_with_len: builder の storage owner を保ったまま length だけ更新する
+//:
+//: [目的/もくてき]:
+//: - append が書き込みに成功したあと、`ptr` field の owner を取り出して包み直さず、`Option<MemPtr<u8>>` field 全体を次の builder へ移します。
+//:
+//: [注意/ちゅうい]:
+//: - `new_len` は `cap` 以下でなければなりません。capacity 確保は呼び出し前に `byte_builder_reserve` で済ませます。
+pub fn byte_builder_with_len <(ByteBuilder,i32)->ByteBuilder> (builder, new_len):
+    let cap0 <i32> get builder "cap"
+    ByteBuilder get builder "ptr" new_len cap0
+
+//: byte_builder_len: builder に現在入っている byte 数を返す
+//:
+//: [目的/もくてき]:
+//: - capacity ではなく、`finish` で有効 payload になる byte 数だけを返します。
+//:
+//: [注意/ちゅうい]:
+//: - builder は by-value で受け取ります。後続でも使う場合は caller 側で所有権の流れを分けてください。
+pub fn byte_builder_len <(ByteBuilder)->i32> (builder):
+    get builder "len"
