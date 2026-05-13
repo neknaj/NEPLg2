@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T05:22:04.189Z",
+  "generated_at": "2026-05-13T05:29:27.235Z",
   "counts": {
-    "total": 696,
+    "total": 697,
     "open": 5,
-    "resolved": 691,
+    "resolved": 692,
     "by_area": {
       "stdlib": {
         "total": 171,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 370,
+        "total": 371,
         "open": 0,
-        "resolved": 370
+        "resolved": 371
       },
       "resource": {
         "total": 2,
@@ -5568,6 +5568,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T052006137Z-RESOURCE-CELL-AND-OWNER-GATES-TRUST--3287B5AF.md"
+    },
+    {
+      "id": "ISS-20260513T052650416Z-RESOURCE-EFFECT-GATE-SUPPRESSES-RAW--A163584F",
+      "title": "Resource effect gate suppresses raw identity escape in raw memory boundary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/compiler.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T052650416Z-RESOURCE-EFFECT-GATE-SUPPRESSES-RAW--A163584F.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

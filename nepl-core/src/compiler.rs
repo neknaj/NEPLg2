@@ -728,6 +728,7 @@ mod tests {
         ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind, ResourceId,
         ResourceOwnerDiagnostic, ResourceOwnerOperation, StorageId,
     };
+    use crate::source_map::{SourceCapabilities, SourceMap};
     use alloc::boxed::Box;
 
     #[test]
@@ -973,6 +974,29 @@ mod tests {
     }
 
     #[test]
+    fn resource_effect_gate_never_suppresses_raw_identity_escape_in_raw_boundary() {
+        let types = crate::types::TypeCtx::new();
+        let mut source_map = SourceMap::new();
+        let raw_file = source_map.add_with_capabilities(
+            "stdlib/core/mem/allocator.nepl",
+            String::new(),
+            SourceCapabilities::raw_memory_boundary(),
+        );
+        let diagnostic = ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            function: String::from("alloc_raw"),
+            place: Place::temporary(ResourceId(0), types.i32()),
+            span: Span::new(raw_file, 0, 1),
+        };
+
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &diagnostic,
+                Some(&source_map),
+            )
+        );
+    }
+
+    #[test]
     fn resource_effect_gate_maps_impure_indirect_call_to_effect_code() {
         let diagnostic = ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction {
             function: String::from("main"),
@@ -1075,9 +1099,6 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
     match diagnostic {
         crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
             ..
-        }
-        | crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
-            ..
         } => {
             let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
                 return false;
@@ -1086,6 +1107,9 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
                 .map(|map| map.raw_memory_boundary_allowed(span.file_id))
                 .unwrap_or(false)
         }
+        crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
+            ..
+        } => false,
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. } => false,
         crate::resource::ResourceEffectBoundaryDiagnostic::UnknownEffect { .. } => false,
     }

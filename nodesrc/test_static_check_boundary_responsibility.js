@@ -242,6 +242,16 @@ assertNotContains(
     'raw_memory_boundary_allowed',
     'compiler.rs Resource owner gate',
 );
+assertMatches(
+    compiler,
+    /ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc\s*\{\s*\.\.\s*\}\s*=>\s*false,/,
+    'compiler.rs raw identity escape must not be raw-boundary-suppressed',
+);
+assertNotContains(
+    compiler,
+    'UnsafeMemoryInPureFunction {\n            ..\n        }\n        | crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc',
+    'compiler.rs raw identity escape must not share unsafe-memory raw-boundary suppression',
+);
 
 for (const filePath of walkRustFiles(CORE_SRC)) {
     const rel = toPosixPath(filePath);
