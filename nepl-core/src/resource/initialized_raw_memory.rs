@@ -50,7 +50,15 @@ impl ResourceCheckEngine<'_> {
                     .aliases_for(&address)
                     .iter()
                     .any(|alias| cells.raw_cell_is_untracked_external(alias));
-                let cell_available = loaded_from_untracked_external
+                let loaded_from_zero_initialized_runtime =
+                    raw_memory_load_reads_zero_initialized_runtime_cell(
+                        cells,
+                        raw_aliases,
+                        &address,
+                    );
+                let loaded_from_untracked_source =
+                    loaded_from_untracked_external || loaded_from_zero_initialized_runtime;
+                let cell_available = loaded_from_untracked_source
                     || cells.raw_cell_initialized_by_byte_range(&address, output.ty, raw_aliases)
                     || self.ensure_available(
                         cells,
@@ -70,7 +78,7 @@ impl ResourceCheckEngine<'_> {
                             &cell,
                             output,
                         );
-                    } else if loaded_from_untracked_external
+                    } else if loaded_from_untracked_source
                         && self.output_can_hold_raw_address(output.ty)
                     {
                         cells.mark_external_raw_storage_root(output);
@@ -274,4 +282,15 @@ impl ResourceCheckEngine<'_> {
     fn output_can_hold_raw_address(&self, ty: crate::types::TypeId) -> bool {
         matches!(self.types.get_ref(self.types.resolve_id(ty)), TypeKind::I32)
     }
+}
+
+fn raw_memory_load_reads_zero_initialized_runtime_cell(
+    cells: &CellTable,
+    raw_aliases: &RawCellAddressAliases,
+    address: &Place,
+) -> bool {
+    raw_aliases.aliases_for(address).iter().any(|alias| {
+        raw_aliases.i32_value(alias).is_some_and(|value| value >= 0)
+            && !cells.raw_address_has_tracked_storage(alias)
+    })
 }

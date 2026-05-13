@@ -4970,6 +4970,40 @@ fn resource_ir_cell_check_reports_raw_load_before_store() {
 }
 
 #[test]
+fn resource_ir_cell_check_allows_zero_initialized_runtime_literal_raw_load() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let address = Place::temporary(ResourceId(0), i32_ty);
+    let loaded = Place::temporary(ResourceId(1), i32_ty);
+    let resource = manual_resource_module(
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(4),
+                output: address.clone(),
+                ty: i32_ty,
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Load,
+                output: loaded,
+                args: vec![address],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_initialized_moves(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
+#[test]
 fn resource_ir_cell_check_allows_external_parameter_raw_load() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

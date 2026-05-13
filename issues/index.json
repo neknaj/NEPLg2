@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T05:29:27.235Z",
+  "generated_at": "2026-05-13T05:50:02.547Z",
   "counts": {
-    "total": 697,
-    "open": 5,
-    "resolved": 692,
+    "total": 699,
+    "open": 6,
+    "resolved": 693,
     "by_area": {
+      "core": {
+        "total": 373,
+        "open": 1,
+        "resolved": 372
+      },
       "stdlib": {
         "total": 171,
         "open": 3,
@@ -25,11 +30,6 @@
         "total": 19,
         "open": 0,
         "resolved": 19
-      },
-      "core": {
-        "total": 371,
-        "open": 0,
-        "resolved": 371
       },
       "resource": {
         "total": 2,
@@ -109,6 +109,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260513T054944970Z-ALLOCATOR-RUNTIME-ABI-IS-DECLARED-PU-4C2B8794",
+      "title": "Allocator runtime ABI is declared pure while returning internal raw identities",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/core/mem/allocator.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T054944970Z-ALLOCATOR-RUNTIME-ABI-IS-DECLARED-PU-4C2B8794.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -408,6 +423,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T152947135Z-RAW-BODY-MEMORY-INSTRUCTIONS-BYPASS--162A8C00.md"
+    },
+    {
+      "id": "ISS-20260513T054043692Z-RESOURCE-CELL-GATE-NEEDS-STATIC-RAW--EDAE05BC",
+      "title": "Resource cell gate needs static raw-memory initialization proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/initialized_raw_memory.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T054043692Z-RESOURCE-CELL-GATE-NEEDS-STATIC-RAW--EDAE05BC.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",
