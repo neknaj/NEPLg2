@@ -37141,3 +37141,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の部分対応として、DisjointSet doctest 7 件を `ret: 1` 依存から `stdout:` + `exit_code:` へ移行した。
 - `stdlib/tests/disjoint_set.n.md` と `tests/stdlib/disjoint_set_collections.n.md` は `std/test` の canonical `test_report_*` API を使い、same / len / size / zero length / invalid index / owner recovery / diagnostic kind を stdout report に固定する。
 - aggregate `nodesrc\tests.js` 実行は total=7, passed=7。issue は他 fixture の移行と stdout report 省略検出 policy が残るため open のまま継続する。
+
+## 2026-05-13 Agent 1 SegmentTree .n.md stdout report migration
+
+- `07a605e9` push 後に remote main を pull し、`agent1-nmd-segment-tree-report` branch を作成した。
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の部分対応として、SegmentTree doctest 6 件を `ret: 1` 依存から `stdout:` + `exit_code:` へ移行した。
+- `stdlib/tests/segment_tree.n.md` と `tests/stdlib/segment_tree_collections.n.md` は `std/test` の canonical `test_report_*` API を使い、len / full sum / range sum / update-free-reallocate / invalid range / owner recovery / diagnostic kind を stdout report に固定する。
+- aggregate `nodesrc\tests.js` 実行は total=6, passed=6。issue は他 fixture の移行と stdout report 省略検出 policy が残るため open のまま継続する。

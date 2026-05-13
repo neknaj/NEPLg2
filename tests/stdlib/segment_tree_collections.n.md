@@ -13,8 +13,9 @@
 - `sum_range`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"segment_tree_pipe_usage\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"segment tree len\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"range sum\" expected=\"7\" actual=\"7\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -24,6 +25,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let st <SegmentTree>:
@@ -32,10 +34,14 @@ fn main <()*>i32> ():
         |> replace 2 4 |> uwok
         |> add 2 1 |> uwok
     let total <i32> unwrap_ok<i32, Diag> sum_range &st 0 3;
-    let ok_len <bool> eq len &st 5;
+    let st_len <i32> len &st;
     free st
-    let ok_total <bool> eq total 7;
-    if and ok_len ok_total 1 0
+    let report:
+        test_report_new "segment_tree_pipe_usage"
+        |> test_report_push assert_eq_i32 "segment tree len" 5 st_len
+        |> test_report_push assert_eq_i32 "range sum" 7 total
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## segment_tree_update_free_reallocates
@@ -50,8 +56,9 @@ fn main <()*>i32> ():
 - `sum_range`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"segment_tree_update_free_reallocates\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"sum after realloc\" expected=\"7\" actual=\"7\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -61,6 +68,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let st_free <SegmentTree>:
@@ -77,7 +85,11 @@ fn main <()*>i32> ():
         |> add 4 1 |> uwok
     let total <i32> unwrap_ok<i32, Diag> sum_range &st0 4 5;
     free st0
-    if eq total 7 1 0
+    let report:
+        test_report_new "segment_tree_update_free_reallocates"
+        |> test_report_push assert_eq_i32 "sum after realloc" 7 total
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## segment_tree_update_error_returns_owner
@@ -92,8 +104,9 @@ fn main <()*>i32> ():
 - `len`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"segment_tree_update_error_returns_owner\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"replace error returns owner len\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"add error returns owner len\" expected=\"4\" actual=\"4\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -103,6 +116,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let st <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
@@ -112,16 +126,21 @@ fn main <()*>i32> ():
             0
         Result::Err e0:
             let st0 <SegmentTree> segment_tree_update_error_owner e0
-            let ok0 <bool> eq len &st0 4
+            let replace_len <i32> len &st0
             match add st0 9 3:
                 Result::Ok next1:
                     free next1
                     0
                 Result::Err e1:
                     let recovered <SegmentTree> segment_tree_update_error_owner e1
-                    let ok1 <bool> eq len &recovered 4
+                    let add_len <i32> len &recovered
                     free recovered
-                    if and ok0 ok1 1 0
+                    let report:
+                        test_report_new "segment_tree_update_error_returns_owner"
+                        |> test_report_push assert_eq_i32 "replace error returns owner len" 4 replace_len
+                        |> test_report_push assert_eq_i32 "add error returns owner len" 4 add_len
+                    let shown test_report_print_stdout report
+                    test_report_exit_code shown
 ```
 
 ## segment_tree_negative_length_rejected
@@ -133,8 +152,9 @@ fn main <()*>i32> ():
 - `new`
 - `StdErrorKind::CapacityExceeded`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"segment_tree_negative_length_rejected\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"negative length error\" expected=\"CapacityExceeded\" actual=\"CapacityExceeded\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -145,6 +165,7 @@ ret: 1
 #import "alloc/string" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let neg <i32> sub 0 1
@@ -154,5 +175,9 @@ fn main <()*>i32> ():
             0
         Result::Err d:
             let name <str> diag_std_error_kind_str d
-            if str_eq name "CapacityExceeded" 1 0
+            let report:
+                test_report_new "segment_tree_negative_length_rejected"
+                |> test_report_push assert_str_eq "negative length error" "CapacityExceeded" name
+            let shown test_report_print_stdout report
+            test_report_exit_code shown
 ```

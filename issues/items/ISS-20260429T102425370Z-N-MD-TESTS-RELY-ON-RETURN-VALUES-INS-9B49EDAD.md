@@ -185,3 +185,20 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\disjoint_set.n.md -i tests\stdlib\disjoint_set_collections.n.md --no-tree -o tmp\agent1-disjoint-set-report-tests.json -j 2 --assert-io`: total=7, passed=7
 
 この issue はまだ open のまま継続する。DisjointSet 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-13 SegmentTree stdout report migration
+
+`stdlib/tests/segment_tree.n.md` と `tests/stdlib/segment_tree_collections.n.md` の SegmentTree focused doctest 6 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `len` / full sum / range sum / update-free-reallocate / invalid range / update error owner recovery の観測結果を assertion label として stdout に残すようにした。
+- sum と owner length は `assert_eq_i32` で expected / actual を stdout に固定した。
+- negative length の diagnostic check は `assert_str_eq` で `CapacityExceeded` の expected / actual を stdout に固定した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\segment_tree.n.md -i tests\stdlib\segment_tree_collections.n.md --no-tree -o tmp\agent1-segment-tree-report-tests.json -j 2 --assert-io`: total=6, passed=6
+
+この issue はまだ open のまま継続する。SegmentTree 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
