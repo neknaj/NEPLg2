@@ -37610,3 +37610,9 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `BTreeMap` / `BTreeSet` の `key_eq` helper は by-value `ord_lt` を 2 回呼ぶため、borrowed key comparison と `OwnedBuffer<T>` / initialized cell based non-Copy collection が入るまでは `.K: Ord&Copy` / `.T: Ord&Copy` に限定した。
 - `nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js` に source policy を追加し、BTree key equality helper が `Ord` のみへ戻る退行を検出する。
 - これは Stage 6 の Copy-only collection 境界を helper から迂回できないようにする修正であり、non-Copy key/value の owner-preserving BTree API は引き続き `OwnedBuffer<T>` 設計後の残件である。
+
+## 2026-05-13 Agent 1 BTree key equality doctest contract
+
+- `work/btree-key-eq-doctests` で `ISS-20260513T215221236Z-BTREE-KEY-EQUALITY-DOCUMENTATION-LAC-54512809` を追加して解決した。
+- aggregate source policy で `stdlib declaration doctest gaps increased: 1033 > 1032` が出たため、直前に追加した `btreemap_key_eq` / `btreeset_key_eq` の doc comment に `std/test` report 付き doctest を追加した。
+- doctest は同じ key が true、異なる key が false になる典型例を示し、Copy-only equality boundary の説明と利用例を同じ declaration に揃えた。

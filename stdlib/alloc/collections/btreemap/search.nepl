@@ -23,6 +23,22 @@
 //: ### [注意/ちゅうい]
 //: - 現行の `Ord` 比較は key を値渡しし、同値判定では `ord_lt` を 2 回呼びます。
 //: - borrowed comparison と non-Copy key 用の `OwnedBuffer` / initialized cell 設計が入るまでは、二重消費を避けるため `.K: Copy` に限定します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/btreemap/search" as *
+//:| #import "std/test" as *
+//: fn main <()*>i32> ():
+//:     let same <bool> btreemap_key_eq<i32> 7 7
+//:     let diff <bool> btreemap_key_eq<i32> 7 9
+//:     let mut checks checks_new
+//:     set checks checks_push checks check_eq_i32 1 if same 1 0
+//:     set checks checks_push checks check_eq_i32 0 if diff 1 0
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
+//: ```
 pub fn btreemap_key_eq <.K: Ord&Copy> <(.K,.K)->bool> (a, b):
     and not ord_lt a b not ord_lt b a
 
