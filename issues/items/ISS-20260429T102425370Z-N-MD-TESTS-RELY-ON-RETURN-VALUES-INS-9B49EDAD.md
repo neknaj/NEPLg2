@@ -394,3 +394,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\list.n.md --no-tree -o tmp\agent1-list-stdlib-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
 
 この issue はまだ open のまま継続する。List 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Vec stdout report migration
+
+`stdlib/tests/vec.n.md` の Vec focused doctest 6 件を、`ret: 0` と stdout 期待なしの `checks_*` report から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `is_empty` / `data_ptr` / `len` / `get` / `replace` / out-of-range access / `u8` storage / `map` / `filter` / `fold` / `reduce` / `find` / `any` / `all` / `partition` / `take_while` / `drop_while` / `count` の観測結果を assertion label として stdout に残すようにした。
+- `unwrap_ok` / `uwok` を使う doctest に `core/result` の明示 import を追加し、helper 解決を暗黙の import に依存しない形にした。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\vec.n.md --no-tree -o tmp\agent1-vec-stdlib-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
+
+この issue はまだ open のまま継続する。Vec 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

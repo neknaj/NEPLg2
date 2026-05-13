@@ -37670,3 +37670,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - List の main / functional helper doctest を `ret: 0` と stdout 期待なしの `checks_*` report から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
 - `len` / `get` / `head` / `tail` / `reverse` / `map` / `filter` / `fold` / `reduce` / `find` / `any` / `all` の観測結果を assertion label として stdout に固定した。
 - `node nodesrc/tests.js -i stdlib/tests/list.n.md --no-tree -o tmp/agent1-list-stdlib-report-tests.json -j 1 --assert-io --dist web/dist` は total=2, passed=2。
+
+## 2026-05-14 Agent 1 Vec stdout report doctest migration
+
+- `work/vec-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `stdlib/tests/vec.n.md` を更新した。
+- Vec の 6 doctest を `ret: 0` と stdout 期待なしの `checks_*` report から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- `is_empty` / `data_ptr` / `len` / `get` / `replace` / `u8` storage / functional helpers / partition / prefix helpers / count の観測結果を assertion label として stdout に固定した。
+- `unwrap_ok` / `uwok` を使う doctest に `core/result` の明示 import を追加し、helper 解決を暗黙の import に依存しない形にした。
+- `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/agent1-vec-stdlib-report-tests.json -j 1 --assert-io --dist web/dist` は total=6, passed=6。
