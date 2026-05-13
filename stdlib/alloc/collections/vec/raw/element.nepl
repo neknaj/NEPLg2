@@ -6,6 +6,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [範囲/はんい][検査/けんさ]は[行/おこな]いません。呼び出し側が index と初期化済み cell を保証します。
+//: - 現行 helper は `.T: Copy` 専用です。non-Copy payload の move-out / overwrite は `OwnedBuffer<T>` と initialized cell の state transition が[入/はい]るまで[扱/あつか]いません。
 
 #indent 4
 
@@ -24,6 +25,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - [範囲/はんい][検査/けんさ]は[行/おこな]いません。`idx` の[妥当性/だとうせい]は[呼/よ]び[出/だ]し[側/がわ]が[保証/ほしょう]する[前提/ぜんてい]です。
+//: - `.T: Copy` の値を[読/よ]む helper です。non-Copy payload の[取/と]り[出/だ]しは storage cell の moved [状態/じょうたい]を[伴/ともな]う API で[扱/あつか]う必要があります。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -46,7 +48,22 @@
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-pub fn vec_read_at <.T> <(MemPtr<.T>, i32)->.T> (data, idx):
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.trait_bound.unsatisfied
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//: struct NonCopyPayload:
+//:     value <i32>
+//: fn main <()*>i32> ():
+//:     let v <Vec<NonCopyPayload>> unwrap_ok new<NonCopyPayload>;
+//:     let _item <NonCopyPayload> vec_read_at<NonCopyPayload> data_mem_ptr<NonCopyPayload> &v 0;
+//:     0
+//: ```
+pub fn vec_read_at <.T: Copy> <(MemPtr<.T>, i32)->.T> (data, idx):
     load<.T> add mem_ptr_addr data mul idx size_of<.T>
 
 //: vec_write_at: `MemPtr<.T>` の[添字/そえじ][位置/いち]へ[要素/ようそ]を[書/か]く[内部/ないぶ] helper
@@ -59,6 +76,7 @@ pub fn vec_read_at <.T> <(MemPtr<.T>, i32)->.T> (data, idx):
 //:
 //: ### [注意/ちゅうい]
 //: - [範囲/はんい][検査/けんさ]は[行/おこな]いません。[書/か]き[込/こ]み[先/さき]が[確保/かくほ]ずみであることを[呼/よ]び[出/だ]し[側/がわ]が[保証/ほしょう]する[前提/ぜんてい]です。
+//: - `.T: Copy` の値を[書/か]く helper です。non-Copy payload の overwrite は old cell の drop obligation と new owner transfer を[同時/どうじ]に[証明/しょうめい]する API で[扱/あつか]います。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -80,5 +98,20 @@ pub fn vec_read_at <.T> <(MemPtr<.T>, i32)->.T> (data, idx):
 //:     free<i32> v0;
 //:     if ok 0 1
 //: ```
-pub fn vec_write_at <.T> <(MemPtr<.T>, i32, .T)->()> (data, idx, item):
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.trait_bound.unsatisfied
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//: struct NonCopyPayload:
+//:     value <i32>
+//: fn main <()*>i32> ():
+//:     let v <Vec<NonCopyPayload>> unwrap_ok with_capacity<NonCopyPayload> 1;
+//:     vec_write_at<NonCopyPayload> data_mem_ptr<NonCopyPayload> &v 0 NonCopyPayload 7;
+//:     0
+//: ```
+pub fn vec_write_at <.T: Copy> <(MemPtr<.T>, i32, .T)->()> (data, idx, item):
     store<.T> add mem_ptr_addr data mul idx size_of<.T> item

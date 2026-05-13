@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T11:43:20.489Z",
+  "generated_at": "2026-05-13T11:49:08.078Z",
   "counts": {
-    "total": 713,
+    "total": 714,
     "open": 5,
-    "resolved": 708,
+    "resolved": 709,
     "by_area": {
       "stdlib": {
-        "total": 179,
+        "total": 180,
         "open": 3,
-        "resolved": 176
+        "resolved": 177
       },
       "TEST": {
         "total": 18,
@@ -8298,6 +8298,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T113909985Z-VEC-POP-ACCEPTS-NON-COPY-PAYLOAD-BEF-6A1C568A.md"
+    },
+    {
+      "id": "ISS-20260513T114521417Z-VEC-RAW-ELEMENT-HELPERS-ACCEPT-NON-C-EDB37D42",
+      "title": "Vec raw element helpers accept non-Copy payloads",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/alloc/collections/vec/raw/element.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T114521417Z-VEC-RAW-ELEMENT-HELPERS-ACCEPT-NON-C-EDB37D42.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

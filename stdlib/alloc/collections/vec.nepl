@@ -12,7 +12,7 @@
 //: ### [注意/ちゅうい]
 //: - `get` / `pop` は[存在/そんざい]しない[位置/いち]を `Option::None` で[返/かえ]します。
 //: - `replace` は[範囲外/はんいがい]では[失敗/しっぱい]にせず、[何/なに]も[変更/へんこう]しません。
-//: - [現行/げんこう]の `push` / `clear` / `free` / scan 系 API は `.T: Copy` の `Vec` に[限定/げんてい]します。non-Copy payload は `OwnedBuffer<T>` と owner-preserving update API が[入/はい]るまで[受/う]け[付/つ]けません。
+//: - [現行/げんこう]の `push` / `pop` / `sort` / raw element helper / `clear` / `free` / scan 系 API は `.T: Copy` の `Vec` に[限定/げんてい]します。non-Copy payload は `OwnedBuffer<T>` と owner-preserving update API が[入/はい]るまで[受/う]け[付/つ]けません。
 //: - [再確保/さいかくほ]が[起/お]きると[内部/ないぶ]バッファの[番地/ばんち]は[変/か]わりえます。
 //:
 //: ### [計算量/けいさんりょう]

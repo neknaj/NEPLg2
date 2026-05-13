@@ -1,3 +1,16 @@
+# 2026-05-13 Agent 1 Vec raw element Copy-only boundary 修正
+
+- `ISS-20260513T114521417Z-VEC-RAW-ELEMENT-HELPERS-ACCEPT-NON-C-EDB37D42` を追加して解決した。
+- 根本原因は、`Vec` public API の `push` / `pop` / `sort` を Copy-only に閉じても、`vec/raw/element` の `vec_read_at<T>` / `vec_write_at<T>` が direct raw `load<T>` / `store<T>` を無制約 `.T` で公開しており、non-Copy payload の shallow read / overwrite を迂回可能だったこと。
+- raw element helper を `.T: Copy` に限定し、`Vec<NonCopyPayload>` の raw read/write が `type.trait_bound.unsatisfied` で拒否される compile-fail doctest と nodesrc source policy を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/raw/element.nepl --no-tree -o tmp/agent1-vec-raw-element-copy-bound-raw.json -j 1 --dist web/dist`: total=4, passed=4
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec --no-tree -o tmp/agent1-vec-raw-element-copy-bound-vec.json -j 4 --dist web/dist`: total=37, passed=37
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` の Stage D に沿い、`OwnedBuffer<T>` / initialized cell の state transition が入る前に raw element helper の unsafe な入口を閉じるもの。
+
 # 2026-05-13 Agent 1 Vec pop Copy-only boundary 修正
 
 - `ISS-20260513T113909985Z-VEC-POP-ACCEPTS-NON-COPY-PAYLOAD-BEF-6A1C568A` を追加して解決した。

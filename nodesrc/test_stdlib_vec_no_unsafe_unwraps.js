@@ -144,6 +144,7 @@ const pushSection = between(vecCode, 'fn push ', 'fn replace ');
 const withCapacitySection = between(vecCode, 'fn with_capacity ', 'fn filled ');
 const popSection = between(vecCode, 'fn pop ', 'fn clear ');
 const popSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/mutation/pop.nepl'), 'utf8');
+const vecRawElementSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw/element.nepl'), 'utf8');
 const clearSection = between(vecCode, 'fn clear ', 'fn free ');
 const mapSection = between(vecCode, 'fn map ', 'fn filter ');
 const countSection = between(vecCode, 'fn count ', 'fn fold ');
@@ -208,6 +209,9 @@ assert.doesNotMatch(vecRawRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'vec/r
 for (const name of ['vec_read_at', 'vec_write_at']) {
     assert.match(vecRawElementCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw/element.nepl must own ${name}`);
 }
+assert.match(vecRawElementCode, /fn\s+vec_read_at\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,\s*i32\)->\.T>/, 'Vec raw read helper must remain Copy-only until initialized move-out state exists');
+assert.match(vecRawElementCode, /fn\s+vec_write_at\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,\s*i32,\s*\.T\)->\(\)>/, 'Vec raw write helper must remain Copy-only until overwrite/drop state exists');
+assert.match(vecRawElementSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*vec_read_at<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*vec_write_at<NonCopyPayload>/, 'Vec raw element helpers must reject non-Copy payloads in doctests');
 for (const name of ['map', 'filter', 'partition', 'take_while', 'drop_while']) {
     assert.match(vecTransformCode, new RegExp(`fn\\s+${name}\\b`), `vec/transform facade closure must expose ${name}`);
 }
