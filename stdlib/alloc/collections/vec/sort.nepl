@@ -6,6 +6,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - raw helper は `0 <= idx < len(v)` を呼び出し側が保証する内部境界です。
+//: - 現行 sort family は raw `load` / `store` による swap と scratch buffer copy を使うため、`.T: Ord&Copy` に限定します。non-Copy payload の sort は `OwnedBuffer<T>` と move/drop-aware algorithm が入るまで提供しません。
 //: - stable sort が必要なら `sort_merge` を使います。
 //: - heap sort は O(n log n)、追加領域 O(1) です。
 //:
@@ -52,6 +53,27 @@
 //:     let ok <bool> sort_is_sorted<i32> &sorted
 //:     free<i32> sorted
 //:     if ok 1 0
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.trait_bound.unsatisfied
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "alloc/collections/vec/sort" as *
+//:| #import "core/traits/ord" as *
+//:| #import "core/result" as *
+//:| #import "core/field" as *
+//: struct NonCopyOrd:
+//:     value <i32>
+//: impl Ord for NonCopyOrd:
+//:     fn lt <(NonCopyOrd,NonCopyOrd)->bool> (a, b):
+//:         lt get a "value" get b "value"
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<NonCopyOrd>> unwrap_ok new<NonCopyOrd>;
+//:     sort<NonCopyOrd> &v0;
+//:     0
 //: ```
 
 #indent 4

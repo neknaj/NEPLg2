@@ -6,7 +6,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - 各 algorithm は `sort/common` の unchecked helper を使います。
-//: - caller は `sort/common` と同じく、`Vec` の要素が整列中に shallow copy されないことを前提にします。
+//: - caller は `sort/common` と同じく、`Vec` の要素が `.T: Copy` であることを前提にします。non-Copy payload の shallow move sort は提供しません。
 
 #indent 4
 

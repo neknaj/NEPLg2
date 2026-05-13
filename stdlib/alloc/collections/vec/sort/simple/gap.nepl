@@ -25,7 +25,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - gap 列に依存します。この実装では最悪 O(n^2)、追加領域 O(1) です。
-pub fn sort_shell <.T: Ord> <(&Vec<.T>)->()> (v):
+pub fn sort_shell <.T: Ord&Copy> <(&Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     if:
         le n 1
@@ -70,7 +70,7 @@ pub fn sort_shell <.T: Ord> <(&Vec<.T>)->()> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均は bubble sort より改善しますが、最悪 O(n^2) です。
-pub fn sort_comb <.T: Ord> <(&Vec<.T>)->()> (v):
+pub fn sort_comb <.T: Ord&Copy> <(&Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     if:
         le n 1

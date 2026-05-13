@@ -24,7 +24,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 比較 O(n^2)、追加領域 O(1)
-pub fn sort_selection <.T: Ord> <(&Vec<.T>)->()> (v):
+pub fn sort_selection <.T: Ord&Copy> <(&Vec<.T>)->()> (v):
     let n <i32> len<.T> v
     if:
         le n 1

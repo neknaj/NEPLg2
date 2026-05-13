@@ -23,7 +23,7 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
-pub fn sort_buf_get <.T> <(MemPtr<.T>,i32)->.T> (buf, idx):
+pub fn sort_buf_get <.T: Copy> <(MemPtr<.T>,i32)->.T> (buf, idx):
     let off <i32> mul idx size_of<.T>
     load<.T> add mem_ptr_addr buf off
 
@@ -35,7 +35,7 @@ pub fn sort_buf_get <.T> <(MemPtr<.T>,i32)->.T> (buf, idx):
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
-pub fn sort_buf_set <.T> <(MemPtr<.T>,i32,.T)->()> (buf, idx, val):
+pub fn sort_buf_set <.T: Copy> <(MemPtr<.T>,i32,.T)->()> (buf, idx, val):
     let off <i32> mul idx size_of<.T>
     store<.T> add mem_ptr_addr buf off val;
     ()

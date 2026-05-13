@@ -6,6 +6,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - unchecked helper の index 境界は caller が保証します。
+//: - 現行 sort family は raw load/store による in-place swap を使うため、`OwnedBuffer<T>` と move/drop-aware sort が入るまでは `.T: Copy` に限定します。
 
 #indent 4
 
@@ -29,7 +30,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn sort_lt <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn sort_lt <.T: Ord&Copy> <(.T,.T)->bool> (a, b):
     ord_lt a b
 
 //: sort_le: sort 内部の less-or-equal predicate
@@ -42,7 +43,7 @@ pub fn sort_lt <.T: Ord> <(.T,.T)->bool> (a, b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn sort_le <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn sort_le <.T: Ord&Copy> <(.T,.T)->bool> (a, b):
     ord_le a b
 
 //: sort_gt: sort 内部の greater-than predicate
@@ -55,7 +56,7 @@ pub fn sort_le <.T: Ord> <(.T,.T)->bool> (a, b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn sort_gt <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn sort_gt <.T: Ord&Copy> <(.T,.T)->bool> (a, b):
     ord_gt a b
 
 //: sort_ge: sort 内部の greater-or-equal predicate
@@ -68,7 +69,7 @@ pub fn sort_gt <.T: Ord> <(.T,.T)->bool> (a, b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn sort_ge <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn sort_ge <.T: Ord&Copy> <(.T,.T)->bool> (a, b):
     ord_ge a b
 
 
@@ -82,11 +83,11 @@ pub fn sort_ge <.T: Ord> <(.T,.T)->bool> (a, b):
 //:
 //: [注意/ちゅうい]:
 //: - `0 <= idx < len(v)` を呼び出し側が保証する内部 helper です。
-//: - 所有権を持つ payload の typed load は Resource IR 移行の制約を受けます。
+//: - この helper は `.T: Copy` 専用です。non-Copy payload の move-out sort は `OwnedBuffer<T>` と initialized cell traversal が入るまで実装しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn sort_get_unchecked <.T> <(&Vec<.T>,i32)->.T> (v, idx):
+pub fn sort_get_unchecked <.T: Copy> <(&Vec<.T>,i32)->.T> (v, idx):
     let data <i32> data_ptr<.T> v
     let off <i32> mul idx size_of<.T>
     load<.T> add data off
@@ -104,25 +105,25 @@ pub fn sort_get_unchecked <.T> <(&Vec<.T>,i32)->.T> (v, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn sort_set_unchecked <.T> <(&Vec<.T>,i32,.T)->()> (v, idx, val):
+pub fn sort_set_unchecked <.T: Copy> <(&Vec<.T>,i32,.T)->()> (v, idx, val):
     let data <i32> data_ptr<.T> v
     let off <i32> mul idx size_of<.T>
     store<.T> add data off val;
     ()
 
 // sort_get_unchecked_data: data ポインタ版の取得
-pub fn sort_get_unchecked_data <.T> <(MemPtr<.T>,i32)->.T> (data_ptr, idx):
+pub fn sort_get_unchecked_data <.T: Copy> <(MemPtr<.T>,i32)->.T> (data_ptr, idx):
     let off <i32> mul idx size_of<.T>
     load<.T> add mem_ptr_addr data_ptr off
 
 // sort_set_unchecked_data: data ポインタ版の設定
-pub fn sort_set_unchecked_data <.T> <(MemPtr<.T>,i32,.T)->()> (data_ptr, idx, val):
+pub fn sort_set_unchecked_data <.T: Copy> <(MemPtr<.T>,i32,.T)->()> (data_ptr, idx, val):
     let off <i32> mul idx size_of<.T>
     store<.T> add mem_ptr_addr data_ptr off val;
     ()
 
 // sort_swap_data: data ポインタ版の交換
-pub fn sort_swap_data <.T> <(MemPtr<.T>,i32,i32)->()> (data_ptr, i, j):
+pub fn sort_swap_data <.T: Copy> <(MemPtr<.T>,i32,i32)->()> (data_ptr, i, j):
     if:
         eq i j
         then ()
@@ -148,7 +149,7 @@ pub fn sort_swap_data <.T> <(MemPtr<.T>,i32,i32)->()> (data_ptr, i, j):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn sort_swap <.T> <(&Vec<.T>,i32,i32)->()> (v, i, j):
+pub fn sort_swap <.T: Copy> <(&Vec<.T>,i32,i32)->()> (v, i, j):
     if:
         eq i j
         then ()
@@ -173,7 +174,7 @@ pub fn sort_swap <.T> <(&Vec<.T>,i32,i32)->()> (v, i, j):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn sort_is_sorted <.T: Ord> <(&Vec<.T>)->bool> (v):
+pub fn sort_is_sorted <.T: Ord&Copy> <(&Vec<.T>)->bool> (v):
     let n <i32> len<.T> v
     let data_ptr <MemPtr<.T>> data_mem_ptr<.T> v
     if:

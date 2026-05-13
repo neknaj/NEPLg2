@@ -127,6 +127,10 @@ const sortMergeRootCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merg
 const sortMergeBufferCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/buffer.nepl');
 const sortMergeRangeCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/range.nepl');
 const sortMergeApiCode = codeByPath.get('stdlib/alloc/collections/vec/sort/merge/api.nepl');
+const sortFamilyCode = relPaths
+    .filter((relPath) => relPath.startsWith('stdlib/alloc/collections/vec/sort/'))
+    .map((relPath) => codeByPath.get(relPath))
+    .join('\n');
 
 function between(code, start, end) {
     const startIdx = code.indexOf(start);
@@ -333,11 +337,13 @@ for (const name of ['buffer', 'range', 'api']) {
     assert.match(sortMergeRootCode, new RegExp(`pub\\s+#import\\s+"\\.\\/merge\\/${name}"\\s+as\\s+\\*`), `sort/merge.nepl must re-export merge/${name}.nepl`);
 }
 assert.doesNotMatch(sortMergeRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'sort/merge.nepl must be a pure facade without implementation bodies');
-assert.match(sortMergeBufferCode, /fn\s+sort_buf_get\s+<\.T>/, 'sort/merge/buffer.nepl must own scratch buffer loads');
-assert.match(sortMergeBufferCode, /fn\s+sort_buf_set\s+<\.T>/, 'sort/merge/buffer.nepl must own scratch buffer stores');
-assert.match(sortMergeRangeCode, /fn\s+sort_merge_range_data\s+<\.T:\s+Ord>[\s\S]*sort_buf_set<\.T>[\s\S]*sort_buf_get<\.T>/, 'sort/merge/range.nepl must own range traversal and delegate scratch access');
-assert.match(sortMergeApiCode, /fn\s+sort_merge\s+<\.T:\s+Ord>[\s\S]*match\s+dealloc_ptr<\.T>\s+buf\s+mul\s+n\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*Result<\(\),\s*StdErrorKind>::Ok\s+\(\)[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'sort_merge must release scratch buffer with typed owner cleanup');
-assert.match(sortMergeApiCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord>[\s\S]*let\s+storage\s+<VecStorageState>\s+get\s+v\s+"storage"[\s\S]*let\s+data_ptr\s+<MemPtr<\.T>>\s+get\s+v\s+"data"[\s\S]*match\s+dealloc_ptr<\.T>\s+buf\s+mul\s+n\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*Result<Vec<\.T>,\s*StdErrorKind>::Ok\s+Vec<\.T>\s+n\s+cap\s+storage\s+data_ptr[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'sort_merge_ret must release scratch buffer with typed owner cleanup and return the original Vec storage state and data owner');
+assert.match(sortMergeBufferCode, /fn\s+sort_buf_get\s+<\.T:\s*Copy>/, 'sort/merge/buffer.nepl must own Copy-only scratch buffer loads');
+assert.match(sortMergeBufferCode, /fn\s+sort_buf_set\s+<\.T:\s*Copy>/, 'sort/merge/buffer.nepl must own Copy-only scratch buffer stores');
+assert.doesNotMatch(sortFamilyCode, /fn\s+\w+\s+<\.T>\s+</, 'Vec sort raw load/store helpers must not be unconstrained over T');
+assert.doesNotMatch(sortFamilyCode, /fn\s+\w+\s+<\.T:\s*Ord>\s+</, 'Vec sort algorithms must require Ord&Copy until non-Copy move/drop-aware sorting exists');
+assert.match(sortMergeRangeCode, /fn\s+sort_merge_range_data\s+<\.T:\s+Ord&Copy>[\s\S]*sort_buf_set<\.T>[\s\S]*sort_buf_get<\.T>/, 'sort/merge/range.nepl must own Copy-only range traversal and delegate scratch access');
+assert.match(sortMergeApiCode, /fn\s+sort_merge\s+<\.T:\s+Ord&Copy>[\s\S]*match\s+dealloc_ptr<\.T>\s+buf\s+mul\s+n\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*Result<\(\),\s*StdErrorKind>::Ok\s+\(\)[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'sort_merge must remain Copy-only and release scratch buffer with typed owner cleanup');
+assert.match(sortMergeApiCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord&Copy>[\s\S]*let\s+storage\s+<VecStorageState>\s+get\s+v\s+"storage"[\s\S]*let\s+data_ptr\s+<MemPtr<\.T>>\s+get\s+v\s+"data"[\s\S]*match\s+dealloc_ptr<\.T>\s+buf\s+mul\s+n\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*Result<Vec<\.T>,\s*StdErrorKind>::Ok\s+Vec<\.T>\s+n\s+cap\s+storage\s+data_ptr[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'sort_merge_ret must remain Copy-only, release scratch buffer with typed owner cleanup, and return the original Vec storage state and data owner');
 
 console.log('vec unsafe unwrap regression passed');
 

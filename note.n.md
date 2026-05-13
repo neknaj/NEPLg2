@@ -1,3 +1,18 @@
+# 2026-05-13 Agent 1 Vec sort Copy-only boundary 修正
+
+- `ISS-20260513T112748296Z-VEC-SORT-RAW-SWAP-APIS-ACCEPT-NON-CO-2B076968` を追加して解決した。
+- 根本原因は、`Vec` sort family が unchecked raw `load<T>` / `store<T>` / swap と scratch buffer copy を使う一方で、多くの API が `.T: Ord` または無制約 `.T` のまま non-Copy payload を受け入れ得たこと。
+- `sort_get_unchecked` / `sort_set_unchecked` / `sort_swap` / scratch buffer helper を `.T: Copy` に限定し、public sort algorithms を `.T: Ord&Copy` に限定した。
+- `NonCopyOrd` の `sort` が `type.trait_bound.unsatisfied` で拒否される compile-fail doctest を追加した。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` は sort family に無制約 `.T` / `.T: Ord` が残らないことを監視するように更新した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort.nepl --no-tree -o tmp/agent1-vec-sort-copy-bound-sort-root.json -j 1 --dist web/dist`: total=3, passed=3
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/sort --no-tree -o tmp/agent1-vec-sort-copy-bound-sort-dir.json -j 4 --dist web/dist`: total=1, passed=1
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec --no-tree -o tmp/agent1-vec-sort-copy-bound-vec.json -j 4 --dist web/dist`: total=34, passed=34
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` の Stage D に沿い、non-Copy `Vec` の move/drop-aware sort 実装前に raw swap sort の unsafe な入口を閉じるもの。
+
 # 2026-05-13 Agent 1 Vec push Copy-only boundary 修正
 
 - `ISS-20260513T112020733Z-VEC-PUSH-ACCEPTS-NON-COPY-PAYLOAD-WH-FDEED72B` を追加して解決した。
