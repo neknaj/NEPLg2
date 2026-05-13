@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T05:14:44.039Z",
+  "generated_at": "2026-05-13T05:22:04.189Z",
   "counts": {
-    "total": 695,
+    "total": 696,
     "open": 5,
-    "resolved": 690,
+    "resolved": 691,
     "by_area": {
       "stdlib": {
         "total": 171,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 369,
+        "total": 370,
         "open": 0,
-        "resolved": 369
+        "resolved": 370
       },
       "resource": {
         "total": 2,
@@ -5553,6 +5553,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T021019225Z-RESOURCE-EFFECT-GATE-ALLOWS-PURE-RAW-AF3B03BF.md"
+    },
+    {
+      "id": "ISS-20260513T052006137Z-RESOURCE-CELL-AND-OWNER-GATES-TRUST--3287B5AF",
+      "title": "Resource cell and owner gates trust raw memory boundary instead of Resource IR proof",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/compiler.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T052006137Z-RESOURCE-CELL-AND-OWNER-GATES-TRUST--3287B5AF.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

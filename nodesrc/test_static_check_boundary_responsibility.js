@@ -218,6 +218,31 @@ assertNotContains(
 assertNotContains(effects, 'fn wasm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
 assertNotContains(effects, 'fn llvm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
 
+assertMatches(
+    compiler,
+    /fn run_resource_cell_gate\(\s*report: &crate::resource::ResourceCheckReport,\s*diagnostics: &mut Vec<Diagnostic>,\s*\)/,
+    'compiler.rs Resource cell gate must not take SourceMap',
+);
+assertMatches(
+    compiler,
+    /fn run_resource_owner_obligation_gate\(\s*report: &crate::resource::ResourceOwnerCheckReport,\s*diagnostics: &mut Vec<Diagnostic>,\s*\)/,
+    'compiler.rs Resource owner gate must not take SourceMap',
+);
+const cellGateBody = compiler.match(/fn run_resource_cell_gate\([\s\S]*?\n}\n\nfn resource_cell_diagnostic_to_error/);
+assert(cellGateBody, 'compiler.rs must expose Resource cell gate body');
+assertNotContains(
+    cellGateBody[0],
+    'raw_memory_boundary_allowed',
+    'compiler.rs Resource cell gate',
+);
+const ownerGateBody = compiler.match(/fn run_resource_owner_obligation_gate\([\s\S]*?\n}\n\nfn resource_owner_diagnostic_to_error/);
+assert(ownerGateBody, 'compiler.rs must expose Resource owner gate body');
+assertNotContains(
+    ownerGateBody[0],
+    'raw_memory_boundary_allowed',
+    'compiler.rs Resource owner gate',
+);
+
 for (const filePath of walkRustFiles(CORE_SRC)) {
     const rel = toPosixPath(filePath);
     if (rel === 'nepl-core/src/qualified_name.rs') {

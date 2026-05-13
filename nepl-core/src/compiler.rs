@@ -323,7 +323,7 @@ fn run_resource_static_check(
     let initialized_moves = crate::resource::check_resource_initialized_moves(&resource, types);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_initialized_moves", stage_start);
-    run_resource_cell_gate(&initialized_moves, diagnostics, source_map)?;
+    run_resource_cell_gate(&initialized_moves, diagnostics)?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let drop_elaboration_plan = run_resource_drop_elaboration_plan_gate(
@@ -349,7 +349,7 @@ fn run_resource_static_check(
     let owner_obligations = crate::resource::check_resource_owner_obligations(&resource, types);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_owner_obligations", stage_start);
-    run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)?;
+    run_resource_owner_obligation_gate(&owner_obligations, diagnostics)?;
 
     Ok(drop_elaboration_plan)
 }
@@ -573,17 +573,9 @@ fn resource_coverage_diagnostic_to_error(
 fn run_resource_cell_gate(
     report: &crate::resource::ResourceCheckReport,
     diagnostics: &mut Vec<Diagnostic>,
-    source_map: Option<&SourceMap>,
 ) -> Result<(), CoreError> {
     let mut cell_errors = Vec::new();
     for diagnostic in &report.diagnostics {
-        let crate::resource::ResourceCheckDiagnostic::CellUnavailable { span, .. } = diagnostic;
-        if source_map
-            .map(|map| map.raw_memory_boundary_allowed(span.file_id))
-            .unwrap_or(false)
-        {
-            continue;
-        }
         cell_errors.push(resource_cell_diagnostic_to_error(diagnostic));
     }
     if cell_errors.is_empty() {
@@ -617,16 +609,9 @@ fn resource_cell_diagnostic_to_error(
 fn run_resource_owner_obligation_gate(
     report: &crate::resource::ResourceOwnerCheckReport,
     diagnostics: &mut Vec<Diagnostic>,
-    source_map: Option<&SourceMap>,
 ) -> Result<(), CoreError> {
     let mut owner_errors = Vec::new();
     for diagnostic in &report.diagnostics {
-        if resource_owner_diagnostic_span(diagnostic)
-            .and_then(|span| source_map.map(|map| map.raw_memory_boundary_allowed(span.file_id)))
-            .unwrap_or(false)
-        {
-            continue;
-        }
         owner_errors.push(resource_owner_diagnostic_to_error(diagnostic));
     }
     if owner_errors.is_empty() {
@@ -634,16 +619,6 @@ fn run_resource_owner_obligation_gate(
     }
     diagnostics.extend(owner_errors);
     Err(CoreError::from_diagnostics(diagnostics.clone()))
-}
-
-fn resource_owner_diagnostic_span(
-    diagnostic: &crate::resource::ResourceOwnerDiagnostic,
-) -> Option<Span> {
-    match diagnostic {
-        crate::resource::ResourceOwnerDiagnostic::OwnerUnavailable { span, .. }
-        | crate::resource::ResourceOwnerDiagnostic::OwnerLeaked { span, .. }
-        | crate::resource::ResourceOwnerDiagnostic::OwnerMaybeLeaked { span, .. } => Some(*span),
-    }
 }
 
 fn resource_owner_diagnostic_to_error(
