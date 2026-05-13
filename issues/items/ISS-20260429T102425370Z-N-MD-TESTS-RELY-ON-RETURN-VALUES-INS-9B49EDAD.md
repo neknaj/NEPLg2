@@ -378,3 +378,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\hashmap_str.n.md -i stdlib\tests\hashset_str.n.md --no-tree -o tmp\agent1-hash-string-report-tests.json -j 1 --assert-io --dist web/dist`: total=4, passed=4
 
 この issue はまだ open のまま継続する。string-key HashMap/HashSet 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 List stdout report migration
+
+`stdlib/tests/list.n.md` の List focused doctest 2 件を、`ret: 0` と stdout 期待なしの `checks_*` report から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `len` / `get` / `head` / `tail` / `reverse` / `map` / `filter` / `fold` / `reduce` / `find` / `any` / `all` の観測結果を assertion label として stdout に残すようにした。
+- 旧 `checks_*` API への集約をやめ、`test_report_new` / `test_report_push` / `test_report_print_stdout` / `test_report_exit_code` に統一した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\list.n.md --no-tree -o tmp\agent1-list-stdlib-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
+
+この issue はまだ open のまま継続する。List 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
