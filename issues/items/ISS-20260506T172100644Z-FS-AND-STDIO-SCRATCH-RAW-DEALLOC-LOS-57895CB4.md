@@ -2,13 +2,13 @@
 id: ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4
 title: "fs and stdio scratch raw dealloc lose free obligation after dynamic range blocker"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-06
 updated: 2026-05-13
-target: "nepl-core/src/resource/owner_*.rs, stdlib/std/fs/*.nepl, stdlib/std/stdio/*.nepl, nepl-core/tests/kp.rs"
+target: "nepl-core/src/resource/owner_*.rs, stdlib/std/fs/*.nepl, stdlib/std/stdio/*.nepl, nodesrc/test_stdlib_*boundary.js, nepl-core/tests/resource_ir.rs"
 ---
 
 # ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4: fs and stdio scratch raw dealloc lose free obligation after dynamic range blocker
@@ -81,6 +81,31 @@ cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup -- --nocapture`
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup -- --nocapture`
 - `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`
+
+## 2026-05-13 修正
+
+再調査で、`mem_ptr_addr` が Resource IR 上で non-owning raw address view になった後も、fs/stdio の scratch cleanup が raw address へ free obligation を移せる前提を一部残していたことを確認した。これは `NoFreeObligation` を握りつぶすべきではなく、stdlib 側の cleanup contract を「所有 `MemPtr` を `dealloc_ptr` に渡す」形へ揃える必要がある。
+
+同時に、`realloc_ptr` などの summary effect が `MemPtr` 内部の raw view を経由して「明示的に返却 owner へ移る」ケースと、通常の non-owning raw view を誤って owner として扱うケースを分離できていなかった。修正では通常 transfer は raw view を非所有のまま維持し、関数 summary の明示的 owner effect に限って raw view 経由の元 owner 解決を許可した。
+
+ResourceIR 側では、assignment/store overwrite 時の live owner preservation が単純に value root だけを見る実装だったため、`set p grown` のように target 配下の live field と replacement 側 alias が同じ storage を指すケースを leak と誤認する可能性があった。`target` から overwritten place への suffix を取り、replacement 側の同一 field を owner alias 解決して storage id を比較するようにした。
+
+stdlib 側では、`fs_open_with_flags`、`fs_read_fd_bytes`、`fs_finish_read_buffer`、`stdio_read_all_bytes_result`、`stdio_finish_read_buffer`、`stdio_write_fd_mem_result`、`print_byte`、`stdio_read_line_result` の scratch cleanup を raw dealloc から typed `dealloc_ptr` に移行した。error path で owner cleanup と `Result::Err` 構築を同じ ownership boundary に閉じるため、`fs_discard_read_buffer` と `stdio_discard_read_buffer` を追加した。
+
+source policy も、旧 raw cleanup 前提から `MemPtr = non-owning pointer` 方針に合わせて更新した。`fs_finish_read_buffer` / `stdio_write_fd_mem_result` は `dealloc_raw mem_ptr_addr ...` ではなく typed owner cleanup を要求し、fs の `unreachable` は `dealloc_ptr` Err branch の owner-cleanup invariant に限って許可する。
+
+検証:
+
+- `cargo fmt -p nepl-core --check`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_loop_realloc_owner_replacement -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_realloc_owner_replacement_assignment -- --nocapture`: passed
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup -- --nocapture`: passed
+- `cargo test -p nepl-core --test functions function_purity_check_impure_calls_pure -- --nocapture`: passed
+- `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+- `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+- `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
 
 ## 関連
 

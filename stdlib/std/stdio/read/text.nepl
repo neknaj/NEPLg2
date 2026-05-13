@@ -88,6 +88,7 @@ pub fn read_all <()*>str> ():
 //: 実装(アルゴリズム):
 //: - 1 バイトずつ `fd_read` し、改行または EOF で停止します。
 //: - 読み込んだ byte 列は exact-size の `ByteBuf` に詰め直してから `text_bytebuf_to_utf8_str_result` へ渡します。
+//: - raw address は読み書き用の非所有 view に限定し、scratch の解放は所有 `MemPtr` を `dealloc_ptr` に渡して行います。
 //:
 //: 注意(重要):
 //: - 最大 1024 バイトまでです。
@@ -103,17 +104,27 @@ pub fn stdio_read_line_result <()*>Result<str, StdErrorKind>> ():
         Result::Ok buf:
             match alloc_ptr<u8> 8:
                 Result::Err _e:
-                    dealloc_raw mem_ptr_addr buf cap;
+                    match dealloc_ptr<u8> buf cap:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ();
                     Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
                 Result::Ok iov:
-                    let iov_raw <i32> mem_ptr_addr iov;
                     match alloc_ptr<u8> 4:
                         Result::Err _e:
-                            dealloc_raw iov_raw 8;
-                            dealloc_raw mem_ptr_addr buf cap;
+                            match dealloc_ptr<u8> iov 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
+                            match dealloc_ptr<u8> buf cap:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
                             Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
                         Result::Ok nread:
-                            let nread_raw <i32> mem_ptr_addr nread;
                             let mut line_len <i32> 0;
                             let mut done <i32> 0;
                             let mut failed <i32> 0;
@@ -162,13 +173,25 @@ pub fn stdio_read_line_result <()*>Result<str, StdErrorKind>> ():
                                                                                 else:
                                                                                     set line_len add line_len 1;
 
-                            dealloc_raw iov_raw 8;
-                            dealloc_raw nread_raw 4;
+                            match dealloc_ptr<u8> iov 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
+                            match dealloc_ptr<u8> nread 4:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
 
                             if:
                                 eq failed 1
                                 then:
-                                    dealloc_raw mem_ptr_addr buf cap;
+                                    match dealloc_ptr<u8> buf cap:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _:
+                                            #intrinsic "unreachable" <> ();
                                     Result<str, StdErrorKind>::Err failure
                                 else:
                                     match stdio_finish_read_buffer buf cap line_len:

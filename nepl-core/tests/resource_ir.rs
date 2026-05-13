@@ -10136,7 +10136,11 @@ fn loop_grow_replace_and_free <()*>()> ():
                             set done 1
                         Result::Err _grow:
                             set done 1
-            dealloc_raw mem_ptr_addr p cap
+            match dealloc_ptr<i32> p cap:
+                Result::Ok _:
+                    ()
+                Result::Err _drop:
+                    #intrinsic "unreachable" <> ()
 
 fn main <()*>()> ():
     loop_grow_replace_and_free

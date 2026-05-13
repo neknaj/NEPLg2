@@ -96,7 +96,7 @@ assert.match(
     'ByteBuf string conversion must finish by moving the RegionToken owner into ByteBuf',
 );
 
-const fromStrMatch = code.match(/fn\s+io_bytebuf_from_str_result\b([\s\S]*?)\nfn\s+io_bytebuf_from_str\b/);
+const fromStrMatch = code.match(/fn\s+io_bytebuf_from_str_result\b([\s\S]*?)\n(?:pub\s+)?fn\s+io_bytebuf_from_str\b/);
 assert.ok(fromStrMatch, 'io_bytebuf_from_str_result body must be found');
 const fromStr = fromStrMatch[1];
 
@@ -181,14 +181,14 @@ assert.match(
 
 assert.match(
     fsFinish,
-    /\beq\s+data_len\s+0[\s\S]*?\bdealloc_raw\s+mem_ptr_addr\s+buf\s+cap[\s\S]*?\bResult<ByteBuf,i32>::Ok\s+io_bytebuf_empty\b/,
-    'fs_finish_read_buffer must deallocate private scratch storage with exact raw cleanup before returning an empty ByteBuf',
+    /\beq\s+data_len\s+0[\s\S]*?\bmatch\s+dealloc_ptr<u8>\s+buf\s+cap:[\s\S]*?\bResult::Ok\s+_:[\s\S]*?\bResult::Err\s+_:[\s\S]*?#intrinsic\s+"unreachable"[\s\S]*?\bResult<ByteBuf,i32>::Ok\s+io_bytebuf_empty\b/,
+    'fs_finish_read_buffer must consume private scratch storage through typed owner cleanup before returning an empty ByteBuf',
 );
 
 assert.doesNotMatch(
     fsFinish,
-    /\bdealloc_ptr<u8>\s+buf\s+cap\b/,
-    'fs_finish_read_buffer private scratch cleanup must not regress to checked dealloc_ptr',
+    /\bdealloc_raw\s+mem_ptr_addr\s+buf\s+cap\b/,
+    'fs_finish_read_buffer private scratch cleanup must not recover ownership from a non-owning raw address view',
 );
 
 console.log('alloc/io ByteBuf owner boundary regression passed');

@@ -1,3 +1,26 @@
+# 2026-05-13 Agent 1 fs/stdio ResourceIR owner cleanup 修正
+
+- `ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4` を修正した。
+- 根本原因は、`mem_ptr_addr` を non-owning raw address view として扱う方針に移行した後も、fs/stdio scratch cleanup の一部が raw address から free obligation を回収できる前提を残していたこと。
+- ResourceIR owner checker 側では、関数 summary の明示的 owner effect だけが non-owning raw view 経由の元 owner を解決できるようにし、通常 transfer では raw view を owner として扱わない方針を維持した。
+- assignment/store overwrite 時は、target 配下の overwritten owner と replacement 側の同一 suffix を owner alias 解決して storage id で比較するようにし、`realloc_ptr` 後の owner replacement を leak と誤認しないようにした。
+- stdlib 側では `fs_open_with_flags`、`fs_read_fd_bytes`、`fs_finish_read_buffer`、`stdio_read_all_bytes_result`、`stdio_finish_read_buffer`、`stdio_write_fd_mem_result`、`print_byte`、`stdio_read_line_result` の scratch cleanup を typed `dealloc_ptr` 境界へ移行した。
+- `fs_discard_read_buffer` / `stdio_discard_read_buffer` を追加し、error path で buffer owner cleanup と `Result::Err` construction が別 branch summary に分裂しないようにした。
+- source policy は raw cleanup 前提を撤回し、typed owner cleanup と `dealloc_ptr` Err branch invariant を検査する形へ更新した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_loop_realloc_owner_replacement -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_realloc_owner_replacement_assignment -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup -- --nocapture`: passed
+  - `cargo test -p nepl-core --test functions function_purity_check_impure_calls_pure -- --nocapture`: passed
+  - `node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed
+  - `node nodesrc/test_stdlib_stdio_read_boundary.js`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正における `MemPtr = non-owning pointer` / owner obligation 分離方針を fs/stdio scratch cleanup と ResourceIR summary application に反映したもの。
+
 # 2026-05-13 Agent 1 #extern visibility 修正
 
 - `ISS-20260513T003230273Z-EXTERN-DECLARATIONS-IGNORE-IMPORT-VI-FA18F3C6` を追加して修正した。

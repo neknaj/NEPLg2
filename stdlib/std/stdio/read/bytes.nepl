@@ -27,6 +27,7 @@
 //: - 64KiB から[開始/かいし]して buffer を[必要/ひつよう]に[応/おう]じて[拡張/かくちょう]し、EOF まで `fd_read` を[反復/はんぷく]します。
 //: - [返/かえ]り[値/あたい]の `ByteBuf` は[呼/よ]び[出/だ]し[側/がわ]が[所有/しょゆう]します。
 //: - allocation failure / invalid read boundary / fd_read failure は、それぞれ `StdErrorKind` として[返/かえ]します。
+//: - `mem_ptr_addr` は非所有 raw view なので、scratch buffer は `dealloc_ptr` で所有 `MemPtr` を消費して解放します。
 //:
 //: ### [注意/ちゅうい]
 //: - text helper `read_all` とは[別経路/べつけいろ]です。text [変換/へんかん]を[伴/ともな]わないため、NUL を[含/ふく]む入力もそのまま[保持/ほじ]します。
@@ -42,17 +43,17 @@ pub fn stdio_read_all_bytes_result <()*>Result<ByteBuf, StdErrorKind>> ():
             let mut buf <MemPtr<u8>> buf0;
             match alloc_ptr<u8> 8:
                 Result::Err _e:
-                    dealloc_raw mem_ptr_addr buf cap;
-                    Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                    stdio_discard_read_buffer buf cap StdErrorKind::OutOfMemory
                 Result::Ok iov:
-                    let iov_raw <i32> mem_ptr_addr iov;
                     match alloc_ptr<u8> 4:
                         Result::Err _e:
-                            dealloc_raw iov_raw 8;
-                            dealloc_raw mem_ptr_addr buf cap;
-                            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                            match dealloc_ptr<u8> iov 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
+                            stdio_discard_read_buffer buf cap StdErrorKind::OutOfMemory
                         Result::Ok nread_ptr:
-                            let nread_raw <i32> mem_ptr_addr nread_ptr;
                             let mut read_len <i32> 0;
                             let mut done <i32> 0;
                             let mut failed <i32> 0;
@@ -108,14 +109,21 @@ pub fn stdio_read_all_bytes_result <()*>Result<ByteBuf, StdErrorKind>> ():
                                         else:
                                             ();
 
-                            dealloc_raw iov_raw 8;
-                            dealloc_raw nread_raw 4;
+                            match dealloc_ptr<u8> iov 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
+                            match dealloc_ptr<u8> nread_ptr 4:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
 
                             if:
                                 eq failed 1
                                 then:
-                                    dealloc_raw mem_ptr_addr buf cap;
-                                    Result<ByteBuf, StdErrorKind>::Err failure
+                                    stdio_discard_read_buffer buf cap failure
                                 else:
                                     stdio_finish_read_buffer buf cap read_len
 

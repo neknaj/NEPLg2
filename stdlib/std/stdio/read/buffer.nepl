@@ -61,6 +61,22 @@ pub fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Re
                                 else:
                                     Result<i32, StdErrorKind>::Ok load_i32 nread_raw
 
+//: stdio_discard_read_buffer: owner 付き読込 buffer を破棄して Err を返す
+//:
+//: [目的/もくてき]:
+//: - read loop 側の error path で、buffer owner の破棄と `Result::Err` の構築を同じ所有権境界に閉じ込めます。
+//:
+//: [注意/ちゅうい]:
+//: - `buf` はこの関数が必ず消費します。
+//: - cleanup failure は内部 invariant 違反として unreachable にします。
+pub fn stdio_discard_read_buffer <(MemPtr<u8>,i32,StdErrorKind)*>Result<ByteBuf, StdErrorKind>> (buf, cap, err):
+    match dealloc_ptr<u8> buf cap:
+        Result::Ok _:
+            ()
+        Result::Err _:
+            #intrinsic "unreachable" <> ()
+    Result<ByteBuf, StdErrorKind>::Err err
+
 //: stdio_finish_read_buffer: capacity 付き読込 buffer を ByteBuf の所有権 invariant へ詰め直す
 //:
 //: [目的/もくてき]:
@@ -69,10 +85,11 @@ pub fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Re
 //: [実装/じっそう]:
 //: - 読込長が 0 の場合は元 buffer を解放し、空 `ByteBuf` を返します。
 //: - 読込長が capacity 未満の場合は exact-size に shrink してから `ByteBuf` にします。
+//: - `MemPtr` の raw address は非所有 view なので、元 buffer の解放は `dealloc_ptr` で owner を消費します。
 //:
 //: [注意/ちゅうい]:
 //: - 成功時は返った `ByteBuf` が buffer を所有します。
-//: - 失敗時はこの関数が元 buffer を解放します。
+//: - 失敗時はこの関数が元 buffer を解放します。owner 付き buffer を受け取るため、invalid path でも buffer を放置しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - allocator の shrink に依存します。copy が発生する場合は O(data_len) です。
@@ -80,23 +97,21 @@ pub fn stdio_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf, StdErrorK
     if:
         or or lt cap 0 lt data_len 0 gt data_len cap
         then:
-            if:
-                gt cap 0
-                then:
-                    dealloc_raw mem_ptr_addr buf cap
-                else:
+            match dealloc_ptr<u8> buf cap:
+                Result::Ok _:
                     ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
         else:
             if:
                 eq data_len 0
                 then:
-                    if:
-                        gt cap 0
-                        then:
-                            dealloc_raw mem_ptr_addr buf cap
-                        else:
+                    match dealloc_ptr<u8> buf cap:
+                        Result::Ok _:
                             ()
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ()
                     Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
                 else:
                     if:
@@ -108,5 +123,9 @@ pub fn stdio_finish_read_buffer <(MemPtr<u8>,i32,i32)*>Result<ByteBuf, StdErrorK
                                 Result::Ok exact:
                                     Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr exact data_len
                                 Result::Err _e:
-                                    dealloc_raw mem_ptr_addr buf cap
+                                    match dealloc_ptr<u8> buf cap:
+                                        Result::Ok _:
+                                            ()
+                                        Result::Err _:
+                                            #intrinsic "unreachable" <> ()
                                     Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory

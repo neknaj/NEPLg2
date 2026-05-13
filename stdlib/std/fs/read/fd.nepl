@@ -24,6 +24,7 @@
 //:
 //: 実装(アルゴリズム):
 //: - 64KiB から開始する連続 buffer を必要に応じて再確保し、EOF まで `fd_read` を繰り返します。
+//: - `mem_ptr_addr` は非所有 raw view なので、scratch buffer の解放は所有 `MemPtr` を `dealloc_ptr` へ渡して行います。
 //:
 //: 注意(重要):
 //: - 途中でエラーが出た場合は Err(errno) を返します。
@@ -68,17 +69,17 @@ pub fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
             let mut buf <MemPtr<u8>> buf0;
             match alloc_ptr<u8> 8:
                 Result::Err _e:
-                    dealloc_raw mem_ptr_addr buf cap;
-                    Result<ByteBuf,i32>::Err 12
+                    fs_discard_read_buffer buf cap 12
                 Result::Ok iov_buf:
-                    let iov_raw <i32> mem_ptr_addr iov_buf;
                     match alloc_ptr<u8> 4:
                         Result::Err _e:
-                            dealloc_raw iov_raw 8;
-                            dealloc_raw mem_ptr_addr buf cap;
-                            Result<ByteBuf,i32>::Err 12
+                            match dealloc_ptr<u8> iov_buf 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
+                            fs_discard_read_buffer buf cap 12
                         Result::Ok nread_buf:
-                            let nread_raw <i32> mem_ptr_addr nread_buf;
                             let mut read_len <i32> 0;
                             let mut done <i32> 0;
                             let mut err <i32> 0;
@@ -119,16 +120,22 @@ pub fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                             let res <Result<ByteBuf,i32>> if:
                                 eq alloc_failed 1
                                 then:
-                                    dealloc_raw mem_ptr_addr buf cap;
-                                    Result<ByteBuf,i32>::Err 12
+                                    fs_discard_read_buffer buf cap 12
                                 else:
                                     if:
                                         eq err 0
                                         then:
                                             fs_finish_read_buffer buf cap read_len
                                         else:
-                                            dealloc_raw mem_ptr_addr buf cap;
-                                            Result<ByteBuf,i32>::Err err
-                            dealloc_raw nread_raw 4;
-                            dealloc_raw iov_raw 8;
+                                            fs_discard_read_buffer buf cap err
+                            match dealloc_ptr<u8> nread_buf 4:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
+                            match dealloc_ptr<u8> iov_buf 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
                             res

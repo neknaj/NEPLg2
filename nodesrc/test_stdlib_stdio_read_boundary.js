@@ -166,7 +166,7 @@ for (const submodule of ['fd', 'text', 'bytes', 'byte']) {
 }
 assert.doesNotMatch(writeCode, /\bfn\s+/, 'std/stdio/write facade must not keep write implementation bodies');
 const writeFdMatch = writeFdCode.match(
-    /fn\s+stdio_write_fd_mem_result\s+<\(i32,MemPtr<u8>,i32\)\*>\s*Result<\(\),\s*StdErrorKind>>\s+\(fd,\s*data,\s*data_len\):([\s\S]*?)\nfn\s+stdio_write_mem_result\s+/,
+    /fn\s+stdio_write_fd_mem_result\s+<\(i32,MemPtr<u8>,i32\)\*>\s*Result<\(\),\s*StdErrorKind>>\s+\(fd,\s*data,\s*data_len\):([\s\S]*?)\n(?:pub\s+)?fn\s+stdio_write_mem_result\s+/,
 );
 assert.ok(writeFdMatch, 'stdio_write_fd_mem_result body must be found');
 assert.match(
@@ -181,8 +181,13 @@ assert.match(
 );
 assert.match(
     writeFdMatch[1],
+    /\bdealloc_ptr<u8>\s+nwritten\s+4[\s\S]*\bdealloc_ptr<u8>\s+iov\s+8\b/,
+    'stdio fd_write private scratch owners must be explicitly consumed through typed owner cleanup',
+);
+assert.doesNotMatch(
+    writeFdMatch[1],
     /\bdealloc_raw\b/,
-    'stdio fd_write private scratch owners must be explicitly consumed',
+    'stdio fd_write must not recover free obligations from non-owning raw address views',
 );
 assert.doesNotMatch(
     writeFdMatch[1],
@@ -192,6 +197,7 @@ assert.doesNotMatch(
 
 for (const helper of [
     'stdio_fd_read_into_result',
+    'stdio_discard_read_buffer',
     'stdio_finish_read_buffer',
 ]) {
     assert.doesNotMatch(code, new RegExp(`\\bfn\\s+${helper}\\b`), `${helper} must stay below stdio/read`);
@@ -255,7 +261,7 @@ for (const helper of [
 }
 
 const readAllMatch = readBytesCode.match(
-    /fn\s+stdio_read_all_bytes_result\s+<\(\)\*>\s*Result<ByteBuf\s*,\s*StdErrorKind>>\s+\(\):([\s\S]*?)\nfn\s+stdio_read_all_bytes\s+/,
+    /fn\s+stdio_read_all_bytes_result\s+<\(\)\*>\s*Result<ByteBuf\s*,\s*StdErrorKind>>\s+\(\):([\s\S]*?)\n(?:pub\s+)?fn\s+stdio_read_all_bytes\s+/,
 );
 assert.ok(readAllMatch, 'stdio_read_all_bytes_result body must be found');
 assert.match(

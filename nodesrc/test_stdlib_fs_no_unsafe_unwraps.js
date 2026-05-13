@@ -69,12 +69,26 @@ const forbidden = [
     /\bunwrap_err\b/,
     /\buwok\b/,
     /\buwerr\b/,
-    /#intrinsic\s+"unreachable"/,
 ];
 
 for (const pattern of forbidden) {
     for (const [relPath, code] of codeByPath) {
         assert.doesNotMatch(code, pattern, `${relPath} must not use unsafe unwrap helpers in implementation code`);
+    }
+}
+
+for (const [relPath, code] of codeByPath) {
+    const lines = code.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i += 1) {
+        if (!/#intrinsic\s+"unreachable"/.test(lines[i])) {
+            continue;
+        }
+        const window = lines.slice(Math.max(0, i - 5), i + 1).join('\n');
+        assert.match(
+            window,
+            /\bmatch\s+dealloc_ptr<[^>]+>\s+[^\n]+:[\s\S]*\bResult::Err\s+_:/,
+            `${relPath}:${i + 1} may only use unreachable as a typed dealloc_ptr owner-cleanup invariant`,
+        );
     }
 }
 

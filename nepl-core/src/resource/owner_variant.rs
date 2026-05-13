@@ -954,7 +954,7 @@ fn apply_pending_variant_owner_return(
         PendingVariantOwnerReturnSource::Parameter { .. } => {
             let source = pending_return_source(entry, raw_aliases)?;
             raw_aliases.copy_scalar_facts_if_tracked(&source, &target);
-            engine.transfer_owner(
+            engine.transfer_owner_from_summary_effect(
                 owners,
                 raw_aliases,
                 raw_views,

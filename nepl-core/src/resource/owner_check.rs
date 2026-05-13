@@ -272,7 +272,14 @@ impl ResourceOwnerCheckEngine<'_> {
                 value,
                 span,
             } => {
-                self.report_overwritten_owners(owners, storage_origins, target, value, *span);
+                self.report_overwritten_owners(
+                    owners,
+                    raw_aliases,
+                    storage_origins,
+                    target,
+                    value,
+                    *span,
+                );
                 if variant_owner_effects.reject_reserved_source_use(
                     self,
                     owners,
@@ -463,6 +470,7 @@ impl ResourceOwnerCheckEngine<'_> {
                         let cell = raw_memory_cell_place(&address, value.ty);
                         self.report_overwritten_owners(
                             owners,
+                            raw_aliases,
                             storage_origins,
                             &cell,
                             value,

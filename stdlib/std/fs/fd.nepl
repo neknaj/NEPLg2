@@ -23,6 +23,7 @@
 //:
 //: 実装(アルゴリズム):
 //: - fd_out 用の 4 byte buffer を確保し、`path_open` 成功時だけ fd を読み出して返します。
+//: - scratch の所有権は `dealloc_ptr` で閉じ、raw address view には解放責務を移しません。
 //:
 //: 注意(重要):
 //: - dirfd は 3 (preopen) を仮定します。
@@ -51,7 +52,11 @@ pub fn fs_open_with_flags <(str,i32,i64)*>Result<i32,i32>> (path, oflags, rights
                             Result<i32,i32>::Ok load_i32 fd_out_raw
                         else:
                             Result<i32,i32>::Err errno
-            dealloc_raw fd_out_raw 4;
+            match dealloc_ptr<u8> fd_out_buf 4:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ();
             res
 
 //: fs_open_read: ファイルを読み込み専用で開く

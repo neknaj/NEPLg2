@@ -21,7 +21,7 @@
 //: ### [実装/じっそう]
 //: - WASI `fd_write(fd, iov, 1, nwritten)` を[呼/よ]び、`nwritten` が[残/のこ]り byte [数/すう]より[小/ちい]さい[場合/ばあい]は offset を[進/すす]めて[再試行/さいしこう]します。
 //: - `fd_write` error、`nwritten == 0`、iov [確保/かくほ][失敗/しっぱい]は `StdErrorKind::IoError` へ[正規化/せいきか]します。
-//: - `iov` / `nwritten` はこの関数だけが所有する scratch 領域です。`alloc_ptr` 成功後の owner invariant に基づき、終了前に `dealloc_raw` で必ず解放します。
+//: - `iov` / `nwritten` はこの関数だけが所有する scratch 領域です。raw address は非所有 view に限定し、終了前に `dealloc_ptr` で必ず解放します。
 //:
 //: ### [注意/ちゅうい]
 //: - `data` の[所有権/しょゆうけん]は[受/う]け[取/と]りません。呼び出し側が lifetime と解放を[管理/かんり]します。
@@ -43,7 +43,11 @@ pub fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>
                     let iov_raw <i32> mem_ptr_addr iov;
                     match alloc_ptr<u8> 4:
                         Result::Err _:
-                            dealloc_raw iov_raw 8;
+                            match dealloc_ptr<u8> iov 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
                             Result<(), StdErrorKind>::Err StdErrorKind::IoError
                         Result::Ok nwritten:
                             let nwritten_raw <i32> mem_ptr_addr nwritten;
@@ -79,8 +83,16 @@ pub fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>
                                                         else:
                                                             set off add off n;
                                                             ();
-                            dealloc_raw nwritten_raw 4;
-                            dealloc_raw iov_raw 8;
+                            match dealloc_ptr<u8> nwritten 4:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
+                            match dealloc_ptr<u8> iov 8:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ();
                             if:
                                 eq failed 0
                                 then:
