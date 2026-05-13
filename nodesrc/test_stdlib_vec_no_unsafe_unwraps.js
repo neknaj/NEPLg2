@@ -78,14 +78,17 @@ const forbidden = [
     /\bunwrap_err\b/,
     /\buwok\b/,
     /\buwerr\b/,
-    /#intrinsic\s+"unreachable"/,
-    /dealloc_ptr/,
 ];
 
 for (const [relPath, code] of codeByPath) {
     for (const pattern of forbidden) {
         assert.doesNotMatch(code, pattern, `${relPath} must not use unsafe unwrap or checked deallocation helpers in implementation code`);
     }
+    assert.deepEqual(
+        unexpectedUnreachableLines(code),
+        [],
+        `${relPath} may only use unreachable for typed dealloc_ptr owner-cleanup invariants`,
+    );
 }
 
 const vecRootCode = codeByPath.get('stdlib/alloc/collections/vec.nepl');
@@ -282,7 +285,7 @@ for (const relPath of [
 assert.match(vecCode, /struct\s+Vec<\.T>:[\s\S]*storage\s+<VecStorageState>[\s\S]*data\s+<MemPtr<\.T>>/, 'Vec must separate enum owner state from the raw pointer field so Resource IR can track memory cells');
 assert.match(vecCode, /fn\s+vec_empty\s+<\.T>\s+<\(\)->Vec<\.T>>[\s\S]*Vec<\.T>\s+0\s+0\s+VecStorageState::Empty\s+mem_ptr_wrap\s+0/, 'Vec.empty must construct typed Empty storage');
 assert.match(vecCode, /fn\s+vec_alloc_empty\s+<\.T>\s+<\(i32\)->Result<Vec<\.T>,\s*StdErrorKind>>[\s\S]*le\s+requested_cap\s+0[\s\S]*vec_empty<\.T>[\s\S]*VecStorageState::Owned\s+data/, 'Vec empty construction must use Empty for zero capacity and Owned for allocated storage');
-assert.match(vecCode, /fn\s+vec_free_storage\s+<\.T>[\s\S]*match\s+storage:[\s\S]*VecStorageState::Empty:[\s\S]*\(\)[\s\S]*VecStorageState::Owned:[\s\S]*dealloc_raw\s+mem_ptr_addr\s+data\s+mul\s+cap\s+size_of<\.T>/, 'Vec.free must deallocate through exhaustive VecStorageState matching');
+assert.match(vecCode, /fn\s+vec_free_storage\s+<\.T>[\s\S]*match\s+storage:[\s\S]*VecStorageState::Empty:[\s\S]*\(\)[\s\S]*VecStorageState::Owned:[\s\S]*match\s+dealloc_ptr<\.T>\s+data\s+mul\s+cap\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*\(\)[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'Vec.free must deallocate through exhaustive VecStorageState matching and typed owner-consuming cleanup');
 assert.match(withCapacitySection, /vec_alloc_empty<\.T>\s+cap/, 'Vec.with_capacity must delegate empty storage allocation to vec_alloc_empty');
 assert.doesNotMatch(vecCode, /(?:->|Result<)\.Pair\b|Tuple:/, 'Vec must not return owner-carrying Vec pairs through anonymous .Pair/Tuple values');
 assert.match(vecCode, /struct\s+VecPop<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Vec.pop result must be a named struct with an owned Vec field');
@@ -297,7 +300,7 @@ assert.match(popSection, /fn\s+pop\s+<\.T>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, 'Vec.
 assert.match(clearSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"/, 'Vec.clear must explicitly move the data owner into the returned Vec with its storage state');
 assert.match(freeSection, /let\s+v_storage\s+<VecStorageState>\s+\*field::get_ref\s+&v\s+"storage"[\s\S]*let\s+v_data\s+<MemPtr<\.T>>\s+field::get\s+v\s+"data"[\s\S]*vec_free_storage<\.T>\s+v_storage\s+v_data\s+v_cap/, 'Vec.free must explicitly move data before freeing through VecStorageState');
 assert.match(mapSection, /let\s+out_storage\s+<VecStorageState>\s+\*field::get_ref\s+&out0\s+"storage"[\s\S]*let\s+out_data\s+<MemPtr<\.U>>\s+field::get\s+out0\s+"data"/, 'Vec.map must explicitly move the output data owner from the allocated Vec into the returned Vec');
-assert.match(vecCode, /fn\s+push\s+<\.T>\s+<\(Vec<\.T>,\.T\)->Result<Vec<\.T>,\s*StdErrorKind>>\s+\(v,\s*item\):[\s\S]*match\s+realloc_ptr<\.T>\s+v_data\s+old_bytes\s+new_bytes:[\s\S]*Result::Err\s+_e:[\s\S]*dealloc_raw\s+mem_ptr_addr\s+v_data\s+old_bytes[\s\S]*Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::OutOfMemory/, 'Vec.push must release the consumed old buffer when grow fails');
+assert.match(vecCode, /fn\s+push\s+<\.T>\s+<\(Vec<\.T>,\.T\)->Result<Vec<\.T>,\s*StdErrorKind>>\s+\(v,\s*item\):[\s\S]*match\s+realloc_ptr<\.T>\s+v_data\s+old_bytes\s+new_bytes:[\s\S]*Result::Err\s+_e:[\s\S]*match\s+dealloc_ptr<\.T>\s+v_data\s+old_bytes:[\s\S]*Result::Ok\s+_:[\s\S]*\(\)[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"[\s\S]*Result::Err<Vec<\.T>,\s*StdErrorKind>\s+StdErrorKind::OutOfMemory/, 'Vec.push must release the consumed old buffer through typed owner cleanup when grow fails');
 assert.match(vecCode, /Result::Err\s+e:[\s\S]*vec_cleanup::free<\.T>\s+left0[\s\S]*vec_cleanup::free<\.T>\s+v[\s\S]*Result::Err<VecPartition<\.T>,\s*StdErrorKind>\s+e/, 'Vec.partition right allocation failure must free whole Vec owners instead of splitting storage fields at the call site');
 assert.doesNotMatch(vecTransformFilterCode, /\bleft0_(?:cap|storage|data)\b/, 'Vec.partition must not reintroduce left0 storage field splitting for cleanup');
 assert.match(vecCode, /fn\s+partition\s+<\.T:\s*Copy>\s+<\(Vec<\.T>,\s*\(\.T\)->bool\)->Result<VecPartition<\.T>,\s*StdErrorKind>>/, 'Vec.partition must return named VecPartition and require Copy elements for safe predicate scans');
@@ -330,7 +333,19 @@ assert.doesNotMatch(sortMergeRootCode, /\b(?:fn|struct|enum|trait)\s+\w+\b/, 'so
 assert.match(sortMergeBufferCode, /fn\s+sort_buf_get\s+<\.T>/, 'sort/merge/buffer.nepl must own scratch buffer loads');
 assert.match(sortMergeBufferCode, /fn\s+sort_buf_set\s+<\.T>/, 'sort/merge/buffer.nepl must own scratch buffer stores');
 assert.match(sortMergeRangeCode, /fn\s+sort_merge_range_data\s+<\.T:\s+Ord>[\s\S]*sort_buf_set<\.T>[\s\S]*sort_buf_get<\.T>/, 'sort/merge/range.nepl must own range traversal and delegate scratch access');
-assert.match(sortMergeApiCode, /fn\s+sort_merge\s+<\.T:\s+Ord>[\s\S]*dealloc_raw\s+mem_ptr_addr\s+buf\s+mul\s+n\s+size_of<\.T>[\s\S]*Result<\(\),\s*StdErrorKind>::Ok\s+\(\)/, 'sort_merge must release scratch buffer with raw owner cleanup');
-assert.match(sortMergeApiCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord>[\s\S]*let\s+storage\s+<VecStorageState>\s+get\s+v\s+"storage"[\s\S]*let\s+data_ptr\s+<MemPtr<\.T>>\s+get\s+v\s+"data"[\s\S]*dealloc_raw\s+mem_ptr_addr\s+buf\s+mul\s+n\s+size_of<\.T>[\s\S]*Result<Vec<\.T>,\s*StdErrorKind>::Ok\s+Vec<\.T>\s+n\s+cap\s+storage\s+data_ptr/, 'sort_merge_ret must release scratch buffer and return the original Vec storage state and data owner');
+assert.match(sortMergeApiCode, /fn\s+sort_merge\s+<\.T:\s+Ord>[\s\S]*match\s+dealloc_ptr<\.T>\s+buf\s+mul\s+n\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*Result<\(\),\s*StdErrorKind>::Ok\s+\(\)[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'sort_merge must release scratch buffer with typed owner cleanup');
+assert.match(sortMergeApiCode, /fn\s+sort_merge_ret\s+<\.T:\s+Ord>[\s\S]*let\s+storage\s+<VecStorageState>\s+get\s+v\s+"storage"[\s\S]*let\s+data_ptr\s+<MemPtr<\.T>>\s+get\s+v\s+"data"[\s\S]*match\s+dealloc_ptr<\.T>\s+buf\s+mul\s+n\s+size_of<\.T>:[\s\S]*Result::Ok\s+_:[\s\S]*Result<Vec<\.T>,\s*StdErrorKind>::Ok\s+Vec<\.T>\s+n\s+cap\s+storage\s+data_ptr[\s\S]*Result::Err\s+_:[\s\S]*#intrinsic\s+"unreachable"/, 'sort_merge_ret must release scratch buffer with typed owner cleanup and return the original Vec storage state and data owner');
 
 console.log('vec unsafe unwrap regression passed');
+
+function unexpectedUnreachableLines(code) {
+    const lines = code.split(/\r?\n/);
+    const unexpected = [];
+    for (let i = 0; i < lines.length; i += 1) {
+        if (!/#intrinsic\s+"unreachable"/.test(lines[i])) continue;
+        const window = lines.slice(Math.max(0, i - 5), i + 1).join('\n');
+        if (/\bmatch\s+dealloc_ptr<[^>]+>\s+[^\n]+:[\s\S]*\bResult::Err\s+_:/.test(window)) continue;
+        unexpected.push(`${i + 1}: ${lines[i].trim()}`);
+    }
+    return unexpected;
+}

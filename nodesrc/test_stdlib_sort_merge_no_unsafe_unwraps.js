@@ -32,7 +32,6 @@ const forbidden = [
     /\bunwrap_err\b/,
     /\buwok\b/,
     /\buwerr\b/,
-    /#intrinsic\s+"unreachable"/,
 ];
 
 for (const name of ['sort_merge', 'sort_merge_ret']) {
@@ -40,6 +39,11 @@ for (const name of ['sort_merge', 'sort_merge_ret']) {
     for (const pattern of forbidden) {
         assert.doesNotMatch(code, pattern, `${name} must propagate errors without ${pattern}`);
     }
+    assert.deepEqual(
+        unexpectedUnreachableLines(code),
+        [],
+        `${name} may only use unreachable for typed dealloc_ptr owner-cleanup invariants`,
+    );
 }
 
 assert.doesNotMatch(facadeSrc, /\bfn\s+/, 'sort/merge facade must not keep implementation bodies');
@@ -58,4 +62,16 @@ function sourceWithoutComments(file) {
         .split(/\r?\n/)
         .filter((line) => !/^\s*\/\//.test(line))
         .join('\n');
+}
+
+function unexpectedUnreachableLines(code) {
+    const functionLines = code.split(/\r?\n/);
+    const unexpected = [];
+    for (let i = 0; i < functionLines.length; i += 1) {
+        if (!/#intrinsic\s+"unreachable"/.test(functionLines[i])) continue;
+        const window = functionLines.slice(Math.max(0, i - 5), i + 1).join('\n');
+        if (/\bmatch\s+dealloc_ptr<[^>]+>\s+[^\n]+:[\s\S]*\bResult::Err\s+_:/.test(window)) continue;
+        unexpected.push(`${i + 1}: ${functionLines[i].trim()}`);
+    }
+    return unexpected;
 }

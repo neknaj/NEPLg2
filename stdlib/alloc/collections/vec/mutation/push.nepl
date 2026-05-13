@@ -5,7 +5,7 @@
 //: - `push` の allocation / reallocation と owner transfer をこの module に[閉/と]じます。
 //:
 //: ### [注意/ちゅうい]
-//: - この module は direct `alloc_ptr` / `realloc_ptr` / `dealloc_raw` を[使/つか]うため exact raw-memory boundary です。
+//: - この module は typed `alloc_ptr` / `realloc_ptr` / `dealloc_ptr` を[使/つか]い、raw address を free owner として[扱/あつか]いません。
 
 #indent 4
 
@@ -87,7 +87,11 @@ pub fn push <.T> <(Vec<.T>,.T)->Result<Vec<.T>, StdErrorKind>> (v, item):
                             vec_raw::vec_write_at<.T> grown_data v_len item
                             Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> next_len grown_cap VecStorageState::Owned grown_data
                         Result::Err _e:
-                            dealloc_raw mem_ptr_addr v_data old_bytes
+                            match dealloc_ptr<.T> v_data old_bytes:
+                                Result::Ok _:
+                                    ()
+                                Result::Err _:
+                                    #intrinsic "unreachable" <> ()
                             Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
         else:
             match v_storage:

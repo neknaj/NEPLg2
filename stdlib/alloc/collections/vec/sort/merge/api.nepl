@@ -5,13 +5,11 @@
 //: - allocation failure は `StdErrorKind::OutOfMemory` として返します。
 //:
 //: [注意/ちゅうい]:
-//: - scratch buffer は `dealloc_raw` で解放し、Vec 本体の owner state は caller へ戻します。
+//: - scratch buffer は typed `dealloc_ptr` で解放し、Vec 本体の owner state は caller へ戻します。
 
 #indent 4
 
 #import "core/mem" as *
-#import "core/mem/internal" as *
-#import "core/mem/allocator" as *
 #import "core/math" as *
 #import "core/result" as *
 #import "core/traits/ord" as *
@@ -50,7 +48,7 @@
 //: ```
 //:
 //: ### [実装/じっそう]
-//: - `Vec` の `data` を raw address へ下ろし、`.T` 配列 1 本分の作業 buffer を `alloc_ptr<.T>` で確保して `sort_merge_range_data` を呼びます。
+//: - `Vec` の `data` view と `.T` 配列 1 本分の作業 buffer を使い、buffer owner は `alloc_ptr<.T>` / `dealloc_ptr<.T>` で閉じます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - 時間計算量は O(n log n)、追加空間計算量は O(n) です。
@@ -66,8 +64,11 @@ pub fn sort_merge <.T: Ord> <(&Vec<.T>)*>Result<(), StdErrorKind>> (v):
                     Result<(), StdErrorKind>::Err StdErrorKind::OutOfMemory
                 Result::Ok buf:
                     sort_merge_range_data<.T> data_ptr buf 0 n;
-                    dealloc_raw mem_ptr_addr buf mul n size_of<.T>
-                    Result<(), StdErrorKind>::Ok ()
+                    match dealloc_ptr<.T> buf mul n size_of<.T>:
+                        Result::Ok _:
+                            Result<(), StdErrorKind>::Ok ()
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ()
 
 //: ## sort_merge_ret
 //: merge sort 後の Vec を Result で返す
@@ -95,5 +96,8 @@ pub fn sort_merge_ret <.T: Ord> <(Vec<.T>)*>Result<Vec<.T>, StdErrorKind>> (v):
                     Result<Vec<.T>, StdErrorKind>::Err StdErrorKind::OutOfMemory
                 Result::Ok buf:
                     sort_merge_range_data<.T> data_ptr buf 0 n;
-                    dealloc_raw mem_ptr_addr buf mul n size_of<.T>
-                    Result<Vec<.T>, StdErrorKind>::Ok Vec<.T> n cap storage data_ptr
+                    match dealloc_ptr<.T> buf mul n size_of<.T>:
+                        Result::Ok _:
+                            Result<Vec<.T>, StdErrorKind>::Ok Vec<.T> n cap storage data_ptr
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ()

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T08:55:49.580Z",
+  "generated_at": "2026-05-13T09:16:49.778Z",
   "counts": {
-    "total": 704,
+    "total": 705,
     "open": 5,
-    "resolved": 699,
+    "resolved": 700,
     "by_area": {
       "stdlib": {
-        "total": 172,
+        "total": 173,
         "open": 3,
-        "resolved": 169
+        "resolved": 170
       },
       "TEST": {
         "total": 18,
@@ -8163,6 +8163,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T082754555Z-VEC-AND-STRING-SUBMODULE-DOCTESTS-RE-E80ED44C.md"
+    },
+    {
+      "id": "ISS-20260513T090733651Z-VEC-STORAGE-CLEANUP-DEALLOCATES-THRO-4A132C97",
+      "title": "Vec storage cleanup deallocates through raw address and loses owner obligation",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/alloc/collections/vec/storage/cleanup.nepl, stdlib/alloc/collections/vec/mutation/push.nepl, stdlib/alloc/collections/vec/sort/merge/api.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T090733651Z-VEC-STORAGE-CLEANUP-DEALLOCATES-THRO-4A132C97.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
