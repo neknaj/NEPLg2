@@ -1,3 +1,15 @@
+# 2026-05-13 Agent 1 stdio ResourceIR owner regression issue 再オープン
+
+- `ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4` を再オープンした。
+- `cargo test -p nepl-core --test functions function_purity_check_impure_calls_pure -- --nocapture` が、clean main (`275e9bdb`) と import visibility commit 後の main (`941a5249`) の両方で `stdio_write_fd_mem_result` の Resource IR owner diagnostics により失敗することを確認した。
+- 診断は `iov` / `nwritten` scratch の `resource.owner.no_free_obligation` と `resource.owner.maybe_leak` であり、import visibility 変更由来ではない。
+- 方針:
+  - owner checker を弱めず、`alloc_ptr` から `MemPtr` wrapper / raw address temporary / cleanup path へ free obligation が保存されるかを調査する。
+  - 必要なら `stdlib/std/stdio/write/fd.nepl` の scratch cleanup shape を再設計する。
+  - Resource IR owner obligation / MaybeLeak 診断を握りつぶす暫定対応は禁止。
+- plan.md との差分:
+  - `plan.md` は変更していない。静的検査大規模修正の Resource IR owner authority 継続課題として issue 管理に反映した。
+
 # 2026-05-13 Agent 1 import visibility enforcement 実装
 
 - `ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573` を修正した。

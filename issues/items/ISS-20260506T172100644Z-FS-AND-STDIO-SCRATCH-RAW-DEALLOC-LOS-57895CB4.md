@@ -2,12 +2,12 @@
 id: ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4
 title: "fs and stdio scratch raw dealloc lose free obligation after dynamic range blocker"
 area: core
-status: fixed
-resolved: true
+status: open
+resolved: false
 priority: P1
 type: bug
 created: 2026-05-06
-updated: 2026-05-06
+updated: 2026-05-13
 target: "nepl-core/src/resource/owner_*.rs, stdlib/std/fs/*.nepl, stdlib/std/stdio/*.nepl, nepl-core/tests/kp.rs"
 ---
 
@@ -66,6 +66,21 @@ cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup -- --nocapture`: passed
 - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_reports_stale_owned_alias_dealloc_after_free -- --nocapture`: passed
 - `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`: passed
+
+## 2026-05-13 再オープン
+
+`cargo test -p nepl-core --test functions function_purity_check_impure_calls_pure -- --nocapture` が、clean main (`275e9bdb`) と import visibility commit 後の main (`941a5249`) の両方で `stdio_write_fd_mem_result__i32_MemPtr_T_u8_i32__Result_T_E_unit_StdErrorKind__imp` の Resource IR owner diagnostics により失敗した。
+
+現在の診断は、`iov` / `nwritten` scratch の `dealloc_raw` に対する `resource.owner.no_free_obligation` と、同じ scratch owner の `resource.owner.maybe_leak` が同時に出ている。2026-05-07 の修正で `kp` / focused Resource IR regression は通っていたが、`functions` 経由の compile pipeline では scratch owner の free obligation がまだ exact dealloc temporary へ接続されていない経路が残っている。
+
+この issue は再オープンし、Resource IR owner checker を弱めずに、`alloc_ptr` で確保された private scratch owner が `MemPtr` wrapper、raw address temporary、loop/match return path を通っても同じ free obligation として追跡されるように根本原因を調査する。必要なら `stdlib/std/stdio/write/fd.nepl` の scratch cleanup shape を再設計するが、compiler 側の owner obligation / MaybeLeak 診断を握りつぶしてはならない。
+
+追加検証対象:
+
+- `cargo test -p nepl-core --test functions function_purity_check_impure_calls_pure -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup -- --nocapture`
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup -- --nocapture`
+- `cargo test -p nepl-core --test kp kpread_to_kpwrite_prefixsum_i32 -- --nocapture`
 
 ## 関連
 
