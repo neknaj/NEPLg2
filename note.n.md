@@ -37627,3 +37627,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused doctest で露出した compiler 側の根本問題も同じ issue で修正した。Resource owner checker は non-Copy `ResourceOp::Read` を owner move として扱うようにし、variant owner summary は同一 Result payload への fresh / parameter-derived owner 候補を `Maybe` へ正規化して、parameter 消費が握りつぶされないようにした。
 - `tests/stdlib/neplg2_lexer.n.md` の後半 fixture は `Option.unwrap` を使うのに `core/option` import が不足していたため、現在の明示 import 方針に合わせた。
 - 検証: Resource IR regression 2 件、`trunk build`、Vec push/pop doctest、self-host lexer 13/13、selfhost lexer source policy、MemPtr owner-field policy は pass。self-host lexer fixture は 13 件で約 243 秒かかるが、既知の lexer doctest compile cost の範囲で、今回の owner leak / undefined import は解消済み。
+
+## 2026-05-13 Agent 1 self-host lexer policy follow-up
+
+- `work/selfhost-lexer-policy-no-vec-data` で `ISS-20260513T225941983Z-SELF-HOST-STRING-HELPER-POLICY-STILL-CE0583E5` を追加して解決した。
+- self-host string helper policy が古い `lex_stack_drop_top` 実装を正として扱い、`Vec.data` raw storage field の直接 read と手動 `Vec` 再構成を要求していたため、Stage 6 の memory-safety 方針と矛盾していた。
+- policy を `drop_last<i32>` public owner API の使用要求に切り替え、direct `field::get/get stack "data"` を拒否する negative assertion を追加した。
+- `node nodesrc/test_selfhost_string_helpers_boundary.js`、`node nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`node nodesrc/run_source_policy_regressions.js --warn-only` は今回対象を含めて完走したが、別件として `owner_summary_variant_return.rs has 301 lines; responsibility split limit is 280` warning が残る。

@@ -111,8 +111,14 @@ assert.doesNotMatch(
 
 assert.match(
     lexerSrc,
-    /fn\s+lex_stack_drop_top[\s\S]*let\s+stack_storage\s+<VecStorageState>[\s\S]*let\s+stack_data\s+<MemPtr<i32>>\s+field::get\s+stack\s+"data"[\s\S]*Vec<i32>\s+sub\s+stack_len\s+1\s+stack_cap\s+stack_storage\s+stack_data/,
-    'lex_stack_drop_top must preserve Vec storage state and move the data owner into the returned Vec',
+    /fn\s+lex_stack_drop_top\s+<\(Vec<i32>\)->Vec<i32>>\s+\(stack\):\s*[\r\n]+\s*drop_last<i32>\s+stack\b/,
+    'lex_stack_drop_top must drop the indent stack top through the public Vec owner API',
+);
+
+assert.doesNotMatch(
+    lexerSrc,
+    /\b(?:field::get|get)\s+stack\s+"data"\b/,
+    'lex_stack_drop_top must not depend on the transitional Vec.data storage field',
 );
 
 assert.doesNotMatch(
