@@ -37169,3 +37169,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の部分対応として、RingBuffer doctest 4 件を `ret: 1` 依存から `stdout:` + `exit_code:` へ移行した。
 - `stdlib/tests/ringbuffer.n.md` と `tests/stdlib/ringbuffer_collections.n.md` は `std/test` の canonical `test_report_*` API を使い、push / len / peek / pop / pop_front / grow / clear を stdout report に固定する。
 - aggregate `nodesrc\tests.js` 実行は total=4, passed=4。issue は他 fixture の移行と stdout report 省略検出 policy が残るため open のまま継続する。
+
+## 2026-05-13 Agent 1 region_ptr_at alignment proof
+
+- `work/stage6-raw-api-boundary-audit` で `ISS-20260513T100047236Z-REGION-PTR-AT-RETURNS-TYPED-MEMPTR-W-39BD1C91` を追加して解決した。
+- `region_ptr_at` は `RegionToken` の byte bounds だけでなく、`align_of<U>` による実 address `base + off` の alignment も検査してから `MemPtr<U>` を返すようにした。
+- 旧コメントの「alignment は呼び出し側で検査する」方針を削除し、typed pointer projection の safety proof を owner boundary 内で閉じる契約に更新した。
+- `tests/stdlib/memory_safety.n.md` と `stdlib/core/mem/pointer/region.nepl` の doctest に unaligned `RegionToken<u8>` -> `MemPtr<i32>` projection が `Err` になる regression を追加し、`nodesrc/test_stdlib_core_mem_boundary.js` で source policy 化した。

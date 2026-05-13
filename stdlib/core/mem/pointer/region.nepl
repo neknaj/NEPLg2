@@ -41,11 +41,12 @@
 //:
 //: 実装(アルゴリズム):
 //: - `.U` の `size_of` を使って `off..off+size_of<U>` が region size に収まるかを確認します。
-//: - 範囲内であれば base pointer の raw view に offset を加え、`MemPtr<U>` として包みます。
+//: - `.U` の `align_of` を使って `base + off` が typed pointer projection として正しく整列しているかを確認します。
+//: - 範囲内かつ整列済みであれば base pointer の raw view に offset を加え、`MemPtr<U>` として包みます。
 //:
 //: 注意(重要):
 //: - 返される `MemPtr<U>` は free obligation owner ではありません。
-//: - alignment は現時点では検査しません。alignment を要求する API は別途 typed wrapper 側で検査します。
+//: - bounds と alignment はこの owner boundary で検査します。呼び出し側に typed pointer safety の証明を押し出しません。
 //:
 //: 計算量:
 //: - O(1)
@@ -75,9 +76,35 @@
 //:         Result::Err _:
 //:             0
 //: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<u8> 8:
+//:         Result::Ok region:
+//:             let ok <bool> match region_ptr_at<u8, i32> &region 1:
+//:                 Result::Ok _ptr:
+//:                     false
+//:                 Result::Err _:
+//:                     true
+//:             match dealloc_region<u8> region:
+//:                 Result::Ok _:
+//:                     if ok 1 0
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
 pub fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (token, off):
     let bytes <i32> size_of<.U>
+    let align <i32> align_of<.U>
     let total <i32> *region_token_size_ref token
+    let base_raw <i32> mem_ptr_addr *region_token_ptr_ref token
+    let addr <i32> add base_raw off
     if:
         if:
             or lt off 0 lt bytes 0
@@ -85,12 +112,13 @@ pub fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (
                 false
             else:
                 let end <i32> add off bytes
-                and le end total ge end off
+                let in_bounds <bool> and and le end total ge end off ge addr base_raw
+                let aligned <bool> if le align 1 true eq rem_s addr align 0
+                and in_bounds aligned
         then:
-            let base_raw <i32> mem_ptr_addr *region_token_ptr_ref token
-            Result<MemPtr<.U>,str>::Ok mem_ptr_wrap add base_raw off
+            Result<MemPtr<.U>,str>::Ok mem_ptr_wrap addr
         else:
-            Result<MemPtr<.U>,str>::Err "mem.region_ptr_at out of bounds"
+            Result<MemPtr<.U>,str>::Err "mem.region_ptr_at out of bounds or unaligned"
 
 //: alloc_region_bytes: byte 数を指定して RegionToken を確保する
 //:

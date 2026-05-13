@@ -221,6 +221,36 @@ fn main <()*>i32> ():
                     ok
 ```
 
+## region_ptr_at は型付き projection の alignment を検査する
+
+neplg2:test
+ret: 1
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_region<u8> 8:
+        Result::Err _e:
+            0
+        Result::Ok token:
+            let out <Result<MemPtr<i32>,str>> region_ptr_at<u8,i32> &token 1
+            let ok <i32> match out:
+                Result::Err _e:
+                    1
+                Result::Ok _:
+                    0
+            match dealloc_region token:
+                Result::Err _e:
+                    0
+                Result::Ok _:
+                    ok
+```
+
 ## MemPtr fill_i32/fill_u8 の安全オーバーロード
 
 neplg2:test

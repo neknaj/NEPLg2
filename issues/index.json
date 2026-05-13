@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T09:54:32.108Z",
+  "generated_at": "2026-05-13T10:06:45.163Z",
   "counts": {
-    "total": 707,
+    "total": 708,
     "open": 5,
-    "resolved": 702,
+    "resolved": 703,
     "by_area": {
       "stdlib": {
-        "total": 174,
+        "total": 175,
         "open": 3,
-        "resolved": 171
+        "resolved": 172
       },
       "TEST": {
         "total": 18,
@@ -573,6 +573,21 @@
       "legacy_id": "RV-STDLIB-023",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-023",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-023-881F9E8A.md"
+    },
+    {
+      "id": "ISS-20260513T100047236Z-REGION-PTR-AT-RETURNS-TYPED-MEMPTR-W-39BD1C91",
+      "title": "region_ptr_at returns typed MemPtr without alignment proof",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/core/mem/pointer/region.nepl, tests/stdlib/memory_safety.n.md, nodesrc/test_stdlib_core_mem_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T100047236Z-REGION-PTR-AT-RETURNS-TYPED-MEMPTR-W-39BD1C91.md"
     },
     {
       "id": "ISS-20260430T015534910Z-SOURCE-POLICY-REGRESSIONS-BLOCK-DOWN-33545524",

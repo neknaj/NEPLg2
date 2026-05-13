@@ -86,6 +86,9 @@ assertNoMatch(pointer, /^\s*#(?:wasm|llvmir|intrinsic)\b/m, "mem/pointer facade 
 assertMatch(pointerAlloc, /pub\s+fn\s+alloc_ptr\b/, "mem/pointer/alloc must own MemPtr allocation wrapper");
 assertMatch(pointerAlloc, /pub\s+fn\s+dealloc_ptr\b/, "mem/pointer/alloc must own MemPtr deallocation wrapper");
 assertMatch(pointerRegion, /pub\s+fn\s+region_ptr_at\b/, "mem/pointer/region must own checked region projection");
+assertMatch(pointerRegion, /\balign_of<\.U>/, "region_ptr_at must prove target type alignment");
+assertMatch(pointerRegion, /\brem_s\s+addr\s+align\s+0\b/, "region_ptr_at must reject unaligned typed addresses");
+assertNoMatch(pointerRegion, /alignment は現時点では検査しません/, "region_ptr_at must not delegate alignment proof to callers");
 assertMatch(pointerBulk, /pub\s+fn\s+mem_copy\b/, "mem/pointer/bulk must own checked bulk copy wrapper");
 assertMatch(pointerScalar, /pub\s+fn\s+load_i32\b/, "mem/pointer/scalar must own checked scalar load wrapper");
 
