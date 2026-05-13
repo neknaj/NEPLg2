@@ -12,6 +12,7 @@
 #import "core/mem" as *
 #import "core/math" as *
 #import "core/result" as *
+#import "core/traits/copy" as *
 #import "../types" as *
 #import "./view" as view
 
@@ -22,7 +23,10 @@
 //: - `cap > 0` の[空/から] `Vec` に対して、`VecStorageState::Owned` の backing storage を[確保/かくほ]します。
 //:
 //: ### [実装/じっそう]
-pub fn vec_alloc_empty <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_cap):
+//:
+//: ### [注意/ちゅうい]
+//: - [現行/げんこう]の `Vec` allocation constructor は `.T: Copy` に[限定/げんてい]します。non-Copy payload 用の drop traversal / owner-preserving cleanup がない[状態/じょうたい]で backing storage を[確保/かくほ]すると、解放できない owner を[作/つく]るためです。
+pub fn vec_alloc_empty <.T: Copy> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_cap):
     if:
         le requested_cap 0
         then:
@@ -48,6 +52,7 @@ pub fn vec_alloc_empty <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_ca
 //: - [初期/しょき][容量/ようりょう]は[固定値/こていち] 8 です。
 //: - `cap < 0` は[不正/ふせい]な[容量/ようりょう]として `StdErrorKind::InvalidOperation` を[返/かえ]します。
 //: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]は `Result::Err StdErrorKind::OutOfMemory` を[返/かえ]します。
+//: - `.T: Copy` 専用です。non-Copy payload collection は `OwnedBuffer<T>` と element drop/free obligation が[設計/せっけい]されるまで[確保/かくほ]できません。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1)、[追加/ついか]の[空間/くうかん][計算量/けいさんりょう]も O(1) です。
@@ -67,7 +72,21 @@ pub fn vec_alloc_empty <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_ca
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-pub fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.trait_bound.unsatisfied
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//: struct NonCopyPayload:
+//:     value <i32>
+//: fn main <()*>i32> ():
+//:     let _v <Vec<NonCopyPayload>> unwrap_ok new<NonCopyPayload>;
+//:     0
+//: ```
+pub fn new <.T: Copy> <()->Result<Vec<.T>, StdErrorKind>> ():
     vec_alloc_empty<.T> 8
 
 //: ## with_capacity
@@ -83,6 +102,7 @@ pub fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
 //: ### [注意/ちゅうい]
 //: - `cap = 0` でも[動作/どうさ]し、`cap` observer は 0 を[返/かえ]します。
 //: - [確保/かくほ][失敗/しっぱい]した[場合/ばあい]は `Result::Err StdErrorKind::OutOfMemory` を[返/かえ]します。
+//: - `.T: Copy` 専用です。non-Copy payload の[容量/ようりょう][予約/よやく]は、drop traversal と failure cleanup を表す型が[入/はい]ってから[追加/ついか]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
@@ -102,7 +122,21 @@ pub fn new <.T> <()->Result<Vec<.T>, StdErrorKind>> ():
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-pub fn with_capacity <.T> <(i32)->Result<Vec<.T>, StdErrorKind>> (cap):
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.trait_bound.unsatisfied
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//: struct NonCopyPayload:
+//:     value <i32>
+//: fn main <()*>i32> ():
+//:     let _v <Vec<NonCopyPayload>> unwrap_ok with_capacity<NonCopyPayload> 4;
+//:     0
+//: ```
+pub fn with_capacity <.T: Copy> <(i32)->Result<Vec<.T>, StdErrorKind>> (cap):
     if:
         lt cap 0
         then:

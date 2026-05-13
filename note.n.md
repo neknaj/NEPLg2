@@ -1,3 +1,17 @@
+# 2026-05-13 Agent 1 Vec allocation constructor Copy-only boundary 修正
+
+- `ISS-20260513T115230954Z-VEC-ALLOCATION-CONSTRUCTORS-ACCEPT-N-DD72E501` を追加して解決した。
+- 根本原因は、`Vec.new<T>` / `Vec.with_capacity<T>` / `vec_alloc_empty<T>` が non-Copy payload の backing storage を確保できる一方で、現行 `Vec` の cleanup/drop traversal は Copy-only であり、non-Copy storage owner を安全に閉じる API と Resource IR state が存在しないこと。
+- allocation/free obligation を発生させる constructor を `.T: Copy` に限定した。zero-allocation `vec_empty<T>` は owner を作らないため維持した。
+- `Vec<NonCopyPayload>` の `new` / `with_capacity` が `type.trait_bound.unsatisfied` で拒否される compile-fail doctest と nodesrc source policy を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/storage/alloc.nepl --no-tree -o tmp/agent1-vec-allocation-copy-bound-alloc.json -j 1 --dist web/dist`: total=4, passed=4
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec --no-tree -o tmp/agent1-vec-allocation-copy-bound-vec.json -j 4 --dist web/dist`: total=39, passed=39
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` の Stage D に沿い、`OwnedBuffer<T>` が入る前に non-Copy storage allocation owner を作る入口を閉じるもの。
+
 # 2026-05-13 Agent 1 Vec raw element Copy-only boundary 修正
 
 - `ISS-20260513T114521417Z-VEC-RAW-ELEMENT-HELPERS-ACCEPT-NON-C-EDB37D42` を追加して解決した。

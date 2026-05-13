@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T11:49:08.078Z",
+  "generated_at": "2026-05-13T11:55:49.863Z",
   "counts": {
-    "total": 714,
+    "total": 715,
     "open": 5,
-    "resolved": 709,
+    "resolved": 710,
     "by_area": {
       "stdlib": {
-        "total": 180,
+        "total": 181,
         "open": 3,
-        "resolved": 177
+        "resolved": 178
       },
       "TEST": {
         "total": 18,
@@ -8313,6 +8313,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T114521417Z-VEC-RAW-ELEMENT-HELPERS-ACCEPT-NON-C-EDB37D42.md"
+    },
+    {
+      "id": "ISS-20260513T115230954Z-VEC-ALLOCATION-CONSTRUCTORS-ACCEPT-N-DD72E501",
+      "title": "Vec allocation constructors accept non-Copy payloads without cleanup contract",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/alloc/collections/vec/storage/alloc.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T115230954Z-VEC-ALLOCATION-CONSTRUCTORS-ACCEPT-N-DD72E501.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
