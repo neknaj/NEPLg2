@@ -12,8 +12,9 @@
 - grow
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"vec_free_zero_and_grow_reallocates\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"empty vec is empty\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"empty vec cap\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"grown vec len\" expected=\"10\" actual=\"10\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"reallocated vec stores item\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -24,12 +25,12 @@ ret: 1
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let empty <Vec<i32>> unwrap_ok with_capacity<i32> 0;
     let empty_is_empty <bool> is_empty<i32> &empty;
-    let empty_cap_zero <bool> eq cap<i32> &empty 0;
-    let empty_ok <bool> and empty_is_empty empty_cap_zero;
+    let empty_cap <i32> cap<i32> &empty;
     free<i32> empty;
     let mut grown <Vec<i32>> unwrap_ok new<i32>;
     set grown unwrap_ok push<i32> grown 0;
@@ -42,7 +43,7 @@ fn main <()*>i32> ():
     set grown unwrap_ok push<i32> grown 7;
     set grown unwrap_ok push<i32> grown 8;
     set grown unwrap_ok push<i32> grown 9;
-    let grown_ok <bool> eq len<i32> &grown 10;
+    let grown_len <i32> len<i32> &grown;
     free<i32> grown;
     let mut next <Vec<i32>> unwrap_ok new<i32>;
     set next unwrap_ok push<i32> next 42;
@@ -52,8 +53,14 @@ fn main <()*>i32> ():
         Option::None:
             false
     free<i32> next;
-    let post_ok <bool> and grown_ok top_ok;
-    if and empty_ok post_ok 1 0
+    let report:
+        test_report_new "vec_free_zero_and_grow_reallocates"
+        |> test_report_push assert "empty vec is empty" empty_is_empty
+        |> test_report_push assert_eq_i32 "empty vec cap" 0 empty_cap
+        |> test_report_push assert_eq_i32 "grown vec len" 10 grown_len
+        |> test_report_push assert "reallocated vec stores item" top_ok
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## vec_sort_merge_ret_releases_scratch_buffer
@@ -66,8 +73,9 @@ fn main <()*>i32> ():
 - scratch buffer cleanup
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"vec_sort_merge_ret_releases_scratch_buffer\" count=3 failed=0\nassertion index=0 status=ok kind=bool label=\"first item sorted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"last item sorted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"scratch cleanup permits allocation\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -79,6 +87,7 @@ ret: 1
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let unsorted <Vec<i32>>:
@@ -107,7 +116,13 @@ fn main <()*>i32> ():
         Option::None:
             false
     free<i32> next;
-    if and first_ok and last_ok next_ok 1 0
+    let report:
+        test_report_new "vec_sort_merge_ret_releases_scratch_buffer"
+        |> test_report_push assert "first item sorted" first_ok
+        |> test_report_push assert "last item sorted" last_ok
+        |> test_report_push assert "scratch cleanup permits allocation" next_ok
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## vec_negative_capacity_rejected
@@ -119,8 +134,9 @@ fn main <()*>i32> ():
 - `with_capacity`
 - `StdErrorKind::InvalidOperation`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"vec_negative_capacity_rejected\" count=1 failed=0\nassertion index=0 status=ok kind=str_eq label=\"negative capacity error\" expected=\"InvalidOperation\" actual=\"InvalidOperation\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -130,14 +146,19 @@ ret: 1
 #import "alloc/string" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let neg <i32> sub 0 1
-    match with_capacity<i32> neg:
+    let actual <str> match with_capacity<i32> neg:
         Result::Ok v:
             free<i32> v
-            0
+            "Ok"
         Result::Err e:
-            let name <str> std_error_kind_str e
-            if str_eq name "InvalidOperation" 1 0
+            std_error_kind_str e
+    let report:
+        test_report_new "vec_negative_capacity_rejected"
+        |> test_report_push assert_str_eq "negative capacity error" "InvalidOperation" actual
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

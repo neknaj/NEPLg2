@@ -1,3 +1,14 @@
+# 2026-05-13 Agent 1 Vec collections stdout report migration
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として、`tests/stdlib/vec_collections.n.md` の Vec focused doctest 3 件を stdout report 形式へ移行した。
+- 根本原因は、Vec collections doctest が `main` の `ret: 1` だけで zero-capacity storage / grow reallocation / sort scratch cleanup / invalid capacity rejection の成否を畳み込み、expected/actual を fixture に残していなかったこと。
+- 各 doctest は `std/test` の `TestReport` を生成し、`test_report_print_stdout` と `test_report_exit_code` で stdout の詳細報告と exit code を分離する形にした。
+- capacity / length / error kind は `assert_eq_i32` または `assert_str_eq` で expected / actual を stdout に固定した。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/agent1-vec-collections-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `.n.md` テストの exit code / stdout report 分離方針に沿い、Vec storage/grow/sort/capacity 境界の regression をより観測可能に固定するもの。
+
 # 2026-05-13 Agent 1 CountingBloomFilter stdout report migration
 
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として、`stdlib/tests/counting_bloom_filter.n.md` と `tests/stdlib/counting_bloom_filter_collections.n.md` の CountingBloomFilter focused doctest 5 件を stdout report 形式へ移行した。
