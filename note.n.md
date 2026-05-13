@@ -37678,3 +37678,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `is_empty` / `data_ptr` / `len` / `get` / `replace` / `u8` storage / functional helpers / partition / prefix helpers / count の観測結果を assertion label として stdout に固定した。
 - `unwrap_ok` / `uwok` を使う doctest に `core/result` の明示 import を追加し、helper 解決を暗黙の import に依存しない形にした。
 - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/agent1-vec-stdlib-report-tests.json -j 1 --assert-io --dist web/dist` は total=6, passed=6。
+
+## 2026-05-14 Agent 1 Option/Result stdout report doctest migration
+
+- `work/option-result-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `stdlib/tests/option.n.md` と `stdlib/tests/result.n.md` を更新した。
+- Option / Result の focused doctest を `ret: 0` と stdout 出力なしの `checks_exit_code` から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- `is_some` / `is_none` / `unwrap` / `unwrap_or` / `and_then` / shared reference copy / `unwrap_ok` / `unwrap_err` を assertion label として stdout に固定した。
+- `node nodesrc/tests.js -i stdlib/tests/option.n.md -i stdlib/tests/result.n.md --no-tree -o tmp/agent1-option-result-report-tests.json -j 1 --assert-io --dist web/dist` は total=2, passed=2。

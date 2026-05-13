@@ -2,8 +2,9 @@
 
 ## option_main
 
-neplg2:test
-ret: 0
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"option_main\" count=10 failed=0\nassertion index=0 status=ok kind=bool label=\"some is_some\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"some is not none\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"none is_none\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"none is not some\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"unwrap some\" expected=\"99\" actual=\"99\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"unwrap_or some\" expected=\"10\" actual=\"10\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"unwrap_or none\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"and_then some\" expected=\"12\" actual=\"12\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"and_then none\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=eq_i32 label=\"copy through shared reference\" expected=\"77\" actual=\"77\" message=\"\"\n"
 ```neplg2
 
 #entry main
@@ -21,31 +22,31 @@ fn positive_double <(i32)->Option<i32>> (x):
         else none<i32>
 
 fn main <()*>i32> ():
-    let mut checks checks_new
-    // Test is_some
-    set checks checks_push checks assert is_some<.i32> some<.i32> 42;
-    set checks checks_push checks assert_ne true is_none<.i32> some<.i32> 42;
-
-    // Test is_none
-    set checks checks_push checks assert is_none<.i32> none<.i32>;
-    set checks checks_push checks assert_ne true is_some<.i32> none<.i32>;
-
-    // Test unwrap on Some
-    set checks checks_push checks assert_eq_i32 99 unwrap<.i32> some<.i32> 99;
-
-    // Test unwrap_or with Some
-    set checks checks_push checks assert_eq_i32 10 unwrap_or<.i32> some<.i32> 10 5;
-
-    // Test unwrap_or with None
-    set checks checks_push checks assert_eq_i32 5 unwrap_or<.i32> none<.i32> 5;
-
-    // Test and_then with Some / None result
-    set checks checks_push checks assert_eq_i32 12 unwrap<.i32> and_then<i32,i32> some<i32> 6 positive_double;
-    set checks checks_push checks assert is_none<.i32> and_then<i32,i32> some<i32> -1 positive_double;
-
-    // Option<T: Copy> can be copied through a shared reference.
+    let some_is_some <bool> is_some<i32> some<i32> 42;
+    let some_is_none <bool> is_none<i32> some<i32> 42;
+    let none_is_none <bool> is_none<i32> none<i32>;
+    let none_is_some <bool> is_some<i32> none<i32>;
+    let unwrap_some <i32> unwrap<i32> some<i32> 99;
+    let unwrap_or_some <i32> unwrap_or<i32> some<i32> 10 5;
+    let unwrap_or_none <i32> unwrap_or<i32> none<i32> 5;
+    let and_then_some <i32> unwrap<i32> and_then<i32,i32> some<i32> 6 positive_double;
+    let and_then_none <bool> is_none<i32> and_then<i32,i32> some<i32> -1 positive_double;
     let original <Option<i32>> some<i32> 77
     let copied <Option<i32>> *&original
-    set checks checks_push checks assert_eq_i32 77 unwrap<i32> copied;
-    checks_exit_code checks
+    let copied_value <i32> unwrap<i32> copied;
+
+    let report:
+        test_report_new "option_main"
+        |> test_report_push assert "some is_some" some_is_some
+        |> test_report_push assert "some is not none" not some_is_none
+        |> test_report_push assert "none is_none" none_is_none
+        |> test_report_push assert "none is not some" not none_is_some
+        |> test_report_push assert_eq_i32 "unwrap some" 99 unwrap_some
+        |> test_report_push assert_eq_i32 "unwrap_or some" 10 unwrap_or_some
+        |> test_report_push assert_eq_i32 "unwrap_or none" 5 unwrap_or_none
+        |> test_report_push assert_eq_i32 "and_then some" 12 and_then_some
+        |> test_report_push assert "and_then none" and_then_none
+        |> test_report_push assert_eq_i32 "copy through shared reference" 77 copied_value
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

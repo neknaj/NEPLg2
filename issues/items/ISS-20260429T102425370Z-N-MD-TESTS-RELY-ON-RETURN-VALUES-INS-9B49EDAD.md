@@ -410,3 +410,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\vec.n.md --no-tree -o tmp\agent1-vec-stdlib-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
 
 この issue はまだ open のまま継続する。Vec 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Option/Result stdout report migration
+
+`stdlib/tests/option.n.md` と `stdlib/tests/result.n.md` の focused doctest 2 件を、`ret: 0` と stdout 出力なしの `checks_exit_code` から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `Option` の `is_some` / `is_none` / `unwrap` / `unwrap_or` / `and_then` / shared reference copy と、`Result` の `is_ok` / `is_err` / `unwrap_or` / `unwrap_ok` / `unwrap_err` / `and_then` を assertion label として stdout に残すようにした。
+- 旧 `checks_exit_code checks` だけで合否を返す書き方をやめ、`test_report_print_stdout` で成功時の assertion detail も fixture 化した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\option.n.md -i stdlib\tests\result.n.md --no-tree -o tmp\agent1-option-result-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
+
+この issue はまだ open のまま継続する。Option/Result 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
