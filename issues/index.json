@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T15:32:50.842Z",
+  "generated_at": "2026-05-13T15:36:09.801Z",
   "counts": {
-    "total": 726,
-    "open": 5,
+    "total": 727,
+    "open": 6,
     "resolved": 721,
     "by_area": {
+      "RESOURCE": {
+        "total": 2,
+        "open": 1,
+        "resolved": 1
+      },
       "stdlib": {
         "total": 183,
         "open": 3,
@@ -35,11 +40,6 @@
         "total": 2,
         "open": 0,
         "resolved": 2
-      },
-      "RESOURCE": {
-        "total": 1,
-        "open": 0,
-        "resolved": 1
       },
       "ci": {
         "total": 4,
@@ -114,6 +114,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260513T153534522Z-RESOURCE-BRANCH-RESULT-REGRESSIONS-S-63F812E4",
+      "title": "Resource branch result regressions still use stale raw cleanup assumptions",
+      "area": "RESOURCE",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T153534522Z-RESOURCE-BRANCH-RESULT-REGRESSIONS-S-63F812E4.md"
+    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",

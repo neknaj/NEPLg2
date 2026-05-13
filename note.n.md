@@ -1,3 +1,15 @@
+# 2026-05-14 Agent 1 branch Result regression 既存失敗 issue 追加
+
+- `ISS-20260513T153534522Z-RESOURCE-BRANCH-RESULT-REGRESSIONS-S-63F812E4` を追加した。
+- 根拠は、`cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_branch_result -- --nocapture` が今回の returned-owner materialization 修正後も失敗し、かつ branch 作成前の clean main でも同じ失敗だったこと。
+- 失敗している 2 件は branch/local `Result` owner return propagation を確認する意図のテストだが、error path で `dealloc_raw mem_ptr_addr out 3` を使っており、現在の `MemPtr = non-owning pointer projection` / typed owner cleanup 方針と衝突する可能性が高い。
+- 今回の `stdio_read_all` / `fs_read_fd_bytes` false positive 修正とは別問題として切り分け、次以降に test intent と memory model を照合して修正する。
+- 検証:
+  - `node nodesrc/issues.js index --dir issues`: total=727, open=6, resolved=721
+  - `node nodesrc/issues.js check --dir issues`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査レビュー中に見つかった既存 test/model 不整合を issue として追跡可能にするもの。
+
 # 2026-05-14 Agent 1 Resource variant owner return materialization 修正
 
 - `ISS-20260513T151511232Z-RESOURCE-OWNER-ALIAS-RESOLUTION-CAN--CB5B7B73` を解決した。
