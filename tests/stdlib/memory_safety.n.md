@@ -750,6 +750,7 @@ fn main <()->MemPtr<i32>> ():
 ## core/mem facade の load_i32 は raw address を受け取らない
 
 neplg2:test[compile_fail]
+diag_code: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4

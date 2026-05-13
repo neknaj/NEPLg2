@@ -8,7 +8,7 @@ priority: P1
 type: test
 created: 2026-05-12
 updated: 2026-05-13
-target: "tests/compiler/*.n.md, nodesrc/test_doctest_diag_code_metadata.js, doc/neplg2/compiler_diagnostics_redesign_plan.md"
+target: "tests/compiler/*.n.md, tests/stdlib/memory_safety.n.md, nodesrc/test_doctest_diag_code_metadata.js, doc/neplg2/compiler_diagnostics_redesign_plan.md"
 ---
 
 # ISS-20260512T205049685Z-COMPILE-FAIL-DOCTESTS-LACK-STABLE-DI-326AA82A: compile_fail doctests lack stable diagnostic code coverage
@@ -59,3 +59,14 @@ active doctest tree を `nodesrc/parser.js` の doctest parser で走査し、`c
 追加 issue:
 
 - [ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5](./ISS-20260512T210823136Z-COLLECTION-COMPILER-FIXTURES-FAIL-AF-70CD17C5.md): affected suite の既存失敗 2 件を collection API / layout fixture 問題として分離した。
+
+## 2026-05-13 memory_safety 追補
+
+`tests/stdlib/memory_safety.n.md` に追加された `core/mem facade の load_i32 は raw address を受け取らない` compile_fail doctest が `diag_code` を持たず、`nodesrc/test_doctest_diag_code_metadata.js` の active doctest coverage policy に検出された。
+
+実際の compiler 出力は `type.overload.no_match` と副次的な `type.return.mismatch` で、テストの主目的は公開 `core/mem` facade から raw address overload を呼べないことの確認であるため、安定 metadata は `diag_code: type.overload.no_match` として固定した。
+
+検証:
+
+- `node nodesrc/test_doctest_diag_code_metadata.js`
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-memory-safety-diag-code.json -j 1 --dist web/dist`

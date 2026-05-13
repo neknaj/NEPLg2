@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T06:32:51.020Z",
+  "generated_at": "2026-05-13T06:37:04.366Z",
   "counts": {
     "total": 703,
     "open": 5,
@@ -5534,7 +5534,7 @@
       "type": "test",
       "created": "2026-05-12",
       "updated": "2026-05-13",
-      "target": "tests/compiler/*.n.md, nodesrc/test_doctest_diag_code_metadata.js, doc/neplg2/compiler_diagnostics_redesign_plan.md",
+      "target": "tests/compiler/*.n.md, tests/stdlib/memory_safety.n.md, nodesrc/test_doctest_diag_code_metadata.js, doc/neplg2/compiler_diagnostics_redesign_plan.md",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T205049685Z-COMPILE-FAIL-DOCTESTS-LACK-STABLE-DI-326AA82A.md"
