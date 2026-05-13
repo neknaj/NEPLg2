@@ -37685,3 +37685,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - Option / Result の focused doctest を `ret: 0` と stdout 出力なしの `checks_exit_code` から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
 - `is_some` / `is_none` / `unwrap` / `unwrap_or` / `and_then` / shared reference copy / `unwrap_ok` / `unwrap_err` を assertion label として stdout に固定した。
 - `node nodesrc/tests.js -i stdlib/tests/option.n.md -i stdlib/tests/result.n.md --no-tree -o tmp/agent1-option-result-report-tests.json -j 1 --assert-io --dist web/dist` は total=2, passed=2。
+
+## 2026-05-14 Agent 1 Cast/Math stdout report doctest migration
+
+- `work/cast-math-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `stdlib/tests/cast.n.md` と `stdlib/tests/math.n.md` を更新した。
+- Cast / Math の focused doctest を `ret: 0` と stdout 期待なしの `checks_*` report から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- bool / i32 / u8 conversion と arithmetic / bit operation / comparison の観測結果を assertion label として stdout に固定した。
+- `cast.n.md` は bool の負条件に `not` を使うため、`core/math` の明示 import を追加した。
+- `node nodesrc/tests.js -i stdlib/tests/cast.n.md -i stdlib/tests/math.n.md --no-tree -o tmp/agent1-cast-math-report-tests.json -j 1 --assert-io --dist web/dist` は total=2, passed=2。

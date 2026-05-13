@@ -426,3 +426,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\option.n.md -i stdlib\tests\result.n.md --no-tree -o tmp\agent1-option-result-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
 
 この issue はまだ open のまま継続する。Option/Result 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Cast/Math stdout report migration
+
+`stdlib/tests/cast.n.md` と `stdlib/tests/math.n.md` の focused doctest 2 件を、`ret: 0` と stdout 期待なしの `checks_*` report から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `cast` の bool / i32 / u8 conversion と、`math` の arithmetic / bit operation / comparison を assertion label として stdout に残すようにした。
+- `cast.n.md` は bool の負条件を `not` で表すようになったため、`core/math` の明示 import を追加した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\cast.n.md -i stdlib\tests\math.n.md --no-tree -o tmp\agent1-cast-math-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
+
+この issue はまだ open のまま継続する。Cast/Math 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
