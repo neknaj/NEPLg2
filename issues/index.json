@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T01:21:28.163Z",
+  "generated_at": "2026-05-13T01:55:06.200Z",
   "counts": {
-    "total": 687,
+    "total": 689,
     "open": 8,
-    "resolved": 679,
+    "resolved": 681,
     "by_area": {
       "stdlib": {
         "total": 168,
@@ -67,9 +67,9 @@
         "resolved": 17
       },
       "nodesrc": {
-        "total": 6,
+        "total": 7,
         "open": 0,
-        "resolved": 6
+        "resolved": 7
       },
       "SELFHOST-DIAG": {
         "total": 1,
@@ -97,9 +97,9 @@
         "resolved": 2
       },
       "web": {
-        "total": 1,
+        "total": 2,
         "open": 0,
-        "resolved": 1
+        "resolved": 2
       },
       "tools": {
         "total": 1,
@@ -5825,6 +5825,21 @@
       "file": "items/ISS-20260429T053406066Z-NM-PARSER-DOC-POLICY-STILL-REQUIRES--F7604AA4.md"
     },
     {
+      "id": "ISS-20260513T012505145Z-SHA256-SOURCE-POLICY-MISSES-PUB-FUNC-D6FD3269",
+      "title": "source policy regressions miss pub declarations and typed cleanup invariants",
+      "area": "nodesrc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nodesrc/run_source_policy_regressions.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T012505145Z-SHA256-SOURCE-POLICY-MISSES-PUB-FUNC-D6FD3269.md"
+    },
+    {
       "id": "ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737",
       "title": "Resource owner_return module exceeds responsibility split limit after unknown callback fix",
       "area": "resource",
@@ -8283,6 +8298,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T025134838Z-WEB-DIST-TS-LANGUAGE-ANALYSIS-DROPS--D70C7D62.md"
+    },
+    {
+      "id": "ISS-20260513T012944397Z-NEPL-WEB-TOKEN-EXPORT-MISSES-EXTERN--187E6F29",
+      "title": "nepl-web token export misses extern visibility field",
+      "area": "web",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-web/src/lib.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T012944397Z-NEPL-WEB-TOKEN-EXPORT-MISSES-EXTERN--187E6F29.md"
     },
     {
       "id": "ISS-20260430T062912063Z-RESOURCE-CHECKER-RESPONSIBILITY-POLI-CC55287A",

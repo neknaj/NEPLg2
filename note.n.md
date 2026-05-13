@@ -37002,3 +37002,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - typed scratch cleanup の `dealloc_ptr` Err arm invariant だけを `unreachable` 許可対象とし、unsafe unwrap helper の一般利用は禁止し続けるようにした。
 - fs / stdio の private read buffer discard helper に doctest を追加し、Resource IR checker entrypoint を `owner_entry.rs` に分離して責務境界 policy の対象へ追加した。
 - `node nodesrc/run_source_policy_regressions.js` が最後まで通ることを確認した。
+
+## 2026-05-13 Agent 1 nepl-web DirExtern visibility token export
+
+- `34bd8c9a` push 後に remote main を pull し、`agent1-fix-web-dir-extern-vis` branch を作成した。
+- `ISS-20260513T012944397Z-NEPL-WEB-TOKEN-EXPORT-MISSES-EXTERN--187E6F29` を解決した。
+- `TokenKind::DirExtern` の `vis` field 追加に合わせ、web token export の pattern と detail string を更新した。
+- `cargo check --manifest-path nepl-web\Cargo.toml` と `trunk build` で web target が再構築できることを確認する。

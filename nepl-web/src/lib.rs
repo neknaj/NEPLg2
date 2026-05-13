@@ -438,12 +438,13 @@ fn token_extra(kind: &TokenKind) -> Option<String> {
         TokenKind::CharLiteral(v) => Some(v.to_string()),
         TokenKind::DirIndentWidth(v) => Some(v.to_string()),
         TokenKind::DirExtern {
+            vis,
             module,
             name,
             func,
             signature,
         } => Some(format!(
-            "module={module}, name={name}, func={func}, signature={signature}"
+            "vis={vis:?}, module={module}, name={name}, func={func}, signature={signature}"
         )),
         _ => None,
     }
