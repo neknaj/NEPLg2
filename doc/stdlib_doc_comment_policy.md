@@ -1,6 +1,8 @@
 # stdlib ドキュメントコメント整備方針
 
-最終更新: 2026-03-15
+最終更新: 2026-05-13
+
+> NEPLg2 現行 stdlib の具体的な書き方は [neplg2/stdlib_documentation_style_guide.md](./neplg2/stdlib_documentation_style_guide.md) を正とする。この文書は root 方針として残し、詳細な見出し、ルビ、計算量、doctest の責務分離、`kp` など performance layer の扱いは NEPLg2 style guide へ集約する。
 
 ## 1. 目的
 

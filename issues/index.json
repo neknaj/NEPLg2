@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T21:24:31.659Z",
+  "generated_at": "2026-05-13T21:30:31.234Z",
   "counts": {
-    "total": 734,
+    "total": 735,
     "open": 5,
-    "resolved": 729,
+    "resolved": 730,
     "by_area": {
       "stdlib": {
         "total": 183,
@@ -62,9 +62,9 @@
         "resolved": 2
       },
       "docs": {
-        "total": 3,
+        "total": 4,
         "open": 0,
-        "resolved": 3
+        "resolved": 4
       },
       "examples": {
         "total": 17,
@@ -5933,6 +5933,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260430T064747382Z-STATIC-CHECK-DESIGN-NEEDS-PASS-BY-PA-4ADB193A.md"
+    },
+    {
+      "id": "ISS-20260513T212824962Z-STDLIB-DOCUMENTATION-STYLE-GUIDE-NEE-DE6542E2",
+      "title": "stdlib documentation style guide needs updated audit policy",
+      "area": "docs",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "doc/neplg2/stdlib_documentation_style_guide.md, doc/neplg2/stdlib_documentation_contract_plan.md, doc/stdlib_doc_comment_policy.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T212824962Z-STDLIB-DOCUMENTATION-STYLE-GUIDE-NEE-DE6542E2.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

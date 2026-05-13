@@ -37581,3 +37581,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - policy は stdlib 全体の `struct` field を走査し、現在残る 8 個の `MemPtr` / `Option<MemPtr>` field だけを migration debt として固定する。これは安全性の allowlist ではなく、`OwnedRegion` / `OwnedBuffer` / typed scanner state への移行対象を増やさないための監視である。
 - stale exception も失敗にするため、将来 `OwnedBuffer` 化などで field が消えた場合は policy 側の transitional entry も削除される。
 - 新規 policy、Vec / builder / ByteBuf / streamio writer の関連 policy、aggregate source policy regression は pass した。
+
+## 2026-05-13 Agent 1 stdlib documentation style guide
+
+- `work/stdlib-doc-comment-style-guide` で `ISS-20260513T212824962Z-STDLIB-DOCUMENTATION-STYLE-GUIDE-NEE-DE6542E2` を追加して解決した。
+- `stdlib/kp/kpgraph.nepl` と既存の documentation contract / root policy を調査し、`doc/neplg2/stdlib_documentation_style_guide.md` を追加した。
+- style guide では、日本語の自然さ、nm ruby、見出し、計算機科学的な正確性、所有権/effect/raw memory/target/計算量の書き方、doctest と `tests/` の責務分離を整理した。
+- `kp` など performance layer の doc は、入力制約、計算量、raw boundary、cleanup、一般 stdlib へ昇格する時の修正点を明記する方針にした。
+- `doc/neplg2/stdlib_documentation_contract_plan.md` と `doc/stdlib_doc_comment_policy.md` から新 style guide へ接続した。

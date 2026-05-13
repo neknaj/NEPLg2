@@ -5,6 +5,7 @@
 関連 issue:
 
 - [ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841](../../issues/items/ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841.md)
+- [ISS-20260513T212824962Z-STDLIB-DOCUMENTATION-STYLE-GUIDE-NEE-DE6542E2](../../issues/items/ISS-20260513T212824962Z-STDLIB-DOCUMENTATION-STYLE-GUIDE-NEE-DE6542E2.md)
 
 ## 目的
 
@@ -13,6 +14,8 @@ NEPLg2 の stdlib は、コードだけでなく executable documentation も AP
 この文書は、`stdlib/core`、`stdlib/alloc`、`stdlib/std` の module / function / enum / struct / trait に対して、どの程度の documentation contract を必須にするか、現在の不足をどう測定し、どの順序でゼロへ近づけるかを定める。
 
 ## 契約
+
+具体的な書き方、見出し、ルビ、計算量、doctest の責務分離は [NEPLg2 stdlib documentation style guide](./stdlib_documentation_style_guide.md) を正とする。この文書は coverage baseline と移行計画を扱い、style guide は「十分丁寧で親切な documentation comment」をどう書くかを扱う。
 
 ### module
 
@@ -71,6 +74,12 @@ module documentation は次を説明する。
 - module doctest は不足が大きい。facade / implementation file の import-path regression が十分ではない。
 - declaration doc / doctest は未達であり、「すべての関数や module や enum や struct に十分な documentation と doctest」を満たしているとは言えない。
 - 既に documentation が厚い file と薄い file の差が大きく、局所的な source policy だけでは全体方針を維持できない。
+
+## 2026-05-13 style guide 監査
+
+`stdlib/kp/kpgraph.nepl` を代表例として確認した。module doc は密行列表現、BFS、0-index/1-index、O(n^2) memory を示しており、利用者にとって有用な情報を持つ。一方で、helper 関数や owner-bearing struct の declaration doc は薄い箇所があり、raw memory、解放責務、失敗時 owner contract、典型例の置き方をさらに明確にする必要がある。
+
+このため、coverage baseline だけではなく、文章品質と doctest の役割を定める style guide を追加した。今後 baseline を下げる時は、単に `neplg2:test` を増やすのではなく、style guide の観点で利用者が読む価値のある documentation を増やす。
 
 ## source policy
 
