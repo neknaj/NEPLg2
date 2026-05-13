@@ -9,8 +9,9 @@
 - `reverse`
 - [逆順/ぎゃくじゅん] list の `get`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"list_reverse_preserves_order\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"reverse first item\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"reverse last item\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -22,6 +23,7 @@ ret: 1
 #import "core/result" as *
 #import "core/field" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let src_first <List<i32>>:
@@ -48,7 +50,12 @@ fn main <()*>i32> ():
         Option::None:
             false
     free<i32> last_rev;
-    if and first_ok last_ok 1 0
+    let report:
+        test_report_new "list_reverse_preserves_order"
+        |> test_report_push assert "reverse first item" first_ok
+        |> test_report_push assert "reverse last item" last_ok
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## list_reverse_empty_is_empty
@@ -61,8 +68,9 @@ fn main <()*>i32> ():
 - [空/から] list
 - `is_empty`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"list_reverse_empty_is_empty\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"reverse empty remains empty\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -71,13 +79,18 @@ ret: 1
 #import "alloc/collections/list" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let empty <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
     let rev <List<i32>> reverse<i32> empty;
     let ok <bool> is_empty<i32> &rev
     free<i32> rev
-    if ok 1 0
+    let report:
+        test_report_new "list_reverse_empty_is_empty"
+        |> test_report_push assert "reverse empty remains empty" ok
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## list_map_filter_return_result
@@ -90,8 +103,9 @@ fn main <()*>i32> ():
 - `filter`
 - `Result::Ok`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"list_map_filter_return_result\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"map returns transformed item\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"filter returns even items\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -103,6 +117,7 @@ ret: 1
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "std/test" as *
 
 fn inc <(i32)->i32> (x):
     add x 1
@@ -140,5 +155,10 @@ fn main <()*>i32> ():
             let ok <bool> eq len<i32> &filtered 2
             free<i32> filtered
             ok
-    if and map_ok filter_ok 1 0
+    let report:
+        test_report_new "list_map_filter_return_result"
+        |> test_report_push assert "map returns transformed item" map_ok
+        |> test_report_push assert "filter returns even items" filter_ok
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

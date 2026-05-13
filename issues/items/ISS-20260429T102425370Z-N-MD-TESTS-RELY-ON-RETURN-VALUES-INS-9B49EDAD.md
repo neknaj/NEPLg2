@@ -314,3 +314,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\stdlib\vec_collections.n.md --no-tree -o tmp\agent1-vec-collections-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
 
 この issue はまだ open のまま継続する。Vec collections 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 List collections stdout report migration
+
+`tests/stdlib/list_collections.n.md` の List focused doctest 3 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `reverse` / empty reverse / `map` / `filter` の観測結果を assertion label として stdout に残すようにした。
+- map/filter の success branch は従来通り owner cleanup を行い、結果の可否だけを report へ集約した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\stdlib\list_collections.n.md --no-tree -o tmp\agent1-list-collections-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
+
+この issue はまだ open のまま継続する。List collections 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

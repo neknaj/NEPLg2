@@ -1,3 +1,14 @@
+# 2026-05-14 Agent 1 List collections stdout report migration
+
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として、`tests/stdlib/list_collections.n.md` の List focused doctest 3 件を stdout report 形式へ移行した。
+- 根本原因は、List collections doctest が `main` の `ret: 1` だけで reverse / empty reverse / map / filter の複数観測を畳み込み、selfhost runner / Rust runner 間で assertion detail と report format を比較できないこと。
+- 各 doctest は `std/test` の `TestReport` を生成し、`test_report_print_stdout` と `test_report_exit_code` で stdout の詳細報告と exit code を分離する形にした。
+- map/filter の success branch は従来通り owner cleanup を行い、結果の可否だけを report へ集約した。
+- 検証:
+  - `node nodesrc/tests.js -i tests/stdlib/list_collections.n.md --no-tree -o tmp/agent1-list-collections-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `.n.md` テストの exit code / stdout report 分離方針に沿い、List reverse/map/filter 境界の regression をより観測可能に固定するもの。
+
 # 2026-05-13 Agent 1 Vec collections stdout report migration
 
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として、`tests/stdlib/vec_collections.n.md` の Vec focused doctest 3 件を stdout report 形式へ移行した。
