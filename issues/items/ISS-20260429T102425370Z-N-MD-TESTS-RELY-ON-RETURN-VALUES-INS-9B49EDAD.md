@@ -442,3 +442,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\cast.n.md -i stdlib\tests\math.n.md --no-tree -o tmp\agent1-cast-math-report-tests.json -j 1 --assert-io --dist web/dist`: total=2, passed=2
 
 この issue はまだ open のまま継続する。Cast/Math 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Stack stdout report migration
+
+`stdlib/tests/stack.n.md` の Stack focused doctest 9 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `new` / `push` / `len` / `peek` / `pop` / empty pop / alias pipe API / `get` keeps stack / `pop_top` keeps stack の観測結果を assertion label として stdout に残すようにした。
+- 旧 fixture の「成功なら戻り値 1」をやめ、report の failed count から exit code を返す形へ統一した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\stack.n.md --no-tree -o tmp\agent1-stack-stdlib-report-tests.json -j 1 --assert-io --dist web/dist`: total=9, passed=9
+
+この issue はまだ open のまま継続する。Stack 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
