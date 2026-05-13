@@ -37312,3 +37312,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `owner_variant.rs` は 1227 行から 1037 行へ縮小し、`owner_variant_record.rs` は 211 行の dedicated module として Resource checker responsibility policy へ追加した。
 - policy limit は `owner_variant.rs` を 1250 から 1120、`owner_variant_record.rs` を 220 に設定し、variant owner correctness の将来変更が単一 module に再集中しないようにした。
 - `cargo check -p nepl-core --tests` と `node nodesrc/test_resource_checker_responsibility.js` は pass した。
+
+## 2026-05-13 Agent 1 Resource owner extent layout constant proof
+
+- `work/resource-sizeof-extent-proof` で `ISS-20260513T125403348Z-RESOURCE-OWNER-EXTENT-PROOF-DOES-NOT-510A15F8` を追加して解決した。
+- trunk 後の `tests/compiler/move_effect.n.md::doctest#57` で、`alloc_raw size_of<LocalToken>` と `realloc_raw p size_of<LocalToken> 32` が別 temporary として扱われ、`ReallocExtent` が証明できない問題を確認した。
+- Resource IR lowering は `Call` / `Intrinsic` coverage を残したまま、`size_of<T>` / `align_of<T>` の最終 `Expr` を `ResourceExprKind::LiteralI32(value)` として記録するようにした。
+- 早期 return で `DirectCall` coverage を落とす設計は破棄し、coverage gate と owner extent proof の両方が効く形へ修正した。
+- layout intrinsic constant extraction は `lower_layout_intrinsic.rs` へ分離し、`lower.rs` の responsibility line limit を超えないようにした。
+- `trunk build` 後の `tests/compiler/move_effect.n.md` は total=113, passed=113 に戻った。

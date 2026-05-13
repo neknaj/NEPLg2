@@ -20,6 +20,9 @@ use super::lower_aggregate::{
     lower_reference_address_projection_source,
 };
 use super::lower_condition::resource_condition_fact;
+use super::lower_layout_intrinsic::{
+    layout_intrinsic_i32_value, layout_intrinsic_i32_value_from_callee,
+};
 use super::lower_raw_address::{
     push_core_mem_owner_storage_origin, push_core_mem_wrapper_semantics,
     push_named_raw_address_semantics, push_transparent_raw_address_return_projection,
@@ -632,7 +635,11 @@ pub(super) fn lower_expr_skeleton(
             });
             output
         }
-        HirExprKind::Intrinsic { name, args, .. } => {
+        HirExprKind::Intrinsic {
+            name,
+            type_args,
+            args,
+        } => {
             if let Some(source) =
                 lower_reference_address_projection_source(name, args, expr.ty, ops, ctx, env)
             {
@@ -728,7 +735,10 @@ pub(super) fn lower_expr_skeleton(
                 });
                 output
             } else {
-                let output = push_expr(ops, ResourceExprKind::Intrinsic, expr, ctx);
+                let kind = layout_intrinsic_i32_value(name, type_args, env)
+                    .map(ResourceExprKind::LiteralI32)
+                    .unwrap_or(ResourceExprKind::Intrinsic);
+                let output = push_expr(ops, kind, expr, ctx);
                 push_named_raw_address_semantics(
                     helper_base_name(name),
                     args,
@@ -977,8 +987,11 @@ fn push_direct_call_skeleton(
             span: expr.span,
         });
     }
+    let kind = layout_intrinsic_i32_value_from_callee(callee, env)
+        .map(ResourceExprKind::LiteralI32)
+        .unwrap_or(ResourceExprKind::Call);
     ops.push(ResourceOp::Expr {
-        kind: ResourceExprKind::Call,
+        kind,
         output: output.clone(),
         ty: expr.ty,
         span: expr.span,

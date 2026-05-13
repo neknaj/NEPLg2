@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T12:37:10.076Z",
+  "generated_at": "2026-05-13T13:10:47.014Z",
   "counts": {
-    "total": 719,
+    "total": 720,
     "open": 5,
-    "resolved": 714,
+    "resolved": 715,
     "by_area": {
       "stdlib": {
         "total": 182,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 380,
+        "total": 381,
         "open": 0,
-        "resolved": 380
+        "resolved": 381
       },
       "resource": {
         "total": 2,
@@ -5748,6 +5748,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T123242078Z-RESOURCE-OWNER-VARIANT-CALL-RECORDIN-7F8E6B04.md"
+    },
+    {
+      "id": "ISS-20260513T125403348Z-RESOURCE-OWNER-EXTENT-PROOF-DOES-NOT-510A15F8",
+      "title": "Resource owner extent proof does not record repeated size_of constants",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/lower.rs, nepl-core/src/resource/owner_expr.rs, tests/compiler/move_effect.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T125403348Z-RESOURCE-OWNER-EXTENT-PROOF-DOES-NOT-510A15F8.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
