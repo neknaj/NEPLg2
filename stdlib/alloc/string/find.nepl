@@ -39,6 +39,7 @@
 //:| #import "alloc/string" as *
 //:| #import "core/option" as *
 //:| #import "std/test" as *
+//:| #import "core/result" as *
 //: fn expect_find_some <(str,Option<i32>,i32)*>Result<(),str>> (label, got, expected):
 //:     match got:
 //:         Option::Some actual:

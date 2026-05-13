@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T08:29:41.720Z",
+  "generated_at": "2026-05-13T08:55:49.580Z",
   "counts": {
     "total": 704,
-    "open": 6,
-    "resolved": 698,
+    "open": 5,
+    "resolved": 699,
     "by_area": {
       "stdlib": {
         "total": 172,
-        "open": 4,
-        "resolved": 168
+        "open": 3,
+        "resolved": 169
       },
       "TEST": {
         "total": 18,
@@ -138,21 +138,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260513T082754555Z-VEC-AND-STRING-SUBMODULE-DOCTESTS-RE-E80ED44C",
-      "title": "Vec and string submodule doctests rely on stale implicit imports",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "test",
-      "created": "2026-05-13",
-      "updated": "2026-05-13",
-      "target": "stdlib/alloc/collections/vec/**/*.nepl, stdlib/alloc/string/**/*.nepl",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260513T082754555Z-VEC-AND-STRING-SUBMODULE-DOCTESTS-RE-E80ED44C.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -8163,6 +8148,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T044704155Z-STD-TEST-AND-STDIO-NUMERIC-ADD-RESOL-9CABF45B.md"
+    },
+    {
+      "id": "ISS-20260513T082754555Z-VEC-AND-STRING-SUBMODULE-DOCTESTS-RE-E80ED44C",
+      "title": "Vec and string submodule doctests rely on stale implicit imports",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/alloc/collections/vec/**/*.nepl, stdlib/alloc/string/**/*.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T082754555Z-VEC-AND-STRING-SUBMODULE-DOCTESTS-RE-E80ED44C.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

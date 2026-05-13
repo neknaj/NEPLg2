@@ -156,6 +156,7 @@ pub fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/string" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let checks:
 //:         checks_new

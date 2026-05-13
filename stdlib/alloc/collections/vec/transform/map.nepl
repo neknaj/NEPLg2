@@ -48,6 +48,8 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "core/field" as *
 //: fn inc <(i32)->i32> (x):
 //:     add x 1
 //: fn main <()*>i32> ():

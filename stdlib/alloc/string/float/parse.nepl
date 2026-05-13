@@ -24,6 +24,8 @@
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "alloc/string/float/parse" as *
+//:| #import "core/math" as *
+//:| #import "core/cast" as *
 //: fn main <()*>i32> ():
 //:     let expected <f64> <f64> cast 125
 //:     let checks0 checks_new

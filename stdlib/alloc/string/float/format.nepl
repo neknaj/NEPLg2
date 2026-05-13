@@ -207,6 +207,7 @@ pub fn from_f64_build_fixed_result <(bool,str,i32,i32,i32,i32,i32,i32,i32)->Resu
 //:| #target std
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
+//:| #import "core/cast" as *
 //: fn main <()*>i32> ():
 //:     let one <f64> <f64> cast 1
 //:     let quartered <f64> div <f64> cast 5 <f64> cast 4

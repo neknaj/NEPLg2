@@ -21,6 +21,8 @@ pub #import "./float/parse" as *
 //:| #import "alloc/string" as *
 //:| #import "std/test" as *
 //:| #import "core/result" as *
+//:| #import "core/math" as *
+//:| #import "core/cast" as *
 //: fn main <()*>i32> ():
 //:     let checks0 checks_new
 //:     let checks1 checks_push checks0 assert_str_eq "1.25" from_f64 div <f64> cast 5 <f64> cast 4

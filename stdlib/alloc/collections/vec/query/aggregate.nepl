@@ -36,6 +36,7 @@
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
+//:| #import "core/result" as *
 //: fn is_even <(i32)->bool> (x):
 //:     eq rem_s x 2 0
 //: fn main <()*>i32> ():
@@ -88,6 +89,7 @@ pub fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
+//:| #import "core/result" as *
 //: fn add_acc <(i32,i32)->i32> (acc, x):
 //:     add acc x
 //: fn main <()*>i32> ():
@@ -138,6 +140,7 @@ pub fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/option" as *
+//:| #import "core/result" as *
 //: fn add_acc <(i32,i32)->i32> (acc, x):
 //:     add acc x
 //: fn main <()*>i32> ():

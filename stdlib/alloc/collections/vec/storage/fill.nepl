@@ -46,6 +46,7 @@
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
+//:| #import "core/field" as *
 //: fn main <()*>i32> ():
 //:     match filled<i32> 3 7:
 //:         Result::Ok v:

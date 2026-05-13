@@ -2,8 +2,8 @@
 id: ISS-20260513T082754555Z-VEC-AND-STRING-SUBMODULE-DOCTESTS-RE-E80ED44C
 title: "Vec and string submodule doctests rely on stale implicit imports"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: test
 created: 2026-05-13
@@ -41,4 +41,12 @@ Audit the affected Vec and string submodule doctests, add explicit imports for e
 
 ## 検証
 
-Run node nodesrc/tests.js -i stdlib/alloc/string -i stdlib/alloc/collections/vec --no-tree -o tmp/string-vec-submodule-doctests-after.json -j 1 --dist web/dist, plus the stdlib documentation contract source policy.
+- `node nodesrc/tests.js -i stdlib/alloc/string --no-tree -o tmp/string-submodule-doctests-imports-after.json -j 1 --dist web/dist`: total=14, passed=14。
+- `node nodesrc/tests.js -i stdlib/alloc/string -i stdlib/alloc/collections/vec --no-tree -o tmp/string-vec-submodule-doctests-imports-after.json -j 4 --dist web/dist`: total=46, passed=15, failed=31。失敗は全て `resource.owner.no_free_obligation` で、`resolve.identifier.undefined` は 0 件。
+
+## 解決
+
+- Vec submodule doctest に `core/result`、`core/math`、`core/field`、`core/mem/internal` など使用 symbol の明示 import を追加した。
+- String submodule doctest に `core/result` と `core/cast` を追加し、`Result<(),str>::Err` や `cast` を implicit / transitive import に依存しない形へ直した。
+- 機械的な import 追加時に doctest code fence の外へ入ると parser が読めないため、全て ` ```neplg2` 内の既存 `#entry` / `#target` / `#import` 群の後ろへ配置した。
+- 残る Vec 側 31 件の失敗は stale import ではなく、`vec_free_storage` / `push` / merge sort buffer cleanup の `resource.owner.no_free_obligation` であり、Stage 6 の raw-memory-backed collection owner model 残件として `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` 側で継続する。

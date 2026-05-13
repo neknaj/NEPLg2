@@ -57,6 +57,7 @@ impl Copy for VecStorageState:
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>> unwrap_ok new<i32>;
 //:     let moved <Vec<i32>> v;

@@ -46,6 +46,7 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/option" as *
+//:| #import "core/result" as *
 //: fn is_even <(i32)->bool> (x):
 //:     eq rem_s x 2 0
 //: fn main <()*>i32> ():
@@ -125,6 +126,7 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKind>> 
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/field" as *
+//:| #import "core/result" as *
 //: fn is_even <(i32)->bool> (x):
 //:     eq rem_s x 2 0
 //: fn main <()*>i32> ():

@@ -40,6 +40,7 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/option" as *
+//:| #import "core/result" as *
 //: fn gt_two <(i32)->bool> (x):
 //:     gt x 2
 //: fn main <()*>i32> ():
@@ -98,6 +99,7 @@ pub fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
+//:| #import "core/result" as *
 //: fn gt_two <(i32)->bool> (x):
 //:     gt x 2
 //: fn main <()*>i32> ():
@@ -145,6 +147,7 @@ pub fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
+//:| #import "core/result" as *
 //: fn is_even <(i32)->bool> (x):
 //:     eq rem_s x 2 0
 //: fn main <()*>i32> ():

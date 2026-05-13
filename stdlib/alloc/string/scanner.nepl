@@ -21,6 +21,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/string/scanner" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let text <str> "ab\ncd\r\nef"
 //:     if:

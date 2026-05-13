@@ -83,6 +83,7 @@ pub fn vec_copy_range_to_raw <.T: Copy> <(&Vec<.T>, MemPtr<.T>, i32, i32)->()> (
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
+//:| #import "core/result" as *
 //: fn lt_three <(i32)->bool> (x):
 //:     lt x 3
 //: fn main <()*>i32> ():
@@ -134,6 +135,8 @@ pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, StdErrorKin
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "core/field" as *
 //: fn lt_three <(i32)->bool> (x):
 //:     lt x 3
 //: fn main <()*>i32> ():

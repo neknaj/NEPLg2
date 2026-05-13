@@ -69,6 +69,8 @@ pub fn from_bool <(bool)->str> (b):
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "alloc/string" as *
+//:| #import "core/math" as *
+//:| #import "core/cast" as *
 //: fn main <()*>i32> ():
 //:     let checks0 checks_new
 //:     let checks1 match to_bool "true":

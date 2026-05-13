@@ -33,6 +33,8 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let v0 <Vec<i32>> unwrap_ok new<i32>;
 //:     let v1 <Vec<i32>> unwrap_ok push v0 3;
@@ -65,6 +67,8 @@ pub fn len <.T> <(&Vec<.T>)->i32> (v):
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>> unwrap_ok new<i32>;
 //:     let ok <bool> gt cap<i32> &v 0
@@ -96,6 +100,7 @@ pub fn cap <.T> <(&Vec<.T>)->i32> (v):
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let v <Vec<i32>> unwrap_ok new<i32>;
 //:     let ok <bool> is_empty<i32> &v
