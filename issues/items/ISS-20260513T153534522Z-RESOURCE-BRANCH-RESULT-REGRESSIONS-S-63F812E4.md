@@ -2,12 +2,12 @@
 id: ISS-20260513T153534522Z-RESOURCE-BRANCH-RESULT-REGRESSIONS-S-63F812E4
 title: "Resource branch result regressions still use stale raw cleanup assumptions"
 area: RESOURCE
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-13
-updated: 2026-05-13
+updated: 2026-05-14
 target: nepl-core/tests/resource_ir.rs
 ---
 
@@ -41,4 +41,5 @@ Audit the two tests against the current memory model. If their intent is still b
 
 ## 検証
 
-cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_branch_result -- --nocapture should pass after the tests or checker are corrected.
+- `resource_ir_owner_check_preserves_branch_result_variant_owner_return` and `resource_ir_owner_check_preserves_branch_result_from_owner_returning_helper` now use `dealloc_ptr<u8>` on error paths so the tests keep their branch/local `Result::Ok` owner-return focus without relying on stale raw cleanup.
+- `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_branch_result -- --nocapture`: passed

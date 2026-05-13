@@ -10745,7 +10745,11 @@ fn make_branch_result <(bool)*>Result<ByteBuf, StdErrorKind>> (ok_flag):
                 then:
                     Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_from_owned_ptr out 3
                 else:
-                    dealloc_raw mem_ptr_addr out 3
+                    match dealloc_ptr<u8> out 3:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ()
                     Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
             res
 
@@ -10810,7 +10814,11 @@ fn make_helper_branch_result <(bool)*>Result<ByteBuf, StdErrorKind>> (ok_flag):
                 then:
                     finish_bytes out 3
                 else:
-                    dealloc_raw mem_ptr_addr out 3
+                    match dealloc_ptr<u8> out 3:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ()
                     Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
             res
 

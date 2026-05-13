@@ -1,3 +1,14 @@
+# 2026-05-14 Agent 1 branch Result regression stale cleanup 修正
+
+- `ISS-20260513T153534522Z-RESOURCE-BRANCH-RESULT-REGRESSIONS-S-63F812E4` を解決した。
+- 根本原因は、branch/local `Result` owner return propagation の回帰テストが、現在の `MemPtr = non-owning pointer projection` 方針へ移行する前の `dealloc_raw mem_ptr_addr out 3` cleanup を残していたこと。
+- テストの主目的は `Result::Ok` payload owner が branch output / local binding / function return を越えて保持されることなので、error path cleanup は owner-consuming な `dealloc_ptr<u8> out 3` に置き換えた。
+- これによりテストは raw cleanup 境界の古い前提を混ぜず、Resource IR の variant owner return propagation だけを確認する形になった。
+- 検証:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_owner_check_preserves_branch_result -- --nocapture`: 2 passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 4 の Resource IR owner regression を現行 memory model に同期するもの。
+
 # 2026-05-14 Agent 1 branch Result regression 既存失敗 issue 追加
 
 - `ISS-20260513T153534522Z-RESOURCE-BRANCH-RESULT-REGRESSIONS-S-63F812E4` を追加した。
