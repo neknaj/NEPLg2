@@ -45,7 +45,7 @@ for (const gate of [
     'crate::resource::lower_hir_module(hir_module, types)',
     'run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)',
     'crate::resource::check_resource_initialized_moves(&resource, types)',
-    'run_resource_cell_gate(&initialized_moves, diagnostics, source_map)',
+    'run_resource_cell_gate(&initialized_moves, diagnostics)',
     'crate::resource::compute_resource_drop_elaboration_plan(&resource, &initialized_moves)',
     'run_resource_drop_elaboration_plan_gate(',
     'crate::resource::check_resource_borrow_lifetimes(&resource, types)',
@@ -53,11 +53,20 @@ for (const gate of [
     'crate::resource::check_resource_effect_boundaries(&resource)',
     'run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)',
     'crate::resource::check_resource_owner_obligations(&resource, types)',
-    'run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)',
+    'run_resource_owner_obligation_gate(&owner_obligations, diagnostics)',
 ]) {
     const index = body.indexOf(gate);
     assert(index >= 0, `run_resource_static_check must call ${gate}`);
 }
+
+assert(
+    !body.includes('run_resource_cell_gate(&initialized_moves, diagnostics, source_map)'),
+    'Resource cell gate must not receive SourceMap because raw-memory-boundary suppression belongs to the effect boundary gate',
+);
+assert(
+    !body.includes('run_resource_owner_obligation_gate(&owner_obligations, diagnostics, source_map)'),
+    'Resource owner obligation gate must not receive SourceMap because raw-memory-boundary suppression belongs to the effect boundary gate',
+);
 
 const compilerRelative = source
     .replace(/\r\n/g, '\n')

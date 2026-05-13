@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T06:29:45.928Z",
+  "generated_at": "2026-05-13T06:32:51.020Z",
   "counts": {
-    "total": 702,
+    "total": 703,
     "open": 5,
-    "resolved": 697,
+    "resolved": 698,
     "by_area": {
       "stdlib": {
         "total": 171,
@@ -67,9 +67,9 @@
         "resolved": 17
       },
       "nodesrc": {
-        "total": 8,
+        "total": 9,
         "open": 0,
-        "resolved": 8
+        "resolved": 9
       },
       "SELFHOST-DIAG": {
         "total": 1,
@@ -5928,6 +5928,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T062850064Z-SOURCE-POLICY-STILL-FORBIDS-RAW-BOUN-664EA812.md"
+    },
+    {
+      "id": "ISS-20260513T063212027Z-SOURCE-POLICY-RESOURCE-GATE-ORDER-ST-ED44ABFD",
+      "title": "source policy resource gate order still expects raw-boundary source_map in cell and owner gates",
+      "area": "nodesrc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nodesrc/test_resource_gate_order.js,nepl-core/src/compiler.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T063212027Z-SOURCE-POLICY-RESOURCE-GATE-ORDER-ST-ED44ABFD.md"
     },
     {
       "id": "ISS-20260507T185938110Z-RESOURCE-OWNER-RETURN-MODULE-EXCEEDS-40B2E737",
