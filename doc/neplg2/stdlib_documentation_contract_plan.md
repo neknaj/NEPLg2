@@ -6,6 +6,7 @@
 
 - [ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841](../../issues/items/ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841.md)
 - [ISS-20260513T212824962Z-STDLIB-DOCUMENTATION-STYLE-GUIDE-NEE-DE6542E2](../../issues/items/ISS-20260513T212824962Z-STDLIB-DOCUMENTATION-STYLE-GUIDE-NEE-DE6542E2.md)
+- [ISS-20260513T213429992Z-GENERAL-STDLIB-DOCUMENTATION-AUDIT-L-E7BDE73F](../../issues/items/ISS-20260513T213429992Z-GENERAL-STDLIB-DOCUMENTATION-AUDIT-L-E7BDE73F.md)
 
 ## 目的
 
@@ -80,6 +81,22 @@ module documentation は次を説明する。
 `stdlib/kp/kpgraph.nepl` を代表例として確認した。module doc は密行列表現、BFS、0-index/1-index、O(n^2) memory を示しており、利用者にとって有用な情報を持つ。一方で、helper 関数や owner-bearing struct の declaration doc は薄い箇所があり、raw memory、解放責務、失敗時 owner contract、典型例の置き方をさらに明確にする必要がある。
 
 このため、coverage baseline だけではなく、文章品質と doctest の役割を定める style guide を追加した。今後 baseline を下げる時は、単に `neplg2:test` を増やすのではなく、style guide の観点で利用者が読む価値のある documentation を増やす。
+
+## 2026-05-13 一般 stdlib 追加監査
+
+`kp` は特殊な performance layer であり、一般 stdlib の documentation 方針を `kpgraph` だけから決めると raw/performance 境界の説明へ偏る。そのため、`alloc/hash/sha256.nepl`、`core/result.nepl`、`alloc/string/storage.nepl`、`alloc/io/bytebuf.nepl`、`std/test/types.nepl`、`std/streamio/scanner/state.nepl` を追加確認した。
+
+評価:
+
+- `alloc/hash/sha256.nepl` は facade と submodule 責務、incremental hash state、finalize の state 消費、内部 buffer 解放、計算量の説明が良い。一方で facade の import-path doctest と digest lifecycle 例が不足している。
+- `core/result.nepl` は `Copy` 制約、`should_panic`、`compile_fail` が良い。一方で旧見出しと `ret:` 中心 doctest が残り、新方針の stdout/assertion 例へ移す必要がある。
+- `alloc/string/storage.nepl` は raw storage layout と owner 境界の説明が厚い。内部 helper でも raw/safety 条件を薄くしてはいけない。
+- `alloc/io/bytebuf.nepl` は module doctest と owner doc が良いが、小さい public helper の declaration doc が不足している。
+- `alloc/collections` は `Vec` が facade / storage state / doctest / move-after-use compile_fail の基準例になる。一方で bitset / adjacency_matrix / fenwick / binary_heap などの layout、storage、order helper には declaration doc 欠落が多く、collection 固有の owner flow、slot invariant、index formula、algorithm complexity を明文化する必要がある。
+- `std/test/types.nepl` は enum / struct で test report を表す方向が良いが、stable renderer output と owner-consuming helper の契約をさらに書く必要がある。
+- `std/streamio/scanner/state.nepl` は scanner の copy / close 規則が良いが、raw header field enum と low-level helper の memory-safety contract が不足している。
+
+この監査により、Stage 1 から Stage 3 では `kp` ではなく通常利用される `core` / `alloc` / `std` API を優先して baseline を下げる。特に `sha256` のような facade は実装本体を持たなくても module-level doctest を置き、`ByteBuf` や `StreamScanner` のような owner-bearing helper は小さな public API でも doc を必須にする。`alloc/collections` は `Vec` を基準例にしつつ、bitset / graph / tree / heap / map / queue 系の helper へ同じ水準を広げる。
 
 ## source policy
 
@@ -174,8 +191,8 @@ module documentation は次を説明する。
 ## 進捗状況
 
 - `stdlib/core`: documentation coverage 未完了。先頭 module doc は存在するが、declaration doctest missing が多い。
-- `stdlib/alloc`: documentation coverage 未完了。string/json など一部は厚いが、collections の helper / facade / storage 境界で差がある。
-- `stdlib/std`: documentation coverage 未完了。text/stdio/streamio など一部は厚いが、target I/O の doctest 方針が一貫していない。
+- `stdlib/alloc`: documentation coverage 未完了。`alloc/hash/sha256.nepl` と `alloc/string/storage.nepl` は設計意図の説明が厚いが、facade doctest と public helper doc の不足がある。`alloc/collections` は `Vec` が比較的良い基準例だが、layout/storage/order helper、owner-preserving update error、slot invariant、計算量 doc の不足を優先的に下げる。
+- `stdlib/std`: documentation coverage 未完了。text/stdio/streamio など一部は厚いが、target I/O の doctest 方針が一貫していない。`std/test/types.nepl` の stable output contract と `std/streamio/scanner/state.nepl` の header helper doc を優先する。
 - `nodesrc/test_stdlib_documentation_contract.js`: Stage 0 baseline policy として追加。
 - `run_source_policy_regressions.js`: documentation contract policy を実行対象へ追加。
 

@@ -5,6 +5,7 @@
 関連 issue:
 
 - [ISS-20260513T212824962Z-STDLIB-DOCUMENTATION-STYLE-GUIDE-NEE-DE6542E2](../../issues/items/ISS-20260513T212824962Z-STDLIB-DOCUMENTATION-STYLE-GUIDE-NEE-DE6542E2.md)
+- [ISS-20260513T213429992Z-GENERAL-STDLIB-DOCUMENTATION-AUDIT-L-E7BDE73F](../../issues/items/ISS-20260513T213429992Z-GENERAL-STDLIB-DOCUMENTATION-AUDIT-L-E7BDE73F.md)
 
 ## 目的
 
@@ -43,6 +44,112 @@ NEPLg2 の stdlib に置く `//:` documentation comment は、利用者向け説
 - declaration doctest はほぼ無い。全関数へ重い統合 doctestを置く必要はないが、代表 API と誤用しやすい API には典型例や compile_fail を置くべきである。
 
 結論として、`kpgraph` は「何のアルゴリズムでどの計算量か」を示す方向は良い。一方で、所有権・raw boundary・失敗時契約をもう一段具体化する必要がある。
+
+### 一般 stdlib の追加監査
+
+`kp` は競技プログラミング向けの performance layer であり、一般 stdlib の代表例として扱うと方針が raw/performance 寄りに偏る。そのため、2026-05-13 に一般 stdlib の代表として `alloc/hash/sha256.nepl`、`core/result.nepl`、`alloc/string/storage.nepl`、`alloc/io/bytebuf.nepl`、`std/test/types.nepl`、`std/streamio/scanner/state.nepl` を追加確認した。
+
+#### `stdlib/alloc/hash/sha256.nepl`
+
+良い点:
+
+- facade module として、`types`、`round`、`padding`、`schedule`、`compress`、`digest`、`api` の責務が整理されている。
+- incremental API、lower 8-bit byte 入力、finalize による状態消費、内部 buffer 解放、`O(1)` 追加領域の schedule など、利用者が必要とする contract が書かれている。
+
+不足:
+
+- facade 自体に import-path と典型的な digest 利用を示す module-level doctest がない。
+- submodule に責務が分かれているため、state 作成、update、finalize、digest 表示までの lifecycle を代表例として示す必要がある。
+- cryptographic primitive として、入力 byte の扱い、incremental update の順序依存、出力型の意味、比較時の注意を module doc で明確にする必要がある。
+
+#### `stdlib/core/result.nepl`
+
+良い点:
+
+- `Result` / `StdErrorKind` の目的、`Copy` 制約、`unwrap` / `unwrap_err` の `should_panic`、型不一致の `compile_fail` があり、静的検査上の誤用例が読める。
+- `Result<Copy, Copy>` という制約を documentation と doctest で明示している。
+
+不足:
+
+- 見出しが旧形式の `目的:` / `注意(重要):` / `計算量:` と、新方針の `### [目的/もくてき]` 形式で混在している。
+- 古い doctest には `ret:` だけで完結する例が残る。典型例としては assertion report や stdout で結果が読める形へ順次移す。
+- `Result` の owner-bearing variant を将来扱う場合、現行 `Copy` 制約との差分を doc 上で曖昧にしてはならない。
+
+#### `stdlib/alloc/string/storage.nepl`
+
+良い点:
+
+- `[len:i32][bytes...]` layout、UTF-8 を保証しない raw storage、`RegionToken` と `MemPtr` の境界、allocation / free の責務が明確に書かれている。
+- safety-critical な内部 storage として、所有権と計算量を利用者視点で説明している。
+
+不足:
+
+- raw storage helper の多くは内部 API でも安全条件が重いため、declaration doc は省略しない。
+- 内部 helper の doctest は全関数で重くする必要はないが、代表 lifecycle の module doctest と、誤用しやすい raw boundary の compile-fail / policy test への導線が必要である。
+
+#### `stdlib/alloc/io/bytebuf.nepl`
+
+良い点:
+
+- `ByteBuf` の owner、`Option<MemPtr>`、`RegionToken`、cleanup 失敗時の扱いが厚く説明されている。
+- module doctest は `std/test` を使い、allocate / byte_at / free の基本 lifecycle を示している。
+
+不足:
+
+- `io_bytebuf_empty`、`io_bytebuf_from_owned_ptr`、`io_bytebuf_len`、`io_bytebuf_ptr_ref`、`io_bytebuf_storage_size`、`io_bytebuf_byte_at`、`io_bytebuf_free` などの public helper は、薄い説明または declaration doc 欠落がある。
+- public helper は小さくても、owner を消費するか borrowed observer か、空 buffer sentinel を返すか、計算量が何かを必ず書く。
+
+#### `stdlib/alloc/collections/*`
+
+良い点:
+
+- `vec.nepl` は facade、submodule 責務、`Copy` 制約、再確保時に内部番地が変わること、module doctest、move 後利用の `compile_fail` を持ち、collection doc の基準として使える。
+- `vec/types.nepl` は `VecStorageState` を enum として説明し、null pointer sentinel ではなく typed storage state を match で扱う方針を明示している。
+- `bitset`、`adjacency_matrix`、`fenwick`、`binary_heap` の API facade は、借用 observer と owner-moving update の境界を分ける意図を module doc で示している。
+- `BitSetUpdateError`、`AdjacencyMatrixUpdateError`、`DisjointSetUpdateError` は、失敗時に owner を返して cleanup 可能にする契約を説明している。
+
+不足:
+
+- `bitset/layout.nepl`、`adjacency_matrix/layout.nepl`、`binary_heap/order.nepl`、各 storage helper など、計算量・index 変換・slot invariant が重要な public/internal helper に declaration doc 欠落が残る。
+- `BitSet` / `AdjacencyMatrix` / `Fenwick` / `SegmentTree` の facade は module doctest が薄い、または不足している。new / query / update / error owner recovery / free の lifecycle を代表例で示す必要がある。
+- `BinaryHeap`、`BTreeMap`、`Deque` のように `Vec<Option<T>>` で slot state を表す collection は、`Some` prefix、empty slot、heap order、sorted key/value alignment、ring index などの不変条件を type doc と algorithm doc の両方に書く必要がある。
+- `.T: Copy`、`Ord`、将来の `Hash` / `Eq` / allocator capability などの trait 制約は、単なる実装都合として隠さず、静的検査上の API 契約として書く。
+
+collection documentation では、次を必須観点にする。
+
+- facade が re-export する submodule と、facade 自体の import-path doctest。
+- type doc に storage owner、slot state、容量/長さの不変条件、shallow copy 禁止、cleanup 関数名。
+- create / update / query / cleanup の owner flow。特に update が失敗した場合に元 owner を返すか、消費するか、変更済み owner を返すか。
+- layout helper の index formula。bit index、byte index、heap parent/child、ring buffer physical index、tree node index は、`n` の意味と範囲外入力の扱いを明記する。
+- algorithm doc。heap sift、lower_bound、union-find、Fenwick tree、segment tree、bitset bulk fill などは、標準名だけでなく、どの storage invariant を保つかを書く。
+- 計算量。`Vec.push` の償却 O(1)、`BinaryHeap.push/pop` の O(log n)、sorted-array `BTreeMap` の O(n)、bitset update の O(1)、bulk clear/fill の O(nbytes) など、`n` が何を指すかを明示する。
+- doctest。通常例は stdout/assertion を含め、owner-bearing collection は最後に `free` する。誤用例は compile_fail にし、move-after-free、non-Copy payload、失敗時 owner 回収忘れなど、静的検査で守る契約を示す。
+
+#### `stdlib/std/test/types.nepl`
+
+良い点:
+
+- test report を enum / struct で表し、文字列 literal だけに依存しない方向は、静的検査と保守性の方針に合っている。
+
+不足:
+
+- `assertion_status_name` / `assertion_kind_name` のような renderer-facing helper は、出力文字列が安定 contract なのか、内部表示なのかを doc で明確にする。
+- `TestReport` の terminal helper は、文字列 owner を消費する理由と、呼び出し後の owner の扱いを書く必要がある。
+- enum 変換 helper は、variant 追加時に `match` の網羅性が効く設計であることを documentation と source policy の両方で維持する。
+
+#### `stdlib/std/streamio/scanner/state.nepl`
+
+良い点:
+
+- `StreamScanner` の共有 cursor、shallow copy の危険、`stream_scanner_close` を一度だけ呼ぶ責務が説明されている。
+
+不足:
+
+- `StreamScannerHeaderField` enum と low-level header helper の説明が薄い。
+- raw header layout、ByteBuf owner の消費、allocation failure 時 cleanup、alias された scanner copy の close 規則は、一般 stdlib でも memory-safety contract なので必ず doc に書く。
+- `scanner_from_bytes` のような convenience constructor は、入力 owner を成功時・失敗時にどう扱うかを示す doctest または近傍説明が必要である。
+
+結論として、一般 stdlib でも module doc は多くの file で存在するが、十分な整備とは言えない。特に facade の module-level doctest、public helper の declaration doc、所有権・effect・target・stable output の明文化、旧 `ret:` doctest から stdout/assertion 例への移行が必要である。
 
 ## 基本方針
 

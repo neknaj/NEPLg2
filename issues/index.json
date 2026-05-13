@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T21:30:31.234Z",
+  "generated_at": "2026-05-13T21:38:52.785Z",
   "counts": {
-    "total": 735,
+    "total": 736,
     "open": 5,
-    "resolved": 730,
+    "resolved": 731,
     "by_area": {
       "stdlib": {
         "total": 183,
@@ -62,9 +62,9 @@
         "resolved": 2
       },
       "docs": {
-        "total": 4,
+        "total": 5,
         "open": 0,
-        "resolved": 4
+        "resolved": 5
       },
       "examples": {
         "total": 17,
@@ -5948,6 +5948,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T212824962Z-STDLIB-DOCUMENTATION-STYLE-GUIDE-NEE-DE6542E2.md"
+    },
+    {
+      "id": "ISS-20260513T213429992Z-GENERAL-STDLIB-DOCUMENTATION-AUDIT-L-E7BDE73F",
+      "title": "general stdlib documentation audit lacks non-kp guidance",
+      "area": "docs",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "doc/neplg2/stdlib_documentation_style_guide.md, doc/neplg2/stdlib_documentation_contract_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T213429992Z-GENERAL-STDLIB-DOCUMENTATION-AUDIT-L-E7BDE73F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-001-A50D91BB",

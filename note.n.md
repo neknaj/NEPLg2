@@ -1,3 +1,17 @@
+# 2026-05-14 Agent 1 一般 stdlib documentation 追加監査
+
+- `ISS-20260513T213429992Z-GENERAL-STDLIB-DOCUMENTATION-AUDIT-L-E7BDE73F` を追加して解決した。
+- `kp` は特殊な performance layer なので、一般 stdlib の代表として `stdlib/alloc/hash/sha256.nepl`、`stdlib/core/result.nepl`、`stdlib/alloc/string/storage.nepl`、`stdlib/alloc/io/bytebuf.nepl`、`stdlib/alloc/collections/*`、`stdlib/std/test/types.nepl`、`stdlib/std/streamio/scanner/state.nepl` を追加監査した。
+- `sha256` は facade / submodule 責務、incremental API、finalize の状態消費、内部 buffer 解放、計算量がよく説明されている。一方で facade module-level doctest と digest lifecycle 例が不足している。
+- `Result` は `Copy` 制約や `should_panic` / `compile_fail` が良いが、旧見出しと `ret:` 中心 doctest が残る。`Vec` は collection doc の基準例になる一方、bitset / adjacency_matrix / fenwick / binary_heap などの layout・storage・order helper には doc 欠落があり、owner flow、slot invariant、index formula、algorithm complexity を明文化する必要がある。`ByteBuf` と `StreamScanner` は owner/close 規則の説明が良いが、小さい public helper や raw header enum の doc が不足している。
+- `doc/neplg2/stdlib_documentation_style_guide.md` と `doc/neplg2/stdlib_documentation_contract_plan.md` に、一般 stdlib の追加監査結果と、facade doctest / public helper doc / owner・effect・stable output contract を優先する方針を追記した。
+- 検証:
+  - `node nodesrc/test_stdlib_documentation_contract.js`: passed
+  - `node nodesrc/issues.js index --dir issues`: total=736, open=5, resolved=731
+  - `node nodesrc/issues.js check --dir issues`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は stdlib documentation 整備方針を kp 以外の一般 stdlib に合わせて補強するもの。
+
 # 2026-05-14 Agent 1 Resource owner extent proof 修正
 
 - `ISS-20260513T161115125Z-RESOURCE-OWNER-CHECKER-CANNOT-PROVE--0A41590B` を解決した。
