@@ -82,6 +82,18 @@ fn assert_has_diag(result: Result<(), CoreError>, code: DiagnosticCode) {
     }
 }
 
+fn source_capabilities_for_suffix(source_map: &SourceMap, suffix: &str) -> SourceCapabilities {
+    source_map
+        .iter_paths()
+        .find_map(|(file_id, path)| {
+            let normalized = path.as_str().replace('\\', "/");
+            normalized
+                .ends_with(suffix)
+                .then(|| source_map.capabilities(file_id))
+        })
+        .unwrap_or_else(|| panic!("source suffix not loaded: {suffix}"))
+}
+
 #[test]
 fn internal_effect_classifies_raw_memory_and_surface_fold() {
     let alloc = raw_callee_internal_effect("alloc_raw").expect("alloc effect");
@@ -630,11 +642,8 @@ fn loader_does_not_mark_configured_stdlib_core_mem_facade_as_raw_memory_boundary
 #indent 4
 #target wasm
 
-pub fn raw_store <(i32,i32)->()> (p, v):
-    #wasm:
-        local.get p
-        local.get v
-        i32.store
+pub fn safe_value <()->i32> ():
+    7
 "#,
     )
     .expect("write core mem");
@@ -650,23 +659,24 @@ pub fn raw_store <(i32,i32)->()> (p, v):
 #import "core/mem" as *
 
 fn main <()->i32> ():
-    raw_store 0 1;
-    0
+    safe_value
 "#,
     )
     .expect("write entry");
 
     let mut loader = Loader::new(stdlib_root);
     let loaded = loader.load(&entry).expect("load");
-    let result = check_module_with_source_map(
+    let capabilities = source_capabilities_for_suffix(&loaded.source_map, "stdlib/core/mem.nepl");
+    assert!(
+        !capabilities.allows_raw_memory_boundary(),
+        "core/mem facade without raw source evidence must not receive raw memory capability"
+    );
+    check_module_with_source_map(
         loaded.module,
         Some(&loaded.source_map),
         options(CompileTarget::Wasm),
-    );
-    assert_has_diag(
-        result,
-        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
-    );
+    )
+    .expect("safe facade source should check");
 }
 
 #[test]
@@ -680,11 +690,8 @@ fn loader_does_not_mark_configured_stdlib_alloc_string_facade_as_raw_memory_boun
 #indent 4
 #target wasm
 
-pub fn string_raw_store <(i32,i32)->()> (p, v):
-    #wasm:
-        local.get p
-        local.get v
-        i32.store
+pub fn string_safe_value <()->i32> ():
+    11
 "#,
     )
     .expect("write alloc string");
@@ -700,23 +707,25 @@ pub fn string_raw_store <(i32,i32)->()> (p, v):
 #import "alloc/string" as *
 
 fn main <()->i32> ():
-    string_raw_store 0 1;
-    0
+    string_safe_value
 "#,
     )
     .expect("write entry");
 
     let mut loader = Loader::new(stdlib_root);
     let loaded = loader.load(&entry).expect("load");
-    let result = check_module_with_source_map(
+    let capabilities =
+        source_capabilities_for_suffix(&loaded.source_map, "stdlib/alloc/string.nepl");
+    assert!(
+        !capabilities.allows_raw_memory_boundary(),
+        "alloc/string facade without raw source evidence must not receive raw memory capability"
+    );
+    check_module_with_source_map(
         loaded.module,
         Some(&loaded.source_map),
         options(CompileTarget::Wasm),
-    );
-    assert_has_diag(
-        result,
-        DiagnosticCode::Effect(nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure),
-    );
+    )
+    .expect("safe facade source should check");
 }
 
 #[test]
@@ -1120,11 +1129,8 @@ fn loader_does_not_mark_raw_memory_free_split_modules_as_raw_memory_boundaries()
 #indent 4
 #target wasm
 
-pub fn {function_name} <(i32,i32)->()> (p, v):
-    #wasm:
-        local.get p
-        local.get v
-        i32.store
+pub fn {function_name} <()->i32> ():
+    1
 "#
             ),
         )
@@ -1142,8 +1148,7 @@ pub fn {function_name} <(i32,i32)->()> (p, v):
 #import "{import_spec}" as *
 
 fn main <()->i32> ():
-    {function_name} 0 1;
-    0
+    {function_name}
 "#
             ),
         )
@@ -1151,17 +1156,19 @@ fn main <()->i32> ():
 
         let mut loader = Loader::new(stdlib_root);
         let loaded = loader.load(&entry).expect("load");
-        let result = check_module_with_source_map(
+        let expected_suffix = format!("stdlib/{import_spec}.nepl");
+        let capabilities =
+            source_capabilities_for_suffix(&loaded.source_map, expected_suffix.as_str());
+        assert!(
+            !capabilities.allows_raw_memory_boundary(),
+            "{import_spec} without raw source evidence must not receive raw memory capability"
+        );
+        check_module_with_source_map(
             loaded.module,
             Some(&loaded.source_map),
             options(CompileTarget::Wasm),
-        );
-        assert_has_diag(
-            result,
-            DiagnosticCode::Effect(
-                nepl_core::diagnostic_codes::EffectDiagnosticCode::PureCallsImpure,
-            ),
-        );
+        )
+        .unwrap_or_else(|err| panic!("{import_spec} safe source should check: {err:?}"));
     }
 }
 

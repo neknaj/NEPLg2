@@ -30,7 +30,6 @@ const commonRadixCode = stripNeplComments(commonRadixSrc);
 const commonU128Code = stripNeplComments(commonU128Src);
 const formatCode = stripNeplComments(formatSrc);
 const parseCode = stripNeplComments(parseSrc);
-const loaderSrc = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 
 assert.match(rootSrc, /pub #import "\.\/string\/integer" as \*/, 'alloc/string facade must re-export string/integer');
 assert.match(integerSrc, /pub #import "\.\/integer\/common" as \*/, 'string/integer must re-export integer/common helpers');
@@ -152,9 +151,7 @@ assert.ok(commonRadixSrc.split(/\r?\n/).length <= 120, `${commonRadixRelPath} sh
 assert.ok(commonU128Src.split(/\r?\n/).length <= 330, `${commonU128RelPath} should stay within the u128 helper boundary`);
 assert.ok(formatSrc.split(/\r?\n/).length <= 300, `${formatRelPath} should stay within the format boundary`);
 assert.ok(parseSrc.split(/\r?\n/).length <= 380, `${parseRelPath} should stay within the parse boundary`);
-assert.ok(
-    loaderSrc.includes('&["alloc", "string", "integer", "format.nepl"]'),
-    'loader raw-memory boundary must include integer/format after moving from_u128_radix',
-);
+assert.match(formatCode, /\b(?:mem_ptr_addr|store_u8|RegionToken)\b/, 'string/integer/format must carry source-level raw memory evidence');
+assert.doesNotMatch(integerCode, /\b(?:mem_ptr_addr|store_u8|load_u8|mem_copy|RegionToken)\b/, 'string/integer facade must not carry direct raw memory evidence');
 
 console.log('alloc/string integer boundary regression passed');

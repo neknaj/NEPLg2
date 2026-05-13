@@ -35,7 +35,6 @@ const pointerAlloc = read("stdlib/core/mem/pointer/alloc.nepl");
 const pointerRegion = read("stdlib/core/mem/pointer/region.nepl");
 const pointerBulk = read("stdlib/core/mem/pointer/bulk.nepl");
 const pointerScalar = read("stdlib/core/mem/pointer/scalar.nepl");
-const loader = read("nepl-core/src/loader.rs");
 
 for (const moduleName of ["types", "layout", "pointer"]) {
     assertMatch(
@@ -90,34 +89,19 @@ assertMatch(pointerRegion, /pub\s+fn\s+region_ptr_at\b/, "mem/pointer/region mus
 assertMatch(pointerBulk, /pub\s+fn\s+mem_copy\b/, "mem/pointer/bulk must own checked bulk copy wrapper");
 assertMatch(pointerScalar, /pub\s+fn\s+load_i32\b/, "mem/pointer/scalar must own checked scalar load wrapper");
 
-assertNoMatch(
-    loader,
-    /&\["core",\s*"mem\.nepl"\]/,
-    "raw-memory-boundary capability must not remain on core/mem facade",
-);
-assertNoMatch(
-    loader,
-    /&\["core",\s*"mem",\s*"types\.nepl"\]/,
-    "raw-memory-boundary capability must not remain on mem/types because it only owns public layouts and safe field observers",
-);
-assertNoMatch(
-    loader,
-    /&\["core",\s*"mem",\s*"pointer\.nepl"\]/,
-    "raw-memory-boundary capability must not remain on mem/pointer facade",
-);
-
-for (const rel of [
-    '"core", "mem", "internal.nepl"',
-    '"core", "mem", "raw.nepl"',
-    '"core", "mem", "allocator.nepl"',
-    '"core", "mem", "pointer", "alloc.nepl"',
-    '"core", "mem", "pointer", "region.nepl"',
-    '"core", "mem", "pointer", "bulk.nepl"',
-    '"core", "mem", "pointer", "scalar.nepl"',
+for (const [label, text] of [
+    ["mem/internal", internal],
+    ["mem/raw", raw],
+    ["mem/allocator", allocator],
+    ["mem/pointer/alloc", pointerAlloc],
+    ["mem/pointer/region", pointerRegion],
+    ["mem/pointer/bulk", pointerBulk],
+    ["mem/pointer/scalar", pointerScalar],
 ]) {
-    assert(
-        loader.includes(`&[${rel}]`),
-        `loader raw-memory-boundary table must include exact ${rel}`,
+    assertMatch(
+        text,
+        /\b(?:mem_ptr_wrap|mem_ptr_addr|RegionToken|#intrinsic\s+"(?:load|store)"|alloc_raw|dealloc_raw|realloc_raw|mem_copy|load_i32|store_i32|load_u8|store_u8)\b/,
+        `${label} must carry source-level raw memory boundary evidence`,
     );
 }
 

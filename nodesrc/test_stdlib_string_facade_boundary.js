@@ -10,7 +10,8 @@ const rootRelPath = 'stdlib/alloc/string.nepl';
 const rootSrc = fs.readFileSync(path.join(repoRoot, rootRelPath), 'utf8');
 const rootCode = stripNeplComments(rootSrc);
 const stdlibMapSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/neplg2/core/module/stdlib_map.nepl'), 'utf8');
-const loaderSrc = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
+const rawBoundaryEvidencePattern = /\b(?:mem_ptr_wrap|mem_ptr_addr|mem_ptr_add|alloc_ptr|realloc_ptr|dealloc_ptr|alloc_region|alloc_region_bytes|dealloc_region|store_u8|load_u8|mem_copy|RegionToken)\b/;
+
 const selfhostStringQualifiedFiles = [
     'stdlib/neplg2/core/infra/text.nepl',
     'stdlib/neplg2/core/resolve/name_resolver.nepl',
@@ -57,33 +58,35 @@ assert.doesNotMatch(
     'self-host stdlib_map must not rely on qualified concat through the broad alloc/string facade',
 );
 
-for (const modulePath of [
-    '&["alloc", "string", "builder", "append.nepl"]',
-    '&["alloc", "string", "builder", "build.nepl"]',
-    '&["alloc", "string", "builder", "reserve.nepl"]',
-    '&["alloc", "string", "builder", "types.nepl"]',
-    '&["alloc", "string", "concat.nepl"]',
-    '&["alloc", "string", "builder_ext.nepl"]',
-    '&["alloc", "string", "integer", "format.nepl"]',
-    '&["alloc", "string", "float", "format.nepl"]',
+for (const relPath of [
+    'stdlib/alloc/string/builder/append.nepl',
+    'stdlib/alloc/string/builder/build.nepl',
+    'stdlib/alloc/string/builder/reserve.nepl',
+    'stdlib/alloc/string/builder/types.nepl',
+    'stdlib/alloc/string/concat.nepl',
+    'stdlib/alloc/string/builder_ext.nepl',
+    'stdlib/alloc/string/integer/format.nepl',
+    'stdlib/alloc/string/float/format.nepl',
 ]) {
-    assert.equal(loaderSrc.includes(modulePath), true, `loader raw-memory boundary must include ${modulePath}`);
+    const code = stripNeplComments(fs.readFileSync(path.join(repoRoot, relPath), 'utf8'));
+    assert.match(
+        code,
+        rawBoundaryEvidencePattern,
+        `${relPath} must carry source-level raw memory boundary evidence`,
+    );
 }
 
-assert.equal(
-    loaderSrc.includes('&["alloc", "string", "builder.nepl"]'),
-    false,
-    'loader raw-memory boundary must not grant capability to the builder facade',
-);
-for (const modulePath of [
-    '&["alloc", "string.nepl"]',
-    '&["alloc", "string", "integer.nepl"]',
-    '&["alloc", "string", "float.nepl"]',
+for (const relPath of [
+    'stdlib/alloc/string.nepl',
+    'stdlib/alloc/string/builder.nepl',
+    'stdlib/alloc/string/integer.nepl',
+    'stdlib/alloc/string/float.nepl',
 ]) {
-    assert.equal(
-        loaderSrc.includes(modulePath),
-        false,
-        `loader raw-memory boundary must not grant capability to facade-only module ${modulePath}`,
+    const code = stripNeplComments(fs.readFileSync(path.join(repoRoot, relPath), 'utf8'));
+    assert.doesNotMatch(
+        code,
+        rawBoundaryEvidencePattern,
+        `${relPath} facade-only module must not carry direct raw memory evidence`,
     );
 }
 

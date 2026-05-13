@@ -3,6 +3,7 @@ use crate::diagnostic::Severity;
 use crate::error::CoreError;
 use crate::lexer;
 use crate::parser;
+use crate::source_capability::module_has_raw_memory_boundary_evidence;
 use crate::span::FileId;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
@@ -23,54 +24,6 @@ macro_rules! loader_log {
         }
     };
 }
-
-const RAW_MEMORY_BOUNDARY_STDLIB_PATHS: &[&[&str]] = &[
-    &["core", "mem", "internal.nepl"],
-    &["core", "mem", "raw.nepl"],
-    &["core", "mem", "allocator.nepl"],
-    &["core", "mem", "pointer", "alloc.nepl"],
-    &["core", "mem", "pointer", "region.nepl"],
-    &["core", "mem", "pointer", "bulk.nepl"],
-    &["core", "mem", "pointer", "scalar.nepl"],
-    &["alloc", "diag", "diag.nepl"],
-    &["alloc", "diag", "error", "diags.nepl"],
-    &["alloc", "io", "bytebuf.nepl"],
-    &["alloc", "io", "bytebuilder", "append.nepl"],
-    &["alloc", "io", "bytebuilder", "build.nepl"],
-    &["alloc", "io", "bytebuilder", "storage.nepl"],
-    &["alloc", "collections", "vec", "mutation", "push.nepl"],
-    &["alloc", "collections", "vec", "raw", "element.nepl"],
-    &["alloc", "collections", "vec", "storage", "alloc.nepl"],
-    &["alloc", "collections", "vec", "storage", "cleanup.nepl"],
-    &["alloc", "collections", "vec", "storage", "fill.nepl"],
-    &["alloc", "collections", "vec", "sort", "common.nepl"],
-    &["alloc", "collections", "vec", "sort", "merge", "api.nepl"],
-    &[
-        "alloc",
-        "collections",
-        "vec",
-        "sort",
-        "merge",
-        "buffer.nepl",
-    ],
-    &["alloc", "collections", "vec", "sort", "merge", "range.nepl"],
-    &["alloc", "encoding", "json", "serialize.nepl"],
-    &["alloc", "string", "access.nepl"],
-    &["alloc", "string", "builder", "append.nepl"],
-    &["alloc", "string", "builder", "build.nepl"],
-    &["alloc", "string", "builder", "reserve.nepl"],
-    &["alloc", "string", "builder", "types.nepl"],
-    &["alloc", "string", "builder_ext.nepl"],
-    &["alloc", "string", "concat.nepl"],
-    &["alloc", "string", "float", "format.nepl"],
-    &["alloc", "string", "integer", "format.nepl"],
-    &["alloc", "string", "scanner.nepl"],
-    &["alloc", "string", "storage.nepl"],
-    &["alloc", "string", "utf8.nepl"],
-    &["std", "env", "cliarg", "raw.nepl"],
-    &["std", "text", "validate.nepl"],
-    &["std", "streamio", "scanner", "state.nepl"],
-];
 
 #[derive(Debug)]
 pub enum LoaderError {
@@ -240,9 +193,13 @@ impl Loader {
         let file_id = sm.add_with_capabilities(
             path_to_source_label(&canon),
             src.clone(),
-            self.source_capabilities_for_path(&canon),
+            SourceCapabilities::none(),
         );
         let module = self.parse_module(file_id, src)?;
+        sm.set_capabilities(
+            file_id,
+            self.source_capabilities_for_module(&canon, &module),
+        );
         let module = self.process_directives(
             canon.clone(),
             module,
@@ -286,9 +243,13 @@ impl Loader {
         let file_id = sm.add_with_capabilities(
             path_to_source_label(&canon),
             src.clone(),
-            self.source_capabilities_for_path(&canon),
+            SourceCapabilities::none(),
         );
         let module = self.parse_module(file_id, src)?;
+        sm.set_capabilities(
+            file_id,
+            self.source_capabilities_for_module(&canon, &module),
+        );
         loader_log!("[Loader] processing directives for {:?}", canon);
         let module = self.process_directives_with(
             canon.clone(),
@@ -330,10 +291,14 @@ impl Loader {
         let file_id = sm.add_with_capabilities(
             path_to_source_label(&canon),
             src.clone(),
-            self.source_capabilities_for_path(&canon),
+            SourceCapabilities::none(),
         );
         loader_log!("[Loader] Parsing module: {:?}", canon);
         let module = self.parse_module(file_id, src)?;
+        sm.set_capabilities(
+            file_id,
+            self.source_capabilities_for_module(&canon, &module),
+        );
         loader_log!("[Loader] Processing directives for: {:?}", canon);
         let module = self.process_directives(
             canon.clone(),
@@ -374,9 +339,13 @@ impl Loader {
         let file_id = sm.add_with_capabilities(
             path_to_source_label(&canon),
             src.clone(),
-            self.source_capabilities_for_path(&canon),
+            SourceCapabilities::none(),
         );
         let module = self.parse_module(file_id, src)?;
+        sm.set_capabilities(
+            file_id,
+            self.source_capabilities_for_module(&canon, &module),
+        );
         let module = self.process_directives_with(
             canon.clone(),
             module,
@@ -716,22 +685,27 @@ impl Loader {
         p
     }
 
-    fn source_capabilities_for_path(&self, canon: &PathBuf) -> SourceCapabilities {
-        if self.configured_raw_memory_boundary_path(canon) {
+    fn source_capabilities_for_module(
+        &self,
+        canon: &PathBuf,
+        module: &Module,
+    ) -> SourceCapabilities {
+        if self.configured_stdlib_source_path(canon)
+            && module_has_raw_memory_boundary_evidence(module)
+        {
             SourceCapabilities::raw_memory_boundary()
         } else {
             SourceCapabilities::none()
         }
     }
 
-    fn configured_raw_memory_boundary_path(&self, canon: &PathBuf) -> bool {
-        RAW_MEMORY_BOUNDARY_STDLIB_PATHS
-            .iter()
-            .map(|segments| stdlib_path(&self.stdlib_root, segments))
-            .any(|path| *canon == canonicalize_path(&path))
+    fn configured_stdlib_source_path(&self, canon: &PathBuf) -> bool {
+        let root = canonicalize_path(&self.stdlib_root);
+        canon.starts_with(root)
     }
 }
 
+#[cfg(test)]
 fn stdlib_path(root: &PathBuf, segments: &[&str]) -> PathBuf {
     segments
         .iter()
@@ -786,7 +760,6 @@ fn path_to_source_label(path: &PathBuf) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::collections::BTreeSet;
 
     fn test_loader() -> Loader {
         Loader::new(PathBuf::from("C:/nepl-test/stdlib"))
@@ -798,51 +771,185 @@ mod tests {
             .fold(PathBuf::from(root), |path, segment| path.join(segment))
     }
 
-    #[test]
-    fn raw_memory_boundary_whitelist_paths_are_unique_and_exact() {
-        let loader = test_loader();
-        let mut seen = BTreeSet::new();
+    fn load_source_capabilities(loader: &Loader, path: PathBuf, src: &str) -> SourceCapabilities {
+        let mut sm = SourceMap::new();
+        let mut cache = BTreeMap::new();
+        let mut processing = BTreeSet::new();
+        let mut imported_once = BTreeSet::new();
+        let _ = loader
+            .load_from_contents(
+                path,
+                String::from(src),
+                &mut sm,
+                &mut cache,
+                &mut processing,
+                &mut imported_once,
+                false,
+            )
+            .expect("test source should parse");
+        sm.capabilities(FileId(0))
+    }
 
-        for segments in RAW_MEMORY_BOUNDARY_STDLIB_PATHS {
-            let path = canonicalize_path(&stdlib_path(&loader.stdlib_root, segments));
-            assert!(
-                seen.insert(path.clone()),
-                "duplicate raw memory boundary path: {:?}",
-                path
-            );
-            assert!(
-                loader.configured_raw_memory_boundary_path(&path),
-                "configured stdlib path must receive raw memory boundary capability: {:?}",
-                segments
-            );
-            assert!(
-                loader
-                    .source_capabilities_for_path(&path)
-                    .allows_raw_memory_boundary(),
-                "source capabilities must expose the exact raw memory boundary path: {:?}",
-                segments
-            );
-        }
+    #[test]
+    fn raw_memory_boundary_uses_configured_stdlib_root_and_source_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["future", "raw_boundary.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(i32)->i32> (ptr):\n    load_i32 ptr\n",
+        );
+        assert!(
+            capabilities.allows_raw_memory_boundary(),
+            "compiler-owned stdlib source with raw evidence must receive capability without a module allowlist"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_requires_source_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "raw.nepl"],
+        ));
+
+        let safe =
+            load_source_capabilities(&loader, path.clone(), "fn helper <()->i32> ():\n    1\n");
+        assert!(
+            !safe.allows_raw_memory_boundary(),
+            "configured raw boundary candidate without raw evidence must not receive capability"
+        );
+
+        let raw = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(i32)->i32> (ptr):\n    load_i32 ptr\n",
+        );
+        assert!(
+            raw.allows_raw_memory_boundary(),
+            "configured raw boundary candidate with raw helper evidence must receive capability"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_accepts_restricted_constructor_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "internal.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(i32)->MemPtr<i32>> (raw):\n    MemPtr raw\n",
+        );
+        assert!(
+            capabilities.allows_raw_memory_boundary(),
+            "compiler-owned restricted constructors are raw boundary evidence"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_accepts_raw_address_helper_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "internal.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(MemPtr<i32>)->i32> (ptr):\n    mem_ptr_addr ptr\n",
+        );
+        assert!(
+            capabilities.allows_raw_memory_boundary(),
+            "compiler-owned raw address identity helpers are raw boundary evidence"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_accepts_checked_owner_helper_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "string", "builder", "reserve.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(i32)->Result<MemPtr<u8>,str>> (n):\n    alloc_ptr<u8> n\n",
+        );
+        assert!(
+            capabilities.allows_raw_memory_boundary(),
+            "compiler-owned checked owner helpers are raw boundary evidence"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_accepts_raw_address_intrinsic_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["alloc", "string", "storage.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(i32)->str> (raw):\n    #intrinsic \"str_from_addr_unchecked\" <> (raw)\n",
+        );
+        assert!(
+            capabilities.allows_raw_memory_boundary(),
+            "compiler-owned raw address intrinsics are raw boundary evidence"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_rejects_user_source_even_with_raw_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&path_from_segments(
+            "C:/nepl-test/user",
+            &["core", "mem", "raw.nepl"],
+        ));
+        let capabilities = load_source_capabilities(
+            &loader,
+            path,
+            "fn helper <(i32)->i32> (ptr):\n    load_i32 ptr\n",
+        );
+        assert!(
+            !capabilities.allows_raw_memory_boundary(),
+            "raw helper evidence outside configured stdlib must not grant capability"
+        );
+    }
+
+    #[test]
+    fn raw_memory_boundary_rejects_candidate_suffix_without_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "mem", "raw.nepl"],
+        ));
+        let capabilities =
+            load_source_capabilities(&loader, path, "fn helper <()->i32> ():\n    1\n");
+        assert!(
+            !capabilities.allows_raw_memory_boundary(),
+            "configured stdlib source without source evidence must not receive capability"
+        );
     }
 
     #[test]
     fn raw_memory_boundary_rejects_same_suffix_outside_configured_stdlib() {
         let loader = test_loader();
-
-        for segments in RAW_MEMORY_BOUNDARY_STDLIB_PATHS {
-            let path = canonicalize_path(&path_from_segments("C:/nepl-test/user", segments));
-            assert!(
-                !loader.configured_raw_memory_boundary_path(&path),
-                "raw memory boundary must not be granted by suffix match alone: {:?}",
-                path
-            );
-            assert!(
-                !loader
-                    .source_capabilities_for_path(&path)
-                    .allows_raw_memory_boundary(),
-                "source capabilities must reject suffix-matched user path: {:?}",
-                path
-            );
-        }
+        let path = canonicalize_path(&path_from_segments(
+            "C:/nepl-test/stdlib2",
+            &["core", "mem", "raw.nepl"],
+        ));
+        assert!(
+            !loader.configured_stdlib_source_path(&path),
+            "raw memory boundary must not be granted by prefix-like path text: {:?}",
+            path
+        );
     }
 }

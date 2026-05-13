@@ -19,7 +19,6 @@ const src = Object.fromEntries(
         fs.readFileSync(path.join(repoRoot, relPath), 'utf8'),
     ]),
 );
-const loaderSrc = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 
 const code = Object.fromEntries(
     Object.entries(src).map(([name, text]) => [
@@ -52,9 +51,8 @@ assert.match(code.root, /pub\s+#import\s+"\.\/*error\/diag"\s+as\s+\*/, 'root fa
 assert.match(code.root, /pub\s+#import\s+"\.\/*error\/diags"\s+as\s+\*/, 'root facade must re-export Diags owner helpers');
 assert.match(code.root, /pub\s+#import\s+"\.\/*error\/outcome"\s+as\s+\*/, 'root facade must re-export Outcome helpers');
 assert.doesNotMatch(code.root, /^\s*(fn|struct|enum|impl)\b/m, 'alloc/diag/error.nepl must stay a public facade without implementation bodies');
-assert.doesNotMatch(loaderSrc, /&\["alloc",\s*"diag",\s*"error\.nepl"\]/, 'root diagnostic error facade must not be a raw-memory boundary');
-assert.match(loaderSrc, /&\["alloc",\s*"diag",\s*"error",\s*"diags\.nepl"\]/, 'Diags storage scanner must be the exact raw-memory boundary');
-assert.match(loaderSrc, /&\["alloc",\s*"diag",\s*"diag\.nepl"\]/, 'diagnostic renderer Diags scanner must be an exact raw-memory boundary');
+assert.match(code.diags, /\b(?:mem_ptr_addr|load<Diag>)\b/, 'Diags storage scanner must carry source-level raw memory evidence');
+assert.doesNotMatch(code.diag, /\b(?:mem_ptr_addr|load<Diag>)\b/, 'single diagnostic helpers must not carry direct raw memory evidence');
 
 const lineLimits = {
     root: 80,

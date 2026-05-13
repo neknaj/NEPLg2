@@ -18,7 +18,6 @@ const byteBuilderSources = [
 ].map((relPath) => fs.readFileSync(path.join(repoRoot, relPath), 'utf8'));
 const traitsRelPath = 'stdlib/alloc/io/traits.nepl';
 const traitsSrc = fs.readFileSync(path.join(repoRoot, traitsRelPath), 'utf8');
-const loaderSrc = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 const fsRelPath = 'stdlib/std/fs/read/fd.nepl';
 const fsSrc = fs.readFileSync(path.join(repoRoot, fsRelPath), 'utf8');
 const fsRawRelPath = 'stdlib/std/fs/raw/fd_io.nepl';
@@ -154,30 +153,24 @@ assert.doesNotMatch(
 );
 
 assert.doesNotMatch(
-    loaderSrc,
-    /&\["alloc",\s*"io\.nepl"\]/,
-    'alloc/io root facade must not retain raw-memory boundary capability',
+    rootCode,
+    /\b(?:mem_ptr_addr|load_u8|store_u8|mem_copy|alloc_raw|dealloc_raw)\b/,
+    'alloc/io root facade must not carry direct raw memory evidence',
 );
 
 assert.match(
-    loaderSrc,
-    /&\["alloc",\s*"io",\s*"bytebuf\.nepl"\]/,
-    'alloc/io/bytebuf must be an exact raw-memory boundary',
+    code,
+    /\b(?:mem_ptr_addr|load_u8|store_u8|mem_copy|RegionToken)\b/,
+    'alloc/io/bytebuf must carry source-level raw memory boundary evidence',
 );
 
 assert.doesNotMatch(
-    loaderSrc,
-    /&\["alloc",\s*"io",\s*"bytebuilder\.nepl"\]/,
-    'alloc/io/bytebuilder facade must not retain raw-memory boundary capability',
+    byteBuilderSources[0],
+    /\b(?:mem_ptr_addr|load_u8|store_u8|mem_copy|alloc_raw|dealloc_raw)\b/,
+    'alloc/io/bytebuilder facade must not carry direct raw memory evidence',
 );
 
-for (const modulePath of [
-    /&\["alloc",\s*"io",\s*"bytebuilder",\s*"storage\.nepl"\]/,
-    /&\["alloc",\s*"io",\s*"bytebuilder",\s*"append\.nepl"\]/,
-    /&\["alloc",\s*"io",\s*"bytebuilder",\s*"build\.nepl"\]/,
-]) {
-    assert.match(loaderSrc, modulePath, `ByteBuilder implementation module must be an exact raw-memory boundary: ${modulePath}`);
-}
+assert.match(byteBuilderCode, /\b(?:mem_ptr_addr|load_u8|store_u8|mem_copy|RegionToken)\b/, 'ByteBuilder implementation modules must carry source-level raw memory evidence');
 
 const fsReadMatch = fsSrc.match(/(?:pub\s+)?fn\s+fs_read_fd_bytes\b([\s\S]*)/);
 assert.ok(fsReadMatch, 'fs_read_fd_bytes body must be found');

@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T07:14:30.980Z",
+  "generated_at": "2026-05-13T08:29:41.720Z",
   "counts": {
-    "total": 703,
-    "open": 5,
+    "total": 704,
+    "open": 6,
     "resolved": 698,
     "by_area": {
       "stdlib": {
-        "total": 171,
-        "open": 3,
+        "total": 172,
+        "open": 4,
         "resolved": 168
       },
       "TEST": {
@@ -133,11 +133,26 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-04-28",
+      "updated": "2026-05-13",
       "target": "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
+    },
+    {
+      "id": "ISS-20260513T082754555Z-VEC-AND-STRING-SUBMODULE-DOCTESTS-RE-E80ED44C",
+      "title": "Vec and string submodule doctests rely on stale implicit imports",
+      "area": "stdlib",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/alloc/collections/vec/**/*.nepl, stdlib/alloc/string/**/*.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T082754555Z-VEC-AND-STRING-SUBMODULE-DOCTESTS-RE-E80ED44C.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",

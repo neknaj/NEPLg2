@@ -10,6 +10,9 @@ const TYPECHECK_DIR = path.join(CORE_SRC, 'typecheck');
 const RESOURCE_ROOT = path.join(CORE_SRC, 'resource', 'mod.rs');
 const COMPILER = path.join(CORE_SRC, 'compiler.rs');
 const EFFECTS = path.join(CORE_SRC, 'effects.rs');
+const LOADER = path.join(CORE_SRC, 'loader.rs');
+const SOURCE_CAPABILITY = path.join(CORE_SRC, 'source_capability.rs');
+const SOURCE_CAPABILITY_RAW_MEMORY = path.join(CORE_SRC, 'source_capability', 'raw_memory.rs');
 const PASSES_MOD = path.join(CORE_SRC, 'passes', 'mod.rs');
 const DROP_INSERTION = path.join(CORE_SRC, 'passes', 'drop_insertion.rs');
 const MOVE_CHECK_ROOT = path.join(CORE_SRC, 'passes', 'move_check.rs');
@@ -77,6 +80,12 @@ const typecheckRoot = assertFile(TYPECHECK_ROOT, 'typecheck.rs');
 const resourceRoot = assertFile(RESOURCE_ROOT, 'resource/mod.rs');
 const compiler = assertFile(COMPILER, 'compiler.rs');
 const effects = assertFile(EFFECTS, 'effects.rs');
+const loader = assertFile(LOADER, 'loader.rs');
+const sourceCapability = assertFile(SOURCE_CAPABILITY, 'source_capability.rs');
+const sourceCapabilityRawMemory = assertFile(
+    SOURCE_CAPABILITY_RAW_MEMORY,
+    'source_capability/raw_memory.rs',
+);
 const passesMod = assertFile(PASSES_MOD, 'passes/mod.rs');
 const dropInsertion = assertFile(DROP_INSERTION, 'passes/drop_insertion.rs');
 const resourceIrTests = assertFile(RESOURCE_IR_TESTS, 'nepl-core/tests/resource_ir.rs');
@@ -219,6 +228,27 @@ assertNotContains(
 );
 assertNotContains(effects, 'fn wasm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
 assertNotContains(effects, 'fn llvm_memory_operation(line: &str) -> Option<String>', 'effects.rs');
+assertLineLimit(SOURCE_CAPABILITY, 'source_capability.rs', 40);
+assertLineLimit(SOURCE_CAPABILITY_RAW_MEMORY, 'source_capability/raw_memory.rs', 220);
+assertContains(
+    sourceCapabilityRawMemory,
+    'enum RawMemoryBoundaryEvidence',
+    'source_capability/raw_memory.rs',
+);
+assertContains(
+    sourceCapabilityRawMemory,
+    'pub(crate) fn module_has_raw_memory_boundary_evidence',
+    'source_capability/raw_memory.rs',
+);
+assertContains(sourceCapabilityRawMemory, 'raw_memory_op_from_name', 'source_capability/raw_memory.rs');
+assertContains(sourceCapabilityRawMemory, 'PrefixItem::Intrinsic', 'source_capability/raw_memory.rs');
+assertContains(sourceCapabilityRawMemory, 'enum RawAddressBoundaryHelper', 'source_capability/raw_memory.rs');
+assertContains(sourceCapabilityRawMemory, 'enum RawOwnerBoundaryHelper', 'source_capability/raw_memory.rs');
+assertContains(sourceCapabilityRawMemory, 'RestrictedConstructor', 'source_capability/raw_memory.rs');
+assertNotContains(loader, 'RAW_MEMORY_BOUNDARY_STDLIB_PATHS', 'loader.rs');
+assertNotContains(loader, 'configured_raw_memory_boundary_path', 'loader.rs');
+assertContains(loader, 'configured_stdlib_source_path', 'loader.rs');
+assertContains(loader, 'module_has_raw_memory_boundary_evidence', 'loader.rs');
 
 assertMatches(
     compiler,

@@ -41,6 +41,7 @@ mod qualified_name;
 pub mod resolve;
 pub mod resource;
 pub mod runtime_helpers;
+mod source_capability;
 pub mod source_map;
 pub mod target_gate;
 pub mod target_precheck;

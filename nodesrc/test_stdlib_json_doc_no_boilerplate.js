@@ -20,7 +20,6 @@ function read(relPath) {
 
 const srcByFile = Object.fromEntries(Object.entries(files).map(([key, relPath]) => [key, read(relPath)]));
 const combinedSrc = Object.values(srcByFile).join('\n');
-const loaderSrc = read('nepl-core/src/loader.rs');
 const stdTestReportSrc = read('stdlib/std/test/report.nepl');
 
 const forbiddenPhrases = [
@@ -83,11 +82,6 @@ for (const key of ['escape', 'serialize']) {
 }
 assert.match(srcByFile.serialize, /\bmem_ptr_addr\b[\s\S]*\bload<JsonValue>/, `${files.serialize} must own array payload traversal`);
 assert.match(srcByFile.serialize, /\bmem_ptr_addr\b[\s\S]*\bload<JsonMember>/, `${files.serialize} must own object payload traversal`);
-assert.match(
-    loaderSrc,
-    /&\["alloc", "encoding", "json", "serialize\.nepl"\]/,
-    `${files.serialize} must be the exact raw-memory boundary for JSON Vec payload traversal`
-);
 assert.match(
     stdTestReportSrc,
     /#import "alloc\/encoding\/json\/escape" as json/,

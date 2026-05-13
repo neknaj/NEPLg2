@@ -18,7 +18,6 @@ const rootCode = stripNeplComments(rootSrc);
 const floatCode = stripNeplComments(floatSrc);
 const formatCode = stripNeplComments(formatSrc);
 const parseCode = stripNeplComments(parseSrc);
-const loaderSrc = fs.readFileSync(path.join(repoRoot, 'nepl-core/src/loader.rs'), 'utf8');
 
 assert.match(rootSrc, /pub #import "\.\/string\/float" as \*/, 'alloc/string facade must re-export string/float');
 assert.match(floatSrc, /pub #import "\.\/float\/format" as \*/, 'alloc/string/float facade must re-export float/format');
@@ -86,9 +85,7 @@ assert.match(
 assert.ok(floatSrc.split(/\r?\n/).length <= 80, `${floatRelPath} should stay within the float facade boundary`);
 assert.ok(formatSrc.split(/\r?\n/).length <= 330, `${formatRelPath} should stay within the float format boundary`);
 assert.ok(parseSrc.split(/\r?\n/).length <= 300, `${parseRelPath} should stay within the float parse boundary`);
-assert.ok(
-    loaderSrc.includes('&["alloc", "string", "float", "format.nepl"]'),
-    'loader raw-memory boundary must include float/format after moving fixed-size formatting',
-);
+assert.match(formatCode, /\b(?:mem_ptr_addr|store_u8|mem_copy|RegionToken)\b/, 'string/float/format must carry source-level raw memory evidence');
+assert.doesNotMatch(floatCode, /\b(?:mem_ptr_addr|store_u8|load_u8|mem_copy|RegionToken)\b/, 'string/float facade must not carry direct raw memory evidence');
 
 console.log('alloc/string float boundary regression passed');

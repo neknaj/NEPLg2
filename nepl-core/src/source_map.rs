@@ -127,6 +127,12 @@ impl SourceMap {
             .unwrap_or_default()
     }
 
+    pub fn set_capabilities(&mut self, id: FileId, capabilities: SourceCapabilities) {
+        if let Some(file) = self.files.get_mut(id.0 as usize) {
+            file.capabilities = capabilities;
+        }
+    }
+
     pub fn raw_memory_boundary_allowed(&self, id: FileId) -> bool {
         self.capabilities(id).allows_raw_memory_boundary()
     }
