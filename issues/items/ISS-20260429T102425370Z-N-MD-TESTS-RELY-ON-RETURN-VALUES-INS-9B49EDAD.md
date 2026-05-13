@@ -202,3 +202,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\segment_tree.n.md -i tests\stdlib\segment_tree_collections.n.md --no-tree -o tmp\agent1-segment-tree-report-tests.json -j 2 --assert-io`: total=6, passed=6
 
 この issue はまだ open のまま継続する。SegmentTree 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-13 Queue stdout report migration
+
+`stdlib/tests/queue.n.md` と `tests/stdlib/queue_collections.n.md` の Queue focused doctest 4 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- push / len / peek / pop / pop_front / grow / clear / empty pop の観測結果を assertion label として stdout に残すようにした。
+- length checks は `assert_eq_i32` で expected / actual を stdout に固定した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\queue.n.md -i tests\stdlib\queue_collections.n.md --no-tree -o tmp\agent1-queue-report-tests.json -j 2 --assert-io`: total=4, passed=4
+
+この issue はまだ open のまま継続する。Queue 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

@@ -2,8 +2,9 @@
 
 ## queue_push_pop
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"queue_push_pop\" count=5 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"len after push\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"peek sees first item\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"pop returns pushed item\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"pop_front item\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"pop_front leaves next item\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -16,6 +17,7 @@ ret: 1
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let q0 <Queue<i32>>:
@@ -24,7 +26,7 @@ fn main <()*>i32> ():
         |> unwrap_ok<Queue<i32>, Diag>
         |> push<i32> 2
         |> unwrap_ok<Queue<i32>, Diag>
-    let ok0 <bool> eq len<i32> &q0 2;
+    let size0 <i32> len<i32> &q0;
     free<i32> q0;
     let q1 <Queue<i32>>:
         unwrap_ok<Queue<i32>, Diag> new<i32>
@@ -67,13 +69,22 @@ fn main <()*>i32> ():
             Option::None:
                 false
     free<i32> q4;
-    if and and ok0 ok1 and ok2 and ok3 ok4 1 0
+    let report:
+        test_report_new "queue_push_pop"
+        |> test_report_push assert_eq_i32 "len after push" 2 size0
+        |> test_report_push assert "peek sees first item" ok1
+        |> test_report_push assert "pop returns pushed item" ok2
+        |> test_report_push assert "pop_front item" ok3
+        |> test_report_push assert "pop_front leaves next item" ok4
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## queue_pop_empty
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"queue_pop_empty\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"pop empty returns none\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -83,12 +94,18 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let q <Queue<i32>> unwrap_ok<Queue<i32>, Diag> new<i32>;
-    match pop<i32> q:
+    let ok <bool> match pop<i32> q:
         Option::Some _:
-            0
+            false
         Option::None:
-            1
+            true
+    let report:
+        test_report_new "queue_pop_empty"
+        |> test_report_push assert "pop empty returns none" ok
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
