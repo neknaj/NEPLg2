@@ -16322,6 +16322,36 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn resource_ir_cell_check_rejects_double_non_copy_load_through_mem_ptr_alias() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+
+struct LocalToken:
+    raw <(i32)->i32>
+
+fn token_id <(i32)->i32> (x):
+    x
+
+fn main <()*>i32> ():
+    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+    let r1 <i32> mem_ptr_addr p
+    let r2 <i32> mem_ptr_addr p
+    store<LocalToken> r1 LocalToken @token_id
+    let a <LocalToken> load<LocalToken> r1
+    let b <LocalToken> load<LocalToken> r2
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(source, CompileTarget::Wasm, "resource.cell.moved");
+}
+
+#[test]
 fn resource_ir_cell_check_preserves_mem_ptr_alias_after_region_token() {
     let source = r#"
 #entry main

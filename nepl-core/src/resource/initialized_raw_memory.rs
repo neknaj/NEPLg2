@@ -289,8 +289,11 @@ fn raw_memory_load_reads_zero_initialized_runtime_cell(
     raw_aliases: &RawCellAddressAliases,
     address: &Place,
 ) -> bool {
-    raw_aliases.aliases_for(address).iter().any(|alias| {
-        raw_aliases.i32_value(alias).is_some_and(|value| value >= 0)
-            && !cells.raw_address_has_tracked_storage(alias)
-    })
+    let aliases = raw_aliases.aliases_for(address);
+    aliases
+        .iter()
+        .any(|alias| raw_aliases.i32_value(alias).is_some_and(|value| value >= 0))
+        && aliases
+            .iter()
+            .all(|alias| !cells.raw_address_has_tracked_storage(alias))
 }

@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T06:05:01.057Z",
+  "generated_at": "2026-05-13T06:15:51.893Z",
   "counts": {
     "total": 700,
-    "open": 6,
-    "resolved": 694,
+    "open": 5,
+    "resolved": 695,
     "by_area": {
-      "core": {
-        "total": 374,
-        "open": 1,
-        "resolved": 373
-      },
       "stdlib": {
         "total": 171,
         "open": 3,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 374,
+        "open": 0,
+        "resolved": 374
       },
       "resource": {
         "total": 2,
@@ -109,21 +109,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260513T060220120Z-RESOURCE-CELL-ALIASES-MISS-MEMPTR-RA-DA8C864C",
-      "title": "Resource cell aliases miss MemPtr raw identity through aggregates and returns",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "bug",
-      "created": "2026-05-13",
-      "updated": "2026-05-13",
-      "target": "nepl-core/src/resource",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260513T060220120Z-RESOURCE-CELL-ALIASES-MISS-MEMPTR-RA-DA8C864C.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -453,6 +438,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T054944970Z-ALLOCATOR-RUNTIME-ABI-IS-DECLARED-PU-4C2B8794.md"
+    },
+    {
+      "id": "ISS-20260513T060220120Z-RESOURCE-CELL-ALIASES-MISS-MEMPTR-RA-DA8C864C",
+      "title": "Resource cell aliases miss MemPtr raw identity through aggregates and returns",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T060220120Z-RESOURCE-CELL-ALIASES-MISS-MEMPTR-RA-DA8C864C.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",
