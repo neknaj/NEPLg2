@@ -2,8 +2,8 @@
 id: ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841
 title: "Stdlib documentation contract is not globally enforced"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: doc
 created: 2026-05-12
@@ -69,3 +69,21 @@ Add a stdlib documentation contract plan and a nodesrc source policy that freeze
 - `node nodesrc/test_stdlib_builder_owner_boundary.js`
 - `node nodesrc/tests.js -i stdlib/alloc/io/bytebuilder.nepl --no-tree -o tmp/agent1-bytebuilder-doc-contract.json -j 1 --dist web/dist`
 - `node nodesrc/run_source_policy_regressions.js`
+
+## 2026-05-13 Agent 1 解決整理
+
+この issue の主題である「stdlib documentation contract が global source policy として enforcement されていない」問題は解消済みと判断する。
+
+現在の `nodesrc/test_stdlib_documentation_contract.js` は次を監視している。
+
+- `stdlib/**/*.nepl` の module doc が 0 欠落であること。
+- module doctest / declaration doc / declaration doctest の不足数が baseline より悪化しないこと。
+- 不足数を隠すために doc comment を削る退行を拒否すること。
+- `nodesrc/run_source_policy_regressions.js` から通常の source policy として実行されること。
+
+2026-05-13 時点の確認では、`files=395`、`moduleNoDoc=0`、`moduleNoDoctest=309`、`declarationNoDoc=537`、`declarationNoDoctest=1027` で、global enforcement は機能している。残る不足数はこの issue の未解決ではなく、`doc/neplg2/stdlib_documentation_contract_plan.md` に沿って baseline を段階的に 0 へ下げる継続改善として扱う。
+
+検証:
+
+- `node nodesrc\test_stdlib_documentation_contract.js`
+- `node nodesrc\issues.js check --dir issues`

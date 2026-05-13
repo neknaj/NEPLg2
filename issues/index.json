@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T04:02:58.832Z",
+  "generated_at": "2026-05-13T04:08:00.267Z",
   "counts": {
     "total": 693,
-    "open": 6,
-    "resolved": 687,
+    "open": 5,
+    "resolved": 688,
     "by_area": {
       "stdlib": {
         "total": 169,
-        "open": 4,
-        "resolved": 165
+        "open": 3,
+        "resolved": 166
       },
       "TEST": {
         "total": 18,
@@ -138,21 +138,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84.md"
-    },
-    {
-      "id": "ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841",
-      "title": "Stdlib documentation contract is not globally enforced",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "doc",
-      "created": "2026-05-12",
-      "updated": "2026-05-12",
-      "target": "stdlib/**/*.nepl; nodesrc/test_stdlib_documentation_contract.js; doc/neplg2/stdlib_documentation_contract_plan.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841.md"
     },
     {
       "id": "ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD",
@@ -7968,6 +7953,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T060310380Z-VEC-STDLIB-DOCTESTS-FAIL-RESOURCE-OW-D1622B99.md"
+    },
+    {
+      "id": "ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841",
+      "title": "Stdlib documentation contract is not globally enforced",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-05-12",
+      "updated": "2026-05-12",
+      "target": "stdlib/**/*.nepl; nodesrc/test_stdlib_documentation_contract.js; doc/neplg2/stdlib_documentation_contract_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841.md"
     },
     {
       "id": "ISS-20260513T023254911Z-CORE-MEM-FACADE-STILL-CARRIED-RAW-ME-FEEF633F",

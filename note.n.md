@@ -37081,3 +37081,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - binary_heap focused doctest で `api/observer.nepl` の `core/math` import 漏れが見えたため、module-local import に直し、root facade の private import へ依存しない形にした。
 - `tests/stdlib/collection_cleanup_contract.n.md` と source policy を更新し、non-Copy payload cleanup が `type.trait_bound.unsatisfied` で拒否されることを固定した。
 - `RV-STDLIB-004` はまだ open。今回の修正は Stage D の完全な `OwnedBuffer<T>` / initialized prefix / element drop traversal ではなく、未実装機能を generic signature で装わないための契約修正である。
+
+## 2026-05-13 Agent 1 stdlib documentation contract issue closure
+
+- `cd468ade` push 後に remote main を pull し、`agent1-close-stdlib-doc-contract` branch を作成した。
+- `ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841` を再確認し、global source policy enforcement は実装済みと判断して fixed に整理した。
+- `nodesrc/test_stdlib_documentation_contract.js` は module doc 欠落 0、module doctest / declaration doc / declaration doctest gap の baseline 悪化禁止を監視している。
+- 2026-05-13 時点の不足数は `moduleNoDoctest=309`、`declarationNoDoc=537`、`declarationNoDoctest=1027` で、これは issue 未解決ではなく `doc/neplg2/stdlib_documentation_contract_plan.md` に沿って段階的に 0 へ下げる継続改善である。
