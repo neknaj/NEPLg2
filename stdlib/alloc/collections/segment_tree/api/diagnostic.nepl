@@ -8,6 +8,7 @@
 #indent 4
 
 #import "alloc/diag/error" as *
+#import "core/result" as *
 
 pub fn seg_diag_len <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "invalid segment tree length"

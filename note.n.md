@@ -37088,3 +37088,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260512T142631679Z-STDLIB-DOCUMENTATION-CONTRACT-IS-NOT-1FB48841` を再確認し、global source policy enforcement は実装済みと判断して fixed に整理した。
 - `nodesrc/test_stdlib_documentation_contract.js` は module doc 欠落 0、module doctest / declaration doc / declaration doctest gap の baseline 悪化禁止を監視している。
 - 2026-05-13 時点の不足数は `moduleNoDoctest=309`、`declarationNoDoc=537`、`declarationNoDoctest=1027` で、これは issue 未解決ではなく `doc/neplg2/stdlib_documentation_contract_plan.md` に沿って段階的に 0 へ下げる継続改善である。
+
+## 2026-05-13 Agent 1 collection diagnostic direct StdErrorKind imports
+
+- `c8f3099f` の main から `agent1-nmd-bitset-report` branch を作成し、remote main と一致していることを確認した。
+- bitset doctest の stdout report 移行中に、collection diagnostic helper が `StdErrorKind` を transitive import 前提で参照している問題を発見した。
+- `ISS-20260513T042454474Z-COLLECTION-DIAGNOSTIC-MODULES-RELY-O-F02EB391` を追加して解決した。
+- adjacency_matrix / bitset / disjoint_set / fenwick / segment_tree / sparse_set の `api/diagnostic.nepl` に `core/result` の直接 import を追加し、module が自身で使う enum 依存を明示する形にした。
+- focused 確認として `stdlib/tests/bitset.n.md::doctest#1` が compile/run まで進み、構造化 report を出力することを確認した。
