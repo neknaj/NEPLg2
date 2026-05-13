@@ -37071,3 +37071,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_stdlib_core_mem_boundary.js` を追加し、root facade に function body / raw body / type layout が戻らないこと、loader table が exact submodule を指すことを監視する。
 - root facade の doctest は allocator metadata を直接読む形から `alloc_ptr` / `dealloc_ptr` の public wrapper 契約確認へ変更した。
 - `CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE` はまだ open。raw helper の public re-export 閉鎖と safe public API migration は次の Stage 6 作業として継続する。
+
+## 2026-05-13 Agent 1 Copy-only collection cleanup contract
+
+- `154c3da9` の main から `agent1-collection-drop-contract` branch を作成し、remote main と一致していることを確認した。
+- `ISS-20260513T035044057Z-COPY-ONLY-COLLECTIONS-EXPOSE-UNCONST-AA1E67B0` を追加して解決した。
+- Stack / Queue / Deque / RingBuffer / BinaryHeap / BTreeSet / BTreeMap / List の cleanup/free 境界を、既存の Copy-only construction / mutation / observer 契約に揃えた。
+- BTreeMap / BTreeSet の storage-only cleanup helper と List の `new` / `list_free_items` も Copy-only に揃え、non-Copy payload collection が安全に扱えるように見える入口を閉じた。
+- binary_heap focused doctest で `api/observer.nepl` の `core/math` import 漏れが見えたため、module-local import に直し、root facade の private import へ依存しない形にした。
+- `tests/stdlib/collection_cleanup_contract.n.md` と source policy を更新し、non-Copy payload cleanup が `type.trait_bound.unsatisfied` で拒否されることを固定した。
+- `RV-STDLIB-004` はまだ open。今回の修正は Stage D の完全な `OwnedBuffer<T>` / initialized prefix / element drop traversal ではなく、未実装機能を generic signature で装わないための契約修正である。

@@ -142,6 +142,6 @@ pub fn clear <.T: Copy> <(RingBuffer<.T>)*>RingBuffer<.T>> (rb):
     RingBuffer<.T> 0 cap0 0 items
 
 //: ## free
-//: buffer が[所有/しょゆう]する backing storage を[解放/かいほう]する
-pub fn free <.T> <(RingBuffer<.T>)->()> (rb):
+//: buffer が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
+pub fn free <.T: Copy> <(RingBuffer<.T>)->()> (rb):
     vec::free<Option<.T>> field::get rb "items"

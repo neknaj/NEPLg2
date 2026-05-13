@@ -138,6 +138,8 @@ assert.match(btreeMapSource, /struct BTreeMapStorage<\.K,\.V>:/, 'BTreeMap must 
 assert.match(btreeMapSource, /keys\s+<Vec<Option<\.K>>>/, 'BTreeMap keys must use Vec<Option<K>> storage');
 assert.match(btreeMapSource, /values\s+<Vec<Option<\.V>>>/, 'BTreeMap values must use Vec<Option<V>> storage');
 assert.match(btreeMapStorageSource, /match\s+btreemap_key_at<\.K>/, 'BTreeMap storage must branch on Option key slots');
+assert.match(btreeMapStorageSource, /fn\s+btreemap_free_storage\s+<\.K:\s*Copy,\.V:\s*Copy>\s+<\(BTreeMapStorage<\.K,\.V>\)->\(\)>/, 'BTreeMap storage cleanup must remain Copy-only until OwnedBuffer element drop traversal exists');
+assert.match(sourceWithoutComments(btreeMapCleanupFile), /fn\s+free\s+<\.K:\s*Copy,\.V:\s*Copy>\s+<\(BTreeMap<\.K,\.V>\)->\(\)>/, 'BTreeMap.free must expose the same Copy-only cleanup contract as its storage');
 
 const btreeSetTypesSource = sourceWithoutComments(btreeSetTypesFile);
 const btreeSetStorageSource = sourceWithoutComments(btreeSetStorageFile);
@@ -157,6 +159,8 @@ const btreeSetSource = [
 assert.match(btreeSetSource, /struct BTreeSetStorage<\.T>:/, 'BTreeSet must keep typed storage wrapper');
 assert.match(btreeSetSource, /keys\s+<Vec<Option<\.T>>>/, 'BTreeSet keys must use Vec<Option<T>> storage');
 assert.match(btreeSetStorageSource, /match\s+btreeset_key_at<\.T>/, 'BTreeSet storage must branch on Option key slots');
+assert.match(btreeSetStorageSource, /fn\s+btreeset_free_storage\s+<\.T:\s*Copy>\s+<\(BTreeSetStorage<\.T>\)->\(\)>/, 'BTreeSet storage cleanup must remain Copy-only until OwnedBuffer element drop traversal exists');
+assert.match(sourceWithoutComments(btreeSetCleanupFile), /fn\s+free\s+<\.T:\s*Copy>\s+<\(BTreeSet<\.T>\)->\(\)>/, 'BTreeSet.free must expose the same Copy-only cleanup contract as its storage');
 
 const rawStoragePatterns = [
     /\bMemPtr\b/,

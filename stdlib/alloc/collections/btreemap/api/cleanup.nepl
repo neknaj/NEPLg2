@@ -8,12 +8,13 @@
 #indent 4
 
 #import "core/field" as field
+#import "core/traits/copy" as *
 #import "../types" as *
 #import "../storage" as *
 #import "core/field" as *
 
 //: ## free
-//: [内部/ないぶ] storage を[解放/かいほう]する
+//: Copy-only [内部/ないぶ] storage を[解放/かいほう]する
 //:
 //: neplg2:test
 //: ```neplg2
@@ -27,6 +28,6 @@
 //:     free hm;
 //:     0
 //: ```
-pub fn free <.K,.V> <(BTreeMap<.K,.V>)->()> (hm):
+pub fn free <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)->()> (hm):
     let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"
     btreemap_free_storage<.K,.V> storage

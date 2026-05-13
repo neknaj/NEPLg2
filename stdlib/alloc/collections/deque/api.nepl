@@ -182,6 +182,6 @@ pub fn clear <.T: Copy> <(Deque<.T>)*>Deque<.T>> (dq):
     Deque<.T> 0 cap0 0 items
 
 //: ## free
-//: deque が[所有/しょゆう]する backing storage を[解放/かいほう]する
-pub fn free <.T> <(Deque<.T>)->()> (dq):
+//: deque が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
+pub fn free <.T: Copy> <(Deque<.T>)->()> (dq):
     vec::free<Option<.T>> field::get dq "items"

@@ -48,7 +48,7 @@ assert.match(code, /fn\s+ringbuffer_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T
 assert.match(code, /fn\s+ringbuffer_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>\(\)>[\s\S]*vec::replace<Option<\.T>>/, 'RingBuffer must update slot state through Vec<Option<T>> replacement');
 assert.match(code, /fn\s+ringbuffer_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'RingBuffer allocation must initialize every slot as None');
 assert.match(code, /fn\s+pop_front\s+<\.T:\s*Copy>\s+<\(RingBuffer<\.T>\)\*>RingBufferPop<\.T>>[\s\S]*ringbuffer_store_slot<\.T>\s+&items\s+head0\s+none<\.T>[\s\S]*RingBufferPop<\.T>/, 'RingBuffer pop_front must clear the consumed slot and return the updated owner');
-assert.match(code, /fn\s+free\s+<\.T>\s+<\(RingBuffer<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+rb\s+"items"/, 'RingBuffer.free must close the Vec<Option<T>> owner');
+assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(RingBuffer<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+rb\s+"items"/, 'RingBuffer.free must close the Copy-only Vec<Option<T>> owner');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'RingBuffer must not reintroduce raw header or raw element storage');
 
 console.log('ringbuffer unsafe unwrap regression passed');

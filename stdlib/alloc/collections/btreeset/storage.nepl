@@ -36,7 +36,7 @@ pub fn btreeset_key_slot <.T: Copy> <(&BTreeSetStorage<.T>,i32)->Option<.T>> (st
 pub fn btreeset_store_key_slot <.T: Copy> <(&BTreeSetStorage<.T>,i32,Option<.T>)*>()> (storage, idx, key):
     btreeset_store_key<.T> btreeset_storage_keys<.T> storage idx key
 
-pub fn btreeset_free_storage <.T> <(BTreeSetStorage<.T>)->()> (storage):
+pub fn btreeset_free_storage <.T: Copy> <(BTreeSetStorage<.T>)->()> (storage):
     let keys <Vec<Option<.T>>> field::get storage "keys"
     vec::free<Option<.T>> keys
 

@@ -8,12 +8,13 @@
 #indent 4
 
 #import "core/field" as field
+#import "core/traits/copy" as *
 #import "alloc/collections/vec" as vec
 #import "../types" as *
 #import "core/field" as *
 
 //: ## free
-//: heap が[所有/しょゆう]する backing storage を[解放/かいほう]する
+//: heap が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
 //:
 //: neplg2:test
 //: ```neplg2
@@ -27,5 +28,5 @@
 //:     free hp;
 //:     0
 //: ```
-pub fn free <.T> <(BinaryHeap<.T>)->()> (hp):
+pub fn free <.T: Copy> <(BinaryHeap<.T>)->()> (hp):
     vec::free<Option<.T>> field::get hp "items"

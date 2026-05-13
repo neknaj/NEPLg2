@@ -55,7 +55,7 @@ pub fn btreemap_store_key_slot <.K: Copy,.V> <(&BTreeMapStorage<.K,.V>,i32,Optio
 pub fn btreemap_store_value_slot <.K,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,Option<.V>)*>()> (storage, idx, value):
     btreemap_store_value<.V> btreemap_storage_values<.K,.V> storage idx value
 
-pub fn btreemap_free_storage <.K,.V> <(BTreeMapStorage<.K,.V>)->()> (storage):
+pub fn btreemap_free_storage <.K: Copy,.V: Copy> <(BTreeMapStorage<.K,.V>)->()> (storage):
     let keys <Vec<Option<.K>>> field::get storage "keys"
     let values <Vec<Option<.V>>> field::get storage "values"
     vec::free<Option<.K>> keys

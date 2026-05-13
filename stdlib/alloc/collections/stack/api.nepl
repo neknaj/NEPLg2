@@ -134,6 +134,6 @@ pub fn clear <.T: Copy> <(Stack<.T>)*>Stack<.T>> (stk):
     Stack<.T> 0 cap0 items
 
 //: ## free
-//: stack が[所有/しょゆう]する backing storage を[解放/かいほう]する
-pub fn free <.T> <(Stack<.T>)->()> (stk):
+//: stack が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
+pub fn free <.T: Copy> <(Stack<.T>)->()> (stk):
     vec::free<Option<.T>> field::get stk "items"

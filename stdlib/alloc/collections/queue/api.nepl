@@ -123,6 +123,6 @@ pub fn clear <.T: Copy> <(Queue<.T>)*>Queue<.T>> (q):
     Queue<.T> 0 cap0 0 items
 
 //: ## free
-//: queue が[所有/しょゆう]する backing storage を[解放/かいほう]する
-pub fn free <.T> <(Queue<.T>)->()> (q):
+//: queue が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
+pub fn free <.T: Copy> <(Queue<.T>)->()> (q):
     vec::free<Option<.T>> field::get q "items"

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T03:44:17.078Z",
+  "generated_at": "2026-05-13T04:02:58.832Z",
   "counts": {
-    "total": 692,
+    "total": 693,
     "open": 6,
-    "resolved": 686,
+    "resolved": 687,
     "by_area": {
       "stdlib": {
-        "total": 168,
+        "total": 169,
         "open": 4,
-        "resolved": 164
+        "resolved": 165
       },
       "TEST": {
         "total": 18,
@@ -7983,6 +7983,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T023254911Z-CORE-MEM-FACADE-STILL-CARRIED-RAW-ME-FEEF633F.md"
+    },
+    {
+      "id": "ISS-20260513T035044057Z-COPY-ONLY-COLLECTIONS-EXPOSE-UNCONST-AA1E67B0",
+      "title": "Copy-only collections expose unconstrained cleanup APIs",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/alloc/collections/{stack,queue,deque,ringbuffer,binary_heap,btreeset,btreemap,list}/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T035044057Z-COPY-ONLY-COLLECTIONS-EXPOSE-UNCONST-AA1E67B0.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

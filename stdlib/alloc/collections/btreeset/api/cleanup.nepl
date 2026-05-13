@@ -8,12 +8,13 @@
 #indent 4
 
 #import "core/field" as field
+#import "core/traits/copy" as *
 #import "../types" as *
 #import "../storage" as *
 #import "core/field" as *
 
 //: ## free
-//: [内部/ないぶ] storage を[解放/かいほう]する
+//: Copy-only [内部/ないぶ] storage を[解放/かいほう]する
 //:
 //: neplg2:test
 //: ```neplg2
@@ -27,6 +28,6 @@
 //:     free s;
 //:     0
 //: ```
-pub fn free <.T> <(BTreeSet<.T>)->()> (set0):
+pub fn free <.T: Copy> <(BTreeSet<.T>)->()> (set0):
     let storage <BTreeSetStorage<.T>> field::get set0 "storage"
     btreeset_free_storage<.T> storage

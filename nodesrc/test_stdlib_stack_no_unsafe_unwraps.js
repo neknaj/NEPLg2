@@ -51,7 +51,7 @@ assert.match(code, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&Stack<\.T>\)->Option<\.T>>\s
 assert.match(code, /fn\s+get\s+<\.T:\s*Copy>\s+<\(&Stack<\.T>,i32\)->Option<\.T>>\s+\(stk,\s*idx\):/, 'Stack.get must borrow the owner');
 assert.doesNotMatch(code, /fn\s+(?:len_ref|is_empty_ref|peek_ref|get_ref)\b/, 'Stack must not keep duplicate *_ref observer surfaces');
 assert.doesNotMatch(code, /fn\s+(?:len|is_empty|peek|get)\s+<[^>]+>\s+<\(Stack<\.T>\)/, 'Stack observers must not consume the owner');
-assert.match(code, /fn\s+free\s+<\.T>\s+<\(Stack<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+stk\s+"items"/, 'Stack.free must close the Vec<Option<T>> owner');
+assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Stack<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+stk\s+"items"/, 'Stack.free must close the Copy-only Vec<Option<T>> owner');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\brealloc_ptr\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'Stack must not reintroduce raw header or raw element storage');
 
 for (const testPath of [

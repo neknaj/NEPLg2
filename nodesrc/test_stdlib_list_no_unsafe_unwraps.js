@@ -59,8 +59,8 @@ assert.match(
 );
 assert.match(
     storageCode,
-    /fn\s+list_free_items\s+<\.T>\s+<\(List<\.T>\)->\(\)>[\s\S]*field::get\s+lst\s+"items"[\s\S]*vec::free<\.T>\s+items/,
-    'List storage helper must close the Vec<T> owner',
+    /fn\s+list_free_items\s+<\.T:\s*Copy>\s+<\(List<\.T>\)->\(\)>[\s\S]*field::get\s+lst\s+"items"[\s\S]*vec::free<\.T>\s+items/,
+    'List storage helper must close the Copy-only Vec<T> owner',
 );
 assert.match(
     storageCode,
@@ -84,8 +84,8 @@ assert.match(
 );
 assert.match(
     basicCode,
-    /fn\s+free\s+<\.T>\s+<\(List<\.T>\)->\(\)>[\s\S]*list_free_items<\.T>\s+lst/,
-    'List.free must close the Vec<T> owner',
+    /fn\s+free\s+<\.T:\s*Copy>\s+<\(List<\.T>\)->\(\)>[\s\S]*list_free_items<\.T>\s+lst/,
+    'List.free must close the Copy-only Vec<T> owner',
 );
 assert.match(
     queryCode,

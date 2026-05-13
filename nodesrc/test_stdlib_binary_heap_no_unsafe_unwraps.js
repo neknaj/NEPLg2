@@ -80,6 +80,7 @@ assert.match(apiCreateCode, /fn\s+with_capacity\s+<\.T:\s*Copy>\s+<\(i32\)\*>Res
 assert.match(apiPushCode, /fn\s+push\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>,\.T\)\*>Result<BinaryHeap<\.T>, Diag>>/, 'BinaryHeap.push must expose heap mutation as an impure Result<BinaryHeap<T>, Diag>');
 assert.match(apiPushCode, /match\s+heap_alloc_slots<\.T>\s+grown_cap:[\s\S]*Result::Err\s+e:[\s\S]*vec::free<Option<\.T>>\s+items[\s\S]*err<BinaryHeap<\.T>,\s*Diag>\s+e/, 'BinaryHeap.push must close old storage when grow allocation fails');
 assert.match(apiObserverCode, /fn\s+len\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.len must borrow the owner');
+assert.match(apiObserverCode, /#import\s+"core\/math"\s+as\s+\*/, 'BinaryHeap observer module must own the math operators used by is_empty and peek');
 assert.match(apiObserverCode, /fn\s+cap\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->i32>\s+\(hp\):/, 'BinaryHeap.cap must borrow the owner');
 assert.match(apiObserverCode, /fn\s+is_empty\s+<\.T>\s+<\(&BinaryHeap<\.T>\)->bool>\s+\(hp\):/, 'BinaryHeap.is_empty must borrow the owner');
 assert.match(apiObserverCode, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&BinaryHeap<\.T>\)->Option<\.T>>\s+\(hp\):/, 'BinaryHeap.peek must borrow the owner');
@@ -87,7 +88,7 @@ assert.doesNotMatch(apiObserverCode, /fn\s+(?:len_ref|cap_ref|is_empty_ref|peek_
 assert.doesNotMatch(apiObserverCode, /fn\s+(?:len|cap|is_empty|peek)\s+<[^>]+>\s+<\(BinaryHeap<\.T>\)/, 'BinaryHeap observers must not consume the owner');
 assert.match(apiPopCode, /fn\s+pop_max\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>\)\*>BinaryHeapPop<\.T>>/, 'BinaryHeap.pop_max must preserve the updated owner');
 assert.match(apiPopCode, /fn\s+pop\s+<\.T:\s*Ord&Copy>\s+<\(BinaryHeap<\.T>\)\*>Option<\.T>>[\s\S]*free<\.T>\s+field::get\s+p\s+"heap"/, 'BinaryHeap.pop must clean up the updated heap owner');
-assert.match(apiCleanupCode, /fn\s+free\s+<\.T>\s+<\(BinaryHeap<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+hp\s+"items"/, 'BinaryHeap.free must close the Vec<Option<T>> owner');
+assert.match(apiCleanupCode, /fn\s+free\s+<\.T:\s*Copy>\s+<\(BinaryHeap<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+hp\s+"items"/, 'BinaryHeap.free must close the Copy-only Vec<Option<T>> owner');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\brealloc_ptr\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'BinaryHeap must not reintroduce raw header or raw element storage');
 
 for (const testPath of [

@@ -22,7 +22,7 @@
 //:
 //: ### [実装/じっそう]
 //: - `Vec.new` で backing storage を[作/つく]り、`List` owner として[包/つつ]みます。
-pub fn new <.T> <()*>Result<List<.T>, Diag>> ():
+pub fn new <.T: Copy> <()*>Result<List<.T>, Diag>> ():
     match vec::new<.T>:
         Result::Ok items:
             ok<List<.T>, Diag> List<.T> items
@@ -74,6 +74,6 @@ pub fn reverse <.T: Copy> <(List<.T>)*>List<.T>> (lst):
     list_reverse_items<.T> &items 0 sub n 1
     List<.T> items
 
-//: free: list storage owner を[閉/と]じる
-pub fn free <.T> <(List<.T>)->()> (lst):
+//: free: Copy-only list storage owner を[閉/と]じる
+pub fn free <.T: Copy> <(List<.T>)->()> (lst):
     list_free_items<.T> lst
