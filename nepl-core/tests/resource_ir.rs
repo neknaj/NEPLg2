@@ -2504,10 +2504,10 @@ fn resource_ir_effect_check_uses_known_function_alias_stored_in_aggregate_field(
                             ty: i32_ty,
                             span,
                         },
-                        ResourceOp::RawMemory {
-                            operation: RawMemoryOp::Alloc,
+                        ResourceOp::Expr {
+                            kind: nepl_core::resource::ResourceExprKind::Literal,
                             output: raw.clone(),
-                            args: vec![size],
+                            ty: i32_ty,
                             span,
                         },
                         ResourceOp::IndirectCall {
@@ -2845,6 +2845,162 @@ fn resource_ir_effect_check_reports_unsafe_memory_in_pure_function() {
             ..
         } if function == "main" && *operation == RawMemoryOp::Store
     )));
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
+            function,
+            operation,
+            ..
+        } if function == "main" && *operation == RawMemoryOp::Store
+    )));
+}
+
+#[test]
+fn resource_ir_effect_check_rejects_raw_memory_outside_boundary_in_impure_function() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let resource = manual_resource_module_with_effect(
+        Effect::Impure,
+        unit_ty,
+        span,
+        vec![
+            ResourceOp::CallEffect {
+                effect: EffectOp::UnsafeMemory {
+                    operation: RawMemoryOp::Store,
+                },
+                span,
+            },
+            ResourceOp::RawMemory {
+                operation: RawMemoryOp::Store,
+                output: Place::temporary(ResourceId(0), types.i32()),
+                args: vec![Place::temporary(ResourceId(1), types.i32())],
+                span,
+            },
+        ],
+    );
+
+    let report = check_resource_effect_boundaries(&resource);
+    assert_eq!(report.functions[0].counts.unsafe_memory_ops.store, 1);
+    assert_eq!(report.functions[0].counts.unsafe_memory_ops.total(), 1);
+    assert!(report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
+            function,
+            operation,
+            ..
+        } if function == "main" && *operation == RawMemoryOp::Store
+    )));
+    assert!(!report.diagnostics.iter().any(|diagnostic| matches!(
+        diagnostic,
+        ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction { .. }
+    )));
+}
+
+#[test]
+fn resource_ir_lowering_does_not_treat_mem_ptr_store_wrapper_as_direct_raw_memory() {
+    let source = r#"
+#entry main
+#target std
+
+#import "core/mem" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    match alloc_ptr<i32> 4:
+        Result::Ok p:
+            match store_i32 p 1:
+                Result::Ok _:
+                    match dealloc_ptr p 4:
+                        Result::Ok _:
+                            1
+                        Result::Err _:
+                            0
+                Result::Err _:
+                    0
+        Result::Err _:
+            0
+"#;
+    let (hir, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&hir, &types);
+    let main = resource
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "main")
+        .expect("main resource function should be lowered");
+
+    let mut call_effects = Vec::new();
+    for block in &main.blocks {
+        collect_call_effects(&block.ops, &mut call_effects);
+    }
+    let mut direct_raw_ops = Vec::new();
+    for block in &main.blocks {
+        collect_direct_raw_memory_ops(&block.ops, &mut direct_raw_ops);
+    }
+
+    assert!(call_effects.iter().any(|effect| matches!(
+        effect,
+        EffectOp::UnsafeMemory {
+            operation: RawMemoryOp::Store
+        }
+    )));
+    assert!(!direct_raw_ops.contains(&RawMemoryOp::Store));
+}
+
+fn collect_call_effects<'a>(ops: &'a [ResourceOp], effects: &mut Vec<&'a EffectOp>) {
+    for op in ops {
+        match op {
+            ResourceOp::CallEffect { effect, .. } => effects.push(effect),
+            ResourceOp::Branch {
+                then_ops, else_ops, ..
+            } => {
+                collect_call_effects(then_ops, effects);
+                collect_call_effects(else_ops, effects);
+            }
+            ResourceOp::Loop {
+                condition_ops,
+                body_ops,
+                ..
+            } => {
+                collect_call_effects(condition_ops, effects);
+                collect_call_effects(body_ops, effects);
+            }
+            ResourceOp::Match { arms, .. } => {
+                for arm in arms {
+                    collect_call_effects(&arm.ops, effects);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn collect_direct_raw_memory_ops(ops: &[ResourceOp], operations: &mut Vec<RawMemoryOp>) {
+    for op in ops {
+        match op {
+            ResourceOp::RawMemory { operation, .. } => operations.push(*operation),
+            ResourceOp::Branch {
+                then_ops, else_ops, ..
+            } => {
+                collect_direct_raw_memory_ops(then_ops, operations);
+                collect_direct_raw_memory_ops(else_ops, operations);
+            }
+            ResourceOp::Loop {
+                condition_ops,
+                body_ops,
+                ..
+            } => {
+                collect_direct_raw_memory_ops(condition_ops, operations);
+                collect_direct_raw_memory_ops(body_ops, operations);
+            }
+            ResourceOp::Match { arms, .. } => {
+                for arm in arms {
+                    collect_direct_raw_memory_ops(&arm.ops, operations);
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 #[test]
@@ -17347,13 +17503,22 @@ fn types_with_non_copy_owned() -> (TypeCtx, TypeId) {
 }
 
 fn manual_resource_module(unit_ty: TypeId, span: Span, ops: Vec<ResourceOp>) -> ResourceModule {
+    manual_resource_module_with_effect(Effect::Pure, unit_ty, span, ops)
+}
+
+fn manual_resource_module_with_effect(
+    effect: Effect,
+    unit_ty: TypeId,
+    span: Span,
+    ops: Vec<ResourceOp>,
+) -> ResourceModule {
     ResourceModule {
         functions: vec![ResourceFunction {
             name: "main".to_string(),
             origin_name: "main".to_string(),
             params: vec![],
             result: unit_ty,
-            effect: Effect::Pure,
+            effect,
             entry_block: ResourceBlockId(0),
             blocks: vec![ResourceBlock {
                 id: ResourceBlockId(0),

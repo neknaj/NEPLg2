@@ -1029,6 +1029,46 @@ mod tests {
     }
 
     #[test]
+    fn resource_effect_gate_maps_raw_memory_outside_boundary_to_resource_raw_code() {
+        let diagnostic = ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
+            function: String::from("store_raw"),
+            operation: RawMemoryOp::Store,
+            span: Span::dummy(),
+        };
+
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic);
+
+        assert_eq!(
+            error.code,
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                crate::diagnostic_codes::ResourceRawDiagnosticCode::MemoryOutsideBoundary,
+            ))
+        );
+        assert!(error.message.contains("raw memory operation 'store'"));
+        assert!(error.message.contains("outside raw-memory boundary"));
+    }
+
+    #[test]
+    fn resource_effect_gate_allows_raw_memory_inside_raw_boundary() {
+        let mut source_map = SourceMap::new();
+        let raw_file = source_map.add_with_capabilities(
+            "stdlib/core/mem/raw.nepl",
+            String::new(),
+            SourceCapabilities::raw_memory_boundary(),
+        );
+        let diagnostic = ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
+            function: String::from("store_raw"),
+            operation: RawMemoryOp::Store,
+            span: Span::new(raw_file, 0, 1),
+        };
+
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &diagnostic,
+            Some(&source_map),
+        ));
+    }
+
+    #[test]
     fn resource_effect_gate_maps_unknown_effect_to_lower_incomplete_code() {
         let diagnostic = ResourceEffectBoundaryDiagnostic::UnknownEffect {
             function: String::from("main"),
@@ -1080,6 +1120,10 @@ fn resource_effect_boundary_diagnostic_span(
             span,
             ..
         }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
+            span,
+            ..
+        }
         | crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc {
             span,
             ..
@@ -1098,6 +1142,14 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
         crate::resource::ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction {
             ..
         } => {
+            let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
+                return false;
+            };
+            source_map
+                .map(|map| map.raw_memory_boundary_allowed(span.file_id))
+                .unwrap_or(false)
+        }
+        crate::resource::ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary { .. } => {
             let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
                 return false;
             };
@@ -1158,6 +1210,18 @@ fn resource_effect_boundary_diagnostic_to_error(
             code,
             format!(
                 "pure function '{}' uses unsafe memory operation '{}'",
+                function, operation
+            ),
+            *span,
+        ),
+        crate::resource::ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
+            function,
+            operation,
+            span,
+        } => Diagnostic::error_with_code(
+            code,
+            format!(
+                "function '{}' uses raw memory operation '{}' outside raw-memory boundary",
                 function, operation
             ),
             *span,

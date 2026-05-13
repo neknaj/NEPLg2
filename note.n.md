@@ -1,3 +1,24 @@
+# 2026-05-13 Agent 1 raw memory boundary direct operation 修正
+
+- `ISS-20260513T140241561Z-UNSAFE-MEMORY-HELPERS-ARE-CALLABLE-F-10C0B276` を追加して解決した。
+- 根本原因は、Resource IR の raw memory effect 境界が pure caller だけを拒否し、impure user source から `core/mem/raw` の direct raw helper を呼ぶ経路を raw-memory-boundary capability と独立に検査していなかったこと。
+- `ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary` と `ResourceRawDiagnosticCode::MemoryOutsideBoundary` を追加し、compiler gate では source span が raw-memory-boundary capability を持つ場合だけ抑制するようにした。
+- 実装中に、`EffectOp::UnsafeMemory` は safe `MemPtr` wrapper の pure-effect rejection にも使われることを確認したため、raw-boundary 診断は `EffectOp` ではなく actual direct raw address operation を表す `ResourceOp::RawMemory` から発行する設計にした。これにより `store_i32(MemPtr<i32>, i32)` などは pure 関数からは従来通り effect 診断で拒否される一方、user source の direct raw address operation だけが `resource.raw.memory_outside_boundary` になる。
+- `tests/stdlib/memory_safety.n.md` は safe API 使用へ更新し、direct raw helper の user source 利用は compile-fail 回帰として固定した。`tests/compiler/move_effect.n.md` の direct raw user-source positive ケースは新しい境界方針では成立しないため、`resource.raw.memory_outside_boundary` の compile-fail 回帰へ更新した。
+- 検証:
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core resource_effect_gate -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_effect_check -- --nocapture`: passed
+  - `cargo test -p nepl-core --test resource_ir resource_ir_lowering_does_not_treat_mem_ptr_store_wrapper_as_direct_raw_memory -- --nocapture`: passed
+  - `trunk build`: passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-raw-boundary-memory-safety.json -j 1 --dist web/dist`: total=30, passed=30
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-raw-boundary-move-effect.json -j 4 --dist web/dist`: total=113, passed=113
+  - `node nodesrc/test_resource_gate_order.js`: passed
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/static_check_complexity_reduction_plan.md` の Stage 5/6 境界で、raw memory operation を stdlib/internal boundary に閉じ、public user source では compiler が raw-boundary 証明なしに許可しないようにするもの。
+
 # 2026-05-13 Agent 1 Vec data observer Copy-only boundary 修正
 
 - `ISS-20260513T115656872Z-VEC-DATA-OBSERVERS-EXPOSE-RAW-POINTE-674F1AFF` を追加して解決した。

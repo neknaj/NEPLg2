@@ -115,8 +115,9 @@ impl ResourceEffectBoundaryEngine<'_> {
                 operation,
                 output,
                 args,
-                ..
+                span,
             } => {
+                self.report_raw_memory_boundary_use(*operation, *span);
                 if self.track_alloc_identities && raw_memory_op_produces_identity(operation) {
                     identities.mark(output);
                 }
@@ -619,6 +620,15 @@ impl ResourceEffectBoundaryEngine<'_> {
             }
             EffectOp::Pure => {}
         }
+    }
+
+    fn report_raw_memory_boundary_use(&mut self, operation: RawMemoryOp, span: Span) {
+        self.diagnostics
+            .push(ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
+                function: String::from(self.function),
+                operation,
+                span,
+            });
     }
 
     fn check_call_effect(&mut self, effect: Effect, call: ResourceEffectCallKind, span: Span) {

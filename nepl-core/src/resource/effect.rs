@@ -42,6 +42,11 @@ pub enum ResourceEffectBoundaryDiagnostic {
         operation: RawMemoryOp,
         span: Span,
     },
+    RawMemoryOutsideBoundary {
+        function: String,
+        operation: RawMemoryOp,
+        span: Span,
+    },
     RawAddressEscapeFromInternalAlloc {
         function: String,
         place: Place,
@@ -68,6 +73,11 @@ impl ResourceEffectBoundaryDiagnostic {
             ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. }
             | ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction { .. } => {
                 DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure)
+            }
+            ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary { .. } => {
+                DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
+                    ResourceRawDiagnosticCode::MemoryOutsideBoundary,
+                ))
             }
             ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc { .. } => {
                 DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(

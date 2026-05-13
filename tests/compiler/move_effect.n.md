@@ -614,10 +614,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## mem_ptr_add の disjoint offset は別 raw place として扱う
+## direct raw mem_ptr_add の user source 利用は raw boundary 外として拒否する
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -833,10 +833,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## literal 引数で確定する raw address helper は disjoint store を誤検出しない
+## direct raw literal address helper の user source 利用は raw boundary 外として拒否する
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -924,10 +924,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## non-Copy raw store は load で所有値を取り出した後なら再初期化できる
+## direct raw non-Copy store の user source 利用は raw boundary 外として拒否する
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -977,10 +977,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## raw dealloc は load で non-Copy place を消費した後なら通る
+## direct raw dealloc の user source 利用は raw boundary 外として拒否する
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -1059,10 +1059,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## dealloc_region は load で non-Copy place を消費した後なら通る
+## raw address 経由の dealloc_region 前処理は user source では拒否する
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -1635,10 +1635,10 @@ fn main <()*>i32> ():
     q
 ```
 
-## raw realloc は load で non-Copy place を消費した後なら通る
+## direct raw realloc の user source 利用は raw boundary 外として拒否する
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -1808,10 +1808,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## raw mem_copy は load で non-Copy source を消費した後なら通る
+## direct raw mem_copy の user source 利用は raw boundary 外として拒否する
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -1836,10 +1836,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## raw mem_copy は Copy bytes なら通る
+## direct raw mem_copy は Copy bytes でも user source では拒否する
 
-neplg2:test
-ret: 123
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -2248,10 +2248,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## raw byte write は load で non-Copy place を消費した後なら通る
+## direct raw byte write の user source 利用は raw boundary 外として拒否する
 
-neplg2:test
-ret: 0
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -2275,10 +2275,10 @@ fn main <()*>i32> ():
     0
 ```
 
-## raw byte write は Copy storage なら通る
+## direct raw byte write は Copy storage でも user source では拒否する
 
-neplg2:test
-ret: 456
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -2295,10 +2295,10 @@ fn main <()*>i32> ():
     load_i32 p
 ```
 
-## raw aggregate load 直後の Copy field read は raw place 全体を move しない
+## direct raw aggregate load の user source 利用は raw boundary 外として拒否する
 
-neplg2:test
-ret: 14
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -2330,10 +2330,10 @@ fn main <()*>i32> ():
     add a b
 ```
 
-## re-export された get でも raw aggregate の Copy field read は全体を move しない
+## direct raw aggregate read と re-export get の組み合わせは user source では拒否する
 
-neplg2:test
-ret: 14
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -2364,10 +2364,10 @@ fn main <()*>i32> ():
     add a b
 ```
 
-## generic Copy impl を持つ raw aggregate field は全体を move しない
+## generic Copy impl を持つ direct raw aggregate read は user source では拒否する
 
-neplg2:test
-ret: 14
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -2400,10 +2400,10 @@ fn main <()*>i32> ():
     add raw sub 14 64
 ```
 
-## generic aggregate の Copy field read は他の non-Copy field を move しない
+## generic aggregate の direct raw field read は user source では拒否する
 
-neplg2:test
-ret: 14
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -2439,10 +2439,10 @@ fn main <()*>i32> ():
     touch<LocalToken> Holder<LocalToken> 7 mem_ptr_wrap<u8> 64 LocalToken @token_id
 ```
 
-## branch merge は変更されていない raw place を possibly moved にしない
+## direct raw place を含む branch merge 検査は user source では raw boundary が先に拒否する
 
-neplg2:test
-ret: 2
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4

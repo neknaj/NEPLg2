@@ -202,6 +202,7 @@ pub enum ResourceOwnerDiagnosticCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourceRawDiagnosticCode {
     IdentityEscape,
+    MemoryOutsideBoundary,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -446,6 +447,9 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
         ResourceRawDiagnosticCode::IdentityEscape,
+    )),
+    DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
+        ResourceRawDiagnosticCode::MemoryOutsideBoundary,
     )),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Lower(
         ResourceLowerDiagnosticCode::Incomplete,
@@ -1108,6 +1112,9 @@ impl ResourceRawDiagnosticCode {
     const fn as_str(self) -> &'static str {
         match self {
             ResourceRawDiagnosticCode::IdentityEscape => "resource.raw.identity_escape",
+            ResourceRawDiagnosticCode::MemoryOutsideBoundary => {
+                "resource.raw.memory_outside_boundary"
+            }
         }
     }
 
@@ -1115,6 +1122,9 @@ impl ResourceRawDiagnosticCode {
         match self {
             ResourceRawDiagnosticCode::IdentityEscape => {
                 "raw address identity escapes the pure surface"
+            }
+            ResourceRawDiagnosticCode::MemoryOutsideBoundary => {
+                "raw memory operation is outside compiler-owned raw-memory boundary"
             }
         }
     }

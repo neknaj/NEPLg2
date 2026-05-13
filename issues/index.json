@@ -1,16 +1,11 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T13:38:09.778Z",
+  "generated_at": "2026-05-13T14:32:29.337Z",
   "counts": {
-    "total": 723,
-    "open": 6,
-    "resolved": 717,
+    "total": 724,
+    "open": 5,
+    "resolved": 719,
     "by_area": {
-      "core": {
-        "total": 384,
-        "open": 1,
-        "resolved": 383
-      },
       "stdlib": {
         "total": 182,
         "open": 3,
@@ -30,6 +25,11 @@
         "total": 19,
         "open": 0,
         "resolved": 19
+      },
+      "core": {
+        "total": 385,
+        "open": 0,
+        "resolved": 385
       },
       "resource": {
         "total": 2,
@@ -109,21 +109,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260513T133223124Z-MEMORY-SAFETY-CONSTRUCTOR-BOUNDARY-R-A6590141",
-      "title": "memory_safety constructor boundary regressions no longer prove typecheck rejection",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "bug",
-      "created": "2026-05-13",
-      "updated": "2026-05-13",
-      "target": "nepl-core/src/typecheck/constructor_apply.rs; tests/stdlib/memory_safety.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260513T133223124Z-MEMORY-SAFETY-CONSTRUCTOR-BOUNDARY-R-A6590141.md"
-    },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-004-91534828",
       "title": "collection free が要素の Drop を呼ばない",
@@ -5808,6 +5793,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T132627504Z-RESOURCE-INITIALIZED-RAW-ACCESS-TRAN-27F78AB6.md"
+    },
+    {
+      "id": "ISS-20260513T133223124Z-MEMORY-SAFETY-CONSTRUCTOR-BOUNDARY-R-A6590141",
+      "title": "memory_safety constructor boundary regressions no longer prove typecheck rejection",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/source_capability/memory_type_definition.rs; nepl-core/src/typecheck/driver.rs; tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T133223124Z-MEMORY-SAFETY-CONSTRUCTOR-BOUNDARY-R-A6590141.md"
+    },
+    {
+      "id": "ISS-20260513T140241561Z-UNSAFE-MEMORY-HELPERS-ARE-CALLABLE-F-10C0B276",
+      "title": "unsafe memory helpers are callable from impure user source outside raw boundary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/effect_check.rs; nepl-core/src/compiler.rs; tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T140241561Z-UNSAFE-MEMORY-HELPERS-ARE-CALLABLE-F-10C0B276.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

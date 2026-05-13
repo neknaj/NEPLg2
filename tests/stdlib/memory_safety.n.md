@@ -22,8 +22,11 @@ fn main <()*>i32> ():
         Result::Ok p:
             match store_i32 p 123:
                 Result::Err _e:
-                    dealloc_raw mem_ptr_addr p 4
-                    0
+                    match dealloc_ptr p 4:
+                        Result::Err _cleanup:
+                            0
+                        Result::Ok _:
+                            0
                 Result::Ok _:
                     let v <i32> match load_i32 p:
                         Option::None:
@@ -32,7 +35,6 @@ fn main <()*>i32> ():
                             x
                     match dealloc_ptr p 4:
                         Result::Err _e:
-                            dealloc_raw mem_ptr_addr p 4
                             0
                         Result::Ok _:
                             v
@@ -86,10 +88,10 @@ fn main <()*>i32> ():
             0
 ```
 
-## alloc/dealloc の基本動作
+## raw allocator の raw address は user source から直接操作できない
 
-neplg2:test
-ret: 1
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
 ```neplg2
 #entry main
 #indent 4
@@ -444,6 +446,22 @@ fn main <()->i32> ():
             1
 ```
 
+## raw helper は user source の impure 関数から直接使えない
+
+neplg2:test[compile_fail]
+diag_code: resource.raw.memory_outside_boundary
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem/raw" as *
+
+fn main <()*>i32> ():
+    store_i32 16 7
+    load_i32 16
+```
+
 ## load_i32 は MemPtr<i32> だけを受け付ける
 
 neplg2:test[compile_fail]
@@ -752,12 +770,19 @@ fn main <()*>()> ():
             ()
         Result::Ok token:
             let p <MemPtr<u8>> borrowed_region_ptr_via_callback_param &token @id_ptr
-            store_u8 mem_ptr_addr p 7
-            match dealloc_region token:
-                Result::Ok _:
-                    ()
+            match store_u8 p 7:
                 Result::Err _e:
-                    ()
+                    match dealloc_region token:
+                        Result::Ok _:
+                            ()
+                        Result::Err _cleanup:
+                            ()
+                Result::Ok _:
+                    match dealloc_region token:
+                        Result::Ok _:
+                            ()
+                        Result::Err _e:
+                            ()
 ```
 
 ## region_ptr_at の Ok payload は owner token にできない
