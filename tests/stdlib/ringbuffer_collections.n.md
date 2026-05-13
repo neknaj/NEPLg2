@@ -13,8 +13,9 @@
 - `pop`
 - `uwok`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"ringbuffer_pipe_usage\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"ringbuffer len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"pop follows FIFO\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -25,6 +26,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let rb <RingBuffer<i32>>:
@@ -33,7 +35,7 @@ fn main <()*>i32> ():
         |> uwok
         |> push 9
         |> uwok
-    let ok0 <bool> eq len<i32> &rb 2;
+    let size <i32> len<i32> &rb;
     free<i32> rb
     let rb2 <RingBuffer<i32>>:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
@@ -46,7 +48,12 @@ fn main <()*>i32> ():
             eq v 4
         Option::None:
             false
-    if and ok0 ok1 1 0
+    let report:
+        test_report_new "ringbuffer_pipe_usage"
+        |> test_report_push assert_eq_i32 "ringbuffer len" 2 size
+        |> test_report_push assert "pop follows FIFO" ok1
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## ringbuffer_grow_clear_free
@@ -61,8 +68,9 @@ fn main <()*>i32> ():
 - `clear`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"ringbuffer_grow_clear_free\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"clear empties ringbuffer\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -71,6 +79,7 @@ ret: 1
 #import "alloc/collections/ringbuffer" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let rb_clear <RingBuffer<i32>>:
@@ -90,5 +99,9 @@ fn main <()*>i32> ():
         unwrap_ok<RingBuffer<i32>, Diag> with_capacity<i32> 1
         |> push 12 |> uwok
     free<i32> rb1
-    if ok0 1 0
+    let report:
+        test_report_new "ringbuffer_grow_clear_free"
+        |> test_report_push assert "clear empties ringbuffer" ok0
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
