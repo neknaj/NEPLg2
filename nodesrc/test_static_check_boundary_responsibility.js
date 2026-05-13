@@ -14,6 +14,7 @@ const PASSES_MOD = path.join(CORE_SRC, 'passes', 'mod.rs');
 const DROP_INSERTION = path.join(CORE_SRC, 'passes', 'drop_insertion.rs');
 const MOVE_CHECK_ROOT = path.join(CORE_SRC, 'passes', 'move_check.rs');
 const MOVE_CHECK_DIR = path.join(CORE_SRC, 'passes', 'move_check');
+const RESOURCE_IR_TESTS = path.join(ROOT, 'nepl-core', 'tests', 'resource_ir.rs');
 
 function read(filePath) {
     return fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
@@ -78,6 +79,7 @@ const compiler = assertFile(COMPILER, 'compiler.rs');
 const effects = assertFile(EFFECTS, 'effects.rs');
 const passesMod = assertFile(PASSES_MOD, 'passes/mod.rs');
 const dropInsertion = assertFile(DROP_INSERTION, 'passes/drop_insertion.rs');
+const resourceIrTests = assertFile(RESOURCE_IR_TESTS, 'nepl-core/tests/resource_ir.rs');
 const typecheckMatchCheck = assertFile(
     path.join(TYPECHECK_DIR, 'match_check.rs'),
     'typecheck/match_check.rs',
@@ -244,13 +246,23 @@ assertNotContains(
 );
 assertMatches(
     compiler,
-    /ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc\s*\{\s*\.\.\s*\}\s*=>\s*false,/,
-    'compiler.rs raw identity escape must not be raw-boundary-suppressed',
+    /ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc\s*\{\s*\.\.\s*\}\s*=>\s*\{\s*let Some\(span\) = resource_effect_boundary_diagnostic_span\(diagnostic\) else \{\s*return false;\s*\};\s*source_map\s*\.map\(\|map\| map\.raw_memory_boundary_allowed\(span\.file_id\)\)\s*\.unwrap_or\(false\)\s*\}/,
+    'compiler.rs raw identity escape must require an explicit raw-memory-boundary source capability',
 );
 assertNotContains(
     compiler,
     'UnsafeMemoryInPureFunction {\n            ..\n        }\n        | crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc',
     'compiler.rs raw identity escape must not share unsafe-memory raw-boundary suppression',
+);
+assertContains(
+    compiler,
+    'fn resource_effect_gate_allows_raw_identity_escape_inside_raw_boundary()',
+    'compiler.rs raw-boundary raw identity unit regression',
+);
+assertContains(
+    resourceIrTests,
+    'resource_ir_effect_check_propagates_internal_alloc_return_summary',
+    'resource_ir.rs caller-side internal allocation identity propagation regression',
 );
 
 for (const filePath of walkRustFiles(CORE_SRC)) {
