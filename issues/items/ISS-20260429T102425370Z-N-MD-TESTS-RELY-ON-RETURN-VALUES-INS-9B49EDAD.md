@@ -152,3 +152,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i stdlib\tests\fenwick.n.md -i tests\stdlib\fenwick_collections.n.md --no-tree -o tmp\agent1-fenwick-report-tests.json -j 2 --assert-io`: total=6, passed=6
 
 この issue はまだ open のまま継続する。Fenwick 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-13 SparseSet stdout report migration
+
+`stdlib/tests/sparse_set.n.md` と `tests/stdlib/sparse_set_collections.n.md` の SparseSet focused doctest 5 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `contains` / `insert` / `remove` / `clear` / `free` / zero universe / reallocation の観測結果を assertion label として stdout に残すようにした。
+- `len` と `universe_len` は `assert_eq_i32` で expected / actual を stdout に固定した。
+
+検証:
+
+- `node nodesrc\tests.js -i stdlib\tests\sparse_set.n.md -i tests\stdlib\sparse_set_collections.n.md --no-tree -o tmp\agent1-sparse-set-report-tests.json -j 2 --assert-io`: total=5, passed=5
+
+この issue はまだ open のまま継続する。SparseSet 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

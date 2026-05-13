@@ -15,8 +15,9 @@
 - `clear`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"sparse_set_pipe_usage\" count=5 failed=0\nassertion index=0 status=ok kind=bool label=\"contains kept value\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"removed value absent\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"sparse set len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"universe len\" expected=\"12\" actual=\"12\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"clear len\" expected=\"0\" actual=\"0\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -26,6 +27,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let s0 <SparseSet>:
@@ -36,12 +38,20 @@ fn main <()*>i32> ():
         |> remove 5 |> uwok
     let ok0 <bool> unwrap_ok<bool, Diag> contains &s0 9;
     let ok1 <bool> not unwrap_ok<bool, Diag> contains &s0 5;
-    let ok2 <bool> eq len &s0 2;
-    let ok3 <bool> eq universe_len &s0 12;
+    let size <i32> len &s0;
+    let universe <i32> universe_len &s0;
     let s1 <SparseSet> clear s0;
-    let ok4 <bool> eq len &s1 0;
+    let cleared_size <i32> len &s1;
     free s1
-    if and and ok0 ok1 and ok2 and ok3 ok4 1 0
+    let report:
+        test_report_new "sparse_set_pipe_usage"
+        |> test_report_push assert "contains kept value" ok0
+        |> test_report_push assert "removed value absent" ok1
+        |> test_report_push assert_eq_i32 "sparse set len" 2 size
+        |> test_report_push assert_eq_i32 "universe len" 12 universe
+        |> test_report_push assert_eq_i32 "clear len" 0 cleared_size
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## sparse_set_clear_free_reallocates
@@ -56,8 +66,9 @@ fn main <()*>i32> ():
 - `clear`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"sparse_set_clear_free_reallocates\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"contains after realloc\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -66,6 +77,7 @@ ret: 1
 #import "alloc/collections/sparse_set" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let s_free <SparseSet>:
@@ -81,7 +93,11 @@ fn main <()*>i32> ():
         |> insert 7 |> uwok
     let ok0 <bool> unwrap_ok<bool, Diag> contains &s0 7;
     free s0
-    if ok0 1 0
+    let report:
+        test_report_new "sparse_set_clear_free_reallocates"
+        |> test_report_push assert "contains after realloc" ok0
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## sparse_set_new_zero_is_empty
@@ -96,8 +112,9 @@ fn main <()*>i32> ():
 - `free`
 - [再確保/さいかくほ]
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"sparse_set_new_zero_is_empty\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"zero universe len\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"empty contains rejects index\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"free empty succeeds\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"realloc after empty free\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -107,6 +124,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let len_ok <bool> match new 0:
@@ -148,5 +166,12 @@ fn main <()*>i32> ():
                             v
                         Result::Err _e:
                             false
-    if and and len_ok contains_err_ok and free_ok realloc_ok 1 0
+    let report:
+        test_report_new "sparse_set_new_zero_is_empty"
+        |> test_report_push assert "zero universe len" len_ok
+        |> test_report_push assert "empty contains rejects index" contains_err_ok
+        |> test_report_push assert "free empty succeeds" free_ok
+        |> test_report_push assert "realloc after empty free" realloc_ok
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

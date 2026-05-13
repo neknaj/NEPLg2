@@ -37127,3 +37127,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `stdlib/tests/fenwick.n.md` と `tests/stdlib/fenwick_collections.n.md` は `std/test` の canonical `test_report_*` API を使い、len / prefix sum / range sum / free / owner recovery / diagnostic kind を stdout report に固定する。
 - Fenwick の public `add` と stdio/std-test 内部 arithmetic の名前衝突を避けるため、Fenwick API は `fw::...` の qualified call として利用する。
 - aggregate `nodesrc\tests.js` 実行は total=6, passed=6。issue は他 fixture の移行と stdout report 省略検出 policy が残るため open のまま継続する。
+
+## 2026-05-13 Agent 1 SparseSet .n.md stdout report migration
+
+- `b612970a` push 後に remote main を pull し、`agent1-nmd-sparse-set-report` branch を作成した。
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の部分対応として、SparseSet doctest 5 件を `ret: 1` 依存から `stdout:` + `exit_code:` へ移行した。
+- `stdlib/tests/sparse_set.n.md` と `tests/stdlib/sparse_set_collections.n.md` は `std/test` の canonical `test_report_*` API を使い、contains / len / universe_len / clear / owner recovery / zero universe / reallocation を stdout report に固定する。
+- aggregate `nodesrc\tests.js` 実行は total=5, passed=5。issue は他 fixture の移行と stdout report 省略検出 policy が残るため open のまま継続する。
