@@ -10,6 +10,7 @@
 #import "core/mem/internal" as *
 #import "core/math" as *
 #import "core/field" as field
+#import "core/traits/copy" as *
 #import "../types" as *
 #import "../storage" as *
 
@@ -25,6 +26,7 @@
 //: ### [注意/ちゅうい]
 //: - [返/かえ]り[値/あたい]は[生/なま]アドレスなので、[範囲/はんい]・[寿命/じゅみょう]・[再確保/さいかくほ]を[呼/よ]び[出/だ]し[側/がわ]で[管理/かんり]する[必要/ひつよう]があります。
 //: - [新規/しんき]コードでは、できるだけ `data_mem_ptr` を[優先/ゆうせん]します。
+//: - 現行 raw data observer は `.T: Copy` 専用です。non-Copy payload の storage identity は `OwnedBuffer<T>` と borrowed element API が[入/はい]るまで[公開/こうかい]しません。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
@@ -44,7 +46,21 @@
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-pub fn data_ptr <.T> <(&Vec<.T>)->i32> (v):
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.trait_bound.unsatisfied
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: struct NonCopyPayload:
+//:     value <i32>
+//: fn main <()*>i32> ():
+//:     let v <Vec<NonCopyPayload>> vec_empty<NonCopyPayload>;
+//:     let _p <i32> data_ptr<NonCopyPayload> &v;
+//:     0
+//: ```
+pub fn data_ptr <.T: Copy> <(&Vec<.T>)->i32> (v):
     let v_storage <VecStorageState> *field::get_ref v "storage"
     let v_data <MemPtr<.T>> *field::get_ref v "data"
     mem_ptr_addr vec_storage_mem_ptr<.T> v_storage v_data
@@ -61,6 +77,7 @@ pub fn data_ptr <.T> <(&Vec<.T>)->i32> (v):
 //: ### [注意/ちゅうい]
 //: - [主/おも]に stdlib [内部/ないぶ]の[実装/じっそう][補助/ほじょ]を[想定/そうてい]した API です。
 //: - [再確保/さいかくほ]が[起/お]きると pointer は[無効化/むこうか]されうるので、[長期/ちょうき][保持/ほじ]は[避/さ]けます。
+//: - 現行 raw data observer は `.T: Copy` 専用です。non-Copy payload の borrowed observer は pointer escape ではなく dedicated API として[設計/せっけい]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
@@ -82,7 +99,21 @@ pub fn data_ptr <.T> <(&Vec<.T>)->i32> (v):
 //:     free<i32> v;
 //:     if ok 0 1
 //: ```
-pub fn data_mem_ptr <.T> <(&Vec<.T>)->MemPtr<.T>> (v):
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.trait_bound.unsatisfied
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: struct NonCopyPayload:
+//:     value <i32>
+//: fn main <()*>i32> ():
+//:     let v <Vec<NonCopyPayload>> vec_empty<NonCopyPayload>;
+//:     let _p <MemPtr<NonCopyPayload>> data_mem_ptr<NonCopyPayload> &v;
+//:     0
+//: ```
+pub fn data_mem_ptr <.T: Copy> <(&Vec<.T>)->MemPtr<.T>> (v):
     let v_storage <VecStorageState> *field::get_ref v "storage"
     let v_data <MemPtr<.T>> *field::get_ref v "data"
     vec_storage_mem_ptr<.T> v_storage v_data
@@ -117,10 +148,25 @@ pub fn data_mem_ptr <.T> <(&Vec<.T>)->MemPtr<.T>> (v):
 //:
 //: ### [注意/ちゅうい]
 //: - `data` は `MemPtr<.T>` なので、[生/なま]アドレスが[必要/ひつよう]な[場合/ばあい]は `mem_ptr_addr` を[通/とお]します。
+//: - 現行 raw data observer は `.T: Copy` 専用です。non-Copy payload では storage identity と element owner state を[切/き]り[離/はな]して[証明/しょうめい]できる API が[必要/ひつよう]です。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん][計算量/けいさんりょう]は O(1) です。
-pub fn data_len <.T> <(&Vec<.T>)->VecDataLen<.T>> (v):
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.trait_bound.unsatisfied
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//: struct NonCopyPayload:
+//:     value <i32>
+//: fn main <()*>i32> ():
+//:     let v <Vec<NonCopyPayload>> vec_empty<NonCopyPayload>;
+//:     let _s <VecDataLen<NonCopyPayload>> data_len<NonCopyPayload> &v;
+//:     0
+//: ```
+pub fn data_len <.T: Copy> <(&Vec<.T>)->VecDataLen<.T>> (v):
     let v_len <i32> *field::get_ref v "len"
     let v_storage <VecStorageState> *field::get_ref v "storage"
     let raw_data <MemPtr<.T>> *field::get_ref v "data"

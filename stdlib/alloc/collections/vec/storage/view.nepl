@@ -8,6 +8,7 @@
 
 #import "core/mem" as *
 #import "core/mem/internal" as *
+#import "core/traits/copy" as *
 #import "../types" as *
 
 //: ## vec_empty
@@ -23,7 +24,10 @@ pub fn vec_empty <.T> <()->Vec<.T>> ():
 //:
 //: ### [目的/もくてき]
 //: - `VecStorageState::Empty` は owner state としては null pointer を[持/も]ちませんが、legacy raw pointer observer では 0 address view を[返/かえ]します。
-pub fn vec_storage_mem_ptr <.T> <(VecStorageState,MemPtr<.T>)->MemPtr<.T>> (storage, data):
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 raw pointer view は `.T: Copy` 専用です。non-Copy payload の storage identity は `OwnedBuffer<T>` と borrowed element API が[入/はい]るまで[公開/こうかい]しません。
+pub fn vec_storage_mem_ptr <.T: Copy> <(VecStorageState,MemPtr<.T>)->MemPtr<.T>> (storage, data):
     match storage:
         VecStorageState::Empty:
             mem_ptr_wrap 0

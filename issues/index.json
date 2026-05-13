@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T11:55:49.863Z",
+  "generated_at": "2026-05-13T12:01:18.535Z",
   "counts": {
-    "total": 715,
+    "total": 716,
     "open": 5,
-    "resolved": 710,
+    "resolved": 711,
     "by_area": {
       "stdlib": {
-        "total": 181,
+        "total": 182,
         "open": 3,
-        "resolved": 178
+        "resolved": 179
       },
       "TEST": {
         "total": 18,
@@ -8328,6 +8328,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T115230954Z-VEC-ALLOCATION-CONSTRUCTORS-ACCEPT-N-DD72E501.md"
+    },
+    {
+      "id": "ISS-20260513T115656872Z-VEC-DATA-OBSERVERS-EXPOSE-RAW-POINTE-674F1AFF",
+      "title": "Vec data observers expose raw pointer views for non-Copy payloads",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/alloc/collections/vec/access/data.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T115656872Z-VEC-DATA-OBSERVERS-EXPOSE-RAW-POINTE-674F1AFF.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

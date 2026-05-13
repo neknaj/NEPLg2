@@ -65,9 +65,6 @@ for (const [name, resultTy] of [
     ["len", "i32"],
     ["cap", "i32"],
     ["is_empty", "bool"],
-    ["data_ptr", "i32"],
-    ["data_mem_ptr", "MemPtr<\\.T>"],
-    ["data_len", "VecDataLen<\\.T>"],
 ]) {
     assert.match(
         vecCode,
@@ -77,6 +74,23 @@ for (const [name, resultTy] of [
     assert.doesNotMatch(
         vecCode,
         new RegExp(`fn\\s+${name}\\s+<\\.T>\\s+<\\(Vec<\\.T>\\)->${resultTy}>`),
+        `Vec.${name} must not consume the owner`,
+    );
+}
+
+for (const [name, resultTy] of [
+    ["data_ptr", "i32"],
+    ["data_mem_ptr", "MemPtr<\\.T>"],
+    ["data_len", "VecDataLen<\\.T>"],
+]) {
+    assert.match(
+        vecCode,
+        new RegExp(`fn\\s+${name}\\s+<\\.T:\\s*Copy>\\s+<\\(&Vec<\\.T>\\)->${resultTy}>\\s+\\(v\\):`),
+        `Vec.${name} must borrow the owner and require Copy because it exposes storage identity`,
+    );
+    assert.doesNotMatch(
+        vecCode,
+        new RegExp(`fn\\s+${name}\\s+<\\.T(?::\\s*Copy)?>\\s+<\\(Vec<\\.T>\\)->${resultTy}>`),
         `Vec.${name} must not consume the owner`,
     );
 }

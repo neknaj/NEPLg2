@@ -146,6 +146,7 @@ const vecStorageAllocSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/
 const popSection = between(vecCode, 'fn pop ', 'fn clear ');
 const popSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/mutation/pop.nepl'), 'utf8');
 const vecRawElementSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/raw/element.nepl'), 'utf8');
+const vecAccessDataSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/access/data.nepl'), 'utf8');
 const clearSection = between(vecCode, 'fn clear ', 'fn free ');
 const mapSection = between(vecCode, 'fn map ', 'fn filter ');
 const countSection = between(vecCode, 'fn count ', 'fn fold ');
@@ -196,6 +197,11 @@ for (const name of ['len', 'cap', 'is_empty']) {
 for (const name of ['data_ptr', 'data_mem_ptr', 'data_len']) {
     assert.match(vecAccessDataCode, new RegExp(`fn\\s+${name}\\b`), `vec/access/data.nepl must own ${name}`);
 }
+assert.match(vecStorageViewCode, /fn\s+vec_storage_mem_ptr\s+<\.T:\s*Copy>\s+<\(VecStorageState,MemPtr<\.T>\)->MemPtr<\.T>>/, 'Vec storage pointer view must remain Copy-only until non-Copy borrowed element APIs exist');
+assert.match(vecAccessDataCode, /fn\s+data_ptr\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->i32>/, 'Vec.data_ptr must remain Copy-only because it exposes raw storage identity');
+assert.match(vecAccessDataCode, /fn\s+data_mem_ptr\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->MemPtr<\.T>>/, 'Vec.data_mem_ptr must remain Copy-only because it exposes raw storage identity');
+assert.match(vecAccessDataCode, /fn\s+data_len\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->VecDataLen<\.T>>/, 'Vec.data_len must remain Copy-only because it exposes raw storage identity');
+assert.match(vecAccessDataSource, /diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_ptr<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_mem_ptr<NonCopyPayload>[\s\S]*diag_codes:\s*type\.trait_bound\.unsatisfied[\s\S]*data_len<NonCopyPayload>/, 'Vec raw data observers must reject non-Copy payloads in doctests');
 for (const name of ['vec_read_at', 'vec_write_at']) {
     assert.match(vecRawCode, new RegExp(`fn\\s+${name}\\b`), `vec/raw facade closure must expose ${name}`);
 }

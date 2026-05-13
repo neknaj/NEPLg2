@@ -1,3 +1,17 @@
+# 2026-05-13 Agent 1 Vec data observer Copy-only boundary 修正
+
+- `ISS-20260513T115656872Z-VEC-DATA-OBSERVERS-EXPOSE-RAW-POINTE-674F1AFF` を追加して解決した。
+- 根本原因は、`data_ptr<T>` / `data_mem_ptr<T>` / `data_len<T>` / `vec_storage_mem_ptr<T>` が raw address または `MemPtr<T>` の storage identity を non-Copy payload にも返せるため、public API や raw element helper の Copy-only 境界を迂回できること。
+- raw data observer を `.T: Copy` に限定した。`len` / `cap` / `is_empty` は storage identity を外へ出さないため generic のまま維持した。
+- `Vec<NonCopyPayload>` の `data_ptr` / `data_mem_ptr` / `data_len` が `type.trait_bound.unsatisfied` で拒否される compile-fail doctest と nodesrc source policy を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/access/data.nepl -i stdlib/alloc/collections/vec/storage/view.nepl --no-tree -o tmp/agent1-vec-data-observer-copy-bound-access.json -j 1 --dist web/dist`: total=6, passed=6
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec --no-tree -o tmp/agent1-vec-data-observer-copy-bound-vec.json -j 4 --dist web/dist`: total=42, passed=42
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` の Stage D に沿い、non-Copy borrowed observer を raw pointer escape ではなく将来の `OwnedBuffer<T>` / borrow projection API に分離するためのもの。
+
 # 2026-05-13 Agent 1 Vec allocation constructor Copy-only boundary 修正
 
 - `ISS-20260513T115230954Z-VEC-ALLOCATION-CONSTRUCTORS-ACCEPT-N-DD72E501` を追加して解決した。
