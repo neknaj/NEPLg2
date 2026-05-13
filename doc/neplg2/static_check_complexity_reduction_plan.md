@@ -332,6 +332,7 @@ commit 単位:
 - 2026-05-06: KP doctest の次 blocker として、`alloc/string/builder.nepl` の `sb_append_result` / `sb_append_byte_result` / `sb_build_result` が raw `store_u8` / `mem_copy` を使うにもかかわらず exact raw-memory-boundary capability に追従していないことを確認した。`ISS-20260506T152038161Z-STRING-BUILDER-SPLIT-LOSES-RAW-MEMOR-637613A4` として `alloc/string/builder.nepl` を loader の exact boundary table に追加した。StringBuilder は owned byte buffer の内部構築境界であり、Stage 6 の owner-token API 移行が完了するまでは safe public surface ではなく compiler-owned internal boundary として扱う。
 - 残件は、raw-memory-backed stdlib public API を Stage 6 で internal/public 境界へ分け、raw identity と owner token が safe surface へ漏れない最終 API に移行することである。
 - 2026-05-13: `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` を core compiler 側では verified / resolved とした。`UnsafeMemoryInPureFunction` hard gate、Resource IR raw identity / cell / owner gate、exact raw-memory-boundary capability regression が揃っており、user source から raw memory operation を pure bypass する元の問題は閉じている。Stage 6 の stdlib internal/public API 移行は引き続き stdlib issue 側で追跡する。
+- 2026-05-13: `ISS-20260513T023254911Z-CORE-MEM-FACADE-STILL-CARRIED-RAW-ME-FEEF633F` を解決した。`core/mem.nepl` root は public facade に縮小し、`types` / `raw` / `allocator` / `pointer` submodule へ実装責務を分離した。loader の exact raw-memory-boundary capability も root facade から外し、実装 submodule のみに付与する。raw helper の public re-export 閉鎖は未完だが、Stage 6 の前提である「public facade 自体が raw boundary privilege を持たない」状態に進めた。
 
 ### Stage 6: stdlib memory API の段階移行
 

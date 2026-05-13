@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T02:26:39.520Z",
+  "generated_at": "2026-05-13T02:37:29.313Z",
   "counts": {
-    "total": 690,
+    "total": 691,
     "open": 7,
-    "resolved": 683,
+    "resolved": 684,
     "by_area": {
       "stdlib": {
-        "total": 167,
+        "total": 168,
         "open": 5,
-        "resolved": 162
+        "resolved": 163
       },
       "TEST": {
         "total": 18,
@@ -7968,6 +7968,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T060310380Z-VEC-STDLIB-DOCTESTS-FAIL-RESOURCE-OW-D1622B99.md"
+    },
+    {
+      "id": "ISS-20260513T023254911Z-CORE-MEM-FACADE-STILL-CARRIED-RAW-ME-FEEF633F",
+      "title": "core mem facade still carried raw memory boundary privilege",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/core/mem.nepl, stdlib/core/mem/**, nepl-core/src/loader.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T023254911Z-CORE-MEM-FACADE-STILL-CARRIED-RAW-ME-FEEF633F.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

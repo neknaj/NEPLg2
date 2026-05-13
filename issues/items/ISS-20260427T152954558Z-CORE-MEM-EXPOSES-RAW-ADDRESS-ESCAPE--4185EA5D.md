@@ -114,3 +114,11 @@ safe import だけでは `mem_ptr_addr` / `mem_ptr_wrap` / raw `load<T>` / raw `
 現状の parser / module graph には `pub` / private の概念があるが、typecheck の `Binding` は item visibility を保持していない。そのため flat loader representation では、imported file の private item も `as *` / qualified lookup から選択され得る。`mem_ptr_addr` / `mem_ptr_wrap` / raw allocator / raw load-store を internal module へ移しても、compiler が `Visibility::Pub` を binding authority にしなければ safe source から隠せない。
 
 この blocker は `ISS-20260512T235355207Z-IMPORT-VISIBILITY-DOES-NOT-ENFORCE-P-30FB5573` として分離した。この issue の完了条件である「safe import から raw address escape を構成できないこと」は、同 blocker の解決後に `core/mem` public facade / internal raw-memory-boundary module 分割として進める。
+
+## 2026-05-13 core/mem facade raw boundary 縮小
+
+import visibility blocker は解決済みだったため、次の前提整理として `ISS-20260513T023254911Z-CORE-MEM-FACADE-STILL-CARRIED-RAW-ME-FEEF633F` を追加し、修正した。
+
+`stdlib/core/mem.nepl` は public facade でありながら raw-memory-boundary capability を持ち、allocator / raw load-store / pointer wrapper / type definition が同居していた。これを `types` / `raw` / `allocator` / `pointer` submodule へ分割し、loader の exact raw-memory-boundary table から root `core/mem.nepl` を外して実装 submodule だけに capability を付与した。
+
+これにより「public facade 自体が raw boundary privilege を持つ」状態は解消した。ただし、既存互換のため `alloc_raw` / `dealloc_raw` / `mem_ptr_addr` / generic `load` / `store` はまだ facade から re-export されている。safe import から raw address escape を完全に構成できなくする作業は、Stage 6 の public safe API / internal raw API migration としてこの issue を open のまま継続する。

@@ -25,7 +25,10 @@ macro_rules! loader_log {
 }
 
 const RAW_MEMORY_BOUNDARY_STDLIB_PATHS: &[&[&str]] = &[
-    &["core", "mem.nepl"],
+    &["core", "mem", "types.nepl"],
+    &["core", "mem", "raw.nepl"],
+    &["core", "mem", "allocator.nepl"],
+    &["core", "mem", "pointer.nepl"],
     &["alloc", "diag", "diag.nepl"],
     &["alloc", "diag", "error", "diags.nepl"],
     &["alloc", "io", "bytebuf.nepl"],

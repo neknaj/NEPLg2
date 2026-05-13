@@ -1,0 +1,465 @@
+#indent 4
+
+//: mem/raw: 線形メモリの raw load/store と bulk operation
+//:
+//: 目的:
+//: - compiler-owned raw-memory-boundary 内でだけ使う低レベル操作を集めます。
+//: - 型安全・所有権安全は呼び出し側の Resource IR / wrapper API が検査します。
+
+#import "core/math" as *
+
+#if[target=llvm]
+#llvmir:
+    @__nepl_mem = internal global [67108864 x i8] zeroinitializer, align 16
+    @__nepl_pages = internal global i32 1, align 4
+
+//: mem_size: 現在のメモリページ数を返す
+//:
+//: 目的:
+//: - wasm の memory.size を返します。
+//:
+//: 実装(アルゴリズム):
+//: - wasm 命令を直接実行します。
+//:
+//: 注意(重要):
+//: - 1 ページ = 64KiB です。
+//: - llvm では内部線形メモリの擬似ページ数を返します。
+//:
+//: 計算量:
+//: - O(1)
+pub fn mem_size <()->i32> ():
+    #if[target=wasm]
+    #wasm:
+        memory.size
+    #if[target=llvm]
+    #llvmir:
+        define i32 @mem_size() {
+        entry:
+            %0 = load i32, ptr @__nepl_pages, align 4
+            ret i32 %0
+        }
+
+//: mem_grow: メモリを拡張する
+//:
+//: 目的:
+//: - pages だけメモリを拡張し、以前のページ数を返します。
+//:
+//: 実装(アルゴリズム):
+//: - wasm の memory.grow を呼びます。
+//:
+//: 注意(重要):
+//: - 失敗時は -1 を返します。
+//: - llvm では擬似線形メモリの総量（64MiB）を超える要求を失敗扱いにします。
+//:
+//: 計算量:
+//: - O(1)
+pub fn mem_grow <(i32)->i32> (pages):
+    #if[target=wasm]
+    #wasm:
+        local.get $pages
+        memory.grow
+    #if[target=llvm]
+    #llvmir:
+        define i32 @mem_grow(i32 %pages) {
+        entry:
+            %neg = icmp slt i32 %pages, 0
+            br i1 %neg, label %fail, label %cont
+        cont:
+            %old = load i32, ptr @__nepl_pages, align 4
+            %new = add i32 %old, %pages
+            %too_large = icmp sgt i32 %new, 1024
+            br i1 %too_large, label %fail, label %ok
+        ok:
+            store i32 %new, ptr @__nepl_pages, align 4
+            ret i32 %old
+        fail:
+            ret i32 -1
+        }
+
+//: align8: 8 バイト境界に切り上げる
+//:
+//: 目的:
+//: - n を 8 の倍数に切り上げます。
+//:
+//: 実装(アルゴリズム):
+//: - (n+7)/8*8 を計算します。
+//:
+//: 注意(重要):
+//: - 8 バイト整列はアロケータの前提です。
+//:
+//: 計算量:
+//: - O(1)
+
+pub fn load_i32 <(i32)->i32> (p):
+    #if[target=wasm]
+    #wasm:
+        local.get $p
+        i32.load
+    #if[target=llvm]
+    #llvmir:
+        define i32 @load_i32(i32 %p) {
+        entry:
+            %ok = icmp ule i32 %p, 67108860
+            br i1 %ok, label %in, label %oob
+        in:
+            %idx = zext i32 %p to i64
+            %ptr8 = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %idx
+            %0 = load i32, ptr %ptr8, align 1
+            ret i32 %0
+        oob:
+            ret i32 0
+        }
+
+//: store_i32: i32 を書き込む
+//:
+//: 目的:
+//: - ptr に i32 をストアします。
+//:
+//: 実装(アルゴリズム):
+//: - wasm の i32.store を実行します。
+//:
+//: 注意(重要):
+//: - アラインメントは呼び出し側の責任です。
+//:
+//: 計算量:
+//: - O(1)
+pub fn store_i32 <(i32,i32)->()> (p, v):
+    #if[target=wasm]
+    #wasm:
+        local.get $p
+        local.get $v
+        i32.store
+    #if[target=llvm]
+    #llvmir:
+        define void @store_i32(i32 %p, i32 %v) {
+        entry:
+            %ok = icmp ule i32 %p, 67108860
+            br i1 %ok, label %in, label %oob
+        in:
+            %idx = zext i32 %p to i64
+            %ptr8 = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %idx
+            store i32 %v, ptr %ptr8, align 1
+            ret void
+        oob:
+            ret void
+        }
+
+//: load_u8: 1 バイトを読み出す
+//:
+//: 目的:
+//: - ptr から unsigned byte を読みます。
+//:
+//: 実装(アルゴリズム):
+//: - wasm の i32.load8_u を実行します。
+//:
+//: 注意(重要):
+//: - 返り値は i32 に拡張されます。
+//:
+//: 計算量:
+//: - O(1)
+pub fn load_u8 <(i32)->i32> (p):
+    #if[target=wasm]
+    #wasm:
+        local.get $p
+        i32.load8_u
+    #if[target=llvm]
+    #llvmir:
+        define i32 @load_u8(i32 %p) {
+        entry:
+            %ok = icmp ule i32 %p, 67108863
+            br i1 %ok, label %in, label %oob
+        in:
+            %idx = zext i32 %p to i64
+            %ptr8 = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %idx
+            %raw = load i8, ptr %ptr8, align 1
+            %0 = zext i8 %raw to i32
+            ret i32 %0
+        oob:
+            ret i32 0
+        }
+
+//: store_u8: 1 バイトを書き込む
+//:
+//: 目的:
+//: - ptr に 1 バイトを書き込みます。
+//:
+//: 実装(アルゴリズム):
+//: - wasm の i32.store8 を実行します。
+//:
+//: 注意(重要):
+//: - v の下位 8 ビットのみが使われます。
+//:
+//: 計算量:
+//: - O(1)
+pub fn store_u8 <(i32,i32)->()> (p, v):
+    #if[target=wasm]
+    #wasm:
+        local.get $p
+        local.get $v
+        i32.store8
+    #if[target=llvm]
+    #llvmir:
+        define void @store_u8(i32 %p, i32 %v) {
+        entry:
+            %ok = icmp ule i32 %p, 67108863
+            br i1 %ok, label %in, label %oob
+        in:
+            %idx = zext i32 %p to i64
+            %ptr8 = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %idx
+            %b = trunc i32 %v to i8
+            store i8 %b, ptr %ptr8, align 1
+            ret void
+        oob:
+            ret void
+        }
+
+//: mem_copy: 重ならないバイト列をまとめてコピーする
+//:
+//: 目的:
+//: - `src` から `dst` へ `len` バイトをコピーします。
+//:
+//: 実装(アルゴリズム):
+//: - wasm では `memory.copy`、llvm では `llvm.memcpy` を使います。
+//:
+//: 注意(重要):
+//: - 呼び出し側は `dst..dst+len` と `src..src+len` が重ならないことを保証してください。
+//: - `len<=0` は llvm target では何もしません。wasm target では呼び出し側が `len>=0` を守る必要があります。
+//: - raw API のため、範囲外アクセスは未定義動作です。検査付きで使う場合は `MemPtr` オーバーロードを使います。
+//:
+//: 計算量:
+//: - O(len)
+pub fn mem_copy <(i32,i32,i32)->()> (dst, src, len):
+    #if[target=wasm]
+    #wasm:
+        local.get $dst
+        local.get $src
+        local.get $len
+        memory.copy
+    #if[target=llvm]
+    #llvmir:
+        declare void @llvm.memcpy.p0.p0.i32(ptr, ptr, i32, i1)
+        define void @mem_copy(i32 %dst, i32 %src, i32 %len) {
+        entry:
+            %has_bytes = icmp sgt i32 %len, 0
+            br i1 %has_bytes, label %check_addr, label %done
+        check_addr:
+            %dst_neg = icmp slt i32 %dst, 0
+            %src_neg = icmp slt i32 %src, 0
+            %bad_addr = or i1 %dst_neg, %src_neg
+            br i1 %bad_addr, label %done, label %check_bounds
+        check_bounds:
+            %dst64 = zext i32 %dst to i64
+            %src64 = zext i32 %src to i64
+            %len64 = zext i32 %len to i64
+            %dst_end = add i64 %dst64, %len64
+            %src_end = add i64 %src64, %len64
+            %dst_ok = icmp ule i64 %dst_end, 67108864
+            %src_ok = icmp ule i64 %src_end, 67108864
+            %ok = and i1 %dst_ok, %src_ok
+            br i1 %ok, label %copy, label %done
+        copy:
+            %dst_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %dst64
+            %src_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %src64
+            call void @llvm.memcpy.p0.p0.i32(ptr %dst_ptr, ptr %src_ptr, i32 %len, i1 false)
+            ret void
+        done:
+            ret void
+        }
+
+//: mem_move: 重なり得るバイト列をまとめてコピーする
+//:
+//: 目的:
+//: - `src` から `dst` へ `len` バイトをコピーします。範囲が重なっていても正しい順序で移動します。
+//:
+//: 実装(アルゴリズム):
+//: - wasm では重なりを許す `memory.copy`、llvm では `llvm.memmove` を使います。
+//:
+//: 注意(重要):
+//: - raw API のため、範囲外アクセスは未定義動作です。検査付きで使う場合は `MemPtr` オーバーロードを使います。
+//:
+//: 計算量:
+//: - O(len)
+pub fn mem_move <(i32,i32,i32)->()> (dst, src, len):
+    #if[target=wasm]
+    #wasm:
+        local.get $dst
+        local.get $src
+        local.get $len
+        memory.copy
+    #if[target=llvm]
+    #llvmir:
+        declare void @llvm.memmove.p0.p0.i32(ptr, ptr, i32, i1)
+        define void @mem_move(i32 %dst, i32 %src, i32 %len) {
+        entry:
+            %has_bytes = icmp sgt i32 %len, 0
+            br i1 %has_bytes, label %check_addr, label %done
+        check_addr:
+            %dst_neg = icmp slt i32 %dst, 0
+            %src_neg = icmp slt i32 %src, 0
+            %bad_addr = or i1 %dst_neg, %src_neg
+            br i1 %bad_addr, label %done, label %check_bounds
+        check_bounds:
+            %dst64 = zext i32 %dst to i64
+            %src64 = zext i32 %src to i64
+            %len64 = zext i32 %len to i64
+            %dst_end = add i64 %dst64, %len64
+            %src_end = add i64 %src64, %len64
+            %dst_ok = icmp ule i64 %dst_end, 67108864
+            %src_ok = icmp ule i64 %src_end, 67108864
+            %ok = and i1 %dst_ok, %src_ok
+            br i1 %ok, label %copy, label %done
+        copy:
+            %dst_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %dst64
+            %src_ptr = getelementptr [67108864 x i8], ptr @__nepl_mem, i64 0, i64 %src64
+            call void @llvm.memmove.p0.p0.i32(ptr %dst_ptr, ptr %src_ptr, i32 %len, i1 false)
+            ret void
+        done:
+            ret void
+        }
+
+//: memset_u8: バイト列を同じ値で埋める
+//:
+//: 目的:
+//: - `ptr` から `len` バイトを `value`（下位 8bit）で埋めます。
+//:
+//: 実装(アルゴリズム):
+//: - 0..len を順に走査し、`store_u8` で書き込みます。
+//:
+//: 注意(重要):
+//: - `ptr` は少なくとも `len` バイトの有効領域を指している必要があります。
+//:
+//: 計算量:
+//: - O(len)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/mem" as *
+//: fn main <()*>i32> ():
+//:     let p <i32> alloc_raw 8;
+//:     memset_u8 p 8 65;
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert_eq_i32 65 load_u8 add p 0
+//:         |> checks_push assert_eq_i32 65 load_u8 add p 7
+//:     dealloc_raw p 8;
+//:     checks_exit_code checks
+//: ```
+pub fn memset_u8 <(i32,i32,i32)->()> (ptr, len, value):
+    let mut i <i32> 0;
+    while lt i len:
+        do:
+            let dst_ptr <i32> add ptr i;
+            store_u8 dst_ptr value;
+            set i add i 1;
+
+//: fill_u8: `memset_u8` の同義 API
+//:
+//: 目的:
+//: - 競プロ向けの名前でバイト埋め API を提供します。
+//:
+//: 実装(アルゴリズム):
+//: - `memset_u8` を呼び出す薄いラッパです。
+//:
+//: 注意(重要):
+//: - `value` は下位 8bit が使用されます。
+//:
+//: 計算量:
+//: - O(len)
+pub fn fill_u8 <(i32,i32,i32)->()> (ptr, len, value):
+    memset_u8 ptr len value
+
+//: fill_i32: `i32` 配列を同じ値で埋める
+//:
+//: 目的:
+//: - `ptr` から `count` 個の `i32` 要素を `value` で埋めます。
+//:
+//: 実装(アルゴリズム):
+//: - 0..count を順に走査し、`store_i32` で書き込みます。
+//:
+//: 注意(重要):
+//: - `ptr` は少なくとも `count * 4` バイトの有効領域を指している必要があります。
+//:
+//: 計算量:
+//: - O(count)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/mem" as *
+//: fn main <()*>i32> ():
+//:     let p <i32> alloc_raw 16;
+//:     fill_i32 p 4 42;
+//:     let checks:
+//:         checks_new
+//:         |> checks_push assert_eq_i32 42 load_i32 add p 0
+//:         |> checks_push assert_eq_i32 42 load_i32 add p 12
+//:     dealloc_raw p 16;
+//:     checks_exit_code checks
+//: ```
+pub fn fill_i32 <(i32,i32,i32)->()> (ptr, count, value):
+    let mut i <i32> 0;
+    while lt i count:
+        do:
+            store_i32 <i32> add ptr <i32> mul i 4 value;
+            set i add i 1;
+
+//: memset_u8: MemPtr<u8> を受け取る安全オーバーロード
+//:
+//: 目的:
+//: - 無効ポインタを `Result::Err` として扱い、`i32` 生ポインタ境界を減らします。
+
+pub fn size_of <.T> <()->i32> ():
+    #intrinsic "size_of" <.T> ()
+
+//: align_of: 型のアラインメントを取得する
+//:
+//: 目的:
+//: - .T のアラインメント（バイト）を返します。
+//:
+//: 実装(アルゴリズム):
+//: - intrinsic "align_of" を呼びます。
+//:
+//: 注意(重要):
+//: - アラインメントはコンパイル時に決まります。
+//:
+//: 計算量:
+//: - O(1)
+pub fn align_of <.T> <()->i32> ():
+    #intrinsic "align_of" <.T> ()
+
+//: load: 任意型をロードする
+//:
+//: 目的:
+//: - ptr から .T を読み出します。
+//:
+//: 実装(アルゴリズム):
+//: - intrinsic "load" を呼びます。
+//:
+//: 注意(重要):
+//: - 型とメモリ内容の整合性は呼び出し側の責任です。
+//:
+//: 計算量:
+//: - O(1)
+pub fn load <.T> <(i32)->.T> (ptr):
+    #intrinsic "load" <.T> (ptr)
+
+//: store: 任意型をストアする
+//:
+//: 目的:
+//: - ptr に .T を書き込みます。
+//:
+//: 実装(アルゴリズム):
+//: - intrinsic "store" を呼びます。
+//:
+//: 注意(重要):
+//: - 型とメモリ内容の整合性は呼び出し側の責任です。
+//:
+//: 計算量:
+//: - O(1)
+pub fn store <.T> <(i32,.T)->()> (ptr, val):
+    #intrinsic "store" <.T> (ptr, val)

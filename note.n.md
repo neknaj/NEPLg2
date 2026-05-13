@@ -37026,3 +37026,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - owner obligation は `OwnerState` 側で別に検査され、`dealloc` / `realloc` だけが free obligation を消費するため、payload state と storage owner state は混同されていない。
 - stdlib collection element cleanup と raw-memory-backed public API migration は `RV-STDLIB-004` / `STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR` / `CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE` に分離して継続する。
 - 検証として `resource_ir raw_storage`、`move_effect.n.md` 113/113、`memory_safety.n.md` 23/23 が通ることを確認した。
+
+## 2026-05-13 Agent 1 core/mem facade raw boundary split
+
+- `e4761d7b` push 後に remote main を pull し、`agent1-core-mem-raw-address-public-boundary` branch を作成した。
+- `ISS-20260513T023254911Z-CORE-MEM-FACADE-STILL-CARRIED-RAW-ME-FEEF633F` を追加して解決した。
+- `stdlib/core/mem.nepl` を public facade に縮小し、`types` / `raw` / `allocator` / `pointer` submodule へ分割した。
+- `nepl-core/src/loader.rs` の exact raw-memory-boundary capability から root `core/mem.nepl` を外し、実装 submodule だけへ付与するようにした。
+- `nodesrc/test_stdlib_core_mem_boundary.js` を追加し、root facade に function body / raw body / type layout が戻らないこと、loader table が exact submodule を指すことを監視する。
+- root facade の doctest は allocator metadata を直接読む形から `alloc_ptr` / `dealloc_ptr` の public wrapper 契約確認へ変更した。
+- `CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE` はまだ open。raw helper の public re-export 閉鎖と safe public API migration は次の Stage 6 作業として継続する。

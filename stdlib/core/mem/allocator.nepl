@@ -1,0 +1,366 @@
+#indent 4
+
+//: mem/allocator: free list allocator と runtime ABI
+//:
+//: 目的:
+//: - free list / bump allocator と compiler runtime ABI の入口を所有します。
+//: - raw byte 操作は mem/raw に委譲し、MemPtr wrapper は mem/pointer に分離します。
+
+#import "core/math" as *
+#import "core/result" as *
+#import "./raw" as *
+
+pub fn align8 <(i32)->i32> (n):
+    let t <i32> add n 7
+    let q <i32> div_s t 8
+    mul q 8
+
+//: mem_block_end: allocator block の[終端/しゅうたん] address を[返/かえ]す
+//:
+//: block header の先頭 address と header に保存された total size から、隣接判定に使う半開区間の終端を計算します。
+pub fn mem_block_end <(i32)->i32> (blk):
+    add blk load_i32 blk
+
+//: alloc_raw: ヒープから領域を確保する（生ポインタAPI）
+//:
+//: 目的:
+//: - size バイトの領域を返します（失敗時は 0）。
+//:
+//: 実装(アルゴリズム):
+//: - free list を探索し、合うブロックが無ければ bump で拡張します。
+//:
+//: 注意(重要):
+//: - size<=0 の場合は 0 を返します。
+//: - 返り値 0 は失敗を意味します。
+//:
+//: 計算量:
+//: - 平均 O(1) / 最悪 O(n)
+pub fn alloc_raw <(i32)->i32> (size):
+    if:
+        cond:
+            le size 0
+        then:
+            0
+        else:
+            let header <i32> 8
+            let total <i32> align8 add size header
+            let mut prev <i32> 0
+            let mut cur <i32> load_i32 4
+            let mut found <i32> 0
+            while ne cur 0:
+                do:
+                    let blk_sz <i32> load_i32 cur
+                    let next <i32> load_i32 add cur 4
+                    if:
+                        cond:
+                            le total blk_sz
+                        then:
+                            let remain <i32> sub blk_sz total
+                            if:
+                                cond:
+                                    le 16 remain
+                                then:
+                                    let new_blk <i32> add cur total
+                                    store_i32 new_blk remain
+                                    let new_blk_next_ptr <i32> add new_blk 4
+                                    store_i32 new_blk_next_ptr next
+                                    if:
+                                        cond:
+                                            eq prev 0
+                                        then:
+                                            store_i32 4 new_blk
+                                        else:
+                                            let prev_next_ptr <i32> add prev 4
+                                            store_i32 prev_next_ptr new_blk
+                                    store_i32 cur total
+                                else:
+                                    if:
+                                        cond:
+                                            eq prev 0
+                                        then:
+                                            store_i32 4 next
+                                        else:
+                                            let prev_next_ptr <i32> add prev 4
+                                            store_i32 prev_next_ptr next
+                                    store_i32 cur blk_sz
+                            set found add cur header
+                            set cur 0
+                        else:
+                            set prev cur
+                            set cur next
+            if:
+                cond:
+                    ne found 0
+                then:
+                    found
+                else:
+                    let heap_ptr0 <i32> load_i32 0
+                    let heap_ptr <i32> if lt heap_ptr0 8 8 heap_ptr0
+                    let start <i32> align8 heap_ptr
+                    let new_heap <i32> add start total
+                    let cur_pages <i32> mem_size
+                    let cur_bytes <i32> mul cur_pages 65536
+                    let mut ok <bool> true
+                    if:
+                        cond:
+                            le new_heap cur_bytes
+                        then:
+                            ()
+                        else:
+                            let need_bytes <i32> sub new_heap cur_bytes
+                            let need_round <i32> add need_bytes 65535
+                            let grow_pages <i32> div_s need_round 65536
+                            let prev_pages <i32> mem_grow grow_pages
+                            if:
+                                cond:
+                                    lt prev_pages 0
+                                then:
+                                    set ok false
+                                else:
+                                    ()
+                    if:
+                        cond:
+                            ok
+                        then:
+                            store_i32 0 new_heap
+                            store_i32 start total
+                            add start header
+                        else:
+                            0
+
+//: dealloc_raw: 領域を解放する（生ポインタAPI）
+//:
+//: 目的:
+//: - ptr を free list に戻します。
+//:
+//: 実装(アルゴリズム):
+//: - ブロック先頭に total size を書き、address order の free list へ挿入します。
+//: - 挿入位置の前後 block と隣接していれば、1 つの大きな free block に結合します。
+//:
+//: 注意(重要):
+//: - ptr<=0 は無視します。
+//: - size は alloc_raw 時のサイズと一致させてください。
+//:
+//: 計算量:
+//: - O(n)
+pub fn dealloc_raw <(i32,i32)->()> (ptr, size):
+    if:
+        cond:
+            le ptr 0
+        then:
+            ()
+        else:
+            let header <i32> 8
+            let total <i32> align8 add size header
+            let blk <i32> sub ptr header
+            let mut prev <i32> 0
+            let mut cur <i32> load_i32 4
+            let mut done <bool> false
+            while and ne cur 0 not done:
+                do:
+                    if:
+                        lt cur blk
+                        then:
+                            set prev cur
+                            set cur load_i32 add cur 4
+                        else:
+                            set done true
+            store_i32 blk total
+            let blk_next_ptr <i32> add blk 4
+            store_i32 blk_next_ptr cur
+            if:
+                cond:
+                    eq prev 0
+                then:
+                    store_i32 4 blk
+                else:
+                    store_i32 add prev 4 blk
+            if:
+                cond:
+                    and ne cur 0 eq mem_block_end blk cur
+                then:
+                    let cur_next <i32> load_i32 add cur 4
+                    store_i32 blk add load_i32 blk load_i32 cur
+                    store_i32 blk_next_ptr cur_next
+                else:
+                    ()
+            if:
+                cond:
+                    and ne prev 0 eq mem_block_end prev blk
+                then:
+                    store_i32 prev add load_i32 prev load_i32 blk
+                    store_i32 add prev 4 load_i32 blk_next_ptr
+                else:
+                    ()
+
+//: realloc_raw: 既存領域を再確保する（生ポインタAPI）
+//:
+//: 目的:
+//: - サイズ変更した領域を返します。
+//:
+//: 実装(アルゴリズム):
+//: - 新領域を確保し、必要バイトをコピーして旧領域を解放します。
+//:
+//: 注意(重要):
+//: - ptr<=0 は新規 alloc_raw と同等です。
+//: - new_size<=0 は解放して 0 を返します。
+//:
+//: 計算量:
+//: - O(n)
+pub fn realloc_raw <(i32,i32,i32)->i32> (ptr, old_size, new_size):
+    if:
+        cond:
+            le ptr 0
+        then:
+            alloc_raw new_size
+        else:
+            if:
+                cond:
+                    le new_size 0
+                then:
+                    dealloc_raw ptr old_size
+                    0
+                else:
+                    let new_ptr <i32> alloc_raw new_size
+                    if:
+                        cond:
+                            le new_ptr 0
+                        then:
+                            0
+                        else:
+                            let copy_bytes <i32> if lt new_size old_size new_size old_size
+                            mem_copy new_ptr ptr copy_bytes
+                            dealloc_raw ptr old_size
+                            new_ptr
+
+//: __nepl_rt_alloc: compiler runtime ABI 用の確保入口
+//:
+//: 目的:
+//: - compiler が aggregate などの内部 lowering で使う allocator symbol を、公開 raw API 名から分離します。
+//:
+//: 実装(アルゴリズム):
+//: - 現行 runtime allocator の `alloc_raw` へ委譲します。
+//:
+//: 注意(重要):
+//: - これは compiler が予約する ABI です。通常の stdlib 利用コードは `alloc` または所有権付き wrapper を使ってください。
+//: - 移行期間中は互換のために `alloc_raw` も残りますが、codegen はこの ABI 名を優先します。
+//:
+//: 計算量:
+//: - O(alloc_raw)
+pub fn __nepl_rt_alloc <(i32)->i32> (size):
+    alloc_raw size
+
+//: __nepl_rt_dealloc: compiler runtime ABI 用の解放入口
+//:
+//: 目的:
+//: - compiler が runtime helper を保持・解決するときの deallocator symbol を、公開 raw API 名から分離します。
+//:
+//: 実装(アルゴリズム):
+//: - 現行 runtime deallocator の `dealloc_raw` へ委譲します。
+//:
+//: 注意(重要):
+//: - これは compiler が予約する ABI です。通常の stdlib 利用コードは安全 API または所有権付き wrapper を使ってください。
+//:
+//: 計算量:
+//: - O(dealloc_raw)
+pub fn __nepl_rt_dealloc <(i32,i32)->()> (ptr, size):
+    dealloc_raw ptr size
+
+//: __nepl_rt_realloc: compiler runtime ABI 用の再確保入口
+//:
+//: 目的:
+//: - compiler が runtime helper を保持・解決するときの reallocator symbol を、公開 raw API 名から分離します。
+//:
+//: 実装(アルゴリズム):
+//: - 現行 runtime reallocator の `realloc_raw` へ委譲します。
+//:
+//: 注意(重要):
+//: - これは compiler が予約する ABI です。通常の stdlib 利用コードは安全 API または所有権付き wrapper を使ってください。
+//:
+//: 計算量:
+//: - O(realloc_raw)
+pub fn __nepl_rt_realloc <(i32,i32,i32)->i32> (ptr, old_size, new_size):
+    realloc_raw ptr old_size new_size
+
+//: alloc: alloc の結果を Result で返す安全API
+//:
+//: 目的:
+//: - 失敗時に `0` ではなく `Result::Err` を返し、呼び出し側で明示的に処理できるようにします。
+//:
+//: 実装(アルゴリズム):
+//: - `alloc_raw` の返値を検査し、`ptr>0` なら `Ok(ptr)`、それ以外は `Err(\"mem.alloc failed\")` を返します。
+//:
+//: 注意(重要):
+//: - 生ポインタが必要な場合は `alloc_raw` を使います。
+//:
+//: 計算量:
+//: - O(1)（`alloc` 本体を除く）
+pub fn alloc <(i32)->Result<i32,str>> (size):
+    let ptr <i32> alloc_raw size
+    if:
+        lt 0 ptr
+        then:
+            Result<i32,str>::Ok ptr
+        else:
+            Result<i32,str>::Err "mem.alloc failed"
+
+//: realloc: realloc の結果を Result で返す安全API
+//:
+//: 目的:
+//: - 再確保失敗を `Result` で扱い、エラー伝播しやすくします。
+//:
+//: 実装(アルゴリズム):
+//: - `new_size<=0` は所有領域を解放せず `Err` を返します。0 サイズ化は `dealloc` を使って明示します。
+//: - `new_size>0` のときだけ `realloc_raw` を呼び、返値が 0 かどうかで成功/失敗を判定します。
+//:
+//: 注意(重要):
+//: - `Err` では元の `ptr` の所有権が呼び出し側に残ります。
+//:
+//: 計算量:
+//: - O(1)（`realloc` 本体を除く）
+pub fn realloc <(i32,i32,i32)->Result<i32,str>> (ptr, old_size, new_size):
+    if:
+        le new_size 0
+        then:
+            Result<i32,str>::Err "mem.realloc invalid new_size"
+        else:
+            let new_ptr <i32> realloc_raw ptr old_size new_size
+            if:
+                lt 0 new_ptr
+                then:
+                    Result<i32,str>::Ok new_ptr
+                else:
+                    Result<i32,str>::Err "mem.realloc failed"
+
+//: dealloc: dealloc の前提を検査する安全API
+//:
+//: 目的:
+//: - 不正な引数を早期に検出し、呼び出し側へ `Result` で返します。
+//:
+//: 実装(アルゴリズム):
+//: - `ptr<=0` または `size<0` を `Err` とし、それ以外は `dealloc_raw` 後に `Ok(())` を返します。
+//:
+//: 計算量:
+//: - O(1)
+pub fn dealloc <(i32,i32)->Result<(),str>> (ptr, size):
+    if:
+        or le ptr 0 lt size 0
+        then:
+            Result<(),str>::Err "mem.dealloc invalid argument"
+        else:
+            dealloc_raw ptr size
+            Result<(),str>::Ok ()
+
+//: load_i32: i32 を読み出す
+//:
+//: 目的:
+//: - ptr から i32 をロードします。
+//:
+//: 実装(アルゴリズム):
+//: - wasm の i32.load を実行します。
+//:
+//: 注意(重要):
+//: - アラインメントは呼び出し側の責任です。
+//:
+//: 計算量:
+//: - O(1)
