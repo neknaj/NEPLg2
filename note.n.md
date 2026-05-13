@@ -37556,3 +37556,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `SourceCapability::CompilerMemoryTypeDefinition(CompilerMemoryType)` を追加し、raw operation authority と compiler-owned type definition authority を分離した。
 - `source_capability/memory_type_definition.rs` に `MemPtr` / `RegionToken` の構造証明を集約し、typecheck の constructor policy は `CompilerMemoryType` enum の match で `RawPointer` / `OwnerToken` を網羅する。
 - `tests/stdlib/memory_safety.n.md` は total=29, passed=29 に戻り、direct constructor forging は Resource IR owner gate より前の typecheck gate で拒否される。
+
+## 2026-05-13 Agent 1 Trait capability semantics typed identity
+
+- `work/trait-semantics-typed-capability-ids` で `ISS-20260513T162705742Z-TRAITSEMANTICS-STORES-CAPABILITY-TRA-C51DB134` を追加して解決した。
+- `TraitSemantics` の Copy / Clone / Drop capability trait 集合から表示名 `String` を削除し、semantic identity は `TypeId` だけにした。
+- capability category の選択は `TraitCapability` enum の `match` に集約し、抽象化機能でも数値・文字列ではなく typed identity と網羅性検査が効く形に揃えた。
+- `nodesrc/test_abstraction_static_verification_policy.js` と `doc/neplg2/abstraction_static_verification_plan.md` を更新し、raw name capability authority の再導入を policy で拒否する。
+- `cargo fmt --package nepl-core --check`、`node nodesrc/test_abstraction_static_verification_policy.js`、`cargo test -p nepl-core --test neplg2 trait -- --nocapture` は pass した。

@@ -82,6 +82,7 @@ assert(
 
 const traits = read(TRAITS);
 const implInfoStruct = traits.match(/pub\(super\) struct ImplInfo\s*\{[\s\S]*?\n\}/);
+const traitSemanticsStruct = traits.match(/pub\(super\) struct TraitSemantics\s*\{[\s\S]*?\n\}/);
 const files = walkRustFiles(TYPECHECK_DIR).concat([MONOMORPHIZE]);
 const counts = {
     parseTraitRefName: countAll(files, "parse_trait_ref_name"),
@@ -110,6 +111,25 @@ assert(traits.includes("pub(super) enum TraitCapability"), "TraitCapability must
 assert(traits.includes("TraitCapability::Copy"), "TraitCapability::Copy match coverage must remain visible");
 assert(traits.includes("TraitCapability::Clone"), "TraitCapability::Clone match coverage must remain visible");
 assert(traits.includes("TraitCapability::Drop"), "TraitCapability::Drop match coverage must remain visible");
+assert(traitSemanticsStruct, "TraitSemantics struct body must be visible to source policy");
+for (const field of ["copy_traits", "clone_traits", "drop_traits"]) {
+    assert(
+        traitSemanticsStruct[0].includes(`${field}: Vec<TypeId>`),
+        `TraitSemantics ${field} must store typed trait identity only`,
+    );
+}
+assert(
+    !traitSemanticsStruct[0].includes("String"),
+    "TraitSemantics must not retain rendered trait names as capability authority",
+);
+assert(
+    !traits.includes("Vec<(String, TypeId)>"),
+    "TraitSemantics capability sets must not be encoded as raw name plus TypeId pairs",
+);
+assert(
+    traits.includes("fn insert_trait(&mut self, capability: TraitCapability, trait_self_ty: TypeId)"),
+    "TraitSemantics capability insertion must branch on TraitCapability enum",
+);
 assert(traits.includes("pub(super) struct TraitApplication"), "TraitApplication must be a typed model");
 assert(traits.includes("pub(super) struct TraitId"), "TraitApplication must use a typed TraitId");
 const traitApplicationStruct = traits.match(/pub\(super\) struct TraitApplication\s*\{[\s\S]*?\n\}/);

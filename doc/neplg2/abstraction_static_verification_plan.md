@@ -301,10 +301,11 @@ struct MonoTraitLookupKey {
 - 2026-05-13: `ISS-20260512T193917855Z-TRAIT-METHOD-RESOLUTION-STILL-CARRIE-0BFEEFA9` により、trait method resolution result の split `trait_name` / `trait_args` / `applied_trait_name` payload 再導入禁止を source policy に追加した。`format_trait_ref_name` baseline は 6 から 4 に下げた。
 - 2026-05-13: `ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5` により、impl lowering pass の direct `format_trait_ref_name` と `applied_trait_name` payload 再導入禁止を source policy に追加した。`format_trait_ref_name` baseline は 4 から 2 に下げた。
 - 2026-05-13: `ISS-20260512T143721313Z-GENERIC-AND-TRAIT-ABSTRACTION-MODEL--1F2FF429` の最終確認で、source policy を baseline 増加抑止から final contract 検査へ変更した。`format_trait_ref_name` は `traits.rs` の display boundary に限定し、`trait_lookup_cache` は出現数ではなく `BTreeMap<MonoTraitLookupKey, Option<TraitImplResolution>>` という typed key model を直接検査する。
+- 2026-05-13: `ISS-20260513T162705742Z-TRAITSEMANTICS-STORES-CAPABILITY-TRA-C51DB134` により、`TraitSemantics` の Copy / Clone / Drop capability trait 集合から表示名 `String` を削除した。capability category は `TraitCapability` enum の exhaustive `match` で選び、保持する identity は `TypeId` のみにした。source policy も `Vec<(String, TypeId)>` の再導入を拒否する。
 
 ## 進捗状況
 
-- `typecheck/traits.rs`: Stage 1/2 は進行済み。TraitCapability enum、TraitId、TraitApplication、TraitBound、ImplKind が存在する。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みで、type parameter bound は `TraitApplication` に集約済み。ImplInfo は `ImplKind` を持ち、optional string model ではない。
+- `typecheck/traits.rs`: Stage 1/2/6 は進行済み。TraitCapability enum、TraitId、TraitApplication、TraitBound、ImplKind が存在する。function-level deferred check の string parsing と `TraitBoundRef.name` は除去済みで、type parameter bound は `TraitApplication` に集約済み。ImplInfo は `ImplKind` を持ち、optional string model ではない。`TraitSemantics` の capability trait 集合は raw name を保持せず、`TypeId` と `TraitCapability` の match だけで判定する。
 - `typecheck/trait_check.rs`: Stage 3/4 実装済み。trait application parse 依存、split impl field 参照、duplicate label fallback 実装は削除済み。
 - `typecheck/trait_bound_apply.rs`: Stage 4 実装済み。pending check は `PendingTraitCheck` named model を使い、tuple state には戻さない。
 - `typecheck/trait_call_apply.rs`: Stage 4/5 は進行済み。trait method resolution は `TraitMethodResolution` enum を match し、resolution payload は `TraitApplication` と `HirTraitMethodId` を保持する。診断表示名は failure diagnostic を作る境界だけで生成する。

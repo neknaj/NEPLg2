@@ -24,43 +24,32 @@ pub(super) struct TraitInfo {
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct TraitSemantics {
-    pub(super) copy_traits: Vec<(String, TypeId)>,
-    pub(super) clone_traits: Vec<(String, TypeId)>,
-    pub(super) drop_traits: Vec<(String, TypeId)>,
+    pub(super) copy_traits: Vec<TypeId>,
+    pub(super) clone_traits: Vec<TypeId>,
+    pub(super) drop_traits: Vec<TypeId>,
 }
 
 impl TraitSemantics {
     pub(super) fn detect(traits: &BTreeMap<String, TraitInfo>) -> Self {
-        let mut copy_traits: Vec<(String, TypeId)> = Vec::new();
-        let mut clone_traits: Vec<(String, TypeId)> = Vec::new();
-        let mut drop_traits: Vec<(String, TypeId)> = Vec::new();
+        let mut semantics = Self::default();
 
-        for (name, info) in traits {
+        for info in traits.values() {
             for cap in info.capabilities.iter().copied() {
-                match cap {
-                    TraitCapability::Copy => {
-                        if !copy_traits.iter().any(|(_, id)| *id == info.self_ty) {
-                            copy_traits.push((name.clone(), info.self_ty));
-                        }
-                    }
-                    TraitCapability::Clone => {
-                        if !clone_traits.iter().any(|(_, id)| *id == info.self_ty) {
-                            clone_traits.push((name.clone(), info.self_ty));
-                        }
-                    }
-                    TraitCapability::Drop => {
-                        if !drop_traits.iter().any(|(_, id)| *id == info.self_ty) {
-                            drop_traits.push((name.clone(), info.self_ty));
-                        }
-                    }
-                }
+                semantics.insert_trait(cap, info.self_ty);
             }
         }
 
-        Self {
-            copy_traits,
-            clone_traits,
-            drop_traits,
+        semantics
+    }
+
+    fn insert_trait(&mut self, capability: TraitCapability, trait_self_ty: TypeId) {
+        let traits = match capability {
+            TraitCapability::Copy => &mut self.copy_traits,
+            TraitCapability::Clone => &mut self.clone_traits,
+            TraitCapability::Drop => &mut self.drop_traits,
+        };
+        if !traits.contains(&trait_self_ty) {
+            traits.push(trait_self_ty);
         }
     }
 
@@ -70,21 +59,21 @@ impl TraitSemantics {
 
     pub(super) fn has_copy_capability(&self, trait_id: Option<TypeId>) -> bool {
         match trait_id {
-            Some(actual) => self.copy_traits.iter().any(|(_, id)| *id == actual),
+            Some(actual) => self.copy_traits.contains(&actual),
             None => false,
         }
     }
 
     pub(super) fn has_clone_capability(&self, trait_id: Option<TypeId>) -> bool {
         match trait_id {
-            Some(actual) => self.clone_traits.iter().any(|(_, id)| *id == actual),
+            Some(actual) => self.clone_traits.contains(&actual),
             None => false,
         }
     }
 
     pub(super) fn has_drop_capability(&self, trait_id: Option<TypeId>) -> bool {
         match trait_id {
-            Some(actual) => self.drop_traits.iter().any(|(_, id)| *id == actual),
+            Some(actual) => self.drop_traits.contains(&actual),
             None => false,
         }
     }

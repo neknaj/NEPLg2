@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T16:22:52.764Z",
+  "generated_at": "2026-05-13T21:08:12.209Z",
   "counts": {
-    "total": 731,
+    "total": 732,
     "open": 5,
-    "resolved": 726,
+    "resolved": 727,
     "by_area": {
       "stdlib": {
         "total": 183,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 389,
+        "total": 390,
         "open": 0,
-        "resolved": 389
+        "resolved": 390
       },
       "resource": {
         "total": 2,
@@ -9593,6 +9593,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T160802076Z-GENERIC-RAW-MEMORY-REGRESSION-FIXTUR-1F871A8E.md"
+    },
+    {
+      "id": "ISS-20260513T162705742Z-TRAITSEMANTICS-STORES-CAPABILITY-TRA-C51DB134",
+      "title": "TraitSemantics stores capability trait identity with redundant raw names",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/typecheck/traits.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T162705742Z-TRAITSEMANTICS-STORES-CAPABILITY-TRA-C51DB134.md"
     },
     {
       "id": "ISS-20260430T063316041Z-STATIC-CHECK-DESIGN-DOCS-KEEP-STALE--D0874958",
