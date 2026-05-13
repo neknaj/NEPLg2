@@ -31,6 +31,8 @@
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: TokenKind: NEPLg2.0 lexer が[生成/せいせい]する token [種類/しゅるい]
 //:

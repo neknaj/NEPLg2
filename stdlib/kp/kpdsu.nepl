@@ -3,6 +3,8 @@
 
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 //: kpdsu: 競技プログラミング向け Union-Find（Disjoint Set Union）
 //:

@@ -11,6 +11,7 @@
 //: - `len` / `contains` / `get` は map を[借用/しゃくよう]して[観測/かんそく]します。
 
 #indent 4
+#import "core/field" as *
 
 pub #import "./btreemap/types" as @merge
 pub #import "./btreemap/api" as @merge

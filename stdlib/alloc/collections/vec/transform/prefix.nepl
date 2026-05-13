@@ -20,6 +20,7 @@
 #import "../mutation/cleanup" as vec_cleanup
 #import "../raw" as vec_raw
 #import "../query/get" as vec_get
+#import "core/field" as *
 
 //: vec_take_while_len: borrowed Vec から prefix 境界を[求/もと]める[内部/ないぶ] helper
 //:

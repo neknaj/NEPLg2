@@ -53,6 +53,8 @@
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
 #import "std/stdio" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: selfhost_cli_append_human_label: human diagnostic に primary label 行を追加する
 //:

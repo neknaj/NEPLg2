@@ -1,3 +1,26 @@
+# 2026-05-13 Agent 1 core/mem public safe facade 完了
+
+- `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D` を修正した。
+- 根本原因は、`core/mem` facade が raw helper を直接再公開していたことに加え、compiler resolver が public facade の private import を推移的に unqualified lookup へ漏らし得る構造だったこと。
+- `nepl-core/src/resolve.rs` では transitive open import を `pub #import` chain だけに限定し、private import は public facade 越しに漏れないようにした。
+- `stdlib/core/mem.nepl` は `types` / `layout` / checked `pointer` API だけを公開する safe facade にし、`mem_ptr_wrap` / `mem_ptr_addr` / `region_new` は `core/mem/internal`、raw allocator は `core/mem/allocator`、raw load-store/bulk は `core/mem/raw` に閉じた。
+- `stdlib/core/mem/pointer.nepl` は facade にし、実装を `pointer/alloc` / `pointer/region` / `pointer/bulk` / `pointer/scalar` に分割した。doctest は ResourceIR owner obligation に合わせ、失敗分岐でも確保済み region を閉じる形に直した。
+- `tests/stdlib/memory_safety.n.md` に safe `core/mem` import だけでは `alloc_raw` / `mem_ptr_wrap` / raw `load_i32(i32)` を呼べない compile_fail regression を追加した。
+- raw-memory-backed stdlib 全体の public discipline、direct internal/raw module の扱い、collection/string/self-host buffer の owner token 移行は `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` と Stage 6 の各 stdlib issue で継続する。
+- 検証:
+  - `trunk build`: passed
+  - `cargo fmt -p nepl-core --check`: passed
+  - `cargo check -p nepl-core --tests`: passed
+  - `cargo test -p nepl-core --test import_clause -- --nocapture`: 18 passed
+  - `cargo test -p nepl-core raw_memory_boundary_whitelist_paths_are_unique_and_exact -- --nocapture`: passed
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`: passed
+  - `node nodesrc/test_stdlib_documentation_contract.js`: passed
+  - `node nodesrc/tests.js -i stdlib/core/mem.nepl -i stdlib/core/mem/types.nepl -i stdlib/core/mem/layout.nepl -i stdlib/core/mem/internal.nepl -i stdlib/core/mem/raw.nepl -i stdlib/core/mem/allocator.nepl -i stdlib/core/mem/pointer.nepl -i stdlib/core/mem/pointer/alloc.nepl -i stdlib/core/mem/pointer/region.nepl -i stdlib/core/mem/pointer/bulk.nepl -i stdlib/core/mem/pointer/scalar.nepl --no-tree -o tmp/agent1-core-mem-public-facade-doctests.json -j 1 --dist web/dist`: 30 passed
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-core-mem-public-facade-memory-safety.json -j 1 --dist web/dist`: 26 passed
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-core-mem-public-facade-move-effect.json -j 1 --dist web/dist`: 113 passed
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 6 の `core/mem` internal/public 境界を実装したもの。
+
 # 2026-05-13 Agent 1 fs/stdio ResourceIR owner cleanup 修正
 
 - `ISS-20260506T172100644Z-FS-AND-STDIO-SCRATCH-RAW-DEALLOC-LOS-57895CB4` を修正した。

@@ -11,6 +11,7 @@
 #import "core/result" as *
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
+#import "core/field" as *
 
 pub fn sparse_set_load_owned <(&Vec<i32>,i32)->Option<i32>> (base, idx):
     vec::get<i32> base idx

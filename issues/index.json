@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T02:37:29.313Z",
+  "generated_at": "2026-05-13T03:39:06.998Z",
   "counts": {
     "total": 691,
-    "open": 7,
-    "resolved": 684,
+    "open": 6,
+    "resolved": 685,
     "by_area": {
       "stdlib": {
         "total": 168,
-        "open": 5,
-        "resolved": 163
+        "open": 4,
+        "resolved": 164
       },
       "TEST": {
         "total": 18,
@@ -123,21 +123,6 @@
       "legacy_id": "RV-STDLIB-004",
       "source": "doc/review20260425/stdlib.md#rv-stdlib-004",
       "file": "items/ISS-20260425T000000Z-RV-STDLIB-004-91534828.md"
-    },
-    {
-      "id": "ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D",
-      "title": "core mem exposes raw address escape hatches as safe API",
-      "area": "stdlib",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "security",
-      "created": "2026-04-27",
-      "updated": "2026-05-13",
-      "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, tests/stdlib/memory_safety.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D.md"
     },
     {
       "id": "ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84",
@@ -6933,6 +6918,21 @@
       "legacy_id": "",
       "source": "ISS-20260427T132142587Z-ALLOC-STRING-DOC-COMMENTS-STILL-CONT-C037036C",
       "file": "items/ISS-20260427T132911158Z-ALLOC-STRING-TO-F64-REJECTS-FINITE-D-8C5634B8.md"
+    },
+    {
+      "id": "ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D",
+      "title": "core mem exposes raw address escape hatches as safe API",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "security",
+      "created": "2026-04-27",
+      "updated": "2026-05-13",
+      "target": "stdlib/core/mem.nepl, stdlib/core/traits/copy.nepl, tests/stdlib/memory_safety.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D.md"
     },
     {
       "id": "ISS-20260427T163710082Z-STD-TEST-LOADS-VEC-RESULT-FROM-RAW-T-BDF60069",

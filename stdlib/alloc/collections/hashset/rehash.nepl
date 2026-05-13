@@ -18,6 +18,7 @@
 #import "alloc/collections/hashset/types" as *
 #import "alloc/collections/hashset/storage" as *
 #import "alloc/collections/hashset/probe" as *
+#import "core/field" as *
 
 //: hashset_rehash_to: live key だけを新しい storage へ[再配置/さいはいち]する
 //:

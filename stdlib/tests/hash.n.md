@@ -18,6 +18,7 @@ neplg2:test
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn sha256_update_str_loop <(Sha256,str,i32,i32)*>Result<Sha256, StdErrorKind>> (ctx, text, idx, n):
     if:

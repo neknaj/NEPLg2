@@ -52,6 +52,7 @@ neplg2:test
 #import "std/test" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
     match r:
@@ -108,6 +109,8 @@ neplg2:test
 #import "std/test" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
+#import "core/math" as *
 
 fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
     match r:
@@ -161,6 +164,8 @@ neplg2:test
 #import "std/test" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
+#import "core/math" as *
 
 fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
     match r:
@@ -203,6 +208,7 @@ neplg2:test
 #import "std/test" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
     match r:

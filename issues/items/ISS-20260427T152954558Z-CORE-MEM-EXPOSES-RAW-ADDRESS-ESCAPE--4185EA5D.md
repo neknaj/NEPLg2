@@ -2,8 +2,8 @@
 id: ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D
 title: "core mem exposes raw address escape hatches as safe API"
 area: stdlib
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: security
 created: 2026-04-27
@@ -122,3 +122,31 @@ import visibility blocker は解決済みだったため、次の前提整理と
 `stdlib/core/mem.nepl` は public facade でありながら raw-memory-boundary capability を持ち、allocator / raw load-store / pointer wrapper / type definition が同居していた。これを `types` / `raw` / `allocator` / `pointer` submodule へ分割し、loader の exact raw-memory-boundary table から root `core/mem.nepl` を外して実装 submodule だけに capability を付与した。
 
 これにより「public facade 自体が raw boundary privilege を持つ」状態は解消した。ただし、既存互換のため `alloc_raw` / `dealloc_raw` / `mem_ptr_addr` / generic `load` / `store` はまだ facade から re-export されている。safe import から raw address escape を完全に構成できなくする作業は、Stage 6 の public safe API / internal raw API migration としてこの issue を open のまま継続する。
+
+## 2026-05-13 core/mem public safe facade 完了
+
+Stage 6 の public safe API / internal raw API migration として、`core/mem` の root facade から raw address escape を閉じた。
+
+対応内容:
+
+- `stdlib/core/mem.nepl` は `types` / `layout` / `pointer` だけを `pub #import` する safe facade にした。
+- `mem_ptr_wrap` / `mem_ptr_addr` / `region_new` は `stdlib/core/mem/internal.nepl` に閉じ、root facade から再公開しない。
+- raw allocator と raw load/store/bulk operation は `stdlib/core/mem/allocator.nepl` / `stdlib/core/mem/raw.nepl` に閉じ、root facade から再公開しない。
+- `stdlib/core/mem/pointer.nepl` は public checked wrapper facade にし、実装を `pointer/alloc` / `pointer/region` / `pointer/bulk` / `pointer/scalar` へ分割した。これにより safe caller は `MemPtr` / `RegionToken` と `Result` / `Option` を通る API だけを使う。
+- compiler resolver は private import を public facade 越しに推移的公開しないようにした。`pub #import` chain だけが transitive open import の authority になるため、`core/mem` が private に import した raw/internal helper は safe import へ漏れない。
+- `tests/stdlib/memory_safety.n.md` に `#import "core/mem" as *` だけでは `alloc_raw` / `mem_ptr_wrap` / raw `load_i32(i32)` を呼べない compile_fail regression を追加した。
+
+検証:
+
+- `trunk build`: passed
+- `cargo fmt -p nepl-core --check`: passed
+- `cargo check -p nepl-core --tests`: passed
+- `cargo test -p nepl-core --test import_clause -- --nocapture`: 18 passed
+- `cargo test -p nepl-core raw_memory_boundary_whitelist_paths_are_unique_and_exact -- --nocapture`: passed
+- `node nodesrc/test_stdlib_core_mem_boundary.js`: passed
+- `node nodesrc/test_stdlib_documentation_contract.js`: passed
+- `node nodesrc/tests.js -i stdlib/core/mem.nepl -i stdlib/core/mem/types.nepl -i stdlib/core/mem/layout.nepl -i stdlib/core/mem/internal.nepl -i stdlib/core/mem/raw.nepl -i stdlib/core/mem/allocator.nepl -i stdlib/core/mem/pointer.nepl -i stdlib/core/mem/pointer/alloc.nepl -i stdlib/core/mem/pointer/region.nepl -i stdlib/core/mem/pointer/bulk.nepl -i stdlib/core/mem/pointer/scalar.nepl --no-tree -o tmp/agent1-core-mem-public-facade-doctests.json -j 1 --dist web/dist`: 30 passed
+- `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-core-mem-public-facade-memory-safety.json -j 1 --dist web/dist`: 26 passed
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/agent1-core-mem-public-facade-move-effect.json -j 1 --dist web/dist`: 113 passed
+
+この issue の完了条件である「safe `core/mem` import から raw address escape を構成できないこと」は満たした。raw-memory-backed stdlib 全体の public discipline、collection/string/self-host buffer の owner token 移行、direct internal/raw module の扱いは `ISS-20260427T204839136Z-STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR-E503CD84` と Stage 6 の各 stdlib issue で継続する。

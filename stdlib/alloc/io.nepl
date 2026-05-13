@@ -34,6 +34,8 @@
 //: ```
 
 #indent 4
+#import "core/field" as *
+#import "core/math" as *
 
 pub #import "./io/bytebuf" as *
 pub #import "./io/bytebuilder" as *

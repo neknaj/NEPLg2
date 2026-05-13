@@ -9,6 +9,7 @@
 
 #import "alloc/string" as *
 #import "std/streamio/writer/state" as *
+#import "core/math" as *
 
 //: ## append_str_impl
 //: `str` を buffered sink へ[追記/ついき]する

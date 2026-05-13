@@ -12,6 +12,7 @@ ret: 8
 #target core
 #no_prelude
 #import "core/math" as m
+#import "core/math" as *
 
 fn id <.T> <(.T)->.T> (x):
     x
@@ -73,6 +74,7 @@ ret: 30
 #target core
 #no_prelude
 #import "core/math" as m
+#import "core/math" as *
 
 struct Pair<.A,.B>:
     first <.A>
@@ -157,6 +159,7 @@ ret: 10
 #target core
 #no_prelude
 #import "core/math" as m
+#import "core/math" as *
 
 enum LocalOption<.T>:
     None
@@ -184,6 +187,7 @@ ret: 3
 #target core
 #no_prelude
 #import "core/math" as m
+#import "core/math" as *
 
 fn first <.A,.B> <(.A,.B)->.A> (a,b):
     a
@@ -284,6 +288,7 @@ ret: 7
 #target core
 #no_prelude
 #import "core/math" as m
+#import "core/math" as *
 
 fn id <.T> <(.T)->.T> (x):
     x
@@ -352,6 +357,7 @@ ret: 30
 #target core
 #no_prelude
 #import "core/math" as m
+#import "core/math" as *
 
 struct Pair<.A,.B>:
     first <.A>
@@ -383,6 +389,7 @@ ret: 4
 #target core
 #no_prelude
 #import "core/math" as m
+#import "core/math" as *
 
 enum LocalOption<.T>:
     None

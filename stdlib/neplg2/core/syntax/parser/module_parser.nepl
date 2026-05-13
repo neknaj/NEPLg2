@@ -46,6 +46,7 @@
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
+#import "core/field" as *
 
 //: SelfhostParserRawMode: raw backend block の parser 状態
 //:

@@ -9,8 +9,10 @@
 
 #import "alloc/string" as *
 #import "core/mem" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/math" as *
 
 //: cstr_len_result: NUL 終端文字列の長さを checked load で求める
 //:
@@ -81,6 +83,7 @@ pub fn cstr_len_result <(MemPtr<u8>)*>Result<i32,str>> (p):
 //:| #target std
 //:| #import "std/env/cliarg" as *
 //:| #import "core/mem" as *
+//:| #import "core/mem/raw" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     let p <MemPtr<u8>> unwrap_ok alloc_ptr<u8> 4;
@@ -136,6 +139,7 @@ pub fn cstr_len <(MemPtr<u8>)*>i32> (p):
 //:| #target std
 //:| #import "std/env/cliarg" as *
 //:| #import "core/mem" as *
+//:| #import "core/mem/raw" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():

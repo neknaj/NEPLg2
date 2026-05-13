@@ -8,6 +8,7 @@
 
 #import "core/field" as field
 #import "../types" as *
+#import "core/field" as *
 
 //: ## len
 //: [保持/ほじ]している[長/なが]さを[返/かえ]す

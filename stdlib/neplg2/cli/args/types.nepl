@@ -2,6 +2,7 @@
 
 #import "core/option" as *
 #import "core/traits/copy" as *
+#import "core/math" as *
 
 //: # args/types
 //: NEPLg2.0 self-host CLI の public option [型/かた]を[集/あつ]める module です。

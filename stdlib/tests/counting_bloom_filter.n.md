@@ -13,6 +13,7 @@ ret: 1
 #import "core/traits/hash" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let bf0 <CountingBloomFilter<i32, DefaultHash32>>:
@@ -47,6 +48,7 @@ ret: 1
 #import "core/traits/hash" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let bf0 <CountingBloomFilter<i32, DefaultHash32>>:

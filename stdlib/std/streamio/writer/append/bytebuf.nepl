@@ -10,6 +10,8 @@
 #import "alloc/io" as *
 #import "core/option" as *
 #import "std/streamio/writer/state" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: ## stream_writer_bytebuf_byte_at
 //: borrowed ByteBuf から 1 byte を読む

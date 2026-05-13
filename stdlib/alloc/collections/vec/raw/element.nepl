@@ -10,6 +10,8 @@
 #indent 4
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 //: vec_read_at: `MemPtr<.T>` から[添字/そえじ][位置/いち]の[要素/ようそ]を[読/よ]む[内部/ないぶ] helper

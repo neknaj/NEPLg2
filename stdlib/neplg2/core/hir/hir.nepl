@@ -251,6 +251,7 @@
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/ty/ty" as *
+#import "core/field" as *
 
 //: SelfhostHirFunctionId: HIR module 内の function table index
 pub struct SelfhostHirFunctionId:

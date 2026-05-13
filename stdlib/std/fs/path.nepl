@@ -38,6 +38,7 @@
 //: ```
 
 #indent 4
+#import "core/math" as *
 
 pub #import "std/fs/path/entry" as *
 pub #import "std/fs/path/normalize" as *

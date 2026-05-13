@@ -16,8 +16,12 @@
 #import "core/char" as *
 #import "core/field" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/math" as *
 
 //: neplg2:test
 //: ```neplg2
@@ -137,6 +141,9 @@ pub fn byte_builder_len <(ByteBuilder)->i32> (builder):
 //:| #target std
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/mem" as *
+//:| #import "core/mem/internal" as *
+//:| #import "core/mem/allocator" as *
+//:| #import "core/mem/raw" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
 //: fn main <()*>i32> ():

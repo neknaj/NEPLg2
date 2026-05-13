@@ -16,6 +16,8 @@ stdout: mlstr:
 |
 #import "core/result" as *
 #import "std/test" as *
+#import "core/field" as *
+#import "core/math" as *
 
 struct ServerConfig:
     port <i32>

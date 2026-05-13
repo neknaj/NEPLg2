@@ -35,6 +35,7 @@
 #import "core/traits/copy" as *
 
 #import "./scanner" as scan
+#import "core/math" as *
 
 //: NmJsonSectionState: JSON serializer の section/comma state
 //:

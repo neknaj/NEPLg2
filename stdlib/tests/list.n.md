@@ -15,6 +15,7 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn mk <()*>List<i32>> ():
     let l0 <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
@@ -139,6 +140,7 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn mk <()*>List<i32>> ():
     let xs <List<i32>>:

@@ -74,6 +74,7 @@ diag_code: effect.pure.calls_impure
 #target core
 #entry main
 #indent 4
+#import "core/field" as *
 
 fn raw_store <(i32,i32)->()> (p, v):
     #wasm:
@@ -95,6 +96,8 @@ diag_code: effect.pure.calls_impure
 #entry main
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
+#import "core/field" as *
 
 fn raw_store_helper <(i32,i32)->()> (p, v):
     #wasm:
@@ -139,6 +142,7 @@ diag_code: effect.pure.calls_impure
 #entry main
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 fn raw_grow_helper <(i32)->i32> (pages):
     #llvmir:

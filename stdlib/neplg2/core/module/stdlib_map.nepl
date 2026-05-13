@@ -52,6 +52,7 @@
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/module/import_spec" as *
+#import "core/field" as *
 
 //: SelfhostModulePathKind: 解決後 module path が属する logical root
 //:

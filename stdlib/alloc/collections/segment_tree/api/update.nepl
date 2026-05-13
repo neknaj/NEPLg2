@@ -16,6 +16,7 @@
 #import "../layout" as *
 #import "../mutation" as *
 #import "./diagnostic" as *
+#import "core/field" as *
 
 //: ## seg_update_ok
 //: 更新に[成功/せいこう]した `SegmentTree` owner を `Result::Ok` へ[包/つつ]む

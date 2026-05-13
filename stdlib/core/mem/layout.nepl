@@ -1,0 +1,101 @@
+#indent 4
+
+//: mem/layout: メモリレイアウト計算
+//:
+//: 目的:
+//: - raw memory identity を公開せずに、型サイズ・アラインメント・allocator 用の基本整列計算を提供します。
+//: - `core/mem` facade から公開しても pointer provenance や ownership を漏らさない純粋な layout API だけを置きます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if eq align8 9 16 1 0
+//: ```
+
+#import "core/math" as *
+
+//: align8: 8 バイト境界に切り上げる
+//:
+//: 目的:
+//: - n を 8 の倍数に切り上げます。
+//:
+//: 実装(アルゴリズム):
+//: - (n+7)/8*8 を計算します。
+//:
+//: 注意(重要):
+//: - 8 バイト整列は現行 allocator の block header と payload alignment の前提です。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if and eq align8 1 8 eq align8 16 16 1 0
+//: ```
+pub fn align8 <(i32)->i32> (n):
+    let t <i32> add n 7
+    let q <i32> div_s t 8
+    mul q 8
+
+//: size_of: 型のサイズを取得する
+//:
+//: 目的:
+//: - `.T` のサイズ（バイト）を返します。
+//:
+//: 実装(アルゴリズム):
+//: - compiler intrinsic の `size_of` を呼びます。
+//:
+//: 注意(重要):
+//: - サイズはコンパイル時に決まります。
+//: - 返り値は raw address ではないため、public facade から利用できます。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if eq size_of<i32> 4 1 0
+//: ```
+pub fn size_of <.T> <()->i32> ():
+    #intrinsic "size_of" <.T> ()
+
+//: align_of: 型のアラインメントを取得する
+//:
+//: 目的:
+//: - `.T` のアラインメント（バイト）を返します。
+//:
+//: 実装(アルゴリズム):
+//: - compiler intrinsic の `align_of` を呼びます。
+//:
+//: 注意(重要):
+//: - アラインメントはコンパイル時に決まります。
+//: - pointer identity や storage ownership は返さないため、public facade の安全 API として扱えます。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if ge align_of<i32> 1 1 0
+//: ```
+pub fn align_of <.T> <()->i32> ():
+    #intrinsic "align_of" <.T> ()

@@ -61,6 +61,7 @@ stdout: "[{\"severity\":\"error\",\"code\":\"cli.input.missing\",\"message\":\"i
 #import "neplg2/cli/args" as *
 #import "neplg2/cli/driver" as *
 #import "neplg2/core/module/loader" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let options <SelfhostCliOptions> selfhost_cli_default_options
@@ -99,6 +100,7 @@ ret: 0
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let args <Vec<str>>:

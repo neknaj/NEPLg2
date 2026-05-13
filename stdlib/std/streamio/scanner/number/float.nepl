@@ -10,8 +10,10 @@
 #import "core/cast" as *
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
 #import "std/streamio/scanner/cursor" as *
 #import "std/streamio/scanner/state" as *
+#import "core/field" as *
 
 //: ## scan_f64_impl
 //: [次/つぎ]の token を `f64` として[読/よ]む

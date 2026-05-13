@@ -12,6 +12,7 @@ ret: 1
 #import "alloc/collections/disjoint_set" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 6;
@@ -53,6 +54,7 @@ ret: 1
 #import "alloc/collections/disjoint_set" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let dsu0 <DisjointSet> unwrap_ok<DisjointSet, Diag> new 3;

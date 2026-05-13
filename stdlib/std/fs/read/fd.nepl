@@ -13,6 +13,7 @@
 #import "alloc/io" as *
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
 #import "core/result" as *
 #import "std/fs/bytes" as *
 #import "std/fs/raw" as *

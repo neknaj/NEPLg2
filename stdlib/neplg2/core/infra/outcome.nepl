@@ -40,6 +40,8 @@
 #import "core/field" as field
 #import "core/result" as *
 #import "neplg2/core/infra/diag" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: SelfhostOutcome: Result と diagnostic collection を[一緒/いっしょ]に[運/はこ]ぶ値
 pub struct SelfhostOutcome<.T, .E>:

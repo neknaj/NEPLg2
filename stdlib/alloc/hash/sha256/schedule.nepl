@@ -13,6 +13,7 @@
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 //: sha256_schedule_word: 16 word 以降の schedule word を[計算/けいさん]する
 //:

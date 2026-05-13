@@ -1,0 +1,210 @@
+#indent 4
+
+//: mem/pointer/alloc: MemPtr allocation wrapper
+//:
+//: 目的:
+//: - raw allocator の戻り値を `MemPtr<T>` に包む checked API を提供します。
+//: - `MemPtr<T>` は non-owning pointer view であり、free obligation owner そのものではありません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_ptr<i32> 4:
+//:         Result::Ok p:
+//:             match dealloc_ptr<i32> p 4:
+//:                 Result::Ok _:
+//:                     1
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
+
+#import "core/math" as *
+#import "core/result" as *
+#import "../types" as *
+#import "../internal" as *
+#import "../allocator" as *
+
+//: alloc_ptr: byte 数を指定して MemPtr を確保する
+//:
+//: 目的:
+//: - raw allocator の返す `i32` address を、checked API の `MemPtr<T>` として返します。
+//:
+//: 実装(アルゴリズム):
+//: - `alloc` が `Ok(raw)` を返した場合だけ internal boundary の `mem_ptr_wrap` で pointer view を作ります。
+//:
+//: 注意(重要):
+//: - `MemPtr<T>` は non-owning pointer view です。free obligation は compiler の owner state / caller contract が管理します。
+//: - owner token が必要な場合は `alloc_region` を使います。
+//:
+//: 計算量:
+//: - allocator の free list 探索に依存し、最悪 O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_ptr<i32> 4:
+//:         Result::Ok p:
+//:             match dealloc_ptr<i32> p 4:
+//:                 Result::Ok _:
+//:                     1
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn alloc_ptr <.T> <(i32)->Result<MemPtr<.T>,str>> (size):
+    match alloc size:
+        Result::Ok raw:
+            Result<MemPtr<.T>,str>::Ok mem_ptr_wrap raw
+        Result::Err _e:
+            Result<MemPtr<.T>,str>::Err "mem.alloc_ptr failed"
+
+//: realloc_ptr: MemPtr の backing storage を再確保する
+//:
+//: 目的:
+//: - 既存 pointer の storage を指定サイズへ再確保し、新しい `MemPtr<T>` を返します。
+//:
+//: 実装(アルゴリズム):
+//: - `MemPtr<T>` から internal raw view を取り出し、checked `realloc` へ委譲します。
+//:
+//: 注意(重要):
+//: - `realloc_ptr` 成功後、古い pointer の free obligation は新しい pointer へ移ったものとして扱います。
+//: - initialized non-Copy payload を含む縮小 / 移動は Resource IR gate が保守的に検査します。
+//:
+//: 計算量:
+//: - allocator の再確保と copy byte 数に依存します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_ptr<i32> 4:
+//:         Result::Ok p:
+//:             match realloc_ptr<i32> p 4 8:
+//:                 Result::Ok q:
+//:                     match dealloc_ptr<i32> q 8:
+//:                         Result::Ok _:
+//:                             1
+//:                         Result::Err _:
+//:                             0
+//:                 Result::Err _:
+//:                     match dealloc_ptr<i32> p 4:
+//:                         Result::Ok _:
+//:                             0
+//:                         Result::Err _:
+//:                             0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn realloc_ptr <.T> <(MemPtr<.T>,i32,i32)->Result<MemPtr<.T>,str>> (ptr, old_size, new_size):
+    let raw <i32> mem_ptr_addr ptr;
+    match realloc raw old_size new_size:
+        Result::Ok next_ptr:
+            Result<MemPtr<.T>,str>::Ok mem_ptr_wrap next_ptr
+        Result::Err _e:
+            Result<MemPtr<.T>,str>::Err "mem.realloc_ptr failed"
+
+//: dealloc_ptr: MemPtr の backing storage を解放する
+//:
+//: 目的:
+//: - pointer とサイズを allocator へ返し、storage の free obligation を閉じます。
+//:
+//: 実装(アルゴリズム):
+//: - `MemPtr<T>` から internal raw view を取り出し、checked `dealloc` に委譲します。
+//:
+//: 注意(重要):
+//: - `MemPtr<T>` 自体は Copy な non-owning view なので、所有権消費は compiler の Resource IR owner state で管理します。
+//: - initialized non-Copy payload が残っている場合は storage-only free として拒否されます。
+//:
+//: 計算量:
+//: - allocator の free list 挿入 / coalesce に依存し、最悪 O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_ptr<u8> 1:
+//:         Result::Ok p:
+//:             match dealloc_ptr<u8> p 1:
+//:                 Result::Ok _:
+//:                     1
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn dealloc_ptr <.T> <(MemPtr<.T>,i32)->Result<(),str>> (ptr, size):
+    let raw <i32> mem_ptr_addr ptr;
+    match dealloc raw size:
+        Result::Ok _:
+            Result<(),str>::Ok ()
+        Result::Err _e:
+            Result<(),str>::Err "mem.dealloc_ptr invalid pointer"
+
+//: mem_ptr_add: MemPtr の byte offset view を作る
+//:
+//: 目的:
+//: - `MemPtr<T>` の raw address view に byte offset を加えた別の non-owning pointer view を返します。
+//:
+//: 実装(アルゴリズム):
+//: - internal boundary で raw view を取り出し、`add` 後に `MemPtr<T>` として包みます。
+//:
+//: 注意(重要):
+//: - 範囲検査は行いません。RegionToken に紐づく bounds が必要な場合は `region_ptr_at` を使います。
+//: - 返り値は owner ではありません。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<i32> 2:
+//:         Result::Ok region:
+//:             let second <MemPtr<i32>> mem_ptr_add<i32> region_ptr &region 4
+//:             match store_i32 second 9:
+//:                 Result::Ok _:
+//:                     let ok <bool> match load_i32 second:
+//:                         Option::Some v:
+//:                             eq v 9
+//:                         Option::None:
+//:                             false
+//:                     match dealloc_region<i32> region:
+//:                         Result::Ok _:
+//:                             if ok 1 0
+//:                         Result::Err _:
+//:                             0
+//:                 Result::Err _:
+//:                     match dealloc_region<i32> region:
+//:                         Result::Ok _:
+//:                             0
+//:                         Result::Err _:
+//:                             0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn mem_ptr_add <.T> <(MemPtr<.T>,i32)->MemPtr<.T>> (ptr, off):
+    let raw <i32> mem_ptr_addr ptr;
+    mem_ptr_wrap add raw off

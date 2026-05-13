@@ -12,6 +12,7 @@
 #import "alloc/diag/error" as *
 #import "../types" as *
 #import "../storage" as *
+#import "core/math" as *
 
 //: ## new
 //: [空/から]の `BTreeSet<.T>` を[作/つく]る

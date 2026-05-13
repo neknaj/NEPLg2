@@ -15,6 +15,7 @@
 #import "core/traits/copy" as *
 #import "alloc/collections/hashset/types" as *
 #import "alloc/collections/hashset/storage" as *
+#import "core/field" as *
 
 //: hashset_bucket_index: hash から bucket index を[計算/けいさん]する
 //:

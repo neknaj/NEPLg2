@@ -18,6 +18,7 @@
 #import "std/fs/path/normalize/build" as normalize_build
 #import "std/fs/path/normalize/range_stack" as normalize_range_stack
 #import "std/fs/path/normalize/validate" as normalize_validate
+#import "core/field" as *
 
 //: fs_normalize_relative_builder: 正規 path を builder owner のまま返す
 //:

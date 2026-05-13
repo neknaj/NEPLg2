@@ -19,6 +19,7 @@
 #import "alloc/collections/hashset/storage" as *
 #import "alloc/collections/hashset/probe" as *
 #import "alloc/collections/hashset/rehash" as *
+#import "core/field" as *
 
 //: ## new
 //: [空/から]の `HashSet<.T, .H>` を[作/つく]る

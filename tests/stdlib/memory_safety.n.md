@@ -10,6 +10,9 @@ ret: 123
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -45,6 +48,9 @@ ret: 1
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 
 fn main <()*>i32> ():
@@ -66,6 +72,9 @@ ret: 1
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -87,7 +96,11 @@ ret: 1
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     match alloc 8:
@@ -113,6 +126,9 @@ ret: 1
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -133,6 +149,9 @@ ret: 321
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "core/option" as *
 
@@ -179,6 +198,9 @@ ret: 1
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -209,8 +231,12 @@ ret: 1
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "core/option" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     match alloc_region<u8> 16:
@@ -257,7 +283,11 @@ ret: 1
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let p_u8 <MemPtr<u8>> mem_ptr_wrap 0
@@ -292,6 +322,9 @@ diag_code: effect.pure.calls_impure
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -319,6 +352,9 @@ diag_code: effect.pure.calls_impure
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()->i32> ():
@@ -340,6 +376,9 @@ diag_code: type.overload.no_match
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     let p <MemPtr<u8>> mem_ptr_wrap 0
@@ -357,6 +396,9 @@ diag_code: type.raw_pointer.constructor_restricted
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn make <()->MemPtr<u8>> ():
     MemPtr 0
@@ -375,6 +417,9 @@ diag_code: type.overload.no_match
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     let p <MemPtr<i32>> mem_ptr_wrap 0
@@ -392,6 +437,9 @@ diag_code: type.overload.no_match
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     let p <MemPtr<u8>> mem_ptr_wrap 0
@@ -409,6 +457,9 @@ diag_code: resource.owner.no_free_obligation
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn string_addr_probe <(str)->i32> (s):
@@ -438,6 +489,9 @@ diag_code: resource.owner.no_free_obligation
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn forge_fixed_region <()* >Result<(), str>> ():
@@ -463,6 +517,9 @@ diag_code: resource.owner.no_free_obligation
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn forge_fixed_region <()* >RegionToken<u8>> ():
@@ -488,6 +545,9 @@ diag_code: type.owner_token.constructor_restricted
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn string_addr_probe <(str)->i32> (s):
@@ -517,6 +577,9 @@ diag_code: resource.owner.no_free_obligation
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn borrowed_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (token):
@@ -549,6 +612,9 @@ diag_code: resource.owner.no_free_obligation
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
@@ -587,6 +653,9 @@ neplg2:test
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
@@ -623,6 +692,9 @@ diag_code: resource.owner.no_free_obligation
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn forge_region_from_region_ptr_at <(RegionToken<u8>)*>Result<(), str>> (token):
@@ -643,4 +715,48 @@ fn main <()*>()> ():
                     ()
                 Result::Err _e:
                     ()
+```
+
+## core/mem facade は raw allocator を公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+
+fn main <()->i32> ():
+    alloc_raw 4
+```
+
+## core/mem facade は MemPtr raw wrap を公開しない
+
+neplg2:test[compile_fail]
+diag_code: resolve.identifier.undefined
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+
+fn main <()->MemPtr<i32>> ():
+    mem_ptr_wrap<i32> 16
+```
+
+## core/mem facade の load_i32 は raw address を受け取らない
+
+neplg2:test[compile_fail]
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+
+fn main <()->i32> ():
+    load_i32 0
 ```

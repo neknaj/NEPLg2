@@ -648,6 +648,8 @@ fn raw_store <(i32,i32)->()> (p, v):
 #no_prelude
 
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     raw_store 0 1;

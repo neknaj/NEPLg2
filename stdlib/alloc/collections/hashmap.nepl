@@ -21,6 +21,8 @@
 //: - [最悪/さいあく]は probe が[全体/ぜんたい]を[走査/そうさ]して O(n) です。
 
 #indent 4
+#import "core/field" as *
+#import "core/math" as *
 
 pub #import "alloc/collections/hashmap/types" as @merge
 pub #import "alloc/collections/hashmap/storage" as @merge

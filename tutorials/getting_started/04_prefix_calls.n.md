@@ -15,6 +15,7 @@ stdout: mlstr:
 |
 #import "core/result" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn double <(i32)->i32> (x):
     mul x 2

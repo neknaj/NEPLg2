@@ -242,6 +242,7 @@ ret: 20
 #target wasm
 #entry main
 #indent 4
+#import "core/math" as *
 
 fn main <()->i32> ():
     let b <i32> '\b'

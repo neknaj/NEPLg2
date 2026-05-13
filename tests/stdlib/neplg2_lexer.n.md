@@ -18,6 +18,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
@@ -72,6 +73,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
@@ -126,6 +128,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
@@ -173,6 +176,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
@@ -223,6 +227,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let checks0 checks_new
@@ -261,6 +266,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let checks0 checks_new
@@ -299,6 +305,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let checks0 checks_new
@@ -337,6 +344,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let checks0 checks_new
@@ -374,6 +382,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
@@ -417,6 +426,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let checks0 checks_new
@@ -454,6 +464,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
@@ -518,6 +529,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
@@ -566,6 +578,7 @@ ret: 0
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/token" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx

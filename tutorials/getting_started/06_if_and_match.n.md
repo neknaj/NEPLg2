@@ -18,6 +18,7 @@ stdout: mlstr:
 |
 #import "core/result" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn grade <(i32)->i32> (score):
     if:

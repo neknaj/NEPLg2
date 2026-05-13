@@ -16,6 +16,7 @@ stdout: mlstr:
 |
 #import "core/result" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn validate_port <(i32)->Result<i32,str>> (port):
     if:

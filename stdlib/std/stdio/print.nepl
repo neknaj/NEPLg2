@@ -49,7 +49,7 @@
 //:     print "sample";
 //: ```
 pub fn noshadow print <(str)*>()> (s):
-    stdio_write_mem string_data_ptr s len s
+    stdio_write_mem string::string_data_ptr s string::len s
 
 //: println: 改行付き出力
 //:

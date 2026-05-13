@@ -16,6 +16,7 @@
 #import "core/traits/copy" as *
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
+#import "core/field" as *
 
 //: stack_normalize_capacity: 1 [以上/いじょう]の capacity に[正規化/せいきか]する
 pub fn stack_normalize_capacity <(i32)->i32> (cap):

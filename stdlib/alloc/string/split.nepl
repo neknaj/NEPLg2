@@ -12,6 +12,7 @@
 
 #import "alloc/string/access" as *
 #import "alloc/string/search" as *
+#import "core/math" as *
 
 //: str_split_count: 区切り文字列で分割した場合の part 数を数える
 //:

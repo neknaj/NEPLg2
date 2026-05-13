@@ -70,6 +70,7 @@ exit_code: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;

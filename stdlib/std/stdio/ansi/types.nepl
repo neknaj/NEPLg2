@@ -11,6 +11,7 @@
 #indent 4
 
 #import "core/traits/copy" as *
+#import "core/field" as *
 
 //: AnsiColor: ANSI escape code で表せる色
 //:

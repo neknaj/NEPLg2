@@ -15,6 +15,7 @@ ret: 0
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/stdlib_map" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn check_path_result <(TestReport,Result<SelfhostResolvedModulePath,SelfhostDiagnostic>,str,bool)*>TestReport> (checks, result, expected, expect_stdlib):
     match result:
@@ -58,6 +59,7 @@ ret: 0
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/stdlib_map" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn edge_at <(&SelfhostModuleGraph,i32)->SelfhostModuleGraphEdge> (graph, idx):
     unwrap<SelfhostModuleGraphEdge> selfhost_module_graph_edge_at graph idx

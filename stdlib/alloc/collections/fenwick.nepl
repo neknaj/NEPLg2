@@ -10,6 +10,7 @@
 //: - `add` の[範囲外/はんいがい] error は `FenwickAddError` で元の owner と[診断/しんだん]を[返/かえ]します。
 
 #indent 4
+#import "core/math" as *
 
 pub #import "./fenwick/types" as @merge
 pub #import "./fenwick/api" as @merge

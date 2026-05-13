@@ -1,0 +1,220 @@
+#indent 4
+
+//: mem/pointer/region: RegionToken owner wrapper
+//:
+//: 目的:
+//: - allocator storage を `RegionToken<T>` として扱い、bounds 付き pointer projection を提供します。
+//: - `RegionToken<T>` は free obligation owner であり、`MemPtr<T>` とは責務を分けます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<i32> 1:
+//:         Result::Ok region:
+//:             let ok <bool> eq region_size &region 4
+//:             match dealloc_region<i32> region:
+//:                 Result::Ok _:
+//:                     if ok 1 0
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
+
+#import "core/math" as *
+#import "core/result" as *
+#import "../types" as *
+#import "../layout" as *
+#import "../internal" as *
+#import "./alloc" as *
+#import "core/field" as *
+
+//: region_ptr_at: RegionToken 内の byte offset から MemPtr を得る
+//:
+//: 目的:
+//: - owned region の範囲内にある byte offset を、型付きの non-owning pointer view へ変換します。
+//:
+//: 実装(アルゴリズム):
+//: - `.U` の `size_of` を使って `off..off+size_of<U>` が region size に収まるかを確認します。
+//: - 範囲内であれば base pointer の raw view に offset を加え、`MemPtr<U>` として包みます。
+//:
+//: 注意(重要):
+//: - 返される `MemPtr<U>` は free obligation owner ではありません。
+//: - alignment は現時点では検査しません。alignment を要求する API は別途 typed wrapper 側で検査します。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<i32> 1:
+//:         Result::Ok region:
+//:             match region_ptr_at<i32, i32> &region 0:
+//:                 Result::Ok _ptr:
+//:                     match dealloc_region<i32> region:
+//:                         Result::Ok _:
+//:                             1
+//:                         Result::Err _:
+//:                             0
+//:                 Result::Err _:
+//:                     match dealloc_region<i32> region:
+//:                         Result::Ok _:
+//:                             0
+//:                         Result::Err _:
+//:                             0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (token, off):
+    let bytes <i32> size_of<.U>
+    let total <i32> *region_token_size_ref token
+    if:
+        if:
+            or lt off 0 lt bytes 0
+            then:
+                false
+            else:
+                let end <i32> add off bytes
+                and le end total ge end off
+        then:
+            let base_raw <i32> mem_ptr_addr *region_token_ptr_ref token
+            Result<MemPtr<.U>,str>::Ok mem_ptr_wrap add base_raw off
+        else:
+            Result<MemPtr<.U>,str>::Err "mem.region_ptr_at out of bounds"
+
+//: alloc_region_bytes: byte 数を指定して RegionToken を確保する
+//:
+//: 目的:
+//: - allocator から得た storage owner を `RegionToken<T>` として束ねます。
+//:
+//: 実装(アルゴリズム):
+//: - `bytes` が負なら `Err` を返します。
+//: - `alloc_ptr<T>` により storage を確保し、成功時だけ internal boundary の `region_new` で owner token を作ります。
+//:
+//: 注意(重要):
+//: - `RegionToken<T>` は free obligation owner です。使用後は `dealloc_region` で閉じます。
+//: - `T` は pointer view の型であり、領域内の各 cell が initialized であることは別の Resource IR state が管理します。
+//:
+//: 計算量:
+//: - allocator の free list 探索に依存し、最悪 O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region_bytes<i32> 4:
+//:         Result::Ok region:
+//:             let ok <bool> eq region_size &region 4
+//:             match dealloc_region<i32> region:
+//:                 Result::Ok _:
+//:                     if ok 1 0
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn alloc_region_bytes <.T> <(i32)->Result<RegionToken<.T>,str>> (bytes):
+    if:
+        lt bytes 0
+        then:
+            Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes invalid size"
+        else:
+            match alloc_ptr<.T> bytes:
+                Result::Ok ptr:
+                    Result<RegionToken<.T>,str>::Ok region_new ptr bytes
+                Result::Err _e:
+                    Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes failed"
+
+//: alloc_region: 要素数を指定して RegionToken を確保する
+//:
+//: 目的:
+//: - `.T` の `count` 個ぶんの storage を確保し、owner token として返します。
+//:
+//: 実装(アルゴリズム):
+//: - `count * size_of<T>` を byte 数に変換して `alloc_region_bytes` へ委譲します。
+//:
+//: 注意(重要):
+//: - `count` が負の場合は `Err` を返します。
+//: - 乗算 overflow は現行 i32 演算の範囲に従います。大きな allocation は allocator / runtime 側で失敗します。
+//:
+//: 計算量:
+//: - allocator の free list 探索に依存し、最悪 O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<i32> 2:
+//:         Result::Ok region:
+//:             let ok <bool> eq region_size &region 8
+//:             match dealloc_region<i32> region:
+//:                 Result::Ok _:
+//:                     if ok 1 0
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn alloc_region <.T> <(i32)->Result<RegionToken<.T>,str>> (count):
+    if:
+        lt count 0
+        then:
+            Result<RegionToken<.T>,str>::Err "mem.alloc_region invalid count"
+        else:
+            let bytes <i32> mul count size_of<.T>
+            alloc_region_bytes<.T> bytes
+
+//: dealloc_region: RegionToken が所有する storage を解放する
+//:
+//: 目的:
+//: - `RegionToken<T>` の free obligation を消費して allocator へ返します。
+//:
+//: 実装(アルゴリズム):
+//: - token 内の pointer と size を取り出し、`dealloc_ptr` に委譲します。
+//:
+//: 注意(重要):
+//: - initialized non-Copy value が残る storage-only free は compiler の Resource IR gate が拒否します。
+//: - `MemPtr` だけから `RegionToken` は作れないため、通常 source は owner token を forge できません。
+//:
+//: 計算量:
+//: - allocator の free list 挿入 / coalesce に依存し、最悪 O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<u8> 4:
+//:         Result::Ok region:
+//:             match dealloc_region<u8> region:
+//:                 Result::Ok _:
+//:                     1
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn dealloc_region <.T> <(RegionToken<.T>)->Result<(),str>> (token):
+    let ptr <MemPtr<.T>> get token "ptr"
+    let size <i32> get token "size"
+    dealloc_ptr<.T> ptr size

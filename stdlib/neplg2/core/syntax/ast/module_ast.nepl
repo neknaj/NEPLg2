@@ -47,6 +47,8 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: SelfhostModuleItemKind: module parser が最初に保持する item [種別/しゅべつ]
 //:

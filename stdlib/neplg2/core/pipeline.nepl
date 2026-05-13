@@ -57,6 +57,8 @@
 #import "neplg2/core/module/loader" as *
 #import "neplg2/core/options" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: SelfhostCompileRequest: core pipeline へ渡す compile request
 //:

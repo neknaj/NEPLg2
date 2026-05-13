@@ -23,6 +23,7 @@ ret: 1
 #target core
 
 #import "core/traits/eq" as *
+#import "core/math" as *
 
 fn main <()->i32> ():
     if and eq_by_trait 42 42 ne_by_trait 42 7 then 1 else 0
@@ -37,6 +38,7 @@ ret: 1
 #target core
 
 #import "core/traits/ord" as *
+#import "core/math" as *
 
 fn main <()->i32> ():
     if and ord_lt 2 3 ord_ge 3 3 then 1 else 0
@@ -53,6 +55,8 @@ neplg2:test
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 #import "core/option" as *
+#import "core/field" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;

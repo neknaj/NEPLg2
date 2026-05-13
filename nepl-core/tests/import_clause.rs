@@ -521,24 +521,40 @@ fn main <()->i32> ():
 }
 
 #[test]
-fn transitive_open_import_follows_long_chain() {
+fn open_import_does_not_expose_private_transitive_open_imports() {
+    let src = r#"
+#entry main
+#indent 4
+#no_prelude
+
+#import "dep" as *
+
+fn main <()->i32> ():
+    leaked
+"#;
+    let diags = expect_compile_err(src);
+    assert_undefined_identifier(&diags);
+}
+
+#[test]
+fn pub_open_import_follows_long_reexport_chain() {
     const CHAIN_A: &str = r#"
 #indent 4
 #no_prelude
 
-#import "chain_b" as *
+pub #import "chain_b" as *
 "#;
     const CHAIN_B: &str = r#"
 #indent 4
 #no_prelude
 
-#import "chain_c" as *
+pub #import "chain_c" as *
 "#;
     const CHAIN_C: &str = r#"
 #indent 4
 #no_prelude
 
-#import "chain_d" as *
+pub #import "chain_d" as *
 "#;
     const CHAIN_D: &str = r#"
 #indent 4
@@ -566,22 +582,22 @@ fn main <()->i32> ():
             ("chain_d.nepl", CHAIN_D),
         ],
     )
-    .expect("worklist visibility expansion should expose transitive open imports");
+    .expect("public reexport expansion should expose transitive pub open imports");
 }
 
 #[test]
-fn transitive_open_import_preserves_selected_aliases() {
+fn pub_open_import_preserves_selected_aliases() {
     const CHAIN_A: &str = r#"
 #indent 4
 #no_prelude
 
-#import "chain_b" as *
+pub #import "chain_b" as *
 "#;
     const CHAIN_B: &str = r#"
 #indent 4
 #no_prelude
 
-#import "chain_c" as { leaf as renamed }
+pub #import "chain_c" as { leaf as renamed }
 "#;
     const CHAIN_C: &str = r#"
 #indent 4
@@ -608,7 +624,7 @@ fn main <()->i32> ():
             ("chain_c.nepl", CHAIN_C),
         ],
     )
-    .expect("selected alias should propagate through open import edges");
+    .expect("selected alias should propagate through pub open import edges");
 
     let original = r#"
 #entry main

@@ -15,6 +15,7 @@
 #import "core/traits/copy" as *
 #import "../types" as *
 #import "./get" as vec_get
+#import "core/field" as *
 
 //: count: [条件/じょうけん]を[満/み]たす[要素数/ようそすう]を[数/かぞ]える
 //:

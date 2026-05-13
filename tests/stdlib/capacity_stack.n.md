@@ -75,6 +75,8 @@ ret: 1535
 #target core
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     let n <i32> 1024;

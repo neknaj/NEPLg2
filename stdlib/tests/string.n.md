@@ -56,6 +56,7 @@ ret: 1
 #import "alloc/string" as *
 #import "alloc/collections/vec" as *
 #import "core/math" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let first <StrSplitStep> str_split_next "a--b--c" "--" 0
@@ -158,6 +159,7 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn expect_str_ok <(str,Result<str,str>,str)*>Result<(),str>> (label, got, expected):
     match got:
@@ -222,6 +224,9 @@ ret: 0
 
 #import "alloc/string" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "std/test" as *
 

@@ -13,6 +13,7 @@
 #import "alloc/collections/vec" as vec
 #import "../types" as *
 #import "../storage" as *
+#import "core/field" as *
 
 //: ## len
 //: heap を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す

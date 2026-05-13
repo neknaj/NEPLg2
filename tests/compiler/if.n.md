@@ -894,6 +894,7 @@ diag_codes: parser.identifier.reserved_keyword
 #entry main
 #indent 4
 #target core
+#import "core/math" as *
 
 fn main <()->i32> ():
     let let 1;
@@ -910,6 +911,7 @@ diag_codes: parser.identifier.reserved_keyword
 #entry main
 #indent 4
 #target core
+#import "core/math" as *
 
 fn main <()->i32> ():
     let else 1;

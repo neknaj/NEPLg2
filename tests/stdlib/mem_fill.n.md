@@ -9,6 +9,8 @@ ret: 1
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 fn main <()*>i32> ():
@@ -28,6 +30,8 @@ ret: 1
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 fn main <()*>i32> ():
@@ -51,6 +55,8 @@ ret: 1
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 fn main <()*>i32> ():

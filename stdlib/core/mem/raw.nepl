@@ -5,6 +5,16 @@
 //: 目的:
 //: - compiler-owned raw-memory-boundary 内でだけ使う低レベル操作を集めます。
 //: - 型安全・所有権安全は呼び出し側の Resource IR / wrapper API が検査します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem/raw" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if ge mem_size 1 1 0
+//: ```
 
 #import "core/math" as *
 
@@ -75,20 +85,6 @@ pub fn mem_grow <(i32)->i32> (pages):
         fail:
             ret i32 -1
         }
-
-//: align8: 8 バイト境界に切り上げる
-//:
-//: 目的:
-//: - n を 8 の倍数に切り上げます。
-//:
-//: 実装(アルゴリズム):
-//: - (n+7)/8*8 を計算します。
-//:
-//: 注意(重要):
-//: - 8 バイト整列はアロケータの前提です。
-//:
-//: 計算量:
-//: - O(1)
 
 pub fn load_i32 <(i32)->i32> (p):
     #if[target=wasm]
@@ -337,6 +333,9 @@ pub fn mem_move <(i32,i32,i32)->()> (dst, src, len):
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/mem" as *
+//:| #import "core/mem/allocator" as *
+//:| #import "core/mem/raw" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let p <i32> alloc_raw 8;
 //:     memset_u8 p 8 65;
@@ -391,6 +390,9 @@ pub fn fill_u8 <(i32,i32,i32)->()> (ptr, len, value):
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/mem" as *
+//:| #import "core/mem/allocator" as *
+//:| #import "core/mem/raw" as *
+//:| #import "core/math" as *
 //: fn main <()*>i32> ():
 //:     let p <i32> alloc_raw 16;
 //:     fill_i32 p 4 42;
@@ -407,30 +409,6 @@ pub fn fill_i32 <(i32,i32,i32)->()> (ptr, count, value):
         do:
             store_i32 <i32> add ptr <i32> mul i 4 value;
             set i add i 1;
-
-//: memset_u8: MemPtr<u8> を受け取る安全オーバーロード
-//:
-//: 目的:
-//: - 無効ポインタを `Result::Err` として扱い、`i32` 生ポインタ境界を減らします。
-
-pub fn size_of <.T> <()->i32> ():
-    #intrinsic "size_of" <.T> ()
-
-//: align_of: 型のアラインメントを取得する
-//:
-//: 目的:
-//: - .T のアラインメント（バイト）を返します。
-//:
-//: 実装(アルゴリズム):
-//: - intrinsic "align_of" を呼びます。
-//:
-//: 注意(重要):
-//: - アラインメントはコンパイル時に決まります。
-//:
-//: 計算量:
-//: - O(1)
-pub fn align_of <.T> <()->i32> ():
-    #intrinsic "align_of" <.T> ()
 
 //: load: 任意型をロードする
 //:

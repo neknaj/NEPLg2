@@ -10,6 +10,8 @@
 #import "alloc/io" as *
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "std/fs/constants" as *
 #import "std/fs/raw/wasi" as *
@@ -119,6 +121,8 @@ pub fn fs_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Resu
 //:| #entry main
 //:| #target core
 //:| #import "core/mem" as *
+//:| #import "core/mem/internal" as *
+//:| #import "core/mem/raw" as *
 //:| #import "core/result" as *
 //:| #import "std/fs/raw/fd_io" as *
 //: fn main <()*>i32> ():

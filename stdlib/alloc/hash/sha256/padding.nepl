@@ -12,6 +12,7 @@
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 //: sha256_total_len: padding [後/ご]の byte [数/すう]を[返/かえ]す
 //:

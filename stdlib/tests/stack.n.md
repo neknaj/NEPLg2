@@ -241,6 +241,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let mut s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
@@ -273,6 +274,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let mut s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;

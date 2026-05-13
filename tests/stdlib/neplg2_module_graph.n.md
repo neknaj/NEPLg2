@@ -16,6 +16,7 @@ ret: 0
 #import "neplg2/core/module/graph" as *
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn edge_at <(&SelfhostModuleGraph,i32)->SelfhostModuleGraphEdge> (graph, idx):
     unwrap<SelfhostModuleGraphEdge> selfhost_module_graph_edge_at graph idx
@@ -89,6 +90,7 @@ ret: 0
 #import "neplg2/core/module/graph" as *
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn check_note <(TestReport, Option<str>)*>TestReport> (checks, note):
     match note:
@@ -143,6 +145,7 @@ ret: 0
 #import "neplg2/core/module/graph" as *
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn check_note <(TestReport, Option<str>)*>TestReport> (checks, note):
     match note:

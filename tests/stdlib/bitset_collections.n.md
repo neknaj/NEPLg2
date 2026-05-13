@@ -24,6 +24,7 @@ ret: 1
 #import "alloc/collections/bitset" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let bs0 <BitSet>:
@@ -96,6 +97,7 @@ ret: 1
 #import "alloc/collections/bitset" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let bs0 <BitSet> unwrap_ok<BitSet, Diag> new 20;

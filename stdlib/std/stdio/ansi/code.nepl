@@ -9,6 +9,7 @@
 
 #import "alloc/string/concat" as *
 #import "./types" as *
+#import "core/field" as *
 
 //: ansi_color_code: color enum を前景色 escape code へ変換する
 //:

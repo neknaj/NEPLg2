@@ -16,6 +16,8 @@ ret: 0
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/infra/text" as *
 #import "std/test" as *
+#import "core/field" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let checks0 checks_new
@@ -72,6 +74,7 @@ ret: 0
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/infra/text" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let checks0 checks_new
@@ -158,6 +161,7 @@ ret: 0
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/infra/text" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let mut sb <StringBuilder> unwrap_ok string_builder_new_result

@@ -17,6 +17,7 @@
 #import "../layout" as *
 #import "../storage" as *
 #import "./diagnostic" as *
+#import "core/field" as *
 
 //: ## len
 //: [保持可能/ほじかのう]な bit [長/ちょう]を[返/かえ]す

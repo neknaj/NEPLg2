@@ -44,6 +44,7 @@
 #import "neplg2/core/module/stdlib_map" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/parser/module_parser" as *
+#import "core/field" as *
 
 //: SelfhostModuleGraphNodeStatus: DFS 中の module node 状態
 pub enum SelfhostModuleGraphNodeStatus:

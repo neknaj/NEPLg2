@@ -10,6 +10,7 @@
 #import "core/field" as field
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
+#import "core/field" as *
 
 //: ## DisjointSet
 //: [代表元/だいひょうげん][配列/はいれつ]と[集合サイズ/しゅうごうさいず][配列/はいれつ]を[所有/しょゆう]する

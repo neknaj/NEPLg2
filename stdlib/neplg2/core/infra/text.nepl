@@ -44,6 +44,7 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
+#import "core/field" as *
 
 //: SelfhostSourceText: 1 [入力/にゅうりょく] source と line start table
 //:

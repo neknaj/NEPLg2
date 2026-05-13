@@ -30,6 +30,7 @@ ret: 31
 #import "core/option" as option
 #import "core/result" as result
 #import "core/math" as *
+#import "core/field" as *
 
 fn inc <(i32)->i32> (x):
     add x 1
@@ -71,6 +72,7 @@ ret: 3
 #import "core/result" as *
 #import "core/option" as *
 #import "core/math" as *
+#import "core/field" as *
 
 fn inc <(i32)->i32> (x):
     add x 1

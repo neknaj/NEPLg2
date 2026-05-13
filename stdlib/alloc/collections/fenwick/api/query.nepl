@@ -16,6 +16,7 @@
 #import "../types" as *
 #import "../query" as *
 #import "./diagnostic" as *
+#import "core/field" as *
 
 //: ## sum_prefix
 //: [区間/くかん] `[0, r)` の[和/わ]を[返/かえ]す

@@ -2219,6 +2219,9 @@ fn resource_ir_lowering_preserves_symbolic_mem_ptr_add_offset() {
 #target wasm
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <(i32)->i32> (idx):
     let raw <i32> alloc_raw 16
@@ -2266,6 +2269,9 @@ fn resource_ir_lowering_marks_mem_ptr_addr_as_non_owning_projection() {
 #target core
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn ptr_addr <(MemPtr<u8>)->i32> (p):
     mem_ptr_addr p
@@ -3111,6 +3117,9 @@ fn resource_ir_typechecked_get_preserves_raw_aggregate_field_projection() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/traits/copy" as *
 
@@ -5897,6 +5906,9 @@ fn resource_ir_cell_check_applies_result_ok_param_raw_cell_initialization() {
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -5951,6 +5963,9 @@ fn resource_ir_cell_check_applies_result_ok_region_ptr_direct_store_initializati
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -6006,6 +6021,9 @@ fn resource_ir_cell_check_applies_result_ok_region_ptr_at_direct_store_initializ
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -6064,6 +6082,9 @@ fn resource_ir_cell_check_does_not_apply_result_err_param_raw_cell_initializatio
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -6139,6 +6160,9 @@ fn resource_ir_cell_check_skips_unreachable_mem_ptr_load_some_requirement() {
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 
 fn main <()->i32> ():
@@ -6180,6 +6204,9 @@ fn resource_ir_cell_check_keeps_reachable_mem_ptr_load_some_requirement() {
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -6227,6 +6254,9 @@ fn resource_ir_owner_check_applies_result_ok_mem_ptr_dealloc_consumption() {
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -6282,6 +6312,9 @@ fn resource_ir_owner_check_proves_checked_dealloc_err_unreachable_for_computed_a
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn release_arg_vector <(i32,i32)->i32> (idx, argc):
@@ -6346,6 +6379,9 @@ fn resource_ir_owner_check_applies_result_ok_raw_dealloc_consumption() {
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -6404,6 +6440,9 @@ fn resource_ir_owner_check_resolves_unwrap_ok_raw_dealloc_consumption() {
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>()> ():
@@ -6452,6 +6491,9 @@ fn resource_ir_owner_check_accepts_borrowed_region_ptr_at_then_region_dealloc() 
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -6500,6 +6542,9 @@ fn resource_ir_owner_check_accepts_borrowed_region_ptr_retag_then_region_dealloc
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -6542,6 +6587,9 @@ fn resource_ir_cell_check_accepts_retagged_mem_ptr_after_byte_and_word_fill() {
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -6613,6 +6661,9 @@ fn resource_ir_owner_check_rejects_mem_ptr_use_before_dealloc_result_refinement(
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>()> ():
@@ -6666,6 +6717,9 @@ fn resource_ir_owner_check_rejects_mem_ptr_use_before_realloc_result_refinement(
 #target std
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>()> ():
@@ -6950,6 +7004,9 @@ fn resource_ir_cell_check_preserves_dynamic_fill_origin_across_local_reads() {
 #import "core/math" as *
 #import "core/result" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     let n <i32> 4
@@ -7000,6 +7057,9 @@ fn resource_ir_cell_check_preserves_dynamic_fill_across_impure_i32_reads() {
 #import "core/math" as *
 #import "core/result" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn next <()*>i32> ():
     1
@@ -9624,6 +9684,9 @@ fn resource_ir_owner_check_reinitializes_self_update_aggregate_return() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct Boxed:
     ptr <i32>
@@ -9668,6 +9731,9 @@ fn resource_ir_owner_check_reinitializes_self_update_fresh_projection_return() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct Boxed:
     ptr <i32>
@@ -9901,6 +9967,9 @@ fn resource_ir_owner_check_refines_zero_alloc_result_branch() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn alloc_result <()*>Result<i32, str>> ():
@@ -9950,6 +10019,9 @@ fn resource_ir_owner_check_refines_realloc_result_branches() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn checked_realloc_load <()->i32> ():
     let p <i32> alloc_raw 4
@@ -10002,6 +10074,9 @@ fn resource_ir_owner_check_safe_realloc_variant_return_preserves_err_owner() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "core/option" as *
 
@@ -10060,6 +10135,9 @@ fn resource_ir_owner_check_accepts_realloc_owner_replacement_assignment() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn grow_replace_and_free <()*>()> ():
@@ -10117,6 +10195,9 @@ fn resource_ir_owner_check_accepts_loop_realloc_owner_replacement() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn loop_grow_replace_and_free <()*>()> ():
@@ -10178,6 +10259,9 @@ fn resource_ir_owner_check_preserves_branch_result_variant_owner_return() {
 #import "alloc/diag/error" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn make_branch_result <(bool)*>Result<ByteBuf, StdErrorKind>> (ok_flag):
@@ -10237,6 +10321,9 @@ fn resource_ir_owner_check_preserves_branch_result_from_owner_returning_helper()
 #import "alloc/diag/error" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn finish_bytes <(MemPtr<u8>,i32)*>Result<ByteBuf, StdErrorKind>> (ptr, len):
@@ -10300,6 +10387,9 @@ fn resource_ir_owner_check_does_not_reconsume_unconditional_variant_argument() {
 #import "alloc/diag/error" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "std/text" as *
 
@@ -10357,6 +10447,9 @@ fn resource_ir_owner_check_moves_result_payload_field_owner_to_match_bind() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct Boxed:
@@ -10416,6 +10509,9 @@ fn resource_ir_owner_summary_consumes_owned_err_payload_from_unreachable_arm() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct Boxed:
@@ -10491,6 +10587,9 @@ fn resource_ir_owner_check_preserves_alloc_ptr_raw_owner_return() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn alloc_addr <()*>Result<i32, str>> ():
@@ -10538,6 +10637,9 @@ fn resource_ir_owner_check_transfers_raw_owner_through_str_from_addr() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn finish_region <(RegionToken<u8>)->str> (region):
@@ -10627,6 +10729,9 @@ fn resource_ir_owner_check_rejects_dealloc_through_str_addr_helper_view() {
 #target std
 #import "alloc/string" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn string_addr <(str)->i32> (s):
@@ -10664,6 +10769,9 @@ fn resource_ir_owner_check_rejects_dealloc_through_result_wrapped_str_addr_view(
 #target std
 #import "alloc/string" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn string_addr <(str)->i32> (s):
@@ -10707,6 +10815,9 @@ fn resource_ir_owner_check_rejects_region_token_forged_from_str_addr_view() {
 #indent 4
 #target std
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn string_addr <(str)->i32> (s):
@@ -10752,6 +10863,9 @@ fn resource_ir_owner_check_rejects_region_token_forged_from_fixed_mem_ptr() {
 #indent 4
 #target std
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn forge_fixed_region <()* >Result<(), str>> ():
@@ -10793,6 +10907,9 @@ fn resource_ir_owner_check_rejects_returned_region_token_forged_from_fixed_mem_p
 #indent 4
 #target std
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn forge_fixed_region <()* >RegionToken<u8>> ():
@@ -10833,6 +10950,9 @@ fn resource_ir_owner_check_accepts_returned_allocated_region_token() {
 #indent 4
 #target std
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn make_region <()* >RegionToken<u8>> ():
@@ -10869,6 +10989,9 @@ fn typecheck_rejects_region_token_struct_constructor_outside_memory_boundary() {
 #indent 4
 #target std
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn string_addr <(str)->i32> (s):
@@ -10923,6 +11046,9 @@ fn typecheck_rejects_mem_ptr_struct_constructor_outside_memory_boundary() {
 #indent 4
 #target std
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn make <()->MemPtr<u8>> ():
     MemPtr 0
@@ -10966,6 +11092,9 @@ fn resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_helper() 
 #indent 4
 #target std
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn borrowed_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (token):
@@ -11019,6 +11148,9 @@ fn resource_ir_owner_check_accepts_region_ptr_through_known_identity_callback() 
 #indent 4
 #target std
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
@@ -11079,6 +11211,9 @@ fn resource_ir_owner_check_preserves_region_ptr_through_callback_parameter() {
 #indent 4
 #target std
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
@@ -11139,6 +11274,9 @@ fn resource_ir_owner_check_rejects_region_token_forged_from_higher_order_region_
 #indent 4
 #target std
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
@@ -11221,6 +11359,9 @@ fn resource_ir_owner_check_rejects_region_token_forged_from_region_ptr_at_ok_pay
 #indent 4
 #target std
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn forge_region_from_region_ptr_at <(RegionToken<u8>)*>Result<(), str>> (token):
@@ -11689,6 +11830,9 @@ fn resource_ir_owner_check_keeps_byte_builder_source_ref_deallocatable() {
 #target std
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn free_src <(MemPtr<u8>)* >()> (src):
@@ -11753,6 +11897,9 @@ fn resource_ir_owner_check_keeps_bytebuf_owner_after_raw_address_view() {
 #import "alloc/io" as *
 #import "alloc/string" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn make_nonempty <()* >Result<ByteBuf, StdErrorKind>> ():
@@ -11956,6 +12103,9 @@ fn resource_ir_owner_check_reports_leaked_conditional_owner_return() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn maybe_alloc <(bool)->i32> (flag):
     if flag:
@@ -12003,6 +12153,9 @@ fn resource_ir_owner_check_moves_stored_tail_owner_under_new_raw_node() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct List:
@@ -12063,6 +12216,9 @@ fn resource_ir_owner_check_returns_aggregate_with_raw_cell_owner_stored_through_
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct HeaderBox:
     hdr <i32>
@@ -12144,6 +12300,9 @@ fn resource_ir_owner_check_keeps_raw_address_load_as_nonowning_view() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct HeaderBox:
     hdr <i32>
@@ -12220,6 +12379,9 @@ fn resource_ir_owner_check_keeps_aggregate_raw_cell_root_through_loop_address_vi
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct HeaderBox:
     hdr <i32>
@@ -12299,6 +12461,9 @@ fn resource_ir_owner_check_moves_aliased_raw_cell_owner_into_enum_payload() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct HeaderBox:
@@ -12374,6 +12539,9 @@ fn resource_ir_owner_check_consumes_only_used_aggregate_owner_projection() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct Pair:
     left <i32>
@@ -12641,6 +12809,9 @@ fn resource_ir_compiler_rejects_function_value_raw_writes_through_summaries() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -12671,6 +12842,9 @@ fn main <()*>i32> ():
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -12702,6 +12876,9 @@ fn main <()*>i32> ():
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 
 struct LocalToken:
@@ -14115,6 +14292,9 @@ fn resource_ir_cell_check_preserves_raw_cell_across_untouched_loop() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 struct LocalToken:
@@ -14163,6 +14343,9 @@ fn resource_ir_cell_check_realloc_transfers_copy_raw_cells() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn checked_realloc_slot <()->i32> ():
     let slot <i32> alloc_raw 4
@@ -14212,6 +14395,9 @@ fn resource_ir_cell_check_realloc_transfers_initialized_byte_ranges() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn id <(i32)->i32> (x):
     x
@@ -14277,6 +14463,9 @@ fn resource_ir_cell_check_realloc_transfers_initialized_element_ranges() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn id <(i32)->i32> (x):
     x
@@ -14344,6 +14533,9 @@ fn resource_ir_cell_check_raw_fill_helpers_initialize_copy_cells() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn fill_bytes <()->i32> ():
     let p <i32> alloc_raw 8
@@ -14400,6 +14592,9 @@ fn resource_ir_cell_check_byte_fill_requires_guard_for_symbolic_load() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <(i32,i32)->i32> (i, len):
     let p <i32> alloc_raw len
@@ -14434,6 +14629,9 @@ fn resource_ir_cell_check_byte_fill_accepts_symbolic_load_with_range_guard() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <(i32,i32)->i32> (i, len):
     let p <i32> alloc_raw len
@@ -14476,6 +14674,9 @@ fn resource_ir_cell_check_word_fill_requires_guard_for_scaled_symbolic_load() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <(i32,i32)->i32> (i, len):
     let p <i32> alloc_raw mul len 4
@@ -14511,6 +14712,9 @@ fn resource_ir_cell_check_word_fill_accepts_scaled_symbolic_load_with_range_guar
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <(i32,i32)->i32> (i, len):
     let p <i32> alloc_raw mul len 4
@@ -15457,6 +15661,9 @@ fn resource_ir_cell_check_returned_raw_header_preserves_initialized_pointee() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn make_header <()->i32> ():
     let data <i32> alloc_raw 4
@@ -15503,6 +15710,9 @@ fn resource_ir_cell_check_returned_raw_header_preserves_guarded_byte_range() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn id <(i32)->i32> (x):
     x
@@ -15560,6 +15770,9 @@ fn resource_ir_cell_check_returned_raw_header_rejects_unguarded_byte_range() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn id <(i32)->i32> (x):
     x
@@ -15609,6 +15822,9 @@ fn resource_ir_cell_check_returned_growing_scanner_header_preserves_capacity_byt
 #indent 4
 #target wasi
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "std/stdio" as *
 
 fn id <(i32)->i32> (x):
@@ -15706,6 +15922,9 @@ fn resource_ir_cell_check_returned_aggregate_preserves_guarded_byte_range() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct Scanner:
     buf <i32>
@@ -15764,6 +15983,9 @@ fn resource_ir_cell_check_returned_aggregate_rejects_unguarded_byte_range() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct Scanner:
     buf <i32>
@@ -15814,6 +16036,9 @@ fn resource_ir_cell_check_aggregate_assignment_clears_stale_byte_range() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct Scanner:
     buf <i32>
@@ -15938,6 +16163,9 @@ fn resource_ir_cell_check_preserves_mem_ptr_disjoint_offsets() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -15984,6 +16212,9 @@ fn resource_ir_cell_check_preserves_mem_ptr_alias_after_region_token() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -16030,6 +16261,9 @@ fn resource_ir_cell_check_preserves_region_token_ptr_helper_alias_after_token_mo
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -16083,6 +16317,9 @@ fn resource_ir_cell_check_preserves_borrowed_region_ptr_at_known_offset_alias() 
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -16129,6 +16366,9 @@ fn resource_ir_cell_check_rejects_borrowed_region_ptr_at_unknown_offset_dealloc_
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -16178,6 +16418,9 @@ fn resource_ir_cell_check_preserves_str_addr_helper_parameter_raw_load() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn string_addr <(str)->i32> (s):
     #intrinsic "str_addr" <> (s)
@@ -16225,6 +16468,9 @@ fn resource_ir_cell_check_preserves_direct_arithmetic_external_raw_load() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/result" as *
 
@@ -16266,6 +16512,9 @@ fn resource_ir_cell_check_preserves_external_raw_address_field_load() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct List<.T>:
     ptr <i32>
@@ -16385,6 +16634,9 @@ fn resource_ir_cell_check_preserves_result_payload_raw_address_field() {
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct Boxed:
@@ -16434,6 +16686,9 @@ fn resource_ir_cell_check_preserves_direct_result_payload_raw_address_alias() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -16576,6 +16831,9 @@ fn resource_ir_cell_check_preserves_literal_arithmetic_helper_zero_offset() {
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 struct LocalToken:
@@ -16630,6 +16888,9 @@ fn resource_ir_cell_check_preserves_untracked_literal_helper_zero_offset_for_fir
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 struct LocalToken:
@@ -16678,6 +16939,9 @@ fn resource_ir_cell_check_keeps_unknown_arithmetic_helper_offset_conservative() 
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 struct LocalToken:
@@ -16935,6 +17199,9 @@ fn resource_ir_owner_check_accepts_stdio_fd_write_scratch_cleanup() {
 #target wasi
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "std/stdio/write" as *
 
@@ -16999,6 +17266,9 @@ fn resource_ir_owner_check_accepts_fs_and_stdio_scratch_cleanup() {
 #target wasi
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "std/fs/fd" as *
 #import "std/fs/read" as *

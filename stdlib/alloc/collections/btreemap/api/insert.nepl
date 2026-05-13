@@ -16,6 +16,8 @@
 #import "../types" as *
 #import "../storage" as *
 #import "../search" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: ## btreemap_insert_ready
 //: [容量/ようりょう]が[足/た]りている `BTreeMap` に key/value を[挿入/そうにゅう]または[更新/こうしん]する

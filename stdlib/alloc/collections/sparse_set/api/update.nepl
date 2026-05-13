@@ -16,6 +16,8 @@
 #import "../membership" as *
 #import "../mutation" as *
 #import "./diagnostic" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: ## sparse_set_update_ok
 //: update [後/ご]の[長/なが]さで `SparseSet` owner を[再構築/さいこうちく]する

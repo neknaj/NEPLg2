@@ -122,6 +122,8 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -156,6 +158,8 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -191,7 +195,10 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -228,6 +235,8 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -268,6 +277,8 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():
@@ -309,6 +320,8 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()*>i32> ():

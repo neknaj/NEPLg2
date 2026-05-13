@@ -13,6 +13,7 @@
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec" as v
 #import "./width" as *
+#import "core/field" as *
 
 //: TuiStrPushRes: `Vec<str>` push の結果
 //:

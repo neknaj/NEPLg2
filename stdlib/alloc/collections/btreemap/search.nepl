@@ -13,6 +13,7 @@
 #import "alloc/collections/vec" as vec
 #import "./types" as *
 #import "./storage" as *
+#import "core/math" as *
 
 pub fn btreemap_key_eq <.K: Ord> <(.K,.K)->bool> (a, b):
     and not ord_lt a b not ord_lt b a

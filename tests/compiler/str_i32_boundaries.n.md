@@ -22,6 +22,7 @@ diag_codes: type.annotation.mismatch, type.return.mismatch
 #entry main
 #indent 4
 #target core
+#import "core/math" as *
 
 fn main <()->i32> ():
     let p <i32> "not a pointer"

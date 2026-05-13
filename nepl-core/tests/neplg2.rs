@@ -287,6 +287,8 @@ fn stdlib_overlapping_imports_do_not_reprocess_same_top_level_definitions() {
 
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "std/stdio" as *
 
 fn main <()*>()> ():
@@ -345,6 +347,8 @@ fn llvm_mem_bulk_copy_stdlib_lowers_to_intrinsics() {
 #target llvm
 
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     mem_copy 16 24 4
@@ -376,6 +380,8 @@ fn llvm_allocator_helper_is_emitted_for_codegen_inserted_alloc() {
 #target llvm
 
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct Pair:
     left <i32>
@@ -1845,6 +1851,8 @@ fn generic_intrinsic_store_load_struct_preserves_fields() {
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct Point:
     x <i32>
@@ -1873,6 +1881,8 @@ fn generic_hashkey_eq_after_load_uses_concrete_impl() {
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/traits/copy" as *
 #import "core/traits/hash_key" as *
 
@@ -1921,6 +1931,8 @@ fn generic_hashkey_value_survives_hash_before_store() {
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/traits/copy" as *
 #import "core/traits/hash_key" as *
 
@@ -2152,6 +2164,8 @@ fn generic_store_after_generic_trait_probe_preserves_struct() {
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/traits/copy" as *
 #import "core/traits/hash_key" as *
 
@@ -2206,6 +2220,8 @@ fn generic_store_uses_nested_address_call_without_stealing_value_arg() {
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct Point:
     x <i32>

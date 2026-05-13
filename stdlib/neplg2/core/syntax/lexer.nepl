@@ -33,6 +33,7 @@
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/syntax/token" as *
+#import "core/field" as *
 
 //: LexDiagnostic: lexer error を[構造化/こうぞうか]して[返/かえ]す値
 pub struct LexDiagnostic:

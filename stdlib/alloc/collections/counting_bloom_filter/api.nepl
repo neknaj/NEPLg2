@@ -19,6 +19,7 @@
 #import "./hash" as *
 #import "./storage" as *
 #import "./mutation" as *
+#import "core/field" as *
 
 pub fn counting_bloom_invalid_len_diag <()*>Diag> ():
     diag_error StdErrorKind::CapacityExceeded "invalid counting bloom filter counter length"

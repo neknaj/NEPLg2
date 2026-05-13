@@ -524,6 +524,7 @@ ret: 1234
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn check_at <(&Vec<i32>,i32,i32)->bool> (v, idx, expected):
     match get<i32> v idx:
@@ -563,6 +564,7 @@ ret: 2234
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn check_at <(&Vec<i32>,i32,i32)->bool> (v, idx, expected):
     match get<i32> v idx:
@@ -604,6 +606,7 @@ ret: 3234
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn check_at <(&Vec<i32>,i32,i32)->bool> (v, idx, expected):
     match get<i32> v idx:
@@ -667,6 +670,7 @@ ret: 5234
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let v0 <Vec<i32>> unwrap_ok new<i32>;

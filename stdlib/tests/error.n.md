@@ -34,6 +34,7 @@ neplg2:test
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -97,6 +98,8 @@ neplg2:test
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/field" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -240,6 +243,7 @@ neplg2:test
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;

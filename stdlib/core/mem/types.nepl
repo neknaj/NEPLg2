@@ -1,10 +1,21 @@
 #indent 4
 
-//: mem/types: MemPtr / RegionToken と非所有 pointer view の基本型
+//: mem/types: MemPtr / RegionToken の公開型
 //:
 //: 目的:
 //: - メモリ領域を参照する軽量な pointer view と、領域 owner token の形を定義します。
-//: - direct constructor は compiler の raw-memory-boundary capability 内に閉じ、通常利用者は public helper を経由します。
+//: - direct constructor は compiler の raw-memory-boundary capability 内に閉じ、通常利用者は checked wrapper を経由します。
+//: - raw address との相互変換は `mem/internal` に分離し、public facade からは再公開しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if ge size_of<MemPtr<i32>> 4 1 0
+//: ```
 
 #import "core/math" as *
 
@@ -30,20 +41,11 @@ pub fn region_token_ptr_ref <.T> <(&RegionToken<.T>)->&MemPtr<.T>> (token):
 pub fn region_token_size_ref <.T> <(&RegionToken<.T>)->&i32> (token):
     #intrinsic "get_field_ref" <> (token,"size")
 
-pub fn mem_ptr_wrap <.T> <(i32)->MemPtr<.T>> (raw):
-    MemPtr raw
-
-pub fn mem_ptr_addr <.T> <(MemPtr<.T>)->i32> (p):
-    get p "raw"
-
 pub fn region_ptr <.T> <(&RegionToken<.T>)->MemPtr<.T>> (token):
     *region_token_ptr_ref token
 
 pub fn region_size <.T> <(&RegionToken<.T>)->i32> (token):
     *region_token_size_ref token
-
-pub fn region_new <.T> <(MemPtr<.T>,i32)->RegionToken<.T>> (ptr, size):
-    RegionToken ptr size
 
 pub fn region_in_bounds <.T> <(&RegionToken<.T>,i32,i32)->bool> (token, off, bytes):
     let total <i32> *region_token_size_ref token

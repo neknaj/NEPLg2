@@ -14,6 +14,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let xs0 <List<i32>>:
@@ -86,6 +87,7 @@ neplg2:test
 #import "std/test" as { checks_new, checks_push, checks_print_report, checks_exit_code, check_eq_i32, check }
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
     match r:
@@ -143,6 +145,7 @@ neplg2:test
 #import "alloc/diag/error" as *
 #import "std/test" as { checks_new, checks_push, checks_print_report, checks_exit_code, check_eq_i32, check }
 #import "core/result" as *
+#import "core/math" as *
 
 fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
     match r:
@@ -196,6 +199,7 @@ neplg2:test
 #import "alloc/diag/error" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, Diag>)*>HashMap<i32,i32,DefaultHash32>> (r):
     match r:

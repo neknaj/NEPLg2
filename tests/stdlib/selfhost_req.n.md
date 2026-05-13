@@ -47,6 +47,7 @@ ret: 222
 #import "alloc/diag/error" as *
 #import "core/cast" as *
 #import "core/option" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     // 要件: u8 型 (現状は i32/bool/f32/str のみで u8 がない)
@@ -79,6 +80,7 @@ ret: 0
 #entry main
 #indent 4
 #import "alloc/string" as *
+#import "core/math" as *
 
 fn consume_str <(str)->()> (s):
     len s
@@ -134,6 +136,7 @@ ret: 10
 #import "alloc/string" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,DefaultHash32>> (r):
     match r:
@@ -202,6 +205,8 @@ ret: 5
 #import "core/traits/copy" as *
 #import "core/traits/hash" as *
 #import "core/traits/hash_key" as *
+#import "core/field" as *
+#import "core/math" as *
 
 // ユーザー定義型
 struct Point:

@@ -27,6 +27,7 @@
 #import "core/field" as field
 #import "core/math" as *
 #import "core/traits/copy" as *
+#import "core/field" as *
 
 //: SelfhostSourceSpan: source file [内/ない]の byte range
 //:

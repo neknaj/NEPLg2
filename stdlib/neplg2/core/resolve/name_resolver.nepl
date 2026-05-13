@@ -146,6 +146,7 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
+#import "core/field" as *
 
 //: SelfhostDefId: 名前解決後の定義 table index
 //:

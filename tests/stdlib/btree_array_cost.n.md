@@ -14,6 +14,7 @@ neplg2:test
 #import "alloc/collections/btreemap" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
     match r:
@@ -50,6 +51,7 @@ neplg2:test
 #import "alloc/collections/btreemap" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
     match r:
@@ -87,6 +89,7 @@ neplg2:test
 #import "alloc/diag/error" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn must_map <(Result<BTreeMap<i32,i32>, Diag>)*>BTreeMap<i32,i32>> (r):
     match r:
@@ -127,6 +130,7 @@ neplg2:test
 #import "alloc/collections/btreeset" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
     match r:
@@ -163,6 +167,7 @@ neplg2:test
 #import "alloc/collections/btreeset" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
     match r:
@@ -199,6 +204,7 @@ neplg2:test
 #import "alloc/collections/btreeset" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
     match r:

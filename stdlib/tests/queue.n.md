@@ -15,6 +15,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let q0 <Queue<i32>>:

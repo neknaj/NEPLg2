@@ -332,6 +332,50 @@ fn expand_unqualified_import_visibility(out: &mut UnqualifiedImportVisibilityMap
     }
 }
 
+fn expand_unqualified_import_visibility_through_public_exports(
+    out: &mut UnqualifiedImportVisibilityMap,
+    public_exports: &UnqualifiedImportVisibilityMap,
+) {
+    loop {
+        let snapshot = out.clone();
+        let mut changed_any = false;
+        for (source_file, targets) in &snapshot {
+            for (middle_file, outer_visibility) in targets {
+                if *outer_visibility == UnqualifiedImportVisibility::Hidden {
+                    continue;
+                }
+                let Some(middle_targets) = public_exports.get(middle_file) else {
+                    continue;
+                };
+                for (target_file, inner_visibility) in middle_targets {
+                    if source_file == target_file {
+                        continue;
+                    }
+                    let composed =
+                        compose_unqualified_import_visibility(outer_visibility, inner_visibility);
+                    if composed == UnqualifiedImportVisibility::Hidden {
+                        continue;
+                    }
+                    let source_visibility = out.entry(*source_file).or_insert_with(BTreeMap::new);
+                    let changed = match source_visibility.entry(*target_file) {
+                        Entry::Occupied(mut entry) => {
+                            merge_unqualified_import_visibility(entry.get_mut(), composed)
+                        }
+                        Entry::Vacant(entry) => {
+                            entry.insert(composed);
+                            true
+                        }
+                    };
+                    changed_any = changed_any || changed;
+                }
+            }
+        }
+        if !changed_any {
+            break;
+        }
+    }
+}
+
 pub fn build_unqualified_import_visibility(
     module: &crate::ast::Module,
     source_map: Option<&SourceMap>,
@@ -345,6 +389,9 @@ pub fn build_unqualified_import_visibility(
             directives.push(d);
         }
     }
+    let merge_import_targets = build_merge_import_targets(&directives, source_map);
+    let public_reexports =
+        build_public_reexport_visibility(&directives, source_map, &merge_import_targets);
     let mut out = BTreeMap::new();
     for (file_id, _) in source_map.iter_paths() {
         out.entry(file_id.0).or_insert_with(BTreeMap::new);
@@ -360,7 +407,10 @@ pub fn build_unqualified_import_visibility(
                 insert_unqualified_import_visibility(
                     &mut out,
                     span.file_id.0,
-                    import_target_files(source_map, path),
+                    expand_files_through_merge_imports(
+                        import_target_files(source_map, path),
+                        &merge_import_targets,
+                    ),
                     import_clause_unqualified_visibility(clause),
                 );
             }
@@ -368,7 +418,10 @@ pub fn build_unqualified_import_visibility(
                 insert_unqualified_import_visibility(
                     &mut out,
                     span.file_id.0,
-                    import_target_files(source_map, path),
+                    expand_files_through_merge_imports(
+                        import_target_files(source_map, path),
+                        &merge_import_targets,
+                    ),
                     UnqualifiedImportVisibility::All,
                 );
             }
@@ -379,7 +432,10 @@ pub fn build_unqualified_import_visibility(
                 insert_unqualified_import_visibility(
                     &mut out,
                     span.file_id.0,
-                    import_target_files(source_map, path),
+                    expand_files_through_merge_imports(
+                        import_target_files(source_map, path),
+                        &merge_import_targets,
+                    ),
                     UnqualifiedImportVisibility::All,
                 );
             }
@@ -396,12 +452,15 @@ pub fn build_unqualified_import_visibility(
             insert_unqualified_import_visibility(
                 &mut out,
                 root_file,
-                import_target_files(source_map, "std/prelude_base"),
+                expand_files_through_merge_imports(
+                    import_target_files(source_map, "std/prelude_base"),
+                    &merge_import_targets,
+                ),
                 UnqualifiedImportVisibility::All,
             );
         }
     }
-    expand_unqualified_import_visibility(&mut out);
+    expand_unqualified_import_visibility_through_public_exports(&mut out, &public_reexports);
     out
 }
 

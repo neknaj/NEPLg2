@@ -27,10 +27,13 @@
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "alloc/collections/vec" as v
 #import "alloc/diag/error/types" as *
 #import "alloc/diag/error/diag" as *
+#import "core/field" as *
 //: diag_empty_diag_vec: [空/から]の `Vec<Diag>` を[作/つく]る
 //:
 //: [目的/もくてき]:

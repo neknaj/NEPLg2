@@ -14,6 +14,7 @@
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
 #import "./types" as *
+#import "core/field" as *
 
 pub fn heap_normalize_capacity <(i32)->i32> (cap):
     if lt cap 1 1 cap

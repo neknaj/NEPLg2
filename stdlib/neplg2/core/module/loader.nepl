@@ -41,6 +41,8 @@
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/parser/module_parser" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: SelfhostVirtualFile: core loader が[扱/あつか]う 1 source
 //:

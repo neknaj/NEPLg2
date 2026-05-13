@@ -50,6 +50,7 @@
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/loader" as *
 #import "std/fs" as *
+#import "core/math" as *
 
 //: selfhost_cli_file_io_errno_note: path と errno を diagnostic note にする
 //:

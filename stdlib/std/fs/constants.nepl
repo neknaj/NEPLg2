@@ -20,6 +20,7 @@
 #indent 4
 
 #import "core/cast" as *
+#import "core/math" as *
 
 //: fs_right_fd_read: WASI rights_base の fd_read bit を返す
 pub fn fs_right_fd_read <()->i64> ():

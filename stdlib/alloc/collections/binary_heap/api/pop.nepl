@@ -17,6 +17,7 @@
 #import "../storage" as *
 #import "../order" as *
 #import "./cleanup" as *
+#import "core/field" as *
 
 //: ## pop_max
 //: [最大/さいだい][要素/ようそ]を[取/と]り[出/だ]し、[更新後/こうしんご]の heap と[値/あたい]を[返/かえ]す

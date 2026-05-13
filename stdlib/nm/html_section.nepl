@@ -37,6 +37,7 @@
 #import "core/traits/copy" as *
 
 #import "./parser/scanner" as scan
+#import "core/math" as *
 
 //: NmHtmlSectionState: HTML section stack の Copy state
 //:

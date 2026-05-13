@@ -3,6 +3,8 @@
 
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "alloc/collections/vec" as *
 
 //: kpsearch: 競技プログラミング向け探索ユーティリティ
@@ -25,6 +27,8 @@
 //:| #target std
 //:| #import "kp/kpsearch" as *
 //:| #import "core/mem" as *
+//:| #import "core/mem/allocator" as *
+//:| #import "core/mem/raw" as *
 //:| #import "std/stdio" as *
 //: fn main <()*> ()> ():
 //:     let len <i32> 5;
@@ -110,6 +114,8 @@ pub fn contains_i32 <(i32,i32,i32)*>bool> (data, len, x):
 //:| #target std
 //:| #import "kp/kpsearch" as *
 //:| #import "core/mem" as *
+//:| #import "core/mem/allocator" as *
+//:| #import "core/mem/raw" as *
 //:| #import "std/stdio" as *
 //: fn main <()*> ()> ():
 //:     let len <i32> 6;
@@ -151,6 +157,8 @@ pub fn count_equal_range_i32 <(i32,i32,i32)*>i32> (data, len, x):
 //:| #target std
 //:| #import "kp/kpsearch" as *
 //:| #import "core/mem" as *
+//:| #import "core/mem/allocator" as *
+//:| #import "core/mem/raw" as *
 //:| #import "core/math" as *
 //:| #import "std/stdio" as *
 //: fn main <()*> ()> ():

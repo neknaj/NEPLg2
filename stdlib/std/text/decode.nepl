@@ -12,6 +12,7 @@
 #import "core/mem" as *
 #import "core/result" as *
 #import "./validate" as *
+#import "core/math" as *
 
 //: text_is_valid_scalar: i32 code point が Unicode scalar value として[妥当/だとう]か[判定/はんてい]する
 pub fn text_is_valid_scalar <(i32)->bool> (code):

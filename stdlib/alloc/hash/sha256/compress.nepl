@@ -15,6 +15,7 @@
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 //: sha256_rounds_loop: SHA-256 の 64 round を[実行/じっこう]する
 //:

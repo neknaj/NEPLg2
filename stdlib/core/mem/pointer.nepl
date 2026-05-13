@@ -1,257 +1,34 @@
 #indent 4
 
-//: mem/pointer: RegionToken / MemPtr を使う検査付き pointer API
+//: mem/pointer: RegionToken / MemPtr を使う検査付き pointer API facade
 //:
 //: 目的:
-//: - raw address を public caller に押し出さず、Result / Option で失敗を返す wrapper を提供します。
-//: - raw load/store と allocator の実装は raw / allocator module に分離し、この module は typed pointer 境界を担当します。
-
-#import "core/math" as *
-#import "core/result" as *
-#import "core/option" as *
-#import "./types" as *
-#import "./raw" as *
-#import "./allocator" as *
-
-pub fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (token, off):
-    let bytes <i32> size_of<.U>
-    let total <i32> *region_token_size_ref token
-    if:
-        if:
-            or lt off 0 lt bytes 0
-            then:
-                false
-            else:
-                let end <i32> add off bytes
-                and le end total ge end off
-        then:
-            let base_raw <i32> mem_ptr_addr *region_token_ptr_ref token
-            Result<MemPtr<.U>,str>::Ok mem_ptr_wrap add base_raw off
-        else:
-            Result<MemPtr<.U>,str>::Err "mem.region_ptr_at out of bounds"
-
-pub fn alloc_region_bytes <.T> <(i32)->Result<RegionToken<.T>,str>> (bytes):
-    if:
-        lt bytes 0
-        then:
-            Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes invalid size"
-        else:
-            match alloc_ptr<.T> bytes:
-                Result::Ok ptr:
-                    Result<RegionToken<.T>,str>::Ok region_new ptr bytes
-                Result::Err _e:
-                    Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes failed"
-
-pub fn alloc_region <.T> <(i32)->Result<RegionToken<.T>,str>> (count):
-    if:
-        lt count 0
-        then:
-            Result<RegionToken<.T>,str>::Err "mem.alloc_region invalid count"
-        else:
-            let bytes <i32> mul count size_of<.T>
-            alloc_region_bytes<.T> bytes
-
-pub fn dealloc_region <.T> <(RegionToken<.T>)->Result<(),str>> (token):
-    let ptr <MemPtr<.T>> get token "ptr"
-    let size <i32> get token "size"
-    dealloc_ptr<.T> ptr size
-
-pub fn memset_u8 <(MemPtr<u8>,i32,i32)->Result<(),str>> (ptr, len, value):
-    let raw <i32> mem_ptr_addr ptr;
-    if:
-        or lt raw 1 lt len 0
-        then:
-            Result<(),str>::Err "mem.memset_u8 invalid argument"
-        else:
-            memset_u8 raw len value
-            Result<(),str>::Ok ()
-
-//: fill_u8: MemPtr<u8> を受け取る安全オーバーロード
-//:
-//: 目的:
-//: - `fill_u8` を `MemPtr` で利用できるようにし、呼び出し側の生ポインタ露出を減らします。
-pub fn fill_u8 <(MemPtr<u8>,i32,i32)->Result<(),str>> (ptr, len, value):
-    memset_u8 ptr len value
-
-//: fill_i32: MemPtr<i32> を受け取る安全オーバーロード
-//:
-//: 目的:
-//: - 無効ポインタを `Result::Err` として扱い、`i32` 生ポインタ境界を減らします。
-pub fn fill_i32 <(MemPtr<i32>,i32,i32)->Result<(),str>> (ptr, count, value):
-    let raw <i32> mem_ptr_addr ptr;
-    if:
-        or lt raw 1 lt count 0
-        then:
-            Result<(),str>::Err "mem.fill_i32 invalid argument"
-        else:
-            fill_i32 raw count value
-            Result<(),str>::Ok ()
-
-//: mem_copy: MemPtr の要素列をまとめてコピーする安全オーバーロード
-//:
-//: 目的:
-//: - `src` から `dst` へ `count` 個の `.T` 要素をコピーします。
-//: - `.T: Copy` の値だけを対象にし、所有権を持つ non-Copy 値の浅い複製を防ぎます。
-//:
-//: 実装(アルゴリズム):
-//: - `count * size_of<.T>` を byte 数に変換し、raw `mem_copy` に委譲します。
+//: - raw address を public caller に押し出さず、Result / Option で失敗を返す wrapper を公開します。
+//: - 実装は alloc / region / bulk / scalar の submodule に分け、ここは再公開だけを担当します。
 //:
 //: 注意(重要):
-//: - `dst` と `src` の対象範囲が重ならない場合に使います。
-//: - `count==0` はポインタが 0 でも成功として扱います。
-//: - non-Copy 値を移動初期化する用途には使えません。将来の所有権付き region API で扱います。
+//: - raw load/store と allocator の実装は `mem/raw` / `mem/allocator` / `mem/internal` 側に閉じます。
+//: - この facade は raw-memory-boundary capability を持たず、関数本体も所有しません。
 //:
-//: 計算量:
-//: - O(count * size_of<.T>)
-pub fn mem_copy <.T: Copy> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count):
-    let dst_raw <i32> mem_ptr_addr dst;
-    let src_raw <i32> mem_ptr_addr src;
-    if:
-        lt count 0
-        then:
-            Result<(),str>::Err "mem.mem_copy invalid count"
-        else:
-            if:
-                eq count 0
-                then:
-                    Result<(),str>::Ok ()
-                else:
-                    if:
-                        or lt dst_raw 1 lt src_raw 1
-                        then:
-                            Result<(),str>::Err "mem.mem_copy invalid pointer"
-                        else:
-                            mem_copy dst_raw src_raw mul count size_of<.T>
-                            Result<(),str>::Ok ()
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_ptr<i32> 4:
+//:         Result::Ok p:
+//:             match dealloc_ptr<i32> p 4:
+//:                 Result::Ok _:
+//:                     1
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
 
-//: mem_move: MemPtr の要素列を重なりを許してまとめてコピーする安全オーバーロード
-//:
-//: 目的:
-//: - `src` から `dst` へ `count` 個の `.T` 要素を重なり許容でコピーします。
-//: - `.T: Copy` の値だけを対象にし、所有権を持つ non-Copy 値の浅い複製を防ぎます。
-//:
-//: 実装(アルゴリズム):
-//: - `count * size_of<.T>` を byte 数に変換し、raw `mem_move` に委譲します。
-//:
-//: 注意(重要):
-//: - `dst` と `src` の対象範囲が重なり得る場合はこちらを使います。
-//: - `count==0` はポインタが 0 でも成功として扱います。
-//: - 名前は low-level memory move に合わせていますが、source の所有権を未初期化へ変える操作ではありません。
-//:
-//: 計算量:
-//: - O(count * size_of<.T>)
-pub fn mem_move <.T: Copy> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count):
-    let dst_raw <i32> mem_ptr_addr dst;
-    let src_raw <i32> mem_ptr_addr src;
-    if:
-        lt count 0
-        then:
-            Result<(),str>::Err "mem.mem_move invalid count"
-        else:
-            if:
-                eq count 0
-                then:
-                    Result<(),str>::Ok ()
-                else:
-                    if:
-                        or lt dst_raw 1 lt src_raw 1
-                        then:
-                            Result<(),str>::Err "mem.mem_move invalid pointer"
-                        else:
-                            mem_move dst_raw src_raw mul count size_of<.T>
-                            Result<(),str>::Ok ()
-
-pub fn alloc_ptr <.T> <(i32)->Result<MemPtr<.T>,str>> (size):
-    match alloc size:
-        Result::Ok raw:
-            Result<MemPtr<.T>,str>::Ok mem_ptr_wrap raw
-        Result::Err _e:
-            Result<MemPtr<.T>,str>::Err "mem.alloc_ptr failed"
-
-pub fn realloc_ptr <.T> <(MemPtr<.T>,i32,i32)->Result<MemPtr<.T>,str>> (ptr, old_size, new_size):
-    let raw <i32> mem_ptr_addr ptr;
-    match realloc raw old_size new_size:
-        Result::Ok next_ptr:
-            Result<MemPtr<.T>,str>::Ok mem_ptr_wrap next_ptr
-        Result::Err _e:
-            Result<MemPtr<.T>,str>::Err "mem.realloc_ptr failed"
-
-pub fn dealloc_ptr <.T> <(MemPtr<.T>,i32)->Result<(),str>> (ptr, size):
-    let raw <i32> mem_ptr_addr ptr;
-    match dealloc raw size:
-        Result::Ok _:
-            Result<(),str>::Ok ()
-        Result::Err _e:
-            Result<(),str>::Err "mem.dealloc_ptr invalid pointer"
-
-pub fn mem_ptr_add <.T> <(MemPtr<.T>,i32)->MemPtr<.T>> (ptr, off):
-    let raw <i32> mem_ptr_addr ptr;
-    mem_ptr_wrap add raw off
-
-//: load_i32: MemPtr<i32> から i32 を安全に読み出すオーバーロード
-//:
-//: 目的:
-//: - 無効ポインタを `Option::None` として扱います。
-pub fn load_i32 <(MemPtr<i32>)->Option<i32>> (p):
-    let raw <i32> mem_ptr_addr p;
-    if:
-        lt raw 1
-        then:
-            Option<i32>::None
-        else:
-            Option<i32>::Some load_i32 raw
-
-//: store_i32: MemPtr<i32> へ i32 を安全に書き込むオーバーロード
-//:
-//: 目的:
-//: - 無効ポインタを `Result::Err` として返し、未定義動作を避けます。
-pub fn store_i32 <(MemPtr<i32>,i32)->Result<(),str>> (p, v):
-    let raw <i32> mem_ptr_addr p;
-    if:
-        lt raw 1
-        then:
-            Result<(),str>::Err "mem.store_i32 invalid pointer"
-        else:
-            store_i32 raw v
-            Result<(),str>::Ok ()
-
-//: load_u8: MemPtr<u8> から 1 バイトを安全に読み出すオーバーロード
-//:
-//: 目的:
-//: - 無効ポインタを `Option::None` として扱います。
-pub fn load_u8 <(MemPtr<u8>)->Option<i32>> (p):
-    let raw <i32> mem_ptr_addr p;
-    if:
-        lt raw 1
-        then:
-            Option<i32>::None
-        else:
-            Option<i32>::Some load_u8 raw
-
-//: store_u8: MemPtr<u8> へ 1 バイトを書き込む安全オーバーロード
-//:
-//: 目的:
-//: - 無効ポインタを `Result::Err` として返し、未定義動作を避けます。
-pub fn store_u8 <(MemPtr<u8>,i32)->Result<(),str>> (p, v):
-    let raw <i32> mem_ptr_addr p;
-    if:
-        lt raw 1
-        then:
-            Result<(),str>::Err "mem.store_u8 invalid pointer"
-        else:
-            store_u8 raw v
-            Result<(),str>::Ok ()
-
-//: size_of: 型のサイズを取得する
-//:
-//: 目的:
-//: - .T のサイズ（バイト）を返します。
-//:
-//: 実装(アルゴリズム):
-//: - intrinsic "size_of" を呼びます。
-//:
-//: 注意(重要):
-//: - サイズはコンパイル時に決まります。
-//:
-//: 計算量:
-//: - O(1)
+pub #import "./pointer/alloc" as *
+pub #import "./pointer/region" as *
+pub #import "./pointer/bulk" as *
+pub #import "./pointer/scalar" as *

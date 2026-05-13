@@ -16,6 +16,7 @@
 #import "core/traits/copy" as *
 #import "../types" as *
 #import "../raw" as vec_raw
+#import "core/field" as *
 
 //: get: [要素/ようそ]を[取得/しゅとく]する
 //:

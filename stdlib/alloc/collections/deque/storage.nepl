@@ -16,6 +16,7 @@
 #import "core/traits/copy" as *
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
+#import "core/field" as *
 
 //: deque_item_at: slot の `Option<T>` を[読/よ]み[出/だ]す
 pub fn deque_item_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (items, idx):

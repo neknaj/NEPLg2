@@ -1,0 +1,90 @@
+#indent 4
+
+//: mem/internal: MemPtr / RegionToken の raw identity 境界
+//:
+//: 目的:
+//: - `MemPtr` と raw `i32` address の相互変換、`RegionToken` の owner token 構築を internal boundary に閉じます。
+//: - public `core/mem` facade からは再公開せず、raw-memory-backed stdlib implementation だけが明示的に import します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/mem/internal" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let p <MemPtr<i32>> mem_ptr_wrap 16
+//:     if eq mem_ptr_addr p 16 1 0
+//: ```
+
+#import "./types" as *
+#import "core/field" as *
+
+//: mem_ptr_wrap: raw address を MemPtr に包む
+//:
+//: 目的:
+//: - compiler-owned boundary で得た raw address を non-owning pointer view として扱うための内部 helper です。
+//:
+//: 注意(重要):
+//: - これは storage owner を作る API ではありません。
+//: - public source へ露出すると arbitrary address から `MemPtr` を forged できるため、root facade からは公開しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/mem/internal" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     if eq mem_ptr_addr mem_ptr_wrap<i32> 32 32 1 0
+//: ```
+pub fn mem_ptr_wrap <.T> <(i32)->MemPtr<.T>> (raw):
+    MemPtr raw
+
+//: mem_ptr_addr: MemPtr から raw address view を取り出す
+//:
+//: 目的:
+//: - raw-memory-backed implementation が checked wrapper の内部で byte operation へ降りるための内部 helper です。
+//:
+//: 注意(重要):
+//: - 返り値は non-owning raw view であり、free obligation owner ではありません。
+//: - public source へ露出すると bounds / provenance / owner discipline を迂回できるため、root facade からは公開しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/mem/internal" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let p <MemPtr<u8>> mem_ptr_wrap 64
+//:     if eq mem_ptr_addr p 64 1 0
+//: ```
+pub fn mem_ptr_addr <.T> <(MemPtr<.T>)->i32> (p):
+    get p "raw"
+
+//: region_new: RegionToken を構築する
+//:
+//: 目的:
+//: - allocator wrapper が所有領域の pointer と size をまとめ、free obligation owner token を作ります。
+//:
+//: 注意(重要):
+//: - 呼び出し側は ptr が allocator から得た owned storage であることを保証します。
+//: - public source へ露出すると non-owning pointer から owner token を forged できるため、root facade からは公開しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/mem/internal" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let token <RegionToken<u8>> region_new mem_ptr_wrap 128 4
+//:     if eq region_size &token 4 1 0
+//: ```
+pub fn region_new <.T> <(MemPtr<.T>,i32)->RegionToken<.T>> (ptr, size):
+    RegionToken ptr size

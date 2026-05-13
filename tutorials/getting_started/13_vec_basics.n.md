@@ -18,6 +18,7 @@ stdout: mlstr:
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn build_numbers <()*>Result<Vec<i32>,str>> ():
     match new<i32>:

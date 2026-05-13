@@ -12,10 +12,13 @@
 
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "std/text" as *
 #import "./buffer" as *
 #import "./bytes" as *
+#import "core/math" as *
 
 //: stdio_read_all_text_result: 標準入力を UTF-8 [検証/けんしょう]して[読/よ]み[込/こ]む
 //:

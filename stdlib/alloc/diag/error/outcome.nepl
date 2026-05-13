@@ -27,6 +27,8 @@
 #import "core/result" as *
 #import "alloc/diag/error/types" as *
 #import "alloc/diag/error/diags" as *
+#import "core/field" as *
+#import "core/math" as *
 //: Outcome: `Result` と `Diags` を[同時/どうじ]に[運/はこ]ぶ struct
 //:
 //: [目的/もくてき]:

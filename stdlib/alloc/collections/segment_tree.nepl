@@ -10,6 +10,7 @@
 //: - `replace` / `add` の失敗は owner を失わないように `SegmentTreeUpdateError` で元の `SegmentTree` と `Diag` を返します。
 
 #indent 4
+#import "core/math" as *
 
 pub #import "./segment_tree/types" as @merge
 pub #import "./segment_tree/api" as @merge

@@ -3,6 +3,7 @@
 #import "core/math" as *
 #import "core/traits/copy" as *
 #import "alloc/string" as *
+#import "core/field" as *
 
 //: # test/types
 //: `std/test` の assertion/report 型と owner terminal

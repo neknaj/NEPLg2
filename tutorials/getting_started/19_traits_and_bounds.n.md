@@ -14,6 +14,7 @@ stdout: mlstr:
 |
 #import "core/result" as *
 #import "std/test" as *
+#import "core/math" as *
 
 trait Score:
     fn score <(Self)->i32> (x):

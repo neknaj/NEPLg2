@@ -30,6 +30,7 @@
 #import "core/traits/copy" as *
 #import "std/stdio" as *
 #import "std/text" as *
+#import "core/field" as *
 
 //: ## StdinStream
 //: [標準入力/ひょうじゅんにゅうりょく]を[表/あらわ]す[軽量/けいりょう] handle

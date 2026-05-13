@@ -9,6 +9,7 @@
 #import "core/math" as *
 #import "core/field" as field
 #import "../types" as *
+#import "core/field" as *
 
 //: ## len
 //: [要素数/ようそすう]を[返/かえ]す

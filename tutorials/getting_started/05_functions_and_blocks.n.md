@@ -16,6 +16,7 @@ stdout: mlstr:
 |
 #import "core/result" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn clamp_0_10 <(i32)->i32> (x):
     if:

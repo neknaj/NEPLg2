@@ -20,6 +20,7 @@
 #import "alloc/collections/hashmap/storage" as *
 #import "alloc/collections/hashmap/probe" as *
 #import "alloc/collections/hashmap/rehash" as *
+#import "core/field" as *
 
 //: ## new
 //: [空/から]の `HashMap<.K, .V, .H>` を[作/つく]る

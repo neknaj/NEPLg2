@@ -17,6 +17,7 @@
 #import "../layout" as *
 #import "../storage" as *
 #import "./diagnostic" as *
+#import "core/field" as *
 
 //: ## len
 //: [頂点数/ちょうてんすう]を[返/かえ]す

@@ -146,6 +146,7 @@ fn add_one <(i32)->i32> (a):
 
 fn main <() -> i32> ():
     #import "core/math" as *
+#import "core/field" as *
     add_one 1
 ```
 
@@ -355,6 +356,7 @@ ret: 0
 #prelude std/prelude_base
 #no_prelude
 #import "core/math" as { add as plus, math::* }
+#import "core/math" as *
 
 fn main <() -> i32> ():
     0
@@ -600,6 +602,7 @@ ret: 0
 #import "alloc/collections/list" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn main <()* >i32> ():
     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;

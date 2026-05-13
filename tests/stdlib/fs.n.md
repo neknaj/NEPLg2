@@ -104,8 +104,11 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let path <str> "tmp/fs_write_to_bytes_case.bin"
@@ -193,6 +196,7 @@ ret: 0
 #import "std/fs" as *
 #import "std/test" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -232,8 +236,12 @@ ret: 0
 #import "core/result" as *
 #import "core/option" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "alloc/collections/vec" as v
 #import "alloc/string" as *
+#import "core/field" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;

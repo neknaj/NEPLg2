@@ -9,6 +9,7 @@
 
 #import "core/option" as *
 #import "alloc/collections/vec" as vec
+#import "core/field" as *
 
 pub fn dsu_load_owned <(&Vec<i32>,i32)->Option<i32>> (base, idx):
     match vec::get<i32> base idx:

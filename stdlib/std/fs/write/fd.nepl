@@ -18,6 +18,7 @@
 #import "core/result" as *
 #import "std/fs/bytes" as *
 #import "std/fs/raw" as *
+#import "core/field" as *
 
 //: fs_write_fd_mem_result: fd へ raw memory range をすべて書き込む
 //:

@@ -13,6 +13,8 @@ ret: 0
 #import "core/math" as *
 #import "core/cast" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     let s_i64 <i32> size_of<i64>;
@@ -38,6 +40,8 @@ ret: 0
 #import "core/math" as *
 #import "core/cast" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     let p <i32> alloc_raw 8;
@@ -59,6 +63,8 @@ ret: 0
 #import "core/math" as *
 #import "core/cast" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     let p <i32> alloc_raw 8;
@@ -99,6 +105,8 @@ ret: 0
 #import "core/cast" as *
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()->i32> ():
@@ -126,6 +134,8 @@ ret: 0
 #indent 4
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct Z:
     tag <()>

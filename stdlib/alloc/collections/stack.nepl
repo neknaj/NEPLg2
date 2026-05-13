@@ -11,6 +11,7 @@
 //: - `pop_top` は[更新後/こうしんご]の owner と[値/あたい]を[同時/どうじ]に[返/かえ]します。
 
 #indent 4
+#import "core/field" as *
 
 pub #import "./stack/types" as @merge
 pub #import "./stack/api" as @merge

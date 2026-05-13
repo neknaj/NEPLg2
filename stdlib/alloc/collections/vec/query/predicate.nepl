@@ -15,6 +15,7 @@
 #import "core/traits/copy" as *
 #import "../types" as *
 #import "./get" as vec_get
+#import "core/field" as *
 
 //: find: [条件/じょうけん]に[合/あ]う[最初/さいしょ]の[要素/ようそ]を[探/さが]す
 //:

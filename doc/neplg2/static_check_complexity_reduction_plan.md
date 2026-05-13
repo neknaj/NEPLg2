@@ -333,6 +333,7 @@ commit 単位:
 - 残件は、raw-memory-backed stdlib public API を Stage 6 で internal/public 境界へ分け、raw identity と owner token が safe surface へ漏れない最終 API に移行することである。
 - 2026-05-13: `ISS-20260427T132406497Z-CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS-DC67DF04` を core compiler 側では verified / resolved とした。`UnsafeMemoryInPureFunction` hard gate、Resource IR raw identity / cell / owner gate、exact raw-memory-boundary capability regression が揃っており、user source から raw memory operation を pure bypass する元の問題は閉じている。Stage 6 の stdlib internal/public API 移行は引き続き stdlib issue 側で追跡する。
 - 2026-05-13: `ISS-20260513T023254911Z-CORE-MEM-FACADE-STILL-CARRIED-RAW-ME-FEEF633F` を解決した。`core/mem.nepl` root は public facade に縮小し、`types` / `raw` / `allocator` / `pointer` submodule へ実装責務を分離した。loader の exact raw-memory-boundary capability も root facade から外し、実装 submodule のみに付与する。raw helper の public re-export 閉鎖は未完だが、Stage 6 の前提である「public facade 自体が raw boundary privilege を持たない」状態に進めた。
+- 2026-05-13: `ISS-20260427T152954558Z-CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE--4185EA5D` を解決した。`core/mem` root facade は `types` / `layout` / checked `pointer` API だけを公開し、`mem_ptr_wrap` / `mem_ptr_addr` / `region_new` / raw allocator / raw load-store は internal/raw implementation module へ閉じた。compiler resolver も private import を public facade 越しに推移公開しないため、`#import "core/mem" as *` から raw address escape を構成できない。残る Stage 6 の焦点は、direct internal/raw module の利用 discipline、Vec/StringBuilder/collection/self-host buffer の owner token API 移行、stdlib 全体の raw-memory-backed public API 整理である。
 
 ### Stage 6: stdlib memory API の段階移行
 
@@ -376,7 +377,7 @@ commit 単位:
 | `RV-CORE-009` | Stage 2-4 の親 issue。Resource IR と resource check を追跡する。 | Resource IR 上で move/borrow/lifetime/drop obligation を検査し、旧 checker 依存を除去する。 |
 | `CORE-MEM-RAW-MEMORY-OPERATIONS-BYPAS` | Stage 5 の compiler-core issue。raw memory effect / ownership boundary を追跡した。 | 2026-05-13 に core 側は verified / resolved。stdlib public API migration は Stage 6 の stdlib issue へ分離する。 |
 | `MEMPTR-AND-REGIONTOKEN` | Stage 3/4 の compiler-core issue。`MemPtr` / owner token / initialized cell の compiler 側分離を追跡した。 | 2026-05-13 に core 側は fixed / resolved。stdlib public API と collection/string/self-host buffer の移行は Stage 6 の stdlib issue へ分離する。 |
-| `CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE` | Stage 5/6 の stdlib public API issue。 | safe import から raw address escape を呼べない。 |
+| `CORE-MEM-EXPOSES-RAW-ADDRESS-ESCAPE` | Stage 5/6 の stdlib public API issue。 | 2026-05-13 に fixed。safe `core/mem` import から raw address escape は呼べない。direct internal/raw module と raw-memory-backed stdlib 全体の discipline は Stage 6 parent で継続する。 |
 | `CORE-MEM-DEALLOC-APIS-DO-NOT-ENCODE` | Stage 4 の compiler-core drop obligation issue。 | 2026-05-13 に core 側は fixed / resolved。initialized payload を残した storage-only free は拒否され、collection element cleanup と raw-memory-backed public API migration は Stage 6 の stdlib issue へ分離する。 |
 | `STDLIB-RAW-MEMORY-BACKED-APIS-REQUIR` | Stage 6 の stdlib migration parent。 | raw-memory-backed implementation が safe public discipline を漏らさない。 |
 | `RV-STDLIB-004` | Stage 6 の collection API issue。 | collection drop / remove / borrowed read / Copy read の責務が分離される。 |

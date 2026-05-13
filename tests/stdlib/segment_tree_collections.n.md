@@ -23,6 +23,7 @@ ret: 1
 #import "alloc/collections/segment_tree" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let st <SegmentTree>:
@@ -59,6 +60,7 @@ ret: 1
 #import "alloc/collections/segment_tree" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let st_free <SegmentTree>:
@@ -100,6 +102,7 @@ ret: 1
 #import "alloc/collections/segment_tree" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let st <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
@@ -141,6 +144,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "alloc/string" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let neg <i32> sub 0 1

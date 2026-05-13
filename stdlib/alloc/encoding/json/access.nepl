@@ -12,6 +12,7 @@
 #import "core/option" as *
 #import "alloc/collections/vec" as *
 #import "./types" as *
+#import "core/math" as *
 
 //: json_is_null: JSON null かどうかを判定する
 //:

@@ -1,0 +1,96 @@
+#indent 4
+
+//: mem/pointer/scalar: MemPtr scalar load/store wrapper
+//:
+//: 目的:
+//: - `MemPtr<i32>` / `MemPtr<u8>` の scalar load/store を `Option` / `Result` で検査付き API にします。
+//: - raw address の取り出しと raw load/store 呼び出しはこの implementation module に閉じます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_ptr<i32> 4:
+//:         Result::Ok p:
+//:             match store_i32 p 12:
+//:                 Result::Ok _:
+//:                     let v <i32> match load_i32 p:
+//:                         Option::Some n:
+//:                             n
+//:                         Option::None:
+//:                             0
+//:                     match dealloc_ptr<i32> p 4:
+//:                         Result::Ok _:
+//:                             v
+//:                         Result::Err _:
+//:                             0
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "../types" as *
+#import "../internal" as *
+#import "../raw" as *
+
+//: load_i32: MemPtr<i32> から i32 を安全に読み出すオーバーロード
+//:
+//: 目的:
+//: - 無効ポインタを `Option::None` として扱います。
+pub fn load_i32 <(MemPtr<i32>)->Option<i32>> (p):
+    let raw <i32> mem_ptr_addr p;
+    if:
+        lt raw 1
+        then:
+            Option<i32>::None
+        else:
+            Option<i32>::Some load_i32 raw
+
+//: store_i32: MemPtr<i32> へ i32 を安全に書き込むオーバーロード
+//:
+//: 目的:
+//: - 無効ポインタを `Result::Err` として返し、未定義動作を避けます。
+pub fn store_i32 <(MemPtr<i32>,i32)->Result<(),str>> (p, v):
+    let raw <i32> mem_ptr_addr p;
+    if:
+        lt raw 1
+        then:
+            Result<(),str>::Err "mem.store_i32 invalid pointer"
+        else:
+            store_i32 raw v
+            Result<(),str>::Ok ()
+
+//: load_u8: MemPtr<u8> から 1 バイトを安全に読み出すオーバーロード
+//:
+//: 目的:
+//: - 無効ポインタを `Option::None` として扱います。
+pub fn load_u8 <(MemPtr<u8>)->Option<i32>> (p):
+    let raw <i32> mem_ptr_addr p;
+    if:
+        lt raw 1
+        then:
+            Option<i32>::None
+        else:
+            Option<i32>::Some load_u8 raw
+
+//: store_u8: MemPtr<u8> へ 1 バイトを書き込む安全オーバーロード
+//:
+//: 目的:
+//: - 無効ポインタを `Result::Err` として返し、未定義動作を避けます。
+pub fn store_u8 <(MemPtr<u8>,i32)->Result<(),str>> (p, v):
+    let raw <i32> mem_ptr_addr p;
+    if:
+        lt raw 1
+        then:
+            Result<(),str>::Err "mem.store_u8 invalid pointer"
+        else:
+            store_u8 raw v
+            Result<(),str>::Ok ()

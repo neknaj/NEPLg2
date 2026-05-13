@@ -5,15 +5,25 @@
 //: 目的:
 //: - free list / bump allocator と compiler runtime ABI の入口を所有します。
 //: - raw byte 操作は mem/raw に委譲し、MemPtr wrapper は mem/pointer に分離します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem/allocator" as *
+//:| #import "core/mem/raw" as *
+//:| #import "core/math" as *
+//: fn main <()*>i32> ():
+//:     let p <i32> alloc_raw 4
+//:     let ok <bool> gt p 0
+//:     dealloc_raw p 4
+//:     if ok 1 0
+//: ```
 
 #import "core/math" as *
 #import "core/result" as *
+#import "./layout" as *
 #import "./raw" as *
-
-pub fn align8 <(i32)->i32> (n):
-    let t <i32> add n 7
-    let q <i32> div_s t 8
-    mul q 8
 
 //: mem_block_end: allocator block の[終端/しゅうたん] address を[返/かえ]す
 //:

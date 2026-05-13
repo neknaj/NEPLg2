@@ -100,6 +100,7 @@ neplg2:test
 #import "alloc/diag/error" as *
 #import "std/test" as { checks_new, checks_push, checks_print_report, checks_exit_code, check_eq_i32, check }
 #import "core/result" as *
+#import "core/math" as *
 
 fn must_set <(Result<BTreeSet<i32>, Diag>)*>BTreeSet<i32>> (r):
     match r:

@@ -8,6 +8,7 @@
 #import "std/test/assertion" as *
 #if[target=std]
 #import "std/stdio" as *
+#import "core/field" as *
 
 //: # test/report
 //: `std/test` の report 集約、stdout 表示、exit code 変換

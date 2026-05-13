@@ -14,5 +14,6 @@
 //: - raw load の結果を callback や owner-producing API へ直接[渡/わた]す helper は[公開/こうかい]しません。predicate / fold / prefix [処理/しょり]は `Vec` borrow と `get<T: Copy>` を[通/とお]して Resource IR が ownership を[追跡/ついせき]できる module に[置/お]きます。
 
 #indent 4
+#import "core/field" as *
 
 pub #import "./raw/element" as @merge

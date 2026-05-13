@@ -10,6 +10,7 @@
 #import "core/math" as *
 #import "core/option" as *
 #import "alloc/collections/vec" as vec
+#import "core/field" as *
 
 pub fn seg_load_owned <(&Vec<i32>,i32)->Option<i32>> (data, idx):
     match vec::get<i32> data idx:

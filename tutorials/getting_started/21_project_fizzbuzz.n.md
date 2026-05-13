@@ -17,6 +17,7 @@ stdout: mlstr:
 |
 #import "core/result" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn fizzbuzz_word <(i32)->str> (n):
     if:

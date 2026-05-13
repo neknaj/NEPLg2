@@ -16,6 +16,8 @@
 #import "../storage" as *
 #import "../mutation" as *
 #import "./diagnostic" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: ## bitset_update
 //: index validation [後/ご]に bit の on/off を[切/き]り[替/か]える

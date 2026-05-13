@@ -57,6 +57,7 @@ ret: 1
 #import "alloc/io" as *
 #import "alloc/string" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
 
 fn main <()*>i32> ():
     let huge <ByteBuf> io_bytebuf_from_owned_ptr mem_ptr_wrap 0 2147483647;
@@ -106,7 +107,9 @@ ret: 1
 
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
 #import "std/fs" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let huge <ByteBuf> io_bytebuf_from_owned_ptr mem_ptr_wrap 0 2147483647;

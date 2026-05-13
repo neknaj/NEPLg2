@@ -190,6 +190,7 @@ ret: 0
 #import "core/field" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let args <Vec<str>>:
@@ -227,6 +228,7 @@ ret: 0
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let args <Vec<str>>:

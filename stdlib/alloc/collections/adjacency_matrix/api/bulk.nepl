@@ -11,6 +11,8 @@
 #import "alloc/collections/vec" as vec
 #import "../types" as *
 #import "../storage" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: ## adjacency_matrix_fill_value
 //: [内部/ないぶ] byte storage を[指定/してい] byte で[埋/う]める

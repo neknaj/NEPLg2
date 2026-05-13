@@ -14,6 +14,7 @@ ret: 0
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/import_spec" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let checks0 checks_new

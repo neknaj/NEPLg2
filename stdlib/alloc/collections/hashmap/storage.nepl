@@ -15,6 +15,7 @@
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
 #import "alloc/collections/hashmap/types" as *
+#import "core/field" as *
 
 //: hashmap_storage_states: storage の state Vec を borrow する
 pub fn hashmap_storage_states <.K,.V> <(&HashMapStorage<.K,.V>)->&Vec<HashMapBucketState>> (storage):

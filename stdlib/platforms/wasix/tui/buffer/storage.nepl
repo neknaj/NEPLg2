@@ -13,6 +13,8 @@
 
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 //: buffer_new: 行バッファを作成する
 //:

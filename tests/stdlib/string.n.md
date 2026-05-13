@@ -274,6 +274,7 @@ diag_codes: type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
+#import "core/math" as *
 fn foo <(String)->()> (s):
     ()
 fn main <()->i32> ():
@@ -302,6 +303,7 @@ diag_codes: type.annotation.mismatch, type.overload.no_match
 ```neplg2
 #entry main
 #indent 4
+#import "core/math" as *
 fn foo <(String)->()> (s):
     ()
 fn main <()->i32> ():
@@ -319,6 +321,7 @@ ret: 0
 #indent 4
 #import "std/test" as *
 #import "alloc/string" as *
+#import "core/math" as *
 
 fn main <()* >i32> ():
     let mut sb <StringBuilder> string_builder_new;

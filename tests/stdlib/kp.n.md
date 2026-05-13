@@ -59,6 +59,7 @@ stdout: "6\n14\n15\n"
 #import "core/math" as *
 #import "core/result" as *
 #import "core/mem" as *
+#import "core/mem/raw" as *
 #import "std/streamio" as *
 #import "std/iotarget" as *
 
@@ -224,6 +225,7 @@ stdout: "2 3\n1 2 5\n"
 #import "kp/kpsearch" as *
 #import "core/result" as *
 #import "core/mem" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "std/stdio" as *
 

@@ -26,5 +26,6 @@
 //: ```
 
 #indent 4
+#import "core/math" as *
 
 pub #import "./parser/document" as @merge

@@ -11,6 +11,7 @@
 #import "std/stdio" as *
 #import "platforms/wasix/tui/text" as *
 #import "platforms/wasix/tui/style" as *
+#import "core/math" as *
 
 //: box_inner_cols: ボックス全体幅から内側幅を求める
 //:

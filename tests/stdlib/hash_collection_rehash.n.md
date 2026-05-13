@@ -19,6 +19,7 @@ neplg2:test
 #import "core/result" as *
 #import "core/traits/hash" as *
 #import "core/test" as *
+#import "core/field" as *
 
 fn hashmap_insert_range <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>HashMap<i32,i32,DefaultHash32>> (hm, i, end):
     if:
@@ -88,6 +89,7 @@ neplg2:test
 #import "core/result" as *
 #import "core/traits/hash" as *
 #import "core/test" as *
+#import "core/field" as *
 
 fn hashmap_insert_many <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>HashMap<i32,i32,DefaultHash32>> (hm, i, end):
     if:
@@ -156,6 +158,7 @@ neplg2:test
 #import "core/result" as *
 #import "core/traits/hash" as *
 #import "core/test" as *
+#import "core/field" as *
 
 fn hashmap_tombstone_insert_range <(HashMap<i32,i32,DefaultHash32>,i32,i32)*>HashMap<i32,i32,DefaultHash32>> (hm, i, end):
     if:

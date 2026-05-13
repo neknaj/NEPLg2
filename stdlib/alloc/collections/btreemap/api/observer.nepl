@@ -15,6 +15,8 @@
 #import "../types" as *
 #import "../storage" as *
 #import "../search" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: ## len
 //: map を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す

@@ -16,6 +16,8 @@
 #import "../types" as *
 #import "../storage" as *
 #import "../search" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: ## btreeset_insert_ready
 //: [容量/ようりょう]が[足/た]りている `BTreeSet` に key を[挿入/そうにゅう]する

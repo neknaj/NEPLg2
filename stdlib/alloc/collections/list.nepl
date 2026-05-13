@@ -10,6 +10,7 @@
 //: - `len` / `head` / `get` / `fold` などの observer は `List` を借用して読み取り、owner は caller が最後に `free` します。
 
 #indent 4
+#import "core/field" as *
 
 pub #import "./list/types" as @merge
 pub #import "./list/basic" as @merge

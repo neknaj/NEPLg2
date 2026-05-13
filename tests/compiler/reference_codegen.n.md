@@ -42,6 +42,7 @@ ret: 32
 #target core
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
 #import "core/traits/copy" as *
 
 fn clone_ptr_addr <(MemPtr<u8>)->i32> (p):

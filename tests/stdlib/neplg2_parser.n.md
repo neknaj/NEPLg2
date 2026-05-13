@@ -15,6 +15,8 @@ ret: 0
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/parser/module_parser" as *
 #import "std/test" as *
+#import "core/field" as *
+#import "core/math" as *
 
 fn item_at <(&SelfhostModuleAst,i32)->SelfhostModuleItem> (ast, idx):
     unwrap<SelfhostModuleItem> selfhost_module_ast_get ast idx

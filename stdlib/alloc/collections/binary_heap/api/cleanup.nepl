@@ -10,6 +10,7 @@
 #import "core/field" as field
 #import "alloc/collections/vec" as vec
 #import "../types" as *
+#import "core/field" as *
 
 //: ## free
 //: heap が[所有/しょゆう]する backing storage を[解放/かいほう]する

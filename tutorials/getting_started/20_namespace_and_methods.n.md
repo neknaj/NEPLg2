@@ -17,6 +17,7 @@ stdout: mlstr:
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/math" as *
 
 trait SizeCode:
     fn size_code <(Self)->i32> (x):

@@ -11,6 +11,7 @@
 #import "alloc/collections/vec" as vec
 #import "../types" as *
 #import "../storage" as *
+#import "core/field" as *
 
 //: ## free
 //: dense/sparse [配列/はいれつ]を[解放/かいほう]する

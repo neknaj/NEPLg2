@@ -89,6 +89,7 @@ ret: 1
 #target std
 #indent 4
 #import "core/mem" as *
+#import "core/mem/internal" as *
 #import "core/math" as *
 
 fn main <()->i32> ():

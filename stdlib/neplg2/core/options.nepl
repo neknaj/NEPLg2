@@ -37,6 +37,7 @@
 
 #import "core/option" as *
 #import "core/traits/copy" as *
+#import "core/math" as *
 
 //: SelfhostCompileTarget: compiler core が扱う compile target
 //:

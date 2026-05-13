@@ -13,6 +13,7 @@ ret: 0
 #import "neplg2/cli/file_io" as *
 #import "neplg2/core/module/loader" as *
 #import "std/fs" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let path <str> "tmp/selfhost_file_io_read_root.nepl"
@@ -44,6 +45,7 @@ ret: 0
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     match selfhost_cli_file_io_read_root_vfs "__selfhost_file_io_missing_source__.nepl":

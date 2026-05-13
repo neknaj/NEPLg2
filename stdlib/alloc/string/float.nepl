@@ -9,6 +9,7 @@
 //: - root facade へ formatting / parsing 本体を戻さず、source policy で分割境界を監視します。
 
 #indent 4
+#import "core/math" as *
 
 pub #import "./float/format" as *
 pub #import "./float/parse" as *

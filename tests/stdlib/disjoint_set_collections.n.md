@@ -23,6 +23,7 @@ ret: 1
 #import "alloc/collections/disjoint_set" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let dsu0 <DisjointSet>:
@@ -105,6 +106,7 @@ ret: 1
 #import "alloc/collections/disjoint_set" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let len_ok <bool> match new 0:
@@ -164,6 +166,7 @@ ret: 1
 #import "alloc/collections/disjoint_set" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let dsu <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
@@ -198,6 +201,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "alloc/string" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let neg <i32> sub 0 1

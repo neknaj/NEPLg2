@@ -7,6 +7,7 @@
 //: - API facade に実装本体を戻さず、internal tree owner を動かす操作と借用で読む操作の境界を見える形に保ちます。
 
 #indent 4
+#import "core/math" as *
 
 pub #import "./api/diagnostic" as @merge
 pub #import "./api/create" as @merge

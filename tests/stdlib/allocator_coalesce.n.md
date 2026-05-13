@@ -13,6 +13,8 @@ neplg2:test
 #entry main
 #indent 4
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 fn main <()*>i32> ():
@@ -39,6 +41,8 @@ neplg2:test
 #entry main
 #indent 4
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 fn main <()*>i32> ():
@@ -65,6 +69,8 @@ neplg2:test
 #entry main
 #indent 4
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 fn main <()*>i32> ():

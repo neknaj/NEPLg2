@@ -10,6 +10,9 @@ ret: 1
 #target core
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 fn main <()->i32> ():
@@ -37,6 +40,9 @@ ret: 1
 #target core
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 fn main <()->i32> ():
@@ -67,6 +73,9 @@ ret: 1
 #target core
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 fn main <()->i32> ():
@@ -88,6 +97,9 @@ diag_code: type.trait_bound.unsatisfied
 #target core
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -112,6 +124,9 @@ diag_code: type.trait_bound.unsatisfied
 #target core
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -136,6 +151,9 @@ ret: 1
 #target core
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 fn main <()->i32> ():
@@ -179,6 +197,9 @@ ret: 1
 #target core
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 fn main <()->i32> ():

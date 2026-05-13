@@ -26,6 +26,7 @@ ret: 19
 #indent 4
 #target core
 #import "core/math" as math
+#import "core/math" as *
 
 fn main <()->i32> ():
     math::add math::add 3 4 math::mul 3 4

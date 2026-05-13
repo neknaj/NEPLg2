@@ -9,9 +9,11 @@
 
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "std/stdio" as *
+#import "core/field" as *
 
 //: ## StreamWriter
 //: write target へ[追記/ついき]していく buffered sink

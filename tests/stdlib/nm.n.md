@@ -81,6 +81,7 @@ ret: 0
 #import "alloc/string" as *
 #import "nm/parser" as *
 #import "nm/html_gen" as *
+#import "core/math" as *
 
 fn main <()->i32> ():
     let doc <Document> parse_markdown "&<>'\"\n";

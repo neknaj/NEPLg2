@@ -5,6 +5,7 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "./types" as *
+#import "core/math" as *
 
 //: # args/classify
 //: NEPLg2.0 self-host CLI の argv token / option value 分類を[集/あつ]める module です。

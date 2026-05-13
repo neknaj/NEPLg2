@@ -14,6 +14,7 @@
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort/common" as *
+#import "core/field" as *
 //: sort_quick_partition_data: Lomuto partition で pivot 位置を決める
 //:
 //: [目的/もくてき]:

@@ -16,6 +16,7 @@ neplg2:test
 #import "core/math" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, Diag>)*>HashMap<i32,i32,DefaultHash32>> (r):
     match r:

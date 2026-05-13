@@ -61,6 +61,7 @@ ret: 1
 #import "alloc/collections/fenwick" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let fw0 <Fenwick>:
@@ -94,6 +95,7 @@ ret: 1
 #import "alloc/collections/fenwick" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let fw <Fenwick> unwrap_ok<Fenwick, Diag> new 4;
@@ -128,6 +130,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "alloc/string" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let neg <i32> sub 0 1

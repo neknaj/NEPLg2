@@ -43,6 +43,7 @@ ret: 0
 
 #import "features/tui" as tui
 #import "core/math" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let size tui::get_terminal_size;

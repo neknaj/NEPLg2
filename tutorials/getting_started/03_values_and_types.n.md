@@ -16,6 +16,7 @@ stdout: mlstr:
 |
 #import "core/result" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let n <i32> 40

@@ -8,7 +8,9 @@
 #indent 4
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
 #import "std/streamio/scanner/state" as *
+#import "core/math" as *
 
 //: stream_scanner_is_leading_skip_byte: scanner 先頭で読み飛ばす byte か判定する
 //:

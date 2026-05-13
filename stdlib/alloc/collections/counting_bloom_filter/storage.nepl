@@ -13,6 +13,7 @@
 #import "core/result" as *
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
+#import "core/field" as *
 
 pub fn counting_bloom_counter_at <(&Vec<u8>,i32)->Option<i32>> (counters, idx):
     match vec::get<u8> counters idx:

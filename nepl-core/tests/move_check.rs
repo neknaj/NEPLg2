@@ -65,6 +65,7 @@ fn move_simple_ok() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -82,6 +83,7 @@ fn move_use_after_move() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -103,6 +105,7 @@ fn move_in_branch() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -129,6 +132,7 @@ fn move_in_loop() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -151,6 +155,7 @@ fn move_reassign_non_copy() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -184,6 +189,7 @@ fn move_reference_ok() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -202,6 +208,7 @@ fn move_live_reference_blocks_move() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -224,6 +231,7 @@ fn move_mut_reference_call_arg_is_temporary_borrow() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -249,6 +257,7 @@ fn move_call_mut_and_shared_reference_args_overlap_rejected() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -273,6 +282,7 @@ fn move_call_shared_and_mut_reference_args_overlap_rejected() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -297,6 +307,7 @@ fn move_struct_mut_and_shared_reference_fields_overlap_rejected() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -322,6 +333,7 @@ fn move_tuple_mut_and_shared_reference_items_overlap_rejected() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -345,6 +357,7 @@ fn move_unique_reference_blocks_owner_move_while_live() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -367,6 +380,7 @@ fn move_unique_reference_last_use_releases_owner() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -386,6 +400,7 @@ fn move_mut_reference_is_not_copy() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -408,6 +423,7 @@ fn move_shared_borrow_blocks_unique_borrow() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -430,6 +446,7 @@ fn move_unique_borrow_blocks_shared_borrow() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -504,6 +521,7 @@ fn move_branch_reference_last_use_releases_at_join() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -529,6 +547,7 @@ fn move_branch_retained_borrow_blocks_later_move() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -558,6 +577,7 @@ fn move_borrow_after_move_err() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -579,6 +599,7 @@ fn move_return_local_reference_err() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -603,6 +624,7 @@ fn move_block_local_reference_escape_err() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -625,6 +647,7 @@ fn move_set_outer_reference_to_inner_local_err() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -649,6 +672,7 @@ fn move_return_local_reference_inside_struct_err() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -677,6 +701,7 @@ fn move_block_local_reference_inside_struct_escape_err() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -703,6 +728,7 @@ fn move_set_outer_struct_reference_to_inner_local_err() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -731,6 +757,7 @@ fn move_call_return_reference_to_block_local_err() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -756,6 +783,7 @@ fn move_call_return_struct_reference_to_block_local_err() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -784,6 +812,7 @@ fn move_pass_to_function_err() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -808,6 +837,7 @@ fn move_struct_field_err() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -833,6 +863,7 @@ fn move_distinct_owned_struct_fields_once_ok() {
 #indent 4
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -862,6 +893,7 @@ fn move_same_owned_struct_field_twice_rejected() {
 #indent 4
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -889,6 +921,7 @@ fn move_generic_distinct_owned_struct_fields_once_ok() {
 #indent 4
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -916,6 +949,7 @@ fn move_generic_same_owned_struct_field_twice_rejected() {
 #indent 4
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -946,6 +980,7 @@ fn move_owner_after_partial_field_move_rejected() {
 #indent 4
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -975,6 +1010,7 @@ fn move_raw_aggregate_copy_field_read_keeps_whole_place_available() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 #import "core/field" as field
 #import "core/math" as *
 
@@ -1005,6 +1041,7 @@ fn move_raw_aggregate_non_copy_field_move_blocks_whole_load() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 #import "core/field" as field
 
 struct LocalToken:
@@ -1035,6 +1072,7 @@ fn move_field_from_borrowed_owner_rejected() {
 #indent 4
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -1065,6 +1103,7 @@ fn move_deref_copy_reference_ok() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 fn main <()*>()> ():
     let x <i32> 7;
@@ -1081,6 +1120,7 @@ fn move_deref_non_copy_reference_rejected() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -1103,6 +1143,7 @@ fn move_deref_non_copy_field_reference_rejected() {
 #indent 4
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -1128,6 +1169,7 @@ fn move_branch_reinit_mixed() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -1152,6 +1194,7 @@ fn move_nested_match_potentially_moved() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -1183,6 +1226,7 @@ fn move_in_match_arms() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -1210,6 +1254,7 @@ fn move_match_reference_payload_blocks_owner_move_while_live() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -1241,6 +1286,7 @@ fn move_match_reference_payload_last_use_releases_owner() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -1270,6 +1316,7 @@ fn move_loop_owned_accumulator_reassigned_after_result_ok() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 enum Wrapper:
@@ -1300,6 +1347,7 @@ fn move_loop_owned_accumulator_err_continue_without_reinit_rejected() {
 #target wasi
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 enum Wrapper:
@@ -1332,6 +1380,7 @@ fn move_borrowed_field_projection_keeps_owner_until_reference_last_use() {
 #indent 4
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -1364,6 +1413,7 @@ fn move_borrowed_field_projection_blocks_owner_move_while_live() {
 #indent 4
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>
@@ -1398,6 +1448,7 @@ fn move_borrowed_field_projection_escape_rejected() {
 #indent 4
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/raw" as *
 
 enum Wrapper:
     Val <i32>

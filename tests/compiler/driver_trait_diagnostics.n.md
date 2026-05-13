@@ -26,6 +26,7 @@ diag_code: type.trait_method.type_params_unsupported
 #entry main
 #indent 4
 #target core
+#import "core/field" as *
 
 trait Boxy:
     fn get <.T> <(Self)->.T> (x):

@@ -10,6 +10,8 @@
 #import "core/field" as field
 #import "alloc/collections/vec" as vec
 #import "../types" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: ## clear
 //: [全/すべ]ての[要素/ようそ]を[削除/さくじょ]する

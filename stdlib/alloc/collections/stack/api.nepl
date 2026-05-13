@@ -20,6 +20,7 @@
 #import "alloc/collections/vec" as vec
 #import "./types" as *
 #import "./storage" as *
+#import "core/field" as *
 
 //: ## new
 //: [既定/きてい][容量/ようりょう]の[空/から] stack を[作/つく]る

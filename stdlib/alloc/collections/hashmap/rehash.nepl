@@ -18,6 +18,7 @@
 #import "alloc/collections/hashmap/types" as *
 #import "alloc/collections/hashmap/storage" as *
 #import "alloc/collections/hashmap/probe" as *
+#import "core/field" as *
 
 //: hashmap_rehash_to: live entry だけを新しい storage へ[再配置/さいはいち]する
 //:

@@ -15,6 +15,7 @@
 #import "core/traits/copy" as *
 #import "alloc/collections/hashmap/types" as *
 #import "alloc/collections/hashmap/storage" as *
+#import "core/field" as *
 
 //: hashmap_bucket_index: hash から bucket index を[計算/けいさん]する
 //:

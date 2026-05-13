@@ -34,6 +34,7 @@
 #import "./html_section" as *
 #import "./parser" as *
 #import "./parser/scanner" as scan
+#import "core/field" as *
 
 //: nm_render_source_html: source を HTML fragment に変換する
 //:

@@ -9,6 +9,8 @@
 #import "core/field" as field
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
+#import "core/field" as *
+#import "core/math" as *
 
 //: ## Fenwick
 //: [点更新/てんこうしん]と[累積和/るいせきわ]クエリを[保持/ほじ]する[所有者/しょゆうしゃ]

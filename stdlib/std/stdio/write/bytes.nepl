@@ -12,6 +12,8 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "./fd" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: ## stdio_write_bytes_result
 //: `ByteBuf` を stdout へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す

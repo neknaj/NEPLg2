@@ -40,6 +40,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
+#import "core/field" as *
 
 //: SelfhostTypeId: type arena 内の stable index
 pub struct SelfhostTypeId:

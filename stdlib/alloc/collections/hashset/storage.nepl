@@ -15,6 +15,7 @@
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
 #import "alloc/collections/hashset/types" as *
+#import "core/field" as *
 
 //: hashset_storage_states: storage の state Vec を borrow する
 pub fn hashset_storage_states <.T> <(&HashSetStorage<.T>)->&Vec<HashSetBucketState>> (storage):

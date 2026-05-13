@@ -40,6 +40,7 @@ neplg2:test
 #import "core/traits/deserialize" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;

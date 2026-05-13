@@ -44,6 +44,7 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
+#import "core/field" as *
 
 //: SelfhostDiagSeverity: diagnostic の[重大度/じゅうだいど]
 pub enum SelfhostDiagSeverity:

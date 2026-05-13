@@ -13,6 +13,7 @@
 #import "../types" as *
 #import "../storage" as vec_storage
 #import "../raw" as vec_raw
+#import "core/field" as *
 
 //: ## pop
 //: [末尾/まつび][要素/ようそ]を[取/と]り[出/だ]す

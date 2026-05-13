@@ -13,6 +13,7 @@ ret: 1734
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn make_vec4 <()->Vec<i32>> ():
     let mut v <Vec<i32>> unwrap_ok new<i32>;

@@ -9,6 +9,7 @@
 #import "core/field" as field
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
+#import "core/field" as *
 
 //: ## BitSet
 //: bit [配列/はいれつ]を[所有/しょゆう]する fixed-length set

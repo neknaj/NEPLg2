@@ -11,6 +11,7 @@
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort/common" as *
+#import "core/field" as *
 //: sort_heap_sift_down_data: max-heap の root を下へ沈める
 //:
 //: [目的/もくてき]:

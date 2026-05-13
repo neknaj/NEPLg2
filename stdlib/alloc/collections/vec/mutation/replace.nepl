@@ -11,6 +11,7 @@
 #import "core/field" as field
 #import "../types" as *
 #import "../raw" as vec_raw
+#import "core/field" as *
 
 //: ## replace
 //: [要素/ようそ]を[上書/うわが]きする（[範囲外/はんいがい]は[無視/むし]）

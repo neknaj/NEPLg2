@@ -20,6 +20,8 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let src_first <List<i32>>:
@@ -100,6 +102,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn inc <(i32)->i32> (x):
     add x 1

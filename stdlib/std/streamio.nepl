@@ -41,6 +41,7 @@
 //: ```
 
 #indent 4
+#import "core/math" as *
 
 pub #import "./streamio/input" as *
 pub #import "./streamio/output" as *

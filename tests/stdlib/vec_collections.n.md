@@ -23,6 +23,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let empty <Vec<i32>> unwrap_ok with_capacity<i32> 0;
@@ -77,6 +78,7 @@ ret: 1
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let unsorted <Vec<i32>>:
@@ -127,6 +129,7 @@ ret: 1
 #import "alloc/collections/vec" as *
 #import "alloc/string" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let neg <i32> sub 0 1

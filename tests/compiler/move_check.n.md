@@ -548,6 +548,7 @@ ret: 2
 #entry main
 #indent 4
 #target core
+#import "core/math" as *
 
 fn main <()->i32> ():
     let x <i32> 1
@@ -635,6 +636,7 @@ ret: 0
 #indent 4
 #target core
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -666,6 +668,7 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -692,6 +695,7 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -721,6 +725,7 @@ diag_code: resource.borrow.move_from_shared
 #indent 4
 #target core
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -787,6 +792,7 @@ diag_code: resource.borrow.move_from_shared
 #indent 4
 #target core
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1167,6 +1173,7 @@ ret: 0
 #indent 4
 #target core
 #import "core/result" as *
+#import "core/math" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1200,6 +1207,7 @@ diag_code: resource.cell.possibly_moved
 #indent 4
 #target core
 #import "core/result" as *
+#import "core/math" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1233,6 +1241,7 @@ ret: 0
 #indent 4
 #target core
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1267,6 +1276,7 @@ diag_code: resource.borrow.move_from_shared
 #indent 4
 #target core
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1300,6 +1310,7 @@ diag_code: resource.borrow.return_escape
 #indent 4
 #target core
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>

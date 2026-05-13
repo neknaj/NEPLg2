@@ -15,6 +15,7 @@ neplg2:test
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/span" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new
@@ -73,6 +74,7 @@ neplg2:test
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/infra/outcome" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new
@@ -129,9 +131,12 @@ ret: 0
 #import "core/field" as field
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 #import "core/traits/drop" as *
 #import "neplg2/core/infra/outcome" as *
+#import "core/field" as *
 
 struct DropCounter:
     counter <MemPtr<i32>>

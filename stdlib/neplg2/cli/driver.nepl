@@ -69,6 +69,8 @@
 #import "neplg2/core/module/loader" as *
 #import "neplg2/core/options" as *
 #import "neplg2/core/pipeline" as *
+#import "core/field" as *
+#import "core/math" as *
 
 //: SelfhostCliDriverResult: CLI driver が返す exit code と diagnostics
 //:

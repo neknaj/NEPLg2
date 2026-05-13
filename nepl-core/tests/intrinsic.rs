@@ -10,6 +10,8 @@ fn intrinsic_size_and_align_direct() {
 #indent 4
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()->i32> ():
     let s_i64 <i32> size_of<i64>;
@@ -34,6 +36,8 @@ fn intrinsic_load_store_i64() {
 #indent 4
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/cast" as *
 
 fn main <()->i32> ():
@@ -57,6 +61,8 @@ fn intrinsic_load_store_f64() {
 #indent 4
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/cast" as *
 
 fn main <()->i32> ():

@@ -15,6 +15,7 @@
 //: - raw storage の読み取りは各実装 submodule から `vec/raw` helper に[委譲/いじょう]します。
 
 #indent 4
+#import "core/field" as *
 
 pub #import "./query/get" as @merge
 pub #import "./query/aggregate" as @merge

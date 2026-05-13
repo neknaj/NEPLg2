@@ -14,6 +14,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "core/mem" as *
+//:| #import "core/mem/internal" as *
 //:| #import "core/result" as *
 //:| #import "std/fs/raw" as *
 //: fn main <()*>i32> ():
@@ -25,6 +26,7 @@
 //: ```
 
 #indent 4
+#import "core/math" as *
 
 pub #import "std/fs/raw/wasi" as *
 pub #import "std/fs/raw/fd_io" as *

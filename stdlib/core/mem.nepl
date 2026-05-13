@@ -1,23 +1,21 @@
 #indent 4
 
-//: mem: メモリ管理と低レベルロード/ストア
+//: mem: 安全側のメモリ facade
 //:
 //: 目的:
-//: - WASM 線形メモリ上でのアロケータと基本的な load/store を提供します。
+//: - `MemPtr` / `RegionToken` の公開型、layout 計算、検査付き pointer API を提供します。
+//: - raw allocator、raw address 変換、任意型 load/store は internal submodule に閉じ、ここからは再公開しません。
 //:
 //: 実装(アルゴリズム):
-//: - free list と bump を併用し、8 バイト境界に整列します。
-//: - 0..4 に heap_ptr、4..8 に free_list_head を置きます。
-//: - 最初の割り当てブロックは metadata の後ろ、8 バイト目以降から始めます。
-//: - free list は address order で管理し、解放時に隣接 block を coalesce します。
+//: - `mem/types`、`mem/layout`、`mem/pointer` を public re-export します。
+//: - allocator と raw load/store の実装は private import 経由で `mem/pointer` からだけ使います。
 //:
 //: 注意(重要):
-//: - 領域の再利用は first-fit です。隣接 block は結合しますが、best-fit などの細かな最適化は行いません。
-//: - 無効なポインタを渡すと未定義動作になります。
+//: - safe caller は `alloc_ptr` / `alloc_region` / `load_i32(MemPtr<i32>)` などの検査付き API を使います。
+//: - raw helper が必要な stdlib 実装は、責務を確認したうえで internal module を明示 import します。
 //:
 //: 計算量:
-//: - alloc_raw/free は free list の探索で O(n) になり得ます。
-//: - 連続バイト列のコピーには `mem_copy` / `mem_move` を使い、backend の bulk copy 命令へ下げます。
+//: - facade 自体は再公開だけなので O(1) です。各 API の計算量は submodule の doc を参照してください。
 //:
 //: ---
 //:
@@ -44,29 +42,22 @@
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let p alloc_raw 4;
-//:     let ok0 <bool> ne 0 p;
-//:     store_i32 p 123;
-//:     let ok1 <bool> eq load_i32 p 123;
-//:     dealloc_raw p 4;
-//:     if and ok0 ok1 1 0
-//: ```
-//:
-//: neplg2:test
-//: ```neplg2
-//:| #entry main
-//:| #target std
-//:| #import "core/mem" as *
-//:| #import "core/math" as *
+//:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main <()*>i32> ():
 //:     match alloc_ptr<i32> 4:
 //:         Result::Ok p:
-//:             let raw <i32> mem_ptr_addr p;
-//:             match dealloc_ptr<i32> p 4:
+//:             match store_i32 p 123:
 //:                 Result::Ok _:
-//:                     if gt raw 0 1 0
+//:                     match load_i32 p:
+//:                         Option::Some v:
+//:                             match dealloc_ptr<i32> p 4:
+//:                                 Result::Ok _:
+//:                                     if eq v 123 1 0
+//:                                 Result::Err _:
+//:                                     0
+//:                         Option::None:
+//:                             0
 //:                 Result::Err _:
 //:                     0
 //:         Result::Err _:
@@ -79,19 +70,20 @@
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
+//:| #import "core/result" as *
 //: fn main <()*>i32> ():
-//:     let p0 <i32> alloc_raw 64;
-//:     dealloc_raw p0 64;
-//:     let p1 <i32> alloc_raw 8;
-//:     let p2 <i32> alloc_raw 16;
-//:     let ok0 <bool> eq p1 p0;
-//:     let ok1 <bool> eq p2 add p1 16;
-//:     dealloc_raw p2 16;
-//:     dealloc_raw p1 8;
-//:     if and ok0 ok1 1 0
+//:     match alloc_region<i32> 2:
+//:         Result::Ok region:
+//:             let ok <bool> eq region_size &region 8;
+//:             match dealloc_region<i32> region:
+//:                 Result::Ok _:
+//:                     if ok 1 0
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
 //: ```
 
 pub #import "./mem/types" as *
-pub #import "./mem/raw" as *
-pub #import "./mem/allocator" as *
+pub #import "./mem/layout" as *
 pub #import "./mem/pointer" as *

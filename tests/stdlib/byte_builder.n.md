@@ -15,6 +15,9 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -96,6 +99,9 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
 
@@ -144,8 +150,12 @@ ret: 0
 #import "std/test" as *
 #import "alloc/io" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn expect_byte <(&ByteBuf,i32,i32)->Result<(),str>> (bytes, idx, expected):
     match io_bytebuf_byte_at bytes idx:

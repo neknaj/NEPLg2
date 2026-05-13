@@ -3,6 +3,9 @@
 
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "alloc/collections/vec" as *
 #import "core/field" as *
 #import "core/traits/copy" as *
@@ -25,6 +28,9 @@
 //:| #target std
 //:| #import "kp/kpprefix" as *
 //:| #import "core/mem" as *
+//:| #import "core/mem/internal" as *
+//:| #import "core/mem/allocator" as *
+//:| #import "core/mem/raw" as *
 //:| #import "std/stdio" as *
 //: fn main <()*> ()> ():
 //:     let n <i32> 5;

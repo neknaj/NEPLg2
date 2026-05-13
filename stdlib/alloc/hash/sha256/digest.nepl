@@ -12,6 +12,7 @@
 #import "core/field" as field
 #import "core/math" as *
 #import "core/result" as *
+#import "core/field" as *
 
 //: sha256_push_byte: digest output に 1 byte を[追加/ついか]する
 //:

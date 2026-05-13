@@ -88,6 +88,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/option" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 0;

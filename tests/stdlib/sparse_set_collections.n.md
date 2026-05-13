@@ -25,6 +25,7 @@ ret: 1
 #import "alloc/collections/sparse_set" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let s0 <SparseSet>:
@@ -105,6 +106,7 @@ ret: 1
 #import "alloc/collections/sparse_set" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let len_ok <bool> match new 0:

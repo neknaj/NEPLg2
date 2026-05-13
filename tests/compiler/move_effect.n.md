@@ -11,6 +11,9 @@ diag_code: effect.pure.calls_impure
 #import "core/cast" as *
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn compute <()->i32> ():
     let p <i32> alloc_raw 4
@@ -32,6 +35,9 @@ diag_code: effect.pure.calls_impure
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn release_external <(i32)->i32> (p):
     dealloc_raw p 4
@@ -50,6 +56,9 @@ diag_code: effect.pure.calls_impure
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn resize_external <(i32)->i32> (p):
     let q <i32> realloc_raw p 4 8
@@ -69,6 +78,9 @@ diag_code: effect.pure.calls_impure
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn observe_memory <()->i32> ():
     mem_size
@@ -86,6 +98,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn leak_raw <()->i32> ():
     alloc_raw 4
@@ -103,6 +118,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct RawBox:
     ptr <i32>
@@ -125,6 +143,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn raw_id <(i32)->i32> (p):
     p
@@ -146,6 +167,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn raw_id <(i32)->i32> (p):
     p
@@ -168,6 +192,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn raw_id <(i32)->i32> (p):
     p
@@ -192,6 +219,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn leak_via_raw_slot <()->i32> ():
     let p <i32> alloc_raw 4
@@ -212,6 +242,10 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
 
 fn leak_via_realloc_slot <()->i32> ():
     let p <i32> alloc_raw 4
@@ -238,6 +272,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn leak_via_copied_slot <()->i32> ():
     let p <i32> alloc_raw 4
@@ -260,6 +297,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn leak_via_param_slot <(i32)->i32> (slot):
     let p <i32> alloc_raw 4
@@ -280,6 +320,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn leak_via_copied_param_slot <(i32)->i32> (slot):
     let alias <i32> slot
@@ -301,6 +344,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn raw_slot_id <(i32,i32)->i32> (slot, p):
     store_i32 slot p
@@ -321,6 +367,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn slot_id <(i32)->i32> (slot):
     slot
@@ -345,6 +394,9 @@ diag_code: resource.raw.identity_escape
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn slot_id2 <(i32)->i32> (slot):
     slot
@@ -403,6 +455,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -427,6 +482,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -452,6 +510,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -478,6 +539,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -503,6 +567,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -528,6 +595,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -553,6 +623,9 @@ ret: 0
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -579,6 +652,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -608,6 +684,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -638,6 +717,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -666,6 +748,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -695,6 +780,10 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -724,6 +813,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 struct LocalToken:
@@ -750,6 +842,9 @@ ret: 0
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 struct LocalToken:
@@ -778,6 +873,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 struct LocalToken:
@@ -809,6 +907,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -832,6 +933,9 @@ ret: 0
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -856,6 +960,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -879,6 +986,9 @@ ret: 0
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -903,6 +1013,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -927,6 +1040,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -952,6 +1068,9 @@ ret: 0
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -984,6 +1103,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -1014,6 +1136,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -1047,6 +1172,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -1077,6 +1205,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -1112,7 +1243,11 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1142,7 +1277,11 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1177,8 +1316,12 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/field" as field
 #import "core/result" as *
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1213,8 +1356,12 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/field" as field
 #import "core/result" as *
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1254,6 +1401,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1282,7 +1432,11 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1315,6 +1469,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -1348,8 +1505,12 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/field" as field
 #import "core/result" as *
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1387,6 +1548,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1419,6 +1583,9 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -1451,6 +1618,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1474,6 +1644,10 @@ ret: 0
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1505,6 +1679,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/result" as *
 
 struct LocalToken:
@@ -1529,6 +1706,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1553,6 +1733,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1577,6 +1760,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1601,6 +1787,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1628,6 +1817,9 @@ ret: 0
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1653,6 +1845,9 @@ ret: 123
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()*>i32> ():
     let src <i32> 16
@@ -1671,6 +1866,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1694,6 +1892,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1718,6 +1919,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1746,6 +1950,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1781,6 +1988,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1812,6 +2022,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1846,6 +2059,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1884,6 +2100,10 @@ diag_code: resource.cell.initialized_conflict
 #target core
 #import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1920,6 +2140,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/option" as *
 
 struct LocalToken:
@@ -1956,6 +2179,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -1979,6 +2205,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -2002,6 +2231,9 @@ diag_code: resource.cell.initialized_conflict
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -2025,6 +2257,9 @@ ret: 0
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -2049,6 +2284,9 @@ ret: 456
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 
 fn main <()*>i32> ():
     let p <i32> 16
@@ -2066,8 +2304,12 @@ ret: 14
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/field" as field
 #import "core/math" as *
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -2097,7 +2339,11 @@ ret: 14
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -2127,8 +2373,12 @@ ret: 14
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/traits/copy" as *
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -2159,8 +2409,12 @@ ret: 14
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 #import "core/traits/copy" as *
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -2194,6 +2448,9 @@ ret: 2
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/math" as *
 
 struct LocalToken:
@@ -2222,7 +2479,11 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -2251,7 +2512,11 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "core/field" as field
+#import "core/field" as *
 
 struct LocalToken:
     raw <(i32)->i32>
@@ -2281,6 +2546,7 @@ diag_code: effect.pure.calls_impure
 #target std
 
 #import "std/stdio" as *
+#import "core/field" as *
 
 fn put <(i32)*>()> (x):
     print_i32 x

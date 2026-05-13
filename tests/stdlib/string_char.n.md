@@ -59,6 +59,7 @@ ret: 0
 #import "core/field" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn expect_next <(str,Result<CharUtf8Step,str>,i32,i32)*>Result<(),str>> (label, got, expected_code, expected_next):
     match got:

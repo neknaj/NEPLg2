@@ -1,0 +1,206 @@
+#indent 4
+
+//: mem/pointer/bulk: MemPtr bulk memory wrapper
+//:
+//: 目的:
+//: - byte fill / typed copy / typed move を `MemPtr` ベースの checked API として提供します。
+//: - raw address 操作はこの raw-memory-boundary implementation 内でだけ使います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<u8> 1:
+//:         Result::Ok region:
+//:             match fill_u8 region_ptr &region 1 3:
+//:                 Result::Ok _:
+//:                     match dealloc_region<u8> region:
+//:                         Result::Ok _:
+//:                             1
+//:                         Result::Err _:
+//:                             0
+//:                 Result::Err _:
+//:                     match dealloc_region<u8> region:
+//:                         Result::Ok _:
+//:                             0
+//:                         Result::Err _:
+//:                             0
+//:         Result::Err _:
+//:             0
+//: ```
+
+#import "core/math" as *
+#import "core/result" as *
+#import "../types" as *
+#import "../layout" as *
+#import "../internal" as *
+#import "../raw" as *
+
+//: memset_u8: MemPtr<u8> の byte range を同じ値で埋める
+//:
+//: 目的:
+//: - raw address を public caller に出さず、`MemPtr<u8>` 経由で byte fill を行います。
+//:
+//: 実装(アルゴリズム):
+//: - pointer と長さを検査し、内部では raw `memset_u8(i32,i32,i32)` に委譲します。
+//:
+//: 注意(重要):
+//: - `len == 0` でも pointer が 0 以下の場合は現行実装では `Err` です。
+//: - non-Copy payload を含む live range の byte overwrite は Resource IR gate が別途拒否します。
+//:
+//: 計算量:
+//: - O(len)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main <()*>i32> ():
+//:     match alloc_region<u8> 2:
+//:         Result::Ok region:
+//:             let p <MemPtr<u8>> region_ptr &region
+//:             match memset_u8 p 2 7:
+//:                 Result::Ok _:
+//:                     let ok <bool> match load_u8 p:
+//:                         Option::Some v:
+//:                             eq v 7
+//:                         Option::None:
+//:                             false
+//:                     match dealloc_region<u8> region:
+//:                         Result::Ok _:
+//:                             if ok 1 0
+//:                         Result::Err _:
+//:                             0
+//:                 Result::Err _:
+//:                     match dealloc_region<u8> region:
+//:                         Result::Ok _:
+//:                             0
+//:                         Result::Err _:
+//:                             0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn memset_u8 <(MemPtr<u8>,i32,i32)->Result<(),str>> (ptr, len, value):
+    let raw <i32> mem_ptr_addr ptr;
+    if:
+        or lt raw 1 lt len 0
+        then:
+            Result<(),str>::Err "mem.memset_u8 invalid argument"
+        else:
+            memset_u8 raw len value
+            Result<(),str>::Ok ()
+
+//: fill_u8: MemPtr<u8> を受け取る安全オーバーロード
+//:
+//: 目的:
+//: - `fill_u8` を `MemPtr` で利用できるようにし、呼び出し側の生ポインタ露出を減らします。
+//:
+//: 実装(アルゴリズム):
+//: - `memset_u8` へ委譲します。
+//:
+//: 計算量:
+//: - O(len)
+pub fn fill_u8 <(MemPtr<u8>,i32,i32)->Result<(),str>> (ptr, len, value):
+    memset_u8 ptr len value
+
+//: fill_i32: MemPtr<i32> を受け取る安全オーバーロード
+//:
+//: 目的:
+//: - 無効ポインタを `Result::Err` として扱い、`i32` 生ポインタ境界を減らします。
+//:
+//: 実装(アルゴリズム):
+//: - pointer と count を検査し、raw `fill_i32` へ委譲します。
+//:
+//: 計算量:
+//: - O(count)
+pub fn fill_i32 <(MemPtr<i32>,i32,i32)->Result<(),str>> (ptr, count, value):
+    let raw <i32> mem_ptr_addr ptr;
+    if:
+        or lt raw 1 lt count 0
+        then:
+            Result<(),str>::Err "mem.fill_i32 invalid argument"
+        else:
+            fill_i32 raw count value
+            Result<(),str>::Ok ()
+
+//: mem_copy: MemPtr の要素列をまとめてコピーする安全オーバーロード
+//:
+//: 目的:
+//: - `src` から `dst` へ `count` 個の `.T` 要素をコピーします。
+//: - `.T: Copy` の値だけを対象にし、所有権を持つ non-Copy 値の浅い複製を防ぎます。
+//:
+//: 実装(アルゴリズム):
+//: - `count * size_of<.T>` を byte 数に変換し、raw `mem_copy` に委譲します。
+//:
+//: 注意(重要):
+//: - `dst` と `src` の対象範囲が重ならない場合に使います。
+//: - `count==0` はポインタが 0 でも成功として扱います。
+//: - non-Copy 値を移動初期化する用途には使えません。将来の所有権付き region API で扱います。
+//:
+//: 計算量:
+//: - O(count * size_of<.T>)
+pub fn mem_copy <.T: Copy> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count):
+    let dst_raw <i32> mem_ptr_addr dst;
+    let src_raw <i32> mem_ptr_addr src;
+    if:
+        lt count 0
+        then:
+            Result<(),str>::Err "mem.mem_copy invalid count"
+        else:
+            if:
+                eq count 0
+                then:
+                    Result<(),str>::Ok ()
+                else:
+                    if:
+                        or lt dst_raw 1 lt src_raw 1
+                        then:
+                            Result<(),str>::Err "mem.mem_copy invalid pointer"
+                        else:
+                            mem_copy dst_raw src_raw mul count size_of<.T>
+                            Result<(),str>::Ok ()
+
+//: mem_move: MemPtr の要素列を重なりを許してまとめてコピーする安全オーバーロード
+//:
+//: 目的:
+//: - `src` から `dst` へ `count` 個の `.T` 要素を重なり許容でコピーします。
+//: - `.T: Copy` の値だけを対象にし、所有権を持つ non-Copy 値の浅い複製を防ぎます。
+//:
+//: 実装(アルゴリズム):
+//: - `count * size_of<.T>` を byte 数に変換し、raw `mem_move` に委譲します。
+//:
+//: 注意(重要):
+//: - `dst` と `src` の対象範囲が重なり得る場合はこちらを使います。
+//: - `count==0` はポインタが 0 でも成功として扱います。
+//: - 名前は low-level memory move に合わせていますが、source の所有権を未初期化へ変える操作ではありません。
+//:
+//: 計算量:
+//: - O(count * size_of<.T>)
+pub fn mem_move <.T: Copy> <(MemPtr<.T>,MemPtr<.T>,i32)->Result<(),str>> (dst, src, count):
+    let dst_raw <i32> mem_ptr_addr dst;
+    let src_raw <i32> mem_ptr_addr src;
+    if:
+        lt count 0
+        then:
+            Result<(),str>::Err "mem.mem_move invalid count"
+        else:
+            if:
+                eq count 0
+                then:
+                    Result<(),str>::Ok ()
+                else:
+                    if:
+                        or lt dst_raw 1 lt src_raw 1
+                        then:
+                            Result<(),str>::Err "mem.mem_move invalid pointer"
+                        else:
+                            mem_move dst_raw src_raw mul count size_of<.T>
+                            Result<(),str>::Ok ()

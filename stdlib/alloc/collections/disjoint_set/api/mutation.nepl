@@ -17,6 +17,7 @@
 #import "../storage" as *
 #import "../query" as *
 #import "./diagnostic" as *
+#import "core/field" as *
 
 //: ## union
 //: `a` と `b` の[属/ぞく]する[集合/しゅうごう]を[併合/へいごう]する

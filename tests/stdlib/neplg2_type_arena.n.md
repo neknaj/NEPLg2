@@ -224,6 +224,7 @@ ret: 0
 #import "core/result" as *
 #import "neplg2/core/ty/ty" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn add_one_arg_function <(SelfhostTypeArena,SelfhostTypeId,SelfhostTypeId)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, arg_id, result_id):
     match new<SelfhostTypeId>:
@@ -293,6 +294,7 @@ ret: 0
 #import "core/result" as *
 #import "neplg2/core/ty/ty" as *
 #import "std/test" as *
+#import "core/math" as *
 
 fn add_one_arg_function <(SelfhostTypeArena,SelfhostTypeId,SelfhostTypeId)*>Result<SelfhostTypeArenaAlloc, StdErrorKind>> (arena, arg_id, result_id):
     match new<SelfhostTypeId>:

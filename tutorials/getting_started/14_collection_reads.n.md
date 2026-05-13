@@ -19,6 +19,8 @@ stdout: mlstr:
 #import "core/option" as *
 #import "core/result" as *
 #import "std/test" as *
+#import "core/field" as *
+#import "core/math" as *
 
 fn has_at <(&Vec<i32>,i32,i32)->bool> (v, idx, expected):
     match get<i32> v idx:

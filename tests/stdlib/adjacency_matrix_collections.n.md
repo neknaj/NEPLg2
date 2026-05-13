@@ -22,6 +22,7 @@ ret: 1
 #import "alloc/collections/adjacency_matrix" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let g0 <AdjacencyMatrix>:
@@ -99,6 +100,7 @@ ret: 1
 #import "alloc/collections/adjacency_matrix" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let g0 <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 6;

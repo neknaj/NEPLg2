@@ -9,6 +9,7 @@
 
 #import "core/math" as *
 #import "core/mem" as *
+#import "core/mem/raw" as *
 #import "alloc/string" as *
 #import "std/stdio" as *
 #import "platforms/wasix/tui/ansi" as *

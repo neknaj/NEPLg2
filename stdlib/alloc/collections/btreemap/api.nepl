@@ -6,6 +6,7 @@
 //: - 構築、借用 observer、挿入、削除、cleanup を submodule に分け、API file に実装本体を戻さない構成にします。
 
 #indent 4
+#import "core/field" as *
 
 pub #import "./api/create" as @merge
 pub #import "./api/observer" as @merge

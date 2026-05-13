@@ -15,6 +15,7 @@
 #import "../types" as *
 #import "../mutation" as *
 #import "./diagnostic" as *
+#import "core/field" as *
 
 //: ## fenwick_add_ok
 //: 更新に[成功/せいこう]した `Fenwick` owner を `Result::Ok` へ[包/つつ]む

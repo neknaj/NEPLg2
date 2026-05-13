@@ -93,6 +93,8 @@
 //: ```
 
 #indent 4
+#import "core/field" as *
+#import "core/math" as *
 
 pub #import "./vec/types" as @merge
 pub #import "./vec/storage" as @merge

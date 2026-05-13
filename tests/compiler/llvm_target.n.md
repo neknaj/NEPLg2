@@ -66,6 +66,8 @@ neplg2:test[llvm_cli]
 #entry main
 #indent 4
 #import "core/mem" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
 
 #llvmir:
     define i32 @main() {

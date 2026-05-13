@@ -10,11 +10,14 @@
 #indent 4
 
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
 #import "core/math" as *
 #import "core/result" as *
 #import "core/traits/ord" as *
 #import "alloc/collections/vec" as *
 #import "./range" as *
+#import "core/field" as *
 
 //: ## sort_merge
 //: `Vec<.T>` を merge sort で破壊的に整列する

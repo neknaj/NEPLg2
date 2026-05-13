@@ -11,6 +11,7 @@
 //: - `pop_max` は[更新後/こうしんご]の owner と[取/と]り[出/だ]した `Option<T>` を[同時/どうじ]に[返/かえ]します。
 
 #indent 4
+#import "core/math" as *
 
 pub #import "./binary_heap/types" as @merge
 pub #import "./binary_heap/api" as @merge

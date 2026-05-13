@@ -21,6 +21,7 @@
 #import "./types" as *
 #import "./index" as *
 #import "./storage" as *
+#import "core/field" as *
 
 //: ## new
 //: [既定/きてい][容量/ようりょう]の[空/から]バッファを[作/つく]る

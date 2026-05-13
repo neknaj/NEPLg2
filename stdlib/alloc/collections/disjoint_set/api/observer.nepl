@@ -16,6 +16,7 @@
 #import "../types" as *
 #import "../query" as *
 #import "./diagnostic" as *
+#import "core/field" as *
 
 //: ## len
 //: [保持/ほじ]している[要素数/ようそすう]を[返/かえ]す

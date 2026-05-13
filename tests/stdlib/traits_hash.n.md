@@ -14,6 +14,7 @@ neplg2:test
 #import "std/test" as *
 #import "core/traits/hash" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -38,6 +39,7 @@ diag_code: type.impl.method_not_in_trait
 #target core
 #indent 4
 #import "core/traits/hash_key" as *
+#import "core/math" as *
 
 struct Token:
     raw <i32>
@@ -70,6 +72,7 @@ diag_code: resource.cell.moved
 #target core
 #indent 4
 #import "core/traits/hash_key" as *
+#import "core/math" as *
 
 struct Token:
     raw <(i32)->i32>
@@ -149,6 +152,7 @@ neplg2:test
 #import "core/traits/copy" as *
 #import "core/traits/hash" as *
 #import "core/traits/hash_key" as *
+#import "core/field" as *
 
 fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, Diag>)*>HashMap<i32,i32,DefaultHash32>> (r):
     match r:
@@ -256,6 +260,7 @@ neplg2:test
 #import "core/traits/copy" as *
 #import "core/traits/hash" as *
 #import "core/traits/hash_key" as *
+#import "core/field" as *
 
 fn must_hs <(Result<HashSet<i32,DefaultHash32>, Diag>)*>HashSet<i32,DefaultHash32>> (r):
     unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r

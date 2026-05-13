@@ -10,6 +10,8 @@
 #import "core/field" as field
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
+#import "core/field" as *
+#import "core/math" as *
 
 //: ## SegmentTree
 //: [長/なが]さと base と[内部配列/ないぶはいれつ]を[所有/しょゆう]する

@@ -58,6 +58,8 @@ fn kpread_to_kpwrite_prefixsum_i32() {
 #import "core/math" as *
 #import "core/result" as *
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "std/streamio" as *
 #import "std/iotarget" as *
 
@@ -319,6 +321,8 @@ fn wasi_fd_read_raw_iovec_debug() {
 #target wasi
 
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "std/stdio" as *
 
 fn id <(i32)->i32> (x):
@@ -389,6 +393,8 @@ fn wasi_fd_read_raw_iovec_with_dealloc_debug() {
 #target wasi
 
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "std/stdio" as *
 
 fn id <(i32)->i32> (x):
@@ -458,6 +464,8 @@ fn wasi_fd_read_then_alloc_header_debug() {
 #target wasi
 
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "std/stdio" as *
 
 fn id <(i32)->i32> (x):
@@ -541,6 +549,8 @@ fn local_scanner_new_logic_debug() {
 #target wasi
 
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "std/stdio" as *
 
 fn id <(i32)->i32> (x):
@@ -607,6 +617,8 @@ fn local_scanner_grow_loop_returns_header_range() {
 #target wasi
 
 #import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
 #import "std/stdio" as *
 
 fn id <(i32)->i32> (x):

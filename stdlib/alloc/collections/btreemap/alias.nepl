@@ -8,6 +8,7 @@
 #indent 4
 
 #import "./api" as *
+#import "core/field" as *
 
 //: ## sorted_array_map_new
 //: sorted-array map として `new` を[呼/よ]ぶ[別名/べつめい]

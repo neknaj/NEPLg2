@@ -4,6 +4,7 @@
 #import "neplg2/core/options" as *
 #import "./emit" as *
 #import "./types" as *
+#import "core/math" as *
 
 //: # args/options
 //: NEPLg2.0 self-host CLI の option value 構築と core option 変換を[集/あつ]める module です。

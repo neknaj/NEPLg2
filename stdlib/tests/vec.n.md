@@ -14,6 +14,8 @@ ret: 0
 #import "core/cast" as *
 #import "core/option" as *
 #import "std/test" as *
+#import "core/field" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let mut checks checks_new;
@@ -121,6 +123,7 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn inc <(i32)->i32> (x):
     add x 1
@@ -244,6 +247,7 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn is_even <(i32)->bool> (x):
     eq rem_s x 2 0
@@ -362,6 +366,7 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 #import "std/test" as *
+#import "core/field" as *
 
 fn lt_four <(i32)->bool> (x):
     lt x 4

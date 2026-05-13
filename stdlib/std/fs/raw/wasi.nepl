@@ -6,6 +6,7 @@
 //: - bare wasm target では filesystem が使えないことを errno で返す fallback を提供します。
 
 #indent 4
+#import "core/math" as *
 
 #if[target=wasi]
 pub #extern "wasi_snapshot_preview1" "path_open" fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32>

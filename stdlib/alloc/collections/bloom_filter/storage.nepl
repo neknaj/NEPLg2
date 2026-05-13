@@ -13,6 +13,7 @@
 #import "core/result" as *
 #import "alloc/diag/error" as *
 #import "alloc/collections/vec" as vec
+#import "core/field" as *
 
 pub fn bloom_byte_at <(&Vec<u8>,i32)->Option<i32>> (bits, byte_idx):
     match vec::get<u8> bits byte_idx:

@@ -41,6 +41,7 @@ ret: 4
 #indent 4
 #import "alloc/string" as *
 #import "core/result" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let s0 from_i32 0;
@@ -78,6 +79,7 @@ ret: 9
 #entry main
 #indent 4
 #import "alloc/string" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let t from_bool true;
@@ -94,6 +96,7 @@ ret: 10
 #entry main
 #indent 4
 #import "alloc/string" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let a <i32> match to_bool "true":
@@ -173,6 +176,7 @@ ret: 3
 #indent 4
 #import "alloc/string" as *
 #import "core/cast" as *
+#import "core/math" as *
 
 fn main <()*>i32> ():
     let n <i64> sub <i64> cast 0 <i64> cast 255;

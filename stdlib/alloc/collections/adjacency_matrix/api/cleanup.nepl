@@ -10,6 +10,7 @@
 #import "core/field" as field
 #import "alloc/collections/vec" as vec
 #import "../types" as *
+#import "core/field" as *
 
 //: ## free
 //: [内部/ないぶ] byte [配列/はいれつ]を[解放/かいほう]する
