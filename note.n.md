@@ -37096,3 +37096,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260513T042454474Z-COLLECTION-DIAGNOSTIC-MODULES-RELY-O-F02EB391` を追加して解決した。
 - adjacency_matrix / bitset / disjoint_set / fenwick / segment_tree / sparse_set の `api/diagnostic.nepl` に `core/result` の直接 import を追加し、module が自身で使う enum 依存を明示する形にした。
 - focused 確認として `stdlib/tests/bitset.n.md::doctest#1` が compile/run まで進み、構造化 report を出力することを確認した。
+
+## 2026-05-13 Agent 1 BitSet .n.md stdout report migration
+
+- `d0d95c63` push 後に remote main を pull し、`agent1-nmd-bitset-report` branch を切り直した。
+- `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の部分対応として、BitSet doctest 6 件を `ret: 1` 依存から `stdout:` + `exit_code:` へ移行した。
+- `stdlib/tests/bitset.n.md` と `tests/stdlib/bitset_collections.n.md` は `std/test` の canonical `test_report_*` API を使い、assertion label / expected / actual を stdout に固定する。
+- focused doctest 6 件はすべて pass した。issue は BitSet 以外の fixture 移行と lint / runner policy が残るため open のまま継続する。

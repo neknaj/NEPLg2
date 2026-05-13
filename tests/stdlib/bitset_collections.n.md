@@ -14,8 +14,9 @@
 - `fill`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"bitset_pipe_usage\" count=4 failed=0\nassertion index=0 status=ok kind=bool label=\"contains bit 3\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"removed bit 8 absent\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"bitset len\" expected=\"24\" actual=\"24\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"fill sets bit 8\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -25,6 +26,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let bs0 <BitSet>:
@@ -35,12 +37,19 @@ fn main <()*>i32> ():
         |> remove 8 |> uwok
     let ok0 <bool> unwrap_ok<bool, Diag> contains &bs0 3;
     let ok1 <bool> not unwrap_ok<bool, Diag> contains &bs0 8;
-    let ok2 <bool> eq len &bs0 24;
+    let size <i32> len &bs0;
     free bs0
     let bs2 <BitSet> fill unwrap_ok<BitSet, Diag> new 24;
     let ok3 <bool> unwrap_ok<bool, Diag> contains &bs2 8;
     free bs2
-    if and ok0 and ok1 and ok2 ok3 1 0
+    let report:
+        test_report_new "bitset_pipe_usage"
+        |> test_report_push assert "contains bit 3" ok0
+        |> test_report_push assert "removed bit 8 absent" ok1
+        |> test_report_push assert_eq_i32 "bitset len" 24 size
+        |> test_report_push assert "fill sets bit 8" ok3
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## bitset_free_releases_owned_storage
@@ -53,8 +62,9 @@ fn main <()*>i32> ():
 - `new`
 - `insert`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"bitset_free_releases_owned_storage\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"free permits later allocation\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -63,6 +73,7 @@ ret: 1
 #import "alloc/collections/bitset" as *
 #import "alloc/diag/error" as *
 #import "core/result" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let bs0 <BitSet>:
@@ -73,7 +84,11 @@ fn main <()*>i32> ():
         unwrap_ok<BitSet, Diag> new 24
         |> insert 6 |> uwok
     free bs1
-    1
+    let report:
+        test_report_new "bitset_free_releases_owned_storage"
+        |> test_report_push assert "free permits later allocation" true
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```
 
 ## bitset_update_error_recovers_owner
@@ -87,8 +102,9 @@ fn main <()*>i32> ():
 - `bitset_update_error_owner`
 - `free`
 
-neplg2:test
-ret: 1
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: "test_report name=\"bitset_update_error_recovers_owner\" count=2 failed=0\nassertion index=0 status=ok kind=bool label=\"insert error recovers owner\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"remove error recovers owner\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -98,6 +114,7 @@ ret: 1
 #import "alloc/diag/error" as *
 #import "core/result" as *
 #import "core/math" as *
+#import "std/test" as *
 
 fn main <()*>i32> ():
     let bs0 <BitSet> unwrap_ok<BitSet, Diag> new 20;
@@ -122,5 +139,10 @@ fn main <()*>i32> ():
                 let ok <bool> eq len &recovered 20
                 free recovered
                 ok
-    if and ok0 ok1 1 0
+    let report:
+        test_report_new "bitset_update_error_recovers_owner"
+        |> test_report_push assert "insert error recovers owner" ok0
+        |> test_report_push assert "remove error recovers owner" ok1
+    let shown test_report_print_stdout report
+    test_report_exit_code shown
 ```

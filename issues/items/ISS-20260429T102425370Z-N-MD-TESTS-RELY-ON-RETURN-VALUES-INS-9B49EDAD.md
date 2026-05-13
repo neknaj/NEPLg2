@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-29
-updated: 2026-04-30
+updated: 2026-05-13
 target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl"
 ---
 
@@ -91,3 +91,24 @@ target: "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctes
 policy 追加時に見つかった既存の direct discard は、該当 stdlib doc-comment doctest 側も `checks_push` / `checks_exit_code` へ移行した。
 
 この issue 全体の残件は、既存 assertion suite の `ret:` 代用を stdout report + `exit_code:` へ段階的に移行すること、および report 省略のより広い lint / runner policy を整備することである。
+
+## 2026-05-13 BitSet stdout report migration
+
+`stdlib/tests/bitset.n.md` と `tests/stdlib/bitset_collections.n.md` の BitSet focused doctest 6 件を、`ret: 1` による合否だけの表現から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `assert` / `assert_eq_i32` を `test_report_push` で集約し、最後に `test_report_print_stdout` と `test_report_exit_code` で stdout report と exit code を分離した。
+- `contains` / `remove` / `fill` / `len` / owner 回収の各観測結果を assertion label として stdout に残すようにした。
+
+検証:
+
+- `node nodesrc\run_doctest.js -i stdlib\tests\bitset.n.md -n 1`: pass
+- `node nodesrc\run_doctest.js -i stdlib\tests\bitset.n.md -n 2`: pass
+- `node nodesrc\run_doctest.js -i stdlib\tests\bitset.n.md -n 3`: pass
+- `node nodesrc\run_doctest.js -i tests\stdlib\bitset_collections.n.md -n 1`: pass
+- `node nodesrc\run_doctest.js -i tests\stdlib\bitset_collections.n.md -n 2`: pass
+- `node nodesrc\run_doctest.js -i tests\stdlib\bitset_collections.n.md -n 3`: pass
+
+この issue はまだ open のまま継続する。BitSet 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。

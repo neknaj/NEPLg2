@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T04:26:38.349Z",
+  "generated_at": "2026-05-13T04:30:12.577Z",
   "counts": {
     "total": 694,
     "open": 5,
@@ -148,7 +148,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-29",
-      "updated": "2026-04-30",
+      "updated": "2026-05-13",
       "target": "tests/**/*.n.md, stdlib/**/*.nepl, nodesrc/tests.js, nodesrc/run_doctest.js, stdlib/std/test.nepl",
       "legacy_id": "",
       "source": "",
