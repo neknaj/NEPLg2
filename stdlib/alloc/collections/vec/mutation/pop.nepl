@@ -28,6 +28,7 @@
 //: ### [注意/ちゅうい]
 //: - [返/かえ]り[値/あたい]は `VecPop<.T>` です。
 //: - [確保/かくほ]も[解放/かいほう]も[行/おこな]わないため O(1) です。
+//: - [現行/げんこう]の `pop` は `.T: Copy` に[限定/げんてい]します。`OwnedBuffer<T>` と initialized cell の moved/uninitialized [状態/じょうたい]が[入/はい]るまでは、non-Copy payload を raw `load` で[取/と]り[出/だ]した[後/あと]の storage cell [状態/じょうたい]を[安全/あんぜん]に[表現/ひょうげん]できないためです。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -50,7 +51,24 @@
 //:     free<i32> next;
 //:     0
 //: ```
-pub fn pop <.T> <(Vec<.T>)->VecPop<.T>> (v):
+//:
+//: neplg2:test[compile_fail]
+//: diag_codes: type.trait_bound.unsatisfied
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//:| #import "core/field" as *
+//: struct NonCopyPayload:
+//:     value <i32>
+//: fn main <()*>i32> ():
+//:     let v0 <Vec<NonCopyPayload>> unwrap_ok new<NonCopyPayload>;
+//:     let p pop<NonCopyPayload> v0;
+//:     let _next <Vec<NonCopyPayload>> get p "vec";
+//:     0
+//: ```
+pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
     let v_len <i32> *field::get_ref &v "len"
     let v_cap <i32> *field::get_ref &v "cap"
     let v_storage <VecStorageState> *field::get_ref &v "storage"

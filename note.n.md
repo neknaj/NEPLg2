@@ -1,3 +1,17 @@
+# 2026-05-13 Agent 1 Vec pop Copy-only boundary 修正
+
+- `ISS-20260513T113909985Z-VEC-POP-ACCEPTS-NON-COPY-PAYLOAD-BEF-6A1C568A` を追加して解決した。
+- 根本原因は、`Vec.pop<T>` が raw typed `load<T>` で末尾要素を返す一方、現行 `VecStorageState::Owned` + `MemPtr<T>` では取り出した cell を moved/uninitialized として表現できず、non-Copy payload の owner 状態を Resource IR と stdlib 契約で証明できないこと。
+- `pop` を `.T: Copy` に限定し、`VecPop<T>` の owner-bearing result は維持した。non-Copy move-out は `OwnedBuffer<T>` / initialized prefix / cell state が入るまで親 issue に残す。
+- `Vec<NonCopyPayload>` の `pop` が `type.trait_bound.unsatisfied` で拒否される compile-fail doctest と nodesrc source policy を追加した。
+- 検証:
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec/mutation/pop.nepl --no-tree -o tmp/agent1-vec-pop-copy-bound-pop.json -j 1 --dist web/dist`: total=2, passed=2
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/vec --no-tree -o tmp/agent1-vec-pop-copy-bound-vec.json -j 4 --dist web/dist`: total=35, passed=35
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` の Stage D に沿い、non-Copy `Vec` の move-out を安全に表現できる設計が入る前に unsafe な入口を閉じるもの。
+
 # 2026-05-13 Agent 1 Vec sort Copy-only boundary 修正
 
 - `ISS-20260513T112748296Z-VEC-SORT-RAW-SWAP-APIS-ACCEPT-NON-CO-2B076968` を追加して解決した。

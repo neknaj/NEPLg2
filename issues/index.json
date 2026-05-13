@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T11:34:17.227Z",
+  "generated_at": "2026-05-13T11:43:20.489Z",
   "counts": {
-    "total": 712,
+    "total": 713,
     "open": 5,
-    "resolved": 707,
+    "resolved": 708,
     "by_area": {
       "stdlib": {
-        "total": 178,
+        "total": 179,
         "open": 3,
-        "resolved": 175
+        "resolved": 176
       },
       "TEST": {
         "total": 18,
@@ -8283,6 +8283,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T112748296Z-VEC-SORT-RAW-SWAP-APIS-ACCEPT-NON-CO-2B076968.md"
+    },
+    {
+      "id": "ISS-20260513T113909985Z-VEC-POP-ACCEPTS-NON-COPY-PAYLOAD-BEF-6A1C568A",
+      "title": "Vec.pop accepts non-Copy payload before initialized slot move-state exists",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/alloc/collections/vec/mutation/pop.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T113909985Z-VEC-POP-ACCEPTS-NON-COPY-PAYLOAD-BEF-6A1C568A.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -10,6 +10,7 @@
 //: - `mutation/replace` は借用 Vec への in-place [置換/ちかん]を[所有/しょゆう]します。
 //: - `mutation/pop` は owner を[返/かえ]す末尾[取/と]り[出/だ]しを[所有/しょゆう]します。
 //: - `mutation/cleanup` は clear/free を[所有/しょゆう]します。
+//: - 現行 `Vec` の raw storage は initialized cell の moved [状態/じょうたい]を[表現/ひょうげん]できないため、owner payload を[読/よ]み[書/か]きする mutation は `.T: Copy` [境界/きょうかい]で[閉/と]じます。
 //:
 //: ### [注意/ちゅうい]
 //: - `as @merge` により `#import "alloc/collections/vec/mutation" as m` の qualified API も[維持/いじ]します。

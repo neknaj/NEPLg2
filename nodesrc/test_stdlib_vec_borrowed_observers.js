@@ -102,7 +102,7 @@ for (const [name, signature] of [
 }
 
 assert.match(vecCode, /struct\s+VecPop<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*item\s+<Option<\.T>>/, "Vec.pop must return a named owner-bearing result");
-assert.match(vecCode, /fn\s+pop\s+<\.T>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, "Vec.pop must not return an untyped Pair");
+assert.match(vecCode, /fn\s+pop\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, "Vec.pop must not return an untyped Pair and must stay Copy-only until move-out cell state exists");
 assert.match(vecCode, /struct\s+VecPartition<\.T>:[\s\S]*matched\s+<Vec<\.T>>[\s\S]*rest\s+<Vec<\.T>>/, "Vec.partition must return named owner-bearing fields");
 assert.match(vecCode, /fn\s+partition\s+<\.T:\s*Copy>\s+<\(Vec<\.T>, \(\.T\)->bool\)->Result<VecPartition<\.T>, StdErrorKind>>/, "Vec.partition must not return an untyped Pair and must require Copy elements");
 assert.doesNotMatch(vecCode, /->\.Pair\b/, "Vec must not expose owner-bearing results as .Pair");
