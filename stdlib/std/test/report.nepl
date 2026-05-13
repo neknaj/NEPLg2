@@ -1,6 +1,6 @@
 #indent 4
 
-#import "core/math" as *
+#import "core/math" as math
 #import "core/result" as *
 #import "alloc/string" as *
 #import "alloc/encoding/json/escape" as json
@@ -73,11 +73,11 @@ pub fn test_report_push <(TestReport,TestAssertion)*>TestReport> (report, assert
         AssertionStatus::Passed:
             failed0
         AssertionStatus::Failed:
-            add failed0 1
+            math::add failed0 1
     let line <str> test_report_assertion_line count0 &assertion
     let lines1 <str> concat lines0 line
     let legacy_status <str> test_report_legacy_status &assertion
-    let sep <str> if eq count0 0 "" ","
+    let sep <str> if math::eq count0 0 "" ","
     let legacy_summary0 <str> concat legacy_summary_base sep
     let legacy_summary1 <str> concat legacy_summary0 legacy_status
     let idx_text <str> from_i32 count0
@@ -87,7 +87,7 @@ pub fn test_report_push <(TestReport,TestAssertion)*>TestReport> (report, assert
     let human3 <str> concat human2 "\n"
     let legacy_human1 <str> concat legacy_human0 human3
     test_assertion_release assertion
-    TestReport name0 add count0 1 failed1 lines1 legacy_summary1 legacy_human1
+    TestReport name0 math::add count0 1 failed1 lines1 legacy_summary1 legacy_human1
 
 pub fn test_report_push <(TestReport,Result<(),str>)*>TestReport> (report, r):
     test_report_push report test_assertion_from_result "result" r
@@ -115,7 +115,7 @@ pub fn test_report_print_stdout <(TestReport)*>TestReport> (report):
     report
 
 pub fn test_report_has_failure <(&TestReport)->bool> (report):
-    gt *get_ref report "failed_count" 0
+    math::gt *get_ref report "failed_count" 0
 
 //: test_report_exit_code: report を 0/1 の[終了/しゅうりょう] code へ[変換/へんかん]する
 pub fn test_report_exit_code <(TestReport)->i32> (report):

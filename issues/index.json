@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T04:37:55.609Z",
+  "generated_at": "2026-05-13T04:50:42.034Z",
   "counts": {
-    "total": 694,
+    "total": 695,
     "open": 5,
-    "resolved": 689,
+    "resolved": 690,
     "by_area": {
       "stdlib": {
-        "total": 170,
+        "total": 171,
         "open": 3,
-        "resolved": 167
+        "resolved": 168
       },
       "TEST": {
         "total": 18,
@@ -8013,6 +8013,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T042454474Z-COLLECTION-DIAGNOSTIC-MODULES-RELY-O-F02EB391.md"
+    },
+    {
+      "id": "ISS-20260513T044704155Z-STD-TEST-AND-STDIO-NUMERIC-ADD-RESOL-9CABF45B",
+      "title": "std-test and stdio numeric add resolution is polluted by collection add exports",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "stdlib/std/{test/report.nepl,stdio/write/fd.nepl,stdio/read/buffer.nepl}",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T044704155Z-STD-TEST-AND-STDIO-NUMERIC-ADD-RESOL-9CABF45B.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

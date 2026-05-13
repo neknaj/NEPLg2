@@ -37110,3 +37110,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の部分対応として、AdjacencyMatrix doctest 7 件を `ret: 1` 依存から `stdout:` + `exit_code:` へ移行した。
 - `stdlib/tests/adjacency_matrix.n.md` と `tests/stdlib/adjacency_matrix_collections.n.md` は `std/test` の canonical `test_report_*` API を使い、edge existence / length / clear / free / owner recovery / diagnostic kind を stdout report に固定する。
 - focused doctest 7 件と aggregate `nodesrc\tests.js` 実行はすべて pass した。issue は他 fixture の移行と stdout report 省略検出 policy が残るため open のまま継続する。
+
+## 2026-05-13 Agent 1 std/test and stdio arithmetic namespace isolation
+
+- `0ad2c8aa` push 後に remote main を pull し、`agent1-nmd-fenwick-report` branch を作成した。
+- Fenwick doctest stdout report 移行中に、Fenwick の public `add` API が読み込まれると `std/test/report.nepl` と `std/stdio` 内部の未修飾 `add` が `type.overload.no_match` になる問題を確認した。
+- `ISS-20260513T044704155Z-STD-TEST-AND-STDIO-NUMERIC-ADD-RESOL-9CABF45B` を追加して解決した。
+- `std/test/report.nepl`、`std/stdio/write/fd.nepl`、`std/stdio/read/buffer.nepl` の arithmetic を `math::...` へ明示化し、利用者側の collection API 名に内部実装が汚染されないようにした。
+- `tests/stdlib/std_test_namespace_resolution.n.md` を追加し、Fenwick `fw::add` と `std/test` stdout report を同じ doctest で使えることを固定した。
+- `tests/stdlib/std_test_collect.n.md` の `concat` 利用は `std/test` 内部 import への便乗だったため、doctest 自身が `alloc/string` を直接 import する形へ修正した。

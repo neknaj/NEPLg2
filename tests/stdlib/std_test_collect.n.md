@@ -18,6 +18,7 @@ stdout: "test_report name=\"std_test_collect_success_summary\" count=4 failed=0\
 #indent 4
 #target std
 
+#import "alloc/string" as *
 #import "std/test" as *
 #import "core/math" as *
 #import "core/result" as *
@@ -46,6 +47,7 @@ stdout: "test_report name=\"std_test_collect_continues_after_string_allocation\"
 #indent 4
 #target std
 
+#import "alloc/string" as *
 #import "std/test" as *
 
 fn main <()*>i32> ():

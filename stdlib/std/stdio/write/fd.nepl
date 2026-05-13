@@ -7,7 +7,7 @@
 
 #indent 4
 
-#import "core/math" as *
+#import "core/math" as math
 #import "core/mem" as *
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
@@ -34,7 +34,7 @@
 pub fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (fd, data, data_len):
     let data_ptr <i32> mem_ptr_addr data;
     if:
-        le data_len 0
+        math::le data_len 0
         then:
             Result<(), StdErrorKind>::Ok ()
         else:
@@ -56,20 +56,20 @@ pub fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>
                             let mut off <i32> 0;
                             let mut done <i32> 0;
                             let mut failed <i32> 0;
-                            while eq done 0:
+                            while math::eq done 0:
                                 do:
                                     if:
-                                        ge off data_len
+                                        math::ge off data_len
                                         then:
                                             set done 1;
                                             ()
                                         else:
-                                            store_i32 iov_raw add data_ptr off;
-                                            store_i32 add iov_raw 4 sub data_len off;
+                                            store_i32 iov_raw math::add data_ptr off;
+                                            store_i32 math::add iov_raw 4 math::sub data_len off;
                                             store_i32 nwritten_raw 0;
                                             let errno <i32> stdio_fd_write_mem fd iov 1 nwritten;
                                             if:
-                                                ne errno 0
+                                                math::ne errno 0
                                                 then:
                                                     set failed 1;
                                                     set done 1;
@@ -77,13 +77,13 @@ pub fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>
                                                 else:
                                                     let n <i32> load_i32 nwritten_raw;
                                                     if:
-                                                        le n 0
+                                                        math::le n 0
                                                         then:
                                                             set failed 1;
                                                             set done 1;
                                                             ()
                                                         else:
-                                                            set off add off n;
+                                                            set off math::add off n;
                                                             ();
                             match dealloc_ptr<u8> nwritten 4:
                                 Result::Ok _:
@@ -96,7 +96,7 @@ pub fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>
                                 Result::Err _:
                                     #intrinsic "unreachable" <> ();
                             if:
-                                eq failed 0
+                                math::eq failed 0
                                 then:
                                     Result<(), StdErrorKind>::Ok ()
                                 else:
