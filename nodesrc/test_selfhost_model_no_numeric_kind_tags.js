@@ -13,7 +13,8 @@ function read(rel) {
 
 function functionBlock(src, name) {
     const lines = src.split("\n");
-    const start = lines.findIndex((line) => line.startsWith(`fn ${name} `));
+    const declaration = new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`);
+    const start = lines.findIndex((line) => declaration.test(line));
     assert.notEqual(start, -1, `${name} not found`);
     const topLevel = /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/;
     let end = lines.length;
@@ -28,7 +29,7 @@ function functionBlock(src, name) {
 
 function enumVariants(src, enumName) {
     const lines = src.split("\n");
-    const start = lines.findIndex((line) => line === `enum ${enumName}:`);
+    const start = lines.findIndex((line) => line === `enum ${enumName}:` || line === `pub enum ${enumName}:`);
     assert.notEqual(start, -1, `${enumName} enum not found`);
     const variants = [];
     const topLevel = /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/;
@@ -49,7 +50,7 @@ function assertEnumEqUsesMatches(rel, enumName, eqName) {
     const src = read(rel);
     assert.doesNotMatch(
         src,
-        new RegExp(`fn\\s+${eqName.replace(/_eq$/, "_tag")}\\b`),
+        new RegExp(`(?:pub\\s+)?fn\\s+${eqName.replace(/_eq$/, "_tag")}\\b`),
         `${rel} must not expose a numeric tag helper for ${enumName}`,
     );
     assert.doesNotMatch(src, /\bselfhost_[A-Za-z0-9_]+_kind_tag\b/, `${rel} must not use kind tag helpers`);

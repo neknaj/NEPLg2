@@ -96,7 +96,7 @@ assert.match(
     'ByteBuf string conversion must finish by moving the RegionToken owner into ByteBuf',
 );
 
-const fromStrMatch = code.match(/fn\s+io_bytebuf_from_str_result\b([\s\S]*?)\n(?:pub\s+)?fn\s+io_bytebuf_from_str\b/);
+const fromStrMatch = code.match(/(?:pub\s+)?fn\s+io_bytebuf_from_str_result\b([\s\S]*?)\n(?:pub\s+)?fn\s+io_bytebuf_from_str\b/);
 assert.ok(fromStrMatch, 'io_bytebuf_from_str_result body must be found');
 const fromStr = fromStrMatch[1];
 
@@ -166,10 +166,10 @@ assert.match(
     'alloc/io/bytebuilder must be an exact raw-memory boundary',
 );
 
-const fsReadMatch = fsSrc.match(/fn\s+fs_read_fd_bytes\b([\s\S]*)/);
+const fsReadMatch = fsSrc.match(/(?:pub\s+)?fn\s+fs_read_fd_bytes\b([\s\S]*)/);
 assert.ok(fsReadMatch, 'fs_read_fd_bytes body must be found');
 const fsRead = fsReadMatch[1];
-const fsFinishMatch = fsRawSrc.match(/fn\s+fs_finish_read_buffer\b([\s\S]*)/);
+const fsFinishMatch = fsRawSrc.match(/(?:pub\s+)?fn\s+fs_finish_read_buffer\b([\s\S]*)/);
 assert.ok(fsFinishMatch, 'fs_finish_read_buffer body must be found');
 const fsFinish = fsFinishMatch[1];
 

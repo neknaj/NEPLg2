@@ -11,8 +11,10 @@ const resolver = fs.readFileSync(path.join(repoRoot, resolverPath), "utf8").repl
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");
-    const prefix = kind === "fn" ? `fn ${name} ` : `${kind} ${name}`;
-    const start = lines.findIndex((line) => line.startsWith(prefix));
+    const decl = kind === "fn"
+        ? new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s`)
+        : new RegExp(`^(?:pub\\s+)?${kind}\\s+${name}`);
+    const start = lines.findIndex((line) => decl.test(line));
     assert.notEqual(start, -1, `${kind} ${name} not found`);
     const topLevel = /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/;
     let end = lines.length;
@@ -28,7 +30,7 @@ function topLevelBlock(src, kind, name) {
 assert.match(resolver, /#import "core\/option" as \*/, "resolver DefId absence must use Option");
 assert.doesNotMatch(resolver, /\bfn\s+selfhost_def_id_invalid\b/, "DefId must not expose an invalid constructor");
 assert.doesNotMatch(resolver, /\bselfhost_def_id_new\s+-1\b/, "DefId must not construct -1 sentinels");
-assert.match(resolver, /struct SelfhostNameBinding:[\s\S]*?\bdef_id\s+<Option<SelfhostDefId>>/, "binding def_id must be optional until scope insertion assigns it");
+assert.match(resolver, /(?:pub\s+)?struct SelfhostNameBinding:[\s\S]*?\bdef_id\s+<Option<SelfhostDefId>>/, "binding def_id must be optional until scope insertion assigns it");
 
 const pending = topLevelBlock(resolver, "fn", "selfhost_def_id_pending");
 assert.match(pending, /Option<SelfhostDefId>/, "pending state must return Option<SelfhostDefId>");

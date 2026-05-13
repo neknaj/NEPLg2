@@ -69,6 +69,31 @@ pub fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Re
 //: [注意/ちゅうい]:
 //: - `buf` はこの関数が必ず消費します。
 //: - cleanup failure は内部 invariant 違反として unreachable にします。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target wasi
+//:| #import "alloc/io" as *
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//:| #import "std/stdio/read/buffer" as *
+//: fn main <()*>i32> ():
+//:     match alloc_ptr<u8> 4:
+//:         Result::Ok buf:
+//:             match stdio_discard_read_buffer buf 4 StdErrorKind::OutOfMemory:
+//:                 Result::Err err:
+//:                     match err:
+//:                         StdErrorKind::OutOfMemory:
+//:                             0
+//:                         _:
+//:                             1
+//:                 Result::Ok _:
+//:                     1
+//:         Result::Err _:
+//:             1
+//: ```
 pub fn stdio_discard_read_buffer <(MemPtr<u8>,i32,StdErrorKind)*>Result<ByteBuf, StdErrorKind>> (buf, cap, err):
     match dealloc_ptr<u8> buf cap:
         Result::Ok _:

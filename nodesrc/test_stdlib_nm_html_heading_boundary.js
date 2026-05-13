@@ -30,12 +30,12 @@ for (const name of ['html_heading_kind', 'nm_append_heading_open', 'nm_append_he
 
 assert.doesNotMatch(
     htmlGen,
-    /^enum\s+HtmlHeadingKind:/m,
+    /^(?:pub\s+)?enum\s+HtmlHeadingKind:/m,
     `${htmlGenPath} must not own HtmlHeadingKind`
 );
 assert.match(
     htmlHeading,
-    /^enum\s+HtmlHeadingKind:/m,
+    /^(?:pub\s+)?enum\s+HtmlHeadingKind:/m,
     `${htmlHeadingPath} must own HtmlHeadingKind`
 );
 assert.match(

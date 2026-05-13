@@ -11,7 +11,8 @@ const prelude = fs.readFileSync(path.join(repoRoot, preludePath), "utf8").replac
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");
-    const start = lines.findIndex((line) => line.startsWith(`${kind} ${name}`));
+    const declaration = new RegExp(`^(?:pub\\s+)?${kind}\\s+${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+    const start = lines.findIndex((line) => declaration.test(line));
     assert.notEqual(start, -1, `${kind} ${name} not found`);
     const topLevel = /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/;
     let end = lines.length;
@@ -60,9 +61,9 @@ assert.deepEqual(
     ["Unary", "Binary", "Ternary"],
     "SelfhostBuiltinSignature must model each supported arity as an enum variant",
 );
-assert.match(prelude, /struct SelfhostBuiltinUnarySignature:[\s\S]*?\barg0\s+<SelfhostTypeKind>[\s\S]*?\bresult\s+<SelfhostTypeKind>/, "unary signature must carry exactly its argument and result");
-assert.match(prelude, /struct SelfhostBuiltinBinarySignature:[\s\S]*?\barg0\s+<SelfhostTypeKind>[\s\S]*?\barg1\s+<SelfhostTypeKind>[\s\S]*?\bresult\s+<SelfhostTypeKind>/, "binary signature must carry its arguments and result");
-assert.match(prelude, /struct SelfhostBuiltinTernarySignature:[\s\S]*?\barg0\s+<SelfhostTypeKind>[\s\S]*?\barg1\s+<SelfhostTypeKind>[\s\S]*?\barg2\s+<SelfhostTypeKind>[\s\S]*?\bresult\s+<SelfhostTypeKind>/, "ternary signature must carry its arguments and result");
+assert.match(prelude, /(?:pub\s+)?struct SelfhostBuiltinUnarySignature:[\s\S]*?\barg0\s+<SelfhostTypeKind>[\s\S]*?\bresult\s+<SelfhostTypeKind>/, "unary signature must carry exactly its argument and result");
+assert.match(prelude, /(?:pub\s+)?struct SelfhostBuiltinBinarySignature:[\s\S]*?\barg0\s+<SelfhostTypeKind>[\s\S]*?\barg1\s+<SelfhostTypeKind>[\s\S]*?\bresult\s+<SelfhostTypeKind>/, "binary signature must carry its arguments and result");
+assert.match(prelude, /(?:pub\s+)?struct SelfhostBuiltinTernarySignature:[\s\S]*?\barg0\s+<SelfhostTypeKind>[\s\S]*?\barg1\s+<SelfhostTypeKind>[\s\S]*?\barg2\s+<SelfhostTypeKind>[\s\S]*?\bresult\s+<SelfhostTypeKind>/, "ternary signature must carry its arguments and result");
 
 assert.doesNotMatch(prelude, /\bSelfhostTypeKind::Error\b/, "builtin metadata must not use Error as a placeholder argument");
 assert.doesNotMatch(prelude, /\barg_count\s+<i32>/, "builtin metadata must not reintroduce numeric arity storage");

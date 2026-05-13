@@ -59,7 +59,7 @@ for (const required of relPaths.slice(1)) {
 }
 
 const roundsLoop = code.match(
-    /fn sha256_rounds_loop[\s\S]*?(?=\nfn sha256_compress_block)/
+    /fn\s+sha256_rounds_loop[\s\S]*?(?=\n(?:pub\s+)?fn\s+sha256_compress_block)/
 );
 assert.ok(roundsLoop, 'sha256_rounds_loop must exist');
 assert.doesNotMatch(

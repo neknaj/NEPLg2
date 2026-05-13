@@ -54,6 +54,14 @@ function matchingAllowance(relPath, line) {
     return allowances.find((allowance) => allowance.relPath === relPath && allowance.line.test(line));
 }
 
+function isTypedDeallocInvariant(lines, index) {
+    if (!/#intrinsic\s+"unreachable"/.test(lines[index])) {
+        return false;
+    }
+    const window = lines.slice(Math.max(0, index - 5), index + 1).join('\n');
+    return /\bmatch\s+dealloc_ptr<[^>]+>\s+[^\n]+:[\s\S]*\bResult::Err\s+_:/.test(window);
+}
+
 const unexpected = [];
 const seenAllowances = new Set();
 
@@ -65,6 +73,7 @@ for (const filePath of collectNeplFiles(stdlibRoot).sort()) {
         const line = rawLine.trim();
         if (line.startsWith('//')) continue;
         if (!forbidden.some((pattern) => pattern.test(line))) continue;
+        if (isTypedDeallocInvariant(lines, i)) continue;
 
         const allowance = matchingAllowance(relPath, line);
         if (allowance) {

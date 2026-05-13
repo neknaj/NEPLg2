@@ -140,6 +140,7 @@ mod owner_consumption;
 mod owner_control;
 mod owner_drop;
 mod owner_drop_scope;
+mod owner_entry;
 mod owner_expr;
 mod owner_flow;
 mod owner_match_payload;
@@ -246,7 +247,7 @@ pub use model::{
     ResourceModule, ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId,
     StorageOrigin, StorageOriginEntry, UnknownEffectReason,
 };
-pub use owner_check::check_resource_owner_obligations;
+pub use owner_entry::check_resource_owner_obligations;
 pub use report::{
     ResourceBorrowCheckDeferred, ResourceBorrowCheckReport, ResourceBorrowDiagnostic,
     ResourceBorrowFunctionCheck, ResourceBorrowOperation, ResourceCheckDeferred,

@@ -11,8 +11,10 @@ const hir = fs.readFileSync(path.join(repoRoot, hirPath), "utf8").replace(/\r\n/
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");
-    const prefix = kind === "fn" ? `fn ${name} ` : `${kind} ${name}`;
-    const start = lines.findIndex((line) => line.startsWith(prefix));
+    const decl = kind === "fn"
+        ? new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s`)
+        : new RegExp(`^(?:pub\\s+)?${kind}\\s+${name}`);
+    const start = lines.findIndex((line) => decl.test(line));
     assert.notEqual(start, -1, `${kind} ${name} not found`);
     const topLevel = /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/;
     let end = lines.length;
@@ -43,12 +45,12 @@ function assertRangeAccessorMatches(fnName, enumName) {
     assert.match(block, new RegExp(`^\\s*${enumName}::Range\\b`, "m"), `${fnName} must handle Range`);
 }
 
-assert.doesNotMatch(hir, /^struct SelfhostHirChildRange:$/m, "child range must not be a flat struct");
-assert.doesNotMatch(hir, /^struct SelfhostHirParamRange:$/m, "param range must not be a flat struct");
+assert.doesNotMatch(hir, /^(?:pub\s+)?struct SelfhostHirChildRange:$/m, "child range must not be a flat struct");
+assert.doesNotMatch(hir, /^(?:pub\s+)?struct SelfhostHirParamRange:$/m, "param range must not be a flat struct");
 assert.deepEqual(enumVariants(hir, "SelfhostHirChildRange"), ["Empty", "Range"], "child range must split empty and nonempty payloads");
 assert.deepEqual(enumVariants(hir, "SelfhostHirParamRange"), ["Empty", "Range"], "param range must split empty and nonempty payloads");
-assert.match(hir, /struct SelfhostHirChildRangeItems:[\s\S]*?\bfirst_child\s+<i32>[\s\S]*?\bchild_count\s+<i32>/, "child range payload must own child table fields");
-assert.match(hir, /struct SelfhostHirParamRangeItems:[\s\S]*?\bfirst_param\s+<i32>[\s\S]*?\bparam_count\s+<i32>/, "param range payload must own param table fields");
+assert.match(hir, /(?:pub\s+)?struct SelfhostHirChildRangeItems:[\s\S]*?\bfirst_child\s+<i32>[\s\S]*?\bchild_count\s+<i32>/, "child range payload must own child table fields");
+assert.match(hir, /(?:pub\s+)?struct SelfhostHirParamRangeItems:[\s\S]*?\bfirst_param\s+<i32>[\s\S]*?\bparam_count\s+<i32>/, "param range payload must own param table fields");
 assert.doesNotMatch(hir, /\bselfhost_hir_child_range_new\s+-1\s+0\b/, "empty child range must not be a negative sentinel");
 assert.doesNotMatch(hir, /\bselfhost_hir_param_range_new\s+-1\s+0\b/, "empty param range must not be a negative sentinel");
 assert.doesNotMatch(hir, /\b(?:child_range|param_range)\.(?:first_child|child_count|first_param|param_count)\b/, "callers must use range accessors or match variants");

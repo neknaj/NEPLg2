@@ -9,11 +9,9 @@ use super::i32_call_facts::record_direct_call_i32_facts;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
     BorrowKind, EffectOp, OwnerState, OwnerStateEntry, RawMemoryOp, ResourceBlock,
-    ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
+    ResourceFunction, ResourceOp, ResourceTerminator,
 };
-use super::owner_check_utils::{
-    direct_raw_memory_effect, merge_owner_deferred, raw_owner_alias_moves_into_wrapper,
-};
+use super::owner_check_utils::{direct_raw_memory_effect, raw_owner_alias_moves_into_wrapper};
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::owner_variant::PendingVariantOwnerEffects;
@@ -22,51 +20,9 @@ use super::place_utils::{
     structural_i32_projection_preserves_raw_address,
 };
 use super::raw_realloc::PendingRawReallocs;
-use super::report::{
-    ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerDiagnostic,
-    ResourceOwnerFunctionCheck, ResourceOwnerOperation,
-};
+use super::report::{ResourceOwnerCheckDeferred, ResourceOwnerDiagnostic, ResourceOwnerOperation};
 use super::storage_origin::StorageOriginTable;
-use super::summary::{compute_owner_return_summaries, OwnerReturnSummary};
-use super::timing::ResourceStageTimer;
-
-pub fn check_resource_owner_obligations(
-    module: &ResourceModule,
-    types: &TypeCtx,
-) -> ResourceOwnerCheckReport {
-    let stage_start = ResourceStageTimer::start();
-    let mut functions = Vec::new();
-    let mut diagnostics = Vec::new();
-    let mut deferred = ResourceOwnerCheckDeferred::default();
-    let summaries = compute_owner_return_summaries(module, types);
-    stage_start.log("resource_owner_summaries");
-    let stage_start = ResourceStageTimer::start();
-
-    for function in &module.functions {
-        let mut engine = ResourceOwnerCheckEngine {
-            function: function.name.as_str(),
-            types,
-            summaries: &summaries,
-            diagnostics: Vec::new(),
-            deferred: ResourceOwnerCheckDeferred::default(),
-        };
-        let final_owners = engine.check_function(function);
-        merge_owner_deferred(&mut deferred, engine.deferred);
-        diagnostics.extend(engine.diagnostics);
-        functions.push(ResourceOwnerFunctionCheck {
-            name: function.name.clone(),
-            final_owners,
-            deferred: engine.deferred,
-        });
-    }
-    stage_start.log("resource_owner_function_checks");
-
-    ResourceOwnerCheckReport {
-        functions,
-        diagnostics,
-        deferred,
-    }
-}
+use super::summary::OwnerReturnSummary;
 
 pub(super) struct ResourceOwnerCheckEngine<'a> {
     pub(super) function: &'a str,
@@ -77,7 +33,7 @@ pub(super) struct ResourceOwnerCheckEngine<'a> {
 }
 
 impl ResourceOwnerCheckEngine<'_> {
-    fn check_function(&mut self, function: &ResourceFunction) -> Vec<OwnerStateEntry> {
+    pub(super) fn check_function(&mut self, function: &ResourceFunction) -> Vec<OwnerStateEntry> {
         let mut owners = OwnerTable::default();
         let mut function_aliases = FunctionAliasTable::default();
         let mut raw_aliases = RawCellAddressAliases::default();

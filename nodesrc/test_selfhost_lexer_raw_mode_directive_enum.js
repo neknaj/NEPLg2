@@ -14,7 +14,8 @@ function read(rel) {
 
 function functionBlock(src, name) {
     const lines = src.split("\n");
-    const start = lines.findIndex((line) => line.startsWith(`fn ${name} `));
+    const declaration = new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s`);
+    const start = lines.findIndex((line) => declaration.test(line));
     assert.notEqual(start, -1, `${name} not found`);
 
     const topLevel = /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/;
@@ -30,7 +31,8 @@ function functionBlock(src, name) {
 
 function enumVariants(src, enumName) {
     const lines = src.split("\n");
-    const start = lines.findIndex((line) => line === `enum ${enumName}:`);
+    const declaration = new RegExp(`^(?:pub\\s+)?enum\\s+${enumName}:$`);
+    const start = lines.findIndex((line) => declaration.test(line));
     assert.notEqual(start, -1, `${enumName} enum not found`);
 
     const variants = [];

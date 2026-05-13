@@ -12,12 +12,13 @@ const apiSrc = sourceWithoutComments(apiPath);
 const lines = apiSrc.split(/\r?\n/);
 
 function extractFunction(name) {
-    const start = lines.findIndex((line) => line.startsWith(`fn ${name} `));
+    const declaration = new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`);
+    const start = lines.findIndex((line) => declaration.test(line));
     assert.notEqual(start, -1, `${name} must exist`);
 
     let end = lines.length;
     for (let i = start + 1; i < lines.length; i += 1) {
-        if (lines[i].startsWith('fn ')) {
+        if (/^(?:pub\s+)?fn\s+/.test(lines[i])) {
             end = i;
             break;
         }

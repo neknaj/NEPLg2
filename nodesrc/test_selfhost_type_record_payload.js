@@ -11,8 +11,11 @@ const ty = fs.readFileSync(path.join(repoRoot, tyPath), "utf8").replace(/\r\n/g,
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");
-    const prefix = kind === "fn" ? `fn ${name} ` : `${kind} ${name}`;
-    const start = lines.findIndex((line) => line.startsWith(prefix));
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const declaration = kind === "fn"
+        ? new RegExp(`^(?:pub\\s+)?fn\\s+${escaped}\\s+`)
+        : new RegExp(`^(?:pub\\s+)?${kind}\\s+${escaped}`);
+    const start = lines.findIndex((line) => declaration.test(line));
     assert.notEqual(start, -1, `${kind} ${name} not found`);
     const topLevel = /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/;
     let end = lines.length;
@@ -42,9 +45,9 @@ function assertRecordAccessorMatches(fnName) {
     assert.match(block, /^\s*SelfhostTypeRecord::Function\b/m, `${fnName} must handle function records`);
 }
 
-assert.doesNotMatch(ty, /^struct SelfhostTypeRecord:/m, "SelfhostTypeRecord must not be a flat struct");
-assert.doesNotMatch(ty, /\bfn\s+selfhost_type_id_invalid\b/, "type records must not need an invalid TypeId constructor");
-assert.doesNotMatch(ty, /\bfn\s+selfhost_type_record_new\b/, "flat type record constructor must not be exposed");
+assert.doesNotMatch(ty, /^(?:pub\s+)?struct SelfhostTypeRecord:/m, "SelfhostTypeRecord must not be a flat struct");
+assert.doesNotMatch(ty, /\b(?:pub\s+)?fn\s+selfhost_type_id_invalid\b/, "type records must not need an invalid TypeId constructor");
+assert.doesNotMatch(ty, /\b(?:pub\s+)?fn\s+selfhost_type_record_new\b/, "flat type record constructor must not be exposed");
 assert.doesNotMatch(ty, /\bselfhost_type_record_primitive\b[\s\S]{0,120}\s-1\b/, "primitive type records must not store a negative argument range");
 assert.doesNotMatch(ty, /\bSelfhostTypeRecord\s+kind\s+first_arg\s+arg_count\s+result\b/, "old flat type record construction must not return");
 
@@ -58,7 +61,7 @@ assert.deepEqual(
     ["Error", "Unit", "Bool", "I32", "I64", "U8", "Char", "Str", "F32", "F64", "Never"],
     "primitive type payload must exclude Function",
 );
-assert.match(ty, /struct SelfhostFunctionTypeRecord:[\s\S]*?\bfirst_arg\s+<i32>[\s\S]*?\barg_count\s+<i32>[\s\S]*?\bresult\s+<SelfhostTypeId>/, "function payload must own function-only fields");
+assert.match(ty, /(?:pub\s+)?struct SelfhostFunctionTypeRecord:[\s\S]*?\bfirst_arg\s+<i32>[\s\S]*?\barg_count\s+<i32>[\s\S]*?\bresult\s+<SelfhostTypeId>/, "function payload must own function-only fields");
 assert.match(ty, /\bSelfhostTypeRecord::Primitive\s+kind\b/, "primitive record constructor must use the primitive payload variant");
 assert.match(ty, /\bSelfhostTypeRecord::Function\s+SelfhostFunctionTypeRecord\s+first_arg\s+arg_count\s+result\b/, "function record constructor must use the function payload variant");
 

@@ -6,7 +6,7 @@ use super::coverage::compare_hir_resource_lowering_typed;
 use super::effect::check_resource_effect_boundaries;
 use super::initialized::check_resource_initialized_moves;
 use super::lower::lower_hir_module;
-use super::owner_check::check_resource_owner_obligations;
+use super::owner_entry::check_resource_owner_obligations;
 use super::report::ResourceSafetyShadowReport;
 
 pub fn check_hir_resource_safety_shadow(

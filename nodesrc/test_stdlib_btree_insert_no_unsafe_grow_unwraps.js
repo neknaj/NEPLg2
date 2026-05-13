@@ -9,12 +9,13 @@ const repoRoot = path.resolve(__dirname, '..');
 function functionBlock(file, name) {
     const src = fs.readFileSync(path.join(repoRoot, file), 'utf8');
     const lines = src.split(/\r?\n/);
-    const start = lines.findIndex((line) => line.startsWith(`fn ${name} `));
+    const declaration = new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s+`);
+    const start = lines.findIndex((line) => declaration.test(line));
     assert.notEqual(start, -1, `${name} must exist in ${file}`);
 
     let end = lines.length;
     for (let i = start + 1; i < lines.length; i += 1) {
-        if (lines[i].startsWith('fn ')) {
+        if (/^(?:pub\s+)?fn\s+/.test(lines[i])) {
             end = i;
             break;
         }

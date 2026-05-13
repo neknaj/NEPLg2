@@ -30,7 +30,7 @@ assert.doesNotMatch(
     'print_i32 implementation must stay in stdio/print',
 );
 
-const match = printCode.match(/fn\s+noshadow\s+print_i32\s+<\(i32\)\*\>\(\)>\s+\(v\):([\s\S]*?)\nfn\s+noshadow\s+println_i32\s+/);
+const match = printCode.match(/(?:pub\s+)?fn\s+noshadow\s+print_i32\s+<\(i32\)\*\>\(\)>\s+\(v\):([\s\S]*?)\n(?:pub\s+)?fn\s+noshadow\s+println_i32\s+/);
 assert.ok(match, 'stdio print_i32 body must be found');
 
 const body = match[1];

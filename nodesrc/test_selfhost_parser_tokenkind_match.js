@@ -33,7 +33,8 @@ function functionBlock(file, name) {
 function enumVariants(file, enumName) {
     const src = read(file);
     const lines = src.split("\n");
-    const start = lines.findIndex((line) => line === `enum ${enumName}:`);
+    const declaration = new RegExp(`^(?:pub\\s+)?enum\\s+${enumName}:$`);
+    const start = lines.findIndex((line) => declaration.test(line));
     assert.notEqual(start, -1, `${enumName} enum not found`);
 
     const variants = [];

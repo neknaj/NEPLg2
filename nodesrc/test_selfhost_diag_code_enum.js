@@ -17,14 +17,14 @@ function declarationBody(src, declarationPattern, label) {
   assert(match, `${label} declaration must exist`);
   const bodyStart = src.indexOf('\n', match.index) + 1;
   const rest = src.slice(bodyStart);
-  const nextDeclaration = rest.search(/^(?:#import|\/\/:|enum\s|impl\s|struct\s|fn\s)/m);
+  const nextDeclaration = rest.search(/^(?:#import|\/\/:|(?:pub\s+)?(?:enum|impl|struct|fn)\s)/m);
   return nextDeclaration < 0 ? rest : rest.slice(0, nextDeclaration);
 }
 
 function enumVariants(enumName) {
   const body = declarationBody(
     diag,
-    new RegExp(`^enum\\s+${escapeRegExp(enumName)}:\\s*$`, 'm'),
+    new RegExp(`^(?:pub\\s+)?enum\\s+${escapeRegExp(enumName)}:\\s*$`, 'm'),
     enumName,
   );
   return body
@@ -36,7 +36,7 @@ function enumVariants(enumName) {
 function functionBody(fnName) {
   return declarationBody(
     diag,
-    new RegExp(`^fn\\s+${escapeRegExp(fnName)}\\b`, 'm'),
+    new RegExp(`^(?:pub\\s+)?fn\\s+${escapeRegExp(fnName)}\\b`, 'm'),
     fnName,
   );
 }
@@ -87,7 +87,7 @@ walk('stdlib/neplg2');
 
 assert.match(
   diag,
-  /enum\s+SelfhostDiagnosticCode:[\s\S]*Loader\s+<SelfhostLoaderDiagnosticCode>[\s\S]*Lexer\s+<SelfhostLexerDiagnosticCode>[\s\S]*Parser\s+<SelfhostParserDiagnosticCode>[\s\S]*Resolve\s+<SelfhostResolveDiagnosticCode>[\s\S]*Cli\s+<SelfhostCliDiagnosticCode>/,
+  /(?:pub\s+)?enum\s+SelfhostDiagnosticCode:[\s\S]*Loader\s+<SelfhostLoaderDiagnosticCode>[\s\S]*Lexer\s+<SelfhostLexerDiagnosticCode>[\s\S]*Parser\s+<SelfhostParserDiagnosticCode>[\s\S]*Resolve\s+<SelfhostResolveDiagnosticCode>[\s\S]*Cli\s+<SelfhostCliDiagnosticCode>/,
   'SelfhostDiagnosticCode must be a hierarchical enum',
 );
 assert.deepEqual(
@@ -99,16 +99,16 @@ assert.match(diag, /code\s+<SelfhostDiagnosticCode>/, 'SelfhostDiagnostic.code m
 assert.doesNotMatch(diag, /code\s+<str>/, 'SelfhostDiagnostic.code must not be a raw string');
 assert.doesNotMatch(
   diag,
-  /fn\s+selfhost_diag_(?:new|info|warning|error)\s+<\([^)]*str\s*,\s*str/,
+  /(?:pub\s+)?fn\s+selfhost_diag_(?:new|info|warning|error)\s+<\([^)]*str\s*,\s*str/,
   'selfhost diagnostic constructors must not accept raw string codes',
 );
 assert.match(
   diag,
-  /fn\s+selfhost_diag_code_name\s+<\(SelfhostDiagnosticCode\)->str>[\s\S]*SelfhostDiagnosticCode::Loader[\s\S]*SelfhostDiagnosticCode::Lexer[\s\S]*SelfhostDiagnosticCode::Parser[\s\S]*SelfhostDiagnosticCode::Resolve[\s\S]*SelfhostDiagnosticCode::Cli/,
+  /(?:pub\s+)?fn\s+selfhost_diag_code_name\s+<\(SelfhostDiagnosticCode\)->str>[\s\S]*SelfhostDiagnosticCode::Loader[\s\S]*SelfhostDiagnosticCode::Lexer[\s\S]*SelfhostDiagnosticCode::Parser[\s\S]*SelfhostDiagnosticCode::Resolve[\s\S]*SelfhostDiagnosticCode::Cli/,
   'SelfhostDiagnosticCode string conversion must cover every category',
 );
 assert.doesNotMatch(
-  diag.match(/fn\s+selfhost_diag_code_name[\s\S]*?(?=\n\/\/: selfhost_diag_label_new)/)?.[0] ?? '',
+  diag.match(/(?:pub\s+)?fn\s+selfhost_diag_code_name[\s\S]*?(?=\n\/\/: selfhost_diag_label_new)/)?.[0] ?? '',
   /^\s*_:/m,
   'SelfhostDiagnosticCode string conversion must not use a wildcard arm',
 );
@@ -144,7 +144,7 @@ assert.match(
   /selfhost_diag_code_name\s+field::get\s+diag\s+"code"/,
   'reporter must render diagnostic codes through selfhost_diag_code_name',
 );
-assert.doesNotMatch(lexer, /\benum\s+LexErrorCode:/, 'lexer must use the shared selfhost lexer diagnostic enum');
+assert.doesNotMatch(lexer, /\b(?:pub\s+)?enum\s+LexErrorCode:/, 'lexer must use the shared selfhost lexer diagnostic enum');
 assert.doesNotMatch(lexer, /\blex_error_code_name\b/, 'lexer must not stringify codes before SelfhostDiagnostic');
 
 for (const rel of neplg2Files) {

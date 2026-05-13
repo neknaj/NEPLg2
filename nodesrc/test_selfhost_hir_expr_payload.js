@@ -11,8 +11,10 @@ const hir = fs.readFileSync(path.join(repoRoot, hirPath), "utf8").replace(/\r\n/
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");
-    const prefix = kind === "fn" ? `fn ${name} ` : `${kind} ${name}`;
-    const start = lines.findIndex((line) => line.startsWith(prefix));
+    const decl = kind === "fn"
+        ? new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s`)
+        : new RegExp(`^(?:pub\\s+)?${kind}\\s+${name}`);
+    const start = lines.findIndex((line) => decl.test(line));
     assert.notEqual(start, -1, `${kind} ${name} not found`);
     const topLevel = /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/;
     let end = lines.length;
@@ -46,7 +48,7 @@ assert.deepEqual(
     ["Error", "Unit", "BoolLiteral", "I32Literal", "StrLiteral", "Var", "Call", "Block", "If"],
     "expression payload variants must cover the current expression kind set",
 );
-assert.match(hir, /struct SelfhostHirCallExpr:[\s\S]*?\bname\s+<str>[\s\S]*?\bargs\s+<SelfhostHirChildRange>/, "call payload must own callee name and argument range");
+assert.match(hir, /(?:pub\s+)?struct SelfhostHirCallExpr:[\s\S]*?\bname\s+<str>[\s\S]*?\bargs\s+<SelfhostHirChildRange>/, "call payload must own callee name and argument range");
 
 assert.doesNotMatch(hir, /\bfn\s+selfhost_hir_expr_(?:leaf|with_children)\b/, "flat leaf/children constructors must not remain");
 assert.doesNotMatch(hir, /\bselfhost_hir_expr_new\s+SelfhostHirExprKind::/, "flat kind-driven constructor calls must not remain");

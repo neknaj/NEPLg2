@@ -30,12 +30,12 @@ for (const name of ['html_escape_kind', 'escape_html']) {
 
 assert.doesNotMatch(
     htmlGen,
-    /^enum\s+HtmlEscapeKind:/m,
+    /^(?:pub\s+)?enum\s+HtmlEscapeKind:/m,
     `${htmlGenPath} must not own HtmlEscapeKind`
 );
 assert.match(
     htmlEscape,
-    /^enum\s+HtmlEscapeKind:/m,
+    /^(?:pub\s+)?enum\s+HtmlEscapeKind:/m,
     `${htmlEscapePath} must own HtmlEscapeKind`
 );
 assert.match(

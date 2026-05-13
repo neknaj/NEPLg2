@@ -467,13 +467,11 @@ impl Parser {
     }
 
     fn parse_import_directive(&mut self, text: &str, span: Span) -> Directive {
-        let mut rest = text.trim();
-        let mut vis = Visibility::Private;
-        if let Some(r) = rest.strip_prefix("pub") {
-            vis = Visibility::Pub;
-            rest = r.trim();
-        }
-        // path
+        let rest = text.trim();
+        let (vis, mut rest) = match rest.strip_prefix("pub") {
+            Some(r) => (Visibility::Pub, r.trim()),
+            None => (Visibility::Private, rest),
+        };
         let mut path = String::new();
         if rest.starts_with('"') {
             if let Some(end) = rest[1..].find('"') {

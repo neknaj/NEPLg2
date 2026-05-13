@@ -153,7 +153,7 @@ assert.match(
     'StreamWriter state module must keep buffer ownership and target enum as visible struct fields',
 );
 
-const writerNewMatch = stateCode.match(/fn\s+stream_writer_new\b([\s\S]*?)\nfn\s+close\b/);
+const writerNewMatch = stateCode.match(/(?:pub\s+)?fn\s+stream_writer_new\b([\s\S]*?)\n(?:pub\s+)?fn\s+close\b/);
 assert.ok(writerNewMatch, 'stream_writer_new body must be found');
 assert.match(
     writerNewMatch[1],
@@ -161,7 +161,7 @@ assert.match(
     'stream_writer_new must return the buffer owner as a StreamWriter field',
 );
 
-const drainMatch = stateCode.match(/fn\s+drain_impl\b([\s\S]*?)\nfn\s+reserve_impl\b/);
+const drainMatch = stateCode.match(/(?:pub\s+)?fn\s+drain_impl\b([\s\S]*?)\n(?:pub\s+)?fn\s+reserve_impl\b/);
 assert.ok(drainMatch, 'drain_impl body must be found');
 assert.match(
     drainMatch[1],
@@ -174,7 +174,7 @@ assert.doesNotMatch(
     'drain_impl must not branch on numeric target kind codes',
 );
 
-const writerOpenMatch = rootCode.match(/fn\s+open\s+<\(WriteStream\)([\s\S]*?)\ntrait\s+StreamWritable\b/);
+const writerOpenMatch = rootCode.match(/(?:pub\s+)?fn\s+open\s+<\(WriteStream\)([\s\S]*?)\n(?:pub\s+)?trait\s+StreamWritable\b/);
 assert.ok(writerOpenMatch, 'WriteStream open body must be found');
 assert.doesNotMatch(
     writerOpenMatch[1],
@@ -182,7 +182,7 @@ assert.doesNotMatch(
     'WriteStream open must not keep the owning writer result in an intermediate raw local',
 );
 
-const appendStrMatch = appendTextCode.match(/fn\s+append_str_impl\b([\s\S]*)$/);
+const appendStrMatch = appendTextCode.match(/(?:pub\s+)?fn\s+append_str_impl\b([\s\S]*)$/);
 assert.ok(appendStrMatch, 'append_str_impl body must be found');
 assert.match(
     appendStrMatch[1],
@@ -195,7 +195,7 @@ assert.doesNotMatch(
     'append_str_impl must not directly load from string_data_ptr',
 );
 
-const appendByteBufMatch = appendByteBufCode.match(/fn\s+append_bytebuf_impl\b([\s\S]*)$/);
+const appendByteBufMatch = appendByteBufCode.match(/(?:pub\s+)?fn\s+append_bytebuf_impl\b([\s\S]*)$/);
 assert.ok(appendByteBufMatch, 'append_bytebuf_impl body must be found');
 assert.match(
     appendByteBufMatch[1],

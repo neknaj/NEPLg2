@@ -36993,3 +36993,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `tests/compiler/neplg2.n.md` の List get fixture は現在の borrowed observer API に合わせて `get<i32> &lst 10` とし、read 後に `free<i32> lst` で owner を閉じるようにした。
 - `tests/compiler/sizeof.n.md` の collection layout fixture は旧固定値ではなく、`VecStorageState` / `MemPtr` / `Vec<Option<i32>>` から現在の layout expected size を計算する形へ更新した。
 - `HashMap` / `HashSet` は現在の hasher parameter 付き型を使うようにした。
+
+## 2026-05-13 Agent 1 source policy pub declaration coverage
+
+- `agent1-fix-sha256-policy-pub-fn` branch で `ISS-20260513T012505145Z-SHA256-SOURCE-POLICY-MISSES-PUB-FUNC-D6FD3269` を解決した。
+- visibility migration 後の `pub fn` / `pub enum` / `pub struct` を source policy が旧非公開宣言と同じ top-level 宣言として扱うようにした。
+- self-host model / HIR / mono / lexer / parser と stdlib string / stdio / streamio / ByteBuf / sha256 / sort / btree の policy 検査を現行宣言形式へ更新した。
+- typed scratch cleanup の `dealloc_ptr` Err arm invariant だけを `unreachable` 許可対象とし、unsafe unwrap helper の一般利用は禁止し続けるようにした。
+- fs / stdio の private read buffer discard helper に doctest を追加し、Resource IR checker entrypoint を `owner_entry.rs` に分離して責務境界 policy の対象へ追加した。
+- `node nodesrc/run_source_policy_regressions.js` が最後まで通ることを確認した。

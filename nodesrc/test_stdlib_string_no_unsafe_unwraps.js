@@ -97,10 +97,10 @@ const floatParseCode = stripNeplComments(floatParseSrc);
 const concatCode = stripNeplComments(concatSrc);
 const builderExtCode = stripNeplComments(builderExtSrc);
 const findCode = stripNeplComments(findSrc);
-const fromU128Radix = integerFormatCode.match(/fn\s+from_u128_radix[\s\S]*?(?=\nfn\s+from_i128|\n\/\/ from_i128|$)/)?.[0] ?? '';
-const stringFinish = storageCode.match(/fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\nfn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
+const fromU128Radix = integerFormatCode.match(/(?:pub\s+)?fn\s+from_u128_radix[\s\S]*?(?=\n(?:pub\s+)?fn\s+from_i128|\n\/\/ from_i128|$)/)?.[0] ?? '';
+const stringFinish = storageCode.match(/(?:pub\s+)?fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\n(?:pub\s+)?fn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
 const storageCodeWithoutStringFinish = stringFinish ? storageCode.replace(stringFinish, '') : storageCode;
-const fromF64Result = floatFormatCode.match(/fn\s+from_f64_result[\s\S]*?(?=\nfn\s+from_f64\s+<|$)/)?.[0] ?? '';
+const fromF64Result = floatFormatCode.match(/(?:pub\s+)?fn\s+from_f64_result[\s\S]*?(?=\n(?:pub\s+)?fn\s+from_f64\s+<|$)/)?.[0] ?? '';
 
 const forbidden = [
     /\bunwrap\b/,

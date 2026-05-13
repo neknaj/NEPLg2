@@ -902,6 +902,7 @@ const maxLines = new Map([
     ['cell_state_raw_range_value_alias.rs', 80],
     ['condition_fact.rs', 180],
     ['owner_check.rs', 800],
+    ['owner_entry.rs', 80],
     ['owner_check_utils.rs', 80],
     ['owner_alias.rs', 180],
     ['owner_consumption.rs', 80],

@@ -190,7 +190,7 @@ assert.doesNotMatch(
     'StreamScanner must not reintroduce a RegionToken header pointer helper',
 );
 const scannerHeaderMatch = stateCode.match(
-    /fn\s+stream_scanner_header_off\b([\s\S]*?)\nfn\s+scanner_from_bytes\b/,
+    /(?:pub\s+)?fn\s+stream_scanner_header_off\b([\s\S]*?)\n(?:pub\s+)?fn\s+scanner_from_bytes\b/,
 );
 assert.ok(scannerHeaderMatch, 'StreamScanner header helper section must be found');
 assert.doesNotMatch(
@@ -222,7 +222,7 @@ for (const fnName of [
     'scan_i64_impl',
     'scan_f64_impl',
 ]) {
-    const re = new RegExp(`fn\\s+${fnName}\\b[\\s\\S]*?(?=\\nfn\\s+|$)`);
+    const re = new RegExp(`(?:pub\\s+)?fn\\s+${fnName}\\b[\\s\\S]*?(?=\\n(?:pub\\s+)?fn\\s+|$)`);
     const match = scannerImplementationCode.match(re);
     assert.ok(match, `${fnName} body must be found`);
     assert.match(

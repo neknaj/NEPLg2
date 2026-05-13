@@ -105,7 +105,7 @@ assert.match(
 );
 
 const styleCodeMatch = codeCode.match(
-    /fn\s+ansi_color_code\s+<\(AnsiColor\)->str>\s+\(color\):([\s\S]*?)\nfn\s+ansi_background_color_code\s+/,
+    /(?:pub\s+)?fn\s+ansi_color_code\s+<\(AnsiColor\)->str>\s+\(color\):([\s\S]*?)\n(?:pub\s+)?fn\s+ansi_background_color_code\s+/,
 );
 assert.ok(styleCodeMatch, 'ansi_color_code body must be found');
 assert.doesNotMatch(styleCodeMatch[1], /\n\s*_:/, 'ansi_color_code must not use wildcard fallback');
@@ -124,7 +124,7 @@ for (const variant of [
 }
 
 const backgroundCodeMatch = codeCode.match(
-    /fn\s+ansi_background_color_code\s+<\(AnsiColor\)->str>\s+\(color\):([\s\S]*?)\nfn\s+ansi_text_weight_code\s+/,
+    /(?:pub\s+)?fn\s+ansi_background_color_code\s+<\(AnsiColor\)->str>\s+\(color\):([\s\S]*?)\n(?:pub\s+)?fn\s+ansi_text_weight_code\s+/,
 );
 assert.ok(backgroundCodeMatch, 'ansi_background_color_code body must be found');
 assert.doesNotMatch(backgroundCodeMatch[1], /\n\s*_:/, 'ansi_background_color_code must not use wildcard fallback');
@@ -143,7 +143,7 @@ for (const variant of [
 }
 
 const weightCodeMatch = codeCode.match(
-    /fn\s+ansi_text_weight_code\s+<\(AnsiTextWeight\)->str>\s+\(weight\):([\s\S]*?)\nfn\s+ansi_text_decoration_code\s+/,
+    /(?:pub\s+)?fn\s+ansi_text_weight_code\s+<\(AnsiTextWeight\)->str>\s+\(weight\):([\s\S]*?)\n(?:pub\s+)?fn\s+ansi_text_decoration_code\s+/,
 );
 assert.ok(weightCodeMatch, 'ansi_text_weight_code body must be found');
 assert.doesNotMatch(weightCodeMatch[1], /\n\s*_:/, 'ansi_text_weight_code must not use wildcard fallback');
@@ -152,7 +152,7 @@ for (const variant of ['Regular', 'Bold']) {
 }
 
 const decorationCodeMatch = codeCode.match(
-    /fn\s+ansi_text_decoration_code\s+<\(AnsiTextDecoration\)->str>\s+\(decoration\):([\s\S]*?)\nfn\s+ansi_reset_code\s+/,
+    /(?:pub\s+)?fn\s+ansi_text_decoration_code\s+<\(AnsiTextDecoration\)->str>\s+\(decoration\):([\s\S]*?)\n(?:pub\s+)?fn\s+ansi_reset_code\s+/,
 );
 assert.ok(decorationCodeMatch, 'ansi_text_decoration_code body must be found');
 assert.doesNotMatch(decorationCodeMatch[1], /\n\s*_:/, 'ansi_text_decoration_code must not use wildcard fallback');
@@ -171,7 +171,7 @@ for (const obsolete of [
 }
 
 const printStyleMatch = printCode.match(
-    /fn\s+print_style\s+<\(AnsiTextStyle,str\)\*>\(\)>\s+\(style,\s*s\):([\s\S]*?)\nfn\s+println_style\s+/,
+    /(?:pub\s+)?fn\s+print_style\s+<\(AnsiTextStyle,str\)\*>\(\)>\s+\(style,\s*s\):([\s\S]*?)\n(?:pub\s+)?fn\s+println_style\s+/,
 );
 assert.ok(printStyleMatch, 'print_style body must be found');
 assert.match(
@@ -182,19 +182,19 @@ assert.match(
 
 assert.match(
     codeCode,
-    /fn\s+ansi_text_style_code\s+<\(AnsiTextStyle\)->str>\s+\(style\):[\s\S]*ansi_text_weight_code\s+\*get_ref\s+&style\s+"weight"[\s\S]*ansi_text_decoration_code\s+\*get_ref\s+&style\s+"decoration"[\s\S]*ansi_color_code\s+\*get_ref\s+&style\s+"foreground"[\s\S]*ansi_background_color_code\s+\*get_ref\s+&style\s+"background"/,
+    /(?:pub\s+)?fn\s+ansi_text_style_code\s+<\(AnsiTextStyle\)->str>\s+\(style\):[\s\S]*ansi_text_weight_code\s+\*get_ref\s+&style\s+"weight"[\s\S]*ansi_text_decoration_code\s+\*get_ref\s+&style\s+"decoration"[\s\S]*ansi_color_code\s+\*get_ref\s+&style\s+"foreground"[\s\S]*ansi_background_color_code\s+\*get_ref\s+&style\s+"background"/,
     'ansi_text_style_code must compose typed foreground/background/decorations through enum code helpers',
 );
 
 assert.match(
     printCode,
-    /fn\s+print_style_start\s+<\(AnsiTextStyle\)\*>\(\)>\s+\(style\):[\s\S]*print\s+ansi_text_style_code\s+style/,
+    /(?:pub\s+)?fn\s+print_style_start\s+<\(AnsiTextStyle\)\*>\(\)>\s+\(style\):[\s\S]*print\s+ansi_text_style_code\s+style/,
     'print_style_start must use the shared typed style code helper',
 );
 
 assert.match(
     printCode,
-    /fn\s+print_color\s+<\(AnsiColor,str\)\*>\(\)>\s+\(color,\s*s\):[\s\S]*print_style\s+ansi_color_style\s+color\s+s/,
+    /(?:pub\s+)?fn\s+print_color\s+<\(AnsiColor,str\)\*>\(\)>\s+\(color,\s*s\):[\s\S]*print_style\s+ansi_color_style\s+color\s+s/,
     'print_color must be a typed AnsiColor convenience wrapper',
 );
 

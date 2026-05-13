@@ -11,8 +11,10 @@ const mono = fs.readFileSync(path.join(repoRoot, monoPath), "utf8").replace(/\r\
 
 function topLevelBlock(src, kind, name) {
     const lines = src.split("\n");
-    const prefix = kind === "fn" ? `fn ${name} ` : `${kind} ${name}`;
-    const start = lines.findIndex((line) => line.startsWith(prefix));
+    const decl = kind === "fn"
+        ? new RegExp(`^(?:pub\\s+)?fn\\s+${name}\\s`)
+        : new RegExp(`^(?:pub\\s+)?${kind}\\s+${name}`);
+    const start = lines.findIndex((line) => decl.test(line));
     assert.notEqual(start, -1, `${kind} ${name} not found`);
     const topLevel = /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+/;
     let end = lines.length;
