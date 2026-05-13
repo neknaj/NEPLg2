@@ -46,8 +46,8 @@ struct EnumDropVariant {
 }
 
 struct DropPlan {
-    trait_name: String,
-    method_name: String,
+    trait_application: HirTraitApplication,
+    method_id: HirTraitMethodId,
     unit_ty: TypeId,
 }
 
@@ -536,8 +536,8 @@ fn find_drop_plan(module: &HirModule, unit_ty: TypeId) -> Option<DropPlan> {
             tr.methods.keys().next().cloned()?
         };
         return Some(DropPlan {
-            trait_name: tr.name.clone(),
-            method_name,
+            trait_application: HirTraitApplication::new(tr.name.clone(), Vec::new()),
+            method_id: HirTraitMethodId::from_name(method_name),
             unit_ty,
         });
     }
@@ -567,8 +567,8 @@ fn drop_call_expr(
         ty: plan.unit_ty,
         kind: HirExprKind::Call {
             callee: FuncRef::Trait {
-                application: HirTraitApplication::new(plan.trait_name.clone(), Vec::new()),
-                method: HirTraitMethodId::from_name(plan.method_name.clone()),
+                application: plan.trait_application.clone(),
+                method: plan.method_id.clone(),
                 self_ty: ty,
             },
             args: vec![HirExpr {
@@ -627,8 +627,8 @@ fn drop_field_call_expr(
         ty: plan.unit_ty,
         kind: HirExprKind::Call {
             callee: FuncRef::Trait {
-                application: HirTraitApplication::new(plan.trait_name.clone(), Vec::new()),
-                method: HirTraitMethodId::from_name(plan.method_name.clone()),
+                application: plan.trait_application.clone(),
+                method: plan.method_id.clone(),
                 self_ty: field_ty,
             },
             args: vec![arg],

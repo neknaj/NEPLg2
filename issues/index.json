@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T15:38:12.973Z",
+  "generated_at": "2026-05-13T15:46:20.155Z",
   "counts": {
-    "total": 727,
+    "total": 728,
     "open": 5,
-    "resolved": 722,
+    "resolved": 723,
     "by_area": {
       "stdlib": {
         "total": 183,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 385,
+        "total": 386,
         "open": 0,
-        "resolved": 385
+        "resolved": 386
       },
       "resource": {
         "total": 2,
@@ -5843,6 +5843,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T140241561Z-UNSAFE-MEMORY-HELPERS-ARE-CALLABLE-F-10C0B276.md"
+    },
+    {
+      "id": "ISS-20260513T154226197Z-DROP-INSERTION-PLAN-STILL-CARRIES-RA-EF658B47",
+      "title": "Drop insertion plan still carries raw trait names",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-13",
+      "updated": "2026-05-14",
+      "target": "nepl-core/src/passes/drop_insertion.rs; nodesrc/test_abstraction_static_verification_policy.js; doc/neplg2/abstraction_static_verification_plan.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T154226197Z-DROP-INSERTION-PLAN-STILL-CARRIES-RA-EF658B47.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

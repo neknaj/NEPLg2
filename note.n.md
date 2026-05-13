@@ -1,3 +1,20 @@
+# 2026-05-14 Agent 1 DropPlan typed trait identity 修正
+
+- `ISS-20260513T154226197Z-DROP-INSERTION-PLAN-STILL-CARRIES-RA-EF658B47` を追加して解決した。
+- 根本原因は、HIR の `FuncRef::Trait` が `HirTraitApplication` / `HirTraitMethodId` へ移行済みである一方、auto-drop 生成用の `DropPlan` が `trait_name: String` と `method_name: String` を保持し、generated Drop call を raw 名称から組み立てていたこと。
+- `DropPlan` は `trait_application: HirTraitApplication` と `method_id: HirTraitMethodId` を保持する形へ変更し、Drop-capability trait 選択時に typed payload を作るようにした。
+- abstraction source policy に `DropPlan` の typed payload 必須検査と `plan.trait_name` / `plan.method_name` 再導入禁止を追加した。
+- 検証:
+  - `cargo fmt --package nepl-core --check`: passed
+  - `node nodesrc/test_abstraction_static_verification_policy.js`: passed
+  - `cargo test -p nepl-core --test drop generic_result_enum_payload_auto_drop_uses_applied_type -- --nocapture`: passed
+  - `cargo test -p nepl-core --test drop auto_drop_runs_at_scope_end -- --nocapture`: passed
+- 既知の別問題:
+  - `cargo test -p nepl-core --test drop auto_drop_partially_moved_struct_drops_remaining_fields -- --nocapture` は clean `main` でも失敗する。既存 issue `ISS-20260429T231116550Z-AUTO-DROP-SKIPS-REMAINING-STRUCT-FIE-67E6E6C5` の再発として別対応する。
+  - `cargo test -p nepl-core --test neplg2 generic -- --nocapture` / `trait -- --nocapture` は clean `main` でも raw-memory-boundary 化後の fixture 失敗を含むため、今回の focused verification から除外した。
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は `doc/neplg2/abstraction_static_verification_plan.md` Stage 5/6 の trait identity typed model を drop insertion の generated Drop call 境界にも適用するもの。
+
 # 2026-05-14 Agent 1 branch Result regression stale cleanup 修正
 
 - `ISS-20260513T153534522Z-RESOURCE-BRANCH-RESULT-REGRESSIONS-S-63F812E4` を解決した。

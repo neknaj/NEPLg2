@@ -9,6 +9,7 @@ const TYPECHECK_DIR = path.join(ROOT, "nepl-core", "src", "typecheck");
 const FUNCTION_CHECK = path.join(TYPECHECK_DIR, "function_check.rs");
 const SELECTED_CALL_APPLY = path.join(TYPECHECK_DIR, "selected_call_apply.rs");
 const HIR = path.join(ROOT, "nepl-core", "src", "hir.rs");
+const DROP_INSERTION = path.join(ROOT, "nepl-core", "src", "passes", "drop_insertion.rs");
 const MONOMORPHIZE = path.join(ROOT, "nepl-core", "src", "monomorphize.rs");
 const MONOMORPHIZE_TRAIT_LOOKUP = path.join(
     ROOT,
@@ -194,6 +195,7 @@ const driver = read(path.join(TYPECHECK_DIR, "driver.rs"));
 const env = read(path.join(TYPECHECK_DIR, "env.rs"));
 const selectedCallApply = read(SELECTED_CALL_APPLY);
 const hir = read(HIR);
+const dropInsertion = read(DROP_INSERTION);
 const monomorphize = read(MONOMORPHIZE);
 const monomorphizeTraitLookup = read(MONOMORPHIZE_TRAIT_LOOKUP);
 const monomorphizeTraitIdentity = read(MONOMORPHIZE_TRAIT_IDENTITY);
@@ -379,6 +381,23 @@ assert(
 for (const oldField of ["trait_name:", "trait_base_name:", "trait_args:"]) {
     assert(!hirImplStruct[0].includes(oldField), `HirImpl must not store ${oldField}`);
 }
+const dropPlanStruct = dropInsertion.match(/struct DropPlan\s*\{[\s\S]*?\n\}/);
+assert(dropPlanStruct, "DropPlan struct body must be visible to source policy");
+assert(
+    dropPlanStruct[0].includes("trait_application: HirTraitApplication"),
+    "DropPlan must carry typed HirTraitApplication",
+);
+assert(
+    dropPlanStruct[0].includes("method_id: HirTraitMethodId"),
+    "DropPlan must carry typed HirTraitMethodId",
+);
+for (const oldField of ["trait_name: String", "method_name: String"]) {
+    assert(!dropPlanStruct[0].includes(oldField), `DropPlan must not carry raw ${oldField}`);
+}
+assert(
+    !dropInsertion.includes("plan.trait_name") && !dropInsertion.includes("plan.method_name"),
+    "drop insertion must not construct generated Drop trait calls from raw plan names",
+);
 assert(
     resourceTraitIdentity.includes("pub struct ResourceTraitApplication"),
     "Resource IR must define ResourceTraitApplication",

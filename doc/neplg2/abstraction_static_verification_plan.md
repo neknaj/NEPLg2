@@ -281,6 +281,7 @@ struct MonoTraitLookupKey {
 - 2026-05-13: `ISS-20260512T191325765Z-HIR-AND-RESOURCE-TRAIT-METHOD-IDENTI-78952D7B` を追加し、HIR / Resource IR の trait method identity も `HirTraitMethodId` / `ResourceTraitMethodId` newtype へ移行した。`FuncRef::Trait` / `ResourceCallTarget::Trait` は raw `String` method field を持たず、文字列化は lowering / dump / diagnostic 境界の `as_str()` に限定する。Resource IR 側の trait identity type は `resource/trait_identity.rs` へ分離し、`resource/model.rs` の責務上限も維持する。
 - 2026-05-13: `ISS-20260512T194845369Z-IMPL-METHOD-LOWERING-STILL-KEEPS-REN-E15DE8F5` を追加し、impl method lowering pass も `TraitApplication` payload を持つ形へ移行した。method symbol mangle の境界だけで `display_name` を作り、final `HirImpl` は typed application から HIR application へ変換する。
 - 2026-05-13: `ISS-20260512T195620903Z-MONOMORPHIZE-TRAIT-RESOLUTION-STILL--0481CA39` を追加し、monomorphize trait resolver の入口も `HirTraitApplication` / `HirTraitMethodId` を直接受け取る形へ移行した。call site で trait name / method string へ分解する旧 `resolve_trait_impl_name` は削除した。
+- 2026-05-14: `ISS-20260513T154226197Z-DROP-INSERTION-PLAN-STILL-CARRIES-RA-EF658B47` を追加し、HIR drop insertion の `DropPlan` も `HirTraitApplication` / `HirTraitMethodId` を保持する形へ移行した。auto-drop 生成は raw `trait_name` / `method_name` から `FuncRef::Trait` を組み立てず、typed HIR trait identity payload をそのまま消費する。
 - 残件: Stage 5 の typed trait / method identity は typecheck / HIR / monomorphize / Resource IR call target まで到達した。次は policy baseline を整理し、BoundEnv / TypeParamId 残件と Resource IR 側の安全検査 issue に戻る。
 
 ### Stage 6: policy baseline を 0 に下げる
@@ -308,6 +309,7 @@ struct MonoTraitLookupKey {
 - `typecheck/trait_bound_apply.rs`: Stage 4 実装済み。pending check は `PendingTraitCheck` named model を使い、tuple state には戻さない。
 - `typecheck/trait_call_apply.rs`: Stage 4/5 は進行済み。trait method resolution は `TraitMethodResolution` enum を match し、resolution payload は `TraitApplication` と `HirTraitMethodId` を保持する。診断表示名は failure diagnostic を作る境界だけで生成する。
 - `typecheck/driver.rs`: Stage 5 は進行済み。impl collection と impl method lowering は `TraitApplication` を保持し、表示名は method symbol mangle の境界でのみ生成する。
+- `passes/drop_insertion.rs`: Stage 5 は進行済み。auto-drop 生成の `DropPlan` は `HirTraitApplication` / `HirTraitMethodId` を保持し、raw `trait_name` / `method_name` から generated Drop trait call を組み立てない。
 - `hir.rs`: Stage 5 は進行済み。`HirTraitId` / `HirTraitApplication` / `HirTraitMethodId` を追加し、`FuncRef::Trait` / `HirImpl` は typed trait application と typed method identity を保持する。
 - `monomorphize.rs`: Stage 5 実装済み。trait lookup cache / impl indexes は `MonoTraitApplication` / `MonoTraitMethodKey` / `MonoTraitLookupKey` へ移行済み。Resolver 入口は `HirTraitApplication` / `HirTraitMethodId` を直接受け取り、monomorphize phase 内の `MonoTraitId` / `MonoTraitMethodId` を含む resolved key へ変換する。
 - `resource/model.rs`: Stage 5 は実装済み。`ResourceTraitId` / `ResourceTraitApplication` / `ResourceTraitMethodId` により Resource IR call target の trait identity と method identity を typed field として保持する。
