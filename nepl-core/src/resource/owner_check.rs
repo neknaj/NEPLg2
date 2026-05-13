@@ -206,6 +206,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 output,
                 span,
             } => {
+                let source_is_copy = self.types.is_copy(source.ty);
                 variant_owner_effects.reject_reserved_source_use(
                     self,
                     owners,
@@ -214,14 +215,31 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::Read,
                     *span,
                 );
-                if structural_i32_projection_preserves_raw_address(self.types, source, output) {
-                    raw_aliases.copy_explicit_raw_address_alias(source, output);
+                if !source_is_copy {
+                    raw_aliases.copy_scalar_facts_if_tracked(source, output);
+                    self.transfer_owner(
+                        owners,
+                        raw_aliases,
+                        raw_views,
+                        storage_origins,
+                        source,
+                        output,
+                        ResourceOwnerOperation::Read,
+                        *span,
+                    );
                 } else {
-                    raw_aliases.copy_alias_if_tracked(source, output);
+                    if structural_i32_projection_preserves_raw_address(self.types, source, output) {
+                        raw_aliases.copy_explicit_raw_address_alias(source, output);
+                    } else {
+                        raw_aliases.copy_alias_if_tracked(source, output);
+                    }
+                    storage_origins.copy_origin(source, output);
                 }
-                storage_origins.copy_origin(source, output);
                 function_aliases.copy_alias(source, output);
                 raw_views.copy(source, output);
+                if !source_is_copy {
+                    raw_views.clear(source);
+                }
                 pending_reallocs.copy_result(source, output);
                 variant_owner_effects.copy_result(source, output);
             }

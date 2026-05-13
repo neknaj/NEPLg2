@@ -85,3 +85,40 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
                     let next_len <i32> sub v_len 1
                     let item <.T> vec_raw::vec_read_at<.T> v_data next_len
                     VecPop<.T> (Vec<.T> next_len v_cap VecStorageState::Owned v_data) some<.T> item
+
+//: ## drop_last
+//: [末尾/まつび][要素/ようそ]を[捨/す]て、次の `Vec` owner だけを[返/かえ]す
+//:
+//: ### [目的/もくてき]
+//: - stack のように末尾値を使わない caller が、`Vec` の raw `data` field を直接読まずに長さだけを 1 減らした owner を得られるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - 現行 `Vec` は non-Copy payload の moved/uninitialized cell を表せないため、`.T: Copy` に限定します。
+//: - 要素の値は返しません。値も必要な場合は `pop` を使います。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main <()*>i32> ():
+//:     let v <Vec<i32>>:
+//:         unwrap_ok new<i32>
+//:         |> push 10 |> uwok
+//:         |> push 20 |> uwok
+//:         |> drop_last<i32>
+//:     let mut checks checks_new
+//:     set checks checks_push checks check_eq_i32 1 len<i32> &v
+//:     free<i32> v
+//:     let shown checks_print_report checks
+//:     checks_exit_code shown
+//: ```
+pub fn drop_last <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
+    let v_len <i32> *field::get_ref &v "len"
+    let v_cap <i32> *field::get_ref &v "cap"
+    let v_storage <VecStorageState> *field::get_ref &v "storage"
+    let v_data <MemPtr<.T>> field::get v "data"
+    let next_len <i32> if eq v_len 0 0 sub v_len 1
+    Vec<.T> next_len v_cap v_storage v_data

@@ -177,3 +177,13 @@ Stage 6 の現段階で `RAW_MEMORY_BOUNDARY_STDLIB_PATHS` の module allowlist 
 `alloc_raw` は `align8(size + header)` の前に `alloc_payload_fits` で `size + 8 + 7 <= i32::MAX` を満たすことを確認する。`alloc_region` は `count * size_of<T>` を実行する前に `max_alloc_payload_bytes / size_of<T>` から最大 count を求め、wrap した byte 数を allocator へ渡さない。
 
 この作業中に、`dealloc` / `realloc` の size 引数を runtime check だけで強化すると Resource IR owner summary が正しく maybe leak を報告することを確認した。これは dealloc size と allocation extent の compiler-level proof が不足している別問題なので、`ISS-20260513T101719832Z-DEALLOC-AND-REALLOC-SIZE-ARGUMENTS-N-D7EADBBD` として分離した。
+
+## 2026-05-13 Agent 1 self-host lexer Vec.data field read 追記
+
+`ISS-20260513T215609976Z-SELF-HOST-LEXER-READS-VEC-RAW-DATA-F-8A56A6A1` で、self-host lexer の indent stack 操作が `Vec.data` raw storage field を直接読んでいた問題を分離して修正した。
+
+`lex_stack_drop_top` は `Vec<i32>` の末尾を捨てるだけなので、`field::get stack "data"` による layout 再構成ではなく `drop_last<i32>` の public owner API で次の `Vec` owner を返す形へ変更した。これにより self-host compiler の syntax 層へ `Vec` の transitional `MemPtr` storage layout を持ち込まない。`drop_last<T>` 自体は `Vec` module 内に置き、現行 `Vec` の moved/uninitialized cell 制約に合わせて `.T: Copy` に限定した。
+
+focused verification の過程で、Resource owner checker が non-Copy `Read` を owner move として扱わず、`push` の `Result::Ok` payload owner summary でも fresh / parameter-derived の複数候補が parameter 消費を隠す問題が露出した。これは stdlib allowlist で回避せず、compiler 側で owner transfer と variant projection return 正規化を修正した。Stage 6 の public API boundary 修正は、Resource IR の証明を弱めずに進める必要がある。
+
+この親 issue は引き続き open とする。stdlib 全体にはまだ raw-memory-backed public API / owner token / `OwnedBuffer<T>` 移行が残るため、個別の安全境界を閉じながら Stage 6 を継続する。

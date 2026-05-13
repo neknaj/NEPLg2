@@ -377,6 +377,7 @@ ret: 0
 
 #import "alloc/collections/vec" as *
 #import "core/field" as field
+#import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
@@ -459,6 +460,7 @@ ret: 0
 
 #import "alloc/collections/vec" as *
 #import "core/field" as field
+#import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
@@ -524,6 +526,7 @@ ret: 0
 
 #import "alloc/collections/vec" as *
 #import "core/field" as field
+#import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *
@@ -573,6 +576,7 @@ ret: 0
 
 #import "alloc/collections/vec" as *
 #import "core/field" as field
+#import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/diag" as *
 #import "neplg2/core/syntax/lexer" as *

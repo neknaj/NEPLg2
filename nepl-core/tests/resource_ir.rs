@@ -12622,6 +12622,45 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_owner_check_unwrap_ok_push_transfers_vec_owner() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+fn main <()*>i32> ():
+    let v0 <Vec<i32>> unwrap_ok new<i32>
+    let v1 <Vec<i32>> unwrap_ok push<i32> v0 7
+    free<i32> v1
+    0
+"#;
+
+    let (module, types) = typecheck_resource_source(source);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            let function = match diagnostic {
+                ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                | ResourceOwnerDiagnostic::OwnerLeaked { function, .. }
+                | ResourceOwnerDiagnostic::OwnerMaybeLeaked { function, .. } => function,
+            };
+            function.starts_with("main__") || function.starts_with("push__")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        diagnostics.is_empty(),
+        "unwrap_ok push must transfer the input Vec owner into the returned Vec payload: {:#?}\nresource:\n{}",
+        diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_owner_check_does_not_treat_raw_cell_payload_as_storage_owner() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

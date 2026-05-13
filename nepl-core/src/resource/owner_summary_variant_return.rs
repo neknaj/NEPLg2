@@ -253,7 +253,48 @@ fn push_unique_variant_projection_return(
     out: &mut Vec<OwnerVariantProjectionReturn>,
     entry: OwnerVariantProjectionReturn,
 ) {
-    if !out.iter().any(|existing| existing == &entry) {
+    let Some(existing) = out.iter_mut().find(|existing| {
+        existing.variant == entry.variant
+            && existing.suffix == entry.suffix
+            && existing.ty == entry.ty
+    }) else {
         out.push(entry);
+        return;
+    };
+    if existing.owner == entry.owner {
+        return;
+    }
+    match (&mut existing.owner, entry.owner) {
+        (
+            OwnerProjectionReturnOwner::Parameter {
+                source: existing_source,
+                returned_extent,
+            },
+            OwnerProjectionReturnOwner::Parameter {
+                source,
+                returned_extent: next_extent,
+            },
+        ) if existing_source == &source => {
+            *returned_extent = super::owner_extent::merge_owner_extent_summaries(
+                returned_extent.clone(),
+                next_extent,
+            );
+        }
+        (
+            OwnerProjectionReturnOwner::Fresh { extent },
+            OwnerProjectionReturnOwner::Fresh {
+                extent: next_extent,
+            },
+        ) => {
+            *extent =
+                super::owner_extent::merge_owner_extent_summaries(extent.clone(), next_extent);
+        }
+        (OwnerProjectionReturnOwner::Maybe, _) => {}
+        (_, OwnerProjectionReturnOwner::Maybe) => {
+            existing.owner = OwnerProjectionReturnOwner::Maybe;
+        }
+        _ => {
+            existing.owner = OwnerProjectionReturnOwner::Maybe;
+        }
     }
 }

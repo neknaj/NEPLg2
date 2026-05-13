@@ -37616,3 +37616,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `work/btree-key-eq-doctests` で `ISS-20260513T215221236Z-BTREE-KEY-EQUALITY-DOCUMENTATION-LAC-54512809` を追加して解決した。
 - aggregate source policy で `stdlib declaration doctest gaps increased: 1033 > 1032` が出たため、直前に追加した `btreemap_key_eq` / `btreeset_key_eq` の doc comment に `std/test` report 付き doctest を追加した。
 - doctest は同じ key が true、異なる key が false になる典型例を示し、Copy-only equality boundary の説明と利用例を同じ declaration に揃えた。
+
+## 2026-05-13 Agent 1 self-host lexer Vec.data field read
+
+- `work/selfhost-lexer-no-vec-data-field` で `ISS-20260513T215609976Z-SELF-HOST-LEXER-READS-VEC-RAW-DATA-F-8A56A6A1` を追加して解決した。
+- `Vec` module に `drop_last<T: Copy>` を追加し、末尾値を使わず次の owner だけを返す API を用意した。
+- `lex_stack_drop_top` は `Vec<i32>` の indent stack 末尾を捨てるだけなので、`field::get stack "data"` で raw storage field を直接読む実装をやめ、`drop_last<i32>` を呼ぶ形にした。
+- `nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js` に direct `Vec.data` read 禁止と public `Vec` owner API 使用の regression を追加した。
+- self-host compiler の syntax 層へ `Vec` の transitional `MemPtr` storage layout を持ち込まない Stage 6 境界修正である。
+- focused doctest で露出した compiler 側の根本問題も同じ issue で修正した。Resource owner checker は non-Copy `ResourceOp::Read` を owner move として扱うようにし、variant owner summary は同一 Result payload への fresh / parameter-derived owner 候補を `Maybe` へ正規化して、parameter 消費が握りつぶされないようにした。
+- `tests/stdlib/neplg2_lexer.n.md` の後半 fixture は `Option.unwrap` を使うのに `core/option` import が不足していたため、現在の明示 import 方針に合わせた。
+- 検証: Resource IR regression 2 件、`trunk build`、Vec push/pop doctest、self-host lexer 13/13、selfhost lexer source policy、MemPtr owner-field policy は pass。self-host lexer fixture は 13 件で約 243 秒かかるが、既知の lexer doctest compile cost の範囲で、今回の owner leak / undefined import は解消済み。

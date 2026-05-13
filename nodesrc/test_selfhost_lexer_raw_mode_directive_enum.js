@@ -68,6 +68,10 @@ function assertFunctionCoversEnum(src, functionName, enumName, variants) {
 }
 
 const lexer = read(lexerPath);
+const lexerCode = lexer
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join("\n");
 
 const rawModeVariants = ["None", "Wasm", "LlvmIr"];
 const directiveVariants = [
@@ -110,6 +114,18 @@ assert.doesNotMatch(
     lexer,
     /\blex_all_loop\b[^\n]*\b(?:raw_mode|pending_raw_mode)\b[^\n]*\s0\s*$/,
     "lex_all_loop must not receive numeric raw mode state",
+);
+assert.doesNotMatch(
+    lexerCode,
+    /\bfield::get\s+stack\s+"data"\b|\bget\s+stack\s+"data"\b/,
+    "self-host lexer must not read Vec.data directly; use Vec owner APIs instead",
+);
+
+const stackDropTop = functionBlock(lexer, "lex_stack_drop_top");
+assert.match(
+    stackDropTop,
+    /\bdrop_last<i32>\s+stack\b/,
+    "lex_stack_drop_top must drop the indent stack top through the public Vec owner API",
 );
 
 assertFunctionCoversEnum(lexer, "lex_raw_mode_is_active", "SelfhostLexerRawMode", rawModeVariants);

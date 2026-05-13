@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T21:53:40.976Z",
+  "generated_at": "2026-05-13T22:53:33.101Z",
   "counts": {
-    "total": 738,
+    "total": 739,
     "open": 5,
-    "resolved": 733,
+    "resolved": 734,
     "by_area": {
       "stdlib": {
         "total": 185,
@@ -17,9 +17,9 @@
         "resolved": 17
       },
       "selfhost": {
-        "total": 62,
+        "total": 63,
         "open": 1,
-        "resolved": 61
+        "resolved": 62
       },
       "cli": {
         "total": 19,
@@ -6863,6 +6863,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T212421953Z-SELFHOST-DIAGNOSTIC-CODE-ENUM-POLICY-656F8C6E.md"
+    },
+    {
+      "id": "ISS-20260513T215609976Z-SELF-HOST-LEXER-READS-VEC-RAW-DATA-F-8A56A6A1",
+      "title": "Self-host lexer reads Vec raw data field directly",
+      "area": "selfhost",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-13",
+      "updated": "2026-05-14",
+      "target": "stdlib/neplg2/core/syntax/lexer.nepl, stdlib/alloc/collections/vec/mutation/pop.nepl, nepl-core/src/resource/owner_check.rs, nepl-core/src/resource/owner_summary_variant_return.rs, nepl-core/src/resource/owner_variant_utils.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/neplg2_lexer.n.md, nodesrc/test_selfhost_lexer_raw_mode_directive_enum.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T215609976Z-SELF-HOST-LEXER-READS-VEC-RAW-DATA-F-8A56A6A1.md"
     },
     {
       "id": "ISS-20260512T032320909Z-RESOURCE-OWNER-SUMMARY-REPORTS-STDIO-C9FC40C9",
