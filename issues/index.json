@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-13T12:27:21.901Z",
+  "generated_at": "2026-05-13T12:37:10.076Z",
   "counts": {
-    "total": 718,
+    "total": 719,
     "open": 5,
-    "resolved": 713,
+    "resolved": 714,
     "by_area": {
       "stdlib": {
         "total": 182,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 379,
+        "total": 380,
         "open": 0,
-        "resolved": 379
+        "resolved": 380
       },
       "resource": {
         "total": 2,
@@ -5733,6 +5733,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T121745489Z-RESOURCE-OWNER-EXTENT-MODULE-IS-MISS-EC5F756B.md"
+    },
+    {
+      "id": "ISS-20260513T123242078Z-RESOURCE-OWNER-VARIANT-CALL-RECORDIN-7F8E6B04",
+      "title": "Resource owner variant call recording remains in monolithic owner_variant module",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-13",
+      "updated": "2026-05-13",
+      "target": "nepl-core/src/resource/owner_variant.rs, nepl-core/src/resource/owner_variant_record.rs, nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260513T123242078Z-RESOURCE-OWNER-VARIANT-CALL-RECORDIN-7F8E6B04.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

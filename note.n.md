@@ -37304,3 +37304,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `owner_check.rs` の raw memory operation handling を `owner_raw_memory.rs`、`owner_consumption.rs` の extent-aware call argument consumption を `owner_consumption_extent.rs`、`owner_flow.rs` の owner extent proof bridge を `owner_extent_check.rs` へ分離した。
 - 既存 owner summary / owner variant 系の大型 module は今回の分割対象外だが、source policy が常時 warning にならないよう現状値に近い tight baseline へ校正し、今後の増加を検出できる状態に戻した。
 - `cargo check -p nepl-core --tests`、Resource IR raw extent regression、Resource checker responsibility policy、source policy regression はすべて pass した。
+
+## 2026-05-13 Agent 1 Resource owner variant call recording split
+
+- `work/resource-owner-variant-responsibility` で `ISS-20260513T123242078Z-RESOURCE-OWNER-VARIANT-CALL-RECORDIN-7F8E6B04` を追加して解決した。
+- `owner_variant.rs` に残っていた `OwnerReturnSummary` から pending variant owner effect を構築する call recording path を `owner_variant_record.rs` へ分離した。
+- `owner_variant.rs` は 1227 行から 1037 行へ縮小し、`owner_variant_record.rs` は 211 行の dedicated module として Resource checker responsibility policy へ追加した。
+- policy limit は `owner_variant.rs` を 1250 から 1120、`owner_variant_record.rs` を 220 に設定し、variant owner correctness の将来変更が単一 module に再集中しないようにした。
+- `cargo check -p nepl-core --tests` と `node nodesrc/test_resource_checker_responsibility.js` は pass した。
