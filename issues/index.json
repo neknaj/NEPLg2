@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T15:19:53.720Z",
+  "generated_at": "2026-05-14T15:30:26.022Z",
   "counts": {
-    "total": 767,
+    "total": 768,
     "open": 6,
-    "resolved": 761,
+    "resolved": 762,
     "by_area": {
       "stdlib": {
-        "total": 201,
+        "total": 202,
         "open": 4,
-        "resolved": 197
+        "resolved": 198
       },
       "TEST": {
         "total": 21,
@@ -143,7 +143,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-04-27",
-      "updated": "2026-05-14",
+      "updated": "2026-05-15",
       "target": "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs",
       "legacy_id": "",
       "source": "",
@@ -8953,6 +8953,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T144624264Z-VEC-TRANSFORM-ERR-PATHS-DESTROY-CONS-7BB8707C.md"
+    },
+    {
+      "id": "ISS-20260514T152732869Z-CORE-MEM-INTERNAL-REGION-NEW-DOCTEST-F1D709F2",
+      "title": "core/mem internal region_new doctest demonstrates forged owner token",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/core/mem/internal.nepl, nodesrc/test_stdlib_mem_internal_region_new_docs.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T152732869Z-CORE-MEM-INTERNAL-REGION-NEW-DOCTEST-F1D709F2.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

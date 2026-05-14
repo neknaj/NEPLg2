@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-04-27
-updated: 2026-05-14
+updated: 2026-05-15
 target: "stdlib/core/mem.nepl, stdlib/alloc/collections/vec.nepl, stdlib/alloc/string.nepl, stdlib/alloc/io.nepl, stdlib/std/fs.nepl, stdlib/std/stdio.nepl, stdlib/std/streamio.nepl, nepl-core/src/typecheck.rs"
 ---
 
@@ -239,3 +239,11 @@ allocation は `alloc_region<T>`、storage-only cleanup は `dealloc_region<T>`�
 focused verification の過程で、Resource owner checker が non-Copy `Read` を owner move として扱わず、`push` の `Result::Ok` payload owner summary でも fresh / parameter-derived の複数候補が parameter 消費を隠す問題が露出した。これは stdlib allowlist で回避せず、compiler 側で owner transfer と variant projection return 正規化を修正した。Stage 6 の public API boundary 修正は、Resource IR の証明を弱めずに進める必要がある。
 
 この親 issue は引き続き open とする。stdlib 全体にはまだ raw-memory-backed public API / owner token / `OwnedBuffer<T>` 移行が残るため、個別の安全境界を閉じながら Stage 6 を継続する。
+
+## 2026-05-15 Agent 1 region_new doctest forged-token fixture 追記
+
+`ISS-20260514T152732869Z-CORE-MEM-INTERNAL-REGION-NEW-DOCTEST-F1D709F2` で、`core/mem/internal.nepl` の `region_new` doctest が固定 raw address から `RegionToken<u8>` を構築する例を示していた問題を修正した。
+
+`region_new` の正常例は `alloc_ptr<u8>` 由来の allocator-issued pointer から `RegionToken<u8>` を作り、最後に `dealloc_region<u8>` で free obligation を閉じる形へ変更した。あわせて source policy regression を追加し、canonical internal doctest が `region_new mem_ptr_wrap` や non-zero fixed raw address wrapping を正常例として再導入しないようにした。
+
+これは `RegionToken<T>` の forgeability 本体を閉じる修正ではないため、この親 issue は open のまま継続する。Stage 6 の残件は引き続き compiler-issued owner token / `OwnedBuffer<T>` / initialized prefix / collection drop traversal である。

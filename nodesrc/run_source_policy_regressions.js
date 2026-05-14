@@ -80,6 +80,7 @@ const checks = [
     "nodesrc/test_stdlib_vec_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_vec_borrowed_observers.js",
     "nodesrc/test_stdlib_memptr_owner_field_policy.js",
+    "nodesrc/test_stdlib_mem_internal_region_new_docs.js",
     "nodesrc/test_stdlib_core_mem_boundary.js",
     "nodesrc/test_static_check_boundary_responsibility.js",
     "nodesrc/test_abstraction_static_verification_policy.js",

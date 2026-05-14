@@ -82,9 +82,19 @@ pub fn mem_ptr_addr <.T> <(MemPtr<.T>)->i32> (p):
 //:| #import "core/mem" as *
 //:| #import "core/mem/internal" as *
 //:| #import "core/math" as *
+//:| #import "core/result" as *
 //: fn main <()*>i32> ():
-//:     let token <RegionToken<u8>> region_new mem_ptr_wrap 128 4
-//:     if eq region_size &token 4 1 0
+//:     match alloc_ptr<u8> 4:
+//:         Result::Err _e:
+//:             0
+//:         Result::Ok ptr:
+//:             let token <RegionToken<u8>> region_new ptr 4
+//:             let ok <i32> if eq region_size &token 4 1 0
+//:             match dealloc_region<u8> token:
+//:                 Result::Err _cleanup:
+//:                     0
+//:                 Result::Ok _:
+//:                     ok
 //: ```
 pub fn region_new <.T> <(MemPtr<.T>,i32)->RegionToken<.T>> (ptr, size):
     RegionToken ptr size
