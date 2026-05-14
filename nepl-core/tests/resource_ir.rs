@@ -11905,6 +11905,31 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn typecheck_rejects_generic_owner_backed_aggregate_constructor_after_application() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+
+struct OwnerBox<.T>:
+    item <.T>
+
+fn box_vec <(Vec<i32>)->OwnerBox<Vec<i32>>> (items):
+    OwnerBox<Vec<i32>> items
+
+fn main <()->i32> ():
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "type.owner_aggregate.constructor_restricted",
+    );
+}
+
+#[test]
 fn typecheck_rejects_hashmap_owner_storage_reconstruction_outside_boundary() {
     let source = r#"
 #entry main

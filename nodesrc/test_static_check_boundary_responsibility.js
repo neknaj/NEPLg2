@@ -243,8 +243,13 @@ assertContains(
 );
 assertContains(
     typecheckConstructorApply,
-    'match info.constructor_policy',
+    'match constructor_policy',
     'typecheck/constructor_apply.rs',
+);
+assertContains(
+    typecheckConstructorApply,
+    'target_contains_owner_backed_aggregate',
+    'typecheck/constructor_apply.rs applied owner-backed aggregate constructor gate',
 );
 assertMatches(
     typecheckConstructorApply,

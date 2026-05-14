@@ -8,6 +8,7 @@ use crate::hir::{HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
 
+use super::copy_capability::target_contains_owner_backed_aggregate;
 use super::diagnostics::type_error;
 use super::model::{RestrictedStructConstructor, StructConstructorPolicy};
 use super::syntax_helpers::split_qualified_name;
@@ -160,7 +161,12 @@ impl<'a> BlockChecker<'a> {
         let Some(info) = self.structs.get(name) else {
             return None;
         };
-        match info.constructor_policy {
+        let constructor_policy = info.constructor_policy;
+        let struct_ty = info.ty;
+        let fields = info.fields.clone();
+        let field_names = info.field_names.clone();
+
+        match constructor_policy {
             StructConstructorPolicy::Public => {}
             StructConstructorPolicy::RawMemoryBoundaryOnly(restricted) => {
                 if !self.raw_memory_boundary_allowed(span) {
@@ -189,9 +195,23 @@ impl<'a> BlockChecker<'a> {
                 }
             }
         }
-        let struct_ty = info.ty;
-        let fields = info.fields.clone();
-        let field_names = info.field_names.clone();
+        let type_args = resolved_args.to_vec();
+        let applied_ty = if type_args.is_empty() {
+            struct_ty
+        } else {
+            self.ctx.apply(struct_ty, type_args.clone())
+        };
+        if constructor_policy == StructConstructorPolicy::Public
+            && target_contains_owner_backed_aggregate(self.ctx, self.structs, applied_ty)
+            && !self.owner_aggregate_constructor_boundary_allowed(span)
+        {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::OwnerAggregateConstructorRestricted,
+                "owner-backed aggregate constructor is restricted to compiler memory boundary",
+                span,
+            ));
+            return Some(None);
+        }
         if args.len() != c_params.len() {
             self.diagnostics.push(type_error(
                 TypeDiagnosticCode::ArgumentArityMismatch,
@@ -204,12 +224,6 @@ impl<'a> BlockChecker<'a> {
             && field_names.len() == 1
             && field_names[0] == "tag"
             && matches!(self.ctx.get(self.ctx.resolve_id(fields[0])), TypeKind::Unit);
-        let type_args = resolved_args.to_vec();
-        let applied_ty = if type_args.is_empty() {
-            struct_ty
-        } else {
-            self.ctx.apply(struct_ty, type_args.clone())
-        };
         let field_exprs = if is_tag_unit_struct && args.is_empty() {
             vec![HirExpr {
                 ty: self.ctx.unit(),

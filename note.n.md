@@ -38581,3 +38581,18 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test resource_ir typecheck_rejects_nested_owner_backed_aggregate_constructor_outside_boundary -- --nocapture`
   - `cargo test -p nepl-core --test resource_ir typecheck_rejects_region_token_field_access_outside_memory_boundary -- --nocapture`
   - `node nodesrc/test_static_check_boundary_responsibility.js`
+
+## 2026-05-15 Agent 1 generic owner aggregate constructor
+
+- `ISS-20260514T233136936Z-GENERIC-OWNER-BACKED-AGGREGATE-CONST-6E024598` を追加して fixed にした。
+- `OwnerBox<Vec<i32>>` のように generic type application 後に owner-backed になる public struct constructor を boundary 外で拒否するようにした。
+- `apply_struct_constructor` は concrete result type を構築した後、`target_contains_owner_backed_aggregate` で構造判定し、`OwnerAggregateConstructorBoundary` capability を要求する。
+- raw memory constructor は従来の `RawMemoryBoundaryOnly` policy を先に処理し、不要な type application を行わない。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_generic_owner_backed_aggregate_constructor_after_application -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_nested_owner_backed_aggregate_constructor_outside_boundary -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_hashmap_owner_storage_reconstruction_outside_boundary -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_hashmap_owner_storage_field_projection_outside_boundary -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`

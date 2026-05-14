@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T23:28:06.385Z",
+  "generated_at": "2026-05-14T23:37:30.705Z",
   "counts": {
-    "total": 803,
+    "total": 804,
     "open": 8,
-    "resolved": 795,
+    "resolved": 796,
     "by_area": {
       "stdlib": {
         "total": 229,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 399,
+        "total": 400,
         "open": 0,
-        "resolved": 399
+        "resolved": 400
       },
       "CORE": {
         "total": 1,
@@ -6088,6 +6088,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T231627302Z-OWNER-BACKED-AGGREGATE-FIELD-PROJECT-290DED97.md"
+    },
+    {
+      "id": "ISS-20260514T233136936Z-GENERIC-OWNER-BACKED-AGGREGATE-CONST-6E024598",
+      "title": "Generic owner-backed aggregate constructors bypass boundary after type application",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/typecheck/constructor_apply.rs, nepl-core/src/typecheck/copy_capability.rs, nepl-core/tests/resource_ir.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T233136936Z-GENERIC-OWNER-BACKED-AGGREGATE-CONST-6E024598.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

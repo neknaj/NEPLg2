@@ -441,3 +441,11 @@ focused consumer verification 中に `std/io` doctest が `WriteStream` の定�
 今回の修正では、`typecheck/field_access.rs` も `target_contains_owner_backed_aggregate` を使い、base または projected field が owner-backed aggregate の場合は `OwnerAggregateFieldBoundary` capability を要求する。これにより通常 user source が `HashMap.storage` や `Vec` wrapper の `items` field を `field::get` で取り出し、collection/storage owner invariant を public API の外へ分解する経路を拒否する。
 
 同時に owner-backed aggregate 判定を generic application / enum payload / tuple / box まで再帰する構造判定に拡張した。これは stdlib path allowlist ではなく型構造から性質を導出する compiler-core 側の防壁であり、親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。
+
+## 2026-05-15 Agent 1 generic owner aggregate constructor 追記
+
+`ISS-20260514T233136936Z-GENERIC-OWNER-BACKED-AGGREGATE-CONST-6E024598` として、generic type application 後に owner-backed になる aggregate constructor が boundary を迂回できる問題を分離して修正した。
+
+`StructConstructorPolicy` は definition に付くため、`struct OwnerBox<.T>: item <.T>` のような generic definition は policy 上は public のまま残る。しかし `OwnerBox<Vec<i32>>` は適用後に owner-backed aggregate になるため、constructor call 時の concrete result type を構造判定へ通して `OwnerAggregateConstructorBoundary` を要求するようにした。
+
+これにより constructor と field projection は同じ `target_contains_owner_backed_aggregate` に基づき、generic wrapper だけで collection owner / storage owner invariant を public source 側へ持ち出す経路を閉じる。親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。
