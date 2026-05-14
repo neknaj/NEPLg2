@@ -11880,6 +11880,54 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn typecheck_rejects_nested_owner_backed_aggregate_constructor_outside_boundary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/vec" as *
+
+struct VecBox:
+    items <Vec<i32>>
+
+fn box_vec <(Vec<i32>)->VecBox> (items):
+    VecBox items
+
+fn main <()->i32> ():
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "type.owner_aggregate.constructor_restricted",
+    );
+}
+
+#[test]
+fn typecheck_rejects_hashmap_owner_storage_reconstruction_outside_boundary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "alloc/collections/hashmap" as *
+#import "core/traits/hash" as *
+
+fn rebuild <(HashMapStorage<i32,i32>,DefaultHash32)->HashMap<i32,i32,DefaultHash32>> (storage, hasher):
+    HashMap<i32,i32,DefaultHash32> 0 4 0 storage hasher
+
+fn main <()->i32> ():
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "type.owner_aggregate.constructor_restricted",
+    );
+}
+
+#[test]
 fn typecheck_allows_user_struct_named_region_token_field_access() {
     let source = r#"
 #no_prelude

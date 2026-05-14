@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T22:52:55.186Z",
+  "generated_at": "2026-05-14T23:09:38.783Z",
   "counts": {
-    "total": 801,
+    "total": 802,
     "open": 8,
-    "resolved": 793,
+    "resolved": 794,
     "by_area": {
       "stdlib": {
         "total": 229,
@@ -32,9 +32,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 397,
+        "total": 398,
         "open": 0,
-        "resolved": 397
+        "resolved": 398
       },
       "CORE": {
         "total": 1,
@@ -6058,6 +6058,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T212804383Z-OWNER-AGGREGATE-CONSTRUCTOR-AND-OWNE-58143AB3.md"
+    },
+    {
+      "id": "ISS-20260514T230404748Z-OWNER-BACKED-AGGREGATE-POLICY-DOES-N-7D995A6B",
+      "title": "Owner-backed aggregate policy does not propagate through nested owner fields",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "nepl-core/src/typecheck/copy_capability.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T230404748Z-OWNER-BACKED-AGGREGATE-POLICY-DOES-N-7D995A6B.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

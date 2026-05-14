@@ -222,6 +222,25 @@ assertContains(
     'return StructConstructorPolicy::Public',
     'typecheck/driver.rs',
 );
+const typecheckCopyCapability = assertFile(
+    path.join(TYPECHECK_DIR, 'copy_capability.rs'),
+    'typecheck/copy_capability.rs',
+);
+assertContains(
+    typecheckCopyCapability,
+    'fn target_contains_owner_backed_aggregate',
+    'typecheck/copy_capability.rs',
+);
+assertContains(
+    typecheckCopyCapability,
+    'loop {',
+    'typecheck/copy_capability.rs owner-backed aggregate fixed point',
+);
+assertContains(
+    typecheckCopyCapability,
+    'StructConstructorPolicy::OwnerBackedAggregateBoundaryOnly',
+    'typecheck/copy_capability.rs',
+);
 assertContains(
     typecheckConstructorApply,
     'match info.constructor_policy',

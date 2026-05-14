@@ -38553,3 +38553,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_io_target_facade.js`
   - `node nodesrc/tests.js -i stdlib/std/io.nepl --no-tree -o tmp/agent1-std-io-iotarget-facade-module.json -j 1 --dist web/dist --assert-io`
   - `node nodesrc/tests.js -i tests/stdlib/io.n.md --no-tree -o tmp/agent1-std-io-iotarget-facade-suite.json -j 1 --dist web/dist --assert-io`
+
+## 2026-05-15 Agent 1 transitive owner aggregate policy
+
+- `ISS-20260514T230404748Z-OWNER-BACKED-AGGREGATE-POLICY-DOES-N-7D995A6B` を追加して fixed にした。
+- `OwnerBackedAggregateBoundaryOnly` の判定を direct owner token field だけでなく、owner-backed aggregate を field に持つ aggregate へ fixed-point で伝播させた。
+- これにより、user source の `Vec` wrapper constructor や `HashMapStorage` / `HashMap` の直接再構築が `type.owner_aggregate.constructor_restricted` で拒否される。
+- 判定は `Vec` / `HashMap` などの特定名 allowlist ではなく、compiler owner token policy と struct field 型から導出する。
+- focused verification:
+  - `cargo fmt -p nepl-core --check`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_nested_owner_backed_aggregate_constructor_outside_boundary -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_hashmap_owner_storage_reconstruction_outside_boundary -- --nocapture`
+  - `cargo test -p nepl-core --test resource_ir typecheck_rejects_region_token_struct_constructor_outside_memory_boundary -- --nocapture`
+  - `cargo test -p nepl-core owner_aggregate -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`

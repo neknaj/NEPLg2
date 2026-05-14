@@ -425,3 +425,11 @@ Empty state は runtime allocation を持たないが、public API としては 
 invalid UTF-8 fixture も raw `i32` address store から checked `MemPtr` `store_u8` / `dealloc_ptr` cleanup へ移した。これは UTF-8 converter が invalid byte を拒否する性質を維持しつつ、通常 doctest が raw memory authority を要求しないようにする Stage 6 の public/raw boundary split である。
 
 focused consumer verification 中に `std/io` doctest が `WriteStream` の定義元を import していない既存 drift を確認したため、`ISS-20260514T223843320Z-STD-IO-DOCTEST-OMITS-EXPLICIT-IOTARG-12D221C3` として分離した。この親 issue は `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。
+
+## 2026-05-15 Agent 1 transitive owner aggregate policy 追記
+
+`ISS-20260514T230404748Z-OWNER-BACKED-AGGREGATE-POLICY-DOES-N-7D995A6B` として、compiler の owner-backed aggregate constructor policy が direct owner token field にしか効かず、nested owner field を持つ aggregate に伝播しない問題を分離して修正した。
+
+今回の修正では、`OwnerBackedAggregateBoundaryOnly` の判定を fixed-point の構造判定に変更した。`Vec<T>` のように `RegionToken<T>` を直接持つ型だけでなく、`Vec<T>` を field に持つ user wrapper、`HashMapStorage<K,V>`、さらに `HashMap<K,V,H>` のような二段目以降の aggregate も owner-backed として扱う。これにより、通常 user source が `HashMapStorage` や `HashMap` constructor を直接呼び出し、collection storage state / count / capacity の不変条件を再構築する経路を typecheck で拒否する。
+
+この修正は stdlib 名の allowlist ではなく、compiler owner token policy と struct field 型から性質を導出する compiler-core 側の防壁である。親 issue は raw-memory-backed stdlib API 全体の `OwnedBuffer<T>` / compiler-issued owner token / initialized prefix / collection drop traversal が残るため open のまま継続する。
