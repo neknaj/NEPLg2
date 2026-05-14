@@ -134,6 +134,8 @@ pub enum TypeDiagnosticCode {
     MatchWildcardNotLast,
     OwnerTokenConstructorRestricted,
     RawPointerConstructorRestricted,
+    OwnerTokenFieldAccessRestricted,
+    RawPointerFieldAccessRestricted,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -403,6 +405,8 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::MatchWildcardNotLast),
     DiagnosticCode::Type(TypeDiagnosticCode::OwnerTokenConstructorRestricted),
     DiagnosticCode::Type(TypeDiagnosticCode::RawPointerConstructorRestricted),
+    DiagnosticCode::Type(TypeDiagnosticCode::OwnerTokenFieldAccessRestricted),
+    DiagnosticCode::Type(TypeDiagnosticCode::RawPointerFieldAccessRestricted),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
         ResourceBorrowDiagnosticCode::ReturnEscape,
     )),
@@ -794,6 +798,12 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::RawPointerConstructorRestricted => {
                 "type.raw_pointer.constructor_restricted"
             }
+            TypeDiagnosticCode::OwnerTokenFieldAccessRestricted => {
+                "type.owner_token.field_access_restricted"
+            }
+            TypeDiagnosticCode::RawPointerFieldAccessRestricted => {
+                "type.raw_pointer.field_access_restricted"
+            }
         }
     }
 
@@ -921,6 +931,12 @@ impl TypeDiagnosticCode {
             }
             TypeDiagnosticCode::RawPointerConstructorRestricted => {
                 "raw pointer constructor is restricted to compiler memory boundary"
+            }
+            TypeDiagnosticCode::OwnerTokenFieldAccessRestricted => {
+                "owner token fields are restricted to compiler memory boundary"
+            }
+            TypeDiagnosticCode::RawPointerFieldAccessRestricted => {
+                "raw pointer fields are restricted to compiler memory boundary"
             }
         }
     }

@@ -11857,6 +11857,50 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn typecheck_rejects_region_token_field_access_outside_memory_boundary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/field" as *
+
+fn reveal_ptr <(RegionToken<u8>)->MemPtr<u8>> (token):
+    get token "ptr"
+
+fn main <()->i32> ():
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "type.owner_token.field_access_restricted",
+    );
+}
+
+#[test]
+fn typecheck_allows_user_struct_named_region_token_field_access() {
+    let source = r#"
+#no_prelude
+#entry main
+#indent 4
+#target std
+
+struct RegionToken:
+    value <i32>
+
+fn read_value <(RegionToken)->i32> (token):
+    #intrinsic "get_field" <> (token,"value")
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let _ = typecheck_resource_source(source);
+}
+
+#[test]
 fn typecheck_rejects_mem_ptr_struct_constructor_outside_memory_boundary() {
     let source = r#"
 #entry main
@@ -11895,6 +11939,52 @@ struct MemPtr:
 
 fn make <()->MemPtr> ():
     MemPtr 3
+
+fn main <()->i32> ():
+    0
+"#;
+
+    let _ = typecheck_resource_source(source);
+}
+
+#[test]
+fn typecheck_rejects_mem_ptr_field_access_outside_memory_boundary() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/field" as *
+
+fn reveal_raw <()->i32> ():
+    let p <MemPtr<u8>> mem_ptr_wrap 16
+    get p "raw"
+
+fn main <()->i32> ():
+    0
+"#;
+
+    assert_compile_resource_source_reports_code(
+        source,
+        CompileTarget::Wasm,
+        "type.raw_pointer.field_access_restricted",
+    );
+}
+
+#[test]
+fn typecheck_allows_user_struct_named_mem_ptr_field_access() {
+    let source = r#"
+#no_prelude
+#entry main
+#indent 4
+#target std
+
+struct MemPtr:
+    raw <i32>
+
+fn read_raw <(MemPtr)->i32> (p):
+    #intrinsic "get_field" <> (p,"raw")
 
 fn main <()->i32> ():
     0

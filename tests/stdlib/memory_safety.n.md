@@ -503,6 +503,27 @@ fn main <()->i32> ():
     0
 ```
 
+## MemPtr の raw field は memory boundary 外で読めない
+
+neplg2:test[compile_fail]
+diag_code: type.raw_pointer.field_access_restricted
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/field" as *
+
+fn reveal_raw <()->i32> ():
+    let p <MemPtr<u8>> mem_ptr_wrap 16
+    get p "raw"
+
+fn main <()->i32> ():
+    0
+```
+
 ## store_u8 は MemPtr<u8> だけを受け付ける
 
 neplg2:test[compile_fail]
@@ -661,6 +682,25 @@ fn main <()*>()> ():
             ()
         Result::Err _e:
             ()
+```
+
+## RegionToken の内部 field は memory boundary 外で読めない
+
+neplg2:test[compile_fail]
+diag_code: type.owner_token.field_access_restricted
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/mem" as *
+#import "core/field" as *
+
+fn reveal_region_ptr <(RegionToken<u8>)->MemPtr<u8>> (token):
+    get token "ptr"
+
+fn main <()->i32> ():
+    0
 ```
 
 ## helper が返した region_ptr は owner token にできない

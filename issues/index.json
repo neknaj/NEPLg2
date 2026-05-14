@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T14:04:25.849Z",
+  "generated_at": "2026-05-14T14:26:30.665Z",
   "counts": {
-    "total": 762,
+    "total": 763,
     "open": 5,
-    "resolved": 757,
+    "resolved": 758,
     "by_area": {
       "stdlib": {
         "total": 198,
@@ -27,9 +27,9 @@
         "resolved": 19
       },
       "core": {
-        "total": 392,
+        "total": 393,
         "open": 0,
-        "resolved": 392
+        "resolved": 393
       },
       "CORE": {
         "total": 1,
@@ -5938,6 +5938,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T054314434Z-COPY-IMPL-CAN-MARK-COMPILER-OWNER-TO-D6C08048.md"
+    },
+    {
+      "id": "ISS-20260514T141413028Z-COMPILER-MEMORY-FIELDS-BYPASS-RAW-ME-E1E6DAC6",
+      "title": "Compiler memory fields bypass raw-memory boundary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "nepl-core/src/typecheck/field_access.rs, nepl-core/src/diagnostic_codes.rs, tests/stdlib/memory_safety.n.md, nepl-core/tests/resource_ir.rs, nodesrc/test_static_check_boundary_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T141413028Z-COMPILER-MEMORY-FIELDS-BYPASS-RAW-ME-E1E6DAC6.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

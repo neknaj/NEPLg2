@@ -129,6 +129,10 @@ const typecheckConstructorApply = assertFile(
     path.join(TYPECHECK_DIR, 'constructor_apply.rs'),
     'typecheck/constructor_apply.rs',
 );
+const typecheckFieldAccess = assertFile(
+    path.join(TYPECHECK_DIR, 'field_access.rs'),
+    'typecheck/field_access.rs',
+);
 const typecheckSyntaxHelpers = assertFile(
     path.join(TYPECHECK_DIR, 'syntax_helpers.rs'),
     'typecheck/syntax_helpers.rs',
@@ -233,6 +237,46 @@ assertNotContains(
     typecheckConstructorApply,
     'RestrictedStructConstructor::_',
     'typecheck/constructor_apply.rs',
+);
+assertContains(
+    typecheckFieldAccess,
+    'restricted_struct_field_access_error',
+    'typecheck/field_access.rs',
+);
+assertContains(
+    typecheckFieldAccess,
+    'compiler_memory_type_definition_allowed',
+    'typecheck/field_access.rs',
+);
+assertMatches(
+    typecheckFieldAccess,
+    /StructConstructorPolicy::RawMemoryBoundaryOnly\(restricted\)\s*=>\s*Some\(restricted\)/,
+    'typecheck/field_access.rs field access constructor policy gate',
+);
+assertMatches(
+    typecheckFieldAccess,
+    /RestrictedStructConstructor::OwnerToken[\s\S]*CompilerMemoryType::OwnerToken/,
+    'typecheck/field_access.rs owner token definition capability branch',
+);
+assertMatches(
+    typecheckFieldAccess,
+    /RestrictedStructConstructor::RawPointer[\s\S]*CompilerMemoryType::RawPointer/,
+    'typecheck/field_access.rs raw pointer definition capability branch',
+);
+assertMatches(
+    typecheckFieldAccess,
+    /RestrictedStructConstructor::OwnerToken\s*=>\s*Some\(\(\s*TypeDiagnosticCode::OwnerTokenFieldAccessRestricted/,
+    'typecheck/field_access.rs owner token field diagnostic branch',
+);
+assertMatches(
+    typecheckFieldAccess,
+    /RestrictedStructConstructor::RawPointer\s*=>\s*Some\(\(\s*TypeDiagnosticCode::RawPointerFieldAccessRestricted/,
+    'typecheck/field_access.rs raw pointer field diagnostic branch',
+);
+assertNotContains(
+    typecheckFieldAccess,
+    'RestrictedStructConstructor::_',
+    'typecheck/field_access.rs',
 );
 assertContains(effects, 'pub enum RawBodyMemoryOp', 'effects.rs');
 assertContains(effects, 'pub enum WasmRawBodyMemoryOp', 'effects.rs');

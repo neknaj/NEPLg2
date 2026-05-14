@@ -1,3 +1,21 @@
+# 2026-05-14 Agent 1 compiler memory field boundary 修正
+
+- `ISS-20260514T141413028Z-COMPILER-MEMORY-FIELDS-BYPASS-RAW-ME-E1E6DAC6` を追加して解決した。
+- `MemPtr` / `RegionToken` の direct constructor は `StructConstructorPolicy::RawMemoryBoundaryOnly` で制限済みだったが、field access は通常 struct と同じ shape 解決のままだったため、`MemPtr.raw` や `RegionToken.ptr` を memory boundary 外から projection できる設計上の穴があった。
+- `typecheck/field_access.rs` が resolved struct definition の `StructConstructorPolicy` を見るようにし、`OwnerToken` / `RawPointer` を enum の明示的な `match` で分岐して `type.owner_token.field_access_restricted` / `type.raw_pointer.field_access_restricted` を出すようにした。
+- `stdlib/core/mem/types.nepl` の representation helper は、raw boundary を広げるのではなく `CompilerMemoryTypeDefinition` capability を持つ定義モジュールとして許可した。これにより user source が同じ field intrinsic を書いても boundary 扱いにはならない。
+- `tests/stdlib/memory_safety.n.md` と Rust integration test に、compiler memory field projection 拒否と同名 user struct の field access 許可を追加した。
+- 検証:
+  - `cargo check -p nepl-core`
+  - `cargo fmt --package nepl-core --check`
+  - `cargo test -p nepl-core --test resource_ir field_access -- --nocapture`: 4 passed
+  - `cargo test -p nepl-core diagnostic_codes -- --nocapture`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `trunk build`
+  - `node nodesrc/tests.js -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/agent1-field-boundary-memory-safety.json -j 1 --dist web/dist --assert-io`: total=32, passed=32
+- plan.md との差分:
+  - `plan.md` は変更していない。今回の変更は静的検査大規模修正 Stage 4 の Resource IR owner/provenance 分離と、Stage 6 へ進む前の compiler-owned memory representation boundary 固定に含まれる。
+
 # 2026-05-14 Agent 1 selfhost TypeArena doctest API/owner flow 修正
 
 - `ISS-20260514T123100000Z-SELFHOST-TYPE-ARENA-DOCTESTS-USE-OLD-PRIMITIVE-4C60C45A` を解決した。
