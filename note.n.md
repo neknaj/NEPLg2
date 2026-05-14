@@ -37749,3 +37749,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `stdlib/core/traits/debug.nepl` に `core/cast` を明示 import し、`Debug` trait module が u8 impl の依存を定義元で閉じるようにした。
 - `node nodesrc/tests.js -i tests/stdlib/traits_text.n.md --no-tree -o tmp/agent1-traits-text-debug-import.json -j 1 --assert-io --dist web/dist` は total=3, passed=3。
 - `node nodesrc/tests.js -i stdlib/core/traits/debug.nepl --no-tree -o tmp/agent1-debug-trait-doctests.json -j 1 --assert-io --dist web/dist` は total=1, passed=1。
+
+## 2026-05-14 Agent 1 Trait text stdout report doctest migration
+
+- `work/traits-text-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/stdlib/traits_text.n.md` を更新した。
+- trait capability / text representation doctest 3 件を戻り値コードまたは stdout なし `checks_*` report から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- `Clone` generic bound、`Stringify` の i32 / bool / u8 表示、`Debug` の str quote / i32 / u8 表示を assertion label として stdout に固定した。
+- `debug u8` assertion を追加し、直前の `Debug for u8` import 修正が再度壊れた場合に focused doctest で検出できるようにした。
+- `node nodesrc/tests.js -i tests/stdlib/traits_text.n.md --no-tree -o tmp/agent1-traits-text-report-tests.json -j 1 --assert-io --dist web/dist` は total=3, passed=3。

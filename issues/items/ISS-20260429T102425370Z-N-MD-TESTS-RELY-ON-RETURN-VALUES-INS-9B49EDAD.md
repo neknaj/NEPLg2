@@ -541,3 +541,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\stdlib\math.n.md --no-tree -o tmp\agent1-math-overload-report-tests.json -j 1 --assert-io --dist web/dist`: total=6, passed=6
 
 この issue はまだ open のまま継続する。Math overload 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Trait text stdout report migration
+
+`tests/stdlib/traits_text.n.md` の trait capability / text representation focused doctest 3 件を、戻り値コードまたは stdout なし `checks_*` report から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- `Clone` generic bound、`Stringify` の i32 / bool / u8 表示、`Debug` の str quote / i32 / u8 表示を assertion label として stdout に残すようにした。
+- 直前に修正した `Debug for u8` の `core/cast` import 退行を検出できるよう、`debug u8` assertion を追加した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\stdlib\traits_text.n.md --no-tree -o tmp\agent1-traits-text-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
+
+この issue はまだ open のまま継続する。Trait text 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
