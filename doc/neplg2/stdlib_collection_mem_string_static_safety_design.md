@@ -283,8 +283,12 @@ Resource IR / typecheck / match check は次を必須にする。
 2026-05-13 追記:
 
 - `nodesrc/test_stdlib_memptr_owner_field_policy.js` を追加し、stdlib 全体の `struct` field に直接現れる `MemPtr` / `Option<MemPtr>` を集約して監視する。
-- この policy は `MemPtr` field を安全証明として認めるものではない。現時点で残る `RegionToken.ptr`、`Vec.data`、`VecDataLen.data`、`ByteBuf.ptr`、`ByteBuilder.ptr`、`StringBuilder.data`、`StreamScanner.header`、`StreamWriter.buf` を Stage C/D/F の移行対象として固定し、それ以外の新規 `MemPtr` owner-like field を禁止する。
+- この policy は `MemPtr` field を安全証明として認めるものではない。現時点で残る `RegionToken.ptr`、`Vec.data`、`VecDataLen.data`、`ByteBuf.ptr`、`ByteBuilder.ptr`、`StringBuilder.data`、`StreamScanner.header` を Stage C/D/F の移行対象として固定し、それ以外の新規 `MemPtr` owner-like field を禁止する。
 - source policy runner に組み込み、module 個別 policy の外で raw-memory-backed owner field が増える退行を検出する。
+
+2026-05-14 追記:
+
+- `StreamWriter.buf` は `StreamWriter` が buffer owner を `ByteBuilder` に集約したことで移行済みになった。残件 baseline は 8 field ではなく 7 field であり、`nodesrc/test_stdlib_memptr_owner_field_policy.js` の transitional allowlist と一致させる。
 
 ### Stage B: `core/mem` の internal/public 分離
 

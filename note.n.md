@@ -38058,3 +38058,9 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `stream_writer_new` / `close_impl` / `drain_impl` / `push_u8_impl` は `ByteBuilder` owner boundary を move しながら処理し、writer state から raw pointer owner を公開しない設計にした。
 - Stage 6 の stdlib raw-memory-backed public API migration として、`nodesrc/test_stdlib_memptr_owner_field_policy.js` の `StreamWriter.buf` transitional exception を削除した。
 - streamio writer policy、unsafe unwrap policy、MemPtr owner field policy、Resource IR gate policy、focused streamio doctests、move/effect rejection doctest で回帰を確認した。
+
+## 2026-05-14 Agent 1 MemPtr owner field doc baseline refresh
+
+- `work/static-check-memptr-doc-baseline-refresh` で `ISS-20260514T051035869Z-MEMPTR-OWNER-FIELD-MIGRATION-DOC-STI-601B2E4F` を修正した。
+- `doc/neplg2/stdlib_collection_mem_string_static_safety_design.md` の残存 `MemPtr` owner-like field baseline から、移行済みの `StreamWriter.buf` を削除した。
+- 2026-05-14 追記として、StreamWriter の `ByteBuilder` 移行により baseline が 8 field から 7 field へ下がったことを明記した。

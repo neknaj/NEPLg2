@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T05:06:05.656Z",
+  "generated_at": "2026-05-14T05:11:22.340Z",
   "counts": {
-    "total": 749,
+    "total": 750,
     "open": 5,
-    "resolved": 744,
+    "resolved": 745,
     "by_area": {
       "stdlib": {
         "total": 189,
@@ -67,9 +67,9 @@
         "resolved": 2
       },
       "docs": {
-        "total": 5,
+        "total": 6,
         "open": 0,
-        "resolved": 5
+        "resolved": 6
       },
       "examples": {
         "total": 17,
@@ -9883,6 +9883,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260512T101613486Z-STATIC-CHECK-PLAN-STILL-SAYS-HIR-INS-7F765C9B.md"
+    },
+    {
+      "id": "ISS-20260514T051035869Z-MEMPTR-OWNER-FIELD-MIGRATION-DOC-STI-601B2E4F",
+      "title": "MemPtr owner field migration doc still lists resolved StreamWriter.buf",
+      "area": "docs",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-14",
+      "target": "doc/neplg2/stdlib_collection_mem_string_static_safety_design.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T051035869Z-MEMPTR-OWNER-FIELD-MIGRATION-DOC-STI-601B2E4F.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-EXAMPLE-004-F53FCA5A",
