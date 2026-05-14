@@ -38405,3 +38405,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/test_stdlib_hashmap_storage_contract.js`: pass
   - `node nodesrc/test_stdlib_hashset_storage_contract.js`: pass
   - `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/agent1-hash-collection-cleanup-contract.json -j 1 --dist web/dist --assert-io`: 20/20 pass
+
+# 2026-05-15 Agent 1 メモ (ISS-20260514T195643983Z kpprefix Vec owner boundary)
+
+- `stdlib/kp/kpprefix.nepl` が `PrefixI32` を raw `i32` pointer / len の Copy handle として公開していた問題を修正した。
+- 根本原因は、`Vec` が Stage 6 で `RegionToken<T>` owner 境界へ移った後も、KP prefix helper が `core/mem/raw` を直接 import し、`alloc_raw` / `dealloc_raw` / `load_i32` / `store_i32` と public raw address API を保持していたこと。
+- `PrefixI32` は `data <Vec<i32>>` の owner handle に変更し、`Copy` / `Clone` は削除した。
+- `prefix_build_i32` / `prefix_range_sum_i32` は互換 alias を残さず削除し、公開 API は `prefix_build_vec_i32(Vec<i32>) -> Result<PrefixI32, Diag>` と `prefix_sum_i32(&PrefixI32, i32, i32) -> Result<i32, Diag>` に揃えた。
+- 構築処理は `vec::filled` で初期化済み prefix buffer を確保し、`vec::get` / `vec::replace` で埋める形にした。query も `vec::get` を使い、範囲外は `Diag` で返す。
+- `nodesrc/test_stdlib_kpprefix_owner_boundary.js` を追加し、raw memory import/helper、raw address API、`PrefixI32` の Copy/Clone 再導入を禁止した。
+- 検証:
+  - `node nodesrc/test_stdlib_kpprefix_owner_boundary.js`: pass
+  - `node nodesrc/test_stdlib_memptr_owner_field_policy.js`: pass
+  - `node nodesrc/test_stdlib_kpsearch_raw_pointer_boundary.js`: pass
+  - `node nodesrc/tests.js -i stdlib/kp/kpprefix.nepl --no-tree -o tmp/agent1-kpprefix-vec-owner-boundary-module.json -j 1 --dist web/dist --assert-io`: 1/1 pass

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-14T19:47:55.818Z",
+  "generated_at": "2026-05-14T20:01:39.309Z",
   "counts": {
-    "total": 789,
+    "total": 790,
     "open": 8,
-    "resolved": 781,
+    "resolved": 782,
     "by_area": {
       "stdlib": {
-        "total": 219,
+        "total": 220,
         "open": 5,
-        "resolved": 214
+        "resolved": 215
       },
       "TEST": {
         "total": 21,
@@ -9283,6 +9283,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260514T194346097Z-HASHMAP-AND-HASHSET-CLEANUP-CONTRACT-D83E5B8B.md"
+    },
+    {
+      "id": "ISS-20260514T195643983Z-KPPREFIX-EXPOSES-COPYABLE-RAW-PREFIX-416FBAB5",
+      "title": "kpprefix exposes copyable raw prefix storage owner",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-14",
+      "updated": "2026-05-15",
+      "target": "stdlib/kp/kpprefix.nepl, nodesrc/test_stdlib_kpprefix_owner_boundary.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260514T195643983Z-KPPREFIX-EXPOSES-COPYABLE-RAW-PREFIX-416FBAB5.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",
