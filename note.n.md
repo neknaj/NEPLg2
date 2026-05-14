@@ -37805,3 +37805,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `type.annotation.mismatch` / `type.return.mismatch` の compile_fail 2 件は診断境界を固定するため変更していない。
 - string literal が raw i32 ではなく `str` として扱われることを `string literal equality result` assertion として stdout に固定した。
 - `node nodesrc/tests.js -i tests/compiler/str_i32_boundaries.n.md --no-tree -o tmp/agent1-str-i32-boundaries-report-tests.json -j 1 --assert-io --dist web/dist` は total=3, passed=3。
+
+## 2026-05-14 Agent 1 Reference codegen stdout report doctest migration
+
+- `work/reference-codegen-stdout-report-tests` で `ISS-20260429T102425370Z-N-MD-TESTS-RELY-ON-RETURN-VALUES-INS-9B49EDAD` の一部として `tests/compiler/reference_codegen.n.md` を更新した。
+- reference / Clone codegen 回帰 doctest 3 件を、戻り値の数値だけで検証する形から canonical `test_report_*` API と deterministic `stdout:` expectation へ移行した。
+- scalar address-of then deref、reference 経由の i32 clone、generic `MemPtr` Clone impl 解決を assertion label として stdout に固定した。
+- report 出力のため `#target std` に移しつつ、reference lowering / Clone dispatch / generic MemPtr impl resolution の観測値は維持している。
+- `node nodesrc/tests.js -i tests/compiler/reference_codegen.n.md --no-tree -o tmp/agent1-reference-codegen-report-tests.json -j 1 --assert-io --dist web/dist` は total=3, passed=3。

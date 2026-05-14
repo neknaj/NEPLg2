@@ -654,3 +654,19 @@ policy 追加時に見つかった既存の direct discard は、該当 stdlib d
 - `node nodesrc\tests.js -i tests\compiler\str_i32_boundaries.n.md --no-tree -o tmp\agent1-str-i32-boundaries-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
 
 この issue はまだ open のまま継続する。str/i32 boundary 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
+
+## 2026-05-14 Reference codegen stdout report migration
+
+`tests/compiler/reference_codegen.n.md` の reference / Clone codegen 回帰 doctest 3 件を、戻り値の数値だけで検証する形から canonical `std/test` report へ移行した。
+
+移行内容:
+
+- 各 doctest に `neplg2:test[stdio, normalize_newlines]`、`exit_code: 0`、deterministic `stdout:` を追加した。
+- scalar address-of then deref、reference 経由の i32 clone、generic `MemPtr` Clone impl 解決を assertion label として stdout に残すようにした。
+- report 出力のため `#target std` に移しつつ、各 case の本質である reference lowering / Clone dispatch / generic MemPtr impl resolution の観測値を維持した。
+
+検証:
+
+- `node nodesrc\tests.js -i tests\compiler\reference_codegen.n.md --no-tree -o tmp\agent1-reference-codegen-report-tests.json -j 1 --assert-io --dist web/dist`: total=3, passed=3
+
+この issue はまだ open のまま継続する。Reference codegen 以外の `ret:` 依存 fixture と、report 省略を検出する lint / runner policy が残っている。
